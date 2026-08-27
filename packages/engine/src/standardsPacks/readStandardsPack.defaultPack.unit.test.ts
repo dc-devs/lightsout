@@ -31,6 +31,17 @@ describe('readStandardsPack', () => {
 		expect(pack.documents.filter((document) => document.set === StandardsSet.Tests)).toHaveLength(3);
 	});
 
+	test('carries the line and the address the root file states about the pack itself', async () => {
+		const { pack } = await setupDefaultPack();
+
+		// what a pack page shows under the name — read from the root file rather
+		// than from any folder, so this is the only place they can come from
+		expect({ description: pack.description, homepage: pack.homepage }).toEqual({
+			description: expect.stringContaining('TypeScript pack'),
+			homepage: 'https://github.com/dc-devs/lightsout/tree/main/packages/standards-typescript',
+		});
+	});
+
 	test('offers exactly the base, nestjs, react, and tanstack channels', async () => {
 		const { pack } = await setupDefaultPack();
 

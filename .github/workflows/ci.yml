@@ -83,6 +83,14 @@ jobs:
             node scripts/checkShipped.mjs --base HEAD
           fi
 
+      # The web app carries the authored default pack as assets/default-pack.json,
+      # because the copy plugin/standards/ ships has its fixtures stripped and a
+      # rule page has to show the code a rule argues about. The committed view is
+      # guarded here, beside the shipped tree, and by the same line in the
+      # pre-push hook.
+      - name: Check that the bundled default pack is current
+        run: pnpm check:default-pack
+
   release:
     name: tag and release
     if: github.event_name == 'push'

@@ -1,10 +1,22 @@
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
 import type { StandardsView } from '@lightsout/engine';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
 import { StandardsPage } from '#src/features/standards/index.ts';
 import { buildStandardsView } from '#tests/helpers/buildStandardsView.ts';
 import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx';
+
+// Mocked Imports
+// -------------------------
+// The page holds its rule filter in the URL, so outside a live router there is
+// nothing to read it from or navigate with. Everything else about the router
+// stays real.
+jest.mock('@tanstack/react-router', () => {
+	const actual = jest.requireActual<typeof import('@tanstack/react-router')>('@tanstack/react-router');
+
+	return { ...actual, useSearch: () => ({}), useNavigate: () => () => {} };
+});
+// -------------------------
 
 const trendPoint = ({ at, path = '.', total, blocking }: { at: string; path?: string; total: number; blocking: number }) => ({
 	at,
@@ -173,6 +185,53 @@ describe('StandardsPage trend', () => {
 
 		expect(chart.querySelector('path.stroke-status-failed')).toHaveAttribute('d', 'M0.0000,0.6000 L1.0000,0.9000');
 		expect(chart.querySelector('path.stroke-muted-foreground')).toHaveAttribute('d', 'M0.0000,0.0000 L1.0000,0.4000');
+	});
+
+	test('offers every path on record, so the snapshots it left out are reachable rather than only counted', () => {
+		setupStandardsPage({
+			overrides: {
+				path: '.',
+				trend: [
+					trendPoint({ at: '2026-01-01T00:00:00.000Z', total: 10, blocking: 4 }),
+					trendPoint({ at: '2026-01-02T00:00:00.000Z', path: 'packages/engine', total: 3, blocking: 1 }),
+				],
+			},
+		});
+
+		const selector = screen.getByRole('combobox', { name: /checked path/ });
+
+		expect([...selector.querySelectorAll('option')].map((option) => option.textContent)).toStrictEqual(['.', 'packages/engine']);
+	});
+
+	test('redraws the chart over the path a reader picked, which is what the selector is for', () => {
+		setupStandardsPage({
+			overrides: {
+				path: '.',
+				trend: [
+					trendPoint({ at: '2026-01-01T00:00:00.000Z', total: 10, blocking: 4 }),
+					trendPoint({ at: '2026-01-02T00:00:00.000Z', total: 6, blocking: 1 }),
+					trendPoint({ at: '2026-01-03T00:00:00.000Z', path: 'packages/engine', total: 3, blocking: 2 }),
+					trendPoint({ at: '2026-01-04T00:00:00.000Z', path: 'packages/engine', total: 1, blocking: 0 }),
+				],
+			},
+		});
+
+		fireEvent.change(screen.getByRole('combobox', { name: /checked path/ }), { target: { value: 'packages/engine' } });
+
+		expect(screen.getByText(/peak 3/)).toBeInTheDocument();
+		expect(screen.getByText(/2 snapshots of other paths left out/)).toBeInTheDocument();
+	});
+
+	test('leaves the selector out when every snapshot measured the one path, since there is nothing to choose', () => {
+		setupStandardsPage({
+			overrides: {
+				trend: [trendPoint({ at: '2026-01-01T00:00:00.000Z', total: 10, blocking: 4 }), trendPoint({ at: '2026-01-02T00:00:00.000Z', total: 6, blocking: 1 })],
+			},
+		});
+
+		const selector = screen.queryByRole('combobox');
+
+		expect(selector).not.toBeInTheDocument();
 	});
 
 	test('has nothing to draw when every snapshot on record measured another path, and says both why and how many', () => {

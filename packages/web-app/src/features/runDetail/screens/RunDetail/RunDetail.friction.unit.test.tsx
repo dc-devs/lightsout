@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { RunView } from '@lightsout/engine';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
 import { RunDetail } from '#src/features/runDetail/index.ts';
@@ -20,14 +20,23 @@ jest.mock('@tanstack/react-router', () => ({
 
 const runId = 'abcdef0123456789';
 
-const setupFriction = ({ overrides = {} }: { overrides?: Partial<RunView> } = {}) => {
+const setupFriction = ({ overrides = {}, tab }: { overrides?: Partial<RunView>; tab: string }) => {
 	jest.useFakeTimers();
-	renderWithQueryClient({ ui: <RunDetail runId={runId} />, seed: [{ queryKey: [QueryKey.Run, runId], data: buildRunView({ overrides }) }] });
+	renderWithQueryClient({
+		ui: <RunDetail runId={runId} />,
+		seed: [
+			{ queryKey: [QueryKey.Run, runId], data: buildRunView({ overrides }) },
+			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot: '/repos/lightsout' } },
+		],
+	});
+	// Friction and changed files are two tabs now, and a tab strip selects on the
+	// press rather than on the release.
+	fireEvent.mouseDown(screen.getByRole('tab', { name: tab }));
 };
 
 describe('RunDetail friction and changed files', () => {
 	test('says a run reported no friction rather than showing an empty panel', () => {
-		setupFriction();
+		setupFriction({ tab: 'Friction' });
 
 		const none = screen.getByText('This run reported no friction.');
 
@@ -36,6 +45,7 @@ describe('RunDetail friction and changed files', () => {
 
 	test('gathers what fought the agents under the area each entry named, with a count', () => {
 		setupFriction({
+			tab: 'Friction',
 			overrides: {
 				friction: [
 					{ kind: 'friction', area: 'plan', detail: 'the plan named a file that is not on disk', at: '2026-01-01T00:01:00.000Z', runId, step: 'implement' },
@@ -52,6 +62,7 @@ describe('RunDetail friction and changed files', () => {
 
 	test('reads an entry that named no kind as friction, which is what an omitted kind means', () => {
 		setupFriction({
+			tab: 'Friction',
 			overrides: { friction: [{ area: 'other', detail: 'the coverage report was stale', at: '2026-01-01T00:03:00.000Z', runId, step: 'write-tests' }] },
 		});
 
@@ -61,7 +72,7 @@ describe('RunDetail friction and changed files', () => {
 	});
 
 	test('says a run changed nothing rather than showing an empty list', () => {
-		setupFriction();
+		setupFriction({ tab: 'Files' });
 
 		const none = screen.getByText('This run changed nothing.');
 
@@ -69,7 +80,7 @@ describe('RunDetail friction and changed files', () => {
 	});
 
 	test('groups the changed files by area, so the blast radius reads by package first', () => {
-		setupFriction({ overrides: { changedFiles: ['packages/engine/src/a.ts', 'packages/engine/src/b.ts', 'packages/web-app/src/c.tsx'] } });
+		setupFriction({ tab: 'Files', overrides: { changedFiles: ['packages/engine/src/a.ts', 'packages/engine/src/b.ts', 'packages/web-app/src/c.tsx'] } });
 
 		const areas = screen.getAllByText(/^packages\/(engine|web-app)$/);
 
@@ -77,7 +88,7 @@ describe('RunDetail friction and changed files', () => {
 	});
 
 	test('counts the changed files in the panel heading', () => {
-		setupFriction({ overrides: { changedFiles: ['packages/engine/src/a.ts', 'packages/engine/src/b.ts'] } });
+		setupFriction({ tab: 'Files', overrides: { changedFiles: ['packages/engine/src/a.ts', 'packages/engine/src/b.ts'] } });
 
 		const heading = screen.getByRole('heading', { name: 'Changed files · 2' });
 
@@ -85,7 +96,7 @@ describe('RunDetail friction and changed files', () => {
 	});
 
 	test('calls out the files no public surface reaches, since no test covers them', () => {
-		setupFriction({ overrides: { changedFiles: ['packages/engine/src/a.ts'], unreachableChangedFiles: ['packages/engine/src/a.ts'] } });
+		setupFriction({ tab: 'Files', overrides: { changedFiles: ['packages/engine/src/a.ts'], unreachableChangedFiles: ['packages/engine/src/a.ts'] } });
 
 		const warning = screen.getByText(/no public surface reaches them/);
 

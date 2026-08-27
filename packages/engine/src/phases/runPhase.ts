@@ -140,6 +140,7 @@ export const runPhase = async ({
 		config,
 		planPath: join(dirname(current.plan), step.id),
 		overviewPath: current.plan,
+		parentRunId: current.runId,
 		existing: childManifest,
 		skipRefactor,
 		onProgress,

@@ -1,4 +1,5 @@
 import { buildSupervisorInvocation } from '#src/agents/index.ts';
+import { defaultSupervisorTimeoutMinutes } from '#src/common/constants/defaultSupervisorTimeoutMinutes.ts';
 import { type LightsoutConfig, Permissions, SupervisorVerdict } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { type AgentOutcome, invokeAgentWithContract } from '#src/invoke/index.ts';
@@ -36,8 +37,6 @@ export const consultSupervisor = async ({
 	onEvent,
 	onRejectedOutput,
 }: Params): Promise<AgentOutcome<SupervisorVerdict>> => {
-	const defaultSupervisorTimeoutMinutes = 15;
-
 	return invokeAgentWithContract({
 		driver,
 		cwd,

@@ -1,12 +1,14 @@
-import type { RunView } from '@lightsout/engine';
 import { RunStatus } from '@lightsout/engine/contracts';
 import { formatCost, formatDuration } from '@lightsout/shared';
 import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
-import { CopyButton, StatusBadge } from '#src/appUI/index.ts';
+import { CopyButton, MetadataTag, StatusBadge } from '#src/appUI/index.ts';
 import { statusBadgeConfig } from '#src/common/constants/statusBadgeConfig.ts';
+import type { RunDetailView } from '#src/features/runDetail/common/types/RunDetailView.ts';
 import { FailureNotice } from '#src/features/runDetail/screens/RunDetail/components/FailureNotice.tsx';
 import { PlanPathButton } from '#src/features/runDetail/screens/RunDetail/components/PlanPathButton.tsx';
+import { RunWhatNow } from '#src/features/runDetail/screens/RunDetail/components/RunWhatNow.tsx';
+import { getRunCommand } from '#src/features/runs/index.ts';
 
 /** One labelled number or word in the header's totals row. */
 const Meta = ({ label, value }: { label: string; value: ReactNode }) => (
@@ -17,9 +19,13 @@ const Meta = ({ label, value }: { label: string; value: ReactNode }) => (
 );
 
 interface Props {
-	view: RunView;
+	view: RunDetailView;
 	/** Opens a repo-relative plan path in the drawer. */
 	onOpenPlan: (path: string) => void;
+	/** Render the parent run as plain mono text instead of a link — the demo frame, whose parent is in no public listing. Defaults false. */
+	linksDisabled?: boolean;
+	/** Suppress the resume command — set when no repo was found, since it names a run only this machine has. Defaults false. */
+	commandsDisabled?: boolean;
 }
 
 /**
@@ -33,27 +39,21 @@ interface Props {
  * A run the manifest still calls `running` with no process behind it says so in
  * words — the manifest alone is not the whole truth once a process has died.
  */
-export const RunHeader = ({ view, onOpenPlan }: Props) => {
+export const RunHeader = ({ view, onOpenPlan, linksDisabled = false, commandsDisabled = false }: Props) => {
 	const { listing } = view;
-	const resumeCommand = `lightsout resume --run ${listing.shortId}`;
 
 	return (
 		<header className="flex flex-col gap-4">
 			<div className="flex flex-wrap items-center gap-3">
 				<h1 className="font-semibold text-2xl">{listing.title}</h1>
 				<StatusBadge status={listing.status} config={statusBadgeConfig} live={listing.live} />
-				{listing.status === RunStatus.Running && view.currentStep !== null ? (
-					<span className="text-muted-foreground text-sm">
-						at <span className="font-mono">{view.currentStep}</span>
-					</span>
-				) : null}
 			</div>
 			<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
 				<span className="font-mono">{listing.shortId}</span>
 				<CopyButton value={listing.shortId} label="Copy id" />
 				<span>{view.harness}</span>
 				<span>·</span>
-				<span>{listing.pipeline}</span>
+				<span>{getRunCommand({ pipeline: listing.pipeline })}</span>
 				{listing.packages.length === 0 ? null : (
 					<>
 						<span>·</span>
@@ -67,9 +67,13 @@ export const RunHeader = ({ view, onOpenPlan }: Props) => {
 			{view.parent === undefined ? null : (
 				<p className="text-muted-foreground text-xs">
 					phase <span className="font-mono">{view.parent.step}</span> of{' '}
-					<Link to="/repo/runs/$runId" params={{ runId: view.parent.runId }} className="text-primary underline underline-offset-2">
-						{view.parent.title}
-					</Link>
+					{linksDisabled ? (
+						<MetadataTag>{view.parent.title}</MetadataTag>
+					) : (
+						<Link to="/repo/runs/$runId" params={{ runId: view.parent.runId }} className="text-primary underline underline-offset-2">
+							{view.parent.title}
+						</Link>
+					)}
 				</p>
 			)}
 			<div className="flex flex-col items-start gap-1">
@@ -82,12 +86,7 @@ export const RunHeader = ({ view, onOpenPlan }: Props) => {
 				<Meta label="gates" value={formatDuration({ ms: view.gateMs })} />
 				<Meta label="cost" value={view.usage === undefined ? '—' : formatCost({ usd: view.usage.costUsd })} />
 			</div>
-			{listing.resumable ? (
-				<div className="flex items-center gap-2">
-					<code className="rounded-md bg-muted px-2 py-1 font-mono text-xs">{resumeCommand}</code>
-					<CopyButton value={resumeCommand} label="Copy resume command" />
-				</div>
-			) : null}
+			<RunWhatNow view={view} commandsDisabled={commandsDisabled} />
 		</header>
 	);
 };

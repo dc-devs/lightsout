@@ -1,10 +1,10 @@
 import type { RunStepView } from '@lightsout/engine';
 import { formatCost, formatDuration, formatTokenCount } from '@lightsout/shared';
-import { Link } from '@tanstack/react-router';
 import { StatusBadge } from '#src/appUI/index.ts';
 import { statusBadgeConfig } from '#src/common/constants/statusBadgeConfig.ts';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
 import { summarizeStepReport } from '#src/features/runDetail/common/utils/summarizeStepReport.ts';
+import { ChildRunLink } from '#src/features/runDetail/screens/RunDetail/components/ChildRunLink.tsx';
 import { FailureNotice } from '#src/features/runDetail/screens/RunDetail/components/FailureNotice.tsx';
 import { PlanPathButton } from '#src/features/runDetail/screens/RunDetail/components/PlanPathButton.tsx';
 import { StepReportSummary } from '#src/features/runDetail/screens/RunDetail/components/StepReportSummary.tsx';
@@ -13,6 +13,8 @@ interface Props {
 	step: RunStepView;
 	/** Opens a repo-relative plan path in the drawer. */
 	onOpenPlan: (path: string) => void;
+	/** Render every router link as plain mono text — the demo frame, whose child runs are in no public listing. Defaults false. */
+	linksDisabled?: boolean;
 }
 
 /**
@@ -22,7 +24,7 @@ interface Props {
  * read by shape rather than by the step's name — the manifest stores it
  * opaquely, and the role that produced it is what decides what it holds.
  */
-export const StepCard = ({ step, onOpenPlan }: Props) => {
+export const StepCard = ({ step, onOpenPlan, linksDisabled = false }: Props) => {
 	const report = summarizeStepReport({ report: step.report });
 
 	return (
@@ -50,14 +52,15 @@ export const StepCard = ({ step, onOpenPlan }: Props) => {
 				{step.error === undefined ? null : <FailureNotice>{step.error}</FailureNotice>}
 				{step.childRunId === undefined ? null : (
 					<p className="text-muted-foreground text-xs">
-						implemented by run{' '}
-						<Link to="/repo/runs/$runId" params={{ runId: step.childRunId }} className="font-mono text-primary underline underline-offset-2">
-							{step.childRunId.slice(0, 8)}
-						</Link>
+						implemented by run <ChildRunLink runId={step.childRunId} linksDisabled={linksDisabled} />
 					</p>
 				)}
 				{step.planPath === undefined ? null : <PlanPathButton path={step.planPath} onOpenPlan={onOpenPlan} />}
-				{report === undefined ? <p className="text-muted-foreground text-sm">No report recorded for this step.</p> : <StepReportSummary report={report} />}
+				{report === undefined ? (
+					<p className="text-muted-foreground text-sm">No report recorded for this step.</p>
+				) : (
+					<StepReportSummary report={report} linksDisabled={linksDisabled} />
+				)}
 			</div>
 		</article>
 	);

@@ -51,6 +51,8 @@ interface Params {
 	planPath?: string;
 	/** Optional overview plan path (high-level context for a phased plan). Ignored when resuming. */
 	overviewPath?: string;
+	/** The coordinator's run id when this run is one phase of a sequence. Ignored when resuming — the existing manifest already carries it. */
+	parentRunId?: string;
 	/** Package scope override (monorepo mode). Falls back to the plan front-matter `packages:` list. */
 	packages?: string[];
 	/** Resume: an existing manifest — steps already passed are skipped. */
@@ -82,6 +84,7 @@ const executePipeline = async ({
 	config,
 	planPath,
 	overviewPath,
+	parentRunId,
 	packages,
 	existing,
 	skipRefactor,
@@ -100,6 +103,7 @@ const executePipeline = async ({
 				plan: planPath ?? '',
 				pipeline: 'implement',
 				overview: overviewPath,
+				parentRunId,
 				driver: driver.name,
 				config,
 				baselineDirtyFiles: await readGitChangedFiles({ cwd }),

@@ -5,6 +5,7 @@ import { AgentInvocation } from '#src/contracts/views/AgentInvocation.ts';
 import { GateEvidence } from '#src/contracts/views/GateEvidence.ts';
 import { RunListing } from '#src/contracts/views/RunListing.ts';
 import { RunStepView } from '#src/contracts/views/RunStepView.ts';
+import { RunBurnDown } from '#src/contracts/views/runBurnDown/RunBurnDown.ts';
 
 /** One run's whole evidence, assembled: timing, steps, gates, agent spend, friction and files. */
 export const RunView = z.object({
@@ -37,6 +38,8 @@ export const RunView = z.object({
 	unreachableChangedFiles: z.array(z.string()),
 	/** Set on a phase's child run: the coordinator that spawned it. */
 	parent: z.object({ runId: z.string(), step: z.string(), title: z.string() }).optional(),
+	/** What a refactor or coverage run burned down; absent on implement and phases runs, which burn nothing down. */
+	burnDown: RunBurnDown.optional(),
 });
 
 export type RunView = z.infer<typeof RunView>;

@@ -74,13 +74,12 @@ describe('AppShell', () => {
 		expect(wordmark).toHaveAttribute('href', '/');
 	});
 
-	test('names a page that has no route yet without linking to it, so no reader is navigated into the not-found panel', () => {
+	test('offers the commands page, now that it is built', () => {
 		setupAppShell();
 
-		const upcoming = screen.getByText('Commands');
+		const commands = screen.getAllByRole('link', { name: 'Commands' });
 
-		expect(upcoming).toHaveAttribute('aria-disabled', 'true');
-		expect(screen.queryByRole('link', { name: 'Commands' })).not.toBeInTheDocument();
+		expect(commands[0]).toHaveAttribute('href', '/commands');
 	});
 
 	test('opens the site pages in a sheet when the menu button is pressed, which is how a narrow screen reaches them', () => {

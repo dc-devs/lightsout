@@ -13,4 +13,7 @@ For all coding changes and diagnosis, only suggest or apply best-practice soluti
 
 Prefer correctness over speed of response.
 
+## Linear Tickets and Git Branches
+One ticket = one branch = one PR. Branch names are `lo-<number>-<slug>`.
+
 When filing or closing a Linear ticket, follow `.claude/skills/linear-ticket/SKILL.md`.

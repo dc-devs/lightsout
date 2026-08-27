@@ -6,6 +6,9 @@ export { detectPriorArtCandidates } from '#src/plan/detectPriorArtCandidates.ts'
 export { runPlanDraft } from '#src/plan/draft/index.ts';
 export { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';
 export { parsePlan } from '#src/plan/parsePlan.ts';
+export { plansDir } from '#src/plan/plansDir.ts';
+export { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
+export { planWorkspacePath } from '#src/plan/planWorkspacePath.ts';
 export { readBrainstormDecisions } from '#src/plan/readBrainstormDecisions.ts';
 export { readDecisions } from '#src/plan/readDecisions.ts';
 export { readPlanFacts } from '#src/plan/readPlanFacts.ts';

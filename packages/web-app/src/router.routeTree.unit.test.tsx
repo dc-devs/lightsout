@@ -1,5 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import type { RunListing, RunView, StandardsView } from '@lightsout/engine';
+import type { RunListing, StandardsView } from '@lightsout/engine';
 import { QueryClient } from '@tanstack/react-query';
 import { createRouter } from '@tanstack/react-router';
 import { screen } from '@testing-library/react';
@@ -7,8 +7,8 @@ import type { ComponentType, ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
 import { routeTree } from '#src/routeTree.gen.ts';
 import appCssHref from '#src/styles/app.css?url';
+import { buildConfigView } from '#tests/helpers/buildConfigView.ts';
 import { buildRunListing } from '#tests/helpers/buildRunListing.ts';
-import { buildRunView } from '#tests/helpers/buildRunView.ts';
 import { buildStandardsView } from '#tests/helpers/buildStandardsView.ts';
 import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx';
 
@@ -18,14 +18,18 @@ import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx'
 // and the runs route reaches the engine's filesystem reader at the far end of
 // that chain. Stubbing the reader keeps the whole graph off disk.
 const mockListRuns = jest.fn<() => Promise<RunListing[]>>();
-const mockGetRun = jest.fn<(params: { runId: string }) => Promise<RunView>>();
 const mockGetStandards = jest.fn<() => Promise<StandardsView>>();
 
 jest.mock('#src/lightsout/index.ts', () => ({
+	// Everything else is the real thing: the frozen demo runs the proof section
+	// reads are committed JSON rather than disk this test has to fake, and
+	// stubbing them would make this suite prove a stub renders.
+	...jest.requireActual<typeof import('#src/lightsout/index.ts')>('#src/lightsout/index.ts'),
 	getReader: () => ({
 		listRuns: () => mockListRuns(),
-		getRun: (params: { runId: string }) => mockGetRun(params),
 		getStandards: () => mockGetStandards(),
+		getFriction: () => Promise.resolve([]),
+		listPlanWorkspaces: () => Promise.resolve([]),
 	}),
 }));
 // -------------------------
@@ -37,6 +41,11 @@ const mockFindRepoRoot = jest.fn<() => string | undefined>();
 jest.mock('#src/common/utils/findRepoRoot.ts', () => ({
 	findRepoRoot: () => mockFindRepoRoot(),
 }));
+// -------------------------
+// The runs page holds its filters in the URL, and outside a live router there is
+// nothing to read them from or navigate with.
+const mockNavigate = jest.fn<(options: { search: Record<string, unknown>; replace: boolean }) => void>();
+const mockSearch: Record<string, unknown> = {};
 // -------------------------
 // Only the pieces that need a live router around them are stood in for, so a
 // single route's component can be rendered on its own. Everything else — above
@@ -56,6 +65,8 @@ jest.mock('@tanstack/react-router', () => {
 			</a>
 		),
 		useRouter: () => ({ invalidate: () => Promise.resolve() }),
+		useSearch: () => mockSearch,
+		useNavigate: () => mockNavigate,
 	};
 });
 // -------------------------
@@ -79,38 +90,53 @@ interface RootPage {
  * One of the tree's file routes, narrowed the same way.
  *
  * Every field is stated as present because each is read only on the route that
- * declares it, and no test reaches past that. Only the run detail route's
- * loader takes a param, so `params` is optional here and the other loaders are
- * called without one.
+ * declares it, and no test reaches past that — the run detail route and the
+ * standards routes have suites of their own.
  */
 interface FilePage {
 	options: {
 		component: ComponentType;
 		notFoundComponent: ComponentType;
-		loader: (input: { context: { queryClient: QueryClient }; params?: { runId: string } }) => Promise<void>;
+		head: () => { meta: { title: string }[] };
+		loader: (input: { context: { queryClient: QueryClient } }) => Promise<void>;
 	};
-	useParams: () => { runId: string };
 }
 
-const setupRouteTree = ({ runs = [buildRunListing()], repoRoot = '/repos/lightsout' }: { runs?: RunListing[]; repoRoot?: string | undefined } = {}) => {
-	const runView = buildRunView();
+interface SetupParams {
+	runs?: RunListing[];
+	/**
+	 * The repository root the app is rendered against, or `null` for a deployment
+	 * that found none. `null` rather than `undefined`, because a destructuring
+	 * default fills an explicitly passed `undefined` back in with the path.
+	 */
+	repoRoot?: string | null;
+}
+
+const setupRouteTree = ({ runs = [buildRunListing()], repoRoot = '/repos/lightsout' }: SetupParams = {}) => {
+	const foundRepoRoot = repoRoot ?? undefined;
 	const standards = buildStandardsView();
 
 	mockListRuns.mockResolvedValue(runs);
-	mockGetRun.mockResolvedValue(runView);
 	mockGetStandards.mockResolvedValue(standards);
-	mockFindRepoRoot.mockReturnValue(repoRoot);
+	mockFindRepoRoot.mockReturnValue(foundRepoRoot);
 
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	const router = createRouter({ routeTree, context: { queryClient } });
 	const pages = (router as unknown as { routesById: Record<string, FilePage> }).routesById;
 	const rootPage = pages.__root__.options as unknown as RootPage;
 
-	return { pages, queryClient, repoRoot, rootPage, runView, runs, standards };
+	return { pages, queryClient, repoRoot: foundRepoRoot, rootPage, runs, standards };
 };
 
-const setupRootPage = ({ runs = [buildRunListing()], repoRoot = '/repos/lightsout' }: { runs?: RunListing[]; repoRoot?: string | undefined } = {}) => {
-	const { rootPage } = setupRouteTree({ runs, repoRoot });
+/** Any route's loader, with the client it fills and the data the reader will answer it with. */
+const setupLoader = ({ id }: { id: string }) => {
+	const { pages, queryClient, runs, standards } = setupRouteTree();
+
+	return { loader: pages[id].options.loader, queryClient, runs, standards };
+};
+
+const setupRootPage = (params: SetupParams = {}) => {
+	const { repoRoot, rootPage, runs } = setupRouteTree(params);
 	const Page = rootPage.component;
 
 	renderWithQueryClient({
@@ -143,71 +169,43 @@ const setupStandardsPage = () => {
 	renderWithQueryClient({ ui: <Page />, seed: [{ queryKey: [QueryKey.Standards], data: standards }] });
 };
 
-/** The standards route's loader, with the client it fills. */
-const setupStandardsLoader = () => {
-	const { pages, queryClient, standards } = setupRouteTree();
+const setupRepoIndexPage = (params: SetupParams = {}) => {
+	const { pages, repoRoot, runs, standards } = setupRouteTree(params);
+	const Page = pages['/repo/'].options.component;
 
-	return { loader: pages['/repo/standards'].options.loader, queryClient, standards };
+	renderWithQueryClient({
+		ui: <Page />,
+		seed: [
+			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot } },
+			{ queryKey: [QueryKey.Runs], data: runs },
+			{ queryKey: [QueryKey.Standards], data: standards },
+			{ queryKey: [QueryKey.Friction], data: [] },
+			{ queryKey: [QueryKey.Config], data: buildConfigView() },
+		],
+	});
 };
 
-const setupRunsPage = ({ runs = [buildRunListing({ title: 'raise coverage' })] }: { runs?: RunListing[] } = {}) => {
-	const { pages } = setupRouteTree({ runs });
+const setupRunsPage = ({ runs = [buildRunListing({ title: 'raise coverage' })], ...rest }: SetupParams = {}) => {
+	const { pages, repoRoot } = setupRouteTree({ runs, ...rest });
 	const Page = pages['/repo/runs'].options.component;
 
-	renderWithQueryClient({ ui: <Page />, seed: [{ queryKey: [QueryKey.Runs], data: runs }] });
-};
-
-/** The runs list route's loader, with the client it fills. */
-const setupRunsLoader = () => {
-	const { pages, queryClient, runs } = setupRouteTree();
-
-	return { loader: pages['/repo/runs'].options.loader, queryClient, runs };
-};
-
-/** The landing route's loader, which warms the same list the page counts. */
-const setupIndexLoader = () => {
-	const { pages, queryClient, runs } = setupRouteTree();
-
-	return { loader: pages['/'].options.loader, queryClient, runs };
-};
-
-/**
- * The run detail route, rendered for one run id.
- *
- * `Route.useParams()` reads the match the live router is showing, so the id
- * comes from a spy on that one method rather than from a router driven to the
- * path — which is the routing library's behaviour, not this route's.
- */
-const setupRunDetailPage = ({ runId = 'abcdef0123456789' }: { runId?: string } = {}) => {
-	const { pages, runView } = setupRouteTree();
-	const route = pages['/repo/runs_/$runId'];
-	jest.spyOn(route, 'useParams').mockReturnValue({ runId });
-	const Page = route.options.component;
-
-	renderWithQueryClient({ ui: <Page />, seed: [{ queryKey: [QueryKey.Run, runId], data: runView }] });
-};
-
-/** The same route's answer for an id nothing on disk carries — what the server function's `notFound()` reaches. */
-const setupMissingRunPage = ({ runId = 'no-such-run' }: { runId?: string } = {}) => {
-	const { pages } = setupRouteTree();
-	const route = pages['/repo/runs_/$runId'];
-	jest.spyOn(route, 'useParams').mockReturnValue({ runId });
-	const Page = route.options.notFoundComponent;
-
-	renderWithQueryClient({ ui: <Page /> });
-};
-
-/** The run detail route's loader, with the client it fills. */
-const setupRunLoader = () => {
-	const { pages, queryClient, runView } = setupRouteTree();
-
-	return { loader: pages['/repo/runs_/$runId'].options.loader, queryClient, runView };
+	renderWithQueryClient({
+		ui: <Page />,
+		seed: [
+			{ queryKey: [QueryKey.Runs], data: runs },
+			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot } },
+		],
+	});
 };
 
 // The tree this file drives lives in `routeTree.gen.ts`, which TanStack Router
 // writes and the repo lists as generated output — so it is not a subject a test
 // may be named after. `router.tsx` is the tree's only consumer, which makes this
 // a scenario suite on the router: what it serves, as opposed to how it is wired.
+//
+// The sell zone's three standards routes and the run detail route are concerns
+// of their own and have their own suites beside this one; this file carries the
+// shell and the rest of the local zone.
 describe('routeTree', () => {
 	// The `_` in `/repo/runs_/$runId` is the router's own mark for a route that
 	// does not nest inside its path's parent; the address a reader sees is still
@@ -217,7 +215,24 @@ describe('routeTree', () => {
 
 		const ids = Object.keys(pages).sort();
 
-		expect(ids).toStrictEqual(['/', '/repo/runs', '/repo/runs_/$runId', '/repo/standards', '__root__']);
+		expect(ids).toStrictEqual([
+			'/',
+			'/commands/',
+			'/commands/$command',
+			'/docs/$doc',
+			'/repo/',
+			'/repo/config',
+			'/repo/friction',
+			'/repo/plans/',
+			'/repo/plans/$name',
+			'/repo/runs',
+			'/repo/runs_/$runId',
+			'/repo/standards',
+			'/standards/',
+			'/standards/$pack/',
+			'/standards/$pack/$rule',
+			'__root__',
+		]);
 	});
 
 	test('names the page, declares its encoding and viewport, and links the stylesheet the app is themed with', () => {
@@ -286,12 +301,48 @@ describe('routeTree', () => {
 		expect(back).toHaveAttribute('href', '/');
 	});
 
-	test('the landing route warms the run list it counts', async () => {
-		const { loader, queryClient, runs } = setupIndexLoader();
+	test('the landing route is the page that sells the product, and warms nothing', () => {
+		const { pages } = setupRouteTree();
+
+		// Narrowed the way the root's own options are above: the router types these
+		// against its deeply generic route shapes, and this route declares a head
+		// and deliberately no loader.
+		const landing = pages['/'].options as unknown as { head: () => { meta: { title?: string }[] }; loader?: unknown };
+
+		expect(landing.head().meta[0].title).toBe('lightsout — Stop the slop.');
+		expect(landing.loader).toBeUndefined();
+	});
+
+	test('the repo route warms the run list it counts', async () => {
+		const { loader, queryClient, runs } = setupLoader({ id: '/repo/' });
 
 		await loader({ context: { queryClient } });
 
 		expect(queryClient.getQueryData([QueryKey.Runs])).toStrictEqual(runs);
+	});
+
+	test('the repo route titles the tab after what the page answers, not after the zone', () => {
+		const { pages } = setupRouteTree();
+
+		const head = pages['/repo/'].options.head();
+
+		expect(head.meta).toStrictEqual([{ title: 'Health' }]);
+	});
+
+	test('the repo route is the local zone’s health page', () => {
+		setupRepoIndexPage();
+
+		const heading = screen.getByRole('heading', { level: 1, name: 'Health' });
+
+		expect(heading).toBeInTheDocument();
+	});
+
+	test('that page keeps saying so when no repo was found, rather than drawing health over somebody else’s runs', () => {
+		setupRepoIndexPage({ repoRoot: null });
+
+		const notice = screen.getByText(/No lightsout repo found above this directory/);
+
+		expect(notice).toBeInTheDocument();
 	});
 
 	test('the runs route gives that list a page of its own', () => {
@@ -311,7 +362,7 @@ describe('routeTree', () => {
 	});
 
 	test('the runs route warms its own list before the page renders', async () => {
-		const { loader, queryClient, runs } = setupRunsLoader();
+		const { loader, queryClient, runs } = setupLoader({ id: '/repo/runs' });
 
 		await loader({ context: { queryClient } });
 
@@ -327,34 +378,10 @@ describe('routeTree', () => {
 	});
 
 	test('the standards route warms its own view before the page renders', async () => {
-		const { loader, queryClient, standards } = setupStandardsLoader();
+		const { loader, queryClient, standards } = setupLoader({ id: '/repo/standards' });
 
 		await loader({ context: { queryClient } });
 
 		expect(queryClient.getQueryData([QueryKey.Standards])).toStrictEqual(standards);
-	});
-
-	test('the run detail route renders the evidence of the run whose id the path carries', () => {
-		setupRunDetailPage({ runId: 'ffff0000ffff' });
-
-		const heading = screen.getByRole('heading', { level: 1, name: 'add search' });
-
-		expect(heading).toBeInTheDocument();
-	});
-
-	test('the run detail route says which id nothing on disk answers to', () => {
-		setupMissingRunPage({ runId: 'no-such-run' });
-
-		const notice = screen.getByText(/no-such-run/);
-
-		expect(notice).toBeInTheDocument();
-	});
-
-	test('the run detail route warms its own run before the page renders', async () => {
-		const { loader, queryClient, runView } = setupRunLoader();
-
-		await loader({ context: { queryClient }, params: { runId: 'abcdef0123456789' } });
-
-		expect(queryClient.getQueryData([QueryKey.Run, 'abcdef0123456789'])).toStrictEqual(runView);
 	});
 });

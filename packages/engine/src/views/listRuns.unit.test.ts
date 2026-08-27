@@ -59,6 +59,7 @@ test('a listing row folds the manifest into what a list needs, with no JSONL fil
 				{ id: 'write-tests', status: RunStatus.Failed, attempts: 2 },
 			],
 			status: RunStatus.Failed,
+			parentRunId: 'ffff0000ffff0000',
 		},
 	});
 
@@ -82,9 +83,22 @@ test('a listing row folds the manifest into what a list needs, with no JSONL fil
 		stepCount: 2,
 		changedFileCount: 2,
 		costUsd: 1.25,
+		// carried straight off the run's own manifest, so folding a phase child
+		// under its coordinator costs no second pass over the history
+		parentRunId: 'ffff0000ffff0000',
 		// a failed run is work a resume would pick up
 		resumable: true,
 	});
+});
+
+test('a top-level run carries no coordinator, because nothing started it', async () => {
+	const cwd = await freshCwd();
+
+	await seedRunDir({ cwd, manifest: { runId: 'run-top-level' } });
+
+	const [run] = await listRuns({ cwd });
+
+	expect(run.parentRunId).toBe(undefined);
 });
 
 test('a plan path names the run: a folder plan by its folder, anything else by its own name', async () => {

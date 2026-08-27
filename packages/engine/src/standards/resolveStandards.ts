@@ -1,6 +1,6 @@
 import { type LightsoutConfig, StandardsSet } from '#src/contracts/index.ts';
-import { detectStandardsChannels } from '#src/standards/detectStandardsChannels.ts';
 import type { ResolvedStandards } from '#src/standards/ResolvedStandards.ts';
+import { resolveStandardsChannels } from '#src/standards/resolveStandardsChannels.ts';
 import { buildStandardsDocuments, resolveStandardsPacks } from '#src/standardsPacks/index.ts';
 
 interface Params {
@@ -30,7 +30,7 @@ interface Params {
  */
 export const resolveStandards = async ({ cwd, config, packages }: Params): Promise<ResolvedStandards> => {
 	const loaded = await resolveStandardsPacks({ cwd, config });
-	const channels = config['standards-channels'] ?? (await detectStandardsChannels({ cwd, packagesDir: config['packages-dir'] ?? 'packages', packages }));
+	const channels = await resolveStandardsChannels({ cwd, config, packages });
 	const assembled = loaded.map((pack) => buildStandardsDocuments({ pack, channels }));
 
 	const stack = ({ set }: { set: StandardsSet }) => {

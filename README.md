@@ -8,6 +8,10 @@ Lightsout takes a finished plan and runs it through a gated software factory. Yo
 
 **Status: pre-alpha.**
 
+<picture><source media="(prefers-color-scheme: dark)" srcset="assets/sprawl.gif"><img src="assets/sprawl-light.gif" width="800" height="420"></picture>
+
+Files and folders have caps. Past the cap, they graduate.
+
 ## Why
 
 Coding agents are smart. But without direction, they optimize for the task in front of them, not the long-term shape of the repository.

@@ -7963,554 +7963,6 @@ var getStringFlag = ({ flags, name }) => {
   return typeof value === "string" ? value : void 0;
 };
 
-// src/cli/common/constants/usage.ts
-var usage = `lightsout \u2014 deterministic engine for coding agents
-
-usage:
-  lightsout implement --plan <path> [--overview <path>] [--packages <a,b>] [--cwd <path>] [--skip-refactor]
-  lightsout implement --plan <folder> [--start-phase <n>] [--cwd <path>] [--skip-refactor]   (folder: overview.md runs all phases, else plan.md)
-  lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
-  lightsout status [--cwd <path>]
-  lightsout doctor [--cwd <path>]
-  lightsout standards-check [--cwd <path>] [--path <subdir>] [--all] [--baseline] [--code-checks | --agent-review]
-  lightsout standards-check --list [--cwd <path>]     (print the enforcement ledger)
-  lightsout standards-validate [--pack <path>] [--cwd <path>]      (run every check against its own fixtures)
-  lightsout standards-health [--cwd <path>]           (per-rule coverage and how often agents decline it)
-  lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>] [--code-checks] [--allow-dirty]
-  lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
-  lightsout test-coverage-to-threshold [--cwd <path>] [--max-batches <n>] [--allow-dirty]
-  lightsout test-coverage-to-threshold --run <id> [--cwd <path>]   (resume a parked coverage run)
-  lightsout plan verify-facts --name <n> [--notes <path>] [--cwd <path>]
-  lightsout plan draft --name <n> [--scope single|phased] [--cwd <path>]
-  lightsout plan lint --name <n> [--cwd <path>]
-  lightsout plan dedup --name <n> [--cwd <path>]
-  lightsout plan grade --name <n> [--phase <n[,n]>] [--cwd <path>]   (--phase grades only those phases, and always marks the result incomplete)
-  lightsout friction [--cwd <path>]
-  lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
-  lightsout voice on|off [--cwd <path>]               (toggle spoken read-out of interview questions \u2014 Mac-only)
-  lightsout voice hook [--cwd <path>]                 (hook entry for Stop + AskUserQuestion: reads hook JSON on stdin, speaks the question)
-
-exit codes (implement, resume, refactor, test-coverage-to-threshold):
-  0  finished
-  2  stopped with work left and resumable \u2014 a --max-batches ceiling, or a harness rate limit
-  1  anything else
-`;
-
-// src/cli/common/args/readCommandFlags.ts
-var commandOf = ({ line }) => /^\s+lightsout\s+(\S+)/.exec(line)?.[1];
-var readCommandFlags = ({ command }) => {
-  const lines = usage.split("\n").filter((line) => commandOf({ line }) === command);
-  const names = lines.flatMap((line) => [...line.matchAll(/--([a-z][a-z\d-]*)/g)].map(([, name]) => name ?? ""));
-  return /* @__PURE__ */ new Set(["cwd", ...names]);
-};
-
-// src/cli/common/args/getUnknownFlagsMessage.ts
-var getUnknownFlagsMessage = ({ command, flags }) => {
-  const accepted = readCommandFlags({ command });
-  const unknown2 = [...flags.keys()].filter((name) => !accepted.has(name));
-  return unknown2.length === 0 ? void 0 : `lightsout ${command}: unknown flag${unknown2.length > 1 ? "s" : ""} ${unknown2.map((name) => `--${name}`).join(", ")}`;
-};
-
-// src/cli/common/args/parseFlags.ts
-var parseFlags = ({ args }) => {
-  const flags = /* @__PURE__ */ new Map();
-  let index = 0;
-  while (index < args.length) {
-    const key = args[index];
-    if (!key?.startsWith("--")) {
-      index += 1;
-      continue;
-    }
-    const value = args[index + 1];
-    if (value === void 0 || value.startsWith("--")) {
-      flags.set(key.slice(2), true);
-      index += 1;
-    } else {
-      flags.set(key.slice(2), value);
-      index += 2;
-    }
-  }
-  return flags;
-};
-
-// src/cli/common/utils/exitCli.ts
-var exitCli = async ({ code }) => {
-  await Promise.all([process.stdout, process.stderr].map((stream) => new Promise((resolve10) => stream.write("", () => resolve10()))));
-  return process.exit(code);
-};
-
-// src/cli/common/terminal/paint.ts
-var paint = ({ code }) => (text) => process.stdout.isTTY ? `\x1B[${code}m${text}\x1B[0m` : text;
-
-// src/cli/common/terminal/dim.ts
-var dim = paint({ code: "2" });
-
-// src/cli/common/terminal/green.ts
-var green = paint({ code: "32" });
-
-// src/cli/common/terminal/red.ts
-var red = paint({ code: "31" });
-
-// src/cli/common/terminal/yellow.ts
-var yellow = paint({ code: "33" });
-
-// src/doctor/checkConfiguredPaths.ts
-import { stat } from "node:fs/promises";
-import { join } from "node:path";
-var checkConfiguredPaths = async ({ cwd, id, paths, fix }) => {
-  if (!paths) {
-    return void 0;
-  }
-  const absent = [];
-  for (const prefix of paths) {
-    await stat(join(cwd, prefix)).catch(() => absent.push(prefix));
-  }
-  return absent.length === 0 ? { id, status: "pass", detail: `${paths.length} ${id} path(s) exist` } : { id, status: "warn", detail: `not found: ${absent.join(", ")}`, fix };
-};
-
-// src/doctor/checkCoverageSummary.ts
-import { stat as stat2 } from "node:fs/promises";
-import { join as join2 } from "node:path";
-
-// src/common/constants/defaultCoverageSummaryPath.ts
-var defaultCoverageSummaryPath = "coverage/coverage-summary.json";
-
-// src/doctor/checkCoverageSummary.ts
-var checkCoverageSummary = async ({ config: config2, packageDirs }) => {
-  const scoped = config2["package-gates"]?.["test-coverage"];
-  const rootApplies = typeof config2.gates["test-coverage"] === "string";
-  if (!scoped && !rootApplies) {
-    return void 0;
-  }
-  const summaryPath = config2["coverage-summary-path"] ?? defaultCoverageSummaryPath;
-  const scopes = scoped ? packageDirs.filter((entry) => entry.label !== "root") : packageDirs.filter((entry) => entry.label === "root");
-  const expected = scopes.map((entry) => ({ label: entry.label, path: join2(entry.dir, summaryPath) }));
-  const absent = [];
-  for (const entry of expected) {
-    await stat2(entry.path).catch(() => absent.push(`${entry.label}: ${summaryPath}`));
-  }
-  return absent.length === 0 ? { id: "coverage-summary", status: "pass", detail: `coverage summary found for ${expected.length} scope(s)` } : {
-    id: "coverage-summary",
-    status: "warn",
-    detail: `not found: ${absent.join(", ")}`,
-    fix: `configure a json-summary coverage reporter (jest: coverageReporters ['json-summary']) writing ${summaryPath}, run the coverage script once, or set coverage-summary-path`
-  };
-};
-
-// src/common/processes/runCommand.ts
-import { spawn } from "node:child_process";
-
-// src/common/constants/killGraceMs.ts
-var killGraceMs = 2e3;
-
-// src/common/processes/killProcessGroup.ts
-var killProcessGroup = ({ child, signal }) => {
-  if (child.pid !== void 0 && process.platform !== "win32") {
-    try {
-      process.kill(-child.pid, signal);
-      return;
-    } catch {
-    }
-  }
-  try {
-    child.kill(signal);
-  } catch {
-  }
-};
-
-// src/common/processes/terminateChildGroups.ts
-var settled = ({ child }) => child.exitCode !== null || child.signalCode !== null;
-var exited = ({ child }) => settled({ child }) ? Promise.resolve() : new Promise((resolve10) => child.once("exit", () => resolve10()));
-var terminateChildGroups = async ({ children, graceMs = killGraceMs }) => {
-  const targets = [...children];
-  for (const child of targets) {
-    killProcessGroup({ child, signal: "SIGTERM" });
-  }
-  if (targets.length === 0) {
-    return;
-  }
-  let grace;
-  await Promise.race([
-    Promise.all(targets.map((child) => exited({ child }))),
-    new Promise((resolve10) => {
-      grace = setTimeout(resolve10, graceMs);
-    })
-  ]);
-  clearTimeout(grace);
-  for (const child of targets) {
-    if (!settled({ child })) {
-      killProcessGroup({ child, signal: "SIGKILL" });
-    }
-  }
-};
-
-// src/common/processes/relayShutdownSignals.ts
-var relayed = ["SIGINT", "SIGTERM"];
-var live = /* @__PURE__ */ new Set();
-var installed = false;
-var shuttingDown = false;
-var onSignal = async (signal) => {
-  if (shuttingDown) {
-    return;
-  }
-  shuttingDown = true;
-  await terminateChildGroups({ children: live });
-  uninstall();
-  process.kill(process.pid, signal);
-};
-var handlers = new Map(relayed.map((signal) => [signal, () => void onSignal(signal)]));
-var install = () => {
-  if (installed) {
-    return;
-  }
-  installed = true;
-  for (const [signal, handler] of handlers) {
-    process.on(signal, handler);
-  }
-};
-function uninstall() {
-  if (!installed) {
-    return;
-  }
-  installed = false;
-  for (const [signal, handler] of handlers) {
-    process.removeListener(signal, handler);
-  }
-}
-var relayShutdownSignals = ({ child }) => {
-  live.add(child);
-  install();
-  return () => {
-    live.delete(child);
-    if (live.size === 0) {
-      uninstall();
-    }
-  };
-};
-
-// src/common/processes/collectChildOutput.ts
-var collectChildOutput = ({ child, timeout, onStdoutLine }) => {
-  return new Promise((resolve10, reject) => {
-    let stdout = "";
-    let stderr = "";
-    let lineBuffer = "";
-    const emitLines = ({ text, flush = false }) => {
-      if (!onStdoutLine) {
-        return;
-      }
-      lineBuffer += text;
-      const lines = lineBuffer.split("\n");
-      lineBuffer = flush ? "" : lines.pop() ?? "";
-      for (const line of lines) {
-        if (line.trim()) {
-          onStdoutLine(line);
-        }
-      }
-    };
-    const expire = () => {
-      killProcessGroup({ child, signal: "SIGTERM" });
-      const escalation = setTimeout(() => killProcessGroup({ child, signal: "SIGKILL" }), killGraceMs);
-      escalation.unref();
-      child.once("close", () => clearTimeout(escalation));
-      reject(new Error(timeout?.message ?? "timed out"));
-    };
-    const timer = timeout ? setTimeout(expire, timeout.ms) : void 0;
-    const stopRelay = relayShutdownSignals({ child });
-    child.stdout?.on("data", (chunk) => {
-      const text = chunk.toString();
-      stdout += text;
-      emitLines({ text });
-    });
-    child.stderr?.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-    child.on("error", (error51) => {
-      clearTimeout(timer);
-      stopRelay();
-      reject(error51);
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      stopRelay();
-      emitLines({ text: "", flush: true });
-      resolve10({ exitCode: code ?? -1, stdout, stderr });
-    });
-  });
-};
-
-// src/common/processes/runCommand.ts
-var runCommand = ({ command, cwd, timeoutMs }) => {
-  const child = spawn(command, { cwd, shell: true, stdio: ["ignore", "pipe", "pipe"], env: process.env, detached: true });
-  return collectChildOutput({
-    child,
-    timeout: timeoutMs ? { ms: timeoutMs, message: `command timed out after ${timeoutMs}ms: ${command}` } : void 0
-  });
-};
-
-// src/doctor/common/constants/probeTimeoutMs.ts
-var probeTimeoutMs = 15e3;
-
-// src/doctor/checkGitignore.ts
-var gitignoreEntries = [".lightsout/runs/", ".lightsout/plans/", ".lightsout/friction.jsonl", ".lightsout/lock.json"];
-var checkGitignore = async ({ cwd }) => {
-  const notIgnored = [];
-  let gitUsable = true;
-  for (const entry of gitignoreEntries) {
-    const probePath = entry.endsWith("/") ? `${entry}probe` : entry;
-    const result = await runCommand({ command: `git check-ignore -q -- '${probePath}'`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({
-      exitCode: 128
-    }));
-    if (result.exitCode === 1) {
-      notIgnored.push(entry);
-    } else if (result.exitCode !== 0) {
-      gitUsable = false;
-    }
-  }
-  return !gitUsable ? { id: "gitignore", status: "warn", detail: "not a git repository \u2014 .gitignore not evaluated" } : notIgnored.length === 0 ? { id: "gitignore", status: "pass", detail: "run state is ignored (verified via git check-ignore)" } : {
-    id: "gitignore",
-    status: "warn",
-    detail: `run state not ignored: ${notIgnored.join(", ")}`,
-    fix: `add to .gitignore:
-${notIgnored.join("\n")}`
-  };
-};
-
-// src/common/utils/messageOf.ts
-var messageOf = ({ error: error51 }) => error51 instanceof Error ? error51.message : String(error51);
-
-// src/doctor/checkHarness.ts
-var driverBinaries = { "claude-code": "claude", codex: "codex" };
-var getReferencedDriverNames = ({ config: config2 }) => {
-  const entryDrivers = Object.values(config2.commands ?? {}).map((entry) => entry?.harness);
-  const names = [config2.harness ?? "claude-code", ...entryDrivers].filter((name) => typeof name === "string");
-  return [...new Set(names)];
-};
-var checkHarness = async ({ cwd, config: config2, probeHarness }) => {
-  const probe = probeHarness ?? (({ binary: name }) => runCommand({ command: `${name} --version`, cwd, timeoutMs: probeTimeoutMs }));
-  const binaries = [...new Set(getReferencedDriverNames({ config: config2 }).map((name) => driverBinaries[name] ?? name))];
-  const versions = [];
-  const failures = [];
-  for (const binary of binaries) {
-    try {
-      const probed = await probe({ binary });
-      if (probed.exitCode === 0) {
-        versions.push(`${binary} ${probed.stdout.trim().split("\n")[0]}`);
-      } else {
-        failures.push({
-          binary,
-          detail: `\`${binary} --version\` exited ${probed.exitCode}: ${`${probed.stdout}
-${probed.stderr}`.trim().slice(0, 200)}`,
-          fix: `reinstall or repair the ${binary} CLI \u2014 the engine shells your own logged-in binary and cannot run without it`
-        });
-      }
-    } catch (error51) {
-      failures.push({
-        binary,
-        detail: `${binary} not runnable: ${messageOf({ error: error51 })}`,
-        fix: `install the ${binary} CLI and log in`
-      });
-    }
-  }
-  return failures.length === 0 ? { id: "harness", status: "pass", detail: `${versions.join(" \xB7 ")} (login not probed \u2014 the first run verifies it)` } : {
-    id: "harness",
-    status: "fail",
-    detail: failures.map((failure) => failure.detail).join("\n"),
-    fix: failures.map((failure) => failure.fix).join("\n")
-  };
-};
-
-// src/doctor/checkJestMocks.ts
-import { readdir, readFile } from "node:fs/promises";
-import { join as join3 } from "node:path";
-var findJestConfigs = async ({ packageDir }) => {
-  const rootEntries = await readdir(packageDir).catch(() => []);
-  const found = rootEntries.filter((name) => /^jest(\..+)?\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join3(packageDir, name));
-  for (const testDir of ["test", "tests"]) {
-    const testEntries = await readdir(join3(packageDir, testDir), { recursive: true }).catch(() => []);
-    found.push(
-      ...testEntries.filter((name) => typeof name === "string" && /(^|\/)jest[^/]*\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join3(packageDir, testDir, name))
-    );
-  }
-  return found;
-};
-var checkJestMocks = async ({ cwd, packageDirs }) => {
-  const jestFindings = [];
-  let jestConfigCount = 0;
-  for (const { label, dir } of packageDirs) {
-    for (const configPath of await findJestConfigs({ packageDir: dir })) {
-      jestConfigCount += 1;
-      const text = await readFile(configPath, "utf8").catch(() => "");
-      const absent = ["clearMocks", "restoreMocks"].filter((flag) => !new RegExp(`${flag}\\s*:\\s*true`).test(text));
-      if (absent.length > 0) {
-        jestFindings.push(`${label}: ${configPath.slice(cwd.length + 1)} lacks ${absent.join(", ")}`);
-      }
-    }
-  }
-  if (jestConfigCount === 0) {
-    return void 0;
-  }
-  return jestFindings.length === 0 ? { id: "jest-mocks", status: "pass", detail: "all Jest configs set clearMocks + restoreMocks" } : {
-    id: "jest-mocks",
-    status: "warn",
-    detail: jestFindings.join("; "),
-    fix: "add clearMocks: true, restoreMocks: true \u2014 then run that package\u2019s FULL test suite: tests relying on import-time or beforeAll mock calls will break and need rework (see test standards, Mock Cleanup)"
-  };
-};
-
-// src/doctor/checkLintRules.ts
-import { readdir as readdir2, readFile as readFile2 } from "node:fs/promises";
-import { join as join4 } from "node:path";
-var checkLintRules = async ({ config: config2, packageDirs }) => {
-  if (config2["standards-packs"] === false) {
-    return void 0;
-  }
-  const lintFindings = [];
-  let lintConfigCount = 0;
-  for (const { label, dir } of packageDirs) {
-    const entries = await readdir2(dir).catch(() => []);
-    const lintConfigs = entries.filter(
-      (name) => /^biome\.jsonc?$/.test(name) || /^eslint\.config\.(js|cjs|mjs|ts)$/.test(name) || /^\.eslintrc(\..+)?$/.test(name)
-    );
-    for (const name of lintConfigs) {
-      lintConfigCount += 1;
-      const text = await readFile2(join4(dir, name), "utf8").catch(() => "");
-      const rules = name.startsWith("biome") ? ["useImportType", "noExplicitAny"] : ["consistent-type-imports", "no-explicit-any"];
-      const unenforced = rules.filter((rule) => !text.includes(rule) || new RegExp(`${rule}"?\\s*:\\s*"off"`).test(text));
-      if (unenforced.length > 0) {
-        lintFindings.push(`${label}: ${name} \u2014 ${unenforced.join(", ")} missing or disabled`);
-      }
-    }
-  }
-  return lintConfigCount === 0 ? {
-    id: "lint-rules",
-    status: "note",
-    detail: "no linter config found (biome.json / eslint) \u2014 the standards' mechanical rules (import type, no any) run unenforced"
-  } : lintFindings.length === 0 ? { id: "lint-rules", status: "pass", detail: `mechanical rules enforced across ${lintConfigCount} lint config(s)` } : {
-    id: "lint-rules",
-    status: "note",
-    detail: `${lintFindings.join("; ")} \u2014 the standards state these rules as binding; enabling them makes the linter catch what agents miss`
-  };
-};
-
-// src/doctor/checkScriptBinaries.ts
-var checkScriptBinaries = async ({ cwd, config: config2 }) => {
-  const gateCommands = [...Object.values(config2.gates), ...Object.values(config2["package-gates"] ?? {})].filter(
-    (value) => typeof value === "string"
-  );
-  const binaries = [...new Set(gateCommands.map((command) => command.trim().split(/\s+/)[0]).filter((name) => Boolean(name)))];
-  const missingBinaries = [];
-  for (const name of binaries) {
-    const result = await runCommand({ command: `command -v ${name}`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({ exitCode: -1 }));
-    if (result.exitCode !== 0) {
-      missingBinaries.push(name);
-    }
-  }
-  return missingBinaries.length === 0 ? { id: "script-binaries", status: "pass", detail: `gate commands resolve (${binaries.join(", ")})` } : {
-    id: "script-binaries",
-    status: "fail",
-    detail: `not on PATH: ${missingBinaries.join(", ")}`,
-    fix: "install the missing tool(s) \u2014 every gate depends on them"
-  };
-};
-
-// src/doctor/checkSourceWalk.ts
-import { relative as relative2 } from "node:path";
-
-// src/common/sourceFiles/listSourceFiles.ts
-import { readdir as readdir3 } from "node:fs/promises";
-import { join as join5, relative } from "node:path";
-
-// src/common/constants/standardsPackRootFile.ts
-var standardsPackRootFile = "lightsout-standards.json";
-
-// src/common/sourceFiles/listSourceFiles.ts
-var buildOutputDirs = /* @__PURE__ */ new Set(["dist", "build", "coverage", "out"]);
-var sourceExtension = /\.(m|c)?[jt]sx?$/;
-var listSourceFiles = async ({ cwd, exclude = [] }) => {
-  const files = [];
-  const standardsPacks = [];
-  const fixturesDir = "fixtures";
-  const walk2 = async (dir, insideStandardsPack, insideSource) => {
-    const entries = await readdir3(dir, { withFileTypes: true }).catch(() => []);
-    const isPackRoot = !insideStandardsPack && entries.some((entry) => entry.name === standardsPackRootFile);
-    const insidePack = insideStandardsPack || isPackRoot;
-    if (isPackRoot) {
-      standardsPacks.push(relative(cwd, dir));
-    }
-    for (const entry of entries) {
-      if (entry.name.startsWith(".") || entry.name === "node_modules" || !insideSource && buildOutputDirs.has(entry.name)) {
-        continue;
-      }
-      const path = join5(dir, entry.name);
-      if (entry.isDirectory()) {
-        if (insidePack && entry.name === fixturesDir) {
-          continue;
-        }
-        await walk2(path, insidePack, insideSource || entry.name === "src");
-        continue;
-      }
-      const rel = relative(cwd, path);
-      if (!sourceExtension.test(entry.name) || entry.name.endsWith(".d.ts")) {
-        continue;
-      }
-      if (exclude.some((prefix) => rel.startsWith(prefix.replace(/\/$/, "")))) {
-        continue;
-      }
-      files.push(rel);
-    }
-  };
-  await walk2(cwd, false, false);
-  return { files: files.sort(), standardsPacks: standardsPacks.sort() };
-};
-
-// src/doctor/checkSourceWalk.ts
-var sourceExtension2 = /\.(m|c)?[jt]sx?$/;
-var skipReason = ({ path, generated, standardsPacks }) => {
-  const segments = path.split("/");
-  if (path.endsWith(".d.ts")) {
-    return "declaration file";
-  }
-  if (segments.some((segment) => segment.startsWith("."))) {
-    return "dot directory";
-  }
-  if (segments.includes("node_modules")) {
-    return "dependency tree";
-  }
-  if (generated.some((prefix) => path.startsWith(prefix.replace(/\/$/, "")))) {
-    return "declared generated";
-  }
-  const insidePack = standardsPacks.some((pack) => path.startsWith(`${pack}/`));
-  if (insidePack && segments.includes("fixtures")) {
-    return "standards pack fixture";
-  }
-  const beforeSrc = segments.slice(0, segments.indexOf("src") === -1 ? segments.length : segments.indexOf("src"));
-  return beforeSrc.some((segment) => ["dist", "build", "coverage", "out"].includes(segment)) ? "build output" : void 0;
-};
-var checkSourceWalk = async ({ cwd, generated = [] }) => {
-  const result = await runCommand({ command: "git ls-files -z", cwd, timeoutMs: probeTimeoutMs }).catch(() => void 0);
-  if (result === void 0 || result.exitCode !== 0) {
-    return { id: "source-walk", status: "warn", detail: "not a git repository \u2014 the walk has no second opinion to check against" };
-  }
-  const tracked = (result.stdout ?? "").split("\0").filter((path) => path !== "" && sourceExtension2.test(path)).map((path) => relative2(".", path));
-  const { files, standardsPacks } = await listSourceFiles({ cwd, exclude: generated });
-  const walked = new Set(files);
-  const unexplained = tracked.filter((path) => !walked.has(path) && skipReason({ path, generated, standardsPacks }) === void 0);
-  if (unexplained.length === 0) {
-    return { id: "source-walk", status: "pass", detail: `walk reads ${files.length} of ${tracked.length} tracked source file(s); every skip is accounted for` };
-  }
-  const shown = unexplained.slice(0, 5);
-  return {
-    id: "source-walk",
-    status: "fail",
-    detail: `${unexplained.length} tracked source file(s) the walk never reads: ${shown.join(", ")}${unexplained.length > shown.length ? ", \u2026" : ""}`,
-    fix: "no rule reads these \u2014 either the walk is skipping a directory it should not, or the path belongs in the config's `generated` list"
-  };
-};
-
-// src/doctor/checkUserEvent.ts
-import { readFile as readFile3 } from "node:fs/promises";
-import { join as join6 } from "node:path";
-
 // ../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/external.js
 var external_exports = {};
 __export(external_exports, {
@@ -23025,44 +22477,6 @@ function date4(params) {
 // ../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/external.js
 config(en_default());
 
-// src/doctor/checkUserEvent.ts
-var packageDependencies = external_exports.object({
-  dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
-  devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
-});
-var checkUserEvent = async ({ packageDirs }) => {
-  const fireEventOnly = [];
-  for (const { label, dir } of packageDirs) {
-    const raw = await readFile3(join6(dir, "package.json"), "utf8").catch(() => void 0);
-    let json2;
-    try {
-      json2 = raw === void 0 ? void 0 : JSON.parse(raw);
-    } catch {
-      continue;
-    }
-    const parsed = json2 === void 0 ? void 0 : packageDependencies.safeParse(json2);
-    if (!parsed?.success) {
-      continue;
-    }
-    const dependencies = { ...parsed.data.dependencies, ...parsed.data.devDependencies };
-    const hasTestingLibrary = ["@testing-library/react", "@testing-library/preact"].some((name) => name in dependencies);
-    if (hasTestingLibrary && !("@testing-library/user-event" in dependencies)) {
-      fireEventOnly.push(label);
-    }
-  }
-  if (fireEventOnly.length === 0) {
-    return void 0;
-  }
-  return {
-    id: "user-event",
-    status: "note",
-    detail: `${fireEventOnly.join(", ")}: has @testing-library/react but not @testing-library/user-event \u2014 component tests will use fireEvent; consider installing user-event for full interaction simulation`
-  };
-};
-
-// src/common/config/readConfig.ts
-import { join as join7 } from "node:path";
-
 // ../standards-contracts/src/RawStandardsFinding.ts
 var RawStandardsFinding = external_exports.object({
   /** Grouping key — findings sharing a site key are one remediation unit, and it is the identity the debt ledger records. */
@@ -23126,7 +22540,11 @@ var StandardsPackRoot = external_exports.object({
    * reads every stripped fixture as a rule its author forgot, and reports a
    * fault in each of them instead of one fact about the pack.
    */
-  built: external_exports.literal(true).optional()
+  built: external_exports.literal(true).optional(),
+  /** One line a pack page shows under its name. Optional; a pack with none shows only its name. */
+  description: external_exports.string().min(1).optional(),
+  /** Absolute URL for the pack's own page or repository. */
+  homepage: external_exports.url().optional()
 });
 
 // ../standards-contracts/src/StandardsSet.ts
@@ -23224,6 +22642,98 @@ var ConfigGates = external_exports.object({
     ctx,
     unknownKeyMessage: ({ key }) => `unknown gate '${key}' \u2014 gates are check, test, test-coverage, generate, build, format, or a custom \`test-*\` suite`
   });
+});
+
+// src/contracts/commands/CommandActor.ts
+var CommandActor = { Engine: "the engine", Agent: "the agent", You: "you decide" };
+
+// src/contracts/commands/CommandFlag.ts
+var CommandFlag = external_exports.object({
+  /** Flag name without dashes, e.g. 'max-batches'. */
+  name: external_exports.string(),
+  /** Value placeholder shown in usage, e.g. '<n>'; absent for a boolean flag. */
+  value: external_exports.string().optional(),
+  meaning: external_exports.string(),
+  /** What happens when the flag is absent; omitted when absence means "off". */
+  fallback: external_exports.string().optional(),
+  /** Only shown on the usage line for this invocation shape. */
+  shape: external_exports.string().optional(),
+  /** Rendered bare on the usage line; optional flags render in `[ ]`. */
+  required: external_exports.boolean().default(false),
+  /** Flags sharing a key render together in one bracket joined by ` | ` — `[--code-checks | --agent-review]`. */
+  exclusiveWith: external_exports.string().optional()
+});
+
+// src/contracts/commands/CommandGroup.ts
+var CommandGroup = {
+  Build: "build",
+  BurnDown: "burn-down",
+  Standards: "standards",
+  Housekeeping: "housekeeping"
+};
+
+// src/contracts/commands/CommandInvocation.ts
+var CommandInvocation = external_exports.object({
+  /** Stable key matching `CommandFlag.shape`. */
+  id: external_exports.string(),
+  /** Positional words after the command word that are not flags, e.g. 'verify-facts' or 'on|off'. */
+  positional: external_exports.string().optional(),
+  /** One-line gloss shown in parentheses on the usage line. */
+  note: external_exports.string().optional()
+});
+
+// src/contracts/commands/CommandRecordKind.ts
+var CommandRecordKind = {
+  Runs: "runs",
+  Plans: "plans",
+  Snapshots: "snapshots",
+  Nothing: "nothing"
+};
+
+// src/contracts/commands/CommandStep.ts
+var CommandStep = external_exports.object({
+  /** Caps, as the infographic renders it: 'START THE RUN'. */
+  title: external_exports.string(),
+  actor: external_exports.enum(CommandActor),
+  /** 2–4 complete thoughts. Backticks render mono in the infographic. */
+  bullets: external_exports.array(external_exports.string()),
+  /** Italic line: what this step prevents. */
+  note: external_exports.string().optional(),
+  /** Files the step writes — paths only, no commentary. */
+  saved: external_exports.array(external_exports.string()).default([]),
+  /** Overrides the graphic-wide 'SAVED TO DISK' label for one step. */
+  savedLabel: external_exports.string().optional()
+});
+
+// src/contracts/commands/CommandCatalogEntry.ts
+var CommandCatalogEntry = external_exports.object({
+  /** The word after `lightsout`, and the `$command` route param. */
+  id: external_exports.string(),
+  /** The slash form when the plugin ships a skill for it, e.g. '/implement'. */
+  slash: external_exports.string().optional(),
+  /** The CLI form, always: 'lightsout implement'. Absent for a skill-only command. */
+  cli: external_exports.string().optional(),
+  group: external_exports.enum(CommandGroup),
+  /** One line — matches the skill's frontmatter `description` first sentence where a skill exists. */
+  summary: external_exports.string(),
+  /** A paragraph: when to reach for it. */
+  whenToUse: external_exports.string(),
+  invocations: external_exports.array(CommandInvocation).default([]),
+  flags: external_exports.array(CommandFlag).default([]),
+  /** The step sequence, when this command has one worth drawing. */
+  steps: external_exports.array(CommandStep).default([]),
+  records: external_exports.enum(CommandRecordKind),
+  /**
+   * Ids of related commands — filled by rule, not taste: every other member of
+   * the entry's `CommandGroup`, plus the explicit pairs listed in
+   * commandCatalog.ts's doc comment (plan↔implement, implement↔resume,
+   * refactor↔standards-check, test-coverage-to-threshold↔standards-check,
+   * standards-validate↔standards-health, friction↔improve). Symmetric by
+   * construction.
+   */
+  related: external_exports.array(external_exports.string()).default([]),
+  /** Infographic title/subtitle/banner, when this command has a graphic. */
+  graphic: external_exports.object({ title: external_exports.string(), subtitle: external_exports.string(), banner: external_exports.string(), columns: external_exports.number() }).optional()
 });
 
 // src/contracts/refactor/BatchOutcome.ts
@@ -24002,6 +23512,8 @@ var RunManifest = external_exports.object({
   pipeline: external_exports.string().optional(),
   /** Optional overview plan (high-level context for a phased plan), relative to the target repo. */
   overview: external_exports.string().optional(),
+  /** Set on a phase's child run: the run id of the coordinator that started it. Absent on a top-level run, and on phase children recorded before this field existed. */
+  parentRunId: external_exports.string().optional(),
   /** Harness the run was started with (a resumed run must reuse it). */
   harness: external_exports.string(),
   /**
@@ -24051,6 +23563,62 @@ var AgentInvocation = AgentUsage.extend({
   effort: external_exports.enum(Effort).optional()
 });
 
+// src/contracts/views/config/ConfigFieldView.ts
+var ConfigFieldView = external_exports.object({
+  /** The config key as written in the file, e.g. 'package-gates'. */
+  key: external_exports.string(),
+  /** The resolved value, JSON-serialisable; null when the key is unset and lightsout applies no named default. */
+  value: external_exports.json(),
+  /** True when `lightsout.config.json` set it; false when this is lightsout's default. */
+  fromConfig: external_exports.boolean(),
+  /** The schema's own doc comment for this key, so the page and the contract cannot disagree. */
+  description: external_exports.string()
+});
+
+// src/contracts/views/config/ConfigView.ts
+var ConfigView = external_exports.object({
+  /** Absolute path of the lightsout.config.json that was read. */
+  path: external_exports.string(),
+  /**
+   * The harness as the file states it, e.g. 'claude-code'; null when unset.
+   *
+   * Typed at the top level because the repo strip reads it directly, and
+   * nullable because this view does not resolve defaults — `resolveConfigAndDriver`
+   * needs a command, and the Harness section is where the fallback is explained.
+   */
+  harness: external_exports.string().nullable(),
+  /** The model as the file states it, e.g. 'claude-opus-5'; null when unset. Same reason. */
+  model: external_exports.string().nullable(),
+  /** Grouped for the page: one section per config area. */
+  sections: external_exports.array(
+    external_exports.object({
+      title: external_exports.string(),
+      fields: external_exports.array(ConfigFieldView)
+    })
+  ),
+  /** Standards packs this config loads, by name and root path — links into the pack pages. */
+  packs: external_exports.array(external_exports.object({ name: external_exports.string(), rootPath: external_exports.string(), isDefault: external_exports.boolean(), channels: external_exports.array(external_exports.string()) })),
+  /** The config's `standards-channels` value verbatim; empty when unset (channels are otherwise detected per run, which this view cannot do). */
+  channels: external_exports.array(external_exports.string()),
+  /** Every loaded rule with its effective severity here and whether config set it. */
+  ruleStates: external_exports.array(
+    external_exports.object({
+      rule: external_exports.string(),
+      /** The pack that declares the rule — what the ledger's link to `/standards/$pack/$rule` needs when several packs load. */
+      pack: external_exports.string(),
+      severity: external_exports.enum([StandardsSeverity.Blocking, StandardsSeverity.Advisory, StandardsSeverity.Off]),
+      fromConfig: external_exports.boolean(),
+      settings: external_exports.record(external_exports.string(), external_exports.number())
+    })
+  )
+});
+
+// src/contracts/views/FixtureSide.ts
+var FixtureSide = {
+  Pass: "pass",
+  Fail: "fail"
+};
+
 // src/contracts/views/GateEvidence.ts
 var GateEvidence = GateResult.extend({
   at: external_exports.string(),
@@ -24080,6 +23648,51 @@ var PlanDocument = external_exports.object({
   coverageWorklist: CoverageWorklist.optional()
 });
 
+// src/contracts/views/planWorkspace/PlanStage.ts
+var PlanStage = {
+  /** A workspace with no notes and no drafted plan yet — facts, decisions or transcripts only. */
+  Started: "started",
+  /** `notes.md` exists and nothing has been drafted. */
+  NotesOnly: "notes-only",
+  Drafted: "drafted",
+  Graded: "graded",
+  Implemented: "implemented"
+};
+
+// src/contracts/views/planWorkspace/PlanWorkspaceFile.ts
+var PlanWorkspaceFile = external_exports.object({
+  /** Workspace-relative name, e.g. 'implemented/phase1-design-system.md'. */
+  name: external_exports.string(),
+  /** Repo-relative path, ready for `getPlanDocument`. */
+  path: external_exports.string(),
+  bytes: external_exports.number(),
+  /** ISO mtime. */
+  updatedAt: external_exports.string()
+});
+
+// src/contracts/views/planWorkspace/PlanWorkspaceListing.ts
+var PlanWorkspaceListing = external_exports.object({
+  /** The kebab folder name under `.lightsout/plans/`. */
+  name: external_exports.string(),
+  stage: external_exports.enum(PlanStage),
+  /** Present once `grade.json` exists and parses. */
+  grade: external_exports.enum(PlanGrade).optional(),
+  /** `notes.md` exists. */
+  hasNotes: external_exports.boolean(),
+  /** `plan.md` or `overview.md` exists — a drafted plan file, whatever the stage says. */
+  hasPlanFile: external_exports.boolean(),
+  /** Archived phase files under `implemented/` with size and mtime, workspace-relative names; not counted in `phaseCount`. */
+  implementedFiles: external_exports.array(PlanWorkspaceFile),
+  /** True when the plan is `overview.md` plus phase files rather than `plan.md`. */
+  phased: external_exports.boolean(),
+  /** Phase file count; 0 for a single plan. */
+  phaseCount: external_exports.number(),
+  /** Newest mtime across every file in the workspace. */
+  updatedAt: external_exports.string(),
+  /** Runs whose `plan` path sits inside this workspace. */
+  runCount: external_exports.number()
+});
+
 // src/contracts/views/RunListing.ts
 var RunListing = external_exports.object({
   runId: external_exports.string(),
@@ -24102,8 +23715,34 @@ var RunListing = external_exports.object({
   changedFileCount: external_exports.number(),
   /** Run-wide API-equivalent cost; absent for drivers that report no usage. */
   costUsd: external_exports.number().optional(),
+  /** Set on a phase's child run: the coordinator that started it. Copied from the run's own manifest. */
+  parentRunId: external_exports.string().optional(),
   /** A `resume --run` would do something: failed, either paused state, or running with no live process. */
   resumable: external_exports.boolean()
+});
+
+// src/contracts/views/planWorkspace/PlanWorkspaceView.ts
+var PlanWorkspaceView = external_exports.object({
+  listing: PlanWorkspaceListing,
+  /** Absolute workspace folder. */
+  rootPath: external_exports.string(),
+  /** `plan.md`, or `overview.md`, whichever the workspace has; absent before drafting. */
+  planFile: PlanWorkspaceFile.optional(),
+  /** `phase<N>-<slug>.md` files in numeric order; empty for a single plan. */
+  phaseFiles: external_exports.array(PlanWorkspaceFile).default([]),
+  /** `notes.md`, when `/brainstorm` wrote one. */
+  notesFile: PlanWorkspaceFile.optional(),
+  facts: PlanFacts.optional(),
+  decisions: DecisionsRecord.optional(),
+  brainstormDecisions: BrainstormDecisions.optional(),
+  grade: GradeReport.optional(),
+  dedup: DedupReport.optional(),
+  /** Agent transcripts, named and sized but never read. */
+  transcripts: external_exports.array(PlanWorkspaceFile).default([]),
+  /** Every run whose `plan` path sits inside this workspace, newest first. */
+  runs: external_exports.array(RunListing).default([]),
+  /** One line per file that exists but would not parse — a corrupt workspace is shown, not hidden. */
+  problems: external_exports.array(external_exports.string()).default([])
 });
 
 // src/contracts/views/RunStepView.ts
@@ -24124,6 +23763,45 @@ var RunStepView = external_exports.object({
   planPath: external_exports.string().optional(),
   /** Phased runs only: the child run id the step's PhaseReport names. */
   childRunId: external_exports.string().optional()
+});
+
+// src/contracts/views/runBurnDown/RunBurnDownBatchOutcome.ts
+var RunBurnDownBatchOutcome = {
+  Resolved: "resolved",
+  Declined: "declined",
+  NotRun: "not-run"
+};
+
+// src/contracts/views/runBurnDown/RunBurnDownBatch.ts
+var RunBurnDownBatch = external_exports.object({
+  /** Manifest step id: `batch-NN:<rule>:<folder>`. */
+  id: external_exports.string(),
+  rule: external_exports.string(),
+  folder: external_exports.string(),
+  /** Blocking findings the work-list froze for this batch. */
+  blocking: external_exports.number(),
+  /** `resolved` / `declined` from the batch report, or `not-run` for a work-list batch the run never reached. */
+  outcome: external_exports.enum(RunBurnDownBatchOutcome),
+  /** The agent's own account of a declined batch, from its friction entries. */
+  rationale: external_exports.array(external_exports.string()),
+  advisoryOutcomes: external_exports.array(AdvisoryOutcome)
+});
+
+// src/contracts/views/runBurnDown/RunBurnDown.ts
+var RunBurnDown = external_exports.object({
+  /** Refactor only: blocking findings on the work-list when it froze. Absent for coverage runs, which carry `files` instead. */
+  before: external_exports.number().optional(),
+  /** Refactor only: sites still standing after the last batch — reported batches' remaining keys plus unrun batches' frozen blocking counts. */
+  after: external_exports.number().optional(),
+  /** Refactor only, from each parsed BatchReport.outcome; absent for coverage runs. */
+  batchesResolved: external_exports.number().optional(),
+  batchesDeclined: external_exports.number().optional(),
+  /** Refactor only: one row per batch, in work-list order. */
+  batches: external_exports.array(RunBurnDownBatch),
+  /** Refactor only: findings from the size and crowding rules, before to after. */
+  overCap: external_exports.object({ before: external_exports.number(), after: external_exports.number() }).optional(),
+  /** Coverage only: per-file statements pct, before to after, worst first. */
+  files: external_exports.array(external_exports.object({ path: external_exports.string(), beforePct: external_exports.number(), afterPct: external_exports.number() })).optional()
 });
 
 // src/contracts/views/RunView.ts
@@ -24156,7 +23834,93 @@ var RunView = external_exports.object({
   changedFiles: external_exports.array(external_exports.string()),
   unreachableChangedFiles: external_exports.array(external_exports.string()),
   /** Set on a phase's child run: the coordinator that spawned it. */
-  parent: external_exports.object({ runId: external_exports.string(), step: external_exports.string(), title: external_exports.string() }).optional()
+  parent: external_exports.object({ runId: external_exports.string(), step: external_exports.string(), title: external_exports.string() }).optional(),
+  /** What a refactor or coverage run burned down; absent on implement and phases runs, which burn nothing down. */
+  burnDown: RunBurnDown.optional()
+});
+
+// src/contracts/views/StandardsPackDocumentView.ts
+var StandardsPackDocumentView = external_exports.object({
+  set: external_exports.enum(StandardsSet),
+  path: external_exports.string(),
+  channel: external_exports.string(),
+  /** document.md body — the group header's collapsible intro. */
+  intro: external_exports.string(),
+  /** Rule ids in assembly order. */
+  ruleIds: external_exports.array(external_exports.string())
+});
+
+// src/contracts/views/StandardsPackListing.ts
+var StandardsPackListing = external_exports.object({
+  name: external_exports.string(),
+  description: external_exports.string().optional(),
+  homepage: external_exports.string().optional(),
+  /** True for the pack a run loads when the config names none. */
+  isDefault: external_exports.boolean(),
+  /** Absolute folder the pack was read from. */
+  rootPath: external_exports.string(),
+  /**
+   * `rootPath` relative to the repo the view was built for, or absolute when it
+   * lies outside it — what a `standards-packs` entry would say. Computed in the
+   * engine view; a browser component cannot.
+   */
+  path: external_exports.string(),
+  /** Stripped of its fixtures by the bundler — every rule's fixture counts are zero. */
+  built: external_exports.boolean(),
+  /** Distinct channels across the pack's documents, sorted. */
+  channels: external_exports.array(external_exports.string()),
+  totals: external_exports.object({
+    rules: external_exports.number(),
+    checked: external_exports.number(),
+    judgment: external_exports.number(),
+    documents: external_exports.number(),
+    /** Rules with at least one pass and one fail fixture file. */
+    withFixtures: external_exports.number()
+  })
+});
+
+// src/contracts/views/StandardsPackFixture.ts
+var StandardsPackFixture = external_exports.object({
+  side: external_exports.enum(FixtureSide),
+  /** Path relative to that side's root, e.g. 'src/payloads/readLabel.ts'. */
+  path: external_exports.string(),
+  text: external_exports.string()
+});
+
+// src/contracts/views/StandardsPackRuleListing.ts
+var StandardsPackRuleListing = external_exports.object({
+  id: external_exports.string(),
+  set: external_exports.enum(StandardsSet),
+  /** Pack-relative document folder path, e.g. 'code/style-guide/patterns/functions'. */
+  documentPath: external_exports.string(),
+  summary: external_exports.string(),
+  /** 'base' unless the owning document declares a channel. */
+  channel: external_exports.string(),
+  checked: external_exports.boolean(),
+  defaultSeverity: external_exports.enum([StandardsSeverity.Blocking, StandardsSeverity.Advisory]),
+  defaultSettings: external_exports.record(external_exports.string(), external_exports.number()),
+  /** How many files each fixture side holds; both zero for a built pack. */
+  fixtureCounts: external_exports.object({ pass: external_exports.number(), fail: external_exports.number() })
+});
+
+// src/contracts/views/StandardsPackRuleView.ts
+var StandardsPackRuleView = StandardsPackRuleListing.extend({
+  /** rule.md body; empty for the rules that state only a summary. */
+  prose: external_exports.string(),
+  /** Every file under fixtures/pass and fixtures/fail, in path order; empty for a built pack. */
+  fixtures: external_exports.array(StandardsPackFixture)
+});
+
+// src/contracts/views/StandardsPackBundle.ts
+var StandardsPackBundle = StandardsPackListing.extend({
+  documents: external_exports.array(StandardsPackDocumentView),
+  rules: external_exports.array(StandardsPackRuleView)
+});
+
+// src/contracts/views/StandardsPackView.ts
+var StandardsPackView = StandardsPackListing.extend({
+  documents: external_exports.array(StandardsPackDocumentView),
+  rules: external_exports.array(StandardsPackRuleListing)
 });
 
 // src/contracts/views/StandardsRuleView.ts
@@ -24288,6 +24052,1321 @@ var WorkReport = external_exports.object({
 var WritersReport = external_exports.object({
   reports: external_exports.array(WorkReport)
 });
+
+// src/commands/common/constants/brainstormCatalogEntry.ts
+var brainstormCatalogEntry = {
+  id: "brainstorm",
+  slash: "/brainstorm",
+  group: CommandGroup.Build,
+  summary: "Shape a vague idea into a buildable direction through dialogue \u2014 checks whether it is one idea or several, offers 2\u20133 competing approaches with trade-offs and a recommendation, and converges on a design stated in plain words.",
+  whenToUse: 'Reach for it when the idea is still a sentence and you are not sure it is one idea or three. It ends either with "just build it" or with a notes file that `/plan` can consume.',
+  invocations: [],
+  flags: [],
+  steps: [],
+  records: CommandRecordKind.Plans,
+  related: ["plan", "implement", "resume"]
+};
+
+// src/commands/common/constants/doctorCatalogEntry.ts
+var doctorCatalogEntry = {
+  id: "doctor",
+  cli: "lightsout doctor",
+  group: CommandGroup.Housekeeping,
+  summary: "Check the install end to end \u2014 config, harness, gates, standards \u2014 and name what is missing.",
+  whenToUse: "Run it first, on a repo where something is not working. It checks config, harness, gates and standards in order and names the first thing that is missing.",
+  invocations: [{ id: "doctor" }],
+  flags: [{ name: "cwd", value: "<path>", meaning: "Repository to check the install of.", fallback: "The process working directory.", required: false }],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["status", "friction", "improve", "voice"]
+};
+
+// src/commands/common/constants/frictionCatalogEntry.ts
+var frictionCatalogEntry = {
+  id: "friction",
+  cli: "lightsout friction",
+  group: CommandGroup.Housekeeping,
+  summary: "Collect what slowed the agents down across recent runs, so the next fix is the one that pays.",
+  whenToUse: "Reach for it after a few runs, when you want the next improvement to be the one that pays. It collects what actually slowed the agents down instead of what you assume did.",
+  invocations: [{ id: "friction" }],
+  flags: [{ name: "cwd", value: "<path>", meaning: "Repository whose runs are read.", fallback: "The process working directory.", required: false }],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["status", "doctor", "improve", "voice"]
+};
+
+// src/commands/common/constants/implementSteps.ts
+var implementSteps = [
+  {
+    title: "START THE RUN",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Hand the finished plan to `/implement`",
+      "Resolve settings from the config",
+      "Snapshot existing worktree changes and create a run ID",
+      "Create a repository lock so other lightsout runs cannot clash"
+    ],
+    note: "Isolates the agent\u2019s changes and makes the run safely resumable",
+    saved: [".lightsout/runs/<id>/manifest.json", ".lightsout/lock.json"]
+  },
+  {
+    title: "VERIFY THE REPO STARTS GREEN",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Run lint, type checks, tests, build, and coverage before implementation begins",
+      "Stop immediately if any gate is already failing",
+      "Record files touched by setup or gates in the manifest"
+    ],
+    note: "Proves any later failure was introduced by this run, not inherited from the repository",
+    saved: ["manifest.json", ".lightsout/runs/<id>/commands.jsonl"]
+  },
+  {
+    title: "IMPLEMENT THE PLAN",
+    actor: CommandActor.Agent,
+    bullets: [
+      "The implementation agent follows the finished spec",
+      "It writes the code and returns a structured report",
+      "It can run only commands explicitly allowed in the config"
+    ],
+    note: "Executes the finished spec without reopening settled decisions",
+    saved: [".lightsout/runs/<id>/agents/", "stream-NN-implement.jsonl", "rejected-*.txt"]
+  },
+  {
+    title: "VERIFY THE IMPLEMENTATION",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Re-run lint, type checks, tests, build, and coverage",
+      "Try up to two lightweight repairs if a gate fails",
+      "If the gates remain red, park the run with all evidence"
+    ],
+    note: "Prevents a broken implementation from moving forward",
+    saved: ["manifest.json", ".lightsout/friction.jsonl"]
+  },
+  {
+    title: "WRITE THE TESTS",
+    actor: CommandActor.Agent,
+    bullets: [
+      "Spawn a test-writing agent for each source file that changed",
+      "Add tests until coverage meets the configured threshold",
+      "Skip this step when no eligible source files changed"
+    ],
+    note: "Makes sure the new behavior is covered by tests",
+    saved: [".lightsout/runs/<id>/agents/", "stream-NN-write-tests.jsonl"]
+  },
+  {
+    title: "VERIFY THE TESTS",
+    actor: CommandActor.Engine,
+    bullets: ["Re-run lint, type checks, tests, build, and coverage", "Try up to two lightweight repairs if a gate fails"],
+    note: "Confirms the new tests pass and coverage meets the configured threshold",
+    saved: ["manifest.json", ".lightsout/friction.jsonl"]
+  },
+  {
+    title: "REFACTOR",
+    actor: CommandActor.Agent,
+    bullets: [
+      "Review changed code for duplication and structural issues",
+      "Reuse existing helpers or extract shared abstractions",
+      "Refactor to your code standards without changing behavior",
+      "Skip this step when requested or when nothing changed"
+    ],
+    note: "Removes duplication and keeps agent-written code aligned with your code standards",
+    saved: [".lightsout/runs/<id>/agents/", "stream-NN-refactor.jsonl"]
+  },
+  {
+    title: "VERIFY THE REFACTOR",
+    actor: CommandActor.Engine,
+    bullets: ["Re-run lint, type checks, tests, build, and coverage", "Try up to two lightweight repairs if a gate fails"],
+    note: "Confirms the refactor preserved behavior and passes every gate",
+    saved: ["manifest.json", ".lightsout/friction.jsonl"]
+  },
+  {
+    title: "FORMAT THE CODE",
+    actor: CommandActor.Engine,
+    bullets: ["Run the configured formatter on all changed files", "Re-run lint, type checks, tests, build, and coverage"],
+    note: "Confirms formatting does not break a green run",
+    saved: [".lightsout/runs/<id>/commands.jsonl"]
+  },
+  {
+    title: "REPORT THE RESULT",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Generate the final report from artifacts saved during the run",
+      "Record the final status, steps, retries, rejected reports, token cost, and friction",
+      "Keep the complete run history in one folder"
+    ],
+    note: "Leaves an inspectable record of what happened and why the run passed or failed",
+    saved: [".lightsout/runs/<id>/"]
+  }
+];
+
+// src/commands/common/constants/implementCatalogEntry.ts
+var implementCatalogEntry = {
+  id: "implement",
+  slash: "/implement",
+  cli: "lightsout implement",
+  group: CommandGroup.Build,
+  summary: "Run the lightsout deterministic implementation pipeline on a plan file.",
+  whenToUse: "Run it when a plan is graded and you want the work done unattended. Every step is gated by the repo\u2019s own tests, lint, types and coverage, and the run parks rather than pushing past a gate it cannot satisfy.",
+  invocations: [{ id: "implement" }, { id: "implement-folder", note: "folder: overview.md runs all phases, else plan.md" }],
+  flags: [
+    { name: "plan", value: "<path>", meaning: "The plan file to implement.", shape: "implement", required: true },
+    {
+      name: "overview",
+      value: "<path>",
+      meaning: "The overview this plan is one phase of, so the run reads the wider intent.",
+      fallback: "The plan is implemented on its own.",
+      shape: "implement",
+      required: false
+    },
+    {
+      name: "packages",
+      value: "<a,b>",
+      meaning: "Comma-separated package names the gates are scoped to.",
+      fallback: "The packages the run actually changed files in.",
+      shape: "implement",
+      required: false
+    },
+    {
+      name: "plan",
+      value: "<folder>",
+      meaning: "A plan workspace folder \u2014 overview.md runs every phase as a child run, plan.md runs the one.",
+      shape: "implement-folder",
+      required: true
+    },
+    {
+      name: "start-phase",
+      value: "<n>",
+      meaning: "The phase number a phased run begins at.",
+      fallback: "The first phase that has not already passed.",
+      shape: "implement-folder",
+      required: false
+    },
+    { name: "cwd", value: "<path>", meaning: "Repository to implement in.", fallback: "The process working directory.", required: false },
+    { name: "skip-refactor", meaning: "Skip the refactor step at the end of the run.", required: false }
+  ],
+  steps: implementSteps,
+  records: CommandRecordKind.Runs,
+  related: ["brainstorm", "plan", "resume"],
+  graphic: {
+    title: "How /implement turns the spec into verified code",
+    subtitle: "Ten steps, deterministic gates throughout, and a complete record saved to disk.",
+    banner: "The model can claim success. Lightsout requires evidence.",
+    columns: 5
+  }
+};
+
+// src/commands/common/constants/improveCatalogEntry.ts
+var improveCatalogEntry = {
+  id: "improve",
+  cli: "lightsout improve",
+  group: CommandGroup.Housekeeping,
+  summary: "Feed this repo\u2019s friction back to the lightsout engine as a change proposal.",
+  whenToUse: "Use it when this repo\u2019s friction is really the engine\u2019s problem. It turns those findings into a change proposal against a lightsout checkout you point it at.",
+  invocations: [{ id: "improve" }],
+  flags: [
+    { name: "engine", value: "<lightsout-repo-path>", meaning: "The lightsout checkout the change proposal is written against.", required: true },
+    { name: "cwd", value: "<path>", meaning: "Repository whose friction is read.", fallback: "The process working directory.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["status", "doctor", "friction", "voice"]
+};
+
+// src/commands/common/constants/planSteps.ts
+var planSteps = [
+  {
+    title: "CREATE THE PLAN WORKSPACE",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Start from a direct request or existing `/brainstorm` notes",
+      "Create a name for the plan",
+      "Preserve any existing notes as the plan\u2019s starting context"
+    ],
+    note: "Gives the plan a stable home without making `/brainstorm` a prerequisite",
+    saved: [".lightsout/plans/<name>/notes.md"],
+    savedLabel: "SAVED WHEN NOTES EXIST"
+  },
+  {
+    title: "RECORD THE FACTS",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Inspect the code and files relevant to the plan request",
+      "Record the repository facts the plan will rely on",
+      "Verify every referenced file and path before moving forward"
+    ],
+    note: "Ensures the plan reflects the repository\u2019s current state, not assumptions",
+    saved: [".lightsout/plans/<name>/facts.json"]
+  },
+  {
+    title: "SETTLE THE SCOPE AND CONSTRAINTS",
+    actor: CommandActor.You,
+    bullets: [
+      "Decide whether the request needs one plan or multiple phases",
+      "Record the requirements and constraints the plan must follow",
+      "Planning agent asks questions until you are both aligned"
+    ],
+    note: "Prevents scope and project constraints from being decided during implementation",
+    saved: [".lightsout/plans/<name>/decisions.json"]
+  },
+  {
+    title: "CHOOSE THE APPROACH",
+    actor: CommandActor.You,
+    bullets: [
+      "Planning agent presents 2\u20133 distinct options with trade-offs",
+      "You choose the approach the plan will follow",
+      "Skip this step only when the approach is already settled"
+    ],
+    note: "Ensures the design is chosen before implementation begins",
+    saved: ["decisions.json"]
+  },
+  {
+    title: "WRITE THE IMPLEMENTATION PLAN",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Turn the verified facts and decisions into a complete plan",
+      "Validate the plan\u2019s structure and revise it until it passes",
+      "Use one plan or split larger work into clear phases"
+    ],
+    note: "Creates the specification the implementation agent will follow",
+    saved: [".lightsout/plans/<name>/plan.md", ".lightsout/plans/<name>/overview.md", ".lightsout/plans/<name>/phase<N>-<slug>.md"]
+  },
+  {
+    title: "STRESS-TEST THE PLAN",
+    actor: CommandActor.You,
+    bullets: [
+      "The planning agent questions you about edge cases and unresolved choices",
+      "You answer every decision that could change implementation",
+      "Every answer is added to the plan immediately"
+    ],
+    note: "Prevents the implementation agent from filling gaps on its own",
+    saved: ["decisions.json"]
+  },
+  {
+    title: "CATCH DUPLICATION BEFORE CODING",
+    actor: CommandActor.You,
+    bullets: [
+      "The planning agent searches for existing code related to the plan request",
+      "Decide whether to reuse, extend, extract, defer, or keep the code separate",
+      "Update the plan before implementation begins"
+    ],
+    note: "Prevents duplicate logic and competing abstractions",
+    saved: [".lightsout/plans/<name>/dedup.json"]
+  },
+  {
+    title: "GET THE PLAN TO AN A GRADE",
+    actor: CommandActor.Engine,
+    bullets: [
+      "The engine grades the plan and identifies every gap",
+      "The planning agent updates the plan to address each finding",
+      "Re-grade until it earns an A with no unresolved gaps"
+    ],
+    note: "Proves the plan is complete enough for an implementation agent with no prior context",
+    saved: [".lightsout/plans/<name>/grade.json"]
+  }
+];
+
+// src/commands/common/constants/planCatalogEntry.ts
+var planCatalogEntry = {
+  id: "plan",
+  slash: "/plan",
+  cli: "lightsout plan",
+  group: CommandGroup.Build,
+  summary: "Produce a rigorous, implementation-ready plan for a feature \u2014 one a fresh-context agent can implement without guessing.",
+  whenToUse: "Use it when you know what you want and need a plan a fresh agent could implement without guessing. It interviews you, drafts, grills the draft for edge cases, and grades the result before anyone writes code.",
+  invocations: [
+    { id: "plan-verify-facts", positional: "verify-facts" },
+    { id: "plan-draft", positional: "draft" },
+    { id: "plan-lint", positional: "lint" },
+    { id: "plan-dedup", positional: "dedup" },
+    { id: "plan-grade", positional: "grade", note: "--phase grades only those phases, and always marks the result incomplete" }
+  ],
+  flags: [
+    { name: "name", value: "<n>", meaning: "The plan workspace to work in, under .lightsout/plans/.", required: true },
+    {
+      name: "notes",
+      value: "<path>",
+      meaning: "Rough notes to start from \u2014 a /brainstorm file, or anything you wrote yourself.",
+      fallback: "The workspace starts from the request alone.",
+      shape: "plan-verify-facts",
+      required: false
+    },
+    {
+      name: "scope",
+      value: "single|phased",
+      meaning: "Whether to write one plan or an overview with a file per phase.",
+      fallback: "Chosen from the size of the work.",
+      shape: "plan-draft",
+      required: false
+    },
+    {
+      name: "phase",
+      value: "<n[,n]>",
+      meaning: "Grade only these phases of a phased plan.",
+      fallback: "Every phase is graded, and the result may be complete.",
+      shape: "plan-grade",
+      required: false
+    },
+    { name: "cwd", value: "<path>", meaning: "Repository the plan workspace lives in.", fallback: "The process working directory.", required: false }
+  ],
+  steps: planSteps,
+  records: CommandRecordKind.Plans,
+  related: ["brainstorm", "implement", "resume"],
+  graphic: {
+    title: "How /plan turns a request into an implementation-ready spec",
+    subtitle: "Final spec and every decision recorded before any code is written.",
+    banner: "The implementation-ready spec can now be handed to /implement in a fresh context window.",
+    columns: 4
+  }
+};
+
+// src/commands/common/constants/refactorSteps.ts
+var refactorSteps = [
+  {
+    title: "START THE RUN",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Point `/refactor` at the whole repo or one folder, with an optional batch budget",
+      "Refuse to start without a config, without git, or with uncommitted changes",
+      "Create a run ID and a repository lock so no other lightsout run touches the same tree"
+    ],
+    note: "Keeps the entire cleanup as one diff you can read, revert, or resume",
+    saved: [".lightsout/runs/<id>/manifest.json", ".lightsout/lock.json"]
+  },
+  {
+    title: "FIND THE WORK",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Search source files for repeated names, copied code, duplicate logic, oversized code, misplaced files, boundary violations, and dead exports",
+      "Detectors that read types need the repo\u2019s own TypeScript, and say so when it is missing",
+      "Leave out anything already accepted as known debt, unless you asked for everything"
+    ],
+    note: "Detection is deterministic code \u2014 no agent is ever asked to go find problems",
+    saved: ["lightsout.standards-baseline.json"],
+    savedLabel: "READ FROM DISK"
+  },
+  {
+    title: "GROUP INTO BATCHES",
+    actor: CommandActor.Engine,
+    bullets: [
+      "One batch is one kind of finding in one area \u2014 a package, a top-level folder, or the repo root",
+      "The most mechanical kinds run first, twelve findings at most, and a finding spanning two areas gets its own batch",
+      "Freeze the list to disk and work from it \u2014 never recompute it midway"
+    ],
+    note: "Gives each agent a single coherent job instead of a pile of unrelated fixes",
+    saved: [".lightsout/runs/<id>/worklist.json"]
+  },
+  {
+    title: "VERIFY THE REPO STARTS GREEN",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Run any code generator first, then lint, type checks, tests, build, and coverage",
+      "Stop immediately if any gate is already failing",
+      "Skip this on a resumed run when an earlier attempt already proved it green"
+    ],
+    note: "Proves any later failure was introduced by this run, not inherited from the repository",
+    saved: ["manifest.json", ".lightsout/runs/<id>/commands.jsonl"]
+  },
+  {
+    title: "SKIP WHAT IS ALREADY FIXED",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Check again immediately before each batch starts",
+      "If earlier batches already cleared these findings, close the batch and spend no agent",
+      "Collect fresh size warnings for the batch\u2019s files \u2014 the frozen ones cite line numbers that have since moved"
+    ],
+    note: "Never pays an agent to fix something that is already gone",
+    saved: ["manifest.json"]
+  },
+  {
+    title: "FIX ONE BATCH",
+    actor: CommandActor.Agent,
+    bullets: [
+      "Batches run one at a time; the agent gets the findings, the files they live in, and your code standards",
+      "Findings must be fixed or explained; size warnings are judged against your documented exemptions",
+      "It may run only the commands your config allows, works under a time limit, and answers with one structured report"
+    ],
+    note: "Changes structure only \u2014 the behavior has to survive untouched",
+    saved: [".lightsout/runs/<id>/agents/", "stream-batch-NN-*.jsonl", "rejected-*.txt"]
+  },
+  {
+    title: "VERIFY THE BATCH",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Re-run the gates, scoped to the packages that changed, with coverage always on",
+      "Try up to two lightweight repairs when a gate goes red",
+      "Send a coverage-only failure to a test-writing agent; a mixed failure goes back to the refactor agent first"
+    ],
+    note: "Stops a batch that broke the build from reaching the next one",
+    saved: ["manifest.json", ".lightsout/runs/<id>/commands.jsonl"]
+  },
+  {
+    title: "BRING IN A SUPERVISOR",
+    actor: CommandActor.Agent,
+    bullets: [
+      "When the quick repairs run out, a read-only supervisor diagnoses the failure",
+      "It either grants one guided retry or rules the failure a human problem",
+      "If the gates are still red after that, the run stops with the diagnosis attached as evidence"
+    ],
+    note: "Buys judgment exactly once, instead of retrying forever",
+    saved: [".lightsout/runs/<id>/agents/", "stream-batch-NN-supervisor.jsonl"]
+  },
+  {
+    title: "RULE ON THE BATCH",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Check again \u2014 the code rules, and a copied block that merely moved is not gone",
+      "Gone counts as resolved; still there with nothing changed counts as declined, with the agent\u2019s reasoning kept",
+      "Partly fixed earns one more pass, and whatever survives that is recorded as declined"
+    ],
+    note: "Work finished without a report still counts, and changed files come from git, minus generated output",
+    saved: ["manifest.json", ".lightsout/friction.jsonl"]
+  },
+  {
+    title: "KNOW WHEN TO STOP",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Three declines in a row end the run \u2014 the pattern is systemic, and more spend will not fix it",
+      "A refusal on scope grounds counts as a decline and the run carries on",
+      "A harness rate limit or your batch budget parks the run instead of failing it"
+    ],
+    note: "Each batch is saved before the next begins, and declines are read back \u2014 resuming re-runs nothing",
+    saved: ["manifest.json"]
+  },
+  {
+    title: "MEASURE THE BURN-DOWN",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Check the whole scope once more and report findings before and after, one line per kind",
+      "A parked run reports no burn-down \u2014 resume it to finish and measure",
+      "Keep every batch outcome, retry, token cost, and point of friction in one folder"
+    ],
+    note: "Turns the cleanup into a number you can check rather than a claim",
+    saved: [".lightsout/runs/<id>/", "agents.jsonl", ".lightsout/friction.jsonl"]
+  },
+  {
+    title: "REVIEW AND COMMIT",
+    actor: CommandActor.You,
+    bullets: [
+      "Read each declined batch alongside the agent\u2019s own reasoning for leaving it",
+      "Fix it by hand, or accept it as known debt in the baseline",
+      "Review the working-tree diff and commit it \u2014 the engine never commits"
+    ],
+    note: "Leaves the last call on unfixed debt with a human",
+    saved: ["lightsout.standards-baseline.json"]
+  }
+];
+
+// src/commands/common/constants/refactorCatalogEntry.ts
+var refactorCatalogEntry = {
+  id: "refactor",
+  slash: "/refactor",
+  cli: "lightsout refactor",
+  group: CommandGroup.BurnDown,
+  summary: "Burn down a repo\u2019s standards-check findings (duplication, size, structure, boundary violations) in verified, resumable batches via the lightsout refactor pipeline.",
+  whenToUse: "Reach for it when standards-check has more findings than anyone will fix by hand. It burns them down in verified, resumable batches, each one gated before it lands.",
+  invocations: [{ id: "refactor" }, { id: "refactor-resume", note: "resume a parked refactor run" }],
+  flags: [
+    { name: "run", value: "<id>", meaning: "The parked refactor run to pick back up.", shape: "refactor-resume", required: true },
+    { name: "cwd", value: "<path>", meaning: "Repository to burn down.", fallback: "The process working directory.", required: false },
+    { name: "path", value: "<subdir>", meaning: "Burn down only this subdirectory.", fallback: "The whole repository.", shape: "refactor", required: false },
+    { name: "all", meaning: "Include findings the baseline has already accepted as known debt.", shape: "refactor", required: false },
+    {
+      name: "max-batches",
+      value: "<n>",
+      meaning: "Park the run after this many batches.",
+      fallback: "The run continues until the work-list is finished.",
+      shape: "refactor",
+      required: false
+    },
+    { name: "code-checks", meaning: "Build the work-list from the mechanical checks alone, with no agent review.", shape: "refactor", required: false },
+    { name: "allow-dirty", meaning: "Start even though the git tree has uncommitted changes.", shape: "refactor", required: false }
+  ],
+  steps: refactorSteps,
+  records: CommandRecordKind.Runs,
+  related: ["test-coverage-to-threshold", "standards-check"],
+  graphic: {
+    title: "How /refactor turns standards findings into verified cleanup",
+    subtitle: "Twelve steps, one batch at a time, every fix re-checked and re-gated before the next begins.",
+    banner: "The engine never commits. It hands back a measured before-and-after and a diff you review.",
+    columns: 4
+  }
+};
+
+// src/commands/common/constants/resumeCatalogEntry.ts
+var resumeCatalogEntry = {
+  id: "resume",
+  cli: "lightsout resume",
+  group: CommandGroup.Build,
+  summary: "Pick a parked run back up where it stopped \u2014 same manifest, same work list, nothing repeated.",
+  whenToUse: "Use it when a run parked \u2014 a rate limit, a batch ceiling, an escalation you have now answered. It restarts from the manifest, so finished work is never redone.",
+  invocations: [{ id: "resume" }],
+  flags: [
+    { name: "run", value: "<id>", meaning: "The parked run to pick back up.", required: true },
+    { name: "cwd", value: "<path>", meaning: "Repository the run belongs to.", fallback: "The process working directory.", required: false },
+    { name: "skip-refactor", meaning: "Skip the refactor step at the end of the run.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Runs,
+  related: ["brainstorm", "plan", "implement"]
+};
+
+// src/commands/common/constants/standardsCheckCatalogEntry.ts
+var standardsCheckCatalogEntry = {
+  id: "standards-check",
+  cli: "lightsout standards-check",
+  group: CommandGroup.Standards,
+  summary: "Check the repo against its standards packs and report every finding, machine checks and agent review alike.",
+  whenToUse: "Run it to see where the repo stands against its packs, before a refactor or after one. `--list` prints the enforcement ledger instead: which rules are blocking, which advisory, which off.",
+  invocations: [{ id: "standards-check" }, { id: "standards-check-list", note: "print the enforcement ledger" }],
+  flags: [
+    { name: "list", meaning: "Print the enforcement ledger \u2014 blocking, advisory, off \u2014 and check nothing.", shape: "standards-check-list", required: true },
+    { name: "cwd", value: "<path>", meaning: "Repository to check.", fallback: "The process working directory.", required: false },
+    { name: "path", value: "<subdir>", meaning: "Check only this subdirectory.", fallback: "The whole repository.", shape: "standards-check", required: false },
+    { name: "all", meaning: "Include findings the baseline has already accepted as known debt.", shape: "standards-check", required: false },
+    { name: "baseline", meaning: "Write the findings to the baseline file as accepted debt.", shape: "standards-check", required: false },
+    { name: "code-checks", meaning: "Run the mechanical checks only.", shape: "standards-check", required: false, exclusiveWith: "half" },
+    { name: "agent-review", meaning: "Run the agent review only.", shape: "standards-check", required: false, exclusiveWith: "half" }
+  ],
+  steps: [],
+  records: CommandRecordKind.Snapshots,
+  related: ["standards-validate", "standards-health", "refactor", "test-coverage-to-threshold"]
+};
+
+// src/commands/common/constants/standardsHealthCatalogEntry.ts
+var standardsHealthCatalogEntry = {
+  id: "standards-health",
+  cli: "lightsout standards-health",
+  group: CommandGroup.Standards,
+  summary: "Report each rule\u2019s coverage and how often agents decline it \u2014 which standards are actually holding.",
+  whenToUse: "Reach for it when you suspect a standard is decorative \u2014 declared, but never enforced in practice. It shows per-rule coverage and how often agents decline the rule when asked to fix it.",
+  invocations: [{ id: "standards-health", note: "per-rule coverage and how often agents decline it" }],
+  flags: [{ name: "cwd", value: "<path>", meaning: "Repository to report on.", fallback: "The process working directory.", required: false }],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["standards-check", "standards-validate"]
+};
+
+// src/commands/common/constants/standardsValidateCatalogEntry.ts
+var standardsValidateCatalogEntry = {
+  id: "standards-validate",
+  cli: "lightsout standards-validate",
+  group: CommandGroup.Standards,
+  summary: "Run every rule\u2019s check against its own fixtures, so a rule that no longer detects what it claims fails loudly.",
+  whenToUse: "Run it after writing or editing a rule, and in CI for a pack you ship. It proves each check still passes its own pass fixtures and still fails its fail fixtures.",
+  invocations: [{ id: "standards-validate", note: "run every check against its own fixtures" }],
+  flags: [
+    { name: "pack", value: "<path>", meaning: "Validate only the pack at this folder.", fallback: "Every pack the config loads.", required: false },
+    { name: "cwd", value: "<path>", meaning: "Repository whose packs are validated.", fallback: "The process working directory.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["standards-check", "standards-health"]
+};
+
+// src/commands/common/constants/statusCatalogEntry.ts
+var statusCatalogEntry = {
+  id: "status",
+  cli: "lightsout status",
+  group: CommandGroup.Housekeeping,
+  summary: "Show what lightsout sees in this repo: config, harness, packs, and any run still parked.",
+  whenToUse: "Run it when you come back to a repo and need to know what lightsout thinks is going on. It names the config, the harness, the packs in play, and any run still parked.",
+  invocations: [{ id: "status" }],
+  flags: [{ name: "cwd", value: "<path>", meaning: "Repository to report on.", fallback: "The process working directory.", required: false }],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["doctor", "friction", "improve", "voice"]
+};
+
+// src/commands/common/constants/testCoverageToThresholdCatalogEntry.ts
+var testCoverageToThresholdCatalogEntry = {
+  id: "test-coverage-to-threshold",
+  slash: "/test-coverage-to-threshold",
+  cli: "lightsout test-coverage-to-threshold",
+  group: CommandGroup.BurnDown,
+  summary: "Raise a repo\u2019s unit-test coverage until its own coverage script passes, in verified, resumable batches via the lightsout coverage pipeline.",
+  whenToUse: "Use it when the coverage gate is what stands between you and a green build. It writes tests in batches until your own coverage script passes, and stops there.",
+  invocations: [{ id: "test-coverage-to-threshold" }, { id: "test-coverage-to-threshold-resume", note: "resume a parked coverage run" }],
+  flags: [
+    { name: "run", value: "<id>", meaning: "The parked coverage run to pick back up.", shape: "test-coverage-to-threshold-resume", required: true },
+    { name: "cwd", value: "<path>", meaning: "Repository to raise coverage in.", fallback: "The process working directory.", required: false },
+    {
+      name: "max-batches",
+      value: "<n>",
+      meaning: "Park the run after this many batches.",
+      fallback: "The run continues until the coverage script passes.",
+      shape: "test-coverage-to-threshold",
+      required: false
+    },
+    { name: "allow-dirty", meaning: "Start even though the git tree has uncommitted changes.", shape: "test-coverage-to-threshold", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Runs,
+  related: ["refactor", "standards-check"]
+};
+
+// src/commands/common/constants/voiceCatalogEntry.ts
+var voiceCatalogEntry = {
+  id: "voice",
+  slash: "/lightsout:voice",
+  cli: "lightsout voice",
+  group: CommandGroup.Housekeeping,
+  summary: "Turn the spoken read-out of lightsout interview questions on or off for this project \u2014 `/lightsout:voice on` and `/lightsout:voice off`.",
+  whenToUse: "Turn it on when you would rather hear the interview questions than watch for them. Mac-only, off until you turn it on, and per-project.",
+  invocations: [
+    { id: "voice-toggle", positional: "on|off", note: "toggle spoken read-out of interview questions \u2014 Mac-only" },
+    { id: "voice-hook", positional: "hook", note: "hook entry for Stop + AskUserQuestion: reads hook JSON on stdin, speaks the question" }
+  ],
+  flags: [{ name: "cwd", value: "<path>", meaning: "Project the setting belongs to.", fallback: "The process working directory.", required: false }],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["status", "doctor", "friction", "improve"]
+};
+
+// src/commands/commandCatalog.ts
+var commandCatalog = [
+  brainstormCatalogEntry,
+  planCatalogEntry,
+  implementCatalogEntry,
+  resumeCatalogEntry,
+  refactorCatalogEntry,
+  testCoverageToThresholdCatalogEntry,
+  standardsCheckCatalogEntry,
+  standardsValidateCatalogEntry,
+  standardsHealthCatalogEntry,
+  statusCatalogEntry,
+  doctorCatalogEntry,
+  frictionCatalogEntry,
+  improveCatalogEntry,
+  voiceCatalogEntry
+];
+
+// src/commands/getCommandCatalogEntry.ts
+var getCommandCatalogEntry = ({ id }) => commandCatalog.find((entry) => entry.id === id);
+
+// src/commands/spellFlag.ts
+var spellFlag = ({ flag }) => flag.value === void 0 ? `--${flag.name}` : `--${flag.name} ${flag.value}`;
+
+// src/commands/renderUsage.ts
+var usageOrder = [
+  "implement",
+  "implement-folder",
+  "resume",
+  "status",
+  "doctor",
+  "standards-check",
+  "standards-check-list",
+  "standards-validate",
+  "standards-health",
+  "refactor",
+  "refactor-resume",
+  "test-coverage-to-threshold",
+  "test-coverage-to-threshold-resume",
+  "plan-verify-facts",
+  "plan-draft",
+  "plan-lint",
+  "plan-dedup",
+  "plan-grade",
+  "friction",
+  "improve",
+  "voice-toggle",
+  "voice-hook"
+];
+var renderExclusiveGroup = ({ flags, key }) => {
+  const group = flags.filter((flag) => flag.exclusiveWith === key);
+  return `[${group.map((flag) => spellFlag({ flag })).join(" | ")}]`;
+};
+var renderFlags = ({ entry, invocation }) => {
+  const shown = entry.flags.filter((flag) => flag.shape === void 0 || flag.shape === invocation.id);
+  const rendered = [];
+  const groupsSeen = /* @__PURE__ */ new Set();
+  for (const flag of shown) {
+    if (flag.exclusiveWith === void 0) {
+      rendered.push(flag.required ? spellFlag({ flag }) : `[${spellFlag({ flag })}]`);
+    } else if (!groupsSeen.has(flag.exclusiveWith)) {
+      groupsSeen.add(flag.exclusiveWith);
+      rendered.push(renderExclusiveGroup({ flags: shown, key: flag.exclusiveWith }));
+    }
+  }
+  return rendered;
+};
+var padNote = ({ body, note }) => `${body}${" ".repeat(Math.max(3, 54 - body.length))}(${note})`;
+var renderLine = ({ cli, entry, invocation }) => {
+  const words = [cli, invocation.positional, ...renderFlags({ entry, invocation })].filter((word) => word !== void 0);
+  const body = `  ${words.join(" ")}`;
+  return invocation.note === void 0 ? body : padNote({ body, note: invocation.note });
+};
+var renderUsage = () => {
+  const header = "lightsout \u2014 deterministic engine for coding agents\n\nusage:";
+  const exitCodes = `exit codes (implement, resume, refactor, test-coverage-to-threshold):
+  0  finished
+  2  stopped with work left and resumable \u2014 a --max-batches ceiling, or a harness rate limit
+  1  anything else`;
+  const lines = [];
+  for (const id of usageOrder) {
+    const entry = commandCatalog.find((candidate) => candidate.invocations.some((invocation2) => invocation2.id === id));
+    const invocation = entry?.invocations.find((candidate) => candidate.id === id);
+    if (entry?.cli !== void 0 && invocation !== void 0) {
+      lines.push(renderLine({ cli: entry.cli, entry, invocation }));
+    }
+  }
+  return `${header}
+${lines.join("\n")}
+
+${exitCodes}
+`;
+};
+
+// src/cli/common/args/readCommandFlags.ts
+var readCommandFlags = ({ command }) => {
+  const entry = getCommandCatalogEntry({ id: command });
+  return /* @__PURE__ */ new Set(["cwd", ...entry?.flags.map((flag) => flag.name) ?? []]);
+};
+
+// src/cli/common/args/getUnknownFlagsMessage.ts
+var getUnknownFlagsMessage = ({ command, flags }) => {
+  const accepted = readCommandFlags({ command });
+  const unknown2 = [...flags.keys()].filter((name) => !accepted.has(name));
+  return unknown2.length === 0 ? void 0 : `lightsout ${command}: unknown flag${unknown2.length > 1 ? "s" : ""} ${unknown2.map((name) => `--${name}`).join(", ")}`;
+};
+
+// src/cli/common/args/parseFlags.ts
+var parseFlags = ({ args }) => {
+  const flags = /* @__PURE__ */ new Map();
+  let index = 0;
+  while (index < args.length) {
+    const key = args[index];
+    if (!key?.startsWith("--")) {
+      index += 1;
+      continue;
+    }
+    const value = args[index + 1];
+    if (value === void 0 || value.startsWith("--")) {
+      flags.set(key.slice(2), true);
+      index += 1;
+    } else {
+      flags.set(key.slice(2), value);
+      index += 2;
+    }
+  }
+  return flags;
+};
+
+// src/cli/common/constants/usage.ts
+var usage = renderUsage();
+
+// src/cli/common/utils/exitCli.ts
+var exitCli = async ({ code }) => {
+  await Promise.all([process.stdout, process.stderr].map((stream) => new Promise((resolve10) => stream.write("", () => resolve10()))));
+  return process.exit(code);
+};
+
+// src/cli/common/terminal/paint.ts
+var paint = ({ code }) => (text) => process.stdout.isTTY ? `\x1B[${code}m${text}\x1B[0m` : text;
+
+// src/cli/common/terminal/dim.ts
+var dim = paint({ code: "2" });
+
+// src/cli/common/terminal/green.ts
+var green = paint({ code: "32" });
+
+// src/cli/common/terminal/red.ts
+var red = paint({ code: "31" });
+
+// src/cli/common/terminal/yellow.ts
+var yellow = paint({ code: "33" });
+
+// src/doctor/checkConfiguredPaths.ts
+import { stat } from "node:fs/promises";
+import { join } from "node:path";
+var checkConfiguredPaths = async ({ cwd, id, paths, fix }) => {
+  if (!paths) {
+    return void 0;
+  }
+  const absent = [];
+  for (const prefix of paths) {
+    await stat(join(cwd, prefix)).catch(() => absent.push(prefix));
+  }
+  return absent.length === 0 ? { id, status: "pass", detail: `${paths.length} ${id} path(s) exist` } : { id, status: "warn", detail: `not found: ${absent.join(", ")}`, fix };
+};
+
+// src/doctor/checkCoverageSummary.ts
+import { stat as stat2 } from "node:fs/promises";
+import { join as join2 } from "node:path";
+
+// src/common/constants/defaultCoverageSummaryPath.ts
+var defaultCoverageSummaryPath = "coverage/coverage-summary.json";
+
+// src/doctor/checkCoverageSummary.ts
+var checkCoverageSummary = async ({ config: config2, packageDirs }) => {
+  const scoped = config2["package-gates"]?.["test-coverage"];
+  const rootApplies = typeof config2.gates["test-coverage"] === "string";
+  if (!scoped && !rootApplies) {
+    return void 0;
+  }
+  const summaryPath = config2["coverage-summary-path"] ?? defaultCoverageSummaryPath;
+  const scopes = scoped ? packageDirs.filter((entry) => entry.label !== "root") : packageDirs.filter((entry) => entry.label === "root");
+  const expected = scopes.map((entry) => ({ label: entry.label, path: join2(entry.dir, summaryPath) }));
+  const absent = [];
+  for (const entry of expected) {
+    await stat2(entry.path).catch(() => absent.push(`${entry.label}: ${summaryPath}`));
+  }
+  return absent.length === 0 ? { id: "coverage-summary", status: "pass", detail: `coverage summary found for ${expected.length} scope(s)` } : {
+    id: "coverage-summary",
+    status: "warn",
+    detail: `not found: ${absent.join(", ")}`,
+    fix: `configure a json-summary coverage reporter (jest: coverageReporters ['json-summary']) writing ${summaryPath}, run the coverage script once, or set coverage-summary-path`
+  };
+};
+
+// src/common/processes/runCommand.ts
+import { spawn } from "node:child_process";
+
+// src/common/constants/killGraceMs.ts
+var killGraceMs = 2e3;
+
+// src/common/processes/killProcessGroup.ts
+var killProcessGroup = ({ child, signal }) => {
+  if (child.pid !== void 0 && process.platform !== "win32") {
+    try {
+      process.kill(-child.pid, signal);
+      return;
+    } catch {
+    }
+  }
+  try {
+    child.kill(signal);
+  } catch {
+  }
+};
+
+// src/common/processes/terminateChildGroups.ts
+var settled = ({ child }) => child.exitCode !== null || child.signalCode !== null;
+var exited = ({ child }) => settled({ child }) ? Promise.resolve() : new Promise((resolve10) => child.once("exit", () => resolve10()));
+var terminateChildGroups = async ({ children, graceMs = killGraceMs }) => {
+  const targets = [...children];
+  for (const child of targets) {
+    killProcessGroup({ child, signal: "SIGTERM" });
+  }
+  if (targets.length === 0) {
+    return;
+  }
+  let grace;
+  await Promise.race([
+    Promise.all(targets.map((child) => exited({ child }))),
+    new Promise((resolve10) => {
+      grace = setTimeout(resolve10, graceMs);
+    })
+  ]);
+  clearTimeout(grace);
+  for (const child of targets) {
+    if (!settled({ child })) {
+      killProcessGroup({ child, signal: "SIGKILL" });
+    }
+  }
+};
+
+// src/common/processes/relayShutdownSignals.ts
+var relayed = ["SIGINT", "SIGTERM"];
+var live = /* @__PURE__ */ new Set();
+var installed = false;
+var shuttingDown = false;
+var onSignal = async (signal) => {
+  if (shuttingDown) {
+    return;
+  }
+  shuttingDown = true;
+  await terminateChildGroups({ children: live });
+  uninstall();
+  process.kill(process.pid, signal);
+};
+var handlers = new Map(relayed.map((signal) => [signal, () => void onSignal(signal)]));
+var install = () => {
+  if (installed) {
+    return;
+  }
+  installed = true;
+  for (const [signal, handler] of handlers) {
+    process.on(signal, handler);
+  }
+};
+function uninstall() {
+  if (!installed) {
+    return;
+  }
+  installed = false;
+  for (const [signal, handler] of handlers) {
+    process.removeListener(signal, handler);
+  }
+}
+var relayShutdownSignals = ({ child }) => {
+  live.add(child);
+  install();
+  return () => {
+    live.delete(child);
+    if (live.size === 0) {
+      uninstall();
+    }
+  };
+};
+
+// src/common/processes/collectChildOutput.ts
+var collectChildOutput = ({ child, timeout, onStdoutLine }) => {
+  return new Promise((resolve10, reject) => {
+    let stdout = "";
+    let stderr = "";
+    let lineBuffer = "";
+    const emitLines = ({ text, flush = false }) => {
+      if (!onStdoutLine) {
+        return;
+      }
+      lineBuffer += text;
+      const lines = lineBuffer.split("\n");
+      lineBuffer = flush ? "" : lines.pop() ?? "";
+      for (const line of lines) {
+        if (line.trim()) {
+          onStdoutLine(line);
+        }
+      }
+    };
+    const expire = () => {
+      killProcessGroup({ child, signal: "SIGTERM" });
+      const escalation = setTimeout(() => killProcessGroup({ child, signal: "SIGKILL" }), killGraceMs);
+      escalation.unref();
+      child.once("close", () => clearTimeout(escalation));
+      reject(new Error(timeout?.message ?? "timed out"));
+    };
+    const timer = timeout ? setTimeout(expire, timeout.ms) : void 0;
+    const stopRelay = relayShutdownSignals({ child });
+    child.stdout?.on("data", (chunk) => {
+      const text = chunk.toString();
+      stdout += text;
+      emitLines({ text });
+    });
+    child.stderr?.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", (error51) => {
+      clearTimeout(timer);
+      stopRelay();
+      reject(error51);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      stopRelay();
+      emitLines({ text: "", flush: true });
+      resolve10({ exitCode: code ?? -1, stdout, stderr });
+    });
+  });
+};
+
+// src/common/processes/runCommand.ts
+var runCommand = ({ command, cwd, timeoutMs }) => {
+  const child = spawn(command, { cwd, shell: true, stdio: ["ignore", "pipe", "pipe"], env: process.env, detached: true });
+  return collectChildOutput({
+    child,
+    timeout: timeoutMs ? { ms: timeoutMs, message: `command timed out after ${timeoutMs}ms: ${command}` } : void 0
+  });
+};
+
+// src/doctor/common/constants/probeTimeoutMs.ts
+var probeTimeoutMs = 15e3;
+
+// src/doctor/checkGitignore.ts
+var gitignoreEntries = [".lightsout/runs/", ".lightsout/plans/", ".lightsout/friction.jsonl", ".lightsout/lock.json"];
+var checkGitignore = async ({ cwd }) => {
+  const notIgnored = [];
+  let gitUsable = true;
+  for (const entry of gitignoreEntries) {
+    const probePath = entry.endsWith("/") ? `${entry}probe` : entry;
+    const result = await runCommand({ command: `git check-ignore -q -- '${probePath}'`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({
+      exitCode: 128
+    }));
+    if (result.exitCode === 1) {
+      notIgnored.push(entry);
+    } else if (result.exitCode !== 0) {
+      gitUsable = false;
+    }
+  }
+  return !gitUsable ? { id: "gitignore", status: "warn", detail: "not a git repository \u2014 .gitignore not evaluated" } : notIgnored.length === 0 ? { id: "gitignore", status: "pass", detail: "run state is ignored (verified via git check-ignore)" } : {
+    id: "gitignore",
+    status: "warn",
+    detail: `run state not ignored: ${notIgnored.join(", ")}`,
+    fix: `add to .gitignore:
+${notIgnored.join("\n")}`
+  };
+};
+
+// src/common/utils/messageOf.ts
+var messageOf = ({ error: error51 }) => error51 instanceof Error ? error51.message : String(error51);
+
+// src/doctor/checkHarness.ts
+var driverBinaries = { "claude-code": "claude", codex: "codex" };
+var getReferencedDriverNames = ({ config: config2 }) => {
+  const entryDrivers = Object.values(config2.commands ?? {}).map((entry) => entry?.harness);
+  const names = [config2.harness ?? "claude-code", ...entryDrivers].filter((name) => typeof name === "string");
+  return [...new Set(names)];
+};
+var checkHarness = async ({ cwd, config: config2, probeHarness }) => {
+  const probe = probeHarness ?? (({ binary: name }) => runCommand({ command: `${name} --version`, cwd, timeoutMs: probeTimeoutMs }));
+  const binaries = [...new Set(getReferencedDriverNames({ config: config2 }).map((name) => driverBinaries[name] ?? name))];
+  const versions = [];
+  const failures = [];
+  for (const binary of binaries) {
+    try {
+      const probed = await probe({ binary });
+      if (probed.exitCode === 0) {
+        versions.push(`${binary} ${probed.stdout.trim().split("\n")[0]}`);
+      } else {
+        failures.push({
+          binary,
+          detail: `\`${binary} --version\` exited ${probed.exitCode}: ${`${probed.stdout}
+${probed.stderr}`.trim().slice(0, 200)}`,
+          fix: `reinstall or repair the ${binary} CLI \u2014 the engine shells your own logged-in binary and cannot run without it`
+        });
+      }
+    } catch (error51) {
+      failures.push({
+        binary,
+        detail: `${binary} not runnable: ${messageOf({ error: error51 })}`,
+        fix: `install the ${binary} CLI and log in`
+      });
+    }
+  }
+  return failures.length === 0 ? { id: "harness", status: "pass", detail: `${versions.join(" \xB7 ")} (login not probed \u2014 the first run verifies it)` } : {
+    id: "harness",
+    status: "fail",
+    detail: failures.map((failure) => failure.detail).join("\n"),
+    fix: failures.map((failure) => failure.fix).join("\n")
+  };
+};
+
+// src/doctor/checkJestMocks.ts
+import { readdir, readFile } from "node:fs/promises";
+import { join as join3 } from "node:path";
+var findJestConfigs = async ({ packageDir }) => {
+  const rootEntries = await readdir(packageDir).catch(() => []);
+  const found = rootEntries.filter((name) => /^jest(\..+)?\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join3(packageDir, name));
+  for (const testDir of ["test", "tests"]) {
+    const testEntries = await readdir(join3(packageDir, testDir), { recursive: true }).catch(() => []);
+    found.push(
+      ...testEntries.filter((name) => typeof name === "string" && /(^|\/)jest[^/]*\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join3(packageDir, testDir, name))
+    );
+  }
+  return found;
+};
+var checkJestMocks = async ({ cwd, packageDirs }) => {
+  const jestFindings = [];
+  let jestConfigCount = 0;
+  for (const { label, dir } of packageDirs) {
+    for (const configPath of await findJestConfigs({ packageDir: dir })) {
+      jestConfigCount += 1;
+      const text = await readFile(configPath, "utf8").catch(() => "");
+      const absent = ["clearMocks", "restoreMocks"].filter((flag) => !new RegExp(`${flag}\\s*:\\s*true`).test(text));
+      if (absent.length > 0) {
+        jestFindings.push(`${label}: ${configPath.slice(cwd.length + 1)} lacks ${absent.join(", ")}`);
+      }
+    }
+  }
+  if (jestConfigCount === 0) {
+    return void 0;
+  }
+  return jestFindings.length === 0 ? { id: "jest-mocks", status: "pass", detail: "all Jest configs set clearMocks + restoreMocks" } : {
+    id: "jest-mocks",
+    status: "warn",
+    detail: jestFindings.join("; "),
+    fix: "add clearMocks: true, restoreMocks: true \u2014 then run that package\u2019s FULL test suite: tests relying on import-time or beforeAll mock calls will break and need rework (see test standards, Mock Cleanup)"
+  };
+};
+
+// src/doctor/checkLintRules.ts
+import { readdir as readdir2, readFile as readFile2 } from "node:fs/promises";
+import { join as join4 } from "node:path";
+var checkLintRules = async ({ config: config2, packageDirs }) => {
+  if (config2["standards-packs"] === false) {
+    return void 0;
+  }
+  const lintFindings = [];
+  let lintConfigCount = 0;
+  for (const { label, dir } of packageDirs) {
+    const entries = await readdir2(dir).catch(() => []);
+    const lintConfigs = entries.filter(
+      (name) => /^biome\.jsonc?$/.test(name) || /^eslint\.config\.(js|cjs|mjs|ts)$/.test(name) || /^\.eslintrc(\..+)?$/.test(name)
+    );
+    for (const name of lintConfigs) {
+      lintConfigCount += 1;
+      const text = await readFile2(join4(dir, name), "utf8").catch(() => "");
+      const rules = name.startsWith("biome") ? ["useImportType", "noExplicitAny"] : ["consistent-type-imports", "no-explicit-any"];
+      const unenforced = rules.filter((rule) => !text.includes(rule) || new RegExp(`${rule}"?\\s*:\\s*"off"`).test(text));
+      if (unenforced.length > 0) {
+        lintFindings.push(`${label}: ${name} \u2014 ${unenforced.join(", ")} missing or disabled`);
+      }
+    }
+  }
+  return lintConfigCount === 0 ? {
+    id: "lint-rules",
+    status: "note",
+    detail: "no linter config found (biome.json / eslint) \u2014 the standards' mechanical rules (import type, no any) run unenforced"
+  } : lintFindings.length === 0 ? { id: "lint-rules", status: "pass", detail: `mechanical rules enforced across ${lintConfigCount} lint config(s)` } : {
+    id: "lint-rules",
+    status: "note",
+    detail: `${lintFindings.join("; ")} \u2014 the standards state these rules as binding; enabling them makes the linter catch what agents miss`
+  };
+};
+
+// src/doctor/checkScriptBinaries.ts
+var checkScriptBinaries = async ({ cwd, config: config2 }) => {
+  const gateCommands = [...Object.values(config2.gates), ...Object.values(config2["package-gates"] ?? {})].filter(
+    (value) => typeof value === "string"
+  );
+  const binaries = [...new Set(gateCommands.map((command) => command.trim().split(/\s+/)[0]).filter((name) => Boolean(name)))];
+  const missingBinaries = [];
+  for (const name of binaries) {
+    const result = await runCommand({ command: `command -v ${name}`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({ exitCode: -1 }));
+    if (result.exitCode !== 0) {
+      missingBinaries.push(name);
+    }
+  }
+  return missingBinaries.length === 0 ? { id: "script-binaries", status: "pass", detail: `gate commands resolve (${binaries.join(", ")})` } : {
+    id: "script-binaries",
+    status: "fail",
+    detail: `not on PATH: ${missingBinaries.join(", ")}`,
+    fix: "install the missing tool(s) \u2014 every gate depends on them"
+  };
+};
+
+// src/doctor/checkSourceWalk.ts
+import { relative as relative2 } from "node:path";
+
+// src/common/sourceFiles/listSourceFiles.ts
+import { readdir as readdir3 } from "node:fs/promises";
+import { join as join5, relative } from "node:path";
+
+// src/common/constants/standardsPackRootFile.ts
+var standardsPackRootFile = "lightsout-standards.json";
+
+// src/common/sourceFiles/listSourceFiles.ts
+var buildOutputDirs = /* @__PURE__ */ new Set(["dist", "build", "coverage", "out"]);
+var sourceExtension = /\.(m|c)?[jt]sx?$/;
+var listSourceFiles = async ({ cwd, exclude = [] }) => {
+  const files = [];
+  const standardsPacks = [];
+  const fixturesDir = "fixtures";
+  const walk2 = async (dir, insideStandardsPack, insideSource) => {
+    const entries = await readdir3(dir, { withFileTypes: true }).catch(() => []);
+    const isPackRoot = !insideStandardsPack && entries.some((entry) => entry.name === standardsPackRootFile);
+    const insidePack = insideStandardsPack || isPackRoot;
+    if (isPackRoot) {
+      standardsPacks.push(relative(cwd, dir));
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith(".") || entry.name === "node_modules" || !insideSource && buildOutputDirs.has(entry.name)) {
+        continue;
+      }
+      const path = join5(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (insidePack && entry.name === fixturesDir) {
+          continue;
+        }
+        await walk2(path, insidePack, insideSource || entry.name === "src");
+        continue;
+      }
+      const rel = relative(cwd, path);
+      if (!sourceExtension.test(entry.name) || entry.name.endsWith(".d.ts")) {
+        continue;
+      }
+      if (exclude.some((prefix) => rel.startsWith(prefix.replace(/\/$/, "")))) {
+        continue;
+      }
+      files.push(rel);
+    }
+  };
+  await walk2(cwd, false, false);
+  return { files: files.sort(), standardsPacks: standardsPacks.sort() };
+};
+
+// src/doctor/checkSourceWalk.ts
+var sourceExtension2 = /\.(m|c)?[jt]sx?$/;
+var skipReason = ({ path, generated, standardsPacks }) => {
+  const segments = path.split("/");
+  if (path.endsWith(".d.ts")) {
+    return "declaration file";
+  }
+  if (segments.some((segment) => segment.startsWith("."))) {
+    return "dot directory";
+  }
+  if (segments.includes("node_modules")) {
+    return "dependency tree";
+  }
+  if (generated.some((prefix) => path.startsWith(prefix.replace(/\/$/, "")))) {
+    return "declared generated";
+  }
+  const insidePack = standardsPacks.some((pack) => path.startsWith(`${pack}/`));
+  if (insidePack && segments.includes("fixtures")) {
+    return "standards pack fixture";
+  }
+  const beforeSrc = segments.slice(0, segments.indexOf("src") === -1 ? segments.length : segments.indexOf("src"));
+  return beforeSrc.some((segment) => ["dist", "build", "coverage", "out"].includes(segment)) ? "build output" : void 0;
+};
+var checkSourceWalk = async ({ cwd, generated = [] }) => {
+  const result = await runCommand({ command: "git ls-files -z", cwd, timeoutMs: probeTimeoutMs }).catch(() => void 0);
+  if (result === void 0 || result.exitCode !== 0) {
+    return { id: "source-walk", status: "warn", detail: "not a git repository \u2014 the walk has no second opinion to check against" };
+  }
+  const tracked = (result.stdout ?? "").split("\0").filter((path) => path !== "" && sourceExtension2.test(path)).map((path) => relative2(".", path));
+  const { files, standardsPacks } = await listSourceFiles({ cwd, exclude: generated });
+  const walked = new Set(files);
+  const unexplained = tracked.filter((path) => !walked.has(path) && skipReason({ path, generated, standardsPacks }) === void 0);
+  if (unexplained.length === 0) {
+    return { id: "source-walk", status: "pass", detail: `walk reads ${files.length} of ${tracked.length} tracked source file(s); every skip is accounted for` };
+  }
+  const shown = unexplained.slice(0, 5);
+  return {
+    id: "source-walk",
+    status: "fail",
+    detail: `${unexplained.length} tracked source file(s) the walk never reads: ${shown.join(", ")}${unexplained.length > shown.length ? ", \u2026" : ""}`,
+    fix: "no rule reads these \u2014 either the walk is skipping a directory it should not, or the path belongs in the config's `generated` list"
+  };
+};
+
+// src/doctor/checkUserEvent.ts
+import { readFile as readFile3 } from "node:fs/promises";
+import { join as join6 } from "node:path";
+var packageDependencies = external_exports.object({
+  dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
+  devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
+});
+var checkUserEvent = async ({ packageDirs }) => {
+  const fireEventOnly = [];
+  for (const { label, dir } of packageDirs) {
+    const raw = await readFile3(join6(dir, "package.json"), "utf8").catch(() => void 0);
+    let json2;
+    try {
+      json2 = raw === void 0 ? void 0 : JSON.parse(raw);
+    } catch {
+      continue;
+    }
+    const parsed = json2 === void 0 ? void 0 : packageDependencies.safeParse(json2);
+    if (!parsed?.success) {
+      continue;
+    }
+    const dependencies = { ...parsed.data.dependencies, ...parsed.data.devDependencies };
+    const hasTestingLibrary = ["@testing-library/react", "@testing-library/preact"].some((name) => name in dependencies);
+    if (hasTestingLibrary && !("@testing-library/user-event" in dependencies)) {
+      fireEventOnly.push(label);
+    }
+  }
+  if (fireEventOnly.length === 0) {
+    return void 0;
+  }
+  return {
+    id: "user-event",
+    status: "note",
+    detail: `${fireEventOnly.join(", ")}: has @testing-library/react but not @testing-library/user-event \u2014 component tests will use fireEvent; consider installing user-event for full interaction simulation`
+  };
+};
+
+// src/common/config/readConfig.ts
+import { join as join7 } from "node:path";
 
 // src/common/config/parseConfig.ts
 var describeIssues = ({ error: error51, configPath }) => {
@@ -24594,7 +25673,7 @@ var writeRunManifest = async ({ cwd, manifest }) => {
 };
 
 // src/runState/createRun.ts
-var createRun = async ({ cwd, runId, plan, pipeline, overview, driver, config: config2, baselineDirtyFiles }) => {
+var createRun = async ({ cwd, runId, plan, pipeline, overview, parentRunId, driver, config: config2, baselineDirtyFiles }) => {
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const manifest = {
     runId: runId ?? randomUUID(),
@@ -24603,6 +25682,7 @@ var createRun = async ({ cwd, runId, plan, pipeline, overview, driver, config: c
     plan: toRepoRelativePath({ cwd, path: plan }),
     pipeline,
     overview: overview === void 0 ? void 0 : toRepoRelativePath({ cwd, path: overview }),
+    parentRunId,
     harness: driver,
     config: config2,
     status: RunStatus.Pending,
@@ -25051,6 +26131,12 @@ ${error51}`);
   }
 };
 
+// src/common/constants/defaultAgentTimeoutMinutes.ts
+var defaultAgentTimeoutMinutes = 60;
+
+// src/common/constants/defaultSupervisorTimeoutMinutes.ts
+var defaultSupervisorTimeoutMinutes = 15;
+
 // src/cli/common/render/printRunHeader.ts
 var describeStandardsPacks = ({ value }) => {
   if (value === false) {
@@ -25068,7 +26154,9 @@ var printRunHeader = ({ config: config2, driver, cwd }) => {
   console.log(
     `  harness: ${driver.name} \xB7 model: ${config2.model ?? "harness default"} \xB7 effort: ${config2.effort ?? "harness default"} \xB7 permissions: ${config2.permissions ?? Permissions.Write}`
   );
-  console.log(`  timeouts: agent ${config2.timeouts?.["agent-minutes"] ?? 60}m \xB7 supervisor ${config2.timeouts?.["supervisor-minutes"] ?? 15}m`);
+  console.log(
+    `  timeouts: agent ${config2.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes}m \xB7 supervisor ${config2.timeouts?.["supervisor-minutes"] ?? defaultSupervisorTimeoutMinutes}m`
+  );
   console.log(`  gates (root): check=[${config2.gates.check}] test=[${config2.gates.test}] coverage=[${coverage}]`);
   if (config2.gates.generate) {
     console.log(`  generate (before every gate set): [${config2.gates.generate}]`);
@@ -25441,6 +26529,9 @@ var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
   return Object.entries(channelSignals).filter(([, signals]) => signals.some((signal) => dependencies.has(signal))).map(([channel]) => channel);
 };
 
+// src/standards/resolveStandardsChannels.ts
+var resolveStandardsChannels = async ({ cwd, config: config2, packages }) => config2?.["standards-channels"] ?? detectStandardsChannels({ cwd, packagesDir: config2?.["packages-dir"] ?? defaultPackagesDir, packages });
+
 // src/standardsPacks/buildStandardsDocuments.ts
 var byPath = (left, right) => left.path === right.path ? 0 : left.path > right.path ? 1 : -1;
 var renderDocument = ({ name, document, proseById }) => {
@@ -25771,6 +26862,8 @@ ${problems.map((problem) => `- ${problem}`).join("\n")}`);
     name: root.data.name,
     formatVersion: root.data.formatVersion,
     built: root.data.built,
+    description: root.data.description,
+    homepage: root.data.homepage,
     rootPath: packPath,
     ...hasFrameworkOwned ? { frameworkOwnedFixturesPath } : {},
     ...hasFrameworksModule ? { frameworksModulePath } : {},
@@ -25860,7 +26953,7 @@ var getPackFrameworkFacts = async ({ cwd, packagesDir, config: config2 }) => {
 // src/standards/resolveStandards.ts
 var resolveStandards = async ({ cwd, config: config2, packages }) => {
   const loaded = await resolveStandardsPacks({ cwd, config: config2 });
-  const channels = config2["standards-channels"] ?? await detectStandardsChannels({ cwd, packagesDir: config2["packages-dir"] ?? "packages", packages });
+  const channels = await resolveStandardsChannels({ cwd, config: config2, packages });
   const assembled = loaded.map((pack) => buildStandardsDocuments({ pack, channels }));
   const stack = ({ set: set2 }) => {
     const texts = assembled.map((documents) => documents[set2]).filter((text) => text !== void 0);
@@ -25887,7 +26980,7 @@ var prepareRun = async ({ run, cwd, config: config2, packages }) => {
     current: manifest.packages,
     packages,
     planContent: sources.planContent,
-    packagesDir: config2["packages-dir"] ?? "packages"
+    packagesDir: config2["packages-dir"] ?? defaultPackagesDir
   });
   if ("error" in scope) {
     return scope;
@@ -26195,7 +27288,6 @@ var RunState = class {
   usageTotals;
   onProgress;
   constructor({ cwd, config: config2, manifest, onProgress }) {
-    const defaultAgentTimeoutMinutes = 60;
     this.cwd = cwd;
     this.config = config2;
     this.manifest = manifest;
@@ -28405,7 +29497,7 @@ var consumerRelative = ({ gitPrefix, file: file2 }) => gitPrefix && file2.starts
 // src/pipeline/common/utils/collectChanged.ts
 var collectChanged = async ({ run, gitPrefix, reports }) => {
   const isGeneratedFile = ({ file: file2 }) => (run.config.generated ?? []).some((prefix) => file2.startsWith(prefix));
-  const packagesDir = run.config["packages-dir"] ?? "packages";
+  const packagesDir = run.config["packages-dir"] ?? defaultPackagesDir;
   const fromGit = (await readGitChangedFiles({ cwd: run.cwd }) ?? []).filter(
     (file2) => !run.current().baselineDirtyFiles.includes(file2) && !isGeneratedFile({ file: file2 })
   );
@@ -40896,7 +41988,7 @@ var runStandardsCheck = async ({
   const config2 = await readOptionalConfig({ cwd });
   const packs = await resolveStandardsPacks({ cwd, config: config2 });
   const states = resolvePackageRuleStates({ packs, config: config2 });
-  const channels = config2?.["standards-channels"] ?? await detectStandardsChannels({ cwd, packagesDir: config2?.["packages-dir"] ?? "packages", packages: [] });
+  const channels = await resolveStandardsChannels({ cwd, config: config2, packages: [] });
   const checked = await runPackageChecks({
     cwd,
     packs,
@@ -41075,7 +42167,7 @@ var checkFixtureTree = async ({ cwd, rule, inputKind, run, label, compiler }) =>
 };
 
 // src/standardsCheck/validateStandardsPack.ts
-var FixtureSide = {
+var FixtureSide2 = {
   Fail: "fail",
   Pass: "pass"
 };
@@ -41090,7 +42182,7 @@ var getEngineTypescript = () => {
 };
 var missingFixtureSides = async ({ fixturesPath }) => {
   const missing = [];
-  for (const side of Object.values(FixtureSide)) {
+  for (const side of Object.values(FixtureSide2)) {
     const entries = await readdir13(join45(fixturesPath, side)).catch(() => void 0);
     if (entries === void 0 || entries.length === 0) {
       missing.push(side);
@@ -41169,13 +42261,13 @@ var validateStandardsPack = async ({ pack }) => {
       notes.push(`${rule.id}: not validated \u2014 its ${inputKind} input needs a typescript this install does not have`);
       continue;
     }
-    for (const side of Object.values(FixtureSide)) {
+    for (const side of Object.values(FixtureSide2)) {
       try {
         const found = await checkFixtureTree({ cwd: join45(rule.fixturesPath, side), rule, inputKind, run, label: `fixtures/${side}/`, compiler });
-        if (side === FixtureSide.Fail && found.length === 0) {
+        if (side === FixtureSide2.Fail && found.length === 0) {
           problems.push(`${rule.id}: the fail fixture produced no finding \u2014 the check does not catch what the rule describes`);
         }
-        if (side === FixtureSide.Pass && found.length > 0) {
+        if (side === FixtureSide2.Pass && found.length > 0) {
           problems.push(`${rule.id}: the pass fixture produced ${found.length} finding(s) \u2014 the check flags code the rule allows`);
         }
       } catch (error51) {
@@ -41255,7 +42347,7 @@ var readFinalGateStop = async ({ run, record: record2, lastReport }) => {
 };
 var resolveReviewStandards = async ({ run }) => {
   const packs = await resolveStandardsPacks({ cwd: run.cwd, config: run.config });
-  const channels = run.config["standards-channels"] ?? await detectStandardsChannels({ cwd: run.cwd, packagesDir: run.config["packages-dir"] ?? "packages", packages: run.current().packages });
+  const channels = await resolveStandardsChannels({ cwd: run.cwd, config: run.config, packages: run.current().packages });
   return { packs, channels };
 };
 var refactorStep = ({ run, gitPrefix, planContent, overviewContent, standards }) => {
@@ -41322,7 +42414,6 @@ var consultSupervisor = async ({
   onEvent,
   onRejectedOutput
 }) => {
-  const defaultSupervisorTimeoutMinutes = 15;
   return invokeAgentWithContract({
     driver,
     cwd,
@@ -43980,7 +45071,7 @@ var refactorPair = ({ run, gitPrefix, planContent, overviewContent, standards, s
   }
 ];
 var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, testStandards, skipRefactor }) => {
-  const refactorSteps = refactorPair({ run, gitPrefix, planContent, overviewContent, standards, skipRefactor });
+  const refactorSteps2 = refactorPair({ run, gitPrefix, planContent, overviewContent, standards, skipRefactor });
   const fileLimit = parsePlan({ content: planContent, base: "plan.md" }).fileBudget ?? run.config["executor-file-limit"];
   return [
     { id: "clean-slate", run: cleanSlateStep({ run }) },
@@ -44034,7 +45125,7 @@ var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, tes
         })
       })
     },
-    ...refactorSteps,
+    ...refactorSteps2,
     formatStep({ run })
   ];
 };
@@ -44065,6 +45156,7 @@ var executePipeline = async ({
   config: config2,
   planPath,
   overviewPath,
+  parentRunId,
   packages,
   existing,
   skipRefactor,
@@ -44081,6 +45173,7 @@ var executePipeline = async ({
       plan: planPath ?? "",
       pipeline: "implement",
       overview: overviewPath,
+      parentRunId,
       driver: driver.name,
       config: config2,
       baselineDirtyFiles: await readGitChangedFiles({ cwd })
@@ -44189,6 +45282,7 @@ var runPhase = async ({
     config: config2,
     planPath: join65(dirname7(current.plan), step.id),
     overviewPath: current.plan,
+    parentRunId: current.runId,
     existing: childManifest,
     skipRefactor,
     onProgress
@@ -44849,10 +45943,9 @@ facts: ${result.factsPath}`);
 
 // src/cli/plan/readPlanningStandards.ts
 var readPlanningStandards = async ({ cwd, config: config2 }) => {
-  const packagesDir = config2?.["packages-dir"] ?? "packages";
   let standards;
   try {
-    const channels = config2?.["standards-channels"] ?? await detectStandardsChannels({ cwd, packagesDir, packages: [] });
+    const channels = await resolveStandardsChannels({ cwd, config: config2, packages: [] });
     const loaded = await resolveStandardsPacks({ cwd, config: config2 });
     const texts = loaded.map((pack) => buildStandardsDocuments({ pack, channels }).code).filter((text) => text !== void 0);
     standards = texts.length === 0 ? void 0 : texts.join("\n\n");
@@ -45735,7 +46828,7 @@ var buildWorklist = async ({ cwd, config: config2, path, all = false }) => {
       // it only ever reports to a human (in-pipeline precedent:
       // selectStandardsFindings).
       advisories: findings.filter((finding) => finding.severity === StandardsSeverity.Advisory),
-      packagesDir: config2["packages-dir"] ?? "packages"
+      packagesDir: config2["packages-dir"] ?? defaultPackagesDir
     })
   };
 };
@@ -46090,9 +47183,8 @@ var resumeCommand = async ({ flags, cwd }) => {
 
 // src/cli/reviewStandards.ts
 var reviewStandards = async ({ cwd, config: config2, path, onProgress }) => {
-  const defaultAgentTimeoutMinutes = 60;
   const packs = await resolveStandardsPacks({ cwd, config: config2 });
-  const channels = config2?.["standards-channels"] ?? await detectStandardsChannels({ cwd, packagesDir: config2?.["packages-dir"] ?? "packages", packages: [] });
+  const channels = await resolveStandardsChannels({ cwd, config: config2, packages: [] });
   const { files: walked } = await listSourceFiles({ cwd, exclude: excludedSourcePaths({ config: config2 }) });
   const files = walked.filter((file2) => !path || file2.startsWith(path));
   return runStandardsReview({

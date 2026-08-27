@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 import viteReact from '@vitejs/plugin-react';
@@ -18,6 +19,14 @@ const markdownAsText = (): Plugin => ({
 });
 
 export default defineConfig({
+	// The one build-time value this app reads. `homeMeta` needs an absolute
+	// origin for the two social tags that carry a URL, and no deploy origin is
+	// settled — so it is substituted here when the deploy states one and left
+	// undefined otherwise, which is what makes those two tags optional. Spelled
+	// `process.env` rather than `import.meta.env` because the same file is
+	// compiled to CommonJS by the app's own suite, where `import.meta` will not
+	// parse.
+	define: { 'process.env.VITE_SITE_ORIGIN': JSON.stringify(process.env.VITE_SITE_ORIGIN ?? '') },
 	// A plain literal: this app is started by hand, so there is no environment to
 	// read a port out of.
 	server: { port: 4317 },
@@ -26,6 +35,18 @@ export default defineConfig({
 	// third-party dependencies stay external and resolve at run time from where
 	// pnpm installed them, beside the engine.
 	ssr: { noExternal: [/^@lightsout\//] },
+	// The repo-root assets/ and docs/ folders. A package `imports` entry may not
+	// escape the package, so each alias is spelled here, in tsconfig.json `paths`
+	// and in jest.config.cjs `moduleNameMapper` — three declarations of one path.
+	// Vite parses an imported .json into a module, which is what the sprawl
+	// dataset needs: the component reads the data, not a link to it, and the
+	// plugin above turns each docs/*.md import into its own text.
+	resolve: {
+		alias: {
+			'#assets': fileURLToPath(new URL('../../assets', import.meta.url)),
+			'#docs': fileURLToPath(new URL('../../docs', import.meta.url)),
+		},
+	},
 	optimizeDeps: { exclude: ['@lightsout/engine', '@lightsout/shared'] },
 	plugins: [markdownAsText(), tanstackStart(), tailwindcss(), viteReact()],
 });

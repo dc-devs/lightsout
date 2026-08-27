@@ -1,25 +1,11 @@
 import type { StandardsFinding } from '@lightsout/engine';
 import type { FolderGroup } from '#src/features/standards/common/types/FolderGroup.ts';
+import { getFindingFolder } from '#src/features/standards/common/utils/getFindingFolder.ts';
 
 interface Params {
 	findings: StandardsFinding[];
 	depth: number;
 }
-
-/**
- * The folder label one site path reduces to.
- *
- * The final segment is dropped only when it looks like a file — a dot in it —
- * so a folder site reported by a structure rule keeps its last segment, and a
- * path shorter than `depth` is used whole. That is the convention the engine's
- * `buildDominantPathNote` already computes the single winner with.
- */
-const getFolder = ({ site, depth }: { site: string; depth: number }) => {
-	const segments = site.split('/');
-	const withoutFile = segments[segments.length - 1].includes('.') ? segments.slice(0, -1) : segments;
-
-	return withoutFile.slice(0, depth).join('/') || '.';
-};
 
 /**
  * Findings bucketed by the folder their first file sits in, largest bucket
@@ -37,7 +23,7 @@ export const groupFindingsByFolder = ({ findings, depth }: Params): FolderGroup[
 	const byFolder = new Map<string, Map<string, number>>();
 
 	for (const finding of findings) {
-		const folder = finding.files.length === 0 ? '.' : getFolder({ site: finding.files[0].path, depth });
+		const folder = getFindingFolder({ finding, depth });
 		const rules = byFolder.get(folder) ?? new Map<string, number>();
 
 		rules.set(finding.rule, (rules.get(finding.rule) ?? 0) + 1);

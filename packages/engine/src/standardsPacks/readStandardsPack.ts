@@ -12,7 +12,6 @@ import { formatSchemaIssues } from '#src/standardsPacks/common/utils/formatSchem
 import { hasFile } from '#src/standardsPacks/common/utils/hasFile.ts';
 
 interface Params {
-	/** Absolute pack root. */
 	packPath: string;
 }
 
@@ -149,6 +148,8 @@ export const readStandardsPack = async ({ packPath }: Params): Promise<LoadedSta
 		name: root.data.name,
 		formatVersion: root.data.formatVersion,
 		built: root.data.built,
+		description: root.data.description,
+		homepage: root.data.homepage,
 		rootPath: packPath,
 		...(hasFrameworkOwned ? { frameworkOwnedFixturesPath } : {}),
 		...(hasFrameworksModule ? { frameworksModulePath } : {}),

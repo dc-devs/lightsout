@@ -3,12 +3,18 @@
   "subtitle": "Ten steps, deterministic gates throughout, and a complete record saved to disk.",
   "columns": 5,
   "savedLabel": "SAVED TO DISK",
-  "theme": { "from": "#35d6e8", "to": "#b06bf5" },
+  "theme": {
+    "from": "#35d6e8",
+    "to": "#b06bf5"
+  },
   "banner": "The model can claim success. Lightsout requires evidence.",
   "cards": [
     {
       "title": "START THE RUN",
-      "tag": { "label": "the engine", "tone": "to" },
+      "tag": {
+        "label": "the engine",
+        "tone": "to"
+      },
       "bullets": [
         "Hand the finished plan to `/implement`",
         "Resolve settings from the config",
@@ -16,22 +22,34 @@
         "Create a repository lock so other lightsout runs cannot clash"
       ],
       "note": "Isolates the agent’s changes and makes the run safely resumable",
-      "saved": [".lightsout/runs/<id>/manifest.json", ".lightsout/lock.json"]
+      "saved": [
+        ".lightsout/runs/<id>/manifest.json",
+        ".lightsout/lock.json"
+      ]
     },
     {
       "title": "VERIFY THE REPO STARTS GREEN",
-      "tag": { "label": "the engine", "tone": "to" },
+      "tag": {
+        "label": "the engine",
+        "tone": "to"
+      },
       "bullets": [
         "Run lint, type checks, tests, build, and coverage before implementation begins",
         "Stop immediately if any gate is already failing",
         "Record files touched by setup or gates in the manifest"
       ],
       "note": "Proves any later failure was introduced by this run, not inherited from the repository",
-      "saved": ["manifest.json", ".lightsout/runs/<id>/commands.jsonl"]
+      "saved": [
+        "manifest.json",
+        ".lightsout/runs/<id>/commands.jsonl"
+      ]
     },
     {
       "title": "IMPLEMENT THE PLAN",
-      "tag": { "label": "the agent", "tone": "from" },
+      "tag": {
+        "label": "the agent",
+        "tone": "from"
+      },
       "bullets": [
         "The implementation agent follows the finished spec",
         "It writes the code and returns a structured report",
@@ -46,39 +64,60 @@
     },
     {
       "title": "VERIFY THE IMPLEMENTATION",
-      "tag": { "label": "the engine", "tone": "to" },
+      "tag": {
+        "label": "the engine",
+        "tone": "to"
+      },
       "bullets": [
         "Re-run lint, type checks, tests, build, and coverage",
         "Try up to two lightweight repairs if a gate fails",
         "If the gates remain red, park the run with all evidence"
       ],
       "note": "Prevents a broken implementation from moving forward",
-      "saved": ["manifest.json", ".lightsout/friction.jsonl"]
+      "saved": [
+        "manifest.json",
+        ".lightsout/friction.jsonl"
+      ]
     },
     {
       "title": "WRITE THE TESTS",
-      "tag": { "label": "the agent", "tone": "from" },
+      "tag": {
+        "label": "the agent",
+        "tone": "from"
+      },
       "bullets": [
         "Spawn a test-writing agent for each source file that changed",
         "Add tests until coverage meets the configured threshold",
         "Skip this step when no eligible source files changed"
       ],
       "note": "Makes sure the new behavior is covered by tests",
-      "saved": [".lightsout/runs/<id>/agents/", "stream-NN-write-tests.jsonl"]
+      "saved": [
+        ".lightsout/runs/<id>/agents/",
+        "stream-NN-write-tests.jsonl"
+      ]
     },
     {
       "title": "VERIFY THE TESTS",
-      "tag": { "label": "the engine", "tone": "to" },
+      "tag": {
+        "label": "the engine",
+        "tone": "to"
+      },
       "bullets": [
         "Re-run lint, type checks, tests, build, and coverage",
         "Try up to two lightweight repairs if a gate fails"
       ],
       "note": "Confirms the new tests pass and coverage meets the configured threshold",
-      "saved": ["manifest.json", ".lightsout/friction.jsonl"]
+      "saved": [
+        "manifest.json",
+        ".lightsout/friction.jsonl"
+      ]
     },
     {
       "title": "REFACTOR",
-      "tag": { "label": "the agent", "tone": "from" },
+      "tag": {
+        "label": "the agent",
+        "tone": "from"
+      },
       "bullets": [
         "Review changed code for duplication and structural issues",
         "Reuse existing helpers or extract shared abstractions",
@@ -86,38 +125,57 @@
         "Skip this step when requested or when nothing changed"
       ],
       "note": "Removes duplication and keeps agent-written code aligned with your code standards",
-      "saved": [".lightsout/runs/<id>/agents/", "stream-NN-refactor.jsonl"]
+      "saved": [
+        ".lightsout/runs/<id>/agents/",
+        "stream-NN-refactor.jsonl"
+      ]
     },
     {
       "title": "VERIFY THE REFACTOR",
-      "tag": { "label": "the engine", "tone": "to" },
+      "tag": {
+        "label": "the engine",
+        "tone": "to"
+      },
       "bullets": [
         "Re-run lint, type checks, tests, build, and coverage",
         "Try up to two lightweight repairs if a gate fails"
       ],
       "note": "Confirms the refactor preserved behavior and passes every gate",
-      "saved": ["manifest.json", ".lightsout/friction.jsonl"]
+      "saved": [
+        "manifest.json",
+        ".lightsout/friction.jsonl"
+      ]
     },
     {
       "title": "FORMAT THE CODE",
-      "tag": { "label": "the engine", "tone": "to" },
+      "tag": {
+        "label": "the engine",
+        "tone": "to"
+      },
       "bullets": [
         "Run the configured formatter on all changed files",
         "Re-run lint, type checks, tests, build, and coverage"
       ],
       "note": "Confirms formatting does not break a green run",
-      "saved": [".lightsout/runs/<id>/commands.jsonl"]
+      "saved": [
+        ".lightsout/runs/<id>/commands.jsonl"
+      ]
     },
     {
       "title": "REPORT THE RESULT",
-      "tag": { "label": "the engine", "tone": "to" },
+      "tag": {
+        "label": "the engine",
+        "tone": "to"
+      },
       "bullets": [
         "Generate the final report from artifacts saved during the run",
         "Record the final status, steps, retries, rejected reports, token cost, and friction",
         "Keep the complete run history in one folder"
       ],
       "note": "Leaves an inspectable record of what happened and why the run passed or failed",
-      "saved": [".lightsout/runs/<id>/"]
+      "saved": [
+        ".lightsout/runs/<id>/"
+      ]
     }
   ]
 }

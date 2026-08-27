@@ -1,3 +1,4 @@
+import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { readPlanSources } from '#src/pipeline/common/utils/readPlanSources.ts';
@@ -46,7 +47,7 @@ export const prepareRun = async ({ run, cwd, config, packages }: Params): Promis
 		current: manifest.packages,
 		packages,
 		planContent: sources.planContent,
-		packagesDir: config['packages-dir'] ?? 'packages',
+		packagesDir: config['packages-dir'] ?? defaultPackagesDir,
 	});
 
 	if ('error' in scope) {

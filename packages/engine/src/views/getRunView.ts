@@ -2,8 +2,10 @@ import { access } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { readJsonlRecords } from '#src/common/utils/readJsonlRecords.ts';
 import { AgentInvocation, GateEvidence, PhaseReport, PipelineKind, type RunStepView, type RunView, type StepRecord } from '#src/contracts/index.ts';
-import { getRunDir, listRunIds, readFriction, readRunLock, readRunManifest, summarizeRun } from '#src/runState/index.ts';
+import { getRunDir, readFriction, readRunLock, readRunManifest, summarizeRun } from '#src/runState/index.ts';
+import { buildRunBurnDown } from '#src/views/common/utils/buildRunBurnDown.ts';
 import { getRunTitle } from '#src/views/common/utils/getRunTitle.ts';
+import { readFrozenWorklist } from '#src/views/common/utils/readFrozenWorklist.ts';
 import { readRunListing } from '#src/views/common/utils/readRunListing.ts';
 
 /** The per-step spend summarizeRun attributed, keyed by step id. */
@@ -56,30 +58,24 @@ const buildStepView = async ({
 };
 
 /**
- * The coordinator that spawned this run, found by asking every other run's
- * manifest whether one of its steps reported this run id. Only manifests are
- * read — a back-link must not cost a pass over every run's JSONL evidence.
+ * The coordinator this run records, read straight off its own manifest's
+ * `parentRunId` — one manifest opened, no scan over the rest of the history.
+ *
+ * Absent silently wherever the link cannot be proved: a top-level run records
+ * no parent, a phase child recorded before the field existed carries none, and
+ * a coordinator whose manifest will not read (deleted, corrupt, mid-write)
+ * leaves the back-link off rather than taking the page down.
+ *
+ * The step is the coordinator's own record of this child, and while the phase
+ * is still running there is no such record yet — the step in flight is what
+ * names it until the child reports back.
  */
-const findParent = async ({ cwd, runId }: { cwd: string; runId: string }): Promise<RunView['parent']> => {
-	for (const candidateId of await listRunIds({ cwd })) {
-		if (candidateId === runId) {
-			continue;
-		}
+const readParent = async ({ cwd, runId, parentRunId }: { cwd: string; runId: string; parentRunId?: string }): Promise<RunView['parent']> => {
+	const manifest = parentRunId === undefined ? undefined : await readRunManifest({ cwd, runId: parentRunId }).catch(() => undefined);
+	const recorded = manifest?.steps.find((candidate) => PhaseReport.safeParse(candidate.report).data?.runId === runId);
+	const step = recorded?.id ?? manifest?.currentStep ?? undefined;
 
-		const manifest = await readRunManifest({ cwd, runId: candidateId }).catch(() => undefined);
-
-		if (manifest?.pipeline !== PipelineKind.Phases) {
-			continue;
-		}
-
-		const step = manifest.steps.find((candidate) => PhaseReport.safeParse(candidate.report).data?.runId === runId);
-
-		if (step !== undefined) {
-			return { runId: manifest.runId, step: step.id, title: getRunTitle({ plan: manifest.plan }) };
-		}
-	}
-
-	return undefined;
+	return manifest === undefined || step === undefined ? undefined : { runId: manifest.runId, step, title: getRunTitle({ plan: manifest.plan }) };
 };
 
 interface Params {
@@ -115,9 +111,12 @@ export const getRunView = async ({ cwd, runId }: Params): Promise<RunView> => {
 	const overview = coordinatorOverview ?? manifest.overview;
 	const overviewDir = coordinatorOverview === undefined ? undefined : dirname(coordinatorOverview);
 	const friction = await readFriction({ cwd });
+	// Read once here rather than inside `readRunListing`, because the burn-down
+	// wants the same file: two consumers, one open of `worklist.json`.
+	const worklist = manifest.plan.endsWith('worklist.json') ? await readFrozenWorklist({ cwd, manifest }) : undefined;
 
 	return {
-		listing: await readRunListing({ cwd, manifest, lock }),
+		listing: await readRunListing({ cwd, manifest, lock, worklist }),
 		harness: manifest.harness,
 		overview,
 		currentStep: manifest.currentStep,
@@ -134,6 +133,7 @@ export const getRunView = async ({ cwd, runId }: Params): Promise<RunView> => {
 		friction: friction.filter((entry) => entry.runId === manifest.runId),
 		changedFiles: manifest.changedFiles,
 		unreachableChangedFiles: manifest.unreachableChangedFiles,
-		parent: await findParent({ cwd, runId: manifest.runId }),
+		parent: await readParent({ cwd, runId: manifest.runId, parentRunId: manifest.parentRunId }),
+		burnDown: buildRunBurnDown({ manifest, worklist }),
 	};
 };

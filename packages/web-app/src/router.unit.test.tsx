@@ -18,6 +18,9 @@ import { getRouter } from '#src/router.tsx';
 const mockListRuns = jest.fn<() => Promise<RunListing[]>>();
 
 jest.mock('#src/lightsout/index.ts', () => ({
+	// Everything else is the real thing: the frozen demo runs Home reads are
+	// committed JSON rather than disk this test has to fake.
+	...jest.requireActual<typeof import('#src/lightsout/index.ts')>('#src/lightsout/index.ts'),
 	getReader: () => ({ listRuns: () => mockListRuns() }),
 }));
 // -------------------------
@@ -59,7 +62,24 @@ describe('getRouter', () => {
 
 		const router = getRouter();
 
-		expect(Object.keys(router.routesById).sort()).toStrictEqual(['/', '/repo/runs', '/repo/runs_/$runId', '/repo/standards', '__root__']);
+		expect(Object.keys(router.routesById).sort()).toStrictEqual([
+			'/',
+			'/commands/',
+			'/commands/$command',
+			'/docs/$doc',
+			'/repo/',
+			'/repo/config',
+			'/repo/friction',
+			'/repo/plans/',
+			'/repo/plans/$name',
+			'/repo/runs',
+			'/repo/runs_/$runId',
+			'/repo/standards',
+			'/standards/',
+			'/standards/$pack/',
+			'/standards/$pack/$rule',
+			'__root__',
+		]);
 	});
 
 	test("hands the routes' loaders a query client to prefetch through", () => {

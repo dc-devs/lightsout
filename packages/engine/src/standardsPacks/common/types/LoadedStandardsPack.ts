@@ -13,6 +13,10 @@ export interface LoadedStandardsPack {
 	 * against a built pack and says so rather than blaming its rules.
 	 */
 	built?: true;
+	/** One line a pack page shows under its name, from the root file; absent when the pack states none. */
+	description?: string;
+	/** Absolute URL for the pack's own page or repository, from the root file. */
+	homepage?: string;
 	/** Absolute pack root. */
 	rootPath: string;
 	/**

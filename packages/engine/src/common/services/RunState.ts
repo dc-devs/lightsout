@@ -1,3 +1,4 @@
+import { defaultAgentTimeoutMinutes } from '#src/common/constants/defaultAgentTimeoutMinutes.ts';
 import type { AgentUsage, LightsoutConfig, RunManifest, RunStatus, RunUsage, StepRecord } from '#src/contracts/index.ts';
 import { recordAgentUsage, seedUsageTotals, writeManifestWithUsage } from '#src/runState/index.ts';
 
@@ -40,8 +41,6 @@ export class RunState {
 	private readonly onProgress?: (message: string) => void;
 
 	constructor({ cwd, config, manifest, onProgress }: ConstructorParams) {
-		const defaultAgentTimeoutMinutes = 60;
-
 		this.cwd = cwd;
 		this.config = config;
 		this.manifest = manifest;

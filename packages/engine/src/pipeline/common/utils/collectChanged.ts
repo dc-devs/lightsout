@@ -1,3 +1,4 @@
+import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { packageOf } from '#src/common/workspace/packageOf.ts';
 import type { WorkReport } from '#src/contracts/index.ts';
@@ -21,7 +22,7 @@ export const collectChanged = async ({ run, gitPrefix, reports }: Params): Promi
 	// Generated/derived files (configured prefixes) are like gate artifacts:
 	// real in the diff, but never attributed — their source is the change.
 	const isGeneratedFile = ({ file }: { file: string }) => (run.config.generated ?? []).some((prefix) => file.startsWith(prefix));
-	const packagesDir = run.config['packages-dir'] ?? 'packages';
+	const packagesDir = run.config['packages-dir'] ?? defaultPackagesDir;
 	const fromGit = ((await readGitChangedFiles({ cwd: run.cwd })) ?? []).filter(
 		(file) => !run.current().baselineDirtyFiles.includes(file) && !isGeneratedFile({ file }),
 	);

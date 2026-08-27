@@ -27,7 +27,16 @@ const setupRunDetail = ({ overrides = {} }: { overrides?: Partial<RunView> } = {
 
 	const view = buildRunView({ overrides });
 
-	renderWithQueryClient({ ui: <RunDetail runId={runId} />, seed: [{ queryKey: [QueryKey.Run, runId], data: view }] });
+	renderWithQueryClient({
+		ui: <RunDetail runId={runId} />,
+		seed: [
+			{ queryKey: [QueryKey.Run, runId], data: view },
+			// The page subscribes to the repo lookup rather than suspending on it, so
+			// an unseeded key would answer "no repo" on the render every test reads —
+			// and the resume command would be suppressed.
+			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot: '/repos/lightsout' } },
+		],
+	});
 
 	return { view };
 };

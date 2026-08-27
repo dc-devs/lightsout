@@ -3,23 +3,35 @@
   "subtitle": "Twelve steps, one batch at a time, every fix re-checked and re-gated before the next begins.",
   "columns": 4,
   "savedLabel": "SAVED TO DISK",
-  "theme": { "from": "#35d6e8", "to": "#b06bf5" },
+  "theme": {
+    "from": "#35d6e8",
+    "to": "#b06bf5"
+  },
   "banner": "The engine never commits. It hands back a measured before-and-after and a diff you review.",
   "cards": [
     {
       "title": "START THE RUN",
-      "tag": { "label": "the engine", "tone": "to" },
+      "tag": {
+        "label": "the engine",
+        "tone": "to"
+      },
       "bullets": [
         "Point `/refactor` at the whole repo or one folder, with an optional batch budget",
         "Refuse to start without a config, without git, or with uncommitted changes",
         "Create a run ID and a repository lock so no other lightsout run touches the same tree"
       ],
       "note": "Keeps the entire cleanup as one diff you can read, revert, or resume",
-      "saved": [".lightsout/runs/<id>/manifest.json", ".lightsout/lock.json"]
+      "saved": [
+        ".lightsout/runs/<id>/manifest.json",
+        ".lightsout/lock.json"
+      ]
     },
     {
       "title": "FIND THE WORK",
-      "tag": { "label": "the engine", "tone": "to" },
+      "tag": {
+        "label": "the engine",
+        "tone": "to"
+      },
       "bullets": [
         "Search source files for repeated names, copied code, duplicate logic, oversized code, misplaced files, boundary violations, and dead exports",
         "Detectors that read types need the repo’s own TypeScript, and say so when it is missing",
@@ -27,117 +39,177 @@
       ],
       "note": "Detection is deterministic code — no agent is ever asked to go find problems",
       "savedLabel": "READ FROM DISK",
-      "saved": ["lightsout.standards-baseline.json"]
+      "saved": [
+        "lightsout.standards-baseline.json"
+      ]
     },
     {
       "title": "GROUP INTO BATCHES",
-      "tag": { "label": "the engine", "tone": "to" },
+      "tag": {
+        "label": "the engine",
+        "tone": "to"
+      },
       "bullets": [
         "One batch is one kind of finding in one area — a package, a top-level folder, or the repo root",
         "The most mechanical kinds run first, twelve findings at most, and a finding spanning two areas gets its own batch",
         "Freeze the list to disk and work from it — never recompute it midway"
       ],
       "note": "Gives each agent a single coherent job instead of a pile of unrelated fixes",
-      "saved": [".lightsout/runs/<id>/worklist.json"]
+      "saved": [
+        ".lightsout/runs/<id>/worklist.json"
+      ]
     },
     {
       "title": "VERIFY THE REPO STARTS GREEN",
-      "tag": { "label": "the engine", "tone": "to" },
+      "tag": {
+        "label": "the engine",
+        "tone": "to"
+      },
       "bullets": [
         "Run any code generator first, then lint, type checks, tests, build, and coverage",
         "Stop immediately if any gate is already failing",
         "Skip this on a resumed run when an earlier attempt already proved it green"
       ],
       "note": "Proves any later failure was introduced by this run, not inherited from the repository",
-      "saved": ["manifest.json", ".lightsout/runs/<id>/commands.jsonl"]
+      "saved": [
+        "manifest.json",
+        ".lightsout/runs/<id>/commands.jsonl"
+      ]
     },
     {
       "title": "SKIP WHAT IS ALREADY FIXED",
-      "tag": { "label": "the engine", "tone": "to" },
+      "tag": {
+        "label": "the engine",
+        "tone": "to"
+      },
       "bullets": [
         "Check again immediately before each batch starts",
         "If earlier batches already cleared these findings, close the batch and spend no agent",
         "Collect fresh size warnings for the batch’s files — the frozen ones cite line numbers that have since moved"
       ],
       "note": "Never pays an agent to fix something that is already gone",
-      "saved": ["manifest.json"]
+      "saved": [
+        "manifest.json"
+      ]
     },
     {
       "title": "FIX ONE BATCH",
-      "tag": { "label": "the agent", "tone": "from" },
+      "tag": {
+        "label": "the agent",
+        "tone": "from"
+      },
       "bullets": [
         "Batches run one at a time; the agent gets the findings, the files they live in, and your code standards",
         "Findings must be fixed or explained; size warnings are judged against your documented exemptions",
         "It may run only the commands your config allows, works under a time limit, and answers with one structured report"
       ],
       "note": "Changes structure only — the behavior has to survive untouched",
-      "saved": [".lightsout/runs/<id>/agents/", "stream-batch-NN-*.jsonl", "rejected-*.txt"]
+      "saved": [
+        ".lightsout/runs/<id>/agents/",
+        "stream-batch-NN-*.jsonl",
+        "rejected-*.txt"
+      ]
     },
     {
       "title": "VERIFY THE BATCH",
-      "tag": { "label": "the engine", "tone": "to" },
+      "tag": {
+        "label": "the engine",
+        "tone": "to"
+      },
       "bullets": [
         "Re-run the gates, scoped to the packages that changed, with coverage always on",
         "Try up to two lightweight repairs when a gate goes red",
         "Send a coverage-only failure to a test-writing agent; a mixed failure goes back to the refactor agent first"
       ],
       "note": "Stops a batch that broke the build from reaching the next one",
-      "saved": ["manifest.json", ".lightsout/runs/<id>/commands.jsonl"]
+      "saved": [
+        "manifest.json",
+        ".lightsout/runs/<id>/commands.jsonl"
+      ]
     },
     {
       "title": "BRING IN A SUPERVISOR",
-      "tag": { "label": "the agent", "tone": "from" },
+      "tag": {
+        "label": "the agent",
+        "tone": "from"
+      },
       "bullets": [
         "When the quick repairs run out, a read-only supervisor diagnoses the failure",
         "It either grants one guided retry or rules the failure a human problem",
         "If the gates are still red after that, the run stops with the diagnosis attached as evidence"
       ],
       "note": "Buys judgment exactly once, instead of retrying forever",
-      "saved": [".lightsout/runs/<id>/agents/", "stream-batch-NN-supervisor.jsonl"]
+      "saved": [
+        ".lightsout/runs/<id>/agents/",
+        "stream-batch-NN-supervisor.jsonl"
+      ]
     },
     {
       "title": "RULE ON THE BATCH",
-      "tag": { "label": "the engine", "tone": "to" },
+      "tag": {
+        "label": "the engine",
+        "tone": "to"
+      },
       "bullets": [
         "Check again — the code rules, and a copied block that merely moved is not gone",
         "Gone counts as resolved; still there with nothing changed counts as declined, with the agent’s reasoning kept",
         "Partly fixed earns one more pass, and whatever survives that is recorded as declined"
       ],
       "note": "Work finished without a report still counts, and changed files come from git, minus generated output",
-      "saved": ["manifest.json", ".lightsout/friction.jsonl"]
+      "saved": [
+        "manifest.json",
+        ".lightsout/friction.jsonl"
+      ]
     },
     {
       "title": "KNOW WHEN TO STOP",
-      "tag": { "label": "the engine", "tone": "to" },
+      "tag": {
+        "label": "the engine",
+        "tone": "to"
+      },
       "bullets": [
         "Three declines in a row end the run — the pattern is systemic, and more spend will not fix it",
         "A refusal on scope grounds counts as a decline and the run carries on",
         "A harness rate limit or your batch budget parks the run instead of failing it"
       ],
       "note": "Each batch is saved before the next begins, and declines are read back — resuming re-runs nothing",
-      "saved": ["manifest.json"]
+      "saved": [
+        "manifest.json"
+      ]
     },
     {
       "title": "MEASURE THE BURN-DOWN",
-      "tag": { "label": "the engine", "tone": "to" },
+      "tag": {
+        "label": "the engine",
+        "tone": "to"
+      },
       "bullets": [
         "Check the whole scope once more and report findings before and after, one line per kind",
         "A parked run reports no burn-down — resume it to finish and measure",
         "Keep every batch outcome, retry, token cost, and point of friction in one folder"
       ],
       "note": "Turns the cleanup into a number you can check rather than a claim",
-      "saved": [".lightsout/runs/<id>/", "agents.jsonl", ".lightsout/friction.jsonl"]
+      "saved": [
+        ".lightsout/runs/<id>/",
+        "agents.jsonl",
+        ".lightsout/friction.jsonl"
+      ]
     },
     {
       "title": "REVIEW AND COMMIT",
-      "tag": { "label": "you decide", "tone": "from" },
+      "tag": {
+        "label": "you decide",
+        "tone": "from"
+      },
       "bullets": [
         "Read each declined batch alongside the agent’s own reasoning for leaving it",
         "Fix it by hand, or accept it as known debt in the baseline",
         "Review the working-tree diff and commit it — the engine never commits"
       ],
       "note": "Leaves the last call on unfixed debt with a human",
-      "saved": ["lightsout.standards-baseline.json"]
+      "saved": [
+        "lightsout.standards-baseline.json"
+      ]
     }
   ]
 }
