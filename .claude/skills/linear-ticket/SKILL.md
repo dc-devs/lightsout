@@ -95,6 +95,30 @@ Include the criteria that must *keep* holding, not just the new behaviour. If
 a gate stops catching real defects, the work failed even when the reported bug
 is gone.
 
+#### On a `direct` ticket, the criteria carry the decisions
+
+A `direct` ticket has no brainstorm and no plan behind it, so the body is the
+only place a decision already made with the user can live. Write each one as a
+criterion, because a decision is an outcome: "the landing page shows no
+repository sidebar" is a thing you can check, and it stays checkable however
+the layout is built.
+
+That is the test for the label. **If a decision cannot be written as something
+checkable, the ticket is not `direct`** — what you are holding is a design, and
+a design goes to `/lightsout:brainstorm` to be made against the code as it is
+on the day someone builds it.
+
+Write the decision, never the mechanism a decision implies:
+
+- Good — `Verify that a link into the repository pages appears only when a
+  repository is found.`
+- Bad — `Verify that TopNav renders an App link from repoRootQueryOptions.`
+  Names the two components that happen to exist today.
+
+The rest of the rules do not bend for this. No section is added, nothing is
+attached, and a decision nobody made stays out — the criteria on a `direct`
+ticket are still only what the user settled and what you checked.
+
 ### Feature tickets
 
 The template holds for a feature, but three parts carry different weight.
@@ -127,10 +151,135 @@ behaviour, so a design decision can slip in wearing a checkbox:
 - Bad — `Verify that createPiDriver parses agent_end.`
   Names a file and a mechanism nobody has chosen yet.
 
+## Route
+
+Every ticket takes one of three routes to being built. The route is a
+**judgment**, made by whoever writes the ticket or picks it up, and written
+down. Never derive it from a proxy — not the file count, not whether the ticket
+has open questions, not how long the body is. A ticket with nothing unsettled
+can still be forty files that need sequencing before anyone types, and a
+twenty-line change can turn on a decision you will live with for a year.
+
+| Label | Means | Produces |
+|---|---|---|
+| `brainstorm-first` | Run `/lightsout:brainstorm`, then decide whether it also needs a plan. **This is the default.** | Notes and settled decisions, and usually a plan after it |
+| `plan-first` | Go straight to `/lightsout:plan`. | A plan folder |
+| `direct` | Build it. No brainstorm, no plan. | The diff, and nothing else |
+
+**Brainstorm is the default whenever there is design work.** It is where a vague
+idea gets shaped, where competing approaches get weighed, and where the thing
+turns out to be three tickets instead of one. Reaching for a plan first skips
+all of that and plans the wrong thing carefully.
+
+**`plan-first` is the exception, not a peer.** It applies only when a brainstorm
+has already settled **this ticket's own** design — usually the brainstorm that
+produced the ticket. A brainstorm about a neighbouring ticket does not count,
+however much context it shares: the tickets that fall out of one brainstorm are
+its by-products, not its subjects, and nobody has yet shaped them.
+
+**`direct` is for work with no design in it.** The change is local, the diff is
+describable in a sentence, and being wrong is cheap to undo. It is a real route
+and using it is not cutting a corner — but it is a claim, and the claim gets
+recorded with the label.
+
+A ticket carrying none of the three is **undecided**, which is a legitimate
+state. Most of a backlog sits there. Do not force a route at filing time to
+avoid an empty field.
+
+### The route is not the status
+
+The route says how a ticket gets shaped. The **status** says where it is. They
+answer different questions and neither substitutes for the other.
+
+A ticket whose shaping is finished — the brainstorm ran, the plan is written and
+graded — is not waiting on a route. It is waiting on someone to build it, and it
+belongs in **Ready to implement**. Its label stays as the record of how it got
+there; reading it as an instruction to go and brainstorm again is a misreading,
+and leaving such a ticket in Backlog hides finished work behind unstarted work.
+
+The statuses follow the pipeline, and the names are the pipeline's own:
+
+```
+Backlog → Ready to implement → In Progress → Done
+```
+
+Move a ticket to **Ready to implement** the moment its route is complete:
+
+| Route | Complete when |
+|---|---|
+| `direct` | Immediately — there is nothing to shape |
+| `brainstorm-first` | The brainstorm ended, and the plan it called for (if any) is graded |
+| `plan-first` | The plan is graded |
+
+"Ready to implement" means exactly what it says: `/implement` can be pointed at
+it now. For a routed-and-planned ticket that means the plan folder exists and
+graded; for a `direct` one it means the ticket body is enough to build from.
+
+### Recording it
+
+**The label is the record.** It is a real field on the ticket: filterable, and
+it overwrites rather than accumulating. Do not restate it in a comment. Each of
+the three carries its own description in Linear, and they are defined above —
+`brainstorm-first` already says why it is `brainstorm-first`, and a sentence per
+ticket repeating that is ceremony that rots.
+
+**Whoever picks the ticket up may change it**, by changing the label and
+nothing else. The filer knows less about the problem than anyone who reads it
+later — that holds for the route as much as for the facts. Do not leave a
+comment explaining the change: the route is current state, and the same rule
+applies as to the body. Nobody reading later needs the wrong version, and Linear
+keeps the revision history for anyone who does.
+
+**`plan-first` is the one route that owes evidence**, because it is the only one
+asserting a fact: that a brainstorm already settled this ticket's design.
+Without proof anyone can claim it and skip the step, which is the one failure
+mode that would quietly undo this whole section.
+
+So: **attach the brainstorm's `notes.md` when you set `plan-first`.** Not at
+close — now. That file is safe to attach early in a way a plan is not: brainstorm
+writes it once, and `/lightsout:plan` snapshots it write-once and never
+overwrites, so it is frozen the moment the brainstorm ends. `.lightsout` is
+gitignored, so it exists on exactly one laptop; attach it or it is gone.
+
+Attach `notes.md` alone. `brainstorm-decisions.json` is machine input — `plan
+draft` merges those rows into the plan, so `plan.md`'s Decision Log carries all
+of them by the time you close, and attaching it would put the same rows in the
+ticket twice.
+
+Two cases that therefore do **not** qualify for `plan-first`, and this is the
+useful part of the rule rather than a technicality:
+
+- A brainstorm that exited at "just build it" wrote no files. Nothing to attach.
+  That ticket is `direct`, or it is already done.
+- A design settled in conversation with nothing written down. Nothing to attach.
+  If you want to skip the brainstorm step, the brainstorm has to have left
+  something behind.
+
+**At close, state the route actually taken**, not the one the label predicted. A
+`direct` ticket that turned out to need a plan is the more useful fact: it is
+how you learn where the judgment runs thin. This is the one place the route's
+history is worth writing down, because it is an outcome rather than a running
+log, and it is written once at the point the ticket stops changing.
+
+### Do not invent a lighter plan
+
+There is no small-plan format for `direct` work. The moment one exists every
+ticket gets one, and the ceremony the route exists to avoid grows back. The
+closing comment is the record.
+
+This is not the same as losing what was already decided. A decision settled with
+the user before the ticket was filed belongs in the acceptance criteria, written
+as an outcome — see [On a `direct` ticket, the criteria carry the
+decisions](#on-a-direct-ticket-the-criteria-carry-the-decisions). That needs no
+new section and no attachment, which is why it does not grow into one.
+
 ## Branch
 
 A branch is named after its ticket: `lo-<number>-<slug>` —
 `lo-45-web-app-design`.
+
+The branch is the same whichever route the ticket took. It is the one thing that
+links the ticket, the worktree, the commits and the PR, so it never varies.
 
 Linear finds the ticket id anywhere in the name and links the branch to the
 issue. Its copy-branch-name button prefixes your username; drop that, the id
@@ -157,11 +306,15 @@ Append one comment, and keep it short:
 
 - what shipped
 - the PR (which carries the branch and the commits)
+- the route taken (see above), and for `direct`, one line on why there was no
+  plan — a closed ticket with nothing attached is otherwise ambiguous between
+  "small enough not to need one" and "process skipped", and six months on
+  nobody can tell which
 - each acceptance criterion, and how it was verified
 - anything deliberately left undone, and whether another ticket tracks it
 
-Attach the plan (see below). It holds the reasoning and the rejected options;
-do not restate its decision table in the comment.
+Attach the plan (see below) when the route produced one. It holds the reasoning
+and the rejected options; do not restate its decision table in the comment.
 
 Write down results, not the story of getting there. Leave out what you tried,
 what you gave up on, and how the finished work compared to the original ticket.
@@ -178,22 +331,56 @@ a link — it resolves for nobody but the author, and not for the author on a
 different laptop. Never paste a filesystem path into a ticket and call it a
 reference.
 
-**Attach these three when you close the ticket:**
+A `direct` ticket has no plan folder and nothing to attach. That is expected —
+say so in the closing comment rather than leaving a silent gap.
+
+A `brainstorm-first` ticket that stopped at "just build it" has notes but no
+plan. Attach nothing; the closing comment carries what was decided.
+
+**Attach these four when the route produced a plan:**
 
 | file | what it holds |
 |---|---|
+| `notes.md` | the brainstorm: the idea in the user's words, the scope call, the approach chosen and the ones rejected |
 | `plan.md` (or `overview.md`) | the plan that was built |
 | `decisions.json` | every question asked, the option chosen, and why — including which choices were assumptions nobody confirmed |
 | `grade.json` | half a kilobyte recording that the plan was graded, and against which lenses |
 
 Skip `facts.json` — it predicts which files the work will touch, and once the
-PR exists the diff answers that better. Skip `dedup.json` and every
-`*-stream.jsonl`; the streams are the raw brainstorm transcripts, roughly 98% of
-the folder by size, and `decisions.json` already holds their conclusions.
+PR exists the diff answers that better. Skip `brainstorm-decisions.json`: `plan
+draft` merges its rows into the plan, so `plan.md`'s Decision Log already
+carries every one of them.
 
-Attach at close, never when you file. Until the run finishes the plan can still
-change, and a copy of a changing document goes stale exactly the way a
-guessed-at fix does.
+Skip `dedup.json`, every `*-stream.jsonl` and every `*-rejected-*.txt`. The
+streams are the harness event log for each `draft`, `dedup` and `grade` agent —
+not brainstorm, which runs no engine command and writes no stream — and they are
+roughly 98% of the folder by size. One sampled stream ran 215 lines and 240 KB,
+of which 138 lines were token-accounting events. Their conclusions are already in
+`grade.json` and `plan.md`; what is unique to them is which files an agent opened
+and what it thought, which is a debugging artifact, not something a person
+picking up a ticket reads. Keep them on disk — the rejected payloads in
+particular are the record of how an agent's report failed its contract — and
+attach neither.
+
+### Attach when the ticket is ready to implement, not at close
+
+The moment a route completes and the ticket moves to **Ready to implement**,
+attach the files. Waiting until close assumes whoever builds it is whoever
+planned it, on the machine that planned it — the assumption this whole system
+exists to break.
+
+`.lightsout` is gitignored. Until these files are attached, a plan exists on
+exactly one laptop, and any other agent picking up that ticket sees a problem
+statement with none of the shaping behind it.
+
+Attaching them makes the ticket **readable** by a fresh agent. It does not yet
+make it **runnable**: `/lightsout:implement` takes a folder path on disk, so the
+agent must rebuild `.lightsout/plans/<name>/` from the attachments before the
+command works. It can derive the folder name from the ticket id when the plan
+was named after its ticket.
+
+Re-attach at close if implementing amended the plan. The final version is the
+one worth keeping, and Linear shows both.
 
 Do not paste the plan into the ticket body, and do not put it in a Linear
 Document. A document invites editing, and then two copies disagree about what
