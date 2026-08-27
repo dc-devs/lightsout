@@ -10,6 +10,24 @@ import { getReader, type LightsoutReader } from '#src/lightsout/index.ts';
 
 const runId = 'abcdef0123456789';
 
+/** Every command the catalog names, in page order — spelled out here so a dropped command fails this suite rather than quietly agreeing with it. */
+const commandIds = [
+	'brainstorm',
+	'plan',
+	'implement',
+	'resume',
+	'refactor',
+	'test-coverage-to-threshold',
+	'standards-check',
+	'standards-validate',
+	'standards-health',
+	'status',
+	'doctor',
+	'friction',
+	'improve',
+	'voice',
+];
+
 /** What the shared test setup pointed the default pack at, so an arrangement that moves it can put it back. */
 const defaultStandardsPath = process.env.LIGHTSOUT_DEFAULT_STANDARDS;
 
@@ -328,6 +346,14 @@ describe('getReader', () => {
 		expect({ name: view.name, readFromThisMachine: isAbsolute(view.rootPath) }).toStrictEqual({ name: 'lightsout-defaults', readFromThisMachine: true });
 	});
 
+	test('answers the whole command catalog for the repo it was pointed at, since the catalog is engine source rather than repo state', async () => {
+		const { reader } = await setupReader();
+
+		const commands = await reader.listCommands();
+
+		expect(commands.map((command) => command.id)).toStrictEqual(commandIds);
+	});
+
 	test('is built from the repo root as it reads at call time, so a process made public stops answering from the disk it had found', async () => {
 		const { reader } = await setupPublicAfterRepo();
 
@@ -360,5 +386,13 @@ describe('getReader with no repo found', () => {
 		const standards = await reader.getStandards();
 
 		expect(standards.notes).toStrictEqual(['No repository was found — this is the public build, which serves no standards check.']);
+	});
+
+	test('serves that same command catalog with no repo found, so the public build’s command pages read the same list the local one does', async () => {
+		const { reader } = setupPublicBuild();
+
+		const commands = await reader.listCommands();
+
+		expect(commands.map((command) => command.id)).toStrictEqual(commandIds);
 	});
 });

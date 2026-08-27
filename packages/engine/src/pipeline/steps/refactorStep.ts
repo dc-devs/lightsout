@@ -5,7 +5,7 @@ import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
 import { describePersistingFindings } from '#src/pipeline/steps/describePersistingFindings.ts';
 import { runExecutorPass } from '#src/pipeline/steps/runExecutorPass.ts';
 import { standardsWorkList } from '#src/pipeline/steps/standardsWorkList.ts';
-import { detectStandardsChannels } from '#src/standards/index.ts';
+import { resolveStandardsChannels } from '#src/standards/index.ts';
 import { runStandardsReview } from '#src/standardsCheck/index.ts';
 import { type LoadedStandardsPack, resolveStandardsPacks } from '#src/standardsPacks/index.ts';
 
@@ -124,9 +124,7 @@ const readFinalGateStop = async ({ run, record, lastReport }: { run: PipelineRun
  */
 const resolveReviewStandards = async ({ run }: { run: PipelineRun }) => {
 	const packs = await resolveStandardsPacks({ cwd: run.cwd, config: run.config });
-	const channels =
-		run.config['standards-channels'] ??
-		(await detectStandardsChannels({ cwd: run.cwd, packagesDir: run.config['packages-dir'] ?? 'packages', packages: run.current().packages }));
+	const channels = await resolveStandardsChannels({ cwd: run.cwd, config: run.config, packages: run.current().packages });
 
 	return { packs, channels };
 };

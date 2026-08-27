@@ -1,7 +1,7 @@
 import { dim } from '#src/cli/common/terminal/dim.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { detectStandardsChannels } from '#src/standards/index.ts';
+import { resolveStandardsChannels } from '#src/standards/index.ts';
 import { buildStandardsDocuments, resolveStandardsPacks } from '#src/standardsPacks/index.ts';
 
 interface Params {
@@ -14,11 +14,10 @@ interface Params {
 // the mechanism the implement pipeline uses. Only the code set: planning writes
 // a plan, not tests.
 export const readPlanningStandards = async ({ cwd, config }: Params): Promise<string | undefined> => {
-	const packagesDir = config?.['packages-dir'] ?? 'packages';
 	let standards: string | undefined;
 
 	try {
-		const channels = config?.['standards-channels'] ?? (await detectStandardsChannels({ cwd, packagesDir, packages: [] }));
+		const channels = await resolveStandardsChannels({ cwd, config, packages: [] });
 		const loaded = await resolveStandardsPacks({ cwd, config });
 		const texts = loaded.map((pack) => buildStandardsDocuments({ pack, channels }).code).filter((text) => text !== undefined);
 

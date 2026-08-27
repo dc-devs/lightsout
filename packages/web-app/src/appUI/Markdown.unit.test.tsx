@@ -141,4 +141,53 @@ describe('Markdown', () => {
 
 		expect(body.textContent).toContain('phase: 4');
 	});
+
+	test('keeps a link to a heading on this page on this page, rather than opening it in a new tab', () => {
+		setupMarkdown({ text: 'See [a heading further down](#scope-boundaries).' });
+
+		const link = screen.getByRole('link', { name: 'a heading further down' });
+
+		expect(link).not.toHaveAttribute('target');
+		expect(link).not.toHaveAttribute('rel');
+	});
+
+	test('gives a second-level heading the anchor id a table of contents links to', () => {
+		setupMarkdown({ text: '## How verification works\n' });
+
+		const heading = screen.getByRole('heading', { level: 2, name: 'How verification works' });
+
+		expect(heading).toHaveAttribute('id', 'how-verification-works');
+	});
+
+	test('gives a third-level heading one too, since those are listed as well', () => {
+		setupMarkdown({ text: '### Use your own standards\n' });
+
+		const heading = screen.getByRole('heading', { level: 3, name: 'Use your own standards' });
+
+		expect(heading).toHaveAttribute('id', 'use-your-own-standards');
+	});
+
+	test('gives a heading that spells a word in code the same id as one that spells it plainly', () => {
+		setupMarkdown({ text: '## Recommended `.gitignore`\n' });
+
+		const heading = screen.getByRole('heading', { level: 2 });
+
+		expect(heading).toHaveAttribute('id', 'recommended-gitignore');
+	});
+
+	test('still shows the code word inside the heading it took the id from', () => {
+		setupMarkdown({ text: '## Recommended `.gitignore`\n' });
+
+		const heading = screen.getByRole('heading', { level: 2 });
+
+		expect(heading).toHaveTextContent('Recommended .gitignore');
+	});
+
+	test("styles an anchored heading with this app's own typography, exactly as an unanchored one is", () => {
+		setupMarkdown({ text: '## How verification works\n' });
+
+		const heading = screen.getByRole('heading', { level: 2 });
+
+		expect(heading.className).toContain('text-lg');
+	});
 });

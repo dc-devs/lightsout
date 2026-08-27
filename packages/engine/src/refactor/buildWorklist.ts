@@ -1,3 +1,4 @@
+import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { type LightsoutConfig, type RefactorWorklist, StandardsSeverity } from '#src/contracts/index.ts';
 import { batchFindings } from '#src/refactor/batch/index.ts';
 import { runStandardsCheck } from '#src/standardsCheck/index.ts';
@@ -33,7 +34,7 @@ export const buildWorklist = async ({ cwd, config, path, all = false }: Params):
 			// it only ever reports to a human (in-pipeline precedent:
 			// selectStandardsFindings).
 			advisories: findings.filter((finding) => finding.severity === StandardsSeverity.Advisory),
-			packagesDir: config['packages-dir'] ?? 'packages',
+			packagesDir: config['packages-dir'] ?? defaultPackagesDir,
 		}),
 	};
 };

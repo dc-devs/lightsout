@@ -35,12 +35,18 @@ export default defineConfig({
 	// third-party dependencies stay external and resolve at run time from where
 	// pnpm installed them, beside the engine.
 	ssr: { noExternal: [/^@lightsout\//] },
-	// The repo-root assets/ folder. A package `imports` entry may not escape the
-	// package, so this alias is spelled here, in tsconfig.json `paths` and in
-	// jest.config.cjs `moduleNameMapper` — three declarations of one path. Vite
-	// parses an imported .json into a module, which is what the sprawl dataset
-	// needs: the component reads the data, not a link to it.
-	resolve: { alias: { '#assets': fileURLToPath(new URL('../../assets', import.meta.url)) } },
+	// The repo-root assets/ and docs/ folders. A package `imports` entry may not
+	// escape the package, so each alias is spelled here, in tsconfig.json `paths`
+	// and in jest.config.cjs `moduleNameMapper` — three declarations of one path.
+	// Vite parses an imported .json into a module, which is what the sprawl
+	// dataset needs: the component reads the data, not a link to it, and the
+	// plugin above turns each docs/*.md import into its own text.
+	resolve: {
+		alias: {
+			'#assets': fileURLToPath(new URL('../../assets', import.meta.url)),
+			'#docs': fileURLToPath(new URL('../../docs', import.meta.url)),
+		},
+	},
 	optimizeDeps: { exclude: ['@lightsout/engine', '@lightsout/shared'] },
 	plugins: [markdownAsText(), tanstackStart(), tailwindcss(), viteReact()],
 });

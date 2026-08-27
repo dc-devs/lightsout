@@ -3,6 +3,7 @@ import { Library } from 'lucide-react';
 import { CopyButton, PageHeader, SettingsCard } from '#src/appUI/index.ts';
 import { packsQueryOptions } from '#src/features/packs/queries/packsQueryOptions.ts';
 import { PackCard } from '#src/features/packs/screens/PacksPage/components/PackCard.tsx';
+import { WriteYourOwnCard } from '#src/features/packs/screens/PacksPage/components/WriteYourOwnCard.tsx';
 
 /** The `standards-packs` entry a repo would write to load exactly these packs. */
 const buildConfigSnippet = ({ paths }: { paths: string[] }) => JSON.stringify({ 'standards-packs': paths }, null, '\t');
@@ -52,6 +53,7 @@ export const PacksPage = () => {
 							<PackCard key={pack.name} pack={pack} />
 						))}
 					</div>
+					<WriteYourOwnCard />
 				</>
 			)}
 		</div>

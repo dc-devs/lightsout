@@ -4,7 +4,7 @@ import { expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
-import { detectStandardsChannels } from '#src/standards/index.ts';
+import { detectStandardsChannels } from '#src/standards/detectStandardsChannels.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';

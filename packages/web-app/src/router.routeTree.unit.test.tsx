@@ -7,6 +7,7 @@ import type { ComponentType, ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
 import { routeTree } from '#src/routeTree.gen.ts';
 import appCssHref from '#src/styles/app.css?url';
+import { buildConfigView } from '#tests/helpers/buildConfigView.ts';
 import { buildRunListing } from '#tests/helpers/buildRunListing.ts';
 import { buildStandardsView } from '#tests/helpers/buildStandardsView.ts';
 import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx';
@@ -27,6 +28,8 @@ jest.mock('#src/lightsout/index.ts', () => ({
 	getReader: () => ({
 		listRuns: () => mockListRuns(),
 		getStandards: () => mockGetStandards(),
+		getFriction: () => Promise.resolve([]),
+		listPlanWorkspaces: () => Promise.resolve([]),
 	}),
 }));
 // -------------------------
@@ -94,23 +97,35 @@ interface FilePage {
 	options: {
 		component: ComponentType;
 		notFoundComponent: ComponentType;
+		head: () => { meta: { title: string }[] };
 		loader: (input: { context: { queryClient: QueryClient } }) => Promise<void>;
 	};
 }
 
-const setupRouteTree = ({ runs = [buildRunListing()], repoRoot = '/repos/lightsout' }: { runs?: RunListing[]; repoRoot?: string | undefined } = {}) => {
+interface SetupParams {
+	runs?: RunListing[];
+	/**
+	 * The repository root the app is rendered against, or `null` for a deployment
+	 * that found none. `null` rather than `undefined`, because a destructuring
+	 * default fills an explicitly passed `undefined` back in with the path.
+	 */
+	repoRoot?: string | null;
+}
+
+const setupRouteTree = ({ runs = [buildRunListing()], repoRoot = '/repos/lightsout' }: SetupParams = {}) => {
+	const foundRepoRoot = repoRoot ?? undefined;
 	const standards = buildStandardsView();
 
 	mockListRuns.mockResolvedValue(runs);
 	mockGetStandards.mockResolvedValue(standards);
-	mockFindRepoRoot.mockReturnValue(repoRoot);
+	mockFindRepoRoot.mockReturnValue(foundRepoRoot);
 
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	const router = createRouter({ routeTree, context: { queryClient } });
 	const pages = (router as unknown as { routesById: Record<string, FilePage> }).routesById;
 	const rootPage = pages.__root__.options as unknown as RootPage;
 
-	return { pages, queryClient, repoRoot, rootPage, runs, standards };
+	return { pages, queryClient, repoRoot: foundRepoRoot, rootPage, runs, standards };
 };
 
 /** Any route's loader, with the client it fills and the data the reader will answer it with. */
@@ -120,8 +135,8 @@ const setupLoader = ({ id }: { id: string }) => {
 	return { loader: pages[id].options.loader, queryClient, runs, standards };
 };
 
-const setupRootPage = ({ runs = [buildRunListing()], repoRoot = '/repos/lightsout' }: { runs?: RunListing[]; repoRoot?: string | undefined } = {}) => {
-	const { rootPage } = setupRouteTree({ runs, repoRoot });
+const setupRootPage = (params: SetupParams = {}) => {
+	const { repoRoot, rootPage, runs } = setupRouteTree(params);
 	const Page = rootPage.component;
 
 	renderWithQueryClient({
@@ -154,8 +169,8 @@ const setupStandardsPage = () => {
 	renderWithQueryClient({ ui: <Page />, seed: [{ queryKey: [QueryKey.Standards], data: standards }] });
 };
 
-const setupRepoIndexPage = ({ runs = [buildRunListing()], repoRoot = '/repos/lightsout' }: { runs?: RunListing[]; repoRoot?: string } = {}) => {
-	const { pages } = setupRouteTree({ runs, repoRoot });
+const setupRepoIndexPage = (params: SetupParams = {}) => {
+	const { pages, repoRoot, runs, standards } = setupRouteTree(params);
 	const Page = pages['/repo/'].options.component;
 
 	renderWithQueryClient({
@@ -163,18 +178,15 @@ const setupRepoIndexPage = ({ runs = [buildRunListing()], repoRoot = '/repos/lig
 		seed: [
 			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot } },
 			{ queryKey: [QueryKey.Runs], data: runs },
+			{ queryKey: [QueryKey.Standards], data: standards },
+			{ queryKey: [QueryKey.Friction], data: [] },
+			{ queryKey: [QueryKey.Config], data: buildConfigView() },
 		],
 	});
 };
 
-const setupRunsPage = ({
-	runs = [buildRunListing({ title: 'raise coverage' })],
-	repoRoot = '/repos/lightsout',
-}: {
-	runs?: RunListing[];
-	repoRoot?: string;
-} = {}) => {
-	const { pages } = setupRouteTree({ runs, repoRoot });
+const setupRunsPage = ({ runs = [buildRunListing({ title: 'raise coverage' })], ...rest }: SetupParams = {}) => {
+	const { pages, repoRoot } = setupRouteTree({ runs, ...rest });
 	const Page = pages['/repo/runs'].options.component;
 
 	renderWithQueryClient({
@@ -205,7 +217,14 @@ describe('routeTree', () => {
 
 		expect(ids).toStrictEqual([
 			'/',
+			'/commands/',
+			'/commands/$command',
+			'/docs/$doc',
 			'/repo/',
+			'/repo/config',
+			'/repo/friction',
+			'/repo/plans/',
+			'/repo/plans/$name',
 			'/repo/runs',
 			'/repo/runs_/$runId',
 			'/repo/standards',
@@ -302,12 +321,28 @@ describe('routeTree', () => {
 		expect(queryClient.getQueryData([QueryKey.Runs])).toStrictEqual(runs);
 	});
 
-	test('the repo route is the local zone’s landing page', () => {
+	test('the repo route titles the tab after what the page answers, not after the zone', () => {
+		const { pages } = setupRouteTree();
+
+		const head = pages['/repo/'].options.head();
+
+		expect(head.meta).toStrictEqual([{ title: 'Health' }]);
+	});
+
+	test('the repo route is the local zone’s health page', () => {
 		setupRepoIndexPage();
 
-		const heading = screen.getByRole('heading', { level: 1, name: 'Your repo' });
+		const heading = screen.getByRole('heading', { level: 1, name: 'Health' });
 
 		expect(heading).toBeInTheDocument();
+	});
+
+	test('that page keeps saying so when no repo was found, rather than drawing health over somebody else’s runs', () => {
+		setupRepoIndexPage({ repoRoot: null });
+
+		const notice = screen.getByText(/No lightsout repo found above this directory/);
+
+		expect(notice).toBeInTheDocument();
 	});
 
 	test('the runs route gives that list a page of its own', () => {

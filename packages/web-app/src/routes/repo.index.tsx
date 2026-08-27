@@ -1,14 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { RunsIndex } from '#src/features/app/index.ts';
+import { RepoHealth } from '#src/features/repo/index.ts';
 import { runsQueryOptions } from '#src/features/runs/index.ts';
 
 export const Route = createFileRoute('/repo/')({
-	head: () => ({ meta: [{ title: 'Your repo' }] }),
-	// Warmed here rather than by the root, which no longer lists runs: the page
-	// suspends on them, and a repo with no run state answers with an empty list
-	// rather than failing.
+	head: () => ({ meta: [{ title: 'Health' }] }),
+	// Only the runs. The standards check and the friction log are things a repo
+	// may never have produced, so the page subscribes to those rather than
+	// suspending on them and a repo with neither still renders.
 	loader: async ({ context }) => {
 		await context.queryClient.ensureQueryData(runsQueryOptions());
 	},
-	component: RunsIndex,
+	component: RepoHealth,
 });

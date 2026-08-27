@@ -142,6 +142,14 @@ describe('Home', () => {
 		expect(screen.getAllByText('/plugin marketplace add dc-devs/lightsout')).toHaveLength(2);
 	});
 
+	test('sends a reader from each burn-down card to that command’s own manual page, rather than off the site to a skill file', () => {
+		setupHome();
+
+		const manuals = screen.getAllByRole('link', { name: 'What it does →' });
+
+		expect(manuals.map((manual) => manual.getAttribute('href'))).toStrictEqual(['/commands/refactor', '/commands/test-coverage-to-threshold']);
+	});
+
 	test('offers this project’s own runs while the repo question is still in flight, which is the label a public build keeps', () => {
 		setupHome({ isRepoAnswered: false });
 

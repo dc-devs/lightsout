@@ -1,4 +1,5 @@
 import type { StandardsTrendPoint } from '@lightsout/engine';
+import { useState } from 'react';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
 import { formatRelativeTime } from '#src/common/formatting/formatRelativeTime.ts';
 import { buildTrendSeries } from '#src/features/standards/common/utils/buildTrendSeries.ts';
@@ -8,7 +9,7 @@ const gridLines = [0, 0.5, 1];
 
 interface Props {
 	points: StandardsTrendPoint[];
-	/** The subpath the latest snapshot covered; only points that checked the same path are plotted. */
+	/** The subpath the latest snapshot covered — the selector's initial choice, not a fixed one. */
 	path: string;
 }
 
@@ -22,17 +23,42 @@ interface Props {
  *
  * Drawn as inline SVG in a 0–1 box scaled by `viewBox`, so the chart resizes
  * with its card and no charting dependency is added for two polylines.
+ *
+ * The selector is what lets a reader see the snapshots the omission line counts
+ * rather than only being told they exist. Its options are derived from the
+ * points the chart already holds — a second prop would be the same list twice,
+ * and the two could disagree. Every path is offered, a path with one snapshot
+ * included: selecting it shows the no-trend message, which is a truer answer
+ * than hiding the path.
  */
 export const StandardsTrendChart = ({ points, path }: Props) => {
-	const comparable = points.filter((point) => point.path === path);
+	const [scope, setScope] = useState(path);
+	const paths = [...new Set([path, ...points.map((point) => point.path)])].sort();
+	const comparable = points.filter((point) => point.path === scope);
 	const omitted = points.length - comparable.length;
 	const series = buildTrendSeries({ points: comparable });
 
 	return (
 		<div className="flex flex-col gap-2">
+			{paths.length < 2 ? null : (
+				<label className="flex items-center gap-2 self-start text-muted-foreground text-xs">
+					checked path
+					<select
+						value={scope}
+						onChange={(event) => setScope(event.target.value)}
+						className="h-7 rounded-md border border-border bg-background px-2 font-mono text-xs outline-none focus-visible:border-ring"
+					>
+						{paths.map((option) => (
+							<option key={option} value={option}>
+								{option}
+							</option>
+						))}
+					</select>
+				</label>
+			)}
 			{series === undefined ? (
 				<p className="text-muted-foreground text-sm">
-					{formatCount({ count: comparable.length, noun: 'snapshot' })} of <span className="font-mono">{path}</span> on record — a trend needs at least two.
+					{formatCount({ count: comparable.length, noun: 'snapshot' })} of <span className="font-mono">{scope}</span> on record — a trend needs at least two.
 				</p>
 			) : (
 				<>

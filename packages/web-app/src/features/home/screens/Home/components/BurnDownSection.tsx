@@ -1,23 +1,17 @@
+import { Link } from '@tanstack/react-router';
 import { SectionHeader } from '#src/appUI/index.ts';
 
-/**
- * The two commands that work on code a repo already has.
- *
- * The links point at the skill files on GitHub rather than at
- * `/commands/$command`, which does not exist yet — a `Link` to a path with no
- * route behind it lands a reader in the not-found panel. The command catalog
- * phase swaps them.
- */
+/** The two commands that work on code a repo already has, each linking to its own manual. */
 const commands = [
 	{
+		id: 'refactor',
 		name: '/refactor',
 		body: 'Turns your standards findings into gated, resumable cleanup batches with a measured before and after.',
-		href: 'https://github.com/dc-devs/lightsout/blob/main/plugin/skills/refactor/SKILL.md',
 	},
 	{
+		id: 'test-coverage-to-threshold',
 		name: '/test-coverage-to-threshold',
 		body: 'Raises coverage until your own coverage command passes.',
-		href: 'https://github.com/dc-devs/lightsout/blob/main/plugin/skills/test-coverage-to-threshold/SKILL.md',
 	},
 ];
 
@@ -29,9 +23,9 @@ export const BurnDownSection = () => (
 				<article key={command.name} className="flex flex-col gap-3 rounded-lg border border-border bg-card p-5">
 					<h3 className="font-medium font-mono text-sm">{command.name}</h3>
 					<p className="text-muted-foreground text-sm">{command.body}</p>
-					<a href={command.href} target="_blank" rel="noreferrer" className="text-brand-to text-sm underline underline-offset-4">
+					<Link to="/commands/$command" params={{ command: command.id }} className="text-brand-to text-sm underline underline-offset-4">
 						What it does →
-					</a>
+					</Link>
 				</article>
 			))}
 		</div>

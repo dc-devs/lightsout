@@ -1,8 +1,9 @@
-import { createElement, type ReactNode } from 'react';
+import { createElement, isValidElement, type ReactNode } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { DefinitionList } from '#src/appUI/DefinitionList.tsx';
 import type { DefinitionEntry } from '#src/common/types/DefinitionEntry.ts';
+import { slugifyHeading } from '#src/common/utils/slugifyHeading.ts';
 
 /** Where a plan may link: the web, a repo-relative path, or an anchor in the document itself. */
 const safeHref = /^(https?:\/\/|\/|\.{1,2}\/|#)/;
@@ -53,6 +54,54 @@ const styled = ({ tag, className }: { tag: string; className: string }) => {
 };
 
 /**
+ * A heading's plain text, recursing through whatever the parser nested inside
+ * it — a heading spelling one word in backticks arrives as an array with an
+ * element in the middle, and the id has to come out the same either way.
+ */
+const flattenText = ({ node }: { node: ReactNode }): string => {
+	let text = '';
+
+	if (typeof node === 'string' || typeof node === 'number') {
+		text = String(node);
+	} else if (Array.isArray(node)) {
+		text = node.map((child) => flattenText({ node: child })).join('');
+	} else if (isValidElement<{ children?: ReactNode }>(node)) {
+		text = flattenText({ node: node.props.children });
+	}
+
+	return text;
+};
+
+/** A restyled heading carrying the anchor id a table of contents links to. Only h2 and h3 get one — those are the levels `DocToc` lists. */
+const anchored = ({ tag, className }: { tag: string; className: string }) => {
+	const Anchored = ({ children }: { children?: ReactNode }) =>
+		createElement(tag, { className, id: slugifyHeading({ text: flattenText({ node: children }) }) }, children);
+
+	return Anchored;
+};
+
+/**
+ * A link in a document.
+ *
+ * An anchor stays on the page — that is what makes a table of contents work —
+ * an allowed href opens in a new tab, and anything else renders as plain text
+ * rather than as a link nobody vetted.
+ */
+const MarkdownLink = ({ href, children }: { href?: string; children?: ReactNode }) => {
+	if (href === undefined || !safeHref.test(href)) {
+		return <span className="text-muted-foreground-strong">{children}</span>;
+	}
+
+	const samePage = href.startsWith('#');
+
+	return (
+		<a href={href} target={samePage ? undefined : '_blank'} rel={samePage ? undefined : 'noreferrer'} className="text-brand-to underline underline-offset-4">
+			{children}
+		</a>
+	);
+};
+
+/**
  * What each element a plan can contain looks like here. The library owns
  * parsing; this map is the whole of this repo's typography for a document.
  *
@@ -62,8 +111,8 @@ const styled = ({ tag, className }: { tag: string; className: string }) => {
  */
 const components: Components = {
 	h1: styled({ tag: 'h1', className: 'mt-6 mb-3 font-semibold text-foreground text-xl first:mt-0' }),
-	h2: styled({ tag: 'h2', className: 'mt-6 mb-2 font-semibold text-foreground text-lg first:mt-0' }),
-	h3: styled({ tag: 'h3', className: 'mt-5 mb-2 font-semibold text-base text-foreground' }),
+	h2: anchored({ tag: 'h2', className: 'mt-6 mb-2 font-semibold text-foreground text-lg first:mt-0' }),
+	h3: anchored({ tag: 'h3', className: 'mt-5 mb-2 font-semibold text-base text-foreground' }),
 	h4: styled({ tag: 'h4', className: 'mt-4 mb-1 font-semibold text-foreground text-sm' }),
 	p: styled({ tag: 'p', className: 'my-3 text-sm leading-6' }),
 	ul: styled({ tag: 'ul', className: 'my-3 list-disc space-y-1 pl-6 text-sm' }),
@@ -78,14 +127,7 @@ const components: Components = {
 	th: styled({ tag: 'th', className: 'px-2 py-1.5 font-semibold' }),
 	td: styled({ tag: 'td', className: 'px-2 py-1.5 align-top' }),
 	hr: styled({ tag: 'hr', className: 'my-6 border-border border-t' }),
-	a: ({ href, children }) =>
-		href !== undefined && safeHref.test(href) ? (
-			<a href={href} target="_blank" rel="noreferrer" className="text-brand-to underline underline-offset-4">
-				{children}
-			</a>
-		) : (
-			<span className="text-muted-foreground-strong">{children}</span>
-		),
+	a: MarkdownLink,
 };
 
 interface Props {

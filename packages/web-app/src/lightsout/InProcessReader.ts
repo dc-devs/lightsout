@@ -1,11 +1,16 @@
 import {
+	commandCatalog,
+	getConfigView,
 	getPlanDocument,
+	getPlanWorkspace,
 	getRunView,
 	getStandardsPackRuleView,
 	getStandardsPackView,
 	getStandardsView,
+	listPlanWorkspaces,
 	listRuns,
 	listStandardsPacks,
+	readFriction,
 	type StandardsPackListing,
 	toStandardsPackListing,
 	toStandardsPackRuleView,
@@ -54,6 +59,11 @@ export class InProcessReader implements LightsoutReader {
 		return listRuns({ cwd: this.repoRoot });
 	}
 
+	/** Engine source rather than repo state, so this repo's `cwd` has nothing to say about it. */
+	async listCommands() {
+		return commandCatalog;
+	}
+
 	getRun({ runId }: { runId: string }) {
 		return getRunView({ cwd: this.repoRoot, runId });
 	}
@@ -64,6 +74,22 @@ export class InProcessReader implements LightsoutReader {
 
 	getPlan({ path }: { path: string }) {
 		return getPlanDocument({ cwd: this.repoRoot, path });
+	}
+
+	getFriction() {
+		return readFriction({ cwd: this.repoRoot });
+	}
+
+	getConfig() {
+		return getConfigView({ cwd: this.repoRoot });
+	}
+
+	listPlanWorkspaces() {
+		return listPlanWorkspaces({ cwd: this.repoRoot });
+	}
+
+	getPlanWorkspace({ name }: { name: string }) {
+		return getPlanWorkspace({ cwd: this.repoRoot, name });
 	}
 
 	async listPacks() {

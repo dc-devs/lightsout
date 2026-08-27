@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { ScrollText, SquareCheckBig } from 'lucide-react';
+import { Activity, FileCog, MessageSquareWarning, NotebookPen, ScrollText, SquareCheckBig } from 'lucide-react';
 import { MetadataTag } from '#src/appUI/index.ts';
 import { repoRootQueryOptions } from '#src/features/app/queries/repoRootQueryOptions.ts';
 
@@ -34,13 +34,29 @@ export const ZoneNav = () => {
 				</MetadataTag>
 			</header>
 			<nav aria-label="Your repo" className="flex min-w-0 gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
+				<Link to="/repo" className={zoneLinkClasses} activeProps={zoneLinkActive} activeOptions={{ exact: true }}>
+					<Activity aria-hidden="true" className="size-4" />
+					Health
+				</Link>
 				<Link to="/repo/runs" className={zoneLinkClasses} activeProps={zoneLinkActive}>
 					<ScrollText aria-hidden="true" className="size-4" />
 					Runs
 				</Link>
+				<Link to="/repo/plans" className={zoneLinkClasses} activeProps={zoneLinkActive}>
+					<NotebookPen aria-hidden="true" className="size-4" />
+					Plans
+				</Link>
 				<Link to="/repo/standards" className={zoneLinkClasses} activeProps={zoneLinkActive}>
 					<SquareCheckBig aria-hidden="true" className="size-4" />
 					Standards
+				</Link>
+				<Link to="/repo/friction" className={zoneLinkClasses} activeProps={zoneLinkActive}>
+					<MessageSquareWarning aria-hidden="true" className="size-4" />
+					Friction
+				</Link>
+				<Link to="/repo/config" className={zoneLinkClasses} activeProps={zoneLinkActive}>
+					<FileCog aria-hidden="true" className="size-4" />
+					Config
 				</Link>
 			</nav>
 		</aside>

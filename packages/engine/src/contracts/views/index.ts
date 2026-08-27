@@ -1,8 +1,14 @@
 export { AgentInvocation } from '#src/contracts/views/AgentInvocation.ts';
+export { ConfigFieldView } from '#src/contracts/views/config/ConfigFieldView.ts';
+export { ConfigView } from '#src/contracts/views/config/ConfigView.ts';
 export { FixtureSide } from '#src/contracts/views/FixtureSide.ts';
 export { GateEvidence } from '#src/contracts/views/GateEvidence.ts';
 export { PlanDocument } from '#src/contracts/views/PlanDocument.ts';
 export { PlanDocumentKind } from '#src/contracts/views/PlanDocumentKind.ts';
+export { PlanStage } from '#src/contracts/views/planWorkspace/PlanStage.ts';
+export { PlanWorkspaceFile } from '#src/contracts/views/planWorkspace/PlanWorkspaceFile.ts';
+export { PlanWorkspaceListing } from '#src/contracts/views/planWorkspace/PlanWorkspaceListing.ts';
+export { PlanWorkspaceView } from '#src/contracts/views/planWorkspace/PlanWorkspaceView.ts';
 export { RunListing } from '#src/contracts/views/RunListing.ts';
 export { RunStepView } from '#src/contracts/views/RunStepView.ts';
 export { RunView } from '#src/contracts/views/RunView.ts';

@@ -4,6 +4,7 @@ import { FixtureDiff } from '#src/features/packs/components/FixtureDiff.tsx';
 import { packQueryOptions } from '#src/features/packs/queries/packQueryOptions.ts';
 import { packRuleQueryOptions } from '#src/features/packs/queries/packRuleQueryOptions.ts';
 import { RuleHeader } from '#src/features/packs/screens/RuleDetail/components/RuleHeader.tsx';
+import { RuleInThisRepo } from '#src/features/packs/screens/RuleDetail/components/RuleInThisRepo.tsx';
 import { RuleSettingsCard } from '#src/features/packs/screens/RuleDetail/components/RuleSettingsCard.tsx';
 import { TurnItDownCard } from '#src/features/packs/screens/RuleDetail/components/TurnItDownCard.tsx';
 
@@ -47,6 +48,7 @@ export const RuleDetail = ({ packName, ruleId }: Props) => {
 			</Card>
 			<RuleSettingsCard rule={rule} />
 			<TurnItDownCard ruleId={rule.id} />
+			<RuleInThisRepo ruleId={rule.id} />
 		</div>
 	);
 };

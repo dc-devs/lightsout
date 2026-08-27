@@ -65,6 +65,31 @@ describe('prepareRun', () => {
 		expect('error' in prepared && prepared.error).toContain('no package scope could be resolved');
 	});
 
+	test('an unconfigured monorepo scopes against the packages/ layout, and its failure tells the reader to reference that', async () => {
+		const { run, cwd } = await setupRun({ config: monorepo });
+
+		write({ cwd, path: 'plan.md', content: '# Plan\n\nRewrite `apps/web/src/index.ts`.\n' });
+
+		const prepared = await prepareRun({ run, cwd, config: monorepo, packages: undefined });
+
+		// apps/web is not a package here — with no packages-dir configured the run
+		// resolves against packages/, and the fix it suggests has to say so
+		expect('error' in prepared && prepared.error).toContain('reference concrete packages/<name>/ paths');
+	});
+
+	test('a monorepo laid out under a configured packages-dir takes its scope from the paths there', async () => {
+		const config: LightsoutConfig = { ...monorepo, 'packages-dir': 'apps' };
+		const { run, cwd, progress } = await setupRun({ config });
+
+		write({ cwd, path: 'plan.md', content: '# Plan\n\nRewrite `apps/web/src/index.ts`.\n' });
+
+		await prepareRun({ run, cwd, config, packages: undefined });
+
+		expect(run.current().packages).toStrictEqual(['web']);
+		expect(run.current().packagesSource).toBe(PackagesSource.PlanPaths);
+		expect(progress).toContain('package scope: web (from plan-paths)');
+	});
+
 	test('a missing plan is reported rather than thrown, so the run records why it stopped', async () => {
 		const { run, cwd } = await setupRun({ config: monorepo });
 

@@ -64,7 +64,14 @@ describe('getRouter', () => {
 
 		expect(Object.keys(router.routesById).sort()).toStrictEqual([
 			'/',
+			'/commands/',
+			'/commands/$command',
+			'/docs/$doc',
 			'/repo/',
+			'/repo/config',
+			'/repo/friction',
+			'/repo/plans/',
+			'/repo/plans/$name',
 			'/repo/runs',
 			'/repo/runs_/$runId',
 			'/repo/standards',

@@ -7,8 +7,8 @@ import { ThemeProvider } from '#src/theme/index.ts';
 // Mocked Imports
 // -------------------------
 jest.mock('@tanstack/react-router', () => ({
-	Link: ({ to, children, className }: { to: string; children: ReactNode; className?: string }) => (
-		<a href={to} className={className}>
+	Link: ({ to, params, children, className }: { to: string; params?: Record<string, string>; children: ReactNode; className?: string }) => (
+		<a href={Object.entries(params ?? {}).reduce((path, [name, value]) => path.replace(`$${name}`, value), to)} className={className}>
 			{children}
 		</a>
 	),
@@ -41,15 +41,14 @@ describe('TopNav', () => {
 	});
 
 	test.each([
-		{ label: 'Commands', note: 'The commands page arrives with the command catalog.' },
-		{ label: 'Docs', note: 'The docs pages arrive with the command catalog.' },
-	])('names $label, which is not built yet, without offering to navigate there', ({ label, note }) => {
+		{ label: 'Commands', href: '/commands' },
+		{ label: 'Docs', href: '/docs/configuration' },
+	])('offers $label, now that it is built', ({ label, href }) => {
 		setupTopNav();
 
-		const upcoming = screen.getByTitle(note);
+		const page = screen.getAllByRole('link', { name: label });
 
-		expect(upcoming).toHaveAttribute('aria-disabled', 'true');
-		expect(screen.queryByRole('link', { name: label })).toBeNull();
+		expect(page[0]).toHaveAttribute('href', href);
 	});
 
 	test('offers the project source', () => {
@@ -84,6 +83,18 @@ describe('TopNav', () => {
 		const packs = within(screen.getByRole('navigation', { name: 'Site pages' })).getByRole('link', { name: 'Standards packs' });
 
 		expect(packs).toHaveAttribute('href', '/standards');
+	});
+
+	test.each([
+		{ label: 'Commands', href: '/commands' },
+		{ label: 'Docs', href: '/docs/configuration' },
+	])('offers $label from the menu at the same address the row uses', ({ label, href }) => {
+		setupTopNav();
+
+		fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+		const page = within(screen.getByRole('navigation', { name: 'Site pages' })).getByRole('link', { name: label });
+
+		expect(page).toHaveAttribute('href', href);
 	});
 
 	test('keeps the menu closed until the menu button is pressed', () => {

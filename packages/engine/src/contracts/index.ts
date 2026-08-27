@@ -26,6 +26,15 @@ export {
 } from '@lightsout/standards-contracts';
 export { ConfigCommands } from '#src/contracts/ConfigCommands.ts';
 export { ConfigGates } from '#src/contracts/ConfigGates.ts';
+export {
+	CommandActor,
+	CommandCatalogEntry,
+	CommandFlag,
+	CommandGroup,
+	CommandInvocation,
+	CommandRecordKind,
+	CommandStep,
+} from '#src/contracts/commands/index.ts';
 export { CoverageBatchReport, CoverageFile, CoverageTotal, CoverageWorklist } from '#src/contracts/coverage/index.ts';
 export { DedupFinding, DedupJudgment, DedupReport, DedupResolution, DedupVerdict } from '#src/contracts/dedup/index.ts';
 export { Effort } from '#src/contracts/Effort.ts';
@@ -38,6 +47,7 @@ export {
 	AuthoredFacts,
 	BrainstormDecisions,
 	DecisionRow,
+	DecisionSource,
 	DecisionsRecord,
 	ExploreArea,
 	FindingSeverity,
@@ -72,10 +82,16 @@ export {
 } from '#src/contracts/standardsCheck/index.ts';
 export {
 	AgentInvocation,
+	ConfigFieldView,
+	ConfigView,
 	FixtureSide,
 	GateEvidence,
 	PlanDocument,
 	PlanDocumentKind,
+	PlanStage,
+	PlanWorkspaceFile,
+	PlanWorkspaceListing,
+	PlanWorkspaceView,
 	RunBurnDown,
 	RunBurnDownBatch,
 	RunBurnDownBatchOutcome,

@@ -8,6 +8,11 @@ export const QueryKey = {
 	Packs: 'packs',
 	Pack: 'pack',
 	PackRule: 'packRule',
+	Commands: 'commands',
+	PlanWorkspaces: 'planWorkspaces',
+	PlanWorkspace: 'planWorkspace',
+	Friction: 'friction',
+	Config: 'config',
 } as const;
 
 export type QueryKey = (typeof QueryKey)[keyof typeof QueryKey];

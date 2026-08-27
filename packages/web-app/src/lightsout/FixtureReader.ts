@@ -1,5 +1,8 @@
 import {
+	ConfigNotFoundError,
+	commandCatalog,
 	PlanDocumentKind,
+	PlanWorkspaceNotFoundError,
 	RunNotFoundError,
 	StandardsPackNotFoundError,
 	toStandardsPackListing,
@@ -47,6 +50,11 @@ export class FixtureReader implements LightsoutReader {
 		return getDemoRunListings();
 	}
 
+	/** The one method that is not a fixture at all: the catalog ships with the engine, so a build holding no repo answers it in full. */
+	async listCommands() {
+		return commandCatalog;
+	}
+
 	/** By full id or by the shortened form a report printed, matching `getRunView`'s own contract. */
 	async getRun({ runId }: { runId: string }) {
 		const view = Object.values(getDemoRunViews()).find((entry) => entry.listing.runId === runId || entry.listing.shortId === runId);
@@ -79,6 +87,39 @@ export class FixtureReader implements LightsoutReader {
 	/** A recorded absence, matching `getPlanDocument`'s own habit, so a plan drawer degrades rather than crashes. */
 	async getPlan({ path }: { path: string }) {
 		return { path, kind: PlanDocumentKind.Missing };
+	}
+
+	/** An empty log is an honest answer: this build has no repo, so nothing ever reported friction in it. */
+	async getFriction() {
+		return [];
+	}
+
+	/**
+	 * The one absence that is not an empty form.
+	 *
+	 * A config page is about a file, and on a build holding no repo that file does
+	 * not exist — which is a 404 rather than a page of blank rows. The server
+	 * function turns this typed error into exactly that.
+	 *
+	 * @throws {ConfigNotFoundError} Always — this build reads no repo.
+	 */
+	async getConfig(): Promise<never> {
+		throw new ConfigNotFoundError({ configPath: 'lightsout.config.json' });
+	}
+
+	/** An empty list is the honest answer: a public site holds no repo, so nobody has planned anything in it. */
+	async listPlanWorkspaces() {
+		return [];
+	}
+
+	/**
+	 * The second absence that is not an empty form, for the reason `getConfig`
+	 * states: a plan page is about one workspace, and this build has none.
+	 *
+	 * @throws {PlanWorkspaceNotFoundError} Always — this build reads no repo.
+	 */
+	async getPlanWorkspace({ name }: { name: string }): Promise<never> {
+		throw new PlanWorkspaceNotFoundError({ name });
 	}
 
 	async listPacks() {

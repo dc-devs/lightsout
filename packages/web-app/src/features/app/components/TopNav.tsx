@@ -4,40 +4,26 @@ import { useState } from 'react';
 import { Button, Dialog, ThemeToggle } from '#src/appUI/index.ts';
 
 /**
- * The sell-zone pages that are not routed yet.
- *
- * Named here rather than linked so the bar is honest about what exists: a
- * `Link` to a path with no route behind it navigates a reader into the
- * not-found panel, and a bar that silently omits them would read as though the
- * app had fewer pages than it will. Each leaves this list for a `Link` in the
- * phase that builds it — Standards packs already has.
- */
-const upcomingPages = [
-	{ label: 'Commands', note: 'The commands page arrives with the command catalog.' },
-	{ label: 'Docs', note: 'The docs pages arrive with the command catalog.' },
-];
-
-const UpcomingPage = ({ label, note }: { label: string; note: string }) => (
-	<span aria-disabled="true" title={note} className="cursor-default text-muted-foreground text-sm">
-		{label}
-	</span>
-);
-
-/**
  * The sell zone's pages, in the order the bar reads them.
  *
  * Rendered twice — once in the row a wide screen shows, once inside the menu a
  * narrow one opens — so the two can never drift into offering different pages.
  * The `nav` around it differs by label and layout; what it holds does not.
+ *
+ * Docs has no index of its own, so the bar points at the configuration doc —
+ * the one a reader arriving from the front page wants first.
  */
 const SitePages = () => (
 	<>
 		<Link to="/standards" className="text-sm">
 			Standards packs
 		</Link>
-		{upcomingPages.map((page) => (
-			<UpcomingPage key={page.label} label={page.label} note={page.note} />
-		))}
+		<Link to="/commands" className="text-sm">
+			Commands
+		</Link>
+		<Link to="/docs/$doc" params={{ doc: 'configuration' }} className="text-sm">
+			Docs
+		</Link>
 	</>
 );
 

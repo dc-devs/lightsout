@@ -62,6 +62,9 @@ module.exports = createJestConfig({
 		// import may not escape the package — Node, TypeScript and esbuild all
 		// reject a target that climbs out of it.
 		'^#assets/(.*)$': join(__dirname, '..', '..', 'assets', '$1'),
+		// The repo-root docs/ folder, whose markdown the /docs pages render.
+		// Spelled three times for the same reason `#assets` is.
+		'^#docs/(.*)$': join(__dirname, '..', '..', 'docs', '$1'),
 		'^@tanstack/react-start$': join(__dirname, 'tests', 'stubs', 'tanstackReactStart.ts'),
 		'^@tanstack/react-start/client$': join(__dirname, 'tests', 'stubs', 'tanstackReactStartClient.ts'),
 		'^@tanstack/react-start/server$': join(__dirname, 'tests', 'stubs', 'tanstackReactStartServer.ts'),

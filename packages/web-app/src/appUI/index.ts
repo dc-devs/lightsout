@@ -24,6 +24,7 @@ export { Card } from '#src/appUI/panels/Card.tsx';
 export { CtaBanner } from '#src/appUI/panels/CtaBanner.tsx';
 export { SettingsCard } from '#src/appUI/panels/SettingsCard.tsx';
 export { Separator } from '#src/appUI/Separator.tsx';
+export { ShareBar } from '#src/appUI/ShareBar.tsx';
 export { Skeleton } from '#src/appUI/Skeleton.tsx';
 export { SortableHeader } from '#src/appUI/SortableHeader.tsx';
 export { Tabs } from '#src/appUI/Tabs.tsx';

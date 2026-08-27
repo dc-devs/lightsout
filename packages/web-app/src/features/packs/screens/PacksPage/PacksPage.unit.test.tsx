@@ -11,10 +11,27 @@ import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx'
 // -------------------------
 // Each card's name is a link to the pack's own page, and a link needs a live
 // router to resolve a path. A plain anchor keeps the assertions about where the
-// card points rather than about the routing library.
+// card points rather than about the routing library. `hash` is spelled out
+// because one link on this page points at a section of a doc rather than at its
+// top, and the two would otherwise be indistinguishable.
 jest.mock('@tanstack/react-router', () => ({
-	Link: ({ to, params, children, className }: { to: string; params?: Record<string, string>; children: ReactNode; className?: string }) => (
-		<a href={Object.entries(params ?? {}).reduce((path, [name, value]) => path.replace(`$${name}`, value), to)} className={className}>
+	Link: ({
+		to,
+		params,
+		hash,
+		children,
+		className,
+	}: {
+		to: string;
+		params?: Record<string, string>;
+		hash?: string;
+		children: ReactNode;
+		className?: string;
+	}) => (
+		<a
+			href={`${Object.entries(params ?? {}).reduce((path, [name, value]) => path.replace(`$${name}`, value), to)}${hash === undefined ? '' : `#${hash}`}`}
+			className={className}
+		>
 			{children}
 		</a>
 	),
@@ -189,5 +206,59 @@ describe('PacksPage pack cards', () => {
 		const channels = screen.queryByText('base');
 
 		expect(channels).not.toBeInTheDocument();
+	});
+});
+
+describe('PacksPage write-your-own card', () => {
+	test('closes the page with it, after the packs a reader has just read about', () => {
+		setupPacksPage({
+			packs: [buildStandardsPackListing(), buildStandardsPackListing({ name: 'acme-house-rules', isDefault: false })],
+		});
+
+		const headings = screen.getAllByRole('heading').map((heading) => heading.textContent);
+
+		expect(headings).toStrictEqual(['Standards packs', 'Use these packs', 'lightsout-defaults', 'acme-house-rules', 'Write your own']);
+	});
+
+	test('leaves it off the empty page, where there are no bundled packs for a reader to sit their own beside', () => {
+		setupPacksPage({ packs: [] });
+
+		const heading = screen.queryByRole('heading', { name: 'Write your own' });
+
+		expect(heading).not.toBeInTheDocument();
+	});
+
+	test('draws the folder a pack actually is, down to the file that holds one rule', () => {
+		setupPacksPage();
+
+		const shape = screen.getByText(/lightsout-standards\.json/);
+
+		expect(shape.textContent).toContain('05-loose-file/rule.md');
+	});
+
+	test('sends a reader to the configuration doc, which is where a pack is pointed at', () => {
+		setupPacksPage();
+
+		const link = screen.getByRole('link', { name: 'Configuration' });
+
+		expect(link).toHaveAttribute('href', '/docs/configuration');
+	});
+
+	test('sends the second link to the section of that doc about adding your own, not to its top', () => {
+		setupPacksPage();
+
+		const link = screen.getByRole('link', { name: 'Adding your standards' });
+
+		expect(link).toHaveAttribute('href', '/docs/configuration#adding-your-standards');
+	});
+
+	test('points at the contracts source on GitHub, in a new tab, because this app serves no page for it', () => {
+		setupPacksPage();
+
+		const link = screen.getByRole('link', { name: /What a check receives/ });
+
+		expect(link).toHaveAttribute('href', 'https://github.com/dc-devs/lightsout/tree/main/packages/standards-contracts');
+		expect(link).toHaveAttribute('target', '_blank');
+		expect(link).toHaveAttribute('rel', 'noreferrer');
 	});
 });

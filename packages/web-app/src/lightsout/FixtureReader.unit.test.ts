@@ -1,5 +1,12 @@
 import { describe, expect, test } from '@jest/globals';
-import { PlanDocumentKind, RunNotFoundError, StandardsPackNotFoundError, StandardsPackRuleNotFoundError } from '@lightsout/engine';
+import {
+	ConfigNotFoundError,
+	PlanDocumentKind,
+	PlanWorkspaceNotFoundError,
+	RunNotFoundError,
+	StandardsPackNotFoundError,
+	StandardsPackRuleNotFoundError,
+} from '@lightsout/engine';
 import { DemoRunSlug } from '#src/lightsout/common/constants/DemoRunSlug.ts';
 import { getDemoRunViews } from '#src/lightsout/common/utils/getDemoRunViews.ts';
 import { FixtureReader } from '#src/lightsout/FixtureReader.ts';
@@ -13,6 +20,79 @@ describe('FixtureReader', () => {
 		const runs = await reader.listRuns();
 
 		expect(runs).toHaveLength(3);
+	});
+
+	test('answers with the engine’s whole command catalog — all fourteen commands in group order, since a build with no repo still documents them', async () => {
+		const { reader } = setupReader();
+
+		const commands = await reader.listCommands();
+
+		expect(commands.map((entry) => entry.id)).toStrictEqual([
+			'brainstorm',
+			'plan',
+			'implement',
+			'resume',
+			'refactor',
+			'test-coverage-to-threshold',
+			'standards-check',
+			'standards-validate',
+			'standards-health',
+			'status',
+			'doctor',
+			'friction',
+			'improve',
+			'voice',
+		]);
+	});
+
+	test('hands each command over whole, so a command page renders from this one answer and asks for nothing more', async () => {
+		const { reader } = setupReader();
+
+		const commands = await reader.listCommands();
+		const implement = commands.find((entry) => entry.id === 'implement');
+
+		expect(implement).toEqual(
+			expect.objectContaining({
+				slash: '/implement',
+				cli: 'lightsout implement',
+				group: 'build',
+				records: 'runs',
+				flags: expect.arrayContaining([expect.objectContaining({ name: 'plan', value: '<path>', required: true })]),
+			}),
+		);
+	});
+
+	test('carries the drawn steps a command has, so the page draws the run rather than summarising it', async () => {
+		const { reader } = setupReader();
+
+		const commands = await reader.listCommands();
+		const implement = commands.find((entry) => entry.id === 'implement');
+
+		expect(implement?.steps).toHaveLength(10);
+	});
+
+	test('says what each command leaves behind, which is what its card and its history section are shaped by', async () => {
+		const { reader } = setupReader();
+
+		const commands = await reader.listCommands();
+		const records = Object.fromEntries(commands.map((entry) => [entry.id, entry.records]));
+
+		expect(records).toStrictEqual({
+			brainstorm: 'plans',
+			plan: 'plans',
+			implement: 'runs',
+			resume: 'runs',
+			refactor: 'runs',
+			'test-coverage-to-threshold': 'runs',
+			'standards-check': 'snapshots',
+			'standards-validate': 'nothing',
+			'standards-health': 'nothing',
+			status: 'nothing',
+			doctor: 'nothing',
+			friction: 'nothing',
+			improve: 'nothing',
+			voice: 'nothing',
+		});
 	});
 
 	test('answers for a run by its full id', async () => {
@@ -75,6 +155,26 @@ describe('FixtureReader', () => {
 		expect(plan).toStrictEqual({ path: '.lightsout/plans/add-search.md', kind: PlanDocumentKind.Missing });
 	});
 
+	test('answers the friction log with an empty list rather than an absence, since a build with no repo has nothing that ever reported friction', async () => {
+		const { reader } = setupReader();
+
+		const friction = await reader.getFriction();
+
+		expect(friction).toStrictEqual([]);
+	});
+
+	test('refuses the config with the engine’s own not-found error, which the server function turns into a 404 — a page about a file that is not there', async () => {
+		const { reader } = setupReader();
+
+		await expect(reader.getConfig()).rejects.toBeInstanceOf(ConfigNotFoundError);
+	});
+
+	test('names the file it looked for in that refusal, so the 404 says which file is missing', async () => {
+		const { reader } = setupReader();
+
+		await expect(reader.getConfig()).rejects.toThrow(/lightsout\.config\.json/);
+	});
+
 	test('lists the bundled authored default pack, read from no disk at all', async () => {
 		const { reader } = setupReader();
 
@@ -124,5 +224,25 @@ describe('FixtureReader', () => {
 		const { reader } = setupReader();
 
 		await expect(reader.getPackRule({ name: 'lightsout-defaults', rule: 'no-such-rule' })).rejects.toBeInstanceOf(StandardsPackRuleNotFoundError);
+	});
+
+	test('lists no plan workspaces, because a public site holds no repo for anyone to have planned in', async () => {
+		const { reader } = setupReader();
+
+		const plans = await reader.listPlanWorkspaces();
+
+		expect(plans).toStrictEqual([]);
+	});
+
+	test('rejects any plan name, since a page about one workspace is a 404 on a build that holds none', async () => {
+		const { reader } = setupReader();
+
+		await expect(reader.getPlanWorkspace({ name: 'add-search' })).rejects.toBeInstanceOf(PlanWorkspaceNotFoundError);
+	});
+
+	test('names the workspace the URL asked for in that refusal, so the 404 says which plan was looked for', async () => {
+		const { reader } = setupReader();
+
+		await expect(reader.getPlanWorkspace({ name: 'add-search' })).rejects.toThrow(/add-search/);
 	});
 });

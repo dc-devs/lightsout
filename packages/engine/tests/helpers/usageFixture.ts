@@ -1,0 +1,44 @@
+/**
+ * The `--help` text as `renderUsage()` must produce it, written out by hand.
+ *
+ * A checked-in copy rather than a call into the renderer: a test that compared
+ * the render to itself would prove nothing. This block is the pre-catalog
+ * `usage.ts` verbatim, with one deliberate correction — `standards-validate`'s
+ * note used to sit at column 68, a leftover of the older `--package` spelling,
+ * and the renderer's single alignment rule re-flows it to column 65.
+ *
+ * A FEATURE adding a command or a flag updates this pin deliberately — updated
+ * 2026-08-26 for the command catalog, which is what the usage text now renders
+ * from.
+ */
+export const usageFixture = `lightsout — deterministic engine for coding agents
+
+usage:
+  lightsout implement --plan <path> [--overview <path>] [--packages <a,b>] [--cwd <path>] [--skip-refactor]
+  lightsout implement --plan <folder> [--start-phase <n>] [--cwd <path>] [--skip-refactor]   (folder: overview.md runs all phases, else plan.md)
+  lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
+  lightsout status [--cwd <path>]
+  lightsout doctor [--cwd <path>]
+  lightsout standards-check [--cwd <path>] [--path <subdir>] [--all] [--baseline] [--code-checks | --agent-review]
+  lightsout standards-check --list [--cwd <path>]     (print the enforcement ledger)
+  lightsout standards-validate [--pack <path>] [--cwd <path>]   (run every check against its own fixtures)
+  lightsout standards-health [--cwd <path>]           (per-rule coverage and how often agents decline it)
+  lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>] [--code-checks] [--allow-dirty]
+  lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
+  lightsout test-coverage-to-threshold [--cwd <path>] [--max-batches <n>] [--allow-dirty]
+  lightsout test-coverage-to-threshold --run <id> [--cwd <path>]   (resume a parked coverage run)
+  lightsout plan verify-facts --name <n> [--notes <path>] [--cwd <path>]
+  lightsout plan draft --name <n> [--scope single|phased] [--cwd <path>]
+  lightsout plan lint --name <n> [--cwd <path>]
+  lightsout plan dedup --name <n> [--cwd <path>]
+  lightsout plan grade --name <n> [--phase <n[,n]>] [--cwd <path>]   (--phase grades only those phases, and always marks the result incomplete)
+  lightsout friction [--cwd <path>]
+  lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
+  lightsout voice on|off [--cwd <path>]               (toggle spoken read-out of interview questions — Mac-only)
+  lightsout voice hook [--cwd <path>]                 (hook entry for Stop + AskUserQuestion: reads hook JSON on stdin, speaks the question)
+
+exit codes (implement, resume, refactor, test-coverage-to-threshold):
+  0  finished
+  2  stopped with work left and resumable — a --max-batches ceiling, or a harness rate limit
+  1  anything else
+`;

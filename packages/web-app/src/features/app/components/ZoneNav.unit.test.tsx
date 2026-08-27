@@ -1,5 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
 import { ZoneNav } from '#src/features/app/index.ts';
@@ -52,12 +52,55 @@ describe('ZoneNav', () => {
 		expect(runs).toHaveAttribute('href', '/repo/runs');
 	});
 
+	test('offers what was settled before any agent ran', () => {
+		setupZoneNav();
+
+		const plans = screen.getByRole('link', { name: 'Plans' });
+
+		expect(plans).toHaveAttribute('href', '/repo/plans');
+	});
+
 	test('offers what this repo enforces', () => {
 		setupZoneNav();
 
 		const standards = screen.getByRole('link', { name: 'Standards' });
 
 		expect(standards).toHaveAttribute('href', '/repo/standards');
+	});
+
+	test('opens on the page that answers whether anything needs a person right now', () => {
+		setupZoneNav();
+
+		const health = screen.getByRole('link', { name: 'Health' });
+
+		expect(health).toHaveAttribute('href', '/repo');
+	});
+
+	test('offers what agents said got in their way', () => {
+		setupZoneNav();
+
+		const friction = screen.getByRole('link', { name: 'Friction' });
+
+		expect(friction).toHaveAttribute('href', '/repo/friction');
+	});
+
+	test('offers what this repo told lightsout', () => {
+		setupZoneNav();
+
+		const config = screen.getByRole('link', { name: 'Config' });
+
+		expect(config).toHaveAttribute('href', '/repo/config');
+	});
+
+	test('orders the zone from the page that says what needs a person to the pages that say what was settled', () => {
+		setupZoneNav();
+
+		const zone = screen.getByRole('navigation', { name: 'Your repo' });
+		const entries = within(zone)
+			.getAllByRole('link')
+			.map((link) => link.textContent);
+
+		expect(entries).toEqual(['Health', 'Runs', 'Plans', 'Standards', 'Friction', 'Config']);
 	});
 
 	test('renders nothing at all when no repo was found', () => {
