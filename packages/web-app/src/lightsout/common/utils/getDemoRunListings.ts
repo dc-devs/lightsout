@@ -1,4 +1,4 @@
-import { RunListing } from '@lightsout/engine';
+import { RunListing } from '@lightsout/engine/contracts';
 import { z } from 'zod';
 import listings from '#assets/demo-runs/listings.json';
 

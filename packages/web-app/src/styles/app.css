@@ -13,6 +13,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Tailwind v4 keys `dark:` to the operating system unless it is told otherwise,
+   and this app's theme is a stored choice a reader makes — so a `dark:` utility
+   has to follow the class the theme provider sets on `<html>`, exactly as the
+   colour tokens below already do. Without this the two disagree: the page turns
+   dark while anything written as `dark:` stays where the OS left it. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
 	/* ========================================
 	   BRAND COLORS - Single source of truth

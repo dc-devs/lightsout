@@ -66,7 +66,7 @@ const setupCommandsRoute = ({ commands = [buildCommandCatalogEntry()] }: { comma
 	const router = createRouter({ routeTree, context: { queryClient } });
 	const pages = (router as unknown as { routesById: Record<string, FilePage> }).routesById;
 
-	return { commands, page: pages['/commands/'], queryClient };
+	return { commands, page: pages['/_site/commands/'], queryClient };
 };
 
 /**

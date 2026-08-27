@@ -24,7 +24,7 @@ const DocRoutePage = () => {
 	return <DocPage doc={doc} />;
 };
 
-export const Route = createFileRoute('/docs/$doc')({
+export const Route = createFileRoute('/_site/docs/$doc')({
 	// The markdown is bundled with the app, so there is nothing to fetch — the
 	// loader only decides whether the path names a document at all.
 	loader: ({ params }) => {

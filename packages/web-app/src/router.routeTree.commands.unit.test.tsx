@@ -101,7 +101,7 @@ const setupCommandRoute = () => {
 
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	const router = createRouter({ routeTree, context: { queryClient } });
-	const route = (router as unknown as { routesById: Record<string, FilePage> }).routesById['/commands/$command'];
+	const route = (router as unknown as { routesById: Record<string, FilePage> }).routesById['/_site/commands/$command'];
 
 	return { queryClient, route };
 };

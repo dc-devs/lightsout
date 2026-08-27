@@ -31,6 +31,11 @@ jest.mock('#src/lightsout/index.ts', () => ({
 		listPacks: () => new Promise(() => {}),
 		getPackRule: (params: { name: string; rule: string }) => mockGetPackRule(params),
 	}),
+}));
+// The proof section reaches the frozen listings by their own file rather than
+// through the barrel above, because that barrel also carries the disk reader and
+// the browser cannot load it — so this is the module a test has to stand in for.
+jest.mock('#src/lightsout/common/utils/getDemoRunListings.ts', () => ({
 	getDemoRunListings: () => mockGetDemoRunListings(),
 }));
 // -------------------------
@@ -63,7 +68,9 @@ const realRequest = globalThis.requestAnimationFrame;
 const realCancel = globalThis.cancelAnimationFrame;
 
 /** The three rows the committed fixture actually holds, which is what ships and so what the page renders by default. */
-const frozenListings = jest.requireActual<typeof import('#src/lightsout/index.ts')>('#src/lightsout/index.ts').getDemoRunListings();
+const frozenListings = jest
+	.requireActual<typeof import('#src/lightsout/common/utils/getDemoRunListings.ts')>('#src/lightsout/common/utils/getDemoRunListings.ts')
+	.getDemoRunListings();
 
 interface SetupParams {
 	/** The frozen rows the proof section picks its three panels from. */

@@ -5,8 +5,10 @@ import { createRouter } from '@tanstack/react-router';
 import { screen } from '@testing-library/react';
 import type { ComponentType, ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
+import { Theme } from '#src/common/constants/Theme.ts';
 import { routeTree } from '#src/routeTree.gen.ts';
 import appCssHref from '#src/styles/app.css?url';
+import { ThemeProvider } from '#src/theme/index.ts';
 import { buildConfigView } from '#tests/helpers/buildConfigView.ts';
 import { buildRunListing } from '#tests/helpers/buildRunListing.ts';
 import { buildStandardsView } from '#tests/helpers/buildStandardsView.ts';
@@ -148,6 +150,26 @@ const setupRootPage = (params: SetupParams = {}) => {
 	});
 };
 
+/** One of the two frames — `/_site` or `/repo` — with a route open inside it. */
+const setupFrame = ({ id, ...params }: SetupParams & { id: string }) => {
+	const { pages, repoRoot, runs } = setupRouteTree(params);
+	const Frame = pages[id].options.component;
+
+	renderWithQueryClient({
+		// The frames carry the theme control, which the root route's provider wraps
+		// in the running app; rendering one on its own has to supply it.
+		ui: (
+			<ThemeProvider defaultTheme={Theme.Dark}>
+				<Frame />
+			</ThemeProvider>
+		),
+		seed: [
+			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot } },
+			{ queryKey: [QueryKey.Runs], data: runs },
+		],
+	});
+};
+
 const setupCaughtError = ({ message = 'the run manifest is unreadable' }: { message?: string } = {}) => {
 	const { rootPage } = setupRouteTree();
 	const Page = rootPage.errorComponent;
@@ -210,16 +232,26 @@ describe('routeTree', () => {
 	// The `_` in `/repo/runs_/$runId` is the router's own mark for a route that
 	// does not nest inside its path's parent; the address a reader sees is still
 	// /repo/runs/$runId.
+	//
+	// `/_site` and `/repo` are the two frames. `/_site` carries no address of its
+	// own — the pages under it are served at `/`, `/standards` and the rest,
+	// exactly where they always were — and which frame a page wears is settled by
+	// which of the two it sits under.
 	test('hangs one route off the root for every route file the app has, and nothing else', () => {
 		const { pages } = setupRouteTree();
 
 		const ids = Object.keys(pages).sort();
 
 		expect(ids).toStrictEqual([
-			'/',
-			'/commands/',
-			'/commands/$command',
-			'/docs/$doc',
+			'/_site',
+			'/_site/',
+			'/_site/commands/',
+			'/_site/commands/$command',
+			'/_site/docs/$doc',
+			'/_site/standards/',
+			'/_site/standards/$pack/',
+			'/_site/standards/$pack/$rule',
+			'/repo',
 			'/repo/',
 			'/repo/config',
 			'/repo/friction',
@@ -228,9 +260,6 @@ describe('routeTree', () => {
 			'/repo/runs',
 			'/repo/runs_/$runId',
 			'/repo/standards',
-			'/standards/',
-			'/standards/$pack/',
-			'/standards/$pack/$rule',
 			'__root__',
 		]);
 	});
@@ -269,20 +298,44 @@ describe('routeTree', () => {
 		expect(page?.className).toContain('dark');
 	});
 
-	test('puts the local zone in that document when a repo was found', () => {
-		setupRootPage({ repoRoot: '/repos/other-project' });
+	test('puts whichever route is open inside that document', () => {
+		setupRootPage();
+
+		const open = screen.getByText('the open route');
+
+		expect(open).toBeInTheDocument();
+	});
+
+	test('gives the app frame the local zone when a repo was found', () => {
+		setupFrame({ id: '/repo', repoRoot: '/repos/other-project' });
 
 		const zone = screen.getByRole('navigation', { name: 'Your repo' });
 
 		expect(zone.textContent).toContain('Runs');
 	});
 
-	test('puts whichever route is open beside that navigation', () => {
-		setupRootPage();
+	test('leaves the local zone out of the site frame, so the landing page is not wearing a sidebar', () => {
+		setupFrame({ id: '/_site', repoRoot: '/repos/other-project' });
 
-		const open = screen.getByText('the open route');
+		const zone = screen.queryByRole('navigation', { name: 'Your repo' });
 
-		expect(open).toBeInTheDocument();
+		expect(zone).not.toBeInTheDocument();
+	});
+
+	test('offers the site a way into the app when a repo was found', () => {
+		setupFrame({ id: '/_site', repoRoot: '/repos/other-project' });
+
+		const app = screen.getByRole('link', { name: 'App' });
+
+		expect(app).toHaveAttribute('href', '/repo');
+	});
+
+	test('offers no way in when no repo was found, since there would be nothing to open', () => {
+		setupFrame({ id: '/_site', repoRoot: null });
+
+		const app = screen.queryByRole('link', { name: 'App' });
+
+		expect(app).not.toBeInTheDocument();
 	});
 
 	test('shows what went wrong when a route throws', () => {
@@ -307,7 +360,7 @@ describe('routeTree', () => {
 		// Narrowed the way the root's own options are above: the router types these
 		// against its deeply generic route shapes, and this route declares a head
 		// and deliberately no loader.
-		const landing = pages['/'].options as unknown as { head: () => { meta: { title?: string }[] }; loader?: unknown };
+		const landing = pages['/_site/'].options as unknown as { head: () => { meta: { title?: string }[] }; loader?: unknown };
 
 		expect(landing.head().meta[0].title).toBe('lightsout — Stop the slop.');
 		expect(landing.loader).toBeUndefined();

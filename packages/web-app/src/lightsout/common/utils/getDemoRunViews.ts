@@ -1,4 +1,4 @@
-import { RunView } from '@lightsout/engine';
+import { RunView } from '@lightsout/engine/contracts';
 import implement from '#assets/demo-runs/implement.json';
 import refactor from '#assets/demo-runs/refactor.json';
 import stopped from '#assets/demo-runs/stopped.json';

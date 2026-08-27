@@ -5,7 +5,8 @@ import { Link } from '@tanstack/react-router';
 import { lazy, Suspense } from 'react';
 import { BrowserFrame, SectionHeader, Skeleton, Tabs } from '#src/appUI/index.ts';
 import { repoRootQueryOptions } from '#src/features/app/index.ts';
-import { DemoRunSlug, getDemoRunListings } from '#src/lightsout/index.ts';
+import { DemoRunSlug } from '#src/lightsout/common/constants/DemoRunSlug.ts';
+import { getDemoRunListings } from '#src/lightsout/common/utils/getDemoRunListings.ts';
 
 /**
  * The frame's contents arrive as their own chunk.
