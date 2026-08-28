@@ -5,6 +5,7 @@ import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { implementCommand } from '#src/cli/implementCommand.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
 
 /** The plan folder every folder-routing case points `--plan` at. */
 const planFolder = 'plans/demo';
@@ -308,6 +309,18 @@ test('implementCommand: an empty pack list is still a configured list — the ba
 
 	expect(logged).toContain('  standards packs: ');
 	expect(logged.some((line) => line.includes('lightsout-defaults'))).toBe(false);
+});
+
+test('implementCommand: --ship never ships a run that failed — the flag asks for a merge of verified work, and nothing was verified', async () => {
+	// A fake `gh` on PATH answering nothing: its log is how "the forge was never touched" becomes observable.
+	const { readForgeLog } = stubForgeOnPath({ responses: {} });
+	const { context, errors, exitCodes } = setupImplement({ args: ['--plan', 'ghost.md', '--ship'] });
+
+	await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
+
+	expect(readForgeLog()).toStrictEqual([]);
+	expect(errors.some((line) => /plan file not found: .*ghost\.md/.test(line))).toBeTruthy();
+	expect(exitCodes).toStrictEqual([1]);
 });
 
 test('implementCommand: a finished run ends on its report card — the plan it ran, its timings, and where the evidence landed', async () => {

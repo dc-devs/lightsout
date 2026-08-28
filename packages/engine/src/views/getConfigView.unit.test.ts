@@ -128,10 +128,36 @@ describe('getConfigView', () => {
 		await expect(getConfigView({ cwd: withoutConfig })).rejects.toThrow(ConfigNotFoundError);
 	});
 
-	test('groups the file into the six areas the page reads, in the order it reads them', async () => {
+	test('groups the file into the areas the page reads, in the order it reads them', async () => {
 		const view = await getConfigView({ cwd: repoRoot });
 
-		expect(view.sections.map((section) => section.title)).toStrictEqual(['Harness', 'Gates', 'Standards', 'Agent commands', 'Generated', 'Timeouts']);
+		expect(view.sections.map((section) => section.title)).toStrictEqual(['Harness', 'Gates', 'Standards', 'Agent commands', 'Generated', 'Timeouts', 'Ship']);
+	});
+
+	test('shows the ship block whole in its own area, because no leaf of it has a default worth a row of its own', async () => {
+		const cwd = await seedConfiguredCwd({
+			config: { ship: { 'ticket-pattern': '^(?<ticket>ab-\\d+)', 'pr-body': 'Closes {ticket}', 'merge-method': 'squash' } },
+		});
+
+		const view = await getConfigView({ cwd });
+
+		const ship = view.sections.find((section) => section.title === 'Ship');
+
+		expect(ship?.fields).toEqual([
+			expect.objectContaining({
+				key: 'ship',
+				value: { 'ticket-pattern': '^(?<ticket>ab-\\d+)', 'pr-body': 'Closes {ticket}', 'merge-method': 'squash' },
+				fromConfig: true,
+			}),
+		]);
+	});
+
+	test('leaves ship null when the file omits it, because ship is opt-in and the engine fills nothing in for it', async () => {
+		const cwd = await seedConfiguredCwd();
+
+		const view = await getConfigView({ cwd });
+
+		expect(findField({ sections: view.sections, key: 'ship' })).toEqual(expect.objectContaining({ value: null, fromConfig: false }));
 	});
 
 	test('leaves the harness and the model null when the file names neither, rather than inventing a fallback for them', async () => {

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ConfigCommands } from '#src/contracts/ConfigCommands.ts';
 import { ConfigGates } from '#src/contracts/ConfigGates.ts';
+import { ConfigShip } from '#src/contracts/ConfigShip.ts';
 import { renamedKey } from '#src/contracts/common/utils/renamedKey.ts';
 import { Effort } from '#src/contracts/Effort.ts';
 import { PackageGates } from '#src/contracts/PackageGates.ts';
@@ -170,6 +171,8 @@ export const LightsoutConfig = z.object({
 	'standards-checks': StandardsCheckOverrides.optional(),
 	/** Removed — renamed to `standards-checks`. Same reason. */
 	standardsChecks: renamedKey({ from: 'standardsChecks', to: 'standards-checks' }),
+	/** Opt-in ship settings — branch ticket pattern, pull request body template, merge method. See `ConfigShip`. */
+	ship: ConfigShip.optional(),
 });
 
 export type LightsoutConfig = z.infer<typeof LightsoutConfig>;

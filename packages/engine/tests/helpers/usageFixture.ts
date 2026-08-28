@@ -8,15 +8,15 @@
  * and the renderer's single alignment rule re-flows it to column 65.
  *
  * A FEATURE adding a command or a flag updates this pin deliberately — updated
- * 2026-08-26 for the command catalog, which is what the usage text now renders
- * from.
+ * 2026-08-28 for `lightsout ship` and implement's `--ship` flag.
  */
 export const usageFixture = `lightsout — deterministic engine for coding agents
 
 usage:
-  lightsout implement --plan <path> [--overview <path>] [--packages <a,b>] [--cwd <path>] [--skip-refactor]
-  lightsout implement --plan <folder> [--start-phase <n>] [--cwd <path>] [--skip-refactor]   (folder: overview.md runs all phases, else plan.md)
+  lightsout implement --plan <path> [--overview <path>] [--packages <a,b>] [--cwd <path>] [--skip-refactor] [--ship]
+  lightsout implement --plan <folder> [--start-phase <n>] [--cwd <path>] [--skip-refactor] [--ship]   (folder: overview.md runs all phases, else plan.md)
   lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
+  lightsout ship [--cwd <path>]
   lightsout status [--cwd <path>]
   lightsout doctor [--cwd <path>]
   lightsout standards-check [--cwd <path>] [--path <subdir>] [--all] [--baseline] [--code-checks | --agent-review]

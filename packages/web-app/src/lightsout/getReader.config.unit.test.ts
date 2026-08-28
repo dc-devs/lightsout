@@ -87,7 +87,7 @@ describe('getReader config', () => {
 		});
 	});
 
-	test('groups every live key into the six areas the page reads, in order', async () => {
+	test('groups every live key into the areas the page reads, in order', async () => {
 		const { reader } = await setupConfigReader();
 
 		const view = await reader.getConfig();
@@ -99,6 +99,7 @@ describe('getReader config', () => {
 			{ title: 'Agent commands', keys: ['agent-commands'] },
 			{ title: 'Generated', keys: ['generated', 'vendored'] },
 			{ title: 'Timeouts', keys: ['timeouts.agent-minutes', 'timeouts.supervisor-minutes'] },
+			{ title: 'Ship', keys: ['ship'] },
 		]);
 	});
 

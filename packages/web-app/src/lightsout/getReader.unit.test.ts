@@ -16,6 +16,7 @@ const commandIds = [
 	'plan',
 	'implement',
 	'resume',
+	'ship',
 	'refactor',
 	'test-coverage-to-threshold',
 	'standards-check',

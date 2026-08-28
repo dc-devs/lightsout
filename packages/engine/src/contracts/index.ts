@@ -26,6 +26,7 @@ export {
 } from '@lightsout/standards-contracts';
 export { ConfigCommands } from '#src/contracts/ConfigCommands.ts';
 export { ConfigGates } from '#src/contracts/ConfigGates.ts';
+export { ConfigShip } from '#src/contracts/ConfigShip.ts';
 export {
 	CommandActor,
 	CommandCatalogEntry,
@@ -73,6 +74,7 @@ export {
 export { BatchOutcome, BatchReport, RefactorBatch, RefactorWorklist } from '#src/contracts/refactor/index.ts';
 export { AgentUsage, PackagesSource, PhaseReport, PipelineKind, RunLock, RunManifest, RunStatus, RunUsage, StepRecord } from '#src/contracts/run/index.ts';
 export { StandardsCheckOverrides } from '#src/contracts/StandardsCheckOverrides.ts';
+export { ShipBlockReason, ShipMergeMethod, ShipResult, ShipStatus } from '#src/contracts/ship/index.ts';
 export {
 	AdvisoryOutcome,
 	AdvisoryResponse,

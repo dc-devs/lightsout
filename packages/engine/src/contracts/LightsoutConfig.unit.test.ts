@@ -61,6 +61,32 @@ test('LightsoutConfig: each block reaches its own contract, valid and invalid al
 	expect('standards-checks' in LightsoutConfig.parse(base)).toBe(false);
 });
 
+test('LightsoutConfig: the ship block is optional, keeps its own kebab-case spelling, and stays strict through the composition', () => {
+	const parsed = LightsoutConfig.parse({
+		...base,
+		ship: { 'ticket-pattern': '^(?<ticket>lo-(?<number>\\d+))', 'pr-body': 'Closes LO-{number}', 'merge-method': 'squash', 'after-implement': true },
+	});
+
+	// the block survives parsing as the file wrote it — nothing renames a key on
+	// the way through
+	expect(parsed.ship).toStrictEqual({
+		'ticket-pattern': '^(?<ticket>lo-(?<number>\\d+))',
+		'pr-body': 'Closes LO-{number}',
+		'merge-method': 'squash',
+		'after-implement': true,
+	});
+
+	// the block's own strictness fires through the composition: a typoed key here
+	// would silently disable a setting the file believes is on
+	expect(LightsoutConfig.safeParse({ ...base, ship: { 'ticket-patern': '^(?<ticket>lo-\\d+)' } }).success).toBe(false);
+	// and a merge method no forge offers is refused before it reaches a command line
+	expect(LightsoutConfig.safeParse({ ...base, ship: { 'merge-method': 'fast-forward' } }).success).toBe(false);
+
+	// ship is opt-in: an absent block leaves no key on the parsed config, and the
+	// engine's own defaults stand in
+	expect('ship' in LightsoutConfig.parse(base)).toBe(false);
+});
+
 test('LightsoutConfig: effort parses at the top level for every level, and an out-of-enum effort fails', () => {
 	for (const effort of ['low', 'medium', 'high', 'xhigh', 'max']) {
 		// ${effort} is one of the five levels every harness shares

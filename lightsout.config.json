@@ -23,6 +23,11 @@
 		"format": "pnpm format",
 		"build": "pnpm build"
 	},
+	"ship": {
+		"ticket-pattern": "^(?<ticket>lo-(?<number>\\d+))",
+		"pr-body": "Closes LO-{number}",
+		"merge-method": "merge"
+	},
 	"package-gates": {
 		"check": "pnpm --filter {package} run check",
 		"test": "pnpm --filter {package} run test:unit",
