@@ -85,7 +85,7 @@ the user's ability to answer.
 plain words. Read the codebase in-context (Read/Grep/Glob) when it answers a
 question — never ask what the code can answer.
 
-When the idea traces to a Linear ticket, read the ticket first. Its
+When the idea traces to a ticket, read the ticket first. Its
 `## Decisions` lines are outcomes the user already settled — never re-ask
 them, and do not copy them into this skill's exit file: `/plan` harvests
 the ticket itself, and a copy here would put the same row in the record

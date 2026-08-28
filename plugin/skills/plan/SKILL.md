@@ -205,7 +205,7 @@ warnings into Elicitation.
   conversation before the skill was invoked, record each decision the user
   already made as a decisions row (`Source = "Elicitation"`) before asking
   anything. Those rows are settled — see [Settled decisions](#settled-decisions).
-- **Harvest the ticket.** When the work traces to a Linear ticket, record
+- **Harvest the ticket.** When the work traces to a ticket, record
   each line of its `## Decisions` as a decisions row (`Source =
   "Elicitation"`, `assumption: false`) before asking anything — those are
   settled. Treat its `## Open questions` as part of the interview's agenda.

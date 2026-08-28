@@ -8,6 +8,11 @@
 			"name": "lightsout",
 			"source": "./plugin",
 			"description": "Plugins for LightsOut"
+		},
+		{
+			"name": "lightsout-linear",
+			"source": "./plugin-linear",
+			"description": "Linear mechanics for the LightsOut ticket workflow"
 		}
 	]
 }

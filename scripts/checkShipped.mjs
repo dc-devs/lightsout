@@ -7,24 +7,30 @@ import { buildEngine } from './buildEngine.mjs';
 import { invokedDirectly } from './invokedDirectly.mjs';
 
 /**
- * Is `plugin/` shippable?
+ * Are the shipped plugin directories shippable?
  *
- * A marketplace install copies `plugin/` and nothing else, so merging to main
- * is what reaches users. Three things have to hold, and this is the only
- * definition of them: the pre-push hook runs it for a fast local answer, and
- * CI runs the same file as the authority. Written twice, the two would agree
- * today and drift by the spring, and the one you trust would be whichever you
- * read last.
+ * A marketplace install copies the plugin directories and nothing else, so
+ * merging to main is what reaches users. These things have to hold, and this
+ * is the only definition of them: the pre-push hook runs it for a fast local
+ * answer, and CI runs the same file as the authority. Written twice, the two
+ * would agree today and drift by the spring, and the one you trust would be
+ * whichever you read last.
  *
  *   1. `plugin/dist/cli.mjs` is what `src/` currently builds to.
  *   2. `plugin/standards/` is what the authored default package currently
  *      builds to.
- *   3. If either moved, `plugin.json` carries a version of its own — users
- *      cannot tell two builds apart when both call themselves 0.2.4.
+ *   3. If anything under a shipped directory moved, its `plugin.json` carries
+ *      a version of its own — users cannot tell two builds apart when both
+ *      call themselves 0.2.4.
  *
- * Both halves rebuild through the same functions `pnpm bundle` uses, into a
- * throwaway directory. Nothing is written into the working tree: a check that
- * repairs what it measures reports success and leaves the fix uncommitted.
+ * The bundle and standards comparisons are the base plugin's alone, because it
+ * is the only directory shipping build output; the version question is asked
+ * of every shipped directory.
+ *
+ * Both build halves rebuild through the same functions `pnpm bundle` uses,
+ * into a throwaway directory. Nothing is written into the working tree: a
+ * check that repairs what it measures reports success and leaves the fix
+ * uncommitted.
  *
  * The version question reads the working tree, so an uncommitted rebuild of
  * plugin/dist/cli.mjs demands its bump before the commit rather than after.
@@ -35,7 +41,12 @@ import { invokedDirectly } from './invokedDirectly.mjs';
  * push to main itself, where there is nothing to bump against.
  */
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
-const manifestPath = join('plugin', '.claude-plugin', 'plugin.json');
+
+/** The directories a marketplace install copies, each with the manifest that names its version. */
+const shippedDirectories = [
+	{ dir: 'plugin', manifestPath: join('plugin', '.claude-plugin', 'plugin.json') },
+	{ dir: 'plugin-linear', manifestPath: join('plugin-linear', '.claude-plugin', 'plugin.json') },
+];
 
 /** Every file under a directory, as sorted slash-separated relative paths. */
 const filesUnder = ({ dir }) =>
@@ -114,8 +125,38 @@ const isNewer = ({ head, base }) => {
 };
 
 /**
+ * The version verdict for one shipped directory: a problem, or why it was
+ * skipped, or what it compared.
+ *
+ * The working tree is compared, not HEAD, so an uncommitted rebuild demands
+ * its bump before the commit rather than after.
+ */
+const versionVerdict = ({ baseCommit, dir, manifestPath }) => {
+	if (!changedSince({ baseCommit, path: dir })) {
+		return { skipped: `nothing under ${dir}/ changed` };
+	}
+
+	const baseManifest = git({ args: ['show', `${baseCommit}:${manifestPath}`] });
+
+	if (baseManifest === undefined) {
+		return { skipped: `${manifestPath} does not exist at the base` };
+	}
+
+	const headVersion = JSON.parse(readFileSync(join(repoRoot, manifestPath), 'utf8')).version;
+	const baseVersion = JSON.parse(baseManifest).version;
+
+	if (!isNewer({ head: headVersion, base: baseVersion })) {
+		return {
+			problem: `${dir}/ changed, which is what users install, but ${manifestPath} is ${headVersion} against a base of ${baseVersion} — bump it so the shipped build has a name of its own`,
+		};
+	}
+
+	return { checked: `${dir}/ version ${baseVersion} -> ${headVersion}` };
+};
+
+/**
  * @param base - git ref the version is compared against. Defaults to `origin/main`.
- * @returns every problem found, and what the version check did or why it was skipped
+ * @returns every problem found, and one note per shipped directory saying what the version check did or why it was skipped
  */
 export const checkShipped = async ({ base = 'origin/main' } = {}) => {
 	const problems = [];
@@ -142,29 +183,20 @@ export const checkShipped = async ({ base = 'origin/main' } = {}) => {
 	const baseCommit = git({ args: ['merge-base', base, 'HEAD'] });
 
 	if (baseCommit === undefined) {
-		return { problems, versionSkipped: `no ${base} to compare against` };
+		return { problems, versionNotes: [`version not checked: no ${base} to compare against`] };
 	}
 
-	if (!changedSince({ baseCommit, path: 'plugin' })) {
-		return { problems, versionSkipped: 'nothing under plugin/ changed' };
-	}
+	const versionNotes = shippedDirectories.map((shipped) => {
+		const verdict = versionVerdict({ baseCommit, ...shipped });
 
-	const baseManifest = git({ args: ['show', `${baseCommit}:${manifestPath}`] });
+		if (verdict.problem !== undefined) {
+			problems.push(verdict.problem);
+		}
 
-	if (baseManifest === undefined) {
-		return { problems, versionSkipped: `${manifestPath} does not exist at the base` };
-	}
+		return verdict.checked ?? `version not checked: ${verdict.skipped ?? verdict.problem}`;
+	});
 
-	const headVersion = JSON.parse(readFileSync(join(repoRoot, manifestPath), 'utf8')).version;
-	const baseVersion = JSON.parse(baseManifest).version;
-
-	if (!isNewer({ head: headVersion, base: baseVersion })) {
-		problems.push(
-			`plugin/ changed, which is what users install, but ${manifestPath} is ${headVersion} against a base of ${baseVersion} — bump it so the shipped build has a name of its own`,
-		);
-	}
-
-	return { problems, versionChecked: `${baseVersion} -> ${headVersion}` };
+	return { problems, versionNotes };
 };
 
 /**
@@ -183,10 +215,10 @@ const main = async () => {
 		return;
 	}
 
-	const { problems, versionChecked, versionSkipped } = await checkShipped({ base: baseFlag === -1 ? undefined : process.argv[baseFlag + 1] });
+	const { problems, versionNotes } = await checkShipped({ base: baseFlag === -1 ? undefined : process.argv[baseFlag + 1] });
 
 	if (problems.length === 0) {
-		console.log(`shipped plugin is current · ${versionChecked ? `version ${versionChecked}` : `version not checked: ${versionSkipped}`}`);
+		console.log(`shipped plugins are current · ${versionNotes.join(' · ')}`);
 
 		return;
 	}
@@ -198,7 +230,7 @@ const main = async () => {
 	}
 
 	console.error('');
-	console.error('  plugin/ is what a marketplace install copies and runs.');
+	console.error('  plugin/ and plugin-linear/ are what a marketplace install copies and runs.');
 	console.error('');
 	console.error('    pnpm bundle && git add plugin/');
 	console.error('');
