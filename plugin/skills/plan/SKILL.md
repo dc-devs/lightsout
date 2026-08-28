@@ -84,6 +84,49 @@ message, in the shape above. A picker's labels cannot carry a Context, a
 Trade-offs, or a drafted table, so what it saves in typing it takes out of
 the user's ability to answer.
 
+## Settled decisions
+
+**Settled means settled — never re-ask it.** Before putting any question to
+the user — an Elicitation batch, an Approaches fork, a Grill escalation, a
+Dedup finding, a Converge gap — check whether the answer is already on the
+record. If it is, take the recorded answer, and do not surface the question.
+The user sat through that decision once; asking again spends their attention
+on work already done and invites them to contradict themselves.
+
+By the time the plan is drafted, settled decisions live in three places, and
+all three count:
+
+| Where | Holds |
+|---|---|
+| `.lightsout/plans/<name>/brainstorm-decisions.json` | what was settled with the user in the brainstorm before this session |
+| `.lightsout/plans/<name>/decisions.json` | what was settled earlier in this plan session |
+| the drafted plan's `## Decision Log` | the rows of both, plus every answer folded in since the draft |
+
+A settled question is **dropped**, not answered again. Do not append a
+`Decision Log` row for it and do not mirror one into `decisions.json` — the
+row it would duplicate is already there. Where a step distinguishes answering
+a question yourself from putting it to the user, a settled question is
+neither; it never enters that routing at all.
+
+**Re-open a settled decision only for a contradiction you can name in a
+specific file and line.** A preference for a different approach is not a
+contradiction, and neither is a later step wanting a different answer than an
+earlier one gave. A re-opened decision is asked in the Question format, with
+the contradicting `file:line` stated in the Context.
+
+**A re-opened decision keeps both records.** Record the corrected answer as a
+**new** row in `decisions.json`, **repeating the original row's `question`
+text verbatim**, with a rationale naming the `file:line` and saying which row
+it supersedes. The repeated question text is what marks the supersession: the
+plan writer treats the last row sharing a question as the live one, so the
+corrected answer wins while both rows stay in the Decision Log. Never edit
+`brainstorm-decisions.json` — brainstorm owns it, and both rows belong in the
+log.
+
+**This narrows what gets asked, not how hard a step pushes.** Every question
+that is not already settled is still asked, at whatever intensity its step
+calls for. Dropping a settled question is not a licence to drop a hard one.
+
 ## Steps
 
 **0. Name the plan.** Derive a kebab `<name>` from the request (e.g. "add a
@@ -154,23 +197,15 @@ warnings into Elicitation.
 - **Harvest the session first.** If the feature was discussed in this
   conversation before the skill was invoked, record each decision the user
   already made as a decisions row (`Source = "Elicitation"`) before asking
-  anything. Settled in-session means settled — never re-ask it.
+  anything. Those rows are settled — see [Settled decisions](#settled-decisions).
 - **Honor the brainstorm hand-off.** The rows in
-  `brainstorm-decisions.json` are decisions already settled with the user:
-  - Settled in brainstorm means settled — never re-ask it.
-  - Re-open a row only for a contradiction you can name in a specific file
-    and line. A preference for a different approach is not a contradiction.
-  - A re-opened row is asked in the Question format, with the contradicting
-    `file:line` stated in the Context. Record the corrected answer as a
-    **new** row in `decisions.json` with `source: "Elicitation"`,
-    **repeating the brainstorm row's `question` text verbatim**, and a
-    rationale naming the `file:line` and saying it supersedes the brainstorm
-    row. The repeated question text is what marks the supersession: the plan
-    writer treats the last row sharing a question as the live one, so the
-    corrected answer wins while both rows stay in the Decision Log. This
+  `brainstorm-decisions.json` are decisions already settled with the user, and
+  [Settled decisions](#settled-decisions) governs them — never re-asked,
+  re-opened only for a contradiction at a named `file:line`. Two things are
+  particular to this step:
+  - A row re-opened here is recorded with `source: "Elicitation"`. This
     matters most for `Global constraint:` rows, where the live row alone
-    becomes a binding bullet. Never edit `brainstorm-decisions.json` —
-    brainstorm owns it, and both rows belong in the log.
+    becomes a binding bullet.
   - Do not copy brainstorm rows into `decisions.json`; `plan draft` reads
     both files and merges them.
 - Ask in the Question format above — at most 2 full-format questions per
@@ -203,15 +238,16 @@ warnings into Elicitation.
   confirmation as an assumption.
 
 **3. Approaches** — settle the design shape before drafting (interactive,
-conditional). Run this step when the design shape is not already settled by
-the session discussion, the Elicitation answers, or a brainstorm decision
-naming the chosen approach. When it is settled, say so in one line ("Design
-shape settled during Elicitation — skipping approaches", or "Approach settled
-during brainstorm — skipping approaches") and move on — never skip silently. Present 2–3 genuinely different approaches
-in the Question format: Context states the design problem in everyday words,
-Trade-offs gives each approach's wins and costs, Question asks which to build,
-Recommendation names one with the one-line why. Record the chosen approach as
-a decisions row (`Source = "Elicitation"`) before drafting.
+conditional). Run this step only when the design shape is not already settled
+— by the session discussion, the Elicitation answers, or a brainstorm decision
+naming the chosen approach; [Settled decisions](#settled-decisions) is the
+test. When it is settled, say so in one line ("Design shape settled during
+Elicitation — skipping approaches", or "Approach settled during brainstorm —
+skipping approaches") and move on — never skip silently. Present 2–3 genuinely
+different approaches in the Question format: Context states the design problem
+in everyday words, Trade-offs gives each approach's wins and costs, Question
+asks which to build, Recommendation names one with the one-line why. Record the
+chosen approach as a decisions row (`Source = "Elicitation"`) before drafting.
 
 **4. Draft.** Run:
 ```sh
@@ -236,8 +272,15 @@ creates across more phases — and re-run `plan draft`.
 (interactive, unbounded):
 - Relentless: generate the full stream of edge-case questions against the
   draft — grilling intensity never drops. Routing decides who *answers* each
-  question, never whether it gets asked. Explore the codebase instead of
-  asking whenever possible.
+  question, never whether it gets asked; the settled check below is the one
+  thing that removes a question, and it runs before routing. Explore the
+  codebase instead of asking whenever possible.
+- **Drop a question the record already answers.** Check each generated
+  question against the brainstorm rows, `decisions.json` and the draft's
+  Decision Log — see [Settled decisions](#settled-decisions) — before routing
+  it. A settled question is neither escalated nor self-answered: it is
+  dropped, with no new Decision Log row, because the answer is already logged.
+  The rest of the stream is unaffected — this removes repeats, not rigour.
 - **Route every question before surfacing it. Escalating to the user is the
   default** — self-answer is the single exception, allowed only when ALL of
   these hold: the user confirmed the alignment checkpoint (step 2); the answer
@@ -269,8 +312,13 @@ node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan dedup --name <name>
 Read `.lightsout/plans/<name>/dedup.json`. Detection and judgment are the
 subcommand's; you only conduct the review and apply the chosen edits.
 - `findings` empty → nothing to review; go to Grade.
-- `findings` present → surface each finding in the Question format (at most
-  2 per message): **Context** says in plain words what the plan wants to
+- A finding whose resolution the record already carries is **not surfaced** —
+  see [Settled decisions](#settled-decisions). The subcommand re-detects an
+  overlap every run, so a resolution chosen on an earlier pass comes back as a
+  finding; apply the resolution already recorded and say in one line that it
+  was settled, rather than asking again.
+- `findings` present → surface each remaining finding in the Question format
+  (at most 2 per message): **Context** says in plain words what the plan wants to
   build and what already exists that overlaps — never bare symbol names;
   **Trade-offs** summarizes the resolution options; **Question** asks which
   to pick; **Recommendation** is the judge's `recommendation` in plain
@@ -307,6 +355,11 @@ Read `.lightsout/plans/<name>/grade.json`:
   `decisions.json`). Then re-run `plan grade`. Repeat until `passed` or the user
   calls it. **Do NOT re-run `plan draft`** — a re-draft regenerates the plan
   files and would clobber the Grill edits already folded in.
+- A blocking gap whose answer the record already carries is **not surfaced** —
+  see [Settled decisions](#settled-decisions). A re-grade re-reads the plan
+  from scratch and can raise a gap over something settled in Elicitation,
+  Grill or Dedup. Resolve it from the recorded answer, note in one line that it
+  was already settled and where, and re-grade.
 - Everything else the pass found is still in `grade.json`, in full, for the user
   or a later agent to read. Nothing was dropped; it was weighed and found not to
   need them.
