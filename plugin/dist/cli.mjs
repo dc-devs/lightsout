@@ -23709,7 +23709,12 @@ var ShipResult = external_exports.object({
   mergedAt: external_exports.string().optional(),
   /** Present exactly when status is 'blocked'. */
   reason: external_exports.enum(ShipBlockReason).optional(),
-  /** One human-readable sentence naming what stopped it. */
+  /**
+   * One human-readable sentence naming what stopped it. When the step that
+   * stopped it ran a command, the sentence is followed by a colon and that
+   * command's output — trimmed, and capped at a few hundred characters, since
+   * this is a hand-off a tracker skill quotes rather than a log.
+   */
   detail: external_exports.string().optional(),
   /** Named checks that finished red or never finished — filled for 'checks-failed' and 'checks-timed-out'. */
   failingChecks: external_exports.array(external_exports.string()).default([])
@@ -26497,14 +26502,15 @@ var createPullRequest = async ({ branch, body, cwd }) => {
   const created = await runGh({ args: ["pr", "create", "--fill-first", "--head", branch], cwd });
   const prNumber = created.exitCode === 0 ? readCreatedNumber({ stdout: created.stdout }) : void 0;
   if (prNumber === void 0) {
-    return void 0;
+    return { stderr: created.stderr };
   }
   const edited = await runGh({ args: ["pr", "edit", String(prNumber), "--body", body], cwd });
   if (edited.exitCode !== 0) {
-    return void 0;
+    return { stderr: edited.stderr };
   }
   const viewed = await runGh({ args: ["pr", "view", String(prNumber), "--json", "number,url,title,headRefName"], cwd });
-  return viewed.exitCode === 0 ? toPullRequestSummary({ row: parseForgeJson({ stdout: viewed.stdout }) }) : void 0;
+  const summary = viewed.exitCode === 0 ? toPullRequestSummary({ row: parseForgeJson({ stdout: viewed.stdout }) }) : void 0;
+  return summary ?? { stderr: viewed.stderr };
 };
 
 // src/ship/forge/findOpenPullRequest.ts
@@ -26522,11 +26528,11 @@ var MergedView = external_exports.object({ mergeCommit: external_exports.object(
 var mergePullRequest = async ({ prNumber, mergeMethod, cwd }) => {
   const merged = await runGh({ args: ["pr", "merge", String(prNumber), `--${mergeMethod}`, "--delete-branch"], cwd });
   if (merged.exitCode !== 0) {
-    return void 0;
+    return { stderr: merged.stderr };
   }
   const viewed = await runGh({ args: ["pr", "view", String(prNumber), "--json", "mergeCommit"], cwd });
   const view = MergedView.safeParse(parseForgeJson({ stdout: viewed.stdout }));
-  return view.success ? view.data.mergeCommit.oid : void 0;
+  return view.success ? view.data.mergeCommit.oid : { stderr: viewed.stderr };
 };
 
 // src/ship/forge/readForgeAuth.ts
@@ -26597,8 +26603,12 @@ var checkShipPreconditions = async ({ cwd, ticketPattern }) => {
 // src/ship/pushBranch.ts
 var pushBranch = async ({ branch, cwd }) => {
   const pushTimeoutMs = 6e4;
-  const pushed = await runCommand({ command: `git push --set-upstream origin ${branch}`, cwd, timeoutMs: pushTimeoutMs }).catch(() => void 0);
-  return pushed?.exitCode === 0;
+  const pushed = await runCommand({ command: `git push --set-upstream origin ${branch}`, cwd, timeoutMs: pushTimeoutMs }).catch((error51) => ({
+    exitCode: -1,
+    stdout: "",
+    stderr: messageOf({ error: error51 })
+  }));
+  return pushed.exitCode === 0 ? void 0 : { stderr: pushed.stderr };
 };
 
 // src/ship/renderPullRequestBody.ts
@@ -26680,6 +26690,13 @@ var stopShip = ({
 }) => {
   return record2({ cwd, onProgress, result: { status: ShipStatus.Blocked, failingChecks, ...block } });
 };
+var appendCommandOutput = ({ sentence, stderr }) => {
+  const maxStderrCharacters = 500;
+  const redacted = stderr.replaceAll(/(\/\/)[^\s/@]+(?::[^\s/@]*)?@/g, "$1***@").replaceAll(/\b(gh[pousr]|github_pat)_[A-Za-z0-9_]{16,}\b/g, "***");
+  const trimmed = redacted.trim();
+  const capped = trimmed.length > maxStderrCharacters ? `${trimmed.slice(0, maxStderrCharacters)}\u2026` : trimmed;
+  return capped === "" ? sentence : `${sentence}: ${capped}`;
+};
 var openPullRequest = async ({
   branch,
   cwd,
@@ -26694,7 +26711,7 @@ var openPullRequest = async ({
   }
   const body = renderPullRequestBody({ template: settings.pullRequestBody, tokens: { ...ticket, branch } });
   const created = await createPullRequest({ branch, body, cwd });
-  onProgress?.(created === void 0 ? "the forge would not open a pull request" : `opened pull request #${created.number}`);
+  onProgress?.("stderr" in created ? "the forge would not open a pull request" : `opened pull request #${created.number}`);
   return created;
 };
 var runShip = async ({ cwd, settings, onProgress }) => {
@@ -26706,12 +26723,21 @@ var runShip = async ({ cwd, settings, onProgress }) => {
   const ticketRef = ticket.ticket;
   const stopFields = { cwd, onProgress, branch, ticketRef };
   onProgress?.(`ship: ${branch} \u2192 ${defaultBranch}, ticket ${ticketRef}`);
-  if (!await pushBranch({ branch, cwd })) {
-    return stopShip({ ...stopFields, reason: ShipBlockReason.PushFailed, detail: `git could not push '${branch}' to origin` });
+  const pushFailure = await pushBranch({ branch, cwd });
+  if (pushFailure !== void 0) {
+    return stopShip({
+      ...stopFields,
+      reason: ShipBlockReason.PushFailed,
+      detail: appendCommandOutput({ sentence: `git could not push '${branch}' to origin`, stderr: pushFailure.stderr })
+    });
   }
   const pullRequest = await openPullRequest({ branch, cwd, settings, ticket, onProgress });
-  if (pullRequest === void 0) {
-    return stopShip({ ...stopFields, reason: ShipBlockReason.PullRequestUnavailable, detail: `no pull request could be opened or read for '${branch}'` });
+  if ("stderr" in pullRequest) {
+    return stopShip({
+      ...stopFields,
+      reason: ShipBlockReason.PullRequestUnavailable,
+      detail: appendCommandOutput({ sentence: `no pull request could be opened or read for '${branch}'`, stderr: pullRequest.stderr })
+    });
   }
   const checks = await waitForChecks({ prNumber: pullRequest.number, cwd, onProgress });
   if (!checks.finished) {
@@ -26726,8 +26752,12 @@ var runShip = async ({ cwd, settings, onProgress }) => {
     return stopShip({ ...stopFields, reason: ShipBlockReason.ChecksFailed, detail: "one or more checks finished red", failingChecks: checks.failing });
   }
   const mergeCommit = await mergePullRequest({ prNumber: pullRequest.number, mergeMethod: settings.mergeMethod, cwd });
-  if (mergeCommit === void 0) {
-    return stopShip({ ...stopFields, reason: ShipBlockReason.MergeRejected, detail: `the forge refused to merge #${pullRequest.number}` });
+  if (typeof mergeCommit !== "string") {
+    return stopShip({
+      ...stopFields,
+      reason: ShipBlockReason.MergeRejected,
+      detail: appendCommandOutput({ sentence: `the forge refused to merge #${pullRequest.number}`, stderr: mergeCommit.stderr })
+    });
   }
   await syncDefaultBranch({ cwd, defaultBranch, branch, onProgress });
   return record2({

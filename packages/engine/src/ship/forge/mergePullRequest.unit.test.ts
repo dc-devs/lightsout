@@ -9,13 +9,15 @@ const setupMerge = async ({
 	mergeExit = 0,
 	mergeStderr = '',
 	viewStdout = '{"mergeCommit":{"oid":"0f1e2d3c"}}',
+	viewStderr = '',
 }: {
 	mergeExit?: number;
 	mergeStderr?: string;
 	viewStdout?: string;
+	viewStderr?: string;
 } = {}) => {
 	const { readForgeLog } = stubForgeOnPath({
-		responses: { 'pr merge': { exitCode: mergeExit, stderr: mergeStderr }, 'pr view': { stdout: viewStdout } },
+		responses: { 'pr merge': { exitCode: mergeExit, stderr: mergeStderr }, 'pr view': { stdout: viewStdout, stderr: viewStderr } },
 	});
 	const cwd = await freshCwd();
 
@@ -39,20 +41,32 @@ describe('mergePullRequest', () => {
 		expect(readForgeLog()[0]).toBe('pr merge 41 --squash --delete-branch');
 	});
 
-	test('a refused merge answers undefined, and never asks for a commit that was never made', async () => {
+	test('a refused merge answers with the forge’s own reason, and never asks for a commit that was never made', async () => {
 		const { cwd, readForgeLog } = await setupMerge({ mergeExit: 1, mergeStderr: 'protected branch' });
 
 		const mergeCommit = await mergePullRequest({ prNumber: 41, mergeMethod: ShipMergeMethod.Merge, cwd });
 
-		expect(mergeCommit).toBe(undefined);
+		expect(mergeCommit).toStrictEqual({ stderr: 'protected branch' });
 		expect(readForgeLog()).toStrictEqual(['pr merge 41 --merge --delete-branch']);
 	});
 
-	test('a merge whose commit cannot be read answers undefined rather than a made-up commit', async () => {
+	test('a merge whose commit cannot be read answers a failure rather than a made-up commit', async () => {
 		const { cwd } = await setupMerge({ viewStdout: '{"mergeCommit":null}' });
 
 		const mergeCommit = await mergePullRequest({ prNumber: 41, mergeMethod: ShipMergeMethod.Merge, cwd });
 
-		expect(mergeCommit).toBe(undefined);
+		expect(mergeCommit).toStrictEqual({ stderr: '' });
+	});
+
+	test('a commit the forge would not name answers the read-back’s own words, not whatever the merge printed', async () => {
+		const { cwd } = await setupMerge({
+			mergeStderr: 'merged, and the branch was deleted',
+			viewStdout: '{"mergeCommit":null}',
+			viewStderr: 'could not read the merge commit',
+		});
+
+		const mergeCommit = await mergePullRequest({ prNumber: 41, mergeMethod: ShipMergeMethod.Merge, cwd });
+
+		expect(mergeCommit).toStrictEqual({ stderr: 'could not read the merge commit' });
 	});
 });

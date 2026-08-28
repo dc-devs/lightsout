@@ -31,8 +31,10 @@ interface RepoParams {
 interface ForgeParams {
 	list?: string;
 	createExit?: number;
+	createStderr?: string;
 	checks?: string;
 	mergeExit?: number;
+	mergeStderr?: string;
 }
 
 /** A branch, a real origin, and a forge answering every call the sequence makes. */
@@ -42,12 +44,12 @@ const setupShip = async ({ repo = {}, forge = {} }: { repo?: RepoParams; forge?:
 		responses: {
 			'auth status': { exitCode: 0 },
 			'pr list': { stdout: forge.list ?? '[]' },
-			'pr create': { stdout: 'https://forge.example/acme/repo/pull/41', exitCode: forge.createExit ?? 0 },
+			'pr create': { stdout: 'https://forge.example/acme/repo/pull/41', stderr: forge.createStderr ?? '', exitCode: forge.createExit ?? 0 },
 			'pr edit': { exitCode: 0 },
 			'pr view 41 --json number': { stdout: viewed },
 			'pr view 41 --json mergeCommit': { stdout: '{"mergeCommit":{"oid":"0f1e2d3c"}}' },
 			'pr checks': { stdout: forge.checks ?? greenChecks },
-			'pr merge': { exitCode: forge.mergeExit ?? 0, stderr: forge.mergeExit === undefined ? '' : 'protected branch' },
+			'pr merge': { exitCode: forge.mergeExit ?? 0, stderr: forge.mergeStderr ?? (forge.mergeExit === undefined ? '' : 'protected branch') },
 		},
 	});
 
@@ -136,16 +138,63 @@ describe('runShip', () => {
 
 		const result = await runShip({ cwd, settings, onProgress });
 
-		expect(result).toEqual(expect.objectContaining({ status: 'blocked', reason: 'push-failed', ticketRef: 'lo-60' }));
+		expect(result).toEqual(
+			expect.objectContaining({
+				status: 'blocked',
+				reason: 'push-failed',
+				ticketRef: 'lo-60',
+				detail: expect.stringContaining("git could not push 'lo-60-ship' to origin: "),
+			}),
+		);
 		expect(readForgeLog().some((line) => line.startsWith('pr '))).toBe(false);
 	});
 
-	test('a forge that will not open a pull request blocks with that reason', async () => {
-		const { cwd, onProgress } = await setupShip({ forge: { createExit: 1 } });
+	test('a forge that will not open a pull request blocks with that reason, and with what the forge said', async () => {
+		const { cwd, onProgress } = await setupShip({ forge: { createExit: 1, createStderr: 'gh: no write access' } });
 
 		const result = await runShip({ cwd, settings, onProgress });
 
-		expect(result).toEqual(expect.objectContaining({ status: 'blocked', reason: 'pull-request-unavailable' }));
+		expect(result).toEqual(
+			expect.objectContaining({
+				status: 'blocked',
+				reason: 'pull-request-unavailable',
+				detail: "no pull request could be opened or read for 'lo-60-ship': gh: no write access",
+			}),
+		);
+	});
+
+	test('a command that failed without saying anything leaves the sentence alone', async () => {
+		const { cwd, onProgress } = await setupShip({ forge: { createExit: 1, createStderr: '' } });
+
+		const result = await runShip({ cwd, settings, onProgress });
+
+		expect(result.detail).toBe("no pull request could be opened or read for 'lo-60-ship'");
+	});
+
+	test('a credential in the command’s output never reaches the result', async () => {
+		const createStderr = 'fatal: unable to access https://user:ghp_abcdefghijklmnop1234@github.com/x.git';
+		const { cwd, onProgress } = await setupShip({ forge: { createExit: 1, createStderr } });
+
+		const result = await runShip({ cwd, settings, onProgress });
+
+		expect(result.detail).toContain('https://***@github.com/x.git');
+		expect(result.detail).not.toContain('ghp_');
+	});
+
+	test('a bare token in the command’s output is masked too, not only one wearing a URL', async () => {
+		const { cwd, onProgress } = await setupShip({ forge: { createExit: 1, createStderr: 'remote: the token ghs_abcdefghijklmnop1234abcd was rejected' } });
+
+		const result = await runShip({ cwd, settings, onProgress });
+
+		expect(result.detail).toBe("no pull request could be opened or read for 'lo-60-ship': remote: the token *** was rejected");
+	});
+
+	test('blank lines around the command’s output are cut off, so the sentence reads as one line', async () => {
+		const { cwd, onProgress } = await setupShip({ forge: { createExit: 1, createStderr: '\n  gh: no write access\n\n' } });
+
+		const result = await runShip({ cwd, settings, onProgress });
+
+		expect(result.detail).toBe("no pull request could be opened or read for 'lo-60-ship': gh: no write access");
 	});
 
 	test('a red check blocks and names what finished red, which is what the reader goes and fixes', async () => {
@@ -161,7 +210,17 @@ describe('runShip', () => {
 
 		const result = await runShip({ cwd, settings, onProgress });
 
-		expect(result).toEqual(expect.objectContaining({ status: 'blocked', reason: 'merge-rejected', detail: expect.stringContaining('#41') }));
+		expect(result).toEqual(
+			expect.objectContaining({ status: 'blocked', reason: 'merge-rejected', detail: 'the forge refused to merge #41: protected branch' }),
+		);
+	});
+
+	test('a command that says too much is cut off, because the result file is a hand-off and not a log', async () => {
+		const { cwd, onProgress } = await setupShip({ forge: { mergeExit: 1, mergeStderr: 'x'.repeat(900) } });
+
+		const result = await runShip({ cwd, settings, onProgress });
+
+		expect(result.detail).toBe(`the forge refused to merge #41: ${'x'.repeat(500)}…`);
 	});
 
 	test('runs silently when no progress sink was handed in', async () => {
