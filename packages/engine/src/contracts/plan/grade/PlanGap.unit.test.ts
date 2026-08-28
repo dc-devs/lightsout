@@ -44,12 +44,13 @@ describe('PlanGap', () => {
 			'omitted-decision',
 			'ambiguous-boundary',
 			'standards-conflict',
+			'phase-seam-mismatch',
 		]) {
 			const { gap } = setupGap({ area });
 
 			const parsed = PlanGap.parse(gap);
 
-			// ${area} is one of the six gap kinds the gap-check agent may report
+			// ${area} is one of the seven gap kinds the gap-check agent may report
 			expect(parsed.area).toBe(area);
 		}
 	});

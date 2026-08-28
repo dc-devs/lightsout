@@ -53,6 +53,8 @@ derive the answer from the plan, the overview, the codebase, or the standards.
 - **ambiguous-boundary** — scope boundaries present but so vague the agent cannot
   tell what is in vs out.
 - **standards-conflict** — instructions that contradict the supplied standards.
+- **phase-seam-mismatch** — a value one phase defines and a later phase consumes
+  under a different shape, where both phases state the shape.
 
 ## Rules
 
@@ -74,7 +76,7 @@ Output ONLY the JSON — no fences, no surrounding text. Your message starts wit
 {
 	"gaps": [
 		{
-			"area": "underspecified-surface|unwired-dependency|insufficient-detail|omitted-decision|ambiguous-boundary|standards-conflict",
+			"area": "underspecified-surface|unwired-dependency|insufficient-detail|omitted-decision|ambiguous-boundary|standards-conflict|phase-seam-mismatch",
 			"gap": "<what is missing or ambiguous>",
 			"decision": "<the decision a human must make>",
 			"options": ["<valid alternative>", "..."]
