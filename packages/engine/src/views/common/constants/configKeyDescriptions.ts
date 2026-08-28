@@ -44,4 +44,6 @@ export const configKeyDescriptions: Record<string, string> = {
 		"Framework channels of the loaded standards packs (e.g. 'react', 'tanstack'). Unspecified = detected per run from the scoped packages' package.json dependencies; an array REPLACES detection, and an empty one means base documents only.",
 	'standards-checks': 'Per-rule severity and settings overrides, keyed by rule id. A rule not named here keeps its pack’s default — silence is never a change.',
 	ship: 'Opt-in ship settings: the branch ticket pattern whose `ticket` capture group becomes the result’s ticket reference, the pull request body template, the merge method, and whether a passed implement run chains into ship.',
+	'auto-plan':
+		'Opt-in auto-plan settings: whether the proposal comes before drafting, whether an approved proposal starts the build, and whether the proposal is skipped when nothing clears the escalation bar. Every key is off by default, so an absent block is the most supervised behaviour.',
 };

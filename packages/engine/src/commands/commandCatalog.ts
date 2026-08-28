@@ -1,3 +1,4 @@
+import { autoPlanCatalogEntry } from '#src/commands/common/constants/autoPlanCatalogEntry.ts';
 import { brainstormCatalogEntry } from '#src/commands/common/constants/brainstormCatalogEntry.ts';
 import { doctorCatalogEntry } from '#src/commands/common/constants/doctorCatalogEntry.ts';
 import { frictionCatalogEntry } from '#src/commands/common/constants/frictionCatalogEntry.ts';
@@ -40,6 +41,7 @@ import type { CommandCatalogEntry } from '#src/contracts/index.ts';
 export const commandCatalog: CommandCatalogEntry[] = [
 	brainstormCatalogEntry,
 	planCatalogEntry,
+	autoPlanCatalogEntry,
 	implementCatalogEntry,
 	resumeCatalogEntry,
 	shipCatalogEntry,

@@ -15,7 +15,7 @@ describe('commandCatalog', () => {
 		const rejected = commandCatalog.filter((entry) => !CommandCatalogEntry.safeParse(entry).success).map((entry) => entry.id);
 
 		expect(rejected).toStrictEqual([]);
-		expect(ids).toHaveLength(15);
+		expect(ids).toHaveLength(16);
 	});
 
 	test('ids are unique — two entries answering to one word would make the route ambiguous', () => {
@@ -24,11 +24,12 @@ describe('commandCatalog', () => {
 		expect([...new Set(ids)]).toStrictEqual(ids);
 	});
 
-	test('covers every command the dispatcher offers, plus the one skill that has no command', () => {
+	test('covers every command the dispatcher offers, plus the two skills that have no command', () => {
 		const { ids } = setupCatalog();
 
 		expect([...ids].sort()).toStrictEqual(
 			[
+				'auto-plan',
 				'brainstorm',
 				'doctor',
 				'friction',
@@ -77,12 +78,19 @@ describe('commandCatalog', () => {
 		expect(orphans).toStrictEqual([]);
 	});
 
-	test('a command with a CLI form has at least one invocation, and the one skill-only command has none', () => {
+	test('a command with a CLI form has at least one invocation, and the skill-only commands have none', () => {
 		const { byId } = setupCatalog();
 		const shapeless = commandCatalog.filter((entry) => entry.cli !== undefined && entry.invocations.length === 0);
 
 		expect(shapeless).toStrictEqual([]);
 		expect(byId.get('brainstorm')?.invocations).toStrictEqual([]);
+		expect(byId.get('auto-plan')?.invocations).toStrictEqual([]);
+	});
+
+	test('leaves exactly the skill-only commands without a CLI word, so nothing types `lightsout auto-plan` at a route that is not there', () => {
+		const skillOnly = commandCatalog.filter((entry) => entry.cli === undefined).map((entry) => entry.id);
+
+		expect(skillOnly).toStrictEqual(['brainstorm', 'auto-plan']);
 	});
 
 	test('only the three commands with an infographic carry steps, and each carries a graphic to draw them in', () => {
@@ -102,6 +110,7 @@ describe('commandCatalog', () => {
 		expect(sectioned).toStrictEqual([
 			['build', 'brainstorm'],
 			['build', 'plan'],
+			['build', 'auto-plan'],
 			['build', 'implement'],
 			['build', 'resume'],
 			['build', 'ship'],
@@ -134,6 +143,7 @@ describe('commandCatalog', () => {
 		expect(kinds).toStrictEqual([
 			['brainstorm', 'plans'],
 			['plan', 'plans'],
+			['auto-plan', 'plans'],
 			['implement', 'runs'],
 			['resume', 'runs'],
 			['ship', 'nothing'],
@@ -156,6 +166,7 @@ describe('commandCatalog', () => {
 		expect(slashed).toStrictEqual([
 			['brainstorm', '/brainstorm'],
 			['plan', '/plan'],
+			['auto-plan', '/auto-plan'],
 			['implement', '/implement'],
 			['refactor', '/refactor'],
 			['test-coverage-to-threshold', '/test-coverage-to-threshold'],
@@ -169,6 +180,7 @@ describe('commandCatalog', () => {
 		expect(accepted).toStrictEqual([
 			['brainstorm', []],
 			['plan', ['cwd', 'name', 'notes', 'phase', 'scope']],
+			['auto-plan', []],
 			['implement', ['cwd', 'overview', 'packages', 'plan', 'ship', 'skip-refactor', 'start-phase']],
 			['resume', ['cwd', 'run', 'skip-refactor']],
 			['ship', ['cwd']],
