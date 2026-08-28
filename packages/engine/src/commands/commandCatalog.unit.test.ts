@@ -15,7 +15,7 @@ describe('commandCatalog', () => {
 		const rejected = commandCatalog.filter((entry) => !CommandCatalogEntry.safeParse(entry).success).map((entry) => entry.id);
 
 		expect(rejected).toStrictEqual([]);
-		expect(ids).toHaveLength(14);
+		expect(ids).toHaveLength(15);
 	});
 
 	test('ids are unique — two entries answering to one word would make the route ambiguous', () => {
@@ -37,6 +37,7 @@ describe('commandCatalog', () => {
 				'plan',
 				'refactor',
 				'resume',
+				'ship',
 				'standards-check',
 				'standards-health',
 				'standards-validate',
@@ -103,6 +104,7 @@ describe('commandCatalog', () => {
 			['build', 'plan'],
 			['build', 'implement'],
 			['build', 'resume'],
+			['build', 'ship'],
 			['burn-down', 'refactor'],
 			['burn-down', 'test-coverage-to-threshold'],
 			['standards', 'standards-check'],
@@ -134,6 +136,7 @@ describe('commandCatalog', () => {
 			['plan', 'plans'],
 			['implement', 'runs'],
 			['resume', 'runs'],
+			['ship', 'nothing'],
 			['refactor', 'runs'],
 			['test-coverage-to-threshold', 'runs'],
 			['standards-check', 'snapshots'],
@@ -166,8 +169,9 @@ describe('commandCatalog', () => {
 		expect(accepted).toStrictEqual([
 			['brainstorm', []],
 			['plan', ['cwd', 'name', 'notes', 'phase', 'scope']],
-			['implement', ['cwd', 'overview', 'packages', 'plan', 'skip-refactor', 'start-phase']],
+			['implement', ['cwd', 'overview', 'packages', 'plan', 'ship', 'skip-refactor', 'start-phase']],
 			['resume', ['cwd', 'run', 'skip-refactor']],
+			['ship', ['cwd']],
 			['refactor', ['all', 'allow-dirty', 'code-checks', 'cwd', 'max-batches', 'path', 'run']],
 			['test-coverage-to-threshold', ['allow-dirty', 'cwd', 'max-batches', 'run']],
 			['standards-check', ['agent-review', 'all', 'baseline', 'code-checks', 'cwd', 'list', 'path']],

@@ -38,9 +38,10 @@ const configFieldReaders: Record<string, (params: { config: LightsoutConfig }) =
 	vendored: ({ config }) => config.vendored,
 	'timeouts.agent-minutes': ({ config }) => config.timeouts?.['agent-minutes'] ?? defaultAgentTimeoutMinutes,
 	'timeouts.supervisor-minutes': ({ config }) => config.timeouts?.['supervisor-minutes'] ?? defaultSupervisorTimeoutMinutes,
+	ship: ({ config }) => config.ship,
 };
 
-/** The six areas of the file, in the order the page reads them, and which keys land in each. */
+/** The areas of the file, in the order the page reads them, and which keys land in each. */
 const configSectionKeys: Array<{ title: string; keys: string[] }> = [
 	{ title: 'Harness', keys: ['harness', 'model', 'effort', 'permissions', 'commands'] },
 	{ title: 'Gates', keys: ['gates', 'package-gates', 'packages-dir', 'coverage-summary-path', 'executor-file-limit'] },
@@ -48,6 +49,7 @@ const configSectionKeys: Array<{ title: string; keys: string[] }> = [
 	{ title: 'Agent commands', keys: ['agent-commands'] },
 	{ title: 'Generated', keys: ['generated', 'vendored'] },
 	{ title: 'Timeouts', keys: ['timeouts.agent-minutes', 'timeouts.supervisor-minutes'] },
+	{ title: 'Ship', keys: ['ship'] },
 ];
 
 /**

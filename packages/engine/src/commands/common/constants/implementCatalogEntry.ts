@@ -46,10 +46,11 @@ export const implementCatalogEntry: CommandCatalogEntry = {
 		},
 		{ name: 'cwd', value: '<path>', meaning: 'Repository to implement in.', fallback: 'The process working directory.', required: false },
 		{ name: 'skip-refactor', meaning: 'Skip the refactor step at the end of the run.', required: false },
+		{ name: 'ship', meaning: 'Ship the branch after the run passes: open or adopt the PR, wait for checks, merge, clean up.', required: false },
 	],
 	steps: implementSteps,
 	records: CommandRecordKind.Runs,
-	related: ['brainstorm', 'plan', 'resume'],
+	related: ['brainstorm', 'plan', 'resume', 'ship'],
 	graphic: {
 		title: 'How /implement turns the spec into verified code',
 		subtitle: 'Ten steps, deterministic gates throughout, and a complete record saved to disk.',

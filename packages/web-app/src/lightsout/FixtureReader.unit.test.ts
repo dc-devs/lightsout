@@ -22,7 +22,7 @@ describe('FixtureReader', () => {
 		expect(runs).toHaveLength(3);
 	});
 
-	test('answers with the engine’s whole command catalog — all fourteen commands in group order, since a build with no repo still documents them', async () => {
+	test('answers with the engine’s whole command catalog — all fifteen commands in group order, since a build with no repo still documents them', async () => {
 		const { reader } = setupReader();
 
 		const commands = await reader.listCommands();
@@ -32,6 +32,7 @@ describe('FixtureReader', () => {
 			'plan',
 			'implement',
 			'resume',
+			'ship',
 			'refactor',
 			'test-coverage-to-threshold',
 			'standards-check',
@@ -82,6 +83,7 @@ describe('FixtureReader', () => {
 			plan: 'plans',
 			implement: 'runs',
 			resume: 'runs',
+			ship: 'nothing',
 			refactor: 'runs',
 			'test-coverage-to-threshold': 'runs',
 			'standards-check': 'snapshots',

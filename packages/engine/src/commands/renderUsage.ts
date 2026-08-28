@@ -15,6 +15,7 @@ const usageOrder = [
 	'implement',
 	'implement-folder',
 	'resume',
+	'ship',
 	'status',
 	'doctor',
 	'standards-check',

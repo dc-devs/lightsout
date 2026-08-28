@@ -11,6 +11,7 @@ import {
 	planCommand,
 	refactorCommand,
 	resumeCommand,
+	shipCommand,
 	standardsCheckCommand,
 	standardsHealthCommand,
 	standardsValidateCommand,
@@ -23,6 +24,7 @@ import {
 const commands: Record<string, (context: CommandContext) => Promise<void>> = {
 	implement: implementCommand,
 	resume: resumeCommand,
+	ship: shipCommand,
 	status: statusCommand,
 	doctor: doctorCommand,
 	'standards-check': standardsCheckCommand,

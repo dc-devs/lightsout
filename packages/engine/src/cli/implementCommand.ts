@@ -4,8 +4,8 @@ import { printResult } from '#src/cli/common/render/printResult.ts';
 import { printRunHeader } from '#src/cli/common/render/printRunHeader.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
+import { exitAfterImplement } from '#src/cli/common/utils/exitAfterImplement.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import { exitForRunResult } from '#src/cli/common/utils/exitForRunResult.ts';
 import { resolveCommandHarness } from '#src/cli/common/utils/resolveCommandHarness.ts';
 import { resolvePlanTarget } from '#src/cli/common/utils/resolvePlanTarget.ts';
 import { runPhasesOrFailFast } from '#src/cli/common/utils/runPhasesOrFailFast.ts';
@@ -13,9 +13,16 @@ import { runPipelineOrFailFast } from '#src/cli/common/utils/runPipelineOrFailFa
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { getDriver } from '#src/drivers/index.ts';
 
-export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
-	const skipRefactor = flags.get('skip-refactor') === true;
-
+/**
+ * What the run's flags amount to once they have been read and checked against
+ * each other, or the one message saying why they cannot amount to a run.
+ *
+ * The checks live together because none of them stands alone: whether
+ * `--overview`, `--packages` and `--start-phase` are allowed depends on what
+ * `--plan` turned out to point at, and the order is what makes the message name
+ * the first real problem rather than a cascade.
+ */
+const resolveImplementInputs = async ({ flags, cwd }: { flags: CommandContext['flags']; cwd: string }) => {
 	const planPath = getStringFlag({ flags, name: 'plan' });
 	const overviewPath = getStringFlag({ flags, name: 'overview' });
 	const packagesFlag = getStringFlag({ flags, name: 'packages' });
@@ -28,41 +35,48 @@ export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<
 		: undefined;
 
 	if (!planPath) {
-		console.error(usage);
-		return exitCli({ code: 1 });
+		return { error: usage };
 	}
 
 	const startPhase = startPhaseFlag === undefined ? undefined : Number.parseInt(startPhaseFlag, 10);
 
 	if (startPhase !== undefined && (!Number.isFinite(startPhase) || startPhase < 1)) {
-		console.error(`--start-phase must be a positive integer, got '${startPhaseFlag}'`);
-		return exitCli({ code: 1 });
+		return { error: `--start-phase must be a positive integer, got '${startPhaseFlag}'` };
 	}
 
 	const target = await resolvePlanTarget({ cwd, planPath });
 
 	if ('error' in target) {
-		console.error(target.error);
-		return exitCli({ code: 1 });
+		return { error: target.error };
 	}
 
 	const phased = 'overviewPath' in target;
 
 	if (phased && overviewPath !== undefined) {
-		console.error('--overview applies to a single-plan run — a plan folder with an overview.md already runs every phase');
-		return exitCli({ code: 1 });
+		return { error: '--overview applies to a single-plan run — a plan folder with an overview.md already runs every phase' };
 	}
 
 	if (phased && packages !== undefined) {
-		console.error('--packages applies to a single-plan run — every phase of a plan folder reads its own scope');
-		return exitCli({ code: 1 });
+		return { error: '--packages applies to a single-plan run — every phase of a plan folder reads its own scope' };
 	}
 
 	if (!phased && startPhase !== undefined) {
-		console.error('--start-phase applies to a plan folder holding an overview.md — a single plan has one phase');
+		return { error: '--start-phase applies to a plan folder holding an overview.md — a single plan has one phase' };
+	}
+
+	return { target, overviewPath, packages, startPhase };
+};
+
+export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
+	const inputs = await resolveImplementInputs({ flags, cwd });
+
+	if ('error' in inputs) {
+		console.error(inputs.error);
 		return exitCli({ code: 1 });
 	}
 
+	const { target, overviewPath, packages, startPhase } = inputs;
+	const skipRefactor = flags.get('skip-refactor') === true;
 	const loaded = await readConfig({ cwd });
 	const { driverName, model, effort } = resolveCommandHarness({ config: loaded, command: 'implement' });
 	const driver = getDriver({ name: driverName });
@@ -91,5 +105,5 @@ export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<
 				});
 
 	await printResult({ result, cwd });
-	return exitForRunResult({ ok: result.ok, manifest: result.manifest });
+	return exitAfterImplement({ config: loaded, cwd, result, shipFlag: flags.get('ship') === true });
 };

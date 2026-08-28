@@ -6,6 +6,7 @@ import { improveCatalogEntry } from '#src/commands/common/constants/improveCatal
 import { planCatalogEntry } from '#src/commands/common/constants/planCatalogEntry.ts';
 import { refactorCatalogEntry } from '#src/commands/common/constants/refactorCatalogEntry.ts';
 import { resumeCatalogEntry } from '#src/commands/common/constants/resumeCatalogEntry.ts';
+import { shipCatalogEntry } from '#src/commands/common/constants/shipCatalogEntry.ts';
 import { standardsCheckCatalogEntry } from '#src/commands/common/constants/standardsCheckCatalogEntry.ts';
 import { standardsHealthCatalogEntry } from '#src/commands/common/constants/standardsHealthCatalogEntry.ts';
 import { standardsValidateCatalogEntry } from '#src/commands/common/constants/standardsValidateCatalogEntry.ts';
@@ -41,6 +42,7 @@ export const commandCatalog: CommandCatalogEntry[] = [
 	planCatalogEntry,
 	implementCatalogEntry,
 	resumeCatalogEntry,
+	shipCatalogEntry,
 	refactorCatalogEntry,
 	testCoverageToThresholdCatalogEntry,
 	standardsCheckCatalogEntry,
