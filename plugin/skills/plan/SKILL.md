@@ -19,6 +19,17 @@ not exist, stop and tell the user to reinstall the plugin or run `pnpm bundle`.
 
 ## Question format
 
+**Pick the shape from what the answer is.** Before writing the question,
+ask: does answering it mean inventing a name or a short phrase the code or
+the user will see — a value, a state, a field, a flag, a message? Two or
+more of them: draft the real names as a table under **Trade-offs**, one row
+each, first column the name, second column a short description of what that
+thing is. Exactly one: write the drafted wording out inline, in full, rather
+than describing it. Any other question stays prose. The labeled parts below
+apply either way — this test only decides whether the names get written down
+or talked about, and the 1–3 sentence target counts sentences, not table
+rows.
+
 Every question this skill puts to the user — Elicitation batches, Grill
 escalations, Dedup findings, Converge gaps — uses this labeled four-part
 shape, in this order:
@@ -50,9 +61,13 @@ symbol, subcommand, or engine term — without saying what it means in
 everyday words. If the reader would need to open a file to answer, the
 question is not ready to ask.
 
-**Option labels are everyday words.** Name each option by what it does
-("copy the file each run", "keep the first copy") — never invented
-shorthand, codenames, or bare letter labels the reader must decode.
+**A label reads like a well-named variable.** Someone who skips straight to
+the options knows what each one is from the label alone — nothing borrowed
+from the paragraphs above it or from its place in the list. `needs-a-human`
+passes; "Not true" and "the third one" do not. When the question is about
+which action to take, name each option by what it does ("copy the file each
+run", "keep the first copy"). When the question asks you to invent a name,
+the drafted name itself is the label.
 
 **Keep each part short.** Aim for 1–3 plain sentences per label. When a
 question outgrows that, treat it as a sign it is really two questions —
@@ -62,9 +77,12 @@ split it.
 may share one combined block instead of getting a block each. Grill
 escalations are stricter: one question at a time, always.
 
-**The format applies regardless of medium.** When asking through an
-option-picker tool, the Context, Trade-offs, and Recommendation go in the
-question body — never squeezed into option labels.
+**Always ask in the message itself.** Never put a question to the user
+through an option-picker tool — the kind that shows a list of one-line
+choices to select from. Every question in this phase is written out in the
+message, in the shape above. A picker's labels cannot carry a Context, a
+Trade-offs, or a drafted table, so what it saves in typing it takes out of
+the user's ability to answer.
 
 ## Steps
 
