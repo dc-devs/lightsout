@@ -1,17 +1,19 @@
 import { basename, join } from 'node:path';
 import { buildPlanGapCheckInvocation } from '#src/agents/index.ts';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
-import { type Effort, GapCheckLens, GapCheckReport, type GradedGap, type GradeReport, type Permissions, PlanGrade } from '#src/contracts/index.ts';
+import { type Effort, GapCheckLens, GapCheckReport, GapOutcome, type GradedGap, type GradeReport, type Permissions } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 import { planAgentConcurrency } from '#src/plan/common/constants/planAgentConcurrency.ts';
 import type { DeliverableFile } from '#src/plan/common/types/DeliverableFile.ts';
+import { createGradeReport } from '#src/plan/common/utils/createGradeReport.ts';
 import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
 import { drainTasks } from '#src/plan/common/utils/drainTasks.ts';
-import { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.ts';
+import { getBlockingGaps } from '#src/plan/common/utils/getBlockingGaps.ts';
 import { getPlanDetectionPass } from '#src/plan/common/utils/getPlanDetectionPass.ts';
 import { isRateLimited } from '#src/plan/common/utils/isRateLimited.ts';
+import { judgeGaps } from '#src/plan/common/utils/judgeGaps.ts';
 import { selectPhaseFiles } from '#src/plan/common/utils/selectPhaseFiles.ts';
 import { detectPriorArtCandidates } from '#src/plan/detectPriorArtCandidates.ts';
 import { lintPlanStructure } from '#src/plan/lint/index.ts';
@@ -70,49 +72,14 @@ const foldGapResults = ({ selected, results }: { selected: DeliverableFile[]; re
 		}
 
 		returned.set(result.phase, (returned.get(result.phase) ?? 0) + 1);
-		gaps.push(...result.outcome.report.gaps.map((gap) => ({ ...gap, phase: result.phase, lens: result.lens })));
+		// Findings start unjudged: the judging stage rules each one, and anything it
+		// never settles keeps this stamp and blocks.
+		gaps.push(...result.outcome.report.gaps.map((gap) => ({ ...gap, phase: result.phase, lens: result.lens, outcome: GapOutcome.Unjudged })));
 	}
 
 	const phasesChecked = selected.map((file) => basename(file.path)).filter((phase) => returned.get(phase) === gapCheckLenses.length);
 
 	return { gaps, failures, phasesChecked };
-};
-
-/**
- * The verdict and the statement of what it covers, in one place. A pass is
- * complete only when nothing failed and nothing was withheld, and an incomplete
- * pass is never an A whatever it found. Advisory structural findings are
- * persisted but never decide the grade — an advisory is a note, not a defect.
- */
-const createGradeReport = ({
-	name,
-	phases,
-	structural,
-	folded,
-}: {
-	name: string;
-	phases?: string[];
-	structural: Awaited<ReturnType<typeof lintPlanStructure>>;
-	folded: ReturnType<typeof foldGapResults>;
-}): GradeReport => {
-	const { gaps, failures, phasesChecked } = folded;
-	const narrowed = phases === undefined ? [] : [`graded a subset on request: ${phases.join(', ')} — the structural findings still cover every plan file`];
-	const reasons = [...narrowed, ...failures];
-	const complete = reasons.length === 0;
-	const grade = complete && getBlockingFindings({ findings: structural }).length === 0 && gaps.length === 0 ? PlanGrade.A : PlanGrade.BelowA;
-
-	return {
-		planName: name,
-		grade,
-		structural,
-		gaps,
-		phasesChecked,
-		lenses: gapCheckLenses,
-		complete,
-		incompleteReason: complete ? undefined : reasons.join('; '),
-		passed: grade === PlanGrade.A,
-		gradedAt: new Date().toISOString(),
-	};
 };
 
 /** One checker spawn: its own runner and its own transcript, because a sink shared by thirty agents interleaves into one unreadable file. */
@@ -158,6 +125,13 @@ const spawnGapChecker = async ({
  * list — nothing is voted on, because the same phase graded four times returned
  * a different count each time with every reported gap real, which is
  * under-detection rather than invention.
+ *
+ * That union is no longer the verdict. Once every reader has settled, each
+ * finding is handed to its own judge answering one question — who settles this —
+ * and only the findings a judge ruled need a human, plus the ones nobody judged,
+ * decide the grade. Everything else is recorded in `grade.json` and gates
+ * nothing: an A that required every reader to report nothing was reached by
+ * exhausting the human rather than by finishing the plan.
  *
  * Every run re-reads every phase: skipping one whose text has not changed buys
  * money rather than clock once phases grade concurrently, and its failure mode
@@ -212,7 +186,16 @@ export const runPlanGrade = async (params: Params): Promise<RunPlanGradeResult> 
 		shouldStop: ({ results: settled }) => settled.some((result) => isRateLimited({ result })),
 	});
 	const folded = foldGapResults({ selected, results });
-	const report = createGradeReport({ name, phases, structural, folded });
+	const readerWall = results.some((result) => isRateLimited({ result }));
+	const judged = await judgeGaps({
+		...params,
+		workspaceDir,
+		overviewText: pass.overviewText,
+		selected,
+		gaps: folded.gaps,
+		skipReason: readerWall ? 'the reader fan-out hit the rate-limit wall, so no judge was spawned' : undefined,
+	});
+	const report = createGradeReport({ name, phases, structural, gaps: judged.gaps, failures: folded.failures, phasesChecked: folded.phasesChecked });
 	const gradePath = join(workspaceDir, 'grade.json');
 
 	// Persisted before the runner returns, whatever the outcome: the engine gives
@@ -221,9 +204,12 @@ export const runPlanGrade = async (params: Params): Promise<RunPlanGradeResult> 
 	// what make a partial record safe to keep.
 	await writeJsonFile({ path: gradePath, value: report });
 
-	progress(`plan grade ${name}: ${report.grade} (${structural.length} structural, ${report.gaps.length} gap(s))`);
+	const blocking = getBlockingGaps({ gaps: report.gaps });
 
-	if (results.some((result) => isRateLimited({ result }))) {
+	progress(`plan grade ${name}: judged ${report.gaps.length} finding(s), ${blocking.length} blocking`);
+	progress(`plan grade ${name}: ${report.grade} (${structural.length} structural, ${report.gaps.length} gap(s), ${blocking.length} blocking)`);
+
+	if (readerWall || judged.rateLimited) {
 		const parked = `rate limited or overloaded — re-run: lightsout plan grade --name ${name}`;
 
 		return { status: PlanRunStatus.PausedRateLimit, workspaceDir, error: parked, grade: report, gradePath };

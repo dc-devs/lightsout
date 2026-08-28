@@ -15,6 +15,11 @@ import { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.t
  * the files every lens returned for, so a pass that did not finish can never be
  * skimmed as a clean bill. A `complete: false` report is never an A, whatever it
  * found.
+ *
+ * `complete` speaks for the READER fan-out alone. A reader that failed or hit
+ * the wall leaves a phase unread, so the pass is incomplete; a judge that failed
+ * leaves one finding unweighed, which is recorded as `unjudged` on that gap and
+ * blocks the grade on its own — the pass still finished.
  */
 export const GradeReport = z.object({
 	planName: z.string(),
@@ -25,7 +30,7 @@ export const GradeReport = z.object({
 	phasesChecked: z.array(z.string()).default([]),
 	/** The lenses each of those files was checked with. */
 	lenses: z.array(z.enum(GapCheckLens)).default([]),
-	/** False when a checker failed or hit the rate-limit wall; the findings below are real but partial. */
+	/** False when a READER failed or hit the rate-limit wall; the findings below are real but partial. A failed judge leaves its gap `unjudged` instead. */
 	complete: z.boolean().default(true),
 	/** Why the pass did not finish, absent when it did. */
 	incompleteReason: z.string().optional(),

@@ -2,7 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { Effort, GradeReport, Permissions } from '#src/contracts/index.ts';
-import type { DriverInvocation } from '#src/drivers/index.ts';
+import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
 import { runPlanGrade } from '#src/plan/runPlanGrade.ts';
 import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advisoryPlan.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
@@ -18,7 +18,17 @@ import { writePlanDeliverable } from '#tests/helpers/writePlanDeliverable.ts';
 const omittedDecisionGap = { area: 'omitted-decision', gap: 'no error handling decided', decision: 'what to return on failure', options: ['throw', 'null'] };
 
 /** A consumer repo with one graded plan on disk, the checker stub reading it, and the collectors the act writes into. */
-const setup = ({ name, body = cleanPlanBody({ title: 'Graded Plan' }), gaps = [] }: { name: string; body?: string; gaps?: unknown[] }) => {
+const setup = ({
+	name,
+	body = cleanPlanBody({ title: 'Graded Plan' }),
+	gaps = [],
+	verdict,
+}: {
+	name: string;
+	body?: string;
+	gaps?: unknown[];
+	verdict?: unknown;
+}) => {
 	const cwd = setupConsumerRepo();
 	const dir = writePlanDeliverable({ cwd, name, body });
 	const invocations: DriverInvocation[] = [];
@@ -30,7 +40,7 @@ const setup = ({ name, body = cleanPlanBody({ title: 'Graded Plan' }), gaps = []
 		invocations,
 		messages,
 		gradePath: join(dir, 'grade.json'),
-		driver: createGapCheckDriver({ gaps, invocations }),
+		driver: createGapCheckDriver({ gaps, verdict, invocations }),
 		onProgress: (message: string) => messages.push(message),
 	};
 };
@@ -56,6 +66,34 @@ const setupPriorArtCollision = () => {
 	return seeded;
 };
 
+/** The same repo, where the surface lens' finding is judged settled and the other two lenses' findings are ruled a human's to answer. */
+const setupMixedVerdicts = () => {
+	const seeded = setup({ name: 'mixed' });
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async (invocation) => {
+			seeded.invocations.push(invocation);
+
+			if (!invocation.prompt.includes('# Gap-judge input')) {
+				return { text: JSON.stringify({ gaps: [omittedDecisionGap] }), exitCode: 0 };
+			}
+
+			const settled = invocation.prompt.includes('- lens: surface');
+
+			return {
+				text: JSON.stringify(
+					settled
+						? { outcome: 'agent-can-decide', agentDecision: 'return null', safeBecause: 'every sibling in this module already does' }
+						: { outcome: 'needs-a-human', humanDecision: 'what the plan should do here' },
+				),
+				exitCode: 0,
+			};
+		},
+	};
+
+	return { ...seeded, driver };
+};
+
 test('plan grade: a clean plan with no gaps passes as grade A', async () => {
 	const { cwd, name, driver, gradePath } = setup({ name: 'clean' });
 
@@ -78,6 +116,46 @@ test('plan grade: a clean plan with no gaps passes as grade A', async () => {
 	expect(persisted.complete).toBe(true);
 });
 
+test('plan grade: findings every judge rules the implementing agent can settle grade A, and are still recorded', async () => {
+	const { cwd, name, driver, gradePath } = setup({
+		name: 'noted-gaps',
+		gaps: [omittedDecisionGap],
+		verdict: { outcome: 'agent-can-decide', agentDecision: 'return null', safeBecause: 'every sibling in this module already does' },
+	});
+
+	const result = await runPlanGrade({ cwd, driver, name });
+
+	expectStatus(result, 'complete');
+	// the whole point of judging: three findings nobody has to answer are not the
+	// same as three blockers
+	expect(result.grade.grade).toBe('A');
+	expect(result.grade.passed).toBe(true);
+
+	const recorded = GradeReport.parse(JSON.parse(readFileSync(gradePath, 'utf8')));
+
+	// and they are on the record whatever the verdict says
+	expect(recorded.gaps.length).toBe(3);
+	expect(recorded.gaps.map(({ outcome }) => outcome)).toStrictEqual(['agent-can-decide', 'agent-can-decide', 'agent-can-decide']);
+	expect(recorded.gaps[0]?.agentDecision).toBe('return null');
+});
+
+test('plan grade: a judge that dismisses a finding by citing a file that is not there leaves it unjudged, so it still blocks', async () => {
+	const { cwd, name, driver } = setup({
+		name: 'ghost-citation',
+		gaps: [omittedDecisionGap],
+		verdict: { outcome: 'already-answered', answerAt: 'src/nowhere.ts:answer' },
+	});
+
+	const result = await runPlanGrade({ cwd, driver, name });
+
+	expectStatus(result, 'complete');
+	// a citation is the only thing that makes a dismissal checkable — one pointing
+	// nowhere is not a considered answer
+	expect(result.grade.grade).toBe('below-A');
+	expect(result.grade.gaps[0]?.outcome).toBe('unjudged');
+	expect(result.grade.gaps[0]?.unjudgedReason).toBe('the judge cited src/nowhere.ts:answer, which is not on disk');
+});
+
 test('plan grade: a gap-returning stub fails the plan with the gaps recorded', async () => {
 	const { cwd, name, driver, gradePath } = setup({ name: 'gappy', gaps: [omittedDecisionGap] });
 
@@ -94,6 +172,9 @@ test('plan grade: a gap-returning stub fails the plan with the gaps recorded', a
 	const recorded = GradeReport.parse(JSON.parse(readFileSync(gradePath, 'utf8')));
 
 	expect(recorded.gaps[0]?.area).toBe('omitted-decision');
+	// the default stub judge says a human must settle it, which is what blocks
+	expect(recorded.gaps[0]?.outcome).toBe('needs-a-human');
+	expect(recorded.gaps[0]?.humanDecision).toBe('what the plan should do here');
 });
 
 test('plan grade: every lens that finds the same gap contributes it, and the engine stamps each with the phase and lens that found it', async () => {
@@ -192,7 +273,30 @@ test('plan grade: a planned symbol still colliding with an existing export is na
 	expect(messages).toEqual(
 		expect.arrayContaining([
 			expect.stringMatching(/0 structural finding\(s\), gap-checking 1 of 1 plan file\(s\) × 3 lens\(es\)/),
-			expect.stringMatching(/A \(0 structural, 0 gap\(s\)\)/),
+			expect.stringMatching(/judged 0 finding\(s\), 0 blocking/),
+			expect.stringMatching(/A \(0 structural, 0 gap\(s\), 0 blocking\)/),
+		]),
+	);
+});
+
+test('plan grade: a pass whose findings are judged both ways grades on the blocking ones alone, and narrates both counts', async () => {
+	const { cwd, name, driver, messages, onProgress } = setupMixedVerdicts();
+
+	const result = await runPlanGrade({ cwd, driver, name, onProgress });
+
+	expectStatus(result, 'complete');
+	// one lens' finding is settled and two are not: what is left to answer is two,
+	// and one of them is enough to keep the plan below the bar
+	expect(result.grade.gaps.map(({ outcome }) => outcome)).toStrictEqual(['agent-can-decide', 'needs-a-human', 'needs-a-human']);
+	expect(result.grade.grade).toBe('below-A');
+	expect(result.grade.passed).toBe(false);
+	// and the run says how many findings there were AND how many a human still has
+	// to answer, because the two numbers differing is the whole point of judging,
+	// got: ${messages.join(' | ')}
+	expect(messages).toEqual(
+		expect.arrayContaining([
+			expect.stringMatching(/judged 3 finding\(s\), 2 blocking/),
+			expect.stringMatching(/below-A \(0 structural, 3 gap\(s\), 2 blocking\)/),
 		]),
 	);
 });

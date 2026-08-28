@@ -2,6 +2,8 @@ export { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 export type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 export type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
 export { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.ts';
+export { getBlockingGaps } from '#src/plan/common/utils/getBlockingGaps.ts';
+export { isBlockingGap } from '#src/plan/common/utils/isBlockingGap.ts';
 export { detectPriorArtCandidates } from '#src/plan/detectPriorArtCandidates.ts';
 export { runPlanDraft } from '#src/plan/draft/index.ts';
 export { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';

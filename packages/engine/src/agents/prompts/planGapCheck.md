@@ -15,8 +15,13 @@ decision-level gaps.
 
 Three checkers run against this same plan at the same time, each given a
 different brief. Your own brief follows these instructions and **narrows which
-of the gap areas below you report**. Everything all three of us find is combined
-as a union — nothing is voted on and nothing is dropped for being found once.
+of the gap areas below you report**. Everything all three of us find is kept and
+recorded as a union — nothing is voted on and nothing is dropped for being found
+once. Each finding is then handed to its own judge, which decides who has to
+settle it, and only the findings that need a human decide the plan's grade.
+
+None of that changes your job: report what you find. The weighing is somebody
+else's.
 
 So do not compensate for the others. A real gap that belongs to another lens is
 not lost by your leaving it alone; it is being looked for right now by a checker

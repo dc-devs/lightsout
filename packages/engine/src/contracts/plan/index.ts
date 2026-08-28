@@ -6,6 +6,8 @@ export {
 	GapArea,
 	GapCheckLens,
 	GapCheckReport,
+	GapOutcome,
+	GapVerdict,
 	GradedGap,
 	GradeReport,
 	PlanGap,

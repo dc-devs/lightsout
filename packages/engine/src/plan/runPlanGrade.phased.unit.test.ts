@@ -27,13 +27,16 @@ const defaultPhaseFiles = () => ({
 });
 
 /** A consumer repo holding a phased plan, the checker stub reading it, and the collector the act writes into. */
-const setup = ({ name, files = defaultPhaseFiles() }: { name: string; files?: Record<string, string> }) => {
+const setup = ({ name, files = defaultPhaseFiles(), gaps = [] }: { name: string; files?: Record<string, string>; gaps?: unknown[] }) => {
 	const cwd = setupConsumerRepo();
 	const dir = writePhasedPlanDeliverable({ cwd, name, files });
 	const invocations: DriverInvocation[] = [];
 
-	return { cwd, name, invocations, gradePath: join(dir, 'grade.json'), driver: createGapCheckDriver({ invocations }) };
+	return { cwd, name, invocations, gradePath: join(dir, 'grade.json'), driver: createGapCheckDriver({ gaps, invocations }) };
 };
+
+/** The one finding every reader in a phased fan-out returns, so each phase has something for a judge to weigh. */
+const omittedDecisionGap = { area: 'omitted-decision', gap: 'no error handling decided', decision: 'what to return on failure', options: [] };
 
 test('plan grade: a phased plan fans three differently-briefed checkers out over every phase, with the overview as context rather than as a graded file', async () => {
 	const { cwd, name, driver, invocations } = setup({ name: 'phased' });
@@ -79,6 +82,29 @@ test('plan grade: a phased plan writes one verdict into the plan folder, coverin
 	// a clean phased deliverable grades A, the overview linted alongside its phases
 	expect(recorded.grade).toBe('A');
 	expect(recorded.structural).toStrictEqual([]);
+});
+
+test("plan grade: every finding a phased plan's readers return gets its own judge, given its phase's text and told where the siblings are", async () => {
+	const { cwd, name, driver, invocations } = setup({ name: 'phased-judged', gaps: [omittedDecisionGap] });
+
+	const result = await runPlanGrade({ cwd, driver, name });
+
+	expectStatus(result, 'complete');
+
+	const judges = invocations.filter(({ prompt }) => prompt.includes('# Gap-judge input'));
+
+	// six readers returned one finding each, and the question a judge answers is
+	// narrow by construction: one finding per spawn, never a phase's batch
+	expect(judges.length).toBe(6);
+	expect(judges.filter(({ prompt }) => prompt.includes('src/other-thing.ts')).length).toBe(3);
+	// a seam finding cannot be settled from one side, so a phased plan's judge is
+	// told the folder its neighbours sit in rather than handed their text
+	expect(judges.every(({ prompt }) => prompt.includes(`The plan's other phase files are in \`${join('.lightsout', 'plans', 'phased-judged')}\``))).toBe(true);
+	// the overview rides the judge's cached system prompt, exactly as it rides the reader's
+	expect(judges.every(({ systemPrompt }) => (systemPrompt ?? '').includes(overviewMarker))).toBe(true);
+	expect(result.grade.gaps.length).toBe(6);
+	expect(result.grade.gaps.every(({ outcome }) => outcome === 'needs-a-human')).toBe(true);
+	expect(result.grade.grade).toBe('below-A');
 });
 
 test('plan grade: --phase narrows the gap-check to the named phases and records that the pass is a subset', async () => {

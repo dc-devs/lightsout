@@ -23325,11 +23325,42 @@ var GapCheckReport = external_exports.object({
   gaps: external_exports.array(PlanGap).default([])
 });
 
+// src/contracts/plan/grade/GapOutcome.ts
+var GapOutcome = {
+  NeedsAHuman: "needs-a-human",
+  AgentCanDecide: "agent-can-decide",
+  AlreadyAnswered: "already-answered",
+  Unjudged: "unjudged"
+};
+
+// src/contracts/plan/grade/GapVerdict.ts
+var GapVerdict = external_exports.object({
+  outcome: external_exports.enum([GapOutcome.NeedsAHuman, GapOutcome.AgentCanDecide, GapOutcome.AlreadyAnswered]),
+  /** `needs-a-human`: the decision the human has to make. */
+  humanDecision: external_exports.string().optional(),
+  /** `agent-can-decide`: what the implementing agent would decide. */
+  agentDecision: external_exports.string().optional(),
+  /** `agent-can-decide`: why that decision is safe to make without asking. */
+  safeBecause: external_exports.string().optional(),
+  /** `already-answered`: where the answer already lives — a line of the plan, a `file:symbol`, or a standards rule. */
+  answerAt: external_exports.string().optional()
+});
+
 // src/contracts/plan/grade/GradedGap.ts
 var GradedGap = PlanGap.extend({
+  ...GapVerdict.omit({ outcome: true }).shape,
   /** The plan file's basename — `phase2-cross-phase-checks.md`, or `plan.md`. */
   phase: external_exports.string(),
-  lens: external_exports.enum(GapCheckLens)
+  lens: external_exports.enum(GapCheckLens),
+  /**
+   * Widened from the judge's three: `unjudged` is the engine's stamp and never
+   * the judge's to claim. The default is for parsing a `grade.json` written
+   * before this field existed — and it defaults to the blocking value, because
+   * a record that cannot say a finding was weighed has not weighed it.
+   */
+  outcome: external_exports.enum(GapOutcome).default(GapOutcome.Unjudged),
+  /** Why nobody settled it, absent when a judge did. */
+  unjudgedReason: external_exports.string().optional()
 });
 
 // src/contracts/plan/grade/PlanGrade.ts
@@ -23384,7 +23415,7 @@ var GradeReport = external_exports.object({
   phasesChecked: external_exports.array(external_exports.string()).default([]),
   /** The lenses each of those files was checked with. */
   lenses: external_exports.array(external_exports.enum(GapCheckLens)).default([]),
-  /** False when a checker failed or hit the rate-limit wall; the findings below are real but partial. */
+  /** False when a READER failed or hit the rate-limit wall; the findings below are real but partial. A failed judge leaves its gap `unjudged` instead. */
   complete: external_exports.boolean().default(true),
   /** Why the pass did not finish, absent when it did. */
   incompleteReason: external_exports.string().optional(),
@@ -26344,7 +26375,7 @@ var initializeSequence = async ({ cwd, driver, config: config2, overviewPath, st
 };
 
 // src/phases/runPhase.ts
-import { dirname as dirname7, join as join65 } from "node:path";
+import { dirname as dirname7, join as join66 } from "node:path";
 
 // src/pipeline/readPlanPackages.ts
 var unquote = (value) => value.trim().replace(/^['"]|['"]$/g, "");
@@ -27528,7 +27559,7 @@ ${candidates.map(renderCandidate).join("\n")}`,
 };
 
 // src/agents/prompts/planGapCheck.md
-var planGapCheck_default = '# Role: Check Plan Gaps\n\nYou check a plan for **adequacy**: whether its content is complete and decided\nenough for a fresh-context agent to implement via `lightsout implement` without\nguessing. This is the semantic half of plan quality. You work autonomously and\nyour final message is machine-parsed \u2014 one JSON report, not prose.\n\n**Boundary:** you own **adequacy** \u2014 is the present content enough to build, or\nmust a human decide something. The plan\'s **structure** (paths exist, scripts\nexist, no placeholders, required sections, naming, file-count scope) is already\nverified deterministically in code. Do **not** re-flag structural defects \u2014 only\ndecision-level gaps.\n\n## You are one of three\n\nThree checkers run against this same plan at the same time, each given a\ndifferent brief. Your own brief follows these instructions and **narrows which\nof the gap areas below you report**. Everything all three of us find is combined\nas a union \u2014 nothing is voted on and nothing is dropped for being found once.\n\nSo do not compensate for the others. A real gap that belongs to another lens is\nnot lost by your leaving it alone; it is being looked for right now by a checker\nwhose whole job it is. Reporting outside your brief adds a duplicate, not\ncoverage.\n\n## Input\n\nThe task message provides the plan text to check. When present, the overview\nplan (context shared across phases \u2014 read it for design decisions and\ndependencies, but do not grade it standalone) and supplemental code standards\nthe implementing agent will also load are appended to these role instructions\nrather than arriving in the task message.\n\n## What counts as a gap\n\nA gap is something that would make the agent **guess** or that needs a human to\n**decide between valid alternatives**. Flag a check only when the agent could not\nderive the answer from the plan, the overview, the codebase, or the standards.\n\n- **underspecified-surface** \u2014 services/modules described as intent ("create a\n  service") without defined methods/signatures the agent can implement.\n- **unwired-dependency** \u2014 cross-module dependencies where the plan does not make\n  exports match imports, so the agent must invent the contract.\n- **insufficient-detail** \u2014 a file to create/modify lacks enough detail to build\n  it without guessing its behavior.\n- **omitted-decision** \u2014 points where multiple valid approaches exist and the\n  plan picks none (behavior, edge cases, error handling, what to return).\n- **ambiguous-boundary** \u2014 scope boundaries present but so vague the agent cannot\n  tell what is in vs out.\n- **standards-conflict** \u2014 instructions that contradict the supplied standards.\n\n## Rules\n\n- `NONE` is a real result. A well-elicited, structurally clean plan should\n  return no gaps. Do not manufacture gaps.\n- Only flag gaps that force the agent to **guess** or need a **human decision**.\n  Details derivable from the codebase, overview, or standards are not gaps.\n- Do not re-flag structural defects (paths, scripts, placeholders, naming,\n  sections, scope) \u2014 those are checked in code.\n- Each gap states what must be decided and the valid options if you can surface\n  them.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text. Your message starts with\n`{` and ends with `}`. An empty `gaps` array is the clean result.\n\n```\n{\n	"gaps": [\n		{\n			"area": "underspecified-surface|unwired-dependency|insufficient-detail|omitted-decision|ambiguous-boundary|standards-conflict",\n			"gap": "<what is missing or ambiguous>",\n			"decision": "<the decision a human must make>",\n			"options": ["<valid alternative>", "..."]\n		}\n	]\n}\n```\n';
+var planGapCheck_default = '# Role: Check Plan Gaps\n\nYou check a plan for **adequacy**: whether its content is complete and decided\nenough for a fresh-context agent to implement via `lightsout implement` without\nguessing. This is the semantic half of plan quality. You work autonomously and\nyour final message is machine-parsed \u2014 one JSON report, not prose.\n\n**Boundary:** you own **adequacy** \u2014 is the present content enough to build, or\nmust a human decide something. The plan\'s **structure** (paths exist, scripts\nexist, no placeholders, required sections, naming, file-count scope) is already\nverified deterministically in code. Do **not** re-flag structural defects \u2014 only\ndecision-level gaps.\n\n## You are one of three\n\nThree checkers run against this same plan at the same time, each given a\ndifferent brief. Your own brief follows these instructions and **narrows which\nof the gap areas below you report**. Everything all three of us find is kept and\nrecorded as a union \u2014 nothing is voted on and nothing is dropped for being found\nonce. Each finding is then handed to its own judge, which decides who has to\nsettle it, and only the findings that need a human decide the plan\'s grade.\n\nNone of that changes your job: report what you find. The weighing is somebody\nelse\'s.\n\nSo do not compensate for the others. A real gap that belongs to another lens is\nnot lost by your leaving it alone; it is being looked for right now by a checker\nwhose whole job it is. Reporting outside your brief adds a duplicate, not\ncoverage.\n\n## Input\n\nThe task message provides the plan text to check. When present, the overview\nplan (context shared across phases \u2014 read it for design decisions and\ndependencies, but do not grade it standalone) and supplemental code standards\nthe implementing agent will also load are appended to these role instructions\nrather than arriving in the task message.\n\n## What counts as a gap\n\nA gap is something that would make the agent **guess** or that needs a human to\n**decide between valid alternatives**. Flag a check only when the agent could not\nderive the answer from the plan, the overview, the codebase, or the standards.\n\n- **underspecified-surface** \u2014 services/modules described as intent ("create a\n  service") without defined methods/signatures the agent can implement.\n- **unwired-dependency** \u2014 cross-module dependencies where the plan does not make\n  exports match imports, so the agent must invent the contract.\n- **insufficient-detail** \u2014 a file to create/modify lacks enough detail to build\n  it without guessing its behavior.\n- **omitted-decision** \u2014 points where multiple valid approaches exist and the\n  plan picks none (behavior, edge cases, error handling, what to return).\n- **ambiguous-boundary** \u2014 scope boundaries present but so vague the agent cannot\n  tell what is in vs out.\n- **standards-conflict** \u2014 instructions that contradict the supplied standards.\n\n## Rules\n\n- `NONE` is a real result. A well-elicited, structurally clean plan should\n  return no gaps. Do not manufacture gaps.\n- Only flag gaps that force the agent to **guess** or need a **human decision**.\n  Details derivable from the codebase, overview, or standards are not gaps.\n- Do not re-flag structural defects (paths, scripts, placeholders, naming,\n  sections, scope) \u2014 those are checked in code.\n- Each gap states what must be decided and the valid options if you can surface\n  them.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text. Your message starts with\n`{` and ends with `}`. An empty `gaps` array is the clean result.\n\n```\n{\n	"gaps": [\n		{\n			"area": "underspecified-surface|unwired-dependency|insufficient-detail|omitted-decision|ambiguous-boundary|standards-conflict",\n			"gap": "<what is missing or ambiguous>",\n			"decision": "<the decision a human must make>",\n			"options": ["<valid alternative>", "..."]\n		}\n	]\n}\n```\n';
 
 // src/agents/prompts/planGapCheckDecisions.md
 var planGapCheckDecisions_default = "# Your brief: decisions\n\nRead the plan for the forks nobody took. Every instruction that describes the\nhappy path is a place to ask what the plan says about the other paths \u2014 and\nwhether it says anything at all.\n\nAsk, of each behaviour the plan specifies:\n\n- What happens on the **error path**? Does the function throw, return a typed\n  failure, or swallow it \u2014 and does the plan say which?\n- What happens on **empty input** \u2014 no files, no matches, an empty list?\n- What happens on the **second call**, or on a **concurrent** one? Is anything\n  cached, mutated or written twice?\n- What does a lookup **return when the thing it looked for is absent**?\n- Where do two valid approaches genuinely exist and the plan picks **neither**?\n- Where does an instruction **contradict the supplied standards** \u2014 a rule the\n  plan asks the agent to break, without saying it is a deliberate exception?\n\n## What you report\n\nOnly these two areas:\n\n- **omitted-decision** \u2014 a point where several valid approaches exist (behaviour,\n  edge case, error handling, what to return) and the plan chooses none.\n- **standards-conflict** \u2014 an instruction that contradicts the supplied\n  standards.\n\nLeave everything else alone. Missing signatures and thin file descriptions,\nimports without exports and vague boundaries belong to the other two checkers,\nand they are reading this same plan right now. Reporting outside your brief does\nnot add coverage \u2014 it adds a duplicate.\n\n## Reminders\n\n- `NONE` is a real result. A well-elicited plan should return no gaps. Do not\n  manufacture them.\n- A gap must force the implementing agent to **guess**, or need a **human** to\n  decide. A detail derivable from the plan, the overview, the codebase or the\n  standards is not a gap.\n- Structural defects \u2014 paths, scripts, placeholders, naming, required sections,\n  file counts \u2014 are checked in code. Never re-flag one.\n";
@@ -27566,6 +27597,52 @@ ${standards}`);
 ${planText}`,
     "Remember: your entire final message must be exactly one JSON GapCheckReport object \u2014 nothing else."
   ];
+  return {
+    systemPrompt: roleSections.join("\n\n---\n\n"),
+    prompt: sections.join("\n\n")
+  };
+};
+
+// src/agents/prompts/planGapJudge.md
+var planGapJudge_default = '# Role: Judge a Plan Gap\n\nYou are handed **one** finding a reader raised against a plan, and you answer\n**one** question about it: who has to settle it. You work autonomously and your\nfinal message is machine-parsed \u2014 one JSON object, not prose.\n\n## What you are given\n\nThe task message provides the plan file the finding was raised against and the\nfinding itself. When present, the overview plan (shared context for a phased\nplan \u2014 read it, do not judge it standalone) and supplemental code standards are\nappended to these role instructions rather than arriving in the task message.\n\nYou may read the repository. You make no edits.\n\n## The plan\'s other phases\n\nWhen the task message names the plan\'s folder, the plan is phased and its other\nphase files are on disk beside the one you were given. A finding about something\na neighbouring phase produces or consumes cannot be settled from one phase file\nalone, and a judge that guesses at the neighbour is the rubber stamp this brief\nexists to prevent \u2014 so open the sibling file and look.\n\nA finding contained entirely in its own phase needs none of this. Do not read\nthe whole plan out of thoroughness.\n\n## The one question\n\nWho settles this finding: a human, the implementing agent, or nobody, because it\nis already answered.\n\n## The bar\n\nCould a fresh-context agent implementing this plan derive the answer from the\nplan, the overview, the codebase and the standards \u2014 and be right?\n\nThis is the same bar the reader briefs state, which is why you read the\nrepository rather than the plan text alone. "The plan does not say it" is not\nenough; the question is whether the agent would still get it right.\n\n## The three outcomes, and the evidence each demands\n\n- **`needs-a-human`** \u2014 the agent cannot work it out. Two defensible answers\n  exist and the plan picks neither, or the choice turns on intent nothing in the\n  repository carries. Supply **`humanDecision`**: the decision the human has to\n  make.\n- **`agent-can-decide`** \u2014 the agent can settle it correctly on its own, from\n  the plan, the codebase or the standards. Supply **`agentDecision`** (what it\n  would decide) and **`safeBecause`** (why that choice is safe to make\n  unattended).\n- **`already-answered`** \u2014 the reader missed an answer that is already there.\n  Supply **`answerAt`**: where it lives, as a line of the plan, a `file:symbol`,\n  or a named standards rule.\n\n## Rules\n\n- Judge only the finding you were given. Do not read the plan for new gaps, and\n  do not re-check its structure \u2014 that is verified deterministically in code.\n- The evidence your outcome demands is mandatory. An answer without it is\n  discarded and the finding is treated as unjudged, which blocks the plan.\n- Cite what you actually read. A `file:symbol` you did not open is worse than no\n  citation, and a citation naming a file that is not on disk is discarded.\n- When you cannot tell, `needs-a-human` is the safe answer. Asking costs one\n  question; waving something through costs an unattended run that stalls.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text. Your message starts with\n`{` and ends with `}`. Include only the evidence fields your outcome demands.\n\n```\n{\n	"outcome": "needs-a-human|agent-can-decide|already-answered",\n	"humanDecision": "<needs-a-human only>",\n	"agentDecision": "<agent-can-decide only>",\n	"safeBecause": "<agent-can-decide only>",\n	"answerAt": "<already-answered only>"\n}\n```\n';
+
+// src/agents/buildPlanGapJudgeInvocation.ts
+var buildPlanGapJudgeInvocation = ({ planText, overviewText, standards, planDir, gap }) => {
+  const roleSections = [planGapJudge_default];
+  if (overviewText) {
+    roleSections.push(`# Overview (context only \u2014 do not judge standalone)
+
+${overviewText}`);
+  }
+  if (standards) {
+    roleSections.push(`# Code standards
+
+The implementing agent loads these too \u2014 they are part of what it could derive the answer from:
+
+${standards}`);
+  }
+  const sections = [`# Gap-judge input`, `## Plan the finding was raised against
+
+${planText}`];
+  if (planDir) {
+    sections.push(
+      `## The plan's other phases
+
+The plan's other phase files are in \`${planDir}\`. Open one when this finding is about something a neighbouring phase produces or consumes; ignore them otherwise.`
+    );
+  }
+  sections.push(
+    [
+      "## The finding to judge",
+      "",
+      `- area: ${gap.area}`,
+      `- lens: ${gap.lens}`,
+      `- finding: ${gap.gap}`,
+      `- the reader says this must be decided: ${gap.decision}`,
+      `- options the reader offered: ${gap.options.length > 0 ? gap.options.join(" / ") : "none offered"}`
+    ].join("\n"),
+    "Remember: your entire final message must be exactly one JSON GapVerdict object \u2014 nothing else."
+  );
   return {
     systemPrompt: roleSections.join("\n\n---\n\n"),
     prompt: sections.join("\n\n")
@@ -42865,6 +42942,12 @@ var PlanRunStatus = {
 // src/plan/common/utils/getBlockingFindings.ts
 var getBlockingFindings = ({ findings }) => findings.filter((finding) => finding.severity === FindingSeverity.Blocking);
 
+// src/plan/common/utils/isBlockingGap.ts
+var isBlockingGap = ({ gap }) => gap.outcome === GapOutcome.NeedsAHuman || gap.outcome === GapOutcome.Unjudged;
+
+// src/plan/common/utils/getBlockingGaps.ts
+var getBlockingGaps = ({ gaps }) => gaps.filter((gap) => isBlockingGap({ gap }));
+
 // src/plan/detectPriorArtCandidates.ts
 import { readFile as readFile26 } from "node:fs/promises";
 import { basename as basename4 } from "node:path";
@@ -44789,22 +44872,136 @@ var runPlanDedup = async (params) => {
 };
 
 // src/plan/runPlanGrade.ts
-import { basename as basename14, join as join62 } from "node:path";
+import { basename as basename15, join as join63 } from "node:path";
+
+// src/plan/common/utils/createGradeReport.ts
+var createGradeReport = ({ name, phases, structural, gaps, failures, phasesChecked }) => {
+  const narrowed = phases === void 0 ? [] : [`graded a subset on request: ${phases.join(", ")} \u2014 the structural findings still cover every plan file`];
+  const reasons = [...narrowed, ...failures];
+  const complete = reasons.length === 0;
+  const grade = complete && getBlockingFindings({ findings: structural }).length === 0 && getBlockingGaps({ gaps }).length === 0 ? PlanGrade.A : PlanGrade.BelowA;
+  return {
+    planName: name,
+    grade,
+    structural,
+    gaps,
+    phasesChecked,
+    lenses: Object.values(GapCheckLens),
+    complete,
+    incompleteReason: complete ? void 0 : reasons.join("; "),
+    passed: grade === PlanGrade.A,
+    gradedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+};
+
+// src/plan/common/utils/judgeGaps.ts
+import { basename as basename13, relative as relative6 } from "node:path";
+
+// src/plan/common/utils/matchGapVerdicts.ts
+import { isAbsolute as isAbsolute3, join as join62 } from "node:path";
+var isFilled = ({ value }) => (value ?? "").trim().length > 0;
+var hasRequiredEvidence = ({ verdict }) => {
+  const demanded = {
+    [GapOutcome.NeedsAHuman]: isFilled({ value: verdict.humanDecision }),
+    [GapOutcome.AgentCanDecide]: isFilled({ value: verdict.agentDecision }) && isFilled({ value: verdict.safeBecause }),
+    [GapOutcome.AlreadyAnswered]: isFilled({ value: verdict.answerAt })
+  };
+  return demanded[verdict.outcome];
+};
+var citesMissingPath = async ({ cwd, verdict }) => {
+  const token = (verdict.answerAt ?? "").split(":")[0] ?? "";
+  const checkable = verdict.outcome === GapOutcome.AlreadyAnswered && isPathToken({ token });
+  return checkable && !await pathExists({ path: isAbsolute3(token) ? token : join62(cwd, token) });
+};
+var getUnjudgedReason = async ({
+  cwd,
+  judgeOutcome,
+  noJudgeReason
+}) => {
+  let reason;
+  if (judgeOutcome === void 0) {
+    reason = noJudgeReason ?? "no judge ran \u2014 the fan-out stopped before this finding was judged";
+  } else if (!judgeOutcome.ok) {
+    reason = judgeOutcome.rateLimited ? "the judge was rate limited or overloaded" : judgeOutcome.failure;
+  } else if (!hasRequiredEvidence({ verdict: judgeOutcome.report })) {
+    reason = `the judge answered ${judgeOutcome.report.outcome} without the evidence that outcome demands`;
+  } else if (await citesMissingPath({ cwd, verdict: judgeOutcome.report })) {
+    reason = `the judge cited ${judgeOutcome.report.answerAt}, which is not on disk`;
+  }
+  return reason;
+};
+var matchGapVerdicts = async ({ cwd, gaps, judgeOutcomes, noJudgeReason }) => {
+  const judged = [];
+  for (const [index, gap] of gaps.entries()) {
+    const judgeOutcome = judgeOutcomes[index];
+    const unjudgedReason = await getUnjudgedReason({ cwd, judgeOutcome, noJudgeReason });
+    judged.push(
+      unjudgedReason === void 0 && judgeOutcome?.ok === true ? { ...gap, ...judgeOutcome.report } : { ...gap, outcome: GapOutcome.Unjudged, unjudgedReason }
+    );
+  }
+  return judged;
+};
+
+// src/plan/common/utils/judgeGaps.ts
+var pairGapsWithPlanText = ({ selected, gaps }) => selected.flatMap((file2) => gaps.flatMap((gap, index) => gap.phase === basename13(file2.path) ? [{ index, gap, planText: file2.text }] : []));
+var spawnGapJudge = async ({ params, pair }) => {
+  const { cwd, driver, workspaceDir, overviewText, standards, model, effort, permissions, timeoutMs = 10 * 60 * 1e3 } = params;
+  const invokePlanAgent = createPlanAgentRunner({
+    cwd,
+    driver,
+    workspaceDir,
+    step: `grade-judge-${basename13(pair.gap.phase, ".md")}-${pair.index}`,
+    model,
+    effort,
+    permissions,
+    timeoutMs
+  });
+  const outcome = await invokePlanAgent({
+    invocation: buildPlanGapJudgeInvocation({
+      planText: pair.planText,
+      overviewText,
+      standards,
+      // Only a phased plan has siblings to point at, and the judge opens one
+      // itself when its finding is about a seam.
+      planDir: overviewText === void 0 ? void 0 : relative6(cwd, workspaceDir),
+      gap: pair.gap
+    }),
+    contract: GapVerdict
+  });
+  return { outcome };
+};
+var judgeGaps = async (params) => {
+  const { cwd, selected, gaps, skipReason: skipReason2 } = params;
+  const pairs = skipReason2 === void 0 ? pairGapsWithPlanText({ selected, gaps }) : [];
+  const results = await drainTasks({
+    tasks: pairs.map((pair) => () => spawnGapJudge({ params, pair })),
+    concurrency: planAgentConcurrency,
+    shouldStop: ({ results: settled2 }) => settled2.some((result) => isRateLimited({ result }))
+  });
+  const judgeOutcomes = gaps.map(() => void 0);
+  for (const [slot, pair] of pairs.entries()) {
+    judgeOutcomes[pair.index] = results[slot]?.outcome;
+  }
+  return {
+    gaps: await matchGapVerdicts({ cwd, gaps, judgeOutcomes, noJudgeReason: skipReason2 }),
+    rateLimited: results.some((result) => isRateLimited({ result }))
+  };
+};
 
 // src/plan/common/utils/selectPhaseFiles.ts
-import { basename as basename13 } from "node:path";
-var phaseIndexOf = ({ file: file2 }) => Number(/^phase(\d+)/.exec(basename13(file2.path))?.[1] ?? Number.NaN);
+import { basename as basename14 } from "node:path";
+var phaseIndexOf = ({ file: file2 }) => Number(/^phase(\d+)/.exec(basename14(file2.path))?.[1] ?? Number.NaN);
 var selectPhaseFiles = ({ files, phases }) => {
   if (phases === void 0) {
     return { selected: files };
   }
-  const listing = `available: ${files.map((file2) => basename13(file2.path)).join(", ")}`;
+  const listing = `available: ${files.map((file2) => basename14(file2.path)).join(", ")}`;
   if (phases.length === 0) {
     return { error: `--phase named no phase file \u2014 ${listing}` };
   }
   const wanted = /* @__PURE__ */ new Set();
   for (const value of phases) {
-    const matches = /^\d+$/.test(value) ? files.filter((file2) => phaseIndexOf({ file: file2 }) === Number(value)) : files.filter((file2) => basename13(file2.path) === value);
+    const matches = /^\d+$/.test(value) ? files.filter((file2) => phaseIndexOf({ file: file2 }) === Number(value)) : files.filter((file2) => basename14(file2.path) === value);
     if (matches.length !== 1) {
       return { error: `--phase ${value} matches ${matches.length} plan file(s) \u2014 ${listing}` };
     }
@@ -44828,34 +45025,10 @@ var foldGapResults = ({ selected, results }) => {
       continue;
     }
     returned.set(result.phase, (returned.get(result.phase) ?? 0) + 1);
-    gaps.push(...result.outcome.report.gaps.map((gap) => ({ ...gap, phase: result.phase, lens: result.lens })));
+    gaps.push(...result.outcome.report.gaps.map((gap) => ({ ...gap, phase: result.phase, lens: result.lens, outcome: GapOutcome.Unjudged })));
   }
-  const phasesChecked = selected.map((file2) => basename14(file2.path)).filter((phase) => returned.get(phase) === gapCheckLenses.length);
+  const phasesChecked = selected.map((file2) => basename15(file2.path)).filter((phase) => returned.get(phase) === gapCheckLenses.length);
   return { gaps, failures, phasesChecked };
-};
-var createGradeReport = ({
-  name,
-  phases,
-  structural,
-  folded
-}) => {
-  const { gaps, failures, phasesChecked } = folded;
-  const narrowed = phases === void 0 ? [] : [`graded a subset on request: ${phases.join(", ")} \u2014 the structural findings still cover every plan file`];
-  const reasons = [...narrowed, ...failures];
-  const complete = reasons.length === 0;
-  const grade = complete && getBlockingFindings({ findings: structural }).length === 0 && gaps.length === 0 ? PlanGrade.A : PlanGrade.BelowA;
-  return {
-    planName: name,
-    grade,
-    structural,
-    gaps,
-    phasesChecked,
-    lenses: gapCheckLenses,
-    complete,
-    incompleteReason: complete ? void 0 : reasons.join("; "),
-    passed: grade === PlanGrade.A,
-    gradedAt: (/* @__PURE__ */ new Date()).toISOString()
-  };
 };
 var spawnGapChecker = async ({
   params,
@@ -44868,7 +45041,7 @@ var spawnGapChecker = async ({
     cwd,
     driver,
     workspaceDir: pass.workspaceDir,
-    step: `grade-${basename14(file2.path, ".md")}-${lens}`,
+    step: `grade-${basename15(file2.path, ".md")}-${lens}`,
     model,
     effort,
     permissions,
@@ -44878,7 +45051,7 @@ var spawnGapChecker = async ({
     invocation: buildPlanGapCheckInvocation({ planText: file2.text, overviewText: pass.overviewText, standards, lens }),
     contract: GapCheckReport
   });
-  return { phase: basename14(file2.path), lens, outcome };
+  return { phase: basename15(file2.path), lens, outcome };
 };
 var runPlanGrade = async (params) => {
   const { cwd, name, phases, onProgress } = params;
@@ -44910,11 +45083,22 @@ var runPlanGrade = async (params) => {
     shouldStop: ({ results: settled2 }) => settled2.some((result) => isRateLimited({ result }))
   });
   const folded = foldGapResults({ selected, results });
-  const report = createGradeReport({ name, phases, structural, folded });
-  const gradePath = join62(workspaceDir, "grade.json");
+  const readerWall = results.some((result) => isRateLimited({ result }));
+  const judged = await judgeGaps({
+    ...params,
+    workspaceDir,
+    overviewText: pass.overviewText,
+    selected,
+    gaps: folded.gaps,
+    skipReason: readerWall ? "the reader fan-out hit the rate-limit wall, so no judge was spawned" : void 0
+  });
+  const report = createGradeReport({ name, phases, structural, gaps: judged.gaps, failures: folded.failures, phasesChecked: folded.phasesChecked });
+  const gradePath = join63(workspaceDir, "grade.json");
   await writeJsonFile({ path: gradePath, value: report });
-  progress(`plan grade ${name}: ${report.grade} (${structural.length} structural, ${report.gaps.length} gap(s))`);
-  if (results.some((result) => isRateLimited({ result }))) {
+  const blocking = getBlockingGaps({ gaps: report.gaps });
+  progress(`plan grade ${name}: judged ${report.gaps.length} finding(s), ${blocking.length} blocking`);
+  progress(`plan grade ${name}: ${report.grade} (${structural.length} structural, ${report.gaps.length} gap(s), ${blocking.length} blocking)`);
+  if (readerWall || judged.rateLimited) {
     const parked = `rate limited or overloaded \u2014 re-run: lightsout plan grade --name ${name}`;
     return { status: PlanRunStatus.PausedRateLimit, workspaceDir, error: parked, grade: report, gradePath };
   }
@@ -44938,16 +45122,16 @@ var runPlanLint = async ({ cwd, name, onProgress }) => {
 
 // src/plan/runPlanVerifyFacts.ts
 import { copyFile, mkdir as mkdir10, writeFile as writeFile11 } from "node:fs/promises";
-import { join as join64, resolve as resolve8 } from "node:path";
+import { join as join65, resolve as resolve8 } from "node:path";
 
 // src/plan/verifyFacts.ts
 import { readFile as readFile34 } from "node:fs/promises";
-import { join as join63 } from "node:path";
+import { join as join64 } from "node:path";
 var verifyFacts = async ({ cwd, facts }) => {
   const paths = facts.areas.flatMap((area) => [...area.filesToModify.map((file2) => file2.path), ...area.patternsToMirror.map((pattern) => pattern.path)]);
   const missingPaths = [];
   for (const path of paths) {
-    const exists = await pathExists({ path: join63(cwd, path) });
+    const exists = await pathExists({ path: join64(cwd, path) });
     if (!exists) {
       missingPaths.push(path);
     }
@@ -44958,7 +45142,7 @@ var verifyFacts = async ({ cwd, facts }) => {
     if (area.scripts.length === 0) {
       continue;
     }
-    const manifestPaths = [join63(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join63(cwd, pkg, "package.json"))];
+    const manifestPaths = [join64(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join64(cwd, pkg, "package.json"))];
     const available = /* @__PURE__ */ new Set();
     for (const manifestPath of manifestPaths) {
       const raw = await readFile34(manifestPath, "utf8").catch(() => void 0);
@@ -44991,7 +45175,7 @@ var snapshotNotes = async ({
   progress
 }) => {
   const source = resolve8(cwd, notesFile);
-  const destination = join64(workspaceDir, "notes.md");
+  const destination = join65(workspaceDir, "notes.md");
   const alreadyFrozen = await pathExists({ path: destination });
   if (alreadyFrozen) {
     progress("plan verify-facts \xB7 notes.md already frozen \u2014 snapshot skipped");
@@ -45009,7 +45193,7 @@ var snapshotNotes = async ({
 var runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }) => {
   const progress = onProgress ?? (() => void 0);
   const workspaceDir = planWorkspaceDir({ cwd, name });
-  const factsPath = join64(workspaceDir, "facts.json");
+  const factsPath = join65(workspaceDir, "facts.json");
   if (notesFile !== void 0) {
     const snapshot = await snapshotNotes({ cwd, workspaceDir, notesFile, progress });
     if (snapshot.error !== void 0) {
@@ -45280,7 +45464,7 @@ var runPhase = async ({
     cwd,
     driver,
     config: config2,
-    planPath: join65(dirname7(current.plan), step.id),
+    planPath: join66(dirname7(current.plan), step.id),
     overviewPath: current.plan,
     parentRunId: current.runId,
     existing: childManifest,
@@ -45435,10 +45619,10 @@ var spawnCollect = ({ command, args, cwd, stdinText, timeoutMs, onStdoutLine }) 
 // src/drivers/common/utils/writeSystemPromptFile.ts
 import { mkdtemp, rm as rm2, writeFile as writeFile12 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join as join66 } from "node:path";
+import { join as join67 } from "node:path";
 var writeSystemPromptFile = async ({ systemPrompt }) => {
-  const dir = await mkdtemp(join66(tmpdir(), "lightsout-system-prompt-"));
-  const path = join66(dir, "system-prompt.md");
+  const dir = await mkdtemp(join67(tmpdir(), "lightsout-system-prompt-"));
+  const path = join67(dir, "system-prompt.md");
   await writeFile12(path, systemPrompt, "utf8");
   return { path, cleanup: () => rm2(dir, { recursive: true, force: true }).catch(() => void 0) };
 };
@@ -45518,15 +45702,15 @@ ${stderr}`),
 // src/drivers/createCodexDriver.ts
 import { mkdtemp as mkdtemp2, readFile as readFile35, rm as rm3 } from "node:fs/promises";
 import { tmpdir as tmpdir2 } from "node:os";
-import { join as join67 } from "node:path";
+import { join as join68 } from "node:path";
 var rateLimitPattern = /usage limit|rate limit|limit reached|quota|529|overloaded/i;
 var createCodexDriver = () => {
   const driver = {
     name: "codex",
     invoke: async (invocation) => {
       const { prompt, systemPrompt, model, effort, permissions, cwd, timeoutMs } = invocation;
-      const outDir = await mkdtemp2(join67(tmpdir2(), "lightsout-codex-"));
-      const outFile = join67(outDir, "last-message.txt");
+      const outDir = await mkdtemp2(join68(tmpdir2(), "lightsout-codex-"));
+      const outFile = join68(outDir, "last-message.txt");
       const args = buildCodexArgs({ outFile, model, effort, permissions });
       const fullPrompt = systemPrompt ? `# Role instructions
 
@@ -45633,9 +45817,9 @@ var implementCommand = async ({ flags, cwd }) => {
 
 // src/cli/common/utils/resolveConfigAndDriver.ts
 import { stat as stat7 } from "node:fs/promises";
-import { join as join68 } from "node:path";
+import { join as join69 } from "node:path";
 var resolveConfigAndDriver = async ({ cwd, command }) => {
-  const configPath = join68(cwd, "lightsout.config.json");
+  const configPath = join69(cwd, "lightsout.config.json");
   const present = await stat7(configPath).then(
     () => true,
     () => false
@@ -45657,15 +45841,15 @@ var PromptImprovementStatus = {
 
 // src/runPromptImprovement.ts
 import { readdir as readdir15 } from "node:fs/promises";
-import { join as join69 } from "node:path";
+import { join as join70 } from "node:path";
 var promptsDir = "src/agents/prompts";
 var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model, effort }) => {
   const friction = await readFriction({ cwd: consumerCwd });
   if (friction.length === 0) {
     return { status: PromptImprovementStatus.NoFriction, friction };
   }
-  const files = await readdir15(join69(engineCwd, promptsDir));
-  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join69(promptsDir, file2));
+  const files = await readdir15(join70(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join70(promptsDir, file2));
   const improverTimeoutMs = 20 * 6e4;
   const outcome = await invokeAgentWithContract({
     driver,
@@ -45848,6 +46032,22 @@ ${bold(`plan draft ${name}`)} \u2014 ${result.variant}, structurally clean`);
   return exitCli({ code: 0 });
 };
 
+// src/cli/common/render/printGradedGap.ts
+var detailOf = ({ gap }) => {
+  const lines = {
+    [GapOutcome.NeedsAHuman]: `   decide: ${gap.humanDecision ?? gap.decision}${gap.options.length > 0 ? ` \u2014 options: ${gap.options.join(" / ")}` : ""}`,
+    [GapOutcome.AgentCanDecide]: `   the agent decides: ${gap.agentDecision ?? ""} \u2014 safe because ${gap.safeBecause ?? ""}`,
+    [GapOutcome.AlreadyAnswered]: `   already answered at: ${gap.answerAt ?? ""}`,
+    [GapOutcome.Unjudged]: `   unjudged, so it blocks: ${gap.unjudgedReason ?? "no judge settled this finding"}`
+  };
+  return lines[gap.outcome];
+};
+var printGradedGap = ({ gap, write = console.log }) => {
+  const marker = isBlockingGap({ gap }) ? yellow("?") : dim("note");
+  write(`${marker} [${gap.area}] ${gap.gap} ${dim(`(${gap.lens})`)}`);
+  write(dim(detailOf({ gap })));
+};
+
 // src/cli/plan/planGradeCommand.ts
 var printGaps = ({ gaps }) => {
   let heading;
@@ -45856,8 +46056,7 @@ var printGaps = ({ gaps }) => {
       heading = gap.phase;
       console.log(bold(heading));
     }
-    console.log(`${yellow("?")} [${gap.area}] ${gap.gap} ${dim(`(${gap.lens})`)}`);
-    console.log(dim(`   decide: ${gap.decision}${gap.options.length > 0 ? ` \u2014 options: ${gap.options.join(" / ")}` : ""}`));
+    printGradedGap({ gap });
   }
 };
 var planGradeCommand = async ({ cwd, driver, name, standards, config: config2, phases }) => {
@@ -45877,13 +46076,15 @@ ${yellow("incomplete grade")} \u2014 ${grade.incompleteReason ?? "the pass did n
   }
   console.log(`
 ${bold(`plan grade ${name}`)} \u2014 ${grade.passed ? green(grade.grade) : red(grade.grade)} (graded ${grade.gradedAt})`);
-  console.log(`  structural: ${grade.structural.length} \xB7 gaps: ${grade.gaps.length}`);
+  const blocking = getBlockingGaps({ gaps: grade.gaps });
+  const unjudged = blocking.filter((gap) => gap.outcome === GapOutcome.Unjudged).length;
+  console.log(`  structural: ${grade.structural.length} \xB7 gaps: ${grade.gaps.length} (${blocking.length} blocking, ${unjudged} unjudged)`);
   const checked = grade.phasesChecked.length > 0 ? `: ${grade.phasesChecked.join(", ")}` : "";
   console.log(`  checked: ${grade.phasesChecked.length} phase file(s) \xD7 ${grade.lenses.length} lens(es)${checked}`);
   for (const finding of grade.structural) {
     printStructuralFinding({ finding });
   }
-  printGaps({ gaps: grade.gaps });
+  printGaps({ gaps: blocking });
   console.log(`
 grade: ${gradePath}`);
   return exitCli({ code: grade.complete ? 0 : 1 });
@@ -46115,7 +46316,7 @@ var findIntroducedFindings = ({ frozen, live: live2, severity }) => {
 
 // src/refactor/initializeRun.ts
 import { readFile as readFile36, writeFile as writeFile15 } from "node:fs/promises";
-import { join as join72 } from "node:path";
+import { join as join73 } from "node:path";
 
 // src/refactor/batch/batchFindings.ts
 var rulePriority = [
@@ -46459,7 +46660,7 @@ var createSiteChecker = ({ cwd, checkPath, checkAll }) => {
 
 // src/refactor/batch/invokeBatchAgent.ts
 import { mkdir as mkdir11, writeFile as writeFile13 } from "node:fs/promises";
-import { join as join70 } from "node:path";
+import { join as join71 } from "node:path";
 var invokeBatchAgent = async ({
   cwd,
   runId,
@@ -46476,9 +46677,9 @@ var invokeBatchAgent = async ({
   onProgress,
   recordUsage
 }) => {
-  const agentsDir = join70(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join71(getRunDir({ cwd, runId }), "agents");
   const slug = batch.id.replace(/[:/]/g, "_");
-  const streamPath = join70(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
+  const streamPath = join71(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
   await mkdir11(agentsDir, { recursive: true });
   const outcome = await invokeAgentWithContract({
     driver,
@@ -46492,7 +46693,7 @@ var invokeBatchAgent = async ({
     allowedCommands: config2["agent-commands"],
     onEvent: createEventFileSink({ path: streamPath }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile13(join70(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile13(join71(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   const formatError2 = await runFormatter({ cwd, runId, config: config2, step: batch.id });
@@ -46518,7 +46719,7 @@ var invokeBatchAgent = async ({
 
 // src/refactor/batch/superviseBatch.ts
 import { mkdir as mkdir12, writeFile as writeFile14 } from "node:fs/promises";
-import { join as join71 } from "node:path";
+import { join as join72 } from "node:path";
 var superviseBatch = async ({
   cwd,
   runId,
@@ -46535,7 +46736,7 @@ var superviseBatch = async ({
   gates
 }) => {
   onProgress(`${batchId}: gates red after ${maxCheapFixRetries2} cheap fix attempt(s) \u2014 consulting supervisor`);
-  const agentsDir = join71(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join72(getRunDir({ cwd, runId }), "agents");
   const slug = batchId.replace(/[:/]/g, "_");
   await mkdir12(agentsDir, { recursive: true });
   const verdict = await consultSupervisor({
@@ -46546,9 +46747,9 @@ var superviseBatch = async ({
     stepId: batchId,
     errorOutput: gateError,
     attempts,
-    onEvent: createEventFileSink({ path: join71(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
+    onEvent: createEventFileSink({ path: join72(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile14(join71(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile14(join72(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   await recordUsage({ step: `${batchId}:supervisor`, usage: verdict.usage });
@@ -46848,7 +47049,7 @@ var initializeRun = async ({
     if ((existing.pipeline ?? "implement") !== "refactor") {
       throw new Error(`run ${existing.runId} belongs to the implement pipeline \u2014 resume it with: lightsout resume --run ${existing.runId}`);
     }
-    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile36(join72(cwd, existing.plan), "utf8"))) };
+    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile36(join73(cwd, existing.plan), "utf8"))) };
   }
   const dirty = await readGitChangedFiles({ cwd });
   if (dirty === void 0) {
@@ -46861,9 +47062,9 @@ ${dirty.map((file2) => `  ${file2}`).join("\n")}`
     );
   }
   const worklist = await buildWorklist({ cwd, config: config2, path, all });
-  const worklistPath = join72(".lightsout", "runs", runId, "worklist.json");
+  const worklistPath = join73(".lightsout", "runs", runId, "worklist.json");
   const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: "refactor", driver: driver.name, config: config2, baselineDirtyFiles: dirty });
-  await writeFile15(join72(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
+  await writeFile15(join73(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
 `, "utf8");
   return { manifest, worklist };
 };
@@ -47615,9 +47816,9 @@ import { mkdir as mkdir13, writeFile as writeFile16 } from "node:fs/promises";
 import { dirname as dirname8 } from "node:path";
 
 // src/voice/common/paths/getVoiceMarkerPath.ts
-import { join as join73 } from "node:path";
+import { join as join74 } from "node:path";
 var getVoiceMarkerPath = ({ cwd }) => {
-  return join73(cwd, ".lightsout", "voice-on");
+  return join74(cwd, ".lightsout", "voice-on");
 };
 
 // src/voice/createVoiceMarker.ts
@@ -47751,9 +47952,9 @@ import { spawn as spawn3 } from "node:child_process";
 import { writeFile as writeFile17 } from "node:fs/promises";
 
 // src/voice/common/paths/getVoicePidPath.ts
-import { join as join74 } from "node:path";
+import { join as join75 } from "node:path";
 var getVoicePidPath = ({ cwd }) => {
-  return join74(cwd, ".lightsout", "voice-pid");
+  return join75(cwd, ".lightsout", "voice-pid");
 };
 
 // src/voice/stopSpeech.ts

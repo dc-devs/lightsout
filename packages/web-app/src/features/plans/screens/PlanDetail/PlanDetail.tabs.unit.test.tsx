@@ -6,6 +6,7 @@ import {
 	FindingSeverity,
 	GapArea,
 	GapCheckLens,
+	GapOutcome,
 	PlanDocumentKind,
 	PlanGrade,
 	StructuralCheck,
@@ -196,6 +197,7 @@ describe('PlanDetail grade tab', () => {
 							options: ['/repo', '/local'],
 							phase: 'plan.md',
 							lens: GapCheckLens.Decisions,
+							outcome: GapOutcome.NeedsAHuman,
 						},
 						{
 							// A gap the checker could not name options for: the line is left
@@ -206,6 +208,7 @@ describe('PlanDetail grade tab', () => {
 							options: [],
 							phase: 'plan.md',
 							lens: GapCheckLens.Wiring,
+							outcome: GapOutcome.NeedsAHuman,
 						},
 					],
 					phasesChecked: ['plan.md'],
