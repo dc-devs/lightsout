@@ -102,6 +102,26 @@ describe('GradeReport', () => {
 		expect(parsed.incompleteReason).toBe('phase3-two-stage-draft.md/wiring: rate limited or overloaded');
 	});
 
+	test('a grade.json written before the commit stamp existed still parses, with both fields absent', () => {
+		const { report } = setupReport();
+
+		const parsed = GradeReport.parse(report);
+
+		// an older record has no honest value to supply, and a default would make a
+		// grade taken against unknown code read as one taken against HEAD
+		expect(parsed.gradedCommit).toBe(undefined);
+		expect(parsed.gradedTreeDirty).toBe(undefined);
+	});
+
+	test('the commit stamp and its dirty flag round-trip', () => {
+		const { report } = setupReport({ gradedCommit: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2', gradedTreeDirty: true });
+
+		const parsed = GradeReport.parse(report);
+
+		expect(parsed.gradedCommit).toBe('a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2');
+		expect(parsed.gradedTreeDirty).toBe(true);
+	});
+
 	test('rejects a gap that carries no phase', () => {
 		const { report, gap } = setupReport();
 		const unlabelled = { area: gap.area, gap: gap.gap, decision: gap.decision, options: gap.options, lens: gap.lens };

@@ -19,9 +19,9 @@ const judgedDecision = 'what the plan should do here';
 
 // A real consumer repo with a real committed deliverable: the structural half of
 // the grade is the deterministic lint, and only the gap half is stubbed.
-const setupGrade = ({ body, gaps = [], verdict }: { body?: string; gaps?: unknown[]; verdict?: unknown } = {}) => {
+const setupGrade = ({ body, gaps = [], verdict, git = false }: { body?: string; gaps?: unknown[]; verdict?: unknown; git?: boolean } = {}) => {
 	const captured = captureCommandOutput();
-	const cwd = setupConsumerRepo({ git: false });
+	const cwd = setupConsumerRepo({ git });
 
 	if (body !== undefined) {
 		writePlanDeliverable({ cwd, name: 'demo', body });
@@ -112,6 +112,40 @@ test('planGradeCommand: a clean plan with no gaps grades A, reports both counts 
 	// an A grade prints no finding lines, got: ${JSON.stringify(printed)}
 	expect(printed.length).toBe(4);
 	expect(errors).toStrictEqual([]);
+	expect(exitCodes).toStrictEqual([0]);
+});
+
+test('planGradeCommand: a grade taken outside a git worktree says so rather than leaving the verdict undated in code', async () => {
+	const { cwd, driver, name, logged, exitCodes } = setupGrade({ body: cleanPlanBody() });
+
+	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+
+	// gradedAt alone cannot tell a stale verdict from a current one
+	expect(printedLines({ logged })[0] ?? '').toMatch(/^\nplan grade demo — A \(graded \S+, outside a git worktree\)$/);
+	expect(exitCodes).toStrictEqual([0]);
+});
+
+test('planGradeCommand: a grade taken on a committed tree carries the short commit it was measured against', async () => {
+	const { cwd, driver, name, logged, exitCodes } = setupGrade({ body: cleanPlanBody(), git: true });
+
+	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+
+	// twelve characters is the short sha a human compares against `git log`; the
+	// full sha stays in grade.json
+	expect(printedLines({ logged })[0] ?? '').toMatch(/^\nplan grade demo — A \(graded \S+, at [0-9a-f]{12}\)$/);
+	expect(exitCodes).toStrictEqual([0]);
+});
+
+test('planGradeCommand: uncommitted work at grade time is said out loud, so the sha reads as a floor', async () => {
+	const { cwd, driver, name, logged, exitCodes } = setupGrade({ body: cleanPlanBody(), git: true });
+
+	// grading while the author has uncommitted work is the normal case, not an
+	// edge one — which is why the commit is still recorded rather than withheld
+	writeFileSync(join(cwd, 'src', 'scratch.js'), 'export const two = 2;\n');
+
+	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+
+	expect(printedLines({ logged })[0] ?? '').toMatch(/^\nplan grade demo — A \(graded \S+, at [0-9a-f]{12} plus uncommitted changes\)$/);
 	expect(exitCodes).toStrictEqual([0]);
 });
 

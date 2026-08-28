@@ -1,16 +1,18 @@
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
-import { createdFileCeiling } from '#src/common/constants/createdFileCeiling.ts';
 import { defaultExecutorFileLimit } from '#src/common/constants/defaultExecutorFileLimit.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { FindingSeverity, type LightsoutConfig, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
 import { PlanFileKind } from '#src/plan/common/constants/PlanFileKind.ts';
+import { readRepoPathIndex } from '#src/plan/common/paths/readRepoPathIndex.ts';
 import type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
 import type { PhaseSizeCounts } from '#src/plan/common/types/PhaseSizeCounts.ts';
 import { getPhaseProvenance } from '#src/plan/common/utils/getPhaseProvenance.ts';
 import { getPlanNamedPaths } from '#src/plan/common/utils/getPlanNamedPaths.ts';
 import { getPlanTouchedPaths } from '#src/plan/common/utils/getPlanTouchedPaths.ts';
 import { checkPlanPaths } from '#src/plan/lint/checkPlanPaths.ts';
+import { checkPlanSizes } from '#src/plan/lint/checkPlanSizes.ts';
+import { checkProsePaths } from '#src/plan/lint/checkProsePaths.ts';
 import { checkVerificationScripts } from '#src/plan/lint/checkVerificationScripts.ts';
 import { lintPlanCrossPhase } from '#src/plan/lint/lintPlanCrossPhase.ts';
 import { scanPlaceholders } from '#src/plan/lint/scanPlaceholders.ts';
@@ -97,45 +99,6 @@ const checkMoves = ({ phase }: { phase: PhaseFile }) =>
 	}));
 
 /**
- * The two size numbers. The created-file count is a real ceiling and is never
- * declarable; the touched count is advisory and measured against whatever this
- * plan declares for itself, because a phase that creates three files and renames
- * an import across two hundred is legitimate work one repo-wide number cannot
- * express.
- */
-const checkSizes = ({ phase, fileLimit, counts }: { phase: PhaseFile; fileLimit: number; counts: PhaseSizeCounts }) => {
-	const findings: StructuralFinding[] = [];
-	const { created, touched } = counts;
-	const budget = phase.plan.fileBudget ?? fileLimit;
-
-	if (created > createdFileCeiling) {
-		findings.push({
-			check: StructuralCheck.CreatedFilesWithinCeiling,
-			severity: FindingSeverity.Blocking,
-			phase: phase.base,
-			issue: `plan creates ${created} source files, over the ${createdFileCeiling}-file ceiling`,
-			location: phase.base,
-			fix: `split the phase so it creates no more than ${createdFileCeiling} files`,
-		});
-	}
-
-	if (touched > budget) {
-		const source = phase.plan.fileBudget === undefined ? 'the configured executor-file-limit' : "this plan's own ## File Budget";
-
-		findings.push({
-			check: StructuralCheck.ScopeWithinGuardrail,
-			severity: FindingSeverity.Advisory,
-			phase: phase.base,
-			issue: `plan touches ${touched} source files, over the ${budget}-file limit from ${source}`,
-			location: phase.base,
-			fix: `legal, but the implementing agent stops at ${budget} files — a mostly-mechanical phase should declare a '## File Budget' covering its real touched count`,
-		});
-	}
-
-	return findings;
-};
-
-/**
  * The script names available to each file's verification commands beyond the
  * manifests: what that phase and every earlier one declares it adds. A phase may
  * legitimately verify with a script only the plan creates, and the overview —
@@ -195,11 +158,14 @@ const checkPackages = ({ phase, packagesDir }: { phase: PhaseFile; packagesDir: 
  * no longer reads as a broken reference. That ordered set is also the seam the
  * cross-phase pass hangs off.
  *
- * Every path is `stat`ed, every verification script is looked up in a
- * package.json (honoring `config.gates` full-command overrides), placeholders
- * and required sections are matched textually, and the two size numbers are
- * checked: a blocking ceiling on the files a plan CREATES, and an advisory note
- * on every source file it touches. The `naming-matches` check no-ops without a
+ * Every path a heading names is `stat`ed, and so is every backticked span in
+ * the plan's prose — except that a prose span which is shorthand rather than
+ * repo-rooted is resolved against a repo index read once per run instead of
+ * being `stat`ed. Every verification script is looked up in a package.json
+ * (honoring `config.gates` full-command overrides), placeholders and required
+ * sections are matched textually, and the two size numbers are checked: a
+ * blocking ceiling on the files a plan CREATES, and an advisory note on every
+ * source file it touches. The `naming-matches` check no-ops without a
  * machine-checkable convention (the facts' `namingConvention` is free-text
  * prose), and `packages-identifiable` only fires on a malformed `packagesDir/`
  * path — both are conservative by design, never guessing.
@@ -220,6 +186,11 @@ export const lintPlanStructure = async ({ cwd, planPaths, config }: Params): Pro
 	const phased = implementable.length > 1 || overview !== undefined;
 	const provenance = getPhaseProvenance({ phases: implementable });
 	const declaredByPhase = getDeclaredScripts({ overview, phases: implementable });
+	// Read once per lint run rather than once per plan file, for the same reason
+	// `getDeclaredScripts` is hoisted: a ten-file phased plan would otherwise walk
+	// the repo ten times.
+	const repoIndex = await readRepoPathIndex({ cwd });
+	const planned = new Set(provenance.createdBy.keys());
 	const counts = new Map<string, PhaseSizeCounts>();
 
 	for (const phase of overview ? [overview, ...implementable] : implementable) {
@@ -234,10 +205,11 @@ export const lintPlanStructure = async ({ cwd, planPaths, config }: Params): Pro
 		findings.push(
 			...checkSections({ phase }),
 			...(await checkPlanPaths({ ...shared, provided, phased })),
+			...(await checkProsePaths({ ...shared, planned, index: repoIndex })),
 			...(await checkVerificationScripts({ ...shared, packagesDir, configCommands, declaredScripts })),
 			...checkPlaceholders({ phase }),
 			...checkMoves({ phase }),
-			...checkSizes({ phase, fileLimit, counts: sizes }),
+			...checkPlanSizes({ phase, fileLimit, counts: sizes }),
 			...checkPackages({ phase, packagesDir }),
 		);
 	}

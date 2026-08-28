@@ -20,6 +20,10 @@ import { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.t
  * the wall leaves a phase unread, so the pass is incomplete; a judge that failed
  * leaves one finding unweighed, which is recorded as `unjudged` on that gap and
  * blocks the grade on its own — the pass still finished.
+ *
+ * `gradedAt` alone cannot tell a stale verdict from a current one: a grade taken
+ * against code that has since moved on reads exactly like a fresh one. The
+ * commit stamp beside it says WHAT was measured, not merely when.
  */
 export const GradeReport = z.object({
 	planName: z.string(),
@@ -36,6 +40,10 @@ export const GradeReport = z.object({
 	incompleteReason: z.string().optional(),
 	passed: z.boolean(),
 	gradedAt: z.string(),
+	/** The commit `HEAD` was at when the grade was taken, absent outside a git worktree. `gradedAt` says when; this says against what. */
+	gradedCommit: z.string().optional(),
+	/** True when the working tree held uncommitted changes at grade time, so `gradedCommit` is a floor rather than an exact description of what was measured. Absent means NOT KNOWN — no commit was read, or the changed-file probe itself failed. It never means clean; only `false` means clean. */
+	gradedTreeDirty: z.boolean().optional(),
 });
 
 export type GradeReport = z.infer<typeof GradeReport>;
