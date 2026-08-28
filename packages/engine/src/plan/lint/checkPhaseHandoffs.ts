@@ -61,6 +61,10 @@ const comparableTokens = ({ sectionLines }: { sectionLines: string[] }) => {
  *   name is what crosses a phase boundary, and every wider shape is prose that
  *   would generate false alarms.
  *
+ * Names are all this check owns. What a hand-off *carries* — the shape behind
+ * the name — is declared once, in the defining phase's file entry, and compared
+ * by the wiring gap-check reader, which can open both phases.
+ *
  * The sentinel words the template defines as empty values — `none` and `None` —
  * are excluded even though they match the identifier shape, because they are a
  * declared absence rather than a name being handed over.

@@ -11,6 +11,16 @@ interface Params {
 	overviewText?: string;
 	/** Supplemental code standards, inlined verbatim so standards-conflict can fire. */
 	standards?: string;
+	/**
+	 * The plan's folder, repo-relative — named so the wiring checker can open a
+	 * sibling phase file and compare shapes across a seam. Not the text of those
+	 * files: eight phases inlined into every checker is the
+	 * read-the-whole-plan-at-once shape the fan-out was split away from. Only the
+	 * wiring lens is handed it — the other two briefs push seam work to wiring,
+	 * and a folder they are told to leave alone is an invitation to wander.
+	 * Absent for a single-file plan, which has no siblings.
+	 */
+	planDir?: string;
 	/** Which of the three jobs this checker is given. */
 	lens: GapCheckLens;
 }
@@ -28,8 +38,14 @@ const lensBriefs: Record<GapCheckLens, string> = {
  * standards, so those live in the system prompt (the harness caches through it)
  * and only the plan text under check varies between the spawns sharing a lens.
  */
-export const buildPlanGapCheckInvocation = ({ planText, overviewText, standards, lens }: Params): { systemPrompt: string; prompt: string } => {
+export const buildPlanGapCheckInvocation = ({ planText, overviewText, standards, planDir, lens }: Params): { systemPrompt: string; prompt: string } => {
 	const roleSections = [planGapCheckPrompt, lensBriefs[lens]];
+
+	if (planDir && lens === GapCheckLens.Wiring) {
+		roleSections.push(
+			`# The plan's other phases\n\nThe plan's other phase files are in \`${planDir}\`. Your brief says when to open one — follow a name the plan under check consumes to the phase that defines it; ignore them otherwise.`,
+		);
+	}
 
 	if (overviewText) {
 		roleSections.push(`# Overview (context only — do not grade standalone)\n\n${overviewText}`);

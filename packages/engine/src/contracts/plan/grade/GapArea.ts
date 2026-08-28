@@ -10,6 +10,7 @@ export const GapArea = {
 	OmittedDecision: 'omitted-decision',
 	AmbiguousBoundary: 'ambiguous-boundary',
 	StandardsConflict: 'standards-conflict',
+	PhaseSeamMismatch: 'phase-seam-mismatch',
 } as const;
 
 export type GapArea = (typeof GapArea)[keyof typeof GapArea];

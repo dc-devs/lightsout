@@ -1,4 +1,4 @@
-import { basename, join } from 'node:path';
+import { basename, join, relative } from 'node:path';
 import { buildPlanGapCheckInvocation } from '#src/agents/index.ts';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
 import { type Effort, type GapCheckLens, GapCheckReport, type GradeReport, type Permissions } from '#src/contracts/index.ts';
@@ -63,7 +63,15 @@ const spawnGapChecker = async ({
 		timeoutMs,
 	});
 	const outcome = await invokePlanAgent({
-		invocation: buildPlanGapCheckInvocation({ planText: file.text, overviewText: pass.overviewText, standards, lens }),
+		invocation: buildPlanGapCheckInvocation({
+			planText: file.text,
+			overviewText: pass.overviewText,
+			standards,
+			// Only a phased plan has siblings to point at, and the wiring checker
+			// opens one itself when a consumed name's shape is declared elsewhere.
+			planDir: pass.overviewText === undefined ? undefined : relative(cwd, pass.workspaceDir),
+			lens,
+		}),
 		contract: GapCheckReport,
 	});
 

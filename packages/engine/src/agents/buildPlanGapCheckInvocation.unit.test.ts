@@ -93,6 +93,48 @@ test('buildPlanGapCheckInvocation: the standards section follows the brief direc
 	expect(sections[2]).toBe(`# Code standards\n\nThe implementing agent loads these too — flag only where the plan contradicts them:\n\n${standards}`);
 });
 
+test('buildPlanGapCheckInvocation: the wiring lens is told where the sibling phase files live', () => {
+	const { systemPrompt } = buildPlanGapCheckInvocation({ planText, overviewText, standards, planDir: '.lightsout/plans/web-app', lens: GapCheckLens.Wiring });
+
+	const sections = systemPrompt.split('\n\n---\n\n');
+
+	// the folder section sits between the brief it serves and the overview
+	expect(sections.length).toBe(5);
+	expect(sections[2].startsWith("# The plan's other phases")).toBeTruthy();
+	expect(sections[2].includes('`.lightsout/plans/web-app`')).toBeTruthy();
+});
+
+test('buildPlanGapCheckInvocation: the other two lenses are never handed the plan folder', () => {
+	for (const each of [GapCheckLens.Surface, GapCheckLens.Decisions]) {
+		const { systemPrompt } = buildPlanGapCheckInvocation({ planText, planDir: '.lightsout/plans/web-app', lens: each });
+
+		// their briefs push seam work to wiring — a folder they are told to leave
+		// alone is an invitation to wander outside the brief
+		expect(systemPrompt.includes("# The plan's other phases")).toBeFalsy();
+	}
+});
+
+test('buildPlanGapCheckInvocation: a single-file plan names no folder, so the wiring lens gets no siblings section', () => {
+	const { systemPrompt } = buildPlanGapCheckInvocation({ planText, lens: GapCheckLens.Wiring });
+
+	const sections = systemPrompt.split('\n\n---\n\n');
+
+	// a single plan has no siblings to open, and a section pointing at its own
+	// folder would send the checker looking for phases that do not exist — the
+	// wiring brief's own `##` seam section stays, but no `#` role section joins it
+	expect(sections.length).toBe(2);
+	expect(sections[1].startsWith('# Your brief: wiring')).toBeTruthy();
+});
+
+test('buildPlanGapCheckInvocation: the wiring system prompt stays byte-identical across the spawns of one pass', () => {
+	const planDir = '.lightsout/plans/web-app';
+	const first = buildPlanGapCheckInvocation({ planText, overviewText, standards, planDir, lens: GapCheckLens.Wiring });
+	const second = buildPlanGapCheckInvocation({ planText: '# Phase 2\n\nsomething else entirely', overviewText, standards, planDir, lens: GapCheckLens.Wiring });
+
+	// the folder is per-pass, not per-phase, so it lives in the cached half
+	expect(first.systemPrompt).toBe(second.systemPrompt);
+});
+
 test('buildPlanGapCheckInvocation: an empty overview and empty standards add no sections', () => {
 	const { systemPrompt } = buildPlanGapCheckInvocation({ planText, overviewText: '', standards: '', lens });
 
