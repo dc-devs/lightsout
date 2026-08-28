@@ -1,13 +1,15 @@
 /**
  * The deterministic structural checks a plan is linted against in code (the
- * mechanical half of grading — paths, scripts, placeholders, sections, scope,
- * naming), plus the cross-phase checks a phased plan is held to as a whole:
+ * mechanical half of grading — heading paths, the paths its prose names,
+ * scripts, placeholders, sections, scope, naming), plus the cross-phase checks
+ * a phased plan is held to as a whole:
  * where each path comes from, whether the hand-offs chain, whether the
  * overview's declarations match the phase files, and how many phases there are.
  * Values are internal to findings reports.
  */
 export const StructuralCheck = {
 	PathExists: 'path-exists',
+	ProsePathExists: 'prose-path-exists',
 	ScriptExists: 'script-exists',
 	NoPlaceholders: 'no-placeholders',
 	SectionsPresent: 'sections-present',

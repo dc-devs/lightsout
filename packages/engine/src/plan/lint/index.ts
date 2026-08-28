@@ -4,6 +4,8 @@ export { checkPhaseCount } from '#src/plan/lint/checkPhaseCount.ts';
 export { checkPhaseDeclarations } from '#src/plan/lint/checkPhaseDeclarations.ts';
 export { checkPhaseHandoffs } from '#src/plan/lint/checkPhaseHandoffs.ts';
 export { checkPlanPaths } from '#src/plan/lint/checkPlanPaths.ts';
+export { checkPlanSizes } from '#src/plan/lint/checkPlanSizes.ts';
+export { checkProsePaths } from '#src/plan/lint/checkProsePaths.ts';
 export { checkVerificationScripts } from '#src/plan/lint/checkVerificationScripts.ts';
 export { lintPlanCrossPhase } from '#src/plan/lint/lintPlanCrossPhase.ts';
 export { lintPlanStructure } from '#src/plan/lint/lintPlanStructure.ts';

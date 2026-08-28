@@ -1,4 +1,5 @@
-import { GapCheckLens, type GradedGap, type GradeReport, PlanGrade, type StructuralFinding } from '#src/contracts/index.ts';
+import { type GradedGap, type GradeReport, PlanGrade, type StructuralFinding } from '#src/contracts/index.ts';
+import { gapCheckLenses } from '#src/plan/common/constants/gapCheckLenses.ts';
 import { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.ts';
 import { getBlockingGaps } from '#src/plan/common/utils/getBlockingGaps.ts';
 
@@ -13,6 +14,10 @@ interface Params {
 	failures: string[];
 	/** The plan files every lens returned for. */
 	phasesChecked: string[];
+	/** The commit `HEAD` was at when the pass ran; absent outside a git worktree. */
+	commit?: string;
+	/** Whether the working tree held uncommitted changes then; absent when the commit is. */
+	treeDirty?: boolean;
 }
 
 /**
@@ -30,7 +35,7 @@ interface Params {
  * `complete` speaks for the READER fan-out alone. A judge that failed does not
  * make a pass incomplete, because its finding already blocks on its own.
  */
-export const createGradeReport = ({ name, phases, structural, gaps, failures, phasesChecked }: Params): GradeReport => {
+export const createGradeReport = ({ name, phases, structural, gaps, failures, phasesChecked, commit, treeDirty }: Params): GradeReport => {
 	const narrowed = phases === undefined ? [] : [`graded a subset on request: ${phases.join(', ')} — the structural findings still cover every plan file`];
 	const reasons = [...narrowed, ...failures];
 	const complete = reasons.length === 0;
@@ -43,10 +48,12 @@ export const createGradeReport = ({ name, phases, structural, gaps, failures, ph
 		structural,
 		gaps,
 		phasesChecked,
-		lenses: Object.values(GapCheckLens),
+		lenses: gapCheckLenses,
 		complete,
 		incompleteReason: complete ? undefined : reasons.join('; '),
 		passed: grade === PlanGrade.A,
 		gradedAt: new Date().toISOString(),
+		gradedCommit: commit,
+		gradedTreeDirty: treeDirty,
 	};
 };

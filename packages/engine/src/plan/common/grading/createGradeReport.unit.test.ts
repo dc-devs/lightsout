@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { FindingSeverity, GapArea, GapCheckLens, GapOutcome, type GradedGap, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
-import { createGradeReport } from '#src/plan/common/utils/createGradeReport.ts';
+import { createGradeReport } from '#src/plan/common/grading/createGradeReport.ts';
 
 /** One judged reader finding, carrying only the outcome each case turns on. */
 const gapOf = ({ outcome }: { outcome: GapOutcome }): GradedGap => ({
@@ -29,12 +29,16 @@ const setupReport = ({
 	structural = [],
 	failures = [],
 	phases,
+	commit,
+	treeDirty,
 }: {
 	gaps?: GradedGap[];
 	structural?: StructuralFinding[];
 	failures?: string[];
 	phases?: string[];
-} = {}) => createGradeReport({ name: 'graded', phases, structural, gaps, failures, phasesChecked: ['plan.md'] });
+	commit?: string;
+	treeDirty?: boolean;
+} = {}) => createGradeReport({ name: 'graded', phases, structural, gaps, failures, phasesChecked: ['plan.md'], commit, treeDirty });
 
 describe('createGradeReport', () => {
 	test('a pass that found nothing at all is an A', () => {
@@ -90,6 +94,32 @@ describe('createGradeReport', () => {
 		expect(report.complete).toBe(false);
 		expect(report.grade).toBe('below-A');
 		expect(report.incompleteReason).toBe('plan.md/wiring: rate limited or overloaded');
+	});
+
+	test('the commit the pass ran against is stamped on the report', () => {
+		const report = setupReport({ commit: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2' });
+
+		// gradedAt says when the grade was taken; this says against what
+		expect(report.gradedCommit).toBe('a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2');
+	});
+
+	test('a pass taken outside a git worktree records no commit rather than inventing one', () => {
+		const report = setupReport();
+
+		expect(report.gradedCommit).toBe(undefined);
+	});
+
+	test('a dirty working tree is recorded beside the commit, so the sha reads as a floor', () => {
+		const report = setupReport({ commit: 'a1b2c3d4e5f6', treeDirty: true });
+
+		expect(report.gradedTreeDirty).toBe(true);
+	});
+
+	test('a tree state that was never read is undefined, never false', () => {
+		const report = setupReport({ commit: 'a1b2c3d4e5f6' });
+
+		// false would claim a clean tree that was never measured
+		expect(report.gradedTreeDirty).toBe(undefined);
 	});
 
 	test('a --phase narrowing is recorded on the report and is likewise never an A', () => {

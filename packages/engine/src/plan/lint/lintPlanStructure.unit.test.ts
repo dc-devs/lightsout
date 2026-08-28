@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { FindingSeverity, LightsoutConfig, StructuralCheck } from '#src/contracts/index.ts';
 import { lintPlanStructure } from '#src/plan/lint/lintPlanStructure.ts';
+import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** Write a plan file into a plan's own folder and return its absolute path. */
@@ -17,58 +18,6 @@ const writePlan = ({ cwd, name, body }: { cwd: string; name: string; body: strin
 
 	return path;
 };
-
-/** A structurally clean single/phase plan whose paths resolve against setupConsumerRepo. */
-const cleanPlan = () => `# Clean Plan
-
-## Context
-
-A tiny clean plan for the structural lint.
-
-## Global Constraints
-
-- None
-
-## Prerequisites
-
-- None
-
-## Files to Create
-
-### \`src/new-thing.ts\`
-
-A new module exporting \`newThing\`.
-
-## Files to Modify
-
-### \`src/index.js\`
-
-Re-export \`newThing\`.
-
-## Patterns to Mirror
-
-- \`src/index.js\` — mirror its single-export shape.
-
-## Prior Art
-
-- \`newThing\` — searched newThing/new-thing, found none (new).
-
-## Scope Boundaries
-
-**Do:**
-- Add \`newThing\`.
-
-**Do NOT:**
-- Touch anything else.
-
-## Verification
-
-- \`true\` — types clean
-
-## What Next Plan Expects
-
-None — standalone plan.
-`;
 
 test('lintPlanStructure: a missing "What Next Plan Expects" section is flagged', async () => {
 	const cwd = setupConsumerRepo();
@@ -276,7 +225,7 @@ test('lintPlanStructure: a Files to Move heading naming one path is a blocking f
 
 test('lintPlanStructure: a clean plan returns no findings', async () => {
 	const cwd = setupConsumerRepo();
-	const path = writePlan({ cwd, name: 'clean.md', body: cleanPlan() });
+	const path = writePlan({ cwd, name: 'clean.md', body: cleanPlanBody() });
 
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
@@ -285,7 +234,26 @@ test('lintPlanStructure: a clean plan returns no findings', async () => {
 });
 
 /** The clean plan with a snippet standing in for its Context prose. */
-const planWith = ({ snippet }: { snippet: string }) => cleanPlan().replace('A tiny clean plan for the structural lint.', snippet);
+const planWith = ({ snippet }: { snippet: string }) => cleanPlanBody().replace('A tiny clean plan for the structural lint.', snippet);
+
+test('lintPlanStructure: a path the Context prose names but the tree does not hold is one blocking prose-path finding', async () => {
+	const cwd = setupConsumerRepo();
+	const clean = writePlan({ cwd, name: 'clean-prose.md', body: cleanPlanBody() });
+	const stale = writePlan({ cwd, name: 'stale-prose.md', body: planWith({ snippet: 'It replaces `src/ghost.ts`, which moved months ago.' }) });
+
+	const before = await lintPlanStructure({ cwd, planPaths: [clean] });
+	const after = await lintPlanStructure({ cwd, planPaths: [stale] });
+	const prose = after.filter((finding) => finding.check === StructuralCheck.ProsePathExists);
+
+	// only the heading paths were ever checked, so a wrong path in a sentence
+	// belonged to nobody and survived into implementation
+	expect(before).toStrictEqual([]);
+	expect(prose.length).toBe(1);
+	expect(prose[0]?.severity).toBe(FindingSeverity.Blocking);
+	expect(prose[0]?.issue).toBe('path named in prose does not exist: src/ghost.ts');
+	expect(prose[0]?.location ?? '').toMatch(/^stale-prose\.md:\d+$/);
+	expect(after.length).toBe(before.length + 1);
+});
 
 test('lintPlanStructure: fence state resets per file — an unclosed fence never silences the next plan', async () => {
 	const cwd = setupConsumerRepo();

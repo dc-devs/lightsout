@@ -69,7 +69,14 @@ export const planGradeCommand = async ({ cwd, driver, name, standards, config, p
 		console.log(`\n${yellow('incomplete grade')} — ${grade.incompleteReason ?? 'the pass did not finish'}`);
 	}
 
-	console.log(`\n${bold(`plan grade ${name}`)} — ${grade.passed ? green(grade.grade) : red(grade.grade)} (graded ${grade.gradedAt})`);
+	// Three branches, not two: an unknown tree state must not render identically to
+	// a clean one, or a grade whose tree was never read reads as one taken on a
+	// clean tree. Twelve characters is the short sha a human compares against
+	// `git log`; the full sha stays in grade.json.
+	const treeState = grade.gradedTreeDirty === undefined ? ', tree state unknown' : grade.gradedTreeDirty ? ' plus uncommitted changes' : '';
+	const measuredAgainst = grade.gradedCommit === undefined ? 'outside a git worktree' : `at ${grade.gradedCommit.slice(0, 12)}${treeState}`;
+
+	console.log(`\n${bold(`plan grade ${name}`)} — ${grade.passed ? green(grade.grade) : red(grade.grade)} (graded ${grade.gradedAt}, ${measuredAgainst})`);
 	const blocking = getBlockingGaps({ gaps: grade.gaps });
 	// The two kinds of blocking finding are counted apart: a spike in judge
 	// failures must not read as a plan getting worse.

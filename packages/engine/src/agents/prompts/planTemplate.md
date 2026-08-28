@@ -15,6 +15,12 @@ will not reach A:
   open question must be resolved before the plan is written.
 - **Every referenced path verified.** Files listed under Files to Modify and
   Patterns to Mirror must exist on disk at write time. Files to Create must not.
+- **Backticks around a path assert it exists.** Every backticked span that
+  names a file — anywhere in the plan, not only under the file headings — is
+  checked against the working tree and blocks if it is not there. A path
+  written to illustrate a shape rather than to name a real file goes in plain
+  prose, without backticks. Search patterns are exempt: a span holding `*` is
+  read as a glob, never as a claim.
 - **Earlier-phase files have their own heading.** In a phased plan, a file an
   EARLIER PHASE creates is changed under `## Files to Modify from Earlier
   Phases` — never `## Files to Modify` (whose paths exist on disk today) and
