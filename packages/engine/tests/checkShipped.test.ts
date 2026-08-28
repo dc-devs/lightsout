@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { cp, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, expect, test } from '@jest/globals';
@@ -14,6 +14,7 @@ import { afterAll, expect, test } from '@jest/globals';
 
 const repoRoot = join(__dirname, '..', '..', '..');
 const manifestPath = 'plugin/.claude-plugin/plugin.json';
+const addOnManifestPath = 'plugin-linear/.claude-plugin/plugin.json';
 const clones: string[] = [];
 
 const run = ({ cwd, command, args }: { cwd: string; command: string; args: string[] }) =>
@@ -96,16 +97,37 @@ const checkShipped = ({ cwd, base }: { cwd: string; base: string }) => {
  * compares. Reading the working tree would turn these red for the whole time a
  * version bump sits uncommitted.
  */
-const getVersion = ({ cwd }: { cwd: string }) => JSON.parse(readFileSync(join(cwd, manifestPath), 'utf8')).version as string;
+const getVersion = ({ cwd, manifest = manifestPath }: { cwd: string; manifest?: string }) =>
+	JSON.parse(readFileSync(join(cwd, manifest), 'utf8')).version as string;
 
 /** Unambiguously newer and older than anything this repo will ship. */
 const newer = '99.0.0';
 const older = '0.0.1';
 
-const setVersion = async ({ cwd, version }: { cwd: string; version: string }) => {
-	const manifest = JSON.parse(await readFile(join(cwd, manifestPath), 'utf8'));
+const setVersion = async ({ cwd, version, manifest = manifestPath }: { cwd: string; version: string; manifest?: string }) => {
+	const parsed = JSON.parse(await readFile(join(cwd, manifest), 'utf8'));
 
-	await writeFile(join(cwd, manifestPath), `${JSON.stringify({ ...manifest, version }, null, '\t')}\n`);
+	await writeFile(join(cwd, manifest), `${JSON.stringify({ ...parsed, version }, null, '\t')}\n`);
+};
+
+/**
+ * A clone whose main branch carries the add-on plugin, so the version
+ * comparison has a real base for the second shipped directory. Written into
+ * the clone rather than assumed from the checkout, so these tests hold
+ * whether or not the working tree's add-on files are committed yet.
+ */
+const setupCloneWithAddOn = async () => {
+	const cwd = await setupClone();
+
+	run({ cwd, command: 'git', args: ['checkout', '-q', 'main'] });
+	await mkdir(join(cwd, 'plugin-linear', '.claude-plugin'), { recursive: true });
+	await mkdir(join(cwd, 'plugin-linear', 'skills', 'linear-ticket'), { recursive: true });
+	await writeFile(join(cwd, addOnManifestPath), `${JSON.stringify({ name: 'lightsout-linear', version: '0.1.0', description: 't' }, null, '\t')}\n`);
+	await writeFile(join(cwd, 'plugin-linear', 'skills', 'linear-ticket', 'SKILL.md'), '---\nname: linear-ticket\n---\n');
+	commitAll({ cwd, message: 'add-on baseline' });
+	run({ cwd, command: 'git', args: ['checkout', '-q', '-b', 'addon-feature'] });
+
+	return cwd;
 };
 
 afterAll(async () => {
@@ -118,6 +140,33 @@ test('a clean tree with nothing shipped-facing changed passes, and says the vers
 
 	expect(ok).toBe(true);
 	expect(output).toMatch(/nothing under plugin\/ changed/);
+	expect(output).toMatch(/nothing under plugin-linear\/ changed|plugin-linear\/.* does not exist at the base/);
+});
+
+test('changing the add-on plugin without bumping its version fails, naming its manifest', async () => {
+	const cwd = await setupCloneWithAddOn();
+
+	await writeFile(join(cwd, 'plugin-linear', 'skills', 'linear-ticket', 'SKILL.md'), '---\nname: linear-ticket\n---\n\nDrift.\n');
+	commitAll({ cwd, message: 'change the add-on' });
+
+	const { ok, output } = checkShipped({ cwd, base: 'main' });
+
+	expect(ok).toBe(false);
+	expect(output).toContain(`${addOnManifestPath} is 0.1.0 against a base of 0.1.0`);
+});
+
+test('changing the add-on plugin with a bumped version passes, reporting both directories', async () => {
+	const cwd = await setupCloneWithAddOn();
+
+	await writeFile(join(cwd, 'plugin-linear', 'skills', 'linear-ticket', 'SKILL.md'), '---\nname: linear-ticket\n---\n\nDrift.\n');
+	await setVersion({ cwd, version: newer, manifest: addOnManifestPath });
+	commitAll({ cwd, message: 'change the add-on and bump' });
+
+	const { ok, output } = checkShipped({ cwd, base: 'main' });
+
+	expect(ok).toBe(true);
+	expect(output).toMatch(/nothing under plugin\/ changed/);
+	expect(output).toContain(`plugin-linear/ version 0.1.0 -> ${newer}`);
 });
 
 test('an engine bundle that no longer matches src/ fails', async () => {

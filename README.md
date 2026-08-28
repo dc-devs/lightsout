@@ -44,6 +44,22 @@ Completing the task is not enough. Agents should leave the repository better tha
    /plugin marketplace add dc-devs/lightsout
    ```
 
+   The marketplace also carries an optional add-on, `lightsout-linear`, which
+   teaches the agent this team's Linear mechanics — route labels, statuses,
+   attachments and pull-request magic words — on top of the base ticket
+   workflow:
+
+   ```text
+   /plugin install lightsout-linear@lightsout
+   ```
+
+   To load the ticket workflow, an adopting repository adds one line to its
+   own CLAUDE.md — the same line this repository carries:
+
+   ```markdown
+   One ticket = one branch = one PR — follow the `ticket-workflow` skill, with `linear-ticket` for the Linear mechanics.
+   ```
+
 2. **Define your standards and gate commands.**
 
 Add a `lightsout.config.json` to the repository with your code standards and validation commands. Only the `gates` commands are mandatory — everything else is optional with sensible defaults. Leave `standards-packs` out and lightsout uses the standards pack it ships with. See [docs/configuration.md](docs/configuration.md) for all available options.

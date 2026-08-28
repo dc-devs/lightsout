@@ -102,8 +102,9 @@ at `.lightsout/plans/<name>/notes.md`, take `<name>` from its folder rather than
 deriving a new one. Read `.lightsout/plans/<name>/brainstorm-decisions.json`
 when it exists — its rows are already settled with the user.
 
-When the work traces to a Linear ticket, read the ticket and follow
-`.claude/skills/linear-ticket/SKILL.md`: its `## Decisions` lines are settled
+When the work traces to a ticket, read the ticket and follow the
+ticket-workflow skill at `${CLAUDE_PLUGIN_ROOT}/skills/ticket-workflow/SKILL.md`:
+its `## Decisions` lines are settled
 rows, its `## Open questions` are this run's agenda, and its acceptance criteria
 are floors, never ceilings.
 
@@ -268,9 +269,10 @@ When `auto-approve-plan` is true and a question clears the bar, there is no prop
 to carry it in and the skill does not guess past it. It:
 
 - stops before the step that depends on the answer;
-- when the work traces to a Linear ticket, appends the question to that ticket's
-  `## Open questions` section, creating the section when absent, following
-  `.claude/skills/linear-ticket/SKILL.md` — written as a question, never as a
+- when the work traces to a ticket, appends the question to that ticket's
+  `## Open questions` section, creating the section when absent, following the
+  ticket-workflow skill at `${CLAUDE_PLUGIN_ROOT}/skills/ticket-workflow/SKILL.md`
+  — written as a question, never as a
   prescription, and the ticket's status is left where it is;
 - when there is no ticket, states the question in the message instead;
 - reports the plan folder path, and says that `/lightsout:plan` or a re-run

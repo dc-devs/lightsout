@@ -1,9 +1,9 @@
 ---
-name: linear-ticket
-description: How to write, update and close Linear tickets for the LightsOut team, and how a branch and PR are named after one. Use when filing a bug or feature ticket, starting work on one, opening its PR, or recording what shipped.
+name: ticket-workflow
+description: How to write, update and close a ticket, and how a branch and pull request are named after one. Use when filing a bug or feature ticket, choosing how it gets shaped, starting work on one, opening its pull request, or recording what shipped.
 ---
 
-# LightsOut tickets
+# Ticket workflow
 
 This describes what a ticket looks like — its shape, and what belongs in it.
 It does not run the work. The pipeline does that.
@@ -83,11 +83,11 @@ is not ready — a feature with no problem behind it is usually a preference
 looking for a justification.
 
 The closing why-sentence names who is hurt — an agent running a plan, a
-repo adopting lightsout, a plan author, a LightsOut engineer — and what it
-costs. On a bug it is one line; the value of not being broken is obvious.
-On a feature it is the only place the reason lives, and a feature's reason
-is genuinely arguable — spend the effort there. If the sentence would read
-the same on every ticket, it is telling the reader nothing; sharpen it.
+repo adopting lightsout, a plan author, an engineer on this codebase — and
+what it costs. On a bug it is one line; the value of not being broken is
+obvious. On a feature it is the only place the reason lives, and a feature's
+reason is genuinely arguable — spend the effort there. If the sentence would
+read the same on every ticket, it is telling the reader nothing; sharpen it.
 
 ### Evidence
 
@@ -195,12 +195,9 @@ twenty-line change can turn on a decision you will live with for a year.
 | `route-auto-plan` | Run `/auto-plan`. It plans the ticket alone and stops at one proposal. | A plan folder, and a proposal to approve |
 | `route-direct` | Build it. No brainstorm, no plan. | The diff, and nothing else |
 
-The four sit in a Linear label group called `Route`, so a ticket carries
-exactly one. Each name repeats the prefix anyway, and that redundancy is
-deliberate: Linear's issue sidebar shows the bare label without its group, so a
-label named `brainstorm` alone would read as an instruction to go and brainstorm
-— which is wrong the moment the brainstorm is done and the ticket is waiting to
-be built. `route-brainstorm` reads as a classification whenever you meet it.
+The four routes are recorded as a single-valued field on the ticket, and every
+name carries the `route-` prefix so it reads as a classification wherever it
+appears rather than as an instruction.
 
 **Brainstorm is the default whenever there is design work.** It is where a vague
 idea gets shaped, where competing approaches get weighed, and where the thing
@@ -242,11 +239,8 @@ belongs in **Ready to implement**. Its label stays as the record of how it got
 there; reading it as an instruction to go and brainstorm again is a misreading,
 and leaving such a ticket in Backlog hides finished work behind unstarted work.
 
-The statuses follow the pipeline, and the names are the pipeline's own:
-
-```
-Backlog → Ready to implement → In Progress → Done
-```
+A ticket moves through backlog, ready-to-implement, in-progress and done
+states, whatever the tracker calls them — the tracker add-on names them.
 
 Move a ticket to **Ready to implement** the moment its route is complete:
 
@@ -263,19 +257,15 @@ graded; for a `route-direct` one it means the ticket body is enough to build fro
 
 ### Recording it
 
-**The label is the record.** It is a real field on the ticket: filterable, and
-it overwrites rather than accumulating. Do not restate it in a comment, at
-filing or at close. Each of the three carries its own description in Linear,
-and they are defined above — `route-brainstorm` already says why it is
-`route-brainstorm`, and a sentence per ticket repeating that is ceremony that
-rots.
+The route is recorded as the ticket's route field and never restated in a
+comment, because a field is current state and a comment is not.
 
 **Whoever picks the ticket up may change it**, by changing the label and
 nothing else. The filer knows less about the problem than anyone who reads it
 later — that holds for the route as much as for the facts. Do not leave a
 comment explaining the change: the route is current state, and the same rule
-applies as to the body. Nobody reading later needs the wrong version, and Linear
-keeps the revision history for anyone who does.
+applies as to the body. Nobody reading later needs the wrong version, and the
+tracker keeps the revision history for anyone who does.
 
 **`route-plan` is the one route that owes evidence**, because it is the only one
 asserting a fact: that a brainstorm already settled this ticket's design.
@@ -314,26 +304,21 @@ not grow into one.
 
 ## Branch
 
-A branch is named after its ticket: `lo-<number>-<slug>` —
-`lo-45-web-app-design`.
+A branch is named after its ticket: the ticket reference followed by a slug.
+The exact pattern is the repository's `ship.ticket-pattern` in its
+`lightsout.config.json` — the configured pattern is the format's one home, and
+this skill points at it rather than restating a team's spelling.
 
 The branch is the same whichever route the ticket took. It is the one thing that
 links the ticket, the worktree, the commits and the PR, so it never varies.
 
-Linear finds the ticket id anywhere in the name and links the branch to the
-issue. Its copy-branch-name button prefixes your username; drop that, the id
-is the only part that matters.
-
 ## PR
 
-The PR body is the ticket link, and nothing else — one line:
+The PR body is the ticket link, and nothing else — one line: the repository's
+`ship.pr-body` template from its `lightsout.config.json`, which is where a
+team's tracker conventions live.
 
-```
-Closes LO-<number>
-```
-
-The ticket is the source of truth. Linear links the PR through the branch
-name, and that line closes the ticket loop from the GitHub side. A summary,
+The ticket is the source of truth. A summary,
 a test plan, or a restated criterion in the body is a second copy of the
 ticket, and it drifts the moment the ticket body is edited. A reviewer
 needs exactly two things — the ticket and the diff — and the PR already is
@@ -350,8 +335,8 @@ wrong, **edit the body to say the new thing**.
 
 Write the new version as plain fact. "The summary holds 113 entries, none
 ending `.tsx`" — not "we originally thought X, but it turned out to be Y".
-Nobody reading later needs the wrong version, and Linear keeps the edit history
-if anyone does.
+Nobody reading later needs the wrong version, and the tracker keeps the edit
+history if anyone does.
 
 Editing is safe here only because the body never held a proposed fix. There is
 nothing in it you can be caught out by, so every edit just makes the ticket
@@ -377,7 +362,7 @@ above.
 two things. Decided against — then it is a decision, already recorded where
 decisions live, and writing it again here resurrects it. Still wanted — then
 it deserves its own ticket, which only the user can approve; once that
-ticket exists, Linear's issue links are the record and prose adds nothing.
+ticket exists, the tracker's issue links are the record and prose adds nothing.
 There is no third category. If a real candidate is on the table at close,
 ask the one question — "want a ticket for X, or let it go?" — and write
 nothing either way.
@@ -456,11 +441,9 @@ command works. It can derive the folder name from the ticket id when the plan
 was named after its ticket.
 
 Re-attach at close if implementing amended the plan. The final version is the
-one worth keeping, and Linear shows both.
+one worth keeping, and the tracker keeps both.
 
-Do not paste the plan into the ticket body, and do not put it in a Linear
-Document. A document invites editing, and then two copies disagree about what
-was decided. An attached file cannot drift.
+Do not paste the plan into the ticket body. An attached file cannot drift.
 
 ## Anti-patterns
 
