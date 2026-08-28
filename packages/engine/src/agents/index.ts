@@ -1,6 +1,7 @@
 export { buildFeatureExecutorInvocation } from '#src/agents/buildFeatureExecutorInvocation.ts';
 export { buildPlanDedupInvocation } from '#src/agents/buildPlanDedupInvocation.ts';
 export { buildPlanGapCheckInvocation } from '#src/agents/buildPlanGapCheckInvocation.ts';
+export { buildPlanGapJudgeInvocation } from '#src/agents/buildPlanGapJudgeInvocation.ts';
 export { buildPlanRepairInvocation } from '#src/agents/buildPlanRepairInvocation.ts';
 export { buildPlanReshapeInvocation } from '#src/agents/buildPlanReshapeInvocation.ts';
 export { buildPlanWriterInvocation } from '#src/agents/buildPlanWriterInvocation.ts';

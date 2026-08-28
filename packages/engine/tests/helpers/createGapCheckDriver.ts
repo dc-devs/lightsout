@@ -4,18 +4,33 @@ import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
 interface Params {
 	/** The gap set every checker in the fan-out returns. */
 	gaps?: unknown[];
+	/** The ruling every judge returns for the findings those checkers reported. */
+	verdict?: unknown;
 	/** Collector the stub pushes every invocation it is handed into. */
 	invocations?: DriverInvocation[];
 }
 
-/** A gap-check stub keyed off the gap-check marker, returning a fixed gap set and recording every invocation it is handed. */
-export const createGapCheckDriver = ({ gaps = [], invocations = [] }: Params = {}): Driver => ({
+/**
+ * A grade-pass stub keyed off the two markers a grade run spawns with: a
+ * gap-check invocation gets the fixed gap set, and a gap-judge invocation gets
+ * one verdict. The default ruling is `needs-a-human`, so a gap-returning stub
+ * still fails a plan the way it always did.
+ */
+export const createGapCheckDriver = ({
+	gaps = [],
+	verdict = { outcome: 'needs-a-human', humanDecision: 'what the plan should do here' },
+	invocations = [],
+}: Params = {}): Driver => ({
 	name: 'stub',
 	invoke: async (invocation) => {
 		invocations.push(invocation);
 
-		expect(invocation.prompt.includes('# Gap-check input')).toBeTruthy();
+		const judging = invocation.prompt.includes('# Gap-judge input');
 
-		return { text: JSON.stringify({ gaps }), exitCode: 0 };
+		// One marker or the other — a grade run spawns nothing else through this
+		// driver, so an invocation carrying neither is a wiring bug worth failing on.
+		expect(judging || invocation.prompt.includes('# Gap-check input')).toBeTruthy();
+
+		return { text: JSON.stringify(judging ? verdict : { gaps }), exitCode: 0 };
 	},
 });

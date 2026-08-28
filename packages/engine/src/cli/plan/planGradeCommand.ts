@@ -1,14 +1,14 @@
+import { printGradedGap } from '#src/cli/common/render/printGradedGap.ts';
 import { printStructuralFinding } from '#src/cli/common/render/printStructuralFinding.ts';
 import { bold } from '#src/cli/common/terminal/bold.ts';
-import { dim } from '#src/cli/common/terminal/dim.ts';
 import { green } from '#src/cli/common/terminal/green.ts';
 import { red } from '#src/cli/common/terminal/red.ts';
 import { yellow } from '#src/cli/common/terminal/yellow.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { planRunOptions } from '#src/cli/plan/common/utils/planRunOptions.ts';
-import type { GradeReport, LightsoutConfig } from '#src/contracts/index.ts';
+import { GapOutcome, type GradeReport, type LightsoutConfig } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { runPlanGrade } from '#src/plan/index.ts';
+import { getBlockingGaps, runPlanGrade } from '#src/plan/index.ts';
 
 interface Params {
 	cwd: string;
@@ -20,7 +20,12 @@ interface Params {
 	phases?: string[];
 }
 
-/** Print the gaps in the phase-then-lens order the runner stamped them in, under a heading per plan file. */
+/**
+ * Print the gaps in the phase-then-lens order the runner stamped them in, under
+ * a heading per plan file. It is handed the BLOCKING gaps alone: a human is
+ * shown what they have to act on, and the notes a judge cleared stay in
+ * `grade.json` where a human or a later agent can read them.
+ */
 const printGaps = ({ gaps }: { gaps: GradeReport['gaps'] }) => {
 	let heading: string | undefined;
 
@@ -30,8 +35,7 @@ const printGaps = ({ gaps }: { gaps: GradeReport['gaps'] }) => {
 			console.log(bold(heading));
 		}
 
-		console.log(`${yellow('?')} [${gap.area}] ${gap.gap} ${dim(`(${gap.lens})`)}`);
-		console.log(dim(`   decide: ${gap.decision}${gap.options.length > 0 ? ` — options: ${gap.options.join(' / ')}` : ''}`));
+		printGradedGap({ gap });
 	}
 };
 
@@ -66,7 +70,12 @@ export const planGradeCommand = async ({ cwd, driver, name, standards, config, p
 	}
 
 	console.log(`\n${bold(`plan grade ${name}`)} — ${grade.passed ? green(grade.grade) : red(grade.grade)} (graded ${grade.gradedAt})`);
-	console.log(`  structural: ${grade.structural.length} · gaps: ${grade.gaps.length}`);
+	const blocking = getBlockingGaps({ gaps: grade.gaps });
+	// The two kinds of blocking finding are counted apart: a spike in judge
+	// failures must not read as a plan getting worse.
+	const unjudged = blocking.filter((gap) => gap.outcome === GapOutcome.Unjudged).length;
+
+	console.log(`  structural: ${grade.structural.length} · gaps: ${grade.gaps.length} (${blocking.length} blocking, ${unjudged} unjudged)`);
 	// `N phase file(s)` rather than `all plan files`: overview.md is never
 	// gap-checked, so the coverage line must not imply it was.
 	const checked = grade.phasesChecked.length > 0 ? `: ${grade.phasesChecked.join(', ')}` : '';
@@ -77,7 +86,7 @@ export const planGradeCommand = async ({ cwd, driver, name, standards, config, p
 		printStructuralFinding({ finding });
 	}
 
-	printGaps({ gaps: grade.gaps });
+	printGaps({ gaps: blocking });
 
 	console.log(`\ngrade: ${gradePath}`);
 	return exitCli({ code: grade.complete ? 0 : 1 });

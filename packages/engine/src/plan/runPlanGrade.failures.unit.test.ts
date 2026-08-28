@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { GradeReport } from '#src/contracts/index.ts';
-import type { DriverInvocation } from '#src/drivers/index.ts';
+import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
 import { runPlanGrade } from '#src/plan/runPlanGrade.ts';
 import { cleanOverviewBody } from '#tests/helpers/cleanOverviewBody.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
@@ -85,6 +85,74 @@ test('plan grade: a phase whose one lens failed is not claimed as checked, thoug
 	expect(recorded.incompleteReason ?? '').toMatch(/phase1-core\.md\/wiring:/);
 });
 
+test('plan grade: a judge that never satisfies its contract leaves its finding unjudged and blocking, while the pass stays complete', async () => {
+	const { cwd, name, gradePath } = setupSingle({ name: 'unjudged' });
+	// Every reader returns the gap; every judge answers off-contract.
+	const driver = createFailingSpawnDriver({
+		failsWhen: (invocation) => invocation.prompt.includes('# Gap-judge input'),
+		failureText: 'this one looks fine to me',
+		text: JSON.stringify({ gaps: [omittedDecisionGap] }),
+	});
+
+	const result = await runPlanGrade({ cwd, driver, name });
+
+	// a failed judge means one finding went unweighed, not that a phase went
+	// unread — the pass finished
+	expectStatus(result, 'complete');
+
+	const recorded = GradeReport.parse(JSON.parse(readFileSync(gradePath, 'utf8')));
+
+	expect(recorded.complete).toBe(true);
+	expect(recorded.phasesChecked).toStrictEqual(['plan.md']);
+	// and failing closed is what keeps it out of a clean bill
+	expect(recorded.grade).toBe('below-A');
+	expect(recorded.gaps.map(({ outcome }) => outcome)).toStrictEqual(['unjudged', 'unjudged', 'unjudged']);
+	expect(recorded.gaps[0]?.unjudgedReason ?? '').not.toBe('');
+});
+
+test('plan grade: a rate-limited judge parks the run with the verdict still written', async () => {
+	const { cwd, name, invocations, gradePath } = setupSingle({ name: 'judge-walled' });
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async (invocation) => {
+			invocations.push(invocation);
+
+			return invocation.prompt.includes('# Gap-judge input')
+				? { text: '', exitCode: 1, rateLimited: true }
+				: { text: JSON.stringify({ gaps: [omittedDecisionGap] }), exitCode: 0 };
+		},
+	};
+
+	const result = await runPlanGrade({ cwd, driver, name });
+
+	expectStatus(result, 'paused-rate-limit');
+	// the error carries the re-run command, got: ${result.error}
+	expect('error' in result && (result.error ?? '').includes('lightsout plan grade --name judge-walled')).toBeTruthy();
+	expect(existsSync(gradePath)).toBeTruthy();
+
+	const recorded = GradeReport.parse(JSON.parse(readFileSync(gradePath, 'utf8')));
+
+	// the readers all returned, so the pass is complete; the findings nobody
+	// weighed are what keeps it below the bar
+	expect(recorded.complete).toBe(true);
+	expect(recorded.grade).toBe('below-A');
+	expect(recorded.gaps.every(({ outcome }) => outcome === 'unjudged')).toBe(true);
+});
+
+test('plan grade: a reader fan-out that hit the wall spawns no judge at all', async () => {
+	const { cwd, name, invocations, gradePath } = setupSingle({ name: 'no-judges' });
+	const driver = createRateLimitedDriver({ invocations });
+
+	const result = await runPlanGrade({ cwd, driver, name });
+
+	expectStatus(result, 'paused-rate-limit');
+	// three readers and nothing else: a wall met by launching another twenty
+	// spawns into it is still a wall
+	expect(invocations.length).toBe(3);
+	expect(invocations.some(({ prompt }) => prompt.includes('# Gap-judge input'))).toBe(false);
+	expect(existsSync(gradePath)).toBeTruthy();
+});
+
 test('plan grade: no deliverable on disk fails before any agent is spawned', async () => {
 	const cwd = setupConsumerRepo();
 	const driver = createUncalledDriver({ reason: 'the gap-check must not be invoked when the plan cannot be resolved' });
@@ -162,6 +230,38 @@ test('plan grade: a rate-limited checker stops new checkers launching, and the p
 	expect(recorded.incompleteReason ?? '').toMatch(/phase1-core\.md\/surface: rate limited or overloaded/);
 });
 
+test('plan grade: a judge wall stops new judges launching, and the findings nobody reached still come back saying so', async () => {
+	// Five phase files times three lenses, each reader returning one gap: fifteen
+	// findings against the same twelve-slot ceiling, so the tail cannot all start.
+	const { cwd, name, invocations, gradePath } = setupPhased({ name: 'judge-walled-tail', files: fivePhaseFiles() });
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async (invocation) => {
+			invocations.push(invocation);
+
+			return invocation.prompt.includes('# Gap-judge input')
+				? { text: '', exitCode: 1, rateLimited: true }
+				: { text: JSON.stringify({ gaps: [omittedDecisionGap] }), exitCode: 0 };
+		},
+	};
+
+	const result = await runPlanGrade({ cwd, driver, name });
+
+	expectStatus(result, 'paused-rate-limit');
+	// fifteen readers returned, and the twelve judges that filled the slots ran
+	expect(invocations.filter(({ prompt }) => prompt.includes('# Gap-judge input')).length).toBe(12);
+
+	const recorded = GradeReport.parse(JSON.parse(readFileSync(gradePath, 'utf8')));
+
+	// every finding comes back whatever its judge did — a finding that vanished
+	// between the readers and the report would read as a plan with less wrong
+	expect(recorded.gaps.length).toBe(15);
+	expect(recorded.gaps.every(({ outcome }) => outcome === 'unjudged')).toBe(true);
+	// and the two ways a judge can go missing are told apart on the record
+	expect(recorded.gaps.filter(({ unjudgedReason }) => unjudgedReason === 'the judge was rate limited or overloaded').length).toBe(12);
+	expect(recorded.gaps.filter(({ unjudgedReason }) => unjudgedReason === 'no judge ran — the fan-out stopped before this finding was judged').length).toBe(3);
+});
+
 test('plan grade: a gap-check that never satisfies the contract fails, naming the plan file', async () => {
 	const { cwd, name, invocations, gradePath } = setupSingle({ name: 'malformed' });
 	const driver = createOffContractDriver({ text: 'the plan looks fine to me', invocations });
@@ -181,4 +281,43 @@ test('plan grade: a gap-check that never satisfies the contract fails, naming th
 
 	expect(recorded.complete).toBe(false);
 	expect(recorded.phasesChecked).toStrictEqual([]);
+});
+
+test('plan grade: a reader wall leaves the findings its siblings did return unjudged, saying no judge was spawned', async () => {
+	const { cwd, name, invocations, gradePath } = setupPhased({ name: 'wall-with-findings' });
+	// Phase 2's readers hit the wall; phase 1's three all return the gap, so there
+	// are findings on the table when the wall is met.
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async (invocation) => {
+			invocations.push(invocation);
+
+			return invocation.prompt.includes('src/other-thing.ts')
+				? { text: '', exitCode: 1, rateLimited: true }
+				: { text: JSON.stringify({ gaps: [omittedDecisionGap] }), exitCode: 0 };
+		},
+	};
+
+	const result = await runPlanGrade({ cwd, driver, name });
+
+	expectStatus(result, 'paused-rate-limit');
+	// six readers and nothing after them: findings in hand are no reason to launch
+	// another three spawns into a wall that does not clear in two minutes
+	expect(invocations.length).toBe(6);
+	expect(invocations.some(({ prompt }) => prompt.includes('# Gap-judge input'))).toBe(false);
+
+	const recorded = GradeReport.parse(JSON.parse(readFileSync(gradePath, 'utf8')));
+
+	// what phase 1's readers found is kept, and every one of it says plainly why
+	// nobody weighed it rather than reading as a plan a judge waved through
+	expect(recorded.gaps.length).toBe(3);
+	expect(recorded.gaps.every(({ outcome }) => outcome === 'unjudged')).toBe(true);
+	expect(recorded.gaps.map(({ unjudgedReason }) => unjudgedReason)).toStrictEqual([
+		'the reader fan-out hit the rate-limit wall, so no judge was spawned',
+		'the reader fan-out hit the rate-limit wall, so no judge was spawned',
+		'the reader fan-out hit the rate-limit wall, so no judge was spawned',
+	]);
+	// and the dead readers still keep the pass off a clean bill
+	expect(recorded.complete).toBe(false);
+	expect(recorded.grade).toBe('below-A');
 });

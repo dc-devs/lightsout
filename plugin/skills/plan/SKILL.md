@@ -280,14 +280,35 @@ node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan grade --name <name>
 ```
 Read `.lightsout/plans/<name>/grade.json`:
 - `"passed": true` **and** `"complete": true` → go to handoff.
-- `"passed": false` with `gaps` → surface each gap in the Question format
-  (at most 2 per message, recommended-first), **grouped by the gap's `phase`**.
-  Resolve each by **editing the plan file its `phase` names** in place via Edit
-  — `plan.md` for a single plan, that `phase<N>-<slug>.md` for a phased one
-  (+ a `Decision Log` row, `Source = Converge`; mirror the resolution into
+- `"passed": false` with `gaps` → surface **only the blocking gaps**: the ones
+  whose `outcome` is `needs-a-human` or `unjudged`. Put each in the Question
+  format (at most 2 per message, recommended-first), **grouped by the gap's
+  `phase`**. Resolve each by **editing the plan file its `phase` names** in place
+  via Edit — `plan.md` for a single plan, that `phase<N>-<slug>.md` for a phased
+  one (+ a `Decision Log` row, `Source = Converge`; mirror the resolution into
   `decisions.json`). Then re-run `plan grade`. Repeat until `passed` or the user
   calls it. **Do NOT re-run `plan draft`** — a re-draft regenerates the plan
   files and would clobber the Grill edits already folded in.
+- Everything else the pass found is still in `grade.json`, in full, for the user
+  or a later agent to read. Nothing was dropped; it was weighed and found not to
+  need them.
+- Every gap carries an `outcome` saying who has to settle it:
+  - `needs-a-human` — a person has to decide this one. These are the questions.
+  - `agent-can-decide` — the implementing agent can settle it on its own, and
+    `agentDecision` says what it would decide. Not a question.
+  - `already-answered` — the answer is already in the plan or the code, and
+    `answerAt` says where. Not a question.
+  - `unjudged` — nobody weighed this one, so it blocks until someone does.
+- **An `unjudged` gap is a different question from a `needs-a-human` one, and
+  must not be dressed as the same thing.** Surface it in the Question format like
+  any other blocking gap, so it is never silently dropped — and in the same
+  block, say plainly that it blocks because nobody weighed it, not because the
+  plan is thin, and quote its `unjudgedReason`. Say that re-grading will **not**
+  retry that judge: a re-grade re-runs every reader and comes back with a fresh
+  set of findings, so this exact one may simply not reappear, and there is no way
+  to re-judge a single finding. Leave the choice with the user: answer it into
+  the plan, or let it go. Do **not** recommend a re-grade as the remedy — it
+  reads like a retry and is not one.
 - Every gap also carries the `lens` that found it (`surface`, `wiring`,
   `decisions`) — three differently-briefed checkers read every phase, so two
   gaps with the same text and different lenses are two lenses agreeing, not
@@ -306,6 +327,8 @@ Read `.lightsout/plans/<name>/grade.json`:
   the plan file named by its `phase`, via Edit, then re-grade. A finding
   printed as `note` rather than `⚠` is **advisory**: information for you and
   the user, not work to do.
+- Reading a typed field to decide what to display is not a gate. What blocks is
+  decided in the engine and arrives as `passed`; you never recompute it.
 
 **8. Handoff.** Relay the final grade and:
 ```

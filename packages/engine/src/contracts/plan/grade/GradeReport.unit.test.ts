@@ -61,6 +61,7 @@ describe('GradeReport', () => {
 					options: ['drop the barrel', 'amend the standard'],
 					phase: 'phase2-cross-phase-checks.md',
 					lens: 'decisions',
+					outcome: 'unjudged',
 				},
 			],
 			phasesChecked: ['phase1-lint-vocabulary.md', 'phase2-cross-phase-checks.md'],
@@ -194,6 +195,38 @@ describe('GradeReport', () => {
 		expect(result.success).toBe(false);
 	});
 
+	test('a gap written before the outcome field existed reads back as unjudged, which blocks', () => {
+		const { report, gap } = setupReport();
+		const unweighed = { area: gap.area, gap: gap.gap, decision: gap.decision, options: gap.options, phase: gap.phase, lens: gap.lens };
+
+		const parsed = GradeReport.parse({ ...report, gaps: [unweighed] });
+
+		// a record that cannot say a finding was weighed has not weighed it
+		expect(parsed.gaps[0]?.outcome).toBe('unjudged');
+	});
+
+	test("rejects an outcome outside the engine's four", () => {
+		for (const outcome of ['NeedsAHuman', 'needs a human', 'blocking', '']) {
+			const { report, gap } = setupReport();
+
+			const result = GradeReport.safeParse({ ...report, gaps: [{ ...gap, outcome }] });
+
+			// ${outcome} is not an answer a judge may give nor a stamp the engine
+			// writes, so the verdict could not tell whether it blocks
+			expect(result.success).toBe(false);
+		}
+	});
+
+	test("carries the judge's evidence through, so a note says what the agent would decide", () => {
+		const { report, gap } = setupReport();
+		const judged = { ...gap, outcome: 'agent-can-decide', agentDecision: 'return null', safeBecause: 'every sibling in this module already does' };
+
+		const parsed = GradeReport.parse({ ...report, gaps: [judged] });
+
+		expect(parsed.gaps[0]?.agentDecision).toBe('return null');
+		expect(parsed.gaps[0]?.safeBecause).toBe('every sibling in this module already does');
+	});
+
 	test('nested gap defaults are applied when grade.json is read back', () => {
 		const { report } = setupReport({
 			gaps: [
@@ -218,6 +251,7 @@ describe('GradeReport', () => {
 			options: [],
 			phase: 'plan.md',
 			lens: 'surface',
+			outcome: 'unjudged',
 		});
 	});
 
