@@ -39,6 +39,7 @@ const configFieldReaders: Record<string, (params: { config: LightsoutConfig }) =
 	'timeouts.agent-minutes': ({ config }) => config.timeouts?.['agent-minutes'] ?? defaultAgentTimeoutMinutes,
 	'timeouts.supervisor-minutes': ({ config }) => config.timeouts?.['supervisor-minutes'] ?? defaultSupervisorTimeoutMinutes,
 	ship: ({ config }) => config.ship,
+	'auto-plan': ({ config }) => config['auto-plan'],
 };
 
 /** The areas of the file, in the order the page reads them, and which keys land in each. */
@@ -50,6 +51,7 @@ const configSectionKeys: Array<{ title: string; keys: string[] }> = [
 	{ title: 'Generated', keys: ['generated', 'vendored'] },
 	{ title: 'Timeouts', keys: ['timeouts.agent-minutes', 'timeouts.supervisor-minutes'] },
 	{ title: 'Ship', keys: ['ship'] },
+	{ title: 'Auto plan', keys: ['auto-plan'] },
 ];
 
 /**
@@ -64,7 +66,6 @@ const toFieldValue = ({ value }: { value: unknown }) => ConfigFieldView.shape.va
 
 interface Params {
 	config: LightsoutConfig;
-	/** Every key the file itself wrote, the two `timeouts.` leaves spelled out — what decides `fromConfig` per row. */
 	declaredKeys: string[];
 }
 
@@ -73,7 +74,7 @@ interface Params {
  * who decided that.
  *
  * @param config - the parsed config, which supplies every value
- * @param declaredKeys - the keys the file itself wrote, which supply every `fromConfig`
+ * @param declaredKeys - every key the file itself wrote, the two `timeouts.` leaves spelled out, which supplies every `fromConfig`
  */
 export const buildConfigSections = ({ config, declaredKeys }: Params): ConfigView['sections'] =>
 	configSectionKeys.map(({ title, keys }) => ({

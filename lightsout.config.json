@@ -28,6 +28,9 @@
 		"pr-body": "Closes LO-{number}",
 		"merge-method": "merge"
 	},
+	"auto-plan": {
+		"implement-on-approval": true
+	},
 	"package-gates": {
 		"check": "pnpm --filter {package} run check",
 		"test": "pnpm --filter {package} run test:unit",

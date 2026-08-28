@@ -100,6 +100,7 @@ describe('getReader config', () => {
 			{ title: 'Generated', keys: ['generated', 'vendored'] },
 			{ title: 'Timeouts', keys: ['timeouts.agent-minutes', 'timeouts.supervisor-minutes'] },
 			{ title: 'Ship', keys: ['ship'] },
+			{ title: 'Auto plan', keys: ['auto-plan'] },
 		]);
 	});
 

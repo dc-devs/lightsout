@@ -24,6 +24,7 @@ export {
 	StandardsPackRoot,
 	StandardsSet,
 } from '@lightsout/standards-contracts';
+export { ConfigAutoPlan } from '#src/contracts/ConfigAutoPlan.ts';
 export { ConfigCommands } from '#src/contracts/ConfigCommands.ts';
 export { ConfigGates } from '#src/contracts/ConfigGates.ts';
 export { ConfigShip } from '#src/contracts/ConfigShip.ts';

@@ -181,7 +181,7 @@ prescription with a question mark bolted on.
 
 ## Route
 
-Every ticket takes one of three routes to being built. The route is a
+Every ticket takes one of four routes to being built. The route is a
 **judgment**, made by whoever writes the ticket or picks it up, and written
 down. Never derive it from a proxy — not the file count, not whether the ticket
 has open questions, not how long the body is. A ticket with nothing unsettled
@@ -192,9 +192,10 @@ twenty-line change can turn on a decision you will live with for a year.
 |---|---|---|
 | `route-brainstorm` | Run `/lightsout:brainstorm`, then decide whether it also needs a plan. **This is the default.** | Notes and settled decisions, and usually a plan after it |
 | `route-plan` | Go straight to `/lightsout:plan`. | A plan folder |
+| `route-auto-plan` | Run `/auto-plan`. It plans the ticket alone and stops at one proposal. | A plan folder, and a proposal to approve |
 | `route-direct` | Build it. No brainstorm, no plan. | The diff, and nothing else |
 
-The three sit in a Linear label group called `Route`, so a ticket carries
+The four sit in a Linear label group called `Route`, so a ticket carries
 exactly one. Each name repeats the prefix anyway, and that redundancy is
 deliberate: Linear's issue sidebar shows the bare label without its group, so a
 label named `brainstorm` alone would read as an instruction to go and brainstorm
@@ -218,7 +219,15 @@ was agreed with the user lives in `## Decisions`; the criteria stay checks. It
 is a real route and using it is not cutting a corner — but it is a claim, and
 the claim gets recorded with the label.
 
-A ticket carrying none of the three is **undecided**, which is a legitimate
+**`route-auto-plan` is for a ticket whose shape is settled but whose build is
+not trivial.** There is design work left, but it is the kind you would answer
+with "you decide" — the skill answers it and shows you what it chose. It owes
+no evidence the way `route-plan` does, because it asserts nothing about a
+brainstorm having happened; what it asserts is a judgment about how much of the
+interview would be delegated, and being wrong costs one veto at the proposal
+rather than a wasted plan.
+
+A ticket carrying none of the four is **undecided**, which is a legitimate
 state. Most of a backlog sits there. Do not force a route at filing time to
 avoid an empty field.
 
@@ -246,6 +255,7 @@ Move a ticket to **Ready to implement** the moment its route is complete:
 | `route-direct` | Immediately — there is nothing to shape |
 | `route-brainstorm` | The brainstorm ended, and the plan it called for (if any) is graded |
 | `route-plan` | The plan is graded |
+| `route-auto-plan` | The plan is graded and its proposal approved |
 
 "Ready to implement" means exactly what it says: `/implement` can be pointed at
 it now. For a routed-and-planned ticket that means the plan folder exists and
@@ -402,6 +412,10 @@ live, never the closing comment.
 | `plan.md` (or `overview.md`) | the plan that was built |
 | `decisions.json` | every question asked, the option chosen, and why — including which choices were assumptions nobody confirmed |
 | `grade.json` | half a kilobyte recording that the plan was graded, and against which lenses |
+
+A `route-auto-plan` ticket attaches the same four files; when no brainstorm
+ran, its `notes.md` is the one `/auto-plan` wrote for itself from the ticket
+before planning.
 
 Skip `facts.json` — it predicts which files the work will touch, and once the
 PR exists the diff answers that better. Skip `brainstorm-decisions.json`: `plan

@@ -22555,6 +22555,27 @@ var StandardsSet = {
   Tests: "tests"
 };
 
+// src/contracts/ConfigAutoPlan.ts
+var ConfigAutoPlan = external_exports.object({
+  /**
+   * When true the proposal comes before `plan draft` spends an agent, and
+   * carries the design shape rather than the finished plan. Default false:
+   * the proposal shows the real, graded plan.
+   */
+  "propose-before-draft": external_exports.boolean().optional(),
+  /**
+   * When true an approved proposal starts `lightsout implement` rather than
+   * stopping at the handoff line. Default false — auto-plan only plans.
+   */
+  "implement-on-approval": external_exports.boolean().optional(),
+  /**
+   * When true the proposal is skipped entirely, provided nothing cleared the
+   * escalation bar; a question that clears it parks the run instead of being
+   * guessed past. Default false.
+   */
+  "auto-approve": external_exports.boolean().optional()
+}).strict();
+
 // src/contracts/Effort.ts
 var Effort = {
   Low: "low",
@@ -23196,7 +23217,9 @@ var LightsoutConfig = external_exports.object({
   /** Removed — renamed to `standards-checks`. Same reason. */
   standardsChecks: renamedKey({ from: "standardsChecks", to: "standards-checks" }),
   /** Opt-in ship settings — branch ticket pattern, pull request body template, merge method. See `ConfigShip`. */
-  ship: ConfigShip.optional()
+  ship: ConfigShip.optional(),
+  /** Opt-in auto-plan settings — which of `/auto-plan`'s checkpoints this repo keeps. See `ConfigAutoPlan`. */
+  "auto-plan": ConfigAutoPlan.optional()
 });
 
 // src/contracts/plan/decisions/DecisionSource.ts
@@ -24191,6 +24214,20 @@ var WritersReport = external_exports.object({
   reports: external_exports.array(WorkReport)
 });
 
+// src/commands/common/constants/autoPlanCatalogEntry.ts
+var autoPlanCatalogEntry = {
+  id: "auto-plan",
+  slash: "/auto-plan",
+  group: CommandGroup.Build,
+  summary: "Plan a ticket alone \u2014 self-answers every question below a written escalation bar, shows you one proposal, and rolls onward per the `auto-plan` config block.",
+  whenToUse: 'Reach for it when the ticket is shaped enough that you would answer most of the interview with "you decide". It stops for the questions two reasonable engineers would answer differently, and for nothing else; the `auto-plan` config block says whether approval also starts the build.',
+  invocations: [],
+  flags: [],
+  steps: [],
+  records: CommandRecordKind.Plans,
+  related: ["brainstorm", "plan", "implement", "resume", "ship"]
+};
+
 // src/commands/common/constants/brainstormCatalogEntry.ts
 var brainstormCatalogEntry = {
   id: "brainstorm",
@@ -24202,7 +24239,7 @@ var brainstormCatalogEntry = {
   flags: [],
   steps: [],
   records: CommandRecordKind.Plans,
-  related: ["plan", "implement", "resume", "ship"]
+  related: ["auto-plan", "plan", "implement", "resume", "ship"]
 };
 
 // src/commands/common/constants/doctorCatalogEntry.ts
@@ -24385,7 +24422,7 @@ var implementCatalogEntry = {
   ],
   steps: implementSteps,
   records: CommandRecordKind.Runs,
-  related: ["brainstorm", "plan", "resume", "ship"],
+  related: ["auto-plan", "brainstorm", "plan", "resume", "ship"],
   graphic: {
     title: "How /implement turns the spec into verified code",
     subtitle: "Ten steps, deterministic gates throughout, and a complete record saved to disk.",
@@ -24549,7 +24586,7 @@ var planCatalogEntry = {
   ],
   steps: planSteps,
   records: CommandRecordKind.Plans,
-  related: ["brainstorm", "implement", "resume", "ship"],
+  related: ["auto-plan", "brainstorm", "implement", "resume", "ship"],
   graphic: {
     title: "How /plan turns a request into an implementation-ready spec",
     subtitle: "Final spec and every decision recorded before any code is written.",
@@ -24746,7 +24783,7 @@ var resumeCatalogEntry = {
   ],
   steps: [],
   records: CommandRecordKind.Runs,
-  related: ["brainstorm", "plan", "implement", "ship"]
+  related: ["auto-plan", "brainstorm", "plan", "implement", "ship"]
 };
 
 // src/commands/common/constants/shipCatalogEntry.ts
@@ -24760,7 +24797,7 @@ var shipCatalogEntry = {
   flags: [{ name: "cwd", value: "<path>", meaning: "Repository to ship from.", fallback: "The process working directory.", required: false }],
   steps: [],
   records: CommandRecordKind.Nothing,
-  related: ["brainstorm", "plan", "implement", "resume"]
+  related: ["auto-plan", "brainstorm", "plan", "implement", "resume"]
 };
 
 // src/commands/common/constants/standardsCheckCatalogEntry.ts
@@ -24879,6 +24916,7 @@ var voiceCatalogEntry = {
 var commandCatalog = [
   brainstormCatalogEntry,
   planCatalogEntry,
+  autoPlanCatalogEntry,
   implementCatalogEntry,
   resumeCatalogEntry,
   shipCatalogEntry,

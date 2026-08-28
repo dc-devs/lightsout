@@ -22,7 +22,7 @@ describe('FixtureReader', () => {
 		expect(runs).toHaveLength(3);
 	});
 
-	test('answers with the engine’s whole command catalog — all fifteen commands in group order, since a build with no repo still documents them', async () => {
+	test('answers with the engine’s whole command catalog — all sixteen commands in group order, since a build with no repo still documents them', async () => {
 		const { reader } = setupReader();
 
 		const commands = await reader.listCommands();
@@ -30,6 +30,7 @@ describe('FixtureReader', () => {
 		expect(commands.map((entry) => entry.id)).toStrictEqual([
 			'brainstorm',
 			'plan',
+			'auto-plan',
 			'implement',
 			'resume',
 			'ship',
@@ -81,6 +82,7 @@ describe('FixtureReader', () => {
 		expect(records).toStrictEqual({
 			brainstorm: 'plans',
 			plan: 'plans',
+			'auto-plan': 'plans',
 			implement: 'runs',
 			resume: 'runs',
 			ship: 'nothing',

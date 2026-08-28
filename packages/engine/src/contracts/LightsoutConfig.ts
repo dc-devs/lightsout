@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ConfigAutoPlan } from '#src/contracts/ConfigAutoPlan.ts';
 import { ConfigCommands } from '#src/contracts/ConfigCommands.ts';
 import { ConfigGates } from '#src/contracts/ConfigGates.ts';
 import { ConfigShip } from '#src/contracts/ConfigShip.ts';
@@ -173,6 +174,8 @@ export const LightsoutConfig = z.object({
 	standardsChecks: renamedKey({ from: 'standardsChecks', to: 'standards-checks' }),
 	/** Opt-in ship settings — branch ticket pattern, pull request body template, merge method. See `ConfigShip`. */
 	ship: ConfigShip.optional(),
+	/** Opt-in auto-plan settings — which of `/auto-plan`'s checkpoints this repo keeps. See `ConfigAutoPlan`. */
+	'auto-plan': ConfigAutoPlan.optional(),
 });
 
 export type LightsoutConfig = z.infer<typeof LightsoutConfig>;

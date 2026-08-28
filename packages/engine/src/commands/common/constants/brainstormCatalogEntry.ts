@@ -1,6 +1,6 @@
 import { type CommandCatalogEntry, CommandGroup, CommandRecordKind } from '#src/contracts/index.ts';
 
-/** `/brainstorm` — a skill with no CLI command behind it, which is why it carries no `cli` and no invocations. */
+/** `/brainstorm` — one of the two skills with no CLI command behind them, which is why it carries no `cli` and no invocations. */
 export const brainstormCatalogEntry: CommandCatalogEntry = {
 	id: 'brainstorm',
 	slash: '/brainstorm',
@@ -13,5 +13,5 @@ export const brainstormCatalogEntry: CommandCatalogEntry = {
 	flags: [],
 	steps: [],
 	records: CommandRecordKind.Plans,
-	related: ['plan', 'implement', 'resume', 'ship'],
+	related: ['auto-plan', 'plan', 'implement', 'resume', 'ship'],
 };

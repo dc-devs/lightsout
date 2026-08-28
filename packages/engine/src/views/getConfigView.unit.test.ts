@@ -131,7 +131,16 @@ describe('getConfigView', () => {
 	test('groups the file into the areas the page reads, in the order it reads them', async () => {
 		const view = await getConfigView({ cwd: repoRoot });
 
-		expect(view.sections.map((section) => section.title)).toStrictEqual(['Harness', 'Gates', 'Standards', 'Agent commands', 'Generated', 'Timeouts', 'Ship']);
+		expect(view.sections.map((section) => section.title)).toStrictEqual([
+			'Harness',
+			'Gates',
+			'Standards',
+			'Agent commands',
+			'Generated',
+			'Timeouts',
+			'Ship',
+			'Auto plan',
+		]);
 	});
 
 	test('shows the ship block whole in its own area, because no leaf of it has a default worth a row of its own', async () => {
@@ -158,6 +167,26 @@ describe('getConfigView', () => {
 		const view = await getConfigView({ cwd });
 
 		expect(findField({ sections: view.sections, key: 'ship' })).toEqual(expect.objectContaining({ value: null, fromConfig: false }));
+	});
+
+	test('shows the auto-plan block whole in its own area, because no leaf of it has a default worth a row of its own', async () => {
+		const cwd = await seedConfiguredCwd({ config: { 'auto-plan': { 'implement-on-approval': true, 'auto-approve': false } } });
+
+		const view = await getConfigView({ cwd });
+
+		const autoPlan = view.sections.find((section) => section.title === 'Auto plan');
+
+		expect(autoPlan?.fields).toEqual([
+			expect.objectContaining({ key: 'auto-plan', value: { 'implement-on-approval': true, 'auto-approve': false }, fromConfig: true }),
+		]);
+	});
+
+	test('leaves auto-plan null when the file omits it, because the block is opt-in and the engine fills nothing in for it', async () => {
+		const cwd = await seedConfiguredCwd();
+
+		const view = await getConfigView({ cwd });
+
+		expect(findField({ sections: view.sections, key: 'auto-plan' })).toEqual(expect.objectContaining({ value: null, fromConfig: false }));
 	});
 
 	test('leaves the harness and the model null when the file names neither, rather than inventing a fallback for them', async () => {

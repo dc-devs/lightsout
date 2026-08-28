@@ -87,6 +87,25 @@ test('LightsoutConfig: the ship block is optional, keeps its own kebab-case spel
 	expect('ship' in LightsoutConfig.parse(base)).toBe(false);
 });
 
+test('LightsoutConfig: the auto-plan block is optional, keeps its own kebab-case spelling, and stays strict through the composition', () => {
+	const parsed = LightsoutConfig.parse({
+		...base,
+		'auto-plan': { 'propose-before-draft': true, 'implement-on-approval': true, 'auto-approve': false },
+	});
+
+	// the block survives parsing as the file wrote it — nothing renames a key on
+	// the way through
+	expect(parsed['auto-plan']).toStrictEqual({ 'propose-before-draft': true, 'implement-on-approval': true, 'auto-approve': false });
+
+	// the block's own strictness fires through the composition: a typoed key here
+	// would silently disable a checkpoint the file believes is removed
+	expect(LightsoutConfig.safeParse({ ...base, 'auto-plan': { 'auto-aprove': true } }).success).toBe(false);
+
+	// auto-plan is opt-in: an absent block leaves no key on the parsed config, and
+	// the skill's own documented defaults stand in
+	expect('auto-plan' in LightsoutConfig.parse(base)).toBe(false);
+});
+
 test('LightsoutConfig: effort parses at the top level for every level, and an out-of-enum effort fails', () => {
 	for (const effort of ['low', 'medium', 'high', 'xhigh', 'max']) {
 		// ${effort} is one of the five levels every harness shares
