@@ -121,7 +121,7 @@ export const runPlanGrade = async (params: Params): Promise<RunPlanGradeResult> 
 	// Read beside the lint rather than after the fan-out, so the stamped sha is the one the structural findings were measured against.
 	const stamp = await readGradeStamp({ cwd });
 
-	await notePriorArtCollisions({ cwd, name, planPaths, config, onProgress: progress });
+	await notePriorArtCollisions({ cwd, name, workspaceDir, planPaths, config, onProgress: progress });
 
 	progress(
 		`plan grade ${name}: ${structural.length} structural finding(s), gap-checking ${selected.length} of ${files.length} plan file(s) × ${gapCheckLenses.length} lens(es)`,

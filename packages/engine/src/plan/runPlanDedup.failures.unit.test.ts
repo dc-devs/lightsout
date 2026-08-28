@@ -123,3 +123,19 @@ test('plan dedup: evidence that cannot be saved never replaces the judging failu
 
 	expect(persisted.complete).toBe(false);
 });
+
+test('plan dedup: a lost judge records nothing as reviewed, so its collisions stay unweighed', async () => {
+	const { cwd, name, invocations, dedupPath } = setup();
+	const driver = createRateLimitedDriver({ invocations });
+
+	const result = await runPlanDedup({ cwd, driver, name });
+
+	expectStatus(result, 'paused-rate-limit');
+
+	const persisted = DedupReport.parse(JSON.parse(readFileSync(dedupPath, 'utf8')));
+
+	// nobody ruled on this collision, so plan grade must go on saying so — a
+	// parked scan recording its candidates as reviewed would silence the nudge
+	// on exactly the run that needs it
+	expect(persisted.reviewed).toStrictEqual([]);
+});

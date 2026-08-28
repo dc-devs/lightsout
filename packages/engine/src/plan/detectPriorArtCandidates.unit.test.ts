@@ -5,8 +5,18 @@ import { expect, test } from '@jest/globals';
 import { LightsoutConfig } from '#src/contracts/index.ts';
 import { detectPriorArtCandidates } from '#src/plan/detectPriorArtCandidates.ts';
 
-/** A temp repo with the given existing source files and a plan whose Files-to-Create lists the given paths. */
-const setup = ({ existing, creates }: { existing: string[]; creates: string[] }) => {
+/** A temp repo with the given existing source files and a plan whose Files-to-Create/Delete/Move sections list the given paths. */
+const setup = ({
+	existing,
+	creates,
+	deletes = [],
+	moves = [],
+}: {
+	existing: string[];
+	creates: string[];
+	deletes?: string[];
+	moves?: Array<{ from: string; to: string }>;
+}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-dedup-detect-'));
 
 	for (const rel of existing) {
@@ -20,10 +30,12 @@ const setup = ({ existing, creates }: { existing: string[]; creates: string[] })
 
 	mkdirSync(dir, { recursive: true });
 
-	const body = `# Plan\n\n## Files to Create\n\n${creates.map((path) => `### \`${path}\`\n\nnew.\n`).join('\n')}\n`;
+	const createSection = `## Files to Create\n\n${creates.map((path) => `### \`${path}\`\n\nnew.\n`).join('\n')}\n`;
+	const deleteSection = deletes.length === 0 ? '' : `## Files to Delete\n\n${deletes.map((path) => `### \`${path}\`\n\ngone.\n`).join('\n')}\n`;
+	const moveSection = moves.length === 0 ? '' : `## Files to Move\n\n${moves.map(({ from, to }) => `### \`${from}\` → \`${to}\`\n\nmoved.\n`).join('\n')}\n`;
 	const planPath = join(dir, 'plan.md');
 
-	writeFileSync(planPath, body);
+	writeFileSync(planPath, `# Plan\n\n${createSection}\n${deleteSection}\n${moveSection}`);
 
 	return { cwd, planPaths: [planPath] };
 };
@@ -184,4 +196,52 @@ test('detectPriorArtCandidates: inside a standards pack a tests/ document set is
 	// stays out
 	expect(candidates.length).toBe(1);
 	expect(candidates[0]?.collidesWith).toStrictEqual([{ name: 'scanRule', path: 'standards/tests/unit-testing/05-rule/scanRule.ts' }]);
+});
+
+test('detectPriorArtCandidates: a file the plan deletes stops contributing its exports to the census', async () => {
+	const { cwd, planPaths } = setup({ existing: ['src/legacy/getUser.ts'], creates: ['src/getUser.ts'], deletes: ['src/legacy/getUser.ts'] });
+	const candidates = await detectPriorArtCandidates({ cwd, planPaths });
+
+	// the file is still on disk today, but the plan removes it — colliding with it
+	// is colliding with something the plan has already dealt with
+	expect(candidates).toStrictEqual([]);
+});
+
+test('detectPriorArtCandidates: a file the plan moves stops contributing its exports from the path it moves away from', async () => {
+	const { cwd, planPaths } = setup({
+		existing: ['cli/common/formatting/formatDuration.ts'],
+		creates: ['packages/shared/formatDuration.ts'],
+		moves: [{ from: 'cli/common/formatting/formatDuration.ts', to: 'packages/shared/formatDuration.ts' }],
+	});
+	const candidates = await detectPriorArtCandidates({ cwd, planPaths });
+
+	// a symbol changing packages collided with itself indefinitely, because the
+	// old path stayed in the census however the move was recorded
+	expect(candidates).toStrictEqual([]);
+});
+
+test('detectPriorArtCandidates: a collision the plan neither deletes nor moves is still a candidate', async () => {
+	const { cwd, planPaths } = setup({
+		existing: ['src/legacy/getUser.ts', 'src/other/fetchUser.ts'],
+		creates: ['src/getUser.ts'],
+		deletes: ['src/legacy/getUser.ts'],
+	});
+	const candidates = await detectPriorArtCandidates({ cwd, planPaths });
+
+	// subtracting the deleted path never widens into subtracting the rest
+	expect(candidates.length).toBe(1);
+	expect(candidates[0]?.collidesWith.map((collision) => collision.path)).toStrictEqual(['src/other/fetchUser.ts']);
+});
+
+test('detectPriorArtCandidates: a delete in one plan file empties the path for a symbol planned in another', async () => {
+	const { cwd, planPaths } = setup({ existing: ['src/legacy/getUser.ts'], creates: ['src/getUser.ts'] });
+	const second = join(cwd, '.lightsout', 'plans', 'p', 'phase2-cleanup.md');
+
+	writeFileSync(second, '# Phase 2\n\n## Files to Delete\n\n### `src/legacy/getUser.ts`\n\ngone.\n');
+
+	const candidates = await detectPriorArtCandidates({ cwd, planPaths: [...planPaths, second] });
+
+	// the census is the repo the whole plan leaves behind, not the repo one phase
+	// leaves behind
+	expect(candidates).toStrictEqual([]);
 });

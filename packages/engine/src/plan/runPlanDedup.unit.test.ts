@@ -168,3 +168,20 @@ test('plan dedup: the no-candidate path narrates that there is nothing to review
 	// a silent no-op reads as a hang; the narration says the pass ran and found nothing
 	expect(messages).toEqual([expect.stringMatching(/no prior-art candidates/)]);
 });
+
+test('plan dedup: a ruling records the collision as reviewed, whichever way it went', async () => {
+	const distinctVerdict = { plannedSymbol: 'getUser', isDuplicate: false, recommendation: 'distinct', rationale: 'different concept' };
+	const { cwd, name, driver, dedupPath } = setup({ verdicts: [distinctVerdict] });
+
+	const result = await runPlanDedup({ cwd, driver, name });
+
+	expectStatus(result, 'complete');
+
+	const persisted = DedupReport.parse(JSON.parse(readFileSync(dedupPath, 'utf8')));
+
+	// a distinct ruling leaves no finding, so `reviewed` is the only record that
+	// this collision was ever weighed — and the only thing that stops plan grade
+	// nudging about it forever
+	expect(persisted.findings).toStrictEqual([]);
+	expect(persisted.reviewed).toStrictEqual([{ plannedSymbol: 'getUser', plannedPath: 'src/getUser.ts', phase: 'plan.md' }]);
+});

@@ -22808,10 +22808,26 @@ var DedupJudgment = external_exports.object({
   verdicts: external_exports.array(DedupVerdict).default([])
 });
 
+// src/contracts/dedup/ReviewedCollision.ts
+var ReviewedCollision = external_exports.object({
+  plannedSymbol: external_exports.string(),
+  /** Repo-relative Files-to-Create path the symbol would be created at. */
+  plannedPath: external_exports.string(),
+  /** Basename of the plan file whose `## Files to Create` declared it. */
+  phase: external_exports.string()
+});
+
 // src/contracts/dedup/DedupReport.ts
 var DedupReport = external_exports.object({
   planName: external_exports.string(),
   findings: external_exports.array(DedupFinding).default([]),
+  /**
+   * Every collision this pass ruled on, whatever the ruling — what a later
+   * `plan grade` subtracts before nudging. Empty in a report written before
+   * the field existed, which reads as "nothing recorded" and restores the
+   * older, noisier nudge rather than silencing it.
+   */
+  reviewed: external_exports.array(ReviewedCollision).default([]),
   /** False when a judge failed or hit the rate-limit wall; the findings above are real but partial. */
   complete: external_exports.boolean().default(true),
   /** Why the scan did not finish, absent when it did. */
@@ -26380,7 +26396,7 @@ var initializeSequence = async ({ cwd, driver, config: config2, overviewPath, st
 };
 
 // src/phases/runPhase.ts
-import { dirname as dirname7, join as join68 } from "node:path";
+import { dirname as dirname7, join as join69 } from "node:path";
 
 // src/pipeline/readPlanPackages.ts
 var unquote = (value) => value.trim().replace(/^['"]|['"]$/g, "");
@@ -42984,6 +43000,12 @@ var getNameKey = ({ name }) => {
   return tokens.includes("to") || tokens.includes("from") ? tokens.join(" ") : [...tokens].sort().join(" ");
 };
 
+// src/plan/common/constants/PlanFileKind.ts
+var PlanFileKind = {
+  Implementable: "implementable",
+  Overview: "overview"
+};
+
 // src/plan/common/paths/isPathToken.ts
 var isPathToken = ({ token }) => token.includes("/") && /\.[A-Za-z0-9]+$/.test(token);
 
@@ -42996,6 +43018,21 @@ var pathFromLine = ({ line }) => {
     }
   }
   return void 0;
+};
+
+// src/plan/common/paths/pathPairFromLine.ts
+var pathPairFromLine = ({ line }) => {
+  const paths = [];
+  for (const match of line.matchAll(/`([^`]+)`/g)) {
+    const token = match[1].trim().split(/\s+/)[0];
+    if (isPathToken({ token })) {
+      paths.push(token);
+    }
+    if (paths.length === 2) {
+      break;
+    }
+  }
+  return paths.length === 2 ? { from: paths[0], to: paths[1] } : void 0;
 };
 
 // src/plan/planCreatePaths.ts
@@ -43018,29 +43055,141 @@ var planCreatePaths = ({ planText }) => {
   return paths;
 };
 
+// src/plan/parsePlan.ts
+var parseSections = ({ lines }) => {
+  const sections = /* @__PURE__ */ new Map();
+  let current;
+  for (const line of lines) {
+    const heading = /^##\s+(.+?)\s*$/.exec(line);
+    if (heading) {
+      current = heading[1];
+      sections.set(current, []);
+      continue;
+    }
+    if (current !== void 0) {
+      sections.get(current)?.push(line);
+    }
+  }
+  return sections;
+};
+var pathsFromLines = ({ sectionLines, lineMatches }) => {
+  if (!sectionLines) {
+    return [];
+  }
+  const paths = [];
+  for (const line of sectionLines) {
+    if (lineMatches(line)) {
+      const path = pathFromLine({ line });
+      if (path) {
+        paths.push(path);
+      }
+    }
+  }
+  return paths;
+};
+var commandsFromVerification = ({ sectionLines }) => {
+  if (!sectionLines) {
+    return [];
+  }
+  const commands2 = [];
+  for (const line of sectionLines) {
+    if (!/^\s*-\s+/.test(line)) {
+      continue;
+    }
+    const span = /`([^`]+)`/.exec(line);
+    if (span) {
+      commands2.push(span[1].trim());
+    }
+  }
+  return commands2;
+};
+var movesFromPlan = ({ lines }) => {
+  const moves = [];
+  const malformedLines = [];
+  let inMoveSection = false;
+  for (const [index, line] of lines.entries()) {
+    const heading = /^##\s+(.+?)\s*$/.exec(line);
+    if (heading) {
+      inMoveSection = heading[1] === "Files to Move";
+      continue;
+    }
+    if (!inMoveSection || !/^###\s+/.test(line)) {
+      continue;
+    }
+    const pair = pathPairFromLine({ line });
+    if (pair) {
+      moves.push(pair);
+    } else {
+      malformedLines.push(index + 1);
+    }
+  }
+  return { moves, malformedLines };
+};
+var fileBudgetFrom = ({ sectionLines }) => {
+  for (const line of sectionLines ?? []) {
+    const match = /(\d+)/.exec(line);
+    if (match) {
+      return Number(match[1]);
+    }
+  }
+  return void 0;
+};
+var parsePlan = ({ content, base }) => {
+  const lines = content.split("\n");
+  const sections = parseSections({ lines });
+  const title = lines.find((line) => /^#\s+/.test(line))?.replace(/^#\s+/, "").trim() ?? "";
+  const variant = base === "overview.md" || sections.has("Phases") && sections.has("Cross-Phase Dependencies") || /—\s*Overview\s*$/.test(title) ? PlanFileKind.Overview : PlanFileKind.Implementable;
+  const isSubheading = (line) => /^###\s+/.test(line);
+  const { moves, malformedLines } = movesFromPlan({ lines });
+  return {
+    base,
+    title,
+    variant,
+    sections,
+    createPaths: planCreatePaths({ planText: content }),
+    modifyPaths: pathsFromLines({ sectionLines: sections.get("Files to Modify"), lineMatches: isSubheading }),
+    earlierPhaseModifyPaths: pathsFromLines({ sectionLines: sections.get("Files to Modify from Earlier Phases"), lineMatches: isSubheading }),
+    deletePaths: pathsFromLines({ sectionLines: sections.get("Files to Delete"), lineMatches: isSubheading }),
+    movePaths: moves,
+    malformedMoveLines: malformedLines,
+    fileBudget: fileBudgetFrom({ sectionLines: sections.get("File Budget") }),
+    mirrorPaths: pathsFromLines({ sectionLines: sections.get("Patterns to Mirror"), lineMatches: (line) => /^\s*-\s+/.test(line) }),
+    verificationCommands: commandsFromVerification({ sectionLines: sections.get("Verification") }),
+    lines
+  };
+};
+
 // src/plan/detectPriorArtCandidates.ts
 var detectPriorArtCandidates = async ({ cwd, planPaths, config: config2 }) => {
   const planned = [];
   const plannedPaths = /* @__PURE__ */ new Set();
+  const emptiedPaths = /* @__PURE__ */ new Set();
   for (const planPath of planPaths) {
     const planText = await readFile26(planPath, "utf8").catch(() => void 0);
     if (planText === void 0) {
       continue;
     }
-    for (const createPath of planCreatePaths({ planText })) {
+    const base = basename4(planPath);
+    const plan = parsePlan({ content: planText, base });
+    for (const path of [...plan.deletePaths, ...plan.movePaths.map((move) => move.from)]) {
+      emptiedPaths.add(path);
+    }
+    for (const createPath of plan.createPaths) {
       plannedPaths.add(createPath);
       const plannedSymbol = getExportName({ path: createPath });
       if (plannedSymbol === "index") {
         continue;
       }
-      planned.push({ plannedSymbol, plannedPath: createPath, phase: basename4(planPath) });
+      planned.push({ plannedSymbol, plannedPath: createPath, phase: base });
     }
   }
   if (planned.length === 0) {
     return [];
   }
   const { files, standardsPacks } = await listSourceFiles({ cwd, exclude: excludedSourcePaths({ config: config2 }) });
-  const census = files.filter((file2) => !isTestFile({ path: file2, standardsPacks }) && getExportName({ path: file2 }) !== "index" && !plannedPaths.has(file2)).map((file2) => ({ name: getExportName({ path: file2 }), path: file2 }));
+  const census = files.filter(
+    (file2) => !isTestFile({ path: file2, standardsPacks }) && getExportName({ path: file2 }) !== "index" && !plannedPaths.has(file2) && !emptiedPaths.has(file2)
+  ).map((file2) => ({ name: getExportName({ path: file2 }), path: file2 }));
   const buckets = /* @__PURE__ */ new Map();
   for (const entry of census) {
     const key = getNameKey({ name: entry.name });
@@ -43476,7 +43625,7 @@ var rowsFrom = ({ sectionLines }) => {
   }
   return rows;
 };
-var fileBudgetFrom = ({ lines }) => {
+var fileBudgetFrom2 = ({ lines }) => {
   const value = bulletLine({ lines, label: "File budget" })?.replace(/^\s*-\s+\*\*[^*]+\*\*/, "");
   return integerFrom({ cell: /(\d+)/.exec(value ?? "")?.[1] });
 };
@@ -43497,7 +43646,7 @@ var blocksFrom = ({ sectionLines }) => {
       creates: bulletValues({ lines, label: "Creates" }),
       exports: bulletValues({ lines, label: "Exports" }),
       scripts: bulletValues({ lines, label: "Scripts" }),
-      fileBudget: fileBudgetFrom({ lines })
+      fileBudget: fileBudgetFrom2({ lines })
     });
   }
   return parsed;
@@ -43515,131 +43664,6 @@ var parsePhaseDeclarations = ({ plan }) => {
   });
   const orphans = blocks.filter(({ file: file2 }) => !claimed.has(file2)).map(({ file: file2, creates, exports, scripts, fileBudget }) => ({ number: 0, file: file2, scope: "", creates, exports, scripts, fileBudget }));
   return [...declared, ...orphans];
-};
-
-// src/plan/common/constants/PlanFileKind.ts
-var PlanFileKind = {
-  Implementable: "implementable",
-  Overview: "overview"
-};
-
-// src/plan/common/paths/pathPairFromLine.ts
-var pathPairFromLine = ({ line }) => {
-  const paths = [];
-  for (const match of line.matchAll(/`([^`]+)`/g)) {
-    const token = match[1].trim().split(/\s+/)[0];
-    if (isPathToken({ token })) {
-      paths.push(token);
-    }
-    if (paths.length === 2) {
-      break;
-    }
-  }
-  return paths.length === 2 ? { from: paths[0], to: paths[1] } : void 0;
-};
-
-// src/plan/parsePlan.ts
-var parseSections = ({ lines }) => {
-  const sections = /* @__PURE__ */ new Map();
-  let current;
-  for (const line of lines) {
-    const heading = /^##\s+(.+?)\s*$/.exec(line);
-    if (heading) {
-      current = heading[1];
-      sections.set(current, []);
-      continue;
-    }
-    if (current !== void 0) {
-      sections.get(current)?.push(line);
-    }
-  }
-  return sections;
-};
-var pathsFromLines = ({ sectionLines, lineMatches }) => {
-  if (!sectionLines) {
-    return [];
-  }
-  const paths = [];
-  for (const line of sectionLines) {
-    if (lineMatches(line)) {
-      const path = pathFromLine({ line });
-      if (path) {
-        paths.push(path);
-      }
-    }
-  }
-  return paths;
-};
-var commandsFromVerification = ({ sectionLines }) => {
-  if (!sectionLines) {
-    return [];
-  }
-  const commands2 = [];
-  for (const line of sectionLines) {
-    if (!/^\s*-\s+/.test(line)) {
-      continue;
-    }
-    const span = /`([^`]+)`/.exec(line);
-    if (span) {
-      commands2.push(span[1].trim());
-    }
-  }
-  return commands2;
-};
-var movesFromPlan = ({ lines }) => {
-  const moves = [];
-  const malformedLines = [];
-  let inMoveSection = false;
-  for (const [index, line] of lines.entries()) {
-    const heading = /^##\s+(.+?)\s*$/.exec(line);
-    if (heading) {
-      inMoveSection = heading[1] === "Files to Move";
-      continue;
-    }
-    if (!inMoveSection || !/^###\s+/.test(line)) {
-      continue;
-    }
-    const pair = pathPairFromLine({ line });
-    if (pair) {
-      moves.push(pair);
-    } else {
-      malformedLines.push(index + 1);
-    }
-  }
-  return { moves, malformedLines };
-};
-var fileBudgetFrom2 = ({ sectionLines }) => {
-  for (const line of sectionLines ?? []) {
-    const match = /(\d+)/.exec(line);
-    if (match) {
-      return Number(match[1]);
-    }
-  }
-  return void 0;
-};
-var parsePlan = ({ content, base }) => {
-  const lines = content.split("\n");
-  const sections = parseSections({ lines });
-  const title = lines.find((line) => /^#\s+/.test(line))?.replace(/^#\s+/, "").trim() ?? "";
-  const variant = base === "overview.md" || sections.has("Phases") && sections.has("Cross-Phase Dependencies") || /—\s*Overview\s*$/.test(title) ? PlanFileKind.Overview : PlanFileKind.Implementable;
-  const isSubheading = (line) => /^###\s+/.test(line);
-  const { moves, malformedLines } = movesFromPlan({ lines });
-  return {
-    base,
-    title,
-    variant,
-    sections,
-    createPaths: planCreatePaths({ planText: content }),
-    modifyPaths: pathsFromLines({ sectionLines: sections.get("Files to Modify"), lineMatches: isSubheading }),
-    earlierPhaseModifyPaths: pathsFromLines({ sectionLines: sections.get("Files to Modify from Earlier Phases"), lineMatches: isSubheading }),
-    deletePaths: pathsFromLines({ sectionLines: sections.get("Files to Delete"), lineMatches: isSubheading }),
-    movePaths: moves,
-    malformedMoveLines: malformedLines,
-    fileBudget: fileBudgetFrom2({ sectionLines: sections.get("File Budget") }),
-    mirrorPaths: pathsFromLines({ sectionLines: sections.get("Patterns to Mirror"), lineMatches: (line) => /^\s*-\s+/.test(line) }),
-    verificationCommands: commandsFromVerification({ sectionLines: sections.get("Verification") }),
-    lines
-  };
 };
 
 // src/plan/lint/checkPhaseBreakdown.ts
@@ -44918,6 +44942,7 @@ var spawnDedupJudge = async ({
 };
 var foldDedupResults = ({ results }) => {
   const findings = [];
+  const reviewed = [];
   const failures = [];
   for (const result of results) {
     if (result === void 0) {
@@ -44928,8 +44953,15 @@ var foldDedupResults = ({ results }) => {
       continue;
     }
     findings.push(...matchDedupVerdicts({ candidates: result.group.candidates, verdicts: result.outcome.report.verdicts }));
+    reviewed.push(
+      ...result.group.candidates.map(({ plannedSymbol, plannedPath, phase }) => ({
+        plannedSymbol,
+        plannedPath,
+        phase
+      }))
+    );
   }
-  return { findings, failures, rateLimited: results.some((result) => isRateLimited({ result })) };
+  return { findings, reviewed, failures, rateLimited: results.some((result) => isRateLimited({ result })) };
 };
 var runPlanDedup = async (params) => {
   const { cwd, name, onProgress } = params;
@@ -44941,10 +44973,15 @@ var runPlanDedup = async (params) => {
   }
   const candidates = await detectPriorArtCandidates({ cwd, planPaths, config: config2 });
   const dedupPath = join63(workspaceDir, "dedup.json");
-  const writeReport = async ({ findings: findings2, incompleteReason }) => {
+  const writeReport = async ({
+    findings: findings2,
+    reviewed: reviewed2 = [],
+    incompleteReason
+  }) => {
     const dedup2 = {
       planName: name,
       findings: findings2,
+      reviewed: reviewed2,
       complete: incompleteReason === void 0,
       incompleteReason,
       reviewedAt: (/* @__PURE__ */ new Date()).toISOString()
@@ -44962,8 +44999,8 @@ var runPlanDedup = async (params) => {
     tasks: groups.map((group) => () => spawnDedupJudge({ params, pass, group })),
     concurrency: planAgentConcurrency
   });
-  const { findings, failures, rateLimited } = foldDedupResults({ results });
-  const dedup = await writeReport({ findings, incompleteReason: failures.length > 0 ? failures.join("; ") : void 0 });
+  const { findings, reviewed, failures, rateLimited } = foldDedupResults({ results });
+  const dedup = await writeReport({ findings, reviewed, incompleteReason: failures.length > 0 ? failures.join("; ") : void 0 });
   progress(`plan dedup ${name}: ${findings.length} duplication(s) to review`);
   if (rateLimited) {
     const parked = `rate limited or overloaded \u2014 re-run: lightsout plan dedup --name ${name}`;
@@ -44973,7 +45010,7 @@ var runPlanDedup = async (params) => {
 };
 
 // src/plan/runPlanGrade.ts
-import { basename as basename17, join as join65 } from "node:path";
+import { basename as basename17, join as join66 } from "node:path";
 
 // src/plan/common/constants/gapCheckLenses.ts
 var gapCheckLenses = Object.values(GapCheckLens);
@@ -45033,11 +45070,28 @@ var drainGapCheckers = async ({
 };
 
 // src/plan/common/grading/notePriorArtCollisions.ts
-var notePriorArtCollisions = async ({ cwd, name, planPaths, config: config2, onProgress }) => {
+import { readFile as readFile34 } from "node:fs/promises";
+import { join as join64 } from "node:path";
+var collisionKey = ({ plannedSymbol, plannedPath, phase }) => `${phase} ${plannedPath} ${plannedSymbol}`;
+var readSettledCollisions = async ({ workspaceDir }) => {
+  const text = await readFile34(join64(workspaceDir, "dedup.json"), "utf8").catch(() => void 0);
+  if (text === void 0) {
+    return /* @__PURE__ */ new Set();
+  }
+  try {
+    const parsed = DedupReport.safeParse(JSON.parse(text));
+    return parsed.success ? new Set(parsed.data.reviewed.map(collisionKey)) : /* @__PURE__ */ new Set();
+  } catch {
+    return /* @__PURE__ */ new Set();
+  }
+};
+var notePriorArtCollisions = async ({ cwd, name, workspaceDir, planPaths, config: config2, onProgress }) => {
   const candidates = await detectPriorArtCandidates({ cwd, planPaths, config: config2 });
-  if (candidates.length > 0) {
+  const settled2 = await readSettledCollisions({ workspaceDir });
+  const unweighed = candidates.filter((candidate) => !settled2.has(collisionKey(candidate)));
+  if (unweighed.length > 0) {
     onProgress(
-      `plan grade ${name}: ${candidates.length} planned symbol(s) still name-collide with existing exports \u2014 run \`lightsout plan dedup --name ${name}\``
+      `plan grade ${name}: ${unweighed.length} planned symbol(s) still name-collide with existing exports \u2014 run \`lightsout plan dedup --name ${name}\``
     );
   }
 };
@@ -45059,7 +45113,7 @@ var readGradeStamp = async ({ cwd }) => {
 import { basename as basename15, relative as relative7 } from "node:path";
 
 // src/plan/common/utils/matchGapVerdicts.ts
-import { isAbsolute as isAbsolute3, join as join64 } from "node:path";
+import { isAbsolute as isAbsolute3, join as join65 } from "node:path";
 var isFilled = ({ value }) => (value ?? "").trim().length > 0;
 var hasRequiredEvidence = ({ verdict }) => {
   const demanded = {
@@ -45072,7 +45126,7 @@ var hasRequiredEvidence = ({ verdict }) => {
 var citesMissingPath = async ({ cwd, verdict }) => {
   const token = (verdict.answerAt ?? "").split(":")[0] ?? "";
   const checkable = verdict.outcome === GapOutcome.AlreadyAnswered && isPathToken({ token });
-  return checkable && !await pathExists({ path: isAbsolute3(token) ? token : join64(cwd, token) });
+  return checkable && !await pathExists({ path: isAbsolute3(token) ? token : join65(cwd, token) });
 };
 var getUnjudgedReason = async ({
   cwd,
@@ -45210,7 +45264,7 @@ var runPlanGrade = async (params) => {
   const { selected } = selection;
   const structural = await lintPlanStructure({ cwd, planPaths, config: config2 });
   const stamp3 = await readGradeStamp({ cwd });
-  await notePriorArtCollisions({ cwd, name, planPaths, config: config2, onProgress: progress });
+  await notePriorArtCollisions({ cwd, name, workspaceDir, planPaths, config: config2, onProgress: progress });
   progress(
     `plan grade ${name}: ${structural.length} structural finding(s), gap-checking ${selected.length} of ${files.length} plan file(s) \xD7 ${gapCheckLenses.length} lens(es)`
   );
@@ -45234,7 +45288,7 @@ var runPlanGrade = async (params) => {
     commit: stamp3.commit,
     treeDirty: stamp3.treeDirty
   });
-  const gradePath = join65(workspaceDir, "grade.json");
+  const gradePath = join66(workspaceDir, "grade.json");
   await writeJsonFile({ path: gradePath, value: report });
   const blocking = getBlockingGaps({ gaps: report.gaps });
   progress(`plan grade ${name}: judged ${report.gaps.length} finding(s), ${blocking.length} blocking`);
@@ -45263,16 +45317,16 @@ var runPlanLint = async ({ cwd, name, onProgress }) => {
 
 // src/plan/runPlanVerifyFacts.ts
 import { copyFile, mkdir as mkdir10, writeFile as writeFile11 } from "node:fs/promises";
-import { join as join67, resolve as resolve8 } from "node:path";
+import { join as join68, resolve as resolve8 } from "node:path";
 
 // src/plan/verifyFacts.ts
-import { readFile as readFile34 } from "node:fs/promises";
-import { join as join66 } from "node:path";
+import { readFile as readFile35 } from "node:fs/promises";
+import { join as join67 } from "node:path";
 var verifyFacts = async ({ cwd, facts }) => {
   const paths = facts.areas.flatMap((area) => [...area.filesToModify.map((file2) => file2.path), ...area.patternsToMirror.map((pattern) => pattern.path)]);
   const missingPaths = [];
   for (const path of paths) {
-    const exists = await pathExists({ path: join66(cwd, path) });
+    const exists = await pathExists({ path: join67(cwd, path) });
     if (!exists) {
       missingPaths.push(path);
     }
@@ -45283,10 +45337,10 @@ var verifyFacts = async ({ cwd, facts }) => {
     if (area.scripts.length === 0) {
       continue;
     }
-    const manifestPaths = [join66(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join66(cwd, pkg, "package.json"))];
+    const manifestPaths = [join67(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join67(cwd, pkg, "package.json"))];
     const available = /* @__PURE__ */ new Set();
     for (const manifestPath of manifestPaths) {
-      const raw = await readFile34(manifestPath, "utf8").catch(() => void 0);
+      const raw = await readFile35(manifestPath, "utf8").catch(() => void 0);
       if (raw) {
         for (const key of getManifestScriptKeys({ raw })) {
           available.add(key);
@@ -45316,7 +45370,7 @@ var snapshotNotes = async ({
   progress
 }) => {
   const source = resolve8(cwd, notesFile);
-  const destination = join67(workspaceDir, "notes.md");
+  const destination = join68(workspaceDir, "notes.md");
   const alreadyFrozen = await pathExists({ path: destination });
   if (alreadyFrozen) {
     progress("plan verify-facts \xB7 notes.md already frozen \u2014 snapshot skipped");
@@ -45334,7 +45388,7 @@ var snapshotNotes = async ({
 var runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }) => {
   const progress = onProgress ?? (() => void 0);
   const workspaceDir = planWorkspaceDir({ cwd, name });
-  const factsPath = join67(workspaceDir, "facts.json");
+  const factsPath = join68(workspaceDir, "facts.json");
   if (notesFile !== void 0) {
     const snapshot = await snapshotNotes({ cwd, workspaceDir, notesFile, progress });
     if (snapshot.error !== void 0) {
@@ -45605,7 +45659,7 @@ var runPhase = async ({
     cwd,
     driver,
     config: config2,
-    planPath: join68(dirname7(current.plan), step.id),
+    planPath: join69(dirname7(current.plan), step.id),
     overviewPath: current.plan,
     parentRunId: current.runId,
     existing: childManifest,
@@ -45760,10 +45814,10 @@ var spawnCollect = ({ command, args, cwd, stdinText, timeoutMs, onStdoutLine }) 
 // src/drivers/common/utils/writeSystemPromptFile.ts
 import { mkdtemp, rm as rm2, writeFile as writeFile12 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join as join69 } from "node:path";
+import { join as join70 } from "node:path";
 var writeSystemPromptFile = async ({ systemPrompt }) => {
-  const dir = await mkdtemp(join69(tmpdir(), "lightsout-system-prompt-"));
-  const path = join69(dir, "system-prompt.md");
+  const dir = await mkdtemp(join70(tmpdir(), "lightsout-system-prompt-"));
+  const path = join70(dir, "system-prompt.md");
   await writeFile12(path, systemPrompt, "utf8");
   return { path, cleanup: () => rm2(dir, { recursive: true, force: true }).catch(() => void 0) };
 };
@@ -45841,17 +45895,17 @@ ${stderr}`),
 };
 
 // src/drivers/createCodexDriver.ts
-import { mkdtemp as mkdtemp2, readFile as readFile35, rm as rm3 } from "node:fs/promises";
+import { mkdtemp as mkdtemp2, readFile as readFile36, rm as rm3 } from "node:fs/promises";
 import { tmpdir as tmpdir2 } from "node:os";
-import { join as join70 } from "node:path";
+import { join as join71 } from "node:path";
 var rateLimitPattern = /usage limit|rate limit|limit reached|quota|529|overloaded/i;
 var createCodexDriver = () => {
   const driver = {
     name: "codex",
     invoke: async (invocation) => {
       const { prompt, systemPrompt, model, effort, permissions, cwd, timeoutMs } = invocation;
-      const outDir = await mkdtemp2(join70(tmpdir2(), "lightsout-codex-"));
-      const outFile = join70(outDir, "last-message.txt");
+      const outDir = await mkdtemp2(join71(tmpdir2(), "lightsout-codex-"));
+      const outFile = join71(outDir, "last-message.txt");
       const args = buildCodexArgs({ outFile, model, effort, permissions });
       const fullPrompt = systemPrompt ? `# Role instructions
 
@@ -45868,7 +45922,7 @@ ${prompt}` : prompt;
           stdinText: fullPrompt,
           timeoutMs
         });
-        const text = await readFile35(outFile, "utf8").catch(() => "");
+        const text = await readFile36(outFile, "utf8").catch(() => "");
         const errored = exitCode !== 0 || text === "";
         return {
           text: text || stdout || stderr,
@@ -45958,9 +46012,9 @@ var implementCommand = async ({ flags, cwd }) => {
 
 // src/cli/common/utils/resolveConfigAndDriver.ts
 import { stat as stat7 } from "node:fs/promises";
-import { join as join71 } from "node:path";
+import { join as join72 } from "node:path";
 var resolveConfigAndDriver = async ({ cwd, command }) => {
-  const configPath = join71(cwd, "lightsout.config.json");
+  const configPath = join72(cwd, "lightsout.config.json");
   const present = await stat7(configPath).then(
     () => true,
     () => false
@@ -45982,15 +46036,15 @@ var PromptImprovementStatus = {
 
 // src/runPromptImprovement.ts
 import { readdir as readdir16 } from "node:fs/promises";
-import { join as join72 } from "node:path";
+import { join as join73 } from "node:path";
 var promptsDir = "src/agents/prompts";
 var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model, effort }) => {
   const friction = await readFriction({ cwd: consumerCwd });
   if (friction.length === 0) {
     return { status: PromptImprovementStatus.NoFriction, friction };
   }
-  const files = await readdir16(join72(engineCwd, promptsDir));
-  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join72(promptsDir, file2));
+  const files = await readdir16(join73(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join73(promptsDir, file2));
   const improverTimeoutMs = 20 * 6e4;
   const outcome = await invokeAgentWithContract({
     driver,
@@ -46458,8 +46512,8 @@ var findIntroducedFindings = ({ frozen, live: live2, severity }) => {
 };
 
 // src/refactor/initializeRun.ts
-import { readFile as readFile36, writeFile as writeFile15 } from "node:fs/promises";
-import { join as join75 } from "node:path";
+import { readFile as readFile37, writeFile as writeFile15 } from "node:fs/promises";
+import { join as join76 } from "node:path";
 
 // src/refactor/batch/batchFindings.ts
 var rulePriority = [
@@ -46803,7 +46857,7 @@ var createSiteChecker = ({ cwd, checkPath, checkAll }) => {
 
 // src/refactor/batch/invokeBatchAgent.ts
 import { mkdir as mkdir11, writeFile as writeFile13 } from "node:fs/promises";
-import { join as join73 } from "node:path";
+import { join as join74 } from "node:path";
 var invokeBatchAgent = async ({
   cwd,
   runId,
@@ -46820,9 +46874,9 @@ var invokeBatchAgent = async ({
   onProgress,
   recordUsage
 }) => {
-  const agentsDir = join73(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join74(getRunDir({ cwd, runId }), "agents");
   const slug = batch.id.replace(/[:/]/g, "_");
-  const streamPath = join73(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
+  const streamPath = join74(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
   await mkdir11(agentsDir, { recursive: true });
   const outcome = await invokeAgentWithContract({
     driver,
@@ -46836,7 +46890,7 @@ var invokeBatchAgent = async ({
     allowedCommands: config2["agent-commands"],
     onEvent: createEventFileSink({ path: streamPath }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile13(join73(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile13(join74(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   const formatError2 = await runFormatter({ cwd, runId, config: config2, step: batch.id });
@@ -46862,7 +46916,7 @@ var invokeBatchAgent = async ({
 
 // src/refactor/batch/superviseBatch.ts
 import { mkdir as mkdir12, writeFile as writeFile14 } from "node:fs/promises";
-import { join as join74 } from "node:path";
+import { join as join75 } from "node:path";
 var superviseBatch = async ({
   cwd,
   runId,
@@ -46879,7 +46933,7 @@ var superviseBatch = async ({
   gates
 }) => {
   onProgress(`${batchId}: gates red after ${maxCheapFixRetries2} cheap fix attempt(s) \u2014 consulting supervisor`);
-  const agentsDir = join74(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join75(getRunDir({ cwd, runId }), "agents");
   const slug = batchId.replace(/[:/]/g, "_");
   await mkdir12(agentsDir, { recursive: true });
   const verdict = await consultSupervisor({
@@ -46890,9 +46944,9 @@ var superviseBatch = async ({
     stepId: batchId,
     errorOutput: gateError,
     attempts,
-    onEvent: createEventFileSink({ path: join74(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
+    onEvent: createEventFileSink({ path: join75(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile14(join74(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile14(join75(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   await recordUsage({ step: `${batchId}:supervisor`, usage: verdict.usage });
@@ -47192,7 +47246,7 @@ var initializeRun = async ({
     if ((existing.pipeline ?? "implement") !== "refactor") {
       throw new Error(`run ${existing.runId} belongs to the implement pipeline \u2014 resume it with: lightsout resume --run ${existing.runId}`);
     }
-    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile36(join75(cwd, existing.plan), "utf8"))) };
+    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile37(join76(cwd, existing.plan), "utf8"))) };
   }
   const dirty = await readGitChangedFiles({ cwd });
   if (dirty === void 0) {
@@ -47205,9 +47259,9 @@ ${dirty.map((file2) => `  ${file2}`).join("\n")}`
     );
   }
   const worklist = await buildWorklist({ cwd, config: config2, path, all });
-  const worklistPath = join75(".lightsout", "runs", runId, "worklist.json");
+  const worklistPath = join76(".lightsout", "runs", runId, "worklist.json");
   const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: "refactor", driver: driver.name, config: config2, baselineDirtyFiles: dirty });
-  await writeFile15(join75(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
+  await writeFile15(join76(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
 `, "utf8");
   return { manifest, worklist };
 };
@@ -47959,9 +48013,9 @@ import { mkdir as mkdir13, writeFile as writeFile16 } from "node:fs/promises";
 import { dirname as dirname8 } from "node:path";
 
 // src/voice/common/paths/getVoiceMarkerPath.ts
-import { join as join76 } from "node:path";
+import { join as join77 } from "node:path";
 var getVoiceMarkerPath = ({ cwd }) => {
-  return join76(cwd, ".lightsout", "voice-on");
+  return join77(cwd, ".lightsout", "voice-on");
 };
 
 // src/voice/createVoiceMarker.ts
@@ -48023,7 +48077,7 @@ var getSpokenPickerText = ({ toolInput }) => {
 };
 
 // src/voice/getSpokenQuestion.ts
-import { readFile as readFile37 } from "node:fs/promises";
+import { readFile as readFile38 } from "node:fs/promises";
 var parseEntry = ({ line }) => {
   try {
     const parsed = JSON.parse(line);
@@ -48075,7 +48129,7 @@ var getQuestionTexts = ({ entries }) => {
   return texts;
 };
 var getSpokenQuestion = async ({ transcriptPath }) => {
-  const raw = await readFile37(transcriptPath, "utf8").catch(() => void 0);
+  const raw = await readFile38(transcriptPath, "utf8").catch(() => void 0);
   if (raw === void 0) {
     return void 0;
   }
@@ -48095,16 +48149,16 @@ import { spawn as spawn3 } from "node:child_process";
 import { writeFile as writeFile17 } from "node:fs/promises";
 
 // src/voice/common/paths/getVoicePidPath.ts
-import { join as join77 } from "node:path";
+import { join as join78 } from "node:path";
 var getVoicePidPath = ({ cwd }) => {
-  return join77(cwd, ".lightsout", "voice-pid");
+  return join78(cwd, ".lightsout", "voice-pid");
 };
 
 // src/voice/stopSpeech.ts
-import { readFile as readFile38, rm as rm5 } from "node:fs/promises";
+import { readFile as readFile39, rm as rm5 } from "node:fs/promises";
 var stopSpeech = async ({ cwd }) => {
   const pidPath = getVoicePidPath({ cwd });
-  const raw = await readFile38(pidPath, "utf8").catch(() => void 0);
+  const raw = await readFile39(pidPath, "utf8").catch(() => void 0);
   if (raw === void 0) {
     return;
   }
