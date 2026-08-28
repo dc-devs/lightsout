@@ -20,6 +20,12 @@ Planning is not the ticket's job.
 If you have a hunch about the fix, leave it out or write it as an open
 question.
 
+**An agent never files a ticket the user has not approved.** Approval means
+the user said yes to *this specific ticket*, in the moment — after seeing
+what it will say. "We'll do that later", "yes, but later", or any other
+deferral is a candidate, not approval: ask "want a ticket for X?" and file
+only on yes. A "no" is written down nowhere new — declined means declined.
+
 ## One home per fact
 
 Every fact lives in exactly one place, and everything else points at it:
@@ -160,7 +166,8 @@ A queue, not a record. Shaping drains it:
 - Brainstorm and plan take these lines as their agenda.
 - **"No" is an answer.** "We will not do X" is recorded as a decision row
   in the plan artifacts like any other. A rejected idea never becomes a
-  ticket — file one only when the user says "yes, but later".
+  ticket — and even "yes, but later" is only a candidate: a ticket exists
+  only when the user approves that ticket (see above).
 - When the ticket goes **Ready to implement**, delete every answered line.
   It is the same edit that puts the attachments on: the answers arrive on
   the ticket in the same action the questions leave it.
@@ -344,11 +351,10 @@ made during shaping, whose home is the plan artifacts.
 
 ## Closing a ticket
 
-Append one comment, three things, about a line each:
+Append one comment, two things, about a line each:
 
 - what shipped
 - the PR
-- anything deliberately left undone, and the ticket that tracks it
 
 Nothing else. Not the criteria and how each was verified — the checks live in
 the body, and the PR's gates are the record of their passing. Not the route —
@@ -356,6 +362,15 @@ the label is the record. Not the story of getting there: what you tried, what
 you gave up on, and how the finished work compared to the original ticket all
 stay out. If the ticket itself turned out to be wrong, fix the body — see
 above.
+
+**There is no leftovers section.** Anything that looks left over is one of
+two things. Decided against — then it is a decision, already recorded where
+decisions live, and writing it again here resurrects it. Still wanted — then
+it deserves its own ticket, which only the user can approve; once that
+ticket exists, Linear's issue links are the record and prose adds nothing.
+There is no third category. If a real candidate is on the table at close,
+ask the one question — "want a ticket for X, or let it go?" — and write
+nothing either way.
 
 Attach the plan (see below) when the route produced one; do not restate its
 decision table in the comment.
@@ -374,8 +389,10 @@ reference.
 A `route-direct` ticket has no plan folder and nothing to attach. That is expected —
 its `## Decisions` section is the decision record.
 
-A `route-brainstorm` ticket that stopped at "just build it" has notes but no
-plan. Attach nothing; the closing comment carries what was decided.
+A `route-brainstorm` ticket that stopped at "just build it" wrote no files
+and has nothing to attach. What was settled in that conversation goes into
+the ticket's `## Decisions` before building — the body is where decisions
+live, never the closing comment.
 
 **Attach these four when the route produced a plan:**
 
@@ -455,3 +472,7 @@ Each of these has actually happened on this team.
   read from `## Open questions` as unfinished work, and a ticket was filed for
   the thing the user had said no to. A "no" is a decision — record it as one
   and delete the question.
+- **Filing an unapproved ticket.** An agent read "we'll move this later" as
+  a yes and filed the ticket itself, at close, unprompted. The user never
+  saw it before it existed and may never have wanted it. Deferral is a
+  candidate; only the user's yes to the specific ticket is approval.
