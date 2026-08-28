@@ -1,6 +1,6 @@
 ---
 name: linear-ticket
-description: How to write, update and close Linear tickets for the LightsOut team, and how a branch is named after one. Use when filing a bug or feature ticket, starting work on one, or recording what shipped.
+description: How to write, update and close Linear tickets for the LightsOut team, and how a branch and PR are named after one. Use when filing a bug or feature ticket, starting work on one, opening its PR, or recording what shipped.
 ---
 
 # LightsOut tickets
@@ -20,16 +20,30 @@ Planning is not the ticket's job.
 If you have a hunch about the fix, leave it out or write it as an open
 question.
 
+## One home per fact
+
+Every fact lives in exactly one place, and everything else points at it:
+
+| Fact | Its one home |
+|---|---|
+| The problem, the evidence, the checks | the ticket body |
+| Decisions settled before shaping | the ticket's `## Decisions` |
+| Decisions made during shaping | the plan artifacts, attached |
+| How the ticket gets shaped | the route label |
+| The change itself | the PR diff |
+
+Data flows forward only — ticket → plan files → attachments — never back
+into the body. A second copy of any of these drifts, and an agent reading
+the drifted copy makes wrong calls: it re-asks settled questions, reads a
+check as a scope ruling, or files a ticket for an idea already rejected.
+
 ## Template
 
 ```markdown
-As a <actor>,
-I want <capability>
-so that <value>.
-
 ## Problem
 
-<what is wrong — observed, not theorised>
+<what is wrong — observed, not theorised. Close with one sentence on
+why it matters: who is hurt, what it costs.>
 
 ## Evidence
 
@@ -40,30 +54,34 @@ so that <value>.
 - Verify that ...
 - Verify that ...
 
+## Decisions             <- optional
+
+- <an outcome the user explicitly settled>
+
 ## Open questions        <- optional
 
-- <a question the planning session has to settle>
+- <a question the shaping has to settle>
 ```
 
-Those parts are the whole ticket. If an existing ticket carries extra sections,
-do not copy them forward — match this template, not its neighbours.
+Those parts are the whole ticket. If an existing ticket carries extra
+sections, do not copy them forward — match this template, not its neighbours.
 
-`## Open questions` is the one place a hunch about the fix is allowed to live,
-and only in question form. "Should the ceiling apply per phase?" is a question.
-"Apply the ceiling per phase" is a prescription with a question mark bolted on.
-Leave the section out when you have none.
+There is no user-story preamble. The one part of it that earned its keep —
+why the thing matters — survives as the sentence that closes Problem.
 
-### Actor
+### Problem
 
-Pick the actor whose experience the ticket is about. If the line would read
-the same on every ticket, it is telling the reader nothing — drop it.
+What is wrong, observed rather than theorised. For a feature: what is
+absent, or what is worse without it. If you cannot state that, the ticket
+is not ready — a feature with no problem behind it is usually a preference
+looking for a justification.
 
-| Actor | The ticket is about |
-|---|---|
-| an agent running a plan | gates, escalations, retries, the pipeline |
-| a repo adopting lightsout | config keys, standards packs, defaults |
-| a plan author | the grader, brainstorm, plan lint |
-| a LightsOut engineer | this codebase itself |
+The closing why-sentence names who is hurt — an agent running a plan, a
+repo adopting lightsout, a plan author, a LightsOut engineer — and what it
+costs. On a bug it is one line; the value of not being broken is obvious.
+On a feature it is the only place the reason lives, and a feature's reason
+is genuinely arguable — spend the effort there. If the sentence would read
+the same on every ticket, it is telling the reader nothing; sharpen it.
 
 ### Evidence
 
@@ -75,6 +93,14 @@ Prefer measured numbers over description. "113 summary entries, 0 ending
 `.tsx`" beats "the summary seems to be missing some files".
 
 Quote the failing output verbatim rather than paraphrasing it.
+
+On a feature there is no defect to prove. Evidence is what is already true
+about the world the feature has to fit into: what a tool it depends on can
+and cannot do, what the current code already provides, what you measured,
+and what you checked but could not confirm. Same discipline, different
+content. If you have nothing, say so in the section rather than dropping
+it — "filed from a hunch, no runs behind it" tells the next reader how much
+weight to give it.
 
 ### Acceptance Criteria
 
@@ -95,61 +121,56 @@ Include the criteria that must *keep* holding, not just the new behaviour. If
 a gate stops catching real defects, the work failed even when the reported bug
 is gone.
 
-#### On a `route-direct` ticket, the criteria carry the decisions
+**Criteria are floors, never ceilings.** A criterion records the observed
+case, not the boundary of the fix. That a criterion names only one step
+means the defect was seen there — it does not decide that the other steps
+are out of scope. Silence in a criterion decides nothing; scope narrows
+only in `## Decisions`. A check and a decision never share a line.
 
-A `route-direct` ticket has no brainstorm and no plan behind it, so the body is the
-only place a decision already made with the user can live. Write each one as a
-criterion, because a decision is an outcome: "the landing page shows no
-repository sidebar" is a thing you can check, and it stays checkable however
-the layout is built.
-
-That is the test for the label. **If a decision cannot be written as something
-checkable, the ticket is not `route-direct`** — what you are holding is a design, and
-a design goes to `/lightsout:brainstorm` to be made against the code as it is
-on the day someone builds it.
-
-Write the decision, never the mechanism a decision implies:
-
-- Good — `Verify that a link into the repository pages appears only when a
-  repository is found.`
-- Bad — `Verify that TopNav renders an App link from repoRootQueryOptions.`
-  Names the two components that happen to exist today.
-
-The rest of the rules do not bend for this. No section is added, nothing is
-attached, and a decision nobody made stays out — the criteria on a `route-direct`
-ticket are still only what the user settled and what you checked.
-
-### Feature tickets
-
-The template holds for a feature, but three parts carry different weight.
-
-**Problem** is what is absent, or what is worse without the thing. If you cannot
-state that, the ticket is not ready — a feature with no problem behind it is
-usually a preference looking for a justification.
-
-**Evidence** is not proof of a defect, because there isn't one. It is what is
-already true about the world the feature has to fit into: what a tool it depends
-on can and cannot do, what the current code already provides, what you measured,
-and what you checked but could not confirm. Same discipline as a bug's evidence
-— anchored to names, measured where you can, no proposed design. Different
-content.
-
-If you have nothing, say so in the section rather than dropping it. "Filed from
-a hunch, no runs behind it" tells the next reader how much weight to give it.
-
-**The value clause carries more here.** On a bug it is close to ceremony — the
-value of not being broken is obvious. On a feature it is the only place the
-reason lives, and a feature's reason is genuinely arguable. Spend the effort
-there.
-
-**Acceptance criteria are easier to get wrong.** On a bug they are anchored: the
-wrong thing stops happening, the right things keep working. On a feature they
-are the closest thing to a spec, with no bug report holding you to observable
-behaviour, so a design decision can slip in wearing a checkbox:
+On a feature, criteria are the closest thing to a spec, with no bug report
+holding you to observable behaviour, so a design decision can slip in
+wearing a checkbox:
 
 - Good — `Verify that a repo configured for the Pi harness completes a full run.`
 - Bad — `Verify that createPiDriver parses agent_end.`
   Names a file and a mechanism nobody has chosen yet.
+
+### Decisions
+
+One line per outcome the user **explicitly settled**, written as the
+outcome — "the landing page shows no repository sidebar" — never as the
+mechanism it implies.
+
+- **Agents treat these lines as final.** Brainstorm and plan harvest them
+  as settled rows and never re-ask them. A settled line re-opens only on a
+  contradiction named at a specific `file:line`.
+- **Only what the user actually said belongs here.** A hunch, however
+  strong, goes to `## Open questions`. This section must never become the
+  place a proposed fix hides.
+- **Pre-shaping decisions only.** Once a brainstorm or plan runs, new
+  decisions land in its files and reach the ticket as attachments. Nothing
+  is copied back into the body.
+- On a `route-direct` ticket this is the only decision record, and that is
+  the point: the route with no plan still has a home for what was agreed.
+
+### Open questions
+
+A queue, not a record. Shaping drains it:
+
+- Brainstorm and plan take these lines as their agenda.
+- **"No" is an answer.** "We will not do X" is recorded as a decision row
+  in the plan artifacts like any other. A rejected idea never becomes a
+  ticket — file one only when the user says "yes, but later".
+- When the ticket goes **Ready to implement**, delete every answered line.
+  It is the same edit that puts the attachments on: the answers arrive on
+  the ticket in the same action the questions leave it.
+- At close the section is empty or gone. A closed ticket that still has
+  open questions is the sign a step was skipped.
+
+Leave the section out when you have none. It is the one place a hunch about
+the fix is allowed to live, and only in question form. "Should the ceiling
+apply per phase?" is a question. "Apply the ceiling per phase" is a
+prescription with a question mark bolted on.
 
 ## Route
 
@@ -184,10 +205,11 @@ produced the ticket. A brainstorm about a neighbouring ticket does not count,
 however much context it shares: the tickets that fall out of one brainstorm are
 its by-products, not its subjects, and nobody has yet shaped them.
 
-**`route-direct` is for work with no design in it.** The change is local, the diff is
-describable in a sentence, and being wrong is cheap to undo. It is a real route
-and using it is not cutting a corner — but it is a claim, and the claim gets
-recorded with the label.
+**`route-direct` is for work with no design left in it.** The change is local,
+the diff is describable in a sentence, and being wrong is cheap to undo. What
+was agreed with the user lives in `## Decisions`; the criteria stay checks. It
+is a real route and using it is not cutting a corner — but it is a claim, and
+the claim gets recorded with the label.
 
 A ticket carrying none of the three is **undecided**, which is a legitimate
 state. Most of a backlog sits there. Do not force a route at filing time to
@@ -225,10 +247,11 @@ graded; for a `route-direct` one it means the ticket body is enough to build fro
 ### Recording it
 
 **The label is the record.** It is a real field on the ticket: filterable, and
-it overwrites rather than accumulating. Do not restate it in a comment. Each of
-the three carries its own description in Linear, and they are defined above —
-`route-brainstorm` already says why it is `route-brainstorm`, and a sentence per
-ticket repeating that is ceremony that rots.
+it overwrites rather than accumulating. Do not restate it in a comment, at
+filing or at close. Each of the three carries its own description in Linear,
+and they are defined above — `route-brainstorm` already says why it is
+`route-brainstorm`, and a sentence per ticket repeating that is ceremony that
+rots.
 
 **Whoever picks the ticket up may change it**, by changing the label and
 nothing else. The filer knows less about the problem than anyone who reads it
@@ -258,27 +281,19 @@ useful part of the rule rather than a technicality:
 
 - A brainstorm that exited at "just build it" wrote no files. Nothing to attach.
   That ticket is `route-direct`, or it is already done.
-- A design settled in conversation with nothing written down. Nothing to attach.
-  If you want to skip the brainstorm step, the brainstorm has to have left
-  something behind.
-
-**At close, state the route actually taken**, not the one the label predicted. A
-`route-direct` ticket that turned out to need a plan is the more useful fact: it is
-how you learn where the judgment runs thin. This is the one place the route's
-history is worth writing down, because it is an outcome rather than a running
-log, and it is written once at the point the ticket stops changing.
+- A design settled in conversation with nothing written down. Nothing to attach
+  — but not nothing to record: put what was settled in `## Decisions`, and the
+  ticket is `route-direct` if nothing is left to shape.
 
 ### Do not invent a lighter plan
 
 There is no small-plan format for `route-direct` work. The moment one exists every
-ticket gets one, and the ceremony the route exists to avoid grows back. The
-closing comment is the record.
+ticket gets one, and the ceremony the route exists to avoid grows back.
 
-This is not the same as losing what was already decided. A decision settled with
-the user before the ticket was filed belongs in the acceptance criteria, written
-as an outcome — see [On a `route-direct` ticket, the criteria carry the
-decisions](#on-a-direct-ticket-the-criteria-carry-the-decisions). That needs no
-new section and no attachment, which is why it does not grow into one.
+This is not the same as losing what was already decided. A decision settled
+with the user before the ticket was filed lives in `## Decisions`, written as
+an outcome. That needs no new section and no attachment, which is why it does
+not grow into one.
 
 ## Branch
 
@@ -291,6 +306,24 @@ links the ticket, the worktree, the commits and the PR, so it never varies.
 Linear finds the ticket id anywhere in the name and links the branch to the
 issue. Its copy-branch-name button prefixes your username; drop that, the id
 is the only part that matters.
+
+## PR
+
+The PR body is the ticket link, and nothing else — one line:
+
+```
+Closes LO-<number>
+```
+
+The ticket is the source of truth. Linear links the PR through the branch
+name, and that line closes the ticket loop from the GitHub side. A summary,
+a test plan, or a restated criterion in the body is a second copy of the
+ticket, and it drifts the moment the ticket body is edited. A reviewer
+needs exactly two things — the ticket and the diff — and the PR already is
+the diff.
+
+The PR title is a plain one-line description of the change, like any commit
+subject.
 
 ## Keeping the body true
 
@@ -305,27 +338,27 @@ if anyone does.
 
 Editing is safe here only because the body never held a proposed fix. There is
 nothing in it you can be caught out by, so every edit just makes the ticket
-more accurate.
+more accurate. The same discipline bounds `## Decisions`: edit a line only to
+state more precisely what the user settled — never to record a new decision
+made during shaping, whose home is the plan artifacts.
 
 ## Closing a ticket
 
-Append one comment, and keep it short:
+Append one comment, three things, about a line each:
 
 - what shipped
-- the PR (which carries the branch and the commits)
-- the route taken (see above), and for `route-direct`, one line on why there was no
-  plan — a closed ticket with nothing attached is otherwise ambiguous between
-  "small enough not to need one" and "process skipped", and six months on
-  nobody can tell which
-- each acceptance criterion, and how it was verified
-- anything deliberately left undone, and whether another ticket tracks it
+- the PR
+- anything deliberately left undone, and the ticket that tracks it
 
-Attach the plan (see below) when the route produced one. It holds the reasoning
-and the rejected options; do not restate its decision table in the comment.
+Nothing else. Not the criteria and how each was verified — the checks live in
+the body, and the PR's gates are the record of their passing. Not the route —
+the label is the record. Not the story of getting there: what you tried, what
+you gave up on, and how the finished work compared to the original ticket all
+stay out. If the ticket itself turned out to be wrong, fix the body — see
+above.
 
-Write down results, not the story of getting there. Leave out what you tried,
-what you gave up on, and how the finished work compared to the original ticket.
-If the ticket itself turned out to be wrong, fix the body — see above.
+Attach the plan (see below) when the route produced one; do not restate its
+decision table in the comment.
 
 ## Attaching the plan
 
@@ -339,7 +372,7 @@ different laptop. Never paste a filesystem path into a ticket and call it a
 reference.
 
 A `route-direct` ticket has no plan folder and nothing to attach. That is expected —
-say so in the closing comment rather than leaving a silent gap.
+its `## Decisions` section is the decision record.
 
 A `route-brainstorm` ticket that stopped at "just build it" has notes but no
 plan. Attach nothing; the closing comment carries what was decided.
@@ -376,6 +409,11 @@ attach the files. Waiting until close assumes whoever builds it is whoever
 planned it, on the machine that planned it — the assumption this whole system
 exists to break.
 
+The same edit drains `## Open questions`: delete every line the shaping
+answered. The answers — the "no"s included — are in the Decision Log you are
+attaching, so the questions leave the body in the same action their answers
+arrive.
+
 `.lightsout` is gitignored. Until these files are attached, a plan exists on
 exactly one laptop, and any other agent picking up that ticket sees a problem
 statement with none of the shaping behind it.
@@ -410,3 +448,10 @@ Each of these has actually happened on this team.
 - **Detail written early.** A ticket that will sit for weeks should hold less,
   not more. On the day you file it you know less about the problem than anyone
   who reads it later.
+- **Reading a check as a ceiling.** A criterion that named only one step was
+  nearly read as a decision to scope the fix to that step. Criteria record the
+  observed case; only `## Decisions` narrows scope.
+- **Resurrecting a rejection.** An idea the user declined during planning was
+  read from `## Open questions` as unfinished work, and a ticket was filed for
+  the thing the user had said no to. A "no" is a decision — record it as one
+  and delete the question.

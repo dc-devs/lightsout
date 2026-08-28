@@ -85,6 +85,16 @@ the user's ability to answer.
 plain words. Read the codebase in-context (Read/Grep/Glob) when it answers a
 question — never ask what the code can answer.
 
+When the idea traces to a Linear ticket, read the ticket first. Its
+`## Decisions` lines are outcomes the user already settled — never re-ask
+them, and do not copy them into this skill's exit file: `/plan` harvests
+the ticket itself, and a copy here would put the same row in the record
+twice. Its `## Open questions` are this conversation's agenda. Its
+acceptance criteria are floors, never ceilings: a criterion naming one case
+does not decide that other cases are out of scope. A "no" the user settles
+here is a decision row like any other, and a rejected idea never becomes a
+new ticket.
+
 **2. Scope check.** Judge out loud: is this one buildable idea, one idea too
 big for a single pass, or several independent ideas? Several → say so, agree
 which one to shape now, and note the rest for later.

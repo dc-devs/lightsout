@@ -102,6 +102,13 @@ all three count:
 | `.lightsout/plans/<name>/decisions.json` | what was settled earlier in this plan session |
 | the drafted plan's `## Decision Log` | the rows of both, plus every answer folded in since the draft |
 
+A ticket's `## Decisions` lines are the same kind of record: outcomes the
+user settled before shaping began. Elicitation harvests them into
+`decisions.json` (step 2), and from then on this section governs them like
+any other row. A ticket's acceptance criteria are **not** decisions — they
+are floors, never ceilings, and a criterion's silence about a case decides
+nothing.
+
 A settled question is **dropped**, not answered again. Do not append a
 `Decision Log` row for it and do not mirror one into `decisions.json` — the
 row it would duplicate is already there. Where a step distinguishes answering
@@ -198,6 +205,12 @@ warnings into Elicitation.
   conversation before the skill was invoked, record each decision the user
   already made as a decisions row (`Source = "Elicitation"`) before asking
   anything. Those rows are settled — see [Settled decisions](#settled-decisions).
+- **Harvest the ticket.** When the work traces to a Linear ticket, record
+  each line of its `## Decisions` as a decisions row (`Source =
+  "Elicitation"`, `assumption: false`) before asking anything — those are
+  settled. Treat its `## Open questions` as part of the interview's agenda.
+  A "no" the user settles to one of them is a decisions row like any other,
+  and a rejected idea never becomes a new ticket.
 - **Honor the brainstorm hand-off.** The rows in
   `brainstorm-decisions.json` are decisions already settled with the user, and
   [Settled decisions](#settled-decisions) governs them — never re-asked,
