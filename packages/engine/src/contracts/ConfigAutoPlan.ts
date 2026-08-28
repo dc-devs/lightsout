@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { renamedKey } from '#src/contracts/common/utils/renamedKey.ts';
 
 /**
  * The optional `auto-plan` block of `lightsout.config.json` — which of
@@ -36,7 +37,9 @@ export const ConfigAutoPlan = z
 		 * escalation bar; a question that clears it parks the run instead of being
 		 * guessed past. Default false.
 		 */
-		'auto-approve': z.boolean().optional(),
+		'auto-approve-plan': z.boolean().optional(),
+		/** Removed — renamed to `auto-approve-plan`. Declared only so a stale config fails loudly instead of failing as an unknown key. */
+		'auto-approve': renamedKey({ from: 'auto-plan.auto-approve', to: 'auto-plan.auto-approve-plan' }),
 	})
 	.strict();
 

@@ -22555,6 +22555,9 @@ var StandardsSet = {
   Tests: "tests"
 };
 
+// src/contracts/common/utils/renamedKey.ts
+var renamedKey = ({ from, to }) => external_exports.never(`\`${from}\` was renamed to \`${to}\``).optional();
+
 // src/contracts/ConfigAutoPlan.ts
 var ConfigAutoPlan = external_exports.object({
   /**
@@ -22573,7 +22576,9 @@ var ConfigAutoPlan = external_exports.object({
    * escalation bar; a question that clears it parks the run instead of being
    * guessed past. Default false.
    */
-  "auto-approve": external_exports.boolean().optional()
+  "auto-approve-plan": external_exports.boolean().optional(),
+  /** Removed — renamed to `auto-approve-plan`. Declared only so a stale config fails loudly instead of failing as an unknown key. */
+  "auto-approve": renamedKey({ from: "auto-plan.auto-approve", to: "auto-plan.auto-approve-plan" })
 }).strict();
 
 // src/contracts/Effort.ts
@@ -22601,9 +22606,6 @@ var ConfigCommands = external_exports.object({
   plan: commandHarness.optional(),
   "test-coverage-to-threshold": commandHarness.optional()
 }).strict();
-
-// src/contracts/common/utils/renamedKey.ts
-var renamedKey = ({ from, to }) => external_exports.never(`\`${from}\` was renamed to \`${to}\``).optional();
 
 // src/contracts/common/constants/baseGateShape.ts
 var baseGateShape = {

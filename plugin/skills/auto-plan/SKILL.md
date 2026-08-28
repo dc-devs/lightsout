@@ -53,9 +53,9 @@ proposal, where every self-answer is listed and veto-able, while a needless
 escalation costs the thing this skill exists to save.
 
 **A question that clears the bar is never planned past.** Without
-`auto-approve` it becomes an unscheduled checkpoint: ask it in the Question
+`auto-approve-plan` it becomes an unscheduled checkpoint: ask it in the Question
 format, one at a time, before the step that depends on it, then fold the answer
-in and carry on. Under `auto-approve` the run parks instead — see
+in and carry on. Under `auto-approve-plan` the run parks instead — see
 [Parking a run](#parking-a-run).
 
 ## Settled decisions
@@ -180,7 +180,7 @@ questions against the drafted plan; grilling intensity never drops.
   plan file via Edit, append a `Decision Log` row with `Source = Grill` and a
   rationale ending `(self-answered)`, and mirror it into decisions.json with
   `"assumption": true`. Above the bar → an unscheduled checkpoint, or a park
-  under `auto-approve`.
+  under `auto-approve-plan`.
 - **Stop rule.** The plan skill grills until the user says stop; there is no
   user here, so: **stop when one complete pass over every plan file produces no
   question whose answer would change the plan.** A second pass that only
@@ -224,7 +224,7 @@ edit folded in since.
 - **An `unjudged` gap is reported in the proposal rather than silently
   self-answered:** nobody weighed it, and a re-grade does not retry that judge.
 
-**8. The proposal.** One message, unless `auto-approve` is true and nothing
+**8. The proposal.** One message, unless `auto-approve-plan` is true and nothing
 cleared the bar. It carries, in this order:
 
 - what the plan builds, in plain words — two or three sentences, no jargon;
@@ -264,7 +264,7 @@ into ship is the `ship` block's business inside the engine, not this skill's.
 
 ## Parking a run
 
-When `auto-approve` is true and a question clears the bar, there is no proposal
+When `auto-approve-plan` is true and a question clears the bar, there is no proposal
 to carry it in and the skill does not guess past it. It:
 
 - stops before the step that depends on the answer;
@@ -276,7 +276,7 @@ to carry it in and the skill does not guess past it. It:
 - reports the plan folder path, and says that `/lightsout:plan` or a re-run
   after the question is settled continues the work.
 
-`auto-approve` means *do not wait for me when nothing needs me*. It never means
+`auto-approve-plan` means *do not wait for me when nothing needs me*. It never means
 *guess past what does*.
 
 ## What this skill never does

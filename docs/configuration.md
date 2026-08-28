@@ -200,6 +200,8 @@ failure.
 | `standards-packages`, `standardsPackages` | — | Removed spellings of `standards-packs`. A config still carrying either one fails to parse, with a message naming the key that replaced it. |
 | `standards-channels`          |       no | Controls which framework-specific documents of the loaded packs are used, such as `react`. When omitted, channels are detected from the packages involved in the run. Providing an array replaces automatic detection. Use `[]` to load only the base documents.                                                                                                                              |
 | `standards-checks`            |       no | Per-rule overrides for `lightsout standards-check`, keyed by rule id. A rule you do not name keeps its own default. See [Standards check rules](#standards-check-rules).                                                                                                                                                                                                                         |
+| `ship`                        |       no | Opt-in settings for `lightsout ship`. See [Ship settings](#ship-settings).                                                                                                                                                                                                                                                                                                                        |
+| `auto-plan`                   |       no | Opt-in settings for `/auto-plan`: which of its checkpoints this repository keeps. See [Auto-plan settings](#auto-plan-settings).                                                                                                                                                                                                                                                                  |
 
 ### Standards check rules
 
@@ -269,6 +271,28 @@ A repository that wants the strict profile promotes those rules itself — an ex
 }
 ```
 
+### Ship settings
+
+| Field                 | Required | What it controls                                                                                                                                                                                                                     |
+| --------------------- | -------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ship.ticket-pattern` |       no | A JavaScript regular expression source matched against the branch name. It must carry a named group `ticket`, whose value becomes the result's ticket reference; every other named group becomes a token the body template may use. Defaults to `^(?<ticket>[a-z]+-\d+)`. |
+| `ship.pr-body`        |       no | The pull request body template. Brace-wrapped tokens are substituted: `branch`, and one per named group of the ticket pattern. An unknown token is left exactly as written. Defaults to the bare ticket token on its own.            |
+| `ship.merge-method`   |       no | How the forge merges: `merge`, `squash`, or `rebase`. Defaults to `merge`.                                                                                                                                                          |
+| `ship.after-implement` |       no | When true, a passed `/implement` run chains into ship without `--ship` being typed. Defaults to `false`.                                                                                                                             |
+
+This block is where your team's tracker conventions live, so no tracker vocabulary reaches engine code. The default body is deliberately inert — a body that closes a ticket automatically is a team's convention, not the engine's. The block is strict: an unknown key fails parsing rather than silently disabling a setting you believe is on.
+
+### Auto-plan settings
+
+| Field                            | Required | What it controls                                                                                                                                                                       |
+| -------------------------------- | -------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auto-plan.propose-before-draft` |       no | When true, the proposal comes before the plan is drafted and carries the design shape rather than the finished plan. Defaults to `false`, where the proposal shows the real, graded plan. |
+| `auto-plan.implement-on-approval` |       no | When true, an approved proposal starts `/implement` rather than stopping at the hand-off line. Defaults to `false`: auto-plan only plans.                                                |
+| `auto-plan.auto-approve-plan`    |       no | When true, the proposal is skipped entirely, provided nothing cleared the escalation bar; a question that clears it parks the run instead of being guessed past. Defaults to `false`.    |
+| `auto-plan.auto-approve`         |        — | Removed spelling of `auto-approve-plan`. A config still carrying it fails to parse, with a message naming the key that replaced it.                                                      |
+
+Every key is off by default, so an absent block is the most supervised behaviour there is — the skill plans the whole ticket, shows one proposal, and stops. Turning a key on is a repository saying the factory may carry on that far without asking. The block is strict for the same reason `ship` is.
+
 ### Harness-neutral keys
 
 Two rules govern the keys above, and this surface depends on both:
@@ -337,6 +361,21 @@ The following example shows how the optional configuration fields fit together:
   "timeouts": {
     "agent-minutes": 60,
     "supervisor-minutes": 15,
+  },
+
+  // Ship: how a branch reaches merged, and what its pull request says
+  "ship": {
+    "ticket-pattern": "^(?<ticket>[a-z]+-(?<number>\\d+))",
+    "pr-body": "Closes ABC-{number}",
+    "merge-method": "merge",
+    "after-implement": false,
+  },
+
+  // Auto-plan: which of /auto-plan's checkpoints this repo keeps
+  "auto-plan": {
+    "propose-before-draft": true,
+    "auto-approve-plan": true,
+    "implement-on-approval": true,
   },
 
   // Per-rule standards-check overrides
