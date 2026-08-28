@@ -30,7 +30,7 @@
 	},
 	"auto-plan": {
 		"propose-before-draft": true,
-		"auto-approve": true,
+		"auto-approve-plan": true,
 		"implement-on-approval": true
 	},
 	"package-gates": {

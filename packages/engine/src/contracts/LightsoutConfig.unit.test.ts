@@ -90,12 +90,12 @@ test('LightsoutConfig: the ship block is optional, keeps its own kebab-case spel
 test('LightsoutConfig: the auto-plan block is optional, keeps its own kebab-case spelling, and stays strict through the composition', () => {
 	const parsed = LightsoutConfig.parse({
 		...base,
-		'auto-plan': { 'propose-before-draft': true, 'implement-on-approval': true, 'auto-approve': false },
+		'auto-plan': { 'propose-before-draft': true, 'implement-on-approval': true, 'auto-approve-plan': false },
 	});
 
 	// the block survives parsing as the file wrote it — nothing renames a key on
 	// the way through
-	expect(parsed['auto-plan']).toStrictEqual({ 'propose-before-draft': true, 'implement-on-approval': true, 'auto-approve': false });
+	expect(parsed['auto-plan']).toStrictEqual({ 'propose-before-draft': true, 'implement-on-approval': true, 'auto-approve-plan': false });
 
 	// the block's own strictness fires through the composition: a typoed key here
 	// would silently disable a checkpoint the file believes is removed

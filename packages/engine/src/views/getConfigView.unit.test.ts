@@ -170,14 +170,14 @@ describe('getConfigView', () => {
 	});
 
 	test('shows the auto-plan block whole in its own area, because no leaf of it has a default worth a row of its own', async () => {
-		const cwd = await seedConfiguredCwd({ config: { 'auto-plan': { 'implement-on-approval': true, 'auto-approve': false } } });
+		const cwd = await seedConfiguredCwd({ config: { 'auto-plan': { 'implement-on-approval': true, 'auto-approve-plan': false } } });
 
 		const view = await getConfigView({ cwd });
 
 		const autoPlan = view.sections.find((section) => section.title === 'Auto plan');
 
 		expect(autoPlan?.fields).toEqual([
-			expect.objectContaining({ key: 'auto-plan', value: { 'implement-on-approval': true, 'auto-approve': false }, fromConfig: true }),
+			expect.objectContaining({ key: 'auto-plan', value: { 'implement-on-approval': true, 'auto-approve-plan': false }, fromConfig: true }),
 		]);
 	});
 

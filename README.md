@@ -107,6 +107,18 @@ Or start from a plain description:
 /plan add rate limiting to the public API
 ```
 
+### /auto-plan
+
+Plan a ticket without the interview. `/auto-plan` does the work `/plan` does, but answers the questions itself — every question that falls below a written escalation bar. It stops only for the ones two reasonable engineers would answer differently.
+
+It then shows one proposal, carrying a digest of every question it answered for itself. Any of those answers can be vetoed there.
+
+What happens after you approve — stop at the hand-off line, or start the build — is the `auto-plan` config block's decision. Reach for it when the ticket is shaped enough that you would answer most of the interview with "you decide".
+
+```text
+/auto-plan LO-64
+```
+
 ### /implement
 
 Hand the finished spec to the factory. `/implement` follows the plan, writes the code and tests, and performs a mandatory refactoring pass.
@@ -117,6 +129,16 @@ Deterministic gates run between every stage. If a test, lint, type-check, or cov
 
 ```text
 /implement .lightsout/plans/rate-limiting/plan.md
+```
+
+### lightsout ship
+
+Take a committed branch from where it stands to merged and cleaned up. `lightsout ship` pushes the branch, opens or adopts the pull request, waits for the checks, merges, deletes the branch and syncs the default branch — then writes one JSON result a tracker skill can read.
+
+It has no slash command of its own. Its house conventions — the branch pattern that carries a ticket reference, the pull request body, the merge method, and whether a passed `/implement` run chains straight into it — live in the `ship` config block. See [Configuration](docs/configuration.md).
+
+```text
+lightsout ship
 ```
 
 ### /refactor
