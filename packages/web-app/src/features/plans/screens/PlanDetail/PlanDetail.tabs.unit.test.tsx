@@ -349,7 +349,7 @@ describe('PlanDetail grade tab', () => {
 
 describe('PlanDetail dedup tab', () => {
 	test('tells a reviewed-and-clean workspace apart from one nobody reviewed', () => {
-		setupPlanDetail({ overrides: { dedup: { planName: name, findings: [], complete: true, reviewedAt: '2026-01-01T00:00:00.000Z' } } });
+		setupPlanDetail({ overrides: { dedup: { planName: name, findings: [], reviewed: [], complete: true, reviewedAt: '2026-01-01T00:00:00.000Z' } } });
 
 		openTab({ tab: 'Dedup' });
 
@@ -369,6 +369,7 @@ describe('PlanDetail dedup tab', () => {
 			overrides: {
 				dedup: {
 					planName: name,
+					reviewed: [],
 					complete: true,
 					reviewedAt: '2026-01-01T00:00:00.000Z',
 					findings: [

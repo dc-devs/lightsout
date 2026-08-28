@@ -36,7 +36,7 @@ export {
 	CommandStep,
 } from '#src/contracts/commands/index.ts';
 export { CoverageBatchReport, CoverageFile, CoverageTotal, CoverageWorklist } from '#src/contracts/coverage/index.ts';
-export { DedupFinding, DedupJudgment, DedupReport, DedupResolution, DedupVerdict } from '#src/contracts/dedup/index.ts';
+export { DedupFinding, DedupJudgment, DedupReport, DedupResolution, DedupVerdict, ReviewedCollision } from '#src/contracts/dedup/index.ts';
 export { Effort } from '#src/contracts/Effort.ts';
 export { FrictionArea, FrictionEntry, FrictionRecord } from '#src/contracts/friction/index.ts';
 export { GateResult } from '#src/contracts/gates/index.ts';

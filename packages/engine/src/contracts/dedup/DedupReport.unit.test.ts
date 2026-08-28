@@ -30,6 +30,7 @@ describe('DedupReport', () => {
 			planName: 'packages-to-src',
 			reviewedAt: '2026-08-04T00:00:00.000Z',
 			complete: true,
+			reviewed: [],
 			findings: [
 				{
 					plannedSymbol: 'formatDate',
@@ -154,6 +155,37 @@ describe('DedupReport', () => {
 		const result = DedupReport.safeParse({ ...report, findings: finding });
 
 		// a single finding object in place of the list is a malformed report
+		expect(result.success).toBe(false);
+	});
+});
+
+describe('DedupReport reviewed', () => {
+	test('a report from before the field existed reads as nothing reviewed', () => {
+		const parsed = DedupReport.parse({ planName: 'packages-to-src', reviewedAt: '2026-08-04T00:00:00.000Z' });
+
+		// the default has to be the noisy answer: an old dedup.json cannot claim to
+		// have settled collisions it never recorded
+		expect(parsed.reviewed).toStrictEqual([]);
+	});
+
+	test('a reviewed collision round-trips as the triple that identifies it', () => {
+		const parsed = DedupReport.parse({
+			planName: 'packages-to-src',
+			reviewedAt: '2026-08-04T00:00:00.000Z',
+			reviewed: [{ plannedSymbol: 'formatDate', plannedPath: 'src/plan/formatDate.ts', phase: 'phase2-cross-phase-checks.md' }],
+		});
+
+		expect(parsed.reviewed).toStrictEqual([{ plannedSymbol: 'formatDate', plannedPath: 'src/plan/formatDate.ts', phase: 'phase2-cross-phase-checks.md' }]);
+	});
+
+	test('one malformed reviewed entry rejects the whole report', () => {
+		const result = DedupReport.safeParse({
+			planName: 'packages-to-src',
+			reviewedAt: '2026-08-04T00:00:00.000Z',
+			reviewed: [{ plannedSymbol: 'formatDate', phase: 'plan.md' }],
+		});
+
+		// a half-read record would settle collisions it cannot identify
 		expect(result.success).toBe(false);
 	});
 });

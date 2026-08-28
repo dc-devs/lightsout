@@ -1,7 +1,7 @@
 import { basename, join } from 'node:path';
 import { buildPlanDedupInvocation } from '#src/agents/index.ts';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
-import { type DedupFinding, DedupJudgment, type DedupReport, type Effort, type Permissions } from '#src/contracts/index.ts';
+import { type DedupFinding, DedupJudgment, type DedupReport, type Effort, type Permissions, type ReviewedCollision } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
@@ -98,9 +98,16 @@ const spawnDedupJudge = async ({
  * ambiguous set than the whole plan — and the findings concatenate in plan-file
  * order. A judge that failed contributes a labelled reason instead, and never
  * silences the groups that did return.
+ *
+ * `reviewed` is collected from the same loop and under the same condition: a
+ * group whose judge returned had every one of its collisions weighed, whether
+ * or not any became a finding. A group whose judge failed contributes nothing,
+ * so a lost judge leaves its collisions unweighed rather than quietly recorded
+ * as settled.
  */
 const foldDedupResults = ({ results }: { results: Array<DedupResult | undefined> }) => {
 	const findings: DedupFinding[] = [];
+	const reviewed: ReviewedCollision[] = [];
 	const failures: string[] = [];
 
 	for (const result of results) {
@@ -114,9 +121,16 @@ const foldDedupResults = ({ results }: { results: Array<DedupResult | undefined>
 		}
 
 		findings.push(...matchDedupVerdicts({ candidates: result.group.candidates, verdicts: result.outcome.report.verdicts }));
+		reviewed.push(
+			...result.group.candidates.map(({ plannedSymbol, plannedPath, phase }) => ({
+				plannedSymbol,
+				plannedPath,
+				phase,
+			})),
+		);
 	}
 
-	return { findings, failures, rateLimited: results.some((result) => isRateLimited({ result })) };
+	return { findings, reviewed, failures, rateLimited: results.some((result) => isRateLimited({ result })) };
 };
 
 /**
@@ -149,10 +163,19 @@ export const runPlanDedup = async (params: Params): Promise<RunPlanDedupResult> 
 
 	const candidates = await detectPriorArtCandidates({ cwd, planPaths, config });
 	const dedupPath = join(workspaceDir, 'dedup.json');
-	const writeReport = async ({ findings, incompleteReason }: { findings: DedupFinding[]; incompleteReason?: string }) => {
+	const writeReport = async ({
+		findings,
+		reviewed = [],
+		incompleteReason,
+	}: {
+		findings: DedupFinding[];
+		reviewed?: ReviewedCollision[];
+		incompleteReason?: string;
+	}) => {
 		const dedup: DedupReport = {
 			planName: name,
 			findings,
+			reviewed,
 			complete: incompleteReason === undefined,
 			incompleteReason,
 			reviewedAt: new Date().toISOString(),
@@ -178,8 +201,8 @@ export const runPlanDedup = async (params: Params): Promise<RunPlanDedupResult> 
 		tasks: groups.map((group) => () => spawnDedupJudge({ params, pass, group })),
 		concurrency: planAgentConcurrency,
 	});
-	const { findings, failures, rateLimited } = foldDedupResults({ results });
-	const dedup = await writeReport({ findings, incompleteReason: failures.length > 0 ? failures.join('; ') : undefined });
+	const { findings, reviewed, failures, rateLimited } = foldDedupResults({ results });
+	const dedup = await writeReport({ findings, reviewed, incompleteReason: failures.length > 0 ? failures.join('; ') : undefined });
 
 	progress(`plan dedup ${name}: ${findings.length} duplication(s) to review`);
 
