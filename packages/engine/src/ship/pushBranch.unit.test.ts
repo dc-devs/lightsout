@@ -8,9 +8,9 @@ describe('pushBranch', () => {
 	test('a branch the remote has never seen lands there, with its upstream set', async () => {
 		const { cwd, origin } = setupBranchRepo({ branch: 'lo-60-ship' });
 
-		const pushed = await pushBranch({ branch: 'lo-60-ship', cwd });
+		const failure = await pushBranch({ branch: 'lo-60-ship', cwd });
 
-		expect(pushed).toBe(true);
+		expect(failure).toBe(undefined);
 		expect(execSync("git branch --format='%(refname:short)'", { cwd: origin, encoding: 'utf8' })).toContain('lo-60-ship');
 	});
 
@@ -18,22 +18,23 @@ describe('pushBranch', () => {
 		const { cwd } = setupBranchRepo({ branch: 'lo-60-ship' });
 
 		execSync('git push -q -u origin lo-60-ship', { cwd, stdio: 'ignore' });
-		const pushed = await pushBranch({ branch: 'lo-60-ship', cwd });
+		const failure = await pushBranch({ branch: 'lo-60-ship', cwd });
 
-		expect(pushed).toBe(true);
+		expect(failure).toBe(undefined);
 	});
 
-	test('a repo with no origin to push to answers false rather than raising', async () => {
+	test('a repo with no origin to push to answers with git’s own words rather than raising', async () => {
 		const cwd = setupConsumerRepo();
 
-		const pushed = await pushBranch({ branch: 'lo-60-ship', cwd });
+		const failure = await pushBranch({ branch: 'lo-60-ship', cwd });
 
-		expect(pushed).toBe(false);
+		expect(failure).toEqual({ stderr: expect.stringContaining('origin') });
 	});
 
-	test('a directory git cannot even be started in answers false', async () => {
-		const pushed = await pushBranch({ branch: 'lo-60-ship', cwd: '/lightsout/no/such/directory' });
+	test('a directory git cannot even be started in answers a failure carrying whatever the platform said', async () => {
+		const failure = await pushBranch({ branch: 'lo-60-ship', cwd: '/lightsout/no/such/directory' });
 
-		expect(pushed).toBe(false);
+		expect(failure).toBeDefined();
+		expect(failure?.stderr).toEqual(expect.any(String));
 	});
 });

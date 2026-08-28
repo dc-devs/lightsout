@@ -1,6 +1,7 @@
 import { ShipBlockReason, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
 import { checkShipPreconditions } from '#src/ship/checkShipPreconditions.ts';
 import type { ShipSettings } from '#src/ship/common/types/ShipSettings.ts';
+import type { ShipStepFailure } from '#src/ship/common/types/ShipStepFailure.ts';
 import { createPullRequest, findOpenPullRequest, mergePullRequest, type PullRequestSummary } from '#src/ship/forge/index.ts';
 import { pushBranch } from '#src/ship/pushBranch.ts';
 import { renderPullRequestBody } from '#src/ship/renderPullRequestBody.ts';
@@ -45,6 +46,28 @@ const stopShip = ({
 	return record({ cwd, onProgress, result: { status: ShipStatus.Blocked, failingChecks, ...block } });
 };
 
+/**
+ * The block's own sentence, with the failing command's words after it.
+ *
+ * Redacted before it is kept: the result file is persisted and quoted outward
+ * by tracker skills, and `git push` stderr can echo a tokenized remote
+ * (`https://user:ghp_xxx@github.com/...`). URL userinfo and token-shaped runs
+ * are masked, so a credential can never leave the machine through this file.
+ *
+ * Capped rather than whole: this is a hand-off a tracker skill quotes into a
+ * comment, not a log, so a hook that prints a page of guidance is cut off at
+ * the point a human has already got the message. An empty stderr leaves the
+ * sentence exactly as it was, so no result ever ends in a bare colon.
+ */
+const appendCommandOutput = ({ sentence, stderr }: { sentence: string; stderr: string }) => {
+	const maxStderrCharacters = 500;
+	const redacted = stderr.replaceAll(/(\/\/)[^\s/@]+(?::[^\s/@]*)?@/g, '$1***@').replaceAll(/\b(gh[pousr]|github_pat)_[A-Za-z0-9_]{16,}\b/g, '***');
+	const trimmed = redacted.trim();
+	const capped = trimmed.length > maxStderrCharacters ? `${trimmed.slice(0, maxStderrCharacters)}…` : trimmed;
+
+	return capped === '' ? sentence : `${sentence}: ${capped}`;
+};
+
 /** The branch's pull request: the open one when there is one, else a new one carrying the rendered body. */
 const openPullRequest = async ({
 	branch,
@@ -58,7 +81,7 @@ const openPullRequest = async ({
 	settings: ShipSettings;
 	ticket: Record<string, string>;
 	onProgress?: ProgressSink;
-}): Promise<PullRequestSummary | undefined> => {
+}): Promise<PullRequestSummary | ShipStepFailure> => {
 	const adopted = await findOpenPullRequest({ branch, cwd });
 
 	if (adopted !== undefined) {
@@ -72,7 +95,7 @@ const openPullRequest = async ({
 	const body = renderPullRequestBody({ template: settings.pullRequestBody, tokens: { ...ticket, branch } });
 	const created = await createPullRequest({ branch, body, cwd });
 
-	onProgress?.(created === undefined ? 'the forge would not open a pull request' : `opened pull request #${created.number}`);
+	onProgress?.('stderr' in created ? 'the forge would not open a pull request' : `opened pull request #${created.number}`);
 
 	return created;
 };
@@ -100,14 +123,24 @@ export const runShip = async ({ cwd, settings, onProgress }: Params): Promise<Sh
 
 	onProgress?.(`ship: ${branch} → ${defaultBranch}, ticket ${ticketRef}`);
 
-	if (!(await pushBranch({ branch, cwd }))) {
-		return stopShip({ ...stopFields, reason: ShipBlockReason.PushFailed, detail: `git could not push '${branch}' to origin` });
+	const pushFailure = await pushBranch({ branch, cwd });
+
+	if (pushFailure !== undefined) {
+		return stopShip({
+			...stopFields,
+			reason: ShipBlockReason.PushFailed,
+			detail: appendCommandOutput({ sentence: `git could not push '${branch}' to origin`, stderr: pushFailure.stderr }),
+		});
 	}
 
 	const pullRequest = await openPullRequest({ branch, cwd, settings, ticket, onProgress });
 
-	if (pullRequest === undefined) {
-		return stopShip({ ...stopFields, reason: ShipBlockReason.PullRequestUnavailable, detail: `no pull request could be opened or read for '${branch}'` });
+	if ('stderr' in pullRequest) {
+		return stopShip({
+			...stopFields,
+			reason: ShipBlockReason.PullRequestUnavailable,
+			detail: appendCommandOutput({ sentence: `no pull request could be opened or read for '${branch}'`, stderr: pullRequest.stderr }),
+		});
 	}
 
 	const checks = await waitForChecks({ prNumber: pullRequest.number, cwd, onProgress });
@@ -127,8 +160,12 @@ export const runShip = async ({ cwd, settings, onProgress }: Params): Promise<Sh
 
 	const mergeCommit = await mergePullRequest({ prNumber: pullRequest.number, mergeMethod: settings.mergeMethod, cwd });
 
-	if (mergeCommit === undefined) {
-		return stopShip({ ...stopFields, reason: ShipBlockReason.MergeRejected, detail: `the forge refused to merge #${pullRequest.number}` });
+	if (typeof mergeCommit !== 'string') {
+		return stopShip({
+			...stopFields,
+			reason: ShipBlockReason.MergeRejected,
+			detail: appendCommandOutput({ sentence: `the forge refused to merge #${pullRequest.number}`, stderr: mergeCommit.stderr }),
+		});
 	}
 
 	await syncDefaultBranch({ cwd, defaultBranch, branch, onProgress });

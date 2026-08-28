@@ -1,3 +1,4 @@
+import type { ShipStepFailure } from '#src/ship/common/types/ShipStepFailure.ts';
 import type { PullRequestSummary } from '#src/ship/forge/common/types/PullRequestSummary.ts';
 import { parseForgeJson } from '#src/ship/forge/common/utils/parseForgeJson.ts';
 import { toPullRequestSummary } from '#src/ship/forge/common/utils/toPullRequestSummary.ts';
@@ -29,24 +30,26 @@ const readCreatedNumber = ({ stdout }: { stdout: string }) => {
  * written by a second call, and the third reads back what the forge actually
  * recorded rather than trusting what was asked for.
  *
- * Any of the three exiting non-zero answers undefined; the caller turns that
- * into a blocked result.
+ * Any of the three exiting non-zero answers that call's own stderr, so the
+ * caller can tell a refused create from a refused edit without another round
+ * trip; it turns that into a blocked result.
  */
-export const createPullRequest = async ({ branch, body, cwd }: Params): Promise<PullRequestSummary | undefined> => {
+export const createPullRequest = async ({ branch, body, cwd }: Params): Promise<PullRequestSummary | ShipStepFailure> => {
 	const created = await runGh({ args: ['pr', 'create', '--fill-first', '--head', branch], cwd });
 	const prNumber = created.exitCode === 0 ? readCreatedNumber({ stdout: created.stdout }) : undefined;
 
 	if (prNumber === undefined) {
-		return undefined;
+		return { stderr: created.stderr };
 	}
 
 	const edited = await runGh({ args: ['pr', 'edit', String(prNumber), '--body', body], cwd });
 
 	if (edited.exitCode !== 0) {
-		return undefined;
+		return { stderr: edited.stderr };
 	}
 
 	const viewed = await runGh({ args: ['pr', 'view', String(prNumber), '--json', 'number,url,title,headRefName'], cwd });
+	const summary = viewed.exitCode === 0 ? toPullRequestSummary({ row: parseForgeJson({ stdout: viewed.stdout }) }) : undefined;
 
-	return viewed.exitCode === 0 ? toPullRequestSummary({ row: parseForgeJson({ stdout: viewed.stdout }) }) : undefined;
+	return summary ?? { stderr: viewed.stderr };
 };

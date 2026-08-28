@@ -29,6 +29,8 @@
 		"merge-method": "merge"
 	},
 	"auto-plan": {
+		"propose-before-draft": true,
+		"auto-approve": true,
 		"implement-on-approval": true
 	},
 	"package-gates": {

@@ -35,7 +35,12 @@ export const ShipResult = z.object({
 	mergedAt: z.string().optional(),
 	/** Present exactly when status is 'blocked'. */
 	reason: z.enum(ShipBlockReason).optional(),
-	/** One human-readable sentence naming what stopped it. */
+	/**
+	 * One human-readable sentence naming what stopped it. When the step that
+	 * stopped it ran a command, the sentence is followed by a colon and that
+	 * command's output — trimmed, and capped at a few hundred characters, since
+	 * this is a hand-off a tracker skill quotes rather than a log.
+	 */
 	detail: z.string().optional(),
 	/** Named checks that finished red or never finished — filled for 'checks-failed' and 'checks-timed-out'. */
 	failingChecks: z.array(z.string()).default([]),

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { ShipMergeMethod } from '#src/contracts/index.ts';
+import type { ShipStepFailure } from '#src/ship/common/types/ShipStepFailure.ts';
 import { parseForgeJson } from '#src/ship/forge/common/utils/parseForgeJson.ts';
 import { runGh } from '#src/ship/forge/runGh.ts';
 
@@ -19,19 +20,20 @@ const MergedView = z.object({ mergeCommit: z.object({ oid: z.string() }) });
  * `--delete-branch` is the "branch deleted" step of the ship sequence, done by
  * the forge so the remote branch goes with the merge rather than lingering
  * until someone remembers it. A non-zero exit — a conflict, a protected
- * branch, a missing review — answers undefined, and so does a merge that
- * landed but whose commit the forge would not name, because a shipped result
- * with no merge commit in it is not one a tracker skill can use.
+ * branch, a missing review — answers the merge's own stderr, and a merge that
+ * landed but whose commit the forge would not name answers the read-back's,
+ * which is usually empty, because a shipped result with no merge commit in it
+ * is not one a tracker skill can use.
  */
-export const mergePullRequest = async ({ prNumber, mergeMethod, cwd }: Params): Promise<string | undefined> => {
+export const mergePullRequest = async ({ prNumber, mergeMethod, cwd }: Params): Promise<string | ShipStepFailure> => {
 	const merged = await runGh({ args: ['pr', 'merge', String(prNumber), `--${mergeMethod}`, '--delete-branch'], cwd });
 
 	if (merged.exitCode !== 0) {
-		return undefined;
+		return { stderr: merged.stderr };
 	}
 
 	const viewed = await runGh({ args: ['pr', 'view', String(prNumber), '--json', 'mergeCommit'], cwd });
 	const view = MergedView.safeParse(parseForgeJson({ stdout: viewed.stdout }));
 
-	return view.success ? view.data.mergeCommit.oid : undefined;
+	return view.success ? view.data.mergeCommit.oid : { stderr: viewed.stderr };
 };
