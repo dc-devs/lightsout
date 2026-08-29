@@ -33,6 +33,17 @@
 		"auto-approve-plan": true,
 		"implement-on-approval": true
 	},
+	"queue": {
+		"tracker": "linear",
+		"team": "LO",
+		"route-labels": {
+			"direct": "route-direct",
+			"auto-plan": "route-auto-plan"
+		},
+		"max-parallel": 2,
+		"api-key-env": "LINEAR_API_KEY",
+		"setup": "pnpm install"
+	},
 	"package-gates": {
 		"check": "pnpm --filter {package} run check",
 		"test": "pnpm --filter {package} run test:unit",

@@ -46,3 +46,5 @@ fixtures/*/.lightsout/review-findings.jsonl
 .fdrop/
 
 .notes/
+
+.env
