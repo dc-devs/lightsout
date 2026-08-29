@@ -15,14 +15,32 @@ jest.mock('#src/queue/tracker/runLinear.ts', () => ({ runLinear: (params: { apiK
 
 const settings = queueSettingsFixture();
 
-const issueOf = ({ number, labels }: { number: number; labels: string[] }) => ({
+/** How many times each issue's relations were read, so a withdrawn ticket can be shown to cost no round trip. */
+const relationReads = new Map<string, number>();
+
+const issueOf = ({ number, labels, blockedBy = [] }: { number: number; labels: string[]; blockedBy?: string[] }) => ({
 	id: `id-${number}`,
 	identifier: `LO-${number}`,
 	title: `Ticket ${number}`,
 	description: '',
 	priority: 3,
 	createdAt: new Date('2026-02-02T00:00:00.000Z'),
-	labels: () => Promise.resolve({ nodes: labels.map((name) => ({ name })) }),
+	labels: () => {
+		const page = { nodes: labels.map((name) => ({ name })), pageInfo: { hasNextPage: false }, fetchNext: () => Promise.resolve(page) };
+
+		return Promise.resolve(page);
+	},
+	inverseRelations: () => {
+		relationReads.set(`LO-${number}`, (relationReads.get(`LO-${number}`) ?? 0) + 1);
+
+		const page = {
+			nodes: blockedBy.map((identifier) => ({ type: 'blocks', issue: Promise.resolve({ identifier, state: Promise.resolve({ type: 'started' }) }) })),
+			pageInfo: { hasNextPage: false },
+			fetchNext: () => Promise.resolve(page),
+		};
+
+		return Promise.resolve(page);
+	},
 });
 
 const setupClient = ({ issues }: { issues: ReturnType<typeof issueOf>[] }) => {
@@ -72,7 +90,16 @@ describe('getTicketsByIdentifiers', () => {
 
 		expect(filters).toStrictEqual([{ team: { key: { eq: 'LO' } }, number: { in: [70, 71] } }]);
 		expect(tickets).toStrictEqual([
-			{ id: 'id-70', identifier: 'LO-70', title: 'Ticket 70', description: '', priority: 3, createdAt: '2026-02-02T00:00:00.000Z', route: 'direct' },
+			{
+				id: 'id-70',
+				identifier: 'LO-70',
+				title: 'Ticket 70',
+				description: '',
+				priority: 3,
+				createdAt: '2026-02-02T00:00:00.000Z',
+				route: 'direct',
+				unfinishedBlockers: [],
+			},
 		]);
 	});
 
@@ -101,12 +128,40 @@ describe('getTicketsByIdentifiers', () => {
 		expect(await getTicketsByIdentifiers({ settings, identifiers: ['LO-70'] })).toStrictEqual([]);
 	});
 
+	test('carries a resumed ticket’s unfinished blockers, so one uniform filter covers resumed and fresh pickups alike', async () => {
+		setupClient({ issues: [issueOf({ number: 70, labels: ['route-direct'], blockedBy: ['LO-69'] })] });
+
+		expect(await getTicketsByIdentifiers({ settings, identifiers: ['LO-70'] })).toEqual([expect.objectContaining({ unfinishedBlockers: ['LO-69'] })]);
+	});
+
+	test('never reads the relations of a ticket whose route labels were all removed, because a withdrawn ticket must cost no round trip', async () => {
+		relationReads.clear();
+		setupClient({ issues: [issueOf({ number: 70, labels: ['bug'] })] });
+
+		await getTicketsByIdentifiers({ settings, identifiers: ['LO-70'] });
+
+		expect(relationReads.get('LO-70')).toBeUndefined();
+	});
+
 	test('answers one summary per route label a ticket carries, so the drain’s double-label skip sees it the same way either route in', async () => {
 		setupClient({ issues: [issueOf({ number: 70, labels: ['route-direct', 'route-auto-plan'] })] });
 
 		const tickets = await getTicketsByIdentifiers({ settings, identifiers: ['LO-70'] });
 
 		expect(tickets).toEqual([expect.objectContaining({ route: 'direct' }), expect.objectContaining({ route: 'auto-plan' })]);
+	});
+
+	test('reads a double-labelled ticket’s relations once for both routes, so a second route label costs no second round trip', async () => {
+		relationReads.clear();
+		setupClient({ issues: [issueOf({ number: 70, labels: ['route-direct', 'route-auto-plan'], blockedBy: ['LO-69'] })] });
+
+		const tickets = await getTicketsByIdentifiers({ settings, identifiers: ['LO-70'] });
+
+		expect(relationReads.get('LO-70')).toBe(1);
+		expect(tickets).toEqual([
+			expect.objectContaining({ route: 'direct', unfinishedBlockers: ['LO-69'] }),
+			expect.objectContaining({ route: 'auto-plan', unfinishedBlockers: ['LO-69'] }),
+		]);
 	});
 
 	test('pages the connection to exhaustion, so a restart holding more parked worktrees than one page reads them all', async () => {

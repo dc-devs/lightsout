@@ -47777,24 +47777,24 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
       return "$" + node.name;
     },
     Document: function Document$1(node) {
-      return join90(node.definitions, "\n\n") + "\n";
+      return join91(node.definitions, "\n\n") + "\n";
     },
     OperationDefinition: function OperationDefinition(node) {
       var op = node.operation;
       var name = node.name;
-      var varDefs = wrap("(", join90(node.variableDefinitions, ", "), ")");
-      var directives = join90(node.directives, " ");
+      var varDefs = wrap("(", join91(node.variableDefinitions, ", "), ")");
+      var directives = join91(node.directives, " ");
       var selectionSet = node.selectionSet;
-      return !name && !directives && !varDefs && op === "query" ? selectionSet : join90([
+      return !name && !directives && !varDefs && op === "query" ? selectionSet : join91([
         op,
-        join90([name, varDefs]),
+        join91([name, varDefs]),
         directives,
         selectionSet
       ], " ");
     },
     VariableDefinition: function VariableDefinition(_ref) {
       var variable = _ref.variable, type = _ref.type, defaultValue = _ref.defaultValue, directives = _ref.directives;
-      return variable + ": " + type + wrap(" = ", defaultValue) + wrap(" ", join90(directives, " "));
+      return variable + ": " + type + wrap(" = ", defaultValue) + wrap(" ", join91(directives, " "));
     },
     SelectionSet: function SelectionSet(_ref2) {
       var selections = _ref2.selections;
@@ -47803,11 +47803,11 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
     Field: function Field(_ref3) {
       var alias = _ref3.alias, name = _ref3.name, args = _ref3.arguments, directives = _ref3.directives, selectionSet = _ref3.selectionSet;
       var prefix = wrap("", alias, ": ") + name;
-      var argsLine = prefix + wrap("(", join90(args, ", "), ")");
-      if (argsLine.length > MAX_LINE_LENGTH) argsLine = prefix + wrap("(\n", indent(join90(args, "\n")), "\n)");
-      return join90([
+      var argsLine = prefix + wrap("(", join91(args, ", "), ")");
+      if (argsLine.length > MAX_LINE_LENGTH) argsLine = prefix + wrap("(\n", indent(join91(args, "\n")), "\n)");
+      return join91([
         argsLine,
-        join90(directives, " "),
+        join91(directives, " "),
         selectionSet
       ], " ");
     },
@@ -47817,20 +47817,20 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
     },
     FragmentSpread: function FragmentSpread(_ref5) {
       var name = _ref5.name, directives = _ref5.directives;
-      return "..." + name + wrap(" ", join90(directives, " "));
+      return "..." + name + wrap(" ", join91(directives, " "));
     },
     InlineFragment: function InlineFragment(_ref6) {
       var typeCondition = _ref6.typeCondition, directives = _ref6.directives, selectionSet = _ref6.selectionSet;
-      return join90([
+      return join91([
         "...",
         wrap("on ", typeCondition),
-        join90(directives, " "),
+        join91(directives, " "),
         selectionSet
       ], " ");
     },
     FragmentDefinition: function FragmentDefinition(_ref7) {
       var name = _ref7.name, typeCondition = _ref7.typeCondition, variableDefinitions = _ref7.variableDefinitions, directives = _ref7.directives, selectionSet = _ref7.selectionSet;
-      return "fragment ".concat(name).concat(wrap("(", join90(variableDefinitions, ", "), ")"), " ") + "on ".concat(typeCondition, " ").concat(wrap("", join90(directives, " "), " ")) + selectionSet;
+      return "fragment ".concat(name).concat(wrap("(", join91(variableDefinitions, ", "), ")"), " ") + "on ".concat(typeCondition, " ").concat(wrap("", join91(directives, " "), " ")) + selectionSet;
     },
     IntValue: function IntValue(_ref8) {
       return _ref8.value;
@@ -47853,11 +47853,11 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
     },
     ListValue: function ListValue(_ref13) {
       var values = _ref13.values;
-      return "[" + join90(values, ", ") + "]";
+      return "[" + join91(values, ", ") + "]";
     },
     ObjectValue: function ObjectValue(_ref14) {
       var fields = _ref14.fields;
-      return "{" + join90(fields, ", ") + "}";
+      return "{" + join91(fields, ", ") + "}";
     },
     ObjectField: function ObjectField(_ref15) {
       var name = _ref15.name, value = _ref15.value;
@@ -47865,7 +47865,7 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
     },
     Directive: function Directive(_ref16) {
       var name = _ref16.name, args = _ref16.arguments;
-      return "@" + name + wrap("(", join90(args, ", "), ")");
+      return "@" + name + wrap("(", join91(args, ", "), ")");
     },
     NamedType: function NamedType(_ref17) {
       return _ref17.name;
@@ -47878,9 +47878,9 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
     },
     SchemaDefinition: addDescription(function(_ref20) {
       var directives = _ref20.directives, operationTypes = _ref20.operationTypes;
-      return join90([
+      return join91([
         "schema",
-        join90(directives, " "),
+        join91(directives, " "),
         block(operationTypes)
       ], " ");
     }),
@@ -47890,149 +47890,149 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
     },
     ScalarTypeDefinition: addDescription(function(_ref22) {
       var name = _ref22.name, directives = _ref22.directives;
-      return join90([
+      return join91([
         "scalar",
         name,
-        join90(directives, " ")
+        join91(directives, " ")
       ], " ");
     }),
     ObjectTypeDefinition: addDescription(function(_ref23) {
       var name = _ref23.name, interfaces = _ref23.interfaces, directives = _ref23.directives, fields = _ref23.fields;
-      return join90([
+      return join91([
         "type",
         name,
-        wrap("implements ", join90(interfaces, " & ")),
-        join90(directives, " "),
+        wrap("implements ", join91(interfaces, " & ")),
+        join91(directives, " "),
         block(fields)
       ], " ");
     }),
     FieldDefinition: addDescription(function(_ref24) {
       var name = _ref24.name, args = _ref24.arguments, type = _ref24.type, directives = _ref24.directives;
-      return name + (hasMultilineItems(args) ? wrap("(\n", indent(join90(args, "\n")), "\n)") : wrap("(", join90(args, ", "), ")")) + ": " + type + wrap(" ", join90(directives, " "));
+      return name + (hasMultilineItems(args) ? wrap("(\n", indent(join91(args, "\n")), "\n)") : wrap("(", join91(args, ", "), ")")) + ": " + type + wrap(" ", join91(directives, " "));
     }),
     InputValueDefinition: addDescription(function(_ref25) {
       var name = _ref25.name, type = _ref25.type, defaultValue = _ref25.defaultValue, directives = _ref25.directives;
-      return join90([
+      return join91([
         name + ": " + type,
         wrap("= ", defaultValue),
-        join90(directives, " ")
+        join91(directives, " ")
       ], " ");
     }),
     InterfaceTypeDefinition: addDescription(function(_ref26) {
       var name = _ref26.name, interfaces = _ref26.interfaces, directives = _ref26.directives, fields = _ref26.fields;
-      return join90([
+      return join91([
         "interface",
         name,
-        wrap("implements ", join90(interfaces, " & ")),
-        join90(directives, " "),
+        wrap("implements ", join91(interfaces, " & ")),
+        join91(directives, " "),
         block(fields)
       ], " ");
     }),
     UnionTypeDefinition: addDescription(function(_ref27) {
       var name = _ref27.name, directives = _ref27.directives, types = _ref27.types;
-      return join90([
+      return join91([
         "union",
         name,
-        join90(directives, " "),
-        types && types.length !== 0 ? "= " + join90(types, " | ") : ""
+        join91(directives, " "),
+        types && types.length !== 0 ? "= " + join91(types, " | ") : ""
       ], " ");
     }),
     EnumTypeDefinition: addDescription(function(_ref28) {
       var name = _ref28.name, directives = _ref28.directives, values = _ref28.values;
-      return join90([
+      return join91([
         "enum",
         name,
-        join90(directives, " "),
+        join91(directives, " "),
         block(values)
       ], " ");
     }),
     EnumValueDefinition: addDescription(function(_ref29) {
       var name = _ref29.name, directives = _ref29.directives;
-      return join90([name, join90(directives, " ")], " ");
+      return join91([name, join91(directives, " ")], " ");
     }),
     InputObjectTypeDefinition: addDescription(function(_ref30) {
       var name = _ref30.name, directives = _ref30.directives, fields = _ref30.fields;
-      return join90([
+      return join91([
         "input",
         name,
-        join90(directives, " "),
+        join91(directives, " "),
         block(fields)
       ], " ");
     }),
     DirectiveDefinition: addDescription(function(_ref31) {
       var name = _ref31.name, args = _ref31.arguments, repeatable = _ref31.repeatable, locations = _ref31.locations;
-      return "directive @" + name + (hasMultilineItems(args) ? wrap("(\n", indent(join90(args, "\n")), "\n)") : wrap("(", join90(args, ", "), ")")) + (repeatable ? " repeatable" : "") + " on " + join90(locations, " | ");
+      return "directive @" + name + (hasMultilineItems(args) ? wrap("(\n", indent(join91(args, "\n")), "\n)") : wrap("(", join91(args, ", "), ")")) + (repeatable ? " repeatable" : "") + " on " + join91(locations, " | ");
     }),
     SchemaExtension: function SchemaExtension(_ref32) {
       var directives = _ref32.directives, operationTypes = _ref32.operationTypes;
-      return join90([
+      return join91([
         "extend schema",
-        join90(directives, " "),
+        join91(directives, " "),
         block(operationTypes)
       ], " ");
     },
     ScalarTypeExtension: function ScalarTypeExtension(_ref33) {
       var name = _ref33.name, directives = _ref33.directives;
-      return join90([
+      return join91([
         "extend scalar",
         name,
-        join90(directives, " ")
+        join91(directives, " ")
       ], " ");
     },
     ObjectTypeExtension: function ObjectTypeExtension(_ref34) {
       var name = _ref34.name, interfaces = _ref34.interfaces, directives = _ref34.directives, fields = _ref34.fields;
-      return join90([
+      return join91([
         "extend type",
         name,
-        wrap("implements ", join90(interfaces, " & ")),
-        join90(directives, " "),
+        wrap("implements ", join91(interfaces, " & ")),
+        join91(directives, " "),
         block(fields)
       ], " ");
     },
     InterfaceTypeExtension: function InterfaceTypeExtension(_ref35) {
       var name = _ref35.name, interfaces = _ref35.interfaces, directives = _ref35.directives, fields = _ref35.fields;
-      return join90([
+      return join91([
         "extend interface",
         name,
-        wrap("implements ", join90(interfaces, " & ")),
-        join90(directives, " "),
+        wrap("implements ", join91(interfaces, " & ")),
+        join91(directives, " "),
         block(fields)
       ], " ");
     },
     UnionTypeExtension: function UnionTypeExtension(_ref36) {
       var name = _ref36.name, directives = _ref36.directives, types = _ref36.types;
-      return join90([
+      return join91([
         "extend union",
         name,
-        join90(directives, " "),
-        types && types.length !== 0 ? "= " + join90(types, " | ") : ""
+        join91(directives, " "),
+        types && types.length !== 0 ? "= " + join91(types, " | ") : ""
       ], " ");
     },
     EnumTypeExtension: function EnumTypeExtension(_ref37) {
       var name = _ref37.name, directives = _ref37.directives, values = _ref37.values;
-      return join90([
+      return join91([
         "extend enum",
         name,
-        join90(directives, " "),
+        join91(directives, " "),
         block(values)
       ], " ");
     },
     InputObjectTypeExtension: function InputObjectTypeExtension(_ref38) {
       var name = _ref38.name, directives = _ref38.directives, fields = _ref38.fields;
-      return join90([
+      return join91([
         "extend input",
         name,
-        join90(directives, " "),
+        join91(directives, " "),
         block(fields)
       ], " ");
     }
   };
   function addDescription(cb) {
     return function(node) {
-      return join90([node.description, cb(node)], "\n");
+      return join91([node.description, cb(node)], "\n");
     };
   }
-  function join90(maybeArray) {
+  function join91(maybeArray) {
     var _maybeArray$filter$jo;
     var separator = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : "";
     return (_maybeArray$filter$jo = maybeArray === null || maybeArray === void 0 ? void 0 : maybeArray.filter(function(x) {
@@ -48040,7 +48040,7 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
     }).join(separator)) !== null && _maybeArray$filter$jo !== void 0 ? _maybeArray$filter$jo : "";
   }
   function block(array2) {
-    return wrap("{\n", indent(join90(array2, "\n")), "\n}");
+    return wrap("{\n", indent(join91(array2, "\n")), "\n}");
   }
   function wrap(start, maybeString) {
     var end = arguments.length > 2 && arguments[2] !== void 0 ? arguments[2] : "";
@@ -144975,8 +144975,8 @@ var QueueRoute = {
   AutoPlan: "auto-plan"
 };
 
-// src/queue/tracker/common/utils/collectIssues.ts
-var collectIssues = async ({ connection }) => {
+// src/queue/tracker/common/utils/collectNodes.ts
+var collectNodes = async ({ connection }) => {
   let page = connection;
   while (page.pageInfo.hasNextPage) {
     page = await page.fetchNext();
@@ -144984,23 +144984,46 @@ var collectIssues = async ({ connection }) => {
   return page.nodes;
 };
 
+// src/queue/tracker/common/utils/getUnfinishedBlockers.ts
+var finishedStateTypes = /* @__PURE__ */ new Set(["completed", "canceled"]);
+var getUnfinishedBlockers = async ({ issue: issue2 }) => {
+  const relations = await collectNodes({ connection: await issue2.inverseRelations() });
+  const resolved = await Promise.all(
+    relations.filter((relation) => relation.type === "blocks").map(async (relation) => {
+      const blocker = await relation.issue;
+      if (blocker === void 0) {
+        return void 0;
+      }
+      const state = await blocker.state;
+      return state !== void 0 && finishedStateTypes.has(state.type) ? void 0 : blocker.identifier;
+    })
+  );
+  return resolved.filter((identifier) => identifier !== void 0);
+};
+
 // src/queue/tracker/common/utils/toTicketSummary.ts
-var toTicketSummary = ({ issue: issue2, route }) => ({
+var toTicketSummary = ({ issue: issue2, route, unfinishedBlockers }) => ({
   id: issue2.id,
   identifier: issue2.identifier,
   title: issue2.title,
   description: issue2.description ?? "",
   priority: issue2.priority,
   createdAt: issue2.createdAt.toISOString(),
-  route
+  route,
+  unfinishedBlockers
 });
 
 // src/queue/tracker/getTicketsByIdentifiers.ts
 var readIssueNumbers = ({ identifiers }) => identifiers.map((identifier) => Number.parseInt(identifier.split("-").at(-1) ?? "", 10)).filter((issueNumber) => Number.isFinite(issueNumber));
 var toRoutedSummaries = async ({ issue: issue2, settings }) => {
-  const labels = await issue2.labels();
-  const names = new Set(labels.nodes.map((label) => label.name));
-  return Object.values(QueueRoute).filter((route) => names.has(settings.routeLabels[route])).map((route) => toTicketSummary({ issue: issue2, route }));
+  const labels = await collectNodes({ connection: await issue2.labels() });
+  const names = new Set(labels.map((label) => label.name));
+  const routes = Object.values(QueueRoute).filter((route) => names.has(settings.routeLabels[route]));
+  if (routes.length === 0) {
+    return [];
+  }
+  const unfinishedBlockers = await getUnfinishedBlockers({ issue: issue2 });
+  return routes.map((route) => toTicketSummary({ issue: issue2, route, unfinishedBlockers }));
 };
 var getTicketsByIdentifiers = async ({ settings, identifiers }) => {
   const issueNumbers = readIssueNumbers({ identifiers });
@@ -145011,7 +145034,7 @@ var getTicketsByIdentifiers = async ({ settings, identifiers }) => {
     apiKey: settings.apiKey,
     call: async (client) => {
       const connection = await client.issues({ filter: { team: { key: { eq: settings.team } }, number: { in: issueNumbers } } });
-      const issues = await collectIssues({ connection });
+      const issues = await collectNodes({ connection });
       const routed = await Promise.all(issues.map((issue2) => toRoutedSummaries({ issue: issue2, settings })));
       return routed.flat();
     }
@@ -145033,8 +145056,8 @@ var listEligibleTickets = async ({ settings }) => {
               state: { name: { in: settings.eligibleStatuses } }
             }
           });
-          const issues = await collectIssues({ connection });
-          return issues.map((issue2) => toTicketSummary({ issue: issue2, route }));
+          const issues = await collectNodes({ connection });
+          return Promise.all(issues.map(async (issue2) => toTicketSummary({ issue: issue2, route, unfinishedBlockers: await getUnfinishedBlockers({ issue: issue2 }) })));
         })
       );
       return perRoute.flat();
@@ -145408,14 +145431,23 @@ var resolveQueueSettings = ({ config: config2, env }) => {
 };
 
 // src/queue/runQueue.ts
+import { join as join83 } from "node:path";
+
+// src/queue/drainWaves.ts
 import { writeFile as writeFile16 } from "node:fs/promises";
-import { join as join82 } from "node:path";
+import { join as join79 } from "node:path";
 
 // src/queue/common/utils/getWorktreesRoot.ts
 import { basename as basename18, dirname as dirname9, join as join78, resolve as resolve9 } from "node:path";
 var getWorktreesRoot = ({ cwd }) => {
   const repo = resolve9(cwd);
   return join78(dirname9(repo), `${basename18(repo)}-worktrees`);
+};
+
+// src/queue/orderTickets.ts
+var orderTickets = ({ tickets }) => {
+  const rank = ({ priority }) => priority === 0 ? 5 : priority;
+  return [...tickets].sort((left, right) => rank(left) - rank(right) || left.createdAt.localeCompare(right.createdAt));
 };
 
 // src/queue/dedupeTickets.ts
@@ -145440,6 +145472,33 @@ var dedupeTickets = ({ tickets, settings, onProgress }) => {
     leftBehind.push({ identifier: ticket.identifier, reason });
   }
   return { ordered, leftBehind };
+};
+
+// src/queue/selectWaveTickets.ts
+var selectWaveTickets = ({ tickets, settings, attempted, onProgress }) => {
+  const fresh = tickets.filter((ticket) => !attempted.has(ticket.identifier.toLowerCase()));
+  const { ordered, leftBehind } = dedupeTickets({ tickets: fresh, settings, onProgress });
+  const runnable = [];
+  const blocked = [];
+  for (const ticket of ordered) {
+    if (ticket.unfinishedBlockers.length === 0) {
+      runnable.push(ticket);
+      continue;
+    }
+    const reason = `waiting: blocked by ${ticket.unfinishedBlockers.join(", ")} \u2014 the queue takes it once every blocker is finished`;
+    onProgress?.(`${ticket.identifier} \xB7 ${reason}`);
+    blocked.push({ identifier: ticket.identifier, reason });
+  }
+  return { runnable, blocked, skipped: leftBehind };
+};
+
+// src/queue/listNextWave.ts
+var listNextWave = async ({ settings, attempted, onProgress }) => {
+  const eligible = await listEligibleTickets({ settings });
+  if ("error" in eligible) {
+    return eligible;
+  }
+  return selectWaveTickets({ tickets: orderTickets({ tickets: eligible }), settings, attempted, onProgress });
 };
 
 // src/queue/drainTickets.ts
@@ -145484,12 +145543,192 @@ var drainTickets = async ({ queued, maxParallel, runTicket, onProgress }) => {
   return { outcomes, leftBehind };
 };
 
+// src/queue/removeTicketWorktree.ts
+var removeTicketWorktree = async ({ cwd, worktreePath, branch }) => {
+  const steps = [`git worktree remove --force ${worktreePath}`, "git worktree prune", `git branch -d ${branch}`];
+  for (const command of steps) {
+    await runCommand({ command, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  }
+};
+
+// src/queue/shipReadyBranches.ts
+var rebaseOntoDefault = async ({ worktreePath, defaultBranch }) => {
+  const fetchFailure = await runOrDescribeFailure({ command: "git fetch origin", cwd: worktreePath });
+  if (fetchFailure !== void 0) {
+    return `git could not fetch origin: ${fetchFailure}`;
+  }
+  const rebaseFailure = await runOrDescribeFailure({ command: `git rebase origin/${defaultBranch}`, cwd: worktreePath });
+  if (rebaseFailure === void 0) {
+    return void 0;
+  }
+  await runCommand({ command: "git rebase --abort", cwd: worktreePath, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  return `the branch would not rebase onto origin/${defaultBranch}: ${rebaseFailure}`;
+};
+var shipOne = async ({ cwd, config: config2, shipSettings, defaultBranch, outcome, onProgress }) => {
+  const park = ({ error: error51 }) => {
+    onProgress?.(`${outcome.ticket.identifier} \xB7 not shipped: ${error51}`);
+    return { ...outcome, ready: false, error: error51 };
+  };
+  onProgress?.(`${outcome.ticket.identifier} \xB7 rebasing ${outcome.branch} onto origin/${defaultBranch}`);
+  const conflict = await rebaseOntoDefault({ worktreePath: outcome.worktreePath, defaultBranch });
+  if (conflict !== void 0) {
+    return park({ error: conflict });
+  }
+  const gateError = await runGates({ cwd: outcome.worktreePath, config: config2, coverage: true, onProgress });
+  if (gateError !== void 0) {
+    return park({ error: gateError });
+  }
+  const shipped = await runShip({ cwd: outcome.worktreePath, settings: shipSettings, onProgress });
+  if (shipped.status === ShipStatus.Blocked) {
+    return park({ error: `${shipped.reason}: ${shipped.detail}` });
+  }
+  await removeTicketWorktree({ cwd, worktreePath: outcome.worktreePath, branch: outcome.branch });
+  onProgress?.(`${outcome.ticket.identifier} \xB7 shipped as ${shipped.mergeCommit}`);
+  return outcome;
+};
+var shipReadyBranches = async ({ cwd, config: config2, shipSettings, defaultBranch, ready, onProgress }) => {
+  const shipped = [];
+  for (const outcome of ready) {
+    shipped.push(await shipOne({ cwd, config: config2, shipSettings, defaultBranch, outcome, onProgress }));
+  }
+  return shipped;
+};
+
+// src/queue/runQueueWave.ts
+var runQueueWave = async ({
+  cwd,
+  config: config2,
+  shipSettings,
+  defaultBranch,
+  queued,
+  maxParallel,
+  carried,
+  runTicket,
+  onProgress
+}) => {
+  const drained = await drainTickets({ queued, maxParallel, runTicket, onProgress });
+  const settled2 = [...carried, ...drained.outcomes];
+  const ready = settled2.filter((outcome) => outcome.ready);
+  const shipped = await shipReadyBranches({ cwd, config: config2, shipSettings, defaultBranch, ready, onProgress });
+  const outcomes = [...shipped, ...settled2.filter((outcome) => !outcome.ready)];
+  const report = { outcomes, leftBehind: drained.leftBehind };
+  return report;
+};
+
+// src/queue/toTicketBranch.ts
+var toSlug = ({ title }) => {
+  const maxSlugLength = 40;
+  const dashed = title.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/^-+|-+$/g, "");
+  if (dashed.length <= maxSlugLength) {
+    return dashed;
+  }
+  const cut = dashed.slice(0, maxSlugLength);
+  const lastDash = cut.lastIndexOf("-");
+  return (lastDash === -1 ? cut : cut.slice(0, lastDash)).replaceAll(/-+$/g, "");
+};
+var toTicketBranch = ({ ticket, template }) => template.replaceAll("{ticket}", ticket.identifier.toLowerCase()).replaceAll("{slug}", toSlug({ title: ticket.title }));
+
+// src/queue/drainWaves.ts
+var writeQueuePlan = ({ path, queued, settings, cwd }) => {
+  const root = getWorktreesRoot({ cwd });
+  const lines = queued.map((ticket) => {
+    const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
+    return `- ${ticket.identifier} \xB7 ${ticket.route} \xB7 ${branch} \xB7 ${join79(root, branch)}`;
+  });
+  return writeFile16(path, `# queue drain
+
+${lines.join("\n")}
+`, "utf8");
+};
+var toParkedIdentifiers = ({ parked }) => [
+  ...parked.outcomes.map((outcome) => outcome.ticket.identifier),
+  ...parked.leftBehind.map((entry) => entry.identifier)
+];
+var rememberBlocked = ({ blockedByIdentifier, entries }) => {
+  for (const entry of entries) {
+    blockedByIdentifier.set(entry.identifier.toLowerCase(), entry);
+  }
+};
+var settleWave = ({
+  attempted,
+  blockedByIdentifier,
+  selection,
+  wave
+}) => {
+  const identifiers = [
+    ...selection.runnable.map((ticket) => ticket.identifier),
+    ...selection.skipped.map((entry) => entry.identifier),
+    ...wave.leftBehind.map((entry) => entry.identifier)
+  ];
+  for (const identifier of identifiers) {
+    attempted.add(identifier.toLowerCase());
+    blockedByIdentifier.delete(identifier.toLowerCase());
+  }
+};
+var drainWaves = async ({
+  cwd,
+  settings,
+  shipSettings,
+  config: config2,
+  defaultBranch,
+  planPath,
+  first,
+  parked,
+  runTicket,
+  onProgress
+}) => {
+  const outcomes = [];
+  const leftBehind = [...parked.leftBehind];
+  const attempted = new Set(toParkedIdentifiers({ parked }).map((identifier) => identifier.toLowerCase()));
+  const blockedByIdentifier = /* @__PURE__ */ new Map();
+  const queuedSoFar = [];
+  let selection = first;
+  let carried = parked.outcomes;
+  for (; ; ) {
+    queuedSoFar.push(...selection.runnable);
+    rememberBlocked({ blockedByIdentifier, entries: selection.blocked });
+    await writeQueuePlan({ path: planPath, queued: queuedSoFar, settings, cwd });
+    const wave = await runQueueWave({
+      cwd,
+      config: config2,
+      shipSettings,
+      defaultBranch,
+      queued: selection.runnable,
+      maxParallel: settings.maxParallel,
+      carried,
+      runTicket,
+      onProgress
+    });
+    outcomes.push(...wave.outcomes);
+    leftBehind.push(...selection.skipped, ...wave.leftBehind);
+    settleWave({ attempted, blockedByIdentifier, selection, wave });
+    carried = [];
+    if (selection.blocked.length === 0) {
+      break;
+    }
+    const next = await listNextWave({ settings, attempted, onProgress });
+    if ("error" in next) {
+      onProgress?.(`the re-scan for newly unblocked tickets failed, so the drain stops here: ${next.error}`);
+      break;
+    }
+    if (next.runnable.length === 0) {
+      rememberBlocked({ blockedByIdentifier, entries: next.blocked });
+      leftBehind.push(...next.skipped);
+      break;
+    }
+    selection = next;
+  }
+  leftBehind.push(...blockedByIdentifier.values());
+  const report = { outcomes, leftBehind };
+  return report;
+};
+
 // src/queue/runQueueTicket.ts
-import { join as join80 } from "node:path";
+import { join as join81 } from "node:path";
 
 // src/queue/createTicketWorktree.ts
 import { stat as stat7 } from "node:fs/promises";
-import { join as join79 } from "node:path";
+import { join as join80 } from "node:path";
 var exists = async ({ path }) => {
   const found = await stat7(path).catch(() => void 0);
   return found !== void 0;
@@ -145499,7 +145738,7 @@ var branchExists = async ({ cwd, branch }) => {
   return shown?.exitCode === 0;
 };
 var createTicketWorktree = async ({ cwd, branch, defaultBranch, setup, onProgress }) => {
-  const worktreePath = join79(getWorktreesRoot({ cwd }), branch);
+  const worktreePath = join80(getWorktreesRoot({ cwd }), branch);
   if (await exists({ path: worktreePath })) {
     onProgress?.(`worktree already at ${worktreePath} \u2014 continuing in it`);
     return worktreePath;
@@ -145615,19 +145854,6 @@ var runWorkerWithRelay = async ({
   }
 };
 
-// src/queue/toTicketBranch.ts
-var toSlug = ({ title }) => {
-  const maxSlugLength = 40;
-  const dashed = title.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/^-+|-+$/g, "");
-  if (dashed.length <= maxSlugLength) {
-    return dashed;
-  }
-  const cut = dashed.slice(0, maxSlugLength);
-  const lastDash = cut.lastIndexOf("-");
-  return (lastDash === -1 ? cut : cut.slice(0, lastDash)).replaceAll(/-+$/g, "");
-};
-var toTicketBranch = ({ ticket, template }) => template.replaceAll("{ticket}", ticket.identifier.toLowerCase()).replaceAll("{slug}", toSlug({ title: ticket.title }));
-
 // src/queue/runQueueTicket.ts
 var runQueueTicket = async ({
   cwd,
@@ -145646,7 +145872,7 @@ var runQueueTicket = async ({
   const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
   const created = await serializeWorktreeAdd(() => createTicketWorktree({ cwd, branch, defaultBranch, setup: settings.setup, onProgress }));
   if (typeof created !== "string") {
-    return { ticket, branch, worktreePath: join80(getWorktreesRoot({ cwd }), branch), ready: false, error: created.error };
+    return { ticket, branch, worktreePath: join81(getWorktreesRoot({ cwd }), branch), ready: false, error: created.error };
   }
   const worktreePath = created;
   const moved = await setTicketStatus({ settings, ticketId: ticket.id, statusName: settings.inProgressStatus });
@@ -145671,7 +145897,7 @@ var runQueueTicket = async ({
   const committed = await commitTicketWork({
     cwd: worktreePath,
     message: `${ticket.identifier} ${ticket.title}`,
-    runDir: join80(coordinatorRunDir, "tickets", ticket.identifier)
+    runDir: join81(coordinatorRunDir, "tickets", ticket.identifier)
   });
   if ("error" in committed) {
     return { ticket, branch, worktreePath, ready: false, error: committed.error };
@@ -145684,11 +145910,11 @@ var runQueueTicket = async ({
 
 // src/queue/scanParkedWorktrees.ts
 import { realpath } from "node:fs/promises";
-import { join as join81 } from "node:path";
+import { join as join82 } from "node:path";
 var toQueuePath = ({ path, root, realRoot }) => {
   for (const prefix of [root, realRoot]) {
     if (path.startsWith(`${prefix}/`)) {
-      return join81(root, path.slice(prefix.length + 1));
+      return join82(root, path.slice(prefix.length + 1));
     }
   }
   return void 0;
@@ -145784,64 +146010,22 @@ var settleParkedLabels = async ({ settings, outcomes, onProgress }) => {
   );
 };
 
-// src/queue/removeTicketWorktree.ts
-var removeTicketWorktree = async ({ cwd, worktreePath, branch }) => {
-  const steps = [`git worktree remove --force ${worktreePath}`, "git worktree prune", `git branch -d ${branch}`];
-  for (const command of steps) {
-    await runCommand({ command, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  }
-};
-
-// src/queue/shipReadyBranches.ts
-var rebaseOntoDefault = async ({ worktreePath, defaultBranch }) => {
-  const fetchFailure = await runOrDescribeFailure({ command: "git fetch origin", cwd: worktreePath });
-  if (fetchFailure !== void 0) {
-    return `git could not fetch origin: ${fetchFailure}`;
-  }
-  const rebaseFailure = await runOrDescribeFailure({ command: `git rebase origin/${defaultBranch}`, cwd: worktreePath });
-  if (rebaseFailure === void 0) {
-    return void 0;
-  }
-  await runCommand({ command: "git rebase --abort", cwd: worktreePath, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  return `the branch would not rebase onto origin/${defaultBranch}: ${rebaseFailure}`;
-};
-var shipOne = async ({ cwd, config: config2, shipSettings, defaultBranch, outcome, onProgress }) => {
-  const park = ({ error: error51 }) => {
-    onProgress?.(`${outcome.ticket.identifier} \xB7 not shipped: ${error51}`);
-    return { ...outcome, ready: false, error: error51 };
-  };
-  onProgress?.(`${outcome.ticket.identifier} \xB7 rebasing ${outcome.branch} onto origin/${defaultBranch}`);
-  const conflict = await rebaseOntoDefault({ worktreePath: outcome.worktreePath, defaultBranch });
-  if (conflict !== void 0) {
-    return park({ error: conflict });
-  }
-  const gateError = await runGates({ cwd: outcome.worktreePath, config: config2, coverage: true, onProgress });
-  if (gateError !== void 0) {
-    return park({ error: gateError });
-  }
-  const shipped = await runShip({ cwd: outcome.worktreePath, settings: shipSettings, onProgress });
-  if (shipped.status === ShipStatus.Blocked) {
-    return park({ error: `${shipped.reason}: ${shipped.detail}` });
-  }
-  await removeTicketWorktree({ cwd, worktreePath: outcome.worktreePath, branch: outcome.branch });
-  onProgress?.(`${outcome.ticket.identifier} \xB7 shipped as ${shipped.mergeCommit}`);
-  return outcome;
-};
-var shipReadyBranches = async ({ cwd, config: config2, shipSettings, defaultBranch, ready, onProgress }) => {
-  const shipped = [];
-  for (const outcome of ready) {
-    shipped.push(await shipOne({ cwd, config: config2, shipSettings, defaultBranch, outcome, onProgress }));
-  }
-  return shipped;
-};
-
 // src/queue/runQueue.ts
 var checkQueueStartup = async ({
   cwd,
   settings,
   shipSettings
 }) => {
-  const sample = { id: "sample", identifier: "AB-1", title: "sample", description: "", priority: 0, createdAt: "", route: QueueRoute.Direct };
+  const sample = {
+    id: "sample",
+    identifier: "AB-1",
+    title: "sample",
+    description: "",
+    priority: 0,
+    createdAt: "",
+    route: QueueRoute.Direct,
+    unfinishedBlockers: []
+  };
   const rendered = toTicketBranch({ ticket: sample, template: settings.branchTemplate });
   if (readTicketMatch({ branch: rendered, ticketPattern: shipSettings.ticketPattern }) === void 0) {
     return {
@@ -145854,21 +146038,6 @@ var checkQueueStartup = async ({
   }
   await runCommand({ command: "git fetch origin", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
   return { defaultBranch };
-};
-var orderTickets = ({ tickets }) => {
-  const rank = ({ priority }) => priority === 0 ? 5 : priority;
-  return [...tickets].sort((left, right) => rank(left) - rank(right) || left.createdAt.localeCompare(right.createdAt));
-};
-var writeQueuePlan = ({ path, queued, settings, cwd }) => {
-  const root = getWorktreesRoot({ cwd });
-  const lines = queued.map((ticket) => {
-    const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
-    return `- ${ticket.identifier} \xB7 ${ticket.route} \xB7 ${branch} \xB7 ${join82(root, branch)}`;
-  });
-  return writeFile16(path, `# queue drain
-
-${lines.join("\n")}
-`, "utf8");
 };
 var createWorktreeSerializer = () => {
   let tail = Promise.resolve();
@@ -145888,20 +146057,24 @@ var drainAndShip = async ({
   driverName,
   relay,
   defaultBranch,
-  queued,
+  first,
   parked,
-  skipped,
   onProgress
 }) => {
   const coordinatorRunDir = getRunDir({ cwd, runId });
-  const planPath = join82(coordinatorRunDir, "queue.md");
+  const planPath = join83(coordinatorRunDir, "queue.md");
   const manifest = await createRun({ cwd, runId, plan: planPath, pipeline: PipelineKind.Queue, driver: driverName, config: config2 });
-  await writeQueuePlan({ path: planPath, queued, settings, cwd });
   await writeManifestWithUsage({ cwd, manifest, patch: { status: RunStatus.Running }, usageTotals: seedUsageTotals({ usage: manifest.usage }) });
   const serializeWorktreeAdd = createWorktreeSerializer();
-  const drained = await drainTickets({
-    queued,
-    maxParallel: settings.maxParallel,
+  const drained = await drainWaves({
+    cwd,
+    settings,
+    shipSettings,
+    config: config2,
+    defaultBranch,
+    planPath,
+    first,
+    parked,
     onProgress,
     runTicket: ({ ticket }) => runQueueTicket({
       cwd,
@@ -145918,16 +146091,10 @@ var drainAndShip = async ({
       onProgress: relay.createProgressSink({ ticket })
     })
   });
-  const settled2 = [...parked.outcomes, ...drained.outcomes];
-  const ready = settled2.filter((outcome) => outcome.ready);
-  const shipped = await shipReadyBranches({ cwd, config: config2, shipSettings, defaultBranch, ready, onProgress });
-  const outcomes = [...shipped, ...settled2.filter((outcome) => !outcome.ready)];
-  const leftBehind = [...parked.leftBehind, ...skipped, ...drained.leftBehind];
-  const status = outcomes.every((outcome) => outcome.ready) && leftBehind.length === 0 ? RunStatus.Passed : RunStatus.Escalated;
-  await settleParkedLabels({ settings, outcomes, onProgress });
+  const status = drained.outcomes.every((outcome) => outcome.ready) && drained.leftBehind.length === 0 ? RunStatus.Passed : RunStatus.Escalated;
+  await settleParkedLabels({ settings, outcomes: drained.outcomes, onProgress });
   await writeManifestWithUsage({ cwd, manifest, patch: { status, currentStep: null }, usageTotals: seedUsageTotals({ usage: manifest.usage }) });
-  const report = { outcomes, leftBehind };
-  return report;
+  return drained;
 };
 var runQueue = async ({
   cwd,
@@ -145952,29 +146119,17 @@ var runQueue = async ({
   if ("error" in parked) {
     return parked;
   }
-  const { ordered, leftBehind } = dedupeTickets({ tickets: [...parked.resumed, ...orderTickets({ tickets: eligible })], settings, onProgress });
-  if (ordered.length === 0 && parked.outcomes.length === 0) {
-    onProgress?.("nothing to do \u2014 no eligible tickets, and no parked worktrees to pick up");
-    const empty = { outcomes: [], leftBehind: [...parked.leftBehind, ...leftBehind] };
+  const first = selectWaveTickets({ tickets: [...parked.resumed, ...orderTickets({ tickets: eligible })], settings, attempted: /* @__PURE__ */ new Set(), onProgress });
+  if (first.runnable.length === 0 && parked.outcomes.length === 0) {
+    onProgress?.(
+      first.blocked.length > 0 ? "nothing to do \u2014 every eligible ticket is waiting on an unfinished blocker" : "nothing to do \u2014 no eligible tickets, and no parked worktrees to pick up"
+    );
+    const empty = { outcomes: [], leftBehind: [...parked.leftBehind, ...first.skipped, ...first.blocked] };
     return empty;
   }
   return withRunLock({
     params: { cwd, onProgress },
-    run: ({ runId }) => drainAndShip({
-      cwd,
-      runId,
-      settings,
-      shipSettings,
-      config: config2,
-      driver,
-      driverName,
-      relay,
-      defaultBranch,
-      queued: ordered,
-      parked,
-      skipped: leftBehind,
-      onProgress
-    })
+    run: ({ runId }) => drainAndShip({ cwd, runId, settings, shipSettings, config: config2, driver, driverName, relay, defaultBranch, first, parked, onProgress })
   });
 };
 
@@ -146030,9 +146185,9 @@ var implementDirectCommand = async ({ flags, cwd }) => {
 
 // src/cli/common/utils/resolveConfigAndDriver.ts
 import { stat as stat8 } from "node:fs/promises";
-import { join as join83 } from "node:path";
+import { join as join84 } from "node:path";
 var resolveConfigAndDriver = async ({ cwd, command }) => {
-  const configPath = join83(cwd, "lightsout.config.json");
+  const configPath = join84(cwd, "lightsout.config.json");
   const present = await stat8(configPath).then(
     () => true,
     () => false
@@ -146054,15 +146209,15 @@ var PromptImprovementStatus = {
 
 // src/runPromptImprovement.ts
 import { readdir as readdir17 } from "node:fs/promises";
-import { join as join84 } from "node:path";
+import { join as join85 } from "node:path";
 var promptsDir = "src/agents/prompts";
 var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model, effort }) => {
   const friction = await readFriction({ cwd: consumerCwd });
   if (friction.length === 0) {
     return { status: PromptImprovementStatus.NoFriction, friction };
   }
-  const files = await readdir17(join84(engineCwd, promptsDir));
-  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join84(promptsDir, file2));
+  const files = await readdir17(join85(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join85(promptsDir, file2));
   const improverTimeoutMs = 20 * 6e4;
   const outcome = await invokeAgentWithContract({
     driver,
@@ -146588,7 +146743,7 @@ var findIntroducedFindings = ({ frozen, live: live2, severity }) => {
 
 // src/refactor/initializeRun.ts
 import { readFile as readFile39, writeFile as writeFile19 } from "node:fs/promises";
-import { join as join87 } from "node:path";
+import { join as join88 } from "node:path";
 
 // src/refactor/batch/batchFindings.ts
 var rulePriority = [
@@ -146932,7 +147087,7 @@ var createSiteChecker = ({ cwd, checkPath, checkAll }) => {
 
 // src/refactor/batch/invokeBatchAgent.ts
 import { mkdir as mkdir14, writeFile as writeFile17 } from "node:fs/promises";
-import { join as join85 } from "node:path";
+import { join as join86 } from "node:path";
 var invokeBatchAgent = async ({
   cwd,
   runId,
@@ -146949,9 +147104,9 @@ var invokeBatchAgent = async ({
   onProgress,
   recordUsage
 }) => {
-  const agentsDir = join85(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join86(getRunDir({ cwd, runId }), "agents");
   const slug = batch.id.replace(/[:/]/g, "_");
-  const streamPath = join85(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
+  const streamPath = join86(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
   await mkdir14(agentsDir, { recursive: true });
   const outcome = await invokeAgentWithContract({
     driver,
@@ -146965,7 +147120,7 @@ var invokeBatchAgent = async ({
     allowedCommands: config2["agent-commands"],
     onEvent: createEventFileSink({ path: streamPath }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile17(join85(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile17(join86(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   const formatError2 = await runFormatter({ cwd, runId, config: config2, step: batch.id });
@@ -146991,7 +147146,7 @@ var invokeBatchAgent = async ({
 
 // src/refactor/batch/superviseBatch.ts
 import { mkdir as mkdir15, writeFile as writeFile18 } from "node:fs/promises";
-import { join as join86 } from "node:path";
+import { join as join87 } from "node:path";
 var superviseBatch = async ({
   cwd,
   runId,
@@ -147008,7 +147163,7 @@ var superviseBatch = async ({
   gates
 }) => {
   onProgress(`${batchId}: gates red after ${maxCheapFixRetries2} cheap fix attempt(s) \u2014 consulting supervisor`);
-  const agentsDir = join86(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join87(getRunDir({ cwd, runId }), "agents");
   const slug = batchId.replace(/[:/]/g, "_");
   await mkdir15(agentsDir, { recursive: true });
   const verdict = await consultSupervisor({
@@ -147019,9 +147174,9 @@ var superviseBatch = async ({
     stepId: batchId,
     errorOutput: gateError,
     attempts,
-    onEvent: createEventFileSink({ path: join86(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
+    onEvent: createEventFileSink({ path: join87(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile18(join86(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile18(join87(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   await recordUsage({ step: `${batchId}:supervisor`, usage: verdict.usage });
@@ -147321,7 +147476,7 @@ var initializeRun = async ({
     if ((existing.pipeline ?? "implement") !== "refactor") {
       throw new Error(`run ${existing.runId} belongs to the implement pipeline \u2014 resume it with: lightsout resume --run ${existing.runId}`);
     }
-    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile39(join87(cwd, existing.plan), "utf8"))) };
+    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile39(join88(cwd, existing.plan), "utf8"))) };
   }
   const dirty = await readGitChangedFiles({ cwd });
   if (dirty === void 0) {
@@ -147334,9 +147489,9 @@ ${dirty.map((file2) => `  ${file2}`).join("\n")}`
     );
   }
   const worklist = await buildWorklist({ cwd, config: config2, path, all });
-  const worklistPath = join87(".lightsout", "runs", runId, "worklist.json");
+  const worklistPath = join88(".lightsout", "runs", runId, "worklist.json");
   const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: "refactor", driver: driver.name, config: config2, baselineDirtyFiles: dirty });
-  await writeFile19(join87(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
+  await writeFile19(join88(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
 `, "utf8");
   return { manifest, worklist };
 };
@@ -148117,9 +148272,9 @@ import { mkdir as mkdir16, writeFile as writeFile20 } from "node:fs/promises";
 import { dirname as dirname10 } from "node:path";
 
 // src/voice/common/paths/getVoiceMarkerPath.ts
-import { join as join88 } from "node:path";
+import { join as join89 } from "node:path";
 var getVoiceMarkerPath = ({ cwd }) => {
-  return join88(cwd, ".lightsout", "voice-on");
+  return join89(cwd, ".lightsout", "voice-on");
 };
 
 // src/voice/createVoiceMarker.ts
@@ -148253,9 +148408,9 @@ import { spawn as spawn3 } from "node:child_process";
 import { writeFile as writeFile21 } from "node:fs/promises";
 
 // src/voice/common/paths/getVoicePidPath.ts
-import { join as join89 } from "node:path";
+import { join as join90 } from "node:path";
 var getVoicePidPath = ({ cwd }) => {
-  return join89(cwd, ".lightsout", "voice-pid");
+  return join90(cwd, ".lightsout", "voice-pid");
 };
 
 // src/voice/stopSpeech.ts

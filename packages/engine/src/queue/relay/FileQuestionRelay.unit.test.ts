@@ -31,6 +31,7 @@ const ticket: TicketSummary = {
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
 	route: QueueRoute.Direct,
+	unfinishedBlockers: [],
 };
 
 /** A relay over a throwaway mailbox, kept apart from the coordinator run directory it records into. */

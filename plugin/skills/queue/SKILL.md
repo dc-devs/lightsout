@@ -70,10 +70,16 @@ stdin instead.
 - **Which tickets it takes:** tickets on the configured team, in an eligible
   status (by default Backlog or Ready to implement), carrying one of the two
   route labels the config maps — the direct route builds straight from the
-  ticket body, the auto-plan route plans it first.
+  ticket body, the auto-plan route plans it first. A ticket with a blocking
+  ticket that is not finished — done or canceled — is not picked up; it is left
+  behind naming the blocker, and the same run takes it as soon as the blocker
+  ships.
 - **How it runs them:** each ticket gets its own fresh git worktree, the
   config's `setup` command, and a harness run; finished branches ship as PRs.
-  Up to `max-parallel` tickets run at once.
+  Up to `max-parallel` tickets run at once. The queue works in waves —
+  everything unblocked runs and ships, then it re-reads the tracker and takes
+  whatever the finished work just unblocked, stopping when a re-read finds
+  nothing new.
 - **Exit codes:** 0 — everything eligible shipped. 2 — work remains that a
   re-run picks up (parked or left-behind tickets). 1 — the queue refused to
   start; the message says why.

@@ -21,4 +21,12 @@ export interface TicketSummary {
 	createdAt: string;
 	/** Which route label this ticket carried. */
 	route: QueueRoute;
+	/**
+	 * Identifiers of blocking tickets that are not finished — empty when nothing
+	 * blocks this one.
+	 *
+	 * The adapter reports what it saw; the drain is the one place the skip policy
+	 * lives, exactly as it is for the double-label skip.
+	 */
+	unfinishedBlockers: string[];
 }

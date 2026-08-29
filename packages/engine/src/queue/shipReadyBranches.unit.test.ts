@@ -52,6 +52,7 @@ const ticketOf = ({ number }: { number: number }): TicketSummary => ({
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
 	route: QueueRoute.Direct,
+	unfinishedBlockers: [],
 });
 
 const author = '-c user.name=t -c user.email=t@t';

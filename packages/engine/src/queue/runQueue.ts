@@ -1,4 +1,3 @@
-import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { gitTimeoutMs } from '#src/common/constants/gitTimeoutMs.ts';
 import { readGitDefaultBranch } from '#src/common/git/readGitDefaultBranch.ts';
@@ -6,20 +5,19 @@ import { runCommand } from '#src/common/processes/runCommand.ts';
 import { type LightsoutConfig, PipelineKind, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
-import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { getWorktreesRoot } from '#src/queue/common/utils/getWorktreesRoot.ts';
-import { dedupeTickets } from '#src/queue/dedupeTickets.ts';
-import { drainTickets } from '#src/queue/drainTickets.ts';
+import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
+import { drainWaves } from '#src/queue/drainWaves.ts';
+import { orderTickets } from '#src/queue/orderTickets.ts';
 import { runQueueTicket } from '#src/queue/runQueueTicket.ts';
 import { scanParkedWorktrees } from '#src/queue/scanParkedWorktrees.ts';
+import { selectWaveTickets } from '#src/queue/selectWaveTickets.ts';
 import { settleParkedLabels } from '#src/queue/settleParkedLabels.ts';
-import { shipReadyBranches } from '#src/queue/shipReadyBranches.ts';
 import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
 import { listEligibleTickets } from '#src/queue/tracker/index.ts';
 import { createRun, getRunDir, seedUsageTotals, withRunLock, writeManifestWithUsage } from '#src/runState/index.ts';
@@ -51,7 +49,16 @@ const checkQueueStartup = async ({
 	settings,
 	shipSettings,
 }: Pick<Params, 'cwd' | 'settings' | 'shipSettings'>): Promise<QueueFailure | { defaultBranch: string }> => {
-	const sample: TicketSummary = { id: 'sample', identifier: 'AB-1', title: 'sample', description: '', priority: 0, createdAt: '', route: QueueRoute.Direct };
+	const sample: TicketSummary = {
+		id: 'sample',
+		identifier: 'AB-1',
+		title: 'sample',
+		description: '',
+		priority: 0,
+		createdAt: '',
+		route: QueueRoute.Direct,
+		unfinishedBlockers: [],
+	};
 	const rendered = toTicketBranch({ ticket: sample, template: settings.branchTemplate });
 
 	if (readTicketMatch({ branch: rendered, ticketPattern: shipSettings.ticketPattern }) === undefined) {
@@ -73,25 +80,6 @@ const checkQueueStartup = async ({
 	return { defaultBranch };
 };
 
-/** Priority first, then oldest — how a human drains a backlog. Linear's 0 means "no priority", so it sorts last rather than first. */
-const orderTickets = ({ tickets }: { tickets: TicketSummary[] }) => {
-	const rank = ({ priority }: TicketSummary) => (priority === 0 ? 5 : priority);
-
-	return [...tickets].sort((left, right) => rank(left) - rank(right) || left.createdAt.localeCompare(right.createdAt));
-};
-
-/** The coordinator run's document: one line per ticket, naming the route, the branch and the worktree a human can reach it in. */
-const writeQueuePlan = ({ path, queued, settings, cwd }: { path: string; queued: TicketSummary[]; settings: QueueSettings; cwd: string }) => {
-	const root = getWorktreesRoot({ cwd });
-	const lines = queued.map((ticket) => {
-		const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
-
-		return `- ${ticket.identifier} · ${ticket.route} · ${branch} · ${join(root, branch)}`;
-	});
-
-	return writeFile(path, `# queue drain\n\n${lines.join('\n')}\n`, 'utf8');
-};
-
 /** One promise tail every `git worktree add` awaits and replaces — creation mutates the main checkout, so two of them must never overlap. */
 const createWorktreeSerializer = () => {
 	let tail: Promise<unknown> = Promise.resolve();
@@ -105,7 +93,7 @@ const createWorktreeSerializer = () => {
 	};
 };
 
-/** The locked half of a drain: the coordinator run, the tickets, then the serial merge. */
+/** The locked half of a drain: the coordinator run, the waves, then the settled labels. */
 const drainAndShip = async ({
 	cwd,
 	runId,
@@ -116,22 +104,26 @@ const drainAndShip = async ({
 	driverName,
 	relay,
 	defaultBranch,
-	queued,
+	first,
 	parked,
-	skipped,
 	onProgress,
-}: Params & { runId: string; defaultBranch: string; queued: TicketSummary[]; parked: ParkedWork; skipped: LeftBehindTicket[] }) => {
+}: Params & { runId: string; defaultBranch: string; first: WaveSelection; parked: ParkedWork }) => {
 	const coordinatorRunDir = getRunDir({ cwd, runId });
 	const planPath = join(coordinatorRunDir, 'queue.md');
 	const manifest = await createRun({ cwd, runId, plan: planPath, pipeline: PipelineKind.Queue, driver: driverName, config });
 
-	await writeQueuePlan({ path: planPath, queued, settings, cwd });
 	await writeManifestWithUsage({ cwd, manifest, patch: { status: RunStatus.Running }, usageTotals: seedUsageTotals({ usage: manifest.usage }) });
 
 	const serializeWorktreeAdd = createWorktreeSerializer();
-	const drained = await drainTickets({
-		queued,
-		maxParallel: settings.maxParallel,
+	const drained = await drainWaves({
+		cwd,
+		settings,
+		shipSettings,
+		config,
+		defaultBranch,
+		planPath,
+		first,
+		parked,
 		onProgress,
 		runTicket: ({ ticket }) =>
 			runQueueTicket({
@@ -149,23 +141,15 @@ const drainAndShip = async ({
 				onProgress: relay.createProgressSink({ ticket }),
 			}),
 	});
-
-	const settled = [...parked.outcomes, ...drained.outcomes];
-	const ready = settled.filter((outcome) => outcome.ready);
-	const shipped = await shipReadyBranches({ cwd, config, shipSettings, defaultBranch, ready, onProgress });
-	const outcomes = [...shipped, ...settled.filter((outcome) => !outcome.ready)];
-	const leftBehind = [...parked.leftBehind, ...skipped, ...drained.leftBehind];
-	const status = outcomes.every((outcome) => outcome.ready) && leftBehind.length === 0 ? RunStatus.Passed : RunStatus.Escalated;
+	const status = drained.outcomes.every((outcome) => outcome.ready) && drained.leftBehind.length === 0 ? RunStatus.Passed : RunStatus.Escalated;
 
 	// One call is the whole park/ship label story: shipping has already flipped
 	// `ready` on anything it could not merge, so a ship-step park is labelled by
 	// the same line that labels a worker park.
-	await settleParkedLabels({ settings, outcomes, onProgress });
+	await settleParkedLabels({ settings, outcomes: drained.outcomes, onProgress });
 	await writeManifestWithUsage({ cwd, manifest, patch: { status, currentStep: null }, usageTotals: seedUsageTotals({ usage: manifest.usage }) });
 
-	const report: QueueDrainReport = { outcomes, leftBehind };
-
-	return report;
+	return drained;
 };
 
 /**
@@ -178,6 +162,11 @@ const drainAndShip = async ({
  * the repo's run lock, which is what makes two concurrent `lightsout queue`
  * invocations impossible; each worker takes its own lock in its own worktree,
  * so the two never contend.
+ *
+ * The drain runs in waves — everything unblocked, ship, re-scan — and stops when
+ * a scan finds nothing newly runnable. The run lock and the coordinator run are
+ * still one per invocation, and the parked worktree scan still runs only before
+ * the first wave.
  */
 export const runQueue = async ({
 	cwd,
@@ -208,33 +197,22 @@ export const runQueue = async ({
 		return parked;
 	}
 
-	const { ordered, leftBehind } = dedupeTickets({ tickets: [...parked.resumed, ...orderTickets({ tickets: eligible })], settings, onProgress });
+	const first = selectWaveTickets({ tickets: [...parked.resumed, ...orderTickets({ tickets: eligible })], settings, attempted: new Set<string>(), onProgress });
 
-	if (ordered.length === 0 && parked.outcomes.length === 0) {
-		onProgress?.('nothing to do — no eligible tickets, and no parked worktrees to pick up');
+	if (first.runnable.length === 0 && parked.outcomes.length === 0) {
+		onProgress?.(
+			first.blocked.length > 0
+				? 'nothing to do — every eligible ticket is waiting on an unfinished blocker'
+				: 'nothing to do — no eligible tickets, and no parked worktrees to pick up',
+		);
 
-		const empty: QueueDrainReport = { outcomes: [], leftBehind: [...parked.leftBehind, ...leftBehind] };
+		const empty: QueueDrainReport = { outcomes: [], leftBehind: [...parked.leftBehind, ...first.skipped, ...first.blocked] };
 
 		return empty;
 	}
 
 	return withRunLock({
 		params: { cwd, onProgress },
-		run: ({ runId }) =>
-			drainAndShip({
-				cwd,
-				runId,
-				settings,
-				shipSettings,
-				config,
-				driver,
-				driverName,
-				relay,
-				defaultBranch,
-				queued: ordered,
-				parked,
-				skipped: leftBehind,
-				onProgress,
-			}),
+		run: ({ runId }) => drainAndShip({ cwd, runId, settings, shipSettings, config, driver, driverName, relay, defaultBranch, first, parked, onProgress }),
 	});
 };

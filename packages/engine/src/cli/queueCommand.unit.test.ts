@@ -56,6 +56,7 @@ const outcomeOf = ({ ready, error }: { ready: boolean; error?: string }): Ticket
 		priority: 2,
 		createdAt: '2026-01-01T00:00:00.000Z',
 		route: 'direct',
+		unfinishedBlockers: [],
 	},
 	branch: 'lo-70-drain',
 	worktreePath: '/tmp/worktrees/lo-70-drain',

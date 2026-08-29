@@ -42,6 +42,7 @@ const ticketOf = (identifier: string): TicketSummary => ({
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
 	route: QueueRoute.Direct,
+	unfinishedBlockers: [],
 });
 
 /** A main checkout with one worktree per named branch, each cut from the default branch. */
