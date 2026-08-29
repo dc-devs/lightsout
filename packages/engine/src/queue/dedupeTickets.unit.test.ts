@@ -1,20 +1,10 @@
 import { describe, expect, test } from '@jest/globals';
 import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
-import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { dedupeTickets } from '#src/queue/dedupeTickets.ts';
+import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 
-const settings: QueueSettings = {
-	team: 'LO',
-	routeLabels: { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
-	maxParallel: 2,
-	apiKey: 'lin_key',
-	eligibleStatuses: ['Backlog'],
-	inProgressStatus: 'In Progress',
-	branchTemplate: '{ticket}-{slug}',
-	decisionsHeading: '## Decisions',
-	workerMinutes: 240,
-};
+const settings = queueSettingsFixture();
 
 const ticketOf = (overrides: Partial<TicketSummary> = {}): TicketSummary => ({
 	id: 'id-70',

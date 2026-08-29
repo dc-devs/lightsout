@@ -29,6 +29,10 @@ export interface QueueSettings {
 	branchTemplate: string;
 	/** The ticket-body heading relayed answers land under, default applied. */
 	decisionsHeading: string;
-	/** Ceiling in minutes for one ticket's auto-plan worker session, default applied. */
-	workerMinutes: number;
+	/** Ceiling for one ticket's auto-plan worker session in milliseconds, parsed from `worker-timeout`. */
+	workerTimeoutMs: number;
+	/** How long one relayed question waits before the ticket parks, in milliseconds, parsed from `question-timeout`. Only the file relay observes it. */
+	questionTimeoutMs: number;
+	/** The ticket label set on park and cleared on resume or ship; undefined when the repo opted out. */
+	parkedLabel?: string;
 }

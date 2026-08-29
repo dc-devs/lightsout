@@ -6,9 +6,9 @@ import { runCommand } from '#src/common/processes/runCommand.ts';
 import { type LightsoutConfig, PipelineKind, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
-import type { QuestionRelay } from '#src/queue/common/services/QuestionRelay.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
+import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
@@ -18,6 +18,7 @@ import { dedupeTickets } from '#src/queue/dedupeTickets.ts';
 import { drainTickets } from '#src/queue/drainTickets.ts';
 import { runQueueTicket } from '#src/queue/runQueueTicket.ts';
 import { scanParkedWorktrees } from '#src/queue/scanParkedWorktrees.ts';
+import { settleParkedLabels } from '#src/queue/settleParkedLabels.ts';
 import { shipReadyBranches } from '#src/queue/shipReadyBranches.ts';
 import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
 import { listEligibleTickets } from '#src/queue/tracker/index.ts';
@@ -156,6 +157,10 @@ const drainAndShip = async ({
 	const leftBehind = [...parked.leftBehind, ...skipped, ...drained.leftBehind];
 	const status = outcomes.every((outcome) => outcome.ready) && leftBehind.length === 0 ? RunStatus.Passed : RunStatus.Escalated;
 
+	// One call is the whole park/ship label story: shipping has already flipped
+	// `ready` on anything it could not merge, so a ship-step park is labelled by
+	// the same line that labels a worker park.
+	await settleParkedLabels({ settings, outcomes, onProgress });
 	await writeManifestWithUsage({ cwd, manifest, patch: { status, currentStep: null }, usageTotals: seedUsageTotals({ usage: manifest.usage }) });
 
 	const report: QueueDrainReport = { outcomes, leftBehind };

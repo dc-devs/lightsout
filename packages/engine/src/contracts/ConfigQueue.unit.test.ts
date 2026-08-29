@@ -18,12 +18,28 @@ describe('ConfigQueue', () => {
 			setup: 'pnpm install',
 			'branch-template': 'feature/{ticket}-{slug}',
 			'decisions-heading': '## Settled',
-			'worker-minutes': 90,
+			'worker-timeout': '90m',
+			'question-timeout': '30m',
+			'parked-label': 'queue-parked',
 		});
 
 		expect(parsed['branch-template']).toBe('feature/{ticket}-{slug}');
 		expect(parsed['eligible-statuses']).toStrictEqual(['Backlog']);
-		expect(parsed['worker-minutes']).toBe(90);
+		expect(parsed['worker-timeout']).toBe('90m');
+		expect(parsed['question-timeout']).toBe('30m');
+		expect(parsed['parked-label']).toBe('queue-parked');
+	});
+
+	test('refuses the retired `worker-minutes` key, because a silently ignored ceiling is worse than a refusal', () => {
+		expect(ConfigQueue.safeParse({ ...minimal, 'worker-minutes': 90 }).success).toBe(false);
+	});
+
+	test.each([
+		{ key: 'worker-timeout', value: 240 },
+		{ key: 'question-timeout', value: 60 },
+		{ key: 'parked-label', value: true },
+	])('refuses a non-string $key, because the value has to carry its own unit or name', ({ key, value }) => {
+		expect(ConfigQueue.safeParse({ ...minimal, [key]: value }).success).toBe(false);
 	});
 
 	test('accepts the five required keys alone, because every other key has an engine default behind it', () => {

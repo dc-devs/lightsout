@@ -191,7 +191,7 @@ describe('commandCatalog', () => {
 			['implement-direct', ['cwd', 'ref', 'ship', 'ticket']],
 			['resume', ['cwd', 'run', 'skip-refactor']],
 			['ship', ['cwd']],
-			['queue', ['cwd']],
+			['queue', ['cwd', 'file-relay']],
 			['refactor', ['all', 'allow-dirty', 'code-checks', 'cwd', 'max-batches', 'path', 'run']],
 			['test-coverage-to-threshold', ['allow-dirty', 'cwd', 'max-batches', 'run']],
 			['standards-check', ['agent-review', 'all', 'baseline', 'code-checks', 'cwd', 'list', 'path']],

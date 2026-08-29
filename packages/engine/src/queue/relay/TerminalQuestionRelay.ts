@@ -1,24 +1,11 @@
-import { join } from 'node:path';
 import { createInterface, type Interface } from 'node:readline/promises';
-import { z } from 'zod';
-import { appendJsonlRecords } from '#src/common/utils/appendJsonlRecords.ts';
+import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { appendTicketNote } from '#src/queue/tracker/index.ts';
+import { recordRelayedAnswer } from '#src/queue/relay/recordRelayedAnswer.ts';
 
-/**
- * One relayed question and its answer, as persisted to the coordinator run's
- * `decisions.jsonl` — the entry plus the provenance `appendJsonlRecords`
- * stamps on every record.
- */
-const QueueQuestionRecord = z.object({
-	question: z.string(),
-	answer: z.string(),
-	ticket: z.string(),
-	at: z.string(),
-	runId: z.string(),
-	step: z.string(),
-});
+/** Said both by a drain whose input was closed before it asked, and by one whose terminal went away mid-question — one fact, one wording. */
+const noTerminalMessage = 'there is no terminal to answer on — run `lightsout queue` attached to one';
 
 interface ConstructorParams {
 	settings: QueueSettings;
@@ -37,8 +24,11 @@ interface ConstructorParams {
  * on screen. Without that buffer a question is scrolled away by the other
  * in-flight workers, which defeats the one-terminal contract the queue is
  * built on.
+ *
+ * The terminal implementation of the `QuestionRelay` interface: the one a drain
+ * started in a terminal uses, and the default when no mailbox was asked for.
  */
-export class QuestionRelay {
+export class TerminalQuestionRelay implements QuestionRelay {
 	private readonly settings: QueueSettings;
 	private readonly output: NodeJS.WritableStream;
 	private readonly terminal: Interface;
@@ -59,7 +49,7 @@ export class QuestionRelay {
 		// type, and the whole drain would hang on one ticket.
 		this.terminal.on('close', () => {
 			this.ended = true;
-			this.abandonPrompt?.(new Error('there is no terminal to answer on — run `lightsout queue` attached to one'));
+			this.abandonPrompt?.(new Error(noTerminalMessage));
 		});
 	}
 
@@ -87,7 +77,19 @@ export class QuestionRelay {
 	}): Promise<string> {
 		const answered = this.chain
 			.then(() => this.putQuestion({ question, ticket }))
-			.then((answer) => this.record({ question, answer, ticket, coordinatorRunId, coordinatorRunDir }));
+			.then(async (answer) => {
+				await recordRelayedAnswer({
+					settings: this.settings,
+					question,
+					answer,
+					ticket,
+					coordinatorRunId,
+					coordinatorRunDir,
+					onProgress: this.createProgressSink({ ticket }),
+				});
+
+				return answer;
+			});
 
 		// The chain must survive a rejected ask: a ticket that could not be
 		// answered parks, and every other in-flight worker keeps its turn.
@@ -113,7 +115,7 @@ export class QuestionRelay {
 	/** Print the question and read one typed line, re-prompting on a blank answer. */
 	private async putQuestion({ question, ticket }: { question: string; ticket: TicketSummary }) {
 		if (this.ended) {
-			throw new Error('there is no terminal to answer on — run `lightsout queue` attached to one');
+			throw new Error(noTerminalMessage);
 		}
 
 		this.prompting = true;
@@ -140,46 +142,6 @@ export class QuestionRelay {
 			this.prompting = false;
 			this.flush();
 		}
-	}
-
-	/** The answer, kept in the coordinator run's decisions file and on the ticket, before the worker sees it. */
-	private async record({
-		question,
-		answer,
-		ticket,
-		coordinatorRunId,
-		coordinatorRunDir,
-	}: {
-		question: string;
-		answer: string;
-		ticket: TicketSummary;
-		coordinatorRunId: string;
-		coordinatorRunDir: string;
-	}) {
-		// A worktree's `.lightsout` belongs to the worker running in it, so the
-		// queue's copy lives with the queue's own run, tagged per ticket.
-		await appendJsonlRecords({
-			path: join(coordinatorRunDir, 'decisions.jsonl'),
-			schema: QueueQuestionRecord,
-			entries: [{ question, answer, ticket: ticket.identifier }],
-			runId: coordinatorRunId,
-			step: 'queue-question',
-		});
-
-		const noted = await appendTicketNote({
-			settings: this.settings,
-			ticketId: ticket.id,
-			heading: this.settings.decisionsHeading,
-			line: `- ${question} → ${answer}`,
-		});
-
-		if (noted !== undefined) {
-			// The answer is already on the worker's disk; losing the ticket copy
-			// must not cost the run.
-			this.write({ line: `${ticket.identifier} · the answer could not be written to the ticket: ${noted.error}` });
-		}
-
-		return answer;
 	}
 
 	/** One line out, or held until the open question has been answered. */

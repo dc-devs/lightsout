@@ -7,7 +7,8 @@ import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { QuestionRelay } from '#src/queue/index.ts';
+import { TerminalQuestionRelay } from '#src/queue/relay/index.ts';
+import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 
 // Mocked Imports
 // -------------------------
@@ -22,17 +23,7 @@ jest.mock('#src/queue/tracker/index.ts', () => ({
 }));
 // -------------------------
 
-const settings: QueueSettings = {
-	team: 'LO',
-	routeLabels: { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
-	maxParallel: 2,
-	apiKey: 'lin_key',
-	eligibleStatuses: ['Backlog'],
-	inProgressStatus: 'In Progress',
-	branchTemplate: '{ticket}-{slug}',
-	decisionsHeading: '## Decisions',
-	workerMinutes: 240,
-};
+const settings = queueSettingsFixture();
 
 const ticketOf = (overrides: Partial<TicketSummary> = {}): TicketSummary => ({
 	id: 'id-70',
@@ -76,7 +67,7 @@ const setupRelay = ({ answers = [], atPrompt }: { answers?: string[]; atPrompt?:
 
 	mockAppendTicketNote.mockResolvedValue(undefined);
 
-	const relay = new QuestionRelay({ settings, input, output });
+	const relay = new TerminalQuestionRelay({ settings, input, output });
 	const coordinatorRunDir = mkdtempSync(join(tmpdir(), 'lightsout-relay-'));
 
 	return { relay, input, coordinatorRunDir, terminal: () => written.join('') };
@@ -89,7 +80,7 @@ const readDecisions = ({ coordinatorRunDir }: { coordinatorRunDir: string }) =>
 		.filter(Boolean)
 		.map((line) => JSON.parse(line) as Record<string, unknown>);
 
-describe('QuestionRelay', () => {
+describe('TerminalQuestionRelay', () => {
 	test('puts the ticket, its title and the question to the terminal, and answers with what was typed', async () => {
 		const { relay, coordinatorRunDir, terminal } = setupRelay({ answers: ['  the second one  '] });
 

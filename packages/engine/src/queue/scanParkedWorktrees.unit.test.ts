@@ -5,11 +5,11 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { ShipMergeMethod } from '#src/contracts/index.ts';
 import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { createTicketWorktree } from '#src/queue/createTicketWorktree.ts';
 import { scanParkedWorktrees } from '#src/queue/scanParkedWorktrees.ts';
 import type { ShipSettings } from '#src/ship/index.ts';
+import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 // Mocked Imports
@@ -21,20 +21,11 @@ const mockGetTicketsByIdentifiers = jest.fn<(params: { identifiers: string[] }) 
 
 jest.mock('#src/queue/tracker/index.ts', () => ({
 	getTicketsByIdentifiers: (params: { identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
+	setParkedLabel: () => Promise.resolve(undefined),
 }));
 // -------------------------
 
-const settings: QueueSettings = {
-	team: 'LO',
-	routeLabels: { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
-	maxParallel: 2,
-	apiKey: 'lin_key',
-	eligibleStatuses: ['Backlog'],
-	inProgressStatus: 'In Progress',
-	branchTemplate: '{ticket}-{slug}',
-	decisionsHeading: '## Decisions',
-	workerMinutes: 240,
-};
+const settings = queueSettingsFixture();
 
 const shipSettings: ShipSettings = {
 	ticketPattern: /^(?<ticket>[a-z]+-\d+)/,

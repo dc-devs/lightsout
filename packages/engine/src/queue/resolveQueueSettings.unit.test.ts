@@ -26,7 +26,9 @@ describe('resolveQueueSettings', () => {
 			setup: undefined,
 			branchTemplate: '{ticket}-{slug}',
 			decisionsHeading: '## Decisions',
-			workerMinutes: 240,
+			workerTimeoutMs: 14_400_000,
+			questionTimeoutMs: 3_600_000,
+			parkedLabel: undefined,
 		});
 	});
 
@@ -39,7 +41,9 @@ describe('resolveQueueSettings', () => {
 				setup: 'pnpm install',
 				'branch-template': 'feature/{ticket}',
 				'decisions-heading': '## Settled',
-				'worker-minutes': 30,
+				'worker-timeout': '30m',
+				'question-timeout': '90s',
+				'parked-label': 'queue-parked',
 			}),
 			env: { LINEAR_API_KEY: 'lin_key' },
 		});
@@ -50,8 +54,22 @@ describe('resolveQueueSettings', () => {
 			setup: 'pnpm install',
 			branchTemplate: 'feature/{ticket}',
 			decisionsHeading: '## Settled',
-			workerMinutes: 30,
+			workerTimeoutMs: 1_800_000,
+			questionTimeoutMs: 90_000,
+			parkedLabel: 'queue-parked',
 		});
+	});
+
+	test('refuses a worker ceiling that is not a duration, naming the key and the forms it accepts', () => {
+		const settings = resolveQueueSettings({ config: configOf({ ...queueBlock, 'worker-timeout': '240' }), env: { LINEAR_API_KEY: 'lin_key' } });
+
+		expect(settings).toStrictEqual({ error: "`queue.worker-timeout` must be a duration like '90s', '45m' or '4h' — got '240'" });
+	});
+
+	test('refuses a question timeout that is not a duration, so a relayed question never waits on a value nobody can read', () => {
+		const settings = resolveQueueSettings({ config: configOf({ ...queueBlock, 'question-timeout': 'soon' }), env: { LINEAR_API_KEY: 'lin_key' } });
+
+		expect(settings).toStrictEqual({ error: "`queue.question-timeout` must be a duration like '90s', '45m' or '4h' — got 'soon'" });
 	});
 
 	test('refuses a config with no queue block, naming what the block has to say', () => {

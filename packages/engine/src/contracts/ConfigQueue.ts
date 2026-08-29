@@ -45,14 +45,27 @@ export const ConfigQueue = z
 		 */
 		'decisions-heading': z.string().optional(),
 		/**
-		 * Ceiling in minutes for one ticket's auto-plan worker session — the
-		 * session that plans a ticket and sits through the implement run it
-		 * launches. Per ticket, never for the drain: the queue itself has no
-		 * ceiling and runs until the backlog is dry. Default 240. A hit
-		 * ceiling parks the ticket resumably, exactly like every other agent
-		 * timeout.
+		 * Ceiling for one ticket's auto-plan worker session — the session that
+		 * plans a ticket and sits through the implement run it launches. Per
+		 * ticket, never for the drain: the queue itself has no ceiling and runs
+		 * until the backlog is dry. A hit ceiling parks the ticket resumably,
+		 * exactly like every other agent timeout. A duration string like '90s',
+		 * '45m' or '4h'. Default `'4h'`.
 		 */
-		'worker-minutes': z.number().positive().optional(),
+		'worker-timeout': z.string().optional(),
+		/**
+		 * How long one relayed question waits for an answer before its ticket
+		 * parks. A duration string like '90s', '45m' or '4h'. Default `'1h'`.
+		 * Only `--file-relay` observes it: the terminal relay waits on a person
+		 * who is present, and gives up when their terminal goes away.
+		 */
+		'question-timeout': z.string().optional(),
+		/**
+		 * The ticket label the queue sets when a ticket parks and clears when it
+		 * resumes or ships. Opt-in with no default — a repo that names none never
+		 * has one invented for it. The label is created on the team on first use.
+		 */
+		'parked-label': z.string().optional(),
 	})
 	.strict();
 

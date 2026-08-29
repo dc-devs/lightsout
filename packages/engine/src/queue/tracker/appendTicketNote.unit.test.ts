@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import { appendTicketNote } from '#src/queue/tracker/index.ts';
+import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 
 // Mocked Imports
 // -------------------------
@@ -13,17 +13,7 @@ const mockRunLinear = jest.fn<(params: { apiKey: string; call: LinearCall }) => 
 jest.mock('#src/queue/tracker/runLinear.ts', () => ({ runLinear: (params: { apiKey: string; call: LinearCall }) => mockRunLinear(params) }));
 // -------------------------
 
-const settings: QueueSettings = {
-	team: 'LO',
-	routeLabels: { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
-	maxParallel: 1,
-	apiKey: 'lin_key',
-	eligibleStatuses: ['Backlog'],
-	inProgressStatus: 'In Progress',
-	branchTemplate: '{ticket}-{slug}',
-	decisionsHeading: '## Decisions',
-	workerMinutes: 240,
-};
+const settings = queueSettingsFixture({ maxParallel: 1 });
 
 /** Write the note against this body and answer the body the tracker would end up holding. A body of undefined is a ticket the tracker holds no description for. */
 const writtenBody = async ({ body, heading = '## Decisions', line = '- Which one? → the second' }: { body?: string; heading?: string; line?: string }) => {
