@@ -108,6 +108,16 @@ describe('queueCommand', () => {
 		expect(exitCodes).toStrictEqual([0]);
 	});
 
+	test('marks its own process no-ship before draining, so a worker implement run can never chain into ship', async () => {
+		delete process.env.LIGHTSOUT_NO_SHIP;
+
+		const { context } = setupQueueCommand({ report: { outcomes: [], leftBehind: [] } });
+
+		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(process.env.LIGHTSOUT_NO_SHIP).toBe('1');
+	});
+
 	test('a parked ticket says why and where its worktree is, and exits 2 — work remains, and a re-run picks it up', async () => {
 		const { context, logged, exitCodes } = setupQueueCommand({
 			report: { outcomes: [outcomeOf({ ready: false, error: 'tsc: 3 errors' })], leftBehind: [] },

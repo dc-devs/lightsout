@@ -41,7 +41,7 @@ describe('exitAfterImplement', () => {
 	test('a passed run nobody asked to ship exits on its own result, touching no forge', async () => {
 		const { config, cwd, result, readForgeLog, exitCodes } = setupChain();
 
-		await expect(exitAfterImplement({ config, cwd, result, shipFlag: false })).rejects.toThrow(/process\.exit/);
+		await expect(exitAfterImplement({ config, cwd, result, shipFlag: false, noShipFlag: false, env: {} })).rejects.toThrow(/process\.exit/);
 
 		expect(readForgeLog()).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);
@@ -50,7 +50,7 @@ describe('exitAfterImplement', () => {
 	test('a failed run never ships, even when the flag asked for it', async () => {
 		const { config, cwd, result, readForgeLog, exitCodes } = setupChain({ ok: false });
 
-		await expect(exitAfterImplement({ config, cwd, result, shipFlag: true })).rejects.toThrow(/process\.exit/);
+		await expect(exitAfterImplement({ config, cwd, result, shipFlag: true, noShipFlag: false, env: {} })).rejects.toThrow(/process\.exit/);
 
 		expect(readForgeLog()).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([1]);
@@ -59,7 +59,7 @@ describe('exitAfterImplement', () => {
 	test('the flag ships a passed run, and a shipped branch still exits on the run’s own result', async () => {
 		const { config, cwd, result, readForgeLog, exitCodes } = setupChain();
 
-		await expect(exitAfterImplement({ config, cwd, result, shipFlag: true })).rejects.toThrow(/process\.exit/);
+		await expect(exitAfterImplement({ config, cwd, result, shipFlag: true, noShipFlag: false, env: {} })).rejects.toThrow(/process\.exit/);
 
 		expect(readForgeLog().some((line) => line.startsWith('pr merge'))).toBe(true);
 		expect(exitCodes).toStrictEqual([0]);
@@ -68,7 +68,7 @@ describe('exitAfterImplement', () => {
 	test('the config can ask for the same chain without the flag being typed', async () => {
 		const { config, cwd, result, readForgeLog, exitCodes } = setupChain({ ship: { 'after-implement': true } });
 
-		await expect(exitAfterImplement({ config, cwd, result, shipFlag: false })).rejects.toThrow(/process\.exit/);
+		await expect(exitAfterImplement({ config, cwd, result, shipFlag: false, noShipFlag: false, env: {} })).rejects.toThrow(/process\.exit/);
 
 		expect(readForgeLog().some((line) => line.startsWith('pr merge'))).toBe(true);
 		expect(exitCodes).toStrictEqual([0]);
@@ -77,15 +77,45 @@ describe('exitAfterImplement', () => {
 	test('a ship that blocks after a passed run exits 1 — the code is verified, the merge is not done', async () => {
 		const { config, cwd, result, exitCodes } = setupChain({ checks: '[{"name":"unit","bucket":"fail"}]' });
 
-		await expect(exitAfterImplement({ config, cwd, result, shipFlag: true })).rejects.toThrow(/process\.exit/);
+		await expect(exitAfterImplement({ config, cwd, result, shipFlag: true, noShipFlag: false, env: {} })).rejects.toThrow(/process\.exit/);
 
 		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('--no-ship beats the config, so a repo with after-implement on can still end a run unshipped', async () => {
+		const { config, cwd, result, readForgeLog, exitCodes } = setupChain({ ship: { 'after-implement': true } });
+
+		await expect(exitAfterImplement({ config, cwd, result, shipFlag: false, noShipFlag: true, env: {} })).rejects.toThrow(/process\.exit/);
+
+		expect(readForgeLog()).toStrictEqual([]);
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('--ship and --no-ship together are a loud usage error, touching no forge', async () => {
+		const { config, cwd, result, readForgeLog, errors, exitCodes } = setupChain();
+
+		await expect(exitAfterImplement({ config, cwd, result, shipFlag: true, noShipFlag: true, env: {} })).rejects.toThrow(/process\.exit/);
+
+		expect(errors.some((line) => line.includes('--ship and --no-ship contradict'))).toBe(true);
+		expect(readForgeLog()).toStrictEqual([]);
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('LIGHTSOUT_NO_SHIP in the environment wins over the flag — a queue worker run ends on its own result', async () => {
+		const { config, cwd, result, readForgeLog, exitCodes } = setupChain({ ship: { 'after-implement': true } });
+
+		await expect(exitAfterImplement({ config, cwd, result, shipFlag: true, noShipFlag: false, env: { LIGHTSOUT_NO_SHIP: '1' } })).rejects.toThrow(
+			/process\.exit/,
+		);
+
+		expect(readForgeLog()).toStrictEqual([]);
+		expect(exitCodes).toStrictEqual([0]);
 	});
 
 	test('a ship asked for against an unusable ticket pattern is a loud usage error rather than a silent skip', async () => {
 		const { config, cwd, result, readForgeLog, errors, exitCodes } = setupChain({ ship: { 'ticket-pattern': '^lo-\\d+' } });
 
-		await expect(exitAfterImplement({ config, cwd, result, shipFlag: true })).rejects.toThrow(/process\.exit/);
+		await expect(exitAfterImplement({ config, cwd, result, shipFlag: true, noShipFlag: false, env: {} })).rejects.toThrow(/process\.exit/);
 
 		expect(errors.some((line) => line.includes('ship.ticket-pattern'))).toBe(true);
 		expect(readForgeLog()).toStrictEqual([]);

@@ -13,6 +13,10 @@ interface Params {
 	result: PipelineResult;
 	/** Whether `--ship` was typed. The config's `after-implement` is the other way in. */
 	shipFlag: boolean;
+	/** Whether `--no-ship` was typed. Beats the config's `after-implement`. */
+	noShipFlag: boolean;
+	/** The process environment, read for the queue's own suppression variable. Passed rather than read, so a test never needs to mutate `process.env`. */
+	env: NodeJS.ProcessEnv;
 }
 
 /**
@@ -26,11 +30,25 @@ interface Params {
  * ship they asked for, and the message has to say so. A blocked ship after a
  * passed run also exits 1, with the ship result already on disk: the code is
  * verified, the merge is not done, and that is the honest report.
+ *
+ * Two things beat every request to ship. `--ship --no-ship` together is a
+ * contradiction and a loud usage error. `LIGHTSOUT_NO_SHIP` in the environment
+ * wins silently over both flag and config: the queue sets it for its worker
+ * sessions, whose branches only the drain's own serial merge may ship — a
+ * worker run must end on its own result rather than park its ticket over a
+ * ship it was never allowed.
  */
-export const exitAfterImplement = async ({ config, cwd, result, shipFlag }: Params): Promise<never> => {
-	const settings = resolveShipSettings({ config });
+export const exitAfterImplement = async ({ config, cwd, result, shipFlag, noShipFlag, env }: Params): Promise<never> => {
+	if (shipFlag && noShipFlag) {
+		console.error('--ship and --no-ship contradict each other — pass at most one');
 
-	if (!result.ok || !(shipFlag || settings?.afterImplement === true)) {
+		return exitCli({ code: 1 });
+	}
+
+	const settings = resolveShipSettings({ config });
+	const suppressed = noShipFlag || (env.LIGHTSOUT_NO_SHIP ?? '') !== '';
+
+	if (!result.ok || suppressed || !(shipFlag || settings?.afterImplement === true)) {
 		return exitForRunResult({ ok: result.ok, manifest: result.manifest });
 	}
 

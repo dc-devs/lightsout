@@ -105,5 +105,5 @@ export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<
 				});
 
 	await printResult({ result, cwd });
-	return exitAfterImplement({ config: loaded, cwd, result, shipFlag: flags.get('ship') === true });
+	return exitAfterImplement({ config: loaded, cwd, result, shipFlag: flags.get('ship') === true, noShipFlag: flags.get('no-ship') === true, env: process.env });
 };

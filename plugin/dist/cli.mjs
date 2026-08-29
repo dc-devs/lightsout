@@ -24476,7 +24476,8 @@ var implementCatalogEntry = {
     },
     { name: "cwd", value: "<path>", meaning: "Repository to implement in.", fallback: "The process working directory.", required: false },
     { name: "skip-refactor", meaning: "Skip the refactor step at the end of the run.", required: false },
-    { name: "ship", meaning: "Ship the branch after the run passes: open or adopt the PR, wait for checks, merge, clean up.", required: false }
+    { name: "ship", meaning: "Ship the branch after the run passes: open or adopt the PR, wait for checks, merge, clean up.", required: false },
+    { name: "no-ship", meaning: "End on the run result even when the config\u2019s `ship.after-implement` asks to chain into ship.", required: false }
   ],
   steps: implementSteps,
   records: CommandRecordKind.Runs,
@@ -24507,7 +24508,8 @@ var implementDirectCatalogEntry = {
       required: false
     },
     { name: "cwd", value: "<path>", meaning: "Repository to build in.", fallback: "The process working directory.", required: false },
-    { name: "ship", meaning: "Ship the branch after the run passes: open or adopt the PR, wait for checks, merge, clean up.", required: false }
+    { name: "ship", meaning: "Ship the branch after the run passes: open or adopt the PR, wait for checks, merge, clean up.", required: false },
+    { name: "no-ship", meaning: "End on the run result even when the config\u2019s `ship.after-implement` asks to chain into ship.", required: false }
   ],
   steps: [],
   records: CommandRecordKind.Runs,
@@ -26923,9 +26925,14 @@ var runShip = async ({ cwd, settings, onProgress }) => {
 };
 
 // src/cli/common/utils/exitAfterImplement.ts
-var exitAfterImplement = async ({ config: config2, cwd, result, shipFlag }) => {
+var exitAfterImplement = async ({ config: config2, cwd, result, shipFlag, noShipFlag, env }) => {
+  if (shipFlag && noShipFlag) {
+    console.error("--ship and --no-ship contradict each other \u2014 pass at most one");
+    return exitCli({ code: 1 });
+  }
   const settings = resolveShipSettings({ config: config2 });
-  if (!result.ok || !(shipFlag || settings?.afterImplement === true)) {
+  const suppressed = noShipFlag || (env.LIGHTSOUT_NO_SHIP ?? "") !== "";
+  if (!result.ok || suppressed || !(shipFlag || settings?.afterImplement === true)) {
     return exitForRunResult({ ok: result.ok, manifest: result.manifest });
   }
   if (settings === void 0) {
@@ -46781,7 +46788,7 @@ var implementCommand = async ({ flags, cwd }) => {
     onProgress: createProgressPrinter()
   });
   await printResult({ result, cwd });
-  return exitAfterImplement({ config: loaded, cwd, result, shipFlag: flags.get("ship") === true });
+  return exitAfterImplement({ config: loaded, cwd, result, shipFlag: flags.get("ship") === true, noShipFlag: flags.get("no-ship") === true, env: process.env });
 };
 
 // src/cli/implementDirectCommand.ts
@@ -146018,7 +146025,7 @@ var checkQueueStartup = async ({
 }) => {
   const sample = {
     id: "sample",
-    identifier: "AB-1",
+    identifier: `${settings.team}-1`,
     title: "sample",
     description: "",
     priority: 0,
@@ -146180,7 +146187,7 @@ var implementDirectCommand = async ({ flags, cwd }) => {
     }
   }
   await printResult({ result, cwd });
-  return exitAfterImplement({ config: loaded, cwd, result, shipFlag: flags.get("ship") === true });
+  return exitAfterImplement({ config: loaded, cwd, result, shipFlag: flags.get("ship") === true, noShipFlag: flags.get("no-ship") === true, env: process.env });
 };
 
 // src/cli/common/utils/resolveConfigAndDriver.ts
@@ -146595,6 +146602,7 @@ var queueCommand = async ({ flags, cwd }) => {
       return exitCli({ code: 1 });
     }
   }
+  process.env.LIGHTSOUT_NO_SHIP = "1";
   const relay = await buildRelay({ requested, settings, cwd });
   const report = await runQueue({
     cwd,
