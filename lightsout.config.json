@@ -26,7 +26,8 @@
 	"ship": {
 		"ticket-pattern": "^(?<ticket>lo-(?<number>\\d+))",
 		"pr-body": "Closes LO-{number}",
-		"merge-method": "merge"
+		"merge-method": "merge",
+		"after-implement": true
 	},
 	"auto-plan": {
 		"propose-before-draft": true,
