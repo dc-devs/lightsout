@@ -105,6 +105,13 @@ export const queueCommand = async ({ flags, cwd }: CommandContext): Promise<void
 		}
 	}
 
+	// Inherited by every worker session and the engine runs it launches: a
+	// worker's `implement` must end on its own result rather than chain into
+	// ship, whatever the worktree's config says — the drain's serial merge is
+	// the only ship path in a queue run. The coordinator's own merge step calls
+	// `runShip` directly and never reads this.
+	process.env.LIGHTSOUT_NO_SHIP = '1';
+
 	const relay: QuestionRelay = await buildRelay({ requested, settings, cwd });
 	// Closed on every exit path, so a crash never leaves the terminal holding a
 	// half-written prompt.

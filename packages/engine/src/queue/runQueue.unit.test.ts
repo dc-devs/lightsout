@@ -98,8 +98,8 @@ const setupDrain = ({ eligible = [], parked }: { eligible?: TicketSummary[]; par
 	const relay = new TerminalQuestionRelay({ settings: queueSettingsFixture(), input: new PassThrough(), output: new PassThrough() });
 	const progress: string[] = [];
 
-	const drain = ({ settings = queueSettingsFixture() }: { settings?: QueueSettings } = {}) =>
-		runQueue({ cwd, settings, shipSettings, config, driver, driverName: 'claude-code', relay, onProgress: (message) => progress.push(message) });
+	const drain = ({ settings = queueSettingsFixture(), ship = shipSettings }: { settings?: QueueSettings; ship?: ShipSettings } = {}) =>
+		runQueue({ cwd, settings, shipSettings: ship, config, driver, driverName: 'claude-code', relay, onProgress: (message) => progress.push(message) });
 
 	return { cwd, drain, relay, progress };
 };
@@ -123,6 +123,16 @@ describe('runQueue', () => {
 
 		expect(report).toEqual({ error: expect.stringContaining('`queue.branch-template`') });
 		expect(report).toEqual({ error: expect.stringContaining('`ship.ticket-pattern`') });
+	});
+
+	test('starts under a ticket pattern scoped to the configured team, because the sample ticket is shaped from that team key', async () => {
+		const { drain, relay } = setupDrain();
+
+		const report = await drain({ ship: { ...shipSettings, ticketPattern: /^(?<ticket>lo-(?<number>\d+))/ } });
+
+		relay.close();
+
+		expect(report).toStrictEqual({ outcomes: [], leftBehind: [] });
 	});
 
 	test('refuses a repo with no remote default branch, the same refusal ship makes for the same reason', async () => {
