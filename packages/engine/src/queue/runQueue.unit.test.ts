@@ -59,10 +59,12 @@ const ticketOf = ({
 	number,
 	priority = 2,
 	createdAt = '2026-01-01T00:00:00.000Z',
+	unfinishedBlockers = [],
 }: {
 	number: number;
 	priority?: number;
 	createdAt?: string;
+	unfinishedBlockers?: string[];
 }): TicketSummary => ({
 	id: `id-${number}`,
 	identifier: `LO-${number}`,
@@ -71,6 +73,7 @@ const ticketOf = ({
 	priority,
 	createdAt,
 	route: QueueRoute.Direct,
+	unfinishedBlockers,
 });
 
 const outcomeOf = ({ ticket, ready = true, error }: { ticket: TicketSummary; ready?: boolean; error?: string }): TicketRunOutcome => ({

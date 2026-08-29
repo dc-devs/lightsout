@@ -45,6 +45,7 @@ const ticketOf = (route: TicketSummary['route']): TicketSummary => ({
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
 	route,
+	unfinishedBlockers: [],
 });
 
 const reportOf = (overrides: Partial<WorkReport> = {}): WorkReport => ({

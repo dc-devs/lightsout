@@ -27,6 +27,7 @@ const outcomeOf = ({ number, ready }: { number: number; ready: boolean }): Ticke
 		priority: 2,
 		createdAt: '2026-01-01T00:00:00.000Z',
 		route: QueueRoute.Direct,
+		unfinishedBlockers: [],
 	},
 	branch: `lo-${number}-ticket`,
 	worktreePath: `/tmp/worktrees/lo-${number}-ticket`,

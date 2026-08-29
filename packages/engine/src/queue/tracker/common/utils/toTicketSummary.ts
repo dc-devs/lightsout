@@ -6,10 +6,12 @@ interface Params {
 	issue: Issue;
 	/** Which route this ticket was matched on — the query that returned it, or its label names. */
 	route: QueueRoute;
+	/** Identifiers of this ticket's unfinished blockers, already resolved by the caller. */
+	unfinishedBlockers: string[];
 }
 
 /** One tracker issue as the queue's own shape, so no Linear type leaves this folder. */
-export const toTicketSummary = ({ issue, route }: Params): TicketSummary => ({
+export const toTicketSummary = ({ issue, route, unfinishedBlockers }: Params): TicketSummary => ({
 	id: issue.id,
 	identifier: issue.identifier,
 	title: issue.title,
@@ -17,4 +19,5 @@ export const toTicketSummary = ({ issue, route }: Params): TicketSummary => ({
 	priority: issue.priority,
 	createdAt: issue.createdAt.toISOString(),
 	route,
+	unfinishedBlockers,
 });
