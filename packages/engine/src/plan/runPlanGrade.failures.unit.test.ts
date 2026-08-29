@@ -1,8 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
+import { readJsonlRecords } from '#src/common/utils/readJsonlRecords.ts';
 import { GradeReport } from '#src/contracts/index.ts';
 import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
+import { gradeHistoryPath } from '#src/plan/gradeHistoryPath.ts';
 import { runPlanGrade } from '#src/plan/runPlanGrade.ts';
 import { cleanOverviewBody } from '#tests/helpers/cleanOverviewBody.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
@@ -320,4 +322,21 @@ test('plan grade: a reader wall leaves the findings its siblings did return unju
 	// and the dead readers still keep the pass off a clean bill
 	expect(recorded.complete).toBe(false);
 	expect(recorded.grade).toBe('below-A');
+});
+
+test('plan grade: a pass that did not finish is appended to the grade history beside the ones that did', async () => {
+	const { cwd, name, invocations } = setupSingle({ name: 'parked-history' });
+	const driver = createRateLimitedDriver({ invocations });
+
+	const result = await runPlanGrade({ cwd, driver, name });
+
+	expectStatus(result, 'paused-rate-limit');
+
+	const history = await readJsonlRecords({ path: gradeHistoryPath({ cwd, name }), schema: GradeReport });
+
+	// a pass the wall ground to a halt is still part of how the plan got its
+	// grade — recording only the passes that finished would hide the re-runs
+	expect(history.length).toBe(1);
+	expect(history[0]?.complete).toBe(false);
+	expect(history[0]?.incompleteReason ?? '').toMatch(/plan\.md\/surface: rate limited or overloaded/);
 });

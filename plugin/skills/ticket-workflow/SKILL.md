@@ -418,6 +418,13 @@ picking up a ticket reads. Keep them on disk — the rejected payloads in
 particular are the record of how an agent's report failed its contract — and
 attach neither.
 
+Skip `grade-history.jsonl` for the same reason. It is the append-only record of
+every grading pass a plan ever had: its last line is the same report the
+attached `grade.json` already carries, and the earlier lines are how the plan
+got there — which finding kept coming back, and how many re-grades it took. That
+is a debugging artifact, not something a person picking up a ticket reads. Keep
+it on disk and attach nothing.
+
 ### Attach when the ticket is ready to implement, not at close
 
 The moment a route completes and the ticket moves to **Ready to implement**,

@@ -3,6 +3,7 @@ import { buildPlanGapCheckInvocation } from '#src/agents/index.ts';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
 import { type Effort, type GapCheckLens, GapCheckReport, type GradeReport, type Permissions } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
+import { appendGradeHistory } from '#src/plan/appendGradeHistory.ts';
 import { gapCheckLenses } from '#src/plan/common/constants/gapCheckLenses.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 import { createGradeReport } from '#src/plan/common/grading/createGradeReport.ts';
@@ -81,7 +82,9 @@ const spawnGapChecker = async ({
 /**
  * Read-only detector for a plan's grade: the deterministic structural re-check
  * the draft loop converged against, plus an agent gap-check for decision-level
- * gaps. It writes `grade.json` and never edits the plan. A single plan is
+ * gaps. It writes `grade.json`, appends the pass to the plan's append-only
+ * grade history, and never edits the plan. `grade.json` is always the latest
+ * pass; the history is every pass that ever ran. A single plan is
  * `.lightsout/plans/<name>/plan.md`; a phased plan is `overview.md` as context
  * plus each `phase<N>-<slug>.md` beside it.
  *
@@ -162,19 +165,24 @@ export const runPlanGrade = async (params: Params): Promise<RunPlanGradeResult> 
 	// turn one unlucky checker into thirty wasted spawns. The coverage fields are
 	// what make a partial record safe to keep.
 	await writeJsonFile({ path: gradePath, value: report });
+	await appendGradeHistory({ cwd, name, report });
 
 	const blocking = getBlockingGaps({ gaps: report.gaps });
 
 	progress(`plan grade ${name}: judged ${report.gaps.length} finding(s), ${blocking.length} blocking`);
 	progress(`plan grade ${name}: ${report.grade} (${structural.length} structural, ${report.gaps.length} gap(s), ${blocking.length} blocking)`);
 
-	if (readers.rateLimited || judged.rateLimited) {
-		const parked = `rate limited or overloaded — re-run: lightsout plan grade --name ${name}`;
-
-		return { status: PlanRunStatus.PausedRateLimit, workspaceDir, error: parked, grade: report, gradePath };
-	}
-
-	return readers.failures.length > 0
-		? { status: PlanRunStatus.Failed, workspaceDir, error: `gap-check failed for ${readers.failures.join('; ')}`, grade: report, gradePath }
-		: { status: PlanRunStatus.Complete, workspaceDir, grade: report, gradePath };
+	// A wall outranks a gap-check failure: it stops the pass wherever it landed,
+	// and the re-run line is the only thing a human can act on.
+	return readers.rateLimited || judged.rateLimited
+		? {
+				status: PlanRunStatus.PausedRateLimit,
+				workspaceDir,
+				error: `rate limited or overloaded — re-run: lightsout plan grade --name ${name}`,
+				grade: report,
+				gradePath,
+			}
+		: readers.failures.length > 0
+			? { status: PlanRunStatus.Failed, workspaceDir, error: `gap-check failed for ${readers.failures.join('; ')}`, grade: report, gradePath }
+			: { status: PlanRunStatus.Complete, workspaceDir, grade: report, gradePath };
 };
