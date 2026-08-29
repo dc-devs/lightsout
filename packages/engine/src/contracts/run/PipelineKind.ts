@@ -8,6 +8,10 @@ export const PipelineKind = {
 	Phases: 'phases',
 	/** A coverage measurement raised to its threshold batch by batch. */
 	Coverage: 'coverage',
+	/** A coordinator draining a tracker's backlog into parallel worktrees. */
+	Queue: 'queue',
+	/** One ticket built straight from its body, with the repo's gates as the only bar. */
+	Direct: 'direct',
 } as const;
 
 export type PipelineKind = (typeof PipelineKind)[keyof typeof PipelineKind];

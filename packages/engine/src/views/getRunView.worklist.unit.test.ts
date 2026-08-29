@@ -30,7 +30,7 @@ const setupRun = async ({
 	worklist,
 	steps = [],
 }: {
-	pipeline: string;
+	pipeline: PipelineKind;
 	plan?: string;
 	worklist?: string;
 	steps?: StepRecord[];

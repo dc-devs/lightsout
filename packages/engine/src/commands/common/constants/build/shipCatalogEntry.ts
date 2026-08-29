@@ -12,5 +12,5 @@ export const shipCatalogEntry: CommandCatalogEntry = {
 	flags: [{ name: 'cwd', value: '<path>', meaning: 'Repository to ship from.', fallback: 'The process working directory.', required: false }],
 	steps: [],
 	records: CommandRecordKind.Nothing,
-	related: ['auto-plan', 'brainstorm', 'plan', 'implement', 'resume'],
+	related: ['auto-plan', 'brainstorm', 'plan', 'implement', 'resume', 'implement-direct', 'queue'],
 };

@@ -9,6 +9,7 @@ catalog:
   '@jest/globals': ^30.4.1
   '@jscpd/core': ^4.2.5
   '@jscpd/tokenizer': ^4.2.5
+  '@linear/sdk': ^92.0.0
   '@types/node': ^22.10.0
   esbuild: ^0.24.0
   jest: ^30.4.2

@@ -1,4 +1,4 @@
-import { implementSteps } from '#src/commands/common/constants/implementSteps.ts';
+import { implementSteps } from '#src/commands/common/constants/build/implementSteps.ts';
 import { type CommandCatalogEntry, CommandGroup, CommandRecordKind } from '#src/contracts/index.ts';
 
 /** `/implement` — one plan file or a whole plan workspace, which is why `--plan` appears twice with different placeholders. */
@@ -50,7 +50,7 @@ export const implementCatalogEntry: CommandCatalogEntry = {
 	],
 	steps: implementSteps,
 	records: CommandRecordKind.Runs,
-	related: ['auto-plan', 'brainstorm', 'plan', 'resume', 'ship'],
+	related: ['auto-plan', 'brainstorm', 'plan', 'resume', 'ship', 'implement-direct', 'queue'],
 	graphic: {
 		title: 'How /implement turns the spec into verified code',
 		subtitle: 'Ten steps, deterministic gates throughout, and a complete record saved to disk.',

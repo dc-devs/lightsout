@@ -1,19 +1,21 @@
-import { autoPlanCatalogEntry } from '#src/commands/common/constants/autoPlanCatalogEntry.ts';
-import { brainstormCatalogEntry } from '#src/commands/common/constants/brainstormCatalogEntry.ts';
-import { doctorCatalogEntry } from '#src/commands/common/constants/doctorCatalogEntry.ts';
-import { frictionCatalogEntry } from '#src/commands/common/constants/frictionCatalogEntry.ts';
-import { implementCatalogEntry } from '#src/commands/common/constants/implementCatalogEntry.ts';
-import { improveCatalogEntry } from '#src/commands/common/constants/improveCatalogEntry.ts';
-import { planCatalogEntry } from '#src/commands/common/constants/planCatalogEntry.ts';
-import { refactorCatalogEntry } from '#src/commands/common/constants/refactorCatalogEntry.ts';
-import { resumeCatalogEntry } from '#src/commands/common/constants/resumeCatalogEntry.ts';
-import { shipCatalogEntry } from '#src/commands/common/constants/shipCatalogEntry.ts';
-import { standardsCheckCatalogEntry } from '#src/commands/common/constants/standardsCheckCatalogEntry.ts';
-import { standardsHealthCatalogEntry } from '#src/commands/common/constants/standardsHealthCatalogEntry.ts';
-import { standardsValidateCatalogEntry } from '#src/commands/common/constants/standardsValidateCatalogEntry.ts';
-import { statusCatalogEntry } from '#src/commands/common/constants/statusCatalogEntry.ts';
-import { testCoverageToThresholdCatalogEntry } from '#src/commands/common/constants/testCoverageToThresholdCatalogEntry.ts';
-import { voiceCatalogEntry } from '#src/commands/common/constants/voiceCatalogEntry.ts';
+import { autoPlanCatalogEntry } from '#src/commands/common/constants/build/autoPlanCatalogEntry.ts';
+import { brainstormCatalogEntry } from '#src/commands/common/constants/build/brainstormCatalogEntry.ts';
+import { implementCatalogEntry } from '#src/commands/common/constants/build/implementCatalogEntry.ts';
+import { implementDirectCatalogEntry } from '#src/commands/common/constants/build/implementDirectCatalogEntry.ts';
+import { planCatalogEntry } from '#src/commands/common/constants/build/planCatalogEntry.ts';
+import { queueCatalogEntry } from '#src/commands/common/constants/build/queueCatalogEntry.ts';
+import { resumeCatalogEntry } from '#src/commands/common/constants/build/resumeCatalogEntry.ts';
+import { shipCatalogEntry } from '#src/commands/common/constants/build/shipCatalogEntry.ts';
+import { refactorCatalogEntry } from '#src/commands/common/constants/burnDown/refactorCatalogEntry.ts';
+import { testCoverageToThresholdCatalogEntry } from '#src/commands/common/constants/burnDown/testCoverageToThresholdCatalogEntry.ts';
+import { doctorCatalogEntry } from '#src/commands/common/constants/housekeeping/doctorCatalogEntry.ts';
+import { frictionCatalogEntry } from '#src/commands/common/constants/housekeeping/frictionCatalogEntry.ts';
+import { improveCatalogEntry } from '#src/commands/common/constants/housekeeping/improveCatalogEntry.ts';
+import { statusCatalogEntry } from '#src/commands/common/constants/housekeeping/statusCatalogEntry.ts';
+import { voiceCatalogEntry } from '#src/commands/common/constants/housekeeping/voiceCatalogEntry.ts';
+import { standardsCheckCatalogEntry } from '#src/commands/common/constants/standards/standardsCheckCatalogEntry.ts';
+import { standardsHealthCatalogEntry } from '#src/commands/common/constants/standards/standardsHealthCatalogEntry.ts';
+import { standardsValidateCatalogEntry } from '#src/commands/common/constants/standards/standardsValidateCatalogEntry.ts';
 import type { CommandCatalogEntry } from '#src/contracts/index.ts';
 
 /**
@@ -43,8 +45,10 @@ export const commandCatalog: CommandCatalogEntry[] = [
 	planCatalogEntry,
 	autoPlanCatalogEntry,
 	implementCatalogEntry,
+	implementDirectCatalogEntry,
 	resumeCatalogEntry,
 	shipCatalogEntry,
+	queueCatalogEntry,
 	refactorCatalogEntry,
 	testCoverageToThresholdCatalogEntry,
 	standardsCheckCatalogEntry,

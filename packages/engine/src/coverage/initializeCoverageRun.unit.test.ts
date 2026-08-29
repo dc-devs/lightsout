@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
 import { initializeCoverageRun } from '#src/coverage/initializeCoverageRun.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
@@ -11,7 +12,7 @@ import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const driver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };
 
-const manifestWith = ({ pipeline, config }: { pipeline?: string; config: LightsoutConfig }): RunManifest => ({
+const manifestWith = ({ pipeline, config }: { pipeline?: PipelineKind; config: LightsoutConfig }): RunManifest => ({
 	runId: 'run-1',
 	createdAt: '2026-01-01T00:00:00.000Z',
 	updatedAt: '2026-01-01T00:00:00.000Z',
@@ -138,8 +139,8 @@ describe('initializeCoverageRun', () => {
 
 	test.each([
 		{ pipeline: undefined, named: 'implement', command: 'resume' },
-		{ pipeline: 'implement', named: 'implement', command: 'resume' },
-		{ pipeline: 'refactor', named: 'refactor', command: 'refactor' },
+		{ pipeline: PipelineKind.Implement, named: 'implement', command: 'resume' },
+		{ pipeline: PipelineKind.Refactor, named: 'refactor', command: 'refactor' },
 	])('a $named run is sent back to its own resume door', async ({ pipeline, named, command }) => {
 		const cwd = setupMeasurable();
 		const config = await readConfig({ cwd });

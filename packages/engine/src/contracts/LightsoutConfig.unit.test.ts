@@ -106,6 +106,34 @@ test('LightsoutConfig: the auto-plan block is optional, keeps its own kebab-case
 	expect('auto-plan' in LightsoutConfig.parse(base)).toBe(false);
 });
 
+test('LightsoutConfig: the queue block is optional, keeps its own kebab-case spelling, and stays strict through the composition', () => {
+	const queue = {
+		tracker: 'linear',
+		team: 'LO',
+		'route-labels': { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
+		'max-parallel': 3,
+		'api-key-env': 'LINEAR_API_KEY',
+	};
+
+	const parsed = LightsoutConfig.parse({ ...base, queue });
+
+	// the block survives parsing as the file wrote it — every team-specific word
+	// reaches the queue exactly as the repo spelled it, because the engine spells
+	// none of them in source
+	expect(parsed.queue).toStrictEqual(queue);
+
+	// the block's own strictness fires through the composition: a typoed key here
+	// would silently disable a setting the file believes is on
+	expect(LightsoutConfig.safeParse({ ...base, queue: { ...queue, 'max-parralel': 2 } }).success).toBe(false);
+	// and a tracker with no adapter behind it is refused when config is read,
+	// rather than at the first query of a drain
+	expect(LightsoutConfig.safeParse({ ...base, queue: { ...queue, tracker: 'jira' } }).success).toBe(false);
+
+	// queue is opt-in: an absent block leaves no key on the parsed config, and a
+	// repo that never runs the queue needs none of it
+	expect('queue' in LightsoutConfig.parse(base)).toBe(false);
+});
+
 test('LightsoutConfig: effort parses at the top level for every level, and an out-of-enum effort fails', () => {
 	for (const effort of ['low', 'medium', 'high', 'xhigh', 'max']) {
 		// ${effort} is one of the five levels every harness shares

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { PackagesSource } from '#src/contracts/run/PackagesSource.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
 import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import { RunUsage } from '#src/contracts/run/RunUsage.ts';
 import { StepRecord } from '#src/contracts/run/StepRecord.ts';
@@ -17,8 +18,10 @@ export const RunManifest = z.object({
 	updatedAt: z.string(),
 	/** Path to the plan file the run implements, relative to the target repo. For a phases run this is the overview path. */
 	plan: z.string(),
-	/** Which pipeline owns this run ('implement' | 'refactor' | 'phases' | 'coverage'). Absent on pre-discriminator manifests → implement. */
-	pipeline: z.string().optional(),
+	/** Which pipeline owns this run. Absent on pre-discriminator manifests → implement. */
+	pipeline: z.enum(PipelineKind).optional(),
+	/** The ticket this run builds, e.g. 'LO-70'. Absent on a run started from a plan. */
+	ticketRef: z.string().optional(),
 	/** Optional overview plan (high-level context for a phased plan), relative to the target repo. */
 	overview: z.string().optional(),
 	/** Set on a phase's child run: the run id of the coordinator that started it. Absent on a top-level run, and on phase children recorded before this field existed. */

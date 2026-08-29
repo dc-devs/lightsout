@@ -14,8 +14,10 @@ import type { CommandCatalogEntry, CommandFlag, CommandInvocation } from '#src/c
 const usageOrder = [
 	'implement',
 	'implement-folder',
+	'implement-direct',
 	'resume',
 	'ship',
+	'queue',
 	'status',
 	'doctor',
 	'standards-check',

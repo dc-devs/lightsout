@@ -113,6 +113,17 @@ describe('createRun', () => {
 		expect(manifest.plan).toBe(join('plans', 'demo', 'plan.md'));
 	});
 
+	test('records the ticket a run was built from, so a queue or direct run names its ticket rather than only its plan', async () => {
+		const { cwd } = setupRepo();
+
+		const manifest = await createRun({ cwd, plan: 'ticket.md', pipeline: 'direct', ticketRef: 'LO-70', driver: 'stub' });
+		const read = await readRunManifest({ cwd, runId: manifest.runId });
+
+		expect(manifest.ticketRef).toBe('LO-70');
+		// stamped on disk too — the resume and status readers only ever see the file
+		expect(read.ticketRef).toBe('LO-70');
+	});
+
 	test('leaves the optional routing fields unset when the caller omits them', async () => {
 		const { cwd } = setupRepo();
 
@@ -121,6 +132,8 @@ describe('createRun', () => {
 		expect(manifest.pipeline).toBe(undefined);
 		expect(manifest.overview).toBe(undefined);
 		expect(manifest.config).toBe(undefined);
+		// a run started from a plan builds no one ticket
+		expect(manifest.ticketRef).toBe(undefined);
 	});
 
 	test('snapshots the resolved config as the settings that produced this run', async () => {

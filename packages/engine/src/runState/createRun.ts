@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { toRepoRelativePath } from '#src/common/utils/toRepoRelativePath.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import { type LightsoutConfig, type PipelineKind, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import { getRunDir } from '#src/runState/common/paths/getRunDir.ts';
 import { writeRunManifest } from '#src/runState/writeRunManifest.ts';
 
@@ -11,8 +11,10 @@ interface Params {
 	runId?: string;
 	/** Plan path as the caller named it, cwd-relative or absolute — recorded cwd-relative either way. */
 	plan: string;
-	/** Owning pipeline, stamped for resume routing ('implement' | 'refactor'). */
-	pipeline?: string;
+	/** Owning pipeline, stamped for resume routing. */
+	pipeline?: PipelineKind;
+	/** The ticket this run builds, e.g. 'LO-70' — recorded on the manifest. Absent on a run started from a plan. */
+	ticketRef?: string;
 	/** Optional overview plan path (high-level context for a phased plan), cwd-relative or absolute — recorded cwd-relative either way. */
 	overview?: string;
 	/** The coordinator's run id, when this run is one phase of a sequence — the one moment the parent link is known, so the one place it is written. */
@@ -34,7 +36,18 @@ interface Params {
  * and read back as a missing file. Enforced here, at the one place a manifest
  * is born, rather than by each pipeline remembering to.
  */
-export const createRun = async ({ cwd, runId, plan, pipeline, overview, parentRunId, driver, config, baselineDirtyFiles }: Params): Promise<RunManifest> => {
+export const createRun = async ({
+	cwd,
+	runId,
+	plan,
+	pipeline,
+	ticketRef,
+	overview,
+	parentRunId,
+	driver,
+	config,
+	baselineDirtyFiles,
+}: Params): Promise<RunManifest> => {
 	const now = new Date().toISOString();
 	const manifest: RunManifest = {
 		runId: runId ?? randomUUID(),
@@ -42,6 +55,7 @@ export const createRun = async ({ cwd, runId, plan, pipeline, overview, parentRu
 		updatedAt: now,
 		plan: toRepoRelativePath({ cwd, path: plan }),
 		pipeline,
+		ticketRef,
 		overview: overview === undefined ? undefined : toRepoRelativePath({ cwd, path: overview }),
 		parentRunId,
 		harness: driver,

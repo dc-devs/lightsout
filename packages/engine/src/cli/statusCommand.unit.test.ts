@@ -112,6 +112,17 @@ describe('statusCommand', () => {
 		expect(exitCodes).toStrictEqual([0]);
 	});
 
+	test('a run built from a ticket names that ticket, so parked queue work is findable from the run list alone', async () => {
+		const { context, logged, exitCodes } = setupStatus({
+			manifests: [manifestOf({ runId: 'run-direct', pipeline: 'direct', plan: '.lightsout/runs/run-direct/ticket.md', ticketRef: 'LO-70' })],
+		});
+
+		await expect(statusCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged).toStrictEqual(['run-direct  failed  plan: .lightsout/runs/run-direct/ticket.md  ticket: LO-70  updated: 2026-01-01T00:00:03.000Z']);
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
 	test('a phased run counts its passed phases against the total, between the plan and the update time', async () => {
 		const { context, logged, exitCodes } = setupStatus({
 			manifests: [
