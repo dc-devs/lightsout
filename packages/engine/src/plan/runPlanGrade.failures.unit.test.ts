@@ -271,8 +271,10 @@ test('plan grade: a gap-check that never satisfies the contract fails, naming th
 	const result = await runPlanGrade({ cwd, driver, name });
 
 	expectStatus(result, 'failed');
-	// each of the three checkers bought exactly one re-emit retry
+	// each of the three checkers spent both its role invocations: the prose holds
+	// no object, so neither rung buys a re-emit that could only restate it
 	expect(invocations.length).toBe(6);
+	expect(invocations.some(({ prompt }) => prompt.includes('# Validation error'))).toBe(false);
 	// the failure names the plan file and the lens it was checking with, got: ${result.error}
 	expect('error' in result && (result.error ?? '').includes('gap-check failed for plan.md/surface')).toBeTruthy();
 	// a verdict IS written — marked incomplete, so the failure cannot read as a

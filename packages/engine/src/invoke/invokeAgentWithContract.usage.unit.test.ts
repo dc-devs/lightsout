@@ -48,6 +48,38 @@ test('usage sums across a re-emit retry — one role invocation, one bill', asyn
 	expect(usage?.costUsd).toBe(1);
 });
 
+test('usage sums across a fresh role attempt too — every rung of the ladder is on the same bill', async () => {
+	let calls = 0;
+
+	// Valid JSON the contract turns down, so each role invocation also spends its
+	// re-emit: role, re-emit, role.
+	const objectBearingRejection = report({ summary: 42 });
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async () => {
+			calls += 1;
+
+			return calls < 3 ? { text: objectBearingRejection, exitCode: 0, usage: stubUsage(100) } : { text: report(), exitCode: 0, usage: stubUsage(50) };
+		},
+	};
+
+	const { report: parsed, usage } = outcomeFields(
+		await invokeAgentWithContract({
+			driver,
+			cwd: '.',
+			invocation: { systemPrompt: 's', prompt: 'p' },
+			contract: WorkReport,
+			maxRoleAttempts: 2,
+		}),
+	);
+
+	expect(parsed).toBeTruthy();
+	expect(calls).toBe(3);
+	expect(usage?.outputTokens).toBe(250);
+	expect(usage?.inputTokens).toBe(30);
+	expect(usage?.costUsd).toBe(1.5);
+});
+
 test('an attempt reporting no usage does not zero the invocation total', async () => {
 	let calls = 0;
 

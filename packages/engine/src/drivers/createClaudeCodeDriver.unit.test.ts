@@ -257,6 +257,22 @@ test('createClaudeCodeDriver: an is_error result on a zero exit that names a usa
 	expect(result).toStrictEqual({ text: 'Claude usage limit reached, resets at 5pm', exitCode: 0, rateLimited: true, usage: undefined });
 });
 
+test('createClaudeCodeDriver: the period-qualified wording the harness really uses is reported as a wall', async () => {
+	// The exact rejected payload from the 2026-08-25 graded pass, which the two
+	// hand-written driver patterns both missed.
+	const walled = "You've hit your weekly limit · resets 4am";
+	// The apostrophe is escaped for the single-quoted `printf` inside the fake
+	// harness script; the text the driver sees is the original.
+	const { driver, cwd } = await setupClaude({
+		stdoutChunks: [event({ type: 'result', result: walled, is_error: true }).replaceAll("'", String.raw`'\''`)],
+	});
+
+	const result = await driver.invoke({ prompt: 'TASK', cwd });
+
+	expect(result.text).toBe(walled);
+	expect(result.rateLimited).toBe(true);
+});
+
 test('createClaudeCodeDriver: an errored 529 overload parks like a rate limit — transient, never a failed batch', async () => {
 	const { driver, cwd } = await setupClaude({
 		stdoutChunks: [event({ type: 'result', result: 'API Error: 529 Overloaded. This is a server-side issue, usually temporary', is_error: true })],

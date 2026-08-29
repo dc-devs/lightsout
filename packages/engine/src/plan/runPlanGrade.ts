@@ -65,6 +65,13 @@ const spawnGapChecker = async ({
 		effort,
 		permissions,
 		timeoutMs,
+		// Two, not one: a reader written off costs the plan file its coverage —
+		// a file is claimed as checked only when every lens returned for it, so
+		// losing readers means re-running the whole pass by hand. Each fresh
+		// invocation still gets its one cheap re-emit, so four spawns is the
+		// worst case. Not three: two is the smallest number that makes "re-run
+		// rather than write off" true, and it caps the worst case at double.
+		maxRoleAttempts: 2,
 	});
 	const outcome = await invokePlanAgent({
 		invocation: buildPlanGapCheckInvocation({
@@ -151,10 +158,12 @@ const drainGradeAgents = async ({
  * plus each `phase<N>-<slug>.md` beside it.
  *
  * Every plan file is checked by three differently-briefed agents at once, and
- * every file's three run alongside every other file's. The union is the gap
- * list — nothing is voted on, because the same phase graded four times returned
- * a different count each time with every reported gap real, which is
- * under-detection rather than invention.
+ * every file's three run alongside every other file's. A reader whose final
+ * message fails the contract may be re-run once from scratch before it is
+ * written off, because a lost reader costs its plan file the whole coverage
+ * claim. The union is the gap list — nothing is voted on, because the same
+ * phase graded four times returned a different count each time with every
+ * reported gap real, which is under-detection rather than invention.
  *
  * That union is no longer the verdict. Once every reader has settled, each
  * finding is handed to its own judge answering one question — who settles this —

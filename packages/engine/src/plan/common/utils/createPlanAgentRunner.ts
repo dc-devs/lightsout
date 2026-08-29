@@ -17,6 +17,8 @@ interface Params {
 	effort?: Effort;
 	permissions?: Permissions;
 	timeoutMs?: number;
+	/** Fresh role invocations each of this step's calls may spend. Defaults to the chokepoint's own default of one. */
+	maxRoleAttempts?: number;
 }
 
 interface CallParams<Contract extends z.ZodType> {
@@ -36,7 +38,10 @@ interface CallParams<Contract extends z.ZodType> {
  * contract — the same setup three times over, which is three chances to write
  * the tee slightly differently. The transcript sink is created once per step
  * rather than once per call, so a step that invokes the agent per plan file
- * still produces one correctly ordered transcript.
+ * still produces one correctly ordered transcript. The rejected-payload name
+ * carries the chokepoint's spawn number, which keeps rising across a step's
+ * fresh role attempts as well as its re-emits — load-bearing for a step that
+ * raised `maxRoleAttempts`, whose evidence would otherwise overwrite itself.
  *
  * Classifying the outcome stays with the caller: a rate limit and a failure
  * mean different things per step, down to the exact re-run command a human is
@@ -51,6 +56,7 @@ export const createPlanAgentRunner = ({
 	effort,
 	permissions,
 	timeoutMs,
+	maxRoleAttempts,
 }: Params): (<Contract extends z.ZodType>(params: CallParams<Contract>) => Promise<AgentOutcome<z.infer<Contract>>>) => {
 	const onEvent = createEventFileSink({ path: join(workspaceDir, `${step}-stream.jsonl`) });
 
@@ -64,6 +70,7 @@ export const createPlanAgentRunner = ({
 			effort,
 			permissions,
 			timeoutMs,
+			maxRoleAttempts,
 			allowedCommands,
 			onEvent,
 			onRejectedOutput: async ({ text, attempt }) => {

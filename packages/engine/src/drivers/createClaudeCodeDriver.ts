@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { buildClaudeCodeArgs } from '#src/drivers/buildClaudeCodeArgs.ts';
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { isRateLimitMessage } from '#src/drivers/common/utils/isRateLimitMessage.ts';
 import { spawnCollect } from '#src/drivers/common/utils/spawnCollect.ts';
 import { writeSystemPromptFile } from '#src/drivers/common/utils/writeSystemPromptFile.ts';
 
@@ -36,15 +37,6 @@ const parseEnvelope = ({ stdout }: { stdout: string }) => {
 		return undefined;
 	}
 };
-
-/**
- * Best-effort detection of a transient harness failure — a rate limit, or the
- * API overloaded (529): both mean "park the run and resume later", never a
- * failed batch. Only consulted on error paths (is_error or non-zero exit), so
- * legitimate agent text about "rate limits" can never trip it. A false
- * negative degrades to a normal step failure.
- */
-const transientHarnessPattern = /usage limit|rate limit|limit reached|limit will reset|\b(?:status|error|code)\D{0,6}529\b|overloaded/i;
 
 /**
  * Driver for the Claude Code CLI in headless mode (`claude -p`).
@@ -110,7 +102,7 @@ export const createClaudeCodeDriver = (): Driver => {
 			return {
 				text: text || stderr,
 				exitCode,
-				rateLimited: errored && transientHarnessPattern.test(`${text}\n${stderr}`),
+				rateLimited: errored && isRateLimitMessage({ text: `${text}\n${stderr}` }),
 				usage,
 			};
 		},

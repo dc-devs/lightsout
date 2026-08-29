@@ -102,6 +102,28 @@ describe('createPlanAgentRunner', () => {
 		expect(readFileSync(join(workspaceDir, 'draft-rejected-1.txt'), 'utf8')).toBe('not json at all');
 	});
 
+	test('relays the re-run ceiling, and the spawn number keeps rising across both role attempts', async () => {
+		const workspaceDir = setupWorkspace();
+		// Valid JSON the contract turns down, so every rung still earns its cheap re-emit.
+		const offContractObject = JSON.stringify({ ok: 'yes' });
+		const driver = stubDriver({ answers: [offContractObject, offContractObject, offContractObject, offContractObject] });
+		const invokePlanAgent = createPlanAgentRunner({ cwd: workspaceDir, driver, workspaceDir, step: 'grade', maxRoleAttempts: 2 });
+
+		const { report, failure } = outcomeFields(await invokePlanAgent({ invocation: { systemPrompt: '', prompt: '' }, contract: Contract }));
+
+		expect(report).toBe(undefined);
+		expect(failure).toEqual(expect.stringContaining('did not match contract'));
+		// Two role invocations, each with its own re-emit. The number naming the
+		// file counts spawns and never restarts, so the first role attempt's
+		// evidence — the very thing a rejected reader is diagnosed from — is still
+		// on disk after the second attempt has written its own.
+		expect(
+			readdirSync(workspaceDir)
+				.filter((name) => name.startsWith('grade-rejected-'))
+				.sort(),
+		).toStrictEqual(['grade-rejected-1.txt', 'grade-rejected-2.txt', 'grade-rejected-3.txt', 'grade-rejected-4.txt']);
+	});
+
 	test('a label distinguishes rejected payloads when one step runs per plan file', async () => {
 		const workspaceDir = setupWorkspace();
 		const driver = stubDriver({ answers: ['nope', 'nope'] });

@@ -3,10 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildCodexArgs } from '#src/drivers/buildCodexArgs.ts';
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { isRateLimitMessage } from '#src/drivers/common/utils/isRateLimitMessage.ts';
 import { spawnCollect } from '#src/drivers/common/utils/spawnCollect.ts';
-
-/** Same error-path-only heuristic as the claude-code driver. */
-const rateLimitPattern = /usage limit|rate limit|limit reached|quota|529|overloaded/i;
 
 /**
  * Driver for the Codex CLI in non-interactive mode (`codex exec`).
@@ -49,7 +47,7 @@ export const createCodexDriver = (): Driver => {
 				return {
 					text: text || stdout || stderr,
 					exitCode,
-					rateLimited: errored && rateLimitPattern.test(`${stdout}\n${stderr}`),
+					rateLimited: errored && isRateLimitMessage({ text: `${stdout}\n${stderr}` }),
 				};
 			} finally {
 				await rm(outDir, { recursive: true, force: true });
