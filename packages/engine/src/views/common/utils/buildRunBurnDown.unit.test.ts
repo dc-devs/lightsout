@@ -18,7 +18,7 @@ const buildBatch = ({ id, rule = 'multi-export', blocking = 1 }: { id: string; r
 	advisories: [],
 });
 
-const buildManifest = ({ pipeline, steps = [] }: { pipeline: string; steps?: StepRecord[] }): RunManifest => ({
+const buildManifest = ({ pipeline, steps = [] }: { pipeline: PipelineKind; steps?: StepRecord[] }): RunManifest => ({
 	runId: 'run-burn-down',
 	createdAt: '2026-01-01T00:00:00.000Z',
 	updatedAt: '2026-01-01T01:00:00.000Z',

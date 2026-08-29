@@ -1,3 +1,4 @@
+export { buildDirectWorkerInvocation } from '#src/agents/buildDirectWorkerInvocation.ts';
 export { buildFeatureExecutorInvocation } from '#src/agents/buildFeatureExecutorInvocation.ts';
 export { buildPlanDedupInvocation } from '#src/agents/buildPlanDedupInvocation.ts';
 export { buildPlanGapCheckInvocation } from '#src/agents/buildPlanGapCheckInvocation.ts';
@@ -6,6 +7,7 @@ export { buildPlanRepairInvocation } from '#src/agents/buildPlanRepairInvocation
 export { buildPlanReshapeInvocation } from '#src/agents/buildPlanReshapeInvocation.ts';
 export { buildPlanWriterInvocation } from '#src/agents/buildPlanWriterInvocation.ts';
 export { buildPromptImproverInvocation } from '#src/agents/buildPromptImproverInvocation.ts';
+export { buildQueueAutoPlanInvocation } from '#src/agents/buildQueueAutoPlanInvocation.ts';
 export { buildRefactorExecutorInvocation } from '#src/agents/buildRefactorExecutorInvocation.ts';
 export { buildReportReemitterInvocation } from '#src/agents/buildReportReemitterInvocation.ts';
 export { buildStandardsReviewInvocation } from '#src/agents/buildStandardsReviewInvocation.ts';

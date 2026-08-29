@@ -18,6 +18,7 @@
 	"dependencies": {
 		"@jscpd/core": "catalog:",
 		"@jscpd/tokenizer": "catalog:",
+		"@linear/sdk": "catalog:",
 		"@lightsout/shared": "workspace:*",
 		"@lightsout/standards-contracts": "workspace:*",
 		"yaml": "catalog:",

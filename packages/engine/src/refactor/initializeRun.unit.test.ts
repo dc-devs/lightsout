@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { type LightsoutConfig, RefactorWorklist, type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import type { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { initializeRun } from '#src/refactor/index.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
@@ -10,7 +11,7 @@ import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 const driver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };
 
-const manifestWith = ({ pipeline }: { pipeline?: string }): RunManifest => ({
+const manifestWith = ({ pipeline }: { pipeline?: PipelineKind }): RunManifest => ({
 	runId: 'run-1',
 	createdAt: '2026-01-01T00:00:00.000Z',
 	updatedAt: '2026-01-01T00:00:00.000Z',

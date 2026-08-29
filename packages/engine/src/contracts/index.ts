@@ -27,6 +27,7 @@ export {
 export { ConfigAutoPlan } from '#src/contracts/ConfigAutoPlan.ts';
 export { ConfigCommands } from '#src/contracts/ConfigCommands.ts';
 export { ConfigGates } from '#src/contracts/ConfigGates.ts';
+export { ConfigQueue } from '#src/contracts/ConfigQueue.ts';
 export { ConfigShip } from '#src/contracts/ConfigShip.ts';
 export {
 	CommandActor,

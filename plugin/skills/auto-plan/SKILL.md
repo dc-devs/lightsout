@@ -281,6 +281,22 @@ to carry it in and the skill does not guess past it. It:
 `auto-approve-plan` means *do not wait for me when nothing needs me*. It never means
 *guess past what does*.
 
+## Parking under `lightsout queue`
+
+When this skill runs headlessly under `lightsout queue`, there is no user in
+the session to park a question to, and no ticket step to write it on. The
+parking above does not apply. Instead:
+
+- stop before the step that depends on the answer;
+- report `terminated:ambiguity` as the final JSON, with the question as the
+  first entry of `failures`, and stop there — nothing is written to the ticket
+  from inside the session.
+
+The engine relays the question to the terminal that started the queue, writes
+the answer to the run's decisions file and to the ticket's `## Decisions`
+section, and re-invokes with it. The worktree keeps whatever was already done,
+so the re-invocation continues rather than starting over.
+
 ## What this skill never does
 
 - It adds no engine subcommand and changes no engine plan machinery. Every

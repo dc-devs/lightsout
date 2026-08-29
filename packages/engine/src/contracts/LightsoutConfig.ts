@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { ConfigAutoPlan } from '#src/contracts/ConfigAutoPlan.ts';
 import { ConfigCommands } from '#src/contracts/ConfigCommands.ts';
 import { ConfigGates } from '#src/contracts/ConfigGates.ts';
+import { ConfigQueue } from '#src/contracts/ConfigQueue.ts';
 import { ConfigShip } from '#src/contracts/ConfigShip.ts';
 import { renamedKey } from '#src/contracts/common/utils/renamedKey.ts';
 import { Effort } from '#src/contracts/Effort.ts';
@@ -176,6 +177,8 @@ export const LightsoutConfig = z.object({
 	ship: ConfigShip.optional(),
 	/** Opt-in auto-plan settings — which of `/auto-plan`'s checkpoints this repo keeps. See `ConfigAutoPlan`. */
 	'auto-plan': ConfigAutoPlan.optional(),
+	/** Opt-in queue settings — tracker, team, route labels, parallelism and the API-key environment variable. See `ConfigQueue`. */
+	queue: ConfigQueue.optional(),
 });
 
 export type LightsoutConfig = z.infer<typeof LightsoutConfig>;

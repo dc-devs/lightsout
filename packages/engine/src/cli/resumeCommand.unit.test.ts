@@ -56,6 +56,28 @@ describe('resumeCommand', () => {
 		expect(exitCodes).toStrictEqual([1]);
 	});
 
+	test('a queue run is sent back to `lightsout queue` itself, with no --run flag the command does not take', async () => {
+		const { context, errors, exitCodes } = setupResume({ args: ['--run', runId], manifest: manifestOf({ pipeline: 'queue' }) });
+
+		await expect(resumeCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// re-running the queue IS its resume path, so a `--run <id>` here would be a flag the reader could not type
+		expect(errors).toStrictEqual([`run ${runId} belongs to the queue pipeline — resume it with: lightsout queue (a restart resumes parked tickets first)`]);
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('a direct run is sent back to its ticket flag, the placeholder left for the reader to fill in', async () => {
+		const { context, errors, exitCodes } = setupResume({ args: ['--run', runId], manifest: manifestOf({ pipeline: 'direct' }) });
+
+		await expect(resumeCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// only `<id>` has a manifest source — `<path>` has none and prints as written
+		expect(errors).toStrictEqual([
+			`run ${runId} belongs to the direct pipeline — resume it with: lightsout implement-direct --ticket <path> (re-run with the same ticket)`,
+		]);
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
 	test('a run that already passed has nothing to resume', async () => {
 		const { context, errors, exitCodes } = setupResume({ args: ['--run', runId], manifest: manifestOf({ status: RunStatus.Passed }) });
 

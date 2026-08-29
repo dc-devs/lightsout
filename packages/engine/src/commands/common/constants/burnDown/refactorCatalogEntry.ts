@@ -1,4 +1,4 @@
-import { refactorSteps } from '#src/commands/common/constants/refactorSteps.ts';
+import { refactorSteps } from '#src/commands/common/constants/burnDown/refactorSteps.ts';
 import { type CommandCatalogEntry, CommandGroup, CommandRecordKind } from '#src/contracts/index.ts';
 
 /** `/refactor` — a fresh burn-down or the resumption of a parked one, which is why `--run` belongs to only the second shape. */

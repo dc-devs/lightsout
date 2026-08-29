@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { initializeSequence } from '#src/phases/index.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
@@ -28,7 +29,7 @@ const setupPlanFolder = ({ phases, duplicate = false }: { phases: number; duplic
 };
 
 /** A manifest from one of the other pipelines, as `resume` would hand it in. */
-const foreignManifest = ({ pipeline }: { pipeline?: string }): RunManifest => ({
+const foreignManifest = ({ pipeline }: { pipeline?: PipelineKind }): RunManifest => ({
 	runId: 'not-a-sequence',
 	createdAt: '2026-01-01T00:00:00.000Z',
 	updatedAt: '2026-01-01T00:00:00.000Z',
@@ -89,8 +90,8 @@ describe('initializeSequence', () => {
 
 	test.each([
 		{ label: 'a manifest written before the pipeline field existed', pipeline: undefined, named: 'implement', door: 'lightsout resume --run not-a-sequence' },
-		{ label: 'a single-plan run', pipeline: 'implement', named: 'implement', door: 'lightsout resume --run not-a-sequence' },
-		{ label: 'a refactor run', pipeline: 'refactor', named: 'refactor', door: 'lightsout refactor --run not-a-sequence' },
+		{ label: 'a single-plan run', pipeline: PipelineKind.Implement, named: 'implement', door: 'lightsout resume --run not-a-sequence' },
+		{ label: 'a refactor run', pipeline: PipelineKind.Refactor, named: 'refactor', door: 'lightsout refactor --run not-a-sequence' },
 	])('resuming $label here is refused and names the door for the $named pipeline', async ({ pipeline, named, door }) => {
 		const { dir } = setupPlanFolder({ phases: 1 });
 

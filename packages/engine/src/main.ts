@@ -6,9 +6,11 @@ import {
 	getStringFlag,
 	getUnknownFlagsMessage,
 	implementCommand,
+	implementDirectCommand,
 	improveCommand,
 	parseFlags,
 	planCommand,
+	queueCommand,
 	refactorCommand,
 	resumeCommand,
 	shipCommand,
@@ -23,6 +25,8 @@ import {
 
 const commands: Record<string, (context: CommandContext) => Promise<void>> = {
 	implement: implementCommand,
+	'implement-direct': implementDirectCommand,
+	queue: queueCommand,
 	resume: resumeCommand,
 	ship: shipCommand,
 	status: statusCommand,

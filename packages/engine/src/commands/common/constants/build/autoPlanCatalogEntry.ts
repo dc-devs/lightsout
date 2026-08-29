@@ -13,5 +13,5 @@ export const autoPlanCatalogEntry: CommandCatalogEntry = {
 	flags: [],
 	steps: [],
 	records: CommandRecordKind.Plans,
-	related: ['brainstorm', 'plan', 'implement', 'resume', 'ship'],
+	related: ['brainstorm', 'plan', 'implement', 'resume', 'ship', 'implement-direct', 'queue'],
 };

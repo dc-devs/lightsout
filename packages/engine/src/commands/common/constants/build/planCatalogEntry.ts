@@ -1,4 +1,4 @@
-import { planSteps } from '#src/commands/common/constants/planSteps.ts';
+import { planSteps } from '#src/commands/common/constants/build/planSteps.ts';
 import { type CommandCatalogEntry, CommandGroup, CommandRecordKind } from '#src/contracts/index.ts';
 
 /** `/plan` — five subcommands under one command word, so it carries five invocations rather than one. */
@@ -47,7 +47,7 @@ export const planCatalogEntry: CommandCatalogEntry = {
 	],
 	steps: planSteps,
 	records: CommandRecordKind.Plans,
-	related: ['auto-plan', 'brainstorm', 'implement', 'resume', 'ship'],
+	related: ['auto-plan', 'brainstorm', 'implement', 'resume', 'ship', 'implement-direct', 'queue'],
 	graphic: {
 		title: 'How /plan turns a request into an implementation-ready spec',
 		subtitle: 'Final spec and every decision recorded before any code is written.',

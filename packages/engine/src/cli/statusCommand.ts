@@ -27,7 +27,11 @@ export const statusCommand = async ({ cwd }: CommandContext): Promise<void> => {
 					? `  phases: ${manifest.steps.filter((step) => step.status === RunStatus.Passed).length}/${manifest.steps.length}`
 					: '';
 
-			console.log(`${manifest.runId}  ${status}  plan: ${manifest.plan}${phases}  updated: ${manifest.updatedAt}`);
+			// A run built from a ticket rather than a plan says which ticket, so a
+			// queue's parked work is findable from the run list alone.
+			const ticket = manifest.ticketRef === undefined ? '' : `  ticket: ${manifest.ticketRef}`;
+
+			console.log(`${manifest.runId}  ${status}  plan: ${manifest.plan}${ticket}${phases}  updated: ${manifest.updatedAt}`);
 		}
 	}
 
