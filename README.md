@@ -157,6 +157,24 @@ It has no slash command of its own. Its house conventions — the branch pattern
 lightsout ship
 ```
 
+### lightsout queue
+
+Drain the backlog lights-out. `lightsout queue` reads your tracker for every ticket on the configured team that sits in an eligible status and carries a route label, then works them in parallel git worktrees — one branch, one PR, one merge per ticket.
+
+The two route labels are how a human opts a ticket in, and each names a worker. `route-direct` builds straight from the ticket body. `route-auto-plan` plans the ticket first — the same self-answering planner behind `/auto-plan` — and then implements the plan it wrote.
+
+Each ticket gets a fresh worktree cut from the default branch, the config's `setup` command, and a harness run, with up to `max-parallel` tickets in flight at once. A ticket blocked by another ticket that is not finished is not picked up: it is left behind with the blocker named. The queue drains everything unblocked, merges the ready branches one at a time, then re-reads the tracker and takes whatever the finished work just unblocked — so a chain of dependent tickets ships in order, in one run. It stops when a re-read finds nothing new.
+
+When a worker hits a question only a human can answer, the queue relays it: to your terminal by default, or — with `--file-relay` — to a mailbox the `/queue` skill watches from a Claude Code session, so you can keep working and answer when asked. A question nobody answers parks its ticket after `question-timeout`; a later run picks parked work back up, worktree and all.
+
+Exit codes carry the whole story: `0` — everything eligible shipped; `2` — work remains that a re-run picks up (parked or left-behind tickets); `1` — the queue refused to start, and the message says why.
+
+It needs a `queue` block in `lightsout.config.json` — which tracker, which team, which labels, how many at once — and the tracker API key in the environment variable that block names. See [Configuration](docs/configuration.md).
+
+```text
+lightsout queue --file-relay
+```
+
 ### /refactor
 
 Turn existing technical debt into a gated refactoring run. `/refactor` runs the standards checks for duplicated logic, oversized files, structural violations, the shape of your test files, where folders and files sit and what they are called, and opportunities to replace repeated code with shared abstractions.

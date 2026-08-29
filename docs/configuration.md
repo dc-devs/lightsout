@@ -201,6 +201,7 @@ failure.
 | `standards-channels`          |       no | Controls which framework-specific documents of the loaded packs are used, such as `react`. When omitted, channels are detected from the packages involved in the run. Providing an array replaces automatic detection. Use `[]` to load only the base documents.                                                                                                                              |
 | `standards-checks`            |       no | Per-rule overrides for `lightsout standards-check`, keyed by rule id. A rule you do not name keeps its own default. See [Standards check rules](#standards-check-rules).                                                                                                                                                                                                                         |
 | `ship`                        |       no | Opt-in settings for `lightsout ship`. See [Ship settings](#ship-settings).                                                                                                                                                                                                                                                                                                                        |
+| `queue`                       |       no | Opt-in settings for `lightsout queue`: which tracker it reads, which label routes a ticket to which worker, and how many tickets run at once. See [Queue settings](#queue-settings).                                                                                                                                                                                                              |
 | `auto-plan`                   |       no | Opt-in settings for `/auto-plan`: which of its checkpoints this repository keeps. See [Auto-plan settings](#auto-plan-settings).                                                                                                                                                                                                                                                                  |
 
 ### Standards check rules
@@ -281,6 +282,28 @@ A repository that wants the strict profile promotes those rules itself — an ex
 | `ship.after-implement` |       no | When true, a passed `/implement` run chains into ship without `--ship` being typed. Defaults to `false`.                                                                                                                             |
 
 This block is where your team's tracker conventions live, so no tracker vocabulary reaches engine code. The default body is deliberately inert — a body that closes a ticket automatically is a team's convention, not the engine's. The block is strict: an unknown key fails parsing rather than silently disabling a setting you believe is on.
+
+### Queue settings
+
+The `queue` block is what `lightsout queue` runs on. Without it the command refuses to start. Five keys are required; the rest have defaults.
+
+| Field                    | Required | What it controls                                                                                                                                                                                                                                                            |
+| ------------------------ | -------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `queue.tracker`          |      yes | Which tracker the queue reads. Only `linear` has an adapter today.                                                                                                                                                                                                          |
+| `queue.team`             |      yes | The tracker's team key, e.g. `LO`. Every query is scoped to it.                                                                                                                                                                                                             |
+| `queue.route-labels`     |      yes | Which ticket label routes a ticket to which worker: `direct` builds straight from the ticket body, `auto-plan` plans the ticket first. A label named here is the human's opt-in to automation — the queue never takes an unlabeled ticket.                                     |
+| `queue.max-parallel`     |      yes | How many tickets may be in flight at once. Also the ceiling on how many questions can ever wait for you at the same time.                                                                                                                                                    |
+| `queue.api-key-env`      |      yes | Name of the environment variable holding the tracker API key. The key itself is never written to config.                                                                                                                                                                    |
+| `queue.eligible-statuses` |      no | Ticket statuses the queue may pick up. Defaults to `["Backlog", "Ready to implement"]`.                                                                                                                                                                                     |
+| `queue.in-progress-status` |     no | Status the queue moves a ticket to when it picks it up. Defaults to `"In Progress"`.                                                                                                                                                                                        |
+| `queue.setup`            |       no | Command run once in each fresh worktree before any agent, e.g. `pnpm install`. Absent means nothing runs.                                                                                                                                                                   |
+| `queue.branch-template`  |       no | How a ticket becomes a branch name. `{ticket}` is the lowercased identifier, `{slug}` the slugged title. Defaults to `{ticket}-{slug}`. Whatever it produces must be matched by `ship.ticket-pattern`.                                                                        |
+| `queue.decisions-heading` |      no | The ticket-body heading relayed answers are appended under. Defaults to `## Decisions`.                                                                                                                                                                                     |
+| `queue.worker-timeout`   |       no | Ceiling for one ticket's worker session, as a duration string like `90s`, `45m` or `4h`. Per ticket, never for the drain — the queue itself runs until the backlog is dry. A hit ceiling parks the ticket resumably. Defaults to `4h`.                                        |
+| `queue.question-timeout` |       no | How long one relayed question waits for an answer before its ticket parks, as a duration string. Only `--file-relay` observes it; the terminal relay waits on the person at the terminal. Defaults to `1h`.                                                                   |
+| `queue.parked-label`     |       no | The ticket label the queue sets when a ticket parks and clears when it resumes or ships. Opt-in with no default. The label is created on the team on first use.                                                                                                              |
+
+The block is strict for the same reason `ship` is: an unknown key fails parsing rather than silently disabling a setting you believe is on. Every team-specific word — tracker, statuses, labels — lives here, so no tracker vocabulary reaches engine code.
 
 ### Auto-plan settings
 
@@ -369,6 +392,22 @@ The following example shows how the optional configuration fields fit together:
     "pr-body": "Closes ABC-{number}",
     "merge-method": "merge",
     "after-implement": false,
+  },
+
+  // Queue: which tracker to drain, and how many tickets run at once
+  "queue": {
+    "tracker": "linear",
+    "team": "ABC",
+    "route-labels": {
+      "direct": "route-direct",
+      "auto-plan": "route-auto-plan",
+    },
+    "max-parallel": 2,
+    "api-key-env": "LINEAR_API_KEY",
+    "setup": "pnpm install",
+    "worker-timeout": "4h",
+    "question-timeout": "1h",
+    "parked-label": "queue-parked",
   },
 
   // Auto-plan: which of /auto-plan's checkpoints this repo keeps
