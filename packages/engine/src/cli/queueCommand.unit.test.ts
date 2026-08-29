@@ -1,7 +1,10 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { queueCommand } from '#src/cli/queueCommand.ts';
 import type { QueueDrainReport, QueueFailure, QueueSettings, TicketRunOutcome } from '#src/queue/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // Mocked Imports
@@ -13,11 +16,28 @@ import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 const mockResolveQueueSettings = jest.fn<() => QueueSettings | QueueFailure>();
 const mockRunQueue = jest.fn<() => Promise<QueueDrainReport | QueueFailure>>();
 const mockRelayClosed = jest.fn<() => void>();
+const mockEmptyRelayMailbox = jest.fn<(params: { directory: string }) => Promise<void>>();
+/** Which relay the command built, in the order it built them — the one decision the flag exists to make. */
+const relaysBuilt: string[] = [];
 
 jest.mock('#src/queue/index.ts', () => ({
 	resolveQueueSettings: () => mockResolveQueueSettings(),
 	runQueue: () => mockRunQueue(),
-	QuestionRelay: class {
+	emptyRelayMailbox: (params: { directory: string }) => mockEmptyRelayMailbox(params),
+	TerminalQuestionRelay: class {
+		constructor() {
+			relaysBuilt.push('terminal');
+		}
+
+		close() {
+			mockRelayClosed();
+		}
+	},
+	FileQuestionRelay: class {
+		constructor() {
+			relaysBuilt.push('file');
+		}
+
 		close() {
 			mockRelayClosed();
 		}
@@ -25,17 +45,7 @@ jest.mock('#src/queue/index.ts', () => ({
 }));
 // -------------------------
 
-const settings: QueueSettings = {
-	team: 'LO',
-	routeLabels: { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
-	maxParallel: 2,
-	apiKey: 'lin_key',
-	eligibleStatuses: ['Backlog'],
-	inProgressStatus: 'In Progress',
-	branchTemplate: '{ticket}-{slug}',
-	decisionsHeading: '## Decisions',
-	workerMinutes: 240,
-};
+const settings = queueSettingsFixture();
 
 const outcomeOf = ({ ready, error }: { ready: boolean; error?: string }): TicketRunOutcome => ({
 	ticket: {
@@ -57,17 +67,34 @@ const outcomeOf = ({ ready, error }: { ready: boolean; error?: string }): Ticket
 const setupQueueCommand = ({
 	report,
 	ship = { 'ticket-pattern': '^(?<ticket>[a-z]+-\\d+)' },
+	fileRelay,
 }: {
 	report?: QueueDrainReport | QueueFailure;
 	ship?: unknown;
+	/** What `--file-relay` carried: absent for no flag, true for a bare one, a path for a named mailbox. */
+	fileRelay?: string | true;
 }) => {
 	const captured = captureCommandOutput();
 	const cwd = setupConsumerRepo({ config: { ship } });
 
 	mockResolveQueueSettings.mockReturnValue(settings);
 	mockRunQueue.mockResolvedValue(report ?? { outcomes: [], leftBehind: [] });
+	mockEmptyRelayMailbox.mockResolvedValue(undefined);
+	relaysBuilt.length = 0;
 
-	return { context: { flags: new Map<string, string | true>(), rest: [], cwd }, cwd, ...captured };
+	const flags = new Map<string, string | true>();
+
+	if (fileRelay !== undefined) {
+		flags.set('file-relay', fileRelay);
+	}
+
+	return { context: { flags, rest: [], cwd }, cwd, ...captured };
+};
+
+/** A lock file naming this pid, which is alive by definition — what a second drain would find mid-run. */
+const holdRunLock = ({ cwd, pid }: { cwd: string; pid: number }) => {
+	mkdirSync(join(cwd, '.lightsout'), { recursive: true });
+	writeFileSync(join(cwd, '.lightsout', 'lock.json'), JSON.stringify({ pid, runId: 'run-live', startedAt: '2026-01-01T00:00:00.000Z' }), 'utf8');
 };
 
 describe('queueCommand', () => {
@@ -149,6 +176,59 @@ describe('queueCommand', () => {
 		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(mockRelayClosed).toHaveBeenCalledTimes(1);
+	});
+
+	test('asks on this terminal when no mailbox was asked for, so the default loses nothing', async () => {
+		const { context } = setupQueueCommand({});
+
+		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(relaysBuilt).toStrictEqual(['terminal']);
+		expect(mockEmptyRelayMailbox).not.toHaveBeenCalled();
+	});
+
+	test('a bare --file-relay empties the default mailbox and says where it landed', async () => {
+		const { context, cwd, logged } = setupQueueCommand({ fileRelay: true });
+
+		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
+
+		const directory = resolve(cwd, '.lightsout', 'queue', 'relay');
+
+		expect(relaysBuilt).toStrictEqual(['file']);
+		expect(mockEmptyRelayMailbox).toHaveBeenCalledWith({ directory });
+		expect(logged).toContain(`relaying questions through ${directory}`);
+	});
+
+	test('a --file-relay path resolves against the repo, like every other path the CLI takes', async () => {
+		const { context, cwd } = setupQueueCommand({ fileRelay: 'mailbox' });
+
+		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(mockEmptyRelayMailbox).toHaveBeenCalledWith({ directory: resolve(cwd, 'mailbox') });
+	});
+
+	test('refuses rather than emptying the mailbox of a drain that is still running', async () => {
+		const { context, cwd, errors, exitCodes } = setupQueueCommand({ fileRelay: true });
+
+		holdRunLock({ cwd, pid: process.pid });
+
+		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(errors[0]).toContain('another lightsout run is active in this repo: run run-live');
+		expect(mockEmptyRelayMailbox).not.toHaveBeenCalled();
+		expect(mockRunQueue).not.toHaveBeenCalled();
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('empties the mailbox left by a crashed drain, because those questions are dead', async () => {
+		const { context, cwd } = setupQueueCommand({ fileRelay: true });
+
+		// A pid nothing can be running under: the lock is a crash leftover.
+		holdRunLock({ cwd, pid: 2 ** 30 });
+
+		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(mockEmptyRelayMailbox).toHaveBeenCalledWith({ directory: resolve(cwd, '.lightsout', 'queue', 'relay') });
 	});
 
 	test('closes the terminal even when the drain itself threw', async () => {

@@ -42,7 +42,10 @@
 		},
 		"max-parallel": 2,
 		"api-key-env": "LINEAR_API_KEY",
-		"setup": "pnpm install"
+		"setup": "pnpm install",
+		"worker-timeout": "4h",
+		"question-timeout": "1h",
+		"parked-label": "queue-parked"
 	},
 	"package-gates": {
 		"check": "pnpm --filter {package} run check",

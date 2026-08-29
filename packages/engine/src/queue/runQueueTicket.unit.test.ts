@@ -6,12 +6,12 @@ import { describe, expect, jest, test } from '@jest/globals';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
-import { QuestionRelay } from '#src/queue/common/services/QuestionRelay.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
+import { TerminalQuestionRelay } from '#src/queue/relay/index.ts';
 import { runQueueTicket } from '#src/queue/runQueueTicket.ts';
+import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 
 // Mocked Imports
 // -------------------------
@@ -33,17 +33,7 @@ jest.mock('#src/queue/commitTicketWork.ts', () => ({
 }));
 // -------------------------
 
-const settings: QueueSettings = {
-	team: 'LO',
-	routeLabels: { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
-	maxParallel: 2,
-	apiKey: 'lin_key',
-	eligibleStatuses: ['Backlog'],
-	inProgressStatus: 'In Progress',
-	branchTemplate: '{ticket}-{slug}',
-	decisionsHeading: '## Decisions',
-	workerMinutes: 240,
-};
+const settings = queueSettingsFixture();
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 const driver: Driver = { name: 'claude-code', invoke: () => Promise.resolve({ text: '', exitCode: 0 }) };
@@ -68,7 +58,7 @@ const setupTicketRun = () => {
 	mockRunWorkerWithRelay.mockResolvedValue({});
 	mockCommitTicketWork.mockResolvedValue({ committed: true });
 
-	const relay = new QuestionRelay({ settings, input: new PassThrough(), output: new PassThrough() });
+	const relay = new TerminalQuestionRelay({ settings, input: new PassThrough(), output: new PassThrough() });
 
 	const run = () =>
 		runQueueTicket({

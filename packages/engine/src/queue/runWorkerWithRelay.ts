@@ -6,7 +6,7 @@ import { runDirectWork } from '#src/direct/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { invokeAgentWithContract } from '#src/invoke/index.ts';
 import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
-import type { QuestionRelay } from '#src/queue/common/services/QuestionRelay.ts';
+import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
@@ -61,7 +61,7 @@ const runAutoPlanWorker = async ({
 		model: config.model,
 		effort: config.effort,
 		permissions: config.permissions,
-		timeoutMs: settings.workerMinutes * 60_000,
+		timeoutMs: settings.workerTimeoutMs,
 		allowedCommands: [...(config['agent-commands'] ?? []), engineCli],
 	});
 

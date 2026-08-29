@@ -7,7 +7,7 @@ import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import { getWorktreesRoot } from '#src/queue/common/utils/getWorktreesRoot.ts';
-import { getTicketsByIdentifiers } from '#src/queue/tracker/index.ts';
+import { getTicketsByIdentifiers, setParkedLabel } from '#src/queue/tracker/index.ts';
 import { readTicketMatch, type ShipSettings } from '#src/ship/index.ts';
 
 interface Params {
@@ -152,6 +152,12 @@ export const scanParkedWorktrees = async ({ cwd, defaultBranch, settings, shipSe
 		const ticket = matched[0];
 
 		if (bucket === 'drain') {
+			const cleared = await setParkedLabel({ settings, ticketId: ticket.id, parked: false });
+
+			if (cleared !== undefined) {
+				onProgress?.(`${tree.identifier} · the parked label could not be cleared: ${cleared.error}`);
+			}
+
 			parked.resumed.push(...matched);
 		} else {
 			parked.outcomes.push({

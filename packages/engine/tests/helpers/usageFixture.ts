@@ -8,7 +8,8 @@
  * and the renderer's single alignment rule re-flows it to column 65.
  *
  * A FEATURE adding a command or a flag updates this pin deliberately — updated
- * 2026-08-28 for `lightsout queue` and `lightsout implement-direct`.
+ * 2026-08-28 for `lightsout queue` and `lightsout implement-direct`, and
+ * again for `queue --file-relay`.
  */
 export const usageFixture = `lightsout — deterministic engine for coding agents
 
@@ -18,7 +19,7 @@ usage:
   lightsout implement-direct --ticket <path> [--ref <ticket>] [--cwd <path>] [--ship]
   lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
   lightsout ship [--cwd <path>]
-  lightsout queue [--cwd <path>]
+  lightsout queue [--file-relay [dir]] [--cwd <path>]
   lightsout status [--cwd <path>]
   lightsout doctor [--cwd <path>]
   lightsout standards-check [--cwd <path>] [--path <subdir>] [--all] [--baseline] [--code-checks | --agent-review]

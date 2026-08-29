@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { commitTicketWork } from '#src/queue/commitTicketWork.ts';
-import type { QuestionRelay } from '#src/queue/common/services/QuestionRelay.ts';
+import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';

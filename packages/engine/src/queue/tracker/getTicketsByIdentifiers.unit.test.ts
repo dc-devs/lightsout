@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import { getTicketsByIdentifiers } from '#src/queue/tracker/index.ts';
+import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 
 // Mocked Imports
 // -------------------------
@@ -13,17 +13,7 @@ const mockRunLinear = jest.fn<(params: { apiKey: string; call: LinearCall }) => 
 jest.mock('#src/queue/tracker/runLinear.ts', () => ({ runLinear: (params: { apiKey: string; call: LinearCall }) => mockRunLinear(params) }));
 // -------------------------
 
-const settings: QueueSettings = {
-	team: 'LO',
-	routeLabels: { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
-	maxParallel: 2,
-	apiKey: 'lin_key',
-	eligibleStatuses: ['Backlog'],
-	inProgressStatus: 'In Progress',
-	branchTemplate: '{ticket}-{slug}',
-	decisionsHeading: '## Decisions',
-	workerMinutes: 240,
-};
+const settings = queueSettingsFixture();
 
 const issueOf = ({ number, labels }: { number: number; labels: string[] }) => ({
 	id: `id-${number}`,

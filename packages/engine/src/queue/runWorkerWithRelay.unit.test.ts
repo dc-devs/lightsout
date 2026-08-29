@@ -8,38 +8,31 @@ import type { Driver } from '#src/drivers/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
-import { QuestionRelay } from '#src/queue/common/services/QuestionRelay.ts';
-import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
+import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
+import { TerminalQuestionRelay } from '#src/queue/relay/index.ts';
 import { runWorkerWithRelay } from '#src/queue/runWorkerWithRelay.ts';
+import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 
 // Mocked Imports
 // -------------------------
 // Both workers spawn a harness — another module's entry point, each covered by
 // its own tests. What this file owns is the loop between a worker's question and
 // the answer that comes back, which is observable with both stubbed.
-const mockInvokeAgentWithContract = jest.fn<(params: { invocation: { prompt: string } }) => Promise<AgentOutcome<WorkReport>>>();
+const mockInvokeAgentWithContract = jest.fn<(params: { invocation: { prompt: string }; timeoutMs?: number }) => Promise<AgentOutcome<WorkReport>>>();
 const mockRunDirectWork = jest.fn<(params: { answeredQuestion?: { question: string; answer: string } }) => Promise<PipelineResult>>();
 const mockAppendTicketNote = jest.fn<() => Promise<undefined>>();
 
-jest.mock('#src/invoke/index.ts', () => ({ invokeAgentWithContract: (params: { invocation: { prompt: string } }) => mockInvokeAgentWithContract(params) }));
+jest.mock('#src/invoke/index.ts', () => ({
+	invokeAgentWithContract: (params: { invocation: { prompt: string }; timeoutMs?: number }) => mockInvokeAgentWithContract(params),
+}));
 jest.mock('#src/direct/index.ts', () => ({
 	runDirectWork: (params: { answeredQuestion?: { question: string; answer: string } }) => mockRunDirectWork(params),
 }));
 jest.mock('#src/queue/tracker/index.ts', () => ({ appendTicketNote: () => mockAppendTicketNote() }));
 // -------------------------
 
-const settings: QueueSettings = {
-	team: 'LO',
-	routeLabels: { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
-	maxParallel: 2,
-	apiKey: 'lin_key',
-	eligibleStatuses: ['Backlog'],
-	inProgressStatus: 'In Progress',
-	branchTemplate: '{ticket}-{slug}',
-	decisionsHeading: '## Decisions',
-	workerMinutes: 240,
-};
+const settings = queueSettingsFixture();
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 const driver: Driver = { name: 'claude-code', invoke: () => Promise.resolve({ text: '', exitCode: 0 }) };
@@ -100,7 +93,7 @@ const setupRelay = ({ answers = [] }: { answers?: string[] } = {}) => {
 
 	mockAppendTicketNote.mockResolvedValue(undefined);
 
-	return { relay: new QuestionRelay({ settings, input, output }), coordinatorRunDir: mkdtempSync(join(tmpdir(), 'lightsout-worker-')) };
+	return { relay: new TerminalQuestionRelay({ settings, input, output }), coordinatorRunDir: mkdtempSync(join(tmpdir(), 'lightsout-worker-')) };
 };
 
 const runWorker = ({ relay, coordinatorRunDir, ticket }: { relay: QuestionRelay; coordinatorRunDir: string; ticket: TicketSummary }) =>
@@ -170,6 +163,18 @@ describe('runWorkerWithRelay', () => {
 		expect(await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueRoute.AutoPlan) })).toStrictEqual({});
 
 		relay.close();
+	});
+
+	test('gives the auto-plan session the ceiling the settings already carry, in milliseconds and unconverted', async () => {
+		const { relay, coordinatorRunDir } = setupRelay();
+
+		mockInvokeAgentWithContract.mockResolvedValue({ ok: true, report: reportOf() });
+
+		await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueRoute.AutoPlan) });
+
+		relay.close();
+
+		expect(mockInvokeAgentWithContract.mock.calls[0]?.[0].timeoutMs).toBe(14_400_000);
 	});
 
 	test('relays an auto-plan worker’s first failure as the question it asked, and folds the answer into the next invocation', async () => {

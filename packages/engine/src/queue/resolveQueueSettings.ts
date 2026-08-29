@@ -1,6 +1,8 @@
 import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
+import { parseDurationMs } from '#src/queue/common/utils/parseDurationMs.ts';
 
 interface Params {
 	config: LightsoutConfig;
@@ -35,9 +37,21 @@ export const resolveQueueSettings = ({ config, env }: Params): QueueSettings | Q
 		return { error: `the queue's tracker API key is missing: set the \`${apiKeyEnv}\` environment variable` };
 	}
 
+	const workerTimeoutMs = parseDurationMs({ value: queue['worker-timeout'] ?? '4h', key: 'queue.worker-timeout' });
+
+	if (typeof workerTimeoutMs !== 'number') {
+		return workerTimeoutMs;
+	}
+
+	const questionTimeoutMs = parseDurationMs({ value: queue['question-timeout'] ?? '1h', key: 'queue.question-timeout' });
+
+	if (typeof questionTimeoutMs !== 'number') {
+		return questionTimeoutMs;
+	}
+
 	return {
 		team: queue.team,
-		routeLabels: { direct: queue['route-labels'].direct, 'auto-plan': queue['route-labels']['auto-plan'] },
+		routeLabels: { [QueueRoute.Direct]: queue['route-labels'].direct, [QueueRoute.AutoPlan]: queue['route-labels']['auto-plan'] },
 		maxParallel: queue['max-parallel'],
 		apiKey,
 		eligibleStatuses: queue['eligible-statuses'] ?? ['Backlog', 'Ready to implement'],
@@ -45,6 +59,8 @@ export const resolveQueueSettings = ({ config, env }: Params): QueueSettings | Q
 		setup: queue.setup,
 		branchTemplate: queue['branch-template'] ?? '{ticket}-{slug}',
 		decisionsHeading: queue['decisions-heading'] ?? '## Decisions',
-		workerMinutes: queue['worker-minutes'] ?? 240,
+		workerTimeoutMs,
+		questionTimeoutMs,
+		parkedLabel: queue['parked-label'],
 	};
 };

@@ -11,8 +11,9 @@ import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { QuestionRelay, runQueue } from '#src/queue/index.ts';
+import { runQueue, TerminalQuestionRelay } from '#src/queue/index.ts';
 import type { ShipSettings } from '#src/ship/index.ts';
+import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 // Mocked Imports
@@ -27,8 +28,16 @@ const mockListEligibleTickets = jest.fn<() => Promise<TicketSummary[] | QueueFai
 const mockScanParkedWorktrees = jest.fn<() => Promise<ParkedWork | QueueFailure>>();
 const mockRunQueueTicket = jest.fn<(params: { ticket: TicketSummary; serializeWorktreeAdd: SerializeWorktreeAdd }) => Promise<TicketRunOutcome>>();
 const mockShipReadyBranches = jest.fn<(params: { ready: TicketRunOutcome[] }) => Promise<TicketRunOutcome[]>>();
+/** The label write is covered by `setParkedLabel`'s own tests; what this file owns is which list the drain settles it over, and when. */
+type LabelParams = { settings: QueueSettings; ticketId: string; parked: boolean };
 
-jest.mock('#src/queue/tracker/index.ts', () => ({ listEligibleTickets: () => mockListEligibleTickets(), appendTicketNote: () => Promise.resolve(undefined) }));
+const mockSetParkedLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure | undefined>>();
+
+jest.mock('#src/queue/tracker/index.ts', () => ({
+	listEligibleTickets: () => mockListEligibleTickets(),
+	appendTicketNote: () => Promise.resolve(undefined),
+	setParkedLabel: (params: LabelParams) => mockSetParkedLabel(params),
+}));
 jest.mock('#src/queue/scanParkedWorktrees.ts', () => ({ scanParkedWorktrees: () => mockScanParkedWorktrees() }));
 jest.mock('#src/queue/runQueueTicket.ts', () => ({
 	runQueueTicket: (params: { ticket: TicketSummary; serializeWorktreeAdd: SerializeWorktreeAdd }) => mockRunQueueTicket(params),
@@ -38,19 +47,6 @@ jest.mock('#src/queue/shipReadyBranches.ts', () => ({ shipReadyBranches: (params
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 const driver: Driver = { name: 'claude-code', invoke: () => Promise.resolve({ text: '', exitCode: 0 }) };
-
-const settingsOf = (overrides: Partial<QueueSettings> = {}): QueueSettings => ({
-	team: 'LO',
-	routeLabels: { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
-	maxParallel: 2,
-	apiKey: 'lin_key',
-	eligibleStatuses: ['Backlog'],
-	inProgressStatus: 'In Progress',
-	branchTemplate: '{ticket}-{slug}',
-	decisionsHeading: '## Decisions',
-	workerMinutes: 240,
-	...overrides,
-});
 
 const shipSettings: ShipSettings = {
 	ticketPattern: /^(?<ticket>[a-z]+-\d+)/,
@@ -94,11 +90,12 @@ const setupDrain = ({ eligible = [], parked }: { eligible?: TicketSummary[]; par
 	mockScanParkedWorktrees.mockResolvedValue(parked ?? { resumed: [], outcomes: [], leftBehind: [] });
 	mockRunQueueTicket.mockImplementation(({ ticket }) => Promise.resolve(outcomeOf({ ticket })));
 	mockShipReadyBranches.mockImplementation(({ ready }) => Promise.resolve(ready));
+	mockSetParkedLabel.mockResolvedValue(undefined);
 
-	const relay = new QuestionRelay({ settings: settingsOf(), input: new PassThrough(), output: new PassThrough() });
+	const relay = new TerminalQuestionRelay({ settings: queueSettingsFixture(), input: new PassThrough(), output: new PassThrough() });
 	const progress: string[] = [];
 
-	const drain = ({ settings = settingsOf() }: { settings?: QueueSettings } = {}) =>
+	const drain = ({ settings = queueSettingsFixture() }: { settings?: QueueSettings } = {}) =>
 		runQueue({ cwd, settings, shipSettings, config, driver, driverName: 'claude-code', relay, onProgress: (message) => progress.push(message) });
 
 	return { cwd, drain, relay, progress };
@@ -117,7 +114,7 @@ describe('runQueue', () => {
 	test('refuses a branch template the ship pattern cannot read, naming both keys before any ticket is built', async () => {
 		const { drain, relay } = setupDrain();
 
-		const report = await drain({ settings: settingsOf({ branchTemplate: 'work/{slug}' }) });
+		const report = await drain({ settings: queueSettingsFixture({ branchTemplate: 'work/{slug}' }) });
 
 		relay.close();
 
@@ -127,9 +124,9 @@ describe('runQueue', () => {
 
 	test('refuses a repo with no remote default branch, the same refusal ship makes for the same reason', async () => {
 		const { cwd } = setupBranchRepo({ remoteHead: false });
-		const relay = new QuestionRelay({ settings: settingsOf(), input: new PassThrough(), output: new PassThrough() });
+		const relay = new TerminalQuestionRelay({ settings: queueSettingsFixture(), input: new PassThrough(), output: new PassThrough() });
 
-		const report = await runQueue({ cwd, settings: settingsOf(), shipSettings, config, driver, driverName: 'claude-code', relay });
+		const report = await runQueue({ cwd, settings: queueSettingsFixture(), shipSettings, config, driver, driverName: 'claude-code', relay });
 
 		relay.close();
 
@@ -189,7 +186,7 @@ describe('runQueue', () => {
 			],
 		});
 
-		await drain({ settings: settingsOf({ maxParallel: 1 }) });
+		await drain({ settings: queueSettingsFixture({ maxParallel: 1 }) });
 		relay.close();
 
 		expect(mockRunQueueTicket.mock.calls.map((call) => call[0].ticket.identifier)).toStrictEqual(['LO-72', 'LO-73', 'LO-71', 'LO-70']);
@@ -201,7 +198,7 @@ describe('runQueue', () => {
 			parked: { resumed: [ticketOf({ number: 99 })], outcomes: [], leftBehind: [] },
 		});
 
-		await drain({ settings: settingsOf({ maxParallel: 1 }) });
+		await drain({ settings: queueSettingsFixture({ maxParallel: 1 }) });
 		relay.close();
 
 		expect(mockRunQueueTicket.mock.calls.map((call) => call[0].ticket.identifier)).toStrictEqual(['LO-99', 'LO-70']);
@@ -262,7 +259,7 @@ describe('runQueue', () => {
 			return outcomeOf({ ticket });
 		});
 
-		await drain({ settings: settingsOf({ maxParallel: 2 }) });
+		await drain({ settings: queueSettingsFixture({ maxParallel: 2 }) });
 		relay.close();
 
 		expect(mockRunQueueTicket).toHaveBeenCalledTimes(2);
@@ -289,6 +286,50 @@ describe('runQueue', () => {
 
 		expect(report).toEqual({ outcomes: [expect.objectContaining({ ready: false })], leftBehind: [] });
 		expect(readCoordinatorRun({ cwd }).manifest.status).toBe(RunStatus.Escalated);
+	});
+
+	test('settles the parked label over the outcomes shipping left behind, so a ticket that failed to merge is parked in the tracker too', async () => {
+		const merged = ticketOf({ number: 70 });
+		const unmerged = ticketOf({ number: 71 });
+		const { drain, relay } = setupDrain({ eligible: [merged, unmerged] });
+
+		mockShipReadyBranches.mockResolvedValue([
+			outcomeOf({ ticket: merged }),
+			outcomeOf({ ticket: unmerged, ready: false, error: 'the branch did not rebase onto main' }),
+		]);
+
+		await drain({ settings: queueSettingsFixture({ parkedLabel: 'queue-parked' }) });
+		relay.close();
+
+		expect(mockSetParkedLabel.mock.calls.map(([params]) => ({ ticketId: params.ticketId, parked: params.parked }))).toStrictEqual([
+			{ ticketId: 'id-70', parked: false },
+			{ ticketId: 'id-71', parked: true },
+		]);
+	});
+
+	test('reports a failed label write as progress and still hands the drain back, because the tracker is never a precondition for building', async () => {
+		const { drain, relay, progress } = setupDrain({ eligible: [ticketOf({ number: 70 })] });
+
+		mockSetParkedLabel.mockResolvedValue({ error: 'there is no LO team to create the label on' });
+
+		const report = await drain({ settings: queueSettingsFixture({ parkedLabel: 'queue-parked' }) });
+
+		relay.close();
+
+		expect(report).toEqual({ outcomes: [expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-70' }), ready: true })], leftBehind: [] });
+		expect(progress).toEqual([expect.stringContaining("LO-70 · the 'queue-parked' label could not be written")]);
+	});
+
+	test('leaves the tracker alone when no parked label is configured, because the label is opt-in', async () => {
+		const parked = ticketOf({ number: 70 });
+		const { drain, relay } = setupDrain({ eligible: [parked] });
+
+		mockShipReadyBranches.mockResolvedValue([outcomeOf({ ticket: parked, ready: false, error: 'the branch did not rebase onto main' })]);
+
+		await drain();
+		relay.close();
+
+		expect(mockSetParkedLabel).not.toHaveBeenCalled();
 	});
 
 	test('carries a skipped ticket into the report beside the outcomes, so nothing vanishes from the summary', async () => {

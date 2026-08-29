@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import { pausedExitCode } from '#src/cli/common/constants/pausedExitCode.ts';
 import { unusableTicketPatternMessage } from '#src/cli/common/constants/unusableTicketPatternMessage.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
@@ -5,7 +6,17 @@ import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrint
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { resolveEffectiveConfigAndDriver } from '#src/cli/common/utils/resolveEffectiveConfigAndDriver.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import { QuestionRelay, type QueueDrainReport, resolveQueueSettings, runQueue } from '#src/queue/index.ts';
+import {
+	emptyRelayMailbox,
+	FileQuestionRelay,
+	type QuestionRelay,
+	type QueueDrainReport,
+	type QueueSettings,
+	resolveQueueSettings,
+	runQueue,
+	TerminalQuestionRelay,
+} from '#src/queue/index.ts';
+import { isPidAlive, readRunLock } from '#src/runState/index.ts';
 import { resolveShipSettings } from '#src/ship/index.ts';
 
 /** One line per ticket the drain touched, and one per ticket it deliberately did not — a ticket must never vanish from the summary. */
@@ -25,8 +36,32 @@ const printDrainReport = ({ report }: { report: QueueDrainReport }) => {
 };
 
 /**
+ * The relay the drain will use: this terminal by default, or the mailbox when
+ * `--file-relay` was passed.
+ *
+ * The flag's value is optional, so `parseFlags` hands back `true` for a bare
+ * `--file-relay` and the directory string when one followed it — a bare flag
+ * means the default mailbox under `.lightsout/queue/relay`.
+ */
+const buildRelay = async ({ requested, settings, cwd }: { requested: string | true | undefined; settings: QueueSettings; cwd: string }) => {
+	if (requested === undefined) {
+		return new TerminalQuestionRelay({ settings, input: process.stdin, output: process.stdout });
+	}
+
+	const directory = requested === true ? resolve(cwd, '.lightsout', 'queue', 'relay') : resolve(cwd, requested);
+
+	await emptyRelayMailbox({ directory });
+	// Printed because the default is only useful if the reader can see where it
+	// landed, and a relative value resolves against `--cwd` like every other path.
+	console.log(`relaying questions through ${directory}`);
+
+	return new FileQuestionRelay({ settings, directory, output: process.stdout });
+};
+
+/**
  * `lightsout queue` — drain the tracker of automatable tickets in parallel
- * worktrees, relaying any question to this terminal.
+ * worktrees, relaying any question to this terminal or to the mailbox
+ * `--file-relay` names.
  *
  * Both unusable configurations are answered here rather than by the drain:
  * they are startup usage errors like every other bad flag, and the queue ships
@@ -36,7 +71,7 @@ const printDrainReport = ({ report }: { report: QueueDrainReport }) => {
  * The workers are implement work, so they resolve the config's `implement`
  * harness entry rather than needing a `queue` key of their own.
  */
-export const queueCommand = async ({ cwd }: CommandContext): Promise<void> => {
+export const queueCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const loaded = await readConfig({ cwd });
 	const settings = resolveQueueSettings({ config: loaded, env: process.env });
 
@@ -53,7 +88,24 @@ export const queueCommand = async ({ cwd }: CommandContext): Promise<void> => {
 	}
 
 	const { config, driver, driverName } = resolveEffectiveConfigAndDriver({ config: loaded, command: 'implement' });
-	const relay = new QuestionRelay({ settings, input: process.stdin, output: process.stdout });
+	const requested = flags.get('file-relay');
+
+	if (requested !== undefined) {
+		const holder = await readRunLock({ cwd });
+
+		// Emptying the mailbox of a live drain would delete every question in
+		// flight. The lock inside `runQueue` is still the real mutual exclusion;
+		// this only moves the same refusal ahead of the first destructive write.
+		if (holder !== undefined && isPidAlive({ pid: holder.pid })) {
+			console.error(
+				`another lightsout run is active in this repo: run ${holder.runId} (pid ${holder.pid}) — its relay mailbox is live, so this drain refuses rather than emptying it`,
+			);
+
+			return exitCli({ code: 1 });
+		}
+	}
+
+	const relay: QuestionRelay = await buildRelay({ requested, settings, cwd });
 	// Closed on every exit path, so a crash never leaves the terminal holding a
 	// half-written prompt.
 	const report = await runQueue({
