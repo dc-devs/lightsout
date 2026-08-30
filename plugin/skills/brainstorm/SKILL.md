@@ -63,7 +63,10 @@ from the paragraphs above it or from its place in the list. `needs-a-human`
 passes; "Not true" and "the third one" do not. When the question is about
 which action to take, name each option by what it does ("copy the file each
 run", "keep the first copy"). When the question asks you to invent a name,
-the drafted name itself is the label.
+the drafted name itself is the label. An internal name never appears in a
+label, even one explained earlier in the question — the label names what
+the option does in everyday words (`checker-per-plan-file`, not
+`fourth-lens`).
 
 **Keep each part short.** Aim for 1–3 plain sentences per label. When a
 question outgrows that, treat it as a sign it is really two questions —
