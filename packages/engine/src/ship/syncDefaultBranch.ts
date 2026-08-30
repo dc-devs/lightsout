@@ -11,8 +11,30 @@ interface Params {
 }
 
 /**
+ * Whether this checkout is a linked worktree rather than the primary one. The
+ * two git directories agree in a primary checkout and differ in a linked one;
+ * an unreadable answer counts as primary, so the cleanup below still tries.
+ */
+const isLinkedWorktree = async ({ cwd }: { cwd: string }) => {
+	const result = await runCommand({ command: 'git rev-parse --git-dir --git-common-dir', cwd, timeoutMs: gitTimeoutMs }).catch(() => undefined);
+
+	if (result === undefined || result.exitCode !== 0) {
+		return false;
+	}
+
+	const [gitDir, commonDir] = result.stdout.trim().split('\n');
+
+	return gitDir !== undefined && commonDir !== undefined && gitDir !== commonDir;
+};
+
+/**
  * The local half of the cleanup the forge already did remotely: move to the
  * default branch, fast-forward it, and drop the merged branch.
+ *
+ * Skipped entirely in a linked worktree: the default branch lives in the
+ * primary checkout, git refuses to check it out a second time, and the
+ * worktree is removed moments later anyway — three failure lines per ship that
+ * a reader learns to ignore teach them to ignore the fourth that matters.
  *
  * `git branch -d` rather than `-D`, so a branch git does not consider merged is
  * left alone rather than destroyed — the forge may have squashed, and a squash
@@ -24,6 +46,12 @@ interface Params {
  * ship when it did.
  */
 export const syncDefaultBranch = async ({ cwd, defaultBranch, branch, onProgress }: Params): Promise<void> => {
+	if (await isLinkedWorktree({ cwd })) {
+		onProgress?.('sync: skipped — this checkout is a linked worktree, and the default branch lives in the primary one');
+
+		return;
+	}
+
 	const steps = [`git checkout ${defaultBranch}`, 'git pull --ff-only', `git branch -d ${branch}`];
 
 	for (const command of steps) {

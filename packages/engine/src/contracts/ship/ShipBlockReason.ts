@@ -12,6 +12,8 @@ export const ShipBlockReason = {
 	DefaultBranch: 'default-branch',
 	/** The branch name does not match the configured ticket pattern. */
 	TicketPatternMismatch: 'ticket-pattern-mismatch',
+	/** The configured `pre-ship` command exited non-zero, or its changes could not be committed. */
+	PreShipFailed: 'pre-ship-failed',
 	/** `git push --set-upstream origin <branch>` exited non-zero. */
 	PushFailed: 'push-failed',
 	/** `gh` is missing, or is not authenticated for this repository's host. */

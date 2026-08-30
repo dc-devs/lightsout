@@ -50,7 +50,7 @@ export const configKeyDescriptions: Record<string, string> = {
 		"Framework channels of the loaded standards packs (e.g. 'react', 'tanstack'). Unspecified = detected per run from the scoped packages' package.json dependencies; an array REPLACES detection, and an empty one means base documents only.",
 	'standards-checks':
 		'Per-rule severity and settings overrides for `lightsout standards-check`, keyed by rule id. A rule not named here keeps its pack’s default — silence is never a change.',
-	ship: 'Opt-in `lightsout ship` settings: the branch ticket pattern whose `ticket` capture group becomes the result’s ticket reference, the pull request body template, the merge method, and whether a passed implement run chains into ship.',
+	ship: 'Opt-in `lightsout ship` settings: the branch ticket pattern whose `ticket` capture group becomes the result’s ticket reference, the pull request body template, the merge method, whether a passed implement run chains into ship, and an optional pre-ship command run before anything is pushed.',
 	queue:
 		'Opt-in queue settings: which tracker the queue reads, the team every query is scoped to, which ticket label routes a ticket to which worker, how many tickets run at once, and the environment variable holding the API key. Every team-specific word lives here, so no tracker vocabulary reaches engine code.',
 	'auto-plan':

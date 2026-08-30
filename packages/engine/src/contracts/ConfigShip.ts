@@ -33,6 +33,14 @@ export const ConfigShip = z
 		'pr-body': z.string().optional(),
 		/** How the forge merges. Default `merge`. */
 		'merge-method': z.enum(ShipMergeMethod).optional(),
+		/**
+		 * A shell command run in the checkout before anything is pushed — the home
+		 * for a repository's own pre-ship convention, such as rebuilding committed
+		 * build outputs or bumping a shipped version. File changes it leaves behind
+		 * are committed to the branch; a non-zero exit blocks the ship with the
+		 * command's own output. Unset means no such step.
+		 */
+		'pre-ship': z.string().optional(),
 		/** When true, a passed `lightsout implement` run chains into ship without `--ship` being typed. Default false. */
 		'after-implement': z.boolean().optional(),
 	})

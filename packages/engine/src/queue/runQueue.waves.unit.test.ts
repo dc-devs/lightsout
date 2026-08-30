@@ -49,6 +49,7 @@ const shipSettings: ShipSettings = {
 	pullRequestBody: '{ticket}',
 	mergeMethod: ShipMergeMethod.Merge,
 	afterImplement: false,
+	preShip: undefined,
 };
 
 const ticketOf = ({
@@ -72,12 +73,23 @@ const ticketOf = ({
 	unfinishedBlockers,
 });
 
-const outcomeOf = ({ ticket, ready = true, error }: { ticket: TicketSummary; ready?: boolean; error?: string }): TicketRunOutcome => ({
+const outcomeOf = ({
+	ticket,
+	ready = true,
+	error,
+	unanswered,
+}: {
+	ticket: TicketSummary;
+	ready?: boolean;
+	error?: string;
+	unanswered?: boolean;
+}): TicketRunOutcome => ({
 	ticket,
 	branch: `${ticket.identifier.toLowerCase()}-ticket-${ticket.id}`,
 	worktreePath: `/tmp/worktrees/${ticket.identifier}`,
 	ready,
 	error,
+	unanswered,
 });
 
 /**
@@ -259,7 +271,11 @@ describe('runQueue', () => {
 
 		mockListEligibleTickets.mockResolvedValueOnce(firstScan);
 		mockListEligibleTickets.mockResolvedValueOnce([ticketOf({ number: 71 }), ticketOf({ number: 72 })]);
-		mockRunQueueTicket.mockImplementation(({ ticket }) => Promise.resolve(outcomeOf({ ticket, ready: ticket.identifier !== 'LO-70' })));
+		// LO-70 parks on an unanswered question — the one outcome that retires a
+		// slot; a plain failure would free it and LO-71 would run after all.
+		mockRunQueueTicket.mockImplementation(({ ticket }) =>
+			Promise.resolve(outcomeOf({ ticket, ready: ticket.identifier !== 'LO-70', unanswered: ticket.identifier === 'LO-70' ? true : undefined })),
+		);
 
 		const report = await drain({ settings: queueSettingsFixture({ maxParallel: 1 }) });
 

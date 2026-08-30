@@ -22748,6 +22748,14 @@ var ConfigShip = external_exports.object({
   "pr-body": external_exports.string().optional(),
   /** How the forge merges. Default `merge`. */
   "merge-method": external_exports.enum(ShipMergeMethod).optional(),
+  /**
+   * A shell command run in the checkout before anything is pushed — the home
+   * for a repository's own pre-ship convention, such as rebuilding committed
+   * build outputs or bumping a shipped version. File changes it leaves behind
+   * are committed to the branch; a non-zero exit blocks the ship with the
+   * command's own output. Unset means no such step.
+   */
+  "pre-ship": external_exports.string().optional(),
   /** When true, a passed `lightsout implement` run chains into ship without `--ship` being typed. Default false. */
   "after-implement": external_exports.boolean().optional()
 }).strict();
@@ -23751,6 +23759,8 @@ var ShipBlockReason = {
   DefaultBranch: "default-branch",
   /** The branch name does not match the configured ticket pattern. */
   TicketPatternMismatch: "ticket-pattern-mismatch",
+  /** The configured `pre-ship` command exited non-zero, or its changes could not be committed. */
+  PreShipFailed: "pre-ship-failed",
   /** `git push --set-upstream origin <branch>` exited non-zero. */
   PushFailed: "push-failed",
   /** `gh` is missing, or is not authenticated for this repository's host. */
@@ -26575,7 +26585,8 @@ var resolveShipSettings = ({ config: config2 }) => {
     ticketPattern,
     pullRequestBody: ship?.["pr-body"] ?? "{ticket}",
     mergeMethod: ship?.["merge-method"] ?? ShipMergeMethod.Merge,
-    afterImplement: ship?.["after-implement"] ?? false
+    afterImplement: ship?.["after-implement"] ?? false,
+    preShip: ship?.["pre-ship"]
   };
 };
 
@@ -26679,10 +26690,16 @@ var findOpenPullRequest = async ({ branch, cwd }) => {
 
 // src/ship/forge/mergePullRequest.ts
 var MergedView = external_exports.object({ mergeCommit: external_exports.object({ oid: external_exports.string() }) });
+var StateView = external_exports.object({ state: external_exports.string(), mergeCommit: external_exports.object({ oid: external_exports.string() }).nullable() });
+var readMergedAnyway = async ({ prNumber, cwd }) => {
+  const viewed = await runGh({ args: ["pr", "view", String(prNumber), "--json", "state,mergeCommit"], cwd });
+  const view = StateView.safeParse(parseForgeJson({ stdout: viewed.stdout }));
+  return view.success && view.data.state === "MERGED" && view.data.mergeCommit !== null ? view.data.mergeCommit.oid : void 0;
+};
 var mergePullRequest = async ({ prNumber, mergeMethod, cwd }) => {
   const merged = await runGh({ args: ["pr", "merge", String(prNumber), `--${mergeMethod}`, "--delete-branch"], cwd });
   if (merged.exitCode !== 0) {
-    return { stderr: merged.stderr };
+    return await readMergedAnyway({ prNumber, cwd }) ?? { stderr: merged.stderr };
   }
   const viewed = await runGh({ args: ["pr", "view", String(prNumber), "--json", "mergeCommit"], cwd });
   const view = MergedView.safeParse(parseForgeJson({ stdout: viewed.stdout }));
@@ -26763,8 +26780,54 @@ var renderPullRequestBody = ({ template, tokens }) => {
   return template.replace(/\{([a-zA-Z0-9_-]+)\}/g, (written, name) => tokens[name] ?? written);
 };
 
+// src/ship/runPreShip.ts
+var preShipTimeoutMs = 10 * 6e4;
+var failureWords = ({ stdout, stderr }) => ({ stderr: stderr.trim() === "" ? stdout : stderr });
+var runPreShip = async ({ cwd, command, onProgress }) => {
+  onProgress?.(`pre-ship: ${command}`);
+  const result = await runCommand({ command, cwd, timeoutMs: preShipTimeoutMs }).catch((error51) => ({
+    exitCode: 1,
+    stdout: "",
+    stderr: messageOf({ error: error51 })
+  }));
+  if (result.exitCode !== 0) {
+    return failureWords(result);
+  }
+  const changed = await readGitChangedFiles({ cwd });
+  if (changed === void 0) {
+    return { stderr: `git could not read the tree at ${cwd}` };
+  }
+  if (changed.length === 0) {
+    return void 0;
+  }
+  for (const gitCommand of ["git add -A", "git commit -m 'pre-ship'"]) {
+    const committed = await runCommand({ command: gitCommand, cwd, timeoutMs: gitTimeoutMs }).catch((error51) => ({
+      exitCode: 1,
+      stdout: "",
+      stderr: messageOf({ error: error51 })
+    }));
+    if (committed.exitCode !== 0) {
+      return failureWords(committed);
+    }
+  }
+  onProgress?.(`pre-ship: committed ${changed.length} changed file(s)`);
+  return void 0;
+};
+
 // src/ship/syncDefaultBranch.ts
+var isLinkedWorktree = async ({ cwd }) => {
+  const result = await runCommand({ command: "git rev-parse --git-dir --git-common-dir", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  if (result === void 0 || result.exitCode !== 0) {
+    return false;
+  }
+  const [gitDir, commonDir] = result.stdout.trim().split("\n");
+  return gitDir !== void 0 && commonDir !== void 0 && gitDir !== commonDir;
+};
 var syncDefaultBranch = async ({ cwd, defaultBranch, branch, onProgress }) => {
+  if (await isLinkedWorktree({ cwd })) {
+    onProgress?.("sync: skipped \u2014 this checkout is a linked worktree, and the default branch lives in the primary one");
+    return;
+  }
   const steps = [`git checkout ${defaultBranch}`, "git pull --ff-only", `git branch -d ${branch}`];
   for (const command of steps) {
     const result = await runCommand({ command, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
@@ -26862,6 +26925,17 @@ var openPullRequest = async ({
   return created;
 };
 var runShip = async ({ cwd, settings, onProgress }) => {
+  if (settings.preShip !== void 0) {
+    const preShipFailure = await runPreShip({ cwd, command: settings.preShip, onProgress });
+    if (preShipFailure !== void 0) {
+      return stopShip({
+        cwd,
+        onProgress,
+        reason: ShipBlockReason.PreShipFailed,
+        detail: appendCommandOutput({ sentence: `the pre-ship command '${settings.preShip}' failed`, stderr: preShipFailure.stderr })
+      });
+    }
+  }
   const preconditions = await checkShipPreconditions({ cwd, ticketPattern: settings.ticketPattern });
   if ("reason" in preconditions) {
     return stopShip({ cwd, onProgress, ...preconditions });
@@ -145528,7 +145602,7 @@ var drainTickets = async ({ queued, maxParallel, runTicket, onProgress }) => {
         key,
         runTicket({ ticket }).then((outcome) => {
           outcomes.push(outcome);
-          if (outcome.ready) {
+          if (outcome.unanswered !== true) {
             available += 1;
           }
           return key;
@@ -145542,7 +145616,7 @@ var drainTickets = async ({ queued, maxParallel, runTicket, onProgress }) => {
   }
   const leftBehind = pending.map((ticket) => ({
     identifier: ticket.identifier,
-    reason: "not started: every slot was held by a parked ticket"
+    reason: "not started: every slot was retired by a ticket parked on an unanswered question"
   }));
   for (const entry of leftBehind) {
     onProgress?.(`${entry.identifier} \xB7 ${entry.reason}`);
@@ -145855,7 +145929,7 @@ var runWorkerWithRelay = async ({
     }
     const answer = await relay.ask({ question: outcome.question, ticket, coordinatorRunId, coordinatorRunDir }).catch((error51) => ({ error: error51 }));
     if (typeof answer !== "string") {
-      return { error: `the worker asked a question that could not be relayed: ${messageOf({ error: answer.error })}` };
+      return { error: `the worker asked a question that could not be relayed: ${messageOf({ error: answer.error })}`, unanswered: true };
     }
     answeredQuestion = { question: outcome.question, answer };
   }
@@ -145899,7 +145973,7 @@ var runQueueTicket = async ({
     onProgress
   });
   if (worked.error !== void 0) {
-    return { ticket, branch, worktreePath, ready: false, error: worked.error };
+    return { ticket, branch, worktreePath, ready: false, error: worked.error, unanswered: worked.unanswered };
   }
   const committed = await commitTicketWork({
     cwd: worktreePath,

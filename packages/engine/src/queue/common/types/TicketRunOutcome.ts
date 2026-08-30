@@ -16,4 +16,6 @@ export interface TicketRunOutcome {
 	ready: boolean;
 	/** Why it stopped. Absent when ready. */
 	error?: string;
+	/** True when the stop was a question nobody answered — the drain retires that ticket's slot instead of refilling it. */
+	unanswered?: boolean;
 }

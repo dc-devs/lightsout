@@ -15,4 +15,6 @@ export interface ShipSettings {
 	mergeMethod: ShipMergeMethod;
 	/** Whether a passed implement run chains into ship without `--ship`. */
 	afterImplement: boolean;
+	/** The `pre-ship` command, run before anything is pushed. Undefined when the repo has no such convention. */
+	preShip: string | undefined;
 }

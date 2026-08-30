@@ -35,6 +35,7 @@ const settings = {
 	pullRequestBody: 'Closes LO-{number}',
 	mergeMethod: ShipMergeMethod.Merge,
 	afterImplement: false,
+	preShip: undefined,
 };
 
 /** A branch that gets as far as an open pull request, whose checks are still running when the wait gives up. */

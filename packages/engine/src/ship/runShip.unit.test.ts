@@ -17,6 +17,7 @@ const settings = {
 	pullRequestBody: 'Closes LO-{number} on {branch}',
 	mergeMethod: ShipMergeMethod.Merge,
 	afterImplement: false,
+	preShip: undefined,
 };
 
 interface RepoParams {
@@ -121,6 +122,23 @@ describe('runShip', () => {
 		const result = await runShip({ cwd, settings, onProgress });
 
 		expect(result).toEqual(expect.objectContaining({ status: 'blocked', reason: 'dirty-tree', branch: 'lo-60-ship' }));
+		expect(readForgeLog().some((line) => line.startsWith('pr '))).toBe(false);
+	});
+
+	test('the pre-ship command runs first, and its commit is what lets a tree a gate dirtied ship', async () => {
+		const { cwd, onProgress } = await setupShip({ repo: { dirty: { 'bundle.txt': 'regenerated\n' } } });
+
+		const result = await runShip({ cwd, settings: { ...settings, preShip: 'true' }, onProgress });
+
+		expect(result.status).toBe('shipped');
+	});
+
+	test('a failing pre-ship command blocks the ship with the command’s own words, before the forge is touched', async () => {
+		const { cwd, readForgeLog, onProgress } = await setupShip();
+
+		const result = await runShip({ cwd, settings: { ...settings, preShip: 'echo no bundler here && exit 1' }, onProgress });
+
+		expect(result).toEqual(expect.objectContaining({ status: 'blocked', reason: 'pre-ship-failed', detail: expect.stringContaining('no bundler here') }));
 		expect(readForgeLog().some((line) => line.startsWith('pr '))).toBe(false);
 	});
 

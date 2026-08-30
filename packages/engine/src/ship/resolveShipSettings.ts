@@ -37,5 +37,6 @@ export const resolveShipSettings = ({ config }: Params): ShipSettings | undefine
 		pullRequestBody: ship?.['pr-body'] ?? '{ticket}',
 		mergeMethod: ship?.['merge-method'] ?? ShipMergeMethod.Merge,
 		afterImplement: ship?.['after-implement'] ?? false,
+		preShip: ship?.['pre-ship'],
 	};
 };
