@@ -27,7 +27,8 @@
 		"ticket-pattern": "^(?<ticket>lo-(?<number>\\d+))",
 		"pr-body": "Closes LO-{number}",
 		"merge-method": "merge",
-		"after-implement": true
+		"after-implement": true,
+		"pre-ship": "node scripts/preShip.mjs"
 	},
 	"auto-plan": {
 		"propose-before-draft": true,

@@ -15,19 +15,23 @@ const ticketOf = ({ number }: { number: number }): TicketSummary => ({
 	unfinishedBlockers: [],
 });
 
-const outcomeOf = ({ ticket, ready, error }: { ticket: TicketSummary; ready: boolean; error?: string }): TicketRunOutcome => ({
+/** How one identifier's run is told to end: shipped-ready, plainly failed, or parked on a question nobody answered. */
+type PlannedEnd = 'ready' | 'failed' | 'unanswered';
+
+const outcomeOf = ({ ticket, end }: { ticket: TicketSummary; end: PlannedEnd }): TicketRunOutcome => ({
 	ticket,
 	branch: `${ticket.identifier.toLowerCase()}-work`,
 	worktreePath: `/tmp/${ticket.identifier}`,
-	ready,
-	error,
+	ready: end === 'ready',
+	error: end === 'ready' ? undefined : 'stopped',
+	unanswered: end === 'unanswered' ? true : undefined,
 });
 
 /**
  * A ticket runner that resolves when told to, recording how many were in flight
  * at the moment each one started — which is the whole point of the slot budget.
  */
-const setupRunner = ({ ready }: { ready: (identifier: string) => boolean }) => {
+const setupRunner = ({ endOf = () => 'ready' }: { endOf?: (identifier: string) => PlannedEnd } = {}) => {
 	const started: string[] = [];
 	const release: (() => void)[] = [];
 	let inFlight = 0;
@@ -41,7 +45,7 @@ const setupRunner = ({ ready }: { ready: (identifier: string) => boolean }) => {
 		return new Promise<TicketRunOutcome>((resolve) => {
 			release.push(() => {
 				inFlight -= 1;
-				resolve(outcomeOf({ ticket, ready: ready(ticket.identifier), error: ready(ticket.identifier) ? undefined : 'parked' }));
+				resolve(outcomeOf({ ticket, end: endOf(ticket.identifier) }));
 			});
 		});
 	};
@@ -62,7 +66,7 @@ const setupRunner = ({ ready }: { ready: (identifier: string) => boolean }) => {
 
 describe('drainTickets', () => {
 	test('never holds more than the configured number of tickets in flight', async () => {
-		const runner = setupRunner({ ready: () => true });
+		const runner = setupRunner();
 		const drained = drainTickets({ queued: [1, 2, 3, 4].map((number) => ticketOf({ number })), maxParallel: 2, runTicket: runner.runTicket });
 
 		await runner.releaseAll();
@@ -75,7 +79,7 @@ describe('drainTickets', () => {
 	});
 
 	test('refills a slot a shipped ticket frees, so the queue keeps moving', async () => {
-		const runner = setupRunner({ ready: () => true });
+		const runner = setupRunner();
 		const drained = drainTickets({ queued: [1, 2, 3].map((number) => ticketOf({ number })), maxParallel: 1, runTicket: runner.runTicket });
 
 		await runner.releaseAll();
@@ -84,8 +88,21 @@ describe('drainTickets', () => {
 		expect(runner.started()).toStrictEqual(['LO-1', 'LO-2', 'LO-3']);
 	});
 
-	test('retires the slot a parked ticket held — that is what caps how many questions can wait for the user at once', async () => {
-		const runner = setupRunner({ ready: (identifier) => identifier !== 'LO-1' });
+	test('a failed ticket frees its slot too — a crash holds no human, and must not slow the rest of the drain', async () => {
+		const runner = setupRunner({ endOf: (identifier) => (identifier === 'LO-1' ? 'failed' : 'ready') });
+		const drained = drainTickets({ queued: [1, 2, 3].map((number) => ticketOf({ number })), maxParallel: 1, runTicket: runner.runTicket });
+
+		await runner.releaseAll();
+
+		const { outcomes, leftBehind } = await drained;
+
+		expect(runner.started()).toStrictEqual(['LO-1', 'LO-2', 'LO-3']);
+		expect(outcomes).toHaveLength(3);
+		expect(leftBehind).toStrictEqual([]);
+	});
+
+	test('retires the slot an unanswered question held — that is what caps how many questions can wait for the user at once', async () => {
+		const runner = setupRunner({ endOf: (identifier) => (identifier === 'LO-1' ? 'unanswered' : 'ready') });
 		const drained = drainTickets({ queued: [1, 2, 3].map((number) => ticketOf({ number })), maxParallel: 1, runTicket: runner.runTicket });
 
 		await runner.releaseAll();
@@ -95,14 +112,14 @@ describe('drainTickets', () => {
 		expect(runner.started()).toStrictEqual(['LO-1']);
 		expect(outcomes).toHaveLength(1);
 		expect(leftBehind).toStrictEqual([
-			{ identifier: 'LO-2', reason: 'not started: every slot was held by a parked ticket' },
-			{ identifier: 'LO-3', reason: 'not started: every slot was held by a parked ticket' },
+			{ identifier: 'LO-2', reason: 'not started: every slot was retired by a ticket parked on an unanswered question' },
+			{ identifier: 'LO-3', reason: 'not started: every slot was retired by a ticket parked on an unanswered question' },
 		]);
 	});
 
 	test('announces every ticket it never started, so nothing vanishes from the summary', async () => {
 		const progress: string[] = [];
-		const runner = setupRunner({ ready: () => false });
+		const runner = setupRunner({ endOf: () => 'unanswered' });
 		const drained = drainTickets({
 			queued: [1, 2].map((number) => ticketOf({ number })),
 			maxParallel: 1,
@@ -113,11 +130,11 @@ describe('drainTickets', () => {
 		await runner.releaseAll();
 		await drained;
 
-		expect(progress).toStrictEqual(['LO-2 · not started: every slot was held by a parked ticket']);
+		expect(progress).toStrictEqual(['LO-2 · not started: every slot was retired by a ticket parked on an unanswered question']);
 	});
 
 	test('ends immediately on an empty queue, rather than waiting on a slot nothing will fill', async () => {
-		const runner = setupRunner({ ready: () => true });
+		const runner = setupRunner();
 
 		expect(await drainTickets({ queued: [], maxParallel: 2, runTicket: runner.runTicket })).toStrictEqual({ outcomes: [], leftBehind: [] });
 	});

@@ -41,6 +41,18 @@ describe('syncDefaultBranch', () => {
 		expect(readBranches({ cwd })).toContain('lo-60-ship');
 	});
 
+	test('skips itself entirely in a linked worktree, where the default branch belongs to the primary checkout', async () => {
+		const { cwd, progress, onProgress } = setupSync();
+		const linked = `${cwd}-linked`;
+
+		execSync(`git worktree add -q ${linked} -b lo-61-linked`, { cwd, stdio: 'ignore' });
+
+		await syncDefaultBranch({ cwd: linked, defaultBranch: 'main', branch: 'lo-61-linked', onProgress });
+
+		expect(progress).toStrictEqual(['sync: skipped — this checkout is a linked worktree, and the default branch lives in the primary one']);
+		expect(readBranches({ cwd })).toContain('lo-61-linked');
+	});
+
 	test('a repo where nothing works at all still returns, because the merge has already happened by now', async () => {
 		const { cwd, progress, onProgress } = setupSync({ worktree: false });
 

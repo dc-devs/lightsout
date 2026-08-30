@@ -6,4 +6,6 @@
 export interface WorkerOutcome {
 	question?: string;
 	error?: string;
+	/** True when the error is a question nobody answered — the one park that says the human is away. */
+	unanswered?: boolean;
 }

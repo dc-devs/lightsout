@@ -15,12 +15,12 @@ interface Params {
 /**
  * Work the queue with at most `maxParallel` tickets in flight.
  *
- * A slot that comes back ready is refilled; a slot that comes back parked is
- * RETIRED. That retirement is what caps concurrent questions at `max-parallel`
- * — the queue can never need the user more than that many times at once — and
- * it makes a fully retired slot budget terminal, so the drain ends with the
- * remaining tickets announced rather than waiting forever on a slot that will
- * never free.
+ * A slot whose ticket parked on an UNANSWERED question is RETIRED; every other
+ * slot is refilled, ready or failed. An unanswered question means the human is
+ * away, and a fully retired budget then ends the drain with the remaining
+ * tickets announced rather than piling up questions nobody is reading. A plain
+ * failure holds no human and blocks nothing — retiring on it once halved a
+ * whole night's drain because one worker crashed early.
  */
 export const drainTickets = async ({ queued, maxParallel, runTicket, onProgress }: Params): Promise<QueueDrainReport> => {
 	const outcomes: TicketRunOutcome[] = [];
@@ -46,7 +46,7 @@ export const drainTickets = async ({ queued, maxParallel, runTicket, onProgress 
 				runTicket({ ticket }).then((outcome) => {
 					outcomes.push(outcome);
 
-					if (outcome.ready) {
+					if (outcome.unanswered !== true) {
 						available += 1;
 					}
 
@@ -64,7 +64,7 @@ export const drainTickets = async ({ queued, maxParallel, runTicket, onProgress 
 
 	const leftBehind: LeftBehindTicket[] = pending.map((ticket) => ({
 		identifier: ticket.identifier,
-		reason: 'not started: every slot was held by a parked ticket',
+		reason: 'not started: every slot was retired by a ticket parked on an unanswered question',
 	}));
 
 	for (const entry of leftBehind) {

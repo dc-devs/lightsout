@@ -41,13 +41,33 @@ describe('mergePullRequest', () => {
 		expect(readForgeLog()[0]).toBe('pr merge 41 --squash --delete-branch');
 	});
 
-	test('a refused merge answers with the forge’s own reason, and never asks for a commit that was never made', async () => {
-		const { cwd, readForgeLog } = await setupMerge({ mergeExit: 1, mergeStderr: 'protected branch' });
+	test('a refused merge answers with the forge’s own reason, once the read-back confirms nothing landed', async () => {
+		const { cwd, readForgeLog } = await setupMerge({ mergeExit: 1, mergeStderr: 'protected branch', viewStdout: '{"state":"OPEN","mergeCommit":null}' });
 
 		const mergeCommit = await mergePullRequest({ prNumber: 41, mergeMethod: ShipMergeMethod.Merge, cwd });
 
 		expect(mergeCommit).toStrictEqual({ stderr: 'protected branch' });
-		expect(readForgeLog()).toStrictEqual(['pr merge 41 --merge --delete-branch']);
+		expect(readForgeLog()).toStrictEqual(['pr merge 41 --merge --delete-branch', 'pr view 41 --json state,mergeCommit']);
+	});
+
+	test('a merge whose command failed only on local cleanup is still a merge — the forge’s state outranks the exit code', async () => {
+		const { cwd } = await setupMerge({
+			mergeExit: 1,
+			mergeStderr: "failed to run git: fatal: 'main' is already used by worktree at '/repo'",
+			viewStdout: '{"state":"MERGED","mergeCommit":{"oid":"a1b2c3d4"}}',
+		});
+
+		const mergeCommit = await mergePullRequest({ prNumber: 41, mergeMethod: ShipMergeMethod.Merge, cwd });
+
+		expect(mergeCommit).toBe('a1b2c3d4');
+	});
+
+	test('a failed merge whose read-back cannot be parsed keeps the failure, rather than guessing the merge landed', async () => {
+		const { cwd } = await setupMerge({ mergeExit: 1, mergeStderr: 'protected branch', viewStdout: 'not json at all' });
+
+		const mergeCommit = await mergePullRequest({ prNumber: 41, mergeMethod: ShipMergeMethod.Merge, cwd });
+
+		expect(mergeCommit).toStrictEqual({ stderr: 'protected branch' });
 	});
 
 	test('a merge whose commit cannot be read answers a failure rather than a made-up commit', async () => {

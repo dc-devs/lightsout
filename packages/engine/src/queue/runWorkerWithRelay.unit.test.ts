@@ -233,7 +233,7 @@ describe('runWorkerWithRelay', () => {
 		expect(mockRunDirectWork).toHaveBeenCalledTimes(3);
 	});
 
-	test('parks the ticket when there is no terminal to relay to, so one unanswerable ticket cannot take the drain with it', async () => {
+	test('parks the ticket when there is no terminal to relay to, and marks the park unanswered — that is the one that retires a drain slot', async () => {
 		const { relay, coordinatorRunDir } = setupRelay();
 
 		mockRunDirectWork.mockResolvedValue({ ok: false, manifest: manifestOf(RunStatus.Escalated), error: 'Which one?' });
@@ -242,6 +242,6 @@ describe('runWorkerWithRelay', () => {
 
 		relay.close();
 
-		expect(outcome).toEqual({ error: expect.stringContaining('could not be relayed') });
+		expect(outcome).toEqual({ error: expect.stringContaining('could not be relayed'), unanswered: true });
 	});
 });

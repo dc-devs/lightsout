@@ -89,7 +89,7 @@ export const runQueueTicket = async ({
 	if (worked.error !== undefined) {
 		// Committing work nothing vouches for would hand the ship step a branch
 		// with no evidence behind it.
-		return { ticket, branch, worktreePath, ready: false, error: worked.error };
+		return { ticket, branch, worktreePath, ready: false, error: worked.error, unanswered: worked.unanswered };
 	}
 
 	const committed = await commitTicketWork({

@@ -53,6 +53,7 @@ const shipSettings: ShipSettings = {
 	pullRequestBody: '{ticket}',
 	mergeMethod: ShipMergeMethod.Merge,
 	afterImplement: false,
+	preShip: undefined,
 };
 
 const ticketOf = ({

@@ -5,6 +5,7 @@ import type { ShipStepFailure } from '#src/ship/common/types/ShipStepFailure.ts'
 import { createPullRequest, findOpenPullRequest, mergePullRequest, type PullRequestSummary } from '#src/ship/forge/index.ts';
 import { pushBranch } from '#src/ship/pushBranch.ts';
 import { renderPullRequestBody } from '#src/ship/renderPullRequestBody.ts';
+import { runPreShip } from '#src/ship/runPreShip.ts';
 import { syncDefaultBranch } from '#src/ship/syncDefaultBranch.ts';
 import { waitForChecks } from '#src/ship/waitForChecks.ts';
 import { writeShipResult } from '#src/ship/writeShipResult.ts';
@@ -111,6 +112,22 @@ const openPullRequest = async ({
  * the resume path, which the adopt branch above is what makes cheap.
  */
 export const runShip = async ({ cwd, settings, onProgress }: Params): Promise<ShipResult> => {
+	// Before the preconditions, deliberately: the command exists to make the
+	// tree shippable (rebuild committed outputs, bump a shipped version), and
+	// its commit is what lets the dirty-tree check that follows pass.
+	if (settings.preShip !== undefined) {
+		const preShipFailure = await runPreShip({ cwd, command: settings.preShip, onProgress });
+
+		if (preShipFailure !== undefined) {
+			return stopShip({
+				cwd,
+				onProgress,
+				reason: ShipBlockReason.PreShipFailed,
+				detail: appendCommandOutput({ sentence: `the pre-ship command '${settings.preShip}' failed`, stderr: preShipFailure.stderr }),
+			});
+		}
+	}
+
 	const preconditions = await checkShipPreconditions({ cwd, ticketPattern: settings.ticketPattern });
 
 	if ('reason' in preconditions) {

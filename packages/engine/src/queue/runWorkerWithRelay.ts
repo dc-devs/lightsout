@@ -160,7 +160,10 @@ export const runWorkerWithRelay = async ({
 		const answer = await relay.ask({ question: outcome.question, ticket, coordinatorRunId, coordinatorRunDir }).catch((error: unknown) => ({ error }));
 
 		if (typeof answer !== 'string') {
-			return { error: `the worker asked a question that could not be relayed: ${messageOf({ error: answer.error })}` };
+			// `unanswered` marks the one park that means the human is away — the
+			// relay throws only when a question can never be answered, and the
+			// drain reads the flag to stop taking on work nobody is there to steer.
+			return { error: `the worker asked a question that could not be relayed: ${messageOf({ error: answer.error })}`, unanswered: true };
 		}
 
 		answeredQuestion = { question: outcome.question, answer };

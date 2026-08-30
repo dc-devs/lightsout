@@ -204,7 +204,7 @@ is overwritten the next time `pnpm build:config-reference` runs.
 | `standards-packs` | no | Standards packs a run works against. Unspecified = the pack the plugin ships; `false` = explicitly none; an array = exactly these pack roots, each the folder holding `lightsout-standards.json`, repo-relative or absolute. One pack carries both the code and the test documents, which is why there is a single key rather than two. A root that cannot be loaded is a hard error. |
 | `standards-channels` | no | Framework channels of the loaded standards packs (e.g. 'react', 'tanstack'). Unspecified = detected per run from the scoped packages' package.json dependencies; an array REPLACES detection, and an empty one means base documents only. |
 | `standards-checks` | no | Per-rule severity and settings overrides for `lightsout standards-check`, keyed by rule id. A rule not named here keeps its pack’s default — silence is never a change. |
-| `ship` | no | Opt-in `lightsout ship` settings: the branch ticket pattern whose `ticket` capture group becomes the result’s ticket reference, the pull request body template, the merge method, and whether a passed implement run chains into ship. |
+| `ship` | no | Opt-in `lightsout ship` settings: the branch ticket pattern whose `ticket` capture group becomes the result’s ticket reference, the pull request body template, the merge method, whether a passed implement run chains into ship, and an optional pre-ship command run before anything is pushed. |
 | `queue` | no | Opt-in queue settings: which tracker the queue reads, the team every query is scoped to, which ticket label routes a ticket to which worker, how many tickets run at once, and the environment variable holding the API key. Every team-specific word lives here, so no tracker vocabulary reaches engine code. |
 | `auto-plan` | no | Opt-in auto-plan settings: whether the proposal comes before drafting, whether an approved proposal starts the build, and whether the proposal is skipped when nothing clears the escalation bar. Every key is off by default, so an absent block is the most supervised behaviour. |
 
@@ -302,6 +302,7 @@ A repository that wants the strict profile promotes those rules itself — an ex
 | `ship.pr-body`        |       no | The pull request body template. Brace-wrapped tokens are substituted: `branch`, and one per named group of the ticket pattern. An unknown token is left exactly as written. Defaults to the bare ticket token on its own.            |
 | `ship.merge-method`   |       no | How the forge merges: `merge`, `squash`, or `rebase`. Defaults to `merge`.                                                                                                                                                          |
 | `ship.after-implement` |       no | When true, a passed `/implement` run chains into ship without `--ship` being typed. Defaults to `false`.                                                                                                                             |
+| `ship.pre-ship`       |       no | A shell command run in the checkout before anything is pushed — the home for a repository's own pre-ship convention, such as rebuilding committed build outputs or bumping a shipped version. File changes it leaves behind are committed to the branch; a non-zero exit blocks the ship with the command's own output. No default. |
 
 This block is where your team's tracker conventions live, so no tracker vocabulary reaches engine code. The default body is deliberately inert — a body that closes a ticket automatically is a team's convention, not the engine's. The block is strict: an unknown key fails parsing rather than silently disabling a setting you believe is on.
 
@@ -424,6 +425,7 @@ The following example shows how the optional configuration fields fit together:
     "pr-body": "Closes ABC-{number}",
     "merge-method": "merge",
     "after-implement": false,
+    "pre-ship": "node scripts/make-tree-shippable.mjs",
   },
 
   // Queue: which tracker to drain, and how many tickets run at once

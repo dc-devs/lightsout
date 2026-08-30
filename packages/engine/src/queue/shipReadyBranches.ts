@@ -85,12 +85,10 @@ const shipOne = async ({ cwd, config, shipSettings, defaultBranch, outcome, onPr
  * catches conflicts rather than predicting them, and a conflict parks the
  * ticket for a human with its worktree intact.
  *
- * One thing about `runShip` that is easy to misread as a bug: it ends by
- * checking out the default branch, which git refuses inside a worktree while
- * the main checkout holds that branch. That is fine and needs no workaround —
- * every step of that cleanup is best effort and only logs, and the next
- * ticket's rebase targets `origin/<default>` after its own fetch, so it picks
- * the merge up from the remote rather than from a local branch.
+ * `runShip`'s closing cleanup knows it is inside a worktree and skips itself
+ * there; the next ticket's rebase targets `origin/<default>` after its own
+ * fetch, so it picks the merge up from the remote rather than from a local
+ * branch.
  *
  * @returns one outcome per input, `ready` flipped to false on the ones that could not merge
  */
