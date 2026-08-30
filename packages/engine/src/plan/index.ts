@@ -6,6 +6,7 @@ export { getBlockingGaps } from '#src/plan/common/utils/getBlockingGaps.ts';
 export { isBlockingGap } from '#src/plan/common/utils/isBlockingGap.ts';
 export { detectPriorArtCandidates } from '#src/plan/detectPriorArtCandidates.ts';
 export { runPlanDraft } from '#src/plan/draft/index.ts';
+export { gradeHistoryPath } from '#src/plan/gradeHistoryPath.ts';
 export { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';
 export { parsePlan } from '#src/plan/parsePlan.ts';
 export { plansDir } from '#src/plan/plansDir.ts';

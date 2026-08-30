@@ -8,7 +8,7 @@ import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { planRunOptions } from '#src/cli/plan/common/utils/planRunOptions.ts';
 import { GapOutcome, type GradeReport, type LightsoutConfig } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { getBlockingGaps, runPlanGrade } from '#src/plan/index.ts';
+import { getBlockingGaps, gradeHistoryPath, runPlanGrade } from '#src/plan/index.ts';
 
 interface Params {
 	cwd: string;
@@ -48,6 +48,10 @@ const printGaps = ({ gaps }: { gaps: GradeReport['gaps'] }) => {
  * throw that report away. An incomplete pass exits 1 — it is not a pass, and a
  * script must be able to tell — while a complete grade exits 0 whatever its
  * verdict.
+ *
+ * Two paths are printed at the end: the grade path names the latest pass, and
+ * the history path names every pass this plan has ever had, so a human can open
+ * either.
  */
 export const planGradeCommand = async ({ cwd, driver, name, standards, config, phases }: Params): Promise<void> => {
 	const result = await runPlanGrade({ ...planRunOptions({ cwd, driver, name, standards, config }), phases });
@@ -96,5 +100,6 @@ export const planGradeCommand = async ({ cwd, driver, name, standards, config, p
 	printGaps({ gaps: blocking });
 
 	console.log(`\ngrade: ${gradePath}`);
+	console.log(`history: ${gradeHistoryPath({ cwd, name })}`);
 	return exitCli({ code: grade.complete ? 0 : 1 });
 };

@@ -1,8 +1,10 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
+import { readJsonlRecords } from '#src/common/utils/readJsonlRecords.ts';
 import { Effort, GradeReport, Permissions } from '#src/contracts/index.ts';
 import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
+import { gradeHistoryPath } from '#src/plan/gradeHistoryPath.ts';
 import { runPlanGrade } from '#src/plan/runPlanGrade.ts';
 import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advisoryPlan.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
@@ -299,4 +301,38 @@ test('plan grade: a pass whose findings are judged both ways grades on the block
 			expect.stringMatching(/below-A \(0 structural, 3 gap\(s\), 2 blocking\)/),
 		]),
 	);
+});
+
+test("plan grade: a completed pass is appended to the plan's grade history", async () => {
+	const { cwd, name, driver } = setup({ name: 'recorded' });
+
+	const result = await runPlanGrade({ cwd, driver, name });
+
+	expectStatus(result, 'complete');
+
+	const history = await readJsonlRecords({ path: gradeHistoryPath({ cwd, name }), schema: GradeReport });
+
+	expect(history.length).toBe(1);
+	// the ledger line is the pass itself, not a summary of it
+	expect(history[0]?.grade).toBe(result.grade.grade);
+	expect(history[0]?.gradedAt).toBe(result.grade.gradedAt);
+});
+
+test('plan grade: a second pass leaves two history lines and one latest grade', async () => {
+	const { cwd, name, driver, gradePath } = setup({ name: 're-graded' });
+
+	await runPlanGrade({ cwd, driver, name });
+	const second = await runPlanGrade({ cwd, driver, name });
+
+	expectStatus(second, 'complete');
+
+	const history = await readJsonlRecords({ path: gradeHistoryPath({ cwd, name }), schema: GradeReport });
+
+	// re-grading a plan no longer throws the earlier pass away
+	expect(history.length).toBe(2);
+	// and grade.json still holds exactly one report — the latest pass
+	const latest = GradeReport.parse(JSON.parse(readFileSync(gradePath, 'utf8')));
+
+	expect(latest.gradedAt).toBe(second.grade.gradedAt);
+	expect(latest.grade).toBe(second.grade.grade);
 });

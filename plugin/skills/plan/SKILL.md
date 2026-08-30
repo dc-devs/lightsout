@@ -376,6 +376,12 @@ Read `.lightsout/plans/<name>/grade.json`:
 - Everything else the pass found is still in `grade.json`, in full, for the user
   or a later agent to read. Nothing was dropped; it was weighed and found not to
   need them.
+- Every pass — including one that did not finish — is also appended as one JSON
+  line to `.lightsout/plans/<name>/grade-history.jsonl`. `grade.json` is still
+  the latest pass and still the only file to branch on; the history is there for
+  the user, or for an agent asked to look, to see how a plan's grade moved
+  across re-grades and which finding kept coming back. Nothing reads it
+  automatically.
 - Every gap carries an `outcome` saying who has to settle it:
   - `needs-a-human` — a person has to decide this one. These are the questions.
   - `agent-can-decide` — the implementing agent can settle it on its own, and

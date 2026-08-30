@@ -96,7 +96,7 @@ const setupPhasedGrade = ({ gaps }: { gaps: unknown[] }) => {
 	return { cwd, name: 'demo', driver: createGapCheckDriver({ gaps }), ...captured };
 };
 
-test('planGradeCommand: a clean plan with no gaps grades A, reports both counts and the grade path, and exits 0', async () => {
+test('planGradeCommand: a clean plan with no gaps grades A, reports both counts, the grade path and the history path, and exits 0', async () => {
 	const { cwd, driver, name, logged, errors, exitCodes } = setupGrade({ body: cleanPlanBody() });
 
 	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
@@ -108,9 +108,12 @@ test('planGradeCommand: a clean plan with no gaps grades A, reports both counts 
 	// the coverage statement says which files it can speak for, and with how many
 	// briefs — `N phase file(s)`, never `all plan files`
 	expect(printed[2]).toBe('  checked: 1 phase file(s) × 3 lens(es): plan.md');
+	// two paths, not one: the grade path names the latest pass and the history
+	// path names every pass this plan has ever had
 	expect(printed[3]).toBe(`\ngrade: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade.json')}`);
+	expect(printed[4]).toBe(`history: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade-history.jsonl')}`);
 	// an A grade prints no finding lines, got: ${JSON.stringify(printed)}
-	expect(printed.length).toBe(4);
+	expect(printed.length).toBe(5);
 	expect(errors).toStrictEqual([]);
 	expect(exitCodes).toStrictEqual([0]);
 });
@@ -189,7 +192,7 @@ test('planGradeCommand: findings the judges cleared are counted but never printe
 	expect(printed[2]).toBe('  checked: 1 phase file(s) × 3 lens(es): plan.md');
 	// not being interrupted by findings nobody needs to act on is the point — the
 	// full record is in grade.json, got: ${JSON.stringify(printed)}
-	expect(printed.length).toBe(4);
+	expect(printed.length).toBe(5);
 	expect(exitCodes).toStrictEqual([0]);
 });
 
@@ -261,6 +264,12 @@ test('planGradeCommand: a rate-limited checker prints the error AND the partial 
 	// than exiting on the error alone
 	expect(printed[0] ?? '').toMatch(/^\nincomplete grade — plan\.md\/surface: rate limited or overloaded/);
 	expect(printed).toContain('  checked: 0 phase file(s) × 3 lens(es)');
+	// a pass that did not finish is recorded like any other, so the command names
+	// the history whenever it names the grade — never one path without the other
+	expect(printed.slice(-2)).toStrictEqual([
+		`\ngrade: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade.json')}`,
+		`history: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade-history.jsonl')}`,
+	]);
 	expect(exitCodes).toStrictEqual([1]);
 });
 
