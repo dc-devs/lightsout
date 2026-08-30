@@ -134,6 +134,33 @@ test('LightsoutConfig: the queue block is optional, keeps its own kebab-case spe
 	expect('queue' in LightsoutConfig.parse(base)).toBe(false);
 });
 
+test('LightsoutConfig: the docs block is optional, survives the composition entry for entry, and stays strict', () => {
+	const docs = [
+		{ path: 'README.md', covers: 'The product tour and the index of every other document.' },
+		{ path: 'docs/configuration.md', covers: 'Every lightsout.config.json key.' },
+	];
+
+	const parsed = LightsoutConfig.parse({ ...base, docs });
+
+	// the block survives parsing as the file wrote it — every declared surface
+	// reaches the plan's writer brief and the grade's checker in the order the
+	// config listed them, because the engine names none of them in source
+	expect(parsed.docs).toStrictEqual(docs);
+
+	// the block's own strictness fires through the composition: a misspelled key
+	// here would silently declare a surface with no description
+	expect(LightsoutConfig.safeParse({ ...base, docs: [{ path: 'README.md', cover: 'the tour' }] }).success).toBe(false);
+	// and its refusal of an empty array fires too — "declared, but nothing" opts
+	// into a check that can never fire
+	expect(LightsoutConfig.safeParse({ ...base, docs: [] }).success).toBe(false);
+
+	// docs is opt-in: an absent block leaves no key on the parsed config, which is
+	// what a repo declaring nothing relies on for no section, no prompt text and
+	// no checker spawn
+	expect('docs' in LightsoutConfig.parse(base)).toBe(false);
+	expect(LightsoutConfig.parse(base).docs).toBe(undefined);
+});
+
 test('LightsoutConfig: effort parses at the top level for every level, and an out-of-enum effort fails', () => {
 	for (const effort of ['low', 'medium', 'high', 'xhigh', 'max']) {
 		// ${effort} is one of the five levels every harness shares

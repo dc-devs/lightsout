@@ -1,7 +1,16 @@
 import { join } from 'node:path';
 import { buildPlanWriterInvocation } from '#src/agents/index.ts';
 import { createdFileCeiling } from '#src/common/constants/createdFileCeiling.ts';
-import { type DecisionsRecord, type Effort, type Permissions, PlanDraftReport, PlanDraftStatus, type PlanFacts, PlanVariant } from '#src/contracts/index.ts';
+import {
+	type ConfigDocs,
+	type DecisionsRecord,
+	type Effort,
+	type Permissions,
+	PlanDraftReport,
+	PlanDraftStatus,
+	type PlanFacts,
+	PlanVariant,
+} from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
@@ -27,6 +36,8 @@ interface Params {
 	/** `executor-file-limit` from config, already defaulted — the number the template's size rules are stated with. */
 	executorFileLimit: number;
 	standards?: string;
+	/** The repository's declared documentation surfaces, threaded through so a phase file carries the same `## Documentation` claim a single plan would. */
+	docs?: ConfigDocs;
 	model?: string;
 	effort?: Effort;
 	permissions?: Permissions;
@@ -56,7 +67,7 @@ const spawnPhase = async ({
 	declaration: PhaseDeclaration;
 	previousDeclaration?: PhaseDeclaration;
 }): Promise<PhaseOutcome> => {
-	const { cwd, driver, name, workspaceDir, facts, decisions, overviewText, executorFileLimit, standards } = params;
+	const { cwd, driver, name, workspaceDir, facts, decisions, overviewText, executorFileLimit, standards, docs } = params;
 	const { model, effort, permissions, timeoutMs, progress } = params;
 	const invokePlanAgent = createPlanAgentRunner({
 		cwd,
@@ -78,6 +89,7 @@ const spawnPhase = async ({
 			previousDeclaration,
 			limits: { executorFileLimit, createdFileCeiling },
 			standards,
+			docs,
 		}),
 		contract: PlanDraftReport,
 	});

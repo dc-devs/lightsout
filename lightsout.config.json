@@ -35,6 +35,20 @@
 		"auto-approve-plan": true,
 		"implement-on-approval": true
 	},
+	"docs": [
+		{
+			"path": "README.md",
+			"covers": "The product tour: what lightsout is, what each command does, the walkthrough of a run, and the index of every other document."
+		},
+		{
+			"path": "docs/configuration.md",
+			"covers": "Every lightsout.config.json key: the generated top-level table, and the hand-written prose for each block and its keys."
+		},
+		{
+			"path": "docs/monorepos.md",
+			"covers": "How a monorepo is configured: the packages directory, scoped gate templates, and how a run picks the packages a change touched."
+		}
+	],
 	"queue": {
 		"tracker": "linear",
 		"team": "LO",

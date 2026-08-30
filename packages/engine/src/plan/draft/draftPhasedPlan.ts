@@ -42,7 +42,7 @@ interface Params {
  * twice to fix one phase.
  */
 export const draftPhasedPlan = async ({ context, step }: Params): Promise<RunPlanDraftResult> => {
-	const { cwd, driver, name, workspaceDir, facts, decisions, brainstormDecisionsPath, executorFileLimit } = context;
+	const { cwd, driver, name, workspaceDir, facts, decisions, brainstormDecisionsPath, config, executorFileLimit } = context;
 	const { standards, model, effort, permissions, timeoutMs, progress } = context;
 	const outputs = planDraftOutputs({ cwd, name, variant: PlanVariant.Overview });
 	const overviewPath = outputs[0].path;
@@ -76,7 +76,7 @@ export const draftPhasedPlan = async ({ context, step }: Params): Promise<RunPla
 
 	const overviewText = await readFile(overviewPath, 'utf8');
 	const declarations = parsePhaseDeclarations({ plan: parsePlan({ content: overviewText, base: basename(overviewPath) }) });
-	const phases = await authorPhaseFiles({ ...spawn, facts, decisions, overviewText, declarations, executorFileLimit, standards });
+	const phases = await authorPhaseFiles({ ...spawn, facts, decisions, overviewText, declarations, executorFileLimit, standards, docs: config?.docs });
 
 	if (phases.status === PlanRunStatus.FactsError) {
 		return draftStop({ status: PlanRunStatus.FactsError, discrepancies: phases.discrepancies });

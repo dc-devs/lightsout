@@ -120,3 +120,45 @@ test('buildPlanRepairInvocation: the system prompt is the repairer role and the 
 	// a repair invocation can never read as an author invocation
 	expect(prompt.includes('# Draft input')).toBeFalsy();
 });
+
+test('buildPlanRepairInvocation: declared documentation surfaces reach the repairer between the findings and the reference files', () => {
+	const { decisionsPath, factsPath } = setupRepair();
+
+	const { prompt } = buildPlanRepairInvocation({
+		findings: [finding({ check: 'sections-present', issue: 'Documentation section missing', fix: "add a '## Documentation' section" })],
+		planPaths: ['/tmp/plans/widget-flag.md'],
+		decisionsPath,
+		factsPath,
+		docs: [
+			{ path: 'README.md', covers: 'The product tour.' },
+			{ path: 'docs/configuration.md', covers: 'Every configuration key.' },
+		],
+	});
+
+	// the repair role forbids inventing a section's content, so the list it must
+	// choose from rides the prompt rather than being guessed
+	expect(prompt.includes('## Documentation surfaces')).toBeTruthy();
+	expect(prompt.includes('- `README.md` — The product tour.')).toBeTruthy();
+	expect(prompt.includes('- `docs/configuration.md` — Every configuration key.')).toBeTruthy();
+	// the exact sentence the writer's brief and the template both state
+	expect(prompt.includes('Nothing user-facing — no docs needed.')).toBeTruthy();
+	// the brief lands before the files the repairer only Reads on demand
+	expect(prompt.indexOf('## Documentation surfaces')).toBeLessThan(prompt.indexOf('## Reference files (Read on demand)'));
+	expect(prompt.indexOf('## Structural findings to resolve')).toBeLessThan(prompt.indexOf('## Documentation surfaces'));
+});
+
+test('buildPlanRepairInvocation: a repository declaring no surfaces gets the invocation it got before the key existed', () => {
+	const { decisionsPath, factsPath } = setupRepair();
+
+	const { prompt } = buildPlanRepairInvocation({ findings: [finding()], planPaths: ['/tmp/plans/widget-flag.md'], decisionsPath, factsPath });
+
+	// no section, no bullet, no sentence — an undeclared repository pays nothing
+	// for a key it never wrote
+	expect(prompt.includes('Documentation')).toBeFalsy();
+	// and the sections it does carry are exactly the three it always carried
+	expect(prompt.split('\n\n').filter((section) => section.startsWith('## '))).toStrictEqual([
+		'## Plan files to repair (Edit in place)',
+		'## Structural findings to resolve',
+		'## Reference files (Read on demand)',
+	]);
+});

@@ -26,7 +26,11 @@ interface Params {
 	config?: LightsoutConfig;
 }
 
-/** Required sections by variant — the fixed heading set the template pins. */
+/**
+ * Required sections by variant — the fixed heading set the template pins for
+ * every repository. `Documentation` is the one heading a repository's own config
+ * adds, and only to the implementable variants, so it is not written here.
+ */
 const requiredSections = {
 	[PlanFileKind.Implementable]: ['Prerequisites', 'Global Constraints', 'Scope Boundaries', 'Verification', 'What Next Plan Expects'],
 	[PlanFileKind.Overview]: ['Phases', 'Phase Declarations', 'Cross-Phase Dependencies', 'Global Constraints'],
@@ -63,9 +67,9 @@ const readPhaseFiles = async ({ planPaths }: { planPaths: string[] }) => {
 	return { phases, findings };
 };
 
-/** SectionsPresent — the required headings for this file's variant. */
-const checkSections = ({ phase }: { phase: PhaseFile }) =>
-	requiredSections[phase.plan.variant]
+/** SectionsPresent — the required headings for this file's variant, plus the one a declared `docs` block adds to the implementable ones. */
+const checkSections = ({ phase, docsDeclared }: { phase: PhaseFile; docsDeclared: boolean }) =>
+	[...requiredSections[phase.plan.variant], ...(docsDeclared && phase.plan.variant === PlanFileKind.Implementable ? ['Documentation'] : [])]
 		.filter((section) => !phase.plan.sections.has(section))
 		.map((section) => ({
 			check: StructuralCheck.SectionsPresent,
@@ -179,6 +183,7 @@ const checkPackages = ({ phase, packagesDir }: { phase: PhaseFile; packagesDir: 
 export const lintPlanStructure = async ({ cwd, planPaths, config }: Params): Promise<StructuralFinding[]> => {
 	const packagesDir = config?.['packages-dir'] ?? defaultPackagesDir;
 	const fileLimit = config?.['executor-file-limit'] ?? defaultExecutorFileLimit;
+	const docsDeclared = (config?.docs?.length ?? 0) > 0;
 	const configCommands = new Set(Object.values(config?.gates ?? {}).filter((value): value is string => typeof value === 'string'));
 	const { phases, findings } = await readPhaseFiles({ planPaths });
 	const overview = phases.find((file) => file.plan.variant === PlanFileKind.Overview);
@@ -203,7 +208,7 @@ export const lintPlanStructure = async ({ cwd, planPaths, config }: Params): Pro
 		counts.set(phase.base, sizes);
 
 		findings.push(
-			...checkSections({ phase }),
+			...checkSections({ phase, docsDeclared }),
 			...(await checkPlanPaths({ ...shared, provided, phased })),
 			...(await checkProsePaths({ ...shared, planned, index: repoIndex })),
 			...(await checkVerificationScripts({ ...shared, packagesDir, configCommands, declaredScripts })),

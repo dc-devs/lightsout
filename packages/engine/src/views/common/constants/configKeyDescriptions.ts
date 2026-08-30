@@ -55,4 +55,5 @@ export const configKeyDescriptions: Record<string, string> = {
 		'Opt-in queue settings: which tracker the queue reads, the team every query is scoped to, which ticket label routes a ticket to which worker, how many tickets run at once, and the environment variable holding the API key. Every team-specific word lives here, so no tracker vocabulary reaches engine code.',
 	'auto-plan':
 		'Opt-in auto-plan settings: whether the proposal comes before drafting, whether an approved proposal starts the build, and whether the proposal is skipped when nothing clears the escalation bar. Every key is off by default, so an absent block is the most supervised behaviour.',
+	docs: 'Opt-in documentation surfaces: each entry a repo-relative path and a one-line `covers` saying what that document is responsible for. Declaring the block turns on the plan-time documentation check — the plan writer is briefed on the surfaces, every implementable plan file must carry a `## Documentation` statement, and `plan grade` runs one whole-plan checker that verifies it. A repository that declares no block sees none of it: no section, no prompt text, no checker spawn.',
 };

@@ -132,3 +132,24 @@ test('printGradedGap: the two lines go to stdout when no writer is given', () =>
 
 	expect(logged.length).toBe(2);
 });
+
+test('printGradedGap: a finding no per-file lens produced prints without an empty lens suffix', () => {
+	const { gap, logged, write } = setupGradedGap({
+		gap: {
+			area: GapArea.MissingDocumentation,
+			gap: 'the plan adds a config key and names no declared document',
+			lens: undefined,
+			humanDecision: 'which declared document to update',
+			options: ['docs/configuration.md'],
+		},
+	});
+
+	printGradedGap({ gap, write });
+
+	// the whole-plan documentation checker carries no lens, and a bare `()` would
+	// read as a lens the renderer failed to print
+	expect(logged).toStrictEqual([
+		'? [missing-documentation] the plan adds a config key and names no declared document',
+		'   decide: which declared document to update — options: docs/configuration.md',
+	]);
+});

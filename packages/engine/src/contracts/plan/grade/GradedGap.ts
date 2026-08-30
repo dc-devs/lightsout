@@ -20,7 +20,13 @@ export const GradedGap = PlanGap.extend({
 	...GapVerdict.omit({ outcome: true }).shape,
 	/** The plan file's basename — `phase2-cross-phase-checks.md`, or `plan.md`. */
 	phase: z.string(),
-	lens: z.enum(GapCheckLens),
+	/**
+	 * Optional because a finding no per-file lens produced must be able to say so
+	 * rather than claim a lens it was never given. The whole-plan documentation
+	 * checker is the one producer of such a finding today; `phase` stays required,
+	 * because every finding is still labelled with a plan file a reader can open.
+	 */
+	lens: z.enum(GapCheckLens).optional(),
 	/**
 	 * Widened from the judge's three: `unjudged` is the engine's stamp and never
 	 * the judge's to claim. The default is for parsing a `grade.json` written

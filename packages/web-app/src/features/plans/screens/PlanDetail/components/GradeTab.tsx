@@ -23,7 +23,7 @@ const GapRow = ({ gap }: { gap: GradedGap }) => (
 		<span className="flex flex-wrap items-center gap-2">
 			<Badge>{gap.area}</Badge>
 			<MetadataTag>{gap.phase}</MetadataTag>
-			<span className="text-muted-foreground text-xs">{gap.lens}</span>
+			{gap.lens === undefined ? null : <span className="text-muted-foreground text-xs">{gap.lens}</span>}
 		</span>
 		<span>{gap.gap}</span>
 		<span className="text-muted-foreground">Decision: {gap.decision}</span>
@@ -70,7 +70,7 @@ export const GradeTab = ({ grade }: Props) => {
 				) : (
 					<ul className="flex flex-col gap-2 text-sm">
 						{grade.gaps.map((gap) => (
-							<GapRow key={`${gap.phase}:${gap.lens}:${gap.gap}`} gap={gap} />
+							<GapRow key={`${gap.phase}:${gap.lens ?? gap.area}:${gap.gap}`} gap={gap} />
 						))}
 					</ul>
 				)}

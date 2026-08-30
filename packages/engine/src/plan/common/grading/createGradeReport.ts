@@ -10,7 +10,7 @@ interface Params {
 	structural: StructuralFinding[];
 	/** Every reader finding, already judged. */
 	gaps: GradedGap[];
-	/** One entry per reader that failed or was rate-limited; empty means the fan-out finished. */
+	/** One entry per reader or whole-plan checker that failed or was rate-limited; empty means every check finished. */
 	failures: string[];
 	/** The plan files every lens returned for. */
 	phasesChecked: string[];
@@ -32,7 +32,8 @@ interface Params {
  * counts as blocking — failing closed costs one extra question, while failing
  * open lets an unweighed finding pass as a clean bill.
  *
- * `complete` speaks for the READER fan-out alone. A judge that failed does not
+ * `complete` speaks for the checks that READ the plan — the reader fan-out and
+ * the whole-plan documentation checker alike. A judge that failed still does not
  * make a pass incomplete, because its finding already blocks on its own.
  */
 export const createGradeReport = ({ name, phases, structural, gaps, failures, phasesChecked, commit, treeDirty }: Params): GradeReport => {

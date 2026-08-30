@@ -1,16 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { PlanDocument, PlanWorkspaceView } from '@lightsout/engine';
-import {
-	DecisionSource,
-	DedupResolution,
-	FindingSeverity,
-	GapArea,
-	GapCheckLens,
-	GapOutcome,
-	PlanDocumentKind,
-	PlanGrade,
-	StructuralCheck,
-} from '@lightsout/engine/contracts';
+import { DecisionSource, DedupResolution, PlanDocumentKind } from '@lightsout/engine/contracts';
 import { fireEvent, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
@@ -20,7 +10,7 @@ import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx'
 
 // Mocked Imports
 // -------------------------
-// Nothing in these five tabs opens a file — every one reads a record the
+// Nothing in these three tabs opens a file — every one reads a record the
 // workspace view already carries — but the Plan tab behind them does, so the
 // reader is stood in for to keep the module graph off disk.
 jest.mock('#src/lightsout/index.ts', () => ({
@@ -169,181 +159,6 @@ describe('PlanDetail facts tab', () => {
 		openTab({ tab: 'Facts' });
 
 		expect(screen.getByText(/No facts recorded — run lightsout plan verify-facts --name <name>\./)).toBeInTheDocument();
-	});
-});
-
-describe('PlanDetail grade tab', () => {
-	test('shows the grade, the verdict, and the evidence behind both', () => {
-		setupPlanDetail({
-			overrides: {
-				grade: {
-					planName: name,
-					grade: PlanGrade.BelowA,
-					structural: [
-						{
-							check: StructuralCheck.PathExists,
-							severity: FindingSeverity.Blocking,
-							phase: 'plan.md',
-							issue: 'names a file that is not on disk',
-							location: 'Files to Modify',
-							fix: 'name the file that is',
-						},
-					],
-					gaps: [
-						{
-							area: GapArea.OmittedDecision,
-							gap: 'the prefix is not settled',
-							decision: 'which prefix does the route use?',
-							options: ['/repo', '/local'],
-							phase: 'plan.md',
-							lens: GapCheckLens.Decisions,
-							outcome: GapOutcome.NeedsAHuman,
-						},
-						{
-							// A gap the checker could not name options for: the line is left
-							// off rather than printed empty.
-							area: GapArea.AmbiguousBoundary,
-							gap: 'the boundary is not drawn',
-							decision: 'where does the feature end?',
-							options: [],
-							phase: 'plan.md',
-							lens: GapCheckLens.Wiring,
-							outcome: GapOutcome.NeedsAHuman,
-						},
-					],
-					phasesChecked: ['plan.md'],
-					lenses: [GapCheckLens.Decisions, GapCheckLens.Wiring],
-					complete: true,
-					passed: false,
-					gradedAt: '2026-01-01T00:00:00.000Z',
-				},
-			},
-		});
-
-		openTab({ tab: 'Grade' });
-
-		expect(screen.getByText('below A')).toBeInTheDocument();
-		expect(screen.getByText('has not reached the bar implement assumes')).toBeInTheDocument();
-		expect(screen.getByText('names a file that is not on disk')).toBeInTheDocument();
-		expect(screen.getByText('Decision: which prefix does the route use?')).toBeInTheDocument();
-		expect(screen.getByText('Options: /repo / /local')).toBeInTheDocument();
-		expect(screen.getByText('Decision gaps (2)')).toBeInTheDocument();
-	});
-
-	test('says a pass that did not finish is partial, so it can never be skimmed as a clean bill', () => {
-		setupPlanDetail({
-			overrides: {
-				grade: {
-					planName: name,
-					grade: PlanGrade.BelowA,
-					structural: [],
-					gaps: [],
-					phasesChecked: [],
-					lenses: [],
-					complete: false,
-					incompleteReason: 'a checker hit the rate-limit wall',
-					passed: false,
-					gradedAt: '2026-01-01T00:00:00.000Z',
-				},
-			},
-		});
-
-		openTab({ tab: 'Grade' });
-
-		expect(screen.getByText(/a checker hit the rate-limit wall/)).toBeInTheDocument();
-		expect(screen.getByText('Nothing mechanical is wrong with this plan.')).toBeInTheDocument();
-		expect(screen.getByText('Nothing here would make an implementing agent guess.')).toBeInTheDocument();
-	});
-
-	// The sentence has to end where it ends: a pass that stopped without saying
-	// why must not trail a colon into nothing.
-	test('still says an unfinished pass is partial when nothing recorded why it stopped', () => {
-		setupPlanDetail({
-			overrides: {
-				grade: {
-					planName: name,
-					grade: PlanGrade.BelowA,
-					structural: [],
-					gaps: [],
-					phasesChecked: [],
-					lenses: [],
-					complete: false,
-					passed: false,
-					gradedAt: '2026-01-01T00:00:00.000Z',
-				},
-			},
-		});
-
-		openTab({ tab: 'Grade' });
-
-		expect(screen.getByText(/did not finish/).textContent).toBe('This pass did not finish, so the findings below are real but partial');
-	});
-
-	test('says out loud that a plan cleared the bar, which is what grading one is for', () => {
-		setupPlanDetail({
-			overrides: {
-				grade: {
-					planName: name,
-					grade: PlanGrade.A,
-					structural: [],
-					gaps: [],
-					phasesChecked: ['plan.md'],
-					lenses: [GapCheckLens.Decisions],
-					complete: true,
-					passed: true,
-					gradedAt: '2026-01-01T00:00:00.000Z',
-				},
-			},
-		});
-
-		openTab({ tab: 'Grade' });
-
-		expect(screen.getByText('passed the bar implement assumes')).toBeInTheDocument();
-		expect(screen.getByText('A')).toBeInTheDocument();
-	});
-
-	// The colour, not the word: a finding that gates nothing must not be dressed
-	// like one that stops the plan, and only the class says which it is.
-	test.each([
-		{ severity: FindingSeverity.Blocking, family: 'blocking', token: 'text-severity-blocking' },
-		{ severity: FindingSeverity.Advisory, family: 'advisory', token: 'text-severity-advisory' },
-	])('wears the $family colours on a structural finding of that severity', ({ severity, token }) => {
-		setupPlanDetail({
-			overrides: {
-				grade: {
-					planName: name,
-					grade: PlanGrade.BelowA,
-					structural: [
-						{
-							check: StructuralCheck.ScriptExists,
-							severity,
-							phase: 'plan.md',
-							issue: 'names a script no package has',
-							location: 'Verification',
-							fix: 'name one that exists',
-						},
-					],
-					gaps: [],
-					phasesChecked: ['plan.md'],
-					lenses: [GapCheckLens.Wiring],
-					complete: true,
-					passed: false,
-					gradedAt: '2026-01-01T00:00:00.000Z',
-				},
-			},
-		});
-
-		openTab({ tab: 'Grade' });
-
-		expect(screen.getByText('script-exists').className).toContain(token);
-	});
-
-	test('says a plan has not been graded, and names the command that grades it', () => {
-		setupPlanDetail();
-
-		openTab({ tab: 'Grade' });
-
-		expect(screen.getByText(/Not graded yet — run lightsout plan grade --name <name>\./)).toBeInTheDocument();
 	});
 });
 

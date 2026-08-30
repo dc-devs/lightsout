@@ -295,4 +295,34 @@ describe('authorPhaseFiles', () => {
 		expectStatus(result, 'failed');
 		expect(messages).toEqual(expect.arrayContaining([expect.stringContaining('phase1-step.md — spawn failed')]));
 	});
+
+	test('the repository’s declared documentation surfaces ride every phase spawn', async () => {
+		const prompts: string[] = [];
+		const { params } = setupFanOut({ count: 2, driver: phaseDriver({ onInvoke: ({ prompt }) => prompts.push(prompt) }) });
+
+		const result = await authorPhaseFiles({
+			...params,
+			docs: [
+				{ path: 'README.md', covers: 'The product tour.' },
+				{ path: 'docs/configuration.md', covers: 'Every configuration key.' },
+			],
+		});
+
+		expectStatus(result, 'complete');
+		// a phase file carries the same documentation claim a single plan would, so
+		// every spawn is told what this repository declared
+		expect(prompts.map((prompt) => prompt.includes('## Documentation surfaces'))).toStrictEqual([true, true]);
+		expect(prompts.every((prompt) => prompt.includes('- `docs/configuration.md` — Every configuration key.'))).toBeTruthy();
+	});
+
+	test('a repository declaring no surfaces sends no documentation text to a phase spawn', async () => {
+		const prompts: string[] = [];
+		const { params } = setupFanOut({ count: 1, driver: phaseDriver({ onInvoke: ({ prompt }) => prompts.push(prompt) }) });
+
+		const result = await authorPhaseFiles(params);
+
+		expectStatus(result, 'complete');
+		// no block declared means no new prompt text anywhere in the fan-out
+		expect(prompts[0]?.includes('Documentation')).toBeFalsy();
+	});
 });
