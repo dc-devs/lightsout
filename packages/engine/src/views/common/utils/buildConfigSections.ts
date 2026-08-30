@@ -41,6 +41,7 @@ const configFieldReaders: Record<string, (params: { config: LightsoutConfig }) =
 	ship: ({ config }) => config.ship,
 	queue: ({ config }) => config.queue,
 	'auto-plan': ({ config }) => config['auto-plan'],
+	docs: ({ config }) => config.docs,
 };
 
 /** The areas of the file, in the order the page reads them, and which keys land in each. */
@@ -54,6 +55,7 @@ const configSectionKeys: Array<{ title: string; keys: string[] }> = [
 	{ title: 'Ship', keys: ['ship'] },
 	{ title: 'Queue', keys: ['queue'] },
 	{ title: 'Auto plan', keys: ['auto-plan'] },
+	{ title: 'Docs', keys: ['docs'] },
 ];
 
 /**

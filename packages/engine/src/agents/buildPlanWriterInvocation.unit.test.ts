@@ -278,3 +278,43 @@ test('buildPlanWriterInvocation: a declaration without the settled overview text
 	// the output line still names the file this spawn owns
 	expect(invocation.prompt.includes('- /repo/.lightsout/plans/foo/phase2-wiring.md — variant: phase')).toBeTruthy();
 });
+
+test('buildPlanWriterInvocation: declared documentation surfaces add the template rule and the prompt brief', () => {
+	const invocation = buildPlanWriterInvocation({
+		facts: facts(),
+		decisions: decisions(),
+		outputs: singleOutput(),
+		limits: limits(),
+		docs: [
+			{ path: 'README.md', covers: 'The product tour.' },
+			{ path: 'docs/configuration.md', covers: 'Every configuration key.' },
+		],
+	});
+
+	// the template's all-variants rule now asks for the section
+	expect(invocation.systemPrompt.includes('- **Documentation stated.**')).toBeTruthy();
+	expect(invocation.systemPrompt.includes('immediately\n  after `## Global Constraints`')).toBeTruthy();
+	// and the prompt names the surfaces, each with what it covers
+	expect(invocation.prompt.includes('## Documentation surfaces')).toBeTruthy();
+	expect(invocation.prompt.includes('- `README.md` — The product tour.')).toBeTruthy();
+	expect(invocation.prompt.includes('- `docs/configuration.md` — Every configuration key.')).toBeTruthy();
+});
+
+test('buildPlanWriterInvocation: a repository declaring no surfaces sees no documentation text and no standing token', () => {
+	const invocation = buildPlanWriterInvocation({ facts: facts(), decisions: decisions(), outputs: singleOutput(), limits: limits() });
+
+	// no rule in the template, no section in the prompt — an undeclared repository
+	// pays nothing for a key it never wrote
+	expect(invocation.systemPrompt.includes('Documentation')).toBeFalsy();
+	expect(invocation.prompt.includes('Documentation')).toBeFalsy();
+	// and the token is substituted away rather than left standing, which the plan
+	// lint's unresolved-token scan would otherwise catch in a written plan
+	expect(invocation.systemPrompt.includes('{{documentationRule}}')).toBeFalsy();
+	// the prompt's section list is exactly what it was before the key existed
+	expect(invocation.prompt.split('\n\n').filter((section) => section.startsWith('## '))).toStrictEqual([
+		'## Feature request',
+		'## Output files',
+		'## Decisions record',
+		'## Verified facts',
+	]);
+});

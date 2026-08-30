@@ -6,6 +6,7 @@ import type { Driver } from '#src/drivers/index.ts';
 import { appendGradeHistory } from '#src/plan/appendGradeHistory.ts';
 import { gapCheckLenses } from '#src/plan/common/constants/gapCheckLenses.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
+import { checkPlanDocumentation } from '#src/plan/common/grading/checkPlanDocumentation.ts';
 import { createGradeReport } from '#src/plan/common/grading/createGradeReport.ts';
 import { drainGapCheckers } from '#src/plan/common/grading/drainGapCheckers.ts';
 import { notePriorArtCollisions } from '#src/plan/common/grading/notePriorArtCollisions.ts';
@@ -46,13 +47,15 @@ const spawnGapChecker = async ({
 	pass,
 	file,
 	lens,
+	timeoutMs,
 }: {
 	params: Params;
 	pass: Awaited<ReturnType<typeof getPlanDetectionPass>>;
 	file: DeliverableFile;
 	lens: GapCheckLens;
+	timeoutMs: number;
 }): Promise<GapResult> => {
-	const { cwd, driver, standards, model, effort, permissions, timeoutMs = 30 * 60 * 1000 } = params;
+	const { cwd, driver, standards, model, effort, permissions } = params;
 	const invokePlanAgent = createPlanAgentRunner({
 		cwd,
 		driver,
@@ -77,6 +80,65 @@ const spawnGapChecker = async ({
 	});
 
 	return { phase: basename(file.path), lens, outcome };
+};
+
+/**
+ * The agent half of a grade: the per-file reader fan-out, the whole-plan
+ * documentation check running beside it, and the judge that settles what the
+ * readers found.
+ *
+ * The documentation check is concurrent with the fan-out so it costs money
+ * rather than wall-clock, and its findings never reach the judge — the
+ * checker's own job is that judgment.
+ */
+const drainGradeAgents = async ({
+	params,
+	pass,
+	selected,
+	progress,
+}: {
+	params: Params;
+	pass: Awaited<ReturnType<typeof getPlanDetectionPass>>;
+	selected: DeliverableFile[];
+	progress: (message: string) => void;
+}) => {
+	// Resolved once for both spawns: two independent defaults let an edit to one
+	// move that checker's ceiling and leave the other on the old number.
+	const timeoutMs = params.timeoutMs ?? 30 * 60 * 1000;
+	const tasks = selected.flatMap((file) => gapCheckLenses.map((lens) => () => spawnGapChecker({ params, pass, file, lens, timeoutMs })));
+	const [readers, documentation] = await Promise.all([
+		drainGapCheckers({ tasks, selected }),
+		checkPlanDocumentation({
+			cwd: params.cwd,
+			driver: params.driver,
+			name: params.name,
+			workspaceDir: pass.workspaceDir,
+			planPaths: pass.planPaths,
+			files: pass.files,
+			overviewText: pass.overviewText,
+			docs: pass.config?.docs,
+			model: params.model,
+			effort: params.effort,
+			permissions: params.permissions,
+			timeoutMs,
+			onProgress: progress,
+		}),
+	]);
+	const judged = await judgeGaps({
+		...params,
+		workspaceDir: pass.workspaceDir,
+		overviewText: pass.overviewText,
+		selected,
+		gaps: readers.gaps,
+		skipReason: readers.rateLimited ? 'the reader fan-out hit the rate-limit wall, so no judge was spawned' : undefined,
+	});
+
+	return {
+		gaps: [...judged.gaps, ...documentation.gaps],
+		failures: [...readers.failures, ...documentation.failures],
+		phasesChecked: readers.phasesChecked,
+		rateLimited: readers.rateLimited || judged.rateLimited || documentation.rateLimited,
+	};
 };
 
 /**
@@ -108,6 +170,14 @@ const spawnGapChecker = async ({
  * and the prior-art detection still cover EVERY plan file, because the lint is
  * cross-phase and one phase file alone would have it report the others' creates
  * as missing provenance and their hand-offs as unclaimed.
+ *
+ * One whole-plan documentation checker runs beside the per-file readers when —
+ * and only when — the repository declares a `docs` block, verifying the claim
+ * every implementable plan file states. Its findings bypass the judge, because
+ * the checker's own job is that judgment; its failure makes the pass incomplete
+ * for the same reason a reader's does. Like the lint, it covers the whole
+ * deliverable even under a `--phase` narrowing: "does this plan touch a declared
+ * document?" cannot be answered from one phase.
  */
 export const runPlanGrade = async (params: Params): Promise<RunPlanGradeResult> => {
 	const { cwd, name, phases, onProgress } = params;
@@ -134,27 +204,20 @@ export const runPlanGrade = async (params: Params): Promise<RunPlanGradeResult> 
 
 	await notePriorArtCollisions({ cwd, name, workspaceDir, planPaths, config, onProgress: progress });
 
+	const docsDeclared = (config?.docs?.length ?? 0) > 0;
+
 	progress(
-		`plan grade ${name}: ${structural.length} structural finding(s), gap-checking ${selected.length} of ${files.length} plan file(s) × ${gapCheckLenses.length} lens(es)`,
+		`plan grade ${name}: ${structural.length} structural finding(s), gap-checking ${selected.length} of ${files.length} plan file(s) × ${gapCheckLenses.length} lens(es)${docsDeclared ? ', plus one whole-plan documentation check' : ''}`,
 	);
 
-	const tasks = selected.flatMap((file) => gapCheckLenses.map((lens) => () => spawnGapChecker({ params, pass, file, lens })));
-	const readers = await drainGapCheckers({ tasks, selected });
-	const judged = await judgeGaps({
-		...params,
-		workspaceDir,
-		overviewText: pass.overviewText,
-		selected,
-		gaps: readers.gaps,
-		skipReason: readers.rateLimited ? 'the reader fan-out hit the rate-limit wall, so no judge was spawned' : undefined,
-	});
+	const agents = await drainGradeAgents({ params, pass, selected, progress });
 	const report = createGradeReport({
 		name,
 		phases,
 		structural,
-		gaps: judged.gaps,
-		failures: readers.failures,
-		phasesChecked: readers.phasesChecked,
+		gaps: agents.gaps,
+		failures: agents.failures,
+		phasesChecked: agents.phasesChecked,
 		commit: stamp.commit,
 		treeDirty: stamp.treeDirty,
 	});
@@ -174,15 +237,13 @@ export const runPlanGrade = async (params: Params): Promise<RunPlanGradeResult> 
 
 	// A wall outranks a gap-check failure: it stops the pass wherever it landed,
 	// and the re-run line is the only thing a human can act on.
-	return readers.rateLimited || judged.rateLimited
-		? {
-				status: PlanRunStatus.PausedRateLimit,
-				workspaceDir,
-				error: `rate limited or overloaded — re-run: lightsout plan grade --name ${name}`,
-				grade: report,
-				gradePath,
-			}
-		: readers.failures.length > 0
-			? { status: PlanRunStatus.Failed, workspaceDir, error: `gap-check failed for ${readers.failures.join('; ')}`, grade: report, gradePath }
-			: { status: PlanRunStatus.Complete, workspaceDir, grade: report, gradePath };
+	if (agents.rateLimited) {
+		const parked = `rate limited or overloaded — re-run: lightsout plan grade --name ${name}`;
+
+		return { status: PlanRunStatus.PausedRateLimit, workspaceDir, error: parked, grade: report, gradePath };
+	}
+
+	return agents.failures.length > 0
+		? { status: PlanRunStatus.Failed, workspaceDir, error: `gap-check failed for ${agents.failures.join('; ')}`, grade: report, gradePath }
+		: { status: PlanRunStatus.Complete, workspaceDir, grade: report, gradePath };
 };

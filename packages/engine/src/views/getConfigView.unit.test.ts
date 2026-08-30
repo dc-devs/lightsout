@@ -141,6 +141,7 @@ describe('getConfigView', () => {
 			'Ship',
 			'Queue',
 			'Auto plan',
+			'Docs',
 		]);
 	});
 
@@ -217,6 +218,32 @@ describe('getConfigView', () => {
 		const view = await getConfigView({ cwd });
 
 		expect(findField({ sections: view.sections, key: 'auto-plan' })).toEqual(expect.objectContaining({ value: null, fromConfig: false }));
+	});
+
+	test('shows the docs block whole in its own area, so a declared surface and what it covers are both on the page', async () => {
+		const docs = [
+			{ path: 'README.md', covers: 'The product tour and the index of every other document.' },
+			{ path: 'docs/configuration.md', covers: 'Every configuration key.' },
+		];
+		const cwd = await seedConfiguredCwd({ config: { docs } });
+
+		const view = await getConfigView({ cwd });
+
+		const docsSection = view.sections.find((section) => section.title === 'Docs');
+
+		expect(docsSection?.fields).toEqual([
+			// the sentence is the schema's own, so the page and the config reference
+			// cannot say different things about the same block
+			expect.objectContaining({ key: 'docs', value: docs, fromConfig: true, description: expect.stringContaining('covers') }),
+		]);
+	});
+
+	test('leaves docs null when the file omits it, because the block is opt-in and the engine fills nothing in for it', async () => {
+		const cwd = await seedConfiguredCwd();
+
+		const view = await getConfigView({ cwd });
+
+		expect(findField({ sections: view.sections, key: 'docs' })).toEqual(expect.objectContaining({ value: null, fromConfig: false }));
 	});
 
 	test('leaves the harness and the model null when the file names neither, rather than inventing a fallback for them', async () => {

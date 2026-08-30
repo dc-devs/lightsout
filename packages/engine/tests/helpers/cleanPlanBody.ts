@@ -4,8 +4,13 @@
  * absent, and a raw `true` verification command that resolves no package script.
  * Its paths line up with `setupConsumerRepo`, so `lintPlanStructure` reports
  * nothing against a repo built by that helper.
+ *
+ * The `## Documentation` section is opt-in because the required-section set is:
+ * only a repository declaring a `docs` block needs one, so omitting the
+ * parameter leaves the body byte-identical to what an undeclared repo's tests
+ * have always linted.
  */
-export const cleanPlanBody = ({ title = 'Clean Plan' }: { title?: string } = {}) => `# ${title}
+export const cleanPlanBody = ({ title = 'Clean Plan', documentation }: { title?: string; documentation?: string } = {}) => `# ${title}
 
 ## Context
 
@@ -14,7 +19,7 @@ A tiny clean plan for the structural lint.
 ## Global Constraints
 
 - None
-
+${documentation === undefined ? '' : `\n## Documentation\n\n${documentation}\n`}
 ## Prerequisites
 
 - None

@@ -256,7 +256,7 @@ const cleanOverview = () => `# Drafted Plan — Overview
  * phase file its prompt names. Which stage it is in is read off the brief the
  * builder emitted, exactly as a real writer would.
  */
-const phasedDraftDriver = ({ onCall }: { onCall?: (prompt: string) => void } = {}): Driver => ({
+const phasedDraftDriver = ({ onCall, phaseBody = cleanPlanBody() }: { onCall?: (prompt: string) => void; phaseBody?: string } = {}): Driver => ({
 	name: 'stub',
 	invoke: async ({ prompt }) => {
 		onCall?.(prompt);
@@ -268,7 +268,7 @@ const phasedDraftDriver = ({ onCall }: { onCall?: (prompt: string) => void } = {
 
 		const phase = prompt.includes('## Phase authoring');
 
-		writeFileSync(path, phase ? cleanPlanBody() : cleanOverview());
+		writeFileSync(path, phase ? phaseBody : cleanOverview());
 
 		return {
 			text: JSON.stringify({
@@ -339,4 +339,53 @@ test('plan draft: an explicit scope flag overrides the estimate', async () => {
 	expect('variant' in result).toBeTruthy();
 	// the flag wins over the 41-path estimate
 	expect(result.variant).toBe('single');
+});
+
+/** The one surface a declaring repository writes in the cases below. */
+const declaredDocs = [{ path: 'docs/configuration.md', covers: 'Every configuration key.' }];
+
+test('plan draft: a repository declaring documentation surfaces briefs the writer and the repairer alike', async () => {
+	const cwd = setupConsumerRepo({ config: { docs: declaredDocs } });
+
+	seedPlanWorkspace({ cwd, name: 'declared' });
+
+	const prompts: string[] = [];
+	// the first body omits the section the declared block makes required, so the
+	// structural lint forces exactly one repair round
+	const driver = createDraftDriver({
+		bodies: [cleanPlanBody(), cleanPlanBody({ documentation: 'Nothing user-facing — no docs needed.' })],
+		onCall: (prompt) => prompts.push(prompt),
+	});
+	const result = await runPlanDraft({ cwd, driver, name: 'declared' });
+
+	expectStatus(result, 'complete');
+
+	const writer = prompts.find((prompt) => prompt.includes('# Draft input'));
+	const repairer = prompts.find((prompt) => prompt.includes('# Repair input'));
+
+	expectDefined(writer);
+	expectDefined(repairer);
+	// the repair role forbids inventing a section's content, so an unbriefed
+	// repairer would either break that rule or fail the draft
+	expect(writer.includes('- `docs/configuration.md` — Every configuration key.')).toBeTruthy();
+	expect(repairer.includes('- `docs/configuration.md` — Every configuration key.')).toBeTruthy();
+});
+
+test('plan draft: a declared repository briefs its overview and phase spawns on the same surfaces', async () => {
+	const cwd = setupConsumerRepo({ config: { docs: declaredDocs } });
+
+	seedPlanWorkspace({ cwd, name: 'declared-phased', areas: [areaTouching({ modify: paths(41) })] });
+
+	const prompts: string[] = [];
+	const driver = phasedDraftDriver({
+		onCall: (prompt) => prompts.push(prompt),
+		phaseBody: cleanPlanBody({ documentation: 'Nothing user-facing — no docs needed.' }),
+	});
+	const result = await runPlanDraft({ cwd, driver, name: 'declared-phased' });
+
+	expectStatus(result, 'complete');
+	// a phase file carries the claim a single plan would, so the phase spawn is
+	// told what the repository declared — and the overview spawn is briefed from
+	// the same config rather than from a second copy of it
+	expect(prompts.map((prompt) => prompt.includes('- `docs/configuration.md` — Every configuration key.'))).toStrictEqual([true, true]);
 });

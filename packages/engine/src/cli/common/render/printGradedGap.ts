@@ -23,8 +23,8 @@ const detailOf = ({ gap }: { gap: GradedGap }) => {
 
 /**
  * Render one judged gap: the `?` marker when it gates the grade, a dim `note`
- * when it does not, then the area, the finding and the lens that found it, with
- * the judge's own evidence on the following dim line.
+ * when it does not, then the area, the finding and — when a per-file lens found
+ * it — that lens, with the judge's own evidence on the following dim line.
  *
  * This is a renderer, not a filter — it prints every outcome, and which gaps it
  * is handed is the caller's decision. Keeping it total means the note lines are
@@ -33,6 +33,10 @@ const detailOf = ({ gap }: { gap: GradedGap }) => {
 export const printGradedGap = ({ gap, write = console.log }: Params): void => {
 	const marker = isBlockingGap({ gap }) ? yellow('?') : dim('note');
 
-	write(`${marker} [${gap.area}] ${gap.gap} ${dim(`(${gap.lens})`)}`);
+	// The whole-plan documentation checker carries no lens, and an empty `()` would
+	// read as a lens the renderer failed to print.
+	const source = gap.lens === undefined ? '' : ` ${dim(`(${gap.lens})`)}`;
+
+	write(`${marker} [${gap.area}] ${gap.gap}${source}`);
 	write(dim(detailOf({ gap })));
 };

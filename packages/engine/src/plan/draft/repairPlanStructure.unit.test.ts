@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
+import { FindingSeverity, LightsoutConfig, StructuralCheck } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { repairPlanStructure } from '#src/plan/draft/repairPlanStructure.ts';
 import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advisoryPlan.ts';
@@ -71,14 +71,20 @@ const run = ({
 	workspaceDir,
 	planPath,
 	driver,
+	config,
 	progress = () => {},
 }: {
 	cwd: string;
 	workspaceDir: string;
 	planPath: string;
 	driver: Driver;
+	config?: LightsoutConfig;
 	progress?: (message: string) => void;
-}) => repairPlanStructure({ cwd, driver, name: 'demo', planPaths: [planPath], workspaceDir, timeoutMs: 60_000, progress });
+}) => repairPlanStructure({ cwd, driver, name: 'demo', planPaths: [planPath], workspaceDir, config, timeoutMs: 60_000, progress });
+
+/** A repository declaring one documentation surface — the config that makes `## Documentation` a required heading. */
+const declaringConfig = () =>
+	LightsoutConfig.parse({ gates: { check: 'true', test: 'true', 'test-coverage': false }, docs: [{ path: 'README.md', covers: 'The product tour.' }] });
 
 describe('repairPlanStructure', () => {
 	test('a clean draft converges without spending a single repair', async () => {
@@ -101,6 +107,26 @@ describe('repairPlanStructure', () => {
 		expectStatus(result, 'complete');
 		expect('findings' in result && result.findings).toStrictEqual([]);
 		expect(calls).toBe(1);
+	});
+
+	test('a repository declaring documentation surfaces sends the repairer the list it must choose from', async () => {
+		// the same body the undeclared cases lint clean: the missing heading is
+		// the repository's own config asking for it
+		const draft = setupDraft({ body: cleanPlanBody() });
+		const prompts: string[] = [];
+		const driver = repairDriver({
+			bodies: [cleanPlanBody({ documentation: 'Nothing user-facing — no docs needed.' })],
+			onCall: (prompt) => prompts.push(prompt),
+		});
+
+		const result = await run({ ...draft, driver, config: declaringConfig() });
+
+		expectStatus(result, 'complete');
+		expect('findings' in result && result.findings).toStrictEqual([]);
+		expect(prompts[0]).toContain("add a '## Documentation' section");
+		// the repair role forbids inventing a document, so the declared surface and
+		// what it covers travel with the finding rather than being guessed at
+		expect(prompts[0]).toContain('- `README.md` — The product tour.');
 	});
 
 	test('an advisory finding spends no repair and still comes back on the result', async () => {

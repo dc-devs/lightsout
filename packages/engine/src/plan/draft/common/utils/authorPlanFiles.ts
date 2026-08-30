@@ -35,7 +35,7 @@ export const authorPlanFiles = async ({
 	step,
 	lint,
 }: Params): Promise<{ stop: RunPlanDraftResult } | { planPaths: string[]; report: PlanDraftReport }> => {
-	const { cwd, driver, name, workspaceDir, facts, decisions, executorFileLimit, standards, model, effort, permissions, timeoutMs } = context;
+	const { cwd, driver, name, workspaceDir, facts, decisions, executorFileLimit, standards, config, model, effort, permissions, timeoutMs } = context;
 	// Nothing has been checked yet at any of this step's exits, so every one of
 	// them carries an empty advisory set — stated once rather than four times.
 	const draftStop = createDraftStop({ workspaceDir, advisories: [] });
@@ -48,6 +48,7 @@ export const authorPlanFiles = async ({
 			limits: { executorFileLimit, createdFileCeiling },
 			standards,
 			lintCommand: lint?.command,
+			docs: config?.docs,
 		}),
 		contract: PlanDraftReport,
 		allowedCommands: lint ? [lint.prefix] : undefined,

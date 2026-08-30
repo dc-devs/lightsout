@@ -1,7 +1,8 @@
 import { applyPromptTokens } from '#src/agents/common/utils/applyPromptTokens.ts';
+import { renderDocsSurfaces } from '#src/agents/common/utils/renderDocsSurfaces.ts';
 import planTemplate from '#src/agents/prompts/planTemplate.md';
 import planWriterPrompt from '#src/agents/prompts/planWriter.md';
-import { type DecisionsRecord, type PlanFacts, PlanVariant } from '#src/contracts/index.ts';
+import { type ConfigDocs, type DecisionsRecord, type PlanFacts, PlanVariant } from '#src/contracts/index.ts';
 import type { PhaseDeclaration } from '#src/plan/index.ts';
 
 interface Params {
@@ -21,7 +22,44 @@ interface Params {
 	standards?: string;
 	/** Exact self-lint command the writer runs before reporting. Absent = prose self-review only. */
 	lintCommand?: string;
+	/** The repository's declared documentation surfaces. Absent = this repository declares none, and the writer sees no documentation text anywhere in the invocation. */
+	docs?: ConfigDocs;
 }
+
+/**
+ * The template's `documentationRule` token: the rule a repository's own config
+ * adds to the fixed set, or nothing at all. Always substituted, including with
+ * the empty string — a template that reached an agent still carrying a token is
+ * what the plan lint's unresolved-token scan is there to catch.
+ */
+const documentationRule = ({ docs }: { docs?: ConfigDocs }) =>
+	docs === undefined || docs.length === 0
+		? ''
+		: `- **Documentation stated.** Every IMPLEMENTABLE variant — a Single Plan, and
+  each Phase Plan — carries a \`## Documentation\` section, placed immediately
+  after \`## Global Constraints\`. An Overview Plan never carries it: the overview
+  creates nothing, so a claim written there would belong to no executor. Its
+  content is either the declared documents this plan touches, each named in a
+  backticked span and each also listed under one of the file headings, or the
+  exact sentence \`Nothing user-facing — no docs needed.\` The repository's
+  declared documents, and what each covers, are named in your draft input.`;
+
+/** The writer's brief on the surfaces this repository declared, and what its plan must say about them. */
+const documentationSection = ({ docs }: { docs: ConfigDocs }) =>
+	`## Documentation surfaces
+
+This repository declares the documents below. Your plan MUST carry a
+\`## Documentation\` section in every implementable file it writes, stating
+either the declared documents this plan touches or the exact sentence
+\`Nothing user-facing — no docs needed.\`
+
+${renderDocsSurfaces({ docs })}
+
+A document you name in that section must also appear under one of the plan's
+file headings, so the executor actually edits it. Naming a document the list
+below does not hold, or claiming nothing user-facing while the plan adds a
+command, a flag, a config key or a user-invoked prompt, is what \`plan grade\`
+reports.`;
 
 /**
  * The overview spawn's brief: author that one file, and nothing else. The phase
@@ -99,6 +137,10 @@ ${overviewText}`;
  * the overview spawn that opens a phased draft, and one phase spawn per declared
  * phase. The last two are mutually exclusive — an overview output means author
  * the overview alone, a `declaration` means author that one phase file.
+ *
+ * The documentation brief and the template's documentation rule are both driven
+ * by the repository's declared surfaces, so a repository declaring none produces
+ * a byte-identical invocation to the one it produced before the key existed.
  */
 export const buildPlanWriterInvocation = ({
 	facts,
@@ -110,6 +152,7 @@ export const buildPlanWriterInvocation = ({
 	limits,
 	standards,
 	lintCommand,
+	docs,
 }: Params): { systemPrompt: string; prompt: string } => {
 	const outputLines = outputs.map((output) => `- ${output.path} — variant: ${output.variant}`);
 	const sections = [`# Draft input`, `## Feature request\n\n${facts.request}`, `## Output files\n\n${outputLines.join('\n')}`];
@@ -121,6 +164,10 @@ export const buildPlanWriterInvocation = ({
 
 	if (declaration && overviewText !== undefined) {
 		sections.push(phaseSection({ path: outputs[0].path, overviewText, declaration, previousDeclaration }));
+	}
+
+	if (docs && docs.length > 0) {
+		sections.push(documentationSection({ docs }));
 	}
 
 	sections.push(`## Decisions record\n\n\`\`\`json\n${JSON.stringify(decisions, undefined, '\t')}\n\`\`\``);
@@ -144,7 +191,11 @@ export const buildPlanWriterInvocation = ({
 
 	const template = applyPromptTokens({
 		text: planTemplate,
-		tokens: { fileLimit: limits.executorFileLimit, createdFileCeiling: limits.createdFileCeiling },
+		tokens: {
+			fileLimit: limits.executorFileLimit,
+			createdFileCeiling: limits.createdFileCeiling,
+			documentationRule: documentationRule({ docs }),
+		},
 	});
 
 	return {

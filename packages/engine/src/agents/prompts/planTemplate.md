@@ -60,6 +60,7 @@ will not reach A:
   `## Global Constraints` section for session-stated project-wide constraints;
   `None` is valid content. Phases inherit the overview's — a phase may write
   "See overview."
+{{documentationRule}}
 
 ---
 

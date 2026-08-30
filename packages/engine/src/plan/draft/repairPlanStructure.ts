@@ -32,7 +32,7 @@ interface Params {
  * findings alongside the decisions and facts the plan was written from.
  */
 const runRepairAttempt = ({ params, findings, attempt }: { params: Params; findings: StructuralFinding[]; attempt: number }) => {
-	const { cwd, driver, planPaths, workspaceDir, brainstormDecisionsPath, model, effort, permissions, timeoutMs } = params;
+	const { cwd, driver, planPaths, workspaceDir, brainstormDecisionsPath, config, model, effort, permissions, timeoutMs } = params;
 	const invokePlanAgent = createPlanAgentRunner({ cwd, driver, workspaceDir, step: `repair-${attempt}`, model, effort, permissions, timeoutMs });
 
 	return invokePlanAgent({
@@ -42,6 +42,7 @@ const runRepairAttempt = ({ params, findings, attempt }: { params: Params; findi
 			decisionsPath: join(workspaceDir, 'decisions.json'),
 			brainstormDecisionsPath,
 			factsPath: join(workspaceDir, 'facts.json'),
+			docs: config?.docs,
 		}),
 		contract: PlanFixReport,
 	});

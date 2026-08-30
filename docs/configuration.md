@@ -174,8 +174,8 @@ failure.
 ## Field reference
 
 The table below lists the top-level keys. A block with keys of its own — `gates`,
-`standards-checks`, `ship`, `queue` and `auto-plan` — is documented in the subsections
-beneath it.
+`standards-checks`, `ship`, `queue`, `auto-plan` and `docs` — is documented in the
+subsections beneath it.
 
 The table is generated from the engine’s own descriptions, the same sentences the
 Config page shows, so the two cannot drift apart. An edit inside the comment markers
@@ -207,6 +207,7 @@ is overwritten the next time `pnpm build:config-reference` runs.
 | `ship` | no | Opt-in `lightsout ship` settings: the branch ticket pattern whose `ticket` capture group becomes the result’s ticket reference, the pull request body template, the merge method, whether a passed implement run chains into ship, and an optional pre-ship command run before anything is pushed. |
 | `queue` | no | Opt-in queue settings: which tracker the queue reads, the team every query is scoped to, which ticket label routes a ticket to which worker, how many tickets run at once, and the environment variable holding the API key. Every team-specific word lives here, so no tracker vocabulary reaches engine code. |
 | `auto-plan` | no | Opt-in auto-plan settings: whether the proposal comes before drafting, whether an approved proposal starts the build, and whether the proposal is skipped when nothing clears the escalation bar. Every key is off by default, so an absent block is the most supervised behaviour. |
+| `docs` | no | Opt-in documentation surfaces: each entry a repo-relative path and a one-line `covers` saying what that document is responsible for. Declaring the block turns on the plan-time documentation check — the plan writer is briefed on the surfaces, every implementable plan file must carry a `## Documentation` statement, and `plan grade` runs one whole-plan checker that verifies it. A repository that declares no block sees none of it: no section, no prompt text, no checker spawn. |
 
 <!-- /generated:config-key-reference -->
 
@@ -339,6 +340,54 @@ The block is strict for the same reason `ship` is: an unknown key fails parsing 
 
 Every key is off by default, so an absent block is the most supervised behaviour there is — the skill plans the whole ticket, shows one proposal, and stops. Turning a key on is a repository saying the factory may carry on that far without asking. The block is strict for the same reason `ship` is.
 
+### Docs settings
+
+| Field | Required | What it controls |
+| --------------- | -------: | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs[].path`   |      yes | Repo-relative path of a document the plan-time documentation check may name, e.g. `docs/configuration.md`.                                 |
+| `docs[].covers` |      yes | One line saying what that document is responsible for. This is what tells a drafter where a given kind of change belongs.                  |
+
+```json
+{
+	"docs": [
+		{
+			"path": "README.md",
+			"covers": "The product tour: what lightsout is, what each command does, the walkthrough of a run, and the index of every other document."
+		},
+		{
+			"path": "docs/configuration.md",
+			"covers": "Every lightsout.config.json key: the generated top-level table, and the hand-written prose for each block and its keys."
+		},
+		{
+			"path": "docs/monorepos.md",
+			"covers": "How a monorepo is configured: the packages directory, scoped gate templates, and how a run picks the packages a change touched."
+		}
+	]
+}
+```
+
+The block is entirely opt-in. Omit it and nothing changes: no `## Documentation`
+section is required, no prompt text is added, no checker is spawned, and you are
+never asked a new question.
+
+Declare it and four seams switch on together. The plan writer is briefed on your
+surfaces. The plan template asks every implementable plan file — a single plan,
+and each phase file — for a `## Documentation` section stating either the
+declared documents that plan touches or the exact sentence
+`Nothing user-facing — no docs needed.` The structural lint requires that
+section. And `plan grade` runs one whole-plan checker that verifies the stated
+claim, reporting a blocking gap when a plan adds user-facing surface and touches
+none of your declared documents.
+
+The engine standardizes the question only — "does this plan touch a declared
+surface?" — never a document's format, tone or structure. It never writes a
+document, never judges its wording, and never opens one during the check.
+
+At least one entry is required: an empty array would mean "declared, but
+nothing", which opts into a check that can never fire. Each entry is strict for
+the same reason `ship` is — a misspelled key fails parsing rather than silently
+declaring a surface with no description.
+
 ### Removed spellings
 
 `standards-packages` and `standardsPackages` are removed spellings of `standards-packs`,
@@ -450,6 +499,18 @@ The following example shows how the optional configuration fields fit together:
     "auto-approve-plan": true,
     "implement-on-approval": true,
   },
+
+  // Documentation surfaces the plan check may name
+  "docs": [
+    {
+      "path": "README.md",
+      "covers": "The product tour, and the index of every other document.",
+    },
+    {
+      "path": "docs/configuration.md",
+      "covers": "Every configuration key, and the prose for each block.",
+    },
+  ],
 
   // Per-rule standards-check overrides
   "standards-checks": {
