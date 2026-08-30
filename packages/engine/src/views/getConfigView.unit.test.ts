@@ -139,6 +139,7 @@ describe('getConfigView', () => {
 			'Generated',
 			'Timeouts',
 			'Ship',
+			'Queue',
 			'Auto plan',
 		]);
 	});
@@ -167,6 +168,35 @@ describe('getConfigView', () => {
 		const view = await getConfigView({ cwd });
 
 		expect(findField({ sections: view.sections, key: 'ship' })).toEqual(expect.objectContaining({ value: null, fromConfig: false }));
+	});
+
+	test('shows the queue block whole in its own area, so the block the document documents is on the page too', async () => {
+		const queue = {
+			tracker: 'linear',
+			team: 'AB',
+			'route-labels': { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
+			'max-parallel': 2,
+			'api-key-env': 'TRACKER_API_KEY',
+		};
+		const cwd = await seedConfiguredCwd({ config: { queue } });
+
+		const view = await getConfigView({ cwd });
+
+		const queueSection = view.sections.find((section) => section.title === 'Queue');
+
+		expect(queueSection?.fields).toEqual([
+			// the sentence is the schema's own, so the page and the config reference
+			// cannot say different things about the same block
+			expect.objectContaining({ key: 'queue', value: queue, fromConfig: true, description: expect.stringContaining('tracker') }),
+		]);
+	});
+
+	test('leaves queue null when the file omits it, because the block is opt-in and the engine fills nothing in for it', async () => {
+		const cwd = await seedConfiguredCwd();
+
+		const view = await getConfigView({ cwd });
+
+		expect(findField({ sections: view.sections, key: 'queue' })).toEqual(expect.objectContaining({ value: null, fromConfig: false }));
 	});
 
 	test('shows the auto-plan block whole in its own area, because no leaf of it has a default worth a row of its own', async () => {
