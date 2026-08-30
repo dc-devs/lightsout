@@ -126,6 +126,27 @@ test('createCodexDriver: a zero exit that wrote no final message is still an err
 	expect(result).toStrictEqual({ text: 'quota exhausted', exitCode: 0, rateLimited: true });
 });
 
+test('createCodexDriver: the period-qualified wording the claude harness uses is a wall here too', async () => {
+	// The apostrophe is escaped for the single-quoted `printf` inside the fake
+	// harness script — the text the driver sees is the original.
+	const walled = "You've hit your weekly limit · resets 4am";
+	const { driver, cwd } = await setupCodex({ exitCode: 1, lastMessage: '', stderr: walled.replaceAll("'", String.raw`'\''`) });
+
+	const result = await driver.invoke({ prompt: 'TASK', cwd });
+
+	expect(result).toStrictEqual({ text: walled, exitCode: 1, rateLimited: true });
+});
+
+test('createCodexDriver: a bare 529 in ordinary output is no longer parked as an overload', async () => {
+	// the shared predicate takes the qualified 529 form, so a token count, a cost
+	// or a line number cannot park a run any more
+	const { driver, cwd } = await setupCodex({ exitCode: 2, lastMessage: '', stdout: 'boom: wrote 529 tokens before it died' });
+
+	const result = await driver.invoke({ prompt: 'TASK', cwd });
+
+	expect(result.rateLimited).toBe(false);
+});
+
 test('createCodexDriver: an ordinary failure is not misread as a rate limit, and stdout carries the text', async () => {
 	const { driver, cwd } = await setupCodex({ exitCode: 2, lastMessage: '', stdout: 'boom: unrecognized subcommand' });
 
