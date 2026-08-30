@@ -29,6 +29,9 @@ export const setupBranchRepo = ({ branch, dirty, remoteHead = true }: Params = {
 
 	execSync('git init -q --bare -b main .', { cwd: origin, stdio: 'ignore' });
 	execSync('git init -q -b main .', { cwd, stdio: 'ignore' });
+	// A repo-level identity, because the subject under test may commit plainly —
+	// a CI runner has no global one, and only the fixture knows that.
+	git('git config user.name t && git config user.email t@t');
 	writeFileSync(join(cwd, 'README.md'), '# repo\n');
 	git('git add -A');
 	git(`git ${author} commit -qm init`);
