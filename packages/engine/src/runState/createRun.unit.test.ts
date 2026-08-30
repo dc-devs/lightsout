@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
@@ -12,6 +13,15 @@ const config: LightsoutConfig = {
 
 const setupRepo = () => {
 	const cwd = setupConsumerRepo({ git: false });
+
+	return { cwd };
+};
+
+/** A repo with a git history, checked out on a branch of a known name. */
+const setupBranchedRepo = ({ branch }: { branch: string }) => {
+	const cwd = setupConsumerRepo();
+
+	execSync(`git checkout -q -b ${branch}`, { cwd });
 
 	return { cwd };
 };
@@ -122,6 +132,38 @@ describe('createRun', () => {
 		expect(manifest.ticketRef).toBe('LO-70');
 		// stamped on disk too — the resume and status readers only ever see the file
 		expect(read.ticketRef).toBe('LO-70');
+	});
+
+	test('records the branch the checkout is on, which is the key a ship result is filed under', async () => {
+		const { cwd } = setupBranchedRepo({ branch: 'lo-52-progress-view' });
+
+		const manifest = await createRun({ cwd, plan: 'plan.md', driver: 'stub' });
+		const read = await readRunManifest({ cwd, runId: manifest.runId });
+
+		expect(manifest.branch).toBe('lo-52-progress-view');
+		// stamped on disk too — a run that records no branch cannot find its own ship result
+		expect(read.branch).toBe('lo-52-progress-view');
+	});
+
+	test('records no branch where git has none to name', async () => {
+		const { cwd } = setupRepo();
+
+		const manifest = await createRun({ cwd, plan: 'plan.md', driver: 'stub' });
+
+		// outside a worktree there is nothing to push to, so absence is the answer
+		expect(manifest.branch).toBe(undefined);
+	});
+
+	test.each([
+		{ label: 'a run resolved to ship carries the stamp the progress view draws a ship row from', willShip: true, expected: true },
+		{ label: 'a run whose caller resolved no ship intent carries nothing', willShip: undefined, expected: undefined },
+	])('$label', async ({ willShip, expected }) => {
+		const { cwd } = setupRepo();
+
+		const manifest = await createRun({ cwd, plan: 'plan.md', driver: 'stub', willShip });
+		const read = await readRunManifest({ cwd, runId: manifest.runId });
+
+		expect(read.willShip).toBe(expected);
 	});
 
 	test('leaves the optional routing fields unset when the caller omits them', async () => {

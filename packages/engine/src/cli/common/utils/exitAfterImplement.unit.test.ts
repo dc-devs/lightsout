@@ -1,4 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
+import { contradictoryShipFlagsMessage } from '#src/cli/common/constants/contradictoryShipFlagsMessage.ts';
 import { exitAfterImplement } from '#src/cli/common/utils/exitAfterImplement.ts';
 import { LightsoutConfig, RunStatus } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
@@ -96,7 +97,9 @@ describe('exitAfterImplement', () => {
 
 		await expect(exitAfterImplement({ config, cwd, result, shipFlag: true, noShipFlag: true, env: {} })).rejects.toThrow(/process\.exit/);
 
-		expect(errors.some((line) => line.includes('--ship and --no-ship contradict'))).toBe(true);
+		// the same sentence implementCommand says before the run starts, from the
+		// one constant both read — a user who hits it either way is told one thing
+		expect(errors).toStrictEqual([contradictoryShipFlagsMessage]);
 		expect(readForgeLog()).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([1]);
 	});

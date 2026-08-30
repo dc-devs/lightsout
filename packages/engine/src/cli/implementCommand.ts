@@ -8,6 +8,7 @@ import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrint
 import { exitAfterImplement } from '#src/cli/common/utils/exitAfterImplement.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { resolveCommandHarness } from '#src/cli/common/utils/resolveCommandHarness.ts';
+import { resolveCommandShipIntent } from '#src/cli/common/utils/resolveCommandShipIntent.ts';
 import { resolvePlanTarget } from '#src/cli/common/utils/resolvePlanTarget.ts';
 import { runPhasesOrFailFast } from '#src/cli/common/utils/runPhasesOrFailFast.ts';
 import { runPipelineOrFailFast } from '#src/cli/common/utils/runPipelineOrFailFast.ts';
@@ -83,6 +84,11 @@ export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<
 	const { driverName, model, effort } = resolveCommandHarness({ config: loaded, command: 'implement' });
 	const driver = getDriver({ name: driverName });
 	const config = { ...loaded, harness: driverName, model, effort };
+	const shipIntent = resolveCommandShipIntent({ config: loaded, flags, env: process.env });
+
+	if (shipIntent === undefined) {
+		return exitCli({ code: 1 });
+	}
 
 	if (planName !== undefined) {
 		await printPlanTicketWarning({ cwd, name: planName });
@@ -98,7 +104,16 @@ export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<
 
 	const result =
 		'overviewPath' in target
-			? await runPhasesOrFailFast({ cwd, driver, config, overviewPath: target.overviewPath, startPhase, skipRefactor, onProgress: createProgressPrinter() })
+			? await runPhasesOrFailFast({
+					cwd,
+					driver,
+					config,
+					overviewPath: target.overviewPath,
+					startPhase,
+					skipRefactor,
+					willShip: shipIntent.willShip,
+					onProgress: createProgressPrinter(),
+				})
 			: await runPipelineOrFailFast({
 					cwd,
 					planPath: target.planPath,
@@ -107,6 +122,7 @@ export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<
 					driver,
 					config,
 					skipRefactor,
+					willShip: shipIntent.willShip,
 					onProgress: createProgressPrinter(),
 				});
 

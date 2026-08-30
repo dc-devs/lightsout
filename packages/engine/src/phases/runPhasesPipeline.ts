@@ -3,7 +3,7 @@ import type { Driver } from '#src/drivers/index.ts';
 import { initializeSequence } from '#src/phases/initializeSequence.ts';
 import { runPhase } from '#src/phases/runPhase.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
-import { writeRunManifest } from '#src/runState/index.ts';
+import { createProgressSink, writeRunManifest } from '#src/runState/index.ts';
 
 interface Params {
 	cwd: string;
@@ -16,6 +16,8 @@ interface Params {
 	/** Resume: an existing coordinator manifest — phases already passed are skipped. */
 	existing?: RunManifest;
 	skipRefactor?: boolean;
+	/** Resolved before the run starts: a passing sequence will ship this branch. Stamped on the COORDINATOR only — a phase's child run must never draw a ship row it can never fill. */
+	willShip?: boolean;
 	onProgress?: (message: string) => void;
 }
 
@@ -44,12 +46,22 @@ export const runPhasesPipeline = async ({
 	startPhase,
 	existing,
 	skipRefactor,
+	willShip,
 	onProgress,
 }: Params): Promise<PipelineResult> => {
-	const initialized = await initializeSequence({ cwd, driver, config, overviewPath, startPhase, existing });
+	const initialized = await initializeSequence({ cwd, driver, config, overviewPath, startPhase, existing, willShip });
 
 	let manifest = initialized.manifest;
 
+	// The coordinator holds no RunState, so the tee that persists a run's
+	// narration does not reach it — and a bare `--watch` shows the coordinator
+	// in the gap between phases, which is exactly where a reader looks. Wrapping
+	// its one callback gives the coordinator a `now` line of its own.
+	const sink = createProgressSink({ cwd, runId: manifest.runId });
+	const narrate = (message: string) => {
+		sink(message);
+		onProgress?.(message);
+	};
 	const total = manifest.steps.length;
 
 	for (const [index, step] of manifest.steps.entries()) {
@@ -57,7 +69,7 @@ export const runPhasesPipeline = async ({
 			continue;
 		}
 
-		const phase = await runPhase({ cwd, driver, config, manifest, index, step, total, skipRefactor, onProgress });
+		const phase = await runPhase({ cwd, driver, config, manifest, index, step, total, skipRefactor, onProgress: narrate });
 
 		manifest = phase.manifest;
 

@@ -45,10 +45,12 @@ const setupDirectRun = () => {
 		answeredQuestion,
 		onProgress,
 		ticketBody = '# Drain the backlog\n\nBuild the thing.',
+		willShip,
 	}: {
 		answeredQuestion?: { question: string; answer: string };
 		onProgress?: (message: string) => void;
 		ticketBody?: string;
+		willShip?: boolean;
 	} = {}) =>
 		runDirectWork({
 			cwd,
@@ -58,6 +60,7 @@ const setupDirectRun = () => {
 			driverName: 'claude-code',
 			config,
 			answeredQuestion,
+			willShip,
 			onProgress,
 		});
 
@@ -83,6 +86,18 @@ describe('runDirectWork', () => {
 		expect(result.manifest.ticketRef).toBe('LO-70');
 		expect(result.manifest.pipeline).toBe('direct');
 		expect(readFileSync(`${getRunDir({ cwd, runId: result.manifest.runId })}/ticket.md`, 'utf8')).toBe('# Drain the backlog\n\nBuild the thing.\n');
+	});
+
+	test('records the ship intent it was started with, so the progress view can draw a ship row for a direct run too', async () => {
+		const { run } = setupDirectRun();
+
+		expect((await run({ willShip: true })).manifest.willShip).toBe(true);
+	});
+
+	test('a direct run nobody asked to ship records no intent at all', async () => {
+		const { run } = setupDirectRun();
+
+		expect((await run()).manifest.willShip).toBeUndefined();
 	});
 
 	test('writes a ticket body that already ends in a newline without adding a second one', async () => {

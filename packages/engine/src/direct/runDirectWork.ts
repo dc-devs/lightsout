@@ -27,6 +27,8 @@ interface Params {
 	config: LightsoutConfig;
 	/** The answer to a question a previous invocation asked — the queue's relay loop threads it back in. */
 	answeredQuestion?: AnsweredQuestion;
+	/** Resolved before the run starts: a passing run will ship this branch. Recorded on the manifest so the progress view can show a ship row. */
+	willShip?: boolean;
 	onProgress?: (message: string) => void;
 }
 
@@ -38,6 +40,7 @@ const createDirectRun = async ({
 	ticketRef,
 	driverName,
 	config,
+	willShip,
 }: {
 	cwd: string;
 	runId: string;
@@ -45,6 +48,7 @@ const createDirectRun = async ({
 	ticketRef: string;
 	driverName: string;
 	config: LightsoutConfig;
+	willShip?: boolean;
 }) => {
 	const ticketPath = join(getRunDir({ cwd, runId }), 'ticket.md');
 	const manifest = await createRun({
@@ -56,6 +60,7 @@ const createDirectRun = async ({
 		driver: driverName,
 		config,
 		baselineDirtyFiles: await readGitChangedFiles({ cwd }),
+		willShip,
 	});
 
 	// There is no plan file for direct work; the ticket body is the document the
@@ -83,9 +88,10 @@ const executeDirectWork = async ({
 	driverName,
 	config,
 	answeredQuestion,
+	willShip,
 	onProgress,
 }: Params & { runId: string }) => {
-	const manifest = await createDirectRun({ cwd, runId, ticketBody, ticketRef, driverName, config });
+	const manifest = await createDirectRun({ cwd, runId, ticketBody, ticketRef, driverName, config, willShip });
 	const run = new RunState({ cwd, config, manifest, onProgress });
 	const stop = ({ record, status, error }: { record: StepRecord; status: RunStatus; error: string }) => stopDirectRun({ run, record, status, error });
 

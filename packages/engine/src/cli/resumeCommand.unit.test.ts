@@ -1,8 +1,13 @@
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { resumeCommand } from '#src/cli/resumeCommand.ts';
 import { RunStatus } from '#src/contracts/index.ts';
 import { manifestOf, runId, setupResume } from '#tests/helpers/setupResume.ts';
+
+/** The seeded run's manifest as it stands on disk after the command ran. */
+const readManifest = ({ cwd }: { cwd: string }): { willShip?: boolean } =>
+	JSON.parse(readFileSync(join(cwd, '.lightsout', 'runs', runId, 'manifest.json'), 'utf8'));
 
 describe('resumeCommand', () => {
 	test('without --run it prints the usage text on stderr and exits 1 before reading any run', async () => {
@@ -96,6 +101,19 @@ describe('resumeCommand', () => {
 		// the single-plan pipeline ran: its own plan read is what stopped the run
 		expect(errors.join('\n')).toMatch(/plan file not found: .*ghost\.md/);
 		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test.each([
+		{ label: 'a run stamped to ship', willShip: true },
+		{ label: 'a run that was never going to', willShip: undefined },
+	])('resume clears the ship stamp on $label — this command is not a shipping path', async ({ willShip }) => {
+		const { context, cwd } = setupResume({ args: ['--run', runId], manifest: manifestOf({ pipeline: 'implement', willShip }) });
+
+		await expect(resumeCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// resume ends at exitForRunResult and never chains into ship, so a stamp
+		// left standing would draw a ship row nothing will ever fill
+		expect(readManifest({ cwd }).willShip).toBe(willShip === true ? false : undefined);
 	});
 
 	test('a manifest written before runs recorded their pipeline still resumes as an implement run', async () => {

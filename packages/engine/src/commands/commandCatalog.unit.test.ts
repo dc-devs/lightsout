@@ -197,7 +197,7 @@ describe('commandCatalog', () => {
 			['standards-check', ['agent-review', 'all', 'baseline', 'code-checks', 'cwd', 'list', 'path']],
 			['standards-validate', ['cwd', 'pack']],
 			['standards-health', ['cwd']],
-			['status', ['cwd']],
+			['status', ['cwd', 'run', 'watch']],
 			['doctor', ['cwd']],
 			['friction', ['cwd']],
 			['improve', ['cwd', 'engine']],

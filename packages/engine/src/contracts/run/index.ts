@@ -2,6 +2,7 @@ export { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
 export { PackagesSource } from '#src/contracts/run/PackagesSource.ts';
 export { PhaseReport } from '#src/contracts/run/PhaseReport.ts';
 export { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+export { ProgressRecord } from '#src/contracts/run/ProgressRecord.ts';
 export { RunLock } from '#src/contracts/run/RunLock.ts';
 export { RunManifest } from '#src/contracts/run/RunManifest.ts';
 export { RunStatus } from '#src/contracts/run/RunStatus.ts';

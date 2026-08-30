@@ -8,8 +8,12 @@ test('readCommandFlags: reads a command flags from the usage text, unioned acros
 });
 
 test('readCommandFlags: allows --cwd everywhere, since the dispatcher reads it before it knows the command', () => {
-	expect(readCommandFlags({ command: 'status' })).toStrictEqual(new Set(['cwd']));
+	expect(readCommandFlags({ command: 'ship' })).toStrictEqual(new Set(['cwd']));
 	expect(readCommandFlags({ command: 'friction' })).toStrictEqual(new Set(['cwd']));
+});
+
+test('readCommandFlags: status accepts the detail view flags alongside --cwd, unioned across both of its shapes', () => {
+	expect([...readCommandFlags({ command: 'status' })].sort()).toStrictEqual(['cwd', 'run', 'watch']);
 });
 
 test('readCommandFlags: keeps one command flags out of another', () => {

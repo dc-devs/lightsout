@@ -9,7 +9,7 @@
  *
  * A FEATURE adding a command or a flag updates this pin deliberately — updated
  * 2026-08-28 for `lightsout queue` and `lightsout implement-direct`, and
- * again for `queue --file-relay`.
+ * again for `queue --file-relay`, and for `status --run` / `--watch`.
  */
 export const usageFixture = `lightsout — deterministic engine for coding agents
 
@@ -21,6 +21,7 @@ usage:
   lightsout ship [--cwd <path>]
   lightsout queue [--file-relay [dir]] [--cwd <path>]
   lightsout status [--cwd <path>]
+  lightsout status [--run <id>] [--watch] [--cwd <path>]   (one run in detail; --watch repaints it every two minutes)
   lightsout doctor [--cwd <path>]
   lightsout standards-check [--cwd <path>] [--path <subdir>] [--all] [--baseline] [--code-checks | --agent-review]
   lightsout standards-check --list [--cwd <path>]     (print the enforcement ledger)

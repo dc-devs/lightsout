@@ -12,7 +12,7 @@ import { runPipelineOrFailFast } from '#src/cli/common/utils/runPipelineOrFailFa
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { PipelineKind, RunStatus } from '#src/contracts/index.ts';
 import { getDriver } from '#src/drivers/index.ts';
-import { RunNotFoundError, readRunManifest } from '#src/runState/index.ts';
+import { RunNotFoundError, readRunManifest, writeRunManifest } from '#src/runState/index.ts';
 
 /**
  * Pipelines that own their own resume door, and the whole instruction that
@@ -67,6 +67,13 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 		return exitCli({ code: 1 });
 	}
 
+	// `resume` ends at exitForRunResult and never calls exitAfterImplement, so a
+	// run finished here cannot ship however it was started. Clearing the stamp
+	// keeps the progress view from drawing a ship row nothing will ever fill,
+	// and keeps a watch from sitting out the ship settle for a result nobody
+	// will write. The field means exactly what it says: this run, in this
+	// process, will ship.
+	const resumable = manifest.willShip === true ? await writeRunManifest({ cwd, manifest: { ...manifest, willShip: false } }) : manifest;
 	const loaded = await readConfig({ cwd });
 	const resolved = resolveCommandHarness({ config: loaded, command: 'implement' });
 	const driver = getDriver({ name: manifest.harness });
@@ -85,12 +92,12 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 
 	const result =
 		pipeline === PipelineKind.Phases
-			? await runPhasesOrFailFast({ cwd, driver, config, existing: manifest, skipRefactor, onProgress: createProgressPrinter() })
+			? await runPhasesOrFailFast({ cwd, driver, config, existing: resumable, skipRefactor, onProgress: createProgressPrinter() })
 			: await runPipelineOrFailFast({
 					cwd,
 					driver,
 					config,
-					existing: manifest,
+					existing: resumable,
 					skipRefactor,
 					onProgress: createProgressPrinter(),
 				});

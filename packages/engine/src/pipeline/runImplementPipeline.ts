@@ -4,7 +4,7 @@ import { readGitPrefix } from '#src/common/git/readGitPrefix.ts';
 import { excludedSourcePaths } from '#src/common/sourceFiles/excludedSourcePaths.ts';
 import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
 import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PipelineKind, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { prepareRun } from '#src/pipeline/common/utils/prepareRun.ts';
 import { resolveTestSubjects } from '#src/pipeline/common/utils/resolveTestSubjects.ts';
@@ -58,6 +58,8 @@ interface Params {
 	/** Resume: an existing manifest — steps already passed are skipped. */
 	existing?: RunManifest;
 	skipRefactor?: boolean;
+	/** Resolved before the run starts: a passing run will ship this branch. Recorded on the manifest so the progress view can show a ship row. Ignored when resuming — the existing manifest already carries it. */
+	willShip?: boolean;
 	/** Live progress sink (steps, gate results, agent reports). Silent when omitted. */
 	onProgress?: (message: string) => void;
 }
@@ -88,6 +90,7 @@ const executePipeline = async ({
 	packages,
 	existing,
 	skipRefactor,
+	willShip,
 	onProgress,
 }: Params & { runId: string }): Promise<PipelineResult> => {
 	const run = new PipelineRun({
@@ -101,12 +104,13 @@ const executePipeline = async ({
 				cwd,
 				runId,
 				plan: planPath ?? '',
-				pipeline: 'implement',
+				pipeline: PipelineKind.Implement,
 				overview: overviewPath,
 				parentRunId,
 				driver: driver.name,
 				config,
 				baselineDirtyFiles: await readGitChangedFiles({ cwd }),
+				willShip,
 			})),
 	});
 	const prepared = await prepareRun({ run, cwd, config, packages });
@@ -127,7 +131,10 @@ const executePipeline = async ({
 	const gitPrefix = await readGitPrefix({ cwd });
 	const steps = buildSteps({ run, gitPrefix, planContent, overviewContent, standards, testStandards, skipRefactor });
 
-	await run.update({ patch: { status: RunStatus.Running } });
+	// The one moment the exact sequence is known — buildSteps has already
+	// resolved it, --skip-refactor included — so it is the one moment a reader
+	// can be told which steps are still to come.
+	await run.update({ patch: { status: RunStatus.Running, stepOrder: steps.map((step) => step.id) } });
 
 	const stopped = await runSteps({ run, steps });
 
