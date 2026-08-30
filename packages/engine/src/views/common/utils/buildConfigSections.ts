@@ -39,6 +39,7 @@ const configFieldReaders: Record<string, (params: { config: LightsoutConfig }) =
 	'timeouts.agent-minutes': ({ config }) => config.timeouts?.['agent-minutes'] ?? defaultAgentTimeoutMinutes,
 	'timeouts.supervisor-minutes': ({ config }) => config.timeouts?.['supervisor-minutes'] ?? defaultSupervisorTimeoutMinutes,
 	ship: ({ config }) => config.ship,
+	queue: ({ config }) => config.queue,
 	'auto-plan': ({ config }) => config['auto-plan'],
 };
 
@@ -51,6 +52,7 @@ const configSectionKeys: Array<{ title: string; keys: string[] }> = [
 	{ title: 'Generated', keys: ['generated', 'vendored'] },
 	{ title: 'Timeouts', keys: ['timeouts.agent-minutes', 'timeouts.supervisor-minutes'] },
 	{ title: 'Ship', keys: ['ship'] },
+	{ title: 'Queue', keys: ['queue'] },
 	{ title: 'Auto plan', keys: ['auto-plan'] },
 ];
 
