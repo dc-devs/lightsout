@@ -70,6 +70,8 @@ export const RunManifest = z.object({
 	testSubjects: z.array(z.string()).default([]),
 	/** Changed files the write-tests step skipped because nothing public reaches them; re-checked at run end. */
 	unreachableChangedFiles: z.array(z.string()).default([]),
+	/** Changed files the write-tests step skipped because the repo's own coverage configuration does not collect them — the set verify fix re-invocations must not demand execution of. */
+	coverageExcludedChangedFiles: z.array(z.string()).default([]),
 });
 
 export type RunManifest = z.infer<typeof RunManifest>;

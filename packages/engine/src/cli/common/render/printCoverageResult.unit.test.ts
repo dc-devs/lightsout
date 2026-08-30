@@ -39,6 +39,7 @@ const setupResult = ({ manifest = {}, ...rest }: Omit<Partial<CoverageResult>, '
 			baselineDirtyFiles: [],
 			testSubjects: [],
 			unreachableChangedFiles: [],
+			coverageExcludedChangedFiles: [],
 			...manifest,
 		},
 	};

@@ -23,6 +23,7 @@ const manifestOf = (overrides: Partial<RunManifest> = {}): RunManifest => ({
 	baselineDirtyFiles: [],
 	testSubjects: [],
 	unreachableChangedFiles: [],
+	coverageExcludedChangedFiles: [],
 	...overrides,
 });
 

@@ -33,6 +33,7 @@ const buildManifest = ({ pipeline, steps = [] }: { pipeline: PipelineKind; steps
 	baselineDirtyFiles: [],
 	testSubjects: [],
 	unreachableChangedFiles: [],
+	coverageExcludedChangedFiles: [],
 });
 
 const frozen = ({ batches }: { batches: RefactorBatch[] }): FrozenWorklist => ({

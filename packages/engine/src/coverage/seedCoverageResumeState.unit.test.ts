@@ -40,6 +40,7 @@ const manifestWith = ({ steps }: { steps: StepRecord[] }): RunManifest => ({
 	baselineDirtyFiles: [],
 	testSubjects: [],
 	unreachableChangedFiles: [],
+	coverageExcludedChangedFiles: [],
 });
 
 describe('seedCoverageResumeState', () => {

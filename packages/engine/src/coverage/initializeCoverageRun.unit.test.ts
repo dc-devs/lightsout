@@ -3,8 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
-import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import { type LightsoutConfig, PipelineKind, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import { initializeCoverageRun } from '#src/coverage/initializeCoverageRun.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
@@ -28,6 +27,7 @@ const manifestWith = ({ pipeline, config }: { pipeline?: PipelineKind; config: L
 	baselineDirtyFiles: [],
 	testSubjects: [],
 	unreachableChangedFiles: [],
+	coverageExcludedChangedFiles: [],
 });
 
 /** A measurable consumer repo: a coverage command that exits green and a summary already on disk. */

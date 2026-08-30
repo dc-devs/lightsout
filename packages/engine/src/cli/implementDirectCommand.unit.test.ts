@@ -38,6 +38,7 @@ const manifestOf = (status: RunStatus): RunManifest => ({
 	baselineDirtyFiles: [],
 	testSubjects: [],
 	unreachableChangedFiles: [],
+	coverageExcludedChangedFiles: [],
 });
 
 /** A committed branch with a ticket file on it, and both collaborators stubbed green. */

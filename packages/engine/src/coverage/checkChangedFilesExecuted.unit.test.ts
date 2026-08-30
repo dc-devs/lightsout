@@ -13,20 +13,33 @@ const ts = require('typescript') as typeof import('typescript');
 
 const rootConfig: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': 'npm run coverage' } };
 
+/** A CommonJS jest config exporting the given settings verbatim. */
+const cjsConfig = ({ settings }: { settings: Record<string, unknown> }) => `module.exports = ${JSON.stringify(settings)};\n`;
+
 const setupRepo = ({
 	files,
 	summary,
 	summaryAt = 'coverage/coverage-summary.json',
+	jestConfig,
 }: {
 	files: Record<string, string>;
 	summary?: Record<string, { covered: number; total: number }>;
 	summaryAt?: string;
+	/** A jest config at the repo root, plus the package.json script `rootConfig`'s coverage command runs. Omitted, the repo has no coverage configuration and every file reads as collected. */
+	jestConfig?: { name?: string; source: string };
 }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-executed-'));
 
 	for (const [name, content] of Object.entries(files)) {
 		mkdirSync(join(cwd, dirname(name)), { recursive: true });
 		writeFileSync(join(cwd, name), content);
+	}
+
+	if (jestConfig) {
+		const name = jestConfig.name ?? 'jest.config.cjs';
+
+		writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'consumer', scripts: { coverage: `jest -c ${name} --coverage` } }));
+		writeFileSync(join(cwd, name), jestConfig.source);
 	}
 
 	if (summary) {
@@ -231,4 +244,152 @@ test('checkChangedFilesExecuted: a configured packages directory is where a chan
 
 	// under the default 'packages' this file would map to no scope at all and pass unmeasured
 	expect(error).toContain('changed-file-execution: 1 changed file(s) never executed under the tests: apps/web/src/cold.ts');
+});
+
+// Run a22d44e6 (and dd34d3c4, the same shape one phase later): nine .ts files
+// added under a standards pack's code/**/fixtures/ tree, which the pack's own
+// `!**/fixtures/**` negation keeps out of every coverage report.
+test('checkChangedFilesExecuted: a fixture file the config negates is exempt, while a collected file absent from the report still fails', async () => {
+	const cwd = setupRepo({
+		files: {
+			'code/rule/fixtures/bad.ts': 'export const bad = () => 1;',
+			'code/rule/check.ts': 'export const check = () => 2;',
+			'src/cold.ts': 'export const cold = () => 3;',
+		},
+		summary: { 'code/rule/check.ts': { covered: 2, total: 2 } },
+		jestConfig: { source: cjsConfig({ settings: { collectCoverageFrom: ['**/*.ts', '!**/*.unit.test.ts', '!**/fixtures/**'] } }) },
+	});
+
+	const error = await checkChangedFilesExecuted({
+		cwd,
+		config: rootConfig,
+		changedFiles: ['code/rule/fixtures/bad.ts', 'code/rule/check.ts', 'src/cold.ts'],
+		compiler: ts,
+	});
+
+	// the fixture is absent from the summary and exempt; the collected file is
+	// absent from the summary and is not — the teeth stay on
+	expect(error).toBe(
+		"changed-file-execution: 1 changed file(s) never executed under the tests: src/cold.ts — cover each through its public subject's tests; a file no test can reach through a public surface is a wiring defect to fix in source.",
+	);
+});
+
+// Run 00dd4d49: a pack-root fixtures/framework-owned/ tree — fixtures one level
+// up, with no rule folder above them.
+test('checkChangedFilesExecuted: a fixture tree at the pack root is exempt just as one inside a rule folder is', async () => {
+	const cwd = setupRepo({
+		files: {
+			'fixtures/framework-owned/route.ts': 'export const route = () => 1;',
+			'src/ran.ts': 'export const ran = () => 2;',
+		},
+		summary: { 'src/ran.ts': { covered: 1, total: 1 } },
+		jestConfig: { source: cjsConfig({ settings: { collectCoverageFrom: ['**/*.ts', '!**/fixtures/**'] } }) },
+	});
+
+	const error = await checkChangedFilesExecuted({
+		cwd,
+		config: rootConfig,
+		changedFiles: ['fixtures/framework-owned/route.ts', 'src/ran.ts'],
+		compiler: ts,
+	});
+
+	expect(error).toBe(undefined);
+});
+
+// Run 81d6e3ef: four files uncollected by omission — the positives name .ts and
+// the files are .tsx, so no glob matches them at all.
+test('checkChangedFilesExecuted: a file the positives never name is exempt by omission, not only by negation', async () => {
+	const cwd = setupRepo({
+		files: { 'src/App.tsx': 'export const App = () => 1;', 'src/ran.ts': 'export const ran = () => 2;' },
+		summary: { 'src/ran.ts': { covered: 1, total: 1 } },
+		jestConfig: { source: cjsConfig({ settings: { collectCoverageFrom: ['src/**/*.ts'] } }) },
+	});
+
+	const error = await checkChangedFilesExecuted({ cwd, config: rootConfig, changedFiles: ['src/App.tsx', 'src/ran.ts'], compiler: ts });
+
+	expect(error).toBe(undefined);
+});
+
+test('checkChangedFilesExecuted: a changed set that is entirely uncollected never opens a report at all', async () => {
+	const cwd = setupRepo({
+		files: { 'code/rule/fixtures/bad.ts': 'export const bad = () => 1;' },
+		jestConfig: { source: cjsConfig({ settings: { collectCoverageFrom: ['**/*.ts', '!**/fixtures/**'] } }) },
+	});
+
+	// no summary was ever written here, so reading one would be a hard error — and none is read
+	const error = await checkChangedFilesExecuted({ cwd, config: rootConfig, changedFiles: ['code/rule/fixtures/bad.ts'], compiler: ts });
+
+	expect(error).toBe(undefined);
+});
+
+// Run df85a9b8: a folder rename inside an excluded tree, which reaches git as a
+// delete plus an add for every file in it.
+test('checkChangedFilesExecuted: a folder rename inside an excluded tree passes on both halves of the change', async () => {
+	const cwd = setupRepo({
+		files: { 'code/rule/fixtures/renamed/bad.ts': 'export const bad = () => 1;' },
+		jestConfig: { source: cjsConfig({ settings: { collectCoverageFrom: ['**/*.ts', '!**/fixtures/**'] } }) },
+	});
+
+	// the old path is gone from disk and the new one sits in the excluded tree
+	const error = await checkChangedFilesExecuted({
+		cwd,
+		config: rootConfig,
+		changedFiles: ['code/rule/fixtures/old/bad.ts', 'code/rule/fixtures/renamed/bad.ts'],
+		compiler: ts,
+	});
+
+	expect(error).toBe(undefined);
+});
+
+test('checkChangedFilesExecuted: a configuration the engine cannot require leaves the file failing exactly as before', async () => {
+	const cwd = setupRepo({
+		files: { 'src/cold.ts': 'export const cold = () => 1;' },
+		summary: { 'src/other.ts': { covered: 1, total: 1 } },
+		jestConfig: {
+			name: 'jest.config.ts',
+			// a real jest.config.ts imports its preset — unresolvable here, so the require throws
+			source: ["import { createDefaultPreset } from 'ts-jest';", '', 'export default { ...createDefaultPreset(), collectCoverageFrom: [] };'].join('\n'),
+		},
+	});
+
+	const error = await checkChangedFilesExecuted({ cwd, config: rootConfig, changedFiles: ['src/cold.ts'], compiler: ts });
+
+	// the config would exempt everything if it could be read; unreadable, it exempts nothing
+	expect(error).toContain('never executed under the tests: src/cold.ts');
+});
+
+test('checkChangedFilesExecuted: in monorepo mode a package’s unit config is located through its coverage script’s -c argument', async () => {
+	const config: LightsoutConfig = {
+		gates: { check: 'true', test: 'true', 'test-coverage': false },
+		'package-gates': { check: 'true {package}', test: 'true {package}', 'test-coverage': 'pnpm --filter {package} run test:coverage' },
+	};
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-executed-mono-config-'));
+
+	mkdirSync(join(cwd, 'packages', 'api', 'src', 'fixtures'), { recursive: true });
+	mkdirSync(join(cwd, 'packages', 'api', 'coverage'), { recursive: true });
+	writeFileSync(
+		join(cwd, 'packages', 'api', 'package.json'),
+		JSON.stringify({ name: '@acme/api', scripts: { 'test:coverage': 'jest -c jest.config.cjs --coverage' } }),
+	);
+	writeFileSync(join(cwd, 'packages', 'api', 'jest.config.cjs'), cjsConfig({ settings: { collectCoverageFrom: ['src/**/*.ts', '!**/fixtures/**'] } }));
+	// the e2e suite measures everything, including the fixtures the unit suite skips
+	writeFileSync(join(cwd, 'packages', 'api', 'jest.e2e.config.cjs'), cjsConfig({ settings: { collectCoverageFrom: ['**/*.ts'] } }));
+	writeFileSync(join(cwd, 'packages', 'api', 'src', 'fixtures', 'sample.ts'), 'export const sample = () => 1;');
+	writeFileSync(join(cwd, 'packages', 'api', 'src', 'ran.ts'), 'export const ran = () => 2;');
+	writeFileSync(
+		join(cwd, 'packages', 'api', 'coverage', 'coverage-summary.json'),
+		JSON.stringify({
+			total: { statements: { pct: 100, covered: 1, total: 1 } },
+			[join(cwd, 'packages', 'api', 'src', 'ran.ts')]: { statements: { pct: 100, covered: 1, total: 1 } },
+		}),
+	);
+
+	const error = await checkChangedFilesExecuted({
+		cwd,
+		config,
+		changedFiles: ['packages/api/src/fixtures/sample.ts', 'packages/api/src/ran.ts'],
+		compiler: ts,
+	});
+
+	expect(error).toBe(undefined);
 });

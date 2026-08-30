@@ -23,6 +23,7 @@ const manifestOf = ({ usage }: { usage?: RunUsage } = {}): RunManifest => ({
 	baselineDirtyFiles: [],
 	testSubjects: [],
 	unreachableChangedFiles: [],
+	coverageExcludedChangedFiles: [],
 });
 
 const setupRunState = ({

@@ -53,6 +53,7 @@ const setupResult = ({
 		baselineDirtyFiles: [],
 		testSubjects: [],
 		unreachableChangedFiles: [],
+		coverageExcludedChangedFiles: [],
 		...manifest,
 	};
 

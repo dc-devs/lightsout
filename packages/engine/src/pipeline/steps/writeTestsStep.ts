@@ -22,6 +22,22 @@ interface Params {
 	testStandards?: string;
 }
 
+const narrateSkippedFiles = ({ run, deleted, inert, uncoverable }: { run: PipelineRun; deleted: string[]; inert: string[]; uncoverable: string[] }) => {
+	if (deleted.length > 0) {
+		run.progress(`write-tests: ${deleted.length} deleted file(s) skipped (removed by the plan, nothing to cover): ${deleted.join(', ')}`);
+	}
+
+	if (inert.length > 0) {
+		run.progress(`write-tests: ${inert.length} inert file(s) skipped (barrel/type-only, nothing to cover): ${inert.join(', ')}`);
+	}
+
+	if (uncoverable.length > 0) {
+		run.progress(
+			`write-tests: ${uncoverable.length} file(s) skipped — no unit test could move their coverage (a tool's own settings file, a module-scope await the runner cannot load, or a path this repo's coverage configuration does not collect): ${uncoverable.join(', ')}`,
+		);
+	}
+};
+
 /** The write-tests fan-out: changed files resolve up to their public subjects, one writer per import-graph group — groups' subjects are disjoint across clusters, so parallel writers cannot collide on disk. */
 export const writeTestsStep = ({ run, gitPrefix, planContent, testStandards }: Params): PipelineStep['run'] => {
 	return async () => {
@@ -31,21 +47,14 @@ export const writeTestsStep = ({ run, gitPrefix, planContent, testStandards }: P
 
 		const packagesDir = run.config['packages-dir'] ?? defaultPackagesDir;
 		const compiler = resolveConsumerTypescript({ cwd: run.cwd, packagesDir });
-		const { targets, inert, unreachable, deleted } = await selectTestTargets({ run, candidates: sourceFiles({ run }), compiler, packagesDir });
+		const { targets, inert, uncoverable, deleted, coverageExcluded } = await selectTestTargets({
+			run,
+			candidates: sourceFiles({ run }),
+			compiler,
+			packagesDir,
+		});
 
-		if (deleted.length > 0) {
-			run.progress(`write-tests: ${deleted.length} deleted file(s) skipped (removed by the plan, nothing to cover): ${deleted.join(', ')}`);
-		}
-
-		if (inert.length > 0) {
-			run.progress(`write-tests: ${inert.length} inert file(s) skipped (barrel/type-only, nothing to cover): ${inert.join(', ')}`);
-		}
-
-		if (unreachable.length > 0) {
-			run.progress(
-				`write-tests: ${unreachable.length} file(s) skipped — real code no unit test can run (a tool's own settings file, or a module-scope await the runner cannot load): ${unreachable.join(', ')}`,
-			);
-		}
+		narrateSkippedFiles({ run, deleted, inert, uncoverable });
 
 		const universe = (await listSourceFiles({ cwd: run.cwd, exclude: excludedSourcePaths({ config: run.config }) })).files;
 		const frameworkFacts = await getPackFrameworkFacts({ cwd: run.cwd, packagesDir, config: run.config });
@@ -61,7 +70,7 @@ export const writeTestsStep = ({ run, gitPrefix, planContent, testStandards }: P
 
 		// Persisted before any writer spawns — a crash mid-fan-out must not lose
 		// the skip record or the subjects a verify fix re-invocation hands back.
-		await run.setStep({ record, patch: { testSubjects, unreachableChangedFiles: orphans } });
+		await run.setStep({ record, patch: { testSubjects, unreachableChangedFiles: orphans, coverageExcludedChangedFiles: coverageExcluded } });
 
 		const groups = await groupTestTargets({ run, subjects, compiler });
 
@@ -76,7 +85,12 @@ export const writeTestsStep = ({ run, gitPrefix, planContent, testStandards }: P
 
 		await run.setStep({
 			record: { ...record, report: { reports } },
-			patch: { ...(await collectChanged({ run, gitPrefix, reports })), testSubjects, unreachableChangedFiles: orphans },
+			patch: {
+				...(await collectChanged({ run, gitPrefix, reports })),
+				testSubjects,
+				unreachableChangedFiles: orphans,
+				coverageExcludedChangedFiles: coverageExcluded,
+			},
 		});
 
 		if (parked) {
