@@ -27645,6 +27645,17 @@ var sumUsage = ({ total, attempt }) => {
     costUsd: base.costUsd + attempt.costUsd
   };
 };
+var shouldReemit = ({ payload, maxRoleAttempts }) => maxRoleAttempts === 1 || typeof payload === "object" && payload !== null;
+var spawnRung = async ({
+  driver,
+  invocation
+}) => {
+  try {
+    return { ok: true, result: await driver.invoke(invocation) };
+  } catch (error51) {
+    return { ok: false, failure: `agent invocation failed: ${messageOf({ error: error51 })}` };
+  }
+};
 var invokeAgentWithContract = async ({
   driver,
   cwd,
@@ -27655,45 +27666,47 @@ var invokeAgentWithContract = async ({
   permissions,
   timeoutMs,
   allowedCommands,
+  maxRoleAttempts = 1,
   onEvent,
   onRejectedOutput
 }) => {
-  const maxReportAttempts = 2;
-  let lastFailure = "no attempts made";
+  let settled2 = {
+    ok: false,
+    failure: "no attempts made",
+    rateLimited: false
+  };
   let rejected;
   let usage2;
-  for (let attempt = 1; attempt <= maxReportAttempts; attempt += 1) {
+  let attempt = 0;
+  let roleAttempts = 0;
+  while (roleAttempts < maxRoleAttempts || rejected !== void 0) {
+    const isReemit = rejected !== void 0;
     const active = rejected ? { systemPrompt: invocation.systemPrompt, prompt: buildReportReemitterInvocation(rejected).prompt } : invocation;
-    let result;
-    try {
-      result = await driver.invoke({
-        prompt: active.prompt,
-        systemPrompt: active.systemPrompt,
-        model,
-        effort,
-        permissions,
-        allowedCommands,
-        cwd,
-        timeoutMs,
-        onEvent
-      });
-    } catch (error51) {
-      const message = messageOf({ error: error51 });
-      return { ok: false, failure: `agent invocation failed: ${message}`, rateLimited: false, usage: usage2 };
+    if (!isReemit) {
+      roleAttempts += 1;
     }
-    usage2 = sumUsage({ total: usage2, attempt: result.usage });
-    if (result.rateLimited) {
-      return { ok: false, failure: "harness rate limited or overloaded", rateLimited: true, usage: usage2 };
+    attempt += 1;
+    const rung = await spawnRung({ driver, invocation: { ...active, cwd, model, effort, permissions, timeoutMs, allowedCommands, onEvent } });
+    if (!rung.ok) {
+      settled2 = { ok: false, failure: rung.failure, rateLimited: false };
+      break;
     }
-    const parsed = contract.safeParse(extractJsonReport({ text: result.text }));
+    usage2 = sumUsage({ total: usage2, attempt: rung.result.usage });
+    if (rung.result.rateLimited) {
+      settled2 = { ok: false, failure: "harness rate limited or overloaded", rateLimited: true };
+      break;
+    }
+    const payload = extractJsonReport({ text: rung.result.text });
+    const parsed = contract.safeParse(payload);
     if (parsed.success) {
-      return { ok: true, report: parsed.data, usage: usage2 };
+      settled2 = { ok: true, report: parsed.data };
+      break;
     }
-    lastFailure = `agent output did not match contract (exit ${result.exitCode}): ${parsed.error.message}`;
-    await onRejectedOutput?.({ text: result.text, attempt, validationError: parsed.error.message });
-    rejected = { rejectedText: result.text, validationError: parsed.error.message };
+    settled2 = { ok: false, failure: `agent output did not match contract (exit ${rung.result.exitCode}): ${parsed.error.message}`, rateLimited: false };
+    await onRejectedOutput?.({ text: rung.result.text, attempt, validationError: parsed.error.message });
+    rejected = isReemit || !shouldReemit({ payload, maxRoleAttempts }) ? void 0 : { rejectedText: rung.result.text, validationError: parsed.error.message };
   }
-  return { ok: false, failure: lastFailure, rateLimited: false, usage: usage2 };
+  return { ...settled2, usage: usage2 };
 };
 
 // src/plan/common/utils/createPlanAgentRunner.ts
@@ -27705,7 +27718,8 @@ var createPlanAgentRunner = ({
   model,
   effort,
   permissions,
-  timeoutMs
+  timeoutMs,
+  maxRoleAttempts
 }) => {
   const onEvent = createEventFileSink({ path: join21(workspaceDir, `${step}-stream.jsonl`) });
   return ({ invocation, contract, label, allowedCommands }) => invokeAgentWithContract({
@@ -27717,6 +27731,7 @@ var createPlanAgentRunner = ({
     effort,
     permissions,
     timeoutMs,
+    maxRoleAttempts,
     allowedCommands,
     onEvent,
     onRejectedOutput: async ({ text, attempt }) => {
@@ -30213,7 +30228,14 @@ var spawnGapChecker = async ({
     model,
     effort,
     permissions,
-    timeoutMs
+    timeoutMs,
+    // Two, not one: a reader written off costs the plan file its coverage —
+    // a file is claimed as checked only when every lens returned for it, so
+    // losing readers means re-running the whole pass by hand. Each fresh
+    // invocation still gets its one cheap re-emit, so four spawns is the
+    // worst case. Not three: two is the smallest number that makes "re-run
+    // rather than write off" true, and it caps the worst case at double.
+    maxRoleAttempts: 2
   });
   const outcome = await invokePlanAgent({
     invocation: buildPlanGapCheckInvocation({
@@ -47006,6 +47028,10 @@ var buildCodexArgs = ({ outFile, model, effort, permissions }) => {
   return args;
 };
 
+// src/drivers/common/utils/isRateLimitMessage.ts
+var rateLimitPattern = /usage limit|rate limit|limit reached|limit will reset|quota|hit your [^.\n]{0,40}limit|\b(?:weekly|daily|hourly|monthly)\s+limit\b|\b(?:status|error|code)\D{0,6}529\b|overloaded/i;
+var isRateLimitMessage = ({ text }) => rateLimitPattern.test(text);
+
 // src/drivers/common/utils/spawnCollect.ts
 import { spawn as spawn2 } from "node:child_process";
 var spawnCollect = ({ command, args, cwd, stdinText, timeoutMs, onStdoutLine }) => {
@@ -47057,7 +47083,6 @@ var parseEnvelope = ({ stdout }) => {
     return void 0;
   }
 };
-var transientHarnessPattern = /usage limit|rate limit|limit reached|limit will reset|\b(?:status|error|code)\D{0,6}529\b|overloaded/i;
 var createClaudeCodeDriver = () => {
   const driver = {
     name: "claude-code",
@@ -47098,8 +47123,8 @@ var createClaudeCodeDriver = () => {
       return {
         text: text || stderr,
         exitCode,
-        rateLimited: errored && transientHarnessPattern.test(`${text}
-${stderr}`),
+        rateLimited: errored && isRateLimitMessage({ text: `${text}
+${stderr}` }),
         usage: usage2
       };
     }
@@ -47111,7 +47136,6 @@ ${stderr}`),
 import { mkdtemp as mkdtemp2, readFile as readFile37, rm as rm3 } from "node:fs/promises";
 import { tmpdir as tmpdir2 } from "node:os";
 import { join as join75 } from "node:path";
-var rateLimitPattern = /usage limit|rate limit|limit reached|quota|529|overloaded/i;
 var createCodexDriver = () => {
   const driver = {
     name: "codex",
@@ -47140,8 +47164,8 @@ ${prompt}` : prompt;
         return {
           text: text || stdout || stderr,
           exitCode,
-          rateLimited: errored && rateLimitPattern.test(`${stdout}
-${stderr}`)
+          rateLimited: errored && isRateLimitMessage({ text: `${stdout}
+${stderr}` })
         };
       } finally {
         await rm3(outDir, { recursive: true, force: true });
