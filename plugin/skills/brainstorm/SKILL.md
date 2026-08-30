@@ -117,10 +117,15 @@ matches what they meant.
   converged design in the conversation is the deliverable; the user takes it
   from here.
 - **"Plan it"** → derive a kebab `<name>` from the idea (offer it for
-  override). Before writing anything, show the settled decisions back to the
-  user as a small table — question, choice, one-line why, and whether it is an
-  assumption — and get approval: these rows make `/plan` skip questions, so a
-  row that overstates the agreement is expensive. Then write the notes to
+  override). A brainstorm usually runs before a ticket exists, so the folder
+  carries a bare slug; when a ticket already exists for the idea, use its
+  canonical name instead — the plan folder is named exactly like the ticket's
+  branch. When the ticket is filed later the folder is renamed to match, which
+  the ticket-workflow skill's `## Plan folder` section spells out. Before
+  writing anything, show the settled decisions back to the user as a small
+  table — question, choice, one-line why, and whether it is an assumption — and
+  get approval: these rows make `/plan` skip questions, so a row that
+  overstates the agreement is expensive. Then write the notes to
   `.lightsout/plans/<name>/notes.md`, plus
   `.lightsout/plans/<name>/brainstorm-decisions.json` in this exact shape:
 

@@ -21,6 +21,10 @@ export const ConfigShip = z
 		 * It must carry a named group `ticket`; that group's value becomes the
 		 * result's `ticketRef`. Every other named group becomes a token the
 		 * `pr-body` template may use. Default `^(?<ticket>[a-z]+-\d+)`.
+		 *
+		 * The same pattern is what a plan folder's name is read for a ticket id
+		 * with, since a plan folder is named after its branch — there is no
+		 * second key for that, so the two formats cannot drift apart.
 		 */
 		'ticket-pattern': z.string().optional(),
 		/**

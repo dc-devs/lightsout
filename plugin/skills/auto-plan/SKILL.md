@@ -95,8 +95,17 @@ anything else, so the user knows which checkpoints are live — for example:
 auto-plan: propose after drafting · implement on approval · proposal required
 ```
 
-**1. Name the plan and gather the source.** Derive a kebab `<name>` from the
-request (e.g. "add a rate-limit banner" → `rate-limit-banner`). When the request
+**1. Name the plan and gather the source.** A plan folder is named exactly like
+its branch. A queue worktree is always already on the ticket's branch, so
+`<name>` is the current branch name verbatim and no derivation runs at all.
+Outside a worktree, when the work traces to a ticket, `<name>` is the lowercased
+ticket id followed by a slug of the title — the same string the branch is, whose
+exact shape is the repository's `ship.ticket-pattern` and
+`queue.branch-template` in its `lightsout.config.json`. With no ticket, derive a
+kebab `<name>` from the request (e.g. "add a rate-limit banner" →
+`rate-limit-banner`), and rename the folder to the canonical name when the
+ticket is filed — the ticket-workflow skill's `## Plan folder` section says what
+else a rename has to update, and when it is too late to do one. When the request
 is a rough-notes file path, read it before anything else; when it already lives
 at `.lightsout/plans/<name>/notes.md`, take `<name>` from its folder rather than
 deriving a new one. Read `.lightsout/plans/<name>/brainstorm-decisions.json`

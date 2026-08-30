@@ -139,8 +139,17 @@ calls for. Dropping a settled question is not a licence to drop a hard one.
 
 ## Steps
 
-**0. Name the plan.** Derive a kebab `<name>` from the request (e.g. "add a
-rate-limit banner" → `rate-limit-banner`). When the request is a rough-notes
+**0. Name the plan.** A plan folder is named exactly like its branch. When the
+work traces to a ticket and the session is already on that ticket's branch,
+`<name>` is the current branch name verbatim. When it traces to a ticket but
+the session is on another branch, `<name>` is the lowercased ticket id followed
+by a slug of the title — the same string the branch is, whose exact shape is
+the repository's `ship.ticket-pattern` and `queue.branch-template` in its
+`lightsout.config.json`. With no ticket, derive a kebab `<name>` from the
+request (e.g. "add a rate-limit banner" → `rate-limit-banner`), and rename the
+folder to the canonical name when the ticket is filed — see the
+ticket-workflow skill's `## Plan folder` section for what a rename also has to
+update, and when it is too late to do one. When the request is a rough-notes
 file path (given by the user, or a `/brainstorm` handoff), read it before
 anything else; when it already lives at `.lightsout/plans/<name>/notes.md`,
 take `<name>` from its folder instead of deriving a new one. Also read

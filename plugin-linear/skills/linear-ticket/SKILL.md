@@ -45,7 +45,8 @@ The ticket id is `LO-<number>` and a branch is named `lo-<number>-<slug>`,
 matching the `ship.ticket-pattern` this repository configures. Linear finds
 the ticket id anywhere in the branch name and links the branch to the issue.
 Its copy-branch-name button prefixes your username; drop that, the id is the
-only part that matters.
+only part that matters. The plan folder for `LO-<number>` carries that same
+`lo-<number>-<slug>` name.
 
 ## Pull request body
 
