@@ -9,11 +9,11 @@ import { isTestableSourceFile } from '#src/common/sourceFiles/isTestableSourceFi
 import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
 import { isToolingConfigFile } from '#src/common/sourceFiles/isToolingConfigFile.ts';
 import { isUnloadableSourceFile } from '#src/common/sourceFiles/isUnloadableSourceFile.ts';
-import { packageOf } from '#src/common/workspace/packageOf.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
-import type { CoverageScope } from '#src/coverage/common/types/CoverageScope.ts';
 import { buildMissingSummaryMessage } from '#src/coverage/common/utils/buildMissingSummaryMessage.ts';
+import { coverageScopeOf } from '#src/coverage/common/utils/coverageScopeOf.ts';
 import { resolveCoverageScopes } from '#src/coverage/resolveCoverageScopes.ts';
+import { selectCollectedFiles } from '#src/coverage/selectCollectedFiles/index.ts';
 
 /**
  * The executed-statement half of an Istanbul json-summary, parsed at the
@@ -49,7 +49,10 @@ interface Params {
  * Deleted files and provably inert ones (type-only, barrels) have nothing to
  * execute; a tool's own configuration and files the runner cannot load at all
  * (module-scope `await`) can never show an executed statement whatever the
- * tests do; files outside every coverage scope are outside the measurement.
+ * tests do; files outside every coverage scope are outside the measurement;
+ * and a file the repo's own coverage configuration does not collect can never
+ * appear in the report at all, so demanding an executed statement from it
+ * reports a fault no test could fix.
  */
 export const checkChangedFilesExecuted = async ({ cwd, config, changedFiles, compiler }: Params): Promise<string | undefined> => {
 	if (changedFiles.length === 0 || compiler === undefined) {
@@ -76,24 +79,19 @@ export const checkChangedFilesExecuted = async ({ cwd, config, changedFiles, com
 	const summaryPath = config['coverage-summary-path'] ?? defaultCoverageSummaryPath;
 	const scopes = await resolveCoverageScopes({ cwd, config, summaryPath });
 	const monorepo = config['package-gates']?.['test-coverage'] !== undefined;
+	const { collected } = await selectCollectedFiles({ cwd, config, files: candidates });
 
-	// Monorepo mode measures packages only, so root files sit outside the
-	// measurement; root mode's single scope owns files outside the packages dir.
-	const scopeOf = ({ file }: { file: string }): CoverageScope | undefined => {
-		const packageDir = packageOf({ file, packagesDir });
-
-		if (monorepo) {
-			return packageDir === undefined ? undefined : scopes.find((entry) => entry.scope === packageDir);
-		}
-
-		return packageDir === undefined ? scopes[0] : undefined;
-	};
+	// A phase whose changed files are all uncollected must not fail on a missing
+	// report either — nothing here would ever be read from one.
+	if (collected.length === 0) {
+		return undefined;
+	}
 
 	const summaries = new Map<string, Awaited<ReturnType<typeof readExecutionSummary>>>();
 	const unexecuted: string[] = [];
 
-	for (const file of candidates) {
-		const scope = scopeOf({ file });
+	for (const file of collected) {
+		const scope = coverageScopeOf({ file, scopes, packagesDir, monorepo });
 
 		if (scope === undefined) {
 			continue;

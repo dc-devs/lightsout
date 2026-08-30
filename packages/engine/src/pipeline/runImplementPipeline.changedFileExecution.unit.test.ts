@@ -4,6 +4,7 @@ import { describe, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
+import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
 import { readCommandLog } from '#tests/helpers/readCommandLog.ts';
 import { report } from '#tests/helpers/report.ts';
@@ -46,6 +47,8 @@ interface SetupParams {
 	statements: Statements;
 	/** Counts the summary is rewritten to when a write-tests fix retry runs; undefined leaves it alone. */
 	onFix?: Statements;
+	/** Jest settings to plant as the repo's own jest.config.cjs; omitted, the repo has no coverage configuration and every file reads as collected. */
+	jestConfig?: Record<string, unknown>;
 }
 
 /**
@@ -54,12 +57,22 @@ interface SetupParams {
  * numbers each case is about. TypeScript is linked because without a consumer
  * compiler the check stands down entirely.
  */
-const setupExecutionRun = async ({ sources = { 'src/feature.ts': 'export const feature = (): number => 1;\n' }, statements, onFix }: SetupParams) => {
+const setupExecutionRun = async ({
+	sources = { 'src/feature.ts': 'export const feature = (): number => 1;\n' },
+	statements,
+	onFix,
+	jestConfig,
+}: SetupParams) => {
 	const dir = setupConsumerRepo({ scripts: { 'test-coverage': 'true' }, config: reachabilityRulesOff });
 
 	linkTypescript({ dir });
 	writeCoverageSummary({ dir, statements });
 
+	if (jestConfig) {
+		writeFileSync(join(dir, 'jest.config.cjs'), `module.exports = ${JSON.stringify(jestConfig)};\n`);
+	}
+
+	const writerPrompts: string[] = [];
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async ({ prompt }) => {
@@ -78,6 +91,8 @@ const setupExecutionRun = async ({ sources = { 'src/feature.ts': 'export const f
 			}
 
 			if (role === 'write-tests') {
+				writerPrompts.push(prompt);
+
 				// the retry's tests reach the changed file: the summary now shows it ran
 				if (prompt.includes('# Verification failure') && onFix) {
 					writeCoverageSummary({ dir, statements: onFix });
@@ -100,7 +115,7 @@ const setupExecutionRun = async ({ sources = { 'src/feature.ts': 'export const f
 		},
 	};
 
-	return { dir, driver, config: await readConfig({ cwd: dir }) };
+	return { dir, driver, config: await readConfig({ cwd: dir }), writerPrompts };
 };
 
 describe('runImplementPipeline', () => {
@@ -148,6 +163,60 @@ describe('runImplementPipeline', () => {
 
 		expect(result.ok).toBe(true);
 		expect(result.manifest.unreachableChangedFiles).toStrictEqual(['src/feature/orphan.ts']);
+	});
+
+	test('a run whose changed files the repo never collects coverage from reaches a passing verdict', async () => {
+		const { dir, driver, config } = await setupExecutionRun({
+			// a .tsx the positives never name, so no report can ever list it
+			sources: { 'src/App.tsx': 'export const App = () => <div>hi</div>;\n' },
+			statements: {},
+			jestConfig: { collectCoverageFrom: ['src/**/*.ts'] },
+		});
+
+		const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+
+		expect(result.ok).toBe(true);
+		expect(result.manifest.coverageExcludedChangedFiles).toStrictEqual(['src/App.tsx']);
+	});
+
+	test('a changed file the repo DOES collect still fails the gate when the report never lists it', async () => {
+		const { dir, driver, config } = await setupExecutionRun({ statements: {}, jestConfig: { collectCoverageFrom: ['src/**/*.ts'] } });
+
+		const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+
+		expect(result.ok).toBe(false);
+		expect(result.error ?? '').toContain('changed-file-execution: 1 changed file(s) never executed under the tests: src/feature.ts');
+	});
+
+	// The verify-tests fix re-invocation is the second place a writer is told
+	// which changed files must execute. Left unfiltered, it demands a test for a
+	// file the gate then exempts — the writer-versus-gate disagreement one step
+	// further along than the write-tests fan-out.
+	test('verify-tests fix: the must-execute list hands back the collected file and drops the coverage-excluded one', async () => {
+		const { dir, driver, config, writerPrompts } = await setupExecutionRun({
+			sources: {
+				'src/feature.ts': 'export const feature = (): number => 1;\n',
+				// a .tsx the positives never name, so no report can ever list it
+				'src/App.tsx': 'export const App = () => <div>hi</div>;\n',
+			},
+			// the collected file is absent from the report, so the first attempt is red
+			statements: {},
+			onFix: { 'src/feature.ts': { covered: 4, total: 4 } },
+			jestConfig: { collectCoverageFrom: ['src/**/*.ts'] },
+		});
+
+		const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+		const fixPrompt = writerPrompts.find((prompt) => prompt.includes('# Verification failure'));
+
+		expect(result.ok).toBe(true);
+		expectDefined(fixPrompt);
+		// the collected file is exactly what the retry has to reach...
+		expect(fixPrompt.includes('# Changed internals that must execute under those tests\n\n- src/feature.ts')).toBeTruthy();
+		// ...and the excluded file is out of the assignment entirely
+		expect(fixPrompt.includes('src/App.tsx')).toBeFalsy();
+		// it is recorded under its own name, never as an orphan
+		expect(result.manifest.coverageExcludedChangedFiles).toStrictEqual(['src/App.tsx']);
+		expect(result.manifest.unreachableChangedFiles).toStrictEqual([]);
 	});
 });
 

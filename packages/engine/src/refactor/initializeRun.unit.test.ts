@@ -1,8 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type LightsoutConfig, RefactorWorklist, type RunManifest, RunStatus } from '#src/contracts/index.ts';
-import type { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import { type LightsoutConfig, type PipelineKind, RefactorWorklist, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { initializeRun } from '#src/refactor/index.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
@@ -27,6 +26,7 @@ const manifestWith = ({ pipeline }: { pipeline?: PipelineKind }): RunManifest =>
 	baselineDirtyFiles: [],
 	testSubjects: [],
 	unreachableChangedFiles: [],
+	coverageExcludedChangedFiles: [],
 });
 
 /**

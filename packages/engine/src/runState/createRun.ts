@@ -74,6 +74,7 @@ export const createRun = async ({
 		baselineDirtyFiles: baselineDirtyFiles ?? [],
 		testSubjects: [],
 		unreachableChangedFiles: [],
+		coverageExcludedChangedFiles: [],
 	};
 
 	await mkdir(getRunDir({ cwd, runId: manifest.runId }), { recursive: true });

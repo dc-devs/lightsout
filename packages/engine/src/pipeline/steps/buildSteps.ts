@@ -128,7 +128,9 @@ export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, stand
 					buildUnitTestWriterInvocation({
 						planContent,
 						subjects: run.current().testSubjects,
-						mustExecute: sourceFiles({ run }).filter((file) => !run.current().unreachableChangedFiles.includes(file)),
+						mustExecute: sourceFiles({ run }).filter(
+							(file) => !run.current().unreachableChangedFiles.includes(file) && !run.current().coverageExcludedChangedFiles.includes(file),
+						),
 						standards: testStandards,
 						errorContext,
 					}),

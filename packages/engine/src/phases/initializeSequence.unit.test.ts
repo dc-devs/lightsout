@@ -43,6 +43,7 @@ const foreignManifest = ({ pipeline }: { pipeline?: PipelineKind }): RunManifest
 	baselineDirtyFiles: [],
 	testSubjects: [],
 	unreachableChangedFiles: [],
+	coverageExcludedChangedFiles: [],
 });
 
 describe('initializeSequence', () => {

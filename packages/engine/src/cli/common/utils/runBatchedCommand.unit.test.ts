@@ -20,6 +20,7 @@ const manifestOf = ({ status }: { status: RunStatus }): RunManifest => ({
 	baselineDirtyFiles: [],
 	testSubjects: [],
 	unreachableChangedFiles: [],
+	coverageExcludedChangedFiles: [],
 });
 
 interface SeenStart {

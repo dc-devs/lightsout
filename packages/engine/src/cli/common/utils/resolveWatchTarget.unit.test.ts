@@ -19,6 +19,7 @@ const manifestOf = ({ runId, status, updatedAt }: { runId: string; status: RunSt
 	baselineDirtyFiles: [],
 	testSubjects: [],
 	unreachableChangedFiles: [],
+	coverageExcludedChangedFiles: [],
 });
 
 /** A repo whose runs directory holds exactly the given manifests. */

@@ -41,6 +41,7 @@ export const plantSequence = ({ dir, runId, plan, updatedAt, status = RunStatus.
 				baselineDirtyFiles: [],
 				testSubjects: [],
 				unreachableChangedFiles: [],
+				coverageExcludedChangedFiles: [],
 			}),
 	);
 };

@@ -4,6 +4,7 @@ import type ts from 'typescript';
 import { isInertSourceFile } from '#src/common/sourceFiles/isInertSourceFile.ts';
 import { isToolingConfigFile } from '#src/common/sourceFiles/isToolingConfigFile.ts';
 import { isUnloadableSourceFile } from '#src/common/sourceFiles/isUnloadableSourceFile.ts';
+import { selectCollectedFiles } from '#src/coverage/index.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 
 interface Params {
@@ -16,7 +17,7 @@ interface Params {
 }
 
 /**
- * Split the write-tests candidates into three buckets:
+ * Split the write-tests candidates into four buckets:
  *
  * - `deleted` — the plan removed the file, so there is no source to cover.
  *   A deletion reaches here because git reports it as changed (changed-file
@@ -28,27 +29,36 @@ interface Params {
  *   so a writer is a guaranteed no-op (or an implementation-coupled test the
  *   standards forbid). Classification borrows the consumer's TypeScript,
  *   exactly like the standards check's AST tier; without one, nothing is inert.
- * - `unreachable` — the file holds real code, but no unit test can ever run it:
- *   a tool's own settings file is read by that tool and imported by nothing, and
- *   a file with a module-scope `await` cannot be loaded at all under the
- *   runner's CommonJS output. Kept apart from `inert` so the run says which of
- *   the two it skipped, rather than calling real code type-only.
+ * - `uncoverable` — the file holds real code, but no unit test can ever run it:
+ *   a tool's own settings file is read by that tool and imported by nothing, a
+ *   file with a module-scope `await` cannot be loaded at all under the
+ *   runner's CommonJS output, and a file the repo's own coverage configuration
+ *   does not collect can never move the number the execution gate reads. Kept
+ *   apart from `inert` so the run says which of the two it skipped, rather than
+ *   calling real code type-only.
  * - `targets` — everything with runtime code to cover.
  *
  * Deletion filtering runs regardless of the compiler; only inert
  * classification needs it. A file still on disk but transiently unreadable
  * keeps its writer — the prior tolerance, never a lost writer.
+ *
+ * The coverage-excluded files are also returned under `coverageExcluded` — a
+ * labelled subset of `uncoverable`, not a fifth bucket — so the step recording
+ * them on the manifest never has to re-derive the answer.
  */
 export const selectTestTargets = async ({
 	run,
 	candidates,
 	compiler,
 	packagesDir,
-}: Params): Promise<{ targets: string[]; inert: string[]; unreachable: string[]; deleted: string[] }> => {
+}: Params): Promise<{ targets: string[]; inert: string[]; uncoverable: string[]; deleted: string[]; coverageExcluded: string[] }> => {
+	const { excluded } = await selectCollectedFiles({ cwd: run.cwd, config: run.config, files: candidates });
+	const uncollected = new Set(excluded);
 	const targets: string[] = [];
 	const inert: string[] = [];
-	const unreachable: string[] = [];
+	const uncoverable: string[] = [];
 	const deleted: string[] = [];
+	const coverageExcluded: string[] = [];
 
 	for (const file of candidates) {
 		const content = await readFile(join(run.cwd, file), 'utf8').catch(() => undefined);
@@ -65,8 +75,14 @@ export const selectTestTargets = async ({
 			continue;
 		}
 
-		if (isToolingConfigFile({ path: file, packagesDir }) || (compiler && isUnloadableSourceFile({ path: file, content, compiler }))) {
-			unreachable.push(file);
+		const excludedFromCoverage = uncollected.has(file);
+
+		if (isToolingConfigFile({ path: file, packagesDir }) || excludedFromCoverage || (compiler && isUnloadableSourceFile({ path: file, content, compiler }))) {
+			uncoverable.push(file);
+
+			if (excludedFromCoverage) {
+				coverageExcluded.push(file);
+			}
 		} else if (compiler && isInertSourceFile({ path: file, content, compiler })) {
 			inert.push(file);
 		} else {
@@ -74,5 +90,5 @@ export const selectTestTargets = async ({
 		}
 	}
 
-	return { targets, inert, unreachable, deleted };
+	return { targets, inert, uncoverable, deleted, coverageExcluded };
 };

@@ -281,3 +281,82 @@ test('write-tests fan-out: an unreadable file that still exists keeps its writer
 	expect(writerTargets).toStrictEqual(['src/index.js']);
 	expect(progress.some((line) => line.includes('deleted file(s) skipped'))).toBe(false);
 });
+
+// A repo's own Jest configuration decides which files a coverage report can
+// ever list. A path it does not collect can never move the number the
+// changed-file execution gate reads, so a writer sent at it is a writer asked
+// for a test that cannot exist — the step must narrate it as skipped instead.
+test('write-tests fan-out: a file the repo’s coverage configuration does not collect is skipped, never sent to a writer', async () => {
+	const dir = setupConsumerRepo({ scripts: { 'test-coverage': 'true' }, config: reachabilityRulesOff });
+
+	linkTypescript({ dir });
+	writeFileSync(join(dir, 'jest.config.cjs'), `module.exports = ${JSON.stringify({ collectCoverageFrom: ['src/**/*.ts'] })};\n`);
+	mkdirSync(join(dir, 'coverage'), { recursive: true });
+	writeFileSync(
+		join(dir, 'coverage', 'coverage-summary.json'),
+		JSON.stringify({
+			total: { statements: { pct: 100, covered: 1, total: 1 } },
+			[join(dir, 'src/add.ts')]: { statements: { pct: 100, covered: 1, total: 1 } },
+		}),
+	);
+
+	const writerTargets: string[] = [];
+
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async ({ prompt }) => {
+			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
+			if (role === 'write-tests') {
+				writerTargets.push(prompt.match(/- (\S+)/)?.[1] ?? 'unknown');
+				mkdirSync(join(dir, 'test'), { recursive: true });
+				writeFileSync(join(dir, 'test/feature.test.js'), '// stub\n');
+
+				return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
+			}
+
+			if (role === 'refactor') {
+				return { text: report(), exitCode: 0 };
+			}
+
+			// Implement: one file the positives name, and one they never do.
+			writeFileSync(join(dir, 'src/add.ts'), 'export const add = (a: number, b: number): number => a + b;\n');
+			writeFileSync(join(dir, 'src/App.tsx'), 'export const App = () => <div>hi</div>;\n');
+
+			return {
+				text: report({
+					changedFiles: [
+						{ path: 'src/add.ts', summary: 'added' },
+						{ path: 'src/App.tsx', summary: 'added' },
+					],
+				}),
+				exitCode: 0,
+			};
+		},
+	};
+
+	const progress: string[] = [];
+	const result = await runImplementPipeline({
+		cwd: dir,
+		driver,
+		config: await readConfig({ cwd: dir }),
+		planPath: 'plan.md',
+		onProgress: (message) => progress.push(message),
+	});
+
+	expect(result.ok).toBe(true);
+	// only the collected file earned a writer
+	expect(writerTargets).toStrictEqual(['src/add.ts']);
+
+	const skipped = progress.find((line) => line.includes('no unit test could move their coverage'));
+
+	// the skip is narrated with the reason that actually applies — got:\n${progress.join('\n')}
+	expect(skipped?.includes('src/App.tsx')).toBeTruthy();
+	// and recorded apart from the orphan set, which means something else entirely
+	expect(result.manifest.coverageExcludedChangedFiles).toStrictEqual(['src/App.tsx']);
+	expect(result.manifest.unreachableChangedFiles).toStrictEqual([]);
+});

@@ -70,6 +70,7 @@ const manifestOf = (status: RunStatus): RunManifest => ({
 	baselineDirtyFiles: [],
 	testSubjects: [],
 	unreachableChangedFiles: [],
+	coverageExcludedChangedFiles: [],
 });
 
 /** A relay on a pair of streams, typing each queued answer as its prompt appears. */
