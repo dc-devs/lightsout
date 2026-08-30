@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
@@ -7,6 +7,7 @@ import { planCommand } from '#src/cli/plan/planCommand.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { queueConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
 // Mocked Imports
 // -------------------------
@@ -35,10 +36,24 @@ jest.mock('#src/cli/plan/readPlanningStandards.ts', () => ({ readPlanningStandar
 
 const stubDriver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };
 
-const setupPlan = ({ args }: { args: string[] }) => {
+/** The gate block every config in this file carries — the smallest one the contract accepts. */
+const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
+
+/**
+ * The config a repo carries when it has chosen a ticket convention: the
+ * presence of `queue.tracker` is the whole signal that the plan-folder advisory
+ * applies to it.
+ */
+const trackerRepoConfig = { gates, queue: queueConfigBlock };
+
+const setupPlan = ({ args, repoConfig }: { args: string[]; repoConfig?: Record<string, unknown> }) => {
 	const captured = captureCommandOutput();
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-plan-command-'));
-	const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
+	const config: LightsoutConfig = { gates };
+
+	if (repoConfig) {
+		writeFileSync(join(cwd, 'lightsout.config.json'), JSON.stringify(repoConfig));
+	}
 
 	mockResolveConfigAndDriver.mockResolvedValue({ config, driver: stubDriver });
 	mockLoadPlanningStandards.mockResolvedValue('STANDARDS');
@@ -163,5 +178,43 @@ describe('planCommand', () => {
 		await expect(planCommand(context)).rejects.toThrow(/process\.exit|--name/);
 
 		expect(mockPlanDraftCommand).not.toHaveBeenCalled();
+	});
+
+	test.each(['draft', 'dedup', 'grade', 'lint', 'verify-facts'])(
+		'%s addresses a plan by name, so a folder carrying no ticket id draws exactly one advisory and the subcommand still runs',
+		async (subcommand) => {
+			const { context, logged, exitCodes } = setupPlan({ args: [subcommand, '--name', 'rate-limit-banner'], repoConfig: trackerRepoConfig });
+
+			await planCommand(context);
+
+			expect(logged.filter((line) => /carries no ticket id/.test(line)).length).toBe(1);
+			// advisory only: the dispatch ran to its end and nothing exited
+			expect(exitCodes).toStrictEqual([]);
+		},
+	);
+
+	test('a plan folder named after its ticket is told nothing at all', async () => {
+		const { context, logged } = setupPlan({ args: ['lint', '--name', 'lo-52-status-progress'], repoConfig: trackerRepoConfig });
+
+		await planCommand(context);
+
+		expect(logged).toStrictEqual([]);
+	});
+
+	test('a subcommand given no --name has no folder to name, so nothing is advised', async () => {
+		const { context, logged } = setupPlan({ args: ['verify-facts'], repoConfig: trackerRepoConfig });
+
+		await planCommand(context);
+
+		expect(logged).toStrictEqual([]);
+	});
+
+	test('an unknown subcommand addresses no plan — the usage error stands alone, with no advisory ahead of it', async () => {
+		const { context, logged, exitCodes } = setupPlan({ args: ['sideways', '--name', 'rate-limit-banner'], repoConfig: trackerRepoConfig });
+
+		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged).toStrictEqual([]);
+		expect(exitCodes).toStrictEqual([1]);
 	});
 });

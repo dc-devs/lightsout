@@ -1,7 +1,9 @@
 import { getListFlag } from '#src/cli/common/args/getListFlag.ts';
 import { getPositionals } from '#src/cli/common/args/getPositionals.ts';
 import { getRequiredFlag } from '#src/cli/common/args/getRequiredFlag.ts';
+import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import { usage } from '#src/cli/common/constants/usage.ts';
+import { printPlanTicketWarning } from '#src/cli/common/render/printPlanTicketWarning.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { resolveConfigAndDriver } from '#src/cli/common/utils/resolveConfigAndDriver.ts';
@@ -14,6 +16,14 @@ import { readPlanningStandards } from '#src/cli/plan/readPlanningStandards.ts';
 
 export const planCommand = async ({ flags, rest, cwd }: CommandContext): Promise<void> => {
 	const subcommand = getPositionals({ args: rest })[0];
+	const planName = getStringFlag({ flags, name: 'name' });
+
+	// Every subcommand that addresses a plan by name gets the advisory once,
+	// before dispatch — an unknown subcommand is excluded, so it still falls
+	// through to the usage error with nothing printed ahead of it.
+	if (planName !== undefined && ['draft', 'dedup', 'grade', 'lint', 'verify-facts'].includes(subcommand ?? '')) {
+		await printPlanTicketWarning({ cwd, name: planName });
+	}
 
 	// verify-facts is deterministic — no agent, so no resolveConfigAndDriver.
 	if (subcommand === 'verify-facts') {

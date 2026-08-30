@@ -61,15 +61,17 @@ const ticketOf = ({
 	priority = 2,
 	createdAt = '2026-01-01T00:00:00.000Z',
 	unfinishedBlockers = [],
+	title = `Ticket ${number}`,
 }: {
 	number: number;
 	priority?: number;
 	createdAt?: string;
 	unfinishedBlockers?: string[];
+	title?: string;
 }): TicketSummary => ({
 	id: `id-${number}`,
 	identifier: `LO-${number}`,
-	title: `Ticket ${number}`,
+	title,
 	description: '',
 	priority,
 	createdAt,
@@ -228,6 +230,16 @@ describe('runQueue', () => {
 
 		expect(manifest.pipeline).toBe('queue');
 		expect(readFileSync(planPath, 'utf8')).toContain('LO-70 · direct · lo-70-ticket-70 ·');
+	});
+
+	test('records a branch cut to length for a ticket whose title offers no break point, rather than an over-long one', async () => {
+		const longWord = ticketOf({ number: 71, title: 'Deterministicverificationpipelinerebuilds' });
+		const { cwd, drain, relay } = setupDrain({ eligible: [longWord] });
+
+		await drain();
+		relay.close();
+
+		expect(readFileSync(readCoordinatorRun({ cwd }).planPath, 'utf8')).toContain('LO-71 · direct · lo-71-deterministicverificationpipelinerebuild ·');
 	});
 
 	test('sends both the parked-and-ready branches and the freshly built ones to the merge, in the order they were picked up', async () => {

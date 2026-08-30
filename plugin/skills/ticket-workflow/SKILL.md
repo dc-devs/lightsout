@@ -310,7 +310,32 @@ The exact pattern is the repository's `ship.ticket-pattern` in its
 this skill points at it rather than restating a team's spelling.
 
 The branch is the same whichever route the ticket took. It is the one thing that
-links the ticket, the worktree, the commits and the PR, so it never varies.
+links the ticket, the worktree, the commits, the plan folder and the PR, so it
+never varies.
+
+## Plan folder
+
+A plan folder is named exactly like its branch, so the plan, the branch and the
+ticket match each other by construction. The exact spelling is the repository's
+`ship.ticket-pattern` and `queue.branch-template` in its
+`lightsout.config.json` — the configured pattern is the format's one home, and
+this skill points at it rather than restating a team's spelling.
+
+A plan shaped before its ticket exists carries a bare slug, and is renamed to
+the canonical name when the ticket is filed. Renaming the folder is not the
+whole rename: `decisions.json` and, when present, `brainstorm-decisions.json`
+each carry a `planName` field that has to be updated to match, or the record
+says one name while the folder says another. Nothing in the engine compares the
+two, which is exactly why this skill has to.
+
+Do not rename once a run has started. A run manifest records the plan by path,
+so a folder renamed mid-run leaves `lightsout resume` pointing at a path that no
+longer exists. Rename before the first `lightsout implement`, or leave the bare
+slug alone and let it warn.
+
+A folder carrying no ticket id still drafts, grades and implements from its
+folder path. The engine prints one warning and nothing else changes — no exit
+code moves and nothing downstream can see it.
 
 ## PR
 
@@ -374,7 +399,9 @@ decision table in the comment.
 
 `/lightsout:plan` writes `.lightsout/plans/<name>/` — `plan.md`,
 `decisions.json`, `grade.json`. That is the design record: what was decided,
-what was rejected, and why.
+what was rejected, and why. The folder to attach is the one named after this
+ticket, so it is found by reading the ticket id off the folder name rather than
+by recognising a slug.
 
 Those files live on one machine. `.lightsout` is gitignored, so the path is not
 a link — it resolves for nobody but the author, and not for the author on a

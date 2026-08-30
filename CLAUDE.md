@@ -14,4 +14,4 @@ For all coding changes and diagnosis, only suggest or apply best-practice soluti
 Prefer correctness over speed of response.
 
 ## Linear Tickets and Git Branches
-One ticket = one branch = one PR — follow the `ticket-workflow` skill, with `linear-ticket` for the Linear mechanics.
+One ticket = one branch = one plan folder = one PR — follow the `ticket-workflow` skill, with `linear-ticket` for the Linear mechanics.
