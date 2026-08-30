@@ -15,10 +15,12 @@ import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 // The direct run spawns a harness and the commit writes git history — both
 // covered by their own tests. What this command owns is the flags it reads, the
 // dirty tree it refuses, the reference it derives, and the code it exits on.
-const mockRunDirectWork = jest.fn<(params: { ticketBody: string; ticketRef: string }) => Promise<PipelineResult>>();
+const mockRunDirectWork = jest.fn<(params: { ticketBody: string; ticketRef: string; willShip?: boolean }) => Promise<PipelineResult>>();
 const mockCommitTicketWork = jest.fn<(params: { message: string; runDir: string }) => Promise<{ committed: boolean } | QueueFailure>>();
 
-jest.mock('#src/direct/index.ts', () => ({ runDirectWork: (params: { ticketBody: string; ticketRef: string }) => mockRunDirectWork(params) }));
+jest.mock('#src/direct/index.ts', () => ({
+	runDirectWork: (params: { ticketBody: string; ticketRef: string; willShip?: boolean }) => mockRunDirectWork(params),
+}));
 jest.mock('#src/queue/index.ts', () => ({ commitTicketWork: (params: { message: string; runDir: string }) => mockCommitTicketWork(params) }));
 // -------------------------
 
@@ -79,6 +81,11 @@ const setupImplementDirect = ({
 
 	mockRunDirectWork.mockResolvedValue({ ok: true, manifest: manifestOf(RunStatus.Passed) });
 	mockCommitTicketWork.mockResolvedValue({ committed: true });
+	// LIGHTSOUT_NO_SHIP silently beats both the flag and the config, and the
+	// session running this suite may well have it exported — a queue worker sets
+	// it for exactly that reason. Pinned empty so the ship cases read the flags
+	// the test typed. restoreMocks puts the real environment back after each test.
+	jest.replaceProperty(process, 'env', { ...process.env, LIGHTSOUT_NO_SHIP: '' });
 
 	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, ...captured };
 };
@@ -133,6 +140,38 @@ describe('implementDirectCommand', () => {
 		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(mockRunDirectWork).toHaveBeenCalledWith(expect.objectContaining({ ticketRef: 'ticket' }));
+	});
+
+	test('refuses --ship and --no-ship together before the run starts, in the one sentence both ways into ship say', async () => {
+		const { context, logged, errors, exitCodes } = setupImplementDirect({ args: ['--ticket', 'ticket.md', '--ship', '--no-ship'] });
+
+		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(errors).toStrictEqual(['--ship and --no-ship contradict each other — pass at most one']);
+		expect(logged).toStrictEqual([]);
+		expect(mockRunDirectWork).not.toHaveBeenCalled();
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test.each([
+		{ label: '--ship was typed', args: ['--ship'], ship: undefined, willShip: true },
+		{ label: 'nobody asked at all', args: [] as string[], ship: undefined, willShip: false },
+		{ label: 'the config says after-implement', args: [] as string[], ship: { 'after-implement': true }, willShip: true },
+		{ label: '--no-ship beats the config', args: ['--no-ship'], ship: { 'after-implement': true }, willShip: false },
+	])('hands the run its ship intent when $label, so the manifest can carry a ship row', async ({ args, ship, willShip }) => {
+		const { context } = setupImplementDirect({ args: ['--ticket', 'ticket.md', ...args], ship });
+
+		// the run fails, which is what keeps the exit path from chaining into a
+		// real ship — the intent this case is about is handed over before any of
+		// that, and is handed over the same either way
+		mockRunDirectWork.mockResolvedValue({ ok: false, manifest: manifestOf(RunStatus.Failed), error: 'tsc: 3 errors' });
+
+		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// resolved once before the run rather than at its exit, exactly as
+		// `implement` does it — a direct run ships the same way and must draw the
+		// same row
+		expect(mockRunDirectWork).toHaveBeenCalledWith(expect.objectContaining({ willShip }));
 	});
 
 	test('names a ticket file that is not there, rather than building from nothing', async () => {

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
+import { readGitCurrentBranch } from '#src/common/git/readGitCurrentBranch.ts';
 import { toRepoRelativePath } from '#src/common/utils/toRepoRelativePath.ts';
 import { type LightsoutConfig, type PipelineKind, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import { getRunDir } from '#src/runState/common/paths/getRunDir.ts';
@@ -25,6 +26,8 @@ interface Params {
 	config?: LightsoutConfig;
 	/** Git-dirty paths at run start — the subtraction baseline for changed-file attribution. */
 	baselineDirtyFiles?: string[];
+	/** Resolved before the run starts: a passing run will ship this branch. Omitted by every pipeline that resolves no ship intent. */
+	willShip?: boolean;
 }
 
 /**
@@ -47,6 +50,7 @@ export const createRun = async ({
 	driver,
 	config,
 	baselineDirtyFiles,
+	willShip,
 }: Params): Promise<RunManifest> => {
 	const now = new Date().toISOString();
 	const manifest: RunManifest = {
@@ -60,6 +64,8 @@ export const createRun = async ({
 		parentRunId,
 		harness: driver,
 		config,
+		branch: await readGitCurrentBranch({ cwd }),
+		willShip,
 		status: RunStatus.Pending,
 		currentStep: null,
 		steps: [],

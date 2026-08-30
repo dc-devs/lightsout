@@ -75,7 +75,29 @@ export class PipelineRun {
 	}
 
 	update({ patch }: { patch: Partial<RunManifest> }): Promise<void> {
-		return this.runState.update({ patch });
+		return this.runState.update({ patch: this.withRunningStepTime({ patch }) });
+	}
+
+	// A long step writes the manifest several times without going through
+	// setStep — a changed-file merge, a package-scope expansion. Re-stamping
+	// the running step's timer on every write is what keeps its persisted
+	// duration true as of updatedAt, which is what lets a reader tell a slow
+	// step from a stuck one without a live process to ask.
+	private withRunningStepTime({ patch }: { patch: Partial<RunManifest> }) {
+		const steps = patch.steps ?? this.current().steps;
+		const currentStep = patch.currentStep ?? this.current().currentStep;
+		const timer = currentStep === null ? undefined : this.stepTimers.get(currentStep);
+
+		if (timer === undefined) {
+			return patch;
+		}
+
+		return {
+			...patch,
+			steps: steps.map((step) =>
+				step.id === currentStep && step.status === RunStatus.Running ? { ...step, durationMs: timer.baseMs + (Date.now() - timer.startedAt) } : step,
+			),
+		};
 	}
 
 	parkMessage(): string {

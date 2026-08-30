@@ -78,4 +78,8 @@ test('a bundled consumer gets the read-side surface, and no CLI runs on import',
 	// could not go unnoticed.
 	expect(result.stderr).toBe('');
 	expect(result.status).toBe(0);
-});
+	// This test does real work: esbuild walks the barrel's whole module graph and
+	// Node then executes the bundle. Alone it takes ~19s, which left no margin under
+	// the default 30s budget — it timed out whenever the full suite loaded the
+	// machine. The budget is generous on purpose; every assertion above is unchanged.
+}, 120_000);

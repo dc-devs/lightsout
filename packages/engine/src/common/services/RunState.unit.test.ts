@@ -41,8 +41,33 @@ const setupRunState = ({
 	return {
 		cwd,
 		agentsLog: join(cwd, '.lightsout', 'runs', 'run-state-1', 'agents.jsonl'),
+		progressLog: join(cwd, '.lightsout', 'runs', 'run-state-1', 'progress.jsonl'),
 		run: new RunState({ cwd, config: { ...config, ...overrides }, manifest: manifestOf({ usage }), onProgress }),
 	};
+};
+
+/**
+ * The progress log once it holds `count` lines.
+ *
+ * The sink returns synchronously and chains its appends through a promise
+ * tail, so the file lands a few ticks after the calls that filled it — polling
+ * for the expected count is what keeps this from racing the tail.
+ */
+const readProgressLines = async ({ path, count }: { path: string; count: number }) => {
+	const attemptCeiling = 50;
+
+	for (let attempt = 0; attempt < attemptCeiling; attempt += 1) {
+		const body = existsSync(path) ? readFileSync(path, 'utf8').trim() : '';
+		const lines = body === '' ? [] : body.split('\n');
+
+		if (lines.length >= count) {
+			return lines.map((line): { at: string; message: string } => JSON.parse(line));
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 5));
+	}
+
+	throw new Error(`progress log never reached ${count} lines: ${path}`);
 };
 
 /** One invocation's spend, as a harness reports it. */
@@ -119,15 +144,32 @@ describe('RunState', () => {
 		expect(messages).toStrictEqual(['working']);
 	});
 
-	test('a run with no listener drops the message, leaving the manifest exactly as it was', () => {
+	test('a run with no listener leaves the manifest exactly as it was', () => {
 		const { run } = setupRunState();
 		const before = run.current();
 
 		run.progress('unheard');
 
-		// progress is a notification, never a write — with nowhere to send it there
-		// is nothing to persist and nothing to rebind
+		// progress narrates the run, it never changes it — the manifest is not
+		// rewritten and current() is not rebound, whoever is listening
 		expect(run.current()).toBe(before);
+	});
+
+	test('progress persists every message to the run’s own log, in order, whether anyone is listening or not', async () => {
+		const heard: string[] = [];
+		const { progressLog, run } = setupRunState({ onProgress: (message) => heard.push(message) });
+
+		run.progress('step implement');
+		run.progress('step refactor — pass 1/3');
+
+		const lines = await readProgressLines({ path: progressLog, count: 2 });
+
+		// a detached run leaves no stdout to tail — the log is the only place the
+		// `now` line can read what the run is doing
+		expect(lines.map((line) => line.message)).toStrictEqual(['step implement', 'step refactor — pass 1/3']);
+		expect(lines.every((line) => typeof line.at === 'string' && line.at !== '')).toBe(true);
+		// and the in-memory listener still gets every message unchanged
+		expect(heard).toStrictEqual(['step implement', 'step refactor — pass 1/3']);
 	});
 
 	test('the agent timeout reads the config, with the one-hour default when the config is silent', () => {

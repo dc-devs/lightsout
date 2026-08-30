@@ -1,7 +1,7 @@
 import { access, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { toRepoRelativePath } from '#src/common/utils/toRepoRelativePath.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PipelineKind, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { findUnfinishedSequence } from '#src/phases/findUnfinishedSequence.ts';
 import { readOverviewPhases } from '#src/phases/readOverviewPhases.ts';
@@ -14,6 +14,8 @@ interface Params {
 	overviewPath?: string;
 	startPhase?: number;
 	existing?: RunManifest;
+	/** Resolved before the run starts: a passing run will ship this branch. Recorded on the coordinator's manifest so the progress view can show a ship row. Ignored when resuming. */
+	willShip?: boolean;
 }
 
 /** The phase file names the overview's table names, refusing an empty table and a file listed twice. */
@@ -76,13 +78,13 @@ const assertPhaseFilesExist = async ({ cwd, overview, phases }: { cwd: string; o
  * @throws {Error} When the overview is missing, its Phases table is empty or repeats a file, a phase file
  * is missing, the starting phase is out of range, or an unfinished sequence for this overview already exists.
  */
-export const initializeSequence = async ({ cwd, driver, config, overviewPath, startPhase, existing }: Params): Promise<{ manifest: RunManifest }> => {
+export const initializeSequence = async ({ cwd, driver, config, overviewPath, startPhase, existing, willShip }: Params): Promise<{ manifest: RunManifest }> => {
 	if (existing) {
-		const pipeline = existing.pipeline ?? 'implement';
+		const pipeline = existing.pipeline ?? PipelineKind.Implement;
 
-		if (pipeline !== 'phases') {
+		if (pipeline !== PipelineKind.Phases) {
 			throw new Error(
-				`run ${existing.runId} belongs to the ${pipeline} pipeline — resume it with: lightsout ${pipeline === 'refactor' ? 'refactor' : 'resume'} --run ${existing.runId}`,
+				`run ${existing.runId} belongs to the ${pipeline} pipeline — resume it with: lightsout ${pipeline === PipelineKind.Refactor ? 'refactor' : 'resume'} --run ${existing.runId}`,
 			);
 		}
 
@@ -111,7 +113,7 @@ export const initializeSequence = async ({ cwd, driver, config, overviewPath, st
 		throw new Error(`an unfinished run for this plan already exists — resume with: lightsout resume --run ${unfinished.runId}`);
 	}
 
-	const created = await createRun({ cwd, plan: overview, pipeline: 'phases', driver: driver.name, config });
+	const created = await createRun({ cwd, plan: overview, pipeline: PipelineKind.Phases, driver: driver.name, config, willShip });
 	// Phases below the starting one are recorded as done OUTSIDE the sequence —
 	// adopted, never re-run, and never counted as this run's work.
 	const steps: StepRecord[] = phases.map((file, index) => ({

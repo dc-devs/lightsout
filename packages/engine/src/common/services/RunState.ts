@@ -1,6 +1,6 @@
 import { defaultAgentTimeoutMinutes } from '#src/common/constants/defaultAgentTimeoutMinutes.ts';
 import type { AgentUsage, LightsoutConfig, RunManifest, RunStatus, RunUsage, StepRecord } from '#src/contracts/index.ts';
-import { recordAgentUsage, seedUsageTotals, writeManifestWithUsage } from '#src/runState/index.ts';
+import { createProgressSink, recordAgentUsage, seedUsageTotals, writeManifestWithUsage } from '#src/runState/index.ts';
 
 const upsertStep = ({ steps, record }: { steps: StepRecord[]; record: StepRecord }) => {
 	const existing = steps.findIndex((step) => step.id === record.id);
@@ -39,12 +39,17 @@ export class RunState {
 	private manifest: RunManifest;
 	private readonly usageTotals: RunUsage;
 	private readonly onProgress?: (message: string) => void;
+	// Every narrated line is teed to the run directory as well as forwarded. A
+	// detached run leaves no stdout to tail, so the terminal that started it is
+	// the only place its narration ever existed — and that terminal dies.
+	private readonly progressSink: (message: string) => void;
 
 	constructor({ cwd, config, manifest, onProgress }: ConstructorParams) {
 		this.cwd = cwd;
 		this.config = config;
 		this.manifest = manifest;
 		this.onProgress = onProgress;
+		this.progressSink = createProgressSink({ cwd, runId: manifest.runId });
 		this.usageTotals = seedUsageTotals({ usage: manifest.usage });
 		this.agentTimeoutMs = (config.timeouts?.['agent-minutes'] ?? defaultAgentTimeoutMinutes) * 60_000;
 	}
@@ -55,6 +60,7 @@ export class RunState {
 	}
 
 	progress(message: string): void {
+		this.progressSink(message);
 		this.onProgress?.(message);
 	}
 

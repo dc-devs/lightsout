@@ -19,6 +19,7 @@ const usageOrder = [
 	'ship',
 	'queue',
 	'status',
+	'status-run',
 	'doctor',
 	'standards-check',
 	'standards-check-list',

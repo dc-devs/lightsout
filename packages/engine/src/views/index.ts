@@ -1,10 +1,13 @@
 export { ConfigNotFoundError } from '#src/views/ConfigNotFoundError.ts';
+export type { RunProgress } from '#src/views/common/types/RunProgress.ts';
+export type { RunProgressRow } from '#src/views/common/types/RunProgressRow.ts';
 export { toStandardsPackListing } from '#src/views/common/utils/toStandardsPackListing.ts';
 export { toStandardsPackRuleView } from '#src/views/common/utils/toStandardsPackRuleView.ts';
 export { toStandardsPackView } from '#src/views/common/utils/toStandardsPackView.ts';
 export { getConfigView } from '#src/views/getConfigView.ts';
 export { getPlanDocument } from '#src/views/getPlanDocument.ts';
 export { getPlanWorkspace } from '#src/views/getPlanWorkspace.ts';
+export { getRunProgress } from '#src/views/getRunProgress.ts';
 export { getRunView } from '#src/views/getRunView.ts';
 export { getStandardsPackBundle } from '#src/views/getStandardsPackBundle.ts';
 export { getStandardsPackRuleView } from '#src/views/getStandardsPackRuleView.ts';

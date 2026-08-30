@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { afterEach, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
@@ -160,6 +160,47 @@ test('runPhasesPipeline: a fresh sequence runs every phase in the overview order
 	expect(result.manifest.changedFiles.includes('src/phase2.js')).toBeTruthy();
 	expect(progress.includes('phase 1/2: phase1.md')).toBeTruthy();
 	expect(progress.includes('phase 2/2: phase2.md')).toBeTruthy();
+});
+
+test('runPhasesPipeline: the coordinator persists its own narration, so a watch between phases has something to say', async () => {
+	const { dir, overviewPath } = setupPhasedRepo({ phases: 2 });
+	const progress: string[] = [];
+	const result = await runPhasesPipeline({
+		cwd: dir,
+		driver: createPhaseDriver({ dir, seen: [] }),
+		config: await readConfig({ cwd: dir }),
+		overviewPath,
+		skipRefactor: true,
+		onProgress: (message) => progress.push(message),
+	});
+	const logged = readFileSync(join(dir, '.lightsout', 'runs', result.manifest.runId, 'progress.jsonl'), 'utf8')
+		.trim()
+		.split('\n')
+		.map((line): { at: string; message: string } => JSON.parse(line));
+
+	// the coordinator holds no RunState, so its narration is teed at the one
+	// place it narrates — and the caller still hears every line unchanged
+	expect(logged.map((entry) => entry.message)).toStrictEqual(progress);
+	expect(logged.some((entry) => entry.message === 'phase 1/2: phase1.md')).toBe(true);
+	expect(logged.every((entry) => entry.at !== '')).toBe(true);
+});
+
+test('runPhasesPipeline: the ship stamp lands on the coordinator alone, never on a phase run', async () => {
+	const { dir, overviewPath } = setupPhasedRepo({ phases: 2 });
+	const result = await runPhasesPipeline({
+		cwd: dir,
+		driver: createPhaseDriver({ dir, seen: [] }),
+		config: await readConfig({ cwd: dir }),
+		overviewPath,
+		skipRefactor: true,
+		willShip: true,
+	});
+	const children = await readChildren({ cwd: dir, manifest: result.manifest });
+
+	// only the coordinator ships — a phase run carrying the stamp would draw a
+	// ship row nothing will ever fill
+	expect(result.manifest.willShip).toBe(true);
+	expect(children.map((child) => child.willShip)).toStrictEqual([undefined, undefined]);
 });
 
 test('runPhasesPipeline: the sequence report carries its phases tokens, cost, and working time', async () => {

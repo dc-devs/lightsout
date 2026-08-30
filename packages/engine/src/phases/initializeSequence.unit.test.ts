@@ -2,8 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
-import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import { type LightsoutConfig, PipelineKind, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { initializeSequence } from '#src/phases/index.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
@@ -70,6 +69,24 @@ describe('initializeSequence', () => {
 			{ id: 'phase1.md', status: 'passed', attempts: 0 },
 			{ id: 'phase2.md', status: 'pending', attempts: 0 },
 		]);
+	});
+
+	test('a fresh sequence records the ship intent it was started with', async () => {
+		const { dir, overviewPath } = setupPlanFolder({ phases: 1 });
+
+		const { manifest } = await initializeSequence({ cwd: dir, driver, config, overviewPath, willShip: true });
+
+		// a phased run ships exactly as a single-plan run does, so its coordinator
+		// carries the stamp the progress view draws the ship row from
+		expect(manifest.willShip).toBe(true);
+	});
+
+	test('a fresh sequence records no ship intent when there was none', async () => {
+		const { dir, overviewPath } = setupPlanFolder({ phases: 1 });
+
+		const { manifest } = await initializeSequence({ cwd: dir, driver, config, overviewPath });
+
+		expect(manifest.willShip).toBeUndefined();
 	});
 
 	test('an absolute overview path is recorded the way this repo stores plan paths', async () => {

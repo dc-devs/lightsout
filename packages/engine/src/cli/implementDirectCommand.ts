@@ -7,6 +7,7 @@ import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { exitAfterImplement } from '#src/cli/common/utils/exitAfterImplement.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { resolveCommandShipIntent } from '#src/cli/common/utils/resolveCommandShipIntent.ts';
 import { resolveEffectiveConfigAndDriver } from '#src/cli/common/utils/resolveEffectiveConfigAndDriver.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
@@ -68,12 +69,27 @@ export const implementDirectCommand = async ({ flags, cwd }: CommandContext): Pr
 	}
 
 	const loaded = await readConfig({ cwd });
+	const shipIntent = resolveCommandShipIntent({ config: loaded, flags, env: process.env });
+
+	if (shipIntent === undefined) {
+		return exitCli({ code: 1 });
+	}
+
 	const ticketRef = getStringFlag({ flags, name: 'ref' }) ?? (await readBranchTicketRef({ cwd, config: loaded }));
 	const { config, driver, driverName } = resolveEffectiveConfigAndDriver({ config: loaded, command: 'implement' });
 
 	console.log(`lightsout: building ${ticketRef} from ${ticketPath}`);
 
-	const result = await runDirectWork({ cwd, ticketBody, ticketRef, driver, driverName, config, onProgress: createProgressPrinter() });
+	const result = await runDirectWork({
+		cwd,
+		ticketBody,
+		ticketRef,
+		driver,
+		driverName,
+		config,
+		willShip: shipIntent.willShip,
+		onProgress: createProgressPrinter(),
+	});
 
 	if (result.ok) {
 		// The run ends on a commit rather than a dirty tree — which is what makes
