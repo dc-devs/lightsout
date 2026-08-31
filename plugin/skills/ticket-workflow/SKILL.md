@@ -13,7 +13,7 @@ A ticket says what is wrong. It does not say how to fix it.
 Write down what you saw: the problem, and the facts that show it. Those stay
 true for months. A fix you guess at now is usually wrong within a day.
 
-`/lightsout:brainstorm` and `/lightsout:plan` exist so that the user and an
+The `brainstorm` and `plan` skills exist so that the user and an
 agent work the fix out together, when someone actually picks the ticket up.
 Planning is not the ticket's job.
 
@@ -190,9 +190,9 @@ twenty-line change can turn on a decision you will live with for a year.
 
 | Label | Means | Produces |
 |---|---|---|
-| `route-brainstorm` | Run `/lightsout:brainstorm`, then decide whether it also needs a plan. **This is the default.** | Notes and settled decisions, and usually a plan after it |
-| `route-plan` | Go straight to `/lightsout:plan`. | A plan folder |
-| `route-auto-plan` | Run `/auto-plan`. It plans the ticket alone and stops at one proposal. | A plan folder, and a proposal to approve |
+| `route-brainstorm` | Run the `brainstorm` skill, then decide whether it also needs a plan. **This is the default.** | Notes and settled decisions, and usually a plan after it |
+| `route-plan` | Go straight to the `plan` skill. | A plan folder |
+| `route-auto-plan` | Run the `auto-plan` skill. It plans the ticket alone and stops at one proposal. | A plan folder, and a proposal to approve |
 | `route-direct` | Build it. No brainstorm, no plan. | The diff, and nothing else |
 
 The four routes are recorded as a single-valued field on the ticket, and every
@@ -251,7 +251,7 @@ Move a ticket to **Ready to implement** the moment its route is complete:
 | `route-plan` | The plan is graded |
 | `route-auto-plan` | The plan is graded and its proposal approved |
 
-"Ready to implement" means exactly what it says: `/implement` can be pointed at
+"Ready to implement" means exactly what it says: the `implement` skill can be pointed at
 it now. For a routed-and-planned ticket that means the plan folder exists and
 graded; for a `route-direct` one it means the ticket body is enough to build from.
 
@@ -274,7 +274,7 @@ mode that would quietly undo this whole section.
 
 So: **attach the brainstorm's `notes.md` when you set `route-plan`.** Not at
 close — now. That file is safe to attach early in a way a plan is not: brainstorm
-writes it once, and `/lightsout:plan` snapshots it write-once and never
+writes it once, and the `plan` skill snapshots it write-once and never
 overwrites, so it is frozen the moment the brainstorm ends. `.lightsout` is
 gitignored, so it exists on exactly one laptop; attach it or it is gone.
 
@@ -397,7 +397,7 @@ decision table in the comment.
 
 ## Attaching the plan
 
-`/lightsout:plan` writes `.lightsout/plans/<name>/` — `plan.md`,
+The `plan` skill writes `.lightsout/plans/<name>/` — `plan.md`,
 `decisions.json`, `grade.json`. That is the design record: what was decided,
 what was rejected, and why. The folder to attach is the one named after this
 ticket, so it is found by reading the ticket id off the folder name rather than
@@ -426,7 +426,7 @@ live, never the closing comment.
 | `grade.json` | half a kilobyte recording that the plan was graded, and against which lenses |
 
 A `route-auto-plan` ticket attaches the same four files; when no brainstorm
-ran, its `notes.md` is the one `/auto-plan` wrote for itself from the ticket
+ran, its `notes.md` is the one the `auto-plan` skill wrote for itself from the ticket
 before planning.
 
 Skip `facts.json` — it predicts which files the work will touch, and once the
@@ -469,7 +469,7 @@ exactly one laptop, and any other agent picking up that ticket sees a problem
 statement with none of the shaping behind it.
 
 Attaching them makes the ticket **readable** by a fresh agent. It does not yet
-make it **runnable**: `/lightsout:implement` takes a folder path on disk, so the
+make it **runnable**: the `implement` skill takes a folder path on disk, so the
 agent must rebuild `.lightsout/plans/<name>/` from the attachments before the
 command works. It can derive the folder name from the ticket id when the plan
 was named after its ticket.

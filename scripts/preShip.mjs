@@ -22,10 +22,18 @@ import { invokedDirectly } from './invokedDirectly.mjs';
  */
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** The directories a marketplace install copies, each with the manifest that names its version — the same list `checkShipped.mjs` guards. */
+/** The directories a marketplace install copies, with every host manifest that names the same build — the same list `checkShipped.mjs` guards. */
 const shippedDirectories = [
-	{ dir: 'plugin', manifestPath: join('plugin', '.claude-plugin', 'plugin.json') },
-	{ dir: 'plugin-linear', manifestPath: join('plugin-linear', '.claude-plugin', 'plugin.json') },
+	{
+		dir: 'plugin',
+		primaryManifestPath: join('plugin', '.claude-plugin', 'plugin.json'),
+		manifestPaths: [join('plugin', '.claude-plugin', 'plugin.json'), join('plugin', '.codex-plugin', 'plugin.json')],
+	},
+	{
+		dir: 'plugin-linear',
+		primaryManifestPath: join('plugin-linear', '.claude-plugin', 'plugin.json'),
+		manifestPaths: [join('plugin-linear', '.claude-plugin', 'plugin.json'), join('plugin-linear', '.codex-plugin', 'plugin.json')],
+	},
 ];
 
 /** A git command's stdout, or undefined when git exits non-zero (an unknown ref, usually). */
@@ -96,30 +104,30 @@ export const preShip = () => {
 		return;
 	}
 
-	for (const { dir, manifestPath } of shippedDirectories) {
+	for (const { dir, primaryManifestPath, manifestPaths } of shippedDirectories) {
 		if (!changedSince({ baseCommit, path: dir })) {
 			continue;
 		}
 
-		const baseManifest = git({ args: ['show', `${baseCommit}:${manifestPath}`] });
+		const baseManifest = git({ args: ['show', `${baseCommit}:${primaryManifestPath}`] });
 
 		if (baseManifest === undefined) {
 			continue;
 		}
 
-		const headVersion = JSON.parse(readFileSync(join(repoRoot, manifestPath), 'utf8')).version;
+		const headVersion = JSON.parse(readFileSync(join(repoRoot, primaryManifestPath), 'utf8')).version;
 		const baseVersion = JSON.parse(baseManifest).version;
+		const targetVersion = isNewer({ head: headVersion, base: baseVersion }) ? headVersion : bumpPatch({ version: baseVersion });
 
-		if (isNewer({ head: headVersion, base: baseVersion })) {
-			console.log(`pre-ship: ${manifestPath} already bumped (${baseVersion} -> ${headVersion})`);
+		for (const manifestPath of manifestPaths) {
+			const currentVersion = JSON.parse(readFileSync(join(repoRoot, manifestPath), 'utf8')).version;
 
-			continue;
+			if (currentVersion !== targetVersion) {
+				writeVersion({ manifestPath, from: currentVersion, to: targetVersion });
+			}
 		}
 
-		const bumped = bumpPatch({ version: baseVersion });
-
-		writeVersion({ manifestPath, from: headVersion, to: bumped });
-		console.log(`pre-ship: ${manifestPath} ${headVersion} -> ${bumped}`);
+		console.log(`pre-ship: ${dir}/ host manifests ${baseVersion} -> ${targetVersion}`);
 	}
 };
 

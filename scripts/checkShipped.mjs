@@ -19,9 +19,10 @@ import { invokedDirectly } from './invokedDirectly.mjs';
  *   1. `plugin/dist/cli.mjs` is what `src/` currently builds to.
  *   2. `plugin/standards/` is what the authored default package currently
  *      builds to.
- *   3. If anything under a shipped directory moved, its `plugin.json` carries
- *      a version of its own — users cannot tell two builds apart when both
- *      call themselves 0.2.4.
+ *   3. Each host manifest for a shipped directory carries the same version.
+ *   4. If anything under a shipped directory moved, that shared version is
+ *      newer — users cannot tell two builds apart when both call themselves
+ *      0.2.4.
  *
  * The bundle and standards comparisons are the base plugin's alone, because it
  * is the only directory shipping build output; the version question is asked
@@ -42,10 +43,18 @@ import { invokedDirectly } from './invokedDirectly.mjs';
  */
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** The directories a marketplace install copies, each with the manifest that names its version. */
+/** The directories a marketplace install copies, with every host manifest that names the same build. */
 const shippedDirectories = [
-	{ dir: 'plugin', manifestPath: join('plugin', '.claude-plugin', 'plugin.json') },
-	{ dir: 'plugin-linear', manifestPath: join('plugin-linear', '.claude-plugin', 'plugin.json') },
+	{
+		dir: 'plugin',
+		primaryManifestPath: join('plugin', '.claude-plugin', 'plugin.json'),
+		manifestPaths: [join('plugin', '.claude-plugin', 'plugin.json'), join('plugin', '.codex-plugin', 'plugin.json')],
+	},
+	{
+		dir: 'plugin-linear',
+		primaryManifestPath: join('plugin-linear', '.claude-plugin', 'plugin.json'),
+		manifestPaths: [join('plugin-linear', '.claude-plugin', 'plugin.json'), join('plugin-linear', '.codex-plugin', 'plugin.json')],
+	},
 ];
 
 /** Every file under a directory, as sorted slash-separated relative paths. */
@@ -131,23 +140,35 @@ const isNewer = ({ head, base }) => {
  * The working tree is compared, not HEAD, so an uncommitted rebuild demands
  * its bump before the commit rather than after.
  */
-const versionVerdict = ({ baseCommit, dir, manifestPath }) => {
+const versionVerdict = ({ baseCommit, dir, primaryManifestPath, manifestPaths }) => {
+	const currentVersions = manifestPaths.map((manifestPath) => ({
+		manifestPath,
+		version: JSON.parse(readFileSync(join(repoRoot, manifestPath), 'utf8')).version,
+	}));
+	const distinctVersions = new Set(currentVersions.map(({ version }) => version));
+
+	if (distinctVersions.size !== 1) {
+		return {
+			problem: `${dir}/ host manifests disagree: ${currentVersions.map(({ manifestPath, version }) => `${manifestPath}=${version}`).join(', ')}`,
+		};
+	}
+
 	if (!changedSince({ baseCommit, path: dir })) {
 		return { skipped: `nothing under ${dir}/ changed` };
 	}
 
-	const baseManifest = git({ args: ['show', `${baseCommit}:${manifestPath}`] });
+	const baseManifest = git({ args: ['show', `${baseCommit}:${primaryManifestPath}`] });
 
 	if (baseManifest === undefined) {
-		return { skipped: `${manifestPath} does not exist at the base` };
+		return { skipped: `${primaryManifestPath} does not exist at the base` };
 	}
 
-	const headVersion = JSON.parse(readFileSync(join(repoRoot, manifestPath), 'utf8')).version;
+	const [{ version: headVersion }] = currentVersions;
 	const baseVersion = JSON.parse(baseManifest).version;
 
 	if (!isNewer({ head: headVersion, base: baseVersion })) {
 		return {
-			problem: `${dir}/ changed, which is what users install, but ${manifestPath} is ${headVersion} against a base of ${baseVersion} — bump it so the shipped build has a name of its own`,
+			problem: `${dir}/ changed, which is what users install, but its host manifests are ${headVersion} against a base of ${baseVersion} — bump them so the shipped build has a name of its own`,
 		};
 	}
 

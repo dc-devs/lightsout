@@ -1,6 +1,6 @@
 ---
 name: brainstorm
-description: Shape a vague idea into a buildable direction through dialogue — checks whether it is one idea or several, offers 2–3 competing approaches with trade-offs and a recommendation, and converges on a design stated in plain words. Use when the user has a rough idea, wants to think through a feature before planning it, or asks to brainstorm. Exits either to "just build it" (nothing written) or to a rough-notes file handed to `/plan`.
+description: Shape a vague idea into a buildable direction through dialogue — checks whether it is one idea or several, offers 2–3 competing approaches with trade-offs and a recommendation, and converges on a design stated in plain words. Use when the user has a rough idea, wants to think through a feature before planning it, or asks to brainstorm. Exits either to "just build it" (nothing written) or to a rough-notes file handed to the `plan` skill.
 allowed-tools: Read, Write, Grep, Glob
 ---
 
@@ -90,7 +90,7 @@ question — never ask what the code can answer.
 
 When the idea traces to a ticket, read the ticket first. Its
 `## Decisions` lines are outcomes the user already settled — never re-ask
-them, and do not copy them into this skill's exit file: `/plan` harvests
+them, and do not copy them into this skill's exit file: the `plan` skill harvests
 the ticket itself, and a copy here would put the same row in the record
 twice. Its `## Open questions` are this conversation's agenda. Its
 acceptance criteria are floors, never ceilings: a criterion naming one case
@@ -124,7 +124,7 @@ matches what they meant.
   the ticket-workflow skill's `## Plan folder` section spells out. Before
   writing anything, show the settled decisions back to the user as a small
   table — question, choice, one-line why, and whether it is an assumption — and
-  get approval: these rows make `/plan` skip questions, so a row that
+  get approval: these rows make the `plan` skill skip questions, so a row that
   overstates the agreement is expensive. Then write the notes to
   `.lightsout/plans/<name>/notes.md`, plus
   `.lightsout/plans/<name>/brainstorm-decisions.json` in this exact shape:
@@ -152,7 +152,7 @@ matches what they meant.
   Then hand off with the exact next command:
 
   ```
-  Next: /plan .lightsout/plans/<name>/notes.md
+  Next: run the `plan` skill with .lightsout/plans/<name>/notes.md
   ```
 
   If either file already exists at that name (a previous brainstorm), say so
@@ -166,5 +166,5 @@ A checklist, not a template this skill enforces:
 - the scope call
 - the chosen approach and the rejected alternatives with the one-line why
 - the converged design in plain words
-- any project-wide constraints the user stated (so `/plan` can carry them into
+- any project-wide constraints the user stated (so the `plan` skill can carry them into
   its Global Constraints collection)

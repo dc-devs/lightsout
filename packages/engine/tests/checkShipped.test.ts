@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { cp, mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterAll, expect, test } from '@jest/globals';
 
 // The gate that decides whether plugin/ can ship, exercised against real git
@@ -14,7 +14,9 @@ import { afterAll, expect, test } from '@jest/globals';
 
 const repoRoot = join(__dirname, '..', '..', '..');
 const manifestPath = 'plugin/.claude-plugin/plugin.json';
+const codexManifestPath = 'plugin/.codex-plugin/plugin.json';
 const addOnManifestPath = 'plugin-linear/.claude-plugin/plugin.json';
+const addOnCodexManifestPath = 'plugin-linear/.codex-plugin/plugin.json';
 const clones: string[] = [];
 
 const run = ({ cwd, command, args }: { cwd: string; command: string; args: string[] }) =>
@@ -54,6 +56,22 @@ const setupClone = async () => {
 	clones.push(dir);
 	run({ cwd: repoRoot, command: 'git', args: ['clone', '--quiet', '--no-hardlinks', '--shared', repoRoot, dir] });
 	await cp(join(repoRoot, 'scripts'), join(dir, 'scripts'), { recursive: true });
+
+	for (const { claude, codex } of [
+		{ claude: manifestPath, codex: codexManifestPath },
+		{ claude: addOnManifestPath, codex: addOnCodexManifestPath },
+	]) {
+		if (!existsSync(join(dir, claude))) {
+			continue;
+		}
+
+		await mkdir(dirname(join(dir, codex)), { recursive: true });
+		const codexManifest = JSON.parse(await readFile(join(repoRoot, codex), 'utf8'));
+		const cloneVersion = JSON.parse(await readFile(join(dir, claude), 'utf8')).version;
+
+		await writeFile(join(dir, codex), `${JSON.stringify({ ...codexManifest, version: cloneVersion }, null, '\t')}\n`);
+	}
+
 	await symlink(join(repoRoot, 'node_modules'), join(dir, 'node_modules'), 'dir');
 
 	for (const entry of await readdir(join(dir, 'packages'), { withFileTypes: true })) {
@@ -104,10 +122,16 @@ const getVersion = ({ cwd, manifest = manifestPath }: { cwd: string; manifest?: 
 const newer = '99.0.0';
 const older = '0.0.1';
 
-const setVersion = async ({ cwd, version, manifest = manifestPath }: { cwd: string; version: string; manifest?: string }) => {
+const setManifestVersion = async ({ cwd, version, manifest }: { cwd: string; version: string; manifest: string }) => {
 	const parsed = JSON.parse(await readFile(join(cwd, manifest), 'utf8'));
 
 	await writeFile(join(cwd, manifest), `${JSON.stringify({ ...parsed, version }, null, '\t')}\n`);
+};
+
+const setVersion = async ({ cwd, version, manifest = manifestPath }: { cwd: string; version: string; manifest?: string }) => {
+	const counterpart = manifest === manifestPath ? codexManifestPath : addOnCodexManifestPath;
+
+	await Promise.all([manifest, counterpart].map(async (manifestPathToUpdate) => setManifestVersion({ cwd, version, manifest: manifestPathToUpdate })));
 };
 
 /**
@@ -121,8 +145,18 @@ const setupCloneWithAddOn = async () => {
 
 	run({ cwd, command: 'git', args: ['checkout', '-q', 'main'] });
 	await mkdir(join(cwd, 'plugin-linear', '.claude-plugin'), { recursive: true });
+	await mkdir(join(cwd, 'plugin-linear', '.codex-plugin'), { recursive: true });
 	await mkdir(join(cwd, 'plugin-linear', 'skills', 'linear-ticket'), { recursive: true });
-	await writeFile(join(cwd, addOnManifestPath), `${JSON.stringify({ name: 'lightsout-linear', version: '0.1.0', description: 't' }, null, '\t')}\n`);
+
+	if (!existsSync(join(cwd, addOnCodexManifestPath))) {
+		await cp(join(repoRoot, addOnCodexManifestPath), join(cwd, addOnCodexManifestPath));
+	}
+
+	if (!existsSync(join(cwd, addOnManifestPath))) {
+		await writeFile(join(cwd, addOnManifestPath), `${JSON.stringify({ name: 'lightsout-linear', version: '0.1.0', description: 't' }, null, '\t')}\n`);
+	}
+
+	await setVersion({ cwd, version: '0.1.0', manifest: addOnManifestPath });
 	await writeFile(join(cwd, 'plugin-linear', 'skills', 'linear-ticket', 'SKILL.md'), '---\nname: linear-ticket\n---\n');
 	commitAll({ cwd, message: 'add-on baseline' });
 	run({ cwd, command: 'git', args: ['checkout', '-q', '-b', 'addon-feature'] });
@@ -143,6 +177,19 @@ test('a clean tree with nothing shipped-facing changed passes, and says the vers
 	expect(output).toMatch(/nothing under plugin-linear\/ changed|plugin-linear\/.* does not exist at the base/);
 });
 
+test('host manifests with different versions fail even when both versions are newer', async () => {
+	const cwd = await setupClone();
+
+	await setManifestVersion({ cwd, version: newer, manifest: codexManifestPath });
+	commitAll({ cwd, message: 'drift the Codex manifest version' });
+
+	const { ok, output } = checkShipped({ cwd, base: 'main' });
+
+	expect(ok).toBe(false);
+	expect(output).toContain('plugin/ host manifests disagree');
+	expect(output).toContain(`${codexManifestPath}=${newer}`);
+});
+
 test('changing the add-on plugin without bumping its version fails, naming its manifest', async () => {
 	const cwd = await setupCloneWithAddOn();
 
@@ -152,7 +199,7 @@ test('changing the add-on plugin without bumping its version fails, naming its m
 	const { ok, output } = checkShipped({ cwd, base: 'main' });
 
 	expect(ok).toBe(false);
-	expect(output).toContain(`${addOnManifestPath} is 0.1.0 against a base of 0.1.0`);
+	expect(output).toContain('plugin-linear/ changed, which is what users install, but its host manifests are 0.1.0 against a base of 0.1.0');
 });
 
 test('changing the add-on plugin with a bumped version passes, reporting both directories', async () => {
@@ -232,7 +279,7 @@ test('changing plugin/ without bumping the version fails, and says which version
 
 	expect(ok).toBe(false);
 	// the version half fires even while the bundle half is also complaining
-	expect(output).toContain(`plugin.json is ${currentVersion} against a base of ${currentVersion}`);
+	expect(output).toContain(`host manifests are ${currentVersion} against a base of ${currentVersion}`);
 });
 
 test('an uncommitted change under plugin/ demands the bump, before the commit exists', async () => {
@@ -247,7 +294,7 @@ test('an uncommitted change under plugin/ demands the bump, before the commit ex
 	const { ok, output } = checkShipped({ cwd, base: 'main' });
 
 	expect(ok).toBe(false);
-	expect(output).toContain(`plugin.json is ${currentVersion} against a base of ${currentVersion}`);
+	expect(output).toContain(`host manifests are ${currentVersion} against a base of ${currentVersion}`);
 	// the old failure was a pass that said this
 	expect(output).not.toMatch(/nothing under plugin\/ changed/);
 });
@@ -275,7 +322,7 @@ test('a version that moved backwards fails as loudly as one that never moved', a
 	const { ok, output } = checkShipped({ cwd, base: 'main' });
 
 	expect(ok).toBe(false);
-	expect(output).toContain(`plugin.json is ${older} against a base of ${currentVersion}`);
+	expect(output).toContain(`host manifests are ${older} against a base of ${currentVersion}`);
 });
 
 test('a two-digit segment compares as a number, so 0.2.10 is newer than 0.2.9', async () => {

@@ -1,0 +1,32 @@
+{
+	"name": "lightsout",
+	"interface": {
+		"displayName": "Lightsout"
+	},
+	"plugins": [
+		{
+			"name": "lightsout",
+			"source": {
+				"source": "local",
+				"path": "./plugin"
+			},
+			"policy": {
+				"installation": "AVAILABLE",
+				"authentication": "ON_INSTALL"
+			},
+			"category": "Productivity"
+		},
+		{
+			"name": "lightsout-linear",
+			"source": {
+				"source": "local",
+				"path": "./plugin-linear"
+			},
+			"policy": {
+				"installation": "AVAILABLE",
+				"authentication": "ON_INSTALL"
+			},
+			"category": "Productivity"
+		}
+	]
+}
