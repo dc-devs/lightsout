@@ -42,6 +42,14 @@ Completing the task is not enough. Agents should leave the repository better tha
 
    ```text
    /plugin marketplace add dc-devs/lightsout
+   /plugin install lightsout@lightsout
+   ```
+
+   In Codex:
+
+   ```sh
+   codex plugin marketplace add dc-devs/lightsout
+   codex plugin add lightsout@lightsout
    ```
 
    The marketplace also carries an optional add-on, `lightsout-linear`, which
@@ -53,12 +61,23 @@ Completing the task is not enough. Agents should leave the repository better tha
    /plugin install lightsout-linear@lightsout
    ```
 
+   Or in Codex:
+
+   ```sh
+   codex plugin add lightsout-linear@lightsout
+   ```
+
    To load the ticket workflow, an adopting repository adds one line to its
-   own CLAUDE.md — the same line this repository carries:
+   own `CLAUDE.md` (Claude Code) or `AGENTS.md` (Codex) — the same line this
+   repository carries:
 
    ```markdown
    One ticket = one branch = one PR — follow the `ticket-workflow` skill, with `linear-ticket` for the Linear mechanics.
    ```
+
+   The command examples below use Claude Code's slash-command form. In Codex,
+   ask for the same installed skill by name, such as “use the `plan` skill” or
+   “start the `queue` skill.”
 
 2. **Define your standards and gate commands.**
 
@@ -165,7 +184,7 @@ The two route labels are how a human opts a ticket in, and each names a worker. 
 
 Each ticket gets a fresh worktree cut from the default branch, the config's `setup` command, and a harness run, with up to `max-parallel` tickets in flight at once. A ticket blocked by another ticket that is not finished is not picked up: it is left behind with the blocker named. The queue drains everything unblocked, merges the ready branches one at a time, then re-reads the tracker and takes whatever the finished work just unblocked — so a chain of dependent tickets ships in order, in one run. It stops when a re-read finds nothing new.
 
-When a worker hits a question only a human can answer, the queue relays it: to your terminal by default, or — with `--file-relay` — to a mailbox the `/queue` skill watches from a Claude Code session, so you can keep working and answer when asked. A question nobody answers parks its ticket after `question-timeout`; a later run picks parked work back up, worktree and all.
+When a worker hits a question only a human can answer, the queue relays it: to your terminal by default, or — with `--file-relay` — to a mailbox the `queue` skill watches from a Claude Code or Codex session, so you can keep working and answer when asked. A question nobody answers parks its ticket after `question-timeout`; a later run picks parked work back up, worktree and all.
 
 Exit codes carry the whole story: `0` — everything eligible shipped; `2` — work remains that a re-run picks up (parked or left-behind tickets); `1` — the queue refused to start, and the message says why.
 

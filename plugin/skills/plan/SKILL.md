@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Produce a rigorous, implementation-ready plan for a feature — one a fresh-context agent can implement without guessing. Explores the codebase, interviews you to drain what you know, drafts the plan, grills it for edge cases, and grades it to A. Use when the user wants to plan a feature, write an implementation plan, or get a plan graded before implementing. Input is a feature description or a rough-notes file path. Output feeds `/implement`.
+description: Produce a rigorous, implementation-ready plan for a feature — one a fresh-context agent can implement without guessing. Explores the codebase, interviews you to drain what you know, drafts the plan, grills it for edge cases, and grades it to A. Use when the user wants to plan a feature, write an implementation plan, or get a plan graded before implementing. Input is a feature description or a rough-notes file path. Output feeds the `implement` skill.
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob, Task
 ---
 
@@ -14,8 +14,12 @@ relays typed results. **Do not add gates, retries, caps, or contract parsing
 here.** The one branch you make is reading the typed `passed` verdict from
 `grade.json`.
 
-Resolve the engine bundle once: `${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs`. If it does
-not exist, stop and tell the user to reinstall the plugin or run `pnpm bundle`.
+Resolve the plugin root once from this loaded skill's absolute path: it is two
+directories above this `SKILL.md`. In Claude Code, `${CLAUDE_PLUGIN_ROOT}` may
+provide the same path; do not assume that variable exists in Codex skill shell
+calls. Use the resolved absolute path wherever `<plugin-root>` appears below.
+Confirm `<plugin-root>/dist/cli.mjs` exists; otherwise stop and tell the user to
+reinstall the plugin or run `pnpm bundle`.
 
 ## Question format
 
@@ -182,7 +186,7 @@ hard-parses it):
 ```
 Then run:
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan verify-facts --name <name> [--notes "<path>"]
+node "<plugin-root>/dist/cli.mjs" plan verify-facts --name <name> [--notes "<path>"]
 ```
 Pass `--notes` when the request came from a rough-notes file — the engine
 freezes a copy at `.lightsout/plans/<name>/notes.md` as the plan's first
@@ -276,7 +280,7 @@ chosen approach as a decisions row (`Source = "Elicitation"`) before drafting.
 
 **4. Draft.** Run:
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan draft --name <name>
+node "<plugin-root>/dist/cli.mjs" plan draft --name <name>
 ```
 Pass `--scope single|phased` only to override the engine's estimate. On
 `facts error` → re-explore in-context, correct facts.json, re-run
@@ -332,7 +336,7 @@ creates across more phases — and re-run `plan draft`.
 last shaping of the plan; after it the plan is complete and Grade only verifies.
 Run:
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan dedup --name <name>
+node "<plugin-root>/dist/cli.mjs" plan dedup --name <name>
 ```
 Read `.lightsout/plans/<name>/dedup.json`. Detection and judgment are the
 subcommand's; you only conduct the review and apply the chosen edits.
@@ -367,7 +371,7 @@ subcommand's; you only conduct the review and apply the chosen edits.
 
 **7. Grade + converge.** Run:
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan grade --name <name>
+node "<plugin-root>/dist/cli.mjs" plan grade --name <name>
 ```
 Read `.lightsout/plans/<name>/grade.json`:
 - `"passed": true` **and** `"complete": true` → go to handoff.
@@ -434,12 +438,14 @@ Read `.lightsout/plans/<name>/grade.json`:
 
 **8. Handoff.** Relay the final grade and:
 ```
-Next: /implement --plan .lightsout/plans/<name>
+Next: run the `implement` skill with .lightsout/plans/<name>
 ```
 The same line works for both shapes — the engine reads the folder: an
 `overview.md` runs every phase in order, otherwise the folder's `plan.md` runs
 on its own. To run a single phase of a phased plan by itself, pass that phase
-file instead: `/implement --plan .lightsout/plans/<name>/phase1-<slug>.md --overview .lightsout/plans/<name>/overview.md`.
+file instead: run the `implement` skill with
+`.lightsout/plans/<name>/phase1-<slug>.md` as the plan and
+`.lightsout/plans/<name>/overview.md` as its overview.
 
 List any decisions left unresolved. The grade is
-advisory — `/implement` runs whatever plan it is given.
+advisory — the `implement` skill runs whatever plan it is given.

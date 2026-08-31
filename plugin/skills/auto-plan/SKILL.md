@@ -1,6 +1,6 @@
 ---
 name: auto-plan
-description: Plan a ticket alone — self-answers every question below a written escalation bar, shows you one proposal, and rolls onward per the auto-plan config block. Use when the user asks to auto-plan a ticket, plan it without the interview, or hand a ticket straight to the factory. Input is a ticket, a feature description, or a rough-notes file path. Output feeds `/implement`.
+description: Plan a ticket alone — self-answers every question below a written escalation bar, shows you one proposal, and rolls onward per the auto-plan config block. Use when the user asks to auto-plan a ticket, plan it without the interview, or hand a ticket straight to the factory. Input is a ticket, a feature description, or a rough-notes file path. Output feeds the `implement` skill.
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob, Task
 ---
 
@@ -13,8 +13,12 @@ gates, retries, caps, or contract parsing here.** What is particular to this
 skill: **it answers the questions the plan skill puts to the user, and stops
 only at the checkpoints the config leaves standing.**
 
-Resolve the engine bundle once: `${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs`. If it does
-not exist, stop and tell the user to reinstall the plugin or run `pnpm bundle`.
+Resolve the plugin root once from this loaded skill's absolute path: it is two
+directories above this `SKILL.md`. In Claude Code, `${CLAUDE_PLUGIN_ROOT}` may
+provide the same path; do not assume that variable exists in Codex skill shell
+calls. Use the resolved absolute path wherever `<plugin-root>` appears below.
+Confirm `<plugin-root>/dist/cli.mjs` exists; otherwise stop and tell the user to
+reinstall the plugin or run `pnpm bundle`.
 
 ## Question format
 
@@ -22,7 +26,7 @@ When this skill does put a question to the user — an escalation, a parked
 question, a vetoed digest row — it uses the labeled four-part shape
 (**Context**, **Trade-offs**, **Question**, **Recommendation**) documented in
 the plan skill, which is the authoritative copy and lives at
-`${CLAUDE_PLUGIN_ROOT}/skills/plan/SKILL.md`. Read it there rather than
+`<plugin-root>/skills/plan/SKILL.md`. Read it there rather than
 recalling it. Two of its rules are the easiest to lose and are repeated here:
 **never ask through an option-picker tool** — every question is written out in
 the message, because a picker's one-line labels cannot carry a Context or a
@@ -112,7 +116,7 @@ deriving a new one. Read `.lightsout/plans/<name>/brainstorm-decisions.json`
 when it exists — its rows are already settled with the user.
 
 When the work traces to a ticket, read the ticket and follow the
-ticket-workflow skill at `${CLAUDE_PLUGIN_ROOT}/skills/ticket-workflow/SKILL.md`:
+ticket-workflow skill at `<plugin-root>/skills/ticket-workflow/SKILL.md`:
 its `## Decisions` lines are settled
 rows, its `## Open questions` are this run's agenda, and its acceptance criteria
 are floors, never ceilings.
@@ -125,7 +129,7 @@ Author `.lightsout/plans/<name>/facts.json` in the **exact** shape the plan
 skill documents (the engine hard-parses it). Then run:
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan verify-facts --name <name> [--notes "<path>"]
+node "<plugin-root>/dist/cli.mjs" plan verify-facts --name <name> [--notes "<path>"]
 ```
 
 Pass `--notes` when the request came from a rough-notes file. **When the run
@@ -173,7 +177,7 @@ proposal handling. On approval, continue to step 5 and show no second proposal.
 **5. Draft.** Run:
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan draft --name <name>
+node "<plugin-root>/dist/cli.mjs" plan draft --name <name>
 ```
 
 Pass `--scope single|phased` only to override the engine's estimate. On a facts
@@ -200,7 +204,7 @@ questions against the drafted plan; grilling intensity never drops.
 **7. Dedup and grade.**
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan dedup --name <name>
+node "<plugin-root>/dist/cli.mjs" plan dedup --name <name>
 ```
 
 Read `.lightsout/plans/<name>/dedup.json`. Every finding's `recommendation` is a
@@ -216,7 +220,7 @@ is applied from the record, not re-decided. `"complete": false` means the scan
 was partial — resolve what is there and re-run dedup.
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan grade --name <name>
+node "<plugin-root>/dist/cli.mjs" plan grade --name <name>
 ```
 
 Read `.lightsout/plans/<name>/grade.json`. `"passed": true` **and**
@@ -254,19 +258,19 @@ direction.
   row with `Source = Converge`, mirror it into decisions.json, re-grade, and
   show a short amended digest. Never re-draft.
 - **A change of direction is a stop.** Say plainly that this is what
-  `/lightsout:plan` is for, and hand the plan folder over.
+  the interactive `plan` skill is for, and hand the plan folder over.
 
 **9. Roll onward.** With `implement-on-approval` false, print the handoff line
 and stop:
 
 ```
-Next: /implement --plan .lightsout/plans/<name>
+Next: run the `implement` skill with .lightsout/plans/<name>
 ```
 
 With it true, run:
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" implement --plan ".lightsout/plans/<name>"
+node "<plugin-root>/dist/cli.mjs" implement --plan ".lightsout/plans/<name>"
 ```
 
 and relay the engine's report to the user verbatim. Whether that run then chains
@@ -280,11 +284,11 @@ to carry it in and the skill does not guess past it. It:
 - stops before the step that depends on the answer;
 - when the work traces to a ticket, appends the question to that ticket's
   `## Open questions` section, creating the section when absent, following the
-  ticket-workflow skill at `${CLAUDE_PLUGIN_ROOT}/skills/ticket-workflow/SKILL.md`
+  ticket-workflow skill at `<plugin-root>/skills/ticket-workflow/SKILL.md`
   — written as a question, never as a
   prescription, and the ticket's status is left where it is;
 - when there is no ticket, states the question in the message instead;
-- reports the plan folder path, and says that `/lightsout:plan` or a re-run
+- reports the plan folder path, and says that the interactive `plan` skill or a re-run
   after the question is settled continues the work.
 
 `auto-approve-plan` means *do not wait for me when nothing needs me*. It never means

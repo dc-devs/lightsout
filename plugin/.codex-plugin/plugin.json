@@ -1,0 +1,24 @@
+{
+	"name": "lightsout",
+	"version": "0.37.9",
+	"description": "Deterministic coding-agent workflows for planning, implementation, verification, refactoring, and queueing.",
+	"author": {
+		"name": "dc-devs",
+		"url": "https://github.com/dc-devs"
+	},
+	"homepage": "https://github.com/dc-devs/lightsout",
+	"repository": "https://github.com/dc-devs/lightsout",
+	"license": "MIT",
+	"keywords": ["coding-agents", "planning", "testing", "refactoring", "automation"],
+	"skills": "./skills/",
+	"interface": {
+		"displayName": "Lightsout",
+		"shortDescription": "Run deterministic, gated coding-agent workflows.",
+		"longDescription": "Plan, implement, verify, refactor, and drain ticket queues with repository-owned gates and resumable run evidence.",
+		"developerName": "dc-devs",
+		"category": "Productivity",
+		"capabilities": ["Read", "Write"],
+		"websiteURL": "https://github.com/dc-devs/lightsout",
+		"defaultPrompt": ["Plan this feature with Lightsout.", "Implement this Lightsout plan.", "Start the Lightsout queue."]
+	}
+}

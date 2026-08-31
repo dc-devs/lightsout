@@ -12,11 +12,13 @@ engine, where it is deterministic code. Do not add workflow steps to this file.
 
 ## Steps
 
-1. Resolve the engine bundle: `${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs`
-   (the bundle ships inside the plugin — marketplace installs copy only the
-   plugin directory, never the surrounding repo). If the file does not
-   exist, stop and tell the user to reinstall the plugin or run
-   `pnpm bundle` in the lightsout repo.
+1. Resolve the plugin root from this loaded skill's absolute path: it is two
+   directories above this `SKILL.md`. In Claude Code,
+   `${CLAUDE_PLUGIN_ROOT}` may provide the same path; do not assume that
+   variable exists in Codex skill shell calls. Use the resolved absolute path
+   wherever `<plugin-root>` appears below. Confirm
+   `<plugin-root>/dist/cli.mjs` exists; otherwise stop and tell the user to
+   reinstall the plugin or run `pnpm bundle` in the lightsout repo.
 2. Check the tracker API key is set: read the config's `api-key-env` value
    from `lightsout.config.json` and confirm that environment variable holds
    something. If it does not, stop and say which variable to set — the
@@ -26,7 +28,7 @@ engine, where it is deterministic code. Do not add workflow steps to this file.
    rather than a terminal:
 
    ```sh
-   node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" queue --file-relay
+   node "<plugin-root>/dist/cli.mjs" queue --file-relay
    ```
 
    Run it with the Bash tool in the background — the harness notifies the

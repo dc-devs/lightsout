@@ -12,12 +12,17 @@ deterministic code. Do not add workflow steps to this file.
 
 ## Steps
 
-1. Resolve the engine bundle: `${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs`. If the
-   file does not exist, stop and tell the user to reinstall the plugin.
+1. Resolve the plugin root from this loaded skill's absolute path: it is two
+   directories above this `SKILL.md`. In Claude Code,
+   `${CLAUDE_PLUGIN_ROOT}` may provide the same path; do not assume that
+   variable exists in Codex skill shell calls. Use the resolved absolute path
+   wherever `<plugin-root>` appears below. Confirm
+   `<plugin-root>/dist/cli.mjs` exists; otherwise stop and tell the user to
+   reinstall the plugin.
 2. Run it with what the user gave you, nothing more:
 
    ```sh
-   node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" test-coverage-to-threshold
+   node "<plugin-root>/dist/cli.mjs" test-coverage-to-threshold
    ```
 
    Pass through when provided: `--max-batches <n>`, `--allow-dirty` (accept
