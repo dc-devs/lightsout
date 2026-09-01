@@ -1,5 +1,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
+import type { QueueFailure, QueueSettings } from '#src/queue/index.ts';
 import { setParkedLabel } from '#src/queue/tracker/index.ts';
+import { jiraQueueSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 
 // Mocked Imports
@@ -11,6 +13,15 @@ type LinearCall = (client: unknown) => Promise<unknown>;
 const mockRunLinear = jest.fn<(params: { apiKey: string; call: LinearCall }) => Promise<unknown>>();
 
 jest.mock('#src/queue/tracker/runLinear.ts', () => ({ runLinear: (params: { apiKey: string; call: LinearCall }) => mockRunLinear(params) }));
+// -------------------------
+type JiraQueueSettings = Extract<QueueSettings, { tracker: 'jira' }>;
+type JiraSetParkedLabel = (params: { settings: JiraQueueSettings; ticketId: string; parked: boolean }) => Promise<QueueFailure | undefined>;
+
+const mockSetJiraParkedLabel = jest.fn<JiraSetParkedLabel>();
+
+jest.mock('#src/queue/tracker/jira/index.ts', () => ({
+	setParkedLabel: (params: { settings: JiraQueueSettings; ticketId: string; parked: boolean }) => mockSetJiraParkedLabel(params),
+}));
 // -------------------------
 
 /** A tracker holding these labels and teams, recording every write it is asked for. */
@@ -57,7 +68,26 @@ const setupClient = ({
 	return { labelFilters, created, added, removed };
 };
 
+const setupJiraLabel = () => {
+	const settings = jiraQueueSettingsFixture({ parkedLabel: 'queue-parked' });
+	const trackerFailure = { error: 'Jira denied the label update' };
+	mockSetJiraParkedLabel.mockResolvedValue(trackerFailure);
+
+	return { settings, trackerFailure };
+};
+
 describe('setParkedLabel', () => {
+	test('delegates Jira settings and label details to the Jira tracker', async () => {
+		const { settings, trackerFailure } = setupJiraLabel();
+
+		const failure = await setParkedLabel({ settings, ticketId: 'LO-84', parked: true });
+
+		expect({ failure, calls: mockSetJiraParkedLabel.mock.calls }).toStrictEqual({
+			failure: trackerFailure,
+			calls: [[{ settings, ticketId: 'LO-84', parked: true }]],
+		});
+	});
+
 	test('does nothing at all when the repo named no label — the label is opt-in and must never be invented', async () => {
 		expect(await setParkedLabel({ settings: queueSettingsFixture(), ticketId: 'id-70', parked: true })).toBeUndefined();
 		expect(mockRunLinear).not.toHaveBeenCalled();

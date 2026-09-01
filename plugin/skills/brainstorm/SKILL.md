@@ -75,12 +75,17 @@ split it.
 **One question at a time is the default here** — brainstorm conversations
 are exploratory, not batched.
 
-**Always ask in the message itself.** Never put a question to the user
-through an option-picker tool — the kind that shows a list of one-line
-choices to select from. Every question in this phase is written out in the
-message, in the shape above. A picker's labels cannot carry a Context, a
-Trade-offs, or a drafted table, so what it saves in typing it takes out of
-the user's ability to answer.
+**Durable question delivery.** A pending decision is the deliverable for that
+turn. Put the complete four-part question block in the final response that
+waits for the user's answer. Never put the full block in commentary and then
+summarize or repeat only its Question in the final response; commentary may
+report progress, but must not contain a decision the user needs to answer.
+
+Never put a question to the user through an option-picker tool — the kind that
+shows a list of one-line choices to select from. Every question in this phase
+is written out in that final response, in the shape above. A picker's labels
+cannot carry a Context, a Trade-offs, or a drafted table, so what it saves in
+typing it takes out of the user's ability to answer.
 
 ## Steps
 

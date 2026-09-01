@@ -52,19 +52,21 @@ Completing the task is not enough. Agents should leave the repository better tha
    codex plugin add lightsout@lightsout
    ```
 
-   The marketplace also carries an optional add-on, `lightsout-linear`, which
-   teaches the agent this team's Linear mechanics — route labels, statuses,
-   attachments and pull-request magic words — on top of the base ticket
-   workflow:
+   The marketplace also carries optional `lightsout-linear` and `lightsout-jira`
+   add-ons. They teach tracker-specific labels, statuses, attachments, and
+   pull-request mechanics on top of the base ticket workflow. The queue adapters
+   ship in `lightsout`; these add-ons contain only the tracker mechanics:
 
    ```text
    /plugin install lightsout-linear@lightsout
+   /plugin install lightsout-jira@lightsout
    ```
 
    Or in Codex:
 
    ```sh
    codex plugin add lightsout-linear@lightsout
+   codex plugin add lightsout-jira@lightsout
    ```
 
    To load the ticket workflow, an adopting repository adds one line to its
@@ -72,7 +74,7 @@ Completing the task is not enough. Agents should leave the repository better tha
    repository carries:
 
    ```markdown
-   One ticket = one branch = one PR — follow the `ticket-workflow` skill, with `linear-ticket` for the Linear mechanics.
+   One ticket = one branch = one PR — follow the `ticket-workflow` skill, with `linear-ticket` or `jira-ticket` for tracker mechanics.
    ```
 
    The command examples below use Claude Code's slash-command form. In Codex,

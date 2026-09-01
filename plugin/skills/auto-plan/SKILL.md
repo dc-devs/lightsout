@@ -27,10 +27,12 @@ question, a vetoed digest row — it uses the labeled four-part shape
 (**Context**, **Trade-offs**, **Question**, **Recommendation**) documented in
 the plan skill, which is the authoritative copy and lives at
 `<plugin-root>/skills/plan/SKILL.md`. Read it there rather than
-recalling it. Two of its rules are the easiest to lose and are repeated here:
-**never ask through an option-picker tool** — every question is written out in
-the message, because a picker's one-line labels cannot carry a Context or a
-Trade-offs — and **one full-format question per message**.
+recalling it. Its durable-delivery rule applies here too: put every complete
+question block in the final response that waits for the user's answer, never
+only in commentary. Two other rules are the easiest to lose and are repeated
+here: **never ask through an option-picker tool** — every question is written
+out in that final response, because a picker's one-line labels cannot carry a
+Context or a Trade-offs — and **one full-format question per final response**.
 
 ## The escalation bar
 
@@ -61,6 +63,35 @@ escalation costs the thing this skill exists to save.
 format, one at a time, before the step that depends on it, then fold the answer
 in and carry on. Under `auto-approve-plan` the run parks instead — see
 [Parking a run](#parking-a-run).
+
+## Convergence invariant
+
+**A grade below A is never a terminal success state.** Treat a grader's
+`needs-a-human` or `unjudged` label as evidence to evaluate through this
+skill's escalation bar, not as authority to stop the run. For every finding
+below the bar, resolve it from the approved scope, recorded decisions, and
+repository conventions; update the plan and decisions; then re-run the
+applicable validation, deduplication, and grade checks.
+
+**Convergence budget.** After the initial grade, perform at most five
+repair-and-regrade rounds. A round resolves every below-bar finding, records
+the decisions, runs the applicable validation and deduplication checks, then
+grades again. A passed, complete grade (A) proceeds normally.
+
+If the fifth round remains below A, preserve the complete grade history and
+present the remaining gaps and the changes made in each round. Ask the human
+to choose exactly one: authorize another five-round convergence budget,
+explicitly accept the current below-A plan and proceed to implementation, or
+change direction / settle a genuine product-level decision. Do not
+auto-approve or auto-implement a below-A plan. Only an explicit human
+acceptance may bypass the A-grade requirement; record it in the plan's Decision
+Log and `decisions.json` before rolling onward.
+
+The only exception is a question that genuinely clears the escalation bar:
+one that cannot be resolved from the record and whose alternatives visibly
+change the product. Park that question using the configured parking path. Do
+not manufacture such an escalation because convergence is inconvenient or a
+grader labeled it `needs-a-human`.
 
 ## Settled decisions
 
@@ -231,15 +262,18 @@ editing the plan file the gap's `phase` names — plus a `Decision Log` row
 re-run `plan draft`**: it regenerates the plan files and would clobber every
 edit folded in since.
 
-- **Stop rule.** Give up on convergence when two consecutive full grades do not
-  reduce the count of blocking gaps, and carry the remainder into the proposal
-  as named, unresolved gaps. The grade is advisory; a loop that cannot converge
-  must not spin.
-- **An `unjudged` gap is reported in the proposal rather than silently
-  self-answered:** nobody weighed it, and a re-grade does not retry that judge.
+- **Convergence rule.** A below-A grade is work to do, not a proposal input.
+  Apply the [convergence invariant](#convergence-invariant): resolve every
+  below-bar gap, record the decision, re-run validation and deduplication when
+  the edit affects them, and re-grade until the result is passed and complete
+  or the five-round convergence budget is exhausted. Do not stop merely because
+  two grades have similar findings, a run is taking a long time, or the grader
+  used a `needs-a-human`/`unjudged` label.
 
-**8. The proposal.** One message, unless `auto-approve-plan` is true and nothing
-cleared the bar. It carries, in this order:
+**8. The proposal.** One final response, unless `auto-approve-plan` is true
+and nothing cleared the bar. The proposal and its approval request are the
+deliverable for that turn: do not put any part only in commentary. It carries,
+in this order:
 
 - what the plan builds, in plain words — two or three sentences, no jargon;
 - **the assumption digest**: a table of every self-answered question — the
@@ -287,7 +321,7 @@ to carry it in and the skill does not guess past it. It:
   ticket-workflow skill at `<plugin-root>/skills/ticket-workflow/SKILL.md`
   — written as a question, never as a
   prescription, and the ticket's status is left where it is;
-- when there is no ticket, states the question in the message instead;
+- when there is no ticket, states the question in the final response instead;
 - reports the plan folder path, and says that the interactive `plan` skill or a re-run
   after the question is settled continues the work.
 

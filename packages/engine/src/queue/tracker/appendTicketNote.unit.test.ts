@@ -1,5 +1,8 @@
 import { describe, expect, jest, test } from '@jest/globals';
+import type { JiraQueueSettings } from '#src/queue/common/types/JiraQueueSettings.ts';
+import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import { appendTicketNote } from '#src/queue/tracker/index.ts';
+import { jiraQueueSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 
 // Mocked Imports
@@ -12,8 +15,26 @@ const mockRunLinear = jest.fn<(params: { apiKey: string; call: LinearCall }) => 
 
 jest.mock('#src/queue/tracker/runLinear.ts', () => ({ runLinear: (params: { apiKey: string; call: LinearCall }) => mockRunLinear(params) }));
 // -------------------------
+type JiraAppendParams = {
+	settings: JiraQueueSettings;
+	ticketId: string;
+	heading: string;
+	line: string;
+};
+
+const mockAppendJiraTicketNote = jest.fn<(params: JiraAppendParams) => Promise<QueueFailure | undefined>>();
+
+jest.mock('#src/queue/tracker/jira/index.ts', () => ({ appendTicketNote: (params: JiraAppendParams) => mockAppendJiraTicketNote(params) }));
+// -------------------------
 
 const settings = queueSettingsFixture({ maxParallel: 1 });
+
+const setupJiraDispatch = () => {
+	const jiraSettings = jiraQueueSettingsFixture();
+	mockAppendJiraTicketNote.mockResolvedValue({ error: 'Jira denied the update' });
+
+	return { jiraSettings };
+};
 
 /** Write the note against this body and answer the body the tracker would end up holding. A body of undefined is a ticket the tracker holds no description for. */
 const writtenBody = async ({ body, heading = '## Decisions', line = '- Which one? → the second' }: { body?: string; heading?: string; line?: string }) => {
@@ -36,6 +57,20 @@ const writtenBody = async ({ body, heading = '## Decisions', line = '- Which one
 };
 
 describe('appendTicketNote', () => {
+	test('dispatches Jira settings and note values to the Jira adapter', async () => {
+		const { jiraSettings } = setupJiraDispatch();
+
+		const result = await appendTicketNote({ settings: jiraSettings, ticketId: 'LO-70', heading: '## Decisions', line: '- a → b' });
+
+		expect(result).toStrictEqual({ error: 'Jira denied the update' });
+		expect(mockAppendJiraTicketNote).toHaveBeenCalledWith({
+			settings: jiraSettings,
+			ticketId: 'LO-70',
+			heading: '## Decisions',
+			line: '- a → b',
+		});
+	});
+
 	test('writes the line as the last line of the named section', async () => {
 		const body = await writtenBody({ body: '# Ticket\n\n## Decisions\n\n- Something earlier → yes\n\n## Notes\n\nlater prose\n' });
 
@@ -45,19 +80,19 @@ describe('appendTicketNote', () => {
 	test('creates the section at the end when the ticket has none, rather than dropping the answer', async () => {
 		const body = await writtenBody({ body: '# Ticket\n\nsome prose\n' });
 
-		expect(body).toBe('# Ticket\n\nsome prose\n\n## Decisions\n\n- Which one? → the second\n');
+		expect(body).toBe('# Ticket\n\nsome prose\n\n## Decisions\n\n- Which one? → the second');
 	});
 
 	test('starts the section from nothing when the ticket has no body at all', async () => {
 		const body = await writtenBody({ body: '' });
 
-		expect(body).toBe('## Decisions\n\n- Which one? → the second\n');
+		expect(body).toBe('## Decisions\n\n- Which one? → the second');
 	});
 
 	test('starts the section from nothing when the tracker holds no description at all', async () => {
 		const body = await writtenBody({ body: undefined });
 
-		expect(body).toBe('## Decisions\n\n- Which one? → the second\n');
+		expect(body).toBe('## Decisions\n\n- Which one? → the second');
 	});
 
 	test('writes under a heading that is not markdown at all, because the heading is whatever the repo configured', async () => {

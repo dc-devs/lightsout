@@ -13,6 +13,11 @@
 			"name": "lightsout-linear",
 			"source": "./plugin-linear",
 			"description": "Linear mechanics for the LightsOut ticket workflow"
+		},
+		{
+			"name": "lightsout-jira",
+			"source": "./plugin-jira",
+			"description": "Jira Cloud mechanics for the LightsOut ticket workflow"
 		}
 	]
 }

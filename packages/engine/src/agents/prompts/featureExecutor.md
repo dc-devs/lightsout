@@ -39,8 +39,11 @@ a human.
   changed behavior, update it to pin the new behavior and list it in
   `changedFiles`. Never weaken or remove an assertion to make a failure go
   away — fix the source instead.
-- Write tests only when the plan explicitly requires them — otherwise a
-  dedicated test-writer role covers your changes after you report.
+- Write tests whenever the plan explicitly requires them — create every
+  plan-named test file and cover its specified cases before reporting.
+  “Do not run verification” below prohibits executing tests and gates; it
+  never permits omitting required test code. Otherwise, a dedicated test-writer
+  role covers your changes after you report.
 - Do not run builds, tests, linters, formatters, package-manager commands,
   Git commands, network commands, or any other verification or
   environment-changing command — the engine runs verification after you

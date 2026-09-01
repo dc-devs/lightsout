@@ -309,15 +309,18 @@ This block is where your team's tracker conventions live, so no tracker vocabula
 
 ### Queue settings
 
-The `queue` block is what `lightsout queue` runs on. Without it the command refuses to start. Five keys are required; the rest have defaults.
+The `queue` block is what `lightsout queue` runs on. Without it the command refuses to start. Linear needs `team`; Jira Cloud needs `site-url`, `project`, and `api-user-email-env` as well as the shared settings.
 
 | Field                    | Required | What it controls                                                                                                                                                                                                                                                            |
 | ------------------------ | -------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `queue.tracker`          |      yes | Which tracker the queue reads. Only `linear` has an adapter today.                                                                                                                                                                                                          |
-| `queue.team`             |      yes | The tracker's team key, e.g. `LO`. Every query is scoped to it.                                                                                                                                                                                                             |
+| `queue.tracker`          |      yes | Which tracker the queue reads: `linear` or `jira`.                                                                                                                                                                                                                          |
+| `queue.team`             | linear | The Linear team key, e.g. `LO`. Every Linear query is scoped to it.                                                                                                                                                                                                         |
+| `queue.site-url`         | jira | HTTPS Jira Cloud origin ending in `.atlassian.net`, with no path, query, or fragment.                                                                                                                                                                                       |
+| `queue.project`          | jira | Jira project key, e.g. `LO`; it scopes Jira queries and ticket identifiers.                                                                                                                                                                                                 |
+| `queue.api-user-email-env` | jira | Name of the environment variable holding the Jira account email used with the API token.                                                                                                                                                                                   |
 | `queue.route-labels`     |      yes | Which ticket label routes a ticket to which worker: `direct` builds straight from the ticket body, `auto-plan` plans the ticket first. A label named here is the human's opt-in to automation — the queue never takes an unlabeled ticket.                                     |
 | `queue.max-parallel`     |      yes | How many tickets may be in flight at once. Also the ceiling on how many questions can ever wait for you at the same time.                                                                                                                                                    |
-| `queue.api-key-env`      |      yes | Name of the environment variable holding the tracker API key. The key itself is never written to config.                                                                                                                                                                    |
+| `queue.api-key-env`      |      yes | Name of the environment variable holding the Linear API key or Jira API token. The credential itself is never written to config.                                                                                                                                             |
 | `queue.eligible-statuses` |      no | Ticket statuses the queue may pick up. Defaults to `["Backlog", "Ready to implement"]`.                                                                                                                                                                                     |
 | `queue.in-progress-status` |     no | Status the queue moves a ticket to when it picks it up. Defaults to `"In Progress"`.                                                                                                                                                                                        |
 | `queue.setup`            |       no | Command run once in each fresh worktree before any agent, e.g. `pnpm install`. Absent means nothing runs.                                                                                                                                                                   |
@@ -325,9 +328,33 @@ The `queue` block is what `lightsout queue` runs on. Without it the command refu
 | `queue.decisions-heading` |      no | The ticket-body heading relayed answers are appended under. Defaults to `## Decisions`.                                                                                                                                                                                     |
 | `queue.worker-timeout`   |       no | Ceiling for one ticket's worker session, as a duration string like `90s`, `45m` or `4h`. Per ticket, never for the drain — the queue itself runs until the backlog is dry. A hit ceiling parks the ticket resumably. Defaults to `4h`.                                        |
 | `queue.question-timeout` |       no | How long one relayed question waits for an answer before its ticket parks, as a duration string. Only `--file-relay` observes it; the terminal relay waits on the person at the terminal. Defaults to `1h`.                                                                   |
-| `queue.parked-label`     |       no | The ticket label the queue sets when a ticket parks and clears when it resumes or ships. Opt-in with no default. The label is created on the team on first use.                                                                                                              |
+| `queue.parked-label`     |       no | The ticket label the queue sets when a ticket parks and clears when it resumes or ships. Opt-in with no default. Linear creates the team label on first use; Jira updates issue labels directly.                                                                            |
 
 The block is strict for the same reason `ship` is: an unknown key fails parsing rather than silently disabling a setting you believe is on. Every team-specific word — tracker, statuses, labels — lives here, so no tracker vocabulary reaches engine code.
+
+Jira Cloud uses a Basic-auth API token and account email. Keep both values in the environment, never in configuration:
+
+```sh
+export JIRA_API_TOKEN='your-api-token'
+export JIRA_ACCOUNT_EMAIL='you@example.com'
+```
+
+```json
+{
+  "queue": {
+    "tracker": "jira",
+    "site-url": "https://example.atlassian.net",
+    "project": "LO",
+    "route-labels": { "direct": "route-direct", "auto-plan": "route-auto-plan" },
+    "max-parallel": 2,
+    "api-key-env": "JIRA_API_TOKEN",
+    "api-user-email-env": "JIRA_ACCOUNT_EMAIL",
+    "eligible-statuses": ["Backlog", "Ready to implement"],
+    "in-progress-status": "In Progress",
+    "parked-label": "queue-parked"
+  }
+}
+```
 
 ### Auto-plan settings
 

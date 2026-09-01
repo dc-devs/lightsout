@@ -1,0 +1,28 @@
+{
+	"name": "lightsout-jira",
+	"version": "0.1.0",
+	"description": "Jira Cloud ticket mechanics for the Lightsout ticket workflow.",
+	"author": {
+		"name": "dc-devs",
+		"url": "https://github.com/dc-devs"
+	},
+	"homepage": "https://github.com/dc-devs/lightsout",
+	"repository": "https://github.com/dc-devs/lightsout",
+	"license": "MIT",
+	"keywords": ["jira", "tickets", "planning", "pull-requests"],
+	"skills": "./skills/",
+	"interface": {
+		"displayName": "Lightsout Jira",
+		"shortDescription": "Apply Lightsout's Jira Cloud ticket conventions.",
+		"longDescription": "Add Jira Cloud-specific route labels, statuses, attachments, and pull-request conventions to the Lightsout ticket workflow.",
+		"developerName": "dc-devs",
+		"category": "Productivity",
+		"capabilities": ["Read", "Write"],
+		"websiteURL": "https://github.com/dc-devs/lightsout",
+		"defaultPrompt": [
+			"Shape this Jira ticket with the Lightsout workflow.",
+			"Start work on this Jira ticket.",
+			"Prepare the pull request for this Jira ticket."
+		]
+	}
+}

@@ -1,5 +1,9 @@
 import { describe, expect, jest, test } from '@jest/globals';
+import type { JiraQueueSettings } from '#src/queue/common/types/JiraQueueSettings.ts';
+import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
+import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { getTicketsByIdentifiers } from '#src/queue/tracker/index.ts';
+import { jiraQueueSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 
 // Mocked Imports
@@ -11,6 +15,14 @@ type LinearCall = (client: unknown) => Promise<unknown>;
 const mockRunLinear = jest.fn<(params: { apiKey: string; call: LinearCall }) => Promise<unknown>>();
 
 jest.mock('#src/queue/tracker/runLinear.ts', () => ({ runLinear: (params: { apiKey: string; call: LinearCall }) => mockRunLinear(params) }));
+// -------------------------
+type JiraGetParams = { settings: JiraQueueSettings; identifiers: string[] };
+
+const mockGetJiraTicketsByIdentifiers = jest.fn<(params: JiraGetParams) => Promise<TicketSummary[] | QueueFailure>>();
+
+jest.mock('#src/queue/tracker/jira/index.ts', () => ({
+	getTicketsByIdentifiers: (params: JiraGetParams) => mockGetJiraTicketsByIdentifiers(params),
+}));
 // -------------------------
 
 const settings = queueSettingsFixture();
@@ -59,6 +71,25 @@ const setupClient = ({ issues }: { issues: ReturnType<typeof issueOf>[] }) => {
 	return { filters };
 };
 
+const setupJiraDispatch = () => {
+	const jiraSettings = jiraQueueSettingsFixture();
+	const jiraTickets: TicketSummary[] = [
+		{
+			id: '10070',
+			identifier: 'LO-70',
+			title: 'Jira ticket',
+			description: 'Jira body',
+			priority: 5,
+			createdAt: '2026-02-02T00:00:00.000Z',
+			route: 'direct',
+			unfinishedBlockers: [],
+		},
+	];
+	mockGetJiraTicketsByIdentifiers.mockResolvedValue(jiraTickets);
+
+	return { jiraSettings, jiraTickets };
+};
+
 /** The shape the adapter walks: a real connection appends the next page onto itself and answers itself. */
 interface FakeConnection {
 	nodes: unknown[];
@@ -83,6 +114,15 @@ const setupPagedClient = ({ first, second }: { first: ReturnType<typeof issueOf>
 };
 
 describe('getTicketsByIdentifiers', () => {
+	test('dispatches Jira settings and identifiers to the Jira adapter', async () => {
+		const { jiraSettings, jiraTickets } = setupJiraDispatch();
+
+		const tickets = await getTicketsByIdentifiers({ settings: jiraSettings, identifiers: ['LO-70', 'LO-71'] });
+
+		expect(mockGetJiraTicketsByIdentifiers).toHaveBeenCalledWith({ settings: jiraSettings, identifiers: ['LO-70', 'LO-71'] });
+		expect(tickets).toStrictEqual(jiraTickets);
+	});
+
 	test('asks for these exact issue numbers with NO status filter — a parked ticket sits at the in-progress status the eligible query hides', async () => {
 		const { filters } = setupClient({ issues: [issueOf({ number: 70, labels: ['route-direct'] })] });
 

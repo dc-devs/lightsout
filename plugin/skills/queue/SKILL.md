@@ -49,9 +49,10 @@ engine, where it is deterministic code. Do not add workflow steps to this file.
    the session. (A harness with a dedicated wait-on-condition tool may use it
    in place of the shell loop — same cadence, same two wake conditions.)
 5. When the watcher wakes the session: read each `*.question.json` file — it
-   holds `ticket`, `title`, `question` and `askedAt` — and put the question
-   to the user with the ticket reference and title as context. When they
-   answer, write the answer beside it as a sibling file: same stem,
+   holds `ticket`, `title`, `question` and `askedAt` — and put the complete
+   ticket context and question in the final response that waits for the user's
+   answer, never only in commentary. When they answer, write the answer beside
+   it as a sibling file: same stem,
    `.answer.json` instead of `.question.json`, holding
    `{"answer": "<what the user said>"}`. The engine picks it up within two
    seconds, deletes both files, and the worker continues. Then re-start the

@@ -80,16 +80,21 @@ the option does in everyday words (`checker-per-plan-file`, not
 question outgrows that, treat it as a sign it is really two questions —
 split it.
 
-**At most 2 full-format questions per message.** Truly trivial yes/no items
-may share one combined block instead of getting a block each. Grill
-escalations are stricter: one question at a time, always.
+**Durable question delivery.** A pending decision is the deliverable for that
+turn. Put every complete four-part question block in the final response that
+waits for the user's answer. Never put the full block in commentary and then
+summarize or repeat only its Question in the final response; commentary may
+report progress, but must not contain a decision the user needs to answer.
 
-**Always ask in the message itself.** Never put a question to the user
-through an option-picker tool — the kind that shows a list of one-line
-choices to select from. Every question in this phase is written out in the
-message, in the shape above. A picker's labels cannot carry a Context, a
-Trade-offs, or a drafted table, so what it saves in typing it takes out of
-the user's ability to answer.
+The final response may carry at most 2 full-format questions. Truly trivial
+yes/no items may share one combined block instead of getting a block each.
+Grill escalations are stricter: one question at a time, always.
+
+Never put a question to the user through an option-picker tool — the kind that
+shows a list of one-line choices to select from. Every question in this phase
+is written out in that final response, in the shape above. A picker's labels
+cannot carry a Context, a Trade-offs, or a drafted table, so what it saves in
+typing it takes out of the user's ability to answer.
 
 ## Settled decisions
 

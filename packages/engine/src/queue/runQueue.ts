@@ -48,13 +48,17 @@ const checkQueueStartup = async ({
 	cwd,
 	settings,
 	shipSettings,
-}: Pick<Params, 'cwd' | 'settings' | 'shipSettings'>): Promise<QueueFailure | { defaultBranch: string }> => {
-	// The sample is shaped from the configured team key, so the check exercises
+}: {
+	cwd: string;
+	settings: QueueSettings;
+	shipSettings: ShipSettings;
+}): Promise<QueueFailure | { defaultBranch: string }> => {
+	// The sample is shaped from the configured tracker prefix, so the check exercises
 	// a branch name shaped like the repo's real ones — a hardcoded key would
-	// false-alarm on every `ship.ticket-pattern` scoped to its own team.
+	// false-alarm on every `ship.ticket-pattern` scoped to its own tracker project.
 	const sample: TicketSummary = {
 		id: 'sample',
-		identifier: `${settings.team}-1`,
+		identifier: `${settings.ticketPrefix}-1`,
 		title: 'sample',
 		description: '',
 		priority: 0,
@@ -110,7 +114,20 @@ const drainAndShip = async ({
 	first,
 	parked,
 	onProgress,
-}: Params & { runId: string; defaultBranch: string; first: WaveSelection; parked: ParkedWork }) => {
+}: {
+	cwd: string;
+	runId: string;
+	settings: QueueSettings;
+	shipSettings: ShipSettings;
+	config: LightsoutConfig;
+	driver: Driver;
+	driverName: string;
+	relay: QuestionRelay;
+	defaultBranch: string;
+	first: WaveSelection;
+	parked: ParkedWork;
+	onProgress?: (message: string) => void;
+}) => {
 	const coordinatorRunDir = getRunDir({ cwd, runId });
 	const planPath = join(coordinatorRunDir, 'queue.md');
 	const manifest = await createRun({ cwd, runId, plan: planPath, pipeline: PipelineKind.Queue, driver: driverName, config });

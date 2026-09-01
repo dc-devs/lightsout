@@ -37,6 +37,12 @@ describe('orderTickets', () => {
 		expect(identifiersOf({ tickets: orderTickets({ tickets }) })).toStrictEqual(['LO-71', 'LO-70']);
 	});
 
+	test('keeps Jira Lowest before an unprioritised ticket', () => {
+		const tickets = [ticketOf({ number: 70, priority: 0 }), ticketOf({ number: 71, priority: 5 })];
+
+		expect(identifiersOf({ tickets: orderTickets({ tickets }) })).toStrictEqual(['LO-71', 'LO-70']);
+	});
+
 	test('breaks a priority tie with the oldest ticket, so nothing sits in the backlog forever', () => {
 		const tickets = [
 			ticketOf({ number: 70, priority: 2, createdAt: '2026-03-01T00:00:00.000Z' }),
