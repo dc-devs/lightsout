@@ -17,16 +17,22 @@ interface Params {
 	onProgress?: (message: string) => void;
 }
 
+const isKnownJestWorkerSigsegv = ({ result }: { result: CommandResult }) => {
+	const output = `${result.stdout}\n${result.stderr}`;
+
+	return /A jest worker process \(pid=\d+\) was terminated by another process: signal=SIGSEGV, exitCode=null\./.test(output);
+};
+
 /**
  * The engine's gate-execution policy, as a single reusable `RunGate`: run a
- * command under a hard timeout, record the same evidence to both sinks, and
- * allow exactly one mechanical re-run before a red verdict.
+ * command under a hard timeout and record the same evidence to both sinks.
  *
  * Split out of `runGates` so that function is left dispatching between the
  * root and scoped groups — how one command is executed and recorded is a
  * separate decision from which commands a repo runs, and both groups share it
  * exactly. A module internal; its behaviour is pinned through `runGates`' own
- * tests, where the flake re-run and the evidence entries are asserted.
+ * tests, where the temporary Jest crash workaround and evidence entries are
+ * asserted.
  */
 export const createGateRunner = ({ cwd, runId, step, onGateResult, onProgress }: Params): RunGate => {
 	const executeOnce = async ({ kind, command, group, rerun }: { kind: string; command: string; group: string; rerun?: boolean }) => {
@@ -68,19 +74,16 @@ export const createGateRunner = ({ cwd, runId, step, onGateResult, onProgress }:
 
 	return async ({ kind, command, group }) => {
 		const first = await executeOnce({ kind, command, group });
+		let finalResult = first;
 
-		// One mechanical re-run before a red verdict — a single flaky worker
-		// crash in a big suite (observed: jest SIGSEGV zeroing coverage) must
-		// not fail a long run at the finish line. Two consecutive reds are a
-		// genuine red. Synthetic -1 results (spawn failure, timeout) don't
-		// re-run: repeating a 10-minute timeout only doubles the cost of
-		// learning the ceiling is too low, and both executions are in the log.
-		if (first.exitCode === 0 || first.exitCode === -1) {
-			return first;
+		// Temporary workaround for a known Jest worker crash: retry this exact
+		// SIGSEGV signature once while the upstream instability remains. All
+		// other red gates are deterministic evidence and must return immediately.
+		if (first.exitCode !== 0 && first.exitCode !== -1 && isKnownJestWorkerSigsegv({ result: first })) {
+			onProgress?.(`gate [${group}] ${kind}: Jest worker SIGSEGV — re-running once as a temporary workaround`);
+			finalResult = await executeOnce({ kind, command, group, rerun: true });
 		}
 
-		onProgress?.(`gate [${group}] ${kind}: red (exit ${first.exitCode}) — re-running once to rule out flake`);
-
-		return executeOnce({ kind, command, group, rerun: true });
+		return finalResult;
 	};
 };
