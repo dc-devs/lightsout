@@ -1,5 +1,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
+import type { QueueFailure, QueueSettings } from '#src/queue/index.ts';
 import { setTicketStatus } from '#src/queue/tracker/index.ts';
+import { jiraQueueSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 
 // Mocked Imports
@@ -12,15 +14,27 @@ const mockRunLinear = jest.fn<(params: { apiKey: string; call: LinearCall }) => 
 
 jest.mock('#src/queue/tracker/runLinear.ts', () => ({ runLinear: (params: { apiKey: string; call: LinearCall }) => mockRunLinear(params) }));
 // -------------------------
+type JiraQueueSettings = Extract<QueueSettings, { tracker: 'jira' }>;
+type JiraSetTicketStatus = (params: { settings: JiraQueueSettings; ticketId: string; statusName: string }) => Promise<QueueFailure | undefined>;
+
+const mockSetJiraTicketStatus = jest.fn<JiraSetTicketStatus>();
+
+jest.mock('#src/queue/tracker/jira/index.ts', () => ({
+	setTicketStatus: (params: { settings: JiraQueueSettings; ticketId: string; statusName: string }) => mockSetJiraTicketStatus(params),
+}));
+// -------------------------
 
 const settings = queueSettingsFixture({ maxParallel: 1 });
 
 const setupClient = ({ states }: { states: { id: string; name: string }[] }) => {
+	const apiKeys: string[] = [];
 	const stateFilters: unknown[] = [];
 	const updates: { id: string; input: unknown }[] = [];
 
-	mockRunLinear.mockImplementation(({ call }) =>
-		call({
+	mockRunLinear.mockImplementation(({ apiKey, call }) => {
+		apiKeys.push(apiKey);
+
+		return call({
 			workflowStates: (variables: { filter: unknown }) => {
 				stateFilters.push(variables.filter);
 
@@ -31,19 +45,28 @@ const setupClient = ({ states }: { states: { id: string; name: string }[] }) => 
 
 				return Promise.resolve({ success: true });
 			},
-		}),
-	);
+		});
+	});
 
-	return { stateFilters, updates };
+	return { apiKeys, stateFilters, updates };
+};
+
+const setupJiraStatus = () => {
+	const settings = jiraQueueSettingsFixture();
+	const trackerFailure = { error: 'Jira did not answer' };
+	mockSetJiraTicketStatus.mockResolvedValue(trackerFailure);
+
+	return { settings, trackerFailure };
 };
 
 describe('setTicketStatus', () => {
 	test('resolves the team’s state by name and moves the issue to it, answering undefined the way every other write step does', async () => {
-		const { stateFilters, updates } = setupClient({ states: [{ id: 'state-1', name: 'In Progress' }] });
+		const { apiKeys, stateFilters, updates } = setupClient({ states: [{ id: 'state-1', name: 'In Progress' }] });
 
 		const failure = await setTicketStatus({ settings, ticketId: 'id-70', statusName: 'In Progress' });
 
 		expect(failure).toBeUndefined();
+		expect(apiKeys).toStrictEqual(['lin_key']);
 		expect(stateFilters).toStrictEqual([{ team: { key: { eq: 'LO' } }, name: { eq: 'In Progress' } }]);
 		expect(updates).toStrictEqual([{ id: 'id-70', input: { stateId: 'state-1' } }]);
 	});
@@ -59,5 +82,16 @@ describe('setTicketStatus', () => {
 		mockRunLinear.mockResolvedValue({ error: 'the tracker did not answer' });
 
 		expect(await setTicketStatus({ settings, ticketId: 'id-70', statusName: 'In Progress' })).toStrictEqual({ error: 'the tracker did not answer' });
+	});
+
+	test('delegates Jira settings and status details to the Jira tracker', async () => {
+		const { settings: jiraSettings, trackerFailure } = setupJiraStatus();
+
+		const failure = await setTicketStatus({ settings: jiraSettings, ticketId: 'LO-84', statusName: 'In Progress' });
+
+		expect({ failure, calls: mockSetJiraTicketStatus.mock.calls }).toStrictEqual({
+			failure: trackerFailure,
+			calls: [[{ settings: jiraSettings, ticketId: 'LO-84', statusName: 'In Progress' }]],
+		});
 	});
 });

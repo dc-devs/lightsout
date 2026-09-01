@@ -1,5 +1,9 @@
 import { describe, expect, jest, test } from '@jest/globals';
+import type { JiraQueueSettings } from '#src/queue/common/types/JiraQueueSettings.ts';
+import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
+import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { listEligibleTickets } from '#src/queue/tracker/index.ts';
+import { jiraQueueSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 
 // Mocked Imports
@@ -12,6 +16,12 @@ type LinearCall = (client: unknown) => Promise<unknown>;
 const mockRunLinear = jest.fn<(params: { apiKey: string; call: LinearCall }) => Promise<unknown>>();
 
 jest.mock('#src/queue/tracker/runLinear.ts', () => ({ runLinear: (params: { apiKey: string; call: LinearCall }) => mockRunLinear(params) }));
+// -------------------------
+const mockListJiraEligibleTickets = jest.fn<(params: { settings: JiraQueueSettings }) => Promise<TicketSummary[] | QueueFailure>>();
+
+jest.mock('#src/queue/tracker/jira/index.ts', () => ({
+	listEligibleTickets: (params: { settings: JiraQueueSettings }) => mockListJiraEligibleTickets(params),
+}));
 // -------------------------
 
 const settings = queueSettingsFixture({ eligibleStatuses: ['Backlog', 'Ready to implement'] });
@@ -100,7 +110,35 @@ const setupClient = ({ byLabel, pages }: { byLabel: Record<string, unknown[]>; p
 	return { filters, fetchedPages: () => fetched };
 };
 
+const setupJiraDispatcher = () => {
+	const settings = jiraQueueSettingsFixture();
+	const jiraTickets: TicketSummary[] = [
+		{
+			id: '10070',
+			identifier: 'LO-70',
+			title: 'Jira ticket',
+			description: 'Jira body',
+			priority: 5,
+			createdAt: '2026-01-01T00:00:00.000Z',
+			route: 'direct',
+			unfinishedBlockers: [],
+		},
+	];
+	mockListJiraEligibleTickets.mockResolvedValue(jiraTickets);
+
+	return { settings, jiraTickets };
+};
+
 describe('listEligibleTickets', () => {
+	test('dispatches Jira settings to the Jira adapter and returns its tickets', async () => {
+		const { settings, jiraTickets } = setupJiraDispatcher();
+
+		const tickets = await listEligibleTickets({ settings });
+
+		expect(mockListJiraEligibleTickets).toHaveBeenCalledWith({ settings });
+		expect(tickets).toStrictEqual(jiraTickets);
+	});
+
 	test('asks one query per route label, so the route is known from the query rather than a second round trip per ticket', async () => {
 		const { filters } = setupClient({ byLabel: { 'route-direct': [issueOf({ number: 70 })], 'route-auto-plan': [issueOf({ number: 71 })] } });
 

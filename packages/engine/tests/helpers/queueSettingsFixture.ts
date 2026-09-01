@@ -1,5 +1,7 @@
 import type { QueueSettings } from '#src/queue/index.ts';
 
+type LinearQueueSettings = Extract<QueueSettings, { tracker: 'linear' }>;
+
 /**
  * A resolved `queue` block for tests, with whatever the test is actually about
  * overridden.
@@ -9,7 +11,9 @@ import type { QueueSettings } from '#src/queue/index.ts';
  * added in one place or the files that forgot it stop compiling for no reason a
  * reader can act on.
  */
-export const queueSettingsFixture = (overrides: Partial<QueueSettings> = {}): QueueSettings => ({
+export const queueSettingsFixture = (overrides: Partial<LinearQueueSettings> = {}): LinearQueueSettings => ({
+	tracker: 'linear',
+	ticketPrefix: 'LO',
 	team: 'LO',
 	routeLabels: { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
 	maxParallel: 2,

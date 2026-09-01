@@ -95,11 +95,15 @@ describe('getConfigView', () => {
 		expect(view.sections.flatMap((section) => section.fields).every((field) => field.description.length > 0)).toBe(true);
 	});
 
-	test('states the harness and the model at the top level, where the repo strip reads them', async () => {
-		const view = await getConfigView({ cwd: repoRoot });
+	test.each([
+		{ harness: 'claude-code', model: 'claude-opus-5' },
+		{ harness: 'codex', model: 'gpt-5.6-terra' },
+	])('states the configured $harness harness and $model model at the top level', async ({ harness, model }) => {
+		const cwd = await seedConfiguredCwd({ config: { harness, model } });
+		const view = await getConfigView({ cwd });
 
-		expect(view.harness).toBe('claude-code');
-		expect(view.model).toBe('claude-opus-5');
+		expect(view.harness).toBe(harness);
+		expect(view.model).toBe(model);
 	});
 
 	test('names the packs this config loads, each with the channels its own documents declare', async () => {

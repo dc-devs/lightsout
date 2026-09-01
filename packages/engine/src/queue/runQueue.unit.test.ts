@@ -13,6 +13,7 @@ import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { runQueue, TerminalQuestionRelay } from '#src/queue/index.ts';
 import type { ShipSettings } from '#src/ship/index.ts';
+import { jiraQueueSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
@@ -138,6 +139,19 @@ describe('runQueue', () => {
 		expect(report).toStrictEqual({ outcomes: [], leftBehind: [] });
 	});
 
+	test('starts Jira under a ticket pattern scoped to its ticket prefix', async () => {
+		const { drain, relay } = setupDrain();
+
+		const report = await drain({
+			settings: jiraQueueSettingsFixture({ project: 'OPS', ticketPrefix: 'OPS' }),
+			ship: { ...shipSettings, ticketPattern: /^(?<ticket>ops-(?<number>\d+))/ },
+		});
+
+		relay.close();
+
+		expect(report).toStrictEqual({ outcomes: [], leftBehind: [] });
+	});
+
 	test('refuses a repo with no remote default branch, the same refusal ship makes for the same reason', async () => {
 		const { cwd } = setupBranchRepo({ remoteHead: false });
 		const relay = new TerminalQuestionRelay({ settings: queueSettingsFixture(), input: new PassThrough(), output: new PassThrough() });
@@ -199,13 +213,14 @@ describe('runQueue', () => {
 				ticketOf({ number: 71, priority: 3, createdAt: '2026-03-01T00:00:00.000Z' }),
 				ticketOf({ number: 72, priority: 1 }),
 				ticketOf({ number: 73, priority: 3, createdAt: '2026-02-01T00:00:00.000Z' }),
+				ticketOf({ number: 74, priority: 5 }),
 			],
 		});
 
 		await drain({ settings: queueSettingsFixture({ maxParallel: 1 }) });
 		relay.close();
 
-		expect(mockRunQueueTicket.mock.calls.map((call) => call[0].ticket.identifier)).toStrictEqual(['LO-72', 'LO-73', 'LO-71', 'LO-70']);
+		expect(mockRunQueueTicket.mock.calls.map((call) => call[0].ticket.identifier)).toStrictEqual(['LO-72', 'LO-73', 'LO-71', 'LO-74', 'LO-70']);
 	});
 
 	test('picks up parked tickets before any new one, because a restart is the resume path', async () => {

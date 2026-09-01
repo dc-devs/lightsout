@@ -1,6 +1,7 @@
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
-import { runLinear } from '#src/queue/tracker/runLinear.ts';
+import { setTicketStatus as setJiraTicketStatus } from '#src/queue/tracker/jira/index.ts';
+import { setTicketStatus as setLinearTicketStatus } from '#src/queue/tracker/linear/setTicketStatus.ts';
 
 interface Params {
 	settings: QueueSettings;
@@ -17,21 +18,5 @@ interface Params {
  * a silent no-op: a status nobody can see is a status nobody configured.
  */
 export const setTicketStatus = async ({ settings, ticketId, statusName }: Params): Promise<QueueFailure | undefined> => {
-	const applied = await runLinear({
-		apiKey: settings.apiKey,
-		call: async (client) => {
-			const states = await client.workflowStates({ filter: { team: { key: { eq: settings.team } }, name: { eq: statusName } } });
-			const state = states.nodes.at(0);
-
-			if (state === undefined) {
-				return { error: `the '${settings.team}' team has no '${statusName}' status` };
-			}
-
-			await client.updateIssue(ticketId, { stateId: state.id });
-
-			return undefined;
-		},
-	});
-
-	return applied;
+	return settings.tracker === 'linear' ? setLinearTicketStatus({ settings, ticketId, statusName }) : setJiraTicketStatus({ settings, ticketId, statusName });
 };

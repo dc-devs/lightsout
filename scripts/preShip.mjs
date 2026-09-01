@@ -34,6 +34,11 @@ const shippedDirectories = [
 		primaryManifestPath: join('plugin-linear', '.claude-plugin', 'plugin.json'),
 		manifestPaths: [join('plugin-linear', '.claude-plugin', 'plugin.json'), join('plugin-linear', '.codex-plugin', 'plugin.json')],
 	},
+	{
+		dir: 'plugin-jira',
+		primaryManifestPath: join('plugin-jira', '.claude-plugin', 'plugin.json'),
+		manifestPaths: [join('plugin-jira', '.claude-plugin', 'plugin.json'), join('plugin-jira', '.codex-plugin', 'plugin.json')],
+	},
 ];
 
 /** A git command's stdout, or undefined when git exits non-zero (an unknown ref, usually). */
@@ -58,8 +63,8 @@ const changedSince = ({ baseCommit, path }) => {
 
 /** Compares by numeric segment. True only when `head` is genuinely newer. */
 const isNewer = ({ head, base }) => {
-	const segments = (version) => version.split('.').map((segment) => Number.parseInt(segment, 10) || 0);
-	const [headSegments, baseSegments] = [segments(head), segments(base)];
+	const segments = ({ version }) => version.split('.').map((segment) => Number.parseInt(segment, 10) || 0);
+	const [headSegments, baseSegments] = [segments({ version: head }), segments({ version: base })];
 
 	for (let index = 0; index < Math.max(headSegments.length, baseSegments.length); index += 1) {
 		const [left, right] = [headSegments[index] ?? 0, baseSegments[index] ?? 0];

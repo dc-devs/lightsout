@@ -22678,59 +22678,42 @@ var ConfigGates = external_exports.object({
 });
 
 // src/contracts/ConfigQueue.ts
-var ConfigQueue = external_exports.object({
-  /** Which tracker the queue reads. Only Linear has an adapter today. */
-  tracker: external_exports.literal("linear"),
-  /** The tracker's team key, e.g. 'LO' — every query is scoped to it. */
-  team: external_exports.string(),
-  /** Which ticket label routes a ticket to which worker. A label named here is the human's opt-in to automation. */
+var sharedQueueShape = {
   "route-labels": external_exports.object({ direct: external_exports.string(), "auto-plan": external_exports.string() }).strict(),
-  /** How many tickets may be in flight at once. Also the ceiling on how many questions can ever wait for the user at the same time. */
   "max-parallel": external_exports.number().int().positive(),
-  /** Name of the environment variable holding the tracker API key. The key itself is never written to config. */
   "api-key-env": external_exports.string(),
-  /** Ticket statuses the queue may pick up. Default `['Backlog', 'Ready to implement']`. */
   "eligible-statuses": external_exports.array(external_exports.string()).optional(),
-  /** Status the queue moves a ticket to when it picks it up. Default `'In Progress'`. */
   "in-progress-status": external_exports.string().optional(),
-  /** Command run once in a fresh worktree before any agent, e.g. `pnpm install`. Absent means nothing runs. */
   setup: external_exports.string().optional(),
-  /**
-   * How a ticket becomes a branch name. `{ticket}` is the lowercased
-   * identifier, `{slug}` the slugged title. Default `{ticket}-{slug}`.
-   * A company convention like `feature/{ticket}-{slug}` goes here — and
-   * whatever it produces must be matched by `ship.ticket-pattern`, which
-   * is equally the repo's to configure.
-   */
   "branch-template": external_exports.string().optional(),
-  /**
-   * The ticket-body heading relayed answers are appended under. A
-   * tracker convention, so a config value. Default `## Decisions`.
-   */
   "decisions-heading": external_exports.string().optional(),
-  /**
-   * Ceiling for one ticket's auto-plan worker session — the session that
-   * plans a ticket and sits through the implement run it launches. Per
-   * ticket, never for the drain: the queue itself has no ceiling and runs
-   * until the backlog is dry. A hit ceiling parks the ticket resumably,
-   * exactly like every other agent timeout. A duration string like '90s',
-   * '45m' or '4h'. Default `'4h'`.
-   */
   "worker-timeout": external_exports.string().optional(),
-  /**
-   * How long one relayed question waits for an answer before its ticket
-   * parks. A duration string like '90s', '45m' or '4h'. Default `'1h'`.
-   * Only `--file-relay` observes it: the terminal relay waits on a person
-   * who is present, and gives up when their terminal goes away.
-   */
   "question-timeout": external_exports.string().optional(),
-  /**
-   * The ticket label the queue sets when a ticket parks and clears when it
-   * resumes or ships. Opt-in with no default — a repo that names none never
-   * has one invented for it. The label is created on the team on first use.
-   */
   "parked-label": external_exports.string().optional()
-}).strict();
+};
+var jiraSiteUrl = external_exports.string().url().refine((value) => {
+  let url2;
+  try {
+    url2 = new URL(value);
+  } catch {
+    return false;
+  }
+  return url2.protocol === "https:" && url2.hostname.endsWith(".atlassian.net") && url2.pathname === "/" && url2.search === "" && url2.hash === "";
+}, "Jira site-url must be an HTTPS *.atlassian.net origin");
+var ConfigQueue = external_exports.discriminatedUnion("tracker", [
+  external_exports.object({
+    ...sharedQueueShape,
+    tracker: external_exports.literal("linear"),
+    team: external_exports.string().min(1, "Linear queues need a team")
+  }).strict(),
+  external_exports.object({
+    ...sharedQueueShape,
+    tracker: external_exports.literal("jira"),
+    "site-url": jiraSiteUrl,
+    project: external_exports.string().min(1, "Jira queues need a project"),
+    "api-user-email-env": external_exports.string().min(1, "Jira queues need an api-user-email-env")
+  }).strict()
+]);
 
 // src/contracts/ship/ShipMergeMethod.ts
 var ShipMergeMethod = {
@@ -26778,7 +26761,7 @@ var applyPromptTokens = ({ text, tokens }) => {
 };
 
 // src/agents/prompts/featureExecutor.md
-var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan appended to these instructions,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than {{fileLimit}} source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- An Overview section, when present, is high-level context from a multi-phase\n  effort \u2014 use it to understand intent, but implement only what the Plan\n  section specifies.\n- If a Standards section is appended to these instructions, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests only when the plan explicitly requires them \u2014 otherwise a\n  dedicated test-writer role covers your changes after you report.\n- Do not run builds, tests, linters, formatters, package-manager commands,\n  Git commands, network commands, or any other verification or\n  environment-changing command \u2014 the engine runs verification after you\n  report, against gates you cannot influence. Use the harness\'s file tools to\n  read and edit files. If the harness exposes the filesystem only through a\n  shell, use the shell solely to inspect and edit files \u2014 never for\n  repository commands. Sole exception: commands listed under a\n  `# Granted commands` section in your task, and only for producing the\n  deliverables described there \u2014 never for verifying, installing, or anything\n  the grant text doesn\'t cover.\n- Do not create commits or branches.\n- Do not read or write any agent memory, and do not edit CLAUDE.md or other\n  standing instructions \u2014 anything worth persisting belongs in your report\n  (friction included), which the engine records.\n\n## Prior art before new symbols\n\nBefore creating any NEW exported symbol the plan does not explicitly name,\nsearch the repository for an existing implementation \u2014 the exact name, its\nsynonyms (fetch/load/retrieve \u2248 get, make/generate \u2248 create, remove \u2248\ndelete), and the domain words. If a match exists, use it instead of\nduplicating it \u2014 or report the conflict in `failures` if it can\'t serve.\nRecord every such symbol in the `priorArt` array of your report: the terms\nyou searched and what they surfaced. An empty `matches` is a legitimate\nentry \u2014 "searched, found nothing" is evidence the pipeline records. Symbols\nthe plan names explicitly need no entry.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\nThen, if a Standards section was provided, re-read it top to bottom and audit\nevery file you changed against every rule \u2014 the full set, not the subset you\nremember from before you started coding. Fix each deviation in source before\nreporting: the refactor role should find clean code, not do your conformance\npass for you.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }],\n	"priorArt": [{ "symbol": "formatDate", "searches": ["formatDate", "format.*date", "dateToString"], "matches": [] }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
+var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan appended to these instructions,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than {{fileLimit}} source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- An Overview section, when present, is high-level context from a multi-phase\n  effort \u2014 use it to understand intent, but implement only what the Plan\n  section specifies.\n- If a Standards section is appended to these instructions, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests whenever the plan explicitly requires them \u2014 create every\n  plan-named test file and cover its specified cases before reporting.\n  \u201CDo not run verification\u201D below prohibits executing tests and gates; it\n  never permits omitting required test code. Otherwise, a dedicated test-writer\n  role covers your changes after you report.\n- Do not run builds, tests, linters, formatters, package-manager commands,\n  Git commands, network commands, or any other verification or\n  environment-changing command \u2014 the engine runs verification after you\n  report, against gates you cannot influence. Use the harness\'s file tools to\n  read and edit files. If the harness exposes the filesystem only through a\n  shell, use the shell solely to inspect and edit files \u2014 never for\n  repository commands. Sole exception: commands listed under a\n  `# Granted commands` section in your task, and only for producing the\n  deliverables described there \u2014 never for verifying, installing, or anything\n  the grant text doesn\'t cover.\n- Do not create commits or branches.\n- Do not read or write any agent memory, and do not edit CLAUDE.md or other\n  standing instructions \u2014 anything worth persisting belongs in your report\n  (friction included), which the engine records.\n\n## Prior art before new symbols\n\nBefore creating any NEW exported symbol the plan does not explicitly name,\nsearch the repository for an existing implementation \u2014 the exact name, its\nsynonyms (fetch/load/retrieve \u2248 get, make/generate \u2248 create, remove \u2248\ndelete), and the domain words. If a match exists, use it instead of\nduplicating it \u2014 or report the conflict in `failures` if it can\'t serve.\nRecord every such symbol in the `priorArt` array of your report: the terms\nyou searched and what they surfaced. An empty `matches` is a legitimate\nentry \u2014 "searched, found nothing" is evidence the pipeline records. Symbols\nthe plan names explicitly need no entry.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\nThen, if a Standards section was provided, re-read it top to bottom and audit\nevery file you changed against every rule \u2014 the full set, not the subset you\nremember from before you started coding. Fix each deviation in source before\nreporting: the refactor role should find clean code, not do your conformance\npass for you.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }],\n	"priorArt": [{ "symbol": "formatDate", "searches": ["formatDate", "format.*date", "dateToString"], "matches": [] }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
 
 // src/common/constants/defaultExecutorFileLimit.ts
 var defaultExecutorFileLimit = 50;
@@ -47770,6 +47753,674 @@ import { join as join82 } from "node:path";
 
 // src/queue/relay/recordRelayedAnswer.ts
 import { join as join81 } from "node:path";
+
+// src/queue/tracker/common/utils/addLineUnderHeading.ts
+var readHeadingLevel = ({ line }) => {
+  const hashes = /^(#{1,6})\s/.exec(line)?.[1];
+  return hashes === void 0 ? void 0 : hashes.length;
+};
+var addLineUnderHeading = ({ body, heading, line }) => {
+  const lines = body.split("\n");
+  let result;
+  if (lines.includes(line)) {
+    result = body;
+  } else {
+    const headingIndex = lines.findIndex((candidate) => candidate.trim() === heading.trim());
+    if (headingIndex === -1) {
+      result = `${body.trimEnd()}
+
+${heading}
+
+${line}`.trimStart();
+    } else {
+      const level = readHeadingLevel({ line: heading.trim() }) ?? 2;
+      const after = lines.slice(headingIndex + 1);
+      const nextHeading = after.findIndex((candidate) => (readHeadingLevel({ line: candidate }) ?? 7) <= level);
+      const sectionEnd = nextHeading === -1 ? lines.length : headingIndex + 1 + nextHeading;
+      let insertAt = sectionEnd;
+      while (insertAt > headingIndex + 1 && lines[insertAt - 1]?.trim() === "") {
+        insertAt -= 1;
+      }
+      result = [...lines.slice(0, insertAt), line, ...lines.slice(insertAt)].join("\n");
+    }
+  }
+  return result;
+};
+
+// src/queue/tracker/jira/fromAdf.ts
+var AdfMarkType = { Strong: "strong", Em: "em", Code: "code", Link: "link" };
+var InlineTokenKind = { Text: "text", Break: "break" };
+var readRecord = ({ value }) => {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? Object.fromEntries(Object.entries(value)) : void 0;
+};
+var readNode = ({ value }) => {
+  const record3 = readRecord({ value });
+  if (record3 === void 0 || typeof record3.type !== "string") {
+    return void 0;
+  }
+  return { type: record3.type, text: record3.text, attrs: record3.attrs, marks: record3.marks, content: record3.content };
+};
+var readContent = ({ node }) => {
+  return node.content === void 0 ? [] : Array.isArray(node.content) ? node.content : void 0;
+};
+var readMarks = ({ value }) => {
+  if (value === void 0) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    return void 0;
+  }
+  const normalized = [];
+  for (const candidate of value) {
+    const candidateRecord = readRecord({ value: candidate });
+    if (candidateRecord === void 0 || typeof candidateRecord.type !== "string") {
+      continue;
+    }
+    if ((candidateRecord.type === AdfMarkType.Strong || candidateRecord.type === AdfMarkType.Em || candidateRecord.type === AdfMarkType.Code) && candidateRecord.attrs === void 0) {
+      normalized.push({ type: candidateRecord.type });
+    }
+    const linkAttributes = readRecord({ value: candidateRecord.attrs });
+    if (candidateRecord.type === AdfMarkType.Link && typeof linkAttributes?.href === "string" && linkAttributes.href !== "") {
+      normalized.push({ type: AdfMarkType.Link, href: linkAttributes.href });
+    }
+  }
+  const order = { strong: 0, em: 1, code: 2, link: 3 };
+  const unique = normalized.filter((mark, index) => normalized.findIndex((candidate) => candidate.type === mark.type) === index);
+  return unique.sort((left, right) => order[left.type] - order[right.type]);
+};
+var readInlineTokens = ({ values }) => {
+  const tokens = [];
+  for (const value of values) {
+    const node = readNode({ value });
+    if (node === void 0) {
+      return void 0;
+    }
+    if (node.type === "text") {
+      const marks = readMarks({ value: node.marks });
+      if (typeof node.text !== "string" || marks === void 0) {
+        return void 0;
+      }
+      tokens.push({ kind: InlineTokenKind.Text, text: node.text, marks });
+      continue;
+    }
+    if (node.type === "hardBreak") {
+      tokens.push({ kind: InlineTokenKind.Break });
+      continue;
+    }
+    const content = readContent({ node });
+    if (content === void 0) {
+      return void 0;
+    }
+    const descendants = readInlineTokens({ values: content });
+    if (descendants === void 0) {
+      return void 0;
+    }
+    tokens.push(...descendants);
+  }
+  return tokens;
+};
+var markKey = ({ marks }) => JSON.stringify(marks);
+var coalesceTokens = ({ tokens }) => {
+  const result = [];
+  for (const token of tokens) {
+    const previous = result.at(-1);
+    if (token.kind === InlineTokenKind.Text && previous?.kind === InlineTokenKind.Text && markKey({ marks: previous.marks }) === markKey({ marks: token.marks })) {
+      previous.text += token.text;
+    } else {
+      result.push(token);
+    }
+  }
+  return result;
+};
+var escapeText = ({ text, lineStart }) => {
+  const escaped = text.replace(/[\\*_`[\]()]/gu, "\\$&");
+  return lineStart ? escaped.replace(/^([#-]) /u, "\\$1 ").replace(/^(\d+)\. /u, "$1\\. ") : escaped;
+};
+var wrapMarks = ({ text, marks }) => {
+  let prefix = "";
+  let suffix = "";
+  for (const mark of marks) {
+    if (mark.type === AdfMarkType.Strong) {
+      prefix += "**";
+      suffix = `**${suffix}`;
+    } else if (mark.type === AdfMarkType.Em) {
+      prefix += "_";
+      suffix = `_${suffix}`;
+    } else if (mark.type === AdfMarkType.Code) {
+      prefix += "`";
+      suffix = `\`${suffix}`;
+    } else {
+      prefix += "[";
+      suffix = `](${mark.href.replaceAll("\\", "%5C").replaceAll(" ", "%20").replaceAll(")", "%29")})${suffix}`;
+    }
+  }
+  return `${prefix}${text}${suffix}`;
+};
+var renderInline = ({ values }) => {
+  const read = readInlineTokens({ values });
+  if (read === void 0) {
+    return void 0;
+  }
+  let lineStart = true;
+  let markdown = "";
+  for (const token of coalesceTokens({ tokens: read })) {
+    if (token.kind === InlineTokenKind.Break) {
+      markdown += "\n";
+      lineStart = true;
+    } else {
+      markdown += wrapMarks({ text: escapeText({ text: token.text, lineStart }), marks: token.marks });
+      lineStart = token.text.endsWith("\n");
+    }
+  }
+  return markdown;
+};
+var renderList = ({ node, depth }) => {
+  const items = readContent({ node });
+  const attrs = readRecord({ value: node.attrs });
+  const configuredOrder = attrs?.order;
+  const firstOrder = typeof configuredOrder === "number" && Number.isInteger(configuredOrder) && configuredOrder > 0 ? configuredOrder : 1;
+  if (items === void 0) {
+    return void 0;
+  }
+  const lines = [];
+  for (const [index, value] of items.entries()) {
+    const item = readNode({ value });
+    const content = item === void 0 || item.type !== "listItem" ? void 0 : readContent({ node: item });
+    const first = content === void 0 ? void 0 : readNode({ value: content[0] });
+    const firstContent = first === void 0 ? [] : readContent({ node: first });
+    if (content === void 0 || first?.type !== "paragraph" || firstContent === void 0) {
+      return void 0;
+    }
+    const text = renderInline({ values: firstContent });
+    if (text === void 0) {
+      return void 0;
+    }
+    const prefix = node.type === "orderedList" ? `${firstOrder + index}. ` : "- ";
+    lines.push(`${"  ".repeat(depth)}${prefix}${text}`);
+    for (const nestedValue of content.slice(1)) {
+      const nested = readNode({ value: nestedValue });
+      if (nested === void 0 || nested.type !== "bulletList" && nested.type !== "orderedList") {
+        return void 0;
+      }
+      const rendered = renderList({ node: nested, depth: depth + 1 });
+      if (rendered === void 0) {
+        return void 0;
+      }
+      lines.push(rendered);
+    }
+  }
+  return lines.join("\n");
+};
+var renderBlock = ({ value }) => {
+  const node = readNode({ value });
+  if (node === void 0) {
+    return void 0;
+  }
+  if (node.type === "bulletList" || node.type === "orderedList") {
+    return renderList({ node, depth: 0 });
+  }
+  if (node.type === "text" || node.type === "hardBreak") {
+    return renderInline({ values: [value] });
+  }
+  const content = readContent({ node });
+  if (content === void 0) {
+    return void 0;
+  }
+  const text = renderInline({ values: content });
+  if (text === void 0) {
+    return void 0;
+  }
+  if (node.type !== "heading") {
+    return text;
+  }
+  const attrs = readRecord({ value: node.attrs });
+  const level = attrs?.level;
+  return typeof level === "number" && Number.isInteger(level) && level >= 1 && level <= 6 ? `${"#".repeat(level)} ${text}` : void 0;
+};
+var fromAdf = ({ value }) => {
+  if (value === void 0 || value === null) {
+    return "";
+  }
+  const root = readNode({ value });
+  const rootRecord = readRecord({ value });
+  const content = root === void 0 ? void 0 : readContent({ node: root });
+  if (root === void 0 || rootRecord?.version !== 1 || root.type !== "doc" || content === void 0) {
+    return void 0;
+  }
+  const blocks = content.map((block) => renderBlock({ value: block }));
+  return blocks.some((block) => block === void 0) ? void 0 : blocks.join("\n\n");
+};
+
+// src/queue/tracker/jira/runJira.ts
+var ResponseKind = { Json: "json", Empty: "empty" };
+var createJiraClient = ({ settings }) => {
+  async function request({ method, path, body, response }) {
+    const authorization = Buffer.from(`${settings.apiUserEmail}:${settings.apiKey}`).toString("base64");
+    const headers = { Accept: "application/json", Authorization: `Basic ${authorization}` };
+    if (body !== void 0) {
+      headers["Content-Type"] = "application/json";
+    }
+    const responseValue = await fetch(`${settings.siteUrl}${path}`, { method, headers, body: body === void 0 ? void 0 : JSON.stringify(body) });
+    const text = await responseValue.text();
+    if (!responseValue.ok) {
+      throw new Error(`Jira request failed with ${responseValue.status}: ${text || responseValue.statusText}`);
+    }
+    if (response === ResponseKind.Empty) {
+      if (responseValue.status !== 204 || text !== "") {
+        throw new Error("Jira returned a response body where an empty response was expected");
+      }
+      return;
+    }
+    if (text === "") {
+      throw new Error("Jira returned an empty JSON response");
+    }
+    try {
+      const parsed = JSON.parse(text);
+      return parsed;
+    } catch {
+      throw new Error("Jira returned malformed JSON");
+    }
+  }
+  return { request };
+};
+var withDeadline = async ({ request }) => {
+  const trackerTimeoutMs = 6e4;
+  let timer;
+  const deadline = new Promise((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(`the tracker did not answer within ${trackerTimeoutMs}ms`)), trackerTimeoutMs);
+  });
+  try {
+    return await Promise.race([request, deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+};
+var runJira = async ({ settings, request }) => {
+  try {
+    return await withDeadline({ request: request(createJiraClient({ settings })) });
+  } catch (error51) {
+    return { error: messageOf({ error: error51 }) };
+  }
+};
+
+// src/queue/tracker/jira/toAdf.ts
+var TextMarkType = { Strong: "strong", Em: "em", Code: "code", Link: "link" };
+var InlineNodeType = { Text: "text", HardBreak: "hardBreak" };
+var ListKind = { Bullet: "bullet", Ordered: "ordered" };
+var AdfNodeType = {
+  Doc: "doc",
+  Paragraph: "paragraph",
+  Heading: "heading",
+  ListItem: "listItem",
+  BulletList: "bulletList",
+  OrderedList: "orderedList"
+};
+var marksKey = ({ marks }) => JSON.stringify(marks);
+var appendText = ({ nodes, text, marks = [] }) => {
+  if (text === "") {
+    return;
+  }
+  const previous = nodes.at(-1);
+  if (previous?.type === InlineNodeType.Text && marksKey({ marks: previous.marks ?? [] }) === marksKey({ marks })) {
+    previous.text += text;
+  } else {
+    nodes.push(marks.length === 0 ? { type: InlineNodeType.Text, text } : { type: InlineNodeType.Text, text, marks });
+  }
+};
+var findUnescaped = ({ text, token, start, end }) => {
+  for (let index = start; index <= end - token.length; index += 1) {
+    if (text[index] === "\\") {
+      index += 1;
+      continue;
+    }
+    if (text.startsWith(token, index)) {
+      return index;
+    }
+  }
+  return void 0;
+};
+var withOuterMark = ({ nodes, mark }) => {
+  return nodes.map((node) => node.type === InlineNodeType.HardBreak ? node : { ...node, marks: [mark, ...node.marks ?? []] });
+};
+var readMarkedRun = ({ text, index, end, minimumRank }) => {
+  const definitions = [
+    { rank: 0, opener: "**", closer: "**", mark: { type: TextMarkType.Strong } },
+    { rank: 1, opener: "_", closer: "_", mark: { type: TextMarkType.Em } },
+    { rank: 2, opener: "`", closer: "`", mark: { type: TextMarkType.Code } }
+  ];
+  for (const definition of definitions) {
+    if (definition.rank < minimumRank || !text.startsWith(definition.opener, index)) {
+      continue;
+    }
+    const contentStart = index + definition.opener.length;
+    const close = findUnescaped({ text, token: definition.closer, start: contentStart, end });
+    if (close === void 0 || close === contentStart) {
+      continue;
+    }
+    const nodes = parseInlineRange({ text, start: contentStart, end: close, minimumRank: definition.rank + 1 });
+    return { nodes: withOuterMark({ nodes, mark: definition.mark }), nextIndex: close + definition.closer.length };
+  }
+  if (minimumRank <= 3 && text[index] === "[" && (index === 0 || text[index - 1] !== "!")) {
+    const middle = findUnescaped({ text, token: "](", start: index + 1, end });
+    const close = middle === void 0 ? void 0 : findUnescaped({ text, token: ")", start: middle + 2, end });
+    if (middle !== void 0 && middle > index + 1 && close !== void 0 && close > middle + 2) {
+      try {
+        const href = decodeURIComponent(text.slice(middle + 2, close));
+        if (href !== "") {
+          const nodes = parseInlineRange({ text, start: index + 1, end: middle, minimumRank: 4 });
+          return { nodes: withOuterMark({ nodes, mark: { type: TextMarkType.Link, attrs: { href } } }), nextIndex: close + 1 };
+        }
+      } catch {
+        return void 0;
+      }
+    }
+  }
+  return void 0;
+};
+var parseInlineRange = ({ text, start, end, minimumRank }) => {
+  const nodes = [];
+  let index = start;
+  while (index < end) {
+    if (text[index] === "\\" && index + 1 < end) {
+      appendText({ nodes, text: text[index + 1] ?? "" });
+      index += 2;
+      continue;
+    }
+    const marked = readMarkedRun({ text, index, end, minimumRank });
+    if (marked !== void 0) {
+      for (const node of marked.nodes) {
+        if (node.type === InlineNodeType.HardBreak) {
+          nodes.push(node);
+        } else {
+          appendText({ nodes, text: node.text, marks: node.marks });
+        }
+      }
+      index = marked.nextIndex;
+      continue;
+    }
+    appendText({ nodes, text: text[index] ?? "" });
+    index += 1;
+  }
+  return nodes;
+};
+var parseInline = ({ text }) => parseInlineRange({ text, start: 0, end: text.length, minimumRank: 0 });
+var paragraph = ({ text, literal: literal2 = false }) => {
+  const content = [];
+  for (const [index, line] of text.split("\n").entries()) {
+    if (index > 0) {
+      content.push({ type: InlineNodeType.HardBreak });
+    }
+    const nodes = literal2 ? parseInlineRange({ text: line, start: 0, end: line.length, minimumRank: 4 }) : parseInline({ text: line });
+    for (const node of nodes) {
+      if (node.type === InlineNodeType.HardBreak) {
+        content.push(node);
+      } else {
+        appendText({ nodes: content, text: node.text, marks: node.marks });
+      }
+    }
+  }
+  return { type: AdfNodeType.Paragraph, content };
+};
+var readListMarker = ({ line }) => {
+  const match = /^( *)(?:(- )|(\d+)\. )(.*)$/u.exec(line);
+  if (match === null || (match[1]?.length ?? 0) % 2 !== 0) {
+    return void 0;
+  }
+  const ordinal = match[3] === void 0 ? void 0 : Number(match[3]);
+  if (ordinal !== void 0 && (!Number.isInteger(ordinal) || ordinal < 1)) {
+    return void 0;
+  }
+  return {
+    depth: (match[1]?.length ?? 0) / 2,
+    kind: match[2] === void 0 ? ListKind.Ordered : ListKind.Bullet,
+    ordinal,
+    text: match[4] ?? ""
+  };
+};
+var parseList = ({ lines, start, depth, kind }) => {
+  const content = [];
+  const first = readListMarker({ line: lines[start] ?? "" });
+  let expectedOrdinal = first?.ordinal;
+  let index = start;
+  if (first === void 0 || first.depth !== depth || first.kind !== kind || kind === ListKind.Ordered && expectedOrdinal === void 0) {
+    return void 0;
+  }
+  while (index < lines.length) {
+    const marker = readListMarker({ line: lines[index] ?? "" });
+    if (marker === void 0 || marker.depth !== depth || marker.kind !== kind) {
+      break;
+    }
+    if (kind === ListKind.Ordered && marker.ordinal !== expectedOrdinal) {
+      return void 0;
+    }
+    const itemContent = [paragraph({ text: marker.text })];
+    index += 1;
+    expectedOrdinal = expectedOrdinal === void 0 ? void 0 : expectedOrdinal + 1;
+    while (index < lines.length) {
+      const childMarker = readListMarker({ line: lines[index] ?? "" });
+      if (childMarker === void 0 || childMarker.depth <= depth) {
+        break;
+      }
+      if (childMarker.depth !== depth + 1) {
+        return void 0;
+      }
+      const child = parseList({ lines, start: index, depth: depth + 1, kind: childMarker.kind });
+      if (child === void 0) {
+        return void 0;
+      }
+      itemContent.push(child.node);
+      index = child.nextIndex;
+    }
+    content.push({ type: AdfNodeType.ListItem, content: itemContent });
+  }
+  const node = kind === ListKind.Ordered ? { type: AdfNodeType.OrderedList, attrs: { order: first.ordinal }, content } : { type: AdfNodeType.BulletList, content };
+  return { node, nextIndex: index };
+};
+var parseBlock = ({ block }) => {
+  const heading = /^(#{1,6}) (.*)$/su.exec(block);
+  if (heading !== null && !heading[2]?.includes("\n")) {
+    return { type: AdfNodeType.Heading, attrs: { level: heading[1]?.length }, content: parseInline({ text: heading[2] ?? "" }) };
+  }
+  const lines = block.split("\n");
+  const unsupported = /!\[[^\]]*\]\([^)]*\)/u.test(block) || /^\s*>/mu.test(block) || /^\s*<[^>]+>/mu.test(block) || lines.some((line) => /^\s*\|?[\s:-]+\|[\s|:-]*$/u.test(line));
+  if (unsupported) {
+    return paragraph({ text: block, literal: true });
+  }
+  const firstMarker = readListMarker({ line: lines[0] ?? "" });
+  if (firstMarker !== void 0 && firstMarker.depth === 0) {
+    const list = parseList({ lines, start: 0, depth: 0, kind: firstMarker.kind });
+    if (list !== void 0 && list.nextIndex === lines.length) {
+      return list.node;
+    }
+  }
+  return paragraph({ text: block });
+};
+var toAdf = ({ markdown }) => {
+  if (markdown === "") {
+    return { type: AdfNodeType.Doc, version: 1, content: [] };
+  }
+  return {
+    type: AdfNodeType.Doc,
+    version: 1,
+    content: markdown.split(/\n{2,}/u).filter((block) => block !== "").map((block) => parseBlock({ block }))
+  };
+};
+
+// src/queue/tracker/jira/appendTicketNote.ts
+var appendTicketNote = async ({ settings, ticketId, heading, line }) => {
+  const path = `/rest/api/3/issue/${encodeURIComponent(ticketId)}`;
+  const result = await runJira({
+    settings,
+    request: async (client) => {
+      const issue2 = await client.request({ method: "GET", path: `${path}?fields=description`, response: "json" });
+      const body = fromAdf({ value: issue2.fields.description });
+      if (body === void 0) {
+        return { error: `Jira ticket '${ticketId}' has a malformed description` };
+      }
+      const markdown = addLineUnderHeading({ body, heading, line });
+      await client.request({ method: "PUT", path, body: { fields: { description: toAdf({ markdown }) } }, response: "empty" });
+      return void 0;
+    }
+  });
+  return result;
+};
+
+// src/queue/common/constants/QueueRoute.ts
+var QueueRoute = {
+  /** Build straight from the ticket body; the repo's gates are the only bar. */
+  Direct: "direct",
+  /** Plan the ticket headlessly with the auto-plan skill, then implement the plan. */
+  AutoPlan: "auto-plan"
+};
+
+// src/queue/tracker/jira/common/utils/getJiraUnfinishedBlockers.ts
+var getJiraUnfinishedBlockers = ({ issue: issue2 }) => (issue2.fields.issuelinks ?? []).flatMap((link) => {
+  const linked = link.type?.inward === "is blocked by" ? link.inwardIssue : void 0;
+  const key = linked?.key;
+  return key === void 0 || linked?.fields?.status?.statusCategory?.key === "done" ? [] : [key];
+});
+
+// src/queue/tracker/jira/common/utils/quoteJqlString.ts
+var quoteJqlString = ({ value }) => `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+
+// src/queue/tracker/jira/common/utils/toJiraTicketSummary.ts
+var priorities = { Highest: 1, High: 2, Medium: 3, Low: 4, Lowest: 5 };
+var priorityOf = ({ name }) => priorities[name ?? ""] ?? 0;
+var toJiraTicketSummary = ({ issue: issue2, route, unfinishedBlockers }) => {
+  const description = fromAdf({ value: issue2.fields.description });
+  if (description === void 0) {
+    return { error: `Jira issue '${issue2.key}' has a malformed description` };
+  }
+  if (issue2.fields.summary === void 0 || issue2.fields.created === void 0) {
+    return { error: `Jira issue '${issue2.key}' is missing its summary or created value` };
+  }
+  return {
+    id: issue2.id,
+    identifier: issue2.key,
+    title: issue2.fields.summary,
+    description,
+    priority: priorityOf({ name: issue2.fields.priority?.name }),
+    createdAt: issue2.fields.created,
+    route,
+    unfinishedBlockers
+  };
+};
+
+// src/queue/tracker/jira/getTicketsByIdentifiers.ts
+var getTicketsByIdentifiers = async ({ settings, identifiers }) => {
+  const keys = identifiers.filter((identifier) => identifier.startsWith(`${settings.project}-`));
+  if (keys.length === 0) {
+    return [];
+  }
+  const fields = ["summary", "description", "priority", "created", "labels", "status", "issuelinks"];
+  return runJira({
+    settings,
+    request: async (client) => {
+      const issues = [];
+      let nextPageToken;
+      do {
+        const jql = `project = ${quoteJqlString({ value: settings.project })} AND key IN (${keys.map((value) => quoteJqlString({ value })).join(", ")})`;
+        const body = nextPageToken === void 0 ? { jql, fields } : { jql, fields, nextPageToken };
+        const page = await client.request({ method: "POST", path: "/rest/api/3/search/jql", body, response: "json" });
+        issues.push(...page.issues);
+        if (!page.isLast && page.nextPageToken === void 0) {
+          return { error: "Jira returned a nonfinal search page without a nextPageToken" };
+        }
+        nextPageToken = page.isLast ? void 0 : page.nextPageToken;
+      } while (nextPageToken !== void 0);
+      const summaries = [];
+      for (const issue2 of issues) {
+        const labels = new Set(issue2.fields.labels ?? []);
+        for (const route of Object.values(QueueRoute).filter((route2) => labels.has(settings.routeLabels[route2]))) {
+          const summary = toJiraTicketSummary({ issue: issue2, route, unfinishedBlockers: getJiraUnfinishedBlockers({ issue: issue2 }) });
+          if ("error" in summary) {
+            return summary;
+          }
+          summaries.push(summary);
+        }
+      }
+      return summaries;
+    }
+  });
+};
+
+// src/queue/tracker/jira/listEligibleTickets.ts
+var listEligibleTickets = async ({ settings }) => {
+  if (settings.eligibleStatuses.length === 0) {
+    return [];
+  }
+  const fields = ["summary", "description", "priority", "created", "labels", "status", "issuelinks"];
+  return runJira({
+    settings,
+    request: async (client) => {
+      const result = [];
+      for (const route of Object.values(QueueRoute)) {
+        let nextPageToken;
+        do {
+          const jql = [
+            `project = ${quoteJqlString({ value: settings.project })}`,
+            `labels = ${quoteJqlString({ value: settings.routeLabels[route] })}`,
+            `status IN (${settings.eligibleStatuses.map((value) => quoteJqlString({ value })).join(", ")})`
+          ].join(" AND ");
+          const body = nextPageToken === void 0 ? { jql, fields } : { jql, fields, nextPageToken };
+          const page = await client.request({ method: "POST", path: "/rest/api/3/search/jql", body, response: "json" });
+          for (const issue2 of page.issues) {
+            const summary = toJiraTicketSummary({ issue: issue2, route, unfinishedBlockers: getJiraUnfinishedBlockers({ issue: issue2 }) });
+            if ("error" in summary) {
+              return summary;
+            }
+            result.push(summary);
+          }
+          if (!page.isLast && page.nextPageToken === void 0) {
+            return { error: "Jira returned a nonfinal search page without a nextPageToken" };
+          }
+          nextPageToken = page.isLast ? void 0 : page.nextPageToken;
+        } while (nextPageToken !== void 0);
+      }
+      return result;
+    }
+  });
+};
+
+// src/queue/tracker/jira/setParkedLabel.ts
+var setParkedLabel = async ({ settings, ticketId, parked }) => {
+  const label = settings.parkedLabel;
+  if (label === void 0) {
+    return void 0;
+  }
+  const path = `/rest/api/3/issue/${encodeURIComponent(ticketId)}`;
+  const result = await runJira({
+    settings,
+    request: async (client) => {
+      const issue2 = await client.request({ method: "GET", path: `${path}?fields=labels`, response: "json" });
+      const labels = issue2.fields.labels ?? [];
+      if (parked && labels.includes(label) || !parked && !labels.includes(label)) {
+        return void 0;
+      }
+      await client.request({ method: "PUT", path, body: { update: { labels: [{ [parked ? "add" : "remove"]: label }] } }, response: "empty" });
+      return void 0;
+    }
+  });
+  return result;
+};
+
+// src/queue/tracker/jira/setTicketStatus.ts
+var setTicketStatus = async ({ settings, ticketId, statusName }) => {
+  const path = `/rest/api/3/issue/${encodeURIComponent(ticketId)}/transitions`;
+  const result = await runJira({
+    settings,
+    request: async (client) => {
+      const transitions = await client.request({ method: "GET", path, response: "json" });
+      const transition = transitions.transitions.find((candidate) => candidate.to.name === statusName);
+      if (transition === void 0) {
+        return { error: `Jira ticket '${ticketId}' has no '${statusName}' transition` };
+      }
+      await client.request({ method: "POST", path, body: { transition: { id: transition.id } }, response: "empty" });
+      return void 0;
+    }
+  });
+  return result;
+};
 
 // ../../node_modules/.pnpm/@linear+sdk@92.0.0_graphql@17.0.2/node_modules/@linear/sdk/dist/chunk-DPPnyiuk.mjs
 var __commonJSMin = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
@@ -145680,36 +146331,8 @@ var runLinear = async ({ apiKey, call }) => {
   }
 };
 
-// src/queue/tracker/appendTicketNote.ts
-var readHeadingLevel = ({ line }) => {
-  const hashes = /^(#{1,6})\s/.exec(line)?.[1];
-  return hashes === void 0 ? void 0 : hashes.length;
-};
-var addLineUnderHeading = ({ body, heading, line }) => {
-  const lines = body.split("\n");
-  if (lines.includes(line)) {
-    return body;
-  }
-  const headingIndex = lines.findIndex((candidate) => candidate.trim() === heading.trim());
-  if (headingIndex === -1) {
-    return `${body.trimEnd()}
-
-${heading}
-
-${line}
-`.trimStart();
-  }
-  const level = readHeadingLevel({ line: heading.trim() }) ?? 2;
-  const after = lines.slice(headingIndex + 1);
-  const nextHeading = after.findIndex((candidate) => (readHeadingLevel({ line: candidate }) ?? 7) <= level);
-  const sectionEnd = nextHeading === -1 ? lines.length : headingIndex + 1 + nextHeading;
-  let insertAt = sectionEnd;
-  while (insertAt > headingIndex + 1 && lines[insertAt - 1]?.trim() === "") {
-    insertAt -= 1;
-  }
-  return [...lines.slice(0, insertAt), line, ...lines.slice(insertAt)].join("\n");
-};
-var appendTicketNote = async ({ settings, ticketId, heading, line }) => {
+// src/queue/tracker/linear/appendTicketNote.ts
+var appendTicketNote2 = async ({ settings, ticketId, heading, line }) => {
   const written = await runLinear({
     apiKey: settings.apiKey,
     call: async (client) => {
@@ -145722,12 +146345,9 @@ var appendTicketNote = async ({ settings, ticketId, heading, line }) => {
   return written;
 };
 
-// src/queue/common/constants/QueueRoute.ts
-var QueueRoute = {
-  /** Build straight from the ticket body; the repo's gates are the only bar. */
-  Direct: "direct",
-  /** Plan the ticket headlessly with the auto-plan skill, then implement the plan. */
-  AutoPlan: "auto-plan"
+// src/queue/tracker/appendTicketNote.ts
+var appendTicketNote3 = async ({ settings, ticketId, heading, line }) => {
+  return settings.tracker === "linear" ? appendTicketNote2({ settings, ticketId, heading, line }) : appendTicketNote({ settings, ticketId, heading, line });
 };
 
 // src/queue/tracker/common/utils/collectNodes.ts
@@ -145768,7 +146388,7 @@ var toTicketSummary = ({ issue: issue2, route, unfinishedBlockers }) => ({
   unfinishedBlockers
 });
 
-// src/queue/tracker/getTicketsByIdentifiers.ts
+// src/queue/tracker/linear/getTicketsByIdentifiers.ts
 var readIssueNumbers = ({ identifiers }) => identifiers.map((identifier) => Number.parseInt(identifier.split("-").at(-1) ?? "", 10)).filter((issueNumber) => Number.isFinite(issueNumber));
 var toRoutedSummaries = async ({ issue: issue2, settings }) => {
   const labels = await collectNodes({ connection: await issue2.labels() });
@@ -145780,7 +146400,7 @@ var toRoutedSummaries = async ({ issue: issue2, settings }) => {
   const unfinishedBlockers = await getUnfinishedBlockers({ issue: issue2 });
   return routes.map((route) => toTicketSummary({ issue: issue2, route, unfinishedBlockers }));
 };
-var getTicketsByIdentifiers = async ({ settings, identifiers }) => {
+var getTicketsByIdentifiers2 = async ({ settings, identifiers }) => {
   const issueNumbers = readIssueNumbers({ identifiers });
   if (issueNumbers.length === 0) {
     return [];
@@ -145796,8 +146416,13 @@ var getTicketsByIdentifiers = async ({ settings, identifiers }) => {
   });
 };
 
-// src/queue/tracker/listEligibleTickets.ts
-var listEligibleTickets = async ({ settings }) => {
+// src/queue/tracker/getTicketsByIdentifiers.ts
+var getTicketsByIdentifiers3 = async ({ settings, identifiers }) => {
+  return settings.tracker === "linear" ? getTicketsByIdentifiers2({ settings, identifiers }) : getTicketsByIdentifiers({ settings, identifiers });
+};
+
+// src/queue/tracker/linear/listEligibleTickets.ts
+var listEligibleTickets2 = async ({ settings }) => {
   const routes = Object.values(QueueRoute);
   return runLinear({
     apiKey: settings.apiKey,
@@ -145820,7 +146445,12 @@ var listEligibleTickets = async ({ settings }) => {
   });
 };
 
-// src/queue/tracker/setParkedLabel.ts
+// src/queue/tracker/listEligibleTickets.ts
+var listEligibleTickets3 = async ({ settings }) => {
+  return settings.tracker === "linear" ? listEligibleTickets2({ settings }) : listEligibleTickets({ settings });
+};
+
+// src/queue/tracker/linear/setParkedLabel.ts
 var createTeamLabel = async ({ client, team, label }) => {
   const teams = await client.teams({ filter: { key: { eq: team } } });
   const teamId = teams.nodes.at(0)?.id;
@@ -145830,7 +146460,7 @@ var createTeamLabel = async ({ client, team, label }) => {
   const created = await client.createIssueLabel({ name: label, teamId });
   return created.issueLabelId ?? { error: `the tracker created the '${label}' label but named no id for it` };
 };
-var setParkedLabel = async ({ settings, ticketId, parked }) => {
+var setParkedLabel2 = async ({ settings, ticketId, parked }) => {
   const label = settings.parkedLabel;
   if (label === void 0) {
     return void 0;
@@ -145854,8 +146484,13 @@ var setParkedLabel = async ({ settings, ticketId, parked }) => {
   return written;
 };
 
-// src/queue/tracker/setTicketStatus.ts
-var setTicketStatus = async ({ settings, ticketId, statusName }) => {
+// src/queue/tracker/setParkedLabel.ts
+var setParkedLabel3 = async ({ settings, ticketId, parked }) => {
+  return settings.tracker === "linear" ? setParkedLabel2({ settings, ticketId, parked }) : setParkedLabel({ settings, ticketId, parked });
+};
+
+// src/queue/tracker/linear/setTicketStatus.ts
+var setTicketStatus2 = async ({ settings, ticketId, statusName }) => {
   const applied = await runLinear({
     apiKey: settings.apiKey,
     call: async (client) => {
@@ -145869,6 +146504,11 @@ var setTicketStatus = async ({ settings, ticketId, statusName }) => {
     }
   });
   return applied;
+};
+
+// src/queue/tracker/setTicketStatus.ts
+var setTicketStatus3 = async ({ settings, ticketId, statusName }) => {
+  return settings.tracker === "linear" ? setTicketStatus2({ settings, ticketId, statusName }) : setTicketStatus({ settings, ticketId, statusName });
 };
 
 // src/queue/relay/recordRelayedAnswer.ts
@@ -145888,7 +146528,7 @@ var recordRelayedAnswer = async ({ settings, question, answer, ticket, coordinat
     runId: coordinatorRunId,
     step: "queue-question"
   });
-  const noted = await appendTicketNote({
+  const noted = await appendTicketNote3({
     settings,
     ticketId: ticket.id,
     heading: settings.decisionsHeading,
@@ -146154,7 +146794,9 @@ var parseDurationMs = ({ value, key }) => {
 var resolveQueueSettings = ({ config: config2, env }) => {
   const queue = config2.queue;
   if (queue === void 0) {
-    return { error: "`lightsout queue` needs a `queue` block in lightsout.config.json naming tracker, team, route-labels, max-parallel and api-key-env" };
+    return {
+      error: "`lightsout queue` needs a `queue` block in lightsout.config.json naming a tracker connection, route-labels, max-parallel and api-key-env"
+    };
   }
   const apiKeyEnv = queue["api-key-env"];
   const apiKey = env[apiKeyEnv];
@@ -146169,8 +146811,7 @@ var resolveQueueSettings = ({ config: config2, env }) => {
   if (typeof questionTimeoutMs !== "number") {
     return questionTimeoutMs;
   }
-  return {
-    team: queue.team,
+  const shared = {
     routeLabels: { [QueueRoute.Direct]: queue["route-labels"].direct, [QueueRoute.AutoPlan]: queue["route-labels"]["auto-plan"] },
     maxParallel: queue["max-parallel"],
     apiKey,
@@ -146182,6 +146823,22 @@ var resolveQueueSettings = ({ config: config2, env }) => {
     workerTimeoutMs,
     questionTimeoutMs,
     parkedLabel: queue["parked-label"]
+  };
+  if (queue.tracker === "linear") {
+    return { tracker: "linear", ticketPrefix: queue.team, team: queue.team, ...shared };
+  }
+  const apiUserEmailEnv = queue["api-user-email-env"];
+  const apiUserEmail = env[apiUserEmailEnv];
+  if (apiUserEmail === void 0 || apiUserEmail === "") {
+    return { error: `the queue's Jira account email is missing: set the \`${apiUserEmailEnv}\` environment variable` };
+  }
+  return {
+    tracker: "jira",
+    ticketPrefix: queue.project,
+    siteUrl: queue["site-url"].replace(/\/$/, ""),
+    project: queue.project,
+    apiUserEmail,
+    ...shared
   };
 };
 
@@ -146201,7 +146858,7 @@ var getWorktreesRoot = ({ cwd }) => {
 
 // src/queue/orderTickets.ts
 var orderTickets = ({ tickets }) => {
-  const rank = ({ priority }) => priority === 0 ? 5 : priority;
+  const rank = ({ priority }) => priority === 0 ? 6 : priority;
   return [...tickets].sort((left, right) => rank(left) - rank(right) || left.createdAt.localeCompare(right.createdAt));
 };
 
@@ -146249,7 +146906,7 @@ var selectWaveTickets = ({ tickets, settings, attempted, onProgress }) => {
 
 // src/queue/listNextWave.ts
 var listNextWave = async ({ settings, attempted, onProgress }) => {
-  const eligible = await listEligibleTickets({ settings });
+  const eligible = await listEligibleTickets3({ settings });
   if ("error" in eligible) {
     return eligible;
   }
@@ -146631,7 +147288,7 @@ var runQueueTicket = async ({
     return { ticket, branch, worktreePath: join86(getWorktreesRoot({ cwd }), branch), ready: false, error: created.error };
   }
   const worktreePath = created;
-  const moved = await setTicketStatus({ settings, ticketId: ticket.id, statusName: settings.inProgressStatus });
+  const moved = await setTicketStatus3({ settings, ticketId: ticket.id, statusName: settings.inProgressStatus });
   if (moved !== void 0) {
     onProgress?.(`the ticket status could not be moved to '${settings.inProgressStatus}': ${moved.error}`);
   }
@@ -146717,7 +147374,7 @@ var scanParkedWorktrees = async ({ cwd, defaultBranch, settings, shipSettings, o
   if (trees.length === 0) {
     return { resumed: [], outcomes: [], leftBehind: [] };
   }
-  const tickets = await getTicketsByIdentifiers({ settings, identifiers: trees.map((tree) => tree.identifier) });
+  const tickets = await getTicketsByIdentifiers3({ settings, identifiers: trees.map((tree) => tree.identifier) });
   if ("error" in tickets) {
     return tickets;
   }
@@ -146733,7 +147390,7 @@ var scanParkedWorktrees = async ({ cwd, defaultBranch, settings, shipSettings, o
     const bucket = await classifyTree({ tree, defaultBranch });
     const ticket = matched[0];
     if (bucket === "drain") {
-      const cleared = await setParkedLabel({ settings, ticketId: ticket.id, parked: false });
+      const cleared = await setParkedLabel3({ settings, ticketId: ticket.id, parked: false });
       if (cleared !== void 0) {
         onProgress?.(`${tree.identifier} \xB7 the parked label could not be cleared: ${cleared.error}`);
       }
@@ -146758,7 +147415,7 @@ var settleParkedLabels = async ({ settings, outcomes, onProgress }) => {
   }
   await Promise.all(
     outcomes.map(async (outcome) => {
-      const written = await setParkedLabel({ settings, ticketId: outcome.ticket.id, parked: !outcome.ready });
+      const written = await setParkedLabel3({ settings, ticketId: outcome.ticket.id, parked: !outcome.ready });
       if (written !== void 0) {
         onProgress?.(`${outcome.ticket.identifier} \xB7 the '${settings.parkedLabel}' label could not be written: ${written.error}`);
       }
@@ -146774,7 +147431,7 @@ var checkQueueStartup = async ({
 }) => {
   const sample = {
     id: "sample",
-    identifier: `${settings.team}-1`,
+    identifier: `${settings.ticketPrefix}-1`,
     title: "sample",
     description: "",
     priority: 0,
@@ -146867,7 +147524,7 @@ var runQueue = async ({
     return started;
   }
   const { defaultBranch } = started;
-  const eligible = await listEligibleTickets({ settings });
+  const eligible = await listEligibleTickets3({ settings });
   if ("error" in eligible) {
     return eligible;
   }
@@ -147563,7 +148220,7 @@ var rulePriority = [
   "synonym-export-name"
 ];
 var maxBatchFindings = 12;
-var priorityOf = ({ rule }) => {
+var priorityOf2 = ({ rule }) => {
   const index = rulePriority.indexOf(rule);
   return index === -1 ? rulePriority.length : index;
 };
@@ -147589,7 +148246,7 @@ var batchFindings = ({ blocking, advisories, packagesDir }) => {
   }
   const crossLast = ({ folder }) => folder === "(cross)" ? 1 : 0;
   const ordered = [...groups.values()].sort(
-    (a, b) => priorityOf({ rule: a.rule }) - priorityOf({ rule: b.rule }) || a.rule.localeCompare(b.rule) || crossLast({ folder: a.folder }) - crossLast({ folder: b.folder }) || a.folder.localeCompare(b.folder)
+    (a, b) => priorityOf2({ rule: a.rule }) - priorityOf2({ rule: b.rule }) || a.rule.localeCompare(b.rule) || crossLast({ folder: a.folder }) - crossLast({ folder: b.folder }) || a.folder.localeCompare(b.folder)
   );
   const batches = [];
   for (const group of ordered) {

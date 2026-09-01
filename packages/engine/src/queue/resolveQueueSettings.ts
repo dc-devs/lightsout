@@ -27,7 +27,9 @@ export const resolveQueueSettings = ({ config, env }: Params): QueueSettings | Q
 	const queue = config.queue;
 
 	if (queue === undefined) {
-		return { error: '`lightsout queue` needs a `queue` block in lightsout.config.json naming tracker, team, route-labels, max-parallel and api-key-env' };
+		return {
+			error: '`lightsout queue` needs a `queue` block in lightsout.config.json naming a tracker connection, route-labels, max-parallel and api-key-env',
+		};
 	}
 
 	const apiKeyEnv = queue['api-key-env'];
@@ -49,8 +51,7 @@ export const resolveQueueSettings = ({ config, env }: Params): QueueSettings | Q
 		return questionTimeoutMs;
 	}
 
-	return {
-		team: queue.team,
+	const shared = {
 		routeLabels: { [QueueRoute.Direct]: queue['route-labels'].direct, [QueueRoute.AutoPlan]: queue['route-labels']['auto-plan'] },
 		maxParallel: queue['max-parallel'],
 		apiKey,
@@ -62,5 +63,25 @@ export const resolveQueueSettings = ({ config, env }: Params): QueueSettings | Q
 		workerTimeoutMs,
 		questionTimeoutMs,
 		parkedLabel: queue['parked-label'],
+	};
+
+	if (queue.tracker === 'linear') {
+		return { tracker: 'linear', ticketPrefix: queue.team, team: queue.team, ...shared };
+	}
+
+	const apiUserEmailEnv = queue['api-user-email-env'];
+	const apiUserEmail = env[apiUserEmailEnv];
+
+	if (apiUserEmail === undefined || apiUserEmail === '') {
+		return { error: `the queue's Jira account email is missing: set the \`${apiUserEmailEnv}\` environment variable` };
+	}
+
+	return {
+		tracker: 'jira',
+		ticketPrefix: queue.project,
+		siteUrl: queue['site-url'].replace(/\/$/, ''),
+		project: queue.project,
+		apiUserEmail,
+		...shared,
 	};
 };

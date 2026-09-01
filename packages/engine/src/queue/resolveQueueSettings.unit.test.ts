@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { LightsoutConfig } from '#src/contracts/index.ts';
 import { resolveQueueSettings } from '#src/queue/index.ts';
 
 const queueBlock = {
@@ -17,6 +17,8 @@ describe('resolveQueueSettings', () => {
 		const settings = resolveQueueSettings({ config: configOf({ ...queueBlock }), env: { LINEAR_API_KEY: 'lin_key' } });
 
 		expect(settings).toStrictEqual({
+			tracker: 'linear',
+			ticketPrefix: 'LO',
 			team: 'LO',
 			routeLabels: { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
 			maxParallel: 3,
@@ -30,6 +32,91 @@ describe('resolveQueueSettings', () => {
 			questionTimeoutMs: 3_600_000,
 			parkedLabel: undefined,
 		});
+	});
+
+	test('resolves Jira Cloud settings and reads its account email separately from the API token', () => {
+		const settings = resolveQueueSettings({
+			config: configOf({
+				tracker: 'jira',
+				'site-url': 'https://example.atlassian.net/',
+				project: 'LO',
+				'api-user-email-env': 'JIRA_ACCOUNT_EMAIL',
+				'route-labels': { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
+				'max-parallel': 3,
+				'api-key-env': 'JIRA_API_TOKEN',
+			}),
+			env: { JIRA_API_TOKEN: 'token', JIRA_ACCOUNT_EMAIL: 'person@example.com' },
+		});
+
+		expect(settings).toStrictEqual({
+			tracker: 'jira',
+			ticketPrefix: 'LO',
+			project: 'LO',
+			siteUrl: 'https://example.atlassian.net',
+			apiUserEmail: 'person@example.com',
+			routeLabels: { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
+			maxParallel: 3,
+			apiKey: 'token',
+			eligibleStatuses: ['Backlog', 'Ready to implement'],
+			inProgressStatus: 'In Progress',
+			setup: undefined,
+			branchTemplate: '{ticket}-{slug}',
+			decisionsHeading: '## Decisions',
+			workerTimeoutMs: 14_400_000,
+			questionTimeoutMs: 3_600_000,
+			parkedLabel: undefined,
+		});
+	});
+
+	test('names a missing Jira account email variable without rendering a credential', () => {
+		const settings = resolveQueueSettings({
+			config: configOf({
+				tracker: 'jira',
+				'site-url': 'https://example.atlassian.net',
+				project: 'LO',
+				'api-user-email-env': 'JIRA_ACCOUNT_EMAIL',
+				'route-labels': { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
+				'max-parallel': 3,
+				'api-key-env': 'JIRA_API_TOKEN',
+			}),
+			env: { JIRA_API_TOKEN: 'token' },
+		});
+
+		expect(settings).toStrictEqual({ error: "the queue's Jira account email is missing: set the `JIRA_ACCOUNT_EMAIL` environment variable" });
+	});
+
+	test('treats an empty Jira account email variable as absent', () => {
+		const settings = resolveQueueSettings({
+			config: configOf({
+				tracker: 'jira',
+				'site-url': 'https://example.atlassian.net',
+				project: 'LO',
+				'api-user-email-env': 'JIRA_ACCOUNT_EMAIL',
+				'route-labels': { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
+				'max-parallel': 3,
+				'api-key-env': 'JIRA_API_TOKEN',
+			}),
+			env: { JIRA_API_TOKEN: 'token', JIRA_ACCOUNT_EMAIL: '' },
+		});
+
+		expect(settings).toStrictEqual({ error: "the queue's Jira account email is missing: set the `JIRA_ACCOUNT_EMAIL` environment variable" });
+	});
+
+	test('rejects malformed Jira origins and tracker-foreign branch keys before resolution', () => {
+		const jira = {
+			tracker: 'jira',
+			'site-url': 'https://example.atlassian.net/path',
+			project: 'LO',
+			'api-user-email-env': 'JIRA_ACCOUNT_EMAIL',
+			'route-labels': { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
+			'max-parallel': 3,
+			'api-key-env': 'JIRA_API_TOKEN',
+		};
+
+		const gates = { check: 'true', test: 'true', 'test-coverage': false };
+
+		expect(LightsoutConfig.safeParse({ gates, queue: jira }).success).toBe(false);
+		expect(LightsoutConfig.safeParse({ gates, queue: { ...jira, 'site-url': 'https://example.atlassian.net', team: 'LO' } }).success).toBe(false);
 	});
 
 	test('lets the repo override every opinionated value, because the plugin must not constrain how a team works', () => {
@@ -76,7 +163,7 @@ describe('resolveQueueSettings', () => {
 		const settings = resolveQueueSettings({ config: configOf(), env: {} });
 
 		expect(settings).toStrictEqual({
-			error: '`lightsout queue` needs a `queue` block in lightsout.config.json naming tracker, team, route-labels, max-parallel and api-key-env',
+			error: '`lightsout queue` needs a `queue` block in lightsout.config.json naming a tracker connection, route-labels, max-parallel and api-key-env',
 		});
 	});
 
@@ -89,6 +176,6 @@ describe('resolveQueueSettings', () => {
 	test('treats an empty variable as absent, because an empty key authenticates nothing', () => {
 		const settings = resolveQueueSettings({ config: configOf({ ...queueBlock }), env: { LINEAR_API_KEY: '' } });
 
-		expect('error' in settings).toBe(true);
+		expect(settings).toStrictEqual({ error: "the queue's tracker API key is missing: set the `LINEAR_API_KEY` environment variable" });
 	});
 });
