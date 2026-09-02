@@ -6,7 +6,7 @@ import { type ConfigView, StandardsSeverity } from '#src/contracts/index.ts';
 import { ConfigNotFoundError } from '#src/views/ConfigNotFoundError.ts';
 import { getConfigView } from '#src/views/getConfigView.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
-import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
+import { jiraTicketTrackerConfigBlock, ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { seedConfiguredCwd } from '#tests/helpers/seedConfiguredCwd.ts';
 
 /** This repo's own root — the config the view is read against, so the assertions describe a real file rather than a fixture of one. */
@@ -96,11 +96,15 @@ describe('getConfigView', () => {
 		expect(view.sections.flatMap((section) => section.fields).every((field) => field.description.length > 0)).toBe(true);
 	});
 
-	test('states the harness and the model at the top level, where the repo strip reads them', async () => {
-		const view = await getConfigView({ cwd: repoRoot });
+	test.each([
+		{ harness: 'claude-code', model: 'claude-opus-5' },
+		{ harness: 'codex', model: 'gpt-5.6-terra' },
+	])('states the configured $harness harness and $model model at the top level', async ({ harness, model }) => {
+		const cwd = await seedConfiguredCwd({ config: { harness, model } });
+		const view = await getConfigView({ cwd });
 
-		expect(view.harness).toBe('claude-code');
-		expect(view.model).toBe('claude-opus-5');
+		expect(view.harness).toBe(harness);
+		expect(view.model).toBe(model);
 	});
 
 	test('names the packs this config loads, each with the channels its own documents declare', async () => {
@@ -198,6 +202,17 @@ describe('getConfigView', () => {
 		const view = await getConfigView({ cwd });
 
 		expect(findField({ sections: view.sections, key: 'ticket-tracker' })).toEqual(expect.objectContaining({ value: null, fromConfig: false }));
+	});
+
+	test('shows the Jira tracker branch whole too, without leaking its identity back into the queue section', async () => {
+		const cwd = await seedConfiguredCwd({ config: { 'ticket-tracker': jiraTicketTrackerConfigBlock } });
+
+		const view = await getConfigView({ cwd });
+
+		expect(findField({ sections: view.sections, key: 'ticket-tracker' })).toEqual(
+			expect.objectContaining({ value: jiraTicketTrackerConfigBlock, fromConfig: true, description: expect.stringContaining('Jira') }),
+		);
+		expect(findField({ sections: view.sections, key: 'queue' })).toEqual(expect.objectContaining({ value: null, fromConfig: false }));
 	});
 
 	test('shows the queue block whole in its own area, so the block the document documents is on the page too', async () => {

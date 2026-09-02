@@ -22683,12 +22683,18 @@ var ConfigQueue = external_exports.object({
   tracker: renamedKey({ from: "queue.tracker", to: "ticket-tracker.provider" }),
   /** Removed — moved to the `ticket-tracker` block. Same reason. */
   team: renamedKey({ from: "queue.team", to: "ticket-tracker.team" }),
+  /** Removed — Jira's origin moved to the `ticket-tracker` block. Same reason. */
+  "site-url": renamedKey({ from: "queue.site-url", to: "ticket-tracker.site-url" }),
+  /** Removed — Jira's project moved to the `ticket-tracker` block. Same reason. */
+  project: renamedKey({ from: "queue.project", to: "ticket-tracker.project" }),
   /** Which ticket label routes a ticket to which worker. A label named here is the human's opt-in to automation. */
   "route-labels": external_exports.object({ direct: external_exports.string(), "auto-plan": external_exports.string() }).strict(),
   /** How many tickets may be in flight at once. Also the ceiling on how many questions can ever wait for the user at the same time. */
   "max-parallel": external_exports.number().int().positive(),
   /** Removed — moved to the `ticket-tracker` block. Same reason. */
   "api-key-env": renamedKey({ from: "queue.api-key-env", to: "ticket-tracker.api-key-env" }),
+  /** Removed — Jira's account-email variable moved to the `ticket-tracker` block. Same reason. */
+  "api-user-email-env": renamedKey({ from: "queue.api-user-email-env", to: "ticket-tracker.api-user-email-env" }),
   /** Ticket statuses the queue may pick up. Default `['Backlog', 'Ready to implement']`. */
   "eligible-statuses": external_exports.array(external_exports.string()).optional(),
   /** Status the queue moves a ticket to when it picks it up. Default `'In Progress'`. */
@@ -22727,7 +22733,7 @@ var ConfigQueue = external_exports.object({
   /**
    * The ticket label the queue sets when a ticket parks and clears when it
    * resumes or ships. Opt-in with no default — a repo that names none never
-   * has one invented for it. The label is created on the team on first use.
+   * has one invented for it. The tracker adapter makes it usable on first use.
    */
   "parked-label": external_exports.string().optional()
 }).strict();
@@ -22775,14 +22781,37 @@ var ConfigShip = external_exports.object({
 }).strict();
 
 // src/contracts/ConfigTicketTracker.ts
-var ConfigTicketTracker = external_exports.object({
-  /** Which tracker the engine talks to. Only Linear has an adapter today. */
-  provider: external_exports.literal("linear"),
-  /** The tracker's team key, e.g. 'LO' — every query is scoped to it. */
-  team: external_exports.string(),
-  /** Name of the environment variable holding the tracker API key. The key itself is never written to config. */
-  "api-key-env": external_exports.string()
-}).strict();
+var jiraSiteUrl = external_exports.string().url().refine((value) => {
+  let url2;
+  try {
+    url2 = new URL(value);
+  } catch {
+    return false;
+  }
+  return url2.protocol === "https:" && url2.hostname.endsWith(".atlassian.net") && url2.pathname === "/" && url2.search === "" && url2.hash === "";
+}, "Jira site-url must be an HTTPS *.atlassian.net origin");
+var ConfigTicketTracker = external_exports.discriminatedUnion("provider", [
+  external_exports.object({
+    /** Which tracker the engine talks to. */
+    provider: external_exports.literal("linear"),
+    /** The Linear team key, e.g. 'LO' — every query is scoped to it. */
+    team: external_exports.string().min(1, "Linear trackers need a team"),
+    /** Name of the environment variable holding the Linear API key. The key itself is never written to config. */
+    "api-key-env": external_exports.string().min(1, "Linear trackers need an api-key-env")
+  }).strict(),
+  external_exports.object({
+    /** Which tracker the engine talks to. */
+    provider: external_exports.literal("jira"),
+    /** The Jira Cloud origin, normalized by the settings resolver before requests are made. */
+    "site-url": jiraSiteUrl,
+    /** The Jira project key, e.g. 'LO' — every query is scoped to it. */
+    project: external_exports.string().min(1, "Jira trackers need a project"),
+    /** Name of the environment variable holding the Jira API token. */
+    "api-key-env": external_exports.string().min(1, "Jira trackers need an api-key-env"),
+    /** Name of the environment variable holding the Jira account email paired with that token. */
+    "api-user-email-env": external_exports.string().min(1, "Jira trackers need an api-user-email-env")
+  }).strict()
+]);
 
 // src/contracts/commands/CommandActor.ts
 var CommandActor = { Engine: "the engine", Agent: "the agent", You: "you decide" };
@@ -23309,7 +23338,7 @@ var LightsoutConfig = external_exports.object({
   ship: ConfigShip.optional(),
   /** Opt-in auto-plan settings — which of `/auto-plan`'s checkpoints this repo keeps. See `ConfigAutoPlan`. */
   "auto-plan": ConfigAutoPlan.optional(),
-  /** Opt-in tracker identity — provider, team, and the API-key environment variable. See `ConfigTicketTracker`. */
+  /** Opt-in tracker identity — provider-specific address and credential environment variables. See `ConfigTicketTracker`. */
   "ticket-tracker": ConfigTicketTracker.optional(),
   /** Opt-in queue settings — route labels, parallelism, eligible statuses and the queue's own timeouts. See `ConfigQueue`. */
   queue: ConfigQueue.optional(),
@@ -23736,7 +23765,15 @@ var StepRecord = external_exports.object({
   /** Files this step changed (paths from its reports) — per-step attribution; the run-wide union lives on the manifest. */
   changedFiles: external_exports.array(external_exports.string()).optional(),
   report: external_exports.unknown().optional(),
-  error: external_exports.string().optional()
+  error: external_exports.string().optional(),
+  verification: external_exports.object({
+    failedFamilies: external_exports.array(external_exports.string()),
+    repairAttempts: external_exports.record(external_exports.string(), external_exports.number().int().nonnegative()),
+    failures: external_exports.array(GateResult),
+    needsFormatting: external_exports.boolean(),
+    guidedRepairAttempted: external_exports.boolean(),
+    supervisorDiagnosis: external_exports.string().optional()
+  }).optional()
 });
 
 // src/contracts/run/RunManifest.ts
@@ -26384,8 +26421,14 @@ var summarizeRun = async ({ cwd, manifest }) => {
     perStepUsage.set(step, totals);
   }
   const frictionByArea = /* @__PURE__ */ new Map();
+  const verificationRepairs = /* @__PURE__ */ new Map();
   for (const entry of friction) {
     frictionByArea.set(entry.area, (frictionByArea.get(entry.area) ?? 0) + 1);
+  }
+  for (const step of manifest.steps) {
+    for (const [gateFamily, attempts] of Object.entries(step.verification?.repairAttempts ?? {})) {
+      verificationRepairs.set(gateFamily, (verificationRepairs.get(gateFamily) ?? 0) + attempts);
+    }
   }
   const { usage: usage2 } = manifest;
   const readableInput = usage2 ? usage2.cacheReadTokens + usage2.cacheCreationTokens + usage2.inputTokens : 0;
@@ -26408,6 +26451,7 @@ var summarizeRun = async ({ cwd, manifest }) => {
       reruns: commands2.filter((command) => command.rerun).length,
       skipped: commands2.filter((command) => command.skipped).length
     },
+    verificationRepairs: [...verificationRepairs.entries()].map(([gateFamily, attempts]) => ({ gateFamily, attempts })),
     rejectedReports: agentFiles.filter((name) => name.startsWith("rejected-")).length,
     frictionByArea: [...frictionByArea.entries()].map(([area, count2]) => ({ area, count: count2 }))
   };
@@ -26438,14 +26482,6 @@ var readOptionalConfig = async ({ cwd }) => {
   const configPath = join19(cwd, "lightsout.config.json");
   const raw = await readConfigFile({ configPath });
   return raw === void 0 ? void 0 : parseConfig({ raw, configPath });
-};
-
-// src/plan/common/constants/durablePlanFileNames.ts
-var durablePlanFileNames = {
-  /** The plan's working records, each attached when the folder holds it. */
-  records: ["notes.md", "decisions.json", "grade.json"],
-  /** A plan deliverable's own file name, spelled exactly as `resolvePlanDeliverable` matches it. */
-  deliverable: /^(?:plan\.md|overview\.md|phase\d+.*\.md)$/
 };
 
 // src/plan/common/constants/PlanRunStatus.ts
@@ -26807,7 +26843,7 @@ var applyPromptTokens = ({ text, tokens }) => {
 };
 
 // src/agents/prompts/featureExecutor.md
-var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan appended to these instructions,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than {{fileLimit}} source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- An Overview section, when present, is high-level context from a multi-phase\n  effort \u2014 use it to understand intent, but implement only what the Plan\n  section specifies.\n- If a Standards section is appended to these instructions, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests only when the plan explicitly requires them \u2014 otherwise a\n  dedicated test-writer role covers your changes after you report.\n- Do not run builds, tests, linters, formatters, package-manager commands,\n  Git commands, network commands, or any other verification or\n  environment-changing command \u2014 the engine runs verification after you\n  report, against gates you cannot influence. Use the harness\'s file tools to\n  read and edit files. If the harness exposes the filesystem only through a\n  shell, use the shell solely to inspect and edit files \u2014 never for\n  repository commands. Sole exception: commands listed under a\n  `# Granted commands` section in your task, and only for producing the\n  deliverables described there \u2014 never for verifying, installing, or anything\n  the grant text doesn\'t cover.\n- Do not create commits or branches.\n- Do not read or write any agent memory, and do not edit CLAUDE.md or other\n  standing instructions \u2014 anything worth persisting belongs in your report\n  (friction included), which the engine records.\n\n## Prior art before new symbols\n\nBefore creating any NEW exported symbol the plan does not explicitly name,\nsearch the repository for an existing implementation \u2014 the exact name, its\nsynonyms (fetch/load/retrieve \u2248 get, make/generate \u2248 create, remove \u2248\ndelete), and the domain words. If a match exists, use it instead of\nduplicating it \u2014 or report the conflict in `failures` if it can\'t serve.\nRecord every such symbol in the `priorArt` array of your report: the terms\nyou searched and what they surfaced. An empty `matches` is a legitimate\nentry \u2014 "searched, found nothing" is evidence the pipeline records. Symbols\nthe plan names explicitly need no entry.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\nThen, if a Standards section was provided, re-read it top to bottom and audit\nevery file you changed against every rule \u2014 the full set, not the subset you\nremember from before you started coding. Fix each deviation in source before\nreporting: the refactor role should find clean code, not do your conformance\npass for you.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }],\n	"priorArt": [{ "symbol": "formatDate", "searches": ["formatDate", "format.*date", "dateToString"], "matches": [] }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
+var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan appended to these instructions,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than {{fileLimit}} source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- An Overview section, when present, is high-level context from a multi-phase\n  effort \u2014 use it to understand intent, but implement only what the Plan\n  section specifies.\n- If a Standards section is appended to these instructions, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests whenever the plan explicitly requires them \u2014 create every\n  plan-named test file and cover its specified cases before reporting.\n  \u201CDo not run verification\u201D below prohibits executing tests and gates; it\n  never permits omitting required test code. Otherwise, a dedicated test-writer\n  role covers your changes after you report.\n- Do not run builds, tests, linters, formatters, package-manager commands,\n  Git commands, network commands, or any other verification or\n  environment-changing command \u2014 the engine runs verification after you\n  report, against gates you cannot influence. Use the harness\'s file tools to\n  read and edit files. If the harness exposes the filesystem only through a\n  shell, use the shell solely to inspect and edit files \u2014 never for\n  repository commands. Sole exception: commands listed under a\n  `# Granted commands` section in your task, and only for producing the\n  deliverables described there \u2014 never for verifying, installing, or anything\n  the grant text doesn\'t cover.\n- Do not create commits or branches.\n- Do not read or write any agent memory, and do not edit CLAUDE.md or other\n  standing instructions \u2014 anything worth persisting belongs in your report\n  (friction included), which the engine records.\n\n## Prior art before new symbols\n\nBefore creating any NEW exported symbol the plan does not explicitly name,\nsearch the repository for an existing implementation \u2014 the exact name, its\nsynonyms (fetch/load/retrieve \u2248 get, make/generate \u2248 create, remove \u2248\ndelete), and the domain words. If a match exists, use it instead of\nduplicating it \u2014 or report the conflict in `failures` if it can\'t serve.\nRecord every such symbol in the `priorArt` array of your report: the terms\nyou searched and what they surfaced. An empty `matches` is a legitimate\nentry \u2014 "searched, found nothing" is evidence the pipeline records. Symbols\nthe plan names explicitly need no entry.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\nThen, if a Standards section was provided, re-read it top to bottom and audit\nevery file you changed against every rule \u2014 the full set, not the subset you\nremember from before you started coding. Fix each deviation in source before\nreporting: the refactor role should find clean code, not do your conformance\npass for you.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }],\n	"priorArt": [{ "symbol": "formatDate", "searches": ["formatDate", "format.*date", "dateToString"], "matches": [] }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
 
 // src/common/constants/defaultExecutorFileLimit.ts
 var defaultExecutorFileLimit = 50;
@@ -27296,7 +27332,7 @@ ${promptFiles.map((file2) => `- ${file2}`).join("\n")}`,
 };
 
 // src/agents/prompts/queueAutoPlan.md
-var queueAutoPlan_default = '# Role: Headless Auto-Plan Worker\n\nYou are running unattended in a git worktree that already holds this ticket\'s\nbranch. Nobody is watching your session. The queue that spawned you relays\nanything you cannot decide to the one terminal a human is sitting at, and\nre-invokes you with their answer.\n\n## What to do\n\n1. Invoke the `lightsout:auto-plan` skill on the ticket appended below and\n   follow it exactly as written. It plans the ticket and hands the plan to the\n   implement pipeline.\n2. Run the engine\'s `implement` command on the plan folder that skill produces,\n   and stay with the run until it finishes.\n\nThe task message names the exact engine invocation to type. That string is\nalso the only command prefix this session was granted, so wherever the skill\'s\nown text says `lightsout <subcommand>`, run the granted invocation followed by\n`<subcommand>` instead. Anything else will simply be refused.\n\nThe `lightsout:auto-plan` skill ships in the same plugin as the engine that\nspawned you, so a user running the queue has it installed. If your session\ncannot find it, do NOT improvise a planning process: report `failed` with a\nfailure saying the lightsout plugin\'s skills are not available to spawned\nsessions, so the ticket parks with a message a human can act on.\n\n## The worktree may already hold your earlier work\n\nInspect it before assuming it is fresh. A previous invocation of you may have\nwritten a plan folder, started a run, or left half-finished work \u2014 this happens\nafter a relayed answer and after a restart. An existing\n`.lightsout/plans/<name>/` for this ticket is yours: do not re-derive a name\nand do not restart the pipeline. Fold the relayed answer in and continue from\nwhere the previous invocation stopped.\n\n## You have no user\n\nNever ask a question directly \u2014 there is nobody in your session to answer it.\nWhen a question clears the skill\'s escalation bar, stop and report\n`terminated:ambiguity` with the question as the FIRST entry of `failures`. The\nengine relays it to the terminal that started the queue, records the answer on\nthe ticket, and re-invokes you with it. Ask one question at a time.\n\n## Never ship\n\nNever run `lightsout ship`, and never pass `--ship`. Shipping is the queue\'s\nown step: it rebases each branch onto fresh main and re-runs the gates, one\nbranch at a time. A branch that ships itself races that order.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. Your\nmessage starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was built, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 omit when clean" }]\n}\n```\n\nReport `complete` only when the plan was implemented and its run passed. Never\nclaim work you did not do \u2014 the engine diffs the tree, and a false report is\nworse than a failed one.\n';
+var queueAutoPlan_default = '# Role: Headless Auto-Plan Worker\n\nYou are running unattended in a git worktree that already holds this ticket\'s\nbranch. Nobody is watching your session. The queue that spawned you relays\nanything you cannot decide to the one terminal a human is sitting at, and\nre-invokes you with their answer.\n\n## What to do\n\n1. Invoke the `lightsout:auto-plan` skill on the ticket appended below and\n   follow it exactly as written. It plans the ticket, publishes the approved\n   durable plan to that ticket, and hands the plan to the implement pipeline.\n2. Do not begin implementation unless that publish step succeeded. Then run the\n   engine\'s `implement` command on the plan folder the skill produces, and stay\n   with the run until it finishes. A publish failure is a worker failure to\n   report, not a reason to continue from the one local copy.\n\nThe task message names the exact engine invocation to type. That string is\nalso the only command prefix this session was granted, so wherever the skill\'s\nown text says `lightsout <subcommand>`, run the granted invocation followed by\n`<subcommand>` instead. Anything else will simply be refused.\n\nThe `lightsout:auto-plan` skill ships in the same plugin as the engine that\nspawned you, so a user running the queue has it installed. If your session\ncannot find it, do NOT improvise a planning process: report `failed` with a\nfailure saying the lightsout plugin\'s skills are not available to spawned\nsessions, so the ticket parks with a message a human can act on.\n\n## The worktree may already hold your earlier work\n\nInspect it before assuming it is fresh. A previous invocation of you may have\nwritten a plan folder, started a run, or left half-finished work \u2014 this happens\nafter a relayed answer and after a restart. An existing\n`.lightsout/plans/<name>/` for this ticket is yours: do not re-derive a name\nand do not restart the pipeline. Fold the relayed answer in and continue from\nwhere the previous invocation stopped.\n\n## You have no user\n\nNever ask a question directly \u2014 there is nobody in your session to answer it.\nWhen a question clears the skill\'s escalation bar, stop and report\n`terminated:ambiguity` with the question as the FIRST entry of `failures`. The\nengine relays it to the terminal that started the queue, records the answer on\nthe ticket, and re-invokes you with it. Ask one question at a time.\n\n## Never ship\n\nNever run `lightsout ship`, and never pass `--ship`. Shipping is the queue\'s\nown step: it rebases each branch onto fresh main and re-runs the gates, one\nbranch at a time. A branch that ships itself races that order.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. Your\nmessage starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was built, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 omit when clean" }]\n}\n```\n\nReport `complete` only when the plan was implemented and its run passed. Never\nclaim work you did not do \u2014 the engine diffs the tree, and a false report is\nworse than a failed one.\n';
 
 // src/agents/buildQueueAutoPlanInvocation.ts
 var buildQueueAutoPlanInvocation = ({
@@ -29004,7 +29040,7 @@ var planDraftOutputs = ({ cwd, name, variant }) => {
 
 // src/plan/draft/common/utils/createDraftStop.ts
 var createDraftStop = ({ workspaceDir, advisories }) => {
-  return (fields) => ({ ...fields, workspaceDir, advisories: [...advisories] });
+  return (fields3) => ({ ...fields3, workspaceDir, advisories: [...advisories] });
 };
 
 // src/plan/draft/common/utils/authorPlanFiles.ts
@@ -29328,6 +29364,14 @@ var planNameFromPath = ({ cwd, planPath }) => {
 // src/plan/publish/durablePlanFiles.ts
 import { basename as basename11, join as join38 } from "node:path";
 
+// src/plan/common/constants/durablePlanFileNames.ts
+var durablePlanFileNames = {
+  /** The plan's working records, each attached when the folder holds it. */
+  records: ["notes.md", "decisions.json", "grade.json"],
+  /** A plan deliverable's own file name, spelled exactly as `resolvePlanDeliverable` matches it. */
+  deliverable: /^(?:plan\.md|overview\.md|phase\d+.*\.md)$/
+};
+
 // src/plan/common/utils/resolvePlanDeliverable.ts
 import { readdir as readdir9, readFile as readFile16 } from "node:fs/promises";
 import { join as join37 } from "node:path";
@@ -29368,6 +29412,13 @@ var durablePlanFiles = async ({ cwd, name }) => {
   if (deliverable.error !== void 0) {
     return { files: [], error: `nothing to publish for '${name}': ${deliverable.error}` };
   }
+  const isSinglePlan = deliverable.files.length === 1 && basename11(deliverable.files[0]?.path ?? "") === "plan.md";
+  if (!isSinglePlan && deliverable.overviewPath === void 0) {
+    return {
+      files: [],
+      error: `nothing to publish for '${name}': phase files need an overview.md so the restored folder is a runnable phased plan`
+    };
+  }
   const dir = planWorkspaceDir({ cwd, name });
   const deliverablePaths = deliverable.overviewPath === void 0 ? [] : [deliverable.overviewPath];
   const files = [...deliverablePaths, ...deliverable.files.map((file2) => file2.path)].map((path) => ({ name: basename11(path), path }));
@@ -29382,6 +29433,114 @@ var durablePlanFiles = async ({ cwd, name }) => {
 
 // src/plan/publish/publishPlan.ts
 import { readFile as readFile18 } from "node:fs/promises";
+
+// src/plan/common/planAttachmentManifest.ts
+import { createHash } from "node:crypto";
+import { basename as basename12 } from "node:path";
+var planAttachmentManifestName = "plan-attachments.json";
+var isDurablePlanAttachmentName = ({ name }) => name === basename12(name) && name !== "." && name !== ".." && !/[\\/]/.test(name) && (durablePlanFileNames.records.includes(name) || durablePlanFileNames.deliverable.test(name));
+var planAttachmentSha256 = ({ content }) => createHash("sha256").update(content).digest("hex");
+var serializePlanAttachmentManifest = ({ files }) => Buffer.from(
+  `${JSON.stringify(
+    {
+      schemaVersion: 1,
+      files: files.map(({ name, content }) => ({ name, sha256: planAttachmentSha256({ content }) }))
+    },
+    null,
+    2
+  )}
+`,
+  "utf8"
+);
+var parsePlanAttachmentManifest = ({ text }) => {
+  let value;
+  try {
+    value = JSON.parse(text);
+  } catch (error51) {
+    return { error: `${planAttachmentManifestName} is not valid JSON: ${messageOf({ error: error51 })}` };
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return { error: `${planAttachmentManifestName} must contain an object` };
+  }
+  const candidate = value;
+  if (candidate.schemaVersion !== 1) {
+    return { error: `${planAttachmentManifestName} has unsupported schemaVersion ${JSON.stringify(candidate.schemaVersion)} \u2014 expected 1` };
+  }
+  if (!Array.isArray(candidate.files) || candidate.files.length === 0) {
+    return { error: `${planAttachmentManifestName} must list at least one durable plan file` };
+  }
+  const files = [];
+  for (const entry of candidate.files) {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      return { error: `${planAttachmentManifestName} contains a file entry that is not an object` };
+    }
+    const file2 = entry;
+    if (typeof file2.name !== "string" || !isDurablePlanAttachmentName({ name: file2.name })) {
+      return { error: `${planAttachmentManifestName} contains a non-durable or unsafe file name: ${JSON.stringify(file2.name)}` };
+    }
+    if (typeof file2.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(file2.sha256)) {
+      return { error: `${planAttachmentManifestName} contains an invalid SHA-256 for ${file2.name}` };
+    }
+    if (files.some(({ name }) => name === file2.name)) {
+      return { error: `${planAttachmentManifestName} lists ${file2.name} more than once` };
+    }
+    files.push({ name: file2.name, sha256: file2.sha256 });
+  }
+  return { manifest: { schemaVersion: 1, files } };
+};
+
+// src/phases/readOverviewPhases.ts
+var readOverviewPhases = ({ overviewContent }) => {
+  const files = [];
+  let inPhases = false;
+  for (const line of overviewContent.split(/\r?\n/)) {
+    const heading = /^##\s+(.+?)\s*$/.exec(line);
+    if (heading) {
+      inPhases = heading[1] === "Phases";
+      continue;
+    }
+    if (!inPhases || !line.trim().startsWith("|")) {
+      continue;
+    }
+    const cells = line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|");
+    const file2 = /`([^`]+)`/.exec(cells[1] ?? "")?.[1]?.trim();
+    if (file2) {
+      files.push(file2);
+    }
+  }
+  return files;
+};
+
+// src/plan/common/validatePlanAttachmentGeneration.ts
+var phaseNamesOf = ({ names }) => names.filter((name) => name !== "plan.md" && name !== "overview.md" && durablePlanFileNames.deliverable.test(name));
+var validatePlanAttachmentGeneration = ({ files }) => {
+  const names = files.map(({ name }) => name);
+  const hasSingle = names.includes("plan.md");
+  const hasOverview = names.includes("overview.md");
+  const phases = phaseNamesOf({ names });
+  if (hasSingle) {
+    return hasOverview || phases.length > 0 ? { error: `the plan generation (${names.join(", ")}) is not runnable \u2014 plan.md must not coexist with overview.md or phase files` } : void 0;
+  }
+  if (!hasOverview || phases.length === 0) {
+    return {
+      error: `the plan generation (${names.join(", ")}) is not runnable \u2014 expected plan.md on its own, or overview.md with at least one phase<N> file`
+    };
+  }
+  const overview = files.find(({ name }) => name === "overview.md");
+  const declared = overview === void 0 ? [] : readOverviewPhases({ overviewContent: overview.text });
+  const duplicate = declared.find((name, index) => declared.indexOf(name) !== index);
+  if (duplicate !== void 0) {
+    return { error: `overview.md lists ${duplicate} more than once in its Phases table` };
+  }
+  const declaredSorted = [...declared].sort();
+  const attachedSorted = [...phases].sort();
+  if (declaredSorted.length !== attachedSorted.length || declaredSorted.some((name, index) => name !== attachedSorted[index])) {
+    return {
+      error: `overview.md's Phases table (${declared.join(", ") || "none"}) does not exactly match the plan generation's phase files (${phases.join(", ")})`
+    };
+  }
+  return void 0;
+};
 
 // src/ship/readShipResult.ts
 import { readFile as readFile17 } from "node:fs/promises";
@@ -29837,6 +29996,749 @@ var runShip = async ({ cwd, settings, onProgress }) => {
 
 // src/plan/readPlanTicketRef.ts
 var readPlanTicketRef = ({ name, ticketPattern }) => readTicketMatch({ branch: name, ticketPattern })?.ticket;
+
+// src/ticketTracker/common/utils/addLineUnderHeading.ts
+var readHeadingLevel = ({ line }) => {
+  const hashes = /^(#{1,6})\s/.exec(line)?.[1];
+  return hashes === void 0 ? void 0 : hashes.length;
+};
+var addLineUnderHeading = ({ body, heading, line }) => {
+  const lines = body.split("\n");
+  let result;
+  if (lines.includes(line)) {
+    result = body;
+  } else {
+    const headingIndex = lines.findIndex((candidate) => candidate.trim() === heading.trim());
+    if (headingIndex === -1) {
+      result = `${body.trimEnd()}
+
+${heading}
+
+${line}`.trimStart();
+    } else {
+      const level = readHeadingLevel({ line: heading.trim() }) ?? 2;
+      const after = lines.slice(headingIndex + 1);
+      const nextHeading = after.findIndex((candidate) => (readHeadingLevel({ line: candidate }) ?? 7) <= level);
+      const sectionEnd = nextHeading === -1 ? lines.length : headingIndex + 1 + nextHeading;
+      let insertAt = sectionEnd;
+      while (insertAt > headingIndex + 1 && lines[insertAt - 1]?.trim() === "") {
+        insertAt -= 1;
+      }
+      result = [...lines.slice(0, insertAt), line, ...lines.slice(insertAt)].join("\n");
+    }
+  }
+  return result;
+};
+
+// src/ticketTracker/jira/fromAdf.ts
+var AdfMarkType = { Strong: "strong", Em: "em", Code: "code", Link: "link" };
+var InlineTokenKind = { Text: "text", Break: "break" };
+var readRecord = ({ value }) => {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? Object.fromEntries(Object.entries(value)) : void 0;
+};
+var readNode = ({ value }) => {
+  const record3 = readRecord({ value });
+  if (record3 === void 0 || typeof record3.type !== "string") {
+    return void 0;
+  }
+  return { type: record3.type, text: record3.text, attrs: record3.attrs, marks: record3.marks, content: record3.content };
+};
+var readContent = ({ node }) => {
+  return node.content === void 0 ? [] : Array.isArray(node.content) ? node.content : void 0;
+};
+var readMarks = ({ value }) => {
+  if (value === void 0) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    return void 0;
+  }
+  const normalized = [];
+  for (const candidate of value) {
+    const candidateRecord = readRecord({ value: candidate });
+    if (candidateRecord === void 0 || typeof candidateRecord.type !== "string") {
+      continue;
+    }
+    if ((candidateRecord.type === AdfMarkType.Strong || candidateRecord.type === AdfMarkType.Em || candidateRecord.type === AdfMarkType.Code) && candidateRecord.attrs === void 0) {
+      normalized.push({ type: candidateRecord.type });
+    }
+    const linkAttributes = readRecord({ value: candidateRecord.attrs });
+    if (candidateRecord.type === AdfMarkType.Link && typeof linkAttributes?.href === "string" && linkAttributes.href !== "") {
+      normalized.push({ type: AdfMarkType.Link, href: linkAttributes.href });
+    }
+  }
+  const order = { strong: 0, em: 1, code: 2, link: 3 };
+  const unique = normalized.filter((mark, index) => normalized.findIndex((candidate) => candidate.type === mark.type) === index);
+  return unique.sort((left, right) => order[left.type] - order[right.type]);
+};
+var readInlineTokens = ({ values }) => {
+  const tokens = [];
+  for (const value of values) {
+    const node = readNode({ value });
+    if (node === void 0) {
+      return void 0;
+    }
+    if (node.type === "text") {
+      const marks = readMarks({ value: node.marks });
+      if (typeof node.text !== "string" || marks === void 0) {
+        return void 0;
+      }
+      tokens.push({ kind: InlineTokenKind.Text, text: node.text, marks });
+      continue;
+    }
+    if (node.type === "hardBreak") {
+      tokens.push({ kind: InlineTokenKind.Break });
+      continue;
+    }
+    const content = readContent({ node });
+    if (content === void 0) {
+      return void 0;
+    }
+    const descendants = readInlineTokens({ values: content });
+    if (descendants === void 0) {
+      return void 0;
+    }
+    tokens.push(...descendants);
+  }
+  return tokens;
+};
+var markKey = ({ marks }) => JSON.stringify(marks);
+var coalesceTokens = ({ tokens }) => {
+  const result = [];
+  for (const token of tokens) {
+    const previous = result.at(-1);
+    if (token.kind === InlineTokenKind.Text && previous?.kind === InlineTokenKind.Text && markKey({ marks: previous.marks }) === markKey({ marks: token.marks })) {
+      previous.text += token.text;
+    } else {
+      result.push(token);
+    }
+  }
+  return result;
+};
+var escapeText = ({ text, lineStart }) => {
+  const escaped = text.replace(/[\\*_`[\]()]/gu, "\\$&");
+  return lineStart ? escaped.replace(/^([#-]) /u, "\\$1 ").replace(/^(\d+)\. /u, "$1\\. ") : escaped;
+};
+var wrapMarks = ({ text, marks }) => {
+  let prefix = "";
+  let suffix = "";
+  for (const mark of marks) {
+    if (mark.type === AdfMarkType.Strong) {
+      prefix += "**";
+      suffix = `**${suffix}`;
+    } else if (mark.type === AdfMarkType.Em) {
+      prefix += "_";
+      suffix = `_${suffix}`;
+    } else if (mark.type === AdfMarkType.Code) {
+      prefix += "`";
+      suffix = `\`${suffix}`;
+    } else {
+      prefix += "[";
+      suffix = `](${mark.href.replaceAll("\\", "%5C").replaceAll(" ", "%20").replaceAll(")", "%29")})${suffix}`;
+    }
+  }
+  return `${prefix}${text}${suffix}`;
+};
+var renderInline = ({ values }) => {
+  const read = readInlineTokens({ values });
+  if (read === void 0) {
+    return void 0;
+  }
+  let lineStart = true;
+  let markdown = "";
+  for (const token of coalesceTokens({ tokens: read })) {
+    if (token.kind === InlineTokenKind.Break) {
+      markdown += "\n";
+      lineStart = true;
+    } else {
+      markdown += wrapMarks({ text: escapeText({ text: token.text, lineStart }), marks: token.marks });
+      lineStart = token.text.endsWith("\n");
+    }
+  }
+  return markdown;
+};
+var renderList = ({ node, depth }) => {
+  const items = readContent({ node });
+  const attrs = readRecord({ value: node.attrs });
+  const configuredOrder = attrs?.order;
+  const firstOrder = typeof configuredOrder === "number" && Number.isInteger(configuredOrder) && configuredOrder > 0 ? configuredOrder : 1;
+  if (items === void 0) {
+    return void 0;
+  }
+  const lines = [];
+  for (const [index, value] of items.entries()) {
+    const item = readNode({ value });
+    const content = item === void 0 || item.type !== "listItem" ? void 0 : readContent({ node: item });
+    const first = content === void 0 ? void 0 : readNode({ value: content[0] });
+    const firstContent = first === void 0 ? [] : readContent({ node: first });
+    if (content === void 0 || first?.type !== "paragraph" || firstContent === void 0) {
+      return void 0;
+    }
+    const text = renderInline({ values: firstContent });
+    if (text === void 0) {
+      return void 0;
+    }
+    const prefix = node.type === "orderedList" ? `${firstOrder + index}. ` : "- ";
+    lines.push(`${"  ".repeat(depth)}${prefix}${text}`);
+    for (const nestedValue of content.slice(1)) {
+      const nested = readNode({ value: nestedValue });
+      if (nested === void 0 || nested.type !== "bulletList" && nested.type !== "orderedList") {
+        return void 0;
+      }
+      const rendered = renderList({ node: nested, depth: depth + 1 });
+      if (rendered === void 0) {
+        return void 0;
+      }
+      lines.push(rendered);
+    }
+  }
+  return lines.join("\n");
+};
+var renderBlock = ({ value }) => {
+  const node = readNode({ value });
+  if (node === void 0) {
+    return void 0;
+  }
+  if (node.type === "bulletList" || node.type === "orderedList") {
+    return renderList({ node, depth: 0 });
+  }
+  if (node.type === "text" || node.type === "hardBreak") {
+    return renderInline({ values: [value] });
+  }
+  const content = readContent({ node });
+  if (content === void 0) {
+    return void 0;
+  }
+  const text = renderInline({ values: content });
+  if (text === void 0) {
+    return void 0;
+  }
+  if (node.type !== "heading") {
+    return text;
+  }
+  const attrs = readRecord({ value: node.attrs });
+  const level = attrs?.level;
+  return typeof level === "number" && Number.isInteger(level) && level >= 1 && level <= 6 ? `${"#".repeat(level)} ${text}` : void 0;
+};
+var fromAdf = ({ value }) => {
+  if (value === void 0 || value === null) {
+    return "";
+  }
+  const root = readNode({ value });
+  const rootRecord = readRecord({ value });
+  const content = root === void 0 ? void 0 : readContent({ node: root });
+  if (root === void 0 || rootRecord?.version !== 1 || root.type !== "doc" || content === void 0) {
+    return void 0;
+  }
+  const blocks = content.map((block) => renderBlock({ value: block }));
+  return blocks.some((block) => block === void 0) ? void 0 : blocks.join("\n\n");
+};
+
+// src/ticketTracker/jira/runJira.ts
+var ResponseKind = { Json: "json", Empty: "empty", Text: "text" };
+var createJiraClient = ({ settings }) => {
+  async function request({ method, path, body, headers: requestedHeaders, response }) {
+    const authorization = Buffer.from(`${settings.apiUserEmail}:${settings.apiKey}`).toString("base64");
+    const headers = { Accept: "application/json", Authorization: `Basic ${authorization}`, ...requestedHeaders };
+    const isMultipart = body instanceof FormData;
+    if (body !== void 0 && !isMultipart) {
+      headers["Content-Type"] = "application/json";
+    }
+    const responseValue = await fetch(`${settings.siteUrl}${path}`, {
+      method,
+      headers,
+      body: body === void 0 ? void 0 : isMultipart ? body : JSON.stringify(body)
+    });
+    const text = await responseValue.text();
+    if (!responseValue.ok) {
+      throw new Error(`Jira request failed with ${responseValue.status}: ${text || responseValue.statusText}`);
+    }
+    if (response === ResponseKind.Text) {
+      return text;
+    }
+    if (response === ResponseKind.Empty) {
+      if (responseValue.status !== 204 || text !== "") {
+        throw new Error("Jira returned a response body where an empty response was expected");
+      }
+      return;
+    }
+    if (text === "") {
+      throw new Error("Jira returned an empty JSON response");
+    }
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error("Jira returned malformed JSON");
+    }
+  }
+  return { request };
+};
+var withDeadline = async ({ request }) => {
+  const trackerTimeoutMs = 6e4;
+  let timer;
+  const deadline = new Promise((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(`the tracker did not answer within ${trackerTimeoutMs}ms`)), trackerTimeoutMs);
+  });
+  try {
+    return await Promise.race([request, deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+};
+var runJira = async ({ settings, request }) => {
+  try {
+    return await withDeadline({ request: request(createJiraClient({ settings })) });
+  } catch (error51) {
+    return { error: messageOf({ error: error51 }) };
+  }
+};
+
+// src/ticketTracker/jira/toAdf.ts
+var TextMarkType = { Strong: "strong", Em: "em", Code: "code", Link: "link" };
+var InlineNodeType = { Text: "text", HardBreak: "hardBreak" };
+var ListKind = { Bullet: "bullet", Ordered: "ordered" };
+var AdfNodeType = {
+  Doc: "doc",
+  Paragraph: "paragraph",
+  Heading: "heading",
+  ListItem: "listItem",
+  BulletList: "bulletList",
+  OrderedList: "orderedList"
+};
+var marksKey = ({ marks }) => JSON.stringify(marks);
+var appendText = ({ nodes, text, marks = [] }) => {
+  if (text === "") {
+    return;
+  }
+  const previous = nodes.at(-1);
+  if (previous?.type === InlineNodeType.Text && marksKey({ marks: previous.marks ?? [] }) === marksKey({ marks })) {
+    previous.text += text;
+  } else {
+    nodes.push(marks.length === 0 ? { type: InlineNodeType.Text, text } : { type: InlineNodeType.Text, text, marks });
+  }
+};
+var findUnescaped = ({ text, token, start, end }) => {
+  for (let index = start; index <= end - token.length; index += 1) {
+    if (text[index] === "\\") {
+      index += 1;
+      continue;
+    }
+    if (text.startsWith(token, index)) {
+      return index;
+    }
+  }
+  return void 0;
+};
+var withOuterMark = ({ nodes, mark }) => {
+  return nodes.map((node) => node.type === InlineNodeType.HardBreak ? node : { ...node, marks: [mark, ...node.marks ?? []] });
+};
+var readMarkedRun = ({ text, index, end, minimumRank }) => {
+  const definitions = [
+    { rank: 0, opener: "**", closer: "**", mark: { type: TextMarkType.Strong } },
+    { rank: 1, opener: "_", closer: "_", mark: { type: TextMarkType.Em } },
+    { rank: 2, opener: "`", closer: "`", mark: { type: TextMarkType.Code } }
+  ];
+  for (const definition of definitions) {
+    if (definition.rank < minimumRank || !text.startsWith(definition.opener, index)) {
+      continue;
+    }
+    const contentStart = index + definition.opener.length;
+    const close = findUnescaped({ text, token: definition.closer, start: contentStart, end });
+    if (close === void 0 || close === contentStart) {
+      continue;
+    }
+    const nodes = parseInlineRange({ text, start: contentStart, end: close, minimumRank: definition.rank + 1 });
+    return { nodes: withOuterMark({ nodes, mark: definition.mark }), nextIndex: close + definition.closer.length };
+  }
+  if (minimumRank <= 3 && text[index] === "[" && (index === 0 || text[index - 1] !== "!")) {
+    const middle = findUnescaped({ text, token: "](", start: index + 1, end });
+    const close = middle === void 0 ? void 0 : findUnescaped({ text, token: ")", start: middle + 2, end });
+    if (middle !== void 0 && middle > index + 1 && close !== void 0 && close > middle + 2) {
+      try {
+        const href = decodeURIComponent(text.slice(middle + 2, close));
+        if (href !== "") {
+          const nodes = parseInlineRange({ text, start: index + 1, end: middle, minimumRank: 4 });
+          return { nodes: withOuterMark({ nodes, mark: { type: TextMarkType.Link, attrs: { href } } }), nextIndex: close + 1 };
+        }
+      } catch {
+        return void 0;
+      }
+    }
+  }
+  return void 0;
+};
+var parseInlineRange = ({ text, start, end, minimumRank }) => {
+  const nodes = [];
+  let index = start;
+  while (index < end) {
+    if (text[index] === "\\" && index + 1 < end) {
+      appendText({ nodes, text: text[index + 1] ?? "" });
+      index += 2;
+      continue;
+    }
+    const marked = readMarkedRun({ text, index, end, minimumRank });
+    if (marked !== void 0) {
+      for (const node of marked.nodes) {
+        if (node.type === InlineNodeType.HardBreak) {
+          nodes.push(node);
+        } else {
+          appendText({ nodes, text: node.text, marks: node.marks });
+        }
+      }
+      index = marked.nextIndex;
+      continue;
+    }
+    appendText({ nodes, text: text[index] ?? "" });
+    index += 1;
+  }
+  return nodes;
+};
+var parseInline = ({ text }) => parseInlineRange({ text, start: 0, end: text.length, minimumRank: 0 });
+var paragraph = ({ text, literal: literal2 = false }) => {
+  const content = [];
+  for (const [index, line] of text.split("\n").entries()) {
+    if (index > 0) {
+      content.push({ type: InlineNodeType.HardBreak });
+    }
+    const nodes = literal2 ? parseInlineRange({ text: line, start: 0, end: line.length, minimumRank: 4 }) : parseInline({ text: line });
+    for (const node of nodes) {
+      if (node.type === InlineNodeType.HardBreak) {
+        content.push(node);
+      } else {
+        appendText({ nodes: content, text: node.text, marks: node.marks });
+      }
+    }
+  }
+  return { type: AdfNodeType.Paragraph, content };
+};
+var readListMarker = ({ line }) => {
+  const match = /^( *)(?:(- )|(\d+)\. )(.*)$/u.exec(line);
+  if (match === null || (match[1]?.length ?? 0) % 2 !== 0) {
+    return void 0;
+  }
+  const ordinal = match[3] === void 0 ? void 0 : Number(match[3]);
+  if (ordinal !== void 0 && (!Number.isInteger(ordinal) || ordinal < 1)) {
+    return void 0;
+  }
+  return {
+    depth: (match[1]?.length ?? 0) / 2,
+    kind: match[2] === void 0 ? ListKind.Ordered : ListKind.Bullet,
+    ordinal,
+    text: match[4] ?? ""
+  };
+};
+var parseList = ({ lines, start, depth, kind }) => {
+  const content = [];
+  const first = readListMarker({ line: lines[start] ?? "" });
+  let expectedOrdinal = first?.ordinal;
+  let index = start;
+  if (first === void 0 || first.depth !== depth || first.kind !== kind || kind === ListKind.Ordered && expectedOrdinal === void 0) {
+    return void 0;
+  }
+  while (index < lines.length) {
+    const marker = readListMarker({ line: lines[index] ?? "" });
+    if (marker === void 0 || marker.depth !== depth || marker.kind !== kind) {
+      break;
+    }
+    if (kind === ListKind.Ordered && marker.ordinal !== expectedOrdinal) {
+      return void 0;
+    }
+    const itemContent = [paragraph({ text: marker.text })];
+    index += 1;
+    expectedOrdinal = expectedOrdinal === void 0 ? void 0 : expectedOrdinal + 1;
+    while (index < lines.length) {
+      const childMarker = readListMarker({ line: lines[index] ?? "" });
+      if (childMarker === void 0 || childMarker.depth <= depth) {
+        break;
+      }
+      if (childMarker.depth !== depth + 1) {
+        return void 0;
+      }
+      const child = parseList({ lines, start: index, depth: depth + 1, kind: childMarker.kind });
+      if (child === void 0) {
+        return void 0;
+      }
+      itemContent.push(child.node);
+      index = child.nextIndex;
+    }
+    content.push({ type: AdfNodeType.ListItem, content: itemContent });
+  }
+  const node = kind === ListKind.Ordered ? { type: AdfNodeType.OrderedList, attrs: { order: first.ordinal }, content } : { type: AdfNodeType.BulletList, content };
+  return { node, nextIndex: index };
+};
+var parseBlock = ({ block }) => {
+  const heading = /^(#{1,6}) (.*)$/su.exec(block);
+  if (heading !== null && !heading[2]?.includes("\n")) {
+    return { type: AdfNodeType.Heading, attrs: { level: heading[1]?.length }, content: parseInline({ text: heading[2] ?? "" }) };
+  }
+  const lines = block.split("\n");
+  const unsupported = /!\[[^\]]*\]\([^)]*\)/u.test(block) || /^\s*>/mu.test(block) || /^\s*<[^>]+>/mu.test(block) || lines.some((line) => /^\s*\|?[\s:-]+\|[\s|:-]*$/u.test(line));
+  if (unsupported) {
+    return paragraph({ text: block, literal: true });
+  }
+  const firstMarker = readListMarker({ line: lines[0] ?? "" });
+  if (firstMarker !== void 0 && firstMarker.depth === 0) {
+    const list = parseList({ lines, start: 0, depth: 0, kind: firstMarker.kind });
+    if (list !== void 0 && list.nextIndex === lines.length) {
+      return list.node;
+    }
+  }
+  return paragraph({ text: block });
+};
+var toAdf = ({ markdown }) => {
+  if (markdown === "") {
+    return { type: AdfNodeType.Doc, version: 1, content: [] };
+  }
+  return {
+    type: AdfNodeType.Doc,
+    version: 1,
+    content: markdown.split(/\n{2,}/u).filter((block) => block !== "").map((block) => parseBlock({ block }))
+  };
+};
+
+// src/ticketTracker/jira/appendTicketNote.ts
+var appendTicketNote = async ({ settings, ticketId, heading, line }) => {
+  const path = `/rest/api/3/issue/${encodeURIComponent(ticketId)}`;
+  const result = await runJira({
+    settings,
+    request: async (client) => {
+      const issue2 = await client.request({ method: "GET", path: `${path}?fields=description`, response: "json" });
+      const body = fromAdf({ value: issue2.fields.description });
+      if (body === void 0) {
+        return { error: `Jira ticket '${ticketId}' has a malformed description` };
+      }
+      const markdown = addLineUnderHeading({ body, heading, line });
+      await client.request({ method: "PUT", path, body: { fields: { description: toAdf({ markdown }) } }, response: "empty" });
+      return void 0;
+    }
+  });
+  return result;
+};
+
+// src/ticketTracker/jira/getTicketAttachments.ts
+var issueKeyOf = ({ identifier, ticketPrefix }) => {
+  const [prefix, number4] = identifier.split("-");
+  return prefix?.toLowerCase() === ticketPrefix.toLowerCase() && /^\d+$/u.test(number4 ?? "") ? `${ticketPrefix}-${number4}` : void 0;
+};
+var getTicketAttachments = async ({ settings, identifier }) => {
+  const issueKey = issueKeyOf({ identifier, ticketPrefix: settings.ticketPrefix });
+  if (issueKey === void 0) {
+    return { error: `'${identifier}' names no ticket number` };
+  }
+  return runJira({
+    settings,
+    request: async (client) => {
+      const issue2 = await client.request({
+        method: "GET",
+        path: `/rest/api/3/issue/${encodeURIComponent(issueKey)}?fields=attachment`,
+        response: "json"
+      });
+      return (issue2.fields.attachment ?? []).map(({ id, filename }) => ({
+        id,
+        title: filename,
+        url: new URL(`/rest/api/3/attachment/content/${encodeURIComponent(id)}`, settings.siteUrl).toString()
+      }));
+    }
+  });
+};
+
+// src/ticketTracker/jira/common/utils/getJiraUnfinishedBlockers.ts
+var getJiraUnfinishedBlockers = ({ issue: issue2 }) => (issue2.fields.issuelinks ?? []).flatMap((link) => {
+  const linked = link.type?.inward === "is blocked by" ? link.inwardIssue : void 0;
+  const key = linked?.key;
+  return key === void 0 || linked?.fields?.status?.statusCategory?.key === "done" ? [] : [key];
+});
+
+// src/ticketTracker/jira/common/utils/quoteJqlString.ts
+var quoteJqlString = ({ value }) => `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+
+// src/ticketTracker/jira/common/utils/toJiraTrackerTicket.ts
+var priorities = { Highest: 1, High: 2, Medium: 3, Low: 4, Lowest: 5 };
+var priorityOf = ({ name }) => priorities[name ?? ""] ?? 0;
+var toJiraTrackerTicket = ({ issue: issue2, unfinishedBlockers }) => {
+  const description = fromAdf({ value: issue2.fields.description });
+  if (description === void 0) {
+    return { error: `Jira issue '${issue2.key}' has a malformed description` };
+  }
+  if (issue2.fields.summary === void 0 || issue2.fields.created === void 0) {
+    return { error: `Jira issue '${issue2.key}' is missing its summary or created value` };
+  }
+  return {
+    id: issue2.id,
+    identifier: issue2.key,
+    title: issue2.fields.summary,
+    description,
+    priority: priorityOf({ name: issue2.fields.priority?.name }),
+    createdAt: issue2.fields.created,
+    labels: issue2.fields.labels ?? [],
+    unfinishedBlockers
+  };
+};
+
+// src/ticketTracker/jira/getTicketsByIdentifiers.ts
+var fields = ["summary", "description", "priority", "created", "labels", "status", "issuelinks"];
+var matchingKeys = ({ identifiers, ticketPrefix }) => identifiers.flatMap((identifier) => {
+  const [prefix, number4] = identifier.split("-");
+  return prefix?.toLowerCase() === ticketPrefix.toLowerCase() && /^\d+$/u.test(number4 ?? "") ? [`${ticketPrefix}-${number4}`] : [];
+});
+var getTicketsByIdentifiers = async ({ settings, identifiers }) => {
+  const keys = matchingKeys({ identifiers, ticketPrefix: settings.ticketPrefix });
+  if (keys.length === 0) {
+    return [];
+  }
+  return runJira({
+    settings,
+    request: async (client) => {
+      const issues = [];
+      let nextPageToken;
+      do {
+        const jql = `project = ${quoteJqlString({ value: settings.project })} AND key IN (${keys.map((value) => quoteJqlString({ value })).join(", ")})`;
+        const body = nextPageToken === void 0 ? { jql, fields } : { jql, fields, nextPageToken };
+        const page = await client.request({ method: "POST", path: "/rest/api/3/search/jql", body, response: "json" });
+        issues.push(...page.issues);
+        if (!page.isLast && page.nextPageToken === void 0) {
+          return { error: "Jira returned a nonfinal search page without a nextPageToken" };
+        }
+        nextPageToken = page.isLast ? void 0 : page.nextPageToken;
+      } while (nextPageToken !== void 0);
+      const tickets = [];
+      for (const issue2 of issues) {
+        const ticket = toJiraTrackerTicket({ issue: issue2, unfinishedBlockers: getJiraUnfinishedBlockers({ issue: issue2 }) });
+        if ("error" in ticket) {
+          return ticket;
+        }
+        tickets.push(ticket);
+      }
+      return tickets;
+    }
+  });
+};
+
+// src/ticketTracker/jira/listTickets.ts
+var fields2 = ["summary", "description", "priority", "created", "labels", "status", "issuelinks"];
+var listTickets = async ({ settings, labelNames, statuses }) => {
+  if (labelNames.length === 0 || statuses.length === 0) {
+    return [];
+  }
+  return runJira({
+    settings,
+    request: async (client) => {
+      const tickets = [];
+      let nextPageToken;
+      do {
+        const jql = [
+          `project = ${quoteJqlString({ value: settings.project })}`,
+          `labels IN (${labelNames.map((value) => quoteJqlString({ value })).join(", ")})`,
+          `status IN (${statuses.map((value) => quoteJqlString({ value })).join(", ")})`
+        ].join(" AND ");
+        const body = nextPageToken === void 0 ? { jql, fields: fields2 } : { jql, fields: fields2, nextPageToken };
+        const page = await client.request({ method: "POST", path: "/rest/api/3/search/jql", body, response: "json" });
+        for (const issue2 of page.issues) {
+          const ticket = toJiraTrackerTicket({ issue: issue2, unfinishedBlockers: getJiraUnfinishedBlockers({ issue: issue2 }) });
+          if ("error" in ticket) {
+            return ticket;
+          }
+          tickets.push(ticket);
+        }
+        if (!page.isLast && page.nextPageToken === void 0) {
+          return { error: "Jira returned a nonfinal search page without a nextPageToken" };
+        }
+        nextPageToken = page.isLast ? void 0 : page.nextPageToken;
+      } while (nextPageToken !== void 0);
+      return tickets;
+    }
+  });
+};
+
+// src/ticketTracker/jira/readTicketAsset.ts
+var readTicketAsset = async ({ settings, url: url2 }) => {
+  let assetUrl;
+  let siteUrl;
+  try {
+    assetUrl = new URL(url2);
+    siteUrl = new URL(settings.siteUrl);
+  } catch {
+    return { error: `refusing to send tracker credentials to untrusted attachment URL '${url2}'` };
+  }
+  if (assetUrl.origin !== siteUrl.origin || !assetUrl.pathname.startsWith("/rest/api/3/attachment/content/")) {
+    return { error: `refusing to send tracker credentials to untrusted attachment URL '${url2}'` };
+  }
+  return runJira({
+    settings,
+    request: (client) => client.request({ method: "GET", path: `${assetUrl.pathname}${assetUrl.search}`, response: "text" })
+  });
+};
+
+// src/ticketTracker/jira/setParkedLabel.ts
+var setParkedLabel = async ({ settings, ticketId, label, parked }) => {
+  if (label === void 0) {
+    return void 0;
+  }
+  const path = `/rest/api/3/issue/${encodeURIComponent(ticketId)}`;
+  const result = await runJira({
+    settings,
+    request: async (client) => {
+      const issue2 = await client.request({ method: "GET", path: `${path}?fields=labels`, response: "json" });
+      const labels = issue2.fields.labels ?? [];
+      if (parked && labels.includes(label) || !parked && !labels.includes(label)) {
+        return void 0;
+      }
+      await client.request({ method: "PUT", path, body: { update: { labels: [{ [parked ? "add" : "remove"]: label }] } }, response: "empty" });
+      return void 0;
+    }
+  });
+  return result;
+};
+
+// src/ticketTracker/jira/setTicketAttachment.ts
+var setTicketAttachment = async ({ settings, ticketId, title, content, contentType }) => runJira({
+  settings,
+  request: async (client) => {
+    const issuePath = `/rest/api/3/issue/${encodeURIComponent(ticketId)}`;
+    const issue2 = await client.request({ method: "GET", path: `${issuePath}?fields=attachment`, response: "json" });
+    const oldAttachments = (issue2.fields.attachment ?? []).filter((attachment) => attachment.filename === title);
+    const body = new FormData();
+    body.append("file", new Blob([new Uint8Array(content)], { type: contentType }), title);
+    const uploaded = await client.request({
+      method: "POST",
+      path: `${issuePath}/attachments`,
+      body,
+      headers: { "X-Atlassian-Token": "no-check" },
+      response: "json"
+    });
+    if (!uploaded.some((attachment) => attachment.filename === title)) {
+      return { error: `Jira accepted the upload for '${title}' but did not report a linked attachment` };
+    }
+    for (const attachment of oldAttachments) {
+      try {
+        await client.request({ method: "DELETE", path: `/rest/api/3/attachment/${encodeURIComponent(attachment.id)}`, response: "empty" });
+      } catch (error51) {
+        return {
+          error: `Jira linked the new '${title}' but could not delete old attachment '${attachment.id}': ${messageOf({ error: error51 })}; duplicate copies remain`
+        };
+      }
+    }
+    return void 0;
+  }
+});
+
+// src/ticketTracker/jira/setTicketStatus.ts
+var setTicketStatus = async ({ settings, ticketId, statusName }) => {
+  const path = `/rest/api/3/issue/${encodeURIComponent(ticketId)}/transitions`;
+  const result = await runJira({
+    settings,
+    request: async (client) => {
+      const transitions = await client.request({ method: "GET", path, response: "json" });
+      const transition = transitions.transitions.find((candidate) => candidate.to.name === statusName);
+      if (transition === void 0) {
+        return { error: `Jira ticket '${ticketId}' has no '${statusName}' transition` };
+      }
+      await client.request({ method: "POST", path, body: { transition: { id: transition.id } }, response: "empty" });
+      return void 0;
+    }
+  });
+  return result;
+};
 
 // ../../node_modules/.pnpm/@linear+sdk@92.0.0_graphql@17.0.2/node_modules/@linear/sdk/dist/chunk-DPPnyiuk.mjs
 var __commonJSMin = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
@@ -30678,8 +31580,8 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
       return "[" + join101(values, ", ") + "]";
     },
     ObjectValue: function ObjectValue(_ref14) {
-      var fields = _ref14.fields;
-      return "{" + join101(fields, ", ") + "}";
+      var fields3 = _ref14.fields;
+      return "{" + join101(fields3, ", ") + "}";
     },
     ObjectField: function ObjectField(_ref15) {
       var name = _ref15.name, value = _ref15.value;
@@ -30719,13 +31621,13 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
       ], " ");
     }),
     ObjectTypeDefinition: addDescription(function(_ref23) {
-      var name = _ref23.name, interfaces = _ref23.interfaces, directives = _ref23.directives, fields = _ref23.fields;
+      var name = _ref23.name, interfaces = _ref23.interfaces, directives = _ref23.directives, fields3 = _ref23.fields;
       return join101([
         "type",
         name,
         wrap("implements ", join101(interfaces, " & ")),
         join101(directives, " "),
-        block(fields)
+        block(fields3)
       ], " ");
     }),
     FieldDefinition: addDescription(function(_ref24) {
@@ -30741,13 +31643,13 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
       ], " ");
     }),
     InterfaceTypeDefinition: addDescription(function(_ref26) {
-      var name = _ref26.name, interfaces = _ref26.interfaces, directives = _ref26.directives, fields = _ref26.fields;
+      var name = _ref26.name, interfaces = _ref26.interfaces, directives = _ref26.directives, fields3 = _ref26.fields;
       return join101([
         "interface",
         name,
         wrap("implements ", join101(interfaces, " & ")),
         join101(directives, " "),
-        block(fields)
+        block(fields3)
       ], " ");
     }),
     UnionTypeDefinition: addDescription(function(_ref27) {
@@ -30773,12 +31675,12 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
       return join101([name, join101(directives, " ")], " ");
     }),
     InputObjectTypeDefinition: addDescription(function(_ref30) {
-      var name = _ref30.name, directives = _ref30.directives, fields = _ref30.fields;
+      var name = _ref30.name, directives = _ref30.directives, fields3 = _ref30.fields;
       return join101([
         "input",
         name,
         join101(directives, " "),
-        block(fields)
+        block(fields3)
       ], " ");
     }),
     DirectiveDefinition: addDescription(function(_ref31) {
@@ -30802,23 +31704,23 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
       ], " ");
     },
     ObjectTypeExtension: function ObjectTypeExtension(_ref34) {
-      var name = _ref34.name, interfaces = _ref34.interfaces, directives = _ref34.directives, fields = _ref34.fields;
+      var name = _ref34.name, interfaces = _ref34.interfaces, directives = _ref34.directives, fields3 = _ref34.fields;
       return join101([
         "extend type",
         name,
         wrap("implements ", join101(interfaces, " & ")),
         join101(directives, " "),
-        block(fields)
+        block(fields3)
       ], " ");
     },
     InterfaceTypeExtension: function InterfaceTypeExtension(_ref35) {
-      var name = _ref35.name, interfaces = _ref35.interfaces, directives = _ref35.directives, fields = _ref35.fields;
+      var name = _ref35.name, interfaces = _ref35.interfaces, directives = _ref35.directives, fields3 = _ref35.fields;
       return join101([
         "extend interface",
         name,
         wrap("implements ", join101(interfaces, " & ")),
         join101(directives, " "),
-        block(fields)
+        block(fields3)
       ], " ");
     },
     UnionTypeExtension: function UnionTypeExtension(_ref36) {
@@ -30840,12 +31742,12 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
       ], " ");
     },
     InputObjectTypeExtension: function InputObjectTypeExtension(_ref38) {
-      var name = _ref38.name, directives = _ref38.directives, fields = _ref38.fields;
+      var name = _ref38.name, directives = _ref38.directives, fields3 = _ref38.fields;
       return join101([
         "extend input",
         name,
         join101(directives, " "),
-        block(fields)
+        block(fields3)
       ], " ");
     }
   };
@@ -127731,7 +128633,7 @@ var LinearClient = class extends LinearSdk {
   }
 };
 
-// src/ticketTracker/runLinear.ts
+// src/ticketTracker/linear/runLinear.ts
 var runLinear = async ({ apiKey, call }) => {
   const trackerTimeoutMs = 6e4;
   let timer;
@@ -127747,49 +128649,18 @@ var runLinear = async ({ apiKey, call }) => {
   }
 };
 
-// src/ticketTracker/appendTicketNote.ts
-var readHeadingLevel = ({ line }) => {
-  const hashes = /^(#{1,6})\s/.exec(line)?.[1];
-  return hashes === void 0 ? void 0 : hashes.length;
-};
-var addLineUnderHeading = ({ body, heading, line }) => {
-  const lines = body.split("\n");
-  if (lines.includes(line)) {
-    return body;
+// src/ticketTracker/linear/appendTicketNote.ts
+var appendTicketNote2 = async ({ settings, ticketId, heading, line }) => runLinear({
+  apiKey: settings.apiKey,
+  call: async (client) => {
+    const issue2 = await client.issue(ticketId);
+    const description = addLineUnderHeading({ body: issue2.description ?? "", heading, line });
+    await client.updateIssue(ticketId, { description });
+    return void 0;
   }
-  const headingIndex = lines.findIndex((candidate) => candidate.trim() === heading.trim());
-  if (headingIndex === -1) {
-    return `${body.trimEnd()}
+});
 
-${heading}
-
-${line}
-`.trimStart();
-  }
-  const level = readHeadingLevel({ line: heading.trim() }) ?? 2;
-  const after = lines.slice(headingIndex + 1);
-  const nextHeading = after.findIndex((candidate) => (readHeadingLevel({ line: candidate }) ?? 7) <= level);
-  const sectionEnd = nextHeading === -1 ? lines.length : headingIndex + 1 + nextHeading;
-  let insertAt = sectionEnd;
-  while (insertAt > headingIndex + 1 && lines[insertAt - 1]?.trim() === "") {
-    insertAt -= 1;
-  }
-  return [...lines.slice(0, insertAt), line, ...lines.slice(insertAt)].join("\n");
-};
-var appendTicketNote = async ({ settings, ticketId, heading, line }) => {
-  const written = await runLinear({
-    apiKey: settings.apiKey,
-    call: async (client) => {
-      const issue2 = await client.issue(ticketId);
-      const description = addLineUnderHeading({ body: issue2.description ?? "", heading, line });
-      await client.updateIssue(ticketId, { description });
-      return void 0;
-    }
-  });
-  return written;
-};
-
-// src/ticketTracker/common/utils/collectNodes.ts
+// src/ticketTracker/linear/common/utils/collectNodes.ts
 var collectNodes = async ({ connection }) => {
   let page = connection;
   while (page.pageInfo.hasNextPage) {
@@ -127798,9 +128669,10 @@ var collectNodes = async ({ connection }) => {
   return page.nodes;
 };
 
-// src/ticketTracker/getTicketAttachments.ts
-var getTicketAttachments = async ({ settings, identifier }) => {
-  const issueNumber = Number.parseInt(identifier.split("-").at(-1) ?? "", 10);
+// src/ticketTracker/linear/getTicketAttachments.ts
+var getTicketAttachments2 = async ({ settings, identifier }) => {
+  const [prefix, number4] = identifier.split("-");
+  const issueNumber = prefix?.toLowerCase() === settings.ticketPrefix.toLowerCase() && /^\d+$/u.test(number4 ?? "") ? Number(number4) : Number.NaN;
   if (!Number.isFinite(issueNumber)) {
     return { error: `'${identifier}' names no ticket number` };
   }
@@ -127818,7 +128690,7 @@ var getTicketAttachments = async ({ settings, identifier }) => {
   });
 };
 
-// src/ticketTracker/common/utils/getUnfinishedBlockers.ts
+// src/ticketTracker/linear/common/utils/getUnfinishedBlockers.ts
 var finishedStateTypes = /* @__PURE__ */ new Set(["completed", "canceled"]);
 var getUnfinishedBlockers = async ({ issue: issue2 }) => {
   const relations = await collectNodes({ connection: await issue2.inverseRelations() });
@@ -127835,13 +128707,13 @@ var getUnfinishedBlockers = async ({ issue: issue2 }) => {
   return resolved.filter((identifier) => identifier !== void 0);
 };
 
-// src/ticketTracker/common/utils/readLabelNames.ts
+// src/ticketTracker/linear/common/utils/readLabelNames.ts
 var readLabelNames = async ({ issue: issue2 }) => {
   const labels = await collectNodes({ connection: await issue2.labels() });
   return labels.map((label) => label.name);
 };
 
-// src/ticketTracker/common/utils/toTrackerTicket.ts
+// src/ticketTracker/linear/common/utils/toTrackerTicket.ts
 var toTrackerTicket = ({ issue: issue2, labels, unfinishedBlockers }) => ({
   id: issue2.id,
   identifier: issue2.identifier,
@@ -127853,7 +128725,7 @@ var toTrackerTicket = ({ issue: issue2, labels, unfinishedBlockers }) => ({
   unfinishedBlockers
 });
 
-// src/ticketTracker/common/utils/collectTrackerTickets.ts
+// src/ticketTracker/linear/common/utils/collectTrackerTickets.ts
 var collectTrackerTickets = async ({ connection }) => {
   const issues = await collectNodes({ connection });
   return Promise.all(
@@ -127864,10 +128736,13 @@ var collectTrackerTickets = async ({ connection }) => {
   );
 };
 
-// src/ticketTracker/getTicketsByIdentifiers.ts
-var readIssueNumbers = ({ identifiers }) => identifiers.map((identifier) => Number.parseInt(identifier.split("-").at(-1) ?? "", 10)).filter((issueNumber) => Number.isFinite(issueNumber));
-var getTicketsByIdentifiers = async ({ settings, identifiers }) => {
-  const issueNumbers = readIssueNumbers({ identifiers });
+// src/ticketTracker/linear/getTicketsByIdentifiers.ts
+var readIssueNumbers = ({ identifiers, ticketPrefix }) => identifiers.flatMap((identifier) => {
+  const [prefix, number4] = identifier.split("-");
+  return prefix?.toLowerCase() === ticketPrefix.toLowerCase() && /^\d+$/u.test(number4 ?? "") ? [Number(number4)] : [];
+});
+var getTicketsByIdentifiers2 = async ({ settings, identifiers }) => {
+  const issueNumbers = readIssueNumbers({ identifiers, ticketPrefix: settings.ticketPrefix });
   if (issueNumbers.length === 0) {
     return [];
   }
@@ -127880,25 +128755,34 @@ var getTicketsByIdentifiers = async ({ settings, identifiers }) => {
   });
 };
 
-// src/ticketTracker/listTickets.ts
-var listTickets = async ({ settings, labelNames, statuses }) => runLinear({
-  apiKey: settings.apiKey,
-  call: async (client) => {
-    const connection = await client.issues({
-      filter: {
-        team: { key: { eq: settings.team } },
-        labels: { name: { in: labelNames } },
-        state: { name: { in: statuses } }
-      }
-    });
-    return collectTrackerTickets({ connection });
+// src/ticketTracker/linear/listTickets.ts
+var listTickets2 = async ({ settings, labelNames, statuses }) => {
+  if (labelNames.length === 0 || statuses.length === 0) {
+    return [];
   }
-});
+  return runLinear({
+    apiKey: settings.apiKey,
+    call: async (client) => {
+      const connection = await client.issues({
+        filter: {
+          team: { key: { eq: settings.team } },
+          labels: { name: { in: labelNames } },
+          state: { name: { in: statuses } }
+        }
+      });
+      return collectTrackerTickets({ connection });
+    }
+  });
+};
 
-// src/ticketTracker/readTicketAsset.ts
-var readTicketAsset = async ({ settings, url: url2 }) => {
+// src/ticketTracker/linear/readTicketAsset.ts
+var readTicketAsset2 = async ({ settings, url: url2 }) => {
   const trackerTimeoutMs = 6e4;
   try {
+    const assetUrl = new URL(url2);
+    if (assetUrl.origin !== "https://uploads.linear.app") {
+      return { error: `refusing to send tracker credentials to untrusted attachment URL '${url2}'` };
+    }
     const response = await fetch(url2, { headers: { Authorization: settings.apiKey }, signal: AbortSignal.timeout(trackerTimeoutMs) });
     return response.ok ? await response.text() : { error: `the tracker refused ${url2}: HTTP ${response.status}` };
   } catch (error51) {
@@ -127906,21 +128790,7 @@ var readTicketAsset = async ({ settings, url: url2 }) => {
   }
 };
 
-// src/ticketTracker/resolveTrackerSettings.ts
-var resolveTrackerSettings = ({ config: config2, env }) => {
-  const block = config2["ticket-tracker"];
-  if (block === void 0) {
-    return { error: "this command needs a `ticket-tracker` block in lightsout.config.json naming provider, team and api-key-env" };
-  }
-  const apiKeyEnv = block["api-key-env"];
-  const apiKey = env[apiKeyEnv];
-  if (apiKey === void 0 || apiKey === "") {
-    return { error: `the tracker API key is missing: set the \`${apiKeyEnv}\` environment variable` };
-  }
-  return { team: block.team, apiKey };
-};
-
-// src/ticketTracker/setParkedLabel.ts
+// src/ticketTracker/linear/setParkedLabel.ts
 var createTeamLabel = async ({ client, team, label }) => {
   const teams = await client.teams({ filter: { key: { eq: team } } });
   const teamId = teams.nodes.at(0)?.id;
@@ -127930,11 +128800,11 @@ var createTeamLabel = async ({ client, team, label }) => {
   const created = await client.createIssueLabel({ name: label, teamId });
   return created.issueLabelId ?? { error: `the tracker created the '${label}' label but named no id for it` };
 };
-var setParkedLabel = async ({ settings, ticketId, label, parked }) => {
+var setParkedLabel2 = async ({ settings, ticketId, label, parked }) => {
   if (label === void 0) {
     return void 0;
   }
-  const written = await runLinear({
+  return runLinear({
     apiKey: settings.apiKey,
     call: async (client) => {
       const labels = await client.issueLabels({ filter: { name: { eq: label }, team: { key: { eq: settings.team } } } });
@@ -127950,19 +128820,15 @@ var setParkedLabel = async ({ settings, ticketId, label, parked }) => {
       return void 0;
     }
   });
-  return written;
 };
 
-// src/ticketTracker/setTicketAttachment.ts
-var setTicketAttachment = async ({ settings, ticketId, title, content, contentType }) => {
+// src/ticketTracker/linear/setTicketAttachment.ts
+var setTicketAttachment2 = async ({ settings, ticketId, title, content, contentType }) => {
   return runLinear({
     apiKey: settings.apiKey,
     call: async (client) => {
       const issue2 = await client.issue(ticketId);
       const attachments = await collectNodes({ connection: await issue2.attachments() });
-      for (const attachment of attachments.filter((candidate) => candidate.title === title)) {
-        await client.deleteAttachment(attachment.id);
-      }
       const payload = await client.fileUpload(contentType, title, content.byteLength);
       const uploadFile = payload.uploadFile;
       if (uploadFile === void 0 || uploadFile === null) {
@@ -127970,51 +128836,143 @@ var setTicketAttachment = async ({ settings, ticketId, title, content, contentTy
       }
       const headers = Object.fromEntries(uploadFile.headers.map(({ key, value }) => [key, value]));
       const body = new Uint8Array(content);
-      const response = await fetch(uploadFile.uploadUrl, { method: "PUT", headers: { ...headers, "Content-Type": contentType }, body });
+      const response = await fetch(uploadFile.uploadUrl, {
+        method: "PUT",
+        headers: { ...headers, "Cache-Control": "public, max-age=31536000", "Content-Type": contentType },
+        body
+      });
       if (!response.ok) {
         return { error: `uploading '${title}' failed: ${response.status} ${response.statusText}` };
       }
-      await client.createAttachment({ issueId: ticketId, title, url: uploadFile.assetUrl });
+      const created = await client.createAttachment({ issueId: ticketId, title, url: uploadFile.assetUrl });
+      if (!created.success) {
+        return { error: `the tracker uploaded '${title}' but did not link it to the ticket` };
+      }
+      for (const attachment of attachments.filter((candidate) => candidate.title === title)) {
+        let deleted;
+        try {
+          deleted = await client.deleteAttachment(attachment.id);
+        } catch (error51) {
+          return {
+            error: `the tracker linked the new '${title}' but could not delete old attachment '${attachment.id}': ${messageOf({ error: error51 })}; duplicate copies remain`
+          };
+        }
+        if (!deleted.success) {
+          return { error: `the tracker linked the new '${title}' but could not delete old attachment '${attachment.id}'; duplicate copies remain` };
+        }
+      }
       return void 0;
     }
   });
 };
 
-// src/ticketTracker/setTicketStatus.ts
-var setTicketStatus = async ({ settings, ticketId, statusName }) => {
-  const applied = await runLinear({
-    apiKey: settings.apiKey,
-    call: async (client) => {
-      const states = await client.workflowStates({ filter: { team: { key: { eq: settings.team } }, name: { eq: statusName } } });
-      const state = states.nodes.at(0);
-      if (state === void 0) {
-        return { error: `the '${settings.team}' team has no '${statusName}' status` };
-      }
-      await client.updateIssue(ticketId, { stateId: state.id });
-      return void 0;
+// src/ticketTracker/linear/setTicketStatus.ts
+var setTicketStatus2 = async ({ settings, ticketId, statusName }) => runLinear({
+  apiKey: settings.apiKey,
+  call: async (client) => {
+    const states = await client.workflowStates({ filter: { team: { key: { eq: settings.team } }, name: { eq: statusName } } });
+    const state = states.nodes.at(0);
+    if (state === void 0) {
+      return { error: `the '${settings.team}' team has no '${statusName}' status` };
     }
-  });
-  return applied;
+    await client.updateIssue(ticketId, { stateId: state.id });
+    return void 0;
+  }
+});
+
+// src/ticketTracker/appendTicketNote.ts
+var appendTicketNote3 = async (params) => params.settings.provider === "linear" ? appendTicketNote2({ ...params, settings: params.settings }) : appendTicketNote({ ...params, settings: params.settings });
+
+// src/ticketTracker/getTicketAttachments.ts
+var getTicketAttachments3 = async (params) => params.settings.provider === "linear" ? getTicketAttachments2({ ...params, settings: params.settings }) : getTicketAttachments({ ...params, settings: params.settings });
+
+// src/ticketTracker/getTicketsByIdentifiers.ts
+var getTicketsByIdentifiers3 = async (params) => params.settings.provider === "linear" ? getTicketsByIdentifiers2({ ...params, settings: params.settings }) : getTicketsByIdentifiers({ ...params, settings: params.settings });
+
+// src/ticketTracker/listTickets.ts
+var listTickets3 = async (params) => params.settings.provider === "linear" ? listTickets2({ ...params, settings: params.settings }) : listTickets({ ...params, settings: params.settings });
+
+// src/ticketTracker/readTicketAsset.ts
+var readTicketAsset3 = async (params) => params.settings.provider === "linear" ? readTicketAsset2({ ...params, settings: params.settings }) : readTicketAsset({ ...params, settings: params.settings });
+
+// src/ticketTracker/resolveTrackerSettings.ts
+var resolveTrackerSettings = ({ config: config2, env }) => {
+  const block = config2["ticket-tracker"];
+  if (block === void 0) {
+    return { error: "this command needs a `ticket-tracker` block in lightsout.config.json naming a provider and its credentials" };
+  }
+  const apiKeyEnv = block["api-key-env"];
+  const apiKey = env[apiKeyEnv];
+  if (apiKey === void 0 || apiKey === "") {
+    return { error: `the tracker API key is missing: set the \`${apiKeyEnv}\` environment variable` };
+  }
+  if (block.provider === "linear") {
+    return { provider: "linear", ticketPrefix: block.team, team: block.team, apiKey };
+  }
+  const apiUserEmailEnv = block["api-user-email-env"];
+  const apiUserEmail = env[apiUserEmailEnv];
+  if (apiUserEmail === void 0 || apiUserEmail === "") {
+    return { error: `the Jira API user email is missing: set the \`${apiUserEmailEnv}\` environment variable` };
+  }
+  return {
+    provider: "jira",
+    ticketPrefix: block.project,
+    siteUrl: block["site-url"].replace(/\/$/u, ""),
+    project: block.project,
+    apiKey,
+    apiUserEmail
+  };
 };
+
+// src/ticketTracker/setParkedLabel.ts
+var setParkedLabel3 = async (params) => params.settings.provider === "linear" ? setParkedLabel2({ ...params, settings: params.settings }) : setParkedLabel({ ...params, settings: params.settings });
+
+// src/ticketTracker/setTicketAttachment.ts
+var setTicketAttachment3 = async (params) => params.settings.provider === "linear" ? setTicketAttachment2({ ...params, settings: params.settings }) : setTicketAttachment({ ...params, settings: params.settings });
+
+// src/ticketTracker/setTicketStatus.ts
+var setTicketStatus3 = async (params) => params.settings.provider === "linear" ? setTicketStatus2({ ...params, settings: params.settings }) : setTicketStatus({ ...params, settings: params.settings });
 
 // src/plan/publish/publishPlan.ts
 var contentTypeOf = ({ name }) => name.endsWith(".json") ? "application/json" : "text/markdown";
+var prepareAttachments = async ({ files }) => {
+  const durable = [];
+  for (const file2 of files) {
+    try {
+      durable.push({ name: file2.name, content: await readFile18(file2.path) });
+    } catch (error51) {
+      return { error: `could not read ${file2.name} before publishing: ${messageOf({ error: error51 })}` };
+    }
+  }
+  const refusal = validatePlanAttachmentGeneration({ files: durable.map(({ name, content }) => ({ name, text: content.toString("utf8") })) });
+  if (refusal !== void 0) {
+    return refusal;
+  }
+  return {
+    attachments: [...durable, { name: planAttachmentManifestName, content: serializePlanAttachmentManifest({ files: durable }) }]
+  };
+};
 var attachDurableFiles = async ({
   settings,
   ticketId,
   ticketRef,
-  files,
+  attachments,
   onProgress
 }) => {
   const published = [];
-  for (const file2 of files) {
-    const content = await readFile18(file2.path);
-    const failure = await setTicketAttachment({ settings, ticketId, title: file2.name, content, contentType: contentTypeOf({ name: file2.name }) });
+  for (const attachment of attachments) {
+    const failure = await setTicketAttachment3({
+      settings,
+      ticketId,
+      title: attachment.name,
+      content: attachment.content,
+      contentType: contentTypeOf({ name: attachment.name })
+    });
     if (failure !== void 0) {
       return { published, error: failure.error };
     }
-    published.push(file2.name);
-    onProgress(`attached ${file2.name} to ${ticketRef}`);
+    published.push(attachment.name);
+    onProgress(`attached ${attachment.name} to ${ticketRef}`);
   }
   return { published, error: void 0 };
 };
@@ -128025,7 +128983,7 @@ var reportStaleAttachments = async ({
   published,
   onProgress
 }) => {
-  const attachments = await getTicketAttachments({ settings, identifier: ticketRef });
+  const attachments = await getTicketAttachments3({ settings, identifier: ticketRef });
   if ("error" in attachments) {
     onProgress(`could not read ${ticketRef}'s attachment list back: ${attachments.error}`);
     return [];
@@ -128057,19 +129015,23 @@ var publishPlan = async ({ cwd, name, config: config2, env, onProgress }) => {
       error: `plan folder '${name}' carries no ticket id \u2014 name a plan folder after its ticket's branch so publish knows which ticket to attach to`
     };
   }
+  const prepared = await prepareAttachments({ files: durable.files });
+  if ("error" in prepared) {
+    return { ticketRef, published: [], stale: [], error: prepared.error };
+  }
   const settings = resolveTrackerSettings({ config: config2, env });
   if ("error" in settings) {
     return { ticketRef, published: [], stale: [], error: settings.error };
   }
-  const tickets = await getTicketsByIdentifiers({ settings, identifiers: [ticketRef] });
+  const tickets = await getTicketsByIdentifiers3({ settings, identifiers: [ticketRef] });
   if ("error" in tickets) {
     return { ticketRef, published: [], stale: [], error: tickets.error };
   }
   const ticket = tickets.at(0);
   if (ticket === void 0) {
-    return { ticketRef, published: [], stale: [], error: `there is no ${ticketRef} on the configured tracker team` };
+    return { ticketRef, published: [], stale: [], error: `there is no ${ticketRef} on the configured ticket tracker` };
   }
-  const { published, error: error51 } = await attachDurableFiles({ settings, ticketId: ticket.id, ticketRef, files: durable.files, onProgress });
+  const { published, error: error51 } = await attachDurableFiles({ settings, ticketId: ticket.id, ticketRef, attachments: prepared.attachments, onProgress });
   if (error51 !== void 0) {
     return { ticketRef, published, stale: [], error: error51 };
   }
@@ -128077,50 +129039,121 @@ var publishPlan = async ({ cwd, name, config: config2, env, onProgress }) => {
   return { ticketRef, published, stale };
 };
 
-// src/plan/restorePlanWorkspace.ts
-import { mkdir as mkdir8, writeFile as writeFile6 } from "node:fs/promises";
-import { basename as basename12, join as join40 } from "node:path";
-var isBareFileName = ({ title }) => title === basename12(title) && title !== "." && title !== ".." && !/[\\/]/.test(title);
-var isDurablePlanFileName = ({ title }) => isBareFileName({ title }) && (durablePlanFileNames.records.includes(title) || durablePlanFileNames.deliverable.test(title));
-var phaseTitlesOf = ({ titles }) => titles.filter((title) => title !== "plan.md" && title !== "overview.md" && durablePlanFileNames.deliverable.test(title));
-var runnableRefusal = ({ titles }) => {
-  const hasSingle = titles.includes("plan.md");
-  const phases = phaseTitlesOf({ titles });
-  const isRunnable = hasSingle ? phases.length === 0 : titles.includes("overview.md") && phases.length > 0;
-  return isRunnable ? void 0 : `the ticket's plan attachments (${titles.join(", ")}) are not a plan a run can start from \u2014 expected plan.md on its own, or overview.md with at least one phase<N> file`;
+// src/plan/restore/restorePlanWorkspace.ts
+import { mkdir as mkdir8, mkdtemp, rename as rename3, rm as rm2, writeFile as writeFile6 } from "node:fs/promises";
+import { dirname as dirname4, join as join40 } from "node:path";
+var readAttachment = async ({ settings, attachment }) => {
+  const text = await readTicketAsset3({ settings, url: attachment.url });
+  return typeof text === "string" ? { text } : { error: `the ticket's ${attachment.title} could not be read: ${text.error}` };
 };
-var readAll = async ({ settings, attachments }) => {
-  const reads = await Promise.all(attachments.map(async ({ title, url: url2 }) => ({ title, text: await readTicketAsset({ settings, url: url2 }) })));
+var selectGeneration = ({
+  manifest,
+  durableAttachments
+}) => {
   const files = [];
-  for (const { title, text } of reads) {
-    if (typeof text !== "string") {
-      return { error: `the ticket's ${title} could not be read: ${text.error}` };
+  for (const listed of manifest.files) {
+    const matches = durableAttachments.filter(({ title }) => title === listed.name);
+    if (matches.length === 0) {
+      return { error: `${planAttachmentManifestName} lists ${listed.name}, but the ticket carries no attachment with that title` };
     }
-    files.push({ title, text });
+    if (matches.length > 1) {
+      return { error: `the ticket carries more than one attachment named ${listed.name}, so ${planAttachmentManifestName} cannot select one generation` };
+    }
+    const attachment = matches[0];
+    if (attachment === void 0) {
+      return { error: `${planAttachmentManifestName} lists ${listed.name}, but the ticket carries no attachment with that title` };
+    }
+    files.push({ title: attachment.title, url: attachment.url, sha256: listed.sha256 });
   }
   return { files };
 };
+var readAndVerifyGeneration = async ({ settings, files }) => {
+  const reads = await Promise.all(
+    files.map(async (file2) => ({
+      file: file2,
+      read: await readAttachment({ settings, attachment: { id: "", title: file2.title, url: file2.url } })
+    }))
+  );
+  const verified = [];
+  for (const { file: file2, read } of reads) {
+    if ("error" in read) {
+      return { error: read.error };
+    }
+    const actual = planAttachmentSha256({ content: read.text });
+    if (actual !== file2.sha256) {
+      return { error: `${file2.title} does not match the SHA-256 committed by ${planAttachmentManifestName} \u2014 publish the plan again` };
+    }
+    verified.push({ title: file2.title, text: read.text });
+  }
+  return { files: verified };
+};
+var writeAll = async ({ dir, files }) => {
+  let temporaryDir;
+  try {
+    const parent = dirname4(dir);
+    await mkdir8(parent, { recursive: true });
+    temporaryDir = await mkdtemp(join40(parent, ".restore-"));
+    for (const { title, text } of files) {
+      await writeFile6(join40(temporaryDir, title), text, "utf8");
+    }
+    await rename3(temporaryDir, dir);
+    return void 0;
+  } catch (error51) {
+    if (temporaryDir !== void 0) {
+      await rm2(temporaryDir, { recursive: true, force: true }).catch(() => void 0);
+    }
+    return { error: `the restored plan could not be written: ${messageOf({ error: error51 })}` };
+  }
+};
 var restorePlanWorkspace = async ({ cwd, name, identifier, settings }) => {
-  const attachments = await getTicketAttachments({ settings, identifier });
+  const attachments = await getTicketAttachments3({ settings, identifier });
   if ("error" in attachments) {
     return { restored: [], error: attachments.error };
   }
-  const planFiles = attachments.filter(({ title }) => isDurablePlanFileName({ title }));
-  if (planFiles.length === 0) {
+  const durableAttachments = attachments.filter(({ title }) => isDurablePlanAttachmentName({ name: title }));
+  const manifests = attachments.filter(({ title }) => title === planAttachmentManifestName);
+  if (durableAttachments.length === 0 && manifests.length === 0) {
     return { restored: [] };
   }
-  const refusal = runnableRefusal({ titles: planFiles.map(({ title }) => title) });
-  if (refusal !== void 0) {
-    return { restored: [], error: refusal };
+  if (manifests.length === 0) {
+    return {
+      restored: [],
+      error: `the ticket carries durable plan attachments but no ${planAttachmentManifestName} commit marker \u2014 publish the plan again before implementing it`
+    };
   }
-  const read = await readAll({ settings, attachments: planFiles });
+  if (manifests.length > 1) {
+    return {
+      restored: [],
+      error: `the ticket carries more than one ${planAttachmentManifestName} attachment, so no single committed plan generation can be selected`
+    };
+  }
+  const manifestAttachment = manifests[0];
+  if (manifestAttachment === void 0) {
+    return { restored: [], error: `the ticket carries no ${planAttachmentManifestName} commit marker` };
+  }
+  const manifestRead = await readAttachment({ settings, attachment: manifestAttachment });
+  if ("error" in manifestRead) {
+    return { restored: [], error: manifestRead.error };
+  }
+  const parsed = parsePlanAttachmentManifest({ text: manifestRead.text });
+  if ("error" in parsed) {
+    return { restored: [], error: parsed.error };
+  }
+  const selected = selectGeneration({ manifest: parsed.manifest, durableAttachments });
+  if ("error" in selected) {
+    return { restored: [], error: selected.error };
+  }
+  const read = await readAndVerifyGeneration({ settings, files: selected.files });
   if ("error" in read) {
     return { restored: [], error: read.error };
   }
-  const dir = planWorkspaceDir({ cwd, name });
-  await mkdir8(dir, { recursive: true });
-  for (const file2 of read.files) {
-    await writeFile6(join40(dir, file2.title), file2.text, "utf8");
+  const refusal = validatePlanAttachmentGeneration({ files: read.files.map(({ title, text }) => ({ name: title, text })) });
+  if (refusal !== void 0) {
+    return { restored: [], error: refusal.error };
+  }
+  const written = await writeAll({ dir: planWorkspaceDir({ cwd, name }), files: read.files });
+  if (written !== void 0) {
+    return { restored: [], error: written.error };
   }
   return { restored: read.files.map(({ title }) => title).sort() };
 };
@@ -128292,10 +129325,10 @@ import { basename as basename18, join as join44, relative as relative7 } from "n
 
 // src/plan/appendGradeHistory.ts
 import { appendFile as appendFile4, mkdir as mkdir10 } from "node:fs/promises";
-import { dirname as dirname4 } from "node:path";
+import { dirname as dirname5 } from "node:path";
 var appendGradeHistory = async ({ cwd, name, report }) => {
   const path = gradeHistoryPath({ cwd, name });
-  await mkdir10(dirname4(path), { recursive: true });
+  await mkdir10(dirname5(path), { recursive: true });
   await appendFile4(path, `${JSON.stringify(GradeReport.parse(report))}
 `, "utf8");
 };
@@ -129089,7 +130122,7 @@ var ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }) => {
   }
   const { restored, error: error51 } = await restorePlanWorkspace({ cwd, name, identifier, settings: trackerSettings });
   if (error51 !== void 0) {
-    return { error: `no plan at ${dir}, and the ticket could not be asked: ${error51}` };
+    return { error: `no plan at ${dir}, and the plan attachments on ticket ${identifier} could not be restored: ${error51}` };
   }
   if (restored.length === 0) {
     return {
@@ -129200,31 +130233,7 @@ var findUnfinishedSequence = async ({ cwd, overviewPath }) => {
 
 // src/phases/initializeSequence.ts
 import { access, readFile as readFile21 } from "node:fs/promises";
-import { dirname as dirname5, join as join48 } from "node:path";
-
-// src/phases/readOverviewPhases.ts
-var readOverviewPhases = ({ overviewContent }) => {
-  const files = [];
-  let inPhases = false;
-  for (const line of overviewContent.split(/\r?\n/)) {
-    const heading = /^##\s+(.+?)\s*$/.exec(line);
-    if (heading) {
-      inPhases = heading[1] === "Phases";
-      continue;
-    }
-    if (!inPhases || !line.trim().startsWith("|")) {
-      continue;
-    }
-    const cells = line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|");
-    const file2 = /`([^`]+)`/.exec(cells[1] ?? "")?.[1]?.trim();
-    if (file2) {
-      files.push(file2);
-    }
-  }
-  return files;
-};
-
-// src/phases/initializeSequence.ts
+import { dirname as dirname6, join as join48 } from "node:path";
 var getPhaseFiles = async ({ cwd, overview }) => {
   const overviewFullPath = join48(cwd, overview);
   const overviewContent = await readFile21(overviewFullPath, "utf8").catch(() => void 0);
@@ -129244,7 +130253,7 @@ var getPhaseFiles = async ({ cwd, overview }) => {
 var assertPhaseFilesExist = async ({ cwd, overview, phases }) => {
   const missing = [];
   for (const file2 of phases) {
-    const phasePath = join48(dirname5(overview), file2);
+    const phasePath = join48(dirname6(overview), file2);
     const present = await access(join48(cwd, phasePath)).then(
       () => true,
       () => false
@@ -129292,7 +130301,7 @@ var initializeSequence = async ({ cwd, driver, config: config2, overviewPath, st
 };
 
 // src/phases/runPhase.ts
-import { dirname as dirname10, join as join77 } from "node:path";
+import { dirname as dirname11, join as join77 } from "node:path";
 
 // src/pipeline/readPlanPackages.ts
 var unquote = (value) => value.trim().replace(/^['"]|['"]$/g, "");
@@ -129791,7 +130800,7 @@ ${problems.map((problem) => `- ${problem}`).join("\n")}`);
 
 // src/standardsPacks/resolveDefaultStandardsPack.ts
 import { existsSync } from "node:fs";
-import { dirname as dirname6, join as join55, resolve as resolve7 } from "node:path";
+import { dirname as dirname7, join as join55, resolve as resolve7 } from "node:path";
 var overrideVariable = "LIGHTSOUT_DEFAULT_STANDARDS";
 var resolveDefaultStandardsPack = ({ startDir } = {}) => {
   const override = process.env[overrideVariable];
@@ -129803,12 +130812,12 @@ var resolveDefaultStandardsPack = ({ startDir } = {}) => {
     return overridden;
   }
   const entryPoint = process.argv[1];
-  let current = resolve7(startDir ?? (entryPoint === void 0 ? process.cwd() : dirname6(entryPoint)));
+  let current = resolve7(startDir ?? (entryPoint === void 0 ? process.cwd() : dirname7(entryPoint)));
   let found;
   while (found === void 0) {
     const candidates = [join55(current, "standards"), join55(current, "plugin", "standards")];
     found = candidates.find((candidate) => existsSync(join55(candidate, "lightsout-standards.json")));
-    const parent = dirname6(current);
+    const parent = dirname7(current);
     if (found === void 0 && parent === current) {
       throw new Error(`bundled default standards not found next to the engine (searched upward from ${current})`);
     }
@@ -130652,7 +131661,7 @@ var isCoverageCollectedFile = ({ absolutePath, collection }) => {
 
 // src/coverage/selectCollectedFiles/common/utils/readCoverageCollection.ts
 import { createRequire as createRequire2 } from "node:module";
-import { dirname as dirname7, resolve as resolve10 } from "node:path";
+import { dirname as dirname8, resolve as resolve10 } from "node:path";
 
 // src/coverage/selectCollectedFiles/common/utils/resolveJestConfigPath.ts
 import { readFile as readFile30, stat as stat6 } from "node:fs/promises";
@@ -130727,7 +131736,7 @@ var readCoverageCollection = async ({ scopeRoot, coverageScript }) => {
   if (!parsed.success) {
     return void 0;
   }
-  const configDir = dirname7(configPath);
+  const configDir = dirname8(configPath);
   return {
     rootDir: parsed.data.rootDir === void 0 ? configDir : resolve10(configDir, parsed.data.rootDir),
     collectCoverageFrom: parsed.data.collectCoverageFrom,
@@ -130957,6 +131966,11 @@ var resolveGates = ({ gates }) => ({
 });
 
 // src/gates/createGateRunner.ts
+var isKnownJestWorkerSigsegv = ({ result }) => {
+  const output = `${result.stdout}
+${result.stderr}`;
+  return /A jest worker process \(pid=\d+\) was terminated by another process: signal=SIGSEGV, exitCode=null\./.test(output);
+};
 var createGateRunner = ({ cwd, runId, step, onGateResult, onProgress }) => {
   const executeOnce = async ({ kind, command, group, rerun }) => {
     const gateTimeoutMs = 10 * 6e4;
@@ -130987,11 +132001,12 @@ ${result.stderr}`.slice(-outputTailChars) }
   };
   return async ({ kind, command, group }) => {
     const first = await executeOnce({ kind, command, group });
-    if (first.exitCode === 0 || first.exitCode === -1) {
-      return first;
+    let finalResult = first;
+    if (first.exitCode !== 0 && first.exitCode !== -1 && isKnownJestWorkerSigsegv({ result: first })) {
+      onProgress?.(`gate [${group}] ${kind}: Jest worker SIGSEGV \u2014 re-running once as a temporary workaround`);
+      finalResult = await executeOnce({ kind, command, group, rerun: true });
     }
-    onProgress?.(`gate [${group}] ${kind}: red (exit ${first.exitCode}) \u2014 re-running once to rule out flake`);
-    return executeOnce({ kind, command, group, rerun: true });
+    return finalResult;
   };
 };
 
@@ -131000,6 +132015,7 @@ var runGateSet = async ({ commands: commands2, label, gate, failFast = true }) =
   const group = label ?? "root";
   const prefix = label ? `[${label}] ` : "";
   const failures = [];
+  const failedFamilies = [];
   const stop = () => failFast && failures.length > 0;
   if (commands2.check) {
     const check2 = await gate({ kind: "check", command: commands2.check, group });
@@ -131007,6 +132023,7 @@ var runGateSet = async ({ commands: commands2, label, gate, failFast = true }) =
       failures.push(`${prefix}check failed (exit ${check2.exitCode}):
 ${check2.stdout}
 ${check2.stderr}`);
+      failedFamilies.push("check");
     }
   }
   if (!stop() && commands2.testCoverage) {
@@ -131015,6 +132032,7 @@ ${check2.stderr}`);
       failures.push(`${prefix}test-coverage failed (exit ${coverageResult.exitCode}):
 ${coverageResult.stdout}
 ${coverageResult.stderr}`);
+      failedFamilies.push("testCoverage");
     }
   } else if (!stop() && commands2.test) {
     const tests = await gate({ kind: "test", command: commands2.test, group });
@@ -131022,6 +132040,7 @@ ${coverageResult.stderr}`);
       failures.push(`${prefix}test failed (exit ${tests.exitCode}):
 ${tests.stdout}
 ${tests.stderr}`);
+      failedFamilies.push("test");
     }
   }
   for (const { name, command } of commands2.extraTests ?? []) {
@@ -131033,6 +132052,7 @@ ${tests.stderr}`);
       failures.push(`${prefix}${name} failed (exit ${extra.exitCode}):
 ${extra.stdout}
 ${extra.stderr}`);
+      failedFamilies.push(name);
     }
   }
   if (!stop() && commands2.build) {
@@ -131041,9 +132061,13 @@ ${extra.stderr}`);
       failures.push(`${prefix}build failed (exit ${build.exitCode}):
 ${build.stdout}
 ${build.stderr}`);
+      failedFamilies.push("build");
     }
   }
-  return failures.length > 0 ? failures.join("\n\n") : void 0;
+  return {
+    error: failures.length > 0 ? failures.join("\n\n") : void 0,
+    failedFamilies: [...new Set(failedFamilies)]
+  };
 };
 
 // src/common/config/resolvePackageGatesConfig.ts
@@ -131074,7 +132098,7 @@ var runPackageGates = async ({
   try {
     manifest = await readPackageManifest({ cwd, packagesDir, packageDir });
   } catch (error51) {
-    return messageOf({ error: error51 });
+    return { error: messageOf({ error: error51 }), failedFamilies: ["package-manifest"] };
   }
   const templates = resolvePackageGatesConfig({ packageGates: scoped });
   const substitute = ({ command }) => command.split("{package}").join(manifest.name);
@@ -131138,34 +132162,41 @@ var runGates = async ({
 }) => {
   const gate = createGateRunner({ cwd, runId, step, onGateResult, onProgress });
   const gates = resolveGates({ gates: config2.gates });
+  let result;
   if (gates.generate) {
     const generated = await gate({ kind: "generate", command: gates.generate, group: "root" });
     if (generated.exitCode !== 0) {
-      return `generate failed (exit ${generated.exitCode}):
+      result = { error: `generate failed (exit ${generated.exitCode}):
 ${generated.stdout}
-${generated.stderr}`;
+${generated.stderr}`, failedFamilies: ["generate"] };
     }
   }
-  const rootCommands = {
-    check: gates.check,
-    test: gates.test,
-    testCoverage: coverage && typeof gates.testCoverage === "string" ? gates.testCoverage : void 0,
-    extraTests: gates.extraTests,
-    build: gates.build
-  };
-  const scoped = config2["package-gates"];
-  if (!scoped || !packages || packages.length === 0) {
-    return runGateSet({ commands: rootCommands, gate, failFast });
+  if (!result) {
+    const rootCommands = {
+      check: gates.check,
+      test: gates.test,
+      testCoverage: coverage && typeof gates.testCoverage === "string" ? gates.testCoverage : void 0,
+      extraTests: gates.extraTests,
+      build: gates.build
+    };
+    const scoped = config2["package-gates"];
+    if (!scoped || !packages || packages.length === 0 || includeRoot) {
+      result = await runGateSet({ commands: rootCommands, gate, failFast });
+    } else {
+      const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
+      const results = await Promise.all(
+        packages.map(
+          (packageDir) => runPackageGates({ cwd, packagesDir, packageDir, scoped, coverage, gate, failFast, runId, step, onGateResult, onProgress })
+        )
+      );
+      const errors = results.flatMap((gateResult) => gateResult.error ? [gateResult.error] : []);
+      result = {
+        error: errors.length > 0 ? errors.join("\n\n") : void 0,
+        failedFamilies: [...new Set(results.flatMap((gateResult) => gateResult.failedFamilies))]
+      };
+    }
   }
-  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
-  const results = await Promise.all(
-    packages.map((packageDir) => runPackageGates({ cwd, packagesDir, packageDir, scoped, coverage, gate, failFast, runId, step, onGateResult, onProgress }))
-  );
-  if (includeRoot) {
-    results.push(await runGateSet({ commands: rootCommands, gate, label: "root", failFast }));
-  }
-  const errors = results.filter((result) => Boolean(result));
-  return errors.length > 0 ? errors.join("\n\n") : void 0;
+  return result;
 };
 
 // src/gates/runBatchGates.ts
@@ -131180,7 +132211,7 @@ var runBatchGates = async ({ cwd, config: config2, coverage, runId, step, onProg
       })
     )
   ];
-  return runGates({
+  const result = await runGates({
     cwd,
     config: config2,
     coverage,
@@ -131190,6 +132221,7 @@ var runBatchGates = async ({ cwd, config: config2, coverage, runId, step, onProg
     step,
     onProgress
   });
+  return result.error;
 };
 
 // src/common/utils/runPreflightGate.ts
@@ -131205,7 +132237,7 @@ var runPreflightGate = async ({ run, coverage, label, redBaselineError }) => {
   };
   await run.setStep({ record: record3 });
   run.progress(label);
-  const gateError = await runGates({
+  const { error: gateError } = await runGates({
     cwd: run.cwd,
     config: run.config,
     coverage,
@@ -131327,7 +132359,7 @@ var invokeCoverageAgent = async ({
 };
 
 // src/coverage/batch/checkTestsOnly.ts
-import { dirname as dirname8 } from "node:path";
+import { dirname as dirname9 } from "node:path";
 
 // src/common/utils/collectBatchChanges.ts
 var collectBatchChanges = async ({ cwd, config: config2, reportedFiles, attributedFiles }) => {
@@ -131350,7 +132382,7 @@ var checkTestsOnly = async ({
   reportedFiles,
   attributedFiles
 }) => {
-  const coverageDir = dirname8(config2["coverage-summary-path"] ?? defaultCoverageSummaryPath);
+  const coverageDir = dirname9(config2["coverage-summary-path"] ?? defaultCoverageSummaryPath);
   const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
   const changedFiles = (await collectBatchChanges({ cwd, config: config2, reportedFiles, attributedFiles })).filter(
     (path) => !isMeasurementOutput({ path, coverageDir, packagesDir })
@@ -131799,27 +132831,34 @@ var runCoveragePipeline = (params) => withRunLock({ params, run: executeCoverage
 var runVerificationGates = async ({ run, coverage }) => {
   const packagesDir = run.config["packages-dir"] ?? defaultPackagesDir;
   const hasRootChanges = run.current().changedFiles.some((file2) => packageOf({ file: file2, packagesDir }) === void 0);
-  const error51 = await runGates({
+  const observations = /* @__PURE__ */ new Map();
+  const result = await runGates({
     cwd: run.cwd,
     config: run.config,
     coverage,
     packages: run.current().packages,
     includeRoot: hasRootChanges,
+    failFast: false,
     runId: run.current().runId,
     step: run.current().currentStep ?? void 0,
+    onGateResult: (gateResult) => observations.set(`${gateResult.group}\0${gateResult.kind}`, gateResult),
     onProgress: (message) => run.progress(message)
   });
-  if (error51 !== void 0 || !coverage) {
-    return error51;
+  const failures = [...observations.values()].filter(
+    (observation) => observation.skipped !== true && observation.exitCode !== void 0 && observation.exitCode !== 0 && result.failedFamilies.includes(observation.kind)
+  );
+  if (result.error !== void 0 || !coverage) {
+    return { ...result, failures };
   }
   const manifest = run.current();
   const compiler = resolveConsumerTypescript({ cwd: run.cwd, packagesDir });
-  return checkChangedFilesExecuted({
+  const error51 = await checkChangedFilesExecuted({
     cwd: run.cwd,
     config: run.config,
     compiler,
     changedFiles: sourceFiles({ run }).filter((file2) => !manifest.unreachableChangedFiles.includes(file2))
   });
+  return error51 === void 0 ? { error: void 0, failedFamilies: [], failures: [] } : { error: error51, failedFamilies: ["changed-files-executed"], failures: [] };
 };
 
 // src/pipeline/steps/cleanSlateStep.ts
@@ -131828,7 +132867,7 @@ var cleanSlateStep = ({ run }) => {
     const record3 = run.nextRecord({ id: "clean-slate" });
     await run.setStep({ record: record3 });
     run.progress(`step clean-slate \u2014 attempt ${record3.attempts}`);
-    const error51 = await runVerificationGates({ run, coverage: true });
+    const { error: error51 } = await runVerificationGates({ run, coverage: true });
     if (error51) {
       return run.stop({
         record: record3,
@@ -131848,7 +132887,7 @@ ${error51}`
 };
 
 // src/common/processes/runFormatter.ts
-var runFormatter = async ({ cwd, runId, config: config2, step }) => {
+var runFormatter = async ({ cwd, runId, config: config2, step, onResult }) => {
   const command = config2.gates.format;
   if (!command) {
     return void 0;
@@ -131861,49 +132900,50 @@ var runFormatter = async ({ cwd, runId, config: config2, step }) => {
   } catch (error51) {
     result = { exitCode: -1, stdout: "", stderr: messageOf({ error: error51 }) };
   }
+  const gateResult = {
+    group: "root",
+    kind: "format",
+    command,
+    exitCode: result.exitCode,
+    durationMs: Date.now() - startedAt,
+    ...result.exitCode === 0 ? {} : { outputTail: `${result.stdout}
+${result.stderr}`.slice(-2e3) }
+  };
   await appendCommandLog({
     cwd,
     runId,
     record: {
       at: (/* @__PURE__ */ new Date()).toISOString(),
       step,
-      group: "root",
-      kind: "format",
-      command,
-      exitCode: result.exitCode,
-      durationMs: Date.now() - startedAt,
-      ...result.exitCode === 0 ? {} : { outputTail: `${result.stdout}
-${result.stderr}`.slice(-2e3) }
+      ...gateResult
     }
   });
+  onResult?.(gateResult);
   return result.exitCode === 0 ? void 0 : `format failed (exit ${result.exitCode}):
 ${result.stdout}
 ${result.stderr}`;
 };
 
 // src/pipeline/steps/formatStep.ts
-var formatStep = ({ run }) => ({
-  id: "format",
+var formatStep = ({ run, id }) => ({
+  id,
   skip: () => run.config.gates.format ? void 0 : "no format command configured",
   run: async () => {
-    const record3 = run.nextRecord({ id: "format" });
+    const record3 = run.nextRecord({ id });
     await run.setStep({ record: record3 });
-    run.progress("step format \u2014 running formatter");
-    const formatError2 = await runFormatter({ cwd: run.cwd, runId: run.current().runId, config: run.config, step: "format" });
+    run.progress(`step ${id} \u2014 running formatter`);
+    const formatError2 = await runFormatter({ cwd: run.cwd, runId: run.current().runId, config: run.config, step: id });
     if (formatError2) {
       return run.stop({ record: record3, status: RunStatus.Failed, error: formatError2 });
     }
-    const error51 = await runVerificationGates({ run, coverage: true });
-    if (error51) {
-      return run.stop({
-        record: record3,
-        status: RunStatus.Failed,
-        error: `format: formatting broke verification \u2014 review the formatter/gate configuration.
-${error51}`
-      });
-    }
-    await run.setStep({ record: { ...record3, status: RunStatus.Passed } });
-    run.progress("step format passed");
+    const formatterArtifacts = (await readGitChangedFiles({ cwd: run.cwd }) ?? []).filter(
+      (file2) => !run.current().changedFiles.includes(file2) && !run.current().baselineDirtyFiles.includes(file2)
+    );
+    await run.setStep({
+      record: { ...record3, status: RunStatus.Passed },
+      patch: formatterArtifacts.length === 0 ? void 0 : { baselineDirtyFiles: [.../* @__PURE__ */ new Set([...run.current().baselineDirtyFiles, ...formatterArtifacts])] }
+    });
+    run.progress(`step ${id} passed`);
     return void 0;
   }
 });
@@ -144135,15 +145175,15 @@ var buildTestFileInput = async ({ cwd, tests, cache }) => {
 };
 
 // src/standardsCheck/common/checkInputs/buildTypeCheckerInput.ts
-import { dirname as dirname9, join as join73, resolve as resolve12 } from "node:path";
+import { dirname as dirname10, join as join73, resolve as resolve12 } from "node:path";
 var findNearestConfig = ({ cwd, path, compiler }) => {
-  let folder = dirname9(resolve12(cwd, path));
+  let folder = dirname10(resolve12(cwd, path));
   while (folder.startsWith(cwd)) {
     const candidate = join73(folder, "tsconfig.json");
     if (compiler.sys.fileExists(candidate)) {
       return candidate;
     }
-    folder = dirname9(folder);
+    folder = dirname10(folder);
   }
   return void 0;
 };
@@ -144154,7 +145194,7 @@ var buildPrograms = ({ configPaths, compiler }) => {
     if (read.error !== void 0) {
       continue;
     }
-    const parsed = compiler.parseJsonConfigFileContent(read.config, compiler.sys, dirname9(configPath));
+    const parsed = compiler.parseJsonConfigFileContent(read.config, compiler.sys, dirname10(configPath));
     programs.set(configPath, compiler.createProgram({ rootNames: parsed.fileNames, options: parsed.options }));
   }
   return programs;
@@ -144853,12 +145893,40 @@ var consultSupervisor = async ({
 };
 
 // src/pipeline/steps/verifyStep.ts
-var runFix = async ({
-  context: { run, gitPrefix, id, coverage, buildFix },
-  errorContext,
-  record: record3
-}) => {
-  const fix = await run.invokeRole({ invocation: buildFix(errorContext), step: id });
+var verificationOf = ({ record: record3 }) => record3.verification ?? {
+  failedFamilies: [],
+  repairAttempts: {},
+  failures: [],
+  needsFormatting: false,
+  guidedRepairAttempted: false
+};
+var withResult = ({ record: record3, result }) => ({
+  ...record3,
+  verification: {
+    ...verificationOf({ record: record3 }),
+    failedFamilies: result.failedFamilies,
+    failures: result.failures
+  }
+});
+var formatAndVerify = async ({ context: { run, id, coverage }, record: record3 }) => {
+  const failures = [];
+  const error51 = await runFormatter({
+    cwd: run.cwd,
+    runId: run.current().runId,
+    config: run.config,
+    step: id,
+    onResult: (result) => failures.push(result)
+  });
+  const next = { ...record3, verification: { ...verificationOf({ record: record3 }), needsFormatting: false } };
+  await run.setStep({ record: next });
+  return {
+    record: next,
+    result: error51 === void 0 ? await runVerificationGates({ run, coverage }) : { error: error51, failedFamilies: ["format"], failures }
+  };
+};
+var runFix = async ({ context, errorContext, record: record3 }) => {
+  const { run, gitPrefix, id } = context;
+  const fix = await run.invokeRole({ invocation: context.buildFix({ errorContext }), step: id });
   if (!fix.ok && fix.rateLimited) {
     return { parked: await run.stop({ record: record3, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };
   }
@@ -144871,93 +145939,133 @@ var runFix = async ({
       await run.setStep({ record: { ...next, report }, patch: await collectChanged({ run, gitPrefix, reports: [report] }) });
     }
   }
-  return { record: next, error: await runVerificationGates({ run, coverage }) };
+  return formatAndVerify({ context, record: next });
 };
-var consultForVerdict = async ({
-  run,
-  planContent,
-  id,
-  error: error51,
-  attempts
-}) => {
+var runCheapRepairs = async ({ context, record: record3, result }) => {
+  let currentRecord = record3;
+  let currentResult = result;
+  while (currentResult.error) {
+    const repairable = [...new Set(currentResult.failedFamilies)].filter(
+      (family) => (currentRecord.verification?.repairAttempts[family] ?? 0) < maxCheapFixRetries
+    );
+    if (repairable.length === 0) {
+      break;
+    }
+    const repairAttempts = { ...currentRecord.verification?.repairAttempts };
+    for (const family of repairable) {
+      repairAttempts[family] = (repairAttempts[family] ?? 0) + 1;
+    }
+    currentRecord = {
+      ...currentRecord,
+      attempts: currentRecord.attempts + 1,
+      verification: { ...verificationOf({ record: currentRecord }), repairAttempts, needsFormatting: true }
+    };
+    await context.run.setStep({ record: currentRecord });
+    context.run.progress(`step ${context.id}: gate red \u2014 repairing ${repairable.join(", ")}`);
+    const fixed = await runFix({ context, errorContext: currentResult.error, record: currentRecord });
+    if ("parked" in fixed) {
+      return { parked: fixed.parked };
+    }
+    currentRecord = withResult({ record: fixed.record, result: fixed.result });
+    currentResult = fixed.result;
+    await context.run.setStep({ record: currentRecord });
+  }
+  return { record: currentRecord, result: currentResult };
+};
+var runGuidedRepair = async ({ context, record: record3, result }) => {
+  if (!result.error || record3.verification?.guidedRepairAttempted) {
+    return { record: record3, result, ruling: void 0 };
+  }
+  const { run, id, planContent } = context;
+  run.progress(`step ${id}: mechanical retries exhausted \u2014 consulting supervisor`);
   const verdict = await consultSupervisor({
     driver: run.driver,
     cwd: run.cwd,
     config: run.config,
     planContent,
     stepId: id,
-    errorOutput: error51,
-    attempts,
+    errorOutput: result.error,
+    attempts: record3.attempts,
     onEvent: run.agentEventSink({ step: `${id}-supervisor` }),
     onRejectedOutput: run.persistRejected({ step: `${id}-supervisor` })
   });
   await run.recordUsage({ step: `${id}-supervisor`, usage: verdict.usage });
   if (!verdict.ok && verdict.rateLimited) {
-    return { rateLimited: true };
+    return { parked: await run.stop({ record: record3, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };
   }
   const ruling = verdict.ok ? verdict.report : void 0;
+  let next = record3;
   if (ruling) {
     run.progress(`step ${id}: supervisor verdict \u2014 ${ruling.decision}`);
+    next = { ...record3, verification: { ...verificationOf({ record: record3 }), supervisorDiagnosis: ruling.diagnosis } };
+    await run.setStep({ record: next });
   }
-  return { rateLimited: false, ruling };
-};
-var verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix }) => {
-  const context = { run, gitPrefix, id, coverage, buildFix };
-  return async () => {
-    let record3 = run.nextRecord({ id });
-    await run.setStep({ record: record3 });
-    run.progress(`step ${id} \u2014 attempt ${record3.attempts}`);
-    let error51 = await runVerificationGates({ run, coverage });
-    for (let retry = 1; error51 && retry <= maxCheapFixRetries; retry += 1) {
-      record3 = { ...record3, attempts: record3.attempts + 1 };
-      await run.setStep({ record: record3 });
-      run.progress(`step ${id}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries}`);
-      const result = await runFix({ context, errorContext: error51, record: record3 });
-      if ("parked" in result) {
-        return result.parked;
-      }
-      record3 = result.record;
-      error51 = result.error;
-    }
-    if (error51) {
-      run.progress(`step ${id}: mechanical retries exhausted \u2014 consulting supervisor`);
-      const verdict = await consultForVerdict({ run, planContent, id, error: error51, attempts: record3.attempts });
-      if (verdict.rateLimited) {
-        return run.stop({ record: record3, status: RunStatus.PausedRateLimit, error: run.parkMessage() });
-      }
-      const { ruling } = verdict;
-      if (ruling?.decision === SupervisorDecision.Retry && ruling.guidance) {
-        record3 = { ...record3, attempts: record3.attempts + 1 };
-        await run.setStep({ record: record3 });
-        const result = await runFix({
-          context,
-          errorContext: `${error51}
+  if (ruling?.decision !== SupervisorDecision.Retry || !ruling.guidance) {
+    return { record: next, result, ruling };
+  }
+  next = {
+    ...next,
+    attempts: next.attempts + 1,
+    verification: { ...verificationOf({ record: next }), guidedRepairAttempted: true, needsFormatting: true }
+  };
+  await run.setStep({ record: next });
+  const fixed = await runFix({
+    context,
+    errorContext: `${result.error}
 
 # Supervisor diagnosis
 ${ruling.diagnosis}
 
 # Supervisor guidance
 ${ruling.guidance}`,
-          record: record3
-        });
-        if ("parked" in result) {
-          return result.parked;
-        }
-        record3 = result.record;
-        error51 = result.error;
-      }
-      if (error51) {
-        const diagnosis = ruling ? `
-supervisor (${ruling.decision}): ${ruling.diagnosis}` : "";
-        return run.stop({ record: record3, status: RunStatus.Escalated, error: `${id}: still failing after retries.${diagnosis}
+    record: next
+  });
+  if ("parked" in fixed) {
+    return { parked: fixed.parked };
+  }
+  const finalRecord = withResult({ record: fixed.record, result: fixed.result });
+  await run.setStep({ record: finalRecord });
+  return { record: finalRecord, result: fixed.result, ruling };
+};
+var runVerificationStep = async ({ context }) => {
+  const { run, id, coverage } = context;
+  const previous = run.current().steps.find((step) => step.id === id);
+  let record3 = { ...run.nextRecord({ id }), ...previous?.verification ? { verification: previous.verification } : {} };
+  await run.setStep({ record: record3 });
+  run.progress(`step ${id} \u2014 attempt ${record3.attempts}`);
+  const initial = record3.verification?.needsFormatting ? await formatAndVerify({ context, record: record3 }) : { record: record3, result: await runVerificationGates({ run, coverage }) };
+  let result = initial.result;
+  record3 = initial.record;
+  if (result.error) {
+    record3 = withResult({ record: record3, result });
+    await run.setStep({ record: record3 });
+  }
+  const repaired = await runCheapRepairs({ context, record: record3, result });
+  if ("parked" in repaired) {
+    return repaired.parked;
+  }
+  const guided = await runGuidedRepair({ context, ...repaired });
+  if ("parked" in guided) {
+    return guided.parked;
+  }
+  ({ record: record3, result } = guided);
+  if (result.error) {
+    const diagnosis = record3.verification?.supervisorDiagnosis;
+    const decision = guided.ruling?.decision ?? (record3.verification?.guidedRepairAttempted ? SupervisorDecision.Retry : void 0);
+    const detail = diagnosis && decision ? `
+supervisor (${decision}): ${diagnosis}` : "";
+    return run.stop({ record: record3, status: RunStatus.Escalated, error: `${id}: still failing after retries.${detail}
 
-${error51}` });
-      }
-    }
-    await run.setStep({ record: { ...record3, status: RunStatus.Passed } });
-    run.progress(`step ${id} passed`);
-    return void 0;
-  };
+${result.error}` });
+  }
+  const passedRecord = record3.verification ? { ...record3, verification: { ...record3.verification, failedFamilies: [], failures: [], needsFormatting: false } } : record3;
+  await run.setStep({ record: { ...passedRecord, status: RunStatus.Passed } });
+  run.progress(`step ${id} passed`);
+  return void 0;
+};
+var verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix }) => {
+  const context = { run, gitPrefix, planContent, id, coverage, buildFix };
+  return () => runVerificationStep({ context });
 };
 
 // src/pipeline/steps/workStep.ts
@@ -145301,6 +146409,7 @@ var refactorPair = ({ run, gitPrefix, planContent, overviewContent, standards, s
     skip: () => standardsScopeFiles({ run }).length === 0 ? "no changed source files to review" : void 0,
     run: refactorStep({ run, gitPrefix, planContent, overviewContent, standards })
   },
+  formatStep({ run, id: "format-refactor" }),
   {
     id: "verify-refactor",
     run: verifyStep({
@@ -145309,7 +146418,7 @@ var refactorPair = ({ run, gitPrefix, planContent, overviewContent, standards, s
       planContent,
       id: "verify-refactor",
       coverage: true,
-      buildFix: (errorContext) => buildRefactorExecutorInvocation({
+      buildFix: ({ errorContext }) => buildRefactorExecutorInvocation({
         scope: RefactorScope.Feature,
         planContent,
         overviewContent,
@@ -145335,6 +146444,7 @@ var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, tes
         build: () => buildFeatureExecutorInvocation({ planContent, overviewContent, standards, allowedCommands: run.config["agent-commands"], fileLimit })
       })
     },
+    formatStep({ run, id: "format-implement" }),
     {
       id: "verify-implement",
       run: verifyStep({
@@ -145342,7 +146452,7 @@ var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, tes
         gitPrefix,
         planContent,
         id: "verify-implement",
-        buildFix: (errorContext) => buildFeatureExecutorInvocation({
+        buildFix: ({ errorContext }) => buildFeatureExecutorInvocation({
           planContent,
           overviewContent,
           standards,
@@ -145358,6 +146468,7 @@ var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, tes
       skip: () => sourceFiles({ run }).length === 0 ? "no eligible source files" : void 0,
       run: writeTestsStep({ run, gitPrefix, planContent, testStandards })
     },
+    formatStep({ run, id: "format-tests" }),
     {
       id: "verify-tests",
       run: verifyStep({
@@ -145366,7 +146477,7 @@ var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, tes
         planContent,
         id: "verify-tests",
         coverage: true,
-        buildFix: (errorContext) => buildUnitTestWriterInvocation({
+        buildFix: ({ errorContext }) => buildUnitTestWriterInvocation({
           planContent,
           subjects: run.current().testSubjects,
           mustExecute: sourceFiles({ run }).filter(
@@ -145377,8 +146488,7 @@ var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, tes
         })
       })
     },
-    ...refactorSteps2,
-    formatStep({ run })
+    ...refactorSteps2
   ];
 };
 
@@ -145534,7 +146644,7 @@ var runPhase = async ({
     cwd,
     driver,
     config: config2,
-    planPath: join77(dirname10(current.plan), step.id),
+    planPath: join77(dirname11(current.plan), step.id),
     overviewPath: current.plan,
     parentRunId: current.runId,
     existing: childManifest,
@@ -145697,14 +146807,14 @@ var spawnCollect = ({ command, args, cwd, stdinText, timeoutMs, onStdoutLine }) 
 };
 
 // src/drivers/common/utils/writeSystemPromptFile.ts
-import { mkdtemp, rm as rm2, writeFile as writeFile14 } from "node:fs/promises";
+import { mkdtemp as mkdtemp2, rm as rm3, writeFile as writeFile14 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join as join78 } from "node:path";
 var writeSystemPromptFile = async ({ systemPrompt }) => {
-  const dir = await mkdtemp(join78(tmpdir(), "lightsout-system-prompt-"));
+  const dir = await mkdtemp2(join78(tmpdir(), "lightsout-system-prompt-"));
   const path = join78(dir, "system-prompt.md");
   await writeFile14(path, systemPrompt, "utf8");
-  return { path, cleanup: () => rm2(dir, { recursive: true, force: true }).catch(() => void 0) };
+  return { path, cleanup: () => rm3(dir, { recursive: true, force: true }).catch(() => void 0) };
 };
 
 // src/drivers/createClaudeCodeDriver.ts
@@ -145779,7 +146889,7 @@ ${stderr}` }),
 };
 
 // src/drivers/createCodexDriver.ts
-import { mkdtemp as mkdtemp2, readFile as readFile40, rm as rm3 } from "node:fs/promises";
+import { mkdtemp as mkdtemp3, readFile as readFile40, rm as rm4 } from "node:fs/promises";
 import { tmpdir as tmpdir2 } from "node:os";
 import { join as join79 } from "node:path";
 var createCodexDriver = () => {
@@ -145787,7 +146897,7 @@ var createCodexDriver = () => {
     name: "codex",
     invoke: async (invocation) => {
       const { prompt, systemPrompt, model, effort, permissions, cwd, timeoutMs } = invocation;
-      const outDir = await mkdtemp2(join79(tmpdir2(), "lightsout-codex-"));
+      const outDir = await mkdtemp3(join79(tmpdir2(), "lightsout-codex-"));
       const outFile = join79(outDir, "last-message.txt");
       const args = buildCodexArgs({ outFile, model, effort, permissions });
       const fullPrompt = systemPrompt ? `# Role instructions
@@ -145814,7 +146924,7 @@ ${prompt}` : prompt;
 ${stderr}` })
         };
       } finally {
-        await rm3(outDir, { recursive: true, force: true });
+        await rm4(outDir, { recursive: true, force: true });
       }
     }
   };
@@ -146010,7 +147120,7 @@ var verifyStep2 = "verify";
 var verifyDirectWork = async ({ run }) => {
   const record3 = nextStepRecord({ run, id: verifyStep2 });
   await run.setStep({ record: record3 });
-  const gateError = await runGates({
+  const { error: gateError } = await runGates({
     cwd: run.cwd,
     config: run.config,
     coverage: true,
@@ -146137,16 +147247,16 @@ var commitTicketWork = async ({ cwd, message, runDir }) => {
 };
 
 // src/queue/relay/emptyRelayMailbox.ts
-import { mkdir as mkdir16, readdir as readdir16, rm as rm4 } from "node:fs/promises";
+import { mkdir as mkdir16, readdir as readdir16, rm as rm5 } from "node:fs/promises";
 import { join as join82 } from "node:path";
 var emptyRelayMailbox = async ({ directory }) => {
   await mkdir16(directory, { recursive: true });
   const entries = await readdir16(directory);
-  await Promise.all(entries.map((entry) => rm4(join82(directory, entry), { force: true, recursive: true })));
+  await Promise.all(entries.map((entry) => rm5(join82(directory, entry), { force: true, recursive: true })));
 };
 
 // src/queue/relay/FileQuestionRelay.ts
-import { readFile as readFile41, rename as rename3, rm as rm5 } from "node:fs/promises";
+import { readFile as readFile41, rename as rename4, rm as rm6 } from "node:fs/promises";
 import { join as join84 } from "node:path";
 
 // src/queue/relay/recordRelayedAnswer.ts
@@ -146176,7 +147286,7 @@ var recordRelayedAnswer = async ({
     runId: coordinatorRunId,
     step: "queue-question"
   });
-  const noted = await appendTicketNote({
+  const noted = await appendTicketNote3({
     settings: trackerSettings,
     ticketId: ticket.id,
     heading: settings.decisionsHeading,
@@ -146207,8 +147317,8 @@ var readRelayAnswer = async ({ path }) => {
   return answer === "" ? void 0 : answer;
 };
 var removeExchange = async ({ questionPath, answerPath }) => {
-  await rm5(questionPath, { force: true });
-  await rm5(answerPath, { force: true });
+  await rm6(questionPath, { force: true });
+  await rm6(answerPath, { force: true });
 };
 var FileQuestionRelay = class {
   settings;
@@ -146273,7 +147383,7 @@ var FileQuestionRelay = class {
     const entry = RelayQuestion.parse({ ticket: ticket.identifier, title: ticket.title, question, askedAt: (/* @__PURE__ */ new Date()).toISOString() });
     const temporaryPath = join84(this.directory, `${stem}.tmp`);
     await writeJsonFile({ path: temporaryPath, value: entry });
-    await rename3(temporaryPath, questionPath);
+    await rename4(temporaryPath, questionPath);
     this.createProgressSink({ ticket })(`waiting for an answer in ${questionPath}`);
   }
   /**
@@ -146488,10 +147598,10 @@ import { writeFile as writeFile17 } from "node:fs/promises";
 import { join as join86 } from "node:path";
 
 // src/queue/common/utils/getWorktreesRoot.ts
-import { basename as basename21, dirname as dirname11, join as join85, resolve as resolve13 } from "node:path";
+import { basename as basename21, dirname as dirname12, join as join85, resolve as resolve13 } from "node:path";
 var getWorktreesRoot = ({ cwd }) => {
   const repo = resolve13(cwd);
-  return join85(dirname11(repo), `${basename21(repo)}-worktrees`);
+  return join85(dirname12(repo), `${basename21(repo)}-worktrees`);
 };
 
 // src/queue/common/utils/toRoutedSummaries.ts
@@ -146499,7 +147609,7 @@ var toRoutedSummaries = ({ ticket, routeLabels }) => Object.values(QueueRoute).f
 
 // src/queue/listEligibleTickets.ts
 var listEligibleTickets = async ({ settings, trackerSettings }) => {
-  const tickets = await listTickets({
+  const tickets = await listTickets3({
     settings: trackerSettings,
     labelNames: Object.values(QueueRoute).map((route) => settings.routeLabels[route]),
     statuses: settings.eligibleStatuses
@@ -146512,7 +147622,7 @@ var listEligibleTickets = async ({ settings, trackerSettings }) => {
 
 // src/queue/orderTickets.ts
 var orderTickets = ({ tickets }) => {
-  const rank = ({ priority }) => priority === 0 ? 5 : priority;
+  const rank = ({ priority }) => priority === 0 ? 6 : priority;
   return [...tickets].sort((left, right) => rank(left) - rank(right) || left.createdAt.localeCompare(right.createdAt));
 };
 
@@ -146640,7 +147750,7 @@ var shipOne = async ({ cwd, config: config2, shipSettings, defaultBranch, outcom
   if (conflict !== void 0) {
     return park({ error: conflict });
   }
-  const gateError = await runGates({ cwd: outcome.worktreePath, config: config2, coverage: true, onProgress });
+  const { error: gateError } = await runGates({ cwd: outcome.worktreePath, config: config2, coverage: true, onProgress });
   if (gateError !== void 0) {
     return park({ error: gateError });
   }
@@ -146944,7 +148054,7 @@ var runQueueTicket = async ({
     return { ticket, branch, worktreePath: join88(getWorktreesRoot({ cwd }), branch), ready: false, error: created.error };
   }
   const worktreePath = created;
-  const moved = await setTicketStatus({ settings: trackerSettings, ticketId: ticket.id, statusName: settings.inProgressStatus });
+  const moved = await setTicketStatus3({ settings: trackerSettings, ticketId: ticket.id, statusName: settings.inProgressStatus });
   if (moved !== void 0) {
     onProgress?.(`the ticket status could not be moved to '${settings.inProgressStatus}': ${moved.error}`);
   }
@@ -147037,7 +148147,7 @@ var scanParkedWorktrees = async ({
   if (trees.length === 0) {
     return { resumed: [], outcomes: [], leftBehind: [] };
   }
-  const tickets = await getTicketsByIdentifiers({ settings: trackerSettings, identifiers: trees.map((tree) => tree.identifier) });
+  const tickets = await getTicketsByIdentifiers3({ settings: trackerSettings, identifiers: trees.map((tree) => tree.identifier) });
   if ("error" in tickets) {
     return tickets;
   }
@@ -147054,7 +148164,7 @@ var scanParkedWorktrees = async ({
     const bucket = await classifyTree({ tree, defaultBranch });
     const ticket = matched[0];
     if (bucket === "drain") {
-      const cleared = await setParkedLabel({ settings: trackerSettings, ticketId: ticket.id, label: settings.parkedLabel, parked: false });
+      const cleared = await setParkedLabel3({ settings: trackerSettings, ticketId: ticket.id, label: settings.parkedLabel, parked: false });
       if (cleared !== void 0) {
         onProgress?.(`${tree.identifier} \xB7 the parked label could not be cleared: ${cleared.error}`);
       }
@@ -147079,7 +148189,7 @@ var settleParkedLabels = async ({ settings, trackerSettings, outcomes, onProgres
   }
   await Promise.all(
     outcomes.map(async (outcome) => {
-      const written = await setParkedLabel({ settings: trackerSettings, ticketId: outcome.ticket.id, label: settings.parkedLabel, parked: !outcome.ready });
+      const written = await setParkedLabel3({ settings: trackerSettings, ticketId: outcome.ticket.id, label: settings.parkedLabel, parked: !outcome.ready });
       if (written !== void 0) {
         onProgress?.(`${outcome.ticket.identifier} \xB7 the '${settings.parkedLabel}' label could not be written: ${written.error}`);
       }
@@ -147096,7 +148206,7 @@ var checkQueueStartup = async ({
 }) => {
   const sample = {
     id: "sample",
-    identifier: `${trackerSettings.team}-1`,
+    identifier: `${trackerSettings.ticketPrefix}-1`,
     title: "sample",
     description: "",
     priority: 0,
@@ -147927,7 +149037,7 @@ var rulePriority = [
   "synonym-export-name"
 ];
 var maxBatchFindings = 12;
-var priorityOf = ({ rule }) => {
+var priorityOf2 = ({ rule }) => {
   const index = rulePriority.indexOf(rule);
   return index === -1 ? rulePriority.length : index;
 };
@@ -147953,7 +149063,7 @@ var batchFindings = ({ blocking, advisories, packagesDir }) => {
   }
   const crossLast = ({ folder }) => folder === "(cross)" ? 1 : 0;
   const ordered = [...groups.values()].sort(
-    (a, b) => priorityOf({ rule: a.rule }) - priorityOf({ rule: b.rule }) || a.rule.localeCompare(b.rule) || crossLast({ folder: a.folder }) - crossLast({ folder: b.folder }) || a.folder.localeCompare(b.folder)
+    (a, b) => priorityOf2({ rule: a.rule }) - priorityOf2({ rule: b.rule }) || a.rule.localeCompare(b.rule) || crossLast({ folder: a.folder }) - crossLast({ folder: b.folder }) || a.folder.localeCompare(b.folder)
   );
   const batches = [];
   for (const group of ordered) {
@@ -149360,6 +150470,26 @@ var rowCells = ({ row }) => {
   const outcome = row.attempts > 1 ? `${row.status} (x${row.attempts})` : row.status;
   return { glyph, status: row.status, id: row.id, outcome, duration: formatClockDuration({ ms: row.durationMs }) };
 };
+var collapseWhitespace = ({ text }) => text.replace(/\s+/g, " ").trim();
+var verificationLines = ({ row }) => {
+  const verification = row.verification;
+  if (!verification || verification.failedFamilies.length === 0) {
+    return [];
+  }
+  const groups = [...new Set(verification.failures.map((failure) => failure.group))];
+  const repairs = Object.entries(verification.repairAttempts);
+  const lastOutput = verification.failures.at(-1)?.outputTail?.split(/\r?\n/).map((line) => collapseWhitespace({ text: line })).filter(Boolean).at(-1);
+  const lines = [
+    ` verification  ${verification.failedFamilies.join(", ")} \xB7 groups ${groups.length === 0 ? "unavailable" : groups.join(", ")} \xB7 repairs ${repairs.length === 0 ? "none" : repairs.map(([family, attempts]) => `${family}=${attempts}`).join(", ")} \xB7 guided ${verification.guidedRepairAttempted ? "yes" : "no"}`
+  ];
+  if (verification.supervisorDiagnosis) {
+    lines.push(` diagnosis     ${collapseWhitespace({ text: verification.supervisorDiagnosis })}`);
+  }
+  if (lastOutput) {
+    lines.push(` last output   ${lastOutput}`);
+  }
+  return lines;
+};
 var renderRunProgress = ({ progress }) => {
   const cells = progress.rows.map((row) => rowCells({ row }));
   const idWidth = Math.max(minimumWidths.id, ...cells.map((cell2) => cell2.id.length + 2));
@@ -149369,11 +150499,13 @@ var renderRunProgress = ({ progress }) => {
     const head = ` ${cell2.glyph}  ${cell2.id.padEnd(idWidth)}`;
     return cell2.duration === void 0 ? `${head}${emDash}` : `${head}${cell2.outcome.padEnd(outcomeWidth)}${cell2.duration.padStart(durationWidth)}`;
   });
+  const diagnosticLines = progress.rows.flatMap((row) => verificationLines({ row }));
   const cost = progress.costUsd === void 0 ? "" : ` \xB7 ${formatCost({ usd: progress.costUsd })}`;
   const totalsLine = ` elapsed ${formatClockDuration({ ms: progress.elapsedMs })} \xB7 ${progress.changedFileCount} files${cost}`;
   const nowLine = progress.now === void 0 ? void 0 : ` now  ${progress.now}`;
   const ruleWidth = Math.max(
     ...rowLines.map((line) => line.length),
+    ...diagnosticLines.map((line) => line.length),
     totalsLine.length,
     nowLine?.length ?? 0,
     // The title line is measured too, or a long title would overhang the rule
@@ -149386,7 +150518,7 @@ var renderRunProgress = ({ progress }) => {
     const glyph = cell2.status === void 0 ? dim(cell2.glyph) : paintStatus({ status: cell2.status, text: cell2.glyph });
     return rowLines[index].replace(cell2.glyph, glyph);
   });
-  return [titleLine, rule, ...painted, rule, totalsLine, ...nowLine === void 0 ? [] : [nowLine]];
+  return [titleLine, rule, ...painted, ...diagnosticLines, rule, totalsLine, ...nowLine === void 0 ? [] : [nowLine]];
 };
 
 // src/views/common/utils/toStandardsPackRuleListing.ts
@@ -149406,7 +150538,7 @@ var toStandardsPackRuleListing = ({ rule, fixtureCounts }) => ({
 var DeclaredConfig = external_exports.object({ timeouts: external_exports.record(external_exports.string(), external_exports.unknown()).optional() }).catchall(external_exports.unknown());
 
 // src/views/common/utils/getRunTitle.ts
-import { basename as basename22, dirname as dirname12 } from "node:path";
+import { basename as basename22, dirname as dirname13 } from "node:path";
 var namedRuleLimit = 3;
 var describeRules = ({ rules }) => {
   const distinct = [...new Set(rules)];
@@ -149417,7 +150549,7 @@ var describeRules = ({ rules }) => {
 var getRunTitle = ({ plan, worklist }) => {
   const name = basename22(plan);
   const stem = name.replace(/\.md$/, "");
-  const folder = basename22(dirname12(plan));
+  const folder = basename22(dirname13(plan));
   const rules = worklist?.kind === PipelineKind.Refactor ? worklist.worklist?.batches.map((batch) => batch.rule) ?? [] : [];
   let title;
   if (worklist?.kind === PipelineKind.Coverage) {
@@ -149503,7 +150635,7 @@ var shipRowStatus = {
 };
 var readShipRow = async ({ cwd, manifest }) => {
   const result = manifest.branch === void 0 ? void 0 : await readShipResult({ cwd, branch: manifest.branch });
-  return { id: "ship", status: result && shipRowStatus[result.status], attempts: result === void 0 ? 0 : 1, durationMs: void 0 };
+  return { id: "ship", status: result && shipRowStatus[result.status], attempts: result === void 0 ? 0 : 1, durationMs: void 0, verification: void 0 };
 };
 var getRunProgress = async ({ cwd, manifest, lock }) => {
   const live2 = isRunLive({ manifest, lock });
@@ -149512,12 +150644,13 @@ var getRunProgress = async ({ cwd, manifest, lock }) => {
     id: step.id,
     status: step.status,
     attempts: step.attempts,
-    durationMs: step.status === RunStatus.Running ? (step.durationMs ?? 0) + sinceWriteMs : step.durationMs
+    durationMs: step.status === RunStatus.Running ? (step.durationMs ?? 0) + sinceWriteMs : step.durationMs,
+    verification: step.verification
   }));
   const recorded = new Set(rows.map((row) => row.id));
   for (const id of manifest.stepOrder ?? []) {
     if (!recorded.has(id)) {
-      rows.push({ id, status: void 0, attempts: 0, durationMs: void 0 });
+      rows.push({ id, status: void 0, attempts: 0, durationMs: void 0, verification: void 0 });
     }
   }
   const shipRow = manifest.willShip === true && shippableStatuses.includes(manifest.status) ? await readShipRow({ cwd, manifest }) : void 0;
@@ -149847,7 +150980,7 @@ var getStreamText = async ({ stream }) => {
 
 // src/voice/createVoiceMarker.ts
 import { mkdir as mkdir19, writeFile as writeFile21 } from "node:fs/promises";
-import { dirname as dirname13 } from "node:path";
+import { dirname as dirname14 } from "node:path";
 
 // src/voice/common/paths/getVoiceMarkerPath.ts
 import { join as join99 } from "node:path";
@@ -149858,14 +150991,14 @@ var getVoiceMarkerPath = ({ cwd }) => {
 // src/voice/createVoiceMarker.ts
 var createVoiceMarker = async ({ cwd }) => {
   const markerPath = getVoiceMarkerPath({ cwd });
-  await mkdir19(dirname13(markerPath), { recursive: true });
+  await mkdir19(dirname14(markerPath), { recursive: true });
   await writeFile21(markerPath, "", "utf8");
 };
 
 // src/voice/deleteVoiceMarker.ts
-import { rm as rm6 } from "node:fs/promises";
+import { rm as rm7 } from "node:fs/promises";
 var deleteVoiceMarker = async ({ cwd }) => {
-  await rm6(getVoiceMarkerPath({ cwd }), { force: true });
+  await rm7(getVoiceMarkerPath({ cwd }), { force: true });
 };
 
 // src/voice/common/fields/getField.ts
@@ -149992,7 +151125,7 @@ var getVoicePidPath = ({ cwd }) => {
 };
 
 // src/voice/stopSpeech.ts
-import { readFile as readFile47, rm as rm7 } from "node:fs/promises";
+import { readFile as readFile47, rm as rm8 } from "node:fs/promises";
 var stopSpeech = async ({ cwd }) => {
   const pidPath = getVoicePidPath({ cwd });
   const raw = await readFile47(pidPath, "utf8").catch(() => void 0);
@@ -150006,7 +151139,7 @@ var stopSpeech = async ({ cwd }) => {
     } catch {
     }
   }
-  await rm7(pidPath, { force: true });
+  await rm8(pidPath, { force: true });
 };
 
 // src/voice/speakText.ts

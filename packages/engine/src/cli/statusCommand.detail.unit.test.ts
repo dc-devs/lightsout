@@ -32,7 +32,25 @@ const manifestOf = ({ runId, ...overrides }: { runId: string } & Partial<RunMani
 	harness: 'claude-code',
 	status: RunStatus.Failed,
 	currentStep: null,
-	steps: [{ id: 'implement', status: RunStatus.Failed, attempts: 1, durationMs: 160_000 }],
+	steps: [
+		{
+			id: 'implement',
+			status: RunStatus.Failed,
+			attempts: 1,
+			durationMs: 160_000,
+			verification: {
+				failedFamilies: ['check', 'test'],
+				repairAttempts: { check: 2, test: 1 },
+				failures: [
+					{ kind: 'check', group: 'root', command: 'pnpm check', exitCode: 1, outputTail: 'type error' },
+					{ kind: 'test', group: 'api', command: 'pnpm test', exitCode: 1, outputTail: 'first line\nFINAL OUTPUT' },
+				],
+				needsFormatting: false,
+				guidedRepairAttempted: true,
+				supervisorDiagnosis: 'stale dependency graph',
+			},
+		},
+	],
 	stepOrder: ['implement', 'format'],
 	changedFiles: ['src/a.ts'],
 	packages: [],
@@ -80,6 +98,9 @@ describe('statusCommand detail view', () => {
 		expect(logged.some((line) => line.startsWith(' ✗  implement'))).toBe(true);
 		// the step the run never reached still gets a row, from the order it declared
 		expect(logged.some((line) => line.startsWith(' ·  format'))).toBe(true);
+		expect(logged).toContain(' verification  check, test · groups root, api · repairs check=2, test=1 · guided yes');
+		expect(logged).toContain(' diagnosis     stale dependency graph');
+		expect(logged).toContain(' last output   FINAL OUTPUT');
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);
 	});

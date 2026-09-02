@@ -17,16 +17,14 @@ interface Params {
  * different things to fix and a user who hits one must not be told about the
  * other.
  *
- * There is no `provider` field on the result, for the reason `QueueSettings`
- * gives for having no `tracker` field: the key exists so a second adapter can be
- * named later, and while `linear` is the only literal it accepts there is
- * nothing for a resolved setting to vary on.
+ * Provider-specific values remain inside this seam. Queue behavior is resolved
+ * elsewhere and cannot leak into these settings.
  */
 export const resolveTrackerSettings = ({ config, env }: Params): TrackerSettings | TrackerFailure => {
 	const block = config['ticket-tracker'];
 
 	if (block === undefined) {
-		return { error: 'this command needs a `ticket-tracker` block in lightsout.config.json naming provider, team and api-key-env' };
+		return { error: 'this command needs a `ticket-tracker` block in lightsout.config.json naming a provider and its credentials' };
 	}
 
 	const apiKeyEnv = block['api-key-env'];
@@ -36,5 +34,23 @@ export const resolveTrackerSettings = ({ config, env }: Params): TrackerSettings
 		return { error: `the tracker API key is missing: set the \`${apiKeyEnv}\` environment variable` };
 	}
 
-	return { team: block.team, apiKey };
+	if (block.provider === 'linear') {
+		return { provider: 'linear', ticketPrefix: block.team, team: block.team, apiKey };
+	}
+
+	const apiUserEmailEnv = block['api-user-email-env'];
+	const apiUserEmail = env[apiUserEmailEnv];
+
+	if (apiUserEmail === undefined || apiUserEmail === '') {
+		return { error: `the Jira API user email is missing: set the \`${apiUserEmailEnv}\` environment variable` };
+	}
+
+	return {
+		provider: 'jira',
+		ticketPrefix: block.project,
+		siteUrl: block['site-url'].replace(/\/$/u, ''),
+		project: block.project,
+		apiKey,
+		apiUserEmail,
+	};
 };

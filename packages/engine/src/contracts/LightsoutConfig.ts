@@ -180,7 +180,7 @@ export const LightsoutConfig = z.object({
 	ship: ConfigShip.optional(),
 	/** Opt-in auto-plan settings — which of `/auto-plan`'s checkpoints this repo keeps. See `ConfigAutoPlan`. */
 	'auto-plan': ConfigAutoPlan.optional(),
-	/** Opt-in tracker identity — provider, team, and the API-key environment variable. See `ConfigTicketTracker`. */
+	/** Opt-in tracker identity — provider-specific address and credential environment variables. See `ConfigTicketTracker`. */
 	'ticket-tracker': ConfigTicketTracker.optional(),
 	/** Opt-in queue settings — route labels, parallelism, eligible statuses and the queue's own timeouts. See `ConfigQueue`. */
 	queue: ConfigQueue.optional(),

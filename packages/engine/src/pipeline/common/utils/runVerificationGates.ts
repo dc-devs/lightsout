@@ -1,8 +1,9 @@
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { packageOf } from '#src/common/workspace/packageOf.ts';
 import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
+import type { GateResult } from '#src/contracts/index.ts';
 import { checkChangedFilesExecuted } from '#src/coverage/index.ts';
-import { runGates } from '#src/gates/index.ts';
+import { type GateRunResult, runGates } from '#src/gates/index.ts';
 import { sourceFiles } from '#src/pipeline/common/utils/sourceFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 
@@ -24,32 +25,41 @@ interface Params {
  * repo-wide threshold cannot make. At clean-slate the changed set is empty,
  * so the check is a no-op there.
  */
-export const runVerificationGates = async ({ run, coverage }: Params): Promise<string | undefined> => {
+export const runVerificationGates = async ({ run, coverage }: Params): Promise<GateRunResult & { failures: GateResult[] }> => {
 	const packagesDir = run.config['packages-dir'] ?? defaultPackagesDir;
 	const hasRootChanges = run.current().changedFiles.some((file) => packageOf({ file, packagesDir }) === undefined);
+	const observations = new Map<string, GateResult>();
 
-	const error = await runGates({
+	const result = await runGates({
 		cwd: run.cwd,
 		config: run.config,
 		coverage,
 		packages: run.current().packages,
 		includeRoot: hasRootChanges,
+		failFast: false,
 		runId: run.current().runId,
 		step: run.current().currentStep ?? undefined,
+		onGateResult: (gateResult) => observations.set(`${gateResult.group}\0${gateResult.kind}`, gateResult),
 		onProgress: (message) => run.progress(message),
 	});
+	const failures = [...observations.values()].filter(
+		(observation) =>
+			observation.skipped !== true && observation.exitCode !== undefined && observation.exitCode !== 0 && result.failedFamilies.includes(observation.kind),
+	);
 
-	if (error !== undefined || !coverage) {
-		return error;
+	if (result.error !== undefined || !coverage) {
+		return { ...result, failures };
 	}
 
 	const manifest = run.current();
 	const compiler = resolveConsumerTypescript({ cwd: run.cwd, packagesDir });
 
-	return checkChangedFilesExecuted({
+	const error = await checkChangedFilesExecuted({
 		cwd: run.cwd,
 		config: run.config,
 		compiler,
 		changedFiles: sourceFiles({ run }).filter((file) => !manifest.unreachableChangedFiles.includes(file)),
 	});
+
+	return error === undefined ? { error: undefined, failedFamilies: [], failures: [] } : { error, failedFamilies: ['changed-files-executed'], failures: [] };
 };

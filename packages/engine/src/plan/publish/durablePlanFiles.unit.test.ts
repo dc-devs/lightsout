@@ -80,6 +80,15 @@ describe('durablePlanFiles', () => {
 		expect(set.error ?? '').toMatch(/^nothing to publish for 'lo-54-portable-plan': no plan found for 'lo-54-portable-plan'/);
 	});
 
+	test('phase files without an overview refuse instead of publishing a folder a fresh clone cannot run', async () => {
+		const { cwd, name } = setupPlanFolder({ files: { 'phase1-seam.md': '# one', 'decisions.json': '[]' } });
+
+		expect(await durablePlanFiles({ cwd, name })).toStrictEqual({
+			files: [],
+			error: "nothing to publish for 'lo-54-portable-plan': phase files need an overview.md so the restored folder is a runnable phased plan",
+		});
+	});
+
 	test('run state is never in the list — a transcript, the verified facts and the grade history all stay on the machine', async () => {
 		const { cwd, name } = setupPlanFolder({ files: { 'plan.md': '# plan', ...runState } });
 

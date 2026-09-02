@@ -1,9 +1,9 @@
 import type { Connection, Issue } from '@linear/sdk';
 import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
-import { collectNodes } from '#src/ticketTracker/common/utils/collectNodes.ts';
-import { getUnfinishedBlockers } from '#src/ticketTracker/common/utils/getUnfinishedBlockers.ts';
-import { readLabelNames } from '#src/ticketTracker/common/utils/readLabelNames.ts';
-import { toTrackerTicket } from '#src/ticketTracker/common/utils/toTrackerTicket.ts';
+import { collectNodes } from '#src/ticketTracker/linear/common/utils/collectNodes.ts';
+import { getUnfinishedBlockers } from '#src/ticketTracker/linear/common/utils/getUnfinishedBlockers.ts';
+import { readLabelNames } from '#src/ticketTracker/linear/common/utils/readLabelNames.ts';
+import { toTrackerTicket } from '#src/ticketTracker/linear/common/utils/toTrackerTicket.ts';
 
 interface Params {
 	/** The first page of issues, as the client answered it. */

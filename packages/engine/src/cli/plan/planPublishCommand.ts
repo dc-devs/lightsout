@@ -15,9 +15,9 @@ import { publishPlan } from '#src/plan/index.ts';
  * a repo with no config has nothing to resolve and is refused by name, the way
  * `queueCommand` treats the same requirement.
  *
- * A stale attachment does not change the exit code. The publish succeeded, and
- * an attachment publish deliberately did not delete is the approver's to remove
- * in the tracker if they want it gone.
+ * A stale attachment does not change the exit code. The manifest committed
+ * last selects the new generation, so an unlisted attachment publish
+ * deliberately left behind is harmless and remains visible for manual cleanup.
  */
 export const planPublishCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const name = await getRequiredFlag({ flags, name: 'name' });

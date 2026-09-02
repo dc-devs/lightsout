@@ -33,7 +33,7 @@ export const runBatchGates = async ({ cwd, config, coverage, runId, step, onProg
 		),
 	];
 
-	return runGates({
+	const result = await runGates({
 		cwd,
 		config,
 		coverage,
@@ -43,4 +43,6 @@ export const runBatchGates = async ({ cwd, config, coverage, runId, step, onProg
 		step,
 		onProgress,
 	});
+
+	return result.error;
 };

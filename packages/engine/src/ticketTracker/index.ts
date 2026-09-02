@@ -4,7 +4,7 @@
 export { appendTicketNote } from '#src/ticketTracker/appendTicketNote.ts';
 export type { TrackerAttachment } from '#src/ticketTracker/common/types/TrackerAttachment.ts';
 export type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
-export type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+export type { JiraTrackerSettings, LinearTrackerSettings, TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
 export type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
 export { getTicketAttachments } from '#src/ticketTracker/getTicketAttachments.ts';
 export { getTicketsByIdentifiers } from '#src/ticketTracker/getTicketsByIdentifiers.ts';

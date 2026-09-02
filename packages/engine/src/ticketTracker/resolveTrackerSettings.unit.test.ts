@@ -13,7 +13,7 @@ describe('resolveTrackerSettings', () => {
 	test('answers the team and the key the named variable holds, which is all any tracker operation needs', () => {
 		const settings = resolveTrackerSettings({ config: configOf({ ...trackerBlock }), env: { LINEAR_API_KEY: 'lin_key' } });
 
-		expect(settings).toStrictEqual({ team: 'LO', apiKey: 'lin_key' });
+		expect(settings).toStrictEqual({ provider: 'linear', ticketPrefix: 'LO', team: 'LO', apiKey: 'lin_key' });
 	});
 
 	test('reads the team and the key out of the block, so a repo naming another team and another variable is answered from its own config', () => {
@@ -22,15 +22,52 @@ describe('resolveTrackerSettings', () => {
 			env: { ACME_TRACKER_TOKEN: 'acme_key', LINEAR_API_KEY: 'lin_key' },
 		});
 
-		expect(settings).toStrictEqual({ team: 'ACME', apiKey: 'acme_key' });
+		expect(settings).toStrictEqual({ provider: 'linear', ticketPrefix: 'ACME', team: 'ACME', apiKey: 'acme_key' });
 	});
 
 	test('refuses a config with no ticket-tracker block, naming what the block has to say', () => {
 		const settings = resolveTrackerSettings({ config: configOf(), env: {} });
 
 		expect(settings).toStrictEqual({
-			error: 'this command needs a `ticket-tracker` block in lightsout.config.json naming provider, team and api-key-env',
+			error: 'this command needs a `ticket-tracker` block in lightsout.config.json naming a provider and its credentials',
 		});
+	});
+
+	test('resolves Jira provider identity, token, account email, and a normalized site origin', () => {
+		expect(
+			resolveTrackerSettings({
+				config: configOf({
+					provider: 'jira',
+					'site-url': 'https://example.atlassian.net/',
+					project: 'LO',
+					'api-key-env': 'JIRA_TOKEN',
+					'api-user-email-env': 'JIRA_EMAIL',
+				}),
+				env: { JIRA_TOKEN: 'jira-token', JIRA_EMAIL: 'person@example.com' },
+			}),
+		).toStrictEqual({
+			provider: 'jira',
+			ticketPrefix: 'LO',
+			siteUrl: 'https://example.atlassian.net',
+			project: 'LO',
+			apiKey: 'jira-token',
+			apiUserEmail: 'person@example.com',
+		});
+	});
+
+	test('names the missing Jira account-email variable after the token resolves', () => {
+		expect(
+			resolveTrackerSettings({
+				config: configOf({
+					provider: 'jira',
+					'site-url': 'https://example.atlassian.net',
+					project: 'LO',
+					'api-key-env': 'JIRA_TOKEN',
+					'api-user-email-env': 'JIRA_EMAIL',
+				}),
+				env: { JIRA_TOKEN: 'jira-token' },
+			}),
+		).toStrictEqual({ error: 'the Jira API user email is missing: set the `JIRA_EMAIL` environment variable' });
 	});
 
 	test('refuses a missing API key by naming the variable to set — a missing block and a missing key are two different things to fix', () => {

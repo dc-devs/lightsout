@@ -15,7 +15,7 @@ export interface TrackerTicket {
 	title: string;
 	/** The ticket body as markdown. Empty string when the ticket has none. */
 	description: string;
-	/** Linear's priority scale: 0 none, 1 urgent, 2 high, 3 medium, 4 low. */
+	/** Provider-normalized priority, with smaller positive numbers sorting first and zero meaning unspecified. */
 	priority: number;
 	/** ISO timestamp — the tiebreak within a priority. */
 	createdAt: string;

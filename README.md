@@ -31,7 +31,7 @@ Completing the task is not enough. Agents should leave the repository better tha
 - **Humans decide. Agents execute.** Before implementation begins, you and the planning agent agree on a complete design spec: scope, architecture, files touched, tradeoffs, constraints, and acceptance criteria. Once every decision is settled, the implementation agent follows the plan without guessing or inventing the design as it goes.
 - **Makes code standards a first-class concern.** Your style guide and architecture rules are injected into planning, implementation, testing, and refactoring. The agent follows the standards you defined instead of copying whatever patterns it happens to find in the repository.
 - **Improves the codebase with every run.** During planning, agents search for existing helpers and similar implementations, then identify where shared abstractions can replace duplicated logic. Every run ends with a mandatory refactoring pass.
-- **Puts deterministic gates between every stage.** Lightsout runs your tests, lint, type checks, and coverage commands directly instead of asking an agent to verify its own work. It is faster, cheaper, and more reliable than agent-only orchestration. If a gate fails, the pipeline stops.
+- **Puts deterministic gates between every stage.** Lightsout formats the full repository after each code-writing phase, then runs your tests, lint, type checks, and coverage commands directly instead of asking an agent to verify its own work. A red verification family receives a bounded repair allowance of its own before the run escalates.
 - **Makes every run auditable.** All gate results, agent conversations, decisions, and costs are recorded in the run manifest. A successful run does not just claim it passed. It can prove it.
 
 ## Quick start
@@ -42,23 +42,44 @@ Completing the task is not enough. Agents should leave the repository better tha
 
    ```text
    /plugin marketplace add dc-devs/lightsout
+   /plugin install lightsout@lightsout
    ```
 
-   The marketplace also carries an optional add-on, `lightsout-linear`, which
-   teaches the agent this team's Linear mechanics — route labels, statuses,
-   attachments and pull-request magic words — on top of the base ticket
-   workflow:
+   In Codex:
+
+   ```sh
+   codex plugin marketplace add dc-devs/lightsout
+   codex plugin add lightsout@lightsout
+   ```
+
+   The marketplace also carries optional `lightsout-linear` and `lightsout-jira`
+   add-ons. They teach tracker-specific labels, statuses, attachments, and
+   pull-request mechanics on top of the base ticket workflow. The queue adapters
+   ship in `lightsout`; these add-ons contain only the tracker mechanics:
 
    ```text
    /plugin install lightsout-linear@lightsout
+   /plugin install lightsout-jira@lightsout
+   ```
+
+   Or in Codex:
+
+   ```sh
+   codex plugin add lightsout-linear@lightsout
+   codex plugin add lightsout-jira@lightsout
    ```
 
    To load the ticket workflow, an adopting repository adds one line to its
-   own CLAUDE.md — the same line this repository carries:
+   own `CLAUDE.md` (Claude Code) or `AGENTS.md` (Codex) — the same line this
+   repository carries:
 
    ```markdown
-   One ticket = one branch = one PR — follow the `ticket-workflow` skill, with `linear-ticket` for the Linear mechanics.
+   One ticket = one branch = one PR — follow the `ticket-workflow` skill, with `linear-ticket` or `jira-ticket` for tracker mechanics.
    ```
+
+   The command examples below use Claude Code's slash-command form. In Codex,
+   ask for the same installed skill by name, such as “use the `plan` skill” or
+   “start the `queue` skill.”
 
 2. **Define your standards and gate commands.**
 
@@ -108,7 +129,12 @@ The plan is graded and revised until nothing is left for the implementation agen
 
 When a plan starts from a `/brainstorm` hand-off, the decisions already settled there are carried straight into the plan rather than asked again; a settled decision is re-opened only when exploring the code turns up a concrete conflict.
 
-Once a plan is approved as ready, `lightsout plan publish --name <name>` attaches the plan and the decisions behind it to its ticket, so the finished plan is no longer stuck on the machine that wrote it.
+Once a ticket-backed plan is approved as ready, run `lightsout plan publish --name <name>`. It attaches only the durable design record — the single or
+phased plan deliverable and whichever of `notes.md`, `decisions.json`, and
+`grade.json` the folder holds — plus a small `plan-attachments.json` integrity
+marker written last. Transcripts and other run state stay local. Publishing
+again replaces each same-titled attachment, so an amended plan can be published
+safely without creating duplicate attachments under those names.
 
 [![How /plan turns a request into an implementation-ready spec](assets/plan-workflow-light.svg)](assets/plan-workflow-light.svg)
 
@@ -141,15 +167,33 @@ What happens after you approve — stop at the hand-off line, or start the build
 
 Hand the finished spec to the factory. `/implement` follows the plan, writes the code and tests, and performs a mandatory refactoring pass.
 
-Deterministic gates run between every stage. If a test, lint, type-check, or coverage command fails, the pipeline stops. When the run succeeds, the complete record is written to `.lightsout/runs/<id>/`.
+After each code-writing stage, the full repository is formatted before deterministic gates run. If a test, lint, type-check, coverage, build, or formatting family fails, that family receives bounded repair attempts before the run escalates; root and package executions of the same family share the allowance. When the run succeeds, the complete record is written to `.lightsout/runs/<id>/`.
 
-A finished plan is not stuck on the machine that wrote it. `/implement` looks for the plan folder on local disk first; when it is not there, it fetches the plan's durable files from the ticket the folder is named after and writes them back, so a fresh clone on any machine can run the same plan. With nothing on disk and nothing on the ticket, the run stops with one message naming both places it looked.
+A finished plan is not stuck on the machine that wrote it. `/implement` looks
+for the plan folder on local disk first. When a ticket-named folder is absent,
+it fetches that ticket's durable plan attachments and reconstructs the folder,
+so a fresh clone can run the same plan without copying files by hand. The
+integrity marker must name a complete generation and match every file's hash;
+an interrupted or mixed publish is refused without leaving a partial folder.
+It never restores transcripts or other run state. If neither source can supply
+a plan, the run stops with one message naming both places it looked.
 
 [![How /implement turns the spec into verified code](assets/implement-workflow-light.svg)](assets/implement-workflow-light.svg)
 
 ```text
 /implement .lightsout/plans/rate-limiting/plan.md
 ```
+
+### lightsout status
+
+List every recorded run with `lightsout status`, or open one run's detailed progress block with its full or shortened id:
+
+```text
+lightsout status --run <id>
+lightsout status --run <id> --watch
+```
+
+`--watch` refreshes the detailed block until the run stops. A failing verification row shows its gate families, root/package groups, per-family repair counts, whether a supervisor-guided repair ran, the supervisor diagnosis when present, and the final output line. The complete command, exit code, timing, and output-tail history remains in `.lightsout/runs/<run-id>/commands.jsonl`.
 
 ### lightsout ship
 
@@ -163,17 +207,23 @@ lightsout ship
 
 ### lightsout queue
 
-Drain the backlog lights-out. `lightsout queue` reads your tracker for every ticket on the configured team that sits in an eligible status and carries a route label, then works them in parallel git worktrees — one branch, one PR, one merge per ticket.
+Drain the backlog lights-out. `lightsout queue` reads the configured Linear team
+or Jira project for every ticket that sits in an eligible status and carries a
+route label, then works them in parallel git worktrees — one branch, one PR, one
+merge per ticket.
 
 The two route labels are how a human opts a ticket in, and each names a worker. `route-direct` builds straight from the ticket body. `route-auto-plan` plans the ticket first — the same self-answering planner behind `/auto-plan` — and then implements the plan it wrote.
 
 Each ticket gets a fresh worktree cut from the default branch, the config's `setup` command, and a harness run, with up to `max-parallel` tickets in flight at once. A ticket blocked by another ticket that is not finished is not picked up: it is left behind with the blocker named. The queue drains everything unblocked, merges the ready branches one at a time, then re-reads the tracker and takes whatever the finished work just unblocked — so a chain of dependent tickets ships in order, in one run. It stops when a re-read finds nothing new.
 
-When a worker hits a question only a human can answer, the queue relays it: to your terminal by default, or — with `--file-relay` — to a mailbox the `/queue` skill watches from a Claude Code session, so you can keep working and answer when asked. A question nobody answers parks its ticket after `question-timeout`; a later run picks parked work back up, worktree and all.
+When a worker hits a question only a human can answer, the queue relays it: to your terminal by default, or — with `--file-relay` — to a mailbox the `queue` skill watches from a Claude Code or Codex session, so you can keep working and answer when asked. A question nobody answers parks its ticket after `question-timeout`; a later run picks parked work back up, worktree and all.
 
 Exit codes carry the whole story: `0` — everything eligible shipped; `2` — work remains that a re-run picks up (parked or left-behind tickets); `1` — the queue refused to start, and the message says why.
 
-It needs a `queue` block in `lightsout.config.json` — which tracker, which team, which labels, how many at once — and the tracker API key in the environment variable that block names. See [Configuration](docs/configuration.md).
+It needs two blocks in `lightsout.config.json`: `ticket-tracker` holds the
+provider-specific connection and names its credential environment variables;
+`queue` holds routes, statuses, labels, parallelism, and timeouts. See
+[Configuration](docs/configuration.md).
 
 ```text
 lightsout queue --file-relay

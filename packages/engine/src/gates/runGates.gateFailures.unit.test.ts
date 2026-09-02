@@ -38,7 +38,7 @@ test('the build gate runs last in the root set, after check and the test run', a
 	});
 	const config = await readConfig({ cwd: dir });
 
-	const error = await runGates({ cwd: dir, config });
+	const { error } = await runGates({ cwd: dir, config });
 
 	expect(error).toBe(undefined);
 	expect(readGateLog({ dir })).toStrictEqual(['root check', 'root test', 'root build']);
@@ -48,10 +48,11 @@ test('a red build fails the set with its exit code and output', async () => {
 	const dir = setupConsumerRepo({ scripts: { build: redGate({ exitCode: 3, message: 'compiler said no' }) } });
 	const config = await readConfig({ cwd: dir });
 
-	const error = await runGates({ cwd: dir, config });
+	const { error, failedFamilies } = await runGates({ cwd: dir, config });
 
 	expect(error ?? '').toMatch(/build failed \(exit 3\)/);
 	expect(error ?? '').toMatch(/compiler said no/);
+	expect(failedFamilies).toStrictEqual(['build']);
 });
 
 test('a red generate short-circuits the gate set — no gate runs behind broken codegen', async () => {
@@ -63,10 +64,11 @@ test('a red generate short-circuits the gate set — no gate runs behind broken 
 	});
 	const config = await readConfig({ cwd: dir });
 
-	const error = await runGates({ cwd: dir, config });
+	const { error, failedFamilies } = await runGates({ cwd: dir, config });
 
 	expect(error ?? '').toMatch(/generate failed \(exit 2\)/);
 	expect(error ?? '').toMatch(/codegen broke/);
+	expect(failedFamilies).toStrictEqual(['generate']);
 	// no gate ran after the red generate
 	expect(readGateLog({ dir })).toStrictEqual([]);
 });
@@ -76,10 +78,11 @@ test('a gate that cannot spawn is a red gate, not a crash — and is never re-ru
 	const config = await readConfig({ cwd: dir });
 	const results: GateResult[] = [];
 
-	const error = await runGates({ cwd: join(dir, 'no-such-dir'), config, onGateResult: (result) => results.push(result) });
+	const { error, failedFamilies } = await runGates({ cwd: join(dir, 'no-such-dir'), config, onGateResult: (result) => results.push(result) });
 
 	expect(error ?? '').toMatch(/check failed \(exit -1\)/);
 	expect(error ?? '').toMatch(/ENOENT/);
+	expect(failedFamilies).toStrictEqual(['check']);
 
 	const checks = results.filter((result) => result.kind === 'check');
 
@@ -95,12 +98,13 @@ test('a package whose manifest cannot be resolved fails its own group only — t
 	const dir = setupScopedRepo();
 	const config = await readConfig({ cwd: dir });
 
-	const error = await runGates({ cwd: dir, config, packages: ['api', 'ghost'] });
+	const { error, failedFamilies } = await runGates({ cwd: dir, config, packages: ['api', 'ghost'] });
 
 	// the engine never guesses a workspace filter, so an unresolvable package is
 	// a failure string rather than a thrown error that would take the whole
 	// parallel fan-out down with it
 	expect(error ?? '').toMatch(/declared package 'ghost' has no package.json/);
+	expect(failedFamilies).toStrictEqual(['package-manifest']);
 	// the healthy package's gates ran to completion beside the broken one
 	expect(readGateLog({ dir })).toStrictEqual(['@acme/api check', '@acme/api test']);
 });

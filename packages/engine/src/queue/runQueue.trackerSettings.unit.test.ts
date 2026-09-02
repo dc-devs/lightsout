@@ -10,6 +10,7 @@ import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { runQueue } from '#src/queue/index.ts';
 import type { ShipSettings } from '#src/ship/index.ts';
 import type { TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
+import { jiraTrackerSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
@@ -137,7 +138,7 @@ describe('runQueue', () => {
 		relay.close();
 
 		expect(mockListTickets).toHaveBeenCalledWith({
-			settings: { team: 'LO', apiKey: 'lin_key' },
+			settings: { provider: 'linear', ticketPrefix: 'LO', team: 'LO', apiKey: 'lin_key' },
 			labelNames: ['route-direct', 'route-auto-plan'],
 			statuses: ['Backlog'],
 		});
@@ -149,7 +150,11 @@ describe('runQueue', () => {
 		await drain();
 		relay.close();
 
-		expect(mockSetTicketStatus).toHaveBeenCalledWith({ settings: { team: 'LO', apiKey: 'lin_key' }, ticketId: 'id-70', statusName: 'In Progress' });
+		expect(mockSetTicketStatus).toHaveBeenCalledWith({
+			settings: { provider: 'linear', ticketPrefix: 'LO', team: 'LO', apiKey: 'lin_key' },
+			ticketId: 'id-70',
+			statusName: 'In Progress',
+		});
 	});
 
 	test('settles the parked label with the tracker identity, and with the label the queue block still owns', async () => {
@@ -158,7 +163,12 @@ describe('runQueue', () => {
 		await drain({ settings: queueSettingsFixture({ parkedLabel: 'queue-parked' }) });
 		relay.close();
 
-		expect(mockSetParkedLabel).toHaveBeenCalledWith({ settings: { team: 'LO', apiKey: 'lin_key' }, ticketId: 'id-70', label: 'queue-parked', parked: false });
+		expect(mockSetParkedLabel).toHaveBeenCalledWith({
+			settings: { provider: 'linear', ticketPrefix: 'LO', team: 'LO', apiKey: 'lin_key' },
+			ticketId: 'id-70',
+			label: 'queue-parked',
+			parked: false,
+		});
 	});
 
 	test('reads the tickets behind the parked worktrees with the tracker identity too, so a resume needs no queue-side key', async () => {
@@ -167,7 +177,10 @@ describe('runQueue', () => {
 		await drain();
 		relay.close();
 
-		expect(mockGetTicketsByIdentifiers).toHaveBeenCalledWith({ settings: { team: 'LO', apiKey: 'lin_key' }, identifiers: ['lo-99'] });
+		expect(mockGetTicketsByIdentifiers).toHaveBeenCalledWith({
+			settings: { provider: 'linear', ticketPrefix: 'LO', team: 'LO', apiKey: 'lin_key' },
+			identifiers: ['lo-99'],
+		});
 	});
 
 	test('re-reads the backlog for a later wave with the same tracker identity the first read used', async () => {
@@ -179,16 +192,30 @@ describe('runQueue', () => {
 		relay.close();
 
 		expect(mockListTickets.mock.calls.map(([params]) => params.settings)).toStrictEqual([
-			{ team: 'LO', apiKey: 'lin_key' },
-			{ team: 'LO', apiKey: 'lin_key' },
+			{ provider: 'linear', ticketPrefix: 'LO', team: 'LO', apiKey: 'lin_key' },
+			{ provider: 'linear', ticketPrefix: 'LO', team: 'LO', apiKey: 'lin_key' },
 		]);
 	});
 
-	test('shapes its startup sample from the tracker team, so a ticket pattern scoped to that team starts the drain', async () => {
+	test('hands Jira identity through unchanged while queue policy stays provider-neutral', async () => {
+		const { drain, relay } = setupDrain();
+		const trackerSettings = jiraTrackerSettingsFixture();
+
+		await drain({ trackerSettings });
+		relay.close();
+
+		expect(mockListTickets).toHaveBeenCalledWith({
+			settings: trackerSettings,
+			labelNames: ['route-direct', 'route-auto-plan'],
+			statuses: ['Backlog'],
+		});
+	});
+
+	test('shapes its startup sample from the tracker prefix, so a ticket pattern scoped to that provider starts the drain', async () => {
 		const { drain, relay } = setupDrain();
 
 		const report = await drain({
-			trackerSettings: trackerSettingsFixture({ team: 'ENG' }),
+			trackerSettings: trackerSettingsFixture({ ticketPrefix: 'ENG', team: 'ENG' }),
 			ship: shipSettingsFixture({ ticketPattern: /^(?<ticket>eng-\d+)/ }),
 		});
 
@@ -197,11 +224,11 @@ describe('runQueue', () => {
 		expect(report).toStrictEqual({ outcomes: [], leftBehind: [] });
 	});
 
-	test('refuses before reading the tracker when the ship pattern is scoped to a different team than the tracker block names', async () => {
+	test('refuses before reading the tracker when the ship pattern is scoped to a different prefix than the tracker block names', async () => {
 		const { drain, relay } = setupDrain();
 
 		const report = await drain({
-			trackerSettings: trackerSettingsFixture({ team: 'ENG' }),
+			trackerSettings: trackerSettingsFixture({ ticketPrefix: 'ENG', team: 'ENG' }),
 			ship: shipSettingsFixture({ ticketPattern: /^(?<ticket>lo-\d+)/ }),
 		});
 

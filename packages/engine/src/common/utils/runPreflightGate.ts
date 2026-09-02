@@ -48,7 +48,7 @@ export const runPreflightGate = async <TResult>({ run, coverage, label, redBasel
 	await run.setStep({ record });
 	run.progress(label);
 
-	const gateError = await runGates({
+	const { error: gateError } = await runGates({
 		cwd: run.cwd,
 		config: run.config,
 		coverage,

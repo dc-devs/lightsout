@@ -1,5 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { getTicketsByIdentifiers } from '#src/ticketTracker/index.ts';
+import { getTicketsByIdentifiers } from '#src/ticketTracker/linear/getTicketsByIdentifiers.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
@@ -10,7 +10,7 @@ type LinearCall = (client: unknown) => Promise<unknown>;
 
 const mockRunLinear = jest.fn<(params: { apiKey: string; call: LinearCall }) => Promise<unknown>>();
 
-jest.mock('#src/ticketTracker/runLinear.ts', () => ({ runLinear: (params: { apiKey: string; call: LinearCall }) => mockRunLinear(params) }));
+jest.mock('#src/ticketTracker/linear/runLinear.ts', () => ({ runLinear: (params: { apiKey: string; call: LinearCall }) => mockRunLinear(params) }));
 // -------------------------
 
 const settings = trackerSettingsFixture();

@@ -3,7 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { planAttachmentManifestName, planAttachmentSha256 } from '#src/plan/common/planAttachmentManifest.ts';
 import { publishPlan } from '#src/plan/publish/publishPlan.ts';
+import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
 // Mocked Imports
@@ -23,14 +25,25 @@ const mockGetTicketAttachments = jest.fn<(params: { identifier: string }) => Pro
 jest.mock('#src/ticketTracker/index.ts', () => ({
 	getTicketAttachments: (params: { identifier: string }) => mockGetTicketAttachments(params),
 	getTicketsByIdentifiers: (params: { identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
-	resolveTrackerSettings: ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }) => {
+	resolveTrackerSettings: ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }): TrackerSettings | TrackerFailure => {
 		const block = config['ticket-tracker'];
 
 		if (block === undefined) {
-			return { error: 'this command needs a `ticket-tracker` block in lightsout.config.json naming provider, team and api-key-env' };
+			return { error: 'this command needs a `ticket-tracker` block in lightsout.config.json naming a provider and its credentials' };
 		}
 
-		return { team: block.team, apiKey: env[block['api-key-env']] ?? '' };
+		const apiKey = env[block['api-key-env']] ?? '';
+
+		return block.provider === 'linear'
+			? { provider: 'linear', ticketPrefix: block.team, team: block.team, apiKey }
+			: {
+					provider: 'jira',
+					ticketPrefix: block.project,
+					siteUrl: block['site-url'].replace(/\/$/u, ''),
+					project: block.project,
+					apiKey,
+					apiUserEmail: env[block['api-user-email-env']] ?? '',
+				};
 	},
 	setTicketAttachment: (params: AttachmentWrite) => mockSetTicketAttachment(params),
 }));
@@ -40,6 +53,8 @@ const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-cov
 /** The same block as `ticketTrackerConfigBlock`, typed: the fixture is the raw JSON shape, whose `provider` is a plain string. */
 const trackerBlock: LightsoutConfig['ticket-tracker'] = { ...ticketTrackerConfigBlock, provider: 'linear' };
 const env = { LINEAR_API_KEY: 'lin_key' };
+const overviewBody = ({ phases }: { phases: string[] }) =>
+	`# Feature — Overview\n\n## Phases\n\n| # | File | Scope |\n|---|------|-------|\n${phases.map((phase, index) => `| ${index + 1} | \`${phase}\` | scope |`).join('\n')}\n`;
 
 const setupPlan = ({
 	folder = 'lo-54-portable-plan',
@@ -78,6 +93,7 @@ const setupPlan = ({
 	}
 
 	return {
+		dir,
 		progress,
 		params: {
 			cwd,
@@ -91,15 +107,22 @@ const setupPlan = ({
 
 describe('publishPlan', () => {
 	test('attaches every durable file once, in the resolved order, under its own name and against the ticket’s internal id', async () => {
-		const { params } = setupPlan({ files: { 'overview.md': '# o', 'phase1-seam.md': '# one', 'grade.json': '{}', 'facts.json': '{}' } });
+		const { params } = setupPlan({
+			files: { 'overview.md': overviewBody({ phases: ['phase1-seam.md'] }), 'phase1-seam.md': '# one', 'grade.json': '{}', 'facts.json': '{}' },
+		});
 
 		const report = await publishPlan(params);
 
-		expect(report).toStrictEqual({ ticketRef: 'lo-54', published: ['overview.md', 'phase1-seam.md', 'grade.json'], stale: [] });
+		expect(report).toStrictEqual({
+			ticketRef: 'lo-54',
+			published: ['overview.md', 'phase1-seam.md', 'grade.json', planAttachmentManifestName],
+			stale: [],
+		});
 		expect(mockSetTicketAttachment.mock.calls.map(([call]) => ({ ticketId: call.ticketId, title: call.title }))).toStrictEqual([
 			{ ticketId: 'id-54', title: 'overview.md' },
 			{ ticketId: 'id-54', title: 'phase1-seam.md' },
 			{ ticketId: 'id-54', title: 'grade.json' },
+			{ ticketId: 'id-54', title: planAttachmentManifestName },
 		]);
 	});
 
@@ -111,7 +134,26 @@ describe('publishPlan', () => {
 		expect(mockSetTicketAttachment.mock.calls.map(([call]) => [call.title, call.contentType])).toStrictEqual([
 			['plan.md', 'text/markdown'],
 			['decisions.json', 'application/json'],
+			[planAttachmentManifestName, 'application/json'],
 		]);
+	});
+
+	test('attaches a schema-1 manifest last, committing the exact names and hashes of the bytes already sent', async () => {
+		const { params } = setupPlan({ files: { 'plan.md': '# the plan\n', 'notes.md': '# notes\n' } });
+
+		await publishPlan(params);
+
+		const writes = mockSetTicketAttachment.mock.calls.map(([call]) => call);
+		const manifestWrite = writes.at(-1);
+
+		expect(manifestWrite?.title).toBe(planAttachmentManifestName);
+		expect(JSON.parse(manifestWrite?.content.toString('utf8') ?? '')).toStrictEqual({
+			schemaVersion: 1,
+			files: [
+				{ name: 'plan.md', sha256: planAttachmentSha256({ content: '# the plan\n' }) },
+				{ name: 'notes.md', sha256: planAttachmentSha256({ content: '# notes\n' }) },
+			],
+		});
 	});
 
 	test('sends each file’s own bytes', async () => {
@@ -177,15 +219,15 @@ describe('publishPlan', () => {
 			ticketRef: 'lo-54',
 			published: [],
 			stale: [],
-			error: 'this command needs a `ticket-tracker` block in lightsout.config.json naming provider, team and api-key-env',
+			error: 'this command needs a `ticket-tracker` block in lightsout.config.json naming a provider and its credentials',
 		});
 		expect(mockGetTicketsByIdentifiers).not.toHaveBeenCalled();
 	});
 
-	test('a ticket the team does not have is named', async () => {
+	test('a ticket the configured tracker does not have is named without assuming the provider uses teams', async () => {
 		const { params } = setupPlan({ files: { 'plan.md': '# plan' }, tickets: [] });
 
-		expect((await publishPlan(params)).error).toBe('there is no lo-54 on the configured tracker team');
+		expect((await publishPlan(params)).error).toBe('there is no lo-54 on the configured ticket tracker');
 		expect(mockSetTicketAttachment).not.toHaveBeenCalled();
 	});
 
@@ -197,7 +239,7 @@ describe('publishPlan', () => {
 
 	test('a failure on the third file keeps the two that landed, so a partial publish is visible rather than silent', async () => {
 		const { params } = setupPlan({
-			files: { 'overview.md': '# o', 'phase1-seam.md': '# one', 'grade.json': '{}' },
+			files: { 'overview.md': overviewBody({ phases: ['phase1-seam.md'] }), 'phase1-seam.md': '# one', 'grade.json': '{}' },
 			uploadFailures: { 'grade.json': "uploading 'grade.json' failed: 403 Forbidden" },
 		});
 
@@ -209,9 +251,46 @@ describe('publishPlan', () => {
 		});
 	});
 
+	test.each([
+		{
+			label: 'a missing phase declaration',
+			overview: overviewBody({ phases: ['phase1-seam.md', 'phase2-missing.md'] }),
+			error: "overview.md's Phases table (phase1-seam.md, phase2-missing.md) does not exactly match the plan generation's phase files (phase1-seam.md)",
+		},
+		{
+			label: 'a duplicate phase declaration',
+			overview: overviewBody({ phases: ['phase1-seam.md', 'phase1-seam.md'] }),
+			error: 'overview.md lists phase1-seam.md more than once in its Phases table',
+		},
+	])('refuses $label before any tracker call or mutation', async ({ overview, error }) => {
+		const { params } = setupPlan({ files: { 'overview.md': overview, 'phase1-seam.md': '# one' } });
+
+		expect(await publishPlan(params)).toStrictEqual({ ticketRef: 'lo-54', published: [], stale: [], error });
+		expect(mockGetTicketsByIdentifiers).not.toHaveBeenCalled();
+		expect(mockSetTicketAttachment).not.toHaveBeenCalled();
+	});
+
+	test('reads every durable file before the first tracker mutation', async () => {
+		const { params, dir } = setupPlan({ files: { 'plan.md': '# plan' } });
+
+		// A directory under a durable record name exists but cannot be read as the
+		// attachment bytes. No earlier file may have reached the ticket.
+		mkdirSync(join(dir, 'grade.json'));
+
+		const report = await publishPlan(params);
+
+		expect(report).toMatchObject({
+			ticketRef: 'lo-54',
+			published: [],
+			stale: [],
+			error: expect.stringMatching(/^could not read grade\.json before publishing:/),
+		});
+		expect(mockSetTicketAttachment).not.toHaveBeenCalled();
+	});
+
 	test('a durable-titled attachment this run did not write is reported and left alone — a stale plan.md from a publish made before the plan was phased', async () => {
 		const { params, progress } = setupPlan({
-			files: { 'overview.md': '# o', 'phase1-seam.md': '# one' },
+			files: { 'overview.md': overviewBody({ phases: ['phase1-seam.md'] }), 'phase1-seam.md': '# one' },
 			attachments: [
 				{ id: 'att-1', title: 'overview.md', url: 'https://assets.example/overview.md' },
 				{ id: 'att-9', title: 'plan.md', url: 'https://assets.example/plan.md' },
@@ -236,7 +315,7 @@ describe('publishPlan', () => {
 
 		const report = await publishPlan(params);
 
-		expect(report).toStrictEqual({ ticketRef: 'lo-54', published: ['plan.md'], stale: ['notes.md'] });
+		expect(report).toStrictEqual({ ticketRef: 'lo-54', published: ['plan.md', planAttachmentManifestName], stale: ['notes.md'] });
 		expect(progress.at(-1) ?? '').toMatch(/^notes\.md is a plan file from an earlier publish that this run did not write/);
 	});
 
@@ -247,7 +326,7 @@ describe('publishPlan', () => {
 		});
 
 		expect((await publishPlan(params)).stale).toStrictEqual([]);
-		expect(progress).toStrictEqual(['attached plan.md to lo-54']);
+		expect(progress).toStrictEqual(['attached plan.md to lo-54', `attached ${planAttachmentManifestName} to lo-54`]);
 	});
 
 	test('a failure reading the attachment list back leaves the report clean — the files did land — and says so through progress', async () => {
@@ -255,7 +334,7 @@ describe('publishPlan', () => {
 
 		const report = await publishPlan(params);
 
-		expect(report).toStrictEqual({ ticketRef: 'lo-54', published: ['plan.md'], stale: [] });
+		expect(report).toStrictEqual({ ticketRef: 'lo-54', published: ['plan.md', planAttachmentManifestName], stale: [] });
 		expect(progress.at(-1)).toBe("could not read lo-54's attachment list back: the tracker did not answer");
 	});
 });

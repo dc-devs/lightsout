@@ -120,9 +120,21 @@ test('LightsoutConfig: the ticket-tracker block is optional, keeps its own kebab
 	// the block's own strictness fires through the composition: a typoed key here
 	// would silently disable a setting the file believes is on
 	expect(LightsoutConfig.safeParse({ ...base, 'ticket-tracker': { ...tracker, 'api-key-nev': 'X' } }).success).toBe(false);
-	// and a tracker with no adapter behind it is refused when config is read,
-	// rather than at the first query of a drain
-	expect(LightsoutConfig.safeParse({ ...base, 'ticket-tracker': { ...tracker, provider: 'jira' } }).success).toBe(false);
+	// and the provider discriminator reaches the Jira branch rather than letting
+	// the two providers' connection fields mix
+	expect(
+		LightsoutConfig.safeParse({
+			...base,
+			'ticket-tracker': {
+				provider: 'jira',
+				'site-url': 'https://example.atlassian.net',
+				project: 'LO',
+				'api-key-env': 'JIRA_API_TOKEN',
+				'api-user-email-env': 'JIRA_ACCOUNT_EMAIL',
+			},
+		}).success,
+	).toBe(true);
+	expect(LightsoutConfig.safeParse({ ...base, 'ticket-tracker': { ...tracker, provider: 'github' } }).success).toBe(false);
 
 	// ticket-tracker is opt-in: an absent block leaves no key on the parsed
 	// config, and the engine runs with no tracker at all

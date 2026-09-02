@@ -1,5 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { runLinear } from '#src/ticketTracker/runLinear.ts';
+import { runLinear } from '#src/ticketTracker/linear/runLinear.ts';
 
 // Mocked Imports
 // -------------------------

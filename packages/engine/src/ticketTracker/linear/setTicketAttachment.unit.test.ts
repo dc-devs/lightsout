@@ -1,5 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { setTicketAttachment } from '#src/ticketTracker/index.ts';
+import { setTicketAttachment } from '#src/ticketTracker/linear/setTicketAttachment.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
@@ -13,7 +13,7 @@ type LinearCall = (client: unknown) => Promise<unknown>;
 
 const mockRunLinear = jest.fn<(params: { apiKey: string; call: LinearCall }) => Promise<unknown>>();
 
-jest.mock('#src/ticketTracker/runLinear.ts', () => ({ runLinear: (params: { apiKey: string; call: LinearCall }) => mockRunLinear(params) }));
+jest.mock('#src/ticketTracker/linear/runLinear.ts', () => ({ runLinear: (params: { apiKey: string; call: LinearCall }) => mockRunLinear(params) }));
 // -------------------------
 
 const settings = trackerSettingsFixture();
@@ -67,8 +67,9 @@ const setupClient = (params: {
 	attachments: FakeConnection;
 	uploadFile?: { uploadUrl: string; assetUrl: string; headers: { key: string; value: string }[] } | null;
 	uploadOk?: boolean;
+	deleteFailure?: Error;
 }) => {
-	const { attachments, uploadOk = true } = params;
+	const { attachments, uploadOk = true, deleteFailure } = params;
 	// Read by key rather than by a destructuring default, so a test can hand the
 	// payload an `uploadFile` that is present and undefined — the shape the SDK's
 	// own optional field takes — and still get it, instead of the default.
@@ -109,7 +110,7 @@ const setupClient = (params: {
 				calls.push('deleteAttachment');
 				deleted.push(id);
 
-				return Promise.resolve({ success: true });
+				return deleteFailure === undefined ? Promise.resolve({ success: true }) : Promise.reject(deleteFailure);
 			},
 			fileUpload: (contentType: string, filename: string, size: number) => {
 				calls.push('fileUpload');
@@ -133,11 +134,11 @@ const publishOne = ({ title = 'plan.md', contentType = 'text/markdown' }: { titl
 	setTicketAttachment({ settings, ticketId: 'id-54', title, content: Buffer.from('# the plan\n'), contentType });
 
 describe('setTicketAttachment', () => {
-	test('deletes the same-titled attachment, uploads the bytes and links the asset — in that order', async () => {
+	test('uploads and links the replacement before deleting the same-titled old attachment', async () => {
 		const { calls, deleted, created } = setupClient({ attachments: singlePage({ nodes: [{ id: 'att-1', title: 'plan.md' }] }) });
 
 		expect(await publishOne()).toBeUndefined();
-		expect(calls).toStrictEqual(['issue:id-54', 'deleteAttachment', 'fileUpload', 'put', 'createAttachment']);
+		expect(calls).toStrictEqual(['issue:id-54', 'fileUpload', 'put', 'createAttachment', 'deleteAttachment']);
 		expect(deleted).toStrictEqual(['att-1']);
 		// the asset URL the tracker answered, under the file's own name
 		expect(created).toStrictEqual([{ issueId: 'id-54', title: 'plan.md', url: 'https://assets.example/plan.md' }]);
@@ -173,7 +174,7 @@ describe('setTicketAttachment', () => {
 
 		expect(await publishOne()).toBeUndefined();
 		expect(deleted).toStrictEqual(['att-1', 'att-3']);
-		expect(calls).toStrictEqual(['issue:id-54', 'deleteAttachment', 'deleteAttachment', 'fileUpload', 'put', 'createAttachment']);
+		expect(calls).toStrictEqual(['issue:id-54', 'fileUpload', 'put', 'createAttachment', 'deleteAttachment', 'deleteAttachment']);
 	});
 
 	test('sends every header the upload payload named, plus the content type, and the file’s own size', async () => {
@@ -186,7 +187,11 @@ describe('setTicketAttachment', () => {
 			{
 				url: 'https://uploads.example/put',
 				method: 'PUT',
-				headers: { 'x-amz-acl': 'private', 'Content-Type': 'application/json' },
+				headers: {
+					'x-amz-acl': 'private',
+					'Cache-Control': 'public, max-age=31536000',
+					'Content-Type': 'application/json',
+				},
 				byteLength: Buffer.from('# the plan\n').byteLength,
 			},
 		]);
@@ -209,10 +214,24 @@ describe('setTicketAttachment', () => {
 	});
 
 	test('names the file and the status when the PUT came back not-ok, and links nothing', async () => {
-		const { created } = setupClient({ attachments: singlePage({ nodes: [] }), uploadOk: false });
+		const { calls, created, deleted } = setupClient({ attachments: singlePage({ nodes: [{ id: 'att-old', title: 'plan.md' }] }), uploadOk: false });
 
 		expect(await publishOne()).toStrictEqual({ error: "uploading 'plan.md' failed: 403 Forbidden" });
 		expect(created).toStrictEqual([]);
+		expect(deleted).toStrictEqual([]);
+		expect(calls).toStrictEqual(['issue:id-54', 'fileUpload', 'put']);
+	});
+
+	test('reports cleanup failure after the new copy is linked, leaving a duplicate instead of deleting first', async () => {
+		const { calls } = setupClient({
+			attachments: singlePage({ nodes: [{ id: 'att-old', title: 'plan.md' }] }),
+			deleteFailure: new Error('cleanup denied'),
+		});
+
+		expect(await publishOne()).toStrictEqual({
+			error: "the tracker linked the new 'plan.md' but could not delete old attachment 'att-old': cleanup denied; duplicate copies remain",
+		});
+		expect(calls).toStrictEqual(['issue:id-54', 'fileUpload', 'put', 'createAttachment', 'deleteAttachment']);
 	});
 
 	test('hands a tracker failure back untouched', async () => {

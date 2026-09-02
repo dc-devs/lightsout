@@ -59,7 +59,7 @@ const shipOne = async ({ cwd, config, shipSettings, defaultBranch, outcome, onPr
 
 	// The rebase moved the branch onto commits it has never been tested
 	// against, so the gates run again before anything merges.
-	const gateError = await runGates({ cwd: outcome.worktreePath, config, coverage: true, onProgress });
+	const { error: gateError } = await runGates({ cwd: outcome.worktreePath, config, coverage: true, onProgress });
 
 	if (gateError !== undefined) {
 		return park({ error: gateError });

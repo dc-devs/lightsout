@@ -60,14 +60,14 @@ describe('runBatchGates', () => {
 		expect(gates().some((line) => line.startsWith('root '))).toBeFalsy();
 	});
 
-	test('a file outside the packages dir brings the root group back in', async () => {
+	test('the root group supersedes affected-package groups when a file outside the packages dir changes', async () => {
 		const { dir, config, gates } = await setupTouched({ files: ['packages/api/src/added.js', 'tooling.js'] });
 
 		await runBatchGates({ cwd: dir, config, coverage: true, runId: 'run-1', step: 'batch-01:api', onProgress: () => undefined });
 
-		// a root-level change is verified by the whole-repo scripts, not by any package
+		// whole-repo scripts cover both the root-level and affected-package changes
 		expect(gates().includes('root check')).toBeTruthy();
-		expect(gates().includes('@acme/api check')).toBeTruthy();
+		expect(gates().some((line) => line.startsWith('@acme/api '))).toBeFalsy();
 	});
 
 	test('the coverage flag on runs the coverage gate', async () => {

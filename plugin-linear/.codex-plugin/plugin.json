@@ -1,0 +1,28 @@
+{
+	"name": "lightsout-linear",
+	"version": "0.1.2",
+	"description": "Linear ticket mechanics for the Lightsout ticket workflow.",
+	"author": {
+		"name": "dc-devs",
+		"url": "https://github.com/dc-devs"
+	},
+	"homepage": "https://github.com/dc-devs/lightsout",
+	"repository": "https://github.com/dc-devs/lightsout",
+	"license": "MIT",
+	"keywords": ["linear", "tickets", "planning", "pull-requests"],
+	"skills": "./skills/",
+	"interface": {
+		"displayName": "Lightsout Linear",
+		"shortDescription": "Apply Lightsout's Linear ticket conventions.",
+		"longDescription": "Add Linear-specific route labels, statuses, attachments, and pull-request conventions to the Lightsout ticket workflow.",
+		"developerName": "dc-devs",
+		"category": "Productivity",
+		"capabilities": ["Read", "Write"],
+		"websiteURL": "https://github.com/dc-devs/lightsout",
+		"defaultPrompt": [
+			"Shape this Linear ticket with the Lightsout workflow.",
+			"Start work on this Linear ticket.",
+			"Prepare the pull request for this Linear ticket."
+		]
+	}
+}

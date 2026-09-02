@@ -3,6 +3,8 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { ensurePlanWorkspace } from '#src/cli/common/utils/ensurePlanWorkspace.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { planAttachmentManifestName, serializePlanAttachmentManifest } from '#src/plan/common/planAttachmentManifest.ts';
+import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { seedConfiguredCwd } from '#tests/helpers/seedConfiguredCwd.ts';
@@ -18,18 +20,30 @@ type TrackerFailure = { error: string };
 type Attachment = { id: string; title: string; url: string };
 
 const mockGetTicketAttachments = jest.fn<(params: { identifier: string }) => Promise<Attachment[] | TrackerFailure>>();
+const mockReadTicketAsset = jest.fn<(params: { url: string }) => Promise<string | TrackerFailure>>();
 
 jest.mock('#src/ticketTracker/index.ts', () => ({
 	getTicketAttachments: (params: { identifier: string }) => mockGetTicketAttachments(params),
-	readTicketAsset: ({ url }: { url: string }) => Promise.resolve(`body of ${url}\n`),
-	resolveTrackerSettings: ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }) => {
+	readTicketAsset: (params: { url: string }) => mockReadTicketAsset(params),
+	resolveTrackerSettings: ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }): TrackerSettings | TrackerFailure => {
 		const block = config['ticket-tracker'];
 
 		if (block === undefined) {
-			return { error: 'this command needs a `ticket-tracker` block in lightsout.config.json naming provider, team and api-key-env' };
+			return { error: 'this command needs a `ticket-tracker` block in lightsout.config.json naming a provider and its credentials' };
 		}
 
-		return { team: block.team, apiKey: env[block['api-key-env']] ?? '' };
+		const apiKey = env[block['api-key-env']] ?? '';
+
+		return block.provider === 'linear'
+			? { provider: 'linear', ticketPrefix: block.team, team: block.team, apiKey }
+			: {
+					provider: 'jira',
+					ticketPrefix: block.project,
+					siteUrl: block['site-url'].replace(/\/$/u, ''),
+					project: block.project,
+					apiKey,
+					apiUserEmail: env[block['api-user-email-env']] ?? '',
+				};
 	},
 }));
 // -------------------------
@@ -38,10 +52,17 @@ const apiKeyEnv = 'LIGHTSOUT_TEST_TRACKER_KEY';
 const trackerBlock = { ...ticketTrackerConfigBlock, 'api-key-env': apiKeyEnv };
 const name = 'lo-54-portable-plan';
 const planPath = join('.lightsout', 'plans', name);
+const planBody = '# plan restored from the ticket\n';
 
 /** A repo carrying the tracker block by default, with one plan.md waiting on the ticket. */
 const seedCwd = async ({ config = { 'ticket-tracker': trackerBlock } }: { config?: Record<string, unknown> } = {}) => {
-	mockGetTicketAttachments.mockResolvedValue([{ id: 'att-1', title: 'plan.md', url: 'https://assets.example/plan.md' }]);
+	const manifest = serializePlanAttachmentManifest({ files: [{ name: 'plan.md', content: Buffer.from(planBody, 'utf8') }] }).toString('utf8');
+
+	mockGetTicketAttachments.mockResolvedValue([
+		{ id: 'att-1', title: 'plan.md', url: 'https://assets.example/plan.md' },
+		{ id: 'att-2', title: planAttachmentManifestName, url: `https://assets.example/${planAttachmentManifestName}` },
+	]);
+	mockReadTicketAsset.mockImplementation(async ({ url }) => (url.endsWith(planAttachmentManifestName) ? manifest : planBody));
 
 	return seedConfiguredCwd({ config });
 };
@@ -93,7 +114,7 @@ describe('ensurePlanWorkspace', () => {
 		const { result } = await ensure({ cwd });
 
 		expect(result).toStrictEqual({
-			error: `no plan at ${join(cwd, planPath)}, and no plan could be fetched from the ticket: this command needs a \`ticket-tracker\` block in lightsout.config.json naming provider, team and api-key-env`,
+			error: `no plan at ${join(cwd, planPath)}, and no plan could be fetched from the ticket: this command needs a \`ticket-tracker\` block in lightsout.config.json naming a provider and its credentials`,
 		});
 	});
 
@@ -116,13 +137,13 @@ describe('ensurePlanWorkspace', () => {
 		});
 	});
 
-	test('names the missing folder and what the tracker said when the ticket could not be asked', async () => {
+	test('names the missing folder, ticket and concrete reason when its plan attachments cannot be restored', async () => {
 		const cwd = await seedCwd();
 
 		mockGetTicketAttachments.mockResolvedValue({ error: 'no ticket lo-54 in team LO' });
 
 		expect((await ensure({ cwd })).result).toStrictEqual({
-			error: `no plan at ${join(cwd, planPath)}, and the ticket could not be asked: no ticket lo-54 in team LO`,
+			error: `no plan at ${join(cwd, planPath)}, and the plan attachments on ticket lo-54 could not be restored: no ticket lo-54 in team LO`,
 		});
 	});
 

@@ -1,6 +1,6 @@
 ---
 name: queue
-description: Start the lightsout queue — drain the tracker of automatable tickets in parallel worktrees, shipping a PR per ticket. Use when the user asks to start the queue, drain the tickets, run the ticket queue, or work the backlog lights-out. Requires `queue` and `ticket-tracker` blocks in lightsout.config.json and the tracker API key in the environment.
+description: Start the lightsout queue — drain the tracker of automatable tickets in parallel worktrees, shipping a PR per ticket. Use when the user asks to start the queue, drain the tickets, run the ticket queue, or work the backlog lights-out. Requires `queue` and `ticket-tracker` blocks in lightsout.config.json and the configured tracker credentials in the environment.
 allowed-tools: Bash, Read, Write, Glob
 ---
 
@@ -12,21 +12,25 @@ engine, where it is deterministic code. Do not add workflow steps to this file.
 
 ## Steps
 
-1. Resolve the engine bundle: `${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs`
-   (the bundle ships inside the plugin — marketplace installs copy only the
-   plugin directory, never the surrounding repo). If the file does not
-   exist, stop and tell the user to reinstall the plugin or run
-   `pnpm bundle` in the lightsout repo.
-2. Check the tracker API key is set: read the config's `api-key-env` value
-   from `lightsout.config.json` and confirm that environment variable holds
-   something. If it does not, stop and say which variable to set — the
-   engine's own refusal would otherwise arrive minutes later in a background
-   log.
+1. Resolve the plugin root from this loaded skill's absolute path: it is two
+   directories above this `SKILL.md`. In Claude Code,
+   `${CLAUDE_PLUGIN_ROOT}` may provide the same path; do not assume that
+   variable exists in Codex skill shell calls. Use the resolved absolute path
+   wherever `<plugin-root>` appears below. Confirm
+   `<plugin-root>/dist/cli.mjs` exists; otherwise stop and tell the user to
+   reinstall the plugin or run `pnpm bundle` in the lightsout repo.
+2. Read the top-level `ticket-tracker` block — connection keys never live in
+   `queue`. Confirm the environment variable named by
+   `ticket-tracker.api-key-env` holds a value. For Jira, also confirm the
+   variable named by `ticket-tracker.api-user-email-env` holds the account
+   email. If a required variable is empty, stop and say which variable to set
+   — the engine's own refusal would otherwise arrive minutes later in a
+   background log.
 3. Start the queue in the background, relaying questions through the mailbox
    rather than a terminal:
 
    ```sh
-   node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" queue --file-relay
+   node "<plugin-root>/dist/cli.mjs" queue --file-relay
    ```
 
    Run it with the Bash tool in the background — the harness notifies the
@@ -47,9 +51,10 @@ engine, where it is deterministic code. Do not add workflow steps to this file.
    the session. (A harness with a dedicated wait-on-condition tool may use it
    in place of the shell loop — same cadence, same two wake conditions.)
 5. When the watcher wakes the session: read each `*.question.json` file — it
-   holds `ticket`, `title`, `question` and `askedAt` — and put the question
-   to the user with the ticket reference and title as context. When they
-   answer, write the answer beside it as a sibling file: same stem,
+   holds `ticket`, `title`, `question` and `askedAt` — and put the complete
+   ticket context and question in the final response that waits for the user's
+   answer, never only in commentary. When they answer, write the answer beside
+   it as a sibling file: same stem,
    `.answer.json` instead of `.question.json`, holding
    `{"answer": "<what the user said>"}`. The engine picks it up within two
    seconds, deletes both files, and the worker continues. Then re-start the
@@ -67,13 +72,13 @@ stdin instead.
 
 ## What to tell the user if they ask
 
-- **Which tickets it takes:** tickets on the configured team, in an eligible
-  status (by default Backlog or Ready to implement), carrying one of the two
-  route labels the config maps — the direct route builds straight from the
-  ticket body, the auto-plan route plans it first. A ticket with a blocking
-  ticket that is not finished — done or canceled — is not picked up; it is left
-  behind naming the blocker, and the same run takes it as soon as the blocker
-  ships.
+- **Which tickets it takes:** tickets in the configured tracker scope — a
+  Linear team or Jira project — in an eligible status (by default Backlog or
+  Ready to implement), carrying one of the two route labels the queue block
+  maps. The direct route builds straight from the ticket body; the auto-plan
+  route plans it first. A ticket with a blocking ticket that is not finished —
+  done or canceled — is not picked up; it is left behind naming the blocker,
+  and the same run takes it as soon as the blocker ships.
 - **How it runs them:** each ticket gets its own fresh git worktree, the
   config's `setup` command, and a harness run; finished branches ship as PRs.
   Up to `max-parallel` tickets run at once. The queue works in waves —

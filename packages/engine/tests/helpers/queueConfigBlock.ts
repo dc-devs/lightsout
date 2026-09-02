@@ -25,3 +25,12 @@ export const ticketTrackerConfigBlock = {
 	team: 'LO',
 	'api-key-env': 'LINEAR_API_KEY',
 };
+
+/** The Jira branch of the same top-level tracker contract. */
+export const jiraTicketTrackerConfigBlock = {
+	provider: 'jira',
+	'site-url': 'https://example.atlassian.net',
+	project: 'LO',
+	'api-key-env': 'JIRA_API_TOKEN',
+	'api-user-email-env': 'JIRA_ACCOUNT_EMAIL',
+};

@@ -52,7 +52,7 @@ export const configKeyDescriptions: Record<string, string> = {
 		'Per-rule severity and settings overrides for `lightsout standards-check`, keyed by rule id. A rule not named here keeps its pack’s default — silence is never a change.',
 	ship: 'Opt-in `lightsout ship` settings: the branch ticket pattern whose `ticket` capture group becomes the result’s ticket reference, the pull request body template, the merge method, whether a passed implement run chains into ship, and an optional pre-ship command run before anything is pushed.',
 	'ticket-tracker':
-		'Opt-in tracker identity: which tracker the engine talks to, the team every query is scoped to, and the environment variable holding the API key. Every command that reads or writes a ticket resolves it from here, so tracker identity is spelled once rather than once per command.',
+		'Opt-in tracker identity: which provider the engine talks to and that provider’s address and credential environment variables — a Linear team and API key, or a Jira Cloud site, project, API token and account email. Every command that reads or writes a ticket resolves it from here, so tracker identity is spelled once rather than once per command.',
 	queue:
 		'Opt-in queue settings: which ticket label routes a ticket to which worker, how many tickets run at once, which ticket statuses count as available work, and the per-ticket worker and question timeouts. Tracker identity lives in `ticket-tracker`, so this block holds queue behaviour only.',
 	'auto-plan':

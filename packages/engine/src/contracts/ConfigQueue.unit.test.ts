@@ -52,14 +52,17 @@ describe('ConfigQueue', () => {
 	test.each([
 		{ key: 'tracker', to: 'ticket-tracker.provider' },
 		{ key: 'team', to: 'ticket-tracker.team' },
+		{ key: 'site-url', to: 'ticket-tracker.site-url' },
+		{ key: 'project', to: 'ticket-tracker.project' },
 		{ key: 'api-key-env', to: 'ticket-tracker.api-key-env' },
+		{ key: 'api-user-email-env', to: 'ticket-tracker.api-user-email-env' },
 	])('refuses the moved `queue.$key` spelling, naming $to — a silently stripped identity would leave the queue querying nothing', ({ key, to }) => {
 		const parsed = ConfigQueue.safeParse({ ...minimal, [key]: 'linear' });
 
 		expect(parsed.success).toBe(false);
 		// the message is the whole point of the rejection — a stripped identity key
 		// would leave the queue querying a team nobody named
-		expect(parsed.error?.message ?? '').toMatch(new RegExp(`\`queue.${key}\` was renamed to \`${to}\``));
+		expect(parsed.error?.message ?? '').toContain(`\`queue.${key}\` was renamed to \`${to}\``);
 	});
 
 	test('refuses a parallelism that is not a whole number of tickets', () => {

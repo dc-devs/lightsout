@@ -39,6 +39,15 @@ export const durablePlanFiles = async ({ cwd, name }: Params): Promise<DurableSe
 		return { files: [], error: `nothing to publish for '${name}': ${deliverable.error}` };
 	}
 
+	const isSinglePlan = deliverable.files.length === 1 && basename(deliverable.files[0]?.path ?? '') === 'plan.md';
+
+	if (!isSinglePlan && deliverable.overviewPath === undefined) {
+		return {
+			files: [],
+			error: `nothing to publish for '${name}': phase files need an overview.md so the restored folder is a runnable phased plan`,
+		};
+	}
+
 	const dir = planWorkspaceDir({ cwd, name });
 	const deliverablePaths = deliverable.overviewPath === undefined ? [] : [deliverable.overviewPath];
 	// The resolver already sorts the phase files, so the attachment order is the

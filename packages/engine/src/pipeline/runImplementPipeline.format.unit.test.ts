@@ -10,32 +10,32 @@ import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
-/** The run's command log as parsed records — the format step's evidence trail. */
 const readCommandLog = ({ dir, runId }: { dir: string; runId: string }): Record<string, unknown>[] =>
 	readFileSync(join(dir, '.lightsout', 'runs', runId, 'commands.jsonl'), 'utf8')
 		.trim()
 		.split('\n')
 		.map((line) => JSON.parse(line) as Record<string, unknown>);
 
-/**
- * A consumer repo whose run reaches the format step: implement lands one
- * source file, each writer drops one stub test, and the refactor pair is
- * skipped so the formatter is the only thing left to decide the run.
- */
-const setupFormatRun = async ({ format, test: testCommand = 'true' }: { format: string; test?: string }) => {
-	const dir = setupConsumerRepo({ scripts: { format, test: testCommand } });
+const setupFormatRun = async ({ format }: { format: string }) => {
+	const dir = setupConsumerRepo({ scripts: { format, test: 'true' } });
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async ({ prompt }) => {
-			if (roleOf(prompt) === 'standards-review') {
+			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
 				return { text: reviewReport(), exitCode: 0 };
 			}
 
-			if (roleOf(prompt) === 'write-tests') {
+			if (role === 'write-tests') {
 				mkdirSync(join(dir, 'test'), { recursive: true });
 				writeFileSync(join(dir, 'test/feature.test.js'), '// stub test\n');
 
 				return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
+			}
+
+			if (role === 'refactor') {
+				return { text: report(), exitCode: 0 };
 			}
 
 			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
@@ -47,45 +47,43 @@ const setupFormatRun = async ({ format, test: testCommand = 'true' }: { format: 
 	return { dir, driver, config: await readConfig({ cwd: dir }) };
 };
 
-test('format: a formatter that exits non-zero fails the run and files its output as evidence', async () => {
-	const { dir, driver, config } = await setupFormatRun({ format: 'echo FORMATTER-SENTINEL >&2; exit 3' });
+test('formatting runs after every code-writing phase and before its verification gates', async () => {
+	const { dir, driver, config } = await setupFormatRun({ format: 'true' });
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
 
-	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md', skipRefactor: true });
+	expect(result.ok).toBe(true);
 
-	expect(result.ok).toBe(false);
-	expect(result.manifest.status).toBe('failed');
-	expect(result.error ?? '').toMatch(/format failed \(exit 3\)/);
-	// the formatter output travels with the verdict
-	expect(result.error ?? '').toMatch(/FORMATTER-SENTINEL/);
-	expect(result.manifest.steps.find((step) => step.id === 'format')?.status).toBe('failed');
+	const records = readCommandLog({ dir, runId: result.manifest.runId });
+	const indexOf = ({ step, kind }: { step: string; kind: string }) => records.findIndex((record) => record.step === step && record.kind === kind);
 
-	const logged = readCommandLog({ dir, runId: result.manifest.runId }).find((entry) => entry.kind === 'format');
-
-	// the failing formatter is logged with its exit code
-	expect(logged?.exitCode).toBe(3);
-	// and with the output tail a human needs
-	expect(String(logged?.outputTail)).toMatch(/FORMATTER-SENTINEL/);
+	expect(indexOf({ step: 'format-implement', kind: 'format' })).toBeLessThan(indexOf({ step: 'verify-implement', kind: 'check' }));
+	expect(indexOf({ step: 'format-tests', kind: 'format' })).toBeLessThan(indexOf({ step: 'verify-tests', kind: 'check' }));
+	expect(indexOf({ step: 'format-refactor', kind: 'format' })).toBeLessThan(indexOf({ step: 'verify-refactor', kind: 'check' }));
 });
 
-test('format: a green formatter that turns a gate red fails the run as a configuration problem', async () => {
-	const { dir, driver, config } = await setupFormatRun({
-		format: `node -e "require('fs').writeFileSync('BROKEN','x')"`,
-		test: 'test ! -f BROKEN',
-	});
+test('the skip-refactor path formats implementation and tests but declares no refactor formatter', async () => {
+	const { dir, driver, config } = await setupFormatRun({ format: 'true' });
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md', skipRefactor: true });
+	const steps = readCommandLog({ dir, runId: result.manifest.runId }).map((record) => record.step);
 
+	expect(steps.includes('format-implement')).toBe(true);
+	expect(steps.includes('format-tests')).toBe(true);
+	expect(steps.includes('format-refactor')).toBe(false);
+});
+
+test('a red dynamic formatter step fails the run before its following verification command', async () => {
+	const { dir, driver, config } = await setupFormatRun({ format: 'echo FORMATTER-SENTINEL >&2; exit 3' });
 	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md', skipRefactor: true });
 
 	expect(result.ok).toBe(false);
-	expect(result.manifest.status).toBe('failed');
-	expect(result.error ?? '').toMatch(/format: formatting broke verification — review the formatter\/gate configuration\./);
-	// the red gate that caught it is named
-	expect(result.error ?? '').toMatch(/test failed/);
-	expect(result.manifest.steps.find((step) => step.id === 'format')?.status).toBe('failed');
+	expect(result.error ?? '').toMatch(/format failed \(exit 3\)/);
+	expect(result.error ?? '').toMatch(/FORMATTER-SENTINEL/);
+	expect(result.manifest.steps.find((step) => step.id === 'format-implement')?.status).toBe('failed');
 
-	const logged = readCommandLog({ dir, runId: result.manifest.runId }).find((entry) => entry.kind === 'format');
+	const records = readCommandLog({ dir, runId: result.manifest.runId });
+	const formatter = records.find((entry) => entry.step === 'format-implement' && entry.kind === 'format');
 
-	// the formatter itself was green — only the gate after it was not
-	expect(logged?.exitCode).toBe(0);
-	// a green command carries no output tail
-	expect(logged?.outputTail).toBe(undefined);
+	expect(formatter?.exitCode).toBe(3);
+	expect(String(formatter?.outputTail)).toMatch(/FORMATTER-SENTINEL/);
+	expect(records.some((entry) => entry.step === 'verify-implement')).toBe(false);
 });

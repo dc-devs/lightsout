@@ -1,5 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { setTicketStatus } from '#src/ticketTracker/index.ts';
+import { setTicketStatus } from '#src/ticketTracker/linear/setTicketStatus.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
@@ -10,17 +10,20 @@ type LinearCall = (client: unknown) => Promise<unknown>;
 
 const mockRunLinear = jest.fn<(params: { apiKey: string; call: LinearCall }) => Promise<unknown>>();
 
-jest.mock('#src/ticketTracker/runLinear.ts', () => ({ runLinear: (params: { apiKey: string; call: LinearCall }) => mockRunLinear(params) }));
+jest.mock('#src/ticketTracker/linear/runLinear.ts', () => ({ runLinear: (params: { apiKey: string; call: LinearCall }) => mockRunLinear(params) }));
 // -------------------------
 
 const settings = trackerSettingsFixture();
 
 const setupClient = ({ states }: { states: { id: string; name: string }[] }) => {
+	const apiKeys: string[] = [];
 	const stateFilters: unknown[] = [];
 	const updates: { id: string; input: unknown }[] = [];
 
-	mockRunLinear.mockImplementation(({ call }) =>
-		call({
+	mockRunLinear.mockImplementation(({ apiKey, call }) => {
+		apiKeys.push(apiKey);
+
+		return call({
 			workflowStates: (variables: { filter: unknown }) => {
 				stateFilters.push(variables.filter);
 
@@ -31,19 +34,20 @@ const setupClient = ({ states }: { states: { id: string; name: string }[] }) => 
 
 				return Promise.resolve({ success: true });
 			},
-		}),
-	);
+		});
+	});
 
-	return { stateFilters, updates };
+	return { apiKeys, stateFilters, updates };
 };
 
 describe('setTicketStatus', () => {
 	test('resolves the team’s state by name and moves the issue to it, answering undefined the way every other write step does', async () => {
-		const { stateFilters, updates } = setupClient({ states: [{ id: 'state-1', name: 'In Progress' }] });
+		const { apiKeys, stateFilters, updates } = setupClient({ states: [{ id: 'state-1', name: 'In Progress' }] });
 
 		const failure = await setTicketStatus({ settings, ticketId: 'id-70', statusName: 'In Progress' });
 
 		expect(failure).toBeUndefined();
+		expect(apiKeys).toStrictEqual(['lin_key']);
 		expect(stateFilters).toStrictEqual([{ team: { key: { eq: 'LO' } }, name: { eq: 'In Progress' } }]);
 		expect(updates).toStrictEqual([{ id: 'id-70', input: { stateId: 'state-1' } }]);
 	});

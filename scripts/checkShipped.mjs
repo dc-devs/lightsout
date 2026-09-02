@@ -1,51 +1,31 @@
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildEngine } from './buildEngine.mjs';
 import { invokedDirectly } from './invokedDirectly.mjs';
 
-/**
- * Are the shipped plugin directories shippable?
- *
- * A marketplace install copies the plugin directories and nothing else, so
- * merging to main is what reaches users. These things have to hold, and this
- * is the only definition of them: the pre-push hook runs it for a fast local
- * answer, and CI runs the same file as the authority. Written twice, the two
- * would agree today and drift by the spring, and the one you trust would be
- * whichever you read last.
- *
- *   1. `plugin/dist/cli.mjs` is what `src/` currently builds to.
- *   2. `plugin/standards/` is what the authored default package currently
- *      builds to.
- *   3. If anything under a shipped directory moved, its `plugin.json` carries
- *      a version of its own — users cannot tell two builds apart when both
- *      call themselves 0.2.4.
- *
- * The bundle and standards comparisons are the base plugin's alone, because it
- * is the only directory shipping build output; the version question is asked
- * of every shipped directory.
- *
- * Both build halves rebuild through the same functions `pnpm bundle` uses,
- * into a throwaway directory. Nothing is written into the working tree: a
- * check that repairs what it measures reports success and leaves the fix
- * uncommitted.
- *
- * The version question reads the working tree, so an uncommitted rebuild of
- * plugin/dist/cli.mjs demands its bump before the commit rather than after.
- *
- * `--base <ref>` picks what the version is compared against (default
- * `origin/main`). A missing ref, or a base that already contains this commit,
- * skips the version question rather than inventing an answer — that is the
- * push to main itself, where there is nothing to bump against.
- */
+/** Checks shipped build parity, manifest agreement, and version movement against a base ref. */
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** The directories a marketplace install copies, each with the manifest that names its version. */
+/** The directories a marketplace install copies, with every host manifest that names the same build. */
 const shippedDirectories = [
-	{ dir: 'plugin', manifestPath: join('plugin', '.claude-plugin', 'plugin.json') },
-	{ dir: 'plugin-linear', manifestPath: join('plugin-linear', '.claude-plugin', 'plugin.json') },
+	{
+		dir: 'plugin',
+		primaryManifestPath: join('plugin', '.claude-plugin', 'plugin.json'),
+		manifestPaths: [join('plugin', '.claude-plugin', 'plugin.json'), join('plugin', '.codex-plugin', 'plugin.json')],
+	},
+	{
+		dir: 'plugin-linear',
+		primaryManifestPath: join('plugin-linear', '.claude-plugin', 'plugin.json'),
+		manifestPaths: [join('plugin-linear', '.claude-plugin', 'plugin.json'), join('plugin-linear', '.codex-plugin', 'plugin.json')],
+	},
+	{
+		dir: 'plugin-jira',
+		primaryManifestPath: join('plugin-jira', '.claude-plugin', 'plugin.json'),
+		manifestPaths: [join('plugin-jira', '.claude-plugin', 'plugin.json'), join('plugin-jira', '.codex-plugin', 'plugin.json')],
+	},
 ];
 
 /** Every file under a directory, as sorted slash-separated relative paths. */
@@ -78,11 +58,8 @@ const firstDifference = ({ built, shipped }) => {
 
 /** A git command's stdout, or undefined when git exits non-zero (an unknown ref, usually). */
 const git = ({ args }) => {
-	try {
-		return execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-	} catch {
-		return undefined;
-	}
+	const result = spawnSync('git', args, { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+	return result.status === 0 ? result.stdout.trim() : undefined;
 };
 
 /**
@@ -97,31 +74,19 @@ const git = ({ args }) => {
  * script already measures.
  */
 const changedSince = ({ baseCommit, path }) => {
-	// `git diff --quiet` says "identical" by exiting 0 and "differs" by exiting
-	// 1, so the answer is in the exit code rather than the output.
-	try {
-		execFileSync('git', ['diff', '--quiet', baseCommit, '--', path], { cwd: repoRoot, stdio: 'ignore' });
-
-		return false;
-	} catch {
-		return true;
-	}
+	const result = spawnSync('git', ['diff', '--quiet', baseCommit, '--', path], { cwd: repoRoot, stdio: 'ignore' });
+	return result.status !== 0;
 };
 
 /** Compares by numeric segment. True only when `head` is genuinely newer, so a version that moved backwards fails too. */
 const isNewer = ({ head, base }) => {
-	const segments = (version) => version.split('.').map((segment) => Number.parseInt(segment, 10) || 0);
-	const [headSegments, baseSegments] = [segments(head), segments(base)];
-
-	for (let index = 0; index < Math.max(headSegments.length, baseSegments.length); index += 1) {
-		const [left, right] = [headSegments[index] ?? 0, baseSegments[index] ?? 0];
-
-		if (left !== right) {
-			return left > right;
-		}
-	}
-
-	return false;
+	const parse = ({ version }) => version.split('.').map((segment) => Number.parseInt(segment, 10) || 0);
+	const headSegments = parse({ version: head });
+	const baseSegments = parse({ version: base });
+	const differingIndex = Array.from({ length: Math.max(headSegments.length, baseSegments.length) }).findIndex(
+		(_value, index) => (headSegments[index] ?? 0) !== (baseSegments[index] ?? 0),
+	);
+	return differingIndex !== -1 && (headSegments[differingIndex] ?? 0) > (baseSegments[differingIndex] ?? 0);
 };
 
 /**
@@ -131,23 +96,41 @@ const isNewer = ({ head, base }) => {
  * The working tree is compared, not HEAD, so an uncommitted rebuild demands
  * its bump before the commit rather than after.
  */
-const versionVerdict = ({ baseCommit, dir, manifestPath }) => {
+const versionVerdict = ({ baseCommit, dir, primaryManifestPath, manifestPaths }) => {
+	if (!existsSync(join(repoRoot, dir))) {
+		return { skipped: `${dir}/ does not exist in the working tree` };
+	}
+
+	const currentVersions = manifestPaths.map((manifestPath) => ({
+		manifestPath,
+		version: JSON.parse(readFileSync(join(repoRoot, manifestPath), 'utf8')).version,
+	}));
+	const distinctVersions = new Set(currentVersions.map(({ version }) => version));
+
+	if (distinctVersions.size !== 1) {
+		return {
+			problem: `${dir}/ host manifests disagree: ${currentVersions.map(({ manifestPath, version }) => `${manifestPath}=${version}`).join(', ')}`,
+		};
+	}
+
 	if (!changedSince({ baseCommit, path: dir })) {
 		return { skipped: `nothing under ${dir}/ changed` };
 	}
 
-	const baseManifest = git({ args: ['show', `${baseCommit}:${manifestPath}`] });
+	const baseManifest = git({ args: ['show', `${baseCommit}:${primaryManifestPath}`] });
 
 	if (baseManifest === undefined) {
-		return { skipped: `${manifestPath} does not exist at the base` };
+		return { skipped: `${primaryManifestPath} does not exist at the base` };
 	}
 
-	const headVersion = JSON.parse(readFileSync(join(repoRoot, manifestPath), 'utf8')).version;
+	const [{ version: headVersion }] = currentVersions;
 	const baseVersion = JSON.parse(baseManifest).version;
 
 	if (!isNewer({ head: headVersion, base: baseVersion })) {
 		return {
-			problem: `${dir}/ changed, which is what users install, but ${manifestPath} is ${headVersion} against a base of ${baseVersion} — bump it so the shipped build has a name of its own`,
+			problem:
+				`${dir}/ changed, which is what users install, but its host manifests are ${headVersion} against a base of ${baseVersion}` +
+				' — bump them so the shipped build has a name of its own',
 		};
 	}
 
@@ -230,9 +213,9 @@ const main = async () => {
 	}
 
 	console.error('');
-	console.error('  plugin/ and plugin-linear/ are what a marketplace install copies and runs.');
+	console.error('  plugin/, plugin-linear/, and plugin-jira/ are what a marketplace install copies and runs.');
 	console.error('');
-	console.error('    pnpm bundle && git add plugin/');
+	console.error('    pnpm bundle && git add plugin/ plugin-linear/ plugin-jira/');
 	console.error('');
 	process.exitCode = 1;
 };

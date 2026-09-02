@@ -25,7 +25,7 @@ interface Params {
  * dedup` and `plan grade` passes, and a network call in it would make every
  * detection pass reach the tracker unannounced.
  *
- * It never throws for a tracker reason and never exits — it hands back one
+ * It never throws for a tracker or restore reason and never exits — it hands back one
  * sentence and lets the caller own the exit code, the way every other input
  * check in `implementCommand` does.
  */
@@ -77,7 +77,7 @@ export const ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }
 	const { restored, error } = await restorePlanWorkspace({ cwd, name, identifier, settings: trackerSettings });
 
 	if (error !== undefined) {
-		return { error: `no plan at ${dir}, and the ticket could not be asked: ${error}` };
+		return { error: `no plan at ${dir}, and the plan attachments on ticket ${identifier} could not be restored: ${error}` };
 	}
 
 	if (restored.length === 0) {

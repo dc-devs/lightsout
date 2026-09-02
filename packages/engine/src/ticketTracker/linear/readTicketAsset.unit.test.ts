@@ -1,5 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { readTicketAsset } from '#src/ticketTracker/index.ts';
+import { readTicketAsset } from '#src/ticketTracker/linear/readTicketAsset.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
@@ -10,7 +10,7 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 // -------------------------
 
 const settings = trackerSettingsFixture();
-const assetUrl = 'https://assets.example/plan.md';
+const assetUrl = 'https://uploads.linear.app/plan.md';
 
 /** One request the read made, reduced to what the assertions care about. */
 interface RecordedRequest {
@@ -52,6 +52,18 @@ describe('readTicketAsset', () => {
 		// bare, with no `Bearer` prefix — the form a Linear personal key takes
 		expect(requests).toStrictEqual([{ url: assetUrl, headers: { Authorization: 'lin_key' }, deadline: true }]);
 	});
+
+	test.each(['http://uploads.linear.app/plan.md', 'https://uploads.linear.app.evil.example/plan.md', 'https://linear.app/plan.md'])(
+		'refuses an untrusted asset URL without sending the API key: %s',
+		async (url) => {
+			const requests = stubFetch();
+
+			expect(await readTicketAsset({ settings, url })).toStrictEqual({
+				error: `refusing to send tracker credentials to untrusted attachment URL '${url}'`,
+			});
+			expect(requests).toStrictEqual([]);
+		},
+	);
 
 	test('names the URL and the status when the tracker refused the asset', async () => {
 		stubFetch({ ok: false, status: 403 });

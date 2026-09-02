@@ -1,7 +1,10 @@
 import { readFile } from 'node:fs/promises';
+import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { durablePlanFileNames } from '#src/plan/common/constants/durablePlanFileNames.ts';
+import { planAttachmentManifestName, serializePlanAttachmentManifest } from '#src/plan/common/planAttachmentManifest.ts';
 import type { DurablePlanFile } from '#src/plan/common/types/DurablePlanFile.ts';
+import { validatePlanAttachmentGeneration } from '#src/plan/common/validatePlanAttachmentGeneration.ts';
 import { durablePlanFiles } from '#src/plan/publish/durablePlanFiles.ts';
 import { readPlanTicketRef } from '#src/plan/readPlanTicketRef.ts';
 import { resolveShipSettings } from '#src/ship/index.ts';
@@ -20,9 +23,9 @@ interface Params {
 interface PublishReport {
 	/** The ticket the files landed on, e.g. 'LO-54'. Absent when nothing was published. */
 	ticketRef?: string;
-	/** Each published file's own name, in the order it was attached. */
+	/** Each published attachment's own name, ending with the generation commit marker. */
 	published: string[];
-	/** Durable-titled attachments already on the ticket that this run did not write. Reported, never deleted. */
+	/** Durable-titled attachments outside the committed generation. Reported, never deleted. */
 	stale: string[];
 	/** Set when the publish stopped — the one sentence saying why. */
 	error?: string;
@@ -31,25 +34,61 @@ interface PublishReport {
 /** The tracker previews an attachment by its content type, and the durable set holds only these two shapes. */
 const contentTypeOf = ({ name }: { name: string }) => (name.endsWith('.json') ? 'application/json' : 'text/markdown');
 
-/** Attach each durable file in order, stopping at the first one the tracker refused. */
+interface PreparedAttachment {
+	name: string;
+	content: Buffer;
+}
+
+/**
+ * Read a complete immutable snapshot before the first outward mutation, then
+ * append the manifest that commits exactly those bytes.
+ */
+const prepareAttachments = async ({ files }: { files: DurablePlanFile[] }): Promise<{ attachments: PreparedAttachment[] } | { error: string }> => {
+	const durable: PreparedAttachment[] = [];
+
+	for (const file of files) {
+		try {
+			durable.push({ name: file.name, content: await readFile(file.path) });
+		} catch (error) {
+			return { error: `could not read ${file.name} before publishing: ${messageOf({ error })}` };
+		}
+	}
+
+	const refusal = validatePlanAttachmentGeneration({ files: durable.map(({ name, content }) => ({ name, text: content.toString('utf8') })) });
+
+	if (refusal !== undefined) {
+		return refusal;
+	}
+
+	return {
+		attachments: [...durable, { name: planAttachmentManifestName, content: serializePlanAttachmentManifest({ files: durable }) }],
+	};
+};
+
+/** Attach the prepared snapshot in order, with its manifest last, stopping at the first tracker refusal. */
 const attachDurableFiles = async ({
 	settings,
 	ticketId,
 	ticketRef,
-	files,
+	attachments,
 	onProgress,
 }: {
 	settings: TrackerSettings;
 	ticketId: string;
 	ticketRef: string;
-	files: DurablePlanFile[];
+	attachments: PreparedAttachment[];
 	onProgress: (message: string) => void;
 }) => {
 	const published: string[] = [];
 
-	for (const file of files) {
-		const content = await readFile(file.path);
-		const failure = await setTicketAttachment({ settings, ticketId, title: file.name, content, contentType: contentTypeOf({ name: file.name }) });
+	for (const attachment of attachments) {
+		const failure = await setTicketAttachment({
+			settings,
+			ticketId,
+			title: attachment.name,
+			content: attachment.content,
+			contentType: contentTypeOf({ name: attachment.name }),
+		});
 
 		// A stopped loop keeps what did land, so a partial publish is visible
 		// rather than silent.
@@ -57,8 +96,8 @@ const attachDurableFiles = async ({
 			return { published, error: failure.error };
 		}
 
-		published.push(file.name);
-		onProgress(`attached ${file.name} to ${ticketRef}`);
+		published.push(attachment.name);
+		onProgress(`attached ${attachment.name} to ${ticketRef}`);
 	}
 
 	return { published, error: undefined };
@@ -105,7 +144,8 @@ const reportStaleAttachments = async ({
 };
 
 /**
- * Put a plan folder's durable set on the ticket the folder is named after.
+ * Put a plan folder's durable set on the ticket the folder is named after,
+ * committing the exact names and hashes with a manifest attached last.
  *
  * The refusals are ordered disk first, then the folder's own name, then
  * configuration, then the network: the first two are answered with no config
@@ -113,10 +153,10 @@ const reportStaleAttachments = async ({
  * most. The queue refuses configuration first because it is about to spawn
  * workers; this is about to read four files.
  *
- * A durable-titled attachment an earlier publish left behind is reported and
- * never deleted. Deleting an attachment this run did not write would be an
- * unattended destructive act on an outward surface, and a person may have
- * attached their own `notes.md` under exactly such a name.
+ * A durable-titled attachment outside the new manifest is reported and never
+ * deleted. Restore ignores it because it is not in the committed generation;
+ * deleting an attachment this run did not write would still be an unattended
+ * destructive act on an outward surface.
  */
 export const publishPlan = async ({ cwd, name, config, env, onProgress }: Params): Promise<PublishReport> => {
 	const durable = await durablePlanFiles({ cwd, name });
@@ -145,6 +185,12 @@ export const publishPlan = async ({ cwd, name, config, env, onProgress }: Params
 		};
 	}
 
+	const prepared = await prepareAttachments({ files: durable.files });
+
+	if ('error' in prepared) {
+		return { ticketRef, published: [], stale: [], error: prepared.error };
+	}
+
 	const settings = resolveTrackerSettings({ config, env });
 
 	if ('error' in settings) {
@@ -160,10 +206,10 @@ export const publishPlan = async ({ cwd, name, config, env, onProgress }: Params
 	const ticket = tickets.at(0);
 
 	if (ticket === undefined) {
-		return { ticketRef, published: [], stale: [], error: `there is no ${ticketRef} on the configured tracker team` };
+		return { ticketRef, published: [], stale: [], error: `there is no ${ticketRef} on the configured ticket tracker` };
 	}
 
-	const { published, error } = await attachDurableFiles({ settings, ticketId: ticket.id, ticketRef, files: durable.files, onProgress });
+	const { published, error } = await attachDurableFiles({ settings, ticketId: ticket.id, ticketRef, attachments: prepared.attachments, onProgress });
 
 	if (error !== undefined) {
 		return { ticketRef, published, stale: [], error };

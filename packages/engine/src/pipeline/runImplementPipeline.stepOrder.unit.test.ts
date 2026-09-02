@@ -53,12 +53,14 @@ describe('runImplementPipeline', () => {
 		expect(result.manifest.stepOrder).toStrictEqual([
 			'clean-slate',
 			'implement',
+			'format-implement',
 			'verify-implement',
 			'write-tests',
+			'format-tests',
 			'verify-tests',
 			'refactor',
+			'format-refactor',
 			'verify-refactor',
-			'format',
 		]);
 		// the reader only ever sees the file, never the returned value
 		expect(persisted.stepOrder).toStrictEqual(result.manifest.stepOrder);
@@ -69,7 +71,15 @@ describe('runImplementPipeline', () => {
 
 		const result = await run({ skipRefactor: true });
 
-		expect(result.manifest.stepOrder).toStrictEqual(['clean-slate', 'implement', 'verify-implement', 'write-tests', 'verify-tests', 'format']);
+		expect(result.manifest.stepOrder).toStrictEqual([
+			'clean-slate',
+			'implement',
+			'format-implement',
+			'verify-implement',
+			'write-tests',
+			'format-tests',
+			'verify-tests',
+		]);
 	});
 
 	test.each([

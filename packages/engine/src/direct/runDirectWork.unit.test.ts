@@ -3,6 +3,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { type LightsoutConfig, RunStatus, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
 import { runDirectWork } from '#src/direct/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
+import type { GateRunResult } from '#src/gates/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
 import { getRunDir } from '#src/runState/index.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -13,7 +14,7 @@ import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 // each is another module's entry point with its own tests. Run state on disk is
 // real, because a truthful, resumable record is what this run exists to leave.
 const mockInvokeAgentWithContract = jest.fn<(params: { invocation: { prompt: string; systemPrompt: string } }) => Promise<AgentOutcome<WorkReport>>>();
-const mockRunGates = jest.fn<(params: { step?: string; onProgress?: (message: string) => void }) => Promise<string | undefined>>();
+const mockRunGates = jest.fn<(params: { step?: string; onProgress?: (message: string) => void }) => Promise<GateRunResult>>();
 
 jest.mock('#src/invoke/index.ts', () => ({
 	invokeAgentWithContract: (params: { invocation: { prompt: string; systemPrompt: string } }) => mockInvokeAgentWithContract(params),
@@ -39,7 +40,7 @@ const setupDirectRun = () => {
 	const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
 	mockInvokeAgentWithContract.mockResolvedValue({ ok: true, report: reportOf() });
-	mockRunGates.mockResolvedValue(undefined);
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [] });
 
 	const run = ({
 		answeredQuestion,
@@ -117,7 +118,7 @@ describe('runDirectWork', () => {
 	test('stops before spending an agent when the repo is not green to begin with — a red gate then is not the agent’s doing', async () => {
 		const { run } = setupDirectRun();
 
-		mockRunGates.mockResolvedValue('tsc: 3 errors');
+		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'] });
 
 		const result = await run();
 
@@ -187,7 +188,10 @@ describe('runDirectWork', () => {
 	test('re-invokes the worker with the gate output when verify comes back red, and passes once it is green', async () => {
 		const { run } = setupDirectRun();
 
-		mockRunGates.mockResolvedValueOnce(undefined).mockResolvedValueOnce('tsc: 3 errors').mockResolvedValue(undefined);
+		mockRunGates
+			.mockResolvedValueOnce({ error: undefined, failedFamilies: [] })
+			.mockResolvedValueOnce({ error: 'tsc: 3 errors', failedFamilies: ['check'] })
+			.mockResolvedValue({ error: undefined, failedFamilies: [] });
 
 		const result = await run();
 
@@ -199,7 +203,7 @@ describe('runDirectWork', () => {
 	test('gives up after the fix retries are spent, ending failed with the gate output as the reason', async () => {
 		const { run } = setupDirectRun();
 
-		mockRunGates.mockResolvedValueOnce(undefined).mockResolvedValue('tsc: 3 errors');
+		mockRunGates.mockResolvedValueOnce({ error: undefined, failedFamilies: [] }).mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'] });
 
 		const result = await run();
 
@@ -215,7 +219,7 @@ describe('runDirectWork', () => {
 		mockRunGates.mockImplementation(({ step, onProgress }) => {
 			onProgress?.(`${step} is running`);
 
-			return Promise.resolve(undefined);
+			return Promise.resolve({ error: undefined, failedFamilies: [] });
 		});
 
 		await run({ onProgress: (message) => progress.push(message) });

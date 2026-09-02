@@ -1,5 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { appendTicketNote } from '#src/ticketTracker/index.ts';
+import { appendTicketNote } from '#src/ticketTracker/linear/appendTicketNote.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
@@ -10,7 +10,7 @@ type LinearCall = (client: unknown) => Promise<unknown>;
 
 const mockRunLinear = jest.fn<(params: { apiKey: string; call: LinearCall }) => Promise<unknown>>();
 
-jest.mock('#src/ticketTracker/runLinear.ts', () => ({ runLinear: (params: { apiKey: string; call: LinearCall }) => mockRunLinear(params) }));
+jest.mock('#src/ticketTracker/linear/runLinear.ts', () => ({ runLinear: (params: { apiKey: string; call: LinearCall }) => mockRunLinear(params) }));
 // -------------------------
 
 const settings = trackerSettingsFixture();
@@ -66,7 +66,7 @@ describe('appendTicketNote', () => {
 
 		expect(failure).toBeUndefined();
 		expect(reads).toStrictEqual(['id-70']);
-		expect(writes).toStrictEqual([{ id: 'id-70', input: { description: '# Ticket\n\n## Decisions\n\n- a → b\n' } }]);
+		expect(writes).toStrictEqual([{ id: 'id-70', input: { description: '# Ticket\n\n## Decisions\n\n- a → b' } }]);
 	});
 
 	test('writes the line as the last line of the named section', async () => {
@@ -78,19 +78,19 @@ describe('appendTicketNote', () => {
 	test('creates the section at the end when the ticket has none, rather than dropping the answer', async () => {
 		const body = await writtenBody({ body: '# Ticket\n\nsome prose\n' });
 
-		expect(body).toBe('# Ticket\n\nsome prose\n\n## Decisions\n\n- Which one? → the second\n');
+		expect(body).toBe('# Ticket\n\nsome prose\n\n## Decisions\n\n- Which one? → the second');
 	});
 
 	test('starts the section from nothing when the ticket has no body at all', async () => {
 		const body = await writtenBody({ body: '' });
 
-		expect(body).toBe('## Decisions\n\n- Which one? → the second\n');
+		expect(body).toBe('## Decisions\n\n- Which one? → the second');
 	});
 
 	test('starts the section from nothing when the tracker holds no description at all', async () => {
 		const body = await writtenBody({ body: undefined });
 
-		expect(body).toBe('## Decisions\n\n- Which one? → the second\n');
+		expect(body).toBe('## Decisions\n\n- Which one? → the second');
 	});
 
 	test('writes under a heading that is not markdown at all, because the heading is whatever the repo configured', async () => {

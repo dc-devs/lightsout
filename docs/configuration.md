@@ -206,7 +206,7 @@ is overwritten the next time `pnpm build:config-reference` runs.
 | `standards-channels` | no | Framework channels of the loaded standards packs (e.g. 'react', 'tanstack'). Unspecified = detected per run from the scoped packages' package.json dependencies; an array REPLACES detection, and an empty one means base documents only. |
 | `standards-checks` | no | Per-rule severity and settings overrides for `lightsout standards-check`, keyed by rule id. A rule not named here keeps its pack’s default — silence is never a change. |
 | `ship` | no | Opt-in `lightsout ship` settings: the branch ticket pattern whose `ticket` capture group becomes the result’s ticket reference, the pull request body template, the merge method, whether a passed implement run chains into ship, and an optional pre-ship command run before anything is pushed. |
-| `ticket-tracker` | no | Opt-in tracker identity: which tracker the engine talks to, the team every query is scoped to, and the environment variable holding the API key. Every command that reads or writes a ticket resolves it from here, so tracker identity is spelled once rather than once per command. |
+| `ticket-tracker` | no | Opt-in tracker identity: which provider the engine talks to and that provider’s address and credential environment variables — a Linear team and API key, or a Jira Cloud site, project, API token and account email. Every command that reads or writes a ticket resolves it from here, so tracker identity is spelled once rather than once per command. |
 | `queue` | no | Opt-in queue settings: which ticket label routes a ticket to which worker, how many tickets run at once, which ticket statuses count as available work, and the per-ticket worker and question timeouts. Tracker identity lives in `ticket-tracker`, so this block holds queue behaviour only. |
 | `auto-plan` | no | Opt-in auto-plan settings: whether the proposal comes before drafting, whether an approved proposal starts the build, and whether the proposal is skipped when nothing clears the escalation bar. Every key is off by default, so an absent block is the most supervised behaviour. |
 | `docs` | no | Opt-in documentation surfaces: each entry a repo-relative path and a one-line `covers` saying what that document is responsible for. Declaring the block turns on the plan-time documentation check — the plan writer is briefed on the surfaces, every implementable plan file must carry a `## Documentation` statement, and `plan grade` runs one whole-plan checker that verifies it. A repository that declares no block sees none of it: no section, no prompt text, no checker spawn. |
@@ -307,19 +307,56 @@ A repository that wants the strict profile promotes those rules itself — an ex
 | `ship.after-implement` |       no | When true, a passed `/implement` run chains into ship without `--ship` being typed. Defaults to `false`.                                                                                                                             |
 | `ship.pre-ship`       |       no | A shell command run in the checkout before anything is pushed — the home for a repository's own pre-ship convention, such as rebuilding committed build outputs or bumping a shipped version. File changes it leaves behind are committed to the branch; a non-zero exit blocks the ship with the command's own output. No default. |
 
-This block is where your team's tracker conventions live, so no tracker vocabulary reaches engine code. Name a plan folder after its ticket's branch, so the plan, the branch and the ticket match by construction; a folder that does not is used exactly as before, with a warning. The default body is deliberately inert — a body that closes a ticket automatically is a team's convention, not the engine's. The block is strict: an unknown key fails parsing rather than silently disabling a setting you believe is on.
+This block is where branch-to-ticket and pull-request conventions live; the
+tracker connection lives in `ticket-tracker` below. Name a plan folder after
+its ticket's branch, so the plan, branch, and ticket match by construction; a
+folder that does not is used exactly as before, with a warning. The default
+body is deliberately inert — a body that closes a ticket automatically is a
+team's convention, not the engine's. The block is strict: an unknown key fails
+parsing rather than silently disabling a setting you believe is on.
 
 ### Ticket tracker settings
 
-The `ticket-tracker` block says who the engine talks to about a ticket. Every command that reads or writes one resolves it from here, so tracker identity is spelled once rather than once per command.
+The `ticket-tracker` block says who the engine talks to about a ticket. Every
+command that reads or writes one resolves the same block, so the connection is
+spelled once rather than once per command. It is discriminated by `provider`:
+Linear and Jira share the provider and API-key fields, then require only the
+connection fields that belong to that provider.
 
-| Field                       | Required | What it controls                                                                                                          |
-| --------------------------- | -------: | ------------------------------------------------------------------------------------------------------------------------- |
-| `ticket-tracker.provider`   |      yes | Which tracker the engine talks to. Only `linear` has an adapter today.                                                     |
-| `ticket-tracker.team`       |      yes | The tracker's team key, e.g. `LO`. Every query is scoped to it.                                                             |
-| `ticket-tracker.api-key-env` |     yes | Name of the environment variable holding the tracker API key. The key itself is never written to config.                    |
+| Field                                      | Required | What it controls                                                                                                                                       |
+| ------------------------------------------ | -------: | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ticket-tracker.provider`                  |      yes | Which tracker the engine talks to: `linear` or `jira`. This selects the rest of the block's shape.                                                      |
+| `ticket-tracker.api-key-env`               |      yes | Name of the environment variable holding the Linear API key or Jira API token. The credential itself is never written to config.                       |
+| `ticket-tracker.team`                      |   linear | The Linear team key, e.g. `LO`. Every Linear query is scoped to it.                                                                                     |
+| `ticket-tracker.site-url`                  |     jira | HTTPS Jira Cloud origin ending in `.atlassian.net`, with no path, query, or fragment.                                                                   |
+| `ticket-tracker.project`                   |     jira | Jira project key, e.g. `LO`; it scopes Jira queries and ticket identifiers.                                                                             |
+| `ticket-tracker.api-user-email-env`        |     jira | Name of the environment variable holding the Jira account email used with the API token. The email itself is never written to config.                  |
 
-The block is strict for the same reason `ship` is: an unknown key fails parsing rather than silently disabling a setting you believe is on. `lightsout queue` refuses to start without it, and says so separately from a missing `queue` block — a missing block and a missing key are two different things to fix. The key itself never lives in the file; only the name of the variable that holds it does.
+The block is strict for the same reason `ship` is: an unknown key, including a
+field from the other provider's shape, fails parsing rather than silently
+disabling a setting you believe is on. `lightsout queue` requires both this
+block and `queue`, and reports which one is absent. Credential values never live
+in the file; only the names of the environment variables that hold them do.
+
+Jira Cloud uses a Basic-auth API token and account email. Keep both values in
+the environment, never in configuration:
+
+```sh
+export JIRA_API_TOKEN='your-api-token'
+export JIRA_ACCOUNT_EMAIL='you@example.com'
+```
+
+```json
+{
+  "ticket-tracker": {
+    "provider": "jira",
+    "site-url": "https://example.atlassian.net",
+    "project": "LO",
+    "api-key-env": "JIRA_API_TOKEN",
+    "api-user-email-env": "JIRA_ACCOUNT_EMAIL"
+  }
+}
+```
 
 ### Queue settings
 
@@ -336,9 +373,12 @@ The `queue` block is what `lightsout queue` runs on. Without it the command refu
 | `queue.decisions-heading` |      no | The ticket-body heading relayed answers are appended under. Defaults to `## Decisions`.                                                                                                                                                                                     |
 | `queue.worker-timeout`   |       no | Ceiling for one ticket's worker session, as a duration string like `90s`, `45m` or `4h`. Per ticket, never for the drain — the queue itself runs until the backlog is dry. A hit ceiling parks the ticket resumably. Defaults to `4h`.                                        |
 | `queue.question-timeout` |       no | How long one relayed question waits for an answer before its ticket parks, as a duration string. Only `--file-relay` observes it; the terminal relay waits on the person at the terminal. Defaults to `1h`.                                                                   |
-| `queue.parked-label`     |       no | The ticket label the queue sets when a ticket parks and clears when it resumes or ships. Opt-in with no default. The label is created on the team on first use.                                                                                                              |
+| `queue.parked-label`     |       no | The ticket label the queue sets when a ticket parks and clears when it resumes or ships. Opt-in with no default. Linear creates the team label on first use; Jira updates issue labels directly.                                                                            |
 
-The block is strict for the same reason `ship` is: an unknown key fails parsing rather than silently disabling a setting you believe is on. What lives here is queue behaviour — routes, statuses, labels, parallelism and timeouts — so no queue vocabulary reaches engine code; tracker identity lives in `ticket-tracker`.
+The block is strict for the same reason `ship` is: an unknown key fails parsing
+rather than silently disabling a setting you believe is on. It contains queue
+behaviour only — routes, statuses, labels, parallelism, setup, and timeouts.
+The tracker connection lives only in `ticket-tracker`.
 
 ### Auto-plan settings
 
@@ -406,10 +446,15 @@ and `auto-plan.auto-approve` is a removed spelling of `auto-plan.auto-approve-pl
 configuration still carrying one fails to parse, with a message naming the key that
 replaced it.
 
-`queue.tracker`, `queue.team` and `queue.api-key-env` moved out of the queue block
-into `ticket-tracker` — as `provider`, `team` and `api-key-env` — because publishing a
-plan to its ticket needs that identity without needing a queue at all. A configuration
-still carrying one of the old spellings fails to parse, naming its new home.
+The tracker connection moved out of `queue` because ticket operations such as
+publishing a plan do not require a queue. The removed spellings map to the
+top-level block as follows: `queue.tracker` → `ticket-tracker.provider`,
+`queue.team` → `ticket-tracker.team`, `queue.site-url` →
+`ticket-tracker.site-url`, `queue.project` → `ticket-tracker.project`,
+`queue.api-key-env` → `ticket-tracker.api-key-env`, and
+`queue.api-user-email-env` → `ticket-tracker.api-user-email-env`. A
+configuration still carrying an old spelling fails to parse and names its new
+home.
 
 That message is the live answer, which is why there is no list of every tombstone the
 schema declares here.

@@ -8,9 +8,9 @@ import { renamedKey } from '#src/contracts/common/utils/renamedKey.ts';
  * What lives here is queue behaviour: which label routes a ticket to which
  * worker, which statuses count as available work, how many tickets run at once,
  * and the queue's own timeouts. The engine spells none of them in source. Who
- * the engine talks to about a ticket — provider, team, API-key variable — is
- * `ConfigTicketTracker`, because publishing a plan to its ticket needs that
- * identity without needing a queue at all.
+ * the engine talks to about a ticket — provider-specific address and credential
+ * variables — is `ConfigTicketTracker`, because publishing a plan to its ticket
+ * needs that identity without needing a queue at all.
  *
  * `.strict()` for the same reason `ConfigShip` is strict: the rest of the
  * config strips unknown keys, and a typo here would silently disable a setting
@@ -22,12 +22,18 @@ export const ConfigQueue = z
 		tracker: renamedKey({ from: 'queue.tracker', to: 'ticket-tracker.provider' }),
 		/** Removed — moved to the `ticket-tracker` block. Same reason. */
 		team: renamedKey({ from: 'queue.team', to: 'ticket-tracker.team' }),
+		/** Removed — Jira's origin moved to the `ticket-tracker` block. Same reason. */
+		'site-url': renamedKey({ from: 'queue.site-url', to: 'ticket-tracker.site-url' }),
+		/** Removed — Jira's project moved to the `ticket-tracker` block. Same reason. */
+		project: renamedKey({ from: 'queue.project', to: 'ticket-tracker.project' }),
 		/** Which ticket label routes a ticket to which worker. A label named here is the human's opt-in to automation. */
 		'route-labels': z.object({ direct: z.string(), 'auto-plan': z.string() }).strict(),
 		/** How many tickets may be in flight at once. Also the ceiling on how many questions can ever wait for the user at the same time. */
 		'max-parallel': z.number().int().positive(),
 		/** Removed — moved to the `ticket-tracker` block. Same reason. */
 		'api-key-env': renamedKey({ from: 'queue.api-key-env', to: 'ticket-tracker.api-key-env' }),
+		/** Removed — Jira's account-email variable moved to the `ticket-tracker` block. Same reason. */
+		'api-user-email-env': renamedKey({ from: 'queue.api-user-email-env', to: 'ticket-tracker.api-user-email-env' }),
 		/** Ticket statuses the queue may pick up. Default `['Backlog', 'Ready to implement']`. */
 		'eligible-statuses': z.array(z.string()).optional(),
 		/** Status the queue moves a ticket to when it picks it up. Default `'In Progress'`. */
@@ -66,7 +72,7 @@ export const ConfigQueue = z
 		/**
 		 * The ticket label the queue sets when a ticket parks and clears when it
 		 * resumes or ships. Opt-in with no default — a repo that names none never
-		 * has one invented for it. The label is created on the team on first use.
+		 * has one invented for it. The tracker adapter makes it usable on first use.
 		 */
 		'parked-label': z.string().optional(),
 	})

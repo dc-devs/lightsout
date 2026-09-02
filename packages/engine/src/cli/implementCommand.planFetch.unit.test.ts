@@ -4,6 +4,8 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { implementCommand } from '#src/cli/implementCommand.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { isDurablePlanAttachmentName, planAttachmentManifestName, serializePlanAttachmentManifest } from '#src/plan/common/planAttachmentManifest.ts';
+import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -24,14 +26,25 @@ const mockReadTicketAsset = jest.fn<(params: { url: string }) => Promise<string 
 jest.mock('#src/ticketTracker/index.ts', () => ({
 	getTicketAttachments: (params: { identifier: string }) => mockGetTicketAttachments(params),
 	readTicketAsset: (params: { url: string }) => mockReadTicketAsset(params),
-	resolveTrackerSettings: ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }) => {
+	resolveTrackerSettings: ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }): TrackerSettings | TrackerFailure => {
 		const block = config['ticket-tracker'];
 
 		if (block === undefined) {
-			return { error: 'this command needs a `ticket-tracker` block in lightsout.config.json naming provider, team and api-key-env' };
+			return { error: 'this command needs a `ticket-tracker` block in lightsout.config.json naming a provider and its credentials' };
 		}
 
-		return { team: block.team, apiKey: env[block['api-key-env']] ?? '' };
+		const apiKey = env[block['api-key-env']] ?? '';
+
+		return block.provider === 'linear'
+			? { provider: 'linear', ticketPrefix: block.team, team: block.team, apiKey }
+			: {
+					provider: 'jira',
+					ticketPrefix: block.project,
+					siteUrl: block['site-url'].replace(/\/$/u, ''),
+					project: block.project,
+					apiKey,
+					apiUserEmail: env[block['api-user-email-env']] ?? '',
+				};
 	},
 }));
 // -------------------------
@@ -72,11 +85,20 @@ const setupFetch = ({
 	onDisk?: Record<string, string>;
 	locked?: boolean;
 } = {}) => {
-	mockGetTicketAttachments.mockResolvedValue(failure ?? titles.map((title, index) => ({ id: `att-${index}`, title, url: `https://assets.example/${title}` })));
+	const bodyOf = (title: string) => bodies[title] ?? `# Plan: restored ${title}\n`;
+	const durable = [...new Set(titles.filter((title) => isDurablePlanAttachmentName({ name: title })))];
+	const manifest = serializePlanAttachmentManifest({ files: durable.map((title) => ({ name: title, content: Buffer.from(bodyOf(title), 'utf8') })) }).toString(
+		'utf8',
+	);
+	const attachmentTitles = durable.length === 0 ? titles : [...titles, planAttachmentManifestName];
+
+	mockGetTicketAttachments.mockResolvedValue(
+		failure ?? attachmentTitles.map((title, index) => ({ id: `att-${index}`, title, url: `https://assets.example/${title}` })),
+	);
 	mockReadTicketAsset.mockImplementation(({ url }) => {
 		const title = url.split('/').at(-1) ?? '';
 
-		return Promise.resolve(bodies[title] ?? `# Plan: restored ${title}\n`);
+		return Promise.resolve(title === planAttachmentManifestName ? manifest : bodyOf(title));
 	});
 
 	const captured = captureCommandOutput();
@@ -169,13 +191,15 @@ describe('implementCommand', () => {
 		expect(exitCodes).toStrictEqual([1]);
 	});
 
-	test('a tracker that cannot be asked stops the run, naming the missing folder and what the tracker said', async () => {
+	test('a tracker failure stops the run, naming the missing folder, ticket and concrete restore reason', async () => {
 		const { context, cwd, logged, errors, exitCodes } = setupFetch({ failure: { error: "no ticket 'lo-54' in team LO" } });
 
 		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(logged).toStrictEqual([]);
-		expect(errors).toStrictEqual([`no plan at ${join(cwd, planPath)}, and the ticket could not be asked: no ticket 'lo-54' in team LO`]);
+		expect(errors).toStrictEqual([
+			`no plan at ${join(cwd, planPath)}, and the plan attachments on ticket lo-54 could not be restored: no ticket 'lo-54' in team LO`,
+		]);
 		expect(exitCodes).toStrictEqual([1]);
 	});
 
@@ -185,7 +209,7 @@ describe('implementCommand', () => {
 		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(logged).toStrictEqual([]);
-		expect(errors.join('\n')).toContain(`no plan at ${join(cwd, planPath)}, and the ticket could not be asked:`);
+		expect(errors.join('\n')).toContain(`no plan at ${join(cwd, planPath)}, and the plan attachments on ticket lo-54 could not be restored:`);
 		expect(errors.join('\n')).toContain('expected plan.md on its own, or overview.md with at least one phase<N> file');
 		expect(existsSync(join(cwd, planPath))).toBe(false);
 		expect(exitCodes).toStrictEqual([1]);
@@ -198,7 +222,7 @@ describe('implementCommand', () => {
 
 		expect(logged).toStrictEqual([]);
 		expect(errors).toStrictEqual([
-			`no plan at ${join(cwd, planPath)}, and no plan could be fetched from the ticket: this command needs a \`ticket-tracker\` block in lightsout.config.json naming provider, team and api-key-env`,
+			`no plan at ${join(cwd, planPath)}, and no plan could be fetched from the ticket: this command needs a \`ticket-tracker\` block in lightsout.config.json naming a provider and its credentials`,
 		]);
 		expect(mockGetTicketAttachments).not.toHaveBeenCalled();
 		expect(exitCodes).toStrictEqual([1]);

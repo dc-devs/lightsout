@@ -1,6 +1,6 @@
 ---
 name: auto-plan
-description: Plan a ticket alone — self-answers every question below a written escalation bar, shows you one proposal, and rolls onward per the auto-plan config block. Use when the user asks to auto-plan a ticket, plan it without the interview, or hand a ticket straight to the factory. Input is a ticket, a feature description, or a rough-notes file path. Output feeds `/implement`.
+description: Plan a ticket alone — self-answers every question below a written escalation bar, shows you one proposal, and rolls onward per the auto-plan config block. Use when the user asks to auto-plan a ticket, plan it without the interview, or hand a ticket straight to the factory. Input is a ticket, a feature description, or a rough-notes file path. Output feeds the `implement` skill.
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob, Task
 ---
 
@@ -13,8 +13,12 @@ gates, retries, caps, or contract parsing here.** What is particular to this
 skill: **it answers the questions the plan skill puts to the user, and stops
 only at the checkpoints the config leaves standing.**
 
-Resolve the engine bundle once: `${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs`. If it does
-not exist, stop and tell the user to reinstall the plugin or run `pnpm bundle`.
+Resolve the plugin root once from this loaded skill's absolute path: it is two
+directories above this `SKILL.md`. In Claude Code, `${CLAUDE_PLUGIN_ROOT}` may
+provide the same path; do not assume that variable exists in Codex skill shell
+calls. Use the resolved absolute path wherever `<plugin-root>` appears below.
+Confirm `<plugin-root>/dist/cli.mjs` exists; otherwise stop and tell the user to
+reinstall the plugin or run `pnpm bundle`.
 
 ## Question format
 
@@ -22,11 +26,13 @@ When this skill does put a question to the user — an escalation, a parked
 question, a vetoed digest row — it uses the labeled four-part shape
 (**Context**, **Trade-offs**, **Question**, **Recommendation**) documented in
 the plan skill, which is the authoritative copy and lives at
-`${CLAUDE_PLUGIN_ROOT}/skills/plan/SKILL.md`. Read it there rather than
-recalling it. Two of its rules are the easiest to lose and are repeated here:
-**never ask through an option-picker tool** — every question is written out in
-the message, because a picker's one-line labels cannot carry a Context or a
-Trade-offs — and **one full-format question per message**.
+`<plugin-root>/skills/plan/SKILL.md`. Read it there rather than
+recalling it. Its durable-delivery rule applies here too: put every complete
+question block in the final response that waits for the user's answer, never
+only in commentary. Two other rules are the easiest to lose and are repeated
+here: **never ask through an option-picker tool** — every question is written
+out in that final response, because a picker's one-line labels cannot carry a
+Context or a Trade-offs — and **one full-format question per final response**.
 
 ## The escalation bar
 
@@ -57,6 +63,35 @@ escalation costs the thing this skill exists to save.
 format, one at a time, before the step that depends on it, then fold the answer
 in and carry on. Under `auto-approve-plan` the run parks instead — see
 [Parking a run](#parking-a-run).
+
+## Convergence invariant
+
+**A grade below A is never a terminal success state.** Treat a grader's
+`needs-a-human` or `unjudged` label as evidence to evaluate through this
+skill's escalation bar, not as authority to stop the run. For every finding
+below the bar, resolve it from the approved scope, recorded decisions, and
+repository conventions; update the plan and decisions; then re-run the
+applicable validation, deduplication, and grade checks.
+
+**Convergence budget.** After the initial grade, perform at most five
+repair-and-regrade rounds. A round resolves every below-bar finding, records
+the decisions, runs the applicable validation and deduplication checks, then
+grades again. A passed, complete grade (A) proceeds normally.
+
+If the fifth round remains below A, preserve the complete grade history and
+present the remaining gaps and the changes made in each round. Ask the human
+to choose exactly one: authorize another five-round convergence budget,
+explicitly accept the current below-A plan and proceed to implementation, or
+change direction / settle a genuine product-level decision. Do not
+auto-approve or auto-implement a below-A plan. Only an explicit human
+acceptance may bypass the A-grade requirement; record it in the plan's Decision
+Log and `decisions.json` before rolling onward.
+
+The only exception is a question that genuinely clears the escalation bar:
+one that cannot be resolved from the record and whose alternatives visibly
+change the product. Park that question using the configured parking path. Do
+not manufacture such an escalation because convergence is inconvenient or a
+grader labeled it `needs-a-human`.
 
 ## Settled decisions
 
@@ -112,7 +147,7 @@ deriving a new one. Read `.lightsout/plans/<name>/brainstorm-decisions.json`
 when it exists — its rows are already settled with the user.
 
 When the work traces to a ticket, read the ticket and follow the
-ticket-workflow skill at `${CLAUDE_PLUGIN_ROOT}/skills/ticket-workflow/SKILL.md`:
+ticket-workflow skill at `<plugin-root>/skills/ticket-workflow/SKILL.md`:
 its `## Decisions` lines are settled
 rows, its `## Open questions` are this run's agenda, and its acceptance criteria
 are floors, never ceilings.
@@ -125,7 +160,7 @@ Author `.lightsout/plans/<name>/facts.json` in the **exact** shape the plan
 skill documents (the engine hard-parses it). Then run:
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan verify-facts --name <name> [--notes "<path>"]
+node "<plugin-root>/dist/cli.mjs" plan verify-facts --name <name> [--notes "<path>"]
 ```
 
 Pass `--notes` when the request came from a rough-notes file. **When the run
@@ -173,7 +208,7 @@ proposal handling. On approval, continue to step 5 and show no second proposal.
 **5. Draft.** Run:
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan draft --name <name>
+node "<plugin-root>/dist/cli.mjs" plan draft --name <name>
 ```
 
 Pass `--scope single|phased` only to override the engine's estimate. On a facts
@@ -200,7 +235,7 @@ questions against the drafted plan; grilling intensity never drops.
 **7. Dedup and grade.**
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan dedup --name <name>
+node "<plugin-root>/dist/cli.mjs" plan dedup --name <name>
 ```
 
 Read `.lightsout/plans/<name>/dedup.json`. Every finding's `recommendation` is a
@@ -216,7 +251,7 @@ is applied from the record, not re-decided. `"complete": false` means the scan
 was partial — resolve what is there and re-run dedup.
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan grade --name <name>
+node "<plugin-root>/dist/cli.mjs" plan grade --name <name>
 ```
 
 Read `.lightsout/plans/<name>/grade.json`. `"passed": true` **and**
@@ -227,15 +262,18 @@ editing the plan file the gap's `phase` names — plus a `Decision Log` row
 re-run `plan draft`**: it regenerates the plan files and would clobber every
 edit folded in since.
 
-- **Stop rule.** Give up on convergence when two consecutive full grades do not
-  reduce the count of blocking gaps, and carry the remainder into the proposal
-  as named, unresolved gaps. The grade is advisory; a loop that cannot converge
-  must not spin.
-- **An `unjudged` gap is reported in the proposal rather than silently
-  self-answered:** nobody weighed it, and a re-grade does not retry that judge.
+- **Convergence rule.** A below-A grade is work to do, not a proposal input.
+  Apply the [convergence invariant](#convergence-invariant): resolve every
+  below-bar gap, record the decision, re-run validation and deduplication when
+  the edit affects them, and re-grade until the result is passed and complete
+  or the five-round convergence budget is exhausted. Do not stop merely because
+  two grades have similar findings, a run is taking a long time, or the grader
+  used a `needs-a-human`/`unjudged` label.
 
-**8. The proposal.** One message, unless `auto-approve-plan` is true and nothing
-cleared the bar. It carries, in this order:
+**8. The proposal.** One final response, unless `auto-approve-plan` is true
+and nothing cleared the bar. The proposal and its approval request are the
+deliverable for that turn: do not put any part only in commentary. It carries,
+in this order:
 
 - what the plan builds, in plain words — two or three sentences, no jargon;
 - **the assumption digest**: a table of every self-answered question — the
@@ -254,19 +292,34 @@ direction.
   row with `Source = Converge`, mirror it into decisions.json, re-grade, and
   show a short amended digest. Never re-draft.
 - **A change of direction is a stop.** Say plainly that this is what
-  `/lightsout:plan` is for, and hand the plan folder over.
+  the interactive `plan` skill is for, and hand the plan folder over.
 
-**9. Roll onward.** With `implement-on-approval` false, print the handoff line
+**9. Publish the approved ticket-backed plan.** Once approval exists — explicit
+or automatic — and before either handing off or implementing, publish when the
+work traces to a ticket:
+
+```sh
+node "<plugin-root>/dist/cli.mjs" plan publish --name <name>
+```
+
+With no ticket, skip this step. A nonzero publish is a stop: report the exact
+failure and do not hand off or implement an artifact another machine cannot
+recover. Under `lightsout queue`, report that as `failed` in the worker's final
+JSON so the ticket parks with the actionable publish error. Never treat a
+passing grade or automatic approval as a substitute for this command; the
+grade proves the plan is ready, while publish makes that ready plan durable.
+
+**10. Roll onward.** With `implement-on-approval` false, print the handoff line
 and stop:
 
 ```
-Next: /implement --plan .lightsout/plans/<name>
+Next: run the `implement` skill with .lightsout/plans/<name>
 ```
 
 With it true, run:
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" implement --plan ".lightsout/plans/<name>"
+node "<plugin-root>/dist/cli.mjs" implement --plan ".lightsout/plans/<name>"
 ```
 
 and relay the engine's report to the user verbatim. Whether that run then chains
@@ -280,11 +333,11 @@ to carry it in and the skill does not guess past it. It:
 - stops before the step that depends on the answer;
 - when the work traces to a ticket, appends the question to that ticket's
   `## Open questions` section, creating the section when absent, following the
-  ticket-workflow skill at `${CLAUDE_PLUGIN_ROOT}/skills/ticket-workflow/SKILL.md`
+  ticket-workflow skill at `<plugin-root>/skills/ticket-workflow/SKILL.md`
   — written as a question, never as a
   prescription, and the ticket's status is left where it is;
-- when there is no ticket, states the question in the message instead;
-- reports the plan folder path, and says that `/lightsout:plan` or a re-run
+- when there is no ticket, states the question in the final response instead;
+- reports the plan folder path, and says that the interactive `plan` skill or a re-run
   after the question is settled continues the work.
 
 `auto-approve-plan` means *do not wait for me when nothing needs me*. It never means

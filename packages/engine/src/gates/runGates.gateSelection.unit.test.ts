@@ -18,6 +18,11 @@ const setupOptedOutRepo = () =>
 		},
 	});
 
+const writeApiPackage = ({ dir }: { dir: string }) => {
+	mkdirSync(join(dir, 'packages', 'api'), { recursive: true });
+	writeFileSync(join(dir, 'packages', 'api', 'package.json'), JSON.stringify({ name: '@acme/api' }));
+};
+
 /**
  * A monorepo consumer whose `packageGates` include the opt-in build template.
  * The templates carry no `run <script>` token, so every one of them executes
@@ -26,8 +31,7 @@ const setupOptedOutRepo = () =>
 const setupScopedBuildRepo = () => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-gate-selection-'));
 
-	mkdirSync(join(dir, 'packages', 'api'), { recursive: true });
-	writeFileSync(join(dir, 'packages', 'api', 'package.json'), JSON.stringify({ name: '@acme/api' }));
+	writeApiPackage({ dir });
 	writeFileSync(
 		join(dir, 'lightsout.config.json'),
 		JSON.stringify({
@@ -61,8 +65,34 @@ const setupScopedCustomSuiteRepo = () => {
 		},
 	});
 
-	mkdirSync(join(dir, 'packages', 'api'), { recursive: true });
-	writeFileSync(join(dir, 'packages', 'api', 'package.json'), JSON.stringify({ name: '@acme/api' }));
+	writeApiPackage({ dir });
+
+	return dir;
+};
+
+/** A monorepo whose root and package groups expose every verification gate kind. */
+const setupMixedScopeRepo = () => {
+	const dir = setupConsumerRepo({
+		scripts: {
+			generate: `${gateLogCommand({ kind: 'generate' })} root`,
+			check: `${gateLogCommand({ kind: 'check' })} root`,
+			test: `${gateLogCommand({ kind: 'test' })} root`,
+			'test-coverage': `${gateLogCommand({ kind: 'coverage' })} root`,
+			'test-e2e': `${gateLogCommand({ kind: 'e2e' })} root`,
+			build: `${gateLogCommand({ kind: 'build' })} root`,
+		},
+		config: {
+			'package-gates': {
+				check: `${gateLogCommand({ kind: 'check' })} {package}`,
+				test: `${gateLogCommand({ kind: 'test' })} {package}`,
+				'test-coverage': `${gateLogCommand({ kind: 'coverage' })} {package}`,
+				'test-e2e': `${gateLogCommand({ kind: 'e2e' })} {package}`,
+				build: `${gateLogCommand({ kind: 'build' })} {package}`,
+			},
+		},
+	});
+
+	writeApiPackage({ dir });
 
 	return dir;
 };
@@ -73,7 +103,7 @@ describe('runGates', () => {
 		const config = await readConfig({ cwd: dir });
 		const gates: GateResult[] = [];
 
-		const error = await runGates({ cwd: dir, config, coverage: true, onGateResult: (result) => gates.push(result) });
+		const { error } = await runGates({ cwd: dir, config, coverage: true, onGateResult: (result) => gates.push(result) });
 
 		expect(error).toBe(undefined);
 		// `'test-coverage': false` is a decision, not a missing command — the run's
@@ -91,7 +121,7 @@ describe('runGates', () => {
 		const config = await readConfig({ cwd: dir });
 		const gates: GateResult[] = [];
 
-		const error = await runGates({ cwd: dir, config, packages: ['api'], onGateResult: (result) => gates.push(result) });
+		const { error } = await runGates({ cwd: dir, config, packages: ['api'], onGateResult: (result) => gates.push(result) });
 
 		expect(error).toBe(undefined);
 		expect(gates.map((gate) => [gate.group, gate.kind])).toStrictEqual([
@@ -116,7 +146,7 @@ describe('runGates', () => {
 		const config = await readConfig({ cwd: dir });
 		const gates: GateResult[] = [];
 
-		const error = await runGates({ cwd: dir, config, coverage: true, onGateResult: (result) => gates.push(result) });
+		const { error } = await runGates({ cwd: dir, config, coverage: true, onGateResult: (result) => gates.push(result) });
 
 		expect(error).toBe(undefined);
 		// coverage replaces `test` alone — the custom suite is its own gate, in
@@ -128,9 +158,10 @@ describe('runGates', () => {
 		const dir = setupConsumerRepo({ scripts: { 'test-e2e': 'false' } });
 		const config = await readConfig({ cwd: dir });
 
-		const error = await runGates({ cwd: dir, config, coverage: false });
+		const { error, failedFamilies } = await runGates({ cwd: dir, config, coverage: false });
 
 		expect(error ?? '').toMatch(/test-e2e failed \(exit 1\)/);
+		expect(failedFamilies).toStrictEqual(['test-e2e']);
 	});
 
 	test('a scoped custom `test-*` suite runs after the package test run and before its build, and coverage never substitutes it', async () => {
@@ -138,7 +169,7 @@ describe('runGates', () => {
 		const config = await readConfig({ cwd: dir });
 		const gates: GateResult[] = [];
 
-		const error = await runGates({ cwd: dir, config, packages: ['api'], coverage: true, onGateResult: (result) => gates.push(result) });
+		const { error } = await runGates({ cwd: dir, config, packages: ['api'], coverage: true, onGateResult: (result) => gates.push(result) });
 
 		expect(error).toBe(undefined);
 		// the substitution and the ordering hold inside a package group exactly as
@@ -153,6 +184,31 @@ describe('runGates', () => {
 		expect(readGateLog({ dir })).toStrictEqual(['@acme/api check', '@acme/api coverage', '@acme/api e2e', '@acme/api build']);
 	});
 
+	test('a mixed scope runs generate once and gives the root group precedence for every verification gate kind', async () => {
+		const dir = setupMixedScopeRepo();
+		const config = await readConfig({ cwd: dir });
+		const gates: GateResult[] = [];
+
+		const { error } = await runGates({
+			cwd: dir,
+			config,
+			packages: ['api'],
+			includeRoot: true,
+			coverage: true,
+			onGateResult: (result) => gates.push(result),
+		});
+
+		expect(error).toBe(undefined);
+		expect(gates.map((gate) => [gate.group, gate.kind])).toStrictEqual([
+			['root', 'generate'],
+			['root', 'check'],
+			['root', 'testCoverage'],
+			['root', 'test-e2e'],
+			['root', 'build'],
+		]);
+		expect(readGateLog({ dir })).toStrictEqual(['root generate', 'root check', 'root coverage', 'root e2e', 'root build']);
+	});
+
 	test('a red gate short-circuits a custom suite too — it never executes behind an earlier failure', async () => {
 		const dir = setupConsumerRepo({
 			scripts: {
@@ -162,12 +218,23 @@ describe('runGates', () => {
 		});
 		const config = await readConfig({ cwd: dir });
 
-		const error = await runGates({ cwd: dir, config });
+		const { error, failedFamilies } = await runGates({ cwd: dir, config });
 
 		expect(error ?? '').toMatch(/check failed \(exit 1\)/);
+		expect(failedFamilies).toStrictEqual(['check']);
 		// a custom suite is the most expensive gate a config can declare — running
 		// it behind a red check spends the whole suite to learn nothing
 		expect(/test-e2e failed/.test(error ?? '')).toBeFalsy();
 		expect(readGateLog({ dir })).toStrictEqual([]);
+	});
+
+	test.each([
+		{ coverage: false, scripts: { test: 'false', 'test-coverage': false }, family: 'test' },
+		{ coverage: true, scripts: { test: 'true', 'test-coverage': 'false' }, family: 'testCoverage' },
+	] as const)('a red $family gate uses its exact result kind as the family key', async ({ coverage, scripts, family }) => {
+		const dir = setupConsumerRepo({ scripts });
+		const result = await runGates({ cwd: dir, config: await readConfig({ cwd: dir }), coverage });
+
+		expect(result.failedFamilies).toStrictEqual([family]);
 	});
 });

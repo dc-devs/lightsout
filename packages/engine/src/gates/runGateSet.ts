@@ -1,4 +1,5 @@
 import type { GateCommands } from '#src/gates/common/types/GateCommands.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 import type { RunGate } from '#src/gates/common/types/RunGate.ts';
 
 interface Params {
@@ -10,10 +11,11 @@ interface Params {
 }
 
 /** Run one group's gates in order: check → tests (coverage-instrumented when the set includes coverage) → build. First failure wins unless `failFast` is false, in which case every gate runs and failures aggregate. */
-export const runGateSet = async ({ commands, label, gate, failFast = true }: Params): Promise<string | undefined> => {
+export const runGateSet = async ({ commands, label, gate, failFast = true }: Params): Promise<GateRunResult> => {
 	const group = label ?? 'root';
 	const prefix = label ? `[${label}] ` : '';
 	const failures: string[] = [];
+	const failedFamilies: string[] = [];
 	const stop = () => failFast && failures.length > 0;
 
 	if (commands.check) {
@@ -21,6 +23,7 @@ export const runGateSet = async ({ commands, label, gate, failFast = true }: Par
 
 		if (check.exitCode !== 0) {
 			failures.push(`${prefix}check failed (exit ${check.exitCode}):\n${check.stdout}\n${check.stderr}`);
+			failedFamilies.push('check');
 		}
 	}
 
@@ -34,12 +37,14 @@ export const runGateSet = async ({ commands, label, gate, failFast = true }: Par
 
 		if (coverageResult.exitCode !== 0) {
 			failures.push(`${prefix}test-coverage failed (exit ${coverageResult.exitCode}):\n${coverageResult.stdout}\n${coverageResult.stderr}`);
+			failedFamilies.push('testCoverage');
 		}
 	} else if (!stop() && commands.test) {
 		const tests = await gate({ kind: 'test', command: commands.test, group });
 
 		if (tests.exitCode !== 0) {
 			failures.push(`${prefix}test failed (exit ${tests.exitCode}):\n${tests.stdout}\n${tests.stderr}`);
+			failedFamilies.push('test');
 		}
 	}
 
@@ -55,6 +60,7 @@ export const runGateSet = async ({ commands, label, gate, failFast = true }: Par
 
 		if (extra.exitCode !== 0) {
 			failures.push(`${prefix}${name} failed (exit ${extra.exitCode}):\n${extra.stdout}\n${extra.stderr}`);
+			failedFamilies.push(name);
 		}
 	}
 
@@ -63,8 +69,12 @@ export const runGateSet = async ({ commands, label, gate, failFast = true }: Par
 
 		if (build.exitCode !== 0) {
 			failures.push(`${prefix}build failed (exit ${build.exitCode}):\n${build.stdout}\n${build.stderr}`);
+			failedFamilies.push('build');
 		}
 	}
 
-	return failures.length > 0 ? failures.join('\n\n') : undefined;
+	return {
+		error: failures.length > 0 ? failures.join('\n\n') : undefined,
+		failedFamilies: [...new Set(failedFamilies)],
+	};
 };

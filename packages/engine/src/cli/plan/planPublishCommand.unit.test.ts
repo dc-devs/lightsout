@@ -5,6 +5,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { planPublishCommand } from '#src/cli/plan/planPublishCommand.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { planAttachmentManifestName } from '#src/plan/common/planAttachmentManifest.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
@@ -40,11 +41,11 @@ const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-cov
 const setupPublish = ({
 	args,
 	withConfig = true,
-	report = { ticketRef: 'LO-54', published: ['plan.md', 'decisions.json'], stale: [] },
+	report = { ticketRef: 'LO-54', published: ['plan.md', 'decisions.json', planAttachmentManifestName], stale: [] },
 }: {
 	args: string[];
 	withConfig?: boolean;
-	/** What the action answers: a two-file publish that succeeded, by default. */
+	/** What the action answers: two durable files plus their commit marker, by default. */
 	report?: PublishReport;
 }) => {
 	const captured = captureCommandOutput();
@@ -76,8 +77,8 @@ describe('planPublishCommand', () => {
 		// the process environment is handed over rather than read inside the action,
 		// which is what keeps the API key out of a second reader
 		expect(mockPublishPlan.mock.calls[0]?.[0]?.env).toBe(process.env);
-		expect(logged[0]).toBe('\nplan publish lo-54-portable-plan — 2 file(s) attached to LO-54');
-		expect(logged.slice(1, 3)).toStrictEqual(['  plan.md', '  decisions.json']);
+		expect(logged[0]).toBe('\nplan publish lo-54-portable-plan — 3 file(s) attached to LO-54');
+		expect(logged.slice(1, 4)).toStrictEqual(['  plan.md', '  decisions.json', `  ${planAttachmentManifestName}`]);
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);
 	});
@@ -85,7 +86,7 @@ describe('planPublishCommand', () => {
 	test('names a stale attachment after the published list and still exits 0, because the publish succeeded', async () => {
 		const { context, logged, exitCodes } = setupPublish({
 			args: ['--name', 'lo-54-portable-plan'],
-			report: { ticketRef: 'LO-54', published: ['overview.md'], stale: ['plan.md'] },
+			report: { ticketRef: 'LO-54', published: ['overview.md', planAttachmentManifestName], stale: ['plan.md'] },
 		});
 
 		await expect(planPublishCommand(context)).rejects.toThrow(/process\.exit/);

@@ -12,16 +12,18 @@ it is deterministic code. Do not add workflow steps to this file.
 
 ## Steps
 
-1. Resolve the engine bundle: `${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs`
-   (the bundle ships inside the plugin — marketplace installs copy only the
-   plugin directory, never the surrounding repo). If the file does not
-   exist, stop and tell the user to reinstall the plugin or run
-   `pnpm bundle` in the lightsout repo.
+1. Resolve the plugin root from this loaded skill's absolute path: it is two
+   directories above this `SKILL.md`. In Claude Code,
+   `${CLAUDE_PLUGIN_ROOT}` may provide the same path; do not assume that
+   variable exists in Codex skill shell calls. Use the resolved absolute path
+   wherever `<plugin-root>` appears below. Confirm
+   `<plugin-root>/dist/cli.mjs` exists; otherwise stop and tell the user to
+   reinstall the plugin or run `pnpm bundle` in the lightsout repo.
 2. Run it on the plan path the user provided, **in the background**, so the
    session is free while the run works:
 
    ```sh
-   node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" implement --plan "<plan-path>"
+   node "<plugin-root>/dist/cli.mjs" implement --plan "<plan-path>"
    ```
 
    Pass through what the user gave you, nothing more:
@@ -31,12 +33,12 @@ it is deterministic code. Do not add workflow steps to this file.
    - a starting phase the user asked for → `--start-phase <n>`
    - a high-level/overview plan for a single-phase run → `--overview "<path>"`
    - an explicit package scope → `--packages a,b`
-   - `resume` requests → `node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" resume --run <id>`
+   - `resume` requests → `node "<plugin-root>/dist/cli.mjs" resume --run <id>`
 
 3. Start a watch on the run, also in the background:
 
    ```sh
-   node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" status --watch
+   node "<plugin-root>/dist/cli.mjs" status --watch
    ```
 
    With no `--run` it follows the run just started, waiting for it to appear,

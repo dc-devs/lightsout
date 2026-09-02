@@ -58,6 +58,7 @@ jest.mock('#src/ticketTracker/index.ts', () => ({ resolveTrackerSettings: () => 
 // -------------------------
 
 const settings = queueSettingsFixture();
+const trackerSettings = trackerSettingsFixture();
 
 const outcomeOf = ({ ready, error }: { ready: boolean; error?: string }): TicketRunOutcome => ({
 	ticket: {
@@ -92,7 +93,7 @@ const setupQueueCommand = ({
 	const cwd = setupConsumerRepo({ config: { ship } });
 
 	mockResolveQueueSettings.mockReturnValue(settings);
-	mockResolveTrackerSettings.mockReturnValue(trackerSettingsFixture());
+	mockResolveTrackerSettings.mockReturnValue(trackerSettings);
 	mockRunQueue.mockResolvedValue(report ?? { outcomes: [], leftBehind: [] });
 	mockEmptyRelayMailbox.mockResolvedValue(undefined);
 	relaysBuilt.length = 0;
@@ -235,7 +236,7 @@ describe('queueCommand', () => {
 
 		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(mockRunQueue).toHaveBeenCalledWith(expect.objectContaining({ settings, trackerSettings: { team: 'LO', apiKey: 'lin_key' } }));
+		expect(mockRunQueue).toHaveBeenCalledWith(expect.objectContaining({ settings, trackerSettings }));
 	});
 
 	test('hands the tracker identity to the terminal relay, so a relayed answer is written to the tracker the drain read from', async () => {
@@ -243,7 +244,7 @@ describe('queueCommand', () => {
 
 		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(relayParams[0]).toEqual(expect.objectContaining({ settings, trackerSettings: { team: 'LO', apiKey: 'lin_key' } }));
+		expect(relayParams[0]).toEqual(expect.objectContaining({ settings, trackerSettings }));
 	});
 
 	test('hands the tracker identity to the mailbox relay as well, so which relay the flag chose changes nothing about it', async () => {
@@ -251,7 +252,7 @@ describe('queueCommand', () => {
 
 		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(relayParams[0]).toEqual(expect.objectContaining({ settings, trackerSettings: { team: 'LO', apiKey: 'lin_key' } }));
+		expect(relayParams[0]).toEqual(expect.objectContaining({ settings, trackerSettings }));
 	});
 
 	test('refuses an unshippable ticket pattern up front, rather than after N tickets have been built', async () => {

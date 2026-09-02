@@ -130,7 +130,7 @@ describe('resumeCommand', () => {
 	});
 
 	test('a resumed run that walks past every remaining step finishes it and exits 0', async () => {
-		// --skip-refactor drops the refactor pair, leaving exactly these six steps;
+		// --skip-refactor drops the refactor trio, leaving exactly these seven steps;
 		// each already recorded passed, so the run re-enters, spawns no harness, and
 		// reaches the end — the only way the success exit code is observable here.
 		const { context, logged, exitCodes } = setupResume({
@@ -138,7 +138,7 @@ describe('resumeCommand', () => {
 			manifest: manifestOf({
 				pipeline: 'implement',
 				plan: 'plan.md',
-				steps: ['clean-slate', 'implement', 'verify-implement', 'write-tests', 'verify-tests', 'format'].map((id) => ({
+				steps: ['clean-slate', 'implement', 'format-implement', 'verify-implement', 'write-tests', 'format-tests', 'verify-tests'].map((id) => ({
 					id,
 					status: RunStatus.Passed,
 					attempts: 1,

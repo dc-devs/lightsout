@@ -12,6 +12,8 @@ export interface RunSummary {
 	cacheReadShare: number | undefined;
 	steps: StepSummary[];
 	gates: { commands: number; reruns: number; skipped: number };
+	/** Sum of the authoritative per-step verification repair counters, in first-seen step/family order. */
+	verificationRepairs: { gateFamily: string; attempts: number }[];
 	/** Final messages that failed their contract and cost a re-emit retry. */
 	rejectedReports: number;
 	frictionByArea: { area: string; count: number }[];
