@@ -31,7 +31,7 @@ Completing the task is not enough. Agents should leave the repository better tha
 - **Humans decide. Agents execute.** Before implementation begins, you and the planning agent agree on a complete design spec: scope, architecture, files touched, tradeoffs, constraints, and acceptance criteria. Once every decision is settled, the implementation agent follows the plan without guessing or inventing the design as it goes.
 - **Makes code standards a first-class concern.** Your style guide and architecture rules are injected into planning, implementation, testing, and refactoring. The agent follows the standards you defined instead of copying whatever patterns it happens to find in the repository.
 - **Improves the codebase with every run.** During planning, agents search for existing helpers and similar implementations, then identify where shared abstractions can replace duplicated logic. Every run ends with a mandatory refactoring pass.
-- **Puts deterministic gates between every stage.** Lightsout runs your tests, lint, type checks, and coverage commands directly instead of asking an agent to verify its own work. It is faster, cheaper, and more reliable than agent-only orchestration. If a gate fails, the pipeline stops.
+- **Puts deterministic gates between every stage.** Lightsout formats the full repository after each code-writing phase, then runs your tests, lint, type checks, and coverage commands directly instead of asking an agent to verify its own work. A red verification family receives a bounded repair allowance of its own before the run escalates.
 - **Makes every run auditable.** All gate results, agent conversations, decisions, and costs are recorded in the run manifest. A successful run does not just claim it passed. It can prove it.
 
 ## Quick start
@@ -160,13 +160,24 @@ What happens after you approve — stop at the hand-off line, or start the build
 
 Hand the finished spec to the factory. `/implement` follows the plan, writes the code and tests, and performs a mandatory refactoring pass.
 
-Deterministic gates run between every stage. If a test, lint, type-check, or coverage command fails, the pipeline stops. When the run succeeds, the complete record is written to `.lightsout/runs/<id>/`.
+After each code-writing stage, the full repository is formatted before deterministic gates run. If a test, lint, type-check, coverage, build, or formatting family fails, that family receives bounded repair attempts before the run escalates; root and package executions of the same family share the allowance. When the run succeeds, the complete record is written to `.lightsout/runs/<id>/`.
 
 [![How /implement turns the spec into verified code](assets/implement-workflow-light.svg)](assets/implement-workflow-light.svg)
 
 ```text
 /implement .lightsout/plans/rate-limiting/plan.md
 ```
+
+### lightsout status
+
+List every recorded run with `lightsout status`, or open one run's detailed progress block with its full or shortened id:
+
+```text
+lightsout status --run <id>
+lightsout status --run <id> --watch
+```
+
+`--watch` refreshes the detailed block until the run stops. A failing verification row shows its gate families, root/package groups, per-family repair counts, whether a supervisor-guided repair ran, the supervisor diagnosis when present, and the final output line. The complete command, exit code, timing, and output-tail history remains in `.lightsout/runs/<run-id>/commands.jsonl`.
 
 ### lightsout ship
 

@@ -82,8 +82,15 @@ const shapeOf = ({ rows }: { rows: { id: string; status: RunStatus | undefined; 
 
 describe('getRunProgress', () => {
 	test('every recorded step becomes a row, in the order the manifest records them', async () => {
+		const verification = {
+			failedFamilies: ['check'],
+			repairAttempts: { check: 1 },
+			failures: [{ kind: 'check', group: 'root', command: 'pnpm check', exitCode: 1 }],
+			needsFormatting: false,
+			guidedRepairAttempted: false,
+		};
 		const { cwd, manifest } = setupProgress({
-			manifest: manifestOf({ steps: [stepOf({ id: 'clean-slate' }), stepOf({ id: 'implement', attempts: 2 })] }),
+			manifest: manifestOf({ steps: [stepOf({ id: 'clean-slate' }), stepOf({ id: 'implement', attempts: 2, verification })] }),
 		});
 
 		const progress = await getRunProgress({ cwd, manifest, lock: undefined });
@@ -92,6 +99,8 @@ describe('getRunProgress', () => {
 			['clean-slate', RunStatus.Passed, 1],
 			['implement', RunStatus.Passed, 2],
 		]);
+		expect(progress.rows[0]?.verification).toBe(undefined);
+		expect(progress.rows[1]?.verification).toStrictEqual(verification);
 	});
 
 	test('a declared step the run has not reached becomes a pending row, and a recorded one is never duplicated', async () => {
@@ -107,6 +116,7 @@ describe('getRunProgress', () => {
 			['format', undefined, 0],
 		]);
 		expect(progress.rows.map((row) => row.durationMs)).toStrictEqual([1_000, undefined, undefined]);
+		expect(progress.rows.map((row) => row.verification)).toStrictEqual([undefined, undefined, undefined]);
 	});
 
 	test('a run whose pipeline declared no order gets no pending rows at all — a guessed row is worse than none', async () => {
@@ -222,7 +232,7 @@ describe('getRunProgress', () => {
 
 		const progress = await getRunProgress({ cwd, manifest, lock: undefined });
 
-		expect(progress.rows.at(-1)).toStrictEqual({ id: 'ship', status: expected, attempts: 1, durationMs: undefined });
+		expect(progress.rows.at(-1)).toStrictEqual({ id: 'ship', status: expected, attempts: 1, durationMs: undefined, verification: undefined });
 		expect(progress.awaitingShip).toBe(false);
 	});
 
@@ -234,7 +244,7 @@ describe('getRunProgress', () => {
 
 		const progress = await getRunProgress({ cwd, manifest, lock: undefined });
 
-		expect(progress.rows.at(-1)).toStrictEqual({ id: 'ship', status: undefined, attempts: 0, durationMs: undefined });
+		expect(progress.rows.at(-1)).toStrictEqual({ id: 'ship', status: undefined, attempts: 0, durationMs: undefined, verification: undefined });
 	});
 
 	test.each([

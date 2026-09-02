@@ -1,10 +1,10 @@
 import { maxCheapFixRetries } from '#src/common/constants/maxCheapFixRetries.ts';
+import { runFormatter } from '#src/common/processes/runFormatter.ts';
 import { consultSupervisor } from '#src/common/utils/consultSupervisor.ts';
-import { RunStatus, type StepRecord, SupervisorDecision, type SupervisorVerdict, WorkReportStatus } from '#src/contracts/index.ts';
+import { type GateResult, RunStatus, type StepRecord, SupervisorDecision, WorkReportStatus } from '#src/contracts/index.ts';
 import { collectChanged } from '#src/pipeline/common/utils/collectChanged.ts';
 import { runVerificationGates } from '#src/pipeline/common/utils/runVerificationGates.ts';
 import { withStepFiles } from '#src/pipeline/common/utils/withStepFiles.ts';
-import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
 import { appendFriction } from '#src/runState/index.ts';
@@ -12,36 +12,54 @@ import { appendFriction } from '#src/runState/index.ts';
 interface Params {
 	run: PipelineRun;
 	gitPrefix?: string;
-	/** The plan text, for the supervisor's context. */
 	planContent: string;
 	id: string;
-	/** Run the coverage gate in this verify — only once tests for the new code exist. */
 	coverage?: boolean;
-	buildFix: (errorContext: string) => { systemPrompt: string; prompt: string };
+	buildFix: ({ errorContext }: { errorContext: string }) => { systemPrompt: string; prompt: string };
 }
 
-/** Everything a fix attempt needs that does not change between attempts. */
-type FixContext = Pick<Params, 'run' | 'gitPrefix' | 'id' | 'coverage' | 'buildFix'>;
+type VerificationResult = Awaited<ReturnType<typeof runVerificationGates>>;
 
-/**
- * One fix attempt, start to finish: invoke the role with the given error
- * context, fold whatever it reported into the record, and re-gate. Shared by
- * both retry paths (the cheap-retry loop and the supervisor's
- * retry-with-guidance branch).
- *
- * A rate limit surfaces as a park signal carrying the caller's own record —
- * unadvanced, because nothing was bought.
- */
-const runFix = async ({
-	context: { run, gitPrefix, id, coverage, buildFix },
-	errorContext,
-	record,
-}: {
-	context: FixContext;
-	errorContext: string;
-	record: StepRecord;
-}): Promise<{ parked: PipelineResult } | { record: StepRecord; error: string | undefined }> => {
-	const fix = await run.invokeRole({ invocation: buildFix(errorContext), step: id });
+const verificationOf = ({ record }: { record: StepRecord }) =>
+	record.verification ?? {
+		failedFamilies: [],
+		repairAttempts: {},
+		failures: [],
+		needsFormatting: false,
+		guidedRepairAttempted: false,
+	};
+
+const withResult = ({ record, result }: { record: StepRecord; result: VerificationResult }) => ({
+	...record,
+	verification: {
+		...verificationOf({ record }),
+		failedFamilies: result.failedFamilies,
+		failures: result.failures,
+	},
+});
+
+const formatAndVerify = async ({ context: { run, id, coverage }, record }: { context: Params; record: StepRecord }) => {
+	const failures: GateResult[] = [];
+	const error = await runFormatter({
+		cwd: run.cwd,
+		runId: run.current().runId,
+		config: run.config,
+		step: id,
+		onResult: (result) => failures.push(result),
+	});
+	const next = { ...record, verification: { ...verificationOf({ record }), needsFormatting: false } };
+
+	await run.setStep({ record: next });
+
+	return {
+		record: next,
+		result: error === undefined ? await runVerificationGates({ run, coverage }) : { error, failedFamilies: ['format'], failures },
+	};
+};
+
+const runFix = async ({ context, errorContext, record }: { context: Params; errorContext: string; record: StepRecord }) => {
+	const { run, gitPrefix, id } = context;
+	const fix = await run.invokeRole({ invocation: context.buildFix({ errorContext }), step: id });
 
 	if (!fix.ok && fix.rateLimited) {
 		return { parked: await run.stop({ record, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };
@@ -56,133 +74,167 @@ const runFix = async ({
 
 		if (report.status === WorkReportStatus.Complete) {
 			next = withStepFiles({ record, reports: [report], gitPrefix });
-
 			await run.setStep({ record: { ...next, report }, patch: await collectChanged({ run, gitPrefix, reports: [report] }) });
 		}
 	}
 
-	return { record: next, error: await runVerificationGates({ run, coverage }) };
+	return formatAndVerify({ context, record: next });
 };
 
-/**
- * The supervisor's read of a gate that mechanical retry could not clear. A
- * verdict that did not arrive is not an error here — the caller escalates on
- * the gate itself, and an absent ruling only costs the diagnosis.
- */
-const consultForVerdict = async ({
-	run,
-	planContent,
-	id,
-	error,
-	attempts,
-}: {
-	run: PipelineRun;
-	planContent: string;
-	id: string;
-	error: string;
-	attempts: number;
-}): Promise<{ rateLimited: true } | { rateLimited: false; ruling: SupervisorVerdict | undefined }> => {
+const runCheapRepairs = async ({ context, record, result }: { context: Params; record: StepRecord; result: VerificationResult }) => {
+	let currentRecord = record;
+	let currentResult = result;
+
+	while (currentResult.error) {
+		const repairable = [...new Set(currentResult.failedFamilies)].filter(
+			(family) => (currentRecord.verification?.repairAttempts[family] ?? 0) < maxCheapFixRetries,
+		);
+
+		if (repairable.length === 0) {
+			break;
+		}
+
+		const repairAttempts = { ...currentRecord.verification?.repairAttempts };
+
+		for (const family of repairable) {
+			repairAttempts[family] = (repairAttempts[family] ?? 0) + 1;
+		}
+
+		currentRecord = {
+			...currentRecord,
+			attempts: currentRecord.attempts + 1,
+			verification: { ...verificationOf({ record: currentRecord }), repairAttempts, needsFormatting: true },
+		};
+		await context.run.setStep({ record: currentRecord });
+		context.run.progress(`step ${context.id}: gate red — repairing ${repairable.join(', ')}`);
+
+		const fixed = await runFix({ context, errorContext: currentResult.error, record: currentRecord });
+
+		if ('parked' in fixed) {
+			return { parked: fixed.parked };
+		}
+
+		currentRecord = withResult({ record: fixed.record, result: fixed.result });
+		currentResult = fixed.result;
+		await context.run.setStep({ record: currentRecord });
+	}
+
+	return { record: currentRecord, result: currentResult };
+};
+
+const runGuidedRepair = async ({ context, record, result }: { context: Params; record: StepRecord; result: VerificationResult }) => {
+	if (!result.error || record.verification?.guidedRepairAttempted) {
+		return { record, result, ruling: undefined };
+	}
+
+	const { run, id, planContent } = context;
+	run.progress(`step ${id}: mechanical retries exhausted — consulting supervisor`);
 	const verdict = await consultSupervisor({
 		driver: run.driver,
 		cwd: run.cwd,
 		config: run.config,
 		planContent,
 		stepId: id,
-		errorOutput: error,
-		attempts,
+		errorOutput: result.error,
+		attempts: record.attempts,
 		onEvent: run.agentEventSink({ step: `${id}-supervisor` }),
 		onRejectedOutput: run.persistRejected({ step: `${id}-supervisor` }),
 	});
-
 	await run.recordUsage({ step: `${id}-supervisor`, usage: verdict.usage });
 
 	if (!verdict.ok && verdict.rateLimited) {
-		return { rateLimited: true };
+		return { parked: await run.stop({ record, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };
 	}
 
 	const ruling = verdict.ok ? verdict.report : undefined;
+	let next = record;
 
 	if (ruling) {
 		run.progress(`step ${id}: supervisor verdict — ${ruling.decision}`);
+		next = { ...record, verification: { ...verificationOf({ record }), supervisorDiagnosis: ruling.diagnosis } };
+		await run.setStep({ record: next });
 	}
 
-	return { rateLimited: false, ruling };
+	if (ruling?.decision !== SupervisorDecision.Retry || !ruling.guidance) {
+		return { record: next, result, ruling };
+	}
+
+	next = {
+		...next,
+		attempts: next.attempts + 1,
+		verification: { ...verificationOf({ record: next }), guidedRepairAttempted: true, needsFormatting: true },
+	};
+	await run.setStep({ record: next });
+
+	const fixed = await runFix({
+		context,
+		errorContext: `${result.error}\n\n# Supervisor diagnosis\n${ruling.diagnosis}\n\n# Supervisor guidance\n${ruling.guidance}`,
+		record: next,
+	});
+
+	if ('parked' in fixed) {
+		return { parked: fixed.parked };
+	}
+
+	const finalRecord = withResult({ record: fixed.record, result: fixed.result });
+	await run.setStep({ record: finalRecord });
+
+	return { record: finalRecord, result: fixed.result, ruling };
 };
 
-/**
- * A verification step: gates, then cheap mechanical fix retries, then the
- * supervisor's judgment when mechanics are exhausted — escalating with the
- * evidence when even guided retry stays red.
- */
-export const verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix }: Params): PipelineStep['run'] => {
-	const context: FixContext = { run, gitPrefix, id, coverage, buildFix };
+const runVerificationStep = async ({ context }: { context: Params }) => {
+	const { run, id, coverage } = context;
+	const previous = run.current().steps.find((step) => step.id === id);
+	let record: StepRecord = { ...run.nextRecord({ id }), ...(previous?.verification ? { verification: previous.verification } : {}) };
 
-	return async () => {
-		let record = run.nextRecord({ id });
+	await run.setStep({ record });
+	run.progress(`step ${id} — attempt ${record.attempts}`);
 
+	const initial = record.verification?.needsFormatting
+		? await formatAndVerify({ context, record })
+		: { record, result: await runVerificationGates({ run, coverage }) };
+	let result = initial.result;
+	record = initial.record;
+
+	if (result.error) {
+		record = withResult({ record, result });
 		await run.setStep({ record });
-		run.progress(`step ${id} — attempt ${record.attempts}`);
+	}
 
-		let error = await runVerificationGates({ run, coverage });
+	const repaired = await runCheapRepairs({ context, record, result });
 
-		// Cheap mechanical retries: hand the role the gate output and re-verify.
-		for (let retry = 1; error && retry <= maxCheapFixRetries; retry += 1) {
-			record = { ...record, attempts: record.attempts + 1 };
+	if ('parked' in repaired) {
+		return repaired.parked;
+	}
 
-			await run.setStep({ record });
-			run.progress(`step ${id}: gate red — fix attempt ${retry}/${maxCheapFixRetries}`);
+	const guided = await runGuidedRepair({ context, ...repaired });
 
-			const result = await runFix({ context, errorContext: error, record });
+	if ('parked' in guided) {
+		return guided.parked;
+	}
 
-			if ('parked' in result) {
-				return result.parked;
-			}
+	({ record, result } = guided);
 
-			record = result.record;
-			error = result.error;
-		}
+	if (result.error) {
+		const diagnosis = record.verification?.supervisorDiagnosis;
+		const decision = guided.ruling?.decision ?? (record.verification?.guidedRepairAttempted ? SupervisorDecision.Retry : undefined);
+		const detail = diagnosis && decision ? `\nsupervisor (${decision}): ${diagnosis}` : '';
 
-		// Exception path: mechanical retries exhausted — bring in judgment.
-		if (error) {
-			run.progress(`step ${id}: mechanical retries exhausted — consulting supervisor`);
+		return run.stop({ record, status: RunStatus.Escalated, error: `${id}: still failing after retries.${detail}\n\n${result.error}` });
+	}
 
-			const verdict = await consultForVerdict({ run, planContent, id, error, attempts: record.attempts });
+	const passedRecord = record.verification
+		? { ...record, verification: { ...record.verification, failedFamilies: [], failures: [], needsFormatting: false } }
+		: record;
 
-			if (verdict.rateLimited) {
-				return run.stop({ record, status: RunStatus.PausedRateLimit, error: run.parkMessage() });
-			}
+	await run.setStep({ record: { ...passedRecord, status: RunStatus.Passed } });
+	run.progress(`step ${id} passed`);
 
-			const { ruling } = verdict;
+	return undefined;
+};
 
-			if (ruling?.decision === SupervisorDecision.Retry && ruling.guidance) {
-				record = { ...record, attempts: record.attempts + 1 };
+export const verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix }: Params): PipelineStep['run'] => {
+	const context: Params = { run, gitPrefix, planContent, id, coverage, buildFix };
 
-				await run.setStep({ record });
-
-				const result = await runFix({
-					context,
-					errorContext: `${error}\n\n# Supervisor diagnosis\n${ruling.diagnosis}\n\n# Supervisor guidance\n${ruling.guidance}`,
-					record,
-				});
-
-				if ('parked' in result) {
-					return result.parked;
-				}
-
-				record = result.record;
-				error = result.error;
-			}
-
-			if (error) {
-				const diagnosis = ruling ? `\nsupervisor (${ruling.decision}): ${ruling.diagnosis}` : '';
-
-				return run.stop({ record, status: RunStatus.Escalated, error: `${id}: still failing after retries.${diagnosis}\n\n${error}` });
-			}
-		}
-
-		await run.setStep({ record: { ...record, status: RunStatus.Passed } });
-		run.progress(`step ${id} passed`);
-
-		return undefined;
-	};
+	return () => runVerificationStep({ context });
 };

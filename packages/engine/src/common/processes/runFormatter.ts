@@ -1,7 +1,7 @@
 import { runCommand } from '#src/common/processes/runCommand.ts';
 import type { CommandResult } from '#src/common/types/CommandResult.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { GateResult, LightsoutConfig } from '#src/contracts/index.ts';
 import { appendCommandLog } from '#src/runState/index.ts';
 
 interface Params {
@@ -10,6 +10,7 @@ interface Params {
 	config: LightsoutConfig;
 	/** The step the run's command log attributes this formatter run to. */
 	step: string;
+	onResult?: (result: GateResult) => void;
 }
 
 /**
@@ -22,7 +23,7 @@ interface Params {
  * halts. A repo with no formatter configured is not a failure; there is simply
  * nothing to run.
  */
-export const runFormatter = async ({ cwd, runId, config, step }: Params): Promise<string | undefined> => {
+export const runFormatter = async ({ cwd, runId, config, step, onResult }: Params): Promise<string | undefined> => {
 	const command = config.gates.format;
 
 	if (!command) {
@@ -40,20 +41,25 @@ export const runFormatter = async ({ cwd, runId, config, step }: Params): Promis
 		result = { exitCode: -1, stdout: '', stderr: messageOf({ error }) };
 	}
 
+	const gateResult: GateResult = {
+		group: 'root',
+		kind: 'format',
+		command,
+		exitCode: result.exitCode,
+		durationMs: Date.now() - startedAt,
+		...(result.exitCode === 0 ? {} : { outputTail: `${result.stdout}\n${result.stderr}`.slice(-2000) }),
+	};
+
 	await appendCommandLog({
 		cwd,
 		runId,
 		record: {
 			at: new Date().toISOString(),
 			step,
-			group: 'root',
-			kind: 'format',
-			command,
-			exitCode: result.exitCode,
-			durationMs: Date.now() - startedAt,
-			...(result.exitCode === 0 ? {} : { outputTail: `${result.stdout}\n${result.stderr}`.slice(-2000) }),
+			...gateResult,
 		},
 	});
+	onResult?.(gateResult);
 
 	return result.exitCode === 0 ? undefined : `format failed (exit ${result.exitCode}):\n${result.stdout}\n${result.stderr}`;
 };

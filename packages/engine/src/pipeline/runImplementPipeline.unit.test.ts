@@ -124,11 +124,13 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	// refactor looped until an empty pass
 	expect(refactorPass).toBe(2);
 	expect(result.manifest.steps.find((step) => step.id === 'refactor')?.attempts).toBe(2);
-	// coverage gate ran at clean-slate, tests, refactor, format
-	expect(countLog(dir, 'cov.log')).toBe(4);
-	// format command ran exactly once
-	expect(countLog(dir, 'fmt.log')).toBe(1);
-	expect(result.manifest.steps.find((step) => step.id === 'format')?.status).toBe('passed');
+	// coverage gate ran at clean-slate and both post-test verification steps
+	expect(countLog(dir, 'cov.log')).toBe(3);
+	// formatting ran after implementation, tests, and refactor
+	expect(countLog(dir, 'fmt.log')).toBe(3);
+	expect(result.manifest.steps.find((step) => step.id === 'format-implement')?.status).toBe('passed');
+	expect(result.manifest.steps.find((step) => step.id === 'format-tests')?.status).toBe('passed');
+	expect(result.manifest.steps.find((step) => step.id === 'format-refactor')?.status).toBe('passed');
 
 	const commands = readCommandLog(dir, result.manifest.runId);
 	const cleanSlateCheck = commands.find((entry) => entry.kind === 'check' && entry.step === 'clean-slate');
@@ -343,10 +345,11 @@ test('--skip-refactor omits the refactor steps; absent format command is skipped
 	expect(result.ok).toBe(true);
 	expect(result.manifest.steps.find((step) => step.id === 'refactor')).toBe(undefined);
 
-	const format = result.manifest.steps.find((step) => step.id === 'format');
+	const formatSteps = result.manifest.steps.filter((step) => step.id.startsWith('format-'));
 
-	expect(format?.status).toBe('passed');
-	expect(format?.report).toStrictEqual({ skipped: 'no format command configured' });
+	expect(formatSteps.map((step) => step.id)).toStrictEqual(['format-implement', 'format-tests']);
+	expect(formatSteps.every((step) => step.status === 'passed')).toBe(true);
+	expect(formatSteps.map((step) => step.report)).toStrictEqual([{ skipped: 'no format command configured' }, { skipped: 'no format command configured' }]);
 });
 
 test('a run started with no plan path at all fails before any agent spawns', async () => {

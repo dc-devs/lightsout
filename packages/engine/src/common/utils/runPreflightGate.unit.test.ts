@@ -1,6 +1,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { runPreflightGate } from '#src/common/utils/runPreflightGate.ts';
 import { type LightsoutConfig, RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import type { GateRunResult } from '#src/gates/index.ts';
 
 // Mocked Imports
 // -------------------------
@@ -18,7 +19,7 @@ interface RunGatesParams {
 	onProgress?: (message: string) => void;
 }
 
-const mockRunGates = jest.fn<(params: RunGatesParams) => Promise<string | undefined>>();
+const mockRunGates = jest.fn<(params: RunGatesParams) => Promise<GateRunResult>>();
 
 jest.mock('#src/gates/index.ts', () => ({ runGates: (params: RunGatesParams) => mockRunGates(params) }));
 // -------------------------
@@ -37,7 +38,7 @@ const setupPreflightGate = ({ steps = [], gateError, gateProgress }: { steps?: S
 			onProgress?.(gateProgress);
 		}
 
-		return gateError;
+		return { error: gateError, failedFamilies: gateError === undefined ? [] : ['check'] };
 	});
 
 	const progress: string[] = [];

@@ -53,9 +53,16 @@ export const summarizeRun = async ({ cwd, manifest }: Params): Promise<RunSummar
 	}
 
 	const frictionByArea = new Map<string, number>();
+	const verificationRepairs = new Map<string, number>();
 
 	for (const entry of friction) {
 		frictionByArea.set(entry.area, (frictionByArea.get(entry.area) ?? 0) + 1);
+	}
+
+	for (const step of manifest.steps) {
+		for (const [gateFamily, attempts] of Object.entries(step.verification?.repairAttempts ?? {})) {
+			verificationRepairs.set(gateFamily, (verificationRepairs.get(gateFamily) ?? 0) + attempts);
+		}
 	}
 
 	const { usage } = manifest;
@@ -80,6 +87,7 @@ export const summarizeRun = async ({ cwd, manifest }: Params): Promise<RunSummar
 			reruns: commands.filter((command) => command.rerun).length,
 			skipped: commands.filter((command) => command.skipped).length,
 		},
+		verificationRepairs: [...verificationRepairs.entries()].map(([gateFamily, attempts]) => ({ gateFamily, attempts })),
 		rejectedReports: agentFiles.filter((name) => name.startsWith('rejected-')).length,
 		frictionByArea: [...frictionByArea.entries()].map(([area, count]) => ({ area, count })),
 	};

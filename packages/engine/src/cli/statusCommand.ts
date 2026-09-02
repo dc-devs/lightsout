@@ -70,7 +70,8 @@ const printNewestRun = async ({ cwd }: { cwd: string }) => {
  * the only view that answers "which runs exist" without opening any of them.
  * `--run <id>` opens one, taking the shortened eight-character id reports
  * print; `--watch` repaints that block every two minutes until the run stops,
- * which is how a detached run gets followed at all.
+ * which is how a detached run gets followed at all. Both detailed blocks
+ * include persisted verification diagnostics through `printRunProgress`.
  */
 export const statusCommand = async ({ cwd, flags }: CommandContext): Promise<void> => {
 	const runFlag = getStringFlag({ flags, name: 'run' });

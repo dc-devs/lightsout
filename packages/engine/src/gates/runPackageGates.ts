@@ -4,6 +4,7 @@ import { messageOf } from '#src/common/utils/messageOf.ts';
 import { readPackageManifest } from '#src/common/workspace/readPackageManifest.ts';
 import type { GateResult, LightsoutConfig } from '#src/contracts/index.ts';
 import type { GateCommands } from '#src/gates/common/types/GateCommands.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 import type { RunGate } from '#src/gates/common/types/RunGate.ts';
 import { runGateSet } from '#src/gates/runGateSet.ts';
 import { appendCommandLog } from '#src/runState/index.ts';
@@ -32,9 +33,9 @@ interface Params {
  * never silently passed. Detection is convention-based: the script name after
  * the template's `run` token; a template with no `run` token always executes.
  *
- * Returns the group's aggregated failure text, or undefined when green — an
- * unresolvable package.json is itself a failure string, so one bad package
- * never takes down the fan-out.
+ * Returns the group's aggregate result. An unresolvable package.json is the
+ * reserved `package-manifest` family, so one bad package never takes down the
+ * fan-out.
  *
  * Split out of `runGates` so that function is left dispatching between the root
  * and scoped groups; everything here is monorepo-only and does not touch the
@@ -53,13 +54,13 @@ export const runPackageGates = async ({
 	step,
 	onGateResult,
 	onProgress,
-}: Params): Promise<string | undefined> => {
+}: Params): Promise<GateRunResult> => {
 	let manifest: Awaited<ReturnType<typeof readPackageManifest>>;
 
 	try {
 		manifest = await readPackageManifest({ cwd, packagesDir, packageDir });
 	} catch (error) {
-		return messageOf({ error });
+		return { error: messageOf({ error }), failedFamilies: ['package-manifest'] };
 	}
 
 	const templates = resolvePackageGatesConfig({ packageGates: scoped });

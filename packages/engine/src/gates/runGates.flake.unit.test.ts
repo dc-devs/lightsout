@@ -24,9 +24,10 @@ test('temporary workaround re-runs the known Jest worker SIGSEGV exactly once', 
 	const config = await readConfig({ cwd: dir });
 	const results: GateResult[] = [];
 
-	const error = await runGates({ cwd: dir, config, onGateResult: (result) => results.push(result) });
+	const result = await runGates({ cwd: dir, config, onGateResult: (result) => results.push(result) });
 
-	expect(error ?? '').toContain(jestWorkerSigsegv);
+	expect(result.error ?? '').toContain(jestWorkerSigsegv);
+	expect(result.failedFamilies).toStrictEqual(['test']);
 	expect(results.filter((result) => result.kind === 'test')).toHaveLength(2);
 	expect(results.filter((result) => result.rerun)).toHaveLength(1);
 });
@@ -65,7 +66,7 @@ describe.each(ordinaryFailureCases)('ordinary nonzero $label gate', ({ kind, evi
 		const config = await readConfig({ cwd: dir });
 		const results: GateResult[] = [];
 
-		const error = await runGates({
+		const { error, failedFamilies } = await runGates({
 			cwd: dir,
 			config,
 			coverage,
@@ -84,6 +85,7 @@ describe.each(ordinaryFailureCases)('ordinary nonzero $label gate', ({ kind, evi
 		expect(matchingResults[0]?.rerun).toBe(undefined);
 		expect(matchingResults[0]?.outputTail ?? '').toContain(evidence);
 		expect(error ?? '').toContain(evidence);
+		expect(failedFamilies).toStrictEqual([kind]);
 		expect(log).toHaveLength(1);
 		expect(log[0]?.rerun).toBe(undefined);
 		expect(log[0]?.outputTail).toContain(evidence);
@@ -96,7 +98,7 @@ test('coverage replaces the plain test run in gate sets that include it', async 
 
 	const withCoverage = await runGates({ cwd: dir, config, packages: ['api'], includeRoot: true, coverage: true });
 
-	expect(withCoverage).toBe(undefined);
+	expect(withCoverage.error).toBe(undefined);
 
 	const coveredLines = readGateLog({ dir });
 
@@ -107,7 +109,7 @@ test('coverage replaces the plain test run in gate sets that include it', async 
 
 	const withoutCoverage = await runGates({ cwd: dir, config, packages: ['api'], includeRoot: true });
 
-	expect(withoutCoverage).toBe(undefined);
+	expect(withoutCoverage.error).toBe(undefined);
 
 	const allLines = readGateLog({ dir }).slice(coveredLines.length);
 
@@ -121,7 +123,7 @@ test('root group runs after the scoped groups, never concurrently with them', as
 	const dir = setupMonorepo();
 	const config = await readConfig({ cwd: dir });
 
-	const error = await runGates({
+	const { error } = await runGates({
 		cwd: dir,
 		config,
 		packages: ['api', 'web'],

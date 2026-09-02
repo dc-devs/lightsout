@@ -15,10 +15,11 @@ test('failFast: false runs every gate and aggregates all failures', async () => 
 	const config = await readConfig({ cwd: dir });
 	const gates: GateResult[] = [];
 
-	const error = await runGates({ cwd: dir, config, failFast: false, onGateResult: (result) => gates.push(result) });
+	const { error, failedFamilies } = await runGates({ cwd: dir, config, failFast: false, onGateResult: (result) => gates.push(result) });
 
 	expect(error ?? '').toMatch(/check failed/);
 	expect(error ?? '').toMatch(/test failed/);
+	expect(failedFamilies).toStrictEqual(['check', 'test']);
 
 	const check = gates.filter((gate) => gate.kind === 'check');
 	const tests = gates.filter((gate) => gate.kind === 'test');
@@ -34,9 +35,10 @@ test('failFast omitted: the first red wins — later gates never execute', async
 	const config = await readConfig({ cwd: dir });
 	const gates: GateResult[] = [];
 
-	const error = await runGates({ cwd: dir, config, onGateResult: (result) => gates.push(result) });
+	const { error, failedFamilies } = await runGates({ cwd: dir, config, onGateResult: (result) => gates.push(result) });
 
 	expect(error ?? '').toMatch(/check failed/);
+	expect(failedFamilies).toStrictEqual(['check']);
 	// test run short-circuited by the red check
 	expect(/test failed/.test(error ?? '')).toBeFalsy();
 	// only the check gate executed
@@ -62,7 +64,7 @@ test('failFast: false threads into scoped groups — every red gate in a package
 
 	const gates: GateResult[] = [];
 
-	const error = await runGates({
+	const { error, failedFamilies } = await runGates({
 		cwd: dir,
 		config: await readConfig({ cwd: dir }),
 		packages: ['api'],
@@ -72,6 +74,7 @@ test('failFast: false threads into scoped groups — every red gate in a package
 
 	expect(error ?? '').toMatch(/\[api\] check failed/);
 	expect(error ?? '').toMatch(/\[api\] test failed/);
+	expect(failedFamilies).toStrictEqual(['check', 'test']);
 
 	// scoped check gate executed and reported red
 	expect(gates.some((gate) => gate.group === 'api' && gate.kind === 'check' && gate.exitCode !== 0)).toBeTruthy();
@@ -103,7 +106,7 @@ test('a scoped skip surfaces through onGateResult as a skipped entry', async () 
 
 	const gates: GateResult[] = [];
 
-	await runGates({ cwd: dir, config: await readConfig({ cwd: dir }), packages: ['api', 'bare'], onGateResult: (result) => gates.push(result) });
+	const result = await runGates({ cwd: dir, config: await readConfig({ cwd: dir }), packages: ['api', 'bare'], onGateResult: (gate) => gates.push(gate) });
 
 	const skips = gates.filter((gate) => gate.skipped === true);
 
@@ -111,4 +114,5 @@ test('a scoped skip surfaces through onGateResult as a skipped entry', async () 
 	expect(skips.some((gate) => gate.group === 'bare' && gate.kind === 'check' && gate.reason === 'no "gate:check" script')).toBeTruthy();
 	// a skipped gate reports no exit code
 	expect(skips.every((gate) => gate.exitCode === undefined)).toBeTruthy();
+	expect(result.failedFamilies).toStrictEqual([]);
 });
