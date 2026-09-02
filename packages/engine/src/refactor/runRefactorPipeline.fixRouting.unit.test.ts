@@ -20,7 +20,7 @@ const multiExport = 'export const alpha = 1;\nexport const beta = 2;\n';
 /** An over-cap function body — the size rule's advisory, which needs the AST tier. */
 const bigFunction = `export const big = () => {\n${Array.from({ length: 85 }, (_, index) => `\tconst v${index} = ${index};`).join('\n')}\n\treturn v0;\n};\n`;
 
-const commitAll = (dir: string) => execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm fixture', { cwd: dir });
+const commitAll = ({ dir }: { dir: string }) => execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm fixture', { cwd: dir });
 
 /**
  * A whole-repo refactor run over one multi-export finding whose executor
@@ -34,7 +34,7 @@ const setupSingleGateRed = async ({ gate, flag }: { gate: 'check' | 'test-covera
 	const dir = setupConsumerRepo({ scripts: { [gate]: `test ! -f ${flag}` } });
 
 	writeSource({ dir, path: 'src/multi.ts', source: multiExport });
-	commitAll(dir);
+	commitAll({ dir });
 
 	const prompts: string[] = [];
 	const driver: Driver = {
@@ -83,21 +83,23 @@ const packageGateCommand = ({ pkg, flag }: { pkg: string; flag: string }) =>
  */
 const setupMixedRed = async () => {
 	const dir = setupMonorepo();
+	const checkFlag = 'packages/api/check.flag';
+	const coverageFlag = 'packages/web/coverage.flag';
 
 	writeFileSync(
 		join(dir, 'lightsout.config.json'),
 		JSON.stringify({
 			gates: { check: 'true', test: 'true', 'test-coverage': 'true' },
 			'package-gates': {
-				check: packageGateCommand({ pkg: '@acme/api', flag: 'check.flag' }),
+				check: packageGateCommand({ pkg: '@acme/api', flag: checkFlag }),
 				test: 'node -e "process.exit(0)" {package}',
-				'test-coverage': packageGateCommand({ pkg: '@acme/web', flag: 'coverage.flag' }),
+				'test-coverage': packageGateCommand({ pkg: '@acme/web', flag: coverageFlag }),
 			},
 			'standards-checks': strictProfile,
 		}),
 	);
 	writeSource({ dir, path: 'packages/api/src/multi.ts', source: multiExport });
-	commitAll(dir);
+	commitAll({ dir });
 
 	const prompts: string[] = [];
 	const driver: Driver = {
@@ -110,8 +112,8 @@ const setupMixedRed = async () => {
 			prompts.push(prompt);
 
 			if (prompt.includes('# Verification failure')) {
-				rmSync(join(dir, 'check.flag'), { force: true });
-				rmSync(join(dir, 'coverage.flag'), { force: true });
+				rmSync(join(dir, checkFlag), { force: true });
+				rmSync(join(dir, coverageFlag), { force: true });
 
 				return { text: report(), exitCode: 0 };
 			}
@@ -119,8 +121,8 @@ const setupMixedRed = async () => {
 			writeSource({ dir, path: 'packages/api/src/multi.ts', source: 'export const alpha = 1;\n' });
 			writeSource({ dir, path: 'packages/api/src/beta.ts', source: 'export const beta = 2;\n' });
 			writeSource({ dir, path: 'packages/web/src/touched.ts', source: 'export const touched = 1;\n' });
-			writeFileSync(join(dir, 'check.flag'), 'red\n');
-			writeFileSync(join(dir, 'coverage.flag'), 'red\n');
+			writeFileSync(join(dir, checkFlag), 'red\n');
+			writeFileSync(join(dir, coverageFlag), 'red\n');
 
 			return {
 				text: report({
@@ -150,7 +152,7 @@ const setupAdvisoryGateRed = async () => {
 	linkTypescript({ dir });
 	mkdirSync(join(dir, 'alpha'), { recursive: true });
 	writeSource({ dir, path: 'alpha/multi.ts', source: `export const alpha = 1;\n${bigFunction}` });
-	commitAll(dir);
+	commitAll({ dir });
 
 	const prompts: string[] = [];
 	const driver: Driver = {
@@ -188,7 +190,7 @@ const setupAdvisoryGateRed = async () => {
 };
 
 /** The first fix re-invocation's prompt — the one carrying the red gate output. */
-const fixPromptOf = (prompts: string[]) => prompts.find((prompt) => prompt.includes('# Verification failure'));
+const fixPromptOf = ({ prompts }: { prompts: string[] }) => prompts.find((prompt) => prompt.includes('# Verification failure'));
 
 describe('buildBatchFixInvocation — via runRefactorPipeline', () => {
 	test('routes a coverage-only red to the test writer', async () => {
@@ -196,7 +198,7 @@ describe('buildBatchFixInvocation — via runRefactorPipeline', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		const fixPrompt = fixPromptOf(prompts);
+		const fixPrompt = fixPromptOf({ prompts });
 
 		expect(result.ok).toBe(true);
 		// the red coverage gate forced a fix invocation, got roles:
@@ -214,7 +216,7 @@ describe('buildBatchFixInvocation — via runRefactorPipeline', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		const fixPrompt = fixPromptOf(prompts) ?? '';
+		const fixPrompt = fixPromptOf({ prompts }) ?? '';
 
 		expect(result.ok).toBe(true);
 		// a refactor batch has no upward subject resolution — the batch's finding
@@ -229,7 +231,7 @@ describe('buildBatchFixInvocation — via runRefactorPipeline', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		const fixPrompt = fixPromptOf(prompts);
+		const fixPrompt = fixPromptOf({ prompts });
 
 		expect(result.ok).toBe(true);
 		// the red check gate forced a fix invocation, got roles:
@@ -247,7 +249,7 @@ describe('buildBatchFixInvocation — via runRefactorPipeline', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		const fixPrompt = fixPromptOf(prompts);
+		const fixPrompt = fixPromptOf({ prompts });
 
 		expect(result.ok).toBe(true);
 		// the mixed red forced a fix invocation, got roles:
@@ -266,7 +268,7 @@ describe('buildBatchFixInvocation — via runRefactorPipeline', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		const fixPrompt = fixPromptOf(prompts) ?? '';
+		const fixPrompt = fixPromptOf({ prompts }) ?? '';
 
 		expect(result.ok).toBe(true);
 		// a fix pass is not a bare gate-error handoff — the work-list rides it under
@@ -281,7 +283,7 @@ describe('buildBatchFixInvocation — via runRefactorPipeline', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		const fixPrompt = fixPromptOf(prompts) ?? '';
+		const fixPrompt = fixPromptOf({ prompts }) ?? '';
 
 		expect(result.ok).toBe(true);
 		// the advisories the pre-batch check recomputed ride the fix pass beside the
@@ -294,7 +296,7 @@ describe('buildBatchFixInvocation — via runRefactorPipeline', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		const fixPrompt = fixPromptOf(prompts) ?? '';
+		const fixPrompt = fixPromptOf({ prompts }) ?? '';
 
 		expect(result.ok).toBe(true);
 		// a fix retry is the same agent still working the same advisory list, and

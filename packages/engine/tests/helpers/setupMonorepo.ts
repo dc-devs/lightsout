@@ -15,9 +15,10 @@ interface Params {
  * whose package.json names (@acme/*) deliberately differ from their
  * directory names, gate commands that log "<group> <kind>" to gates.log,
  * a git history, and the strict profile (`strictProfile`) so planted layout
- * defects are work rather than advice.
+ * defects are work rather than advice. The observation log is ignored so it
+ * never becomes a fake root-level change in scope-classification tests.
  */
-export const setupMonorepo = ({ plan = '---\npackages:\n  - api\n---\n# Plan: api feature\n' }: Params = {}) => {
+export const setupMonorepo = ({ plan = '---\npackages:\n  - api\n---\n# Plan: api feature\n' }: Params = {}): string => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-mono-test-'));
 
 	for (const [pkgDir, pkgName] of [
@@ -31,6 +32,7 @@ export const setupMonorepo = ({ plan = '---\npackages:\n  - api\n---\n# Plan: ap
 	}
 
 	writeFileSync(join(dir, 'plan.md'), plan);
+	writeFileSync(join(dir, '.gitignore'), 'gates.log\n');
 	writeFileSync(
 		join(dir, 'lightsout.config.json'),
 		JSON.stringify({

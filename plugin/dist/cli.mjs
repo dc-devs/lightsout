@@ -32774,38 +32774,39 @@ var runGates = async ({
 }) => {
   const gate = createGateRunner({ cwd, runId, step, onGateResult, onProgress });
   const gates = resolveGates({ gates: config2.gates });
+  let result;
   if (gates.generate) {
     const generated = await gate({ kind: "generate", command: gates.generate, group: "root" });
     if (generated.exitCode !== 0) {
-      return { error: `generate failed (exit ${generated.exitCode}):
+      result = { error: `generate failed (exit ${generated.exitCode}):
 ${generated.stdout}
 ${generated.stderr}`, failedFamilies: ["generate"] };
     }
   }
-  const rootCommands = {
-    check: gates.check,
-    test: gates.test,
-    testCoverage: coverage && typeof gates.testCoverage === "string" ? gates.testCoverage : void 0,
-    extraTests: gates.extraTests,
-    build: gates.build
-  };
-  const scoped = config2["package-gates"];
-  let result;
-  if (!scoped || !packages || packages.length === 0) {
-    result = await runGateSet({ commands: rootCommands, gate, failFast });
-  } else {
-    const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
-    const results = await Promise.all(
-      packages.map((packageDir) => runPackageGates({ cwd, packagesDir, packageDir, scoped, coverage, gate, failFast, runId, step, onGateResult, onProgress }))
-    );
-    if (includeRoot) {
-      results.push(await runGateSet({ commands: rootCommands, gate, label: "root", failFast }));
-    }
-    const errors = results.flatMap((gateResult) => gateResult.error ? [gateResult.error] : []);
-    result = {
-      error: errors.length > 0 ? errors.join("\n\n") : void 0,
-      failedFamilies: [...new Set(results.flatMap((gateResult) => gateResult.failedFamilies))]
+  if (!result) {
+    const rootCommands = {
+      check: gates.check,
+      test: gates.test,
+      testCoverage: coverage && typeof gates.testCoverage === "string" ? gates.testCoverage : void 0,
+      extraTests: gates.extraTests,
+      build: gates.build
     };
+    const scoped = config2["package-gates"];
+    if (!scoped || !packages || packages.length === 0 || includeRoot) {
+      result = await runGateSet({ commands: rootCommands, gate, failFast });
+    } else {
+      const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
+      const results = await Promise.all(
+        packages.map(
+          (packageDir) => runPackageGates({ cwd, packagesDir, packageDir, scoped, coverage, gate, failFast, runId, step, onGateResult, onProgress })
+        )
+      );
+      const errors = results.flatMap((gateResult) => gateResult.error ? [gateResult.error] : []);
+      result = {
+        error: errors.length > 0 ? errors.join("\n\n") : void 0,
+        failedFamilies: [...new Set(results.flatMap((gateResult) => gateResult.failedFamilies))]
+      };
+    }
   }
   return result;
 };

@@ -18,6 +18,11 @@ const setupOptedOutRepo = () =>
 		},
 	});
 
+const writeApiPackage = ({ dir }: { dir: string }) => {
+	mkdirSync(join(dir, 'packages', 'api'), { recursive: true });
+	writeFileSync(join(dir, 'packages', 'api', 'package.json'), JSON.stringify({ name: '@acme/api' }));
+};
+
 /**
  * A monorepo consumer whose `packageGates` include the opt-in build template.
  * The templates carry no `run <script>` token, so every one of them executes
@@ -26,8 +31,7 @@ const setupOptedOutRepo = () =>
 const setupScopedBuildRepo = () => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-gate-selection-'));
 
-	mkdirSync(join(dir, 'packages', 'api'), { recursive: true });
-	writeFileSync(join(dir, 'packages', 'api', 'package.json'), JSON.stringify({ name: '@acme/api' }));
+	writeApiPackage({ dir });
 	writeFileSync(
 		join(dir, 'lightsout.config.json'),
 		JSON.stringify({
@@ -61,8 +65,34 @@ const setupScopedCustomSuiteRepo = () => {
 		},
 	});
 
-	mkdirSync(join(dir, 'packages', 'api'), { recursive: true });
-	writeFileSync(join(dir, 'packages', 'api', 'package.json'), JSON.stringify({ name: '@acme/api' }));
+	writeApiPackage({ dir });
+
+	return dir;
+};
+
+/** A monorepo whose root and package groups expose every verification gate kind. */
+const setupMixedScopeRepo = () => {
+	const dir = setupConsumerRepo({
+		scripts: {
+			generate: `${gateLogCommand({ kind: 'generate' })} root`,
+			check: `${gateLogCommand({ kind: 'check' })} root`,
+			test: `${gateLogCommand({ kind: 'test' })} root`,
+			'test-coverage': `${gateLogCommand({ kind: 'coverage' })} root`,
+			'test-e2e': `${gateLogCommand({ kind: 'e2e' })} root`,
+			build: `${gateLogCommand({ kind: 'build' })} root`,
+		},
+		config: {
+			'package-gates': {
+				check: `${gateLogCommand({ kind: 'check' })} {package}`,
+				test: `${gateLogCommand({ kind: 'test' })} {package}`,
+				'test-coverage': `${gateLogCommand({ kind: 'coverage' })} {package}`,
+				'test-e2e': `${gateLogCommand({ kind: 'e2e' })} {package}`,
+				build: `${gateLogCommand({ kind: 'build' })} {package}`,
+			},
+		},
+	});
+
+	writeApiPackage({ dir });
 
 	return dir;
 };
@@ -152,6 +182,31 @@ describe('runGates', () => {
 			['api', 'build'],
 		]);
 		expect(readGateLog({ dir })).toStrictEqual(['@acme/api check', '@acme/api coverage', '@acme/api e2e', '@acme/api build']);
+	});
+
+	test('a mixed scope runs generate once and gives the root group precedence for every verification gate kind', async () => {
+		const dir = setupMixedScopeRepo();
+		const config = await readConfig({ cwd: dir });
+		const gates: GateResult[] = [];
+
+		const { error } = await runGates({
+			cwd: dir,
+			config,
+			packages: ['api'],
+			includeRoot: true,
+			coverage: true,
+			onGateResult: (result) => gates.push(result),
+		});
+
+		expect(error).toBe(undefined);
+		expect(gates.map((gate) => [gate.group, gate.kind])).toStrictEqual([
+			['root', 'generate'],
+			['root', 'check'],
+			['root', 'testCoverage'],
+			['root', 'test-e2e'],
+			['root', 'build'],
+		]);
+		expect(readGateLog({ dir })).toStrictEqual(['root generate', 'root check', 'root coverage', 'root e2e', 'root build']);
 	});
 
 	test('a red gate short-circuits a custom suite too — it never executes behind an earlier failure', async () => {
