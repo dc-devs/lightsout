@@ -18,7 +18,7 @@ const shipRowStatus: Record<ShipStatus, RunStatus> = {
 const readShipRow = async ({ cwd, manifest }: { cwd: string; manifest: RunManifest }): Promise<RunProgressRow> => {
 	const result = manifest.branch === undefined ? undefined : await readShipResult({ cwd, branch: manifest.branch });
 
-	return { id: 'ship', status: result && shipRowStatus[result.status], attempts: result === undefined ? 0 : 1, durationMs: undefined };
+	return { id: 'ship', status: result && shipRowStatus[result.status], attempts: result === undefined ? 0 : 1, durationMs: undefined, verification: undefined };
 };
 
 interface Params {
@@ -50,6 +50,7 @@ export const getRunProgress = async ({ cwd, manifest, lock }: Params): Promise<R
 		status: step.status,
 		attempts: step.attempts,
 		durationMs: step.status === RunStatus.Running ? (step.durationMs ?? 0) + sinceWriteMs : step.durationMs,
+		verification: step.verification,
 	}));
 	const recorded = new Set(rows.map((row) => row.id));
 
@@ -58,7 +59,7 @@ export const getRunProgress = async ({ cwd, manifest, lock }: Params): Promise<R
 	// worse than none.
 	for (const id of manifest.stepOrder ?? []) {
 		if (!recorded.has(id)) {
-			rows.push({ id, status: undefined, attempts: 0, durationMs: undefined });
+			rows.push({ id, status: undefined, attempts: 0, durationMs: undefined, verification: undefined });
 		}
 	}
 

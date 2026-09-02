@@ -3,6 +3,7 @@ import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { type LightsoutConfig, ShipBlockReason, ShipMergeMethod, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
+import type { GateRunResult } from '#src/gates/index.ts';
 import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
@@ -16,7 +17,7 @@ import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 // The gates and the forge are other modules' entry points, each covered by its
 // own tests. Git is real, because the rebase is the whole mechanism this step
 // exists for — a stubbed one would prove nothing about conflicts.
-const mockRunGates = jest.fn<(params: { cwd: string }) => Promise<string | undefined>>();
+const mockRunGates = jest.fn<(params: { cwd: string }) => Promise<GateRunResult>>();
 const mockRunShip = jest.fn<(params: { cwd: string }) => Promise<ShipResult>>();
 
 jest.mock('#src/gates/index.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
@@ -75,7 +76,7 @@ const setupReadyBranches = async ({ numbers, content = 'export const value = 1;\
 		ready.push({ ticket: ticketOf({ number }), branch, worktreePath, ready: true });
 	}
 
-	mockRunGates.mockResolvedValue(undefined);
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [] });
 	mockRunShip.mockResolvedValue(shippedResult);
 
 	return { cwd, ready };
@@ -123,7 +124,7 @@ describe('shipReadyBranches', () => {
 	test('parks a branch whose gates came back red after the rebase, rather than merging what nothing vouches for', async () => {
 		const { cwd, ready } = await setupReadyBranches({ numbers: [70] });
 
-		mockRunGates.mockResolvedValue('tsc: 3 errors');
+		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'] });
 
 		const shipped = await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', ready });
 
@@ -178,7 +179,7 @@ describe('shipReadyBranches', () => {
 		const { cwd, ready } = await setupReadyBranches({ numbers: [70] });
 		const progress: string[] = [];
 
-		mockRunGates.mockResolvedValue('tsc: 3 errors');
+		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'] });
 		await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', ready, onProgress: (message) => progress.push(message) });
 
 		expect(progress).toEqual([expect.stringContaining('rebasing lo-70-drain'), expect.stringContaining('LO-70 · not shipped: tsc: 3 errors')]);

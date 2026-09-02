@@ -52,6 +52,38 @@ const rowCells = ({ row }: { row: RunProgressRow }) => {
 	return { glyph, status: row.status, id: row.id, outcome, duration: formatClockDuration({ ms: row.durationMs }) };
 };
 
+const collapseWhitespace = ({ text }: { text: string }) => text.replace(/\s+/g, ' ').trim();
+
+const verificationLines = ({ row }: { row: RunProgressRow }) => {
+	const verification = row.verification;
+
+	if (!verification || verification.failedFamilies.length === 0) {
+		return [];
+	}
+
+	const groups = [...new Set(verification.failures.map((failure) => failure.group))];
+	const repairs = Object.entries(verification.repairAttempts);
+	const lastOutput = verification.failures
+		.at(-1)
+		?.outputTail?.split(/\r?\n/)
+		.map((line) => collapseWhitespace({ text: line }))
+		.filter(Boolean)
+		.at(-1);
+	const lines = [
+		` verification  ${verification.failedFamilies.join(', ')} · groups ${groups.length === 0 ? 'unavailable' : groups.join(', ')} · repairs ${repairs.length === 0 ? 'none' : repairs.map(([family, attempts]) => `${family}=${attempts}`).join(', ')} · guided ${verification.guidedRepairAttempted ? 'yes' : 'no'}`,
+	];
+
+	if (verification.supervisorDiagnosis) {
+		lines.push(` diagnosis     ${collapseWhitespace({ text: verification.supervisorDiagnosis })}`);
+	}
+
+	if (lastOutput) {
+		lines.push(` last output   ${lastOutput}`);
+	}
+
+	return lines;
+};
+
 interface Params {
 	progress: RunProgress;
 }
@@ -81,11 +113,13 @@ export const renderRunProgress = ({ progress }: Params): string[] => {
 
 		return cell.duration === undefined ? `${head}${emDash}` : `${head}${cell.outcome.padEnd(outcomeWidth)}${cell.duration.padStart(durationWidth)}`;
 	});
+	const diagnosticLines = progress.rows.flatMap((row) => verificationLines({ row }));
 	const cost = progress.costUsd === undefined ? '' : ` · ${formatCost({ usd: progress.costUsd })}`;
 	const totalsLine = ` elapsed ${formatClockDuration({ ms: progress.elapsedMs })} · ${progress.changedFileCount} files${cost}`;
 	const nowLine = progress.now === undefined ? undefined : ` now  ${progress.now}`;
 	const ruleWidth = Math.max(
 		...rowLines.map((line) => line.length),
+		...diagnosticLines.map((line) => line.length),
 		totalsLine.length,
 		nowLine?.length ?? 0,
 		// The title line is measured too, or a long title would overhang the rule
@@ -103,5 +137,5 @@ export const renderRunProgress = ({ progress }: Params): string[] => {
 		return rowLines[index].replace(cell.glyph, glyph);
 	});
 
-	return [titleLine, rule, ...painted, rule, totalsLine, ...(nowLine === undefined ? [] : [nowLine])];
+	return [titleLine, rule, ...painted, ...diagnosticLines, rule, totalsLine, ...(nowLine === undefined ? [] : [nowLine])];
 };

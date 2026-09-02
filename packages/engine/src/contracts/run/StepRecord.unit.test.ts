@@ -79,6 +79,14 @@ describe('StepRecord', () => {
 				durationMs: 4200,
 				changedFiles: ['src/a.ts', 'src/b.ts'],
 				error: 'gate check failed',
+				verification: {
+					failedFamilies: ['check'],
+					repairAttempts: { check: 2 },
+					failures: [{ kind: 'check', group: 'root', command: 'pnpm check', exitCode: 1, outputTail: 'type error' }],
+					needsFormatting: false,
+					guidedRepairAttempted: true,
+					supervisorDiagnosis: 'the type is wrong',
+				},
 			},
 		});
 
@@ -91,7 +99,35 @@ describe('StepRecord', () => {
 			durationMs: 4200,
 			changedFiles: ['src/a.ts', 'src/b.ts'],
 			error: 'gate check failed',
+			verification: {
+				failedFamilies: ['check'],
+				repairAttempts: { check: 2 },
+				failures: [{ kind: 'check', group: 'root', command: 'pnpm check', exitCode: 1, outputTail: 'type error' }],
+				needsFormatting: false,
+				guidedRepairAttempted: true,
+				supervisorDiagnosis: 'the type is wrong',
+			},
 		});
+	});
+
+	test.each([
+		{ label: 'negative repair count', patch: { repairAttempts: { check: -1 } } },
+		{ label: 'fractional repair count', patch: { repairAttempts: { check: 1.5 } } },
+		{ label: 'invalid gate evidence', patch: { failures: [{ kind: 'check' }] } },
+		{ label: 'non-boolean formatting marker', patch: { needsFormatting: 'no' } },
+		{ label: 'non-boolean guided marker', patch: { guidedRepairAttempted: 1 } },
+	])('a verification summary rejects $label', ({ patch }) => {
+		const verification = {
+			failedFamilies: ['check'],
+			repairAttempts: { check: 1 },
+			failures: [],
+			needsFormatting: false,
+			guidedRepairAttempted: false,
+			...patch,
+		};
+		const { step } = setupStep({ extra: { verification } });
+
+		expect(StepRecord.safeParse(step).success).toBe(false);
 	});
 
 	test('report is stored opaquely — an arbitrary role-specific payload survives unchanged', () => {

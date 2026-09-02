@@ -16,7 +16,7 @@ export const verifyDirectWork = async ({ run }: Params): Promise<{ record: StepR
 
 	await run.setStep({ record });
 
-	const gateError = await runGates({
+	const { error: gateError } = await runGates({
 		cwd: run.cwd,
 		config: run.config,
 		coverage: true,

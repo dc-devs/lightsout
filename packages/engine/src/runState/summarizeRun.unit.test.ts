@@ -149,6 +149,7 @@ test('summarizeRun aggregates step durations, per-step usage, files, gates, and 
 	expect(summary.cacheReadShare).toBe(0.88);
 	expect(summary.rejectedReports).toBe(0);
 	expect(summary.frictionByArea).toStrictEqual([{ area: 'plan', count: 1 }]);
+	expect(summary.verificationRepairs).toStrictEqual([]);
 });
 
 test('summarizeRun tolerates a run dir with no ledger, no commands, no friction', async () => {
@@ -164,8 +165,35 @@ test('summarizeRun tolerates a run dir with no ledger, no commands, no friction'
 	expect(summary.gates.commands).toBe(0);
 	expect(summary.rejectedReports).toBe(0);
 	expect(summary.frictionByArea).toStrictEqual([]);
+	expect(summary.verificationRepairs).toStrictEqual([]);
 	expect(summary.steps).toStrictEqual([
 		{ id: 'clean-slate', status: 'failed', attempts: 1, durationMs: undefined, changedFiles: undefined, invocations: 0, outputTokens: 0, costUsd: 0 },
+	]);
+});
+
+test('summarizeRun sums persisted verification repairs by family in first-seen order', async () => {
+	const verification = ({ repairAttempts }: { repairAttempts: Record<string, number> }) => ({
+		failedFamilies: [],
+		repairAttempts,
+		failures: [],
+		needsFormatting: false,
+		guidedRepairAttempted: false,
+	});
+	const { cwd, manifest: planted } = plantEvidence({
+		overrides: {
+			steps: [
+				{ id: 'verify-implement', status: RunStatus.Passed, attempts: 3, verification: verification({ repairAttempts: { check: 2, test: 1 } }) },
+				{ id: 'verify-tests', status: RunStatus.Passed, attempts: 2, verification: verification({ repairAttempts: { test: 2, build: 1 } }) },
+			],
+		},
+	});
+
+	const summary = await summarizeRun({ cwd, manifest: planted });
+
+	expect(summary.verificationRepairs).toStrictEqual([
+		{ gateFamily: 'check', attempts: 2 },
+		{ gateFamily: 'test', attempts: 3 },
+		{ gateFamily: 'build', attempts: 1 },
 	]);
 });
 

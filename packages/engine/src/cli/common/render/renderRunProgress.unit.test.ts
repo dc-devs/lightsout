@@ -18,6 +18,7 @@ const rowOf = (overrides: Partial<RunProgressRow> = {}): RunProgressRow => ({
 	status: RunStatus.Passed,
 	attempts: 1,
 	durationMs: 1_000,
+	verification: undefined,
 	...overrides,
 });
 
@@ -143,6 +144,97 @@ describe('renderRunProgress', () => {
 			// the paint is real — and every line still measures exactly as it did unpainted
 			expect(lines[2]).not.toBe(plain({ text: lines[2] ?? '' }));
 			expect(lines.map((line) => plain({ text: line }))).toStrictEqual(sampleBlock);
+		} finally {
+			process.stdout.isTTY = wasTty;
+		}
+	});
+
+	test('a failed verification summary renders compact ordered diagnostics', () => {
+		const verification = {
+			failedFamilies: ['check', 'test'],
+			repairAttempts: { check: 2, test: 1 },
+			failures: [
+				{ kind: 'check', group: 'root', command: 'pnpm check', exitCode: 1, outputTail: 'type error' },
+				{ kind: 'test', group: 'api', command: 'pnpm test', exitCode: 1, outputTail: 'earlier\n final\tline ' },
+			],
+			needsFormatting: false,
+			guidedRepairAttempted: true,
+			supervisorDiagnosis: 'stale\n dependency\tgraph',
+		};
+		const lines = renderRunProgress({ progress: sampleProgress({ rows: [rowOf({ status: RunStatus.Escalated, verification })] }) });
+
+		expect(lines).toContain(' verification  check, test · groups root, api · repairs check=2, test=1 · guided yes');
+		expect(lines).toContain(' diagnosis     stale dependency graph');
+		expect(lines).toContain(' last output   final line');
+	});
+
+	test('an in-process changed-file failure reports unavailable groups and no repairs', () => {
+		const lines = renderRunProgress({
+			progress: sampleProgress({
+				rows: [
+					rowOf({
+						verification: {
+							failedFamilies: ['changed-files-executed'],
+							repairAttempts: {},
+							failures: [],
+							needsFormatting: false,
+							guidedRepairAttempted: false,
+						},
+					}),
+				],
+			}),
+		});
+
+		expect(lines).toContain(' verification  changed-files-executed · groups unavailable · repairs none · guided no');
+	});
+
+	test('a recovered verification summary with no current families renders no diagnostics', () => {
+		const lines = renderRunProgress({
+			progress: sampleProgress({
+				rows: [
+					rowOf({
+						verification: {
+							failedFamilies: [],
+							repairAttempts: { check: 1 },
+							failures: [],
+							needsFormatting: false,
+							guidedRepairAttempted: false,
+						},
+					}),
+				],
+			}),
+		});
+
+		expect(lines.some((line) => line.startsWith(' verification'))).toBe(false);
+	});
+
+	test('diagnostic widths set both rules and ANSI paint preserves terminal geometry', () => {
+		const wasTty = process.stdout.isTTY;
+
+		try {
+			process.stdout.isTTY = true;
+			const lines = renderRunProgress({
+				progress: sampleProgress({
+					rows: [
+						rowOf({
+							verification: {
+								failedFamilies: ['changed-files-executed'],
+								repairAttempts: {},
+								failures: [],
+								needsFormatting: false,
+								guidedRepairAttempted: false,
+							},
+						}),
+					],
+				}),
+			});
+			const plainLines = lines.map((line) => plain({ text: line }));
+			const diagnostic = plainLines.find((line) => line.startsWith(' verification')) ?? '';
+			const rules = plainLines.filter((line) => /^─+$/.test(line));
+
+			expect(rules).toHaveLength(2);
+			expect(rules.every((rule) => rule.length === diagnostic.length)).toBe(true);
+			expect(plainLines[2]).toHaveLength(49);
 		} finally {
 			process.stdout.isTTY = wasTty;
 		}

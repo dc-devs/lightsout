@@ -127,6 +127,9 @@ describe('runImplementPipeline', () => {
 		expect(result.ok).toBe(false);
 		expect(result.error ?? '').toContain('changed-file-execution: 1 changed file(s) never executed under the tests: src/feature.ts');
 		expect(result.manifest.steps.find((step) => step.id === 'verify-tests')?.status).toBe('escalated');
+		expect(result.manifest.steps.find((step) => step.id === 'verify-tests')?.verification).toEqual(
+			expect.objectContaining({ failedFamilies: ['changed-files-executed'], failures: [] }),
+		);
 		// the file was never executed from the moment it landed, yet the earlier
 		// verify — the one that runs with coverage off — passed: only the
 		// coverage-carrying gates hold the execution bar

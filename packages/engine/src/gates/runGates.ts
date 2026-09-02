@@ -2,6 +2,7 @@ import { resolveGates } from '#src/common/config/resolveGates.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import type { GateResult, LightsoutConfig } from '#src/contracts/index.ts';
 import type { GateCommands } from '#src/gates/common/types/GateCommands.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 import { createGateRunner } from '#src/gates/createGateRunner.ts';
 import { runGateSet } from '#src/gates/runGateSet.ts';
 import { runPackageGates } from '#src/gates/runPackageGates.ts';
@@ -57,7 +58,7 @@ export const runGates = async ({
 	failFast,
 	onGateResult,
 	onProgress,
-}: Params): Promise<string | undefined> => {
+}: Params): Promise<GateRunResult> => {
 	const gate = createGateRunner({ cwd, runId, step, onGateResult, onProgress });
 
 	// Codegen runs once, before any group fans out — gates verify, generate
@@ -68,7 +69,7 @@ export const runGates = async ({
 		const generated = await gate({ kind: 'generate', command: gates.generate, group: 'root' });
 
 		if (generated.exitCode !== 0) {
-			return `generate failed (exit ${generated.exitCode}):\n${generated.stdout}\n${generated.stderr}`;
+			return { error: `generate failed (exit ${generated.exitCode}):\n${generated.stdout}\n${generated.stderr}`, failedFamilies: ['generate'] };
 		}
 	}
 
@@ -80,27 +81,33 @@ export const runGates = async ({
 		build: gates.build,
 	};
 	const scoped = config['package-gates'];
+	let result: GateRunResult;
 
 	if (!scoped || !packages || packages.length === 0) {
-		return runGateSet({ commands: rootCommands, gate, failFast });
+		result = await runGateSet({ commands: rootCommands, gate, failFast });
+	} else {
+		const packagesDir = config['packages-dir'] ?? defaultPackagesDir;
+
+		// Scoped groups run in parallel — they are disjoint per package. The root
+		// group waits for them: whole-repo commands are heavy by nature and
+		// overlap the scoped suites by construction, and running them
+		// concurrently put multiple full test fleets on one machine (observed:
+		// jest worker SIGSEGV under the contention).
+		const results = await Promise.all(
+			packages.map((packageDir) => runPackageGates({ cwd, packagesDir, packageDir, scoped, coverage, gate, failFast, runId, step, onGateResult, onProgress })),
+		);
+
+		if (includeRoot) {
+			results.push(await runGateSet({ commands: rootCommands, gate, label: 'root', failFast }));
+		}
+
+		const errors = results.flatMap((gateResult) => (gateResult.error ? [gateResult.error] : []));
+
+		result = {
+			error: errors.length > 0 ? errors.join('\n\n') : undefined,
+			failedFamilies: [...new Set(results.flatMap((gateResult) => gateResult.failedFamilies))],
+		};
 	}
 
-	const packagesDir = config['packages-dir'] ?? defaultPackagesDir;
-
-	// Scoped groups run in parallel — they are disjoint per package. The root
-	// group waits for them: whole-repo commands are heavy by nature and
-	// overlap the scoped suites by construction, and running them
-	// concurrently put multiple full test fleets on one machine (observed:
-	// jest worker SIGSEGV under the contention).
-	const results = await Promise.all(
-		packages.map((packageDir) => runPackageGates({ cwd, packagesDir, packageDir, scoped, coverage, gate, failFast, runId, step, onGateResult, onProgress })),
-	);
-
-	if (includeRoot) {
-		results.push(await runGateSet({ commands: rootCommands, gate, label: 'root', failFast }));
-	}
-
-	const errors = results.filter((result): result is string => Boolean(result));
-
-	return errors.length > 0 ? errors.join('\n\n') : undefined;
+	return result;
 };

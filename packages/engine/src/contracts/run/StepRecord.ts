@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { GateResult } from '#src/contracts/gates/GateResult.ts';
 import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 
 /**
@@ -16,6 +17,16 @@ export const StepRecord = z.object({
 	changedFiles: z.array(z.string()).optional(),
 	report: z.unknown().optional(),
 	error: z.string().optional(),
+	verification: z
+		.object({
+			failedFamilies: z.array(z.string()),
+			repairAttempts: z.record(z.string(), z.number().int().nonnegative()),
+			failures: z.array(GateResult),
+			needsFormatting: z.boolean(),
+			guidedRepairAttempted: z.boolean(),
+			supervisorDiagnosis: z.string().optional(),
+		})
+		.optional(),
 });
 
 export type StepRecord = z.infer<typeof StepRecord>;

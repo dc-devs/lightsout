@@ -75,7 +75,7 @@ const setupCustomSuiteRepo = () => {
 test('a package without a gate script is skipped with narration and a log record, not failed', async () => {
 	const dir = setupScopedRepo();
 	const progress: string[] = [];
-	const error = await runGates({
+	const { error, failedFamilies } = await runGates({
 		cwd: dir,
 		config: await readConfig({ cwd: dir }),
 		packages: ['api', 'bare'],
@@ -85,6 +85,7 @@ test('a package without a gate script is skipped with narration and a log record
 	});
 
 	expect(error).toBe(undefined);
+	expect(failedFamilies).toStrictEqual([]);
 
 	const gates = readGateLog({ dir });
 
@@ -114,7 +115,7 @@ test('a package without a gate script is skipped with narration and a log record
 test('a package missing only the coverage script falls back to its plain test run', async () => {
 	const dir = setupScopedRepo();
 	const progress: string[] = [];
-	const error = await runGates({
+	const { error, failedFamilies } = await runGates({
 		cwd: dir,
 		config: await readConfig({ cwd: dir }),
 		packages: ['api', 'semi'],
@@ -123,6 +124,7 @@ test('a package missing only the coverage script falls back to its plain test ru
 	});
 
 	expect(error).toBe(undefined);
+	expect(failedFamilies).toStrictEqual([]);
 
 	const gates = readGateLog({ dir });
 
@@ -138,13 +140,14 @@ test('a package missing only the coverage script falls back to its plain test ru
 
 test('a template with no run token always executes — unknown script is not missing script', async () => {
 	const dir = setupScopedRepo({ withRunToken: false });
-	const error = await runGates({
+	const { error, failedFamilies } = await runGates({
 		cwd: dir,
 		config: await readConfig({ cwd: dir }),
 		packages: ['bare'],
 	});
 
 	expect(error).toBe(undefined);
+	expect(failedFamilies).toStrictEqual([]);
 	// unparseable template ran as-is
 	expect(readGateLog({ dir }).includes('@acme/bare check')).toBeTruthy();
 });
@@ -152,7 +155,7 @@ test('a template with no run token always executes — unknown script is not mis
 test('a package missing only the custom suite script skips that suite alone — the rest of its group still runs', async () => {
 	const dir = setupCustomSuiteRepo();
 	const progress: string[] = [];
-	const error = await runGates({
+	const { error, failedFamilies } = await runGates({
 		cwd: dir,
 		config: await readConfig({ cwd: dir }),
 		packages: ['full', 'partial'],
@@ -160,6 +163,7 @@ test('a package missing only the custom suite script skips that suite alone — 
 	});
 
 	expect(error).toBe(undefined);
+	expect(failedFamilies).toStrictEqual([]);
 
 	const gates = readGateLog({ dir });
 

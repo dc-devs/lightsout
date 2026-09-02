@@ -23,15 +23,15 @@ interface Params {
 }
 
 /**
- * The refactor pair: the standards-gated loop and the verification that follows
- * it, or nothing when the caller asked to skip them.
+ * The refactor trio: the standards-gated loop, formatter, and verification,
+ * or nothing when the caller asked to skip them.
  *
  * Lifted out of `buildSteps` because it is the one part of that list with a
  * condition and a nested invocation builder of its own — the rest is a flat
  * sequence of step literals, and mixing the two made the function read as
  * though every step needed this much saying.
  *
- * Both entries scope on `standardsScopeFiles` rather than `sourceFiles`: the
+ * The code-writing entries scope on `standardsScopeFiles` rather than `sourceFiles`: the
  * gate judges findings on the test files a run wrote, so the executor has to be
  * allowed to write them, and a run whose only changed files are tests still has
  * standards to answer for.
@@ -45,6 +45,7 @@ const refactorPair = ({ run, gitPrefix, planContent, overviewContent, standards,
 					skip: () => (standardsScopeFiles({ run }).length === 0 ? 'no changed source files to review' : undefined),
 					run: refactorStep({ run, gitPrefix, planContent, overviewContent, standards }),
 				},
+				formatStep({ run, id: 'format-refactor' }),
 				{
 					id: 'verify-refactor',
 					run: verifyStep({
@@ -53,7 +54,7 @@ const refactorPair = ({ run, gitPrefix, planContent, overviewContent, standards,
 						planContent,
 						id: 'verify-refactor',
 						coverage: true,
-						buildFix: (errorContext) =>
+						buildFix: ({ errorContext }) =>
 							buildRefactorExecutorInvocation({
 								scope: RefactorScope.Feature,
 								planContent,
@@ -67,9 +68,9 @@ const refactorPair = ({ run, gitPrefix, planContent, overviewContent, standards,
 			];
 
 /**
- * The pipeline's step sequence, assembled: clean-slate → implement → verify →
- * write-tests → verify → refactor loop → verify → format, with the refactor
- * pair dropped when skipRefactor asks for it.
+ * The pipeline's step sequence, assembled with formatting after each writing
+ * phase and before its verification, with the refactor trio dropped when
+ * skipRefactor asks for it.
  */
 export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, testStandards, skipRefactor }: Params): PipelineStep[] => {
 	const refactorSteps = refactorPair({ run, gitPrefix, planContent, overviewContent, standards, skipRefactor });
@@ -92,6 +93,7 @@ export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, stand
 				build: () => buildFeatureExecutorInvocation({ planContent, overviewContent, standards, allowedCommands: run.config['agent-commands'], fileLimit }),
 			}),
 		},
+		formatStep({ run, id: 'format-implement' }),
 		{
 			id: 'verify-implement',
 			run: verifyStep({
@@ -99,7 +101,7 @@ export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, stand
 				gitPrefix,
 				planContent,
 				id: 'verify-implement',
-				buildFix: (errorContext) =>
+				buildFix: ({ errorContext }) =>
 					buildFeatureExecutorInvocation({
 						planContent,
 						overviewContent,
@@ -116,6 +118,7 @@ export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, stand
 			skip: () => (sourceFiles({ run }).length === 0 ? 'no eligible source files' : undefined),
 			run: writeTestsStep({ run, gitPrefix, planContent, testStandards }),
 		},
+		formatStep({ run, id: 'format-tests' }),
 		{
 			id: 'verify-tests',
 			run: verifyStep({
@@ -124,7 +127,7 @@ export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, stand
 				planContent,
 				id: 'verify-tests',
 				coverage: true,
-				buildFix: (errorContext) =>
+				buildFix: ({ errorContext }) =>
 					buildUnitTestWriterInvocation({
 						planContent,
 						subjects: run.current().testSubjects,
@@ -137,6 +140,5 @@ export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, stand
 			}),
 		},
 		...refactorSteps,
-		formatStep({ run }),
 	];
 };

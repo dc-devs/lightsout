@@ -14,19 +14,20 @@ test('a red gate is re-run once — a one-shot flake does not fail the gate set'
 	const dir = setupConsumerRepo({ scripts: { test: flakyCommand } });
 	const config = await readConfig({ cwd: dir });
 
-	const error = await runGates({ cwd: dir, config });
+	const result = await runGates({ cwd: dir, config });
 
 	// flake absorbed by the mechanical re-run
-	expect(error).toBe(undefined);
+	expect(result).toStrictEqual({ error: undefined, failedFamilies: [] });
 });
 
 test('two consecutive reds are a genuine red, both executions in the command log', async () => {
 	const dir = setupConsumerRepo({ scripts: { test: 'node -e "process.exit(1)"' } });
 	const config = await readConfig({ cwd: dir });
 
-	const error = await runGates({ cwd: dir, config, runId: 'r1', step: 'verify' });
+	const { error, failedFamilies } = await runGates({ cwd: dir, config, runId: 'r1', step: 'verify' });
 
 	expect(error ?? '').toMatch(/test failed/);
+	expect(failedFamilies).toStrictEqual(['test']);
 
 	const log = readFileSync(join(dir, '.lightsout', 'runs', 'r1', 'commands.jsonl'), 'utf8')
 		.trim()
@@ -46,7 +47,7 @@ test('coverage replaces the plain test run in gate sets that include it', async 
 
 	const withCoverage = await runGates({ cwd: dir, config, packages: ['api'], includeRoot: true, coverage: true });
 
-	expect(withCoverage).toBe(undefined);
+	expect(withCoverage.error).toBe(undefined);
 
 	const coveredLines = readGateLog({ dir });
 
@@ -57,7 +58,7 @@ test('coverage replaces the plain test run in gate sets that include it', async 
 
 	const withoutCoverage = await runGates({ cwd: dir, config, packages: ['api'], includeRoot: true });
 
-	expect(withoutCoverage).toBe(undefined);
+	expect(withoutCoverage.error).toBe(undefined);
 
 	const allLines = readGateLog({ dir }).slice(coveredLines.length);
 
@@ -71,7 +72,7 @@ test('root group runs after the scoped groups, never concurrently with them', as
 	const dir = setupMonorepo();
 	const config = await readConfig({ cwd: dir });
 
-	const error = await runGates({
+	const { error } = await runGates({
 		cwd: dir,
 		config,
 		packages: ['api', 'web'],

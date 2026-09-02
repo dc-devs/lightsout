@@ -23707,7 +23707,15 @@ var StepRecord = external_exports.object({
   /** Files this step changed (paths from its reports) — per-step attribution; the run-wide union lives on the manifest. */
   changedFiles: external_exports.array(external_exports.string()).optional(),
   report: external_exports.unknown().optional(),
-  error: external_exports.string().optional()
+  error: external_exports.string().optional(),
+  verification: external_exports.object({
+    failedFamilies: external_exports.array(external_exports.string()),
+    repairAttempts: external_exports.record(external_exports.string(), external_exports.number().int().nonnegative()),
+    failures: external_exports.array(GateResult),
+    needsFormatting: external_exports.boolean(),
+    guidedRepairAttempted: external_exports.boolean(),
+    supervisorDiagnosis: external_exports.string().optional()
+  }).optional()
 });
 
 // src/contracts/run/RunManifest.ts
@@ -26353,8 +26361,14 @@ var summarizeRun = async ({ cwd, manifest }) => {
     perStepUsage.set(step, totals);
   }
   const frictionByArea = /* @__PURE__ */ new Map();
+  const verificationRepairs = /* @__PURE__ */ new Map();
   for (const entry of friction) {
     frictionByArea.set(entry.area, (frictionByArea.get(entry.area) ?? 0) + 1);
+  }
+  for (const step of manifest.steps) {
+    for (const [gateFamily, attempts] of Object.entries(step.verification?.repairAttempts ?? {})) {
+      verificationRepairs.set(gateFamily, (verificationRepairs.get(gateFamily) ?? 0) + attempts);
+    }
   }
   const { usage: usage2 } = manifest;
   const readableInput = usage2 ? usage2.cacheReadTokens + usage2.cacheCreationTokens + usage2.inputTokens : 0;
@@ -26377,6 +26391,7 @@ var summarizeRun = async ({ cwd, manifest }) => {
       reruns: commands2.filter((command) => command.rerun).length,
       skipped: commands2.filter((command) => command.skipped).length
     },
+    verificationRepairs: [...verificationRepairs.entries()].map(([gateFamily, attempts]) => ({ gateFamily, attempts })),
     rejectedReports: agentFiles.filter((name) => name.startsWith("rejected-")).length,
     frictionByArea: [...frictionByArea.entries()].map(([area, count2]) => ({ area, count: count2 }))
   };
@@ -32606,6 +32621,7 @@ var runGateSet = async ({ commands: commands2, label, gate, failFast = true }) =
   const group = label ?? "root";
   const prefix = label ? `[${label}] ` : "";
   const failures = [];
+  const failedFamilies = [];
   const stop = () => failFast && failures.length > 0;
   if (commands2.check) {
     const check2 = await gate({ kind: "check", command: commands2.check, group });
@@ -32613,6 +32629,7 @@ var runGateSet = async ({ commands: commands2, label, gate, failFast = true }) =
       failures.push(`${prefix}check failed (exit ${check2.exitCode}):
 ${check2.stdout}
 ${check2.stderr}`);
+      failedFamilies.push("check");
     }
   }
   if (!stop() && commands2.testCoverage) {
@@ -32621,6 +32638,7 @@ ${check2.stderr}`);
       failures.push(`${prefix}test-coverage failed (exit ${coverageResult.exitCode}):
 ${coverageResult.stdout}
 ${coverageResult.stderr}`);
+      failedFamilies.push("testCoverage");
     }
   } else if (!stop() && commands2.test) {
     const tests = await gate({ kind: "test", command: commands2.test, group });
@@ -32628,6 +32646,7 @@ ${coverageResult.stderr}`);
       failures.push(`${prefix}test failed (exit ${tests.exitCode}):
 ${tests.stdout}
 ${tests.stderr}`);
+      failedFamilies.push("test");
     }
   }
   for (const { name, command } of commands2.extraTests ?? []) {
@@ -32639,6 +32658,7 @@ ${tests.stderr}`);
       failures.push(`${prefix}${name} failed (exit ${extra.exitCode}):
 ${extra.stdout}
 ${extra.stderr}`);
+      failedFamilies.push(name);
     }
   }
   if (!stop() && commands2.build) {
@@ -32647,9 +32667,13 @@ ${extra.stderr}`);
       failures.push(`${prefix}build failed (exit ${build.exitCode}):
 ${build.stdout}
 ${build.stderr}`);
+      failedFamilies.push("build");
     }
   }
-  return failures.length > 0 ? failures.join("\n\n") : void 0;
+  return {
+    error: failures.length > 0 ? failures.join("\n\n") : void 0,
+    failedFamilies: [...new Set(failedFamilies)]
+  };
 };
 
 // src/common/config/resolvePackageGatesConfig.ts
@@ -32680,7 +32704,7 @@ var runPackageGates = async ({
   try {
     manifest = await readPackageManifest({ cwd, packagesDir, packageDir });
   } catch (error51) {
-    return messageOf({ error: error51 });
+    return { error: messageOf({ error: error51 }), failedFamilies: ["package-manifest"] };
   }
   const templates = resolvePackageGatesConfig({ packageGates: scoped });
   const substitute = ({ command }) => command.split("{package}").join(manifest.name);
@@ -32747,9 +32771,9 @@ var runGates = async ({
   if (gates.generate) {
     const generated = await gate({ kind: "generate", command: gates.generate, group: "root" });
     if (generated.exitCode !== 0) {
-      return `generate failed (exit ${generated.exitCode}):
+      return { error: `generate failed (exit ${generated.exitCode}):
 ${generated.stdout}
-${generated.stderr}`;
+${generated.stderr}`, failedFamilies: ["generate"] };
     }
   }
   const rootCommands = {
@@ -32760,18 +32784,24 @@ ${generated.stderr}`;
     build: gates.build
   };
   const scoped = config2["package-gates"];
+  let result;
   if (!scoped || !packages || packages.length === 0) {
-    return runGateSet({ commands: rootCommands, gate, failFast });
+    result = await runGateSet({ commands: rootCommands, gate, failFast });
+  } else {
+    const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
+    const results = await Promise.all(
+      packages.map((packageDir) => runPackageGates({ cwd, packagesDir, packageDir, scoped, coverage, gate, failFast, runId, step, onGateResult, onProgress }))
+    );
+    if (includeRoot) {
+      results.push(await runGateSet({ commands: rootCommands, gate, label: "root", failFast }));
+    }
+    const errors = results.flatMap((gateResult) => gateResult.error ? [gateResult.error] : []);
+    result = {
+      error: errors.length > 0 ? errors.join("\n\n") : void 0,
+      failedFamilies: [...new Set(results.flatMap((gateResult) => gateResult.failedFamilies))]
+    };
   }
-  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
-  const results = await Promise.all(
-    packages.map((packageDir) => runPackageGates({ cwd, packagesDir, packageDir, scoped, coverage, gate, failFast, runId, step, onGateResult, onProgress }))
-  );
-  if (includeRoot) {
-    results.push(await runGateSet({ commands: rootCommands, gate, label: "root", failFast }));
-  }
-  const errors = results.filter((result) => Boolean(result));
-  return errors.length > 0 ? errors.join("\n\n") : void 0;
+  return result;
 };
 
 // src/gates/runBatchGates.ts
@@ -32786,7 +32816,7 @@ var runBatchGates = async ({ cwd, config: config2, coverage, runId, step, onProg
       })
     )
   ];
-  return runGates({
+  const result = await runGates({
     cwd,
     config: config2,
     coverage,
@@ -32796,6 +32826,7 @@ var runBatchGates = async ({ cwd, config: config2, coverage, runId, step, onProg
     step,
     onProgress
   });
+  return result.error;
 };
 
 // src/common/utils/runPreflightGate.ts
@@ -32811,7 +32842,7 @@ var runPreflightGate = async ({ run, coverage, label, redBaselineError }) => {
   };
   await run.setStep({ record: record3 });
   run.progress(label);
-  const gateError = await runGates({
+  const { error: gateError } = await runGates({
     cwd: run.cwd,
     config: run.config,
     coverage,
@@ -33405,27 +33436,34 @@ var runCoveragePipeline = (params) => withRunLock({ params, run: executeCoverage
 var runVerificationGates = async ({ run, coverage }) => {
   const packagesDir = run.config["packages-dir"] ?? defaultPackagesDir;
   const hasRootChanges = run.current().changedFiles.some((file2) => packageOf({ file: file2, packagesDir }) === void 0);
-  const error51 = await runGates({
+  const observations = /* @__PURE__ */ new Map();
+  const result = await runGates({
     cwd: run.cwd,
     config: run.config,
     coverage,
     packages: run.current().packages,
     includeRoot: hasRootChanges,
+    failFast: false,
     runId: run.current().runId,
     step: run.current().currentStep ?? void 0,
+    onGateResult: (gateResult) => observations.set(`${gateResult.group}\0${gateResult.kind}`, gateResult),
     onProgress: (message) => run.progress(message)
   });
-  if (error51 !== void 0 || !coverage) {
-    return error51;
+  const failures = [...observations.values()].filter(
+    (observation) => observation.skipped !== true && observation.exitCode !== void 0 && observation.exitCode !== 0 && result.failedFamilies.includes(observation.kind)
+  );
+  if (result.error !== void 0 || !coverage) {
+    return { ...result, failures };
   }
   const manifest = run.current();
   const compiler = resolveConsumerTypescript({ cwd: run.cwd, packagesDir });
-  return checkChangedFilesExecuted({
+  const error51 = await checkChangedFilesExecuted({
     cwd: run.cwd,
     config: run.config,
     compiler,
     changedFiles: sourceFiles({ run }).filter((file2) => !manifest.unreachableChangedFiles.includes(file2))
   });
+  return error51 === void 0 ? { error: void 0, failedFamilies: [], failures: [] } : { error: error51, failedFamilies: ["changed-files-executed"], failures: [] };
 };
 
 // src/pipeline/steps/cleanSlateStep.ts
@@ -33434,7 +33472,7 @@ var cleanSlateStep = ({ run }) => {
     const record3 = run.nextRecord({ id: "clean-slate" });
     await run.setStep({ record: record3 });
     run.progress(`step clean-slate \u2014 attempt ${record3.attempts}`);
-    const error51 = await runVerificationGates({ run, coverage: true });
+    const { error: error51 } = await runVerificationGates({ run, coverage: true });
     if (error51) {
       return run.stop({
         record: record3,
@@ -33454,7 +33492,7 @@ ${error51}`
 };
 
 // src/common/processes/runFormatter.ts
-var runFormatter = async ({ cwd, runId, config: config2, step }) => {
+var runFormatter = async ({ cwd, runId, config: config2, step, onResult }) => {
   const command = config2.gates.format;
   if (!command) {
     return void 0;
@@ -33467,49 +33505,50 @@ var runFormatter = async ({ cwd, runId, config: config2, step }) => {
   } catch (error51) {
     result = { exitCode: -1, stdout: "", stderr: messageOf({ error: error51 }) };
   }
+  const gateResult = {
+    group: "root",
+    kind: "format",
+    command,
+    exitCode: result.exitCode,
+    durationMs: Date.now() - startedAt,
+    ...result.exitCode === 0 ? {} : { outputTail: `${result.stdout}
+${result.stderr}`.slice(-2e3) }
+  };
   await appendCommandLog({
     cwd,
     runId,
     record: {
       at: (/* @__PURE__ */ new Date()).toISOString(),
       step,
-      group: "root",
-      kind: "format",
-      command,
-      exitCode: result.exitCode,
-      durationMs: Date.now() - startedAt,
-      ...result.exitCode === 0 ? {} : { outputTail: `${result.stdout}
-${result.stderr}`.slice(-2e3) }
+      ...gateResult
     }
   });
+  onResult?.(gateResult);
   return result.exitCode === 0 ? void 0 : `format failed (exit ${result.exitCode}):
 ${result.stdout}
 ${result.stderr}`;
 };
 
 // src/pipeline/steps/formatStep.ts
-var formatStep = ({ run }) => ({
-  id: "format",
+var formatStep = ({ run, id }) => ({
+  id,
   skip: () => run.config.gates.format ? void 0 : "no format command configured",
   run: async () => {
-    const record3 = run.nextRecord({ id: "format" });
+    const record3 = run.nextRecord({ id });
     await run.setStep({ record: record3 });
-    run.progress("step format \u2014 running formatter");
-    const formatError2 = await runFormatter({ cwd: run.cwd, runId: run.current().runId, config: run.config, step: "format" });
+    run.progress(`step ${id} \u2014 running formatter`);
+    const formatError2 = await runFormatter({ cwd: run.cwd, runId: run.current().runId, config: run.config, step: id });
     if (formatError2) {
       return run.stop({ record: record3, status: RunStatus.Failed, error: formatError2 });
     }
-    const error51 = await runVerificationGates({ run, coverage: true });
-    if (error51) {
-      return run.stop({
-        record: record3,
-        status: RunStatus.Failed,
-        error: `format: formatting broke verification \u2014 review the formatter/gate configuration.
-${error51}`
-      });
-    }
-    await run.setStep({ record: { ...record3, status: RunStatus.Passed } });
-    run.progress("step format passed");
+    const formatterArtifacts = (await readGitChangedFiles({ cwd: run.cwd }) ?? []).filter(
+      (file2) => !run.current().changedFiles.includes(file2) && !run.current().baselineDirtyFiles.includes(file2)
+    );
+    await run.setStep({
+      record: { ...record3, status: RunStatus.Passed },
+      patch: formatterArtifacts.length === 0 ? void 0 : { baselineDirtyFiles: [.../* @__PURE__ */ new Set([...run.current().baselineDirtyFiles, ...formatterArtifacts])] }
+    });
+    run.progress(`step ${id} passed`);
     return void 0;
   }
 });
@@ -46459,12 +46498,40 @@ var consultSupervisor = async ({
 };
 
 // src/pipeline/steps/verifyStep.ts
-var runFix = async ({
-  context: { run, gitPrefix, id, coverage, buildFix },
-  errorContext,
-  record: record3
-}) => {
-  const fix = await run.invokeRole({ invocation: buildFix(errorContext), step: id });
+var verificationOf = ({ record: record3 }) => record3.verification ?? {
+  failedFamilies: [],
+  repairAttempts: {},
+  failures: [],
+  needsFormatting: false,
+  guidedRepairAttempted: false
+};
+var withResult = ({ record: record3, result }) => ({
+  ...record3,
+  verification: {
+    ...verificationOf({ record: record3 }),
+    failedFamilies: result.failedFamilies,
+    failures: result.failures
+  }
+});
+var formatAndVerify = async ({ context: { run, id, coverage }, record: record3 }) => {
+  const failures = [];
+  const error51 = await runFormatter({
+    cwd: run.cwd,
+    runId: run.current().runId,
+    config: run.config,
+    step: id,
+    onResult: (result) => failures.push(result)
+  });
+  const next = { ...record3, verification: { ...verificationOf({ record: record3 }), needsFormatting: false } };
+  await run.setStep({ record: next });
+  return {
+    record: next,
+    result: error51 === void 0 ? await runVerificationGates({ run, coverage }) : { error: error51, failedFamilies: ["format"], failures }
+  };
+};
+var runFix = async ({ context, errorContext, record: record3 }) => {
+  const { run, gitPrefix, id } = context;
+  const fix = await run.invokeRole({ invocation: context.buildFix({ errorContext }), step: id });
   if (!fix.ok && fix.rateLimited) {
     return { parked: await run.stop({ record: record3, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };
   }
@@ -46477,93 +46544,133 @@ var runFix = async ({
       await run.setStep({ record: { ...next, report }, patch: await collectChanged({ run, gitPrefix, reports: [report] }) });
     }
   }
-  return { record: next, error: await runVerificationGates({ run, coverage }) };
+  return formatAndVerify({ context, record: next });
 };
-var consultForVerdict = async ({
-  run,
-  planContent,
-  id,
-  error: error51,
-  attempts
-}) => {
+var runCheapRepairs = async ({ context, record: record3, result }) => {
+  let currentRecord = record3;
+  let currentResult = result;
+  while (currentResult.error) {
+    const repairable = [...new Set(currentResult.failedFamilies)].filter(
+      (family) => (currentRecord.verification?.repairAttempts[family] ?? 0) < maxCheapFixRetries
+    );
+    if (repairable.length === 0) {
+      break;
+    }
+    const repairAttempts = { ...currentRecord.verification?.repairAttempts };
+    for (const family of repairable) {
+      repairAttempts[family] = (repairAttempts[family] ?? 0) + 1;
+    }
+    currentRecord = {
+      ...currentRecord,
+      attempts: currentRecord.attempts + 1,
+      verification: { ...verificationOf({ record: currentRecord }), repairAttempts, needsFormatting: true }
+    };
+    await context.run.setStep({ record: currentRecord });
+    context.run.progress(`step ${context.id}: gate red \u2014 repairing ${repairable.join(", ")}`);
+    const fixed = await runFix({ context, errorContext: currentResult.error, record: currentRecord });
+    if ("parked" in fixed) {
+      return { parked: fixed.parked };
+    }
+    currentRecord = withResult({ record: fixed.record, result: fixed.result });
+    currentResult = fixed.result;
+    await context.run.setStep({ record: currentRecord });
+  }
+  return { record: currentRecord, result: currentResult };
+};
+var runGuidedRepair = async ({ context, record: record3, result }) => {
+  if (!result.error || record3.verification?.guidedRepairAttempted) {
+    return { record: record3, result, ruling: void 0 };
+  }
+  const { run, id, planContent } = context;
+  run.progress(`step ${id}: mechanical retries exhausted \u2014 consulting supervisor`);
   const verdict = await consultSupervisor({
     driver: run.driver,
     cwd: run.cwd,
     config: run.config,
     planContent,
     stepId: id,
-    errorOutput: error51,
-    attempts,
+    errorOutput: result.error,
+    attempts: record3.attempts,
     onEvent: run.agentEventSink({ step: `${id}-supervisor` }),
     onRejectedOutput: run.persistRejected({ step: `${id}-supervisor` })
   });
   await run.recordUsage({ step: `${id}-supervisor`, usage: verdict.usage });
   if (!verdict.ok && verdict.rateLimited) {
-    return { rateLimited: true };
+    return { parked: await run.stop({ record: record3, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };
   }
   const ruling = verdict.ok ? verdict.report : void 0;
+  let next = record3;
   if (ruling) {
     run.progress(`step ${id}: supervisor verdict \u2014 ${ruling.decision}`);
+    next = { ...record3, verification: { ...verificationOf({ record: record3 }), supervisorDiagnosis: ruling.diagnosis } };
+    await run.setStep({ record: next });
   }
-  return { rateLimited: false, ruling };
-};
-var verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix }) => {
-  const context = { run, gitPrefix, id, coverage, buildFix };
-  return async () => {
-    let record3 = run.nextRecord({ id });
-    await run.setStep({ record: record3 });
-    run.progress(`step ${id} \u2014 attempt ${record3.attempts}`);
-    let error51 = await runVerificationGates({ run, coverage });
-    for (let retry = 1; error51 && retry <= maxCheapFixRetries; retry += 1) {
-      record3 = { ...record3, attempts: record3.attempts + 1 };
-      await run.setStep({ record: record3 });
-      run.progress(`step ${id}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries}`);
-      const result = await runFix({ context, errorContext: error51, record: record3 });
-      if ("parked" in result) {
-        return result.parked;
-      }
-      record3 = result.record;
-      error51 = result.error;
-    }
-    if (error51) {
-      run.progress(`step ${id}: mechanical retries exhausted \u2014 consulting supervisor`);
-      const verdict = await consultForVerdict({ run, planContent, id, error: error51, attempts: record3.attempts });
-      if (verdict.rateLimited) {
-        return run.stop({ record: record3, status: RunStatus.PausedRateLimit, error: run.parkMessage() });
-      }
-      const { ruling } = verdict;
-      if (ruling?.decision === SupervisorDecision.Retry && ruling.guidance) {
-        record3 = { ...record3, attempts: record3.attempts + 1 };
-        await run.setStep({ record: record3 });
-        const result = await runFix({
-          context,
-          errorContext: `${error51}
+  if (ruling?.decision !== SupervisorDecision.Retry || !ruling.guidance) {
+    return { record: next, result, ruling };
+  }
+  next = {
+    ...next,
+    attempts: next.attempts + 1,
+    verification: { ...verificationOf({ record: next }), guidedRepairAttempted: true, needsFormatting: true }
+  };
+  await run.setStep({ record: next });
+  const fixed = await runFix({
+    context,
+    errorContext: `${result.error}
 
 # Supervisor diagnosis
 ${ruling.diagnosis}
 
 # Supervisor guidance
 ${ruling.guidance}`,
-          record: record3
-        });
-        if ("parked" in result) {
-          return result.parked;
-        }
-        record3 = result.record;
-        error51 = result.error;
-      }
-      if (error51) {
-        const diagnosis = ruling ? `
-supervisor (${ruling.decision}): ${ruling.diagnosis}` : "";
-        return run.stop({ record: record3, status: RunStatus.Escalated, error: `${id}: still failing after retries.${diagnosis}
+    record: next
+  });
+  if ("parked" in fixed) {
+    return { parked: fixed.parked };
+  }
+  const finalRecord = withResult({ record: fixed.record, result: fixed.result });
+  await run.setStep({ record: finalRecord });
+  return { record: finalRecord, result: fixed.result, ruling };
+};
+var runVerificationStep = async ({ context }) => {
+  const { run, id, coverage } = context;
+  const previous = run.current().steps.find((step) => step.id === id);
+  let record3 = { ...run.nextRecord({ id }), ...previous?.verification ? { verification: previous.verification } : {} };
+  await run.setStep({ record: record3 });
+  run.progress(`step ${id} \u2014 attempt ${record3.attempts}`);
+  const initial = record3.verification?.needsFormatting ? await formatAndVerify({ context, record: record3 }) : { record: record3, result: await runVerificationGates({ run, coverage }) };
+  let result = initial.result;
+  record3 = initial.record;
+  if (result.error) {
+    record3 = withResult({ record: record3, result });
+    await run.setStep({ record: record3 });
+  }
+  const repaired = await runCheapRepairs({ context, record: record3, result });
+  if ("parked" in repaired) {
+    return repaired.parked;
+  }
+  const guided = await runGuidedRepair({ context, ...repaired });
+  if ("parked" in guided) {
+    return guided.parked;
+  }
+  ({ record: record3, result } = guided);
+  if (result.error) {
+    const diagnosis = record3.verification?.supervisorDiagnosis;
+    const decision = guided.ruling?.decision ?? (record3.verification?.guidedRepairAttempted ? SupervisorDecision.Retry : void 0);
+    const detail = diagnosis && decision ? `
+supervisor (${decision}): ${diagnosis}` : "";
+    return run.stop({ record: record3, status: RunStatus.Escalated, error: `${id}: still failing after retries.${detail}
 
-${error51}` });
-      }
-    }
-    await run.setStep({ record: { ...record3, status: RunStatus.Passed } });
-    run.progress(`step ${id} passed`);
-    return void 0;
-  };
+${result.error}` });
+  }
+  const passedRecord = record3.verification ? { ...record3, verification: { ...record3.verification, failedFamilies: [], failures: [], needsFormatting: false } } : record3;
+  await run.setStep({ record: { ...passedRecord, status: RunStatus.Passed } });
+  run.progress(`step ${id} passed`);
+  return void 0;
+};
+var verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix }) => {
+  const context = { run, gitPrefix, planContent, id, coverage, buildFix };
+  return () => runVerificationStep({ context });
 };
 
 // src/pipeline/steps/workStep.ts
@@ -46907,6 +47014,7 @@ var refactorPair = ({ run, gitPrefix, planContent, overviewContent, standards, s
     skip: () => standardsScopeFiles({ run }).length === 0 ? "no changed source files to review" : void 0,
     run: refactorStep({ run, gitPrefix, planContent, overviewContent, standards })
   },
+  formatStep({ run, id: "format-refactor" }),
   {
     id: "verify-refactor",
     run: verifyStep({
@@ -46915,7 +47023,7 @@ var refactorPair = ({ run, gitPrefix, planContent, overviewContent, standards, s
       planContent,
       id: "verify-refactor",
       coverage: true,
-      buildFix: (errorContext) => buildRefactorExecutorInvocation({
+      buildFix: ({ errorContext }) => buildRefactorExecutorInvocation({
         scope: RefactorScope.Feature,
         planContent,
         overviewContent,
@@ -46941,6 +47049,7 @@ var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, tes
         build: () => buildFeatureExecutorInvocation({ planContent, overviewContent, standards, allowedCommands: run.config["agent-commands"], fileLimit })
       })
     },
+    formatStep({ run, id: "format-implement" }),
     {
       id: "verify-implement",
       run: verifyStep({
@@ -46948,7 +47057,7 @@ var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, tes
         gitPrefix,
         planContent,
         id: "verify-implement",
-        buildFix: (errorContext) => buildFeatureExecutorInvocation({
+        buildFix: ({ errorContext }) => buildFeatureExecutorInvocation({
           planContent,
           overviewContent,
           standards,
@@ -46964,6 +47073,7 @@ var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, tes
       skip: () => sourceFiles({ run }).length === 0 ? "no eligible source files" : void 0,
       run: writeTestsStep({ run, gitPrefix, planContent, testStandards })
     },
+    formatStep({ run, id: "format-tests" }),
     {
       id: "verify-tests",
       run: verifyStep({
@@ -46972,7 +47082,7 @@ var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, tes
         planContent,
         id: "verify-tests",
         coverage: true,
-        buildFix: (errorContext) => buildUnitTestWriterInvocation({
+        buildFix: ({ errorContext }) => buildUnitTestWriterInvocation({
           planContent,
           subjects: run.current().testSubjects,
           mustExecute: sourceFiles({ run }).filter(
@@ -46983,8 +47093,7 @@ var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, tes
         })
       })
     },
-    ...refactorSteps2,
-    formatStep({ run })
+    ...refactorSteps2
   ];
 };
 
@@ -47612,7 +47721,7 @@ var verifyStep2 = "verify";
 var verifyDirectWork = async ({ run }) => {
   const record3 = nextStepRecord({ run, id: verifyStep2 });
   await run.setStep({ record: record3 });
-  const gateError = await runGates({
+  const { error: gateError } = await runGates({
     cwd: run.cwd,
     config: run.config,
     coverage: true,
@@ -146986,7 +147095,7 @@ var shipOne = async ({ cwd, config: config2, shipSettings, defaultBranch, outcom
   if (conflict !== void 0) {
     return park({ error: conflict });
   }
-  const gateError = await runGates({ cwd: outcome.worktreePath, config: config2, coverage: true, onProgress });
+  const { error: gateError } = await runGates({ cwd: outcome.worktreePath, config: config2, coverage: true, onProgress });
   if (gateError !== void 0) {
     return park({ error: gateError });
   }
@@ -149653,6 +149762,26 @@ var rowCells = ({ row }) => {
   const outcome = row.attempts > 1 ? `${row.status} (x${row.attempts})` : row.status;
   return { glyph, status: row.status, id: row.id, outcome, duration: formatClockDuration({ ms: row.durationMs }) };
 };
+var collapseWhitespace = ({ text }) => text.replace(/\s+/g, " ").trim();
+var verificationLines = ({ row }) => {
+  const verification = row.verification;
+  if (!verification || verification.failedFamilies.length === 0) {
+    return [];
+  }
+  const groups = [...new Set(verification.failures.map((failure) => failure.group))];
+  const repairs = Object.entries(verification.repairAttempts);
+  const lastOutput = verification.failures.at(-1)?.outputTail?.split(/\r?\n/).map((line) => collapseWhitespace({ text: line })).filter(Boolean).at(-1);
+  const lines = [
+    ` verification  ${verification.failedFamilies.join(", ")} \xB7 groups ${groups.length === 0 ? "unavailable" : groups.join(", ")} \xB7 repairs ${repairs.length === 0 ? "none" : repairs.map(([family, attempts]) => `${family}=${attempts}`).join(", ")} \xB7 guided ${verification.guidedRepairAttempted ? "yes" : "no"}`
+  ];
+  if (verification.supervisorDiagnosis) {
+    lines.push(` diagnosis     ${collapseWhitespace({ text: verification.supervisorDiagnosis })}`);
+  }
+  if (lastOutput) {
+    lines.push(` last output   ${lastOutput}`);
+  }
+  return lines;
+};
 var renderRunProgress = ({ progress }) => {
   const cells = progress.rows.map((row) => rowCells({ row }));
   const idWidth = Math.max(minimumWidths.id, ...cells.map((cell2) => cell2.id.length + 2));
@@ -149662,11 +149791,13 @@ var renderRunProgress = ({ progress }) => {
     const head = ` ${cell2.glyph}  ${cell2.id.padEnd(idWidth)}`;
     return cell2.duration === void 0 ? `${head}${emDash}` : `${head}${cell2.outcome.padEnd(outcomeWidth)}${cell2.duration.padStart(durationWidth)}`;
   });
+  const diagnosticLines = progress.rows.flatMap((row) => verificationLines({ row }));
   const cost = progress.costUsd === void 0 ? "" : ` \xB7 ${formatCost({ usd: progress.costUsd })}`;
   const totalsLine = ` elapsed ${formatClockDuration({ ms: progress.elapsedMs })} \xB7 ${progress.changedFileCount} files${cost}`;
   const nowLine = progress.now === void 0 ? void 0 : ` now  ${progress.now}`;
   const ruleWidth = Math.max(
     ...rowLines.map((line) => line.length),
+    ...diagnosticLines.map((line) => line.length),
     totalsLine.length,
     nowLine?.length ?? 0,
     // The title line is measured too, or a long title would overhang the rule
@@ -149679,7 +149810,7 @@ var renderRunProgress = ({ progress }) => {
     const glyph = cell2.status === void 0 ? dim(cell2.glyph) : paintStatus({ status: cell2.status, text: cell2.glyph });
     return rowLines[index].replace(cell2.glyph, glyph);
   });
-  return [titleLine, rule, ...painted, rule, totalsLine, ...nowLine === void 0 ? [] : [nowLine]];
+  return [titleLine, rule, ...painted, ...diagnosticLines, rule, totalsLine, ...nowLine === void 0 ? [] : [nowLine]];
 };
 
 // src/views/common/utils/toStandardsPackRuleListing.ts
@@ -149796,7 +149927,7 @@ var shipRowStatus = {
 };
 var readShipRow = async ({ cwd, manifest }) => {
   const result = manifest.branch === void 0 ? void 0 : await readShipResult({ cwd, branch: manifest.branch });
-  return { id: "ship", status: result && shipRowStatus[result.status], attempts: result === void 0 ? 0 : 1, durationMs: void 0 };
+  return { id: "ship", status: result && shipRowStatus[result.status], attempts: result === void 0 ? 0 : 1, durationMs: void 0, verification: void 0 };
 };
 var getRunProgress = async ({ cwd, manifest, lock }) => {
   const live2 = isRunLive({ manifest, lock });
@@ -149805,12 +149936,13 @@ var getRunProgress = async ({ cwd, manifest, lock }) => {
     id: step.id,
     status: step.status,
     attempts: step.attempts,
-    durationMs: step.status === RunStatus.Running ? (step.durationMs ?? 0) + sinceWriteMs : step.durationMs
+    durationMs: step.status === RunStatus.Running ? (step.durationMs ?? 0) + sinceWriteMs : step.durationMs,
+    verification: step.verification
   }));
   const recorded = new Set(rows.map((row) => row.id));
   for (const id of manifest.stepOrder ?? []) {
     if (!recorded.has(id)) {
-      rows.push({ id, status: void 0, attempts: 0, durationMs: void 0 });
+      rows.push({ id, status: void 0, attempts: 0, durationMs: void 0, verification: void 0 });
     }
   }
   const shipRow = manifest.willShip === true && shippableStatuses.includes(manifest.status) ? await readShipRow({ cwd, manifest }) : void 0;

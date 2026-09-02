@@ -73,7 +73,7 @@ describe('runGates', () => {
 		const config = await readConfig({ cwd: dir });
 		const gates: GateResult[] = [];
 
-		const error = await runGates({ cwd: dir, config, coverage: true, onGateResult: (result) => gates.push(result) });
+		const { error } = await runGates({ cwd: dir, config, coverage: true, onGateResult: (result) => gates.push(result) });
 
 		expect(error).toBe(undefined);
 		// `'test-coverage': false` is a decision, not a missing command — the run's
@@ -91,7 +91,7 @@ describe('runGates', () => {
 		const config = await readConfig({ cwd: dir });
 		const gates: GateResult[] = [];
 
-		const error = await runGates({ cwd: dir, config, packages: ['api'], onGateResult: (result) => gates.push(result) });
+		const { error } = await runGates({ cwd: dir, config, packages: ['api'], onGateResult: (result) => gates.push(result) });
 
 		expect(error).toBe(undefined);
 		expect(gates.map((gate) => [gate.group, gate.kind])).toStrictEqual([
@@ -116,7 +116,7 @@ describe('runGates', () => {
 		const config = await readConfig({ cwd: dir });
 		const gates: GateResult[] = [];
 
-		const error = await runGates({ cwd: dir, config, coverage: true, onGateResult: (result) => gates.push(result) });
+		const { error } = await runGates({ cwd: dir, config, coverage: true, onGateResult: (result) => gates.push(result) });
 
 		expect(error).toBe(undefined);
 		// coverage replaces `test` alone — the custom suite is its own gate, in
@@ -128,9 +128,10 @@ describe('runGates', () => {
 		const dir = setupConsumerRepo({ scripts: { 'test-e2e': 'false' } });
 		const config = await readConfig({ cwd: dir });
 
-		const error = await runGates({ cwd: dir, config, coverage: false });
+		const { error, failedFamilies } = await runGates({ cwd: dir, config, coverage: false });
 
 		expect(error ?? '').toMatch(/test-e2e failed \(exit 1\)/);
+		expect(failedFamilies).toStrictEqual(['test-e2e']);
 	});
 
 	test('a scoped custom `test-*` suite runs after the package test run and before its build, and coverage never substitutes it', async () => {
@@ -138,7 +139,7 @@ describe('runGates', () => {
 		const config = await readConfig({ cwd: dir });
 		const gates: GateResult[] = [];
 
-		const error = await runGates({ cwd: dir, config, packages: ['api'], coverage: true, onGateResult: (result) => gates.push(result) });
+		const { error } = await runGates({ cwd: dir, config, packages: ['api'], coverage: true, onGateResult: (result) => gates.push(result) });
 
 		expect(error).toBe(undefined);
 		// the substitution and the ordering hold inside a package group exactly as
@@ -162,12 +163,23 @@ describe('runGates', () => {
 		});
 		const config = await readConfig({ cwd: dir });
 
-		const error = await runGates({ cwd: dir, config });
+		const { error, failedFamilies } = await runGates({ cwd: dir, config });
 
 		expect(error ?? '').toMatch(/check failed \(exit 1\)/);
+		expect(failedFamilies).toStrictEqual(['check']);
 		// a custom suite is the most expensive gate a config can declare — running
 		// it behind a red check spends the whole suite to learn nothing
 		expect(/test-e2e failed/.test(error ?? '')).toBeFalsy();
 		expect(readGateLog({ dir })).toStrictEqual([]);
+	});
+
+	test.each([
+		{ coverage: false, scripts: { test: 'false', 'test-coverage': false }, family: 'test' },
+		{ coverage: true, scripts: { test: 'true', 'test-coverage': 'false' }, family: 'testCoverage' },
+	] as const)('a red $family gate uses its exact result kind as the family key', async ({ coverage, scripts, family }) => {
+		const dir = setupConsumerRepo({ scripts });
+		const result = await runGates({ cwd: dir, config: await readConfig({ cwd: dir }), coverage });
+
+		expect(result.failedFamilies).toStrictEqual([family]);
 	});
 });

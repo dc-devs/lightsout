@@ -4,5 +4,6 @@
 // one: coverage used to reach into `pipeline/` for them, and `pipeline/` reaches
 // into `coverage/` for the executed-files check, which made importing either
 // pull in the whole of the other.
+export type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 export { runBatchGates } from '#src/gates/runBatchGates.ts';
 export { runGates } from '#src/gates/runGates.ts';
