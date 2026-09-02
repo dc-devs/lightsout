@@ -32578,6 +32578,11 @@ var resolveGates = ({ gates }) => ({
 });
 
 // src/gates/createGateRunner.ts
+var isKnownJestWorkerSigsegv = ({ result }) => {
+  const output = `${result.stdout}
+${result.stderr}`;
+  return /A jest worker process \(pid=\d+\) was terminated by another process: signal=SIGSEGV, exitCode=null\./.test(output);
+};
 var createGateRunner = ({ cwd, runId, step, onGateResult, onProgress }) => {
   const executeOnce = async ({ kind, command, group, rerun }) => {
     const gateTimeoutMs = 10 * 6e4;
@@ -32608,11 +32613,12 @@ ${result.stderr}`.slice(-outputTailChars) }
   };
   return async ({ kind, command, group }) => {
     const first = await executeOnce({ kind, command, group });
-    if (first.exitCode === 0 || first.exitCode === -1) {
-      return first;
+    let finalResult = first;
+    if (first.exitCode !== 0 && first.exitCode !== -1 && isKnownJestWorkerSigsegv({ result: first })) {
+      onProgress?.(`gate [${group}] ${kind}: Jest worker SIGSEGV \u2014 re-running once as a temporary workaround`);
+      finalResult = await executeOnce({ kind, command, group, rerun: true });
     }
-    onProgress?.(`gate [${group}] ${kind}: red (exit ${first.exitCode}) \u2014 re-running once to rule out flake`);
-    return executeOnce({ kind, command, group, rerun: true });
+    return finalResult;
   };
 };
 
