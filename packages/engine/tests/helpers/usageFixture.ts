@@ -9,7 +9,9 @@
  *
  * A FEATURE adding a command or a flag updates this pin deliberately — updated
  * 2026-08-28 for `lightsout queue` and `lightsout implement-direct`, and
- * again for `queue --file-relay`, and for `status --run` / `--watch`.
+ * again for `queue --file-relay`, for `status --run` / `--watch`, and for
+ * `lightsout plan publish` — which also spelled `--name`'s placeholder
+ * `<name>`, since `<n>` reads as a number everywhere else in this text.
  */
 export const usageFixture = `lightsout — deterministic engine for coding agents
 
@@ -31,11 +33,12 @@ usage:
   lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
   lightsout test-coverage-to-threshold [--cwd <path>] [--max-batches <n>] [--allow-dirty]
   lightsout test-coverage-to-threshold --run <id> [--cwd <path>]   (resume a parked coverage run)
-  lightsout plan verify-facts --name <n> [--notes <path>] [--cwd <path>]
-  lightsout plan draft --name <n> [--scope single|phased] [--cwd <path>]
-  lightsout plan lint --name <n> [--cwd <path>]
-  lightsout plan dedup --name <n> [--cwd <path>]
-  lightsout plan grade --name <n> [--phase <n[,n]>] [--cwd <path>]   (--phase grades only those phases, and always marks the result incomplete)
+  lightsout plan verify-facts --name <name> [--notes <path>] [--cwd <path>]
+  lightsout plan draft --name <name> [--scope single|phased] [--cwd <path>]
+  lightsout plan lint --name <name> [--cwd <path>]
+  lightsout plan dedup --name <name> [--cwd <path>]
+  lightsout plan grade --name <name> [--phase <n[,n]>] [--cwd <path>]   (--phase grades only those phases, and always marks the result incomplete)
+  lightsout plan publish --name <name> [--cwd <path>]
   lightsout friction [--cwd <path>]
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
   lightsout voice on|off [--cwd <path>]               (toggle spoken read-out of interview questions — Mac-only)

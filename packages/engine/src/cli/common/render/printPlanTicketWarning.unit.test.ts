@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { expect, jest, test } from '@jest/globals';
 import { printPlanTicketWarning } from '#src/cli/common/render/printPlanTicketWarning.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
-import { queueConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
+import { queueConfigBlock, ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { seedConfiguredCwd } from '#tests/helpers/seedConfiguredCwd.ts';
 
 /**
@@ -26,10 +26,14 @@ const setupRepo = async ({ config }: { config?: Record<string, unknown> | string
 };
 
 /** A repo whose ticket ids are spelled nothing like the engine default's. */
-const configuredPatternRepo = { queue: queueConfigBlock, ship: { 'ticket-pattern': '^(?<ticket>ENG-(?<number>\\d+))' } };
+const configuredPatternRepo = {
+	queue: queueConfigBlock,
+	'ticket-tracker': ticketTrackerConfigBlock,
+	ship: { 'ticket-pattern': '^(?<ticket>ENG-(?<number>\\d+))' },
+};
 
 test('printPlanTicketWarning: a folder carrying no ticket id draws one line naming the folder and the key that decides the shape', async () => {
-	const { cwd, lines, write } = await setupRepo({ config: { queue: queueConfigBlock } });
+	const { cwd, lines, write } = await setupRepo({ config: { queue: queueConfigBlock, 'ticket-tracker': ticketTrackerConfigBlock } });
 
 	await printPlanTicketWarning({ cwd, name: 'rate-limit-banner', write });
 
@@ -39,7 +43,7 @@ test('printPlanTicketWarning: a folder carrying no ticket id draws one line nami
 });
 
 test('printPlanTicketWarning: a folder named after its ticket says nothing', async () => {
-	const { cwd, lines, write } = await setupRepo({ config: { queue: queueConfigBlock } });
+	const { cwd, lines, write } = await setupRepo({ config: { queue: queueConfigBlock, 'ticket-tracker': ticketTrackerConfigBlock } });
 
 	await printPlanTicketWarning({ cwd, name: 'lo-52-status-progress', write });
 
@@ -47,7 +51,8 @@ test('printPlanTicketWarning: a folder named after its ticket says nothing', asy
 });
 
 test('printPlanTicketWarning: a repo with no tracker configured is unaffected — any plan name keeps working, and nothing is warned about', async () => {
-	// a config with the gate block and no queue block: this repo chose no ticket convention
+	// a config with the gate block and no ticket-tracker block: this repo chose
+	// no ticket convention
 	const { cwd, lines, write } = await setupRepo({ config: {} });
 
 	await printPlanTicketWarning({ cwd, name: 'rate-limit-banner', write });
@@ -72,7 +77,9 @@ test('printPlanTicketWarning: a config the engine cannot parse is not this advis
 });
 
 test('printPlanTicketWarning: an unusable ship.ticket-pattern blames nothing here, because the folder is not what is wrong', async () => {
-	const { cwd, lines, write } = await setupRepo({ config: { queue: queueConfigBlock, ship: { 'ticket-pattern': '^(?<ticket>[a-z' } } });
+	const { cwd, lines, write } = await setupRepo({
+		config: { queue: queueConfigBlock, 'ticket-tracker': ticketTrackerConfigBlock, ship: { 'ticket-pattern': '^(?<ticket>[a-z' } },
+	});
 
 	await printPlanTicketWarning({ cwd, name: 'rate-limit-banner', write });
 
@@ -96,7 +103,7 @@ test('printPlanTicketWarning: the engine default spelling is not a second conven
 });
 
 test('printPlanTicketWarning: with no write given the line goes to stdout, in yellow on a TTY', async () => {
-	const { cwd } = await setupRepo({ config: { queue: queueConfigBlock } });
+	const { cwd } = await setupRepo({ config: { queue: queueConfigBlock, 'ticket-tracker': ticketTrackerConfigBlock } });
 	const logged: string[] = [];
 
 	process.stdout.isTTY = true;

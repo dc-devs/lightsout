@@ -174,7 +174,8 @@ failure.
 ## Field reference
 
 The table below lists the top-level keys. A block with keys of its own — `gates`,
-`standards-checks`, `ship`, `queue`, `auto-plan` and `docs` — is documented in the
+`standards-checks`, `ship`, `ticket-tracker`, `queue`, `auto-plan` and `docs` — is
+documented in the
 subsections beneath it.
 
 The table is generated from the engine’s own descriptions, the same sentences the
@@ -205,7 +206,8 @@ is overwritten the next time `pnpm build:config-reference` runs.
 | `standards-channels` | no | Framework channels of the loaded standards packs (e.g. 'react', 'tanstack'). Unspecified = detected per run from the scoped packages' package.json dependencies; an array REPLACES detection, and an empty one means base documents only. |
 | `standards-checks` | no | Per-rule severity and settings overrides for `lightsout standards-check`, keyed by rule id. A rule not named here keeps its pack’s default — silence is never a change. |
 | `ship` | no | Opt-in `lightsout ship` settings: the branch ticket pattern whose `ticket` capture group becomes the result’s ticket reference, the pull request body template, the merge method, whether a passed implement run chains into ship, and an optional pre-ship command run before anything is pushed. |
-| `queue` | no | Opt-in queue settings: which tracker the queue reads, the team every query is scoped to, which ticket label routes a ticket to which worker, how many tickets run at once, and the environment variable holding the API key. Every team-specific word lives here, so no tracker vocabulary reaches engine code. |
+| `ticket-tracker` | no | Opt-in tracker identity: which tracker the engine talks to, the team every query is scoped to, and the environment variable holding the API key. Every command that reads or writes a ticket resolves it from here, so tracker identity is spelled once rather than once per command. |
+| `queue` | no | Opt-in queue settings: which ticket label routes a ticket to which worker, how many tickets run at once, which ticket statuses count as available work, and the per-ticket worker and question timeouts. Tracker identity lives in `ticket-tracker`, so this block holds queue behaviour only. |
 | `auto-plan` | no | Opt-in auto-plan settings: whether the proposal comes before drafting, whether an approved proposal starts the build, and whether the proposal is skipped when nothing clears the escalation bar. Every key is off by default, so an absent block is the most supervised behaviour. |
 | `docs` | no | Opt-in documentation surfaces: each entry a repo-relative path and a one-line `covers` saying what that document is responsible for. Declaring the block turns on the plan-time documentation check — the plan writer is briefed on the surfaces, every implementable plan file must carry a `## Documentation` statement, and `plan grade` runs one whole-plan checker that verifies it. A repository that declares no block sees none of it: no section, no prompt text, no checker spawn. |
 
@@ -307,17 +309,26 @@ A repository that wants the strict profile promotes those rules itself — an ex
 
 This block is where your team's tracker conventions live, so no tracker vocabulary reaches engine code. Name a plan folder after its ticket's branch, so the plan, the branch and the ticket match by construction; a folder that does not is used exactly as before, with a warning. The default body is deliberately inert — a body that closes a ticket automatically is a team's convention, not the engine's. The block is strict: an unknown key fails parsing rather than silently disabling a setting you believe is on.
 
+### Ticket tracker settings
+
+The `ticket-tracker` block says who the engine talks to about a ticket. Every command that reads or writes one resolves it from here, so tracker identity is spelled once rather than once per command.
+
+| Field                       | Required | What it controls                                                                                                          |
+| --------------------------- | -------: | ------------------------------------------------------------------------------------------------------------------------- |
+| `ticket-tracker.provider`   |      yes | Which tracker the engine talks to. Only `linear` has an adapter today.                                                     |
+| `ticket-tracker.team`       |      yes | The tracker's team key, e.g. `LO`. Every query is scoped to it.                                                             |
+| `ticket-tracker.api-key-env` |     yes | Name of the environment variable holding the tracker API key. The key itself is never written to config.                    |
+
+The block is strict for the same reason `ship` is: an unknown key fails parsing rather than silently disabling a setting you believe is on. `lightsout queue` refuses to start without it, and says so separately from a missing `queue` block — a missing block and a missing key are two different things to fix. The key itself never lives in the file; only the name of the variable that holds it does.
+
 ### Queue settings
 
-The `queue` block is what `lightsout queue` runs on. Without it the command refuses to start. Five keys are required; the rest have defaults.
+The `queue` block is what `lightsout queue` runs on. Without it the command refuses to start. Two keys are required; the rest have defaults. Who the queue talks to lives in `ticket-tracker` above.
 
 | Field                    | Required | What it controls                                                                                                                                                                                                                                                            |
 | ------------------------ | -------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `queue.tracker`          |      yes | Which tracker the queue reads. Only `linear` has an adapter today.                                                                                                                                                                                                          |
-| `queue.team`             |      yes | The tracker's team key, e.g. `LO`. Every query is scoped to it.                                                                                                                                                                                                             |
 | `queue.route-labels`     |      yes | Which ticket label routes a ticket to which worker: `direct` builds straight from the ticket body, `auto-plan` plans the ticket first. A label named here is the human's opt-in to automation — the queue never takes an unlabeled ticket.                                     |
 | `queue.max-parallel`     |      yes | How many tickets may be in flight at once. Also the ceiling on how many questions can ever wait for you at the same time.                                                                                                                                                    |
-| `queue.api-key-env`      |      yes | Name of the environment variable holding the tracker API key. The key itself is never written to config.                                                                                                                                                                    |
 | `queue.eligible-statuses` |      no | Ticket statuses the queue may pick up. Defaults to `["Backlog", "Ready to implement"]`.                                                                                                                                                                                     |
 | `queue.in-progress-status` |     no | Status the queue moves a ticket to when it picks it up. Defaults to `"In Progress"`.                                                                                                                                                                                        |
 | `queue.setup`            |       no | Command run once in each fresh worktree before any agent, e.g. `pnpm install`. Absent means nothing runs.                                                                                                                                                                   |
@@ -327,7 +338,7 @@ The `queue` block is what `lightsout queue` runs on. Without it the command refu
 | `queue.question-timeout` |       no | How long one relayed question waits for an answer before its ticket parks, as a duration string. Only `--file-relay` observes it; the terminal relay waits on the person at the terminal. Defaults to `1h`.                                                                   |
 | `queue.parked-label`     |       no | The ticket label the queue sets when a ticket parks and clears when it resumes or ships. Opt-in with no default. The label is created on the team on first use.                                                                                                              |
 
-The block is strict for the same reason `ship` is: an unknown key fails parsing rather than silently disabling a setting you believe is on. Every team-specific word — tracker, statuses, labels — lives here, so no tracker vocabulary reaches engine code.
+The block is strict for the same reason `ship` is: an unknown key fails parsing rather than silently disabling a setting you believe is on. What lives here is queue behaviour — routes, statuses, labels, parallelism and timeouts — so no queue vocabulary reaches engine code; tracker identity lives in `ticket-tracker`.
 
 ### Auto-plan settings
 
@@ -394,6 +405,11 @@ declaring a surface with no description.
 and `auto-plan.auto-approve` is a removed spelling of `auto-plan.auto-approve-plan`. A
 configuration still carrying one fails to parse, with a message naming the key that
 replaced it.
+
+`queue.tracker`, `queue.team` and `queue.api-key-env` moved out of the queue block
+into `ticket-tracker` — as `provider`, `team` and `api-key-env` — because publishing a
+plan to its ticket needs that identity without needing a queue at all. A configuration
+still carrying one of the old spellings fails to parse, naming its new home.
 
 That message is the live answer, which is why there is no list of every tombstone the
 schema declares here.
@@ -477,16 +493,20 @@ The following example shows how the optional configuration fields fit together:
     "pre-ship": "node scripts/make-tree-shippable.mjs",
   },
 
-  // Queue: which tracker to drain, and how many tickets run at once
-  "queue": {
-    "tracker": "linear",
+  // Ticket tracker: who the engine talks to about a ticket
+  "ticket-tracker": {
+    "provider": "linear",
     "team": "ABC",
+    "api-key-env": "LINEAR_API_KEY",
+  },
+
+  // Queue: which tickets to drain, and how many run at once
+  "queue": {
     "route-labels": {
       "direct": "route-direct",
       "auto-plan": "route-auto-plan",
     },
     "max-parallel": 2,
-    "api-key-env": "LINEAR_API_KEY",
     "setup": "pnpm install",
     "worker-timeout": "4h",
     "question-timeout": "1h",

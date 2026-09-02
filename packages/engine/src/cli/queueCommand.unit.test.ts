@@ -3,9 +3,11 @@ import { join, resolve } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { queueCommand } from '#src/cli/queueCommand.ts';
 import type { QueueDrainReport, QueueFailure, QueueSettings, TicketRunOutcome } from '#src/queue/index.ts';
+import type { TrackerFailure, TrackerSettings } from '#src/ticketTracker/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
 // -------------------------
@@ -13,20 +15,28 @@ import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 // point, covered by its own tests. What this command owns is the config it
 // refuses, the terminal it opens and closes, the summary it prints and the code
 // it exits on, all observable with the drain stubbed.
+type RunQueueParams = Parameters<typeof import('#src/queue/index.ts').runQueue>[0];
+/** What each relay constructor was handed — enough of it to read the two settings objects the command threads in. */
+type RelayParams = { settings: QueueSettings; trackerSettings: TrackerSettings };
+
 const mockResolveQueueSettings = jest.fn<() => QueueSettings | QueueFailure>();
-const mockRunQueue = jest.fn<() => Promise<QueueDrainReport | QueueFailure>>();
+const mockResolveTrackerSettings = jest.fn<() => TrackerSettings | TrackerFailure>();
+const mockRunQueue = jest.fn<(params: RunQueueParams) => Promise<QueueDrainReport | QueueFailure>>();
 const mockRelayClosed = jest.fn<() => void>();
 const mockEmptyRelayMailbox = jest.fn<(params: { directory: string }) => Promise<void>>();
 /** Which relay the command built, in the order it built them — the one decision the flag exists to make. */
 const relaysBuilt: string[] = [];
+/** What each relay was built with, in the same order — the settings a relayed answer is written through. */
+const relayParams: RelayParams[] = [];
 
 jest.mock('#src/queue/index.ts', () => ({
 	resolveQueueSettings: () => mockResolveQueueSettings(),
-	runQueue: () => mockRunQueue(),
+	runQueue: (params: RunQueueParams) => mockRunQueue(params),
 	emptyRelayMailbox: (params: { directory: string }) => mockEmptyRelayMailbox(params),
 	TerminalQuestionRelay: class {
-		constructor() {
+		constructor(params: RelayParams) {
 			relaysBuilt.push('terminal');
+			relayParams.push(params);
 		}
 
 		close() {
@@ -34,8 +44,9 @@ jest.mock('#src/queue/index.ts', () => ({
 		}
 	},
 	FileQuestionRelay: class {
-		constructor() {
+		constructor(params: RelayParams) {
 			relaysBuilt.push('file');
+			relayParams.push(params);
 		}
 
 		close() {
@@ -43,6 +54,7 @@ jest.mock('#src/queue/index.ts', () => ({
 		}
 	},
 }));
+jest.mock('#src/ticketTracker/index.ts', () => ({ resolveTrackerSettings: () => mockResolveTrackerSettings() }));
 // -------------------------
 
 const settings = queueSettingsFixture();
@@ -55,6 +67,7 @@ const outcomeOf = ({ ready, error }: { ready: boolean; error?: string }): Ticket
 		description: '',
 		priority: 2,
 		createdAt: '2026-01-01T00:00:00.000Z',
+		labels: [],
 		route: 'direct',
 		unfinishedBlockers: [],
 	},
@@ -79,9 +92,11 @@ const setupQueueCommand = ({
 	const cwd = setupConsumerRepo({ config: { ship } });
 
 	mockResolveQueueSettings.mockReturnValue(settings);
+	mockResolveTrackerSettings.mockReturnValue(trackerSettingsFixture());
 	mockRunQueue.mockResolvedValue(report ?? { outcomes: [], leftBehind: [] });
 	mockEmptyRelayMailbox.mockResolvedValue(undefined);
 	relaysBuilt.length = 0;
+	relayParams.length = 0;
 
 	const flags = new Map<string, string | true>();
 
@@ -169,6 +184,74 @@ describe('queueCommand', () => {
 		expect(errors).toStrictEqual(['`lightsout queue` needs a `queue` block in lightsout.config.json']);
 		expect(mockRunQueue).not.toHaveBeenCalled();
 		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('refuses a config with no ticket-tracker block, because a drain cannot reach a tracker without one', async () => {
+		const { context, errors, exitCodes } = setupQueueCommand({});
+
+		mockResolveTrackerSettings.mockReturnValue({
+			error: 'this command needs a `ticket-tracker` block in lightsout.config.json naming provider, team and api-key-env',
+		});
+
+		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// the queue requires both blocks and says which one is missing — a fallback
+		// reading identity out of `queue` would leave two spellings of one fact
+		expect(errors).toStrictEqual(['this command needs a `ticket-tracker` block in lightsout.config.json naming provider, team and api-key-env']);
+		expect(mockRunQueue).not.toHaveBeenCalled();
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('refuses a missing tracker API key by naming the variable to set, which is a different thing to fix than a missing block', async () => {
+		const { context, errors, exitCodes } = setupQueueCommand({});
+
+		mockResolveTrackerSettings.mockReturnValue({ error: 'the tracker API key is missing: set the `LINEAR_API_KEY` environment variable' });
+
+		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(errors).toStrictEqual(['the tracker API key is missing: set the `LINEAR_API_KEY` environment variable']);
+		expect(mockRunQueue).not.toHaveBeenCalled();
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('a repo carrying neither block hears about `queue`, the block the command is named for, rather than about a tracker it never reached', async () => {
+		const { context, errors, exitCodes } = setupQueueCommand({});
+
+		mockResolveQueueSettings.mockReturnValue({
+			error: '`lightsout queue` needs a `queue` block in lightsout.config.json naming route-labels and max-parallel',
+		});
+		mockResolveTrackerSettings.mockReturnValue({
+			error: 'this command needs a `ticket-tracker` block in lightsout.config.json naming provider, team and api-key-env',
+		});
+
+		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(errors).toStrictEqual(['`lightsout queue` needs a `queue` block in lightsout.config.json naming route-labels and max-parallel']);
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('hands the drain the tracker identity beside the queue settings, so the two are carried as separate facts', async () => {
+		const { context } = setupQueueCommand({});
+
+		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(mockRunQueue).toHaveBeenCalledWith(expect.objectContaining({ settings, trackerSettings: { team: 'LO', apiKey: 'lin_key' } }));
+	});
+
+	test('hands the tracker identity to the terminal relay, so a relayed answer is written to the tracker the drain read from', async () => {
+		const { context } = setupQueueCommand({});
+
+		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(relayParams[0]).toEqual(expect.objectContaining({ settings, trackerSettings: { team: 'LO', apiKey: 'lin_key' } }));
+	});
+
+	test('hands the tracker identity to the mailbox relay as well, so which relay the flag chose changes nothing about it', async () => {
+		const { context } = setupQueueCommand({ fileRelay: true });
+
+		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(relayParams[0]).toEqual(expect.objectContaining({ settings, trackerSettings: { team: 'LO', apiKey: 'lin_key' } }));
 	});
 
 	test('refuses an unshippable ticket pattern up front, rather than after N tickets have been built', async () => {

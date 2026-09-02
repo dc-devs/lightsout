@@ -51,8 +51,10 @@ export const configKeyDescriptions: Record<string, string> = {
 	'standards-checks':
 		'Per-rule severity and settings overrides for `lightsout standards-check`, keyed by rule id. A rule not named here keeps its pack’s default — silence is never a change.',
 	ship: 'Opt-in `lightsout ship` settings: the branch ticket pattern whose `ticket` capture group becomes the result’s ticket reference, the pull request body template, the merge method, whether a passed implement run chains into ship, and an optional pre-ship command run before anything is pushed.',
+	'ticket-tracker':
+		'Opt-in tracker identity: which tracker the engine talks to, the team every query is scoped to, and the environment variable holding the API key. Every command that reads or writes a ticket resolves it from here, so tracker identity is spelled once rather than once per command.',
 	queue:
-		'Opt-in queue settings: which tracker the queue reads, the team every query is scoped to, which ticket label routes a ticket to which worker, how many tickets run at once, and the environment variable holding the API key. Every team-specific word lives here, so no tracker vocabulary reaches engine code.',
+		'Opt-in queue settings: which ticket label routes a ticket to which worker, how many tickets run at once, which ticket statuses count as available work, and the per-ticket worker and question timeouts. Tracker identity lives in `ticket-tracker`, so this block holds queue behaviour only.',
 	'auto-plan':
 		'Opt-in auto-plan settings: whether the proposal comes before drafting, whether an approved proposal starts the build, and whether the proposal is skipped when nothing clears the escalation bar. Every key is off by default, so an absent block is the most supervised behaviour.',
 	docs: 'Opt-in documentation surfaces: each entry a repo-relative path and a one-line `covers` saying what that document is responsible for. Declaring the block turns on the plan-time documentation check — the plan writer is briefed on the surfaces, every implementable plan file must carry a `## Documentation` statement, and `plan grade` runs one whole-plan checker that verifies it. A repository that declares no block sees none of it: no section, no prompt text, no checker spawn.',

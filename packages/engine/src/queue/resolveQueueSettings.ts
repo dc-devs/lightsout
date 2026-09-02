@@ -6,35 +6,34 @@ import { parseDurationMs } from '#src/queue/common/utils/parseDurationMs.ts';
 
 interface Params {
 	config: LightsoutConfig;
-	/** The process environment the API key is read from. Passed rather than read, so a test never needs to mutate `process.env`. */
+	/**
+	 * The process environment. Nothing in this block reads it any more — the API
+	 * key moved to `resolveTrackerSettings` — but it stays on the signature
+	 * beside it, so the two resolvers a command calls together are called the
+	 * same way.
+	 */
 	env: NodeJS.ProcessEnv;
 }
 
 /**
- * The `queue` block with its defaults applied and the API key read out of the
- * environment, or the one sentence saying why the queue cannot start.
+ * The `queue` block with its defaults applied, or the one sentence saying why
+ * the queue cannot start.
  *
- * It names the problem rather than answering undefined the way
- * `resolveShipSettings` does, because a missing block and a missing key are two
- * different things to fix and a user who hits one must not be told about the
- * other.
+ * It answers only for the `queue` block. Tracker identity is
+ * `resolveTrackerSettings`'s to resolve and its missing key is that function's
+ * to name, and the two failures still reach the user separately because
+ * `queueCommand` calls both — a missing block and a missing key are different
+ * things to fix, and a user who hits one must not be told about the other.
  *
  * The two status defaults are the one place the engine spells a status name,
  * and only as a fallback a repo overrides — the same shape as ship's default
  * ticket pattern.
  */
-export const resolveQueueSettings = ({ config, env }: Params): QueueSettings | QueueFailure => {
+export const resolveQueueSettings = ({ config }: Params): QueueSettings | QueueFailure => {
 	const queue = config.queue;
 
 	if (queue === undefined) {
-		return { error: '`lightsout queue` needs a `queue` block in lightsout.config.json naming tracker, team, route-labels, max-parallel and api-key-env' };
-	}
-
-	const apiKeyEnv = queue['api-key-env'];
-	const apiKey = env[apiKeyEnv];
-
-	if (apiKey === undefined || apiKey === '') {
-		return { error: `the queue's tracker API key is missing: set the \`${apiKeyEnv}\` environment variable` };
+		return { error: '`lightsout queue` needs a `queue` block in lightsout.config.json naming route-labels and max-parallel' };
 	}
 
 	const workerTimeoutMs = parseDurationMs({ value: queue['worker-timeout'] ?? '4h', key: 'queue.worker-timeout' });
@@ -50,10 +49,8 @@ export const resolveQueueSettings = ({ config, env }: Params): QueueSettings | Q
 	}
 
 	return {
-		team: queue.team,
 		routeLabels: { [QueueRoute.Direct]: queue['route-labels'].direct, [QueueRoute.AutoPlan]: queue['route-labels']['auto-plan'] },
 		maxParallel: queue['max-parallel'],
-		apiKey,
 		eligibleStatuses: queue['eligible-statuses'] ?? ['Backlog', 'Ready to implement'],
 		inProgressStatus: queue['in-progress-status'] ?? 'In Progress',
 		setup: queue.setup,

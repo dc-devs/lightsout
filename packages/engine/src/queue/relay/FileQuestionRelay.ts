@@ -6,6 +6,7 @@ import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { recordRelayedAnswer } from '#src/queue/relay/recordRelayedAnswer.ts';
+import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 
 /** Said both by an `ask` that arrives after `close`, and by a wait `close` cuts short — one fact, one wording. */
 const relayClosedMessage = 'the question relay is closed — no answer can arrive';
@@ -54,6 +55,7 @@ const removeExchange = async ({ questionPath, answerPath }: { questionPath: stri
 
 interface ConstructorParams {
 	settings: QueueSettings;
+	trackerSettings: TrackerSettings;
 	/** Absolute path to the mailbox, already created and emptied by the CLI. */
 	directory: string;
 	/** Where every worker's progress line is written — `process.stdout` in the CLI, a stream in tests. */
@@ -70,6 +72,7 @@ interface ConstructorParams {
  */
 export class FileQuestionRelay implements QuestionRelay {
 	private readonly settings: QueueSettings;
+	private readonly trackerSettings: TrackerSettings;
 	private readonly directory: string;
 	private readonly output: NodeJS.WritableStream;
 	// One question file per ticket is not enough: a worker may be answered and
@@ -78,8 +81,9 @@ export class FileQuestionRelay implements QuestionRelay {
 	private closed = false;
 	private readonly abandonWaits = new Set<(error: Error) => void>();
 
-	constructor({ settings, directory, output }: ConstructorParams) {
+	constructor({ settings, trackerSettings, directory, output }: ConstructorParams) {
 		this.settings = settings;
+		this.trackerSettings = trackerSettings;
 		this.directory = directory;
 		this.output = output;
 	}
@@ -112,6 +116,7 @@ export class FileQuestionRelay implements QuestionRelay {
 		await removeExchange({ questionPath, answerPath });
 		await recordRelayedAnswer({
 			settings: this.settings,
+			trackerSettings: this.trackerSettings,
 			question,
 			answer,
 			ticket,

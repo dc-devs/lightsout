@@ -108,6 +108,8 @@ The plan is graded and revised until nothing is left for the implementation agen
 
 When a plan starts from a `/brainstorm` hand-off, the decisions already settled there are carried straight into the plan rather than asked again; a settled decision is re-opened only when exploring the code turns up a concrete conflict.
 
+Once a plan is approved as ready, `lightsout plan publish --name <name>` attaches the plan and the decisions behind it to its ticket, so the finished plan is no longer stuck on the machine that wrote it.
+
 [![How /plan turns a request into an implementation-ready spec](assets/plan-workflow-light.svg)](assets/plan-workflow-light.svg)
 
 
@@ -140,6 +142,8 @@ What happens after you approve — stop at the hand-off line, or start the build
 Hand the finished spec to the factory. `/implement` follows the plan, writes the code and tests, and performs a mandatory refactoring pass.
 
 Deterministic gates run between every stage. If a test, lint, type-check, or coverage command fails, the pipeline stops. When the run succeeds, the complete record is written to `.lightsout/runs/<id>/`.
+
+A finished plan is not stuck on the machine that wrote it. `/implement` looks for the plan folder on local disk first; when it is not there, it fetches the plan's durable files from the ticket the folder is named after and writes them back, so a fresh clone on any machine can run the same plan. With nothing on disk and nothing on the ticket, the run stops with one message naming both places it looked.
 
 [![How /implement turns the spec into verified code](assets/implement-workflow-light.svg)](assets/implement-workflow-light.svg)
 

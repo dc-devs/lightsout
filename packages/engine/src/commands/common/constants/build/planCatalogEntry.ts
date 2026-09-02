@@ -1,7 +1,7 @@
 import { planSteps } from '#src/commands/common/constants/build/planSteps.ts';
 import { type CommandCatalogEntry, CommandGroup, CommandRecordKind } from '#src/contracts/index.ts';
 
-/** `/plan` — five subcommands under one command word, so it carries five invocations rather than one. */
+/** `/plan` — six subcommands under one command word, so it carries six invocations rather than one. */
 export const planCatalogEntry: CommandCatalogEntry = {
 	id: 'plan',
 	slash: '/plan',
@@ -16,9 +16,10 @@ export const planCatalogEntry: CommandCatalogEntry = {
 		{ id: 'plan-lint', positional: 'lint' },
 		{ id: 'plan-dedup', positional: 'dedup' },
 		{ id: 'plan-grade', positional: 'grade', note: '--phase grades only those phases, and always marks the result incomplete' },
+		{ id: 'plan-publish', positional: 'publish' },
 	],
 	flags: [
-		{ name: 'name', value: '<n>', meaning: 'The plan workspace to work in, under .lightsout/plans/.', required: true },
+		{ name: 'name', value: '<name>', meaning: 'The plan workspace to work in, under .lightsout/plans/.', required: true },
 		{
 			name: 'notes',
 			value: '<path>',

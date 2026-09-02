@@ -12,6 +12,7 @@ import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { TerminalQuestionRelay } from '#src/queue/relay/index.ts';
 import { runQueueTicket } from '#src/queue/runQueueTicket.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
+import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
 // -------------------------
@@ -23,7 +24,7 @@ const mockRunWorkerWithRelay = jest.fn<() => Promise<WorkerOutcome>>();
 const mockCommitTicketWork = jest.fn<(params: { cwd: string; message: string; runDir: string }) => Promise<{ committed: boolean } | QueueFailure>>();
 
 jest.mock('#src/queue/createTicketWorktree.ts', () => ({ createTicketWorktree: (params: { branch: string }) => mockCreateTicketWorktree(params) }));
-jest.mock('#src/queue/tracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/index.ts', () => ({
 	setTicketStatus: (params: { statusName: string }) => mockSetTicketStatus(params),
 	appendTicketNote: () => Promise.resolve(undefined),
 }));
@@ -34,6 +35,7 @@ jest.mock('#src/queue/commitTicketWork.ts', () => ({
 // -------------------------
 
 const settings = queueSettingsFixture();
+const trackerSettings = trackerSettingsFixture();
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 const driver: Driver = { name: 'claude-code', invoke: () => Promise.resolve({ text: '', exitCode: 0 }) };
@@ -45,6 +47,7 @@ const ticket: TicketSummary = {
 	description: 'Build the thing.',
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
+	labels: [],
 	route: QueueRoute.Direct,
 	unfinishedBlockers: [],
 };
@@ -59,19 +62,20 @@ const setupTicketRun = () => {
 	mockRunWorkerWithRelay.mockResolvedValue({});
 	mockCommitTicketWork.mockResolvedValue({ committed: true });
 
-	const relay = new TerminalQuestionRelay({ settings, input: new PassThrough(), output: new PassThrough() });
+	const relay = new TerminalQuestionRelay({ settings, trackerSettings, input: new PassThrough(), output: new PassThrough() });
 
 	const run = () =>
 		runQueueTicket({
 			cwd: '/tmp/repo',
 			settings,
+			trackerSettings,
 			ticket,
 			config,
 			driver,
 			driverName: 'claude-code',
 			defaultBranch: 'main',
 			relay,
-			serializeWorktreeAdd: (task) => task(),
+			serializeWorktreeAdd: ({ task }) => task(),
 			coordinatorRunId: 'run-q',
 			coordinatorRunDir,
 			onProgress: (message) => progress.push(message),

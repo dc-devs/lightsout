@@ -6,28 +6,8 @@ const base = { gates: { check: 'c', test: 't', 'test-coverage': false } };
 // The block contracts — Gates, PackageGates, ConfigCommands,
 // StandardsCheckOverrides — each pin their own shape in their own test. What
 // this file owns is the composed config: which blocks are required, which are
-// optional, the top-level fields, and the retired keys' loud refusals.
-
-test('LightsoutConfig: a stale traverse key parses without error and is stripped from the result', () => {
-	const parsed = LightsoutConfig.parse({ ...base, traverse: { connections: 'docs/connections' } });
-
-	// a leftover traverse block is silently ignored, not an error (decision 4: zod
-	// strips unknown keys)
-	expect(LightsoutConfig.safeParse({ ...base, traverse: { connections: 'docs/connections' } }).success).toBe(true);
-	// the removed capability leaves no traverse key on the parsed config
-	expect('traverse' in parsed).toBe(false);
-});
-
-test('LightsoutConfig: a leftover plansDir key parses without error and is stripped from the result', () => {
-	const parsed = LightsoutConfig.parse({ ...base, plansDir: 'docs/plans' });
-
-	// unlike driver and scan, the removed plans root gets no explicit rejection: a
-	// plan now always lives in its own workspace folder, so a config still carrying
-	// the old key keeps parsing instead of failing the run
-	expect(LightsoutConfig.safeParse({ ...base, plansDir: 'docs/plans' }).success).toBe(true);
-	// the removed field leaves no plansDir key on the parsed config
-	expect('plansDir' in parsed).toBe(false);
-});
+// optional, and the top-level fields. The retired spellings and their refusals
+// are the neighbouring `LightsoutConfig.removedKeys` suite.
 
 test('LightsoutConfig: gates is required, and every other block is optional', () => {
 	// with no gates block there is nothing to verify a run with
@@ -108,30 +88,45 @@ test('LightsoutConfig: the auto-plan block is optional, keeps its own kebab-case
 
 test('LightsoutConfig: the queue block is optional, keeps its own kebab-case spelling, and stays strict through the composition', () => {
 	const queue = {
-		tracker: 'linear',
-		team: 'LO',
 		'route-labels': { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
 		'max-parallel': 3,
-		'api-key-env': 'LINEAR_API_KEY',
 	};
 
 	const parsed = LightsoutConfig.parse({ ...base, queue });
 
-	// the block survives parsing as the file wrote it — every team-specific word
-	// reaches the queue exactly as the repo spelled it, because the engine spells
+	// the block survives parsing as the file wrote it — every queue convention
+	// reaches the drain exactly as the repo spelled it, because the engine spells
 	// none of them in source
 	expect(parsed.queue).toStrictEqual(queue);
 
 	// the block's own strictness fires through the composition: a typoed key here
 	// would silently disable a setting the file believes is on
 	expect(LightsoutConfig.safeParse({ ...base, queue: { ...queue, 'max-parralel': 2 } }).success).toBe(false);
-	// and a tracker with no adapter behind it is refused when config is read,
-	// rather than at the first query of a drain
-	expect(LightsoutConfig.safeParse({ ...base, queue: { ...queue, tracker: 'jira' } }).success).toBe(false);
 
 	// queue is opt-in: an absent block leaves no key on the parsed config, and a
 	// repo that never runs the queue needs none of it
 	expect('queue' in LightsoutConfig.parse(base)).toBe(false);
+});
+
+test('LightsoutConfig: the ticket-tracker block is optional, keeps its own kebab-case spelling, and stays strict through the composition', () => {
+	const tracker = { provider: 'linear', team: 'LO', 'api-key-env': 'LINEAR_API_KEY' };
+
+	const parsed = LightsoutConfig.parse({ ...base, 'ticket-tracker': tracker });
+
+	// the block survives parsing as the file wrote it — tracker identity is one
+	// fact, spelled once, and nothing renames a key on the way through
+	expect(parsed['ticket-tracker']).toStrictEqual(tracker);
+
+	// the block's own strictness fires through the composition: a typoed key here
+	// would silently disable a setting the file believes is on
+	expect(LightsoutConfig.safeParse({ ...base, 'ticket-tracker': { ...tracker, 'api-key-nev': 'X' } }).success).toBe(false);
+	// and a tracker with no adapter behind it is refused when config is read,
+	// rather than at the first query of a drain
+	expect(LightsoutConfig.safeParse({ ...base, 'ticket-tracker': { ...tracker, provider: 'jira' } }).success).toBe(false);
+
+	// ticket-tracker is opt-in: an absent block leaves no key on the parsed
+	// config, and the engine runs with no tracker at all
+	expect('ticket-tracker' in LightsoutConfig.parse(base)).toBe(false);
 });
 
 test('LightsoutConfig: the docs block is optional, survives the composition entry for entry, and stays strict', () => {
@@ -188,29 +183,6 @@ test('LightsoutConfig: permissions accepts the two settable levels and rejects e
 	}
 });
 
-test('LightsoutConfig: the removed driver and permissionMode keys are refused with a message naming their replacement', () => {
-	const driverResult = LightsoutConfig.safeParse({ ...base, driver: 'codex' });
-	const permissionModeResult = LightsoutConfig.safeParse({ ...base, permissionMode: 'bypassPermissions' });
-
-	// the top level is not strict, so a stale key must be refused explicitly or it
-	// would be silently discarded
-	expect(driverResult.success).toBe(false);
-	// the message is the whole point of the rejection
-	expect(driverResult.error?.message ?? '').toMatch(/renamed to `harness`/);
-
-	expect(permissionModeResult.success).toBe(false);
-	expect(permissionModeResult.error?.message ?? '').toMatch(/replaced by `permissions`/);
-});
-
-test('LightsoutConfig: a config carrying neither removed key still parses clean', () => {
-	const parsed = LightsoutConfig.parse({ ...base, harness: 'codex', model: 'gpt-5.2', effort: 'high', permissions: 'write' });
-
-	// the rejections must not fire on absence
-	expect(parsed.harness).toBe('codex');
-	expect('driver' in parsed).toBe(false);
-	expect('permissionMode' in parsed).toBe(false);
-});
-
 test('LightsoutConfig: coverage-summary-path is optional and parses as the path the coverage tooling writes', () => {
 	expect(LightsoutConfig.parse({ ...base, 'coverage-summary-path': 'reports/coverage-summary.json' })['coverage-summary-path']).toBe(
 		'reports/coverage-summary.json',
@@ -242,30 +214,6 @@ test.each([
 	// file, and a non-number would be compared against a file count as something
 	// other than a number — both are caught when config is read, not mid-run
 	expect(LightsoutConfig.safeParse({ ...base, 'executor-file-limit': value }).success).toBe(false);
-});
-
-test('LightsoutConfig: the camelCase executorFileLimit is stripped rather than refused by name', () => {
-	const parsed = LightsoutConfig.parse({ ...base, executorFileLimit: 80 });
-
-	// unlike every renamed key beside it, this one is new: there is no earlier
-	// spelling to migrate from, so no refusal is declared and the unknown key is
-	// simply dropped the way zod drops any other
-	expect('executorFileLimit' in parsed).toBe(false);
-	expect(parsed['executor-file-limit']).toBe(undefined);
-});
-
-test('LightsoutConfig: the removed scripts and packageScripts keys are refused with a message naming their new name', () => {
-	const scriptsResult = LightsoutConfig.safeParse({ scripts: { check: 'c', test: 't', 'test-coverage': false } });
-	const packageScriptsResult = LightsoutConfig.safeParse({ ...base, packageScripts: { check: 'c {package}', test: 't {package}' } });
-
-	// the top level is not strict, so a stale block would otherwise be discarded
-	// silently — leaving a config with no gates at all
-	expect(scriptsResult.success).toBe(false);
-	// the message is the whole point of the rejection — it names the new key
-	expect(scriptsResult.error?.message ?? '').toMatch(/renamed to `gates`/);
-
-	expect(packageScriptsResult.success).toBe(false);
-	expect(packageScriptsResult.error?.message ?? '').toMatch(/renamed to `package-gates`/);
 });
 
 test('LightsoutConfig: standards-packs accepts relative and absolute pack roots, in config order', () => {
@@ -314,85 +262,4 @@ test.each([
 	// the opt-out is the literal false and nothing else — a truthy or nullish value
 	// near it would otherwise read as an opt-out and silently drop every standard
 	expect(LightsoutConfig.safeParse({ ...base, 'standards-packs': standardsPacks }).success).toBe(false);
-});
-
-test('LightsoutConfig: the removed standards-packages spelling is refused with a message naming standards-packs', () => {
-	const result = LightsoutConfig.safeParse({ ...base, 'standards-packages': ['standards/house'] });
-
-	// the top level is not strict, so the old kebab spelling would otherwise be
-	// stripped silently and the repo would run the defaults it thought it replaced
-	expect(result.success).toBe(false);
-	expect(result.error?.message ?? '').toMatch(/`standards-packages` was renamed to `standards-packs`/);
-	// the rejection is about the key, not its contents: even the opt-out value fails
-	expect(LightsoutConfig.safeParse({ ...base, 'standards-packages': false }).success).toBe(false);
-});
-
-test('LightsoutConfig: a half-migrated config carrying the new key beside a stale spelling still fails', () => {
-	const kebabResult = LightsoutConfig.safeParse({ ...base, 'standards-packs': ['standards/house'], 'standards-packages': ['standards/old'] });
-	const camelResult = LightsoutConfig.safeParse({ ...base, 'standards-packs': ['standards/house'], standardsPackages: ['standards/old'] });
-
-	// a correct new key beside a stale one is the likeliest half-done migration, and
-	// the refusal must still fire: otherwise the stale roots are stripped in silence
-	// and the config reads as if it had asked for both
-	expect(kebabResult.success).toBe(false);
-	expect(kebabResult.error?.message ?? '').toMatch(/`standards-packages` was renamed to `standards-packs`/);
-	expect(camelResult.success).toBe(false);
-	expect(camelResult.error?.message ?? '').toMatch(/`standardsPackages` was renamed to `standards-packs`/);
-});
-
-test('LightsoutConfig: the removed standards and testStandards keys are refused with a message naming standards-packs', () => {
-	const codeResult = LightsoutConfig.safeParse({ ...base, standards: ['docs/style.md'] });
-	const testResult = LightsoutConfig.safeParse({ ...base, testStandards: ['docs/tests.md'] });
-
-	// the top level is not strict, so a retired key must be refused explicitly or a
-	// repo's standards would be silently dropped and the defaults used instead
-	expect(codeResult.success).toBe(false);
-	expect(codeResult.error?.message ?? '').toMatch(/replaced by `standards-packs`/);
-	expect(testResult.success).toBe(false);
-	expect(testResult.error?.message ?? '').toMatch(/replaced by `standards-packs`/);
-	// the rejection is about the key, not its contents: even the old opt-out value fails
-	expect(LightsoutConfig.safeParse({ ...base, standards: false }).success).toBe(false);
-});
-
-test('LightsoutConfig: the removed scan key is refused with a message naming standards-checks', () => {
-	const scanResult = LightsoutConfig.safeParse({ ...base, scan: { minCloneTokens: 40 } });
-
-	// the top level is not strict, so the retired key must be refused explicitly or
-	// a repo's tuning would be silently discarded and the defaults used instead
-	expect(scanResult.success).toBe(false);
-	// the message is the whole point of the rejection — it names the new key
-	expect(scanResult.error?.message ?? '').toMatch(/renamed to `standards-checks`/);
-	// the rejection is about the key, not its contents: even an empty block fails
-	expect(LightsoutConfig.safeParse({ ...base, scan: {} }).success).toBe(false);
-});
-
-test.each([
-	{ key: 'agentCommands', value: ['pnpm'], to: 'agent-commands' },
-	{ key: 'coverageSummaryPath', value: 'reports/summary.json', to: 'coverage-summary-path' },
-	{ key: 'packagesDir', value: 'apps', to: 'packages-dir' },
-	{ key: 'packageGates', value: { check: 'c {package}', test: 't {package}' }, to: 'package-gates' },
-	{ key: 'standardsPackages', value: false, to: 'standards-packs' },
-	{ key: 'standardsChannels', value: ['react'], to: 'standards-channels' },
-	{ key: 'standardsChecks', value: { 'duplicate-code-block': 'off' }, to: 'standards-checks' },
-])('LightsoutConfig: the camelCase $key is refused with a message naming $to', ({ key, value, to }) => {
-	const result = LightsoutConfig.safeParse({ ...base, [key]: value });
-
-	// every key is kebab-case now; the old spelling would otherwise be stripped
-	// silently and the setting it carried would quietly stop applying
-	expect(result.success).toBe(false);
-	expect(result.error?.message ?? '').toMatch(new RegExp(`\`${key}\` was renamed to \`${to}\``));
-});
-
-test('LightsoutConfig: the timeouts block takes kebab-case minutes and refuses the camelCase spellings by name', () => {
-	const parsed = LightsoutConfig.parse({ ...base, timeouts: { 'agent-minutes': 90, 'supervisor-minutes': 20 } });
-
-	expect(parsed.timeouts).toStrictEqual({ 'agent-minutes': 90, 'supervisor-minutes': 20 });
-
-	const agentResult = LightsoutConfig.safeParse({ ...base, timeouts: { agentMinutes: 90 } });
-	const supervisorResult = LightsoutConfig.safeParse({ ...base, timeouts: { supervisorMinutes: 20 } });
-
-	expect(agentResult.success).toBe(false);
-	expect(agentResult.error?.message ?? '').toMatch(/`timeouts.agentMinutes` was renamed to `timeouts.agent-minutes`/);
-	expect(supervisorResult.success).toBe(false);
-	expect(supervisorResult.error?.message ?? '').toMatch(/`timeouts.supervisorMinutes` was renamed to `timeouts.supervisor-minutes`/);
 });

@@ -13,10 +13,12 @@ import { listNextWave } from '#src/queue/listNextWave.ts';
 import { runQueueWave } from '#src/queue/runQueueWave.ts';
 import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
 import type { ShipSettings } from '#src/ship/index.ts';
+import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
 	cwd: string;
 	settings: QueueSettings;
+	trackerSettings: TrackerSettings;
 	shipSettings: ShipSettings;
 	config: LightsoutConfig;
 	defaultBranch: string;
@@ -93,6 +95,7 @@ const settleWave = ({
 export const drainWaves = async ({
 	cwd,
 	settings,
+	trackerSettings,
 	shipSettings,
 	config,
 	defaultBranch,
@@ -146,7 +149,7 @@ export const drainWaves = async ({
 			break;
 		}
 
-		const next = await listNextWave({ settings, attempted, onProgress });
+		const next = await listNextWave({ settings, trackerSettings, attempted, onProgress });
 
 		if ('error' in next) {
 			onProgress?.(`the re-scan for newly unblocked tickets failed, so the drain stops here: ${next.error}`);

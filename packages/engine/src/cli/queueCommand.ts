@@ -18,6 +18,7 @@ import {
 } from '#src/queue/index.ts';
 import { isPidAlive, readRunLock } from '#src/runState/index.ts';
 import { resolveShipSettings } from '#src/ship/index.ts';
+import { resolveTrackerSettings, type TrackerSettings } from '#src/ticketTracker/index.ts';
 
 /** One line per ticket the drain touched, and one per ticket it deliberately did not — a ticket must never vanish from the summary. */
 const printDrainReport = ({ report }: { report: QueueDrainReport }) => {
@@ -43,9 +44,19 @@ const printDrainReport = ({ report }: { report: QueueDrainReport }) => {
  * `--file-relay` and the directory string when one followed it — a bare flag
  * means the default mailbox under `.lightsout/queue/relay`.
  */
-const buildRelay = async ({ requested, settings, cwd }: { requested: string | true | undefined; settings: QueueSettings; cwd: string }) => {
+const buildRelay = async ({
+	requested,
+	settings,
+	trackerSettings,
+	cwd,
+}: {
+	requested: string | true | undefined;
+	settings: QueueSettings;
+	trackerSettings: TrackerSettings;
+	cwd: string;
+}) => {
 	if (requested === undefined) {
-		return new TerminalQuestionRelay({ settings, input: process.stdin, output: process.stdout });
+		return new TerminalQuestionRelay({ settings, trackerSettings, input: process.stdin, output: process.stdout });
 	}
 
 	const directory = requested === true ? resolve(cwd, '.lightsout', 'queue', 'relay') : resolve(cwd, requested);
@@ -55,7 +66,7 @@ const buildRelay = async ({ requested, settings, cwd }: { requested: string | tr
 	// landed, and a relative value resolves against `--cwd` like every other path.
 	console.log(`relaying questions through ${directory}`);
 
-	return new FileQuestionRelay({ settings, directory, output: process.stdout });
+	return new FileQuestionRelay({ settings, trackerSettings, directory, output: process.stdout });
 };
 
 /**
@@ -63,10 +74,15 @@ const buildRelay = async ({ requested, settings, cwd }: { requested: string | tr
  * worktrees, relaying any question to this terminal or to the mailbox
  * `--file-relay` names.
  *
- * Both unusable configurations are answered here rather than by the drain:
- * they are startup usage errors like every other bad flag, and the queue ships
- * what it builds, so it refuses an unshippable configuration up front rather
- * than after N tickets have been built.
+ * Every unusable configuration is answered here rather than by the drain: they
+ * are startup usage errors like every other bad flag, and the queue ships what
+ * it builds, so it refuses an unshippable configuration up front rather than
+ * after N tickets have been built.
+ *
+ * The queue needs both the `queue` block and the `ticket-tracker` block, and
+ * says which one is missing. `queue` is resolved first, so a repo carrying
+ * neither hears about the block the command is named for rather than about a
+ * tracker it has not reached yet.
  *
  * The workers are implement work, so they resolve the config's `implement`
  * harness entry rather than needing a `queue` key of their own.
@@ -77,6 +93,13 @@ export const queueCommand = async ({ flags, cwd }: CommandContext): Promise<void
 
 	if ('error' in settings) {
 		console.error(settings.error);
+		return exitCli({ code: 1 });
+	}
+
+	const trackerSettings = resolveTrackerSettings({ config: loaded, env: process.env });
+
+	if ('error' in trackerSettings) {
+		console.error(trackerSettings.error);
 		return exitCli({ code: 1 });
 	}
 
@@ -112,12 +135,13 @@ export const queueCommand = async ({ flags, cwd }: CommandContext): Promise<void
 	// `runShip` directly and never reads this.
 	process.env.LIGHTSOUT_NO_SHIP = '1';
 
-	const relay: QuestionRelay = await buildRelay({ requested, settings, cwd });
+	const relay: QuestionRelay = await buildRelay({ requested, settings, trackerSettings, cwd });
 	// Closed on every exit path, so a crash never leaves the terminal holding a
 	// half-written prompt.
 	const report = await runQueue({
 		cwd,
 		settings,
+		trackerSettings,
 		shipSettings,
 		config,
 		driver,

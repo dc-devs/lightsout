@@ -89,6 +89,30 @@ describe('commandCatalog', () => {
 		expect(byId.get('auto-plan')?.invocations).toStrictEqual([]);
 	});
 
+	test('routes every plan subcommand as its own invocation, in the order a plan is worked through', () => {
+		const { byId } = setupCatalog();
+		const planShapes = byId.get('plan')?.invocations.map((invocation) => [invocation.id, invocation.positional]);
+
+		expect(planShapes).toStrictEqual([
+			['plan-verify-facts', 'verify-facts'],
+			['plan-draft', 'draft'],
+			['plan-lint', 'lint'],
+			['plan-dedup', 'dedup'],
+			['plan-grade', 'grade'],
+			['plan-publish', 'publish'],
+		]);
+	});
+
+	test('notes the extra meaning only on the plan subcommand whose flag changes its result', () => {
+		const { byId } = setupCatalog();
+		const noted = byId
+			.get('plan')
+			?.invocations.filter((invocation) => invocation.note !== undefined)
+			.map((invocation) => invocation.id);
+
+		expect(noted).toStrictEqual(['plan-grade']);
+	});
+
 	test('leaves exactly the skill-only commands without a CLI word, so nothing types `lightsout auto-plan` at a route that is not there', () => {
 		const skillOnly = commandCatalog.filter((entry) => entry.cli === undefined).map((entry) => entry.id);
 

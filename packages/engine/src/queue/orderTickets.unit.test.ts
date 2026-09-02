@@ -18,6 +18,7 @@ const ticketOf = ({
 	description: '',
 	priority,
 	createdAt,
+	labels: [],
 	route: QueueRoute.Direct,
 	unfinishedBlockers: [],
 });

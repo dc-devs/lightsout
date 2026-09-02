@@ -1,6 +1,6 @@
 ---
 name: queue
-description: Start the lightsout queue — drain the tracker of automatable tickets in parallel worktrees, shipping a PR per ticket. Use when the user asks to start the queue, drain the tickets, run the ticket queue, or work the backlog lights-out. Requires a `queue` block in lightsout.config.json and the tracker API key in the environment.
+description: Start the lightsout queue — drain the tracker of automatable tickets in parallel worktrees, shipping a PR per ticket. Use when the user asks to start the queue, drain the tickets, run the ticket queue, or work the backlog lights-out. Requires `queue` and `ticket-tracker` blocks in lightsout.config.json and the tracker API key in the environment.
 allowed-tools: Bash, Read, Write, Glob
 ---
 

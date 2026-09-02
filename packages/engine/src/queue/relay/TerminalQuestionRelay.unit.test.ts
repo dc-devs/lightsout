@@ -5,10 +5,11 @@ import { PassThrough, Writable } from 'node:stream';
 import { describe, expect, jest, test } from '@jest/globals';
 import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { TerminalQuestionRelay } from '#src/queue/relay/index.ts';
+import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
+import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
 // -------------------------
@@ -16,14 +17,15 @@ import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 // decisions file is real, because where the queue records Q&A is the behaviour
 // under test.
 const mockAppendTicketNote =
-	jest.fn<(params: { settings: QueueSettings; ticketId: string; heading: string; line: string }) => Promise<QueueFailure | undefined>>();
+	jest.fn<(params: { settings: TrackerSettings; ticketId: string; heading: string; line: string }) => Promise<QueueFailure | undefined>>();
 
-jest.mock('#src/queue/tracker/index.ts', () => ({
-	appendTicketNote: (params: { settings: QueueSettings; ticketId: string; heading: string; line: string }) => mockAppendTicketNote(params),
+jest.mock('#src/ticketTracker/index.ts', () => ({
+	appendTicketNote: (params: { settings: TrackerSettings; ticketId: string; heading: string; line: string }) => mockAppendTicketNote(params),
 }));
 // -------------------------
 
 const settings = queueSettingsFixture();
+const trackerSettings = trackerSettingsFixture();
 
 const ticketOf = (overrides: Partial<TicketSummary> = {}): TicketSummary => ({
 	id: 'id-70',
@@ -32,6 +34,7 @@ const ticketOf = (overrides: Partial<TicketSummary> = {}): TicketSummary => ({
 	description: '',
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
+	labels: [],
 	route: QueueRoute.Direct,
 	unfinishedBlockers: [],
 	...overrides,
@@ -68,7 +71,7 @@ const setupRelay = ({ answers = [], atPrompt }: { answers?: string[]; atPrompt?:
 
 	mockAppendTicketNote.mockResolvedValue(undefined);
 
-	const relay = new TerminalQuestionRelay({ settings, input, output });
+	const relay = new TerminalQuestionRelay({ settings, trackerSettings, input, output });
 	const coordinatorRunDir = mkdtempSync(join(tmpdir(), 'lightsout-relay-'));
 
 	return { relay, input, coordinatorRunDir, terminal: () => written.join('') };
@@ -111,7 +114,12 @@ describe('TerminalQuestionRelay', () => {
 		await relay.ask({ question: 'Which one?', ticket: ticketOf(), coordinatorRunId: 'run-q', coordinatorRunDir });
 		relay.close();
 
-		expect(mockAppendTicketNote).toHaveBeenCalledWith({ settings, ticketId: 'id-70', heading: '## Decisions', line: '- Which one? → the second one' });
+		expect(mockAppendTicketNote).toHaveBeenCalledWith({
+			settings: trackerSettings,
+			ticketId: 'id-70',
+			heading: '## Decisions',
+			line: '- Which one? → the second one',
+		});
 	});
 
 	test('warns rather than failing when the ticket copy cannot be written — the answer is already on the worker’s disk', async () => {

@@ -11,6 +11,7 @@ import { planDedupCommand } from '#src/cli/plan/planDedupCommand.ts';
 import { planDraftCommand } from '#src/cli/plan/planDraftCommand.ts';
 import { planGradeCommand } from '#src/cli/plan/planGradeCommand.ts';
 import { planLintCommand } from '#src/cli/plan/planLintCommand.ts';
+import { planPublishCommand } from '#src/cli/plan/planPublishCommand.ts';
 import { planVerifyFactsCommand } from '#src/cli/plan/planVerifyFactsCommand.ts';
 import { readPlanningStandards } from '#src/cli/plan/readPlanningStandards.ts';
 
@@ -21,7 +22,7 @@ export const planCommand = async ({ flags, rest, cwd }: CommandContext): Promise
 	// Every subcommand that addresses a plan by name gets the advisory once,
 	// before dispatch — an unknown subcommand is excluded, so it still falls
 	// through to the usage error with nothing printed ahead of it.
-	if (planName !== undefined && ['draft', 'dedup', 'grade', 'lint', 'verify-facts'].includes(subcommand ?? '')) {
+	if (planName !== undefined && ['draft', 'dedup', 'grade', 'lint', 'publish', 'verify-facts'].includes(subcommand ?? '')) {
 		await printPlanTicketWarning({ cwd, name: planName });
 	}
 
@@ -34,6 +35,13 @@ export const planCommand = async ({ flags, rest, cwd }: CommandContext): Promise
 	// lint is deterministic — no agent, so no resolveConfigAndDriver.
 	if (subcommand === 'lint') {
 		await planLintCommand({ flags, rest, cwd });
+		return;
+	}
+
+	// publish spawns no agent either — it reads the plan folder and talks to the
+	// tracker, so it needs no driver.
+	if (subcommand === 'publish') {
+		await planPublishCommand({ flags, rest, cwd });
 		return;
 	}
 

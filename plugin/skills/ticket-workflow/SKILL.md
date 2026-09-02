@@ -429,6 +429,13 @@ A `route-auto-plan` ticket attaches the same four files; when no brainstorm
 ran, its `notes.md` is the one `/auto-plan` wrote for itself from the ticket
 before planning.
 
+Do not attach them by hand. Run `lightsout plan publish --name <name>` from the
+machine holding the plan folder: it resolves the durable set itself — the plan
+deliverable in whatever shape it has, plus each record the folder holds — and
+attaches one file per attachment under the file's own name. A re-publish
+replaces a same-titled attachment rather than doubling it, so running it again
+after an amendment is safe.
+
 Skip `facts.json` — it predicts which files the work will touch, and once the
 PR exists the diff answers that better. Skip `brainstorm-decisions.json`: `plan
 draft` merges its rows into the plan, so `plan.md`'s Decision Log already
@@ -468,11 +475,12 @@ arrive.
 exactly one laptop, and any other agent picking up that ticket sees a problem
 statement with none of the shaping behind it.
 
-Attaching them makes the ticket **readable** by a fresh agent. It does not yet
-make it **runnable**: `/lightsout:implement` takes a folder path on disk, so the
-agent must rebuild `.lightsout/plans/<name>/` from the attachments before the
-command works. It can derive the folder name from the ticket id when the plan
-was named after its ticket.
+A published plan makes the ticket both **readable** and **runnable** by a fresh
+agent. Nothing has to be rebuilt by hand: `/lightsout:implement
+.lightsout/plans/<name>` finds nothing on disk, reads the ticket id off the
+folder name, fetches the durable files from that ticket and writes the folder
+itself. The folder name is derived from the ticket id when the plan was named
+after its ticket, which is the key the fetch turns on.
 
 Re-attach at close if implementing amended the plan. The final version is the
 one worth keeping, and the tracker keeps both.

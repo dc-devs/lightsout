@@ -1,4 +1,5 @@
 export { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
+export { pathExists } from '#src/plan/common/paths/pathExists.ts';
 export type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 export type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
 export { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.ts';
@@ -13,10 +14,12 @@ export { planNameFromPath } from '#src/plan/planNameFromPath.ts';
 export { plansDir } from '#src/plan/plansDir.ts';
 export { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 export { planWorkspacePath } from '#src/plan/planWorkspacePath.ts';
+export { durablePlanFiles, publishPlan } from '#src/plan/publish/index.ts';
 export { readBrainstormDecisions } from '#src/plan/readBrainstormDecisions.ts';
 export { readDecisions } from '#src/plan/readDecisions.ts';
 export { readPlanFacts } from '#src/plan/readPlanFacts.ts';
 export { readPlanTicketRef } from '#src/plan/readPlanTicketRef.ts';
+export { restorePlanWorkspace } from '#src/plan/restore/index.ts';
 export { runPlanDedup } from '#src/plan/runPlanDedup.ts';
 export { runPlanGrade } from '#src/plan/runPlanGrade.ts';
 export { runPlanLint } from '#src/plan/runPlanLint.ts';

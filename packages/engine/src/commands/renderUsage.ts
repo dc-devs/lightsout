@@ -34,6 +34,7 @@ const usageOrder = [
 	'plan-lint',
 	'plan-dedup',
 	'plan-grade',
+	'plan-publish',
 	'friction',
 	'improve',
 	'voice-toggle',

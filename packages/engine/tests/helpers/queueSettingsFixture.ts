@@ -10,10 +10,8 @@ import type { QueueSettings } from '#src/queue/index.ts';
  * reader can act on.
  */
 export const queueSettingsFixture = (overrides: Partial<QueueSettings> = {}): QueueSettings => ({
-	team: 'LO',
 	routeLabels: { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
 	maxParallel: 2,
-	apiKey: 'lin_key',
 	eligibleStatuses: ['Backlog'],
 	inProgressStatus: 'In Progress',
 	branchTemplate: '{ticket}-{slug}',

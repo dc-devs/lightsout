@@ -1,24 +1,19 @@
 import type { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
 
 /**
- * The `queue` config block with every default already applied and the API key
- * already read out of the environment.
+ * The `queue` config block with every default already applied.
  *
  * Resolved once at the edge so no step downstream re-decides one, exactly as
  * `ShipSettings` is: a queue handed these may assume they are usable.
  *
- * There is no `tracker` field. The block's `tracker` key exists so a second
- * adapter can be named later, and while `linear` is the only literal it accepts
- * there is nothing for a resolved setting to vary on.
+ * Tracker identity is not here: it is a `TrackerSettings`, resolved from the
+ * `ticket-tracker` block and carried beside these settings, so the queue's own
+ * behaviour and the tracker's address are never one object again.
  */
 export interface QueueSettings {
-	/** The tracker's team key. */
-	team: string;
 	/** The ticket label naming each route. */
 	routeLabels: Record<QueueRoute, string>;
 	maxParallel: number;
-	/** The key itself, read from the configured environment variable. Never logged. */
-	apiKey: string;
 	/** Statuses a ticket may be in to be picked up. */
 	eligibleStatuses: string[];
 	/** Status a picked-up ticket is moved to. */

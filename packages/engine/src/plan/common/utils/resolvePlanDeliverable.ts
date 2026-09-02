@@ -27,6 +27,11 @@ interface ResolvedDeliverable {
  * plan's working files (`notes.md`, the JSON records) — none of which is a plan
  * to grade. Shared by the dedup and grade passes, which resolve the deliverable
  * identically.
+ *
+ * Disk-only by design, and it stays that way: `plan dedup` and `plan grade` are
+ * read-only passes, so a tracker fetch added here would make every detection
+ * pass reach the network unannounced. The error names the fetch instead of
+ * doing it — `implement` owns the restore, at its own command edge.
  */
 export const resolvePlanDeliverable = async ({ cwd, name }: Params): Promise<ResolvedDeliverable> => {
 	const dir = planWorkspaceDir({ cwd, name });
@@ -56,7 +61,10 @@ export const resolvePlanDeliverable = async ({ cwd, name }: Params): Promise<Res
 	}
 
 	if (files.length === 0) {
-		return { files, error: `no plan found for '${name}' — expected ${singlePath} or ${dir}/phase<N>-<slug>.md` };
+		return {
+			files,
+			error: `no plan found for '${name}' — expected ${singlePath} or ${dir}/phase<N>-<slug>.md. This pass reads the disk only and asked no tracker; \`lightsout implement\` fetches a plan published to its ticket, or run \`lightsout plan publish --name ${name}\` from the machine that has it.`,
+		};
 	}
 
 	return { overviewPath, overviewText, files };

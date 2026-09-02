@@ -5,6 +5,7 @@ import { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
 import { ConfigGates } from '#src/contracts/ConfigGates.ts';
 import { ConfigQueue } from '#src/contracts/ConfigQueue.ts';
 import { ConfigShip } from '#src/contracts/ConfigShip.ts';
+import { ConfigTicketTracker } from '#src/contracts/ConfigTicketTracker.ts';
 import { renamedKey } from '#src/contracts/common/utils/renamedKey.ts';
 import { Effort } from '#src/contracts/Effort.ts';
 import { PackageGates } from '#src/contracts/PackageGates.ts';
@@ -13,8 +14,9 @@ import { StandardsCheckOverrides } from '#src/contracts/StandardsCheckOverrides.
 
 /**
  * Consumer configuration (`lightsout.config.json` at the target repo root).
- * This is the only coupling point between the engine and a consumer — the
- * engine never knows a consumer by name.
+ * This is the only coupling point between the engine and a consumer, and every
+ * block naming an outside service is opt-in — so the engine runs with no
+ * tracker, no forge convention and no documentation surfaces at all.
  *
  * Every key is kebab-case, the spelling of the file rather than of the code
  * that reads it: `package-gates`, `test-coverage`, `agent-commands`. The parsed
@@ -178,7 +180,9 @@ export const LightsoutConfig = z.object({
 	ship: ConfigShip.optional(),
 	/** Opt-in auto-plan settings — which of `/auto-plan`'s checkpoints this repo keeps. See `ConfigAutoPlan`. */
 	'auto-plan': ConfigAutoPlan.optional(),
-	/** Opt-in queue settings — tracker, team, route labels, parallelism and the API-key environment variable. See `ConfigQueue`. */
+	/** Opt-in tracker identity — provider, team, and the API-key environment variable. See `ConfigTicketTracker`. */
+	'ticket-tracker': ConfigTicketTracker.optional(),
+	/** Opt-in queue settings — route labels, parallelism, eligible statuses and the queue's own timeouts. See `ConfigQueue`. */
 	queue: ConfigQueue.optional(),
 	/** Opt-in documentation surfaces — each a repo-relative path and what that document covers. See `ConfigDocs`. */
 	docs: ConfigDocs.optional(),

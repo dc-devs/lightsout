@@ -1,32 +1,14 @@
 import type { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
+import type { TrackerTicket } from '#src/ticketTracker/index.ts';
 
 /**
- * One ticket, reduced to what the queue actually uses.
+ * One ticket the queue is working, which is a tracker ticket plus the route its
+ * labels resolved to.
  *
- * The tracker adapter builds these; nothing outside `queue/tracker/` ever sees
- * a tracker's own type, which is what keeps swapping trackers a change inside
- * that folder alone.
+ * The seam builds the `TrackerTicket`; `toRoutedSummaries` is the one place a
+ * label becomes a route.
  */
-export interface TicketSummary {
-	/** The tracker's internal id — what every write call takes. */
-	id: string;
-	/** The human reference, e.g. 'LO-70'. */
-	identifier: string;
-	title: string;
-	/** The ticket body as markdown. Empty string when the ticket has none. */
-	description: string;
-	/** Linear's priority scale: 0 none, 1 urgent, 2 high, 3 medium, 4 low. */
-	priority: number;
-	/** ISO timestamp — the tiebreak within a priority. */
-	createdAt: string;
+export interface TicketSummary extends TrackerTicket {
 	/** Which route label this ticket carried. */
 	route: QueueRoute;
-	/**
-	 * Identifiers of blocking tickets that are not finished — empty when nothing
-	 * blocks this one.
-	 *
-	 * The adapter reports what it saw; the drain is the one place the skip policy
-	 * lives, exactly as it is for the double-label skip.
-	 */
-	unfinishedBlockers: string[];
 }
