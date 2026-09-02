@@ -102,10 +102,9 @@ test('coverage replaces the plain test run in gate sets that include it', async 
 
 	const coveredLines = readGateLog({ dir });
 
-	// coverage ran
-	expect(coveredLines.some((line) => line.endsWith(' coverage'))).toBeTruthy();
-	// plain test run replaced — same suites, one fleet
-	expect(coveredLines.some((line) => line.endsWith(' test'))).toBeFalsy();
+	// coverage replaced the plain test and root precedence kept the affected
+	// package group out of this mixed-scope run
+	expect(coveredLines).toStrictEqual(['root check', 'root coverage']);
 
 	const withoutCoverage = await runGates({ cwd: dir, config, packages: ['api'], includeRoot: true });
 
@@ -113,13 +112,12 @@ test('coverage replaces the plain test run in gate sets that include it', async 
 
 	const allLines = readGateLog({ dir }).slice(coveredLines.length);
 
-	// plain test run returns when the set has no coverage
-	expect(allLines.some((line) => line.endsWith(' test'))).toBeTruthy();
-	// no coverage outside coverage sets
-	expect(allLines.some((line) => line.endsWith(' coverage'))).toBeFalsy();
+	// without coverage, the root group's plain test returns and the affected
+	// package group remains superseded
+	expect(allLines).toStrictEqual(['root check', 'root test']);
 });
 
-test('root group runs after the scoped groups, never concurrently with them', async () => {
+test('root group supersedes all affected-package groups in a mixed scope', async () => {
 	const dir = setupMonorepo();
 	const config = await readConfig({ cwd: dir });
 
@@ -133,14 +131,8 @@ test('root group runs after the scoped groups, never concurrently with them', as
 	expect(error).toBe(undefined);
 
 	const lines = readGateLog({ dir });
-	const firstRootIndex = lines.findIndex((line) => line.startsWith('root '));
-	const lastScopedIndex = Math.max(...lines.map((line, index) => (line.startsWith('root ') ? -1 : index)));
 
-	// root group ran
-	expect(firstRootIndex > -1).toBeTruthy();
-	// scoped groups ran
-	expect(lastScopedIndex > -1).toBeTruthy();
-	// every root command after every scoped command (root starts at
-	// ${firstRootIndex}, scoped ends at ${lastScopedIndex}):\n${lines.join('\n')}
-	expect(firstRootIndex > lastScopedIndex).toBeTruthy();
+	expect(lines).toStrictEqual(['root check', 'root test']);
+	expect(lines.some((line) => line.startsWith('@acme/api '))).toBeFalsy();
+	expect(lines.some((line) => line.startsWith('@acme/web '))).toBeFalsy();
 });

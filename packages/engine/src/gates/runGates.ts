@@ -21,7 +21,7 @@ interface Params {
 	 * Ignored unless `config['package-gates']` is set.
 	 */
 	packages?: string[];
-	/** In scoped mode, also run the root group (whole-repo `gates.*`). */
+	/** In scoped mode, run the whole-repository `gates.*` instead of package groups. */
 	includeRoot?: boolean;
 	/** When set, every command execution is appended to the run's commands.jsonl. */
 	runId?: string;
@@ -42,10 +42,10 @@ interface Params {
  * Run the consumer's verification gates. Non-monorepo (no `package-gates`):
  * the whole-repo `gates.*` run as one group — exit codes are the only
  * evidence accepted. Monorepo: `package-gates` templates run once per
- * package in scope, in parallel, and the root group runs only when requested
- * (files outside the packages dir changed). Errors aggregate across groups,
- * labelled per package. Every command execution is logged to the run's
- * commands.jsonl.
+ * package in scope, in parallel, unless whole-repository precedence is
+ * requested because files outside the packages dir changed. In that case,
+ * only the root group runs. Package errors aggregate across groups, labelled
+ * per package. Every command execution is logged to the run's commands.jsonl.
  */
 export const runGates = async ({
 	cwd,
@@ -64,49 +64,45 @@ export const runGates = async ({
 	// Codegen runs once, before any group fans out — gates verify, generate
 	// mutates, and parallel per-package gates must never race a generator.
 	const gates = resolveGates({ gates: config.gates });
+	let result: GateRunResult | undefined;
 
 	if (gates.generate) {
 		const generated = await gate({ kind: 'generate', command: gates.generate, group: 'root' });
 
 		if (generated.exitCode !== 0) {
-			return { error: `generate failed (exit ${generated.exitCode}):\n${generated.stdout}\n${generated.stderr}`, failedFamilies: ['generate'] };
+			result = { error: `generate failed (exit ${generated.exitCode}):\n${generated.stdout}\n${generated.stderr}`, failedFamilies: ['generate'] };
 		}
 	}
 
-	const rootCommands: GateCommands = {
-		check: gates.check,
-		test: gates.test,
-		testCoverage: coverage && typeof gates.testCoverage === 'string' ? gates.testCoverage : undefined,
-		extraTests: gates.extraTests,
-		build: gates.build,
-	};
-	const scoped = config['package-gates'];
-	let result: GateRunResult;
-
-	if (!scoped || !packages || packages.length === 0) {
-		result = await runGateSet({ commands: rootCommands, gate, failFast });
-	} else {
-		const packagesDir = config['packages-dir'] ?? defaultPackagesDir;
-
-		// Scoped groups run in parallel — they are disjoint per package. The root
-		// group waits for them: whole-repo commands are heavy by nature and
-		// overlap the scoped suites by construction, and running them
-		// concurrently put multiple full test fleets on one machine (observed:
-		// jest worker SIGSEGV under the contention).
-		const results = await Promise.all(
-			packages.map((packageDir) => runPackageGates({ cwd, packagesDir, packageDir, scoped, coverage, gate, failFast, runId, step, onGateResult, onProgress })),
-		);
-
-		if (includeRoot) {
-			results.push(await runGateSet({ commands: rootCommands, gate, label: 'root', failFast }));
-		}
-
-		const errors = results.flatMap((gateResult) => (gateResult.error ? [gateResult.error] : []));
-
-		result = {
-			error: errors.length > 0 ? errors.join('\n\n') : undefined,
-			failedFamilies: [...new Set(results.flatMap((gateResult) => gateResult.failedFamilies))],
+	if (!result) {
+		const rootCommands: GateCommands = {
+			check: gates.check,
+			test: gates.test,
+			testCoverage: coverage && typeof gates.testCoverage === 'string' ? gates.testCoverage : undefined,
+			extraTests: gates.extraTests,
+			build: gates.build,
 		};
+		const scoped = config['package-gates'];
+
+		if (!scoped || !packages || packages.length === 0 || includeRoot) {
+			result = await runGateSet({ commands: rootCommands, gate, failFast });
+		} else {
+			const packagesDir = config['packages-dir'] ?? defaultPackagesDir;
+
+			// Scoped groups run in parallel — they are disjoint per package.
+			const results = await Promise.all(
+				packages.map((packageDir) =>
+					runPackageGates({ cwd, packagesDir, packageDir, scoped, coverage, gate, failFast, runId, step, onGateResult, onProgress }),
+				),
+			);
+
+			const errors = results.flatMap((gateResult) => (gateResult.error ? [gateResult.error] : []));
+
+			result = {
+				error: errors.length > 0 ? errors.join('\n\n') : undefined,
+				failedFamilies: [...new Set(results.flatMap((gateResult) => gateResult.failedFamilies))],
+			};
+		}
 	}
 
 	return result;

@@ -11,7 +11,7 @@ import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupMonorepo } from '#tests/helpers/setupMonorepo.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
-test('front-matter scope: scoped clean-slate, name substitution, expansion, root group', async () => {
+test('front-matter scope: scoped clean-slate, name substitution, expansion, root precedence', async () => {
 	const dir = setupMonorepo();
 	let cleanSlateGates: string[] = [];
 	const driver: Driver = {
@@ -71,12 +71,14 @@ test('front-matter scope: scoped clean-slate, name substitution, expansion, root
 	expect(cleanSlateGates.some((line) => line.startsWith('root '))).toBeFalsy();
 	// {package} used the package.json name, not the directory
 	expect(allGates.some((line) => line.startsWith('api '))).toBeFalsy();
-	// scope expanded to the strayed-into package
-	expect(postImplementGates.some((line) => line.startsWith('@acme/web '))).toBeTruthy();
-	// root group joined after a root file changed
+	// the mixed post-implementation scope selected the whole-repository group
 	expect(postImplementGates.some((line) => line.startsWith('root '))).toBeTruthy();
-	// coverage ran scoped
-	expect(allGates.some((line) => line === '@acme/api coverage')).toBeTruthy();
+	expect(postImplementGates.some((line) => line.startsWith('@acme/api '))).toBeFalsy();
+	expect(postImplementGates.some((line) => line.startsWith('@acme/web '))).toBeFalsy();
+	// coverage evidence distinguishes the initial package clean slate from the
+	// later root-only mixed-scope verification
+	expect(cleanSlateGates.some((line) => line === '@acme/api coverage')).toBeTruthy();
+	expect(postImplementGates.some((line) => line === 'root coverage')).toBeTruthy();
 	expect([...result.manifest.packages].sort()).toStrictEqual(['api', 'web']);
 	expect(result.manifest.packagesSource).toBe('front-matter');
 
