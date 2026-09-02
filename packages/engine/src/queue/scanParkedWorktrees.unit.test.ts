@@ -2,24 +2,23 @@ import { execSync } from 'node:child_process';
 import { rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { ShipMergeMethod } from '#src/contracts/index.ts';
-import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
-import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { createTicketWorktree } from '#src/queue/createTicketWorktree.ts';
 import { scanParkedWorktrees } from '#src/queue/scanParkedWorktrees.ts';
-import type { ShipSettings } from '#src/ship/index.ts';
+import type { TrackerFailure, TrackerTicket } from '#src/ticketTracker/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
+import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
+import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
 // -------------------------
 // The tracker lookup is the only thing here that would leave the machine. Git is
 // real, because which bucket a worktree lands in is read from git and nothing
-// else.
-const mockGetTicketsByIdentifiers = jest.fn<(params: { identifiers: string[] }) => Promise<TicketSummary[] | QueueFailure>>();
+// else, and the label-to-route mapping is real because that is what decides
+// whether a parked tree still has a route to resume down.
+const mockGetTicketsByIdentifiers = jest.fn<(params: { identifiers: string[] }) => Promise<TrackerTicket[] | TrackerFailure>>();
 
-jest.mock('#src/queue/tracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/index.ts', () => ({
 	getTicketsByIdentifiers: (params: { identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
 	setParkedLabel: () => Promise.resolve(undefined),
 }));
@@ -27,22 +26,18 @@ jest.mock('#src/queue/tracker/index.ts', () => ({
 
 const settings = queueSettingsFixture();
 
-const shipSettings: ShipSettings = {
-	ticketPattern: /^(?<ticket>[a-z]+-\d+)/,
-	pullRequestBody: '{ticket}',
-	mergeMethod: ShipMergeMethod.Merge,
-	afterImplement: false,
-	preShip: undefined,
-};
+const trackerSettings = trackerSettingsFixture();
 
-const ticketOf = (identifier: string): TicketSummary => ({
+const shipSettings = shipSettingsFixture();
+
+const ticketOf = (identifier: string, labels: string[] = ['route-direct']): TrackerTicket => ({
 	id: `id-${identifier}`,
 	identifier: identifier.toUpperCase(),
 	title: 'Drain the backlog',
 	description: '',
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
-	route: QueueRoute.Direct,
+	labels,
 	unfinishedBlockers: [],
 });
 
@@ -82,7 +77,11 @@ describe('scanParkedWorktrees', () => {
 	test('answers nothing when no drain has left a worktree behind, without asking the tracker anything', async () => {
 		const { cwd } = setupBranchRepo();
 
-		expect(await scanParkedWorktrees({ cwd, defaultBranch: 'main', settings, shipSettings })).toStrictEqual({ resumed: [], outcomes: [], leftBehind: [] });
+		expect(await scanParkedWorktrees({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings })).toStrictEqual({
+			resumed: [],
+			outcomes: [],
+			leftBehind: [],
+		});
 		expect(mockGetTicketsByIdentifiers).not.toHaveBeenCalled();
 	});
 
@@ -92,7 +91,7 @@ describe('scanParkedWorktrees', () => {
 		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
 		writeFileSync(join(paths['lo-70-drain'], 'half-done.ts'), 'export const value = 1;\n');
 
-		const parked = await scanParkedWorktrees({ cwd, defaultBranch: 'main', settings, shipSettings });
+		const parked = await scanParkedWorktrees({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings });
 
 		expect(parked).toEqual({ resumed: [expect.objectContaining({ identifier: 'LO-70' })], outcomes: [], leftBehind: [] });
 		expect(mockGetTicketsByIdentifiers).toHaveBeenCalledWith(expect.objectContaining({ identifiers: ['lo-70'] }));
@@ -104,7 +103,7 @@ describe('scanParkedWorktrees', () => {
 		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
 		commitWork({ path: paths['lo-70-drain'] });
 
-		const parked = await scanParkedWorktrees({ cwd, defaultBranch: 'main', settings, shipSettings });
+		const parked = await scanParkedWorktrees({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings });
 
 		expect(parked).toEqual({
 			resumed: [],
@@ -118,7 +117,7 @@ describe('scanParkedWorktrees', () => {
 
 		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
 
-		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, shipSettings });
+		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings });
 
 		expect(parked.resumed).toHaveLength(1);
 		expect(parked.outcomes).toStrictEqual([]);
@@ -130,7 +129,7 @@ describe('scanParkedWorktrees', () => {
 		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
 		rmSync(paths['lo-70-drain'], { recursive: true, force: true });
 
-		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, shipSettings });
+		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings });
 
 		expect(parked.outcomes).toEqual([expect.objectContaining({ ready: false, error: expect.stringContaining('git could not read the worktree') })]);
 	});
@@ -139,9 +138,9 @@ describe('scanParkedWorktrees', () => {
 		const { cwd } = await setupParkedRepo({ branches: ['lo-70-drain'] });
 		const progress: string[] = [];
 
-		mockGetTicketsByIdentifiers.mockResolvedValue([]);
+		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70', ['bug'])]);
 
-		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, shipSettings, onProgress: (message) => progress.push(message) });
+		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, onProgress: (message) => progress.push(message) });
 
 		expect(parked.resumed).toStrictEqual([]);
 		expect(parked.leftBehind).toEqual([{ identifier: 'lo-70', reason: expect.stringContaining('no configured route label any more') }]);
@@ -153,7 +152,7 @@ describe('scanParkedWorktrees', () => {
 
 		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
 
-		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, shipSettings });
+		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings });
 
 		expect(parked.resumed[0]?.identifier).toBe('LO-70');
 	});
@@ -162,7 +161,14 @@ describe('scanParkedWorktrees', () => {
 		const { cwd } = await setupParkedRepo({ branches: ['scratch-work'] });
 		const progress: string[] = [];
 
-		const parked = await scanParkedWorktrees({ cwd, defaultBranch: 'main', settings, shipSettings, onProgress: (message) => progress.push(message) });
+		const parked = await scanParkedWorktrees({
+			cwd,
+			defaultBranch: 'main',
+			settings,
+			trackerSettings,
+			shipSettings,
+			onProgress: (message) => progress.push(message),
+		});
 
 		expect(parked).toStrictEqual({ resumed: [], outcomes: [], leftBehind: [] });
 		expect(progress).toEqual([expect.stringContaining('carries no ticket the configured pattern matches')]);
@@ -173,6 +179,8 @@ describe('scanParkedWorktrees', () => {
 
 		mockGetTicketsByIdentifiers.mockResolvedValue({ error: 'authentication failed' });
 
-		expect(await scanParkedWorktrees({ cwd, defaultBranch: 'main', settings, shipSettings })).toStrictEqual({ error: 'authentication failed' });
+		expect(await scanParkedWorktrees({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings })).toStrictEqual({
+			error: 'authentication failed',
+		});
 	});
 });

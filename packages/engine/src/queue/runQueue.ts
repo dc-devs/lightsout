@@ -13,19 +13,21 @@ import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
 import { drainWaves } from '#src/queue/drainWaves.ts';
+import { listEligibleTickets } from '#src/queue/listEligibleTickets.ts';
 import { orderTickets } from '#src/queue/orderTickets.ts';
 import { runQueueTicket } from '#src/queue/runQueueTicket.ts';
 import { scanParkedWorktrees } from '#src/queue/scanParkedWorktrees.ts';
 import { selectWaveTickets } from '#src/queue/selectWaveTickets.ts';
 import { settleParkedLabels } from '#src/queue/settleParkedLabels.ts';
 import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
-import { listEligibleTickets } from '#src/queue/tracker/index.ts';
 import { createRun, getRunDir, seedUsageTotals, withRunLock, writeManifestWithUsage } from '#src/runState/index.ts';
 import { readTicketMatch, type ShipSettings } from '#src/ship/index.ts';
+import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
 	cwd: string;
 	settings: QueueSettings;
+	trackerSettings: TrackerSettings;
 	shipSettings: ShipSettings;
 	config: LightsoutConfig;
 	driver: Driver;
@@ -47,22 +49,20 @@ interface Params {
 const checkQueueStartup = async ({
 	cwd,
 	settings,
+	trackerSettings,
 	shipSettings,
-}: {
-	cwd: string;
-	settings: QueueSettings;
-	shipSettings: ShipSettings;
-}): Promise<QueueFailure | { defaultBranch: string }> => {
+}: Pick<Params, 'cwd' | 'settings' | 'trackerSettings' | 'shipSettings'>): Promise<QueueFailure | { defaultBranch: string }> => {
 	// The sample is shaped from the configured tracker prefix, so the check exercises
 	// a branch name shaped like the repo's real ones — a hardcoded key would
-	// false-alarm on every `ship.ticket-pattern` scoped to its own tracker project.
+	// false-alarm on every `ship.ticket-pattern` scoped to its own tracker project or team.
 	const sample: TicketSummary = {
 		id: 'sample',
-		identifier: `${settings.ticketPrefix}-1`,
+		identifier: `${trackerSettings.ticketPrefix}-1`,
 		title: 'sample',
 		description: '',
 		priority: 0,
 		createdAt: '',
+		labels: [],
 		route: QueueRoute.Direct,
 		unfinishedBlockers: [],
 	};
@@ -91,7 +91,7 @@ const checkQueueStartup = async ({
 const createWorktreeSerializer = () => {
 	let tail: Promise<unknown> = Promise.resolve();
 
-	return <Result>(task: () => Promise<Result>): Promise<Result> => {
+	return <Result>({ task }: { task: () => Promise<Result> }): Promise<Result> => {
 		const next = tail.then(task, task);
 
 		tail = next.catch(() => undefined);
@@ -105,6 +105,7 @@ const drainAndShip = async ({
 	cwd,
 	runId,
 	settings,
+	trackerSettings,
 	shipSettings,
 	config,
 	driver,
@@ -118,6 +119,7 @@ const drainAndShip = async ({
 	cwd: string;
 	runId: string;
 	settings: QueueSettings;
+	trackerSettings: TrackerSettings;
 	shipSettings: ShipSettings;
 	config: LightsoutConfig;
 	driver: Driver;
@@ -138,6 +140,7 @@ const drainAndShip = async ({
 	const drained = await drainWaves({
 		cwd,
 		settings,
+		trackerSettings,
 		shipSettings,
 		config,
 		defaultBranch,
@@ -149,6 +152,7 @@ const drainAndShip = async ({
 			runQueueTicket({
 				cwd,
 				settings,
+				trackerSettings,
 				ticket,
 				config,
 				driver,
@@ -166,7 +170,7 @@ const drainAndShip = async ({
 	// One call is the whole park/ship label story: shipping has already flipped
 	// `ready` on anything it could not merge, so a ship-step park is labelled by
 	// the same line that labels a worker park.
-	await settleParkedLabels({ settings, outcomes: drained.outcomes, onProgress });
+	await settleParkedLabels({ settings, trackerSettings, outcomes: drained.outcomes, onProgress });
 	await writeManifestWithUsage({ cwd, manifest, patch: { status, currentStep: null }, usageTotals: seedUsageTotals({ usage: manifest.usage }) });
 
 	return drained;
@@ -191,6 +195,7 @@ const drainAndShip = async ({
 export const runQueue = async ({
 	cwd,
 	settings,
+	trackerSettings,
 	shipSettings,
 	config,
 	driver,
@@ -198,20 +203,20 @@ export const runQueue = async ({
 	relay,
 	onProgress,
 }: Params): Promise<QueueDrainReport | QueueFailure> => {
-	const started = await checkQueueStartup({ cwd, settings, shipSettings });
+	const started = await checkQueueStartup({ cwd, settings, trackerSettings, shipSettings });
 
 	if ('error' in started) {
 		return started;
 	}
 
 	const { defaultBranch } = started;
-	const eligible = await listEligibleTickets({ settings });
+	const eligible = await listEligibleTickets({ settings, trackerSettings });
 
 	if ('error' in eligible) {
 		return eligible;
 	}
 
-	const parked = await scanParkedWorktrees({ cwd, defaultBranch, settings, shipSettings, onProgress });
+	const parked = await scanParkedWorktrees({ cwd, defaultBranch, settings, trackerSettings, shipSettings, onProgress });
 
 	if ('error' in parked) {
 		return parked;
@@ -233,6 +238,7 @@ export const runQueue = async ({
 
 	return withRunLock({
 		params: { cwd, onProgress },
-		run: ({ runId }) => drainAndShip({ cwd, runId, settings, shipSettings, config, driver, driverName, relay, defaultBranch, first, parked, onProgress }),
+		run: ({ runId }) =>
+			drainAndShip({ cwd, runId, settings, trackerSettings, shipSettings, config, driver, driverName, relay, defaultBranch, first, parked, onProgress }),
 	});
 };

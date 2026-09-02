@@ -49,15 +49,17 @@
 			"covers": "How a monorepo is configured: the packages directory, scoped gate templates, and how a run picks the packages a change touched."
 		}
 	],
-	"queue": {
-		"tracker": "linear",
+	"ticket-tracker": {
+		"provider": "linear",
 		"team": "LO",
+		"api-key-env": "LINEAR_API_KEY"
+	},
+	"queue": {
 		"route-labels": {
 			"direct": "route-direct",
 			"auto-plan": "route-auto-plan"
 		},
 		"max-parallel": 2,
-		"api-key-env": "LINEAR_API_KEY",
 		"setup": "pnpm install",
 		"worker-timeout": "4h",
 		"question-timeout": "1h",

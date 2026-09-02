@@ -2,21 +2,8 @@ import { describe, expect, test } from '@jest/globals';
 import { ConfigQueue } from '#src/contracts/index.ts';
 
 const minimal = {
-	tracker: 'linear',
-	team: 'LO',
 	'route-labels': { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
 	'max-parallel': 3,
-	'api-key-env': 'LINEAR_API_KEY',
-};
-
-const minimalJira = {
-	tracker: 'jira',
-	'site-url': 'https://example.atlassian.net/',
-	project: 'LO',
-	'api-user-email-env': 'JIRA_ACCOUNT_EMAIL',
-	'route-labels': minimal['route-labels'],
-	'max-parallel': 3,
-	'api-key-env': 'JIRA_API_TOKEN',
 };
 
 describe('ConfigQueue', () => {
@@ -52,59 +39,30 @@ describe('ConfigQueue', () => {
 		expect(ConfigQueue.safeParse({ ...minimal, [key]: value }).success).toBe(false);
 	});
 
-	test('accepts the five required keys alone, because every other key has an engine default behind it', () => {
+	test('accepts the two required keys alone, because every other key has an engine default behind it', () => {
 		const parsed = ConfigQueue.parse(minimal);
 
 		expect(parsed).toStrictEqual(minimal);
 	});
 
-	test('refuses a block with no tracker connection, because a queue that cannot read a backlog has nothing to drain', () => {
-		expect(ConfigQueue.safeParse({ team: 'LO' }).success).toBe(false);
-	});
-
-	test('refuses a tracker with no adapter behind it, rather than failing at the first query', () => {
-		expect(ConfigQueue.safeParse({ ...minimal, tracker: 'github' }).success).toBe(false);
-	});
-
-	test('accepts Jira Cloud only with its complete tracker-specific connection', () => {
-		const parsed = ConfigQueue.parse(minimalJira);
-
-		expect(parsed).toStrictEqual(minimalJira);
+	test('refuses a block naming no route, because a queue with no label to read has nothing to pick up', () => {
+		expect(ConfigQueue.safeParse({ 'max-parallel': 3 }).success).toBe(false);
 	});
 
 	test.each([
-		{ key: 'site-url', value: undefined },
-		{ key: 'project', value: undefined },
-		{ key: 'project', value: '' },
-		{ key: 'api-user-email-env', value: undefined },
-		{ key: 'api-user-email-env', value: '' },
-	])('refuses Jira without a usable $key', ({ key, value }) => {
-		const parsed = ConfigQueue.safeParse({ ...minimalJira, [key]: value });
+		{ key: 'tracker', to: 'ticket-tracker.provider' },
+		{ key: 'team', to: 'ticket-tracker.team' },
+		{ key: 'site-url', to: 'ticket-tracker.site-url' },
+		{ key: 'project', to: 'ticket-tracker.project' },
+		{ key: 'api-key-env', to: 'ticket-tracker.api-key-env' },
+		{ key: 'api-user-email-env', to: 'ticket-tracker.api-user-email-env' },
+	])('refuses the moved `queue.$key` spelling, naming $to — a silently stripped identity would leave the queue querying nothing', ({ key, to }) => {
+		const parsed = ConfigQueue.safeParse({ ...minimal, [key]: 'linear' });
 
 		expect(parsed.success).toBe(false);
-	});
-
-	test('refuses Linear-only connection fields on Jira', () => {
-		const parsed = ConfigQueue.safeParse({ ...minimalJira, team: 'LO' });
-
-		expect(parsed.success).toBe(false);
-	});
-
-	test.each([
-		'not a URL',
-		'http://example.atlassian.net',
-		'https://example.com',
-		'https://example.atlassian.net/path',
-		'https://example.atlassian.net?query=yes',
-		'https://example.atlassian.net#fragment',
-	])('refuses a Jira site URL outside the normalized Cloud origin boundary', (siteUrl) => {
-		const parsed = ConfigQueue.safeParse({ ...minimalJira, 'site-url': siteUrl });
-
-		expect(parsed.success).toBe(false);
-	});
-
-	test('keeps tracker branch keys exclusive', () => {
-		expect(ConfigQueue.safeParse({ ...minimal, project: 'LO' }).success).toBe(false);
+		// the message is the whole point of the rejection — a stripped identity key
+		// would leave the queue querying a team nobody named
+		expect(parsed.error?.message ?? '').toContain(`\`queue.${key}\` was renamed to \`${to}\``);
 	});
 
 	test('refuses a parallelism that is not a whole number of tickets', () => {

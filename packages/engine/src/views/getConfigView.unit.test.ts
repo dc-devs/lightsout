@@ -6,6 +6,7 @@ import { type ConfigView, StandardsSeverity } from '#src/contracts/index.ts';
 import { ConfigNotFoundError } from '#src/views/ConfigNotFoundError.ts';
 import { getConfigView } from '#src/views/getConfigView.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { jiraTicketTrackerConfigBlock, ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { seedConfiguredCwd } from '#tests/helpers/seedConfiguredCwd.ts';
 
 /** This repo's own root — the config the view is read against, so the assertions describe a real file rather than a fixture of one. */
@@ -143,6 +144,7 @@ describe('getConfigView', () => {
 			'Generated',
 			'Timeouts',
 			'Ship',
+			'Ticket tracker',
 			'Queue',
 			'Auto plan',
 			'Docs',
@@ -175,13 +177,48 @@ describe('getConfigView', () => {
 		expect(findField({ sections: view.sections, key: 'ship' })).toEqual(expect.objectContaining({ value: null, fromConfig: false }));
 	});
 
+	test('shows the ticket-tracker block whole in its own area, because tracker identity is its own fact rather than a leaf of the queue', async () => {
+		const cwd = await seedConfiguredCwd({ config: { 'ticket-tracker': ticketTrackerConfigBlock } });
+
+		const view = await getConfigView({ cwd });
+
+		const tracker = view.sections.find((section) => section.title === 'Ticket tracker');
+
+		expect(tracker?.fields).toEqual([
+			// the sentence is the schema's own, so the page and the config reference
+			// cannot say different things about the same block
+			expect.objectContaining({
+				key: 'ticket-tracker',
+				value: { provider: 'linear', team: 'LO', 'api-key-env': 'LINEAR_API_KEY' },
+				fromConfig: true,
+				description: expect.stringContaining('tracker'),
+			}),
+		]);
+	});
+
+	test('leaves ticket-tracker null when the file omits it, because the block is opt-in and the engine runs with no tracker at all', async () => {
+		const cwd = await seedConfiguredCwd();
+
+		const view = await getConfigView({ cwd });
+
+		expect(findField({ sections: view.sections, key: 'ticket-tracker' })).toEqual(expect.objectContaining({ value: null, fromConfig: false }));
+	});
+
+	test('shows the Jira tracker branch whole too, without leaking its identity back into the queue section', async () => {
+		const cwd = await seedConfiguredCwd({ config: { 'ticket-tracker': jiraTicketTrackerConfigBlock } });
+
+		const view = await getConfigView({ cwd });
+
+		expect(findField({ sections: view.sections, key: 'ticket-tracker' })).toEqual(
+			expect.objectContaining({ value: jiraTicketTrackerConfigBlock, fromConfig: true, description: expect.stringContaining('Jira') }),
+		);
+		expect(findField({ sections: view.sections, key: 'queue' })).toEqual(expect.objectContaining({ value: null, fromConfig: false }));
+	});
+
 	test('shows the queue block whole in its own area, so the block the document documents is on the page too', async () => {
 		const queue = {
-			tracker: 'linear',
-			team: 'AB',
 			'route-labels': { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
 			'max-parallel': 2,
-			'api-key-env': 'TRACKER_API_KEY',
 		};
 		const cwd = await seedConfiguredCwd({ config: { queue } });
 
@@ -192,7 +229,7 @@ describe('getConfigView', () => {
 		expect(queueSection?.fields).toEqual([
 			// the sentence is the schema's own, so the page and the config reference
 			// cannot say different things about the same block
-			expect.objectContaining({ key: 'queue', value: queue, fromConfig: true, description: expect.stringContaining('tracker') }),
+			expect.objectContaining({ key: 'queue', value: queue, fromConfig: true, description: expect.stringContaining('route') }),
 		]);
 	});
 

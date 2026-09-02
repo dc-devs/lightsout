@@ -7,7 +7,7 @@ import { planCommand } from '#src/cli/plan/planCommand.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
-import { queueConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
+import { queueConfigBlock, ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
 // Mocked Imports
 // -------------------------
@@ -21,6 +21,7 @@ const mockPlanLintCommand = jest.fn<(params: unknown) => Promise<void>>();
 const mockPlanDraftCommand = jest.fn<(params: unknown) => Promise<void>>();
 const mockPlanDedupCommand = jest.fn<(params: unknown) => Promise<void>>();
 const mockPlanGradeCommand = jest.fn<(params: unknown) => Promise<void>>();
+const mockPlanPublishCommand = jest.fn<(params: unknown) => Promise<void>>();
 const mockResolveConfigAndDriver = jest.fn<(params: unknown) => Promise<{ config?: LightsoutConfig; driver: Driver }>>();
 const mockLoadPlanningStandards = jest.fn<(params: unknown) => Promise<string | undefined>>();
 
@@ -31,6 +32,7 @@ jest.mock('#src/cli/plan/planLintCommand.ts', () => ({ planLintCommand: (params:
 jest.mock('#src/cli/plan/planDraftCommand.ts', () => ({ planDraftCommand: (params: unknown) => mockPlanDraftCommand(params) }));
 jest.mock('#src/cli/plan/planDedupCommand.ts', () => ({ planDedupCommand: (params: unknown) => mockPlanDedupCommand(params) }));
 jest.mock('#src/cli/plan/planGradeCommand.ts', () => ({ planGradeCommand: (params: unknown) => mockPlanGradeCommand(params) }));
+jest.mock('#src/cli/plan/planPublishCommand.ts', () => ({ planPublishCommand: (params: unknown) => mockPlanPublishCommand(params) }));
 jest.mock('#src/cli/common/utils/resolveConfigAndDriver.ts', () => ({ resolveConfigAndDriver: (params: unknown) => mockResolveConfigAndDriver(params) }));
 jest.mock('#src/cli/plan/readPlanningStandards.ts', () => ({ readPlanningStandards: (params: unknown) => mockLoadPlanningStandards(params) }));
 
@@ -41,10 +43,16 @@ const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-cov
 
 /**
  * The config a repo carries when it has chosen a ticket convention: the
- * presence of `queue.tracker` is the whole signal that the plan-folder advisory
- * applies to it.
+ * presence of a `ticket-tracker` block is the whole signal that the plan-folder
+ * advisory applies to it.
  */
-const trackerRepoConfig = { gates, queue: queueConfigBlock };
+const trackerRepoConfig = { gates, queue: queueConfigBlock, 'ticket-tracker': ticketTrackerConfigBlock };
+
+/**
+ * The same repo with the tracker block taken away: a `queue` block on its own
+ * names no tracker, so this repo has chosen no ticket convention.
+ */
+const queueOnlyRepoConfig = { gates, queue: queueConfigBlock };
 
 const setupPlan = ({ args, repoConfig }: { args: string[]; repoConfig?: Record<string, unknown> }) => {
 	const captured = captureCommandOutput();
@@ -58,7 +66,14 @@ const setupPlan = ({ args, repoConfig }: { args: string[]; repoConfig?: Record<s
 	mockResolveConfigAndDriver.mockResolvedValue({ config, driver: stubDriver });
 	mockLoadPlanningStandards.mockResolvedValue('STANDARDS');
 
-	for (const mock of [mockPlanVerifyFactsCommand, mockPlanLintCommand, mockPlanDraftCommand, mockPlanDedupCommand, mockPlanGradeCommand]) {
+	for (const mock of [
+		mockPlanVerifyFactsCommand,
+		mockPlanLintCommand,
+		mockPlanDraftCommand,
+		mockPlanDedupCommand,
+		mockPlanGradeCommand,
+		mockPlanPublishCommand,
+	]) {
 		mock.mockResolvedValue(undefined);
 	}
 
@@ -87,6 +102,16 @@ describe('planCommand', () => {
 
 		expect(mockPlanLintCommand).toHaveBeenCalledTimes(1);
 		expect(argsOf(mockPlanLintCommand)?.cwd).toBe(cwd);
+		expect(mockResolveConfigAndDriver).not.toHaveBeenCalled();
+	});
+
+	test('routes publish without resolving a harness, because it spawns no agent either', async () => {
+		const { context, cwd } = setupPlan({ args: ['publish', '--name', 'lo-54-portable-plan'] });
+
+		await planCommand(context);
+
+		expect(mockPlanPublishCommand).toHaveBeenCalledTimes(1);
+		expect(argsOf(mockPlanPublishCommand)?.cwd).toBe(cwd);
 		expect(mockResolveConfigAndDriver).not.toHaveBeenCalled();
 	});
 
@@ -180,7 +205,7 @@ describe('planCommand', () => {
 		expect(mockPlanDraftCommand).not.toHaveBeenCalled();
 	});
 
-	test.each(['draft', 'dedup', 'grade', 'lint', 'verify-facts'])(
+	test.each(['draft', 'dedup', 'grade', 'lint', 'publish', 'verify-facts'])(
 		'%s addresses a plan by name, so a folder carrying no ticket id draws exactly one advisory and the subcommand still runs',
 		async (subcommand) => {
 			const { context, logged, exitCodes } = setupPlan({ args: [subcommand, '--name', 'rate-limit-banner'], repoConfig: trackerRepoConfig });
@@ -199,6 +224,15 @@ describe('planCommand', () => {
 		await planCommand(context);
 
 		expect(logged).toStrictEqual([]);
+	});
+
+	test('a repo carrying a queue block and no ticket-tracker block is advised nothing, because a queue names no tracker', async () => {
+		const { context, logged } = setupPlan({ args: ['lint', '--name', 'rate-limit-banner'], repoConfig: queueOnlyRepoConfig });
+
+		await planCommand(context);
+
+		expect(logged).toStrictEqual([]);
+		expect(mockPlanLintCommand).toHaveBeenCalledTimes(1);
 	});
 
 	test('a subcommand given no --name has no folder to name, so nothing is advised', async () => {

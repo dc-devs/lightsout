@@ -4,7 +4,6 @@ import { expect, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { implementCommand } from '#src/cli/implementCommand.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
-import { queueConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
 
@@ -70,27 +69,6 @@ const setupImplement = ({
 	}
 
 	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, ...captured };
-};
-
-/**
- * A repo that declares a tracker, with a plan workspace seeded under
- * `.lightsout/plans/<name>` — the arrangement the plan-folder advisory is
- * about, where the case turns on the folder's own name rather than on what the
- * folder holds. The planted lock ends the run right after the advisory, so
- * nothing spawns a harness. `--plan` names the folder, or the plan.md in it.
- */
-const setupNamedPlanFolder = ({ name, pointAtPlanFile = false }: { name: string; pointAtPlanFile?: boolean }) => {
-	const folder = join('.lightsout', 'plans', name);
-	const setup = setupImplement({
-		args: ['--plan', pointAtPlanFile ? join(folder, 'plan.md') : folder],
-		locked: true,
-		config: { queue: queueConfigBlock },
-	});
-
-	mkdirSync(join(setup.cwd, folder), { recursive: true });
-	writeFileSync(join(setup.cwd, folder, 'plan.md'), '# Plan: add feature\n');
-
-	return setup;
 };
 
 test('implementCommand: without --plan it prints the usage text on stderr and exits 1 before loading any config', async () => {
@@ -359,37 +337,5 @@ test('implementCommand: a finished run ends on its report card — the plan it r
 	// no gate ever ran, and the tally says zero rather than going silent
 	expect(logged).toContain('gates     0 commands');
 	expect(logged.some((line) => /^evidence {2}\.lightsout\/runs\/[0-9a-f-]{36}\/$/.test(line))).toBeTruthy();
-	expect(exitCodes).toStrictEqual([1]);
-});
-
-test('implementCommand: a plan folder carrying no ticket id is advised once, ahead of the run banner, and the run goes on unchanged', async () => {
-	const { context, logged, errors, exitCodes } = setupNamedPlanFolder({ name: 'rate-limit-banner' });
-
-	await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
-
-	// the advisory reads as a note about the plan being started, not as an
-	// interruption inside the run header
-	expect(logged[0] ?? '').toMatch(/plan folder 'rate-limit-banner' carries no ticket id/);
-	expect(logged[1]).toBe('lightsout: starting run');
-	// nothing downstream can see it: the planted lock is still what ends the run
-	expect(errors.some((line) => /another lightsout run is active in this repo/.test(line))).toBeTruthy();
-	expect(exitCodes).toStrictEqual([1]);
-});
-
-test('implementCommand: a --plan naming the plan.md inside a folder named after its ticket is told nothing', async () => {
-	const { context, logged, exitCodes } = setupNamedPlanFolder({ name: 'lo-52-status-progress', pointAtPlanFile: true });
-
-	await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
-
-	expect(logged[0]).toBe('lightsout: starting run');
-	expect(exitCodes).toStrictEqual([1]);
-});
-
-test('implementCommand: a --plan outside the plans directory is no plan workspace, so its folder name is nobody’s convention to keep', async () => {
-	const { context, logged, exitCodes } = setupImplement({ args: ['--plan', 'ghost.md'], config: { queue: queueConfigBlock } });
-
-	await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
-
-	expect(logged[0]).toBe('lightsout: starting run');
 	expect(exitCodes).toStrictEqual([1]);
 });

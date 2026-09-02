@@ -17,7 +17,7 @@ const shellChild = ({ script }: { script: string }) => spawn(script, { shell: tr
  * the signal itself can prove the escalation ran.
  */
 const stubbornChild = () =>
-	spawn(process.execPath, ['-e', "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000);"], {
+	spawn(process.execPath, ['-e', "process.on('SIGTERM', () => {}); process.stdout.write('ready\\n'); setInterval(() => {}, 1000);"], {
 		stdio: ['ignore', 'pipe', 'pipe'],
 		detached: true,
 	});
@@ -122,6 +122,12 @@ test('collectChildOutput: the deadline asks before it insists, so a child can fl
 
 test('collectChildOutput: a child that declines SIGTERM is killed outright once the grace period runs out', async () => {
 	const child = stubbornChild();
+
+	// Start the deadline only after the child proves its SIGTERM handler is
+	// installed. Under load, a fixed timeout can expire during Node startup and
+	// test the operating system's default SIGTERM behaviour instead.
+	await new Promise<void>((resolve) => child.stdout?.once('data', () => resolve()));
+
 	const closed = new Promise<void>((resolve) => {
 		child.once('close', () => resolve());
 	});

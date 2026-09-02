@@ -19,8 +19,8 @@ interface Params {
  * no ticket id is used exactly as before — this changes no exit code, returns
  * nothing a caller can branch on, and never throws, so "still drafts, grades
  * and implements from its folder path" holds by construction rather than by
- * test. A repo with no `queue.tracker` chose no ticket convention and hears
- * nothing at all.
+ * test. A repo with no `ticket-tracker` block chose no ticket convention and
+ * hears nothing at all.
  */
 export const printPlanTicketWarning = async ({ cwd, name, write = console.log }: Params): Promise<void> => {
 	// A config the engine cannot parse is not this advisory's problem: the
@@ -29,7 +29,7 @@ export const printPlanTicketWarning = async ({ cwd, name, write = console.log }:
 	// change what a run does.
 	const config = await readOptionalConfig({ cwd }).catch(() => undefined);
 
-	if (config?.queue?.tracker === undefined) {
+	if (config?.['ticket-tracker'] === undefined) {
 		return;
 	}
 

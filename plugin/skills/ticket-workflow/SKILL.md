@@ -251,9 +251,10 @@ Move a ticket to **Ready to implement** the moment its route is complete:
 | `route-plan` | The plan is graded |
 | `route-auto-plan` | The plan is graded and its proposal approved |
 
-"Ready to implement" means exactly what it says: the `implement` skill can be pointed at
-it now. For a routed-and-planned ticket that means the plan folder exists and
-graded; for a `route-direct` one it means the ticket body is enough to build from.
+"Ready to implement" means exactly what it says: the `implement` skill can be
+pointed at it now. For a routed-and-planned ticket that means the plan is graded
+and its durable files have been published to the ticket; for a `route-direct`
+one it means the ticket body is enough to build from.
 
 ### Recording it
 
@@ -392,14 +393,15 @@ There is no third category. If a real candidate is on the table at close,
 ask the one question — "want a ticket for X, or let it go?" — and write
 nothing either way.
 
-Attach the plan (see below) when the route produced one; do not restate its
-decision table in the comment.
+If implementation amended a published plan, publish the current version before
+closing (see below); do not restate its decision table in the comment.
 
-## Attaching the plan
+## Publishing the plan
 
-The `plan` skill writes `.lightsout/plans/<name>/` — `plan.md`,
-`decisions.json`, `grade.json`. That is the design record: what was decided,
-what was rejected, and why. The folder to attach is the one named after this
+The `plan` skill writes `.lightsout/plans/<name>/` — either `plan.md`, or
+`overview.md` with phase files, alongside durable records such as
+`decisions.json` and `grade.json`. That is the design record: what was decided,
+what was rejected, and why. The folder to publish is the one named after this
 ticket, so it is found by reading the ticket id off the folder name rather than
 by recognising a slug.
 
@@ -416,18 +418,32 @@ and has nothing to attach. What was settled in that conversation goes into
 the ticket's `## Decisions` before building — the body is where decisions
 live, never the closing comment.
 
-**Attach these four when the route produced a plan:**
+**Only the durable set travels when the route produced a plan:**
 
 | file | what it holds |
 |---|---|
-| `notes.md` | the brainstorm: the idea in the user's words, the scope call, the approach chosen and the ones rejected |
-| `plan.md` (or `overview.md`) | the plan that was built |
-| `decisions.json` | every question asked, the option chosen, and why — including which choices were assumptions nobody confirmed |
-| `grade.json` | half a kilobyte recording that the plan was graded, and against which lenses |
+| `notes.md`, when present | the brainstorm: the idea in the user's words, the scope call, the approach chosen and the ones rejected |
+| `plan.md`, or `overview.md` plus every `phase<N>-<slug>.md` | the complete single or phased plan that was built |
+| `decisions.json`, when present | every question asked, the option chosen, and why — including which choices were assumptions nobody confirmed |
+| `grade.json`, when present | the latest grade and the lenses that produced it |
 
-A `route-auto-plan` ticket attaches the same four files; when no brainstorm
-ran, its `notes.md` is the one the `auto-plan` skill wrote for itself from the ticket
-before planning.
+Publish also writes `plan-attachments.json` last. It is a small transport
+integrity marker, not a plan record or run transcript: it names the exact
+durable files in that generation and their SHA-256 hashes so a fresh machine
+can reject an interrupted or mixed upload before writing anything to disk.
+
+A `route-auto-plan` ticket publishes the same durable set; when no brainstorm
+ran, its `notes.md` is the one the `auto-plan` skill wrote for itself from the
+ticket before planning.
+
+Do not assemble or attach that set by hand. Run `lightsout plan publish --name <name>`
+from the machine holding the plan folder. It resolves the complete plan
+deliverable plus the durable records that are present and uploads each as a
+separate attachment under the file's own name. It refuses when no runnable plan
+deliverable exists. A re-publish replaces every same-titled attachment rather
+than doubling it, and reports any differently titled durable-looking artifact
+left from an earlier publish without deleting it. Those older titles are not
+restored unless the new integrity marker names them.
 
 Skip `facts.json` — it predicts which files the work will touch, and once the
 PR exists the diff answers that better. Skip `brainstorm-decisions.json`: `plan
@@ -452,30 +468,33 @@ got there — which finding kept coming back, and how many re-grades it took. Th
 is a debugging artifact, not something a person picking up a ticket reads. Keep
 it on disk and attach nothing.
 
-### Attach when the ticket is ready to implement, not at close
+### Publish when the ticket is ready to implement, not at close
 
-The moment a route completes and the ticket moves to **Ready to implement**,
-attach the files. Waiting until close assumes whoever builds it is whoever
-planned it, on the machine that planned it — the assumption this whole system
-exists to break.
+For any route that produced a plan, publishing is the mechanical
+ready-to-implement step. Run `lightsout plan publish --name <name>` when the
+route completes, before moving the ticket to **Ready to implement**. Waiting
+until close assumes whoever builds it is whoever planned it, on the machine
+that planned it — the assumption this whole system exists to break.
 
-The same edit drains `## Open questions`: delete every line the shaping
-answered. The answers — the "no"s included — are in the Decision Log you are
-attaching, so the questions leave the body in the same action their answers
-arrive.
+As part of that same transition, drain `## Open questions`: delete every line
+the shaping answered, then move the ticket only after publish succeeds. The
+answers — the "no"s included — are in the Decision Log being published, so the
+questions leave the body as their answers become durable on the ticket.
 
-`.lightsout` is gitignored. Until these files are attached, a plan exists on
+`.lightsout` is gitignored. Until these files are published, a plan exists on
 exactly one laptop, and any other agent picking up that ticket sees a problem
 statement with none of the shaping behind it.
 
-Attaching them makes the ticket **readable** by a fresh agent. It does not yet
-make it **runnable**: the `implement` skill takes a folder path on disk, so the
-agent must rebuild `.lightsout/plans/<name>/` from the attachments before the
-command works. It can derive the folder name from the ticket id when the plan
-was named after its ticket.
+A published plan makes the ticket both **readable** and **runnable** by a fresh
+agent. Nothing has to be rebuilt by hand: point the `implement` skill at
+`.lightsout/plans/<name>`. The engine uses the folder on disk when it exists.
+When it does not, the engine reads the ticket id from the canonical folder
+name, fetches that ticket's durable attachments and reconstructs the folder
+before implementation starts. Run state never travels.
 
-Re-attach at close if implementing amended the plan. The final version is the
-one worth keeping, and the tracker keeps both.
+Re-publish before close if implementation amended the plan. Each same-titled
+attachment is replaced, so the ticket keeps the current durable record rather
+than two competing versions.
 
 Do not paste the plan into the ticket body. An attached file cannot drift.
 

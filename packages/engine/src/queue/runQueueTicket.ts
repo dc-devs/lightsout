@@ -10,12 +10,13 @@ import { getWorktreesRoot } from '#src/queue/common/utils/getWorktreesRoot.ts';
 import { createTicketWorktree } from '#src/queue/createTicketWorktree.ts';
 import { runWorkerWithRelay } from '#src/queue/runWorkerWithRelay.ts';
 import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
-import { setTicketStatus } from '#src/queue/tracker/index.ts';
+import { setTicketStatus, type TrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
 	/** The main repository checkout. */
 	cwd: string;
 	settings: QueueSettings;
+	trackerSettings: TrackerSettings;
 	ticket: TicketSummary;
 	config: LightsoutConfig;
 	driver: Driver;
@@ -25,7 +26,7 @@ interface Params {
 	defaultBranch: string;
 	relay: QuestionRelay;
 	/** Queue-owned serializer wrapping every `git worktree add` in the main checkout — one chain built by the drain, shared by all tickets. */
-	serializeWorktreeAdd: <Result>(task: () => Promise<Result>) => Promise<Result>;
+	serializeWorktreeAdd: <Result>(params: { task: () => Promise<Result> }) => Promise<Result>;
 	/** The coordinator run's id, stamped on every relayed question and answer. */
 	coordinatorRunId: string;
 	/** The coordinator run's directory in the main checkout — where the relay records Q&A, and where this ticket's commit message is written. */
@@ -44,6 +45,7 @@ interface Params {
 export const runQueueTicket = async ({
 	cwd,
 	settings,
+	trackerSettings,
 	ticket,
 	config,
 	driver,
@@ -58,14 +60,14 @@ export const runQueueTicket = async ({
 	const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
 	// Creation is the one step that mutates the main checkout, so it alone goes
 	// through the shared chain; everything after it runs fully parallel.
-	const created = await serializeWorktreeAdd(() => createTicketWorktree({ cwd, branch, defaultBranch, setup: settings.setup, onProgress }));
+	const created = await serializeWorktreeAdd({ task: () => createTicketWorktree({ cwd, branch, defaultBranch, setup: settings.setup, onProgress }) });
 
 	if (typeof created !== 'string') {
 		return { ticket, branch, worktreePath: join(getWorktreesRoot({ cwd }), branch), ready: false, error: created.error };
 	}
 
 	const worktreePath = created;
-	const moved = await setTicketStatus({ settings, ticketId: ticket.id, statusName: settings.inProgressStatus });
+	const moved = await setTicketStatus({ settings: trackerSettings, ticketId: ticket.id, statusName: settings.inProgressStatus });
 
 	if (moved !== undefined) {
 		// The tracker status is a courtesy to whoever is watching, never a

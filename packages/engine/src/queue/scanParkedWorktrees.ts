@@ -7,14 +7,16 @@ import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import { getWorktreesRoot } from '#src/queue/common/utils/getWorktreesRoot.ts';
-import { getTicketsByIdentifiers, setParkedLabel } from '#src/queue/tracker/index.ts';
+import { toRoutedSummaries } from '#src/queue/common/utils/toRoutedSummaries.ts';
 import { readTicketMatch, type ShipSettings } from '#src/ship/index.ts';
+import { getTicketsByIdentifiers, setParkedLabel, type TrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
 	/** The main repository checkout. */
 	cwd: string;
 	defaultBranch: string;
 	settings: QueueSettings;
+	trackerSettings: TrackerSettings;
 	shipSettings: ShipSettings;
 	onProgress?: (message: string) => void;
 }
@@ -50,7 +52,7 @@ const toQueuePath = ({ path, root, realRoot }: { path: string; root: string; rea
  * listing: a slash-bearing branch template nests directories, so an entry name
  * is not a branch name.
  */
-const listQueueWorktrees = async ({ cwd, shipSettings, onProgress }: Omit<Params, 'defaultBranch' | 'settings'>) => {
+const listQueueWorktrees = async ({ cwd, shipSettings, onProgress }: Omit<Params, 'defaultBranch' | 'settings' | 'trackerSettings'>) => {
 	const listed = await runCommand({ command: 'git worktree list --porcelain', cwd, timeoutMs: gitTimeoutMs }).catch(() => undefined);
 	const root = getWorktreesRoot({ cwd });
 	const realRoot = await realpath(root).catch(() => root);
@@ -122,23 +124,31 @@ const classifyTree = async ({ tree, defaultBranch }: { tree: ParkedTree; default
  * warning — a removed label is the user withdrawing the automation, and the
  * tree is theirs to inspect or delete.
  */
-export const scanParkedWorktrees = async ({ cwd, defaultBranch, settings, shipSettings, onProgress }: Params): Promise<ParkedWork | QueueFailure> => {
+export const scanParkedWorktrees = async ({
+	cwd,
+	defaultBranch,
+	settings,
+	trackerSettings,
+	shipSettings,
+	onProgress,
+}: Params): Promise<ParkedWork | QueueFailure> => {
 	const trees = await listQueueWorktrees({ cwd, shipSettings, onProgress });
 
 	if (trees.length === 0) {
 		return { resumed: [], outcomes: [], leftBehind: [] };
 	}
 
-	const tickets = await getTicketsByIdentifiers({ settings, identifiers: trees.map((tree) => tree.identifier) });
+	const tickets = await getTicketsByIdentifiers({ settings: trackerSettings, identifiers: trees.map((tree) => tree.identifier) });
 
 	if ('error' in tickets) {
 		return tickets;
 	}
 
+	const summaries = tickets.flatMap((ticket) => toRoutedSummaries({ ticket, routeLabels: settings.routeLabels }));
 	const parked: ParkedWork = { resumed: [], outcomes: [], leftBehind: [] };
 
 	for (const tree of trees) {
-		const matched = tickets.filter((ticket) => ticket.identifier.toLowerCase() === tree.identifier.toLowerCase());
+		const matched = summaries.filter((ticket) => ticket.identifier.toLowerCase() === tree.identifier.toLowerCase());
 
 		if (matched.length === 0) {
 			const reason = `its worktree at ${tree.path} is parked, but the ticket carries no configured route label any more`;
@@ -152,7 +162,7 @@ export const scanParkedWorktrees = async ({ cwd, defaultBranch, settings, shipSe
 		const ticket = matched[0];
 
 		if (bucket === 'drain') {
-			const cleared = await setParkedLabel({ settings, ticketId: ticket.id, parked: false });
+			const cleared = await setParkedLabel({ settings: trackerSettings, ticketId: ticket.id, label: settings.parkedLabel, parked: false });
 
 			if (cleared !== undefined) {
 				onProgress?.(`${tree.identifier} · the parked label could not be cleared: ${cleared.error}`);

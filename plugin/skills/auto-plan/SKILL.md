@@ -294,7 +294,22 @@ direction.
 - **A change of direction is a stop.** Say plainly that this is what
   the interactive `plan` skill is for, and hand the plan folder over.
 
-**9. Roll onward.** With `implement-on-approval` false, print the handoff line
+**9. Publish the approved ticket-backed plan.** Once approval exists — explicit
+or automatic — and before either handing off or implementing, publish when the
+work traces to a ticket:
+
+```sh
+node "<plugin-root>/dist/cli.mjs" plan publish --name <name>
+```
+
+With no ticket, skip this step. A nonzero publish is a stop: report the exact
+failure and do not hand off or implement an artifact another machine cannot
+recover. Under `lightsout queue`, report that as `failed` in the worker's final
+JSON so the ticket parks with the actionable publish error. Never treat a
+passing grade or automatic approval as a substitute for this command; the
+grade proves the plan is ready, while publish makes that ready plan durable.
+
+**10. Roll onward.** With `implement-on-approval` false, print the handoff line
 and stop:
 
 ```

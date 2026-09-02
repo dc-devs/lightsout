@@ -1,9 +1,10 @@
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
-import { setParkedLabel } from '#src/queue/tracker/index.ts';
+import { setParkedLabel, type TrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
 	settings: QueueSettings;
+	trackerSettings: TrackerSettings;
 	/** Every settled outcome, after `shipReadyBranches` has run. */
 	outcomes: TicketRunOutcome[];
 	onProgress?: (message: string) => void;
@@ -21,14 +22,14 @@ interface Params {
  * A failed write is a progress line and nothing more: the tracker is a courtesy
  * to whoever is watching, never a precondition for building.
  */
-export const settleParkedLabels = async ({ settings, outcomes, onProgress }: Params): Promise<void> => {
+export const settleParkedLabels = async ({ settings, trackerSettings, outcomes, onProgress }: Params): Promise<void> => {
 	if (settings.parkedLabel === undefined) {
 		return;
 	}
 
 	await Promise.all(
 		outcomes.map(async (outcome) => {
-			const written = await setParkedLabel({ settings, ticketId: outcome.ticket.id, parked: !outcome.ready });
+			const written = await setParkedLabel({ settings: trackerSettings, ticketId: outcome.ticket.id, label: settings.parkedLabel, parked: !outcome.ready });
 
 			if (written !== undefined) {
 				onProgress?.(`${outcome.ticket.identifier} · the '${settings.parkedLabel}' label could not be written: ${written.error}`);

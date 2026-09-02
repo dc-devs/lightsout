@@ -7,8 +7,10 @@ import type { Driver } from '#src/drivers/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
 import { type QuestionRelay, type QueueFailure, type QueueSettings, runQueue, type TicketRunOutcome } from '#src/queue/index.ts';
 import type { ShipSettings } from '#src/ship/index.ts';
+import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
+import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
 // -------------------------
@@ -18,12 +20,13 @@ type ParkedWork = {
 	outcomes: TicketRunOutcome[];
 	leftBehind: { identifier: string; reason: string }[];
 };
-type ListEligibleParams = { settings: QueueSettings };
-type SetParkedLabelParams = { settings: QueueSettings; ticketId: string; parked: boolean };
+type ListEligibleParams = { settings: QueueSettings; trackerSettings: TrackerSettings };
+type SetParkedLabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; parked: boolean };
 type ScanParkedParams = {
 	cwd: string;
 	defaultBranch: string;
 	settings: QueueSettings;
+	trackerSettings: TrackerSettings;
 	shipSettings: ShipSettings;
 	onProgress?: (message: string) => void;
 };
@@ -43,8 +46,10 @@ type RunGatesParams = {
 const mockListEligibleTickets = jest.fn<(params: ListEligibleParams) => Promise<TicketSummary[] | QueueFailure>>();
 const mockSetParkedLabel = jest.fn<(params: SetParkedLabelParams) => Promise<QueueFailure | undefined>>();
 
-jest.mock('#src/queue/tracker/index.ts', () => ({
+jest.mock('#src/queue/listEligibleTickets.ts', () => ({
 	listEligibleTickets: (params: ListEligibleParams) => mockListEligibleTickets(params),
+}));
+jest.mock('#src/ticketTracker/index.ts', () => ({
 	setParkedLabel: (params: SetParkedLabelParams) => mockSetParkedLabel(params),
 }));
 // -------------------------
@@ -78,6 +83,7 @@ const ticket: TicketSummary = {
 	description: '',
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
+	labels: [],
 	route: 'direct',
 	unfinishedBlockers: [],
 };
@@ -125,6 +131,7 @@ describe('runQueue', () => {
 		const result = await runQueue({
 			cwd,
 			settings,
+			trackerSettings: trackerSettingsFixture(),
 			shipSettings,
 			config,
 			driver,

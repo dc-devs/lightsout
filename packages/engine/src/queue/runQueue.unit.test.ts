@@ -1,9 +1,8 @@
 import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { PassThrough } from 'node:stream';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, type RunManifest, RunStatus, ShipMergeMethod } from '#src/contracts/index.ts';
+import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
@@ -11,11 +10,15 @@ import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { runQueue, TerminalQuestionRelay } from '#src/queue/index.ts';
+import { runQueue } from '#src/queue/index.ts';
 import type { ShipSettings } from '#src/ship/index.ts';
-import { jiraQueueSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixture.ts';
+import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import { jiraTrackerSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
+import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
+import { terminalRelayFixture } from '#tests/helpers/terminalRelayFixture.ts';
+import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
 // -------------------------
@@ -23,19 +26,19 @@ import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 // own tests. What this file owns is the order the drain works in, what it writes
 // down, and the accounting it hands back — all observable with those stubbed.
 /** The queue-owned chain every `git worktree add` goes through, as `runQueueTicket` receives it. */
-type SerializeWorktreeAdd = <Result>(task: () => Promise<Result>) => Promise<Result>;
+type SerializeWorktreeAdd = <Result>(params: { task: () => Promise<Result> }) => Promise<Result>;
 
 const mockListEligibleTickets = jest.fn<() => Promise<TicketSummary[] | QueueFailure>>();
 const mockScanParkedWorktrees = jest.fn<() => Promise<ParkedWork | QueueFailure>>();
 const mockRunQueueTicket = jest.fn<(params: { ticket: TicketSummary; serializeWorktreeAdd: SerializeWorktreeAdd }) => Promise<TicketRunOutcome>>();
 const mockShipReadyBranches = jest.fn<(params: { ready: TicketRunOutcome[] }) => Promise<TicketRunOutcome[]>>();
 /** The label write is covered by `setParkedLabel`'s own tests; what this file owns is which list the drain settles it over, and when. */
-type LabelParams = { settings: QueueSettings; ticketId: string; parked: boolean };
+type LabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; parked: boolean };
 
 const mockSetParkedLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure | undefined>>();
 
-jest.mock('#src/queue/tracker/index.ts', () => ({
-	listEligibleTickets: () => mockListEligibleTickets(),
+jest.mock('#src/queue/listEligibleTickets.ts', () => ({ listEligibleTickets: () => mockListEligibleTickets() }));
+jest.mock('#src/ticketTracker/index.ts', () => ({
 	appendTicketNote: () => Promise.resolve(undefined),
 	setParkedLabel: (params: LabelParams) => mockSetParkedLabel(params),
 }));
@@ -49,13 +52,7 @@ jest.mock('#src/queue/shipReadyBranches.ts', () => ({ shipReadyBranches: (params
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 const driver: Driver = { name: 'claude-code', invoke: () => Promise.resolve({ text: '', exitCode: 0 }) };
 
-const shipSettings: ShipSettings = {
-	ticketPattern: /^(?<ticket>[a-z]+-\d+)/,
-	pullRequestBody: '{ticket}',
-	mergeMethod: ShipMergeMethod.Merge,
-	afterImplement: false,
-	preShip: undefined,
-};
+const shipSettings = shipSettingsFixture();
 
 const ticketOf = ({
 	number,
@@ -76,6 +73,7 @@ const ticketOf = ({
 	description: '',
 	priority,
 	createdAt,
+	labels: [],
 	route: QueueRoute.Direct,
 	unfinishedBlockers,
 });
@@ -99,11 +97,29 @@ const setupDrain = ({ eligible = [], parked }: { eligible?: TicketSummary[]; par
 	mockShipReadyBranches.mockImplementation(({ ready }) => Promise.resolve(ready));
 	mockSetParkedLabel.mockResolvedValue(undefined);
 
-	const relay = new TerminalQuestionRelay({ settings: queueSettingsFixture(), input: new PassThrough(), output: new PassThrough() });
+	const relay = terminalRelayFixture();
 	const progress: string[] = [];
 
-	const drain = ({ settings = queueSettingsFixture(), ship = shipSettings }: { settings?: QueueSettings; ship?: ShipSettings } = {}) =>
-		runQueue({ cwd, settings, shipSettings: ship, config, driver, driverName: 'claude-code', relay, onProgress: (message) => progress.push(message) });
+	const drain = ({
+		settings = queueSettingsFixture(),
+		trackerSettings = trackerSettingsFixture(),
+		ship = shipSettings,
+	}: {
+		settings?: QueueSettings;
+		trackerSettings?: TrackerSettings;
+		ship?: ShipSettings;
+	} = {}) =>
+		runQueue({
+			cwd,
+			settings,
+			trackerSettings,
+			shipSettings: ship,
+			config,
+			driver,
+			driverName: 'claude-code',
+			relay,
+			onProgress: (message) => progress.push(message),
+		});
 
 	return { cwd, drain, relay, progress };
 };
@@ -143,7 +159,7 @@ describe('runQueue', () => {
 		const { drain, relay } = setupDrain();
 
 		const report = await drain({
-			settings: jiraQueueSettingsFixture({ project: 'OPS', ticketPrefix: 'OPS' }),
+			trackerSettings: jiraTrackerSettingsFixture({ project: 'OPS', ticketPrefix: 'OPS' }),
 			ship: { ...shipSettings, ticketPattern: /^(?<ticket>ops-(?<number>\d+))/ },
 		});
 
@@ -154,9 +170,18 @@ describe('runQueue', () => {
 
 	test('refuses a repo with no remote default branch, the same refusal ship makes for the same reason', async () => {
 		const { cwd } = setupBranchRepo({ remoteHead: false });
-		const relay = new TerminalQuestionRelay({ settings: queueSettingsFixture(), input: new PassThrough(), output: new PassThrough() });
+		const relay = terminalRelayFixture();
 
-		const report = await runQueue({ cwd, settings: queueSettingsFixture(), shipSettings, config, driver, driverName: 'claude-code', relay });
+		const report = await runQueue({
+			cwd,
+			settings: queueSettingsFixture(),
+			trackerSettings: trackerSettingsFixture(),
+			shipSettings,
+			config,
+			driver,
+			driverName: 'claude-code',
+			relay,
+		});
 
 		relay.close();
 
@@ -288,13 +313,15 @@ describe('runQueue', () => {
 		let mostAtOnce = 0;
 
 		mockRunQueueTicket.mockImplementation(async ({ ticket, serializeWorktreeAdd }) => {
-			await serializeWorktreeAdd(async () => {
-				creating += 1;
-				mostAtOnce = Math.max(mostAtOnce, creating);
+			await serializeWorktreeAdd({
+				task: async () => {
+					creating += 1;
+					mostAtOnce = Math.max(mostAtOnce, creating);
 
-				await new Promise((settle) => setTimeout(settle, 5));
+					await new Promise((settle) => setTimeout(settle, 5));
 
-				creating -= 1;
+					creating -= 1;
+				},
 			});
 
 			return outcomeOf({ ticket });
@@ -342,9 +369,9 @@ describe('runQueue', () => {
 		await drain({ settings: queueSettingsFixture({ parkedLabel: 'queue-parked' }) });
 		relay.close();
 
-		expect(mockSetParkedLabel.mock.calls.map(([params]) => ({ ticketId: params.ticketId, parked: params.parked }))).toStrictEqual([
-			{ ticketId: 'id-70', parked: false },
-			{ ticketId: 'id-71', parked: true },
+		expect(mockSetParkedLabel.mock.calls.map(([params]) => ({ ticketId: params.ticketId, label: params.label, parked: params.parked }))).toStrictEqual([
+			{ ticketId: 'id-70', label: 'queue-parked', parked: false },
+			{ ticketId: 'id-71', label: 'queue-parked', parked: true },
 		]);
 	});
 

@@ -57,6 +57,7 @@ GitHub side, and Linear links the pull request through the branch name.
 ## Attaching in Linear
 
 Which files to attach is the ticket-workflow skill's rule and is not repeated
-here. What is Linear's: attach the files as Linear issue attachments, and
-never put the plan in a Linear Document — a document invites editing, and then
-two copies disagree about what was decided.
+here. Its publish command handles the finished plan. When that workflow calls
+for a manual attachment before a finished plan exists, attach the file as a
+Linear issue attachment. Never put a plan in a Linear Document — a document
+invites editing, and then two copies disagree about what was decided.

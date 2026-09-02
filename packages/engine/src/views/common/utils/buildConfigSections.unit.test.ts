@@ -5,10 +5,14 @@ import { buildConfigSections } from '#src/views/common/utils/buildConfigSections
 
 /** The queue block this repo's own config shape allows, used to prove the section reads the file rather than a default. */
 const queueBlock = {
-	tracker: 'linear',
-	team: 'LO',
 	'route-labels': { direct: 'direct', 'auto-plan': 'auto-plan' },
 	'max-parallel': 3,
+};
+
+/** The tracker block beside it — identity is its own block, so it is its own section too. */
+const ticketTrackerBlock = {
+	provider: 'linear',
+	team: 'LO',
 	'api-key-env': 'LINEAR_API_KEY',
 };
 
@@ -45,5 +49,26 @@ describe('buildConfigSections', () => {
 		const queue = buildSections().find((section) => section.title === 'Queue');
 
 		expect(queue?.fields[0]).toStrictEqual({ key: 'queue', value: null, fromConfig: false, description: configKeyDescriptions.queue });
+	});
+
+	test('reads the ticket-tracker block back into its own section, ahead of the queue block that consumes it', () => {
+		const sections = buildSections({ config: { 'ticket-tracker': ticketTrackerBlock } });
+		const tracker = sections.find((section) => section.title === 'Ticket tracker');
+
+		expect(tracker?.fields).toStrictEqual([
+			{ key: 'ticket-tracker', value: ticketTrackerBlock, fromConfig: true, description: configKeyDescriptions['ticket-tracker'] },
+		]);
+		expect(sections.findIndex((section) => section.title === 'Ticket tracker')).toBeLessThan(sections.findIndex((section) => section.title === 'Queue'));
+	});
+
+	test('leaves ticket-tracker null when the file omits it, because the engine runs with no tracker at all', () => {
+		const tracker = buildSections().find((section) => section.title === 'Ticket tracker');
+
+		expect(tracker?.fields[0]).toStrictEqual({
+			key: 'ticket-tracker',
+			value: null,
+			fromConfig: false,
+			description: configKeyDescriptions['ticket-tracker'],
+		});
 	});
 });

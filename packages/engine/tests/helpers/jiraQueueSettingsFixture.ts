@@ -1,21 +1,17 @@
-import type { QueueSettings } from '#src/queue/index.ts';
+import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 
-type JiraQueueSettings = Extract<QueueSettings, { tracker: 'jira' }>;
+type JiraTrackerSettings = Extract<TrackerSettings, { provider: 'jira' }>;
 
-export const jiraQueueSettingsFixture = (overrides: Partial<JiraQueueSettings> = {}): JiraQueueSettings => ({
-	tracker: 'jira',
+/** A resolved Jira tracker identity. Kept in the existing helper file so the recovery does not churn every Jira test at once. */
+export const jiraTrackerSettingsFixture = (overrides: Partial<JiraTrackerSettings> = {}): JiraTrackerSettings => ({
+	provider: 'jira',
 	ticketPrefix: 'LO',
 	siteUrl: 'https://example.atlassian.net',
 	project: 'LO',
 	apiUserEmail: 'person@example.com',
-	routeLabels: { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
-	maxParallel: 2,
 	apiKey: 'jira-token',
-	eligibleStatuses: ['Backlog'],
-	inProgressStatus: 'In Progress',
-	branchTemplate: '{ticket}-{slug}',
-	decisionsHeading: '## Decisions',
-	workerTimeoutMs: 14_400_000,
-	questionTimeoutMs: 3_600_000,
 	...overrides,
 });
+
+/** @deprecated Use `jiraTrackerSettingsFixture`; retained while Jira tests move from queue-owned identity. */
+export const jiraQueueSettingsFixture = jiraTrackerSettingsFixture;

@@ -10,6 +10,7 @@ const ticketOf = (overrides: Partial<TicketSummary> = {}): TicketSummary => ({
 	description: '',
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
+	labels: [],
 	route: QueueRoute.Direct,
 	unfinishedBlockers: [],
 	...overrides,

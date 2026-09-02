@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { appendJsonlRecords } from '#src/common/utils/appendJsonlRecords.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { appendTicketNote } from '#src/queue/tracker/index.ts';
+import { appendTicketNote, type TrackerSettings } from '#src/ticketTracker/index.ts';
 
 /**
  * One relayed question and its answer, as persisted to the coordinator run's
@@ -21,6 +21,7 @@ const QueueQuestionRecord = z.object({
 
 interface Params {
 	settings: QueueSettings;
+	trackerSettings: TrackerSettings;
 	question: string;
 	answer: string;
 	ticket: TicketSummary;
@@ -39,7 +40,16 @@ interface Params {
  * A worktree's `.lightsout` belongs to the worker running in it, so the queue's
  * copy lives with the queue's own run, tagged per ticket.
  */
-export const recordRelayedAnswer = async ({ settings, question, answer, ticket, coordinatorRunId, coordinatorRunDir, onProgress }: Params): Promise<void> => {
+export const recordRelayedAnswer = async ({
+	settings,
+	trackerSettings,
+	question,
+	answer,
+	ticket,
+	coordinatorRunId,
+	coordinatorRunDir,
+	onProgress,
+}: Params): Promise<void> => {
 	await appendJsonlRecords({
 		path: join(coordinatorRunDir, 'decisions.jsonl'),
 		schema: QueueQuestionRecord,
@@ -49,7 +59,7 @@ export const recordRelayedAnswer = async ({ settings, question, answer, ticket, 
 	});
 
 	const noted = await appendTicketNote({
-		settings,
+		settings: trackerSettings,
 		ticketId: ticket.id,
 		heading: settings.decisionsHeading,
 		line: `- ${question} → ${answer}`,

@@ -5,6 +5,7 @@ import { printResult } from '#src/cli/common/render/printResult.ts';
 import { printRunHeader } from '#src/cli/common/render/printRunHeader.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
+import { ensurePlanWorkspace } from '#src/cli/common/utils/ensurePlanWorkspace.ts';
 import { exitAfterImplement } from '#src/cli/common/utils/exitAfterImplement.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { resolveCommandHarness } from '#src/cli/common/utils/resolveCommandHarness.ts';
@@ -45,6 +46,14 @@ const resolveImplementInputs = async ({ flags, cwd }: { flags: CommandContext['f
 
 	if (startPhase !== undefined && (!Number.isFinite(startPhase) || startPhase < 1)) {
 		return { error: `--start-phase must be a positive integer, got '${startPhaseFlag}'` };
+	}
+
+	// The fetch has to have happened before anything asks the disk what shape the
+	// plan is.
+	const ensured = await ensurePlanWorkspace({ cwd, planPath });
+
+	if (ensured !== undefined) {
+		return { error: ensured.error };
 	}
 
 	const target = await resolvePlanTarget({ cwd, planPath });

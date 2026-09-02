@@ -8,10 +8,12 @@ re-invokes you with their answer.
 ## What to do
 
 1. Invoke the `lightsout:auto-plan` skill on the ticket appended below and
-   follow it exactly as written. It plans the ticket and hands the plan to the
-   implement pipeline.
-2. Run the engine's `implement` command on the plan folder that skill produces,
-   and stay with the run until it finishes.
+   follow it exactly as written. It plans the ticket, publishes the approved
+   durable plan to that ticket, and hands the plan to the implement pipeline.
+2. Do not begin implementation unless that publish step succeeded. Then run the
+   engine's `implement` command on the plan folder the skill produces, and stay
+   with the run until it finishes. A publish failure is a worker failure to
+   report, not a reason to continue from the one local copy.
 
 The task message names the exact engine invocation to type. That string is
 also the only command prefix this session was granted, so wherever the skill's

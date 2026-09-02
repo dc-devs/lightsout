@@ -129,6 +129,13 @@ The plan is graded and revised until nothing is left for the implementation agen
 
 When a plan starts from a `/brainstorm` hand-off, the decisions already settled there are carried straight into the plan rather than asked again; a settled decision is re-opened only when exploring the code turns up a concrete conflict.
 
+Once a ticket-backed plan is approved as ready, run `lightsout plan publish --name <name>`. It attaches only the durable design record — the single or
+phased plan deliverable and whichever of `notes.md`, `decisions.json`, and
+`grade.json` the folder holds — plus a small `plan-attachments.json` integrity
+marker written last. Transcripts and other run state stay local. Publishing
+again replaces each same-titled attachment, so an amended plan can be published
+safely without creating duplicate attachments under those names.
+
 [![How /plan turns a request into an implementation-ready spec](assets/plan-workflow-light.svg)](assets/plan-workflow-light.svg)
 
 
@@ -162,6 +169,15 @@ Hand the finished spec to the factory. `/implement` follows the plan, writes the
 
 After each code-writing stage, the full repository is formatted before deterministic gates run. If a test, lint, type-check, coverage, build, or formatting family fails, that family receives bounded repair attempts before the run escalates; root and package executions of the same family share the allowance. When the run succeeds, the complete record is written to `.lightsout/runs/<id>/`.
 
+A finished plan is not stuck on the machine that wrote it. `/implement` looks
+for the plan folder on local disk first. When a ticket-named folder is absent,
+it fetches that ticket's durable plan attachments and reconstructs the folder,
+so a fresh clone can run the same plan without copying files by hand. The
+integrity marker must name a complete generation and match every file's hash;
+an interrupted or mixed publish is refused without leaving a partial folder.
+It never restores transcripts or other run state. If neither source can supply
+a plan, the run stops with one message naming both places it looked.
+
 [![How /implement turns the spec into verified code](assets/implement-workflow-light.svg)](assets/implement-workflow-light.svg)
 
 ```text
@@ -191,7 +207,10 @@ lightsout ship
 
 ### lightsout queue
 
-Drain the backlog lights-out. `lightsout queue` reads your tracker for every ticket on the configured team that sits in an eligible status and carries a route label, then works them in parallel git worktrees — one branch, one PR, one merge per ticket.
+Drain the backlog lights-out. `lightsout queue` reads the configured Linear team
+or Jira project for every ticket that sits in an eligible status and carries a
+route label, then works them in parallel git worktrees — one branch, one PR, one
+merge per ticket.
 
 The two route labels are how a human opts a ticket in, and each names a worker. `route-direct` builds straight from the ticket body. `route-auto-plan` plans the ticket first — the same self-answering planner behind `/auto-plan` — and then implements the plan it wrote.
 
@@ -201,7 +220,10 @@ When a worker hits a question only a human can answer, the queue relays it: to y
 
 Exit codes carry the whole story: `0` — everything eligible shipped; `2` — work remains that a re-run picks up (parked or left-behind tickets); `1` — the queue refused to start, and the message says why.
 
-It needs a `queue` block in `lightsout.config.json` — which tracker, which team, which labels, how many at once — and the tracker API key in the environment variable that block names. See [Configuration](docs/configuration.md).
+It needs two blocks in `lightsout.config.json`: `ticket-tracker` holds the
+provider-specific connection and names its credential environment variables;
+`queue` holds routes, statuses, labels, parallelism, and timeouts. See
+[Configuration](docs/configuration.md).
 
 ```text
 lightsout queue --file-relay

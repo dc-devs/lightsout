@@ -3,12 +3,14 @@ import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { recordRelayedAnswer } from '#src/queue/relay/recordRelayedAnswer.ts';
+import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 
 /** Said both by a drain whose input was closed before it asked, and by one whose terminal went away mid-question — one fact, one wording. */
 const noTerminalMessage = 'there is no terminal to answer on — run `lightsout queue` attached to one';
 
 interface ConstructorParams {
 	settings: QueueSettings;
+	trackerSettings: TrackerSettings;
 	/** Where prompts are printed and answers are typed — `process.stdin` in the CLI, a stream in tests. */
 	input: NodeJS.ReadableStream;
 	/** Where prompts and every worker's progress line are written. */
@@ -30,6 +32,7 @@ interface ConstructorParams {
  */
 export class TerminalQuestionRelay implements QuestionRelay {
 	private readonly settings: QueueSettings;
+	private readonly trackerSettings: TrackerSettings;
 	private readonly output: NodeJS.WritableStream;
 	private readonly terminal: Interface;
 	// Each `ask` awaits its predecessor, so the terminal never holds two
@@ -40,8 +43,9 @@ export class TerminalQuestionRelay implements QuestionRelay {
 	private ended = false;
 	private abandonPrompt?: (error: Error) => void;
 
-	constructor({ settings, input, output }: ConstructorParams) {
+	constructor({ settings, trackerSettings, input, output }: ConstructorParams) {
 		this.settings = settings;
+		this.trackerSettings = trackerSettings;
 		this.output = output;
 		this.terminal = createInterface({ input, output });
 		// A drain started with no terminal attached ends its input immediately.
@@ -80,6 +84,7 @@ export class TerminalQuestionRelay implements QuestionRelay {
 			.then(async (answer) => {
 				await recordRelayedAnswer({
 					settings: this.settings,
+					trackerSettings: this.trackerSettings,
 					question,
 					answer,
 					ticket,

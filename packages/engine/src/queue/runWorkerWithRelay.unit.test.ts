@@ -13,6 +13,7 @@ import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { TerminalQuestionRelay } from '#src/queue/relay/index.ts';
 import { runWorkerWithRelay } from '#src/queue/runWorkerWithRelay.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
+import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
 // -------------------------
@@ -29,7 +30,7 @@ jest.mock('#src/invoke/index.ts', () => ({
 jest.mock('#src/direct/index.ts', () => ({
 	runDirectWork: (params: { answeredQuestion?: { question: string; answer: string } }) => mockRunDirectWork(params),
 }));
-jest.mock('#src/queue/tracker/index.ts', () => ({ appendTicketNote: () => mockAppendTicketNote() }));
+jest.mock('#src/ticketTracker/index.ts', () => ({ appendTicketNote: () => mockAppendTicketNote() }));
 // -------------------------
 
 const settings = queueSettingsFixture();
@@ -44,6 +45,7 @@ const ticketOf = (route: TicketSummary['route']): TicketSummary => ({
 	description: 'Build the thing.',
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
+	labels: [],
 	route,
 	unfinishedBlockers: [],
 });
@@ -95,7 +97,10 @@ const setupRelay = ({ answers = [] }: { answers?: string[] } = {}) => {
 
 	mockAppendTicketNote.mockResolvedValue(undefined);
 
-	return { relay: new TerminalQuestionRelay({ settings, input, output }), coordinatorRunDir: mkdtempSync(join(tmpdir(), 'lightsout-worker-')) };
+	return {
+		relay: new TerminalQuestionRelay({ settings, trackerSettings: trackerSettingsFixture(), input, output }),
+		coordinatorRunDir: mkdtempSync(join(tmpdir(), 'lightsout-worker-')),
+	};
 };
 
 const runWorker = ({ relay, coordinatorRunDir, ticket }: { relay: QuestionRelay; coordinatorRunDir: string; ticket: TicketSummary }) =>

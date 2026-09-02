@@ -1,9 +1,8 @@
 import { execSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { PassThrough } from 'node:stream';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, ShipMergeMethod } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
@@ -11,28 +10,31 @@ import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { runQueue, TerminalQuestionRelay } from '#src/queue/index.ts';
-import type { ShipSettings } from '#src/ship/index.ts';
+import { runQueue } from '#src/queue/index.ts';
+import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
+import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
+import { terminalRelayFixture } from '#tests/helpers/terminalRelayFixture.ts';
+import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
 // -------------------------
 // The blocking half of the drain, which the base suite deliberately leaves
-// alone: which tickets a wave may take, how often the tracker is re-read, and
-// what the final report says about a ticket that was held back. A blocker
-// finishing mid-drain is expressed by the tracker stub answering a DIFFERENT
-// eligible list on the next call.
+// alone: which tickets a wave may take and how often the tracker is re-read.
+// What the report says about a ticket no wave ever worked is the neighbouring
+// `runQueue.blockedTickets` suite. A blocker finishing mid-drain is expressed by
+// the tracker stub answering a DIFFERENT eligible list on the next call.
 const mockListEligibleTickets = jest.fn<() => Promise<TicketSummary[] | QueueFailure>>();
 const mockScanParkedWorktrees = jest.fn<() => Promise<ParkedWork | QueueFailure>>();
 const mockRunQueueTicket = jest.fn<(params: { ticket: TicketSummary }) => Promise<TicketRunOutcome>>();
 const mockShipReadyBranches = jest.fn<(params: { ready: TicketRunOutcome[] }) => Promise<TicketRunOutcome[]>>();
-type LabelParams = { settings: QueueSettings; ticketId: string; parked: boolean };
+type LabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; parked: boolean };
 
 const mockSetParkedLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure | undefined>>();
 
-jest.mock('#src/queue/tracker/index.ts', () => ({
-	listEligibleTickets: () => mockListEligibleTickets(),
+jest.mock('#src/queue/listEligibleTickets.ts', () => ({ listEligibleTickets: () => mockListEligibleTickets() }));
+jest.mock('#src/ticketTracker/index.ts', () => ({
 	appendTicketNote: () => Promise.resolve(undefined),
 	setParkedLabel: (params: LabelParams) => mockSetParkedLabel(params),
 }));
@@ -43,14 +45,7 @@ jest.mock('#src/queue/shipReadyBranches.ts', () => ({ shipReadyBranches: (params
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 const driver: Driver = { name: 'claude-code', invoke: () => Promise.resolve({ text: '', exitCode: 0 }) };
-
-const shipSettings: ShipSettings = {
-	ticketPattern: /^(?<ticket>[a-z]+-\d+)/,
-	pullRequestBody: '{ticket}',
-	mergeMethod: ShipMergeMethod.Merge,
-	afterImplement: false,
-	preShip: undefined,
-};
+const shipSettings = shipSettingsFixture();
 
 const ticketOf = ({
 	number,
@@ -69,6 +64,7 @@ const ticketOf = ({
 	description: '',
 	priority,
 	createdAt,
+	labels: [],
 	route: QueueRoute.Direct,
 	unfinishedBlockers,
 });
@@ -109,11 +105,21 @@ const setupDrain = ({ eligible = [], parked }: { eligible?: TicketSummary[]; par
 	mockShipReadyBranches.mockImplementation(({ ready }) => Promise.resolve(ready));
 	mockSetParkedLabel.mockResolvedValue(undefined);
 
-	const relay = new TerminalQuestionRelay({ settings: queueSettingsFixture(), input: new PassThrough(), output: new PassThrough() });
+	const relay = terminalRelayFixture();
 	const progress: string[] = [];
 
 	const drain = ({ settings = queueSettingsFixture() }: { settings?: QueueSettings } = {}) =>
-		runQueue({ cwd, settings, shipSettings, config, driver, driverName: 'claude-code', relay, onProgress: (message) => progress.push(message) });
+		runQueue({
+			cwd,
+			settings,
+			trackerSettings: trackerSettingsFixture(),
+			shipSettings,
+			config,
+			driver,
+			driverName: 'claude-code',
+			relay,
+			onProgress: (message) => progress.push(message),
+		});
 
 	return { cwd, drain, relay, progress };
 };
@@ -133,20 +139,6 @@ const readQueuePlan = ({ cwd }: { cwd: string }) => {
 };
 
 describe('runQueue', () => {
-	test('never spends a worker on a blocked ticket, and names the blocker once in the report', async () => {
-		const { drain, relay } = setupDrain({ eligible: [ticketOf({ number: 70 }), ticketOf({ number: 71, unfinishedBlockers: ['LO-69'] })] });
-
-		const report = await drain();
-
-		relay.close();
-
-		expect(pickedUp()).toStrictEqual(['LO-70']);
-		expect(report).toEqual({
-			outcomes: [expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-70' }) })],
-			leftBehind: [{ identifier: 'LO-71', reason: expect.stringContaining('blocked by LO-69') }],
-		});
-	});
-
 	test('takes a ticket its blocker just unblocked in a later wave, and reports it only as an outcome', async () => {
 		const { drain, relay } = setupDrain();
 
@@ -342,61 +334,5 @@ describe('runQueue', () => {
 			leftBehind: [{ identifier: 'LO-71', reason: expect.stringContaining('blocked by LO-69') }],
 		});
 		expect(progress).toContainEqual(expect.stringContaining('the re-scan for newly unblocked tickets failed'));
-	});
-
-	test('names a ticket the last scan skipped for two route labels beside the one still waiting on a blocker', async () => {
-		const { drain, relay } = setupDrain();
-
-		mockListEligibleTickets.mockResolvedValueOnce([ticketOf({ number: 70 }), ticketOf({ number: 71, unfinishedBlockers: ['LO-69'] })]);
-		mockListEligibleTickets.mockResolvedValueOnce([
-			ticketOf({ number: 71, unfinishedBlockers: ['LO-69'] }),
-			ticketOf({ number: 80 }),
-			{ ...ticketOf({ number: 80 }), route: QueueRoute.AutoPlan },
-		]);
-
-		const report = await drain();
-
-		relay.close();
-
-		expect(pickedUp()).toStrictEqual(['LO-70']);
-		expect(report).toEqual({
-			outcomes: [expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-70' }) })],
-			leftBehind: [
-				{ identifier: 'LO-80', reason: expect.stringContaining('both route labels') },
-				{ identifier: 'LO-71', reason: expect.stringContaining('blocked by LO-69') },
-			],
-		});
-	});
-
-	test('takes no run lock at all when every eligible ticket is waiting on a blocker, and says so', async () => {
-		const { cwd, drain, relay, progress } = setupDrain({ eligible: [ticketOf({ number: 70, unfinishedBlockers: ['LO-69'] })] });
-
-		const report = await drain();
-
-		relay.close();
-
-		expect(report).toEqual({ outcomes: [], leftBehind: [{ identifier: 'LO-70', reason: expect.stringContaining('blocked by LO-69') }] });
-		expect(progress).toContainEqual(expect.stringContaining('waiting on an unfinished blocker'));
-		expect(existsSync(join(cwd, '.lightsout', 'runs'))).toBe(false);
-	});
-
-	test('names a blocked RESUMED ticket once, though no later scan returns it — the eligible query hides its in-progress status', async () => {
-		const { drain, relay } = setupDrain({ parked: { resumed: [ticketOf({ number: 99, unfinishedBlockers: ['LO-69'] })], outcomes: [], leftBehind: [] } });
-
-		mockListEligibleTickets.mockResolvedValueOnce([ticketOf({ number: 70 })]);
-		mockListEligibleTickets.mockResolvedValueOnce([ticketOf({ number: 71 })]);
-
-		const report = await drain();
-
-		relay.close();
-
-		expect(pickedUp()).toStrictEqual(['LO-70', 'LO-71']);
-		expect(report).toEqual({
-			outcomes: [
-				expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-70' }) }),
-				expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-71' }) }),
-			],
-			leftBehind: [{ identifier: 'LO-99', reason: expect.stringContaining('blocked by LO-69') }],
-		});
 	});
 });

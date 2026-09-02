@@ -30,6 +30,7 @@ export { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
 export { ConfigGates } from '#src/contracts/ConfigGates.ts';
 export { ConfigQueue } from '#src/contracts/ConfigQueue.ts';
 export { ConfigShip } from '#src/contracts/ConfigShip.ts';
+export { ConfigTicketTracker } from '#src/contracts/ConfigTicketTracker.ts';
 export {
 	CommandActor,
 	CommandCatalogEntry,

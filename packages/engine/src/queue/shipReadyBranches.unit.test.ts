@@ -2,15 +2,15 @@ import { execSync } from 'node:child_process';
 import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, ShipBlockReason, ShipMergeMethod, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
+import { type LightsoutConfig, ShipBlockReason, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
 import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { createTicketWorktree } from '#src/queue/createTicketWorktree.ts';
 import { shipReadyBranches } from '#src/queue/shipReadyBranches.ts';
-import type { ShipSettings } from '#src/ship/index.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
+import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
 
 // Mocked Imports
 // -------------------------
@@ -26,13 +26,7 @@ jest.mock('#src/ship/index.ts', () => ({ runShip: (params: { cwd: string }) => m
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
-const shipSettings: ShipSettings = {
-	ticketPattern: /^(?<ticket>[a-z]+-\d+)/,
-	pullRequestBody: '{ticket}',
-	mergeMethod: ShipMergeMethod.Merge,
-	afterImplement: false,
-	preShip: undefined,
-};
+const shipSettings = shipSettingsFixture();
 
 const shippedResult: ShipResult = {
 	status: ShipStatus.Shipped,
@@ -53,6 +47,7 @@ const ticketOf = ({ number }: { number: number }): TicketSummary => ({
 	description: '',
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
+	labels: [],
 	route: QueueRoute.Direct,
 	unfinishedBlockers: [],
 });
