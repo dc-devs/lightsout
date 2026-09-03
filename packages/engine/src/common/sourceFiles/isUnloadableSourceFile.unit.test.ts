@@ -51,3 +51,14 @@ test('isUnloadableSourceFile: a file with no await at all is loadable', () => {
 	expect(isUnloadableSourceFile({ path: 'src/add.ts', content: 'export const add = (a: number, b: number): number => a + b;\n', compiler })).toBe(false);
 	expect(isUnloadableSourceFile({ path: 'src/empty.ts', content: '', compiler })).toBe(false);
 });
+
+test('isUnloadableSourceFile: a .tsx or .jsx file is parsed as JSX, so its module-scope await is still found', () => {
+	const { compiler } = setup();
+
+	expect(isUnloadableSourceFile({ path: 'src/App.tsx', content: 'const view = <App label="hi" />;\n\nawait render(view);\n', compiler })).toBe(true);
+	expect(isUnloadableSourceFile({ path: 'src/App.jsx', content: 'const view = <App label="hi" />;\n\nawait render(view);\n', compiler })).toBe(true);
+	// JSX that only surrounds ordinary async code says nothing about loading.
+	expect(
+		isUnloadableSourceFile({ path: 'src/App.tsx', content: 'export const App = async () => {\n\tawait load();\n\n\treturn <div />;\n};\n', compiler }),
+	).toBe(false);
+});
