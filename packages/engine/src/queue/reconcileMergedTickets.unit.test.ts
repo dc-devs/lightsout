@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { BranchPhase, type BranchState, type LightsoutConfig } from '#src/contracts/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import { reconcileMergedTickets } from '#src/queue/reconcileMergedTickets.ts';
@@ -17,6 +17,8 @@ const mockFindPullRequest = jest.fn<(params: { branch: string; cwd: string; stat
 const mockReconcileShippedTicket = jest.fn<(params: { ticketRef: string | undefined }) => Promise<string | undefined>>();
 const mockReadGitChangedFiles = jest.fn<(params: { cwd: string }) => Promise<string[] | undefined>>();
 const mockRemoveTicketWorktree = jest.fn<(params: { cwd: string; worktreePath: string; branch: string }) => Promise<void>>();
+const mockReadBranchState = jest.fn<(params: { cwd: string; branch: string }) => Promise<BranchState | undefined>>();
+const mockWriteBranchState = jest.fn<(params: { cwd: string; branch: string; phase: BranchPhase }) => Promise<void>>();
 
 jest.mock('#src/ship/index.ts', () => ({
 	...jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts'),
@@ -28,6 +30,10 @@ jest.mock('#src/ticketLifecycle/index.ts', () => ({
 jest.mock('#src/common/git/readGitChangedFiles.ts', () => ({ readGitChangedFiles: (params: { cwd: string }) => mockReadGitChangedFiles(params) }));
 jest.mock('#src/queue/removeTicketWorktree.ts', () => ({
 	removeTicketWorktree: (params: { cwd: string; worktreePath: string; branch: string }) => mockRemoveTicketWorktree(params),
+}));
+jest.mock('#src/queue/branchState/index.ts', () => ({
+	readBranchState: (params: { cwd: string; branch: string }) => mockReadBranchState(params),
+	writeBranchState: (params: { cwd: string; branch: string; phase: BranchPhase }) => mockWriteBranchState(params),
 }));
 // -------------------------
 
@@ -55,10 +61,13 @@ const changedFilesFor = { clean: [] as string[], dirty: ['src/a.ts'], absent: un
 /** A wave whose branches the forge answers for, one merged pull request per branch the test names. */
 const setupReconcile = ({
 	merged = [],
+	recorded = [],
 	worktree = 'clean',
 	reconciliationFailure,
 }: {
 	merged?: number[];
+	/** Ticket numbers whose branches this queue already recorded as merged, so the forge is never asked. */
+	recorded?: number[];
 	worktree?: keyof typeof changedFilesFor;
 	reconciliationFailure?: string;
 } = {}) => {
@@ -69,6 +78,12 @@ const setupReconcile = ({
 	);
 	mockReconcileShippedTicket.mockResolvedValue(reconciliationFailure);
 	mockReadGitChangedFiles.mockResolvedValue(changedFilesFor[worktree]);
+	mockReadBranchState.mockImplementation(({ branch }) =>
+		Promise.resolve(
+			recorded.some((number) => branch.startsWith(`lo-${number}-`)) ? { branch, phase: BranchPhase.Merged, updatedAt: '2026-01-01T00:00:00.000Z' } : undefined,
+		),
+	);
+	mockWriteBranchState.mockResolvedValue(undefined);
 
 	const reconcile = ({ numbers }: { numbers: number[] }) =>
 		reconcileMergedTickets({
@@ -148,6 +163,38 @@ describe('reconcileMergedTickets', () => {
 		await reconcile({ numbers: [70] });
 
 		expect(mockRemoveTicketWorktree).not.toHaveBeenCalled();
+	});
+
+	test('skips a ticket whose branch this queue already recorded merged, without asking the forge at all', async () => {
+		const { reconcile } = setupReconcile({ recorded: [70] });
+
+		const { kept, leftBehind } = await reconcile({ numbers: [70] });
+
+		expect(mockFindPullRequest).not.toHaveBeenCalled();
+		expect(kept).toStrictEqual([]);
+		expect(leftBehind).toStrictEqual([
+			{
+				identifier: 'LO-70',
+				reason: 'skipped: its branch lo-70-ticket-70 is recorded merged, so the ticket was reconciled to done rather than built again',
+				settled: true,
+			},
+		]);
+	});
+
+	test('records a merge the forge established, so the next run answers it offline', async () => {
+		const { reconcile } = setupReconcile({ merged: [70] });
+
+		await reconcile({ numbers: [70] });
+
+		expect(mockWriteBranchState).toHaveBeenCalledWith(expect.objectContaining({ branch: 'lo-70-ticket-70', phase: BranchPhase.Merged }));
+	});
+
+	test('writes no record for a merge it read from one, because the record is already what it would write', async () => {
+		const { reconcile } = setupReconcile({ recorded: [70] });
+
+		await reconcile({ numbers: [70] });
+
+		expect(mockWriteBranchState).not.toHaveBeenCalled();
 	});
 
 	test('still skips the ticket when the done write failed, folding the reason into the report rather than running it', async () => {

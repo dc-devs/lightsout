@@ -2,7 +2,10 @@ import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { gitTimeoutMs } from '#src/common/constants/gitTimeoutMs.ts';
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
+import { readGitCommitsAhead } from '#src/common/git/readGitCommitsAhead.ts';
 import { runCommand } from '#src/common/processes/runCommand.ts';
+import { BranchPhase } from '#src/contracts/index.ts';
+import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
@@ -26,6 +29,15 @@ interface ParkedTree {
 	path: string;
 	branch: string;
 	identifier: string;
+}
+
+/** What both classification steps below need. Declared once because they take the same things and one calls the other. */
+interface ClassifyParams {
+	/** The main repository checkout, where every branch-state record lives. */
+	cwd: string;
+	tree: ParkedTree;
+	defaultBranch: string;
+	onProgress?: (message: string) => void;
 }
 
 /**
@@ -83,14 +95,47 @@ const listQueueWorktrees = async ({ cwd, shipSettings, onProgress }: Omit<Params
 };
 
 /**
- * Where one parked worktree goes next.
+ * The bucket for a tree nothing has recorded yet, and the record written from
+ * it — today's git count, made durable so no later scan has to run it again.
  *
- * A clean tree WITH commits was parked at the ship step, so it re-enters as a
- * ready outcome — re-running its worker would spend an agent on finished work.
- * A dirty tree, or a clean one with nothing committed, goes back through the
- * drain. A tree git cannot read parks, rather than being guessed into a bucket.
+ * The write is narrower than the bucket on purpose: a count git could not give
+ * is not a fact worth recording. Records are never deleted and a recorded phase
+ * short-circuits the count above, so persisting `building` for an answer git
+ * never gave would send a branch that already carries finished commits back to
+ * a worker on every future scan, with the count that would have found it never
+ * running again.
  */
-const classifyTree = async ({ tree, defaultBranch }: { tree: ParkedTree; defaultBranch: string }) => {
+const classifyUnrecordedTree = async ({ cwd, tree, defaultBranch, onProgress }: ClassifyParams) => {
+	const ahead = await readGitCommitsAhead({ cwd: tree.path, defaultBranch });
+
+	if (ahead === undefined) {
+		return 'drain' as const;
+	}
+
+	const carriesCommits = ahead > 0;
+
+	await writeBranchState({ cwd, branch: tree.branch, phase: carriesCommits ? BranchPhase.Ready : BranchPhase.Building, onProgress });
+
+	return carriesCommits ? ('ship' as const) : ('drain' as const);
+};
+
+/**
+ * Where one parked worktree goes next, read from the branch's own record rather
+ * than guessed from the directory.
+ *
+ * `merged` settles the tree whatever it holds — nothing is waiting on it. Below
+ * that a dirty tree wins: sending uncommitted work to the merge would merge
+ * none of it, and the drain still ends the branch merged in the same run,
+ * because the ticket's own run commits what is there and records `ready` again.
+ * Only with no record at all does git decide, and the answer is written down.
+ */
+const classifyTree = async ({ cwd, tree, defaultBranch, onProgress }: ClassifyParams) => {
+	const recorded = await readBranchState({ cwd, branch: tree.branch });
+
+	if (recorded?.phase === BranchPhase.Merged) {
+		return 'settled' as const;
+	}
+
 	const changed = await readGitChangedFiles({ cwd: tree.path });
 
 	if (changed === undefined) {
@@ -101,14 +146,11 @@ const classifyTree = async ({ tree, defaultBranch }: { tree: ParkedTree; default
 		return 'drain' as const;
 	}
 
-	const ahead = await runCommand({
-		command: `git rev-list --count origin/${defaultBranch}..HEAD`,
-		cwd: tree.path,
-		timeoutMs: gitTimeoutMs,
-	}).catch(() => undefined);
-	const commits = ahead?.exitCode === 0 ? Number.parseInt(ahead.stdout.trim(), 10) : 0;
+	if (recorded !== undefined) {
+		return recorded.phase === BranchPhase.Ready ? ('ship' as const) : ('drain' as const);
+	}
 
-	return Number.isFinite(commits) && commits > 0 ? ('ship' as const) : ('drain' as const);
+	return classifyUnrecordedTree({ cwd, tree, defaultBranch, onProgress });
 };
 
 /**
@@ -136,7 +178,7 @@ export const scanParkedWorktrees = async ({
 	const trees = await listQueueWorktrees({ cwd, shipSettings, onProgress });
 
 	if (trees.length === 0) {
-		return { resumed: [], outcomes: [], leftBehind: [] };
+		return { resumed: [], outcomes: [], leftBehind: [], merged: [] };
 	}
 
 	const tickets = await getTicketsByIdentifiers({ settings: trackerSettings, identifiers: trees.map((tree) => tree.identifier) });
@@ -149,7 +191,7 @@ export const scanParkedWorktrees = async ({
 	// this ticket, so the status half of the pair has been answered — a parked
 	// ticket sits at the in-progress status by construction.
 	const summaries = tickets.flatMap((ticket) => toPlanningSummaries({ ticket, lifecycle: settings.lifecycle, resumed: true }));
-	const parked: ParkedWork = { resumed: [], outcomes: [], leftBehind: [] };
+	const parked: ParkedWork = { resumed: [], outcomes: [], leftBehind: [], merged: [] };
 
 	for (const tree of trees) {
 		const matched = summaries.filter((ticket) => ticket.identifier.toLowerCase() === tree.identifier.toLowerCase());
@@ -173,8 +215,14 @@ export const scanParkedWorktrees = async ({
 			continue;
 		}
 
-		const bucket = await classifyTree({ tree, defaultBranch });
+		const bucket = await classifyTree({ cwd, tree, defaultBranch, onProgress });
 		const ticket = runnable[0];
+
+		if (bucket === 'settled') {
+			onProgress?.(`${tree.identifier} · its branch is recorded merged, so it is reconciled rather than resumed`);
+			parked.merged.push({ worktreePath: tree.path, branch: tree.branch, ticket });
+			continue;
+		}
 
 		if (bucket === 'drain') {
 			const cleared = await setParkedLabel({ settings: trackerSettings, ticketId: ticket.id, label: settings.parkedLabel, parked: false });

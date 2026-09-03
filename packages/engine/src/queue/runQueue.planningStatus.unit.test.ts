@@ -94,7 +94,7 @@ const setupDrain = ({ eligible = [], resumed = [] }: { eligible?: TicketSummary[
 	execSync('git config user.name t && git config user.email t@t', { cwd, stdio: 'ignore' });
 	mockListLabelNames.mockResolvedValue(everyLabel);
 	mockListEligibleTickets.mockResolvedValue(eligible);
-	mockScanParkedWorktrees.mockResolvedValue({ resumed, outcomes: [], leftBehind: [] });
+	mockScanParkedWorktrees.mockResolvedValue({ resumed, outcomes: [], leftBehind: [], merged: [] });
 	mockRunQueueTicket.mockImplementation(({ ticket }) => Promise.resolve(outcomeOf({ ticket })));
 	mockShipReadyBranches.mockImplementation(({ ready }) => Promise.resolve(ready));
 	mockSetParkedLabel.mockResolvedValue(undefined);

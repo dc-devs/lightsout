@@ -85,7 +85,7 @@ const setupDrain = ({ eligible = [], parked }: { eligible?: TicketSummary[]; par
 
 	execSync('git config user.name t && git config user.email t@t', { cwd, stdio: 'ignore' });
 	mockListEligibleTickets.mockResolvedValue(eligible);
-	mockScanParkedWorktrees.mockResolvedValue(parked ?? { resumed: [], outcomes: [], leftBehind: [] });
+	mockScanParkedWorktrees.mockResolvedValue(parked ?? { resumed: [], outcomes: [], leftBehind: [], merged: [] });
 	mockRunQueueTicket.mockImplementation(({ ticket }) => Promise.resolve(outcomeOf({ ticket })));
 	mockShipReadyBranches.mockImplementation(({ ready }) => Promise.resolve(ready));
 	mockSetParkedLabel.mockResolvedValue(undefined);
@@ -165,7 +165,9 @@ describe('runQueue', () => {
 	});
 
 	test('names a blocked RESUMED ticket once, though no later scan returns it — the eligible query hides its in-progress status', async () => {
-		const { drain, relay } = setupDrain({ parked: { resumed: [ticketOf({ number: 99, unfinishedBlockers: ['LO-69'] })], outcomes: [], leftBehind: [] } });
+		const { drain, relay } = setupDrain({
+			parked: { resumed: [ticketOf({ number: 99, unfinishedBlockers: ['LO-69'] })], outcomes: [], leftBehind: [], merged: [] },
+		});
 
 		mockListEligibleTickets.mockResolvedValueOnce([ticketOf({ number: 70 })]);
 		mockListEligibleTickets.mockResolvedValueOnce([ticketOf({ number: 71 })]);

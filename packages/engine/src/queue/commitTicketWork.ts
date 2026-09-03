@@ -17,9 +17,12 @@ interface Params {
  * Commit whatever the worker changed, deterministically.
  *
  * The engine never committed before, because a human always did. Under the
- * queue there is nobody there, so the commit is the queue's — and `committed`
- * is on the success shape because "committed the work" and "the worker changed
- * nothing" are two outcomes a caller must never read as one.
+ * queue there is nobody there, so the commit is the queue's.
+ *
+ * `committed` reports what this commit step did and nothing more. It does not
+ * decide whether the branch is ready to merge: readiness is settled from the
+ * commits the branch actually carries, so a resumed ticket whose work was
+ * committed by an earlier run still ships.
  *
  * The message goes through a file rather than `-m`, so no ticket title needs
  * shell quoting.

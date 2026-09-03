@@ -9,6 +9,7 @@ import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
 import { getWorktreesRoot } from '#src/queue/common/utils/getWorktreesRoot.ts';
+import { settleMergedTrees } from '#src/queue/common/utils/settleMergedTrees.ts';
 import { listNextWave } from '#src/queue/listNextWave.ts';
 import { reconcileMergedTickets } from '#src/queue/reconcileMergedTickets.ts';
 import { runQueueWave } from '#src/queue/runQueueWave.ts';
@@ -50,6 +51,7 @@ const writeQueuePlan = ({ path, queued, settings, cwd }: { path: string; queued:
 const toParkedIdentifiers = ({ parked }: { parked: ParkedWork }) => [
 	...parked.outcomes.map((outcome) => outcome.ticket.identifier),
 	...parked.leftBehind.map((entry) => entry.identifier),
+	...parked.merged.map((tree) => tree.ticket.identifier),
 ];
 
 /** Remember a scan's held-back tickets, so one stays reportable even after later scans stop returning it. */
@@ -67,7 +69,7 @@ const rememberBlocked = ({ blockedByIdentifier, entries }: { blockedByIdentifier
  * them attempted — no later scan offers work that already shipped — and it is
  * the one path every other settled ticket reaches the report by.
  */
-const settleMergedTickets = async ({
+const settleMergedWaveTickets = async ({
 	cwd,
 	config,
 	env,
@@ -162,6 +164,9 @@ const settleWave = ({
  * The report is the FINAL state, not a log of every wave: a ticket blocked in an
  * early wave that ran in a later one appears only as an outcome, and a ticket
  * still blocked at the end appears exactly once in `leftBehind`.
+ *
+ * It opens by finishing the parked worktrees already recorded merged — work
+ * that writes tickets to Done, so it waits for this function's run lock.
  */
 export const drainWaves = async ({
 	cwd,
@@ -190,12 +195,13 @@ export const drainWaves = async ({
 	const queuedSoFar: RunnableTicket[] = [];
 	let selection = first;
 	let carried = parked.outcomes;
+	leftBehind.push(...(await settleMergedTrees({ cwd, config, env, settings, trackerSettings, merged: parked.merged, onProgress })));
 
 	for (;;) {
 		// Before any worktree is created or any tracker write is made: a ticket
 		// whose branch already carries a merged pull request is reconciled to done
 		// and skipped, so no worker is spent on work that already shipped.
-		selection = await settleMergedTickets({ cwd, config, env, settings, selection, onProgress });
+		selection = await settleMergedWaveTickets({ cwd, config, env, settings, selection, onProgress });
 		queuedSoFar.push(...selection.runnable);
 		rememberBlocked({ blockedByIdentifier, entries: selection.blocked });
 

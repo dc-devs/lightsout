@@ -10,7 +10,10 @@ export interface LeftBehindTicket {
 	reason: string;
 	/**
 	 * True when the entry is reported but nothing is waiting on a re-run — an
-	 * already-merged ticket the drain reconciled to Done.
+	 * already-merged ticket the drain reconciled to Done. Two steps produce one:
+	 * `reconcileMergedTickets`, for a branch the forge or the queue's own record
+	 * says has merged, and `settleMergedTrees`, for a parked worktree whose
+	 * branch was already recorded merged.
 	 *
 	 * The drain's two "is there work left" questions — the exit code and the
 	 * coordinator run's status — count only entries without it. A reconciled

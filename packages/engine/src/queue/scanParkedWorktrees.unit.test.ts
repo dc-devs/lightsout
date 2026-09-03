@@ -1,7 +1,9 @@
 import { execSync } from 'node:child_process';
-import { rmSync, writeFileSync } from 'node:fs';
+import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
+import { BranchPhase } from '#src/contracts/index.ts';
+import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
 import { createTicketWorktree } from '#src/queue/createTicketWorktree.ts';
 import { scanParkedWorktrees } from '#src/queue/scanParkedWorktrees.ts';
 import type { TrackerFailure, TrackerTicket } from '#src/ticketTracker/index.ts';
@@ -82,6 +84,7 @@ describe('scanParkedWorktrees', () => {
 			resumed: [],
 			outcomes: [],
 			leftBehind: [],
+			merged: [],
 		});
 		expect(mockGetTicketsByIdentifiers).not.toHaveBeenCalled();
 	});
@@ -94,7 +97,7 @@ describe('scanParkedWorktrees', () => {
 
 		const parked = await scanParkedWorktrees({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings });
 
-		expect(parked).toEqual({ resumed: [expect.objectContaining({ identifier: 'LO-70' })], outcomes: [], leftBehind: [] });
+		expect(parked).toEqual({ resumed: [expect.objectContaining({ identifier: 'LO-70' })], outcomes: [], leftBehind: [], merged: [] });
 		expect(mockGetTicketsByIdentifiers).toHaveBeenCalledWith(expect.objectContaining({ identifiers: ['lo-70'] }));
 	});
 
@@ -110,6 +113,7 @@ describe('scanParkedWorktrees', () => {
 			resumed: [],
 			outcomes: [expect.objectContaining({ branch: 'lo-70-drain', worktreePath: paths['lo-70-drain'], ready: true })],
 			leftBehind: [],
+			merged: [],
 		});
 	});
 
@@ -184,8 +188,75 @@ describe('scanParkedWorktrees', () => {
 			onProgress: (message) => progress.push(message),
 		});
 
-		expect(parked).toStrictEqual({ resumed: [], outcomes: [], leftBehind: [] });
+		expect(parked).toStrictEqual({ resumed: [], outcomes: [], leftBehind: [], merged: [] });
 		expect(progress).toEqual([expect.stringContaining('carries no ticket the configured pattern matches')]);
+	});
+
+	test('carries a worktree whose branch is recorded merged, without resuming it or removing anything', async () => {
+		const { cwd, paths } = await setupParkedRepo({ branches: ['lo-70-drain'] });
+		const progress: string[] = [];
+
+		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
+		await writeBranchState({ cwd, branch: 'lo-70-drain', phase: BranchPhase.Merged });
+
+		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, onProgress: (message) => progress.push(message) });
+
+		expect(parked.merged).toEqual([{ worktreePath: paths['lo-70-drain'], branch: 'lo-70-drain', ticket: expect.objectContaining({ identifier: 'LO-70' }) }]);
+		expect(parked.resumed).toStrictEqual([]);
+		expect(parked.outcomes).toStrictEqual([]);
+		// The scan runs before the run lock, so removing the tree is the drain's job.
+		expect(existsSync(paths['lo-70-drain'])).toBe(true);
+		expect(progress).toEqual([expect.stringContaining('recorded merged')]);
+	});
+
+	test('sends a worktree recorded ready to the merge though its branch carries no commits git could count', async () => {
+		const { cwd, paths } = await setupParkedRepo({ branches: ['lo-70-drain'] });
+
+		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
+		await writeBranchState({ cwd, branch: 'lo-70-drain', phase: BranchPhase.Ready });
+
+		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings });
+
+		// A git count would answer zero here and drain it; the record is what decides.
+		expect(parked.outcomes).toEqual([expect.objectContaining({ worktreePath: paths['lo-70-drain'], ready: true })]);
+		expect(parked.resumed).toStrictEqual([]);
+	});
+
+	test('sends a worktree recorded building back through the drain though its branch already carries commits', async () => {
+		const { cwd, paths } = await setupParkedRepo({ branches: ['lo-70-drain'] });
+
+		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
+		commitWork({ path: paths['lo-70-drain'] });
+		await writeBranchState({ cwd, branch: 'lo-70-drain', phase: BranchPhase.Building });
+
+		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings });
+
+		expect(parked.resumed).toEqual([expect.objectContaining({ identifier: 'LO-70' })]);
+		expect(parked.outcomes).toStrictEqual([]);
+	});
+
+	test('records what it found for an unrecorded branch, so a second scan needs no git count', async () => {
+		const { cwd, paths } = await setupParkedRepo({ branches: ['lo-70-drain'] });
+
+		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
+		commitWork({ path: paths['lo-70-drain'] });
+
+		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings });
+
+		expect(parked.outcomes).toEqual([expect.objectContaining({ ready: true })]);
+		expect(await readBranchState({ cwd, branch: 'lo-70-drain' })).toEqual(expect.objectContaining({ phase: BranchPhase.Ready }));
+	});
+
+	test('records nothing for an unrecorded branch git could not count, so a later scan still asks', async () => {
+		const { cwd } = await setupParkedRepo({ branches: ['lo-70-drain'] });
+
+		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
+
+		// `origin/no-such-default` does not exist, so `rev-list --count` refuses.
+		const parked = await scanParked({ cwd, defaultBranch: 'no-such-default', settings, trackerSettings, shipSettings });
+
+		expect(parked.resumed).toEqual([expect.objectContaining({ identifier: 'LO-70' })]);
+		expect(await readBranchState({ cwd, branch: 'lo-70-drain' })).toBe(undefined);
 	});
 
 	test('hands a tracker failure back, so a restart stops rather than reading every parked tree as withdrawn', async () => {

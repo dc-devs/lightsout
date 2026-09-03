@@ -1,7 +1,8 @@
 import { gitTimeoutMs } from '#src/common/constants/gitTimeoutMs.ts';
 import { runCommand } from '#src/common/processes/runCommand.ts';
-import { type LightsoutConfig, ShipStatus } from '#src/contracts/index.ts';
+import { BranchPhase, type LightsoutConfig, ShipStatus } from '#src/contracts/index.ts';
 import { runGates } from '#src/gates/index.ts';
+import { writeBranchState } from '#src/queue/branchState/index.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import { runOrDescribeFailure } from '#src/queue/common/utils/runOrDescribeFailure.ts';
 import { removeTicketWorktree } from '#src/queue/removeTicketWorktree.ts';
@@ -44,7 +45,15 @@ const rebaseOntoDefault = async ({ worktreePath, defaultBranch }: { worktreePath
 	return `the branch would not rebase onto origin/${defaultBranch}: ${rebaseFailure}`;
 };
 
-/** One ticket's branch, rebased, re-gated and merged — or the same outcome with `ready` flipped and the reason on it. */
+/**
+ * One ticket's branch, rebased, re-gated and merged — or the same outcome with
+ * `ready` flipped and the reason on it.
+ *
+ * A park writes no record, so a rebase conflict, a red gate after the rebase
+ * and a blocked merge all leave the branch recorded ready: the work is
+ * finished and only the merge failed, so the next run re-ships it rather than
+ * spending a worker on re-doing it.
+ */
 const shipOne = async ({ cwd, config, shipSettings, defaultBranch, env, outcome, onProgress }: Omit<Params, 'ready'> & { outcome: TicketRunOutcome }) => {
 	const park = ({ error }: { error: string }) => {
 		onProgress?.(`${outcome.ticket.identifier} · not shipped: ${error}`);
@@ -74,6 +83,11 @@ const shipOne = async ({ cwd, config, shipSettings, defaultBranch, env, outcome,
 		return park({ error: `${shipped.reason}: ${shipped.detail}` });
 	}
 
+	// Recorded before the cleanup that depends on it: `removeTicketWorktree`
+	// deletes the evidence a later run would otherwise read, and the tracker
+	// write below can fail, so a process killed anywhere in this tail must still
+	// leave the branch recorded merged rather than ready to merge again.
+	await writeBranchState({ cwd, branch: outcome.branch, phase: BranchPhase.Merged, onProgress });
 	await removeTicketWorktree({ cwd, worktreePath: outcome.worktreePath, branch: outcome.branch });
 	onProgress?.(`${outcome.ticket.identifier} · shipped as ${shipped.mergeCommit}`);
 

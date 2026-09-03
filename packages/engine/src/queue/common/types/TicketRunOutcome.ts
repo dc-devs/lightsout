@@ -5,6 +5,11 @@ import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
  *
  * `ready` is the whole distinction between a branch worth merging and a parked
  * one, so there is no string discriminant to narrow on.
+ *
+ * It is not the branch's recorded phase, and the two answer different
+ * questions: a ship-step park flips `ready` while the branch stays recorded
+ * ready, so the next run re-ships that branch rather than spending a worker on
+ * re-doing finished work.
  */
 export interface TicketRunOutcome {
 	ticket: TicketSummary;
@@ -12,7 +17,7 @@ export interface TicketRunOutcome {
 	branch: string;
 	/** Absolute path of the worktree. Removed after a successful ship, kept otherwise. */
 	worktreePath: string;
-	/** True when the work is committed and the gates were green — the ship step's entry condition. */
+	/** The wave-local "merge this branch in this wave" decision, set from the branch's recorded phase and never re-inferred here. */
 	ready: boolean;
 	/** Why it stopped. Absent when ready. */
 	error?: string;

@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process';
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
+import { BranchPhase, type LightsoutConfig, type RunManifest, RunStatus, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
@@ -11,7 +11,7 @@ import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { runQueue } from '#src/queue/index.ts';
+import { readBranchState, runQueue, writeBranchState } from '#src/queue/index.ts';
 import type { PullRequestSummary } from '#src/ship/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -137,7 +137,7 @@ const setupMergedWave = ({ merged = [], doneWriteFailure }: { merged?: number[];
 	const progress: string[] = [];
 
 	mockListEligibleTickets.mockResolvedValue([ticketOf({ number: 70 }), ticketOf({ number: 71 })]);
-	mockScanParkedWorktrees.mockResolvedValue({ resumed: [], outcomes: [], leftBehind: [] });
+	mockScanParkedWorktrees.mockResolvedValue({ resumed: [], outcomes: [], leftBehind: [], merged: [] });
 	// The surviving ticket parks rather than finishing: this factory is about
 	// which tickets reach a worker at all, and a ready one would send the serial
 	// merge at a worktree no test here ever built.
@@ -173,7 +173,7 @@ const setupShippedBranch = ({ doneWriteFailure }: { doneWriteFailure?: string } 
 	const progress: string[] = [];
 
 	mockListEligibleTickets.mockResolvedValue([]);
-	mockScanParkedWorktrees.mockResolvedValue({ resumed: [], outcomes: [ready], leftBehind: [] });
+	mockScanParkedWorktrees.mockResolvedValue({ resumed: [], outcomes: [ready], leftBehind: [], merged: [] });
 	mockFindPullRequest.mockResolvedValue(undefined);
 	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [] });
 	mockRunShip.mockResolvedValue(shippedResult);
@@ -182,7 +182,61 @@ const setupShippedBranch = ({ doneWriteFailure }: { doneWriteFailure?: string } 
 	return { cwd, ready, progress, ...startDrain({ cwd, progress }) };
 };
 
+/**
+ * A parked worktree whose branch this machine already recorded merged, and
+ * nothing else: the leftovers of a run killed between the merge and the cleanup
+ * that follows it. The eligible query cannot see the ticket, so this scan result
+ * is the only thing that can reach it.
+ */
+const setupMergedTree = () => {
+	const { cwd } = setupBranchRepo();
+	const branch = 'lo-70-ticket-70';
+	const worktreePath = join(dirname(cwd), `${basename(cwd)}-worktrees`, branch);
+
+	execFileSync('git', ['worktree', 'add', worktreePath, '-b', branch, 'origin/main'], { cwd, stdio: 'ignore' });
+
+	const progress: string[] = [];
+
+	mockListEligibleTickets.mockResolvedValue([]);
+	mockScanParkedWorktrees.mockResolvedValue({
+		resumed: [],
+		outcomes: [],
+		leftBehind: [],
+		merged: [{ worktreePath, branch, ticket: ticketOf({ number: 70 }) }],
+	});
+	mockFindPullRequest.mockResolvedValue(undefined);
+	mockReconcileShippedTicket.mockResolvedValue(undefined);
+
+	return { cwd, worktreePath, progress, ...startDrain({ cwd, progress }) };
+};
+
 describe('runQueue', () => {
+	test('finishes a parked worktree already recorded merged, rather than stopping before the lock that settles it', async () => {
+		const { worktreePath, drain, relay } = setupMergedTree();
+
+		const report = await drain();
+
+		relay.close();
+
+		expect(report).toEqual({
+			outcomes: [],
+			leftBehind: [{ identifier: 'LO-70', reason: expect.stringContaining('held a branch already recorded merged'), settled: true }],
+		});
+		expect(mockReconcileShippedTicket).toHaveBeenCalledWith(expect.objectContaining({ ticketRef: 'LO-70' }));
+		// The tree is clean, so it goes; a worker is never spent on work that merged.
+		expect(existsSync(worktreePath)).toBe(false);
+		expect(mockRunQueueTicket).not.toHaveBeenCalled();
+	});
+
+	test('ends the coordinator run passed when a merged worktree was all the scan found, because nothing waits on a re-run', async () => {
+		const { cwd, drain, relay } = setupMergedTree();
+
+		await drain();
+		relay.close();
+
+		expect(readCoordinatorRun({ cwd }).manifest.status).toBe(RunStatus.Passed);
+	});
+
 	test('spends no worker on a ticket whose branch already carries a merged pull request', async () => {
 		const { drain, relay } = setupMergedWave({ merged: [70] });
 
@@ -223,6 +277,33 @@ describe('runQueue', () => {
 
 		expect(report).toEqual({ outcomes: [], leftBehind: [expect.objectContaining({ settled: true }), expect.objectContaining({ settled: true })] });
 		expect(readCoordinatorRun({ cwd }).manifest.status).toBe(RunStatus.Passed);
+	});
+
+	test('skips a ticket whose branch this machine already recorded merged, without asking the forge about it', async () => {
+		const { cwd, drain, relay } = setupMergedWave();
+
+		await writeBranchState({ cwd, branch: 'lo-70-ticket-70', phase: BranchPhase.Merged });
+
+		const report = await drain();
+
+		relay.close();
+
+		// Offline after a restart: the forge is asked only about the branch nothing
+		// on this machine has an answer for.
+		expect(mockFindPullRequest.mock.calls.map((call) => call[0].branch)).toStrictEqual(['lo-71-ticket-71']);
+		expect(mockRunQueueTicket.mock.calls.map((call) => call[0].ticket.identifier)).toStrictEqual(['LO-71']);
+		expect(report).toEqual(
+			expect.objectContaining({ leftBehind: [{ identifier: 'LO-70', reason: expect.stringContaining('is recorded merged'), settled: true }] }),
+		);
+	});
+
+	test('records a merge the forge established, so a second run skips the ticket without asking again', async () => {
+		const { cwd, drain, relay } = setupMergedWave({ merged: [70] });
+
+		await drain();
+		relay.close();
+
+		expect(await readBranchState({ cwd, branch: 'lo-70-ticket-70' })).toEqual(expect.objectContaining({ phase: BranchPhase.Merged }));
 	});
 
 	test('records only the tickets it will actually work in the coordinator run, not the one it reconciled', async () => {
