@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { queueCommand } from '#src/cli/queueCommand.ts';
+import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import type { QueueDrainReport, QueueFailure, QueueSettings, TicketRunOutcome } from '#src/queue/index.ts';
 import type { TrackerFailure, TrackerSettings } from '#src/ticketTracker/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
@@ -29,38 +30,39 @@ const relaysBuilt: string[] = [];
 /** What each relay was built with, in the same order — the settings a relayed answer is written through. */
 const relayParams: RelayParams[] = [];
 
-jest.mock('#src/queue/index.ts', () => ({
-	resolveQueueSettings: () => mockResolveQueueSettings(),
-	runQueue: (params: RunQueueParams) => mockRunQueue(params),
-	emptyRelayMailbox: (params: { directory: string }) => mockEmptyRelayMailbox(params),
-	TerminalQuestionRelay: class {
-		constructor(params: RelayParams) {
-			relaysBuilt.push('terminal');
-			relayParams.push(params);
-		}
+jest.mock('#src/queue/index.ts', () => {
+	// Both relay constructors, which are identical but for the name each records.
+	// Declared inside the factory rather than beside the mocks above it: the
+	// factory runs before this module's own `const` bindings are initialised, so
+	// anything it *calls* has to be in scope at that moment.
+	const recordingRelay = ({ kind }: { kind: string }) =>
+		class {
+			constructor(params: RelayParams) {
+				relaysBuilt.push(kind);
+				relayParams.push(params);
+			}
 
-		close() {
-			mockRelayClosed();
-		}
-	},
-	FileQuestionRelay: class {
-		constructor(params: RelayParams) {
-			relaysBuilt.push('file');
-			relayParams.push(params);
-		}
+			close() {
+				mockRelayClosed();
+			}
+		};
 
-		close() {
-			mockRelayClosed();
-		}
-	},
-}));
+	return {
+		resolveQueueSettings: () => mockResolveQueueSettings(),
+		runQueue: (params: RunQueueParams) => mockRunQueue(params),
+		emptyRelayMailbox: (params: { directory: string }) => mockEmptyRelayMailbox(params),
+		TerminalQuestionRelay: recordingRelay({ kind: 'terminal' }),
+		FileQuestionRelay: recordingRelay({ kind: 'file' }),
+	};
+});
 jest.mock('#src/ticketTracker/index.ts', () => ({ resolveTrackerSettings: () => mockResolveTrackerSettings() }));
 // -------------------------
 
 const settings = queueSettingsFixture();
 const trackerSettings = trackerSettingsFixture();
 
-const outcomeOf = ({ ready, error }: { ready: boolean; error?: string }): TicketRunOutcome => ({
+/** One drain outcome for one ticket. `reconciliationFailure` rides beside a shipped one, never instead of it. */
+const outcomeOf = ({ ready, error, reconciliationFailure }: { ready: boolean; error?: string; reconciliationFailure?: string }): TicketRunOutcome => ({
 	ticket: {
 		id: 'id-70',
 		identifier: 'LO-70',
@@ -69,14 +71,25 @@ const outcomeOf = ({ ready, error }: { ready: boolean; error?: string }): Ticket
 		priority: 2,
 		createdAt: '2026-01-01T00:00:00.000Z',
 		labels: [],
-		route: 'direct',
+		planningStatus: PlanningStatus.NotNeeded,
+		status: 'Ready to implement',
 		unfinishedBlockers: [],
 	},
 	branch: 'lo-70-drain',
 	worktreePath: '/tmp/worktrees/lo-70-drain',
 	ready,
 	error,
+	reconciliationFailure,
 });
+
+/** A ticket that merged, whose done write then failed — shipped and reported, with only the tracker left stale. */
+const staleTrackerReport: QueueDrainReport = {
+	outcomes: [outcomeOf({ ready: true, reconciliationFailure: 'LO-70 shipped, but its tracker status could not be moved to done' })],
+	leftBehind: [],
+};
+
+/** An already-merged ticket the drain reconciled to done: reported in the summary, with nothing waiting on a re-run. */
+const settledEntry = { identifier: 'LO-72', reason: 'skipped: its branch already has a merged pull request #9', settled: true };
 
 /** A repo whose config carries a ship block, with the drain stubbed to hand back this report. */
 const setupQueueCommand = ({
@@ -124,6 +137,22 @@ describe('queueCommand', () => {
 		expect(exitCodes).toStrictEqual([0]);
 	});
 
+	test('a shipped ticket whose tracker could not be moved to done says so under its shipped line', async () => {
+		const { context, logged } = setupQueueCommand({ report: staleTrackerReport });
+
+		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged).toStrictEqual(['LO-70 lo-70-drain shipped', '  LO-70 shipped, but its tracker status could not be moved to done']);
+	});
+
+	test('a stale tracker keeps the drain at 0, because the branch is merged and a re-run has nothing to pick up', async () => {
+		const { context, exitCodes } = setupQueueCommand({ report: staleTrackerReport });
+
+		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
 	test('marks its own process no-ship before draining, so a worker implement run can never chain into ship', async () => {
 		delete process.env.LIGHTSOUT_NO_SHIP;
 
@@ -157,12 +186,31 @@ describe('queueCommand', () => {
 
 	test('a ticket the drain deliberately never ran is still printed, so nothing vanishes from the summary', async () => {
 		const { context, logged, exitCodes } = setupQueueCommand({
-			report: { outcomes: [], leftBehind: [{ identifier: 'LO-71', reason: 'skipped: it carries both route labels' }] },
+			report: { outcomes: [], leftBehind: [{ identifier: 'LO-71', reason: 'skipped: it carries the planning status labels' }] },
 		});
 
 		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(logged).toContain('LO-71 skipped: it carries both route labels');
+		expect(logged).toContain('LO-71 skipped: it carries the planning status labels');
+		expect(exitCodes).toStrictEqual([2]);
+	});
+
+	test('a settled ticket is still printed but exits 0, because a re-run has nothing to pick up for it', async () => {
+		const { context, logged, exitCodes } = setupQueueCommand({ report: { outcomes: [outcomeOf({ ready: true })], leftBehind: [settledEntry] } });
+
+		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged).toContain('LO-72 skipped: its branch already has a merged pull request #9');
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('a settled ticket beside an unfinished one still exits 2, because the unfinished one is waiting', async () => {
+		const { context, exitCodes } = setupQueueCommand({
+			report: { outcomes: [], leftBehind: [settledEntry, { identifier: 'LO-73', reason: 'skipped: it is blocked by an unfinished ticket' }] },
+		});
+
+		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
+
 		expect(exitCodes).toStrictEqual([2]);
 	});
 
@@ -219,7 +267,7 @@ describe('queueCommand', () => {
 		const { context, errors, exitCodes } = setupQueueCommand({});
 
 		mockResolveQueueSettings.mockReturnValue({
-			error: '`lightsout queue` needs a `queue` block in lightsout.config.json naming route-labels and max-parallel',
+			error: '`lightsout queue` needs a `queue` block in lightsout.config.json naming max-parallel',
 		});
 		mockResolveTrackerSettings.mockReturnValue({
 			error: 'this command needs a `ticket-tracker` block in lightsout.config.json naming provider, team and api-key-env',
@@ -227,7 +275,7 @@ describe('queueCommand', () => {
 
 		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(errors).toStrictEqual(['`lightsout queue` needs a `queue` block in lightsout.config.json naming route-labels and max-parallel']);
+		expect(errors).toStrictEqual(['`lightsout queue` needs a `queue` block in lightsout.config.json naming max-parallel']);
 		expect(exitCodes).toStrictEqual([1]);
 	});
 
@@ -237,6 +285,14 @@ describe('queueCommand', () => {
 		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(mockRunQueue).toHaveBeenCalledWith(expect.objectContaining({ settings, trackerSettings }));
+	});
+
+	test('hands the drain the process environment, so the tracker credentials its reconciliation needs are read from one place', async () => {
+		const { context } = setupQueueCommand({});
+
+		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(mockRunQueue).toHaveBeenCalledWith(expect.objectContaining({ env: process.env }));
 	});
 
 	test('hands the tracker identity to the terminal relay, so a relayed answer is written to the tracker the drain read from', async () => {

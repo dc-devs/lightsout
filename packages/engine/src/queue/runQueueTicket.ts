@@ -4,20 +4,21 @@ import type { Driver } from '#src/drivers/index.ts';
 import { commitTicketWork } from '#src/queue/commitTicketWork.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
+import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
-import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { getWorktreesRoot } from '#src/queue/common/utils/getWorktreesRoot.ts';
 import { createTicketWorktree } from '#src/queue/createTicketWorktree.ts';
 import { runWorkerWithRelay } from '#src/queue/runWorkerWithRelay.ts';
 import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
-import { setTicketStatus, type TrackerSettings } from '#src/ticketTracker/index.ts';
+import { TrackerStatusRole, updateTicketLifecycle } from '#src/ticketLifecycle/index.ts';
+import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
 	/** The main repository checkout. */
 	cwd: string;
 	settings: QueueSettings;
 	trackerSettings: TrackerSettings;
-	ticket: TicketSummary;
+	ticket: RunnableTicket;
 	config: LightsoutConfig;
 	driver: Driver;
 	/** Recorded on the worker's manifest as the harness name. */
@@ -67,21 +68,40 @@ export const runQueueTicket = async ({
 	}
 
 	const worktreePath = created;
-	const moved = await setTicketStatus({ settings: trackerSettings, ticketId: ticket.id, statusName: settings.inProgressStatus });
+	// Required state is recorded before ownership begins, so a tracker that cannot
+	// record it stops this ticket before its worker touches source. Creating an
+	// empty worktree is not source work; the worker is, and this write is complete
+	// before it starts. The planning status is deliberately not written here: the
+	// pickup must not erase the fact the parked scan re-reads to know which worker
+	// to resume, and the implement edge settles it.
+	const inProgress = settings.lifecycle.statusNames[TrackerStatusRole.InProgress];
+	const moved = await updateTicketLifecycle({
+		lifecycle: settings.lifecycle,
+		trackerSettings,
+		ticketId: ticket.id,
+		trackerStatus: TrackerStatusRole.InProgress,
+		currentStatus: ticket.status,
+	});
 
 	if (moved !== undefined) {
-		// The tracker status is a courtesy to whoever is watching, never a
-		// precondition for building.
-		onProgress?.(`the ticket status could not be moved to '${settings.inProgressStatus}': ${moved.error}`);
+		return {
+			ticket,
+			branch,
+			worktreePath,
+			ready: false,
+			error: `the ticket status could not be moved to '${inProgress}', so no source work began: ${moved.error}`,
+		};
 	}
 
 	const worked = await runWorkerWithRelay({
 		worktreePath,
 		ticket,
+		branch,
 		config,
 		driver,
 		driverName,
 		settings,
+		trackerSettings,
 		relay,
 		coordinatorRunId,
 		coordinatorRunDir,

@@ -8,4 +8,15 @@
 export interface LeftBehindTicket {
 	identifier: string;
 	reason: string;
+	/**
+	 * True when the entry is reported but nothing is waiting on a re-run — an
+	 * already-merged ticket the drain reconciled to Done.
+	 *
+	 * The drain's two "is there work left" questions — the exit code and the
+	 * coordinator run's status — count only entries without it. A reconciled
+	 * ticket is finished and will never be offered again, so counting it would
+	 * make a fully shipped drain exit 2 and record an escalated run. Every other
+	 * entry leaves it unset.
+	 */
+	settled?: boolean;
 }

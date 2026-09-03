@@ -1,5 +1,6 @@
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
+import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
 import { dedupeTickets } from '#src/queue/dedupeTickets.ts';
@@ -16,10 +17,15 @@ interface Params {
 /**
  * What one wave may take, and what it must hold back.
  *
- * The already-attempted filter runs BEFORE the dedupe, so both route-labelled
- * copies of a ticket leave together and the double-label check still sees every
- * copy of the tickets that remain. It is also what makes the wave loop
- * terminate: a ticket offered to any wave is never offered again.
+ * The already-attempted filter runs BEFORE the dedupe, so every copy of a
+ * ticket carrying more than one planning-status label leaves together and the
+ * ambiguity check still sees every copy of the tickets that remain. It is also
+ * what makes the wave loop terminate: a ticket offered to any wave is never
+ * offered again.
+ *
+ * A ticket whose pair selects no worker is dropped in silence: a ticket still
+ * being shaped, or one not yet waiting to be implemented, is an ordinary state,
+ * and reporting every one of them would bury the real skips.
  *
  * A ticket with an unfinished blocker is left behind rather than reordered — the
  * queue drains everything unblocked, then re-scans, and correct chain order
@@ -28,12 +34,16 @@ interface Params {
 export const selectWaveTickets = ({ tickets, settings, attempted, onProgress }: Params): WaveSelection => {
 	const fresh = tickets.filter((ticket) => !attempted.has(ticket.identifier.toLowerCase()));
 	const { ordered, leftBehind } = dedupeTickets({ tickets: fresh, settings, onProgress });
-	const runnable: TicketSummary[] = [];
+	const runnable: RunnableTicket[] = [];
 	const blocked: LeftBehindTicket[] = [];
 
 	for (const ticket of ordered) {
+		if (ticket.worker === undefined) {
+			continue;
+		}
+
 		if (ticket.unfinishedBlockers.length === 0) {
-			runnable.push(ticket);
+			runnable.push({ ...ticket, worker: ticket.worker });
 			continue;
 		}
 

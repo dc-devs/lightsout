@@ -88,7 +88,7 @@ test('LightsoutConfig: the auto-plan block is optional, keeps its own kebab-case
 
 test('LightsoutConfig: the queue block is optional, keeps its own kebab-case spelling, and stays strict through the composition', () => {
 	const queue = {
-		'route-labels': { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
+		'planning-status-labels': { 'planning-complete': 'shaped' },
 		'max-parallel': 3,
 	};
 

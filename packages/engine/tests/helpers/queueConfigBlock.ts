@@ -8,7 +8,6 @@
  * once instead of in every file that plants a config.
  */
 export const queueConfigBlock = {
-	'route-labels': { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
 	'max-parallel': 2,
 };
 

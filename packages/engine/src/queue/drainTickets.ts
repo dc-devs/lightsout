@@ -1,14 +1,14 @@
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
+import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
-import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 
 interface Params {
 	/** Tickets in the order they will be picked up. */
-	queued: TicketSummary[];
+	queued: RunnableTicket[];
 	maxParallel: number;
 	/** One ticket, from worktree to committed-and-ready. */
-	runTicket: (params: { ticket: TicketSummary }) => Promise<TicketRunOutcome>;
+	runTicket: (params: { ticket: RunnableTicket }) => Promise<TicketRunOutcome>;
 	onProgress?: (message: string) => void;
 }
 

@@ -6,6 +6,7 @@ import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.
 import { runOrDescribeFailure } from '#src/queue/common/utils/runOrDescribeFailure.ts';
 import { removeTicketWorktree } from '#src/queue/removeTicketWorktree.ts';
 import { runShip, type ShipSettings } from '#src/ship/index.ts';
+import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
 
 interface Params {
 	/** The main repository checkout. */
@@ -13,6 +14,8 @@ interface Params {
 	config: LightsoutConfig;
 	shipSettings: ShipSettings;
 	defaultBranch: string;
+	/** The process environment the tracker credentials are read from. Passed rather than read, so a test never needs to mutate `process.env`. */
+	env: NodeJS.ProcessEnv;
 	/** Ready outcomes in queue order. */
 	ready: TicketRunOutcome[];
 	onProgress?: (message: string) => void;
@@ -42,7 +45,7 @@ const rebaseOntoDefault = async ({ worktreePath, defaultBranch }: { worktreePath
 };
 
 /** One ticket's branch, rebased, re-gated and merged — or the same outcome with `ready` flipped and the reason on it. */
-const shipOne = async ({ cwd, config, shipSettings, defaultBranch, outcome, onProgress }: Omit<Params, 'ready'> & { outcome: TicketRunOutcome }) => {
+const shipOne = async ({ cwd, config, shipSettings, defaultBranch, env, outcome, onProgress }: Omit<Params, 'ready'> & { outcome: TicketRunOutcome }) => {
 	const park = ({ error }: { error: string }) => {
 		onProgress?.(`${outcome.ticket.identifier} · not shipped: ${error}`);
 
@@ -74,7 +77,12 @@ const shipOne = async ({ cwd, config, shipSettings, defaultBranch, outcome, onPr
 	await removeTicketWorktree({ cwd, worktreePath: outcome.worktreePath, branch: outcome.branch });
 	onProgress?.(`${outcome.ticket.identifier} · shipped as ${shipped.mergeCommit}`);
 
-	return outcome;
+	// The merge is what the Done write is evidence of, so it happens after it —
+	// and a tracker that refuses the write leaves the ship recorded as
+	// successful, carrying the reason beside it instead of flipping `ready`.
+	const reconciliationFailure = await reconcileShippedTicket({ config, env, ticketRef: shipped.ticketRef, onProgress });
+
+	return reconciliationFailure === undefined ? outcome : { ...outcome, reconciliationFailure };
 };
 
 /**
@@ -92,11 +100,11 @@ const shipOne = async ({ cwd, config, shipSettings, defaultBranch, outcome, onPr
  *
  * @returns one outcome per input, `ready` flipped to false on the ones that could not merge
  */
-export const shipReadyBranches = async ({ cwd, config, shipSettings, defaultBranch, ready, onProgress }: Params): Promise<TicketRunOutcome[]> => {
+export const shipReadyBranches = async ({ cwd, config, shipSettings, defaultBranch, env, ready, onProgress }: Params): Promise<TicketRunOutcome[]> => {
 	const shipped: TicketRunOutcome[] = [];
 
 	for (const outcome of ready) {
-		shipped.push(await shipOne({ cwd, config, shipSettings, defaultBranch, outcome, onProgress }));
+		shipped.push(await shipOne({ cwd, config, shipSettings, defaultBranch, env, outcome, onProgress }));
 	}
 
 	return shipped;

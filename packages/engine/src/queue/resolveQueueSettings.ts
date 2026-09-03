@@ -1,8 +1,8 @@
 import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import { parseDurationMs } from '#src/queue/common/utils/parseDurationMs.ts';
+import { resolveLifecycleSettings } from '#src/ticketLifecycle/index.ts';
 
 interface Params {
 	config: LightsoutConfig;
@@ -25,15 +25,22 @@ interface Params {
  * `queueCommand` calls both — a missing block and a missing key are different
  * things to fix, and a user who hits one must not be told about the other.
  *
- * The two status defaults are the one place the engine spells a status name,
- * and only as a fallback a repo overrides — the same shape as ship's default
- * ticket pattern.
+ * The four status names and the five planning-status labels resolve in the
+ * lifecycle module, because the command edge writes both fields without a
+ * queue; `resolveLifecycleSettings` is the one place the engine spells a status
+ * name, and only as a fallback a repo overrides.
  */
 export const resolveQueueSettings = ({ config }: Params): QueueSettings | QueueFailure => {
 	const queue = config.queue;
 
 	if (queue === undefined) {
-		return { error: '`lightsout queue` needs a `queue` block in lightsout.config.json naming route-labels and max-parallel' };
+		return { error: '`lightsout queue` needs a `queue` block in lightsout.config.json naming max-parallel' };
+	}
+
+	const lifecycle = resolveLifecycleSettings({ config });
+
+	if ('error' in lifecycle) {
+		return lifecycle;
 	}
 
 	const workerTimeoutMs = parseDurationMs({ value: queue['worker-timeout'] ?? '4h', key: 'queue.worker-timeout' });
@@ -49,10 +56,8 @@ export const resolveQueueSettings = ({ config }: Params): QueueSettings | QueueF
 	}
 
 	return {
-		routeLabels: { [QueueRoute.Direct]: queue['route-labels'].direct, [QueueRoute.AutoPlan]: queue['route-labels']['auto-plan'] },
+		lifecycle,
 		maxParallel: queue['max-parallel'],
-		eligibleStatuses: queue['eligible-statuses'] ?? ['Backlog', 'Ready to implement'],
-		inProgressStatus: queue['in-progress-status'] ?? 'In Progress',
 		setup: queue.setup,
 		branchTemplate: queue['branch-template'] ?? '{ticket}-{slug}',
 		decisionsHeading: queue['decisions-heading'] ?? '## Decisions',

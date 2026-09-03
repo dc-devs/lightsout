@@ -3,8 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Writable } from 'node:stream';
 import { describe, expect, jest, test } from '@jest/globals';
+import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { RelayQuestion } from '#src/contracts/index.ts';
-import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
+import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { FileQuestionRelay } from '#src/queue/relay/index.ts';
@@ -32,7 +33,9 @@ const ticket: TicketSummary = {
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
 	labels: [],
-	route: QueueRoute.Direct,
+	planningStatus: PlanningStatus.NotNeeded,
+	worker: QueueWorker.Direct,
+	status: 'Ready to implement',
 	unfinishedBlockers: [],
 };
 

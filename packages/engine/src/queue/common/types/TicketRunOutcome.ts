@@ -18,4 +18,13 @@ export interface TicketRunOutcome {
 	error?: string;
 	/** True when the stop was a question nobody answered — the drain retires that ticket's slot instead of refilling it. */
 	unanswered?: boolean;
+	/**
+	 * Why the ticket's tracker state could not be reconciled after its merge.
+	 *
+	 * Separate from `error` and never paired with a flipped `ready`: a tracker
+	 * failure cannot undo a confirmed merge, and reusing the ready flag would
+	 * park a branch that is already merged and send the next drain to re-ship
+	 * it. The drain report prints it beside the shipped line.
+	 */
+	reconciliationFailure?: string;
 }

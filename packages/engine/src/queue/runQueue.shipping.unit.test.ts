@@ -2,9 +2,11 @@ import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
+import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { type GateResult, type LightsoutConfig, ShipMergeMethod } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
+import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import { type QuestionRelay, type QueueFailure, type QueueSettings, runQueue, type TicketRunOutcome } from '#src/queue/index.ts';
 import type { ShipSettings } from '#src/ship/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
@@ -50,6 +52,8 @@ jest.mock('#src/queue/listEligibleTickets.ts', () => ({
 	listEligibleTickets: (params: ListEligibleParams) => mockListEligibleTickets(params),
 }));
 jest.mock('#src/ticketTracker/index.ts', () => ({
+	listLabelNames: () =>
+		Promise.resolve(['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed']),
 	setParkedLabel: (params: SetParkedLabelParams) => mockSetParkedLabel(params),
 }));
 // -------------------------
@@ -84,7 +88,9 @@ const ticket: TicketSummary = {
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
 	labels: [],
-	route: 'direct',
+	planningStatus: PlanningStatus.NotNeeded,
+	worker: QueueWorker.Direct,
+	status: 'Ready to implement',
 	unfinishedBlockers: [],
 };
 
@@ -134,6 +140,7 @@ describe('runQueue', () => {
 			trackerSettings: trackerSettingsFixture(),
 			shipSettings,
 			config,
+			env: {},
 			driver,
 			driverName: driver.name,
 			relay,

@@ -1,5 +1,5 @@
 {
 	"name": "lightsout-jira",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "Jira Cloud mechanics for the LightsOut ticket workflow"
 }

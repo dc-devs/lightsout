@@ -23,6 +23,12 @@ export const toJiraTrackerTicket = ({ issue, unfinishedBlockers }: Params): Trac
 		return { error: `Jira issue '${issue.key}' is missing its summary or created value` };
 	}
 
+	const status = issue.fields.status?.name;
+
+	if (status === undefined) {
+		return { error: `Jira issue '${issue.key}' is missing its status name` };
+	}
+
 	return {
 		id: issue.id,
 		identifier: issue.key,
@@ -31,6 +37,7 @@ export const toJiraTrackerTicket = ({ issue, unfinishedBlockers }: Params): Trac
 		priority: priorityOf({ name: issue.fields.priority?.name }),
 		createdAt: issue.fields.created,
 		labels: issue.fields.labels ?? [],
+		status,
 		unfinishedBlockers,
 	};
 };

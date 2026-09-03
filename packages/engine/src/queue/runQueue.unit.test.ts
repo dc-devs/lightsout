@@ -2,9 +2,10 @@ import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
+import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
+import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
@@ -39,6 +40,8 @@ const mockSetParkedLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure
 
 jest.mock('#src/queue/listEligibleTickets.ts', () => ({ listEligibleTickets: () => mockListEligibleTickets() }));
 jest.mock('#src/ticketTracker/index.ts', () => ({
+	listLabelNames: () =>
+		Promise.resolve(['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed']),
 	appendTicketNote: () => Promise.resolve(undefined),
 	setParkedLabel: (params: LabelParams) => mockSetParkedLabel(params),
 }));
@@ -74,7 +77,9 @@ const ticketOf = ({
 	priority,
 	createdAt,
 	labels: [],
-	route: QueueRoute.Direct,
+	planningStatus: PlanningStatus.NotNeeded,
+	worker: QueueWorker.Direct,
+	status: 'Ready to implement',
 	unfinishedBlockers,
 });
 
@@ -115,6 +120,7 @@ const setupDrain = ({ eligible = [], parked }: { eligible?: TicketSummary[]; par
 			trackerSettings,
 			shipSettings: ship,
 			config,
+			env: {},
 			driver,
 			driverName: 'claude-code',
 			relay,
@@ -178,6 +184,7 @@ describe('runQueue', () => {
 			trackerSettings: trackerSettingsFixture(),
 			shipSettings,
 			config,
+			env: {},
 			driver,
 			driverName: 'claude-code',
 			relay,
@@ -201,7 +208,7 @@ describe('runQueue', () => {
 	});
 
 	test('still names a worktree the resume scan left behind when there is nothing to drain, so it never vanishes from the summary', async () => {
-		const withdrawn = { identifier: 'LO-99', reason: 'its worktree is parked, but the ticket carries no configured route label any more' };
+		const withdrawn = { identifier: 'LO-99', reason: 'its worktree is parked, but the ticket carries no planning status label any more' };
 		const { drain, relay } = setupDrain({ parked: { resumed: [], outcomes: [], leftBehind: [withdrawn] } });
 
 		const report = await drain();
@@ -356,53 +363,9 @@ describe('runQueue', () => {
 		expect(readCoordinatorRun({ cwd }).manifest.status).toBe(RunStatus.Escalated);
 	});
 
-	test('settles the parked label over the outcomes shipping left behind, so a ticket that failed to merge is parked in the tracker too', async () => {
-		const merged = ticketOf({ number: 70 });
-		const unmerged = ticketOf({ number: 71 });
-		const { drain, relay } = setupDrain({ eligible: [merged, unmerged] });
-
-		mockShipReadyBranches.mockResolvedValue([
-			outcomeOf({ ticket: merged }),
-			outcomeOf({ ticket: unmerged, ready: false, error: 'the branch did not rebase onto main' }),
-		]);
-
-		await drain({ settings: queueSettingsFixture({ parkedLabel: 'queue-parked' }) });
-		relay.close();
-
-		expect(mockSetParkedLabel.mock.calls.map(([params]) => ({ ticketId: params.ticketId, label: params.label, parked: params.parked }))).toStrictEqual([
-			{ ticketId: 'id-70', label: 'queue-parked', parked: false },
-			{ ticketId: 'id-71', label: 'queue-parked', parked: true },
-		]);
-	});
-
-	test('reports a failed label write as progress and still hands the drain back, because the tracker is never a precondition for building', async () => {
-		const { drain, relay, progress } = setupDrain({ eligible: [ticketOf({ number: 70 })] });
-
-		mockSetParkedLabel.mockResolvedValue({ error: 'there is no LO team to create the label on' });
-
-		const report = await drain({ settings: queueSettingsFixture({ parkedLabel: 'queue-parked' }) });
-
-		relay.close();
-
-		expect(report).toEqual({ outcomes: [expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-70' }), ready: true })], leftBehind: [] });
-		expect(progress).toEqual([expect.stringContaining("LO-70 · the 'queue-parked' label could not be written")]);
-	});
-
-	test('leaves the tracker alone when no parked label is configured, because the label is opt-in', async () => {
-		const parked = ticketOf({ number: 70 });
-		const { drain, relay } = setupDrain({ eligible: [parked] });
-
-		mockShipReadyBranches.mockResolvedValue([outcomeOf({ ticket: parked, ready: false, error: 'the branch did not rebase onto main' })]);
-
-		await drain();
-		relay.close();
-
-		expect(mockSetParkedLabel).not.toHaveBeenCalled();
-	});
-
 	test('carries a skipped ticket into the report beside the outcomes, so nothing vanishes from the summary', async () => {
 		const { drain, relay } = setupDrain({
-			eligible: [ticketOf({ number: 70 }), { ...ticketOf({ number: 70 }), route: QueueRoute.AutoPlan }],
+			eligible: [ticketOf({ number: 70 }), { ...ticketOf({ number: 70 }), planningStatus: PlanningStatus.Complete, worker: QueueWorker.Plan }],
 			parked: { resumed: [], outcomes: [outcomeOf({ ticket: ticketOf({ number: 99 }) })], leftBehind: [] },
 		});
 
@@ -412,7 +375,7 @@ describe('runQueue', () => {
 
 		expect(report).toEqual({
 			outcomes: [expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-99' }) })],
-			leftBehind: [{ identifier: 'LO-70', reason: expect.stringContaining('both route labels') }],
+			leftBehind: [{ identifier: 'LO-70', reason: expect.stringContaining('planning status labels') }],
 		});
 	});
 });

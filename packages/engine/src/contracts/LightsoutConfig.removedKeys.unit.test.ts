@@ -34,7 +34,7 @@ test.each([
 	{ key: 'team', to: 'ticket-tracker.team' },
 	{ key: 'api-key-env', to: 'ticket-tracker.api-key-env' },
 ])('LightsoutConfig: the moved queue.$key spelling is refused with a message naming $to', ({ key, to }) => {
-	const queue = { 'route-labels': { direct: 'route-direct', 'auto-plan': 'route-auto-plan' }, 'max-parallel': 3, [key]: 'linear' };
+	const queue = { 'max-parallel': 3, [key]: 'linear' };
 	const result = LightsoutConfig.safeParse({ ...base, queue });
 
 	// the tombstone is declared inside the queue block because a stale config
@@ -42,6 +42,17 @@ test.each([
 	// the strict block would report a generic unrecognized key naming nothing
 	expect(result.success).toBe(false);
 	expect(result.error?.message ?? '').toMatch(new RegExp(`\`queue.${key}\` was renamed to \`${to}\``));
+});
+
+test('LightsoutConfig: the retired queue.route-labels spelling is refused with a message naming queue.planning-status-labels', () => {
+	const queue = { 'max-parallel': 3, 'route-labels': { direct: 'route-direct', 'auto-plan': 'route-auto-plan' } };
+	const result = LightsoutConfig.safeParse({ ...base, queue });
+
+	// the tombstone lives inside the queue block because a stale config writes the
+	// key nested there, and a silently stripped route map would leave the queue
+	// querying no label at all
+	expect(result.success).toBe(false);
+	expect(result.error?.message ?? '').toMatch(/`queue.route-labels` was renamed to `queue.planning-status-labels`/);
 });
 
 test('LightsoutConfig: the removed driver and permissionMode keys are refused with a message naming their replacement', () => {

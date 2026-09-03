@@ -116,6 +116,14 @@ describe('runShip', () => {
 		expect(readForgeLog().some((line) => line.startsWith('pr create'))).toBe(false);
 	});
 
+	test('asks the forge only for the branch’s open pull request, so a merged one is never adopted as a resume', async () => {
+		const { cwd, readForgeLog, onProgress } = await setupShip();
+
+		await runShip({ cwd, settings, onProgress });
+
+		expect(readForgeLog()).toContain('pr list --head lo-60-ship --state open --json number,url,title,headRefName --limit 1');
+	});
+
 	test('a blocked precondition stops before the forge is touched, and still leaves a result on disk', async () => {
 		const { cwd, readForgeLog, onProgress } = await setupShip({ repo: { dirty: { 'notes.md': 'half a thought\n' } } });
 

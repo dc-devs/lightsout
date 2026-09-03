@@ -6,6 +6,7 @@ import { exitForRunResult } from '#src/cli/common/utils/exitForRunResult.ts';
 import { type LightsoutConfig, ShipStatus } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { resolveShipIntent, runShip } from '#src/ship/index.ts';
+import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
 
 interface Params {
 	config: LightsoutConfig;
@@ -58,5 +59,18 @@ export const exitAfterImplement = async ({ config, cwd, result, shipFlag, noShip
 
 	const shipped = await runShip({ cwd, settings: intent.settings, onProgress: createProgressPrinter() });
 
-	return shipped.status === ShipStatus.Blocked ? exitCli({ code: 1 }) : exitForRunResult({ ok: result.ok, manifest: result.manifest });
+	if (shipped.status === ShipStatus.Blocked) {
+		return exitCli({ code: 1 });
+	}
+
+	// The merge is confirmed here too, so the tracker learns it here too — and a
+	// refused write is a printed sentence rather than a changed exit code,
+	// because a tracker failure cannot undo a merge that already happened.
+	const reconciliationFailure = await reconcileShippedTicket({ config, env, ticketRef: shipped.ticketRef, onProgress: createProgressPrinter() });
+
+	if (reconciliationFailure !== undefined) {
+		console.error(reconciliationFailure);
+	}
+
+	return exitForRunResult({ ok: result.ok, manifest: result.manifest });
 };

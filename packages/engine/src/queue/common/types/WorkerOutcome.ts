@@ -1,6 +1,6 @@
 /**
- * What one worker invocation amounted to, with the two routes' different report
- * shapes already normalized: a question to relay, an error to park on, or
+ * What one worker invocation amounted to, with every worker's different report
+ * shape already normalized: a question to relay, an error to park on, or
  * neither — which is success.
  */
 export interface WorkerOutcome {

@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
+import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
+import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { dedupeTickets } from '#src/queue/dedupeTickets.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
@@ -14,14 +15,19 @@ const ticketOf = (overrides: Partial<TicketSummary> = {}): TicketSummary => ({
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
 	labels: [],
-	route: QueueRoute.Direct,
+	planningStatus: PlanningStatus.NotNeeded,
+	worker: QueueWorker.Direct,
+	status: 'Ready to implement',
 	unfinishedBlockers: [],
 	...overrides,
 });
 
 describe('dedupeTickets', () => {
 	test('leaves an ordinary queue exactly as it was given', () => {
-		const tickets = [ticketOf(), ticketOf({ id: 'id-71', identifier: 'LO-71', route: QueueRoute.AutoPlan })];
+		const tickets = [
+			ticketOf(),
+			ticketOf({ id: 'id-71', identifier: 'LO-71', planningStatus: PlanningStatus.ReadyAutoPlan, worker: QueueWorker.AutoPlan, status: 'Backlog' }),
+		];
 
 		expect(dedupeTickets({ tickets, settings }).ordered.map((ticket) => ticket.identifier)).toStrictEqual(['LO-70', 'LO-71']);
 	});
@@ -36,19 +42,19 @@ describe('dedupeTickets', () => {
 		expect(leftBehind).toStrictEqual([]);
 	});
 
-	test('skips a ticket carrying both route labels, naming both so a human can remove one', () => {
+	test('skips a ticket carrying more than one planning status label, naming each so a human can leave one', () => {
 		const progress: string[] = [];
-		const tickets = [ticketOf(), ticketOf({ route: QueueRoute.AutoPlan })];
+		const tickets = [ticketOf(), ticketOf({ planningStatus: PlanningStatus.Complete, worker: QueueWorker.Plan })];
 
 		const { ordered, leftBehind } = dedupeTickets({ tickets, settings, onProgress: (message) => progress.push(message) });
 
 		expect(ordered).toStrictEqual([]);
-		expect(leftBehind).toEqual([{ identifier: 'LO-70', reason: expect.stringContaining("'route-direct' and 'route-auto-plan'") }]);
+		expect(leftBehind).toEqual([{ identifier: 'LO-70', reason: expect.stringContaining("'planning-complete' and 'planning-not-needed'") }]);
 		expect(progress).toEqual([expect.stringContaining('LO-70 ·')]);
 	});
 
-	test('reports a double-labelled ticket once, not once per label it carries', () => {
-		const tickets = [ticketOf(), ticketOf({ route: QueueRoute.AutoPlan })];
+	test('reports an ambiguous ticket once, not once per planning status label it carries', () => {
+		const tickets = [ticketOf(), ticketOf({ planningStatus: PlanningStatus.Complete, worker: QueueWorker.Plan })];
 
 		expect(dedupeTickets({ tickets, settings }).leftBehind).toHaveLength(1);
 	});

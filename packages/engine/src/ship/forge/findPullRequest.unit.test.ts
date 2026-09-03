@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { findOpenPullRequest } from '#src/ship/forge/index.ts';
+import { findPullRequest, PullRequestState } from '#src/ship/forge/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
 
@@ -13,11 +13,11 @@ const setupList = async ({ stdout = '[]', exitCode = 0 }: { stdout?: string; exi
 
 const openRow = '[{"number":41,"url":"https://forge.example/acme/repo/pull/41","title":"Ship a branch","headRefName":"lo-60-ship"}]';
 
-describe('findOpenPullRequest', () => {
+describe('findPullRequest', () => {
 	test('an open pull request on the branch comes back as a summary, head branch and all', async () => {
 		const { cwd } = await setupList({ stdout: openRow });
 
-		const found = await findOpenPullRequest({ branch: 'lo-60-ship', cwd });
+		const found = await findPullRequest({ branch: 'lo-60-ship', cwd, state: PullRequestState.Open });
 
 		expect(found).toStrictEqual({ number: 41, url: 'https://forge.example/acme/repo/pull/41', title: 'Ship a branch', branch: 'lo-60-ship' });
 	});
@@ -25,15 +25,23 @@ describe('findOpenPullRequest', () => {
 	test('asks the forge only for the branch’s own open pull requests, so a stranger’s is never adopted', async () => {
 		const { cwd, readForgeLog } = await setupList({ stdout: openRow });
 
-		await findOpenPullRequest({ branch: 'lo-60-ship', cwd });
+		await findPullRequest({ branch: 'lo-60-ship', cwd, state: PullRequestState.Open });
 
 		expect(readForgeLog()[0]).toBe('pr list --head lo-60-ship --state open --json number,url,title,headRefName --limit 1');
+	});
+
+	test('the merged state is the word that reaches the forge, which is what makes a merge confirmed rather than inferred', async () => {
+		const { cwd, readForgeLog } = await setupList({ stdout: openRow });
+
+		await findPullRequest({ branch: 'lo-60-ship', cwd, state: PullRequestState.Merged });
+
+		expect(readForgeLog()[0]).toBe('pr list --head lo-60-ship --state merged --json number,url,title,headRefName --limit 1');
 	});
 
 	test('no open pull request answers undefined, which is what makes the caller open one', async () => {
 		const { cwd } = await setupList();
 
-		const found = await findOpenPullRequest({ branch: 'lo-60-ship', cwd });
+		const found = await findPullRequest({ branch: 'lo-60-ship', cwd, state: PullRequestState.Open });
 
 		expect(found).toBe(undefined);
 	});
@@ -41,7 +49,15 @@ describe('findOpenPullRequest', () => {
 	test('a forge that refuses the read answers undefined rather than an empty summary', async () => {
 		const { cwd } = await setupList({ stdout: '', exitCode: 1 });
 
-		const found = await findOpenPullRequest({ branch: 'lo-60-ship', cwd });
+		const found = await findPullRequest({ branch: 'lo-60-ship', cwd, state: PullRequestState.Open });
+
+		expect(found).toBe(undefined);
+	});
+
+	test('an unreadable answer is undefined for the merged state too, so the queue never treats a broken read as a merge', async () => {
+		const { cwd } = await setupList({ stdout: 'gh: please run gh auth login', exitCode: 1 });
+
+		const found = await findPullRequest({ branch: 'lo-60-ship', cwd, state: PullRequestState.Merged });
 
 		expect(found).toBe(undefined);
 	});
@@ -49,7 +65,7 @@ describe('findOpenPullRequest', () => {
 	test('output that is not JSON at all answers undefined rather than raising out of the ship sequence', async () => {
 		const { cwd } = await setupList({ stdout: 'gh: please run gh auth login' });
 
-		const found = await findOpenPullRequest({ branch: 'lo-60-ship', cwd });
+		const found = await findPullRequest({ branch: 'lo-60-ship', cwd, state: PullRequestState.Open });
 
 		expect(found).toBe(undefined);
 	});
@@ -57,7 +73,7 @@ describe('findOpenPullRequest', () => {
 	test('a row missing a field answers undefined, because a summary with no number would reach the merge step', async () => {
 		const { cwd } = await setupList({ stdout: '[{"number":41,"url":"https://forge.example/x/1"}]' });
 
-		const found = await findOpenPullRequest({ branch: 'lo-60-ship', cwd });
+		const found = await findPullRequest({ branch: 'lo-60-ship', cwd, state: PullRequestState.Open });
 
 		expect(found).toBe(undefined);
 	});

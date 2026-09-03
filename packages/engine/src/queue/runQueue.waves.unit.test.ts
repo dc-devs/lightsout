@@ -2,9 +2,10 @@ import { execSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
+import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
+import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
@@ -35,6 +36,8 @@ const mockSetParkedLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure
 
 jest.mock('#src/queue/listEligibleTickets.ts', () => ({ listEligibleTickets: () => mockListEligibleTickets() }));
 jest.mock('#src/ticketTracker/index.ts', () => ({
+	listLabelNames: () =>
+		Promise.resolve(['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed']),
 	appendTicketNote: () => Promise.resolve(undefined),
 	setParkedLabel: (params: LabelParams) => mockSetParkedLabel(params),
 }));
@@ -65,7 +68,9 @@ const ticketOf = ({
 	priority,
 	createdAt,
 	labels: [],
-	route: QueueRoute.Direct,
+	planningStatus: PlanningStatus.NotNeeded,
+	worker: QueueWorker.Direct,
+	status: 'Ready to implement',
 	unfinishedBlockers,
 });
 
@@ -115,6 +120,7 @@ const setupDrain = ({ eligible = [], parked }: { eligible?: TicketSummary[]; par
 			trackerSettings: trackerSettingsFixture(),
 			shipSettings,
 			config,
+			env: {},
 			driver,
 			driverName: 'claude-code',
 			relay,
@@ -207,7 +213,7 @@ describe('runQueue', () => {
 	});
 
 	test('carries a worktree the resume scan left behind through every wave, and names it exactly once', async () => {
-		const withdrawn = { identifier: 'LO-98', reason: 'its worktree is parked, but the ticket carries no configured route label any more' };
+		const withdrawn = { identifier: 'LO-98', reason: 'its worktree is parked, but the ticket carries no planning status label any more' };
 		const { drain, relay } = setupDrain({ parked: { resumed: [], outcomes: [], leftBehind: [withdrawn] } });
 
 		mockListEligibleTickets.mockResolvedValueOnce([ticketOf({ number: 70 }), ticketOf({ number: 71, unfinishedBlockers: ['LO-70'] })]);

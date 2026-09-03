@@ -19,6 +19,7 @@ import {
 	standardsValidateCommand,
 	statusCommand,
 	testCoverageToThresholdCommand,
+	ticketStateCommand,
 	usage,
 	voiceCommand,
 } from '#src/cli/index.ts';
@@ -29,6 +30,7 @@ const commands: Record<string, (context: CommandContext) => Promise<void>> = {
 	queue: queueCommand,
 	resume: resumeCommand,
 	ship: shipCommand,
+	'ticket-state': ticketStateCommand,
 	status: statusCommand,
 	doctor: doctorCommand,
 	'standards-check': standardsCheckCommand,

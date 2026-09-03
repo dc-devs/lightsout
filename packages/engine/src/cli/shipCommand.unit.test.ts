@@ -9,16 +9,30 @@ import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
 
 const viewed = '{"number":41,"url":"https://forge.example/acme/repo/pull/41","title":"Add the ship command","headRefName":"lo-60-ship"}';
 
+/**
+ * A tracker block naming a credential no environment ever holds, so the Done
+ * write that follows a merge fails before it can reach a network — the failure
+ * path this file needs, without a mock and without planting a real key.
+ */
+const unreachableTracker = {
+	provider: 'linear',
+	team: 'LO',
+	'api-key-env': 'LIGHTSOUT_SHIP_RECONCILE_ABSENT_KEY',
+};
+
 /** A repo whose config carries the ship block under test, and a forge that answers every call. */
 const setupShipCommand = ({
 	ship,
 	checks = '[{"name":"unit","bucket":"pass"}]',
 	dirty,
+	tracker,
 }: {
 	ship?: Record<string, unknown>;
 	checks?: string;
 	/** Files left uncommitted after the config is committed — what a dirty tree looks like. */
 	dirty?: Record<string, string>;
+	/** The `ticket-tracker` block, when the test wants the merge reconciled to Done. */
+	tracker?: Record<string, unknown>;
 } = {}) => {
 	const captured = captureCommandOutput();
 
@@ -39,7 +53,11 @@ const setupShipCommand = ({
 
 	writeFileSync(
 		join(cwd, 'lightsout.config.json'),
-		JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false }, ...(ship === undefined ? {} : { ship }) }),
+		JSON.stringify({
+			gates: { check: 'true', test: 'true', 'test-coverage': false },
+			...(ship === undefined ? {} : { ship }),
+			...(tracker === undefined ? {} : { 'ticket-tracker': tracker }),
+		}),
 	);
 	// Committed, not just written: an untracked config would be the dirty tree
 	// ship blocks on, and every test here would stop on that instead.
@@ -55,12 +73,30 @@ const setupShipCommand = ({
 
 describe('shipCommand', () => {
 	test('a branch that ships names the pull request, the merge commit and its URL, and exits 0', async () => {
-		const { context, logged, exitCodes } = setupShipCommand({ ship: { 'ticket-pattern': '^(?<ticket>lo-(?<number>\\d+))' } });
+		const { context, errors, logged, exitCodes } = setupShipCommand({ ship: { 'ticket-pattern': '^(?<ticket>lo-(?<number>\\d+))' } });
 
 		await expect(shipCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(logged.some((line) => line.includes('shipped lo-60') && line.includes('#41') && line.includes('0f1e2d3c'))).toBe(true);
 		expect(logged).toContain('  https://forge.example/acme/repo/pull/41');
+		// A repo that named no tracker never asked for the Done write, so the
+		// shipped path says nothing about one.
+		expect(errors).toStrictEqual([]);
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('a ship whose tracker cannot be reached prints why the ticket is not Done, and still exits 0', async () => {
+		const { context, errors, logged, exitCodes } = setupShipCommand({
+			ship: { 'ticket-pattern': '^(?<ticket>lo-(?<number>\\d+))' },
+			tracker: unreachableTracker,
+		});
+
+		await expect(shipCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(errors.some((line) => line.includes('lo-60') && line.includes('LIGHTSOUT_SHIP_RECONCILE_ABSENT_KEY'))).toBe(true);
+		// The merge happened, so the shipped lines and the exit code are the ones
+		// a successful ship always writes — a stale ticket cannot unship a branch.
+		expect(logged.some((line) => line.includes('shipped lo-60') && line.includes('0f1e2d3c'))).toBe(true);
 		expect(exitCodes).toStrictEqual([0]);
 	});
 

@@ -73,12 +73,40 @@ stdin instead.
 ## What to tell the user if they ask
 
 - **Which tickets it takes:** tickets in the configured tracker scope — a
-  Linear team or Jira project — in an eligible status (by default Backlog or
-  Ready to implement), carrying one of the two route labels the queue block
-  maps. The direct route builds straight from the ticket body; the auto-plan
-  route plans it first. A ticket with a blocking ticket that is not finished —
-  done or canceled — is not picked up; it is left behind naming the blocker,
-  and the same run takes it as soon as the blocker ships.
+  Linear team or Jira project — whose planning-status label and tracker status
+  form one of three pairs:
+    - `planning-ready-auto-plan` in Backlog → the auto-plan worker plans the
+      ticket first, then builds the plan it wrote.
+    - `planning-complete` in Ready to implement → the plan worker builds the
+      plan already published to the ticket, fetching it when the worktree does
+      not have it. When no plan is attached — a brainstorm that finished all
+      shaping without writing one — it builds from the ticket body instead,
+      because `planning-complete` promises finished shaping, not a plan folder.
+    - `planning-not-needed` in Ready to implement → the direct worker builds
+      straight from the ticket body.
+
+  The last two are different workers on purpose: a `planning-complete` ticket
+  has a graded plan attached, and building it from the ticket body instead
+  would throw that plan away. Every other combination is left alone, and the
+  planning-status label is how a human opts a ticket in. A ticket with a
+  blocking ticket that is not finished — done or canceled — is not picked up;
+  it is left behind naming the blocker, and the same run takes it as soon as
+  the blocker ships.
+- **Two planning-status labels is a skip:** a ticket carrying more than one is
+  skipped with a sentence naming every planning-status label it carries.
+  Exactly one is the model's rule, so two is a human error the queue will not
+  resolve by guessing.
+- **A missing label refuses the run at startup:** before any ticket is picked
+  up, the queue checks that every configured planning-status label exists in
+  the tracker, and refuses naming the missing one. It refuses the same way when
+  `queue.ready-status` is not among `queue.eligible-statuses`, because the two
+  build pairs could then never match and the drain would report an empty
+  backlog instead of a broken config.
+- **Already-merged work is reconciled, not rebuilt:** before a worktree is
+  created, the queue asks the forge whether the ticket's branch already has a
+  merged pull request. A confirmed merge moves the ticket to Done and skips the
+  worker. A parked worktree for that branch is removed when its tree is clean,
+  and kept with a progress line when it is dirty.
 - **How it runs them:** each ticket gets its own fresh git worktree, the
   config's `setup` command, and a harness run; finished branches ship as PRs.
   Up to `max-parallel` tickets run at once. The queue works in waves —
@@ -94,3 +122,9 @@ stdin instead.
 - **The parked label:** when the config sets `parked-label`, a parked ticket
   carries that label in the tracker and loses it when the ticket resumes or
   ships.
+- **Tracker writes gate the work:** before a worker touches source, the queue
+  records the ticket's planning status and moves it to In Progress. A failed
+  write parks that one ticket and leaves every other worker running. After a
+  merge is confirmed the ticket moves to Done; a failed Done write leaves the
+  ship recorded as successful and reports a separate reconciliation failure in
+  the drain report, because a tracker failure cannot undo a merge.

@@ -1,7 +1,7 @@
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
+import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
-import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { drainTickets } from '#src/queue/drainTickets.ts';
 import { shipReadyBranches } from '#src/queue/shipReadyBranches.ts';
 import type { ShipSettings } from '#src/ship/index.ts';
@@ -11,13 +11,15 @@ interface Params {
 	config: LightsoutConfig;
 	shipSettings: ShipSettings;
 	defaultBranch: string;
+	/** The process environment the tracker credentials are read from. Passed rather than read, so a test never needs to mutate `process.env`. */
+	env: NodeJS.ProcessEnv;
 	/** Tickets this wave works, in the order they will be picked up. */
-	queued: TicketSummary[];
+	queued: RunnableTicket[];
 	maxParallel: number;
 	/** Outcomes settled before this wave's drain — the parked scan's, on the first wave only. */
 	carried: TicketRunOutcome[];
 	/** One ticket, from worktree to committed-and-ready. */
-	runTicket: (params: { ticket: TicketSummary }) => Promise<TicketRunOutcome>;
+	runTicket: (params: { ticket: RunnableTicket }) => Promise<TicketRunOutcome>;
 	onProgress?: (message: string) => void;
 }
 
@@ -33,6 +35,7 @@ export const runQueueWave = async ({
 	config,
 	shipSettings,
 	defaultBranch,
+	env,
 	queued,
 	maxParallel,
 	carried,
@@ -42,7 +45,7 @@ export const runQueueWave = async ({
 	const drained = await drainTickets({ queued, maxParallel, runTicket, onProgress });
 	const settled = [...carried, ...drained.outcomes];
 	const ready = settled.filter((outcome) => outcome.ready);
-	const shipped = await shipReadyBranches({ cwd, config, shipSettings, defaultBranch, ready, onProgress });
+	const shipped = await shipReadyBranches({ cwd, config, shipSettings, defaultBranch, env, ready, onProgress });
 	const outcomes = [...shipped, ...settled.filter((outcome) => !outcome.ready)];
 	const report: QueueDrainReport = { outcomes, leftBehind: drained.leftBehind };
 

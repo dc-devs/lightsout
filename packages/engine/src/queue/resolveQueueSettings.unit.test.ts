@@ -2,10 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { resolveQueueSettings } from '#src/queue/index.ts';
 
-const queueBlock = {
-	'route-labels': { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
-	'max-parallel': 3,
-} as const;
+const queueBlock = { 'max-parallel': 3 } as const;
 
 const configOf = (queue?: LightsoutConfig['queue']): LightsoutConfig => ({ gates: { check: 'true', test: 'true', 'test-coverage': false }, queue });
 
@@ -14,10 +11,18 @@ describe('resolveQueueSettings', () => {
 		const settings = resolveQueueSettings({ config: configOf({ ...queueBlock }), env: { LINEAR_API_KEY: 'lin_key' } });
 
 		expect(settings).toStrictEqual({
-			routeLabels: { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
+			lifecycle: {
+				planningStatusLabels: {
+					'planning-needs-brainstorm': 'planning-needs-brainstorm',
+					'planning-needs-plan': 'planning-needs-plan',
+					'planning-ready-auto-plan': 'planning-ready-auto-plan',
+					'planning-complete': 'planning-complete',
+					'planning-not-needed': 'planning-not-needed',
+				},
+				statusNames: { ready: 'Ready to implement', 'in-progress': 'In Progress', done: 'Done' },
+				eligibleStatuses: ['Backlog', 'Ready to implement'],
+			},
 			maxParallel: 3,
-			eligibleStatuses: ['Backlog', 'Ready to implement'],
-			inProgressStatus: 'In Progress',
 			setup: undefined,
 			branchTemplate: '{ticket}-{slug}',
 			decisionsHeading: '## Decisions',
@@ -31,8 +36,11 @@ describe('resolveQueueSettings', () => {
 		const settings = resolveQueueSettings({
 			config: configOf({
 				...queueBlock,
-				'eligible-statuses': ['Todo'],
+				'planning-status-labels': { 'planning-not-needed': 'shaped-none' },
+				'eligible-statuses': ['Todo', 'Waiting'],
+				'ready-status': 'Waiting',
 				'in-progress-status': 'Building',
+				'done-status': 'Shipped',
 				setup: 'pnpm install',
 				'branch-template': 'feature/{ticket}',
 				'decisions-heading': '## Settled',
@@ -44,8 +52,17 @@ describe('resolveQueueSettings', () => {
 		});
 
 		expect(settings).toMatchObject({
-			eligibleStatuses: ['Todo'],
-			inProgressStatus: 'Building',
+			lifecycle: {
+				planningStatusLabels: {
+					'planning-needs-brainstorm': 'planning-needs-brainstorm',
+					'planning-needs-plan': 'planning-needs-plan',
+					'planning-ready-auto-plan': 'planning-ready-auto-plan',
+					'planning-complete': 'planning-complete',
+					'planning-not-needed': 'shaped-none',
+				},
+				statusNames: { ready: 'Waiting', 'in-progress': 'Building', done: 'Shipped' },
+				eligibleStatuses: ['Todo', 'Waiting'],
+			},
 			setup: 'pnpm install',
 			branchTemplate: 'feature/{ticket}',
 			decisionsHeading: '## Settled',
@@ -74,7 +91,18 @@ describe('resolveQueueSettings', () => {
 		// `resolveTrackerSettings`'s to name, and a user hitting one must not be
 		// told about the other
 		expect(settings).toStrictEqual({
-			error: '`lightsout queue` needs a `queue` block in lightsout.config.json naming route-labels and max-parallel',
+			error: '`lightsout queue` needs a `queue` block in lightsout.config.json naming max-parallel',
+		});
+	});
+
+	test('refuses a label two planning statuses share, because the queue would report every ticket carrying it ambiguous and skip it forever', () => {
+		const settings = resolveQueueSettings({
+			config: configOf({ ...queueBlock, 'planning-status-labels': { 'planning-complete': 'shaped', 'planning-not-needed': 'shaped' } }),
+			env: { LINEAR_API_KEY: 'lin_key' },
+		});
+
+		expect(settings).toStrictEqual({
+			error: "`queue.planning-status-labels` maps 'shaped' to both planning-complete and planning-not-needed — one label cannot mean two planning statuses",
 		});
 	});
 });

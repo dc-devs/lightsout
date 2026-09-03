@@ -1,5 +1,5 @@
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
-import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
+import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 
 /**
  * One scan of the queue, split by what the drain may do with each ticket.
@@ -10,9 +10,9 @@ import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
  */
 export interface WaveSelection {
 	/** Tickets this wave will work, in the order they will be picked up. */
-	runnable: TicketSummary[];
+	runnable: RunnableTicket[];
 	/** Tickets held back until every blocker finishes — re-offered by the next scan. */
 	blocked: LeftBehindTicket[];
-	/** Tickets settled for good, e.g. the double-label skip. Never re-offered. */
+	/** Tickets settled for good, e.g. the ambiguous-planning-status skip. Never re-offered. */
 	skipped: LeftBehindTicket[];
 }

@@ -63,3 +63,18 @@ it is deterministic code. Do not add workflow steps to this file.
    exited. If the run parked itself (rate-limit pause or escalation), tell the
    user the run id and that `resume` will continue it — the same run id also
    resumes a multi-phase run, picking up at the phase that stopped.
+
+## What the engine does to the ticket
+
+Stated so nobody adds a step for it here — the engine already does it:
+
+- Before the pipeline starts, `lightsout implement` records the ticket's
+  planning status and moves the ticket to In Progress. `lightsout
+  implement-direct` does the same, resolving the ticket from `--ref` or from
+  the branch. The run refuses to start when either write fails, because
+  required state must be recorded before source work begins.
+- The planning status it records: `planning-complete` and
+  `planning-not-needed` are preserved as they stand. Anything else —
+  `planning-ready-auto-plan`, either `planning-needs-*` value, no label at all,
+  or more than one — is written as `planning-complete`.
+- Nothing in this skill performs those writes. Do not add a step for them.

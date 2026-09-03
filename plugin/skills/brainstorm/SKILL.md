@@ -1,18 +1,19 @@
 ---
 name: brainstorm
 description: Shape a vague idea into a buildable direction through dialogue — checks whether it is one idea or several, offers 2–3 competing approaches with trade-offs and a recommendation, and converges on a design stated in plain words. Use when the user has a rough idea, wants to think through a feature before planning it, or asks to brainstorm. Exits either to "just build it" (nothing written) or to a rough-notes file handed to the `plan` skill.
-allowed-tools: Read, Write, Grep, Glob
+allowed-tools: Bash, Read, Write, Grep, Glob
 ---
 
 # lightsout: brainstorm
 
 **This skill is an interactive conductor, not the engine.** It holds zero
 deterministic decisions — no gates, retries, caps, state, or contract parsing.
-It runs no engine subcommands and needs no bundle. Triggering is gentle: the
-description above is the only trigger — no hook, no forced invocation.
-Writing the settled-decisions file below changes nothing about this standing —
-the skill still runs no engine subcommand, needs no bundle, and never reads
-the file back; the engine validates it at draft time.
+It runs exactly one engine subcommand, `ticket-state`, and only when the idea
+traces to a ticket; it still holds no deterministic decision of its own, and it
+never reads back what it writes. Triggering is gentle: the description above is
+the only trigger — no hook, no forced invocation. Writing the settled-decisions
+file below changes nothing about this standing — the skill never reads the file
+back; the engine validates it at draft time.
 
 ## Question format
 
@@ -116,11 +117,45 @@ say so in one line.
 it touches, what is explicitly out — and iterate until the user confirms it
 matches what they meant.
 
-**5. Exit.** Ask which way to leave:
+**5. Exit.** Ask which way to leave.
+
+Both exits write the ticket's planning status, so resolve the plugin root
+first: it is two directories above this loaded `SKILL.md`'s absolute path. In
+Claude Code, `${CLAUDE_PLUGIN_ROOT}` may provide the same path; do not assume
+that variable exists in Codex skill shell calls. Use the resolved absolute path
+wherever `<plugin-root>` appears below, and confirm `<plugin-root>/dist/cli.mjs`
+exists before running anything. When the idea traces to no ticket, neither exit
+writes anything — the ordinary case for a brainstorm that runs before its ticket
+exists. A nonzero exit from either command below is a stop: report the exact
+failure and do not claim the brainstorm finished.
 
 - **"Just build it"** → write nothing — no folder, no file, no name. The
   converged design in the conversation is the deliverable; the user takes it
   from here.
+
+  When the idea traces to a ticket, this exit still owes the tracker two
+  things, in this order.
+
+  First, **print the exact `## Decisions` lines the conversation settled**,
+  ready to paste onto the ticket, and say that they belong on the ticket
+  because the next command claims it as ready to build. This exit writes no
+  file, so the ticket body is the only record of what was agreed — and this
+  skill cannot write it: its tools carry no tracker access. Do not try. On Jira
+  the API is reachable over `Bash`; on Linear it is not, and an instruction that
+  works on one tracker and silently fails on the other is worse than one that is
+  honestly a human step on both.
+
+  Then run the command regardless — a printed obligation the human has not yet
+  acted on is not a reason to leave the tracker saying the brainstorm never
+  happened:
+
+  ```sh
+  node "<plugin-root>/dist/cli.mjs" ticket-state --ref <ticket> --planning-status planning-complete --tracker-status ready
+  ```
+
+  The status is `planning-complete`, not `planning-not-needed`: the ticket did
+  require a brainstorm, and one just ran. `planning-not-needed` says a ticket
+  never required one.
 - **"Plan it"** → derive a kebab `<name>` from the idea (offer it for
   override). A brainstorm usually runs before a ticket exists, so the folder
   carries a bare slug; when a ticket already exists for the idea, use its
@@ -162,6 +197,30 @@ matches what they meant.
 
   If either file already exists at that name (a previous brainstorm), say so
   and agree a different name — never overwrite silently.
+
+  Then, when the idea traces to a ticket, move its planning status:
+
+  ```sh
+  node "<plugin-root>/dist/cli.mjs" ticket-state --ref <ticket> --planning-status planning-needs-plan
+  ```
+
+  This exit moves the planning status only, and passes no `--tracker-status`.
+  The ticket stays where it is, because interactive planning is Backlog work and
+  no config key names a Backlog role to move it to.
+
+  **The command writes the label; it does not attach the evidence.** The
+  ticket-workflow rule is that `notes.md` goes onto the ticket whenever
+  `planning-needs-plan` is set — that label is the one claim in the model that
+  owes proof, and `.lightsout` is gitignored, so an unattached `notes.md` exists
+  on exactly one laptop. No engine command can do it at this moment: `lightsout
+  plan publish` refuses when the folder holds no plan deliverable, and at this
+  exit only `notes.md` and `brainstorm-decisions.json` are on disk. This skill's
+  tools cannot do it either.
+
+  So print the obligation rather than claiming it discharged: after the command
+  succeeds, print one line naming the absolute path of `notes.md` and saying it
+  must be attached to the ticket now. The rule is in the ticket-workflow skill's
+  `### Recording it` section.
 
 ## Notes file content
 

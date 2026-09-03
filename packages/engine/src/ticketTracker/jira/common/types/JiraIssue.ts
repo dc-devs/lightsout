@@ -8,7 +8,7 @@ interface JiraIssueFields {
 	summary?: string;
 	created?: string;
 	labels?: string[] | null;
-	status?: { statusCategory?: { key?: string } } | null;
+	status?: { name?: string; statusCategory?: { key?: string } } | null;
 	issuelinks?: JiraIssueLink[] | null;
 	description?: unknown | null;
 	priority?: { name?: string } | null;

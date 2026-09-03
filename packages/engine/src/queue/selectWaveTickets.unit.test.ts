@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
+import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
+import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { selectWaveTickets } from '#src/queue/selectWaveTickets.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
@@ -14,7 +15,9 @@ const ticketOf = (overrides: Partial<TicketSummary> = {}): TicketSummary => ({
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
 	labels: [],
-	route: QueueRoute.Direct,
+	planningStatus: PlanningStatus.NotNeeded,
+	worker: QueueWorker.Direct,
+	status: 'Ready to implement',
 	unfinishedBlockers: [],
 	...overrides,
 });
@@ -52,7 +55,7 @@ describe('selectWaveTickets', () => {
 		expect(blocked).toEqual([{ identifier: 'LO-70', reason: expect.stringContaining('blocked by LO-68, LO-69') }]);
 	});
 
-	test('announces the hold-back as progress, the same way the double-label skip is announced', () => {
+	test('announces the hold-back as progress, the same way the ambiguous-label skip is announced', () => {
 		const { progress } = select({ tickets: [ticketOf({ unfinishedBlockers: ['LO-69'] })] });
 
 		expect(progress).toEqual([expect.stringContaining('LO-70 · waiting: blocked by LO-69')]);
@@ -75,9 +78,9 @@ describe('selectWaveTickets', () => {
 		expect(runnable).toStrictEqual([]);
 	});
 
-	test('drops both route copies of an already-attempted ticket together, so one leftover copy never reads as a clean single-label ticket', () => {
+	test('drops both planning-status copies of an already-attempted ticket together, so one leftover copy never reads as a clean single-label ticket', () => {
 		const { runnable, blocked, skipped } = select({
-			tickets: [ticketOf(), ticketOf({ route: QueueRoute.AutoPlan })],
+			tickets: [ticketOf(), ticketOf({ planningStatus: PlanningStatus.Complete, worker: QueueWorker.Plan })],
 			attempted: ['lo-70'],
 		});
 
@@ -86,11 +89,22 @@ describe('selectWaveTickets', () => {
 		expect(skipped).toStrictEqual([]);
 	});
 
-	test('skips a double-labelled ticket rather than running it, because guessing a route could run the wrong worker', () => {
-		const { runnable, skipped } = select({ tickets: [ticketOf(), ticketOf({ route: QueueRoute.AutoPlan })] });
+	test('skips an ambiguous ticket rather than running it, because guessing what it still owes could run the wrong worker', () => {
+		const { runnable, skipped } = select({ tickets: [ticketOf(), ticketOf({ planningStatus: PlanningStatus.Complete, worker: QueueWorker.Plan })] });
 
 		expect(runnable).toStrictEqual([]);
-		expect(skipped).toEqual([{ identifier: 'LO-70', reason: expect.stringContaining('both route labels') }]);
+		expect(skipped).toEqual([{ identifier: 'LO-70', reason: expect.stringContaining('planning status labels') }]);
+	});
+
+	test('drops a ticket whose pair selects no worker in silence, because a ticket still being shaped is an ordinary state', () => {
+		const { runnable, blocked, skipped, progress } = select({
+			tickets: [ticketOf({ planningStatus: PlanningStatus.NeedsPlan, worker: undefined, status: 'Backlog' })],
+		});
+
+		expect(runnable).toStrictEqual([]);
+		expect(blocked).toStrictEqual([]);
+		expect(skipped).toStrictEqual([]);
+		expect(progress).toStrictEqual([]);
 	});
 
 	test('holds a resumed ticket back on its blockers exactly as a fresh one, because resuming is a pickup too', () => {

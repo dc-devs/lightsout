@@ -2,9 +2,10 @@ import { execSync } from 'node:child_process';
 import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
+import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { type LightsoutConfig, ShipBlockReason, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
-import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
+import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { createTicketWorktree } from '#src/queue/createTicketWorktree.ts';
@@ -48,7 +49,9 @@ const ticketOf = ({ number }: { number: number }): TicketSummary => ({
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
 	labels: [],
-	route: QueueRoute.Direct,
+	planningStatus: PlanningStatus.NotNeeded,
+	worker: QueueWorker.Direct,
+	status: 'Ready to implement',
 	unfinishedBlockers: [],
 });
 
@@ -87,7 +90,7 @@ describe('shipReadyBranches', () => {
 	test('rebases, re-runs the gates, merges, and drops the worktree once the ticket has shipped', async () => {
 		const { cwd, ready } = await setupReadyBranches({ numbers: [70] });
 
-		const shipped = await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', ready });
+		const shipped = await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', env: {}, ready });
 
 		expect(shipped).toStrictEqual(ready);
 		expect(mockRunGates).toHaveBeenCalledWith(expect.objectContaining({ cwd: ready[0].worktreePath, coverage: true }));
@@ -98,7 +101,7 @@ describe('shipReadyBranches', () => {
 		const { cwd, ready } = await setupReadyBranches({ numbers: [70] });
 
 		advanceOrigin({ cwd, file: 'other.ts', content: 'export const other = 2;\n' });
-		await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', ready });
+		await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', env: {}, ready });
 
 		expect(mockRunGates).toHaveBeenCalledTimes(1);
 		expect(mockRunShip).toHaveBeenCalledTimes(1);
@@ -109,7 +112,7 @@ describe('shipReadyBranches', () => {
 
 		advanceOrigin({ cwd, file: 'work.ts', content: 'export const value = 99;\n' });
 
-		const shipped = await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', ready });
+		const shipped = await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', env: {}, ready });
 
 		expect(shipped).toEqual([expect.objectContaining({ ready: false, error: expect.stringContaining('would not rebase onto origin/main') })]);
 		expect(mockRunShip).not.toHaveBeenCalled();
@@ -121,7 +124,7 @@ describe('shipReadyBranches', () => {
 
 		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'] });
 
-		const shipped = await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', ready });
+		const shipped = await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', env: {}, ready });
 
 		expect(shipped).toEqual([expect.objectContaining({ ready: false, error: 'tsc: 3 errors' })]);
 		expect(mockRunShip).not.toHaveBeenCalled();
@@ -137,7 +140,7 @@ describe('shipReadyBranches', () => {
 			failingChecks: ['unit'],
 		});
 
-		const shipped = await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', ready });
+		const shipped = await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', env: {}, ready });
 
 		expect(shipped).toEqual([expect.objectContaining({ ready: false, error: 'checks-failed: one or more checks finished red' })]);
 		expect(existsSync(ready[0].worktreePath)).toBe(true);
@@ -148,7 +151,7 @@ describe('shipReadyBranches', () => {
 
 		rmSync(ready[0].worktreePath, { recursive: true, force: true });
 
-		const shipped = await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', ready });
+		const shipped = await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', env: {}, ready });
 
 		expect(shipped).toEqual([expect.objectContaining({ ready: false, error: 'git could not fetch origin: git did not answer' })]);
 		expect(mockRunGates).not.toHaveBeenCalled();
@@ -165,7 +168,7 @@ describe('shipReadyBranches', () => {
 			return Promise.resolve(shippedResult);
 		});
 
-		await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', ready });
+		await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', env: {}, ready });
 
 		expect(order).toStrictEqual([ready[0].worktreePath, ready[1].worktreePath]);
 	});
@@ -175,7 +178,7 @@ describe('shipReadyBranches', () => {
 		const progress: string[] = [];
 
 		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'] });
-		await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', ready, onProgress: (message) => progress.push(message) });
+		await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', env: {}, ready, onProgress: (message) => progress.push(message) });
 
 		expect(progress).toEqual([expect.stringContaining('rebasing lo-70-drain'), expect.stringContaining('LO-70 · not shipped: tsc: 3 errors')]);
 	});

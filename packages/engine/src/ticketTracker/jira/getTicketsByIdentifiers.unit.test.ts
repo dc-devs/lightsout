@@ -15,6 +15,7 @@ const issue = {
 		created: '2026-01-01T00:00:00.000Z',
 		description: null,
 		labels: ['route-direct', 'route-auto-plan'],
+		status: { name: 'In Progress' },
 		issuelinks: [{ type: { inward: 'is blocked by' }, inwardIssue: { key: 'LO-2', fields: null } }],
 	},
 };
@@ -48,6 +49,7 @@ describe('Jira getTicketsByIdentifiers', () => {
 				priority: 0,
 				createdAt: '2026-01-01T00:00:00.000Z',
 				labels: ['route-direct', 'route-auto-plan'],
+				status: 'In Progress',
 				unfinishedBlockers: ['LO-2'],
 			},
 		]);

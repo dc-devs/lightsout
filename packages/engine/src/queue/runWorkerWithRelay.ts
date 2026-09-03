@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { buildQueueAutoPlanInvocation } from '#src/agents/index.ts';
 import type { AnsweredQuestion } from '#src/common/types/AnsweredQuestion.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
@@ -5,17 +6,25 @@ import { type LightsoutConfig, RunStatus, WorkReport, WorkReportStatus } from '#
 import { runDirectWork } from '#src/direct/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { invokeAgentWithContract } from '#src/invoke/index.ts';
-import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
+import { runPhasesPipeline } from '#src/phases/index.ts';
+import { runImplementPipeline } from '#src/pipeline/index.ts';
+import { pathExists, planWorkspaceDir, restorePlanWorkspace } from '#src/plan/index.ts';
+import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
+import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
+import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
 	/** The worktree this ticket is built in. */
 	worktreePath: string;
+	/** The ticket's branch, which is also the name of its plan folder. */
+	branch: string;
 	settings: QueueSettings;
-	ticket: TicketSummary;
+	trackerSettings: TrackerSettings;
+	ticket: RunnableTicket;
 	config: LightsoutConfig;
 	driver: Driver;
 	driverName: string;
@@ -118,6 +127,72 @@ const runDirectWorker = async ({
 };
 
 /**
+ * The plan worker: implement the plan the ticket already carries.
+ *
+ * The plan folder is named exactly like the branch, and `.lightsout` is
+ * gitignored, so a fresh worktree has none — the ordinary case is fetching it
+ * back from the ticket's own attachments.
+ *
+ * A ticket carrying no plan at all is not an error: shaping may have finished on
+ * approved brainstorm material, whose outcome lives in the ticket body. It then
+ * builds from the body, announced so the run is legible — and stays distinct
+ * from the direct worker, which never looks for a plan at all.
+ *
+ * It never relays a question. The implement pipelines take an existing manifest
+ * and have no answer channel, so a question relayed out of here could never be
+ * answered back into the run that asked it; an escalated run parks with its
+ * worktree intact instead, the engine's existing recovery path for one.
+ */
+const runPlanWorker = async ({
+	cwd,
+	ticket,
+	branch,
+	config,
+	driver,
+	driverName,
+	trackerSettings,
+	onProgress,
+}: {
+	cwd: string;
+	ticket: TicketSummary;
+	branch: string;
+	config: LightsoutConfig;
+	driver: Driver;
+	driverName: string;
+	trackerSettings: TrackerSettings;
+	onProgress?: (message: string) => void;
+}): Promise<WorkerOutcome> => {
+	const folder = planWorkspaceDir({ cwd, name: branch });
+
+	if (!(await pathExists({ path: folder }))) {
+		const restored = await restorePlanWorkspace({ cwd, name: branch, identifier: ticket.identifier, settings: trackerSettings });
+
+		if (restored.error !== undefined) {
+			return { error: `the plan published to ${ticket.identifier} could not be fetched: ${restored.error}` };
+		}
+
+		if (restored.restored.length === 0) {
+			onProgress?.(`${ticket.identifier} carries no published plan, so it is built from the ticket body`);
+
+			return runDirectWorker({ cwd, ticket, config, driver, driverName, onProgress });
+		}
+	}
+
+	const phased = await pathExists({ path: join(folder, 'overview.md') });
+	const result = phased
+		? await runPhasesPipeline({ cwd, driver, config, overviewPath: join(folder, 'overview.md'), onProgress })
+		: await runImplementPipeline({ cwd, driver, config, planPath: join(folder, 'plan.md'), onProgress });
+
+	if (result.ok) {
+		return {};
+	}
+
+	const stated = result.error ?? `the run ended ${result.manifest.status}`;
+
+	return { error: `${stated} — \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree` };
+};
+
+/**
  * The worker, run until it stops asking: every question goes to the one
  * terminal and comes back as an answer the next invocation carries.
  *
@@ -127,11 +202,13 @@ const runDirectWorker = async ({
  */
 export const runWorkerWithRelay = async ({
 	worktreePath,
+	branch,
 	ticket,
 	config,
 	driver,
 	driverName,
 	settings,
+	trackerSettings,
 	relay,
 	coordinatorRunId,
 	coordinatorRunDir,
@@ -144,10 +221,12 @@ export const runWorkerWithRelay = async ({
 	let answeredQuestion: AnsweredQuestion | undefined;
 
 	for (let turn = 0; ; turn += 1) {
-		const outcome =
-			ticket.route === QueueRoute.Direct
-				? await runDirectWorker({ cwd: worktreePath, ticket, config, driver, driverName, answeredQuestion, onProgress })
-				: await runAutoPlanWorker({ cwd: worktreePath, ticket, config, driver, settings, answeredQuestion });
+		const workers: Record<QueueWorker, () => Promise<WorkerOutcome>> = {
+			[QueueWorker.Direct]: () => runDirectWorker({ cwd: worktreePath, ticket, config, driver, driverName, answeredQuestion, onProgress }),
+			[QueueWorker.Plan]: () => runPlanWorker({ cwd: worktreePath, ticket, branch, config, driver, driverName, trackerSettings, onProgress }),
+			[QueueWorker.AutoPlan]: () => runAutoPlanWorker({ cwd: worktreePath, ticket, config, driver, settings, answeredQuestion }),
+		};
+		const outcome = await workers[ticket.worker]();
 
 		if (outcome.question === undefined) {
 			return outcome;
