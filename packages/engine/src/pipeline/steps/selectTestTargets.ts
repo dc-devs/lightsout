@@ -3,8 +3,7 @@ import { join } from 'node:path';
 import type ts from 'typescript';
 import { isInertSourceFile } from '#src/common/sourceFiles/isInertSourceFile.ts';
 import { isToolingConfigFile } from '#src/common/sourceFiles/isToolingConfigFile.ts';
-import { isUnloadableSourceFile } from '#src/common/sourceFiles/isUnloadableSourceFile.ts';
-import { selectCollectedFiles } from '#src/coverage/index.ts';
+import { selectCollectedFiles, selectUnloadableFiles } from '#src/coverage/index.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 
 interface Params {
@@ -31,11 +30,13 @@ interface Params {
  *   exactly like the standards check's AST tier; without one, nothing is inert.
  * - `uncoverable` — the file holds real code, but no unit test can ever run it:
  *   a tool's own settings file is read by that tool and imported by nothing, a
- *   file with a module-scope `await` cannot be loaded at all under the
- *   runner's CommonJS output, and a file the repo's own coverage configuration
- *   does not collect can never move the number the execution gate reads. Kept
- *   apart from `inert` so the run says which of the two it skipped, rather than
- *   calling real code type-only.
+ *   file with a module-scope `await` cannot be loaded at all when the Jest
+ *   configuration governing its coverage scope loads it as CommonJS (under a
+ *   Jest configured for ES modules the same file loads fine and keeps its
+ *   writer), and a file the repo's own coverage configuration does not collect
+ *   can never move the number the execution gate reads. Kept apart from `inert`
+ *   so the run says which of the two it skipped, rather than calling real code
+ *   type-only.
  * - `targets` — everything with runtime code to cover.
  *
  * Deletion filtering runs regardless of the compiler; only inert
@@ -53,7 +54,9 @@ export const selectTestTargets = async ({
 	packagesDir,
 }: Params): Promise<{ targets: string[]; inert: string[]; uncoverable: string[]; deleted: string[]; coverageExcluded: string[] }> => {
 	const { excluded } = await selectCollectedFiles({ cwd: run.cwd, config: run.config, files: candidates });
+	const { unloadable } = await selectUnloadableFiles({ cwd: run.cwd, config: run.config, files: candidates, compiler });
 	const uncollected = new Set(excluded);
+	const unloadableFiles = new Set(unloadable);
 	const targets: string[] = [];
 	const inert: string[] = [];
 	const uncoverable: string[] = [];
@@ -77,7 +80,7 @@ export const selectTestTargets = async ({
 
 		const excludedFromCoverage = uncollected.has(file);
 
-		if (isToolingConfigFile({ path: file, packagesDir }) || excludedFromCoverage || (compiler && isUnloadableSourceFile({ path: file, content, compiler }))) {
+		if (isToolingConfigFile({ path: file, packagesDir }) || excludedFromCoverage || unloadableFiles.has(file)) {
 			uncoverable.push(file);
 
 			if (excludedFromCoverage) {
