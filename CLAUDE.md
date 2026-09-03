@@ -5,7 +5,7 @@ in the plan, then agents implement, test, and refactor unattended while
 deterministic gates — the repo's own tests, lint, types, coverage — enforce
 its standards. The engine is a code spine (gates, typed contracts, resumable
 manifests, supervisor) that spawns the user's own installed harness
-(Claude Code, Codex) to do the work. It makes agents accountable, not smarter.
+(Claude Code, Codex, OMP, Pi) to do the work. It makes agents accountable, not smarter.
 
 ## Guidelines
 

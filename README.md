@@ -85,6 +85,13 @@ Completing the task is not enough. Agents should leave the repository better tha
 
 Add a `lightsout.config.json` to the repository with your code standards and validation commands. Only the `gates` commands are mandatory — everything else is optional with sensible defaults. Leave `standards-packs` out and lightsout uses the standards pack it ships with. See [docs/configuration.md](docs/configuration.md) for all available options.
 
+The factory runs the work on your own installed, logged-in coding agent.
+Claude Code is the default; set `"harness"` to `"codex"`, `"omp"` (Oh My Pi)
+or `"pi"` in the same file to run a different one, and `"model"` to name a
+model of that harness (e.g. `"zai/glm-5.3"` on `omp`). The interactive
+skills below — `/brainstorm`, `/plan`, the queue — are separate: they ship
+as Claude Code and Codex plugins.
+
 ```json
 {
   "gates": {

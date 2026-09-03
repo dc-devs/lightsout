@@ -15,6 +15,16 @@ test('getDriver: the codex name yields a driver that reports that harness', () =
 	expect(typeof driver.invoke).toBe('function');
 });
 
+test('getDriver: the omp and pi names each yield their own driver — one implementation, two harnesses', () => {
+	const omp = getDriver({ name: 'omp' });
+	const pi = getDriver({ name: 'pi' });
+
+	expect(omp.name).toBe('omp');
+	expect(pi.name).toBe('pi');
+	// no shared instance, no fallback between them
+	expect(omp).not.toBe(pi);
+});
+
 test('getDriver: each name yields its own driver — no shared instance, no fallback between them', () => {
 	const claude = getDriver({ name: 'claude-code' });
 	const codex = getDriver({ name: 'codex' });
@@ -23,9 +33,9 @@ test('getDriver: each name yields its own driver — no shared instance, no fall
 });
 
 test('getDriver: an unknown name is a hard error naming the drivers that do exist', () => {
-	expect(() => getDriver({ name: 'cursor' })).toThrow(/unknown driver: cursor \(available: claude-code, codex\)/);
+	expect(() => getDriver({ name: 'cursor' })).toThrow(/unknown driver: cursor \(available: claude-code, codex, omp, pi\)/);
 });
 
 test('getDriver: an empty name is rejected too, never silently resolved to a default', () => {
-	expect(() => getDriver({ name: '' })).toThrow(/unknown driver: {2}\(available: claude-code, codex\)/);
+	expect(() => getDriver({ name: '' })).toThrow(/unknown driver: {2}\(available: claude-code, codex, omp, pi\)/);
 });

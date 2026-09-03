@@ -1,6 +1,7 @@
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { createClaudeCodeDriver } from '#src/drivers/createClaudeCodeDriver.ts';
 import { createCodexDriver } from '#src/drivers/createCodexDriver.ts';
+import { createOmpDriver, createPiDriver } from '#src/drivers/createPiDriver.ts';
 
 interface Params {
 	name: string;
@@ -19,5 +20,13 @@ export const getDriver = ({ name }: Params): Driver => {
 		return createCodexDriver();
 	}
 
-	throw new Error(`unknown driver: ${name} (available: claude-code, codex)`);
+	if (name === 'omp') {
+		return createOmpDriver();
+	}
+
+	if (name === 'pi') {
+		return createPiDriver();
+	}
+
+	throw new Error(`unknown driver: ${name} (available: claude-code, codex, omp, pi)`);
 };
