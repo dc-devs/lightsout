@@ -58,6 +58,11 @@ jest.mock('#src/queue/runWorkerWithRelay.ts', () => ({ runWorkerWithRelay: () =>
 // -------------------------
 jest.mock('#src/queue/commitTicketWork.ts', () => ({ commitTicketWork: () => Promise.resolve({ committed: true }) }));
 // -------------------------
+// The branch's commit count, which decides readiness. Its own tests own what git
+// answers; here the branch is simply finished, so the drain reaches the ship
+// step and the parked label settles the way this file asserts.
+jest.mock('#src/common/git/readGitCommitsAhead.ts', () => ({ readGitCommitsAhead: () => Promise.resolve(1) }));
+// -------------------------
 const mockShipReadyBranches = jest.fn<(params: { ready: TicketRunOutcome[] }) => Promise<TicketRunOutcome[]>>();
 
 jest.mock('#src/queue/shipReadyBranches.ts', () => ({ shipReadyBranches: (params: { ready: TicketRunOutcome[] }) => mockShipReadyBranches(params) }));

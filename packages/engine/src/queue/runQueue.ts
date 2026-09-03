@@ -163,7 +163,7 @@ export const runQueue = async ({
 
 	const first = selectWaveTickets({ tickets: [...parked.resumed, ...orderTickets({ tickets: eligible })], settings, attempted: new Set<string>(), onProgress });
 
-	if (first.runnable.length === 0 && parked.outcomes.length === 0) {
+	if (first.runnable.length === 0 && parked.outcomes.length === 0 && parked.merged.length === 0) {
 		onProgress?.(
 			first.blocked.length > 0
 				? 'nothing to do — every eligible ticket is waiting on an unfinished blocker'

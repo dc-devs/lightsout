@@ -3,8 +3,9 @@ import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { type LightsoutConfig, ShipBlockReason, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
+import { BranchPhase, type LightsoutConfig, ShipBlockReason, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
+import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
@@ -171,6 +172,27 @@ describe('shipReadyBranches', () => {
 		await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', env: {}, ready });
 
 		expect(order).toStrictEqual([ready[0].worktreePath, ready[1].worktreePath]);
+	});
+
+	test('records the branch merged, so no later run offers it to a worker or merges it twice', async () => {
+		const { cwd, ready } = await setupReadyBranches({ numbers: [70] });
+
+		await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', env: {}, ready });
+
+		expect(await readBranchState({ cwd, branch: 'lo-70-drain' })).toEqual(expect.objectContaining({ phase: BranchPhase.Merged }));
+	});
+
+	test('leaves a branch parked by a rebase conflict recorded ready, so the next run re-ships it rather than re-doing it', async () => {
+		const { cwd, ready } = await setupReadyBranches({ numbers: [70], content: 'export const value = 1;\n' });
+
+		await writeBranchState({ cwd, branch: 'lo-70-drain', phase: BranchPhase.Ready });
+		advanceOrigin({ cwd, file: 'work.ts', content: 'export const value = 99;\n' });
+
+		const shipped = await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', env: {}, ready });
+
+		// The work is finished; only the merge failed.
+		expect(shipped[0]?.ready).toBe(false);
+		expect(await readBranchState({ cwd, branch: 'lo-70-drain' })).toEqual(expect.objectContaining({ phase: BranchPhase.Ready }));
 	});
 
 	test('announces every ticket it could not merge, so a parked branch is visible without reading the report', async () => {

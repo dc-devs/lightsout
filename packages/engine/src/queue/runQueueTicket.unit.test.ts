@@ -4,8 +4,9 @@ import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { BranchPhase, type LightsoutConfig } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
+import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
@@ -23,6 +24,7 @@ const mockCreateTicketWorktree = jest.fn<(params: { branch: string }) => Promise
 const mockSetTicketStatus = jest.fn<(params: { statusName: string }) => Promise<QueueFailure | undefined>>();
 const mockRunWorkerWithRelay = jest.fn<() => Promise<WorkerOutcome>>();
 const mockCommitTicketWork = jest.fn<(params: { cwd: string; message: string; runDir: string }) => Promise<{ committed: boolean } | QueueFailure>>();
+const mockReadGitCommitsAhead = jest.fn<(params: { cwd: string; defaultBranch: string }) => Promise<number | undefined>>();
 
 jest.mock('#src/queue/createTicketWorktree.ts', () => ({ createTicketWorktree: (params: { branch: string }) => mockCreateTicketWorktree(params) }));
 jest.mock('#src/ticketTracker/index.ts', () => ({
@@ -32,6 +34,9 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 jest.mock('#src/queue/runWorkerWithRelay.ts', () => ({ runWorkerWithRelay: () => mockRunWorkerWithRelay() }));
 jest.mock('#src/queue/commitTicketWork.ts', () => ({
 	commitTicketWork: (params: { cwd: string; message: string; runDir: string }) => mockCommitTicketWork(params),
+}));
+jest.mock('#src/common/git/readGitCommitsAhead.ts', () => ({
+	readGitCommitsAhead: (params: { cwd: string; defaultBranch: string }) => mockReadGitCommitsAhead(params),
 }));
 // -------------------------
 
@@ -55,21 +60,29 @@ const ticket: RunnableTicket = {
 	unfinishedBlockers: [],
 };
 
-/** The ticket run with every step stubbed green, so each test only has to change the one it is about. */
+/**
+ * The ticket run with every step stubbed green, so each test only has to change
+ * the one it is about.
+ *
+ * `cwd` is a real directory because the branch-state record is written into it,
+ * and reading that record back is how the phase assertions are made.
+ */
 const setupTicketRun = () => {
 	const progress: string[] = [];
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-repo-'));
 	const coordinatorRunDir = mkdtempSync(join(tmpdir(), 'lightsout-ticket-'));
 
 	mockCreateTicketWorktree.mockResolvedValue('/tmp/worktrees/lo-70-drain-the-backlog');
 	mockSetTicketStatus.mockResolvedValue(undefined);
 	mockRunWorkerWithRelay.mockResolvedValue({});
 	mockCommitTicketWork.mockResolvedValue({ committed: true });
+	mockReadGitCommitsAhead.mockResolvedValue(1);
 
 	const relay = new TerminalQuestionRelay({ settings, trackerSettings, input: new PassThrough(), output: new PassThrough() });
 
 	const run = ({ ticket: given = ticket }: { ticket?: RunnableTicket } = {}) =>
 		runQueueTicket({
-			cwd: '/tmp/repo',
+			cwd,
 			settings,
 			trackerSettings,
 			ticket: given,
@@ -84,7 +97,7 @@ const setupTicketRun = () => {
 			onProgress: (message) => progress.push(message),
 		});
 
-	return { run, relay, coordinatorRunDir, progress };
+	return { run, relay, cwd, coordinatorRunDir, progress };
 };
 
 describe('runQueueTicket', () => {
@@ -181,13 +194,90 @@ describe('runQueueTicket', () => {
 		relay.close();
 	});
 
-	test('parks a ticket the worker left untouched, rather than shipping a branch with nothing on it', async () => {
-		const { run, relay } = setupTicketRun();
+	test('records the branch as building before its worker touches source, so a crash leaves the phase written down', async () => {
+		const { run, relay, cwd } = setupTicketRun();
+		let recordedAtWorkerStart: string | undefined;
 
-		mockCommitTicketWork.mockResolvedValue({ committed: false });
+		mockRunWorkerWithRelay.mockImplementation(async () => {
+			recordedAtWorkerStart = (await readBranchState({ cwd, branch: 'lo-70-drain-the-backlog' }))?.phase;
 
-		expect(await run()).toEqual(expect.objectContaining({ ready: false, error: 'the worker changed nothing' }));
+			return {};
+		});
+
+		await run();
+		relay.close();
+
+		expect(recordedAtWorkerStart).toBe(BranchPhase.Building);
+	});
+
+	test('never writes building over a branch already recorded ready, because pickup is not a reset', async () => {
+		const { run, relay, cwd } = setupTicketRun();
+		let recordedAtWorkerStart: string | undefined;
+
+		await writeBranchState({ cwd, branch: 'lo-70-drain-the-backlog', phase: BranchPhase.Ready });
+		mockRunWorkerWithRelay.mockImplementation(async () => {
+			recordedAtWorkerStart = (await readBranchState({ cwd, branch: 'lo-70-drain-the-backlog' }))?.phase;
+
+			return {};
+		});
+
+		await run();
+		relay.close();
+
+		// Un-recording it here and then failing in the worker would send the next
+		// run to re-do finished work.
+		expect(recordedAtWorkerStart).toBe(BranchPhase.Ready);
+	});
+
+	test('records the branch ready once its commits are on it, which is what the ship step reads', async () => {
+		const { run, relay, cwd } = setupTicketRun();
+
+		const outcome = await run();
 
 		relay.close();
+
+		expect(outcome.ready).toBe(true);
+		expect(await readBranchState({ cwd, branch: 'lo-70-drain-the-backlog' })).toEqual(expect.objectContaining({ phase: BranchPhase.Ready }));
+	});
+
+	test('ships a resumed ticket whose work was committed by an earlier run, rather than reporting that the worker changed nothing', async () => {
+		const { run, relay, cwd } = setupTicketRun();
+
+		// This session added nothing, but the branch already carries the work.
+		mockCommitTicketWork.mockResolvedValue({ committed: false });
+		mockReadGitCommitsAhead.mockResolvedValue(3);
+
+		const outcome = await run();
+
+		relay.close();
+
+		expect(outcome.ready).toBe(true);
+		expect(outcome.error).toBeUndefined();
+		expect(await readBranchState({ cwd, branch: 'lo-70-drain-the-backlog' })).toEqual(expect.objectContaining({ phase: BranchPhase.Ready }));
+	});
+
+	test('parks a ticket whose branch carries no commits at all, leaving the record where the pickup put it', async () => {
+		const { run, relay, cwd } = setupTicketRun();
+
+		mockCommitTicketWork.mockResolvedValue({ committed: false });
+		mockReadGitCommitsAhead.mockResolvedValue(0);
+
+		expect(await run()).toEqual(expect.objectContaining({ ready: false, error: 'the worker left no commits on the branch' }));
+
+		relay.close();
+
+		expect(await readBranchState({ cwd, branch: 'lo-70-drain-the-backlog' })).toEqual(expect.objectContaining({ phase: BranchPhase.Building }));
+	});
+
+	test('parks a ticket whose commits git could not count, and records nothing — an unreadable branch is not a fact worth writing', async () => {
+		const { run, relay, cwd } = setupTicketRun();
+
+		mockReadGitCommitsAhead.mockResolvedValue(undefined);
+
+		expect(await run()).toEqual(expect.objectContaining({ ready: false, error: 'git could not count the commits on lo-70-drain-the-backlog' }));
+
+		relay.close();
+
+		expect(await readBranchState({ cwd, branch: 'lo-70-drain-the-backlog' })).toEqual(expect.objectContaining({ phase: BranchPhase.Building }));
 	});
 });

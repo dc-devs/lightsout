@@ -1,6 +1,8 @@
 import { join } from 'node:path';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { readGitCommitsAhead } from '#src/common/git/readGitCommitsAhead.ts';
+import { BranchPhase, type LightsoutConfig } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
+import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
 import { commitTicketWork } from '#src/queue/commitTicketWork.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
@@ -36,12 +38,82 @@ interface Params {
 }
 
 /**
+ * The opening record for a branch nobody has recorded yet.
+ *
+ * `building` is the opening state, not a reset. Writing it over a branch
+ * already recorded `ready` and then failing in the worker would leave finished
+ * work recorded as unfinished, and the next run would spend another worker on
+ * it — so picking a recorded branch up writes nothing.
+ */
+const recordPickup = async ({ cwd, branch, onProgress }: { cwd: string; branch: string; onProgress?: (message: string) => void }) => {
+	if ((await readBranchState({ cwd, branch })) === undefined) {
+		await writeBranchState({ cwd, branch, phase: BranchPhase.Building, onProgress });
+	}
+};
+
+/**
+ * The commit step and the branch's verdict after it: ready when the branch
+ * carries commits ahead of the default branch, whether or not this session
+ * added any.
+ *
+ * `committed` no longer decides anything — it reports what this commit step
+ * did. A branch git cannot count is not a fact worth recording, so that answer
+ * parks the ticket and leaves the record where it was.
+ */
+const settleBranchReadiness = async ({
+	cwd,
+	worktreePath,
+	branch,
+	defaultBranch,
+	ticket,
+	coordinatorRunDir,
+	onProgress,
+}: {
+	cwd: string;
+	worktreePath: string;
+	branch: string;
+	defaultBranch: string;
+	ticket: RunnableTicket;
+	coordinatorRunDir: string;
+	onProgress?: (message: string) => void;
+}) => {
+	const committed = await commitTicketWork({
+		cwd: worktreePath,
+		message: `${ticket.identifier} ${ticket.title}`,
+		runDir: join(coordinatorRunDir, 'tickets', ticket.identifier),
+	});
+
+	if ('error' in committed) {
+		return { ready: false, error: committed.error };
+	}
+
+	const ahead = await readGitCommitsAhead({ cwd: worktreePath, defaultBranch });
+
+	if (ahead === undefined) {
+		return { ready: false, error: `git could not count the commits on ${branch}` };
+	}
+
+	if (ahead === 0) {
+		return { ready: false, error: 'the worker left no commits on the branch' };
+	}
+
+	await writeBranchState({ cwd, branch, phase: BranchPhase.Ready, onProgress });
+
+	return { ready: true };
+};
+
+/**
  * One ticket, from pickup to committed-and-ready.
  *
  * It deliberately does not ship: the queue merges the ready branches serially,
  * and a worker shipping itself would race that order. The worktree is never
  * removed here either — the ship step removes it after a merge, and a parked
  * tree is the evidence a human needs.
+ *
+ * A branch is settled ready when it carries commits ahead of the default
+ * branch — whether or not this session added any — so a resumed ticket whose
+ * work was committed by an earlier run is never reported as having changed
+ * nothing.
  */
 export const runQueueTicket = async ({
 	cwd,
@@ -68,6 +140,9 @@ export const runQueueTicket = async ({
 	}
 
 	const worktreePath = created;
+
+	await recordPickup({ cwd, branch, onProgress });
+
 	// Required state is recorded before ownership begins, so a tracker that cannot
 	// record it stops this ticket before its worker touches source. Creating an
 	// empty worktree is not source work; the worker is, and this write is complete
@@ -114,19 +189,7 @@ export const runQueueTicket = async ({
 		return { ticket, branch, worktreePath, ready: false, error: worked.error, unanswered: worked.unanswered };
 	}
 
-	const committed = await commitTicketWork({
-		cwd: worktreePath,
-		message: `${ticket.identifier} ${ticket.title}`,
-		runDir: join(coordinatorRunDir, 'tickets', ticket.identifier),
-	});
+	const readiness = await settleBranchReadiness({ cwd, worktreePath, branch, defaultBranch, ticket, coordinatorRunDir, onProgress });
 
-	if ('error' in committed) {
-		return { ticket, branch, worktreePath, ready: false, error: committed.error };
-	}
-
-	if (!committed.committed) {
-		return { ticket, branch, worktreePath, ready: false, error: 'the worker changed nothing' };
-	}
-
-	return { ticket, branch, worktreePath, ready: true };
+	return { ticket, branch, worktreePath, ...readiness };
 };

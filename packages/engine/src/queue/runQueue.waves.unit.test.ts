@@ -105,7 +105,7 @@ const setupDrain = ({ eligible = [], parked }: { eligible?: TicketSummary[]; par
 
 	execSync('git config user.name t && git config user.email t@t', { cwd, stdio: 'ignore' });
 	mockListEligibleTickets.mockResolvedValue(eligible);
-	mockScanParkedWorktrees.mockResolvedValue(parked ?? { resumed: [], outcomes: [], leftBehind: [] });
+	mockScanParkedWorktrees.mockResolvedValue(parked ?? { resumed: [], outcomes: [], leftBehind: [], merged: [] });
 	mockRunQueueTicket.mockImplementation(({ ticket }) => Promise.resolve(outcomeOf({ ticket })));
 	mockShipReadyBranches.mockImplementation(({ ready }) => Promise.resolve(ready));
 	mockSetParkedLabel.mockResolvedValue(undefined);
@@ -179,7 +179,7 @@ describe('runQueue', () => {
 
 	test('merges a parked branch in the first wave only, so a later wave never ships settled work twice', async () => {
 		const alreadyReady = outcomeOf({ ticket: ticketOf({ number: 99 }) });
-		const { drain, relay } = setupDrain({ parked: { resumed: [], outcomes: [alreadyReady], leftBehind: [] } });
+		const { drain, relay } = setupDrain({ parked: { resumed: [], outcomes: [alreadyReady], leftBehind: [], merged: [] } });
 
 		mockListEligibleTickets.mockResolvedValueOnce([ticketOf({ number: 70 }), ticketOf({ number: 71, unfinishedBlockers: ['LO-70'] })]);
 		mockListEligibleTickets.mockResolvedValueOnce([ticketOf({ number: 71 })]);
@@ -201,7 +201,7 @@ describe('runQueue', () => {
 
 	test('never re-runs a ticket the resume scan already finished, though a later scan hands it back', async () => {
 		const alreadyReady = outcomeOf({ ticket: ticketOf({ number: 99 }) });
-		const { drain, relay } = setupDrain({ parked: { resumed: [], outcomes: [alreadyReady], leftBehind: [] } });
+		const { drain, relay } = setupDrain({ parked: { resumed: [], outcomes: [alreadyReady], leftBehind: [], merged: [] } });
 
 		mockListEligibleTickets.mockResolvedValueOnce([ticketOf({ number: 70 }), ticketOf({ number: 71, unfinishedBlockers: ['LO-70'] })]);
 		mockListEligibleTickets.mockResolvedValueOnce([ticketOf({ number: 99 }), ticketOf({ number: 71 })]);
@@ -212,9 +212,32 @@ describe('runQueue', () => {
 		expect(pickedUp()).toStrictEqual(['LO-70', 'LO-71']);
 	});
 
+	test('never offers a worktree recorded merged to a later wave, though the tracker lists its ticket again', async () => {
+		const settledTree = { worktreePath: '/tmp/worktrees/LO-99', branch: 'lo-99-ticket-id-99', ticket: ticketOf({ number: 99 }) };
+		const { drain, relay } = setupDrain({ parked: { resumed: [], outcomes: [], leftBehind: [], merged: [settledTree] } });
+
+		mockListEligibleTickets.mockResolvedValueOnce([ticketOf({ number: 70 }), ticketOf({ number: 71, unfinishedBlockers: ['LO-70'] })]);
+		mockListEligibleTickets.mockResolvedValueOnce([ticketOf({ number: 99 }), ticketOf({ number: 71 })]);
+
+		const report = await drain();
+
+		relay.close();
+
+		// The drain settles it before the first wave, so it is attempted from the
+		// start — a tracker that hands it back cannot buy it a worker.
+		expect(pickedUp()).toStrictEqual(['LO-70', 'LO-71']);
+		expect(report).toEqual({
+			outcomes: [
+				expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-70' }) }),
+				expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-71' }) }),
+			],
+			leftBehind: [{ identifier: 'LO-99', reason: expect.stringContaining('held a branch already recorded merged'), settled: true }],
+		});
+	});
+
 	test('carries a worktree the resume scan left behind through every wave, and names it exactly once', async () => {
 		const withdrawn = { identifier: 'LO-98', reason: 'its worktree is parked, but the ticket carries no planning status label any more' };
-		const { drain, relay } = setupDrain({ parked: { resumed: [], outcomes: [], leftBehind: [withdrawn] } });
+		const { drain, relay } = setupDrain({ parked: { resumed: [], outcomes: [], leftBehind: [withdrawn], merged: [] } });
 
 		mockListEligibleTickets.mockResolvedValueOnce([ticketOf({ number: 70 }), ticketOf({ number: 71, unfinishedBlockers: ['LO-70'] })]);
 		mockListEligibleTickets.mockResolvedValueOnce([ticketOf({ number: 98 }), ticketOf({ number: 71 })]);

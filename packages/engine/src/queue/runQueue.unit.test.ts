@@ -97,7 +97,7 @@ const setupDrain = ({ eligible = [], parked }: { eligible?: TicketSummary[]; par
 
 	execSync('git config user.name t && git config user.email t@t', { cwd, stdio: 'ignore' });
 	mockListEligibleTickets.mockResolvedValue(eligible);
-	mockScanParkedWorktrees.mockResolvedValue(parked ?? { resumed: [], outcomes: [], leftBehind: [] });
+	mockScanParkedWorktrees.mockResolvedValue(parked ?? { resumed: [], outcomes: [], leftBehind: [], merged: [] });
 	mockRunQueueTicket.mockImplementation(({ ticket }) => Promise.resolve(outcomeOf({ ticket })));
 	mockShipReadyBranches.mockImplementation(({ ready }) => Promise.resolve(ready));
 	mockSetParkedLabel.mockResolvedValue(undefined);
@@ -209,7 +209,7 @@ describe('runQueue', () => {
 
 	test('still names a worktree the resume scan left behind when there is nothing to drain, so it never vanishes from the summary', async () => {
 		const withdrawn = { identifier: 'LO-99', reason: 'its worktree is parked, but the ticket carries no planning status label any more' };
-		const { drain, relay } = setupDrain({ parked: { resumed: [], outcomes: [], leftBehind: [withdrawn] } });
+		const { drain, relay } = setupDrain({ parked: { resumed: [], outcomes: [], leftBehind: [withdrawn], merged: [] } });
 
 		const report = await drain();
 
@@ -258,7 +258,7 @@ describe('runQueue', () => {
 	test('picks up parked tickets before any new one, because a restart is the resume path', async () => {
 		const { drain, relay } = setupDrain({
 			eligible: [ticketOf({ number: 70 })],
-			parked: { resumed: [ticketOf({ number: 99 })], outcomes: [], leftBehind: [] },
+			parked: { resumed: [ticketOf({ number: 99 })], outcomes: [], leftBehind: [], merged: [] },
 		});
 
 		await drain({ settings: queueSettingsFixture({ maxParallel: 1 }) });
@@ -293,7 +293,7 @@ describe('runQueue', () => {
 		const alreadyReady = outcomeOf({ ticket: ticketOf({ number: 99 }) });
 		const { drain, relay } = setupDrain({
 			eligible: [ticketOf({ number: 70 })],
-			parked: { resumed: [], outcomes: [alreadyReady], leftBehind: [] },
+			parked: { resumed: [], outcomes: [alreadyReady], leftBehind: [], merged: [] },
 		});
 
 		await drain();
@@ -304,7 +304,7 @@ describe('runQueue', () => {
 
 	test('merges a parked branch that only needed shipping, without spending a worker on finished work', async () => {
 		const alreadyReady = outcomeOf({ ticket: ticketOf({ number: 99 }) });
-		const { drain, relay } = setupDrain({ parked: { resumed: [], outcomes: [alreadyReady], leftBehind: [] } });
+		const { drain, relay } = setupDrain({ parked: { resumed: [], outcomes: [alreadyReady], leftBehind: [], merged: [] } });
 
 		const report = await drain();
 
@@ -366,7 +366,7 @@ describe('runQueue', () => {
 	test('carries a skipped ticket into the report beside the outcomes, so nothing vanishes from the summary', async () => {
 		const { drain, relay } = setupDrain({
 			eligible: [ticketOf({ number: 70 }), { ...ticketOf({ number: 70 }), planningStatus: PlanningStatus.Complete, worker: QueueWorker.Plan }],
-			parked: { resumed: [], outcomes: [outcomeOf({ ticket: ticketOf({ number: 99 }) })], leftBehind: [] },
+			parked: { resumed: [], outcomes: [outcomeOf({ ticket: ticketOf({ number: 99 }) })], leftBehind: [], merged: [] },
 		});
 
 		const report = await drain();
