@@ -90,6 +90,58 @@ describe('prepareRun', () => {
 		expect(progress).toContain('package scope: web (from plan-paths)');
 	});
 
+	test('package names the plan body invents are dropped, and the run says which', async () => {
+		const { run, cwd, progress } = await setupRun({ config: monorepo });
+
+		write({ cwd, path: 'packages/billing/package.json', content: JSON.stringify({ name: 'billing' }) });
+		write({ cwd, path: 'packages/web/package.json', content: JSON.stringify({ name: 'web' }) });
+		write({ cwd, path: 'plan.md', content: '# Plan\n\nEdit `packages/billing/src/index.ts`, mirroring `packages/ghost/src/x.ts`.\n' });
+
+		await prepareRun({ run, cwd, config: monorepo, packages: undefined });
+
+		expect(run.current().packages).toStrictEqual(['billing']);
+		expect(progress).toContain('ignored plan package paths: ghost — no such package under packages/');
+	});
+
+	test('a --packages flag naming a package that does not exist stops the run before any gate', async () => {
+		const { run, cwd } = await setupRun({ config: monorepo });
+
+		write({ cwd, path: 'packages/billing/package.json', content: JSON.stringify({ name: 'billing' }) });
+		write({ cwd, path: 'packages/web/package.json', content: JSON.stringify({ name: 'web' }) });
+		write({ cwd, path: 'plan.md', content: '# Plan\n' });
+
+		const prepared = await prepareRun({ run, cwd, config: monorepo, packages: ['ghost'] });
+
+		// a typo caught here beats nine gates running against a scope that cannot work
+		expect('error' in prepared && prepared.error).toBe('package scope names ghost — no such package under packages/. Packages that exist: billing, web.');
+		expect(run.current().packages).toStrictEqual([]);
+	});
+
+	test('a front-matter list naming a package that does not exist fails the same way', async () => {
+		const { run, cwd } = await setupRun({ config: monorepo });
+
+		write({ cwd, path: 'packages/billing/package.json', content: JSON.stringify({ name: 'billing' }) });
+		write({ cwd, path: 'packages/web/package.json', content: JSON.stringify({ name: 'web' }) });
+		write({ cwd, path: 'plan.md', content: '---\npackages:\n  - ghost\n---\n# Plan\n' });
+
+		const prepared = await prepareRun({ run, cwd, config: monorepo, packages: undefined });
+
+		expect('error' in prepared && prepared.error).toBe('package scope names ghost — no such package under packages/. Packages that exist: billing, web.');
+	});
+
+	test('a configured packages-dir is the one the names are reconciled against', async () => {
+		const config: LightsoutConfig = { ...monorepo, 'packages-dir': 'apps' };
+		const { run, cwd, progress } = await setupRun({ config });
+
+		write({ cwd, path: 'apps/web/package.json', content: JSON.stringify({ name: 'web' }) });
+		write({ cwd, path: 'plan.md', content: '# Plan\n\nRewrite `apps/web/src/index.ts` the way `apps/ghost/src/x.ts` does it.\n' });
+
+		await prepareRun({ run, cwd, config, packages: undefined });
+
+		expect(run.current().packages).toStrictEqual(['web']);
+		expect(progress).toContain('ignored plan package paths: ghost — no such package under apps/');
+	});
+
 	test('a missing plan is reported rather than thrown, so the run records why it stopped', async () => {
 		const { run, cwd } = await setupRun({ config: monorepo });
 
