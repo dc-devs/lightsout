@@ -5,7 +5,7 @@ import { buildConfigSections } from '#src/views/common/utils/buildConfigSections
 
 /** The queue block this repo's own config shape allows, used to prove the section reads the file rather than a default. */
 const queueBlock = {
-	'route-labels': { direct: 'direct', 'auto-plan': 'auto-plan' },
+	'planning-status-labels': { 'planning-complete': 'shaped' },
 	'max-parallel': 3,
 };
 

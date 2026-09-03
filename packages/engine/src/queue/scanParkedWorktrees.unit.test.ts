@@ -14,8 +14,8 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 // -------------------------
 // The tracker lookup is the only thing here that would leave the machine. Git is
 // real, because which bucket a worktree lands in is read from git and nothing
-// else, and the label-to-route mapping is real because that is what decides
-// whether a parked tree still has a route to resume down.
+// else, and the label-to-planning-status mapping is real because that is what
+// decides whether a parked tree still has work to resume.
 const mockGetTicketsByIdentifiers = jest.fn<(params: { identifiers: string[] }) => Promise<TrackerTicket[] | TrackerFailure>>();
 
 jest.mock('#src/ticketTracker/index.ts', () => ({
@@ -30,7 +30,7 @@ const trackerSettings = trackerSettingsFixture();
 
 const shipSettings = shipSettingsFixture();
 
-const ticketOf = (identifier: string, labels: string[] = ['route-direct']): TrackerTicket => ({
+const ticketOf = (identifier: string, labels: string[] = ['planning-not-needed'], status = 'In Progress'): TrackerTicket => ({
 	id: `id-${identifier}`,
 	identifier: identifier.toUpperCase(),
 	title: 'Drain the backlog',
@@ -38,6 +38,7 @@ const ticketOf = (identifier: string, labels: string[] = ['route-direct']): Trac
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
 	labels,
+	status,
 	unfinishedBlockers: [],
 });
 
@@ -134,7 +135,7 @@ describe('scanParkedWorktrees', () => {
 		expect(parked.outcomes).toEqual([expect.objectContaining({ ready: false, error: expect.stringContaining('git could not read the worktree') })]);
 	});
 
-	test('leaves a worktree alone once its ticket has lost every route label — a removed label is the user withdrawing the automation', async () => {
+	test('leaves a worktree alone once its ticket has lost every planning status label — a removed label is the user withdrawing the automation', async () => {
 		const { cwd } = await setupParkedRepo({ branches: ['lo-70-drain'] });
 		const progress: string[] = [];
 
@@ -143,7 +144,20 @@ describe('scanParkedWorktrees', () => {
 		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, onProgress: (message) => progress.push(message) });
 
 		expect(parked.resumed).toStrictEqual([]);
-		expect(parked.leftBehind).toEqual([{ identifier: 'lo-70', reason: expect.stringContaining('no configured route label any more') }]);
+		expect(parked.leftBehind).toEqual([{ identifier: 'lo-70', reason: expect.stringContaining('no planning status label any more') }]);
+		expect(progress).toEqual([expect.stringContaining('lo-70 ·')]);
+	});
+
+	test('leaves a worktree alone once its ticket carries a shaping status the queue never resumes, naming the label found', async () => {
+		const { cwd } = await setupParkedRepo({ branches: ['lo-70-drain'] });
+		const progress: string[] = [];
+
+		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70', ['planning-needs-plan'])]);
+
+		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, onProgress: (message) => progress.push(message) });
+
+		expect(parked.resumed).toStrictEqual([]);
+		expect(parked.leftBehind).toEqual([{ identifier: 'lo-70', reason: expect.stringContaining("'planning-needs-plan'") }]);
 		expect(progress).toEqual([expect.stringContaining('lo-70 ·')]);
 	});
 

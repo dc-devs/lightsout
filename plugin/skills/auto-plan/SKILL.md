@@ -302,12 +302,38 @@ work traces to a ticket:
 node "<plugin-root>/dist/cli.mjs" plan publish --name <name>
 ```
 
-With no ticket, skip this step. A nonzero publish is a stop: report the exact
-failure and do not hand off or implement an artifact another machine cannot
-recover. Under `lightsout queue`, report that as `failed` in the worker's final
-JSON so the ticket parks with the actionable publish error. Never treat a
-passing grade or automatic approval as a substitute for this command; the
+Then write the ticket's planning status. **The command differs between the two
+ways this skill runs.**
+
+Interactive run — the planning status and the tracker status move together:
+
+```sh
+node "<plugin-root>/dist/cli.mjs" ticket-state --ref <ticket> --planning-status planning-complete --tracker-status ready
+```
+
+Headless under `lightsout queue` — the planning status alone:
+
+```sh
+node "<plugin-root>/dist/cli.mjs" ticket-state --ref <ticket> --planning-status planning-complete
+```
+
+Under the queue the ticket is **already In Progress**: the queue records that
+before this worker's agent starts. Passing `--tracker-status ready` there would
+move the ticket backwards out of In Progress while a live worktree still owns
+its branch — and `planning-complete` at Ready to implement is one of the three
+pairs the queue selects, so a later drain could pick up work already underway.
+Step 10's implement run would then write In Progress a third time. Omitting the
+flag writes the planning status and leaves the tracker status alone.
+
+With no ticket, skip both commands. A nonzero exit from either is a stop: report
+the exact failure and do not hand off or implement an artifact another machine
+cannot recover. Under `lightsout queue`, report that as `failed` in the worker's
+final JSON so the ticket parks with the actionable error. Never treat a
+passing grade or automatic approval as a substitute for these commands; the
 grade proves the plan is ready, while publish makes that ready plan durable.
+Writing `planning-complete` here is what step 10's `implement` run finds and
+preserves, so the ticket never enters In Progress still claiming shaping is
+owed.
 
 **10. Roll onward.** With `implement-on-approval` false, print the handoff line
 and stop:
@@ -322,8 +348,10 @@ With it true, run:
 node "<plugin-root>/dist/cli.mjs" implement --plan ".lightsout/plans/<name>"
 ```
 
-and relay the engine's report to the user verbatim. Whether that run then chains
-into ship is the `ship` block's business inside the engine, not this skill's.
+and relay the engine's report to the user verbatim. The engine performs the In
+Progress write itself at the `implement` edge and refuses to start when it
+fails, so this skill writes nothing further. Whether that run then chains into
+ship is the `ship` block's business inside the engine, not this skill's.
 
 ## Parking a run
 
@@ -335,7 +363,10 @@ to carry it in and the skill does not guess past it. It:
   `## Open questions` section, creating the section when absent, following the
   ticket-workflow skill at `<plugin-root>/skills/ticket-workflow/SKILL.md`
   — written as a question, never as a
-  prescription, and the ticket's status is left where it is;
+  prescription. Neither field is written: the ticket keeps
+  `planning-ready-auto-plan` and its current tracker status. A parked run is
+  waiting on a human, and reclassifying the ticket underneath them would hide
+  that;
 - when there is no ticket, states the question in the final response instead;
 - reports the plan folder path, and says that the interactive `plan` skill or a re-run
   after the question is settled continues the work.

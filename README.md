@@ -205,16 +205,34 @@ It has no slash command of its own. Its house conventions — the branch pattern
 lightsout ship
 ```
 
+### lightsout ticket-state
+
+Write a ticket's planning status, its tracker workflow status, or both. The
+planning status says what preparation the ticket still owes — it needs
+brainstorming, it needs a plan, it is ready for the autonomous planner, its
+shaping is complete, or it never needed any. The tracker status says where
+implementation stands.
+
+The workflow skills call it at each transition, so the tracker says the same
+thing however the work was started. The tracker status is named by role rather
+than by your workflow's own spelling, so one line works in every repository; the
+names those roles resolve to live in the `queue` config block. See
+[Configuration](docs/configuration.md).
+
+```text
+lightsout ticket-state --ref LO-88 --planning-status planning-complete --tracker-status ready
+```
+
 ### lightsout queue
 
 Drain the backlog lights-out. `lightsout queue` reads the configured Linear team
-or Jira project for every ticket that sits in an eligible status and carries a
-route label, then works them in parallel git worktrees — one branch, one PR, one
-merge per ticket.
+or Jira project for every ticket whose planning status and tracker status form
+one of three pairs, then works them in parallel git worktrees — one branch, one
+PR, one merge per ticket.
 
-The two route labels are how a human opts a ticket in, and each names a worker. `route-direct` builds straight from the ticket body. `route-auto-plan` plans the ticket first — the same self-answering planner behind `/auto-plan` — and then implements the plan it wrote.
+The planning-status label is how a human opts a ticket in, and the pair names the worker. `planning-ready-auto-plan` in Backlog plans the ticket first — the same self-answering planner behind `/auto-plan` — and then implements the plan it wrote. `planning-complete` in Ready to implement builds the plan already published to the ticket, and `planning-not-needed` in Ready to implement builds straight from the ticket body. The planning status says what preparation a ticket still owes, the tracker status says where implementation stands, and the queue takes only the combinations where both agree the work is ready.
 
-Each ticket gets a fresh worktree cut from the default branch, the config's `setup` command, and a harness run, with up to `max-parallel` tickets in flight at once. A ticket blocked by another ticket that is not finished is not picked up: it is left behind with the blocker named. The queue drains everything unblocked, merges the ready branches one at a time, then re-reads the tracker and takes whatever the finished work just unblocked — so a chain of dependent tickets ships in order, in one run. It stops when a re-read finds nothing new.
+Each ticket gets a fresh worktree cut from the default branch, the config's `setup` command, and a harness run, with up to `max-parallel` tickets in flight at once. The queue moves a ticket to In Progress before its worker touches source and to Done once a merge is confirmed, and it reconciles a ticket whose branch already merged rather than building it again. A ticket blocked by another ticket that is not finished is not picked up: it is left behind with the blocker named. The queue drains everything unblocked, merges the ready branches one at a time, then re-reads the tracker and takes whatever the finished work just unblocked — so a chain of dependent tickets ships in order, in one run. It stops when a re-read finds nothing new.
 
 When a worker hits a question only a human can answer, the queue relays it: to your terminal by default, or — with `--file-relay` — to a mailbox the `queue` skill watches from a Claude Code or Codex session, so you can keep working and answer when asked. A question nobody answers parks its ticket after `question-timeout`; a later run picks parked work back up, worktree and all.
 
@@ -222,7 +240,8 @@ Exit codes carry the whole story: `0` — everything eligible shipped; `2` — w
 
 It needs two blocks in `lightsout.config.json`: `ticket-tracker` holds the
 provider-specific connection and names its credential environment variables;
-`queue` holds routes, statuses, labels, parallelism, and timeouts. See
+`queue` holds planning statuses, tracker statuses, labels, parallelism, and
+timeouts. See
 [Configuration](docs/configuration.md).
 
 ```text

@@ -8,6 +8,6 @@ export interface ParkedWork {
 	resumed: TicketSummary[];
 	/** Worktrees that skip the drain: committed and clean ones headed straight for the merge, and ones that could not be read at all. */
 	outcomes: TicketRunOutcome[];
-	/** Worktrees nothing could be done with, and why — a stray tree, or a ticket whose route label was removed. */
+	/** Worktrees nothing could be done with, and why — a stray tree, or a ticket whose planning status no longer delegates it. */
 	leftBehind: LeftBehindTicket[];
 }

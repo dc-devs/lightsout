@@ -34,6 +34,8 @@ const mockSetTicketStatus = jest.fn<(params: StatusParams) => Promise<TrackerFai
 const mockSetParkedLabel = jest.fn<(params: LabelParams) => Promise<TrackerFailure | undefined>>();
 
 jest.mock('#src/ticketTracker/index.ts', () => ({
+	listLabelNames: () =>
+		Promise.resolve(['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed']),
 	appendTicketNote: () => Promise.resolve(undefined),
 	getTicketsByIdentifiers: (params: IdentifiersParams) => mockGetTicketsByIdentifiers(params),
 	listTickets: (params: ListTicketsParams) => mockListTickets(params),
@@ -66,11 +68,13 @@ const driver: Driver = { name: 'claude-code', invoke: () => Promise.resolve({ te
 
 const ticketOf = ({
 	number,
-	labels = ['route-direct'],
+	labels = ['planning-not-needed'],
+	status = 'Ready to implement',
 	unfinishedBlockers = [],
 }: {
 	number: number;
 	labels?: string[];
+	status?: string;
 	unfinishedBlockers?: string[];
 }): TrackerTicket => ({
 	id: `id-${number}`,
@@ -80,6 +84,7 @@ const ticketOf = ({
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
 	labels,
+	status,
 	unfinishedBlockers,
 });
 
@@ -125,13 +130,13 @@ const setupDrain = ({
 		settings?: QueueSettings;
 		trackerSettings?: TrackerSettings;
 		ship?: ShipSettings;
-	} = {}) => runQueue({ cwd, settings, trackerSettings, shipSettings: ship, config, driver, driverName: 'claude-code', relay });
+	} = {}) => runQueue({ cwd, settings, trackerSettings, shipSettings: ship, config, env: {}, driver, driverName: 'claude-code', relay });
 
 	return { drain, relay };
 };
 
 describe('runQueue', () => {
-	test('reads the backlog with the resolved tracker identity, and with the route labels and statuses the queue block still owns', async () => {
+	test('reads the backlog with the resolved tracker identity, and with the planning status labels and statuses the queue block still owns', async () => {
 		const { drain, relay } = setupDrain();
 
 		await drain();
@@ -139,8 +144,8 @@ describe('runQueue', () => {
 
 		expect(mockListTickets).toHaveBeenCalledWith({
 			settings: { provider: 'linear', ticketPrefix: 'LO', team: 'LO', apiKey: 'lin_key' },
-			labelNames: ['route-direct', 'route-auto-plan'],
-			statuses: ['Backlog'],
+			labelNames: ['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed'],
+			statuses: ['Backlog', 'Ready to implement'],
 		});
 	});
 
@@ -206,8 +211,8 @@ describe('runQueue', () => {
 
 		expect(mockListTickets).toHaveBeenCalledWith({
 			settings: trackerSettings,
-			labelNames: ['route-direct', 'route-auto-plan'],
-			statuses: ['Backlog'],
+			labelNames: ['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed'],
+			statuses: ['Backlog', 'Ready to implement'],
 		});
 	});
 

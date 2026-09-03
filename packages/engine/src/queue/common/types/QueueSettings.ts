@@ -1,4 +1,4 @@
-import type { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
+import type { LifecycleSettings } from '#src/ticketLifecycle/index.ts';
 
 /**
  * The `queue` config block with every default already applied.
@@ -9,15 +9,16 @@ import type { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
  * Tracker identity is not here: it is a `TrackerSettings`, resolved from the
  * `ticket-tracker` block and carried beside these settings, so the queue's own
  * behaviour and the tracker's address are never one object again.
+ *
+ * The planning-status labels and the tracker status names are not here either,
+ * for the same kind of reason: the command edge writes both fields without a
+ * queue, so they resolve once in the lifecycle module and the queue carries
+ * them rather than owning them.
  */
 export interface QueueSettings {
-	/** The ticket label naming each route. */
-	routeLabels: Record<QueueRoute, string>;
+	/** The planning-status labels and tracker status names, resolved by the lifecycle module. */
+	lifecycle: LifecycleSettings;
 	maxParallel: number;
-	/** Statuses a ticket may be in to be picked up. */
-	eligibleStatuses: string[];
-	/** Status a picked-up ticket is moved to. */
-	inProgressStatus: string;
 	/** Command run once in a fresh worktree; undefined when the repo needs none. */
 	setup?: string;
 	/** Branch-name template with `{ticket}` and `{slug}` tokens, default applied. */

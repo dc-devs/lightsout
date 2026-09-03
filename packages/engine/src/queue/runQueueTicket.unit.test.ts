@@ -3,11 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { describe, expect, jest, test } from '@jest/globals';
+import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
+import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
+import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { TerminalQuestionRelay } from '#src/queue/relay/index.ts';
 import { runQueueTicket } from '#src/queue/runQueueTicket.ts';
@@ -40,7 +41,7 @@ const trackerSettings = trackerSettingsFixture();
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 const driver: Driver = { name: 'claude-code', invoke: () => Promise.resolve({ text: '', exitCode: 0 }) };
 
-const ticket: TicketSummary = {
+const ticket: RunnableTicket = {
 	id: 'id-70',
 	identifier: 'LO-70',
 	title: 'Drain the backlog',
@@ -48,7 +49,9 @@ const ticket: TicketSummary = {
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
 	labels: [],
-	route: QueueRoute.Direct,
+	planningStatus: PlanningStatus.NotNeeded,
+	worker: QueueWorker.Direct,
+	status: 'Ready to implement',
 	unfinishedBlockers: [],
 };
 
@@ -64,12 +67,12 @@ const setupTicketRun = () => {
 
 	const relay = new TerminalQuestionRelay({ settings, trackerSettings, input: new PassThrough(), output: new PassThrough() });
 
-	const run = () =>
+	const run = ({ ticket: given = ticket }: { ticket?: RunnableTicket } = {}) =>
 		runQueueTicket({
 			cwd: '/tmp/repo',
 			settings,
 			trackerSettings,
-			ticket,
+			ticket: given,
 			config,
 			driver,
 			driverName: 'claude-code',
@@ -131,8 +134,8 @@ describe('runQueueTicket', () => {
 		expect(mockRunWorkerWithRelay).not.toHaveBeenCalled();
 	});
 
-	test('keeps building when the tracker will not take the status — it is a courtesy to whoever is watching, not a precondition', async () => {
-		const { run, relay, progress } = setupTicketRun();
+	test('parks the ticket before its worker touches source when the tracker will not take the status — required state is recorded before ownership begins', async () => {
+		const { run, relay } = setupTicketRun();
 
 		mockSetTicketStatus.mockResolvedValue({ error: "the 'LO' team has no 'In Progress' status" });
 
@@ -140,8 +143,19 @@ describe('runQueueTicket', () => {
 
 		relay.close();
 
+		expect(outcome).toEqual(expect.objectContaining({ ready: false, error: expect.stringContaining("could not be moved to 'In Progress'") }));
+		expect(mockRunWorkerWithRelay).not.toHaveBeenCalled();
+	});
+
+	test('skips the status write when the ticket already holds the target, because a workflow with no self-transition would park every resumed ticket', async () => {
+		const { run, relay } = setupTicketRun();
+
+		const outcome = await run({ ticket: { ...ticket, status: 'In Progress' } });
+
+		relay.close();
+
+		expect(mockSetTicketStatus).not.toHaveBeenCalled();
 		expect(outcome.ready).toBe(true);
-		expect(progress).toEqual([expect.stringContaining('could not be moved')]);
 	});
 
 	test('parks without committing when the worker stopped, so the ship step never sees a branch nothing vouches for', async () => {

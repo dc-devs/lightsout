@@ -2,9 +2,10 @@ import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
+import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
+import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
@@ -21,7 +22,7 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 // Mocked Imports
 // -------------------------
 // What the drain's report says about a ticket it never worked: one held back by
-// an unfinished blocker, one carrying both route labels at once. A blocker
+// an unfinished blocker, one carrying two planning status labels at once. A blocker
 // finishing mid-drain is expressed by the tracker stub answering a DIFFERENT
 // eligible list on the next call, which is why the same stubs the wave suite
 // builds are what this file needs too.
@@ -35,6 +36,8 @@ const mockSetParkedLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure
 
 jest.mock('#src/queue/listEligibleTickets.ts', () => ({ listEligibleTickets: () => mockListEligibleTickets() }));
 jest.mock('#src/ticketTracker/index.ts', () => ({
+	listLabelNames: () =>
+		Promise.resolve(['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed']),
 	appendTicketNote: () => Promise.resolve(undefined),
 	setParkedLabel: (params: LabelParams) => mockSetParkedLabel(params),
 }));
@@ -56,7 +59,9 @@ const ticketOf = ({ number, unfinishedBlockers = [] }: { number: number; unfinis
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
 	labels: [],
-	route: QueueRoute.Direct,
+	planningStatus: PlanningStatus.NotNeeded,
+	worker: QueueWorker.Direct,
+	status: 'Ready to implement',
 	unfinishedBlockers,
 });
 
@@ -95,6 +100,7 @@ const setupDrain = ({ eligible = [], parked }: { eligible?: TicketSummary[]; par
 			trackerSettings: trackerSettingsFixture(),
 			shipSettings,
 			config,
+			env: {},
 			driver,
 			driverName: 'claude-code',
 			relay,
@@ -122,14 +128,14 @@ describe('runQueue', () => {
 		});
 	});
 
-	test('names a ticket the last scan skipped for two route labels beside the one still waiting on a blocker', async () => {
+	test('names a ticket the last scan skipped for two planning status labels beside the one still waiting on a blocker', async () => {
 		const { drain, relay } = setupDrain();
 
 		mockListEligibleTickets.mockResolvedValueOnce([ticketOf({ number: 70 }), ticketOf({ number: 71, unfinishedBlockers: ['LO-69'] })]);
 		mockListEligibleTickets.mockResolvedValueOnce([
 			ticketOf({ number: 71, unfinishedBlockers: ['LO-69'] }),
 			ticketOf({ number: 80 }),
-			{ ...ticketOf({ number: 80 }), route: QueueRoute.AutoPlan },
+			{ ...ticketOf({ number: 80 }), planningStatus: PlanningStatus.Complete, worker: QueueWorker.Plan },
 		]);
 
 		const report = await drain();
@@ -140,7 +146,7 @@ describe('runQueue', () => {
 		expect(report).toEqual({
 			outcomes: [expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-70' }) })],
 			leftBehind: [
-				{ identifier: 'LO-80', reason: expect.stringContaining('both route labels') },
+				{ identifier: 'LO-80', reason: expect.stringContaining('planning status labels') },
 				{ identifier: 'LO-71', reason: expect.stringContaining('blocked by LO-69') },
 			],
 		});

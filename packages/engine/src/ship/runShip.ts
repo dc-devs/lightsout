@@ -2,7 +2,7 @@ import { ShipBlockReason, type ShipResult, ShipStatus } from '#src/contracts/ind
 import { checkShipPreconditions } from '#src/ship/checkShipPreconditions.ts';
 import type { ShipSettings } from '#src/ship/common/types/ShipSettings.ts';
 import type { ShipStepFailure } from '#src/ship/common/types/ShipStepFailure.ts';
-import { createPullRequest, findOpenPullRequest, mergePullRequest, type PullRequestSummary } from '#src/ship/forge/index.ts';
+import { createPullRequest, findPullRequest, mergePullRequest, PullRequestState, type PullRequestSummary } from '#src/ship/forge/index.ts';
 import { pushBranch } from '#src/ship/pushBranch.ts';
 import { renderPullRequestBody } from '#src/ship/renderPullRequestBody.ts';
 import { runPreShip } from '#src/ship/runPreShip.ts';
@@ -69,6 +69,59 @@ const appendCommandOutput = ({ sentence, stderr }: { sentence: string; stderr: s
 	return capped === '' ? sentence : `${sentence}: ${capped}`;
 };
 
+/**
+ * The pre-ship command, and the stop it earns when it fails.
+ *
+ * It runs before the preconditions, deliberately: the command exists to make
+ * the tree shippable (rebuild committed outputs, bump a shipped version), and
+ * its commit is what lets the dirty-tree check that follows pass.
+ */
+const runPreShipStep = async ({ cwd, settings, onProgress }: Params) => {
+	if (settings.preShip === undefined) {
+		return undefined;
+	}
+
+	const failure = await runPreShip({ cwd, command: settings.preShip, onProgress });
+
+	if (failure === undefined) {
+		return undefined;
+	}
+
+	return stopShip({
+		cwd,
+		onProgress,
+		reason: ShipBlockReason.PreShipFailed,
+		detail: appendCommandOutput({ sentence: `the pre-ship command '${settings.preShip}' failed`, stderr: failure.stderr }),
+	});
+};
+
+/** The checks the merge waits on, and the stop an unfinished or red run earns. */
+const waitForChecksStep = async ({
+	prNumber,
+	stopFields,
+}: {
+	prNumber: number;
+	stopFields: { cwd: string; onProgress?: ProgressSink; branch: string; ticketRef: string };
+}) => {
+	const { cwd, onProgress } = stopFields;
+	const checks = await waitForChecks({ prNumber, cwd, onProgress });
+
+	if (!checks.finished) {
+		return stopShip({
+			...stopFields,
+			reason: ShipBlockReason.ChecksTimedOut,
+			detail: 'checks were still running at the wait ceiling',
+			failingChecks: checks.pending,
+		});
+	}
+
+	if (!checks.green) {
+		return stopShip({ ...stopFields, reason: ShipBlockReason.ChecksFailed, detail: 'one or more checks finished red', failingChecks: checks.failing });
+	}
+
+	return undefined;
+};
+
 /** The branch's pull request: the open one when there is one, else a new one carrying the rendered body. */
 const openPullRequest = async ({
 	branch,
@@ -83,7 +136,7 @@ const openPullRequest = async ({
 	ticket: Record<string, string>;
 	onProgress?: ProgressSink;
 }): Promise<PullRequestSummary | ShipStepFailure> => {
-	const adopted = await findOpenPullRequest({ branch, cwd });
+	const adopted = await findPullRequest({ branch, cwd, state: PullRequestState.Open });
 
 	if (adopted !== undefined) {
 		// Adoption is resume, not re-render: a body someone has since edited by
@@ -112,20 +165,10 @@ const openPullRequest = async ({
  * the resume path, which the adopt branch above is what makes cheap.
  */
 export const runShip = async ({ cwd, settings, onProgress }: Params): Promise<ShipResult> => {
-	// Before the preconditions, deliberately: the command exists to make the
-	// tree shippable (rebuild committed outputs, bump a shipped version), and
-	// its commit is what lets the dirty-tree check that follows pass.
-	if (settings.preShip !== undefined) {
-		const preShipFailure = await runPreShip({ cwd, command: settings.preShip, onProgress });
+	const preShipStop = await runPreShipStep({ cwd, settings, onProgress });
 
-		if (preShipFailure !== undefined) {
-			return stopShip({
-				cwd,
-				onProgress,
-				reason: ShipBlockReason.PreShipFailed,
-				detail: appendCommandOutput({ sentence: `the pre-ship command '${settings.preShip}' failed`, stderr: preShipFailure.stderr }),
-			});
-		}
+	if (preShipStop !== undefined) {
+		return preShipStop;
 	}
 
 	const preconditions = await checkShipPreconditions({ cwd, ticketPattern: settings.ticketPattern });
@@ -160,19 +203,10 @@ export const runShip = async ({ cwd, settings, onProgress }: Params): Promise<Sh
 		});
 	}
 
-	const checks = await waitForChecks({ prNumber: pullRequest.number, cwd, onProgress });
+	const checksStop = await waitForChecksStep({ prNumber: pullRequest.number, stopFields });
 
-	if (!checks.finished) {
-		return stopShip({
-			...stopFields,
-			reason: ShipBlockReason.ChecksTimedOut,
-			detail: 'checks were still running at the wait ceiling',
-			failingChecks: checks.pending,
-		});
-	}
-
-	if (!checks.green) {
-		return stopShip({ ...stopFields, reason: ShipBlockReason.ChecksFailed, detail: 'one or more checks finished red', failingChecks: checks.failing });
+	if (checksStop !== undefined) {
+		return checksStop;
 	}
 
 	const mergeCommit = await mergePullRequest({ prNumber: pullRequest.number, mergeMethod: settings.mergeMethod, cwd });

@@ -1,10 +1,11 @@
 import { describe, expect, test } from '@jest/globals';
-import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
+import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
+import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
+import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
-import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { drainTickets } from '#src/queue/drainTickets.ts';
 
-const ticketOf = ({ number }: { number: number }): TicketSummary => ({
+const ticketOf = ({ number }: { number: number }): RunnableTicket => ({
 	id: `id-${number}`,
 	identifier: `LO-${number}`,
 	title: `Ticket ${number}`,
@@ -12,14 +13,16 @@ const ticketOf = ({ number }: { number: number }): TicketSummary => ({
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
 	labels: [],
-	route: QueueRoute.Direct,
+	planningStatus: PlanningStatus.NotNeeded,
+	worker: QueueWorker.Direct,
+	status: 'Ready to implement',
 	unfinishedBlockers: [],
 });
 
 /** How one identifier's run is told to end: shipped-ready, plainly failed, or parked on a question nobody answered. */
 type PlannedEnd = 'ready' | 'failed' | 'unanswered';
 
-const outcomeOf = ({ ticket, end }: { ticket: TicketSummary; end: PlannedEnd }): TicketRunOutcome => ({
+const outcomeOf = ({ ticket, end }: { ticket: RunnableTicket; end: PlannedEnd }): TicketRunOutcome => ({
 	ticket,
 	branch: `${ticket.identifier.toLowerCase()}-work`,
 	worktreePath: `/tmp/${ticket.identifier}`,
@@ -38,7 +41,7 @@ const setupRunner = ({ endOf = () => 'ready' }: { endOf?: (identifier: string) =
 	let inFlight = 0;
 	let peak = 0;
 
-	const runTicket = ({ ticket }: { ticket: TicketSummary }) => {
+	const runTicket = ({ ticket }: { ticket: RunnableTicket }) => {
 		started.push(ticket.identifier);
 		inFlight += 1;
 		peak = Math.max(peak, inFlight);

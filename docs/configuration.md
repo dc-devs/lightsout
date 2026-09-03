@@ -207,7 +207,7 @@ is overwritten the next time `pnpm build:config-reference` runs.
 | `standards-checks` | no | Per-rule severity and settings overrides for `lightsout standards-check`, keyed by rule id. A rule not named here keeps its pack’s default — silence is never a change. |
 | `ship` | no | Opt-in `lightsout ship` settings: the branch ticket pattern whose `ticket` capture group becomes the result’s ticket reference, the pull request body template, the merge method, whether a passed implement run chains into ship, and an optional pre-ship command run before anything is pushed. |
 | `ticket-tracker` | no | Opt-in tracker identity: which provider the engine talks to and that provider’s address and credential environment variables — a Linear team and API key, or a Jira Cloud site, project, API token and account email. Every command that reads or writes a ticket resolves it from here, so tracker identity is spelled once rather than once per command. |
-| `queue` | no | Opt-in queue settings: which ticket label routes a ticket to which worker, how many tickets run at once, which ticket statuses count as available work, and the per-ticket worker and question timeouts. Tracker identity lives in `ticket-tracker`, so this block holds queue behaviour only. |
+| `queue` | no | Opt-in queue settings: which ticket label names each planning status, what this tracker calls each status the engine writes, which statuses count as available work, how many tickets run at once, and the per-ticket worker and question timeouts. Tracker identity lives in `ticket-tracker`, so this block holds queue behaviour only. |
 | `auto-plan` | no | Opt-in auto-plan settings: whether the proposal comes before drafting, whether an approved proposal starts the build, and whether the proposal is skipped when nothing clears the escalation bar. Every key is off by default, so an absent block is the most supervised behaviour. |
 | `docs` | no | Opt-in documentation surfaces: each entry a repo-relative path and a one-line `covers` saying what that document is responsible for. Declaring the block turns on the plan-time documentation check — the plan writer is briefed on the surfaces, every implementable plan file must carry a `## Documentation` statement, and `plan grade` runs one whole-plan checker that verifies it. A repository that declares no block sees none of it: no section, no prompt text, no checker spawn. |
 
@@ -360,25 +360,43 @@ export JIRA_ACCOUNT_EMAIL='you@example.com'
 
 ### Queue settings
 
-The `queue` block is what `lightsout queue` runs on. Without it the command refuses to start. Two keys are required; the rest have defaults. Who the queue talks to lives in `ticket-tracker` above.
+The `queue` block is what `lightsout queue` runs on. Without it the command refuses to start. Only `max-parallel` is required; the rest have defaults. Who the queue talks to lives in `ticket-tracker` above.
 
 | Field                    | Required | What it controls                                                                                                                                                                                                                                                            |
 | ------------------------ | -------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `queue.route-labels`     |      yes | Which ticket label routes a ticket to which worker: `direct` builds straight from the ticket body, `auto-plan` plans the ticket first. A label named here is the human's opt-in to automation — the queue never takes an unlabeled ticket.                                     |
+| `queue.planning-status-labels` |  no | The ticket label naming each planning status. Its five keys are `planning-needs-brainstorm`, `planning-needs-plan`, `planning-ready-auto-plan`, `planning-complete` and `planning-not-needed`; each is optional and defaults to the planning status spelled verbatim, so you override only the label your tracker spells differently. Exactly one of these labels on a ticket is the human's opt-in to automation — the queue never takes an unlabeled ticket. Two statuses may not share one label; the queue refuses at startup naming the repeated label. |
 | `queue.max-parallel`     |      yes | How many tickets may be in flight at once. Also the ceiling on how many questions can ever wait for you at the same time.                                                                                                                                                    |
-| `queue.eligible-statuses` |      no | Ticket statuses the queue may pick up. Defaults to `["Backlog", "Ready to implement"]`.                                                                                                                                                                                     |
+| `queue.eligible-statuses` |      no | Ticket statuses the queue may pick up. Defaults to `["Backlog", "Ready to implement"]`. Your ready status has to be one of them, or nothing waiting to be implemented is ever picked up.                                                                                     |
+| `queue.ready-status`     |       no | Your tracker's name for the status a ticket waits at once its shaping is finished or was never needed. Defaults to `"Ready to implement"`. It must be one of `queue.eligible-statuses`, or the queue refuses at startup naming both keys.                                     |
 | `queue.in-progress-status` |     no | Status the queue moves a ticket to when it picks it up. Defaults to `"In Progress"`.                                                                                                                                                                                        |
+| `queue.done-status`      |       no | Your tracker's name for the status a ticket reaches once its merge is confirmed. Defaults to `"Done"`.                                                                                                                                                                       |
 | `queue.setup`            |       no | Command run once in each fresh worktree before any agent, e.g. `pnpm install`. Absent means nothing runs.                                                                                                                                                                   |
 | `queue.branch-template`  |       no | How a ticket becomes a branch name. `{ticket}` is the lowercased identifier, `{slug}` the slugged title. Defaults to `{ticket}-{slug}`. Whatever it produces must be matched by `ship.ticket-pattern`. A plan folder is named exactly like the branch this template produces.                                                                        |
 | `queue.decisions-heading` |      no | The ticket-body heading relayed answers are appended under. Defaults to `## Decisions`.                                                                                                                                                                                     |
 | `queue.worker-timeout`   |       no | Ceiling for one ticket's worker session, as a duration string like `90s`, `45m` or `4h`. Per ticket, never for the drain — the queue itself runs until the backlog is dry. A hit ceiling parks the ticket resumably. Defaults to `4h`.                                        |
 | `queue.question-timeout` |       no | How long one relayed question waits for an answer before its ticket parks, as a duration string. Only `--file-relay` observes it; the terminal relay waits on the person at the terminal. Defaults to `1h`.                                                                   |
 | `queue.parked-label`     |       no | The ticket label the queue sets when a ticket parks and clears when it resumes or ships. Opt-in with no default. Linear creates the team label on first use; Jira updates issue labels directly.                                                                            |
+| `queue.route-labels`     |        — | Removed spelling. A config still carrying it fails to parse, with a message naming `queue.planning-status-labels` as the key that holds its value now.                                                                                                                       |
 
 The block is strict for the same reason `ship` is: an unknown key fails parsing
 rather than silently disabling a setting you believe is on. It contains queue
-behaviour only — routes, statuses, labels, parallelism, setup, and timeouts.
-The tracker connection lives only in `ticket-tracker`.
+behaviour only — planning-status labels, tracker status names, parallelism,
+setup, and timeouts. The tracker connection lives only in `ticket-tracker`.
+
+The queue reads two things about a ticket — the planning status its label names,
+and the status the ticket sits at — and takes work from exactly three pairs:
+
+| Planning status | Tracker status | What runs |
+| --- | --- | --- |
+| `planning-ready-auto-plan` | Backlog | the ticket is planned first, then implemented |
+| `planning-complete` | Ready to implement | the plan published to the ticket is implemented |
+| `planning-not-needed` | Ready to implement | the ticket body is built straight |
+
+Every other combination is left alone. `planning-needs-brainstorm` and
+`planning-needs-plan` are the states a human is still shaping, and a
+`planning-not-needed` ticket still in Backlog is not moved — putting a ticket
+into Ready to implement is the shaping workflow's job. Backlog here means any
+eligible status that is not your ready status.
 
 ### Auto-plan settings
 
@@ -455,6 +473,12 @@ top-level block as follows: `queue.tracker` → `ticket-tracker.provider`,
 `queue.api-user-email-env` → `ticket-tracker.api-user-email-env`. A
 configuration still carrying an old spelling fails to parse and names its new
 home.
+
+`queue.route-labels` → `queue.planning-status-labels`. The two-value route
+vocabulary was replaced by the five planning statuses, so a configuration still
+carrying the old key fails to parse and names the key that holds its value now.
+Existing tickets keep their old labels until someone relabels them; nothing in
+the engine reads a `route-` label any more.
 
 That message is the live answer, which is why there is no list of every tombstone the
 schema declares here.
@@ -545,12 +569,10 @@ The following example shows how the optional configuration fields fit together:
     "api-key-env": "LINEAR_API_KEY",
   },
 
-  // Queue: which tickets to drain, and how many run at once
+  // Queue: which tickets to drain, and how many run at once.
+  // The five planning-status labels and the four status names all default, so
+  // a repository whose tracker spells them the same way configures none of them.
   "queue": {
-    "route-labels": {
-      "direct": "route-direct",
-      "auto-plan": "route-auto-plan",
-    },
     "max-parallel": 2,
     "setup": "pnpm install",
     "worker-timeout": "4h",

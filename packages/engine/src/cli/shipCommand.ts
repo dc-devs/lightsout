@@ -5,6 +5,7 @@ import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { ShipStatus } from '#src/contracts/index.ts';
 import { resolveShipSettings, runShip } from '#src/ship/index.ts';
+import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
 
 /**
  * `lightsout ship` — the current branch, from committed work to merged.
@@ -28,6 +29,16 @@ export const shipCommand = async ({ cwd }: CommandContext): Promise<void> => {
 	if (result.status === ShipStatus.Shipped) {
 		console.log(`shipped ${result.ticketRef}: pull request #${result.prNumber} merged as ${result.mergeCommit}`);
 		console.log(`  ${result.prUrl}`);
+
+		// A standalone ship is a workflow entry point like any other, so the
+		// tracker learns the same thing here as it does from the queue's merge. A
+		// tracker that refuses the write does not change the exit code: the merge
+		// happened, and saying otherwise would be the one report that is false.
+		const reconciliationFailure = await reconcileShippedTicket({ config, env: process.env, ticketRef: result.ticketRef, onProgress: createProgressPrinter() });
+
+		if (reconciliationFailure !== undefined) {
+			console.error(reconciliationFailure);
+		}
 
 		return exitCli({ code: 0 });
 	}

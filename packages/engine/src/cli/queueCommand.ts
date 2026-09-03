@@ -6,6 +6,7 @@ import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrint
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { resolveEffectiveConfigAndDriver } from '#src/cli/common/utils/resolveEffectiveConfigAndDriver.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
 import {
 	emptyRelayMailbox,
 	FileQuestionRelay,
@@ -20,11 +21,48 @@ import { isPidAlive, readRunLock } from '#src/runState/index.ts';
 import { resolveShipSettings } from '#src/ship/index.ts';
 import { resolveTrackerSettings, type TrackerSettings } from '#src/ticketTracker/index.ts';
 
+/**
+ * Everything the drain needs from the config, or the one sentence naming the
+ * part of it that is unusable.
+ *
+ * The `queue` block is resolved first, so a repo carrying neither block hears
+ * about the one the command is named for rather than about a tracker it has not
+ * reached yet. All three are resolved here rather than by the drain: they are
+ * startup usage errors like any other bad flag, and the queue ships what it
+ * builds, so an unshippable configuration is refused up front rather than after
+ * N tickets have been built.
+ */
+const resolveQueueStartup = ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }) => {
+	const settings = resolveQueueSettings({ config, env });
+
+	if ('error' in settings) {
+		return { error: settings.error };
+	}
+
+	const trackerSettings = resolveTrackerSettings({ config, env });
+
+	if ('error' in trackerSettings) {
+		return { error: trackerSettings.error };
+	}
+
+	const shipSettings = resolveShipSettings({ config });
+
+	if (shipSettings === undefined) {
+		return { error: unusableTicketPatternMessage };
+	}
+
+	return { settings, trackerSettings, shipSettings };
+};
+
 /** One line per ticket the drain touched, and one per ticket it deliberately did not — a ticket must never vanish from the summary. */
 const printDrainReport = ({ report }: { report: QueueDrainReport }) => {
 	for (const outcome of report.outcomes) {
 		if (outcome.ready) {
 			console.log(`${outcome.ticket.identifier} ${outcome.branch} shipped`);
+
+			if (outcome.reconciliationFailure !== undefined) {
+				console.log(`  ${outcome.reconciliationFailure}`);
+			}
 		} else {
 			console.log(`${outcome.ticket.identifier} ${outcome.branch} parked: ${outcome.error ?? 'no reason recorded'}`);
 			console.log(`  worktree: ${outcome.worktreePath}`);
@@ -74,42 +112,19 @@ const buildRelay = async ({
  * worktrees, relaying any question to this terminal or to the mailbox
  * `--file-relay` names.
  *
- * Every unusable configuration is answered here rather than by the drain: they
- * are startup usage errors like every other bad flag, and the queue ships what
- * it builds, so it refuses an unshippable configuration up front rather than
- * after N tickets have been built.
- *
- * The queue needs both the `queue` block and the `ticket-tracker` block, and
- * says which one is missing. `queue` is resolved first, so a repo carrying
- * neither hears about the block the command is named for rather than about a
- * tracker it has not reached yet.
- *
  * The workers are implement work, so they resolve the config's `implement`
  * harness entry rather than needing a `queue` key of their own.
  */
 export const queueCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const loaded = await readConfig({ cwd });
-	const settings = resolveQueueSettings({ config: loaded, env: process.env });
+	const startup = resolveQueueStartup({ config: loaded, env: process.env });
 
-	if ('error' in settings) {
-		console.error(settings.error);
+	if ('error' in startup) {
+		console.error(startup.error);
 		return exitCli({ code: 1 });
 	}
 
-	const trackerSettings = resolveTrackerSettings({ config: loaded, env: process.env });
-
-	if ('error' in trackerSettings) {
-		console.error(trackerSettings.error);
-		return exitCli({ code: 1 });
-	}
-
-	const shipSettings = resolveShipSettings({ config: loaded });
-
-	if (shipSettings === undefined) {
-		console.error(unusableTicketPatternMessage);
-		return exitCli({ code: 1 });
-	}
-
+	const { settings, trackerSettings, shipSettings } = startup;
 	const { config, driver, driverName } = resolveEffectiveConfigAndDriver({ config: loaded, command: 'implement' });
 	const requested = flags.get('file-relay');
 
@@ -144,6 +159,7 @@ export const queueCommand = async ({ flags, cwd }: CommandContext): Promise<void
 		trackerSettings,
 		shipSettings,
 		config,
+		env: process.env,
 		driver,
 		driverName,
 		relay,
@@ -159,7 +175,11 @@ export const queueCommand = async ({ flags, cwd }: CommandContext): Promise<void
 
 	// The engine's own exit discipline: 0 when everything eligible shipped, 2
 	// when work remains that a re-run picks up, 1 only for a refusal.
-	const resumable = report.leftBehind.length > 0 || report.outcomes.some((outcome) => !outcome.ready);
+	// A reconciled already-merged ticket carries `settled`: it is reported, but a
+	// re-run has nothing to pick up for it, so it never makes the drain exit 2.
+	// A reconciliation failure does not either — the branch is merged and will
+	// not be offered again; only the tracker is stale, and the line above says so.
+	const resumable = report.leftBehind.some((entry) => entry.settled !== true) || report.outcomes.some((outcome) => !outcome.ready);
 
 	return exitCli({ code: resumable ? pausedExitCode : 0 });
 };

@@ -7,7 +7,7 @@ import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import { getWorktreesRoot } from '#src/queue/common/utils/getWorktreesRoot.ts';
-import { toRoutedSummaries } from '#src/queue/common/utils/toRoutedSummaries.ts';
+import { toPlanningSummaries } from '#src/queue/common/utils/toPlanningSummaries.ts';
 import { readTicketMatch, type ShipSettings } from '#src/ship/index.ts';
 import { getTicketsByIdentifiers, setParkedLabel, type TrackerSettings } from '#src/ticketTracker/index.ts';
 
@@ -120,9 +120,10 @@ const classifyTree = async ({ tree, defaultBranch }: { tree: ParkedTree; default
  * eligible list, so the worktree directory is the durable record of parked
  * work.
  *
- * A worktree whose ticket no longer carries a route label is left alone with a
- * warning — a removed label is the user withdrawing the automation, and the
- * tree is theirs to inspect or delete.
+ * A worktree whose ticket no longer carries a planning-status label is left
+ * alone with a warning — a removed label is the user withdrawing the
+ * automation, and the tree is theirs to inspect or delete. So is one whose
+ * label was changed back to a shaping state, for the same reason.
  */
 export const scanParkedWorktrees = async ({
 	cwd,
@@ -144,14 +145,28 @@ export const scanParkedWorktrees = async ({
 		return tickets;
 	}
 
-	const summaries = tickets.flatMap((ticket) => toRoutedSummaries({ ticket, routeLabels: settings.routeLabels }));
+	// Resumed: the worktree on disk is already the evidence the queue selected
+	// this ticket, so the status half of the pair has been answered — a parked
+	// ticket sits at the in-progress status by construction.
+	const summaries = tickets.flatMap((ticket) => toPlanningSummaries({ ticket, lifecycle: settings.lifecycle, resumed: true }));
 	const parked: ParkedWork = { resumed: [], outcomes: [], leftBehind: [] };
 
 	for (const tree of trees) {
 		const matched = summaries.filter((ticket) => ticket.identifier.toLowerCase() === tree.identifier.toLowerCase());
 
 		if (matched.length === 0) {
-			const reason = `its worktree at ${tree.path} is parked, but the ticket carries no configured route label any more`;
+			const reason = `its worktree at ${tree.path} is parked, but the ticket carries no planning status label any more`;
+
+			onProgress?.(`${tree.identifier} · ${reason}`);
+			parked.leftBehind.push({ identifier: tree.identifier, reason });
+			continue;
+		}
+
+		const runnable = matched.filter((ticket) => ticket.worker !== undefined);
+
+		if (runnable.length === 0) {
+			const carried = matched.map((ticket) => `'${settings.lifecycle.planningStatusLabels[ticket.planningStatus]}'`).join(' and ');
+			const reason = `its worktree at ${tree.path} is parked, but the ticket now carries ${carried}, which the queue never resumes`;
 
 			onProgress?.(`${tree.identifier} · ${reason}`);
 			parked.leftBehind.push({ identifier: tree.identifier, reason });
@@ -159,7 +174,7 @@ export const scanParkedWorktrees = async ({
 		}
 
 		const bucket = await classifyTree({ tree, defaultBranch });
-		const ticket = matched[0];
+		const ticket = runnable[0];
 
 		if (bucket === 'drain') {
 			const cleared = await setParkedLabel({ settings: trackerSettings, ticketId: ticket.id, label: settings.parkedLabel, parked: false });
@@ -168,7 +183,7 @@ export const scanParkedWorktrees = async ({
 				onProgress?.(`${tree.identifier} · the parked label could not be cleared: ${cleared.error}`);
 			}
 
-			parked.resumed.push(...matched);
+			parked.resumed.push(...runnable);
 		} else {
 			parked.outcomes.push({
 				ticket,

@@ -1,9 +1,9 @@
 ---
 name: jira-ticket
 description: >-
-  Jira Cloud mechanics for the lightsout ticket workflow — route labels,
-  statuses, attachments, branch linking, and pull-request conventions. Use
-  alongside ticket-workflow when filing, shaping, or closing Jira work.
+  Jira Cloud mechanics for the lightsout ticket workflow — planning-status
+  labels, statuses, attachments, branch linking, and pull-request conventions.
+  Use alongside ticket-workflow when filing, shaping, or closing Jira work.
 ---
 
 # Jira Cloud mechanics
@@ -14,9 +14,20 @@ Cloud mechanics.
 
 ## Queue conventions
 
-Give an automated issue exactly one configured `route-*` label. The repository's
-configured eligible and in-progress status names determine whether the queue may
-work it. Never invent a workflow status, label, issue type, or custom field.
+Give an automated issue exactly one configured `planning-*` label. The
+repository's configured eligible and in-progress status names determine whether
+the queue may work it. Never invent a workflow status, label, issue type, or
+custom field.
+
+Jira has no label group, so exclusivity is not enforced by the tracker. The
+engine writes the planning-status label by removing every other configured
+planning-status label in the same update; an issue that acquires a second one by
+hand is skipped by the queue with both names reported.
+
+A Jira label comes into being the first time an issue carries it. So when the
+queue's startup check reports a configured planning-status label as missing, the
+fix is to apply that exact label to any issue in the project — not to create it,
+which is an action Jira does not offer.
 
 Use the Jira issue key in the branch, plan-folder, and pull-request conventions
 defined by `ticket-workflow`. Jira links work by that key; the shared workflow
@@ -60,7 +71,7 @@ curl --fail-with-body --silent --show-error \
 ## Create an issue
 
 Send the project key, selected issue-type id, summary, ADF description, and the
-one configured route label. Retain the returned `key` and `id`:
+one configured planning-status label. Retain the returned `key` and `id`:
 
 ```sh
 curl --fail-with-body --silent --show-error \
@@ -73,7 +84,7 @@ curl --fail-with-body --silent --show-error \
       "issuetype": { "id": "10001" },
       "summary": "Title",
       "description": { "type": "doc", "version": 1, "content": [] },
-      "labels": ["route-direct"]
+      "labels": ["planning-not-needed"]
     }
   }' \
   "<jira-site-url>/rest/api/3/issue"
@@ -94,7 +105,7 @@ curl --fail-with-body --silent --show-error \
       "summary": "Updated title",
       "description": { "type": "doc", "version": 1, "content": [] }
     },
-    "update": { "labels": [{ "add": "route-direct" }] }
+    "update": { "labels": [{ "add": "planning-not-needed" }] }
   }' \
   "<jira-site-url>/rest/api/3/issue/<jira-issue-key>"
 ```

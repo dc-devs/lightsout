@@ -14,7 +14,7 @@
 	"interface": {
 		"displayName": "Lightsout Linear",
 		"shortDescription": "Apply Lightsout's Linear ticket conventions.",
-		"longDescription": "Add Linear-specific route labels, statuses, attachments, and pull-request conventions to the Lightsout ticket workflow.",
+		"longDescription": "Add Linear-specific planning-status labels, statuses, attachments, and pull-request conventions to the Lightsout ticket workflow.",
 		"developerName": "dc-devs",
 		"category": "Productivity",
 		"capabilities": ["Read", "Write"],

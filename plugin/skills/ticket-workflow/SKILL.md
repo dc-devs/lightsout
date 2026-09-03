@@ -35,7 +35,8 @@ Every fact lives in exactly one place, and everything else points at it:
 | The problem, the evidence, the checks | the ticket body |
 | Decisions settled before shaping | the ticket's `## Decisions` |
 | Decisions made during shaping | the plan artifacts, attached |
-| How the ticket gets shaped | the route label |
+| What preparation the ticket still owes | the planning-status label |
+| Where implementation stands | the tracker's own workflow status |
 | The change itself | the PR diff |
 
 Data flows forward only — ticket → plan files → attachments — never back
@@ -156,8 +157,9 @@ mechanism it implies.
 - **Pre-shaping decisions only.** Once a brainstorm or plan runs, new
   decisions land in its files and reach the ticket as attachments. Nothing
   is copied back into the body.
-- On a `route-direct` ticket this is the only decision record, and that is
-  the point: the route with no plan still has a home for what was agreed.
+- On a `planning-not-needed` ticket this is the only decision record, and
+  that is the point: the ticket with no plan still has a home for what was
+  agreed.
 
 ### Open questions
 
@@ -179,124 +181,178 @@ the fix is allowed to live, and only in question form. "Should the ceiling
 apply per phase?" is a question. "Apply the ceiling per phase" is a
 prescription with a question mark bolted on.
 
-## Route
+## Planning status
 
-Every ticket takes one of four routes to being built. The route is a
-**judgment**, made by whoever writes the ticket or picks it up, and written
-down. Never derive it from a proxy — not the file count, not whether the ticket
-has open questions, not how long the body is. A ticket with nothing unsettled
-can still be forty files that need sequencing before anyone types, and a
-twenty-line change can turn on a decision you will live with for a year.
+Every ticket carries one planning status, which says what preparation it still
+owes before anyone builds it. It is a **judgment**, made by whoever writes the
+ticket or picks it up, and written down. Never derive it from a proxy — not the
+file count, not whether the ticket has open questions, not how long the body is.
+A ticket with nothing unsettled can still be forty files that need sequencing
+before anyone types, and a twenty-line change can turn on a decision you will
+live with for a year.
 
 | Label | Means | Produces |
 |---|---|---|
-| `route-brainstorm` | Run the `brainstorm` skill, then decide whether it also needs a plan. **This is the default.** | Notes and settled decisions, and usually a plan after it |
-| `route-plan` | Go straight to the `plan` skill. | A plan folder |
-| `route-auto-plan` | Run the `auto-plan` skill. It plans the ticket alone and stops at one proposal. | A plan folder, and a proposal to approve |
-| `route-direct` | Build it. No brainstorm, no plan. | The diff, and nothing else |
+| `planning-needs-brainstorm` | Run the `brainstorm` skill, then decide whether it also needs a plan. **This is the default.** | Notes and settled decisions, and usually a plan after it |
+| `planning-needs-plan` | Go straight to the `plan` skill. | A plan folder |
+| `planning-ready-auto-plan` | Run the `auto-plan` skill. It plans the ticket alone and stops at one proposal. | A plan folder, and a proposal to approve |
+| `planning-not-needed` | Build it. The ticket never required brainstorming or planning. | The diff, and nothing else |
+| `planning-complete` | Nothing is owed. All required shaping is finished and implementation is waiting. | — |
 
-The four routes are recorded as a single-valued field on the ticket, and every
-name carries the `route-` prefix so it reads as a classification wherever it
-appears rather than as an instruction.
+The five are recorded as a single-valued field on the ticket, and a ticket
+carries exactly one of them. Every name carries the `planning-` prefix so it
+reads as a classification wherever it appears rather than as an instruction.
 
 **Brainstorm is the default whenever there is design work.** It is where a vague
 idea gets shaped, where competing approaches get weighed, and where the thing
 turns out to be three tickets instead of one. Reaching for a plan first skips
 all of that and plans the wrong thing carefully.
 
-**`route-plan` is the exception, not a peer.** It applies only when a brainstorm
-has already settled **this ticket's own** design — usually the brainstorm that
-produced the ticket. A brainstorm about a neighbouring ticket does not count,
-however much context it shares: the tickets that fall out of one brainstorm are
-its by-products, not its subjects, and nobody has yet shaped them.
+**`planning-needs-plan` is the exception, not a peer.** It applies only when a
+brainstorm has already settled **this ticket's own** design — usually the
+brainstorm that produced the ticket. A brainstorm about a neighbouring ticket
+does not count, however much context it shares: the tickets that fall out of one
+brainstorm are its by-products, not its subjects, and nobody has yet shaped them.
 
-**`route-direct` is for work with no design left in it.** The change is local,
-the diff is describable in a sentence, and being wrong is cheap to undo. What
-was agreed with the user lives in `## Decisions`; the criteria stay checks. It
-is a real route and using it is not cutting a corner — but it is a claim, and
-the claim gets recorded with the label.
+**`planning-not-needed` is for work with no design left in it.** The change is
+local, the diff is describable in a sentence, and being wrong is cheap to undo.
+What was agreed with the user lives in `## Decisions`; the criteria stay checks.
+Using it is not cutting a corner — but it is a claim, and the claim gets
+recorded with the label. It says the ticket **never required** brainstorming or
+planning, so it is never written over shaped work: a ticket that ran a
+brainstorm is `planning-complete`, whatever that brainstorm produced.
 
-**`route-auto-plan` is for a ticket whose shape is settled but whose build is
-not trivial.** There is design work left, but it is the kind you would answer
-with "you decide" — the skill answers it and shows you what it chose. It owes
-no evidence the way `route-plan` does, because it asserts nothing about a
-brainstorm having happened; what it asserts is a judgment about how much of the
-interview would be delegated, and being wrong costs one veto at the proposal
-rather than a wasted plan.
+**`planning-ready-auto-plan` is for a ticket whose shape is settled but whose
+build is not trivial.** There is design work left, but it is the kind you would
+answer with "you decide" — the skill answers it and shows you what it chose. It
+owes no evidence the way `planning-needs-plan` does, because it asserts nothing
+about a brainstorm having happened; what it asserts is a judgment about how much
+of the interview would be delegated, and being wrong costs one veto at the
+proposal rather than a wasted plan.
 
-A ticket carrying none of the four is **undecided**, which is a legitimate
-state. Most of a backlog sits there. Do not force a route at filing time to
-avoid an empty field.
+**`planning-complete` is a state a ticket reaches, not one anybody files it
+in.** Four of the five name preparation still owed, or preparation explicitly
+not owed. `planning-complete` is what the shaping workflows write when they
+finish.
 
-### The route is not the status
+A ticket carrying none of the five is **undecided**, which is a legitimate
+state. Most of a backlog sits there. Do not force a planning status at filing
+time to avoid an empty field — but know the consequence: the queue never selects
+an undecided ticket.
 
-The route says how a ticket gets shaped. The **status** says where it is. They
-answer different questions and neither substitutes for the other.
+### Planning status is not the tracker status
+
+The planning status says what preparation a ticket still owes. The **tracker
+status** says where implementation stands. They answer different questions and
+neither substitutes for the other.
 
 A ticket whose shaping is finished — the brainstorm ran, the plan is written and
-graded — is not waiting on a route. It is waiting on someone to build it, and it
-belongs in **Ready to implement**. Its label stays as the record of how it got
-there; reading it as an instruction to go and brainstorm again is a misreading,
-and leaving such a ticket in Backlog hides finished work behind unstarted work.
+graded — is not waiting on a planning status. It is waiting on someone to build
+it, and it belongs in **Ready to implement**. Its label stays as the record of
+how it got there; reading it as an instruction to go and brainstorm again is a
+misreading, and leaving such a ticket in Backlog hides finished work behind
+unstarted work.
 
 A ticket moves through backlog, ready-to-implement, in-progress and done
 states, whatever the tracker calls them — the tracker add-on names them.
 
-Move a ticket to **Ready to implement** the moment its route is complete:
+The queue selects on the **pair** of the two fields, and takes exactly three:
 
-| Route | Complete when |
-|---|---|
-| `route-direct` | Immediately — there is nothing to shape |
-| `route-brainstorm` | The brainstorm ended, and the plan it called for (if any) is graded |
-| `route-plan` | The plan is graded |
-| `route-auto-plan` | The plan is graded and its proposal approved |
+| Planning status | Tracker status | What happens |
+|---|---|---|
+| `planning-ready-auto-plan` | Backlog | The queue plans it, then builds the plan |
+| `planning-complete` | Ready to implement | The queue builds the published plan |
+| `planning-not-needed` | Ready to implement | The queue builds from the ticket body |
+
+Every other combination is left alone — including a `planning-not-needed` ticket
+still sitting in Backlog. The queue neither selects it nor moves it, because
+putting a ticket into Ready to implement is the shaping workflow's job.
+
+Move a ticket to **Ready to implement** when its shaping is finished:
+
+| Starting planning status | Becomes | And moves to | When |
+|---|---|---|---|
+| `planning-not-needed` | `planning-not-needed` | Ready to implement | Immediately — there is nothing to shape |
+| `planning-needs-brainstorm` | `planning-complete` | Ready to implement | The brainstorm ended, and the plan it called for (if any) is graded and published |
+| `planning-needs-plan` | `planning-complete` | Ready to implement | The plan is graded and published |
+| `planning-ready-auto-plan` | `planning-complete` | Ready to implement | The plan is graded, its proposal approved, and it is published |
 
 "Ready to implement" means exactly what it says: the `implement` skill can be
-pointed at it now. For a routed-and-planned ticket that means the plan is graded
-and its durable files have been published to the ticket; for a `route-direct`
-one it means the ticket body is enough to build from.
+pointed at it now. For a shaped-and-planned ticket that means the plan is graded
+and its durable files have been published to the ticket; for a
+`planning-not-needed` one it means the ticket body is enough to build from.
 
 ### Recording it
 
-The route is recorded as the ticket's route field and never restated in a
-comment, because a field is current state and a comment is not.
+The planning status is recorded as the ticket's planning-status field and never
+restated in a comment, because a field is current state and a comment is not.
 
 **Whoever picks the ticket up may change it**, by changing the label and
 nothing else. The filer knows less about the problem than anyone who reads it
-later — that holds for the route as much as for the facts. Do not leave a
-comment explaining the change: the route is current state, and the same rule
-applies as to the body. Nobody reading later needs the wrong version, and the
-tracker keeps the revision history for anyone who does.
+later — that holds for the planning status as much as for the facts. Do not
+leave a comment explaining the change: the planning status is current state, and
+the same rule applies as to the body. Nobody reading later needs the wrong
+version, and the tracker keeps the revision history for anyone who does.
 
-**`route-plan` is the one route that owes evidence**, because it is the only one
-asserting a fact: that a brainstorm already settled this ticket's design.
-Without proof anyone can claim it and skip the step, which is the one failure
-mode that would quietly undo this whole section.
+A workflow that finishes a shaping step does not edit the two fields by hand.
+It runs one engine command, which writes both together and fails loudly when
+either write is refused:
 
-So: **attach the brainstorm's `notes.md` when you set `route-plan`.** Not at
-close — now. That file is safe to attach early in a way a plan is not: brainstorm
-writes it once, and the `plan` skill snapshots it write-once and never
+```sh
+node "<plugin-root>/dist/cli.mjs" ticket-state --ref <ticket> --planning-status <status> --tracker-status <role>
+```
+
+`--planning-status` takes one of the five planning-status names above.
+`--tracker-status` takes a **role**, not a status name, and takes exactly two:
+`ready` or `in-progress`. The repository's own spelling for each lives in
+`queue.ready-status` and `queue.in-progress-status`, so a team that calls its
+ready state something else configures it once instead of spelling it in every
+skill. `--cwd` selects the repository when the command is not run from its root.
+A nonzero exit is a stop, never a warning.
+
+There is no `done` role here, and that is deliberate rather than an omission.
+Done begins only when a merge is positively confirmed, so the engine writes it
+after the merge and nothing writes it by hand — a tracker that says Done must
+mean shipped code, not work someone believed had finished.
+
+Setting the *first* planning status on a ticket is still a human act in the
+tracker, at filing time or whenever someone picks the ticket up.
+
+**`planning-needs-plan` is the one planning status that owes evidence**, because
+it is the only one asserting a fact: that a brainstorm already settled this
+ticket's design. Without proof anyone can claim it and skip the step, which is
+the one failure mode that would quietly undo this whole section.
+
+So: **attach the brainstorm's `notes.md` when you set `planning-needs-plan`.**
+Not at close — now. That file is safe to attach early in a way a plan is not:
+brainstorm writes it once, and the `plan` skill snapshots it write-once and never
 overwrites, so it is frozen the moment the brainstorm ends. `.lightsout` is
 gitignored, so it exists on exactly one laptop; attach it or it is gone.
+
+The two halves have different owners. The engine command sets the label;
+attaching `notes.md` stays a human step, taken in the same moment. A
+`planning-needs-plan` ticket with no attached notes is the rule unmet: the label
+claims a brainstorm settled this ticket's design, and the file is the only proof
+of it that survives leaving one laptop.
 
 Attach `notes.md` alone. `brainstorm-decisions.json` is machine input — `plan
 draft` merges those rows into the plan, so `plan.md`'s Decision Log carries all
 of them by the time you close, and attaching it would put the same rows in the
 ticket twice.
 
-Two cases that therefore do **not** qualify for `route-plan`, and this is the
-useful part of the rule rather than a technicality:
+Two cases that therefore do **not** qualify for `planning-needs-plan`, and this
+is the useful part of the rule rather than a technicality:
 
 - A brainstorm that exited at "just build it" wrote no files. Nothing to attach.
-  That ticket is `route-direct`, or it is already done.
+  That ticket is `planning-complete`, or it is already done.
 - A design settled in conversation with nothing written down. Nothing to attach
   — but not nothing to record: put what was settled in `## Decisions`, and the
-  ticket is `route-direct` if nothing is left to shape.
+  ticket is `planning-not-needed` if nothing is left to shape.
 
 ### Do not invent a lighter plan
 
-There is no small-plan format for `route-direct` work. The moment one exists every
-ticket gets one, and the ceremony the route exists to avoid grows back.
+There is no small-plan format for `planning-not-needed` work. The moment one
+exists every ticket gets one, and the ceremony it exists to avoid grows back.
 
 This is not the same as losing what was already decided. A decision settled
 with the user before the ticket was filed lives in `## Decisions`, written as
@@ -310,9 +366,9 @@ The exact pattern is the repository's `ship.ticket-pattern` in its
 `lightsout.config.json` — the configured pattern is the format's one home, and
 this skill points at it rather than restating a team's spelling.
 
-The branch is the same whichever route the ticket took. It is the one thing that
-links the ticket, the worktree, the commits, the plan folder and the PR, so it
-never varies.
+The branch is the same whichever planning status the ticket carried. It is the
+one thing that links the ticket, the worktree, the commits, the plan folder and
+the PR, so it never varies.
 
 ## Plan folder
 
@@ -378,11 +434,11 @@ Append one comment, two things, about a line each:
 - the PR
 
 Nothing else. Not the criteria and how each was verified — the checks live in
-the body, and the PR's gates are the record of their passing. Not the route —
-the label is the record. Not the story of getting there: what you tried, what
-you gave up on, and how the finished work compared to the original ticket all
-stay out. If the ticket itself turned out to be wrong, fix the body — see
-above.
+the body, and the PR's gates are the record of their passing. Not the planning
+status — the label is the record. Not the story of getting there: what you
+tried, what you gave up on, and how the finished work compared to the original
+ticket all stay out. If the ticket itself turned out to be wrong, fix the body
+— see above.
 
 **There is no leftovers section.** Anything that looks left over is one of
 two things. Decided against — then it is a decision, already recorded where
@@ -410,15 +466,16 @@ a link — it resolves for nobody but the author, and not for the author on a
 different laptop. Never paste a filesystem path into a ticket and call it a
 reference.
 
-A `route-direct` ticket has no plan folder and nothing to attach. That is expected —
-its `## Decisions` section is the decision record.
+A `planning-not-needed` ticket has no plan folder and nothing to attach. That is
+expected — its `## Decisions` section is the decision record.
 
-A `route-brainstorm` ticket that stopped at "just build it" wrote no files
-and has nothing to attach. What was settled in that conversation goes into
+A `planning-needs-brainstorm` ticket that stopped at "just build it" wrote no
+files and has nothing to attach. What was settled in that conversation goes into
 the ticket's `## Decisions` before building — the body is where decisions
-live, never the closing comment.
+live, never the closing comment. That ticket becomes `planning-complete`, not
+`planning-not-needed`: it plainly did require a brainstorm, and one ran.
 
-**Only the durable set travels when the route produced a plan:**
+**Only the durable set travels when the shaping produced a plan:**
 
 | file | what it holds |
 |---|---|
@@ -432,9 +489,9 @@ integrity marker, not a plan record or run transcript: it names the exact
 durable files in that generation and their SHA-256 hashes so a fresh machine
 can reject an interrupted or mixed upload before writing anything to disk.
 
-A `route-auto-plan` ticket publishes the same durable set; when no brainstorm
-ran, its `notes.md` is the one the `auto-plan` skill wrote for itself from the
-ticket before planning.
+A `planning-ready-auto-plan` ticket publishes the same durable set; when no
+brainstorm ran, its `notes.md` is the one the `auto-plan` skill wrote for itself
+from the ticket before planning.
 
 Do not assemble or attach that set by hand. Run `lightsout plan publish --name <name>`
 from the machine holding the plan folder. It resolves the complete plan
@@ -470,16 +527,22 @@ it on disk and attach nothing.
 
 ### Publish when the ticket is ready to implement, not at close
 
-For any route that produced a plan, publishing is the mechanical
+For any shaping that produced a plan, publishing is the mechanical
 ready-to-implement step. Run `lightsout plan publish --name <name>` when the
-route completes, before moving the ticket to **Ready to implement**. Waiting
+shaping completes, before moving the ticket to **Ready to implement**. Waiting
 until close assumes whoever builds it is whoever planned it, on the machine
 that planned it — the assumption this whole system exists to break.
 
-As part of that same transition, drain `## Open questions`: delete every line
-the shaping answered, then move the ticket only after publish succeeds. The
-answers — the "no"s included — are in the Decision Log being published, so the
-questions leave the body as their answers become durable on the ticket.
+The transition is three steps, in this order:
+
+1. `lightsout plan publish --name <name>` — the durable files reach the ticket.
+2. Drain `## Open questions`: delete every line the shaping answered.
+3. `lightsout ticket-state --ref <ticket> --planning-status planning-complete
+   --tracker-status ready` — the two fields move together, and only after
+   publish succeeded.
+
+The answers — the "no"s included — are in the Decision Log being published, so
+the questions leave the body as their answers become durable on the ticket.
 
 `.lightsout` is gitignored. Until these files are published, a plan exists on
 exactly one laptop, and any other agent picking up that ticket sees a problem

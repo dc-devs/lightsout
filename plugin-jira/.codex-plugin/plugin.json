@@ -14,7 +14,7 @@
 	"interface": {
 		"displayName": "Lightsout Jira",
 		"shortDescription": "Apply Lightsout's Jira Cloud ticket conventions.",
-		"longDescription": "Add Jira Cloud-specific route labels, statuses, attachments, and pull-request conventions to the Lightsout ticket workflow.",
+		"longDescription": "Add Jira Cloud-specific planning-status labels, statuses, attachments, and pull-request conventions to the Lightsout ticket workflow.",
 		"developerName": "dc-devs",
 		"category": "Productivity",
 		"capabilities": ["Read", "Write"],

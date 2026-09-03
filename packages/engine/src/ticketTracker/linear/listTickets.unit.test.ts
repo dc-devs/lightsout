@@ -43,6 +43,7 @@ const issueOf = ({
 	labelPages = 1,
 	relations = [],
 	relationPages = 1,
+	state = 'Backlog',
 }: {
 	number: number;
 	description?: string | null;
@@ -50,6 +51,8 @@ const issueOf = ({
 	labelPages?: number;
 	relations?: ReturnType<typeof relationOf>[];
 	relationPages?: number;
+	/** The issue's workflow state name, or null for an issue whose state cannot be read at all. */
+	state?: string | null;
 }) => ({
 	id: `id-${number}`,
 	identifier: `LO-${number}`,
@@ -57,6 +60,7 @@ const issueOf = ({
 	description,
 	priority: 2,
 	createdAt: new Date('2026-01-01T00:00:00.000Z'),
+	state: state === null ? undefined : Promise.resolve({ name: state }),
 	labels: () => {
 		// A second page holds the tail of the label list, so a walker that stops
 		// after the first one reports one route label where the issue carries two.
@@ -143,6 +147,7 @@ describe('listTickets', () => {
 				priority: 2,
 				createdAt: '2026-01-01T00:00:00.000Z',
 				labels: ['route-direct'],
+				status: 'Backlog',
 				unfinishedBlockers: [],
 			},
 			{
@@ -153,6 +158,7 @@ describe('listTickets', () => {
 				priority: 2,
 				createdAt: '2026-01-01T00:00:00.000Z',
 				labels: ['route-auto-plan'],
+				status: 'Backlog',
 				unfinishedBlockers: [],
 			},
 		]);
@@ -270,6 +276,24 @@ describe('listTickets', () => {
 		setupClient({ issues: [issueOf({ number: 70 })] });
 
 		expect(await listConfigured()).toEqual([expect.objectContaining({ unfinishedBlockers: [] })]);
+	});
+
+	test('reports the issue’s own workflow status name, which is half of what a caller needs to decide it is selectable', async () => {
+		setupClient({ issues: [issueOf({ number: 70, state: 'Ready to implement' })] });
+
+		expect(await listConfigured()).toEqual([expect.objectContaining({ status: 'Ready to implement' })]);
+	});
+
+	test('fails the whole read when an issue’s workflow status cannot be read — an empty status would silently drop it from the backlog', async () => {
+		setupClient({ issues: [issueOf({ number: 70, state: null })] });
+
+		expect(await listConfigured()).toStrictEqual({ error: "Linear issue 'LO-70' has no readable workflow status" });
+	});
+
+	test('fails the whole read when a later issue has no readable status, rather than answering the tickets that did resolve', async () => {
+		setupClient({ issues: [issueOf({ number: 70 }), issueOf({ number: 71, state: null })] });
+
+		expect(await listConfigured()).toStrictEqual({ error: "Linear issue 'LO-71' has no readable workflow status" });
 	});
 
 	test('hands a tracker failure back rather than swallowing it — a bad key must not read as an empty backlog', async () => {

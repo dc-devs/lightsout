@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
+import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
+import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { orderTickets } from '#src/queue/orderTickets.ts';
 
@@ -19,7 +20,9 @@ const ticketOf = ({
 	priority,
 	createdAt,
 	labels: [],
-	route: QueueRoute.Direct,
+	planningStatus: PlanningStatus.NotNeeded,
+	worker: QueueWorker.Direct,
+	status: 'Ready to implement',
 	unfinishedBlockers: [],
 });
 

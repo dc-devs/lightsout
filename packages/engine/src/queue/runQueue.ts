@@ -1,16 +1,12 @@
 import { join } from 'node:path';
-import { gitTimeoutMs } from '#src/common/constants/gitTimeoutMs.ts';
-import { readGitDefaultBranch } from '#src/common/git/readGitDefaultBranch.ts';
-import { runCommand } from '#src/common/processes/runCommand.ts';
 import { type LightsoutConfig, PipelineKind, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
+import { checkQueueStartup } from '#src/queue/checkQueueStartup.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
-import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
 import { drainWaves } from '#src/queue/drainWaves.ts';
 import { listEligibleTickets } from '#src/queue/listEligibleTickets.ts';
@@ -19,9 +15,8 @@ import { runQueueTicket } from '#src/queue/runQueueTicket.ts';
 import { scanParkedWorktrees } from '#src/queue/scanParkedWorktrees.ts';
 import { selectWaveTickets } from '#src/queue/selectWaveTickets.ts';
 import { settleParkedLabels } from '#src/queue/settleParkedLabels.ts';
-import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
 import { createRun, getRunDir, seedUsageTotals, withRunLock, writeManifestWithUsage } from '#src/runState/index.ts';
-import { readTicketMatch, type ShipSettings } from '#src/ship/index.ts';
+import type { ShipSettings } from '#src/ship/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
@@ -30,62 +25,13 @@ interface Params {
 	trackerSettings: TrackerSettings;
 	shipSettings: ShipSettings;
 	config: LightsoutConfig;
+	/** The process environment the tracker credentials are read from. Passed rather than read, so a test never needs to mutate `process.env`. */
+	env: NodeJS.ProcessEnv;
 	driver: Driver;
 	driverName: string;
 	relay: QuestionRelay;
 	onProgress?: (message: string) => void;
 }
-
-/**
- * The two things the drain cannot start without: a branch template whose output
- * the ship pattern matches, and a remote default branch to cut from.
- *
- * A branch template the ticket pattern cannot read would make every resumed
- * ticket's identifier underivable, so it is refused up front, naming both keys
- * — a config-usability refusal, never a workflow one.
- */
-// Annotated because inference would widen each branch with the other's absent
-// key, and `'error' in started` could no longer narrow the union at the call site.
-const checkQueueStartup = async ({
-	cwd,
-	settings,
-	trackerSettings,
-	shipSettings,
-}: Pick<Params, 'cwd' | 'settings' | 'trackerSettings' | 'shipSettings'>): Promise<QueueFailure | { defaultBranch: string }> => {
-	// The sample is shaped from the configured tracker prefix, so the check exercises
-	// a branch name shaped like the repo's real ones — a hardcoded key would
-	// false-alarm on every `ship.ticket-pattern` scoped to its own tracker project or team.
-	const sample: TicketSummary = {
-		id: 'sample',
-		identifier: `${trackerSettings.ticketPrefix}-1`,
-		title: 'sample',
-		description: '',
-		priority: 0,
-		createdAt: '',
-		labels: [],
-		route: QueueRoute.Direct,
-		unfinishedBlockers: [],
-	};
-	const rendered = toTicketBranch({ ticket: sample, template: settings.branchTemplate });
-
-	if (readTicketMatch({ branch: rendered, ticketPattern: shipSettings.ticketPattern }) === undefined) {
-		return {
-			error: `\`queue.branch-template\` renders '${rendered}', which \`ship.ticket-pattern\` does not match — every queued branch would be unshippable`,
-		};
-	}
-
-	const defaultBranch = await readGitDefaultBranch({ cwd });
-
-	if (defaultBranch === undefined) {
-		return { error: 'the queue needs a default branch: `origin/HEAD` is unset — run `git remote set-head origin --auto`' };
-	}
-
-	// One fetch for the whole drain: every worktree creation builds on it, and
-	// concurrent fetches in the main checkout add nothing but contention.
-	await runCommand({ command: 'git fetch origin', cwd, timeoutMs: gitTimeoutMs }).catch(() => undefined);
-
-	return { defaultBranch };
-};
 
 /** One promise tail every `git worktree add` awaits and replaces — creation mutates the main checkout, so two of them must never overlap. */
 const createWorktreeSerializer = () => {
@@ -108,6 +54,7 @@ const drainAndShip = async ({
 	trackerSettings,
 	shipSettings,
 	config,
+	env,
 	driver,
 	driverName,
 	relay,
@@ -115,21 +62,7 @@ const drainAndShip = async ({
 	first,
 	parked,
 	onProgress,
-}: {
-	cwd: string;
-	runId: string;
-	settings: QueueSettings;
-	trackerSettings: TrackerSettings;
-	shipSettings: ShipSettings;
-	config: LightsoutConfig;
-	driver: Driver;
-	driverName: string;
-	relay: QuestionRelay;
-	defaultBranch: string;
-	first: WaveSelection;
-	parked: ParkedWork;
-	onProgress?: (message: string) => void;
-}) => {
+}: Params & { runId: string; defaultBranch: string; first: WaveSelection; parked: ParkedWork }) => {
 	const coordinatorRunDir = getRunDir({ cwd, runId });
 	const planPath = join(coordinatorRunDir, 'queue.md');
 	const manifest = await createRun({ cwd, runId, plan: planPath, pipeline: PipelineKind.Queue, driver: driverName, config });
@@ -143,6 +76,7 @@ const drainAndShip = async ({
 		trackerSettings,
 		shipSettings,
 		config,
+		env,
 		defaultBranch,
 		planPath,
 		first,
@@ -165,7 +99,11 @@ const drainAndShip = async ({
 				onProgress: relay.createProgressSink({ ticket }),
 			}),
 	});
-	const status = drained.outcomes.every((outcome) => outcome.ready) && drained.leftBehind.length === 0 ? RunStatus.Passed : RunStatus.Escalated;
+	// A reconciled already-merged ticket is `settled` and never re-offered, so it
+	// is not work left: counting it would record an escalated coordinator run for
+	// a drain in which everything eligible shipped.
+	const unfinished = drained.leftBehind.filter((entry) => entry.settled !== true);
+	const status = drained.outcomes.every((outcome) => outcome.ready) && unfinished.length === 0 ? RunStatus.Passed : RunStatus.Escalated;
 
 	// One call is the whole park/ship label story: shipping has already flipped
 	// `ready` on anything it could not merge, so a ship-step park is labelled by
@@ -198,6 +136,7 @@ export const runQueue = async ({
 	trackerSettings,
 	shipSettings,
 	config,
+	env,
 	driver,
 	driverName,
 	relay,
@@ -239,6 +178,6 @@ export const runQueue = async ({
 	return withRunLock({
 		params: { cwd, onProgress },
 		run: ({ runId }) =>
-			drainAndShip({ cwd, runId, settings, trackerSettings, shipSettings, config, driver, driverName, relay, defaultBranch, first, parked, onProgress }),
+			drainAndShip({ cwd, runId, settings, trackerSettings, shipSettings, config, env, driver, driverName, relay, defaultBranch, first, parked, onProgress }),
 	});
 };

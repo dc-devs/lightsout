@@ -3,13 +3,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
 import { describe, expect, jest, test } from '@jest/globals';
+import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { type LightsoutConfig, type RunManifest, RunStatus, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
-import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
+import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
-import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
+import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import { TerminalQuestionRelay } from '#src/queue/relay/index.ts';
 import { runWorkerWithRelay } from '#src/queue/runWorkerWithRelay.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
@@ -17,9 +18,10 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 
 // Mocked Imports
 // -------------------------
-// Both workers spawn a harness — another module's entry point, each covered by
-// its own tests. What this file owns is the loop between a worker's question and
-// the answer that comes back, which is observable with both stubbed.
+// Every worker spawns a harness or a pipeline — another module's entry point,
+// each covered by its own tests. What this file owns is which worker the ticket
+// selects and the loop between a worker's question and the answer that comes
+// back, which is observable with them stubbed.
 const mockInvokeAgentWithContract = jest.fn<(params: { invocation: { prompt: string }; timeoutMs?: number }) => Promise<AgentOutcome<WorkReport>>>();
 const mockRunDirectWork = jest.fn<(params: { answeredQuestion?: { question: string; answer: string } }) => Promise<PipelineResult>>();
 const mockAppendTicketNote = jest.fn<() => Promise<undefined>>();
@@ -38,7 +40,7 @@ const settings = queueSettingsFixture();
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 const driver: Driver = { name: 'claude-code', invoke: () => Promise.resolve({ text: '', exitCode: 0 }) };
 
-const ticketOf = (route: TicketSummary['route']): TicketSummary => ({
+const ticketOf = (worker: QueueWorker): RunnableTicket => ({
 	id: 'id-70',
 	identifier: 'LO-70',
 	title: 'Drain the backlog',
@@ -46,7 +48,9 @@ const ticketOf = (route: TicketSummary['route']): TicketSummary => ({
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
 	labels: [],
-	route,
+	planningStatus: PlanningStatus.NotNeeded,
+	worker,
+	status: 'Ready to implement',
 	unfinishedBlockers: [],
 });
 
@@ -103,14 +107,16 @@ const setupRelay = ({ answers = [] }: { answers?: string[] } = {}) => {
 	};
 };
 
-const runWorker = ({ relay, coordinatorRunDir, ticket }: { relay: QuestionRelay; coordinatorRunDir: string; ticket: TicketSummary }) =>
+const runWorker = ({ relay, coordinatorRunDir, ticket }: { relay: QuestionRelay; coordinatorRunDir: string; ticket: RunnableTicket }) =>
 	runWorkerWithRelay({
 		worktreePath: '/tmp/lo-70-drain',
+		branch: 'lo-70-drain',
 		ticket,
 		config,
 		driver,
 		driverName: 'claude-code',
 		settings,
+		trackerSettings: trackerSettingsFixture(),
 		relay,
 		coordinatorRunId: 'run-q',
 		coordinatorRunDir,
@@ -122,7 +128,7 @@ describe('runWorkerWithRelay', () => {
 
 		mockRunDirectWork.mockResolvedValue({ ok: true, manifest: manifestOf(RunStatus.Passed) });
 
-		expect(await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueRoute.Direct) })).toStrictEqual({});
+		expect(await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueWorker.Direct) })).toStrictEqual({});
 
 		relay.close();
 	});
@@ -134,7 +140,7 @@ describe('runWorkerWithRelay', () => {
 			.mockResolvedValueOnce({ ok: false, manifest: manifestOf(RunStatus.Escalated), error: 'Which one?' })
 			.mockResolvedValueOnce({ ok: true, manifest: manifestOf(RunStatus.Passed) });
 
-		const outcome = await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueRoute.Direct) });
+		const outcome = await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueWorker.Direct) });
 
 		relay.close();
 
@@ -147,7 +153,7 @@ describe('runWorkerWithRelay', () => {
 
 		mockRunDirectWork.mockResolvedValue({ ok: false, manifest: manifestOf(RunStatus.Failed), error: 'tsc: 3 errors' });
 
-		expect(await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueRoute.Direct) })).toStrictEqual({ error: 'tsc: 3 errors' });
+		expect(await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueWorker.Direct) })).toStrictEqual({ error: 'tsc: 3 errors' });
 
 		relay.close();
 	});
@@ -157,7 +163,7 @@ describe('runWorkerWithRelay', () => {
 
 		mockRunDirectWork.mockResolvedValue({ ok: false, manifest: manifestOf(RunStatus.PausedRateLimit) });
 
-		expect(await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueRoute.Direct) })).toStrictEqual({ error: 'the run ended paused-rate-limit' });
+		expect(await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueWorker.Direct) })).toStrictEqual({ error: 'the run ended paused-rate-limit' });
 
 		relay.close();
 	});
@@ -167,7 +173,7 @@ describe('runWorkerWithRelay', () => {
 
 		mockInvokeAgentWithContract.mockResolvedValue({ ok: true, report: reportOf() });
 
-		expect(await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueRoute.AutoPlan) })).toStrictEqual({});
+		expect(await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueWorker.AutoPlan) })).toStrictEqual({});
 
 		relay.close();
 	});
@@ -177,7 +183,7 @@ describe('runWorkerWithRelay', () => {
 
 		mockInvokeAgentWithContract.mockResolvedValue({ ok: true, report: reportOf() });
 
-		await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueRoute.AutoPlan) });
+		await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueWorker.AutoPlan) });
 
 		relay.close();
 
@@ -191,7 +197,7 @@ describe('runWorkerWithRelay', () => {
 			.mockResolvedValueOnce({ ok: true, report: reportOf({ status: WorkReportStatus.TerminatedAmbiguity, failures: ['Which one?'] }) })
 			.mockResolvedValueOnce({ ok: true, report: reportOf() });
 
-		const outcome = await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueRoute.AutoPlan) });
+		const outcome = await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueWorker.AutoPlan) });
 
 		relay.close();
 
@@ -207,7 +213,7 @@ describe('runWorkerWithRelay', () => {
 			report: reportOf({ status: WorkReportStatus.Failed, failures: ['the lightsout plugin skills are not available'] }),
 		});
 
-		expect(await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueRoute.AutoPlan) })).toStrictEqual({
+		expect(await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueWorker.AutoPlan) })).toStrictEqual({
 			error: 'the lightsout plugin skills are not available',
 		});
 
@@ -219,7 +225,7 @@ describe('runWorkerWithRelay', () => {
 
 		mockInvokeAgentWithContract.mockResolvedValue({ ok: false, failure: 'harness rate limited or overloaded', rateLimited: true });
 
-		expect(await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueRoute.AutoPlan) })).toStrictEqual({
+		expect(await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueWorker.AutoPlan) })).toStrictEqual({
 			error: 'harness rate limited or overloaded',
 		});
 
@@ -231,7 +237,7 @@ describe('runWorkerWithRelay', () => {
 
 		mockRunDirectWork.mockResolvedValue({ ok: false, manifest: manifestOf(RunStatus.Escalated), error: 'Which one?' });
 
-		const outcome = await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueRoute.Direct) });
+		const outcome = await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueWorker.Direct) });
 
 		relay.close();
 
@@ -244,7 +250,7 @@ describe('runWorkerWithRelay', () => {
 
 		mockRunDirectWork.mockResolvedValue({ ok: false, manifest: manifestOf(RunStatus.Escalated), error: 'Which one?' });
 
-		const outcome = await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueRoute.Direct) });
+		const outcome = await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueWorker.Direct) });
 
 		relay.close();
 

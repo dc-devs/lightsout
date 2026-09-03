@@ -147,7 +147,7 @@ const executeDirectWork = async ({
 };
 
 /**
- * Ticket body in, verified diff out — the `route-direct` worker, and the whole
+ * Ticket body in, verified diff out — the queue's direct worker, and the whole
  * of what `lightsout implement-direct` does before it commits.
  *
  * Answers a `PipelineResult` rather than a new near-identical type, so every

@@ -16,6 +16,7 @@ const issue = {
 		created: '2026-01-01T00:00:00.000Z',
 		description,
 		priority: { name: 'Lowest' },
+		status: { name: 'Backlog' },
 		issuelinks: [
 			{ type: { inward: 'is blocked by' }, inwardIssue: { key: 'LO-2', fields: { status: { statusCategory: { key: 'indeterminate' } } } } },
 			{ type: { inward: 'is blocked by' }, inwardIssue: { key: 'LO-3', fields: { status: { statusCategory: { key: 'done' } } } } },
@@ -56,6 +57,7 @@ describe('Jira listTickets', () => {
 				priority: 5,
 				createdAt: '2026-01-01T00:00:00.000Z',
 				labels: [],
+				status: 'Backlog',
 				unfinishedBlockers: ['LO-2', 'LO-4'],
 			},
 		]);
@@ -102,16 +104,26 @@ describe('Jira listTickets', () => {
 		});
 	});
 
+	test('names the issue whose status carries no name — an empty status would silently drop it from the backlog', async () => {
+		mockRunJira.mockImplementation(({ request: call }) =>
+			call({ request: () => Promise.resolve({ issues: [{ ...issue, fields: { ...issue.fields, status: null } }], isLast: true }) }),
+		);
+
+		expect(await listTickets({ settings: jiraTrackerSettingsFixture(), labelNames: ['route-direct'], statuses: ['Ready'] })).toStrictEqual({
+			error: "Jira issue 'LO-1' is missing its status name",
+		});
+	});
+
 	test('uses Jira absence fallbacks for description, labels, priority, links, and status', async () => {
 		const sparse = {
 			id: '1002',
 			key: 'LO-2',
-			fields: { summary: 'Sparse', created: '2026-01-02T00:00:00.000Z', labels: null, priority: null, issuelinks: null },
+			fields: { summary: 'Sparse', created: '2026-01-02T00:00:00.000Z', labels: null, priority: null, issuelinks: null, status: { name: 'Backlog' } },
 		};
 		mockRunJira.mockImplementation(({ request: call }) => call({ request: () => Promise.resolve({ issues: [sparse], isLast: true }) }));
 
 		expect(await listTickets({ settings: jiraTrackerSettingsFixture(), labelNames: ['route-direct'], statuses: ['Ready'] })).toEqual([
-			expect.objectContaining({ description: '', labels: [], priority: 0, unfinishedBlockers: [] }),
+			expect.objectContaining({ description: '', labels: [], priority: 0, status: 'Backlog', unfinishedBlockers: [] }),
 		]);
 	});
 });

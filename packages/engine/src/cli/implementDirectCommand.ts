@@ -16,22 +16,39 @@ import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { runDirectWork } from '#src/direct/index.ts';
 import { commitTicketWork } from '#src/queue/index.ts';
 import { getRunDir } from '#src/runState/index.ts';
-import { readTicketMatch, resolveShipSettings } from '#src/ship/index.ts';
+import { readBranchTicketRef } from '#src/ship/index.ts';
+import { requireImplementLifecycle } from '#src/ticketLifecycle/index.ts';
 
 /**
- * The ticket reference when `--ref` was not typed: the branch's own, falling
- * back to the branch name. It only labels the run and the commit, so a branch
- * the pattern cannot read is named rather than refused.
+ * The label the run and its commit carry when `--ref` was not typed: the
+ * branch's ticket reference, falling back to the branch name and then to a
+ * placeholder. It only labels, so a branch the pattern cannot read is named
+ * rather than refused.
  */
-const readBranchTicketRef = async ({ cwd, config }: { cwd: string; config: LightsoutConfig }) => {
-	const shipSettings = resolveShipSettings({ config });
-	const branch = await readGitCurrentBranch({ cwd });
+const readRunLabel = async ({ cwd, config }: { cwd: string; config: LightsoutConfig }) =>
+	(await readBranchTicketRef({ config, cwd })) ?? (await readGitCurrentBranch({ cwd })) ?? 'ticket';
 
-	if (branch === undefined) {
-		return 'ticket';
+/**
+ * The commit a passed run ends on — which is what makes `--ship` and
+ * `ship.after-implement` work at all — or the sentence saying why there is none.
+ *
+ * A run that produced no commit must never chain into ship, so "the worker
+ * changed nothing" is a refusal here rather than a quiet success.
+ *
+ * @returns undefined when the work is committed, or the one sentence saying why it is not
+ */
+const commitDirectRun = async ({ cwd, ticketBody, ticketRef, runId }: { cwd: string; ticketBody: string; ticketRef: string; runId: string }) => {
+	const subject = ticketBody
+		.split('\n')[0]
+		.replace(/^#+\s*/, '')
+		.trim();
+	const committed = await commitTicketWork({ cwd, message: `${ticketRef} ${subject}`.trim(), runDir: getRunDir({ cwd, runId }) });
+
+	if ('error' in committed) {
+		return committed.error;
 	}
 
-	return (shipSettings === undefined ? undefined : readTicketMatch({ branch, ticketPattern: shipSettings.ticketPattern })?.ticket) ?? branch;
+	return committed.committed ? undefined : 'the worker changed nothing';
 };
 
 /**
@@ -75,8 +92,19 @@ export const implementDirectCommand = async ({ flags, cwd }: CommandContext): Pr
 		return exitCli({ code: 1 });
 	}
 
-	const ticketRef = getStringFlag({ flags, name: 'ref' }) ?? (await readBranchTicketRef({ cwd, config: loaded }));
+	const flaggedRef = getStringFlag({ flags, name: 'ref' });
+	const ticketRef = flaggedRef ?? (await readRunLabel({ cwd, config: loaded }));
 	const { config, driver, driverName } = resolveEffectiveConfigAndDriver({ config: loaded, command: 'implement' });
+	// The guard is handed `--ref` itself rather than `ticketRef`, whose
+	// branch-name fallback is a run label rather than a ticket reference. Without
+	// the flag it reads the branch through `readBranchTicketRef`, the same reader
+	// the label above starts from.
+	const refused = await requireImplementLifecycle({ cwd, config: loaded, env: process.env, ticketRef: flaggedRef, onProgress: createProgressPrinter() });
+
+	if (refused !== undefined) {
+		console.error(refused);
+		return exitCli({ code: 1 });
+	}
 
 	console.log(`lightsout: building ${ticketRef} from ${ticketPath}`);
 
@@ -92,26 +120,10 @@ export const implementDirectCommand = async ({ flags, cwd }: CommandContext): Pr
 	});
 
 	if (result.ok) {
-		// The run ends on a commit rather than a dirty tree — which is what makes
-		// `--ship` and `ship.after-implement` work at all.
-		const subject = ticketBody
-			.split('\n')[0]
-			.replace(/^#+\s*/, '')
-			.trim();
-		const committed = await commitTicketWork({
-			cwd,
-			message: `${ticketRef} ${subject}`.trim(),
-			runDir: getRunDir({ cwd, runId: result.manifest.runId }),
-		});
+		const uncommitted = await commitDirectRun({ cwd, ticketBody, ticketRef, runId: result.manifest.runId });
 
-		if ('error' in committed) {
-			console.error(committed.error);
-			return exitCli({ code: 1 });
-		}
-
-		if (!committed.committed) {
-			// A run that produced no commit must never chain into ship.
-			console.error('the worker changed nothing');
+		if (uncommitted !== undefined) {
+			console.error(uncommitted);
 			return exitCli({ code: 1 });
 		}
 	}

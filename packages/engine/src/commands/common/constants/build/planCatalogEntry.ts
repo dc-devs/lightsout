@@ -48,7 +48,7 @@ export const planCatalogEntry: CommandCatalogEntry = {
 	],
 	steps: planSteps,
 	records: CommandRecordKind.Plans,
-	related: ['auto-plan', 'brainstorm', 'implement', 'resume', 'ship', 'implement-direct', 'queue'],
+	related: ['auto-plan', 'brainstorm', 'implement', 'resume', 'ship', 'implement-direct', 'queue', 'ticket-state'],
 	graphic: {
 		title: 'How /plan turns a request into an implementation-ready spec',
 		subtitle: 'Final spec and every decision recorded before any code is written.',

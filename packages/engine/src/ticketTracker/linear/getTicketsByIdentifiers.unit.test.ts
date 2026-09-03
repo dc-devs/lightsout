@@ -18,13 +18,14 @@ const settings = trackerSettingsFixture();
 /** How many times each issue's relations were read, so a second label can be shown to cost no extra round trip. */
 const relationReads = new Map<string, number>();
 
-const issueOf = ({ number, labels, blockedBy = [] }: { number: number; labels: string[]; blockedBy?: string[] }) => ({
+const issueOf = ({ number, labels, blockedBy = [], state = 'In Progress' }: { number: number; labels: string[]; blockedBy?: string[]; state?: string }) => ({
 	id: `id-${number}`,
 	identifier: `LO-${number}`,
 	title: `Ticket ${number}`,
 	description: '',
 	priority: 3,
 	createdAt: new Date('2026-02-02T00:00:00.000Z'),
+	state: Promise.resolve({ name: state }),
 	labels: () => {
 		const page = { nodes: labels.map((name) => ({ name })), pageInfo: { hasNextPage: false }, fetchNext: () => Promise.resolve(page) };
 
@@ -98,9 +99,16 @@ describe('getTicketsByIdentifiers', () => {
 				priority: 3,
 				createdAt: '2026-02-02T00:00:00.000Z',
 				labels: ['route-direct'],
+				status: 'In Progress',
 				unfinishedBlockers: [],
 			},
 		]);
+	});
+
+	test('reports the status a parked ticket sits at, which is what lets a caller see it is already in progress', async () => {
+		setupClient({ issues: [issueOf({ number: 70, labels: ['route-direct'], state: 'Backlog' })] });
+
+		expect(await getTicketsByIdentifiers({ settings, identifiers: ['LO-70'] })).toEqual([expect.objectContaining({ status: 'Backlog' })]);
 	});
 
 	test('never makes a call for an empty list, because there is nothing to look up', async () => {

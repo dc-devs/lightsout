@@ -217,7 +217,7 @@ describe('getConfigView', () => {
 
 	test('shows the queue block whole in its own area, so the block the document documents is on the page too', async () => {
 		const queue = {
-			'route-labels': { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
+			'planning-status-labels': { 'planning-complete': 'shaped' },
 			'max-parallel': 2,
 		};
 		const cwd = await seedConfiguredCwd({ config: { queue } });
@@ -229,8 +229,31 @@ describe('getConfigView', () => {
 		expect(queueSection?.fields).toEqual([
 			// the sentence is the schema's own, so the page and the config reference
 			// cannot say different things about the same block
-			expect.objectContaining({ key: 'queue', value: queue, fromConfig: true, description: expect.stringContaining('route') }),
+			expect.objectContaining({ key: 'queue', value: queue, fromConfig: true, description: expect.stringContaining('planning status') }),
 		]);
+	});
+
+	test('carries every leaf of the queue block through untouched, because the view names no key inside it', async () => {
+		const queue = {
+			'planning-status-labels': {
+				'planning-needs-brainstorm': 'needs-brainstorm',
+				'planning-needs-plan': 'needs-plan',
+				'planning-ready-auto-plan': 'ready-auto-plan',
+				'planning-complete': 'shaped',
+				'planning-not-needed': 'no-shaping',
+			},
+			'ready-status': 'Ready to build',
+			'done-status': 'Shipped',
+			'eligible-statuses': ['Backlog', 'Ready to build'],
+			'max-parallel': 2,
+		};
+		const cwd = await seedConfiguredCwd({ config: { queue } });
+
+		const view = await getConfigView({ cwd });
+
+		// a repo that spells every label and status its own way must see all of them
+		// on the page — the block travels whole, so a dropped leaf here is a lie
+		expect(findField({ sections: view.sections, key: 'queue' })).toEqual(expect.objectContaining({ value: queue, fromConfig: true }));
 	});
 
 	test('leaves queue null when the file omits it, because the block is opt-in and the engine fills nothing in for it', async () => {

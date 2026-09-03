@@ -15,7 +15,7 @@ describe('commandCatalog', () => {
 		const rejected = commandCatalog.filter((entry) => !CommandCatalogEntry.safeParse(entry).success).map((entry) => entry.id);
 
 		expect(rejected).toStrictEqual([]);
-		expect(ids).toHaveLength(18);
+		expect(ids).toHaveLength(19);
 	});
 
 	test('ids are unique — two entries answering to one word would make the route ambiguous', () => {
@@ -46,6 +46,7 @@ describe('commandCatalog', () => {
 				'standards-validate',
 				'status',
 				'test-coverage-to-threshold',
+				'ticket-state',
 				'voice',
 			].sort(),
 		);
@@ -142,6 +143,7 @@ describe('commandCatalog', () => {
 			['build', 'resume'],
 			['build', 'ship'],
 			['build', 'queue'],
+			['build', 'ticket-state'],
 			['burn-down', 'refactor'],
 			['burn-down', 'test-coverage-to-threshold'],
 			['standards', 'standards-check'],
@@ -177,6 +179,7 @@ describe('commandCatalog', () => {
 			['resume', 'runs'],
 			['ship', 'nothing'],
 			['queue', 'runs'],
+			['ticket-state', 'nothing'],
 			['refactor', 'runs'],
 			['test-coverage-to-threshold', 'runs'],
 			['standards-check', 'snapshots'],
@@ -216,6 +219,7 @@ describe('commandCatalog', () => {
 			['resume', ['cwd', 'run', 'skip-refactor']],
 			['ship', ['cwd']],
 			['queue', ['cwd', 'file-relay']],
+			['ticket-state', ['cwd', 'planning-status', 'ref', 'tracker-status']],
 			['refactor', ['all', 'allow-dirty', 'code-checks', 'cwd', 'max-batches', 'path', 'run']],
 			['test-coverage-to-threshold', ['allow-dirty', 'cwd', 'max-batches', 'run']],
 			['standards-check', ['agent-review', 'all', 'baseline', 'code-checks', 'cwd', 'list', 'path']],
@@ -309,6 +313,35 @@ describe('commandCatalog', () => {
 		const mute = commandCatalog.flatMap((entry) => entry.flags.filter((flag) => flag.meaning.trim() === '').map((flag) => `${entry.id} --${flag.name}`));
 
 		expect(mute).toStrictEqual([]);
+	});
+
+	test('gives ticket-state one required reference and three optional flags, since a tracker write with no ticket has no subject', () => {
+		const { byId } = setupCatalog();
+		const flags = byId.get('ticket-state')?.flags.map((flag) => [flag.name, flag.value, flag.required]);
+
+		expect(flags).toStrictEqual([
+			['ref', '<ticket>', true],
+			['planning-status', '<status>', false],
+			['tracker-status', 'ready|in-progress', false],
+			['cwd', '<path>', false],
+		]);
+	});
+
+	test('names all five planning statuses in --planning-status, which is the only place the caller learns what the flag accepts', () => {
+		const { byId } = setupCatalog();
+		const planningStatus = byId.get('ticket-state')?.flags.find((flag) => flag.name === 'planning-status');
+
+		expect(planningStatus?.meaning).toEqual(
+			expect.stringMatching(/planning-needs-brainstorm.*planning-needs-plan.*planning-ready-auto-plan.*planning-complete.*planning-not-needed/),
+		);
+	});
+
+	test('names the two roles --tracker-status accepts and says done is not one of them, because done follows a confirmed merge', () => {
+		const { byId } = setupCatalog();
+		const trackerStatus = byId.get('ticket-state')?.flags.find((flag) => flag.name === 'tracker-status');
+
+		expect(trackerStatus?.meaning).toEqual(expect.stringMatching(/\bready\b.*\bin-progress\b/));
+		expect(trackerStatus?.meaning).toEqual(expect.stringMatching(/[Dd]one is not among them/));
 	});
 
 	test('a flag that takes a value names its placeholder, so the usage line never prints a bare --flag that needs one', () => {

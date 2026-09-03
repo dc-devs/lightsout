@@ -441,7 +441,26 @@ Read `.lightsout/plans/<name>/grade.json`:
 - Reading a typed field to decide what to display is not a gate. What blocks is
   decided in the engine and arrives as `passed`; you never recompute it.
 
-**8. Handoff.** Relay the final grade and:
+**8. Handoff.** When the work traces to a ticket, take it to ready-to-implement
+first, in this order:
+
+```sh
+node "<plugin-root>/dist/cli.mjs" plan publish --name <name>
+node "<plugin-root>/dist/cli.mjs" ticket-state --ref <ticket> --planning-status planning-complete --tracker-status ready
+```
+
+Publish first, so the durable plan is on the ticket before anything claims the
+ticket is ready to build. Between the two commands, drain the ticket's
+`## Open questions` of every line the shaping answered. Then run `ticket-state`.
+A nonzero exit from either command is a stop: report the exact failure and do
+not print the handoff line below, because a ticket another machine cannot
+recover is not ready for anyone. The rule behind the order is the
+ticket-workflow skill's `### Publish when the ticket is ready to implement, not
+at close` section.
+
+With no ticket, skip both commands.
+
+Then relay the final grade and:
 ```
 Next: run the `implement` skill with .lightsout/plans/<name>
 ```

@@ -16,6 +16,7 @@ import { runPipelineOrFailFast } from '#src/cli/common/utils/runPipelineOrFailFa
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { getDriver } from '#src/drivers/index.ts';
 import { planNameFromPath } from '#src/plan/index.ts';
+import { requireImplementLifecycle } from '#src/ticketLifecycle/index.ts';
 
 /**
  * What the run's flags amount to once they have been read and checked against
@@ -96,6 +97,18 @@ export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<
 	const shipIntent = resolveCommandShipIntent({ config: loaded, flags, env: process.env });
 
 	if (shipIntent === undefined) {
+		return exitCli({ code: 1 });
+	}
+
+	// Before the pipeline, because the whole guarantee is that the ticket records
+	// what it owes and that implementation has begun before an agent touches any
+	// source. There is no `--ref`: implement builds whatever branch the checkout
+	// holds, so the branch's own ticket reference is the one this reads, and a
+	// branch carrying none proceeds untouched.
+	const refused = await requireImplementLifecycle({ cwd, config: loaded, env: process.env, onProgress: createProgressPrinter() });
+
+	if (refused !== undefined) {
+		console.error(refused);
 		return exitCli({ code: 1 });
 	}
 

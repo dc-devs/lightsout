@@ -1,5 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { QueueRoute } from '#src/queue/common/constants/QueueRoute.ts';
+import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
+import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import { settleParkedLabels } from '#src/queue/settleParkedLabels.ts';
@@ -28,7 +29,9 @@ const outcomeOf = ({ number, ready }: { number: number; ready: boolean }): Ticke
 		priority: 2,
 		createdAt: '2026-01-01T00:00:00.000Z',
 		labels: [],
-		route: QueueRoute.Direct,
+		planningStatus: PlanningStatus.NotNeeded,
+		worker: QueueWorker.Direct,
+		status: 'Ready to implement',
 		unfinishedBlockers: [],
 	},
 	branch: `lo-${number}-ticket`,

@@ -1,6 +1,6 @@
 ---
 name: linear-ticket
-description: Linear's own mechanics for the lightsout ticket workflow — route labels, statuses, attachments, branch linking and pull-request magic words. Use alongside the ticket-workflow skill when filing, shaping, or closing a Linear ticket for this team.
+description: Linear's own mechanics for the lightsout ticket workflow — planning-status labels, statuses, attachments, branch linking and pull-request magic words. Use alongside the ticket-workflow skill when filing, shaping, or closing a Linear ticket for this team.
 ---
 
 # Linear mechanics
@@ -10,21 +10,26 @@ pull request are named, and how it is closed lives in the `ticket-workflow`
 skill. Read that first. This skill adds only what is Linear's, and restates
 none of it.
 
-## Route labels
+## Planning status labels
 
-The four routes sit in a Linear label group called `Route`, so a ticket
-carries exactly one. Each name repeats the `route-` prefix anyway, and that
-redundancy is deliberate: Linear's issue sidebar shows the bare label without
-its group, so a label named `brainstorm` alone would read as an instruction to
-go and brainstorm — which is wrong the moment the brainstorm is done and the
-ticket is waiting to be built. `route-brainstorm` reads as a classification
-wherever you meet it.
+The five planning statuses sit in a Linear label group called `Planning
+Status`, so a ticket carries exactly one. Each name repeats the `planning-`
+prefix anyway, and that redundancy is deliberate: Linear's issue sidebar shows
+the bare label without its group, so a label named `needs-brainstorm` alone
+would read as an instruction to go and brainstorm — which is wrong the moment
+the brainstorm is done and the ticket is waiting to be built.
+`planning-needs-brainstorm` reads as a classification wherever you meet it.
+
+The group's exclusivity is what makes exactly-one a tracker guarantee rather
+than a convention, which is why the engine writes the label as a
+group-exclusive set rather than an add.
 
 **The label is the record.** It is a real field on the ticket: filterable, and
 it overwrites rather than accumulating. Do not restate it in a comment, at
-filing or at close. Each of the four carries its own description in Linear,
-and they are defined in the ticket-workflow skill — `route-brainstorm` already
-says why it is `route-brainstorm`, and a sentence per ticket repeating that is
+filing or at close. Each of the five carries its own description in Linear,
+and they are defined in the ticket-workflow skill —
+`planning-needs-brainstorm` already says why it is
+`planning-needs-brainstorm`, and a sentence per ticket repeating that is
 ceremony that rots. Linear keeps the revision history for anyone who wants the
 superseded value.
 
@@ -36,8 +41,9 @@ The LightsOut team's Linear workflow states:
 Backlog → Ready to implement → In Progress → Done
 ```
 
-These are the names the ticket-workflow skill's route-completion table refers
-to.
+These four are the defaults `queue.eligible-statuses`, `queue.ready-status`,
+`queue.in-progress-status` and `queue.done-status` resolve to, and the names the
+ticket-workflow skill's transition table refers to.
 
 ## Branch linking
 

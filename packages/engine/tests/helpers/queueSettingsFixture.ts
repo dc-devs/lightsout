@@ -1,3 +1,4 @@
+import { defaultPlanningStatusLabels } from '#src/common/constants/PlanningStatus.ts';
 import type { QueueSettings } from '#src/queue/index.ts';
 
 /**
@@ -10,10 +11,12 @@ import type { QueueSettings } from '#src/queue/index.ts';
  * reader can act on.
  */
 export const queueSettingsFixture = (overrides: Partial<QueueSettings> = {}): QueueSettings => ({
-	routeLabels: { direct: 'route-direct', 'auto-plan': 'route-auto-plan' },
+	lifecycle: {
+		planningStatusLabels: defaultPlanningStatusLabels,
+		statusNames: { ready: 'Ready to implement', 'in-progress': 'In Progress', done: 'Done' },
+		eligibleStatuses: ['Backlog', 'Ready to implement'],
+	},
 	maxParallel: 2,
-	eligibleStatuses: ['Backlog'],
-	inProgressStatus: 'In Progress',
 	branchTemplate: '{ticket}-{slug}',
 	decisionsHeading: '## Decisions',
 	workerTimeoutMs: 14_400_000,
