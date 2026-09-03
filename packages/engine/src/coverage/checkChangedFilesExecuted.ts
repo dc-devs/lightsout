@@ -2,18 +2,16 @@ import { readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import type ts from 'typescript';
 import { z } from 'zod';
-import { defaultCoverageSummaryPath } from '#src/common/constants/defaultCoverageSummaryPath.ts';
-import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { isInertSourceFile } from '#src/common/sourceFiles/isInertSourceFile.ts';
 import { isTestableSourceFile } from '#src/common/sourceFiles/isTestableSourceFile.ts';
 import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
 import { isToolingConfigFile } from '#src/common/sourceFiles/isToolingConfigFile.ts';
-import { isUnloadableSourceFile } from '#src/common/sourceFiles/isUnloadableSourceFile.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { buildMissingSummaryMessage } from '#src/coverage/common/utils/buildMissingSummaryMessage.ts';
 import { coverageScopeOf } from '#src/coverage/common/utils/coverageScopeOf.ts';
-import { resolveCoverageScopes } from '#src/coverage/resolveCoverageScopes.ts';
+import { resolveScopeContext } from '#src/coverage/common/utils/resolveScopeContext.ts';
 import { selectCollectedFiles } from '#src/coverage/selectCollectedFiles/index.ts';
+import { selectUnloadableFiles } from '#src/coverage/selectUnloadableFiles/index.ts';
 
 /**
  * The executed-statement half of an Istanbul json-summary, parsed at the
@@ -43,42 +41,47 @@ interface Params {
 }
 
 /**
- * The per-file accountability check: every changed file must show at least
- * one executed statement in the coverage report the gate just produced. The
- * bar is "ran at all" — thresholds stay with the repo's own coverage command.
- * Deleted files and provably inert ones (type-only, barrels) have nothing to
- * execute; a tool's own configuration and files the runner cannot load at all
- * (module-scope `await`) can never show an executed statement whatever the
- * tests do; files outside every coverage scope are outside the measurement;
- * and a file the repo's own coverage configuration does not collect can never
- * appear in the report at all, so demanding an executed statement from it
- * reports a fault no test could fix.
+ * The per-file accountability check: every changed file must show at least one
+ * executed statement in the coverage report the gate just produced. The bar is
+ * "ran at all" — thresholds stay with the repo's own coverage command.
+ *
+ * Five kinds of file are exempt, each because no test could move its number:
+ *
+ * - deleted files, and provably inert ones (type-only, barrels) — there is no
+ *   statement to execute.
+ * - a tool's own configuration file — the tool reads it, no test imports it.
+ * - a file whose module-scope `await` the scope's own Jest loads as CommonJS,
+ *   where that `await` is a syntax error. Under a Jest configured for ES
+ *   modules the same file loads normally and is held to the bar like any other.
+ * - files outside every coverage scope — outside the measurement entirely.
+ * - a file the repo's own coverage configuration does not collect — it can
+ *   never appear in the report, so demanding a statement of it reports a fault
+ *   no test could fix.
  */
 export const checkChangedFilesExecuted = async ({ cwd, config, changedFiles, compiler }: Params): Promise<string | undefined> => {
 	if (changedFiles.length === 0 || compiler === undefined) {
 		return undefined;
 	}
 
-	const packagesDir = config['packages-dir'] ?? defaultPackagesDir;
-	const candidates: string[] = [];
+	const { packagesDir, monorepo, scopes } = await resolveScopeContext({ cwd, config });
+	const executable: string[] = [];
 
 	for (const file of changedFiles.filter(
 		(changed) => isTestableSourceFile({ path: changed }) && !isTestFile({ path: changed }) && !isToolingConfigFile({ path: changed, packagesDir }),
 	)) {
 		const content = await readFile(join(cwd, file), 'utf8').catch(() => undefined);
 
-		if (content !== undefined && !isInertSourceFile({ path: file, content, compiler }) && !isUnloadableSourceFile({ path: file, content, compiler })) {
-			candidates.push(file);
+		if (content !== undefined && !isInertSourceFile({ path: file, content, compiler })) {
+			executable.push(file);
 		}
 	}
+
+	const { loadable: candidates } = await selectUnloadableFiles({ cwd, config, files: executable, compiler });
 
 	if (candidates.length === 0) {
 		return undefined;
 	}
 
-	const summaryPath = config['coverage-summary-path'] ?? defaultCoverageSummaryPath;
-	const scopes = await resolveCoverageScopes({ cwd, config, summaryPath });
-	const monorepo = config['package-gates']?.['test-coverage'] !== undefined;
 	const { collected } = await selectCollectedFiles({ cwd, config, files: candidates });
 
 	// A phase whose changed files are all uncollected must not fail on a missing

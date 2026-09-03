@@ -33,7 +33,7 @@ const narrateSkippedFiles = ({ run, deleted, inert, uncoverable }: { run: Pipeli
 
 	if (uncoverable.length > 0) {
 		run.progress(
-			`write-tests: ${uncoverable.length} file(s) skipped — no unit test could move their coverage (a tool's own settings file, a module-scope await the runner cannot load, or a path this repo's coverage configuration does not collect): ${uncoverable.join(', ')}`,
+			`write-tests: ${uncoverable.length} file(s) skipped — no unit test could move their coverage (a tool's own settings file, a module-scope await this repo's Jest loads as CommonJS, or a path this repo's coverage configuration does not collect): ${uncoverable.join(', ')}`,
 		);
 	}
 };

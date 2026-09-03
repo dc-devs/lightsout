@@ -12,3 +12,4 @@ export { runCoveragePipeline } from '#src/coverage/runCoveragePipeline.ts';
 export { seedCoverageResumeState } from '#src/coverage/seedCoverageResumeState.ts';
 export { selectCollectedFiles } from '#src/coverage/selectCollectedFiles/index.ts';
 export { selectCoverageCandidates } from '#src/coverage/selectCoverageCandidates.ts';
+export { selectUnloadableFiles } from '#src/coverage/selectUnloadableFiles/index.ts';

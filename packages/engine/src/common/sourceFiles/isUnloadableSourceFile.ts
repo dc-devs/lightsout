@@ -27,13 +27,14 @@ const hasModuleScopeAwait = ({ node, compiler }: { node: ts.Node; compiler: type
 };
 
 /**
- * True when the file carries an `await` at module scope.
+ * True when the file carries an `await` at module scope — a statement that is
+ * legal only where the module system evaluates the file as an ES module, and a
+ * syntax error anywhere it is evaluated as CommonJS.
  *
- * Such a file is a syntax error in the CommonJS output ts-jest produces, so
- * the unit runner cannot load it — no test can execute a single statement of
- * it, and the coverage report shows it permanently at zero. That is a property
- * of the module system, not a missing test, so holding it to the
- * executed-statement bar reports a defect no test could ever fix.
+ * Whether the consumer's own runner evaluates it either way is not this
+ * predicate's question: it reads syntax and nothing else. The coverage module's
+ * `selectUnloadableFiles` answers the runner half, by reading the Jest
+ * configuration governing the file's coverage scope.
  *
  * Deliberately narrow: an `await` inside any function or class body is
  * ordinary async code and says nothing about whether the file loads.
