@@ -84,6 +84,23 @@ describe('checkHarness', () => {
 		expect(check.detail).toMatch(/codex 0\.146\.0/);
 	});
 
+	test('probes the pi-family harnesses under their own binaries — omp and pi are separate installs', async () => {
+		const probedBinaries: string[] = [];
+		const check = await checkHarness({
+			cwd: '/repo',
+			config: setupConfig({ harness: 'omp', commands: { improve: { harness: 'pi' } } }),
+			probeHarness: async ({ binary }) => {
+				probedBinaries.push(binary);
+
+				return { exitCode: 0, stdout: '18.1.6\n', stderr: '' };
+			},
+		});
+
+		// each name shells its own binary — an omp install probes no pi and vice versa
+		expect([...probedBinaries].sort()).toStrictEqual(['omp', 'pi']);
+		expect(check.status).toBe('pass');
+	});
+
 	test('probes both the global harness and a command that overrides it', async () => {
 		const probedBinaries: string[] = [];
 		const check = await checkHarness({

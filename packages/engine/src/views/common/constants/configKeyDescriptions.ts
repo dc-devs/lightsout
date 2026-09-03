@@ -19,7 +19,7 @@
  * `pnpm build:config-reference` has been run.
  */
 export const configKeyDescriptions: Record<string, string> = {
-	harness: "Harness name. Supported values are 'claude-code' and 'codex'. Defaults to 'claude-code'.",
+	harness: "Harness name. Supported values are 'claude-code', 'codex', 'omp' (Oh My Pi) and 'pi' (bare upstream pi). Defaults to 'claude-code'.",
 	model: 'Model override passed through to the selected harness.',
 	effort: "Reasoning effort passed through to the harness — one of `low`, `medium`, `high`, `xhigh` or `max`. Omit to take each harness's own default.",
 	permissions:

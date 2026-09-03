@@ -4,7 +4,7 @@ import { Effort } from '#src/contracts/Effort.ts';
 /** One command's harness override: harness, model, and/or effort, each falling back to the global field. */
 const commandHarness = z
 	.object({
-		/** Harness name for this command ('claude-code' or 'codex'). Falls back to the global `harness`. */
+		/** Harness name for this command ('claude-code', 'codex', 'omp' or 'pi'). Falls back to the global `harness`. */
 		harness: z.string().optional(),
 		/** Model for this command's harness. The global `model` falls through only when this command resolves to the global harness. */
 		model: z.string().optional(),

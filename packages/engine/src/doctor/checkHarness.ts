@@ -4,7 +4,7 @@ import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { probeTimeoutMs } from '#src/doctor/common/constants/probeTimeoutMs.ts';
 import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';
 
-const driverBinaries: Record<string, string> = { 'claude-code': 'claude', codex: 'codex' };
+const driverBinaries: Record<string, string> = { 'claude-code': 'claude', codex: 'codex', omp: 'omp', pi: 'pi' };
 
 const getReferencedDriverNames = ({ config }: { config: LightsoutConfig }) => {
 	const entryDrivers = Object.values(config.commands ?? {}).map((entry) => entry?.harness);

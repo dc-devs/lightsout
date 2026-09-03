@@ -22592,7 +22592,7 @@ var Effort = {
 
 // src/contracts/ConfigCommands.ts
 var commandHarness = external_exports.object({
-  /** Harness name for this command ('claude-code' or 'codex'). Falls back to the global `harness`. */
+  /** Harness name for this command ('claude-code', 'codex', 'omp' or 'pi'). Falls back to the global `harness`. */
   harness: external_exports.string().optional(),
   /** Model for this command's harness. The global `model` falls through only when this command resolves to the global harness. */
   model: external_exports.string().optional(),
@@ -25601,7 +25601,7 @@ ${notIgnored.join("\n")}`
 var messageOf = ({ error: error51 }) => error51 instanceof Error ? error51.message : String(error51);
 
 // src/doctor/checkHarness.ts
-var driverBinaries = { "claude-code": "claude", codex: "codex" };
+var driverBinaries = { "claude-code": "claude", codex: "codex", omp: "omp", pi: "pi" };
 var getReferencedDriverNames = ({ config: config2 }) => {
   const entryDrivers = Object.values(config2.commands ?? {}).map((entry) => entry?.harness);
   const names = [config2.harness ?? "claude-code", ...entryDrivers].filter((name) => typeof name === "string");
@@ -147363,6 +147363,31 @@ var buildCodexArgs = ({ outFile, model, effort, permissions }) => {
   return args;
 };
 
+// src/drivers/buildPiArgs.ts
+var readOnlyTools = {
+  pi: "read,grep,find,ls",
+  omp: "read,grep,glob,lsp"
+};
+var buildPiArgs = ({ variant, systemPromptPath, model, effort, permissions }) => {
+  const args = ["-p", "--mode", "json", "--no-session"];
+  if (systemPromptPath) {
+    args.push("--append-system-prompt", systemPromptPath);
+  }
+  if (model) {
+    args.push("--model", model);
+  }
+  if (effort) {
+    args.push("--thinking", effort);
+  }
+  if (permissions === Permissions.ReadOnly) {
+    args.push("--tools", readOnlyTools[variant]);
+  }
+  if (variant === "omp" && (permissions === Permissions.Write || permissions === Permissions.FullAccess)) {
+    args.push("--approval-mode", permissions === Permissions.Write ? "write" : "yolo");
+  }
+  return args;
+};
+
 // src/drivers/common/utils/isRateLimitMessage.ts
 var rateLimitPattern = /usage limit|rate limit|limit reached|limit will reset|quota|hit your [^.\n]{0,40}limit|\b(?:weekly|daily|hourly|monthly)\s+limit\b|\b(?:status|error|code)\D{0,6}529\b|overloaded/i;
 var isRateLimitMessage = ({ text }) => rateLimitPattern.test(text);
@@ -147510,6 +147535,88 @@ ${stderr}` })
   return driver;
 };
 
+// src/drivers/createPiDriver.ts
+var Usage = external_exports.object({
+  input: external_exports.number().optional(),
+  output: external_exports.number().optional(),
+  cacheRead: external_exports.number().optional(),
+  cacheWrite: external_exports.number().optional(),
+  cost: external_exports.object({
+    total: external_exports.number().optional()
+  }).optional()
+});
+var ContentBlock = external_exports.object({
+  type: external_exports.string(),
+  text: external_exports.string().optional()
+});
+var Message = external_exports.object({
+  role: external_exports.string(),
+  content: external_exports.array(ContentBlock).optional(),
+  usage: Usage.optional()
+});
+var MessageEndEvent = external_exports.object({
+  type: external_exports.literal("message_end"),
+  message: Message
+});
+var AgentEndEvent = external_exports.object({
+  type: external_exports.literal("agent_end"),
+  messages: external_exports.array(Message)
+});
+var createPiFamilyDriver = ({ name, variant, command }) => {
+  const driver = {
+    name,
+    invoke: async (invocation) => {
+      const { prompt, systemPrompt, model, effort, permissions, cwd, timeoutMs, onEvent } = invocation;
+      let agentEnd;
+      let lastAssistant;
+      const systemPromptFile = systemPrompt ? await writeSystemPromptFile({ systemPrompt }) : void 0;
+      const { exitCode, stdout, stderr } = await spawnCollect({
+        command,
+        args: buildPiArgs({ variant, systemPromptPath: systemPromptFile?.path, model, effort, permissions }),
+        cwd,
+        stdinText: prompt,
+        timeoutMs,
+        onStdoutLine: (line) => {
+          let event;
+          try {
+            event = JSON.parse(line);
+          } catch {
+            return;
+          }
+          const messageEnd = MessageEndEvent.safeParse(event);
+          if (messageEnd.success) {
+            lastAssistant = messageEnd.data.message;
+          }
+          const end = AgentEndEvent.safeParse(event);
+          if (end.success) {
+            agentEnd = end.data;
+          }
+          onEvent?.(event);
+        }
+      }).finally(() => systemPromptFile?.cleanup());
+      const finalMessage = agentEnd ? [...agentEnd.messages].reverse().find((message) => message.role === "assistant") : lastAssistant;
+      const text = (finalMessage?.content ?? []).filter((block) => block.type === "text").map((block) => block.text ?? "").join("\n");
+      const errored = exitCode !== 0 || text === "";
+      return {
+        text: text || stdout || stderr,
+        exitCode,
+        rateLimited: errored && isRateLimitMessage({ text: `${stdout}
+${stderr}` }),
+        usage: finalMessage?.usage ? {
+          inputTokens: finalMessage.usage.input ?? 0,
+          outputTokens: finalMessage.usage.output ?? 0,
+          cacheReadTokens: finalMessage.usage.cacheRead ?? 0,
+          cacheCreationTokens: finalMessage.usage.cacheWrite ?? 0,
+          costUsd: finalMessage.usage.cost?.total ?? 0
+        } : void 0
+      };
+    }
+  };
+  return driver;
+};
+var createPiDriver = () => createPiFamilyDriver({ name: "pi", variant: "pi", command: "pi" });
+var createOmpDriver = () => createPiFamilyDriver({ name: "omp", variant: "omp", command: "omp" });
+
 // src/drivers/getDriver.ts
 var getDriver = ({ name }) => {
   if (name === "claude-code") {
@@ -147518,7 +147625,13 @@ var getDriver = ({ name }) => {
   if (name === "codex") {
     return createCodexDriver();
   }
-  throw new Error(`unknown driver: ${name} (available: claude-code, codex)`);
+  if (name === "omp") {
+    return createOmpDriver();
+  }
+  if (name === "pi") {
+    return createPiDriver();
+  }
+  throw new Error(`unknown driver: ${name} (available: claude-code, codex, omp, pi)`);
 };
 
 // src/cli/implementCommand.ts

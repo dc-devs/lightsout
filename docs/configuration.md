@@ -186,7 +186,7 @@ is overwritten the next time `pnpm build:config-reference` runs.
 
 | Field | Required | What it controls |
 | --- | ---: | --- |
-| `harness` | no | Harness name. Supported values are 'claude-code' and 'codex'. Defaults to 'claude-code'. |
+| `harness` | no | Harness name. Supported values are 'claude-code', 'codex', 'omp' (Oh My Pi) and 'pi' (bare upstream pi). Defaults to 'claude-code'. |
 | `model` | no | Model override passed through to the selected harness. |
 | `effort` | no | Reasoning effort passed through to the harness — one of `low`, `medium`, `high`, `xhigh` or `max`. Omit to take each harness's own default. |
 | `permissions` | no | Harness-neutral capability level for agent invocations: `write` lets agents edit files and run commands inside the workspace, `full-access` bypasses the harness's sandbox entirely. Defaults to 'write'. `read-only` is engine-selected for the supervisor and is deliberately not settable — it would make a writing role write nothing. |
@@ -488,7 +488,7 @@ schema declares here.
 Two rules govern the keys above, and this surface depends on both:
 
 - A key with a neutral name must mean the same thing on every harness. A capability only one harness has never gets a neutral key, because a key that reads as portable but silently does nothing is a failure you cannot see. If such a capability is ever needed, it goes under an explicitly harness-scoped block.
-- `permissions` expresses intent, not identical enforcement. On Claude Code the commands granted through `agent-commands` are enforced by the harness itself. On Codex the workspace-write sandbox already permits commands, so the grant list the engine injects into the agent's prompt is what binds.
+- `permissions` expresses intent, not identical enforcement. On Claude Code the commands granted through `agent-commands` are enforced by the harness itself. On Codex the workspace-write sandbox already permits commands, so the grant list the engine injects into the agent's prompt is what binds. On the pi-family harnesses the prompt grant is also what binds: `pi` has no permission system at all, and `omp`'s per-prefix grant would have to ride a config overlay that replaces the user's own command rules wholesale — not additive, so the engine does not use it. Under `omp`, `write` maps onto its approval tiers (file edits approved, command execution rejected headlessly) and `full-access` onto `yolo`; under `pi` both ride the prompt alone.
 
 ## Complete example
 
