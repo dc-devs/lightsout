@@ -5,6 +5,7 @@ import { getPathCarveOut } from '../../../../../common/frameworks/getPathCarveOu
 import { isFrameworkLoadedFile } from '../../../../../common/frameworks/isFrameworkLoadedFile.ts';
 import { isMandatedModuleFolder } from '../../../../../common/frameworks/isMandatedModuleFolder.ts';
 import { mapFolderModules } from '../../../../../common/modules/mapFolderModules.ts';
+import { isOutsideEveryPackage } from '../../../../../common/paths/isOutsideEveryPackage.ts';
 
 const getDepth = ({ path }: { path: string }) => path.split('/').length;
 const isInside = ({ file, folder }: { file: string; folder: string }) => file.startsWith(`${folder}/`);
@@ -40,6 +41,10 @@ export const check: StandardsCheckModule = {
 	 *
 	 * Every internal one file reaches into within the same module is ONE finding:
 	 * the fix is a single edit to that file's imports.
+	 *
+	 * Module boundaries are a package's own architecture, so an importer
+	 * belonging to no package is skipped — and a repo whose manifests declare no
+	 * workspace package is itself the package, so everything in it is judged.
 	 */
 	run: ({ input }): RawStandardsFinding[] => {
 		if (input.kind !== 'import-graph') {
@@ -48,6 +53,7 @@ export const check: StandardsCheckModule = {
 
 		const { files, referenceFiles, edges, standardsPacks, dependencies } = input;
 		const carveOuts = getFrameworkCarveOuts({ dependencies });
+		const packageDirectories = [...dependencies.keys()];
 		const targetsByFile = mapTargetsByFile({ edges });
 		// Mapped over the whole repo rather than the scope, so a run narrowed to a
 		// handful of files still knows where every module's boundary sits.
@@ -71,7 +77,7 @@ export const check: StandardsCheckModule = {
 		const crossings = new Map<string, Crossing>();
 
 		for (const { from, to } of edges) {
-			if (!scope.has(from) || to.split('/').includes('common')) {
+			if (!scope.has(from) || to.split('/').includes('common') || isOutsideEveryPackage({ path: from, packageDirectories })) {
 				continue;
 			}
 
