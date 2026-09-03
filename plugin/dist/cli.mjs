@@ -152028,6 +152028,14 @@ var getSpokenPickerText = ({ toolInput }) => {
 
 // src/voice/getSpokenQuestion.ts
 import { readFile as readFile48 } from "node:fs/promises";
+
+// src/voice/common/utils/isQuestionText.ts
+var isQuestionText = ({ text }) => {
+  const supportingLabels = ["**Context:**", "**Trade-offs:**", "**Recommendation:**"];
+  return text.includes("**Question:**") && supportingLabels.some((label) => text.includes(label));
+};
+
+// src/voice/getSpokenQuestion.ts
 var parseEntry = ({ line }) => {
   try {
     const parsed = JSON.parse(line);
@@ -152062,10 +152070,6 @@ var getFinalTurnEntries = ({ lines }) => {
   }
   return entries.reverse();
 };
-var isQuestionText = ({ text }) => {
-  const supportingLabels = ["**Context:**", "**Trade-offs:**", "**Recommendation:**"];
-  return text.includes("**Question:**") && supportingLabels.some((label) => text.includes(label));
-};
 var getQuestionTexts = ({ entries }) => {
   const texts = [];
   for (const entry of entries) {
@@ -152085,6 +152089,15 @@ var getSpokenQuestion = async ({ transcriptPath }) => {
   }
   const lines = raw.split("\n").filter((line) => line.trim() !== "");
   const texts = getQuestionTexts({ entries: getFinalTurnEntries({ lines }) }).map((text) => formatSpeakable({ text }));
+  return texts.length === 0 ? void 0 : texts.join("\n\n");
+};
+
+// src/voice/getSpokenTurnQuestion.ts
+var getSpokenTurnQuestion = ({ blocks }) => {
+  if (!Array.isArray(blocks)) {
+    return void 0;
+  }
+  const texts = blocks.map((block) => getStringField({ value: block, key: "type" }) === "text" ? getStringField({ value: block, key: "text" }) : void 0).filter((text) => text !== void 0 && isQuestionText({ text })).map((text) => formatSpeakable({ text }));
   return texts.length === 0 ? void 0 : texts.join("\n\n");
 };
 
@@ -152211,6 +152224,30 @@ var voiceOnCommand = async ({ cwd }) => {
   }
 };
 
+// src/cli/voice/voiceSpeakCommand.ts
+var voiceSpeakCommand = async ({ cwd, kind, input }) => {
+  try {
+    if (process.platform !== "darwin") {
+      return;
+    }
+    if (!await isVoiceOn({ cwd })) {
+      return;
+    }
+    let payload;
+    try {
+      payload = JSON.parse(input);
+    } catch {
+      return;
+    }
+    const text = kind === "picker" ? getSpokenPickerText({ toolInput: payload }) : getSpokenTurnQuestion({ blocks: payload });
+    if (text === void 0) {
+      return;
+    }
+    await speakText({ cwd, text });
+  } catch {
+  }
+};
+
 // src/cli/voice/voiceCommand.ts
 var voiceCommand = async ({ rest, cwd }) => {
   const subcommand = getPositionals({ args: rest })[0];
@@ -152225,6 +152262,16 @@ var voiceCommand = async ({ rest, cwd }) => {
   if (subcommand === "hook") {
     const input = process.stdin.isTTY ? "" : await getStreamText({ stream: process.stdin });
     await voiceHookCommand({ cwd, input });
+    return;
+  }
+  if (subcommand === "speak") {
+    const kind = getPositionals({ args: rest })[1];
+    if (kind !== "turn" && kind !== "picker") {
+      console.error(usage);
+      return exitCli({ code: 1 });
+    }
+    const input = process.stdin.isTTY ? "" : await getStreamText({ stream: process.stdin });
+    await voiceSpeakCommand({ cwd, kind, input });
     return;
   }
   console.error(usage);

@@ -38,6 +38,11 @@ in the engine and in the plugin's own hook. This skill only flips the switch.
 - In Claude Code, the reading happens **automatically** through a hook the
   plugin ships: after a turn that asks a labelled question, and the moment an
   option picker appears. Nothing needs to be run per question.
+- In OMP, the reading happens **automatically** through the extension the
+  plugin ships when installed with `omp plugin install lightsout@lightsout`
+  (or loaded directly with `omp --extension <plugin-root>/extensions/voice.ts`):
+  the same two moments as Claude Code — the option picker the moment it
+  appears, and a finished turn's labelled question.
 - Codex can load the same bundled hook, but its transcript format is not a
   stable hook interface, so automatic labelled-question reading is not
   guaranteed there. The immediate option-picker event is Claude Code-only.

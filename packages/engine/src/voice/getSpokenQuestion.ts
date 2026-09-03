@@ -3,6 +3,7 @@ import { getArrayField } from '#src/voice/common/fields/getArrayField.ts';
 import { getField } from '#src/voice/common/fields/getField.ts';
 import { getStringField } from '#src/voice/common/fields/getStringField.ts';
 import { formatSpeakable } from '#src/voice/common/utils/formatSpeakable.ts';
+import { isQuestionText } from '#src/voice/common/utils/isQuestionText.ts';
 
 interface Params {
 	transcriptPath: string;
@@ -57,14 +58,6 @@ const getFinalTurnEntries = ({ lines }: { lines: string[] }) => {
 
 	return entries.reverse();
 };
-
-/** The labels both interview skills mandate: the question label plus at least one of the parts that make a one-word answer safe. */
-const isQuestionText = ({ text }: { text: string }) => {
-	const supportingLabels = ['**Context:**', '**Trade-offs:**', '**Recommendation:**'];
-
-	return text.includes('**Question:**') && supportingLabels.some((label) => text.includes(label));
-};
-
 const getQuestionTexts = ({ entries }: { entries: unknown[] }) => {
 	const texts: string[] = [];
 
