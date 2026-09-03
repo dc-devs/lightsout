@@ -4,6 +4,7 @@ import { expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
+import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 import { readGateLog } from '#tests/helpers/readGateLog.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
@@ -164,18 +165,75 @@ test('scope derived from concrete plan-body paths when nothing is declared', asy
 	expect(cleanSlateGates.some((line) => line.startsWith('@acme/web '))).toBeFalsy();
 });
 
-test('a declared package without package.json fails its gate group with a clear error', async () => {
+test('a package path the plan body invents is dropped, and the run says which', async () => {
+	const dir = setupMonorepo({ plan: '# Plan: fix api\n\nEdit `packages/api/src/index.js`, mirroring `packages/ghost/src/x.ts`.\n' });
+	const progress: string[] = [];
+	let cleanSlateGates: string[] = [];
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async ({ prompt }) => {
+			if (roleOf(prompt) !== 'implement') {
+				return { text: report(), exitCode: 0 };
+			}
+
+			cleanSlateGates = readGateLog({ dir });
+			writeSource({ dir, path: 'packages/api/src/feature.js', source: 'export const feature = () => 2;\n' });
+
+			return { text: report({ changedFiles: [{ path: 'packages/api/src/feature.js', summary: 'feature' }] }), exitCode: 0 };
+		},
+	};
+	const result = await runImplementPipeline({
+		cwd: dir,
+		driver,
+		config: await readConfig({ cwd: dir }),
+		planPath: 'plan.md',
+		onProgress: (message) => progress.push(message),
+	});
+
+	expect(result.ok).toBe(true);
+	// ghost is a path an author typed, not a package: gating it would run every
+	// gate and then die at the clean slate blaming the codebase, not the scope
+	expect(result.manifest.packages).toStrictEqual(['api']);
+	expect(result.manifest.packagesSource).toBe('plan-paths');
+	expect(progress).toContain('ignored plan package paths: ghost — no such package under packages/');
+	expect(cleanSlateGates.some((line) => line.startsWith('@acme/api '))).toBeTruthy();
+});
+
+test('a plan body naming only packages that do not exist stops the run, and still records what it dropped', async () => {
+	const dir = setupMonorepo({ plan: '# Plan\n\nEdit `packages/ghost/src/x.ts`.\n' });
+	const progress: string[] = [];
+	const result = await runImplementPipeline({
+		cwd: dir,
+		driver: createUncalledDriver({ reason: 'no agent should be invoked — scope resolution must fail first' }),
+		config: await readConfig({ cwd: dir }),
+		planPath: 'plan.md',
+		onProgress: (message) => progress.push(message),
+	});
+
+	expect(result.manifest.status).toBe('failed');
+	expect(result.error ?? '').toMatch(/no package scope/);
+	// the run that most needs the dropped names on the record is the one that
+	// ends up with no scope at all
+	expect(progress).toContain('ignored plan package paths: ghost — no such package under packages/');
+	expect(readGateLog({ dir })).toStrictEqual([]);
+});
+
+test('a declared package that does not exist stops the run before any gate, naming the packages that do', async () => {
 	const dir = setupMonorepo({ plan: '---\npackages:\n  - ghost\n---\n# Plan\n' });
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async () => {
-			throw new Error('no agent should be invoked — clean-slate must fail first');
+			throw new Error('no agent should be invoked — scope resolution must fail first');
 		},
 	};
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 
 	expect(result.manifest.status).toBe('failed');
-	expect(result.error ?? '').toMatch(/ghost.*no package\.json|no package\.json.*ghost/);
+	expect(result.error ?? '').toMatch(/ghost/);
+	expect(result.error ?? '').toMatch(/no such package under packages\//);
+	expect(result.error ?? '').toMatch(/api, web/);
+	// the run stops at scope resolution, so no gate command runs
+	expect(readGateLog({ dir })).toStrictEqual([]);
 });
 
 /**

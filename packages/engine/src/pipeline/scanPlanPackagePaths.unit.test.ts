@@ -3,6 +3,8 @@
 // scanPlanPackagePaths living under another function's name read as a barrel
 // entry nothing tests.
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { LightsoutConfig } from '#src/contracts/index.ts';
 import { readPlanPackages, scanPlanPackagePaths } from '#src/pipeline/index.ts';
@@ -62,6 +64,15 @@ test('scanPlanPackagePaths respects word boundaries and packagesDir', () => {
 test('scanPlanPackagePaths treats regex characters in packagesDir literally', () => {
 	expect(scanPlanPackagePaths({ planContent: 'edit apps.v2/web/src/x.ts', packagesDir: 'apps.v2' })).toStrictEqual(['web']);
 	expect(scanPlanPackagePaths({ planContent: 'edit appsXv2/web/src/x.ts', packagesDir: 'apps.v2' })).toBe(undefined);
+});
+
+test('scanPlanPackagePaths reads nothing from disk', () => {
+	const source = readFileSync(join(__dirname, 'scanPlanPackagePaths.ts'), 'utf8');
+
+	// the direct route and the borrowed one: common/workspace/ is where every
+	// filesystem-reading workspace helper lives, the package lister included
+	expect(source).not.toContain('node:fs');
+	expect(source).not.toContain('#src/common/workspace/');
 });
 
 const baseGates = { check: 'true', test: 'true', 'test-coverage': false };
