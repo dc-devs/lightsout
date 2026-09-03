@@ -1,6 +1,6 @@
 {
 	"name": "lightsout-jira",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "Jira Cloud ticket mechanics for the Lightsout ticket workflow.",
 	"author": {
 		"name": "dc-devs",
