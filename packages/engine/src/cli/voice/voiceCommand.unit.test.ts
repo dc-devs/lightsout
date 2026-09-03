@@ -15,6 +15,7 @@ import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 const mockVoiceOnCommand = jest.fn<(params: unknown) => Promise<void>>();
 const mockVoiceOffCommand = jest.fn<(params: unknown) => Promise<void>>();
 const mockVoiceHookCommand = jest.fn<(params: unknown) => Promise<void>>();
+const mockVoiceSpeakCommand = jest.fn<(params: unknown) => Promise<void>>();
 const mockGetStreamText = jest.fn<(params: unknown) => Promise<string>>();
 
 // -------------------------
@@ -24,6 +25,7 @@ jest.mock('#src/cli/voice/voiceOffCommand.ts', () => ({ voiceOffCommand: (params
 jest.mock('#src/cli/voice/voiceHookCommand.ts', () => ({ voiceHookCommand: (params: unknown) => mockVoiceHookCommand(params) }));
 jest.mock('#src/cli/voice/common/utils/getStreamText.ts', () => ({ getStreamText: (params: unknown) => mockGetStreamText(params) }));
 
+jest.mock('#src/cli/voice/voiceSpeakCommand.ts', () => ({ voiceSpeakCommand: (params: unknown) => mockVoiceSpeakCommand(params) }));
 // stdin's own isTTY is not among the values tests/config/setupTestEnvironment.ts
 // puts back, and a test that pinned it on would otherwise follow the suite into
 // every file after it. Recorded at file scope so one hook restores it.
@@ -41,6 +43,7 @@ const setupVoice = ({ args, inTerminal = false }: { args: string[]; inTerminal?:
 	mockVoiceOffCommand.mockResolvedValue(undefined);
 	mockVoiceHookCommand.mockResolvedValue(undefined);
 	mockGetStreamText.mockResolvedValue('{"hook_event_name":"Stop"}');
+	mockVoiceSpeakCommand.mockResolvedValue(undefined);
 	process.stdin.isTTY = inTerminal;
 
 	return { context: { flags: parseFlags({ args }), rest: args, cwd }, cwd, ...captured };
@@ -88,12 +91,29 @@ describe('voiceCommand', () => {
 		expect(errors[0] ?? '').toMatch(/^lightsout — deterministic engine for coding agents/);
 		expect(exitCodes).toStrictEqual([1]);
 	});
-
 	test('no subaction at all is the same as an unknown one', async () => {
 		const { context, exitCodes } = setupVoice({ args: [] });
 
 		await expect(voiceCommand(context)).rejects.toThrow(/process\.exit/);
 
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('routes speak with the kind and the payload a pi-family extension piped in', async () => {
+		const { context, cwd } = setupVoice({ args: ['speak', 'turn'] });
+
+		await voiceCommand(context);
+
+		expect(mockVoiceSpeakCommand).toHaveBeenCalledWith({ cwd, kind: 'turn', input: '{"hook_event_name":"Stop"}' });
+	});
+
+	test('a speak kind naming no event the engine knows is refused with the usage text', async () => {
+		const { context, errors, exitCodes } = setupVoice({ args: ['speak', 'shout'] });
+
+		await expect(voiceCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(mockVoiceSpeakCommand).not.toHaveBeenCalled();
+		expect(errors[0] ?? '').toMatch(/^lightsout — deterministic engine for coding agents/);
 		expect(exitCodes).toStrictEqual([1]);
 	});
 });

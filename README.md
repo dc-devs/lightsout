@@ -52,6 +52,17 @@ Completing the task is not enough. Agents should leave the repository better tha
    codex plugin add lightsout@lightsout
    ```
 
+   In OMP (Oh My Pi):
+
+   ```sh
+   omp plugin marketplace add dc-devs/lightsout
+   omp plugin install lightsout@lightsout
+   ```
+
+   Under OMP the install is native: the skills load as first-class plugin
+   skills, and spoken questions work through the extension the plugin ships —
+   no Claude Code install needed alongside it.
+
    The marketplace also carries optional `lightsout-linear` and `lightsout-jira`
    add-ons. They teach tracker-specific labels, statuses, attachments, and
    pull-request mechanics on top of the base ticket workflow. The queue adapters
