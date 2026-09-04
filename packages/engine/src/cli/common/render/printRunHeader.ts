@@ -1,4 +1,5 @@
 import { defaultAgentTimeoutMinutes } from '#src/common/constants/defaultAgentTimeoutMinutes.ts';
+import { defaultGateTimeoutMinutes } from '#src/common/constants/defaultGateTimeoutMinutes.ts';
 import { defaultSupervisorTimeoutMinutes } from '#src/common/constants/defaultSupervisorTimeoutMinutes.ts';
 import { type LightsoutConfig, Permissions } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
@@ -30,7 +31,7 @@ export const printRunHeader = ({ config, driver, cwd }: Params): void => {
 		`  harness: ${driver.name} · model: ${config.model ?? 'harness default'} · effort: ${config.effort ?? 'harness default'} · permissions: ${config.permissions ?? Permissions.Write}`,
 	);
 	console.log(
-		`  timeouts: agent ${config.timeouts?.['agent-minutes'] ?? defaultAgentTimeoutMinutes}m · supervisor ${config.timeouts?.['supervisor-minutes'] ?? defaultSupervisorTimeoutMinutes}m`,
+		`  timeouts: agent ${config.timeouts?.['agent-minutes'] ?? defaultAgentTimeoutMinutes}m · supervisor ${config.timeouts?.['supervisor-minutes'] ?? defaultSupervisorTimeoutMinutes}m · gate ${config.timeouts?.['gate-minutes'] ?? defaultGateTimeoutMinutes}m`,
 	);
 	console.log(`  gates (root): check=[${config.gates.check}] test=[${config.gates.test}] coverage=[${coverage}]`);
 

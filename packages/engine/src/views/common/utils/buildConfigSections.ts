@@ -1,6 +1,7 @@
 import { defaultAgentTimeoutMinutes } from '#src/common/constants/defaultAgentTimeoutMinutes.ts';
 import { defaultCoverageSummaryPath } from '#src/common/constants/defaultCoverageSummaryPath.ts';
 import { defaultExecutorFileLimit } from '#src/common/constants/defaultExecutorFileLimit.ts';
+import { defaultGateTimeoutMinutes } from '#src/common/constants/defaultGateTimeoutMinutes.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { defaultSupervisorTimeoutMinutes } from '#src/common/constants/defaultSupervisorTimeoutMinutes.ts';
 import { ConfigFieldView, type ConfigView, type LightsoutConfig } from '#src/contracts/index.ts';
@@ -15,7 +16,7 @@ import { configKeyDescriptions } from '#src/views/common/constants/configKeyDesc
  * with no named default answers `undefined` and becomes a null row the page
  * reads as "default: none".
  *
- * `timeouts` appears as its two leaves rather than as the block, because the two
+ * `timeouts` appears as its leaves rather than as the block, because the
  * defaults are per leaf: a file that sets one must not be shown as claiming the
  * other.
  */
@@ -38,6 +39,7 @@ const configFieldReaders: Record<string, (params: { config: LightsoutConfig }) =
 	vendored: ({ config }) => config.vendored,
 	'timeouts.agent-minutes': ({ config }) => config.timeouts?.['agent-minutes'] ?? defaultAgentTimeoutMinutes,
 	'timeouts.supervisor-minutes': ({ config }) => config.timeouts?.['supervisor-minutes'] ?? defaultSupervisorTimeoutMinutes,
+	'timeouts.gate-minutes': ({ config }) => config.timeouts?.['gate-minutes'] ?? defaultGateTimeoutMinutes,
 	ship: ({ config }) => config.ship,
 	'ticket-tracker': ({ config }) => config['ticket-tracker'],
 	queue: ({ config }) => config.queue,
@@ -53,7 +55,7 @@ const configSectionKeys: Array<{ title: string; keys: string[] }> = [
 	{ title: 'Standards', keys: ['standards-packs', 'standards-channels', 'standards-checks'] },
 	{ title: 'Agent commands', keys: ['agent-commands'] },
 	{ title: 'Generated', keys: ['generated', 'vendored'] },
-	{ title: 'Timeouts', keys: ['timeouts.agent-minutes', 'timeouts.supervisor-minutes'] },
+	{ title: 'Timeouts', keys: ['timeouts.agent-minutes', 'timeouts.supervisor-minutes', 'timeouts.gate-minutes'] },
 	{ title: 'Ship', keys: ['ship'] },
 	{ title: 'Ticket tracker', keys: ['ticket-tracker'] },
 	{ title: 'Queue', keys: ['queue'] },
@@ -82,7 +84,7 @@ interface Params {
  * who decided that.
  *
  * @param config - the parsed config, which supplies every value
- * @param declaredKeys - every key the file itself wrote, the two `timeouts.` leaves spelled out, which supplies every `fromConfig`
+ * @param declaredKeys - every key the file itself wrote, the `timeouts.` leaves spelled out, which supplies every `fromConfig`
  */
 export const buildConfigSections = ({ config, declaredKeys }: Params): ConfigView['sections'] =>
 	configSectionKeys.map(({ title, keys }) => ({

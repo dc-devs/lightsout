@@ -16,7 +16,7 @@ const unwrapOptional = ({ schema }: { schema: z.ZodType }) => (schema instanceof
 
 /**
  * The schema field a description key names, following one dot into a block —
- * which is what the two `timeouts.` leaves need.
+ * which is what the `timeouts.` leaves need.
  */
 const findKeySchema = ({ key }: { key: string }) => {
 	const [head, ...blockSegments] = key.split('.');

@@ -54,6 +54,42 @@ const rowCells = ({ row }: { row: RunProgressRow }) => {
 
 const collapseWhitespace = ({ text }: { text: string }) => text.replace(/\s+/g, ' ').trim();
 
+/**
+ * How wide a wrapped diagnosis is allowed to run.
+ *
+ * The block's rules span its widest line, so one long unwrapped line does not
+ * overflow — it drags the rules out with it, and a supervisor diagnosis runs to
+ * several hundred characters. A fixed ceiling keeps the block the shape the
+ * layout was chosen as, and the rules still grow for a long step id the way they
+ * always did.
+ */
+const diagnosisWidth = 96;
+
+/**
+ * A labelled diagnostic wrapped onto as many lines as it needs, the label on the
+ * first and the rest hanging under its text — the shape the single-line entries
+ * beside it already read as, so a long one does not become a different kind of
+ * row.
+ */
+const wrapLabelled = ({ label, text }: { label: string; text: string }) => {
+	const indent = ` ${label.padEnd('last output'.length)}   `;
+	const width = Math.max(diagnosisWidth - indent.length, 1);
+	const lines: string[] = [];
+	let rest = text;
+
+	while (rest.length > width) {
+		const cut = rest.lastIndexOf(' ', width);
+		const at = cut > 0 ? cut : width;
+
+		lines.push(rest.slice(0, at));
+		rest = rest.slice(at).trimStart();
+	}
+
+	lines.push(rest);
+
+	return lines.map((line, index) => `${index === 0 ? indent : ' '.repeat(indent.length)}${line}`);
+};
+
 const verificationLines = ({ row }: { row: RunProgressRow }) => {
 	const verification = row.verification;
 
@@ -74,7 +110,7 @@ const verificationLines = ({ row }: { row: RunProgressRow }) => {
 	];
 
 	if (verification.supervisorDiagnosis) {
-		lines.push(` diagnosis     ${collapseWhitespace({ text: verification.supervisorDiagnosis })}`);
+		lines.push(...wrapLabelled({ label: 'diagnosis', text: collapseWhitespace({ text: verification.supervisorDiagnosis }) }));
 	}
 
 	if (lastOutput) {

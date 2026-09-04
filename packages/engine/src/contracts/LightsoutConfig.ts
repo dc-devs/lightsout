@@ -56,8 +56,9 @@ export const LightsoutConfig = z.object({
 	/** Verification commands — the mechanical gates. See `ConfigGates`. */
 	gates: ConfigGates,
 	/**
-	 * Agent invocation ceilings, in minutes. A hit ceiling is a recorded step
-	 * failure the run can resume from — never a crash.
+	 * Invocation ceilings, in minutes, for the agents a run spawns and for the
+	 * gate commands it runs. A hit ceiling is a recorded step failure the run
+	 * can resume from — never a crash.
 	 */
 	timeouts: z
 		.object({
@@ -65,6 +66,8 @@ export const LightsoutConfig = z.object({
 			'agent-minutes': z.number().positive().optional(),
 			/** The read-only supervisor. Default 15. */
 			'supervisor-minutes': z.number().positive().optional(),
+			/** One gate command — the repo's own check, test, coverage, build or end-to-end run. Default 15. */
+			'gate-minutes': z.number().positive().optional(),
 			/** Removed — renamed to `agent-minutes`. Declared only so a stale key fails loudly instead of being silently stripped. */
 			agentMinutes: renamedKey({ from: 'timeouts.agentMinutes', to: 'timeouts.agent-minutes' }),
 			/** Removed — renamed to `supervisor-minutes`. Same reason. */

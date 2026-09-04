@@ -30,7 +30,7 @@ test('printRunHeader: a minimal config renders exactly the always-present lines,
 		'  cwd: /repo',
 		'  standards packs: lightsout-defaults (none configured — set to false to disable, or list pack roots)',
 		'  harness: claude-code · model: harness default · effort: harness default · permissions: write',
-		'  timeouts: agent 60m · supervisor 15m',
+		'  timeouts: agent 60m · supervisor 15m · gate 15m',
 		'  gates (root): check=[pnpm check] test=[pnpm test:unit] coverage=[pnpm test:coverage]',
 	]);
 });
@@ -69,12 +69,12 @@ test('printRunHeader: an empty package list is still a configured list — the l
 	expect(lineFor({ logged, label: 'standards packs' })).toBe('  standards packs: ');
 });
 
-test('printRunHeader: configured timeouts replace the 60m/15m defaults', () => {
-	const { config, driver, cwd, logged } = setupHeader({ config: { timeouts: { 'agent-minutes': 90, 'supervisor-minutes': 5 } } });
+test('printRunHeader: configured timeouts replace the 60m/15m/15m defaults', () => {
+	const { config, driver, cwd, logged } = setupHeader({ config: { timeouts: { 'agent-minutes': 90, 'supervisor-minutes': 5, 'gate-minutes': 20 } } });
 
 	printRunHeader({ config, driver, cwd });
 
-	expect(lineFor({ logged, label: 'timeouts' })).toBe('  timeouts: agent 90m · supervisor 5m');
+	expect(lineFor({ logged, label: 'timeouts' })).toBe('  timeouts: agent 90m · supervisor 5m · gate 20m');
 });
 
 test('printRunHeader: a coverage gate disabled explicitly prints off (explicit) in place of a command', () => {

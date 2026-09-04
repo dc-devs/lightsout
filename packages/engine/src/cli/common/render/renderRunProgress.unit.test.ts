@@ -168,6 +168,27 @@ describe('renderRunProgress', () => {
 		expect(lines).toContain(' last output   final line');
 	});
 
+	test('a long diagnosis wraps instead of stretching the rules the block is drawn inside', () => {
+		// The rules span the widest line, so an unwrapped diagnosis drags them out
+		// with it — and a supervisor's runs to several hundred characters, which is
+		// exactly when a reader needs the block to still be readable.
+		const verification = {
+			failedFamilies: ['test'],
+			repairAttempts: { test: 2 },
+			failures: [{ kind: 'test', group: 'root', command: 'pnpm test', exitCode: 1, outputTail: 'red' }],
+			needsFormatting: false,
+			guidedRepairAttempted: true,
+			supervisorDiagnosis: `the assertion names a key the success path never sets ${'and so it can never match '.repeat(12)}`,
+		};
+		const lines = renderRunProgress({ progress: sampleProgress({ rows: [rowOf({ status: RunStatus.Escalated, verification })] }) });
+		const widest = Math.max(...lines.map((line) => plain({ text: line }).length));
+
+		expect(widest).toBeLessThanOrEqual(96);
+		expect(lines.filter((line) => plain({ text: line }).startsWith(' diagnosis'))).toHaveLength(1);
+		// every wrapped line hangs under the first one's text rather than restating the label
+		expect(lines.some((line) => /^ {15}\S/.test(plain({ text: line })))).toBe(true);
+	});
+
 	test('an in-process changed-file failure reports unavailable groups and no repairs', () => {
 		const lines = renderRunProgress({
 			progress: sampleProgress({

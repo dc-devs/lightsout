@@ -227,7 +227,7 @@ test('implementCommand: the run banner names every opt-in the repo config declar
 	expect(logged).toEqual(
 		expect.arrayContaining([
 			'  harness: claude-code · model: harness default · effort: harness default · permissions: full-access',
-			'  timeouts: agent 90m · supervisor 20m',
+			'  timeouts: agent 90m · supervisor 20m · gate 15m',
 			'  gates (root): check=[true] test=[true] coverage=[pnpm test:coverage]',
 			'  generate (before every gate set): [pnpm codegen]',
 			'  agent commands (granted, prefix match): [pnpm prisma migrate]',
@@ -249,7 +249,7 @@ test('implementCommand: a repo that declared no opt-ins gets no lines for them �
 	// silences, and the banner says which is which
 	expect(logged).toContain('  gates (root): check=[true] test=[true] coverage=[off (explicit)]');
 	expect(logged).toContain('  standards packs: lightsout-defaults (none configured — set to false to disable, or list pack roots)');
-	expect(logged).toContain('  timeouts: agent 60m · supervisor 15m');
+	expect(logged).toContain('  timeouts: agent 60m · supervisor 15m · gate 15m');
 	expect(logged.some((line) => /^ {2}(generate|agent commands|generated|format|gates \((root, opt-in|per package)\))/.test(line))).toBe(false);
 	expect(exitCodes).toStrictEqual([1]);
 });

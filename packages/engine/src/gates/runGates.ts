@@ -1,4 +1,5 @@
 import { resolveGates } from '#src/common/config/resolveGates.ts';
+import { defaultGateTimeoutMinutes } from '#src/common/constants/defaultGateTimeoutMinutes.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import type { GateResult, LightsoutConfig } from '#src/contracts/index.ts';
 import type { GateCommands } from '#src/gates/common/types/GateCommands.ts';
@@ -59,7 +60,14 @@ export const runGates = async ({
 	onGateResult,
 	onProgress,
 }: Params): Promise<GateRunResult> => {
-	const gate = createGateRunner({ cwd, runId, step, onGateResult, onProgress });
+	const gate = createGateRunner({
+		cwd,
+		timeoutMs: (config.timeouts?.['gate-minutes'] ?? defaultGateTimeoutMinutes) * 60_000,
+		runId,
+		step,
+		onGateResult,
+		onProgress,
+	});
 
 	// Codegen runs once, before any group fans out — gates verify, generate
 	// mutates, and parallel per-package gates must never race a generator.
