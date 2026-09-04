@@ -16,8 +16,8 @@ import { writeSource } from '#tests/helpers/writeSource.ts';
  * records agent roles — clean-slate's contract is that a red baseline buys
  * none of them.
  */
-const setupCleanSlateRun = async ({ scripts }: { scripts: Record<string, string | false> }) => {
-	const dir = setupConsumerRepo({ scripts });
+const setupCleanSlateRun = async ({ scripts, config }: { scripts: Record<string, string | false>; config?: Record<string, unknown> }) => {
+	const dir = setupConsumerRepo({ scripts, config });
 	const spawned: string[] = [];
 	const driver: Driver = {
 		name: 'stub',
@@ -61,6 +61,23 @@ test('clean-slate: a red baseline gate fails the run before a single agent is sp
 	expect(result.manifest.steps.find((step) => step.id === 'implement')).toBe(undefined);
 	// a red baseline costs no agent turn to learn
 	expect(spawned).toStrictEqual([]);
+});
+
+test('clean-slate: a gate that ran out of time is reported as a gate that did not finish, not as a red codebase', async () => {
+	// The two want different first moves from a human — raise the ceiling or free
+	// the machine, versus fix the code — and a suite killed at its ceiling is
+	// green as far as anyone knows.
+	const { dir, driver, config } = await setupCleanSlateRun({
+		scripts: { check: 'sleep 5' },
+		config: { timeouts: { 'gate-minutes': 0.02 } },
+	});
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+
+	expect(result.ok).toBe(false);
+	expect(result.manifest.status).toBe('failed');
+	expect(result.error ?? '').toMatch(/did not finish, so the codebase was never proved green/);
+	expect(result.error ?? '').not.toMatch(/Codebase is not green before implementation/);
 });
 
 test('clean-slate: artifacts left behind by a gate command fold into the baseline, never the changed files', async () => {

@@ -159,9 +159,9 @@ test('refactor: a loop that spends every pass still changing files cannot walk p
 	expect(result.manifest.status).toBe('escalated');
 	// a pass that changes files always earns the next one — the budget is spent in
 	// full
-	expect(passesRun()).toBe(3);
+	expect(passesRun()).toBe(2);
 	// the post-loop check escalates on the findings that survived
-	expect(result.error ?? '').toMatch(/persist after 3 pass\(es\)/);
+	expect(result.error ?? '').toMatch(/persist after 2 pass\(es\)/);
 	// the surviving cluster is named
 	expect(result.error ?? '').toMatch(/multi-export:src\/subject\.js/);
 	// with the site a human has to open
@@ -351,7 +351,7 @@ test('refactor: a loop that spends every pass on a tree the checks find clean pa
 	expect(result.ok).toBe(true);
 	expect(result.manifest.steps.find((step) => step.id === 'refactor')?.status).toBe('passed');
 	// the full pass budget was spent, and the post-loop check let the run through
-	expect(passesRun()).toBe(3);
+	expect(passesRun()).toBe(2);
 });
 
 test('refactor: a blocking finding whose only site is a test file the run wrote gates the run', async () => {

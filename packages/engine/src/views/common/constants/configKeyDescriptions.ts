@@ -10,9 +10,9 @@
  * which is exactly what the coverage test beside this file proves about every
  * key missing from here.
  *
- * The two `timeouts.` entries are the block's leaves rather than shape keys: the
- * block's two defaults are per leaf, so the page gives each its own row and each
- * row needs its own sentence.
+ * The `timeouts.` entries are the block's leaves rather than shape keys: the
+ * block's defaults are per leaf, so the page gives each its own row and each row
+ * needs its own sentence.
  *
  * This is also what `docs/configuration.md`'s key reference is rendered from, so
  * a sentence edited here changes that document and `pnpm check` fails until
@@ -31,6 +31,8 @@ export const configKeyDescriptions: Record<string, string> = {
 	'timeouts.agent-minutes':
 		'Ceiling for the working roles — executor, test writers, refactorer, fixes. Defaults to 60. Reaching it stops the harness together with every process it started — a terminate signal first, then a kill if that is ignored.',
 	'timeouts.supervisor-minutes': 'Ceiling for the read-only supervisor, which reads and rules rather than editing. Defaults to 15.',
+	'timeouts.gate-minutes':
+		"Ceiling for one gate command — the repo's own check, test, coverage, build or end-to-end run. A gate that hits it is reported as a gate that did not finish, which reads differently from one that ran and went red. Defaults to 15.",
 	'agent-commands':
 		'Command prefixes working agents are granted (prefix match, arguments allowed) — for plan deliverables only a command can produce, such as a migration generator. Verification commands never belong here: the engine runs all gates itself.',
 	generated:

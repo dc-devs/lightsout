@@ -98,7 +98,7 @@ describe('getReader config', () => {
 			{ title: 'Standards', keys: ['standards-packs', 'standards-channels', 'standards-checks'] },
 			{ title: 'Agent commands', keys: ['agent-commands'] },
 			{ title: 'Generated', keys: ['generated', 'vendored'] },
-			{ title: 'Timeouts', keys: ['timeouts.agent-minutes', 'timeouts.supervisor-minutes'] },
+			{ title: 'Timeouts', keys: ['timeouts.agent-minutes', 'timeouts.supervisor-minutes', 'timeouts.gate-minutes'] },
 			{ title: 'Ship', keys: ['ship'] },
 			{ title: 'Ticket tracker', keys: ['ticket-tracker'] },
 			{ title: 'Queue', keys: ['queue'] },

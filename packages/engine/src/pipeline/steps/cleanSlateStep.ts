@@ -21,14 +21,19 @@ export const cleanSlateStep = ({ run }: Params): PipelineStep['run'] => {
 		await run.setStep({ record });
 		run.progress(`step clean-slate — attempt ${record.attempts}`);
 
-		const { error } = await runVerificationGates({ run, coverage: true });
+		const { error, failures } = await runVerificationGates({ run, coverage: true });
 
 		if (error) {
-			return run.stop({
-				record,
-				status: RunStatus.Failed,
-				error: `Codebase is not green before implementation — fix this first.\n${error}`,
-			});
+			// A gate that never finished is a different problem from a gate that
+			// ran and went red, and the two want different first moves from a
+			// human: raise the ceiling or free the machine, versus fix the code.
+			// `createGateRunner` records a timeout or a failed spawn as exit -1.
+			const ranOut = failures.some((failure) => failure.exitCode === -1);
+			const headline = ranOut
+				? 'A gate did not finish, so the codebase was never proved green — this is a timeout or a gate that could not start, not a failing test.'
+				: 'Codebase is not green before implementation — fix this first.';
+
+			return run.stop({ record, status: RunStatus.Failed, error: `${headline}\n${error}` });
 		}
 
 		// Gate commands may produce artifacts (coverage output, logs). Fold

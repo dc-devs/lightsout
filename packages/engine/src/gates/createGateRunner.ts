@@ -7,6 +7,8 @@ import { appendCommandLog } from '#src/runState/index.ts';
 
 interface Params {
 	cwd: string;
+	/** Ceiling for one gate command, in milliseconds — `timeouts.gate-minutes`, already resolved by the caller. */
+	timeoutMs: number;
 	/** When set, every command execution is appended to the run's commands.jsonl. */
 	runId?: string;
 	/** Pipeline step in flight, recorded in the command log. */
@@ -34,15 +36,14 @@ const isKnownJestWorkerSigsegv = ({ result }: { result: CommandResult }) => {
  * tests, where the temporary Jest crash workaround and evidence entries are
  * asserted.
  */
-export const createGateRunner = ({ cwd, runId, step, onGateResult, onProgress }: Params): RunGate => {
+export const createGateRunner = ({ cwd, timeoutMs, runId, step, onGateResult, onProgress }: Params): RunGate => {
 	const executeOnce = async ({ kind, command, group, rerun }: { kind: string; command: string; group: string; rerun?: boolean }) => {
-		const gateTimeoutMs = 10 * 60_000;
 		const outputTailChars = 2000;
 		const startedAt = Date.now();
 		let result: CommandResult;
 
 		try {
-			result = await runCommand({ command, cwd, timeoutMs: gateTimeoutMs });
+			result = await runCommand({ command, cwd, timeoutMs });
 		} catch (error) {
 			// A gate that times out or fails to spawn is a red gate, not a crash.
 			result = { exitCode: -1, stdout: '', stderr: messageOf({ error }) };

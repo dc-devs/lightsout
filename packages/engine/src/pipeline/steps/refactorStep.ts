@@ -9,7 +9,21 @@ import { resolveStandardsChannels } from '#src/standards/index.ts';
 import { runStandardsReview } from '#src/standardsCheck/index.ts';
 import { type LoadedStandardsPack, resolveStandardsPacks } from '#src/standardsPacks/index.ts';
 
-const maxRefactorPasses = 3;
+/**
+ * How many refactor passes one step may spend.
+ *
+ * Two rather than three. The code-checked rules give the same answer every pass,
+ * so whatever they flag is fixed in the first pass or is something this step is
+ * not allowed to fix at all; what a third pass adds is a fresh reviewer's read
+ * of the judgment rules, which finds different things each time rather than
+ * finishing the second pass's work. That third pass buys a review, an executor,
+ * a formatter and a full gate run for it.
+ *
+ * The cap, not the trigger: a pass is still bought whenever findings stand,
+ * whatever kind they are. LO-104 carries the refinement — a further pass only
+ * when a code-checked blocking finding is still standing.
+ */
+const maxRefactorPasses = 2;
 
 /**
  * The agent's read of the judgment-only rules over this pass's changed files.

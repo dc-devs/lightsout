@@ -21,8 +21,8 @@ const isTombstone = ({ key }: { key: string }) => {
 	return inner instanceof z.ZodNever;
 };
 
-/** The two rows the page splits the `timeouts` block into; each has its own default, so each needs its own sentence. */
-const timeoutLeafKeys = ['timeouts.agent-minutes', 'timeouts.supervisor-minutes'];
+/** The rows the page splits the `timeouts` block into; each has its own default, so each needs its own sentence. */
+const timeoutLeafKeys = ['timeouts.agent-minutes', 'timeouts.supervisor-minutes', 'timeouts.gate-minutes'];
 
 describe('configKeyDescriptions', () => {
 	test('explains every key a config may still write, so a new live key cannot ship without a sentence', () => {
@@ -37,14 +37,14 @@ describe('configKeyDescriptions', () => {
 		expect(uncovered.length).toBeGreaterThan(0);
 	});
 
-	test('describes nothing the schema does not declare, apart from the two timeout leaves the page gives their own rows', () => {
+	test('describes nothing the schema does not declare, apart from the timeout leaves the page gives their own rows', () => {
 		const declared = new Set([...Object.keys(LightsoutConfig.shape), ...timeoutLeafKeys]);
 
 		expect(Object.keys(configKeyDescriptions).filter((key) => !declared.has(key))).toStrictEqual([]);
 	});
 
 	test('gives each timeout leaf its own sentence rather than repeating the block’s', () => {
-		expect(new Set(timeoutLeafKeys.map((key) => configKeyDescriptions[key])).size).toBe(2);
+		expect(new Set(timeoutLeafKeys.map((key) => configKeyDescriptions[key])).size).toBe(timeoutLeafKeys.length);
 	});
 
 	test('counts a block-shaped key as live, so `queue` cannot ship without a sentence the way it once did', () => {

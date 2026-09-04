@@ -155,7 +155,7 @@ test('standards gate: a declined pass that still CHANGED the gating set earns th
 
 				// Pass 1 quietly fixes one of the two violations ON DISK while
 				// reporting zero changes — the gating set shrinks, so the
-				// early-exit must NOT fire; passes 2 and 3 decline identically.
+				// early-exit must NOT fire; pass 2 then declines identically.
 				if (refactorInvocations === 1) {
 					writeSource({ dir, path: 'src/alpha.js', source: 'export const first = () => 1;\n' });
 				}
@@ -184,8 +184,8 @@ test('standards gate: a declined pass that still CHANGED the gating set earns th
 	expect(result.ok).toBe(false);
 	expect(result.manifest.status).toBe('escalated');
 	// a shrinking gating set is progress — the full pass budget stays available
-	expect(refactorInvocations).toBe(3);
-	expect(result.error ?? '').toMatch(/persist after 3 pass\(es\)/);
+	expect(refactorInvocations).toBe(2);
+	expect(result.error ?? '').toMatch(/persist after 2 pass\(es\)/);
 	expect(result.error ?? '').toMatch(/multi-export:src\/beta\.js/);
 	// the quietly-fixed violation is gone from the escalation
 	expect(result.error ?? '').not.toMatch(/multi-export:src\/alpha\.js/);
