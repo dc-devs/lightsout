@@ -1,3 +1,4 @@
+const { availableParallelism } = require('node:os');
 const { join } = require('node:path');
 
 const toolingDir = __dirname;
@@ -29,7 +30,8 @@ module.exports = ({ rootDir, ...rest }) => ({
 	clearMocks: true,
 	restoreMocks: true,
 	testTimeout: 30_000,
-	// Ten, rather than Jest's default of one worker per core minus one.
+	// A ceiling of eight workers, or one per core minus one where the machine has
+	// fewer cores than that — whichever is smaller.
 	//
 	// Nothing bounded this before, and two layers multiplied: Nx runs several
 	// projects at once and each asked Jest for 13 workers on a 14-core machine, so
@@ -40,12 +42,14 @@ module.exports = ({ rootDir, ...rest }) => ({
 	// at once: 26 workers lost 2 runs in 24, 20 lost 1, and 8 lost none, against
 	// 30 clean runs on an idle machine at 13.
 	//
-	// Ten is the point where the cost is about two seconds a run rather than the
+	// Eight is the point where the cost is about two seconds a run rather than the
 	// twenty-eight a tighter cap costs, and what slips through is the case LO-39's
-	// gate retry was built to absorb. A number rather than a fraction of the
-	// cores, because the machines differ by an order of magnitude — a 14-core
-	// laptop hosting several agents, and a 2-core CI runner hosting one.
-	maxWorkers: 8,
+	// gate retry was built to absorb. It has to be a ceiling rather than a flat
+	// number, because the machines differ by an order of magnitude: a 14-core
+	// laptop hosting several agents has the cores to spend, while a four-core CI
+	// runner does not. A flat eight there oversubscribed the runner badly enough
+	// that the slowest suites passed the thirty-second per-test limit and failed.
+	maxWorkers: Math.max(1, Math.min(8, availableParallelism() - 1)),
 	// Recycle a worker once it passes this, rather than letting it carry a heap
 	// from one test file to the next for the whole run.
 	//
