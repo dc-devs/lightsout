@@ -2,10 +2,17 @@ name: ci
 
 # The same gates the pipeline runs, run somewhere other than one laptop.
 # Before this existed, main was green on trust.
+#
+# Every pushed branch is covered, not just the ones with a pull request open:
+# a branch nobody has opened a PR for is still green on trust, and work sat on
+# one for days once while the gates ran nowhere but a laptop.
 on:
+  # Fork branches live in another repository, so no push here announces them.
+  # Same-repo pull requests are already covered by their branch's push, and the
+  # jobs below opt out of that second run.
   pull_request:
   push:
-    branches: [main]
+    branches: ['**']
 
 # A second push to the same branch makes the first run's answer worthless.
 concurrency:
@@ -15,6 +22,7 @@ concurrency:
 jobs:
   verify:
     name: verify (node ${{ matrix.node }})
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     strategy:
       # One Node version failing should not hide the other's result.
@@ -49,6 +57,7 @@ jobs:
 
   shipped:
     name: plugin is shippable
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -70,14 +79,25 @@ jobs:
       # cannot mean different things.
       #
       # On a pull request the base is the branch being merged into. On a push
-      # to main there is nothing to bump against, and the script says so and
-      # skips that third question rather than inventing an answer.
+      # to a working branch it is main, which is where that branch is headed and
+      # what `pnpm check:shipped` compares against locally. On a push to main
+      # there is nothing to bump against, and the script says so and skips that
+      # third question rather than inventing an answer.
       - name: Check that plugin/ is shippable
         env:
-          BASE: ${{ github.base_ref }}
+          PULL_REQUEST_BASE: ${{ github.base_ref }}
+          BRANCH: ${{ github.ref_name }}
         run: |
-          if [ -n "$BASE" ]; then
-            git fetch --no-tags origin "$BASE"
+          if [ -n "$PULL_REQUEST_BASE" ]; then
+            base="$PULL_REQUEST_BASE"
+          elif [ "$BRANCH" != "main" ]; then
+            base=main
+          else
+            base=""
+          fi
+
+          if [ -n "$base" ]; then
+            git fetch --no-tags origin "$base"
             node scripts/checkShipped.mjs --base FETCH_HEAD
           else
             node scripts/checkShipped.mjs --base HEAD
@@ -93,7 +113,8 @@ jobs:
 
   release:
     name: tag and release
-    if: github.event_name == 'push'
+    # Every branch is verified now; only main is released.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [verify, shipped]
     runs-on: ubuntu-latest
     permissions:
