@@ -1,4 +1,5 @@
 export { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
+export { LedgerTestRecord } from '#src/contracts/run/LedgerTestRecord.ts';
 export { PackagesSource } from '#src/contracts/run/PackagesSource.ts';
 export { PhaseReport } from '#src/contracts/run/PhaseReport.ts';
 export { PipelineKind } from '#src/contracts/run/PipelineKind.ts';

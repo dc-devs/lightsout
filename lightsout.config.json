@@ -35,6 +35,9 @@
 		"auto-approve-plan": true,
 		"implement-on-approval": true
 	},
+	"plan": {
+		"contract": true
+	},
 	"docs": [
 		{
 			"path": "README.md",

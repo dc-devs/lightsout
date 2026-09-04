@@ -1,4 +1,4 @@
-import { type GradedGap, type GradeReport, PlanGrade, type StructuralFinding } from '#src/contracts/index.ts';
+import { type GradedGap, type GradeReport, type PhaseWeight, PlanGrade, PlanWeight, type StructuralFinding } from '#src/contracts/index.ts';
 import { gapCheckLenses } from '#src/plan/common/constants/gapCheckLenses.ts';
 import { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.ts';
 import { getBlockingGaps } from '#src/plan/common/utils/getBlockingGaps.ts';
@@ -14,6 +14,10 @@ interface Params {
 	failures: string[];
 	/** The plan files every lens returned for. */
 	phasesChecked: string[];
+	/** Each graded plan file's weight and why, empty when the grade did not weigh anything. */
+	weights?: PhaseWeight[];
+	/** The plan files that weighed light, so no reader was spawned for them. */
+	phasesLight?: string[];
 	/** The commit `HEAD` was at when the pass ran; absent outside a git worktree. */
 	commit?: string;
 	/** Whether the working tree held uncommitted changes then; absent when the commit is. */
@@ -35,8 +39,28 @@ interface Params {
  * `complete` speaks for the checks that READ the plan — the reader fan-out and
  * the whole-plan documentation checker alike. A judge that failed still does not
  * make a pass incomplete, because its finding already blocks on its own.
+ *
+ * `lenses` states what actually ran rather than what exists: it is the full lens
+ * list when any plan file was read, and empty when every file weighed light. A
+ * grade whose `lenses` is empty then reads as "no reader ran", never as "every
+ * lens ran and found nothing".
  */
-export const createGradeReport = ({ name, phases, structural, gaps, failures, phasesChecked, commit, treeDirty }: Params): GradeReport => {
+export const createGradeReport = ({
+	name,
+	phases,
+	structural,
+	gaps,
+	failures,
+	phasesChecked,
+	weights = [],
+	phasesLight = [],
+	commit,
+	treeDirty,
+}: Params): GradeReport => {
+	// Not "nothing was checked": a reader that failed also leaves `phasesChecked`
+	// empty, and that pass did spawn its lenses. Only a weighing where every file
+	// came out light means no reader ever ran.
+	const everyFileLight = weights.length > 0 && weights.every(({ weight }) => weight === PlanWeight.Light);
 	const narrowed = phases === undefined ? [] : [`graded a subset on request: ${phases.join(', ')} — the structural findings still cover every plan file`];
 	const reasons = [...narrowed, ...failures];
 	const complete = reasons.length === 0;
@@ -49,7 +73,9 @@ export const createGradeReport = ({ name, phases, structural, gaps, failures, ph
 		structural,
 		gaps,
 		phasesChecked,
-		lenses: gapCheckLenses,
+		lenses: everyFileLight ? [] : gapCheckLenses,
+		weights,
+		phasesLight,
 		complete,
 		incompleteReason: complete ? undefined : reasons.join('; '),
 		passed: grade === PlanGrade.A,

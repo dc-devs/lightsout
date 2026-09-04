@@ -1,26 +1,36 @@
 import { PlanFileKind } from '#src/plan/common/constants/PlanFileKind.ts';
+import { parseAcceptanceLedger } from '#src/plan/common/parsing/parseAcceptanceLedger.ts';
+import { parseProseFiles } from '#src/plan/common/parsing/parseProseFiles.ts';
 import { pathFromLine } from '#src/plan/common/paths/pathFromLine.ts';
 import { pathPairFromLine } from '#src/plan/common/paths/pathPairFromLine.ts';
 import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
 import { planCreatePaths } from '#src/plan/planCreatePaths.ts';
 
-/** Split a plan into its `##` sections (a `###` subheading stays inside its section). */
-const parseSections = ({ lines }: { lines: string[] }): Map<string, string[]> => {
-	const sections = new Map<string, string[]>();
+/**
+ * Split a plan into its `##` sections (a `###` subheading stays inside its
+ * section), each carrying the 1-based line its first line sits at.
+ *
+ * The line number is what lets a section's own reader report a defect by
+ * location rather than by position within the section — the ledger and
+ * prose-files parsers both number their malformed lines that way, and a finding
+ * a human cannot jump to is a finding they have to hunt for.
+ */
+const parseSections = ({ lines }: { lines: string[] }) => {
+	const sections = new Map<string, { lines: string[]; firstLine: number }>();
 	let current: string | undefined;
 
-	for (const line of lines) {
+	for (const [index, line] of lines.entries()) {
 		const heading = /^##\s+(.+?)\s*$/.exec(line);
 
 		if (heading) {
 			current = heading[1];
-			sections.set(current, []);
+			sections.set(current, { lines: [], firstLine: index + 2 });
 
 			continue;
 		}
 
 		if (current !== undefined) {
-			sections.get(current)?.push(line);
+			sections.get(current)?.lines.push(line);
 		}
 	}
 
@@ -132,7 +142,12 @@ interface Params {
 /** Parse a plan file's text into the typed `ParsedPlan` the structural lint keys off. */
 export const parsePlan = ({ content, base }: Params): ParsedPlan => {
 	const lines = content.split('\n');
-	const sections = parseSections({ lines });
+	const parsed = parseSections({ lines });
+	const sections = new Map<string, string[]>([...parsed].map(([heading, section]) => [heading, section.lines]));
+	const ledgerSection = parsed.get('Acceptance Tests');
+	const proseSection = parsed.get('Prose Files');
+	const ledger = parseAcceptanceLedger({ sectionLines: ledgerSection?.lines, firstLine: ledgerSection?.firstLine ?? 1 });
+	const prose = parseProseFiles({ sectionLines: proseSection?.lines, firstLine: proseSection?.firstLine ?? 1 });
 	const title =
 		lines
 			.find((line) => /^#\s+/.test(line))
@@ -159,6 +174,10 @@ export const parsePlan = ({ content, base }: Params): ParsedPlan => {
 		fileBudget: fileBudgetFrom({ sectionLines: sections.get('File Budget') }),
 		mirrorPaths: pathsFromLines({ sectionLines: sections.get('Patterns to Mirror'), lineMatches: (line) => /^\s*-\s+/.test(line) }),
 		verificationCommands: commandsFromVerification({ sectionLines: sections.get('Verification') }),
+		ledger: ledger.rows,
+		malformedLedgerLines: ledger.malformedLines,
+		proseFiles: prose.files,
+		malformedProseLines: prose.malformedLines,
 		lines,
 	};
 };

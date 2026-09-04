@@ -38,6 +38,8 @@ interface Params {
 	standards?: string;
 	/** The repository's declared documentation surfaces, threaded through so a phase file carries the same `## Documentation` claim a single plan would. */
 	docs?: ConfigDocs;
+	/** `plan.contract` from config, threaded through so a phase file carries the same acceptance-test ledger a single plan would. */
+	contract?: boolean;
 	model?: string;
 	effort?: Effort;
 	permissions?: Permissions;
@@ -67,7 +69,7 @@ const spawnPhase = async ({
 	declaration: PhaseDeclaration;
 	previousDeclaration?: PhaseDeclaration;
 }): Promise<PhaseOutcome> => {
-	const { cwd, driver, name, workspaceDir, facts, decisions, overviewText, executorFileLimit, standards, docs } = params;
+	const { cwd, driver, name, workspaceDir, facts, decisions, overviewText, executorFileLimit, standards, docs, contract } = params;
 	const { model, effort, permissions, timeoutMs, progress } = params;
 	const invokePlanAgent = createPlanAgentRunner({
 		cwd,
@@ -90,6 +92,7 @@ const spawnPhase = async ({
 			limits: { executorFileLimit, createdFileCeiling },
 			standards,
 			docs,
+			contract,
 		}),
 		contract: PlanDraftReport,
 	});

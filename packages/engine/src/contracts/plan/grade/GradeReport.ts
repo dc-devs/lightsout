@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { GapCheckLens } from '#src/contracts/plan/grade/GapCheckLens.ts';
 import { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
+import { PhaseWeight } from '#src/contracts/plan/grade/PhaseWeight.ts';
 import { PlanGrade } from '#src/contracts/plan/grade/PlanGrade.ts';
 import { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 
@@ -32,8 +33,12 @@ export const GradeReport = z.object({
 	gaps: z.array(GradedGap).default([]),
 	/** The plan files every lens returned for — a pass that did not finish cannot read as a clean bill. */
 	phasesChecked: z.array(z.string()).default([]),
-	/** The lenses each of those files was checked with. */
+	/** The lenses each of those files was checked with. Empty when no reader ran at all, which is what a grade of only light files reads as. */
 	lenses: z.array(z.enum(GapCheckLens)).default([]),
+	/** Each graded plan file's weight and why. Empty on a grade taken with `plan.contract` off. */
+	weights: z.array(PhaseWeight).default([]),
+	/** The plan files no reader read because they weighed light. Never overlaps `phasesChecked`. */
+	phasesLight: z.array(z.string()).default([]),
 	/** False when a READER failed or hit the rate-limit wall; the findings below are real but partial. A failed judge leaves its gap `unjudged` instead. */
 	complete: z.boolean().default(true),
 	/** Why the pass did not finish, absent when it did. */

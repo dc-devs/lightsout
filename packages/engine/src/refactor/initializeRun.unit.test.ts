@@ -25,6 +25,7 @@ const manifestWith = ({ pipeline }: { pipeline?: PipelineKind }): RunManifest =>
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],
+	ledgerTests: [],
 	unreachableChangedFiles: [],
 	coverageExcludedChangedFiles: [],
 });

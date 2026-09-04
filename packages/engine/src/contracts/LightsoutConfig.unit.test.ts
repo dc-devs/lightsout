@@ -275,3 +275,29 @@ test.each([
 	// near it would otherwise read as an opt-out and silently drop every standard
 	expect(LightsoutConfig.safeParse({ ...base, 'standards-packs': standardsPacks }).success).toBe(false);
 });
+
+test('LightsoutConfig: the plan block is optional, keeps its own kebab-case spelling, and stays strict through the composition', () => {
+	const parsed = LightsoutConfig.parse({
+		...base,
+		plan: { contract: true, 'weight-thresholds': { 'created-files': 5, packages: 2 } },
+	});
+
+	// the block survives parsing as the file wrote it — nothing renames a key on
+	// the way through, so the grade reads the thresholds the repo spelled
+	expect(parsed.plan).toStrictEqual({ contract: true, 'weight-thresholds': { 'created-files': 5, packages: 2 } });
+
+	// the block's own strictness fires through the composition, at both levels: a
+	// typoed key here would silently leave the contract shape off while the file
+	// believes it is on
+	expect(LightsoutConfig.safeParse({ ...base, plan: { contracts: true } }).success).toBe(false);
+	expect(LightsoutConfig.safeParse({ ...base, plan: { 'weight-thresholds': { 'created-file': 3 } } }).success).toBe(false);
+	// and its numeric refusals fire too — a threshold below one would make every
+	// plan file heavy
+	expect(LightsoutConfig.safeParse({ ...base, plan: { 'weight-thresholds': { packages: 0 } } }).success).toBe(false);
+
+	// plan is opt-in: an absent block leaves no key on the parsed config, which is
+	// what a repo relies on for today's template, today's required sections and
+	// the reader fleet on every plan file
+	expect('plan' in LightsoutConfig.parse(base)).toBe(false);
+	expect(LightsoutConfig.parse(base).plan).toBe(undefined);
+});

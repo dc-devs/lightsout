@@ -24,6 +24,7 @@ const manifestOf = ({ runId, ...overrides }: { runId: string } & Partial<RunMani
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],
+	ledgerTests: [],
 	unreachableChangedFiles: [],
 	coverageExcludedChangedFiles: [],
 	...overrides,

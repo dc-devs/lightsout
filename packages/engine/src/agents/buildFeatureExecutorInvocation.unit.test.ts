@@ -139,6 +139,62 @@ test('buildFeatureExecutorInvocation: none of the run-stable content leaks back 
 	expect(prompt.includes('# Granted commands')).toBeFalsy();
 });
 
+test('buildFeatureExecutorInvocation: the locked ledger test files ride the user prompt, and say what they are for', () => {
+	const clean = buildFeatureExecutorInvocation({ planContent });
+	const locked = buildFeatureExecutorInvocation({ planContent, ledgerTests: ['src/widget.unit.test.ts', 'src/flag.unit.test.ts'] });
+
+	// a plan with no ledger gets no section at all
+	expect(clean.prompt.includes('# Ledger tests (read-only)')).toBeFalsy();
+	expect(buildFeatureExecutorInvocation({ planContent, ledgerTests: [] }).prompt.includes('# Ledger tests (read-only)')).toBeFalsy();
+	// each locked path gets its own bullet
+	expect(locked.prompt.includes('# Ledger tests (read-only)\n\n- src/widget.unit.test.ts\n- src/flag.unit.test.ts')).toBeTruthy();
+	// the executor is told these are the bar, not an obstacle to edit around
+	expect(locked.prompt.includes('must pass in the gate run before the work is done')).toBeTruthy();
+	// the report-contract reminder still closes the prompt
+	expect(locked.prompt.endsWith('Remember: your entire final message must be exactly one JSON report object — nothing else.')).toBeTruthy();
+});
+
+test('buildFeatureExecutorInvocation: the ledger paths never enter the cached system prompt', () => {
+	const first = buildFeatureExecutorInvocation({ planContent, overviewContent, standards });
+	const locked = buildFeatureExecutorInvocation({ planContent, overviewContent, standards, ledgerTests: ['src/widget.unit.test.ts'] });
+
+	// the lock list is resolved per invocation, so it must not break the prefix
+	// the harness caches across a run
+	expect(first.systemPrompt).toBe(locked.systemPrompt);
+});
+
+test('buildFeatureExecutorInvocation: the user prompt orders changed files, the locked ledger tests, then the gate output', () => {
+	const { prompt } = buildFeatureExecutorInvocation({
+		planContent,
+		changedFiles: ['src/widget.ts'],
+		ledgerTests: ['src/widget.unit.test.ts'],
+		errorContext: 'GATE-SENTINEL',
+	});
+
+	// a fix re-invocation carrying all three reads them in one fixed order
+	expect(
+		prompt.indexOf('# Previously changed files') < prompt.indexOf('# Ledger tests (read-only)') &&
+			prompt.indexOf('# Ledger tests (read-only)') < prompt.indexOf('# Verification failure'),
+	).toBeTruthy();
+	// the locked list stays out of the changed-file list it follows
+	expect(
+		prompt.includes('# Previously changed files\n\nFiles already created or modified earlier in this run:\n\n- src/widget.ts\n\n# Ledger tests'),
+	).toBeTruthy();
+});
+
+test('buildFeatureExecutorInvocation: the role prompt bans editing the locked ledger tests and says what to do instead', () => {
+	const { systemPrompt } = buildFeatureExecutorInvocation({ planContent });
+	// the prompt wraps its lines; the sentences are what matter
+	const prose = systemPrompt.replace(/\s+/g, ' ');
+
+	// the rule names the same section heading the user prompt emits
+	expect(prose).toContain('Files listed under a `# Ledger tests (read-only)` section in your task are the tests that define done; never edit them.');
+	// editing is pointless, so the executor is told the engine reverts it
+	expect(prose).toContain('The engine keeps a copy and reverts any change before verification');
+	// the one legitimate escape is a report, not an edit
+	expect(prose).toContain('report `failed` naming the test and why, rather than changing it');
+});
+
 test('buildFeatureExecutorInvocation: the command ban names what is banned and leaves file access open — a harness whose only file access is a shell must not read it as "touch nothing"', () => {
 	const { systemPrompt } = buildFeatureExecutorInvocation({ planContent });
 	// the prompt wraps its lines; the sentences are what matter

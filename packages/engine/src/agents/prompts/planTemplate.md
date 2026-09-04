@@ -61,6 +61,7 @@ will not reach A:
   `None` is valid content. Phases inherit the overview's — a phase may write
   "See overview."
 {{documentationRule}}
+{{contractRule}}
 
 ---
 
@@ -179,6 +180,27 @@ justifies its newness:
 - `<resolved check command>` — types clean
 - `<resolved test-unit command>` — tests pass
 
+## Acceptance Tests
+
+<!-- Optional — omit this heading entirely unless the draft input says this
+repository writes contract plans. One row per acceptance criterion. The test
+file goes in backticks and may already exist; the test name is the exact string
+the test writer will use; the gate is a key from the repository's gates, and a
+blank cell means `test`. -->
+
+| Criterion | Test file | Test name | Gate |
+|-----------|-----------|-----------|------|
+| <one-line acceptance criterion> | `<packagesDir>/<name>/src/path/to/file.unit.test.ts` | <exact test name> | test |
+
+## Prose Files
+
+<!-- Optional — omit this heading entirely unless the draft input says this
+repository writes contract plans. One bullet per file whose behaviour no test
+can state, each also listed under one of the file headings above. A bullet with
+no reason is a blocking finding. -->
+
+- `<path>` — <why no test states this file's behaviour>
+
 ## What Next Plan Expects
 
 <For a standalone plan: "None — standalone plan." Otherwise: the exact state a
@@ -296,3 +318,7 @@ Identical to the Single Plan with these adjustments:
 - **What Next Plan Expects** is mandatory and chains: it must list exactly what
   the next phase's Prerequisites will claim. The final phase states "None —
   final phase."
+- **Acceptance Tests** and **Prose Files** are per phase, never on the overview:
+  the overview creates nothing, so a row written there would belong to no
+  executor. Both are omitted unless the draft input says this repository writes
+  contract plans.

@@ -77,7 +77,13 @@ export const writeTestsStep = ({ run, gitPrefix, planContent, testStandards }: P
 		run.progress(
 			`step write-tests — attempt ${record.attempts} · ${groups.length} group(s): ${testSubjects.length} subject(s) covering ${subjects.size} changed file(s), up to ${testWriterConcurrency} writers in parallel`,
 		);
-		const { reports, failures, terminated, parked } = await runWriterBatches({ run, groups, planContent, testStandards });
+		const { reports, failures, terminated, parked } = await runWriterBatches({
+			run,
+			groups,
+			planContent,
+			testStandards,
+			ledgerTests: run.current().ledgerTests.map((ledgerTest) => ledgerTest.path),
+		});
 
 		// Persist whatever progress the batches made before deciding the
 		// outcome — a parked or stopped run must still know what was touched.

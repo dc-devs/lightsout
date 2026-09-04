@@ -25,6 +25,10 @@ const setupPlan = ({ create = [], modify = [], earlierModify = [], remove = [], 
 		malformedMoveLines: [],
 		mirrorPaths: [],
 		verificationCommands: [],
+		ledger: [],
+		malformedLedgerLines: [],
+		proseFiles: [],
+		malformedProseLines: [],
 		lines: [],
 	};
 

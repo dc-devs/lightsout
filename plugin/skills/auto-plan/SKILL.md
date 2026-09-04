@@ -73,19 +73,19 @@ below the bar, resolve it from the approved scope, recorded decisions, and
 repository conventions; update the plan and decisions; then re-run the
 applicable validation, deduplication, and grade checks.
 
-**Convergence budget.** After the initial grade, perform at most five
-repair-and-regrade rounds. A round resolves every below-bar finding, records
-the decisions, runs the applicable validation and deduplication checks, then
-grades again. A passed, complete grade (A) proceeds normally.
+**Convergence budget.** After the initial grade, perform at most **one**
+repair round. That round resolves every below-bar finding, records the
+decisions, runs the applicable validation and deduplication checks, then grades
+again — and the regrade is mostly mechanical, because the deterministic checks
+re-run for free. A passed, complete grade (A) proceeds normally.
 
-If the fifth round remains below A, preserve the complete grade history and
-present the remaining gaps and the changes made in each round. Ask the human
-to choose exactly one: authorize another five-round convergence budget,
-explicitly accept the current below-A plan and proceed to implementation, or
-change direction / settle a genuine product-level decision. Do not
-auto-approve or auto-implement a below-A plan. Only an explicit human
-acceptance may bypass the A-grade requirement; record it in the plan's Decision
-Log and `decisions.json` before rolling onward.
+If that round remains below A, preserve the complete grade history and present
+the remaining gaps and the changes the round made. Ask the human to choose
+exactly one: authorize one more round, explicitly accept the current below-A
+plan and proceed to implementation, or change direction / settle a genuine
+product-level decision. Do not auto-approve or auto-implement a below-A plan.
+Only an explicit human acceptance may bypass the A-grade requirement; record it
+in the plan's Decision Log and `decisions.json` before rolling onward.
 
 The only exception is a question that genuinely clears the escalation bar:
 one that cannot be resolved from the record and whose alternatives visibly
@@ -218,7 +218,10 @@ its `## Phase Declarations` to spread the creates across more phases, then
 re-run draft.
 
 **6. Grill it yourself.** Generate the same relentless stream of edge-case
-questions against the drafted plan; grilling intensity never drops.
+questions against the drafted plan; grilling intensity never drops. The pass
+interrogates the contract — the file map, the exported signatures, the file each
+new file mirrors, and the acceptance-test ledger — because that is what a plan
+carries that a test cannot state for itself.
 
 - **Drop** a question the record already answers, with no new row.
 - **Route the rest through the bar.** Self-answered → fold the answer into the
@@ -266,9 +269,9 @@ edit folded in since.
   Apply the [convergence invariant](#convergence-invariant): resolve every
   below-bar gap, record the decision, re-run validation and deduplication when
   the edit affects them, and re-grade until the result is passed and complete
-  or the five-round convergence budget is exhausted. Do not stop merely because
-  two grades have similar findings, a run is taking a long time, or the grader
-  used a `needs-a-human`/`unjudged` label.
+  or the single repair round is spent. Do not stop merely because two grades
+  have similar findings, a run is taking a long time, or the grader used a
+  `needs-a-human`/`unjudged` label.
 
 **8. The proposal.** One final response, unless `auto-approve-plan` is true
 and nothing cleared the bar. The proposal and its approval request are the

@@ -150,6 +150,22 @@ test('RunManifest: the write-tests skip records default to empty arrays and roun
 	expect(RunManifest.safeParse({ ...base, harness: 'codex', coverageExcludedChangedFiles: [3] }).success).toBe(false);
 });
 
+test('RunManifest: the locked ledger tests default to an empty list and round-trip whole', () => {
+	const ledgerTest = { path: 'src/widget.unit.test.ts', testNames: ['widget: renders'], sha256: 'a'.repeat(64) };
+
+	// a plan with no ledger carries no lock, and a manifest written before the
+	// field existed reads back the same way
+	expect(RunManifest.parse({ ...base, harness: 'codex' }).ledgerTests).toStrictEqual([]);
+	// the record is what the verify-time lock compares against — it must survive
+	// the write/read cycle intact or the lock has nothing to restore from
+	expect(RunManifest.parse({ ...base, harness: 'codex', ledgerTests: [ledgerTest] }).ledgerTests).toStrictEqual([ledgerTest]);
+	// a record missing its hash, naming no test, or carrying a hash of the wrong
+	// length is a corrupt manifest rather than an unlocked file
+	expect(RunManifest.safeParse({ ...base, harness: 'codex', ledgerTests: [{ path: 'a.ts', testNames: ['x'] }] }).success).toBe(false);
+	expect(RunManifest.safeParse({ ...base, harness: 'codex', ledgerTests: [{ ...ledgerTest, testNames: [] }] }).success).toBe(false);
+	expect(RunManifest.safeParse({ ...base, harness: 'codex', ledgerTests: [{ ...ledgerTest, sha256: 'abc' }] }).success).toBe(false);
+});
+
 test('RunManifest: an unparseable config snapshot fails the manifest', () => {
 	const stale = { ...base, harness: 'codex', config: { driver: 'codex', gates: { check: 'c', test: 't', 'test-coverage': false } } };
 

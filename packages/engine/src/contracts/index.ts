@@ -28,6 +28,7 @@ export { ConfigAutoPlan } from '#src/contracts/ConfigAutoPlan.ts';
 export { ConfigCommands } from '#src/contracts/ConfigCommands.ts';
 export { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
 export { ConfigGates } from '#src/contracts/ConfigGates.ts';
+export { ConfigPlan } from '#src/contracts/ConfigPlan.ts';
 export { ConfigQueue } from '#src/contracts/ConfigQueue.ts';
 export { ConfigShip } from '#src/contracts/ConfigShip.ts';
 export { ConfigTicketTracker } from '#src/contracts/ConfigTicketTracker.ts';
@@ -63,7 +64,9 @@ export {
 	GapVerdict,
 	GradedGap,
 	GradeReport,
+	LedgerRow,
 	PathVerification,
+	PhaseWeight,
 	PlanDraftReport,
 	PlanDraftStatus,
 	PlanFacts,
@@ -72,6 +75,8 @@ export {
 	PlanGap,
 	PlanGrade,
 	PlanVariant,
+	PlanWeight,
+	ProseFile,
 	StructuralCheck,
 	StructuralFinding,
 } from '#src/contracts/plan/index.ts';
@@ -79,6 +84,7 @@ export { BranchPhase, BranchState, RelayAnswer, RelayQuestion } from '#src/contr
 export { BatchOutcome, BatchReport, RefactorBatch, RefactorWorklist } from '#src/contracts/refactor/index.ts';
 export {
 	AgentUsage,
+	LedgerTestRecord,
 	PackagesSource,
 	PhaseReport,
 	PipelineKind,

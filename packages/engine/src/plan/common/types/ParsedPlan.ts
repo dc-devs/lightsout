@@ -1,3 +1,4 @@
+import type { LedgerRow, ProseFile } from '#src/contracts/index.ts';
 import type { PlanFileKind } from '#src/plan/common/constants/PlanFileKind.ts';
 
 /** A parsed plan file: its `##` sections plus the paths and scripts the checks key off. */
@@ -21,5 +22,13 @@ export interface ParsedPlan {
 	fileBudget?: number;
 	mirrorPaths: string[];
 	verificationCommands: string[];
+	/** `## Acceptance Tests` — one row per criterion; empty when the section is absent. */
+	ledger: LedgerRow[];
+	/** 1-based line numbers of ledger rows that could not be read. */
+	malformedLedgerLines: number[];
+	/** `## Prose Files` — files the plan describes in words because no test states their behaviour. */
+	proseFiles: ProseFile[];
+	/** 1-based line numbers of prose-files bullets that name a path but state no reason. */
+	malformedProseLines: number[];
 	lines: string[];
 }

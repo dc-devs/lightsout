@@ -39,6 +39,7 @@ const manifestWith = ({ steps }: { steps: StepRecord[] }): RunManifest => ({
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],
+	ledgerTests: [],
 	unreachableChangedFiles: [],
 	coverageExcludedChangedFiles: [],
 });

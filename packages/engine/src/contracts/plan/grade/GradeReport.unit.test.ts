@@ -66,6 +66,8 @@ describe('GradeReport', () => {
 			],
 			phasesChecked: ['phase1-lint-vocabulary.md', 'phase2-cross-phase-checks.md'],
 			lenses: ['surface', 'wiring', 'decisions'],
+			weights: [],
+			phasesLight: [],
 			complete: true,
 			passed: false,
 			gradedAt: '2026-08-04T00:00:00.000Z',

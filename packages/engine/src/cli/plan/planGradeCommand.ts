@@ -40,6 +40,17 @@ const printGaps = ({ gaps }: { gaps: GradeReport['gaps'] }) => {
 };
 
 /**
+ * One line per weighed plan file: what it weighed, and every threshold it
+ * crossed. Nothing is printed when the grade weighed nothing, which is every
+ * grade taken with `plan.contract` off.
+ */
+const printWeights = ({ weights }: { weights: GradeReport['weights'] }) => {
+	for (const { phase, weight, reasons } of weights) {
+		console.log(`  weight: ${phase} — ${weight}${reasons.length > 0 ? ` (${reasons.join('; ')})` : ''}`);
+	}
+};
+
+/**
  * `plan grade` at the terminal.
  *
  * The failure branches are handled here rather than through `exitOnPlanFailure`
@@ -92,6 +103,7 @@ export const planGradeCommand = async ({ cwd, driver, name, standards, config, p
 	const checked = grade.phasesChecked.length > 0 ? `: ${grade.phasesChecked.join(', ')}` : '';
 
 	console.log(`  checked: ${grade.phasesChecked.length} phase file(s) × ${grade.lenses.length} lens(es)${checked}`);
+	printWeights({ weights: grade.weights });
 
 	for (const finding of grade.structural) {
 		printStructuralFinding({ finding });

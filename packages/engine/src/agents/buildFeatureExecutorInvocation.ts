@@ -17,6 +17,8 @@ interface Params {
 	allowedCommands?: string[];
 	/** The executor's own source-file stop. The plan's own `## File Budget` when it declares one, else `executor-file-limit`, else `defaultExecutorFileLimit`. */
 	fileLimit?: number;
+	/** Repo-relative ledger test files the engine locked for this run — the tests that define done, and read-only. */
+	ledgerTests?: string[];
 }
 
 /**
@@ -36,6 +38,7 @@ export const buildFeatureExecutorInvocation = ({
 	changedFiles,
 	allowedCommands,
 	fileLimit,
+	ledgerTests,
 }: Params): { systemPrompt: string; prompt: string } => {
 	const roleSections = [applyPromptTokens({ text: featureExecutorPrompt, tokens: { fileLimit: fileLimit ?? defaultExecutorFileLimit } })];
 
@@ -62,6 +65,12 @@ export const buildFeatureExecutorInvocation = ({
 	if (changedFiles && changedFiles.length > 0) {
 		sections.push(
 			`# Previously changed files\n\nFiles already created or modified earlier in this run:\n\n${changedFiles.map((file) => `- ${file}`).join('\n')}`,
+		);
+	}
+
+	if (ledgerTests && ledgerTests.length > 0) {
+		sections.push(
+			`# Ledger tests (read-only)\n\n${ledgerTests.map((file) => `- ${file}`).join('\n')}\n\nEvery test named in these files must pass in the gate run before the work is done; they are locked, so fix the source rather than the test.`,
 		);
 	}
 

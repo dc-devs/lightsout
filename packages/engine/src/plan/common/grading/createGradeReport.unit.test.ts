@@ -1,5 +1,14 @@
 import { describe, expect, test } from '@jest/globals';
-import { FindingSeverity, GapArea, GapCheckLens, GapOutcome, type GradedGap, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
+import {
+	FindingSeverity,
+	GapArea,
+	GapCheckLens,
+	GapOutcome,
+	type GradedGap,
+	PlanWeight,
+	StructuralCheck,
+	type StructuralFinding,
+} from '#src/contracts/index.ts';
 import { createGradeReport } from '#src/plan/common/grading/createGradeReport.ts';
 
 /** One judged reader finding, carrying only the outcome each case turns on. */
@@ -128,5 +137,50 @@ describe('createGradeReport', () => {
 		expect(report.complete).toBe(false);
 		expect(report.grade).toBe('below-A');
 		expect(report.incompleteReason ?? '').toMatch(/graded a subset on request: 2/);
+	});
+
+	test('the weights and the light files are recorded on the report exactly as handed in', () => {
+		const weights = [
+			{ phase: 'phase1-core.md', weight: PlanWeight.Heavy, reasons: ['creates 5 source files, above 3'] },
+			{ phase: 'phase2-extra.md', weight: PlanWeight.Light, reasons: [] },
+		];
+
+		const report = createGradeReport({
+			name: 'graded',
+			structural: [],
+			gaps: [],
+			failures: [],
+			phasesChecked: ['phase1-core.md'],
+			weights,
+			phasesLight: ['phase2-extra.md'],
+		});
+
+		expect(report.weights).toStrictEqual(weights);
+		expect(report.phasesLight).toStrictEqual(['phase2-extra.md']);
+		// a file some reader read means the lenses really ran
+		expect(report.lenses).toStrictEqual(['surface', 'wiring', 'decisions']);
+	});
+
+	test('a grade where every file weighed light states no lenses, because no reader ran', () => {
+		const report = createGradeReport({
+			name: 'graded',
+			structural: [],
+			gaps: [],
+			failures: [],
+			phasesChecked: [],
+			weights: [{ phase: 'plan.md', weight: PlanWeight.Light, reasons: [] }],
+			phasesLight: ['plan.md'],
+		});
+
+		// empty lenses reads as "no reader ran", never as "every lens ran and found nothing"
+		expect(report.lenses).toStrictEqual([]);
+		expect(report.grade).toBe('A');
+	});
+
+	test('a grade taken with the switch off weighs nothing and still states the full lens list', () => {
+		const report = setupReport();
+
+		expect({ weights: report.weights, phasesLight: report.phasesLight }).toStrictEqual({ weights: [], phasesLight: [] });
+		expect(report.lenses).toStrictEqual(['surface', 'wiring', 'decisions']);
 	});
 });

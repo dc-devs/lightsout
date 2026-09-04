@@ -1,152 +1,24 @@
-import { basename, join, relative } from 'node:path';
-import { buildPlanGapCheckInvocation } from '#src/agents/index.ts';
+import { join } from 'node:path';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
-import { type Effort, type GapCheckLens, GapCheckReport, type GradeReport, type Permissions } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { GradeReport } from '#src/contracts/index.ts';
 import { appendGradeHistory } from '#src/plan/appendGradeHistory.ts';
 import { gapCheckLenses } from '#src/plan/common/constants/gapCheckLenses.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
-import { checkPlanDocumentation } from '#src/plan/common/grading/checkPlanDocumentation.ts';
 import { createGradeReport } from '#src/plan/common/grading/createGradeReport.ts';
-import { drainGapCheckers } from '#src/plan/common/grading/drainGapCheckers.ts';
+import { drainGradeAgents } from '#src/plan/common/grading/drainGradeAgents.ts';
 import { notePriorArtCollisions } from '#src/plan/common/grading/notePriorArtCollisions.ts';
 import { readGradeStamp } from '#src/plan/common/grading/readGradeStamp.ts';
-import type { DeliverableFile } from '#src/plan/common/types/DeliverableFile.ts';
-import type { GapResult } from '#src/plan/common/types/GapResult.ts';
-import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
+import { weighSelection } from '#src/plan/common/grading/weighSelection.ts';
+import type { PlanGradeParams } from '#src/plan/common/types/PlanGradeParams.ts';
 import { getBlockingGaps } from '#src/plan/common/utils/getBlockingGaps.ts';
 import { getPlanDetectionPass } from '#src/plan/common/utils/getPlanDetectionPass.ts';
-import { judgeGaps } from '#src/plan/common/utils/judgeGaps.ts';
 import { selectPhaseFiles } from '#src/plan/common/utils/selectPhaseFiles.ts';
 import { lintPlanStructure } from '#src/plan/lint/index.ts';
-
-interface Params {
-	cwd: string;
-	driver: Driver;
-	/** Kebab plan name — the folder the plan's own files live in. */
-	name: string;
-	/** Gap-check only these plan files — a bare phase number (`3`) or a full basename. Absent → all of them; narrowed → always incomplete. */
-	phases?: string[];
-	/** Supplemental code standards, threaded into the gap-check so standards-conflict can fire. */
-	standards?: string;
-	model?: string;
-	effort?: Effort;
-	permissions?: Permissions;
-	timeoutMs?: number;
-	onProgress?: (message: string) => void;
-}
 
 type RunPlanGradeResult =
 	| { status: typeof PlanRunStatus.Complete; workspaceDir: string; grade: GradeReport; gradePath: string }
 	| { status: typeof PlanRunStatus.Failed; workspaceDir: string; error: string; grade?: GradeReport; gradePath?: string }
 	| { status: typeof PlanRunStatus.PausedRateLimit; workspaceDir: string; error: string; grade?: GradeReport; gradePath?: string };
-
-/** One checker spawn: its own runner and its own transcript, because a sink shared by thirty agents interleaves into one unreadable file. */
-const spawnGapChecker = async ({
-	params,
-	pass,
-	file,
-	lens,
-	timeoutMs,
-}: {
-	params: Params;
-	pass: Awaited<ReturnType<typeof getPlanDetectionPass>>;
-	file: DeliverableFile;
-	lens: GapCheckLens;
-	timeoutMs: number;
-}): Promise<GapResult> => {
-	const { cwd, driver, standards, model, effort, permissions } = params;
-	const invokePlanAgent = createPlanAgentRunner({
-		cwd,
-		driver,
-		workspaceDir: pass.workspaceDir,
-		step: `grade-${basename(file.path, '.md')}-${lens}`,
-		model,
-		effort,
-		permissions,
-		timeoutMs,
-		// Two, not one: a reader written off costs the plan file its coverage —
-		// a file is claimed as checked only when every lens returned for it, so
-		// losing readers means re-running the whole pass by hand. Each fresh
-		// invocation still gets its one cheap re-emit, so four spawns is the
-		// worst case. Not three: two is the smallest number that makes "re-run
-		// rather than write off" true, and it caps the worst case at double.
-		maxRoleAttempts: 2,
-	});
-	const outcome = await invokePlanAgent({
-		invocation: buildPlanGapCheckInvocation({
-			planText: file.text,
-			overviewText: pass.overviewText,
-			standards,
-			// Only a phased plan has siblings to point at, and the wiring checker
-			// opens one itself when a consumed name's shape is declared elsewhere.
-			planDir: pass.overviewText === undefined ? undefined : relative(cwd, pass.workspaceDir),
-			lens,
-		}),
-		contract: GapCheckReport,
-	});
-
-	return { phase: basename(file.path), lens, outcome };
-};
-
-/**
- * The agent half of a grade: the per-file reader fan-out, the whole-plan
- * documentation check running beside it, and the judge that settles what the
- * readers found.
- *
- * The documentation check is concurrent with the fan-out so it costs money
- * rather than wall-clock, and its findings never reach the judge — the
- * checker's own job is that judgment.
- */
-const drainGradeAgents = async ({
-	params,
-	pass,
-	selected,
-	progress,
-}: {
-	params: Params;
-	pass: Awaited<ReturnType<typeof getPlanDetectionPass>>;
-	selected: DeliverableFile[];
-	progress: (message: string) => void;
-}) => {
-	// Resolved once for both spawns: two independent defaults let an edit to one
-	// move that checker's ceiling and leave the other on the old number.
-	const timeoutMs = params.timeoutMs ?? 30 * 60 * 1000;
-	const tasks = selected.flatMap((file) => gapCheckLenses.map((lens) => () => spawnGapChecker({ params, pass, file, lens, timeoutMs })));
-	const [readers, documentation] = await Promise.all([
-		drainGapCheckers({ tasks, selected }),
-		checkPlanDocumentation({
-			cwd: params.cwd,
-			driver: params.driver,
-			name: params.name,
-			workspaceDir: pass.workspaceDir,
-			planPaths: pass.planPaths,
-			files: pass.files,
-			overviewText: pass.overviewText,
-			docs: pass.config?.docs,
-			model: params.model,
-			effort: params.effort,
-			permissions: params.permissions,
-			timeoutMs,
-			onProgress: progress,
-		}),
-	]);
-	const judged = await judgeGaps({
-		...params,
-		workspaceDir: pass.workspaceDir,
-		overviewText: pass.overviewText,
-		selected,
-		gaps: readers.gaps,
-		skipReason: readers.rateLimited ? 'the reader fan-out hit the rate-limit wall, so no judge was spawned' : undefined,
-	});
-
-	return {
-		gaps: [...judged.gaps, ...documentation.gaps],
-		failures: [...readers.failures, ...documentation.failures],
-		phasesChecked: readers.phasesChecked,
-		rateLimited: readers.rateLimited || judged.rateLimited || documentation.rateLimited,
-	};
-};
 
 /**
  * Read-only detector for a plan's grade: the deterministic structural re-check
@@ -180,6 +52,11 @@ const drainGradeAgents = async ({
  * cross-phase and one phase file alone would have it report the others' creates
  * as missing provenance and their hand-offs as unclaimed.
  *
+ * Which files those readers see is `weighSelection`'s answer: with
+ * `plan.contract` on, only the plan files heavy enough to earn the fan-out pay
+ * for it, and the rest are recorded on the report as read by nobody. With the
+ * key off every selected file is read, exactly as before the key existed.
+ *
  * One whole-plan documentation checker runs beside the per-file readers when —
  * and only when — the repository declares a `docs` block, verifying the claim
  * every implementable plan file states. Its findings bypass the judge, because
@@ -188,7 +65,7 @@ const drainGradeAgents = async ({
  * deliverable even under a `--phase` narrowing: "does this plan touch a declared
  * document?" cannot be answered from one phase.
  */
-export const runPlanGrade = async (params: Params): Promise<RunPlanGradeResult> => {
+export const runPlanGrade = async (params: PlanGradeParams): Promise<RunPlanGradeResult> => {
 	const { cwd, name, phases, onProgress } = params;
 	const progress = onProgress ?? (() => undefined);
 	const pass = await getPlanDetectionPass({ cwd, name });
@@ -214,12 +91,13 @@ export const runPlanGrade = async (params: Params): Promise<RunPlanGradeResult> 
 	await notePriorArtCollisions({ cwd, name, workspaceDir, planPaths, config, onProgress: progress });
 
 	const docsDeclared = (config?.docs?.length ?? 0) > 0;
+	const { weights, heavy, light } = weighSelection({ selected, config });
 
 	progress(
-		`plan grade ${name}: ${structural.length} structural finding(s), gap-checking ${selected.length} of ${files.length} plan file(s) × ${gapCheckLenses.length} lens(es)${docsDeclared ? ', plus one whole-plan documentation check' : ''}`,
+		`plan grade ${name}: ${structural.length} structural finding(s), gap-checking ${heavy.length} of ${files.length} plan file(s) × ${gapCheckLenses.length} lens(es)${light.length > 0 ? `, ${light.length} weighed light and read by nobody` : ''}${docsDeclared ? ', plus one whole-plan documentation check' : ''}`,
 	);
 
-	const agents = await drainGradeAgents({ params, pass, selected, progress });
+	const agents = await drainGradeAgents({ params, pass, selected: heavy, progress });
 	const report = createGradeReport({
 		name,
 		phases,
@@ -227,6 +105,8 @@ export const runPlanGrade = async (params: Params): Promise<RunPlanGradeResult> 
 		gaps: agents.gaps,
 		failures: agents.failures,
 		phasesChecked: agents.phasesChecked,
+		weights,
+		phasesLight: light,
 		commit: stamp.commit,
 		treeDirty: stamp.treeDirty,
 	});

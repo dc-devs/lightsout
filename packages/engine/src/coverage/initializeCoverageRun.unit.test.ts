@@ -26,6 +26,7 @@ const manifestWith = ({ pipeline, config }: { pipeline?: PipelineKind; config: L
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],
+	ledgerTests: [],
 	unreachableChangedFiles: [],
 	coverageExcludedChangedFiles: [],
 });

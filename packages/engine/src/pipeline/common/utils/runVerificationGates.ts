@@ -4,6 +4,7 @@ import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumer
 import type { GateResult } from '#src/contracts/index.ts';
 import { checkChangedFilesExecuted } from '#src/coverage/index.ts';
 import { type GateRunResult, runGates } from '#src/gates/index.ts';
+import { restoreLedgerTests } from '#src/pipeline/common/utils/restoreLedgerTests.ts';
 import { sourceFiles } from '#src/pipeline/common/utils/sourceFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 
@@ -19,6 +20,12 @@ interface Params {
 
 /**
  * The run's verification gates, bound to its live scope and evidence log.
+ *
+ * The ledger lock runs first, BEFORE the gates: an edited acceptance test can
+ * make a gate pass, so the copy has to be back in place or the gate proves the
+ * wrong thing. A restored file is announced and nothing more — the gates then
+ * decide, and the step's own fix role repairs a red test the way it does today.
+ *
  * When the coverage gate ran clean, the per-file executed check follows: every
  * changed file (minus the recorded unreachable ones) must show at least one
  * executed statement in the summaries the gate just wrote — the one check the
@@ -29,6 +36,14 @@ export const runVerificationGates = async ({ run, coverage }: Params): Promise<G
 	const packagesDir = run.config['packages-dir'] ?? defaultPackagesDir;
 	const hasRootChanges = run.current().changedFiles.some((file) => packageOf({ file, packagesDir }) === undefined);
 	const observations = new Map<string, GateResult>();
+
+	if (run.current().ledgerTests.length > 0) {
+		const { restored } = await restoreLedgerTests({ run });
+
+		for (const path of restored) {
+			run.progress(`ledger lock: ${path} was edited during the run — the locked copy was put back before the gates ran`);
+		}
+	}
 
 	const result = await runGates({
 		cwd: run.cwd,

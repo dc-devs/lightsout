@@ -10,6 +10,8 @@ interface Params {
 	standards?: string;
 	/** Verification-gate output from a failed attempt, for fix re-invocations. */
 	errorContext?: string;
+	/** Repo-relative ledger test files the engine locked for this run — read-only for every writer that follows. */
+	ledgerTests?: string[];
 }
 
 /**
@@ -26,6 +28,7 @@ export const buildUnitTestWriterInvocation = ({
 	mustExecute,
 	standards,
 	errorContext,
+	ledgerTests,
 }: Params): { systemPrompt: string; prompt: string } => {
 	const roleSections = [unitTestWriterPrompt, `# Plan (context for intended behavior)\n\n${planContent}`];
 
@@ -44,6 +47,12 @@ export const buildUnitTestWriterInvocation = ({
 			'- The engine will verify, from the coverage report, that every changed file listed above executed under the tests — a changed file that never runs fails the verification gate.',
 		].join('\n'),
 	];
+
+	if (ledgerTests && ledgerTests.length > 0) {
+		sections.push(
+			`# Ledger tests (read-only)\n\n${bullets({ files: ledgerTests })}\n\nThese files state the plan's acceptance criteria and are locked for the run — never edit one; a case that belongs in a locked file goes in a sibling file beside the same subject whose name inserts \`coverage\` before the test suffix.`,
+		);
+	}
 
 	if (errorContext) {
 		sections.push(

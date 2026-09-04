@@ -73,6 +73,7 @@ export const createRun = async ({
 		packages: [],
 		baselineDirtyFiles: baselineDirtyFiles ?? [],
 		testSubjects: [],
+		ledgerTests: [],
 		unreachableChangedFiles: [],
 		coverageExcludedChangedFiles: [],
 	};

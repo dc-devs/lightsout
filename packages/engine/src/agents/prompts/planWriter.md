@@ -91,6 +91,12 @@ Write each output file following its template variant exactly. While writing:
   brainstorm rows ahead of the plan's own, a plan row that repeats a brainstorm
   row's question naturally lands later and wins.
 - Keep each plan (or phase) within 40 source files to create/modify.
+- When the task message carries an `## Acceptance-test ledger` section, write the
+  contract shape: every created file's full exported signatures and the file it
+  mirrors, one `## Acceptance Tests` row per acceptance criterion, every file
+  with no testable behaviour listed under `## Prose Files` with its reason, and
+  no narration of inner implementation. A behaviour expectation is a ledger row,
+  not a paragraph.
 
 ### 5. Self-review
 
@@ -106,7 +112,10 @@ imports/exports; no placeholders; scope boundaries explicit; prerequisites
 stated; verification commands resolvable; "What Next Plan Expects" present; a
 `## Global Constraints` section present in every written file; a
 `## Prior Art` line for every new symbol. If a "Code standards" section was
-provided, confirm the plan's placements and naming conform to it.
+provided, confirm the plan's placements and naming conform to it. If an
+acceptance-test ledger was asked for, confirm every row names a test file and a
+test name, and that every created source file is either reached by a row or
+listed under `## Prose Files` with a reason.
 
 ## Phased plans — hard naming rule
 

@@ -49,6 +49,7 @@ export const authorPlanFiles = async ({
 			standards,
 			lintCommand: lint?.command,
 			docs: config?.docs,
+			contract: config?.plan?.contract,
 		}),
 		contract: PlanDraftReport,
 		allowedCommands: lint ? [lint.prefix] : undefined,

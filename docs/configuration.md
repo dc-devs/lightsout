@@ -174,8 +174,8 @@ failure.
 ## Field reference
 
 The table below lists the top-level keys. A block with keys of its own — `gates`,
-`standards-checks`, `ship`, `ticket-tracker`, `queue`, `auto-plan` and `docs` — is
-documented in the
+`standards-checks`, `ship`, `ticket-tracker`, `queue`, `plan`, `auto-plan` and
+`docs` — is documented in the
 subsections beneath it.
 
 The table is generated from the engine’s own descriptions, the same sentences the
@@ -209,6 +209,7 @@ is overwritten the next time `pnpm build:config-reference` runs.
 | `ticket-tracker` | no | Opt-in tracker identity: which provider the engine talks to and that provider’s address and credential environment variables — a Linear team and API key, or a Jira Cloud site, project, API token and account email. Every command that reads or writes a ticket resolves it from here, so tracker identity is spelled once rather than once per command. |
 | `queue` | no | Opt-in queue settings: which ticket label names each planning status, what this tracker calls each status the engine writes, which statuses count as available work, how many tickets run at once, and the per-ticket worker and question timeouts. Tracker identity lives in `ticket-tracker`, so this block holds queue behaviour only. |
 | `auto-plan` | no | Opt-in auto-plan settings: whether the proposal comes before drafting, whether an approved proposal starts the build, and whether the proposal is skipped when nothing clears the escalation bar. Every key is off by default, so an absent block is the most supervised behaviour. |
+| `plan` | no | Opt-in plan settings: whether plans are written as contracts with an acceptance-test ledger — a table naming the test that states each acceptance criterion — and graded by weight, spawning the reader fan-out only for the plan files that earn it, plus the counts above which a plan file is heavy. Off by default, so an absent block is exactly today’s behaviour: the same template, the same required sections, every plan file read by every lens. |
 | `docs` | no | Opt-in documentation surfaces: each entry a repo-relative path and a one-line `covers` saying what that document is responsible for. Declaring the block turns on the plan-time documentation check — the plan writer is briefed on the surfaces, every implementable plan file must carry a `## Documentation` statement, and `plan grade` runs one whole-plan checker that verifies it. A repository that declares no block sees none of it: no section, no prompt text, no checker spawn. |
 
 <!-- /generated:config-key-reference -->
@@ -397,6 +398,34 @@ Every other combination is left alone. `planning-needs-brainstorm` and
 `planning-not-needed` ticket still in Backlog is not moved — putting a ticket
 into Ready to implement is the shaping workflow's job. Backlog here means any
 eligible status that is not your ready status.
+
+### Plan settings
+
+| Field                                  | Required | What it controls                                                                                                                                            |
+| -------------------------------------- | -------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `plan.contract`                        |       no | When true, plans are written as contracts carrying an acceptance-test ledger, the structural lint requires that ledger, and `plan grade` weighs each plan file and spawns readers only for the heavy ones. Defaults to `false`. |
+| `plan.weight-thresholds.created-files` |       no | A plan file creating more source files than this is heavy. Defaults to `3`.                                                                                  |
+| `plan.weight-thresholds.packages`      |       no | A plan file touching more packages than this is heavy. Defaults to `1`.                                                                                      |
+
+A contract plan carries what a test cannot detect — the file map, the full
+exported signatures of every created file, the file each new file mirrors, and
+the decisions — plus an `## Acceptance Tests` table with one row per acceptance
+criterion: the criterion, the test file that states it, the exact test name, and
+the gate that runs it. Behaviour a plan used to narrate in prose becomes a row.
+A file whose behaviour no test can state — a document, a config file — is listed
+under `## Prose Files` with the reason, and stays described in words.
+
+A plan file is weighed from its own counts: it is heavy when it creates more
+source files than `created-files`, when it touches more packages than
+`packages`, or when it names no pattern to mirror. A heavy file gets the reader
+fan-out once; a light one gets the structural lint and the ledger check and no
+agent at all. `plan grade` prints each file's weight and every threshold it
+crossed, and records both in `grade.json`.
+
+The block is strict for the same reason `ship` is: an unknown key fails parsing
+rather than silently disabling a setting you believe is on. Omit the block and
+nothing changes — the same template, the same required sections, and every plan
+file read by every lens.
 
 ### Auto-plan settings
 
