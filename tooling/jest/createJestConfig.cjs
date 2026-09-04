@@ -45,7 +45,16 @@ module.exports = ({ rootDir, ...rest }) => ({
 	// gate retry was built to absorb. A number rather than a fraction of the
 	// cores, because the machines differ by an order of magnitude — a 14-core
 	// laptop hosting several agents, and a 2-core CI runner hosting one.
-	maxWorkers: 10,
+	maxWorkers: 8,
+	// Recycle a worker once it passes this, rather than letting it carry a heap
+	// from one test file to the next for the whole run.
+	//
+	// The known Jest worker crash happens inside V8's major garbage collection, so
+	// how often it fires tracks how often that collection runs — and it runs when
+	// a heap has grown large. A worker that is replaced before it gets there does
+	// the same work having collected less. Unlike the worker cap above this costs
+	// no parallelism: it only restarts workers that were about to become expensive.
+	workerIdleMemoryLimit: '512MB',
 	// json-summary is what `lightsout test-coverage-to-threshold` (and doctor)
 	// read to pick the worst files — every package emits it, not just the one
 	// that happened to declare it first.
