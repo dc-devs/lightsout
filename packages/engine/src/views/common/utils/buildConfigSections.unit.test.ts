@@ -16,6 +16,12 @@ const ticketTrackerBlock = {
 	'api-key-env': 'LINEAR_API_KEY',
 };
 
+/** An override block naming gates this config configures, so the page has a real one to read back. */
+const gateOverridesBlock = {
+	'clean-slate': 'off',
+	'verify-implement': ['check', 'test-coverage'],
+};
+
 /** A parsed config, so the sections are built from the same value a run would hand them. */
 const buildSections = ({ config = {} }: { config?: Record<string, unknown> } = {}) =>
 	buildConfigSections({
@@ -69,6 +75,19 @@ describe('buildConfigSections', () => {
 			value: null,
 			fromConfig: false,
 			description: configKeyDescriptions['ticket-tracker'],
+		});
+	});
+
+	test('reads a gate-overrides block back into the Gates section, beside the gate blocks it overrides', () => {
+		const gates = buildSections({ config: { 'gate-overrides': gateOverridesBlock } }).find((section) => section.title === 'Gates');
+		const keys = gates?.fields.map((field) => field.key) ?? [];
+
+		expect(keys.indexOf('gate-overrides')).toBe(keys.indexOf('package-gates') + 1);
+		expect(gates?.fields.find((field) => field.key === 'gate-overrides')).toStrictEqual({
+			key: 'gate-overrides',
+			value: gateOverridesBlock,
+			fromConfig: true,
+			description: configKeyDescriptions['gate-overrides'],
 		});
 	});
 });

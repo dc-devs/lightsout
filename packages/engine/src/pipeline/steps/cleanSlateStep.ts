@@ -21,7 +21,7 @@ export const cleanSlateStep = ({ run }: Params): PipelineStep['run'] => {
 		await run.setStep({ record });
 		run.progress(`step clean-slate — attempt ${record.attempts}`);
 
-		const { error, failures } = await runVerificationGates({ run, coverage: true });
+		const { error, failures } = await runVerificationGates({ run, coverage: true, checkpoint: 'clean-slate' });
 
 		if (error) {
 			// A gate that never finished is a different problem from a gate that

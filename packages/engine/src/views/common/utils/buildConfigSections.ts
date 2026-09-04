@@ -28,6 +28,7 @@ const configFieldReaders: Record<string, (params: { config: LightsoutConfig }) =
 	commands: ({ config }) => config.commands,
 	gates: ({ config }) => config.gates,
 	'package-gates': ({ config }) => config['package-gates'],
+	'gate-overrides': ({ config }) => config['gate-overrides'],
 	'packages-dir': ({ config }) => config['packages-dir'] ?? defaultPackagesDir,
 	'coverage-summary-path': ({ config }) => config['coverage-summary-path'] ?? defaultCoverageSummaryPath,
 	'executor-file-limit': ({ config }) => config['executor-file-limit'] ?? defaultExecutorFileLimit,
@@ -51,7 +52,7 @@ const configFieldReaders: Record<string, (params: { config: LightsoutConfig }) =
 /** The areas of the file, in the order the page reads them, and which keys land in each. */
 const configSectionKeys: Array<{ title: string; keys: string[] }> = [
 	{ title: 'Harness', keys: ['harness', 'model', 'effort', 'permissions', 'commands'] },
-	{ title: 'Gates', keys: ['gates', 'package-gates', 'packages-dir', 'coverage-summary-path', 'executor-file-limit'] },
+	{ title: 'Gates', keys: ['gates', 'package-gates', 'gate-overrides', 'packages-dir', 'coverage-summary-path', 'executor-file-limit'] },
 	{ title: 'Standards', keys: ['standards-packs', 'standards-channels', 'standards-checks'] },
 	{ title: 'Agent commands', keys: ['agent-commands'] },
 	{ title: 'Generated', keys: ['generated', 'vendored'] },

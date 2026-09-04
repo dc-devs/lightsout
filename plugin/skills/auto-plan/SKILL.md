@@ -73,17 +73,17 @@ below the bar, resolve it from the approved scope, recorded decisions, and
 repository conventions; update the plan and decisions; then re-run the
 applicable validation, deduplication, and grade checks.
 
-**Convergence budget.** After the initial grade, perform at most **one**
-repair round. That round resolves every below-bar finding, records the
+**Convergence budget.** After the initial grade, perform at most **two**
+repair rounds. Each round resolves every below-bar finding, records the
 decisions, runs the applicable validation and deduplication checks, then grades
-again — and the regrade is mostly mechanical, because the deterministic checks
+again — and each regrade is mostly mechanical, because the deterministic checks
 re-run for free. A passed, complete grade (A) proceeds normally.
 
-If that round remains below A, preserve the complete grade history and present
-the remaining gaps and the changes the round made. Ask the human to choose
-exactly one: authorize one more round, explicitly accept the current below-A
-plan and proceed to implementation, or change direction / settle a genuine
-product-level decision. Do not auto-approve or auto-implement a below-A plan.
+If both rounds are spent and the plan remains below A, preserve the complete
+grade history and present the remaining gaps and the changes the rounds made.
+Ask the human to choose exactly one: authorize one more round, explicitly accept
+the current below-A plan and proceed to implementation, or change direction /
+settle a genuine product-level decision. Do not auto-approve or auto-implement a below-A plan.
 Only an explicit human acceptance may bypass the A-grade requirement; record it
 in the plan's Decision Log and `decisions.json` before rolling onward.
 

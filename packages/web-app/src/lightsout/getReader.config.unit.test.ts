@@ -94,7 +94,7 @@ describe('getReader config', () => {
 
 		expect(view.sections.map((section) => ({ title: section.title, keys: section.fields.map((field) => field.key) }))).toStrictEqual([
 			{ title: 'Harness', keys: ['harness', 'model', 'effort', 'permissions', 'commands'] },
-			{ title: 'Gates', keys: ['gates', 'package-gates', 'packages-dir', 'coverage-summary-path', 'executor-file-limit'] },
+			{ title: 'Gates', keys: ['gates', 'package-gates', 'gate-overrides', 'packages-dir', 'coverage-summary-path', 'executor-file-limit'] },
 			{ title: 'Standards', keys: ['standards-packs', 'standards-channels', 'standards-checks'] },
 			{ title: 'Agent commands', keys: ['agent-commands'] },
 			{ title: 'Generated', keys: ['generated', 'vendored'] },
