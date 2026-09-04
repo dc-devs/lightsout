@@ -133236,10 +133236,15 @@ var mergeGateRunResults = ({ results }) => {
 var maxCrashAttempts = 3;
 var jestWorkerSigsegv = /A jest worker process \(pid=\d+\) was terminated by another process: signal=SIGSEGV, exitCode=null\./;
 var reportedTestFailure = /\bTests:[ \t]+[^\n]*\d+ failed/;
-var isWorkerCrash = ({ result }) => {
+var testKinds = /* @__PURE__ */ new Set(["test", "testCoverage", "extraTests"]);
+var jestReported = /\bTest Suites:[ \t]+/;
+var isWorkerCrash = ({ kind, result }) => {
   const output = `${result.stdout}
 ${result.stderr}`;
-  return result.exitCode !== 0 && result.exitCode !== -1 && jestWorkerSigsegv.test(output) && !reportedTestFailure.test(output);
+  if (result.exitCode === 0 || result.exitCode === -1 || reportedTestFailure.test(output)) {
+    return false;
+  }
+  return jestWorkerSigsegv.test(output) || testKinds.has(kind) && jestReported.test(output);
 };
 var createGateRunner = ({ cwd, timeoutMs, runId, step, onGateResult, onProgress }) => {
   const executeOnce = async ({ kind, command, group, rerun }) => {
@@ -133251,7 +133256,7 @@ var createGateRunner = ({ cwd, timeoutMs, runId, step, onGateResult, onProgress 
     } catch (error51) {
       result = { exitCode: -1, stdout: "", stderr: messageOf({ error: error51 }) };
     }
-    const crashed = isWorkerCrash({ result });
+    const crashed = isWorkerCrash({ kind, result });
     onProgress?.(
       `gate [${group}] ${kind}${rerun ? " (re-run)" : ""}: exit ${result.exitCode}${crashed ? " (jest worker crash)" : ""} (${((Date.now() - startedAt) / 1e3).toFixed(1)}s)`
     );
