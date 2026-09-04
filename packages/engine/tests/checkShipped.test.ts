@@ -9,15 +9,19 @@ import { afterAll, expect, jest, test } from '@jest/globals';
 // history. The pre-push hook and CI both run this one script, so what it
 // answers here is what blocks a push and what blocks a merge.
 //
-// Each case works in a throwaway clone. Mutating this repo to make the check
-// fail would leave the damage behind whenever a test threw before restoring.
-
-// Every case here clones this repo, bundles the engine into the clone, and then
-// runs the check as a subprocess — around 30s of real work each, which left no
-// margin under the shared 30s budget: the heaviest cases timed out whenever the
-// rest of the suite loaded the machine. Declared once for the file because the
-// cost is the shared setup rather than any one case. Generous on purpose; no
-// assertion below changes.
+// Every case works in a clone. Mutating this repo to make the check fail would
+// leave the damage behind whenever a test threw before restoring.
+//
+// One clone, reset between cases, rather than one clone each. Cloning the repo,
+// linking every package's node_modules and bundling the engine is around 26s of
+// identical work, and only what a case does AFTER that setup differs — so the
+// suite paid for thirteen of them and ran for nearly six minutes. Resetting to
+// the baseline commit and clearing untracked files puts the tree back in well
+// under a second, and Jest runs a file's tests one at a time, so no case can see
+// another's edits.
+//
+// The budget stays generous: the first case pays for the whole setup, and the
+// engine bundle is the slowest part of it.
 jest.setTimeout(120_000);
 
 const repoRoot = join(__dirname, '..', '..', '..');
@@ -58,7 +62,7 @@ const commitAll = ({ cwd, message }: { cwd: string; message: string }) => {
  * normal checkout. Rebuilding once makes the clone self-consistent, so a test
  * measures the change it made rather than that difference.
  */
-const setupClone = async () => {
+const buildBaseClone = async () => {
 	const dir = join(await mkdtemp(join(tmpdir(), 'lightsout-shipped-')), 'repo');
 
 	clones.push(dir);
@@ -97,7 +101,33 @@ const setupClone = async () => {
 	// version check compares against.
 	run({ cwd: dir, command: 'git', args: ['checkout', '-q', '-B', 'main'] });
 	commitAll({ cwd: dir, message: 'baseline' });
-	run({ cwd: dir, command: 'git', args: ['checkout', '-q', '-b', 'feature'] });
+
+	// The sha rather than the branch name: a case that commits on `main` — the
+	// add-on setup below does — moves the branch, and the next case has to be
+	// able to put it back.
+	return { dir, baseline: run({ cwd: dir, command: 'git', args: ['rev-parse', 'HEAD'] }).trim() };
+};
+
+/** The one clone, built on first use. Every case after the first reuses it. */
+let baseClone: Awaited<ReturnType<typeof buildBaseClone>> | undefined;
+
+/**
+ * A clone standing exactly where the baseline left it, on a fresh `feature`
+ * branch — what every case starts from.
+ *
+ * `git clean` runs without `-x`, so the node_modules symlinks the setup made
+ * survive; they are ignored, and re-linking them per case is most of what this
+ * change exists to avoid.
+ */
+const setupClone = async () => {
+	baseClone ??= await buildBaseClone();
+
+	const { dir, baseline } = baseClone;
+
+	run({ cwd: dir, command: 'git', args: ['checkout', '-q', '--force', 'main'] });
+	run({ cwd: dir, command: 'git', args: ['reset', '--hard', '--quiet', baseline] });
+	run({ cwd: dir, command: 'git', args: ['clean', '-qfd'] });
+	run({ cwd: dir, command: 'git', args: ['checkout', '-q', '-B', 'feature'] });
 
 	return dir;
 };
@@ -167,7 +197,7 @@ const setupCloneWithAddOn = async () => {
 	await setVersion({ cwd, version: '0.1.0', manifest: addOnManifestPath });
 	await writeFile(join(cwd, 'plugin-linear', 'skills', 'linear-ticket', 'SKILL.md'), '---\nname: linear-ticket\n---\n');
 	commitAll({ cwd, message: 'add-on baseline' });
-	run({ cwd, command: 'git', args: ['checkout', '-q', '-b', 'addon-feature'] });
+	run({ cwd, command: 'git', args: ['checkout', '-q', '-B', 'addon-feature'] });
 
 	return cwd;
 };
