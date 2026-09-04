@@ -58,6 +58,8 @@
 		"api-key-env": "LINEAR_API_KEY"
 	},
 	"queue": {
+		"ready-status": "Ready to Implement",
+		"eligible-statuses": ["Backlog", "Ready to Implement"],
 		"max-parallel": 2,
 		"setup": "pnpm install",
 		"worker-timeout": "4h",

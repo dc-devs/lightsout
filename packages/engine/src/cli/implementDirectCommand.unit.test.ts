@@ -8,6 +8,7 @@ import { type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import type { QueueFailure } from '#src/queue/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { generatedPaths } from '#tests/helpers/generatedPaths.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 // Mocked Imports
@@ -15,13 +16,15 @@ import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 // The direct run spawns a harness and the commit writes git history — both
 // covered by their own tests. What this command owns is the flags it reads, the
 // dirty tree it refuses, the reference it derives, and the code it exits on.
+type CommitParams = { message: string; runDir: string; generated: string[] | undefined; onProgress: (message: string) => void };
+
 const mockRunDirectWork = jest.fn<(params: { ticketBody: string; ticketRef: string; willShip?: boolean }) => Promise<PipelineResult>>();
-const mockCommitTicketWork = jest.fn<(params: { message: string; runDir: string }) => Promise<{ committed: boolean } | QueueFailure>>();
+const mockCommitTicketWork = jest.fn<(params: CommitParams) => Promise<{ committed: boolean } | QueueFailure>>();
 
 jest.mock('#src/direct/index.ts', () => ({
 	runDirectWork: (params: { ticketBody: string; ticketRef: string; willShip?: boolean }) => mockRunDirectWork(params),
 }));
-jest.mock('#src/queue/index.ts', () => ({ commitTicketWork: (params: { message: string; runDir: string }) => mockCommitTicketWork(params) }));
+jest.mock('#src/queue/index.ts', () => ({ commitTicketWork: (params: CommitParams) => mockCommitTicketWork(params) }));
 // -------------------------
 
 const manifestOf = (status: RunStatus): RunManifest => ({
@@ -48,7 +51,7 @@ const setupImplementDirect = ({
 	branch = 'lo-70-drain',
 	ticket = '# Drain the backlog\n\nBuild the thing.\n',
 	dirty,
-	ship,
+	config = {},
 	detached = false,
 }: {
 	args: string[];
@@ -57,15 +60,23 @@ const setupImplementDirect = ({
 	ticket?: string;
 	/** A file left uncommitted after the ticket file is committed. */
 	dirty?: string;
-	/** The config's `ship` block — a broken ticket pattern is how "no usable ship settings" is arranged. */
-	ship?: unknown;
+	/** The config keys this case turns on, written into the repo's `lightsout.config.json` beside the gates every case needs. */
+	config?: {
+		/** The config's `ship` block — a broken ticket pattern is how "no usable ship settings" is arranged. */
+		ship?: unknown;
+		/** The config's `generated` list, or omitted to write a config that names no generated paths at all. */
+		generated?: string[];
+	};
 	/** Leave the checkout on a detached HEAD, which is a commit rather than a branch anything can be named after. */
 	detached?: boolean;
 }) => {
 	const captured = captureCommandOutput();
 	const { cwd } = setupBranchRepo({ branch });
 
-	writeFileSync(join(cwd, 'lightsout.config.json'), JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false }, ship }));
+	writeFileSync(
+		join(cwd, 'lightsout.config.json'),
+		JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false }, ship: config.ship, generated: config.generated }),
+	);
 
 	if (ticket !== undefined) {
 		writeFileSync(join(cwd, 'ticket.md'), ticket);
@@ -111,6 +122,36 @@ describe('implementDirectCommand', () => {
 		expect(mockCommitTicketWork).toHaveBeenCalledWith(expect.objectContaining({ runDir: join(cwd, '.lightsout', 'runs', 'run-1234-abcd') }));
 	});
 
+	test('hands the commit step the repo’s generated paths, so a direct run’s branch carries source only', async () => {
+		const { context } = setupImplementDirect({ args: ['--ticket', 'ticket.md'], config: { generated: generatedPaths } });
+
+		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(mockCommitTicketWork).toHaveBeenCalledWith(expect.objectContaining({ generated: ['plugin/dist/', 'packages/web-app/src/routeTree.gen.ts'] }));
+	});
+
+	test('hands the commit step nothing to discard when the repo configures no generated paths, which is exactly today’s behaviour', async () => {
+		const { context } = setupImplementDirect({ args: ['--ticket', 'ticket.md'] });
+
+		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(mockCommitTicketWork).toHaveBeenCalledWith(expect.objectContaining({ generated: undefined }));
+	});
+
+	test('prints the commit step’s report of the generated changes it discarded, so the run records why the branch carries no build output', async () => {
+		const { context, logged } = setupImplementDirect({ args: ['--ticket', 'ticket.md'], config: { generated: ['plugin/dist/'] } });
+
+		mockCommitTicketWork.mockImplementation(async ({ onProgress }) => {
+			onProgress('discarded 2 generated path(s) — the pre-ship step commits build output');
+
+			return { committed: true };
+		});
+
+		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged).toContainEqual(expect.stringContaining('discarded 2 generated path(s)'));
+	});
+
 	test('takes the reference from --ref when one is typed, rather than deriving it', async () => {
 		const { context } = setupImplementDirect({ args: ['--ticket', 'ticket.md', '--ref', 'LO-99'] });
 
@@ -128,7 +169,7 @@ describe('implementDirectCommand', () => {
 	});
 
 	test('falls back to the branch name when the repo’s ticket pattern cannot be compiled at all', async () => {
-		const { context } = setupImplementDirect({ args: ['--ticket', 'ticket.md'], ship: { 'ticket-pattern': '^(?<broken>' } });
+		const { context } = setupImplementDirect({ args: ['--ticket', 'ticket.md'], config: { ship: { 'ticket-pattern': '^(?<broken>' } } });
 
 		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
 
@@ -161,7 +202,7 @@ describe('implementDirectCommand', () => {
 		{ label: 'the config says after-implement', args: [] as string[], ship: { 'after-implement': true }, willShip: true },
 		{ label: '--no-ship beats the config', args: ['--no-ship'], ship: { 'after-implement': true }, willShip: false },
 	])('hands the run its ship intent when $label, so the manifest can carry a ship row', async ({ args, ship, willShip }) => {
-		const { context } = setupImplementDirect({ args: ['--ticket', 'ticket.md', ...args], ship });
+		const { context } = setupImplementDirect({ args: ['--ticket', 'ticket.md', ...args], config: { ship } });
 
 		// the run fails, which is what keeps the exit path from chaining into a
 		// real ship — the intent this case is about is handed over before any of

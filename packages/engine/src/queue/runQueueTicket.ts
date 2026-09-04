@@ -52,6 +52,31 @@ const recordPickup = async ({ cwd, branch, onProgress }: { cwd: string; branch: 
 };
 
 /**
+ * The tracker write that claims the ticket, made before ownership begins.
+ *
+ * Required state is recorded before any source work, so a tracker that cannot
+ * record it stops this ticket before its worker touches source. Creating an
+ * empty worktree is not source work; the worker is, and this write is complete
+ * before it starts. The planning status is deliberately not written here: the
+ * pickup must not erase the fact the parked scan re-reads to know which worker
+ * to resume, and the implement edge settles it.
+ *
+ * @returns the one sentence saying why no source work began, or undefined once the ticket is claimed
+ */
+const claimOwnership = async ({ settings, trackerSettings, ticket }: { settings: QueueSettings; trackerSettings: TrackerSettings; ticket: RunnableTicket }) => {
+	const inProgress = settings.lifecycle.statusNames[TrackerStatusRole.InProgress];
+	const moved = await updateTicketLifecycle({
+		lifecycle: settings.lifecycle,
+		trackerSettings,
+		ticketId: ticket.id,
+		trackerStatus: TrackerStatusRole.InProgress,
+		currentStatus: ticket.status,
+	});
+
+	return moved === undefined ? undefined : `the ticket status could not be moved to '${inProgress}', so no source work began: ${moved.error}`;
+};
+
+/**
  * The commit step and the branch's verdict after it: ready when the branch
  * carries commits ahead of the default branch, whether or not this session
  * added any.
@@ -67,6 +92,7 @@ const settleBranchReadiness = async ({
 	defaultBranch,
 	ticket,
 	coordinatorRunDir,
+	generated,
 	onProgress,
 }: {
 	cwd: string;
@@ -75,12 +101,15 @@ const settleBranchReadiness = async ({
 	defaultBranch: string;
 	ticket: RunnableTicket;
 	coordinatorRunDir: string;
+	generated: string[] | undefined;
 	onProgress?: (message: string) => void;
 }) => {
 	const committed = await commitTicketWork({
 		cwd: worktreePath,
 		message: `${ticket.identifier} ${ticket.title}`,
 		runDir: join(coordinatorRunDir, 'tickets', ticket.identifier),
+		generated,
+		onProgress,
 	});
 
 	if ('error' in committed) {
@@ -143,29 +172,10 @@ export const runQueueTicket = async ({
 
 	await recordPickup({ cwd, branch, onProgress });
 
-	// Required state is recorded before ownership begins, so a tracker that cannot
-	// record it stops this ticket before its worker touches source. Creating an
-	// empty worktree is not source work; the worker is, and this write is complete
-	// before it starts. The planning status is deliberately not written here: the
-	// pickup must not erase the fact the parked scan re-reads to know which worker
-	// to resume, and the implement edge settles it.
-	const inProgress = settings.lifecycle.statusNames[TrackerStatusRole.InProgress];
-	const moved = await updateTicketLifecycle({
-		lifecycle: settings.lifecycle,
-		trackerSettings,
-		ticketId: ticket.id,
-		trackerStatus: TrackerStatusRole.InProgress,
-		currentStatus: ticket.status,
-	});
+	const unclaimed = await claimOwnership({ settings, trackerSettings, ticket });
 
-	if (moved !== undefined) {
-		return {
-			ticket,
-			branch,
-			worktreePath,
-			ready: false,
-			error: `the ticket status could not be moved to '${inProgress}', so no source work began: ${moved.error}`,
-		};
+	if (unclaimed !== undefined) {
+		return { ticket, branch, worktreePath, ready: false, error: unclaimed };
 	}
 
 	const worked = await runWorkerWithRelay({
@@ -189,7 +199,16 @@ export const runQueueTicket = async ({
 		return { ticket, branch, worktreePath, ready: false, error: worked.error, unanswered: worked.unanswered };
 	}
 
-	const readiness = await settleBranchReadiness({ cwd, worktreePath, branch, defaultBranch, ticket, coordinatorRunDir, onProgress });
+	const readiness = await settleBranchReadiness({
+		cwd,
+		worktreePath,
+		branch,
+		defaultBranch,
+		ticket,
+		coordinatorRunDir,
+		generated: config.generated,
+		onProgress,
+	});
 
 	return { ticket, branch, worktreePath, ...readiness };
 };
