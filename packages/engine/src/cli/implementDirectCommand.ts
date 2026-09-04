@@ -37,12 +37,32 @@ const readRunLabel = async ({ cwd, config }: { cwd: string; config: LightsoutCon
  *
  * @returns undefined when the work is committed, or the one sentence saying why it is not
  */
-const commitDirectRun = async ({ cwd, ticketBody, ticketRef, runId }: { cwd: string; ticketBody: string; ticketRef: string; runId: string }) => {
+const commitDirectRun = async ({
+	cwd,
+	ticketBody,
+	ticketRef,
+	runId,
+	generated,
+	onProgress,
+}: {
+	cwd: string;
+	ticketBody: string;
+	ticketRef: string;
+	runId: string;
+	generated: string[] | undefined;
+	onProgress: (message: string) => void;
+}) => {
 	const subject = ticketBody
 		.split('\n')[0]
 		.replace(/^#+\s*/, '')
 		.trim();
-	const committed = await commitTicketWork({ cwd, message: `${ticketRef} ${subject}`.trim(), runDir: getRunDir({ cwd, runId }) });
+	const committed = await commitTicketWork({
+		cwd,
+		message: `${ticketRef} ${subject}`.trim(),
+		runDir: getRunDir({ cwd, runId }),
+		generated,
+		onProgress,
+	});
 
 	if ('error' in committed) {
 		return committed.error;
@@ -120,7 +140,14 @@ export const implementDirectCommand = async ({ flags, cwd }: CommandContext): Pr
 	});
 
 	if (result.ok) {
-		const uncommitted = await commitDirectRun({ cwd, ticketBody, ticketRef, runId: result.manifest.runId });
+		const uncommitted = await commitDirectRun({
+			cwd,
+			ticketBody,
+			ticketRef,
+			runId: result.manifest.runId,
+			generated: loaded.generated,
+			onProgress: createProgressPrinter(),
+		});
 
 		if (uncommitted !== undefined) {
 			console.error(uncommitted);

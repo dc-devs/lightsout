@@ -1,6 +1,5 @@
 import { execSync } from 'node:child_process';
-import { existsSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, rmSync } from 'node:fs';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { BranchPhase, type LightsoutConfig, ShipBlockReason, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
@@ -13,6 +12,7 @@ import { createTicketWorktree } from '#src/queue/createTicketWorktree.ts';
 import { shipReadyBranches } from '#src/queue/shipReadyBranches.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
+import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 
 // Mocked Imports
 // -------------------------
@@ -70,7 +70,7 @@ const setupReadyBranches = async ({ numbers, content = 'export const value = 1;\
 		const branch = `lo-${number}-drain`;
 		const worktreePath = String(await createTicketWorktree({ cwd, branch, defaultBranch: 'main' }));
 
-		writeFileSync(join(worktreePath, 'work.ts'), content);
+		writeRepoFile({ cwd: worktreePath, path: 'work.ts', content });
 		execSync(`git add -A && git ${author} commit -qm work`, { cwd: worktreePath, stdio: 'ignore' });
 		ready.push({ ticket: ticketOf({ number }), branch, worktreePath, ready: true });
 	}
@@ -83,7 +83,7 @@ const setupReadyBranches = async ({ numbers, content = 'export const value = 1;\
 
 /** Move the remote's default branch on, so a rebase has something to move onto. */
 const advanceOrigin = ({ cwd, file, content }: { cwd: string; file: string; content: string }) => {
-	writeFileSync(join(cwd, file), content);
+	writeRepoFile({ cwd, path: file, content });
 	execSync(`git add -A && git ${author} commit -qm main-moved && git push -q origin main`, { cwd, stdio: 'ignore' });
 };
 
@@ -203,5 +203,21 @@ describe('shipReadyBranches', () => {
 		await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', env: {}, ready, onProgress: (message) => progress.push(message) });
 
 		expect(progress).toEqual([expect.stringContaining('rebasing lo-70-drain'), expect.stringContaining('LO-70 · not shipped: tsc: 3 errors')]);
+	});
+
+	test('merges every ready branch in turn once main has rebuilt a generated file the branches never touched', async () => {
+		const { cwd, ready } = await setupReadyBranches({ numbers: [70, 71] });
+
+		// Stands in for the pre-ship commit the first merge would have produced:
+		// build output on main that neither branch carries a copy of.
+		advanceOrigin({ cwd, file: 'plugin/dist/cli.mjs', content: 'export const built = 1;\n' });
+
+		const shipped = await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', env: {}, ready });
+
+		expect(shipped).toEqual([expect.objectContaining({ branch: 'lo-70-drain', ready: true }), expect.objectContaining({ branch: 'lo-71-drain', ready: true })]);
+		// `ready` alone is not the whole claim: a parked branch carries the reason,
+		// so an outcome with no `error` is what says the rebase found no conflict.
+		expect(shipped.map((outcome) => outcome.error)).toStrictEqual([undefined, undefined]);
+		expect(mockRunShip).toHaveBeenCalledTimes(2);
 	});
 });

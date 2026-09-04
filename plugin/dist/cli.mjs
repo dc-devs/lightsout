@@ -148761,12 +148761,51 @@ var runOrDescribeFailure = async ({ command, cwd, timeoutMs = gitTimeoutMs, subj
 };
 
 // src/queue/commitTicketWork.ts
-var commitTicketWork = async ({ cwd, message, runDir }) => {
+var isGeneratedPath = ({ path, generated }) => generated.some((entry) => {
+  const prefix = entry.replace(/\/$/, "");
+  return path === prefix || path.startsWith(`${prefix}/`);
+});
+var toLiteralPathspec = ({ path }) => `':(literal)${path.replaceAll("'", String.raw`'\''`)}'`;
+var toPathspecs = ({ paths }) => paths.map((path) => toLiteralPathspec({ path })).join(" ");
+var discardGeneratedChanges = async ({ cwd, paths }) => {
+  const pathspecs = toPathspecs({ paths });
+  const resetFailure = await runOrDescribeFailure({ command: `git reset -q -- ${pathspecs}`, cwd });
+  if (resetFailure !== void 0) {
+    return resetFailure;
+  }
+  const listed = await runCommand({ command: `git ls-files -z -- ${pathspecs}`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  if (listed?.exitCode !== 0) {
+    return "git could not tell which generated paths are tracked";
+  }
+  const tracked = listed.stdout.split("\0").filter(Boolean);
+  const untracked = paths.filter((path) => !tracked.includes(path));
+  const commands2 = [
+    ...tracked.length > 0 ? [`git checkout -- ${toPathspecs({ paths: tracked })}`] : [],
+    ...untracked.length > 0 ? [`git clean -fdq -- ${toPathspecs({ paths: untracked })}`] : []
+  ];
+  for (const command of commands2) {
+    const failure = await runOrDescribeFailure({ command, cwd });
+    if (failure !== void 0) {
+      return failure;
+    }
+  }
+  return void 0;
+};
+var commitTicketWork = async ({ cwd, message, runDir, generated = [], onProgress }) => {
   const changed = await readGitChangedFiles({ cwd });
   if (changed === void 0) {
     return { error: `git could not read the tree at ${cwd}` };
   }
-  if (changed.length === 0) {
+  const generatedPaths = changed.filter((path) => isGeneratedPath({ path, generated }));
+  const sourcePaths = changed.filter((path) => !isGeneratedPath({ path, generated }));
+  if (generatedPaths.length > 0) {
+    const discardFailure = await discardGeneratedChanges({ cwd, paths: generatedPaths });
+    if (discardFailure !== void 0) {
+      return { error: `git could not discard the generated changes in ${cwd}: ${discardFailure}` };
+    }
+    onProgress?.(`discarded ${generatedPaths.length} generated path(s) \u2014 the pre-ship step commits build output`);
+  }
+  if (sourcePaths.length === 0) {
     return { committed: false };
   }
   const messagePath = join92(runDir, "commit-message.txt");
@@ -149815,6 +149854,17 @@ var recordPickup = async ({ cwd, branch, onProgress }) => {
     await writeBranchState({ cwd, branch, phase: BranchPhase.Building, onProgress });
   }
 };
+var claimOwnership = async ({ settings, trackerSettings, ticket }) => {
+  const inProgress = settings.lifecycle.statusNames[TrackerStatusRole.InProgress];
+  const moved = await updateTicketLifecycle({
+    lifecycle: settings.lifecycle,
+    trackerSettings,
+    ticketId: ticket.id,
+    trackerStatus: TrackerStatusRole.InProgress,
+    currentStatus: ticket.status
+  });
+  return moved === void 0 ? void 0 : `the ticket status could not be moved to '${inProgress}', so no source work began: ${moved.error}`;
+};
 var settleBranchReadiness = async ({
   cwd,
   worktreePath,
@@ -149822,12 +149872,15 @@ var settleBranchReadiness = async ({
   defaultBranch,
   ticket,
   coordinatorRunDir,
+  generated,
   onProgress
 }) => {
   const committed = await commitTicketWork({
     cwd: worktreePath,
     message: `${ticket.identifier} ${ticket.title}`,
-    runDir: join101(coordinatorRunDir, "tickets", ticket.identifier)
+    runDir: join101(coordinatorRunDir, "tickets", ticket.identifier),
+    generated,
+    onProgress
   });
   if ("error" in committed) {
     return { ready: false, error: committed.error };
@@ -149864,22 +149917,9 @@ var runQueueTicket = async ({
   }
   const worktreePath = created;
   await recordPickup({ cwd, branch, onProgress });
-  const inProgress = settings.lifecycle.statusNames[TrackerStatusRole.InProgress];
-  const moved = await updateTicketLifecycle({
-    lifecycle: settings.lifecycle,
-    trackerSettings,
-    ticketId: ticket.id,
-    trackerStatus: TrackerStatusRole.InProgress,
-    currentStatus: ticket.status
-  });
-  if (moved !== void 0) {
-    return {
-      ticket,
-      branch,
-      worktreePath,
-      ready: false,
-      error: `the ticket status could not be moved to '${inProgress}', so no source work began: ${moved.error}`
-    };
+  const unclaimed = await claimOwnership({ settings, trackerSettings, ticket });
+  if (unclaimed !== void 0) {
+    return { ticket, branch, worktreePath, ready: false, error: unclaimed };
   }
   const worked = await runWorkerWithRelay({
     worktreePath,
@@ -149898,7 +149938,16 @@ var runQueueTicket = async ({
   if (worked.error !== void 0) {
     return { ticket, branch, worktreePath, ready: false, error: worked.error, unanswered: worked.unanswered };
   }
-  const readiness = await settleBranchReadiness({ cwd, worktreePath, branch, defaultBranch, ticket, coordinatorRunDir, onProgress });
+  const readiness = await settleBranchReadiness({
+    cwd,
+    worktreePath,
+    branch,
+    defaultBranch,
+    ticket,
+    coordinatorRunDir,
+    generated: config2.generated,
+    onProgress
+  });
   return { ticket, branch, worktreePath, ...readiness };
 };
 
@@ -150140,9 +150189,22 @@ var runQueue = async ({
 
 // src/cli/implementDirectCommand.ts
 var readRunLabel = async ({ cwd, config: config2 }) => await readBranchTicketRef({ config: config2, cwd }) ?? await readGitCurrentBranch({ cwd }) ?? "ticket";
-var commitDirectRun = async ({ cwd, ticketBody, ticketRef, runId }) => {
+var commitDirectRun = async ({
+  cwd,
+  ticketBody,
+  ticketRef,
+  runId,
+  generated,
+  onProgress
+}) => {
   const subject = ticketBody.split("\n")[0].replace(/^#+\s*/, "").trim();
-  const committed = await commitTicketWork({ cwd, message: `${ticketRef} ${subject}`.trim(), runDir: getRunDir({ cwd, runId }) });
+  const committed = await commitTicketWork({
+    cwd,
+    message: `${ticketRef} ${subject}`.trim(),
+    runDir: getRunDir({ cwd, runId }),
+    generated,
+    onProgress
+  });
   if ("error" in committed) {
     return committed.error;
   }
@@ -150189,7 +150251,14 @@ var implementDirectCommand = async ({ flags, cwd }) => {
     onProgress: createProgressPrinter()
   });
   if (result.ok) {
-    const uncommitted = await commitDirectRun({ cwd, ticketBody, ticketRef, runId: result.manifest.runId });
+    const uncommitted = await commitDirectRun({
+      cwd,
+      ticketBody,
+      ticketRef,
+      runId: result.manifest.runId,
+      generated: loaded.generated,
+      onProgress: createProgressPrinter()
+    });
     if (uncommitted !== void 0) {
       console.error(uncommitted);
       return exitCli({ code: 1 });

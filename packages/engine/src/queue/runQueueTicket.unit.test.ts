@@ -16,6 +16,14 @@ import { runQueueTicket } from '#src/queue/runQueueTicket.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
+interface CommitTicketWorkParams {
+	cwd: string;
+	message: string;
+	runDir: string;
+	generated: string[] | undefined;
+	onProgress?: (message: string) => void;
+}
+
 // Mocked Imports
 // -------------------------
 // Each step this sequence calls is covered by its own tests; what this file owns
@@ -23,7 +31,7 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 const mockCreateTicketWorktree = jest.fn<(params: { branch: string }) => Promise<string | QueueFailure>>();
 const mockSetTicketStatus = jest.fn<(params: { statusName: string }) => Promise<QueueFailure | undefined>>();
 const mockRunWorkerWithRelay = jest.fn<() => Promise<WorkerOutcome>>();
-const mockCommitTicketWork = jest.fn<(params: { cwd: string; message: string; runDir: string }) => Promise<{ committed: boolean } | QueueFailure>>();
+const mockCommitTicketWork = jest.fn<(params: CommitTicketWorkParams) => Promise<{ committed: boolean } | QueueFailure>>();
 const mockReadGitCommitsAhead = jest.fn<(params: { cwd: string; defaultBranch: string }) => Promise<number | undefined>>();
 
 jest.mock('#src/queue/createTicketWorktree.ts', () => ({ createTicketWorktree: (params: { branch: string }) => mockCreateTicketWorktree(params) }));
@@ -33,7 +41,7 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 }));
 jest.mock('#src/queue/runWorkerWithRelay.ts', () => ({ runWorkerWithRelay: () => mockRunWorkerWithRelay() }));
 jest.mock('#src/queue/commitTicketWork.ts', () => ({
-	commitTicketWork: (params: { cwd: string; message: string; runDir: string }) => mockCommitTicketWork(params),
+	commitTicketWork: (params: CommitTicketWorkParams) => mockCommitTicketWork(params),
 }));
 jest.mock('#src/common/git/readGitCommitsAhead.ts', () => ({
 	readGitCommitsAhead: (params: { cwd: string; defaultBranch: string }) => mockReadGitCommitsAhead(params),
@@ -43,7 +51,7 @@ jest.mock('#src/common/git/readGitCommitsAhead.ts', () => ({
 const settings = queueSettingsFixture();
 const trackerSettings = trackerSettingsFixture();
 
-const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
+const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false }, generated: ['plugin/dist/'] };
 const driver: Driver = { name: 'claude-code', invoke: () => Promise.resolve({ text: '', exitCode: 0 }) };
 
 const ticket: RunnableTicket = {
@@ -114,6 +122,10 @@ describe('runQueueTicket', () => {
 			cwd: '/tmp/worktrees/lo-70-drain-the-backlog',
 			message: 'LO-70 Drain the backlog',
 			runDir: join(coordinatorRunDir, 'tickets', 'LO-70'),
+			// The commit step is what keeps build output off the branch, so it is
+			// handed the config's generated paths and the run's progress sink.
+			generated: ['plugin/dist/'],
+			onProgress: expect.any(Function),
 		});
 	});
 
