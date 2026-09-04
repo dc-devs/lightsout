@@ -38,6 +38,7 @@ const setupResult = ({ manifest = {}, ...rest }: Omit<Partial<RefactorResult>, '
 			packages: [],
 			baselineDirtyFiles: [],
 			testSubjects: [],
+			ledgerTests: [],
 			unreachableChangedFiles: [],
 			coverageExcludedChangedFiles: [],
 			...manifest,

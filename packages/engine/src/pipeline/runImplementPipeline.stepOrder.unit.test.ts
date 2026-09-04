@@ -52,6 +52,7 @@ describe('runImplementPipeline', () => {
 
 		expect(result.manifest.stepOrder).toStrictEqual([
 			'clean-slate',
+			'write-ledger-tests',
 			'implement',
 			'format-implement',
 			'verify-implement',
@@ -73,6 +74,7 @@ describe('runImplementPipeline', () => {
 
 		expect(result.manifest.stepOrder).toStrictEqual([
 			'clean-slate',
+			'write-ledger-tests',
 			'implement',
 			'format-implement',
 			'verify-implement',

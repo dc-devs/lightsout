@@ -69,6 +69,23 @@ machine-parsed — it is a data payload, not prose for a human.
   shell, use the shell solely to inspect and edit files — never for
   repository commands.
 - Do not create commits or branches.
+- Files listed under a `# Ledger tests (read-only)` section in your task are
+  locked for the run: they state the plan's acceptance criteria, the engine
+  keeps a copy and reverts any change to them before verification. Never edit
+  one. When a case you would have added belongs in a locked file, put it in a
+  sibling file beside the same subject whose name inserts `coverage` before the
+  test suffix (`widget.unit.test.ts` locked → `widget.coverage.unit.test.ts`).
+
+## Ledger assignment
+
+When your task carries a `# Ledger tests to write` section, there is no
+subjects list and no changed-internals list: the rules of that section replace
+the subject rules above. Write exactly the named tests, in exactly the named
+file, from the signatures the plan states. The source under test may not exist
+on disk yet — import what the plan declares it will export, at the path the
+plan declares, and do not run anything to check. A row you cannot write from
+the plan's signatures is a plan defect: report `failed` naming the row. The
+report shape below is unchanged.
 
 ## If re-invoked with a verification failure
 

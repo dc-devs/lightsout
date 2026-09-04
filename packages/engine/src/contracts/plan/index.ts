@@ -10,8 +10,11 @@ export {
 	GapVerdict,
 	GradedGap,
 	GradeReport,
+	PhaseWeight,
 	PlanGap,
 	PlanGrade,
+	PlanWeight,
 	StructuralCheck,
 	StructuralFinding,
 } from '#src/contracts/plan/grade/index.ts';
+export { LedgerRow, ProseFile } from '#src/contracts/plan/ledger/index.ts';

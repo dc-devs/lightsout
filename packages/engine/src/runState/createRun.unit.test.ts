@@ -47,6 +47,8 @@ describe('createRun', () => {
 		// asserted on the return value, not a read-back — the schema defaults would mask a missing write
 		expect(manifest.testSubjects).toStrictEqual([]);
 		expect(manifest.unreachableChangedFiles).toStrictEqual([]);
+		// nothing is locked until the ledger step writes the plan's acceptance tests
+		expect(manifest.ledgerTests).toStrictEqual([]);
 	});
 
 	test('creates the run directory so later writes have somewhere to land', async () => {

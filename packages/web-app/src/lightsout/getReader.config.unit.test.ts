@@ -103,6 +103,7 @@ describe('getReader config', () => {
 			{ title: 'Ticket tracker', keys: ['ticket-tracker'] },
 			{ title: 'Queue', keys: ['queue'] },
 			{ title: 'Auto plan', keys: ['auto-plan'] },
+			{ title: 'Plan', keys: ['plan'] },
 			{ title: 'Docs', keys: ['docs'] },
 		]);
 	});

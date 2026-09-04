@@ -3,6 +3,7 @@ import { ConfigAutoPlan } from '#src/contracts/ConfigAutoPlan.ts';
 import { ConfigCommands } from '#src/contracts/ConfigCommands.ts';
 import { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
 import { ConfigGates } from '#src/contracts/ConfigGates.ts';
+import { ConfigPlan } from '#src/contracts/ConfigPlan.ts';
 import { ConfigQueue } from '#src/contracts/ConfigQueue.ts';
 import { ConfigShip } from '#src/contracts/ConfigShip.ts';
 import { ConfigTicketTracker } from '#src/contracts/ConfigTicketTracker.ts';
@@ -180,6 +181,8 @@ export const LightsoutConfig = z.object({
 	ship: ConfigShip.optional(),
 	/** Opt-in auto-plan settings — which of `/auto-plan`'s checkpoints this repo keeps. See `ConfigAutoPlan`. */
 	'auto-plan': ConfigAutoPlan.optional(),
+	/** Opt-in plan settings — whether plans are written as contracts with an acceptance-test ledger, and the counts above which a plan file is heavy. See `ConfigPlan`. */
+	plan: ConfigPlan.optional(),
 	/** Opt-in tracker identity — provider-specific address and credential environment variables. See `ConfigTicketTracker`. */
 	'ticket-tracker': ConfigTicketTracker.optional(),
 	/** Opt-in queue settings — route labels, parallelism, eligible statuses and the queue's own timeouts. See `ConfigQueue`. */

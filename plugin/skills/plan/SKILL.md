@@ -333,6 +333,12 @@ creates across more phases — and re-run `plan draft`.
   `Decision Log` row with `Source = Grill`. Do not batch edits to the end.
 - Continue until **the user says stop** — do not self-terminate. Self-answering
   a question never counts as stopping.
+- **The grill also interrogates the ledger.** With `plan.contract` on, the
+  plan carries an `## Acceptance Tests` table and a `## Prose Files` list, and
+  three questions belong in the stream like any other: an acceptance criterion
+  with no row, a row whose named test could not fail if the feature were never
+  built, and a prose file that a test could have stated after all. Each finding
+  lands where it belongs — a Decision Log row, or a new ledger row.
 - **Assumption digest.** When the user stops, list every self-answered
   question with its chosen answer. A veto re-opens that question as an
   escalation — fold the corrected answer into `plan.md` before moving on.
@@ -438,6 +444,13 @@ Read `.lightsout/plans/<name>/grade.json`:
   the plan file named by its `phase`, via Edit, then re-grade. A finding
   printed as `note` rather than `⚠` is **advisory**: information for you and
   the user, not work to do.
+- With `plan.contract` on, `grade.json` also carries `weights` and
+  `phasesLight`. Each plan file is weighed from its own counts — files created,
+  packages touched, whether it has a pattern to mirror — and only a heavy file
+  gets the reader fleet. A file named in `phasesLight` was graded by the
+  deterministic lint and the ledger check alone, and its entry in `weights`
+  says why. That is not a thinner grade of the same kind: it is the mechanical
+  half, and the grill and the ledger are what carry the rest.
 - Reading a typed field to decide what to display is not a gate. What blocks is
   decided in the engine and arrives as `passed`; you never recompute it.
 

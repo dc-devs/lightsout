@@ -143,4 +143,35 @@ describe('parsePlan', () => {
 		// a section with prose and no number declares nothing either
 		expect(parse({ content: '# Plan\n\n## File Budget\n\nas many as it takes\n' }).fileBudget).toBeUndefined();
 	});
+
+	test('reads the acceptance-test ledger, numbering every row by its line in the plan file', () => {
+		const content =
+			'# Plan\n\n## Acceptance Tests\n\n| Criterion | Test file | Test name | Gate |\n|---|---|---|---|\n| it parses | `src/a.unit.test.ts` | it parses | check |\n';
+		const plan = parse({ content });
+
+		expect(plan.ledger).toStrictEqual([{ criterion: 'it parses', testFile: 'src/a.unit.test.ts', testName: 'it parses', gate: 'check', line: 7 }]);
+		expect(plan.malformedLedgerLines).toStrictEqual([]);
+	});
+
+	test('a ledger row the parser cannot read is kept as a line number rather than lost', () => {
+		const content =
+			'# Plan\n\n## Acceptance Tests\n\n| Criterion | Test file | Test name | Gate |\n|---|---|---|---|\n| it parses | nowhere | it parses | check |\n';
+		const plan = parse({ content });
+
+		expect({ ledger: plan.ledger, malformedLedgerLines: plan.malformedLedgerLines }).toStrictEqual({ ledger: [], malformedLedgerLines: [7] });
+	});
+
+	test('reads the prose-files list, and keeps a bullet with no reason as a line number', () => {
+		const content = '# Plan\n\n## Prose Files\n\n- `docs/a.md` — a document states no behaviour\n- `docs/b.md`\n';
+		const plan = parse({ content });
+
+		expect(plan.proseFiles).toStrictEqual([{ path: 'docs/a.md', reason: 'a document states no behaviour', line: 5 }]);
+		expect(plan.malformedProseLines).toStrictEqual([6]);
+	});
+
+	test('a plan carrying neither section has both empty, which is every plan written before the ledger existed', () => {
+		const plan = parse({ content: '# Plan\n\n## Files to Modify\n\n### `src/a.ts`\n' });
+
+		expect({ ledger: plan.ledger, proseFiles: plan.proseFiles }).toStrictEqual({ ledger: [], proseFiles: [] });
+	});
 });

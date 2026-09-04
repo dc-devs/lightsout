@@ -10,6 +10,7 @@ import type { PhaseSizeCounts } from '#src/plan/common/types/PhaseSizeCounts.ts'
 import { getPhaseProvenance } from '#src/plan/common/utils/getPhaseProvenance.ts';
 import { getPlanNamedPaths } from '#src/plan/common/utils/getPlanNamedPaths.ts';
 import { getPlanTouchedPaths } from '#src/plan/common/utils/getPlanTouchedPaths.ts';
+import { checkAcceptanceLedger } from '#src/plan/lint/checkAcceptanceLedger.ts';
 import { checkPlanPaths } from '#src/plan/lint/checkPlanPaths.ts';
 import { checkPlanSizes } from '#src/plan/lint/checkPlanSizes.ts';
 import { checkProsePaths } from '#src/plan/lint/checkProsePaths.ts';
@@ -28,8 +29,9 @@ interface Params {
 
 /**
  * Required sections by variant — the fixed heading set the template pins for
- * every repository. `Documentation` is the one heading a repository's own config
- * adds, and only to the implementable variants, so it is not written here.
+ * every repository. `Documentation` and `Acceptance Tests` are the two headings
+ * a repository's own config adds, each only to the implementable variants, so
+ * neither is written here.
  */
 const requiredSections = {
 	[PlanFileKind.Implementable]: ['Prerequisites', 'Global Constraints', 'Scope Boundaries', 'Verification', 'What Next Plan Expects'],
@@ -67,9 +69,15 @@ const readPhaseFiles = async ({ planPaths }: { planPaths: string[] }) => {
 	return { phases, findings };
 };
 
-/** SectionsPresent — the required headings for this file's variant, plus the one a declared `docs` block adds to the implementable ones. */
-const checkSections = ({ phase, docsDeclared }: { phase: PhaseFile; docsDeclared: boolean }) =>
-	[...requiredSections[phase.plan.variant], ...(docsDeclared && phase.plan.variant === PlanFileKind.Implementable ? ['Documentation'] : [])]
+/** SectionsPresent — the required headings for this file's variant, plus the ones a declared `docs` block and `plan.contract` add to the implementable ones. */
+const checkSections = ({ phase, docsDeclared, contract }: { phase: PhaseFile; docsDeclared: boolean; contract: boolean }) => {
+	const implementable = phase.plan.variant === PlanFileKind.Implementable;
+
+	return [
+		...requiredSections[phase.plan.variant],
+		...(docsDeclared && implementable ? ['Documentation'] : []),
+		...(contract && implementable ? ['Acceptance Tests'] : []),
+	]
 		.filter((section) => !phase.plan.sections.has(section))
 		.map((section) => ({
 			check: StructuralCheck.SectionsPresent,
@@ -79,6 +87,7 @@ const checkSections = ({ phase, docsDeclared }: { phase: PhaseFile; docsDeclared
 			location: phase.base,
 			fix: `add a '## ${section}' section`,
 		}));
+};
 
 /** NoPlaceholders — no unresolved marker survives into a written plan. */
 const checkPlaceholders = ({ phase }: { phase: PhaseFile }) =>
@@ -184,6 +193,8 @@ export const lintPlanStructure = async ({ cwd, planPaths, config }: Params): Pro
 	const packagesDir = config?.['packages-dir'] ?? defaultPackagesDir;
 	const fileLimit = config?.['executor-file-limit'] ?? defaultExecutorFileLimit;
 	const docsDeclared = (config?.docs?.length ?? 0) > 0;
+	const contract = config?.plan?.contract === true;
+	const gateKeys = new Set(Object.keys(config?.gates ?? {}));
 	const configCommands = new Set(Object.values(config?.gates ?? {}).filter((value): value is string => typeof value === 'string'));
 	const { phases, findings } = await readPhaseFiles({ planPaths });
 	const overview = phases.find((file) => file.plan.variant === PlanFileKind.Overview);
@@ -208,10 +219,13 @@ export const lintPlanStructure = async ({ cwd, planPaths, config }: Params): Pro
 		counts.set(phase.base, sizes);
 
 		findings.push(
-			...checkSections({ phase, docsDeclared }),
+			...checkSections({ phase, docsDeclared, contract }),
 			...(await checkPlanPaths({ ...shared, provided, phased })),
 			...(await checkProsePaths({ ...shared, planned, index: repoIndex })),
 			...(await checkVerificationScripts({ ...shared, packagesDir, configCommands, declaredScripts })),
+			...(phase.plan.variant === PlanFileKind.Implementable
+				? await checkAcceptanceLedger({ plan: phase.plan, cwd, phase: phase.base, required: contract, gateKeys })
+				: []),
 			...checkPlaceholders({ phase }),
 			...checkMoves({ phase }),
 			...checkPlanSizes({ phase, fileLimit, counts: sizes }),

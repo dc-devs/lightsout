@@ -55,6 +55,11 @@ a human.
   deliverables described there — never for verifying, installing, or anything
   the grant text doesn't cover.
 - Do not create commits or branches.
+- Files listed under a `# Ledger tests (read-only)` section in your task are
+  the tests that define done; never edit them. The engine keeps a copy and
+  reverts any change before verification, so an edit buys nothing. A ledger
+  test that cannot pass against a correct implementation is a plan defect:
+  report `failed` naming the test and why, rather than changing it.
 - Do not read or write any agent memory, and do not edit CLAUDE.md or other
   standing instructions — anything worth persisting belongs in your report
   (friction included), which the engine records.

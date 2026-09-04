@@ -315,6 +315,30 @@ describe('authorPhaseFiles', () => {
 		expect(prompts.every((prompt) => prompt.includes('- `docs/configuration.md` — Every configuration key.'))).toBeTruthy();
 	});
 
+	test('a contract repository briefs every phase spawn on the acceptance-test ledger', async () => {
+		const prompts: string[] = [];
+		const { params } = setupFanOut({ count: 2, driver: phaseDriver({ onInvoke: ({ prompt }) => prompts.push(prompt) }) });
+
+		const result = await authorPhaseFiles({ ...params, contract: true });
+
+		expectStatus(result, 'complete');
+		// a phase file carries the same ledger a single plan would, so every spawn
+		// is told the table shape it must write
+		expect(prompts.map((prompt) => prompt.includes('## Acceptance-test ledger'))).toStrictEqual([true, true]);
+		expect(prompts.every((prompt) => prompt.includes('| Criterion | Test file | Test name | Gate |'))).toBeTruthy();
+	});
+
+	test('a repository that writes no contract plans sends no ledger text to a phase spawn', async () => {
+		const prompts: string[] = [];
+		const { params } = setupFanOut({ count: 1, driver: phaseDriver({ onInvoke: ({ prompt }) => prompts.push(prompt) }) });
+
+		const result = await authorPhaseFiles(params);
+
+		expectStatus(result, 'complete');
+		// the key undeclared means the fan-out is what it was before the key existed
+		expect(prompts[0]?.includes('Acceptance')).toBeFalsy();
+	});
+
 	test('a repository declaring no surfaces sends no documentation text to a phase spawn', async () => {
 		const prompts: string[] = [];
 		const { params } = setupFanOut({ count: 1, driver: phaseDriver({ onInvoke: ({ prompt }) => prompts.push(prompt) }) });

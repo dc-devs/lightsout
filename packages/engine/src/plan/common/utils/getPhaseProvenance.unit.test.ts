@@ -23,6 +23,10 @@ const planWith = ({ base, create = [], remove = [], move = [] }: PhaseSpec): Pha
 	malformedMoveLines: [],
 	mirrorPaths: [],
 	verificationCommands: [],
+	ledger: [],
+	malformedLedgerLines: [],
+	proseFiles: [],
+	malformedProseLines: [],
 	lines: [],
 });
 

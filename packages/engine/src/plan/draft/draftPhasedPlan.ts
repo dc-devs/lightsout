@@ -76,7 +76,17 @@ export const draftPhasedPlan = async ({ context, step }: Params): Promise<RunPla
 
 	const overviewText = await readFile(overviewPath, 'utf8');
 	const declarations = parsePhaseDeclarations({ plan: parsePlan({ content: overviewText, base: basename(overviewPath) }) });
-	const phases = await authorPhaseFiles({ ...spawn, facts, decisions, overviewText, declarations, executorFileLimit, standards, docs: config?.docs });
+	const phases = await authorPhaseFiles({
+		...spawn,
+		facts,
+		decisions,
+		overviewText,
+		declarations,
+		executorFileLimit,
+		standards,
+		docs: config?.docs,
+		contract: config?.plan?.contract,
+	});
 
 	if (phases.status === PlanRunStatus.FactsError) {
 		return draftStop({ status: PlanRunStatus.FactsError, discrepancies: phases.discrepancies });

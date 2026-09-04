@@ -77,4 +77,8 @@ Stated so nobody adds a step for it here — the engine already does it:
   `planning-not-needed` are preserved as they stand. Anything else —
   `planning-ready-auto-plan`, either `planning-needs-*` value, no label at all,
   or more than one — is written as `planning-complete`.
+- When the plan carries an acceptance-test ledger, the engine writes those
+  tests first, locks them, and the run is not done until every one of them
+  passes in the gate run beside the gates. Nothing in this skill triggers that;
+  the plan's own ledger is what turns the step on.
 - Nothing in this skill performs those writes. Do not add a step for them.

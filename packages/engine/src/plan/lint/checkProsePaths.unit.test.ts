@@ -221,4 +221,31 @@ describe('checkProsePaths', () => {
 		expect(findings.length).toBe(1);
 		expect(findings[0]?.location).toBe('demo.md:5');
 	});
+
+	test('a test file named only by an acceptance-ledger row is accounted for rather than reported', async () => {
+		const { cwd, planPath, plan } = setup({
+			prose: 'Its behaviour is stated by a test rather than by this paragraph.',
+			sections: [
+				'## Acceptance Tests',
+				'',
+				'| Criterion | Test file | Test name | Gate |',
+				'|---|---|---|---|',
+				'| the panel renders empty | `src/deep/nested/thing.unit.test.ts` | renders empty | test |',
+				'',
+			].join('\n'),
+		});
+
+		// the ledger section is the declaration for the test files its rows name, so a
+		// row pointing at a test that does not exist yet is not a prose path naming
+		// nothing
+		await expect(check({ cwd, planPath, plan })).resolves.toStrictEqual([]);
+	});
+
+	test('a test file no ledger row names is still reported when the working tree does not hold it', async () => {
+		const { cwd, planPath, plan } = setup({ prose: 'The case lives in `src/deep/nested/thing.unit.test.ts` today.' });
+
+		// the same path, undeclared: what the ledger buys is the declaration, not an
+		// exemption for every path that looks like a test
+		await expect(missing({ cwd, planPath, plan })).resolves.toStrictEqual(['path named in prose does not exist: src/deep/nested/thing.unit.test.ts']);
+	});
 });

@@ -52,6 +52,7 @@ const setupResult = ({
 		packages: [],
 		baselineDirtyFiles: [],
 		testSubjects: [],
+		ledgerTests: [],
 		unreachableChangedFiles: [],
 		coverageExcludedChangedFiles: [],
 		...manifest,

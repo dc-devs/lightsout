@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { LedgerTestRecord } from '#src/contracts/run/LedgerTestRecord.ts';
 import { PackagesSource } from '#src/contracts/run/PackagesSource.ts';
 import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
 import { RunStatus } from '#src/contracts/run/RunStatus.ts';
@@ -68,6 +69,8 @@ export const RunManifest = z.object({
 	baselineDirtyFiles: z.array(z.string()).default([]),
 	/** Public subject files resolved for the write-tests step — what verify fix re-invocations hand back to writers. */
 	testSubjects: z.array(z.string()).default([]),
+	/** The ledger test files this run locked, empty for a plan with no ledger. */
+	ledgerTests: z.array(LedgerTestRecord).default([]),
 	/** Changed files the write-tests step skipped because nothing public reaches them; re-checked at run end. */
 	unreachableChangedFiles: z.array(z.string()).default([]),
 	/** Changed files the write-tests step skipped because the repo's own coverage configuration does not collect them — the set verify fix re-invocations must not demand execution of. */

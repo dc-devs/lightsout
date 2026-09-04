@@ -318,3 +318,40 @@ test('buildPlanWriterInvocation: a repository declaring no surfaces sees no docu
 		'## Verified facts',
 	]);
 });
+
+test('buildPlanWriterInvocation: a contract repository adds the template rule and the acceptance-test ledger brief', () => {
+	const invocation = buildPlanWriterInvocation({
+		facts: facts(),
+		decisions: decisions(),
+		outputs: singleOutput(),
+		limits: limits(),
+		contract: true,
+	});
+
+	// the template's all-variants rule now asks the implementable variants for the table
+	expect(invocation.systemPrompt.includes('- **Acceptance tests named, not narrated.**')).toBeTruthy();
+	expect(invocation.systemPrompt.includes('An Overview Plan carries neither section')).toBeTruthy();
+	// and the prompt carries the brief: the table shape, and the escape for a file no test can state
+	expect(invocation.prompt.includes('| Criterion | Test file | Test name | Gate |')).toBeTruthy();
+	expect(invocation.prompt.includes('listed under `## Prose Files` instead')).toBeTruthy();
+	// the ledger brief sits where the documentation brief sits — before the decisions record
+	expect(invocation.prompt.split('\n\n').filter((section) => section.startsWith('## '))).toStrictEqual([
+		'## Feature request',
+		'## Output files',
+		'## Acceptance-test ledger',
+		'## Decisions record',
+		'## Verified facts',
+	]);
+});
+
+test('buildPlanWriterInvocation: a repository that writes no contract plans sees no ledger text and no standing token', () => {
+	const invocation = buildPlanWriterInvocation({ facts: facts(), decisions: decisions(), outputs: singleOutput(), limits: limits() });
+
+	// no rule in the template and no brief in the prompt — the invocation is what it
+	// was before the key existed
+	expect(invocation.systemPrompt.includes('- **Acceptance tests named, not narrated.**')).toBeFalsy();
+	expect(invocation.prompt.includes('## Acceptance-test ledger')).toBeFalsy();
+	// and the token is substituted away rather than left standing, which the plan
+	// lint's unresolved-token scan would otherwise catch in a written plan
+	expect(invocation.systemPrompt.includes('{{contractRule}}')).toBeFalsy();
+});

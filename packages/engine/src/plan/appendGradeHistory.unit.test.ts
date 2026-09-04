@@ -25,6 +25,8 @@ const reportOf = ({
 	gaps: [],
 	phasesChecked: ['plan.md'],
 	lenses: [GapCheckLens.Surface, GapCheckLens.Wiring, GapCheckLens.Decisions],
+	weights: [],
+	phasesLight: [],
 	complete,
 	incompleteReason,
 	passed: grade === PlanGrade.A,

@@ -41,6 +41,7 @@ const answered = (report: WorkReport): Outcome => ({ ok: true, report });
 const setupWriterRun = ({ respond }: { respond: (params: { file: string; onFirstEvent?: () => void; log: string[] }) => Promise<Outcome> }) => {
 	const log: string[] = [];
 	const gated: (boolean | undefined)[] = [];
+	const prompts: string[] = [];
 
 	const run = {
 		cwd: mkdtempSync(join(tmpdir(), 'lightsout-writers-')),
@@ -50,6 +51,7 @@ const setupWriterRun = ({ respond }: { respond: (params: { file: string; onFirst
 			const file = /- (\S+)/.exec(invocation.prompt)?.[1] ?? 'unknown';
 
 			gated.push(onFirstEvent !== undefined);
+			prompts.push(invocation.prompt);
 			log.push(`start:${file}`);
 
 			const outcome = await respond({ file, onFirstEvent, log });
@@ -60,7 +62,7 @@ const setupWriterRun = ({ respond }: { respond: (params: { file: string; onFirst
 		},
 	};
 
-	return { run: run as unknown as PipelineRun, log, gated };
+	return { run: run as unknown as PipelineRun, log, gated, prompts };
 };
 
 /** One group per cluster, so every group becomes a chain competing for a slot. */
@@ -213,6 +215,26 @@ test('runWriterBatches: complete, failed, and absent reports aggregate exactly a
 	expect(failures.includes('src/file3.ts: terminated:ambiguity — unclear plan')).toBeTruthy();
 	// a termination status escalates, a plain failure does not
 	expect(terminated).toBe(true);
+});
+
+test('runWriterBatches: the locked ledger test files reach every writer in the fan-out', async () => {
+	const { run, prompts } = setupWriterRun({ respond: async () => answered(workReport()) });
+
+	await runWriterBatches({ run, groups: groupsOf(2), planContent: '# Plan', ledgerTests: ['src/locked.unit.test.ts'] });
+
+	// every coverage writer is briefed with the lock, not just the first: any of
+	// them could otherwise add a case to a file the engine will revert
+	expect(prompts.length).toBe(2);
+	expect(prompts.every((prompt) => prompt.includes('# Ledger tests (read-only)\n\n- src/locked.unit.test.ts'))).toBeTruthy();
+});
+
+test('runWriterBatches: a run whose plan carries no ledger briefs its writers with no lock section', async () => {
+	const { run, prompts } = setupWriterRun({ respond: async () => answered(workReport()) });
+
+	await runWriterBatches({ run, groups: groupsOf(1), planContent: '# Plan' });
+
+	// the section is omitted, not emitted empty
+	expect(prompts[0]?.includes('# Ledger tests (read-only)')).toBeFalsy();
 });
 
 test('runWriterBatches: a warm spawn whose driver throws surfaces the error instead of hanging on its first-event gate', async () => {

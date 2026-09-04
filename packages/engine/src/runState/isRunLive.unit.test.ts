@@ -15,6 +15,7 @@ const manifest = (overrides: Partial<RunManifest> = {}): RunManifest => ({
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],
+	ledgerTests: [],
 	unreachableChangedFiles: [],
 	coverageExcludedChangedFiles: [],
 	...overrides,

@@ -19,6 +19,7 @@ const manifestOf = ({ status }: { status: RunStatus }): RunManifest => ({
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],
+	ledgerTests: [],
 	unreachableChangedFiles: [],
 	coverageExcludedChangedFiles: [],
 });

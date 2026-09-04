@@ -145,6 +145,59 @@ test('buildUnitTestWriterInvocation: empty lists emit their headers with no bull
 	expect(prompt.slice(0, prompt.indexOf('Rules for this assignment:')).includes('\n- ')).toBeFalsy();
 });
 
+test('buildUnitTestWriterInvocation: the locked ledger test files ride the user prompt, with the sibling rule', () => {
+	const clean = buildUnitTestWriterInvocation(soloParams);
+	const locked = buildUnitTestWriterInvocation({ ...soloParams, ledgerTests: ['src/widget.unit.test.ts'] });
+
+	// a run whose plan carries no ledger gets no section at all
+	expect(clean.prompt.includes('# Ledger tests (read-only)')).toBeFalsy();
+	expect(buildUnitTestWriterInvocation({ ...soloParams, ledgerTests: [] }).prompt.includes('# Ledger tests (read-only)')).toBeFalsy();
+	// each locked path gets its own bullet
+	expect(locked.prompt.includes('# Ledger tests (read-only)\n\n- src/widget.unit.test.ts')).toBeTruthy();
+	// a coverage case that belongs in a locked file has somewhere writable to go
+	expect(locked.prompt.includes('a sibling file beside the same subject')).toBeTruthy();
+	// the report-contract reminder still closes the prompt
+	expect(locked.prompt.endsWith('Remember: your entire final message must be exactly one JSON report object — nothing else.')).toBeTruthy();
+});
+
+test('buildUnitTestWriterInvocation: a fix re-invocation of a locked run lists every locked path, after the rules and before the gate output', () => {
+	const { prompt } = buildUnitTestWriterInvocation({
+		...soloParams,
+		ledgerTests: ['src/widget.unit.test.ts', 'src/gadget.unit.test.ts'],
+		errorContext: 'GATE-SENTINEL',
+	});
+
+	// every locked path gets its own bullet, in the order the manifest holds them
+	expect(prompt.includes('# Ledger tests (read-only)\n\n- src/widget.unit.test.ts\n- src/gadget.unit.test.ts')).toBeTruthy();
+	// the lock list follows the assignment rules it qualifies
+	expect(prompt.indexOf('Rules for this assignment:') < prompt.indexOf('# Ledger tests (read-only)')).toBeTruthy();
+	// and precedes the gate output, so the fix reads the lock before the failure
+	expect(prompt.indexOf('# Ledger tests (read-only)') < prompt.indexOf('# Verification failure')).toBeTruthy();
+	// the gate output still lands verbatim
+	expect(prompt.includes('GATE-SENTINEL')).toBeTruthy();
+});
+
+test('buildUnitTestWriterInvocation: the ledger paths never enter the cached system prompt', () => {
+	const first = buildUnitTestWriterInvocation({ ...soloParams, standards });
+	const locked = buildUnitTestWriterInvocation({ ...soloParams, standards, ledgerTests: ['src/widget.unit.test.ts'] });
+
+	// the fan-out's cached prefix is unchanged by a per-run lock list
+	expect(first.systemPrompt).toBe(locked.systemPrompt);
+});
+
+test('buildUnitTestWriterInvocation: the role prompt bans editing a locked ledger test and names where the case goes instead', () => {
+	const { systemPrompt } = buildUnitTestWriterInvocation(soloParams);
+	// the prompt wraps its lines; the sentences are what matter
+	const prose = systemPrompt.replace(/\s+/g, ' ');
+
+	// the rule names the same section heading the user prompt emits
+	expect(prose).toContain('Files listed under a `# Ledger tests (read-only)` section in your task are locked for the run');
+	// editing is pointless, so the writer is told the engine reverts it
+	expect(prose).toContain('the engine keeps a copy and reverts any change to them before verification');
+	// a case that belongs in a locked file has a named, writable destination
+	expect(prose).toContain('a sibling file beside the same subject whose name inserts `coverage` before the test suffix');
+});
+
 test('buildUnitTestWriterInvocation: the command ban names what is banned and leaves file access open — a harness whose only file access is a shell must not read it as "touch nothing"', () => {
 	const { systemPrompt } = buildUnitTestWriterInvocation(soloParams);
 	// the prompt wraps its lines; the sentences are what matter

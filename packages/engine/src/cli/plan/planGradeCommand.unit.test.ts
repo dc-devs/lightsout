@@ -332,3 +332,31 @@ test('planGradeCommand: a phased plan prints its gaps under one heading per plan
 	expect(printed).toContain('  checked: 2 phase file(s) × 3 lens(es): phase1-core.md, phase2-extra.md');
 	expect(exitCodes).toStrictEqual([0]);
 });
+
+test('planGradeCommand: a contract repository prints one weight line per plan file, with the thresholds it crossed', async () => {
+	const captured = captureCommandOutput();
+	const driver = createGapCheckDriver();
+	const cwd = setupConsumerRepo({ git: false, config: { plan: { contract: true } } });
+	const body = `${cleanPlanBody().replace('## Patterns to Mirror\n\n- `src/index.js` — mirror its single-export shape.\n', '')}
+## Acceptance Tests
+
+| Criterion | Test file | Test name | Gate |
+|---|---|---|---|
+| newThing is re-exported | \`src/newThing.unit.test.ts\` | re-exports newThing | test |
+`;
+
+	writePlanDeliverable({ cwd, name: 'demo', body });
+
+	await expect(planGradeCommand({ cwd, driver, name: 'demo', standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+
+	// the reason is what makes the routing arguable rather than mysterious
+	expect(printedLines({ logged: captured.logged })).toContain('  weight: plan.md — heavy (names no pattern to mirror)');
+});
+
+test('planGradeCommand: a grade that weighed nothing prints no weight line at all', async () => {
+	const { cwd, driver, name, logged } = setupGrade({ body: cleanPlanBody() });
+
+	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+
+	expect(printedLines({ logged }).some((line) => line.startsWith('  weight:'))).toBe(false);
+});

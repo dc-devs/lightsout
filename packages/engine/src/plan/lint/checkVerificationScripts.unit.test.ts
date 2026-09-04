@@ -31,6 +31,10 @@ const planWith = ({
 	malformedMoveLines: [],
 	mirrorPaths: [],
 	verificationCommands: commands,
+	ledger: [],
+	malformedLedgerLines: [],
+	proseFiles: [],
+	malformedProseLines: [],
 	lines: [],
 });
 

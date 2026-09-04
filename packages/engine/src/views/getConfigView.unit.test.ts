@@ -147,6 +147,7 @@ describe('getConfigView', () => {
 			'Ticket tracker',
 			'Queue',
 			'Auto plan',
+			'Plan',
 			'Docs',
 		]);
 	});
@@ -282,6 +283,29 @@ describe('getConfigView', () => {
 		const view = await getConfigView({ cwd });
 
 		expect(findField({ sections: view.sections, key: 'auto-plan' })).toEqual(expect.objectContaining({ value: null, fromConfig: false }));
+	});
+
+	test('shows the plan block whole in its own area, thresholds and all', async () => {
+		const plan = { contract: true, 'weight-thresholds': { 'created-files': 5, packages: 2 } };
+		const cwd = await seedConfiguredCwd({ config: { plan } });
+
+		const view = await getConfigView({ cwd });
+
+		const planSection = view.sections.find((section) => section.title === 'Plan');
+
+		expect(planSection?.fields).toEqual([
+			// the sentence is the schema's own, so the page and the config reference
+			// cannot say different things about the same block
+			expect.objectContaining({ key: 'plan', value: plan, fromConfig: true, description: expect.stringContaining('acceptance-test ledger') }),
+		]);
+	});
+
+	test('leaves plan null when the file omits it, because the block is opt-in and the engine fills nothing in for it', async () => {
+		const cwd = await seedConfiguredCwd();
+
+		const view = await getConfigView({ cwd });
+
+		expect(findField({ sections: view.sections, key: 'plan' })).toEqual(expect.objectContaining({ value: null, fromConfig: false }));
 	});
 
 	test('shows the docs block whole in its own area, so a declared surface and what it covers are both on the page', async () => {
