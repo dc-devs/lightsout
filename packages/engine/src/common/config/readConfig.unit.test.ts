@@ -96,3 +96,20 @@ test('readOptionalConfig: a config that is not JSON at all throws rather than de
 
 	expect(error).toBeDefined();
 });
+
+test('readConfig: an override naming a gate the repo does not configure throws, naming the gate', async () => {
+	// `gate-overrides` is the only cross-block check: a checkpoint may name any
+	// gate configured under `gates` or `package-gates`, and nothing else — a
+	// name outside both blocks would schedule a suite that never runs.
+	const { cwd } = setupRepo({
+		raw: JSON.stringify({
+			gates: { check: 'tsc --noEmit', test: 'node --test', 'test-coverage': false },
+			'gate-overrides': { 'verify-tests': ['check', 'test-e2e'] },
+		}),
+	});
+
+	const error = await getRejectionError({ promise: readConfig({ cwd }) });
+
+	expect(error.message).toMatch(/unknown gate 'test-e2e'/);
+	expect(error.message).toMatch(/gate-overrides\.verify-tests/);
+});

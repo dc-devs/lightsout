@@ -54,7 +54,7 @@ const formatAndVerify = async ({ context: { run, id, coverage }, record }: { con
 
 	return {
 		record: next,
-		result: error === undefined ? await runVerificationGates({ run, coverage }) : { error, failedFamilies: ['format'], crashes: [], failures },
+		result: error === undefined ? await runVerificationGates({ run, coverage, checkpoint: id }) : { error, failedFamilies: ['format'], crashes: [], failures },
 	};
 };
 
@@ -125,8 +125,9 @@ const runCheapRepairs = async ({ context, record, result }: { context: Params; r
 };
 
 const runGuidedRepair = async ({ context, record, result }: { context: Params; record: StepRecord; result: VerificationResult }) => {
-	// A crashed gate buys no judgment either — the supervisor would be asked to rule on a toolchain fault.
-	if (!result.error || result.crashes.length > 0 || record.verification?.guidedRepairAttempted) {
+	// A crashed gate buys no judgment either — the supervisor would be asked to rule on a toolchain fault. A red with no failed family
+	// is that same shape: the checkpoint could not be run, so there is nothing to rule on and nothing to repair — as `runCheapRepairs` decides too.
+	if (!result.error || result.failedFamilies.length === 0 || result.crashes.length > 0 || record.verification?.guidedRepairAttempted) {
 		return { record, result, ruling: undefined };
 	}
 
@@ -195,7 +196,7 @@ const runVerificationStep = async ({ context }: { context: Params }) => {
 
 	const initial = record.verification?.needsFormatting
 		? await formatAndVerify({ context, record })
-		: { record, result: await runVerificationGates({ run, coverage }) };
+		: { record, result: await runVerificationGates({ run, coverage, checkpoint: id }) };
 	let result = initial.result;
 	record = initial.record;
 

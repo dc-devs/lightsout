@@ -1,19 +1,28 @@
-import type { GateCommands } from '#src/gates/common/types/GateCommands.ts';
+import type { GateEntry } from '#src/gates/common/types/GateEntry.ts';
 import type { GateOutcome } from '#src/gates/common/types/GateOutcome.ts';
 import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 import type { RunGate } from '#src/gates/common/types/RunGate.ts';
 import { describeGateCrash } from '#src/gates/common/utils/describeGateCrash.ts';
 
 interface Params {
-	commands: GateCommands;
+	/** The gates to run, in the order someone else already put them in — with every command final. */
+	entries: GateEntry[];
 	label?: string;
 	gate: RunGate;
 	/** Stop at the first red (default); false runs every gate and aggregates the failures — verify's complete-report mode. */
 	failFast?: boolean;
 }
 
-/** Run one group's gates in order: check → tests (coverage-instrumented when the set includes coverage) → build. First failure wins unless `failFast` is false, in which case every gate runs and failures aggregate. */
-export const runGateSet = async ({ commands, label, gate, failFast = true }: Params): Promise<GateRunResult> => {
+/**
+ * Run one ordered list of gates and report what happened.
+ *
+ * The order is not this function's to choose: `buildGateStages` decides which
+ * gates a run schedules and in which order, because an override has to be able
+ * to replace that decision entirely. What is left here is execution — first
+ * failure wins unless `failFast` is false, in which case every gate in the list
+ * runs and the failures aggregate.
+ */
+export const runGateSet = async ({ entries, label, gate, failFast = true }: Params): Promise<GateRunResult> => {
 	const group = label ?? 'root';
 	const prefix = label ? `[${label}] ` : '';
 	const failures: string[] = [];
@@ -36,53 +45,15 @@ export const runGateSet = async ({ commands, label, gate, failFast = true }: Par
 		}
 	};
 
-	if (commands.check) {
-		const check = await gate({ kind: 'check', command: commands.check, group });
-
-		if (check.exitCode !== 0) {
-			recordRed({ family: 'check', name: 'check', outcome: check });
-		}
-	}
-
-	// Coverage REPLACES the plain test run when the set includes it: a
-	// coverage command runs the same suites with instrumentation on (the
-	// config contract requires it to run the tests), so running both is
-	// the same fleet twice back-to-back. A red here is a test failure or an
-	// unmet threshold — the output tells the fix agent which.
-	if (!stop() && commands.testCoverage) {
-		const coverageResult = await gate({ kind: 'testCoverage', command: commands.testCoverage, group });
-
-		if (coverageResult.exitCode !== 0) {
-			recordRed({ family: 'testCoverage', name: 'test-coverage', outcome: coverageResult });
-		}
-	} else if (!stop() && commands.test) {
-		const tests = await gate({ kind: 'test', command: commands.test, group });
-
-		if (tests.exitCode !== 0) {
-			recordRed({ family: 'test', name: 'test', outcome: tests });
-		}
-	}
-
-	// Custom `test-*` suites are their own gates — never substituted by
-	// coverage, run in the order the config wrote them, after the unit suite
-	// and before build so the cheap gates keep their chance to fail first.
-	for (const { name, command } of commands.extraTests ?? []) {
-		if (stop() || !command) {
-			continue;
+	for (const entry of entries) {
+		if (stop()) {
+			break;
 		}
 
-		const extra = await gate({ kind: name, command, group });
+		const outcome = await gate({ kind: entry.family, command: entry.command, group });
 
-		if (extra.exitCode !== 0) {
-			recordRed({ family: name, name, outcome: extra });
-		}
-	}
-
-	if (!stop() && commands.build) {
-		const build = await gate({ kind: 'build', command: commands.build, group });
-
-		if (build.exitCode !== 0) {
-			recordRed({ family: 'build', name: 'build', outcome: build });
+		if (outcome.exitCode !== 0) {
+			recordRed({ family: entry.family, name: entry.name, outcome });
 		}
 	}
 

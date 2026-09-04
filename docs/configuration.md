@@ -79,15 +79,27 @@ See [Monorepos](monorepos.md) for package detection and gate-resolution details.
 
 Lightsout does not ask an agent whether its work is correct. It runs your commands directly and uses their exit codes to decide whether the pipeline can continue.
 
-At every verification stage, commands run in this order:
+At every verification stage, `generate` runs first when you configured one — it
+writes the files the gates then read. After it, the gates themselves run in two
+tiers. The cheap ones come first:
 
-1. `generate`, when configured
-2. `check`
-3. `test`
-4. `test-coverage`
-5. `build`, when configured
+1. `check`
+2. `test`, or `test-coverage` in its place when the stage runs coverage
 
-If any command fails, the stage fails and the pipeline stops. The agent cannot override, reinterpret, or talk its way past a failing gate.
+Only once every package group's cheap gates are green does the expensive tier
+start:
+
+1. each custom `test-*` suite, in the order you wrote them
+2. `build`, when configured
+
+If any command fails, the stage fails and the pipeline stops. A red cheap gate
+also means the expensive tier never starts, so an end-to-end suite is never paid
+for at a stage that is already red. Every cheap gate still runs, so all of their
+failures arrive in one report. The agent cannot override, reinterpret, or talk
+its way past a failing gate.
+
+You can replace this order at a given stage with `gate-overrides`, described
+below.
 
 The `format` command is different: it runs once at the end of the pipeline, after the implementation and verification stages are complete.
 
@@ -203,6 +215,7 @@ is overwritten the next time `pnpm build:config-reference` runs.
 | `executor-file-limit` | no | How many source files one plan or phase may create or modify before the feature executor refuses it as out of scope. Defaults to 50. One key rather than a number per reader, so the plan lint, the scope estimate and the executor’s own stop rule agree by construction. A plan that is mostly mechanical edits raises its own allowance with a `## File Budget` section rather than moving this key; the separate ceiling on files a plan creates is fixed and cannot be raised either way. |
 | `packages-dir` | no | Directory holding workspace packages, for monorepo scoped gates. Defaults to `packages`. |
 | `package-gates` | no | Monorepo scoped gate templates — the per-package commands `{package}` is substituted into. Each template runs once per affected package, so a gate runs only for the packages a change touched. |
+| `gate-overrides` | no | Opt-in per-checkpoint gate schedules, keyed by the four verification checkpoints — `clean-slate`, `verify-implement`, `verify-tests` and `verify-refactor`. A checkpoint listed with an array runs exactly those gates, in that order, with no tiering, and a red one stops the rest of the list; `"off"` runs no gates at all there, `gates.generate` included. A checkpoint the block does not list keeps the engine’s default: the cheap gates first — check, then the unit suite — and the expensive ones, each custom `test-*` suite and the build, only once every package group’s cheap gates are green. A name must be a gate this repo configures under `gates` or `package-gates`; `generate` and `format` may not be named. |
 | `standards-packs` | no | Standards packs a run works against. Unspecified = the pack the plugin ships; `false` = explicitly none; an array = exactly these pack roots, each the folder holding `lightsout-standards.json`, repo-relative or absolute. One pack carries both the code and the test documents, which is why there is a single key rather than two. A root that cannot be loaded is a hard error. |
 | `standards-channels` | no | Framework channels of the loaded standards packs (e.g. 'react', 'tanstack'). Unspecified = detected per run from the scoped packages' package.json dependencies; an array REPLACES detection, and an empty one means base documents only. |
 | `standards-checks` | no | Per-rule severity and settings overrides for `lightsout standards-check`, keyed by rule id. A rule not named here keeps its pack’s default — silence is never a change. |
@@ -230,6 +243,43 @@ is overwritten the next time `pnpm build:config-reference` runs.
 `gates` is the one key every configuration must write. Provide full shell commands:
 lightsout runs them itself and decides on their exit codes, so an agent is never asked
 whether its own work passed.
+
+### Gate overrides
+
+`gate-overrides` says which gates run at one verification checkpoint. Its keys
+are the four checkpoints — `clean-slate`, `verify-implement`, `verify-tests` and
+`verify-refactor` — and a checkpoint you do not list keeps the two tiers
+described above.
+
+A checkpoint's value is either a list of gate names or the string `"off"`:
+
+```json
+{
+  "gate-overrides": {
+    "verify-implement": ["check", "test"]
+  }
+}
+```
+
+```json
+{
+  "gate-overrides": {
+    "verify-implement": "off"
+  }
+}
+```
+
+A list replaces the tiering entirely: exactly those gates run, in exactly that
+order, and a red gate stops the rest of the list. `"off"` runs no gates at all
+at that checkpoint, `generate` included.
+
+`generate` runs before a list, exactly as it does under the default order, so it
+may not be named in one — nor may `format`, which runs once at the very end of
+the pipeline and would not be scheduled by naming it here. Every other name must
+be a gate this repository configures under `gates` or `package-gates`; a name
+neither block configures fails when the configuration is read. A gate a package
+has no script for is skipped for that package and recorded, exactly as it is
+under the default order.
 
 ### Standards check rules
 
@@ -566,6 +616,13 @@ The following example shows how the optional configuration fields fit together:
     "test": "pnpm --filter {package} test:unit",
     "test-coverage": "pnpm --filter {package} test:unit:coverage",
     "build": "pnpm --filter {package} build",
+  },
+
+  // Which gates run at a given verification checkpoint.
+  // An unlisted checkpoint keeps the engine's own two tiers.
+  "gate-overrides": {
+    "verify-implement": ["check", "test"],
+    "verify-refactor": "off",
   },
 
   // Commands implementation agents may run

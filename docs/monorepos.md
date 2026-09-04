@@ -36,6 +36,8 @@ If your workspace packages do not live in `packages/`, set `packages-dir`:
 
 **Packages only run the gates they support.** If a package does not define the script referenced by a template, that gate is skipped for the package and recorded in the run log. Documentation and infrastructure packages do not need placeholder scripts.
 
+**Every package finishes its cheap gates before any package starts an expensive one.** Lightsout runs the type-check, lint and unit gates for every package in scope first, and starts the custom `test-*` suites and the build only once all of them are green. One package's red lint therefore never costs another package its end-to-end suite, and because every cheap gate still runs, all of the cheap failures across every package arrive in one repair report.
+
 **Changes outside the packages directory still get verified.** Package-only changes run the affected-package templates. Root-only changes run the repository-wide commands configured under `gates`. Mixed changes also run only the repository-wide `gates`, rather than the affected-package templates too, because those root commands verify the whole repository.
 
 **Dependent packages can be included.** Use your package manager’s dependent-package filtering syntax when you want changes to a shared package to also verify its consumers. With pnpm, for example:

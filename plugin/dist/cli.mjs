@@ -23076,6 +23076,54 @@ var FrictionRecord = FrictionEntry.extend({
   step: external_exports.string()
 });
 
+// src/contracts/common/constants/uncheckpointableGateKeys.ts
+var uncheckpointableGateKeys = {
+  generate: `'generate' is not a checkpoint gate \u2014 gates.generate runs before an override's gates automatically, and not at all when the checkpoint is "off"`,
+  format: "'format' is not a checkpoint gate \u2014 gates.format runs once at the very end of the pipeline"
+};
+
+// src/contracts/GateOverride.ts
+var GateOverride = external_exports.union([
+  external_exports.literal("off"),
+  external_exports.array(external_exports.string()).min(1, {
+    error: 'a gate-overrides list must name at least one gate \u2014 write "off" to run no gates at all at this checkpoint',
+    abort: true
+  })
+]).superRefine((entry, ctx) => {
+  if (entry === "off") {
+    return;
+  }
+  for (const [name, message] of Object.entries(uncheckpointableGateKeys)) {
+    if (entry.includes(name)) {
+      ctx.addIssue({ code: "custom", message });
+    }
+  }
+  const seen = /* @__PURE__ */ new Set();
+  const reported = /* @__PURE__ */ new Set();
+  for (const name of entry) {
+    if (seen.has(name) && !reported.has(name)) {
+      reported.add(name);
+      ctx.addIssue({
+        code: "custom",
+        message: `gate '${name}' is named more than once in this gate-overrides list \u2014 a gate runs once per checkpoint, so a repeat is a typo`
+      });
+    }
+    seen.add(name);
+  }
+});
+
+// src/contracts/GateOverrides.ts
+var GateOverrides = external_exports.object({
+  /** The baseline gate run, before any agent works — the codebase must already be green. */
+  "clean-slate": GateOverride.optional(),
+  /** The gate run after the feature executor's implementation. */
+  "verify-implement": GateOverride.optional(),
+  /** The gate run after the tests are written. */
+  "verify-tests": GateOverride.optional(),
+  /** The gate run after the refactor pass. */
+  "verify-refactor": GateOverride.optional()
+}).strict();
+
 // src/contracts/gates/GateResult.ts
 var GateResult = external_exports.object({
   /** Gate kind: 'generate' | 'check' | 'test' | 'testCoverage' | 'build'. */
@@ -23096,6 +23144,24 @@ var GateResult = external_exports.object({
   /** Last 2000 chars of stdout+stderr — present only on non-zero exit. */
   outputTail: external_exports.string().optional()
 });
+
+// src/contracts/common/utils/validateGateOverrideNames.ts
+var validateGateOverrideNames = ({ overrides, gates, packageGates, ctx }) => {
+  const blocks = packageGates === void 0 ? [gates] : [gates, packageGates];
+  const configured = new Set(
+    blocks.flatMap((block) => Object.entries(block)).filter(([key, command]) => !Object.hasOwn(uncheckpointableGateKeys, key) && command !== false).map(([key]) => key)
+  );
+  for (const [checkpoint, entry] of Object.entries(overrides ?? {})) {
+    for (const name of Array.isArray(entry) ? entry : []) {
+      if (!configured.has(name)) {
+        ctx.addIssue({
+          code: "custom",
+          message: `unknown gate '${name}' in gate-overrides.${checkpoint} \u2014 name a gate this repo configures under \`gates\` or \`package-gates\``
+        });
+      }
+    }
+  }
+};
 
 // src/contracts/PackageGates.ts
 var knownGateKeys2 = /* @__PURE__ */ new Set(["check", "test", "test-coverage", "testCoverage", "testUnit", "build"]);
@@ -23337,6 +23403,13 @@ var LightsoutConfig = external_exports.object({
   /** Removed — renamed to `package-gates`. Same reason. */
   packageGates: renamedKey({ from: "packageGates", to: "package-gates" }),
   /**
+   * Opt-in per-checkpoint gate schedules, keyed by the four verification
+   * checkpoints. A listed checkpoint runs exactly the gates its entry names,
+   * in that order; an unlisted one keeps the engine's default. See
+   * `GateOverrides`.
+   */
+  "gate-overrides": GateOverrides.optional(),
+  /**
    * Standards packs a run works against. Unspecified = the pack the plugin
    * ships (announced in the run header); `false` = explicitly none; an array =
    * exactly these, where each entry is the root folder of a standards pack —
@@ -23381,6 +23454,8 @@ var LightsoutConfig = external_exports.object({
   queue: ConfigQueue.optional(),
   /** Opt-in documentation surfaces — each a repo-relative path and what that document covers. See `ConfigDocs`. */
   docs: ConfigDocs.optional()
+}).superRefine((config2, ctx) => {
+  validateGateOverrideNames({ overrides: config2["gate-overrides"], gates: config2.gates, packageGates: config2["package-gates"], ctx });
 });
 
 // src/contracts/plan/decisions/DecisionSource.ts
@@ -132381,6 +132456,9 @@ var standardsScopeFiles = ({ run }) => {
 // src/pipeline/common/utils/sourceFiles.ts
 var sourceFiles = ({ run }) => standardsScopeFiles({ run }).filter((file2) => !isTestFile({ path: file2 }));
 
+// src/common/config/resolveGateOverride.ts
+var resolveGateOverride = ({ overrides, checkpoint }) => Object.entries(overrides ?? {}).find(([key]) => key === checkpoint)?.[1];
+
 // src/common/fileGroups/chunkFileGroup.ts
 var chunkFileGroup = ({ files, max }) => {
   const sorted = [...files].sort();
@@ -133074,6 +133152,18 @@ ${dirty.map((file2) => `  ${file2}`).join("\n")}`
   return { manifest, worklist };
 };
 
+// src/gates/common/constants/GateScheduleKind.ts
+var GateScheduleKind = {
+  /** One stage, the engine's canonical order — what every gate caller that asks for no schedule gets. */
+  Single: "single",
+  /** Two stages, cheap then expensive, with every group held at the boundary. */
+  Tiered: "tiered",
+  /** One stage, exactly these gate names in exactly this order, always stopping at the first red. */
+  Exact: "exact",
+  /** No stages at all — the checkpoint runs no gates, `gates.generate` included. */
+  Off: "off"
+};
+
 // src/common/config/resolveGates.ts
 var fixedKeys = /* @__PURE__ */ new Set(["check", "test", "test-coverage", "generate", "build", "format"]);
 var resolveGates = ({ gates }) => ({
@@ -133086,8 +133176,61 @@ var resolveGates = ({ gates }) => ({
   extraTests: Object.entries(gates).filter((entry) => !fixedKeys.has(entry[0]) && typeof entry[1] === "string").map(([name, command]) => ({ name, command }))
 });
 
+// src/gates/common/utils/buildGateEntries.ts
+var buildGateEntries = ({ commands: commands2 }) => {
+  const declared = [
+    { family: "check", name: "check", command: commands2.check },
+    { family: "test", name: "test", command: commands2.test },
+    { family: "testCoverage", name: "test-coverage", command: commands2.testCoverage },
+    ...(commands2.extraTests ?? []).map(({ name, command }) => ({ family: name, name, command })),
+    { family: "build", name: "build", command: commands2.build }
+  ];
+  return declared.flatMap(({ family, name, command }) => command === void 0 ? [] : [{ family, name, command }]);
+};
+
+// src/gates/common/constants/GateTier.ts
+var GateTier = {
+  /** Type-check, lint and the unit suite — fast enough to run at every checkpoint whatever else is red. */
+  Cheap: "cheap",
+  /** Every custom `test-*` suite, and the build — paid for only once the cheap gates are green everywhere. */
+  Expensive: "expensive"
+};
+
+// src/gates/common/utils/gateTierOf.ts
+var cheapFamilies = /* @__PURE__ */ new Set(["check", "test", "testCoverage"]);
+var gateTierOf = ({ family }) => cheapFamilies.has(family) ? GateTier.Cheap : GateTier.Expensive;
+
+// src/gates/common/utils/buildGateStages.ts
+var selectNamed = ({ entries, gates }) => gates.flatMap((name) => entries.filter((entry) => entry.name === name));
+var selectDefault = ({ entries, coverage }) => {
+  const scheduled = entries.filter((entry) => entry.name !== "test-coverage" || coverage === true);
+  const instrumented = scheduled.some((entry) => entry.name === "test-coverage");
+  return scheduled.filter((entry) => entry.name !== "test" || !instrumented);
+};
+var inTier = ({ entries, tier }) => entries.filter((entry) => gateTierOf({ family: entry.family }) === tier);
+var buildGateStages = ({ entries, schedule, coverage }) => {
+  if (schedule.kind === GateScheduleKind.Off) {
+    return [];
+  }
+  if (schedule.kind === GateScheduleKind.Exact) {
+    return [selectNamed({ entries, gates: schedule.gates })];
+  }
+  const scheduled = selectDefault({ entries, coverage });
+  return schedule.kind === GateScheduleKind.Tiered ? [inTier({ entries: scheduled, tier: GateTier.Cheap }), inTier({ entries: scheduled, tier: GateTier.Expensive })] : [scheduled];
+};
+
 // src/gates/common/utils/describeGateCrash.ts
 var describeGateCrash = ({ label }) => `${label} crashed: every attempt ended in the known jest worker SIGSEGV, so this gate never returned a verdict.`;
+
+// src/gates/common/utils/mergeGateRunResults.ts
+var mergeGateRunResults = ({ results }) => {
+  const errors = results.flatMap((result) => result.error === void 0 ? [] : [result.error]);
+  return {
+    error: errors.length > 0 ? errors.join("\n\n") : void 0,
+    failedFamilies: [...new Set(results.flatMap((result) => result.failedFamilies))],
+    crashes: results.flatMap((result) => result.crashes)
+  };
+};
 
 // src/gates/createGateRunner.ts
 var maxCrashAttempts = 3;
@@ -133155,7 +133298,7 @@ ${result.stderr}`.slice(-outputTailChars) }
 };
 
 // src/gates/runGateSet.ts
-var runGateSet = async ({ commands: commands2, label, gate, failFast = true }) => {
+var runGateSet = async ({ entries, label, gate, failFast = true }) => {
   const group = label ?? "root";
   const prefix = label ? `[${label}] ` : "";
   const failures = [];
@@ -133172,36 +133315,13 @@ ${outcome.stderr}`);
       failedFamilies.push(family);
     }
   };
-  if (commands2.check) {
-    const check2 = await gate({ kind: "check", command: commands2.check, group });
-    if (check2.exitCode !== 0) {
-      recordRed({ family: "check", name: "check", outcome: check2 });
+  for (const entry of entries) {
+    if (stop()) {
+      break;
     }
-  }
-  if (!stop() && commands2.testCoverage) {
-    const coverageResult = await gate({ kind: "testCoverage", command: commands2.testCoverage, group });
-    if (coverageResult.exitCode !== 0) {
-      recordRed({ family: "testCoverage", name: "test-coverage", outcome: coverageResult });
-    }
-  } else if (!stop() && commands2.test) {
-    const tests = await gate({ kind: "test", command: commands2.test, group });
-    if (tests.exitCode !== 0) {
-      recordRed({ family: "test", name: "test", outcome: tests });
-    }
-  }
-  for (const { name, command } of commands2.extraTests ?? []) {
-    if (stop() || !command) {
-      continue;
-    }
-    const extra = await gate({ kind: name, command, group });
-    if (extra.exitCode !== 0) {
-      recordRed({ family: name, name, outcome: extra });
-    }
-  }
-  if (!stop() && commands2.build) {
-    const build = await gate({ kind: "build", command: commands2.build, group });
-    if (build.exitCode !== 0) {
-      recordRed({ family: "build", name: "build", outcome: build });
+    const outcome = await gate({ kind: entry.family, command: entry.command, group });
+    if (outcome.exitCode !== 0) {
+      recordRed({ family: entry.family, name: entry.name, outcome });
     }
   }
   return {
@@ -133222,12 +133342,35 @@ var resolvePackageGatesConfig = ({ packageGates }) => ({
 });
 
 // src/gates/runPackageGates.ts
+var resolveScopedEntries = async ({
+  entries,
+  testTemplate,
+  resolveTemplate,
+  coverageFallback
+}) => {
+  const scheduledTest = entries.some((entry) => entry.name === "test");
+  const resolved = [];
+  for (const entry of entries) {
+    const command = await resolveTemplate({ kind: entry.family, template: entry.command });
+    if (command !== void 0) {
+      resolved.push({ ...entry, command });
+    } else if (coverageFallback && entry.name === "test-coverage" && !scheduledTest) {
+      const fallback = await resolveTemplate({ kind: "test", template: testTemplate });
+      if (fallback !== void 0) {
+        resolved.push({ family: "test", name: "test", command: fallback });
+      }
+    }
+  }
+  return resolved;
+};
 var runPackageGates = async ({
   cwd,
   packagesDir,
   packageDir,
   scoped,
   coverage,
+  schedule,
+  stage,
   gate,
   failFast,
   runId,
@@ -133243,7 +133386,7 @@ var runPackageGates = async ({
   }
   const templates = resolvePackageGatesConfig({ packageGates: scoped });
   const substitute = ({ command }) => command.split("{package}").join(manifest.name);
-  const scopedCommand = async ({ kind, template }) => {
+  const resolveTemplate = async ({ kind, template }) => {
     const scriptName = extractRunScriptName({ command: template });
     if (!scriptName || Object.hasOwn(manifest.scripts, scriptName)) {
       return substitute({ command: template });
@@ -133267,28 +133410,71 @@ var runPackageGates = async ({
     onGateResult?.({ kind, group: packageDir, command: substitute({ command: template }), skipped: true, reason: `no "${scriptName}" script` });
     return void 0;
   };
-  const testCoverage = coverage && templates.testCoverage ? await scopedCommand({ kind: "testCoverage", template: templates.testCoverage }) : void 0;
-  const extraTests = [];
-  for (const { name, command } of templates.extraTests) {
-    extraTests.push({ name, command: await scopedCommand({ kind: name, template: command }) });
-  }
+  const entries = buildGateEntries({ commands: templates });
+  const scheduled = buildGateStages({ entries, schedule, coverage })[stage] ?? [];
   return runGateSet({
     label: packageDir,
     gate,
     failFast,
-    commands: {
-      check: await scopedCommand({ kind: "check", template: templates.check }),
-      // Coverage replaces the plain test run; only when coverage is
-      // absent or skipped does test get its own script lookup.
-      test: testCoverage ? void 0 : await scopedCommand({ kind: "test", template: templates.test }),
-      testCoverage,
-      extraTests,
-      build: templates.build ? await scopedCommand({ kind: "build", template: templates.build }) : void 0
-    }
+    entries: await resolveScopedEntries({
+      entries: scheduled,
+      testTemplate: templates.test,
+      resolveTemplate,
+      coverageFallback: schedule.kind !== GateScheduleKind.Exact
+    })
   });
 };
 
 // src/gates/runGates.ts
+var stageCounts = {
+  [GateScheduleKind.Single]: 1,
+  [GateScheduleKind.Tiered]: 2,
+  [GateScheduleKind.Exact]: 1,
+  [GateScheduleKind.Off]: 0
+};
+var rootCommands = ({ gates }) => ({
+  check: gates.check,
+  test: gates.test,
+  testCoverage: typeof gates.testCoverage === "string" ? gates.testCoverage : void 0,
+  extraTests: gates.extraTests,
+  build: gates.build
+});
+var runGenerate = async ({ gate, command }) => {
+  if (command === void 0) {
+    return void 0;
+  }
+  const generated = await gate({ kind: "generate", command, group: "root" });
+  if (generated.exitCode === 0) {
+    return void 0;
+  }
+  return {
+    error: `generate failed (exit ${generated.exitCode}):
+${generated.stdout}
+${generated.stderr}`,
+    failedFamilies: generated.crashed ? [] : ["generate"],
+    crashes: generated.crashed ? [describeGateCrash({ label: "generate" })] : []
+  };
+};
+var heldTierMessage = ({ failedFamilies }) => `gate: expensive gates not started \u2014 a cheap gate is red (${failedFamilies.length > 0 ? failedFamilies.join(", ") : "crash"})`;
+var overrideMatchedNothing = ({ gates }) => ({
+  error: `gate-overrides named no gate this run could execute: ${gates.join(", ")} \u2014 every named gate is absent from the group(s) that ran at this checkpoint`,
+  failedFamilies: [],
+  crashes: []
+});
+var runGateStage = async ({
+  stage,
+  rootStages,
+  packages,
+  gate,
+  failFast,
+  context
+}) => {
+  if (context === void 0 || packages.length === 0) {
+    return runGateSet({ entries: rootStages[stage] ?? [], gate, failFast });
+  }
+  const results = await Promise.all(packages.map((packageDir) => runPackageGates({ ...context, packageDir, stage, gate, failFast })));
+  return mergeGateRunResults({ results });
+};
 var runGates = async ({
   cwd,
   config: config2,
@@ -133298,10 +133484,11 @@ var runGates = async ({
   runId,
   step,
   failFast,
+  schedule,
   onGateResult,
   onProgress
 }) => {
-  const gate = createGateRunner({
+  const runner = createGateRunner({
     cwd,
     timeoutMs: (config2.timeouts?.["gate-minutes"] ?? defaultGateTimeoutMinutes) * 6e4,
     runId,
@@ -133309,45 +133496,38 @@ var runGates = async ({
     onGateResult,
     onProgress
   });
+  let executed = 0;
+  const gate = async (params) => {
+    executed += 1;
+    return runner(params);
+  };
   const gates = resolveGates({ gates: config2.gates });
-  let result;
-  if (gates.generate) {
-    const generated = await gate({ kind: "generate", command: gates.generate, group: "root" });
-    if (generated.exitCode !== 0) {
-      result = {
-        error: `generate failed (exit ${generated.exitCode}):
-${generated.stdout}
-${generated.stderr}`,
-        failedFamilies: generated.crashed ? [] : ["generate"],
-        crashes: generated.crashed ? [describeGateCrash({ label: "generate" })] : []
-      };
+  const resolvedSchedule = schedule ?? { kind: GateScheduleKind.Single };
+  const stageCount = stageCounts[resolvedSchedule.kind];
+  const generateFailure = stageCount === 0 ? void 0 : await runGenerate({ gate, command: gates.generate });
+  const executedBeforeStages = executed;
+  const scoped = config2["package-gates"];
+  const inScope = packages ?? [];
+  const scopedPackages = scoped === void 0 || includeRoot ? [] : inScope;
+  const rootStages = buildGateStages({ entries: buildGateEntries({ commands: rootCommands({ gates }) }), schedule: resolvedSchedule, coverage });
+  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
+  const context = scoped === void 0 ? void 0 : { cwd, packagesDir, scoped, coverage, schedule: resolvedSchedule, runId, step, onGateResult, onProgress };
+  const stageFailFast = resolvedSchedule.kind === GateScheduleKind.Exact ? true : failFast;
+  const stageResults = [];
+  for (let stage = 0; generateFailure === void 0 && stage < stageCount; stage += 1) {
+    const stageResult = await runGateStage({ stage, rootStages, packages: scopedPackages, gate, failFast: stageFailFast, context });
+    stageResults.push(stageResult);
+    if (stageResult.error !== void 0) {
+      if (stage + 1 < stageCount) {
+        onProgress?.(heldTierMessage({ failedFamilies: stageResult.failedFamilies }));
+      }
+      break;
     }
   }
-  if (!result) {
-    const rootCommands = {
-      check: gates.check,
-      test: gates.test,
-      testCoverage: coverage && typeof gates.testCoverage === "string" ? gates.testCoverage : void 0,
-      extraTests: gates.extraTests,
-      build: gates.build
-    };
-    const scoped = config2["package-gates"];
-    if (!scoped || !packages || packages.length === 0 || includeRoot) {
-      result = await runGateSet({ commands: rootCommands, gate, failFast });
-    } else {
-      const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
-      const results = await Promise.all(
-        packages.map(
-          (packageDir) => runPackageGates({ cwd, packagesDir, packageDir, scoped, coverage, gate, failFast, runId, step, onGateResult, onProgress })
-        )
-      );
-      const errors = results.flatMap((gateResult) => gateResult.error ? [gateResult.error] : []);
-      result = {
-        error: errors.length > 0 ? errors.join("\n\n") : void 0,
-        failedFamilies: [...new Set(results.flatMap((gateResult) => gateResult.failedFamilies))],
-        crashes: results.flatMap((gateResult) => gateResult.crashes)
-      };
-    }
+  let result = generateFailure ?? mergeGateRunResults({ results: stageResults });
+  const named = resolvedSchedule.kind === GateScheduleKind.Exact ? resolvedSchedule.gates : [];
+  if (named.length > 0 && executed === executedBeforeStages && result.error === void 0) {
+    result = overrideMatchedNothing({ gates: named });
   }
   return result;
 };
@@ -134012,7 +134192,14 @@ var restoreLedgerTests = async ({ run }) => {
 };
 
 // src/pipeline/common/utils/runVerificationGates.ts
-var runVerificationGates = async ({ run, coverage }) => {
+var passedCoverage = ({ gate }) => gate.kind === "testCoverage" && gate.skipped !== true && gate.exitCode === 0;
+var scheduleOf = ({ override }) => {
+  if (override === void 0) {
+    return { kind: GateScheduleKind.Tiered };
+  }
+  return override === "off" ? { kind: GateScheduleKind.Off } : { kind: GateScheduleKind.Exact, gates: override };
+};
+var runVerificationGates = async ({ run, coverage, checkpoint }) => {
   const packagesDir = run.config["packages-dir"] ?? defaultPackagesDir;
   const hasRootChanges = run.current().changedFiles.some((file2) => packageOf({ file: file2, packagesDir }) === void 0);
   const observations = /* @__PURE__ */ new Map();
@@ -134029,6 +134216,7 @@ var runVerificationGates = async ({ run, coverage }) => {
     packages: run.current().packages,
     includeRoot: hasRootChanges,
     failFast: false,
+    schedule: scheduleOf({ override: resolveGateOverride({ overrides: run.config["gate-overrides"], checkpoint }) }),
     runId: run.current().runId,
     step: run.current().currentStep ?? void 0,
     onGateResult: (gateResult) => observations.set(`${gateResult.group}\0${gateResult.kind}`, gateResult),
@@ -134037,7 +134225,8 @@ var runVerificationGates = async ({ run, coverage }) => {
   const failures = [...observations.values()].filter(
     (observation) => observation.skipped !== true && observation.crashed !== true && observation.exitCode !== void 0 && observation.exitCode !== 0 && result.failedFamilies.includes(observation.kind)
   );
-  if (result.error !== void 0 || !coverage) {
+  const coverageRan = [...observations.values()].some((gate) => passedCoverage({ gate }));
+  if (result.error !== void 0 || !coverageRan) {
     return { ...result, failures };
   }
   const manifest = run.current();
@@ -134057,7 +134246,7 @@ var cleanSlateStep = ({ run }) => {
     const record3 = run.nextRecord({ id: "clean-slate" });
     await run.setStep({ record: record3 });
     run.progress(`step clean-slate \u2014 attempt ${record3.attempts}`);
-    const { error: error51, failures } = await runVerificationGates({ run, coverage: true });
+    const { error: error51, failures } = await runVerificationGates({ run, coverage: true, checkpoint: "clean-slate" });
     if (error51) {
       const ranOut = failures.some((failure) => failure.exitCode === -1);
       const headline = ranOut ? "A gate did not finish, so the codebase was never proved green \u2014 this is a timeout or a gate that could not start, not a failing test." : "Codebase is not green before implementation \u2014 fix this first.";
@@ -147124,7 +147313,7 @@ var formatAndVerify = async ({ context: { run, id, coverage }, record: record3 }
   await run.setStep({ record: next });
   return {
     record: next,
-    result: error51 === void 0 ? await runVerificationGates({ run, coverage }) : { error: error51, failedFamilies: ["format"], crashes: [], failures }
+    result: error51 === void 0 ? await runVerificationGates({ run, coverage, checkpoint: id }) : { error: error51, failedFamilies: ["format"], crashes: [], failures }
   };
 };
 var runFix = async ({ context, errorContext, record: record3 }) => {
@@ -147176,7 +147365,7 @@ var runCheapRepairs = async ({ context, record: record3, result }) => {
   return { record: currentRecord, result: currentResult };
 };
 var runGuidedRepair = async ({ context, record: record3, result }) => {
-  if (!result.error || result.crashes.length > 0 || record3.verification?.guidedRepairAttempted) {
+  if (!result.error || result.failedFamilies.length === 0 || result.crashes.length > 0 || record3.verification?.guidedRepairAttempted) {
     return { record: record3, result, ruling: void 0 };
   }
   const { run, id, planContent } = context;
@@ -147236,7 +147425,7 @@ var runVerificationStep = async ({ context }) => {
   let record3 = { ...run.nextRecord({ id }), ...previous?.verification ? { verification: previous.verification } : {} };
   await run.setStep({ record: record3 });
   run.progress(`step ${id} \u2014 attempt ${record3.attempts}`);
-  const initial = record3.verification?.needsFormatting ? await formatAndVerify({ context, record: record3 }) : { record: record3, result: await runVerificationGates({ run, coverage }) };
+  const initial = record3.verification?.needsFormatting ? await formatAndVerify({ context, record: record3 }) : { record: record3, result: await runVerificationGates({ run, coverage, checkpoint: id }) };
   let result = initial.result;
   record3 = initial.record;
   if (result.error) {

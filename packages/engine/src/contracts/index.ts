@@ -45,6 +45,8 @@ export { CoverageBatchReport, CoverageFile, CoverageTotal, CoverageWorklist } fr
 export { DedupFinding, DedupJudgment, DedupReport, DedupResolution, DedupVerdict, ReviewedCollision } from '#src/contracts/dedup/index.ts';
 export { Effort } from '#src/contracts/Effort.ts';
 export { FrictionArea, FrictionEntry, FrictionRecord } from '#src/contracts/friction/index.ts';
+export { GateOverride } from '#src/contracts/GateOverride.ts';
+export { GateOverrides } from '#src/contracts/GateOverrides.ts';
 export { GateResult } from '#src/contracts/gates/index.ts';
 export { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 export { PackageGates } from '#src/contracts/PackageGates.ts';
