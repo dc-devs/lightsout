@@ -29,6 +29,23 @@ module.exports = ({ rootDir, ...rest }) => ({
 	clearMocks: true,
 	restoreMocks: true,
 	testTimeout: 30_000,
+	// Ten, rather than Jest's default of one worker per core minus one.
+	//
+	// Nothing bounded this before, and two layers multiplied: Nx runs several
+	// projects at once and each asked Jest for 13 workers on a 14-core machine, so
+	// one `pnpm test:unit` could start 39 worker processes. That matters because
+	// the known Jest worker segfault gets more likely the more workers there are:
+	// the crash happens during a major garbage collection, and more workers means
+	// more heap and more collections. Measured on 2026-09-04, two suites running
+	// at once: 26 workers lost 2 runs in 24, 20 lost 1, and 8 lost none, against
+	// 30 clean runs on an idle machine at 13.
+	//
+	// Ten is the point where the cost is about two seconds a run rather than the
+	// twenty-eight a tighter cap costs, and what slips through is the case LO-39's
+	// gate retry was built to absorb. A number rather than a fraction of the
+	// cores, because the machines differ by an order of magnitude — a 14-core
+	// laptop hosting several agents, and a 2-core CI runner hosting one.
+	maxWorkers: 10,
 	// json-summary is what `lightsout test-coverage-to-threshold` (and doctor)
 	// read to pick the worst files — every package emits it, not just the one
 	// that happened to declare it first.
