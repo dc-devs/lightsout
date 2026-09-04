@@ -23245,14 +23245,17 @@ var LightsoutConfig = external_exports.object({
   /** Verification commands — the mechanical gates. See `ConfigGates`. */
   gates: ConfigGates,
   /**
-   * Agent invocation ceilings, in minutes. A hit ceiling is a recorded step
-   * failure the run can resume from — never a crash.
+   * Invocation ceilings, in minutes, for the agents a run spawns and for the
+   * gate commands it runs. A hit ceiling is a recorded step failure the run
+   * can resume from — never a crash.
    */
   timeouts: external_exports.object({
     /** Working roles (executor, test writers, refactorer, fixes). Default 60. */
     "agent-minutes": external_exports.number().positive().optional(),
     /** The read-only supervisor. Default 15. */
     "supervisor-minutes": external_exports.number().positive().optional(),
+    /** One gate command — the repo's own check, test, coverage, build or end-to-end run. Default 15. */
+    "gate-minutes": external_exports.number().positive().optional(),
     /** Removed — renamed to `agent-minutes`. Declared only so a stale key fails loudly instead of being silently stripped. */
     agentMinutes: renamedKey({ from: "timeouts.agentMinutes", to: "timeouts.agent-minutes" }),
     /** Removed — renamed to `supervisor-minutes`. Same reason. */
@@ -130774,6 +130777,9 @@ ${error51}`);
 // src/common/constants/defaultAgentTimeoutMinutes.ts
 var defaultAgentTimeoutMinutes = 60;
 
+// src/common/constants/defaultGateTimeoutMinutes.ts
+var defaultGateTimeoutMinutes = 15;
+
 // src/common/constants/defaultSupervisorTimeoutMinutes.ts
 var defaultSupervisorTimeoutMinutes = 15;
 
@@ -130795,7 +130801,7 @@ var printRunHeader = ({ config: config2, driver, cwd }) => {
     `  harness: ${driver.name} \xB7 model: ${config2.model ?? "harness default"} \xB7 effort: ${config2.effort ?? "harness default"} \xB7 permissions: ${config2.permissions ?? Permissions.Write}`
   );
   console.log(
-    `  timeouts: agent ${config2.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes}m \xB7 supervisor ${config2.timeouts?.["supervisor-minutes"] ?? defaultSupervisorTimeoutMinutes}m`
+    `  timeouts: agent ${config2.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes}m \xB7 supervisor ${config2.timeouts?.["supervisor-minutes"] ?? defaultSupervisorTimeoutMinutes}m \xB7 gate ${config2.timeouts?.["gate-minutes"] ?? defaultGateTimeoutMinutes}m`
   );
   console.log(`  gates (root): check=[${config2.gates.check}] test=[${config2.gates.test}] coverage=[${coverage}]`);
   if (config2.gates.generate) {
@@ -133084,14 +133090,13 @@ var isKnownJestWorkerSigsegv = ({ result }) => {
 ${result.stderr}`;
   return /A jest worker process \(pid=\d+\) was terminated by another process: signal=SIGSEGV, exitCode=null\./.test(output);
 };
-var createGateRunner = ({ cwd, runId, step, onGateResult, onProgress }) => {
+var createGateRunner = ({ cwd, timeoutMs, runId, step, onGateResult, onProgress }) => {
   const executeOnce = async ({ kind, command, group, rerun }) => {
-    const gateTimeoutMs = 10 * 6e4;
     const outputTailChars = 2e3;
     const startedAt = Date.now();
     let result;
     try {
-      result = await runCommand({ command, cwd, timeoutMs: gateTimeoutMs });
+      result = await runCommand({ command, cwd, timeoutMs });
     } catch (error51) {
       result = { exitCode: -1, stdout: "", stderr: messageOf({ error: error51 }) };
     }
@@ -133273,7 +133278,14 @@ var runGates = async ({
   onGateResult,
   onProgress
 }) => {
-  const gate = createGateRunner({ cwd, runId, step, onGateResult, onProgress });
+  const gate = createGateRunner({
+    cwd,
+    timeoutMs: (config2.timeouts?.["gate-minutes"] ?? defaultGateTimeoutMinutes) * 6e4,
+    runId,
+    step,
+    onGateResult,
+    onProgress
+  });
   const gates = resolveGates({ gates: config2.gates });
   let result;
   if (gates.generate) {
@@ -134017,14 +134029,12 @@ var cleanSlateStep = ({ run }) => {
     const record3 = run.nextRecord({ id: "clean-slate" });
     await run.setStep({ record: record3 });
     run.progress(`step clean-slate \u2014 attempt ${record3.attempts}`);
-    const { error: error51 } = await runVerificationGates({ run, coverage: true });
+    const { error: error51, failures } = await runVerificationGates({ run, coverage: true });
     if (error51) {
-      return run.stop({
-        record: record3,
-        status: RunStatus.Failed,
-        error: `Codebase is not green before implementation \u2014 fix this first.
-${error51}`
-      });
+      const ranOut = failures.some((failure) => failure.exitCode === -1);
+      const headline = ranOut ? "A gate did not finish, so the codebase was never proved green \u2014 this is a timeout or a gate that could not start, not a failing test." : "Codebase is not green before implementation \u2014 fix this first.";
+      return run.stop({ record: record3, status: RunStatus.Failed, error: `${headline}
+${error51}` });
     }
     const gateArtifacts = await readGitChangedFiles({ cwd: run.cwd });
     await run.setStep({
@@ -146902,7 +146912,7 @@ var standardsWorkList = async ({ run }) => {
 };
 
 // src/pipeline/steps/refactorStep.ts
-var maxRefactorPasses = 3;
+var maxRefactorPasses = 2;
 var reviewAdvisories = async ({ run, packs, channels }) => {
   const review = await runStandardsReview({
     cwd: run.cwd,
@@ -152370,6 +152380,21 @@ var rowCells = ({ row }) => {
   return { glyph, status: row.status, id: row.id, outcome, duration: formatClockDuration({ ms: row.durationMs }) };
 };
 var collapseWhitespace = ({ text }) => text.replace(/\s+/g, " ").trim();
+var diagnosisWidth = 96;
+var wrapLabelled = ({ label, text }) => {
+  const indent = ` ${label.padEnd("last output".length)}   `;
+  const width = Math.max(diagnosisWidth - indent.length, 1);
+  const lines = [];
+  let rest = text;
+  while (rest.length > width) {
+    const cut = rest.lastIndexOf(" ", width);
+    const at = cut > 0 ? cut : width;
+    lines.push(rest.slice(0, at));
+    rest = rest.slice(at).trimStart();
+  }
+  lines.push(rest);
+  return lines.map((line, index) => `${index === 0 ? indent : " ".repeat(indent.length)}${line}`);
+};
 var verificationLines = ({ row }) => {
   const verification = row.verification;
   if (!verification || verification.failedFamilies.length === 0) {
@@ -152382,7 +152407,7 @@ var verificationLines = ({ row }) => {
     ` verification  ${verification.failedFamilies.join(", ")} \xB7 groups ${groups.length === 0 ? "unavailable" : groups.join(", ")} \xB7 repairs ${repairs.length === 0 ? "none" : repairs.map(([family, attempts]) => `${family}=${attempts}`).join(", ")} \xB7 guided ${verification.guidedRepairAttempted ? "yes" : "no"}`
   ];
   if (verification.supervisorDiagnosis) {
-    lines.push(` diagnosis     ${collapseWhitespace({ text: verification.supervisorDiagnosis })}`);
+    lines.push(...wrapLabelled({ label: "diagnosis", text: collapseWhitespace({ text: verification.supervisorDiagnosis }) }));
   }
   if (lastOutput) {
     lines.push(` last output   ${lastOutput}`);
