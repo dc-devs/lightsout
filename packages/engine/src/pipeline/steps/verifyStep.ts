@@ -4,6 +4,7 @@ import { consultSupervisor } from '#src/common/utils/consultSupervisor.ts';
 import { type GateResult, RunStatus, type StepRecord, SupervisorDecision, WorkReportStatus } from '#src/contracts/index.ts';
 import { collectChanged } from '#src/pipeline/common/utils/collectChanged.ts';
 import { runVerificationGates } from '#src/pipeline/common/utils/runVerificationGates.ts';
+import { stopOnGateCrash } from '#src/pipeline/common/utils/stopOnGateCrash.ts';
 import { withStepFiles } from '#src/pipeline/common/utils/withStepFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
@@ -53,7 +54,7 @@ const formatAndVerify = async ({ context: { run, id, coverage }, record }: { con
 
 	return {
 		record: next,
-		result: error === undefined ? await runVerificationGates({ run, coverage }) : { error, failedFamilies: ['format'], failures },
+		result: error === undefined ? await runVerificationGates({ run, coverage }) : { error, failedFamilies: ['format'], crashes: [], failures },
 	};
 };
 
@@ -85,7 +86,8 @@ const runCheapRepairs = async ({ context, record, result }: { context: Params; r
 	let currentRecord = record;
 	let currentResult = result;
 
-	while (currentResult.error) {
+	// A crash ends the loop: a red the fix agent must not be shown is a red the loop has nothing left to do about.
+	while (currentResult.error && currentResult.crashes.length === 0) {
 		const repairable = [...new Set(currentResult.failedFamilies)].filter(
 			(family) => (currentRecord.verification?.repairAttempts[family] ?? 0) < maxCheapFixRetries,
 		);
@@ -123,7 +125,8 @@ const runCheapRepairs = async ({ context, record, result }: { context: Params; r
 };
 
 const runGuidedRepair = async ({ context, record, result }: { context: Params; record: StepRecord; result: VerificationResult }) => {
-	if (!result.error || record.verification?.guidedRepairAttempted) {
+	// A crashed gate buys no judgment either — the supervisor would be asked to rule on a toolchain fault.
+	if (!result.error || result.crashes.length > 0 || record.verification?.guidedRepairAttempted) {
 		return { record, result, ruling: undefined };
 	}
 
@@ -214,6 +217,11 @@ const runVerificationStep = async ({ context }: { context: Params }) => {
 	}
 
 	({ record, result } = guided);
+
+	// Both repair stages step aside for a crash, so one check here catches it wherever it appeared.
+	if (result.crashes.length > 0) {
+		return stopOnGateCrash({ run, stepId: id, record, crashes: result.crashes, error: result.error });
+	}
 
 	if (result.error) {
 		const diagnosis = record.verification?.supervisorDiagnosis;

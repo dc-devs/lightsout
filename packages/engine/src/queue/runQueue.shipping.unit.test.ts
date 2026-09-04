@@ -144,7 +144,7 @@ const setupQueueShipping = async ({ gateError }: { gateError?: string } = {}) =>
 		leftBehind: [],
 		merged: [],
 	} satisfies ParkedWork);
-	mockRunGates.mockResolvedValue({ error: gateError, failedFamilies: gateError === undefined ? [] : ['check'] });
+	mockRunGates.mockResolvedValue({ error: gateError, failedFamilies: gateError === undefined ? [] : ['check'], crashes: [] });
 	mockRunShip.mockResolvedValue(shippedResult);
 	mockSetParkedLabel.mockResolvedValue(undefined);
 

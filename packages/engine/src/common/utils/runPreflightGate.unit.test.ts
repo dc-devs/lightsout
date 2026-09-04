@@ -38,7 +38,7 @@ const setupPreflightGate = ({ steps = [], gateError, gateProgress }: { steps?: S
 			onProgress?.(gateProgress);
 		}
 
-		return { error: gateError, failedFamilies: gateError === undefined ? [] : ['check'] };
+		return { error: gateError, failedFamilies: gateError === undefined ? [] : ['check'], crashes: [] };
 	});
 
 	const progress: string[] = [];

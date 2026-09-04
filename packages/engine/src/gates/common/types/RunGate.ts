@@ -1,3 +1,3 @@
-import type { CommandResult } from '#src/common/types/CommandResult.ts';
+import type { GateOutcome } from '#src/gates/common/types/GateOutcome.ts';
 
-export type RunGate = (params: { kind: string; command: string; group: string }) => Promise<CommandResult>;
+export type RunGate = (params: { kind: string; command: string; group: string }) => Promise<GateOutcome>;

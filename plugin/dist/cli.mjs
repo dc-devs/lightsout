@@ -23087,6 +23087,8 @@ var GateResult = external_exports.object({
   exitCode: external_exports.number().optional(),
   durationMs: external_exports.number().optional(),
   rerun: external_exports.boolean().optional(),
+  /** Present (always `true`) when this red was the known jest worker crash rather than evidence about the code. */
+  crashed: external_exports.literal(true).optional(),
   /** Present (always `true`) only on a scoped skip; absent otherwise. */
   skipped: external_exports.literal(true).optional(),
   /** Skip reason, e.g. `no "check" script`. */
@@ -133084,11 +133086,17 @@ var resolveGates = ({ gates }) => ({
   extraTests: Object.entries(gates).filter((entry) => !fixedKeys.has(entry[0]) && typeof entry[1] === "string").map(([name, command]) => ({ name, command }))
 });
 
+// src/gates/common/utils/describeGateCrash.ts
+var describeGateCrash = ({ label }) => `${label} crashed: every attempt ended in the known jest worker SIGSEGV, so this gate never returned a verdict.`;
+
 // src/gates/createGateRunner.ts
-var isKnownJestWorkerSigsegv = ({ result }) => {
+var maxCrashAttempts = 3;
+var jestWorkerSigsegv = /A jest worker process \(pid=\d+\) was terminated by another process: signal=SIGSEGV, exitCode=null\./;
+var reportedTestFailure = /\bTests:[ \t]+[^\n]*\d+ failed/;
+var isWorkerCrash = ({ result }) => {
   const output = `${result.stdout}
 ${result.stderr}`;
-  return /A jest worker process \(pid=\d+\) was terminated by another process: signal=SIGSEGV, exitCode=null\./.test(output);
+  return result.exitCode !== 0 && result.exitCode !== -1 && jestWorkerSigsegv.test(output) && !reportedTestFailure.test(output);
 };
 var createGateRunner = ({ cwd, timeoutMs, runId, step, onGateResult, onProgress }) => {
   const executeOnce = async ({ kind, command, group, rerun }) => {
@@ -133100,7 +133108,10 @@ var createGateRunner = ({ cwd, timeoutMs, runId, step, onGateResult, onProgress 
     } catch (error51) {
       result = { exitCode: -1, stdout: "", stderr: messageOf({ error: error51 }) };
     }
-    onProgress?.(`gate [${group}] ${kind}${rerun ? " (re-run)" : ""}: exit ${result.exitCode} (${((Date.now() - startedAt) / 1e3).toFixed(1)}s)`);
+    const crashed = isWorkerCrash({ result });
+    onProgress?.(
+      `gate [${group}] ${kind}${rerun ? " (re-run)" : ""}: exit ${result.exitCode}${crashed ? " (jest worker crash)" : ""} (${((Date.now() - startedAt) / 1e3).toFixed(1)}s)`
+    );
     const gateResult = {
       kind,
       group,
@@ -133108,23 +133119,38 @@ var createGateRunner = ({ cwd, timeoutMs, runId, step, onGateResult, onProgress 
       exitCode: result.exitCode,
       durationMs: Date.now() - startedAt,
       ...rerun ? { rerun: true } : {},
+      ...crashed ? { crashed: true } : {},
       ...result.exitCode === 0 ? {} : { outputTail: `${result.stdout}
 ${result.stderr}`.slice(-outputTailChars) }
     };
     if (runId) {
       await appendCommandLog({ cwd, runId, record: { at: (/* @__PURE__ */ new Date()).toISOString(), step, ...gateResult } });
     }
+    if (crashed && runId) {
+      await appendFriction({
+        cwd,
+        runId,
+        step: step ?? "gates",
+        friction: [
+          {
+            area: FrictionArea.Environment,
+            detail: `gate [${group}] ${kind} crashed: a jest worker was terminated by SIGSEGV with no failing test beside it \u2014 the known V8 worker crash, re-run up to ${maxCrashAttempts} times.`
+          }
+        ]
+      });
+    }
     onGateResult?.(gateResult);
-    return result;
+    return { result, crashed };
   };
   return async ({ kind, command, group }) => {
-    const first = await executeOnce({ kind, command, group });
-    let finalResult = first;
-    if (first.exitCode !== 0 && first.exitCode !== -1 && isKnownJestWorkerSigsegv({ result: first })) {
-      onProgress?.(`gate [${group}] ${kind}: Jest worker SIGSEGV \u2014 re-running once as a temporary workaround`);
-      finalResult = await executeOnce({ kind, command, group, rerun: true });
+    let attempt = 1;
+    let outcome = await executeOnce({ kind, command, group });
+    while (outcome.crashed && attempt < maxCrashAttempts) {
+      attempt += 1;
+      onProgress?.(`gate [${group}] ${kind}: jest worker crash, not a test failure \u2014 re-running (attempt ${attempt} of ${maxCrashAttempts})`);
+      outcome = await executeOnce({ kind, command, group, rerun: true });
     }
-    return finalResult;
+    return outcome.crashed ? { ...outcome.result, crashed: true } : outcome.result;
   };
 };
 
@@ -133134,31 +133160,33 @@ var runGateSet = async ({ commands: commands2, label, gate, failFast = true }) =
   const prefix = label ? `[${label}] ` : "";
   const failures = [];
   const failedFamilies = [];
+  const crashes = [];
   const stop = () => failFast && failures.length > 0;
+  const recordRed = ({ family, name, outcome }) => {
+    failures.push(`${prefix}${name} failed (exit ${outcome.exitCode}):
+${outcome.stdout}
+${outcome.stderr}`);
+    if (outcome.crashed) {
+      crashes.push(describeGateCrash({ label: `${prefix}${name}` }));
+    } else {
+      failedFamilies.push(family);
+    }
+  };
   if (commands2.check) {
     const check2 = await gate({ kind: "check", command: commands2.check, group });
     if (check2.exitCode !== 0) {
-      failures.push(`${prefix}check failed (exit ${check2.exitCode}):
-${check2.stdout}
-${check2.stderr}`);
-      failedFamilies.push("check");
+      recordRed({ family: "check", name: "check", outcome: check2 });
     }
   }
   if (!stop() && commands2.testCoverage) {
     const coverageResult = await gate({ kind: "testCoverage", command: commands2.testCoverage, group });
     if (coverageResult.exitCode !== 0) {
-      failures.push(`${prefix}test-coverage failed (exit ${coverageResult.exitCode}):
-${coverageResult.stdout}
-${coverageResult.stderr}`);
-      failedFamilies.push("testCoverage");
+      recordRed({ family: "testCoverage", name: "test-coverage", outcome: coverageResult });
     }
   } else if (!stop() && commands2.test) {
     const tests = await gate({ kind: "test", command: commands2.test, group });
     if (tests.exitCode !== 0) {
-      failures.push(`${prefix}test failed (exit ${tests.exitCode}):
-${tests.stdout}
-${tests.stderr}`);
-      failedFamilies.push("test");
+      recordRed({ family: "test", name: "test", outcome: tests });
     }
   }
   for (const { name, command } of commands2.extraTests ?? []) {
@@ -133167,24 +133195,19 @@ ${tests.stderr}`);
     }
     const extra = await gate({ kind: name, command, group });
     if (extra.exitCode !== 0) {
-      failures.push(`${prefix}${name} failed (exit ${extra.exitCode}):
-${extra.stdout}
-${extra.stderr}`);
-      failedFamilies.push(name);
+      recordRed({ family: name, name, outcome: extra });
     }
   }
   if (!stop() && commands2.build) {
     const build = await gate({ kind: "build", command: commands2.build, group });
     if (build.exitCode !== 0) {
-      failures.push(`${prefix}build failed (exit ${build.exitCode}):
-${build.stdout}
-${build.stderr}`);
-      failedFamilies.push("build");
+      recordRed({ family: "build", name: "build", outcome: build });
     }
   }
   return {
     error: failures.length > 0 ? failures.join("\n\n") : void 0,
-    failedFamilies: [...new Set(failedFamilies)]
+    failedFamilies: [...new Set(failedFamilies)],
+    crashes
   };
 };
 
@@ -133216,7 +133239,7 @@ var runPackageGates = async ({
   try {
     manifest = await readPackageManifest({ cwd, packagesDir, packageDir });
   } catch (error51) {
-    return { error: messageOf({ error: error51 }), failedFamilies: ["package-manifest"] };
+    return { error: messageOf({ error: error51 }), failedFamilies: ["package-manifest"], crashes: [] };
   }
   const templates = resolvePackageGatesConfig({ packageGates: scoped });
   const substitute = ({ command }) => command.split("{package}").join(manifest.name);
@@ -133291,9 +133314,13 @@ var runGates = async ({
   if (gates.generate) {
     const generated = await gate({ kind: "generate", command: gates.generate, group: "root" });
     if (generated.exitCode !== 0) {
-      result = { error: `generate failed (exit ${generated.exitCode}):
+      result = {
+        error: `generate failed (exit ${generated.exitCode}):
 ${generated.stdout}
-${generated.stderr}`, failedFamilies: ["generate"] };
+${generated.stderr}`,
+        failedFamilies: generated.crashed ? [] : ["generate"],
+        crashes: generated.crashed ? [describeGateCrash({ label: "generate" })] : []
+      };
     }
   }
   if (!result) {
@@ -133317,7 +133344,8 @@ ${generated.stderr}`, failedFamilies: ["generate"] };
       const errors = results.flatMap((gateResult) => gateResult.error ? [gateResult.error] : []);
       result = {
         error: errors.length > 0 ? errors.join("\n\n") : void 0,
-        failedFamilies: [...new Set(results.flatMap((gateResult) => gateResult.failedFamilies))]
+        failedFamilies: [...new Set(results.flatMap((gateResult) => gateResult.failedFamilies))],
+        crashes: results.flatMap((gateResult) => gateResult.crashes)
       };
     }
   }
@@ -134007,7 +134035,7 @@ var runVerificationGates = async ({ run, coverage }) => {
     onProgress: (message) => run.progress(message)
   });
   const failures = [...observations.values()].filter(
-    (observation) => observation.skipped !== true && observation.exitCode !== void 0 && observation.exitCode !== 0 && result.failedFamilies.includes(observation.kind)
+    (observation) => observation.skipped !== true && observation.crashed !== true && observation.exitCode !== void 0 && observation.exitCode !== 0 && result.failedFamilies.includes(observation.kind)
   );
   if (result.error !== void 0 || !coverage) {
     return { ...result, failures };
@@ -134020,7 +134048,7 @@ var runVerificationGates = async ({ run, coverage }) => {
     compiler,
     changedFiles: sourceFiles({ run }).filter((file2) => !manifest.unreachableChangedFiles.includes(file2))
   });
-  return error51 === void 0 ? { error: void 0, failedFamilies: [], failures: [] } : { error: error51, failedFamilies: ["changed-files-executed"], failures: [] };
+  return error51 === void 0 ? { error: void 0, failedFamilies: [], crashes: [], failures: [] } : { error: error51, failedFamilies: ["changed-files-executed"], crashes: [], failures: [] };
 };
 
 // src/pipeline/steps/cleanSlateStep.ts
@@ -147052,6 +147080,21 @@ var consultSupervisor = async ({
   });
 };
 
+// src/pipeline/common/utils/stopOnGateCrash.ts
+var stopOnGateCrash = ({ run, stepId: stepId2, record: record3, crashes, error: error51 }) => {
+  run.progress(`step ${stepId2}: gate crashed rather than failed \u2014 no fix attempted`);
+  return run.stop({
+    record: record3,
+    status: RunStatus.Escalated,
+    error: [
+      `${stepId2}: a gate crashed instead of failing \u2014 the known jest worker SIGSEGV, not a verdict about the code.`,
+      "No fix was attempted and no fix attempt was spent; re-running the run is the answer.",
+      crashes.join("\n"),
+      error51 ?? ""
+    ].join("\n\n")
+  });
+};
+
 // src/pipeline/steps/verifyStep.ts
 var verificationOf = ({ record: record3 }) => record3.verification ?? {
   failedFamilies: [],
@@ -147081,7 +147124,7 @@ var formatAndVerify = async ({ context: { run, id, coverage }, record: record3 }
   await run.setStep({ record: next });
   return {
     record: next,
-    result: error51 === void 0 ? await runVerificationGates({ run, coverage }) : { error: error51, failedFamilies: ["format"], failures }
+    result: error51 === void 0 ? await runVerificationGates({ run, coverage }) : { error: error51, failedFamilies: ["format"], crashes: [], failures }
   };
 };
 var runFix = async ({ context, errorContext, record: record3 }) => {
@@ -147104,7 +147147,7 @@ var runFix = async ({ context, errorContext, record: record3 }) => {
 var runCheapRepairs = async ({ context, record: record3, result }) => {
   let currentRecord = record3;
   let currentResult = result;
-  while (currentResult.error) {
+  while (currentResult.error && currentResult.crashes.length === 0) {
     const repairable = [...new Set(currentResult.failedFamilies)].filter(
       (family) => (currentRecord.verification?.repairAttempts[family] ?? 0) < maxCheapFixRetries
     );
@@ -147133,7 +147176,7 @@ var runCheapRepairs = async ({ context, record: record3, result }) => {
   return { record: currentRecord, result: currentResult };
 };
 var runGuidedRepair = async ({ context, record: record3, result }) => {
-  if (!result.error || record3.verification?.guidedRepairAttempted) {
+  if (!result.error || result.crashes.length > 0 || record3.verification?.guidedRepairAttempted) {
     return { record: record3, result, ruling: void 0 };
   }
   const { run, id, planContent } = context;
@@ -147209,6 +147252,9 @@ var runVerificationStep = async ({ context }) => {
     return guided.parked;
   }
   ({ record: record3, result } = guided);
+  if (result.crashes.length > 0) {
+    return stopOnGateCrash({ run, stepId: id, record: record3, crashes: result.crashes, error: result.error });
+  }
   if (result.error) {
     const diagnosis = record3.verification?.supervisorDiagnosis;
     const decision = guided.ruling?.decision ?? (record3.verification?.guidedRepairAttempted ? SupervisorDecision.Retry : void 0);
@@ -148626,7 +148672,7 @@ var verifyStep2 = "verify";
 var verifyDirectWork = async ({ run }) => {
   const record3 = nextStepRecord({ run, id: verifyStep2 });
   await run.setStep({ record: record3 });
-  const { error: gateError } = await runGates({
+  const { error: gateError, crashes } = await runGates({
     cwd: run.cwd,
     config: run.config,
     coverage: true,
@@ -148635,7 +148681,7 @@ var verifyDirectWork = async ({ run }) => {
     onProgress: (message) => run.progress(message)
   });
   await run.setStep({ record: { ...record3, status: gateError ? RunStatus.Failed : RunStatus.Passed, error: gateError } });
-  return { record: record3, gateError };
+  return { record: record3, gateError, crashes };
 };
 
 // src/direct/runDirectWork.ts
@@ -148703,7 +148749,20 @@ var executeDirectWork = async ({
     if (stopped) {
       return stopped;
     }
-    const { record: record3, gateError } = await verifyDirectWork({ run });
+    const { record: record3, gateError, crashes } = await verifyDirectWork({ run });
+    if (crashes.length > 0) {
+      run.progress("a gate crashed rather than failed \u2014 no fix attempted");
+      return stop({
+        record: record3,
+        status: RunStatus.Escalated,
+        error: [
+          "verify: a gate crashed instead of failing \u2014 the known jest worker SIGSEGV, not a verdict about the code.",
+          "No fix was attempted and no fix attempt was spent; re-running the run is the answer.",
+          crashes.join("\n"),
+          gateError ?? ""
+        ].join("\n\n")
+      });
+    }
     if (gateError === void 0) {
       await run.update({ patch: { status: RunStatus.Passed, currentStep: null } });
       const passed = { ok: true, manifest: run.current() };

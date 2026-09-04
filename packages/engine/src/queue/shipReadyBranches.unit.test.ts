@@ -75,7 +75,7 @@ const setupReadyBranches = async ({ numbers, content = 'export const value = 1;\
 		ready.push({ ticket: ticketOf({ number }), branch, worktreePath, ready: true });
 	}
 
-	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [] });
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [] });
 	mockRunShip.mockResolvedValue(shippedResult);
 
 	return { cwd, ready };
@@ -123,7 +123,7 @@ describe('shipReadyBranches', () => {
 	test('parks a branch whose gates came back red after the rebase, rather than merging what nothing vouches for', async () => {
 		const { cwd, ready } = await setupReadyBranches({ numbers: [70] });
 
-		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'] });
+		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [] });
 
 		const shipped = await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', env: {}, ready });
 
@@ -199,7 +199,7 @@ describe('shipReadyBranches', () => {
 		const { cwd, ready } = await setupReadyBranches({ numbers: [70] });
 		const progress: string[] = [];
 
-		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'] });
+		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [] });
 		await shipReadyBranches({ cwd, config, shipSettings, defaultBranch: 'main', env: {}, ready, onProgress: (message) => progress.push(message) });
 
 		expect(progress).toEqual([expect.stringContaining('rebasing lo-70-drain'), expect.stringContaining('LO-70 · not shipped: tsc: 3 errors')]);

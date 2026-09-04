@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { cp, mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { afterAll, expect, test } from '@jest/globals';
+import { afterAll, expect, jest, test } from '@jest/globals';
 
 // The gate that decides whether plugin/ can ship, exercised against real git
 // history. The pre-push hook and CI both run this one script, so what it
@@ -11,6 +11,14 @@ import { afterAll, expect, test } from '@jest/globals';
 //
 // Each case works in a throwaway clone. Mutating this repo to make the check
 // fail would leave the damage behind whenever a test threw before restoring.
+
+// Every case here clones this repo, bundles the engine into the clone, and then
+// runs the check as a subprocess — around 30s of real work each, which left no
+// margin under the shared 30s budget: the heaviest cases timed out whenever the
+// rest of the suite loaded the machine. Declared once for the file because the
+// cost is the shared setup rather than any one case. Generous on purpose; no
+// assertion below changes.
+jest.setTimeout(120_000);
 
 const repoRoot = join(__dirname, '..', '..', '..');
 const manifestPath = 'plugin/.claude-plugin/plugin.json';

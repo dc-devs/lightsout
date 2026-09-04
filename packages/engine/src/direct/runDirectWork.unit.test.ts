@@ -40,7 +40,7 @@ const setupDirectRun = () => {
 	const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
 	mockInvokeAgentWithContract.mockResolvedValue({ ok: true, report: reportOf() });
-	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [] });
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [] });
 
 	const run = ({
 		answeredQuestion,
@@ -118,7 +118,7 @@ describe('runDirectWork', () => {
 	test('stops before spending an agent when the repo is not green to begin with — a red gate then is not the agent’s doing', async () => {
 		const { run } = setupDirectRun();
 
-		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'] });
+		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [] });
 
 		const result = await run();
 
@@ -189,9 +189,9 @@ describe('runDirectWork', () => {
 		const { run } = setupDirectRun();
 
 		mockRunGates
-			.mockResolvedValueOnce({ error: undefined, failedFamilies: [] })
-			.mockResolvedValueOnce({ error: 'tsc: 3 errors', failedFamilies: ['check'] })
-			.mockResolvedValue({ error: undefined, failedFamilies: [] });
+			.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [] })
+			.mockResolvedValueOnce({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [] })
+			.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [] });
 
 		const result = await run();
 
@@ -203,13 +203,30 @@ describe('runDirectWork', () => {
 	test('gives up after the fix retries are spent, ending failed with the gate output as the reason', async () => {
 		const { run } = setupDirectRun();
 
-		mockRunGates.mockResolvedValueOnce({ error: undefined, failedFamilies: [] }).mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'] });
+		mockRunGates
+			.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [] })
+			.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [] });
 
 		const result = await run();
 
 		expect(result.manifest.status).toBe(RunStatus.Failed);
 		expect(result.error).toBe('tsc: 3 errors');
 		expect(mockInvokeAgentWithContract).toHaveBeenCalledTimes(3);
+	});
+
+	test('stops without spending a fix attempt when a gate crashed rather than failed, so no worker is sent at a suite that is not broken', async () => {
+		const { run } = setupDirectRun();
+
+		mockRunGates
+			.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [] })
+			.mockResolvedValue({ error: 'signal=SIGSEGV', failedFamilies: [], crashes: ['gate [root] testCoverage never returned a verdict'] });
+
+		const result = await run();
+
+		expect(result.manifest.status).toBe(RunStatus.Escalated);
+		expect(result.error).toContain('gate [root] testCoverage never returned a verdict');
+		expect(result.error).toContain('No fix was attempted and no fix attempt was spent');
+		expect(mockInvokeAgentWithContract).toHaveBeenCalledTimes(1);
 	});
 
 	test('relays what the verify gates report back to the caller, so the terminal shows the gate that is running', async () => {
@@ -219,7 +236,7 @@ describe('runDirectWork', () => {
 		mockRunGates.mockImplementation(({ step, onProgress }) => {
 			onProgress?.(`${step} is running`);
 
-			return Promise.resolve({ error: undefined, failedFamilies: [] });
+			return Promise.resolve({ error: undefined, failedFamilies: [], crashes: [] });
 		});
 
 		await run({ onProgress: (message) => progress.push(message) });
