@@ -21,25 +21,26 @@ concurrency:
 
 jobs:
   verify:
-    name: verify (node ${{ matrix.node }})
+    name: verify (node 22.18.0)
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
-    strategy:
-      # One Node version failing should not hide the other's result.
-      fail-fast: false
-      matrix:
-        # The floor declared in package.json engines, and the version
-        # development actually happens on.
-        node: ['22.18.0', '24']
     steps:
       - uses: actions/checkout@v4
 
       # Reads the pnpm version from package.json packageManager.
       - uses: pnpm/action-setup@v4
 
+      # The floor `package.json` engines declares, and only the floor. This ran
+      # as a two-version matrix until 2026-09-04, which meant 4,900 tests twice
+      # to answer one question. The floor is the half worth keeping: Node is
+      # backward compatible in the direction that matters, so code written on 24
+      # almost always runs on 22, while a 24-only API passes on 24 and breaks
+      # every Node 22 user. Testing the floor catches that; testing 24 does not.
+      # Development happens on the version in .nvmrc and gates it locally on
+      # every run, so 24 is covered — just not twice, in two places.
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node }}
+          node-version: '22.18.0'
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile

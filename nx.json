@@ -12,6 +12,14 @@
 	// regenerates from source rather than being restored from somewhere.
 	"neverConnectToCloud": true,
 
+	// Two projects at once, against Nx's default of three. The number that matters
+	// is the product: each project starts its own Jest worker pool, so this and
+	// `maxWorkers` in tooling/jest/createJestConfig.cjs together decide how many
+	// processes a single `pnpm test:unit` puts on the machine. Two by four is
+	// eight, which leaves a 14-core laptop room for the agents that are usually
+	// running beside it, and does not oversubscribe a 2-core CI runner.
+	"parallel": 2,
+
 	// The interactive terminal UI rewrites the screen as it goes. Every gate
 	// lightsout runs is captured into a run log and read back as text, so a
 	// static, appendable transcript is the only useful kind here.

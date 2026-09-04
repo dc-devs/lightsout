@@ -19,6 +19,14 @@ const crashBesideFailingTestCommand = `node -e "process.stderr.write('${jestWork
 /** Attempts a crashing gate is given before the engine calls the crash unabsorbable. */
 const gateCrashAttempts = 3;
 const crashOnceCommand = 'node flaky.cjs';
+// The other shape, seen on 2026-09-04: one package's Jest goes down mid-run and
+// says nothing at all. The tally that survives belongs to the packages that did
+// finish, so the runner plainly ran — and nothing anywhere tallies a failed test.
+const silentDeathTally = 'Test Suites: 154 passed, 154 total\\nTests:       1324 passed, 1324 total';
+const silentDeathCommand = `node -e "process.stdout.write('${silentDeathTally}'); process.exit(1)"`;
+// The same silence from a command that is not Jest at all: no suite line, so
+// nothing says a test runner was ever involved.
+const nonJestFailureCommand = `node -e "process.stderr.write('build tool exploded'); process.exit(1)"`;
 
 /** Plant the command `crashOnceCommand` names: it crashes on its first execution and passes on every one after. */
 const writeCrashOnceScript = ({ dir }: { dir: string }) => {
@@ -64,6 +72,34 @@ test('a worker crash that clears on a re-run leaves the gate green and reports n
 	expect(result.crashes).toStrictEqual([]);
 	expect(results.filter((result) => result.kind === 'test')).toHaveLength(2);
 	expect(results.filter((result) => result.crashed)).toHaveLength(1);
+});
+
+test('a test runner that dies without naming a signal is re-run, because nothing tallied a failing test', async () => {
+	// Jest going down mid-run prints no signal and no error — one package's
+	// banner, then silence — so matching the SIGSEGV line misses it entirely and
+	// the run escalated on a suite that was never broken.
+	const dir = setupConsumerRepo({ scripts: { test: silentDeathCommand } });
+	const config = await readConfig({ cwd: dir });
+	const results: GateResult[] = [];
+
+	await runGates({ cwd: dir, config, onGateResult: (result) => results.push(result) });
+
+	expect(results.filter((result) => result.kind === 'test')).toHaveLength(gateCrashAttempts);
+	expect(results.filter((result) => result.crashed)).toHaveLength(gateCrashAttempts);
+});
+
+test('a test command that fails without the test runner reporting at all is ordinary evidence, not a death', async () => {
+	// No suite line means no runner ran, so the red belongs to whatever did fail
+	// and a fix agent should see it rather than have it re-run three times.
+	const dir = setupConsumerRepo({ scripts: { test: nonJestFailureCommand } });
+	const config = await readConfig({ cwd: dir });
+	const results: GateResult[] = [];
+
+	const result = await runGates({ cwd: dir, config, onGateResult: (result) => results.push(result) });
+
+	expect(results.filter((result) => result.kind === 'test')).toHaveLength(1);
+	expect(results.filter((result) => result.crashed)).toHaveLength(0);
+	expect(result.failedFamilies).toStrictEqual(['test']);
 });
 
 test('a worker crash on every attempt is reported as a crash, never as a failing test family', async () => {

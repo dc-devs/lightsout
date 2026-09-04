@@ -1,3 +1,4 @@
+const { availableParallelism } = require('node:os');
 const { join } = require('node:path');
 
 const toolingDir = __dirname;
@@ -29,6 +30,35 @@ module.exports = ({ rootDir, ...rest }) => ({
 	clearMocks: true,
 	restoreMocks: true,
 	testTimeout: 30_000,
+	// A ceiling of eight workers, or one per core minus one where the machine has
+	// fewer cores than that — whichever is smaller.
+	//
+	// Nothing bounded this before, and two layers multiplied: Nx runs several
+	// projects at once and each asked Jest for 13 workers on a 14-core machine, so
+	// one `pnpm test:unit` could start 39 worker processes. That matters because
+	// the known Jest worker segfault gets more likely the more workers there are:
+	// the crash happens during a major garbage collection, and more workers means
+	// more heap and more collections. Measured on 2026-09-04, two suites running
+	// at once: 26 workers lost 2 runs in 24, 20 lost 1, and 8 lost none, against
+	// 30 clean runs on an idle machine at 13.
+	//
+	// Eight is the point where the cost is about two seconds a run rather than the
+	// twenty-eight a tighter cap costs, and what slips through is the case LO-39's
+	// gate retry was built to absorb. It has to be a ceiling rather than a flat
+	// number, because the machines differ by an order of magnitude: a 14-core
+	// laptop hosting several agents has the cores to spend, while a four-core CI
+	// runner does not. A flat eight there oversubscribed the runner badly enough
+	// that the slowest suites passed the thirty-second per-test limit and failed.
+	maxWorkers: Math.max(1, Math.min(8, availableParallelism() - 1)),
+	// Recycle a worker once it passes this, rather than letting it carry a heap
+	// from one test file to the next for the whole run.
+	//
+	// The known Jest worker crash happens inside V8's major garbage collection, so
+	// how often it fires tracks how often that collection runs — and it runs when
+	// a heap has grown large. A worker that is replaced before it gets there does
+	// the same work having collected less. Unlike the worker cap above this costs
+	// no parallelism: it only restarts workers that were about to become expensive.
+	workerIdleMemoryLimit: '512MB',
 	// json-summary is what `lightsout test-coverage-to-threshold` (and doctor)
 	// read to pick the worst files — every package emits it, not just the one
 	// that happened to declare it first.
