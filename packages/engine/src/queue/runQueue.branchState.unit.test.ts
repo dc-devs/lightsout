@@ -151,7 +151,7 @@ const setupQueueRun = ({ eligible = [], parked = [], gateError }: { eligible?: T
 	mockSetParkedLabel.mockResolvedValue(undefined);
 	mockReconcileShippedTicket.mockResolvedValue(undefined);
 	mockFindPullRequest.mockResolvedValue(undefined);
-	mockRunGates.mockResolvedValue({ error: gateError, failedFamilies: gateError === undefined ? [] : ['check'] });
+	mockRunGates.mockResolvedValue({ error: gateError, failedFamilies: gateError === undefined ? [] : ['check'], crashes: [] });
 	mockRunShip.mockResolvedValue(shippedResult);
 	mockRunWorkerWithRelay.mockResolvedValue({});
 
@@ -176,7 +176,7 @@ const setupUnshippedBranch = async () => {
 
 	mockListTickets.mockResolvedValue([]);
 	mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf({ status: 'In Progress' })]);
-	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [] });
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [] });
 	mockRunWorkerWithRelay.mockClear();
 
 	const progress: string[] = [];

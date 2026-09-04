@@ -126,7 +126,26 @@ const executeDirectWork = async ({
 			return stopped;
 		}
 
-		const { record, gateError } = await verifyDirectWork({ run });
+		const { record, gateError, crashes } = await verifyDirectWork({ run });
+
+		// A gate that crashed reached no verdict, so there is nothing to repair
+		// and nothing the next attempt would do differently. It stops without
+		// spending an attempt, and says so, rather than handing the worker a
+		// suite that is not broken.
+		if (crashes.length > 0) {
+			run.progress('a gate crashed rather than failed — no fix attempted');
+
+			return stop({
+				record,
+				status: RunStatus.Escalated,
+				error: [
+					'verify: a gate crashed instead of failing — the known jest worker SIGSEGV, not a verdict about the code.',
+					'No fix was attempted and no fix attempt was spent; re-running the run is the answer.',
+					crashes.join('\n'),
+					gateError ?? '',
+				].join('\n\n'),
+			});
+		}
 
 		if (gateError === undefined) {
 			await run.update({ patch: { status: RunStatus.Passed, currentStep: null } });

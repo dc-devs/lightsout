@@ -1,15 +1,43 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import type { GateResult } from '#src/contracts/index.ts';
+import type { FrictionRecord, GateResult } from '#src/contracts/index.ts';
 import { runGates } from '#src/gates/index.ts';
+import { readCommandLog } from '#tests/helpers/readCommandLog.ts';
 import { readGateLog } from '#tests/helpers/readGateLog.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { setupMonorepo } from '#tests/helpers/setupMonorepo.ts';
 
 const jestWorkerSigsegv = 'A jest worker process (pid=49337) was terminated by another process: signal=SIGSEGV, exitCode=null.';
-const jestWorkerSigsegvCommand = `node -e "process.stderr.write('${jestWorkerSigsegv}'); process.exit(1)"`;
+// The crash as it really arrives: jest still prints its tally, and the tally
+// says no test failed. That is what tells a crash from a broken suite.
+const crashTally = 'Test Suites: 1 failed, 3 passed, 4 total\\nTests:       11 passed, 11 total';
+const crashWithTallyCommand = `node -e "process.stderr.write('${jestWorkerSigsegv}\\n${crashTally}'); process.exit(1)"`;
+const failingTestTally = 'Test Suites: 2 failed, 2 passed, 4 total\\nTests:       1 failed, 10 passed, 11 total';
+const crashBesideFailingTestCommand = `node -e "process.stderr.write('${jestWorkerSigsegv}\\n${failingTestTally}'); process.exit(1)"`;
+/** Attempts a crashing gate is given before the engine calls the crash unabsorbable. */
+const gateCrashAttempts = 3;
+const crashOnceCommand = 'node flaky.cjs';
+
+/** Plant the command `crashOnceCommand` names: it crashes on its first execution and passes on every one after. */
+const writeCrashOnceScript = ({ dir }: { dir: string }) => {
+	const crashOutput = `${jestWorkerSigsegv}\n${crashTally.split('\\n').join('\n')}`;
+
+	writeFileSync(
+		join(dir, 'flaky.cjs'),
+		[
+			`const fs = require('node:fs');`,
+			`const seen = fs.existsSync('attempts') ? Number(fs.readFileSync('attempts', 'utf8')) : 0;`,
+			`fs.writeFileSync('attempts', String(seen + 1));`,
+			`if (seen === 0) {`,
+			`\tprocess.stderr.write(${JSON.stringify(crashOutput)});`,
+			`\tprocess.exit(1);`,
+			`}`,
+			'',
+		].join('\n'),
+	);
+};
 
 interface OrdinaryFailureCase {
 	label: string;
@@ -19,17 +47,78 @@ interface OrdinaryFailureCase {
 	coverage?: boolean;
 }
 
-test('temporary workaround re-runs the known Jest worker SIGSEGV exactly once', async () => {
-	const dir = setupConsumerRepo({ scripts: { test: jestWorkerSigsegvCommand } });
+test('a worker crash that clears on a re-run leaves the gate green and reports no crash', async () => {
+	const dir = setupConsumerRepo({ scripts: { test: crashOnceCommand } });
+
+	writeCrashOnceScript({ dir });
+
 	const config = await readConfig({ cwd: dir });
 	const results: GateResult[] = [];
 
 	const result = await runGates({ cwd: dir, config, onGateResult: (result) => results.push(result) });
 
-	expect(result.error ?? '').toContain(jestWorkerSigsegv);
-	expect(result.failedFamilies).toStrictEqual(['test']);
+	// the crash cost a second execution and nothing else: the re-run is the
+	// whole remedy when the toolchain lets go
+	expect(result.error).toBe(undefined);
+	expect(result.failedFamilies).toStrictEqual([]);
+	expect(result.crashes).toStrictEqual([]);
 	expect(results.filter((result) => result.kind === 'test')).toHaveLength(2);
-	expect(results.filter((result) => result.rerun)).toHaveLength(1);
+	expect(results.filter((result) => result.crashed)).toHaveLength(1);
+});
+
+test('a worker crash on every attempt is reported as a crash, never as a failing test family', async () => {
+	const dir = setupConsumerRepo({ scripts: { test: crashWithTallyCommand } });
+	const config = await readConfig({ cwd: dir });
+	const results: GateResult[] = [];
+
+	const result = await runGates({ cwd: dir, config, onGateResult: (result) => results.push(result) });
+
+	// one re-run was not enough on 2026-08-24, so the gate is given a budget;
+	// what it never becomes is a family a fix agent is asked to repair
+	expect(results.filter((result) => result.kind === 'test')).toHaveLength(gateCrashAttempts);
+	expect(results.filter((result) => result.rerun)).toHaveLength(gateCrashAttempts - 1);
+	expect(result.failedFamilies).toStrictEqual([]);
+	expect(result.crashes).toHaveLength(1);
+	expect(result.crashes[0]).toContain('crashed');
+	// still red, so a caller reading only `error` cannot ship an unverified tree
+	expect(result.error ?? '').toContain(jestWorkerSigsegv);
+});
+
+test('a worker crash beside a failing test is a real failure — not re-run, not absorbed', async () => {
+	const dir = setupConsumerRepo({ scripts: { test: crashBesideFailingTestCommand } });
+	const config = await readConfig({ cwd: dir });
+	const results: GateResult[] = [];
+
+	const result = await runGates({ cwd: dir, config, onGateResult: (result) => results.push(result) });
+
+	// the tally names a failing test, which is evidence about the code —
+	// absorbing this red would hide a broken suite behind a known crash
+	expect(results.filter((result) => result.kind === 'test')).toHaveLength(1);
+	expect(result.failedFamilies).toStrictEqual(['test']);
+	expect(result.crashes).toStrictEqual([]);
+	expect(results.filter((result) => result.crashed)).toHaveLength(0);
+});
+
+test('every crashing attempt is written to the command log and the friction ledger', async () => {
+	const dir = setupConsumerRepo({ scripts: { test: crashWithTallyCommand } });
+	const config = await readConfig({ cwd: dir });
+
+	await runGates({ cwd: dir, config, runId: 'r1', step: 'verify-implement' });
+
+	const log = readCommandLog(dir, 'r1').filter((record) => record.kind === 'test');
+	const friction = readFileSync(join(dir, '.lightsout', 'friction.jsonl'), 'utf8')
+		.trim()
+		.split('\n')
+		.map((line) => JSON.parse(line) as FrictionRecord);
+
+	// the crash is on the durable record either way it ends — an absorbed one
+	// leaves no other trace an operator could find afterwards
+	expect(log.map((record) => record.crashed)).toStrictEqual([true, true, true]);
+	expect(friction).toHaveLength(gateCrashAttempts);
+	expect(friction[0]?.runId).toBe('r1');
+	expect(friction[0]?.step).toBe('verify-implement');
+	expect(friction[0]?.area).toBe('environment');
+	expect(friction[0]?.detail).toContain('SIGSEGV');
 });
 
 const ordinaryFailureCases: OrdinaryFailureCase[] = [

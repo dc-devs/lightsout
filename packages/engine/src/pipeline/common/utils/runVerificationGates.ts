@@ -57,9 +57,16 @@ export const runVerificationGates = async ({ run, coverage }: Params): Promise<G
 		onGateResult: (gateResult) => observations.set(`${gateResult.group}\0${gateResult.kind}`, gateResult),
 		onProgress: (message) => run.progress(message),
 	});
+	// A crashed gate is red without being evidence, so it is kept out of the
+	// failure list the step shows and the fix agent reads — `crashes` is where
+	// it is reported instead.
 	const failures = [...observations.values()].filter(
 		(observation) =>
-			observation.skipped !== true && observation.exitCode !== undefined && observation.exitCode !== 0 && result.failedFamilies.includes(observation.kind),
+			observation.skipped !== true &&
+			observation.crashed !== true &&
+			observation.exitCode !== undefined &&
+			observation.exitCode !== 0 &&
+			result.failedFamilies.includes(observation.kind),
 	);
 
 	if (result.error !== undefined || !coverage) {
@@ -76,5 +83,7 @@ export const runVerificationGates = async ({ run, coverage }: Params): Promise<G
 		changedFiles: sourceFiles({ run }).filter((file) => !manifest.unreachableChangedFiles.includes(file)),
 	});
 
-	return error === undefined ? { error: undefined, failedFamilies: [], failures: [] } : { error, failedFamilies: ['changed-files-executed'], failures: [] };
+	return error === undefined
+		? { error: undefined, failedFamilies: [], crashes: [], failures: [] }
+		: { error, failedFamilies: ['changed-files-executed'], crashes: [], failures: [] };
 };

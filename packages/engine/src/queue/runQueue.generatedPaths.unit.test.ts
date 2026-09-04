@@ -146,7 +146,7 @@ const setupQueueRun = ({ gateError }: { gateError?: string } = {}) => {
 	mockSetParkedLabel.mockResolvedValue(undefined);
 	mockReconcileShippedTicket.mockResolvedValue(undefined);
 	mockFindPullRequest.mockResolvedValue(undefined);
-	mockRunGates.mockResolvedValue({ error: gateError, failedFamilies: gateError === undefined ? [] : ['check'] });
+	mockRunGates.mockResolvedValue({ error: gateError, failedFamilies: gateError === undefined ? [] : ['check'], crashes: [] });
 	mockRunShip.mockResolvedValue(shippedResult);
 	mockRunWorkerWithRelay.mockResolvedValue({});
 

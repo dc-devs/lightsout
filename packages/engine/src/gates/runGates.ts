@@ -4,6 +4,7 @@ import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts'
 import type { GateResult, LightsoutConfig } from '#src/contracts/index.ts';
 import type { GateCommands } from '#src/gates/common/types/GateCommands.ts';
 import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
+import { describeGateCrash } from '#src/gates/common/utils/describeGateCrash.ts';
 import { createGateRunner } from '#src/gates/createGateRunner.ts';
 import { runGateSet } from '#src/gates/runGateSet.ts';
 import { runPackageGates } from '#src/gates/runPackageGates.ts';
@@ -47,6 +48,11 @@ interface Params {
  * requested because files outside the packages dir changed. In that case,
  * only the root group runs. Package errors aggregate across groups, labelled
  * per package. Every command execution is logged to the run's commands.jsonl.
+ *
+ * A gate whose red is nothing but the known jest worker crash is re-run before
+ * its exit code is believed, and if it never recovers it is reported through
+ * `crashes` as well as `error` — red, but never as a family a fix agent is
+ * asked to repair.
  */
 export const runGates = async ({
 	cwd,
@@ -78,7 +84,11 @@ export const runGates = async ({
 		const generated = await gate({ kind: 'generate', command: gates.generate, group: 'root' });
 
 		if (generated.exitCode !== 0) {
-			result = { error: `generate failed (exit ${generated.exitCode}):\n${generated.stdout}\n${generated.stderr}`, failedFamilies: ['generate'] };
+			result = {
+				error: `generate failed (exit ${generated.exitCode}):\n${generated.stdout}\n${generated.stderr}`,
+				failedFamilies: generated.crashed ? [] : ['generate'],
+				crashes: generated.crashed ? [describeGateCrash({ label: 'generate' })] : [],
+			};
 		}
 	}
 
@@ -109,6 +119,7 @@ export const runGates = async ({
 			result = {
 				error: errors.length > 0 ? errors.join('\n\n') : undefined,
 				failedFamilies: [...new Set(results.flatMap((gateResult) => gateResult.failedFamilies))],
+				crashes: results.flatMap((gateResult) => gateResult.crashes),
 			};
 		}
 	}
