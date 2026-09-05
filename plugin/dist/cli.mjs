@@ -153301,7 +153301,7 @@ import { readFile as readFile53 } from "node:fs/promises";
 
 // src/voice/common/utils/isQuestionText.ts
 var isQuestionText = ({ text }) => {
-  const supportingLabels = ["**Context:**", "**Trade-offs:**", "**Recommendation:**"];
+  const supportingLabels = ["**Context:**", "**Options:**", "**Recommendation:**"];
   return text.includes("**Question:**") && supportingLabels.some((label) => text.includes(label));
 };
 

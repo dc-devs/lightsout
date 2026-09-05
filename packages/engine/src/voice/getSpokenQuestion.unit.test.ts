@@ -56,9 +56,9 @@ const spokenPlacementQuestion = [
 	'Recommendation: yes, per project.',
 ].join('\n');
 
-const defaultQuestion = ['**Question:** should it start off?', '', '**Trade-offs:** silence by default costs one step.'].join('\n');
+const defaultQuestion = ['**Question:** should it start off?', '', '**Options:** silence by default costs one step.'].join('\n');
 
-const spokenDefaultQuestion = ['Question: should it start off?', '', 'Trade-offs: silence by default costs one step.'].join('\n');
+const spokenDefaultQuestion = ['Question: should it start off?', '', 'Options: silence by default costs one step.'].join('\n');
 
 describe('getSpokenQuestion', () => {
 	test('reads back the whole labelled block with the decoration a voice cannot say stripped out', async () => {
