@@ -5,6 +5,7 @@ export { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 export { usage } from '#src/cli/common/constants/usage.ts';
 export type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 export { exitCli } from '#src/cli/common/utils/exitCli.ts';
+export { loadRepoEnvFile } from '#src/cli/common/utils/loadRepoEnvFile.ts';
 export { doctorCommand } from '#src/cli/doctorCommand.ts';
 export { frictionCommand } from '#src/cli/frictionCommand.ts';
 export { implementCommand } from '#src/cli/implementCommand.ts';

@@ -4,9 +4,10 @@ import { printResult } from '#src/cli/common/render/printResult.ts';
 import { printRunHeader } from '#src/cli/common/render/printRunHeader.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
+import { exitAfterImplement } from '#src/cli/common/utils/exitAfterImplement.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import { exitForRunResult } from '#src/cli/common/utils/exitForRunResult.ts';
 import { resolveCommandHarness } from '#src/cli/common/utils/resolveCommandHarness.ts';
+import { resolveCommandShipIntent } from '#src/cli/common/utils/resolveCommandShipIntent.ts';
 import { runPhasesOrFailFast } from '#src/cli/common/utils/runPhasesOrFailFast.ts';
 import { runPipelineOrFailFast } from '#src/cli/common/utils/runPipelineOrFailFast.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
@@ -67,14 +68,25 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 		return exitCli({ code: 1 });
 	}
 
-	// `resume` ends at exitForRunResult and never calls exitAfterImplement, so a
-	// run finished here cannot ship however it was started. Clearing the stamp
-	// keeps the progress view from drawing a ship row nothing will ever fill,
-	// and keeps a watch from sitting out the ship settle for a result nobody
-	// will write. The field means exactly what it says: this run, in this
-	// process, will ship.
-	const resumable = manifest.willShip === true ? await writeRunManifest({ cwd, manifest: { ...manifest, willShip: false } }) : manifest;
 	const loaded = await readConfig({ cwd });
+
+	// A resumed run ships on the same terms a first run does: whatever the
+	// config and the flags say, settled here rather than inherited. A fix, a
+	// resume and a merge is the whole point of parking, and a run that had to be
+	// resumed is not a run that deserves to end unshipped and unmentioned.
+	const shipIntent = resolveCommandShipIntent({ config: loaded, flags, env: process.env });
+
+	if (shipIntent === undefined) {
+		return exitCli({ code: 1 });
+	}
+
+	// Restamped rather than assumed, because the intent is resolved fresh above:
+	// the parked run may have carried `--no-ship`, or the config may have gained
+	// `after-implement` since. The field means exactly what it says — this run,
+	// in this process, will ship — so the progress view draws a ship row when
+	// one is coming and none when it is not.
+	const resumable =
+		(manifest.willShip === true) === shipIntent.willShip ? manifest : await writeRunManifest({ cwd, manifest: { ...manifest, willShip: shipIntent.willShip } });
 	const resolved = resolveCommandHarness({ config: loaded, command: 'implement' });
 	const driver = getDriver({ name: manifest.harness });
 	// Resume truth is the manifest's recorded harness, never the config (decision 6);
@@ -103,5 +115,5 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 				});
 
 	await printResult({ result, cwd });
-	return exitForRunResult({ ok: result.ok, manifest: result.manifest });
+	return exitAfterImplement({ config: loaded, cwd, result, shipFlag: flags.get('ship') === true, noShipFlag: flags.get('no-ship') === true, env: process.env });
 };

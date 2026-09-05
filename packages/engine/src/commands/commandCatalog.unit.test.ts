@@ -222,7 +222,7 @@ describe('commandCatalog', () => {
 			['auto-plan', []],
 			['implement', ['cwd', 'no-ship', 'overview', 'packages', 'plan', 'ship', 'skip-refactor', 'start-phase']],
 			['implement-direct', ['cwd', 'no-ship', 'ref', 'ship', 'ticket']],
-			['resume', ['cwd', 'run', 'skip-refactor']],
+			['resume', ['cwd', 'no-ship', 'run', 'ship', 'skip-refactor']],
 			['ship', ['cwd']],
 			['queue', ['cwd', 'file-relay']],
 			['ticket-state', ['cwd', 'planning-status', 'ref', 'tracker-status']],

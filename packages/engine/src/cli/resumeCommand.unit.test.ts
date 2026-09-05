@@ -106,14 +106,39 @@ describe('resumeCommand', () => {
 	test.each([
 		{ label: 'a run stamped to ship', willShip: true },
 		{ label: 'a run that was never going to', willShip: undefined },
-	])('resume clears the ship stamp on $label — this command is not a shipping path', async ({ willShip }) => {
+	])('resume clears the ship stamp on $label when nothing asks for a ship', async ({ willShip }) => {
 		const { context, cwd } = setupResume({ args: ['--run', runId], manifest: manifestOf({ pipeline: 'implement', willShip }) });
 
 		await expect(resumeCommand(context)).rejects.toThrow(/process\.exit/);
 
-		// resume ends at exitForRunResult and never chains into ship, so a stamp
-		// left standing would draw a ship row nothing will ever fill
+		// no config and no flag, so nothing asks: a stamp left standing would draw
+		// a ship row nothing will ever fill
 		expect(readManifest({ cwd }).willShip).toBe(willShip === true ? false : undefined);
+	});
+
+	test.each([
+		{ label: 'a run stamped to ship', willShip: true },
+		{ label: 'a run that was never going to', willShip: undefined },
+	])('resume stamps $label to ship when --ship is typed, so a fixed run reaches the merge', async ({ willShip }) => {
+		const { context, cwd } = setupResume({ args: ['--run', runId, '--ship'], manifest: manifestOf({ pipeline: 'implement', willShip }) });
+
+		await expect(resumeCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// resume ships on the same terms implement does, so the row the progress
+		// view draws matches the ship that is actually coming
+		expect(readManifest({ cwd }).willShip).toBe(true);
+	});
+
+	test('resume refuses --ship and --no-ship together, the way implement does', async () => {
+		const { context, errors, exitCodes } = setupResume({
+			args: ['--run', runId, '--ship', '--no-ship'],
+			manifest: manifestOf({ pipeline: 'implement' }),
+		});
+
+		await expect(resumeCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(errors.join('\n')).toMatch(/--ship/u);
+		expect(exitCodes).toStrictEqual([1]);
 	});
 
 	test('a manifest written before runs recorded their pipeline still resumes as an implement run', async () => {

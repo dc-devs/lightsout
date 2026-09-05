@@ -21,7 +21,7 @@ usage:
   lightsout implement --plan <path> [--overview <path>] [--packages <a,b>] [--cwd <path>] [--skip-refactor] [--ship] [--no-ship]
   lightsout implement --plan <folder> [--start-phase <n>] [--cwd <path>] [--skip-refactor] [--ship] [--no-ship]   (folder: overview.md runs all phases, else plan.md)
   lightsout implement-direct --ticket <path> [--ref <ticket>] [--cwd <path>] [--ship] [--no-ship]
-  lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
+  lightsout resume --run <id> [--cwd <path>] [--skip-refactor] [--ship] [--no-ship]
   lightsout ship [--cwd <path>]
   lightsout queue [--file-relay [dir]] [--cwd <path>]
   lightsout status [--cwd <path>]

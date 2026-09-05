@@ -1,6 +1,6 @@
 {
 	"name": "lightsout",
-	"version": "0.41.9",
+	"version": "0.41.10",
 	"description": "Deterministic coding-agent workflows for planning, implementation, verification, refactoring, and queueing.",
 	"author": {
 		"name": "dc-devs",
