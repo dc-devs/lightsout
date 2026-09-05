@@ -7957,11 +7957,58 @@ var require_spark_md5 = __commonJS({
   }
 });
 
-// src/cli/common/args/getStringFlag.ts
-var getStringFlag = ({ flags, name }) => {
-  const value = flags.get(name);
-  return typeof value === "string" ? value : void 0;
+// src/common/constants/brainstormNotesFileName.ts
+var brainstormNotesFileName = "brainstorm-notes.md";
+
+// src/brainstorm/common/constants/brainstormAttachmentFileNames.ts
+var brainstormAttachmentFileNames = [brainstormNotesFileName, "brainstorm-decisions.json"];
+
+// src/brainstorm/common/constants/brainstormAttachmentManifestName.ts
+var brainstormAttachmentManifestName = "brainstorm-attachments.json";
+
+// src/brainstorm/publish/publishBrainstorm.ts
+import { readFile as readFile15 } from "node:fs/promises";
+import { join as join31 } from "node:path";
+
+// src/common/utils/sha256.ts
+import { createHash } from "node:crypto";
+var sha256 = ({ content }) => createHash("sha256").update(content).digest("hex");
+
+// src/common/attachmentManifest/serializeAttachmentManifest.ts
+var serializeAttachmentManifest = ({ files }) => Buffer.from(
+  `${JSON.stringify(
+    {
+      schemaVersion: 1,
+      files: files.map(({ name, content }) => ({ name, sha256: sha256({ content }) }))
+    },
+    null,
+    2
+  )}
+`,
+  "utf8"
+);
+
+// src/common/utils/messageOf.ts
+var messageOf = ({ error: error51 }) => error51 instanceof Error ? error51.message : String(error51);
+
+// src/plan/common/constants/PlanRunStatus.ts
+var PlanRunStatus = {
+  Complete: "complete",
+  Failed: "failed",
+  /** Hit the harness rate-limit wall — resumable, not an error. */
+  PausedRateLimit: "paused-rate-limit",
+  /** Draft only: the plan's claims did not survive verification. */
+  FactsError: "facts-error",
+  /** Draft only: the plan is structurally unsound and needs repair. */
+  StructuralIssues: "structural-issues"
 };
+
+// src/plan/common/paths/pathExists.ts
+import { stat } from "node:fs/promises";
+var pathExists = ({ path }) => stat(path).then(
+  () => true,
+  () => false
+);
 
 // ../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/external.js
 var external_exports = {};
@@ -24583,1010 +24630,6 @@ var WorkReport = external_exports.object({
 var WritersReport = external_exports.object({
   reports: external_exports.array(WorkReport)
 });
-
-// src/commands/common/constants/build/autoPlanCatalogEntry.ts
-var autoPlanCatalogEntry = {
-  id: "auto-plan",
-  slash: "/auto-plan",
-  group: CommandGroup.Build,
-  summary: "Plan a ticket alone \u2014 self-answers every question below a written escalation bar, shows you one proposal, and rolls onward per the `auto-plan` config block.",
-  whenToUse: 'Reach for it when the ticket is shaped enough that you would answer most of the interview with "you decide". It stops for the questions two reasonable engineers would answer differently, and for nothing else; the `auto-plan` config block says whether approval also starts the build.',
-  invocations: [],
-  flags: [],
-  steps: [],
-  records: CommandRecordKind.Plans,
-  related: ["brainstorm", "plan", "implement", "resume", "ship", "implement-direct", "queue", "ticket-state"]
-};
-
-// src/commands/common/constants/build/brainstormCatalogEntry.ts
-var brainstormCatalogEntry = {
-  id: "brainstorm",
-  slash: "/brainstorm",
-  cli: "lightsout brainstorm",
-  group: CommandGroup.Build,
-  summary: "Shape a vague idea into a buildable direction through dialogue \u2014 checks whether it is one idea or several, offers 2\u20133 competing approaches with trade-offs and a recommendation, and converges on a design stated in plain words.",
-  whenToUse: "Reach for it when the idea is still a sentence and you are not sure it is one idea or three. It decides its own outcome \u2014 ready to implement, or ready to auto-plan \u2014 and publishes the design write-up and the settled decisions to the ticket.",
-  invocations: [{ id: "brainstorm-publish", positional: "publish" }],
-  flags: [
-    { name: "name", value: "<name>", meaning: "The brainstorm workspace to publish, under .lightsout/plans/.", required: true },
-    { name: "cwd", value: "<path>", meaning: "Repository the brainstorm workspace lives in.", fallback: "The process working directory.", required: false }
-  ],
-  steps: [],
-  records: CommandRecordKind.Plans,
-  related: ["auto-plan", "plan", "implement", "resume", "ship", "implement-direct", "queue", "ticket-state"]
-};
-
-// src/commands/common/constants/build/implementSteps.ts
-var implementSteps = [
-  {
-    title: "START THE RUN",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Hand the finished plan to `/implement`",
-      "Resolve settings from the config",
-      "Snapshot existing worktree changes and create a run ID",
-      "Create a repository lock so other lightsout runs cannot clash"
-    ],
-    note: "Isolates the agent\u2019s changes and makes the run safely resumable",
-    saved: [".lightsout/runs/<id>/manifest.json", ".lightsout/lock.json"]
-  },
-  {
-    title: "VERIFY THE REPO STARTS GREEN",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Run lint, type checks, tests, build, and coverage before implementation begins",
-      "Stop immediately if any gate is already failing",
-      "Record files touched by setup or gates in the manifest"
-    ],
-    note: "Proves any later failure was introduced by this run, not inherited from the repository",
-    saved: ["manifest.json", ".lightsout/runs/<id>/commands.jsonl"]
-  },
-  {
-    title: "IMPLEMENT THE PLAN",
-    actor: CommandActor.Agent,
-    bullets: [
-      "The implementation agent follows the finished spec",
-      "It writes the code and returns a structured report",
-      "It can run only commands explicitly allowed in the config"
-    ],
-    note: "Executes the finished spec without reopening settled decisions",
-    saved: [".lightsout/runs/<id>/agents/", "stream-NN-implement.jsonl", "rejected-*.txt"]
-  },
-  {
-    title: "VERIFY THE IMPLEMENTATION",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Re-run lint, type checks, tests, build, and coverage",
-      "Try up to two lightweight repairs if a gate fails",
-      "If the gates remain red, park the run with all evidence"
-    ],
-    note: "Prevents a broken implementation from moving forward",
-    saved: ["manifest.json", ".lightsout/friction.jsonl"]
-  },
-  {
-    title: "WRITE THE TESTS",
-    actor: CommandActor.Agent,
-    bullets: [
-      "Spawn a test-writing agent for each source file that changed",
-      "Add tests until coverage meets the configured threshold",
-      "Skip this step when no eligible source files changed"
-    ],
-    note: "Makes sure the new behavior is covered by tests",
-    saved: [".lightsout/runs/<id>/agents/", "stream-NN-write-tests.jsonl"]
-  },
-  {
-    title: "VERIFY THE TESTS",
-    actor: CommandActor.Engine,
-    bullets: ["Re-run lint, type checks, tests, build, and coverage", "Try up to two lightweight repairs if a gate fails"],
-    note: "Confirms the new tests pass and coverage meets the configured threshold",
-    saved: ["manifest.json", ".lightsout/friction.jsonl"]
-  },
-  {
-    title: "REFACTOR",
-    actor: CommandActor.Agent,
-    bullets: [
-      "Review changed code for duplication and structural issues",
-      "Reuse existing helpers or extract shared abstractions",
-      "Refactor to your code standards without changing behavior",
-      "Skip this step when requested or when nothing changed"
-    ],
-    note: "Removes duplication and keeps agent-written code aligned with your code standards",
-    saved: [".lightsout/runs/<id>/agents/", "stream-NN-refactor.jsonl"]
-  },
-  {
-    title: "VERIFY THE REFACTOR",
-    actor: CommandActor.Engine,
-    bullets: ["Re-run lint, type checks, tests, build, and coverage", "Try up to two lightweight repairs if a gate fails"],
-    note: "Confirms the refactor preserved behavior and passes every gate",
-    saved: ["manifest.json", ".lightsout/friction.jsonl"]
-  },
-  {
-    title: "FORMAT THE CODE",
-    actor: CommandActor.Engine,
-    bullets: ["Run the configured formatter on all changed files", "Re-run lint, type checks, tests, build, and coverage"],
-    note: "Confirms formatting does not break a green run",
-    saved: [".lightsout/runs/<id>/commands.jsonl"]
-  },
-  {
-    title: "REPORT THE RESULT",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Generate the final report from artifacts saved during the run",
-      "Record the final status, steps, retries, rejected reports, token cost, and friction",
-      "Keep the complete run history in one folder"
-    ],
-    note: "Leaves an inspectable record of what happened and why the run passed or failed",
-    saved: [".lightsout/runs/<id>/"]
-  }
-];
-
-// src/commands/common/constants/build/implementCatalogEntry.ts
-var implementCatalogEntry = {
-  id: "implement",
-  slash: "/implement",
-  cli: "lightsout implement",
-  group: CommandGroup.Build,
-  summary: "Run the lightsout deterministic implementation pipeline on a plan file.",
-  whenToUse: "Run it when a plan is graded and you want the work done unattended. Every step is gated by the repo\u2019s own tests, lint, types and coverage, and the run parks rather than pushing past a gate it cannot satisfy.",
-  invocations: [{ id: "implement" }, { id: "implement-folder", note: "folder: overview.md runs all phases, else plan.md" }],
-  flags: [
-    { name: "plan", value: "<path>", meaning: "The plan file to implement.", shape: "implement", required: true },
-    {
-      name: "overview",
-      value: "<path>",
-      meaning: "The overview this plan is one phase of, so the run reads the wider intent.",
-      fallback: "The plan is implemented on its own.",
-      shape: "implement",
-      required: false
-    },
-    {
-      name: "packages",
-      value: "<a,b>",
-      meaning: "Comma-separated package names the gates are scoped to.",
-      fallback: "The packages the run actually changed files in.",
-      shape: "implement",
-      required: false
-    },
-    {
-      name: "plan",
-      value: "<folder>",
-      meaning: "A plan workspace folder \u2014 overview.md runs every phase as a child run, plan.md runs the one.",
-      shape: "implement-folder",
-      required: true
-    },
-    {
-      name: "start-phase",
-      value: "<n>",
-      meaning: "The phase number a phased run begins at.",
-      fallback: "The first phase that has not already passed.",
-      shape: "implement-folder",
-      required: false
-    },
-    { name: "cwd", value: "<path>", meaning: "Repository to implement in.", fallback: "The process working directory.", required: false },
-    { name: "skip-refactor", meaning: "Skip the refactor step at the end of the run.", required: false },
-    { name: "ship", meaning: "Ship the branch after the run passes: open or adopt the PR, wait for checks, merge, clean up.", required: false },
-    { name: "no-ship", meaning: "End on the run result even when the config\u2019s `ship.after-implement` asks to chain into ship.", required: false }
-  ],
-  steps: implementSteps,
-  records: CommandRecordKind.Runs,
-  related: ["auto-plan", "brainstorm", "plan", "resume", "ship", "implement-direct", "queue", "ticket-state"],
-  graphic: {
-    title: "How /implement turns the spec into verified code",
-    subtitle: "Ten steps, deterministic gates throughout, and a complete record saved to disk.",
-    banner: "The model can claim success. Lightsout requires evidence.",
-    columns: 5
-  }
-};
-
-// src/commands/common/constants/build/implementDirectCatalogEntry.ts
-var implementDirectCatalogEntry = {
-  id: "implement-direct",
-  cli: "lightsout implement-direct",
-  group: CommandGroup.Build,
-  summary: "Build one ticket straight from its body, with the repo's own gates as the only bar, and commit what passes.",
-  whenToUse: "Run it on work small enough that a plan would cost more than the work: it reads the ticket body, builds from it, runs the repo\u2019s gates, and commits. It refuses a dirty tree, because it commits everything in the tree when it is done.",
-  invocations: [{ id: "implement-direct" }],
-  flags: [
-    { name: "ticket", value: "<path>", meaning: "A file holding the ticket body to build from.", required: true },
-    {
-      name: "ref",
-      value: "<ticket>",
-      meaning: "The ticket reference the run and its commit are labelled with.",
-      fallback: "The ticket reference the current branch carries.",
-      required: false
-    },
-    { name: "cwd", value: "<path>", meaning: "Repository to build in.", fallback: "The process working directory.", required: false },
-    { name: "ship", meaning: "Ship the branch after the run passes: open or adopt the PR, wait for checks, merge, clean up.", required: false },
-    { name: "no-ship", meaning: "End on the run result even when the config\u2019s `ship.after-implement` asks to chain into ship.", required: false }
-  ],
-  steps: [],
-  records: CommandRecordKind.Runs,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "queue", "resume", "ship", "ticket-state"]
-};
-
-// src/commands/common/constants/build/planSteps.ts
-var planSteps = [
-  {
-    title: "CREATE THE PLAN WORKSPACE",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Start from a direct request or existing `/brainstorm` notes",
-      "Create a name for the plan",
-      "Preserve any existing notes as the plan\u2019s starting context"
-    ],
-    note: "Gives the plan a stable home without making `/brainstorm` a prerequisite",
-    saved: [".lightsout/plans/<name>/brainstorm-notes.md"],
-    savedLabel: "SAVED WHEN NOTES EXIST"
-  },
-  {
-    title: "RECORD THE FACTS",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Inspect the code and files relevant to the plan request",
-      "Record the repository facts the plan will rely on",
-      "Verify every referenced file and path before moving forward"
-    ],
-    note: "Ensures the plan reflects the repository\u2019s current state, not assumptions",
-    saved: [".lightsout/plans/<name>/facts.json"]
-  },
-  {
-    title: "SETTLE THE SCOPE AND CONSTRAINTS",
-    actor: CommandActor.You,
-    bullets: [
-      "Decide whether the request needs one plan or multiple phases",
-      "Record the requirements and constraints the plan must follow",
-      "Planning agent asks questions until you are both aligned"
-    ],
-    note: "Prevents scope and project constraints from being decided during implementation",
-    saved: [".lightsout/plans/<name>/decisions.json"]
-  },
-  {
-    title: "CHOOSE THE APPROACH",
-    actor: CommandActor.You,
-    bullets: [
-      "Planning agent presents 2\u20133 distinct options with trade-offs",
-      "You choose the approach the plan will follow",
-      "Skip this step only when the approach is already settled"
-    ],
-    note: "Ensures the design is chosen before implementation begins",
-    saved: ["decisions.json"]
-  },
-  {
-    title: "WRITE THE IMPLEMENTATION PLAN",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Turn the verified facts and decisions into a complete plan",
-      "Validate the plan\u2019s structure and revise it until it passes",
-      "Use one plan or split larger work into clear phases"
-    ],
-    note: "Creates the specification the implementation agent will follow",
-    saved: [".lightsout/plans/<name>/plan.md", ".lightsout/plans/<name>/overview.md", ".lightsout/plans/<name>/phase<N>-<slug>.md"]
-  },
-  {
-    title: "STRESS-TEST THE PLAN",
-    actor: CommandActor.You,
-    bullets: [
-      "The planning agent questions you about edge cases and unresolved choices",
-      "You answer every decision that could change implementation",
-      "Every answer is added to the plan immediately"
-    ],
-    note: "Prevents the implementation agent from filling gaps on its own",
-    saved: ["decisions.json"]
-  },
-  {
-    title: "CATCH DUPLICATION BEFORE CODING",
-    actor: CommandActor.You,
-    bullets: [
-      "The planning agent searches for existing code related to the plan request",
-      "Decide whether to reuse, extend, extract, defer, or keep the code separate",
-      "Update the plan before implementation begins"
-    ],
-    note: "Prevents duplicate logic and competing abstractions",
-    saved: [".lightsout/plans/<name>/dedup.json"]
-  },
-  {
-    title: "GET THE PLAN TO AN A GRADE",
-    actor: CommandActor.Engine,
-    bullets: [
-      "The engine grades the plan and identifies every gap",
-      "The planning agent updates the plan to address each finding",
-      "Re-grade until it earns an A with no unresolved gaps"
-    ],
-    note: "Proves the plan is complete enough for an implementation agent with no prior context",
-    saved: [".lightsout/plans/<name>/grade.json"]
-  }
-];
-
-// src/commands/common/constants/build/planCatalogEntry.ts
-var planCatalogEntry = {
-  id: "plan",
-  slash: "/plan",
-  cli: "lightsout plan",
-  group: CommandGroup.Build,
-  summary: "Produce a rigorous, implementation-ready plan for a feature \u2014 one a fresh-context agent can implement without guessing.",
-  whenToUse: "Use it when you know what you want and need a plan a fresh agent could implement without guessing. It interviews you, drafts, grills the draft for edge cases, and grades the result before anyone writes code.",
-  invocations: [
-    { id: "plan-verify-facts", positional: "verify-facts" },
-    { id: "plan-draft", positional: "draft" },
-    { id: "plan-lint", positional: "lint" },
-    { id: "plan-dedup", positional: "dedup" },
-    { id: "plan-grade", positional: "grade", note: "--phase grades only those phases, and always marks the result incomplete" },
-    { id: "plan-publish", positional: "publish" }
-  ],
-  flags: [
-    { name: "name", value: "<name>", meaning: "The plan workspace to work in, under .lightsout/plans/.", required: true },
-    {
-      name: "notes",
-      value: "<path>",
-      meaning: "Rough notes to start from \u2014 a /brainstorm file, or anything you wrote yourself.",
-      fallback: "The workspace starts from the request alone.",
-      shape: "plan-verify-facts",
-      required: false
-    },
-    {
-      name: "scope",
-      value: "single|phased",
-      meaning: "Whether to write one plan or an overview with a file per phase.",
-      fallback: "Chosen from the size of the work.",
-      shape: "plan-draft",
-      required: false
-    },
-    {
-      name: "phase",
-      value: "<n[,n]>",
-      meaning: "Grade only these phases of a phased plan.",
-      fallback: "Every phase is graded, and the result may be complete.",
-      shape: "plan-grade",
-      required: false
-    },
-    { name: "cwd", value: "<path>", meaning: "Repository the plan workspace lives in.", fallback: "The process working directory.", required: false }
-  ],
-  steps: planSteps,
-  records: CommandRecordKind.Plans,
-  related: ["auto-plan", "brainstorm", "implement", "resume", "ship", "implement-direct", "queue", "ticket-state"],
-  graphic: {
-    title: "How /plan turns a request into an implementation-ready spec",
-    subtitle: "Final spec and every decision recorded before any code is written.",
-    banner: "The implementation-ready spec can now be handed to /implement in a fresh context window.",
-    columns: 4
-  }
-};
-
-// src/commands/common/constants/build/queueCatalogEntry.ts
-var queueCatalogEntry = {
-  id: "queue",
-  cli: "lightsout queue",
-  group: CommandGroup.Build,
-  summary: "Drain the tracker of automatable tickets in parallel worktrees, relaying any question to this terminal or to a mailbox directory.",
-  whenToUse: "Run it when the tracker holds tickets you have labelled for automation and you want them built without picking them up one at a time: it makes a worktree and branch per ticket, runs the worker its label names, puts any question it cannot answer to this terminal \u2014 or, with `--file-relay`, to a mailbox directory an agent session or an editor can answer from \u2014 then ships the ready branches one at a time, each rebased onto fresh main with the gates re-run. A mailbox question nobody answers parks its ticket once `queue.question-timeout` elapses. It stops when nothing is left to do; running it again resumes whatever parked.",
-  invocations: [{ id: "queue" }],
-  flags: [
-    {
-      name: "file-relay",
-      value: "[dir]",
-      meaning: "Relay questions as files in a mailbox directory instead of asking on this terminal. Defaults to .lightsout/queue/relay under the repo, emptied at startup.",
-      fallback: "Questions are asked on the terminal that started the drain.",
-      required: false
-    },
-    { name: "cwd", value: "<path>", meaning: "Repository to drain into.", fallback: "The process working directory.", required: false }
-  ],
-  steps: [],
-  records: CommandRecordKind.Runs,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "ticket-state"]
-};
-
-// src/commands/common/constants/build/resumeCatalogEntry.ts
-var resumeCatalogEntry = {
-  id: "resume",
-  cli: "lightsout resume",
-  group: CommandGroup.Build,
-  summary: "Pick a parked run back up where it stopped \u2014 same manifest, same work list, nothing repeated.",
-  whenToUse: "Use it when a run parked \u2014 a rate limit, a batch ceiling, an escalation you have now answered. It restarts from the manifest, so finished work is never redone.",
-  invocations: [{ id: "resume" }],
-  flags: [
-    { name: "run", value: "<id>", meaning: "The parked run to pick back up.", required: true },
-    { name: "cwd", value: "<path>", meaning: "Repository the run belongs to.", fallback: "The process working directory.", required: false },
-    { name: "skip-refactor", meaning: "Skip the refactor step at the end of the run.", required: false }
-  ],
-  steps: [],
-  records: CommandRecordKind.Runs,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "ship", "implement-direct", "queue", "ticket-state"]
-};
-
-// src/commands/common/constants/build/shipCatalogEntry.ts
-var shipCatalogEntry = {
-  id: "ship",
-  cli: "lightsout ship",
-  group: CommandGroup.Build,
-  summary: "Take the current branch from committed work to merged and cleaned up, and write a typed result.",
-  whenToUse: "Run it when the branch is committed and you want it merged: it pushes the branch, opens or adopts the pull request, waits for the checks, merges, deletes the branch and syncs the default branch \u2014 then writes one JSON result a tracker skill can read.",
-  invocations: [{ id: "ship" }],
-  flags: [{ name: "cwd", value: "<path>", meaning: "Repository to ship from.", fallback: "The process working directory.", required: false }],
-  steps: [],
-  records: CommandRecordKind.Nothing,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "resume", "implement-direct", "queue", "ticket-state"]
-};
-
-// src/commands/common/constants/build/ticketStateCatalogEntry.ts
-var ticketStateCatalogEntry = {
-  id: "ticket-state",
-  cli: "lightsout ticket-state",
-  group: CommandGroup.Build,
-  summary: "Write a ticket's planning status, its tracker workflow status, or both.",
-  whenToUse: "Run it at a workflow transition \u2014 when brainstorming finishes, when a plan is approved, when implementation begins \u2014 so the ticket says what preparation it still owes and where implementation stands. The workflow skills call it at each of those moments, so the tracker says the same thing however the work was started.",
-  invocations: [{ id: "ticket-state" }],
-  flags: [
-    { name: "ref", value: "<ticket>", meaning: "The ticket to write, by its human reference.", required: true },
-    {
-      name: "planning-status",
-      value: "<status>",
-      meaning: "What preparation the ticket still owes: planning-needs-brainstorm, planning-needs-plan, planning-ready-auto-plan, planning-complete or planning-not-needed.",
-      fallback: "The planning status is left as it is.",
-      required: false
-    },
-    {
-      name: "tracker-status",
-      value: "ready|in-progress",
-      meaning: "Where implementation stands, named by role so one line works in every repository: ready when shaping is finished and implementation is waiting, in-progress when source changes have begun. Done is not among them \u2014 a ticket reaches done only when a merge is positively confirmed, which the ship path writes.",
-      fallback: "The tracker status is left as it is.",
-      required: false
-    },
-    { name: "cwd", value: "<path>", meaning: "Repository whose config names the tracker.", fallback: "The process working directory.", required: false }
-  ],
-  steps: [],
-  records: CommandRecordKind.Nothing,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "queue"]
-};
-
-// src/commands/common/constants/burnDown/refactorSteps.ts
-var refactorSteps = [
-  {
-    title: "START THE RUN",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Point `/refactor` at the whole repo or one folder, with an optional batch budget",
-      "Refuse to start without a config, without git, or with uncommitted changes",
-      "Create a run ID and a repository lock so no other lightsout run touches the same tree"
-    ],
-    note: "Keeps the entire cleanup as one diff you can read, revert, or resume",
-    saved: [".lightsout/runs/<id>/manifest.json", ".lightsout/lock.json"]
-  },
-  {
-    title: "FIND THE WORK",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Search source files for repeated names, copied code, duplicate logic, oversized code, misplaced files, boundary violations, and dead exports",
-      "Detectors that read types need the repo\u2019s own TypeScript, and say so when it is missing",
-      "Leave out anything already accepted as known debt, unless you asked for everything"
-    ],
-    note: "Detection is deterministic code \u2014 no agent is ever asked to go find problems",
-    saved: ["lightsout.standards-baseline.json"],
-    savedLabel: "READ FROM DISK"
-  },
-  {
-    title: "GROUP INTO BATCHES",
-    actor: CommandActor.Engine,
-    bullets: [
-      "One batch is one kind of finding in one area \u2014 a package, a top-level folder, or the repo root",
-      "The most mechanical kinds run first, twelve findings at most, and a finding spanning two areas gets its own batch",
-      "Freeze the list to disk and work from it \u2014 never recompute it midway"
-    ],
-    note: "Gives each agent a single coherent job instead of a pile of unrelated fixes",
-    saved: [".lightsout/runs/<id>/worklist.json"]
-  },
-  {
-    title: "VERIFY THE REPO STARTS GREEN",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Run any code generator first, then lint, type checks, tests, build, and coverage",
-      "Stop immediately if any gate is already failing",
-      "Skip this on a resumed run when an earlier attempt already proved it green"
-    ],
-    note: "Proves any later failure was introduced by this run, not inherited from the repository",
-    saved: ["manifest.json", ".lightsout/runs/<id>/commands.jsonl"]
-  },
-  {
-    title: "SKIP WHAT IS ALREADY FIXED",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Check again immediately before each batch starts",
-      "If earlier batches already cleared these findings, close the batch and spend no agent",
-      "Collect fresh size warnings for the batch\u2019s files \u2014 the frozen ones cite line numbers that have since moved"
-    ],
-    note: "Never pays an agent to fix something that is already gone",
-    saved: ["manifest.json"]
-  },
-  {
-    title: "FIX ONE BATCH",
-    actor: CommandActor.Agent,
-    bullets: [
-      "Batches run one at a time; the agent gets the findings, the files they live in, and your code standards",
-      "Findings must be fixed or explained; size warnings are judged against your documented exemptions",
-      "It may run only the commands your config allows, works under a time limit, and answers with one structured report"
-    ],
-    note: "Changes structure only \u2014 the behavior has to survive untouched",
-    saved: [".lightsout/runs/<id>/agents/", "stream-batch-NN-*.jsonl", "rejected-*.txt"]
-  },
-  {
-    title: "VERIFY THE BATCH",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Re-run the gates, scoped to the packages that changed, with coverage always on",
-      "Try up to two lightweight repairs when a gate goes red",
-      "Send a coverage-only failure to a test-writing agent; a mixed failure goes back to the refactor agent first"
-    ],
-    note: "Stops a batch that broke the build from reaching the next one",
-    saved: ["manifest.json", ".lightsout/runs/<id>/commands.jsonl"]
-  },
-  {
-    title: "BRING IN A SUPERVISOR",
-    actor: CommandActor.Agent,
-    bullets: [
-      "When the quick repairs run out, a read-only supervisor diagnoses the failure",
-      "It either grants one guided retry or rules the failure a human problem",
-      "If the gates are still red after that, the run stops with the diagnosis attached as evidence"
-    ],
-    note: "Buys judgment exactly once, instead of retrying forever",
-    saved: [".lightsout/runs/<id>/agents/", "stream-batch-NN-supervisor.jsonl"]
-  },
-  {
-    title: "RULE ON THE BATCH",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Check again \u2014 the code rules, and a copied block that merely moved is not gone",
-      "Gone counts as resolved; still there with nothing changed counts as declined, with the agent\u2019s reasoning kept",
-      "Partly fixed earns one more pass, and whatever survives that is recorded as declined"
-    ],
-    note: "Work finished without a report still counts, and changed files come from git, minus generated output",
-    saved: ["manifest.json", ".lightsout/friction.jsonl"]
-  },
-  {
-    title: "KNOW WHEN TO STOP",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Three declines in a row end the run \u2014 the pattern is systemic, and more spend will not fix it",
-      "A refusal on scope grounds counts as a decline and the run carries on",
-      "A harness rate limit or your batch budget parks the run instead of failing it"
-    ],
-    note: "Each batch is saved before the next begins, and declines are read back \u2014 resuming re-runs nothing",
-    saved: ["manifest.json"]
-  },
-  {
-    title: "MEASURE THE BURN-DOWN",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Check the whole scope once more and report findings before and after, one line per kind",
-      "A parked run reports no burn-down \u2014 resume it to finish and measure",
-      "Keep every batch outcome, retry, token cost, and point of friction in one folder"
-    ],
-    note: "Turns the cleanup into a number you can check rather than a claim",
-    saved: [".lightsout/runs/<id>/", "agents.jsonl", ".lightsout/friction.jsonl"]
-  },
-  {
-    title: "REVIEW AND COMMIT",
-    actor: CommandActor.You,
-    bullets: [
-      "Read each declined batch alongside the agent\u2019s own reasoning for leaving it",
-      "Fix it by hand, or accept it as known debt in the baseline",
-      "Review the working-tree diff and commit it \u2014 the engine never commits"
-    ],
-    note: "Leaves the last call on unfixed debt with a human",
-    saved: ["lightsout.standards-baseline.json"]
-  }
-];
-
-// src/commands/common/constants/burnDown/refactorCatalogEntry.ts
-var refactorCatalogEntry = {
-  id: "refactor",
-  slash: "/refactor",
-  cli: "lightsout refactor",
-  group: CommandGroup.BurnDown,
-  summary: "Burn down a repo\u2019s standards-check findings (duplication, size, structure, boundary violations) in verified, resumable batches via the lightsout refactor pipeline.",
-  whenToUse: "Reach for it when standards-check has more findings than anyone will fix by hand. It burns them down in verified, resumable batches, each one gated before it lands.",
-  invocations: [{ id: "refactor" }, { id: "refactor-resume", note: "resume a parked refactor run" }],
-  flags: [
-    { name: "run", value: "<id>", meaning: "The parked refactor run to pick back up.", shape: "refactor-resume", required: true },
-    { name: "cwd", value: "<path>", meaning: "Repository to burn down.", fallback: "The process working directory.", required: false },
-    { name: "path", value: "<subdir>", meaning: "Burn down only this subdirectory.", fallback: "The whole repository.", shape: "refactor", required: false },
-    { name: "all", meaning: "Include findings the baseline has already accepted as known debt.", shape: "refactor", required: false },
-    {
-      name: "max-batches",
-      value: "<n>",
-      meaning: "Park the run after this many batches.",
-      fallback: "The run continues until the work-list is finished.",
-      shape: "refactor",
-      required: false
-    },
-    { name: "code-checks", meaning: "Build the work-list from the mechanical checks alone, with no agent review.", shape: "refactor", required: false },
-    { name: "allow-dirty", meaning: "Start even though the git tree has uncommitted changes.", shape: "refactor", required: false }
-  ],
-  steps: refactorSteps,
-  records: CommandRecordKind.Runs,
-  related: ["test-coverage-to-threshold", "standards-check"],
-  graphic: {
-    title: "How /refactor turns standards findings into verified cleanup",
-    subtitle: "Twelve steps, one batch at a time, every fix re-checked and re-gated before the next begins.",
-    banner: "The engine never commits. It hands back a measured before-and-after and a diff you review.",
-    columns: 4
-  }
-};
-
-// src/commands/common/constants/burnDown/testCoverageToThresholdCatalogEntry.ts
-var testCoverageToThresholdCatalogEntry = {
-  id: "test-coverage-to-threshold",
-  slash: "/test-coverage-to-threshold",
-  cli: "lightsout test-coverage-to-threshold",
-  group: CommandGroup.BurnDown,
-  summary: "Raise a repo\u2019s unit-test coverage until its own coverage script passes, in verified, resumable batches via the lightsout coverage pipeline.",
-  whenToUse: "Use it when the coverage gate is what stands between you and a green build. It writes tests in batches until your own coverage script passes, and stops there.",
-  invocations: [{ id: "test-coverage-to-threshold" }, { id: "test-coverage-to-threshold-resume", note: "resume a parked coverage run" }],
-  flags: [
-    { name: "run", value: "<id>", meaning: "The parked coverage run to pick back up.", shape: "test-coverage-to-threshold-resume", required: true },
-    { name: "cwd", value: "<path>", meaning: "Repository to raise coverage in.", fallback: "The process working directory.", required: false },
-    {
-      name: "max-batches",
-      value: "<n>",
-      meaning: "Park the run after this many batches.",
-      fallback: "The run continues until the coverage script passes.",
-      shape: "test-coverage-to-threshold",
-      required: false
-    },
-    { name: "allow-dirty", meaning: "Start even though the git tree has uncommitted changes.", shape: "test-coverage-to-threshold", required: false }
-  ],
-  steps: [],
-  records: CommandRecordKind.Runs,
-  related: ["refactor", "standards-check"]
-};
-
-// src/commands/common/constants/housekeeping/doctorCatalogEntry.ts
-var doctorCatalogEntry = {
-  id: "doctor",
-  cli: "lightsout doctor",
-  group: CommandGroup.Housekeeping,
-  summary: "Check the install end to end \u2014 config, harness, gates, standards \u2014 and name what is missing.",
-  whenToUse: "Run it first, on a repo where something is not working. It checks config, harness, gates and standards in order and names the first thing that is missing.",
-  invocations: [{ id: "doctor" }],
-  flags: [{ name: "cwd", value: "<path>", meaning: "Repository to check the install of.", fallback: "The process working directory.", required: false }],
-  steps: [],
-  records: CommandRecordKind.Nothing,
-  related: ["status", "friction", "improve", "voice"]
-};
-
-// src/commands/common/constants/housekeeping/frictionCatalogEntry.ts
-var frictionCatalogEntry = {
-  id: "friction",
-  cli: "lightsout friction",
-  group: CommandGroup.Housekeeping,
-  summary: "Collect what slowed the agents down across recent runs, so the next fix is the one that pays.",
-  whenToUse: "Reach for it after a few runs, when you want the next improvement to be the one that pays. It collects what actually slowed the agents down instead of what you assume did.",
-  invocations: [{ id: "friction" }],
-  flags: [{ name: "cwd", value: "<path>", meaning: "Repository whose runs are read.", fallback: "The process working directory.", required: false }],
-  steps: [],
-  records: CommandRecordKind.Nothing,
-  related: ["status", "doctor", "improve", "voice"]
-};
-
-// src/commands/common/constants/housekeeping/improveCatalogEntry.ts
-var improveCatalogEntry = {
-  id: "improve",
-  cli: "lightsout improve",
-  group: CommandGroup.Housekeeping,
-  summary: "Feed this repo\u2019s friction back to the lightsout engine as a change proposal.",
-  whenToUse: "Use it when this repo\u2019s friction is really the engine\u2019s problem. It turns those findings into a change proposal against a lightsout checkout you point it at.",
-  invocations: [{ id: "improve" }],
-  flags: [
-    { name: "engine", value: "<lightsout-repo-path>", meaning: "The lightsout checkout the change proposal is written against.", required: true },
-    { name: "cwd", value: "<path>", meaning: "Repository whose friction is read.", fallback: "The process working directory.", required: false }
-  ],
-  steps: [],
-  records: CommandRecordKind.Nothing,
-  related: ["status", "doctor", "friction", "voice"]
-};
-
-// src/commands/common/constants/housekeeping/statusCatalogEntry.ts
-var statusCatalogEntry = {
-  id: "status",
-  cli: "lightsout status",
-  group: CommandGroup.Housekeeping,
-  summary: "Show what lightsout sees in this repo: config, harness, packs, any run still parked \u2014 and, for one run, what it is doing right now.",
-  whenToUse: "Run it when you come back to a repo and need to know what lightsout thinks is going on. It names the config, the harness, the packs in play, and any run still parked. Name a run and it shows what is happening inside that run instead: its steps, their outcomes and durations, and what it is working on this moment.",
-  invocations: [{ id: "status" }, { id: "status-run", note: "one run in detail; --watch repaints it every two minutes" }],
-  flags: [
-    {
-      name: "run",
-      value: "<id>",
-      meaning: "Show one run in detail \u2014 its steps, their outcomes and durations, what it is doing now. Takes the shortened eight-character id reports print.",
-      fallback: "Every run is listed, one line each.",
-      shape: "status-run",
-      required: false
-    },
-    {
-      name: "watch",
-      meaning: "Repaint the detail block every two minutes until the run stops, so a detached run can be followed.",
-      fallback: "The block is printed once.",
-      shape: "status-run",
-      required: false
-    },
-    { name: "cwd", value: "<path>", meaning: "Repository to report on.", fallback: "The process working directory.", required: false }
-  ],
-  steps: [],
-  records: CommandRecordKind.Nothing,
-  related: ["doctor", "friction", "improve", "voice"]
-};
-
-// src/commands/common/constants/housekeeping/voiceCatalogEntry.ts
-var voiceCatalogEntry = {
-  id: "voice",
-  slash: "/lightsout:voice",
-  cli: "lightsout voice",
-  group: CommandGroup.Housekeeping,
-  summary: "Turn the spoken read-out of lightsout interview questions on or off for this project \u2014 `/lightsout:voice on` and `/lightsout:voice off`.",
-  whenToUse: "Turn it on when you would rather hear the interview questions than watch for them. Mac-only, off until you turn it on, and per-project.",
-  invocations: [
-    { id: "voice-toggle", positional: "on|off", note: "toggle spoken read-out of interview questions \u2014 Mac-only" },
-    { id: "voice-hook", positional: "hook", note: "hook entry for Stop + AskUserQuestion: reads hook JSON on stdin, speaks the question" }
-  ],
-  flags: [{ name: "cwd", value: "<path>", meaning: "Project the setting belongs to.", fallback: "The process working directory.", required: false }],
-  steps: [],
-  records: CommandRecordKind.Nothing,
-  related: ["status", "doctor", "friction", "improve"]
-};
-
-// src/commands/common/constants/standards/standardsCheckCatalogEntry.ts
-var standardsCheckCatalogEntry = {
-  id: "standards-check",
-  cli: "lightsout standards-check",
-  group: CommandGroup.Standards,
-  summary: "Check the repo against its standards packs and report every finding, machine checks and agent review alike.",
-  whenToUse: "Run it to see where the repo stands against its packs, before a refactor or after one. `--list` prints the enforcement ledger instead: which rules are blocking, which advisory, which off.",
-  invocations: [{ id: "standards-check" }, { id: "standards-check-list", note: "print the enforcement ledger" }],
-  flags: [
-    { name: "list", meaning: "Print the enforcement ledger \u2014 blocking, advisory, off \u2014 and check nothing.", shape: "standards-check-list", required: true },
-    { name: "cwd", value: "<path>", meaning: "Repository to check.", fallback: "The process working directory.", required: false },
-    { name: "path", value: "<subdir>", meaning: "Check only this subdirectory.", fallback: "The whole repository.", shape: "standards-check", required: false },
-    { name: "all", meaning: "Include findings the baseline has already accepted as known debt.", shape: "standards-check", required: false },
-    { name: "baseline", meaning: "Write the findings to the baseline file as accepted debt.", shape: "standards-check", required: false },
-    { name: "code-checks", meaning: "Run the mechanical checks only.", shape: "standards-check", required: false, exclusiveWith: "half" },
-    { name: "agent-review", meaning: "Run the agent review only.", shape: "standards-check", required: false, exclusiveWith: "half" }
-  ],
-  steps: [],
-  records: CommandRecordKind.Snapshots,
-  related: ["standards-validate", "standards-health", "refactor", "test-coverage-to-threshold"]
-};
-
-// src/commands/common/constants/standards/standardsHealthCatalogEntry.ts
-var standardsHealthCatalogEntry = {
-  id: "standards-health",
-  cli: "lightsout standards-health",
-  group: CommandGroup.Standards,
-  summary: "Report each rule\u2019s coverage and how often agents decline it \u2014 which standards are actually holding.",
-  whenToUse: "Reach for it when you suspect a standard is decorative \u2014 declared, but never enforced in practice. It shows per-rule coverage and how often agents decline the rule when asked to fix it.",
-  invocations: [{ id: "standards-health", note: "per-rule coverage and how often agents decline it" }],
-  flags: [{ name: "cwd", value: "<path>", meaning: "Repository to report on.", fallback: "The process working directory.", required: false }],
-  steps: [],
-  records: CommandRecordKind.Nothing,
-  related: ["standards-check", "standards-validate"]
-};
-
-// src/commands/common/constants/standards/standardsValidateCatalogEntry.ts
-var standardsValidateCatalogEntry = {
-  id: "standards-validate",
-  cli: "lightsout standards-validate",
-  group: CommandGroup.Standards,
-  summary: "Run every rule\u2019s check against its own fixtures, so a rule that no longer detects what it claims fails loudly.",
-  whenToUse: "Run it after writing or editing a rule, and in CI for a pack you ship. It proves each check still passes its own pass fixtures and still fails its fail fixtures.",
-  invocations: [{ id: "standards-validate", note: "run every check against its own fixtures" }],
-  flags: [
-    { name: "pack", value: "<path>", meaning: "Validate only the pack at this folder.", fallback: "Every pack the config loads.", required: false },
-    { name: "cwd", value: "<path>", meaning: "Repository whose packs are validated.", fallback: "The process working directory.", required: false }
-  ],
-  steps: [],
-  records: CommandRecordKind.Nothing,
-  related: ["standards-check", "standards-health"]
-};
-
-// src/commands/commandCatalog.ts
-var commandCatalog = [
-  brainstormCatalogEntry,
-  planCatalogEntry,
-  autoPlanCatalogEntry,
-  implementCatalogEntry,
-  implementDirectCatalogEntry,
-  resumeCatalogEntry,
-  shipCatalogEntry,
-  queueCatalogEntry,
-  ticketStateCatalogEntry,
-  refactorCatalogEntry,
-  testCoverageToThresholdCatalogEntry,
-  standardsCheckCatalogEntry,
-  standardsValidateCatalogEntry,
-  standardsHealthCatalogEntry,
-  statusCatalogEntry,
-  doctorCatalogEntry,
-  frictionCatalogEntry,
-  improveCatalogEntry,
-  voiceCatalogEntry
-];
-
-// src/commands/getCommandCatalogEntry.ts
-var getCommandCatalogEntry = ({ id }) => commandCatalog.find((entry) => entry.id === id);
-
-// src/commands/spellFlag.ts
-var spellFlag = ({ flag }) => flag.value === void 0 ? `--${flag.name}` : `--${flag.name} ${flag.value}`;
-
-// src/commands/renderUsage.ts
-var usageOrder = [
-  "implement",
-  "implement-folder",
-  "implement-direct",
-  "resume",
-  "ship",
-  "queue",
-  "status",
-  "status-run",
-  "doctor",
-  "standards-check",
-  "standards-check-list",
-  "standards-validate",
-  "standards-health",
-  "refactor",
-  "refactor-resume",
-  "test-coverage-to-threshold",
-  "test-coverage-to-threshold-resume",
-  "brainstorm-publish",
-  "plan-verify-facts",
-  "plan-draft",
-  "plan-lint",
-  "plan-dedup",
-  "plan-grade",
-  "plan-publish",
-  "ticket-state",
-  "friction",
-  "improve",
-  "voice-toggle",
-  "voice-hook"
-];
-var renderExclusiveGroup = ({ flags, key }) => {
-  const group = flags.filter((flag) => flag.exclusiveWith === key);
-  return `[${group.map((flag) => spellFlag({ flag })).join(" | ")}]`;
-};
-var renderFlags = ({ entry, invocation }) => {
-  const shown = entry.flags.filter((flag) => flag.shape === void 0 || flag.shape === invocation.id);
-  const rendered = [];
-  const groupsSeen = /* @__PURE__ */ new Set();
-  for (const flag of shown) {
-    if (flag.exclusiveWith === void 0) {
-      rendered.push(flag.required ? spellFlag({ flag }) : `[${spellFlag({ flag })}]`);
-    } else if (!groupsSeen.has(flag.exclusiveWith)) {
-      groupsSeen.add(flag.exclusiveWith);
-      rendered.push(renderExclusiveGroup({ flags: shown, key: flag.exclusiveWith }));
-    }
-  }
-  return rendered;
-};
-var padNote = ({ body, note }) => `${body}${" ".repeat(Math.max(3, 54 - body.length))}(${note})`;
-var renderLine = ({ cli, entry, invocation }) => {
-  const words = [cli, invocation.positional, ...renderFlags({ entry, invocation })].filter((word) => word !== void 0);
-  const body = `  ${words.join(" ")}`;
-  return invocation.note === void 0 ? body : padNote({ body, note: invocation.note });
-};
-var renderUsage = () => {
-  const header = "lightsout \u2014 deterministic engine for coding agents\n\nusage:";
-  const exitCodes = `exit codes (implement, resume, refactor, test-coverage-to-threshold):
-  0  finished
-  2  stopped with work left and resumable \u2014 a --max-batches ceiling, or a harness rate limit
-  1  anything else`;
-  const lines = [];
-  for (const id of usageOrder) {
-    const entry = commandCatalog.find((candidate) => candidate.invocations.some((invocation2) => invocation2.id === id));
-    const invocation = entry?.invocations.find((candidate) => candidate.id === id);
-    if (entry?.cli !== void 0 && invocation !== void 0) {
-      lines.push(renderLine({ cli: entry.cli, entry, invocation }));
-    }
-  }
-  return `${header}
-${lines.join("\n")}
-
-${exitCodes}
-`;
-};
-
-// src/cli/common/args/readCommandFlags.ts
-var readCommandFlags = ({ command }) => {
-  const entry = getCommandCatalogEntry({ id: command });
-  return /* @__PURE__ */ new Set(["cwd", ...entry?.flags.map((flag) => flag.name) ?? []]);
-};
-
-// src/cli/common/args/getUnknownFlagsMessage.ts
-var getUnknownFlagsMessage = ({ command, flags }) => {
-  const accepted = readCommandFlags({ command });
-  const unknown2 = [...flags.keys()].filter((name) => !accepted.has(name));
-  return unknown2.length === 0 ? void 0 : `lightsout ${command}: unknown flag${unknown2.length > 1 ? "s" : ""} ${unknown2.map((name) => `--${name}`).join(", ")}`;
-};
-
-// src/cli/common/args/parseFlags.ts
-var parseFlags = ({ args }) => {
-  const flags = /* @__PURE__ */ new Map();
-  let index = 0;
-  while (index < args.length) {
-    const key = args[index];
-    if (!key?.startsWith("--")) {
-      index += 1;
-      continue;
-    }
-    const value = args[index + 1];
-    if (value === void 0 || value.startsWith("--")) {
-      flags.set(key.slice(2), true);
-      index += 1;
-    } else {
-      flags.set(key.slice(2), value);
-      index += 2;
-    }
-  }
-  return flags;
-};
-
-// src/cli/common/constants/usage.ts
-var usage = renderUsage();
-
-// src/cli/common/utils/exitCli.ts
-var exitCli = async ({ code }) => {
-  await Promise.all([process.stdout, process.stderr].map((stream) => new Promise((resolve17) => stream.write("", () => resolve17()))));
-  return process.exit(code);
-};
-
-// src/common/constants/brainstormNotesFileName.ts
-var brainstormNotesFileName = "brainstorm-notes.md";
-
-// src/brainstorm/common/constants/brainstormAttachmentFileNames.ts
-var brainstormAttachmentFileNames = [brainstormNotesFileName, "brainstorm-decisions.json"];
-
-// src/brainstorm/common/constants/brainstormAttachmentManifestName.ts
-var brainstormAttachmentManifestName = "brainstorm-attachments.json";
-
-// src/brainstorm/publish/publishBrainstorm.ts
-import { readFile as readFile15 } from "node:fs/promises";
-import { join as join31 } from "node:path";
-
-// src/common/utils/sha256.ts
-import { createHash } from "node:crypto";
-var sha256 = ({ content }) => createHash("sha256").update(content).digest("hex");
-
-// src/common/attachmentManifest/serializeAttachmentManifest.ts
-var serializeAttachmentManifest = ({ files }) => Buffer.from(
-  `${JSON.stringify(
-    {
-      schemaVersion: 1,
-      files: files.map(({ name, content }) => ({ name, sha256: sha256({ content }) }))
-    },
-    null,
-    2
-  )}
-`,
-  "utf8"
-);
-
-// src/common/utils/messageOf.ts
-var messageOf = ({ error: error51 }) => error51 instanceof Error ? error51.message : String(error51);
-
-// src/plan/common/constants/PlanRunStatus.ts
-var PlanRunStatus = {
-  Complete: "complete",
-  Failed: "failed",
-  /** Hit the harness rate-limit wall — resumable, not an error. */
-  PausedRateLimit: "paused-rate-limit",
-  /** Draft only: the plan's claims did not survive verification. */
-  FactsError: "facts-error",
-  /** Draft only: the plan is structurally unsound and needs repair. */
-  StructuralIssues: "structural-issues"
-};
-
-// src/plan/common/paths/pathExists.ts
-import { stat } from "node:fs/promises";
-var pathExists = ({ path }) => stat(path).then(
-  () => true,
-  () => false
-);
 
 // src/plan/common/utils/getBlockingFindings.ts
 var getBlockingFindings = ({ findings }) => findings.filter((finding2) => finding2.severity === FindingSeverity.Blocking);
@@ -129954,6 +128997,928 @@ var restoreBrainstormFiles = async ({ cwd, name, identifier, settings }) => {
   return writeIntoFolder({ dir: planWorkspaceDir({ cwd, name }), files: generation.files });
 };
 
+// src/cli/common/args/getStringFlag.ts
+var getStringFlag = ({ flags, name }) => {
+  const value = flags.get(name);
+  return typeof value === "string" ? value : void 0;
+};
+
+// src/commands/common/constants/build/autoPlanCatalogEntry.ts
+var autoPlanCatalogEntry = {
+  id: "auto-plan",
+  slash: "/auto-plan",
+  group: CommandGroup.Build,
+  summary: "Plan a ticket alone \u2014 self-answers every question below a written escalation bar, shows you one proposal, and rolls onward per the `auto-plan` config block.",
+  whenToUse: 'Reach for it when the ticket is shaped enough that you would answer most of the interview with "you decide". It stops for the questions two reasonable engineers would answer differently, and for nothing else; the `auto-plan` config block says whether approval also starts the build.',
+  invocations: [],
+  flags: [],
+  steps: [],
+  records: CommandRecordKind.Plans,
+  related: ["brainstorm", "plan", "implement", "resume", "ship", "implement-direct", "queue", "ticket-state"]
+};
+
+// src/commands/common/constants/build/brainstormCatalogEntry.ts
+var brainstormCatalogEntry = {
+  id: "brainstorm",
+  slash: "/brainstorm",
+  cli: "lightsout brainstorm",
+  group: CommandGroup.Build,
+  summary: "Shape a vague idea into a buildable direction through dialogue \u2014 checks whether it is one idea or several, offers 2\u20133 competing approaches with trade-offs and a recommendation, and converges on a design stated in plain words.",
+  whenToUse: "Reach for it when the idea is still a sentence and you are not sure it is one idea or three. It decides its own outcome \u2014 ready to implement, or ready to auto-plan \u2014 and publishes the design write-up and the settled decisions to the ticket.",
+  invocations: [{ id: "brainstorm-publish", positional: "publish" }],
+  flags: [
+    { name: "name", value: "<name>", meaning: "The brainstorm workspace to publish, under .lightsout/plans/.", required: true },
+    { name: "cwd", value: "<path>", meaning: "Repository the brainstorm workspace lives in.", fallback: "The process working directory.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Plans,
+  related: ["auto-plan", "plan", "implement", "resume", "ship", "implement-direct", "queue", "ticket-state"]
+};
+
+// src/commands/common/constants/build/implementSteps.ts
+var implementSteps = [
+  {
+    title: "START THE RUN",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Hand the finished plan to `/implement`",
+      "Resolve settings from the config",
+      "Snapshot existing worktree changes and create a run ID",
+      "Create a repository lock so other lightsout runs cannot clash"
+    ],
+    note: "Isolates the agent\u2019s changes and makes the run safely resumable",
+    saved: [".lightsout/runs/<id>/manifest.json", ".lightsout/lock.json"]
+  },
+  {
+    title: "VERIFY THE REPO STARTS GREEN",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Run lint, type checks, tests, build, and coverage before implementation begins",
+      "Stop immediately if any gate is already failing",
+      "Record files touched by setup or gates in the manifest"
+    ],
+    note: "Proves any later failure was introduced by this run, not inherited from the repository",
+    saved: ["manifest.json", ".lightsout/runs/<id>/commands.jsonl"]
+  },
+  {
+    title: "IMPLEMENT THE PLAN",
+    actor: CommandActor.Agent,
+    bullets: [
+      "The implementation agent follows the finished spec",
+      "It writes the code and returns a structured report",
+      "It can run only commands explicitly allowed in the config"
+    ],
+    note: "Executes the finished spec without reopening settled decisions",
+    saved: [".lightsout/runs/<id>/agents/", "stream-NN-implement.jsonl", "rejected-*.txt"]
+  },
+  {
+    title: "VERIFY THE IMPLEMENTATION",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Re-run lint, type checks, tests, build, and coverage",
+      "Try up to two lightweight repairs if a gate fails",
+      "If the gates remain red, park the run with all evidence"
+    ],
+    note: "Prevents a broken implementation from moving forward",
+    saved: ["manifest.json", ".lightsout/friction.jsonl"]
+  },
+  {
+    title: "WRITE THE TESTS",
+    actor: CommandActor.Agent,
+    bullets: [
+      "Spawn a test-writing agent for each source file that changed",
+      "Add tests until coverage meets the configured threshold",
+      "Skip this step when no eligible source files changed"
+    ],
+    note: "Makes sure the new behavior is covered by tests",
+    saved: [".lightsout/runs/<id>/agents/", "stream-NN-write-tests.jsonl"]
+  },
+  {
+    title: "VERIFY THE TESTS",
+    actor: CommandActor.Engine,
+    bullets: ["Re-run lint, type checks, tests, build, and coverage", "Try up to two lightweight repairs if a gate fails"],
+    note: "Confirms the new tests pass and coverage meets the configured threshold",
+    saved: ["manifest.json", ".lightsout/friction.jsonl"]
+  },
+  {
+    title: "REFACTOR",
+    actor: CommandActor.Agent,
+    bullets: [
+      "Review changed code for duplication and structural issues",
+      "Reuse existing helpers or extract shared abstractions",
+      "Refactor to your code standards without changing behavior",
+      "Skip this step when requested or when nothing changed"
+    ],
+    note: "Removes duplication and keeps agent-written code aligned with your code standards",
+    saved: [".lightsout/runs/<id>/agents/", "stream-NN-refactor.jsonl"]
+  },
+  {
+    title: "VERIFY THE REFACTOR",
+    actor: CommandActor.Engine,
+    bullets: ["Re-run lint, type checks, tests, build, and coverage", "Try up to two lightweight repairs if a gate fails"],
+    note: "Confirms the refactor preserved behavior and passes every gate",
+    saved: ["manifest.json", ".lightsout/friction.jsonl"]
+  },
+  {
+    title: "FORMAT THE CODE",
+    actor: CommandActor.Engine,
+    bullets: ["Run the configured formatter on all changed files", "Re-run lint, type checks, tests, build, and coverage"],
+    note: "Confirms formatting does not break a green run",
+    saved: [".lightsout/runs/<id>/commands.jsonl"]
+  },
+  {
+    title: "REPORT THE RESULT",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Generate the final report from artifacts saved during the run",
+      "Record the final status, steps, retries, rejected reports, token cost, and friction",
+      "Keep the complete run history in one folder"
+    ],
+    note: "Leaves an inspectable record of what happened and why the run passed or failed",
+    saved: [".lightsout/runs/<id>/"]
+  }
+];
+
+// src/commands/common/constants/build/implementCatalogEntry.ts
+var implementCatalogEntry = {
+  id: "implement",
+  slash: "/implement",
+  cli: "lightsout implement",
+  group: CommandGroup.Build,
+  summary: "Run the lightsout deterministic implementation pipeline on a plan file.",
+  whenToUse: "Run it when a plan is graded and you want the work done unattended. Every step is gated by the repo\u2019s own tests, lint, types and coverage, and the run parks rather than pushing past a gate it cannot satisfy.",
+  invocations: [{ id: "implement" }, { id: "implement-folder", note: "folder: overview.md runs all phases, else plan.md" }],
+  flags: [
+    { name: "plan", value: "<path>", meaning: "The plan file to implement.", shape: "implement", required: true },
+    {
+      name: "overview",
+      value: "<path>",
+      meaning: "The overview this plan is one phase of, so the run reads the wider intent.",
+      fallback: "The plan is implemented on its own.",
+      shape: "implement",
+      required: false
+    },
+    {
+      name: "packages",
+      value: "<a,b>",
+      meaning: "Comma-separated package names the gates are scoped to.",
+      fallback: "The packages the run actually changed files in.",
+      shape: "implement",
+      required: false
+    },
+    {
+      name: "plan",
+      value: "<folder>",
+      meaning: "A plan workspace folder \u2014 overview.md runs every phase as a child run, plan.md runs the one.",
+      shape: "implement-folder",
+      required: true
+    },
+    {
+      name: "start-phase",
+      value: "<n>",
+      meaning: "The phase number a phased run begins at.",
+      fallback: "The first phase that has not already passed.",
+      shape: "implement-folder",
+      required: false
+    },
+    { name: "cwd", value: "<path>", meaning: "Repository to implement in.", fallback: "The process working directory.", required: false },
+    { name: "skip-refactor", meaning: "Skip the refactor step at the end of the run.", required: false },
+    { name: "ship", meaning: "Ship the branch after the run passes: open or adopt the PR, wait for checks, merge, clean up.", required: false },
+    { name: "no-ship", meaning: "End on the run result even when the config\u2019s `ship.after-implement` asks to chain into ship.", required: false }
+  ],
+  steps: implementSteps,
+  records: CommandRecordKind.Runs,
+  related: ["auto-plan", "brainstorm", "plan", "resume", "ship", "implement-direct", "queue", "ticket-state"],
+  graphic: {
+    title: "How /implement turns the spec into verified code",
+    subtitle: "Ten steps, deterministic gates throughout, and a complete record saved to disk.",
+    banner: "The model can claim success. Lightsout requires evidence.",
+    columns: 5
+  }
+};
+
+// src/commands/common/constants/build/implementDirectCatalogEntry.ts
+var implementDirectCatalogEntry = {
+  id: "implement-direct",
+  cli: "lightsout implement-direct",
+  group: CommandGroup.Build,
+  summary: "Build one ticket straight from its body, with the repo's own gates as the only bar, and commit what passes.",
+  whenToUse: "Run it on work small enough that a plan would cost more than the work: it reads the ticket body, builds from it, runs the repo\u2019s gates, and commits. It refuses a dirty tree, because it commits everything in the tree when it is done.",
+  invocations: [{ id: "implement-direct" }],
+  flags: [
+    { name: "ticket", value: "<path>", meaning: "A file holding the ticket body to build from.", required: true },
+    {
+      name: "ref",
+      value: "<ticket>",
+      meaning: "The ticket reference the run and its commit are labelled with.",
+      fallback: "The ticket reference the current branch carries.",
+      required: false
+    },
+    { name: "cwd", value: "<path>", meaning: "Repository to build in.", fallback: "The process working directory.", required: false },
+    { name: "ship", meaning: "Ship the branch after the run passes: open or adopt the PR, wait for checks, merge, clean up.", required: false },
+    { name: "no-ship", meaning: "End on the run result even when the config\u2019s `ship.after-implement` asks to chain into ship.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Runs,
+  related: ["auto-plan", "brainstorm", "plan", "implement", "queue", "resume", "ship", "ticket-state"]
+};
+
+// src/commands/common/constants/build/planSteps.ts
+var planSteps = [
+  {
+    title: "CREATE THE PLAN WORKSPACE",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Start from a direct request or existing `/brainstorm` notes",
+      "Create a name for the plan",
+      "Preserve any existing notes as the plan\u2019s starting context"
+    ],
+    note: "Gives the plan a stable home without making `/brainstorm` a prerequisite",
+    saved: [".lightsout/plans/<name>/brainstorm-notes.md"],
+    savedLabel: "SAVED WHEN NOTES EXIST"
+  },
+  {
+    title: "RECORD THE FACTS",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Inspect the code and files relevant to the plan request",
+      "Record the repository facts the plan will rely on",
+      "Verify every referenced file and path before moving forward"
+    ],
+    note: "Ensures the plan reflects the repository\u2019s current state, not assumptions",
+    saved: [".lightsout/plans/<name>/facts.json"]
+  },
+  {
+    title: "SETTLE THE SCOPE AND CONSTRAINTS",
+    actor: CommandActor.You,
+    bullets: [
+      "Decide whether the request needs one plan or multiple phases",
+      "Record the requirements and constraints the plan must follow",
+      "Planning agent asks questions until you are both aligned"
+    ],
+    note: "Prevents scope and project constraints from being decided during implementation",
+    saved: [".lightsout/plans/<name>/decisions.json"]
+  },
+  {
+    title: "CHOOSE THE APPROACH",
+    actor: CommandActor.You,
+    bullets: [
+      "Planning agent presents 2\u20133 distinct options with trade-offs",
+      "You choose the approach the plan will follow",
+      "Skip this step only when the approach is already settled"
+    ],
+    note: "Ensures the design is chosen before implementation begins",
+    saved: ["decisions.json"]
+  },
+  {
+    title: "WRITE THE IMPLEMENTATION PLAN",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Turn the verified facts and decisions into a complete plan",
+      "Validate the plan\u2019s structure and revise it until it passes",
+      "Use one plan or split larger work into clear phases"
+    ],
+    note: "Creates the specification the implementation agent will follow",
+    saved: [".lightsout/plans/<name>/plan.md", ".lightsout/plans/<name>/overview.md", ".lightsout/plans/<name>/phase<N>-<slug>.md"]
+  },
+  {
+    title: "STRESS-TEST THE PLAN",
+    actor: CommandActor.You,
+    bullets: [
+      "The planning agent questions you about edge cases and unresolved choices",
+      "You answer every decision that could change implementation",
+      "Every answer is added to the plan immediately"
+    ],
+    note: "Prevents the implementation agent from filling gaps on its own",
+    saved: ["decisions.json"]
+  },
+  {
+    title: "CATCH DUPLICATION BEFORE CODING",
+    actor: CommandActor.You,
+    bullets: [
+      "The planning agent searches for existing code related to the plan request",
+      "Decide whether to reuse, extend, extract, defer, or keep the code separate",
+      "Update the plan before implementation begins"
+    ],
+    note: "Prevents duplicate logic and competing abstractions",
+    saved: [".lightsout/plans/<name>/dedup.json"]
+  },
+  {
+    title: "GET THE PLAN TO AN A GRADE",
+    actor: CommandActor.Engine,
+    bullets: [
+      "The engine grades the plan and identifies every gap",
+      "The planning agent updates the plan to address each finding",
+      "Re-grade until it earns an A with no unresolved gaps"
+    ],
+    note: "Proves the plan is complete enough for an implementation agent with no prior context",
+    saved: [".lightsout/plans/<name>/grade.json"]
+  }
+];
+
+// src/commands/common/constants/build/planCatalogEntry.ts
+var planCatalogEntry = {
+  id: "plan",
+  slash: "/plan",
+  cli: "lightsout plan",
+  group: CommandGroup.Build,
+  summary: "Produce a rigorous, implementation-ready plan for a feature \u2014 one a fresh-context agent can implement without guessing.",
+  whenToUse: "Use it when you know what you want and need a plan a fresh agent could implement without guessing. It interviews you, drafts, grills the draft for edge cases, and grades the result before anyone writes code.",
+  invocations: [
+    { id: "plan-verify-facts", positional: "verify-facts" },
+    { id: "plan-draft", positional: "draft" },
+    { id: "plan-lint", positional: "lint" },
+    { id: "plan-dedup", positional: "dedup" },
+    { id: "plan-grade", positional: "grade", note: "--phase grades only those phases, and always marks the result incomplete" },
+    { id: "plan-publish", positional: "publish" }
+  ],
+  flags: [
+    { name: "name", value: "<name>", meaning: "The plan workspace to work in, under .lightsout/plans/.", required: true },
+    {
+      name: "notes",
+      value: "<path>",
+      meaning: "Rough notes to start from \u2014 a /brainstorm file, or anything you wrote yourself.",
+      fallback: "The workspace starts from the request alone.",
+      shape: "plan-verify-facts",
+      required: false
+    },
+    {
+      name: "scope",
+      value: "single|phased",
+      meaning: "Whether to write one plan or an overview with a file per phase.",
+      fallback: "Chosen from the size of the work.",
+      shape: "plan-draft",
+      required: false
+    },
+    {
+      name: "phase",
+      value: "<n[,n]>",
+      meaning: "Grade only these phases of a phased plan.",
+      fallback: "Every phase is graded, and the result may be complete.",
+      shape: "plan-grade",
+      required: false
+    },
+    { name: "cwd", value: "<path>", meaning: "Repository the plan workspace lives in.", fallback: "The process working directory.", required: false }
+  ],
+  steps: planSteps,
+  records: CommandRecordKind.Plans,
+  related: ["auto-plan", "brainstorm", "implement", "resume", "ship", "implement-direct", "queue", "ticket-state"],
+  graphic: {
+    title: "How /plan turns a request into an implementation-ready spec",
+    subtitle: "Final spec and every decision recorded before any code is written.",
+    banner: "The implementation-ready spec can now be handed to /implement in a fresh context window.",
+    columns: 4
+  }
+};
+
+// src/commands/common/constants/build/queueCatalogEntry.ts
+var queueCatalogEntry = {
+  id: "queue",
+  cli: "lightsout queue",
+  group: CommandGroup.Build,
+  summary: "Drain the tracker of automatable tickets in parallel worktrees, relaying any question to this terminal or to a mailbox directory.",
+  whenToUse: "Run it when the tracker holds tickets you have labelled for automation and you want them built without picking them up one at a time: it makes a worktree and branch per ticket, runs the worker its label names, puts any question it cannot answer to this terminal \u2014 or, with `--file-relay`, to a mailbox directory an agent session or an editor can answer from \u2014 then ships the ready branches one at a time, each rebased onto fresh main with the gates re-run. A mailbox question nobody answers parks its ticket once `queue.question-timeout` elapses. It stops when nothing is left to do; running it again resumes whatever parked.",
+  invocations: [{ id: "queue" }],
+  flags: [
+    {
+      name: "file-relay",
+      value: "[dir]",
+      meaning: "Relay questions as files in a mailbox directory instead of asking on this terminal. Defaults to .lightsout/queue/relay under the repo, emptied at startup.",
+      fallback: "Questions are asked on the terminal that started the drain.",
+      required: false
+    },
+    { name: "cwd", value: "<path>", meaning: "Repository to drain into.", fallback: "The process working directory.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Runs,
+  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "ticket-state"]
+};
+
+// src/commands/common/constants/build/resumeCatalogEntry.ts
+var resumeCatalogEntry = {
+  id: "resume",
+  cli: "lightsout resume",
+  group: CommandGroup.Build,
+  summary: "Pick a parked run back up where it stopped \u2014 same manifest, same work list, nothing repeated.",
+  whenToUse: "Use it when a run parked \u2014 a rate limit, a batch ceiling, an escalation you have now answered. It restarts from the manifest, so finished work is never redone.",
+  invocations: [{ id: "resume" }],
+  flags: [
+    { name: "run", value: "<id>", meaning: "The parked run to pick back up.", required: true },
+    { name: "cwd", value: "<path>", meaning: "Repository the run belongs to.", fallback: "The process working directory.", required: false },
+    { name: "skip-refactor", meaning: "Skip the refactor step at the end of the run.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Runs,
+  related: ["auto-plan", "brainstorm", "plan", "implement", "ship", "implement-direct", "queue", "ticket-state"]
+};
+
+// src/commands/common/constants/build/shipCatalogEntry.ts
+var shipCatalogEntry = {
+  id: "ship",
+  cli: "lightsout ship",
+  group: CommandGroup.Build,
+  summary: "Take the current branch from committed work to merged and cleaned up, and write a typed result.",
+  whenToUse: "Run it when the branch is committed and you want it merged: it pushes the branch, opens or adopts the pull request, waits for the checks, merges, deletes the branch and syncs the default branch \u2014 then writes one JSON result a tracker skill can read.",
+  invocations: [{ id: "ship" }],
+  flags: [{ name: "cwd", value: "<path>", meaning: "Repository to ship from.", fallback: "The process working directory.", required: false }],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["auto-plan", "brainstorm", "plan", "implement", "resume", "implement-direct", "queue", "ticket-state"]
+};
+
+// src/commands/common/constants/build/ticketStateCatalogEntry.ts
+var ticketStateCatalogEntry = {
+  id: "ticket-state",
+  cli: "lightsout ticket-state",
+  group: CommandGroup.Build,
+  summary: "Write a ticket's planning status, its tracker workflow status, or both.",
+  whenToUse: "Run it at a workflow transition \u2014 when brainstorming finishes, when a plan is approved, when implementation begins \u2014 so the ticket says what preparation it still owes and where implementation stands. The workflow skills call it at each of those moments, so the tracker says the same thing however the work was started.",
+  invocations: [{ id: "ticket-state" }],
+  flags: [
+    { name: "ref", value: "<ticket>", meaning: "The ticket to write, by its human reference.", required: true },
+    {
+      name: "planning-status",
+      value: "<status>",
+      meaning: "What preparation the ticket still owes: planning-needs-brainstorm, planning-needs-plan, planning-ready-auto-plan, planning-complete or planning-not-needed.",
+      fallback: "The planning status is left as it is.",
+      required: false
+    },
+    {
+      name: "tracker-status",
+      value: "ready|in-progress",
+      meaning: "Where implementation stands, named by role so one line works in every repository: ready when shaping is finished and implementation is waiting, in-progress when source changes have begun. Done is not among them \u2014 a ticket reaches done only when a merge is positively confirmed, which the ship path writes.",
+      fallback: "The tracker status is left as it is.",
+      required: false
+    },
+    { name: "cwd", value: "<path>", meaning: "Repository whose config names the tracker.", fallback: "The process working directory.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "queue"]
+};
+
+// src/commands/common/constants/burnDown/refactorSteps.ts
+var refactorSteps = [
+  {
+    title: "START THE RUN",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Point `/refactor` at the whole repo or one folder, with an optional batch budget",
+      "Refuse to start without a config, without git, or with uncommitted changes",
+      "Create a run ID and a repository lock so no other lightsout run touches the same tree"
+    ],
+    note: "Keeps the entire cleanup as one diff you can read, revert, or resume",
+    saved: [".lightsout/runs/<id>/manifest.json", ".lightsout/lock.json"]
+  },
+  {
+    title: "FIND THE WORK",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Search source files for repeated names, copied code, duplicate logic, oversized code, misplaced files, boundary violations, and dead exports",
+      "Detectors that read types need the repo\u2019s own TypeScript, and say so when it is missing",
+      "Leave out anything already accepted as known debt, unless you asked for everything"
+    ],
+    note: "Detection is deterministic code \u2014 no agent is ever asked to go find problems",
+    saved: ["lightsout.standards-baseline.json"],
+    savedLabel: "READ FROM DISK"
+  },
+  {
+    title: "GROUP INTO BATCHES",
+    actor: CommandActor.Engine,
+    bullets: [
+      "One batch is one kind of finding in one area \u2014 a package, a top-level folder, or the repo root",
+      "The most mechanical kinds run first, twelve findings at most, and a finding spanning two areas gets its own batch",
+      "Freeze the list to disk and work from it \u2014 never recompute it midway"
+    ],
+    note: "Gives each agent a single coherent job instead of a pile of unrelated fixes",
+    saved: [".lightsout/runs/<id>/worklist.json"]
+  },
+  {
+    title: "VERIFY THE REPO STARTS GREEN",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Run any code generator first, then lint, type checks, tests, build, and coverage",
+      "Stop immediately if any gate is already failing",
+      "Skip this on a resumed run when an earlier attempt already proved it green"
+    ],
+    note: "Proves any later failure was introduced by this run, not inherited from the repository",
+    saved: ["manifest.json", ".lightsout/runs/<id>/commands.jsonl"]
+  },
+  {
+    title: "SKIP WHAT IS ALREADY FIXED",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Check again immediately before each batch starts",
+      "If earlier batches already cleared these findings, close the batch and spend no agent",
+      "Collect fresh size warnings for the batch\u2019s files \u2014 the frozen ones cite line numbers that have since moved"
+    ],
+    note: "Never pays an agent to fix something that is already gone",
+    saved: ["manifest.json"]
+  },
+  {
+    title: "FIX ONE BATCH",
+    actor: CommandActor.Agent,
+    bullets: [
+      "Batches run one at a time; the agent gets the findings, the files they live in, and your code standards",
+      "Findings must be fixed or explained; size warnings are judged against your documented exemptions",
+      "It may run only the commands your config allows, works under a time limit, and answers with one structured report"
+    ],
+    note: "Changes structure only \u2014 the behavior has to survive untouched",
+    saved: [".lightsout/runs/<id>/agents/", "stream-batch-NN-*.jsonl", "rejected-*.txt"]
+  },
+  {
+    title: "VERIFY THE BATCH",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Re-run the gates, scoped to the packages that changed, with coverage always on",
+      "Try up to two lightweight repairs when a gate goes red",
+      "Send a coverage-only failure to a test-writing agent; a mixed failure goes back to the refactor agent first"
+    ],
+    note: "Stops a batch that broke the build from reaching the next one",
+    saved: ["manifest.json", ".lightsout/runs/<id>/commands.jsonl"]
+  },
+  {
+    title: "BRING IN A SUPERVISOR",
+    actor: CommandActor.Agent,
+    bullets: [
+      "When the quick repairs run out, a read-only supervisor diagnoses the failure",
+      "It either grants one guided retry or rules the failure a human problem",
+      "If the gates are still red after that, the run stops with the diagnosis attached as evidence"
+    ],
+    note: "Buys judgment exactly once, instead of retrying forever",
+    saved: [".lightsout/runs/<id>/agents/", "stream-batch-NN-supervisor.jsonl"]
+  },
+  {
+    title: "RULE ON THE BATCH",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Check again \u2014 the code rules, and a copied block that merely moved is not gone",
+      "Gone counts as resolved; still there with nothing changed counts as declined, with the agent\u2019s reasoning kept",
+      "Partly fixed earns one more pass, and whatever survives that is recorded as declined"
+    ],
+    note: "Work finished without a report still counts, and changed files come from git, minus generated output",
+    saved: ["manifest.json", ".lightsout/friction.jsonl"]
+  },
+  {
+    title: "KNOW WHEN TO STOP",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Three declines in a row end the run \u2014 the pattern is systemic, and more spend will not fix it",
+      "A refusal on scope grounds counts as a decline and the run carries on",
+      "A harness rate limit or your batch budget parks the run instead of failing it"
+    ],
+    note: "Each batch is saved before the next begins, and declines are read back \u2014 resuming re-runs nothing",
+    saved: ["manifest.json"]
+  },
+  {
+    title: "MEASURE THE BURN-DOWN",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Check the whole scope once more and report findings before and after, one line per kind",
+      "A parked run reports no burn-down \u2014 resume it to finish and measure",
+      "Keep every batch outcome, retry, token cost, and point of friction in one folder"
+    ],
+    note: "Turns the cleanup into a number you can check rather than a claim",
+    saved: [".lightsout/runs/<id>/", "agents.jsonl", ".lightsout/friction.jsonl"]
+  },
+  {
+    title: "REVIEW AND COMMIT",
+    actor: CommandActor.You,
+    bullets: [
+      "Read each declined batch alongside the agent\u2019s own reasoning for leaving it",
+      "Fix it by hand, or accept it as known debt in the baseline",
+      "Review the working-tree diff and commit it \u2014 the engine never commits"
+    ],
+    note: "Leaves the last call on unfixed debt with a human",
+    saved: ["lightsout.standards-baseline.json"]
+  }
+];
+
+// src/commands/common/constants/burnDown/refactorCatalogEntry.ts
+var refactorCatalogEntry = {
+  id: "refactor",
+  slash: "/refactor",
+  cli: "lightsout refactor",
+  group: CommandGroup.BurnDown,
+  summary: "Burn down a repo\u2019s standards-check findings (duplication, size, structure, boundary violations) in verified, resumable batches via the lightsout refactor pipeline.",
+  whenToUse: "Reach for it when standards-check has more findings than anyone will fix by hand. It burns them down in verified, resumable batches, each one gated before it lands.",
+  invocations: [{ id: "refactor" }, { id: "refactor-resume", note: "resume a parked refactor run" }],
+  flags: [
+    { name: "run", value: "<id>", meaning: "The parked refactor run to pick back up.", shape: "refactor-resume", required: true },
+    { name: "cwd", value: "<path>", meaning: "Repository to burn down.", fallback: "The process working directory.", required: false },
+    { name: "path", value: "<subdir>", meaning: "Burn down only this subdirectory.", fallback: "The whole repository.", shape: "refactor", required: false },
+    { name: "all", meaning: "Include findings the baseline has already accepted as known debt.", shape: "refactor", required: false },
+    {
+      name: "max-batches",
+      value: "<n>",
+      meaning: "Park the run after this many batches.",
+      fallback: "The run continues until the work-list is finished.",
+      shape: "refactor",
+      required: false
+    },
+    { name: "code-checks", meaning: "Build the work-list from the mechanical checks alone, with no agent review.", shape: "refactor", required: false },
+    { name: "allow-dirty", meaning: "Start even though the git tree has uncommitted changes.", shape: "refactor", required: false }
+  ],
+  steps: refactorSteps,
+  records: CommandRecordKind.Runs,
+  related: ["test-coverage-to-threshold", "standards-check"],
+  graphic: {
+    title: "How /refactor turns standards findings into verified cleanup",
+    subtitle: "Twelve steps, one batch at a time, every fix re-checked and re-gated before the next begins.",
+    banner: "The engine never commits. It hands back a measured before-and-after and a diff you review.",
+    columns: 4
+  }
+};
+
+// src/commands/common/constants/burnDown/testCoverageToThresholdCatalogEntry.ts
+var testCoverageToThresholdCatalogEntry = {
+  id: "test-coverage-to-threshold",
+  slash: "/test-coverage-to-threshold",
+  cli: "lightsout test-coverage-to-threshold",
+  group: CommandGroup.BurnDown,
+  summary: "Raise a repo\u2019s unit-test coverage until its own coverage script passes, in verified, resumable batches via the lightsout coverage pipeline.",
+  whenToUse: "Use it when the coverage gate is what stands between you and a green build. It writes tests in batches until your own coverage script passes, and stops there.",
+  invocations: [{ id: "test-coverage-to-threshold" }, { id: "test-coverage-to-threshold-resume", note: "resume a parked coverage run" }],
+  flags: [
+    { name: "run", value: "<id>", meaning: "The parked coverage run to pick back up.", shape: "test-coverage-to-threshold-resume", required: true },
+    { name: "cwd", value: "<path>", meaning: "Repository to raise coverage in.", fallback: "The process working directory.", required: false },
+    {
+      name: "max-batches",
+      value: "<n>",
+      meaning: "Park the run after this many batches.",
+      fallback: "The run continues until the coverage script passes.",
+      shape: "test-coverage-to-threshold",
+      required: false
+    },
+    { name: "allow-dirty", meaning: "Start even though the git tree has uncommitted changes.", shape: "test-coverage-to-threshold", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Runs,
+  related: ["refactor", "standards-check"]
+};
+
+// src/commands/common/constants/housekeeping/doctorCatalogEntry.ts
+var doctorCatalogEntry = {
+  id: "doctor",
+  cli: "lightsout doctor",
+  group: CommandGroup.Housekeeping,
+  summary: "Check the install end to end \u2014 config, harness, gates, standards \u2014 and name what is missing.",
+  whenToUse: "Run it first, on a repo where something is not working. It checks config, harness, gates and standards in order and names the first thing that is missing.",
+  invocations: [{ id: "doctor" }],
+  flags: [{ name: "cwd", value: "<path>", meaning: "Repository to check the install of.", fallback: "The process working directory.", required: false }],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["status", "friction", "improve", "voice"]
+};
+
+// src/commands/common/constants/housekeeping/frictionCatalogEntry.ts
+var frictionCatalogEntry = {
+  id: "friction",
+  cli: "lightsout friction",
+  group: CommandGroup.Housekeeping,
+  summary: "Collect what slowed the agents down across recent runs, so the next fix is the one that pays.",
+  whenToUse: "Reach for it after a few runs, when you want the next improvement to be the one that pays. It collects what actually slowed the agents down instead of what you assume did.",
+  invocations: [{ id: "friction" }],
+  flags: [{ name: "cwd", value: "<path>", meaning: "Repository whose runs are read.", fallback: "The process working directory.", required: false }],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["status", "doctor", "improve", "voice"]
+};
+
+// src/commands/common/constants/housekeeping/improveCatalogEntry.ts
+var improveCatalogEntry = {
+  id: "improve",
+  cli: "lightsout improve",
+  group: CommandGroup.Housekeeping,
+  summary: "Feed this repo\u2019s friction back to the lightsout engine as a change proposal.",
+  whenToUse: "Use it when this repo\u2019s friction is really the engine\u2019s problem. It turns those findings into a change proposal against a lightsout checkout you point it at.",
+  invocations: [{ id: "improve" }],
+  flags: [
+    { name: "engine", value: "<lightsout-repo-path>", meaning: "The lightsout checkout the change proposal is written against.", required: true },
+    { name: "cwd", value: "<path>", meaning: "Repository whose friction is read.", fallback: "The process working directory.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["status", "doctor", "friction", "voice"]
+};
+
+// src/commands/common/constants/housekeeping/statusCatalogEntry.ts
+var statusCatalogEntry = {
+  id: "status",
+  cli: "lightsout status",
+  group: CommandGroup.Housekeeping,
+  summary: "Show what lightsout sees in this repo: config, harness, packs, any run still parked \u2014 and, for one run, what it is doing right now.",
+  whenToUse: "Run it when you come back to a repo and need to know what lightsout thinks is going on. It names the config, the harness, the packs in play, and any run still parked. Name a run and it shows what is happening inside that run instead: its steps, their outcomes and durations, and what it is working on this moment.",
+  invocations: [{ id: "status" }, { id: "status-run", note: "one run in detail; --watch repaints it every two minutes" }],
+  flags: [
+    {
+      name: "run",
+      value: "<id>",
+      meaning: "Show one run in detail \u2014 its steps, their outcomes and durations, what it is doing now. Takes the shortened eight-character id reports print.",
+      fallback: "Every run is listed, one line each.",
+      shape: "status-run",
+      required: false
+    },
+    {
+      name: "watch",
+      meaning: "Repaint the detail block every two minutes until the run stops, so a detached run can be followed.",
+      fallback: "The block is printed once.",
+      shape: "status-run",
+      required: false
+    },
+    { name: "cwd", value: "<path>", meaning: "Repository to report on.", fallback: "The process working directory.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["doctor", "friction", "improve", "voice"]
+};
+
+// src/commands/common/constants/housekeeping/voiceCatalogEntry.ts
+var voiceCatalogEntry = {
+  id: "voice",
+  slash: "/lightsout:voice",
+  cli: "lightsout voice",
+  group: CommandGroup.Housekeeping,
+  summary: "Turn the spoken read-out of lightsout interview questions on or off for this project \u2014 `/lightsout:voice on` and `/lightsout:voice off`.",
+  whenToUse: "Turn it on when you would rather hear the interview questions than watch for them. Mac-only, off until you turn it on, and per-project.",
+  invocations: [
+    { id: "voice-toggle", positional: "on|off", note: "toggle spoken read-out of interview questions \u2014 Mac-only" },
+    { id: "voice-hook", positional: "hook", note: "hook entry for Stop + AskUserQuestion: reads hook JSON on stdin, speaks the question" }
+  ],
+  flags: [{ name: "cwd", value: "<path>", meaning: "Project the setting belongs to.", fallback: "The process working directory.", required: false }],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["status", "doctor", "friction", "improve"]
+};
+
+// src/commands/common/constants/standards/standardsCheckCatalogEntry.ts
+var standardsCheckCatalogEntry = {
+  id: "standards-check",
+  cli: "lightsout standards-check",
+  group: CommandGroup.Standards,
+  summary: "Check the repo against its standards packs and report every finding, machine checks and agent review alike.",
+  whenToUse: "Run it to see where the repo stands against its packs, before a refactor or after one. `--list` prints the enforcement ledger instead: which rules are blocking, which advisory, which off.",
+  invocations: [{ id: "standards-check" }, { id: "standards-check-list", note: "print the enforcement ledger" }],
+  flags: [
+    { name: "list", meaning: "Print the enforcement ledger \u2014 blocking, advisory, off \u2014 and check nothing.", shape: "standards-check-list", required: true },
+    { name: "cwd", value: "<path>", meaning: "Repository to check.", fallback: "The process working directory.", required: false },
+    { name: "path", value: "<subdir>", meaning: "Check only this subdirectory.", fallback: "The whole repository.", shape: "standards-check", required: false },
+    { name: "all", meaning: "Include findings the baseline has already accepted as known debt.", shape: "standards-check", required: false },
+    { name: "baseline", meaning: "Write the findings to the baseline file as accepted debt.", shape: "standards-check", required: false },
+    { name: "code-checks", meaning: "Run the mechanical checks only.", shape: "standards-check", required: false, exclusiveWith: "half" },
+    { name: "agent-review", meaning: "Run the agent review only.", shape: "standards-check", required: false, exclusiveWith: "half" }
+  ],
+  steps: [],
+  records: CommandRecordKind.Snapshots,
+  related: ["standards-validate", "standards-health", "refactor", "test-coverage-to-threshold"]
+};
+
+// src/commands/common/constants/standards/standardsHealthCatalogEntry.ts
+var standardsHealthCatalogEntry = {
+  id: "standards-health",
+  cli: "lightsout standards-health",
+  group: CommandGroup.Standards,
+  summary: "Report each rule\u2019s coverage and how often agents decline it \u2014 which standards are actually holding.",
+  whenToUse: "Reach for it when you suspect a standard is decorative \u2014 declared, but never enforced in practice. It shows per-rule coverage and how often agents decline the rule when asked to fix it.",
+  invocations: [{ id: "standards-health", note: "per-rule coverage and how often agents decline it" }],
+  flags: [{ name: "cwd", value: "<path>", meaning: "Repository to report on.", fallback: "The process working directory.", required: false }],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["standards-check", "standards-validate"]
+};
+
+// src/commands/common/constants/standards/standardsValidateCatalogEntry.ts
+var standardsValidateCatalogEntry = {
+  id: "standards-validate",
+  cli: "lightsout standards-validate",
+  group: CommandGroup.Standards,
+  summary: "Run every rule\u2019s check against its own fixtures, so a rule that no longer detects what it claims fails loudly.",
+  whenToUse: "Run it after writing or editing a rule, and in CI for a pack you ship. It proves each check still passes its own pass fixtures and still fails its fail fixtures.",
+  invocations: [{ id: "standards-validate", note: "run every check against its own fixtures" }],
+  flags: [
+    { name: "pack", value: "<path>", meaning: "Validate only the pack at this folder.", fallback: "Every pack the config loads.", required: false },
+    { name: "cwd", value: "<path>", meaning: "Repository whose packs are validated.", fallback: "The process working directory.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["standards-check", "standards-health"]
+};
+
+// src/commands/commandCatalog.ts
+var commandCatalog = [
+  brainstormCatalogEntry,
+  planCatalogEntry,
+  autoPlanCatalogEntry,
+  implementCatalogEntry,
+  implementDirectCatalogEntry,
+  resumeCatalogEntry,
+  shipCatalogEntry,
+  queueCatalogEntry,
+  ticketStateCatalogEntry,
+  refactorCatalogEntry,
+  testCoverageToThresholdCatalogEntry,
+  standardsCheckCatalogEntry,
+  standardsValidateCatalogEntry,
+  standardsHealthCatalogEntry,
+  statusCatalogEntry,
+  doctorCatalogEntry,
+  frictionCatalogEntry,
+  improveCatalogEntry,
+  voiceCatalogEntry
+];
+
+// src/commands/getCommandCatalogEntry.ts
+var getCommandCatalogEntry = ({ id }) => commandCatalog.find((entry) => entry.id === id);
+
+// src/commands/spellFlag.ts
+var spellFlag = ({ flag }) => flag.value === void 0 ? `--${flag.name}` : `--${flag.name} ${flag.value}`;
+
+// src/commands/renderUsage.ts
+var usageOrder = [
+  "implement",
+  "implement-folder",
+  "implement-direct",
+  "resume",
+  "ship",
+  "queue",
+  "status",
+  "status-run",
+  "doctor",
+  "standards-check",
+  "standards-check-list",
+  "standards-validate",
+  "standards-health",
+  "refactor",
+  "refactor-resume",
+  "test-coverage-to-threshold",
+  "test-coverage-to-threshold-resume",
+  "brainstorm-publish",
+  "plan-verify-facts",
+  "plan-draft",
+  "plan-lint",
+  "plan-dedup",
+  "plan-grade",
+  "plan-publish",
+  "ticket-state",
+  "friction",
+  "improve",
+  "voice-toggle",
+  "voice-hook"
+];
+var renderExclusiveGroup = ({ flags, key }) => {
+  const group = flags.filter((flag) => flag.exclusiveWith === key);
+  return `[${group.map((flag) => spellFlag({ flag })).join(" | ")}]`;
+};
+var renderFlags = ({ entry, invocation }) => {
+  const shown = entry.flags.filter((flag) => flag.shape === void 0 || flag.shape === invocation.id);
+  const rendered = [];
+  const groupsSeen = /* @__PURE__ */ new Set();
+  for (const flag of shown) {
+    if (flag.exclusiveWith === void 0) {
+      rendered.push(flag.required ? spellFlag({ flag }) : `[${spellFlag({ flag })}]`);
+    } else if (!groupsSeen.has(flag.exclusiveWith)) {
+      groupsSeen.add(flag.exclusiveWith);
+      rendered.push(renderExclusiveGroup({ flags: shown, key: flag.exclusiveWith }));
+    }
+  }
+  return rendered;
+};
+var padNote = ({ body, note }) => `${body}${" ".repeat(Math.max(3, 54 - body.length))}(${note})`;
+var renderLine = ({ cli, entry, invocation }) => {
+  const words = [cli, invocation.positional, ...renderFlags({ entry, invocation })].filter((word) => word !== void 0);
+  const body = `  ${words.join(" ")}`;
+  return invocation.note === void 0 ? body : padNote({ body, note: invocation.note });
+};
+var renderUsage = () => {
+  const header = "lightsout \u2014 deterministic engine for coding agents\n\nusage:";
+  const exitCodes = `exit codes (implement, resume, refactor, test-coverage-to-threshold):
+  0  finished
+  2  stopped with work left and resumable \u2014 a --max-batches ceiling, or a harness rate limit
+  1  anything else`;
+  const lines = [];
+  for (const id of usageOrder) {
+    const entry = commandCatalog.find((candidate) => candidate.invocations.some((invocation2) => invocation2.id === id));
+    const invocation = entry?.invocations.find((candidate) => candidate.id === id);
+    if (entry?.cli !== void 0 && invocation !== void 0) {
+      lines.push(renderLine({ cli: entry.cli, entry, invocation }));
+    }
+  }
+  return `${header}
+${lines.join("\n")}
+
+${exitCodes}
+`;
+};
+
+// src/cli/common/constants/usage.ts
+var usage = renderUsage();
+
+// src/cli/common/utils/exitCli.ts
+var exitCli = async ({ code }) => {
+  await Promise.all([process.stdout, process.stderr].map((stream) => new Promise((resolve17) => stream.write("", () => resolve17()))));
+  return process.exit(code);
+};
+
 // src/cli/common/args/getRequiredFlag.ts
 var getRequiredFlag = async ({ flags, name }) => {
   const value = getStringFlag({ flags, name });
@@ -130034,6 +129999,41 @@ var brainstormCommand = async ({ flags, rest, cwd }) => {
   }
   console.error(usage);
   return exitCli({ code: 1 });
+};
+
+// src/cli/common/args/readCommandFlags.ts
+var readCommandFlags = ({ command }) => {
+  const entry = getCommandCatalogEntry({ id: command });
+  return /* @__PURE__ */ new Set(["cwd", ...entry?.flags.map((flag) => flag.name) ?? []]);
+};
+
+// src/cli/common/args/getUnknownFlagsMessage.ts
+var getUnknownFlagsMessage = ({ command, flags }) => {
+  const accepted = readCommandFlags({ command });
+  const unknown2 = [...flags.keys()].filter((name) => !accepted.has(name));
+  return unknown2.length === 0 ? void 0 : `lightsout ${command}: unknown flag${unknown2.length > 1 ? "s" : ""} ${unknown2.map((name) => `--${name}`).join(", ")}`;
+};
+
+// src/cli/common/args/parseFlags.ts
+var parseFlags = ({ args }) => {
+  const flags = /* @__PURE__ */ new Map();
+  let index = 0;
+  while (index < args.length) {
+    const key = args[index];
+    if (!key?.startsWith("--")) {
+      index += 1;
+      continue;
+    }
+    const value = args[index + 1];
+    if (value === void 0 || value.startsWith("--")) {
+      flags.set(key.slice(2), true);
+      index += 1;
+    } else {
+      flags.set(key.slice(2), value);
+      index += 2;
+    }
+  }
+  return flags;
 };
 
 // src/cli/common/terminal/dim.ts
