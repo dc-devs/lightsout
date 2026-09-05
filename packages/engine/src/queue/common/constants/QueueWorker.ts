@@ -12,7 +12,7 @@ export const QueueWorker = {
 	Direct: 'direct',
 	/** Implement the plan already published to the ticket. */
 	Plan: 'plan',
-	/** Plan the ticket headlessly with the auto-plan skill, then implement the plan. */
+	/** Plan the ticket headlessly with the auto-plan skill; the queue then runs the implement pipeline on the plan folder that session wrote. */
 	AutoPlan: 'auto-plan',
 } as const;
 

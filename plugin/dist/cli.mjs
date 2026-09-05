@@ -25704,7 +25704,7 @@ ${promptFiles.map((file2) => `- ${file2}`).join("\n")}`,
 };
 
 // src/agents/prompts/queueAutoPlan.md
-var queueAutoPlan_default = '# Role: Headless Auto-Plan Worker\n\nYou are running unattended in a git worktree that already holds this ticket\'s\nbranch. Nobody is watching your session. The queue that spawned you relays\nanything you cannot decide to the one terminal a human is sitting at, and\nre-invokes you with their answer.\n\n## What to do\n\n1. Invoke the `lightsout:auto-plan` skill on the ticket appended below and\n   follow it exactly as written. It plans the ticket, publishes the approved\n   durable plan to that ticket, and hands the plan to the implement pipeline.\n2. Do not begin implementation unless that publish step succeeded. Then run the\n   engine\'s `implement` command on the plan folder the skill produces, and stay\n   with the run until it finishes. A publish failure is a worker failure to\n   report, not a reason to continue from the one local copy.\n\nThe task message names the exact engine invocation to type. That string is\nalso the only command prefix this session was granted, so wherever the skill\'s\nown text says `lightsout <subcommand>`, run the granted invocation followed by\n`<subcommand>` instead. Anything else will simply be refused.\n\nThe `lightsout:auto-plan` skill ships in the same plugin as the engine that\nspawned you, so a user running the queue has it installed. If your session\ncannot find it, do NOT improvise a planning process: report `failed` with a\nfailure saying the lightsout plugin\'s skills are not available to spawned\nsessions, so the ticket parks with a message a human can act on.\n\n## The worktree may already hold your earlier work\n\nInspect it before assuming it is fresh. A previous invocation of you may have\nwritten a plan folder, started a run, or left half-finished work \u2014 this happens\nafter a relayed answer and after a restart. An existing\n`.lightsout/plans/<name>/` for this ticket is yours: do not re-derive a name\nand do not restart the pipeline. Fold the relayed answer in and continue from\nwhere the previous invocation stopped.\n\n## You have no user\n\nNever ask a question directly \u2014 there is nobody in your session to answer it.\nWhen a question clears the skill\'s escalation bar, stop and report\n`terminated:ambiguity` with the question as the FIRST entry of `failures`. The\nengine relays it to the terminal that started the queue, records the answer on\nthe ticket, and re-invokes you with it. Ask one question at a time.\n\n## Never ship\n\nNever run `lightsout ship`, and never pass `--ship`. Shipping is the queue\'s\nown step: it rebases each branch onto fresh main and re-runs the gates, one\nbranch at a time. A branch that ships itself races that order.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. Your\nmessage starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was built, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 omit when clean" }]\n}\n```\n\nReport `complete` only when the plan was implemented and its run passed. Never\nclaim work you did not do \u2014 the engine diffs the tree, and a false report is\nworse than a failed one.\n';
+var queueAutoPlan_default = '# Role: Headless Auto-Plan Worker\n\nYou are running unattended in a git worktree that already holds this ticket\'s\nbranch. Nobody is watching your session. The queue that spawned you relays\nanything you cannot decide to the one terminal a human is sitting at, and\nre-invokes you with their answer.\n\n## What to do\n\n1. Invoke the `lightsout:auto-plan` skill on the ticket appended below and\n   follow it exactly as written. It plans the ticket and publishes the approved\n   durable plan to that ticket.\n2. Your job ends the moment that publish step has succeeded \u2014 report then. A\n   publish failure is a worker failure to report, not a reason to continue from\n   the one local copy. The queue builds the plan itself, as an engine\n   subprocess outside this session, from the plan folder you leave in the\n   worktree: leave it exactly where it is, and name it exactly like the\n   worktree\'s branch, because that is the name the engine looks under once your\n   session has ended.\n\nThe task message names the exact engine invocation to type. That string is\nalso the only command prefix this session was granted, so wherever the skill\'s\nown text says `lightsout <subcommand>`, run the granted invocation followed by\n`<subcommand>` instead. Anything else will simply be refused.\n\nThe `lightsout:auto-plan` skill ships in the same plugin as the engine that\nspawned you, so a user running the queue has it installed. If your session\ncannot find it, do NOT improvise a planning process: report `failed` with a\nfailure saying the lightsout plugin\'s skills are not available to spawned\nsessions, so the ticket parks with a message a human can act on.\n\n## The worktree may already hold your earlier work\n\nInspect it before assuming it is fresh. A previous invocation of you may have\nwritten a plan folder \u2014 this happens after a relayed answer and after a\nrestart. An existing `.lightsout/plans/<name>/` for this ticket is yours: do\nnot re-derive a name. Fold the relayed answer into that folder and continue\nfrom where the previous invocation stopped, rather than planning it again.\n\n## You have no user\n\nNever ask a question directly \u2014 there is nobody in your session to answer it.\nWhen a question clears the skill\'s escalation bar, stop and report\n`terminated:ambiguity` with the question as the FIRST entry of `failures`. The\nengine relays it to the terminal that started the queue, records the answer on\nthe ticket, and re-invokes you with it. Ask one question at a time.\n\n## Never implement\n\nNever run the engine\'s `implement` subcommand, and never invoke the\n`lightsout:implement` skill. A build takes hours, and a build started inside an\nagent session dies with that session \u2014 which is the very failure this worker\nexists to remove. The queue runs the build itself, outside any session.\n\n## Never ship\n\nNever run `lightsout ship`, and never pass `--ship`. Shipping is the queue\'s\nown step: it rebases each branch onto fresh main and re-runs the gates, one\nbranch at a time. A branch that ships itself races that order.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. Your\nmessage starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was built, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 omit when clean" }]\n}\n```\n\nReport `complete` only when the plan was written, graded and\npublished to the ticket. Never claim work you did not do \u2014 the engine diffs the\ntree, and a false report is worse than a failed one.\n';
 
 // src/agents/buildQueueAutoPlanInvocation.ts
 var buildQueueAutoPlanInvocation = ({
@@ -149696,7 +149696,7 @@ var QueueWorker = {
   Direct: "direct",
   /** Implement the plan already published to the ticket. */
   Plan: "plan",
-  /** Plan the ticket headlessly with the auto-plan skill, then implement the plan. */
+  /** Plan the ticket headlessly with the auto-plan skill; the queue then runs the implement pipeline on the plan folder that session wrote. */
   AutoPlan: "auto-plan"
 };
 
@@ -150224,16 +150224,22 @@ var createTicketWorktree = async ({ cwd, branch, defaultBranch, setup, onProgres
   return worktreePath;
 };
 
-// src/queue/runWorkerWithRelay.ts
+// src/queue/runPlanFolderPipeline.ts
 import { join as join102 } from "node:path";
-var runAutoPlanWorker = async ({
-  cwd,
-  ticket,
-  config: config2,
-  driver,
-  settings,
-  answeredQuestion
-}) => {
+var runPlanFolderPipeline = async ({ cwd, name, config: config2, driver, onProgress }) => {
+  const folder = planWorkspaceDir({ cwd, name });
+  const overviewPath = join102(folder, "overview.md");
+  const phased = await pathExists({ path: overviewPath });
+  const result = phased ? await runPhasesPipeline({ cwd, driver, config: config2, overviewPath, onProgress }) : await runImplementPipeline({ cwd, driver, config: config2, planPath: join102(folder, "plan.md"), onProgress });
+  if (result.ok) {
+    return {};
+  }
+  const stated = result.error ?? `the run ended ${result.manifest.status}`;
+  return { error: `${stated} \u2014 \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree` };
+};
+
+// src/queue/runAutoPlanWorker.ts
+var runAutoPlanWorker = async ({ cwd, ticket, branch, config: config2, driver, settings, answeredQuestion, onProgress }) => {
   const engineCli = `node ${process.argv[1]}`;
   const outcome = await invokeAgentWithContract({
     driver,
@@ -150260,8 +150266,18 @@ var runAutoPlanWorker = async ({
   if (report.status === WorkReportStatus.TerminatedAmbiguity) {
     return { question: refusal };
   }
-  return report.status === WorkReportStatus.Complete ? {} : { error: refusal };
+  if (report.status !== WorkReportStatus.Complete) {
+    return { error: refusal };
+  }
+  const folder = planWorkspaceDir({ cwd, name: branch });
+  if (!await pathExists({ path: folder })) {
+    return { error: `${ticket.identifier}'s auto-plan session reported a finished plan, but no plan folder exists at ${folder} \u2014 nothing was built` };
+  }
+  onProgress?.(`${ticket.identifier} is planned and published; the engine now runs the implement pipeline on its plan folder`);
+  return runPlanFolderPipeline({ cwd, name: branch, config: config2, driver, onProgress });
 };
+
+// src/queue/runWorkerWithRelay.ts
 var runDirectWorker = async ({
   cwd,
   ticket,
@@ -150308,13 +150324,7 @@ var runPlanWorker = async ({
       return runDirectWorker({ cwd, ticket, config: config2, driver, driverName, onProgress });
     }
   }
-  const phased = await pathExists({ path: join102(folder, "overview.md") });
-  const result = phased ? await runPhasesPipeline({ cwd, driver, config: config2, overviewPath: join102(folder, "overview.md"), onProgress }) : await runImplementPipeline({ cwd, driver, config: config2, planPath: join102(folder, "plan.md"), onProgress });
-  if (result.ok) {
-    return {};
-  }
-  const stated = result.error ?? `the run ended ${result.manifest.status}`;
-  return { error: `${stated} \u2014 \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree` };
+  return runPlanFolderPipeline({ cwd, name: branch, config: config2, driver, onProgress });
 };
 var runWorkerWithRelay = async ({
   worktreePath,
@@ -150336,7 +150346,7 @@ var runWorkerWithRelay = async ({
     const workers = {
       [QueueWorker.Direct]: () => runDirectWorker({ cwd: worktreePath, ticket, config: config2, driver, driverName, answeredQuestion, onProgress }),
       [QueueWorker.Plan]: () => runPlanWorker({ cwd: worktreePath, ticket, branch, config: config2, driver, driverName, trackerSettings, onProgress }),
-      [QueueWorker.AutoPlan]: () => runAutoPlanWorker({ cwd: worktreePath, ticket, config: config2, driver, settings, answeredQuestion })
+      [QueueWorker.AutoPlan]: () => runAutoPlanWorker({ cwd: worktreePath, ticket, branch, config: config2, driver, settings, answeredQuestion, onProgress })
     };
     const outcome = await workers[ticket.worker]();
     if (outcome.question === void 0) {

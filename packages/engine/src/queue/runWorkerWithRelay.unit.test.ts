@@ -1,16 +1,16 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
+import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import type { AgentOutcome } from '#src/invoke/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
+import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { TerminalQuestionRelay } from '#src/queue/relay/index.ts';
 import { runWorkerWithRelay } from '#src/queue/runWorkerWithRelay.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
@@ -23,28 +23,31 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 // each covered by its own tests. What this file owns is which worker the ticket
 // selects and the loop between a worker's question and the answer that comes
 // back, which is observable with them stubbed.
-const mockInvokeAgentWithContract = jest.fn<(params: { invocation: { prompt: string }; timeoutMs?: number }) => Promise<AgentOutcome<WorkReport>>>();
+const mockRunAutoPlanWorker = jest.fn<(params: { answeredQuestion?: { question: string; answer: string } }) => Promise<WorkerOutcome>>();
+const mockRunPlanFolderPipeline = jest.fn<(params: { cwd: string; name: string }) => Promise<WorkerOutcome>>();
 const mockRunDirectWork = jest.fn<(params: { answeredQuestion?: { question: string; answer: string } }) => Promise<PipelineResult>>();
 const mockAppendTicketNote = jest.fn<() => Promise<undefined>>();
 
-jest.mock('#src/invoke/index.ts', () => ({
-	invokeAgentWithContract: (params: { invocation: { prompt: string }; timeoutMs?: number }) => mockInvokeAgentWithContract(params),
+jest.mock('#src/queue/runAutoPlanWorker.ts', () => ({
+	runAutoPlanWorker: (params: { answeredQuestion?: { question: string; answer: string } }) => mockRunAutoPlanWorker(params),
+}));
+jest.mock('#src/queue/runPlanFolderPipeline.ts', () => ({
+	runPlanFolderPipeline: (params: { cwd: string; name: string }) => mockRunPlanFolderPipeline(params),
 }));
 jest.mock('#src/direct/index.ts', () => ({
 	runDirectWork: (params: { answeredQuestion?: { question: string; answer: string } }) => mockRunDirectWork(params),
 }));
 jest.mock('#src/ticketTracker/index.ts', () => ({ appendTicketNote: () => mockAppendTicketNote() }));
 // -------------------------
-// The plan worker asks the disk whether the folder is there and asks the ticket
-// for the plan when it is not. Both answers are the arrangement of the case
-// below, so both are stubbed; every other export of the barrel stays real.
-const mockPathExists = jest.fn<(params: { path: string }) => Promise<boolean>>();
+// The plan worker asks the disk whether the folder is there, then asks the ticket
+// for the plan when it is not. Only the tracker half is stubbed: whether a
+// folder exists is arranged by making one, so `pathExists` stays real and each
+// case reads the worktree it actually built.
 const mockRestorePlanWorkspace =
 	jest.fn<(params: { cwd: string; name: string; identifier: string; settings: TrackerSettings }) => Promise<{ restored: string[]; error?: string }>>();
 
 jest.mock('#src/plan/index.ts', () => ({
 	...jest.requireActual<typeof import('#src/plan/index.ts')>('#src/plan/index.ts'),
-	pathExists: (params: { path: string }) => mockPathExists(params),
 	restorePlanWorkspace: (params: { cwd: string; name: string; identifier: string; settings: TrackerSettings }) => mockRestorePlanWorkspace(params),
 }));
 // -------------------------
@@ -66,14 +69,6 @@ const ticketOf = (worker: QueueWorker): RunnableTicket => ({
 	worker,
 	status: 'Ready to implement',
 	unfinishedBlockers: [],
-});
-
-const reportOf = (overrides: Partial<WorkReport> = {}): WorkReport => ({
-	status: WorkReportStatus.Complete,
-	changedFiles: [],
-	summary: 'built it',
-	failures: [],
-	...overrides,
 });
 
 const manifestOf = (status: RunStatus): RunManifest => ({
@@ -122,9 +117,19 @@ const setupRelay = ({ answers = [] }: { answers?: string[] } = {}) => {
 	};
 };
 
-const runWorker = ({ relay, coordinatorRunDir, ticket }: { relay: QuestionRelay; coordinatorRunDir: string; ticket: RunnableTicket }) =>
+const runWorker = ({
+	relay,
+	coordinatorRunDir,
+	ticket,
+	worktreePath = '/tmp/lo-70-drain',
+}: {
+	relay: QuestionRelay;
+	coordinatorRunDir: string;
+	ticket: RunnableTicket;
+	worktreePath?: string;
+}) =>
 	runWorkerWithRelay({
-		worktreePath: '/tmp/lo-70-drain',
+		worktreePath,
 		branch: 'lo-70-drain',
 		ticket,
 		config,
@@ -145,7 +150,6 @@ const runWorker = ({ relay, coordinatorRunDir, ticket }: { relay: QuestionRelay;
 const setupBrainstormOnlyTicket = () => {
 	const { relay, coordinatorRunDir } = setupRelay();
 
-	mockPathExists.mockResolvedValue(false);
 	mockRestorePlanWorkspace.mockResolvedValue({ restored: [] });
 	mockRunDirectWork.mockResolvedValue({ ok: true, manifest: manifestOf(RunStatus.Passed) });
 
@@ -155,7 +159,8 @@ const setupBrainstormOnlyTicket = () => {
 		relay,
 		progress,
 		params: {
-			worktreePath: '/tmp/lo-70-drain',
+			// A fresh empty worktree: no plan folder on disk, which is what sends the worker to the ticket.
+			worktreePath: mkdtempSync(join(tmpdir(), 'lightsout-brainstorm-only-')),
 			branch: 'lo-70-drain',
 			ticket: { ...ticketOf(QueueWorker.Plan), planningStatus: PlanningStatus.Complete },
 			config,
@@ -222,63 +227,36 @@ describe('runWorkerWithRelay', () => {
 	test('an auto-plan worker that reports complete needs no question either', async () => {
 		const { relay, coordinatorRunDir } = setupRelay();
 
-		mockInvokeAgentWithContract.mockResolvedValue({ ok: true, report: reportOf() });
+		mockRunAutoPlanWorker.mockResolvedValue({});
 
 		expect(await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueWorker.AutoPlan) })).toStrictEqual({});
 
 		relay.close();
 	});
 
-	test('gives the auto-plan session the ceiling the settings already carry, in milliseconds and unconverted', async () => {
-		const { relay, coordinatorRunDir } = setupRelay();
-
-		mockInvokeAgentWithContract.mockResolvedValue({ ok: true, report: reportOf() });
-
-		await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueWorker.AutoPlan) });
-
-		relay.close();
-
-		expect(mockInvokeAgentWithContract.mock.calls[0]?.[0].timeoutMs).toBe(14_400_000);
-	});
-
 	test('relays an auto-plan worker’s first failure as the question it asked, and folds the answer into the next invocation', async () => {
 		const { relay, coordinatorRunDir } = setupRelay({ answers: ['the second one'] });
 
-		mockInvokeAgentWithContract
-			.mockResolvedValueOnce({ ok: true, report: reportOf({ status: WorkReportStatus.TerminatedAmbiguity, failures: ['Which one?'] }) })
-			.mockResolvedValueOnce({ ok: true, report: reportOf() });
+		mockRunAutoPlanWorker.mockResolvedValueOnce({ question: 'Which one?' }).mockResolvedValueOnce({});
 
 		const outcome = await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueWorker.AutoPlan) });
 
 		relay.close();
 
 		expect(outcome).toStrictEqual({});
-		expect(mockInvokeAgentWithContract.mock.calls[1]?.[0].invocation.prompt).toContain('the second one');
+		expect(mockRunAutoPlanWorker).toHaveBeenLastCalledWith(expect.objectContaining({ answeredQuestion: { question: 'Which one?', answer: 'the second one' } }));
 	});
 
-	test('parks an auto-plan worker whose report is neither a question nor success', async () => {
+	test('hands the plan folder the plan worker located to the engine-owned build', async () => {
 		const { relay, coordinatorRunDir } = setupRelay();
+		const worktreePath = mkdtempSync(join(tmpdir(), 'lightsout-plan-worker-'));
 
-		mockInvokeAgentWithContract.mockResolvedValue({
-			ok: true,
-			report: reportOf({ status: WorkReportStatus.Failed, failures: ['the lightsout plugin skills are not available'] }),
-		});
+		mkdirSync(join(worktreePath, '.lightsout', 'plans', 'lo-70-drain'), { recursive: true });
+		writeFileSync(join(worktreePath, '.lightsout', 'plans', 'lo-70-drain', 'plan.md'), '# Plan\n');
+		mockRunPlanFolderPipeline.mockResolvedValue({});
 
-		expect(await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueWorker.AutoPlan) })).toStrictEqual({
-			error: 'the lightsout plugin skills are not available',
-		});
-
-		relay.close();
-	});
-
-	test('parks a harness that refused outright, so a rate limit never reads as finished work', async () => {
-		const { relay, coordinatorRunDir } = setupRelay();
-
-		mockInvokeAgentWithContract.mockResolvedValue({ ok: false, failure: 'harness rate limited or overloaded', rateLimited: true });
-
-		expect(await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueWorker.AutoPlan) })).toStrictEqual({
-			error: 'harness rate limited or overloaded',
-		});
+		expect(await runWorker({ relay, coordinatorRunDir, worktreePath, ticket: ticketOf(QueueWorker.Plan) })).toStrictEqual({});
+		expect(mockRunPlanFolderPipeline).toHaveBeenCalledWith(expect.objectContaining({ cwd: worktreePath, name: 'lo-70-drain' }));
 
 		relay.close();
 	});
@@ -316,7 +294,7 @@ describe('runWorkerWithRelay', () => {
 		relay.close();
 
 		expect(outcome).toStrictEqual({});
-		expect(mockRunDirectWork).toHaveBeenCalledWith(expect.objectContaining({ ticketBody: 'Build the thing.', ticketRef: 'LO-70', cwd: '/tmp/lo-70-drain' }));
+		expect(mockRunDirectWork).toHaveBeenCalledWith(expect.objectContaining({ ticketBody: 'Build the thing.', ticketRef: 'LO-70', cwd: params.worktreePath }));
 		expect(progress).toEqual([expect.stringContaining('carries no published plan')]);
 	});
 });
