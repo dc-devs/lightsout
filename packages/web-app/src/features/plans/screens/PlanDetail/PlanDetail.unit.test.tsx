@@ -191,7 +191,14 @@ describe('PlanDetail', () => {
 		setupPlanDetail({
 			text: '# the rough idea',
 			view: buildPlanWorkspaceView({
-				overrides: { notesFile: { name: 'notes.md', path: '.lightsout/plans/add-search/notes.md', bytes: 400, updatedAt: '2026-01-01T00:00:00.000Z' } },
+				overrides: {
+					notesFile: {
+						name: 'brainstorm-notes.md',
+						path: '.lightsout/plans/add-search/brainstorm-notes.md',
+						bytes: 400,
+						updatedAt: '2026-01-01T00:00:00.000Z',
+					},
+				},
 			}),
 		});
 

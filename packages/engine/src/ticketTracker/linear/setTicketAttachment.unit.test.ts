@@ -154,7 +154,7 @@ describe('setTicketAttachment', () => {
 
 	test('pages the attachment list, so a same-titled attachment on the second page is still replaced', async () => {
 		const { deleted } = setupClient({
-			attachments: twoPages({ first: [{ id: 'att-1', title: 'notes.md' }], second: [{ id: 'att-2', title: 'plan.md' }] }),
+			attachments: twoPages({ first: [{ id: 'att-1', title: 'brainstorm-notes.md' }], second: [{ id: 'att-2', title: 'plan.md' }] }),
 		});
 
 		expect(await publishOne()).toBeUndefined();
@@ -166,7 +166,7 @@ describe('setTicketAttachment', () => {
 			attachments: singlePage({
 				nodes: [
 					{ id: 'att-1', title: 'plan.md' },
-					{ id: 'att-2', title: 'notes.md' },
+					{ id: 'att-2', title: 'brainstorm-notes.md' },
 					{ id: 'att-3', title: 'plan.md' },
 				],
 			}),

@@ -142,7 +142,7 @@ kebab `<name>` from the request (e.g. "add a rate-limit banner" →
 ticket is filed — the ticket-workflow skill's `## Plan folder` section says what
 else a rename has to update, and when it is too late to do one. When the request
 is a rough-notes file path, read it before anything else; when it already lives
-at `.lightsout/plans/<name>/notes.md`, take `<name>` from its folder rather than
+at `.lightsout/plans/<name>/brainstorm-notes.md`, take `<name>` from its folder rather than
 deriving a new one. Read `.lightsout/plans/<name>/brainstorm-decisions.json`
 when it exists — its rows are already settled with the user.
 
@@ -167,7 +167,7 @@ Pass `--notes` when the request came from a rough-notes file. **When the run
 traces to a ticket instead, author the notes yourself first** — the idea in the
 ticket's words, the scope call, the approach chosen and the ones rejected with a
 one-line why — write them to a temporary path and pass that via `--notes`, so
-the frozen `notes.md` carries this self-brainstorm's reasoning the way it would
+the frozen `brainstorm-notes.md` carries this self-brainstorm's reasoning the way it would
 carry a human brainstorm's. The snapshot is write-once; re-running verify-facts
 never clobbers it.
 

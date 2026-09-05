@@ -24183,7 +24183,7 @@ var PlanDocument = external_exports.object({
 var PlanStage = {
   /** A workspace with no notes and no drafted plan yet — facts, decisions or transcripts only. */
   Started: "started",
-  /** `notes.md` exists and nothing has been drafted. */
+  /** `brainstorm-notes.md` exists and nothing has been drafted. */
   NotesOnly: "notes-only",
   Drafted: "drafted",
   Graded: "graded",
@@ -24208,7 +24208,7 @@ var PlanWorkspaceListing = external_exports.object({
   stage: external_exports.enum(PlanStage),
   /** Present once `grade.json` exists and parses. */
   grade: external_exports.enum(PlanGrade).optional(),
-  /** `notes.md` exists. */
+  /** `brainstorm-notes.md` exists. */
   hasNotes: external_exports.boolean(),
   /** `plan.md` or `overview.md` exists — a drafted plan file, whatever the stage says. */
   hasPlanFile: external_exports.boolean(),
@@ -24261,7 +24261,7 @@ var PlanWorkspaceView = external_exports.object({
   planFile: PlanWorkspaceFile.optional(),
   /** `phase<N>-<slug>.md` files in numeric order; empty for a single plan. */
   phaseFiles: external_exports.array(PlanWorkspaceFile).default([]),
-  /** `notes.md`, when `/brainstorm` wrote one. */
+  /** `brainstorm-notes.md`, when `/brainstorm` wrote one. */
   notesFile: PlanWorkspaceFile.optional(),
   facts: PlanFacts.optional(),
   decisions: DecisionsRecord.optional(),
@@ -24811,7 +24811,7 @@ var planSteps = [
       "Preserve any existing notes as the plan\u2019s starting context"
     ],
     note: "Gives the plan a stable home without making `/brainstorm` a prerequisite",
-    saved: [".lightsout/plans/<name>/notes.md"],
+    saved: [".lightsout/plans/<name>/brainstorm-notes.md"],
     savedLabel: "SAVED WHEN NOTES EXIST"
   },
   {
@@ -29964,7 +29964,7 @@ import { basename as basename11, join as join39 } from "node:path";
 // src/plan/common/constants/durablePlanFileNames.ts
 var durablePlanFileNames = {
   /** The plan's working records, each attached when the folder holds it. */
-  records: ["notes.md", "decisions.json", "grade.json"],
+  records: ["brainstorm-notes.md", "decisions.json", "grade.json"],
   /** A plan deliverable's own file name, spelled exactly as `resolvePlanDeliverable` matches it. */
   deliverable: /^(?:plan\.md|overview\.md|phase\d+.*\.md)$/
 };
@@ -130597,10 +130597,10 @@ var snapshotNotes = async ({
   progress
 }) => {
   const source = resolve3(cwd, notesFile);
-  const destination = join47(workspaceDir, "notes.md");
+  const destination = join47(workspaceDir, "brainstorm-notes.md");
   const alreadyFrozen = await pathExists({ path: destination });
   if (alreadyFrozen) {
-    progress("plan verify-facts \xB7 notes.md already frozen \u2014 snapshot skipped");
+    progress("plan verify-facts \xB7 brainstorm-notes.md already frozen \u2014 snapshot skipped");
     return { error: void 0 };
   }
   try {

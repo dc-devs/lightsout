@@ -24,7 +24,7 @@ interface DurableSet {
  * What a plan *is* is answered by `resolvePlanDeliverable` and nowhere else, so
  * a phased plan's overview and every phase file travel without this file ever
  * restating the naming rule. The working records follow, each kept only when
- * the folder holds it: `notes.md` exists only when verify-facts was given
+ * the folder holds it: `brainstorm-notes.md` exists only when verify-facts was given
  * `--notes`, so requiring it would refuse a legitimate plan.
  *
  * `DurableSet` is declared here and not exported, the way

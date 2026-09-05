@@ -41,12 +41,12 @@ describe('durablePlanFiles', () => {
 
 	test('every record the folder holds travels, in the order the durable list names them', async () => {
 		const { cwd, dir, name } = setupPlanFolder({
-			files: { 'plan.md': '# plan', 'grade.json': '{}', 'decisions.json': '[]', 'notes.md': '# notes' },
+			files: { 'plan.md': '# plan', 'grade.json': '{}', 'decisions.json': '[]', 'brainstorm-notes.md': '# notes' },
 		});
 
 		expect((await durablePlanFiles({ cwd, name })).files).toStrictEqual([
 			{ name: 'plan.md', path: join(dir, 'plan.md') },
-			{ name: 'notes.md', path: join(dir, 'notes.md') },
+			{ name: 'brainstorm-notes.md', path: join(dir, 'brainstorm-notes.md') },
 			{ name: 'decisions.json', path: join(dir, 'decisions.json') },
 			{ name: 'grade.json', path: join(dir, 'grade.json') },
 		]);
@@ -72,7 +72,7 @@ describe('durablePlanFiles', () => {
 	});
 
 	test('a folder with no deliverable refuses by name, because the deliverable is the one file nothing can be implemented without', async () => {
-		const { cwd, name } = setupPlanFolder({ files: { 'notes.md': '# notes', ...runState } });
+		const { cwd, name } = setupPlanFolder({ files: { 'brainstorm-notes.md': '# notes', ...runState } });
 
 		const set = await durablePlanFiles({ cwd, name });
 

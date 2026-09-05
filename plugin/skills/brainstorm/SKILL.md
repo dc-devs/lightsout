@@ -170,7 +170,7 @@ failure and do not claim the brainstorm finished.
   table — question, choice, one-line why, and whether it is an assumption — and
   get approval: these rows make the `plan` skill skip questions, so a row that
   overstates the agreement is expensive. Then write the notes to
-  `.lightsout/plans/<name>/notes.md`, plus
+  `.lightsout/plans/<name>/brainstorm-notes.md`, plus
   `.lightsout/plans/<name>/brainstorm-decisions.json` in this exact shape:
 
   ```json
@@ -196,7 +196,7 @@ failure and do not claim the brainstorm finished.
   Then hand off with the exact next command:
 
   ```
-  Next: run the `plan` skill with .lightsout/plans/<name>/notes.md
+  Next: run the `plan` skill with .lightsout/plans/<name>/brainstorm-notes.md
   ```
 
   If either file already exists at that name (a previous brainstorm), say so
@@ -213,16 +213,16 @@ failure and do not claim the brainstorm finished.
   no config key names a Backlog role to move it to.
 
   **The command writes the label; it does not attach the evidence.** The
-  ticket-workflow rule is that `notes.md` goes onto the ticket whenever
+  ticket-workflow rule is that `brainstorm-notes.md` goes onto the ticket whenever
   `planning-needs-plan` is set — that label is the one claim in the model that
-  owes proof, and `.lightsout` is gitignored, so an unattached `notes.md` exists
+  owes proof, and `.lightsout` is gitignored, so an unattached `brainstorm-notes.md` exists
   on exactly one laptop. No engine command can do it at this moment: `lightsout
   plan publish` refuses when the folder holds no plan deliverable, and at this
-  exit only `notes.md` and `brainstorm-decisions.json` are on disk. This skill's
+  exit only `brainstorm-notes.md` and `brainstorm-decisions.json` are on disk. This skill's
   tools cannot do it either.
 
   So print the obligation rather than claiming it discharged: after the command
-  succeeds, print one line naming the absolute path of `notes.md` and saying it
+  succeeds, print one line naming the absolute path of `brainstorm-notes.md` and saying it
   must be attached to the ticket now. The rule is in the ticket-workflow skill's
   `### Recording it` section.
 

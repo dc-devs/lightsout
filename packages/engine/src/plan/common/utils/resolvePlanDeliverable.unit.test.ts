@@ -29,7 +29,7 @@ const setupPlanFolder = async ({ files = {} }: { files?: Record<string, string> 
 describe('resolvePlanDeliverable', () => {
 	test('resolves a single plan to plan.md alone, with no overview', async () => {
 		const { cwd, name, dir } = await setupPlanFolder({
-			files: { 'plan.md': '# The single plan\n', 'notes.md': 'working notes\n' },
+			files: { 'plan.md': '# The single plan\n', 'brainstorm-notes.md': 'working notes\n' },
 		});
 
 		const resolved = await resolvePlanDeliverable({ cwd, name });
@@ -97,7 +97,7 @@ describe('resolvePlanDeliverable', () => {
 			files: {
 				'overview.md': '# The overview\n',
 				'phase1-first.md': '# Phase one\n',
-				'notes.md': 'working notes\n',
+				'brainstorm-notes.md': 'working notes\n',
 				'facts.json': '{}',
 				'decisions.json': '{}',
 				'grade-stream.jsonl': '{}\n',
@@ -111,7 +111,7 @@ describe('resolvePlanDeliverable', () => {
 	});
 
 	test('a plan folder holding no plan file resolves to no files and an error naming both paths it expected', async () => {
-		const { cwd, name, dir } = await setupPlanFolder({ files: { 'facts.json': '{}', 'notes.md': 'notes\n' } });
+		const { cwd, name, dir } = await setupPlanFolder({ files: { 'facts.json': '{}', 'brainstorm-notes.md': 'notes\n' } });
 
 		const resolved = await resolvePlanDeliverable({ cwd, name });
 

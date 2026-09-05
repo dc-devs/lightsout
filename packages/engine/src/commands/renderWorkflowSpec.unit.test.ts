@@ -46,7 +46,7 @@ describe('renderWorkflowSpec', () => {
 					expect.objectContaining({
 						title: 'CREATE THE PLAN WORKSPACE',
 						savedLabel: 'SAVED WHEN NOTES EXIST',
-						saved: ['.lightsout/plans/<name>/notes.md'],
+						saved: ['.lightsout/plans/<name>/brainstorm-notes.md'],
 					}),
 				]),
 			}),

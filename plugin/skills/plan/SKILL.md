@@ -164,7 +164,7 @@ folder to the canonical name when the ticket is filed — see the
 ticket-workflow skill's `## Plan folder` section for what a rename also has to
 update, and when it is too late to do one. When the request is a rough-notes
 file path (given by the user, or a `/brainstorm` handoff), read it before
-anything else; when it already lives at `.lightsout/plans/<name>/notes.md`,
+anything else; when it already lives at `.lightsout/plans/<name>/brainstorm-notes.md`,
 take `<name>` from its folder instead of deriving a new one. Also read
 `.lightsout/plans/<name>/brainstorm-decisions.json` when it exists — its rows
 are decisions already settled with the user. Absent → nothing changes; that is
@@ -198,9 +198,9 @@ Then run:
 node "<plugin-root>/dist/cli.mjs" plan verify-facts --name <name> [--notes "<path>"]
 ```
 Pass `--notes` when the request came from a rough-notes file — the engine
-freezes a copy at `.lightsout/plans/<name>/notes.md` as the plan's first
+freezes a copy at `.lightsout/plans/<name>/brainstorm-notes.md` as the plan's first
 artifact. Write-once: an existing snapshot is never overwritten, so re-running
-verify-facts never clobbers it (a `/brainstorm`-authored notes.md is already
+verify-facts never clobbers it (a `/brainstorm`-authored brainstorm-notes.md is already
 home and is simply kept).
 It deterministically checks every claimed path/script on disk and stamps the
 verification into facts.json. Relay the summary; fix any genuinely wrong path

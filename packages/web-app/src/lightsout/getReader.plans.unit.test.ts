@@ -40,7 +40,7 @@ const setupPlansReader = async ({ grade = gradeText }: { grade?: string } = {}):
 	const workspace = '.lightsout/plans/search-ranking';
 	const files: Record<string, string> = {
 		[`.lightsout/runs/${runId}/manifest.json`]: manifestText,
-		[`${workspace}/notes.md`]: '# Rough idea\n',
+		[`${workspace}/brainstorm-notes.md`]: '# Rough idea\n',
 		[`${workspace}/overview.md`]: '# Search ranking\n',
 		[`${workspace}/phase1-groundwork.md`]: '# Phase 1\n',
 		[`${workspace}/phase2-ranking.md`]: '# Phase 2\n',

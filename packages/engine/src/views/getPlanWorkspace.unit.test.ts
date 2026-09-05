@@ -153,12 +153,12 @@ test('every record that will not parse gets its own line, and the ones that did 
 });
 
 test('the notes a brainstorm left come back with the workspace, sized rather than read', async () => {
-	const { cwd } = await seedWorkspace({ files: { 'notes.md': '# rough idea' } });
+	const { cwd } = await seedWorkspace({ files: { 'brainstorm-notes.md': '# rough idea' } });
 
 	const view = await getPlanWorkspace({ cwd, name });
 
 	expect({ notes: view.notesFile?.name, bytes: view.notesFile?.bytes, hasNotes: view.listing.hasNotes, stage: view.listing.stage }).toStrictEqual({
-		notes: 'notes.md',
+		notes: 'brainstorm-notes.md',
 		bytes: '# rough idea'.length,
 		hasNotes: true,
 		stage: PlanStage.NotesOnly,

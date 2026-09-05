@@ -139,7 +139,7 @@ describe('publishPlan', () => {
 	});
 
 	test('attaches a schema-1 manifest last, committing the exact names and hashes of the bytes already sent', async () => {
-		const { params } = setupPlan({ files: { 'plan.md': '# the plan\n', 'notes.md': '# notes\n' } });
+		const { params } = setupPlan({ files: { 'plan.md': '# the plan\n', 'brainstorm-notes.md': '# notes\n' } });
 
 		await publishPlan(params);
 
@@ -151,7 +151,7 @@ describe('publishPlan', () => {
 			schemaVersion: 1,
 			files: [
 				{ name: 'plan.md', sha256: planAttachmentSha256({ content: '# the plan\n' }) },
-				{ name: 'notes.md', sha256: planAttachmentSha256({ content: '# notes\n' }) },
+				{ name: 'brainstorm-notes.md', sha256: planAttachmentSha256({ content: '# notes\n' }) },
 			],
 		});
 	});
@@ -176,7 +176,7 @@ describe('publishPlan', () => {
 	});
 
 	test('a folder with no deliverable refuses before anything is resolved — no ship settings, no tracker, no call', async () => {
-		const { params } = setupPlan({ files: { 'notes.md': '# notes' }, config: { gates } });
+		const { params } = setupPlan({ files: { 'brainstorm-notes.md': '# notes' }, config: { gates } });
 
 		const report = await publishPlan(params);
 
@@ -304,19 +304,19 @@ describe('publishPlan', () => {
 		expect(progress.at(-1) ?? '').toMatch(/^plan\.md is a plan file from an earlier publish that this run did not write/);
 	});
 
-	test('a working record this run did not write is reported too — a notes.md hand-attached to a ticket whose folder holds none', async () => {
+	test('a working record this run did not write is reported too — a brainstorm-notes.md hand-attached to a ticket whose folder holds none', async () => {
 		const { params, progress } = setupPlan({
 			files: { 'plan.md': '# plan' },
 			attachments: [
 				{ id: 'att-1', title: 'plan.md', url: 'https://assets.example/plan.md' },
-				{ id: 'att-4', title: 'notes.md', url: 'https://assets.example/notes.md' },
+				{ id: 'att-4', title: 'brainstorm-notes.md', url: 'https://assets.example/brainstorm-notes.md' },
 			],
 		});
 
 		const report = await publishPlan(params);
 
-		expect(report).toStrictEqual({ ticketRef: 'lo-54', published: ['plan.md', planAttachmentManifestName], stale: ['notes.md'] });
-		expect(progress.at(-1) ?? '').toMatch(/^notes\.md is a plan file from an earlier publish that this run did not write/);
+		expect(report).toStrictEqual({ ticketRef: 'lo-54', published: ['plan.md', planAttachmentManifestName], stale: ['brainstorm-notes.md'] });
+		expect(progress.at(-1) ?? '').toMatch(/^brainstorm-notes\.md is a plan file from an earlier publish that this run did not write/);
 	});
 
 	test('an attachment whose title names no plan file is neither reported nor touched', async () => {

@@ -323,19 +323,19 @@ it is the only one asserting a fact: that a brainstorm already settled this
 ticket's design. Without proof anyone can claim it and skip the step, which is
 the one failure mode that would quietly undo this whole section.
 
-So: **attach the brainstorm's `notes.md` when you set `planning-needs-plan`.**
+So: **attach the brainstorm's `brainstorm-notes.md` when you set `planning-needs-plan`.**
 Not at close — now. That file is safe to attach early in a way a plan is not:
 brainstorm writes it once, and the `plan` skill snapshots it write-once and never
 overwrites, so it is frozen the moment the brainstorm ends. `.lightsout` is
 gitignored, so it exists on exactly one laptop; attach it or it is gone.
 
 The two halves have different owners. The engine command sets the label;
-attaching `notes.md` stays a human step, taken in the same moment. A
+attaching `brainstorm-notes.md` stays a human step, taken in the same moment. A
 `planning-needs-plan` ticket with no attached notes is the rule unmet: the label
 claims a brainstorm settled this ticket's design, and the file is the only proof
 of it that survives leaving one laptop.
 
-Attach `notes.md` alone. `brainstorm-decisions.json` is machine input — `plan
+Attach `brainstorm-notes.md` alone. `brainstorm-decisions.json` is machine input — `plan
 draft` merges those rows into the plan, so `plan.md`'s Decision Log carries all
 of them by the time you close, and attaching it would put the same rows in the
 ticket twice.
@@ -479,7 +479,7 @@ live, never the closing comment. That ticket becomes `planning-complete`, not
 
 | file | what it holds |
 |---|---|
-| `notes.md`, when present | the brainstorm: the idea in the user's words, the scope call, the approach chosen and the ones rejected |
+| `brainstorm-notes.md`, when present | the brainstorm: the idea in the user's words, the scope call, the approach chosen and the ones rejected |
 | `plan.md`, or `overview.md` plus every `phase<N>-<slug>.md` | the complete single or phased plan that was built |
 | `decisions.json`, when present | every question asked, the option chosen, and why — including which choices were assumptions nobody confirmed |
 | `grade.json`, when present | the latest grade and the lenses that produced it |
@@ -490,7 +490,7 @@ durable files in that generation and their SHA-256 hashes so a fresh machine
 can reject an interrupted or mixed upload before writing anything to disk.
 
 A `planning-ready-auto-plan` ticket publishes the same durable set; when no
-brainstorm ran, its `notes.md` is the one the `auto-plan` skill wrote for itself
+brainstorm ran, its `brainstorm-notes.md` is the one the `auto-plan` skill wrote for itself
 from the ticket before planning.
 
 Do not assemble or attach that set by hand. Run `lightsout plan publish --name <name>`

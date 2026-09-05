@@ -63,11 +63,11 @@ describe('checkShipPreconditions', () => {
 	});
 
 	test('uncommitted work blocks and the detail names it, so the reader knows what to commit', async () => {
-		const { cwd } = await setupPreconditions({ dirty: { 'notes.md': 'half a thought\n' } });
+		const { cwd } = await setupPreconditions({ dirty: { 'brainstorm-notes.md': 'half a thought\n' } });
 
 		const preconditions = await checkShipPreconditions({ cwd, ticketPattern });
 
-		expect(preconditions).toEqual(expect.objectContaining({ reason: 'dirty-tree', detail: expect.stringContaining('notes.md') }));
+		expect(preconditions).toEqual(expect.objectContaining({ reason: 'dirty-tree', detail: expect.stringContaining('brainstorm-notes.md') }));
 	});
 
 	test('a branch carrying no ticket blocks, and the detail quotes both the branch and the pattern', async () => {

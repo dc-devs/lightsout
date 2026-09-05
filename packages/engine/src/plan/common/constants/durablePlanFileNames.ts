@@ -22,7 +22,7 @@
  */
 export const durablePlanFileNames: { records: string[]; deliverable: RegExp } = {
 	/** The plan's working records, each attached when the folder holds it. */
-	records: ['notes.md', 'decisions.json', 'grade.json'],
+	records: ['brainstorm-notes.md', 'decisions.json', 'grade.json'],
 	/** A plan deliverable's own file name, spelled exactly as `resolvePlanDeliverable` matches it. */
 	deliverable: /^(?:plan\.md|overview\.md|phase\d+.*\.md)$/,
 };

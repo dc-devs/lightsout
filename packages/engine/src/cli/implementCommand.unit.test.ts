@@ -117,7 +117,7 @@ test('implementCommand: an empty --packages list is no scope at all — the plan
 });
 
 test('implementCommand: a plan folder holding neither overview.md nor plan.md is refused before any config is loaded', async () => {
-	const { context, logged, errors, exitCodes } = setupImplement({ args: ['--plan', planFolder], folderFiles: ['notes.md'] });
+	const { context, logged, errors, exitCodes } = setupImplement({ args: ['--plan', planFolder], folderFiles: ['brainstorm-notes.md'] });
 
 	await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
 

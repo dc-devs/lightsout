@@ -22,7 +22,7 @@ export const PlanWorkspaceView = z.object({
 	planFile: PlanWorkspaceFile.optional(),
 	/** `phase<N>-<slug>.md` files in numeric order; empty for a single plan. */
 	phaseFiles: z.array(PlanWorkspaceFile).default([]),
-	/** `notes.md`, when `/brainstorm` wrote one. */
+	/** `brainstorm-notes.md`, when `/brainstorm` wrote one. */
 	notesFile: PlanWorkspaceFile.optional(),
 	facts: PlanFacts.optional(),
 	decisions: DecisionsRecord.optional(),

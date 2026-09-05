@@ -83,10 +83,10 @@ test('planVerifyFactsCommand: no authored facts reports the workspace error on s
 });
 
 test('planVerifyFactsCommand: a --notes path that does not exist fails before verification and exits 1', async () => {
-	const { context, errors, exitCodes } = setupVerifyFacts({ args: ['--name', 'demo', '--notes', 'nowhere/notes.md'], authored: mixedFacts });
+	const { context, errors, exitCodes } = setupVerifyFacts({ args: ['--name', 'demo', '--notes', 'nowhere/brainstorm-notes.md'], authored: mixedFacts });
 
 	await expect(planVerifyFactsCommand(context)).rejects.toThrow(/process\.exit/);
 
-	expect(errors[0] ?? '').toMatch(/notes file not found: .*nowhere\/notes\.md/);
+	expect(errors[0] ?? '').toMatch(/notes file not found: .*nowhere\/brainstorm-notes\.md/);
 	expect(exitCodes).toStrictEqual([1]);
 });

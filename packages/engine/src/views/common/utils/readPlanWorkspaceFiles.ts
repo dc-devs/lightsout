@@ -61,7 +61,7 @@ export const readPlanWorkspaceFiles = async ({ cwd, name }: Params): Promise<Pla
 		.sort((first, second) => first.order - second.order)
 		.map((entry) => entry.file);
 	const planFile = named.get('overview.md') ?? named.get('plan.md');
-	const notesFile = named.get('notes.md');
+	const notesFile = named.get('brainstorm-notes.md');
 	const transcripts = present.filter((file) => file.name.endsWith('-stream.jsonl'));
 	const claimed = new Set([planFile, notesFile, ...phaseFiles, ...transcripts].map((file) => file?.name));
 	const updatedAts = present.map((file) => file.updatedAt).sort();

@@ -214,7 +214,7 @@ test('plan lint: a stray markdown file in the plan folder is not linted as a pha
 		files: {
 			'overview.md': cleanOverview({ phaseCount: 1 }),
 			'phase1-core.md': cleanPlan(),
-			'notes.md': scratchNotes(),
+			'brainstorm-notes.md': scratchNotes(),
 			'phases.md': scratchNotes(),
 		},
 	});
@@ -235,7 +235,7 @@ test('plan lint: a folder holding only working files reports no plan found', asy
 	writePhasedPlan({
 		cwd,
 		name: 'workspace-only',
-		files: { 'notes.md': scratchNotes(), 'grade.json': '{}' },
+		files: { 'brainstorm-notes.md': scratchNotes(), 'grade.json': '{}' },
 	});
 
 	const result = await runPlanLint({ cwd, name: 'workspace-only' });

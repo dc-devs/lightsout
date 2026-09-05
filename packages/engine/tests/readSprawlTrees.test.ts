@@ -23,7 +23,7 @@ const setupTreeRepo = ({ later }: { later?: Record<string, string> } = {}) => {
 				'packages/app/src/b.tsx': lines({ count: 2 }),
 				'packages/app/src/a.unit.test.ts': lines({ count: 5 }),
 				'packages/app/src/types.d.ts': lines({ count: 4 }),
-				'packages/app/src/notes.md': lines({ count: 1 }),
+				'packages/app/src/brainstorm-notes.md': lines({ count: 1 }),
 				'packages/app/tests/helper.ts': lines({ count: 2 }),
 				'packages/pack/lightsout-standards.json': '{}\n',
 				'packages/pack/rules/check.ts': lines({ count: 6 }),

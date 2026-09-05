@@ -16,7 +16,7 @@ import { parsePlan } from '#src/plan/parsePlan.ts';
 const repoFiles = [
 	'src/index.js',
 	'src/deep/nested/thing.ts',
-	'docs/notes.md',
+	'docs/brainstorm-notes.md',
 	'packages/web-app/README.md',
 	'packages/web-app/src/features/docs/panel.ts',
 	'packages/web-app/src/PlanDetail/index.ts',
