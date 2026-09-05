@@ -72,6 +72,12 @@ Write each output file following its template variant exactly. While writing:
   cross-module wiring stated (exports match imports).
 - Make scope boundaries concrete — name the adjacent work the implementing agent
   must NOT do.
+- State human-facing copy — an error message, a progress line, a warning — as
+  what it has to tell the reader, never as the sentence to reproduce. Quoting
+  the wording reads as an instruction to pin it exactly, which the standards
+  forbid for copy, so every agent downstream stops to re-decide the same
+  conflict. Name the parts that carry meaning — a path, a command, an
+  identifier — and leave the connecting prose to the implementer.
 - For multi-phase plans, chain the contract: each phase's "What Next Plan
   Expects" must list exactly what the next phase's Prerequisites claim.
 - Render every row's `source` verbatim in the Decision Log's `Source` column —

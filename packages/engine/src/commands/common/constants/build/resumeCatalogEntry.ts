@@ -13,6 +13,8 @@ export const resumeCatalogEntry: CommandCatalogEntry = {
 		{ name: 'run', value: '<id>', meaning: 'The parked run to pick back up.', required: true },
 		{ name: 'cwd', value: '<path>', meaning: 'Repository the run belongs to.', fallback: 'The process working directory.', required: false },
 		{ name: 'skip-refactor', meaning: 'Skip the refactor step at the end of the run.', required: false },
+		{ name: 'ship', meaning: 'Ship the branch after the resumed run passes: open or adopt the PR, wait for checks, merge, clean up.', required: false },
+		{ name: 'no-ship', meaning: 'End on the run result even when the config’s `ship.after-implement` asks to chain into ship.', required: false },
 	],
 	steps: [],
 	records: CommandRecordKind.Runs,

@@ -1,7 +1,7 @@
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { TrackerStatusRole } from '#src/ticketLifecycle/common/constants/TrackerStatusRole.ts';
 import { resolveLifecycleSettings } from '#src/ticketLifecycle/resolveLifecycleSettings.ts';
-import { updateTicketLifecycle } from '#src/ticketLifecycle/updateTicketLifecycle.ts';
+import { writeDoneStatus } from '#src/ticketLifecycle/writeDoneStatus.ts';
 import { getTicketsByIdentifiers, resolveTrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
@@ -71,16 +71,10 @@ export const reconcileShippedTicket = async ({ config, env, ticketRef, onProgres
 	}
 
 	const doneStatus = lifecycle.statusNames[TrackerStatusRole.Done];
-	const failure = await updateTicketLifecycle({
-		lifecycle,
-		trackerSettings,
-		ticketId: ticket.id,
-		trackerStatus: TrackerStatusRole.Done,
-		currentStatus: ticket.status,
-	});
+	const failure = await writeDoneStatus({ lifecycle, trackerSettings, ticketId: ticket.id, ticketRef, currentStatus: ticket.status });
 
 	if (failure !== undefined) {
-		return `${ticketRef} shipped, but its tracker status could not be moved to '${doneStatus}': ${failure.error}`;
+		return `${ticketRef} shipped, but its tracker status could not be moved to '${doneStatus}': ${failure}`;
 	}
 
 	onProgress?.(`${ticketRef} · moved to '${doneStatus}'`);
