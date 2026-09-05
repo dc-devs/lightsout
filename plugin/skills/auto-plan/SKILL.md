@@ -24,7 +24,7 @@ reinstall the plugin or run `pnpm bundle`.
 
 When this skill does put a question to the user — an escalation, a parked
 question, a vetoed digest row — it uses the labeled four-part shape
-(**Context**, **Trade-offs**, **Question**, **Recommendation**) documented in
+(**Context**, **Question**, **Options**, **Recommendation**) documented in
 the plan skill, which is the authoritative copy and lives at
 `<plugin-root>/skills/plan/SKILL.md`. Read it there rather than
 recalling it. Its durable-delivery rule applies here too: put every complete
@@ -32,7 +32,7 @@ question block in the final response that waits for the user's answer, never
 only in commentary. Two other rules are the easiest to lose and are repeated
 here: **never ask through an option-picker tool** — every question is written
 out in that final response, because a picker's one-line labels cannot carry a
-Context or a Trade-offs — and **one full-format question per final response**.
+Context or an Options list — and **one full-format question per final response**.
 
 ## The escalation bar
 

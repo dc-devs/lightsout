@@ -20,7 +20,7 @@ back; the engine validates it at draft time.
 **Pick the shape from what the answer is.** Before writing the question,
 ask: does answering it mean inventing a name or a short phrase the code or
 the user will see — a value, a state, a field, a flag, a message? Two or
-more of them: draft the real names as a table under **Trade-offs**, one row
+more of them: draft the real names as a table under **Options**, one row
 each, first column the name, second column a short description of what that
 thing is. Exactly one: write the drafted wording out inline, in full, rather
 than describing it. Any other question stays prose. The labeled parts below
@@ -36,13 +36,17 @@ words. Write for someone who has not read the plan or the code — never
 assume they know the plan's internals. State the problem the question
 decides — in everyday words — before naming any options.
 
-**Trade-offs:** what each answer wins and what it costs, plainly. When an
-option carries risk, say what goes wrong if it fails and what catches it.
-
 **Question:** the question itself, one sentence.
 
-**Recommendation:** the answer you recommend and the one-line why, so a
-one-word reply ("yes", "the second one") resolves it.
+**Options:** the answers to choose between, one per line, each opening with a
+bracketed number and its name — `(1) <name>: …` — then what it wins and what it
+costs. The number is there so the user can reply with the digit alone; the name
+is what makes the list readable to someone who skipped the paragraphs above.
+When an option carries risk, say what goes wrong if it fails and what catches
+it.
+
+**Recommendation:** the option you recommend, named by its number, and the
+one-line why — so a reply of just that number resolves it.
 
 **Presentation.** Each labeled part is its own short paragraph — bold label,
 blank line between parts. No bullet dashes on the labels; the blank lines
@@ -85,7 +89,7 @@ report progress, but must not contain a decision the user needs to answer.
 Never put a question to the user through an option-picker tool — the kind that
 shows a list of one-line choices to select from. Every question in this phase
 is written out in that final response, in the shape above. A picker's labels
-cannot carry a Context, a Trade-offs, or a drafted table, so what it saves in
+cannot carry a Context, an Options list, or a drafted table, so what it saves in
 typing it takes out of the user's ability to answer.
 
 ## Steps
