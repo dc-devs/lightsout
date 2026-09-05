@@ -1,8 +1,9 @@
 import { readFile } from 'node:fs/promises';
+import { serializeAttachmentManifest } from '#src/common/attachmentManifest/serializeAttachmentManifest.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { durablePlanFileNames } from '#src/plan/common/constants/durablePlanFileNames.ts';
-import { planAttachmentManifestName, serializePlanAttachmentManifest } from '#src/plan/common/planAttachmentManifest.ts';
+import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
 import type { DurablePlanFile } from '#src/plan/common/types/DurablePlanFile.ts';
 import { validatePlanAttachmentGeneration } from '#src/plan/common/validatePlanAttachmentGeneration.ts';
 import { durablePlanFiles } from '#src/plan/publish/durablePlanFiles.ts';
@@ -61,7 +62,7 @@ const prepareAttachments = async ({ files }: { files: DurablePlanFile[] }): Prom
 	}
 
 	return {
-		attachments: [...durable, { name: planAttachmentManifestName, content: serializePlanAttachmentManifest({ files: durable }) }],
+		attachments: [...durable, { name: planAttachmentManifestName, content: serializeAttachmentManifest({ files: durable }) }],
 	};
 };
 

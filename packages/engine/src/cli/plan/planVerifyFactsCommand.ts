@@ -4,6 +4,7 @@ import { bold } from '#src/cli/common/terminal/bold.ts';
 import { yellow } from '#src/cli/common/terminal/yellow.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
+import { ensureBrainstormFiles } from '#src/cli/common/utils/ensureBrainstormFiles.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { PlanRunStatus, runPlanVerifyFacts } from '#src/plan/index.ts';
 
@@ -14,6 +15,12 @@ export const planVerifyFactsCommand = async ({ flags, cwd }: CommandContext): Pr
 		console.error(usage);
 		return exitCli({ code: 1 });
 	}
+
+	// The fetch has to have happened before anything asks the disk what the plan
+	// folder holds — the same placement `implementCommand` gives
+	// `ensurePlanWorkspace` at its own edge. A `brainstorm-notes.md` landed here
+	// is already home, so the write-once `--notes` snapshot below keeps it.
+	await ensureBrainstormFiles({ cwd, name });
 
 	const notesFile = getStringFlag({ flags, name: 'notes' });
 	const result = await runPlanVerifyFacts({ cwd, name, notesFile, onProgress: createProgressPrinter() });

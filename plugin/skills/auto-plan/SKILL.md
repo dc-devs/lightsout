@@ -36,6 +36,11 @@ Context or an Options list — and **one full-format question per final response
 
 ## The escalation bar
 
+**This section is a cross-skill contract.** The `brainstorm` skill reads it
+here, at `<plugin-root>/skills/auto-plan/SKILL.md`, to test the questions its
+probe turns up — so there is one definition and no second copy. Do not rename
+the heading or move the section without updating that reader.
+
 Escalate a question to the user only when **both** of these hold:
 
 1. Two reasonable engineers, given everything already settled, would choose
@@ -144,7 +149,9 @@ else a rename has to update, and when it is too late to do one. When the request
 is a rough-notes file path, read it before anything else; when it already lives
 at `.lightsout/plans/<name>/brainstorm-notes.md`, take `<name>` from its folder rather than
 deriving a new one. Read `.lightsout/plans/<name>/brainstorm-decisions.json`
-when it exists — its rows are already settled with the user.
+when it exists — its rows are already settled with the user. In a fresh
+worktree it may not be on disk yet: `plan verify-facts` in step 2 fetches the
+brainstorm the ticket carries, so the folder is read again there.
 
 When the work traces to a ticket, read the ticket and follow the
 ticket-workflow skill at `<plugin-root>/skills/ticket-workflow/SKILL.md`:
@@ -163,13 +170,23 @@ skill documents (the engine hard-parses it). Then run:
 node "<plugin-root>/dist/cli.mjs" plan verify-facts --name <name> [--notes "<path>"]
 ```
 
+**That command also fetches the brainstorm the ticket carries** — both
+`brainstorm-notes.md` and `brainstorm-decisions.json` — into
+`.lightsout/plans/<name>/`, before it reads anything. So they have now landed in
+the folder even in a fresh worktree that never saw them, and they must be read
+there before the interview is routed. Step 3's `Settled decisions` check reads
+them at that point, not before.
+
 Pass `--notes` when the request came from a rough-notes file. **When the run
 traces to a ticket instead, author the notes yourself first** — the idea in the
 ticket's words, the scope call, the approach chosen and the ones rejected with a
 one-line why — write them to a temporary path and pass that via `--notes`, so
 the frozen `brainstorm-notes.md` carries this self-brainstorm's reasoning the way it would
 carry a human brainstorm's. The snapshot is write-once; re-running verify-facts
-never clobbers it.
+never clobbers it. **Skip the self-authored notes entirely when `verify-facts`
+fetched a `brainstorm-notes.md` from the ticket**: that file is the brainstorm's
+own record, the write-once snapshot already makes it win, and authoring a second
+one only invites this skill to believe its own summary is the record.
 
 Fix any genuinely wrong path in facts.json and re-run verify-facts. While
 reading, deliberately check each settled brainstorm decision against the code

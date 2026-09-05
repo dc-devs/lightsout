@@ -1,3 +1,5 @@
+import { brainstormNotesFileName } from '#src/common/constants/brainstormNotesFileName.ts';
+
 /**
  * The one answer to which files in a plan folder travel. Everything else the
  * folder holds — agent transcripts, manifests, progress logs — is run state,
@@ -19,10 +21,16 @@
  *
  * The annotation is written out rather than left to `as const` so `records` is a
  * `string[]` a caller can `includes` a plain string against without a cast.
+ *
+ * `brainstorm-notes.md` is the one record the brainstorm generation also
+ * carries, which is why it is spelled here as `brainstormNotesFileName` rather
+ * than as a literal, and why `isPlanOnlyAttachmentName` and
+ * `isBrainstormOnlyAttachmentName` exist: neither generation may take the
+ * shared title as evidence that it was the one published.
  */
 export const durablePlanFileNames: { records: string[]; deliverable: RegExp } = {
 	/** The plan's working records, each attached when the folder holds it. */
-	records: ['brainstorm-notes.md', 'decisions.json', 'grade.json'],
+	records: [brainstormNotesFileName, 'decisions.json', 'grade.json'],
 	/** A plan deliverable's own file name, spelled exactly as `resolvePlanDeliverable` matches it. */
 	deliverable: /^(?:plan\.md|overview\.md|phase\d+.*\.md)$/,
 };

@@ -86,8 +86,14 @@ describe('commandCatalog', () => {
 		const shapeless = commandCatalog.filter((entry) => entry.cli !== undefined && entry.invocations.length === 0);
 
 		expect(shapeless).toStrictEqual([]);
-		expect(byId.get('brainstorm')?.invocations).toStrictEqual([]);
 		expect(byId.get('auto-plan')?.invocations).toStrictEqual([]);
+	});
+
+	test('routes the one brainstorm subcommand as its own invocation', () => {
+		const { byId } = setupCatalog();
+		const brainstormShapes = byId.get('brainstorm')?.invocations.map((invocation) => [invocation.id, invocation.positional]);
+
+		expect(brainstormShapes).toStrictEqual([['brainstorm-publish', 'publish']]);
 	});
 
 	test('routes every plan subcommand as its own invocation, in the order a plan is worked through', () => {
@@ -114,10 +120,10 @@ describe('commandCatalog', () => {
 		expect(noted).toStrictEqual(['plan-grade']);
 	});
 
-	test('leaves exactly the skill-only commands without a CLI word, so nothing types `lightsout auto-plan` at a route that is not there', () => {
+	test('leaves exactly the skill-only command without a CLI word, so nothing types `lightsout auto-plan` at a route that is not there', () => {
 		const skillOnly = commandCatalog.filter((entry) => entry.cli === undefined).map((entry) => entry.id);
 
-		expect(skillOnly).toStrictEqual(['brainstorm', 'auto-plan']);
+		expect(skillOnly).toStrictEqual(['auto-plan']);
 	});
 
 	test('only the three commands with an infographic carry steps, and each carries a graphic to draw them in', () => {
@@ -211,7 +217,7 @@ describe('commandCatalog', () => {
 		const accepted = commandCatalog.map((entry) => [entry.id, [...new Set(entry.flags.map((flag) => flag.name))].sort()]);
 
 		expect(accepted).toStrictEqual([
-			['brainstorm', []],
+			['brainstorm', ['cwd', 'name']],
 			['plan', ['cwd', 'name', 'notes', 'phase', 'scope']],
 			['auto-plan', []],
 			['implement', ['cwd', 'no-ship', 'overview', 'packages', 'plan', 'ship', 'skip-refactor', 'start-phase']],

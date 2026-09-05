@@ -1,3 +1,4 @@
+export { brainstormCommand } from '#src/cli/brainstorm/index.ts';
 export { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 export { getUnknownFlagsMessage } from '#src/cli/common/args/getUnknownFlagsMessage.ts';
 export { parseFlags } from '#src/cli/common/args/parseFlags.ts';

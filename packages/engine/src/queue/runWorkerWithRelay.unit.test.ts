@@ -13,6 +13,7 @@ import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { TerminalQuestionRelay } from '#src/queue/relay/index.ts';
 import { runWorkerWithRelay } from '#src/queue/runWorkerWithRelay.ts';
+import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
@@ -37,6 +38,18 @@ jest.mock('#src/direct/index.ts', () => ({
 	runDirectWork: (params: { answeredQuestion?: { question: string; answer: string } }) => mockRunDirectWork(params),
 }));
 jest.mock('#src/ticketTracker/index.ts', () => ({ appendTicketNote: () => mockAppendTicketNote() }));
+// -------------------------
+// The plan worker asks the disk whether the folder is there, then asks the ticket
+// for the plan when it is not. Only the tracker half is stubbed: whether a
+// folder exists is arranged by making one, so `pathExists` stays real and each
+// case reads the worktree it actually built.
+const mockRestorePlanWorkspace =
+	jest.fn<(params: { cwd: string; name: string; identifier: string; settings: TrackerSettings }) => Promise<{ restored: string[]; error?: string }>>();
+
+jest.mock('#src/plan/index.ts', () => ({
+	...jest.requireActual<typeof import('#src/plan/index.ts')>('#src/plan/index.ts'),
+	restorePlanWorkspace: (params: { cwd: string; name: string; identifier: string; settings: TrackerSettings }) => mockRestorePlanWorkspace(params),
+}));
 // -------------------------
 
 const settings = queueSettingsFixture();
@@ -128,6 +141,42 @@ const runWorker = ({
 		coordinatorRunId: 'run-q',
 		coordinatorRunDir,
 	});
+
+/**
+ * A plan worker on a ticket that carries a published brainstorm and no plan:
+ * the worktree has no plan folder, and the fetch answers with nothing restored
+ * and no error, which is what a brainstorm-only ticket reads as.
+ */
+const setupBrainstormOnlyTicket = () => {
+	const { relay, coordinatorRunDir } = setupRelay();
+
+	mockRestorePlanWorkspace.mockResolvedValue({ restored: [] });
+	mockRunDirectWork.mockResolvedValue({ ok: true, manifest: manifestOf(RunStatus.Passed) });
+
+	const progress: string[] = [];
+
+	return {
+		relay,
+		progress,
+		params: {
+			// A fresh empty worktree: no plan folder on disk, which is what sends the worker to the ticket.
+			worktreePath: mkdtempSync(join(tmpdir(), 'lightsout-brainstorm-only-')),
+			branch: 'lo-70-drain',
+			ticket: { ...ticketOf(QueueWorker.Plan), planningStatus: PlanningStatus.Complete },
+			config,
+			driver,
+			driverName: 'claude-code',
+			settings,
+			trackerSettings: trackerSettingsFixture(),
+			relay,
+			coordinatorRunId: 'run-q',
+			coordinatorRunDir,
+			onProgress: (message: string) => {
+				progress.push(message);
+			},
+		},
+	};
+};
 
 describe('runWorkerWithRelay', () => {
 	test('a direct worker that finishes needs no question, and the relay is never used', async () => {
@@ -235,5 +284,17 @@ describe('runWorkerWithRelay', () => {
 		relay.close();
 
 		expect(outcome).toEqual({ error: expect.stringContaining('could not be relayed'), unanswered: true });
+	});
+
+	test('runWorkerWithRelay: builds a planning-complete ticket carrying only a published brainstorm from the ticket body', async () => {
+		const { relay, progress, params } = setupBrainstormOnlyTicket();
+
+		const outcome = await runWorkerWithRelay(params);
+
+		relay.close();
+
+		expect(outcome).toStrictEqual({});
+		expect(mockRunDirectWork).toHaveBeenCalledWith(expect.objectContaining({ ticketBody: 'Build the thing.', ticketRef: 'LO-70', cwd: params.worktreePath }));
+		expect(progress).toEqual([expect.stringContaining('carries no published plan')]);
 	});
 });

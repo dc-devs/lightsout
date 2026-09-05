@@ -1,13 +1,12 @@
 import { mkdir, mkdtemp, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { parseAttachmentManifest } from '#src/common/attachmentManifest/parseAttachmentManifest.ts';
+import type { AttachmentManifest } from '#src/common/types/AttachmentManifest.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import {
-	isDurablePlanAttachmentName,
-	type PlanAttachmentManifest,
-	parsePlanAttachmentManifest,
-	planAttachmentManifestName,
-	planAttachmentSha256,
-} from '#src/plan/common/planAttachmentManifest.ts';
+import { sha256 } from '#src/common/utils/sha256.ts';
+import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
+import { isDurablePlanAttachmentName } from '#src/plan/common/utils/isDurablePlanAttachmentName.ts';
+import { isPlanOnlyAttachmentName } from '#src/plan/common/utils/isPlanOnlyAttachmentName.ts';
 import { validatePlanAttachmentGeneration } from '#src/plan/common/validatePlanAttachmentGeneration.ts';
 import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 import { getTicketAttachments, readTicketAsset, type TrackerAttachment, type TrackerSettings } from '#src/ticketTracker/index.ts';
@@ -54,7 +53,7 @@ const selectGeneration = ({
 	manifest,
 	durableAttachments,
 }: {
-	manifest: PlanAttachmentManifest;
+	manifest: AttachmentManifest;
 	durableAttachments: TrackerAttachment[];
 }): { files: GenerationFile[] } | { error: string } => {
 	const files: GenerationFile[] = [];
@@ -97,7 +96,7 @@ const readAndVerifyGeneration = async ({ settings, files }: { settings: TrackerS
 			return { error: read.error };
 		}
 
-		const actual = planAttachmentSha256({ content: read.text });
+		const actual = sha256({ content: read.text });
 
 		if (actual !== file.sha256) {
 			return { error: `${file.title} does not match the SHA-256 committed by ${planAttachmentManifestName} — publish the plan again` };
@@ -155,9 +154,16 @@ export const restorePlanWorkspace = async ({ cwd, name, identifier, settings }: 
 	}
 
 	const durableAttachments = attachments.filter(({ title }) => isDurablePlanAttachmentName({ name: title }));
+	// Two different questions, deliberately asked with two predicates. Which
+	// attachments this generation may select stays the durable set, so a plan
+	// marker listing `brainstorm-notes.md` still restores it. Whether a plan was
+	// published at all excludes that shared title, because `brainstorm publish`
+	// sends it too — a ticket carrying only a brainstorm is a ticket with no
+	// plan, not an interrupted plan upload.
+	const planOnlyAttachments = attachments.filter(({ title }) => isPlanOnlyAttachmentName({ name: title }));
 	const manifests = attachments.filter(({ title }) => title === planAttachmentManifestName);
 
-	if (durableAttachments.length === 0 && manifests.length === 0) {
+	if (planOnlyAttachments.length === 0 && manifests.length === 0) {
 		return { restored: [] };
 	}
 
@@ -187,7 +193,7 @@ export const restorePlanWorkspace = async ({ cwd, name, identifier, settings }: 
 		return { restored: [], error: manifestRead.error };
 	}
 
-	const parsed = parsePlanAttachmentManifest({ text: manifestRead.text });
+	const parsed = parseAttachmentManifest({ text: manifestRead.text, markerName: planAttachmentManifestName, isAllowedName: isDurablePlanAttachmentName });
 
 	if ('error' in parsed) {
 		return { restored: [], error: parsed.error };

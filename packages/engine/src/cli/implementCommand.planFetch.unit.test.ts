@@ -3,8 +3,10 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { implementCommand } from '#src/cli/implementCommand.ts';
+import { serializeAttachmentManifest } from '#src/common/attachmentManifest/serializeAttachmentManifest.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { isDurablePlanAttachmentName, planAttachmentManifestName, serializePlanAttachmentManifest } from '#src/plan/common/planAttachmentManifest.ts';
+import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
+import { isDurablePlanAttachmentName } from '#src/plan/common/utils/isDurablePlanAttachmentName.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
@@ -87,7 +89,7 @@ const setupFetch = ({
 } = {}) => {
 	const bodyOf = (title: string) => bodies[title] ?? `# Plan: restored ${title}\n`;
 	const durable = [...new Set(titles.filter((title) => isDurablePlanAttachmentName({ name: title })))];
-	const manifest = serializePlanAttachmentManifest({ files: durable.map((title) => ({ name: title, content: Buffer.from(bodyOf(title), 'utf8') })) }).toString(
+	const manifest = serializeAttachmentManifest({ files: durable.map((title) => ({ name: title, content: Buffer.from(bodyOf(title), 'utf8') })) }).toString(
 		'utf8',
 	);
 	const attachmentTitles = durable.length === 0 ? titles : [...titles, planAttachmentManifestName];

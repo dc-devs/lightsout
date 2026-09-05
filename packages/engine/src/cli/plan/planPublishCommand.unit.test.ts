@@ -5,7 +5,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { planPublishCommand } from '#src/cli/plan/planPublishCommand.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { planAttachmentManifestName } from '#src/plan/common/planAttachmentManifest.ts';
+import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 

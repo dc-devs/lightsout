@@ -79,9 +79,14 @@ stdin instead.
       ticket first, then builds the plan it wrote.
     - `planning-complete` in Ready to implement → the plan worker builds the
       plan already published to the ticket, fetching it when the worktree does
-      not have it. When no plan is attached — a brainstorm that finished all
-      shaping without writing one — it builds from the ticket body instead,
-      because `planning-complete` promises finished shaping, not a plan folder.
+      not have it. When no plan is attached it builds from **the ticket body**
+      instead, because `planning-complete` promises finished shaping, not a plan
+      folder. Two routes reach that: a brainstorm that finished all shaping
+      without writing a plan, and the brainstorm's ready-to-implement outcome,
+      which writes `planning-complete` and Ready to implement itself. In both
+      cases the worker reads the ticket body — not the brainstorm files the
+      ticket carries, which are the durable record a person reads and the input
+      planning fetches.
     - `planning-not-needed` in Ready to implement → the direct worker builds
       straight from the ticket body.
 
