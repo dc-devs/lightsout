@@ -17,7 +17,8 @@ interface Params {
  *
  * The engine does not re-implement the auto-plan conductor: the prompt sends
  * the session to the skill and constrains only the parts the queue owns — no
- * interactive questions, one report as the final message, and never a ship.
+ * interactive questions, one report as the final message, never a ship, and
+ * never an implement, because the queue runs the build itself.
  *
  * `engineCli` is stated in the prompt verbatim because it is also the command
  * prefix the session is granted. An instruction the grant does not cover fails
