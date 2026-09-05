@@ -89,12 +89,12 @@ const folderOf = ({ dir }: { dir: string }) => {
 describe('restorePlanWorkspace', () => {
 	test('writes only the manifest-listed durable generation, leaving transport metadata, stale files and run state on the ticket', async () => {
 		const { cwd, dir } = setup({
-			attachments: ['plan.md', 'notes.md', 'grade.json', 'overview.md', 'phase1-old.md', 'facts.json', 'draft-stream.jsonl'],
-			manifestFiles: ['plan.md', 'notes.md', 'grade.json'],
+			attachments: ['plan.md', 'brainstorm-notes.md', 'grade.json', 'overview.md', 'phase1-old.md', 'facts.json', 'draft-stream.jsonl'],
+			manifestFiles: ['plan.md', 'brainstorm-notes.md', 'grade.json'],
 		});
 
-		expect(await restore({ cwd })).toStrictEqual({ restored: ['grade.json', 'notes.md', 'plan.md'] });
-		expect(folderOf({ dir })).toStrictEqual(['grade.json', 'notes.md', 'plan.md']);
+		expect(await restore({ cwd })).toStrictEqual({ restored: ['brainstorm-notes.md', 'grade.json', 'plan.md'] });
+		expect(folderOf({ dir })).toStrictEqual(['brainstorm-notes.md', 'grade.json', 'plan.md']);
 		expect(readFileSync(join(dir, 'plan.md'), 'utf8')).toBe('body of plan.md\n');
 	});
 
@@ -162,7 +162,7 @@ describe('restorePlanWorkspace', () => {
 	});
 
 	test('a disk refusal exposes no partial restored folder and returns the filesystem reason', async () => {
-		const { cwd, dir } = setup({ attachments: ['plan.md', 'notes.md'] });
+		const { cwd, dir } = setup({ attachments: ['plan.md', 'brainstorm-notes.md'] });
 
 		mkdirSync(join(cwd, '.lightsout', 'plans'), { recursive: true });
 		writeFileSync(dir, 'occupied by a file');
@@ -236,11 +236,12 @@ describe('restorePlanWorkspace', () => {
 	});
 
 	test('refuses records with no deliverable and creates no folder', async () => {
-		const { cwd, dir } = setup({ attachments: ['notes.md', 'grade.json'] });
+		const { cwd, dir } = setup({ attachments: ['brainstorm-notes.md', 'grade.json'] });
 
 		expect(await restore({ cwd })).toStrictEqual({
 			restored: [],
-			error: 'the plan generation (notes.md, grade.json) is not runnable — expected plan.md on its own, or overview.md with at least one phase<N> file',
+			error:
+				'the plan generation (brainstorm-notes.md, grade.json) is not runnable — expected plan.md on its own, or overview.md with at least one phase<N> file',
 		});
 		expect(folderOf({ dir })).toBeUndefined();
 	});

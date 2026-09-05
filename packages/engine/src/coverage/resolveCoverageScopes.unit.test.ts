@@ -31,7 +31,7 @@ const setupSparseMonorepo = () => {
 	mkdirSync(join(cwd, 'packages', 'orphan'), { recursive: true });
 	mkdirSync(join(cwd, 'packages', '.cache'), { recursive: true });
 	writeFileSync(join(cwd, 'packages', '.cache', 'package.json'), JSON.stringify({ name: '@acme/cache', scripts: {} }));
-	writeFileSync(join(cwd, 'packages', 'notes.md'), '# not a package\n');
+	writeFileSync(join(cwd, 'packages', 'brainstorm-notes.md'), '# not a package\n');
 
 	return cwd;
 };

@@ -9,7 +9,7 @@
 export const PlanStage = {
 	/** A workspace with no notes and no drafted plan yet — facts, decisions or transcripts only. */
 	Started: 'started',
-	/** `notes.md` exists and nothing has been drafted. */
+	/** `brainstorm-notes.md` exists and nothing has been drafted. */
 	NotesOnly: 'notes-only',
 	Drafted: 'drafted',
 	Graded: 'graded',

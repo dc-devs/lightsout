@@ -24,7 +24,7 @@ interface ResolvedDeliverable {
  * folder: `plan.md` is the sole deliverable of a single plan; otherwise
  * `overview.md` is context and every `phase<N>-<slug>.md` is a deliverable.
  * Files are matched by name, not by extension, because the folder also holds the
- * plan's working files (`notes.md`, the JSON records) — none of which is a plan
+ * plan's working files (`brainstorm-notes.md`, the JSON records) — none of which is a plan
  * to grade. Shared by the dedup and grade passes, which resolve the deliverable
  * identically.
  *

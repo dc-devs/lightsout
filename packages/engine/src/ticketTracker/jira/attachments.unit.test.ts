@@ -35,7 +35,7 @@ describe('Jira durable attachments', () => {
 				fields: {
 					attachment: [
 						{ id: 'old-1', filename: 'plan.md' },
-						{ id: 'other', filename: 'notes.md' },
+						{ id: 'other', filename: 'brainstorm-notes.md' },
 					],
 				},
 			})

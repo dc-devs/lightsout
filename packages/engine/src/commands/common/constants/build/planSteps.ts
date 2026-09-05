@@ -11,7 +11,7 @@ export const planSteps: CommandStep[] = [
 			'Preserve any existing notes as the plan’s starting context',
 		],
 		note: 'Gives the plan a stable home without making `/brainstorm` a prerequisite',
-		saved: ['.lightsout/plans/<name>/notes.md'],
+		saved: ['.lightsout/plans/<name>/brainstorm-notes.md'],
 		savedLabel: 'SAVED WHEN NOTES EXIST',
 	},
 	{

@@ -45,7 +45,7 @@ test('a workspace holding only its facts is started — the stage before anythin
 test('a workspace with notes and no draft is notes only, and says it has notes', async () => {
 	const cwd = await freshCwd();
 
-	await seedWorkspace({ cwd, name: 'rough', files: { 'notes.md': '# rough idea' } });
+	await seedWorkspace({ cwd, name: 'rough', files: { 'brainstorm-notes.md': '# rough idea' } });
 	const row = await rowFor({ cwd, name: 'rough' });
 
 	expect({ stage: row?.stage, hasNotes: row?.hasNotes, hasPlanFile: row?.hasPlanFile }).toStrictEqual({
@@ -58,7 +58,7 @@ test('a workspace with notes and no draft is notes only, and says it has notes',
 test('a workspace with a plan file is drafted, whether or not it also has notes', async () => {
 	const cwd = await freshCwd();
 
-	await seedWorkspace({ cwd, name: 'drafted', files: { 'notes.md': '# rough', 'plan.md': '# plan' } });
+	await seedWorkspace({ cwd, name: 'drafted', files: { 'brainstorm-notes.md': '# rough', 'plan.md': '# plan' } });
 	const row = await rowFor({ cwd, name: 'drafted' });
 
 	expect({ stage: row?.stage, hasPlanFile: row?.hasPlanFile, phased: row?.phased }).toStrictEqual({

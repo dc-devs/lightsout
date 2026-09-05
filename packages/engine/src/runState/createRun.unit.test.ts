@@ -192,9 +192,9 @@ describe('createRun', () => {
 	test('seeds the dirty paths that changed-file attribution subtracts', async () => {
 		const { cwd } = setupRepo();
 
-		const manifest = await createRun({ cwd, plan: 'plan.md', driver: 'stub', baselineDirtyFiles: ['src/wip.js', 'notes.md'] });
+		const manifest = await createRun({ cwd, plan: 'plan.md', driver: 'stub', baselineDirtyFiles: ['src/wip.js', 'brainstorm-notes.md'] });
 
-		expect(manifest.baselineDirtyFiles).toStrictEqual(['src/wip.js', 'notes.md']);
+		expect(manifest.baselineDirtyFiles).toStrictEqual(['src/wip.js', 'brainstorm-notes.md']);
 	});
 
 	test('starts from an empty baseline when the repo was clean at run start', async () => {

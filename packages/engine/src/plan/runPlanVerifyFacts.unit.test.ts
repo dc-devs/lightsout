@@ -111,29 +111,29 @@ test('plan verify-facts: --notes freezes a copy of the notes file into the works
 	const cwd = setupConsumerRepo();
 
 	writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'consumer', scripts: { check: 'tsc' } }));
-	writeFileSync(join(cwd, 'rough-notes.md'), '# Rough notes\n\nThe idea in the user words.\n');
+	writeFileSync(join(cwd, 'rough-brainstorm-notes.md'), '# Rough notes\n\nThe idea in the user words.\n');
 	seedFacts({ cwd, name: 'with-notes', content: authoredFacts() });
 
-	const result = await runPlanVerifyFacts({ cwd, name: 'with-notes', notesFile: 'rough-notes.md' });
+	const result = await runPlanVerifyFacts({ cwd, name: 'with-notes', notesFile: 'rough-brainstorm-notes.md' });
 
 	expectStatus(result, 'complete');
 	// the snapshot equals the source content
-	expect(readFileSync(join(cwd, '.lightsout', 'plans', 'with-notes', 'notes.md'), 'utf8')).toBe('# Rough notes\n\nThe idea in the user words.\n');
+	expect(readFileSync(join(cwd, '.lightsout', 'plans', 'with-notes', 'brainstorm-notes.md'), 'utf8')).toBe('# Rough notes\n\nThe idea in the user words.\n');
 });
 
-test('plan verify-facts: an existing notes.md snapshot is never overwritten', async () => {
+test('plan verify-facts: an existing brainstorm-notes.md snapshot is never overwritten', async () => {
 	const cwd = setupConsumerRepo();
 
 	writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'consumer', scripts: { check: 'tsc' } }));
-	writeFileSync(join(cwd, 'rough-notes.md'), 'newer notes that must not land\n');
+	writeFileSync(join(cwd, 'rough-brainstorm-notes.md'), 'newer notes that must not land\n');
 	seedFacts({ cwd, name: 'frozen', content: authoredFacts() });
-	writeFileSync(join(cwd, '.lightsout', 'plans', 'frozen', 'notes.md'), 'the original frozen notes\n');
+	writeFileSync(join(cwd, '.lightsout', 'plans', 'frozen', 'brainstorm-notes.md'), 'the original frozen notes\n');
 
-	const result = await runPlanVerifyFacts({ cwd, name: 'frozen', notesFile: 'rough-notes.md' });
+	const result = await runPlanVerifyFacts({ cwd, name: 'frozen', notesFile: 'rough-brainstorm-notes.md' });
 
 	expectStatus(result, 'complete');
 	// the first copy wins — the snapshot is write-once
-	expect(readFileSync(join(cwd, '.lightsout', 'plans', 'frozen', 'notes.md'), 'utf8')).toBe('the original frozen notes\n');
+	expect(readFileSync(join(cwd, '.lightsout', 'plans', 'frozen', 'brainstorm-notes.md'), 'utf8')).toBe('the original frozen notes\n');
 });
 
 test('plan verify-facts: a missing notes source fails and names the resolved path', async () => {
@@ -142,26 +142,26 @@ test('plan verify-facts: a missing notes source fails and names the resolved pat
 	writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'consumer', scripts: { check: 'tsc' } }));
 	seedFacts({ cwd, name: 'no-source', content: authoredFacts() });
 
-	const result = await runPlanVerifyFacts({ cwd, name: 'no-source', notesFile: 'ghost-notes.md' });
+	const result = await runPlanVerifyFacts({ cwd, name: 'no-source', notesFile: 'ghost-brainstorm-notes.md' });
 
 	expectStatus(result, 'failed');
 	// the error names the resolved source, got: ${result.error}
-	expect('error' in result && (result.error ?? '').includes(join(cwd, 'ghost-notes.md'))).toBeTruthy();
-	// no notes.md written on failure
-	expect(existsSync(join(cwd, '.lightsout', 'plans', 'no-source', 'notes.md'))).toBeFalsy();
+	expect('error' in result && (result.error ?? '').includes(join(cwd, 'ghost-brainstorm-notes.md'))).toBeTruthy();
+	// no brainstorm-notes.md written on failure
+	expect(existsSync(join(cwd, '.lightsout', 'plans', 'no-source', 'brainstorm-notes.md'))).toBeFalsy();
 });
 
 test('plan verify-facts: the notes freeze even when the authored facts are missing', async () => {
 	const cwd = setupConsumerRepo();
 
-	writeFileSync(join(cwd, 'rough-notes.md'), 'notes that must freeze first\n');
+	writeFileSync(join(cwd, 'rough-brainstorm-notes.md'), 'notes that must freeze first\n');
 
-	const result = await runPlanVerifyFacts({ cwd, name: 'notes-first', notesFile: 'rough-notes.md' });
+	const result = await runPlanVerifyFacts({ cwd, name: 'notes-first', notesFile: 'rough-brainstorm-notes.md' });
 
 	expectStatus(result, 'failed');
 	expect('error' in result && /no authored facts/.test(result.error ?? '')).toBeTruthy();
 	// the snapshot is the plan first artifact — it lands before the facts read
-	expect(readFileSync(join(cwd, '.lightsout', 'plans', 'notes-first', 'notes.md'), 'utf8')).toBe('notes that must freeze first\n');
+	expect(readFileSync(join(cwd, '.lightsout', 'plans', 'notes-first', 'brainstorm-notes.md'), 'utf8')).toBe('notes that must freeze first\n');
 });
 
 test('plan verify-facts: re-running on a stamped file re-verifies and re-stamps', async () => {

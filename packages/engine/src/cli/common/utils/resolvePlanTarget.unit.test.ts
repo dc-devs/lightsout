@@ -44,7 +44,7 @@ test('resolvePlanTarget: a folder holding only a plan.md resolves to that single
 });
 
 test('resolvePlanTarget: a folder holding neither names both files it looked for', async () => {
-	const { cwd, folder } = setupPlanFolder({ files: ['notes.md'] });
+	const { cwd, folder } = setupPlanFolder({ files: ['brainstorm-notes.md'] });
 
 	expect(await resolvePlanTarget({ cwd, planPath: folder })).toStrictEqual({ error: `plan folder holds neither overview.md nor plan.md: ${folder}` });
 });

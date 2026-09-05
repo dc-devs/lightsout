@@ -125,7 +125,7 @@ describe('runShip', () => {
 	});
 
 	test('a blocked precondition stops before the forge is touched, and still leaves a result on disk', async () => {
-		const { cwd, readForgeLog, onProgress } = await setupShip({ repo: { dirty: { 'notes.md': 'half a thought\n' } } });
+		const { cwd, readForgeLog, onProgress } = await setupShip({ repo: { dirty: { 'brainstorm-notes.md': 'half a thought\n' } } });
 
 		const result = await runShip({ cwd, settings, onProgress });
 

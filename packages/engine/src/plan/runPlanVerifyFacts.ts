@@ -17,7 +17,7 @@ interface Params {
 	onProgress?: (message: string) => void;
 }
 
-/** Freeze a copy of the rough-notes file at `<workspaceDir>/notes.md` — write-once, an existing snapshot is never overwritten. */
+/** Freeze a copy of the rough-notes file at `<workspaceDir>/brainstorm-notes.md` — write-once, an existing snapshot is never overwritten. */
 const snapshotNotes = async ({
 	cwd,
 	workspaceDir,
@@ -30,12 +30,12 @@ const snapshotNotes = async ({
 	progress: (message: string) => void;
 }) => {
 	const source = resolve(cwd, notesFile);
-	const destination = join(workspaceDir, 'notes.md');
+	const destination = join(workspaceDir, 'brainstorm-notes.md');
 
 	const alreadyFrozen = await pathExists({ path: destination });
 
 	if (alreadyFrozen) {
-		progress('plan verify-facts · notes.md already frozen — snapshot skipped');
+		progress('plan verify-facts · brainstorm-notes.md already frozen — snapshot skipped');
 
 		return { error: undefined };
 	}
@@ -72,7 +72,7 @@ export const runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }: P
 	const factsPath = join(workspaceDir, 'facts.json');
 
 	// The snapshot runs before the facts read: the notes freeze even when the
-	// authored facts are missing or unparsable — notes.md is the plan's first artifact.
+	// authored facts are missing or unparsable — brainstorm-notes.md is the plan's first artifact.
 	if (notesFile !== undefined) {
 		const snapshot = await snapshotNotes({ cwd, workspaceDir, notesFile, progress });
 

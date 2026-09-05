@@ -16,7 +16,7 @@ export const PlanWorkspaceListing = z.object({
 	stage: z.enum(PlanStage),
 	/** Present once `grade.json` exists and parses. */
 	grade: z.enum(PlanGrade).optional(),
-	/** `notes.md` exists. */
+	/** `brainstorm-notes.md` exists. */
 	hasNotes: z.boolean(),
 	/** `plan.md` or `overview.md` exists — a drafted plan file, whatever the stage says. */
 	hasPlanFile: z.boolean(),

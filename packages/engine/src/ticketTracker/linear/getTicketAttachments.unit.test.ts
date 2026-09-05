@@ -139,8 +139,8 @@ describe('getTicketAttachments', () => {
 				nodes: [
 					{
 						id: 'att-1',
-						title: 'notes.md',
-						url: 'https://assets.example/notes.md',
+						title: 'brainstorm-notes.md',
+						url: 'https://assets.example/brainstorm-notes.md',
 						subtitle: 'attached by publish',
 						source: { type: 'linear' },
 					},
@@ -150,7 +150,7 @@ describe('getTicketAttachments', () => {
 
 		const attachments = await getTicketAttachments({ settings, identifier: 'lo-54' });
 
-		expect(attachments).toStrictEqual([{ id: 'att-1', title: 'notes.md', url: 'https://assets.example/notes.md' }]);
+		expect(attachments).toStrictEqual([{ id: 'att-1', title: 'brainstorm-notes.md', url: 'https://assets.example/brainstorm-notes.md' }]);
 	});
 
 	test('never calls the tracker for a reference whose number segment is empty, which is a mis-typed reference rather than a ticket', async () => {

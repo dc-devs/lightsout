@@ -112,11 +112,11 @@ describe('shipCommand', () => {
 	});
 
 	test('a block that named no checks prints no checks line, so a reader is never handed an empty list to chase', async () => {
-		const { context, errors, logged, exitCodes } = setupShipCommand({ dirty: { 'notes.md': '# uncommitted\n' } });
+		const { context, errors, logged, exitCodes } = setupShipCommand({ dirty: { 'brainstorm-notes.md': '# uncommitted\n' } });
 
 		await expect(shipCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(errors.some((line) => line.includes('dirty-tree') && line.includes('notes.md'))).toBe(true);
+		expect(errors.some((line) => line.includes('dirty-tree') && line.includes('brainstorm-notes.md'))).toBe(true);
 		expect(errors.some((line) => line.startsWith('  checks:'))).toBe(false);
 		// the run still happened, so it still left the result file a tracker skill reads
 		expect(logged.some((line) => line.includes(join('.lightsout', 'ship', 'lo-60-ship.json')))).toBe(true);

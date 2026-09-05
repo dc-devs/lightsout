@@ -62,14 +62,14 @@ test('a workspace holding both prefers the overview, and the single plan beside 
 });
 
 test('a file is stat’d rather than opened: its size and mtime are what comes back, with a path getPlanDocument can take', async () => {
-	const { cwd, dir } = await seedWorkspace({ files: { 'notes.md': 'rough idea' } });
+	const { cwd, dir } = await seedWorkspace({ files: { 'brainstorm-notes.md': 'rough idea' } });
 
-	await touch({ dir, path: 'notes.md', at: '2026-03-04T05:06:07.000Z' });
+	await touch({ dir, path: 'brainstorm-notes.md', at: '2026-03-04T05:06:07.000Z' });
 	const files = await readPlanWorkspaceFiles({ cwd, name });
 
 	expect(files.notesFile).toStrictEqual({
-		name: 'notes.md',
-		path: '.lightsout/plans/add-search/notes.md',
+		name: 'brainstorm-notes.md',
+		path: '.lightsout/plans/add-search/brainstorm-notes.md',
 		bytes: 'rough idea'.length,
 		updatedAt: '2026-03-04T05:06:07.000Z',
 	});
