@@ -157,7 +157,7 @@ With the `plan` config block turned on, the plan is a contract rather than a nar
 When a plan starts from a `/brainstorm` hand-off, the decisions already settled there are carried straight into the plan rather than asked again; a settled decision is re-opened only when exploring the code turns up a concrete conflict.
 
 Once a ticket-backed plan is approved as ready, run `lightsout plan publish --name <name>`. It attaches only the durable design record — the single or
-phased plan deliverable and whichever of `notes.md`, `decisions.json`, and
+phased plan deliverable and whichever of `brainstorm-notes.md`, `decisions.json`, and
 `grade.json` the folder holds — plus a small `plan-attachments.json` integrity
 marker written last. Transcripts and other run state stay local. Publishing
 again replaces each same-titled attachment, so an amended plan can be published
@@ -169,7 +169,7 @@ safely without creating duplicate attachments under those names.
 Start from the notes `/brainstorm` saved:
 
 ```text
-/plan .lightsout/plans/rate-limiting/notes.md
+/plan .lightsout/plans/rate-limiting/brainstorm-notes.md
 ```
 
 Or start from a plain description:

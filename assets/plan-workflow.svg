@@ -58,7 +58,7 @@
 <text x="28" y="349" font-size="16.5" font-style="italic" fill="#c2d1e6"><tspan font-family="Menlo, SF Mono, monospace" fill="#cdf0fa">/brainstorm</tspan> a prerequisite</text>
 <line x1="28" y1="423" x2="472" y2="423" stroke="#35d6e8" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
 <text x="28" y="447" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#35d6e8" fill-opacity="1">SAVED WHEN NOTES EXIST</text>
-<text x="28" y="473" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#f6faff">.lightsout/plans/&lt;name&gt;/notes.md</text>
+<text x="28" y="473" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#f6faff">.lightsout/plans/&lt;name&gt;/brainstorm-notes.md</text>
 </g>
 <g transform="translate(655,236)">
 <rect x="0" y="0" width="500" height="549" rx="20" fill="#0a0f1a" fill-opacity="0.92" stroke="url(#edge1)" stroke-width="1.5"/>
