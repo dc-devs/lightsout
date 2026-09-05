@@ -17,8 +17,10 @@ interface Params {
 	defaultBranch: string;
 	/** The process environment the tracker credentials are read from. Passed rather than read, so a test never needs to mutate `process.env`. */
 	env: NodeJS.ProcessEnv;
-	/** Ready outcomes in queue order. */
-	ready: TicketRunOutcome[];
+	/** The ready outcome whose branch is being merged. */
+	outcome: TicketRunOutcome;
+	/** Runs a task with no other main-checkout git mutation in flight. The merge tail removes a worktree there while builders may be adding one. */
+	serializeMainCheckout: <Result>(params: { task: () => Promise<Result> }) => Promise<Result>;
 	onProgress?: (message: string) => void;
 }
 
@@ -46,15 +48,40 @@ const rebaseOntoDefault = async ({ worktreePath, defaultBranch }: { worktreePath
 };
 
 /**
- * One ticket's branch, rebased, re-gated and merged — or the same outcome with
- * `ready` flipped and the reason on it.
+ * One ticket's branch, rebased onto the tip of the default branch as the remote
+ * holds it now, re-gated and merged — or the same outcome with `ready` flipped
+ * and the reason on it.
+ *
+ * The answer carries `ready` exactly when the merge landed, which is how the
+ * drain knows a re-read of the tracker is worth making: only a merge can finish
+ * a blocker's ticket and free whatever was waiting on it.
  *
  * A park writes no record, so a rebase conflict, a red gate after the rebase
  * and a blocked merge all leave the branch recorded ready: the work is
  * finished and only the merge failed, so the next run re-ships it rather than
  * spending a worker on re-doing it.
+ *
+ * Serial ordering is not this function's job any more — `runDrainLanes` calls
+ * it once per branch and never twice at a time, which is what makes rebasing
+ * onto `origin/<default>` meaningful. `runShip`'s closing cleanup knows it is
+ * inside a worktree and skips itself there; the next branch's rebase does its
+ * own fetch, so it picks this merge up from the remote rather than from a local
+ * branch.
+ *
+ * @param outcome - the ready outcome whose branch is being merged
+ * @param serializeMainCheckout - wraps the worktree removal, the one thing here that touches the main checkout
+ * @returns the same outcome, `ready` flipped to false when it could not merge
  */
-const shipOne = async ({ cwd, config, shipSettings, defaultBranch, env, outcome, onProgress }: Omit<Params, 'ready'> & { outcome: TicketRunOutcome }) => {
+export const shipOneBranch = async ({
+	cwd,
+	config,
+	shipSettings,
+	defaultBranch,
+	env,
+	outcome,
+	serializeMainCheckout,
+	onProgress,
+}: Params): Promise<TicketRunOutcome> => {
 	const park = ({ error }: { error: string }) => {
 		onProgress?.(`${outcome.ticket.identifier} · not shipped: ${error}`);
 
@@ -88,7 +115,9 @@ const shipOne = async ({ cwd, config, shipSettings, defaultBranch, env, outcome,
 	// write below can fail, so a process killed anywhere in this tail must still
 	// leave the branch recorded merged rather than ready to merge again.
 	await writeBranchState({ cwd, branch: outcome.branch, phase: BranchPhase.Merged, onProgress });
-	await removeTicketWorktree({ cwd, worktreePath: outcome.worktreePath, branch: outcome.branch });
+	// The one main-checkout mutation in this step: a builder may be adding a
+	// worktree there in the same turn, so the removal takes the shared chain.
+	await serializeMainCheckout({ task: () => removeTicketWorktree({ cwd, worktreePath: outcome.worktreePath, branch: outcome.branch }) });
 	onProgress?.(`${outcome.ticket.identifier} · shipped as ${shipped.mergeCommit}`);
 
 	// The merge is what the Done write is evidence of, so it happens after it —
@@ -97,29 +126,4 @@ const shipOne = async ({ cwd, config, shipSettings, defaultBranch, env, outcome,
 	const reconciliationFailure = await reconcileShippedTicket({ config, env, ticketRef: shipped.ticketRef, onProgress });
 
 	return reconciliationFailure === undefined ? outcome : { ...outcome, reconciliationFailure };
-};
-
-/**
- * Merge the ready branches one at a time, oldest ticket first.
- *
- * Every merge moves the default branch, so each branch is rebased onto what the
- * remote holds *now* and re-gated before it goes anywhere: the serial rebase
- * catches conflicts rather than predicting them, and a conflict parks the
- * ticket for a human with its worktree intact.
- *
- * `runShip`'s closing cleanup knows it is inside a worktree and skips itself
- * there; the next ticket's rebase targets `origin/<default>` after its own
- * fetch, so it picks the merge up from the remote rather than from a local
- * branch.
- *
- * @returns one outcome per input, `ready` flipped to false on the ones that could not merge
- */
-export const shipReadyBranches = async ({ cwd, config, shipSettings, defaultBranch, env, ready, onProgress }: Params): Promise<TicketRunOutcome[]> => {
-	const shipped: TicketRunOutcome[] = [];
-
-	for (const outcome of ready) {
-		shipped.push(await shipOne({ cwd, config, shipSettings, defaultBranch, env, outcome, onProgress }));
-	}
-
-	return shipped;
 };

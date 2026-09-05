@@ -32,7 +32,7 @@ const mockListLabelNames = jest.fn<() => Promise<string[] | TrackerFailure>>();
 const mockListEligibleTickets = jest.fn<() => Promise<TicketSummary[] | QueueFailure>>();
 const mockScanParkedWorktrees = jest.fn<() => Promise<ParkedWork | QueueFailure>>();
 const mockRunQueueTicket = jest.fn<(params: { ticket: TicketSummary }) => Promise<TicketRunOutcome>>();
-const mockShipReadyBranches = jest.fn<(params: { ready: TicketRunOutcome[] }) => Promise<TicketRunOutcome[]>>();
+const mockShipOneBranch = jest.fn<(params: { outcome: TicketRunOutcome }) => Promise<TicketRunOutcome>>();
 const mockSetParkedLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure | undefined>>();
 
 jest.mock('#src/queue/listEligibleTickets.ts', () => ({ listEligibleTickets: () => mockListEligibleTickets() }));
@@ -43,7 +43,7 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 }));
 jest.mock('#src/queue/scanParkedWorktrees.ts', () => ({ scanParkedWorktrees: () => mockScanParkedWorktrees() }));
 jest.mock('#src/queue/runQueueTicket.ts', () => ({ runQueueTicket: (params: { ticket: TicketSummary }) => mockRunQueueTicket(params) }));
-jest.mock('#src/queue/shipReadyBranches.ts', () => ({ shipReadyBranches: (params: { ready: TicketRunOutcome[] }) => mockShipReadyBranches(params) }));
+jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: TicketRunOutcome }) => mockShipOneBranch(params) }));
 // -------------------------
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
@@ -96,7 +96,7 @@ const setupDrain = ({ eligible = [], resumed = [] }: { eligible?: TicketSummary[
 	mockListEligibleTickets.mockResolvedValue(eligible);
 	mockScanParkedWorktrees.mockResolvedValue({ resumed, outcomes: [], leftBehind: [], merged: [] });
 	mockRunQueueTicket.mockImplementation(({ ticket }) => Promise.resolve(outcomeOf({ ticket })));
-	mockShipReadyBranches.mockImplementation(({ ready }) => Promise.resolve(ready));
+	mockShipOneBranch.mockImplementation(({ outcome }) => Promise.resolve(outcome));
 	mockSetParkedLabel.mockResolvedValue(undefined);
 
 	const relay = terminalRelayFixture();

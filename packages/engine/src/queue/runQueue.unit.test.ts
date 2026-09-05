@@ -32,7 +32,7 @@ type SerializeWorktreeAdd = <Result>(params: { task: () => Promise<Result> }) =>
 const mockListEligibleTickets = jest.fn<() => Promise<TicketSummary[] | QueueFailure>>();
 const mockScanParkedWorktrees = jest.fn<() => Promise<ParkedWork | QueueFailure>>();
 const mockRunQueueTicket = jest.fn<(params: { ticket: TicketSummary; serializeWorktreeAdd: SerializeWorktreeAdd }) => Promise<TicketRunOutcome>>();
-const mockShipReadyBranches = jest.fn<(params: { ready: TicketRunOutcome[] }) => Promise<TicketRunOutcome[]>>();
+const mockShipOneBranch = jest.fn<(params: { outcome: TicketRunOutcome }) => Promise<TicketRunOutcome>>();
 /** The label write is covered by `setParkedLabel`'s own tests; what this file owns is which list the drain settles it over, and when. */
 type LabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; parked: boolean };
 
@@ -49,7 +49,7 @@ jest.mock('#src/queue/scanParkedWorktrees.ts', () => ({ scanParkedWorktrees: () 
 jest.mock('#src/queue/runQueueTicket.ts', () => ({
 	runQueueTicket: (params: { ticket: TicketSummary; serializeWorktreeAdd: SerializeWorktreeAdd }) => mockRunQueueTicket(params),
 }));
-jest.mock('#src/queue/shipReadyBranches.ts', () => ({ shipReadyBranches: (params: { ready: TicketRunOutcome[] }) => mockShipReadyBranches(params) }));
+jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: TicketRunOutcome }) => mockShipOneBranch(params) }));
 // -------------------------
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
@@ -99,7 +99,7 @@ const setupDrain = ({ eligible = [], parked }: { eligible?: TicketSummary[]; par
 	mockListEligibleTickets.mockResolvedValue(eligible);
 	mockScanParkedWorktrees.mockResolvedValue(parked ?? { resumed: [], outcomes: [], leftBehind: [], merged: [] });
 	mockRunQueueTicket.mockImplementation(({ ticket }) => Promise.resolve(outcomeOf({ ticket })));
-	mockShipReadyBranches.mockImplementation(({ ready }) => Promise.resolve(ready));
+	mockShipOneBranch.mockImplementation(({ outcome }) => Promise.resolve(outcome));
 	mockSetParkedLabel.mockResolvedValue(undefined);
 
 	const relay = terminalRelayFixture();
@@ -289,7 +289,7 @@ describe('runQueue', () => {
 		expect(readFileSync(readCoordinatorRun({ cwd }).planPath, 'utf8')).toContain('LO-71 · direct · lo-71-deterministicverificationpipelinerebuild ·');
 	});
 
-	test('sends both the parked-and-ready branches and the freshly built ones to the merge, in the order they were picked up', async () => {
+	test('sends both the parked-and-ready branches and the freshly built ones to the merge, in the order they became ready', async () => {
 		const alreadyReady = outcomeOf({ ticket: ticketOf({ number: 99 }) });
 		const { drain, relay } = setupDrain({
 			eligible: [ticketOf({ number: 70 })],
@@ -299,7 +299,7 @@ describe('runQueue', () => {
 		await drain();
 		relay.close();
 
-		expect(mockShipReadyBranches.mock.calls[0]?.[0].ready.map((outcome) => outcome.ticket.identifier)).toStrictEqual(['LO-99', 'LO-70']);
+		expect(mockShipOneBranch.mock.calls.map(([params]) => params.outcome.ticket.identifier)).toStrictEqual(['LO-99', 'LO-70']);
 	});
 
 	test('merges a parked branch that only needed shipping, without spending a worker on finished work', async () => {

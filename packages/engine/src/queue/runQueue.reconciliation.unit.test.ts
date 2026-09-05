@@ -210,6 +210,37 @@ const setupMergedTree = () => {
 	return { cwd, worktreePath, progress, ...startDrain({ cwd, progress }) };
 };
 
+/**
+ * A backlog whose opening scan holds one ticket back as blocked, which is what
+ * makes the drain read the tracker a second time. That later read hands back
+ * LO-70, a ticket the forge reports as already merged: the re-scan's selection
+ * has to reach the same already-merged skip the opening one does.
+ */
+const setupRescanMergedTicket = () => {
+	const { cwd } = setupBranchRepo();
+	const progress: string[] = [];
+	const blocked: TicketSummary = { ...ticketOf({ number: 72 }), unfinishedBlockers: ['LO-71'] };
+
+	// Every read after the first one offers LO-70; the first offers LO-71, which
+	// parks, so the ticket that already merged can only arrive mid-run.
+	mockListEligibleTickets.mockResolvedValue([ticketOf({ number: 70 }), blocked]);
+	mockListEligibleTickets.mockResolvedValueOnce([ticketOf({ number: 71 }), blocked]);
+	mockScanParkedWorktrees.mockResolvedValue({ resumed: [], outcomes: [], leftBehind: [], merged: [] });
+	mockRunQueueTicket.mockImplementation(({ ticket }) =>
+		Promise.resolve({
+			ticket,
+			branch: `${ticket.identifier.toLowerCase()}-ticket-${ticket.id}`,
+			worktreePath: `/tmp/${ticket.identifier}`,
+			ready: false,
+			error: 'tsc: 3 errors',
+		}),
+	);
+	mockFindPullRequest.mockImplementation(({ branch }) => Promise.resolve(branch.startsWith('lo-70-') ? mergedPullRequest : undefined));
+	mockReconcileShippedTicket.mockResolvedValue(undefined);
+
+	return { cwd, progress, ...startDrain({ cwd, progress }) };
+};
+
 describe('runQueue', () => {
 	test('finishes a parked worktree already recorded merged, rather than stopping before the lock that settles it', async () => {
 		const { worktreePath, drain, relay } = setupMergedTree();
@@ -380,5 +411,20 @@ describe('runQueue', () => {
 		relay.close();
 
 		expect(readCoordinatorRun({ cwd }).manifest.status).toBe(RunStatus.Passed);
+	});
+
+	test('skips a ticket whose branch already merged when a re-scan hands it back mid-run', async () => {
+		const { drain, relay } = setupRescanMergedTicket();
+
+		const report = await drain();
+
+		relay.close();
+
+		expect(mockRunQueueTicket.mock.calls.map((call) => call[0].ticket.identifier)).toStrictEqual(['LO-71']);
+		expect(report).toEqual(
+			expect.objectContaining({
+				leftBehind: expect.arrayContaining([{ identifier: 'LO-70', reason: expect.stringContaining('already has a merged pull request #41'), settled: true }]),
+			}),
+		);
 	});
 });

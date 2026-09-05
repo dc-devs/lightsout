@@ -29,7 +29,7 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 const mockListEligibleTickets = jest.fn<() => Promise<TicketSummary[] | QueueFailure>>();
 const mockScanParkedWorktrees = jest.fn<() => Promise<ParkedWork | QueueFailure>>();
 const mockRunQueueTicket = jest.fn<(params: { ticket: TicketSummary }) => Promise<TicketRunOutcome>>();
-const mockShipReadyBranches = jest.fn<(params: { ready: TicketRunOutcome[] }) => Promise<TicketRunOutcome[]>>();
+const mockShipOneBranch = jest.fn<(params: { outcome: TicketRunOutcome }) => Promise<TicketRunOutcome>>();
 type LabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; parked: boolean };
 
 const mockSetParkedLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure | undefined>>();
@@ -43,7 +43,7 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 }));
 jest.mock('#src/queue/scanParkedWorktrees.ts', () => ({ scanParkedWorktrees: () => mockScanParkedWorktrees() }));
 jest.mock('#src/queue/runQueueTicket.ts', () => ({ runQueueTicket: (params: { ticket: TicketSummary }) => mockRunQueueTicket(params) }));
-jest.mock('#src/queue/shipReadyBranches.ts', () => ({ shipReadyBranches: (params: { ready: TicketRunOutcome[] }) => mockShipReadyBranches(params) }));
+jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: TicketRunOutcome }) => mockShipOneBranch(params) }));
 // -------------------------
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
@@ -107,7 +107,7 @@ const setupDrain = ({ eligible = [], parked }: { eligible?: TicketSummary[]; par
 	mockListEligibleTickets.mockResolvedValue(eligible);
 	mockScanParkedWorktrees.mockResolvedValue(parked ?? { resumed: [], outcomes: [], leftBehind: [], merged: [] });
 	mockRunQueueTicket.mockImplementation(({ ticket }) => Promise.resolve(outcomeOf({ ticket })));
-	mockShipReadyBranches.mockImplementation(({ ready }) => Promise.resolve(ready));
+	mockShipOneBranch.mockImplementation(({ outcome }) => Promise.resolve(outcome));
 	mockSetParkedLabel.mockResolvedValue(undefined);
 
 	const relay = terminalRelayFixture();
@@ -133,8 +133,8 @@ const setupDrain = ({ eligible = [], parked }: { eligible?: TicketSummary[]; par
 /** The identifiers handed to a worker, in the order the waves picked them up. */
 const pickedUp = () => mockRunQueueTicket.mock.calls.map((call) => call[0].ticket.identifier);
 
-/** What each wave sent to the serial merge, one list per wave. */
-const shippedPerWave = () => mockShipReadyBranches.mock.calls.map((call) => call[0].ready.map((outcome) => outcome.ticket.identifier));
+/** The identifiers the serial merge lane took, in the order it merged them. Flat, because the lane now takes one branch per call. */
+const merged = () => mockShipOneBranch.mock.calls.map((call) => call[0].outcome.ticket.identifier);
 
 /** The `queue.md` the one coordinator run wrote — one line per ticket any wave picked up. */
 const readQueuePlan = ({ cwd }: { cwd: string }) => {
@@ -142,6 +142,37 @@ const readQueuePlan = ({ cwd }: { cwd: string }) => {
 	const runId = readdirSync(runsDir)[0];
 
 	return readFileSync(join(runsDir, runId, 'queue.md'), 'utf8');
+};
+
+/**
+ * The drain with one builder held open by hand: every ticket finishes the moment
+ * a builder takes it, except the one named, which finishes only on `release()`.
+ *
+ * That is what lets a test look at the run while an unrelated build is still
+ * going, which is the whole point of a merge that no longer waits for the wave.
+ */
+const setupHeldBuild = ({ hold }: { hold: string }) => {
+	const drainSetup = setupDrain();
+	let releaseHeld: (() => void) | undefined;
+
+	mockRunQueueTicket.mockImplementation(({ ticket }) => {
+		if (ticket.identifier !== hold) {
+			return Promise.resolve(outcomeOf({ ticket }));
+		}
+
+		return new Promise<TicketRunOutcome>((resolve) => {
+			releaseHeld = () => resolve(outcomeOf({ ticket }));
+		});
+	});
+
+	return { ...drainSetup, release: () => releaseHeld?.() };
+};
+
+/** Give the drain real turns until it hands the named ticket to a builder, or give up. */
+const waitUntilPickedUp = async ({ identifier }: { identifier: string }) => {
+	for (let turn = 0; turn < 500 && !pickedUp().includes(identifier); turn += 1) {
+		await new Promise((resolve) => setTimeout(resolve, 10));
+	}
 };
 
 describe('runQueue', () => {
@@ -165,7 +196,7 @@ describe('runQueue', () => {
 		});
 	});
 
-	test('merges each wave before re-scanning, because a blocker only finishes once its branch is in', async () => {
+	test('merges a branch before re-scanning, because a blocker only finishes once its branch is in', async () => {
 		const { drain, relay } = setupDrain();
 
 		mockListEligibleTickets.mockResolvedValueOnce([ticketOf({ number: 70 }), ticketOf({ number: 71, unfinishedBlockers: ['LO-70'] })]);
@@ -174,10 +205,12 @@ describe('runQueue', () => {
 		await drain();
 		relay.close();
 
-		expect(shippedPerWave()).toStrictEqual([['LO-70'], ['LO-71']]);
+		// One call per branch now, so the claim is the order they merged in rather
+		// than which wave each belonged to — LO-71 could not start until LO-70 merged.
+		expect(merged()).toStrictEqual(['LO-70', 'LO-71']);
 	});
 
-	test('merges a parked branch in the first wave only, so a later wave never ships settled work twice', async () => {
+	test('merges a parked branch exactly once, so a later scan never ships settled work twice', async () => {
 		const alreadyReady = outcomeOf({ ticket: ticketOf({ number: 99 }) });
 		const { drain, relay } = setupDrain({ parked: { resumed: [], outcomes: [alreadyReady], leftBehind: [], merged: [] } });
 
@@ -188,7 +221,9 @@ describe('runQueue', () => {
 
 		relay.close();
 
-		expect(shippedPerWave()).toStrictEqual([['LO-99', 'LO-70'], ['LO-71']]);
+		// The parked branch is merged once and never offered again; the flat list is
+		// what says so, where the old per-wave grouping said it by shape.
+		expect(merged()).toStrictEqual(['LO-99', 'LO-70', 'LO-71']);
 		expect(report).toEqual({
 			outcomes: [
 				expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-99' }) }),
@@ -286,12 +321,11 @@ describe('runQueue', () => {
 		expect(pickedUp()).toStrictEqual(['LO-70', 'LO-71']);
 	});
 
-	test('never offers a ticket a full wave had no slot for to the next one, though the scan still lists it', async () => {
+	test('starts nothing more once an unanswered question has retired the whole budget, and names what it never started', async () => {
 		const { drain, relay } = setupDrain();
 		const firstScan = [ticketOf({ number: 70 }), ticketOf({ number: 71 }), ticketOf({ number: 72, unfinishedBlockers: ['LO-70'] })];
 
 		mockListEligibleTickets.mockResolvedValueOnce(firstScan);
-		mockListEligibleTickets.mockResolvedValueOnce([ticketOf({ number: 71 }), ticketOf({ number: 72 })]);
 		// LO-70 parks on an unanswered question — the one outcome that retires a
 		// slot; a plain failure would free it and LO-71 would run after all.
 		mockRunQueueTicket.mockImplementation(({ ticket }) =>
@@ -302,10 +336,19 @@ describe('runQueue', () => {
 
 		relay.close();
 
-		expect(pickedUp()).toStrictEqual(['LO-70', 'LO-72']);
+		// Retirement is drain-wide now that there are no waves to reset it: the
+		// budget it caps is how many questions may sit waiting for a human at
+		// once, and the human is no more present later in the run than they were
+		// when the question was asked. So the only slot stays retired, LO-71 is
+		// never started, and LO-72 — blocked on a ticket that never finished —
+		// is never offered either. Nothing vanishes: both are named.
+		expect(pickedUp()).toStrictEqual(['LO-70']);
 		expect(report).toEqual({
-			outcomes: expect.arrayContaining([expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-72' }), ready: true })]),
-			leftBehind: [{ identifier: 'LO-71', reason: expect.stringContaining('not started') }],
+			outcomes: [expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-70' }), unanswered: true })],
+			leftBehind: expect.arrayContaining([
+				{ identifier: 'LO-71', reason: expect.stringContaining('not started') },
+				expect.objectContaining({ identifier: 'LO-72' }),
+			]),
 		});
 	});
 
@@ -363,5 +406,39 @@ describe('runQueue', () => {
 			leftBehind: [{ identifier: 'LO-71', reason: expect.stringContaining('blocked by LO-69') }],
 		});
 		expect(progress).toContainEqual(expect.stringContaining('the re-scan for newly unblocked tickets failed'));
+	});
+
+	test('ships a dependent ticket in the same run, without waiting for the unrelated builds to finish', async () => {
+		const { drain, relay, release } = setupHeldBuild({ hold: 'LO-72' });
+
+		mockListEligibleTickets.mockResolvedValueOnce([
+			ticketOf({ number: 70 }),
+			ticketOf({ number: 71, unfinishedBlockers: ['LO-70'] }),
+			ticketOf({ number: 72 }),
+		]);
+		mockListEligibleTickets.mockResolvedValueOnce([ticketOf({ number: 71 })]);
+
+		const drained = drain();
+
+		await waitUntilPickedUp({ identifier: 'LO-71' });
+
+		const startedWhileHeldOpen = pickedUp();
+
+		release();
+
+		const report = await drained;
+
+		relay.close();
+
+		// LO-72 cannot have finished: only `release()` ends it, and it runs below.
+		expect(startedWhileHeldOpen).toStrictEqual(['LO-70', 'LO-72', 'LO-71']);
+		expect(report).toEqual({
+			outcomes: [
+				expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-70' }), ready: true }),
+				expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-71' }), ready: true }),
+				expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-72' }), ready: true }),
+			],
+			leftBehind: [],
+		});
 	});
 });
