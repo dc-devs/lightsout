@@ -23,7 +23,7 @@
       "note": "Gives the plan a stable home without making `/brainstorm` a prerequisite",
       "savedLabel": "SAVED WHEN NOTES EXIST",
       "saved": [
-        ".lightsout/plans/<name>/notes.md"
+        ".lightsout/plans/<name>/brainstorm-notes.md"
       ]
     },
     {
