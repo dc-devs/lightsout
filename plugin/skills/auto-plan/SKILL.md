@@ -325,8 +325,9 @@ before this worker's agent starts. Passing `--tracker-status ready` there would
 move the ticket backwards out of In Progress while a live worktree still owns
 its branch — and `planning-complete` at Ready to implement is one of the three
 pairs the queue selects, so a later drain could pick up work already underway.
-Step 10's implement run would then write In Progress a third time. Omitting the
-flag writes the planning status and leaves the tracker status alone.
+The build the queue runs after this session ends would then write In Progress a
+third time. Omitting the flag writes the planning status and leaves the tracker
+status alone.
 
 With no ticket, skip both commands. A nonzero exit from either is a stop: report
 the exact failure and do not hand off or implement an artifact another machine
@@ -334,11 +335,18 @@ cannot recover. Under `lightsout queue`, report that as `failed` in the worker's
 final JSON so the ticket parks with the actionable error. Never treat a
 passing grade or automatic approval as a substitute for these commands; the
 grade proves the plan is ready, while publish makes that ready plan durable.
-Writing `planning-complete` here is what step 10's `implement` run finds and
-preserves, so the ticket never enters In Progress still claiming shaping is
-owed.
+Writing `planning-complete` here is what the implement run finds and preserves —
+step 10's run interactively, and the queue's own engine-owned build under
+`lightsout queue` — so the ticket never enters In Progress still claiming
+shaping is owed.
 
-**10. Roll onward.** With `implement-on-approval` false, print the handoff line
+**10. Roll onward.** Under `lightsout queue` this step does nothing at all,
+whatever `implement-on-approval` says: stop after step 9's publish and report
+`complete`. The queue runs the implement pipeline on the plan folder itself,
+outside this session, because a build started inside an agent session dies when
+that session does.
+
+Otherwise, with `implement-on-approval` false, print the handoff line
 and stop:
 
 ```

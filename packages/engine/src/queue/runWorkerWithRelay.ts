@@ -1,13 +1,8 @@
-import { join } from 'node:path';
-import { buildQueueAutoPlanInvocation } from '#src/agents/index.ts';
 import type { AnsweredQuestion } from '#src/common/types/AnsweredQuestion.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { type LightsoutConfig, RunStatus, WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
+import { type LightsoutConfig, RunStatus } from '#src/contracts/index.ts';
 import { runDirectWork } from '#src/direct/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { invokeAgentWithContract } from '#src/invoke/index.ts';
-import { runPhasesPipeline } from '#src/phases/index.ts';
-import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { pathExists, planWorkspaceDir, restorePlanWorkspace } from '#src/plan/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
@@ -15,6 +10,8 @@ import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
+import { runAutoPlanWorker } from '#src/queue/runAutoPlanWorker.ts';
+import { runPlanFolderPipeline } from '#src/queue/runPlanFolderPipeline.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
@@ -35,58 +32,6 @@ interface Params {
 	coordinatorRunDir: string;
 	onProgress?: (message: string) => void;
 }
-
-/** The headless auto-plan session: plan the ticket with the skill, then run the engine's implement on the plan it wrote. */
-const runAutoPlanWorker = async ({
-	cwd,
-	ticket,
-	config,
-	driver,
-	settings,
-	answeredQuestion,
-}: {
-	cwd: string;
-	ticket: TicketSummary;
-	config: LightsoutConfig;
-	driver: Driver;
-	settings: QueueSettings;
-	answeredQuestion?: AnsweredQuestion;
-}): Promise<WorkerOutcome> => {
-	// The skill shells out to `lightsout implement`, and under `write`
-	// permissions a harness only runs granted prefixes — so the engine grants
-	// itself, and the prompt is told the same words verbatim.
-	const engineCli = `node ${process.argv[1]}`;
-	const outcome = await invokeAgentWithContract({
-		driver,
-		cwd,
-		invocation: buildQueueAutoPlanInvocation({
-			ticketRef: ticket.identifier,
-			ticketTitle: ticket.title,
-			ticketBody: ticket.description,
-			engineCli,
-			answeredQuestion,
-		}),
-		contract: WorkReport,
-		model: config.model,
-		effort: config.effort,
-		permissions: config.permissions,
-		timeoutMs: settings.workerTimeoutMs,
-		allowedCommands: [...(config['agent-commands'] ?? []), engineCli],
-	});
-
-	if (!outcome.ok) {
-		return { error: outcome.failure };
-	}
-
-	const report: WorkReport = outcome.report;
-	const refusal = report.failures[0] ?? report.summary;
-
-	if (report.status === WorkReportStatus.TerminatedAmbiguity) {
-		return { question: refusal };
-	}
-
-	return report.status === WorkReportStatus.Complete ? {} : { error: refusal };
-};
 
 /** The direct worker, its run result read back in the same three terms. */
 const runDirectWorker = async ({
@@ -137,11 +82,6 @@ const runDirectWorker = async ({
  * approved brainstorm material, whose outcome lives in the ticket body. It then
  * builds from the body, announced so the run is legible — and stays distinct
  * from the direct worker, which never looks for a plan at all.
- *
- * It never relays a question. The implement pipelines take an existing manifest
- * and have no answer channel, so a question relayed out of here could never be
- * answered back into the run that asked it; an escalated run parks with its
- * worktree intact instead, the engine's existing recovery path for one.
  */
 const runPlanWorker = async ({
 	cwd,
@@ -178,18 +118,7 @@ const runPlanWorker = async ({
 		}
 	}
 
-	const phased = await pathExists({ path: join(folder, 'overview.md') });
-	const result = phased
-		? await runPhasesPipeline({ cwd, driver, config, overviewPath: join(folder, 'overview.md'), onProgress })
-		: await runImplementPipeline({ cwd, driver, config, planPath: join(folder, 'plan.md'), onProgress });
-
-	if (result.ok) {
-		return {};
-	}
-
-	const stated = result.error ?? `the run ended ${result.manifest.status}`;
-
-	return { error: `${stated} — \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree` };
+	return runPlanFolderPipeline({ cwd, name: branch, config, driver, onProgress });
 };
 
 /**
@@ -224,7 +153,7 @@ export const runWorkerWithRelay = async ({
 		const workers: Record<QueueWorker, () => Promise<WorkerOutcome>> = {
 			[QueueWorker.Direct]: () => runDirectWorker({ cwd: worktreePath, ticket, config, driver, driverName, answeredQuestion, onProgress }),
 			[QueueWorker.Plan]: () => runPlanWorker({ cwd: worktreePath, ticket, branch, config, driver, driverName, trackerSettings, onProgress }),
-			[QueueWorker.AutoPlan]: () => runAutoPlanWorker({ cwd: worktreePath, ticket, config, driver, settings, answeredQuestion }),
+			[QueueWorker.AutoPlan]: () => runAutoPlanWorker({ cwd: worktreePath, ticket, branch, config, driver, settings, answeredQuestion, onProgress }),
 		};
 		const outcome = await workers[ticket.worker]();
 

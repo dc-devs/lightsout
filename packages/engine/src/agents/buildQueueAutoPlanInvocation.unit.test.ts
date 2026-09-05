@@ -30,6 +30,22 @@ describe('buildQueueAutoPlanInvocation', () => {
 		expect(systemPrompt).toContain('Never run `lightsout ship`');
 	});
 
+	test('forbids the third thing only the queue may do: running the implement subcommand', () => {
+		const { systemPrompt } = buildQueueAutoPlanInvocation(base);
+
+		expect(systemPrompt).toContain('Never implement');
+		expect(systemPrompt).toMatch(/[Nn]ever run[^\n]*implement/);
+		expect(systemPrompt).toContain('lightsout:implement');
+	});
+
+	test('tells the session its job ends when the plan is published, not when a build finishes', () => {
+		const { systemPrompt } = buildQueueAutoPlanInvocation(base);
+
+		expect(systemPrompt).toMatch(/job ends[^\n]*publish/i);
+		expect(systemPrompt).toContain('published to the ticket');
+		expect(systemPrompt).not.toContain('the plan was implemented and its run passed');
+	});
+
 	test('tells a re-invoked session the worktree already holds its own earlier work', () => {
 		const { prompt } = buildQueueAutoPlanInvocation({ ...base, answeredQuestion: { question: 'Which one?', answer: 'the second' } });
 
