@@ -2,8 +2,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
+import { sha256 } from '#src/common/utils/sha256.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { planAttachmentManifestName, planAttachmentSha256 } from '#src/plan/common/planAttachmentManifest.ts';
+import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
 import { publishPlan } from '#src/plan/publish/publishPlan.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
@@ -150,8 +151,8 @@ describe('publishPlan', () => {
 		expect(JSON.parse(manifestWrite?.content.toString('utf8') ?? '')).toStrictEqual({
 			schemaVersion: 1,
 			files: [
-				{ name: 'plan.md', sha256: planAttachmentSha256({ content: '# the plan\n' }) },
-				{ name: 'brainstorm-notes.md', sha256: planAttachmentSha256({ content: '# notes\n' }) },
+				{ name: 'plan.md', sha256: sha256({ content: '# the plan\n' }) },
+				{ name: 'brainstorm-notes.md', sha256: sha256({ content: '# notes\n' }) },
 			],
 		});
 	});

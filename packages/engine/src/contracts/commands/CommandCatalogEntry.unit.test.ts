@@ -29,7 +29,7 @@ describe('CommandCatalogEntry', () => {
 		expect(parsed).toEqual(expect.objectContaining({ invocations: [], flags: [], steps: [], related: [] }));
 	});
 
-	test('a skill-only command parses with no cli — /brainstorm has no command word behind it', () => {
+	test('a skill-only command parses with no cli — /auto-plan has no command word behind it', () => {
 		const { row } = setupEntry({ omit: 'cli' });
 
 		const parsed = CommandCatalogEntry.parse(row);

@@ -140,7 +140,7 @@ Use `/implement`, then walk away. The implementation agent follows the finished 
 
 Design before you build. `/brainstorm` turns a rough idea into a clear direction through dialogue. It asks questions, explores alternative approaches, explains the tradeoffs, and recommends a path forward.
 
-Once the direction is settled, it saves two things — the design write-up, and the list of decisions that were settled, in a form `/plan` honors — and hands them to `/plan`. For small, obvious changes, it can also exit directly to implementation.
+Once the direction is settled, it decides its own outcome: ready to implement, when it can name every file that changes and nothing is left open, or ready to auto-plan otherwise. Both outcomes save the same two things — the design write-up, and the list of decisions that were settled, in a form the planning skills honor — and both publish those files to the ticket with `lightsout brainstorm publish`, so a fresh machine can read them.
 
 ```text
 /brainstorm add rate limiting to the public API
@@ -162,6 +162,13 @@ phased plan deliverable and whichever of `brainstorm-notes.md`, `decisions.json`
 marker written last. Transcripts and other run state stay local. Publishing
 again replaces each same-titled attachment, so an amended plan can be published
 safely without creating duplicate attachments under those names.
+
+A brainstorm publishes its own record the same way: `lightsout brainstorm
+publish --name <name>` attaches `brainstorm-notes.md` and
+`brainstorm-decisions.json` plus a `brainstorm-attachments.json` integrity
+marker written last, under its own title so it never collides with the plan's
+generation. `lightsout plan verify-facts` fetches both files back into the plan
+folder, so planning on a fresh machine starts from what the brainstorm settled.
 
 [![How /plan turns a request into an implementation-ready spec](assets/plan-workflow-light.svg)](assets/plan-workflow-light.svg)
 

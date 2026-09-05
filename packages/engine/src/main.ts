@@ -1,5 +1,6 @@
 import type { CommandContext } from '#src/cli/index.ts';
 import {
+	brainstormCommand,
 	doctorCommand,
 	exitCli,
 	frictionCommand,
@@ -39,6 +40,7 @@ const commands: Record<string, (context: CommandContext) => Promise<void>> = {
 	refactor: refactorCommand,
 	'test-coverage-to-threshold': testCoverageToThresholdCommand,
 	plan: planCommand,
+	brainstorm: brainstormCommand,
 	friction: frictionCommand,
 	improve: improveCommand,
 	voice: voiceCommand,

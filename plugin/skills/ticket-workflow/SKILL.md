@@ -194,7 +194,7 @@ live with for a year.
 | Label | Means | Produces |
 |---|---|---|
 | `planning-needs-brainstorm` | Run the `brainstorm` skill, then decide whether it also needs a plan. **This is the default.** | Notes and settled decisions, and usually a plan after it |
-| `planning-needs-plan` | Go straight to the `plan` skill. | A plan folder |
+| `planning-needs-plan` | Go straight to the `plan` skill. Set by hand, by a person who wants to plan it themselves. | A plan folder |
 | `planning-ready-auto-plan` | Run the `auto-plan` skill. It plans the ticket alone and stops at one proposal. | A plan folder, and a proposal to approve |
 | `planning-not-needed` | Build it. The ticket never required brainstorming or planning. | The diff, and nothing else |
 | `planning-complete` | Nothing is owed. All required shaping is finished and implementation is waiting. | — |
@@ -208,11 +208,15 @@ idea gets shaped, where competing approaches get weighed, and where the thing
 turns out to be three tickets instead of one. Reaching for a plan first skips
 all of that and plans the wrong thing carefully.
 
-**`planning-needs-plan` is the exception, not a peer.** It applies only when a
-brainstorm has already settled **this ticket's own** design — usually the
-brainstorm that produced the ticket. A brainstorm about a neighbouring ticket
-does not count, however much context it shares: the tickets that fall out of one
-brainstorm are its by-products, not its subjects, and nobody has yet shaped them.
+**`planning-needs-plan` is the exception, not a peer.** No workflow writes it:
+the `brainstorm` skill decides its own outcome and writes either
+`planning-complete` or `planning-ready-auto-plan`. What is left is the hand-set
+label a person chooses when they want to plan the ticket themselves,
+interactively, rather than hand it to `auto-plan`. It still says a brainstorm
+has already settled **this ticket's own** design — usually the brainstorm that
+produced the ticket. A brainstorm about a neighbouring ticket does not count,
+however much context it shares: the tickets that fall out of one brainstorm are
+its by-products, not its subjects, and nobody has yet shaped them.
 
 **`planning-not-needed` is for work with no design left in it.** The change is
 local, the diff is describable in a sentence, and being wrong is cheap to undo.
@@ -273,7 +277,7 @@ Move a ticket to **Ready to implement** when its shaping is finished:
 | Starting planning status | Becomes | And moves to | When |
 |---|---|---|---|
 | `planning-not-needed` | `planning-not-needed` | Ready to implement | Immediately — there is nothing to shape |
-| `planning-needs-brainstorm` | `planning-complete` | Ready to implement | The brainstorm ended, and the plan it called for (if any) is graded and published |
+| `planning-needs-brainstorm` | `planning-complete`, or `planning-ready-auto-plan` | Ready to implement, or unchanged | The brainstorm decides its own outcome and writes it. Judged ready to implement, it writes `planning-complete` and moves the ticket to Ready to implement itself; otherwise it writes `planning-ready-auto-plan` and moves nothing, and the plan that follows is what reaches Ready to implement |
 | `planning-needs-plan` | `planning-complete` | Ready to implement | The plan is graded and published |
 | `planning-ready-auto-plan` | `planning-complete` | Ready to implement | The plan is graded, its proposal approved, and it is published |
 
@@ -318,36 +322,17 @@ mean shipped code, not work someone believed had finished.
 Setting the *first* planning status on a ticket is still a human act in the
 tracker, at filing time or whenever someone picks the ticket up.
 
-**`planning-needs-plan` is the one planning status that owes evidence**, because
-it is the only one asserting a fact: that a brainstorm already settled this
-ticket's design. Without proof anyone can claim it and skip the step, which is
-the one failure mode that would quietly undo this whole section.
+**No label owes evidence any more, because the evidence is written at the moment
+the brainstorm ends.** The `brainstorm` skill runs `lightsout brainstorm publish
+--name <name>`, which attaches both `brainstorm-notes.md` and
+`brainstorm-decisions.json` to the ticket under their own names, with a
+`brainstorm-attachments.json` integrity marker last. `.lightsout` is gitignored,
+so those files exist on exactly one laptop until that command runs — and the
+brainstorm runs it itself rather than leaving a human step behind.
 
-So: **attach the brainstorm's `brainstorm-notes.md` when you set `planning-needs-plan`.**
-Not at close — now. That file is safe to attach early in a way a plan is not:
-brainstorm writes it once, and the `plan` skill snapshots it write-once and never
-overwrites, so it is frozen the moment the brainstorm ends. `.lightsout` is
-gitignored, so it exists on exactly one laptop; attach it or it is gone.
-
-The two halves have different owners. The engine command sets the label;
-attaching `brainstorm-notes.md` stays a human step, taken in the same moment. A
-`planning-needs-plan` ticket with no attached notes is the rule unmet: the label
-claims a brainstorm settled this ticket's design, and the file is the only proof
-of it that survives leaving one laptop.
-
-Attach `brainstorm-notes.md` alone. `brainstorm-decisions.json` is machine input — `plan
-draft` merges those rows into the plan, so `plan.md`'s Decision Log carries all
-of them by the time you close, and attaching it would put the same rows in the
-ticket twice.
-
-Two cases that therefore do **not** qualify for `planning-needs-plan`, and this
-is the useful part of the rule rather than a technicality:
-
-- A brainstorm that exited at "just build it" wrote no files. Nothing to attach.
-  That ticket is `planning-complete`, or it is already done.
-- A design settled in conversation with nothing written down. Nothing to attach
-  — but not nothing to record: put what was settled in `## Decisions`, and the
-  ticket is `planning-not-needed` if nothing is left to shape.
+That is what makes a shaped ticket readable on a fresh machine, and it is what
+`plan verify-facts` fetches back into the plan folder before either planning
+skill reads it.
 
 ### Do not invent a lighter plan
 
@@ -383,7 +368,9 @@ the canonical name when the ticket is filed. Renaming the folder is not the
 whole rename: `decisions.json` and, when present, `brainstorm-decisions.json`
 each carry a `planName` field that has to be updated to match, or the record
 says one name while the folder says another. Nothing in the engine compares the
-two, which is exactly why this skill has to.
+two, which is exactly why this skill has to. A brainstorm is published after any
+rename, never before, so the ticket does not end up carrying a `planName` naming
+a folder that no longer exists.
 
 Do not rename once a run has started. A run manifest records the plan by path,
 so a folder renamed mid-run leaves `lightsout resume` pointing at a path that no
@@ -469,11 +456,13 @@ reference.
 A `planning-not-needed` ticket has no plan folder and nothing to attach. That is
 expected — its `## Decisions` section is the decision record.
 
-A `planning-needs-brainstorm` ticket that stopped at "just build it" wrote no
-files and has nothing to attach. What was settled in that conversation goes into
-the ticket's `## Decisions` before building — the body is where decisions
-live, never the closing comment. That ticket becomes `planning-complete`, not
-`planning-not-needed`: it plainly did require a brainstorm, and one ran.
+A `planning-needs-brainstorm` ticket the brainstorm judged ready to implement
+has no plan folder to publish, but it is not empty-handed: the brainstorm
+already published its own two files with `lightsout brainstorm publish`, and
+that is the record. What was settled also goes into the ticket's `## Decisions`
+before building — the body is where decisions live, never the closing comment.
+That ticket becomes `planning-complete`, not `planning-not-needed`: it plainly
+did require a brainstorm, and one ran.
 
 **Only the durable set travels when the shaping produced a plan:**
 
@@ -505,7 +494,10 @@ restored unless the new integrity marker names them.
 Skip `facts.json` — it predicts which files the work will touch, and once the
 PR exists the diff answers that better. Skip `brainstorm-decisions.json`: `plan
 draft` merges its rows into the plan, so `plan.md`'s Decision Log already
-carries every one of them.
+carries every one of them. The brainstorm generation carries its own two-file
+list — `brainstorm-notes.md` and `brainstorm-decisions.json` — under its own
+`brainstorm-attachments.json` marker, so those rows reach the ticket once as a
+file and once as the plan's Decision Log, never twice in the plan's own set.
 
 Skip `dedup.json`, every `*-stream.jsonl` and every `*-rejected-*.txt`. The
 streams are the harness event log for each `draft`, `dedup` and `grade` agent —
@@ -558,6 +550,17 @@ before implementation starts. Run state never travels.
 Re-publish before close if implementation amended the plan. Each same-titled
 attachment is replaced, so the ticket keeps the current durable record rather
 than two competing versions.
+
+**Re-publish the plan after re-publishing a brainstorm on a ticket that already
+carries a plan.** Both generations attach a file titled `brainstorm-notes.md`,
+and a tracker replaces an attachment by title, so the second publish overwrites
+the bytes the first one's marker committed a hash for. In every ordinary run the
+bytes are identical — the brainstorm writes that file once and the plan's
+snapshot is write-once, so neither flow ever changes it — and the one case this
+rule covers is someone editing the file and re-publishing the brainstorm alone.
+It is not symmetric, so it matters which one goes stale: a stale **plan** marker
+makes `implement` refuse to fetch the plan at all, while a stale **brainstorm**
+marker only makes planning print a warning and carry on.
 
 Do not paste the plan into the ticket body. An attached file cannot drift.
 

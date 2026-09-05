@@ -12,7 +12,8 @@
  * again for `queue --file-relay`, for `status --run` / `--watch`, and for
  * `lightsout plan publish` — which also spelled `--name`'s placeholder
  * `<name>`, since `<n>` reads as a number everywhere else in this text. Updated
- * again for `lightsout ticket-state`.
+ * again for `lightsout ticket-state`, and again for
+ * `lightsout brainstorm publish`.
  */
 export const usageFixture = `lightsout — deterministic engine for coding agents
 
@@ -34,6 +35,7 @@ usage:
   lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
   lightsout test-coverage-to-threshold [--cwd <path>] [--max-batches <n>] [--allow-dirty]
   lightsout test-coverage-to-threshold --run <id> [--cwd <path>]   (resume a parked coverage run)
+  lightsout brainstorm publish --name <name> [--cwd <path>]
   lightsout plan verify-facts --name <name> [--notes <path>] [--cwd <path>]
   lightsout plan draft --name <name> [--scope single|phased] [--cwd <path>]
   lightsout plan lint --name <name> [--cwd <path>]

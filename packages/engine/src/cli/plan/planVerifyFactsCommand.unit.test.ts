@@ -1,10 +1,23 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, test } from '@jest/globals';
+import { expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { planVerifyFactsCommand } from '#src/cli/plan/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+
+// Mocked Imports
+// -------------------------
+// The brainstorm fetch is the one seam mocked here: it reaches a ticket tracker,
+// and what this file has to pin is not what it fetched but that it ran before
+// anything asked the plan folder what it holds. Every other case in this file
+// leaves it as the no-op default.
+const mockEnsureBrainstormFiles = jest.fn<(params: { cwd: string; name: string }) => Promise<void>>();
+
+jest.mock('#src/cli/common/utils/ensureBrainstormFiles.ts', () => ({
+	ensureBrainstormFiles: (params: { cwd: string; name: string }) => mockEnsureBrainstormFiles(params),
+}));
+// -------------------------
 
 // verify-facts is deterministic — no agent — so the arrangement is a real
 // consumer repo whose authored facts claim one real and one missing path plus
@@ -89,4 +102,30 @@ test('planVerifyFactsCommand: a --notes path that does not exist fails before ve
 
 	expect(errors[0] ?? '').toMatch(/notes file not found: .*nowhere\/brainstorm-notes\.md/);
 	expect(exitCodes).toStrictEqual([1]);
+});
+
+// The ordering proof: the repo starts with no facts.json, and the fetch writes
+// it. verify-facts can only report an area count if the fetch had already run
+// when it read the folder — a fetch placed after it would find nothing.
+const setupBrainstormFetch = () => {
+	const arranged = setupVerifyFacts({ args: ['--name', 'demo'] });
+	const workspaceDir = join(arranged.context.cwd, '.lightsout', 'plans', 'demo');
+
+	mockEnsureBrainstormFiles.mockImplementationOnce(async () => {
+		mkdirSync(workspaceDir, { recursive: true });
+		writeFileSync(join(workspaceDir, 'facts.json'), JSON.stringify(mixedFacts));
+	});
+
+	return arranged;
+};
+
+test("planVerifyFactsCommand: fetches the ticket's brainstorm before running verify-facts", async () => {
+	const { context, logged, errors, exitCodes } = setupBrainstormFetch();
+
+	await expect(planVerifyFactsCommand(context)).rejects.toThrow(/process\.exit/);
+
+	expect(mockEnsureBrainstormFiles).toHaveBeenCalledWith({ cwd: context.cwd, name: 'demo' });
+	expect(logged[1] ?? '').toMatch(/^\nplan verify-facts demo — 1 area\(s\), verified \d{4}-\d\d-\d\dT/);
+	expect(errors).toStrictEqual([]);
+	expect(exitCodes).toStrictEqual([0]);
 });

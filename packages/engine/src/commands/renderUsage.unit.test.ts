@@ -82,3 +82,13 @@ test('renderUsage: leaves a shape with no gloss unpadded, so only a glossed line
 
 	expect(plain).toBe('  lightsout status [--cwd <path>]');
 });
+
+test('renderUsage: emits the brainstorm publish line above the plan lines', () => {
+	const { lines } = setupRenderUsage();
+
+	const brainstorm = lines.findIndex((line) => line.startsWith('  lightsout brainstorm publish'));
+	const firstPlan = lines.findIndex((line) => line.startsWith('  lightsout plan '));
+
+	expect(lines[brainstorm]).toBe('  lightsout brainstorm publish --name <name> [--cwd <path>]');
+	expect(brainstorm).toBeLessThan(firstPlan);
+});

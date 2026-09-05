@@ -168,7 +168,11 @@ anything else; when it already lives at `.lightsout/plans/<name>/brainstorm-note
 take `<name>` from its folder instead of deriving a new one. Also read
 `.lightsout/plans/<name>/brainstorm-decisions.json` when it exists — its rows
 are decisions already settled with the user. Absent → nothing changes; that is
-the normal path for a plan that started from a direct request.
+the normal path for a plan that started from a direct request. This read is not
+the only one: the file may arrive during step 1, because `plan verify-facts`
+fetches the brainstorm the ticket carries. Step 2's `Honor the brainstorm
+hand-off` bullet reads the folder again after that command has run rather than
+trusting the answer here.
 
 **1. Explore (in-context) + verify.** Explore the codebase yourself: read the
 files the request touches, follow the integration points, and note real
@@ -197,11 +201,17 @@ Then run:
 ```sh
 node "<plugin-root>/dist/cli.mjs" plan verify-facts --name <name> [--notes "<path>"]
 ```
+It also fetches both brainstorm files the ticket carries —
+`brainstorm-notes.md` and `brainstorm-decisions.json` — into
+`.lightsout/plans/<name>/` before it reads anything, so a fresh worktree has
+them without the folder having travelled.
+
 Pass `--notes` when the request came from a rough-notes file — the engine
 freezes a copy at `.lightsout/plans/<name>/brainstorm-notes.md` as the plan's first
 artifact. Write-once: an existing snapshot is never overwritten, so re-running
 verify-facts never clobbers it (a `/brainstorm`-authored brainstorm-notes.md is already
-home and is simply kept).
+home — whether it was written here or just fetched from the ticket — and is
+simply kept).
 It deterministically checks every claimed path/script on disk and stamps the
 verification into facts.json. Relay the summary; fix any genuinely wrong path
 in facts.json and re-run verify-facts, and carry remaining missing-path

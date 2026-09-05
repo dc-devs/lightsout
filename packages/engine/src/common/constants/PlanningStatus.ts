@@ -7,7 +7,7 @@
 export const PlanningStatus = {
 	/** Human shaping is owed and has not started. The queue never selects it. */
 	NeedsBrainstorm: 'planning-needs-brainstorm',
-	/** Brainstorming is finished and an interactive plan is owed. The queue never selects it. */
+	/** Set by hand when someone wants to plan the ticket themselves, interactively. The queue never selects it. */
 	NeedsPlan: 'planning-needs-plan',
 	/** The input to autonomous planning: the queue plans this ticket, then implements the plan. */
 	ReadyAutoPlan: 'planning-ready-auto-plan',

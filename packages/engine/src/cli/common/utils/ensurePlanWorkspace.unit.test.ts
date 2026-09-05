@@ -2,8 +2,9 @@ import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { ensurePlanWorkspace } from '#src/cli/common/utils/ensurePlanWorkspace.ts';
+import { serializeAttachmentManifest } from '#src/common/attachmentManifest/serializeAttachmentManifest.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { planAttachmentManifestName, serializePlanAttachmentManifest } from '#src/plan/common/planAttachmentManifest.ts';
+import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
@@ -56,7 +57,7 @@ const planBody = '# plan restored from the ticket\n';
 
 /** A repo carrying the tracker block by default, with one plan.md waiting on the ticket. */
 const seedCwd = async ({ config = { 'ticket-tracker': trackerBlock } }: { config?: Record<string, unknown> } = {}) => {
-	const manifest = serializePlanAttachmentManifest({ files: [{ name: 'plan.md', content: Buffer.from(planBody, 'utf8') }] }).toString('utf8');
+	const manifest = serializeAttachmentManifest({ files: [{ name: 'plan.md', content: Buffer.from(planBody, 'utf8') }] }).toString('utf8');
 
 	mockGetTicketAttachments.mockResolvedValue([
 		{ id: 'att-1', title: 'plan.md', url: 'https://assets.example/plan.md' },

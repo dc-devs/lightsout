@@ -1,8 +1,11 @@
+import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { isDurablePlanAttachmentName, planAttachmentManifestName, serializePlanAttachmentManifest } from '#src/plan/common/planAttachmentManifest.ts';
+import { serializeAttachmentManifest } from '#src/common/attachmentManifest/serializeAttachmentManifest.ts';
+import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
+import { isDurablePlanAttachmentName } from '#src/plan/common/utils/isDurablePlanAttachmentName.ts';
 import { restorePlanWorkspace } from '#src/plan/restore/restorePlanWorkspace.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
@@ -58,8 +61,7 @@ const setup = ({ attachments, bodies = {}, unreadable = {}, manifestFiles, manif
 	const bodyOf = (title: string) => bodies[title] ?? (title === 'overview.md' ? overviewBody({ phases }) : `body of ${title}\n`);
 	const copies = manifestCopies ?? (durable.length > 0 ? 1 : 0);
 	const marker =
-		manifestText ??
-		serializePlanAttachmentManifest({ files: listed.map((file) => ({ name: file, content: Buffer.from(bodyOf(file), 'utf8') })) }).toString('utf8');
+		manifestText ?? serializeAttachmentManifest({ files: listed.map((file) => ({ name: file, content: Buffer.from(bodyOf(file), 'utf8') })) }).toString('utf8');
 	const titles = [...attachments, ...Array.from({ length: copies }, () => planAttachmentManifestName)];
 	const assetBodies = titles.map((title) => (title === planAttachmentManifestName ? marker : bodyOf(title)));
 
@@ -251,5 +253,58 @@ describe('restorePlanWorkspace', () => {
 
 		expect(await restore({ cwd })).toStrictEqual({ restored: [], error: 'no ticket lo-54 in team LO' });
 		expect(folderOf({ dir })).toBeUndefined();
+	});
+
+	test('restorePlanWorkspace: ignores brainstorm-attachments.json and brainstorm-decisions.json on the same ticket', async () => {
+		const { cwd, dir } = setup({
+			attachments: ['plan.md', 'brainstorm-notes.md', 'brainstorm-decisions.json', 'brainstorm-attachments.json'],
+			manifestFiles: ['plan.md', 'brainstorm-notes.md'],
+		});
+
+		expect(await restore({ cwd })).toStrictEqual({ restored: ['brainstorm-notes.md', 'plan.md'] });
+		expect(folderOf({ dir })).toStrictEqual(['brainstorm-notes.md', 'plan.md']);
+	});
+
+	test('restorePlanWorkspace: answers with no plan and no error when the ticket carries only brainstorm-notes.md and brainstorm-attachments.json', async () => {
+		const { cwd, dir } = setup({ attachments: ['brainstorm-notes.md', 'brainstorm-attachments.json'], manifestCopies: 0 });
+
+		expect(await restore({ cwd })).toStrictEqual({ restored: [] });
+		expect(folderOf({ dir })).toBeUndefined();
+		expect(mockReadTicketAsset).not.toHaveBeenCalled();
+	});
+
+	test('restorePlanWorkspace: still refuses when the ticket carries decisions.json with no plan-attachments.json marker', async () => {
+		const { cwd, dir } = setup({ attachments: ['decisions.json', 'brainstorm-notes.md'], manifestCopies: 0 });
+
+		expect(await restore({ cwd })).toStrictEqual({
+			restored: [],
+			error: `the ticket carries durable plan attachments but no ${planAttachmentManifestName} commit marker — publish the plan again before implementing it`,
+		});
+		expect(folderOf({ dir })).toBeUndefined();
+	});
+
+	test("restorePlanWorkspace: restores brainstorm-notes.md when the plan's own marker commits it", async () => {
+		const { cwd, dir } = setup({ attachments: ['plan.md', 'brainstorm-notes.md'] });
+
+		expect(await restore({ cwd })).toStrictEqual({ restored: ['brainstorm-notes.md', 'plan.md'] });
+		expect(folderOf({ dir })).toStrictEqual(['brainstorm-notes.md', 'plan.md']);
+		expect(readFileSync(join(dir, 'brainstorm-notes.md'), 'utf8')).toBe('body of brainstorm-notes.md\n');
+	});
+
+	test('restorePlanWorkspace: restores a generation whose marker was written before the helpers moved', async () => {
+		const { cwd, dir } = setup({
+			attachments: ['plan.md'],
+			manifestText: `${JSON.stringify(
+				{
+					schemaVersion: 1,
+					files: [{ name: 'plan.md', sha256: createHash('sha256').update('body of plan.md\n').digest('hex') }],
+				},
+				null,
+				2,
+			)}\n`,
+		});
+
+		expect(await restore({ cwd })).toStrictEqual({ restored: ['plan.md'] });
+		expect(readFileSync(join(dir, 'plan.md'), 'utf8')).toBe('body of plan.md\n');
 	});
 });

@@ -29,6 +29,7 @@ const usageOrder = [
 	'refactor-resume',
 	'test-coverage-to-threshold',
 	'test-coverage-to-threshold-resume',
+	'brainstorm-publish',
 	'plan-verify-facts',
 	'plan-draft',
 	'plan-lint',
@@ -87,7 +88,7 @@ const renderLine = ({ cli, entry, invocation }: { cli: string; entry: CommandCat
 /**
  * The `lightsout --help` text, rendered from the command catalog.
  *
- * One line per id in `usageOrder`, so a skill-only entry — `brainstorm`, which
+ * One line per id in `usageOrder`, so a skill-only entry — `auto-plan`, which
  * carries neither a `cli` nor an invocation — is never emitted and needs no
  * exclusion rule of its own.
  */
