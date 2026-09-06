@@ -5,7 +5,7 @@ import { setParkedLabel, type TrackerSettings } from '#src/ticketTracker/index.t
 interface Params {
 	settings: QueueSettings;
 	trackerSettings: TrackerSettings;
-	/** Every settled outcome, after `shipReadyBranches` has run. */
+	/** Every settled outcome, after `shipOneBranch` has finished with each ready branch. */
 	outcomes: TicketRunOutcome[];
 	onProgress?: (message: string) => void;
 }

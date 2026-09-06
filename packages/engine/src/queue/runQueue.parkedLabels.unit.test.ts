@@ -28,7 +28,7 @@ type LabelParams = { settings: TrackerSettings; ticketId: string; label: string 
 const mockListEligibleTickets = jest.fn<() => Promise<TicketSummary[] | QueueFailure>>();
 const mockScanParkedWorktrees = jest.fn<() => Promise<ParkedWork | QueueFailure>>();
 const mockRunQueueTicket = jest.fn<(params: { ticket: TicketSummary }) => Promise<TicketRunOutcome>>();
-const mockShipReadyBranches = jest.fn<(params: { ready: TicketRunOutcome[] }) => Promise<TicketRunOutcome[]>>();
+const mockShipOneBranch = jest.fn<(params: { outcome: TicketRunOutcome }) => Promise<TicketRunOutcome>>();
 const mockSetParkedLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure | undefined>>();
 
 jest.mock('#src/queue/listEligibleTickets.ts', () => ({ listEligibleTickets: () => mockListEligibleTickets() }));
@@ -40,7 +40,7 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 }));
 jest.mock('#src/queue/scanParkedWorktrees.ts', () => ({ scanParkedWorktrees: () => mockScanParkedWorktrees() }));
 jest.mock('#src/queue/runQueueTicket.ts', () => ({ runQueueTicket: (params: { ticket: TicketSummary }) => mockRunQueueTicket(params) }));
-jest.mock('#src/queue/shipReadyBranches.ts', () => ({ shipReadyBranches: (params: { ready: TicketRunOutcome[] }) => mockShipReadyBranches(params) }));
+jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: TicketRunOutcome }) => mockShipOneBranch(params) }));
 // -------------------------
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
@@ -76,7 +76,7 @@ const setupDrain = ({ eligible = [] }: { eligible?: TicketSummary[] } = {}) => {
 	mockListEligibleTickets.mockResolvedValue(eligible);
 	mockScanParkedWorktrees.mockResolvedValue({ resumed: [], outcomes: [], leftBehind: [], merged: [] });
 	mockRunQueueTicket.mockImplementation(({ ticket }) => Promise.resolve(outcomeOf({ ticket })));
-	mockShipReadyBranches.mockImplementation(({ ready }) => Promise.resolve(ready));
+	mockShipOneBranch.mockImplementation(({ outcome }) => Promise.resolve(outcome));
 	mockSetParkedLabel.mockResolvedValue(undefined);
 
 	const relay = terminalRelayFixture();
@@ -105,10 +105,9 @@ describe('runQueue', () => {
 		const unmerged = ticketOf({ number: 71 });
 		const { drain, relay } = setupDrain({ eligible: [merged, unmerged] });
 
-		mockShipReadyBranches.mockResolvedValue([
-			outcomeOf({ ticket: merged }),
-			outcomeOf({ ticket: unmerged, ready: false, error: 'the branch did not rebase onto main' }),
-		]);
+		const parked = outcomeOf({ ticket: unmerged, ready: false, error: 'the branch did not rebase onto main' });
+
+		mockShipOneBranch.mockImplementation(({ outcome }) => Promise.resolve(outcome.ticket.identifier === unmerged.identifier ? parked : outcome));
 
 		await drain({ settings: queueSettingsFixture({ parkedLabel: 'queue-parked' }) });
 		relay.close();
@@ -136,7 +135,7 @@ describe('runQueue', () => {
 		const parked = ticketOf({ number: 70 });
 		const { drain, relay } = setupDrain({ eligible: [parked] });
 
-		mockShipReadyBranches.mockResolvedValue([outcomeOf({ ticket: parked, ready: false, error: 'the branch did not rebase onto main' })]);
+		mockShipOneBranch.mockResolvedValue(outcomeOf({ ticket: parked, ready: false, error: 'the branch did not rebase onto main' }));
 
 		await drain();
 		relay.close();

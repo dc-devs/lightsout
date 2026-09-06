@@ -63,9 +63,9 @@ jest.mock('#src/queue/commitTicketWork.ts', () => ({ commitTicketWork: () => Pro
 // step and the parked label settles the way this file asserts.
 jest.mock('#src/common/git/readGitCommitsAhead.ts', () => ({ readGitCommitsAhead: () => Promise.resolve(1) }));
 // -------------------------
-const mockShipReadyBranches = jest.fn<(params: { ready: TicketRunOutcome[] }) => Promise<TicketRunOutcome[]>>();
+const mockShipOneBranch = jest.fn<(params: { outcome: TicketRunOutcome }) => Promise<TicketRunOutcome>>();
 
-jest.mock('#src/queue/shipReadyBranches.ts', () => ({ shipReadyBranches: (params: { ready: TicketRunOutcome[] }) => mockShipReadyBranches(params) }));
+jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: TicketRunOutcome }) => mockShipOneBranch(params) }));
 // -------------------------
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
@@ -124,7 +124,7 @@ const setupDrain = ({
 	mockSetParkedLabel.mockResolvedValue(undefined);
 	mockCreateTicketWorktree.mockImplementation(({ branch }) => Promise.resolve(join(worktreesRoot, branch)));
 	mockRunWorkerWithRelay.mockResolvedValue({});
-	mockShipReadyBranches.mockImplementation(({ ready }) => Promise.resolve(ready));
+	mockShipOneBranch.mockImplementation(({ outcome }) => Promise.resolve(outcome));
 
 	const relay = terminalRelayFixture();
 	const drain = ({

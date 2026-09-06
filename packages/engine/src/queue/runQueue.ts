@@ -8,7 +8,8 @@ import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
-import { drainWaves } from '#src/queue/drainWaves.ts';
+import { createMainCheckoutSerializer } from '#src/queue/common/utils/createMainCheckoutSerializer.ts';
+import { drainQueue } from '#src/queue/drainQueue.ts';
 import { listEligibleTickets } from '#src/queue/listEligibleTickets.ts';
 import { orderTickets } from '#src/queue/orderTickets.ts';
 import { runQueueTicket } from '#src/queue/runQueueTicket.ts';
@@ -33,20 +34,7 @@ interface Params {
 	onProgress?: (message: string) => void;
 }
 
-/** One promise tail every `git worktree add` awaits and replaces — creation mutates the main checkout, so two of them must never overlap. */
-const createWorktreeSerializer = () => {
-	let tail: Promise<unknown> = Promise.resolve();
-
-	return <Result>({ task }: { task: () => Promise<Result> }): Promise<Result> => {
-		const next = tail.then(task, task);
-
-		tail = next.catch(() => undefined);
-
-		return next;
-	};
-};
-
-/** The locked half of a drain: the coordinator run, the waves, then the settled labels. */
+/** The locked half of a drain: the coordinator run, the two lanes, then the settled labels. */
 const drainAndShip = async ({
 	cwd,
 	runId,
@@ -69,8 +57,10 @@ const drainAndShip = async ({
 
 	await writeManifestWithUsage({ cwd, manifest, patch: { status: RunStatus.Running }, usageTotals: seedUsageTotals({ usage: manifest.usage }) });
 
-	const serializeWorktreeAdd = createWorktreeSerializer();
-	const drained = await drainWaves({
+	// One chain per drain, threaded to everything that mutates the main checkout:
+	// the builders' `git worktree add`, the merge tail's removal and the re-scan's.
+	const serializeMainCheckout = createMainCheckoutSerializer();
+	const drained = await drainQueue({
 		cwd,
 		settings,
 		trackerSettings,
@@ -81,6 +71,7 @@ const drainAndShip = async ({
 		planPath,
 		first,
 		parked,
+		serializeMainCheckout,
 		onProgress,
 		runTicket: ({ ticket }) =>
 			runQueueTicket({
@@ -93,7 +84,7 @@ const drainAndShip = async ({
 				driverName,
 				defaultBranch,
 				relay,
-				serializeWorktreeAdd,
+				serializeWorktreeAdd: serializeMainCheckout,
 				coordinatorRunId: runId,
 				coordinatorRunDir,
 				onProgress: relay.createProgressSink({ ticket }),
@@ -116,7 +107,7 @@ const drainAndShip = async ({
 
 /**
  * The supervisor: read the tracker, drain what it finds into parallel
- * worktrees, then merge the ready branches one at a time — and exit.
+ * worktrees, and merge each branch the moment it is ready — then exit.
  *
  * Parked runs come first, because a restart is the resume path: their tickets
  * sit at the in-progress status where the eligible query cannot see them, so
@@ -125,10 +116,12 @@ const drainAndShip = async ({
  * invocations impossible; each worker takes its own lock in its own worktree,
  * so the two never contend.
  *
- * The drain runs in waves — everything unblocked, ship, re-scan — and stops when
- * a scan finds nothing newly runnable. The run lock and the coordinator run are
- * still one per invocation, and the parked worktree scan still runs only before
- * the first wave.
+ * Building and merging run at the same time: parallel builders fill the slot
+ * pool while one serial ship lane merges each branch as soon as it is ready, and
+ * every landed merge re-reads the tracker so the tickets it unblocked join the
+ * run already in flight. The drain ends when both loops are idle and nothing is
+ * left to build or to merge. The run lock and the coordinator run are still one
+ * per invocation, and the parked worktree scan still runs only at the start.
  */
 export const runQueue = async ({
 	cwd,
