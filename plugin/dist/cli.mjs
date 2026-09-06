@@ -26486,6 +26486,37 @@ var checkRows = async ({ plan, cwd, phase, gateKeys }) => {
   }
   return findings;
 };
+var checkFrozenFileEdits = ({ plan, phase }) => {
+  const findings = [];
+  const shared = { check: StructuralCheck.LedgerWellFormed, phase };
+  const changed = /* @__PURE__ */ new Map();
+  for (const path of plan.modifyPaths) {
+    changed.set(path, "Files to Modify");
+  }
+  for (const path of plan.earlierPhaseModifyPaths) {
+    changed.set(path, "Files to Modify from Earlier Phases");
+  }
+  for (const move of plan.movePaths) {
+    changed.set(move.from, "Files to Move");
+    changed.set(move.to, "Files to Move");
+  }
+  const reported = /* @__PURE__ */ new Set();
+  for (const row of plan.ledger) {
+    const heading = changed.get(row.testFile);
+    if (heading !== void 0 && !reported.has(row.testFile)) {
+      reported.add(row.testFile);
+      findings.push(
+        finding({
+          ...shared,
+          issue: `ledger row names '${row.testFile}', which this plan also lists under \`## ${heading}\` \u2014 the ledger lock freezes that file, so the change it asks for would be reverted before the gates run`,
+          location: `${phase}:${row.line}`,
+          fix: "either drop the file from the change heading and let the ledger row own it, or drop the row and let the plan edit the file"
+        })
+      );
+    }
+  }
+  return findings;
+};
 var checkCoverage = ({ plan, phase, coverable }) => {
   const findings = [];
   const shared = { check: StructuralCheck.LedgerCovers, phase };
@@ -26519,6 +26550,7 @@ var checkAcceptanceLedger = async ({ plan, cwd, phase, required: required2, gate
   return [
     ...checkShape({ plan, phase, required: required2, coverable }),
     ...await checkRows({ plan, cwd, phase, gateKeys }),
+    ...checkFrozenFileEdits({ plan, phase }),
     ...checkCoverage({ plan, phase, coverable })
   ];
 };
