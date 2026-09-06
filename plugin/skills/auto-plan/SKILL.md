@@ -286,7 +286,7 @@ edit folded in since.
   Apply the [convergence invariant](#convergence-invariant): resolve every
   below-bar gap, record the decision, re-run validation and deduplication when
   the edit affects them, and re-grade until the result is passed and complete
-  or the single repair round is spent. Do not stop merely because two grades
+  or the two repair rounds are spent. Do not stop merely because two grades
   have similar findings, a run is taking a long time, or the grader used a
   `needs-a-human`/`unjudged` label.
 
