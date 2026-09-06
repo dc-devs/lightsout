@@ -153,6 +153,70 @@ const checkRows = async ({ plan, cwd, phase, gateKeys }: { plan: ParsedPlan; cwd
 };
 
 /**
+ * LedgerWellFormed — a ledger row may not name a test file the same plan also
+ * changes.
+ *
+ * A ledger file is frozen the moment `write-ledger-tests` writes it: the lock
+ * restores its copy before every gate, which is what makes a supplied test a
+ * spec rather than a suggestion. A plan that also lists that file under a change
+ * heading is therefore ordering an edit the lock reverts, and the run reaches an
+ * escalation whose only remedy is the edit it is forbidden to make. Two runs
+ * died that way before this check existed, at $17 and $30, both on plans that
+ * graded A.
+ *
+ * `createPaths` is deliberately absent from the comparison. A test file this
+ * plan creates has no prior content to preserve, so writing it for the ledger IS
+ * the plan's change to it, and naming it in both places says one thing rather
+ * than two contradictory ones.
+ *
+ * A move's DESTINATION counts, because the destination inherits the source's
+ * cases: freezing it after the ledger's rows are written is what dropped ten
+ * cases on LO-81. A move's source counts too — the file does not survive the
+ * plan, so a row naming it is a row pointed at nothing.
+ */
+const checkFrozenFileEdits = ({ plan, phase }: { plan: ParsedPlan; phase: string }) => {
+	const findings: StructuralFinding[] = [];
+	const shared = { check: StructuralCheck.LedgerWellFormed, phase };
+	const changed = new Map<string, string>();
+
+	for (const path of plan.modifyPaths) {
+		changed.set(path, 'Files to Modify');
+	}
+
+	for (const path of plan.earlierPhaseModifyPaths) {
+		changed.set(path, 'Files to Modify from Earlier Phases');
+	}
+
+	for (const move of plan.movePaths) {
+		changed.set(move.from, 'Files to Move');
+		changed.set(move.to, 'Files to Move');
+	}
+
+	// One finding per file rather than per row: a ledger naming the same frozen
+	// file twelve times is one mistake, and twelve copies of the same sentence
+	// bury the other findings beside them.
+	const reported = new Set<string>();
+
+	for (const row of plan.ledger) {
+		const heading = changed.get(row.testFile);
+
+		if (heading !== undefined && !reported.has(row.testFile)) {
+			reported.add(row.testFile);
+			findings.push(
+				finding({
+					...shared,
+					issue: `ledger row names '${row.testFile}', which this plan also lists under \`## ${heading}\` — the ledger lock freezes that file, so the change it asks for would be reverted before the gates run`,
+					location: `${phase}:${row.line}`,
+					fix: 'either drop the file from the change heading and let the ledger row own it, or drop the row and let the plan edit the file',
+				}),
+			);
+		}
+	}
+
+	return findings;
+};
+
+/**
  * LedgerCovers — the ledger states at least one criterion when the plan writes a
  * source file no prose-files entry excuses, and no prose-files entry excuses a
  * file the plan never names.
@@ -224,6 +288,7 @@ export const checkAcceptanceLedger = async ({ plan, cwd, phase, required, gateKe
 	return [
 		...checkShape({ plan, phase, required, coverable }),
 		...(await checkRows({ plan, cwd, phase, gateKeys })),
+		...checkFrozenFileEdits({ plan, phase }),
 		...checkCoverage({ plan, phase, coverable }),
 	];
 };

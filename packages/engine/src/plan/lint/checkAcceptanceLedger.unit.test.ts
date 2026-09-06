@@ -51,6 +51,29 @@ const check = async ({
 /** Each finding as the terse pair the cases assert on. */
 const reported = async (params: Parameters<typeof check>[0]) => (await check(params)).map(({ check: rule, location }) => ({ check: rule, location }));
 
+/** A plan that creates one source file and also changes the files `changes` names, under `heading`. */
+const planChanging = ({ ledger, heading, changes }: { ledger: string; heading: string; changes: string[] }) =>
+	parsePlan({
+		content: `# Plan
+
+## Files to Create
+
+### \`src/parse.ts\`
+
+The parser.
+
+## ${heading}
+
+${changes.map((path) => `### \`${path}\`\n\nChanged.\n`).join('\n')}
+## Acceptance Tests
+
+| Criterion | Test file | Test name | Gate |
+|---|---|---|---|
+${ledger}
+`,
+		base: 'plan.md',
+	});
+
 describe('checkAcceptanceLedger', () => {
 	test('a well-formed ledger covering the plan is silent', async () => {
 		await expect(check({ plan: planWith({ ledger: goodRow }) })).resolves.toStrictEqual([]);
@@ -143,5 +166,82 @@ describe('checkAcceptanceLedger', () => {
 		const plan = planWith({ prose: '- `src/parse.ts` — a config shim with no behaviour a test states' });
 
 		await expect(check({ plan })).resolves.toStrictEqual([]);
+	});
+
+	test('refuses a ledger row naming a test file the same plan lists under Files to Modify, because the lock reverts that edit', async () => {
+		const plan = planChanging({
+			ledger: '| the parser reads a row | `src/parse.unit.test.ts` | reads a row | test |',
+			heading: 'Files to Modify',
+			changes: ['src/parse.unit.test.ts'],
+		});
+
+		const findings = await check({ plan });
+
+		expect(findings).toEqual([
+			expect.objectContaining({
+				check: StructuralCheck.LedgerWellFormed,
+				severity: FindingSeverity.Blocking,
+				issue: expect.stringContaining('src/parse.unit.test.ts'),
+			}),
+		]);
+		expect(findings[0]?.issue).toEqual(expect.stringContaining('Files to Modify'));
+	});
+
+	test('refuses a ledger row naming a move’s destination, because the destination inherits the source’s cases', async () => {
+		const plan = parsePlan({
+			content: `# Plan
+
+## Files to Create
+
+### \`src/parse.ts\`
+
+The parser.
+
+## Files to Move
+
+### \`src/old.unit.test.ts\` → \`src/parse.unit.test.ts\`
+
+Renamed.
+
+## Acceptance Tests
+
+| Criterion | Test file | Test name | Gate |
+|---|---|---|---|
+| the parser reads a row | \`src/parse.unit.test.ts\` | reads a row | test |
+`,
+			base: 'plan.md',
+		});
+
+		const findings = await check({ plan });
+
+		expect(findings).toEqual([expect.objectContaining({ issue: expect.stringContaining('Files to Move') })]);
+	});
+
+	test('accepts a ledger row naming a test file the plan creates, which has no prior content to preserve', async () => {
+		const plan = planWith({ ledger: goodRow });
+
+		expect(await reported({ plan })).toStrictEqual([]);
+	});
+
+	test('accepts a ledger row naming an existing test file the plan does not otherwise change, because adding a case to one is ordinary work', async () => {
+		const plan = planWith({ ledger: goodRow });
+
+		expect(await reported({ plan, files: { 'src/parse.unit.test.ts': "test('an older case', () => {});\n" } })).toStrictEqual([]);
+	});
+
+	test('reports a frozen file once however many rows name it, so one mistake is one finding', async () => {
+		const plan = planChanging({
+			ledger: [
+				'| one | `src/parse.unit.test.ts` | reads a row | test |',
+				'| two | `src/parse.unit.test.ts` | reads a second row | test |',
+				'| three | `src/parse.unit.test.ts` | reads a third row | test |',
+			].join('\n'),
+			heading: 'Files to Modify',
+			changes: ['src/parse.unit.test.ts'],
+		});
+
+		const findings = await check({ plan });
+
+		expect(findings.filter((entry) => entry.issue.includes('also lists under'))).toHaveLength(1);
 	});
 });
