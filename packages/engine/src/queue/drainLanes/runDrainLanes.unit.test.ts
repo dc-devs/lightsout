@@ -78,7 +78,34 @@ const hold = async ({ turns }: { turns: number }) => {
 	}
 };
 
-const settle = () => hold({ turns: 25 });
+/** Bumped whenever the drain starts or finishes anything these lanes can see. */
+let laneActivity = 0;
+
+/**
+ * Yield until the drain has stopped moving.
+ *
+ * A fixed count of event-loop turns is not enough, and counting them is what
+ * made these cases pass on a fast laptop and fail on CI. The drain awaits a
+ * real `writeFile` for the coordinator's queue document, and that completes on
+ * libuv's thread pool rather than after some number of turns — on a loaded
+ * machine the turns run out while the write is still queued, and the test then
+ * looks at a drain that has not reached its next decision yet.
+ *
+ * So this waits for real quiet instead: the lanes unchanged across several
+ * timer yields, each of which gives the thread pool wall-clock time rather than
+ * spinning the loop past it. The iteration cap keeps a genuinely stuck drain to
+ * a bounded wait rather than the suite's timeout.
+ */
+const settle = async () => {
+	let quiet = 0;
+	let last = laneActivity;
+
+	for (let turn = 0; turn < 400 && quiet < 8; turn += 1) {
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		quiet = laneActivity === last ? quiet + 1 : 0;
+		last = laneActivity;
+	}
+};
 
 /** Tasks the test finishes by hand: each records that it started and then waits to be released. */
 const createLane = ({ enter, leave }: { enter: () => void; leave: () => void }) => {
@@ -91,6 +118,7 @@ const createLane = ({ enter, leave }: { enter: () => void; leave: () => void }) 
 			started.push(identifier);
 			waiting.set(identifier, resolve);
 			peak = Math.max(peak, waiting.size);
+			laneActivity += 1;
 			enter();
 		});
 
@@ -98,6 +126,7 @@ const createLane = ({ enter, leave }: { enter: () => void; leave: () => void }) 
 		const resolve = waiting.get(identifier);
 
 		waiting.delete(identifier);
+		laneActivity += 1;
 		leave();
 		resolve?.(outcome);
 	};
@@ -115,6 +144,7 @@ const createCheckoutLog = () => {
 		mutations.push(label);
 		inFlight += 1;
 		peak = Math.max(peak, inFlight);
+		laneActivity += 1;
 
 		await hold({ turns: 4 });
 
