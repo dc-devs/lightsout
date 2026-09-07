@@ -67,6 +67,23 @@ derive the answer from the plan, the overview, the codebase, or the standards.
 - Each gap states what must be decided and the valid options if you can surface
   them.
 
+## Findings already settled for this plan file
+
+A list of settled findings may be appended to these instructions. Each entry is a
+question an earlier pass raised against this very file and someone settled — a
+human answered it into the plan, or a judge showed the implementing agent can
+decide it or that the plan already answers it.
+
+It is there so the same question is not asked twice, and it is **context, not
+coverage**:
+
+- Read every part of this plan file exactly as you would if the list were empty.
+  A settled record never narrows your lens and never excuses skipping a section.
+- Report one of its entries again only when you have **new evidence** the settled
+  answer does not already cover — the plan changed under it, or the answer turns
+  out not to hold. Say what that evidence is in the gap text.
+- A question the list settles, that the plan still settles, is not a gap.
+
 ## Report — your entire final message is one JSON object
 
 Output ONLY the JSON — no fences, no surrounding text. Your message starts with

@@ -2,7 +2,7 @@ import planGapCheckPrompt from '#src/agents/prompts/planGapCheck.md';
 import planGapCheckDecisionsPrompt from '#src/agents/prompts/planGapCheckDecisions.md';
 import planGapCheckSurfacePrompt from '#src/agents/prompts/planGapCheckSurface.md';
 import planGapCheckWiringPrompt from '#src/agents/prompts/planGapCheckWiring.md';
-import { GapCheckLens } from '#src/contracts/index.ts';
+import { GapCheckLens, type GradeFindingRecord } from '#src/contracts/index.ts';
 
 interface Params {
 	/** The plan text to check for decision-level gaps. */
@@ -23,7 +23,30 @@ interface Params {
 	planDir?: string;
 	/** Which of the three jobs this checker is given. */
 	lens: GapCheckLens;
+	/**
+	 * The records for this plan file the memory already holds settled — resolved
+	 * and noted. Context so the same question is not re-asked, never coverage: the
+	 * lens is still read end to end.
+	 */
+	settled?: GradeFindingRecord[];
 }
+
+/** How one settled record was settled — the citation that closed it, or the decision the judge said the implementing agent may make. */
+const settlementOf = ({ record }: { record: GradeFindingRecord }) =>
+	record.resolution?.answerAt ?? record.agentDecision ?? record.answerAt ?? 'settled by an earlier pass';
+
+/** One line per settled record, so a reader can point at the one it means before deciding it has new evidence. */
+const settledSection = ({ settled }: { settled: GradeFindingRecord[] }) =>
+	[
+		'# Findings already settled for this plan file',
+		'',
+		'These questions were raised against this file by an earlier pass and settled. They are',
+		'context, not coverage: read every part of this plan file exactly as you would',
+		'without them, and report one of these again only when you have new evidence the',
+		'settled answer does not already cover.',
+		'',
+		...settled.map((record) => `- ${record.id} (${record.status}) — ${record.gap} — settled by: ${settlementOf({ record })}`),
+	].join('\n');
 
 /** The brief each lens is handed, appended to the shared role prompt. */
 const lensBriefs: Record<GapCheckLens, string> = {
@@ -38,8 +61,19 @@ const lensBriefs: Record<GapCheckLens, string> = {
  * standards, so those live in the system prompt (the harness caches through it)
  * and only the plan text under check varies between the spawns sharing a lens.
  */
-export const buildPlanGapCheckInvocation = ({ planText, overviewText, standards, planDir, lens }: Params): { systemPrompt: string; prompt: string } => {
+export const buildPlanGapCheckInvocation = ({
+	planText,
+	overviewText,
+	standards,
+	planDir,
+	lens,
+	settled,
+}: Params): { systemPrompt: string; prompt: string } => {
 	const roleSections = [planGapCheckPrompt, lensBriefs[lens]];
+
+	if (settled && settled.length > 0) {
+		roleSections.push(settledSection({ settled }));
+	}
 
 	if (planDir && lens === GapCheckLens.Wiring) {
 		roleSections.push(

@@ -14,6 +14,10 @@ import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
  * The evidence fields are optional in the shape because only one outcome demands
  * each; which one an outcome demands is enforced in `matchGapVerdicts`, and a
  * verdict that skips its evidence is stamped `unjudged` rather than believed.
+ *
+ * `matchesFinding` is a claim the engine validates for the same reason: naming a
+ * record the plan's memory does not hold points nowhere, exactly as a citation
+ * off disk does, so it leaves the finding `unjudged` rather than being believed.
  */
 export const GapVerdict = z.object({
 	outcome: z.enum([GapOutcome.NeedsAHuman, GapOutcome.AgentCanDecide, GapOutcome.AlreadyAnswered]),
@@ -25,6 +29,8 @@ export const GapVerdict = z.object({
 	safeBecause: z.string().optional(),
 	/** `already-answered`: where the answer already lives — a line of the plan, a `file:symbol`, or a standards rule. */
 	answerAt: z.string().optional(),
+	/** The id of a memory record this finding repeats, when the judge recognises one from the records it was given. An id no record holds leaves the finding `unjudged`. */
+	matchesFinding: z.string().optional(),
 });
 
 export type GapVerdict = z.infer<typeof GapVerdict>;

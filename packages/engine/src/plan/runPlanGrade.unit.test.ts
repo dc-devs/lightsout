@@ -319,7 +319,11 @@ test("plan grade: a completed pass is appended to the plan's grade history", asy
 });
 
 test('plan grade: a second pass leaves two history lines and one latest grade', async () => {
-	const { cwd, name, driver, gradePath } = setup({ name: 're-graded' });
+	// A finding the first pass leaves unanswered, so that pass does not record a
+	// passing full review: the second pass then measures the plan again rather
+	// than reporting the recorded one as still current, which is the case this
+	// covers.
+	const { cwd, name, driver, gradePath } = setup({ name: 're-graded', gaps: [omittedDecisionGap] });
 
 	await runPlanGrade({ cwd, driver, name });
 	const second = await runPlanGrade({ cwd, driver, name });

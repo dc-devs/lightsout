@@ -1,4 +1,13 @@
-import { type GradedGap, type GradeReport, type PhaseWeight, PlanGrade, PlanWeight, type StructuralFinding } from '#src/contracts/index.ts';
+import {
+	type GradedGap,
+	type GradeInputs,
+	type GradeReport,
+	GradeScope,
+	type PhaseWeight,
+	PlanGrade,
+	PlanWeight,
+	type StructuralFinding,
+} from '#src/contracts/index.ts';
 import { gapCheckLenses } from '#src/plan/common/constants/gapCheckLenses.ts';
 import { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.ts';
 import { getBlockingGaps } from '#src/plan/common/utils/getBlockingGaps.ts';
@@ -22,6 +31,16 @@ interface Params {
 	commit?: string;
 	/** Whether the working tree held uncommitted changes then; absent when the commit is. */
 	treeDirty?: boolean;
+	/** How far this pass reached. A focused pass is a repair check and is recorded as incomplete whatever it found. */
+	scope?: GradeScope;
+	/** The plan files a focused pass read. Empty on a full pass. */
+	focusedOn?: string[];
+	/** The fingerprint of everything this pass measured. */
+	inputs?: GradeInputs;
+	/** One line naming the rule that chose this pass's scope. */
+	scopeReason?: string;
+	/** Whether any reader was offered a plan file at all — what `lenses` states. */
+	readersSpawned?: boolean;
 }
 
 /**
@@ -41,9 +60,15 @@ interface Params {
  * make a pass incomplete, because its finding already blocks on its own.
  *
  * `lenses` states what actually ran rather than what exists: it is the full lens
- * list when any plan file was read, and empty when every file weighed light. A
- * grade whose `lenses` is empty then reads as "no reader ran", never as "every
- * lens ran and found nothing".
+ * list when a reader was spawned at all, and empty otherwise — every file
+ * weighed light, the structural preflight stopped the pass before any spawn, or
+ * a focused pass whose edited closure was empty. A grade whose `lenses` is empty
+ * then reads as "no reader ran", never as "every lens ran and found nothing".
+ *
+ * A focused pass is incomplete by construction, in the one spelling this report
+ * already has for a partial record: it never offered every plan file to the
+ * readers, so it is not a clean bill whatever it found, and it can never be the
+ * pass that approves a plan.
  */
 export const createGradeReport = ({
 	name,
@@ -56,13 +81,20 @@ export const createGradeReport = ({
 	phasesLight = [],
 	commit,
 	treeDirty,
+	scope = GradeScope.Full,
+	focusedOn = [],
+	inputs,
+	scopeReason,
+	readersSpawned = true,
 }: Params): GradeReport => {
 	// Not "nothing was checked": a reader that failed also leaves `phasesChecked`
 	// empty, and that pass did spawn its lenses. Only a weighing where every file
 	// came out light means no reader ever ran.
 	const everyFileLight = weights.length > 0 && weights.every(({ weight }) => weight === PlanWeight.Light);
 	const narrowed = phases === undefined ? [] : [`graded a subset on request: ${phases.join(', ')} — the structural findings still cover every plan file`];
-	const reasons = [...narrowed, ...failures];
+	const read = focusedOn.length > 0 ? focusedOn.join(', ') : 'no phase — nothing was edited';
+	const focused = scope === GradeScope.Focused ? [`focused review of ${read} — a full review is required for approval`] : [];
+	const reasons = [...narrowed, ...focused, ...failures];
 	const complete = reasons.length === 0;
 	const grade =
 		complete && getBlockingFindings({ findings: structural }).length === 0 && getBlockingGaps({ gaps }).length === 0 ? PlanGrade.A : PlanGrade.BelowA;
@@ -73,7 +105,7 @@ export const createGradeReport = ({
 		structural,
 		gaps,
 		phasesChecked,
-		lenses: everyFileLight ? [] : gapCheckLenses,
+		lenses: everyFileLight || !readersSpawned ? [] : gapCheckLenses,
 		weights,
 		phasesLight,
 		complete,
@@ -82,5 +114,9 @@ export const createGradeReport = ({
 		gradedAt: new Date().toISOString(),
 		gradedCommit: commit,
 		gradedTreeDirty: treeDirty,
+		scope,
+		focusedOn,
+		inputs,
+		scopeReason,
 	};
 };

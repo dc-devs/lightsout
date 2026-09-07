@@ -1,4 +1,5 @@
 export { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
+export { gradeMemoryPath } from '#src/plan/common/memory/gradeMemoryPath.ts';
 export { pathExists } from '#src/plan/common/paths/pathExists.ts';
 export type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 export type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';

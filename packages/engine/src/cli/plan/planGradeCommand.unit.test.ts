@@ -1,11 +1,13 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { planGradeCommand } from '#src/cli/plan/index.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { Effort, GapArea, Permissions } from '#src/contracts/index.ts';
 import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
+import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advisoryPlan.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { cleanOverviewBody } from '#tests/helpers/cleanOverviewBody.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createGapCheckDriver } from '#tests/helpers/createGapCheckDriver.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -30,51 +32,20 @@ const setupGrade = ({ body, gaps = [], verdict, git = false }: { body?: string; 
 	return { cwd, name: 'demo', driver: createGapCheckDriver({ gaps, verdict }), ...captured };
 };
 
-// The harness settings a config carries reach the agent call through the shared
-// option bundle, so the arrangement records what the harness was handed rather
-// than what it printed.
-const setupHarnessSettings = ({ config }: { config?: LightsoutConfig } = {}) => {
+// A clean single-file plan graded with every harness invocation collected, so an
+// act can state what the harness was handed rather than what the command
+// printed. `git` commits the repo, which is what lets a second pass measure the
+// very inputs the first one recorded — a recorded full review is reusable only
+// when the tree under it has not moved.
+const setupRecordedGrade = ({ config, git = false }: { config?: LightsoutConfig; git?: boolean } = {}) => {
 	const captured = captureCommandOutput();
-	const cwd = setupConsumerRepo({ git: false });
+	const cwd = setupConsumerRepo({ git });
 	const invocations: DriverInvocation[] = [];
 
 	writePlanDeliverable({ cwd, name: 'demo', body: cleanPlanBody() });
 
 	return { cwd, name: 'demo', config, driver: createGapCheckDriver({ invocations }), invocations, ...captured };
 };
-
-/** A structurally clean overview — the overview variant's own required section set, fronting the two phases below. */
-const cleanOverview = () => `# Demo — Overview
-
-## Global Constraints
-
-- None
-
-## Phases
-
-| # | File | Scope | Creates | Touches |
-|---|------|-------|---------|---------|
-| 1 | \`phase1-core.md\` | the core | 1 | 1 |
-| 2 | \`phase2-extra.md\` | the rest | 1 | 1 |
-
-## Phase Declarations
-
-### Phase 1 — \`phase1-core.md\`
-
-- **Creates:** none
-- **Exports:** none
-- **Scripts:** none
-
-### Phase 2 — \`phase2-extra.md\`
-
-- **Creates:** none
-- **Exports:** none
-- **Scripts:** none
-
-## Cross-Phase Dependencies
-
-- Phase 2 follows phase 1.
-`;
 
 // A phased deliverable — an overview plus two clean phase files — so the gaps
 // the fan-out stamps carry two different plan files to group under.
@@ -84,7 +55,7 @@ const setupPhasedGrade = ({ gaps }: { gaps: unknown[] }) => {
 	const dir = join(cwd, '.lightsout', 'plans', 'demo');
 
 	mkdirSync(dir, { recursive: true });
-	writeFileSync(join(dir, 'overview.md'), cleanOverview());
+	writeFileSync(join(dir, 'overview.md'), cleanOverviewBody());
 	writeFileSync(join(dir, 'phase1-core.md'), cleanPlanBody({ title: 'Phase 1' }));
 	writeFileSync(
 		join(dir, 'phase2-extra.md'),
@@ -104,16 +75,20 @@ test('planGradeCommand: a clean plan with no gaps grades A, reports both counts,
 	const printed = printedLines({ logged });
 
 	expect(printed[0] ?? '').toMatch(/^\nplan grade demo — A \(graded \d{4}-\d\d-\d\dT/);
-	expect(printed[1]).toBe('  structural: 0 · gaps: 0 (0 blocking, 0 unjudged)');
+	// how far this pass reached, and which rule chose that far
+	expect(printed[1] ?? '').toMatch(/^ {2}scope: full — /);
+	expect(printed[2]).toBe('  structural: 0 · gaps: 0 (0 blocking, 0 unjudged)');
 	// the coverage statement says which files it can speak for, and with how many
 	// briefs — `N phase file(s)`, never `all plan files`
-	expect(printed[2]).toBe('  checked: 1 phase file(s) × 3 lens(es): plan.md');
-	// two paths, not one: the grade path names the latest pass and the history
-	// path names every pass this plan has ever had
-	expect(printed[3]).toBe(`\ngrade: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade.json')}`);
-	expect(printed[4]).toBe(`history: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade-history.jsonl')}`);
+	expect(printed[3]).toBe('  checked: 1 phase file(s) × 3 lens(es): plan.md');
+	// three paths, not one: the grade path names the latest pass, the history path
+	// names every pass this plan has ever had, and the memory path names what is
+	// still open and what was settled
+	expect(printed[4]).toBe(`\ngrade: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade.json')}`);
+	expect(printed[5]).toBe(`history: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade-history.jsonl')}`);
+	expect(printed[6]).toBe(`memory: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade-memory.json')}`);
 	// an A grade prints no finding lines, got: ${JSON.stringify(printed)}
-	expect(printed.length).toBe(5);
+	expect(printed.length).toBe(7);
 	expect(errors).toStrictEqual([]);
 	expect(exitCodes).toStrictEqual([0]);
 });
@@ -163,14 +138,16 @@ test('planGradeCommand: a gap drops the grade below A and prints the decision wi
 	expect(printed[0] ?? '').toMatch(/^\nplan grade demo — below-A \(graded \d{4}-\d\d-\d\dT/);
 	// the stub answers every lens, so one planted gap comes back three times — the
 	// union, each copy labelled with the brief that found it, and every copy judged
-	expect(printed[1]).toBe('  structural: 0 · gaps: 3 (3 blocking, 0 unjudged)');
-	expect(printed[2]).toBe('  checked: 1 phase file(s) × 3 lens(es): plan.md');
+	expect(printed[2]).toBe('  structural: 0 · gaps: 3 (3 blocking, 0 unjudged)');
+	expect(printed[3]).toBe('  checked: 1 phase file(s) × 3 lens(es): plan.md');
 	// gaps print grouped under the plan file they were found in
-	expect(printed[3]).toBe('plan.md');
-	expect(printed[4]).toBe('? [omitted-decision] no storage choice (surface)');
+	expect(printed[4]).toBe('plan.md');
+	// each carries the id of the memory record it was folded into, so a human can
+	// name it when talking about what is on record
+	expect(printed[5]).toBe('f1 ? [omitted-decision] no storage choice (surface)');
 	// the decision printed is the judge's, and the options are the reader's
-	expect(printed[5]).toBe(`   decide: ${judgedDecision} — options: sqlite / postgres`);
-	expect(printed[6]).toBe('? [omitted-decision] no storage choice (wiring)');
+	expect(printed[6]).toBe(`   decide: ${judgedDecision} — options: sqlite / postgres`);
+	expect(printed[7]).toBe('f2 ? [omitted-decision] no storage choice (wiring)');
 	expect(exitCodes).toStrictEqual([0]);
 });
 
@@ -188,11 +165,11 @@ test('planGradeCommand: findings the judges cleared are counted but never printe
 
 	expect(printed[0] ?? '').toMatch(/^\nplan grade demo — A \(graded \d{4}-\d\d-\d\dT/);
 	// the counts state what the pass found; the verdict states what a human has to answer
-	expect(printed[1]).toBe('  structural: 0 · gaps: 3 (0 blocking, 0 unjudged)');
-	expect(printed[2]).toBe('  checked: 1 phase file(s) × 3 lens(es): plan.md');
+	expect(printed[2]).toBe('  structural: 0 · gaps: 3 (0 blocking, 0 unjudged)');
+	expect(printed[3]).toBe('  checked: 1 phase file(s) × 3 lens(es): plan.md');
 	// not being interrupted by findings nobody needs to act on is the point — the
 	// full record is in grade.json, got: ${JSON.stringify(printed)}
-	expect(printed.length).toBe(5);
+	expect(printed.length).toBe(7);
 	expect(exitCodes).toStrictEqual([0]);
 });
 
@@ -206,35 +183,38 @@ test('planGradeCommand: findings nobody weighed are counted apart from the ones 
 
 	expect(printed[0] ?? '').toMatch(/^\nplan grade demo — below-A /);
 	// a spike in judge failures must not read as a plan getting worse
-	expect(printed[1]).toBe('  structural: 0 · gaps: 3 (3 blocking, 3 unjudged)');
-	expect(printed[3]).toBe('plan.md');
-	expect(printed[4]).toBe('? [omitted-decision] no storage choice (surface)');
+	expect(printed[2]).toBe('  structural: 0 · gaps: 3 (3 blocking, 3 unjudged)');
+	expect(printed[4]).toBe('plan.md');
+	// an unjudged finding opens no memory record, so it carries no id to print
+	expect(printed[5]).toBe('? [omitted-decision] no storage choice (surface)');
 	// a dismissal with no citation is a rubber stamp, and the line says the finding
 	// blocks because nobody weighed it rather than because the plan is thin
-	expect(printed[5]).toBe('   unjudged, so it blocks: the judge answered already-answered without the evidence that outcome demands');
+	expect(printed[6]).toBe('   unjudged, so it blocks: the judge answered already-answered without the evidence that outcome demands');
 	expect(exitCodes).toStrictEqual([0]);
 });
 
 test('planGradeCommand: a structurally dirty plan prints the lint finding, and an optionless gap prints the decision alone', async () => {
 	const gaps = [{ area: GapArea.InsufficientDetail, gap: 'no error handling named', decision: 'say what a failure does', options: [] }];
-	const { cwd, driver, name, logged, exitCodes } = setupGrade({
-		body: cleanPlanBody().replace('A new module exporting', 'TBD — a new module exporting'),
-		gaps,
-	});
+	// An ADVISORY lint finding rather than a blocking one: a blocking finding now
+	// stops the pass before a checker is spawned, so the plan that prints a lint
+	// finding beside its gaps is one the lint only has a note about.
+	const { cwd, driver, name, logged, exitCodes } = setupGrade({ body: advisoryPlanBody(), gaps });
+
+	plantAdvisoryTouchedFiles({ cwd });
 
 	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
 
 	const printed = printedLines({ logged });
 
 	expect(printed[0] ?? '').toMatch(/^\nplan grade demo — below-A /);
-	expect(printed[1]).toBe('  structural: 1 · gaps: 3 (3 blocking, 0 unjudged)');
-	expect(printed[2]).toBe('  checked: 1 phase file(s) × 3 lens(es): plan.md');
-	expect(printed[3] ?? '').toMatch(/^⚠ plan\.md \[no-placeholders\] plan\.md:\d+ — unresolved placeholder 'TBD' present$/);
-	expect(printed[4] ?? '').toMatch(/^ {3}fix: resolve 'TBD'/);
-	expect(printed[5]).toBe('plan.md');
-	expect(printed[6]).toBe('? [insufficient-detail] no error handling named (surface)');
+	expect(printed[2]).toBe('  structural: 1 · gaps: 3 (3 blocking, 0 unjudged)');
+	expect(printed[3]).toBe('  checked: 1 phase file(s) × 3 lens(es): plan.md');
+	expect(printed[4] ?? '').toMatch(/^note plan\.md \[scope-within-guardrail\] plan\.md — plan touches 51 source files/);
+	expect(printed[5] ?? '').toMatch(/^ {3}fix: legal, but the implementing agent stops at 50 files/);
+	expect(printed[6]).toBe('plan.md');
+	expect(printed[7]).toBe('f1 ? [insufficient-detail] no error handling named (surface)');
 	// an optionless gap prints the decision alone
-	expect(printed[7]).toBe(`   decide: ${judgedDecision}`);
+	expect(printed[8]).toBe(`   decide: ${judgedDecision}`);
 	expect(exitCodes).toStrictEqual([0]);
 });
 
@@ -266,9 +246,10 @@ test('planGradeCommand: a rate-limited checker prints the error AND the partial 
 	expect(printed).toContain('  checked: 0 phase file(s) × 3 lens(es)');
 	// a pass that did not finish is recorded like any other, so the command names
 	// the history whenever it names the grade — never one path without the other
-	expect(printed.slice(-2)).toStrictEqual([
+	expect(printed.slice(-3)).toStrictEqual([
 		`\ngrade: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade.json')}`,
 		`history: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade-history.jsonl')}`,
+		`memory: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade-memory.json')}`,
 	]);
 	expect(exitCodes).toStrictEqual([1]);
 });
@@ -284,7 +265,7 @@ test('planGradeCommand: an unresolvable deliverable reports the error on stderr 
 });
 
 test("planGradeCommand: the config's model, effort and permissions are handed to the harness with the plan's own repo as the working directory", async () => {
-	const { cwd, name, config, driver, invocations } = setupHarnessSettings({
+	const { cwd, name, config, driver, invocations } = setupRecordedGrade({
 		config: {
 			model: 'claude-opus-5',
 			effort: Effort.High,
@@ -301,7 +282,7 @@ test("planGradeCommand: the config's model, effort and permissions are handed to
 });
 
 test('planGradeCommand: with no config the harness call carries no model, effort or permissions — nothing is invented for the harness to honor', async () => {
-	const { cwd, name, config, driver, invocations } = setupHarnessSettings();
+	const { cwd, name, config, driver, invocations } = setupRecordedGrade();
 
 	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config })).rejects.toThrow(/process\.exit/);
 
@@ -319,13 +300,15 @@ test('planGradeCommand: a phased plan prints its gaps under one heading per plan
 	// one heading per plan file rather than one per gap, in the phase-then-lens
 	// order the runner stamped them in
 	expect(printed.filter((line) => /^phase\d/.test(line))).toStrictEqual(['phase1-core.md', 'phase2-extra.md']);
-	expect(printed.filter((line) => line.startsWith('? '))).toStrictEqual([
-		'? [unwired-dependency] the hand-off names no export (surface)',
-		'? [unwired-dependency] the hand-off names no export (wiring)',
-		'? [unwired-dependency] the hand-off names no export (decisions)',
-		'? [unwired-dependency] the hand-off names no export (surface)',
-		'? [unwired-dependency] the hand-off names no export (wiring)',
-		'? [unwired-dependency] the hand-off names no export (decisions)',
+	// each gap leads with the id of the record it was folded into, assigned in the
+	// order the readers returned them
+	expect(printed.filter((line) => / \? /.test(line))).toStrictEqual([
+		'f1 ? [unwired-dependency] the hand-off names no export (surface)',
+		'f2 ? [unwired-dependency] the hand-off names no export (wiring)',
+		'f3 ? [unwired-dependency] the hand-off names no export (decisions)',
+		'f4 ? [unwired-dependency] the hand-off names no export (surface)',
+		'f5 ? [unwired-dependency] the hand-off names no export (wiring)',
+		'f6 ? [unwired-dependency] the hand-off names no export (decisions)',
 	]);
 	// the coverage line names every file the verdict can speak for, and the
 	// overview is not among them — it is context, never gap-checked
@@ -359,4 +342,47 @@ test('planGradeCommand: a grade that weighed nothing prints no weight line at al
 	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
 
 	expect(printedLines({ logged }).some((line) => line.startsWith('  weight:'))).toBe(false);
+});
+
+test('plan grade prints the scope, the reuse line and the memory path', async () => {
+	const { cwd, driver, name, invocations, logged, exitCodes } = setupRecordedGrade({ git: true });
+	const planDir = join(cwd, '.lightsout', 'plans', 'demo');
+
+	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+
+	// what the first pass left behind, read before the second pass runs, so
+	// "nothing was re-run" is a comparison rather than a claim
+	const firstPassLines = logged.length;
+	const firstPassSpawns = invocations.length;
+	const gradeAfterFirstPass = readFileSync(join(planDir, 'grade.json'), 'utf8');
+	const historyAfterFirstPass = readFileSync(join(planDir, 'grade-history.jsonl'), 'utf8');
+	const firstReport = JSON.parse(gradeAfterFirstPass) as { scope: string; scopeReason: string };
+
+	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+
+	const printedByFirstPass = logged.slice(0, firstPassLines);
+	const printedByReuse = logged.slice(firstPassLines);
+	const memoryPath = join(planDir, 'grade-memory.json');
+	// the one line that carries the reason the pass reached as far as it did
+	const scopeLine = printedByFirstPass.find((line) => line.includes(firstReport.scopeReason)) ?? '';
+
+	// a pass over every plan file, and a line saying which rule chose that far —
+	// a history line nobody can explain is not a reason
+	expect(firstReport.scope).toBe('full');
+	expect(firstReport.scopeReason).toEqual(expect.stringMatching(/\S/));
+	expect(scopeLine).toContain('full');
+	// the memory file is named beside the grade and the history, on both passes,
+	// because it is the third file a human opens after a grade
+	expect(printedByFirstPass).toContainEqual(expect.stringContaining(memoryPath));
+	expect(printedByReuse).toContainEqual(expect.stringContaining(memoryPath));
+	// the recorded full review still covers these inputs, so the second pass
+	// spawned nothing, appended nothing, and left the verdict where it was
+	expect(firstPassSpawns).toBeGreaterThan(0);
+	expect(invocations.length).toBe(firstPassSpawns);
+	expect(readFileSync(join(planDir, 'grade-history.jsonl'), 'utf8')).toBe(historyAfterFirstPass);
+	expect(readFileSync(join(planDir, 'grade.json'), 'utf8')).toBe(gradeAfterFirstPass);
+	// and the terminal says so, naming the file to delete to force a new baseline
+	expect(printedByReuse).toContainEqual(expect.stringMatching(/full review/i));
+	expect(printedByReuse).toContainEqual(expect.stringContaining('grade-memory.json'));
+	expect(exitCodes).toStrictEqual([0, 0]);
 });

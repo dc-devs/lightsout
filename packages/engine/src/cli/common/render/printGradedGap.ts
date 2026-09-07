@@ -12,7 +12,10 @@ interface Params {
 /** The second line, chosen by the judge's answer: what the human must decide, what the agent would decide, where the answer already is, or why nobody weighed it. */
 const detailOf = ({ gap }: { gap: GradedGap }) => {
 	const lines: Record<GapOutcome, string> = {
-		[GapOutcome.NeedsAHuman]: `   decide: ${gap.humanDecision ?? gap.decision}${gap.options.length > 0 ? ` — options: ${gap.options.join(' / ')}` : ''}`,
+		// The refusal note rides this line because a needs-a-human gap is where an
+		// open memory record arrives, and a stored reason nobody prints does not tell
+		// anyone why the re-verification judge declined to close it.
+		[GapOutcome.NeedsAHuman]: `   decide: ${gap.humanDecision ?? gap.decision}${gap.options.length > 0 ? ` — options: ${gap.options.join(' / ')}` : ''}${gap.unjudgedReason === undefined ? '' : ` — ${gap.unjudgedReason}`}`,
 		[GapOutcome.AgentCanDecide]: `   the agent decides: ${gap.agentDecision ?? ''} — safe because ${gap.safeBecause ?? ''}`,
 		[GapOutcome.AlreadyAnswered]: `   already answered at: ${gap.answerAt ?? ''}`,
 		[GapOutcome.Unjudged]: `   unjudged, so it blocks: ${gap.unjudgedReason ?? 'no judge settled this finding'}`,
@@ -22,9 +25,10 @@ const detailOf = ({ gap }: { gap: GradedGap }) => {
 };
 
 /**
- * Render one judged gap: the `?` marker when it gates the grade, a dim `note`
- * when it does not, then the area, the finding and — when a per-file lens found
- * it — that lens, with the judge's own evidence on the following dim line.
+ * Render one judged gap: the memory record id when it has one, the `?` marker
+ * when it gates the grade or a dim `note` when it does not, then the area, the
+ * finding and — when a per-file lens found it — that lens, with the judge's own
+ * evidence on the following dim line.
  *
  * This is a renderer, not a filter — it prints every outcome, and which gaps it
  * is handed is the caller's decision. Keeping it total means the note lines are
@@ -36,7 +40,11 @@ export const printGradedGap = ({ gap, write = console.log }: Params): void => {
 	// The whole-plan documentation checker carries no lens, and an empty `()` would
 	// read as a lens the renderer failed to print.
 	const source = gap.lens === undefined ? '' : ` ${dim(`(${gap.lens})`)}`;
+	// The record id when the memory carried this finding across passes: it is how a
+	// human tells a finding the plan has seen before from a fresh one, and how they
+	// name it when talking about what is on record.
+	const record = gap.findingId === undefined ? '' : `${dim(gap.findingId)} `;
 
-	write(`${marker} [${gap.area}] ${gap.gap}${source}`);
+	write(`${record}${marker} [${gap.area}] ${gap.gap}${source}`);
 	write(dim(detailOf({ gap })));
 };

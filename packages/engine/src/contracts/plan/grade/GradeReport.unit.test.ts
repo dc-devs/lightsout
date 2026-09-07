@@ -71,6 +71,8 @@ describe('GradeReport', () => {
 			complete: true,
 			passed: false,
 			gradedAt: '2026-08-04T00:00:00.000Z',
+			scope: 'full',
+			focusedOn: [],
 		});
 	});
 
@@ -307,5 +309,35 @@ describe('GradeReport', () => {
 
 		// grade.json holds the declared fields, whatever else a hand edit added
 		expect('gradedBy' in parsed).toBe(false);
+	});
+
+	test('a report without a scope reason parses and one with it keeps the line', () => {
+		const { report: silent } = setupReport();
+		const { report: explained } = setupReport({
+			scope: 'focused',
+			focusedOn: ['phase2-cross-phase-checks.md'],
+			scopeReason: 'focused review of phase2-cross-phase-checks.md — the edited phase and its connected closure',
+		});
+
+		const withoutReason = GradeReport.parse(silent);
+		const withReason = GradeReport.parse(explained);
+
+		// a history line has to say why the pass reached as far as it did, and a
+		// record written before the field existed has no honest line to invent
+		expect(withoutReason.scopeReason).toBe(undefined);
+		expect(withReason.scopeReason).toBe('focused review of phase2-cross-phase-checks.md — the edited phase and its connected closure');
+	});
+
+	test('a report written before the scope fields defaults to full', () => {
+		const { report } = setupReport();
+
+		const parsed = GradeReport.parse(report);
+
+		// every reader of grade.json branches on scope, so an older record must read
+		// as the whole-plan pass it was rather than as a partial repair check, and it
+		// carries no fingerprint that could be mistaken for matching current inputs
+		expect(parsed.scope).toBe('full');
+		expect(parsed.focusedOn).toStrictEqual([]);
+		expect(parsed.inputs).toBe(undefined);
 	});
 });

@@ -52,6 +52,24 @@ describe('durablePlanFiles', () => {
 		]);
 	});
 
+	test('the finding memory travels with a published plan', async () => {
+		const { cwd, dir, name } = setupPlanFolder({
+			files: {
+				'plan.md': '# plan',
+				'grade.json': '{}',
+				'grade-memory.json': '{"planName":"lo-54-portable-plan","findings":[],"updatedAt":"2026-01-01T00:00:00.000Z"}',
+				...runState,
+			},
+		});
+
+		const set = await durablePlanFiles({ cwd, name });
+
+		// Membership rather than a position: the durable list decides where the
+		// memory sits beside grade.json, and what publish and restore need from
+		// this file is that it travels at all.
+		expect(set.files).toContainEqual({ name: 'grade-memory.json', path: join(dir, 'grade-memory.json') });
+	});
+
 	test('a phased plan travels as overview.md, then every phase file in reading order, then the records', async () => {
 		const { cwd, dir, name } = setupPlanFolder({
 			files: {

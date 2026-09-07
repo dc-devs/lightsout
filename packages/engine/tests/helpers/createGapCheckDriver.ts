@@ -8,21 +8,25 @@ interface Params {
 	verdict?: unknown;
 	/** The gap set the whole-plan documentation checker returns. Only a repo declaring a `docs` block ever spawns it. */
 	docsGaps?: unknown[];
+	/** The answer every re-verification judge gives for the open records the memory holds. The default leaves each one open. */
+	recheckVerdict?: unknown;
 	/** Collector the stub pushes every invocation it is handed into. */
 	invocations?: DriverInvocation[];
 }
 
 /**
- * A grade-pass stub keyed off the three markers a grade run spawns with: a
+ * A grade-pass stub keyed off the four markers a grade run spawns with: a
  * gap-check invocation gets the fixed gap set, a gap-judge invocation gets one
- * verdict, and a docs-check invocation gets its own gap set. The default ruling
- * is `needs-a-human`, so a gap-returning stub still fails a plan the way it
- * always did.
+ * verdict, a docs-check invocation gets its own gap set, and a finding-recheck
+ * invocation gets one re-verification answer. The default rulings are
+ * `needs-a-human`, so a gap-returning stub still fails a plan the way it always
+ * did and an open record stays open.
  */
 export const createGapCheckDriver = ({
 	gaps = [],
 	verdict = { outcome: 'needs-a-human', humanDecision: 'what the plan should do here' },
 	docsGaps = [],
+	recheckVerdict = { outcome: 'needs-a-human', humanDecision: 'still open' },
 	invocations = [],
 }: Params = {}): Driver => ({
 	name: 'stub',
@@ -31,13 +35,18 @@ export const createGapCheckDriver = ({
 
 		const judging = invocation.prompt.includes('# Gap-judge input');
 		const checkingDocs = invocation.prompt.includes('# Docs-check input');
+		const rechecking = invocation.prompt.includes('# Finding-recheck input');
 
-		// One of the three markers — a grade run spawns nothing else through this
+		// One of the four markers — a grade run spawns nothing else through this
 		// driver, so an invocation carrying none is a wiring bug worth failing on.
-		expect(judging || checkingDocs || invocation.prompt.includes('# Gap-check input')).toBeTruthy();
+		expect(judging || checkingDocs || rechecking || invocation.prompt.includes('# Gap-check input')).toBeTruthy();
 
 		if (judging) {
 			return { text: JSON.stringify(verdict), exitCode: 0 };
+		}
+
+		if (rechecking) {
+			return { text: JSON.stringify(recheckVerdict), exitCode: 0 };
 		}
 
 		return { text: JSON.stringify({ gaps: checkingDocs ? docsGaps : gaps }), exitCode: 0 };

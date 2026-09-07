@@ -5,6 +5,7 @@ import {
 	GapCheckLens,
 	GapOutcome,
 	type GradedGap,
+	GradeScope,
 	PlanWeight,
 	StructuralCheck,
 	type StructuralFinding,
@@ -182,5 +183,57 @@ describe('createGradeReport', () => {
 
 		expect({ weights: report.weights, phasesLight: report.phasesLight }).toStrictEqual({ weights: [], phasesLight: [] });
 		expect(report.lenses).toStrictEqual(['surface', 'wiring', 'decisions']);
+	});
+
+	test('a focused pass is incomplete and names the phases it read', () => {
+		const report = createGradeReport({
+			name: 'graded',
+			structural: [],
+			gaps: [],
+			failures: [],
+			phasesChecked: ['phase1-core.md', 'phase2-extra.md'],
+			scope: GradeScope.Focused,
+			focusedOn: ['phase1-core.md', 'phase2-extra.md'],
+			readersSpawned: true,
+		});
+
+		// a pass that never offered every plan file to the readers is a partial record
+		expect(report.complete).toBe(false);
+		expect(report.incompleteReason ?? '').toMatch(/phase1-core\.md, phase2-extra\.md/);
+		expect(report.focusedOn).toStrictEqual(['phase1-core.md', 'phase2-extra.md']);
+	});
+
+	test('a pass with no reader spawned reports an empty lens list', () => {
+		const report = createGradeReport({
+			name: 'graded',
+			structural: [],
+			gaps: [],
+			failures: [],
+			phasesChecked: [],
+			scope: GradeScope.Full,
+			focusedOn: [],
+			readersSpawned: false,
+		});
+
+		// the field states what ran, so a pass that spawned nothing must not claim three lenses
+		expect(report.lenses).toStrictEqual([]);
+	});
+
+	test('a focused pass with nothing blocking is still below A', () => {
+		const report = createGradeReport({
+			name: 'graded',
+			structural: [],
+			gaps: [gapOf({ outcome: GapOutcome.AgentCanDecide })],
+			failures: [],
+			phasesChecked: ['phase1-core.md'],
+			scope: GradeScope.Focused,
+			focusedOn: ['phase1-core.md'],
+			readersSpawned: true,
+		});
+
+		// a focused pass is a repair check, never an approval
+		expect(report.grade).toBe('below-A');
+		expect(report.passed).toBe(false);
+		expect(report.scope).toBe('focused');
 	});
 });

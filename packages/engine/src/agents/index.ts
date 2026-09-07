@@ -3,6 +3,7 @@ export { buildFeatureExecutorInvocation } from '#src/agents/buildFeatureExecutor
 export { buildLedgerTestWriterInvocation } from '#src/agents/buildLedgerTestWriterInvocation.ts';
 export { buildPlanDedupInvocation } from '#src/agents/buildPlanDedupInvocation.ts';
 export { buildPlanDocsCheckInvocation } from '#src/agents/buildPlanDocsCheckInvocation.ts';
+export { buildPlanFindingRecheckInvocation } from '#src/agents/buildPlanFindingRecheckInvocation.ts';
 export { buildPlanGapCheckInvocation } from '#src/agents/buildPlanGapCheckInvocation.ts';
 export { buildPlanGapJudgeInvocation } from '#src/agents/buildPlanGapJudgeInvocation.ts';
 export { buildPlanRepairInvocation } from '#src/agents/buildPlanRepairInvocation.ts';
@@ -16,3 +17,4 @@ export { buildStandardsReviewInvocation } from '#src/agents/buildStandardsReview
 export { buildSupervisorInvocation } from '#src/agents/buildSupervisorInvocation.ts';
 export { buildTestChangeReviewInvocation } from '#src/agents/buildTestChangeReviewInvocation.ts';
 export { buildUnitTestWriterInvocation } from '#src/agents/buildUnitTestWriterInvocation.ts';
+export { planGradePromptTexts } from '#src/agents/common/constants/planGradePromptTexts.ts';

@@ -17,7 +17,7 @@ import { PlanGap } from '#src/contracts/plan/grade/PlanGap.ts';
  * construction.
  */
 export const GradedGap = PlanGap.extend({
-	...GapVerdict.omit({ outcome: true }).shape,
+	...GapVerdict.omit({ outcome: true, matchesFinding: true }).shape,
 	/** The plan file's basename — `phase2-cross-phase-checks.md`, or `plan.md`. */
 	phase: z.string(),
 	/**
@@ -36,6 +36,14 @@ export const GradedGap = PlanGap.extend({
 	outcome: z.enum(GapOutcome).default(GapOutcome.Unjudged),
 	/** Why nobody settled it, absent when a judge did. */
 	unjudgedReason: z.string().optional(),
+	/**
+	 * The memory record this gap belongs to — the one it was merged into, or the
+	 * open record it was surfaced from. Absent on an unjudged finding, which opens
+	 * no record. `matchesFinding` is deliberately not carried through from the
+	 * verdict: what is persisted is the id the engine resolved, never the agent's
+	 * raw claim.
+	 */
+	findingId: z.string().optional(),
 });
 
 export type GradedGap = z.infer<typeof GradedGap>;
