@@ -1,19 +1,17 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { buildLedgerTestWriterInvocation } from '#src/agents/index.ts';
-import { readGitCommittedFile } from '#src/common/git/readGitCommittedFile.ts';
 import { runFormatter } from '#src/common/processes/runFormatter.ts';
 import { type LedgerRow, RunStatus, type WorkReport } from '#src/contracts/index.ts';
+import { approveTestFiles } from '#src/pipeline/approvedTests/index.ts';
 import { testWriterConcurrency } from '#src/pipeline/common/constants/testWriterConcurrency.ts';
 import type { WriterResult } from '#src/pipeline/common/types/WriterResult.ts';
 import { collectChanged } from '#src/pipeline/common/utils/collectChanged.ts';
 import { createWarmSpawn } from '#src/pipeline/common/utils/createWarmSpawn.ts';
 import { createWriterAggregate } from '#src/pipeline/common/utils/createWriterAggregate.ts';
 import { drainChains } from '#src/pipeline/common/utils/drainChains.ts';
-import { lockLedgerTests } from '#src/pipeline/common/utils/lockLedgerTests.ts';
 import { withStepFiles } from '#src/pipeline/common/utils/withStepFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
+import { committedLedgerConflicts, missingLedgerNames, seedAcceptanceTests } from '#src/pipeline/steps/ledger/index.ts';
 
 const stepId = 'write-ledger-tests';
 
@@ -25,6 +23,10 @@ interface Params {
 	/** The plan's ledger. An empty ledger skips the step before this runs. */
 	rows: LedgerRow[];
 	testStandards?: string;
+	/** The plan's moves whose destination is a test-side file. */
+	movePaths?: { from: string; to: string }[];
+	/** Test-side files the plan deletes — nowhere to put a named test. */
+	deletePaths?: string[];
 }
 
 /** One writer's assignment: the test file it owns, and every ledger row naming it. */
@@ -53,41 +55,20 @@ const groupRows = ({ rows }: { rows: LedgerRow[] }) => {
 	return [...byFile].map(([testFile, fileRows]) => ({ testFile, rows: fileRows }));
 };
 
-// The writer uses the ledger's name verbatim as the test's name string, so presence is exactly that string under either quote.
-const isNamePresent = ({ content, name }: { content: string; name: string }) => content.includes(`'${name}'`) || content.includes(`"${name}"`);
-
 const namesOf = ({ assignment }: { assignment: LedgerAssignment }) => assignment.rows.map((row) => row.testName);
 
-/** Assigned names a file already carries AS COMMITTED — never the working tree, so a re-entry after a park reads the same verdict as the first pass. One line per offending file. */
-const committedConflicts = async ({ run, assignments }: { run: PipelineRun; assignments: LedgerAssignment[] }) => {
-	const found = await Promise.all(
-		assignments.map(async (assignment) => {
-			const content = await readGitCommittedFile({ cwd: run.cwd, path: assignment.testFile });
-			const names = content === undefined ? [] : namesOf({ assignment }).filter((name) => isNamePresent({ content, name }));
-
-			return { testFile: assignment.testFile, names };
-		}),
-	);
-
-	return found.filter(({ names }) => names.length > 0).map(({ testFile, names }) => `${testFile}: ${names.join(', ')}`);
-};
-
-/** Assigned names absent from the file on disk; undefined when the file itself is absent. */
-const missingNames = async ({ run, assignment }: { run: PipelineRun; assignment: LedgerAssignment }) => {
-	const content = await readFile(join(run.cwd, assignment.testFile), 'utf8').catch(() => undefined);
-
-	return content === undefined ? undefined : namesOf({ assignment }).filter((name) => !isNamePresent({ content, name }));
-};
-
-interface SpawnParams {
+const spawnLedgerWriter = async ({
+	context,
+	group,
+	onFirstEvent,
+	errorContext,
+}: {
 	context: Context;
 	group: LedgerAssignment;
 	onFirstEvent?: () => void;
 	/** Missing-test names, on the single repair re-invocation. */
 	errorContext?: string;
-}
-
-const spawnLedgerWriter = async ({ context, group, onFirstEvent, errorContext }: SpawnParams): Promise<WriterResult<LedgerAssignment>> => ({
+}): Promise<WriterResult<LedgerAssignment>> => ({
 	group,
 	...(await context.run.invokeRole({
 		invocation: buildLedgerTestWriterInvocation({
@@ -96,6 +77,8 @@ const spawnLedgerWriter = async ({ context, group, onFirstEvent, errorContext }:
 			testFile: group.testFile,
 			rows: group.rows,
 			standards: context.testStandards,
+			movePaths: context.movePaths,
+			deletePaths: context.deletePaths,
 			errorContext,
 		}),
 		step: stepId,
@@ -124,14 +107,18 @@ const runLedgerWriters = async ({ context, assignments }: { context: Context; as
 	return aggregate.result();
 };
 
-/** Every assigned name accounted for, with one re-invocation per file that is short — after the lock no agent may touch the file, so this is the only place a missing name can be repaired. */
+/**
+ * Every assigned name accounted for, with one re-invocation per file that is
+ * short. The ledger writer is the trusted seat, so a missing name is settled
+ * here rather than left for a later checkpoint to discover.
+ */
 const settleWrittenTests = async ({ context, assignments }: { context: Context; assignments: LedgerAssignment[] }) => {
 	const reports: WorkReport[] = [];
 	const errors: string[] = [];
 	let parked = false;
 
 	for (const assignment of assignments) {
-		const missing = await missingNames({ run: context.run, assignment });
+		const missing = await missingLedgerNames({ cwd: context.run.cwd, testFile: assignment.testFile, testNames: namesOf({ assignment }) });
 
 		if (missing?.length === 0) {
 			continue;
@@ -156,7 +143,8 @@ const settleWrittenTests = async ({ context, assignments }: { context: Context; 
 
 		reports.push(result.report);
 
-		const stillMissing = (await missingNames({ run: context.run, assignment })) ?? namesOf({ assignment });
+		const stillMissing =
+			(await missingLedgerNames({ cwd: context.run.cwd, testFile: assignment.testFile, testNames: namesOf({ assignment }) })) ?? namesOf({ assignment });
 
 		errors.push(...(stillMissing.length === 0 ? [] : [`${assignment.testFile}: still missing ${stillMissing.join(', ')}`]));
 	}
@@ -191,12 +179,22 @@ const writeLedgerTests = async ({ context, assignments }: { context: Context; as
 
 /**
  * The write-ledger-tests fan-out: one writer per ledger test file, then the
- * lock. The tests stating the plan's acceptance criteria are written before the
- * executor starts and copied into the run folder, so the party being verified
- * never edits the verifier.
+ * approval. The tests stating the plan's acceptance criteria are written before
+ * the executor starts, and what this writer produced is approved without review
+ * — it is the trusted seat. Every later change to a test-side file is judged by
+ * the test-change reviewer at the next verification checkpoint.
  */
-export const writeLedgerTestsStep = ({ run, gitPrefix, planContent, overviewContent, rows, testStandards }: Params): PipelineStep['run'] => {
-	const context: Context = { run, planContent, overviewContent, testStandards };
+export const writeLedgerTestsStep = ({
+	run,
+	gitPrefix,
+	planContent,
+	overviewContent,
+	rows,
+	testStandards,
+	movePaths = [],
+	deletePaths = [],
+}: Params): PipelineStep['run'] => {
+	const context: Context = { run, planContent, overviewContent, testStandards, movePaths, deletePaths };
 
 	return async () => {
 		let record = run.nextRecord({ id: stepId });
@@ -204,13 +202,17 @@ export const writeLedgerTestsStep = ({ run, gitPrefix, planContent, overviewCont
 		await run.setStep({ record });
 
 		const assignments = groupRows({ rows });
-		const conflicts = await committedConflicts({ run, assignments });
+		const conflicts = await committedLedgerConflicts({
+			cwd: run.cwd,
+			assignments: assignments.map((assignment) => ({ testFile: assignment.testFile, testNames: namesOf({ assignment }) })),
+			movePaths,
+		});
 
 		if (conflicts.length > 0) {
 			return run.stop({
 				record,
 				status: RunStatus.Failed,
-				error: `${stepId}: the ledger names test(s) the committed file already carries — a test written for older behaviour cannot be locked as a new criterion's verifier:\n${conflicts.join('\n')}`,
+				error: `${stepId}: the ledger names test(s) the committed file already carries — a test written for older behaviour cannot stand as a new criterion's verifier:\n${conflicts.join('\n')}`,
 			});
 		}
 
@@ -227,21 +229,20 @@ export const writeLedgerTestsStep = ({ run, gitPrefix, planContent, overviewCont
 			return run.stop({ record: { ...record, report: { reports } }, ...failure });
 		}
 
-		// Formatted before hashing, so the lock is byte-exact and every later
-		// format pass is a no-op on a locked file.
+		// Formatted before the approval, so the baseline is of formatted bytes and
+		// the first checkpoint's diff against it is empty rather than the
+		// formatter's own edit.
 		const formatError = await runFormatter({ cwd: run.cwd, runId: run.current().runId, config: run.config, step: stepId });
 
 		if (formatError) {
 			return run.stop({ record: { ...record, report: { reports } }, status: RunStatus.Failed, error: formatError });
 		}
 
-		const ledgerTests = await lockLedgerTests({
-			run,
-			files: assignments.map((assignment) => ({ path: assignment.testFile, testNames: namesOf({ assignment }) })),
-		});
+		const approvedTests = await approveTestFiles({ run, paths: assignments.map((assignment) => assignment.testFile) });
+		const acceptanceTests = seedAcceptanceTests({ rows });
 
-		await run.setStep({ record: { ...record, status: RunStatus.Passed, report: { reports } }, patch: { ledgerTests } });
-		run.progress(`step ${stepId} passed — ${ledgerTests.length} ledger test file(s) locked`);
+		await run.setStep({ record: { ...record, status: RunStatus.Passed, report: { reports } }, patch: { approvedTests, acceptanceTests } });
+		run.progress(`step ${stepId} passed — ${assignments.length} ledger test file(s) approved`);
 
 		return undefined;
 	};

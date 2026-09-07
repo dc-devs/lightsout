@@ -1,5 +1,6 @@
+export { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestRecord.ts';
 export { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
-export { LedgerTestRecord } from '#src/contracts/run/LedgerTestRecord.ts';
+export { ApprovedTestRecord } from '#src/contracts/run/ApprovedTestRecord.ts';
 export { PackagesSource } from '#src/contracts/run/PackagesSource.ts';
 export { PhaseReport } from '#src/contracts/run/PhaseReport.ts';
 export { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
@@ -9,3 +10,4 @@ export { RunManifest } from '#src/contracts/run/RunManifest.ts';
 export { RunStatus } from '#src/contracts/run/RunStatus.ts';
 export { RunUsage } from '#src/contracts/run/RunUsage.ts';
 export { StepRecord } from '#src/contracts/run/StepRecord.ts';
+export { TestReviewRecord } from '#src/contracts/run/TestReviewRecord.ts';

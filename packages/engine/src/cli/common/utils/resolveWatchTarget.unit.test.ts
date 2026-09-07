@@ -18,7 +18,8 @@ const manifestOf = ({ runId, status, updatedAt }: { runId: string; status: RunSt
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],
-	ledgerTests: [],
+	acceptanceTests: [],
+	approvedTests: [],
 	unreachableChangedFiles: [],
 	coverageExcludedChangedFiles: [],
 });

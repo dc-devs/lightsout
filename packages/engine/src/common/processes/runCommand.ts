@@ -7,6 +7,8 @@ interface Params {
 	command: string;
 	cwd: string;
 	timeoutMs?: number;
+	/** Entries merged over the inherited environment — how the engine reaches a child process it does not own the command of. */
+	env?: Record<string, string>;
 }
 
 /**
@@ -15,7 +17,7 @@ interface Params {
  * sweet-talk. Rejects only on spawn failure or timeout; a non-zero exit is a
  * result, not an exception (the engine owns what failure means).
  */
-export const runCommand = ({ command, cwd, timeoutMs }: Params): Promise<CommandResult> => {
+export const runCommand = ({ command, cwd, timeoutMs, env }: Params): Promise<CommandResult> => {
 	// `env` is passed explicitly rather than left to ambient inheritance. In
 	// production this is identical — the child inherited exactly these values
 	// anyway — but it makes the environment a visible input, which is what lets
@@ -28,7 +30,7 @@ export const runCommand = ({ command, cwd, timeoutMs }: Params): Promise<Command
 	// machine nobody is watching. Ctrl-C still reaches it — collectChildOutput
 	// relays the signal, which is the job the terminal's foreground group did
 	// before the child left it.
-	const child = spawn(command, { cwd, shell: true, stdio: ['ignore', 'pipe', 'pipe'], env: process.env, detached: true });
+	const child = spawn(command, { cwd, shell: true, stdio: ['ignore', 'pipe', 'pipe'], env: env ? { ...process.env, ...env } : process.env, detached: true });
 
 	return collectChildOutput({
 		child,

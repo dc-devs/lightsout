@@ -7,6 +7,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
 // Agent failure modes: terminated reports, malformed output, per-writer
@@ -52,38 +53,40 @@ test('write-tests aggregates per-file failures; terminated writers escalate', as
 		const dir = setupConsumerRepo();
 		const driver: Driver = {
 			name: 'stub',
-			invoke: async ({ prompt }) => {
-				const role = roleOf(prompt);
+			invoke: withTestChangeReview({
+				invoke: async ({ prompt }) => {
+					const role = roleOf(prompt);
 
-				if (role === 'standards-review') {
-					return { text: reviewReport(), exitCode: 0 };
-				}
+					if (role === 'standards-review') {
+						return { text: reviewReport(), exitCode: 0 };
+					}
 
-				if (role === 'implement') {
-					writeSource({ dir, path: 'src/a.js', source: 'export const a = 1;\n' });
-					writeSource({ dir, path: 'src/b.js', source: 'export const b = 1;\n' });
+					if (role === 'implement') {
+						writeSource({ dir, path: 'src/a.js', source: 'export const a = 1;\n' });
+						writeSource({ dir, path: 'src/b.js', source: 'export const b = 1;\n' });
 
-					return {
-						text: report({
-							changedFiles: [
-								{ path: 'src/a.js', summary: 'a' },
-								{ path: 'src/b.js', summary: 'b' },
-							],
-						}),
-						exitCode: 0,
-					};
-				}
+						return {
+							text: report({
+								changedFiles: [
+									{ path: 'src/a.js', summary: 'a' },
+									{ path: 'src/b.js', summary: 'b' },
+								],
+							}),
+							exitCode: 0,
+						};
+					}
 
-				if (role === 'write-tests') {
-					if (prompt.includes('src/a.js')) {
-						return { text: report({ status: failingStatus, failures: ['WRITER-FAILURE-SENTINEL'] }), exitCode: 0 };
+					if (role === 'write-tests') {
+						if (prompt.includes('src/a.js')) {
+							return { text: report({ status: failingStatus, failures: ['WRITER-FAILURE-SENTINEL'] }), exitCode: 0 };
+						}
+
+						return { text: report(), exitCode: 0 };
 					}
 
 					return { text: report(), exitCode: 0 };
-				}
-
-				return { text: report(), exitCode: 0 };
-			},
+				},
+			}),
 		};
 
 		return runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });

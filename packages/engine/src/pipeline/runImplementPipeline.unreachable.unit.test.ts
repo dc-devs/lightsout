@@ -10,6 +10,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { reachabilityRulesOff, setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 
 interface SetupParams {
 	/** Merged over the consumer repo's default gate commands. */
@@ -38,51 +39,53 @@ const setupOrphanRun = async ({ scripts, onWriteTests, onRefactor }: SetupParams
 
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
-
-			if (role === 'write-tests') {
-				writerPrompts.push(prompt);
-
-				const custom = onWriteTests?.({ prompt });
-
-				if (custom) {
-					return custom;
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
 				}
 
-				mkdirSync(join(dir, 'test'), { recursive: true });
-				writeFileSync(join(dir, 'test/feature.test.js'), '// stub\n');
+				if (role === 'write-tests') {
+					writerPrompts.push(prompt);
 
-				return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
-			}
+					const custom = onWriteTests?.({ prompt });
 
-			if (role === 'refactor') {
-				refactorPass += 1;
+					if (custom) {
+						return custom;
+					}
 
-				return onRefactor?.({ pass: refactorPass }) ?? { text: report(), exitCode: 0 };
-			}
+					mkdirSync(join(dir, 'test'), { recursive: true });
+					writeFileSync(join(dir, 'test/feature.test.js'), '// stub\n');
 
-			mkdirSync(join(dir, 'src/feature'), { recursive: true });
-			writeFileSync(join(dir, 'src/feature/index.ts'), "export { feature } from './feature';\n");
-			writeFileSync(join(dir, 'src/feature/feature.ts'), 'export const feature = (): number => 1;\n');
-			// deliberately not wired into the entry: nothing public reaches it, which is the point
-			writeFileSync(join(dir, 'src/feature/orphan.ts'), 'export const orphan = (): number => 2;\n');
+					return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
+				}
 
-			return {
-				text: report({
-					changedFiles: [
-						{ path: 'src/feature/index.ts', summary: 'barrel' },
-						{ path: 'src/feature/feature.ts', summary: 'public' },
-						{ path: 'src/feature/orphan.ts', summary: 'hidden' },
-					],
-				}),
-				exitCode: 0,
-			};
-		},
+				if (role === 'refactor') {
+					refactorPass += 1;
+
+					return onRefactor?.({ pass: refactorPass }) ?? { text: report(), exitCode: 0 };
+				}
+
+				mkdirSync(join(dir, 'src/feature'), { recursive: true });
+				writeFileSync(join(dir, 'src/feature/index.ts'), "export { feature } from './feature';\n");
+				writeFileSync(join(dir, 'src/feature/feature.ts'), 'export const feature = (): number => 1;\n');
+				// deliberately not wired into the entry: nothing public reaches it, which is the point
+				writeFileSync(join(dir, 'src/feature/orphan.ts'), 'export const orphan = (): number => 2;\n');
+
+				return {
+					text: report({
+						changedFiles: [
+							{ path: 'src/feature/index.ts', summary: 'barrel' },
+							{ path: 'src/feature/feature.ts', summary: 'public' },
+							{ path: 'src/feature/orphan.ts', summary: 'hidden' },
+						],
+					}),
+					exitCode: 0,
+				};
+			},
+		}),
 	};
 
 	return { dir, driver, config: await readConfig({ cwd: dir }), writerPrompts };
@@ -211,43 +214,45 @@ const setupHiddenChainRun = async () => {
 	const writerPrompts: string[] = [];
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			if (role === 'write-tests') {
-				writerPrompts.push(prompt);
-				mkdirSync(join(dir, 'test'), { recursive: true });
-				writeFileSync(join(dir, 'test/entry.test.js'), '// stub\n');
+				if (role === 'write-tests') {
+					writerPrompts.push(prompt);
+					mkdirSync(join(dir, 'test'), { recursive: true });
+					writeFileSync(join(dir, 'test/entry.test.js'), '// stub\n');
 
-				return { text: report({ changedFiles: [{ path: 'test/entry.test.js', summary: 'tests' }] }), exitCode: 0 };
-			}
+					return { text: report({ changedFiles: [{ path: 'test/entry.test.js', summary: 'tests' }] }), exitCode: 0 };
+				}
 
-			if (role === 'refactor') {
-				return { text: report(), exitCode: 0 };
-			}
+				if (role === 'refactor') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			mkdirSync(join(dir, 'src/chain'), { recursive: true });
-			writeFileSync(join(dir, 'src/chain/index.ts'), "export { entry } from './entry';\n");
-			writeFileSync(join(dir, 'src/chain/entry.ts'), 'export const entry = (): number => 1;\n');
-			writeFileSync(join(dir, 'src/chain/deeper.ts'), "import { hidden } from './hidden';\n\nexport const deeper = (): number => hidden();\n");
-			writeFileSync(join(dir, 'src/chain/hidden.ts'), 'export const hidden = (): number => 2;\n');
+				mkdirSync(join(dir, 'src/chain'), { recursive: true });
+				writeFileSync(join(dir, 'src/chain/index.ts'), "export { entry } from './entry';\n");
+				writeFileSync(join(dir, 'src/chain/entry.ts'), 'export const entry = (): number => 1;\n');
+				writeFileSync(join(dir, 'src/chain/deeper.ts'), "import { hidden } from './hidden';\n\nexport const deeper = (): number => hidden();\n");
+				writeFileSync(join(dir, 'src/chain/hidden.ts'), 'export const hidden = (): number => 2;\n');
 
-			return {
-				text: report({
-					changedFiles: [
-						{ path: 'src/chain/index.ts', summary: 'barrel' },
-						{ path: 'src/chain/entry.ts', summary: 'public' },
-						{ path: 'src/chain/deeper.ts', summary: 'hidden middle' },
-						{ path: 'src/chain/hidden.ts', summary: 'hidden leaf' },
-					],
-				}),
-				exitCode: 0,
-			};
-		},
+				return {
+					text: report({
+						changedFiles: [
+							{ path: 'src/chain/index.ts', summary: 'barrel' },
+							{ path: 'src/chain/entry.ts', summary: 'public' },
+							{ path: 'src/chain/deeper.ts', summary: 'hidden middle' },
+							{ path: 'src/chain/hidden.ts', summary: 'hidden leaf' },
+						],
+					}),
+					exitCode: 0,
+				};
+			},
+		}),
 	};
 
 	return { dir, driver, config: await readConfig({ cwd: dir }), writerPrompts };

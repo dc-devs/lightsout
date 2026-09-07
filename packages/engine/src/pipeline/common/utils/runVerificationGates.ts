@@ -1,11 +1,12 @@
 import { resolveGateOverride } from '#src/common/config/resolveGateOverride.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
+import type { AcceptanceRow } from '#src/common/types/AcceptanceRow.ts';
 import { packageOf } from '#src/common/workspace/packageOf.ts';
 import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
 import type { GateOverride, GateResult } from '#src/contracts/index.ts';
 import { checkChangedFilesExecuted } from '#src/coverage/index.ts';
-import { type GateRunResult, GateScheduleKind, runGates } from '#src/gates/index.ts';
-import { restoreLedgerTests } from '#src/pipeline/common/utils/restoreLedgerTests.ts';
+import { checkAcceptanceTests, GateScheduleKind, runGates } from '#src/gates/index.ts';
+import type { VerificationResult } from '#src/pipeline/common/types/VerificationResult.ts';
 import { sourceFiles } from '#src/pipeline/common/utils/sourceFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 
@@ -19,6 +20,22 @@ const scheduleOf = ({ override }: { override: GateOverride | undefined }) => {
 	}
 
 	return override === 'off' ? { kind: GateScheduleKind.Off } : { kind: GateScheduleKind.Exact, gates: override };
+};
+
+/**
+ * The per-file accountability check over the report the coverage gate just
+ * wrote: every changed file (minus the recorded unreachable ones) must show at
+ * least one executed statement.
+ */
+const changedFilesExecutedError = ({ run, packagesDir }: { run: PipelineRun; packagesDir: string }) => {
+	const manifest = run.current();
+
+	return checkChangedFilesExecuted({
+		cwd: run.cwd,
+		config: run.config,
+		compiler: resolveConsumerTypescript({ cwd: run.cwd, packagesDir }),
+		changedFiles: sourceFiles({ run }).filter((file) => !manifest.unreachableChangedFiles.includes(file)),
+	});
 };
 
 interface Params {
@@ -35,22 +52,30 @@ interface Params {
 	 * its gate schedule.
 	 */
 	checkpoint: string;
+	/**
+	 * The acceptance tests this checkpoint must prove, in the shape
+	 * `checkAcceptanceTests` takes. Empty where the plan carries no ledger, and at
+	 * clean-slate, where the ledger's tests have not been written yet.
+	 */
+	rows: AcceptanceRow[];
+	/** True only at the run's last verification, where an acceptance test no gate proved is a failure rather than a skip. */
+	final?: boolean;
 }
 
 /**
  * The run's verification gates, bound to its live scope and evidence log.
  *
- * The ledger lock runs first, BEFORE the gates: an edited acceptance test can
- * make a gate pass, so the copy has to be back in place or the gate proves the
- * wrong thing. A restored file is announced and nothing more — the gates then
- * decide, and the step's own fix role repairs a red test the way it does today.
- * The lock protects the ledger rather than the gates about to run, so it happens
- * even at a checkpoint whose override is "off" and runs no gates at all.
- *
  * How the gates are scheduled is the checkpoint's own `gate-overrides` entry
  * where it has one — exactly those gates, in that order — and the engine's two
  * tiers where it does not: the cheap gates first, the expensive ones only once
  * every package group's cheap gates are green.
+ *
+ * After the gates, every acceptance test the checkpoint was given must be shown
+ * to have executed and passed in the per-test results those gates wrote. It runs
+ * before the per-file executed check because it judges the gates that just ran,
+ * where that check judges the coverage report they produced — and a checkpoint
+ * that cannot prove its acceptance tests has nothing to gain from also being
+ * told which files went uncovered.
  *
  * When the coverage gate actually ran and passed, the per-file executed check
  * follows: every changed file (minus the recorded unreachable ones) must show at
@@ -60,18 +85,10 @@ interface Params {
  * says off, or drop it where the argument says on. At clean-slate the changed
  * set is empty, so the check is a no-op there.
  */
-export const runVerificationGates = async ({ run, coverage, checkpoint }: Params): Promise<GateRunResult & { failures: GateResult[] }> => {
+export const runVerificationGates = async ({ run, coverage, checkpoint, rows, final }: Params): Promise<VerificationResult> => {
 	const packagesDir = run.config['packages-dir'] ?? defaultPackagesDir;
 	const hasRootChanges = run.current().changedFiles.some((file) => packageOf({ file, packagesDir }) === undefined);
 	const observations = new Map<string, GateResult>();
-
-	if (run.current().ledgerTests.length > 0) {
-		const { restored } = await restoreLedgerTests({ run });
-
-		for (const path of restored) {
-			run.progress(`ledger lock: ${path} was edited during the run — the locked copy was put back before the gates ran`);
-		}
-	}
 
 	const result = await runGates({
 		cwd: run.cwd,
@@ -86,10 +103,11 @@ export const runVerificationGates = async ({ run, coverage, checkpoint }: Params
 		onGateResult: (gateResult) => observations.set(`${gateResult.group}\0${gateResult.kind}`, gateResult),
 		onProgress: (message) => run.progress(message),
 	});
+	const gates = [...observations.values()];
 	// A crashed gate is red without being evidence, so it is kept out of the
 	// failure list the step shows and the fix agent reads — `crashes` is where
 	// it is reported instead.
-	const failures = [...observations.values()].filter(
+	const failures = gates.filter(
 		(observation) =>
 			observation.skipped !== true &&
 			observation.crashed !== true &&
@@ -97,23 +115,35 @@ export const runVerificationGates = async ({ run, coverage, checkpoint }: Params
 			observation.exitCode !== 0 &&
 			result.failedFamilies.includes(observation.kind),
 	);
-	const coverageRan = [...observations.values()].some((gate) => passedCoverage({ gate }));
+	const coverageRan = gates.some((gate) => passedCoverage({ gate }));
 
-	if (result.error !== undefined || !coverageRan) {
-		return { ...result, failures };
+	// The gates' own verdict unless a post-gate check overrules it. Held in one
+	// place so `gates` — every observation, which both the acceptance check and
+	// the clean-slate probe read back — is attached once at the end rather than
+	// re-listed by each branch, where one branch eventually forgets it.
+	let verdict: Omit<VerificationResult, 'gates'> = { ...result, failures };
+
+	if (result.error === undefined) {
+		const acceptanceError = await checkAcceptanceTests({
+			cwd: run.cwd,
+			rows,
+			gates,
+			final: final === true,
+			packagesDir,
+			onProgress: (message) => run.progress(message),
+		});
+
+		if (acceptanceError !== undefined) {
+			verdict = { error: acceptanceError, failedFamilies: ['acceptance-tests'], crashes: [], failures: [] };
+		} else if (coverageRan) {
+			const executedError = await changedFilesExecutedError({ run, packagesDir });
+
+			verdict =
+				executedError === undefined
+					? { error: undefined, failedFamilies: [], crashes: [], failures: [] }
+					: { error: executedError, failedFamilies: ['changed-files-executed'], crashes: [], failures: [] };
+		}
 	}
 
-	const manifest = run.current();
-	const compiler = resolveConsumerTypescript({ cwd: run.cwd, packagesDir });
-
-	const error = await checkChangedFilesExecuted({
-		cwd: run.cwd,
-		config: run.config,
-		compiler,
-		changedFiles: sourceFiles({ run }).filter((file) => !manifest.unreachableChangedFiles.includes(file)),
-	});
-
-	return error === undefined
-		? { error: undefined, failedFamilies: [], crashes: [], failures: [] }
-		: { error, failedFamilies: ['changed-files-executed'], crashes: [], failures: [] };
+	return { ...verdict, gates };
 };

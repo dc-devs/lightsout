@@ -12,6 +12,7 @@ import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { reachabilityRulesOff, setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { verdict } from '#tests/helpers/verdict.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
 const countLog = (dir: string, file: string) => {
@@ -75,44 +76,46 @@ const setupExecutionRun = async ({
 	const writerPrompts: string[] = [];
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			if (role === 'supervisor') {
-				return { text: verdict(), exitCode: 0 };
-			}
+				if (role === 'supervisor') {
+					return { text: verdict(), exitCode: 0 };
+				}
 
-			if (role === 'refactor') {
-				return { text: report(), exitCode: 0 };
-			}
-
-			if (role === 'write-tests') {
-				writerPrompts.push(prompt);
-
-				// the retry's tests reach the changed file: the summary now shows it ran
-				if (prompt.includes('# Verification failure') && onFix) {
-					writeCoverageSummary({ dir, statements: onFix });
-
+				if (role === 'refactor') {
 					return { text: report(), exitCode: 0 };
 				}
 
-				mkdirSync(join(dir, 'test'), { recursive: true });
-				writeFileSync(join(dir, 'test/feature.test.js'), '// stub\n');
+				if (role === 'write-tests') {
+					writerPrompts.push(prompt);
 
-				return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
-			}
+					// the retry's tests reach the changed file: the summary now shows it ran
+					if (prompt.includes('# Verification failure') && onFix) {
+						writeCoverageSummary({ dir, statements: onFix });
 
-			for (const [path, content] of Object.entries(sources)) {
-				mkdirSync(dirname(join(dir, path)), { recursive: true });
-				writeFileSync(join(dir, path), content);
-			}
+						return { text: report(), exitCode: 0 };
+					}
 
-			return { text: report({ changedFiles: Object.keys(sources).map((path) => ({ path, summary: 'source' })) }), exitCode: 0 };
-		},
+					mkdirSync(join(dir, 'test'), { recursive: true });
+					writeFileSync(join(dir, 'test/feature.test.js'), '// stub\n');
+
+					return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
+				}
+
+				for (const [path, content] of Object.entries(sources)) {
+					mkdirSync(dirname(join(dir, path)), { recursive: true });
+					writeFileSync(join(dir, path), content);
+				}
+
+				return { text: report({ changedFiles: Object.keys(sources).map((path) => ({ path, summary: 'source' })) }), exitCode: 0 };
+			},
+		}),
 	};
 
 	return { dir, driver, config: await readConfig({ cwd: dir }), writerPrompts };
@@ -234,33 +237,35 @@ test('generate runs first in every gate set; generated prefixes earn no attribut
 	const writers: string[] = [];
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			if (role === 'write-tests') {
-				writers.push(prompt.match(/- (\S+)/)?.[1] ?? 'unknown');
-			}
+				if (role === 'write-tests') {
+					writers.push(prompt.match(/- (\S+)/)?.[1] ?? 'unknown');
+				}
 
-			if (role !== 'implement') {
-				return { text: report(), exitCode: 0 };
-			}
+				if (role !== 'implement') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
+				writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
-			return {
-				text: report({
-					changedFiles: [
-						{ path: 'src/feature.js', summary: 'feature' },
-						{ path: 'src/gen/model.ts', summary: 'agent even reported a generated file' },
-					],
-				}),
-				exitCode: 0,
-			};
-		},
+				return {
+					text: report({
+						changedFiles: [
+							{ path: 'src/feature.js', summary: 'feature' },
+							{ path: 'src/gen/model.ts', summary: 'agent even reported a generated file' },
+						],
+					}),
+					exitCode: 0,
+				};
+			},
+		}),
 	};
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 	const commands = readCommandLog(dir, result.manifest.runId);

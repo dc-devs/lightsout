@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { buildUnitTestWriterInvocation } from '#src/agents/index.ts';
+import { buildFeatureExecutorInvocation, buildUnitTestWriterInvocation } from '#src/agents/index.ts';
 
 const planContent = '# Plan: add the widget flag\n\nPLAN-SENTINEL';
 const standards = '## Tabs only\n\nSTANDARDS-SENTINEL';
@@ -145,57 +145,68 @@ test('buildUnitTestWriterInvocation: empty lists emit their headers with no bull
 	expect(prompt.slice(0, prompt.indexOf('Rules for this assignment:')).includes('\n- ')).toBeFalsy();
 });
 
-test('buildUnitTestWriterInvocation: the locked ledger test files ride the user prompt, with the sibling rule', () => {
+test('buildUnitTestWriterInvocation: the acceptance tests ride the user prompt, with the rules that bound editing one', () => {
+	const rows = [{ testFile: 'src/widget.unit.test.ts', testName: 'widget: renders its label' }];
 	const clean = buildUnitTestWriterInvocation(soloParams);
-	const locked = buildUnitTestWriterInvocation({ ...soloParams, ledgerTests: ['src/widget.unit.test.ts'] });
+	const named = buildUnitTestWriterInvocation({ ...soloParams, acceptanceTests: rows });
 
 	// a run whose plan carries no ledger gets no section at all
-	expect(clean.prompt.includes('# Ledger tests (read-only)')).toBeFalsy();
-	expect(buildUnitTestWriterInvocation({ ...soloParams, ledgerTests: [] }).prompt.includes('# Ledger tests (read-only)')).toBeFalsy();
-	// each locked path gets its own bullet
-	expect(locked.prompt.includes('# Ledger tests (read-only)\n\n- src/widget.unit.test.ts')).toBeTruthy();
-	// a coverage case that belongs in a locked file has somewhere writable to go
-	expect(locked.prompt.includes('a sibling file beside the same subject')).toBeTruthy();
+	expect(clean.prompt.includes('# Acceptance tests')).toBeFalsy();
+	expect(buildUnitTestWriterInvocation({ ...soloParams, acceptanceTests: [] }).prompt.includes('# Acceptance tests')).toBeFalsy();
+	// the row names its case and the file stating it
+	expect(named.prompt.includes('- `widget: renders its label` in src/widget.unit.test.ts')).toBeTruthy();
+	// a stale test file is repairable, and every such edit is judged
+	expect(named.prompt.includes("A test file may be edited when the plan's own changes make it stale")).toBeTruthy();
+	expect(named.prompt.includes('Every edit to a test file is reviewed against the plan before any gate runs.')).toBeTruthy();
 	// the report-contract reminder still closes the prompt
-	expect(locked.prompt.endsWith('Remember: your entire final message must be exactly one JSON report object — nothing else.')).toBeTruthy();
+	expect(named.prompt.endsWith('Remember: your entire final message must be exactly one JSON report object — nothing else.')).toBeTruthy();
 });
 
-test('buildUnitTestWriterInvocation: a fix re-invocation of a locked run lists every locked path, after the rules and before the gate output', () => {
+test('buildUnitTestWriterInvocation: a fix re-invocation lists every acceptance row, after the rules and before the gate output', () => {
 	const { prompt } = buildUnitTestWriterInvocation({
 		...soloParams,
-		ledgerTests: ['src/widget.unit.test.ts', 'src/gadget.unit.test.ts'],
+		acceptanceTests: [
+			{ testFile: 'src/widget.unit.test.ts', testName: 'widget: renders its label' },
+			{ testFile: 'src/gadget.unit.test.ts', testName: 'gadget: reports its size' },
+		],
 		errorContext: 'GATE-SENTINEL',
 	});
 
-	// every locked path gets its own bullet, in the order the manifest holds them
-	expect(prompt.includes('# Ledger tests (read-only)\n\n- src/widget.unit.test.ts\n- src/gadget.unit.test.ts')).toBeTruthy();
-	// the lock list follows the assignment rules it qualifies
-	expect(prompt.indexOf('Rules for this assignment:') < prompt.indexOf('# Ledger tests (read-only)')).toBeTruthy();
-	// and precedes the gate output, so the fix reads the lock before the failure
-	expect(prompt.indexOf('# Ledger tests (read-only)') < prompt.indexOf('# Verification failure')).toBeTruthy();
+	// every row gets its own bullet, in the order the manifest holds them
+	expect(prompt.includes('- `widget: renders its label` in src/widget.unit.test.ts\n- `gadget: reports its size` in src/gadget.unit.test.ts')).toBeTruthy();
+	// the acceptance section follows the assignment rules it qualifies
+	expect(prompt.indexOf('Rules for this assignment:') < prompt.indexOf('# Acceptance tests')).toBeTruthy();
+	// and precedes the gate output, so the fix reads the bar before the failure
+	expect(prompt.indexOf('# Acceptance tests') < prompt.indexOf('# Verification failure')).toBeTruthy();
 	// the gate output still lands verbatim
 	expect(prompt.includes('GATE-SENTINEL')).toBeTruthy();
 });
 
-test('buildUnitTestWriterInvocation: the ledger paths never enter the cached system prompt', () => {
+test('buildUnitTestWriterInvocation: the acceptance rows never enter the cached system prompt', () => {
 	const first = buildUnitTestWriterInvocation({ ...soloParams, standards });
-	const locked = buildUnitTestWriterInvocation({ ...soloParams, standards, ledgerTests: ['src/widget.unit.test.ts'] });
+	const named = buildUnitTestWriterInvocation({
+		...soloParams,
+		standards,
+		acceptanceTests: [{ testFile: 'src/widget.unit.test.ts', testName: 'widget: renders its label' }],
+	});
 
-	// the fan-out's cached prefix is unchanged by a per-run lock list
-	expect(first.systemPrompt).toBe(locked.systemPrompt);
+	// the fan-out's cached prefix is unchanged by a per-run mapping
+	expect(first.systemPrompt).toBe(named.systemPrompt);
 });
 
-test('buildUnitTestWriterInvocation: the role prompt bans editing a locked ledger test and names where the case goes instead', () => {
+test('buildUnitTestWriterInvocation: the role prompt states that a test edit is reviewed, and what the review refuses', () => {
 	const { systemPrompt } = buildUnitTestWriterInvocation(soloParams);
 	// the prompt wraps its lines; the sentences are what matter
 	const prose = systemPrompt.replace(/\s+/g, ' ');
 
 	// the rule names the same section heading the user prompt emits
-	expect(prose).toContain('Files listed under a `# Ledger tests (read-only)` section in your task are locked for the run');
-	// editing is pointless, so the writer is told the engine reverts it
-	expect(prose).toContain('the engine keeps a copy and reverts any change to them before verification');
-	// a case that belongs in a locked file has a named, writable destination
-	expect(prose).toContain('a sibling file beside the same subject whose name inserts `coverage` before the test suffix');
+	expect(prose).toContain("Tests listed under an `# Acceptance tests` section in your task state the plan's acceptance criteria");
+	// a stale test file is repairable, which is what the old lock made impossible
+	expect(prose).toContain("You may edit a test file when the plan's own changes make it stale");
+	// and the judgment that bounds it is named
+	expect(prose).toContain('Every edit to a test file is reviewed against the plan before any gate runs');
+	// the sibling-file workaround is gone with the lock that needed it
+	expect(prose).not.toContain('a sibling file beside the same subject');
 });
 
 test('buildUnitTestWriterInvocation: the command ban names what is banned and leaves file access open — a harness whose only file access is a shell must not read it as "touch nothing"', () => {
@@ -214,4 +225,39 @@ test('buildUnitTestWriterInvocation: the command ban names what is banned and le
 	);
 	// the old blanket ban is gone — on Codex it read as "you cannot read or edit files"
 	expect(prose).not.toContain('Do not run shell commands');
+});
+
+test('buildUnitTestWriterInvocation: the acceptance section names every edit the review refuses, and the rule a move has to satisfy', () => {
+	const { prompt } = buildUnitTestWriterInvocation({
+		...soloParams,
+		acceptanceTests: [{ testFile: 'src/widget.unit.test.ts', testName: 'widget: renders its label' }],
+	});
+
+	// the section says what the rows are for
+	expect(prompt).toContain("These state the plan's acceptance criteria — what this run means by done:");
+	// every refusal the reviewer enforces is named, so none is a surprise at the checkpoint
+	expect(prompt).toContain('a weakened or removed assertion');
+	expect(prompt).toContain('an acceptance test deleted, renamed, skipped or replaced without a disposition the plan backs');
+	expect(prompt).toContain('a mock that neuters the subject under test');
+	expect(prompt).toContain('a snapshot rewrite that hides a behaviour change the plan did not authorise');
+	expect(prompt).toContain('configuration that stops a test from being collected');
+	// and a move is only legitimate when it loses nothing
+	expect(prompt).toContain('- A moved test file carries every case its source held.');
+	// the rows are still the bar the run is measured against
+	expect(prompt).toContain('- Every one of them must execute and pass before the work is done.');
+});
+
+test('buildUnitTestWriterInvocation: the writer and the executor read one and the same acceptance section', () => {
+	const rows = [{ testFile: 'src/widget.unit.test.ts', testName: 'widget: renders its label' }];
+	const reminder = '\n\nRemember: your entire final message';
+	const writer = buildUnitTestWriterInvocation({ ...soloParams, acceptanceTests: rows });
+	const executor = buildFeatureExecutorInvocation({ planContent, acceptanceTests: rows });
+
+	const sectionOf = ({ prompt }: { prompt: string }) => prompt.slice(prompt.indexOf('# Acceptance tests'), prompt.indexOf(reminder));
+
+	// the rules bind both roles identically — a second spelling in one of them
+	// would be a second set of rules the moment either is edited
+	expect(sectionOf(writer)).toBe(sectionOf(executor));
+	// and it is a real section, not two empty slices compared to each other
+	expect(sectionOf(writer).startsWith('# Acceptance tests\n\n')).toBeTruthy();
 });

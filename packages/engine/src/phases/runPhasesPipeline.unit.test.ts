@@ -11,6 +11,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 
 /**
  * A consumer repo holding a plan folder: an overview whose Phases table names
@@ -52,43 +53,45 @@ const createPhaseDriver = ({
 	usage?: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number; costUsd: number };
 }): Driver => ({
 	name: 'stub',
-	invoke: async ({ prompt, systemPrompt }) => {
-		const role = roleOf(prompt);
+	invoke: withTestChangeReview({
+		invoke: async ({ prompt, systemPrompt }) => {
+			const role = roleOf(prompt);
 
-		if (role === 'standards-review') {
-			return { text: reviewReport(), exitCode: 0 };
-		}
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
 
-		if (role === 'write-tests') {
-			const target = /- (\S+)/.exec(prompt)?.[1] ?? 'unknown.js';
-			const testFile = `test/${basename(target, '.js')}.test.js`;
+			if (role === 'write-tests') {
+				const target = /- (\S+)/.exec(prompt)?.[1] ?? 'unknown.js';
+				const testFile = `test/${basename(target, '.js')}.test.js`;
 
-			mkdirSync(join(dir, 'test'), { recursive: true });
-			writeFileSync(join(dir, testFile), '// stub test\n');
+				mkdirSync(join(dir, 'test'), { recursive: true });
+				writeFileSync(join(dir, testFile), '// stub test\n');
 
-			return { text: report({ changedFiles: [{ path: testFile, summary: 'tests' }] }), exitCode: 0, usage };
-		}
+				return { text: report({ changedFiles: [{ path: testFile, summary: 'tests' }] }), exitCode: 0, usage };
+			}
 
-		if (role !== 'implement') {
-			return { text: report(), exitCode: 0, usage };
-		}
+			if (role !== 'implement') {
+				return { text: report(), exitCode: 0, usage };
+			}
 
-		const phase = Number(/PHASE-(\d+)-SENTINEL/.exec(systemPrompt ?? '')?.[1] ?? 0);
+			const phase = Number(/PHASE-(\d+)-SENTINEL/.exec(systemPrompt ?? '')?.[1] ?? 0);
 
-		seen.push(phase);
+			seen.push(phase);
 
-		if (phase === parkAt) {
-			return { text: '', exitCode: 1, rateLimited: true };
-		}
+			if (phase === parkAt) {
+				return { text: '', exitCode: 1, rateLimited: true };
+			}
 
-		if (phase === failAt) {
-			return { text: report({ status: 'failed', failures: [`PHASE-${phase}-FAILURE`] }), exitCode: 0, usage };
-		}
+			if (phase === failAt) {
+				return { text: report({ status: 'failed', failures: [`PHASE-${phase}-FAILURE`] }), exitCode: 0, usage };
+			}
 
-		writeFileSync(join(dir, `src/phase${phase}.js`), `export const phase${phase} = ${phase};\n`);
+			writeFileSync(join(dir, `src/phase${phase}.js`), `export const phase${phase} = ${phase};\n`);
 
-		return { text: report({ changedFiles: [{ path: `src/phase${phase}.js`, summary: 'feature' }] }), exitCode: 0, usage };
-	},
+			return { text: report({ changedFiles: [{ path: `src/phase${phase}.js`, summary: 'feature' }] }), exitCode: 0, usage };
+		},
+	}),
 });
 
 /** Field-wise sum of what the per-phase runs actually recorded — the number the sequence report must show. */

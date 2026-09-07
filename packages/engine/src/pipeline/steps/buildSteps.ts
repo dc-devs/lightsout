@@ -1,6 +1,7 @@
 import { buildFeatureExecutorInvocation, buildRefactorExecutorInvocation, buildUnitTestWriterInvocation } from '#src/agents/index.ts';
 import { RefactorScope } from '#src/common/constants/RefactorScope.ts';
-import { RunStatus } from '#src/contracts/index.ts';
+import { isTestSideFile } from '#src/common/sourceFiles/isTestSideFile.ts';
+import { type AcceptanceTestRecord, RunStatus } from '#src/contracts/index.ts';
 import { sourceFiles } from '#src/pipeline/common/utils/sourceFiles.ts';
 import { standardsScopeFiles } from '#src/pipeline/common/utils/standardsScopeFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
@@ -8,7 +9,7 @@ import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
 import { cleanSlateStep } from '#src/pipeline/steps/cleanSlateStep.ts';
 import { formatStep } from '#src/pipeline/steps/formatStep.ts';
 import { refactorStep } from '#src/pipeline/steps/refactorStep.ts';
-import { verifyStep } from '#src/pipeline/steps/verifyStep.ts';
+import { verifyStep } from '#src/pipeline/steps/verifyStep/index.ts';
 import { workStep } from '#src/pipeline/steps/workStep.ts';
 import { writeLedgerTestsStep } from '#src/pipeline/steps/writeLedgerTestsStep.ts';
 import { writeTestsStep } from '#src/pipeline/steps/writeTestsStep.ts';
@@ -30,15 +31,22 @@ interface Params {
  *
  * Lifted out of `buildSteps` because it is the one part of that list with a
  * condition and a nested invocation builder of its own — the rest is a flat
- * sequence of step literals, and mixing the two made the function read as
- * though every step needed this much saying.
+ * sequence of step literals, and mixing the two read as though every step
+ * needed this much saying.
  *
- * The code-writing entries scope on `standardsScopeFiles` rather than `sourceFiles`: the
- * gate judges findings on the test files a run wrote, so the executor has to be
- * allowed to write them, and a run whose only changed files are tests still has
- * standards to answer for.
+ * The code-writing entries scope on `standardsScopeFiles` rather than
+ * `sourceFiles`: the gate judges findings on the test files a run wrote, so a
+ * run whose only changed files are tests still has standards to answer for.
  */
-const refactorSteps = ({ run, gitPrefix, planContent, overviewContent, standards, skipRefactor }: Omit<Params, 'testStandards'>): PipelineStep[] =>
+const refactorSteps = ({
+	run,
+	gitPrefix,
+	planContent,
+	overviewContent,
+	standards,
+	skipRefactor,
+	acceptanceTests,
+}: Omit<Params, 'testStandards'> & { acceptanceTests: () => AcceptanceTestRecord[] }): PipelineStep[] =>
 	skipRefactor
 		? []
 		: [
@@ -54,8 +62,14 @@ const refactorSteps = ({ run, gitPrefix, planContent, overviewContent, standards
 						run,
 						gitPrefix,
 						planContent,
+						overviewContent,
 						id: 'verify-refactor',
 						coverage: true,
+						acceptanceTests,
+						// Where the refactor steps run at all, this is the run's last
+						// verification — and the last one is where every acceptance test
+						// must be proven against the finished tree.
+						final: true,
 						buildFix: ({ errorContext }) =>
 							buildRefactorExecutorInvocation({
 								scope: RefactorScope.Feature,
@@ -70,9 +84,9 @@ const refactorSteps = ({ run, gitPrefix, planContent, overviewContent, standards
 			];
 
 /**
- * A plan whose ledger rows are malformed stops the run before anything else:
- * the plan-time lint gives that verdict, and implement must not be more lenient
- * about the same defect. A well-formed ledger contributes no step at all.
+ * A plan whose ledger rows are malformed stops the run before anything else: the
+ * plan-time lint gives that verdict, and implement must not be more lenient
+ * about it. A well-formed ledger contributes no step at all.
  */
 const ledgerLintSteps = ({ run, malformedLines }: { run: PipelineRun; malformedLines: number[] }): PipelineStep[] =>
 	malformedLines.length === 0
@@ -89,10 +103,7 @@ const ledgerLintSteps = ({ run, malformedLines }: { run: PipelineRun; malformedL
 				},
 			];
 
-/**
- * The implement trio: the executor build, the formatter, and the verification
- * that re-invokes the executor when a gate fails.
- */
+/** The implement trio: the executor build, the formatter, and the verification that re-invokes the executor when a gate fails. */
 const implementSteps = ({
 	run,
 	gitPrefix,
@@ -100,8 +111,11 @@ const implementSteps = ({
 	overviewContent,
 	standards,
 	fileLimit,
-	ledgerTests,
-}: Omit<Params, 'testStandards' | 'skipRefactor'> & { fileLimit: number | undefined; ledgerTests: () => string[] }): PipelineStep[] => [
+	acceptanceTests,
+}: Omit<Params, 'testStandards' | 'skipRefactor'> & {
+	fileLimit: number | undefined;
+	acceptanceTests: () => AcceptanceTestRecord[];
+}): PipelineStep[] => [
 	{
 		id: 'implement',
 		run: workStep({
@@ -116,7 +130,7 @@ const implementSteps = ({
 					standards,
 					allowedCommands: run.config['agent-commands'],
 					fileLimit,
-					ledgerTests: ledgerTests(),
+					acceptanceTests: acceptanceTests(),
 				}),
 		}),
 	},
@@ -127,7 +141,9 @@ const implementSteps = ({
 			run,
 			gitPrefix,
 			planContent,
+			overviewContent,
 			id: 'verify-implement',
+			acceptanceTests,
 			buildFix: ({ errorContext }) =>
 				buildFeatureExecutorInvocation({
 					planContent,
@@ -137,7 +153,7 @@ const implementSteps = ({
 					changedFiles: run.current().changedFiles,
 					allowedCommands: run.config['agent-commands'],
 					fileLimit,
-					ledgerTests: ledgerTests(),
+					acceptanceTests: acceptanceTests(),
 				}),
 		}),
 	},
@@ -152,9 +168,15 @@ const testSteps = ({
 	run,
 	gitPrefix,
 	planContent,
+	overviewContent,
 	testStandards,
-	ledgerTests,
-}: Pick<Params, 'run' | 'gitPrefix' | 'planContent' | 'testStandards'> & { ledgerTests: () => string[] }): PipelineStep[] => [
+	acceptanceTests,
+	final,
+}: Pick<Params, 'run' | 'gitPrefix' | 'planContent' | 'overviewContent' | 'testStandards'> & {
+	acceptanceTests: () => AcceptanceTestRecord[];
+	/** True when the refactor steps are skipped, making this checkpoint the run's last verification. */
+	final: boolean;
+}): PipelineStep[] => [
 	{
 		id: 'write-tests',
 		skip: () => (sourceFiles({ run }).length === 0 ? 'no eligible source files' : undefined),
@@ -167,8 +189,11 @@ const testSteps = ({
 			run,
 			gitPrefix,
 			planContent,
+			overviewContent,
 			id: 'verify-tests',
 			coverage: true,
+			acceptanceTests,
+			final,
 			buildFix: ({ errorContext }) =>
 				buildUnitTestWriterInvocation({
 					planContent,
@@ -178,7 +203,7 @@ const testSteps = ({
 					),
 					standards: testStandards,
 					errorContext,
-					ledgerTests: ledgerTests(),
+					acceptanceTests: acceptanceTests(),
 				}),
 		}),
 	},
@@ -191,26 +216,32 @@ const testSteps = ({
  */
 export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, testStandards, skipRefactor }: Params): PipelineStep[] => {
 	// The number the plan graded against is the number it is run against: a phase
-	// that renames an import across two hundred files declares its own budget,
-	// and one repo-wide setting cannot express that without weakening the
-	// guardrail for every other plan. `base` is a variant hint only, and the
-	// content here is always an implementable plan — never an overview.
+	// that renames an import across two hundred files declares its own budget, and
+	// one repo-wide setting cannot express that without weakening the guardrail for
+	// every other plan. `base` is a variant hint only, and the content here is
+	// always an implementable plan — never an overview.
 	const plan = parsePlan({ content: planContent, base: 'plan.md' });
 	const fileLimit = plan.fileBudget ?? run.config['executor-file-limit'];
-	// Read at build time on every invocation, so a fix re-invocation names the
-	// files the ledger step locked rather than the empty list it started from.
-	const ledgerTests = () => run.current().ledgerTests.map((record) => record.path);
+	// Read from the manifest at every call rather than captured once: the ledger
+	// step seeds this mapping and an approved disposition rewrites it, so every
+	// gate run and every fix re-invocation names the rows as they now stand.
+	const acceptanceTests = () => run.current().acceptanceTests;
+	const ledgerGates = [...new Set(plan.ledger.map((row) => row.gate))];
+	// A move destination the ledger writer writes carries every case its source
+	// held, and a file the plan deletes is nowhere to put a named test.
+	const movePaths = plan.movePaths.filter((move) => isTestSideFile({ path: move.to }));
+	const deletePaths = plan.deletePaths.filter((path) => isTestSideFile({ path }));
 
 	return [
 		...ledgerLintSteps({ run, malformedLines: plan.malformedLedgerLines }),
-		{ id: 'clean-slate', run: cleanSlateStep({ run }) },
+		{ id: 'clean-slate', run: cleanSlateStep({ run, ledgerGates }) },
 		{
 			id: 'write-ledger-tests',
 			skip: () => (plan.ledger.length === 0 ? 'the plan carries no acceptance-test ledger' : undefined),
-			run: writeLedgerTestsStep({ run, gitPrefix, planContent, overviewContent, rows: plan.ledger, testStandards }),
+			run: writeLedgerTestsStep({ run, gitPrefix, planContent, overviewContent, rows: plan.ledger, testStandards, movePaths, deletePaths }),
 		},
-		...implementSteps({ run, gitPrefix, planContent, overviewContent, standards, fileLimit, ledgerTests }),
-		...testSteps({ run, gitPrefix, planContent, testStandards, ledgerTests }),
-		...refactorSteps({ run, gitPrefix, planContent, overviewContent, standards, skipRefactor }),
+		...implementSteps({ run, gitPrefix, planContent, overviewContent, standards, fileLimit, acceptanceTests }),
+		...testSteps({ run, gitPrefix, planContent, overviewContent, testStandards, acceptanceTests, final: skipRefactor === true }),
+		...refactorSteps({ run, gitPrefix, planContent, overviewContent, standards, skipRefactor, acceptanceTests }),
 	];
 };

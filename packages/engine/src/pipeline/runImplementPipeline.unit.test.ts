@@ -10,6 +10,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
 const countLog = (dir: string, file: string) => {
@@ -37,56 +38,58 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt, systemPrompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt, systemPrompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
-
-			prompts[role] ??= [];
-			prompts[role].push(prompt);
-			systemPrompts[role] ??= [];
-			systemPrompts[role].push(systemPrompt ?? '');
-
-			if (role === 'write-tests') {
-				const target = prompt.match(/- (\S+)/)?.[1] ?? 'unknown';
-				const testFile = `test/${target.split('/').pop()?.replace('.js', '')}.test.js`;
-
-				mkdirSync(join(dir, 'test'), { recursive: true });
-				writeFileSync(join(dir, testFile), '// stub test\n');
-
-				return { text: report({ changedFiles: [{ path: testFile, summary: 'tests' }] }), exitCode: 0 };
-			}
-
-			if (role === 'refactor') {
-				refactorPass += 1;
-
-				if (refactorPass === 1) {
-					writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 3;\n' });
-
-					return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'tidied' }] }), exitCode: 0 };
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
 				}
 
-				return { text: report(), exitCode: 0 };
-			}
+				prompts[role] ??= [];
+				prompts[role].push(prompt);
+				systemPrompts[role] ??= [];
+				systemPrompts[role].push(systemPrompt ?? '');
 
-			// Implement: write two JS files but report only one — git must catch
-			// the second — plus a .tf that must earn no agent turns.
-			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
-			writeSource({ dir, path: 'src/helper.js', source: 'export const helper = () => 1;\n' });
-			writeFileSync(join(dir, 'src/infra.tf'), 'resource "x" "y" {}\n');
+				if (role === 'write-tests') {
+					const target = prompt.match(/- (\S+)/)?.[1] ?? 'unknown';
+					const testFile = `test/${target.split('/').pop()?.replace('.js', '')}.test.js`;
 
-			return {
-				text: report({
-					changedFiles: [
-						{ path: 'src/feature.js', summary: 'feature' },
-						{ path: 'src/infra.tf', summary: 'infra' },
-					],
-				}),
-				exitCode: 0,
-			};
-		},
+					mkdirSync(join(dir, 'test'), { recursive: true });
+					writeFileSync(join(dir, testFile), '// stub test\n');
+
+					return { text: report({ changedFiles: [{ path: testFile, summary: 'tests' }] }), exitCode: 0 };
+				}
+
+				if (role === 'refactor') {
+					refactorPass += 1;
+
+					if (refactorPass === 1) {
+						writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 3;\n' });
+
+						return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'tidied' }] }), exitCode: 0 };
+					}
+
+					return { text: report(), exitCode: 0 };
+				}
+
+				// Implement: write two JS files but report only one — git must catch
+				// the second — plus a .tf that must earn no agent turns.
+				writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
+				writeSource({ dir, path: 'src/helper.js', source: 'export const helper = () => 1;\n' });
+				writeFileSync(join(dir, 'src/infra.tf'), 'resource "x" "y" {}\n');
+
+				return {
+					text: report({
+						changedFiles: [
+							{ path: 'src/feature.js', summary: 'feature' },
+							{ path: 'src/infra.tf', summary: 'infra' },
+						],
+					}),
+					exitCode: 0,
+				};
+			},
+		}),
 	};
 
 	const progress: string[] = [];
@@ -177,15 +180,17 @@ test('non-git directory degrades to agent-reported files', async () => {
 	const dir = setupConsumerRepo({ git: false });
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			if (roleOf(prompt) !== 'implement') {
-				return { text: report(), exitCode: 0 };
-			}
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				if (roleOf(prompt) !== 'implement') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
+				writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
-			return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
-		},
+				return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
+			},
+		}),
 	};
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 
@@ -197,21 +202,23 @@ test('friction lands in friction.jsonl with run/step provenance; decisions keep 
 	const dir = setupConsumerRepo();
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			if (roleOf(prompt) !== 'implement') {
-				return { text: report(), exitCode: 0 };
-			}
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				if (roleOf(prompt) !== 'implement') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
+				writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
-			return {
-				text: report({
-					changedFiles: [{ path: 'src/feature.js', summary: 'feature' }],
-					friction: [{ kind: 'decision', area: 'plan', detail: 'FRICTION-SENTINEL' }],
-				}),
-				exitCode: 0,
-			};
-		},
+				return {
+					text: report({
+						changedFiles: [{ path: 'src/feature.js', summary: 'feature' }],
+						friction: [{ kind: 'decision', area: 'plan', detail: 'FRICTION-SENTINEL' }],
+					}),
+					exitCode: 0,
+				};
+			},
+		}),
 	};
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 	const entries = await readFriction({ cwd: dir });
@@ -274,17 +281,19 @@ test('a change with no testable source skips both write-tests and refactor, and 
 	const dir = setupConsumerRepo();
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			if (roleOf(prompt) !== 'implement') {
-				return { text: report(), exitCode: 0 };
-			}
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				if (roleOf(prompt) !== 'implement') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			// The only change is a doc — real changed-file truth, but nothing a
-			// test writer or refactorer can act on.
-			writeFileSync(join(dir, 'docs.md'), '# docs\n');
+				// The only change is a doc — real changed-file truth, but nothing a
+				// test writer or refactorer can act on.
+				writeFileSync(join(dir, 'docs.md'), '# docs\n');
 
-			return { text: report({ changedFiles: [{ path: 'docs.md', summary: 'docs' }] }), exitCode: 0 };
-		},
+				return { text: report({ changedFiles: [{ path: 'docs.md', summary: 'docs' }] }), exitCode: 0 };
+			},
+		}),
 	};
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 
@@ -324,15 +333,17 @@ test('--skip-refactor omits the refactor steps; absent format command is skipped
 	const dir = setupConsumerRepo();
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			if (roleOf(prompt) !== 'implement') {
-				return { text: report(), exitCode: 0 };
-			}
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				if (roleOf(prompt) !== 'implement') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
+				writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
-			return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
-		},
+				return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
+			},
+		}),
 	};
 	const result = await runImplementPipeline({
 		cwd: dir,

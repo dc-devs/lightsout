@@ -201,7 +201,9 @@ What happens after you approve — stop at the hand-off line, or start the build
 
 Hand the finished spec to the factory. `/implement` follows the plan, writes the code and tests, and performs a mandatory refactoring pass.
 
-When the plan carries an acceptance-test ledger, the run writes those tests first — after the clean-slate gate run and before the implementation agent starts — and locks them: the engine keeps a copy of each ledger test file and puts it back before any later verification, so the agent being verified never edits the verifier.
+When the plan carries an acceptance-test ledger, the run writes those tests first — after the clean-slate gate run and before the implementation agent starts. From then on, every change an agent makes to a test file is compared against the version last approved for this run and judged by a separate agent that may only read, never write. A correction the plan's own changes force — an import pointing at a file the plan moved, a renamed fixture, a stale bit of setup — is approved and becomes the new approved version. Weakening what a test asserts, or deleting, renaming or skipping one of the ledger's named tests without the plan asking for it, is refused: the checkpoint goes red naming the test and the reason, and the agent is sent back to fix it. The engine never puts a file back on its own.
+
+The run is not done until each named test has actually run and passed. The test command reports which individual tests it ran, and the engine reads that report, so a green command and an unchanged test name are not accepted as proof on their own.
 
 After each code-writing stage, the full repository is formatted before deterministic gates run. If a test, lint, type-check, coverage, build, or formatting family fails, that family receives bounded repair attempts before the run escalates; root and package executions of the same family share the allowance. When the run succeeds, the complete record is written to `.lightsout/runs/<id>/`.
 

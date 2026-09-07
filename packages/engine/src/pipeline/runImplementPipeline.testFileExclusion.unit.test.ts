@@ -8,6 +8,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { reachabilityRulesOff, setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 
 test('write-tests fan-out: files under __tests__/ are test files, never writer targets', async () => {
 	// The fixture below plants a helper inside `src/__tests__/`, which is the
@@ -28,42 +29,44 @@ test('write-tests fan-out: files under __tests__/ are test files, never writer t
 
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			if (role === 'write-tests') {
-				writerTargets.push(prompt.match(/- (\S+)/)?.[1] ?? 'unknown');
-				mkdirSync(join(dir, 'test'), { recursive: true });
-				writeFileSync(join(dir, 'test/feature.test.js'), '// stub\n');
+				if (role === 'write-tests') {
+					writerTargets.push(prompt.match(/- (\S+)/)?.[1] ?? 'unknown');
+					mkdirSync(join(dir, 'test'), { recursive: true });
+					writeFileSync(join(dir, 'test/feature.test.js'), '// stub\n');
 
-				return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
-			}
+					return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
+				}
 
-			if (role === 'refactor') {
-				return { text: report(), exitCode: 0 };
-			}
+				if (role === 'refactor') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			// Implement: one behavioral module plus a helper inside __tests__/ —
-			// the divergence case: the old pipeline predicate missed dunder dirs
-			// and spawned a writer to write tests for a test helper.
-			writeFileSync(join(dir, 'src/feature.ts'), 'export const feature = (n: number): number => n * 2;\n');
-			mkdirSync(join(dir, 'src/__tests__'), { recursive: true });
-			writeFileSync(join(dir, 'src/__tests__/feature.helper.ts'), 'export const stubFeature = (): number => 4;\n');
+				// Implement: one behavioral module plus a helper inside __tests__/ —
+				// the divergence case: the old pipeline predicate missed dunder dirs
+				// and spawned a writer to write tests for a test helper.
+				writeFileSync(join(dir, 'src/feature.ts'), 'export const feature = (n: number): number => n * 2;\n');
+				mkdirSync(join(dir, 'src/__tests__'), { recursive: true });
+				writeFileSync(join(dir, 'src/__tests__/feature.helper.ts'), 'export const stubFeature = (): number => 4;\n');
 
-			return {
-				text: report({
-					changedFiles: [
-						{ path: 'src/feature.ts', summary: 'feature' },
-						{ path: 'src/__tests__/feature.helper.ts', summary: 'test helper' },
-					],
-				}),
-				exitCode: 0,
-			};
-		},
+				return {
+					text: report({
+						changedFiles: [
+							{ path: 'src/feature.ts', summary: 'feature' },
+							{ path: 'src/__tests__/feature.helper.ts', summary: 'test helper' },
+						],
+					}),
+					exitCode: 0,
+				};
+			},
+		}),
 	};
 
 	const result = await runImplementPipeline({

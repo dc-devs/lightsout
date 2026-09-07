@@ -78,7 +78,10 @@ Stated so nobody adds a step for it here — the engine already does it:
   `planning-ready-auto-plan`, either `planning-needs-*` value, no label at all,
   or more than one — is written as `planning-complete`.
 - When the plan carries an acceptance-test ledger, the engine writes those
-  tests first, locks them, and the run is not done until every one of them
-  passes in the gate run beside the gates. Nothing in this skill triggers that;
-  the plan's own ledger is what turns the step on.
+  tests first. Every later change to a test file is reviewed against the plan
+  before the gates run, so a test the plan's own changes make stale can be
+  corrected, while a named acceptance test cannot be weakened or dropped. The
+  run is not done until every named test has executed and passed in the gate
+  run. Nothing in this skill triggers that; the plan's own ledger is what turns
+  the step on.
 - Nothing in this skill performs those writes. Do not add a step for them.

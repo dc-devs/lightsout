@@ -13,3 +13,8 @@ export type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 export type { GateSchedule } from '#src/gates/common/types/GateSchedule.ts';
 export { runBatchGates } from '#src/gates/runBatchGates.ts';
 export { runGates } from '#src/gates/runGates.ts';
+// The evidence half of acceptance testing: what a gate execution actually ran.
+// `testResultsDir` and `writeJestReporter` are published by that module for the
+// gate runner beside this barrel, and stop here — nothing outside the gates
+// writes a reporter or names a results directory.
+export { checkAcceptanceTests, checkTestResultsCapability, readTestResults } from '#src/gates/testResults/index.ts';

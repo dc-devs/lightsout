@@ -1,6 +1,7 @@
 export { appendCommandLog } from '#src/runState/appendCommandLog.ts';
 export { appendFriction } from '#src/runState/appendFriction.ts';
 export { appendReviewFindings } from '#src/runState/appendReviewFindings.ts';
+export { appendTestReview } from '#src/runState/appendTestReview.ts';
 export { getRunDir } from '#src/runState/common/paths/getRunDir.ts';
 export { getRunsDir } from '#src/runState/common/paths/getRunsDir.ts';
 export { resolveRunId } from '#src/runState/common/paths/resolveRunId.ts';

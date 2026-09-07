@@ -10,6 +10,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { reachabilityRulesOff, setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 
 interface SetupParams {
 	/**
@@ -43,57 +44,59 @@ const setupRouteTreeRun = async ({ withPlainModule = false }: SetupParams = {}) 
 	const writerPrompts: string[] = [];
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			if (role === 'write-tests') {
-				writerPrompts.push(prompt);
-				mkdirSync(join(dir, 'test'), { recursive: true });
-				writeFileSync(join(dir, `test/subjects-${writerPrompts.length}.test.js`), '// stub\n');
+				if (role === 'write-tests') {
+					writerPrompts.push(prompt);
+					mkdirSync(join(dir, 'test'), { recursive: true });
+					writeFileSync(join(dir, `test/subjects-${writerPrompts.length}.test.js`), '// stub\n');
 
-				return { text: report({ changedFiles: [{ path: `test/subjects-${writerPrompts.length}.test.js`, summary: 'tests' }] }), exitCode: 0 };
-			}
+					return { text: report({ changedFiles: [{ path: `test/subjects-${writerPrompts.length}.test.js`, summary: 'tests' }] }), exitCode: 0 };
+				}
 
-			if (role === 'refactor') {
-				return { text: report(), exitCode: 0 };
-			}
+				if (role === 'refactor') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			mkdirSync(join(dir, 'src/routes'), { recursive: true });
-			writeFileSync(join(dir, 'src/routes/index.tsx'), "export const Route = { path: '/', title: 'runs' };\n");
-			writeFileSync(join(dir, 'src/routes/runs.tsx'), "export const Route = { path: '/runs', title: 'run detail' };\n");
+				mkdirSync(join(dir, 'src/routes'), { recursive: true });
+				writeFileSync(join(dir, 'src/routes/index.tsx'), "export const Route = { path: '/', title: 'runs' };\n");
+				writeFileSync(join(dir, 'src/routes/runs.tsx'), "export const Route = { path: '/runs', title: 'run detail' };\n");
 
-			const routeFiles = [
-				{ path: 'src/routes/index.tsx', summary: 'index route' },
-				{ path: 'src/routes/runs.tsx', summary: 'runs route' },
-			];
+				const routeFiles = [
+					{ path: 'src/routes/index.tsx', summary: 'index route' },
+					{ path: 'src/routes/runs.tsx', summary: 'runs route' },
+				];
 
-			if (!withPlainModule) {
-				return { text: report({ changedFiles: routeFiles }), exitCode: 0 };
-			}
+				if (!withPlainModule) {
+					return { text: report({ changedFiles: routeFiles }), exitCode: 0 };
+				}
 
-			mkdirSync(join(dir, 'src/feature'), { recursive: true });
-			writeFileSync(join(dir, 'src/feature/index.ts'), "export { feature } from './feature';\n");
-			writeFileSync(join(dir, 'src/feature/feature.ts'), 'export const feature = (): number => 1;\n');
-			// hidden behind the barrel on purpose: an ordinary module's index file is
-			// still a barrel, whatever the router root's is
-			writeFileSync(join(dir, 'src/feature/helper.ts'), 'export const helper = (): number => 2;\n');
+				mkdirSync(join(dir, 'src/feature'), { recursive: true });
+				writeFileSync(join(dir, 'src/feature/index.ts'), "export { feature } from './feature';\n");
+				writeFileSync(join(dir, 'src/feature/feature.ts'), 'export const feature = (): number => 1;\n');
+				// hidden behind the barrel on purpose: an ordinary module's index file is
+				// still a barrel, whatever the router root's is
+				writeFileSync(join(dir, 'src/feature/helper.ts'), 'export const helper = (): number => 2;\n');
 
-			return {
-				text: report({
-					changedFiles: [
-						...routeFiles,
-						{ path: 'src/feature/index.ts', summary: 'barrel' },
-						{ path: 'src/feature/feature.ts', summary: 'public' },
-						{ path: 'src/feature/helper.ts', summary: 'hidden' },
-					],
-				}),
-				exitCode: 0,
-			};
-		},
+				return {
+					text: report({
+						changedFiles: [
+							...routeFiles,
+							{ path: 'src/feature/index.ts', summary: 'barrel' },
+							{ path: 'src/feature/feature.ts', summary: 'public' },
+							{ path: 'src/feature/helper.ts', summary: 'hidden' },
+						],
+					}),
+					exitCode: 0,
+				};
+			},
+		}),
 	};
 
 	return { dir, driver, config: await readConfig({ cwd: dir }), writerPrompts };

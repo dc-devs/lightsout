@@ -1,4 +1,6 @@
+import { acceptanceTestsSection } from '#src/agents/common/utils/acceptanceTestsSection.ts';
 import unitTestWriterPrompt from '#src/agents/prompts/unitTestWriter.md';
+import type { AcceptanceTestRecord } from '#src/contracts/index.ts';
 
 interface Params {
 	planContent: string;
@@ -10,8 +12,8 @@ interface Params {
 	standards?: string;
 	/** Verification-gate output from a failed attempt, for fix re-invocations. */
 	errorContext?: string;
-	/** Repo-relative ledger test files the engine locked for this run — read-only for every writer that follows. */
-	ledgerTests?: string[];
+	/** The tests that define done for this run: the acceptance-test mapping, each row a test file and the name of the case in it. */
+	acceptanceTests?: Pick<AcceptanceTestRecord, 'testFile' | 'testName'>[];
 }
 
 /**
@@ -28,7 +30,7 @@ export const buildUnitTestWriterInvocation = ({
 	mustExecute,
 	standards,
 	errorContext,
-	ledgerTests,
+	acceptanceTests,
 }: Params): { systemPrompt: string; prompt: string } => {
 	const roleSections = [unitTestWriterPrompt, `# Plan (context for intended behavior)\n\n${planContent}`];
 
@@ -48,10 +50,10 @@ export const buildUnitTestWriterInvocation = ({
 		].join('\n'),
 	];
 
-	if (ledgerTests && ledgerTests.length > 0) {
-		sections.push(
-			`# Ledger tests (read-only)\n\n${bullets({ files: ledgerTests })}\n\nThese files state the plan's acceptance criteria and are locked for the run — never edit one; a case that belongs in a locked file goes in a sibling file beside the same subject whose name inserts \`coverage\` before the test suffix.`,
-		);
+	const acceptance = acceptanceTestsSection({ acceptanceTests });
+
+	if (acceptance) {
+		sections.push(acceptance);
 	}
 
 	if (errorContext) {

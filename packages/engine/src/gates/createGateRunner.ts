@@ -1,8 +1,12 @@
+import { mkdir, rm } from 'node:fs/promises';
+import { relative } from 'node:path';
+import { testReporterEnv } from '#src/common/constants/testReporterEnv.ts';
 import { runCommand } from '#src/common/processes/runCommand.ts';
 import type { CommandResult } from '#src/common/types/CommandResult.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { FrictionArea, type GateResult } from '#src/contracts/index.ts';
 import type { RunGate } from '#src/gates/common/types/RunGate.ts';
+import { testResultsDir, writeJestReporter } from '#src/gates/testResults/index.ts';
 import { appendCommandLog, appendFriction } from '#src/runState/index.ts';
 
 interface Params {
@@ -90,6 +94,70 @@ const isWorkerCrash = ({ kind, result }: { kind: string; result: CommandResult }
 };
 
 /**
+ * One execution's evidence, in the single shape both sinks carry: the
+ * commands.jsonl record adds only the log-specific `at`/`step` on top of it, so
+ * building it twice is how the two would drift.
+ */
+const buildGateResult = ({
+	cwd,
+	kind,
+	group,
+	command,
+	result,
+	durationMs,
+	crashed,
+	rerun,
+	evidenceDir,
+}: {
+	cwd: string;
+	kind: string;
+	group: string;
+	command: string;
+	result: CommandResult;
+	durationMs: number;
+	crashed: boolean;
+	rerun?: boolean;
+	evidenceDir?: string;
+}): GateResult => {
+	const outputTailChars = 2000;
+
+	return {
+		kind,
+		group,
+		command,
+		exitCode: result.exitCode,
+		durationMs,
+		...(rerun ? { rerun: true } : {}),
+		...(crashed ? { crashed: true } : {}),
+		...(evidenceDir ? { testResultsDir: relative(cwd, evidenceDir) } : {}),
+		...(result.exitCode === 0 ? {} : { outputTail: `${result.stdout}\n${result.stderr}`.slice(-outputTailChars) }),
+	};
+};
+
+/**
+ * One execution's per-test evidence slot: the reporter file the run folder holds,
+ * and a directory of its own, cleared and recreated before the command starts so
+ * a re-run after a worker crash is never judged on the crashed attempt's results.
+ *
+ * Without a run folder there is nothing to write into, so no variables are set
+ * and the reporter stays inert — which is also what an ordinary developer run
+ * looks like from the consumer's side.
+ */
+const prepareEvidence = async ({ cwd, runId, step, kind, group }: { cwd: string; runId?: string; step?: string; kind: string; group: string }) => {
+	if (!runId) {
+		return undefined;
+	}
+
+	const reporterPath = await writeJestReporter({ cwd, runId });
+	const dir = testResultsDir({ cwd, runId, step: step ?? 'gates', group, kind });
+
+	await rm(dir, { recursive: true, force: true });
+	await mkdir(dir, { recursive: true });
+
+	return { dir, env: { [testReporterEnv.reporter]: reporterPath, [testReporterEnv.resultsDir]: dir } };
+};
+
+/**
  * The engine's gate-execution policy, as a single reusable `RunGate`: run a
  * command under a hard timeout, re-run it while a known worker crash is the
  * only thing red about it, and record the same evidence to both sinks.
@@ -102,12 +170,12 @@ const isWorkerCrash = ({ kind, result }: { kind: string; result: CommandResult }
  */
 export const createGateRunner = ({ cwd, timeoutMs, runId, step, onGateResult, onProgress }: Params): RunGate => {
 	const executeOnce = async ({ kind, command, group, rerun }: { kind: string; command: string; group: string; rerun?: boolean }) => {
-		const outputTailChars = 2000;
+		const evidence = await prepareEvidence({ cwd, runId, step, kind, group });
 		const startedAt = Date.now();
 		let result: CommandResult;
 
 		try {
-			result = await runCommand({ command, cwd, timeoutMs });
+			result = await runCommand({ command, cwd, timeoutMs, env: evidence?.env });
 		} catch (error) {
 			// A gate that times out or fails to spawn is a red gate, not a crash.
 			result = { exitCode: -1, stdout: '', stderr: messageOf({ error }) };
@@ -119,19 +187,7 @@ export const createGateRunner = ({ cwd, timeoutMs, runId, step, onGateResult, on
 			`gate [${group}] ${kind}${rerun ? ' (re-run)' : ''}: exit ${result.exitCode}${crashed ? ' (jest worker crash)' : ''} (${((Date.now() - startedAt) / 1000).toFixed(1)}s)`,
 		);
 
-		// The commands.jsonl record and the structured sink carry the same
-		// evidence — build it once. The record adds only the log-specific
-		// `at`/`step` on top.
-		const gateResult: GateResult = {
-			kind,
-			group,
-			command,
-			exitCode: result.exitCode,
-			durationMs: Date.now() - startedAt,
-			...(rerun ? { rerun: true } : {}),
-			...(crashed ? { crashed: true } : {}),
-			...(result.exitCode === 0 ? {} : { outputTail: `${result.stdout}\n${result.stderr}`.slice(-outputTailChars) }),
-		};
+		const gateResult = buildGateResult({ cwd, kind, group, command, result, durationMs: Date.now() - startedAt, crashed, rerun, evidenceDir: evidence?.dir });
 
 		if (runId) {
 			await appendCommandLog({ cwd, runId, record: { at: new Date().toISOString(), step, ...gateResult } });

@@ -9,6 +9,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
 test('write-tests warm gate: a real driver stream event releases the held-back writer before the warm one finishes, and the events still reach the transcript', async () => {
@@ -18,49 +19,51 @@ test('write-tests warm gate: a real driver stream event releases the held-back w
 
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt, onEvent }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt, onEvent }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
-
-			if (role === 'write-tests') {
-				writers += 1;
-				const writer = writers;
-
-				log.push(`start:${writer}`);
-
-				// The warm writer streams two events, then keeps working: the
-				// gate must open on the FIRST event, not on settlement.
-				if (writer === 1) {
-					onEvent?.({ type: 'assistant', note: 'first-event' });
-					onEvent?.({ type: 'assistant', note: 'second-event' });
-					await delay(30);
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
 				}
 
-				log.push(`end:${writer}`);
+				if (role === 'write-tests') {
+					writers += 1;
+					const writer = writers;
 
-				return { text: report(), exitCode: 0 };
-			}
+					log.push(`start:${writer}`);
 
-			if (role === 'refactor') {
-				return { text: report(), exitCode: 0 };
-			}
+					// The warm writer streams two events, then keeps working: the
+					// gate must open on the FIRST event, not on settlement.
+					if (writer === 1) {
+						onEvent?.({ type: 'assistant', note: 'first-event' });
+						onEvent?.({ type: 'assistant', note: 'second-event' });
+						await delay(30);
+					}
 
-			writeSource({ dir, path: 'src/a.js', source: 'export const a = 1;\n' });
-			writeSource({ dir, path: 'src/b.js', source: 'export const b = 1;\n' });
+					log.push(`end:${writer}`);
 
-			return {
-				text: report({
-					changedFiles: [
-						{ path: 'src/a.js', summary: 'a' },
-						{ path: 'src/b.js', summary: 'b' },
-					],
-				}),
-				exitCode: 0,
-			};
-		},
+					return { text: report(), exitCode: 0 };
+				}
+
+				if (role === 'refactor') {
+					return { text: report(), exitCode: 0 };
+				}
+
+				writeSource({ dir, path: 'src/a.js', source: 'export const a = 1;\n' });
+				writeSource({ dir, path: 'src/b.js', source: 'export const b = 1;\n' });
+
+				return {
+					text: report({
+						changedFiles: [
+							{ path: 'src/a.js', summary: 'a' },
+							{ path: 'src/b.js', summary: 'b' },
+						],
+					}),
+					exitCode: 0,
+				};
+			},
+		}),
 	};
 
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });

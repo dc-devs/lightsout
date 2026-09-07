@@ -217,24 +217,27 @@ test('runWriterBatches: complete, failed, and absent reports aggregate exactly a
 	expect(terminated).toBe(true);
 });
 
-test('runWriterBatches: the locked ledger test files reach every writer in the fan-out', async () => {
+test("runWriterBatches: the run's acceptance tests reach every writer in the fan-out", async () => {
 	const { run, prompts } = setupWriterRun({ respond: async () => answered(workReport()) });
+	const acceptanceTests = [
+		{ criterion: 'the widget renders its label', testFile: 'src/widget.unit.test.ts', testName: 'widget: renders its label', gate: 'test' },
+	];
 
-	await runWriterBatches({ run, groups: groupsOf(2), planContent: '# Plan', ledgerTests: ['src/locked.unit.test.ts'] });
+	await runWriterBatches({ run, groups: groupsOf(2), planContent: '# Plan', acceptanceTests });
 
-	// every coverage writer is briefed with the lock, not just the first: any of
-	// them could otherwise add a case to a file the engine will revert
+	// every coverage writer is briefed with the bar, not just the first: any of
+	// them could otherwise weaken a case the run has to prove
 	expect(prompts.length).toBe(2);
-	expect(prompts.every((prompt) => prompt.includes('# Ledger tests (read-only)\n\n- src/locked.unit.test.ts'))).toBeTruthy();
+	expect(prompts.every((prompt) => prompt.includes('- `widget: renders its label` in src/widget.unit.test.ts'))).toBeTruthy();
 });
 
-test('runWriterBatches: a run whose plan carries no ledger briefs its writers with no lock section', async () => {
+test('runWriterBatches: a run whose plan carries no ledger briefs its writers with no acceptance section', async () => {
 	const { run, prompts } = setupWriterRun({ respond: async () => answered(workReport()) });
 
 	await runWriterBatches({ run, groups: groupsOf(1), planContent: '# Plan' });
 
 	// the section is omitted, not emitted empty
-	expect(prompts[0]?.includes('# Ledger tests (read-only)')).toBeFalsy();
+	expect(prompts[0]?.includes('# Acceptance tests')).toBeFalsy();
 });
 
 test('runWriterBatches: a warm spawn whose driver throws surfaces the error instead of hanging on its first-event gate', async () => {

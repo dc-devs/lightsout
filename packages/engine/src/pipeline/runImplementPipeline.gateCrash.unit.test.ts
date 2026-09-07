@@ -10,6 +10,7 @@ import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { verdict } from '#tests/helpers/verdict.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
 const jestWorkerSigsegv = 'A jest worker process (pid=49337) was terminated by another process: signal=SIGSEGV, exitCode=null.';
@@ -46,32 +47,34 @@ const setupCrashingVerifyRun = async ({ tally }: { tally: string }) => {
 	const counts: Record<string, number> = {};
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
 
-			counts[role] = (counts[role] ?? 0) + 1;
+				counts[role] = (counts[role] ?? 0) + 1;
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			if (role === 'refactor') {
-				return { text: report(), exitCode: 0 };
-			}
+				if (role === 'refactor') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			if (role === 'supervisor') {
-				return { text: verdict({ decision: 'escalate', diagnosis: 'stub diagnosis' }), exitCode: 0 };
-			}
+				if (role === 'supervisor') {
+					return { text: verdict({ decision: 'escalate', diagnosis: 'stub diagnosis' }), exitCode: 0 };
+				}
 
-			if (role === 'fix') {
-				return { text: report(), exitCode: 0 };
-			}
+				if (role === 'fix') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
-			writeFileSync(join(dir, 'BROKEN'), 'x');
+				writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
+				writeFileSync(join(dir, 'BROKEN'), 'x');
 
-			return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
-		},
+				return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
+			},
+		}),
 	};
 
 	return { dir, driver, counts, config: await readConfig({ cwd: dir }) };

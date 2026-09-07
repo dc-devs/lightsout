@@ -7,6 +7,7 @@ import { checkCoverageSummary } from '#src/doctor/checkCoverageSummary.ts';
 import { checkGitignore } from '#src/doctor/checkGitignore.ts';
 import { checkHarness } from '#src/doctor/checkHarness.ts';
 import { checkJestMocks } from '#src/doctor/checkJestMocks.ts';
+import { checkJestReporter } from '#src/doctor/checkJestReporter.ts';
 import { checkLintRules } from '#src/doctor/checkLintRules.ts';
 import { checkScriptBinaries } from '#src/doctor/checkScriptBinaries.ts';
 import { checkSourceWalk } from '#src/doctor/checkSourceWalk.ts';
@@ -15,6 +16,17 @@ import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';
 import { resolvePackageDirs } from '#src/doctor/resolvePackageDirs.ts';
 
 const severityRank: Record<DoctorCheck['status'], number> = { pass: 0, note: 1, warn: 2, fail: 3 };
+
+/**
+ * Record a check that answers undefined when the repository gives it nothing to
+ * advise about. Written once because most of the package-iterating checks answer
+ * that way, and a per-check `if` around each one buried the audit's own sequence.
+ */
+const pushOptional = ({ checks, check }: { checks: DoctorCheck[]; check: DoctorCheck | undefined }) => {
+	if (check) {
+		checks.push(check);
+	}
+};
 
 /**
  * The two config keys that exclude paths from the source walk, each with the
@@ -37,8 +49,9 @@ interface Params {
 /**
  * Read-only audit of a consumer repo against every assumption the engine and
  * the bundled standards make: config validity, harness binary, gitignore run
- * state, scoped-gate script coverage, Jest mock-cleanup config, generated and
- * vendored paths, coverage summary reporting, script binaries. Each warn/fail carries
+ * state, scoped-gate script coverage, Jest mock-cleanup config, Jest per-test
+ * reporter config, generated and vendored paths, coverage summary reporting,
+ * script binaries. Each warn/fail carries
  * the exact fix; the doctor NEVER mutates — repo-wide changes (e.g.
  * `clearMocks: true`) are a human's decision to apply and verify.
  */
@@ -76,42 +89,17 @@ export const runDoctor = async ({ cwd, probeHarness }: Params): Promise<DoctorCh
 	// to every package-iterating check below.
 	const { packageDirs, scopedGatesCheck } = await resolvePackageDirs({ cwd, config, packagesDir });
 
-	if (scopedGatesCheck) {
-		checks.push(scopedGatesCheck);
-	}
-
-	const jestMocks = await checkJestMocks({ cwd, packageDirs });
-
-	if (jestMocks) {
-		checks.push(jestMocks);
-	}
-
-	const userEvent = await checkUserEvent({ packageDirs });
-
-	if (userEvent) {
-		checks.push(userEvent);
-	}
-
-	const lintRules = await checkLintRules({ config, packageDirs });
-
-	if (lintRules) {
-		checks.push(lintRules);
-	}
+	pushOptional({ checks, check: scopedGatesCheck });
+	pushOptional({ checks, check: await checkJestMocks({ cwd, packageDirs }) });
+	pushOptional({ checks, check: await checkJestReporter({ cwd, packageDirs }) });
+	pushOptional({ checks, check: await checkUserEvent({ packageDirs }) });
+	pushOptional({ checks, check: await checkLintRules({ config, packageDirs }) });
 
 	for (const audit of configuredPathAudits({ config })) {
-		const check = await checkConfiguredPaths({ cwd, ...audit });
-
-		if (check) {
-			checks.push(check);
-		}
+		pushOptional({ checks, check: await checkConfiguredPaths({ cwd, ...audit }) });
 	}
 
-	const coverageSummary = await checkCoverageSummary({ config, packageDirs });
-
-	if (coverageSummary) {
-		checks.push(coverageSummary);
-	}
-
+	pushOptional({ checks, check: await checkCoverageSummary({ config, packageDirs }) });
 	checks.push(await checkScriptBinaries({ cwd, config }));
 
 	// Positives first, actionable items last (nearest the prompt) — stable

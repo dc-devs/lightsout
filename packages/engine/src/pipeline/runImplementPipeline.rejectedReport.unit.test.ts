@@ -8,6 +8,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
 // A final message that carries no report at all — the shape the contract
@@ -22,31 +23,33 @@ test('a final message that fails the report contract is saved to the run dir bef
 
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			if (isReemit(prompt)) {
-				return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
-			}
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				if (isReemit(prompt)) {
+					return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
+				}
 
-			const role = roleOf(prompt);
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			if (role === 'write-tests') {
-				writeFileSync(join(dir, 'test.feature.test.js'), '// stub\n');
+				if (role === 'write-tests') {
+					writeFileSync(join(dir, 'test.feature.test.js'), '// stub\n');
 
-				return { text: report({ changedFiles: [{ path: 'test.feature.test.js', summary: 'tests' }] }), exitCode: 0 };
-			}
+					return { text: report({ changedFiles: [{ path: 'test.feature.test.js', summary: 'tests' }] }), exitCode: 0 };
+				}
 
-			if (role === 'refactor') {
-				return { text: report(), exitCode: 0 };
-			}
+				if (role === 'refactor') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
+				writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
-			return { text: implementProse, exitCode: 0 };
-		},
+				return { text: implementProse, exitCode: 0 };
+			},
+		}),
 	};
 
 	const progressLines: string[] = [];
@@ -81,33 +84,35 @@ test('two rejected messages in one run are filed under distinct sequence numbers
 
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			if (isReemit(prompt)) {
-				return prompt.includes(writerProse)
-					? { text: report({ changedFiles: [{ path: 'test.feature.test.js', summary: 'tests' }] }), exitCode: 0 }
-					: { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
-			}
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				if (isReemit(prompt)) {
+					return prompt.includes(writerProse)
+						? { text: report({ changedFiles: [{ path: 'test.feature.test.js', summary: 'tests' }] }), exitCode: 0 }
+						: { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
+				}
 
-			const role = roleOf(prompt);
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			if (role === 'write-tests') {
-				writeFileSync(join(dir, 'test.feature.test.js'), '// stub\n');
+				if (role === 'write-tests') {
+					writeFileSync(join(dir, 'test.feature.test.js'), '// stub\n');
 
-				return { text: writerProse, exitCode: 0 };
-			}
+					return { text: writerProse, exitCode: 0 };
+				}
 
-			if (role === 'refactor') {
-				return { text: report(), exitCode: 0 };
-			}
+				if (role === 'refactor') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
+				writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
-			return { text: implementProse, exitCode: 0 };
-		},
+				return { text: implementProse, exitCode: 0 };
+			},
+		}),
 	};
 
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });

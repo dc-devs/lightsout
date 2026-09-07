@@ -14,4 +14,5 @@ export { buildRefactorExecutorInvocation } from '#src/agents/buildRefactorExecut
 export { buildReportReemitterInvocation } from '#src/agents/buildReportReemitterInvocation.ts';
 export { buildStandardsReviewInvocation } from '#src/agents/buildStandardsReviewInvocation.ts';
 export { buildSupervisorInvocation } from '#src/agents/buildSupervisorInvocation.ts';
+export { buildTestChangeReviewInvocation } from '#src/agents/buildTestChangeReviewInvocation.ts';
 export { buildUnitTestWriterInvocation } from '#src/agents/buildUnitTestWriterInvocation.ts';

@@ -22,7 +22,8 @@ const manifestOf = ({ usage }: { usage?: RunUsage } = {}): RunManifest => ({
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],
-	ledgerTests: [],
+	acceptanceTests: [],
+	approvedTests: [],
 	unreachableChangedFiles: [],
 	coverageExcludedChangedFiles: [],
 });

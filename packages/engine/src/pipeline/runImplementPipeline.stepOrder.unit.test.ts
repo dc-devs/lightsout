@@ -7,6 +7,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /**
@@ -19,21 +20,23 @@ const setupDeclaredRun = () => {
 	const dir = setupConsumerRepo();
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			if (role === 'implement') {
-				writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
+				if (role === 'implement') {
+					writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
-				return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
-			}
+					return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
+				}
 
-			return { text: report(), exitCode: 0 };
-		},
+				return { text: report(), exitCode: 0 };
+			},
+		}),
 	};
 
 	const run = async ({ skipRefactor, willShip }: { skipRefactor?: boolean; willShip?: boolean } = {}) =>
