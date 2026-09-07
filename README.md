@@ -63,12 +63,14 @@ Completing the task is not enough. Agents should leave the repository better tha
    skills, and spoken questions work through the extension the plugin ships —
    no Claude Code install needed alongside it.
 
-   Every skill also has a namespaced slash command — `/lightsout:plan`,
-   `/lightsout:implement`, `/lightsout:queue`, … — in both OMP and Claude
-   Code: type `/lightsout:` and pick from the list. The add-ons follow the
-   same pattern (`/lightsout-linear:linear-ticket`,
-   `/lightsout-jira:jira-ticket`). The commands are thin routers; the skills
-   they name stay the single source of truth.
+   Claude Code lists every installed skill as a slash command of its own —
+   `/lightsout:plan`, `/lightsout:implement`, `/lightsout:queue`, … — as
+   soon as the plugin is installed. OMP and Pi do not list skills, so for
+   them the plugin ships one prompt template per skill, named after the
+   skill (`plan`, `implement`, `queue`, …): type `/` and pick from the list.
+   The add-ons follow the same pattern (`linear-ticket`, `jira-ticket`).
+   Each template is a thin router; the skill it names stays the single
+   source of truth.
 
    The marketplace also carries optional `lightsout-linear` and `lightsout-jira`
    add-ons. They teach tracker-specific labels, statuses, attachments, and
