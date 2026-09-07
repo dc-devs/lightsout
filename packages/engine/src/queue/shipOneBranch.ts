@@ -5,7 +5,7 @@ import { runGates } from '#src/gates/index.ts';
 import { writeBranchState } from '#src/queue/branchState/index.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import { runOrDescribeFailure } from '#src/queue/common/utils/runOrDescribeFailure.ts';
-import { removeTicketWorktree } from '#src/queue/removeTicketWorktree.ts';
+import { removeTicketWorktree } from '#src/queue/worktrees/index.ts';
 import { runShip, type ShipSettings } from '#src/ship/index.ts';
 import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
 

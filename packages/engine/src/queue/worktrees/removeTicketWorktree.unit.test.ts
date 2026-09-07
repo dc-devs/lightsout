@@ -2,8 +2,8 @@ import { execSync } from 'node:child_process';
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { createTicketWorktree } from '#src/queue/createTicketWorktree.ts';
-import { removeTicketWorktree } from '#src/queue/removeTicketWorktree.ts';
+import { createTicketWorktree } from '#src/queue/worktrees/createTicketWorktree.ts';
+import { removeTicketWorktree } from '#src/queue/worktrees/removeTicketWorktree.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 /** The repo a drain starts from, with an author git will accept. */

@@ -5,7 +5,7 @@ import type { LaneState } from '#src/queue/drainLanes/common/types/LaneState.ts'
 import { admitScanned } from '#src/queue/drainLanes/common/utils/admitScanned.ts';
 import { trackTask } from '#src/queue/drainLanes/common/utils/trackTask.ts';
 import { writeQueuePlan } from '#src/queue/drainLanes/common/utils/writeQueuePlan.ts';
-import { listNextWave } from '#src/queue/listNextWave.ts';
+import { listNextWave } from '#src/queue/ticketSelection/index.ts';
 
 interface Params {
 	context: LaneContext;

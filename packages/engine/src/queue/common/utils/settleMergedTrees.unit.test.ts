@@ -22,7 +22,7 @@ jest.mock('#src/ticketLifecycle/index.ts', () => ({
 	reconcileShippedTicket: (params: { ticketRef: string | undefined }) => mockReconcileShippedTicket(params),
 }));
 jest.mock('#src/common/git/readGitChangedFiles.ts', () => ({ readGitChangedFiles: (params: { cwd: string }) => mockReadGitChangedFiles(params) }));
-jest.mock('#src/queue/removeTicketWorktree.ts', () => ({
+jest.mock('#src/queue/worktrees/removeTicketWorktree.ts', () => ({
 	removeTicketWorktree: (params: { cwd: string; worktreePath: string; branch: string }) => mockRemoveTicketWorktree(params),
 }));
 jest.mock('#src/ticketTracker/index.ts', () => ({ setParkedLabel: (params: { ticketId: string; parked: boolean }) => mockSetParkedLabel(params) }));

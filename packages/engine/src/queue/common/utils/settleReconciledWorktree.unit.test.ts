@@ -3,7 +3,7 @@ import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { settleReconciledWorktree } from '#src/queue/common/utils/settleReconciledWorktree.ts';
-import { createTicketWorktree } from '#src/queue/createTicketWorktree.ts';
+import { createTicketWorktree } from '#src/queue/worktrees/createTicketWorktree.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 /** A main checkout with one real worktree on a ticket branch, cut from the default branch. */

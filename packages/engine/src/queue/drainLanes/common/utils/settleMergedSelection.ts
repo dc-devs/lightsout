@@ -1,7 +1,7 @@
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
-import { reconcileMergedTickets } from '#src/queue/reconcileMergedTickets.ts';
+import { reconcileMergedTickets } from '#src/queue/ticketSelection/index.ts';
 
 interface Params {
 	/** The main repository checkout. */

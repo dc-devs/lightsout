@@ -72,7 +72,7 @@ jest.mock('#src/ship/index.ts', () => ({
 // -------------------------
 const mockRunWorkerWithRelay = jest.fn<(params: { worktreePath: string }) => Promise<WorkerOutcome>>();
 
-jest.mock('#src/queue/runWorkerWithRelay.ts', () => ({ runWorkerWithRelay: (params: { worktreePath: string }) => mockRunWorkerWithRelay(params) }));
+jest.mock('#src/queue/workers/runWorkerWithRelay.ts', () => ({ runWorkerWithRelay: (params: { worktreePath: string }) => mockRunWorkerWithRelay(params) }));
 // -------------------------
 
 /** `plugin/dist/` is the shape this repo configures: a directory of build output rebuilt by every gate run. */

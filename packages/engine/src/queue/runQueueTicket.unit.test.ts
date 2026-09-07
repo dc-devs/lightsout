@@ -34,12 +34,12 @@ const mockRunWorkerWithRelay = jest.fn<() => Promise<WorkerOutcome>>();
 const mockCommitTicketWork = jest.fn<(params: CommitTicketWorkParams) => Promise<{ committed: boolean } | QueueFailure>>();
 const mockReadGitCommitsAhead = jest.fn<(params: { cwd: string; defaultBranch: string }) => Promise<number | undefined>>();
 
-jest.mock('#src/queue/createTicketWorktree.ts', () => ({ createTicketWorktree: (params: { branch: string }) => mockCreateTicketWorktree(params) }));
+jest.mock('#src/queue/worktrees/createTicketWorktree.ts', () => ({ createTicketWorktree: (params: { branch: string }) => mockCreateTicketWorktree(params) }));
 jest.mock('#src/ticketTracker/index.ts', () => ({
 	setTicketStatus: (params: { statusName: string }) => mockSetTicketStatus(params),
 	appendTicketNote: () => Promise.resolve(undefined),
 }));
-jest.mock('#src/queue/runWorkerWithRelay.ts', () => ({ runWorkerWithRelay: () => mockRunWorkerWithRelay() }));
+jest.mock('#src/queue/workers/runWorkerWithRelay.ts', () => ({ runWorkerWithRelay: () => mockRunWorkerWithRelay() }));
 jest.mock('#src/queue/commitTicketWork.ts', () => ({
 	commitTicketWork: (params: CommitTicketWorkParams) => mockCommitTicketWork(params),
 }));

@@ -72,7 +72,7 @@ jest.mock('#src/ship/index.ts', () => ({
 // -------------------------
 const mockRunWorkerWithRelay = jest.fn<(params: { worktreePath: string }) => Promise<WorkerOutcome>>();
 
-jest.mock('#src/queue/runWorkerWithRelay.ts', () => ({ runWorkerWithRelay: (params: { worktreePath: string }) => mockRunWorkerWithRelay(params) }));
+jest.mock('#src/queue/workers/runWorkerWithRelay.ts', () => ({ runWorkerWithRelay: (params: { worktreePath: string }) => mockRunWorkerWithRelay(params) }));
 // -------------------------
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
