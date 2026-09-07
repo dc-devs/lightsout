@@ -17,5 +17,5 @@ export const brainstormCatalogEntry: CommandCatalogEntry = {
 	],
 	steps: [],
 	records: CommandRecordKind.Plans,
-	related: ['auto-plan', 'plan', 'implement', 'resume', 'ship', 'implement-direct', 'queue', 'ticket-state'],
+	related: ['auto-plan', 'plan', 'implement', 'resume', 'ship', 'implement-direct', 'queue', 'ticket-state', 'self-check'],
 };

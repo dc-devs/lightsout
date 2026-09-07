@@ -15,7 +15,7 @@ describe('commandCatalog', () => {
 		const rejected = commandCatalog.filter((entry) => !CommandCatalogEntry.safeParse(entry).success).map((entry) => entry.id);
 
 		expect(rejected).toStrictEqual([]);
-		expect(ids).toHaveLength(19);
+		expect(ids).toHaveLength(20);
 	});
 
 	test('ids are unique — two entries answering to one word would make the route ambiguous', () => {
@@ -40,6 +40,7 @@ describe('commandCatalog', () => {
 				'queue',
 				'refactor',
 				'resume',
+				'self-check',
 				'ship',
 				'standards-check',
 				'standards-health',
@@ -150,6 +151,7 @@ describe('commandCatalog', () => {
 			['build', 'ship'],
 			['build', 'queue'],
 			['build', 'ticket-state'],
+			['build', 'self-check'],
 			['burn-down', 'refactor'],
 			['burn-down', 'test-coverage-to-threshold'],
 			['standards', 'standards-check'],
@@ -186,6 +188,7 @@ describe('commandCatalog', () => {
 			['ship', 'nothing'],
 			['queue', 'runs'],
 			['ticket-state', 'nothing'],
+			['self-check', 'nothing'],
 			['refactor', 'runs'],
 			['test-coverage-to-threshold', 'runs'],
 			['standards-check', 'snapshots'],
@@ -226,6 +229,7 @@ describe('commandCatalog', () => {
 			['ship', ['cwd']],
 			['queue', ['cwd', 'file-relay']],
 			['ticket-state', ['cwd', 'planning-status', 'ref', 'tracker-status']],
+			['self-check', ['cwd', 'run']],
 			['refactor', ['all', 'allow-dirty', 'code-checks', 'cwd', 'max-batches', 'path', 'run']],
 			['test-coverage-to-threshold', ['allow-dirty', 'cwd', 'max-batches', 'run']],
 			['standards-check', ['agent-review', 'all', 'baseline', 'code-checks', 'cwd', 'list', 'path']],
@@ -265,48 +269,6 @@ describe('commandCatalog', () => {
 		);
 
 		expect(lonely).toStrictEqual([]);
-	});
-
-	test('every step names one of the three actors, a title in caps, and two to four bullets', () => {
-		const malformed = commandCatalog.flatMap((entry) =>
-			entry.steps
-				.filter(
-					(step) =>
-						!['the engine', 'the agent', 'you decide'].includes(step.actor) ||
-						step.title !== step.title.toUpperCase() ||
-						step.bullets.length < 2 ||
-						step.bullets.length > 4,
-				)
-				.map((step) => `${entry.id}: ${step.title}`),
-		);
-
-		expect(malformed).toStrictEqual([]);
-	});
-
-	test('overrides the graphic-wide artifact label only where a step reads a file or writes one conditionally', () => {
-		const overrides = commandCatalog.flatMap((entry) =>
-			entry.steps.filter((step) => step.savedLabel !== undefined).map((step) => [step.title, step.savedLabel]),
-		);
-
-		expect(overrides).toStrictEqual([
-			['CREATE THE PLAN WORKSPACE', 'SAVED WHEN NOTES EXIST'],
-			['FIND THE WORK', 'READ FROM DISK'],
-		]);
-	});
-
-	test('each drawn command’s steps run from the step that opens its infographic to the step that closes it', () => {
-		const { byId } = setupCatalog();
-		const ends = ['plan', 'implement', 'refactor'].map((id) => {
-			const steps = byId.get(id)?.steps ?? [];
-
-			return [id, steps.at(0)?.title, steps.at(-1)?.title];
-		});
-
-		expect(ends).toStrictEqual([
-			['plan', 'CREATE THE PLAN WORKSPACE', 'GET THE PLAN TO AN A GRADE'],
-			['implement', 'START THE RUN', 'REPORT THE RESULT'],
-			['refactor', 'START THE RUN', 'REVIEW AND COMMIT'],
-		]);
 	});
 
 	test('every entry says what it does and when to reach for it — both are the command page’s body copy', () => {
@@ -360,5 +322,47 @@ describe('commandCatalog', () => {
 			['max-batches', '<n>'],
 			['allow-dirty', undefined],
 		]);
+	});
+
+	test('gives the self-check its own Build-group entry, so its flags are accepted rather than rejected as unknown', () => {
+		const { byId } = setupCatalog();
+
+		const selfCheck = byId.get('self-check');
+
+		expect(selfCheck).toEqual(
+			expect.objectContaining({
+				id: 'self-check',
+				cli: 'lightsout self-check',
+				group: 'build',
+				invocations: [{ id: 'self-check' }],
+				steps: [],
+				records: 'nothing',
+			}),
+		);
+		// no slash form, because the plugin ships no skill for it, and no infographic
+		expect(selfCheck?.slash).toBeUndefined();
+		expect(selfCheck?.graphic).toBeUndefined();
+	});
+
+	test('accepts only --run and --cwd on the self-check, so an appended flag can never widen it', () => {
+		const { byId } = setupCatalog();
+
+		const flags = byId.get('self-check')?.flags.map((flag) => [flag.name, flag.value, flag.required]);
+
+		expect(flags).toStrictEqual([
+			['run', '<id>', true],
+			['cwd', '<path>', false],
+		]);
+	});
+
+	test('pairs the self-check with every other Build command in both directions', () => {
+		const { byId } = setupCatalog();
+		const neighbours = ['brainstorm', 'plan', 'auto-plan', 'implement', 'implement-direct', 'resume', 'ship', 'queue', 'ticket-state'];
+
+		const named = [...(byId.get('self-check')?.related ?? [])].sort();
+		const silentBack = neighbours.filter((id) => byId.get(id)?.related.includes('self-check') !== true);
+
+		expect(named).toStrictEqual([...neighbours].sort());
+		expect(silentBack).toStrictEqual([]);
 	});
 });

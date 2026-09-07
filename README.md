@@ -286,6 +286,28 @@ timeouts. See
 lightsout queue --file-relay
 ```
 
+### lightsout self-check
+
+The engine's own check of a change, run by the agent that wrote it. `lightsout
+self-check` runs the cheap gates the run's next checkpoint will run — types and
+lint, the unit suite, the build — narrowed to the packages the live diff
+touched, prints what went red, and exits 1 while anything is.
+
+It is not a command you reach for. The engine grants it per spawn to the feature
+executor, the refactor executor and the direct worker, so an agent sees the
+failures it is about to be judged on while the plan and the standards are still
+in its context — the cheapest failure to fix is the one the agent can still see.
+
+It takes the live run's id and nothing else: which step, which gates, whether
+coverage can answer, and what to scope to are all read from that run and from
+git, so an argument an agent appends can never widen what it runs. It writes
+nothing to the run, takes no lock, and decides nothing — the engine's own gates
+run afterwards over the full scope and are the only verdict.
+
+```text
+lightsout self-check --run <id>
+```
+
 ### /refactor
 
 Turn existing technical debt into a gated refactoring run. `/refactor` runs the standards checks for duplicated logic, oversized files, structural violations, the shape of your test files, where folders and files sit and what they are called, and opportunities to replace repeated code with shared abstractions.

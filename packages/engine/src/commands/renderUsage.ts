@@ -37,6 +37,7 @@ const usageOrder = [
 	'plan-grade',
 	'plan-publish',
 	'ticket-state',
+	'self-check',
 	'friction',
 	'improve',
 	'voice-toggle',

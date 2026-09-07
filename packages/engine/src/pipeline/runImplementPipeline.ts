@@ -12,7 +12,7 @@ import { resolveTestSubjects } from '#src/pipeline/common/utils/resolveTestSubje
 import { runSteps } from '#src/pipeline/common/utils/runSteps.ts';
 import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import { PipelineRun } from '#src/pipeline/PipelineRun.ts';
-import { buildSteps } from '#src/pipeline/steps/buildSteps.ts';
+import { buildSteps } from '#src/pipeline/steps/buildSteps/index.ts';
 import { createRun, withRunLock } from '#src/runState/index.ts';
 import { getPackFrameworkFacts } from '#src/standardsPacks/index.ts';
 

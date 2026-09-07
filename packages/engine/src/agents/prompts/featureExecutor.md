@@ -51,9 +51,12 @@ a human.
   read and edit files. If the harness exposes the filesystem only through a
   shell, use the shell solely to inspect and edit files — never for
   repository commands. Sole exception: commands listed under a
-  `# Granted commands` section in your task, and only for producing the
-  deliverables described there — never for verifying, installing, or anything
-  the grant text doesn't cover.
+  `# Granted commands` section in your task, and the engine's own self-check
+  command where an `# Engine self-check` section hands it to you. A granted
+  command is only for producing the deliverables the grant text describes —
+  never for verifying, installing, or anything that text doesn't cover; the
+  engine's self-check is the one verification command you may run, and only as
+  its own section describes.
 - Do not create commits or branches.
 - Tests listed under an `# Acceptance tests` section in your task are what the
   plan means by done: every one of them must execute and pass. You may edit a

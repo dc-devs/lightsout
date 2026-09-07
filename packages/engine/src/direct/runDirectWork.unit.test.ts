@@ -13,11 +13,13 @@ import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 // The harness and the repo's gates are the two things a direct run drives, and
 // each is another module's entry point with its own tests. Run state on disk is
 // real, because a truthful, resumable record is what this run exists to leave.
-const mockInvokeAgentWithContract = jest.fn<(params: { invocation: { prompt: string; systemPrompt: string } }) => Promise<AgentOutcome<WorkReport>>>();
+const mockInvokeAgentWithContract =
+	jest.fn<(params: { invocation: { prompt: string; systemPrompt: string }; allowedCommands?: string[] }) => Promise<AgentOutcome<WorkReport>>>();
 const mockRunGates = jest.fn<(params: { step?: string; onProgress?: (message: string) => void }) => Promise<GateRunResult>>();
 
 jest.mock('#src/invoke/index.ts', () => ({
-	invokeAgentWithContract: (params: { invocation: { prompt: string; systemPrompt: string } }) => mockInvokeAgentWithContract(params),
+	invokeAgentWithContract: (params: { invocation: { prompt: string; systemPrompt: string }; allowedCommands?: string[] }) =>
+		mockInvokeAgentWithContract(params),
 }));
 jest.mock('#src/gates/index.ts', () => ({
 	runGates: (params: { step?: string; onProgress?: (message: string) => void }) => mockRunGates(params),
@@ -66,6 +68,30 @@ const setupDirectRun = () => {
 		});
 
 	return { cwd, run };
+};
+
+/** The same run, started against a consumer that granted the worker shell commands of its own. */
+const setupGrantedDirectRun = () => {
+	const cwd = setupConsumerRepo();
+	const config: LightsoutConfig = {
+		gates: { check: 'true', test: 'true', 'test-coverage': false },
+		'agent-commands': ['pnpm --filter api run prisma:migrate:dev:name'],
+	};
+
+	mockInvokeAgentWithContract.mockResolvedValue({ ok: true, report: reportOf() });
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [] });
+
+	const run = () =>
+		runDirectWork({
+			cwd,
+			ticketBody: '# Drain the backlog\n\nBuild the thing.',
+			ticketRef: 'LO-70',
+			driver,
+			driverName: 'claude-code',
+			config,
+		});
+
+	return { run };
 };
 
 describe('runDirectWork', () => {
@@ -250,5 +276,33 @@ describe('runDirectWork', () => {
 		await run({ answeredQuestion: { question: 'Which one?', answer: 'the second one' } });
 
 		expect(mockInvokeAgentWithContract.mock.calls[0]?.[0].invocation.prompt).toContain('the second one');
+	});
+
+	test('tells the direct worker its own self-check command, naming the run the agent is inside', async () => {
+		const { run } = setupDirectRun();
+
+		const result = await run();
+
+		// the harness allowance only permits the command; the binding grant is the
+		// prompt section, and the command it hands over names the live run, which is
+		// the only parameter that command takes
+		expect(mockInvokeAgentWithContract.mock.calls[0]?.[0].invocation.systemPrompt).toContain(
+			`node ${process.argv[1]} self-check --run ${result.manifest.runId}`,
+		);
+	});
+
+	test("grants the direct worker the engine self-check prefix alongside the consumer's own commands", async () => {
+		const { run } = setupGrantedDirectRun();
+
+		await run();
+
+		// The harness allowance is the consumer's own list plus the engine's
+		// self-check prefix. `process.argv[1]` is the running CLI bundle, which is
+		// what the subprocess must resolve, and the prefix stays unquoted because
+		// the harness matches it literally.
+		expect(mockInvokeAgentWithContract.mock.calls[0]?.[0].allowedCommands).toStrictEqual([
+			'pnpm --filter api run prisma:migrate:dev:name',
+			`node ${process.argv[1]} self-check`,
+		]);
 	});
 });

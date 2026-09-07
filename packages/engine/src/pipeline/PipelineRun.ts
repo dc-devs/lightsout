@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { formatCost, formatTokenCount } from '@lightsout/shared';
+import { buildSelfCheckCommand } from '#src/common/selfCheck/buildSelfCheckCommand.ts';
 import { RunState } from '#src/common/services/RunState.ts';
 import { createEventFileSink } from '#src/common/utils/createEventFileSink.ts';
 import { type AgentUsage, type LightsoutConfig, Permissions, type RunManifest, RunStatus, type StepRecord, WorkReport } from '#src/contracts/index.ts';
@@ -192,8 +193,10 @@ export class PipelineRun {
 			permissions: this.config.permissions ?? Permissions.Write,
 			timeoutMs: this.agentTimeoutMs,
 			// Harness-level allowance for all working roles; the binding grant
-			// is the prompt section, which only the executor's builder emits.
-			allowedCommands: this.config['agent-commands'],
+			// is the prompt section, which only the executor's builders emit. The
+			// engine's own self-check prefix rides the same allowance, so a role
+			// never told about it still cannot be blocked from one it was told about.
+			allowedCommands: [...(this.config['agent-commands'] ?? []), buildSelfCheckCommand({ cwd: this.cwd, runId: this.current().runId }).prefix],
 			onEvent: (event) => {
 				if (!seenFirst) {
 					seenFirst = true;

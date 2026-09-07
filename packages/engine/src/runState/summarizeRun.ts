@@ -1,6 +1,7 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { isSelfCheckStep } from '#src/common/selfCheck/isSelfCheckStep.ts';
 import { readJsonlRecords } from '#src/common/utils/readJsonlRecords.ts';
 import type { RunManifest } from '#src/contracts/index.ts';
 import { getRunDir } from '#src/runState/common/paths/getRunDir.ts';
@@ -14,6 +15,8 @@ const LedgerRecord = z.object({
 });
 
 const CommandRecord = z.object({
+	/** The pipeline step the execution was recorded under; absent on a record written outside a step. */
+	step: z.string().optional(),
 	durationMs: z.number().optional(),
 	rerun: z.literal(true).optional(),
 	skipped: z.literal(true).optional(),
@@ -36,7 +39,12 @@ interface Params {
 export const summarizeRun = async ({ cwd, manifest }: Params): Promise<RunSummary> => {
 	const runDir = getRunDir({ cwd, runId: manifest.runId });
 	const ledger = await readJsonlRecords({ path: join(runDir, 'agents.jsonl'), schema: LedgerRecord });
-	const commands = await readJsonlRecords({ path: join(runDir, 'commands.jsonl'), schema: CommandRecord });
+	// A writing agent's own self-check runs the run's gate commands and records
+	// them like any other execution, but it is not the run's gate work: leaving it
+	// in would inflate the very figures a reader compares a run against.
+	const commands = (await readJsonlRecords({ path: join(runDir, 'commands.jsonl'), schema: CommandRecord })).filter(
+		(command) => !isSelfCheckStep({ step: command.step }),
+	);
 	const agentFiles: string[] = await readdir(join(runDir, 'agents')).catch(() => []);
 	const friction = (await readFriction({ cwd })).filter((entry) => entry.runId === manifest.runId);
 
