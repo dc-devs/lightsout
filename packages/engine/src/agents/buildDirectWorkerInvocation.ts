@@ -1,3 +1,5 @@
+import { changedFilesSection } from '#src/agents/common/utils/changedFilesSection.ts';
+import { selfCheckSection } from '#src/agents/common/utils/selfCheckSection.ts';
 import directWorkerPrompt from '#src/agents/prompts/directWorker.md';
 import type { AnsweredQuestion } from '#src/common/types/AnsweredQuestion.ts';
 
@@ -16,6 +18,8 @@ interface Params {
 	changedFiles?: string[];
 	/** The answer to a question this worker asked, folded back in on re-invocation. */
 	answeredQuestion?: AnsweredQuestion;
+	/** The engine's own self-check, exactly as this spawn may run it. Absent = this spawn gets no self-check and is told nothing about one. */
+	selfCheckCommand?: string;
 }
 
 /**
@@ -34,6 +38,7 @@ export const buildDirectWorkerInvocation = ({
 	errorContext,
 	changedFiles,
 	answeredQuestion,
+	selfCheckCommand,
 }: Params): { systemPrompt: string; prompt: string } => {
 	const roleSections = [directWorkerPrompt, `# Ticket ${ticketRef}\n\n${ticketBody}`];
 
@@ -43,8 +48,14 @@ export const buildDirectWorkerInvocation = ({
 
 	if (allowedCommands && allowedCommands.length > 0) {
 		roleSections.push(
-			`# Granted commands\n\nYou may run these shell commands — and only these (prefix match; arguments after the prefix are allowed). Use them solely to produce what the ticket asks for and only a command can produce. Never use them to verify, install, or explore — the engine runs all gates itself. List every file a granted command creates in \`changedFiles\`.\n\n${allowedCommands.map((command) => `- \`${command}\``).join('\n')}`,
+			`# Granted commands\n\nYou may run these shell commands — and only these (prefix match; arguments after the prefix are allowed). Use them solely to produce what the ticket asks for and only a command can produce. Never use them to verify, install, or explore — the engine runs all gates itself, and its own self-check is the one verification command you may run, granted to you in a section of its own rather than listed here. List every file a granted command creates in \`changedFiles\`.\n\n${allowedCommands.map((command) => `- \`${command}\``).join('\n')}`,
 		);
+	}
+
+	const selfCheck = selfCheckSection({ command: selfCheckCommand });
+
+	if (selfCheck) {
+		roleSections.push(selfCheck);
 	}
 
 	const sections: string[] = [];
@@ -55,10 +66,10 @@ export const buildDirectWorkerInvocation = ({
 		);
 	}
 
-	if (changedFiles && changedFiles.length > 0) {
-		sections.push(
-			`# Previously changed files\n\nFiles already created or modified earlier in this run:\n\n${changedFiles.map((file) => `- ${file}`).join('\n')}`,
-		);
+	const changed = changedFilesSection({ changedFiles });
+
+	if (changed) {
+		sections.push(changed);
 	}
 
 	if (errorContext) {

@@ -51,7 +51,7 @@ export const implementCatalogEntry: CommandCatalogEntry = {
 	],
 	steps: implementSteps,
 	records: CommandRecordKind.Runs,
-	related: ['auto-plan', 'brainstorm', 'plan', 'resume', 'ship', 'implement-direct', 'queue', 'ticket-state'],
+	related: ['auto-plan', 'brainstorm', 'plan', 'resume', 'ship', 'implement-direct', 'queue', 'ticket-state', 'self-check'],
 	graphic: {
 		title: 'How /implement turns the spec into verified code',
 		subtitle: 'Ten steps, deterministic gates throughout, and a complete record saved to disk.',

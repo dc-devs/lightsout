@@ -3,7 +3,6 @@ import { defaultGateTimeoutMinutes } from '#src/common/constants/defaultGateTime
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import type { GateResult, LightsoutConfig } from '#src/contracts/index.ts';
 import { GateScheduleKind } from '#src/gates/common/constants/GateScheduleKind.ts';
-import type { GateCommands } from '#src/gates/common/types/GateCommands.ts';
 import type { GateEntry } from '#src/gates/common/types/GateEntry.ts';
 import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 import type { GateSchedule } from '#src/gates/common/types/GateSchedule.ts';
@@ -12,6 +11,7 @@ import { buildGateEntries } from '#src/gates/common/utils/buildGateEntries.ts';
 import { buildGateStages } from '#src/gates/common/utils/buildGateStages.ts';
 import { describeGateCrash } from '#src/gates/common/utils/describeGateCrash.ts';
 import { mergeGateRunResults } from '#src/gates/common/utils/mergeGateRunResults.ts';
+import { rootGateCommands } from '#src/gates/common/utils/rootGateCommands.ts';
 import { createGateRunner } from '#src/gates/createGateRunner.ts';
 import { runGateSet } from '#src/gates/runGateSet.ts';
 import { runPackageGates } from '#src/gates/runPackageGates.ts';
@@ -23,15 +23,6 @@ const stageCounts: Record<GateScheduleKind, number> = {
 	[GateScheduleKind.Exact]: 1,
 	[GateScheduleKind.Off]: 0,
 };
-
-/** The root group's commands, the coverage one included whenever the config configures it — `buildGateStages` is what decides whether it is scheduled. */
-const rootCommands = ({ gates }: { gates: ReturnType<typeof resolveGates> }): GateCommands => ({
-	check: gates.check,
-	test: gates.test,
-	testCoverage: typeof gates.testCoverage === 'string' ? gates.testCoverage : undefined,
-	extraTests: gates.extraTests,
-	build: gates.build,
-});
 
 /**
  * The codegen command's red as a result, or nothing when it passed or was never
@@ -204,7 +195,7 @@ export const runGates = async ({
 	const scoped = config['package-gates'];
 	const inScope = packages ?? [];
 	const scopedPackages = scoped === undefined || includeRoot ? [] : inScope;
-	const rootStages = buildGateStages({ entries: buildGateEntries({ commands: rootCommands({ gates }) }), schedule: resolvedSchedule, coverage });
+	const rootStages = buildGateStages({ entries: buildGateEntries({ commands: rootGateCommands({ gates }) }), schedule: resolvedSchedule, coverage });
 	const packagesDir = config['packages-dir'] ?? defaultPackagesDir;
 	const context = scoped === undefined ? undefined : { cwd, packagesDir, scoped, coverage, schedule: resolvedSchedule, runId, step, onGateResult, onProgress };
 	const stageFailFast = resolvedSchedule.kind === GateScheduleKind.Exact ? true : failFast;

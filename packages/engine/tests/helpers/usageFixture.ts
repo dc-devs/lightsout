@@ -12,8 +12,9 @@
  * again for `queue --file-relay`, for `status --run` / `--watch`, and for
  * `lightsout plan publish` — which also spelled `--name`'s placeholder
  * `<name>`, since `<n>` reads as a number everywhere else in this text. Updated
- * again for `lightsout ticket-state`, and again for
- * `lightsout brainstorm publish`.
+ * again for `lightsout ticket-state`, again for
+ * `lightsout brainstorm publish`, and again for `lightsout self-check` — the
+ * engine's own check, which a writing agent runs inside its own spawn.
  */
 export const usageFixture = `lightsout — deterministic engine for coding agents
 
@@ -43,6 +44,7 @@ usage:
   lightsout plan grade --name <name> [--phase <n[,n]>] [--cwd <path>]   (--phase grades only those phases, and always marks the result incomplete)
   lightsout plan publish --name <name> [--cwd <path>]
   lightsout ticket-state --ref <ticket> [--planning-status <status>] [--tracker-status ready|in-progress] [--cwd <path>]
+  lightsout self-check --run <id> [--cwd <path>]
   lightsout friction [--cwd <path>]
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
   lightsout voice on|off [--cwd <path>]               (toggle spoken read-out of interview questions — Mac-only)

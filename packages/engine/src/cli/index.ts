@@ -17,6 +17,7 @@ export { readStandardsLedger } from '#src/cli/readStandardsLedger.ts';
 export { refactorCommand } from '#src/cli/refactorCommand.ts';
 export { resumeCommand } from '#src/cli/resumeCommand.ts';
 export { reviewStandards } from '#src/cli/reviewStandards.ts';
+export { selfCheckCommand } from '#src/cli/selfCheckCommand.ts';
 export { shipCommand } from '#src/cli/shipCommand.ts';
 export { standardsCheckCommand } from '#src/cli/standardsCheckCommand.ts';
 export { standardsHealthCommand } from '#src/cli/standardsHealthCommand.ts';

@@ -316,3 +316,24 @@ test('summarizeRun clamps wall time for a manifest stamped out of order', async 
 	// a clock that ran backwards reports no time, never negative time
 	expect(summary.wallMs).toBe(0);
 });
+
+test('summarizeRun: leaves self-check gate executions out of the gate counts, re-runs, skips and gate time', async () => {
+	const { cwd, manifest: planted } = plantEvidence({
+		commands: [
+			{ step: 'verify-implement', durationMs: 100 },
+			{ step: 'verify-implement', durationMs: 50, rerun: true },
+			{ step: 'verify-implement', skipped: true },
+			{ step: 'self-check-implement', durationMs: 900 },
+			{ step: 'self-check-implement', durationMs: 400, rerun: true },
+			{ step: 'self-check-refactor', skipped: true },
+			{ durationMs: 25 },
+		],
+	});
+
+	const summary = await summarizeRun({ cwd, manifest: planted });
+
+	// the agent's own check is not the run's gate work, so it bills to neither
+	// the counts nor the clock — a record written outside any step still does
+	expect(summary.gates).toStrictEqual({ commands: 3, reruns: 1, skipped: 1 });
+	expect(summary.gateMs).toBe(175);
+});

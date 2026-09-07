@@ -1,3 +1,4 @@
+import { selfCheckSection } from '#src/agents/common/utils/selfCheckSection.ts';
 import refactorExecutorPrompt from '#src/agents/prompts/refactorExecutor.md';
 import refactorScopeFeaturePrompt from '#src/agents/prompts/refactorScopeFeature.md';
 import refactorScopeStandalonePrompt from '#src/agents/prompts/refactorScopeStandalone.md';
@@ -32,6 +33,8 @@ interface Params {
 	reportAdvisoryOutcomes?: boolean;
 	/** Verification-gate output from a failed attempt, for fix re-invocations. */
 	errorContext?: string;
+	/** The engine's own self-check, exactly as this spawn may run it. Absent = this spawn gets no self-check and is told nothing about one. */
+	selfCheckCommand?: string;
 }
 
 /**
@@ -88,6 +91,7 @@ export const buildRefactorExecutorInvocation = ({
 	advisories,
 	reportAdvisoryOutcomes,
 	errorContext,
+	selfCheckCommand,
 }: Params): { systemPrompt: string; prompt: string } => {
 	const roleSections = [refactorExecutorPrompt, scopePrompt({ scope })];
 
@@ -107,6 +111,12 @@ export const buildRefactorExecutorInvocation = ({
 
 	if (standards) {
 		roleSections.push(`# Standards\n\nThese rules are binding:\n\n${standards}`);
+	}
+
+	const selfCheck = selfCheckSection({ command: selfCheckCommand });
+
+	if (selfCheck) {
+		roleSections.push(selfCheck);
 	}
 
 	const sections = [`${worklistHeading({ scope })}\n\n${changedFiles.map((file) => `- ${file}`).join('\n')}`];

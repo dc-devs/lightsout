@@ -1,5 +1,6 @@
 import { buildRefactorExecutorInvocation } from '#src/agents/index.ts';
 import { RefactorScope } from '#src/common/constants/RefactorScope.ts';
+import { buildSelfCheckCommand } from '#src/common/selfCheck/buildSelfCheckCommand.ts';
 import { RunStatus, type StandardsFinding, type StepRecord, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
 import { collectChanged } from '#src/pipeline/common/utils/collectChanged.ts';
 import { invokeRoleOrStop } from '#src/pipeline/common/utils/invokeRoleOrStop.ts';
@@ -52,6 +53,7 @@ export const runExecutorPass = async ({
 			standards,
 			findings,
 			advisories,
+			selfCheckCommand: buildSelfCheckCommand({ cwd: run.cwd, runId: run.current().runId }).command,
 		}),
 		step: 'refactor',
 	});

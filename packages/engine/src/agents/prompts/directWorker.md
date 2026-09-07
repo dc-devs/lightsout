@@ -39,8 +39,11 @@ the whole tree when the gates go green.
   output. Use the harness's file tools to read and edit files. If the harness
   exposes the filesystem only through a shell, use the shell solely to inspect
   and edit files — never for repository commands. Sole exception: commands
-  listed under a `# Granted commands` section in your task, and only for
-  producing what the grant text describes.
+  listed under a `# Granted commands` section in your task, and the engine's own
+  self-check command where an `# Engine self-check` section hands it to you. A
+  granted command is only for producing what the grant text describes; the
+  engine's self-check is the one verification command you may run, and only as
+  its own section describes.
 - Do not create commits or branches. The engine commits your work.
 - Do not read or write any agent memory, and do not edit CLAUDE.md or other
   standing instructions.

@@ -1,5 +1,7 @@
 import { acceptanceTestsSection } from '#src/agents/common/utils/acceptanceTestsSection.ts';
 import { applyPromptTokens } from '#src/agents/common/utils/applyPromptTokens.ts';
+import { changedFilesSection } from '#src/agents/common/utils/changedFilesSection.ts';
+import { selfCheckSection } from '#src/agents/common/utils/selfCheckSection.ts';
 import featureExecutorPrompt from '#src/agents/prompts/featureExecutor.md';
 import { defaultExecutorFileLimit } from '#src/common/constants/defaultExecutorFileLimit.ts';
 import type { AcceptanceTestRecord } from '#src/contracts/index.ts';
@@ -21,6 +23,8 @@ interface Params {
 	fileLimit?: number;
 	/** The tests that define done for this run: the acceptance-test mapping, each row a test file and the name of the case in it. */
 	acceptanceTests?: Pick<AcceptanceTestRecord, 'testFile' | 'testName'>[];
+	/** The engine's own self-check, exactly as this spawn may run it. Absent = this spawn gets no self-check and is told nothing about one. */
+	selfCheckCommand?: string;
 }
 
 /**
@@ -41,6 +45,7 @@ export const buildFeatureExecutorInvocation = ({
 	allowedCommands,
 	fileLimit,
 	acceptanceTests,
+	selfCheckCommand,
 }: Params): { systemPrompt: string; prompt: string } => {
 	const roleSections = [applyPromptTokens({ text: featureExecutorPrompt, tokens: { fileLimit: fileLimit ?? defaultExecutorFileLimit } })];
 
@@ -58,16 +63,22 @@ export const buildFeatureExecutorInvocation = ({
 
 	if (allowedCommands && allowedCommands.length > 0) {
 		roleSections.push(
-			`# Granted commands\n\nYou may run these shell commands — and only these (prefix match; arguments after the prefix are allowed). Use them solely to produce plan deliverables that only a command can produce (e.g. a generated migration). Never use them to verify, install, or explore — the engine runs all gates itself. List every file a granted command creates in \`changedFiles\`.\n\n${allowedCommands.map((command) => `- \`${command}\``).join('\n')}`,
+			`# Granted commands\n\nYou may run these shell commands — and only these (prefix match; arguments after the prefix are allowed). Use them solely to produce plan deliverables that only a command can produce (e.g. a generated migration). Never use them to verify, install, or explore — the engine runs all gates itself, and its own self-check is the one verification command you may run, granted to you in a section of its own rather than listed here. List every file a granted command creates in \`changedFiles\`.\n\n${allowedCommands.map((command) => `- \`${command}\``).join('\n')}`,
 		);
+	}
+
+	const selfCheck = selfCheckSection({ command: selfCheckCommand });
+
+	if (selfCheck) {
+		roleSections.push(selfCheck);
 	}
 
 	const sections: string[] = [];
 
-	if (changedFiles && changedFiles.length > 0) {
-		sections.push(
-			`# Previously changed files\n\nFiles already created or modified earlier in this run:\n\n${changedFiles.map((file) => `- ${file}`).join('\n')}`,
-		);
+	const changed = changedFilesSection({ changedFiles });
+
+	if (changed) {
+		sections.push(changed);
 	}
 
 	const acceptance = acceptanceTestsSection({ acceptanceTests });

@@ -217,91 +217,6 @@ test('buildRefactorExecutorInvocation: neither the plan nor the standards appear
 	expect(prompt.includes('STANDARDS-SENTINEL')).toBeFalsy();
 });
 
-test('buildRefactorExecutorInvocation: the advisory-outcomes section is opt-in — callers that record nothing never ask for it', () => {
-	const advisories = [finding({ rule: 'size-function', severity: StandardsSeverity.Advisory })];
-	const silent = buildRefactorExecutorInvocation({ scope, planContent, changedFiles: ['src/widget.ts'], advisories });
-	const asking = buildRefactorExecutorInvocation({ scope, planContent, changedFiles: ['src/widget.ts'], advisories, reportAdvisoryOutcomes: true });
-
-	// asking for a field nothing persists would be prompt noise
-	expect(silent.prompt.includes('# Report what you did about each advisory')).toBeFalsy();
-	expect(asking.prompt.includes('# Report what you did about each advisory')).toBeTruthy();
-	// with the shape it wants back
-	expect(asking.prompt.includes('"advisoryOutcomes"')).toBeTruthy();
-});
-
-test('buildRefactorExecutorInvocation: with no advisory to answer for, the section is omitted even when asked for', () => {
-	const { prompt } = buildRefactorExecutorInvocation({
-		scope,
-		planContent,
-		changedFiles: ['src/widget.ts'],
-		findings: [finding()],
-		advisories: [],
-		reportAdvisoryOutcomes: true,
-	});
-
-	expect(prompt.includes('# Report what you did about each advisory')).toBeFalsy();
-});
-
-test('buildRefactorExecutorInvocation: a pass that was handed no advisory list at all is never asked to answer for one', () => {
-	const { prompt } = buildRefactorExecutorInvocation({
-		scope,
-		planContent,
-		changedFiles: ['src/widget.ts'],
-		findings: [finding()],
-		reportAdvisoryOutcomes: true,
-	});
-
-	// an omitted list is the same nothing as an empty one
-	expect(prompt.includes('# Report what you did about each advisory')).toBeFalsy();
-});
-
-test('buildRefactorExecutorInvocation: the advisory-outcomes ask names the two outcomes the report contract accepts, and the fields to echo', () => {
-	const { prompt } = buildRefactorExecutorInvocation({
-		scope,
-		planContent,
-		changedFiles: ['src/widget.ts'],
-		advisories: [finding({ rule: 'size-function', severity: StandardsSeverity.Advisory })],
-		reportAdvisoryOutcomes: true,
-	});
-
-	// an outcome word the contract's enum does not accept fails the report and loses the record
-	expect(prompt.includes('"applied"')).toBeTruthy();
-	expect(prompt.includes('"declined"')).toBeTruthy();
-	// the health report ties an entry back to its rule by these two fields, copied not invented
-	expect(prompt.includes('`rule` and `siteKey` copied exactly as given')).toBeTruthy();
-	// and the worked example carries the same field names the parser reads
-	expect(
-		prompt.includes(
-			'{ "rule": "size-function", "siteKey": "size-function:src/example.ts", "outcome": "declined", "reason": "orchestration exemption applies — every step delegates" }',
-		),
-	).toBeTruthy();
-});
-
-test('buildRefactorExecutorInvocation: asking for advisory outcomes leaves the cached system prompt untouched', () => {
-	const advisories = [finding({ rule: 'size-function', severity: StandardsSeverity.Advisory })];
-	const silent = buildRefactorExecutorInvocation({ scope, planContent, changedFiles: ['src/widget.ts'], standards, advisories });
-	const asking = buildRefactorExecutorInvocation({ scope, planContent, changedFiles: ['src/widget.ts'], standards, advisories, reportAdvisoryOutcomes: true });
-
-	// the ask varies per caller, so it rides the user prompt or it breaks the cached prefix
-	expect(asking.systemPrompt).toBe(silent.systemPrompt);
-});
-
-test('buildRefactorExecutorInvocation: the advisory-outcomes ask follows the advisories it is about', () => {
-	const { prompt } = buildRefactorExecutorInvocation({
-		scope,
-		planContent,
-		changedFiles: ['src/widget.ts'],
-		advisories: [finding({ rule: 'size-function', severity: StandardsSeverity.Advisory })],
-		reportAdvisoryOutcomes: true,
-		errorContext: 'GATE-SENTINEL',
-	});
-
-	// it names "the advisories listed above", so it has to sit under them
-	expect(prompt.indexOf('# Standards findings (deterministic checks)')).toBeLessThan(prompt.indexOf('# Report what you did about each advisory'));
-	// and before the gate output, which is why this pass is a retry
-	expect(prompt.indexOf('# Report what you did about each advisory')).toBeLessThan(prompt.indexOf('# Verification failure'));
-});
-
 test('buildRefactorExecutorInvocation: the command ban names what is banned and leaves file access open — a harness whose only file access is a shell must not read it as "touch nothing"', () => {
 	const { systemPrompt } = buildRefactorExecutorInvocation({ scope, planContent, changedFiles: ['src/widget.ts'] });
 	// the prompt wraps its lines; the sentences are what matter
@@ -376,4 +291,37 @@ test('buildRefactorExecutorInvocation: the overview rides the cached system prom
 	});
 
 	expect(prompt).not.toContain('OVERVIEW-SENTINEL');
+});
+
+test('carries the self-check section, and a standing ban naming the sole exception the other executors carry', () => {
+	const selfCheckCommand = 'node /repo/plugin/dist/cli.mjs self-check --run run-42 --cwd "/repo"';
+	const without = buildRefactorExecutorInvocation({ scope, planContent, changedFiles: ['src/widget.ts'], standards });
+	const granted = buildRefactorExecutorInvocation({ scope, planContent, changedFiles: ['src/widget.ts'], standards, selfCheckCommand });
+
+	// a spawn given no self-check reads exactly what it read before, so the
+	// section is what the granted spawn adds after the standards — asserting on
+	// that slice keeps every claim below about the section itself
+	expect(granted.systemPrompt.startsWith(without.systemPrompt)).toBeTruthy();
+	const section = granted.systemPrompt.slice(without.systemPrompt.length).replace(/\s+/g, ' ');
+
+	// the granted command lands verbatim — an agent that has to reassemble it
+	// runs something the harness never allowed
+	expect(section).toContain(selfCheckCommand);
+	// what its exit codes mean, so a red reads as red
+	expect(section).toMatch(/exit/i);
+	// the stop rule, and the cap that stops a loop no repeat would ever end
+	expect(section).toMatch(/identical/i);
+	expect(section).toMatch(/three times/i);
+	// a still-red check is friction on a complete report, never a failed one
+	expect(section).toMatch(/friction/i);
+	// the engine's gates run afterwards and are the only verdict
+	expect(section).toMatch(/only verdict/i);
+
+	// the standing ban now carries the sole-exception clause the feature
+	// executor's and direct worker's prompts already carry, covering both the
+	// consumer's granted commands and the engine's own self-check
+	const prose = without.systemPrompt.replace(/\s+/g, ' ');
+	expect(prose).toContain('Sole exception');
+	expect(prose).toContain('# Granted commands');
+	expect(prose).toContain('self-check');
 });

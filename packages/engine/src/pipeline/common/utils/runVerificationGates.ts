@@ -3,24 +3,15 @@ import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts'
 import type { AcceptanceRow } from '#src/common/types/AcceptanceRow.ts';
 import { packageOf } from '#src/common/workspace/packageOf.ts';
 import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
-import type { GateOverride, GateResult } from '#src/contracts/index.ts';
+import type { GateResult } from '#src/contracts/index.ts';
 import { checkChangedFilesExecuted } from '#src/coverage/index.ts';
-import { checkAcceptanceTests, GateScheduleKind, runGates } from '#src/gates/index.ts';
+import { checkAcceptanceTests, collectGateObservations, resolveGateSchedule, runGates } from '#src/gates/index.ts';
 import type { VerificationResult } from '#src/pipeline/common/types/VerificationResult.ts';
 import { sourceFiles } from '#src/pipeline/common/utils/sourceFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 
 /** A coverage gate that actually ran and came back green — what the per-file executed check needs a report from. */
 const passedCoverage = ({ gate }: { gate: GateResult }) => gate.kind === 'testCoverage' && gate.skipped !== true && gate.exitCode === 0;
-
-/** This checkpoint's gate schedule: its `gate-overrides` entry when it has one, the engine's two tiers when it does not. */
-const scheduleOf = ({ override }: { override: GateOverride | undefined }) => {
-	if (override === undefined) {
-		return { kind: GateScheduleKind.Tiered };
-	}
-
-	return override === 'off' ? { kind: GateScheduleKind.Off } : { kind: GateScheduleKind.Exact, gates: override };
-};
 
 /**
  * The per-file accountability check over the report the coverage gate just
@@ -88,7 +79,7 @@ interface Params {
 export const runVerificationGates = async ({ run, coverage, checkpoint, rows, final }: Params): Promise<VerificationResult> => {
 	const packagesDir = run.config['packages-dir'] ?? defaultPackagesDir;
 	const hasRootChanges = run.current().changedFiles.some((file) => packageOf({ file, packagesDir }) === undefined);
-	const observations = new Map<string, GateResult>();
+	const collector = collectGateObservations();
 
 	const result = await runGates({
 		cwd: run.cwd,
@@ -97,13 +88,13 @@ export const runVerificationGates = async ({ run, coverage, checkpoint, rows, fi
 		packages: run.current().packages,
 		includeRoot: hasRootChanges,
 		failFast: false,
-		schedule: scheduleOf({ override: resolveGateOverride({ overrides: run.config['gate-overrides'], checkpoint }) }),
+		schedule: resolveGateSchedule({ override: resolveGateOverride({ overrides: run.config['gate-overrides'], checkpoint }) }),
 		runId: run.current().runId,
 		step: run.current().currentStep ?? undefined,
-		onGateResult: (gateResult) => observations.set(`${gateResult.group}\0${gateResult.kind}`, gateResult),
+		onGateResult: collector.onGateResult,
 		onProgress: (message) => run.progress(message),
 	});
-	const gates = [...observations.values()];
+	const gates = collector.observed();
 	// A crashed gate is red without being evidence, so it is kept out of the
 	// failure list the step shows and the fix agent reads — `crashes` is where
 	// it is reported instead.

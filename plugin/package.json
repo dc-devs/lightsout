@@ -6,6 +6,12 @@
 	"pi": {
 		"extensions": [
 			"./extensions/voice.ts"
+		],
+		"skills": [
+			"./skills"
+		],
+		"prompts": [
+			"./prompts"
 		]
 	}
 }

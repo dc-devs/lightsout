@@ -25237,8 +25237,39 @@ var detectPriorArtCandidates = async ({ cwd, planPaths, config: config2 }) => {
 // src/plan/draft/authorPhaseFiles.ts
 import { join as join6 } from "node:path";
 
+// src/agents/common/utils/changedFilesSection.ts
+var changedFilesSection = ({ changedFiles }) => changedFiles === void 0 || changedFiles.length === 0 ? void 0 : `# Previously changed files
+
+Files already created or modified earlier in this run:
+
+${changedFiles.map((file2) => `- ${file2}`).join("\n")}`;
+
+// src/agents/common/utils/selfCheckSection.ts
+var selfCheckSection = ({ command }) => {
+  if (command === void 0) {
+    return void 0;
+  }
+  return [
+    "# Engine self-check",
+    "",
+    "Before you report, run this command \u2014 the engine granted it to this spawn:",
+    "",
+    `\`${command}\``,
+    "",
+    "It is the engine's own command, not the repository's, and it takes no arguments beyond the ones already written above \u2014 appending one only makes the invocation fail. It runs the cheap gates the engine's next checkpoint will run, narrowed to what your change touched. It exits 1 when a gate it ran went red, and exits 0 when every gate it ran passed.",
+    "",
+    "- Fix what it prints and re-run it until it is clean.",
+    "- Stop when a re-run reports the identical findings, and never run it more than three times in one spawn.",
+    "- Repair only what is traceable to a file you changed yourself. The check is scoped to a package rather than to your diff, so it can print a red your change did not cause \u2014 put every such finding straight into your report and do not re-run for it.",
+    "- If the command itself cannot be executed, skip it. If it reports that it could not work out what to check, or that it ran nothing, record that and move on \u2014 do not re-run it.",
+    "- Report exactly as you would have anyway. A self-check still red when you stop belongs in your report's `friction` array, never turning a complete report into a failed one.",
+    "",
+    "Nothing this command prints decides whether your step passed: the engine's gates run afterwards over the full scope and are the only verdict."
+  ].join("\n");
+};
+
 // src/agents/prompts/directWorker.md
-var directWorker_default = '# Role: Direct Worker\n\nYou are a principal software engineer building one ticket in the current\nrepository. You work autonomously from the ticket body appended to these\ninstructions, and your final message is machine-parsed \u2014 it is a data payload,\nnot prose for a human.\n\n## The ticket is the whole brief\n\n- Build what the ticket asks for and nothing adjacent. A ticket is smaller than\n  a plan on purpose: the repo\'s own gates, not a plan, are what make this run\n  trustworthy.\n- There is no plan and there will not be one. Do not write one, do not ask for\n  one, and do not stop because none exists.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the ticket completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the ticket doesn\'t ask for.\n- If a Standards section is appended to these instructions, every rule in it is\n  binding for every line you write. If the repo\'s own CLAUDE.md conflicts with\n  the ticket, CLAUDE.md wins; comply with it and say so in `failures`.\n- Do not delete existing tests. If a test fails because the ticket\n  intentionally changed behavior, update it to pin the new behavior and list it\n  in `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n\n## Continuing your own earlier attempt\n\nWhen an answered question is present in the task message, the tree already\nholds your own earlier attempt \u2014 the run that stopped to ask it. Continue that\nwork in place: keep what the answer confirms, rework what it corrects, and\nnever start over from scratch. Nothing you wrote is lost; the engine commits\nthe whole tree when the gates go green.\n\n## The gates are the bar\n\n- Do not run builds, tests, linters, formatters, package-manager commands, Git\n  commands, network commands, or any other verification or environment-changing\n  command \u2014 the engine runs every gate after you report and hands you the\n  output. Use the harness\'s file tools to read and edit files. If the harness\n  exposes the filesystem only through a shell, use the shell solely to inspect\n  and edit files \u2014 never for repository commands. Sole exception: commands\n  listed under a `# Granted commands` section in your task, and only for\n  producing what the grant text describes.\n- Do not create commits or branches. The engine commits your work.\n- Do not read or write any agent memory, and do not edit CLAUDE.md or other\n  standing instructions.\n\n## Stop rather than guess\n\nWhen the ticket is genuinely ambiguous \u2014 two reasonable engineers would build\ndifferent things, and the difference is visible to the user \u2014 stop and report\n`terminated:ambiguity` with the question as the FIRST entry of `failures`.\nNever guess past it, and never ask more than one question at a time: the\nengine relays exactly one question to the person watching and re-invokes you\nwith their answer.\n\nIf the ticket references a file, module or API that does not exist on disk,\nreport `terminated:stale-references` listing each missing reference.\n\n## Prior art before new symbols\n\nBefore creating any NEW exported symbol, search the repository for an existing\nimplementation \u2014 the exact name, its synonyms (fetch/load/retrieve \u2248 get,\nmake/generate \u2248 create, remove \u2248 delete), and the domain words. If a match\nexists, use it instead of duplicating it. Record every such symbol in the\n`priorArt` array of your report: the terms you searched and what they\nsurfaced. An empty `matches` is a legitimate entry \u2014 "searched, found nothing"\nis evidence the pipeline records.\n\n## Friction\n\nIf anything fought you \u2014 the ticket was ambiguous somewhere, the standards\nconflicted, the environment surprised you \u2014 record it in the optional\n`friction` array with `kind: "friction"`. A judgment call the ticket left to\nyou is `kind: "decision"`. Omit the field entirely when the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. Your\nmessage starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was built, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 omit when clean" }],\n	"priorArt": [{ "symbol": "formatDate", "searches": ["formatDate", "dateToString"], "matches": [] }]\n}\n```\n\nReport `complete` only if you built everything the ticket asks for. Never\nclaim changes you did not make \u2014 the engine diffs the tree, and a false report\nis worse than a failed one.\n';
+var directWorker_default = '# Role: Direct Worker\n\nYou are a principal software engineer building one ticket in the current\nrepository. You work autonomously from the ticket body appended to these\ninstructions, and your final message is machine-parsed \u2014 it is a data payload,\nnot prose for a human.\n\n## The ticket is the whole brief\n\n- Build what the ticket asks for and nothing adjacent. A ticket is smaller than\n  a plan on purpose: the repo\'s own gates, not a plan, are what make this run\n  trustworthy.\n- There is no plan and there will not be one. Do not write one, do not ask for\n  one, and do not stop because none exists.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the ticket completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the ticket doesn\'t ask for.\n- If a Standards section is appended to these instructions, every rule in it is\n  binding for every line you write. If the repo\'s own CLAUDE.md conflicts with\n  the ticket, CLAUDE.md wins; comply with it and say so in `failures`.\n- Do not delete existing tests. If a test fails because the ticket\n  intentionally changed behavior, update it to pin the new behavior and list it\n  in `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n\n## Continuing your own earlier attempt\n\nWhen an answered question is present in the task message, the tree already\nholds your own earlier attempt \u2014 the run that stopped to ask it. Continue that\nwork in place: keep what the answer confirms, rework what it corrects, and\nnever start over from scratch. Nothing you wrote is lost; the engine commits\nthe whole tree when the gates go green.\n\n## The gates are the bar\n\n- Do not run builds, tests, linters, formatters, package-manager commands, Git\n  commands, network commands, or any other verification or environment-changing\n  command \u2014 the engine runs every gate after you report and hands you the\n  output. Use the harness\'s file tools to read and edit files. If the harness\n  exposes the filesystem only through a shell, use the shell solely to inspect\n  and edit files \u2014 never for repository commands. Sole exception: commands\n  listed under a `# Granted commands` section in your task, and the engine\'s own\n  self-check command where an `# Engine self-check` section hands it to you. A\n  granted command is only for producing what the grant text describes; the\n  engine\'s self-check is the one verification command you may run, and only as\n  its own section describes.\n- Do not create commits or branches. The engine commits your work.\n- Do not read or write any agent memory, and do not edit CLAUDE.md or other\n  standing instructions.\n\n## Stop rather than guess\n\nWhen the ticket is genuinely ambiguous \u2014 two reasonable engineers would build\ndifferent things, and the difference is visible to the user \u2014 stop and report\n`terminated:ambiguity` with the question as the FIRST entry of `failures`.\nNever guess past it, and never ask more than one question at a time: the\nengine relays exactly one question to the person watching and re-invokes you\nwith their answer.\n\nIf the ticket references a file, module or API that does not exist on disk,\nreport `terminated:stale-references` listing each missing reference.\n\n## Prior art before new symbols\n\nBefore creating any NEW exported symbol, search the repository for an existing\nimplementation \u2014 the exact name, its synonyms (fetch/load/retrieve \u2248 get,\nmake/generate \u2248 create, remove \u2248 delete), and the domain words. If a match\nexists, use it instead of duplicating it. Record every such symbol in the\n`priorArt` array of your report: the terms you searched and what they\nsurfaced. An empty `matches` is a legitimate entry \u2014 "searched, found nothing"\nis evidence the pipeline records.\n\n## Friction\n\nIf anything fought you \u2014 the ticket was ambiguous somewhere, the standards\nconflicted, the environment surprised you \u2014 record it in the optional\n`friction` array with `kind: "friction"`. A judgment call the ticket left to\nyou is `kind: "decision"`. Omit the field entirely when the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. Your\nmessage starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was built, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 omit when clean" }],\n	"priorArt": [{ "symbol": "formatDate", "searches": ["formatDate", "dateToString"], "matches": [] }]\n}\n```\n\nReport `complete` only if you built everything the ticket asks for. Never\nclaim changes you did not make \u2014 the engine diffs the tree, and a false report\nis worse than a failed one.\n';
 
 // src/agents/buildDirectWorkerInvocation.ts
 var buildDirectWorkerInvocation = ({
@@ -25248,7 +25279,8 @@ var buildDirectWorkerInvocation = ({
   allowedCommands,
   errorContext,
   changedFiles,
-  answeredQuestion
+  answeredQuestion,
+  selfCheckCommand: selfCheckCommand2
 }) => {
   const roleSections = [directWorker_default, `# Ticket ${ticketRef}
 
@@ -25264,10 +25296,14 @@ ${standards}`);
     roleSections.push(
       `# Granted commands
 
-You may run these shell commands \u2014 and only these (prefix match; arguments after the prefix are allowed). Use them solely to produce what the ticket asks for and only a command can produce. Never use them to verify, install, or explore \u2014 the engine runs all gates itself. List every file a granted command creates in \`changedFiles\`.
+You may run these shell commands \u2014 and only these (prefix match; arguments after the prefix are allowed). Use them solely to produce what the ticket asks for and only a command can produce. Never use them to verify, install, or explore \u2014 the engine runs all gates itself, and its own self-check is the one verification command you may run, granted to you in a section of its own rather than listed here. List every file a granted command creates in \`changedFiles\`.
 
 ${allowedCommands.map((command) => `- \`${command}\``).join("\n")}`
     );
+  }
+  const selfCheck = selfCheckSection({ command: selfCheckCommand2 });
+  if (selfCheck) {
+    roleSections.push(selfCheck);
   }
   const sections = [];
   if (answeredQuestion) {
@@ -25281,14 +25317,9 @@ Question: ${answeredQuestion.question}
 Answer: ${answeredQuestion.answer}`
     );
   }
-  if (changedFiles && changedFiles.length > 0) {
-    sections.push(
-      `# Previously changed files
-
-Files already created or modified earlier in this run:
-
-${changedFiles.map((file2) => `- ${file2}`).join("\n")}`
-    );
+  const changed = changedFilesSection({ changedFiles });
+  if (changed) {
+    sections.push(changed);
   }
   if (errorContext) {
     sections.push(
@@ -25333,7 +25364,7 @@ var applyPromptTokens = ({ text, tokens }) => {
 };
 
 // src/agents/prompts/featureExecutor.md
-var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan appended to these instructions,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than {{fileLimit}} source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- An Overview section, when present, is high-level context from a multi-phase\n  effort \u2014 use it to understand intent, but implement only what the Plan\n  section specifies.\n- If a Standards section is appended to these instructions, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests whenever the plan explicitly requires them \u2014 create every\n  plan-named test file and cover its specified cases before reporting.\n  \u201CDo not run verification\u201D below prohibits executing tests and gates; it\n  never permits omitting required test code. Otherwise, a dedicated test-writer\n  role covers your changes after you report.\n- Do not run builds, tests, linters, formatters, package-manager commands,\n  Git commands, network commands, or any other verification or\n  environment-changing command \u2014 the engine runs verification after you\n  report, against gates you cannot influence. Use the harness\'s file tools to\n  read and edit files. If the harness exposes the filesystem only through a\n  shell, use the shell solely to inspect and edit files \u2014 never for\n  repository commands. Sole exception: commands listed under a\n  `# Granted commands` section in your task, and only for producing the\n  deliverables described there \u2014 never for verifying, installing, or anything\n  the grant text doesn\'t cover.\n- Do not create commits or branches.\n- Tests listed under an `# Acceptance tests` section in your task are what the\n  plan means by done: every one of them must execute and pass. You may edit a\n  test file when the plan\'s own changes make it stale \u2014 an import, a mock, a\n  fixture, setup, or a move. Every edit to a test file is reviewed against the\n  plan before any gate runs, and the review refuses a weakened or removed\n  assertion, an acceptance test deleted, renamed, skipped or replaced without a\n  disposition the plan backs, a mock that neuters the subject under test, a\n  snapshot rewrite that hides a behaviour change the plan did not authorise, and\n  configuration that stops a test from being collected. A moved test file\n  carries every case its source held. An acceptance test that cannot pass\n  against a correct implementation is a plan defect: report `failed` naming the\n  test and why, rather than changing it.\n- Do not read or write any agent memory, and do not edit CLAUDE.md or other\n  standing instructions \u2014 anything worth persisting belongs in your report\n  (friction included), which the engine records.\n\n## Prior art before new symbols\n\nBefore creating any NEW exported symbol the plan does not explicitly name,\nsearch the repository for an existing implementation \u2014 the exact name, its\nsynonyms (fetch/load/retrieve \u2248 get, make/generate \u2248 create, remove \u2248\ndelete), and the domain words. If a match exists, use it instead of\nduplicating it \u2014 or report the conflict in `failures` if it can\'t serve.\nRecord every such symbol in the `priorArt` array of your report: the terms\nyou searched and what they surfaced. An empty `matches` is a legitimate\nentry \u2014 "searched, found nothing" is evidence the pipeline records. Symbols\nthe plan names explicitly need no entry.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\nThen, if a Standards section was provided, re-read it top to bottom and audit\nevery file you changed against every rule \u2014 the full set, not the subset you\nremember from before you started coding. Fix each deviation in source before\nreporting: the refactor role should find clean code, not do your conformance\npass for you.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }],\n	"priorArt": [{ "symbol": "formatDate", "searches": ["formatDate", "format.*date", "dateToString"], "matches": [] }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
+var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan appended to these instructions,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than {{fileLimit}} source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- An Overview section, when present, is high-level context from a multi-phase\n  effort \u2014 use it to understand intent, but implement only what the Plan\n  section specifies.\n- If a Standards section is appended to these instructions, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests whenever the plan explicitly requires them \u2014 create every\n  plan-named test file and cover its specified cases before reporting.\n  \u201CDo not run verification\u201D below prohibits executing tests and gates; it\n  never permits omitting required test code. Otherwise, a dedicated test-writer\n  role covers your changes after you report.\n- Do not run builds, tests, linters, formatters, package-manager commands,\n  Git commands, network commands, or any other verification or\n  environment-changing command \u2014 the engine runs verification after you\n  report, against gates you cannot influence. Use the harness\'s file tools to\n  read and edit files. If the harness exposes the filesystem only through a\n  shell, use the shell solely to inspect and edit files \u2014 never for\n  repository commands. Sole exception: commands listed under a\n  `# Granted commands` section in your task, and the engine\'s own self-check\n  command where an `# Engine self-check` section hands it to you. A granted\n  command is only for producing the deliverables the grant text describes \u2014\n  never for verifying, installing, or anything that text doesn\'t cover; the\n  engine\'s self-check is the one verification command you may run, and only as\n  its own section describes.\n- Do not create commits or branches.\n- Tests listed under an `# Acceptance tests` section in your task are what the\n  plan means by done: every one of them must execute and pass. You may edit a\n  test file when the plan\'s own changes make it stale \u2014 an import, a mock, a\n  fixture, setup, or a move. Every edit to a test file is reviewed against the\n  plan before any gate runs, and the review refuses a weakened or removed\n  assertion, an acceptance test deleted, renamed, skipped or replaced without a\n  disposition the plan backs, a mock that neuters the subject under test, a\n  snapshot rewrite that hides a behaviour change the plan did not authorise, and\n  configuration that stops a test from being collected. A moved test file\n  carries every case its source held. An acceptance test that cannot pass\n  against a correct implementation is a plan defect: report `failed` naming the\n  test and why, rather than changing it.\n- Do not read or write any agent memory, and do not edit CLAUDE.md or other\n  standing instructions \u2014 anything worth persisting belongs in your report\n  (friction included), which the engine records.\n\n## Prior art before new symbols\n\nBefore creating any NEW exported symbol the plan does not explicitly name,\nsearch the repository for an existing implementation \u2014 the exact name, its\nsynonyms (fetch/load/retrieve \u2248 get, make/generate \u2248 create, remove \u2248\ndelete), and the domain words. If a match exists, use it instead of\nduplicating it \u2014 or report the conflict in `failures` if it can\'t serve.\nRecord every such symbol in the `priorArt` array of your report: the terms\nyou searched and what they surfaced. An empty `matches` is a legitimate\nentry \u2014 "searched, found nothing" is evidence the pipeline records. Symbols\nthe plan names explicitly need no entry.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\nThen, if a Standards section was provided, re-read it top to bottom and audit\nevery file you changed against every rule \u2014 the full set, not the subset you\nremember from before you started coding. Fix each deviation in source before\nreporting: the refactor role should find clean code, not do your conformance\npass for you.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }],\n	"priorArt": [{ "symbol": "formatDate", "searches": ["formatDate", "format.*date", "dateToString"], "matches": [] }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
 
 // src/common/constants/defaultExecutorFileLimit.ts
 var defaultExecutorFileLimit = 50;
@@ -25347,7 +25378,8 @@ var buildFeatureExecutorInvocation = ({
   changedFiles,
   allowedCommands,
   fileLimit,
-  acceptanceTests
+  acceptanceTests,
+  selfCheckCommand: selfCheckCommand2
 }) => {
   const roleSections = [applyPromptTokens({ text: featureExecutor_default, tokens: { fileLimit: fileLimit ?? defaultExecutorFileLimit } })];
   if (overviewContent) {
@@ -25373,20 +25405,19 @@ ${standards}`);
     roleSections.push(
       `# Granted commands
 
-You may run these shell commands \u2014 and only these (prefix match; arguments after the prefix are allowed). Use them solely to produce plan deliverables that only a command can produce (e.g. a generated migration). Never use them to verify, install, or explore \u2014 the engine runs all gates itself. List every file a granted command creates in \`changedFiles\`.
+You may run these shell commands \u2014 and only these (prefix match; arguments after the prefix are allowed). Use them solely to produce plan deliverables that only a command can produce (e.g. a generated migration). Never use them to verify, install, or explore \u2014 the engine runs all gates itself, and its own self-check is the one verification command you may run, granted to you in a section of its own rather than listed here. List every file a granted command creates in \`changedFiles\`.
 
 ${allowedCommands.map((command) => `- \`${command}\``).join("\n")}`
     );
   }
+  const selfCheck = selfCheckSection({ command: selfCheckCommand2 });
+  if (selfCheck) {
+    roleSections.push(selfCheck);
+  }
   const sections = [];
-  if (changedFiles && changedFiles.length > 0) {
-    sections.push(
-      `# Previously changed files
-
-Files already created or modified earlier in this run:
-
-${changedFiles.map((file2) => `- ${file2}`).join("\n")}`
-    );
+  const changed = changedFilesSection({ changedFiles });
+  if (changed) {
+    sections.push(changed);
   }
   const acceptance = acceptanceTestsSection({ acceptanceTests });
   if (acceptance) {
@@ -26083,7 +26114,7 @@ Answer: ${answeredQuestion.answer}`
 };
 
 // src/agents/prompts/refactorExecutor.md
-var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal software engineer improving code that already works. You\nwork autonomously: your scope section, the plan, and any standards are appended\nto these instructions, while the files to work on, the standards findings, and\nany verification failure arrive in the task message. Your final message is\nmachine-parsed \u2014 it is a data payload, not prose for a human.\n\nThe scope section appended below says which files you may write. It differs by\nwho invoked you, and it is the only part of these instructions that does.\n\n## What to improve\n\nRead the files in your task, plus enough surrounding code to judge the\nconventions around them, then apply improvements that are high-confidence and\nbehavior-preserving:\n\n- Duplication across the files you may write (extract it if the repo has a place)\n- Dead code, unused exports, scaffolding nothing reaches any more\n- Naming, structure, and placement inconsistent with the surrounding codebase\n- If a Standards section is provided, any deviation from it\n- If a Standards findings section is provided, those are deterministic\n  standards-check results on the changed files \u2014 address them FIRST; the engine\n  re-runs the checks after you report, and unresolved findings re-invoke you.\n- Entries under its Advisory subsection are per-rule JUDGMENT CALLS, and each\n  carries its own `guidance` line. Apply that guidance \u2014 there is no single\n  blanket rule covering every advisory, because they come from different rules\n  asking for different things. Never block on an advisory.\n- The hard limits below still govern an advisory: never change behavior, and\n  never write a file your scope section does not allow. An advisory whose only\n  available fix would do either is REPORTED as a noted exemption with your\n  reason, never applied.\n\n## Hard limits\n\n- Never change behavior or add functionality.\n- A test that passed before your refactor and fails after is a PRESUMED\n  REGRESSION: restore the behavior in the SOURCE \u2014 never make a test agree\n  with new behavior. You may edit a test ONLY for mechanical wiring that\n  follows directly from a refactor you made (an import path for a moved file,\n  a renamed symbol, a mock signature for a changed signature) \u2014 never author\n  new tests, never change, weaken, or delete an assertion to get green. A\n  test needing more than mechanical wiring is out of scope: leave your\n  refactor unapplied or report the file in `failures` as needing\n  re-authoring. List every test file you touch in `changedFiles`, each with\n  its wiring reason. Every edit to a test file is reviewed against the plan\n  before the gates run; a refused edit comes back to you as a verification\n  failure naming the file and the reason.\n- If two items in your work-list conflict (one says extract X, another says\n  delete X), apply the one producing fewer downstream changes and name the\n  skipped item in your summary.\n- Prefer doing nothing over a speculative improvement: zero changes is a\n  successful outcome (`complete` with an empty `changedFiles` and a summary\n  saying the code is clean). The engine re-invokes you for further passes\n  only while you keep reporting changes \u2014 an empty pass ends the loop.\n- Do not run builds, tests, linters, formatters, package-manager commands,\n  Git commands, network commands, or any other verification or\n  environment-changing command \u2014 the engine runs verification after you\n  report. Use the harness\'s file tools to read and edit files. If the harness\n  exposes the filesystem only through a shell, use the shell solely to inspect\n  and edit files \u2014 never for repository commands.\n- Do not reproduce house formatting by hand. The engine runs the repo\'s own\n  formatter over your edits before it verifies them, so import order, line\n  wrapping, quoting and indentation are settled for you. Copying those details\n  off a neighbouring file is guesswork you are not being asked for, and it is\n  wrong often enough to turn a finished batch into a failed lint.\n- Do not create commits or branches.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],\n	"summary": "one line: what was improved, or that no changes were warranted",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
+var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal software engineer improving code that already works. You\nwork autonomously: your scope section, the plan, and any standards are appended\nto these instructions, while the files to work on, the standards findings, and\nany verification failure arrive in the task message. Your final message is\nmachine-parsed \u2014 it is a data payload, not prose for a human.\n\nThe scope section appended below says which files you may write. It differs by\nwho invoked you, and it is the only part of these instructions that does.\n\n## What to improve\n\nRead the files in your task, plus enough surrounding code to judge the\nconventions around them, then apply improvements that are high-confidence and\nbehavior-preserving:\n\n- Duplication across the files you may write (extract it if the repo has a place)\n- Dead code, unused exports, scaffolding nothing reaches any more\n- Naming, structure, and placement inconsistent with the surrounding codebase\n- If a Standards section is provided, any deviation from it\n- If a Standards findings section is provided, those are deterministic\n  standards-check results on the changed files \u2014 address them FIRST; the engine\n  re-runs the checks after you report, and unresolved findings re-invoke you.\n- Entries under its Advisory subsection are per-rule JUDGMENT CALLS, and each\n  carries its own `guidance` line. Apply that guidance \u2014 there is no single\n  blanket rule covering every advisory, because they come from different rules\n  asking for different things. Never block on an advisory.\n- The hard limits below still govern an advisory: never change behavior, and\n  never write a file your scope section does not allow. An advisory whose only\n  available fix would do either is REPORTED as a noted exemption with your\n  reason, never applied.\n\n## Hard limits\n\n- Never change behavior or add functionality.\n- A test that passed before your refactor and fails after is a PRESUMED\n  REGRESSION: restore the behavior in the SOURCE \u2014 never make a test agree\n  with new behavior. You may edit a test ONLY for mechanical wiring that\n  follows directly from a refactor you made (an import path for a moved file,\n  a renamed symbol, a mock signature for a changed signature) \u2014 never author\n  new tests, never change, weaken, or delete an assertion to get green. A\n  test needing more than mechanical wiring is out of scope: leave your\n  refactor unapplied or report the file in `failures` as needing\n  re-authoring. List every test file you touch in `changedFiles`, each with\n  its wiring reason. Every edit to a test file is reviewed against the plan\n  before the gates run; a refused edit comes back to you as a verification\n  failure naming the file and the reason.\n- If two items in your work-list conflict (one says extract X, another says\n  delete X), apply the one producing fewer downstream changes and name the\n  skipped item in your summary.\n- Prefer doing nothing over a speculative improvement: zero changes is a\n  successful outcome (`complete` with an empty `changedFiles` and a summary\n  saying the code is clean). The engine re-invokes you for further passes\n  only while you keep reporting changes \u2014 an empty pass ends the loop.\n- Do not run builds, tests, linters, formatters, package-manager commands,\n  Git commands, network commands, or any other verification or\n  environment-changing command \u2014 the engine runs verification after you\n  report. Use the harness\'s file tools to read and edit files. If the harness\n  exposes the filesystem only through a shell, use the shell solely to inspect\n  and edit files \u2014 never for repository commands. Sole exception: commands\n  listed under a `# Granted commands` section in your task, and the engine\'s own\n  self-check command where an `# Engine self-check` section hands it to you. A\n  granted command is only for producing what the grant text describes; the\n  engine\'s self-check is the one verification command you may run, and only as\n  its own section describes.\n- Do not reproduce house formatting by hand. The engine runs the repo\'s own\n  formatter over your edits before it verifies them, so import order, line\n  wrapping, quoting and indentation are settled for you. Copying those details\n  off a neighbouring file is guesswork you are not being asked for, and it is\n  wrong often enough to turn a finished batch into a failed lint.\n- Do not create commits or branches.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],\n	"summary": "one line: what was improved, or that no changes were warranted",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
 
 // src/agents/prompts/refactorScopeFeature.md
 var refactorScopeFeature_default = "## Scope \u2014 the files one feature changed\n\nYou are reviewing files a feature change just touched. Review ONLY the changed\nfiles listed in your task. Read them, plus enough surrounding code to judge the\nconventions around them.\n\n- Never refactor a file outside the listed set. Reading is fine; writing is not.\n- Never change a public API. Deleting or moving an export is a public-API change\n  by definition. A dead-export-family advisory (`dead-export`,\n  `test-only-export`, `barrel-is-only-consumer`) is therefore REPORTED rather than\n  acted on, unless the finding itself proves nothing consumes the export.\n- An advisory whose only available fix would change a public API is REPORTED as\n  a noted exemption with your reason, never applied.\n\nWhy the limit: this work rides on a branch someone will review as a feature. A\nreorganization spreading out from it is not what that reviewer agreed to read,\nhowever much the code deserves one.\n";
@@ -26129,7 +26160,8 @@ var buildRefactorExecutorInvocation = ({
   findings,
   advisories,
   reportAdvisoryOutcomes,
-  errorContext
+  errorContext,
+  selfCheckCommand: selfCheckCommand2
 }) => {
   const roleSections = [refactorExecutor_default, scopePrompt({ scope })];
   if (overviewContent) {
@@ -26150,6 +26182,10 @@ ${planContent}`);
 These rules are binding:
 
 ${standards}`);
+  }
+  const selfCheck = selfCheckSection({ command: selfCheckCommand2 });
+  if (selfCheck) {
+    roleSections.push(selfCheck);
   }
   const sections = [`${worklistHeading({ scope })}
 
@@ -130166,7 +130202,7 @@ var autoPlanCatalogEntry = {
   flags: [],
   steps: [],
   records: CommandRecordKind.Plans,
-  related: ["brainstorm", "plan", "implement", "resume", "ship", "implement-direct", "queue", "ticket-state"]
+  related: ["brainstorm", "plan", "implement", "resume", "ship", "implement-direct", "queue", "ticket-state", "self-check"]
 };
 
 // src/commands/common/constants/build/brainstormCatalogEntry.ts
@@ -130184,7 +130220,7 @@ var brainstormCatalogEntry = {
   ],
   steps: [],
   records: CommandRecordKind.Plans,
-  related: ["auto-plan", "plan", "implement", "resume", "ship", "implement-direct", "queue", "ticket-state"]
+  related: ["auto-plan", "plan", "implement", "resume", "ship", "implement-direct", "queue", "ticket-state", "self-check"]
 };
 
 // src/commands/common/constants/build/implementSteps.ts
@@ -130340,7 +130376,7 @@ var implementCatalogEntry = {
   ],
   steps: implementSteps,
   records: CommandRecordKind.Runs,
-  related: ["auto-plan", "brainstorm", "plan", "resume", "ship", "implement-direct", "queue", "ticket-state"],
+  related: ["auto-plan", "brainstorm", "plan", "resume", "ship", "implement-direct", "queue", "ticket-state", "self-check"],
   graphic: {
     title: "How /implement turns the spec into verified code",
     subtitle: "Ten steps, deterministic gates throughout, and a complete record saved to disk.",
@@ -130372,7 +130408,7 @@ var implementDirectCatalogEntry = {
   ],
   steps: [],
   records: CommandRecordKind.Runs,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "queue", "resume", "ship", "ticket-state"]
+  related: ["auto-plan", "brainstorm", "plan", "implement", "queue", "resume", "ship", "ticket-state", "self-check"]
 };
 
 // src/commands/common/constants/build/planSteps.ts
@@ -130514,7 +130550,7 @@ var planCatalogEntry = {
   ],
   steps: planSteps,
   records: CommandRecordKind.Plans,
-  related: ["auto-plan", "brainstorm", "implement", "resume", "ship", "implement-direct", "queue", "ticket-state"],
+  related: ["auto-plan", "brainstorm", "implement", "resume", "ship", "implement-direct", "queue", "ticket-state", "self-check"],
   graphic: {
     title: "How /plan turns a request into an implementation-ready spec",
     subtitle: "Final spec and every decision recorded before any code is written.",
@@ -130543,7 +130579,7 @@ var queueCatalogEntry = {
   ],
   steps: [],
   records: CommandRecordKind.Runs,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "ticket-state"]
+  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "ticket-state", "self-check"]
 };
 
 // src/commands/common/constants/build/resumeCatalogEntry.ts
@@ -130563,7 +130599,24 @@ var resumeCatalogEntry = {
   ],
   steps: [],
   records: CommandRecordKind.Runs,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "ship", "implement-direct", "queue", "ticket-state"]
+  related: ["auto-plan", "brainstorm", "plan", "implement", "ship", "implement-direct", "queue", "ticket-state", "self-check"]
+};
+
+// src/commands/common/constants/build/selfCheckCatalogEntry.ts
+var selfCheckCatalogEntry = {
+  id: "self-check",
+  cli: "lightsout self-check",
+  group: CommandGroup.Build,
+  summary: "The engine's own check of a writing agent's change, run by that agent before it reports.",
+  whenToUse: "Nothing a human reaches for. The engine grants it to the feature executor, the refactor executor and the direct worker inside their own spawns, so an agent sees the cheap gates it is about to be judged on while its context is still loaded. It takes the live run id and reads everything else from that run \u2014 and it decides nothing: the engine's own gates run afterwards over the full scope and are the only verdict.",
+  invocations: [{ id: "self-check" }],
+  flags: [
+    { name: "run", value: "<id>", meaning: "The live run whose manifest says which step, schedule and scope this check mirrors.", required: true },
+    { name: "cwd", value: "<path>", meaning: "Repository the run belongs to.", fallback: "The process working directory.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "queue", "ticket-state"]
 };
 
 // src/commands/common/constants/build/shipCatalogEntry.ts
@@ -130577,7 +130630,7 @@ var shipCatalogEntry = {
   flags: [{ name: "cwd", value: "<path>", meaning: "Repository to ship from.", fallback: "The process working directory.", required: false }],
   steps: [],
   records: CommandRecordKind.Nothing,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "resume", "implement-direct", "queue", "ticket-state"]
+  related: ["auto-plan", "brainstorm", "plan", "implement", "resume", "implement-direct", "queue", "ticket-state", "self-check"]
 };
 
 // src/commands/common/constants/build/ticketStateCatalogEntry.ts
@@ -130608,7 +130661,7 @@ var ticketStateCatalogEntry = {
   ],
   steps: [],
   records: CommandRecordKind.Nothing,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "queue"]
+  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "queue", "self-check"]
 };
 
 // src/commands/common/constants/burnDown/refactorSteps.ts
@@ -130969,6 +131022,7 @@ var commandCatalog = [
   shipCatalogEntry,
   queueCatalogEntry,
   ticketStateCatalogEntry,
+  selfCheckCatalogEntry,
   refactorCatalogEntry,
   testCoverageToThresholdCatalogEntry,
   standardsCheckCatalogEntry,
@@ -131014,6 +131068,7 @@ var usageOrder = [
   "plan-grade",
   "plan-publish",
   "ticket-state",
+  "self-check",
   "friction",
   "improve",
   "voice-toggle",
@@ -132072,12 +132127,22 @@ var seedUsageTotals = ({ usage: usage2 }) => ({
 // src/runState/summarizeRun.ts
 import { readdir as readdir9 } from "node:fs/promises";
 import { join as join53 } from "node:path";
+
+// src/common/selfCheck/selfCheckStepPrefix.ts
+var selfCheckStepPrefix = "self-check-";
+
+// src/common/selfCheck/isSelfCheckStep.ts
+var isSelfCheckStep = ({ step }) => step?.startsWith(selfCheckStepPrefix) ?? false;
+
+// src/runState/summarizeRun.ts
 var LedgerRecord = external_exports.object({
   step: external_exports.string(),
   outputTokens: external_exports.number(),
   costUsd: external_exports.number()
 });
 var CommandRecord = external_exports.object({
+  /** The pipeline step the execution was recorded under; absent on a record written outside a step. */
+  step: external_exports.string().optional(),
   durationMs: external_exports.number().optional(),
   rerun: external_exports.literal(true).optional(),
   skipped: external_exports.literal(true).optional()
@@ -132085,7 +132150,9 @@ var CommandRecord = external_exports.object({
 var summarizeRun = async ({ cwd, manifest }) => {
   const runDir = getRunDir({ cwd, runId: manifest.runId });
   const ledger = await readJsonlRecords({ path: join53(runDir, "agents.jsonl"), schema: LedgerRecord });
-  const commands2 = await readJsonlRecords({ path: join53(runDir, "commands.jsonl"), schema: CommandRecord });
+  const commands2 = (await readJsonlRecords({ path: join53(runDir, "commands.jsonl"), schema: CommandRecord })).filter(
+    (command) => !isSelfCheckStep({ step: command.step })
+  );
   const agentFiles = await readdir9(join53(runDir, "agents")).catch(() => []);
   const friction = (await readFriction({ cwd })).filter((entry) => entry.runId === manifest.runId);
   const perStepUsage = /* @__PURE__ */ new Map();
@@ -134004,6 +134071,12 @@ var runSteps = async ({ run, steps }) => {
 import { mkdir as mkdir15, writeFile as writeFile12 } from "node:fs/promises";
 import { join as join72 } from "node:path";
 
+// src/common/selfCheck/buildSelfCheckCommand.ts
+var buildSelfCheckCommand = ({ cwd, runId }) => {
+  const prefix = `node ${process.argv[1]} self-check`;
+  return { prefix, command: `${prefix} --run ${runId} --cwd "${cwd}"` };
+};
+
 // src/common/services/RunState.ts
 var upsertStep = ({ steps, record: record3 }) => {
   const existing = steps.findIndex((step) => step.id === record3.id);
@@ -134206,8 +134279,10 @@ ${text}`, "utf8");
       permissions: this.config.permissions ?? Permissions.Write,
       timeoutMs: this.agentTimeoutMs,
       // Harness-level allowance for all working roles; the binding grant
-      // is the prompt section, which only the executor's builder emits.
-      allowedCommands: this.config["agent-commands"],
+      // is the prompt section, which only the executor's builders emit. The
+      // engine's own self-check prefix rides the same allowance, so a role
+      // never told about it still cannot be blocked from one it was told about.
+      allowedCommands: [...this.config["agent-commands"] ?? [], buildSelfCheckCommand({ cwd: this.cwd, runId: this.current().runId }).prefix],
       onEvent: (event) => {
         if (!seenFirst) {
           seenFirst = true;
@@ -134222,17 +134297,781 @@ ${text}`, "utf8");
   }
 };
 
+// src/common/processes/runFormatter.ts
+var runFormatter = async ({ cwd, runId, config: config2, step, onResult }) => {
+  const command = config2.gates.format;
+  if (!command) {
+    return void 0;
+  }
+  const formatTimeoutMs = 10 * 6e4;
+  const startedAt = Date.now();
+  let result;
+  try {
+    result = await runCommand({ command, cwd, timeoutMs: formatTimeoutMs });
+  } catch (error51) {
+    result = { exitCode: -1, stdout: "", stderr: messageOf({ error: error51 }) };
+  }
+  const gateResult = {
+    group: "root",
+    kind: "format",
+    command,
+    exitCode: result.exitCode,
+    durationMs: Date.now() - startedAt,
+    ...result.exitCode === 0 ? {} : { outputTail: `${result.stdout}
+${result.stderr}`.slice(-2e3) }
+  };
+  await appendCommandLog({
+    cwd,
+    runId,
+    record: {
+      at: (/* @__PURE__ */ new Date()).toISOString(),
+      step,
+      ...gateResult
+    }
+  });
+  onResult?.(gateResult);
+  return result.exitCode === 0 ? void 0 : `format failed (exit ${result.exitCode}):
+${result.stdout}
+${result.stderr}`;
+};
+
+// src/pipeline/steps/formatStep.ts
+var formatStep = ({ run, id }) => ({
+  id,
+  skip: () => run.config.gates.format ? void 0 : "no format command configured",
+  run: async () => {
+    const record3 = run.nextRecord({ id });
+    await run.setStep({ record: record3 });
+    run.progress(`step ${id} \u2014 running formatter`);
+    const formatError2 = await runFormatter({ cwd: run.cwd, runId: run.current().runId, config: run.config, step: id });
+    if (formatError2) {
+      return run.stop({ record: record3, status: RunStatus.Failed, error: formatError2 });
+    }
+    const formatterArtifacts = (await readGitChangedFiles({ cwd: run.cwd }) ?? []).filter(
+      (file2) => !run.current().changedFiles.includes(file2) && !run.current().baselineDirtyFiles.includes(file2)
+    );
+    await run.setStep({
+      record: { ...record3, status: RunStatus.Passed },
+      patch: formatterArtifacts.length === 0 ? void 0 : { baselineDirtyFiles: [.../* @__PURE__ */ new Set([...run.current().baselineDirtyFiles, ...formatterArtifacts])] }
+    });
+    run.progress(`step ${id} passed`);
+    return void 0;
+  }
+});
+
+// src/pipeline/common/utils/stopOnGateCrash.ts
+var stopOnGateCrash = ({ run, stepId: stepId2, record: record3, crashes, error: error51 }) => {
+  run.progress(`step ${stepId2}: gate crashed rather than failed \u2014 no fix attempted`);
+  return run.stop({
+    record: record3,
+    status: RunStatus.Escalated,
+    error: [
+      `${stepId2}: a gate crashed instead of failing \u2014 the known jest worker SIGSEGV, not a verdict about the code.`,
+      "No fix was attempted and no fix attempt was spent; re-running the run is the answer.",
+      crashes.join("\n"),
+      error51 ?? ""
+    ].join("\n\n")
+  });
+};
+
+// src/common/config/resolveGateOverride.ts
+var resolveGateOverride = ({ overrides, checkpoint }) => Object.entries(overrides ?? {}).find(([key]) => key === checkpoint)?.[1];
+
+// src/common/fileGroups/chunkFileGroup.ts
+var chunkFileGroup = ({ files, max }) => {
+  const sorted = [...files].sort();
+  const chunks = [];
+  for (let start = 0; start < sorted.length; start += max) {
+    chunks.push(sorted.slice(start, start + max));
+  }
+  return chunks;
+};
+
+// src/coverage/buildCoverageBatch.ts
+var maxWriterGroupFiles = 12;
+var buildCoverageBatch = ({ files, components, batchNumber, batchSize = 5 }) => {
+  const scope = files[0].scope;
+  const candidateByPath = new Map(files.map((file2) => [file2.path, file2]));
+  const candidatesOf = ({ members: members2 }) => members2.flatMap((path) => candidateByPath.get(path) ?? []);
+  const worstOf = ({ candidates }) => Math.min(...candidates.map((candidate) => candidate.statementsPct));
+  const groupOf = ({ component }) => {
+    const candidates = candidatesOf({ members: component });
+    if (component.length <= maxWriterGroupFiles || candidates.length === 0) {
+      return { members: component, candidates };
+    }
+    const worst = candidates.sort((left, right) => left.statementsPct - right.statementsPct || left.path.localeCompare(right.path))[0];
+    const members2 = chunkFileGroup({ files: component, max: maxWriterGroupFiles }).filter((chunk) => chunk.includes(worst.path)).flat();
+    return { members: members2, candidates: candidatesOf({ members: members2 }) };
+  };
+  const ranked = components.map((component) => groupOf({ component })).filter((group) => group.candidates.length > 0).sort(
+    (left, right) => worstOf({ candidates: left.candidates }) - worstOf({ candidates: right.candidates }) || left.members[0].localeCompare(right.members[0])
+  );
+  const members = [];
+  const tracked = [];
+  for (const group of ranked) {
+    if (tracked.length >= batchSize) {
+      break;
+    }
+    members.push(...group.members);
+    tracked.push(...group.candidates);
+  }
+  return {
+    id: `batch-${String(batchNumber).padStart(2, "0")}:${scope}`,
+    scope,
+    files: tracked.sort((left, right) => left.statementsPct - right.statementsPct || left.path.localeCompare(right.path)),
+    members
+  };
+};
+
+// src/coverage/checkChangedFilesExecuted.ts
+import { readFile as readFile43 } from "node:fs/promises";
+import { join as join80, relative as relative12 } from "node:path";
+
 // src/common/sourceFiles/isTestableSourceFile.ts
 var isTestableSourceFile = ({ path }) => /\.(m|c)?[jt]sx?$/i.test(path);
 
-// src/pipeline/common/utils/standardsScopeFiles.ts
-var standardsScopeFiles = ({ run }) => {
-  const vendored = run.config.vendored ?? [];
-  return run.current().changedFiles.filter((file2) => isTestableSourceFile({ path: file2 }) && !vendored.some((prefix) => file2.startsWith(prefix)));
+// src/common/sourceFiles/isToolingConfigFile.ts
+var isToolingConfigFile = ({ path, packagesDir }) => {
+  const segments = path.split("/");
+  const name = segments.at(-1) ?? "";
+  const folder = segments.slice(0, -1);
+  if (!/\.config\.(c|m)?[jt]s$/i.test(name)) {
+    return false;
+  }
+  return folder.length === 0 || folder.length === 2 && folder[0] === packagesDir;
 };
 
-// src/pipeline/common/utils/sourceFiles.ts
-var sourceFiles = ({ run }) => standardsScopeFiles({ run }).filter((file2) => !isTestFile({ path: file2 }));
+// src/coverage/common/utils/buildMissingSummaryMessage.ts
+var buildMissingSummaryMessage = ({ summaryPath, scope }) => `no readable coverage summary at ${summaryPath} after the ${scope} coverage command ran \u2014 configure a json-summary coverage reporter (jest: coverageReporters ['json-summary']) writing that path, or set coverage-summary-path in lightsout.config.json. \`lightsout doctor\` checks this.`;
+
+// src/coverage/common/utils/coverageScopeOf.ts
+var coverageScopeOf = ({ file: file2, scopes, packagesDir, monorepo }) => {
+  const packageDir = packageOf({ file: file2, packagesDir });
+  if (monorepo) {
+    return packageDir === void 0 ? void 0 : scopes.find((entry) => entry.scope === packageDir);
+  }
+  return packageDir === void 0 ? scopes[0] : void 0;
+};
+
+// src/coverage/common/utils/resolveScopeContext.ts
+import { resolve as resolve9 } from "node:path";
+
+// src/coverage/resolveCoverageScopes.ts
+import { readdir as readdir15 } from "node:fs/promises";
+import { join as join73 } from "node:path";
+var rootScope = "root";
+var listPackageScopes = async ({
+  cwd,
+  packagesDir,
+  template,
+  summaryPath,
+  scope
+}) => {
+  const entries = await readdir15(join73(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
+  const scriptName = extractRunScriptName({ command: template });
+  const scopes = [];
+  for (const entry of entries.filter((item) => item.isDirectory() && !item.name.startsWith("."))) {
+    if (scope !== void 0 && scope !== entry.name) {
+      continue;
+    }
+    const manifest = await readPackageManifest({ cwd, packagesDir, packageDir: entry.name }).catch(() => void 0);
+    if (!manifest || scriptName !== void 0 && !Object.hasOwn(manifest.scripts, scriptName)) {
+      continue;
+    }
+    scopes.push({
+      scope: entry.name,
+      command: template.split("{package}").join(manifest.name),
+      summaryPath: join73(packagesDir, entry.name, summaryPath)
+    });
+  }
+  return scopes;
+};
+var resolveCoverageScopes = async ({ cwd, config: config2, summaryPath, scope }) => {
+  const template = config2["package-gates"]?.["test-coverage"];
+  if (template) {
+    return listPackageScopes({ cwd, packagesDir: config2["packages-dir"] ?? defaultPackagesDir, template, summaryPath, scope });
+  }
+  const command = config2.gates["test-coverage"];
+  const scoped = typeof command === "string" && (scope === void 0 || scope === rootScope) ? [{ scope: rootScope, command, summaryPath }] : [];
+  return scoped;
+};
+
+// src/coverage/common/utils/resolveScopeContext.ts
+var resolveScopeContext = async ({
+  cwd,
+  config: config2
+}) => {
+  const summaryPath = config2["coverage-summary-path"] ?? defaultCoverageSummaryPath;
+  return {
+    root: resolve9(cwd),
+    packagesDir: config2["packages-dir"] ?? defaultPackagesDir,
+    monorepo: config2["package-gates"]?.["test-coverage"] !== void 0,
+    scopes: await resolveCoverageScopes({ cwd, config: config2, summaryPath })
+  };
+};
+
+// src/coverage/selectCollectedFiles/selectCollectedFiles.ts
+import { join as join77 } from "node:path";
+
+// src/coverage/common/utils/scopeRootOf.ts
+import { join as join74 } from "node:path";
+var scopeRootOf = ({ root, scope, packagesDir, monorepo }) => monorepo ? join74(root, packagesDir, scope) : root;
+
+// src/coverage/loadScopeJestConfig/loadScopeJestConfig.ts
+import { readFile as readFile40 } from "node:fs/promises";
+import { createRequire as createRequire3 } from "node:module";
+import { join as join76 } from "node:path";
+
+// src/coverage/loadScopeJestConfig/common/utils/resolveJestConfigPath.ts
+import { readFile as readFile39, stat as stat7 } from "node:fs/promises";
+import { join as join75, resolve as resolve10 } from "node:path";
+var configFileNames = ["jest.config.cjs", "jest.config.js", "jest.config.mjs", "jest.config.json"];
+var exists = ({ path }) => stat7(path).then(
+  () => true,
+  () => false
+);
+var configArgument = ({ command }) => {
+  const tokens = command.split(/\s+/).filter((token) => token !== "");
+  const flagIndex = tokens.findIndex((token) => token === "-c" || token === "--config");
+  const inline = tokens.find((token) => token.startsWith("--config="));
+  const raw = flagIndex === -1 ? inline?.slice("--config=".length) : tokens[flagIndex + 1];
+  return raw === void 0 ? void 0 : raw.replace(/^["']|["']$/g, "");
+};
+var hasJestKey = async ({ manifestPath }) => {
+  try {
+    const parsed = JSON.parse(await readFile39(manifestPath, "utf8"));
+    return typeof parsed === "object" && parsed !== null && "jest" in parsed;
+  } catch {
+    return false;
+  }
+};
+var resolveJestConfigPath = async ({ scopeRoot, coverageScript }) => {
+  const named = coverageScript === void 0 ? void 0 : configArgument({ command: coverageScript });
+  if (named !== void 0) {
+    const path = resolve10(scopeRoot, named);
+    return await exists({ path }) ? path : void 0;
+  }
+  let found;
+  for (const name of configFileNames) {
+    if (found === void 0 && await exists({ path: join75(scopeRoot, name) })) {
+      found = join75(scopeRoot, name);
+    }
+  }
+  if (found !== void 0) {
+    return found;
+  }
+  const manifestPath = join75(scopeRoot, "package.json");
+  return await hasJestKey({ manifestPath }) ? manifestPath : void 0;
+};
+
+// src/coverage/loadScopeJestConfig/loadScopeJestConfig.ts
+var ScopeManifest = external_exports.looseObject({ scripts: external_exports.record(external_exports.string(), external_exports.string()).optional().catch(void 0) });
+var resolveScopeCoverageScript = async ({ scopeRoot, command }) => {
+  const scriptName = extractRunScriptName({ command });
+  if (scriptName === void 0) {
+    return command;
+  }
+  try {
+    const parsed = ScopeManifest.safeParse(JSON.parse(await readFile40(join76(scopeRoot, "package.json"), "utf8")));
+    return parsed.success ? parsed.data.scripts?.[scriptName] : void 0;
+  } catch {
+    return void 0;
+  }
+};
+var requireConfig = ({ configPath }) => {
+  try {
+    const loaded = createRequire3(configPath)(configPath);
+    return loaded;
+  } catch {
+    return void 0;
+  }
+};
+var readJestKey = ({ loaded }) => typeof loaded === "object" && loaded !== null && "jest" in loaded ? loaded.jest : void 0;
+var isThenable = ({ value }) => "then" in value && typeof value.then === "function";
+var loadScopeJestConfig = async ({ scopeRoot, command }) => {
+  const coverageScript = await resolveScopeCoverageScript({ scopeRoot, command });
+  const configPath = await resolveJestConfigPath({ scopeRoot, coverageScript });
+  if (configPath === void 0) {
+    return void 0;
+  }
+  const loaded = requireConfig({ configPath });
+  const value = configPath.endsWith("package.json") ? readJestKey({ loaded }) : loaded;
+  if (typeof value !== "object" || value === null || isThenable({ value })) {
+    return void 0;
+  }
+  return { configPath, config: value };
+};
+
+// src/coverage/selectCollectedFiles/common/utils/isCoverageCollectedFile.ts
+import { relative as relative10, sep as sep2 } from "node:path";
+
+// src/coverage/selectCollectedFiles/common/utils/matchesCoverageGlob.ts
+var rootDirToken = "<rootDir>/";
+var currentDirToken = "./";
+var unsupportedSyntax = /[[\]()\\]/;
+var normalisePattern = ({ pattern }) => {
+  let result = pattern;
+  while (result.startsWith(rootDirToken) || result.startsWith(currentDirToken)) {
+    result = result.startsWith(rootDirToken) ? result.slice(rootDirToken.length) : result.slice(currentDirToken.length);
+  }
+  return result;
+};
+var hasUnsupportedBraces = ({ pattern }) => {
+  let depth = 0;
+  let invalid = false;
+  for (const character of pattern) {
+    if (character === "{") {
+      depth += 1;
+    }
+    if (character === "}") {
+      depth -= 1;
+    }
+    invalid = invalid || depth > 1 || depth < 0;
+  }
+  return invalid || depth !== 0;
+};
+var escapeLiteral2 = ({ character }) => character.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+var toExpression = ({ pattern }) => {
+  let expression = "";
+  let index = 0;
+  while (index < pattern.length) {
+    const character = pattern[index];
+    if (character === "*" && pattern[index + 1] === "*" && pattern[index + 2] === "/") {
+      expression += "(?:[^/]+/)*";
+      index += 3;
+    } else if (character === "*" && pattern[index + 1] === "*") {
+      expression += ".*";
+      index += 2;
+    } else if (character === "*") {
+      expression += "[^/]*";
+      index += 1;
+    } else if (character === "?") {
+      expression += "[^/]";
+      index += 1;
+    } else if (character === "{") {
+      const close = pattern.indexOf("}", index);
+      const alternatives = pattern.slice(index + 1, close).split(",");
+      expression += `(?:${alternatives.map((alternative) => toExpression({ pattern: alternative })).join("|")})`;
+      index = close + 1;
+    } else {
+      expression += escapeLiteral2({ character });
+      index += 1;
+    }
+  }
+  return expression;
+};
+var matchesCoverageGlob = ({ pattern, path }) => {
+  const normalised = normalisePattern({ pattern });
+  if (unsupportedSyntax.test(normalised) || hasUnsupportedBraces({ pattern: normalised })) {
+    return void 0;
+  }
+  try {
+    return new RegExp(`^${toExpression({ pattern: normalised })}$`).test(path);
+  } catch {
+    return void 0;
+  }
+};
+
+// src/coverage/selectCollectedFiles/common/utils/isCoverageCollectedFile.ts
+var ignoresPath = ({ patterns, rootDir, absolutePath }) => {
+  let ignored = false;
+  for (const source of patterns) {
+    try {
+      ignored = ignored || new RegExp(source.split("<rootDir>").join(rootDir)).test(absolutePath);
+    } catch {
+    }
+  }
+  return ignored;
+};
+var isCoverageCollectedFile = ({ absolutePath, collection }) => {
+  if (collection === void 0) {
+    return true;
+  }
+  const path = relative10(collection.rootDir, absolutePath).split(sep2).join("/");
+  if (path === "" || path.startsWith("../")) {
+    return false;
+  }
+  if (ignoresPath({ patterns: collection.coveragePathIgnorePatterns, rootDir: collection.rootDir, absolutePath })) {
+    return false;
+  }
+  const entries = collection.collectCoverageFrom;
+  if (entries === void 0) {
+    return true;
+  }
+  let positive = false;
+  let negated = false;
+  let undecidable = false;
+  for (const entry of entries) {
+    const negation = entry.startsWith("!");
+    const matched = matchesCoverageGlob({ pattern: negation ? entry.slice(1) : entry, path });
+    undecidable = undecidable || matched === void 0;
+    positive = positive || matched === true && !negation;
+    negated = negated || matched === true && negation;
+  }
+  return undecidable || positive && !negated;
+};
+
+// src/coverage/selectCollectedFiles/common/utils/readCoverageCollection.ts
+import { dirname as dirname10, resolve as resolve11 } from "node:path";
+var defaultIgnorePatterns = ["/node_modules/"];
+var JestConfigShape = external_exports.looseObject({
+  rootDir: external_exports.string().optional().catch(void 0),
+  collectCoverageFrom: external_exports.array(external_exports.string()).optional().catch(void 0),
+  coveragePathIgnorePatterns: external_exports.array(external_exports.string()).optional().catch(void 0)
+});
+var readCoverageCollection = ({ loaded }) => {
+  if (loaded === void 0) {
+    return void 0;
+  }
+  const parsed = JestConfigShape.safeParse(loaded.config);
+  if (!parsed.success) {
+    return void 0;
+  }
+  const configDir = dirname10(loaded.configPath);
+  return {
+    rootDir: parsed.data.rootDir === void 0 ? configDir : resolve11(configDir, parsed.data.rootDir),
+    collectCoverageFrom: parsed.data.collectCoverageFrom,
+    coveragePathIgnorePatterns: parsed.data.coveragePathIgnorePatterns ?? defaultIgnorePatterns
+  };
+};
+
+// src/coverage/selectCollectedFiles/selectCollectedFiles.ts
+var selectCollectedFiles = async ({ cwd, config: config2, files }) => {
+  const { root, packagesDir, monorepo, scopes } = await resolveScopeContext({ cwd, config: config2 });
+  const collections = /* @__PURE__ */ new Map();
+  const collected = [];
+  const excluded = [];
+  for (const file2 of files) {
+    const scope = coverageScopeOf({ file: file2, scopes, packagesDir, monorepo });
+    if (scope === void 0) {
+      collected.push(file2);
+      continue;
+    }
+    if (!collections.has(scope.scope)) {
+      const scopeRoot = scopeRootOf({ root, scope: scope.scope, packagesDir, monorepo });
+      collections.set(scope.scope, readCoverageCollection({ loaded: await loadScopeJestConfig({ scopeRoot, command: scope.command }) }));
+    }
+    const collection = collections.get(scope.scope);
+    (isCoverageCollectedFile({ absolutePath: join77(root, file2), collection }) ? collected : excluded).push(file2);
+  }
+  return { collected, excluded };
+};
+
+// src/coverage/selectUnloadableFiles/selectUnloadableFiles.ts
+import { readFile as readFile42 } from "node:fs/promises";
+import { dirname as dirname12, join as join79 } from "node:path";
+
+// src/common/sourceFiles/isUnloadableSourceFile.ts
+var hasModuleScopeAwait = ({ node, compiler }) => {
+  if (compiler.isFunctionLike(node) || compiler.isClassLike(node)) {
+    return false;
+  }
+  if (compiler.isAwaitExpression(node) || compiler.isForOfStatement(node) && node.awaitModifier !== void 0) {
+    return true;
+  }
+  return node.forEachChild((child) => hasModuleScopeAwait({ node: child, compiler })) === true;
+};
+var isUnloadableSourceFile = ({ path, content, compiler }) => {
+  const scriptKind = /\.[jt]sx$/.test(path) ? compiler.ScriptKind.TSX : compiler.ScriptKind.TS;
+  const source = compiler.createSourceFile(path, content, compiler.ScriptTarget.Latest, false, scriptKind);
+  return source.statements.some((statement) => hasModuleScopeAwait({ node: statement, compiler }));
+};
+
+// src/coverage/selectUnloadableFiles/common/utils/isEsmSourceFile.ts
+import { extname } from "node:path";
+var manifestDecidedExtensions = [".js", ".jsx"];
+var isEsmSourceFile = ({ path, moduleMode, packageType }) => {
+  if (moduleMode === void 0) {
+    return false;
+  }
+  const extension = extname(path);
+  return moduleMode.esmExtensions.includes(extension) || packageType === "module" && manifestDecidedExtensions.includes(extension);
+};
+
+// src/coverage/selectUnloadableFiles/common/utils/readJestModuleMode.ts
+import { createRequire as createRequire4 } from "node:module";
+var EsmSettings = external_exports.looseObject({
+  extensionsToTreatAsEsm: external_exports.array(external_exports.string()).optional().catch(void 0),
+  preset: external_exports.string().optional().catch(void 0),
+  projects: external_exports.array(external_exports.unknown()).optional().catch(void 0)
+});
+var EsmExtensions = external_exports.looseObject({ extensionsToTreatAsEsm: external_exports.array(external_exports.string()).optional().catch(void 0) });
+var readPresetExtensions = ({ configPath, preset }) => {
+  const requirePreset = createRequire4(configPath);
+  let found;
+  for (const specifier of [`${preset}/jest-preset`, preset]) {
+    if (found === void 0) {
+      try {
+        const parsed = EsmExtensions.safeParse(requirePreset(specifier));
+        found = parsed.success ? parsed.data.extensionsToTreatAsEsm : void 0;
+      } catch {
+      }
+    }
+  }
+  return found ?? [];
+};
+var readProjectExtensions = ({ projects }) => {
+  const extensions = [];
+  for (const project of projects) {
+    const parsed = EsmExtensions.safeParse(project);
+    if (parsed.success) {
+      extensions.push(...parsed.data.extensionsToTreatAsEsm ?? []);
+    }
+  }
+  return extensions;
+};
+var readJestModuleMode = ({ loaded }) => {
+  if (loaded === void 0) {
+    return void 0;
+  }
+  const parsed = EsmSettings.safeParse(loaded.config);
+  if (!parsed.success) {
+    return void 0;
+  }
+  const extensions = /* @__PURE__ */ new Set([".mjs", ...parsed.data.extensionsToTreatAsEsm ?? []]);
+  if (parsed.data.preset !== void 0) {
+    for (const extension of readPresetExtensions({ configPath: loaded.configPath, preset: parsed.data.preset })) {
+      extensions.add(extension);
+    }
+  }
+  for (const extension of readProjectExtensions({ projects: parsed.data.projects ?? [] })) {
+    extensions.add(extension);
+  }
+  extensions.delete(".cjs");
+  return { esmExtensions: [...extensions] };
+};
+
+// src/coverage/selectUnloadableFiles/common/utils/readNearestPackageType.ts
+import { readFile as readFile41 } from "node:fs/promises";
+import { dirname as dirname11, join as join78, relative as relative11, sep as sep3 } from "node:path";
+var withinScope = ({ directory, scopeRoot }) => {
+  const path = relative11(scopeRoot, directory);
+  return path === "" || !(path === ".." || path.startsWith(`..${sep3}`));
+};
+var readManifestType = async ({ manifestPath }) => {
+  try {
+    const parsed = JSON.parse(await readFile41(manifestPath, "utf8"));
+    const declared = typeof parsed === "object" && parsed !== null && "type" in parsed ? parsed.type : void 0;
+    return typeof declared === "string" ? declared : void 0;
+  } catch {
+    return void 0;
+  }
+};
+var readNearestPackageType = async ({ fileDir, scopeRoot }) => {
+  let directory = fileDir;
+  let type;
+  while (type === void 0 && withinScope({ directory, scopeRoot })) {
+    type = await readManifestType({ manifestPath: join78(directory, "package.json") });
+    const parent = dirname11(directory);
+    if (parent === directory) {
+      break;
+    }
+    directory = parent;
+  }
+  return type;
+};
+
+// src/coverage/selectUnloadableFiles/selectUnloadableFiles.ts
+var selectUnloadableFiles = async ({ cwd, config: config2, files, compiler }) => {
+  if (compiler === void 0) {
+    return { loadable: files, unloadable: [] };
+  }
+  const { root, packagesDir, monorepo, scopes } = await resolveScopeContext({ cwd, config: config2 });
+  const modes = /* @__PURE__ */ new Map();
+  const packageTypes = /* @__PURE__ */ new Map();
+  const loadable = [];
+  const unloadable = [];
+  for (const file2 of files) {
+    const content = await readFile42(join79(cwd, file2), "utf8").catch(() => void 0);
+    if (content === void 0 || !isUnloadableSourceFile({ path: file2, content, compiler })) {
+      loadable.push(file2);
+      continue;
+    }
+    const scope = coverageScopeOf({ file: file2, scopes, packagesDir, monorepo });
+    if (scope === void 0) {
+      unloadable.push(file2);
+      continue;
+    }
+    const scopeRoot = scopeRootOf({ root, scope: scope.scope, packagesDir, monorepo });
+    if (!modes.has(scope.scope)) {
+      modes.set(scope.scope, readJestModuleMode({ loaded: await loadScopeJestConfig({ scopeRoot, command: scope.command }) }));
+    }
+    const fileDir = dirname12(join79(root, file2));
+    if (!packageTypes.has(fileDir)) {
+      packageTypes.set(fileDir, await readNearestPackageType({ fileDir, scopeRoot }));
+    }
+    const esm = isEsmSourceFile({ path: file2, moduleMode: modes.get(scope.scope), packageType: packageTypes.get(fileDir) });
+    (esm ? loadable : unloadable).push(file2);
+  }
+  return { loadable, unloadable };
+};
+
+// src/coverage/checkChangedFilesExecuted.ts
+var ExecutionSummaryReport = external_exports.record(external_exports.string(), external_exports.looseObject({ statements: external_exports.looseObject({ covered: external_exports.unknown(), total: external_exports.unknown() }) }));
+var readExecutionSummary = async ({ cwd, summaryPath }) => {
+  try {
+    const parsed = ExecutionSummaryReport.parse(JSON.parse(await readFile43(join80(cwd, summaryPath), "utf8")));
+    return new Map(Object.entries(parsed).map(([key, entry]) => [relative12(cwd, key), entry.statements]));
+  } catch {
+    return void 0;
+  }
+};
+var checkChangedFilesExecuted = async ({ cwd, config: config2, changedFiles, compiler }) => {
+  if (changedFiles.length === 0 || compiler === void 0) {
+    return void 0;
+  }
+  const { packagesDir, monorepo, scopes } = await resolveScopeContext({ cwd, config: config2 });
+  const executable = [];
+  for (const file2 of changedFiles.filter(
+    (changed) => isTestableSourceFile({ path: changed }) && !isTestFile({ path: changed }) && !isToolingConfigFile({ path: changed, packagesDir })
+  )) {
+    const content = await readFile43(join80(cwd, file2), "utf8").catch(() => void 0);
+    if (content !== void 0 && !isInertSourceFile({ path: file2, content, compiler })) {
+      executable.push(file2);
+    }
+  }
+  const { loadable: candidates } = await selectUnloadableFiles({ cwd, config: config2, files: executable, compiler });
+  if (candidates.length === 0) {
+    return void 0;
+  }
+  const { collected } = await selectCollectedFiles({ cwd, config: config2, files: candidates });
+  if (collected.length === 0) {
+    return void 0;
+  }
+  const summaries = /* @__PURE__ */ new Map();
+  const unexecuted = [];
+  for (const file2 of collected) {
+    const scope = coverageScopeOf({ file: file2, scopes, packagesDir, monorepo });
+    if (scope === void 0) {
+      continue;
+    }
+    if (!summaries.has(scope.scope)) {
+      summaries.set(scope.scope, await readExecutionSummary({ cwd, summaryPath: scope.summaryPath }));
+    }
+    const summary = summaries.get(scope.scope);
+    if (summary === void 0) {
+      return buildMissingSummaryMessage({ summaryPath: scope.summaryPath, scope: scope.scope });
+    }
+    const entry = summary.get(file2);
+    if (entry === void 0 || entry.covered === 0 && entry.total !== 0) {
+      unexecuted.push(file2);
+    }
+  }
+  if (unexecuted.length === 0) {
+    return void 0;
+  }
+  return `changed-file-execution: ${unexecuted.length} changed file(s) never executed under the tests: ${unexecuted.join(", ")} \u2014 cover each through its public subject's tests; a file no test can reach through a public surface is a wiring defect to fix in source.`;
+};
+
+// src/coverage/initializeCoverageRun.ts
+import { readFile as readFile45, writeFile as writeFile13 } from "node:fs/promises";
+import { join as join82 } from "node:path";
+
+// src/coverage/runCoverageCheck.ts
+import { readFile as readFile44 } from "node:fs/promises";
+import { join as join81, relative as relative13 } from "node:path";
+var CoverageSummaryReport = external_exports.record(external_exports.string(), external_exports.looseObject({ statements: external_exports.looseObject({ pct: external_exports.unknown() }) }));
+var readJsonFile2 = async ({ path }) => {
+  try {
+    const parsed = JSON.parse(await readFile44(path, "utf8"));
+    return parsed;
+  } catch {
+    return void 0;
+  }
+};
+var readScopeSummary = async ({ cwd, scope, summaryPath, passed }) => {
+  const parsed = CoverageSummaryReport.safeParse(await readJsonFile2({ path: join81(cwd, summaryPath) }));
+  if (!parsed.success) {
+    throw new Error(buildMissingSummaryMessage({ summaryPath, scope }));
+  }
+  const files = [];
+  let statementsPct = 0;
+  for (const [key, entry] of Object.entries(parsed.data)) {
+    const pct = entry.statements.pct;
+    if (typeof pct !== "number") {
+      continue;
+    }
+    if (key === "total") {
+      statementsPct = pct;
+      continue;
+    }
+    files.push({ path: relative13(cwd, key), scope, statementsPct: pct });
+  }
+  return { files, total: { scope, statementsPct, passed } };
+};
+var runCoverageCheck = async ({
+  cwd,
+  config: config2,
+  scope,
+  runId,
+  step,
+  onProgress
+}) => {
+  const summaryPath = config2["coverage-summary-path"] ?? defaultCoverageSummaryPath;
+  const scopes = await resolveCoverageScopes({ cwd, config: config2, summaryPath, scope });
+  const files = [];
+  const totals = [];
+  for (const entry of scopes) {
+    const startedAt = Date.now();
+    const result = await runCommand({ command: entry.command, cwd });
+    const durationMs = Date.now() - startedAt;
+    onProgress?.(`coverage [${entry.scope}]: exit ${result.exitCode} (${(durationMs / 1e3).toFixed(1)}s)`);
+    if (runId) {
+      await appendCommandLog({
+        cwd,
+        runId,
+        record: { at: (/* @__PURE__ */ new Date()).toISOString(), step, group: entry.scope, kind: "testCoverage", command: entry.command, exitCode: result.exitCode, durationMs }
+      });
+    }
+    const measured = await readScopeSummary({ cwd, scope: entry.scope, summaryPath: entry.summaryPath, passed: result.exitCode === 0 });
+    files.push(...measured.files);
+    totals.push(measured.total);
+  }
+  return {
+    passed: totals.length > 0 && totals.every((total) => total.passed),
+    files: files.sort((left, right) => left.statementsPct - right.statementsPct || left.path.localeCompare(right.path)),
+    totals
+  };
+};
+
+// src/coverage/initializeCoverageRun.ts
+var initializeCoverageRun = async ({
+  cwd,
+  runId,
+  driver,
+  config: config2,
+  allowDirty = false,
+  existing
+}) => {
+  if (existing) {
+    const pipeline = existing.pipeline ?? "implement";
+    if (pipeline !== "coverage") {
+      const command = pipeline === "refactor" ? "refactor" : "resume";
+      throw new Error(`run ${existing.runId} belongs to the ${pipeline} pipeline \u2014 resume it with: lightsout ${command} --run ${existing.runId}`);
+    }
+    return { manifest: existing, worklist: CoverageWorklist.parse(JSON.parse(await readFile45(join82(cwd, existing.plan), "utf8"))) };
+  }
+  if (typeof config2.gates["test-coverage"] !== "string" && config2["package-gates"]?.["test-coverage"] === void 0) {
+    throw new Error('the coverage gate is opted out ("test-coverage": false) \u2014 test-coverage-to-threshold has nothing to run');
+  }
+  const dirty = await readGitChangedFiles({ cwd });
+  if (dirty === void 0) {
+    throw new Error("test-coverage-to-threshold requires a git worktree \u2014 without git, changes cannot be attributed or reviewed as one diff.");
+  }
+  if (dirty.length > 0 && !allowDirty) {
+    throw new Error(
+      `test-coverage-to-threshold requires a clean tree \u2014 commit or stash first, or accept the standing changes as baseline with --allow-dirty. Dirty:
+${dirty.map((file2) => `  ${file2}`).join("\n")}`
+    );
+  }
+  const measured = await runCoverageCheck({ cwd, config: config2 });
+  const worklist = { at: (/* @__PURE__ */ new Date()).toISOString(), totals: measured.totals, files: measured.files };
+  const worklistPath = join82(".lightsout", "runs", runId, "worklist.json");
+  const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: "coverage", driver: driver.name, config: config2, baselineDirtyFiles: dirty });
+  await writeFile13(join82(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
+`, "utf8");
+  return { manifest, worklist };
+};
 
 // src/gates/common/constants/GateScheduleKind.ts
 var GateScheduleKind = {
@@ -134244,6 +135083,35 @@ var GateScheduleKind = {
   Exact: "exact",
   /** No stages at all — the checkpoint runs no gates, `gates.generate` included. */
   Off: "off"
+};
+
+// src/gates/common/constants/SelfCheckReason.ts
+var SelfCheckReason = {
+  /** Gates were scheduled and executed — the only reason whose result says anything about the code. */
+  Ran: "ran",
+  /** The tree holds no change yet, so there was nothing to check. */
+  NothingChanged: "nothing-changed",
+  /** The checkpoint this step precedes schedules no gates, or every package in scope skipped the ones it does. */
+  NothingScheduled: "nothing-scheduled",
+  /** The engine could not work out what to check, because reading the repository's git status failed. */
+  Unavailable: "unavailable"
+};
+
+// src/gates/common/utils/collectGateObservations.ts
+var collectGateObservations = () => {
+  const observations = /* @__PURE__ */ new Map();
+  return {
+    onGateResult: (gateResult) => observations.set(`${gateResult.group}\0${gateResult.kind}`, gateResult),
+    observed: () => [...observations.values()]
+  };
+};
+
+// src/gates/common/utils/resolveGateSchedule.ts
+var resolveGateSchedule = ({ override }) => {
+  if (override === void 0) {
+    return { kind: GateScheduleKind.Tiered };
+  }
+  return override === "off" ? { kind: GateScheduleKind.Off } : { kind: GateScheduleKind.Exact, gates: override };
 };
 
 // src/common/config/resolveGates.ts
@@ -134314,22 +135182,31 @@ var mergeGateRunResults = ({ results }) => {
   };
 };
 
+// src/gates/common/utils/rootGateCommands.ts
+var rootGateCommands = ({ gates }) => ({
+  check: gates.check,
+  test: gates.test,
+  testCoverage: typeof gates.testCoverage === "string" ? gates.testCoverage : void 0,
+  extraTests: gates.extraTests,
+  build: gates.build
+});
+
 // src/gates/createGateRunner.ts
 import { mkdir as mkdir17, rm as rm6 } from "node:fs/promises";
-import { relative as relative11 } from "node:path";
+import { relative as relative15 } from "node:path";
 
 // src/gates/testResults/checkAcceptanceTests.ts
-import { join as join74 } from "node:path";
+import { join as join84 } from "node:path";
 
 // src/gates/testResults/readTestResults.ts
-import { readdir as readdir15 } from "node:fs/promises";
-import { join as join73, relative as relative10 } from "node:path";
+import { readdir as readdir16 } from "node:fs/promises";
+import { join as join83, relative as relative14 } from "node:path";
 var readTestResults = async ({ cwd, dir }) => {
-  const entries = await readdir15(dir).catch(() => []);
+  const entries = await readdir16(dir).catch(() => []);
   const merged = [];
   for (const entry of entries.filter((name) => name.endsWith(".json"))) {
-    const parsed = await readJsonFile({ path: join73(dir, entry), schema: TestResultsFile });
-    merged.push(...(parsed?.testResults ?? []).map((file2) => ({ ...file2, testFilePath: relative10(cwd, file2.testFilePath) })));
+    const parsed = await readJsonFile({ path: join83(dir, entry), schema: TestResultsFile });
+    merged.push(...(parsed?.testResults ?? []).map((file2) => ({ ...file2, testFilePath: relative14(cwd, file2.testFilePath) })));
   }
   return merged;
 };
@@ -134347,7 +135224,7 @@ var covers = ({ gate, row, packagesDir }) => gate.skipped !== true && gate.exitC
 var createResultsReader = ({ cwd }) => {
   const readings = /* @__PURE__ */ new Map();
   return ({ dir }) => {
-    const started = readings.get(dir) ?? readTestResults({ cwd, dir: join74(cwd, dir) });
+    const started = readings.get(dir) ?? readTestResults({ cwd, dir: join84(cwd, dir) });
     readings.set(dir, started);
     return started;
   };
@@ -134410,7 +135287,7 @@ var checkAcceptanceTests = async ({ cwd, rows, gates, final, packagesDir, onProg
 };
 
 // src/gates/testResults/checkTestResultsCapability.ts
-import { join as join75 } from "node:path";
+import { join as join85 } from "node:path";
 var setupAdvice = [
   "",
   `lightsout sets ${testReporterEnv.reporter} (the reporter file it wrote into the run folder) and ${testReporterEnv.resultsDir} (where that execution's results go) on every gate command.`,
@@ -134431,7 +135308,7 @@ var checkTestResultsCapability = async ({ cwd, gates, results, onProgress }) => 
       continue;
     }
     for (const green2 of greens) {
-      const written = green2.testResultsDir === void 0 ? [] : await readTestResults({ cwd, dir: join75(cwd, green2.testResultsDir) });
+      const written = green2.testResultsDir === void 0 ? [] : await readTestResults({ cwd, dir: join85(cwd, green2.testResultsDir) });
       if (written.length === 0) {
         silent.push(`- gate \`${gate}\` in group \`${green2.group}\` ran green and wrote no per-test results`);
       }
@@ -134445,16 +135322,16 @@ var checkTestResultsCapability = async ({ cwd, gates, results, onProgress }) => 
 };
 
 // src/gates/testResults/testResultsDir.ts
-import { join as join76 } from "node:path";
+import { join as join86 } from "node:path";
 var unsafeSegmentCharacters = /[^A-Za-z0-9._-]/g;
 var safeSegment = ({ segment }) => segment.replace(unsafeSegmentCharacters, "-");
 var testResultsDir = ({ cwd, runId, step, group, kind }) => {
-  return join76(getRunDir({ cwd, runId }), "test-results", safeSegment({ segment: step }), safeSegment({ segment: group }), safeSegment({ segment: kind }));
+  return join86(getRunDir({ cwd, runId }), "test-results", safeSegment({ segment: step }), safeSegment({ segment: group }), safeSegment({ segment: kind }));
 };
 
 // src/gates/testResults/writeJestReporter.ts
-import { mkdir as mkdir16, writeFile as writeFile13 } from "node:fs/promises";
-import { join as join77 } from "node:path";
+import { mkdir as mkdir16, writeFile as writeFile14 } from "node:fs/promises";
+import { join as join87 } from "node:path";
 
 // src/gates/testResults/jestReporterSource.ts
 var jestReporterSource = `const { mkdirSync, writeFileSync } = require('node:fs');
@@ -134513,9 +135390,9 @@ module.exports = LightsoutJestReporter;
 // src/gates/testResults/writeJestReporter.ts
 var writeJestReporter = async ({ cwd, runId }) => {
   const runDir = getRunDir({ cwd, runId });
-  const reporterPath = join77(runDir, "jest-reporter.cjs");
+  const reporterPath = join87(runDir, "jest-reporter.cjs");
   await mkdir16(runDir, { recursive: true });
-  await writeFile13(reporterPath, jestReporterSource);
+  await writeFile14(reporterPath, jestReporterSource);
   return reporterPath;
 };
 
@@ -134553,7 +135430,7 @@ var buildGateResult = ({
     durationMs,
     ...rerun ? { rerun: true } : {},
     ...crashed ? { crashed: true } : {},
-    ...evidenceDir ? { testResultsDir: relative11(cwd, evidenceDir) } : {},
+    ...evidenceDir ? { testResultsDir: relative15(cwd, evidenceDir) } : {},
     ...result.exitCode === 0 ? {} : { outputTail: `${result.stdout}
 ${result.stderr}`.slice(-outputTailChars) }
   };
@@ -134749,13 +135626,6 @@ var stageCounts = {
   [GateScheduleKind.Exact]: 1,
   [GateScheduleKind.Off]: 0
 };
-var rootCommands = ({ gates }) => ({
-  check: gates.check,
-  test: gates.test,
-  testCoverage: typeof gates.testCoverage === "string" ? gates.testCoverage : void 0,
-  extraTests: gates.extraTests,
-  build: gates.build
-});
 var runGenerate = async ({ gate, command }) => {
   if (command === void 0) {
     return void 0;
@@ -134826,7 +135696,7 @@ var runGates = async ({
   const scoped = config2["package-gates"];
   const inScope = packages ?? [];
   const scopedPackages = scoped === void 0 || includeRoot ? [] : inScope;
-  const rootStages = buildGateStages({ entries: buildGateEntries({ commands: rootCommands({ gates }) }), schedule: resolvedSchedule, coverage });
+  const rootStages = buildGateStages({ entries: buildGateEntries({ commands: rootGateCommands({ gates }) }), schedule: resolvedSchedule, coverage });
   const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
   const context = scoped === void 0 ? void 0 : { cwd, packagesDir, scoped, coverage, schedule: resolvedSchedule, runId, step, onGateResult, onProgress };
   const stageFailFast = resolvedSchedule.kind === GateScheduleKind.Exact ? true : failFast;
@@ -134874,700 +135744,93 @@ var runBatchGates = async ({ cwd, config: config2, coverage, runId, step, onProg
   return result.error;
 };
 
-// src/common/config/resolveGateOverride.ts
-var resolveGateOverride = ({ overrides, checkpoint }) => Object.entries(overrides ?? {}).find(([key]) => key === checkpoint)?.[1];
+// src/common/selfCheck/buildSelfCheckStep.ts
+var buildSelfCheckStep = ({ step }) => `${selfCheckStepPrefix}${step}`;
 
-// src/common/fileGroups/chunkFileGroup.ts
-var chunkFileGroup = ({ files, max }) => {
-  const sorted = [...files].sort();
-  const chunks = [];
-  for (let start = 0; start < sorted.length; start += max) {
-    chunks.push(sorted.slice(start, start + max));
+// src/gates/common/utils/selfCheckGateNames.ts
+var selfCheckGateNames = ({ entries, schedule, coverage }) => buildGateStages({ entries, schedule, coverage }).flat().filter((entry) => gateTierOf({ family: entry.family }) === GateTier.Cheap || entry.family === "build").filter((entry) => coverage === true || entry.name !== "test-coverage").map((entry) => entry.name);
+
+// src/gates/runSelfCheck.ts
+var unionCommands = ({ root, scoped }) => {
+  if (scoped === void 0) {
+    return root;
   }
-  return chunks;
-};
-
-// src/coverage/buildCoverageBatch.ts
-var maxWriterGroupFiles = 12;
-var buildCoverageBatch = ({ files, components, batchNumber, batchSize = 5 }) => {
-  const scope = files[0].scope;
-  const candidateByPath = new Map(files.map((file2) => [file2.path, file2]));
-  const candidatesOf = ({ members: members2 }) => members2.flatMap((path) => candidateByPath.get(path) ?? []);
-  const worstOf = ({ candidates }) => Math.min(...candidates.map((candidate) => candidate.statementsPct));
-  const groupOf = ({ component }) => {
-    const candidates = candidatesOf({ members: component });
-    if (component.length <= maxWriterGroupFiles || candidates.length === 0) {
-      return { members: component, candidates };
+  const extraTests = [...root.extraTests ?? []];
+  for (const extra of scoped.extraTests ?? []) {
+    if (!extraTests.some((entry) => entry.name === extra.name)) {
+      extraTests.push(extra);
     }
-    const worst = candidates.sort((left, right) => left.statementsPct - right.statementsPct || left.path.localeCompare(right.path))[0];
-    const members2 = chunkFileGroup({ files: component, max: maxWriterGroupFiles }).filter((chunk) => chunk.includes(worst.path)).flat();
-    return { members: members2, candidates: candidatesOf({ members: members2 }) };
-  };
-  const ranked = components.map((component) => groupOf({ component })).filter((group) => group.candidates.length > 0).sort(
-    (left, right) => worstOf({ candidates: left.candidates }) - worstOf({ candidates: right.candidates }) || left.members[0].localeCompare(right.members[0])
-  );
-  const members = [];
-  const tracked = [];
-  for (const group of ranked) {
-    if (tracked.length >= batchSize) {
-      break;
-    }
-    members.push(...group.members);
-    tracked.push(...group.candidates);
   }
   return {
-    id: `batch-${String(batchNumber).padStart(2, "0")}:${scope}`,
-    scope,
-    files: tracked.sort((left, right) => left.statementsPct - right.statementsPct || left.path.localeCompare(right.path)),
-    members
+    check: root.check ?? scoped.check,
+    test: root.test ?? scoped.test,
+    testCoverage: root.testCoverage ?? scoped.testCoverage,
+    extraTests,
+    build: root.build ?? scoped.build
   };
 };
-
-// src/coverage/checkChangedFilesExecuted.ts
-import { readFile as readFile43 } from "node:fs/promises";
-import { join as join85, relative as relative14 } from "node:path";
-
-// src/common/sourceFiles/isToolingConfigFile.ts
-var isToolingConfigFile = ({ path, packagesDir }) => {
-  const segments = path.split("/");
-  const name = segments.at(-1) ?? "";
-  const folder = segments.slice(0, -1);
-  if (!/\.config\.(c|m)?[jt]s$/i.test(name)) {
-    return false;
-  }
-  return folder.length === 0 || folder.length === 2 && folder[0] === packagesDir;
-};
-
-// src/coverage/common/utils/buildMissingSummaryMessage.ts
-var buildMissingSummaryMessage = ({ summaryPath, scope }) => `no readable coverage summary at ${summaryPath} after the ${scope} coverage command ran \u2014 configure a json-summary coverage reporter (jest: coverageReporters ['json-summary']) writing that path, or set coverage-summary-path in lightsout.config.json. \`lightsout doctor\` checks this.`;
-
-// src/coverage/common/utils/coverageScopeOf.ts
-var coverageScopeOf = ({ file: file2, scopes, packagesDir, monorepo }) => {
-  const packageDir = packageOf({ file: file2, packagesDir });
-  if (monorepo) {
-    return packageDir === void 0 ? void 0 : scopes.find((entry) => entry.scope === packageDir);
-  }
-  return packageDir === void 0 ? scopes[0] : void 0;
-};
-
-// src/coverage/common/utils/resolveScopeContext.ts
-import { resolve as resolve9 } from "node:path";
-
-// src/coverage/resolveCoverageScopes.ts
-import { readdir as readdir16 } from "node:fs/promises";
-import { join as join78 } from "node:path";
-var rootScope = "root";
-var listPackageScopes = async ({
+var resolveScope = async ({
   cwd,
-  packagesDir,
-  template,
-  summaryPath,
-  scope
+  config: config2,
+  wholeRepository
 }) => {
-  const entries = await readdir16(join78(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
-  const scriptName = extractRunScriptName({ command: template });
-  const scopes = [];
-  for (const entry of entries.filter((item) => item.isDirectory() && !item.name.startsWith("."))) {
-    if (scope !== void 0 && scope !== entry.name) {
-      continue;
-    }
-    const manifest = await readPackageManifest({ cwd, packagesDir, packageDir: entry.name }).catch(() => void 0);
-    if (!manifest || scriptName !== void 0 && !Object.hasOwn(manifest.scripts, scriptName)) {
-      continue;
-    }
-    scopes.push({
-      scope: entry.name,
-      command: template.split("{package}").join(manifest.name),
-      summaryPath: join78(packagesDir, entry.name, summaryPath)
-    });
+  if (wholeRepository) {
+    return { scope: {} };
   }
-  return scopes;
-};
-var resolveCoverageScopes = async ({ cwd, config: config2, summaryPath, scope }) => {
-  const template = config2["package-gates"]?.["test-coverage"];
-  if (template) {
-    return listPackageScopes({ cwd, packagesDir: config2["packages-dir"] ?? defaultPackagesDir, template, summaryPath, scope });
+  const changed = await readGitChangedFiles({ cwd });
+  if (changed === void 0) {
+    return { reason: SelfCheckReason.Unavailable };
   }
-  const command = config2.gates["test-coverage"];
-  const scoped = typeof command === "string" && (scope === void 0 || scope === rootScope) ? [{ scope: rootScope, command, summaryPath }] : [];
-  return scoped;
-};
-
-// src/coverage/common/utils/resolveScopeContext.ts
-var resolveScopeContext = async ({
-  cwd,
-  config: config2
-}) => {
-  const summaryPath = config2["coverage-summary-path"] ?? defaultCoverageSummaryPath;
+  if (changed.length === 0) {
+    return { reason: SelfCheckReason.NothingChanged };
+  }
+  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
+  const touched = changed.flatMap((file2) => {
+    const name = packageOf({ file: file2, packagesDir });
+    return name === void 0 ? [] : [name];
+  });
   return {
-    root: resolve9(cwd),
-    packagesDir: config2["packages-dir"] ?? defaultPackagesDir,
-    monorepo: config2["package-gates"]?.["test-coverage"] !== void 0,
-    scopes: await resolveCoverageScopes({ cwd, config: config2, summaryPath })
+    scope: { packages: [...new Set(touched)], includeRoot: changed.some((file2) => packageOf({ file: file2, packagesDir }) === void 0) }
   };
 };
-
-// src/coverage/selectCollectedFiles/selectCollectedFiles.ts
-import { join as join82 } from "node:path";
-
-// src/coverage/common/utils/scopeRootOf.ts
-import { join as join79 } from "node:path";
-var scopeRootOf = ({ root, scope, packagesDir, monorepo }) => monorepo ? join79(root, packagesDir, scope) : root;
-
-// src/coverage/loadScopeJestConfig/loadScopeJestConfig.ts
-import { readFile as readFile40 } from "node:fs/promises";
-import { createRequire as createRequire3 } from "node:module";
-import { join as join81 } from "node:path";
-
-// src/coverage/loadScopeJestConfig/common/utils/resolveJestConfigPath.ts
-import { readFile as readFile39, stat as stat7 } from "node:fs/promises";
-import { join as join80, resolve as resolve10 } from "node:path";
-var configFileNames = ["jest.config.cjs", "jest.config.js", "jest.config.mjs", "jest.config.json"];
-var exists = ({ path }) => stat7(path).then(
-  () => true,
-  () => false
-);
-var configArgument = ({ command }) => {
-  const tokens = command.split(/\s+/).filter((token) => token !== "");
-  const flagIndex = tokens.findIndex((token) => token === "-c" || token === "--config");
-  const inline = tokens.find((token) => token.startsWith("--config="));
-  const raw = flagIndex === -1 ? inline?.slice("--config=".length) : tokens[flagIndex + 1];
-  return raw === void 0 ? void 0 : raw.replace(/^["']|["']$/g, "");
+var scheduledGateNames = ({ config: config2, coverage, checkpoint }) => {
+  const schedule = checkpoint === void 0 ? { kind: GateScheduleKind.Single } : resolveGateSchedule({ override: resolveGateOverride({ overrides: config2["gate-overrides"], checkpoint }) });
+  const scopedBlock = config2["package-gates"];
+  const entries = buildGateEntries({
+    commands: unionCommands({
+      root: rootGateCommands({ gates: resolveGates({ gates: config2.gates }) }),
+      scoped: scopedBlock === void 0 ? void 0 : resolvePackageGatesConfig({ packageGates: scopedBlock })
+    })
+  });
+  return selfCheckGateNames({ entries, schedule, coverage });
 };
-var hasJestKey = async ({ manifestPath }) => {
-  try {
-    const parsed = JSON.parse(await readFile39(manifestPath, "utf8"));
-    return typeof parsed === "object" && parsed !== null && "jest" in parsed;
-  } catch {
-    return false;
-  }
-};
-var resolveJestConfigPath = async ({ scopeRoot, coverageScript }) => {
-  const named = coverageScript === void 0 ? void 0 : configArgument({ command: coverageScript });
-  if (named !== void 0) {
-    const path = resolve10(scopeRoot, named);
-    return await exists({ path }) ? path : void 0;
-  }
-  let found;
-  for (const name of configFileNames) {
-    if (found === void 0 && await exists({ path: join80(scopeRoot, name) })) {
-      found = join80(scopeRoot, name);
+var runSelfCheck = async ({ cwd, config: config2, coverage, checkpoint, wholeRepository, runId, step, onProgress }) => {
+  const gateNames = scheduledGateNames({ config: config2, coverage, checkpoint });
+  let result = { reason: SelfCheckReason.NothingScheduled, gateNames, gates: [], error: void 0, crashes: [] };
+  if (gateNames.length > 0) {
+    const resolved = await resolveScope({ cwd, config: config2, wholeRepository });
+    if ("reason" in resolved) {
+      result = { ...result, reason: resolved.reason };
+    } else {
+      const collector = collectGateObservations();
+      const run = await runGates({
+        cwd,
+        config: config2,
+        coverage,
+        packages: resolved.scope.packages,
+        includeRoot: resolved.scope.includeRoot,
+        runId,
+        step: buildSelfCheckStep({ step }),
+        schedule: { kind: GateScheduleKind.Exact, gates: gateNames },
+        onGateResult: collector.onGateResult,
+        onProgress
+      });
+      const gates = collector.observed();
+      const ranNothing = gates.every((observation) => observation.skipped === true);
+      result = ranNothing ? { ...result, gates } : { reason: SelfCheckReason.Ran, gateNames, gates, error: run.error, crashes: run.crashes };
     }
-  }
-  if (found !== void 0) {
-    return found;
-  }
-  const manifestPath = join80(scopeRoot, "package.json");
-  return await hasJestKey({ manifestPath }) ? manifestPath : void 0;
-};
-
-// src/coverage/loadScopeJestConfig/loadScopeJestConfig.ts
-var ScopeManifest = external_exports.looseObject({ scripts: external_exports.record(external_exports.string(), external_exports.string()).optional().catch(void 0) });
-var resolveScopeCoverageScript = async ({ scopeRoot, command }) => {
-  const scriptName = extractRunScriptName({ command });
-  if (scriptName === void 0) {
-    return command;
-  }
-  try {
-    const parsed = ScopeManifest.safeParse(JSON.parse(await readFile40(join81(scopeRoot, "package.json"), "utf8")));
-    return parsed.success ? parsed.data.scripts?.[scriptName] : void 0;
-  } catch {
-    return void 0;
-  }
-};
-var requireConfig = ({ configPath }) => {
-  try {
-    const loaded = createRequire3(configPath)(configPath);
-    return loaded;
-  } catch {
-    return void 0;
-  }
-};
-var readJestKey = ({ loaded }) => typeof loaded === "object" && loaded !== null && "jest" in loaded ? loaded.jest : void 0;
-var isThenable = ({ value }) => "then" in value && typeof value.then === "function";
-var loadScopeJestConfig = async ({ scopeRoot, command }) => {
-  const coverageScript = await resolveScopeCoverageScript({ scopeRoot, command });
-  const configPath = await resolveJestConfigPath({ scopeRoot, coverageScript });
-  if (configPath === void 0) {
-    return void 0;
-  }
-  const loaded = requireConfig({ configPath });
-  const value = configPath.endsWith("package.json") ? readJestKey({ loaded }) : loaded;
-  if (typeof value !== "object" || value === null || isThenable({ value })) {
-    return void 0;
-  }
-  return { configPath, config: value };
-};
-
-// src/coverage/selectCollectedFiles/common/utils/isCoverageCollectedFile.ts
-import { relative as relative12, sep as sep2 } from "node:path";
-
-// src/coverage/selectCollectedFiles/common/utils/matchesCoverageGlob.ts
-var rootDirToken = "<rootDir>/";
-var currentDirToken = "./";
-var unsupportedSyntax = /[[\]()\\]/;
-var normalisePattern = ({ pattern }) => {
-  let result = pattern;
-  while (result.startsWith(rootDirToken) || result.startsWith(currentDirToken)) {
-    result = result.startsWith(rootDirToken) ? result.slice(rootDirToken.length) : result.slice(currentDirToken.length);
   }
   return result;
-};
-var hasUnsupportedBraces = ({ pattern }) => {
-  let depth = 0;
-  let invalid = false;
-  for (const character of pattern) {
-    if (character === "{") {
-      depth += 1;
-    }
-    if (character === "}") {
-      depth -= 1;
-    }
-    invalid = invalid || depth > 1 || depth < 0;
-  }
-  return invalid || depth !== 0;
-};
-var escapeLiteral2 = ({ character }) => character.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-var toExpression = ({ pattern }) => {
-  let expression = "";
-  let index = 0;
-  while (index < pattern.length) {
-    const character = pattern[index];
-    if (character === "*" && pattern[index + 1] === "*" && pattern[index + 2] === "/") {
-      expression += "(?:[^/]+/)*";
-      index += 3;
-    } else if (character === "*" && pattern[index + 1] === "*") {
-      expression += ".*";
-      index += 2;
-    } else if (character === "*") {
-      expression += "[^/]*";
-      index += 1;
-    } else if (character === "?") {
-      expression += "[^/]";
-      index += 1;
-    } else if (character === "{") {
-      const close = pattern.indexOf("}", index);
-      const alternatives = pattern.slice(index + 1, close).split(",");
-      expression += `(?:${alternatives.map((alternative) => toExpression({ pattern: alternative })).join("|")})`;
-      index = close + 1;
-    } else {
-      expression += escapeLiteral2({ character });
-      index += 1;
-    }
-  }
-  return expression;
-};
-var matchesCoverageGlob = ({ pattern, path }) => {
-  const normalised = normalisePattern({ pattern });
-  if (unsupportedSyntax.test(normalised) || hasUnsupportedBraces({ pattern: normalised })) {
-    return void 0;
-  }
-  try {
-    return new RegExp(`^${toExpression({ pattern: normalised })}$`).test(path);
-  } catch {
-    return void 0;
-  }
-};
-
-// src/coverage/selectCollectedFiles/common/utils/isCoverageCollectedFile.ts
-var ignoresPath = ({ patterns, rootDir, absolutePath }) => {
-  let ignored = false;
-  for (const source of patterns) {
-    try {
-      ignored = ignored || new RegExp(source.split("<rootDir>").join(rootDir)).test(absolutePath);
-    } catch {
-    }
-  }
-  return ignored;
-};
-var isCoverageCollectedFile = ({ absolutePath, collection }) => {
-  if (collection === void 0) {
-    return true;
-  }
-  const path = relative12(collection.rootDir, absolutePath).split(sep2).join("/");
-  if (path === "" || path.startsWith("../")) {
-    return false;
-  }
-  if (ignoresPath({ patterns: collection.coveragePathIgnorePatterns, rootDir: collection.rootDir, absolutePath })) {
-    return false;
-  }
-  const entries = collection.collectCoverageFrom;
-  if (entries === void 0) {
-    return true;
-  }
-  let positive = false;
-  let negated = false;
-  let undecidable = false;
-  for (const entry of entries) {
-    const negation = entry.startsWith("!");
-    const matched = matchesCoverageGlob({ pattern: negation ? entry.slice(1) : entry, path });
-    undecidable = undecidable || matched === void 0;
-    positive = positive || matched === true && !negation;
-    negated = negated || matched === true && negation;
-  }
-  return undecidable || positive && !negated;
-};
-
-// src/coverage/selectCollectedFiles/common/utils/readCoverageCollection.ts
-import { dirname as dirname10, resolve as resolve11 } from "node:path";
-var defaultIgnorePatterns = ["/node_modules/"];
-var JestConfigShape = external_exports.looseObject({
-  rootDir: external_exports.string().optional().catch(void 0),
-  collectCoverageFrom: external_exports.array(external_exports.string()).optional().catch(void 0),
-  coveragePathIgnorePatterns: external_exports.array(external_exports.string()).optional().catch(void 0)
-});
-var readCoverageCollection = ({ loaded }) => {
-  if (loaded === void 0) {
-    return void 0;
-  }
-  const parsed = JestConfigShape.safeParse(loaded.config);
-  if (!parsed.success) {
-    return void 0;
-  }
-  const configDir = dirname10(loaded.configPath);
-  return {
-    rootDir: parsed.data.rootDir === void 0 ? configDir : resolve11(configDir, parsed.data.rootDir),
-    collectCoverageFrom: parsed.data.collectCoverageFrom,
-    coveragePathIgnorePatterns: parsed.data.coveragePathIgnorePatterns ?? defaultIgnorePatterns
-  };
-};
-
-// src/coverage/selectCollectedFiles/selectCollectedFiles.ts
-var selectCollectedFiles = async ({ cwd, config: config2, files }) => {
-  const { root, packagesDir, monorepo, scopes } = await resolveScopeContext({ cwd, config: config2 });
-  const collections = /* @__PURE__ */ new Map();
-  const collected = [];
-  const excluded = [];
-  for (const file2 of files) {
-    const scope = coverageScopeOf({ file: file2, scopes, packagesDir, monorepo });
-    if (scope === void 0) {
-      collected.push(file2);
-      continue;
-    }
-    if (!collections.has(scope.scope)) {
-      const scopeRoot = scopeRootOf({ root, scope: scope.scope, packagesDir, monorepo });
-      collections.set(scope.scope, readCoverageCollection({ loaded: await loadScopeJestConfig({ scopeRoot, command: scope.command }) }));
-    }
-    const collection = collections.get(scope.scope);
-    (isCoverageCollectedFile({ absolutePath: join82(root, file2), collection }) ? collected : excluded).push(file2);
-  }
-  return { collected, excluded };
-};
-
-// src/coverage/selectUnloadableFiles/selectUnloadableFiles.ts
-import { readFile as readFile42 } from "node:fs/promises";
-import { dirname as dirname12, join as join84 } from "node:path";
-
-// src/common/sourceFiles/isUnloadableSourceFile.ts
-var hasModuleScopeAwait = ({ node, compiler }) => {
-  if (compiler.isFunctionLike(node) || compiler.isClassLike(node)) {
-    return false;
-  }
-  if (compiler.isAwaitExpression(node) || compiler.isForOfStatement(node) && node.awaitModifier !== void 0) {
-    return true;
-  }
-  return node.forEachChild((child) => hasModuleScopeAwait({ node: child, compiler })) === true;
-};
-var isUnloadableSourceFile = ({ path, content, compiler }) => {
-  const scriptKind = /\.[jt]sx$/.test(path) ? compiler.ScriptKind.TSX : compiler.ScriptKind.TS;
-  const source = compiler.createSourceFile(path, content, compiler.ScriptTarget.Latest, false, scriptKind);
-  return source.statements.some((statement) => hasModuleScopeAwait({ node: statement, compiler }));
-};
-
-// src/coverage/selectUnloadableFiles/common/utils/isEsmSourceFile.ts
-import { extname } from "node:path";
-var manifestDecidedExtensions = [".js", ".jsx"];
-var isEsmSourceFile = ({ path, moduleMode, packageType }) => {
-  if (moduleMode === void 0) {
-    return false;
-  }
-  const extension = extname(path);
-  return moduleMode.esmExtensions.includes(extension) || packageType === "module" && manifestDecidedExtensions.includes(extension);
-};
-
-// src/coverage/selectUnloadableFiles/common/utils/readJestModuleMode.ts
-import { createRequire as createRequire4 } from "node:module";
-var EsmSettings = external_exports.looseObject({
-  extensionsToTreatAsEsm: external_exports.array(external_exports.string()).optional().catch(void 0),
-  preset: external_exports.string().optional().catch(void 0),
-  projects: external_exports.array(external_exports.unknown()).optional().catch(void 0)
-});
-var EsmExtensions = external_exports.looseObject({ extensionsToTreatAsEsm: external_exports.array(external_exports.string()).optional().catch(void 0) });
-var readPresetExtensions = ({ configPath, preset }) => {
-  const requirePreset = createRequire4(configPath);
-  let found;
-  for (const specifier of [`${preset}/jest-preset`, preset]) {
-    if (found === void 0) {
-      try {
-        const parsed = EsmExtensions.safeParse(requirePreset(specifier));
-        found = parsed.success ? parsed.data.extensionsToTreatAsEsm : void 0;
-      } catch {
-      }
-    }
-  }
-  return found ?? [];
-};
-var readProjectExtensions = ({ projects }) => {
-  const extensions = [];
-  for (const project of projects) {
-    const parsed = EsmExtensions.safeParse(project);
-    if (parsed.success) {
-      extensions.push(...parsed.data.extensionsToTreatAsEsm ?? []);
-    }
-  }
-  return extensions;
-};
-var readJestModuleMode = ({ loaded }) => {
-  if (loaded === void 0) {
-    return void 0;
-  }
-  const parsed = EsmSettings.safeParse(loaded.config);
-  if (!parsed.success) {
-    return void 0;
-  }
-  const extensions = /* @__PURE__ */ new Set([".mjs", ...parsed.data.extensionsToTreatAsEsm ?? []]);
-  if (parsed.data.preset !== void 0) {
-    for (const extension of readPresetExtensions({ configPath: loaded.configPath, preset: parsed.data.preset })) {
-      extensions.add(extension);
-    }
-  }
-  for (const extension of readProjectExtensions({ projects: parsed.data.projects ?? [] })) {
-    extensions.add(extension);
-  }
-  extensions.delete(".cjs");
-  return { esmExtensions: [...extensions] };
-};
-
-// src/coverage/selectUnloadableFiles/common/utils/readNearestPackageType.ts
-import { readFile as readFile41 } from "node:fs/promises";
-import { dirname as dirname11, join as join83, relative as relative13, sep as sep3 } from "node:path";
-var withinScope = ({ directory, scopeRoot }) => {
-  const path = relative13(scopeRoot, directory);
-  return path === "" || !(path === ".." || path.startsWith(`..${sep3}`));
-};
-var readManifestType = async ({ manifestPath }) => {
-  try {
-    const parsed = JSON.parse(await readFile41(manifestPath, "utf8"));
-    const declared = typeof parsed === "object" && parsed !== null && "type" in parsed ? parsed.type : void 0;
-    return typeof declared === "string" ? declared : void 0;
-  } catch {
-    return void 0;
-  }
-};
-var readNearestPackageType = async ({ fileDir, scopeRoot }) => {
-  let directory = fileDir;
-  let type;
-  while (type === void 0 && withinScope({ directory, scopeRoot })) {
-    type = await readManifestType({ manifestPath: join83(directory, "package.json") });
-    const parent = dirname11(directory);
-    if (parent === directory) {
-      break;
-    }
-    directory = parent;
-  }
-  return type;
-};
-
-// src/coverage/selectUnloadableFiles/selectUnloadableFiles.ts
-var selectUnloadableFiles = async ({ cwd, config: config2, files, compiler }) => {
-  if (compiler === void 0) {
-    return { loadable: files, unloadable: [] };
-  }
-  const { root, packagesDir, monorepo, scopes } = await resolveScopeContext({ cwd, config: config2 });
-  const modes = /* @__PURE__ */ new Map();
-  const packageTypes = /* @__PURE__ */ new Map();
-  const loadable = [];
-  const unloadable = [];
-  for (const file2 of files) {
-    const content = await readFile42(join84(cwd, file2), "utf8").catch(() => void 0);
-    if (content === void 0 || !isUnloadableSourceFile({ path: file2, content, compiler })) {
-      loadable.push(file2);
-      continue;
-    }
-    const scope = coverageScopeOf({ file: file2, scopes, packagesDir, monorepo });
-    if (scope === void 0) {
-      unloadable.push(file2);
-      continue;
-    }
-    const scopeRoot = scopeRootOf({ root, scope: scope.scope, packagesDir, monorepo });
-    if (!modes.has(scope.scope)) {
-      modes.set(scope.scope, readJestModuleMode({ loaded: await loadScopeJestConfig({ scopeRoot, command: scope.command }) }));
-    }
-    const fileDir = dirname12(join84(root, file2));
-    if (!packageTypes.has(fileDir)) {
-      packageTypes.set(fileDir, await readNearestPackageType({ fileDir, scopeRoot }));
-    }
-    const esm = isEsmSourceFile({ path: file2, moduleMode: modes.get(scope.scope), packageType: packageTypes.get(fileDir) });
-    (esm ? loadable : unloadable).push(file2);
-  }
-  return { loadable, unloadable };
-};
-
-// src/coverage/checkChangedFilesExecuted.ts
-var ExecutionSummaryReport = external_exports.record(external_exports.string(), external_exports.looseObject({ statements: external_exports.looseObject({ covered: external_exports.unknown(), total: external_exports.unknown() }) }));
-var readExecutionSummary = async ({ cwd, summaryPath }) => {
-  try {
-    const parsed = ExecutionSummaryReport.parse(JSON.parse(await readFile43(join85(cwd, summaryPath), "utf8")));
-    return new Map(Object.entries(parsed).map(([key, entry]) => [relative14(cwd, key), entry.statements]));
-  } catch {
-    return void 0;
-  }
-};
-var checkChangedFilesExecuted = async ({ cwd, config: config2, changedFiles, compiler }) => {
-  if (changedFiles.length === 0 || compiler === void 0) {
-    return void 0;
-  }
-  const { packagesDir, monorepo, scopes } = await resolveScopeContext({ cwd, config: config2 });
-  const executable = [];
-  for (const file2 of changedFiles.filter(
-    (changed) => isTestableSourceFile({ path: changed }) && !isTestFile({ path: changed }) && !isToolingConfigFile({ path: changed, packagesDir })
-  )) {
-    const content = await readFile43(join85(cwd, file2), "utf8").catch(() => void 0);
-    if (content !== void 0 && !isInertSourceFile({ path: file2, content, compiler })) {
-      executable.push(file2);
-    }
-  }
-  const { loadable: candidates } = await selectUnloadableFiles({ cwd, config: config2, files: executable, compiler });
-  if (candidates.length === 0) {
-    return void 0;
-  }
-  const { collected } = await selectCollectedFiles({ cwd, config: config2, files: candidates });
-  if (collected.length === 0) {
-    return void 0;
-  }
-  const summaries = /* @__PURE__ */ new Map();
-  const unexecuted = [];
-  for (const file2 of collected) {
-    const scope = coverageScopeOf({ file: file2, scopes, packagesDir, monorepo });
-    if (scope === void 0) {
-      continue;
-    }
-    if (!summaries.has(scope.scope)) {
-      summaries.set(scope.scope, await readExecutionSummary({ cwd, summaryPath: scope.summaryPath }));
-    }
-    const summary = summaries.get(scope.scope);
-    if (summary === void 0) {
-      return buildMissingSummaryMessage({ summaryPath: scope.summaryPath, scope: scope.scope });
-    }
-    const entry = summary.get(file2);
-    if (entry === void 0 || entry.covered === 0 && entry.total !== 0) {
-      unexecuted.push(file2);
-    }
-  }
-  if (unexecuted.length === 0) {
-    return void 0;
-  }
-  return `changed-file-execution: ${unexecuted.length} changed file(s) never executed under the tests: ${unexecuted.join(", ")} \u2014 cover each through its public subject's tests; a file no test can reach through a public surface is a wiring defect to fix in source.`;
-};
-
-// src/coverage/initializeCoverageRun.ts
-import { readFile as readFile45, writeFile as writeFile14 } from "node:fs/promises";
-import { join as join87 } from "node:path";
-
-// src/coverage/runCoverageCheck.ts
-import { readFile as readFile44 } from "node:fs/promises";
-import { join as join86, relative as relative15 } from "node:path";
-var CoverageSummaryReport = external_exports.record(external_exports.string(), external_exports.looseObject({ statements: external_exports.looseObject({ pct: external_exports.unknown() }) }));
-var readJsonFile2 = async ({ path }) => {
-  try {
-    const parsed = JSON.parse(await readFile44(path, "utf8"));
-    return parsed;
-  } catch {
-    return void 0;
-  }
-};
-var readScopeSummary = async ({ cwd, scope, summaryPath, passed }) => {
-  const parsed = CoverageSummaryReport.safeParse(await readJsonFile2({ path: join86(cwd, summaryPath) }));
-  if (!parsed.success) {
-    throw new Error(buildMissingSummaryMessage({ summaryPath, scope }));
-  }
-  const files = [];
-  let statementsPct = 0;
-  for (const [key, entry] of Object.entries(parsed.data)) {
-    const pct = entry.statements.pct;
-    if (typeof pct !== "number") {
-      continue;
-    }
-    if (key === "total") {
-      statementsPct = pct;
-      continue;
-    }
-    files.push({ path: relative15(cwd, key), scope, statementsPct: pct });
-  }
-  return { files, total: { scope, statementsPct, passed } };
-};
-var runCoverageCheck = async ({
-  cwd,
-  config: config2,
-  scope,
-  runId,
-  step,
-  onProgress
-}) => {
-  const summaryPath = config2["coverage-summary-path"] ?? defaultCoverageSummaryPath;
-  const scopes = await resolveCoverageScopes({ cwd, config: config2, summaryPath, scope });
-  const files = [];
-  const totals = [];
-  for (const entry of scopes) {
-    const startedAt = Date.now();
-    const result = await runCommand({ command: entry.command, cwd });
-    const durationMs = Date.now() - startedAt;
-    onProgress?.(`coverage [${entry.scope}]: exit ${result.exitCode} (${(durationMs / 1e3).toFixed(1)}s)`);
-    if (runId) {
-      await appendCommandLog({
-        cwd,
-        runId,
-        record: { at: (/* @__PURE__ */ new Date()).toISOString(), step, group: entry.scope, kind: "testCoverage", command: entry.command, exitCode: result.exitCode, durationMs }
-      });
-    }
-    const measured = await readScopeSummary({ cwd, scope: entry.scope, summaryPath: entry.summaryPath, passed: result.exitCode === 0 });
-    files.push(...measured.files);
-    totals.push(measured.total);
-  }
-  return {
-    passed: totals.length > 0 && totals.every((total) => total.passed),
-    files: files.sort((left, right) => left.statementsPct - right.statementsPct || left.path.localeCompare(right.path)),
-    totals
-  };
-};
-
-// src/coverage/initializeCoverageRun.ts
-var initializeCoverageRun = async ({
-  cwd,
-  runId,
-  driver,
-  config: config2,
-  allowDirty = false,
-  existing
-}) => {
-  if (existing) {
-    const pipeline = existing.pipeline ?? "implement";
-    if (pipeline !== "coverage") {
-      const command = pipeline === "refactor" ? "refactor" : "resume";
-      throw new Error(`run ${existing.runId} belongs to the ${pipeline} pipeline \u2014 resume it with: lightsout ${command} --run ${existing.runId}`);
-    }
-    return { manifest: existing, worklist: CoverageWorklist.parse(JSON.parse(await readFile45(join87(cwd, existing.plan), "utf8"))) };
-  }
-  if (typeof config2.gates["test-coverage"] !== "string" && config2["package-gates"]?.["test-coverage"] === void 0) {
-    throw new Error('the coverage gate is opted out ("test-coverage": false) \u2014 test-coverage-to-threshold has nothing to run');
-  }
-  const dirty = await readGitChangedFiles({ cwd });
-  if (dirty === void 0) {
-    throw new Error("test-coverage-to-threshold requires a git worktree \u2014 without git, changes cannot be attributed or reviewed as one diff.");
-  }
-  if (dirty.length > 0 && !allowDirty) {
-    throw new Error(
-      `test-coverage-to-threshold requires a clean tree \u2014 commit or stash first, or accept the standing changes as baseline with --allow-dirty. Dirty:
-${dirty.map((file2) => `  ${file2}`).join("\n")}`
-    );
-  }
-  const measured = await runCoverageCheck({ cwd, config: config2 });
-  const worklist = { at: (/* @__PURE__ */ new Date()).toISOString(), totals: measured.totals, files: measured.files };
-  const worklistPath = join87(".lightsout", "runs", runId, "worklist.json");
-  const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: "coverage", driver: driver.name, config: config2, baselineDirtyFiles: dirty });
-  await writeFile14(join87(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
-`, "utf8");
-  return { manifest, worklist };
 };
 
 // src/common/utils/runPreflightGate.ts
@@ -136173,14 +136436,17 @@ var executeCoverage = async ({
 };
 var runCoveragePipeline = (params) => withRunLock({ params, run: executeCoverage });
 
+// src/pipeline/common/utils/standardsScopeFiles.ts
+var standardsScopeFiles = ({ run }) => {
+  const vendored = run.config.vendored ?? [];
+  return run.current().changedFiles.filter((file2) => isTestableSourceFile({ path: file2 }) && !vendored.some((prefix) => file2.startsWith(prefix)));
+};
+
+// src/pipeline/common/utils/sourceFiles.ts
+var sourceFiles = ({ run }) => standardsScopeFiles({ run }).filter((file2) => !isTestFile({ path: file2 }));
+
 // src/pipeline/common/utils/runVerificationGates.ts
 var passedCoverage = ({ gate }) => gate.kind === "testCoverage" && gate.skipped !== true && gate.exitCode === 0;
-var scheduleOf = ({ override }) => {
-  if (override === void 0) {
-    return { kind: GateScheduleKind.Tiered };
-  }
-  return override === "off" ? { kind: GateScheduleKind.Off } : { kind: GateScheduleKind.Exact, gates: override };
-};
 var changedFilesExecutedError = ({ run, packagesDir }) => {
   const manifest = run.current();
   return checkChangedFilesExecuted({
@@ -136193,7 +136459,7 @@ var changedFilesExecutedError = ({ run, packagesDir }) => {
 var runVerificationGates = async ({ run, coverage, checkpoint, rows, final }) => {
   const packagesDir = run.config["packages-dir"] ?? defaultPackagesDir;
   const hasRootChanges = run.current().changedFiles.some((file2) => packageOf({ file: file2, packagesDir }) === void 0);
-  const observations = /* @__PURE__ */ new Map();
+  const collector = collectGateObservations();
   const result = await runGates({
     cwd: run.cwd,
     config: run.config,
@@ -136201,13 +136467,13 @@ var runVerificationGates = async ({ run, coverage, checkpoint, rows, final }) =>
     packages: run.current().packages,
     includeRoot: hasRootChanges,
     failFast: false,
-    schedule: scheduleOf({ override: resolveGateOverride({ overrides: run.config["gate-overrides"], checkpoint }) }),
+    schedule: resolveGateSchedule({ override: resolveGateOverride({ overrides: run.config["gate-overrides"], checkpoint }) }),
     runId: run.current().runId,
     step: run.current().currentStep ?? void 0,
-    onGateResult: (gateResult) => observations.set(`${gateResult.group}\0${gateResult.kind}`, gateResult),
+    onGateResult: collector.onGateResult,
     onProgress: (message) => run.progress(message)
   });
-  const gates = [...observations.values()];
+  const gates = collector.observed();
   const failures = gates.filter(
     (observation) => observation.skipped !== true && observation.crashed !== true && observation.exitCode !== void 0 && observation.exitCode !== 0 && result.failedFamilies.includes(observation.kind)
   );
@@ -136232,107 +136498,77 @@ var runVerificationGates = async ({ run, coverage, checkpoint, rows, final }) =>
   return { ...verdict, gates };
 };
 
-// src/pipeline/steps/cleanSlateStep.ts
-var cleanSlateStep = ({ run, ledgerGates }) => {
-  return async () => {
-    const record3 = run.nextRecord({ id: "clean-slate" });
-    await run.setStep({ record: record3 });
-    run.progress(`step clean-slate \u2014 attempt ${record3.attempts}`);
-    const { error: error51, failures, gates } = await runVerificationGates({ run, coverage: true, checkpoint: "clean-slate", rows: [] });
-    if (error51) {
-      const ranOut = failures.some((failure) => failure.exitCode === -1);
-      const headline = ranOut ? "A gate did not finish, so the codebase was never proved green \u2014 this is a timeout or a gate that could not start, not a failing test." : "Codebase is not green before implementation \u2014 fix this first.";
-      return run.stop({ record: record3, status: RunStatus.Failed, error: `${headline}
-${error51}` });
+// src/pipeline/steps/verify/approveRunnerSnapshots.ts
+var approveRunnerSnapshots = async ({ run }) => {
+  const manifest = run.current();
+  const seen = [...await readGitChangedFiles({ cwd: run.cwd }) ?? [], ...manifest.changedFiles];
+  const snapshots = [...new Set(seen)].filter((path) => isSnapshotFile({ path }) && !manifest.approvedTests.some((record3) => record3.path === path));
+  const written = [];
+  for (const path of snapshots) {
+    if (await readApprovedTest({ run, path }) === void 0) {
+      written.push(path);
     }
-    const capability = ledgerGates.length === 0 ? void 0 : await checkTestResultsCapability({ cwd: run.cwd, gates: ledgerGates, results: gates ?? [], onProgress: (message) => run.progress(message) });
-    if (capability) {
-      return run.stop({ record: record3, status: RunStatus.Failed, error: capability });
-    }
-    const gateArtifacts = await readGitChangedFiles({ cwd: run.cwd });
-    const baselineDirtyFiles = [.../* @__PURE__ */ new Set([...run.current().baselineDirtyFiles, ...gateArtifacts ?? []])];
-    const approvedTests = await approveTestFiles({ run, paths: baselineDirtyFiles.filter((path) => isTestSideFile({ path })) });
-    await run.setStep({ record: { ...record3, status: RunStatus.Passed }, patch: { baselineDirtyFiles, approvedTests } });
-    run.progress("step clean-slate passed");
-    return void 0;
-  };
+  }
+  if (written.length === 0) {
+    return 0;
+  }
+  await run.update({ patch: { approvedTests: await approveTestFiles({ run, paths: written }) } });
+  run.progress(`${manifest.currentStep ?? "verify"}: ${written.length} snapshot file(s) the gate run wrote were approved as the runner's own output`);
+  return written.length;
 };
 
-// src/common/processes/runFormatter.ts
-var runFormatter = async ({ cwd, runId, config: config2, step, onResult }) => {
-  const command = config2.gates.format;
-  if (!command) {
-    return void 0;
-  }
-  const formatTimeoutMs = 10 * 6e4;
-  const startedAt = Date.now();
-  let result;
-  try {
-    result = await runCommand({ command, cwd, timeoutMs: formatTimeoutMs });
-  } catch (error51) {
-    result = { exitCode: -1, stdout: "", stderr: messageOf({ error: error51 }) };
-  }
-  const gateResult = {
-    group: "root",
-    kind: "format",
-    command,
-    exitCode: result.exitCode,
-    durationMs: Date.now() - startedAt,
-    ...result.exitCode === 0 ? {} : { outputTail: `${result.stdout}
-${result.stderr}`.slice(-2e3) }
-  };
-  await appendCommandLog({
-    cwd,
-    runId,
-    record: {
-      at: (/* @__PURE__ */ new Date()).toISOString(),
-      step,
-      ...gateResult
-    }
-  });
-  onResult?.(gateResult);
-  return result.exitCode === 0 ? void 0 : `format failed (exit ${result.exitCode}):
-${result.stdout}
-${result.stderr}`;
-};
-
-// src/pipeline/steps/formatStep.ts
-var formatStep = ({ run, id }) => ({
+// src/pipeline/steps/verify/reviewAndVerify.ts
+var reviewAndVerify = async ({
+  run,
   id,
-  skip: () => run.config.gates.format ? void 0 : "no format command configured",
-  run: async () => {
-    const record3 = run.nextRecord({ id });
-    await run.setStep({ record: record3 });
-    run.progress(`step ${id} \u2014 running formatter`);
-    const formatError2 = await runFormatter({ cwd: run.cwd, runId: run.current().runId, config: run.config, step: id });
-    if (formatError2) {
-      return run.stop({ record: record3, status: RunStatus.Failed, error: formatError2 });
-    }
-    const formatterArtifacts = (await readGitChangedFiles({ cwd: run.cwd }) ?? []).filter(
-      (file2) => !run.current().changedFiles.includes(file2) && !run.current().baselineDirtyFiles.includes(file2)
-    );
-    await run.setStep({
-      record: { ...record3, status: RunStatus.Passed },
-      patch: formatterArtifacts.length === 0 ? void 0 : { baselineDirtyFiles: [.../* @__PURE__ */ new Set([...run.current().baselineDirtyFiles, ...formatterArtifacts])] }
-    });
-    run.progress(`step ${id} passed`);
-    return void 0;
+  coverage,
+  final,
+  planContent,
+  overviewContent,
+  acceptanceTests
+}) => {
+  const review = await reviewTestChanges({ run, checkpoint: id, planContent, overviewContent });
+  if (review.rateLimited) {
+    return { rateLimited: true };
   }
-});
+  if (review.error !== void 0) {
+    return { error: review.error, failedFamilies: ["test-review"], crashes: [], failures: [] };
+  }
+  const result = await runVerificationGates({ run, coverage, checkpoint: id, rows: acceptanceTests(), final });
+  await approveRunnerSnapshots({ run });
+  return result;
+};
 
-// src/pipeline/steps/describePersistingFindings.ts
-var describePersistingFindings = ({ findings, report, passes }) => {
-  const findingLines = findings.map((finding2) => {
-    const where = finding2.files.map((file2) => formatFindingSite({ file: file2 })).join(", ");
-    return `- ${finding2.siteKey} \u2014 ${formatFindingText({ finding: finding2 })}
-  at ${where}`;
+// src/pipeline/steps/verifyStep/common/utils/verificationOf.ts
+var verificationOf = ({ record: record3 }) => record3.verification ?? {
+  failedFamilies: [],
+  repairAttempts: {},
+  failures: [],
+  needsFormatting: false,
+  guidedRepairAttempted: false
+};
+
+// src/pipeline/steps/verifyStep/common/utils/formatAndVerify.ts
+var formatAndVerify = async ({ context, record: record3 }) => {
+  const { run, id, coverage, final, planContent, overviewContent, acceptanceTests } = context;
+  const failures = [];
+  const error51 = await runFormatter({
+    cwd: run.cwd,
+    runId: run.current().runId,
+    config: run.config,
+    step: id,
+    onResult: (result2) => failures.push(result2)
   });
-  const rationale = (report?.friction ?? []).map((entry) => `- [${entry.area}] ${entry.detail}`);
-  return [
-    `refactor: standards gate \u2014 ${findings.length} blocking persist after ${passes} pass(es):`,
-    ...findingLines,
-    ...rationale.length > 0 ? ["the refactor agent's account of its final pass:", ...rationale] : []
-  ].join("\n");
+  const next = { ...record3, verification: { ...verificationOf({ record: record3 }), needsFormatting: false } };
+  await run.setStep({ record: next });
+  if (error51 !== void 0) {
+    return { record: next, result: { error: error51, failedFamilies: ["format"], crashes: [], failures, gates: [] } };
+  }
+  const result = await reviewAndVerify({ run, id, coverage, final, planContent, overviewContent, acceptanceTests });
+  if ("rateLimited" in result) {
+    return { parked: await run.stop({ record: next, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };
+  }
+  return { record: next, result };
 };
 
 // src/pipeline/common/utils/consumerRelative.ts
@@ -136354,15 +136590,6 @@ var collectChanged = async ({ run, gitPrefix, reports }) => {
   return { changedFiles, packages: [.../* @__PURE__ */ new Set([...run.current().packages, ...fromFiles])] };
 };
 
-// src/pipeline/common/utils/invokeRoleOrStop.ts
-var invokeRoleOrStop = async ({ run, record: record3, invocation, step }) => {
-  const outcome = await run.invokeRole({ invocation, step });
-  if (!outcome.ok) {
-    return outcome.rateLimited ? { stopped: await run.stop({ record: record3, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) } : { stopped: await run.stop({ record: record3, status: RunStatus.Failed, error: outcome.failure }) };
-  }
-  return { report: outcome.report };
-};
-
 // src/pipeline/common/utils/withStepFiles.ts
 var withStepFiles = ({ record: record3, reports, gitPrefix }) => ({
   ...record3,
@@ -136373,6 +136600,340 @@ var withStepFiles = ({ record: record3, reports, gitPrefix }) => ({
     ])
   ]
 });
+
+// src/pipeline/steps/verifyStep/common/utils/runFix.ts
+var runFix = async ({ context, errorContext, record: record3 }) => {
+  const { run, gitPrefix, id } = context;
+  const fix = await run.invokeRole({ invocation: context.buildFix({ errorContext }), step: id });
+  if (!fix.ok && fix.rateLimited) {
+    return { parked: await run.stop({ record: record3, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };
+  }
+  let next = record3;
+  if (fix.ok) {
+    const { report } = fix;
+    await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: id, friction: report.friction ?? [] });
+    if (report.status === WorkReportStatus.Complete) {
+      next = withStepFiles({ record: record3, reports: [report], gitPrefix });
+      await run.setStep({ record: { ...next, report }, patch: await collectChanged({ run, gitPrefix, reports: [report] }) });
+    }
+  }
+  return formatAndVerify({ context, record: next });
+};
+
+// src/pipeline/steps/verifyStep/common/utils/withResult.ts
+var withResult = ({ record: record3, result }) => ({
+  ...record3,
+  verification: {
+    ...verificationOf({ record: record3 }),
+    failedFamilies: result.failedFamilies,
+    failures: result.failures
+  }
+});
+
+// src/pipeline/steps/verifyStep/common/utils/runCheapRepairs.ts
+var runCheapRepairs = async ({ context, record: record3, result }) => {
+  let currentRecord = record3;
+  let currentResult = result;
+  while (currentResult.error && currentResult.crashes.length === 0) {
+    const repairable = [...new Set(currentResult.failedFamilies)].filter(
+      (family) => (currentRecord.verification?.repairAttempts[family] ?? 0) < maxCheapFixRetries
+    );
+    if (repairable.length === 0) {
+      break;
+    }
+    const repairAttempts = { ...currentRecord.verification?.repairAttempts };
+    for (const family of repairable) {
+      repairAttempts[family] = (repairAttempts[family] ?? 0) + 1;
+    }
+    currentRecord = {
+      ...currentRecord,
+      attempts: currentRecord.attempts + 1,
+      verification: { ...verificationOf({ record: currentRecord }), repairAttempts, needsFormatting: true }
+    };
+    await context.run.setStep({ record: currentRecord });
+    context.run.progress(`step ${context.id}: gate red \u2014 repairing ${repairable.join(", ")}`);
+    const fixed = await runFix({ context, errorContext: currentResult.error, record: currentRecord });
+    if ("parked" in fixed) {
+      return { parked: fixed.parked };
+    }
+    currentRecord = withResult({ record: fixed.record, result: fixed.result });
+    currentResult = fixed.result;
+    await context.run.setStep({ record: currentRecord });
+  }
+  return { record: currentRecord, result: currentResult };
+};
+
+// src/common/utils/consultSupervisor.ts
+var supervisorPermissions = Permissions.ReadOnly;
+var consultSupervisor = async ({
+  driver,
+  cwd,
+  config: config2,
+  planContent,
+  stepId: stepId2,
+  errorOutput,
+  attempts,
+  onEvent,
+  onRejectedOutput
+}) => {
+  return invokeAgentWithContract({
+    driver,
+    cwd,
+    invocation: buildSupervisorInvocation({ planContent, stepId: stepId2, errorOutput, attempts }),
+    contract: SupervisorVerdict,
+    model: config2.model,
+    effort: config2.effort,
+    permissions: supervisorPermissions,
+    timeoutMs: (config2.timeouts?.["supervisor-minutes"] ?? defaultSupervisorTimeoutMinutes) * 6e4,
+    onEvent,
+    onRejectedOutput
+  });
+};
+
+// src/pipeline/steps/verifyStep/common/utils/runGuidedRepair.ts
+var runGuidedRepair = async ({ context, record: record3, result }) => {
+  if (!result.error || result.failedFamilies.length === 0 || result.crashes.length > 0 || record3.verification?.guidedRepairAttempted) {
+    return { record: record3, result, ruling: void 0 };
+  }
+  const { run, id, planContent } = context;
+  run.progress(`step ${id}: mechanical retries exhausted \u2014 consulting supervisor`);
+  const verdict = await consultSupervisor({
+    driver: run.driver,
+    cwd: run.cwd,
+    config: run.config,
+    planContent,
+    stepId: id,
+    errorOutput: result.error,
+    attempts: record3.attempts,
+    onEvent: run.agentEventSink({ step: `${id}-supervisor` }),
+    onRejectedOutput: run.persistRejected({ step: `${id}-supervisor` })
+  });
+  await run.recordUsage({ step: `${id}-supervisor`, usage: verdict.usage });
+  if (!verdict.ok && verdict.rateLimited) {
+    return { parked: await run.stop({ record: record3, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };
+  }
+  const ruling = verdict.ok ? verdict.report : void 0;
+  let next = record3;
+  if (ruling) {
+    run.progress(`step ${id}: supervisor verdict \u2014 ${ruling.decision}`);
+    next = { ...record3, verification: { ...verificationOf({ record: record3 }), supervisorDiagnosis: ruling.diagnosis } };
+    await run.setStep({ record: next });
+  }
+  if (ruling?.decision !== SupervisorDecision.Retry || !ruling.guidance) {
+    return { record: next, result, ruling };
+  }
+  next = {
+    ...next,
+    attempts: next.attempts + 1,
+    verification: { ...verificationOf({ record: next }), guidedRepairAttempted: true, needsFormatting: true }
+  };
+  await run.setStep({ record: next });
+  const fixed = await runFix({
+    context,
+    errorContext: `${result.error}
+
+# Supervisor diagnosis
+${ruling.diagnosis}
+
+# Supervisor guidance
+${ruling.guidance}`,
+    record: next
+  });
+  if ("parked" in fixed) {
+    return { parked: fixed.parked };
+  }
+  const finalRecord = withResult({ record: fixed.record, result: fixed.result });
+  await run.setStep({ record: finalRecord });
+  return { record: finalRecord, result: fixed.result, ruling };
+};
+
+// src/pipeline/steps/verifyStep/verifyStep.ts
+var enterVerification = async ({ context, record: record3 }) => {
+  const { run, id, coverage, final, planContent, overviewContent, acceptanceTests } = context;
+  const result = await reviewAndVerify({ run, id, coverage, final, planContent, overviewContent, acceptanceTests });
+  if ("rateLimited" in result) {
+    return { parked: await run.stop({ record: record3, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };
+  }
+  return { record: record3, result };
+};
+var runVerificationStep = async ({ context }) => {
+  const { run, id } = context;
+  const previous = run.current().steps.find((step) => step.id === id);
+  let record3 = { ...run.nextRecord({ id }), ...previous?.verification ? { verification: previous.verification } : {} };
+  await run.setStep({ record: record3 });
+  run.progress(`step ${id} \u2014 attempt ${record3.attempts}`);
+  const initial = record3.verification?.needsFormatting ? await formatAndVerify({ context, record: record3 }) : await enterVerification({ context, record: record3 });
+  if ("parked" in initial) {
+    return initial.parked;
+  }
+  let result = initial.result;
+  record3 = initial.record;
+  if (result.error) {
+    record3 = withResult({ record: record3, result });
+    await run.setStep({ record: record3 });
+  }
+  const repaired = await runCheapRepairs({ context, record: record3, result });
+  if ("parked" in repaired) {
+    return repaired.parked;
+  }
+  const guided = await runGuidedRepair({ context, ...repaired });
+  if ("parked" in guided) {
+    return guided.parked;
+  }
+  ({ record: record3, result } = guided);
+  if (result.crashes.length > 0) {
+    return stopOnGateCrash({ run, stepId: id, record: record3, crashes: result.crashes, error: result.error });
+  }
+  if (result.error) {
+    const diagnosis = record3.verification?.supervisorDiagnosis;
+    const decision = guided.ruling?.decision ?? (record3.verification?.guidedRepairAttempted ? SupervisorDecision.Retry : void 0);
+    const detail = diagnosis && decision ? `
+supervisor (${decision}): ${diagnosis}` : "";
+    return run.stop({ record: record3, status: RunStatus.Escalated, error: `${id}: still failing after retries.${detail}
+
+${result.error}` });
+  }
+  const passedRecord = record3.verification ? { ...record3, verification: { ...record3.verification, failedFamilies: [], failures: [], needsFormatting: false } } : record3;
+  await run.setStep({ record: { ...passedRecord, status: RunStatus.Passed } });
+  run.progress(`step ${id} passed`);
+  return void 0;
+};
+var verifyStep = ({
+  run,
+  gitPrefix,
+  planContent,
+  overviewContent,
+  id,
+  coverage,
+  acceptanceTests,
+  final,
+  buildFix
+}) => {
+  const context = { run, gitPrefix, planContent, overviewContent, id, coverage, acceptanceTests, final, buildFix };
+  return () => runVerificationStep({ context });
+};
+
+// src/pipeline/common/utils/invokeRoleOrStop.ts
+var invokeRoleOrStop = async ({ run, record: record3, invocation, step }) => {
+  const outcome = await run.invokeRole({ invocation, step });
+  if (!outcome.ok) {
+    return outcome.rateLimited ? { stopped: await run.stop({ record: record3, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) } : { stopped: await run.stop({ record: record3, status: RunStatus.Failed, error: outcome.failure }) };
+  }
+  return { report: outcome.report };
+};
+
+// src/pipeline/steps/workStep.ts
+var workStep = ({ run, gitPrefix, id, build, requireChanges }) => {
+  return async () => {
+    const record3 = run.nextRecord({ id });
+    await run.setStep({ record: record3 });
+    run.progress(`step ${id} \u2014 attempt ${record3.attempts} \xB7 invoking agent (ceiling ${run.agentTimeoutMs / 6e4}m)`);
+    const outcome = await invokeRoleOrStop({ run, record: record3, invocation: build(), step: id });
+    if ("stopped" in outcome) {
+      return outcome.stopped;
+    }
+    const { report } = outcome;
+    run.progress(`step ${id}: agent report ${report.status} \u2014 ${report.changedFiles.length} changed file(s)`);
+    await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: id, friction: report.friction ?? [] });
+    if (report.status !== WorkReportStatus.Complete) {
+      const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
+      return run.stop({
+        record: { ...record3, report },
+        status,
+        error: `${id}: ${report.status} \u2014 ${report.failures.join("; ")}`
+      });
+    }
+    const changed = await collectChanged({ run, gitPrefix, reports: [report] });
+    if (requireChanges && changed.changedFiles.length === 0) {
+      return run.stop({
+        record: { ...record3, report },
+        status: RunStatus.Failed,
+        error: `${id}: agent reported complete but neither its report nor git shows a single changed file \u2014 nothing was implemented, and a green verify on an unchanged codebase would be a misleading success.`
+      });
+    }
+    await run.setStep({
+      record: withStepFiles({ record: { ...record3, status: RunStatus.Passed, report }, reports: [report], gitPrefix }),
+      patch: changed
+    });
+    run.progress(`step ${id} passed`);
+    return void 0;
+  };
+};
+
+// src/pipeline/steps/buildSteps/common/utils/buildImplementSteps.ts
+var buildImplementSteps = ({ run, gitPrefix, planContent, overviewContent, standards, fileLimit, acceptanceTests }) => {
+  const selfCheckCommand2 = buildSelfCheckCommand({ cwd: run.cwd, runId: run.current().runId }).command;
+  return [
+    {
+      id: "implement",
+      run: workStep({
+        run,
+        gitPrefix,
+        id: "implement",
+        requireChanges: true,
+        build: () => buildFeatureExecutorInvocation({
+          planContent,
+          overviewContent,
+          standards,
+          allowedCommands: run.config["agent-commands"],
+          fileLimit,
+          acceptanceTests: acceptanceTests(),
+          selfCheckCommand: selfCheckCommand2
+        })
+      })
+    },
+    formatStep({ run, id: "format-implement" }),
+    {
+      id: "verify-implement",
+      run: verifyStep({
+        run,
+        gitPrefix,
+        planContent,
+        overviewContent,
+        id: "verify-implement",
+        acceptanceTests,
+        buildFix: ({ errorContext }) => buildFeatureExecutorInvocation({
+          planContent,
+          overviewContent,
+          standards,
+          errorContext,
+          changedFiles: run.current().changedFiles,
+          allowedCommands: run.config["agent-commands"],
+          fileLimit,
+          acceptanceTests: acceptanceTests(),
+          selfCheckCommand: selfCheckCommand2
+        })
+      })
+    }
+  ];
+};
+
+// src/pipeline/steps/buildSteps/common/utils/buildLedgerLintSteps.ts
+var buildLedgerLintSteps = ({ run, malformedLines }) => malformedLines.length === 0 ? [] : [
+  {
+    id: "check-ledger",
+    run: async () => run.stop({
+      record: run.nextRecord({ id: "check-ledger" }),
+      status: RunStatus.Failed,
+      error: `check-ledger: the plan's acceptance-test ledger has row(s) the engine cannot read, at line(s) ${malformedLines.join(", ")} \u2014 fix them in the plan and re-run.`
+    })
+  }
+];
+
+// src/pipeline/steps/describePersistingFindings.ts
+var describePersistingFindings = ({ findings, report, passes }) => {
+  const findingLines = findings.map((finding2) => {
+    const where = finding2.files.map((file2) => formatFindingSite({ file: file2 })).join(", ");
+    return `- ${finding2.siteKey} \u2014 ${formatFindingText({ finding: finding2 })}
+  at ${where}`;
+  });
+  const rationale = (report?.friction ?? []).map((entry) => `- [${entry.area}] ${entry.detail}`);
+  return [
+    `refactor: standards gate \u2014 ${findings.length} blocking persist after ${passes} pass(es):`,
+    ...findingLines,
+    ...rationale.length > 0 ? ["the refactor agent's account of its final pass:", ...rationale] : []
+  ].join("\n");
+};
 
 // src/pipeline/steps/runExecutorPass.ts
 var runExecutorPass = async ({
@@ -136395,7 +136956,8 @@ var runExecutorPass = async ({
       changedFiles: standardsScopeFiles({ run }),
       standards,
       findings,
-      advisories
+      advisories,
+      selfCheckCommand: buildSelfCheckCommand({ cwd: run.cwd, runId: run.current().runId }).command
     }),
     step: "refactor"
   });
@@ -149237,346 +149799,88 @@ var refactorStep = ({ run, gitPrefix, planContent, overviewContent, standards })
   };
 };
 
-// src/pipeline/common/utils/stopOnGateCrash.ts
-var stopOnGateCrash = ({ run, stepId: stepId2, record: record3, crashes, error: error51 }) => {
-  run.progress(`step ${stepId2}: gate crashed rather than failed \u2014 no fix attempted`);
-  return run.stop({
-    record: record3,
-    status: RunStatus.Escalated,
-    error: [
-      `${stepId2}: a gate crashed instead of failing \u2014 the known jest worker SIGSEGV, not a verdict about the code.`,
-      "No fix was attempted and no fix attempt was spent; re-running the run is the answer.",
-      crashes.join("\n"),
-      error51 ?? ""
-    ].join("\n\n")
-  });
-};
-
-// src/pipeline/steps/verify/approveRunnerSnapshots.ts
-var approveRunnerSnapshots = async ({ run }) => {
-  const manifest = run.current();
-  const seen = [...await readGitChangedFiles({ cwd: run.cwd }) ?? [], ...manifest.changedFiles];
-  const snapshots = [...new Set(seen)].filter((path) => isSnapshotFile({ path }) && !manifest.approvedTests.some((record3) => record3.path === path));
-  const written = [];
-  for (const path of snapshots) {
-    if (await readApprovedTest({ run, path }) === void 0) {
-      written.push(path);
-    }
+// src/pipeline/steps/buildSteps/common/utils/buildRefactorSteps.ts
+var buildRefactorSteps = ({ run, gitPrefix, planContent, overviewContent, standards, skipRefactor, acceptanceTests }) => skipRefactor ? [] : [
+  {
+    id: "refactor",
+    skip: () => standardsScopeFiles({ run }).length === 0 ? "no changed source files to review" : void 0,
+    run: refactorStep({ run, gitPrefix, planContent, overviewContent, standards })
+  },
+  formatStep({ run, id: "format-refactor" }),
+  {
+    id: "verify-refactor",
+    run: verifyStep({
+      run,
+      gitPrefix,
+      planContent,
+      overviewContent,
+      id: "verify-refactor",
+      coverage: true,
+      acceptanceTests,
+      // Where the refactor steps run at all, this is the run's last
+      // verification — and the last one is where every acceptance test
+      // must be proven against the finished tree.
+      final: true,
+      buildFix: ({ errorContext }) => buildRefactorExecutorInvocation({
+        scope: RefactorScope.Feature,
+        planContent,
+        overviewContent,
+        changedFiles: standardsScopeFiles({ run }),
+        standards,
+        errorContext,
+        selfCheckCommand: buildSelfCheckCommand({ cwd: run.cwd, runId: run.current().runId }).command
+      })
+    })
   }
-  if (written.length === 0) {
-    return 0;
-  }
-  await run.update({ patch: { approvedTests: await approveTestFiles({ run, paths: written }) } });
-  run.progress(`${manifest.currentStep ?? "verify"}: ${written.length} snapshot file(s) the gate run wrote were approved as the runner's own output`);
-  return written.length;
-};
-
-// src/pipeline/steps/verify/reviewAndVerify.ts
-var reviewAndVerify = async ({
-  run,
-  id,
-  coverage,
-  final,
-  planContent,
-  overviewContent,
-  acceptanceTests
-}) => {
-  const review = await reviewTestChanges({ run, checkpoint: id, planContent, overviewContent });
-  if (review.rateLimited) {
-    return { rateLimited: true };
-  }
-  if (review.error !== void 0) {
-    return { error: review.error, failedFamilies: ["test-review"], crashes: [], failures: [] };
-  }
-  const result = await runVerificationGates({ run, coverage, checkpoint: id, rows: acceptanceTests(), final });
-  await approveRunnerSnapshots({ run });
-  return result;
-};
-
-// src/pipeline/steps/verifyStep/common/utils/verificationOf.ts
-var verificationOf = ({ record: record3 }) => record3.verification ?? {
-  failedFamilies: [],
-  repairAttempts: {},
-  failures: [],
-  needsFormatting: false,
-  guidedRepairAttempted: false
-};
-
-// src/pipeline/steps/verifyStep/common/utils/formatAndVerify.ts
-var formatAndVerify = async ({ context, record: record3 }) => {
-  const { run, id, coverage, final, planContent, overviewContent, acceptanceTests } = context;
-  const failures = [];
-  const error51 = await runFormatter({
-    cwd: run.cwd,
-    runId: run.current().runId,
-    config: run.config,
-    step: id,
-    onResult: (result2) => failures.push(result2)
-  });
-  const next = { ...record3, verification: { ...verificationOf({ record: record3 }), needsFormatting: false } };
-  await run.setStep({ record: next });
-  if (error51 !== void 0) {
-    return { record: next, result: { error: error51, failedFamilies: ["format"], crashes: [], failures, gates: [] } };
-  }
-  const result = await reviewAndVerify({ run, id, coverage, final, planContent, overviewContent, acceptanceTests });
-  if ("rateLimited" in result) {
-    return { parked: await run.stop({ record: next, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };
-  }
-  return { record: next, result };
-};
-
-// src/pipeline/steps/verifyStep/common/utils/runFix.ts
-var runFix = async ({ context, errorContext, record: record3 }) => {
-  const { run, gitPrefix, id } = context;
-  const fix = await run.invokeRole({ invocation: context.buildFix({ errorContext }), step: id });
-  if (!fix.ok && fix.rateLimited) {
-    return { parked: await run.stop({ record: record3, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };
-  }
-  let next = record3;
-  if (fix.ok) {
-    const { report } = fix;
-    await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: id, friction: report.friction ?? [] });
-    if (report.status === WorkReportStatus.Complete) {
-      next = withStepFiles({ record: record3, reports: [report], gitPrefix });
-      await run.setStep({ record: { ...next, report }, patch: await collectChanged({ run, gitPrefix, reports: [report] }) });
-    }
-  }
-  return formatAndVerify({ context, record: next });
-};
-
-// src/pipeline/steps/verifyStep/common/utils/withResult.ts
-var withResult = ({ record: record3, result }) => ({
-  ...record3,
-  verification: {
-    ...verificationOf({ record: record3 }),
-    failedFamilies: result.failedFamilies,
-    failures: result.failures
-  }
-});
-
-// src/pipeline/steps/verifyStep/common/utils/runCheapRepairs.ts
-var runCheapRepairs = async ({ context, record: record3, result }) => {
-  let currentRecord = record3;
-  let currentResult = result;
-  while (currentResult.error && currentResult.crashes.length === 0) {
-    const repairable = [...new Set(currentResult.failedFamilies)].filter(
-      (family) => (currentRecord.verification?.repairAttempts[family] ?? 0) < maxCheapFixRetries
-    );
-    if (repairable.length === 0) {
-      break;
-    }
-    const repairAttempts = { ...currentRecord.verification?.repairAttempts };
-    for (const family of repairable) {
-      repairAttempts[family] = (repairAttempts[family] ?? 0) + 1;
-    }
-    currentRecord = {
-      ...currentRecord,
-      attempts: currentRecord.attempts + 1,
-      verification: { ...verificationOf({ record: currentRecord }), repairAttempts, needsFormatting: true }
-    };
-    await context.run.setStep({ record: currentRecord });
-    context.run.progress(`step ${context.id}: gate red \u2014 repairing ${repairable.join(", ")}`);
-    const fixed = await runFix({ context, errorContext: currentResult.error, record: currentRecord });
-    if ("parked" in fixed) {
-      return { parked: fixed.parked };
-    }
-    currentRecord = withResult({ record: fixed.record, result: fixed.result });
-    currentResult = fixed.result;
-    await context.run.setStep({ record: currentRecord });
-  }
-  return { record: currentRecord, result: currentResult };
-};
-
-// src/common/utils/consultSupervisor.ts
-var supervisorPermissions = Permissions.ReadOnly;
-var consultSupervisor = async ({
-  driver,
-  cwd,
-  config: config2,
-  planContent,
-  stepId: stepId2,
-  errorOutput,
-  attempts,
-  onEvent,
-  onRejectedOutput
-}) => {
-  return invokeAgentWithContract({
-    driver,
-    cwd,
-    invocation: buildSupervisorInvocation({ planContent, stepId: stepId2, errorOutput, attempts }),
-    contract: SupervisorVerdict,
-    model: config2.model,
-    effort: config2.effort,
-    permissions: supervisorPermissions,
-    timeoutMs: (config2.timeouts?.["supervisor-minutes"] ?? defaultSupervisorTimeoutMinutes) * 6e4,
-    onEvent,
-    onRejectedOutput
-  });
-};
-
-// src/pipeline/steps/verifyStep/common/utils/runGuidedRepair.ts
-var runGuidedRepair = async ({ context, record: record3, result }) => {
-  if (!result.error || result.failedFamilies.length === 0 || result.crashes.length > 0 || record3.verification?.guidedRepairAttempted) {
-    return { record: record3, result, ruling: void 0 };
-  }
-  const { run, id, planContent } = context;
-  run.progress(`step ${id}: mechanical retries exhausted \u2014 consulting supervisor`);
-  const verdict = await consultSupervisor({
-    driver: run.driver,
-    cwd: run.cwd,
-    config: run.config,
-    planContent,
-    stepId: id,
-    errorOutput: result.error,
-    attempts: record3.attempts,
-    onEvent: run.agentEventSink({ step: `${id}-supervisor` }),
-    onRejectedOutput: run.persistRejected({ step: `${id}-supervisor` })
-  });
-  await run.recordUsage({ step: `${id}-supervisor`, usage: verdict.usage });
-  if (!verdict.ok && verdict.rateLimited) {
-    return { parked: await run.stop({ record: record3, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };
-  }
-  const ruling = verdict.ok ? verdict.report : void 0;
-  let next = record3;
-  if (ruling) {
-    run.progress(`step ${id}: supervisor verdict \u2014 ${ruling.decision}`);
-    next = { ...record3, verification: { ...verificationOf({ record: record3 }), supervisorDiagnosis: ruling.diagnosis } };
-    await run.setStep({ record: next });
-  }
-  if (ruling?.decision !== SupervisorDecision.Retry || !ruling.guidance) {
-    return { record: next, result, ruling };
-  }
-  next = {
-    ...next,
-    attempts: next.attempts + 1,
-    verification: { ...verificationOf({ record: next }), guidedRepairAttempted: true, needsFormatting: true }
-  };
-  await run.setStep({ record: next });
-  const fixed = await runFix({
-    context,
-    errorContext: `${result.error}
-
-# Supervisor diagnosis
-${ruling.diagnosis}
-
-# Supervisor guidance
-${ruling.guidance}`,
-    record: next
-  });
-  if ("parked" in fixed) {
-    return { parked: fixed.parked };
-  }
-  const finalRecord = withResult({ record: fixed.record, result: fixed.result });
-  await run.setStep({ record: finalRecord });
-  return { record: finalRecord, result: fixed.result, ruling };
-};
-
-// src/pipeline/steps/verifyStep/verifyStep.ts
-var enterVerification = async ({ context, record: record3 }) => {
-  const { run, id, coverage, final, planContent, overviewContent, acceptanceTests } = context;
-  const result = await reviewAndVerify({ run, id, coverage, final, planContent, overviewContent, acceptanceTests });
-  if ("rateLimited" in result) {
-    return { parked: await run.stop({ record: record3, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };
-  }
-  return { record: record3, result };
-};
-var runVerificationStep = async ({ context }) => {
-  const { run, id } = context;
-  const previous = run.current().steps.find((step) => step.id === id);
-  let record3 = { ...run.nextRecord({ id }), ...previous?.verification ? { verification: previous.verification } : {} };
-  await run.setStep({ record: record3 });
-  run.progress(`step ${id} \u2014 attempt ${record3.attempts}`);
-  const initial = record3.verification?.needsFormatting ? await formatAndVerify({ context, record: record3 }) : await enterVerification({ context, record: record3 });
-  if ("parked" in initial) {
-    return initial.parked;
-  }
-  let result = initial.result;
-  record3 = initial.record;
-  if (result.error) {
-    record3 = withResult({ record: record3, result });
-    await run.setStep({ record: record3 });
-  }
-  const repaired = await runCheapRepairs({ context, record: record3, result });
-  if ("parked" in repaired) {
-    return repaired.parked;
-  }
-  const guided = await runGuidedRepair({ context, ...repaired });
-  if ("parked" in guided) {
-    return guided.parked;
-  }
-  ({ record: record3, result } = guided);
-  if (result.crashes.length > 0) {
-    return stopOnGateCrash({ run, stepId: id, record: record3, crashes: result.crashes, error: result.error });
-  }
-  if (result.error) {
-    const diagnosis = record3.verification?.supervisorDiagnosis;
-    const decision = guided.ruling?.decision ?? (record3.verification?.guidedRepairAttempted ? SupervisorDecision.Retry : void 0);
-    const detail = diagnosis && decision ? `
-supervisor (${decision}): ${diagnosis}` : "";
-    return run.stop({ record: record3, status: RunStatus.Escalated, error: `${id}: still failing after retries.${detail}
-
-${result.error}` });
-  }
-  const passedRecord = record3.verification ? { ...record3, verification: { ...record3.verification, failedFamilies: [], failures: [], needsFormatting: false } } : record3;
-  await run.setStep({ record: { ...passedRecord, status: RunStatus.Passed } });
-  run.progress(`step ${id} passed`);
-  return void 0;
-};
-var verifyStep = ({
-  run,
-  gitPrefix,
-  planContent,
-  overviewContent,
-  id,
-  coverage,
-  acceptanceTests,
-  final,
-  buildFix
-}) => {
-  const context = { run, gitPrefix, planContent, overviewContent, id, coverage, acceptanceTests, final, buildFix };
-  return () => runVerificationStep({ context });
-};
-
-// src/pipeline/steps/workStep.ts
-var workStep = ({ run, gitPrefix, id, build, requireChanges }) => {
-  return async () => {
-    const record3 = run.nextRecord({ id });
-    await run.setStep({ record: record3 });
-    run.progress(`step ${id} \u2014 attempt ${record3.attempts} \xB7 invoking agent (ceiling ${run.agentTimeoutMs / 6e4}m)`);
-    const outcome = await invokeRoleOrStop({ run, record: record3, invocation: build(), step: id });
-    if ("stopped" in outcome) {
-      return outcome.stopped;
-    }
-    const { report } = outcome;
-    run.progress(`step ${id}: agent report ${report.status} \u2014 ${report.changedFiles.length} changed file(s)`);
-    await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: id, friction: report.friction ?? [] });
-    if (report.status !== WorkReportStatus.Complete) {
-      const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
-      return run.stop({
-        record: { ...record3, report },
-        status,
-        error: `${id}: ${report.status} \u2014 ${report.failures.join("; ")}`
-      });
-    }
-    const changed = await collectChanged({ run, gitPrefix, reports: [report] });
-    if (requireChanges && changed.changedFiles.length === 0) {
-      return run.stop({
-        record: { ...record3, report },
-        status: RunStatus.Failed,
-        error: `${id}: agent reported complete but neither its report nor git shows a single changed file \u2014 nothing was implemented, and a green verify on an unchanged codebase would be a misleading success.`
-      });
-    }
-    await run.setStep({
-      record: withStepFiles({ record: { ...record3, status: RunStatus.Passed, report }, reports: [report], gitPrefix }),
-      patch: changed
-    });
-    run.progress(`step ${id} passed`);
-    return void 0;
-  };
-};
+];
 
 // src/pipeline/common/constants/testWriterConcurrency.ts
 var testWriterConcurrency = 10;
+
+// src/pipeline/steps/groupTestTargets.ts
+var maxWriterGroupFiles2 = 12;
+var groupTestTargets = async ({ run, subjects, compiler }) => {
+  const targets = [...subjects.keys()];
+  if (!compiler) {
+    return targets.map((target) => ({ subjects: subjects.get(target) ?? [target], mustExecute: [target], cluster: target }));
+  }
+  const byPackage = partitionByPackage({ files: targets, packagesDir: run.config["packages-dir"] ?? defaultPackagesDir });
+  const groups = [];
+  for (const partition of [...byPackage.keys()].sort()) {
+    const partitionTargets = byPackage.get(partition) ?? [];
+    const targetSet = new Set(partitionTargets);
+    const partitionSubjects = partitionTargets.flatMap((target) => subjects.get(target) ?? []);
+    const union2 = [.../* @__PURE__ */ new Set([...partitionTargets, ...partitionSubjects])];
+    const edges = [
+      ...await collectImportEdges({ cwd: run.cwd, files: partitionTargets, compiler }),
+      ...partitionTargets.flatMap(
+        (target) => (subjects.get(target) ?? []).filter((subject) => subject !== target).map((subject) => ({ from: target, to: subject }))
+      )
+    ];
+    let componentIndex = 0;
+    for (const component of groupConnectedFiles({ files: union2, edges })) {
+      const componentTargets = component.filter((file2) => targetSet.has(file2));
+      if (componentTargets.length === 0) {
+        continue;
+      }
+      const cluster = `${partition}#${componentIndex}`;
+      componentIndex += 1;
+      if (componentTargets.length > maxWriterGroupFiles2) {
+        run.progress(
+          `write-tests: import component of ${componentTargets.length} files exceeds the ${maxWriterGroupFiles2}-file writer cap \u2014 splitting into sorted chunks`
+        );
+      }
+      for (const chunk of chunkFileGroup({ files: componentTargets, max: maxWriterGroupFiles2 })) {
+        groups.push({
+          subjects: [...new Set(chunk.flatMap((target) => subjects.get(target) ?? []))].sort(),
+          mustExecute: [...chunk].sort(),
+          cluster
+        });
+      }
+    }
+  }
+  return groups;
+};
 
 // src/pipeline/common/utils/createWarmSpawn.ts
 var createWarmSpawn = ({ group, spawnWriter, aggregate }) => {
@@ -149659,6 +149963,247 @@ var drainChains = async ({ chains, aggregate, collectWarm, isSettled }) => {
   await Promise.all(Array.from({ length: Math.min(testWriterConcurrency, chains.length) }, () => runSlot()));
 };
 
+// src/pipeline/steps/runWriterBatches.ts
+var chainGroups = ({ groups }) => {
+  const byCluster = /* @__PURE__ */ new Map();
+  for (const group of groups) {
+    byCluster.set(group.cluster, [...byCluster.get(group.cluster) ?? [], group]);
+  }
+  return [...byCluster.values()];
+};
+var runChain = async ({ chain, spawnWriter }) => {
+  const results = [];
+  for (const group of chain) {
+    const result = await spawnWriter({ group });
+    results.push(result);
+    if (!result.ok && result.rateLimited) {
+      break;
+    }
+  }
+  return results;
+};
+var runWriterBatches = async ({
+  run,
+  groups,
+  planContent,
+  testStandards,
+  acceptanceTests
+}) => {
+  const aggregate = createWriterAggregate({ run, step: "write-tests", label: ({ group }) => group.subjects.join(", ") });
+  const spawnWriter = async ({ group, onFirstEvent }) => ({
+    group,
+    ...await run.invokeRole({
+      invocation: buildUnitTestWriterInvocation({
+        planContent,
+        subjects: group.subjects,
+        mustExecute: group.mustExecute,
+        standards: testStandards,
+        acceptanceTests
+      }),
+      step: "write-tests",
+      onFirstEvent
+    })
+  });
+  const chains = chainGroups({ groups });
+  const warmed = groups.length > 1;
+  const { warm, collectWarm, awaitGate, isSettled } = createWarmSpawn({ group: warmed ? groups[0] : void 0, spawnWriter, aggregate });
+  await awaitGate();
+  const firstChainRest = warmed ? chains[0]?.slice(1) ?? [] : [];
+  const restChains = [];
+  if (warm && firstChainRest.length > 0) {
+    restChains.push(async () => {
+      const warmResult = await warm;
+      return !warmResult.ok && warmResult.rateLimited ? [] : runChain({ chain: firstChainRest, spawnWriter });
+    });
+  }
+  for (const chain of warmed ? chains.slice(1) : chains) {
+    restChains.push(() => runChain({ chain, spawnWriter }));
+  }
+  if (isSettled()) {
+    await collectWarm();
+  }
+  await drainChains({ chains: restChains, aggregate, collectWarm, isSettled });
+  await collectWarm();
+  return aggregate.result();
+};
+
+// src/pipeline/steps/selectTestTargets.ts
+import { readFile as readFile50, stat as stat8 } from "node:fs/promises";
+import { join as join98 } from "node:path";
+var selectTestTargets = async ({
+  run,
+  candidates,
+  compiler,
+  packagesDir
+}) => {
+  const { excluded } = await selectCollectedFiles({ cwd: run.cwd, config: run.config, files: candidates });
+  const { unloadable } = await selectUnloadableFiles({ cwd: run.cwd, config: run.config, files: candidates, compiler });
+  const uncollected = new Set(excluded);
+  const unloadableFiles = new Set(unloadable);
+  const targets = [];
+  const inert = [];
+  const uncoverable = [];
+  const deleted = [];
+  const coverageExcluded = [];
+  for (const file2 of candidates) {
+    const content = await readFile50(join98(run.cwd, file2), "utf8").catch(() => void 0);
+    if (content === void 0) {
+      const exists3 = await stat8(join98(run.cwd, file2)).then(
+        () => true,
+        () => false
+      );
+      (exists3 ? targets : deleted).push(file2);
+      continue;
+    }
+    const excludedFromCoverage = uncollected.has(file2);
+    if (isToolingConfigFile({ path: file2, packagesDir }) || excludedFromCoverage || unloadableFiles.has(file2)) {
+      uncoverable.push(file2);
+      if (excludedFromCoverage) {
+        coverageExcluded.push(file2);
+      }
+    } else if (compiler && isInertSourceFile({ path: file2, content, compiler })) {
+      inert.push(file2);
+    } else {
+      targets.push(file2);
+    }
+  }
+  return { targets, inert, uncoverable, deleted, coverageExcluded };
+};
+
+// src/pipeline/steps/writeTestsStep.ts
+var narrateSkippedFiles = ({ run, deleted, inert, uncoverable }) => {
+  if (deleted.length > 0) {
+    run.progress(`write-tests: ${deleted.length} deleted file(s) skipped (removed by the plan, nothing to cover): ${deleted.join(", ")}`);
+  }
+  if (inert.length > 0) {
+    run.progress(`write-tests: ${inert.length} inert file(s) skipped (barrel/type-only, nothing to cover): ${inert.join(", ")}`);
+  }
+  if (uncoverable.length > 0) {
+    run.progress(
+      `write-tests: ${uncoverable.length} file(s) skipped \u2014 no unit test could move their coverage (a tool's own settings file, a module-scope await this repo's Jest loads as CommonJS, or a path this repo's coverage configuration does not collect): ${uncoverable.join(", ")}`
+    );
+  }
+};
+var writeTestsStep = ({ run, gitPrefix, planContent, testStandards }) => {
+  return async () => {
+    let record3 = run.nextRecord({ id: "write-tests" });
+    await run.setStep({ record: record3 });
+    const packagesDir = run.config["packages-dir"] ?? defaultPackagesDir;
+    const compiler = resolveConsumerTypescript({ cwd: run.cwd, packagesDir });
+    const { targets, inert, uncoverable, deleted, coverageExcluded } = await selectTestTargets({
+      run,
+      candidates: sourceFiles({ run }),
+      compiler,
+      packagesDir
+    });
+    narrateSkippedFiles({ run, deleted, inert, uncoverable });
+    const universe = (await listSourceFiles({ cwd: run.cwd, exclude: excludedSourcePaths({ config: run.config }) })).files;
+    const frameworkFacts = await getPackFrameworkFacts({ cwd: run.cwd, packagesDir, config: run.config });
+    const { subjects, orphans } = await resolveTestSubjects({ cwd: run.cwd, targets, universe, packagesDir, compiler, frameworkFacts });
+    if (orphans.length > 0) {
+      run.progress(
+        `write-tests: ${orphans.length} changed file(s) skipped \u2014 nothing public reaches them (no barrel exports a surface that imports them): ${orphans.join(", ")}`
+      );
+    }
+    const testSubjects = [...new Set([...subjects.values()].flat())].sort();
+    await run.setStep({ record: record3, patch: { testSubjects, unreachableChangedFiles: orphans, coverageExcludedChangedFiles: coverageExcluded } });
+    const groups = await groupTestTargets({ run, subjects, compiler });
+    run.progress(
+      `step write-tests \u2014 attempt ${record3.attempts} \xB7 ${groups.length} group(s): ${testSubjects.length} subject(s) covering ${subjects.size} changed file(s), up to ${testWriterConcurrency} writers in parallel`
+    );
+    const { reports, failures, terminated, parked } = await runWriterBatches({
+      run,
+      groups,
+      planContent,
+      testStandards,
+      acceptanceTests: run.current().acceptanceTests
+    });
+    record3 = withStepFiles({ record: record3, reports, gitPrefix });
+    await run.setStep({
+      record: { ...record3, report: { reports } },
+      patch: {
+        ...await collectChanged({ run, gitPrefix, reports }),
+        testSubjects,
+        unreachableChangedFiles: orphans,
+        coverageExcludedChangedFiles: coverageExcluded
+      }
+    });
+    if (parked) {
+      return run.stop({ record: { ...record3, report: { reports } }, status: RunStatus.PausedRateLimit, error: run.parkMessage() });
+    }
+    if (failures.length > 0) {
+      return run.stop({
+        record: { ...record3, report: { reports } },
+        status: terminated ? RunStatus.Escalated : RunStatus.Failed,
+        error: `write-tests: ${failures.length} of ${groups.length} writer(s) did not complete:
+${failures.join("\n")}`
+      });
+    }
+    await run.setStep({ record: { ...record3, status: RunStatus.Passed, report: { reports } } });
+    run.progress("step write-tests passed");
+    return void 0;
+  };
+};
+
+// src/pipeline/steps/buildSteps/common/utils/buildTestSteps.ts
+var buildTestSteps = ({ run, gitPrefix, planContent, overviewContent, testStandards, acceptanceTests, final }) => [
+  {
+    id: "write-tests",
+    skip: () => sourceFiles({ run }).length === 0 ? "no eligible source files" : void 0,
+    run: writeTestsStep({ run, gitPrefix, planContent, testStandards })
+  },
+  formatStep({ run, id: "format-tests" }),
+  {
+    id: "verify-tests",
+    run: verifyStep({
+      run,
+      gitPrefix,
+      planContent,
+      overviewContent,
+      id: "verify-tests",
+      coverage: true,
+      acceptanceTests,
+      final,
+      buildFix: ({ errorContext }) => buildUnitTestWriterInvocation({
+        planContent,
+        subjects: run.current().testSubjects,
+        mustExecute: sourceFiles({ run }).filter(
+          (file2) => !run.current().unreachableChangedFiles.includes(file2) && !run.current().coverageExcludedChangedFiles.includes(file2)
+        ),
+        standards: testStandards,
+        errorContext,
+        acceptanceTests: acceptanceTests()
+      })
+    })
+  }
+];
+
+// src/pipeline/steps/cleanSlateStep.ts
+var cleanSlateStep = ({ run, ledgerGates }) => {
+  return async () => {
+    const record3 = run.nextRecord({ id: "clean-slate" });
+    await run.setStep({ record: record3 });
+    run.progress(`step clean-slate \u2014 attempt ${record3.attempts}`);
+    const { error: error51, failures, gates } = await runVerificationGates({ run, coverage: true, checkpoint: "clean-slate", rows: [] });
+    if (error51) {
+      const ranOut = failures.some((failure) => failure.exitCode === -1);
+      const headline = ranOut ? "A gate did not finish, so the codebase was never proved green \u2014 this is a timeout or a gate that could not start, not a failing test." : "Codebase is not green before implementation \u2014 fix this first.";
+      return run.stop({ record: record3, status: RunStatus.Failed, error: `${headline}
+${error51}` });
+    }
+    const capability = ledgerGates.length === 0 ? void 0 : await checkTestResultsCapability({ cwd: run.cwd, gates: ledgerGates, results: gates ?? [], onProgress: (message) => run.progress(message) });
+    if (capability) {
+      return run.stop({ record: record3, status: RunStatus.Failed, error: capability });
+    }
+    const gateArtifacts = await readGitChangedFiles({ cwd: run.cwd });
+    const baselineDirtyFiles = [.../* @__PURE__ */ new Set([...run.current().baselineDirtyFiles, ...gateArtifacts ?? []])];
+    const approvedTests = await approveTestFiles({ run, paths: baselineDirtyFiles.filter((path) => isTestSideFile({ path })) });
+    await run.setStep({ record: { ...record3, status: RunStatus.Passed }, patch: { baselineDirtyFiles, approvedTests } });
+    run.progress("step clean-slate passed");
+    return void 0;
+  };
+};
+
 // src/pipeline/steps/ledger/readCommittedTestSource.ts
 var readCommittedTestSource = async ({ cwd, testFile, movePaths }) => {
   const move = movePaths.find((entry) => entry.to === testFile);
@@ -149678,10 +150223,10 @@ var committedLedgerConflicts = async ({ cwd, assignments, movePaths }) => {
 };
 
 // src/pipeline/steps/ledger/missingLedgerNames.ts
-import { readFile as readFile50 } from "node:fs/promises";
-import { join as join98 } from "node:path";
+import { readFile as readFile51 } from "node:fs/promises";
+import { join as join99 } from "node:path";
 var missingLedgerNames = async ({ cwd, testFile, testNames }) => {
-  const content = await readFile50(join98(cwd, testFile), "utf8").catch(() => void 0);
+  const content = await readFile51(join99(cwd, testFile), "utf8").catch(() => void 0);
   return content === void 0 ? void 0 : testNames.filter((testName) => !holdsTestTitle({ content, testName }));
 };
 
@@ -149831,372 +150376,7 @@ ${conflicts.join("\n")}`
   };
 };
 
-// src/pipeline/steps/groupTestTargets.ts
-var maxWriterGroupFiles2 = 12;
-var groupTestTargets = async ({ run, subjects, compiler }) => {
-  const targets = [...subjects.keys()];
-  if (!compiler) {
-    return targets.map((target) => ({ subjects: subjects.get(target) ?? [target], mustExecute: [target], cluster: target }));
-  }
-  const byPackage = partitionByPackage({ files: targets, packagesDir: run.config["packages-dir"] ?? defaultPackagesDir });
-  const groups = [];
-  for (const partition of [...byPackage.keys()].sort()) {
-    const partitionTargets = byPackage.get(partition) ?? [];
-    const targetSet = new Set(partitionTargets);
-    const partitionSubjects = partitionTargets.flatMap((target) => subjects.get(target) ?? []);
-    const union2 = [.../* @__PURE__ */ new Set([...partitionTargets, ...partitionSubjects])];
-    const edges = [
-      ...await collectImportEdges({ cwd: run.cwd, files: partitionTargets, compiler }),
-      ...partitionTargets.flatMap(
-        (target) => (subjects.get(target) ?? []).filter((subject) => subject !== target).map((subject) => ({ from: target, to: subject }))
-      )
-    ];
-    let componentIndex = 0;
-    for (const component of groupConnectedFiles({ files: union2, edges })) {
-      const componentTargets = component.filter((file2) => targetSet.has(file2));
-      if (componentTargets.length === 0) {
-        continue;
-      }
-      const cluster = `${partition}#${componentIndex}`;
-      componentIndex += 1;
-      if (componentTargets.length > maxWriterGroupFiles2) {
-        run.progress(
-          `write-tests: import component of ${componentTargets.length} files exceeds the ${maxWriterGroupFiles2}-file writer cap \u2014 splitting into sorted chunks`
-        );
-      }
-      for (const chunk of chunkFileGroup({ files: componentTargets, max: maxWriterGroupFiles2 })) {
-        groups.push({
-          subjects: [...new Set(chunk.flatMap((target) => subjects.get(target) ?? []))].sort(),
-          mustExecute: [...chunk].sort(),
-          cluster
-        });
-      }
-    }
-  }
-  return groups;
-};
-
-// src/pipeline/steps/runWriterBatches.ts
-var chainGroups = ({ groups }) => {
-  const byCluster = /* @__PURE__ */ new Map();
-  for (const group of groups) {
-    byCluster.set(group.cluster, [...byCluster.get(group.cluster) ?? [], group]);
-  }
-  return [...byCluster.values()];
-};
-var runChain = async ({ chain, spawnWriter }) => {
-  const results = [];
-  for (const group of chain) {
-    const result = await spawnWriter({ group });
-    results.push(result);
-    if (!result.ok && result.rateLimited) {
-      break;
-    }
-  }
-  return results;
-};
-var runWriterBatches = async ({
-  run,
-  groups,
-  planContent,
-  testStandards,
-  acceptanceTests
-}) => {
-  const aggregate = createWriterAggregate({ run, step: "write-tests", label: ({ group }) => group.subjects.join(", ") });
-  const spawnWriter = async ({ group, onFirstEvent }) => ({
-    group,
-    ...await run.invokeRole({
-      invocation: buildUnitTestWriterInvocation({
-        planContent,
-        subjects: group.subjects,
-        mustExecute: group.mustExecute,
-        standards: testStandards,
-        acceptanceTests
-      }),
-      step: "write-tests",
-      onFirstEvent
-    })
-  });
-  const chains = chainGroups({ groups });
-  const warmed = groups.length > 1;
-  const { warm, collectWarm, awaitGate, isSettled } = createWarmSpawn({ group: warmed ? groups[0] : void 0, spawnWriter, aggregate });
-  await awaitGate();
-  const firstChainRest = warmed ? chains[0]?.slice(1) ?? [] : [];
-  const restChains = [];
-  if (warm && firstChainRest.length > 0) {
-    restChains.push(async () => {
-      const warmResult = await warm;
-      return !warmResult.ok && warmResult.rateLimited ? [] : runChain({ chain: firstChainRest, spawnWriter });
-    });
-  }
-  for (const chain of warmed ? chains.slice(1) : chains) {
-    restChains.push(() => runChain({ chain, spawnWriter }));
-  }
-  if (isSettled()) {
-    await collectWarm();
-  }
-  await drainChains({ chains: restChains, aggregate, collectWarm, isSettled });
-  await collectWarm();
-  return aggregate.result();
-};
-
-// src/pipeline/steps/selectTestTargets.ts
-import { readFile as readFile51, stat as stat8 } from "node:fs/promises";
-import { join as join99 } from "node:path";
-var selectTestTargets = async ({
-  run,
-  candidates,
-  compiler,
-  packagesDir
-}) => {
-  const { excluded } = await selectCollectedFiles({ cwd: run.cwd, config: run.config, files: candidates });
-  const { unloadable } = await selectUnloadableFiles({ cwd: run.cwd, config: run.config, files: candidates, compiler });
-  const uncollected = new Set(excluded);
-  const unloadableFiles = new Set(unloadable);
-  const targets = [];
-  const inert = [];
-  const uncoverable = [];
-  const deleted = [];
-  const coverageExcluded = [];
-  for (const file2 of candidates) {
-    const content = await readFile51(join99(run.cwd, file2), "utf8").catch(() => void 0);
-    if (content === void 0) {
-      const exists3 = await stat8(join99(run.cwd, file2)).then(
-        () => true,
-        () => false
-      );
-      (exists3 ? targets : deleted).push(file2);
-      continue;
-    }
-    const excludedFromCoverage = uncollected.has(file2);
-    if (isToolingConfigFile({ path: file2, packagesDir }) || excludedFromCoverage || unloadableFiles.has(file2)) {
-      uncoverable.push(file2);
-      if (excludedFromCoverage) {
-        coverageExcluded.push(file2);
-      }
-    } else if (compiler && isInertSourceFile({ path: file2, content, compiler })) {
-      inert.push(file2);
-    } else {
-      targets.push(file2);
-    }
-  }
-  return { targets, inert, uncoverable, deleted, coverageExcluded };
-};
-
-// src/pipeline/steps/writeTestsStep.ts
-var narrateSkippedFiles = ({ run, deleted, inert, uncoverable }) => {
-  if (deleted.length > 0) {
-    run.progress(`write-tests: ${deleted.length} deleted file(s) skipped (removed by the plan, nothing to cover): ${deleted.join(", ")}`);
-  }
-  if (inert.length > 0) {
-    run.progress(`write-tests: ${inert.length} inert file(s) skipped (barrel/type-only, nothing to cover): ${inert.join(", ")}`);
-  }
-  if (uncoverable.length > 0) {
-    run.progress(
-      `write-tests: ${uncoverable.length} file(s) skipped \u2014 no unit test could move their coverage (a tool's own settings file, a module-scope await this repo's Jest loads as CommonJS, or a path this repo's coverage configuration does not collect): ${uncoverable.join(", ")}`
-    );
-  }
-};
-var writeTestsStep = ({ run, gitPrefix, planContent, testStandards }) => {
-  return async () => {
-    let record3 = run.nextRecord({ id: "write-tests" });
-    await run.setStep({ record: record3 });
-    const packagesDir = run.config["packages-dir"] ?? defaultPackagesDir;
-    const compiler = resolveConsumerTypescript({ cwd: run.cwd, packagesDir });
-    const { targets, inert, uncoverable, deleted, coverageExcluded } = await selectTestTargets({
-      run,
-      candidates: sourceFiles({ run }),
-      compiler,
-      packagesDir
-    });
-    narrateSkippedFiles({ run, deleted, inert, uncoverable });
-    const universe = (await listSourceFiles({ cwd: run.cwd, exclude: excludedSourcePaths({ config: run.config }) })).files;
-    const frameworkFacts = await getPackFrameworkFacts({ cwd: run.cwd, packagesDir, config: run.config });
-    const { subjects, orphans } = await resolveTestSubjects({ cwd: run.cwd, targets, universe, packagesDir, compiler, frameworkFacts });
-    if (orphans.length > 0) {
-      run.progress(
-        `write-tests: ${orphans.length} changed file(s) skipped \u2014 nothing public reaches them (no barrel exports a surface that imports them): ${orphans.join(", ")}`
-      );
-    }
-    const testSubjects = [...new Set([...subjects.values()].flat())].sort();
-    await run.setStep({ record: record3, patch: { testSubjects, unreachableChangedFiles: orphans, coverageExcludedChangedFiles: coverageExcluded } });
-    const groups = await groupTestTargets({ run, subjects, compiler });
-    run.progress(
-      `step write-tests \u2014 attempt ${record3.attempts} \xB7 ${groups.length} group(s): ${testSubjects.length} subject(s) covering ${subjects.size} changed file(s), up to ${testWriterConcurrency} writers in parallel`
-    );
-    const { reports, failures, terminated, parked } = await runWriterBatches({
-      run,
-      groups,
-      planContent,
-      testStandards,
-      acceptanceTests: run.current().acceptanceTests
-    });
-    record3 = withStepFiles({ record: record3, reports, gitPrefix });
-    await run.setStep({
-      record: { ...record3, report: { reports } },
-      patch: {
-        ...await collectChanged({ run, gitPrefix, reports }),
-        testSubjects,
-        unreachableChangedFiles: orphans,
-        coverageExcludedChangedFiles: coverageExcluded
-      }
-    });
-    if (parked) {
-      return run.stop({ record: { ...record3, report: { reports } }, status: RunStatus.PausedRateLimit, error: run.parkMessage() });
-    }
-    if (failures.length > 0) {
-      return run.stop({
-        record: { ...record3, report: { reports } },
-        status: terminated ? RunStatus.Escalated : RunStatus.Failed,
-        error: `write-tests: ${failures.length} of ${groups.length} writer(s) did not complete:
-${failures.join("\n")}`
-      });
-    }
-    await run.setStep({ record: { ...record3, status: RunStatus.Passed, report: { reports } } });
-    run.progress("step write-tests passed");
-    return void 0;
-  };
-};
-
-// src/pipeline/steps/buildSteps.ts
-var refactorSteps2 = ({
-  run,
-  gitPrefix,
-  planContent,
-  overviewContent,
-  standards,
-  skipRefactor,
-  acceptanceTests
-}) => skipRefactor ? [] : [
-  {
-    id: "refactor",
-    skip: () => standardsScopeFiles({ run }).length === 0 ? "no changed source files to review" : void 0,
-    run: refactorStep({ run, gitPrefix, planContent, overviewContent, standards })
-  },
-  formatStep({ run, id: "format-refactor" }),
-  {
-    id: "verify-refactor",
-    run: verifyStep({
-      run,
-      gitPrefix,
-      planContent,
-      overviewContent,
-      id: "verify-refactor",
-      coverage: true,
-      acceptanceTests,
-      // Where the refactor steps run at all, this is the run's last
-      // verification — and the last one is where every acceptance test
-      // must be proven against the finished tree.
-      final: true,
-      buildFix: ({ errorContext }) => buildRefactorExecutorInvocation({
-        scope: RefactorScope.Feature,
-        planContent,
-        overviewContent,
-        changedFiles: standardsScopeFiles({ run }),
-        standards,
-        errorContext
-      })
-    })
-  }
-];
-var ledgerLintSteps = ({ run, malformedLines }) => malformedLines.length === 0 ? [] : [
-  {
-    id: "check-ledger",
-    run: async () => run.stop({
-      record: run.nextRecord({ id: "check-ledger" }),
-      status: RunStatus.Failed,
-      error: `check-ledger: the plan's acceptance-test ledger has row(s) the engine cannot read, at line(s) ${malformedLines.join(", ")} \u2014 fix them in the plan and re-run.`
-    })
-  }
-];
-var implementSteps2 = ({
-  run,
-  gitPrefix,
-  planContent,
-  overviewContent,
-  standards,
-  fileLimit,
-  acceptanceTests
-}) => [
-  {
-    id: "implement",
-    run: workStep({
-      run,
-      gitPrefix,
-      id: "implement",
-      requireChanges: true,
-      build: () => buildFeatureExecutorInvocation({
-        planContent,
-        overviewContent,
-        standards,
-        allowedCommands: run.config["agent-commands"],
-        fileLimit,
-        acceptanceTests: acceptanceTests()
-      })
-    })
-  },
-  formatStep({ run, id: "format-implement" }),
-  {
-    id: "verify-implement",
-    run: verifyStep({
-      run,
-      gitPrefix,
-      planContent,
-      overviewContent,
-      id: "verify-implement",
-      acceptanceTests,
-      buildFix: ({ errorContext }) => buildFeatureExecutorInvocation({
-        planContent,
-        overviewContent,
-        standards,
-        errorContext,
-        changedFiles: run.current().changedFiles,
-        allowedCommands: run.config["agent-commands"],
-        fileLimit,
-        acceptanceTests: acceptanceTests()
-      })
-    })
-  }
-];
-var testSteps = ({
-  run,
-  gitPrefix,
-  planContent,
-  overviewContent,
-  testStandards,
-  acceptanceTests,
-  final
-}) => [
-  {
-    id: "write-tests",
-    skip: () => sourceFiles({ run }).length === 0 ? "no eligible source files" : void 0,
-    run: writeTestsStep({ run, gitPrefix, planContent, testStandards })
-  },
-  formatStep({ run, id: "format-tests" }),
-  {
-    id: "verify-tests",
-    run: verifyStep({
-      run,
-      gitPrefix,
-      planContent,
-      overviewContent,
-      id: "verify-tests",
-      coverage: true,
-      acceptanceTests,
-      final,
-      buildFix: ({ errorContext }) => buildUnitTestWriterInvocation({
-        planContent,
-        subjects: run.current().testSubjects,
-        mustExecute: sourceFiles({ run }).filter(
-          (file2) => !run.current().unreachableChangedFiles.includes(file2) && !run.current().coverageExcludedChangedFiles.includes(file2)
-        ),
-        standards: testStandards,
-        errorContext,
-        acceptanceTests: acceptanceTests()
-      })
-    })
-  }
-];
+// src/pipeline/steps/buildSteps/buildSteps.ts
 var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, testStandards, skipRefactor }) => {
   const plan = parsePlan({ content: planContent, base: "plan.md" });
   const fileLimit = plan.fileBudget ?? run.config["executor-file-limit"];
@@ -150205,16 +150385,16 @@ var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, tes
   const movePaths = plan.movePaths.filter((move) => isTestSideFile({ path: move.to }));
   const deletePaths = plan.deletePaths.filter((path) => isTestSideFile({ path }));
   return [
-    ...ledgerLintSteps({ run, malformedLines: plan.malformedLedgerLines }),
+    ...buildLedgerLintSteps({ run, malformedLines: plan.malformedLedgerLines }),
     { id: "clean-slate", run: cleanSlateStep({ run, ledgerGates }) },
     {
       id: "write-ledger-tests",
       skip: () => plan.ledger.length === 0 ? "the plan carries no acceptance-test ledger" : void 0,
       run: writeLedgerTestsStep({ run, gitPrefix, planContent, overviewContent, rows: plan.ledger, testStandards, movePaths, deletePaths })
     },
-    ...implementSteps2({ run, gitPrefix, planContent, overviewContent, standards, fileLimit, acceptanceTests }),
-    ...testSteps({ run, gitPrefix, planContent, overviewContent, testStandards, acceptanceTests, final: skipRefactor === true }),
-    ...refactorSteps2({ run, gitPrefix, planContent, overviewContent, standards, skipRefactor, acceptanceTests })
+    ...buildImplementSteps({ run, gitPrefix, planContent, overviewContent, standards, fileLimit, acceptanceTests }),
+    ...buildTestSteps({ run, gitPrefix, planContent, overviewContent, testStandards, acceptanceTests, final: skipRefactor === true }),
+    ...buildRefactorSteps({ run, gitPrefix, planContent, overviewContent, standards, skipRefactor, acceptanceTests })
   ];
 };
 
@@ -150911,6 +151091,7 @@ var invokeDirectWorker = async ({
   errorContext
 }) => {
   const record3 = nextStepRecord({ run, id: implementStep });
+  const selfCheck = buildSelfCheckCommand({ cwd: run.cwd, runId: run.current().runId });
   await run.setStep({ record: record3 });
   run.progress(`${implementStep} \u2014 building ${ticketRef} from the ticket body`);
   const outcome = await invokeAgentWithContract({
@@ -150923,14 +151104,17 @@ var invokeDirectWorker = async ({
       allowedCommands: run.config["agent-commands"],
       errorContext,
       changedFiles: run.current().changedFiles,
-      answeredQuestion
+      answeredQuestion,
+      selfCheckCommand: selfCheck.command
     }),
     contract: WorkReport,
     model: run.config.model,
     effort: run.config.effort,
     permissions: run.config.permissions,
     timeoutMs: run.agentTimeoutMs,
-    allowedCommands: run.config["agent-commands"]
+    // The harness allowance is the consumer's own list plus the engine's
+    // self-check prefix; the binding grant is the prompt section above.
+    allowedCommands: [...run.config["agent-commands"] ?? [], selfCheck.prefix]
   });
   await run.recordUsage({ step: implementStep, usage: outcome.usage });
   if (!outcome.ok) {
@@ -154435,6 +154619,75 @@ var reviewStandards = async ({ cwd, config: config2, path, onProgress }) => {
   });
 };
 
+// src/cli/selfCheckCommand.ts
+var verdictLine = "The engine's own gates run afterwards over the full scope and are the only verdict.";
+var noGateHeadlines = {
+  [SelfCheckReason.NothingChanged]: "nothing to check \u2014 the tree holds no change yet",
+  [SelfCheckReason.NothingScheduled]: "no gates were run \u2014 the checkpoint this step precedes schedules none, or every package in scope skipped the ones it does",
+  [SelfCheckReason.Unavailable]: "the engine could not work out what to check \u2014 reading this repository's git status failed, which is the engine failing rather than your change being red"
+};
+var selfCheckOfStep = ({ pipeline, step }) => {
+  if (pipeline === PipelineKind.Direct) {
+    return step === "implement" ? { checkpoint: void 0, coverage: true, wholeRepository: true } : void 0;
+  }
+  if (pipeline !== void 0 && pipeline !== PipelineKind.Implement) {
+    return void 0;
+  }
+  if (step === "implement" || step === "verify-implement") {
+    return { checkpoint: "verify-implement", coverage: false, wholeRepository: false };
+  }
+  return step === "refactor" || step === "verify-refactor" ? { checkpoint: "verify-refactor", coverage: true, wholeRepository: false } : void 0;
+};
+var readManifest = async ({ cwd, runId }) => {
+  try {
+    return { manifest: await readRunManifest({ cwd, runId }) };
+  } catch (error51) {
+    return { error: messageOf({ error: error51 }) };
+  }
+};
+var printGateFailures = ({ result }) => {
+  for (const gate of result.gates) {
+    if (gate.skipped !== true && gate.exitCode !== void 0 && gate.exitCode !== 0) {
+      console.log(`
+${bold(`[${gate.group}] ${gate.kind}`)} \u2014 exit ${gate.exitCode}
+${gate.command}
+${gate.outputTail ?? ""}`);
+    }
+  }
+  for (const crash of result.crashes) {
+    console.log(`
+engine: ${crash}`);
+  }
+};
+var selfCheckCommand = async ({ flags, cwd }) => {
+  const runId = await getRequiredFlag({ flags, name: "run" });
+  const found = await readManifest({ cwd, runId });
+  if ("error" in found) {
+    console.error(`self-check: ${found.error}`);
+    return exitCli({ code: 1 });
+  }
+  const { manifest } = found;
+  const config2 = await readConfig({ cwd });
+  const step = manifest.currentStep;
+  const resolved = step === null ? void 0 : selfCheckOfStep({ pipeline: manifest.pipeline, step });
+  if (step === null || resolved === void 0) {
+    console.log(`
+${bold(`self-check ${step ?? "no step"}`)} \u2014 this step has no self-check, so nothing was checked. ${verdictLine}`);
+    return exitCli({ code: 0 });
+  }
+  const result = await runSelfCheck({ cwd, config: config2, ...resolved, runId: manifest.runId, step, onProgress: createProgressPrinter() });
+  const failed = result.reason === SelfCheckReason.Ran && result.error !== void 0;
+  const ranHeadline = failed ? red("gates red") : green("passed");
+  const headline = result.reason === SelfCheckReason.Ran ? ranHeadline : noGateHeadlines[result.reason];
+  const scheduled = result.gateNames.length === 0 ? "" : ` (${result.gateNames.join(", ")})`;
+  console.log(`
+${bold(`self-check ${step}`)} \u2014 ${headline}${scheduled}. ${verdictLine}`);
+  if (result.reason === SelfCheckReason.Ran) {
+    printGateFailures({ result });
+  }
+  return exitCli({ code: failed ? 1 : 0 });
+};
+
 // src/cli/shipCommand.ts
 var shipCommand = async ({ cwd }) => {
   const config2 = await readConfig({ cwd });
@@ -155748,6 +156001,7 @@ var commands = {
   queue: queueCommand,
   resume: resumeCommand,
   ship: shipCommand,
+  "self-check": selfCheckCommand,
   "ticket-state": ticketStateCommand,
   status: statusCommand,
   doctor: doctorCommand,

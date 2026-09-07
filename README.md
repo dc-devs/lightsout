@@ -63,12 +63,16 @@ Completing the task is not enough. Agents should leave the repository better tha
    skills, and spoken questions work through the extension the plugin ships —
    no Claude Code install needed alongside it.
 
-   Every skill also has a namespaced slash command — `/lightsout:plan`,
-   `/lightsout:implement`, `/lightsout:queue`, … — in both OMP and Claude
-   Code: type `/lightsout:` and pick from the list. The add-ons follow the
-   same pattern (`/lightsout-linear:linear-ticket`,
-   `/lightsout-jira:jira-ticket`). The commands are thin routers; the skills
-   they name stay the single source of truth.
+   Claude Code lists every installed skill as a slash command of its own —
+   `/lightsout:plan`, `/lightsout:implement`, `/lightsout:queue`, … — as
+   soon as the plugin is installed. OMP and Pi do not list skills, so for
+   them the plugin ships one slash command per skill instead: the same
+   `/lightsout:plan`, `/lightsout:implement`, `/lightsout:queue`, … in OMP
+   (type `/lightsout:` and pick from the list), and the bare `/plan`,
+   `/implement`, `/queue`, … in Pi. The add-ons follow the same pattern
+   (`/lightsout-linear:linear-ticket`, `/lightsout-jira:jira-ticket`). Each
+   command is a thin router; the skill it names stays the single source of
+   truth.
 
    The marketplace also carries optional `lightsout-linear` and `lightsout-jira`
    add-ons. They teach tracker-specific labels, statuses, attachments, and
@@ -286,6 +290,28 @@ timeouts. See
 
 ```text
 lightsout queue --file-relay
+```
+
+### lightsout self-check
+
+The engine's own check of a change, run by the agent that wrote it. `lightsout
+self-check` runs the cheap gates the run's next checkpoint will run — types and
+lint, the unit suite, the build — narrowed to the packages the live diff
+touched, prints what went red, and exits 1 while anything is.
+
+It is not a command you reach for. The engine grants it per spawn to the feature
+executor, the refactor executor and the direct worker, so an agent sees the
+failures it is about to be judged on while the plan and the standards are still
+in its context — the cheapest failure to fix is the one the agent can still see.
+
+It takes the live run's id and nothing else: which step, which gates, whether
+coverage can answer, and what to scope to are all read from that run and from
+git, so an argument an agent appends can never widen what it runs. It writes
+nothing to the run, takes no lock, and decides nothing — the engine's own gates
+run afterwards over the full scope and are the only verdict.
+
+```text
+lightsout self-check --run <id>
 ```
 
 ### /refactor

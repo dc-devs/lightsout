@@ -34,7 +34,7 @@ export const configKeyDescriptions: Record<string, string> = {
 	'timeouts.gate-minutes':
 		"Ceiling for one gate command — the repo's own check, test, coverage, build or end-to-end run. A gate that hits it is reported as a gate that did not finish, which reads differently from one that ran and went red. Defaults to 15.",
 	'agent-commands':
-		'Command prefixes working agents are granted (prefix match, arguments allowed) — for plan deliverables only a command can produce, such as a migration generator. Verification commands never belong here: the engine runs all gates itself.',
+		'Command prefixes working agents are granted (prefix match, arguments allowed) — for plan deliverables only a command can produce, such as a migration generator. Verification commands never belong here: the engine runs all gates itself. The one verification command an agent is handed is the engine’s own self-check, granted per spawn to the roles that write code rather than configured here.',
 	generated:
 		'Path prefixes of generated or derived files. Real files in the diff, but excluded from changed-file attribution — the source that generates them is the change. Also where a repo says its build output lands when the walk cannot guess it. A worker’s commit never carries them — the pre-ship step at merge time is the one place they are committed.',
 	vendored:
