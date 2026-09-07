@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { PlanDocument, PlanWorkspaceView } from '@lightsout/engine';
-import { FindingSeverity, GapArea, GapCheckLens, GapOutcome, PlanDocumentKind, PlanGrade, StructuralCheck } from '@lightsout/engine/contracts';
+import { FindingSeverity, GapArea, GapCheckLens, GapOutcome, GradeScope, PlanDocumentKind, PlanGrade, StructuralCheck } from '@lightsout/engine/contracts';
 import { fireEvent, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
@@ -93,6 +93,8 @@ describe('PlanDetail grade tab', () => {
 					phasesLight: [],
 					complete: true,
 					passed: false,
+					scope: GradeScope.Full,
+					focusedOn: [],
 					gradedAt: '2026-01-01T00:00:00.000Z',
 				},
 			},
@@ -143,6 +145,8 @@ describe('PlanDetail grade tab', () => {
 					phasesLight: [],
 					complete: true,
 					passed: false,
+					scope: GradeScope.Full,
+					focusedOn: [],
 					gradedAt: '2026-01-01T00:00:00.000Z',
 				},
 			},
@@ -172,6 +176,8 @@ describe('PlanDetail grade tab', () => {
 					complete: false,
 					incompleteReason: 'a checker hit the rate-limit wall',
 					passed: false,
+					scope: GradeScope.Full,
+					focusedOn: [],
 					gradedAt: '2026-01-01T00:00:00.000Z',
 				},
 			},
@@ -200,6 +206,8 @@ describe('PlanDetail grade tab', () => {
 					phasesLight: [],
 					complete: false,
 					passed: false,
+					scope: GradeScope.Full,
+					focusedOn: [],
 					gradedAt: '2026-01-01T00:00:00.000Z',
 				},
 			},
@@ -224,6 +232,8 @@ describe('PlanDetail grade tab', () => {
 					phasesLight: [],
 					complete: true,
 					passed: true,
+					scope: GradeScope.Full,
+					focusedOn: [],
 					gradedAt: '2026-01-01T00:00:00.000Z',
 				},
 			},
@@ -263,6 +273,8 @@ describe('PlanDetail grade tab', () => {
 					phasesLight: [],
 					complete: true,
 					passed: false,
+					scope: GradeScope.Full,
+					focusedOn: [],
 					gradedAt: '2026-01-01T00:00:00.000Z',
 				},
 			},

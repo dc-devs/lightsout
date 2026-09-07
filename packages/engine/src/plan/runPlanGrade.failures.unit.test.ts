@@ -13,6 +13,7 @@ import { createOffContractDriver } from '#tests/helpers/createOffContractDriver.
 import { createRateLimitedDriver } from '#tests/helpers/createRateLimitedDriver.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
+import { fivePhasePlanFiles } from '#tests/helpers/fivePhasePlanFiles.ts';
 import { gapCheckLensOf } from '#tests/helpers/gapCheckLensOf.ts';
 import { secondPhaseBody } from '#tests/helpers/secondPhaseBody.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -25,18 +26,11 @@ import { writePlanDeliverable } from '#tests/helpers/writePlanDeliverable.ts';
 /** One decision-level gap, as a checker reports it. */
 const omittedDecisionGap = { area: 'omitted-decision', gap: 'no error handling decided', decision: 'what to return on failure', options: [] };
 
-/** The two-phase deliverable, and the five-phase one whose fifteen checkers overrun the twelve-slot ceiling. */
+/** The two-phase deliverable most of these acts grade. */
 const twoPhaseFiles = () => ({
 	'overview.md': cleanOverviewBody(),
 	'phase1-core.md': cleanPlanBody({ title: 'Graded Plan' }),
 	'phase2-extra.md': secondPhaseBody(),
-});
-
-const fivePhaseFiles = () => ({
-	...twoPhaseFiles(),
-	'phase3-more.md': cleanPlanBody({ title: 'Graded Plan' }),
-	'phase4-yet.md': cleanPlanBody({ title: 'Graded Plan' }),
-	'phase5-last.md': cleanPlanBody({ title: 'Graded Plan' }),
 });
 
 /** A consumer repo holding a phased plan, plus the collector the act writes into. */
@@ -210,7 +204,7 @@ test('plan grade: a rate-limited gap-check parks the run and writes an incomplet
 test('plan grade: a rate-limited checker stops new checkers launching, and the phases never started are absent rather than reported clean', async () => {
 	// Five phase files — fifteen checkers against a twelve-slot ceiling, so the
 	// tail cannot all start at once.
-	const { cwd, name, invocations, gradePath } = setupPhased({ name: 'walled', files: fivePhaseFiles() });
+	const { cwd, name, invocations, gradePath } = setupPhased({ name: 'walled', files: fivePhasePlanFiles() });
 	const driver = createRateLimitedDriver({ invocations });
 
 	const result = await runPlanGrade({ cwd, driver, name });
@@ -235,7 +229,7 @@ test('plan grade: a rate-limited checker stops new checkers launching, and the p
 test('plan grade: a judge wall stops new judges launching, and the findings nobody reached still come back saying so', async () => {
 	// Five phase files times three lenses, each reader returning one gap: fifteen
 	// findings against the same twelve-slot ceiling, so the tail cannot all start.
-	const { cwd, name, invocations, gradePath } = setupPhased({ name: 'judge-walled-tail', files: fivePhaseFiles() });
+	const { cwd, name, invocations, gradePath } = setupPhased({ name: 'judge-walled-tail', files: fivePhasePlanFiles() });
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async (invocation) => {

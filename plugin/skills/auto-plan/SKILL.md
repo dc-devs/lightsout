@@ -282,6 +282,21 @@ editing the plan file the gap's `phase` names — plus a `Decision Log` row
 re-run `plan draft`**: it regenerates the plan files and would clobber every
 edit folded in since.
 
+- **A pass whose `incompleteReason` names blocking structural findings ran no
+  semantic reader.** Its `gaps` list is empty because nobody looked. Fix the
+  structural findings and re-grade before reading anything into it.
+- `scope` says how far the pass reached. Only a `full` pass can be `passed`; a
+  `focused` pass is a repair check and is always `"complete": false`. The engine
+  chooses the scope and runs the full review itself once a focused pass clears,
+  so a focused pass is one pass — clearing it buys no extra repair round.
+- A blocking gap carrying a `findingId` is a finding the plan has seen before.
+  Its record is in `.lightsout/plans/<name>/grade-memory.json`, which the engine
+  owns: never edit it, and never treat a finding's absence from a later pass as
+  it being resolved. A record closes only when the plan states the answer and the
+  engine's re-verification judge cites where.
+- When a re-grade reports that a recorded passing full review still covers the
+  current inputs, nothing was re-run and that grade is current. Deleting
+  `grade-memory.json` forces a new baseline.
 - **Convergence rule.** A below-A grade is work to do, not a proposal input.
   Apply the [convergence invariant](#convergence-invariant): resolve every
   below-bar gap, record the decision, re-run validation and deduplication when

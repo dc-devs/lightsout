@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
 import { buildPlanGapCheckInvocation } from '#src/agents/index.ts';
-import { GapCheckLens } from '#src/contracts/index.ts';
+import { GapArea, GapCheckLens, GapOutcome, type GradeFindingRecord, GradeFindingStatus } from '#src/contracts/index.ts';
 
 const planText = '# Phase 1\n\nPLAN-SENTINEL';
 const overviewText = '# Overview\n\nOVERVIEW-SENTINEL';
@@ -143,4 +143,90 @@ test('buildPlanGapCheckInvocation: an empty overview and empty standards add no 
 	expect(systemPrompt.includes('# Code standards')).toBeFalsy();
 	// the role and its brief remain — a checker is never spawned without a job
 	expect(systemPrompt.split('\n\n---\n\n').length).toBe(2);
+});
+
+const settledRecords: GradeFindingRecord[] = [
+	{
+		id: 'f1',
+		phase: 'phase1-memory.md',
+		lens: GapCheckLens.Decisions,
+		area: GapArea.OmittedDecision,
+		gap: 'RESOLVED-GAP-SENTINEL: the retry budget is never stated',
+		decision: 'How many retries does the runner get?',
+		options: ['one', 'three'],
+		firstSeen: '2026-01-01T00:00:00.000Z',
+		lastSeen: '2026-01-02T00:00:00.000Z',
+		status: GradeFindingStatus.Resolved,
+		disposition: GapOutcome.NeedsAHuman,
+		humanDecision: 'the human picks the retry budget',
+		resolution: { answerAt: 'RESOLUTION-CITATION-SENTINEL: the runner retries three times', verifiedAt: '2026-01-02T00:00:00.000Z' },
+		reopened: [],
+	},
+	{
+		id: 'f2',
+		phase: 'phase1-memory.md',
+		lens: GapCheckLens.Surface,
+		area: GapArea.InsufficientDetail,
+		gap: 'NOTED-GAP-SENTINEL: the helper is unnamed',
+		decision: 'What is the helper called?',
+		options: [],
+		firstSeen: '2026-01-01T00:00:00.000Z',
+		lastSeen: '2026-01-02T00:00:00.000Z',
+		status: GradeFindingStatus.Noted,
+		disposition: GapOutcome.AgentCanDecide,
+		agentDecision: 'AGENT-DECISION-SENTINEL: name it toRetryDelay',
+		safeBecause: 'the name has one caller',
+		reopened: [],
+	},
+];
+
+test("the settled-findings section carries the phase's resolved and noted records", () => {
+	const { systemPrompt } = buildPlanGapCheckInvocation({ planText, overviewText, standards, lens, settled: settledRecords });
+
+	const sections = systemPrompt.split('\n\n---\n\n');
+	const settledSection = sections[2];
+
+	// the settled list sits between the brief it qualifies and the overview
+	expect(sections.length).toBe(5);
+	expect(settledSection.startsWith('# Findings already settled for this plan file')).toBeTruthy();
+	// each record is named by its id, so a reader can point at the one it means
+	expect(settledSection.includes('f1')).toBeTruthy();
+	expect(settledSection.includes('f2')).toBeTruthy();
+	// the question each record settled
+	expect(settledSection.includes('RESOLVED-GAP-SENTINEL: the retry budget is never stated')).toBeTruthy();
+	expect(settledSection.includes('NOTED-GAP-SENTINEL: the helper is unnamed')).toBeTruthy();
+	// and how it was settled — the citation for a resolved record, the agent's
+	// decision for a noted one, which is what makes re-reporting it cost evidence
+	expect(settledSection.includes('RESOLUTION-CITATION-SENTINEL: the runner retries three times')).toBeTruthy();
+	expect(settledSection.includes('AGENT-DECISION-SENTINEL: name it toRetryDelay')).toBeTruthy();
+	// the section is context, not coverage: the lens is still read end to end
+	expect(sections[1].startsWith('# Your brief: surface')).toBeTruthy();
+});
+
+test('a settled record with no citation and no agent decision still says it was settled', () => {
+	const answered: GradeFindingRecord = { ...settledRecords[1], agentDecision: undefined, disposition: GapOutcome.AlreadyAnswered };
+	const settled: GradeFindingRecord[] = [
+		{ ...answered, id: 'f4', answerAt: 'ANSWER-AT-SENTINEL: Decision Log row 9' },
+		{ ...answered, id: 'f5' },
+	];
+
+	const { systemPrompt } = buildPlanGapCheckInvocation({ planText, lens, settled });
+
+	// the three ways a record can carry its settlement, and the line a record
+	// carrying none of them falls back to — a blank there would read as a record
+	// nobody settled, which is exactly what a settled list must not say
+	expect(systemPrompt.includes('f4 (noted) — NOTED-GAP-SENTINEL: the helper is unnamed — settled by: ANSWER-AT-SENTINEL: Decision Log row 9')).toBeTruthy();
+	expect(systemPrompt.includes('f5 (noted) — NOTED-GAP-SENTINEL: the helper is unnamed — settled by: settled by an earlier pass')).toBeTruthy();
+});
+
+test('a plan file the memory has settled nothing for gets no settled section', () => {
+	const { systemPrompt } = buildPlanGapCheckInvocation({ planText, overviewText, standards, lens, settled: [] });
+
+	const sections = systemPrompt.split('\n\n---\n\n');
+
+	// an empty list section would tell a reader the memory holds settlements for
+	// this file when it holds none. The role brief's own `##` heading explains the
+	// list and always stays, so the claim is that no SECTION is the list.
+	expect(sections.some((section) => section.startsWith('# Findings already settled for this plan file'))).toBeFalsy();
+	expect(sections.length).toBe(4);
 });
