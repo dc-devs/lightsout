@@ -7,14 +7,19 @@ import { invokedDirectly } from './invokedDirectly.mjs';
  * Writes each plugin's slash-command routers from its skills, for the
  * pi-family harnesses only.
  *
- * pi and omp both surface a plugin's `prompts/*.md` as slash commands, and
- * neither lists a plugin's skills anywhere a user can pick from — a skill is
+ * pi and omp list no plugin skills anywhere a user can pick from — a skill is
  * read on demand, not offered. The routers are that missing menu: type `/`
  * and every entry point the plugin offers is there. Claude Code needs no such
  * menu; it already lists every installed skill as its own slash command, so a
- * router beside it would show each entry point twice. The directory is
- * `prompts/` and not `commands/` for exactly that reason: pi reads only
- * `prompts/`, omp reads both, and Claude Code reads only `commands/`.
+ * router beside it would show each entry point twice.
+ *
+ * The routers live in `prompts/`, and each harness reaches them differently:
+ * pi reads `prompts` from the `pi` block in the plugin's package.json; omp
+ * treats a marketplace install as a Claude Code plugin and reads the
+ * directory named by `slash-commands` in `.claude-plugin/plugin.json`, a key
+ * Claude Code itself ignores. Claude Code scans only `commands/`, which no
+ * longer exists. The manifest key is checked below, because a router omp
+ * cannot find is a router that does not exist.
  *
  * The router files deliberately hold no workflow of their own: each one just
  * routes to the skill it mirrors, which stays the single source of truth. A
@@ -35,6 +40,8 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 /** Every plugin that ships skills: the base engine plugin and the two tracker add-ons. */
 const pluginDirs = ['plugin', 'plugin-linear', 'plugin-jira'];
 const marker = '<!-- generated:lightsout-prompt -->';
+/** Where omp is told to look for the routers, relative to the plugin root — the value `slash-commands` must carry. */
+const promptsPath = './prompts';
 
 /** The frontmatter fields a router carries over from its skill: the name, and the description autocomplete shows. Handles the plain single-line form and the folded (`>-`) block some skills use. */
 const parseFrontmatter = ({ text }) => {
@@ -97,8 +104,15 @@ User input: $ARGUMENTS
 /** One plugin's routers: its manifest name plus the router text per skill, keyed by skill name. */
 const buildRouters = ({ pluginDir }) => {
 	const skillsDir = join(repoRoot, pluginDir, 'skills');
-	const { name: pluginName } = JSON.parse(readFileSync(join(repoRoot, pluginDir, '.claude-plugin', 'plugin.json'), 'utf8'));
+	const manifestPath = join(pluginDir, '.claude-plugin', 'plugin.json');
+	const { name: pluginName, 'slash-commands': slashCommands } = JSON.parse(readFileSync(join(repoRoot, manifestPath), 'utf8'));
 	const routers = new Map();
+
+	if (slashCommands !== promptsPath) {
+		throw new Error(
+			`${manifestPath} must set "slash-commands" to "${promptsPath}" — that is how omp finds the routers; it has ${JSON.stringify(slashCommands)}.`,
+		);
+	}
 
 	for (const entry of readdirSync(skillsDir, { withFileTypes: true })) {
 		if (!entry.isDirectory()) {

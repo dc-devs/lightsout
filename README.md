@@ -66,11 +66,13 @@ Completing the task is not enough. Agents should leave the repository better tha
    Claude Code lists every installed skill as a slash command of its own —
    `/lightsout:plan`, `/lightsout:implement`, `/lightsout:queue`, … — as
    soon as the plugin is installed. OMP and Pi do not list skills, so for
-   them the plugin ships one prompt template per skill, named after the
-   skill (`plan`, `implement`, `queue`, …): type `/` and pick from the list.
-   The add-ons follow the same pattern (`linear-ticket`, `jira-ticket`).
-   Each template is a thin router; the skill it names stays the single
-   source of truth.
+   them the plugin ships one slash command per skill instead: the same
+   `/lightsout:plan`, `/lightsout:implement`, `/lightsout:queue`, … in OMP
+   (type `/lightsout:` and pick from the list), and the bare `/plan`,
+   `/implement`, `/queue`, … in Pi. The add-ons follow the same pattern
+   (`/lightsout-linear:linear-ticket`, `/lightsout-jira:jira-ticket`). Each
+   command is a thin router; the skill it names stays the single source of
+   truth.
 
    The marketplace also carries optional `lightsout-linear` and `lightsout-jira`
    add-ons. They teach tracker-specific labels, statuses, attachments, and
