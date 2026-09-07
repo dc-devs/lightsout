@@ -8,8 +8,8 @@ import { readBranchState, writeBranchState } from '#src/queue/branchState/index.
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { createTicketWorktree } from '#src/queue/createTicketWorktree.ts';
 import { shipOneBranch } from '#src/queue/shipOneBranch.ts';
+import { createTicketWorktree } from '#src/queue/worktrees/createTicketWorktree.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
 import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';

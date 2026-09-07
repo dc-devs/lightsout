@@ -1,5 +1,5 @@
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
-import { removeTicketWorktree } from '#src/queue/removeTicketWorktree.ts';
+import { removeTicketWorktree } from '#src/queue/worktrees/index.ts';
 
 interface Params {
 	/** The main repository checkout. */

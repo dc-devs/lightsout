@@ -9,9 +9,9 @@ import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import { getWorktreesRoot } from '#src/queue/common/utils/getWorktreesRoot.ts';
-import { createTicketWorktree } from '#src/queue/createTicketWorktree.ts';
-import { runWorkerWithRelay } from '#src/queue/runWorkerWithRelay.ts';
 import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
+import { runWorkerWithRelay } from '#src/queue/workers/index.ts';
+import { createTicketWorktree } from '#src/queue/worktrees/index.ts';
 import { TrackerStatusRole, updateTicketLifecycle } from '#src/ticketLifecycle/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 

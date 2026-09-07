@@ -3,7 +3,7 @@ import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
-import { dedupeTickets } from '#src/queue/dedupeTickets.ts';
+import { dedupeTickets } from '#src/queue/ticketSelection/dedupeTickets.ts';
 
 interface Params {
 	/** Resumed and eligible tickets together, already in the order they would be worked. */

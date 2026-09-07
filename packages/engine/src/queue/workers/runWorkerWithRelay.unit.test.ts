@@ -12,7 +12,7 @@ import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { TerminalQuestionRelay } from '#src/queue/relay/index.ts';
-import { runWorkerWithRelay } from '#src/queue/runWorkerWithRelay.ts';
+import { runWorkerWithRelay } from '#src/queue/workers/runWorkerWithRelay.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
@@ -28,10 +28,10 @@ const mockRunPlanFolderPipeline = jest.fn<(params: { cwd: string; name: string }
 const mockRunDirectWork = jest.fn<(params: { answeredQuestion?: { question: string; answer: string } }) => Promise<PipelineResult>>();
 const mockAppendTicketNote = jest.fn<() => Promise<undefined>>();
 
-jest.mock('#src/queue/runAutoPlanWorker.ts', () => ({
+jest.mock('#src/queue/workers/runAutoPlanWorker.ts', () => ({
 	runAutoPlanWorker: (params: { answeredQuestion?: { question: string; answer: string } }) => mockRunAutoPlanWorker(params),
 }));
-jest.mock('#src/queue/runPlanFolderPipeline.ts', () => ({
+jest.mock('#src/queue/workers/runPlanFolderPipeline.ts', () => ({
 	runPlanFolderPipeline: (params: { cwd: string; name: string }) => mockRunPlanFolderPipeline(params),
 }));
 jest.mock('#src/direct/index.ts', () => ({

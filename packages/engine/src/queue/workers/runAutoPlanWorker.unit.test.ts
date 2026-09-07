@@ -8,7 +8,7 @@ import type { Driver } from '#src/drivers/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
-import { runAutoPlanWorker } from '#src/queue/runAutoPlanWorker.ts';
+import { runAutoPlanWorker } from '#src/queue/workers/runAutoPlanWorker.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 
 // Mocked Imports
@@ -24,7 +24,7 @@ const mockRunPlanFolderPipeline = jest.fn<(params: { cwd: string; name: string }
 jest.mock('#src/invoke/index.ts', () => ({
 	invokeAgentWithContract: () => mockInvokeAgentWithContract(),
 }));
-jest.mock('#src/queue/runPlanFolderPipeline.ts', () => ({
+jest.mock('#src/queue/workers/runPlanFolderPipeline.ts', () => ({
 	runPlanFolderPipeline: (params: { cwd: string; name: string }) => mockRunPlanFolderPipeline(params),
 }));
 // -------------------------

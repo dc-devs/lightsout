@@ -3,7 +3,7 @@ import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { BranchPhase, type BranchState, type LightsoutConfig } from '#src/contracts/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
-import { reconcileMergedTickets } from '#src/queue/reconcileMergedTickets.ts';
+import { reconcileMergedTickets } from '#src/queue/ticketSelection/reconcileMergedTickets.ts';
 import type { PullRequestSummary } from '#src/ship/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 
@@ -28,7 +28,7 @@ jest.mock('#src/ticketLifecycle/index.ts', () => ({
 	reconcileShippedTicket: (params: { ticketRef: string | undefined }) => mockReconcileShippedTicket(params),
 }));
 jest.mock('#src/common/git/readGitChangedFiles.ts', () => ({ readGitChangedFiles: (params: { cwd: string }) => mockReadGitChangedFiles(params) }));
-jest.mock('#src/queue/removeTicketWorktree.ts', () => ({
+jest.mock('#src/queue/worktrees/removeTicketWorktree.ts', () => ({
 	removeTicketWorktree: (params: { cwd: string; worktreePath: string; branch: string }) => mockRemoveTicketWorktree(params),
 }));
 jest.mock('#src/queue/branchState/index.ts', () => ({

@@ -48,13 +48,13 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 // them reads tracker identity.
 const mockCreateTicketWorktree = jest.fn<(params: { cwd: string; branch: string }) => Promise<string | QueueFailure>>();
 
-jest.mock('#src/queue/createTicketWorktree.ts', () => ({
+jest.mock('#src/queue/worktrees/createTicketWorktree.ts', () => ({
 	createTicketWorktree: (params: { cwd: string; branch: string }) => mockCreateTicketWorktree(params),
 }));
 // -------------------------
 const mockRunWorkerWithRelay = jest.fn<() => Promise<WorkerOutcome>>();
 
-jest.mock('#src/queue/runWorkerWithRelay.ts', () => ({ runWorkerWithRelay: () => mockRunWorkerWithRelay() }));
+jest.mock('#src/queue/workers/runWorkerWithRelay.ts', () => ({ runWorkerWithRelay: () => mockRunWorkerWithRelay() }));
 // -------------------------
 jest.mock('#src/queue/commitTicketWork.ts', () => ({ commitTicketWork: () => Promise.resolve({ committed: true }) }));
 // -------------------------

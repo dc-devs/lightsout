@@ -7,7 +7,7 @@ import { pathExists, planWorkspaceDir } from '#src/plan/index.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
-import { runPlanFolderPipeline } from '#src/queue/runPlanFolderPipeline.ts';
+import { runPlanFolderPipeline } from '#src/queue/workers/runPlanFolderPipeline.ts';
 
 interface Params {
 	/** The worktree the ticket is planned and built in. */

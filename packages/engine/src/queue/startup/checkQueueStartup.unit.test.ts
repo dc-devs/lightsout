@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { checkQueueStartup } from '#src/queue/checkQueueStartup.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
+import { checkQueueStartup } from '#src/queue/startup/checkQueueStartup.ts';
 import type { TrackerFailure, TrackerSettings } from '#src/ticketTracker/index.ts';
 import { jiraTrackerSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';

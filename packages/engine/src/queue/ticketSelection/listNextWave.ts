@@ -1,9 +1,9 @@
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
-import { listEligibleTickets } from '#src/queue/listEligibleTickets.ts';
-import { orderTickets } from '#src/queue/orderTickets.ts';
-import { selectWaveTickets } from '#src/queue/selectWaveTickets.ts';
+import { listEligibleTickets } from '#src/queue/ticketSelection/listEligibleTickets.ts';
+import { orderTickets } from '#src/queue/ticketSelection/orderTickets.ts';
+import { selectWaveTickets } from '#src/queue/ticketSelection/selectWaveTickets.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {

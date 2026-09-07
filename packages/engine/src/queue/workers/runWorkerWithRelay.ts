@@ -10,8 +10,8 @@ import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
-import { runAutoPlanWorker } from '#src/queue/runAutoPlanWorker.ts';
-import { runPlanFolderPipeline } from '#src/queue/runPlanFolderPipeline.ts';
+import { runAutoPlanWorker } from '#src/queue/workers/runAutoPlanWorker.ts';
+import { runPlanFolderPipeline } from '#src/queue/workers/runPlanFolderPipeline.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {

@@ -150646,69 +150646,84 @@ ${question}
   }
 };
 
-// src/queue/common/utils/parseDurationMs.ts
-var parseDurationMs = ({ value, key }) => {
-  const matched = /^(\d+)([smh])$/.exec(value.trim());
-  const amount = Number(matched?.[1] ?? 0);
-  if (matched === null || amount === 0) {
-    return { error: `\`${key}\` must be a duration like '90s', '45m' or '4h' \u2014 got '${value}'` };
-  }
-  const perUnitMs = matched[2] === "s" ? 1e3 : matched[2] === "m" ? 6e4 : 36e5;
-  return amount * perUnitMs;
-};
-
-// src/queue/resolveQueueSettings.ts
-var resolveQueueSettings = ({ config: config2 }) => {
-  const queue = config2.queue;
-  if (queue === void 0) {
-    return { error: "`lightsout queue` needs a `queue` block in lightsout.config.json naming max-parallel" };
-  }
-  const lifecycle = resolveLifecycleSettings({ config: config2 });
-  if ("error" in lifecycle) {
-    return lifecycle;
-  }
-  const workerTimeoutMs = parseDurationMs({ value: queue["worker-timeout"] ?? "4h", key: "queue.worker-timeout" });
-  if (typeof workerTimeoutMs !== "number") {
-    return workerTimeoutMs;
-  }
-  const questionTimeoutMs = parseDurationMs({ value: queue["question-timeout"] ?? "1h", key: "queue.question-timeout" });
-  if (typeof questionTimeoutMs !== "number") {
-    return questionTimeoutMs;
-  }
-  return {
-    lifecycle,
-    maxParallel: queue["max-parallel"],
-    setup: queue.setup,
-    branchTemplate: queue["branch-template"] ?? "{ticket}-{slug}",
-    decisionsHeading: queue["decisions-heading"] ?? "## Decisions",
-    workerTimeoutMs,
-    questionTimeoutMs,
-    parkedLabel: queue["parked-label"]
-  };
-};
-
 // src/queue/runQueue.ts
 import { join as join114 } from "node:path";
 
-// src/queue/checkPlanningStatusLabels.ts
-var describeFix = ({ provider, missing }) => provider === "linear" ? `create ${missing.length === 1 ? "it" : "them"} on the team` : (
-  // A Jira label comes into being the first time an issue carries it, so
-  // there is no create-a-label action to name.
-  `apply ${missing.length === 1 ? "it" : "each of them"} to any issue in the project`
-);
-var checkPlanningStatusLabels = async ({ settings, trackerSettings }) => {
-  const known = await listLabelNames3({ settings: trackerSettings });
-  if ("error" in known) {
-    return known;
+// src/queue/common/utils/createMainCheckoutSerializer.ts
+var createMainCheckoutSerializer = () => {
+  let tail = Promise.resolve();
+  return ({ task }) => {
+    const next = tail.then(task, task);
+    tail = next.catch(() => void 0);
+    return next;
+  };
+};
+
+// src/queue/worktrees/createTicketWorktree.ts
+import { stat as stat9 } from "node:fs/promises";
+import { join as join107 } from "node:path";
+
+// src/queue/common/utils/getWorktreesRoot.ts
+import { basename as basename22, dirname as dirname17, join as join106, resolve as resolve13 } from "node:path";
+var getWorktreesRoot = ({ cwd }) => {
+  const repo = resolve13(cwd);
+  return join106(dirname17(repo), `${basename22(repo)}-worktrees`);
+};
+
+// src/queue/worktrees/createTicketWorktree.ts
+var exists2 = async ({ path }) => {
+  const found = await stat9(path).catch(() => void 0);
+  return found !== void 0;
+};
+var branchExists = async ({ cwd, branch }) => {
+  const shown = await runCommand({ command: `git rev-parse --verify --quiet refs/heads/${branch}`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  return shown?.exitCode === 0;
+};
+var createTicketWorktree = async ({ cwd, branch, defaultBranch, setup, onProgress }) => {
+  const worktreePath = join107(getWorktreesRoot({ cwd }), branch);
+  if (await exists2({ path: worktreePath })) {
+    onProgress?.(`worktree already at ${worktreePath} \u2014 continuing in it`);
+    return worktreePath;
   }
-  const missing = Object.values(PlanningStatus).map((status) => settings.lifecycle.planningStatusLabels[status]).filter((label) => !known.includes(label));
-  if (missing.length === 0) {
+  const adopting = await branchExists({ cwd, branch });
+  const add = adopting ? `git worktree add ${worktreePath} ${branch}` : `git worktree add ${worktreePath} -b ${branch} origin/${defaultBranch}`;
+  const addFailure = await runOrDescribeFailure({ command: add, cwd });
+  if (addFailure !== void 0) {
+    return { error: `git could not create a worktree for '${branch}': ${addFailure}` };
+  }
+  onProgress?.(`worktree ${worktreePath} on ${branch}`);
+  if (setup === void 0) {
+    return worktreePath;
+  }
+  const setupTimeoutMs = 6e5;
+  const setupFailure = await runOrDescribeFailure({ command: setup, cwd: worktreePath, timeoutMs: setupTimeoutMs, subject: "the command" });
+  if (setupFailure !== void 0) {
+    return { error: `the queue's setup command failed in ${worktreePath}: ${setupFailure}` };
+  }
+  onProgress?.(`setup finished in ${worktreePath}`);
+  return worktreePath;
+};
+
+// src/queue/worktrees/removeTicketWorktree.ts
+var removeTicketWorktree = async ({ cwd, worktreePath, branch }) => {
+  const steps = [`git worktree remove --force ${worktreePath}`, "git worktree prune", `git branch -d ${branch}`];
+  for (const command of steps) {
+    await runCommand({ command, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  }
+};
+
+// src/queue/worktrees/scanParkedWorktrees.ts
+import { realpath } from "node:fs/promises";
+import { join as join108 } from "node:path";
+
+// src/common/git/readGitCommitsAhead.ts
+var readGitCommitsAhead = async ({ cwd, defaultBranch }) => {
+  const counted = await runCommand({ command: `git rev-list --count origin/${defaultBranch}..HEAD`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  if (counted?.exitCode !== 0) {
     return void 0;
   }
-  const named = missing.map((label) => `'${label}'`).join(", ");
-  return {
-    error: `the tracker has no ${missing.length === 1 ? "label" : "labels"} ${named}, which \`queue.planning-status-labels\` names \u2014 ${describeFix({ provider: trackerSettings.provider, missing })}, or name the labels this tracker already has`
-  };
+  const commits = Number.parseInt(counted.stdout.trim(), 10);
+  return Number.isFinite(commits) ? commits : void 0;
 };
 
 // src/queue/common/constants/QueueWorker.ts
@@ -150721,75 +150736,145 @@ var QueueWorker = {
   AutoPlan: "auto-plan"
 };
 
-// src/queue/toTicketBranch.ts
-var toSlug = ({ title }) => {
-  const maxSlugLength = 40;
-  const dashed = title.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/^-+|-+$/g, "");
-  let slug = dashed;
-  if (dashed.length > maxSlugLength) {
-    const cut = dashed.slice(0, maxSlugLength);
-    const lastDash = cut.lastIndexOf("-");
-    slug = lastDash === -1 ? cut : cut.slice(0, lastDash);
-  }
-  return slug.replaceAll(/-+$/g, "");
-};
-var toTicketBranch = ({ ticket, template }) => template.replaceAll("{ticket}", ticket.identifier.toLowerCase()).replaceAll("{slug}", toSlug({ title: ticket.title }));
-
-// src/queue/checkQueueStartup.ts
-var checkQueueStartup = async ({ cwd, settings, trackerSettings, shipSettings }) => {
-  const readyStatus = settings.lifecycle.statusNames[TrackerStatusRole.Ready];
-  if (!settings.lifecycle.eligibleStatuses.includes(readyStatus)) {
-    return {
-      error: `\`queue.ready-status\` is '${readyStatus}', which \`queue.eligible-statuses\` does not list \u2014 no ticket waiting to be implemented would ever be picked up`
-    };
-  }
-  const labelled = await checkPlanningStatusLabels({ settings, trackerSettings });
-  if (labelled !== void 0) {
-    return labelled;
-  }
-  const sample = {
-    id: "sample",
-    identifier: `${trackerSettings.ticketPrefix}-1`,
-    title: "sample",
-    description: "",
-    priority: 0,
-    createdAt: "",
-    labels: [],
-    planningStatus: PlanningStatus.NotNeeded,
-    worker: QueueWorker.Direct,
-    status: readyStatus,
-    unfinishedBlockers: []
+// src/queue/common/utils/selectQueueWorker.ts
+var selectQueueWorker = ({ planningStatus, trackerStatus, readyStatus }) => {
+  const atReady = trackerStatus === void 0 || trackerStatus === readyStatus;
+  const inBacklog = trackerStatus !== readyStatus;
+  const selected = {
+    [PlanningStatus.NeedsBrainstorm]: void 0,
+    [PlanningStatus.NeedsPlan]: void 0,
+    [PlanningStatus.ReadyAutoPlan]: inBacklog ? QueueWorker.AutoPlan : void 0,
+    [PlanningStatus.Complete]: atReady ? QueueWorker.Plan : void 0,
+    [PlanningStatus.NotNeeded]: atReady ? QueueWorker.Direct : void 0
   };
-  const rendered = toTicketBranch({ ticket: sample, template: settings.branchTemplate });
-  if (readTicketMatch({ branch: rendered, ticketPattern: shipSettings.ticketPattern }) === void 0) {
-    return {
-      error: `\`queue.branch-template\` renders '${rendered}', which \`ship.ticket-pattern\` does not match \u2014 every queued branch would be unshippable`
-    };
-  }
-  const defaultBranch = await readGitDefaultBranch({ cwd });
-  if (defaultBranch === void 0) {
-    return { error: "the queue needs a default branch: `origin/HEAD` is unset \u2014 run `git remote set-head origin --auto`" };
-  }
-  await runCommand({ command: "git fetch origin", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  return { defaultBranch };
+  return selected[planningStatus];
 };
 
-// src/queue/common/utils/createMainCheckoutSerializer.ts
-var createMainCheckoutSerializer = () => {
-  let tail = Promise.resolve();
-  return ({ task }) => {
-    const next = tail.then(task, task);
-    tail = next.catch(() => void 0);
-    return next;
-  };
-};
+// src/queue/common/utils/toPlanningSummaries.ts
+var toPlanningSummaries = ({ ticket, lifecycle, resumed }) => Object.values(PlanningStatus).filter((planningStatus) => ticket.labels.includes(lifecycle.planningStatusLabels[planningStatus])).map((planningStatus) => ({
+  ...ticket,
+  planningStatus,
+  worker: selectQueueWorker({
+    planningStatus,
+    trackerStatus: resumed ? void 0 : ticket.status,
+    readyStatus: lifecycle.statusNames[TrackerStatusRole.Ready]
+  })
+}));
 
-// src/queue/removeTicketWorktree.ts
-var removeTicketWorktree = async ({ cwd, worktreePath, branch }) => {
-  const steps = [`git worktree remove --force ${worktreePath}`, "git worktree prune", `git branch -d ${branch}`];
-  for (const command of steps) {
-    await runCommand({ command, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+// src/queue/worktrees/scanParkedWorktrees.ts
+var toQueuePath = ({ path, root, realRoot }) => {
+  for (const prefix of [root, realRoot]) {
+    if (path.startsWith(`${prefix}/`)) {
+      return join108(root, path.slice(prefix.length + 1));
+    }
   }
+  return void 0;
+};
+var listQueueWorktrees = async ({ cwd, shipSettings, onProgress }) => {
+  const listed = await runCommand({ command: "git worktree list --porcelain", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  const root = getWorktreesRoot({ cwd });
+  const realRoot = await realpath(root).catch(() => root);
+  const trees = [];
+  for (const block of (listed?.exitCode === 0 ? listed.stdout : "").split("\n\n")) {
+    const reported = /^worktree (.+)$/m.exec(block)?.[1];
+    const branch = /^branch refs\/heads\/(.+)$/m.exec(block)?.[1];
+    const path = reported === void 0 ? void 0 : toQueuePath({ path: reported, root, realRoot });
+    if (path === void 0 || branch === void 0) {
+      continue;
+    }
+    const identifier = readTicketMatch({ branch, ticketPattern: shipSettings.ticketPattern })?.ticket;
+    if (identifier === void 0) {
+      onProgress?.(`leaving ${path} alone \u2014 its branch carries no ticket the configured pattern matches`);
+      continue;
+    }
+    trees.push({ path, branch, identifier });
+  }
+  return trees;
+};
+var classifyUnrecordedTree = async ({ cwd, tree, defaultBranch, onProgress }) => {
+  const ahead = await readGitCommitsAhead({ cwd: tree.path, defaultBranch });
+  if (ahead === void 0) {
+    return "drain";
+  }
+  const carriesCommits = ahead > 0;
+  await writeBranchState({ cwd, branch: tree.branch, phase: carriesCommits ? BranchPhase.Ready : BranchPhase.Building, onProgress });
+  return carriesCommits ? "ship" : "drain";
+};
+var classifyTree = async ({ cwd, tree, defaultBranch, onProgress }) => {
+  const recorded = await readBranchState({ cwd, branch: tree.branch });
+  if (recorded?.phase === BranchPhase.Merged) {
+    return "settled";
+  }
+  const changed = await readGitChangedFiles({ cwd: tree.path });
+  if (changed === void 0) {
+    return "unreadable";
+  }
+  if (changed.length > 0) {
+    return "drain";
+  }
+  if (recorded !== void 0) {
+    return recorded.phase === BranchPhase.Ready ? "ship" : "drain";
+  }
+  return classifyUnrecordedTree({ cwd, tree, defaultBranch, onProgress });
+};
+var scanParkedWorktrees = async ({
+  cwd,
+  defaultBranch,
+  settings,
+  trackerSettings,
+  shipSettings,
+  onProgress
+}) => {
+  const trees = await listQueueWorktrees({ cwd, shipSettings, onProgress });
+  if (trees.length === 0) {
+    return { resumed: [], outcomes: [], leftBehind: [], merged: [] };
+  }
+  const tickets = await getTicketsByIdentifiers3({ settings: trackerSettings, identifiers: trees.map((tree) => tree.identifier) });
+  if ("error" in tickets) {
+    return tickets;
+  }
+  const summaries = tickets.flatMap((ticket) => toPlanningSummaries({ ticket, lifecycle: settings.lifecycle, resumed: true }));
+  const parked = { resumed: [], outcomes: [], leftBehind: [], merged: [] };
+  for (const tree of trees) {
+    const matched = summaries.filter((ticket2) => ticket2.identifier.toLowerCase() === tree.identifier.toLowerCase());
+    if (matched.length === 0) {
+      const reason = `its worktree at ${tree.path} is parked, but the ticket carries no planning status label any more`;
+      onProgress?.(`${tree.identifier} \xB7 ${reason}`);
+      parked.leftBehind.push({ identifier: tree.identifier, reason });
+      continue;
+    }
+    const runnable = matched.filter((ticket2) => ticket2.worker !== void 0);
+    if (runnable.length === 0) {
+      const carried = matched.map((ticket2) => `'${settings.lifecycle.planningStatusLabels[ticket2.planningStatus]}'`).join(" and ");
+      const reason = `its worktree at ${tree.path} is parked, but the ticket now carries ${carried}, which the queue never resumes`;
+      onProgress?.(`${tree.identifier} \xB7 ${reason}`);
+      parked.leftBehind.push({ identifier: tree.identifier, reason });
+      continue;
+    }
+    const bucket = await classifyTree({ cwd, tree, defaultBranch, onProgress });
+    const ticket = runnable[0];
+    if (bucket === "settled") {
+      onProgress?.(`${tree.identifier} \xB7 its branch is recorded merged, so it is reconciled rather than resumed`);
+      parked.merged.push({ worktreePath: tree.path, branch: tree.branch, ticket });
+      continue;
+    }
+    if (bucket === "drain") {
+      const cleared = await setParkedLabel3({ settings: trackerSettings, ticketId: ticket.id, label: settings.parkedLabel, parked: false });
+      if (cleared !== void 0) {
+        onProgress?.(`${tree.identifier} \xB7 the parked label could not be cleared: ${cleared.error}`);
+      }
+      parked.resumed.push(...runnable);
+    } else {
+      parked.outcomes.push({
+        ticket,
+        branch: tree.branch,
+        worktreePath: tree.path,
+        ready: bucket === "ship",
+        error: bucket === "ship" ? void 0 : `git could not read the worktree at ${tree.path}`
+      });
+    }
+  }
+  return parked;
 };
 
 // src/queue/common/utils/settleReconciledWorktree.ts
@@ -150850,17 +150935,97 @@ var admitSelection = ({ state, selection }) => {
   return admitted;
 };
 
-// src/queue/reconcileMergedTickets.ts
-import { join as join107 } from "node:path";
-
-// src/queue/common/utils/getWorktreesRoot.ts
-import { basename as basename22, dirname as dirname17, join as join106, resolve as resolve13 } from "node:path";
-var getWorktreesRoot = ({ cwd }) => {
-  const repo = resolve13(cwd);
-  return join106(dirname17(repo), `${basename22(repo)}-worktrees`);
+// src/queue/ticketSelection/listEligibleTickets.ts
+var listEligibleTickets = async ({ settings, trackerSettings }) => {
+  const tickets = await listTickets3({
+    settings: trackerSettings,
+    labelNames: Object.values(PlanningStatus).map((status) => settings.lifecycle.planningStatusLabels[status]),
+    statuses: settings.lifecycle.eligibleStatuses
+  });
+  if ("error" in tickets) {
+    return tickets;
+  }
+  return tickets.flatMap((ticket) => toPlanningSummaries({ ticket, lifecycle: settings.lifecycle, resumed: false }));
 };
 
-// src/queue/reconcileMergedTickets.ts
+// src/queue/ticketSelection/orderTickets.ts
+var orderTickets = ({ tickets }) => {
+  const rank = ({ priority }) => priority === 0 ? 6 : priority;
+  return [...tickets].sort((left, right) => rank(left) - rank(right) || left.createdAt.localeCompare(right.createdAt));
+};
+
+// src/queue/ticketSelection/dedupeTickets.ts
+var dedupeTickets = ({ tickets, settings, onProgress }) => {
+  const leftBehind = [];
+  const ordered = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const ticket of tickets) {
+    const key = ticket.identifier.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    const carried = new Set(tickets.filter((other) => other.identifier.toLowerCase() === key).map((other) => other.planningStatus));
+    if (carried.size < 2) {
+      ordered.push(ticket);
+      continue;
+    }
+    const labels = Object.values(PlanningStatus).filter((status) => carried.has(status)).map((status) => `'${settings.lifecycle.planningStatusLabels[status]}'`).join(" and ");
+    const reason = `skipped: it carries the planning status labels ${labels} \u2014 leave exactly one so the queue knows what the ticket still owes`;
+    onProgress?.(`${ticket.identifier} \xB7 ${reason}`);
+    leftBehind.push({ identifier: ticket.identifier, reason });
+  }
+  return { ordered, leftBehind };
+};
+
+// src/queue/ticketSelection/selectWaveTickets.ts
+var selectWaveTickets = ({ tickets, settings, attempted, onProgress }) => {
+  const fresh = tickets.filter((ticket) => !attempted.has(ticket.identifier.toLowerCase()));
+  const { ordered, leftBehind } = dedupeTickets({ tickets: fresh, settings, onProgress });
+  const runnable = [];
+  const blocked = [];
+  for (const ticket of ordered) {
+    if (ticket.worker === void 0) {
+      continue;
+    }
+    if (ticket.unfinishedBlockers.length === 0) {
+      runnable.push({ ...ticket, worker: ticket.worker });
+      continue;
+    }
+    const reason = `waiting: blocked by ${ticket.unfinishedBlockers.join(", ")} \u2014 the queue takes it once every blocker is finished`;
+    onProgress?.(`${ticket.identifier} \xB7 ${reason}`);
+    blocked.push({ identifier: ticket.identifier, reason });
+  }
+  return { runnable, blocked, skipped: leftBehind };
+};
+
+// src/queue/ticketSelection/listNextWave.ts
+var listNextWave = async ({ settings, trackerSettings, attempted, onProgress }) => {
+  const eligible = await listEligibleTickets({ settings, trackerSettings });
+  if ("error" in eligible) {
+    return eligible;
+  }
+  return selectWaveTickets({ tickets: orderTickets({ tickets: eligible }), settings, attempted, onProgress });
+};
+
+// src/queue/ticketSelection/reconcileMergedTickets.ts
+import { join as join109 } from "node:path";
+
+// src/queue/toTicketBranch.ts
+var toSlug = ({ title }) => {
+  const maxSlugLength = 40;
+  const dashed = title.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/^-+|-+$/g, "");
+  let slug = dashed;
+  if (dashed.length > maxSlugLength) {
+    const cut = dashed.slice(0, maxSlugLength);
+    const lastDash = cut.lastIndexOf("-");
+    slug = lastDash === -1 ? cut : cut.slice(0, lastDash);
+  }
+  return slug.replaceAll(/-+$/g, "");
+};
+var toTicketBranch = ({ ticket, template }) => template.replaceAll("{ticket}", ticket.identifier.toLowerCase()).replaceAll("{slug}", toSlug({ title: ticket.title }));
+
+// src/queue/ticketSelection/reconcileMergedTickets.ts
 var reconcileMergedTickets = async ({
   cwd,
   config: config2,
@@ -150887,7 +151052,7 @@ var reconcileMergedTickets = async ({
     if (merged !== void 0) {
       await writeBranchState({ cwd, branch, phase: BranchPhase.Merged, onProgress });
     }
-    const heldWorktree = await settleReconciledWorktree({ cwd, worktreePath: join107(getWorktreesRoot({ cwd }), branch), branch, onProgress });
+    const heldWorktree = await settleReconciledWorktree({ cwd, worktreePath: join109(getWorktreesRoot({ cwd }), branch), branch, onProgress });
     const established = merged === void 0 ? `its branch ${branch} is recorded merged` : `its branch ${branch} already has a merged pull request #${merged.number}`;
     const reason = `skipped: ${established}, so the ticket was reconciled to done rather than built again${heldWorktree ?? ""}${reconciliationFailure === void 0 ? "" : ` \u2014 ${reconciliationFailure}`}`;
     leftBehind.push({ identifier: ticket.identifier, reason, settled: true });
@@ -150915,7 +151080,7 @@ var admitScanned = async ({ context, state, selection }) => {
 };
 
 // src/queue/drainLanes/common/utils/startBuilds.ts
-import { join as join108 } from "node:path";
+import { join as join110 } from "node:path";
 
 // src/queue/drainLanes/common/utils/trackTask.ts
 var trackTask = ({ flight, run }) => {
@@ -150930,7 +151095,7 @@ var trackTask = ({ flight, run }) => {
 // src/queue/drainLanes/common/utils/startBuilds.ts
 var parkedBuild = ({ context, ticket, thrown }) => {
   const branch = toTicketBranch({ ticket, template: context.settings.branchTemplate });
-  const worktreePath = join108(getWorktreesRoot({ cwd: context.cwd }), branch);
+  const worktreePath = join110(getWorktreesRoot({ cwd: context.cwd }), branch);
   return { ticket, branch, worktreePath, ready: false, error: messageOf({ error: thrown }) };
 };
 var settleBuild = ({ state, outcome }) => {
@@ -150969,115 +151134,17 @@ var startBuilds = ({ context, state, flight }) => {
 
 // src/queue/drainLanes/common/utils/writeQueuePlan.ts
 import { writeFile as writeFile21 } from "node:fs/promises";
-import { join as join109 } from "node:path";
+import { join as join111 } from "node:path";
 var writeQueuePlan = ({ path, cwd, settings, queued }) => {
   const root = getWorktreesRoot({ cwd });
   const lines = queued.map((ticket) => {
     const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
-    return `- ${ticket.identifier} \xB7 ${ticket.worker} \xB7 ${branch} \xB7 ${join109(root, branch)}`;
+    return `- ${ticket.identifier} \xB7 ${ticket.worker} \xB7 ${branch} \xB7 ${join111(root, branch)}`;
   });
   return writeFile21(path, `# queue drain
 
 ${lines.join("\n")}
 `, "utf8");
-};
-
-// src/queue/common/utils/selectQueueWorker.ts
-var selectQueueWorker = ({ planningStatus, trackerStatus, readyStatus }) => {
-  const atReady = trackerStatus === void 0 || trackerStatus === readyStatus;
-  const inBacklog = trackerStatus !== readyStatus;
-  const selected = {
-    [PlanningStatus.NeedsBrainstorm]: void 0,
-    [PlanningStatus.NeedsPlan]: void 0,
-    [PlanningStatus.ReadyAutoPlan]: inBacklog ? QueueWorker.AutoPlan : void 0,
-    [PlanningStatus.Complete]: atReady ? QueueWorker.Plan : void 0,
-    [PlanningStatus.NotNeeded]: atReady ? QueueWorker.Direct : void 0
-  };
-  return selected[planningStatus];
-};
-
-// src/queue/common/utils/toPlanningSummaries.ts
-var toPlanningSummaries = ({ ticket, lifecycle, resumed }) => Object.values(PlanningStatus).filter((planningStatus) => ticket.labels.includes(lifecycle.planningStatusLabels[planningStatus])).map((planningStatus) => ({
-  ...ticket,
-  planningStatus,
-  worker: selectQueueWorker({
-    planningStatus,
-    trackerStatus: resumed ? void 0 : ticket.status,
-    readyStatus: lifecycle.statusNames[TrackerStatusRole.Ready]
-  })
-}));
-
-// src/queue/listEligibleTickets.ts
-var listEligibleTickets = async ({ settings, trackerSettings }) => {
-  const tickets = await listTickets3({
-    settings: trackerSettings,
-    labelNames: Object.values(PlanningStatus).map((status) => settings.lifecycle.planningStatusLabels[status]),
-    statuses: settings.lifecycle.eligibleStatuses
-  });
-  if ("error" in tickets) {
-    return tickets;
-  }
-  return tickets.flatMap((ticket) => toPlanningSummaries({ ticket, lifecycle: settings.lifecycle, resumed: false }));
-};
-
-// src/queue/orderTickets.ts
-var orderTickets = ({ tickets }) => {
-  const rank = ({ priority }) => priority === 0 ? 6 : priority;
-  return [...tickets].sort((left, right) => rank(left) - rank(right) || left.createdAt.localeCompare(right.createdAt));
-};
-
-// src/queue/dedupeTickets.ts
-var dedupeTickets = ({ tickets, settings, onProgress }) => {
-  const leftBehind = [];
-  const ordered = [];
-  const seen = /* @__PURE__ */ new Set();
-  for (const ticket of tickets) {
-    const key = ticket.identifier.toLowerCase();
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    const carried = new Set(tickets.filter((other) => other.identifier.toLowerCase() === key).map((other) => other.planningStatus));
-    if (carried.size < 2) {
-      ordered.push(ticket);
-      continue;
-    }
-    const labels = Object.values(PlanningStatus).filter((status) => carried.has(status)).map((status) => `'${settings.lifecycle.planningStatusLabels[status]}'`).join(" and ");
-    const reason = `skipped: it carries the planning status labels ${labels} \u2014 leave exactly one so the queue knows what the ticket still owes`;
-    onProgress?.(`${ticket.identifier} \xB7 ${reason}`);
-    leftBehind.push({ identifier: ticket.identifier, reason });
-  }
-  return { ordered, leftBehind };
-};
-
-// src/queue/selectWaveTickets.ts
-var selectWaveTickets = ({ tickets, settings, attempted, onProgress }) => {
-  const fresh = tickets.filter((ticket) => !attempted.has(ticket.identifier.toLowerCase()));
-  const { ordered, leftBehind } = dedupeTickets({ tickets: fresh, settings, onProgress });
-  const runnable = [];
-  const blocked = [];
-  for (const ticket of ordered) {
-    if (ticket.worker === void 0) {
-      continue;
-    }
-    if (ticket.unfinishedBlockers.length === 0) {
-      runnable.push({ ...ticket, worker: ticket.worker });
-      continue;
-    }
-    const reason = `waiting: blocked by ${ticket.unfinishedBlockers.join(", ")} \u2014 the queue takes it once every blocker is finished`;
-    onProgress?.(`${ticket.identifier} \xB7 ${reason}`);
-    blocked.push({ identifier: ticket.identifier, reason });
-  }
-  return { runnable, blocked, skipped: leftBehind };
-};
-
-// src/queue/listNextWave.ts
-var listNextWave = async ({ settings, trackerSettings, attempted, onProgress }) => {
-  const eligible = await listEligibleTickets({ settings, trackerSettings });
-  if ("error" in eligible) {
-    return eligible;
-  }
-  return selectWaveTickets({ tickets: orderTickets({ tickets: eligible }), settings, attempted, onProgress });
 };
 
 // src/queue/drainLanes/common/utils/startScan.ts
@@ -151281,61 +151348,15 @@ var drainQueue = async ({
 };
 
 // src/queue/runQueueTicket.ts
+import { join as join113 } from "node:path";
+
+// src/queue/workers/runPlanFolderPipeline.ts
 import { join as join112 } from "node:path";
-
-// src/common/git/readGitCommitsAhead.ts
-var readGitCommitsAhead = async ({ cwd, defaultBranch }) => {
-  const counted = await runCommand({ command: `git rev-list --count origin/${defaultBranch}..HEAD`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  if (counted?.exitCode !== 0) {
-    return void 0;
-  }
-  const commits = Number.parseInt(counted.stdout.trim(), 10);
-  return Number.isFinite(commits) ? commits : void 0;
-};
-
-// src/queue/createTicketWorktree.ts
-import { stat as stat9 } from "node:fs/promises";
-import { join as join110 } from "node:path";
-var exists2 = async ({ path }) => {
-  const found = await stat9(path).catch(() => void 0);
-  return found !== void 0;
-};
-var branchExists = async ({ cwd, branch }) => {
-  const shown = await runCommand({ command: `git rev-parse --verify --quiet refs/heads/${branch}`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  return shown?.exitCode === 0;
-};
-var createTicketWorktree = async ({ cwd, branch, defaultBranch, setup, onProgress }) => {
-  const worktreePath = join110(getWorktreesRoot({ cwd }), branch);
-  if (await exists2({ path: worktreePath })) {
-    onProgress?.(`worktree already at ${worktreePath} \u2014 continuing in it`);
-    return worktreePath;
-  }
-  const adopting = await branchExists({ cwd, branch });
-  const add = adopting ? `git worktree add ${worktreePath} ${branch}` : `git worktree add ${worktreePath} -b ${branch} origin/${defaultBranch}`;
-  const addFailure = await runOrDescribeFailure({ command: add, cwd });
-  if (addFailure !== void 0) {
-    return { error: `git could not create a worktree for '${branch}': ${addFailure}` };
-  }
-  onProgress?.(`worktree ${worktreePath} on ${branch}`);
-  if (setup === void 0) {
-    return worktreePath;
-  }
-  const setupTimeoutMs = 6e5;
-  const setupFailure = await runOrDescribeFailure({ command: setup, cwd: worktreePath, timeoutMs: setupTimeoutMs, subject: "the command" });
-  if (setupFailure !== void 0) {
-    return { error: `the queue's setup command failed in ${worktreePath}: ${setupFailure}` };
-  }
-  onProgress?.(`setup finished in ${worktreePath}`);
-  return worktreePath;
-};
-
-// src/queue/runPlanFolderPipeline.ts
-import { join as join111 } from "node:path";
 var runPlanFolderPipeline = async ({ cwd, name, config: config2, driver, onProgress }) => {
   const folder = planWorkspaceDir({ cwd, name });
-  const overviewPath = join111(folder, "overview.md");
+  const overviewPath = join112(folder, "overview.md");
   const phased = await pathExists({ path: overviewPath });
-  const result = phased ? await runPhasesPipeline({ cwd, driver, config: config2, overviewPath, onProgress }) : await runImplementPipeline({ cwd, driver, config: config2, planPath: join111(folder, "plan.md"), onProgress });
+  const result = phased ? await runPhasesPipeline({ cwd, driver, config: config2, overviewPath, onProgress }) : await runImplementPipeline({ cwd, driver, config: config2, planPath: join112(folder, "plan.md"), onProgress });
   if (result.ok) {
     return {};
   }
@@ -151343,7 +151364,7 @@ var runPlanFolderPipeline = async ({ cwd, name, config: config2, driver, onProgr
   return { error: `${stated} \u2014 \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree` };
 };
 
-// src/queue/runAutoPlanWorker.ts
+// src/queue/workers/runAutoPlanWorker.ts
 var runAutoPlanWorker = async ({ cwd, ticket, branch, config: config2, driver, settings, answeredQuestion, onProgress }) => {
   const engineCli = `node ${process.argv[1]}`;
   const outcome = await invokeAgentWithContract({
@@ -151382,7 +151403,7 @@ var runAutoPlanWorker = async ({ cwd, ticket, branch, config: config2, driver, s
   return runPlanFolderPipeline({ cwd, name: branch, config: config2, driver, onProgress });
 };
 
-// src/queue/runWorkerWithRelay.ts
+// src/queue/workers/runWorkerWithRelay.ts
 var runDirectWorker = async ({
   cwd,
   ticket,
@@ -151498,7 +151519,7 @@ var settleBranchReadiness = async ({
   const committed = await commitTicketWork({
     cwd: worktreePath,
     message: `${ticket.identifier} ${ticket.title}`,
-    runDir: join112(coordinatorRunDir, "tickets", ticket.identifier),
+    runDir: join113(coordinatorRunDir, "tickets", ticket.identifier),
     generated,
     onProgress
   });
@@ -151533,7 +151554,7 @@ var runQueueTicket = async ({
   const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
   const created = await serializeWorktreeAdd({ task: () => createTicketWorktree({ cwd, branch, defaultBranch, setup: settings.setup, onProgress }) });
   if (typeof created !== "string") {
-    return { ticket, branch, worktreePath: join112(getWorktreesRoot({ cwd }), branch), ready: false, error: created.error };
+    return { ticket, branch, worktreePath: join113(getWorktreesRoot({ cwd }), branch), ready: false, error: created.error };
   }
   const worktreePath = created;
   await recordPickup({ cwd, branch, onProgress });
@@ -151571,124 +151592,6 @@ var runQueueTicket = async ({
   return { ticket, branch, worktreePath, ...readiness };
 };
 
-// src/queue/scanParkedWorktrees.ts
-import { realpath } from "node:fs/promises";
-import { join as join113 } from "node:path";
-var toQueuePath = ({ path, root, realRoot }) => {
-  for (const prefix of [root, realRoot]) {
-    if (path.startsWith(`${prefix}/`)) {
-      return join113(root, path.slice(prefix.length + 1));
-    }
-  }
-  return void 0;
-};
-var listQueueWorktrees = async ({ cwd, shipSettings, onProgress }) => {
-  const listed = await runCommand({ command: "git worktree list --porcelain", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  const root = getWorktreesRoot({ cwd });
-  const realRoot = await realpath(root).catch(() => root);
-  const trees = [];
-  for (const block of (listed?.exitCode === 0 ? listed.stdout : "").split("\n\n")) {
-    const reported = /^worktree (.+)$/m.exec(block)?.[1];
-    const branch = /^branch refs\/heads\/(.+)$/m.exec(block)?.[1];
-    const path = reported === void 0 ? void 0 : toQueuePath({ path: reported, root, realRoot });
-    if (path === void 0 || branch === void 0) {
-      continue;
-    }
-    const identifier = readTicketMatch({ branch, ticketPattern: shipSettings.ticketPattern })?.ticket;
-    if (identifier === void 0) {
-      onProgress?.(`leaving ${path} alone \u2014 its branch carries no ticket the configured pattern matches`);
-      continue;
-    }
-    trees.push({ path, branch, identifier });
-  }
-  return trees;
-};
-var classifyUnrecordedTree = async ({ cwd, tree, defaultBranch, onProgress }) => {
-  const ahead = await readGitCommitsAhead({ cwd: tree.path, defaultBranch });
-  if (ahead === void 0) {
-    return "drain";
-  }
-  const carriesCommits = ahead > 0;
-  await writeBranchState({ cwd, branch: tree.branch, phase: carriesCommits ? BranchPhase.Ready : BranchPhase.Building, onProgress });
-  return carriesCommits ? "ship" : "drain";
-};
-var classifyTree = async ({ cwd, tree, defaultBranch, onProgress }) => {
-  const recorded = await readBranchState({ cwd, branch: tree.branch });
-  if (recorded?.phase === BranchPhase.Merged) {
-    return "settled";
-  }
-  const changed = await readGitChangedFiles({ cwd: tree.path });
-  if (changed === void 0) {
-    return "unreadable";
-  }
-  if (changed.length > 0) {
-    return "drain";
-  }
-  if (recorded !== void 0) {
-    return recorded.phase === BranchPhase.Ready ? "ship" : "drain";
-  }
-  return classifyUnrecordedTree({ cwd, tree, defaultBranch, onProgress });
-};
-var scanParkedWorktrees = async ({
-  cwd,
-  defaultBranch,
-  settings,
-  trackerSettings,
-  shipSettings,
-  onProgress
-}) => {
-  const trees = await listQueueWorktrees({ cwd, shipSettings, onProgress });
-  if (trees.length === 0) {
-    return { resumed: [], outcomes: [], leftBehind: [], merged: [] };
-  }
-  const tickets = await getTicketsByIdentifiers3({ settings: trackerSettings, identifiers: trees.map((tree) => tree.identifier) });
-  if ("error" in tickets) {
-    return tickets;
-  }
-  const summaries = tickets.flatMap((ticket) => toPlanningSummaries({ ticket, lifecycle: settings.lifecycle, resumed: true }));
-  const parked = { resumed: [], outcomes: [], leftBehind: [], merged: [] };
-  for (const tree of trees) {
-    const matched = summaries.filter((ticket2) => ticket2.identifier.toLowerCase() === tree.identifier.toLowerCase());
-    if (matched.length === 0) {
-      const reason = `its worktree at ${tree.path} is parked, but the ticket carries no planning status label any more`;
-      onProgress?.(`${tree.identifier} \xB7 ${reason}`);
-      parked.leftBehind.push({ identifier: tree.identifier, reason });
-      continue;
-    }
-    const runnable = matched.filter((ticket2) => ticket2.worker !== void 0);
-    if (runnable.length === 0) {
-      const carried = matched.map((ticket2) => `'${settings.lifecycle.planningStatusLabels[ticket2.planningStatus]}'`).join(" and ");
-      const reason = `its worktree at ${tree.path} is parked, but the ticket now carries ${carried}, which the queue never resumes`;
-      onProgress?.(`${tree.identifier} \xB7 ${reason}`);
-      parked.leftBehind.push({ identifier: tree.identifier, reason });
-      continue;
-    }
-    const bucket = await classifyTree({ cwd, tree, defaultBranch, onProgress });
-    const ticket = runnable[0];
-    if (bucket === "settled") {
-      onProgress?.(`${tree.identifier} \xB7 its branch is recorded merged, so it is reconciled rather than resumed`);
-      parked.merged.push({ worktreePath: tree.path, branch: tree.branch, ticket });
-      continue;
-    }
-    if (bucket === "drain") {
-      const cleared = await setParkedLabel3({ settings: trackerSettings, ticketId: ticket.id, label: settings.parkedLabel, parked: false });
-      if (cleared !== void 0) {
-        onProgress?.(`${tree.identifier} \xB7 the parked label could not be cleared: ${cleared.error}`);
-      }
-      parked.resumed.push(...runnable);
-    } else {
-      parked.outcomes.push({
-        ticket,
-        branch: tree.branch,
-        worktreePath: tree.path,
-        ready: bucket === "ship",
-        error: bucket === "ship" ? void 0 : `git could not read the worktree at ${tree.path}`
-      });
-    }
-  }
-  return parked;
-};
-
 // src/queue/settleParkedLabels.ts
 var settleParkedLabels = async ({ settings, trackerSettings, outcomes, onProgress }) => {
   if (settings.parkedLabel === void 0) {
@@ -151702,6 +151605,107 @@ var settleParkedLabels = async ({ settings, trackerSettings, outcomes, onProgres
       }
     })
   );
+};
+
+// src/queue/startup/checkPlanningStatusLabels.ts
+var describeFix = ({ provider, missing }) => provider === "linear" ? `create ${missing.length === 1 ? "it" : "them"} on the team` : (
+  // A Jira label comes into being the first time an issue carries it, so
+  // there is no create-a-label action to name.
+  `apply ${missing.length === 1 ? "it" : "each of them"} to any issue in the project`
+);
+var checkPlanningStatusLabels = async ({ settings, trackerSettings }) => {
+  const known = await listLabelNames3({ settings: trackerSettings });
+  if ("error" in known) {
+    return known;
+  }
+  const missing = Object.values(PlanningStatus).map((status) => settings.lifecycle.planningStatusLabels[status]).filter((label) => !known.includes(label));
+  if (missing.length === 0) {
+    return void 0;
+  }
+  const named = missing.map((label) => `'${label}'`).join(", ");
+  return {
+    error: `the tracker has no ${missing.length === 1 ? "label" : "labels"} ${named}, which \`queue.planning-status-labels\` names \u2014 ${describeFix({ provider: trackerSettings.provider, missing })}, or name the labels this tracker already has`
+  };
+};
+
+// src/queue/startup/checkQueueStartup.ts
+var checkQueueStartup = async ({ cwd, settings, trackerSettings, shipSettings }) => {
+  const readyStatus = settings.lifecycle.statusNames[TrackerStatusRole.Ready];
+  if (!settings.lifecycle.eligibleStatuses.includes(readyStatus)) {
+    return {
+      error: `\`queue.ready-status\` is '${readyStatus}', which \`queue.eligible-statuses\` does not list \u2014 no ticket waiting to be implemented would ever be picked up`
+    };
+  }
+  const labelled = await checkPlanningStatusLabels({ settings, trackerSettings });
+  if (labelled !== void 0) {
+    return labelled;
+  }
+  const sample = {
+    id: "sample",
+    identifier: `${trackerSettings.ticketPrefix}-1`,
+    title: "sample",
+    description: "",
+    priority: 0,
+    createdAt: "",
+    labels: [],
+    planningStatus: PlanningStatus.NotNeeded,
+    worker: QueueWorker.Direct,
+    status: readyStatus,
+    unfinishedBlockers: []
+  };
+  const rendered = toTicketBranch({ ticket: sample, template: settings.branchTemplate });
+  if (readTicketMatch({ branch: rendered, ticketPattern: shipSettings.ticketPattern }) === void 0) {
+    return {
+      error: `\`queue.branch-template\` renders '${rendered}', which \`ship.ticket-pattern\` does not match \u2014 every queued branch would be unshippable`
+    };
+  }
+  const defaultBranch = await readGitDefaultBranch({ cwd });
+  if (defaultBranch === void 0) {
+    return { error: "the queue needs a default branch: `origin/HEAD` is unset \u2014 run `git remote set-head origin --auto`" };
+  }
+  await runCommand({ command: "git fetch origin", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  return { defaultBranch };
+};
+
+// src/queue/common/utils/parseDurationMs.ts
+var parseDurationMs = ({ value, key }) => {
+  const matched = /^(\d+)([smh])$/.exec(value.trim());
+  const amount = Number(matched?.[1] ?? 0);
+  if (matched === null || amount === 0) {
+    return { error: `\`${key}\` must be a duration like '90s', '45m' or '4h' \u2014 got '${value}'` };
+  }
+  const perUnitMs = matched[2] === "s" ? 1e3 : matched[2] === "m" ? 6e4 : 36e5;
+  return amount * perUnitMs;
+};
+
+// src/queue/startup/resolveQueueSettings.ts
+var resolveQueueSettings = ({ config: config2 }) => {
+  const queue = config2.queue;
+  if (queue === void 0) {
+    return { error: "`lightsout queue` needs a `queue` block in lightsout.config.json naming max-parallel" };
+  }
+  const lifecycle = resolveLifecycleSettings({ config: config2 });
+  if ("error" in lifecycle) {
+    return lifecycle;
+  }
+  const workerTimeoutMs = parseDurationMs({ value: queue["worker-timeout"] ?? "4h", key: "queue.worker-timeout" });
+  if (typeof workerTimeoutMs !== "number") {
+    return workerTimeoutMs;
+  }
+  const questionTimeoutMs = parseDurationMs({ value: queue["question-timeout"] ?? "1h", key: "queue.question-timeout" });
+  if (typeof questionTimeoutMs !== "number") {
+    return questionTimeoutMs;
+  }
+  return {
+    lifecycle,
+    maxParallel: queue["max-parallel"],
+    setup: queue.setup,
+    branchTemplate: queue["branch-template"] ?? "{ticket}-{slug}",
+    decisionsHeading: queue["decisions-heading"] ?? "## Decisions",
+    workerTimeoutMs,
+    questionTimeoutMs,
+    parkedLabel: queue["parked-label"]
+  };
 };
 
 // src/queue/runQueue.ts

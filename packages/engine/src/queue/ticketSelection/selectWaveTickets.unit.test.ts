@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { selectWaveTickets } from '#src/queue/selectWaveTickets.ts';
+import { selectWaveTickets } from '#src/queue/ticketSelection/selectWaveTickets.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 
 const settings = queueSettingsFixture();

@@ -30,11 +30,13 @@ jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: ShipPa
 // -------------------------
 const mockListNextWave = jest.fn<(params: ScanParams) => Promise<WaveSelection | QueueFailure>>();
 
-jest.mock('#src/queue/listNextWave.ts', () => ({ listNextWave: (params: ScanParams) => mockListNextWave(params) }));
+jest.mock('#src/queue/ticketSelection/listNextWave.ts', () => ({ listNextWave: (params: ScanParams) => mockListNextWave(params) }));
 // -------------------------
 const mockReconcileMergedTickets = jest.fn<(params: ReconcileParams) => Promise<{ kept: RunnableTicket[]; leftBehind: LeftBehindTicket[] }>>();
 
-jest.mock('#src/queue/reconcileMergedTickets.ts', () => ({ reconcileMergedTickets: (params: ReconcileParams) => mockReconcileMergedTickets(params) }));
+jest.mock('#src/queue/ticketSelection/reconcileMergedTickets.ts', () => ({
+	reconcileMergedTickets: (params: ReconcileParams) => mockReconcileMergedTickets(params),
+}));
 // -------------------------
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };

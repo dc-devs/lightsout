@@ -1,5 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { listEligibleTickets } from '#src/queue/listEligibleTickets.ts';
+import { listEligibleTickets } from '#src/queue/ticketSelection/listEligibleTickets.ts';
 import type { TrackerFailure, TrackerTicket } from '#src/ticketTracker/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';

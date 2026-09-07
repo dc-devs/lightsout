@@ -5,7 +5,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
-import { runPlanFolderPipeline } from '#src/queue/runPlanFolderPipeline.ts';
+import { runPlanFolderPipeline } from '#src/queue/workers/runPlanFolderPipeline.ts';
 
 /** What either pipeline is handed: the two the folder's shape chooses between differ only in which path they carry. */
 interface PipelineCall {

@@ -44,7 +44,7 @@ type RunGatesParams = {
 const mockListEligibleTickets = jest.fn<(params: ListEligibleParams) => Promise<TicketSummary[] | QueueFailure>>();
 const mockSetParkedLabel = jest.fn<(params: SetParkedLabelParams) => Promise<QueueFailure | undefined>>();
 
-jest.mock('#src/queue/listEligibleTickets.ts', () => ({
+jest.mock('#src/queue/ticketSelection/listEligibleTickets.ts', () => ({
 	listEligibleTickets: (params: ListEligibleParams) => mockListEligibleTickets(params),
 }));
 jest.mock('#src/ticketTracker/index.ts', () => ({
@@ -55,7 +55,7 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 // -------------------------
 const mockScanParkedWorktrees = jest.fn<(params: ScanParkedParams) => Promise<ParkedWork | QueueFailure>>();
 
-jest.mock('#src/queue/scanParkedWorktrees.ts', () => ({
+jest.mock('#src/queue/worktrees/scanParkedWorktrees.ts', () => ({
 	scanParkedWorktrees: (params: ScanParkedParams) => mockScanParkedWorktrees(params),
 }));
 // -------------------------
