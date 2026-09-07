@@ -21,6 +21,7 @@ const commandIds = [
 	'ship',
 	'queue',
 	'ticket-state',
+	'self-check',
 	'refactor',
 	'test-coverage-to-threshold',
 	'standards-check',

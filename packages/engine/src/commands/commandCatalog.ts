@@ -5,6 +5,7 @@ import { implementDirectCatalogEntry } from '#src/commands/common/constants/buil
 import { planCatalogEntry } from '#src/commands/common/constants/build/planCatalogEntry.ts';
 import { queueCatalogEntry } from '#src/commands/common/constants/build/queueCatalogEntry.ts';
 import { resumeCatalogEntry } from '#src/commands/common/constants/build/resumeCatalogEntry.ts';
+import { selfCheckCatalogEntry } from '#src/commands/common/constants/build/selfCheckCatalogEntry.ts';
 import { shipCatalogEntry } from '#src/commands/common/constants/build/shipCatalogEntry.ts';
 import { ticketStateCatalogEntry } from '#src/commands/common/constants/build/ticketStateCatalogEntry.ts';
 import { refactorCatalogEntry } from '#src/commands/common/constants/burnDown/refactorCatalogEntry.ts';
@@ -51,6 +52,7 @@ export const commandCatalog: CommandCatalogEntry[] = [
 	shipCatalogEntry,
 	queueCatalogEntry,
 	ticketStateCatalogEntry,
+	selfCheckCatalogEntry,
 	refactorCatalogEntry,
 	testCoverageToThresholdCatalogEntry,
 	standardsCheckCatalogEntry,

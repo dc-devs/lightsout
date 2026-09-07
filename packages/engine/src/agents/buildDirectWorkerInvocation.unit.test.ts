@@ -105,4 +105,30 @@ describe('buildDirectWorkerInvocation', () => {
 
 		expect(retry.systemPrompt).toBe(first.systemPrompt);
 	});
+
+	test('carries the self-check section and exempts it from the granted-commands rule against verifying', () => {
+		const { systemPrompt } = buildDirectWorkerInvocation({
+			...base,
+			allowedCommands: ['pnpm db:migrate'],
+			selfCheckCommand: 'node /repo/dist/main.js self-check --run run-42 --cwd "/repo"',
+		});
+
+		const sections = systemPrompt.split('\n\n---\n\n');
+		const selfCheck = sections.find((section) => /^#+ .*self-check/i.test(section)) ?? '';
+		const grantedCommands = sections.find((section) => section.startsWith('# Granted commands')) ?? '';
+
+		expect(selfCheck).toContain('node /repo/dist/main.js self-check --run run-42 --cwd "/repo"');
+		expect(selfCheck).toMatch(/identical/i);
+		expect(selfCheck).toMatch(/\bthree\b|\b3\b/i);
+		expect(selfCheck).toContain('friction');
+		expect(grantedCommands).toMatch(/verify/i);
+		expect(grantedCommands).toMatch(/self-check/i);
+	});
+
+	test('says nothing about a self-check when the engine granted this spawn none', () => {
+		const { systemPrompt } = buildDirectWorkerInvocation({ ...base, allowedCommands: ['pnpm db:migrate'] });
+
+		// the role prompt names the section, so the section's own opening line is what distinguishes a granted spawn from this one
+		expect(systemPrompt).not.toContain('# Engine self-check\n\nBefore you report');
+	});
 });

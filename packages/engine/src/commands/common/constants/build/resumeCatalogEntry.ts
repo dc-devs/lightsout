@@ -18,5 +18,5 @@ export const resumeCatalogEntry: CommandCatalogEntry = {
 	],
 	steps: [],
 	records: CommandRecordKind.Runs,
-	related: ['auto-plan', 'brainstorm', 'plan', 'implement', 'ship', 'implement-direct', 'queue', 'ticket-state'],
+	related: ['auto-plan', 'brainstorm', 'plan', 'implement', 'ship', 'implement-direct', 'queue', 'ticket-state', 'self-check'],
 };

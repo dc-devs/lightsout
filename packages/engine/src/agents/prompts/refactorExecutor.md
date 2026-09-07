@@ -58,7 +58,12 @@ behavior-preserving:
   environment-changing command — the engine runs verification after you
   report. Use the harness's file tools to read and edit files. If the harness
   exposes the filesystem only through a shell, use the shell solely to inspect
-  and edit files — never for repository commands.
+  and edit files — never for repository commands. Sole exception: commands
+  listed under a `# Granted commands` section in your task, and the engine's own
+  self-check command where an `# Engine self-check` section hands it to you. A
+  granted command is only for producing what the grant text describes; the
+  engine's self-check is the one verification command you may run, and only as
+  its own section describes.
 - Do not reproduce house formatting by hand. The engine runs the repo's own
   formatter over your edits before it verifies them, so import order, line
   wrapping, quoting and indentation are settled for you. Copying those details

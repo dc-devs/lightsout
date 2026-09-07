@@ -1,4 +1,5 @@
 import { buildDirectWorkerInvocation } from '#src/agents/index.ts';
+import { buildSelfCheckCommand } from '#src/common/selfCheck/buildSelfCheckCommand.ts';
 import type { RunState } from '#src/common/services/RunState.ts';
 import type { AnsweredQuestion } from '#src/common/types/AnsweredQuestion.ts';
 import { RunStatus, WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
@@ -40,6 +41,7 @@ export const invokeDirectWorker = async ({
 	errorContext,
 }: Params): Promise<PipelineResult | undefined> => {
 	const record = nextStepRecord({ run, id: implementStep });
+	const selfCheck = buildSelfCheckCommand({ cwd: run.cwd, runId: run.current().runId });
 
 	await run.setStep({ record });
 	run.progress(`${implementStep} — building ${ticketRef} from the ticket body`);
@@ -55,13 +57,16 @@ export const invokeDirectWorker = async ({
 			errorContext,
 			changedFiles: run.current().changedFiles,
 			answeredQuestion,
+			selfCheckCommand: selfCheck.command,
 		}),
 		contract: WorkReport,
 		model: run.config.model,
 		effort: run.config.effort,
 		permissions: run.config.permissions,
 		timeoutMs: run.agentTimeoutMs,
-		allowedCommands: run.config['agent-commands'],
+		// The harness allowance is the consumer's own list plus the engine's
+		// self-check prefix; the binding grant is the prompt section above.
+		allowedCommands: [...(run.config['agent-commands'] ?? []), selfCheck.prefix],
 	});
 
 	await run.recordUsage({ step: implementStep, usage: outcome.usage });

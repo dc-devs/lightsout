@@ -92,3 +92,13 @@ test('renderUsage: emits the brainstorm publish line above the plan lines', () =
 	expect(lines[brainstorm]).toBe('  lightsout brainstorm publish --name <name> [--cwd <path>]');
 	expect(brainstorm).toBeLessThan(firstPlan);
 });
+
+test('renderUsage: prints the self-check line, so an agent-run command is listed with every other command', () => {
+	const { lines } = setupRenderUsage();
+
+	const selfCheck = lines.find((line) => line.startsWith('  lightsout self-check')) ?? '';
+	const ticketState = lines.findIndex((line) => line.startsWith('  lightsout ticket-state'));
+
+	expect(selfCheck).toContain('lightsout self-check --run <id> [--cwd <path>]');
+	expect(lines.indexOf(selfCheck)).toBe(ticketState + 1);
+});
