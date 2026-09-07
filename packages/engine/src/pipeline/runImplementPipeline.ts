@@ -6,6 +6,7 @@ import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
 import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
 import { type LightsoutConfig, PipelineKind, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
+import { removeApprovedTests } from '#src/pipeline/approvedTests/index.ts';
 import { prepareRun } from '#src/pipeline/common/utils/prepareRun.ts';
 import { resolveTestSubjects } from '#src/pipeline/common/utils/resolveTestSubjects.ts';
 import { runSteps } from '#src/pipeline/common/utils/runSteps.ts';
@@ -143,6 +144,10 @@ const executePipeline = async ({
 	}
 
 	await recheckUnreachable({ run });
+	// Every step passed, so the approved copies have no reader left: they are the
+	// working baseline a resume diffs against, and a run that finished needs none.
+	// A failed, parked or escalated run never reaches here and keeps them.
+	await removeApprovedTests({ run });
 	await run.update({ patch: { status: RunStatus.Passed, currentStep: null } });
 
 	const passed: PipelineResult = { ok: true, manifest: run.current() };

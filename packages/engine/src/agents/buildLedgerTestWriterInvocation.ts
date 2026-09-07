@@ -11,6 +11,10 @@ interface Params {
 	rows: LedgerRow[];
 	/** Optional consumer test standards content, inlined verbatim. */
 	standards?: string;
+	/** The plan's moves whose destination is a test-side file. */
+	movePaths?: { from: string; to: string }[];
+	/** Test-side files the plan deletes. */
+	deletePaths?: string[];
 	/** Missing-test names from a first pass, for the single re-invocation. */
 	errorContext?: string;
 }
@@ -28,6 +32,8 @@ export const buildLedgerTestWriterInvocation = ({
 	testFile,
 	rows,
 	standards,
+	movePaths = [],
+	deletePaths = [],
 	errorContext,
 }: Params): { systemPrompt: string; prompt: string } => {
 	const roleSections = [unitTestWriterPrompt];
@@ -57,6 +63,20 @@ export const buildLedgerTestWriterInvocation = ({
 			"- A test that cannot be written from the plan's signatures is a plan defect — report `failed` naming the row rather than inventing a signature.",
 		].join('\n'),
 	];
+
+	if (movePaths.length > 0 || deletePaths.length > 0) {
+		sections.push(
+			[
+				"# The plan's own moves and deletes of test files",
+				'',
+				...movePaths.map((move) => `- move: \`${move.from}\` → \`${move.to}\``),
+				...deletePaths.map((path) => `- delete: \`${path}\``),
+				'',
+				'- A move destination you write carries every case its source held, on top of the named tests above.',
+				'- A test file the plan deletes is not somewhere to put a named test.',
+			].join('\n'),
+		);
+	}
 
 	if (errorContext) {
 		sections.push(

@@ -55,11 +55,18 @@ a human.
   deliverables described there — never for verifying, installing, or anything
   the grant text doesn't cover.
 - Do not create commits or branches.
-- Files listed under a `# Ledger tests (read-only)` section in your task are
-  the tests that define done; never edit them. The engine keeps a copy and
-  reverts any change before verification, so an edit buys nothing. A ledger
-  test that cannot pass against a correct implementation is a plan defect:
-  report `failed` naming the test and why, rather than changing it.
+- Tests listed under an `# Acceptance tests` section in your task are what the
+  plan means by done: every one of them must execute and pass. You may edit a
+  test file when the plan's own changes make it stale — an import, a mock, a
+  fixture, setup, or a move. Every edit to a test file is reviewed against the
+  plan before any gate runs, and the review refuses a weakened or removed
+  assertion, an acceptance test deleted, renamed, skipped or replaced without a
+  disposition the plan backs, a mock that neuters the subject under test, a
+  snapshot rewrite that hides a behaviour change the plan did not authorise, and
+  configuration that stops a test from being collected. A moved test file
+  carries every case its source held. An acceptance test that cannot pass
+  against a correct implementation is a plan defect: report `failed` naming the
+  test and why, rather than changing it.
 - Do not read or write any agent memory, and do not edit CLAUDE.md or other
   standing instructions — anything worth persisting belongs in your report
   (friction included), which the engine records.

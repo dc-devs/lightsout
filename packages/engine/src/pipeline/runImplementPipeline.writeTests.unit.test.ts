@@ -8,6 +8,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /**
@@ -19,35 +20,37 @@ const setupParkedWriterRun = async () => {
 	const dir = setupConsumerRepo();
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			if (roleOf(prompt) === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
-
-			if (roleOf(prompt) === 'write-tests') {
-				if (prompt.includes('src/zeta.js')) {
-					return { text: '', exitCode: 1, rateLimited: true };
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				if (roleOf(prompt) === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
 				}
 
-				mkdirSync(join(dir, 'test'), { recursive: true });
-				writeFileSync(join(dir, 'test/alpha.test.js'), '// stub test\n');
+				if (roleOf(prompt) === 'write-tests') {
+					if (prompt.includes('src/zeta.js')) {
+						return { text: '', exitCode: 1, rateLimited: true };
+					}
 
-				return { text: report({ changedFiles: [{ path: 'test/alpha.test.js', summary: 'tests' }] }), exitCode: 0 };
-			}
+					mkdirSync(join(dir, 'test'), { recursive: true });
+					writeFileSync(join(dir, 'test/alpha.test.js'), '// stub test\n');
 
-			writeSource({ dir, path: 'src/alpha.js', source: 'export const alpha = () => 1;\n' });
-			writeSource({ dir, path: 'src/zeta.js', source: 'export const zeta = () => 2;\n' });
+					return { text: report({ changedFiles: [{ path: 'test/alpha.test.js', summary: 'tests' }] }), exitCode: 0 };
+				}
 
-			return {
-				text: report({
-					changedFiles: [
-						{ path: 'src/alpha.js', summary: 'alpha' },
-						{ path: 'src/zeta.js', summary: 'zeta' },
-					],
-				}),
-				exitCode: 0,
-			};
-		},
+				writeSource({ dir, path: 'src/alpha.js', source: 'export const alpha = () => 1;\n' });
+				writeSource({ dir, path: 'src/zeta.js', source: 'export const zeta = () => 2;\n' });
+
+				return {
+					text: report({
+						changedFiles: [
+							{ path: 'src/alpha.js', summary: 'alpha' },
+							{ path: 'src/zeta.js', summary: 'zeta' },
+						],
+					}),
+					exitCode: 0,
+				};
+			},
+		}),
 	};
 
 	return { dir, driver, config: await readConfig({ cwd: dir }) };

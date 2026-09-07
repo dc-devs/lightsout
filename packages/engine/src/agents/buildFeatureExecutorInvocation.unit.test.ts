@@ -139,59 +139,72 @@ test('buildFeatureExecutorInvocation: none of the run-stable content leaks back 
 	expect(prompt.includes('# Granted commands')).toBeFalsy();
 });
 
-test('buildFeatureExecutorInvocation: the locked ledger test files ride the user prompt, and say what they are for', () => {
+test('buildFeatureExecutorInvocation: the acceptance tests ride the user prompt, and say what they are for', () => {
+	const rows = [
+		{ testFile: 'src/widget.unit.test.ts', testName: 'widget: renders its label' },
+		{ testFile: 'src/flag.unit.test.ts', testName: 'flag: is off by default' },
+	];
 	const clean = buildFeatureExecutorInvocation({ planContent });
-	const locked = buildFeatureExecutorInvocation({ planContent, ledgerTests: ['src/widget.unit.test.ts', 'src/flag.unit.test.ts'] });
+	const named = buildFeatureExecutorInvocation({ planContent, acceptanceTests: rows });
 
 	// a plan with no ledger gets no section at all
-	expect(clean.prompt.includes('# Ledger tests (read-only)')).toBeFalsy();
-	expect(buildFeatureExecutorInvocation({ planContent, ledgerTests: [] }).prompt.includes('# Ledger tests (read-only)')).toBeFalsy();
-	// each locked path gets its own bullet
-	expect(locked.prompt.includes('# Ledger tests (read-only)\n\n- src/widget.unit.test.ts\n- src/flag.unit.test.ts')).toBeTruthy();
-	// the executor is told these are the bar, not an obstacle to edit around
-	expect(locked.prompt.includes('must pass in the gate run before the work is done')).toBeTruthy();
+	expect(clean.prompt.includes('# Acceptance tests')).toBeFalsy();
+	expect(buildFeatureExecutorInvocation({ planContent, acceptanceTests: [] }).prompt.includes('# Acceptance tests')).toBeFalsy();
+	// each row gets its own bullet, naming the case and the file stating it
+	expect(named.prompt.includes('- `widget: renders its label` in src/widget.unit.test.ts')).toBeTruthy();
+	expect(named.prompt.includes('- `flag: is off by default` in src/flag.unit.test.ts')).toBeTruthy();
+	// the executor is told these are the bar, and what an edit to one is judged by
+	expect(named.prompt.includes('Every one of them must execute and pass before the work is done.')).toBeTruthy();
+	expect(named.prompt.includes('Every edit to a test file is reviewed against the plan before any gate runs.')).toBeTruthy();
 	// the report-contract reminder still closes the prompt
-	expect(locked.prompt.endsWith('Remember: your entire final message must be exactly one JSON report object — nothing else.')).toBeTruthy();
+	expect(named.prompt.endsWith('Remember: your entire final message must be exactly one JSON report object — nothing else.')).toBeTruthy();
 });
 
-test('buildFeatureExecutorInvocation: the ledger paths never enter the cached system prompt', () => {
+test('buildFeatureExecutorInvocation: the acceptance rows never enter the cached system prompt', () => {
 	const first = buildFeatureExecutorInvocation({ planContent, overviewContent, standards });
-	const locked = buildFeatureExecutorInvocation({ planContent, overviewContent, standards, ledgerTests: ['src/widget.unit.test.ts'] });
+	const named = buildFeatureExecutorInvocation({
+		planContent,
+		overviewContent,
+		standards,
+		acceptanceTests: [{ testFile: 'src/widget.unit.test.ts', testName: 'widget: renders its label' }],
+	});
 
-	// the lock list is resolved per invocation, so it must not break the prefix
-	// the harness caches across a run
-	expect(first.systemPrompt).toBe(locked.systemPrompt);
+	// the mapping is resolved per invocation — a disposition rewrites it mid-run —
+	// so it must not break the prefix the harness caches across a run
+	expect(first.systemPrompt).toBe(named.systemPrompt);
 });
 
-test('buildFeatureExecutorInvocation: the user prompt orders changed files, the locked ledger tests, then the gate output', () => {
+test('buildFeatureExecutorInvocation: the user prompt orders changed files, the acceptance tests, then the gate output', () => {
 	const { prompt } = buildFeatureExecutorInvocation({
 		planContent,
 		changedFiles: ['src/widget.ts'],
-		ledgerTests: ['src/widget.unit.test.ts'],
+		acceptanceTests: [{ testFile: 'src/widget.unit.test.ts', testName: 'widget: renders its label' }],
 		errorContext: 'GATE-SENTINEL',
 	});
 
 	// a fix re-invocation carrying all three reads them in one fixed order
 	expect(
-		prompt.indexOf('# Previously changed files') < prompt.indexOf('# Ledger tests (read-only)') &&
-			prompt.indexOf('# Ledger tests (read-only)') < prompt.indexOf('# Verification failure'),
+		prompt.indexOf('# Previously changed files') < prompt.indexOf('# Acceptance tests') &&
+			prompt.indexOf('# Acceptance tests') < prompt.indexOf('# Verification failure'),
 	).toBeTruthy();
-	// the locked list stays out of the changed-file list it follows
+	// the acceptance rows stay out of the changed-file list they follow
 	expect(
-		prompt.includes('# Previously changed files\n\nFiles already created or modified earlier in this run:\n\n- src/widget.ts\n\n# Ledger tests'),
+		prompt.includes('# Previously changed files\n\nFiles already created or modified earlier in this run:\n\n- src/widget.ts\n\n# Acceptance tests'),
 	).toBeTruthy();
 });
 
-test('buildFeatureExecutorInvocation: the role prompt bans editing the locked ledger tests and says what to do instead', () => {
+test('buildFeatureExecutorInvocation: the role prompt states that a test edit is reviewed, and what the review refuses', () => {
 	const { systemPrompt } = buildFeatureExecutorInvocation({ planContent });
 	// the prompt wraps its lines; the sentences are what matter
 	const prose = systemPrompt.replace(/\s+/g, ' ');
 
 	// the rule names the same section heading the user prompt emits
-	expect(prose).toContain('Files listed under a `# Ledger tests (read-only)` section in your task are the tests that define done; never edit them.');
-	// editing is pointless, so the executor is told the engine reverts it
-	expect(prose).toContain('The engine keeps a copy and reverts any change before verification');
-	// the one legitimate escape is a report, not an edit
+	expect(prose).toContain('Tests listed under an `# Acceptance tests` section in your task are what the plan means by done');
+	// a stale test file is repairable, which is what the old lock made impossible
+	expect(prose).toContain("You may edit a test file when the plan's own changes make it stale");
+	// and the judgment that bounds it is named
+	expect(prose).toContain('Every edit to a test file is reviewed against the plan before any gate runs');
+	// the one legitimate escape from a test that cannot pass is a report, not an edit
 	expect(prose).toContain('report `failed` naming the test and why, rather than changing it');
 });
 
@@ -242,4 +255,35 @@ test('buildFeatureExecutorInvocation: a different file limit is the only thing t
 	expect(lower.systemPrompt.replace('more than 12 source files', 'more than 200 source files')).toBe(higher.systemPrompt);
 	// and the user prompt is untouched by the limit
 	expect(lower.prompt).toBe(higher.prompt);
+});
+
+test('buildFeatureExecutorInvocation: the acceptance section names every edit the review refuses, so the executor knows the bar before it edits a test', () => {
+	const { prompt } = buildFeatureExecutorInvocation({
+		planContent,
+		acceptanceTests: [{ testFile: 'src/widget.unit.test.ts', testName: 'widget: renders its label' }],
+	});
+
+	// the section says what the rows are for
+	expect(prompt).toContain("These state the plan's acceptance criteria — what this run means by done:");
+	// every refusal the reviewer enforces is named, so none is a surprise at the checkpoint
+	expect(prompt).toContain('a weakened or removed assertion');
+	expect(prompt).toContain('an acceptance test deleted, renamed, skipped or replaced without a disposition the plan backs');
+	expect(prompt).toContain('a mock that neuters the subject under test');
+	expect(prompt).toContain('a snapshot rewrite that hides a behaviour change the plan did not authorise');
+	expect(prompt).toContain('configuration that stops a test from being collected');
+	// and a move is only legitimate when it loses nothing
+	expect(prompt).toContain('- A moved test file carries every case its source held.');
+});
+
+test('buildFeatureExecutorInvocation: the acceptance section says nothing about a file being locked — a stale test is repairable', () => {
+	const { prompt } = buildFeatureExecutorInvocation({
+		planContent,
+		acceptanceTests: [{ testFile: 'src/widget.unit.test.ts', testName: 'widget: renders its label' }],
+	});
+
+	// the whole-file lock the review replaced left no read-only wording behind
+	expect(prompt).not.toContain('read-only');
+	expect(prompt).not.toContain('locked');
+	// what replaced it is the permission plus the judgment
+	expect(prompt).toContain("A test file may be edited when the plan's own changes make it stale");
 });

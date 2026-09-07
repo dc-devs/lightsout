@@ -1,5 +1,5 @@
 import { buildUnitTestWriterInvocation } from '#src/agents/index.ts';
-import type { WorkReport } from '#src/contracts/index.ts';
+import type { AcceptanceTestRecord, WorkReport } from '#src/contracts/index.ts';
 import type { TestTargetGroup } from '#src/pipeline/common/types/TestTargetGroup.ts';
 import type { WriterResult } from '#src/pipeline/common/types/WriterResult.ts';
 import { createWarmSpawn } from '#src/pipeline/common/utils/createWarmSpawn.ts';
@@ -13,8 +13,8 @@ interface Params {
 	groups: TestTargetGroup[];
 	planContent: string;
 	testStandards?: string;
-	/** Repo-relative ledger test files the run locked — read-only for these writers. */
-	ledgerTests?: string[];
+	/** The run's live acceptance-test mapping — the tests every writer must leave able to execute and pass. */
+	acceptanceTests?: AcceptanceTestRecord[];
 }
 
 /** Spawning one writer for one group, optionally gated on its first stream event. */
@@ -62,7 +62,7 @@ export const runWriterBatches = async ({
 	groups,
 	planContent,
 	testStandards,
-	ledgerTests,
+	acceptanceTests,
 }: Params): Promise<{ reports: WorkReport[]; failures: string[]; terminated: boolean; parked: boolean }> => {
 	const aggregate = createWriterAggregate<TestTargetGroup>({ run, step: 'write-tests', label: ({ group }) => group.subjects.join(', ') });
 
@@ -74,7 +74,7 @@ export const runWriterBatches = async ({
 				subjects: group.subjects,
 				mustExecute: group.mustExecute,
 				standards: testStandards,
-				ledgerTests,
+				acceptanceTests,
 			}),
 			step: 'write-tests',
 			onFirstEvent,

@@ -9,6 +9,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupMonorepo } from '#tests/helpers/setupMonorepo.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
 const writePackage = ({
@@ -135,30 +136,32 @@ test('pipeline injects channel docs for react packages and announces the detecti
 	const prompts: Record<string, string> = {};
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt, systemPrompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt, systemPrompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			// Standards ride the system prompt — capture both halves of the invocation.
-			prompts[role] = `${systemPrompt ?? ''}\n${prompt}`;
+				// Standards ride the system prompt — capture both halves of the invocation.
+				prompts[role] = `${systemPrompt ?? ''}\n${prompt}`;
 
-			if (role === 'write-tests') {
-				writeFileSync(join(dir, 'packages/web/src/feature.unit.test.js'), '// stub\n');
+				if (role === 'write-tests') {
+					writeFileSync(join(dir, 'packages/web/src/feature.unit.test.js'), '// stub\n');
 
-				return { text: report({ changedFiles: [{ path: 'packages/web/src/feature.unit.test.js', summary: 'tests' }] }), exitCode: 0 };
-			}
+					return { text: report({ changedFiles: [{ path: 'packages/web/src/feature.unit.test.js', summary: 'tests' }] }), exitCode: 0 };
+				}
 
-			if (role === 'refactor') {
-				return { text: report(), exitCode: 0 };
-			}
+				if (role === 'refactor') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			writeSource({ dir: dir, path: 'packages/web/src/feature.js', source: 'export const feature = () => 2;\n' });
+				writeSource({ dir: dir, path: 'packages/web/src/feature.js', source: 'export const feature = () => 2;\n' });
 
-			return { text: report({ changedFiles: [{ path: 'packages/web/src/feature.js', summary: 'feature' }] }), exitCode: 0 };
-		},
+				return { text: report({ changedFiles: [{ path: 'packages/web/src/feature.js', summary: 'feature' }] }), exitCode: 0 };
+			},
+		}),
 	};
 
 	const progressLines: string[] = [];
@@ -193,30 +196,32 @@ test('standardsChannels config replaces detection', async () => {
 	const prompts: Record<string, string> = {};
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt, systemPrompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt, systemPrompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			// Standards ride the system prompt — capture both halves of the invocation.
-			prompts[role] = `${systemPrompt ?? ''}\n${prompt}`;
+				// Standards ride the system prompt — capture both halves of the invocation.
+				prompts[role] = `${systemPrompt ?? ''}\n${prompt}`;
 
-			if (role === 'write-tests') {
-				writeFileSync(join(dir, 'packages/api/src/feature.unit.test.js'), '// stub\n');
+				if (role === 'write-tests') {
+					writeFileSync(join(dir, 'packages/api/src/feature.unit.test.js'), '// stub\n');
 
-				return { text: report({ changedFiles: [{ path: 'packages/api/src/feature.unit.test.js', summary: 'tests' }] }), exitCode: 0 };
-			}
+					return { text: report({ changedFiles: [{ path: 'packages/api/src/feature.unit.test.js', summary: 'tests' }] }), exitCode: 0 };
+				}
 
-			if (role === 'refactor') {
-				return { text: report(), exitCode: 0 };
-			}
+				if (role === 'refactor') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			writeSource({ dir: dir, path: 'packages/api/src/feature.js', source: 'export const feature = () => 2;\n' });
+				writeSource({ dir: dir, path: 'packages/api/src/feature.js', source: 'export const feature = () => 2;\n' });
 
-			return { text: report({ changedFiles: [{ path: 'packages/api/src/feature.js', summary: 'feature' }] }), exitCode: 0 };
-		},
+				return { text: report({ changedFiles: [{ path: 'packages/api/src/feature.js', summary: 'feature' }] }), exitCode: 0 };
+			},
+		}),
 	};
 
 	const progressLines: string[] = [];

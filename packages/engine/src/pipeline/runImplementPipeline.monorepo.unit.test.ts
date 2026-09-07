@@ -10,6 +10,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupMonorepo } from '#tests/helpers/setupMonorepo.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
 test('front-matter scope: scoped clean-slate, name substitution, expansion, root precedence', async () => {
@@ -17,47 +18,49 @@ test('front-matter scope: scoped clean-slate, name substitution, expansion, root
 	let cleanSlateGates: string[] = [];
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			if (role === 'write-tests') {
-				const target = prompt.match(/- (\S+)/)?.[1] ?? 'unknown';
-				const parts = target.split('/');
-				const testDir = target.startsWith('packages/') ? `${parts[0]}/${parts[1]}/test` : 'test';
-				const testFile = `${testDir}/${parts.at(-1)?.replace('.js', '')}.test.js`;
+				if (role === 'write-tests') {
+					const target = prompt.match(/- (\S+)/)?.[1] ?? 'unknown';
+					const parts = target.split('/');
+					const testDir = target.startsWith('packages/') ? `${parts[0]}/${parts[1]}/test` : 'test';
+					const testFile = `${testDir}/${parts.at(-1)?.replace('.js', '')}.test.js`;
 
-				mkdirSync(join(dir, testDir), { recursive: true });
-				writeFileSync(join(dir, testFile), '// stub test\n');
+					mkdirSync(join(dir, testDir), { recursive: true });
+					writeFileSync(join(dir, testFile), '// stub test\n');
 
-				return { text: report({ changedFiles: [{ path: testFile, summary: 'tests' }] }), exitCode: 0 };
-			}
+					return { text: report({ changedFiles: [{ path: testFile, summary: 'tests' }] }), exitCode: 0 };
+				}
 
-			if (role !== 'implement') {
-				return { text: report(), exitCode: 0 };
-			}
+				if (role !== 'implement') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			// Clean-slate has already run — snapshot its gate log, then stray
-			// outside the declared scope (web) and into the root (shared.js).
-			cleanSlateGates = readGateLog({ dir });
-			writeSource({ dir, path: 'packages/api/src/feature.js', source: 'export const feature = () => 2;\n' });
-			writeSource({ dir, path: 'packages/web/src/widget.js', source: 'export const widget = () => 2;\n' });
-			writeSource({ dir, path: 'shared.js', source: 'export const shared = () => 2;\n' });
+				// Clean-slate has already run — snapshot its gate log, then stray
+				// outside the declared scope (web) and into the root (shared.js).
+				cleanSlateGates = readGateLog({ dir });
+				writeSource({ dir, path: 'packages/api/src/feature.js', source: 'export const feature = () => 2;\n' });
+				writeSource({ dir, path: 'packages/web/src/widget.js', source: 'export const widget = () => 2;\n' });
+				writeSource({ dir, path: 'shared.js', source: 'export const shared = () => 2;\n' });
 
-			return {
-				text: report({
-					changedFiles: [
-						{ path: 'packages/api/src/feature.js', summary: 'feature' },
-						{ path: 'packages/web/src/widget.js', summary: 'widget' },
-						{ path: 'shared.js', summary: 'shared' },
-					],
-				}),
-				exitCode: 0,
-			};
-		},
+				return {
+					text: report({
+						changedFiles: [
+							{ path: 'packages/api/src/feature.js', summary: 'feature' },
+							{ path: 'packages/web/src/widget.js', summary: 'widget' },
+							{ path: 'shared.js', summary: 'shared' },
+						],
+					}),
+					exitCode: 0,
+				};
+			},
+		}),
 	};
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 	const allGates = readGateLog({ dir });
@@ -115,16 +118,18 @@ test('--packages flag overrides front-matter; source recorded as flag', async ()
 	let cleanSlateGates: string[] = [];
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			if (roleOf(prompt) !== 'implement') {
-				return { text: report(), exitCode: 0 };
-			}
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				if (roleOf(prompt) !== 'implement') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			cleanSlateGates = readGateLog({ dir });
-			writeSource({ dir, path: 'packages/web/src/widget.js', source: 'export const widget = () => 2;\n' });
+				cleanSlateGates = readGateLog({ dir });
+				writeSource({ dir, path: 'packages/web/src/widget.js', source: 'export const widget = () => 2;\n' });
 
-			return { text: report({ changedFiles: [{ path: 'packages/web/src/widget.js', summary: 'widget' }] }), exitCode: 0 };
-		},
+				return { text: report({ changedFiles: [{ path: 'packages/web/src/widget.js', summary: 'widget' }] }), exitCode: 0 };
+			},
+		}),
 	};
 	const result = await runImplementPipeline({
 		cwd: dir,
@@ -145,16 +150,18 @@ test('scope derived from concrete plan-body paths when nothing is declared', asy
 	let cleanSlateGates: string[] = [];
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			if (roleOf(prompt) !== 'implement') {
-				return { text: report(), exitCode: 0 };
-			}
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				if (roleOf(prompt) !== 'implement') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			cleanSlateGates = readGateLog({ dir });
-			writeSource({ dir, path: 'packages/api/src/feature.js', source: 'export const feature = () => 2;\n' });
+				cleanSlateGates = readGateLog({ dir });
+				writeSource({ dir, path: 'packages/api/src/feature.js', source: 'export const feature = () => 2;\n' });
 
-			return { text: report({ changedFiles: [{ path: 'packages/api/src/feature.js', summary: 'feature' }] }), exitCode: 0 };
-		},
+				return { text: report({ changedFiles: [{ path: 'packages/api/src/feature.js', summary: 'feature' }] }), exitCode: 0 };
+			},
+		}),
 	};
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 
@@ -171,16 +178,18 @@ test('a package path the plan body invents is dropped, and the run says which', 
 	let cleanSlateGates: string[] = [];
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			if (roleOf(prompt) !== 'implement') {
-				return { text: report(), exitCode: 0 };
-			}
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				if (roleOf(prompt) !== 'implement') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			cleanSlateGates = readGateLog({ dir });
-			writeSource({ dir, path: 'packages/api/src/feature.js', source: 'export const feature = () => 2;\n' });
+				cleanSlateGates = readGateLog({ dir });
+				writeSource({ dir, path: 'packages/api/src/feature.js', source: 'export const feature = () => 2;\n' });
 
-			return { text: report({ changedFiles: [{ path: 'packages/api/src/feature.js', summary: 'feature' }] }), exitCode: 0 };
-		},
+				return { text: report({ changedFiles: [{ path: 'packages/api/src/feature.js', summary: 'feature' }] }), exitCode: 0 };
+			},
+		}),
 	};
 	const result = await runImplementPipeline({
 		cwd: dir,
@@ -246,25 +255,27 @@ const setupParkedMonorepoRun = async () => {
 	const config = await readConfig({ cwd: dir });
 	const parkOnWrite: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			if (role === 'write-tests') {
-				return { text: '', exitCode: 1, rateLimited: true };
-			}
+				if (role === 'write-tests') {
+					return { text: '', exitCode: 1, rateLimited: true };
+				}
 
-			if (role === 'implement') {
-				writeSource({ dir, path: 'packages/api/src/feature.js', source: 'export const feature = () => 2;\n' });
+				if (role === 'implement') {
+					writeSource({ dir, path: 'packages/api/src/feature.js', source: 'export const feature = () => 2;\n' });
 
-				return { text: report({ changedFiles: [{ path: 'packages/api/src/feature.js', summary: 'feature' }] }), exitCode: 0 };
-			}
+					return { text: report({ changedFiles: [{ path: 'packages/api/src/feature.js', summary: 'feature' }] }), exitCode: 0 };
+				}
 
-			return { text: report(), exitCode: 0 };
-		},
+				return { text: report(), exitCode: 0 };
+			},
+		}),
 	};
 	const parked = await runImplementPipeline({ cwd: dir, driver: parkOnWrite, config, planPath: 'plan.md' });
 	const resumeDriver: Driver = {

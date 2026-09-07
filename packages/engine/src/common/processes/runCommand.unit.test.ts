@@ -58,3 +58,18 @@ test('runCommand: a command killed by a signal reports exit code -1 rather than 
 	// judge as failure
 	expect(result.exitCode).toBe(-1);
 });
+
+test('runCommand: merges the given environment entries over the inherited environment', async () => {
+	const { cwd } = setupCwd();
+
+	const result = await runCommand({
+		command: 'echo "$LIGHTSOUT_TEST_ENTRY|$HOME|${PATH:+path-inherited}"',
+		cwd,
+		env: { LIGHTSOUT_TEST_ENTRY: 'from-params', HOME: '/tmp/overridden-home' },
+	});
+
+	// a given entry the ambient environment lacks reaches the child, a given entry
+	// wins over the inherited value of the same name, and every unnamed inherited
+	// entry survives — without which a gate command would run with no PATH
+	expect(result).toStrictEqual({ exitCode: 0, stdout: 'from-params|/tmp/overridden-home|path-inherited\n', stderr: '' });
+});

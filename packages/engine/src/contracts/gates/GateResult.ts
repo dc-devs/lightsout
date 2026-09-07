@@ -24,6 +24,13 @@ export const GateResult = z.object({
 	reason: z.string().optional(),
 	/** Last 2000 chars of stdout+stderr — present only on non-zero exit. */
 	outputTail: z.string().optional(),
+	/**
+	 * Repo-relative directory this execution's per-test results were written to.
+	 * Absent on a scoped skip, and on any execution the engine had no run folder
+	 * for. The checkpoint reads exactly the directory the gate it observed wrote
+	 * to, so the path travels with the evidence rather than being re-derived.
+	 */
+	testResultsDir: z.string().optional(),
 });
 
 export type GateResult = z.infer<typeof GateResult>;

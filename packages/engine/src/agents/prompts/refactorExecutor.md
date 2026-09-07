@@ -43,7 +43,9 @@ behavior-preserving:
   test needing more than mechanical wiring is out of scope: leave your
   refactor unapplied or report the file in `failures` as needing
   re-authoring. List every test file you touch in `changedFiles`, each with
-  its wiring reason.
+  its wiring reason. Every edit to a test file is reviewed against the plan
+  before the gates run; a refused edit comes back to you as a verification
+  failure naming the file and the reason.
 - If two items in your work-list conflict (one says extract X, another says
   delete X), apply the one producing fewer downstream changes and name the
   skipped item in your summary.

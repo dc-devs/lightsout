@@ -11,6 +11,7 @@ import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { verdict } from '#tests/helpers/verdict.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /**
@@ -41,48 +42,50 @@ const setupRedVerifyRun = async ({
 	let lastRole = 'implement';
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = prompt.includes('# Your previous final message') ? lastRole : roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = prompt.includes('# Your previous final message') ? lastRole : roleOf(prompt);
 
-			lastRole = role;
-			prompts[role] = [...(prompts[role] ?? []), prompt];
+				lastRole = role;
+				prompts[role] = [...(prompts[role] ?? []), prompt];
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			if (role === 'write-tests') {
-				mkdirSync(join(dir, 'test'), { recursive: true });
-				writeFileSync(join(dir, 'test/feature.test.js'), '// stub test\n');
+				if (role === 'write-tests') {
+					mkdirSync(join(dir, 'test'), { recursive: true });
+					writeFileSync(join(dir, 'test/feature.test.js'), '// stub test\n');
 
-				return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
-			}
+					return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
+				}
 
-			if (role === 'refactor') {
-				return { text: report(), exitCode: 0 };
-			}
+				if (role === 'refactor') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			counts[role] = (counts[role] ?? 0) + 1;
+				counts[role] = (counts[role] ?? 0) + 1;
 
-			if (role === 'supervisor') {
-				return supervisor?.() ?? { text: verdict({ decision: 'escalate', diagnosis: 'stub diagnosis' }), exitCode: 0 };
-			}
+				if (role === 'supervisor') {
+					return supervisor?.() ?? { text: verdict({ decision: 'escalate', diagnosis: 'stub diagnosis' }), exitCode: 0 };
+				}
 
-			if (role === 'fix') {
-				fixTurns += 1;
+				if (role === 'fix') {
+					fixTurns += 1;
 
-				return fix?.({ dir, turn: fixTurns }) ?? { text: report(), exitCode: 0 };
-			}
+					return fix?.({ dir, turn: fixTurns }) ?? { text: report(), exitCode: 0 };
+				}
 
-			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
-			if (implement) {
-				implement({ dir });
-			} else {
-				writeFileSync(join(dir, 'BROKEN'), 'x');
-			}
+				writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
+				if (implement) {
+					implement({ dir });
+				} else {
+					writeFileSync(join(dir, 'BROKEN'), 'x');
+				}
 
-			return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
-		},
+				return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
+			},
+		}),
 	};
 
 	return { dir, driver, counts, prompts, config: await readConfig({ cwd: dir }) };

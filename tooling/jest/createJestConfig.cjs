@@ -63,6 +63,14 @@ module.exports = ({ rootDir, ...rest }) => ({
 	// read to pick the worst files — every package emits it, not just the one
 	// that happened to declare it first.
 	coverageReporters: ['text', 'lcov', 'json-summary'],
+	// lightsout names a reporter file on LIGHTSOUT_JEST_REPORTER when it runs a
+	// gate command, and that reporter records which cases each jest process
+	// actually ran — the evidence a plan's acceptance tests are proven by. The
+	// entry is conditional so an ordinary developer run, where the variable is
+	// unset, gets jest's default reporter and nothing else. Restating 'default'
+	// is required: naming this key replaces jest's default, the same gotcha
+	// testPathIgnorePatterns documents below.
+	reporters: process.env.LIGHTSOUT_JEST_REPORTER ? ['default', process.env.LIGHTSOUT_JEST_REPORTER] : ['default'],
 	// A rule's fixtures are deliberately shaped test files a check reads as TEXT —
 	// the failing side is meant to violate the very rule it proves. Running them
 	// would report a package's counter-examples as this repo's own test failures.

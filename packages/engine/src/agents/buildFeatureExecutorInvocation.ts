@@ -1,6 +1,8 @@
+import { acceptanceTestsSection } from '#src/agents/common/utils/acceptanceTestsSection.ts';
 import { applyPromptTokens } from '#src/agents/common/utils/applyPromptTokens.ts';
 import featureExecutorPrompt from '#src/agents/prompts/featureExecutor.md';
 import { defaultExecutorFileLimit } from '#src/common/constants/defaultExecutorFileLimit.ts';
+import type { AcceptanceTestRecord } from '#src/contracts/index.ts';
 
 interface Params {
 	/** Full plan content, inlined — the agent never loads its own context. */
@@ -17,8 +19,8 @@ interface Params {
 	allowedCommands?: string[];
 	/** The executor's own source-file stop. The plan's own `## File Budget` when it declares one, else `executor-file-limit`, else `defaultExecutorFileLimit`. */
 	fileLimit?: number;
-	/** Repo-relative ledger test files the engine locked for this run — the tests that define done, and read-only. */
-	ledgerTests?: string[];
+	/** The tests that define done for this run: the acceptance-test mapping, each row a test file and the name of the case in it. */
+	acceptanceTests?: Pick<AcceptanceTestRecord, 'testFile' | 'testName'>[];
 }
 
 /**
@@ -38,7 +40,7 @@ export const buildFeatureExecutorInvocation = ({
 	changedFiles,
 	allowedCommands,
 	fileLimit,
-	ledgerTests,
+	acceptanceTests,
 }: Params): { systemPrompt: string; prompt: string } => {
 	const roleSections = [applyPromptTokens({ text: featureExecutorPrompt, tokens: { fileLimit: fileLimit ?? defaultExecutorFileLimit } })];
 
@@ -68,10 +70,10 @@ export const buildFeatureExecutorInvocation = ({
 		);
 	}
 
-	if (ledgerTests && ledgerTests.length > 0) {
-		sections.push(
-			`# Ledger tests (read-only)\n\n${ledgerTests.map((file) => `- ${file}`).join('\n')}\n\nEvery test named in these files must pass in the gate run before the work is done; they are locked, so fix the source rather than the test.`,
-		);
+	const acceptance = acceptanceTestsSection({ acceptanceTests });
+
+	if (acceptance) {
+		sections.push(acceptance);
 	}
 
 	if (errorContext) {

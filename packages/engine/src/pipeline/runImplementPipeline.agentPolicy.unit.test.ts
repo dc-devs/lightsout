@@ -9,6 +9,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
 const stubUsage = { inputTokens: 10, outputTokens: 100, cacheReadTokens: 1000, cacheCreationTokens: 5, costUsd: 0.5 };
@@ -24,29 +25,31 @@ const setupPolicyRun = async ({ config }: { config?: Record<string, unknown> } =
 
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt, permissions }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt, permissions }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			invocations.push({ role, permissions });
+				invocations.push({ role, permissions });
 
-			if (role === 'write-tests') {
-				writeFileSync(join(dir, 'test.feature.test.js'), '// stub\n');
+				if (role === 'write-tests') {
+					writeFileSync(join(dir, 'test.feature.test.js'), '// stub\n');
 
-				return { text: report({ changedFiles: [{ path: 'test.feature.test.js', summary: 'tests' }] }), exitCode: 0, usage: stubUsage };
-			}
+					return { text: report({ changedFiles: [{ path: 'test.feature.test.js', summary: 'tests' }] }), exitCode: 0, usage: stubUsage };
+				}
 
-			if (role === 'refactor') {
-				return { text: report(), exitCode: 0, usage: stubUsage };
-			}
+				if (role === 'refactor') {
+					return { text: report(), exitCode: 0, usage: stubUsage };
+				}
 
-			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
+				writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
-			return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0, usage: stubUsage };
-		},
+				return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0, usage: stubUsage };
+			},
+		}),
 	};
 
 	const loaded = await readConfig({ cwd: dir });

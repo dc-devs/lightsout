@@ -9,6 +9,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { reachabilityRulesOff, setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 
 // The write-tests fan-out is the boundary the inert-file classifier lives
 // behind: a source file provably free of executable statements (a barrel, a
@@ -70,37 +71,39 @@ test('write-tests fan-out: every executable-code kind earns a writer; barrels an
 
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			if (role === 'write-tests') {
-				writerTargets.push(prompt.match(/- (\S+)/)?.[1] ?? 'unknown');
-				mkdirSync(join(dir, 'test'), { recursive: true });
-				writeFileSync(join(dir, 'test/feature.test.js'), '// stub\n');
+				if (role === 'write-tests') {
+					writerTargets.push(prompt.match(/- (\S+)/)?.[1] ?? 'unknown');
+					mkdirSync(join(dir, 'test'), { recursive: true });
+					writeFileSync(join(dir, 'test/feature.test.js'), '// stub\n');
 
-				return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
-			}
+					return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
+				}
 
-			if (role === 'refactor') {
-				return { text: report(), exitCode: 0 };
-			}
+				if (role === 'refactor') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			// Implement: write one file of every inert and behavioral kind.
-			const all = { ...inertFiles, ...behavioralFiles };
+				// Implement: write one file of every inert and behavioral kind.
+				const all = { ...inertFiles, ...behavioralFiles };
 
-			for (const [path, content] of Object.entries(all)) {
-				writeFileSync(join(dir, path), content);
-			}
+				for (const [path, content] of Object.entries(all)) {
+					writeFileSync(join(dir, path), content);
+				}
 
-			return {
-				text: report({ changedFiles: Object.keys(all).map((path) => ({ path, summary: path })) }),
-				exitCode: 0,
-			};
-		},
+				return {
+					text: report({ changedFiles: Object.keys(all).map((path) => ({ path, summary: path })) }),
+					exitCode: 0,
+				};
+			},
+		}),
 	};
 
 	const progress: string[] = [];
@@ -160,40 +163,42 @@ test('write-tests fan-out: a deleted source file is skipped, never sent to a wri
 
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			if (role === 'write-tests') {
-				writerTargets.push(prompt.match(/- (\S+)/)?.[1] ?? 'unknown');
-				mkdirSync(join(dir, 'test'), { recursive: true });
-				writeFileSync(join(dir, 'test/feature.test.js'), '// stub\n');
+				if (role === 'write-tests') {
+					writerTargets.push(prompt.match(/- (\S+)/)?.[1] ?? 'unknown');
+					mkdirSync(join(dir, 'test'), { recursive: true });
+					writeFileSync(join(dir, 'test/feature.test.js'), '// stub\n');
 
-				return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
-			}
+					return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
+				}
 
-			if (role === 'refactor') {
-				return { text: report(), exitCode: 0 };
-			}
+				if (role === 'refactor') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			// Implement: delete the committed source file (a pure removal, as a
-			// capability-removal plan does) and add one behavioral file.
-			rmSync(join(dir, 'src/index.js'));
-			writeFileSync(join(dir, 'src/add.ts'), 'export const add = (a: number, b: number): number => a + b;\n');
+				// Implement: delete the committed source file (a pure removal, as a
+				// capability-removal plan does) and add one behavioral file.
+				rmSync(join(dir, 'src/index.js'));
+				writeFileSync(join(dir, 'src/add.ts'), 'export const add = (a: number, b: number): number => a + b;\n');
 
-			return {
-				text: report({
-					changedFiles: [
-						{ path: 'src/index.js', summary: 'removed' },
-						{ path: 'src/add.ts', summary: 'added' },
-					],
-				}),
-				exitCode: 0,
-			};
-		},
+				return {
+					text: report({
+						changedFiles: [
+							{ path: 'src/index.js', summary: 'removed' },
+							{ path: 'src/add.ts', summary: 'added' },
+						],
+					}),
+					exitCode: 0,
+				};
+			},
+		}),
 	};
 
 	const progress: string[] = [];
@@ -239,32 +244,34 @@ test('write-tests fan-out: an unreadable file that still exists keeps its writer
 
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			if (role === 'write-tests') {
-				writerTargets.push(prompt.match(/- (\S+)/)?.[1] ?? 'unknown');
-				mkdirSync(join(dir, 'test'), { recursive: true });
-				writeFileSync(join(dir, 'test/feature.test.js'), '// stub\n');
+				if (role === 'write-tests') {
+					writerTargets.push(prompt.match(/- (\S+)/)?.[1] ?? 'unknown');
+					mkdirSync(join(dir, 'test'), { recursive: true });
+					writeFileSync(join(dir, 'test/feature.test.js'), '// stub\n');
 
-				return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
-			}
+					return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
+				}
 
-			if (role === 'refactor') {
-				return { text: report(), exitCode: 0 };
-			}
+				if (role === 'refactor') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			// A directory standing where the source file should be: it exists, so
-			// stat succeeds, but readFile cannot produce text for it.
-			rmSync(join(dir, 'src/index.js'));
-			mkdirSync(join(dir, 'src/index.js'));
+				// A directory standing where the source file should be: it exists, so
+				// stat succeeds, but readFile cannot produce text for it.
+				rmSync(join(dir, 'src/index.js'));
+				mkdirSync(join(dir, 'src/index.js'));
 
-			return { text: report({ changedFiles: [{ path: 'src/index.js', summary: 'changed' }] }), exitCode: 0 };
-		},
+				return { text: report({ changedFiles: [{ path: 'src/index.js', summary: 'changed' }] }), exitCode: 0 };
+			},
+		}),
 	};
 
 	const progress: string[] = [];
@@ -304,39 +311,41 @@ test('write-tests fan-out: a file the repo’s coverage configuration does not c
 
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			if (role === 'write-tests') {
-				writerTargets.push(prompt.match(/- (\S+)/)?.[1] ?? 'unknown');
-				mkdirSync(join(dir, 'test'), { recursive: true });
-				writeFileSync(join(dir, 'test/feature.test.js'), '// stub\n');
+				if (role === 'write-tests') {
+					writerTargets.push(prompt.match(/- (\S+)/)?.[1] ?? 'unknown');
+					mkdirSync(join(dir, 'test'), { recursive: true });
+					writeFileSync(join(dir, 'test/feature.test.js'), '// stub\n');
 
-				return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
-			}
+					return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
+				}
 
-			if (role === 'refactor') {
-				return { text: report(), exitCode: 0 };
-			}
+				if (role === 'refactor') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			// Implement: one file the positives name, and one they never do.
-			writeFileSync(join(dir, 'src/add.ts'), 'export const add = (a: number, b: number): number => a + b;\n');
-			writeFileSync(join(dir, 'src/App.tsx'), 'export const App = () => <div>hi</div>;\n');
+				// Implement: one file the positives name, and one they never do.
+				writeFileSync(join(dir, 'src/add.ts'), 'export const add = (a: number, b: number): number => a + b;\n');
+				writeFileSync(join(dir, 'src/App.tsx'), 'export const App = () => <div>hi</div>;\n');
 
-			return {
-				text: report({
-					changedFiles: [
-						{ path: 'src/add.ts', summary: 'added' },
-						{ path: 'src/App.tsx', summary: 'added' },
-					],
-				}),
-				exitCode: 0,
-			};
-		},
+				return {
+					text: report({
+						changedFiles: [
+							{ path: 'src/add.ts', summary: 'added' },
+							{ path: 'src/App.tsx', summary: 'added' },
+						],
+					}),
+					exitCode: 0,
+				};
+			},
+		}),
 	};
 
 	const progress: string[] = [];

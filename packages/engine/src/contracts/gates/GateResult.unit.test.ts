@@ -157,4 +157,30 @@ describe('GateResult', () => {
 		// happened to know — outputTail is the bounded slice a manifest keeps
 		expect(parsed).toStrictEqual({ kind: 'check', group: 'root', command: 'pnpm check', exitCode: 1 });
 	});
+
+	test('GateResult: carries an optional test results directory', () => {
+		const { result } = setupGateResult({
+			extra: { kind: 'test', exitCode: 0, testResultsDir: '.lightsout/runs/run-1/test-results/verify-tests/root/test' },
+		});
+
+		const parsed = GateResult.parse(result);
+
+		// the checkpoint reads exactly the directory the gate it observed wrote to, so the
+		// path travels with the evidence entry rather than being re-derived later
+		expect(parsed).toStrictEqual({
+			kind: 'test',
+			group: 'root',
+			command: 'pnpm check',
+			exitCode: 0,
+			testResultsDir: '.lightsout/runs/run-1/test-results/verify-tests/root/test',
+		});
+
+		const skipped = GateResult.parse(setupGateResult({ extra: { skipped: true, reason: 'no "test" script' } }).result);
+
+		// a scoped skip ran no command, so it wrote no results directory
+		expect(skipped.testResultsDir).toBeUndefined();
+
+		// the field is a repo-relative path printed and re-read as text
+		expect(GateResult.safeParse(setupGateResult({ extra: { testResultsDir: 12 } }).result).success).toBe(false);
+	});
 });

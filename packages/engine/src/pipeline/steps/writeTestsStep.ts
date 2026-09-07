@@ -82,7 +82,7 @@ export const writeTestsStep = ({ run, gitPrefix, planContent, testStandards }: P
 			groups,
 			planContent,
 			testStandards,
-			ledgerTests: run.current().ledgerTests.map((ledgerTest) => ledgerTest.path),
+			acceptanceTests: run.current().acceptanceTests,
 		});
 
 		// Persist whatever progress the batches made before deciding the

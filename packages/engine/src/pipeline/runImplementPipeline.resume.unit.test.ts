@@ -7,6 +7,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
 // Parks and resumes: a rate limit pauses resumable, and resume continues
@@ -26,25 +27,27 @@ test('resume skips passed steps and continues attempt counts', async () => {
 	const dir = setupConsumerRepo();
 	const parkOnWrite: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			if (role === 'write-tests') {
-				return { text: '', exitCode: 1, rateLimited: true };
-			}
+				if (role === 'write-tests') {
+					return { text: '', exitCode: 1, rateLimited: true };
+				}
 
-			if (role === 'implement') {
-				writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
+				if (role === 'implement') {
+					writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
-				return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
-			}
+					return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
+				}
 
-			return { text: report(), exitCode: 0 };
-		},
+				return { text: report(), exitCode: 0 };
+			},
+		}),
 	};
 	const config = await readConfig({ cwd: dir });
 	const parked = await runImplementPipeline({ cwd: dir, driver: parkOnWrite, config, planPath: 'plan.md' });
@@ -54,17 +57,19 @@ test('resume skips passed steps and continues attempt counts', async () => {
 	const counts: Record<string, number> = {};
 	const resumeDriver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			counts[role] = (counts[role] ?? 0) + 1;
+				counts[role] = (counts[role] ?? 0) + 1;
 
-			return { text: report(), exitCode: 0 };
-		},
+				return { text: report(), exitCode: 0 };
+			},
+		}),
 	};
 	const existing = await readRunManifest({ cwd: dir, runId: parked.manifest.runId });
 	const resumed = await runImplementPipeline({ cwd: dir, driver: resumeDriver, config, existing });

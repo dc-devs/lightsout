@@ -10,6 +10,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
 const usage = {
@@ -33,7 +34,8 @@ const manifest = (overrides: Partial<RunManifest> = {}): RunManifest => ({
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],
-	ledgerTests: [],
+	acceptanceTests: [],
+	approvedTests: [],
 	unreachableChangedFiles: [],
 	coverageExcludedChangedFiles: [],
 	...overrides,
@@ -74,31 +76,33 @@ const setupPipelineRun = async () => {
 	const cwd = setupConsumerRepo();
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			if (role === 'write-tests') {
-				writeFileSync(join(cwd, 'test.feature.test.js'), '// stub\n');
+				if (role === 'write-tests') {
+					writeFileSync(join(cwd, 'test.feature.test.js'), '// stub\n');
 
-				return { text: report({ changedFiles: [{ path: 'test.feature.test.js', summary: 'tests' }] }), exitCode: 0, usage };
-			}
+					return { text: report({ changedFiles: [{ path: 'test.feature.test.js', summary: 'tests' }] }), exitCode: 0, usage };
+				}
 
-			if (role === 'refactor') {
-				return {
-					text: report({ friction: [{ kind: 'decision', area: 'plan', detail: 'guessed a boundary' }] }),
-					exitCode: 0,
-					usage,
-				};
-			}
+				if (role === 'refactor') {
+					return {
+						text: report({ friction: [{ kind: 'decision', area: 'plan', detail: 'guessed a boundary' }] }),
+						exitCode: 0,
+						usage,
+					};
+				}
 
-			writeSource({ dir: cwd, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
+				writeSource({ dir: cwd, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
-			return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0, usage };
-		},
+				return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0, usage };
+			},
+		}),
 	};
 
 	const config = await readConfig({ cwd });

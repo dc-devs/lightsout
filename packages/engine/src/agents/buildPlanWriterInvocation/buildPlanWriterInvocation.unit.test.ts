@@ -355,3 +355,33 @@ test('buildPlanWriterInvocation: a repository that writes no contract plans sees
 	// lint's unresolved-token scan would otherwise catch in a written plan
 	expect(invocation.systemPrompt.includes('{{contractRule}}')).toBeFalsy();
 });
+
+test('buildPlanWriterInvocation: the ledger brief allows a row on a file the plan modifies and refuses one on a move source', () => {
+	const invocation = buildPlanWriterInvocation({
+		facts: facts(),
+		decisions: decisions(),
+		outputs: singleOutput(),
+		limits: limits(),
+		contract: true,
+	});
+
+	// the ledger brief alone, cut at the next section, so no match can come from
+	// a neighbouring section of the prompt
+	const start = invocation.prompt.indexOf('## Acceptance-test ledger');
+	const ledger = invocation.prompt.slice(start, invocation.prompt.indexOf('\n\n## ', start + 1));
+
+	// the brief is present at all — a missing heading would leave the slice empty
+	expect(invocation.prompt.includes('## Acceptance-test ledger')).toBeTruthy();
+	// the two change headings a row is now free to name
+	expect(ledger).toMatch(/Files to Modify(?! from)/);
+	expect(ledger).toMatch(/Files to Modify from Earlier Phases/);
+	// and the destination of a move, which is where the test lives once the plan runs
+	expect(ledger).toMatch(/destination/i);
+	// with the reason that edit is ordinary work: it is reviewed against the plan
+	// before the gates run, so the writer is not left guessing why it is allowed
+	expect(ledger).toMatch(/review/i);
+	// the one case still refused: the source side of a move, which the plan
+	// takes away, so the row would point at nothing
+	expect(ledger).toMatch(/Files to Move/);
+	expect(ledger).toMatch(/moves away|move'?s source|source side/i);
+});

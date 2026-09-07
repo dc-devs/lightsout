@@ -2,6 +2,12 @@
  * The writer's brief on the acceptance-test ledger: what a contract plan
  * carries, and what it stops carrying. The behaviour a plan used to narrate is
  * what a row states, so the two are alternatives rather than additions.
+ *
+ * It takes no argument and returns the same text every call. The function shape
+ * is deliberate: `buildPlanWriterInvocation` pushes this section beside
+ * `overviewSection`, `phaseSection` and `documentationSection`, and a reader
+ * comparing those pushes should not have to notice that one of them is not a
+ * call. It is a fixed string, not a value awaiting a parameter.
  */
 export const ledgerSection = (): string =>
 	`## Acceptance-test ledger
@@ -25,6 +31,13 @@ repository's gates that runs it. A blank gate cell means the test gate.
   ordinary work. It may NOT name a test that file already holds: a test written
   for older behaviour must never be locked in as the verifier of a new
   criterion.
+- A row may name a test file this plan also lists under \`## Files to Modify\` or
+  \`## Files to Modify from Earlier Phases\`, and it may name the DESTINATION of a
+  move — correcting a test your own changes make stale is ordinary work, and a
+  reviewer judges that exact change against the plan before the gates run. What
+  it may NOT name is a file you move away, the source side of \`## Files to Move\`:
+  that file does not survive the plan, so the row points at nothing. Point it at
+  the move’s destination instead.
 - A file with no testable behaviour — a document, a config file, a barrel — is
   listed under \`## Prose Files\` instead, one \`-\` bullet each: the path in a
   backticked span, then an em dash and why no test states its behaviour. A

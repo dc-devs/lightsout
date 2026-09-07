@@ -9,6 +9,7 @@ import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { verdict } from '#tests/helpers/verdict.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /** A plan that declares its own touched-file allowance in the optional `## File Budget` section. */
@@ -44,38 +45,40 @@ const setupFileLimitRun = async ({ plan, config: configFields, redGate }: SetupP
 
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt, systemPrompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt, systemPrompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			systemPrompts[role] ??= systemPrompt;
+				systemPrompts[role] ??= systemPrompt;
 
-			if (role === 'supervisor') {
-				return { text: verdict(), exitCode: 0 };
-			}
+				if (role === 'supervisor') {
+					return { text: verdict(), exitCode: 0 };
+				}
 
-			if (role === 'write-tests') {
-				mkdirSync(join(dir, 'test'), { recursive: true });
-				writeFileSync(join(dir, 'test/feature.test.js'), '// stub\n');
+				if (role === 'write-tests') {
+					mkdirSync(join(dir, 'test'), { recursive: true });
+					writeFileSync(join(dir, 'test/feature.test.js'), '// stub\n');
 
-				return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
-			}
+					return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
+				}
 
-			if (role === 'refactor' || role === 'fix') {
-				return { text: report(), exitCode: 0 };
-			}
+				if (role === 'refactor' || role === 'fix') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
+				writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
-			if (redGate) {
-				writeFileSync(join(dir, 'BROKEN'), 'x');
-			}
+				if (redGate) {
+					writeFileSync(join(dir, 'BROKEN'), 'x');
+				}
 
-			return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
-		},
+				return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
+			},
+		}),
 	};
 
 	return { dir, driver, systemPrompts, config: await readConfig({ cwd: dir }) };

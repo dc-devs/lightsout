@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import { type LedgerRow, type LightsoutConfig, type RunManifest, RunStatus, type StepRecord, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
-import { ledgerCopyPath } from '#src/pipeline/common/utils/ledgerCopyPath.ts';
+import { readApprovedTest } from '#src/pipeline/approvedTests/index.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import { writeLedgerTestsStep } from '#src/pipeline/steps/writeLedgerTestsStep.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -24,7 +24,7 @@ const fileWith = ({ names }: { names: string[] }) => `${names.map((name) => `tes
  * than thrown.
  */
 const setupLedgerRun = ({ cwd, format, respond }: { cwd: string; format?: string; respond: ({ prompt }: { prompt: string }) => WorkReport }) => {
-	const manifest = { runId: 'run-1', changedFiles: [], packages: [], baselineDirtyFiles: [], ledgerTests: [] } as unknown as RunManifest;
+	const manifest = { runId: 'run-1', changedFiles: [], packages: [], baselineDirtyFiles: [], acceptanceTests: [], approvedTests: [] } as unknown as RunManifest;
 	const prompts: string[] = [];
 	const progress: string[] = [];
 	let stopped: { status: RunStatus; error: string } | undefined;
@@ -82,11 +82,9 @@ describe('writeLedgerTestsStep', () => {
 		expect(prompts.length).toBe(2);
 		expect(prompts[1]?.includes('# Missing tests')).toBeTruthy();
 		expect(prompts[1]?.includes(`- \`${second}\``)).toBeTruthy();
-		// the repaired file is what gets locked
+		// the repaired file is what gets approved
 		expect(stopped()).toBe(undefined);
-		expect(manifest.ledgerTests).toStrictEqual([
-			{ path: testFile, testNames: [first, second], sha256: sha256({ content: fileWith({ names: [first, second] }) }) },
-		]);
+		expect(manifest.approvedTests).toStrictEqual([{ path: testFile, sha256: sha256({ content: fileWith({ names: [first, second] }) }), removed: false }]);
 	});
 
 	test('a test still missing after the repair pass stops the run failed, naming the file and the test', async () => {
@@ -107,8 +105,8 @@ describe('writeLedgerTestsStep', () => {
 		expect(stopped()?.status).toBe(RunStatus.Failed);
 		expect(stopped()?.error.includes(testFile)).toBeTruthy();
 		expect(stopped()?.error.includes(second)).toBeTruthy();
-		// nothing is locked, because nothing states the criterion
-		expect(manifest.ledgerTests).toStrictEqual([]);
+		// nothing is approved, because nothing states the criterion
+		expect(manifest.approvedTests).toStrictEqual([]);
 	});
 
 	test('a writer that reports complete but writes no file stops the run failed', async () => {
@@ -129,8 +127,8 @@ describe('writeLedgerTestsStep', () => {
 
 		await writeLedgerTestsStep({ run, planContent: '# Plan', rows: rowsFor({ names: [first] }) })();
 
-		// a test written for older behaviour must never be locked as a new
-		// criterion's verifier, and no writer is paid for to discover that
+		// a test written for older behaviour must never stand as a new criterion's
+		// verifier, and no writer is paid for to discover that
 		expect(prompts).toStrictEqual([]);
 		expect(stopped()?.status).toBe(RunStatus.Failed);
 		expect(stopped()?.error.includes(`${testFile}: ${first}`)).toBeTruthy();
@@ -155,13 +153,13 @@ describe('writeLedgerTestsStep', () => {
 		await writeLedgerTestsStep({ run, planContent: '# Plan', rows: rowsFor({ names: [first] }) })();
 
 		expect(stopped()).toBe(undefined);
-		// the writer ran, found its case present, and the step locked as on a
+		// the writer ran, found its case present, and the step approved as on a
 		// first pass
 		expect(prompts.length).toBe(1);
-		expect(manifest.ledgerTests.map((ledgerTest) => ledgerTest.path)).toStrictEqual([testFile]);
+		expect(manifest.approvedTests.map((record) => record.path)).toStrictEqual([testFile]);
 	});
 
-	test('the hash and the copy are taken after the formatter ran', async () => {
+	test('the approved copy and its hash are taken after the formatter ran', async () => {
 		const cwd = setupConsumerRepo();
 		const formatted = `${fileWith({ names: [first] })}// formatted\n`;
 		const { run, manifest } = setupLedgerRun({
@@ -176,14 +174,14 @@ describe('writeLedgerTestsStep', () => {
 
 		await writeLedgerTestsStep({ run, planContent: '# Plan', rows: rowsFor({ names: [first] }) })();
 
-		// the lock is byte-exact against formatted bytes, so every later format
-		// pass is a no-op on a locked file
+		// the baseline is of formatted bytes, so the first checkpoint's diff
+		// against it is empty rather than the formatter's own edit
 		expect(readFileSync(join(cwd, testFile), 'utf8')).toBe(formatted);
-		expect(manifest.ledgerTests[0]?.sha256).toBe(sha256({ content: formatted }));
-		expect(readFileSync(ledgerCopyPath({ cwd, runId: 'run-1', path: testFile }), 'utf8')).toBe(formatted);
+		expect(manifest.approvedTests[0]?.sha256).toBe(sha256({ content: formatted }));
+		await expect(readApprovedTest({ run, path: testFile })).resolves.toBe(formatted);
 	});
 
-	test('a writer whose report is not complete stops the run without locking anything', async () => {
+	test('a writer whose report is not complete stops the run without approving anything', async () => {
 		const cwd = setupConsumerRepo();
 		const { run, manifest, stopped } = setupLedgerRun({
 			cwd,
@@ -195,6 +193,6 @@ describe('writeLedgerTestsStep', () => {
 		// a row the plan cannot support is a plan defect, reported as one
 		expect(stopped()?.status).toBe(RunStatus.Failed);
 		expect(stopped()?.error.includes('the plan states no signature for the widget')).toBeTruthy();
-		expect(manifest.ledgerTests).toStrictEqual([]);
+		expect(manifest.approvedTests).toStrictEqual([]);
 	});
 });

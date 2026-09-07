@@ -42,7 +42,8 @@ const foreignManifest = ({ pipeline }: { pipeline?: PipelineKind }): RunManifest
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],
-	ledgerTests: [],
+	acceptanceTests: [],
+	approvedTests: [],
 	unreachableChangedFiles: [],
 	coverageExcludedChangedFiles: [],
 });

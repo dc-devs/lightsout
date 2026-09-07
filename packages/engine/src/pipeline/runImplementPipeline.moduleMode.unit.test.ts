@@ -11,6 +11,7 @@ import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { reachabilityRulesOff, setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { verdict } from '#tests/helpers/verdict.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 
 // A module-scope `await` is a syntax error only where the runner evaluates the
 // file as CommonJS. The write-tests fan-out and the changed-file execution gate
@@ -62,40 +63,42 @@ const setupModuleModeRun = async ({ jestConfig }: { jestConfig: Record<string, u
 	const progress: string[] = [];
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
-
-			if (role === 'supervisor') {
-				return { text: verdict(), exitCode: 0 };
-			}
-
-			if (role === 'refactor') {
-				return { text: report(), exitCode: 0 };
-			}
-
-			if (role === 'write-tests') {
-				// the verify fix re-invocation is a different assignment; only the
-				// fan-out's own prompts say which files earned a writer
-				if (!prompt.includes('# Verification failure')) {
-					writerPrompts.push(prompt);
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
 				}
 
-				mkdirSync(join(dir, 'test'), { recursive: true });
-				writeFileSync(join(dir, 'test/feature.test.js'), '// stub\n');
+				if (role === 'supervisor') {
+					return { text: verdict(), exitCode: 0 };
+				}
 
-				return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
-			}
+				if (role === 'refactor') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			for (const [path, content] of Object.entries(sources)) {
-				writeFileSync(join(dir, path), content);
-			}
+				if (role === 'write-tests') {
+					// the verify fix re-invocation is a different assignment; only the
+					// fan-out's own prompts say which files earned a writer
+					if (!prompt.includes('# Verification failure')) {
+						writerPrompts.push(prompt);
+					}
 
-			return { text: report({ changedFiles: Object.keys(sources).map((path) => ({ path, summary: 'source' })) }), exitCode: 0 };
-		},
+					mkdirSync(join(dir, 'test'), { recursive: true });
+					writeFileSync(join(dir, 'test/feature.test.js'), '// stub\n');
+
+					return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
+				}
+
+				for (const [path, content] of Object.entries(sources)) {
+					writeFileSync(join(dir, path), content);
+				}
+
+				return { text: report({ changedFiles: Object.keys(sources).map((path) => ({ path, summary: 'source' })) }), exitCode: 0 };
+			},
+		}),
 	};
 
 	return {

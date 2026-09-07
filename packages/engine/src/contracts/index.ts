@@ -47,7 +47,7 @@ export { Effort } from '#src/contracts/Effort.ts';
 export { FrictionArea, FrictionEntry, FrictionRecord } from '#src/contracts/friction/index.ts';
 export { GateOverride } from '#src/contracts/GateOverride.ts';
 export { GateOverrides } from '#src/contracts/GateOverrides.ts';
-export { GateResult } from '#src/contracts/gates/index.ts';
+export { GateResult, TestCaseStatus, TestResultsFile } from '#src/contracts/gates/index.ts';
 export { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 export { PackageGates } from '#src/contracts/PackageGates.ts';
 export { Permissions } from '#src/contracts/Permissions.ts';
@@ -85,8 +85,9 @@ export {
 export { BranchPhase, BranchState, RelayAnswer, RelayQuestion } from '#src/contracts/queue/index.ts';
 export { BatchOutcome, BatchReport, RefactorBatch, RefactorWorklist } from '#src/contracts/refactor/index.ts';
 export {
+	AcceptanceTestRecord,
 	AgentUsage,
-	LedgerTestRecord,
+	ApprovedTestRecord,
 	PackagesSource,
 	PhaseReport,
 	PipelineKind,
@@ -96,6 +97,7 @@ export {
 	RunStatus,
 	RunUsage,
 	StepRecord,
+	TestReviewRecord,
 } from '#src/contracts/run/index.ts';
 export { StandardsCheckOverrides } from '#src/contracts/StandardsCheckOverrides.ts';
 export { ShipBlockReason, ShipMergeMethod, ShipResult, ShipStatus } from '#src/contracts/ship/index.ts';
@@ -137,4 +139,13 @@ export {
 	StandardsTrendPoint,
 	StandardsView,
 } from '#src/contracts/views/index.ts';
-export { SupervisorDecision, SupervisorVerdict, WorkReport, WorkReportStatus, WritersReport } from '#src/contracts/work/index.ts';
+export {
+	SupervisorDecision,
+	SupervisorVerdict,
+	TestChangeReview,
+	TestDisposition,
+	TestReviewDecision,
+	WorkReport,
+	WorkReportStatus,
+	WritersReport,
+} from '#src/contracts/work/index.ts';

@@ -69,12 +69,16 @@ machine-parsed — it is a data payload, not prose for a human.
   shell, use the shell solely to inspect and edit files — never for
   repository commands.
 - Do not create commits or branches.
-- Files listed under a `# Ledger tests (read-only)` section in your task are
-  locked for the run: they state the plan's acceptance criteria, the engine
-  keeps a copy and reverts any change to them before verification. Never edit
-  one. When a case you would have added belongs in a locked file, put it in a
-  sibling file beside the same subject whose name inserts `coverage` before the
-  test suffix (`widget.unit.test.ts` locked → `widget.coverage.unit.test.ts`).
+- Tests listed under an `# Acceptance tests` section in your task state the
+  plan's acceptance criteria: every one of them must execute and pass. You may
+  edit a test file when the plan's own changes make it stale — an import, a
+  mock, a fixture, setup, or a move. Every edit to a test file is reviewed
+  against the plan before any gate runs, and the review refuses a weakened or
+  removed assertion, an acceptance test deleted, renamed, skipped or replaced
+  without a disposition the plan backs, a mock that neuters the subject under
+  test, a snapshot rewrite that hides a behaviour change the plan did not
+  authorise, and configuration that stops a test from being collected. A moved
+  test file carries every case its source held.
 
 ## Ledger assignment
 

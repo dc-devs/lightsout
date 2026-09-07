@@ -113,6 +113,45 @@ These commands become the deterministic gates between pipeline stages. Lightsout
 
 This is the smallest complete configuration. Everything else is optional.
 
+### Per-test results
+
+A green command tells lightsout that a suite passed. It does not tell it which
+cases ran — and when a plan names the tests that state its acceptance criteria,
+that is the question lightsout has to answer.
+
+So on every gate command it sets two environment variables:
+
+- `LIGHTSOUT_JEST_REPORTER` — the absolute path of a small Jest reporter that
+  lightsout wrote into the run folder.
+- `LIGHTSOUT_TEST_RESULTS_DIR` — the directory that command's per-test results
+  go in. Each gate execution gets its own, cleared before the command starts.
+
+To switch this on, load that reporter from your Jest config:
+
+```js
+const lightsoutReporter = process.env.LIGHTSOUT_JEST_REPORTER;
+
+module.exports = {
+  reporters: lightsoutReporter ? ['default', lightsoutReporter] : ['default'],
+};
+```
+
+Naming the `reporters` key replaces Jest's default, so `'default'` has to be
+restated. Keep the entry conditional: with the variables unset the reporter does
+nothing, so an ordinary `pnpm test` on your machine is unchanged.
+
+Only Jest is supported. A gate that runs something else can carry no per-test
+result, and lightsout says so at the start of a run rather than at the end of
+one.
+
+The results themselves live under the run folder, beside the command log:
+`.lightsout/runs/<run-id>/test-results/<step>/<group>/<gate>/`. The recommended
+gitignore already ignores the whole `.lightsout/runs` directory, so nothing
+changes there.
+
+`lightsout doctor` reports a `jest-reporter` check for every Jest config it can
+load, so a missing entry is visible before a run is ever started.
+
 ## Adding your standards
 
 Standards arrive as **standards packs**. A pack is a folder holding a

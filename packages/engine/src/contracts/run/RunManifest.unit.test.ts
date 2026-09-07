@@ -150,20 +150,31 @@ test('RunManifest: the write-tests skip records default to empty arrays and roun
 	expect(RunManifest.safeParse({ ...base, harness: 'codex', coverageExcludedChangedFiles: [3] }).success).toBe(false);
 });
 
-test('RunManifest: the locked ledger tests default to an empty list and round-trip whole', () => {
-	const ledgerTest = { path: 'src/widget.unit.test.ts', testNames: ['widget: renders'], sha256: 'a'.repeat(64) };
+test('RunManifest: the acceptance mapping defaults to an empty list and round-trips whole', () => {
+	const row = { criterion: 'the widget renders its label', testFile: 'src/widget.unit.test.ts', testName: 'widget: renders', gate: 'test' };
 
-	// a plan with no ledger carries no lock, and a manifest written before the
-	// field existed reads back the same way
-	expect(RunManifest.parse({ ...base, harness: 'codex' }).ledgerTests).toStrictEqual([]);
-	// the record is what the verify-time lock compares against — it must survive
-	// the write/read cycle intact or the lock has nothing to restore from
-	expect(RunManifest.parse({ ...base, harness: 'codex', ledgerTests: [ledgerTest] }).ledgerTests).toStrictEqual([ledgerTest]);
-	// a record missing its hash, naming no test, or carrying a hash of the wrong
-	// length is a corrupt manifest rather than an unlocked file
-	expect(RunManifest.safeParse({ ...base, harness: 'codex', ledgerTests: [{ path: 'a.ts', testNames: ['x'] }] }).success).toBe(false);
-	expect(RunManifest.safeParse({ ...base, harness: 'codex', ledgerTests: [{ ...ledgerTest, testNames: [] }] }).success).toBe(false);
-	expect(RunManifest.safeParse({ ...base, harness: 'codex', ledgerTests: [{ ...ledgerTest, sha256: 'abc' }] }).success).toBe(false);
+	// a plan with no ledger maps nothing, and a manifest written before the field
+	// existed reads back the same way
+	expect(RunManifest.parse({ ...base, harness: 'codex' }).acceptanceTests).toStrictEqual([]);
+	// the mapping is what every checkpoint proves its rows from — it must survive
+	// the write/read cycle intact or a resumed run proves nothing
+	expect(RunManifest.parse({ ...base, harness: 'codex', acceptanceTests: [row] }).acceptanceTests).toStrictEqual([row]);
+	// a row the engine could not prove is a corrupt manifest rather than a row to skip
+	expect(RunManifest.safeParse({ ...base, harness: 'codex', acceptanceTests: [{ ...row, testName: '' }] }).success).toBe(false);
+	expect(RunManifest.safeParse({ ...base, harness: 'codex', acceptanceTests: [{ ...row, gate: undefined }] }).success).toBe(false);
+});
+
+test('RunManifest: the approved test records default to an empty list and round-trip whole', () => {
+	const copy = { path: 'src/widget.unit.test.ts', sha256: 'a'.repeat(64), removed: false };
+
+	// a run that has approved nothing yet reads every test-side file's approved
+	// version straight from HEAD, which is what an empty list means
+	expect(RunManifest.parse({ ...base, harness: 'codex' }).approvedTests).toStrictEqual([]);
+	// the record is what a checkpoint diffs a live test file against, so it must
+	// survive the write/read cycle intact
+	expect(RunManifest.parse({ ...base, harness: 'codex', approvedTests: [copy] }).approvedTests).toStrictEqual([copy]);
+	// a hash of the wrong length names no copy the run could have taken
+	expect(RunManifest.safeParse({ ...base, harness: 'codex', approvedTests: [{ ...copy, sha256: 'abc' }] }).success).toBe(false);
 });
 
 test('RunManifest: an unparseable config snapshot fails the manifest', () => {

@@ -11,6 +11,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { reachabilityRulesOff, setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 
 test('write-tests fan-out: files that import each other share ONE writer; unrelated files stay parallel', async () => {
 	const dir = setupConsumerRepo({ config: reachabilityRulesOff });
@@ -21,44 +22,46 @@ test('write-tests fan-out: files that import each other share ONE writer; unrela
 
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			if (role === 'write-tests') {
-				writerPrompts.push(prompt);
+				if (role === 'write-tests') {
+					writerPrompts.push(prompt);
 
-				const testFile = `test/writer-${writerPrompts.length}.test.js`;
+					const testFile = `test/writer-${writerPrompts.length}.test.js`;
 
-				mkdirSync(join(dir, 'test'), { recursive: true });
-				writeFileSync(join(dir, testFile), '// stub\n');
+					mkdirSync(join(dir, 'test'), { recursive: true });
+					writeFileSync(join(dir, testFile), '// stub\n');
 
-				return { text: report({ changedFiles: [{ path: testFile, summary: 'tests' }] }), exitCode: 0 };
-			}
+					return { text: report({ changedFiles: [{ path: testFile, summary: 'tests' }] }), exitCode: 0 };
+				}
 
-			if (role === 'refactor') {
-				return { text: report(), exitCode: 0 };
-			}
+				if (role === 'refactor') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			// Implement: a boundary importing an internal, plus one unrelated file.
-			writeFileSync(join(dir, 'src/helper.ts'), 'export const helper = (n: number): number => n + 1;\n');
-			writeFileSync(join(dir, 'src/feature.ts'), `import { helper } from './helper';\n\nexport const feature = (n: number): number => helper(n) * 2;\n`);
-			writeFileSync(join(dir, 'src/other.ts'), 'export const other = (): number => 3;\n');
+				// Implement: a boundary importing an internal, plus one unrelated file.
+				writeFileSync(join(dir, 'src/helper.ts'), 'export const helper = (n: number): number => n + 1;\n');
+				writeFileSync(join(dir, 'src/feature.ts'), `import { helper } from './helper';\n\nexport const feature = (n: number): number => helper(n) * 2;\n`);
+				writeFileSync(join(dir, 'src/other.ts'), 'export const other = (): number => 3;\n');
 
-			return {
-				text: report({
-					changedFiles: [
-						{ path: 'src/feature.ts', summary: 'boundary' },
-						{ path: 'src/helper.ts', summary: 'internal' },
-						{ path: 'src/other.ts', summary: 'unrelated' },
-					],
-				}),
-				exitCode: 0,
-			};
-		},
+				return {
+					text: report({
+						changedFiles: [
+							{ path: 'src/feature.ts', summary: 'boundary' },
+							{ path: 'src/helper.ts', summary: 'internal' },
+							{ path: 'src/other.ts', summary: 'unrelated' },
+						],
+					}),
+					exitCode: 0,
+				};
+			},
+		}),
 	};
 
 	const progress: string[] = [];
@@ -110,42 +113,44 @@ test('write-tests fan-out: two internals sharing an UNCHANGED public subject gro
 
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			if (role === 'write-tests') {
-				writerPrompts.push(prompt);
+				if (role === 'write-tests') {
+					writerPrompts.push(prompt);
 
-				const testFile = `test/writer-${writerPrompts.length}.test.js`;
+					const testFile = `test/writer-${writerPrompts.length}.test.js`;
 
-				mkdirSync(join(dir, 'test'), { recursive: true });
-				writeFileSync(join(dir, testFile), '// stub\n');
+					mkdirSync(join(dir, 'test'), { recursive: true });
+					writeFileSync(join(dir, testFile), '// stub\n');
 
-				return { text: report({ changedFiles: [{ path: testFile, summary: 'tests' }] }), exitCode: 0 };
-			}
+					return { text: report({ changedFiles: [{ path: testFile, summary: 'tests' }] }), exitCode: 0 };
+				}
 
-			if (role === 'refactor') {
-				return { text: report(), exitCode: 0 };
-			}
+				if (role === 'refactor') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			// Implement: both internals change; pub.ts and the barrel do not.
-			writeFileSync(join(dir, 'src/mod/a.ts'), 'export const a = (): number => 10;\n');
-			writeFileSync(join(dir, 'src/mod/b.ts'), 'export const b = (): number => 20;\n');
+				// Implement: both internals change; pub.ts and the barrel do not.
+				writeFileSync(join(dir, 'src/mod/a.ts'), 'export const a = (): number => 10;\n');
+				writeFileSync(join(dir, 'src/mod/b.ts'), 'export const b = (): number => 20;\n');
 
-			return {
-				text: report({
-					changedFiles: [
-						{ path: 'src/mod/a.ts', summary: 'internal' },
-						{ path: 'src/mod/b.ts', summary: 'internal' },
-					],
-				}),
-				exitCode: 0,
-			};
-		},
+				return {
+					text: report({
+						changedFiles: [
+							{ path: 'src/mod/a.ts', summary: 'internal' },
+							{ path: 'src/mod/b.ts', summary: 'internal' },
+						],
+					}),
+					exitCode: 0,
+				};
+			},
+		}),
 	};
 
 	const progress: string[] = [];
@@ -185,42 +190,44 @@ test('write-tests fan-out: an import component above the writer cap splits into 
 
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
 
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
-			if (role === 'write-tests') {
-				writerPrompts.push(prompt);
+				if (role === 'write-tests') {
+					writerPrompts.push(prompt);
 
-				const testFile = `test/writer-${writerPrompts.length}.test.js`;
+					const testFile = `test/writer-${writerPrompts.length}.test.js`;
 
-				mkdirSync(join(dir, 'test'), { recursive: true });
-				writeFileSync(join(dir, testFile), '// stub\n');
+					mkdirSync(join(dir, 'test'), { recursive: true });
+					writeFileSync(join(dir, testFile), '// stub\n');
 
-				return { text: report({ changedFiles: [{ path: testFile, summary: 'tests' }] }), exitCode: 0 };
-			}
+					return { text: report({ changedFiles: [{ path: testFile, summary: 'tests' }] }), exitCode: 0 };
+				}
 
-			if (role === 'refactor') {
-				return { text: report(), exitCode: 0 };
-			}
+				if (role === 'refactor') {
+					return { text: report(), exitCode: 0 };
+				}
 
-			// One chain: every file imports the next, so they form a single
-			// connected component longer than the cap.
-			const changedFiles = [];
+				// One chain: every file imports the next, so they form a single
+				// connected component longer than the cap.
+				const changedFiles = [];
 
-			for (let index = 0; index < chainLength; index += 1) {
-				const next = index + 1 < chainLength ? `import { link${index + 1} } from './link${index + 1}';\n` : '';
-				const body = `export const link${index} = (): number => ${index + 1 < chainLength ? `link${index + 1}()` : index};\n`;
+				for (let index = 0; index < chainLength; index += 1) {
+					const next = index + 1 < chainLength ? `import { link${index + 1} } from './link${index + 1}';\n` : '';
+					const body = `export const link${index} = (): number => ${index + 1 < chainLength ? `link${index + 1}()` : index};\n`;
 
-				writeFileSync(join(dir, `src/link${index}.ts`), `${next}\n${body}`);
-				changedFiles.push({ path: `src/link${index}.ts`, summary: 'chain' });
-			}
+					writeFileSync(join(dir, `src/link${index}.ts`), `${next}\n${body}`);
+					changedFiles.push({ path: `src/link${index}.ts`, summary: 'chain' });
+				}
 
-			return { text: report({ changedFiles }), exitCode: 0 };
-		},
+				return { text: report({ changedFiles }), exitCode: 0 };
+			},
+		}),
 	};
 
 	const progress: string[] = [];

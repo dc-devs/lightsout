@@ -8,6 +8,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /** The rule ids the standards reviewer was handed, in the order its invocation lists them. */
@@ -51,48 +52,50 @@ const setupRefactorRun = async ({
 	let passes = 0;
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt, systemPrompt }) => {
-			const role = roleOf(prompt);
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt, systemPrompt }) => {
+				const role = roleOf(prompt);
 
-			// The reviewer's system prompt rides its own invocation AND the re-emit
-			// retry a rejected report earns, so answering on it keeps a reviewer that
-			// cannot report from being mistaken for another role on the second try.
-			if ((systemPrompt ?? '').includes('# Role: Standards Reviewer')) {
-				if (role === 'standards-review') {
-					reviewScopes.push(filesOffered({ prompt }));
+				// The reviewer's system prompt rides its own invocation AND the re-emit
+				// retry a rejected report earns, so answering on it keeps a reviewer that
+				// cannot report from being mistaken for another role on the second try.
+				if ((systemPrompt ?? '').includes('# Role: Standards Reviewer')) {
+					if (role === 'standards-review') {
+						reviewScopes.push(filesOffered({ prompt }));
+					}
+
+					return { text: onReview({ ruleIds: ruleIdsOffered({ systemPrompt: systemPrompt ?? '' }) }), exitCode: 0 };
 				}
 
-				return { text: onReview({ ruleIds: ruleIdsOffered({ systemPrompt: systemPrompt ?? '' }) }), exitCode: 0 };
-			}
+				if (role === 'write-tests') {
+					mkdirSync(join(dir, 'test'), { recursive: true });
+					writeFileSync(join(dir, 'test/subject.test.js'), '// stub test\n');
 
-			if (role === 'write-tests') {
-				mkdirSync(join(dir, 'test'), { recursive: true });
-				writeFileSync(join(dir, 'test/subject.test.js'), '// stub test\n');
+					return { text: report({ changedFiles: [{ path: 'test/subject.test.js', summary: 'tests' }] }), exitCode: 0 };
+				}
 
-				return { text: report({ changedFiles: [{ path: 'test/subject.test.js', summary: 'tests' }] }), exitCode: 0 };
-			}
+				if (role === 'refactor') {
+					passes += 1;
+					refactorPrompts.push(prompt);
 
-			if (role === 'refactor') {
-				passes += 1;
-				refactorPrompts.push(prompt);
+					return { text: onRefactor({ pass: passes, cwd: dir }), exitCode: 0 };
+				}
 
-				return { text: onRefactor({ pass: passes, cwd: dir }), exitCode: 0 };
-			}
+				writeSource({ dir, path: 'src/subject.js', source });
 
-			writeSource({ dir, path: 'src/subject.js', source });
+				for (const [path, contents] of Object.entries(extraSources)) {
+					mkdirSync(dirname(join(dir, path)), { recursive: true });
+					writeFileSync(join(dir, path), contents);
+				}
 
-			for (const [path, contents] of Object.entries(extraSources)) {
-				mkdirSync(dirname(join(dir, path)), { recursive: true });
-				writeFileSync(join(dir, path), contents);
-			}
-
-			return {
-				text: report({
-					changedFiles: [{ path: 'src/subject.js', summary: 'feature' }, ...Object.keys(extraSources).map((path) => ({ path, summary: 'feature' }))],
-				}),
-				exitCode: 0,
-			};
-		},
+				return {
+					text: report({
+						changedFiles: [{ path: 'src/subject.js', summary: 'feature' }, ...Object.keys(extraSources).map((path) => ({ path, summary: 'feature' }))],
+					}),
+					exitCode: 0,
+				};
+			},
+		}),
 	};
 
 	return {
