@@ -50,6 +50,7 @@ const ticketOf = ({ number }: { number: number }): RunnableTicket => ({
 	planningStatus: PlanningStatus.NotNeeded,
 	worker: QueueWorker.Direct,
 	status: 'Ready to implement',
+	finished: false,
 	unfinishedBlockers: [],
 });
 
@@ -187,6 +188,15 @@ describe('reconcileMergedTickets', () => {
 		await reconcile({ numbers: [70] });
 
 		expect(mockWriteBranchState).toHaveBeenCalledWith(expect.objectContaining({ branch: 'lo-70-ticket-70', phase: BranchPhase.Merged }));
+	});
+
+	test('records a forge-established merge exactly once, now that one helper owns the write', async () => {
+		const { reconcile } = setupReconcile({ merged: [70] });
+
+		await reconcile({ numbers: [70] });
+
+		expect(mockWriteBranchState).toHaveBeenCalledTimes(1);
+		expect(mockWriteBranchState).toHaveBeenCalledWith(expect.objectContaining({ cwd: '/repo', branch: 'lo-70-ticket-70', phase: BranchPhase.Merged }));
 	});
 
 	test('writes no record for a merge it read from one, because the record is already what it would write', async () => {

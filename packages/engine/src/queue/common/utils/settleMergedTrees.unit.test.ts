@@ -42,6 +42,7 @@ const treeOf = ({ number }: { number: number }): MergedParkedTree => ({
 		createdAt: '2026-01-01T00:00:00.000Z',
 		labels: [],
 		status: 'In Progress',
+		finished: false,
 		unfinishedBlockers: [],
 		planningStatus: PlanningStatus.NotNeeded,
 		worker: QueueWorker.Direct,

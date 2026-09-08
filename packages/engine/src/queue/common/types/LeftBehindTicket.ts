@@ -19,7 +19,10 @@ export interface LeftBehindTicket {
 	 * coordinator run's status — count only entries without it. A reconciled
 	 * ticket is finished and will never be offered again, so counting it would
 	 * make a fully shipped drain exit 2 and record an escalated run. Every other
-	 * entry leaves it unset.
+	 * entry leaves it unset, deliberately: the parked scan's skip of a ticket
+	 * the tracker files as finished whose branch never merged is the clearest
+	 * case, because that worktree is still on disk and may hold work nobody has
+	 * merged, so a person owes it a look.
 	 */
 	settled?: boolean;
 }

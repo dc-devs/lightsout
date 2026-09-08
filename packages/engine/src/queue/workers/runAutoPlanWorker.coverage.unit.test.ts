@@ -59,6 +59,7 @@ const ticket: TicketSummary = {
 	labels: [],
 	planningStatus: PlanningStatus.ReadyAutoPlan,
 	status: 'Ready to implement',
+	finished: false,
 	unfinishedBlockers: [],
 };
 

@@ -44,6 +44,7 @@ const issueOf = ({
 	relations = [],
 	relationPages = 1,
 	state = 'Backlog',
+	stateType = 'started',
 }: {
 	number: number;
 	description?: string | null;
@@ -53,6 +54,8 @@ const issueOf = ({
 	relationPages?: number;
 	/** The issue's workflow state name, or null for an issue whose state cannot be read at all. */
 	state?: string | null;
+	/** The issue's own workflow state type, which is how Linear itself files the state as started, completed or canceled. */
+	stateType?: string;
 }) => ({
 	id: `id-${number}`,
 	identifier: `LO-${number}`,
@@ -60,7 +63,7 @@ const issueOf = ({
 	description,
 	priority: 2,
 	createdAt: new Date('2026-01-01T00:00:00.000Z'),
-	state: state === null ? undefined : Promise.resolve({ name: state }),
+	state: state === null ? undefined : Promise.resolve({ name: state, type: stateType }),
 	labels: () => {
 		// A second page holds the tail of the label list, so a walker that stops
 		// after the first one reports one route label where the issue carries two.
@@ -148,6 +151,7 @@ describe('listTickets', () => {
 				createdAt: '2026-01-01T00:00:00.000Z',
 				labels: ['route-direct'],
 				status: 'Backlog',
+				finished: false,
 				unfinishedBlockers: [],
 			},
 			{
@@ -159,6 +163,7 @@ describe('listTickets', () => {
 				createdAt: '2026-01-01T00:00:00.000Z',
 				labels: ['route-auto-plan'],
 				status: 'Backlog',
+				finished: false,
 				unfinishedBlockers: [],
 			},
 		]);
@@ -282,6 +287,24 @@ describe('listTickets', () => {
 		setupClient({ issues: [issueOf({ number: 70, state: 'Ready to implement' })] });
 
 		expect(await listConfigured()).toEqual([expect.objectContaining({ status: 'Ready to implement' })]);
+	});
+
+	test('reports a ticket at a completed workflow state as finished, so no caller has to compare status names to know the work is over', async () => {
+		setupClient({ issues: [issueOf({ number: 70, state: 'Done', stateType: 'completed' })] });
+
+		expect(await listConfigured()).toEqual([expect.objectContaining({ identifier: 'LO-70', finished: true })]);
+	});
+
+	test('reports a ticket at a canceled workflow state as finished too — a ticket someone gave up on is as over as a shipped one', async () => {
+		setupClient({ issues: [issueOf({ number: 70, state: 'Canceled', stateType: 'canceled' })] });
+
+		expect(await listConfigured()).toEqual([expect.objectContaining({ identifier: 'LO-70', finished: true })]);
+	});
+
+	test('reports a ticket at a started workflow state as unfinished, which is what keeps an in-progress ticket workable', async () => {
+		setupClient({ issues: [issueOf({ number: 70, state: 'In Progress', stateType: 'started' })] });
+
+		expect(await listConfigured()).toEqual([expect.objectContaining({ identifier: 'LO-70', finished: false })]);
 	});
 
 	test('fails the whole read when an issue’s workflow status cannot be read — an empty status would silently drop it from the backlog', async () => {

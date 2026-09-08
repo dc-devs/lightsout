@@ -6,6 +6,7 @@ import { BranchPhase } from '#src/contracts/index.ts';
 import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
 import { createTicketWorktree } from '#src/queue/worktrees/createTicketWorktree.ts';
 import { scanParkedWorktrees } from '#src/queue/worktrees/scanParkedWorktrees.ts';
+import type { PullRequestSummary } from '#src/ship/index.ts';
 import type { TrackerFailure, TrackerTicket } from '#src/ticketTracker/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -14,17 +15,25 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 
 // Mocked Imports
 // -------------------------
-// The tracker lookup is the only thing here that would leave the machine. Git is
-// real, because which bucket a worktree lands in is read from git and nothing
-// else, and the label-to-planning-status mapping is real because that is what
-// decides whether a parked tree still has work to resume.
+// The tracker lookup and the forge read are the only two things here that would
+// leave the machine, and the forge answers nothing for every branch in this
+// file. Git is real, because which bucket a worktree lands in is read from git
+// and nothing else, and the label-to-planning-status mapping is real because
+// that is what decides whether a parked tree still has work to resume.
 const mockGetTicketsByIdentifiers = jest.fn<(params: { identifiers: string[] }) => Promise<TrackerTicket[] | TrackerFailure>>();
+const mockFindPullRequest = jest.fn<(params: { branch: string; cwd: string; state: string }) => Promise<PullRequestSummary | undefined>>();
 
 jest.mock('#src/ticketTracker/index.ts', () => ({
 	getTicketsByIdentifiers: (params: { identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
 	setParkedLabel: () => Promise.resolve(undefined),
 }));
+jest.mock('#src/ship/index.ts', () => ({
+	...jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts'),
+	findPullRequest: (params: { branch: string; cwd: string; state: string }) => mockFindPullRequest(params),
+}));
 // -------------------------
+
+mockFindPullRequest.mockResolvedValue(undefined);
 
 const settings = queueSettingsFixture();
 
@@ -41,6 +50,7 @@ const ticketOf = (identifier: string, labels: string[] = ['planning-not-needed']
 	createdAt: '2026-01-01T00:00:00.000Z',
 	labels,
 	status,
+	finished: false,
 	unfinishedBlockers: [],
 });
 

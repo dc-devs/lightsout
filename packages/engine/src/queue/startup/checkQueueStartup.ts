@@ -65,6 +65,7 @@ export const checkQueueStartup = async ({ cwd, settings, trackerSettings, shipSe
 		planningStatus: PlanningStatus.NotNeeded,
 		worker: QueueWorker.Direct,
 		status: readyStatus,
+		finished: false,
 		unfinishedBlockers: [],
 	};
 	const rendered = toTicketBranch({ ticket: sample, template: settings.branchTemplate });

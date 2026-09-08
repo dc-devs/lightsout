@@ -1,4 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
+import type { CommandResult } from '#src/common/types/CommandResult.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import { checkQueueStartup } from '#src/queue/startup/checkQueueStartup.ts';
 import type { TrackerFailure, TrackerSettings } from '#src/ticketTracker/index.ts';
@@ -16,12 +17,48 @@ const mockListLabelNames = jest.fn<(params: { settings: TrackerSettings }) => Pr
 
 jest.mock('#src/ticketTracker/index.ts', () => ({ listLabelNames: (params: { settings: TrackerSettings }) => mockListLabelNames(params) }));
 // -------------------------
+// Git is doubled at the one place the startup check reaches it, so the branch
+// and remote refusals below are arranged from outside rather than from a real
+// repository. `readGitDefaultBranch` stays real: what it reads out of the
+// remote head is part of what this check answers.
+interface RunCommandParams {
+	command: string;
+	cwd: string;
+	timeoutMs?: number;
+}
+
+const mockRunCommand = jest.fn<(params: RunCommandParams) => Promise<CommandResult>>();
+
+jest.mock('#src/common/processes/runCommand.ts', () => ({ runCommand: (params: RunCommandParams) => mockRunCommand(params) }));
+// -------------------------
 
 const shipSettings = shipSettingsFixture();
 const everyLabel = ['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed'];
 
 const check = ({ settings = queueSettingsFixture(), tracker = trackerSettingsFixture() }: { settings?: QueueSettings; tracker?: TrackerSettings } = {}) =>
 	checkQueueStartup({ cwd: '/tmp/repo', settings, trackerSettings: tracker, shipSettings });
+
+/**
+ * A repository the two configuration refusals both pass: a tracker that knows
+ * every configured planning-status label, and a remote whose head answers
+ * `remoteHead`. An empty head is the repository that never had `origin/HEAD`.
+ */
+const setupReadyRepo = ({ remoteHead = 'origin/main' }: { remoteHead?: string } = {}) => {
+	mockListLabelNames.mockResolvedValue(everyLabel);
+	mockRunCommand.mockResolvedValue({ exitCode: 0, stdout: remoteHead, stderr: '' });
+};
+
+/** The same ready repository, with the one fetch git refuses to spawn at all. */
+const setupUnfetchableRemote = () => {
+	setupReadyRepo();
+	mockRunCommand.mockImplementation(({ command }) => {
+		if (command === 'git fetch origin') {
+			return Promise.reject(new Error('spawn git ENOENT'));
+		}
+
+		return Promise.resolve({ exitCode: 0, stdout: 'origin/main', stderr: '' });
+	});
+};
 
 /** The one sentence the refusal is, whichever branch produced it. */
 const errorOf = (started: { error: string } | { defaultBranch: string }) => ('error' in started ? started.error : '');
@@ -59,5 +96,50 @@ describe('checkQueueStartup', () => {
 		mockListLabelNames.mockResolvedValue({ error: 'authentication failed' });
 
 		expect(await check()).toStrictEqual({ error: 'authentication failed' });
+	});
+
+	test('refuses a branch template the ship pattern cannot read, naming both keys and the branch it rendered', async () => {
+		setupReadyRepo();
+
+		const started = await check({ settings: queueSettingsFixture({ branchTemplate: 'wip/{slug}' }) });
+
+		expect(errorOf(started)).toContain('`queue.branch-template`');
+		expect(errorOf(started)).toContain('`ship.ticket-pattern`');
+		expect(errorOf(started)).toContain("renders 'wip/sample'");
+	});
+
+	test('shapes the sample branch from the configured tracker prefix, so a pattern scoped to one project is not false-alarmed', async () => {
+		setupReadyRepo();
+		const tracker = trackerSettingsFixture({ ticketPrefix: 'ACME' });
+
+		const started = await check({ settings: queueSettingsFixture({ branchTemplate: 'wip/{ticket}' }), tracker });
+
+		expect(errorOf(started)).toContain("renders 'wip/acme-1'");
+	});
+
+	test('refuses when the remote head is unset, naming the command that sets it', async () => {
+		setupReadyRepo({ remoteHead: '' });
+
+		expect(errorOf(await check())).toContain('git remote set-head origin --auto');
+	});
+
+	test('answers the remote default branch with the `origin/` prefix stripped', async () => {
+		setupReadyRepo({ remoteHead: 'origin/trunk' });
+
+		expect(await check()).toStrictEqual({ defaultBranch: 'trunk' });
+	});
+
+	test('fetches origin once for the whole drain, so every worktree creation builds on the one fetch', async () => {
+		setupReadyRepo();
+
+		await check();
+
+		expect(mockRunCommand.mock.calls.map(([{ command }]) => command)).toStrictEqual(['git rev-parse --abbrev-ref origin/HEAD', 'git fetch origin']);
+	});
+
+	test('starts the drain even when the fetch fails — a stale remote is no reason to refuse the whole queue', async () => {
+		setupUnfetchableRemote();
+
+		expect(await check()).toStrictEqual({ defaultBranch: 'main' });
 	});
 });

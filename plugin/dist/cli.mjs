@@ -29872,11 +29872,14 @@ var getTicketAttachments = async ({ settings, identifier }) => {
   });
 };
 
+// src/ticketTracker/jira/common/utils/isFinishedJiraStatus.ts
+var isFinishedJiraStatus = ({ categoryKey }) => categoryKey === "done";
+
 // src/ticketTracker/jira/common/utils/getJiraUnfinishedBlockers.ts
 var getJiraUnfinishedBlockers = ({ issue: issue2 }) => (issue2.fields.issuelinks ?? []).flatMap((link) => {
   const linked = link.type?.inward === "is blocked by" ? link.inwardIssue : void 0;
   const key = linked?.key;
-  return key === void 0 || linked?.fields?.status?.statusCategory?.key === "done" ? [] : [key];
+  return key === void 0 || isFinishedJiraStatus({ categoryKey: linked?.fields?.status?.statusCategory?.key }) ? [] : [key];
 });
 
 // src/ticketTracker/jira/common/utils/quoteJqlString.ts
@@ -29897,6 +29900,10 @@ var toJiraTrackerTicket = ({ issue: issue2, unfinishedBlockers }) => {
   if (status === void 0) {
     return { error: `Jira issue '${issue2.key}' is missing its status name` };
   }
+  const categoryKey = issue2.fields.status?.statusCategory?.key;
+  if (categoryKey === void 0) {
+    return { error: `Jira issue '${issue2.key}' has a status that carries no category` };
+  }
   return {
     id: issue2.id,
     identifier: issue2.key,
@@ -29906,6 +29913,7 @@ var toJiraTrackerTicket = ({ issue: issue2, unfinishedBlockers }) => {
     createdAt: issue2.fields.created,
     labels: issue2.fields.labels ?? [],
     status,
+    finished: isFinishedJiraStatus({ categoryKey }),
     unfinishedBlockers
   };
 };
@@ -128067,8 +128075,11 @@ var getTicketAttachments2 = async ({ settings, identifier }) => {
   });
 };
 
-// src/ticketTracker/linear/common/utils/getUnfinishedBlockers.ts
+// src/ticketTracker/linear/common/utils/isFinishedState.ts
 var finishedStateTypes = /* @__PURE__ */ new Set(["completed", "canceled"]);
+var isFinishedState = ({ stateType }) => stateType !== void 0 && finishedStateTypes.has(stateType);
+
+// src/ticketTracker/linear/common/utils/getUnfinishedBlockers.ts
 var getUnfinishedBlockers = async ({ issue: issue2 }) => {
   const relations = await collectNodes({ connection: await issue2.inverseRelations() });
   const resolved = await Promise.all(
@@ -128078,7 +128089,7 @@ var getUnfinishedBlockers = async ({ issue: issue2 }) => {
         return void 0;
       }
       const state = await blocker.state;
-      return state !== void 0 && finishedStateTypes.has(state.type) ? void 0 : blocker.identifier;
+      return isFinishedState({ stateType: state?.type }) ? void 0 : blocker.identifier;
     })
   );
   return resolved.filter((identifier) => identifier !== void 0);
@@ -128091,7 +128102,7 @@ var readLabelNames = async ({ issue: issue2 }) => {
 };
 
 // src/ticketTracker/linear/common/utils/toTrackerTicket.ts
-var toTrackerTicket = ({ issue: issue2, labels, status, unfinishedBlockers }) => ({
+var toTrackerTicket = ({ issue: issue2, labels, status, finished, unfinishedBlockers }) => ({
   id: issue2.id,
   identifier: issue2.identifier,
   title: issue2.title,
@@ -128100,6 +128111,7 @@ var toTrackerTicket = ({ issue: issue2, labels, status, unfinishedBlockers }) =>
   createdAt: issue2.createdAt.toISOString(),
   labels,
   status,
+  finished,
   unfinishedBlockers
 });
 
@@ -128110,7 +128122,7 @@ var collectTrackerTickets = async ({ connection }) => {
   const resolved = await Promise.all(
     issues.map(async (issue2) => {
       const [labels, unfinishedBlockers, state] = await Promise.all([readLabelNames({ issue: issue2 }), getUnfinishedBlockers({ issue: issue2 }), issue2.state]);
-      return state === void 0 ? { error: `Linear issue '${issue2.identifier}' has no readable workflow status` } : toTrackerTicket({ issue: issue2, labels, status: state.name, unfinishedBlockers });
+      return state === void 0 ? { error: `Linear issue '${issue2.identifier}' has no readable workflow status` } : toTrackerTicket({ issue: issue2, labels, status: state.name, finished: isFinishedState({ stateType: state.type }), unfinishedBlockers });
     })
   );
   const failure = resolved.find(isFailure);
@@ -151711,14 +151723,20 @@ var removeTicketWorktree = async ({ cwd, worktreePath, branch }) => {
 import { realpath } from "node:fs/promises";
 import { join as join111 } from "node:path";
 
-// src/common/git/readGitCommitsAhead.ts
-var readGitCommitsAhead = async ({ cwd, defaultBranch }) => {
-  const counted = await runCommand({ command: `git rev-list --count origin/${defaultBranch}..HEAD`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  if (counted?.exitCode !== 0) {
-    return void 0;
+// src/queue/common/utils/establishBranchMerge.ts
+var establishBranchMerge = async ({ cwd, branch, onProgress }) => {
+  const recorded = await readBranchState({ cwd, branch });
+  let evidence;
+  if (recorded?.phase === BranchPhase.Merged) {
+    evidence = {};
+  } else {
+    const pullRequest = await findPullRequest({ branch, cwd, state: PullRequestState.Merged });
+    if (pullRequest !== void 0) {
+      await writeBranchState({ cwd, branch, phase: BranchPhase.Merged, onProgress });
+      evidence = { pullRequest };
+    }
   }
-  const commits = Number.parseInt(counted.stdout.trim(), 10);
-  return Number.isFinite(commits) ? commits : void 0;
+  return evidence;
 };
 
 // src/queue/common/constants/QueueWorker.ts
@@ -151756,6 +151774,55 @@ var toPlanningSummaries = ({ ticket, lifecycle, resumed }) => Object.values(Plan
   })
 }));
 
+// src/queue/worktrees/common/constants/ParkedTreeBucket.ts
+var ParkedTreeBucket = {
+  Unreadable: "unreadable",
+  Drain: "drain",
+  Ship: "ship"
+};
+
+// src/common/git/readGitCommitsAhead.ts
+var readGitCommitsAhead = async ({ cwd, defaultBranch }) => {
+  const counted = await runCommand({ command: `git rev-list --count origin/${defaultBranch}..HEAD`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  if (counted?.exitCode !== 0) {
+    return void 0;
+  }
+  const commits = Number.parseInt(counted.stdout.trim(), 10);
+  return Number.isFinite(commits) ? commits : void 0;
+};
+
+// src/queue/worktrees/common/utils/classifyUnrecordedTree.ts
+var classifyUnrecordedTree = async ({
+  cwd,
+  tree,
+  defaultBranch,
+  onProgress
+}) => {
+  const ahead = await readGitCommitsAhead({ cwd: tree.path, defaultBranch });
+  if (ahead === void 0) {
+    return ParkedTreeBucket.Drain;
+  }
+  const carriesCommits = ahead > 0;
+  await writeBranchState({ cwd, branch: tree.branch, phase: carriesCommits ? BranchPhase.Ready : BranchPhase.Building, onProgress });
+  return carriesCommits ? ParkedTreeBucket.Ship : ParkedTreeBucket.Drain;
+};
+
+// src/queue/worktrees/common/utils/classifyTree.ts
+var classifyTree = async ({ cwd, tree, defaultBranch, onProgress }) => {
+  const changed = await readGitChangedFiles({ cwd: tree.path });
+  if (changed === void 0) {
+    return ParkedTreeBucket.Unreadable;
+  }
+  if (changed.length > 0) {
+    return ParkedTreeBucket.Drain;
+  }
+  const recorded = await readBranchState({ cwd, branch: tree.branch });
+  if (recorded !== void 0) {
+    return recorded.phase === BranchPhase.Ready ? ParkedTreeBucket.Ship : ParkedTreeBucket.Drain;
+  }
+  return classifyUnrecordedTree({ cwd, tree, defaultBranch, onProgress });
+};
+
 // src/queue/worktrees/scanParkedWorktrees.ts
 var toQueuePath = ({ path, root, realRoot }) => {
   for (const prefix of [root, realRoot]) {
@@ -151786,31 +151853,20 @@ var listQueueWorktrees = async ({ cwd, shipSettings, onProgress }) => {
   }
   return trees;
 };
-var classifyUnrecordedTree = async ({ cwd, tree, defaultBranch, onProgress }) => {
-  const ahead = await readGitCommitsAhead({ cwd: tree.path, defaultBranch });
-  if (ahead === void 0) {
-    return "drain";
+var describeWithdrawal = ({
+  tree,
+  matched,
+  runnable,
+  settings
+}) => {
+  let withdrawal;
+  if (matched.length === 0) {
+    withdrawal = `its worktree at ${tree.path} is parked, but the ticket carries no planning status label any more`;
+  } else if (runnable.length === 0) {
+    const carried = matched.map((ticket) => `'${settings.lifecycle.planningStatusLabels[ticket.planningStatus]}'`).join(" and ");
+    withdrawal = `its worktree at ${tree.path} is parked, but the ticket now carries ${carried}, which the queue never resumes`;
   }
-  const carriesCommits = ahead > 0;
-  await writeBranchState({ cwd, branch: tree.branch, phase: carriesCommits ? BranchPhase.Ready : BranchPhase.Building, onProgress });
-  return carriesCommits ? "ship" : "drain";
-};
-var classifyTree = async ({ cwd, tree, defaultBranch, onProgress }) => {
-  const recorded = await readBranchState({ cwd, branch: tree.branch });
-  if (recorded?.phase === BranchPhase.Merged) {
-    return "settled";
-  }
-  const changed = await readGitChangedFiles({ cwd: tree.path });
-  if (changed === void 0) {
-    return "unreadable";
-  }
-  if (changed.length > 0) {
-    return "drain";
-  }
-  if (recorded !== void 0) {
-    return recorded.phase === BranchPhase.Ready ? "ship" : "drain";
-  }
-  return classifyUnrecordedTree({ cwd, tree, defaultBranch, onProgress });
+  return withdrawal;
 };
 var scanParkedWorktrees = async ({
   cwd,
@@ -151832,28 +151888,29 @@ var scanParkedWorktrees = async ({
   const parked = { resumed: [], outcomes: [], leftBehind: [], merged: [] };
   for (const tree of trees) {
     const matched = summaries.filter((ticket2) => ticket2.identifier.toLowerCase() === tree.identifier.toLowerCase());
-    if (matched.length === 0) {
-      const reason = `its worktree at ${tree.path} is parked, but the ticket carries no planning status label any more`;
-      onProgress?.(`${tree.identifier} \xB7 ${reason}`);
-      parked.leftBehind.push({ identifier: tree.identifier, reason });
+    const runnable = matched.filter((ticket2) => ticket2.worker !== void 0);
+    const withdrawn = describeWithdrawal({ tree, matched, runnable, settings });
+    if (withdrawn !== void 0) {
+      onProgress?.(`${tree.identifier} \xB7 ${withdrawn}`);
+      parked.leftBehind.push({ identifier: tree.identifier, reason: withdrawn });
       continue;
     }
-    const runnable = matched.filter((ticket2) => ticket2.worker !== void 0);
-    if (runnable.length === 0) {
-      const carried = matched.map((ticket2) => `'${settings.lifecycle.planningStatusLabels[ticket2.planningStatus]}'`).join(" and ");
-      const reason = `its worktree at ${tree.path} is parked, but the ticket now carries ${carried}, which the queue never resumes`;
+    const ticket = runnable[0];
+    const evidence = await establishBranchMerge({ cwd, branch: tree.branch, onProgress });
+    if (evidence !== void 0) {
+      const established = evidence.pullRequest === void 0 ? "its branch is recorded merged" : `its branch already has a merged pull request #${evidence.pullRequest.number}`;
+      onProgress?.(`${tree.identifier} \xB7 ${established}, so it is reconciled rather than resumed`);
+      parked.merged.push({ worktreePath: tree.path, branch: tree.branch, ticket });
+      continue;
+    }
+    if (ticket.finished) {
+      const reason = `its worktree at ${tree.path} is parked, but the tracker files the ticket as finished while its branch is not merged, so the worktree was left in place \u2014 it may hold work nobody has merged`;
       onProgress?.(`${tree.identifier} \xB7 ${reason}`);
       parked.leftBehind.push({ identifier: tree.identifier, reason });
       continue;
     }
     const bucket = await classifyTree({ cwd, tree, defaultBranch, onProgress });
-    const ticket = runnable[0];
-    if (bucket === "settled") {
-      onProgress?.(`${tree.identifier} \xB7 its branch is recorded merged, so it is reconciled rather than resumed`);
-      parked.merged.push({ worktreePath: tree.path, branch: tree.branch, ticket });
-      continue;
-    }
-    if (bucket === "drain") {
+    if (bucket === ParkedTreeBucket.Drain) {
       const cleared = await setParkedLabel3({ settings: trackerSettings, ticketId: ticket.id, label: settings.parkedLabel, parked: false });
       if (cleared !== void 0) {
         onProgress?.(`${tree.identifier} \xB7 the parked label could not be cleared: ${cleared.error}`);
@@ -151864,8 +151921,8 @@ var scanParkedWorktrees = async ({
         ticket,
         branch: tree.branch,
         worktreePath: tree.path,
-        ready: bucket === "ship",
-        error: bucket === "ship" ? void 0 : `git could not read the worktree at ${tree.path}`
+        ready: bucket === ParkedTreeBucket.Ship,
+        error: bucket === ParkedTreeBucket.Ship ? void 0 : `git could not read the worktree at ${tree.path}`
       });
     }
   }
@@ -152033,10 +152090,8 @@ var reconcileMergedTickets = async ({
   const leftBehind = [];
   for (const ticket of tickets) {
     const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
-    const recorded = await readBranchState({ cwd, branch });
-    const recordedMerged = recorded?.phase === BranchPhase.Merged;
-    const merged = recordedMerged ? void 0 : await findPullRequest({ branch, cwd, state: PullRequestState.Merged });
-    if (!recordedMerged && merged === void 0) {
+    const evidence = await establishBranchMerge({ cwd, branch, onProgress });
+    if (evidence === void 0) {
       kept.push(ticket);
       continue;
     }
@@ -152044,11 +152099,8 @@ var reconcileMergedTickets = async ({
     if (reconciliationFailure !== void 0) {
       onProgress?.(reconciliationFailure);
     }
-    if (merged !== void 0) {
-      await writeBranchState({ cwd, branch, phase: BranchPhase.Merged, onProgress });
-    }
     const heldWorktree = await settleReconciledWorktree({ cwd, worktreePath: join112(getWorktreesRoot({ cwd }), branch), branch, onProgress });
-    const established = merged === void 0 ? `its branch ${branch} is recorded merged` : `its branch ${branch} already has a merged pull request #${merged.number}`;
+    const established = evidence.pullRequest === void 0 ? `its branch ${branch} is recorded merged` : `its branch ${branch} already has a merged pull request #${evidence.pullRequest.number}`;
     const reason = `skipped: ${established}, so the ticket was reconciled to done rather than built again${heldWorktree ?? ""}${reconciliationFailure === void 0 ? "" : ` \u2014 ${reconciliationFailure}`}`;
     leftBehind.push({ identifier: ticket.identifier, reason, settled: true });
   }
@@ -152646,6 +152698,7 @@ var checkQueueStartup = async ({ cwd, settings, trackerSettings, shipSettings })
     planningStatus: PlanningStatus.NotNeeded,
     worker: QueueWorker.Direct,
     status: readyStatus,
+    finished: false,
     unfinishedBlockers: []
   };
   const rendered = toTicketBranch({ ticket: sample, template: settings.branchTemplate });

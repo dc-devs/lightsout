@@ -1,4 +1,4 @@
-import { beforeEach, expect, jest, test } from '@jest/globals';
+import { expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { TrackerStatusRole } from '#src/ticketLifecycle/common/constants/TrackerStatusRole.ts';
 import type { LifecycleSettings } from '#src/ticketLifecycle/common/types/LifecycleSettings.ts';
@@ -53,15 +53,11 @@ const ticketAt = ({ status }: { status: string }): TrackerTicket => ({
 	createdAt: '2026-08-30T22:40:41.813Z',
 	labels: [],
 	status,
+	finished: false,
 	unfinishedBlockers: [],
 });
 
 const settle = async () => writeDoneStatus({ lifecycle, trackerSettings, ticketId: 'internal-id', ticketRef: 'LO-79', currentStatus: 'In Progress' });
-
-beforeEach(() => {
-	mockUpdateTicketLifecycle.mockReset();
-	mockGetTicketsByIdentifiers.mockReset();
-});
 
 test('writeDoneStatus: a write that lands asks the tracker nothing further', async () => {
 	mockUpdateTicketLifecycle.mockResolvedValue(undefined);

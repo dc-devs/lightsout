@@ -71,6 +71,7 @@ const ticketOf = ({
 	planningStatus,
 	worker,
 	status,
+	finished: false,
 	unfinishedBlockers: [],
 });
 

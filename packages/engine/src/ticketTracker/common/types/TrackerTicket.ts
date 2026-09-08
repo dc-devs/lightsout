@@ -9,6 +9,10 @@
  * here for the opposite reason — it is the tracker's own word for where the
  * ticket sits in its workflow, so reporting it is reporting what was seen,
  * while any classification derived from it stays the caller's.
+ *
+ * `finished` is reported beside it for that same reason: the tracker's own
+ * classification of that word is itself something the tracker said, so the seam
+ * carries it rather than leaving every caller to compare status spellings.
  */
 export interface TrackerTicket {
 	/** The tracker's internal id — what every write call takes. */
@@ -33,6 +37,8 @@ export interface TrackerTicket {
 	 * caller's vocabulary, not this module's.
 	 */
 	status: string;
+	/** True when the tracker files this ticket's status as a finished one — completed or canceled, as the tracker itself classifies it. */
+	finished: boolean;
 	/**
 	 * Identifiers of blocking tickets that are not finished — empty when nothing
 	 * blocks this one.

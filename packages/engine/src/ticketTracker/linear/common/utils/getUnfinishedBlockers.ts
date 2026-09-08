@@ -1,17 +1,10 @@
 import type { Issue } from '@linear/sdk';
 import { collectNodes } from '#src/ticketTracker/linear/common/utils/collectNodes.ts';
+import { isFinishedState } from '#src/ticketTracker/linear/common/utils/isFinishedState.ts';
 
 interface Params {
 	issue: Issue;
 }
-
-/**
- * Workflow-state types that mean a blocker is done with.
- *
- * A canceled blocker counts as finished deliberately: a ticket someone gave up
- * on must not block its dependent forever.
- */
-const finishedStateTypes = new Set(['completed', 'canceled']);
 
 /**
  * The identifiers of every blocking ticket this issue is still waiting on.
@@ -38,7 +31,7 @@ export const getUnfinishedBlockers = async ({ issue }: Params): Promise<string[]
 
 				const state = await blocker.state;
 
-				return state !== undefined && finishedStateTypes.has(state.type) ? undefined : blocker.identifier;
+				return isFinishedState({ stateType: state?.type }) ? undefined : blocker.identifier;
 			}),
 	);
 
