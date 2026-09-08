@@ -16,7 +16,7 @@ const issue = {
 		created: '2026-01-01T00:00:00.000Z',
 		description,
 		priority: { name: 'Lowest' },
-		status: { name: 'Backlog' },
+		status: { name: 'Backlog', statusCategory: { key: 'new' } },
 		issuelinks: [
 			{ type: { inward: 'is blocked by' }, inwardIssue: { key: 'LO-2', fields: { status: { statusCategory: { key: 'indeterminate' } } } } },
 			{ type: { inward: 'is blocked by' }, inwardIssue: { key: 'LO-3', fields: { status: { statusCategory: { key: 'done' } } } } },
@@ -58,6 +58,7 @@ describe('Jira listTickets', () => {
 				createdAt: '2026-01-01T00:00:00.000Z',
 				labels: [],
 				status: 'Backlog',
+				finished: false,
 				unfinishedBlockers: ['LO-2', 'LO-4'],
 			},
 		]);
@@ -118,12 +119,37 @@ describe('Jira listTickets', () => {
 		const sparse = {
 			id: '1002',
 			key: 'LO-2',
-			fields: { summary: 'Sparse', created: '2026-01-02T00:00:00.000Z', labels: null, priority: null, issuelinks: null, status: { name: 'Backlog' } },
+			fields: {
+				summary: 'Sparse',
+				created: '2026-01-02T00:00:00.000Z',
+				labels: null,
+				priority: null,
+				issuelinks: null,
+				status: { name: 'Backlog', statusCategory: { key: 'new' } },
+			},
 		};
 		mockRunJira.mockImplementation(({ request: call }) => call({ request: () => Promise.resolve({ issues: [sparse], isLast: true }) }));
 
 		expect(await listTickets({ settings: jiraTrackerSettingsFixture(), labelNames: ['route-direct'], statuses: ['Ready'] })).toEqual([
-			expect.objectContaining({ description: '', labels: [], priority: 0, status: 'Backlog', unfinishedBlockers: [] }),
+			expect.objectContaining({ description: '', labels: [], priority: 0, status: 'Backlog', finished: false, unfinishedBlockers: [] }),
 		]);
+	});
+
+	test('reports a ticket whose status category is done as finished, from the category Jira itself files it under', async () => {
+		const doneIssue = { ...issue, fields: { ...issue.fields, status: { name: 'Done', statusCategory: { key: 'done' } } } };
+		mockRunJira.mockImplementation(({ request: call }) => call({ request: () => Promise.resolve({ issues: [doneIssue], isLast: true }) }));
+
+		const result = await listTickets({ settings: jiraTrackerSettingsFixture(), labelNames: ['route-direct'], statuses: ['Done'] });
+
+		expect(result).toEqual([expect.objectContaining({ identifier: 'LO-1', status: 'Done', finished: true })]);
+	});
+
+	test('reports a ticket whose status category is not done as unfinished', async () => {
+		const openIssue = { ...issue, fields: { ...issue.fields, status: { name: 'In Progress', statusCategory: { key: 'indeterminate' } } } };
+		mockRunJira.mockImplementation(({ request: call }) => call({ request: () => Promise.resolve({ issues: [openIssue], isLast: true }) }));
+
+		const result = await listTickets({ settings: jiraTrackerSettingsFixture(), labelNames: ['route-direct'], statuses: ['In Progress'] });
+
+		expect(result).toEqual([expect.objectContaining({ identifier: 'LO-1', status: 'In Progress', finished: false })]);
 	});
 });

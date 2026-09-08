@@ -1,6 +1,7 @@
 import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
 import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
 import type { JiraIssue } from '#src/ticketTracker/jira/common/types/JiraIssue.ts';
+import { isFinishedJiraStatus } from '#src/ticketTracker/jira/common/utils/isFinishedJiraStatus.ts';
 import { fromAdf } from '#src/ticketTracker/jira/fromAdf.ts';
 
 interface Params {
@@ -29,6 +30,14 @@ export const toJiraTrackerTicket = ({ issue, unfinishedBlockers }: Params): Trac
 		return { error: `Jira issue '${issue.key}' is missing its status name` };
 	}
 
+	const categoryKey = issue.fields.status?.statusCategory?.key;
+
+	// A ticket whose finishedness is unknown must never be reported as unfinished:
+	// the caller would resume work someone already closed.
+	if (categoryKey === undefined) {
+		return { error: `Jira issue '${issue.key}' has a status that carries no category` };
+	}
+
 	return {
 		id: issue.id,
 		identifier: issue.key,
@@ -38,6 +47,7 @@ export const toJiraTrackerTicket = ({ issue, unfinishedBlockers }: Params): Trac
 		createdAt: issue.fields.created,
 		labels: issue.fields.labels ?? [],
 		status,
+		finished: isFinishedJiraStatus({ categoryKey }),
 		unfinishedBlockers,
 	};
 };

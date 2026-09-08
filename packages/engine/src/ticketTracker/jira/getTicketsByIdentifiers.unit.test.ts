@@ -15,7 +15,7 @@ const issue = {
 		created: '2026-01-01T00:00:00.000Z',
 		description: null,
 		labels: ['route-direct', 'route-auto-plan'],
-		status: { name: 'In Progress' },
+		status: { name: 'In Progress', statusCategory: { key: 'indeterminate' } },
 		issuelinks: [{ type: { inward: 'is blocked by' }, inwardIssue: { key: 'LO-2', fields: null } }],
 	},
 };
@@ -50,6 +50,7 @@ describe('Jira getTicketsByIdentifiers', () => {
 				createdAt: '2026-01-01T00:00:00.000Z',
 				labels: ['route-direct', 'route-auto-plan'],
 				status: 'In Progress',
+				finished: false,
 				unfinishedBlockers: ['LO-2'],
 			},
 		]);
@@ -89,5 +90,23 @@ describe('Jira getTicketsByIdentifiers', () => {
 		expect(await getTicketsByIdentifiers({ settings: jiraTrackerSettingsFixture(), identifiers: ['LO-1'] })).toStrictEqual({
 			error: 'Jira returned a nonfinal search page without a nextPageToken',
 		});
+	});
+
+	test('carries the finished flag on a ticket looked up by key, which is the lookup a parked worktree makes', async () => {
+		const doneIssue = { ...issue, fields: { ...issue.fields, status: { name: 'Done', statusCategory: { key: 'done' } } } };
+		mockRunJira.mockImplementation(({ request: call }) => call({ request: () => Promise.resolve({ issues: [doneIssue], isLast: true }) }));
+
+		const result = await getTicketsByIdentifiers({ settings: jiraTrackerSettingsFixture(), identifiers: ['LO-1'] });
+
+		expect(result).toEqual([expect.objectContaining({ identifier: 'LO-1', status: 'Done', finished: true })]);
+	});
+
+	test('fails the read when a status carries no category — a ticket whose finishedness is unknown must never be reported as unfinished', async () => {
+		const uncategorizedIssue = { ...issue, fields: { ...issue.fields, status: { name: 'In Progress' } } };
+		mockRunJira.mockImplementation(({ request: call }) => call({ request: () => Promise.resolve({ issues: [uncategorizedIssue], isLast: true }) }));
+
+		const result = await getTicketsByIdentifiers({ settings: jiraTrackerSettingsFixture(), identifiers: ['LO-1'] });
+
+		expect(result).toStrictEqual({ error: "Jira issue 'LO-1' has a status that carries no category" });
 	});
 });

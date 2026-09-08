@@ -71,6 +71,7 @@ const ticketOf = ({
 	planningStatus: PlanningStatus.NotNeeded,
 	worker: QueueWorker.Direct,
 	status: 'Ready to implement',
+	finished: false,
 	unfinishedBlockers,
 });
 

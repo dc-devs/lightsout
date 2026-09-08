@@ -1,16 +1,17 @@
 import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { gitTimeoutMs } from '#src/common/constants/gitTimeoutMs.ts';
-import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
-import { readGitCommitsAhead } from '#src/common/git/readGitCommitsAhead.ts';
 import { runCommand } from '#src/common/processes/runCommand.ts';
-import { BranchPhase } from '#src/contracts/index.ts';
-import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
+import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
+import { establishBranchMerge } from '#src/queue/common/utils/establishBranchMerge.ts';
 import { getWorktreesRoot } from '#src/queue/common/utils/getWorktreesRoot.ts';
 import { toPlanningSummaries } from '#src/queue/common/utils/toPlanningSummaries.ts';
+import { ParkedTreeBucket } from '#src/queue/worktrees/common/constants/ParkedTreeBucket.ts';
+import type { ParkedTree } from '#src/queue/worktrees/common/types/ParkedTree.ts';
+import { classifyTree } from '#src/queue/worktrees/common/utils/classifyTree.ts';
 import { readTicketMatch, type ShipSettings } from '#src/ship/index.ts';
 import { getTicketsByIdentifiers, setParkedLabel, type TrackerSettings } from '#src/ticketTracker/index.ts';
 
@@ -21,22 +22,6 @@ interface Params {
 	settings: QueueSettings;
 	trackerSettings: TrackerSettings;
 	shipSettings: ShipSettings;
-	onProgress?: (message: string) => void;
-}
-
-/** One worktree git knows about: where it is and which branch it holds. */
-interface ParkedTree {
-	path: string;
-	branch: string;
-	identifier: string;
-}
-
-/** What both classification steps below need. Declared once because they take the same things and one calls the other. */
-interface ClassifyParams {
-	/** The main repository checkout, where every branch-state record lives. */
-	cwd: string;
-	tree: ParkedTree;
-	defaultBranch: string;
 	onProgress?: (message: string) => void;
 }
 
@@ -64,7 +49,7 @@ const toQueuePath = ({ path, root, realRoot }: { path: string; root: string; rea
  * listing: a slash-bearing branch template nests directories, so an entry name
  * is not a branch name.
  */
-const listQueueWorktrees = async ({ cwd, shipSettings, onProgress }: Omit<Params, 'defaultBranch' | 'settings' | 'trackerSettings'>) => {
+const listQueueWorktrees = async ({ cwd, shipSettings, onProgress }: { cwd: string; shipSettings: ShipSettings; onProgress?: (message: string) => void }) => {
 	const listed = await runCommand({ command: 'git worktree list --porcelain', cwd, timeoutMs: gitTimeoutMs }).catch(() => undefined);
 	const root = getWorktreesRoot({ cwd });
 	const realRoot = await realpath(root).catch(() => root);
@@ -95,62 +80,35 @@ const listQueueWorktrees = async ({ cwd, shipSettings, onProgress }: Omit<Params
 };
 
 /**
- * The bucket for a tree nothing has recorded yet, and the record written from
- * it — today's git count, made durable so no later scan has to run it again.
+ * Why a parked worktree is left alone rather than resumed, or undefined when
+ * its ticket still delegates the work to the queue.
  *
- * The write is narrower than the bucket on purpose: a count git could not give
- * is not a fact worth recording. Records are never deleted and a recorded phase
- * short-circuits the count above, so persisting `building` for an answer git
- * never gave would send a branch that already carries finished commits back to
- * a worker on every future scan, with the count that would have found it never
- * running again.
+ * A removed planning-status label is the user withdrawing the automation, and a
+ * label changed back to a shaping state says the same thing: the tree is theirs
+ * to inspect or delete, and the queue names it rather than touching it.
  */
-const classifyUnrecordedTree = async ({ cwd, tree, defaultBranch, onProgress }: ClassifyParams) => {
-	const ahead = await readGitCommitsAhead({ cwd: tree.path, defaultBranch });
+const describeWithdrawal = ({
+	tree,
+	matched,
+	runnable,
+	settings,
+}: {
+	tree: ParkedTree;
+	matched: TicketSummary[];
+	runnable: TicketSummary[];
+	settings: QueueSettings;
+}) => {
+	let withdrawal: string | undefined;
 
-	if (ahead === undefined) {
-		return 'drain' as const;
+	if (matched.length === 0) {
+		withdrawal = `its worktree at ${tree.path} is parked, but the ticket carries no planning status label any more`;
+	} else if (runnable.length === 0) {
+		const carried = matched.map((ticket) => `'${settings.lifecycle.planningStatusLabels[ticket.planningStatus]}'`).join(' and ');
+
+		withdrawal = `its worktree at ${tree.path} is parked, but the ticket now carries ${carried}, which the queue never resumes`;
 	}
 
-	const carriesCommits = ahead > 0;
-
-	await writeBranchState({ cwd, branch: tree.branch, phase: carriesCommits ? BranchPhase.Ready : BranchPhase.Building, onProgress });
-
-	return carriesCommits ? ('ship' as const) : ('drain' as const);
-};
-
-/**
- * Where one parked worktree goes next, read from the branch's own record rather
- * than guessed from the directory.
- *
- * `merged` settles the tree whatever it holds — nothing is waiting on it. Below
- * that a dirty tree wins: sending uncommitted work to the merge would merge
- * none of it, and the drain still ends the branch merged in the same run,
- * because the ticket's own run commits what is there and records `ready` again.
- * Only with no record at all does git decide, and the answer is written down.
- */
-const classifyTree = async ({ cwd, tree, defaultBranch, onProgress }: ClassifyParams) => {
-	const recorded = await readBranchState({ cwd, branch: tree.branch });
-
-	if (recorded?.phase === BranchPhase.Merged) {
-		return 'settled' as const;
-	}
-
-	const changed = await readGitChangedFiles({ cwd: tree.path });
-
-	if (changed === undefined) {
-		return 'unreadable' as const;
-	}
-
-	if (changed.length > 0) {
-		return 'drain' as const;
-	}
-
-	if (recorded !== undefined) {
-		return recorded.phase === BranchPhase.Ready ? ('ship' as const) : ('drain' as const);
-	}
-
-	return classifyUnrecordedTree({ cwd, tree, defaultBranch, onProgress });
+	return withdrawal;
 };
 
 /**
@@ -166,6 +124,17 @@ const classifyTree = async ({ cwd, tree, defaultBranch, onProgress }: ClassifyPa
  * alone with a warning — a removed label is the user withdrawing the
  * automation, and the tree is theirs to inspect or delete. So is one whose
  * label was changed back to a shaping state, for the same reason.
+ *
+ * Two questions are then asked of every tree still delegated, in that order.
+ * Has the branch merged? — established the same two ways a tracker-picked
+ * ticket gets, this queue's own record and then the forge, because a branch
+ * someone merged by hand looks exactly like a clean tree carrying commits, and
+ * shipping it a second time is the cost of guessing. Does the tracker file the
+ * ticket as finished? — because a ticket a human moved to Done or Canceled
+ * with its label still on is work nobody is waiting for, and resuming it would
+ * write the ticket back to In Progress. A finished ticket whose branch is not
+ * merged is reported and its worktree left where it is, whatever the tree
+ * holds: it may hold work no one has seen.
  */
 export const scanParkedWorktrees = async ({
 	cwd,
@@ -195,20 +164,29 @@ export const scanParkedWorktrees = async ({
 
 	for (const tree of trees) {
 		const matched = summaries.filter((ticket) => ticket.identifier.toLowerCase() === tree.identifier.toLowerCase());
+		const runnable = matched.filter((ticket) => ticket.worker !== undefined);
+		const withdrawn = describeWithdrawal({ tree, matched, runnable, settings });
 
-		if (matched.length === 0) {
-			const reason = `its worktree at ${tree.path} is parked, but the ticket carries no planning status label any more`;
-
-			onProgress?.(`${tree.identifier} · ${reason}`);
-			parked.leftBehind.push({ identifier: tree.identifier, reason });
+		if (withdrawn !== undefined) {
+			onProgress?.(`${tree.identifier} · ${withdrawn}`);
+			parked.leftBehind.push({ identifier: tree.identifier, reason: withdrawn });
 			continue;
 		}
 
-		const runnable = matched.filter((ticket) => ticket.worker !== undefined);
+		const ticket = runnable[0];
+		const evidence = await establishBranchMerge({ cwd, branch: tree.branch, onProgress });
 
-		if (runnable.length === 0) {
-			const carried = matched.map((ticket) => `'${settings.lifecycle.planningStatusLabels[ticket.planningStatus]}'`).join(' and ');
-			const reason = `its worktree at ${tree.path} is parked, but the ticket now carries ${carried}, which the queue never resumes`;
+		if (evidence !== undefined) {
+			const established =
+				evidence.pullRequest === undefined ? 'its branch is recorded merged' : `its branch already has a merged pull request #${evidence.pullRequest.number}`;
+
+			onProgress?.(`${tree.identifier} · ${established}, so it is reconciled rather than resumed`);
+			parked.merged.push({ worktreePath: tree.path, branch: tree.branch, ticket });
+			continue;
+		}
+
+		if (ticket.finished) {
+			const reason = `its worktree at ${tree.path} is parked, but the tracker files the ticket as finished while its branch is not merged, so the worktree was left in place — it may hold work nobody has merged`;
 
 			onProgress?.(`${tree.identifier} · ${reason}`);
 			parked.leftBehind.push({ identifier: tree.identifier, reason });
@@ -216,15 +194,8 @@ export const scanParkedWorktrees = async ({
 		}
 
 		const bucket = await classifyTree({ cwd, tree, defaultBranch, onProgress });
-		const ticket = runnable[0];
 
-		if (bucket === 'settled') {
-			onProgress?.(`${tree.identifier} · its branch is recorded merged, so it is reconciled rather than resumed`);
-			parked.merged.push({ worktreePath: tree.path, branch: tree.branch, ticket });
-			continue;
-		}
-
-		if (bucket === 'drain') {
+		if (bucket === ParkedTreeBucket.Drain) {
 			const cleared = await setParkedLabel({ settings: trackerSettings, ticketId: ticket.id, label: settings.parkedLabel, parked: false });
 
 			if (cleared !== undefined) {
@@ -237,8 +208,8 @@ export const scanParkedWorktrees = async ({
 				ticket,
 				branch: tree.branch,
 				worktreePath: tree.path,
-				ready: bucket === 'ship',
-				error: bucket === 'ship' ? undefined : `git could not read the worktree at ${tree.path}`,
+				ready: bucket === ParkedTreeBucket.Ship,
+				error: bucket === ParkedTreeBucket.Ship ? undefined : `git could not read the worktree at ${tree.path}`,
 			});
 		}
 	}

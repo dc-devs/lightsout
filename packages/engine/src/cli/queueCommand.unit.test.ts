@@ -73,6 +73,7 @@ const outcomeOf = ({ ready, error, reconciliationFailure }: { ready: boolean; er
 		labels: [],
 		planningStatus: PlanningStatus.NotNeeded,
 		status: 'Ready to implement',
+		finished: false,
 		unfinishedBlockers: [],
 	},
 	branch: 'lo-70-drain',

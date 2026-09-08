@@ -15,6 +15,7 @@ const ticketOf = (overrides: Partial<TicketSummary> = {}): TicketSummary => ({
 	planningStatus: PlanningStatus.NotNeeded,
 	worker: QueueWorker.Direct,
 	status: 'Ready to implement',
+	finished: false,
 	unfinishedBlockers: [],
 	...overrides,
 });

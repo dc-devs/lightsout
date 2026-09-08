@@ -68,6 +68,7 @@ const ticketOf = (worker: QueueWorker): RunnableTicket => ({
 	planningStatus: PlanningStatus.NotNeeded,
 	worker,
 	status: 'Ready to implement',
+	finished: false,
 	unfinishedBlockers: [],
 });
 

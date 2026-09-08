@@ -28,6 +28,7 @@ const ticketOf = ({ number, labels, status = 'Backlog' }: { number: number; labe
 	createdAt: '2026-01-01T00:00:00.000Z',
 	labels,
 	status,
+	finished: false,
 	unfinishedBlockers: [],
 });
 

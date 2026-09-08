@@ -3,6 +3,7 @@ import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFail
 import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
 import { collectNodes } from '#src/ticketTracker/linear/common/utils/collectNodes.ts';
 import { getUnfinishedBlockers } from '#src/ticketTracker/linear/common/utils/getUnfinishedBlockers.ts';
+import { isFinishedState } from '#src/ticketTracker/linear/common/utils/isFinishedState.ts';
 import { readLabelNames } from '#src/ticketTracker/linear/common/utils/readLabelNames.ts';
 import { toTrackerTicket } from '#src/ticketTracker/linear/common/utils/toTrackerTicket.ts';
 
@@ -37,7 +38,7 @@ export const collectTrackerTickets = async ({ connection }: Params): Promise<Tra
 
 			return state === undefined
 				? { error: `Linear issue '${issue.identifier}' has no readable workflow status` }
-				: toTrackerTicket({ issue, labels, status: state.name, unfinishedBlockers });
+				: toTrackerTicket({ issue, labels, status: state.name, finished: isFinishedState({ stateType: state.type }), unfinishedBlockers });
 		}),
 	);
 	const failure = resolved.find(isFailure);

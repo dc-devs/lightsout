@@ -3,16 +3,19 @@ import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicke
 
 interface Params {
 	issue: Issue;
-	/** Every label name the issue carries, already resolved by the caller. */
 	labels: string[];
-	/** The issue's workflow status name, already resolved by the caller. */
 	status: string;
-	/** Identifiers of this ticket's unfinished blockers, already resolved by the caller. */
+	finished: boolean;
 	unfinishedBlockers: string[];
 }
 
-/** One tracker issue as this module's own shape, so no Linear type leaves the folder. */
-export const toTrackerTicket = ({ issue, labels, status, unfinishedBlockers }: Params): TrackerTicket => ({
+/**
+ * One tracker issue as this module's own shape, so no Linear type leaves the folder.
+ *
+ * This mapper resolves nothing itself: the labels, status, finishedness and
+ * blockers are the caller's round trips, already made before it is called.
+ */
+export const toTrackerTicket = ({ issue, labels, status, finished, unfinishedBlockers }: Params): TrackerTicket => ({
 	id: issue.id,
 	identifier: issue.identifier,
 	title: issue.title,
@@ -21,5 +24,6 @@ export const toTrackerTicket = ({ issue, labels, status, unfinishedBlockers }: P
 	createdAt: issue.createdAt.toISOString(),
 	labels,
 	status,
+	finished,
 	unfinishedBlockers,
 });
