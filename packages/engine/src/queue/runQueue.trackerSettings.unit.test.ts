@@ -1,20 +1,15 @@
 import { execSync } from 'node:child_process';
 import { basename, dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
-import { runQueue } from '#src/queue/index.ts';
-import type { ShipSettings } from '#src/ship/index.ts';
 import type { TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
 import { jiraTrackerSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
+import { setupQueueDrain } from '#tests/helpers/setupQueueDrain.ts';
 import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
-import { terminalRelayFixture } from '#tests/helpers/terminalRelayFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
@@ -67,9 +62,6 @@ const mockShipOneBranch = jest.fn<(params: { outcome: TicketRunOutcome }) => Pro
 
 jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: TicketRunOutcome }) => mockShipOneBranch(params) }));
 // -------------------------
-
-const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
-const driver: Driver = { name: 'claude-code', invoke: () => Promise.resolve({ text: '', exitCode: 0 }) };
 
 const ticketOf = ({
 	number,
@@ -127,18 +119,7 @@ const setupDrain = ({
 	mockRunWorkerWithRelay.mockResolvedValue({});
 	mockShipOneBranch.mockImplementation(({ outcome }) => Promise.resolve(outcome));
 
-	const relay = terminalRelayFixture();
-	const drain = ({
-		settings = queueSettingsFixture(),
-		trackerSettings = trackerSettingsFixture(),
-		ship = shipSettingsFixture(),
-	}: {
-		settings?: QueueSettings;
-		trackerSettings?: TrackerSettings;
-		ship?: ShipSettings;
-	} = {}) => runQueue({ cwd, settings, trackerSettings, shipSettings: ship, config, env: {}, driver, driverName: 'claude-code', relay });
-
-	return { drain, relay };
+	return setupQueueDrain({ cwd });
 };
 
 describe('runQueue', () => {

@@ -1,23 +1,15 @@
-import { execSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { runQueue } from '#src/queue/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import { queueOutcomeFixture as outcomeOf } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
-import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
-import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
-import { terminalRelayFixture } from '#tests/helpers/terminalRelayFixture.ts';
-import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
+import { queueTicketFixture as ticketOf } from '#tests/helpers/queueTicketFixture.ts';
+import { setupQueueDrain } from '#tests/helpers/setupQueueDrain.ts';
 
 // Mocked Imports
 // -------------------------
@@ -46,54 +38,6 @@ jest.mock('#src/queue/runQueueTicket.ts', () => ({ runQueueTicket: (params: { ti
 jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: TicketRunOutcome }) => mockShipOneBranch(params) }));
 // -------------------------
 
-const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
-const driver: Driver = { name: 'claude-code', invoke: () => Promise.resolve({ text: '', exitCode: 0 }) };
-const shipSettings = shipSettingsFixture();
-
-const ticketOf = ({
-	number,
-	priority = 2,
-	createdAt = '2026-01-01T00:00:00.000Z',
-	unfinishedBlockers = [],
-}: {
-	number: number;
-	priority?: number;
-	createdAt?: string;
-	unfinishedBlockers?: string[];
-}): TicketSummary => ({
-	id: `id-${number}`,
-	identifier: `LO-${number}`,
-	title: `Ticket ${number}`,
-	description: '',
-	priority,
-	createdAt,
-	labels: [],
-	planningStatus: PlanningStatus.NotNeeded,
-	worker: QueueWorker.Direct,
-	status: 'Ready to implement',
-	finished: false,
-	unfinishedBlockers,
-});
-
-const outcomeOf = ({
-	ticket,
-	ready = true,
-	error,
-	unanswered,
-}: {
-	ticket: TicketSummary;
-	ready?: boolean;
-	error?: string;
-	unanswered?: boolean;
-}): TicketRunOutcome => ({
-	ticket,
-	branch: `${ticket.identifier.toLowerCase()}-ticket-${ticket.id}`,
-	worktreePath: `/tmp/worktrees/${ticket.identifier}`,
-	ready,
-	error,
-	unanswered,
-});
-
 /**
  * A repo with a remote behind it and every collaborator stubbed green.
  *
@@ -102,33 +46,13 @@ const outcomeOf = ({
  * on top of it, which is what a blocker finishing mid-drain looks like here.
  */
 const setupDrain = ({ eligible = [], parked }: { eligible?: TicketSummary[]; parked?: ParkedWork } = {}) => {
-	const { cwd } = setupBranchRepo();
-
-	execSync('git config user.name t && git config user.email t@t', { cwd, stdio: 'ignore' });
 	mockListEligibleTickets.mockResolvedValue(eligible);
 	mockScanParkedWorktrees.mockResolvedValue(parked ?? { resumed: [], outcomes: [], leftBehind: [], merged: [] });
 	mockRunQueueTicket.mockImplementation(({ ticket }) => Promise.resolve(outcomeOf({ ticket })));
 	mockShipOneBranch.mockImplementation(({ outcome }) => Promise.resolve(outcome));
 	mockSetParkedLabel.mockResolvedValue(undefined);
 
-	const relay = terminalRelayFixture();
-	const progress: string[] = [];
-
-	const drain = ({ settings = queueSettingsFixture() }: { settings?: QueueSettings } = {}) =>
-		runQueue({
-			cwd,
-			settings,
-			trackerSettings: trackerSettingsFixture(),
-			shipSettings,
-			config,
-			env: {},
-			driver,
-			driverName: 'claude-code',
-			relay,
-			onProgress: (message) => progress.push(message),
-		});
-
-	return { cwd, drain, relay, progress };
+	return setupQueueDrain();
 };
 
 /** The identifiers handed to a worker, in the order the waves picked them up. */

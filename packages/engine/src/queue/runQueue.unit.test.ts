@@ -1,25 +1,20 @@
-import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import { type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { runQueue } from '#src/queue/index.ts';
-import type { ShipSettings } from '#src/ship/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { jiraTrackerSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixture.ts';
+import { queueOutcomeFixture as outcomeOf } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
-import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
+import { queueTicketFixture as ticketOf } from '#tests/helpers/queueTicketFixture.ts';
+import { setupQueueDrain } from '#tests/helpers/setupQueueDrain.ts';
 import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
-import { terminalRelayFixture } from '#tests/helpers/terminalRelayFixture.ts';
-import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
 // -------------------------
@@ -52,83 +47,17 @@ jest.mock('#src/queue/runQueueTicket.ts', () => ({
 jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: TicketRunOutcome }) => mockShipOneBranch(params) }));
 // -------------------------
 
-const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
-const driver: Driver = { name: 'claude-code', invoke: () => Promise.resolve({ text: '', exitCode: 0 }) };
-
 const shipSettings = shipSettingsFixture();
-
-const ticketOf = ({
-	number,
-	priority = 2,
-	createdAt = '2026-01-01T00:00:00.000Z',
-	unfinishedBlockers = [],
-	title = `Ticket ${number}`,
-}: {
-	number: number;
-	priority?: number;
-	createdAt?: string;
-	unfinishedBlockers?: string[];
-	title?: string;
-}): TicketSummary => ({
-	id: `id-${number}`,
-	identifier: `LO-${number}`,
-	title,
-	description: '',
-	priority,
-	createdAt,
-	labels: [],
-	planningStatus: PlanningStatus.NotNeeded,
-	worker: QueueWorker.Direct,
-	status: 'Ready to implement',
-	finished: false,
-	unfinishedBlockers,
-});
-
-const outcomeOf = ({ ticket, ready = true, error }: { ticket: TicketSummary; ready?: boolean; error?: string }): TicketRunOutcome => ({
-	ticket,
-	branch: `${ticket.identifier.toLowerCase()}-ticket-${ticket.id}`,
-	worktreePath: `/tmp/worktrees/${ticket.identifier}`,
-	ready,
-	error,
-});
 
 /** A repo with a remote behind it and every collaborator stubbed green. */
 const setupDrain = ({ eligible = [], parked }: { eligible?: TicketSummary[]; parked?: ParkedWork } = {}) => {
-	const { cwd } = setupBranchRepo();
-
-	execSync('git config user.name t && git config user.email t@t', { cwd, stdio: 'ignore' });
 	mockListEligibleTickets.mockResolvedValue(eligible);
 	mockScanParkedWorktrees.mockResolvedValue(parked ?? { resumed: [], outcomes: [], leftBehind: [], merged: [] });
 	mockRunQueueTicket.mockImplementation(({ ticket }) => Promise.resolve(outcomeOf({ ticket })));
 	mockShipOneBranch.mockImplementation(({ outcome }) => Promise.resolve(outcome));
 	mockSetParkedLabel.mockResolvedValue(undefined);
 
-	const relay = terminalRelayFixture();
-	const progress: string[] = [];
-
-	const drain = ({
-		settings = queueSettingsFixture(),
-		trackerSettings = trackerSettingsFixture(),
-		ship = shipSettings,
-	}: {
-		settings?: QueueSettings;
-		trackerSettings?: TrackerSettings;
-		ship?: ShipSettings;
-	} = {}) =>
-		runQueue({
-			cwd,
-			settings,
-			trackerSettings,
-			shipSettings: ship,
-			config,
-			env: {},
-			driver,
-			driverName: 'claude-code',
-			relay,
-			onProgress: (message) => progress.push(message),
-		});
-
-	return { cwd, drain, relay, progress };
+	return setupQueueDrain();
 };
 
 /** The one manifest the drain's coordinator run wrote. */
@@ -176,20 +105,9 @@ describe('runQueue', () => {
 	});
 
 	test('refuses a repo with no remote default branch, the same refusal ship makes for the same reason', async () => {
-		const { cwd } = setupBranchRepo({ remoteHead: false });
-		const relay = terminalRelayFixture();
+		const { drain, relay } = setupQueueDrain({ repo: { remoteHead: false } });
 
-		const report = await runQueue({
-			cwd,
-			settings: queueSettingsFixture(),
-			trackerSettings: trackerSettingsFixture(),
-			shipSettings,
-			config,
-			env: {},
-			driver,
-			driverName: 'claude-code',
-			relay,
-		});
+		const report = await drain();
 
 		relay.close();
 

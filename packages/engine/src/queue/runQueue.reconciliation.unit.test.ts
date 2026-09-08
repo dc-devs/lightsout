@@ -2,22 +2,17 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { BranchPhase, type LightsoutConfig, type RunManifest, RunStatus, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import { BranchPhase, type RunManifest, RunStatus, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
-import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { readBranchState, runQueue, writeBranchState } from '#src/queue/index.ts';
+import { readBranchState, writeBranchState } from '#src/queue/index.ts';
 import type { PullRequestSummary } from '#src/ship/index.ts';
-import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
+import { queueTicketFixture as ticketOf } from '#tests/helpers/queueTicketFixture.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
-import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
-import { terminalRelayFixture } from '#tests/helpers/terminalRelayFixture.ts';
-import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
+import { setupQueueDrain } from '#tests/helpers/setupQueueDrain.ts';
 
 // Mocked Imports
 // -------------------------
@@ -64,9 +59,6 @@ jest.mock('#src/ship/index.ts', () => ({
 }));
 // -------------------------
 
-const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
-const driver: Driver = { name: 'claude-code', invoke: () => Promise.resolve({ text: '', exitCode: 0 }) };
-
 /** The environment the drain is handed, so a Done write reading credentials never has to reach `process.env`. */
 const env = { LINEAR_API_KEY: 'lin_key' };
 
@@ -87,42 +79,6 @@ const shippedResult: ShipResult = {
 	failingChecks: [],
 };
 
-const ticketOf = ({ number }: { number: number }): TicketSummary => ({
-	id: `id-${number}`,
-	identifier: `LO-${number}`,
-	title: `Ticket ${number}`,
-	description: '',
-	priority: 2,
-	createdAt: '2026-01-01T00:00:00.000Z',
-	labels: [],
-	planningStatus: PlanningStatus.NotNeeded,
-	worker: QueueWorker.Direct,
-	status: 'Ready to implement',
-	finished: false,
-	unfinishedBlockers: [],
-});
-
-/** One drain of the repo at `cwd`, with the collaborators each factory already wired. */
-const startDrain = ({ cwd, progress }: { cwd: string; progress: string[] }) => {
-	const relay = terminalRelayFixture();
-
-	const drain = () =>
-		runQueue({
-			cwd,
-			settings: queueSettingsFixture(),
-			trackerSettings: trackerSettingsFixture(),
-			shipSettings: shipSettingsFixture(),
-			config,
-			env,
-			driver,
-			driverName: 'claude-code',
-			relay,
-			onProgress: (message) => progress.push(message),
-		});
-
-	return { drain, relay };
-};
-
 /** The one manifest and the one plan the drain's coordinator run wrote. */
 const readCoordinatorRun = ({ cwd }: { cwd: string }) => {
 	const runsDir = join(cwd, '.lightsout', 'runs');
@@ -135,7 +91,6 @@ const readCoordinatorRun = ({ cwd }: { cwd: string }) => {
 /** A backlog the forge answers for: a merged pull request on the branch of every ticket the test names. */
 const setupMergedWave = ({ merged = [], doneWriteFailure }: { merged?: number[]; doneWriteFailure?: string } = {}) => {
 	const { cwd } = setupBranchRepo();
-	const progress: string[] = [];
 
 	mockListEligibleTickets.mockResolvedValue([ticketOf({ number: 70 }), ticketOf({ number: 71 })]);
 	mockScanParkedWorktrees.mockResolvedValue({ resumed: [], outcomes: [], leftBehind: [], merged: [] });
@@ -156,7 +111,7 @@ const setupMergedWave = ({ merged = [], doneWriteFailure }: { merged?: number[];
 	);
 	mockReconcileShippedTicket.mockResolvedValue(doneWriteFailure);
 
-	return { cwd, progress, ...startDrain({ cwd, progress }) };
+	return setupQueueDrain({ cwd, env });
 };
 
 /** A parked branch with real commits on it, ready for the serial merge and nothing else. */
@@ -171,7 +126,6 @@ const setupShippedBranch = ({ doneWriteFailure }: { doneWriteFailure?: string } 
 	execFileSync('git', ['commit', '-qm', 'work'], { cwd: worktreePath, stdio: 'ignore' });
 
 	const ready: TicketRunOutcome = { ticket: ticketOf({ number: 70 }), branch, worktreePath, ready: true };
-	const progress: string[] = [];
 
 	mockListEligibleTickets.mockResolvedValue([]);
 	mockScanParkedWorktrees.mockResolvedValue({ resumed: [], outcomes: [ready], leftBehind: [], merged: [] });
@@ -180,7 +134,7 @@ const setupShippedBranch = ({ doneWriteFailure }: { doneWriteFailure?: string } 
 	mockRunShip.mockResolvedValue(shippedResult);
 	mockReconcileShippedTicket.mockResolvedValue(doneWriteFailure);
 
-	return { cwd, ready, progress, ...startDrain({ cwd, progress }) };
+	return { ready, ...setupQueueDrain({ cwd, env }) };
 };
 
 /**
@@ -196,8 +150,6 @@ const setupMergedTree = () => {
 
 	execFileSync('git', ['worktree', 'add', worktreePath, '-b', branch, 'origin/main'], { cwd, stdio: 'ignore' });
 
-	const progress: string[] = [];
-
 	mockListEligibleTickets.mockResolvedValue([]);
 	mockScanParkedWorktrees.mockResolvedValue({
 		resumed: [],
@@ -208,7 +160,7 @@ const setupMergedTree = () => {
 	mockFindPullRequest.mockResolvedValue(undefined);
 	mockReconcileShippedTicket.mockResolvedValue(undefined);
 
-	return { cwd, worktreePath, progress, ...startDrain({ cwd, progress }) };
+	return { worktreePath, ...setupQueueDrain({ cwd, env }) };
 };
 
 /**
@@ -218,28 +170,14 @@ const setupMergedTree = () => {
  * has to reach the same already-merged skip the opening one does.
  */
 const setupRescanMergedTicket = () => {
-	const { cwd } = setupBranchRepo();
-	const progress: string[] = [];
+	const drain = setupMergedWave({ merged: [70] });
 	const blocked: TicketSummary = { ...ticketOf({ number: 72 }), unfinishedBlockers: ['LO-71'] };
 
-	// Every read after the first one offers LO-70; the first offers LO-71, which
-	// parks, so the ticket that already merged can only arrive mid-run.
+	// Only the rescan offers LO-70; the opening scan offers a worker that parks.
 	mockListEligibleTickets.mockResolvedValue([ticketOf({ number: 70 }), blocked]);
 	mockListEligibleTickets.mockResolvedValueOnce([ticketOf({ number: 71 }), blocked]);
-	mockScanParkedWorktrees.mockResolvedValue({ resumed: [], outcomes: [], leftBehind: [], merged: [] });
-	mockRunQueueTicket.mockImplementation(({ ticket }) =>
-		Promise.resolve({
-			ticket,
-			branch: `${ticket.identifier.toLowerCase()}-ticket-${ticket.id}`,
-			worktreePath: `/tmp/${ticket.identifier}`,
-			ready: false,
-			error: 'tsc: 3 errors',
-		}),
-	);
-	mockFindPullRequest.mockImplementation(({ branch }) => Promise.resolve(branch.startsWith('lo-70-') ? mergedPullRequest : undefined));
-	mockReconcileShippedTicket.mockResolvedValue(undefined);
 
-	return { cwd, progress, ...startDrain({ cwd, progress }) };
+	return drain;
 };
 
 describe('runQueue', () => {

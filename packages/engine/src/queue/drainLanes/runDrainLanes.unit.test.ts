@@ -1,10 +1,5 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { describe, expect, jest, test } from '@jest/globals';
-import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
@@ -12,9 +7,9 @@ import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.
 import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
 import { createMainCheckoutSerializer } from '#src/queue/common/utils/createMainCheckoutSerializer.ts';
 import { runDrainLanes } from '#src/queue/drainLanes/index.ts';
-import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
-import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
-import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
+import { drainLaneOutcomeFixture as outcomeOf } from '#tests/helpers/drainLaneOutcomeFixture.ts';
+import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
+import { setupDrainLanes } from '#tests/helpers/setupDrainLanes.ts';
 
 /** Runs a task with no other main-checkout git mutation in flight. */
 type SerializeMainCheckout = <Result>(params: { task: () => Promise<Result> }) => Promise<Result>;
@@ -39,274 +34,14 @@ jest.mock('#src/queue/ticketSelection/reconcileMergedTickets.ts', () => ({
 }));
 // -------------------------
 
-const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
-
-/** How one identifier's task is told to end: ready-or-merged, plainly failed, or parked on a question nobody answered. */
-type PlannedEnd = 'ready' | 'failed' | 'unanswered';
-
-interface EndParams {
-	identifier: string;
-	end?: PlannedEnd;
-	error?: string;
-}
-
-const ticketOf = ({ identifier }: { identifier: string }): RunnableTicket => ({
-	id: `id-${identifier}`,
-	identifier,
-	title: `Ticket ${identifier}`,
-	description: '',
-	priority: 2,
-	createdAt: '2026-01-01T00:00:00.000Z',
-	labels: [],
-	planningStatus: PlanningStatus.NotNeeded,
-	worker: QueueWorker.Direct,
-	status: 'Ready to implement',
-	finished: false,
-	unfinishedBlockers: [],
-});
-
-const outcomeOf = ({ identifier, end = 'ready', error }: EndParams): TicketRunOutcome => ({
-	ticket: ticketOf({ identifier }),
-	branch: `${identifier.toLowerCase()}-work`,
-	worktreePath: `/tmp/${identifier}`,
-	ready: end === 'ready',
-	error: end === 'ready' ? undefined : (error ?? 'stopped'),
-	unanswered: end === 'unanswered' ? true : undefined,
-});
-
-/** Give the event loop turns, so the drain reaches its next decision. */
-const hold = async ({ turns }: { turns: number }) => {
-	for (let turn = 0; turn < turns; turn += 1) {
-		await new Promise((resolve) => setImmediate(resolve));
-	}
-};
-
-/** Bumped whenever the drain starts or finishes anything these lanes can see. */
-let laneActivity = 0;
-
-/**
- * Yield until the drain has stopped moving.
- *
- * A fixed count of event-loop turns is not enough, and counting them is what
- * made these cases pass on a fast laptop and fail on CI. The drain awaits a
- * real `writeFile` for the coordinator's queue document, and that completes on
- * libuv's thread pool rather than after some number of turns — on a loaded
- * machine the turns run out while the write is still queued, and the test then
- * looks at a drain that has not reached its next decision yet.
- *
- * So this waits for real quiet instead: the lanes unchanged across several
- * timer yields, each of which gives the thread pool wall-clock time rather than
- * spinning the loop past it. The iteration cap keeps a genuinely stuck drain to
- * a bounded wait rather than the suite's timeout.
- */
-const settle = async () => {
-	let quiet = 0;
-	let last = laneActivity;
-
-	for (let turn = 0; turn < 400 && quiet < 8; turn += 1) {
-		await new Promise((resolve) => setTimeout(resolve, 0));
-		quiet = laneActivity === last ? quiet + 1 : 0;
-		last = laneActivity;
-	}
-};
-
-/** Tasks the test finishes by hand: each records that it started and then waits to be released. */
-const createLane = ({ enter, leave }: { enter: () => void; leave: () => void }) => {
-	const started: string[] = [];
-	const waiting = new Map<string, (outcome: TicketRunOutcome) => void>();
-	let peak = 0;
-
-	const begin = ({ identifier }: { identifier: string }) =>
-		new Promise<TicketRunOutcome>((resolve) => {
-			started.push(identifier);
-			waiting.set(identifier, resolve);
-			peak = Math.max(peak, waiting.size);
-			laneActivity += 1;
-			enter();
-		});
-
-	const release = ({ identifier, outcome }: { identifier: string; outcome: TicketRunOutcome }) => {
-		const resolve = waiting.get(identifier);
-
-		if (resolve === undefined) {
-			throw new Error(`${identifier} is not running on this lane, so there is nothing to release`);
-		}
-
-		waiting.delete(identifier);
-		laneActivity += 1;
-		leave();
-		resolve(outcome);
-	};
-
-	/**
-	 * Yield timer turns until the drain has begun this ticket on the lane.
-	 *
-	 * A ticket reaches a lane only after work the lanes cannot see — the drain's
-	 * queue-document write at startup and after every admission, on the thread
-	 * pool — so no count of quiet turns can stand in for it: on a loaded machine
-	 * the write outlasts the quiet, and a release issued before the start would
-	 * release nothing. Waiting for the start itself is the only wait that cannot
-	 * lose that race; the cap keeps a drain that never starts the ticket to a
-	 * bounded, named failure rather than the suite's timeout.
-	 */
-	const untilStarted = async ({ identifier }: { identifier: string }) => {
-		for (let turn = 0; turn < 4000 && !started.includes(identifier); turn += 1) {
-			await new Promise((resolve) => setTimeout(resolve, 0));
-		}
-
-		if (!started.includes(identifier)) {
-			throw new Error(`${identifier} never started on this lane`);
-		}
-	};
-
-	return { begin, peak: () => peak, release, running: () => [...waiting.keys()], started: () => [...started], untilStarted };
-};
-
-/** Every git mutation of the main checkout, and how many of them ever ran at once. */
-const createCheckoutLog = () => {
-	const mutations: string[] = [];
-	let inFlight = 0;
-	let peak = 0;
-
-	const mutate = async ({ label }: { label: string }) => {
-		mutations.push(label);
-		inFlight += 1;
-		peak = Math.max(peak, inFlight);
-		laneActivity += 1;
-
-		await hold({ turns: 4 });
-
-		inFlight -= 1;
-	};
-
-	return { mutate, mutations: () => [...mutations], peak: () => peak };
-};
-
-/** A drain whose builders and merges the test resolves by hand, so it can assert a merge happened while a build was still open. */
-const setupLanes = ({
-	runnable = [],
-	blocked = [],
-	carried = [],
-	maxParallel = 2,
-}: {
-	runnable?: string[];
-	blocked?: LeftBehindTicket[];
-	carried?: TicketRunOutcome[];
-	maxParallel?: number;
-} = {}) => {
-	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-lanes-'));
-	const planPath = join(cwd, 'queue.md');
-	const checkout = createCheckoutLog();
-	const serializeMainCheckout = createMainCheckoutSerializer();
-	const progress: string[] = [];
-	let inFlight = 0;
-	let peakInFlight = 0;
-	const enter = () => {
-		inFlight += 1;
-		peakInFlight = Math.max(peakInFlight, inFlight);
-	};
-	const leave = () => {
-		inFlight -= 1;
-	};
-	const builds = createLane({ enter, leave });
-	const merges = createLane({ enter, leave });
-
-	mockReconcileMergedTickets.mockImplementation(({ tickets }) => Promise.resolve({ kept: tickets, leftBehind: [] }));
-	mockListNextWave.mockResolvedValue({ runnable: [], blocked: [], skipped: [] });
-	mockShipOneBranch.mockImplementation(async (params) => {
-		const identifier = params.outcome.ticket.identifier;
-		const answer = await merges.begin({ identifier });
-
-		// The merge tail removes the ticket's worktree from the main checkout.
-		await params.serializeMainCheckout({ task: () => checkout.mutate({ label: `remove ${identifier}` }) });
-
-		return answer;
+const setupLanes = (options: Omit<Parameters<typeof setupDrainLanes>[0], 'mocks' | 'serializeMainCheckout'> = {}) => {
+	const lanes = setupDrainLanes({
+		...options,
+		serializeMainCheckout: createMainCheckoutSerializer(),
+		mocks: { ship: mockShipOneBranch, scan: mockListNextWave, reconcile: mockReconcileMergedTickets },
 	});
 
-	// What a builder does first: add this ticket's worktree to the main checkout.
-	const runTicket = ({ ticket }: { ticket: RunnableTicket }) => {
-		const built = builds.begin({ identifier: ticket.identifier });
-
-		return serializeMainCheckout({ task: () => checkout.mutate({ label: `add ${ticket.identifier}` }) }).then(() => built);
-	};
-
-	let finished = false;
-
-	/** Start the drain, remembering when it answers — the one signal that says everything is finished, which lane silence cannot give. */
-	const drain = () => {
-		const drained = runDrainLanes({
-			cwd,
-			config,
-			settings: queueSettingsFixture({ maxParallel }),
-			trackerSettings: trackerSettingsFixture(),
-			shipSettings: shipSettingsFixture(),
-			defaultBranch: 'main',
-			env: {},
-			planPath,
-			first: { runnable: runnable.map((identifier) => ticketOf({ identifier })), blocked, skipped: [] },
-			carried,
-			attempted: new Set<string>(),
-			runTicket,
-			serializeMainCheckout,
-			onProgress: (message) => progress.push(message),
-		});
-
-		drained
-			.finally(() => {
-				finished = true;
-			})
-			.catch(() => undefined);
-
-		return drained;
-	};
-
-	/** End one ticket on a lane: wait for the drain to have started it — a release by name before then would release nothing — then release it and let the drain react. */
-	const finisherFor = (lane: ReturnType<typeof createLane>) => async (params: EndParams) => {
-		await lane.untilStarted({ identifier: params.identifier });
-		lane.release({ identifier: params.identifier, outcome: outcomeOf(params) });
-
-		await settle();
-	};
-
-	/**
-	 * Let everything in flight finish as merged, turn after turn, until the drain
-	 * answers.
-	 *
-	 * Idle lanes are not the end: the drain starts its first builds only after a
-	 * queue-document write, and every admission is followed by another, so a loop
-	 * that stopped at the first quiet moment would leave a build to begin after
-	 * nobody is releasing anything. The cap keeps a drain that never answers to a
-	 * named failure rather than the suite's timeout.
-	 */
-	const finishEverything = async () => {
-		for (let turn = 0; turn < 500 && !finished; turn += 1) {
-			for (const lane of [builds, merges]) {
-				for (const identifier of lane.running()) {
-					lane.release({ identifier, outcome: outcomeOf({ identifier }) });
-				}
-			}
-
-			await settle();
-		}
-
-		if (!finished) {
-			throw new Error('the drain never answered while every ticket it started was being released');
-		}
-	};
-
-	return {
-		builds,
-		checkout,
-		drain,
-		finishBuild: finisherFor(builds),
-		finishEverything,
-		finishMerge: finisherFor(merges),
-		merges,
-		peakInFlight: () => peakInFlight,
-		planPath,
-		progress,
-		serializeMainCheckout,
-	};
+	return { ...lanes, drain: () => lanes.trackDrain(runDrainLanes(lanes.params)) };
 };
 
 /** One entry per ticket, sorted so the assertion does not depend on the order the two lanes happened to settle in. */
@@ -320,7 +55,7 @@ describe('runDrainLanes', () => {
 		const lanes = setupLanes({ runnable: ['LO-1', 'LO-2'] });
 		const drained = lanes.drain();
 
-		await settle();
+		await lanes.settle();
 		await lanes.finishBuild({ identifier: 'LO-1' });
 
 		const whileTheFirstMerges = { merging: lanes.merges.started(), stillBuilding: lanes.builds.running() };
@@ -335,7 +70,7 @@ describe('runDrainLanes', () => {
 		const lanes = setupLanes({ runnable: ['LO-1', 'LO-2', 'LO-3', 'LO-4'], maxParallel: 2 });
 		const drained = lanes.drain();
 
-		await settle();
+		await lanes.settle();
 		await lanes.finishEverything();
 
 		const report = await drained;
@@ -348,7 +83,7 @@ describe('runDrainLanes', () => {
 		const lanes = setupLanes({ runnable: ['LO-1', 'LO-2'], maxParallel: 1 });
 		const drained = lanes.drain();
 
-		await settle();
+		await lanes.settle();
 		await lanes.finishBuild({ identifier: 'LO-1' });
 
 		const whenTheSlotFreed = { merging: lanes.merges.started(), building: lanes.builds.started() };
@@ -363,7 +98,7 @@ describe('runDrainLanes', () => {
 		const lanes = setupLanes({ runnable: ['LO-1', 'LO-2', 'LO-3'], maxParallel: 3 });
 		const drained = lanes.drain();
 
-		await settle();
+		await lanes.settle();
 		await lanes.finishBuild({ identifier: 'LO-3' });
 		await lanes.finishBuild({ identifier: 'LO-1' });
 		await lanes.finishBuild({ identifier: 'LO-2' });
@@ -378,11 +113,15 @@ describe('runDrainLanes', () => {
 	test('admits a ticket the merge just unblocked into the run already in flight', async () => {
 		const lanes = setupLanes({ runnable: ['LO-1'], blocked: [{ identifier: 'LO-2', reason: 'blocked by LO-1' }] });
 
-		mockListNextWave.mockResolvedValueOnce({ runnable: [ticketOf({ identifier: 'LO-2' })], blocked: [], skipped: [] });
+		mockListNextWave.mockResolvedValueOnce({
+			runnable: [queueTicketFixture({ identifier: 'LO-2', id: 'id-LO-2', title: 'Ticket LO-2' })],
+			blocked: [],
+			skipped: [],
+		});
 
 		const drained = lanes.drain();
 
-		await settle();
+		await lanes.settle();
 		await lanes.finishBuild({ identifier: 'LO-1' });
 		await lanes.finishMerge({ identifier: 'LO-1' });
 		await lanes.builds.untilStarted({ identifier: 'LO-2' });
@@ -405,7 +144,7 @@ describe('runDrainLanes', () => {
 		const lanes = setupLanes({ runnable: ['LO-1', 'LO-2'] });
 		const drained = lanes.drain();
 
-		await settle();
+		await lanes.settle();
 		await lanes.finishBuild({ identifier: 'LO-1' });
 		await lanes.finishBuild({ identifier: 'LO-2' });
 		await lanes.finishMerge({ identifier: 'LO-1', end: 'failed', error: 'the branch would not rebase onto origin/main' });
@@ -426,7 +165,7 @@ describe('runDrainLanes', () => {
 		const lanes = setupLanes({ runnable: ['LO-1', 'LO-2', 'LO-3'], maxParallel: 3 });
 		const drained = lanes.drain();
 
-		await settle();
+		await lanes.settle();
 		await lanes.finishBuild({ identifier: 'LO-1' });
 		await lanes.finishBuild({ identifier: 'LO-2', end: 'failed', error: 'the gates went red' });
 		await lanes.finishBuild({ identifier: 'LO-3' });
@@ -449,7 +188,7 @@ describe('runDrainLanes', () => {
 		const lanes = setupLanes({ runnable: ['LO-1', 'LO-2', 'LO-3', 'LO-4'], maxParallel: 2 });
 		const drained = lanes.drain();
 
-		await settle();
+		await lanes.settle();
 		await lanes.finishBuild({ identifier: 'LO-1', end: 'unanswered' });
 		await lanes.finishBuild({ identifier: 'LO-2' });
 		await lanes.finishMerge({ identifier: 'LO-2' });
@@ -468,7 +207,7 @@ describe('runDrainLanes', () => {
 		const lanes = setupLanes({ runnable: ['LO-1', 'LO-2'], maxParallel: 1 });
 		const drained = lanes.drain();
 
-		await settle();
+		await lanes.settle();
 		await lanes.finishBuild({ identifier: 'LO-1', end: 'unanswered' });
 
 		const report = await drained;
@@ -482,11 +221,15 @@ describe('runDrainLanes', () => {
 	test("records a ticket admitted mid-run in the coordinator's queue document", async () => {
 		const lanes = setupLanes({ runnable: ['LO-1'], blocked: [{ identifier: 'LO-2', reason: 'blocked by LO-1' }] });
 
-		mockListNextWave.mockResolvedValueOnce({ runnable: [ticketOf({ identifier: 'LO-2' })], blocked: [], skipped: [] });
+		mockListNextWave.mockResolvedValueOnce({
+			runnable: [queueTicketFixture({ identifier: 'LO-2', id: 'id-LO-2', title: 'Ticket LO-2' })],
+			blocked: [],
+			skipped: [],
+		});
 
 		const drained = lanes.drain();
 
-		await settle();
+		await lanes.settle();
 		await lanes.finishBuild({ identifier: 'LO-1' });
 		await lanes.finishMerge({ identifier: 'LO-1' });
 		await lanes.builds.untilStarted({ identifier: 'LO-2' });
@@ -506,7 +249,7 @@ describe('runDrainLanes', () => {
 
 		const drained = lanes.drain();
 
-		await settle();
+		await lanes.settle();
 		await lanes.finishBuild({ identifier: 'LO-1' });
 		await lanes.finishMerge({ identifier: 'LO-1' });
 
@@ -528,7 +271,7 @@ describe('runDrainLanes', () => {
 			return report;
 		});
 
-		await settle();
+		await lanes.settle();
 		await lanes.finishBuild({ identifier: 'LO-1' });
 
 		const whileTheLastBranchMerges = { answered, merging: lanes.merges.running() };
@@ -546,14 +289,14 @@ describe('runDrainLanes', () => {
 		const lanes = setupLanes({ runnable: ['LO-1', 'LO-2', 'LO-3'], maxParallel: 2 });
 		const drained = lanes.drain();
 
-		await settle();
+		await lanes.settle();
 		await lanes.finishBuild({ identifier: 'LO-1' });
 		// Released together and settled once, so the merge tail's removal and the
 		// next builder's creation reach the main checkout in the same turn.
 		lanes.merges.release({ identifier: 'LO-1', outcome: outcomeOf({ identifier: 'LO-1' }) });
 		lanes.builds.release({ identifier: 'LO-2', outcome: outcomeOf({ identifier: 'LO-2' }) });
 
-		await settle();
+		await lanes.settle();
 		await lanes.finishEverything();
 		await drained;
 
