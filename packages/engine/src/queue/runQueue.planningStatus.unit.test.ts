@@ -3,21 +3,15 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { runQueue } from '#src/queue/index.ts';
 import type { TrackerFailure, TrackerSettings } from '#src/ticketTracker/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
-import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
-import { terminalRelayFixture } from '#tests/helpers/terminalRelayFixture.ts';
-import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
+import { setupQueueDrain } from '#tests/helpers/setupQueueDrain.ts';
 
 // Mocked Imports
 // -------------------------
@@ -46,8 +40,6 @@ jest.mock('#src/queue/runQueueTicket.ts', () => ({ runQueueTicket: (params: { ti
 jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: TicketRunOutcome }) => mockShipOneBranch(params) }));
 // -------------------------
 
-const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
-const driver: Driver = { name: 'claude-code', invoke: () => Promise.resolve({ text: '', exitCode: 0 }) };
 const everyLabel = ['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed'];
 
 const ticketOf = ({
@@ -100,24 +92,7 @@ const setupDrain = ({ eligible = [], resumed = [] }: { eligible?: TicketSummary[
 	mockShipOneBranch.mockImplementation(({ outcome }) => Promise.resolve(outcome));
 	mockSetParkedLabel.mockResolvedValue(undefined);
 
-	const relay = terminalRelayFixture();
-	const progress: string[] = [];
-
-	const drain = ({ settings = queueSettingsFixture() }: { settings?: QueueSettings } = {}) =>
-		runQueue({
-			cwd,
-			settings,
-			trackerSettings: trackerSettingsFixture(),
-			shipSettings: shipSettingsFixture(),
-			config,
-			env: {},
-			driver,
-			driverName: 'claude-code',
-			relay,
-			onProgress: (message) => progress.push(message),
-		});
-
-	return { cwd, drain, relay, progress };
+	return setupQueueDrain({ cwd });
 };
 
 /** The identifiers a worker was actually spent on, in pickup order. */
