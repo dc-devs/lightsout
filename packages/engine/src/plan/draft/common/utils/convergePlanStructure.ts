@@ -41,7 +41,7 @@ export const convergePlanStructure = async ({
 	reports,
 	advisories,
 }: Params): Promise<{ result: RunPlanDraftResult; blocking: StructuralFinding[] }> => {
-	const { cwd, driver, name, workspaceDir, brainstormDecisionsPath, config, model, effort, permissions, timeoutMs, progress } = context;
+	const { cwd, driver, name, workspaceDir, brainstormDecisionsPath, decisions, config, model, effort, permissions, timeoutMs, progress } = context;
 	const draftStop = createDraftStop({ workspaceDir, advisories });
 	const repaired = await repairPlanStructure({
 		cwd,
@@ -50,6 +50,7 @@ export const convergePlanStructure = async ({
 		planPaths,
 		workspaceDir,
 		brainstormDecisionsPath,
+		decisions,
 		config,
 		model,
 		effort,

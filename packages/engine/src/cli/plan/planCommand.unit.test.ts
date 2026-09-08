@@ -22,6 +22,7 @@ const mockPlanDraftCommand = jest.fn<(params: unknown) => Promise<void>>();
 const mockPlanDedupCommand = jest.fn<(params: unknown) => Promise<void>>();
 const mockPlanGradeCommand = jest.fn<(params: unknown) => Promise<void>>();
 const mockPlanPublishCommand = jest.fn<(params: unknown) => Promise<void>>();
+const mockPlanSyncDecisionsCommand = jest.fn<(params: unknown) => Promise<void>>();
 const mockResolveConfigAndDriver = jest.fn<(params: unknown) => Promise<{ config?: LightsoutConfig; driver: Driver }>>();
 const mockLoadPlanningStandards = jest.fn<(params: unknown) => Promise<string | undefined>>();
 
@@ -33,6 +34,7 @@ jest.mock('#src/cli/plan/planDraftCommand.ts', () => ({ planDraftCommand: (param
 jest.mock('#src/cli/plan/planDedupCommand.ts', () => ({ planDedupCommand: (params: unknown) => mockPlanDedupCommand(params) }));
 jest.mock('#src/cli/plan/planGradeCommand.ts', () => ({ planGradeCommand: (params: unknown) => mockPlanGradeCommand(params) }));
 jest.mock('#src/cli/plan/planPublishCommand.ts', () => ({ planPublishCommand: (params: unknown) => mockPlanPublishCommand(params) }));
+jest.mock('#src/cli/plan/planSyncDecisionsCommand.ts', () => ({ planSyncDecisionsCommand: (params: unknown) => mockPlanSyncDecisionsCommand(params) }));
 jest.mock('#src/cli/common/utils/resolveConfigAndDriver.ts', () => ({ resolveConfigAndDriver: (params: unknown) => mockResolveConfigAndDriver(params) }));
 jest.mock('#src/cli/plan/readPlanningStandards.ts', () => ({ readPlanningStandards: (params: unknown) => mockLoadPlanningStandards(params) }));
 
@@ -73,6 +75,7 @@ const setupPlan = ({ args, repoConfig }: { args: string[]; repoConfig?: Record<s
 		mockPlanDedupCommand,
 		mockPlanGradeCommand,
 		mockPlanPublishCommand,
+		mockPlanSyncDecisionsCommand,
 	]) {
 		mock.mockResolvedValue(undefined);
 	}
@@ -113,6 +116,18 @@ describe('planCommand', () => {
 		expect(mockPlanPublishCommand).toHaveBeenCalledTimes(1);
 		expect(argsOf(mockPlanPublishCommand)?.cwd).toBe(cwd);
 		expect(mockResolveConfigAndDriver).not.toHaveBeenCalled();
+	});
+
+	test('routes sync-decisions without resolving a harness, because it runs no agent', async () => {
+		const { context, cwd } = setupPlan({ args: ['sync-decisions', '--name', 'demo'] });
+
+		await planCommand(context);
+
+		expect(mockPlanSyncDecisionsCommand).toHaveBeenCalledTimes(1);
+		expect(argsOf(mockPlanSyncDecisionsCommand)?.cwd).toBe(cwd);
+		// regenerating the log reads files and writes files — no config, no driver
+		expect(mockResolveConfigAndDriver).not.toHaveBeenCalled();
+		expect(mockLoadPlanningStandards).not.toHaveBeenCalled();
 	});
 
 	test('routes draft with the resolved harness and standards', async () => {
@@ -205,7 +220,7 @@ describe('planCommand', () => {
 		expect(mockPlanDraftCommand).not.toHaveBeenCalled();
 	});
 
-	test.each(['draft', 'dedup', 'grade', 'lint', 'publish', 'verify-facts'])(
+	test.each(['draft', 'dedup', 'grade', 'lint', 'publish', 'sync-decisions', 'verify-facts'])(
 		'%s addresses a plan by name, so a folder carrying no ticket id draws exactly one advisory and the subcommand still runs',
 		async (subcommand) => {
 			const { context, logged, exitCodes } = setupPlan({ args: [subcommand, '--name', 'rate-limit-banner'], repoConfig: trackerRepoConfig });

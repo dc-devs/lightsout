@@ -28,15 +28,15 @@ const omittedDecisionGap = { area: 'omitted-decision', gap: 'no error handling d
 /** The two-phase deliverable, and the five-phase one whose fifteen checkers overrun the twelve-slot ceiling. */
 const twoPhaseFiles = () => ({
 	'overview.md': cleanOverviewBody(),
-	'phase1-core.md': cleanPlanBody({ title: 'Graded Plan' }),
+	'phase1-core.md': cleanPlanBody({ title: 'Graded Plan', reference: true }),
 	'phase2-extra.md': secondPhaseBody(),
 });
 
 const fivePhaseFiles = () => ({
 	...twoPhaseFiles(),
-	'phase3-more.md': cleanPlanBody({ title: 'Graded Plan' }),
-	'phase4-yet.md': cleanPlanBody({ title: 'Graded Plan' }),
-	'phase5-last.md': cleanPlanBody({ title: 'Graded Plan' }),
+	'phase3-more.md': cleanPlanBody({ title: 'Graded Plan', reference: true }),
+	'phase4-yet.md': cleanPlanBody({ title: 'Graded Plan', reference: true }),
+	'phase5-last.md': cleanPlanBody({ title: 'Graded Plan', reference: true }),
 });
 
 /** A consumer repo holding a phased plan, plus the collector the act writes into. */

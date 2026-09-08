@@ -6,6 +6,7 @@ import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
 import type { RepoPathIndex } from '#src/plan/common/types/RepoPathIndex.ts';
 import { getCodeSpans } from '#src/plan/common/utils/getCodeSpans.ts';
 import { getPlanNamedPaths } from '#src/plan/common/utils/getPlanNamedPaths.ts';
+import { isLineInRange } from '#src/plan/lint/common/utils/isLineInRange.ts';
 
 interface Params {
 	plan: ParsedPlan;
@@ -60,11 +61,23 @@ const normalizeCandidate = ({ token }: { token: string }) => {
 	return candidate.includes('/') && !candidate.includes('...') && !candidate.includes('…') ? candidate : undefined;
 };
 
-/** Every distinct path a plan's backticked spans claim, mapped to the first 1-based line it appeared on. */
+/**
+ * Every distinct path a plan's backticked spans claim, mapped to the first
+ * 1-based line it appeared on.
+ *
+ * The `## Decision Log` span is passed over: a recorded decision may name the
+ * path of an option that was rejected or of a file that has since moved, and
+ * history is a record of what was settled rather than a claim about the working
+ * tree. Every other line of the file is still read.
+ */
 const collectCandidates = ({ plan }: { plan: ParsedPlan }) => {
 	const candidates = new Map<string, number>();
 
 	for (const [index, line] of plan.lines.entries()) {
+		if (isLineInRange({ line: index + 1, range: plan.decisionLogRange })) {
+			continue;
+		}
+
 		for (const token of getCodeSpans({ line })) {
 			const candidate = isPathToken({ token }) ? normalizeCandidate({ token }) : undefined;
 

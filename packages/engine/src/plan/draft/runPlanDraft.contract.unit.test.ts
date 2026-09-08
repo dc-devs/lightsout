@@ -16,7 +16,7 @@ import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 // key drafts exactly as it did before the key existed.
 
 /** The clean single plan plus the ledger a contract repository's writer is briefed to add — one row for the file it creates. */
-const contractPlanBody = () => `${cleanPlanBody()}
+const contractPlanBody = ({ reference = false }: { reference?: boolean } = {}) => `${cleanPlanBody({ reference })}
 ## Acceptance Tests
 
 | Criterion | Test file | Test name | Gate |
@@ -51,7 +51,7 @@ const phasedDraftDriver = ({ onCall }: { onCall: (prompt: string) => void }): Dr
 		// the declared counts are the ones the contract phase body actually lands on
 		const row = { number: 1, file: 'phase1-core.md', scope: 'the core', created: 1, touched: 2 };
 
-		writeFileSync(path, phase ? contractPlanBody() : overviewBody({ rows: [row] }));
+		writeFileSync(path, phase ? contractPlanBody({ reference: true }) : overviewBody({ rows: [row] }));
 
 		return {
 			text: JSON.stringify({

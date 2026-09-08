@@ -14,7 +14,9 @@
  * `<name>`, since `<n>` reads as a number everywhere else in this text. Updated
  * again for `lightsout ticket-state`, again for
  * `lightsout brainstorm publish`, and again for `lightsout self-check` — the
- * engine's own check, which a writing agent runs inside its own spawn.
+ * engine's own check, which a writing agent runs inside its own spawn. Updated
+ * once more for `lightsout plan sync-decisions` — the engine composing a plan's
+ * Decision Log from its saved decision records.
  */
 export const usageFixture = `lightsout — deterministic engine for coding agents
 
@@ -39,6 +41,7 @@ usage:
   lightsout brainstorm publish --name <name> [--cwd <path>]
   lightsout plan verify-facts --name <name> [--notes <path>] [--cwd <path>]
   lightsout plan draft --name <name> [--scope single|phased] [--cwd <path>]
+  lightsout plan sync-decisions --name <name> [--cwd <path>]
   lightsout plan lint --name <name> [--cwd <path>]
   lightsout plan dedup --name <name> [--cwd <path>]
   lightsout plan grade --name <name> [--phase <n[,n]>] [--cwd <path>]   (--phase grades only those phases, and always marks the result incomplete)

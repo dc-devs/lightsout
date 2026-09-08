@@ -5,6 +5,7 @@ import { FindingSeverity, LightsoutConfig, StructuralCheck } from '#src/contract
 import { lintPlanStructure } from '#src/plan/lint/lintPlanStructure.ts';
 import { cleanOverviewBody } from '#tests/helpers/cleanOverviewBody.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
+import { emptyDecisionsRecord } from '#tests/helpers/emptyDecisionsRecord.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // The one required section a repository's own config adds: `## Documentation`,
@@ -32,7 +33,7 @@ test('lintPlanStructure: a repository declaring documentation surfaces requires 
 	const config = declaringConfig();
 	const path = writePlan({ cwd, name: 'no-docs.md', body: cleanPlanBody() });
 
-	const findings = await lintPlanStructure({ cwd, planPaths: [path], config });
+	const findings = await lintPlanStructure({ cwd, planPaths: [path], decisions: emptyDecisionsRecord(), config });
 
 	const sections = findings.filter((finding) => finding.check === StructuralCheck.SectionsPresent);
 
@@ -47,7 +48,7 @@ test('lintPlanStructure: the same plan carrying the section is clean', async () 
 	const config = declaringConfig();
 	const path = writePlan({ cwd, name: 'with-docs.md', body: cleanPlanBody({ documentation: 'Nothing user-facing — no docs needed.' }) });
 
-	const findings = await lintPlanStructure({ cwd, planPaths: [path], config });
+	const findings = await lintPlanStructure({ cwd, planPaths: [path], decisions: emptyDecisionsRecord(), config });
 
 	expect(findings).toStrictEqual([]);
 });
@@ -56,7 +57,7 @@ test('lintPlanStructure: a repository declaring nothing never asks for the secti
 	const cwd = setupConsumerRepo();
 	const path = writePlan({ cwd, name: 'undeclared.md', body: cleanPlanBody() });
 
-	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
+	const findings = await lintPlanStructure({ cwd, planPaths: [path], decisions: emptyDecisionsRecord() });
 
 	// no block declared means no new question — the same plan body is clean
 	expect(findings).toStrictEqual([]);
@@ -66,9 +67,13 @@ test('lintPlanStructure: an overview file never earns the finding, whatever the 
 	const cwd = setupConsumerRepo();
 	const config = declaringConfig();
 	const overviewPath = writePlan({ cwd, name: 'overview.md', body: cleanOverviewBody() });
-	const phasePath = writePlan({ cwd, name: 'phase1-core.md', body: cleanPlanBody({ documentation: 'Nothing user-facing — no docs needed.' }) });
+	const phasePath = writePlan({
+		cwd,
+		name: 'phase1-core.md',
+		body: cleanPlanBody({ documentation: 'Nothing user-facing — no docs needed.', reference: true }),
+	});
 
-	const findings = await lintPlanStructure({ cwd, planPaths: [overviewPath, phasePath], config });
+	const findings = await lintPlanStructure({ cwd, planPaths: [overviewPath, phasePath], decisions: emptyDecisionsRecord(), config });
 
 	// the overview creates nothing, so a claim written there would belong to no
 	// executor

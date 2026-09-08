@@ -5,6 +5,14 @@ export type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
 export { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.ts';
 export { getBlockingGaps } from '#src/plan/common/utils/getBlockingGaps.ts';
 export { isBlockingGap } from '#src/plan/common/utils/isBlockingGap.ts';
+export {
+	buildPlanSyncDecisionsCommand,
+	decisionLogReference,
+	readMergedDecisions,
+	renderDecisionLog,
+	type SyncedPlanFile,
+	syncPlanDecisions,
+} from '#src/plan/decisionLog/index.ts';
 export { detectPriorArtCandidates } from '#src/plan/detectPriorArtCandidates.ts';
 export { runPlanDraft } from '#src/plan/draft/index.ts';
 export { gradeHistoryPath } from '#src/plan/gradeHistoryPath.ts';

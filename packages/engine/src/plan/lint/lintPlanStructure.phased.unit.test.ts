@@ -2,9 +2,15 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
+import { decisionLogReference, renderDecisionLog } from '#src/plan/decisionLog/index.ts';
 import { lintPlanStructure } from '#src/plan/lint/lintPlanStructure.ts';
+import { emptyDecisionsRecord } from '#tests/helpers/emptyDecisionsRecord.ts';
 import { overviewBody, phaseBody } from '#tests/helpers/phasePlan.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+
+/** The full table an overview carries, and the pointer sentence a phase file carries instead — the two sections the shared body helpers already render. */
+const decisionLogTable = renderDecisionLog({ decisions: [] });
+const decisionLogPointer = decisionLogReference();
 
 /** A consumer repo holding the given plan files, handed to the lint in the order they are written. */
 const setupDeliverable = ({ files }: { files: Record<string, string> }) => {
@@ -33,7 +39,7 @@ describe('lintPlanStructure for a phased deliverable', () => {
 			},
 		});
 
-		const findings = await lintPlanStructure({ cwd, planPaths });
+		const findings = await lintPlanStructure({ cwd, planPaths, decisions: emptyDecisionsRecord() });
 
 		// the file is absent from disk today and present in the finished repo —
 		// reading it as a broken reference would refuse every phased plan, got:
@@ -49,7 +55,7 @@ describe('lintPlanStructure for a phased deliverable', () => {
 			},
 		});
 
-		const findings = await lintPlanStructure({ cwd, planPaths });
+		const findings = await lintPlanStructure({ cwd, planPaths, decisions: emptyDecisionsRecord() });
 
 		// Files to Modify means "exists on disk today", and the implementing agent
 		// reads it that way — only the cross-phase pass can tell the two apart
@@ -72,7 +78,7 @@ describe('lintPlanStructure for a phased deliverable', () => {
 			},
 		});
 
-		const findings = await lintPlanStructure({ cwd, planPaths });
+		const findings = await lintPlanStructure({ cwd, planPaths, decisions: emptyDecisionsRecord() });
 
 		// phase 10 runs after phase 2, however the folder listed them, got:
 		// ${JSON.stringify(findings)}
@@ -87,7 +93,7 @@ describe('lintPlanStructure for a phased deliverable', () => {
 			},
 		});
 
-		const findings = await lintPlanStructure({ cwd, planPaths });
+		const findings = await lintPlanStructure({ cwd, planPaths, decisions: emptyDecisionsRecord() });
 
 		// only STRICTLY earlier phases supply anything: an out-of-order reference
 		// is exactly the defect the provenance walk exists to catch
@@ -109,7 +115,7 @@ describe('lintPlanStructure for a phased deliverable', () => {
 			},
 		});
 
-		const findings = await lintPlanStructure({ cwd, planPaths });
+		const findings = await lintPlanStructure({ cwd, planPaths, decisions: emptyDecisionsRecord() });
 
 		// the per-file check leaves a phased delete alone because the file may be
 		// one an earlier phase creates — here none does, and the cross-phase pass
@@ -125,9 +131,9 @@ describe('lintPlanStructure for a phased deliverable', () => {
 	});
 
 	test('a single plan has no predecessor, so the file it deletes has to be there today', async () => {
-		const { cwd, planPaths } = setupDeliverable({ files: { 'plan.md': phaseBody({ remove: ['src/gone.ts'] }) } });
+		const { cwd, planPaths } = setupDeliverable({ files: { 'plan.md': phaseBody({ remove: ['src/gone.ts'], reference: false }) } });
 
-		const findings = await lintPlanStructure({ cwd, planPaths });
+		const findings = await lintPlanStructure({ cwd, planPaths, decisions: emptyDecisionsRecord() });
 
 		expect(findings.map(({ check, phase, issue }) => ({ check, phase, issue }))).toStrictEqual([
 			{ check: StructuralCheck.PathExists, phase: 'plan.md', issue: 'referenced path does not exist: src/gone.ts' },
@@ -139,7 +145,7 @@ describe('lintPlanStructure for a phased deliverable', () => {
 			files: { 'phase1-core.md': phaseBody(), 'phase2-extra.md': phaseBody({ note: 'TBD — decide the shape later.' }) },
 		});
 
-		const findings = await lintPlanStructure({ cwd, planPaths });
+		const findings = await lintPlanStructure({ cwd, planPaths, decisions: emptyDecisionsRecord() });
 
 		// a twenty-finding phased run is only navigable if each row says which file
 		// to open
@@ -152,7 +158,7 @@ describe('lintPlanStructure for a phased deliverable', () => {
 			files: { 'phase1-drop.md': phaseBody({ remove: ['src/index.js'] }), 'phase2-remake.md': phaseBody({ create: ['src/index.js'] }) },
 		});
 
-		const findings = await lintPlanStructure({ cwd, planPaths });
+		const findings = await lintPlanStructure({ cwd, planPaths, decisions: emptyDecisionsRecord() });
 
 		// the per-file check stats disk and sees the file standing there; only the
 		// cross-phase pass knows phase 1 takes it away first, got:
@@ -165,7 +171,7 @@ describe('lintPlanStructure for a phased deliverable', () => {
 			files: { 'phase1-core.md': phaseBody(), 'phase2-remake.md': phaseBody({ create: ['src/index.js'] }) },
 		});
 
-		const findings = await lintPlanStructure({ cwd, planPaths });
+		const findings = await lintPlanStructure({ cwd, planPaths, decisions: emptyDecisionsRecord() });
 
 		// the suppression is one-directional and narrow — without a preceding
 		// removal the finding stands
@@ -188,7 +194,7 @@ describe('lintPlanStructure for a phased deliverable', () => {
 			},
 		});
 
-		const findings = await lintPlanStructure({ cwd, planPaths });
+		const findings = await lintPlanStructure({ cwd, planPaths, decisions: emptyDecisionsRecord() });
 
 		// no package.json has the script yet and none can until the plan is
 		// implemented — the declaration is what makes it resolvable, got:
@@ -210,7 +216,7 @@ describe('lintPlanStructure for a phased deliverable', () => {
 			},
 		});
 
-		const findings = await lintPlanStructure({ cwd, planPaths });
+		const findings = await lintPlanStructure({ cwd, planPaths, decisions: emptyDecisionsRecord() });
 
 		// the running set is earlier-or-same, so phase 1 verifying with phase 2's
 		// script would fail the moment phase 1 is implemented
@@ -226,7 +232,7 @@ describe('lintPlanStructure for a phased deliverable', () => {
 			},
 		});
 
-		const findings = await lintPlanStructure({ cwd, planPaths });
+		const findings = await lintPlanStructure({ cwd, planPaths, decisions: emptyDecisionsRecord() });
 
 		// the lint counts each file once and hands the same two numbers to the
 		// declaration check, so a stale overview cannot read as clean
@@ -238,5 +244,33 @@ describe('lintPlanStructure for a phased deliverable', () => {
 			'phase1-core.md is declared to creates 0 source files, but its own file lists 1',
 			'phase1-core.md is declared to touches 0 source files, but its own file lists 1',
 		]);
+	});
+
+	test('lintPlanStructure: a phased plan wants the table on the overview and the pointer on every phase', async () => {
+		const { cwd, planPaths } = setupDeliverable({
+			files: {
+				'overview.md': overviewBody({
+					rows: [
+						{ number: 1, file: 'phase1-core.md' },
+						{ number: 2, file: 'phase2-extra.md' },
+					],
+				}).replace(decisionLogTable, decisionLogPointer),
+				'phase1-core.md': phaseBody(),
+				'phase2-extra.md': phaseBody().replace(decisionLogPointer, decisionLogTable),
+			},
+		});
+
+		const findings = await lintPlanStructure({ cwd, planPaths, decisions: emptyDecisionsRecord() });
+
+		// the two swapped files are the only ones reported: phase1-core.md keeps the
+		// pointer the helper renders and raises nothing, which is what says the
+		// demand differs by file kind rather than being one section for everybody,
+		// got: ${JSON.stringify(findings)}
+		expect(findings.map(({ check, severity, phase }) => ({ check, severity, phase }))).toStrictEqual([
+			{ check: StructuralCheck.DecisionLogCurrent, severity: FindingSeverity.Blocking, phase: 'overview.md' },
+			{ check: StructuralCheck.DecisionLogCurrent, severity: FindingSeverity.Blocking, phase: 'phase2-extra.md' },
+		]);
+		expect(findings.map(({ location }) => location)).toEqual([expect.stringMatching(/^overview\.md:\d+$/), expect.stringMatching(/^phase2-extra\.md:\d+$/)]);
+		expect(findings.map(({ fix }) => fix)).toEqual([expect.stringContaining('plan sync-decisions'), expect.stringContaining('plan sync-decisions')]);
 	});
 });

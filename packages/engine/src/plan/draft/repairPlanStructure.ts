@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { buildPlanRepairInvocation } from '#src/agents/index.ts';
-import { type Effort, type LightsoutConfig, type Permissions, PlanFixReport, type StructuralFinding } from '#src/contracts/index.ts';
+import { type DecisionsRecord, type Effort, type LightsoutConfig, type Permissions, PlanFixReport, type StructuralFinding } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { PlanRepairResult } from '#src/plan/common/types/PlanRepairResult.ts';
 import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
@@ -18,6 +18,8 @@ interface Params {
 	workspaceDir: string;
 	/** Absolute path of the workspace's brainstorm-decisions.json when one exists — the repairer Reads it alongside the plan's own decisions. */
 	brainstormDecisionsPath?: string;
+	/** The merged record the draft was started from — what the loop's own lint holds the plan's Decision Log to. */
+	decisions: DecisionsRecord;
 	config?: LightsoutConfig;
 	model?: string;
 	effort?: Effort;
@@ -59,13 +61,13 @@ const runRepairAttempt = ({ params, findings, attempt }: { params: Params; findi
  * back as a finding rather than as no answer at all.
  */
 export const repairPlanStructure = async (params: Params): Promise<PlanRepairResult> => {
-	const { cwd, name, planPaths, config, progress } = params;
+	const { cwd, name, planPaths, decisions, config, progress } = params;
 
 	return convergeFindings({
 		name,
 		verb: 'repair',
 		findingNoun: 'structural finding(s)',
-		check: () => lintPlanStructure({ cwd, planPaths, config }),
+		check: () => lintPlanStructure({ cwd, planPaths, decisions, config }),
 		unreadableError: `the plan file(s) could not be linted at ${planPaths.join(', ')}`,
 		runAttempt: ({ findings, attempt }) => runRepairAttempt({ params, findings, attempt }),
 		progress,

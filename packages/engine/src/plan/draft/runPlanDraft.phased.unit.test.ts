@@ -133,7 +133,7 @@ describe('runPlanDraft phased', () => {
 					return planCreating({ extra: 32 });
 				}
 
-				return role === 'overview' ? overviewBody({ rows: [rowFor()] }) : role === 'phase' ? cleanPlanBody() : unchanged({ path });
+				return role === 'overview' ? overviewBody({ rows: [rowFor()] }) : role === 'phase' ? cleanPlanBody({ reference: true }) : unchanged({ path });
 			},
 		});
 
@@ -208,7 +208,7 @@ describe('runPlanDraft phased', () => {
 					return overviewBody({ rows: [rowFor({ created: 31 })] });
 				}
 
-				return role === 'reshape' ? overviewBody({ rows: [rowFor()] }) : role === 'phase' ? cleanPlanBody() : unchanged({ path });
+				return role === 'reshape' ? overviewBody({ rows: [rowFor()] }) : role === 'phase' ? cleanPlanBody({ reference: true }) : unchanged({ path });
 			},
 		});
 
@@ -223,7 +223,7 @@ describe('runPlanDraft phased', () => {
 		const draft = setupPhasedDraft({ name: 'noted' });
 		const driver = draftDriver({
 			respond: ({ role, path }) =>
-				role === 'overview' ? overviewBody({ rows: [rowFor({ touched: 51 })] }) : role === 'phase' ? cleanPlanBody() : unchanged({ path }),
+				role === 'overview' ? overviewBody({ rows: [rowFor({ touched: 51 })] }) : role === 'phase' ? cleanPlanBody({ reference: true }) : unchanged({ path }),
 		});
 
 		const result = await runPlanDraft({ cwd: draft.cwd, driver, name: draft.name });
@@ -358,7 +358,7 @@ describe('runPlanDraft phased', () => {
 				}
 
 				// a placeholder in the phase file is what forces the closing repair
-				return role === 'phase' ? cleanPlanBody().replace('A new module exporting', 'TBD — a new module exporting') : answer;
+				return role === 'phase' ? cleanPlanBody({ reference: true }).replace('A new module exporting', 'TBD — a new module exporting') : answer;
 			},
 		});
 
@@ -375,7 +375,8 @@ describe('runPlanDraft phased', () => {
 		const draft = setupPhasedDraft({ name: 'lowered-limit', touching: 9, executorFileLimit: 10 });
 		const driver = draftDriver({
 			onCall: (call) => draft.calls.push(call),
-			respond: ({ role, path }) => (role === 'overview' ? overviewBody({ rows: [rowFor()] }) : role === 'phase' ? cleanPlanBody() : unchanged({ path })),
+			respond: ({ role, path }) =>
+				role === 'overview' ? overviewBody({ rows: [rowFor()] }) : role === 'phase' ? cleanPlanBody({ reference: true }) : unchanged({ path }),
 		});
 
 		const result = await runPlanDraft({ cwd: draft.cwd, driver, name: draft.name });

@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { defaultExecutorFileLimit } from '#src/common/constants/defaultExecutorFileLimit.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
-import { FindingSeverity, type LightsoutConfig, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
+import { type DecisionsRecord, FindingSeverity, type LightsoutConfig, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
 import { PlanFileKind } from '#src/plan/common/constants/PlanFileKind.ts';
 import { readRepoPathIndex } from '#src/plan/common/paths/readRepoPathIndex.ts';
 import type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
@@ -10,11 +10,14 @@ import type { PhaseSizeCounts } from '#src/plan/common/types/PhaseSizeCounts.ts'
 import { getPhaseProvenance } from '#src/plan/common/utils/getPhaseProvenance.ts';
 import { getPlanNamedPaths } from '#src/plan/common/utils/getPlanNamedPaths.ts';
 import { getPlanTouchedPaths } from '#src/plan/common/utils/getPlanTouchedPaths.ts';
+import { buildPlanSyncDecisionsCommand } from '#src/plan/decisionLog/index.ts';
 import { checkAcceptanceLedger } from '#src/plan/lint/checkAcceptanceLedger.ts';
+import { checkDecisionLog } from '#src/plan/lint/checkDecisionLog.ts';
 import { checkPlanPaths } from '#src/plan/lint/checkPlanPaths.ts';
 import { checkPlanSizes } from '#src/plan/lint/checkPlanSizes.ts';
 import { checkProsePaths } from '#src/plan/lint/checkProsePaths.ts';
 import { checkVerificationScripts } from '#src/plan/lint/checkVerificationScripts.ts';
+import { isPhasedDeliverable } from '#src/plan/lint/common/utils/isPhasedDeliverable.ts';
 import { lintPlanCrossPhase } from '#src/plan/lint/lintPlanCrossPhase.ts';
 import { scanPlaceholders } from '#src/plan/lint/scanPlaceholders.ts';
 import { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';
@@ -24,6 +27,8 @@ interface Params {
 	cwd: string;
 	/** Absolute paths to the plan file(s) to lint. */
 	planPaths: string[];
+	/** The merged decision record every plan file's Decision Log has to agree with. Required: an absent record would silently no-op the currency check. */
+	decisions: DecisionsRecord;
 	config?: LightsoutConfig;
 }
 
@@ -91,7 +96,7 @@ const checkSections = ({ phase, docsDeclared, contract }: { phase: PhaseFile; do
 
 /** NoPlaceholders — no unresolved marker survives into a written plan. */
 const checkPlaceholders = ({ phase }: { phase: PhaseFile }) =>
-	scanPlaceholders({ lines: phase.plan.lines }).map(({ label, line }) => ({
+	scanPlaceholders({ lines: phase.plan.lines, skipRange: phase.plan.decisionLogRange }).map(({ label, line }) => ({
 		check: StructuralCheck.NoPlaceholders,
 		severity: FindingSeverity.Blocking,
 		phase: phase.base,
@@ -189,7 +194,7 @@ const checkPackages = ({ phase, packagesDir }: { phase: PhaseFile; packagesDir: 
  * dropped, because delete-then-recreate is legitimate work the per-file check
  * cannot recognise on its own.
  */
-export const lintPlanStructure = async ({ cwd, planPaths, config }: Params): Promise<StructuralFinding[]> => {
+export const lintPlanStructure = async ({ cwd, planPaths, decisions, config }: Params): Promise<StructuralFinding[]> => {
 	const packagesDir = config?.['packages-dir'] ?? defaultPackagesDir;
 	const fileLimit = config?.['executor-file-limit'] ?? defaultExecutorFileLimit;
 	const docsDeclared = (config?.docs?.length ?? 0) > 0;
@@ -199,13 +204,14 @@ export const lintPlanStructure = async ({ cwd, planPaths, config }: Params): Pro
 	const { phases, findings } = await readPhaseFiles({ planPaths });
 	const overview = phases.find((file) => file.plan.variant === PlanFileKind.Overview);
 	const implementable = phases.filter((file) => file.plan.variant !== PlanFileKind.Overview).sort((one, other) => one.number - other.number);
-	const phased = implementable.length > 1 || overview !== undefined;
+	const phased = isPhasedDeliverable({ hasOverview: overview !== undefined, implementableCount: implementable.length });
 	const provenance = getPhaseProvenance({ phases: implementable });
 	const declaredByPhase = getDeclaredScripts({ overview, phases: implementable });
 	// Read once per lint run rather than once per plan file, for the same reason
 	// `getDeclaredScripts` is hoisted: a ten-file phased plan would otherwise walk
 	// the repo ten times.
 	const repoIndex = await readRepoPathIndex({ cwd });
+	const syncCommand = buildPlanSyncDecisionsCommand({ cwd, name: decisions.planName }).command;
 	const planned = new Set(provenance.createdBy.keys());
 	const counts = new Map<string, PhaseSizeCounts>();
 
@@ -226,6 +232,7 @@ export const lintPlanStructure = async ({ cwd, planPaths, config }: Params): Pro
 			...(phase.plan.variant === PlanFileKind.Implementable
 				? await checkAcceptanceLedger({ plan: phase.plan, cwd, phase: phase.base, required: contract, gateKeys })
 				: []),
+			...checkDecisionLog({ plan: phase.plan, phase: phase.base, decisions, phased, syncCommand }),
 			...checkPlaceholders({ phase }),
 			...checkMoves({ phase }),
 			...checkPlanSizes({ phase, fileLimit, counts: sizes }),

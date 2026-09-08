@@ -1,7 +1,7 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { DedupReport, Effort, Permissions } from '#src/contracts/index.ts';
+import { DecisionSource, DedupReport, Effort, Permissions } from '#src/contracts/index.ts';
 import type { DriverInvocation } from '#src/drivers/index.ts';
 import { runPlanDedup } from '#src/plan/runPlanDedup.ts';
 import { createDedupJudgeDriver } from '#tests/helpers/createDedupJudgeDriver.ts';
@@ -44,6 +44,35 @@ const setupNoCandidates = () => {
 		dedupPath: join(workspaceDir, 'dedup.json'),
 		driver: createUncalledDriver({ reason: 'the judge must not be invoked when there are no candidates' }),
 		onProgress: (message: string) => messages.push(message),
+	};
+};
+
+/** The same collision repo, with a decision recorded after the plan's log was last composed — so the log on disk no longer matches the record. */
+const setupStaleLog = () => {
+	const { cwd, name, workspaceDir } = seedDedupPlan({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+
+	writeFileSync(
+		join(workspaceDir, 'decisions.json'),
+		JSON.stringify({
+			planName: name,
+			decisions: [
+				{
+					source: DecisionSource.Grill,
+					question: 'Which history binds, the record or the plan file?',
+					options: 'the saved record / the rendered table',
+					choice: 'the saved record',
+					rationale: 'the table is composed from it',
+					assumption: false,
+				},
+			],
+		}),
+	);
+
+	return {
+		cwd,
+		name,
+		dedupPath: join(workspaceDir, 'dedup.json'),
+		driver: createUncalledDriver({ reason: 'the judge must not be invoked when a plan file Decision Log is stale' }),
 	};
 };
 
@@ -184,4 +213,31 @@ test('plan dedup: a ruling records the collision as reviewed, whichever way it w
 	// nudging about it forever
 	expect(persisted.findings).toStrictEqual([]);
 	expect(persisted.reviewed).toStrictEqual([{ plannedSymbol: 'getUser', plannedPath: 'src/getUser.ts', phase: 'plan.md' }]);
+});
+
+test('runPlanDedup: a stale Decision Log fails the pass before any report is written or judge spawned', async () => {
+	const { cwd, name, driver, dedupPath } = setupStaleLog();
+
+	const result = await runPlanDedup({ cwd, driver, name });
+
+	expectStatus(result, 'failed');
+	// a read-only pass refuses to bless a stale plan: nothing on disk to read as a
+	// blessing, no judge spawned, and an error naming the file and its remedy
+	expect(existsSync(dedupPath)).toBeFalsy();
+	expect(result.dedup).toBeUndefined();
+	expect(result.error).toContain('plan.md');
+	expect(result.error).toContain('plan sync-decisions');
+});
+
+test('runPlanDedup: a current Decision Log lets the pass reach candidate detection', async () => {
+	const { cwd, name, driver, invocations, dedupPath } = setup({ verdicts: [duplicateVerdict] });
+
+	const result = await runPlanDedup({ cwd, driver, name });
+
+	expectStatus(result, 'complete');
+	// the seeded log is the one rendered from the seeded record, so the precheck
+	// lets the collision through to detection and on to the judge
+	expect(invocations.length).toBe(1);
+	expect(result.dedup.findings.map(({ plannedSymbol }) => plannedSymbol)).toStrictEqual(['getUser']);
+	expect(existsSync(dedupPath)).toBeTruthy();
 });

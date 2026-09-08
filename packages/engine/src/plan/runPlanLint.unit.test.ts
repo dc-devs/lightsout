@@ -1,7 +1,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
+import { DecisionSource, type DecisionsRecord, FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
+import { decisionLogReference, renderDecisionLog } from '#src/plan/decisionLog/index.ts';
 import { runPlanLint } from '#src/plan/runPlanLint.ts';
 import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advisoryPlan.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
@@ -15,12 +16,28 @@ const writePlan = ({ cwd, name, body }: { cwd: string; name: string; body: strin
 	writeFileSync(join(dir, 'plan.md'), body);
 };
 
-/** A structurally clean single plan whose paths resolve against setupConsumerRepo. `createPath` is per-file: two phases creating one path is a real cross-phase defect. */
-const cleanPlan = ({ createPath = 'src/new-thing.ts' }: { createPath?: string } = {}) => `# Clean Plan
+/**
+ * Write the decision record the pass reads the plan's Decision Log against.
+ * Separate from `writePlan` on purpose: one case below deletes nothing and
+ * simply never writes it, which is how a missing record is tested.
+ */
+const writeDecisions = ({ cwd, name, record }: { cwd: string; name: string; record?: DecisionsRecord }) => {
+	writeFileSync(join(cwd, '.lightsout', 'plans', name, 'decisions.json'), JSON.stringify(record ?? { planName: name, decisions: [] }));
+};
+
+/**
+ * A structurally clean single plan whose paths resolve against setupConsumerRepo.
+ * `createPath` is per-file: two phases creating one path is a real cross-phase
+ * defect. `reference` gives the file the Decision Log pointer a phase of a
+ * phased deliverable carries instead of the table.
+ */
+const cleanPlan = ({ createPath = 'src/new-thing.ts', reference = false }: { createPath?: string; reference?: boolean } = {}) => `# Clean Plan
 
 ## Context
 
 A tiny clean plan for the structural lint.
+
+${reference ? decisionLogReference() : renderDecisionLog({ decisions: [] })}
 
 ## Global Constraints
 
@@ -70,6 +87,7 @@ None — standalone plan.
 test('plan lint: a clean plan returns complete with no findings and names the plan file', async () => {
 	const cwd = setupConsumerRepo();
 	writePlan({ cwd, name: 'clean', body: cleanPlan() });
+	writeDecisions({ cwd, name: 'clean' });
 
 	const result = await runPlanLint({ cwd, name: 'clean' });
 
@@ -84,6 +102,7 @@ test('plan lint: a clean plan returns complete with no findings and names the pl
 test('plan lint: a planted TBD comes back as a NoPlaceholders finding', async () => {
 	const cwd = setupConsumerRepo();
 	writePlan({ cwd, name: 'dirty', body: cleanPlan().replace('A new module exporting', 'TBD — a new module exporting') });
+	writeDecisions({ cwd, name: 'dirty' });
 
 	const result = await runPlanLint({ cwd, name: 'dirty' });
 
@@ -96,6 +115,7 @@ test('plan lint: a planted TBD comes back as a NoPlaceholders finding', async ()
 test('plan lint: the progress line reports the finding count and how many files were scanned', async () => {
 	const cwd = setupConsumerRepo();
 	writePlan({ cwd, name: 'progress', body: cleanPlan().replace('A new module exporting', 'TBD — a new module exporting') });
+	writeDecisions({ cwd, name: 'progress' });
 	const messages: string[] = [];
 
 	const result = await runPlanLint({ cwd, name: 'progress', onProgress: (message) => messages.push(message) });
@@ -112,6 +132,7 @@ test('plan lint: the progress line counts advisories apart from what gates, and 
 
 	plantAdvisoryTouchedFiles({ cwd });
 	writePlan({ cwd, name: 'noted', body: advisoryPlanBody() });
+	writeDecisions({ cwd, name: 'noted' });
 
 	const messages: string[] = [];
 	const result = await runPlanLint({ cwd, name: 'noted', onProgress: (message) => messages.push(message) });
@@ -139,6 +160,8 @@ test('plan lint: no deliverable on disk returns failed', async () => {
 
 /** A structurally clean overview file — the overview variant's own required section set. Its phase rows must name exactly the phase files written beside it, or the declaration is inconsistent with the deliverable. */
 const cleanOverview = ({ phaseCount = 2 }: { phaseCount?: number } = {}) => `# Phased Plan — Overview
+
+${renderDecisionLog({ decisions: [] })}
 
 ## Global Constraints
 
@@ -173,6 +196,8 @@ const writePhasedPlan = ({ cwd, name, files }: { cwd: string; name: string; file
 		writeFileSync(join(dir, fileName), body);
 	}
 
+	writeDecisions({ cwd, name });
+
 	return dir;
 };
 
@@ -183,8 +208,8 @@ test('plan lint: a phased deliverable lints the overview first, then each phase,
 		name: 'phased',
 		files: {
 			'overview.md': cleanOverview(),
-			'phase1-core.md': cleanPlan({ createPath: 'src/core.ts' }),
-			'phase2-extra.md': cleanPlan({ createPath: 'src/extra.ts' }),
+			'phase1-core.md': cleanPlan({ createPath: 'src/core.ts', reference: true }),
+			'phase2-extra.md': cleanPlan({ createPath: 'src/extra.ts', reference: true }),
 			'notes.txt': 'scratch notes, not a plan',
 		},
 	});
@@ -213,7 +238,7 @@ test('plan lint: a stray markdown file in the plan folder is not linted as a pha
 		name: 'strays',
 		files: {
 			'overview.md': cleanOverview({ phaseCount: 1 }),
-			'phase1-core.md': cleanPlan(),
+			'phase1-core.md': cleanPlan({ reference: true }),
 			'brainstorm-notes.md': scratchNotes(),
 			'phases.md': scratchNotes(),
 		},
@@ -268,6 +293,7 @@ test('plan lint: plan.md is the sole deliverable even when the folder also holds
 test('plan lint: the target repo config reaches the structural lint', async () => {
 	const cwd = setupConsumerRepo({ config: { 'packages-dir': 'modules' } });
 	writePlan({ cwd, name: 'configured', body: cleanPlan().replace('### `src/index.js`', '### `modules/loose.ts`') });
+	writeDecisions({ cwd, name: 'configured' });
 
 	const result = await runPlanLint({ cwd, name: 'configured' });
 
@@ -283,6 +309,7 @@ test('plan lint: the target repo config reaches the structural lint', async () =
 test('plan lint: an unreadable config refuses instead of linting against defaults nobody chose', async () => {
 	const cwd = setupConsumerRepo();
 	writePlan({ cwd, name: 'no-config', body: cleanPlan() });
+	writeDecisions({ cwd, name: 'no-config' });
 
 	writeFileSync(join(cwd, 'lightsout.config.json'), '{ not json');
 
@@ -291,4 +318,70 @@ test('plan lint: an unreadable config refuses instead of linting against default
 	// silently, which is the failure that cost a bisect to find on
 	// standards-check. A repo with NO config still lints at the defaults.
 	await expect(runPlanLint({ cwd, name: 'no-config' })).rejects.toThrow(/is not valid JSON/);
+});
+
+/** The saved record a plan's Decision Log must agree with — one row, so a single cell can be changed to make a section stale. */
+const decisionsRecord = ({ planName }: { planName: string }): DecisionsRecord => ({
+	planName,
+	decisions: [
+		{
+			source: DecisionSource.Elicitation,
+			question: 'Where does the decision-log module live?',
+			options: 'at the top of plan / in a folder of its own',
+			choice: 'in a folder of its own',
+			rationale: 'the top of plan is at its file cap',
+			assumption: false,
+		},
+	],
+});
+
+/** Write a single plan carrying `section` as its Decision Log, beside the `decisions.json` the pass reads that section against. */
+const writeRecordedPlan = ({ cwd, name, section, record }: { cwd: string; name: string; section: string; record: DecisionsRecord }) => {
+	writePlan({ cwd, name, body: cleanPlan().replace('## Global Constraints', `${section}\n\n## Global Constraints`) });
+	writeDecisions({ cwd, name, record });
+};
+
+test('runPlanLint: a stale Decision Log is a blocking finding and a current one is not', async () => {
+	const cwd = setupConsumerRepo();
+	const record = decisionsRecord({ planName: 'recorded' });
+	// Rendered rather than hand-written: the fixture is current by construction,
+	// so the stale half below differs by exactly the one cell it edits.
+	const section = renderDecisionLog({ decisions: record.decisions });
+
+	writeRecordedPlan({ cwd, name: 'recorded', section, record });
+	writeRecordedPlan({
+		cwd,
+		name: 'hand-edited',
+		section: section.replace('the top of plan is at its file cap', 'because it reads better that way'),
+		record: { ...record, planName: 'hand-edited' },
+	});
+
+	const current = await runPlanLint({ cwd, name: 'recorded' });
+	const stale = await runPlanLint({ cwd, name: 'hand-edited' });
+
+	expectStatus(current, 'complete');
+	expectStatus(stale, 'complete');
+	// the plan carrying the section the record renders has nothing to fix, got:
+	// ${JSON.stringify(current.findings)}
+	expect(current.findings.filter((finding) => finding.check === StructuralCheck.DecisionLogCurrent)).toStrictEqual([]);
+	// one edited rationale blocks, against the plan file that carries it, got:
+	// ${JSON.stringify(stale.findings)}
+	expect(
+		stale.findings.filter((finding) => finding.check === StructuralCheck.DecisionLogCurrent).map(({ severity, phase }) => ({ severity, phase })),
+	).toStrictEqual([{ severity: FindingSeverity.Blocking, phase: 'plan.md' }]);
+});
+
+test('runPlanLint: a missing decisions.json fails the pass with a message naming the file', async () => {
+	const cwd = setupConsumerRepo();
+
+	writePlan({ cwd, name: 'unrecorded', body: cleanPlan() });
+
+	const result = await runPlanLint({ cwd, name: 'unrecorded' });
+
+	// A check whose record can be deleted is a check that can be switched off, so
+	// the absent record refuses the pass instead of skipping the comparison.
+	expectStatus(result, 'failed');
+	// and names the file and where it was looked for, got:
+	// ${'error' in result ? result.error : ''}
+	expect('error' in result && result.error.includes(join(cwd, '.lightsout', 'plans', 'unrecorded', 'decisions.json'))).toBeTruthy();
 });

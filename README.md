@@ -160,6 +160,8 @@ With the `plan` config block turned on, the plan is a contract rather than a nar
 
 When a plan starts from a `/brainstorm` hand-off, the decisions already settled there are carried straight into the plan rather than asked again; a settled decision is re-opened only when exploring the code turns up a concrete conflict.
 
+The plan's Decision Log is composed by the engine from the saved decision records rather than typed out by the writer. `lightsout plan sync-decisions --name <name>` regenerates it in every file of the plan — run it after a decision is recorded, and again as often as you like: a file whose log already matches the records is left untouched.
+
 Once a ticket-backed plan is approved as ready, run `lightsout plan publish --name <name>`. It attaches only the durable design record — the single or
 phased plan deliverable and whichever of `brainstorm-notes.md`, `decisions.json`, and
 `grade.json` the folder holds — plus a small `plan-attachments.json` integrity

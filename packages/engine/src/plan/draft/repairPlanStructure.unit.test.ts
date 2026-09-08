@@ -1,11 +1,12 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { FindingSeverity, LightsoutConfig, StructuralCheck } from '#src/contracts/index.ts';
+import { DecisionSource, type DecisionsRecord, FindingSeverity, LightsoutConfig, StructuralCheck } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { repairPlanStructure } from '#src/plan/draft/repairPlanStructure.ts';
 import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advisoryPlan.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
+import { emptyDecisionsRecord } from '#tests/helpers/emptyDecisionsRecord.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
@@ -72,6 +73,7 @@ const run = ({
 	planPath,
 	driver,
 	config,
+	decisions = emptyDecisionsRecord(),
 	progress = () => {},
 }: {
 	cwd: string;
@@ -79,12 +81,28 @@ const run = ({
 	planPath: string;
 	driver: Driver;
 	config?: LightsoutConfig;
+	decisions?: DecisionsRecord;
 	progress?: (message: string) => void;
-}) => repairPlanStructure({ cwd, driver, name: 'demo', planPaths: [planPath], workspaceDir, config, timeoutMs: 60_000, progress });
+}) => repairPlanStructure({ cwd, driver, name: 'demo', planPaths: [planPath], workspaceDir, config, decisions, timeoutMs: 60_000, progress });
 
 /** A repository declaring one documentation surface — the config that makes `## Documentation` a required heading. */
 const declaringConfig = () =>
 	LightsoutConfig.parse({ gates: { check: 'true', test: 'true', 'test-coverage': false }, docs: [{ path: 'README.md', covers: 'The product tour.' }] });
+
+/** A merged record carrying one settled row — a history the clean skeleton, whose log is rendered from an empty record, does not carry. */
+const recordWithOneRow = (): DecisionsRecord => ({
+	planName: 'demo',
+	decisions: [
+		{
+			source: DecisionSource.Grill,
+			question: 'Does the repair loop lint against the record it was handed?',
+			options: 'the handed record / a second read of the workspace',
+			choice: 'the handed record',
+			rationale: 'the draft holds the one merged record it was started from',
+			assumption: false,
+		},
+	],
+});
 
 describe('repairPlanStructure', () => {
 	test('a clean draft converges without spending a single repair', async () => {
@@ -326,6 +344,30 @@ describe('repairPlanStructure', () => {
 		expect(messages.filter((message) => message.includes('declined'))).toEqual([
 			expect.stringContaining("'TBD' unresolvable from the inputs"),
 			expect.stringContaining('the facts name no owner for this section'),
+		]);
+	});
+
+	test("repairPlanStructure: the loop's lint is given the merged decision record", async () => {
+		// the clean skeleton's Decision Log is rendered from an empty record, so a
+		// record carrying one row is a log the plan on disk disagrees with
+		const draft = setupDraft({ body: cleanPlanBody() });
+		const prompts: string[] = [];
+		const driver = repairDriver({
+			onCall: (prompt) => prompts.push(prompt),
+			respond: () => ({
+				text: JSON.stringify({ status: 'error', filesEdited: [], discrepancies: ['the Decision Log is composed by the sync command, not by a repair'] }),
+				exitCode: 0,
+			}),
+		});
+
+		const result = await run({ ...draft, driver, decisions: recordWithOneRow() });
+
+		expectStatus(result, 'complete');
+		// the record travels into the loop's own lint, so the staleness it creates
+		// is a finding the repairer is handed rather than one nobody ever sees
+		expect(prompts[0]).toContain(`[${StructuralCheck.DecisionLogCurrent}]`);
+		expect('findings' in result && result.findings.map(({ check, severity }) => ({ check, severity }))).toStrictEqual([
+			{ check: StructuralCheck.DecisionLogCurrent, severity: FindingSeverity.Blocking },
 		]);
 	});
 });

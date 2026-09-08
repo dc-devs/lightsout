@@ -174,4 +174,21 @@ describe('parsePlan', () => {
 
 		expect({ ledger: plan.ledger, proseFiles: plan.proseFiles }).toStrictEqual({ ledger: [], proseFiles: [] });
 	});
+
+	test('records the Decision Log range from its heading line to the line before the next section', () => {
+		const content = '# Plan\n\n## Decision Log\n\n| # | Source |\n|---|--------|\n| 1 | Brainstorm |\n\n## Global Constraints\n\n- none\n';
+		const plan = parse({ content });
+
+		// the heading sits on line 3 and the next `##` on line 9, so the range runs
+		// through the blank line 8 — the span the rewriter replaces whole
+		expect(plan.decisionLogRange).toStrictEqual({ start: 3, end: 8 });
+	});
+
+	test('leaves the Decision Log range unset when the file carries no such section', () => {
+		const plan = parse({ content: '# Plan\n\n## Global Constraints\n\n- none\n' });
+
+		// a zero-length span would read as an empty section to replace; absent is
+		// what tells the rewriter to insert one instead
+		expect(plan.decisionLogRange).toBeUndefined();
+	});
 });

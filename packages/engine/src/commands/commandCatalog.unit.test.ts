@@ -104,11 +104,22 @@ describe('commandCatalog', () => {
 		expect(planShapes).toStrictEqual([
 			['plan-verify-facts', 'verify-facts'],
 			['plan-draft', 'draft'],
+			['plan-sync-decisions', 'sync-decisions'],
 			['plan-lint', 'lint'],
 			['plan-dedup', 'dedup'],
 			['plan-grade', 'grade'],
 			['plan-publish', 'publish'],
 		]);
+	});
+
+	test('carries plan sync-decisions as its own invocation, between draft and lint', () => {
+		const { byId } = setupCatalog();
+		const invocations = byId.get('plan')?.invocations ?? [];
+
+		const placed = invocations.findIndex((invocation) => invocation.positional === 'sync-decisions');
+
+		expect(invocations[placed]).toStrictEqual({ id: 'plan-sync-decisions', positional: 'sync-decisions' });
+		expect([invocations[placed - 1]?.positional, invocations[placed + 1]?.positional]).toStrictEqual(['draft', 'lint']);
 	});
 
 	test('notes the extra meaning only on the plan subcommand whose flag changes its result', () => {

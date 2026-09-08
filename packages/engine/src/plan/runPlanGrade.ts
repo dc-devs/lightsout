@@ -84,7 +84,7 @@ export const runPlanGrade = async (params: PlanGradeParams): Promise<RunPlanGrad
 	const { selected } = selection;
 	// Both deterministic passes cover every plan file, overview included — the
 	// overview has its own required-section set, and the lint is cross-phase.
-	const structural = await lintPlanStructure({ cwd, planPaths, config });
+	const structural = await lintPlanStructure({ cwd, planPaths, decisions: pass.decisions, config });
 	// Read beside the lint rather than after the fan-out, so the stamped sha is the one the structural findings were measured against.
 	const stamp = await readGradeStamp({ cwd });
 
