@@ -56,7 +56,7 @@ const main = async (): Promise<void> => {
 
 	// Before any command reads the environment, so the repository's own `.env`
 	// answers for the tracker key rather than every caller having to export it.
-	loadRepoEnvFile({ cwd });
+	await loadRepoEnvFile({ cwd });
 
 	const run = command === undefined ? undefined : commands[command];
 	const problem = command === undefined || run === undefined ? undefined : getUnknownFlagsMessage({ command, flags });

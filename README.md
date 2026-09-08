@@ -287,7 +287,9 @@ Exit codes carry the whole story: `0` — everything eligible shipped; `2` — w
 It needs two blocks in `lightsout.config.json`: `ticket-tracker` holds the
 provider-specific connection and names its credential environment variables;
 `queue` holds planning statuses, tracker statuses, labels, parallelism, and
-timeouts. See
+timeouts. The credential values can live in a gitignored `.env` at the
+repository root: every command loads it, from a linked worktree too, and a
+variable already exported always wins over the file. See
 [Configuration](docs/configuration.md).
 
 ```text

@@ -429,6 +429,13 @@ disabling a setting you believe is on. `lightsout queue` requires both this
 block and `queue`, and reports which one is absent. Credential values never live
 in the file; only the names of the environment variables that hold them do.
 
+The values themselves can sit in a gitignored `.env` at the repository root.
+Every command loads that file before it reads the environment, and a command run
+from a linked worktree reads the primary checkout's `.env`, because a worktree is
+a fresh checkout and carries none. A variable already exported always wins over
+the file, so a CI secret or a `--env-file` on the command line is never
+overwritten.
+
 Jira Cloud uses a Basic-auth API token and account email. Keep both values in
 the environment, never in configuration:
 
