@@ -4,6 +4,8 @@ import { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
 import { PhaseWeight } from '#src/contracts/plan/grade/PhaseWeight.ts';
 import { PlanGrade } from '#src/contracts/plan/grade/PlanGrade.ts';
 import { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
+import { GradeInputs } from '#src/contracts/plan/memory/GradeInputs.ts';
+import { GradeScope } from '#src/contracts/plan/memory/GradeScope.ts';
 
 /**
  * The persisted `grade.json`: a plan's grade plus the evidence behind it — the
@@ -49,6 +51,14 @@ export const GradeReport = z.object({
 	gradedCommit: z.string().optional(),
 	/** True when the working tree held uncommitted changes at grade time, so `gradedCommit` is a floor rather than an exact description of what was measured. Absent means NOT KNOWN — no commit was read, or the changed-file probe itself failed. It never means clean; only `false` means clean. */
 	gradedTreeDirty: z.boolean().optional(),
+	/** How far this pass reached. Only a `full` pass may be `passed`; a focused one is a repair check, never an approval. Defaults to `full` so a report written before the field existed reads as the whole-plan pass it was. */
+	scope: z.enum(GradeScope).default(GradeScope.Full),
+	/** The plan files a focused pass read — the edited phases and their connected closure. Empty on a full pass. */
+	focusedOn: z.array(z.string()).default([]),
+	/** The fingerprint of everything this pass measured. Absent on a report written before the field existed, which is never treated as matching anything. */
+	inputs: GradeInputs.optional(),
+	/** One line naming the rule that chose this pass's scope, persisted so a history line says why the pass reached as far as it did. Absent on a report written before the field existed and on a preflight stop. */
+	scopeReason: z.string().optional(),
 });
 
 export type GradeReport = z.infer<typeof GradeReport>;

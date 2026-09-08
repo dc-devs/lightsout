@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { GapArea, GapCheckLens, GapOutcome, type GapVerdict, type GradedGap } from '#src/contracts/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
-import { matchGapVerdicts } from '#src/plan/common/utils/matchGapVerdicts.ts';
+import { matchGapVerdicts } from '#src/plan/common/grading/matchGapVerdicts.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 
 /** A repo root holding real files at the top level and one directory down, so a citation can be pointed at something that is really there. */
@@ -160,5 +160,40 @@ describe('matchGapVerdicts', () => {
 		// building the result FROM the input is what makes it impossible for a
 		// finding to disappear between the readers and the report
 		expect(judged.map(({ gap, outcome }) => `${gap}/${outcome}`)).toStrictEqual(['first/needs-a-human', 'second/unjudged', 'third/agent-can-decide']);
+	});
+
+	test('a matchesFinding id that names no record is stamped unjudged', async () => {
+		// the id is the judge's claim that this finding repeats a record; one no
+		// record holds points nowhere, exactly like a citation off disk
+		const outcome = ruled({ matchesFinding: 'f9' });
+
+		const { cwd } = await setupRepo();
+
+		const judged = await matchGapVerdicts({ cwd, gaps: [gapOf()], judgeOutcomes: [outcome], recordIds: new Set(['f1']) });
+
+		expect(judged[0]?.outcome).toBe(GapOutcome.Unjudged);
+		expect(judged[0]?.unjudgedReason).toEqual(expect.stringContaining('f9'));
+		expect(judged[0]?.findingId).toBe(undefined);
+	});
+
+	test('a matchesFinding id the plan holds is resolved onto the gap and the raw claim is dropped', async () => {
+		const outcome = ruled({ matchesFinding: 'f1' });
+
+		const { cwd } = await setupRepo();
+
+		const judged = await matchGapVerdicts({ cwd, gaps: [gapOf()], judgeOutcomes: [outcome], recordIds: new Set(['f1', 'f2']) });
+
+		// what is persisted is the id the engine resolved, never the agent's raw
+		// field — a `matchesFinding` on disk would be a claim nothing revalidated
+		expect(judged).toStrictEqual([{ ...gapOf(), outcome: GapOutcome.NeedsAHuman, humanDecision: 'pick the failure mode', findingId: 'f1' }]);
+	});
+
+	test('a judge that recognised no record leaves the gap with no findingId at all', async () => {
+		const { cwd } = await setupRepo();
+
+		const judged = await matchGapVerdicts({ cwd, gaps: [gapOf()], judgeOutcomes: [ruled()], recordIds: new Set(['f1']) });
+
+		// an absent claim is not a match to the first record on the list
+		expect('findingId' in (judged[0] ?? {})).toBe(false);
 	});
 });

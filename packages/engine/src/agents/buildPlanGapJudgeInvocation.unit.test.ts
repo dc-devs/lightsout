@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
 import { buildPlanGapJudgeInvocation } from '#src/agents/index.ts';
-import { GapArea, GapCheckLens, GapOutcome, type GradedGap } from '#src/contracts/index.ts';
+import { GapArea, GapCheckLens, GapOutcome, type GradedGap, type GradeFindingRecord, GradeFindingStatus } from '#src/contracts/index.ts';
 
 const planText = '# Phase 1\n\nPLAN-SENTINEL';
 const overviewText = '# Overview\n\nOVERVIEW-SENTINEL';
@@ -82,4 +82,59 @@ test('buildPlanGapJudgeInvocation: a single-file plan gets no sibling-phases sec
 	const { prompt } = buildPlanGapJudgeInvocation({ planText, gap: gapOf({ phase: 'plan.md' }) });
 
 	expect(prompt.includes("## The plan's other phases")).toBeFalsy();
+});
+
+/** One memory record as `phaseFindingRecords` hands the judge builder its phase's slice. */
+const recordOf = (overrides: Partial<GradeFindingRecord> = {}): GradeFindingRecord => ({
+	id: 'f1',
+	phase: 'phase1-core.md',
+	lens: GapCheckLens.Decisions,
+	area: GapArea.OmittedDecision,
+	gap: 'the plan picks no failure mode',
+	decision: 'what to return when the judge times out',
+	options: ['throw', 'return null'],
+	firstSeen: '2026-01-01T00:00:00.000Z',
+	lastSeen: '2026-01-02T00:00:00.000Z',
+	status: GradeFindingStatus.Open,
+	disposition: GapOutcome.NeedsAHuman,
+	humanDecision: 'pick the failure mode',
+	reopened: [],
+	...overrides,
+});
+
+test("the judge prompt lists the phase's records and the id rule", () => {
+	const records = [
+		recordOf({ gap: 'RECORD-ONE-SENTINEL: the plan picks no failure mode' }),
+		recordOf({
+			id: 'f7',
+			gap: 'RECORD-TWO-SENTINEL: the retry count is unstated',
+			status: GradeFindingStatus.Resolved,
+			disposition: GapOutcome.AlreadyAnswered,
+			answerAt: 'Decision Log row 4',
+		}),
+	];
+
+	const { prompt } = buildPlanGapJudgeInvocation({ planText, overviewText, records, gap: gapOf() });
+
+	expect(prompt.includes('## Findings already on record for this plan file')).toBeTruthy();
+	// every record for the phase, each line naming its id beside the state it is in
+	expect(prompt).toMatch(/f1.*open/);
+	expect(prompt).toMatch(/f7.*resolved/);
+	expect(prompt.includes('RECORD-ONE-SENTINEL: the plan picks no failure mode')).toBeTruthy();
+	expect(prompt.includes('RECORD-TWO-SENTINEL: the retry count is unstated')).toBeTruthy();
+	// the rule that turns the list into an answer the engine can validate
+	expect(prompt.includes('matchesFinding')).toBeTruthy();
+	// the records are context for the ruling, so they arrive before the finding being ruled on
+	expect(prompt.indexOf('## Findings already on record for this plan file')).toBeLessThan(prompt.indexOf('## The finding to judge'));
+});
+
+test('a plan file the memory holds no record for gets no records section', () => {
+	const { prompt } = buildPlanGapJudgeInvocation({ planText, overviewText, records: [], gap: gapOf() });
+
+	// an empty heading followed by the `matchesFinding` rule would invite a judge
+	// to name an id off a list that has none
+	expect(prompt.includes('## Findings already on record for this plan file')).toBeFalsy();
+	expect(prompt.includes('matchesFinding')).toBeFalsy();
+	// the finding under judgment is still there — a judge is never spawned without one
+	expect(prompt.includes('## The finding to judge')).toBeTruthy();
 });

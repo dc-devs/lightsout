@@ -8,7 +8,7 @@ import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { planRunOptions } from '#src/cli/plan/common/utils/planRunOptions.ts';
 import { GapOutcome, type GradeReport, type LightsoutConfig } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { getBlockingGaps, gradeHistoryPath, runPlanGrade } from '#src/plan/index.ts';
+import { getBlockingGaps, gradeHistoryPath, gradeMemoryPath, runPlanGrade } from '#src/plan/index.ts';
 
 interface Params {
 	cwd: string;
@@ -60,9 +60,14 @@ const printWeights = ({ weights }: { weights: GradeReport['weights'] }) => {
  * script must be able to tell — while a complete grade exits 0 whatever its
  * verdict.
  *
- * Two paths are printed at the end: the grade path names the latest pass, and
- * the history path names every pass this plan has ever had, so a human can open
- * either.
+ * Three paths are printed at the end: the grade path names the latest pass, the
+ * history path names every pass this plan has ever had, and the memory path
+ * names the record of what is still open and what was settled — the third file a
+ * human opens after a grade.
+ *
+ * The scope line says how far the pass reached and which rule chose that far. A
+ * reused review prints in its place: nothing ran, so there is no scope to
+ * report, only the recorded verdict and the one way to force a new baseline.
  */
 export const planGradeCommand = async ({ cwd, driver, name, standards, config, phases }: Params): Promise<void> => {
 	const result = await runPlanGrade({ ...planRunOptions({ cwd, driver, name, standards, config }), phases });
@@ -92,6 +97,17 @@ export const planGradeCommand = async ({ cwd, driver, name, standards, config, p
 	const measuredAgainst = grade.gradedCommit === undefined ? 'outside a git worktree' : `at ${grade.gradedCommit.slice(0, 12)}${treeState}`;
 
 	console.log(`\n${bold(`plan grade ${name}`)} — ${grade.passed ? green(grade.grade) : red(grade.grade)} (graded ${grade.gradedAt}, ${measuredAgainst})`);
+
+	if ('reused' in result && result.reused) {
+		console.log(
+			`  the recorded passing full review still covers the current inputs — nothing was re-run; delete ${gradeMemoryPath({ cwd, name })} to force a new baseline`,
+		);
+	} else {
+		const focus = grade.focusedOn.length > 0 ? ` — read ${grade.focusedOn.join(', ')}` : '';
+
+		console.log(`  scope: ${grade.scope}${grade.scopeReason === undefined ? '' : ` — ${grade.scopeReason}`}${focus}`);
+	}
+
 	const blocking = getBlockingGaps({ gaps: grade.gaps });
 	// The two kinds of blocking finding are counted apart: a spike in judge
 	// failures must not read as a plan getting worse.
@@ -113,5 +129,6 @@ export const planGradeCommand = async ({ cwd, driver, name, standards, config, p
 
 	console.log(`\ngrade: ${gradePath}`);
 	console.log(`history: ${gradeHistoryPath({ cwd, name })}`);
+	console.log(`memory: ${gradeMemoryPath({ cwd, name })}`);
 	return exitCli({ code: grade.complete ? 0 : 1 });
 };

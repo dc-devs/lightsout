@@ -1,5 +1,5 @@
 import planGapJudgePrompt from '#src/agents/prompts/planGapJudge.md';
-import type { GradedGap } from '#src/contracts/index.ts';
+import type { GradedGap, GradeFindingRecord } from '#src/contracts/index.ts';
 
 interface Params {
 	/** The plan file the finding was raised against. */
@@ -17,9 +17,28 @@ interface Params {
 	 * Absent for a single-file plan, which has no siblings.
 	 */
 	planDir?: string;
+	/** Every record the memory holds for this plan file, whatever its state — what `matchesFinding` may name. */
+	records?: GradeFindingRecord[];
 	/** The one finding this judge rules on. */
 	gap: GradedGap;
 }
+
+/** One line per record, and the rule that turns the list into an answer the engine can validate. */
+const recordsSection = ({ records }: { records: GradeFindingRecord[] }) =>
+	[
+		'## Findings already on record for this plan file',
+		'',
+		...records.map((record) => `- ${record.id} (${record.status}) — ${record.gap}`),
+		'',
+		'Decide first whether the finding below is the SAME QUESTION as one of these. If it',
+		"is, put that record's id in `matchesFinding`; otherwise leave the field unset.",
+		'Never name an id that is not on this list — one the plan does not hold points',
+		'nowhere, and the engine treats it as no answer at all.',
+		'',
+		'Matching is orthogonal to your ruling: a matched finding still gets a full verdict.',
+		'A match you rule `needs-a-human` REOPENS a closed record, so rule that way only on',
+		'evidence the earlier clearance was wrong or that its assumptions have changed.',
+	].join('\n');
 
 /**
  * Assemble one plan gap-judge invocation deterministically. A grade run spawns
@@ -27,7 +46,7 @@ interface Params {
  * those live in the system prompt the harness caches through; the plan text and
  * the single finding under judgment are the per-invocation prompt.
  */
-export const buildPlanGapJudgeInvocation = ({ planText, overviewText, standards, planDir, gap }: Params): { systemPrompt: string; prompt: string } => {
+export const buildPlanGapJudgeInvocation = ({ planText, overviewText, standards, planDir, records, gap }: Params): { systemPrompt: string; prompt: string } => {
 	const roleSections = [planGapJudgePrompt];
 
 	if (overviewText) {
@@ -44,6 +63,10 @@ export const buildPlanGapJudgeInvocation = ({ planText, overviewText, standards,
 		sections.push(
 			`## The plan's other phases\n\nThe plan's other phase files are in \`${planDir}\`. Open one when this finding is about something a neighbouring phase produces or consumes; ignore them otherwise.`,
 		);
+	}
+
+	if (records && records.length > 0) {
+		sections.push(recordsSection({ records }));
 	}
 
 	sections.push(

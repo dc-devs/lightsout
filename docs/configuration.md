@@ -512,6 +512,20 @@ fan-out once; a light one gets the structural lint and the ledger check and no
 agent at all. `plan grade` prints each file's weight and every threshold it
 crossed, and records both in `grade.json`.
 
+`plan grade` also decides for itself how far each pass reaches, and none of that
+is configurable — there is no key for it. It stops before spawning any agent when
+the structural lint returns a blocking finding, because those findings alone
+already put the plan below A. It keeps one record per judged finding in
+`grade-memory.json` in the plan folder, which travels with a published plan and
+comes back with a restore: a question already settled is not investigated again,
+and one nobody has verified as answered keeps blocking even when a later reader
+does not report it. A re-grade after a repair reads the edited phase files and
+every phase connected to them, falling back to the whole plan whenever that set
+cannot be established. Only a review of the whole plan can pass, and one that
+already covers the current plan text, code, standards, configuration, prompts and
+model is reported as current rather than run again — deleting `grade-memory.json`
+is how a new baseline is forced.
+
 The block is strict for the same reason `ship` is: an unknown key fails parsing
 rather than silently disabling a setting you believe is on. Omit the block and
 nothing changes — the same template, the same required sections, and every plan

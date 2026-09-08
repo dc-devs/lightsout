@@ -1,8 +1,7 @@
-import { isAbsolute, join } from 'node:path';
 import { GapOutcome, type GapVerdict, type GradedGap } from '#src/contracts/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
-import { isPathToken } from '#src/plan/common/paths/isPathToken.ts';
-import { pathExists } from '#src/plan/common/paths/pathExists.ts';
+import { citationPathToken } from '#src/plan/common/paths/citationPathToken.ts';
+import { citedPathExists } from '#src/plan/common/paths/citedPathExists.ts';
 
 interface Params {
 	/** Repo root — a cited path is resolved against it before being checked. */
@@ -13,6 +12,8 @@ interface Params {
 	judgeOutcomes: Array<AgentOutcome<GapVerdict> | undefined>;
 	/** Why no judge ran, when the caller already knows — the rate-limit wall it declined to spawn into. Defaults to the fan-out having stopped mid-flight. */
 	noJudgeReason?: string;
+	/** Every memory record id the plan holds — what a verdict's `matchesFinding` may name. Absent means the plan has none, so any id points nowhere. */
+	recordIds?: Set<string>;
 }
 
 /** Whether a string carries anything — an evidence field the judge left blank is the same as one it omitted. */
@@ -32,16 +33,18 @@ const hasRequiredEvidence = ({ verdict }: { verdict: GapVerdict }) => {
 /**
  * Whether an `already-answered` dismissal points at a file that is not there.
  * Deliberately narrow: only that outcome is checked, because the other two may
- * name a path the plan is about to create; only a citation `isPathToken`
- * recognises as a path is checked at all, so a standards rule or a plan line is
- * left alone; and only the span before the first `:` is resolved, so
- * `file.ts:symbol` checks the file and never the symbol.
+ * name a path the plan is about to create, and only a citation
+ * `citationPathToken` reads as a path is checked at all, so a standards rule or
+ * a plan line is left alone.
  */
 const citesMissingPath = async ({ cwd, verdict }: { cwd: string; verdict: GapVerdict }) => {
-	const token = (verdict.answerAt ?? '').split(':')[0] ?? '';
-	const checkable = verdict.outcome === GapOutcome.AlreadyAnswered && isPathToken({ token });
+	const token = citationPathToken({ citation: verdict.answerAt ?? '' });
 
-	return checkable && !(await pathExists({ path: isAbsolute(token) ? token : join(cwd, token) }));
+	if (verdict.outcome !== GapOutcome.AlreadyAnswered || token === undefined) {
+		return false;
+	}
+
+	return !(await citedPathExists({ cwd, token }));
 };
 
 /** Why nobody settled this finding, or `undefined` when a judge did — the one place every fail-closed branch is spelled. */
@@ -49,10 +52,12 @@ const getUnjudgedReason = async ({
 	cwd,
 	judgeOutcome,
 	noJudgeReason,
+	recordIds,
 }: {
 	cwd: string;
 	judgeOutcome: AgentOutcome<GapVerdict> | undefined;
 	noJudgeReason?: string;
+	recordIds: Set<string>;
 }) => {
 	let reason: string | undefined;
 
@@ -64,6 +69,8 @@ const getUnjudgedReason = async ({
 		reason = `the judge answered ${judgeOutcome.report.outcome} without the evidence that outcome demands`;
 	} else if (await citesMissingPath({ cwd, verdict: judgeOutcome.report })) {
 		reason = `the judge cited ${judgeOutcome.report.answerAt}, which is not on disk`;
+	} else if (judgeOutcome.report.matchesFinding !== undefined && !recordIds.has(judgeOutcome.report.matchesFinding)) {
+		reason = `the judge matched this finding to ${judgeOutcome.report.matchesFinding}, which is not a record this plan holds`;
 	}
 
 	return reason;
@@ -91,20 +98,32 @@ const getUnjudgedReason = async ({
  * `noJudgeReason` and lets its findings through the same loop, so the shape of an
  * unjudged gap is written once rather than once per way of reaching it.
  *
+ * A verdict naming a `matchesFinding` the plan's memory does not hold is stamped
+ * the same way, for the same reason: the id is the judge's claim that this
+ * finding repeats a settled question, and one that points nowhere is a claim the
+ * engine cannot check.
+ *
  * Unlike its dedup sibling this join touches disk, which is why it is `async`
  * and takes `cwd`: checking the citation is the whole reason `already-answered`
  * was made a citation rather than a bare reason.
  */
-export const matchGapVerdicts = async ({ cwd, gaps, judgeOutcomes, noJudgeReason }: Params): Promise<GradedGap[]> => {
+export const matchGapVerdicts = async ({ cwd, gaps, judgeOutcomes, noJudgeReason, recordIds = new Set() }: Params): Promise<GradedGap[]> => {
 	const judged: GradedGap[] = [];
 
 	for (const [index, gap] of gaps.entries()) {
 		const judgeOutcome = judgeOutcomes[index];
-		const unjudgedReason = await getUnjudgedReason({ cwd, judgeOutcome, noJudgeReason });
+		const unjudgedReason = await getUnjudgedReason({ cwd, judgeOutcome, noJudgeReason, recordIds });
 
-		judged.push(
-			unjudgedReason === undefined && judgeOutcome?.ok === true ? { ...gap, ...judgeOutcome.report } : { ...gap, outcome: GapOutcome.Unjudged, unjudgedReason },
-		);
+		if (unjudgedReason !== undefined || judgeOutcome?.ok !== true) {
+			judged.push({ ...gap, outcome: GapOutcome.Unjudged, unjudgedReason });
+			continue;
+		}
+
+		// The agent's raw claim never reaches the record: what is persisted is the id
+		// the engine resolved, which is why `matchesFinding` is dropped here.
+		const { matchesFinding, ...verdict } = judgeOutcome.report;
+
+		judged.push(matchesFinding === undefined ? { ...gap, ...verdict } : { ...gap, ...verdict, findingId: matchesFinding });
 	}
 
 	return judged;

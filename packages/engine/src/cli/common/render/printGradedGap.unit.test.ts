@@ -153,3 +153,22 @@ test('printGradedGap: a finding no per-file lens produced prints without an empt
 		'   decide: which declared document to update — options: docs/configuration.md',
 	]);
 });
+
+test('a gap carrying a memory record id prints it, and a refusal note rides the needs-a-human line', () => {
+	const { gap, logged, write } = setupGradedGap({
+		gap: {
+			findingId: 'f7',
+			humanDecision: 'pick the failure mode',
+			unjudgedReason: 'citation not found in the plan text: ## Decision Log',
+		},
+	});
+
+	printGradedGap({ gap, write });
+
+	// the id is how a human names a finding the memory carried across passes, and
+	// the note is why the re-verification judge refused to close its record
+	expect(logged).toStrictEqual([
+		'f7 ? [omitted-decision] the plan picks no failure mode (decisions)',
+		'   decide: pick the failure mode — citation not found in the plan text: ## Decision Log',
+	]);
+});

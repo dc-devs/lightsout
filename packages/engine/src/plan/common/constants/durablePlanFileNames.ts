@@ -1,4 +1,6 @@
 import { brainstormNotesFileName } from '#src/common/constants/brainstormNotesFileName.ts';
+import { gradeFileName } from '#src/plan/common/constants/gradeFileName.ts';
+import { gradeMemoryFileName } from '#src/plan/common/constants/gradeMemoryFileName.ts';
 
 /**
  * The one answer to which files in a plan folder travel. Everything else the
@@ -22,6 +24,12 @@ import { brainstormNotesFileName } from '#src/common/constants/brainstormNotesFi
  * The annotation is written out rather than left to `as const` so `records` is a
  * `string[]` a caller can `includes` a plain string against without a cast.
  *
+ * `grade-memory.json` travels and `grade-history.jsonl` does not, because they
+ * are different kinds of thing: the memory holds the plan's settled decisions —
+ * which questions a human answered, and where the plan states each answer — so
+ * planning resumed on another machine has to keep it. The history and the agent
+ * transcripts beside it are local debugging state about how a grade was reached.
+ *
  * `brainstorm-notes.md` is the one record the brainstorm generation also
  * carries, which is why it is spelled here as `brainstormNotesFileName` rather
  * than as a literal, and why `isPlanOnlyAttachmentName` and
@@ -30,7 +38,7 @@ import { brainstormNotesFileName } from '#src/common/constants/brainstormNotesFi
  */
 export const durablePlanFileNames: { records: string[]; deliverable: RegExp } = {
 	/** The plan's working records, each attached when the folder holds it. */
-	records: [brainstormNotesFileName, 'decisions.json', 'grade.json'],
+	records: [brainstormNotesFileName, 'decisions.json', gradeFileName, gradeMemoryFileName],
 	/** A plan deliverable's own file name, spelled exactly as `resolvePlanDeliverable` matches it. */
 	deliverable: /^(?:plan\.md|overview\.md|phase\d+.*\.md)$/,
 };

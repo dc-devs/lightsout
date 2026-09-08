@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { readJsonlRecords } from '#src/common/utils/readJsonlRecords.ts';
-import { GapCheckLens, GradeReport, PlanGrade } from '#src/contracts/index.ts';
+import { GapCheckLens, GradeReport, GradeScope, PlanGrade } from '#src/contracts/index.ts';
 import { appendGradeHistory } from '#src/plan/appendGradeHistory.ts';
 import { gradeHistoryPath } from '#src/plan/gradeHistoryPath.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -31,6 +31,8 @@ const reportOf = ({
 	incompleteReason,
 	passed: grade === PlanGrade.A,
 	gradedAt,
+	scope: GradeScope.Full,
+	focusedOn: [],
 });
 
 /** The ledger as a reader gets it back: every line parsed against the report contract. */

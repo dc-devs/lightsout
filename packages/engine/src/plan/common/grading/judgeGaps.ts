@@ -1,14 +1,15 @@
 import { basename, relative } from 'node:path';
 import { buildPlanGapJudgeInvocation } from '#src/agents/index.ts';
-import { type Effort, GapVerdict, type GradedGap, type Permissions } from '#src/contracts/index.ts';
+import { type Effort, GapVerdict, type GradedGap, type GradeMemory, type Permissions } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
 import { planAgentConcurrency } from '#src/plan/common/constants/planAgentConcurrency.ts';
+import { matchGapVerdicts } from '#src/plan/common/grading/matchGapVerdicts.ts';
+import { phaseFindingRecords } from '#src/plan/common/memory/phaseFindingRecords.ts';
 import type { DeliverableFile } from '#src/plan/common/types/DeliverableFile.ts';
 import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
 import { drainTasks } from '#src/plan/common/utils/drainTasks.ts';
 import { isRateLimited } from '#src/plan/common/utils/isRateLimited.ts';
-import { matchGapVerdicts } from '#src/plan/common/utils/matchGapVerdicts.ts';
 
 interface Params {
 	cwd: string;
@@ -28,6 +29,8 @@ interface Params {
 	gaps: GradedGap[];
 	/** Set when the reader fan-out already hit the rate-limit wall: no judge is spawned and every finding keeps this as its reason. */
 	skipReason?: string;
+	/** The plan's finding memory — each judge is shown the records for its own phase, and only ids it holds may be named. */
+	memory: GradeMemory;
 }
 
 /** One finding, the plan text it was raised against, and its position in the reader's findings — the position is what lets the ruling be scattered back. */
@@ -74,6 +77,7 @@ const spawnGapJudge = async ({ params, pair }: { params: Params; pair: GapPair }
 			// Only a phased plan has siblings to point at, and the judge opens one
 			// itself when its finding is about a seam.
 			planDir: overviewText === undefined ? undefined : relative(cwd, workspaceDir),
+			records: phaseFindingRecords({ memory: params.memory, phase: pair.gap.phase }),
 			gap: pair.gap,
 		}),
 		contract: GapVerdict,
@@ -85,6 +89,13 @@ const spawnGapJudge = async ({ params, pair }: { params: Params; pair: GapPair }
 /**
  * Weigh every reader finding: one agent per finding, all at once, then the join.
  *
+ * Each judge is also shown the records the memory already holds for its own plan
+ * file, so it can say this finding is the same question as one of them rather
+ * than having the engine guess from two readers' wordings. It is a per-phase
+ * slice for the reason the reader fan-out is per file: the whole memory in every
+ * one of twenty prompts is the read-everything-at-once shape this was split away
+ * from.
+ *
  * The narrowness of the question — who settles this one finding — is what makes
  * a judge steady, so a batch is never handed one; and the input `gaps` array is
  * what comes back, same members in the same order, every one of them carrying an
@@ -92,7 +103,7 @@ const spawnGapJudge = async ({ params, pair }: { params: Params; pair: GapPair }
  * cannot silently disappear, rather than one where a branch has to remember it.
  */
 export const judgeGaps = async (params: Params): Promise<{ gaps: GradedGap[]; rateLimited: boolean }> => {
-	const { cwd, selected, gaps, skipReason } = params;
+	const { cwd, selected, gaps, skipReason, memory } = params;
 	// A wall met by launching another twenty spawns into it is still a wall, so a
 	// skipped pass pairs nothing and spawns nothing — and nothing to weigh pairs
 	// nothing on its own. Both still go through the join, which is where an
@@ -110,7 +121,7 @@ export const judgeGaps = async (params: Params): Promise<{ gaps: GradedGap[]; ra
 	}
 
 	return {
-		gaps: await matchGapVerdicts({ cwd, gaps, judgeOutcomes, noJudgeReason: skipReason }),
+		gaps: await matchGapVerdicts({ cwd, gaps, judgeOutcomes, noJudgeReason: skipReason, recordIds: new Set(memory.findings.map((record) => record.id)) }),
 		rateLimited: results.some((result) => isRateLimited({ result })),
 	};
 };

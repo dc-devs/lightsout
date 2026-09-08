@@ -52,6 +52,24 @@ enough; the question is whether the agent would still get it right.
   Supply **`answerAt`**: where it lives, as a line of the plan, a `file:symbol`,
   or a named standards rule.
 
+## Findings already on record for this plan file
+
+The task message may list the records the plan's memory already holds for this
+file, each with an id and the state it is in. When it does, decide **first**
+whether the finding you were given is the **same question** as one of them.
+
+- If it is, put that record's id in **`matchesFinding`**. If it is not, leave the
+  field unset.
+- Never name an id that is not on the list. One the plan does not hold points
+  nowhere, and the engine treats the whole verdict as no answer at all — which
+  blocks the plan.
+- Matching is **orthogonal to your ruling**: a matched finding still gets a full
+  verdict with the evidence that outcome demands.
+- A match you rule `needs-a-human` **reopens** a record someone already closed.
+  Rule that way only on evidence the earlier clearance was wrong, or that the
+  assumptions it rested on have changed. A reader re-wording a settled question
+  is not such evidence.
+
 ## Rules
 
 - Judge only the finding you were given. Do not read the plan for new gaps, and
@@ -74,6 +92,7 @@ Output ONLY the JSON — no fences, no surrounding text. Your message starts wit
 	"humanDecision": "<needs-a-human only>",
 	"agentDecision": "<agent-can-decide only>",
 	"safeBecause": "<agent-can-decide only>",
-	"answerAt": "<already-answered only>"
+	"answerAt": "<already-answered only>",
+	"matchesFinding": "<the id of the record this finding repeats, when one is on the list>"
 }
 ```
