@@ -128,13 +128,38 @@ const createLane = ({ enter, leave }: { enter: () => void; leave: () => void }) 
 	const release = ({ identifier, outcome }: { identifier: string; outcome: TicketRunOutcome }) => {
 		const resolve = waiting.get(identifier);
 
+		if (resolve === undefined) {
+			throw new Error(`${identifier} is not running on this lane, so there is nothing to release`);
+		}
+
 		waiting.delete(identifier);
 		laneActivity += 1;
 		leave();
-		resolve?.(outcome);
+		resolve(outcome);
 	};
 
-	return { begin, peak: () => peak, release, running: () => [...waiting.keys()], started: () => [...started] };
+	/**
+	 * Yield timer turns until the drain has begun this ticket on the lane.
+	 *
+	 * A ticket reaches a lane only after work the lanes cannot see — the drain's
+	 * queue-document write at startup and after every admission, on the thread
+	 * pool — so no count of quiet turns can stand in for it: on a loaded machine
+	 * the write outlasts the quiet, and a release issued before the start would
+	 * release nothing. Waiting for the start itself is the only wait that cannot
+	 * lose that race; the cap keeps a drain that never starts the ticket to a
+	 * bounded, named failure rather than the suite's timeout.
+	 */
+	const untilStarted = async ({ identifier }: { identifier: string }) => {
+		for (let turn = 0; turn < 4000 && !started.includes(identifier); turn += 1) {
+			await new Promise((resolve) => setTimeout(resolve, 0));
+		}
+
+		if (!started.includes(identifier)) {
+			throw new Error(`${identifier} never started on this lane`);
+		}
+	};
+
+	return { begin, peak: () => peak, release, running: () => [...waiting.keys()], started: () => [...started], untilStarted };
 };
 
 /** Every git mutation of the main checkout, and how many of them ever ran at once. */
@@ -205,8 +230,11 @@ const setupLanes = ({
 		return serializeMainCheckout({ task: () => checkout.mutate({ label: `add ${ticket.identifier}` }) }).then(() => built);
 	};
 
-	const drain = () =>
-		runDrainLanes({
+	let finished = false;
+
+	/** Start the drain, remembering when it answers — the one signal that says everything is finished, which lane silence cannot give. */
+	const drain = () => {
+		const drained = runDrainLanes({
 			cwd,
 			config,
 			settings: queueSettingsFixture({ maxParallel }),
@@ -223,15 +251,35 @@ const setupLanes = ({
 			onProgress: (message) => progress.push(message),
 		});
 
+		drained
+			.finally(() => {
+				finished = true;
+			})
+			.catch(() => undefined);
+
+		return drained;
+	};
+
+	/** End one ticket on a lane: wait for the drain to have started it — a release by name before then would release nothing — then release it and let the drain react. */
 	const finisherFor = (lane: ReturnType<typeof createLane>) => async (params: EndParams) => {
+		await lane.untilStarted({ identifier: params.identifier });
 		lane.release({ identifier: params.identifier, outcome: outcomeOf(params) });
 
 		await settle();
 	};
 
-	/** Let everything in flight finish as merged, turn after turn, until both lanes are idle. */
+	/**
+	 * Let everything in flight finish as merged, turn after turn, until the drain
+	 * answers.
+	 *
+	 * Idle lanes are not the end: the drain starts its first builds only after a
+	 * queue-document write, and every admission is followed by another, so a loop
+	 * that stopped at the first quiet moment would leave a build to begin after
+	 * nobody is releasing anything. The cap keeps a drain that never answers to a
+	 * named failure rather than the suite's timeout.
+	 */
 	const finishEverything = async () => {
-		while (builds.running().length + merges.running().length > 0) {
+		for (let turn = 0; turn < 500 && !finished; turn += 1) {
 			for (const lane of [builds, merges]) {
 				for (const identifier of lane.running()) {
 					lane.release({ identifier, outcome: outcomeOf({ identifier }) });
@@ -239,6 +287,10 @@ const setupLanes = ({
 			}
 
 			await settle();
+		}
+
+		if (!finished) {
+			throw new Error('the drain never answered while every ticket it started was being released');
 		}
 	};
 
@@ -333,6 +385,7 @@ describe('runDrainLanes', () => {
 		await settle();
 		await lanes.finishBuild({ identifier: 'LO-1' });
 		await lanes.finishMerge({ identifier: 'LO-1' });
+		await lanes.builds.untilStarted({ identifier: 'LO-2' });
 		await lanes.finishEverything();
 
 		const report = await drained;
@@ -436,6 +489,7 @@ describe('runDrainLanes', () => {
 		await settle();
 		await lanes.finishBuild({ identifier: 'LO-1' });
 		await lanes.finishMerge({ identifier: 'LO-1' });
+		await lanes.builds.untilStarted({ identifier: 'LO-2' });
 		await lanes.finishEverything();
 		await drained;
 
