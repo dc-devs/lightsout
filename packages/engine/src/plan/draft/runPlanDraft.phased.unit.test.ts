@@ -1,24 +1,16 @@
-import { existsSync, rmSync, writeFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { existsSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { Driver } from '#src/drivers/index.ts';
 import { runPlanDraft } from '#src/plan/draft/runPlanDraft.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
-import { expectDefined } from '#tests/helpers/expectDefined.ts';
+import { createScriptedDraftDriver, unchangedFixReport } from '#tests/helpers/createScriptedDraftDriver.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
-import { type DeclarationSpec, overviewBody } from '#tests/helpers/phasePlan.ts';
-import { seedPlanWorkspace } from '#tests/helpers/seedPlanWorkspace.ts';
-import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { phaseRow, setupPhasedDraft } from '#tests/helpers/phasedDraftFixture.ts';
+import { overviewBody } from '#tests/helpers/phasePlan.ts';
 
 // The two-stage phased draft end to end: the door check between the stages, the
 // reshape loop behind it, and the escalation that turns an over-ceiling single
 // plan into a phased one.
-
-/** Which brief the invocation builder emitted — the only thing a real writer keys off too. */
-type Role = 'single' | 'overview' | 'phase' | 'reshape' | 'repair';
-
-/** One phase row, defaulted to the counts the clean phase body actually lands on. */
-const rowFor = (overrides: Partial<DeclarationSpec> = {}): DeclarationSpec => ({ number: 1, file: 'phase1-core.md', created: 1, touched: 2, ...overrides });
 
 /** The clean single skeleton with `extra` further created files — 30 is the hard ceiling. */
 const planCreating = ({ extra }: { extra: number }) => {
@@ -27,113 +19,24 @@ const planCreating = ({ extra }: { extra: number }) => {
 	return cleanPlanBody().replace('## Files to Modify', `${creates}\n## Files to Modify`);
 };
 
-const briefRole = ({ prompt }: { prompt: string }): Role => {
-	if (prompt.includes('# Reshape input')) {
-		return 'reshape';
-	}
-
-	if (prompt.includes('# Repair input')) {
-		return 'repair';
-	}
-
-	if (prompt.includes('## Phase authoring')) {
-		return 'phase';
-	}
-
-	return prompt.includes('## Overview only') ? 'overview' : 'single';
-};
-
-/** A fixed-report answer a scripted spawn returns instead of authoring a body. */
-type DriverAnswer = string | { text: string; exitCode: number; rateLimited?: boolean };
-
-/** The plan-writer's drafted report for one authored file. */
-const draftedReport = ({ path, role }: { path: string; role: Role }) =>
-	JSON.stringify({
-		status: 'drafted',
-		filesWritten: [{ path, variant: role === 'single' ? 'single' : role, scope: role }],
-		decisionsApplied: 0,
-		assumptions: [],
-		discrepancies: [],
-	});
-
-/**
- * A stub harness answering every spawn shape the phased draft can emit. It reads
- * the role off the brief and the output path off the prompt, exactly as a real
- * writer would, and `respond` decides what that spawn does.
- */
-const draftDriver = ({
-	respond,
-	onCall,
-}: {
-	respond: (params: { role: Role; path: string; file: string }) => DriverAnswer;
-	onCall?: (params: { role: Role; file: string }) => void;
-}): Driver => ({
-	name: 'stub',
-	invoke: async ({ prompt }) => {
-		const role = briefRole({ prompt });
-		const path = /- (\S+\.md)/.exec(prompt)?.[1];
-
-		// every spawn is handed exactly the paths the engine chose
-		expectDefined(path);
-		onCall?.({ role, file: basename(path) });
-
-		const answer = respond({ role, path, file: basename(path) });
-
-		if (typeof answer !== 'string') {
-			return answer;
-		}
-
-		writeFileSync(path, answer);
-
-		return role === 'reshape' || role === 'repair'
-			? { text: JSON.stringify({ status: 'fixed', filesEdited: [path], discrepancies: [] }), exitCode: 0 }
-			: { text: draftedReport({ path, role }), exitCode: 0 };
-	},
-});
-
-/** A repair or reshape spawn that edits nothing — the finding set comes back identical, so the loop stops. */
-const unchanged = ({ path }: { path: string }): DriverAnswer => ({
-	text: JSON.stringify({ status: 'fixed', filesEdited: [path], discrepancies: [] }),
-	exitCode: 0,
-});
-
-/** A seeded plan workspace whose facts touch enough paths to estimate `overview`, plus the collectors the act writes into. */
-const setupPhasedDraft = ({ name, touching = 41, executorFileLimit }: { name: string; touching?: number; executorFileLimit?: number }) => {
-	const cwd = setupConsumerRepo({ config: executorFileLimit === undefined ? undefined : { 'executor-file-limit': executorFileLimit } });
-
-	seedPlanWorkspace({
-		cwd,
-		name,
-		areas: [
-			{
-				area: 'core',
-				filesToModify: Array.from({ length: touching }, (_, index) => ({ path: `src/mod${index}.ts`, role: 'touched' })),
-				patternsToMirror: [],
-				namingConvention: 'camelCase',
-			},
-		],
-	});
-
-	const calls: { role: Role; file: string }[] = [];
-	const messages: string[] = [];
-
-	return { cwd, name, calls, messages, planDir: join(cwd, '.lightsout', 'plans', name), onProgress: (message: string) => messages.push(message) };
-};
-
 describe('runPlanDraft phased', () => {
 	test('a single plan that busts the created-file ceiling is re-drafted phased, its abandoned plan.md deleted first', async () => {
 		// The scope estimate reads only the facts' touched paths, which carry no
 		// create-paths — so a plan estimated as comfortably single can still
 		// author forty new files.
 		const draft = setupPhasedDraft({ name: 'escalated', touching: 0 });
-		const driver = draftDriver({
+		const driver = createScriptedDraftDriver({
 			onCall: (call) => draft.calls.push(call),
 			respond: ({ role, path }) => {
 				if (role === 'single') {
 					return planCreating({ extra: 32 });
 				}
 
-				return role === 'overview' ? overviewBody({ rows: [rowFor()] }) : role === 'phase' ? cleanPlanBody() : unchanged({ path });
+				return role === 'overview'
+					? overviewBody({ rows: [phaseRow()] })
+					: role === 'phase'
+						? cleanPlanBody({ reference: true })
+						: unchangedFixReport({ path });
 			},
 		});
 
@@ -154,7 +57,7 @@ describe('runPlanDraft phased', () => {
 
 	test('the phased re-draft never escalates back — a phase over the ceiling hands back instead', async () => {
 		const draft = setupPhasedDraft({ name: 'once-only', touching: 0 });
-		const driver = draftDriver({
+		const driver = createScriptedDraftDriver({
 			onCall: (call) => draft.calls.push(call),
 			respond: ({ role, path }) => {
 				if (role === 'single') {
@@ -162,7 +65,7 @@ describe('runPlanDraft phased', () => {
 				}
 
 				// the declaration passes the door check; the phase file itself does not
-				return role === 'overview' ? overviewBody({ rows: [rowFor()] }) : role === 'phase' ? planCreating({ extra: 32 }) : unchanged({ path });
+				return role === 'overview' ? overviewBody({ rows: [phaseRow()] }) : role === 'phase' ? planCreating({ extra: 32 }) : unchangedFixReport({ path });
 			},
 		});
 
@@ -179,9 +82,9 @@ describe('runPlanDraft phased', () => {
 
 	test('a declared phase over the ceiling is refused before a single phase spawn is paid for', async () => {
 		const draft = setupPhasedDraft({ name: 'refused' });
-		const driver = draftDriver({
+		const driver = createScriptedDraftDriver({
 			onCall: (call) => draft.calls.push(call),
-			respond: ({ role, path }) => (role === 'overview' ? overviewBody({ rows: [rowFor({ created: 31 })] }) : unchanged({ path })),
+			respond: ({ role, path }) => (role === 'overview' ? overviewBody({ rows: [phaseRow({ created: 31 })] }) : unchangedFixReport({ path })),
 		});
 
 		const result = await runPlanDraft({ cwd: draft.cwd, driver, name: draft.name });
@@ -199,16 +102,16 @@ describe('runPlanDraft phased', () => {
 	test('a reshaped breakdown is what the phase fan-out is then authored against', async () => {
 		const draft = setupPhasedDraft({ name: 'reshaped' });
 		let overviews = 0;
-		const driver = draftDriver({
+		const driver = createScriptedDraftDriver({
 			onCall: (call) => draft.calls.push(call),
 			respond: ({ role, path }) => {
 				if (role === 'overview') {
 					overviews += 1;
 
-					return overviewBody({ rows: [rowFor({ created: 31 })] });
+					return overviewBody({ rows: [phaseRow({ created: 31 })] });
 				}
 
-				return role === 'reshape' ? overviewBody({ rows: [rowFor()] }) : role === 'phase' ? cleanPlanBody() : unchanged({ path });
+				return role === 'reshape' ? overviewBody({ rows: [phaseRow()] }) : role === 'phase' ? cleanPlanBody({ reference: true }) : unchangedFixReport({ path });
 			},
 		});
 
@@ -221,9 +124,13 @@ describe('runPlanDraft phased', () => {
 
 	test('a breakdown advisory rides the complete result rather than being computed and dropped', async () => {
 		const draft = setupPhasedDraft({ name: 'noted' });
-		const driver = draftDriver({
+		const driver = createScriptedDraftDriver({
 			respond: ({ role, path }) =>
-				role === 'overview' ? overviewBody({ rows: [rowFor({ touched: 51 })] }) : role === 'phase' ? cleanPlanBody() : unchanged({ path }),
+				role === 'overview'
+					? overviewBody({ rows: [phaseRow({ touched: 51 })] })
+					: role === 'phase'
+						? cleanPlanBody({ reference: true })
+						: unchangedFixReport({ path }),
 		});
 
 		const result = await runPlanDraft({ cwd: draft.cwd, driver, name: draft.name });
@@ -236,9 +143,9 @@ describe('runPlanDraft phased', () => {
 
 	test('a rate-limited reshape parks the draft before the fan-out', async () => {
 		const draft = setupPhasedDraft({ name: 'parked-reshape' });
-		const driver = draftDriver({
+		const driver = createScriptedDraftDriver({
 			onCall: (call) => draft.calls.push(call),
-			respond: ({ role }) => (role === 'overview' ? overviewBody({ rows: [rowFor({ created: 31 })] }) : { text: '', exitCode: 1, rateLimited: true }),
+			respond: ({ role }) => (role === 'overview' ? overviewBody({ rows: [phaseRow({ created: 31 })] }) : { text: '', exitCode: 1, rateLimited: true }),
 		});
 
 		const result = await runPlanDraft({ cwd: draft.cwd, driver, name: draft.name });
@@ -250,8 +157,8 @@ describe('runPlanDraft phased', () => {
 
 	test('a rate-limited phase spawn parks the draft, carrying the breakdown note it already raised', async () => {
 		const draft = setupPhasedDraft({ name: 'parked-phase' });
-		const driver = draftDriver({
-			respond: ({ role }) => (role === 'overview' ? overviewBody({ rows: [rowFor({ touched: 51 })] }) : { text: '', exitCode: 1, rateLimited: true }),
+		const driver = createScriptedDraftDriver({
+			respond: ({ role }) => (role === 'overview' ? overviewBody({ rows: [phaseRow({ touched: 51 })] }) : { text: '', exitCode: 1, rateLimited: true }),
 		});
 
 		const result = await runPlanDraft({ cwd: draft.cwd, driver, name: draft.name });
@@ -264,10 +171,10 @@ describe('runPlanDraft phased', () => {
 
 	test('a phase spawn reporting a facts discrepancy returns facts-error naming its phase file', async () => {
 		const draft = setupPhasedDraft({ name: 'phase-facts' });
-		const driver = draftDriver({
+		const driver = createScriptedDraftDriver({
 			respond: ({ role }) =>
 				role === 'overview'
-					? overviewBody({ rows: [rowFor()] })
+					? overviewBody({ rows: [phaseRow()] })
 					: {
 							text: JSON.stringify({
 								status: 'error',
@@ -288,7 +195,7 @@ describe('runPlanDraft phased', () => {
 
 	test('a rate-limited overview spawn parks before the door check ever runs', async () => {
 		const draft = setupPhasedDraft({ name: 'parked-overview' });
-		const driver = draftDriver({ onCall: (call) => draft.calls.push(call), respond: () => ({ text: '', exitCode: 1, rateLimited: true }) });
+		const driver = createScriptedDraftDriver({ onCall: (call) => draft.calls.push(call), respond: () => ({ text: '', exitCode: 1, rateLimited: true }) });
 
 		const result = await runPlanDraft({ cwd: draft.cwd, driver, name: draft.name });
 
@@ -300,11 +207,11 @@ describe('runPlanDraft phased', () => {
 
 	test('a reshaper that destroys the overview fails the draft rather than fanning out over nothing', async () => {
 		const draft = setupPhasedDraft({ name: 'lost-overview' });
-		const driver = draftDriver({
+		const driver = createScriptedDraftDriver({
 			onCall: (call) => draft.calls.push(call),
 			respond: ({ role, path }) => {
 				if (role === 'overview') {
-					return overviewBody({ rows: [rowFor({ created: 31 })] });
+					return overviewBody({ rows: [phaseRow({ created: 31 })] });
 				}
 
 				rmSync(path);
@@ -324,21 +231,15 @@ describe('runPlanDraft phased', () => {
 
 	test('a phase spawn that died fails the draft, naming the phase file it was authoring', async () => {
 		const draft = setupPhasedDraft({ name: 'phase-died' });
-		const driver: Driver = {
-			name: 'stub',
-			invoke: async ({ prompt }) => {
-				if (prompt.includes('## Phase authoring')) {
+		const driver = createScriptedDraftDriver({
+			respond: ({ role }) => {
+				if (role === 'phase') {
 					throw new Error('spawn failed');
 				}
 
-				const path = /- (\S+\.md)/.exec(prompt)?.[1];
-
-				expectDefined(path);
-				writeFileSync(path, overviewBody({ rows: [rowFor()] }));
-
-				return { text: draftedReport({ path, role: 'overview' }), exitCode: 0 };
+				return overviewBody({ rows: [phaseRow()] });
 			},
-		};
+		});
 
 		const result = await runPlanDraft({ cwd: draft.cwd, driver, name: draft.name });
 
@@ -351,14 +252,14 @@ describe('runPlanDraft phased', () => {
 		{ outcome: 'dead', status: 'failed' as const, answer: { text: 'not a report', exitCode: 0 } },
 	])('a $outcome closing structural repair ends the draft as $status, still carrying the breakdown note', async ({ status, answer }) => {
 		const draft = setupPhasedDraft({ name: `closing-${status}` });
-		const driver = draftDriver({
+		const driver = createScriptedDraftDriver({
 			respond: ({ role }) => {
 				if (role === 'overview') {
-					return overviewBody({ rows: [rowFor({ touched: 51 })] });
+					return overviewBody({ rows: [phaseRow({ touched: 51 })] });
 				}
 
 				// a placeholder in the phase file is what forces the closing repair
-				return role === 'phase' ? cleanPlanBody().replace('A new module exporting', 'TBD — a new module exporting') : answer;
+				return role === 'phase' ? cleanPlanBody({ reference: true }).replace('A new module exporting', 'TBD — a new module exporting') : answer;
 			},
 		});
 
@@ -373,9 +274,10 @@ describe('runPlanDraft phased', () => {
 		// and nine touched paths draft phased — where the default 50 would have put
 		// it at 40 and drafted a single plan from the identical facts.
 		const draft = setupPhasedDraft({ name: 'lowered-limit', touching: 9, executorFileLimit: 10 });
-		const driver = draftDriver({
+		const driver = createScriptedDraftDriver({
 			onCall: (call) => draft.calls.push(call),
-			respond: ({ role, path }) => (role === 'overview' ? overviewBody({ rows: [rowFor()] }) : role === 'phase' ? cleanPlanBody() : unchanged({ path })),
+			respond: ({ role, path }) =>
+				role === 'overview' ? overviewBody({ rows: [phaseRow()] }) : role === 'phase' ? cleanPlanBody({ reference: true }) : unchangedFixReport({ path }),
 		});
 
 		const result = await runPlanDraft({ cwd: draft.cwd, driver, name: draft.name });

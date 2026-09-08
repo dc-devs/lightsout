@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { writeEmptyDecisions } from '#tests/helpers/writeEmptyDecisions.ts';
 
 interface Params {
 	cwd: string;
@@ -9,7 +10,11 @@ interface Params {
 	files: Record<string, string>;
 }
 
-/** Write a phased plan deliverable — an overview plus its phase files — into `<cwd>/.lightsout/plans/<name>/` and return the plan's folder. */
+/**
+ * Write a phased plan deliverable — an overview plus its phase files, and the
+ * empty decision record beside them — into `<cwd>/.lightsout/plans/<name>/` and
+ * return the plan's folder.
+ */
 export const writePhasedPlanDeliverable = ({ cwd, name, files }: Params): string => {
 	const dir = join(cwd, '.lightsout', 'plans', name);
 
@@ -18,6 +23,8 @@ export const writePhasedPlanDeliverable = ({ cwd, name, files }: Params): string
 	for (const [fileName, body] of Object.entries(files)) {
 		writeFileSync(join(dir, fileName), body);
 	}
+
+	writeEmptyDecisions({ dir, name });
 
 	return dir;
 };

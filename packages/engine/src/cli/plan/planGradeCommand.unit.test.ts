@@ -11,6 +11,7 @@ import { cleanOverviewBody } from '#tests/helpers/cleanOverviewBody.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createGapCheckDriver } from '#tests/helpers/createGapCheckDriver.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeEmptyDecisions } from '#tests/helpers/writeEmptyDecisions.ts';
 import { writePlanDeliverable } from '#tests/helpers/writePlanDeliverable.ts';
 
 /** The command's own output, with the progress printer's timestamped narration dropped. */
@@ -56,13 +57,14 @@ const setupPhasedGrade = ({ gaps }: { gaps: unknown[] }) => {
 
 	mkdirSync(dir, { recursive: true });
 	writeFileSync(join(dir, 'overview.md'), cleanOverviewBody());
-	writeFileSync(join(dir, 'phase1-core.md'), cleanPlanBody({ title: 'Phase 1' }));
+	writeFileSync(join(dir, 'phase1-core.md'), cleanPlanBody({ title: 'Phase 1', reference: true }));
 	writeFileSync(
 		join(dir, 'phase2-extra.md'),
-		cleanPlanBody({ title: 'Phase 2' })
+		cleanPlanBody({ title: 'Phase 2', reference: true })
 			.replace(/new-thing/g, 'other-thing')
 			.replace(/newThing/g, 'otherThing'),
 	);
+	writeEmptyDecisions({ dir, name: 'demo' });
 
 	return { cwd, name: 'demo', driver: createGapCheckDriver({ gaps }), ...captured };
 };

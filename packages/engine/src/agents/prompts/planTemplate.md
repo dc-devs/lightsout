@@ -61,7 +61,6 @@ will not reach A:
   `None` is valid content. Phases inherit the overview's — a phase may write
   "See overview."
 {{documentationRule}}
-{{contractRule}}
 
 ---
 
@@ -77,15 +76,9 @@ current state of the codebase.>
 
 ## Decision Log
 
-Every meaningful decision and the road not taken, tagged with the phase that
-surfaced it. Log a row only when an answer establishes or changes a decision or
-an edge-case handling — skip pure confirmations.
-
-| # | Source | Decision / Question | Options Considered | Choice | Rationale |
-|---|--------|---------------------|--------------------|--------|-----------|
-| 1 | Elicitation | <decision> | <A / B> | <chosen> | <one line> |
-
-<!-- Source is one of: Brainstorm, Elicitation, Grill, Converge. If a decision was assumed rather than confirmed by the user, append "(assumption)" to the Choice cell. -->
+Composed by the engine with `lightsout plan sync-decisions` from this plan's
+saved decision records. Write neither this heading's content nor a row: the
+engine puts the section in place, and anything written here is replaced.
 
 ## Global Constraints
 
@@ -180,27 +173,6 @@ justifies its newness:
 - `<resolved check command>` — types clean
 - `<resolved test-unit command>` — tests pass
 
-## Acceptance Tests
-
-<!-- Optional — omit this heading entirely unless the draft input says this
-repository writes contract plans. One row per acceptance criterion. The test
-file goes in backticks and may already exist; the test name is the exact string
-the test writer will use; the gate is a key from the repository's gates, and a
-blank cell means `test`. -->
-
-| Criterion | Test file | Test name | Gate |
-|-----------|-----------|-----------|------|
-| <one-line acceptance criterion> | `<packagesDir>/<name>/src/path/to/file.unit.test.ts` | <exact test name> | test |
-
-## Prose Files
-
-<!-- Optional — omit this heading entirely unless the draft input says this
-repository writes contract plans. One bullet per file whose behaviour no test
-can state, each also listed under one of the file headings above. A bullet with
-no reason is a blocking finding. -->
-
-- `<path>` — <why no test states this file's behaviour>
-
 ## What Next Plan Expects
 
 <For a standalone plan: "None — standalone plan." Otherwise: the exact state a
@@ -225,15 +197,10 @@ directly** — it is passed alongside each phase to `lightsout implement` and to
 
 ## Decision Log
 
-Cross-cutting decisions shared by all phases (phase-specific decisions live in
-each phase file). Log a row only when an answer establishes or changes a
-decision or an edge-case handling — skip pure confirmations.
-
-| # | Source | Decision / Question | Options Considered | Choice | Rationale |
-|---|--------|---------------------|--------------------|--------|-----------|
-| 1 | Elicitation | <decision> | <A / B> | <chosen> | <one line> |
-
-<!-- Source is one of: Brainstorm, Elicitation, Grill, Converge. -->
+Composed by the engine with `lightsout plan sync-decisions` from this plan's
+saved decision records. Write neither this heading's content nor a row: the
+engine puts the section in place, and anything written here is replaced. The
+overview holds the plan's complete history; each phase file points at it.
 
 ## Global Constraints
 
@@ -303,9 +270,10 @@ Identical to the Single Plan with these adjustments:
 - Title: `# <Feature Name> — Phase <N>: <Phase Name>`
 - **Prerequisites** states the prior phase's end state: "Phase <N-1> complete:
   <files/exports that now exist>." Phase 1 states the pre-feature codebase state.
-- **Decision Log** may be omitted if fully covered by the overview — reference
-  it: "See overview." Phase-specific decisions (including Grill rows raised
-  against this phase) still go in this section.
+- **Decision Log** is composed by the engine with
+  `lightsout plan sync-decisions`, exactly as in the Single Plan: write neither
+  the heading's content nor a row. A phase file's section points at the
+  overview's complete history rather than repeating it.
 - **Global Constraints** is required in every phase; when the overview's section
   covers it, the content may be "See overview." Phase-specific constraints are
   added as their own bullets.
@@ -318,7 +286,3 @@ Identical to the Single Plan with these adjustments:
 - **What Next Plan Expects** is mandatory and chains: it must list exactly what
   the next phase's Prerequisites will claim. The final phase states "None —
   final phase."
-- **Acceptance Tests** and **Prose Files** are per phase, never on the overview:
-  the overview creates nothing, so a row written there would belong to no
-  executor. Both are omitted unless the draft input says this repository writes
-  contract plans.

@@ -2,13 +2,17 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { Effort, Permissions, PlanDraftReport, PlanVariant } from '#src/contracts/index.ts';
+import { type DecisionRow, Effort, Permissions, PlanDraftReport, PlanVariant } from '#src/contracts/index.ts';
 import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
+import { renderDecisionLog } from '#src/plan/decisionLog/index.ts';
 import { runPlanDraft } from '#src/plan/draft/runPlanDraft.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createDraftDriver } from '#tests/helpers/createDraftDriver.ts';
+import { createPhasedDraftDriver } from '#tests/helpers/createPhasedDraftDriver.ts';
+import { dirtyPlanBody } from '#tests/helpers/dirtyPlanBody.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
+import { recordingDriver } from '#tests/helpers/recordingDriver.ts';
 import { seedPlanWorkspace } from '#tests/helpers/seedPlanWorkspace.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
@@ -22,12 +26,6 @@ const areaTouching = ({ modify = [], mirror = [] }: { modify?: string[]; mirror?
 
 /** `count` distinct repo-relative paths for the scope estimate. */
 const paths = (count: number) => Array.from({ length: count }, (_, index) => `src/mod${index}.ts`);
-
-/** The clean skeleton with the given placeholder markers planted — one lint finding per distinct marker. */
-const planWithMarkers = ({ markers }: { markers: string }) => cleanPlanBody().replace('A new module exporting', `${markers} — a new module exporting`);
-
-/** Same skeleton but with a planted placeholder, so the structural lint flags it. */
-const dirtyPlan = () => planWithMarkers({ markers: 'TBD' });
 
 test('plan draft: writes plan.md and returns a valid PlanDraftReport — with no config on disk at all', async () => {
 	// A bare repo, deliberately without lightsout.config.json: the draft flow
@@ -74,13 +72,13 @@ test('plan draft: the writer is handed the self-lint command and granted exactly
 
 	const [writer] = invocations;
 
-	// the writer carries exactly one command grant
-	expect(writer.allowedCommands?.length).toBe(1);
+	const lintGrants = (writer.allowedCommands ?? []).filter((grant) => grant.endsWith(' plan lint'));
 
-	const prefix = writer.allowedCommands?.[0] ?? '';
+	// exactly one of the writer's grants is the plan-lint prefix, got: ${(writer.allowedCommands ?? []).join(', ')}
+	expect(lintGrants.length).toBe(1);
 
-	// the grant is the plan-lint prefix, got: ${prefix}
-	expect(prefix.endsWith(' plan lint')).toBeTruthy();
+	const [prefix = ''] = lintGrants;
+
 	// the granted prefix is unquoted — the harness matches it literally
 	expect(prefix.includes('"')).toBeFalsy();
 	// the embedded command extends the granted prefix verbatim, the consumer path
@@ -94,7 +92,7 @@ test('plan draft: the repair invocation gets no self-lint command and no command
 	seedPlanWorkspace({ cwd, name: 'repair-ungranted' });
 
 	const invocations: DriverInvocation[] = [];
-	const driver = createDraftDriver({ bodies: [dirtyPlan(), cleanPlanBody()], onInvoke: (invocation) => invocations.push(invocation) });
+	const driver = createDraftDriver({ bodies: [dirtyPlanBody(), cleanPlanBody()], onInvoke: (invocation) => invocations.push(invocation) });
 	const result = await runPlanDraft({ cwd, driver, name: 'repair-ungranted' });
 
 	expectStatus(result, 'complete');
@@ -115,7 +113,7 @@ test('plan draft: the repair invocation references the workspace facts/decisions
 	seedPlanWorkspace({ cwd, name: 'repair-refs' });
 
 	const invocations: DriverInvocation[] = [];
-	const driver = createDraftDriver({ bodies: [dirtyPlan(), cleanPlanBody()], onInvoke: (invocation) => invocations.push(invocation) });
+	const driver = createDraftDriver({ bodies: [dirtyPlanBody(), cleanPlanBody()], onInvoke: (invocation) => invocations.push(invocation) });
 	const result = await runPlanDraft({ cwd, driver, name: 'repair-refs' });
 
 	expectStatus(result, 'complete');
@@ -145,7 +143,7 @@ test('plan draft: the resolved effort and permissions ride the writer and every 
 	seedPlanWorkspace({ cwd, name: 'effort-threaded' });
 
 	const invocations: DriverInvocation[] = [];
-	const driver = createDraftDriver({ bodies: [dirtyPlan(), cleanPlanBody()], onInvoke: (invocation) => invocations.push(invocation) });
+	const driver = createDraftDriver({ bodies: [dirtyPlanBody(), cleanPlanBody()], onInvoke: (invocation) => invocations.push(invocation) });
 	const result = await runPlanDraft({
 		cwd,
 		driver,
@@ -184,7 +182,7 @@ test('plan draft: a TBD author then a clean repair proves the repair loop conver
 	seedPlanWorkspace({ cwd, name: 'converge' });
 
 	const prompts: string[] = [];
-	const driver = createDraftDriver({ bodies: [dirtyPlan(), cleanPlanBody()], onCall: (prompt) => prompts.push(prompt) });
+	const driver = createDraftDriver({ bodies: [dirtyPlanBody(), cleanPlanBody()], onCall: (prompt) => prompts.push(prompt) });
 	const result = await runPlanDraft({ cwd, driver, name: 'converge' });
 
 	expectStatus(result, 'complete');
@@ -224,72 +222,13 @@ test('plan draft: a report.status of error returns facts-error and writes no pla
 	expect(existsSync(join(cwd, '.lightsout', 'plans', 'bad-facts', 'plan.md'))).toBeFalsy();
 });
 
-/** A structurally clean overview file — the overview variant's own required section set, its counts equal to what its one phase file lists. */
-const cleanOverview = () => `# Drafted Plan — Overview
-
-## Global Constraints
-
-- None
-
-## Phases
-
-| # | File | Scope | Creates | Touches |
-|---|------|-------|---------|---------|
-| 1 | \`phase1-core.md\` | the core | 1 | 1 |
-
-## Phase Declarations
-
-### Phase 1 — \`phase1-core.md\`
-
-- **Creates:** none
-- **Exports:** none
-- **Scripts:** none
-
-## Cross-Phase Dependencies
-
-- None.
-`;
-
-/**
- * The phased writer stub, answering both stages of the two-stage draft: an
- * overview spawn writes `overview.md` alone, and each phase spawn writes the one
- * phase file its prompt names. Which stage it is in is read off the brief the
- * builder emitted, exactly as a real writer would.
- */
-const phasedDraftDriver = ({ onCall, phaseBody = cleanPlanBody() }: { onCall?: (prompt: string) => void; phaseBody?: string } = {}): Driver => ({
-	name: 'stub',
-	invoke: async ({ prompt }) => {
-		onCall?.(prompt);
-
-		const path = /- (\S+\.md)/.exec(prompt)?.[1];
-
-		// the engine dictates one output path per spawn
-		expectDefined(path);
-
-		const phase = prompt.includes('## Phase authoring');
-
-		writeFileSync(path, phase ? phaseBody : cleanOverview());
-
-		return {
-			text: JSON.stringify({
-				status: 'drafted',
-				filesWritten: [{ path, variant: phase ? PlanVariant.Phase : PlanVariant.Overview, scope: phase ? 'the core' : 'phased' }],
-				decisionsApplied: 0,
-				assumptions: [],
-				discrepancies: [],
-			}),
-			exitCode: 0,
-		};
-	},
-});
-
 test('plan draft: facts touching more paths than the phased threshold draft the overview variant', async () => {
 	const cwd = setupConsumerRepo();
 
 	seedPlanWorkspace({ cwd, name: 'big', areas: [areaTouching({ modify: paths(41) })] });
 
 	const prompts: string[] = [];
-	const result = await runPlanDraft({ cwd, driver: phasedDraftDriver({ onCall: (prompt) => prompts.push(prompt) }), name: 'big' });
+	const result = await runPlanDraft({ cwd, driver: createPhasedDraftDriver({ onCall: (prompt) => prompts.push(prompt) }), name: 'big' });
 
 	expectStatus(result, 'complete');
 	expect('variant' in result).toBeTruthy();
@@ -312,7 +251,7 @@ test('plan draft: the overview\u2019s declared counts are re-stamped from what t
 
 	seedPlanWorkspace({ cwd, name: 'stamped', areas: [areaTouching({ modify: paths(41) })] });
 
-	const result = await runPlanDraft({ cwd, driver: phasedDraftDriver(), name: 'stamped' });
+	const result = await runPlanDraft({ cwd, driver: createPhasedDraftDriver(), name: 'stamped' });
 
 	expectStatus(result, 'complete');
 
@@ -341,51 +280,113 @@ test('plan draft: an explicit scope flag overrides the estimate', async () => {
 	expect(result.variant).toBe('single');
 });
 
-/** The one surface a declaring repository writes in the cases below. */
-const declaredDocs = [{ path: 'docs/configuration.md', covers: 'Every configuration key.' }];
+test('plan draft: still carries brainstorm rows in first through the shared merged reader', async () => {
+	const cwd = setupConsumerRepo();
+	const planDir = join(cwd, '.lightsout', 'plans', 'shared-reader');
+	// one row as `/brainstorm` settles it, one as the session writes it into decisions.json
+	const brainstormRow: DecisionRow = { source: 'Brainstorm', question: 'which shape?', options: 'a / b', choice: 'a', rationale: 'settled', assumption: false };
+	const elicitationRow: DecisionRow = {
+		source: 'Elicitation',
+		question: 'which route?',
+		options: 'x / y',
+		choice: 'x',
+		rationale: 'shortest path',
+		assumption: false,
+	};
+	// the draft's repair loop lints the written plan against the merged record, so
+	// the body has to carry the log that record renders
+	const body = cleanPlanBody().replace(renderDecisionLog({ decisions: [] }), renderDecisionLog({ decisions: [brainstormRow, elicitationRow] }));
 
-test('plan draft: a repository declaring documentation surfaces briefs the writer and the repairer alike', async () => {
-	const cwd = setupConsumerRepo({ config: { docs: declaredDocs } });
-
-	seedPlanWorkspace({ cwd, name: 'declared' });
+	seedPlanWorkspace({ cwd, name: 'shared-reader', brainstormDecisions: { planName: 'shared-reader', decisions: [brainstormRow] } });
+	writeFileSync(join(planDir, 'decisions.json'), JSON.stringify({ planName: 'shared-reader', decisions: [elicitationRow] }));
 
 	const prompts: string[] = [];
-	// the first body omits the section the declared block makes required, so the
-	// structural lint forces exactly one repair round
-	const driver = createDraftDriver({
-		bodies: [cleanPlanBody(), cleanPlanBody({ documentation: 'Nothing user-facing — no docs needed.' })],
-		onCall: (prompt) => prompts.push(prompt),
+	const messages: string[] = [];
+	const result = await runPlanDraft({
+		cwd,
+		driver: createDraftDriver({ bodies: [body], onCall: (prompt) => prompts.push(prompt) }),
+		name: 'shared-reader',
+		onProgress: (message) => messages.push(message),
 	});
-	const result = await runPlanDraft({ cwd, driver, name: 'declared' });
 
 	expectStatus(result, 'complete');
 
-	const writer = prompts.find((prompt) => prompt.includes('# Draft input'));
-	const repairer = prompts.find((prompt) => prompt.includes('# Repair input'));
+	const [draftPrompt] = prompts;
 
-	expectDefined(writer);
-	expectDefined(repairer);
-	// the repair role forbids inventing a section's content, so an unbriefed
-	// repairer would either break that rule or fail the draft
-	expect(writer.includes('- `docs/configuration.md` — Every configuration key.')).toBeTruthy();
-	expect(repairer.includes('- `docs/configuration.md` — Every configuration key.')).toBeTruthy();
+	// both records still reach the writer as one merged record after the reader
+	// moved out of this file into the decision-log module
+	expect(draftPrompt.includes('"question": "which shape?"')).toBeTruthy();
+	expect(draftPrompt.includes('"question": "which route?"')).toBeTruthy();
+	// and the merge order is unchanged: brainstorm rows ahead of the plan's own
+	expect(draftPrompt.indexOf('"source": "Brainstorm"') < draftPrompt.indexOf('"source": "Elicitation"')).toBeTruthy();
+	// the progress line the shared reader emits still reaches the watcher
+	expect(messages).toEqual(expect.arrayContaining([expect.stringMatching(/1 brainstorm decision/)]));
 });
 
-test('plan draft: a declared repository briefs its overview and phase spawns on the same surfaces', async () => {
-	const cwd = setupConsumerRepo({ config: { docs: declaredDocs } });
+test('plan draft: the drafted plan.md is synced before the structural convergence reads it', async () => {
+	const cwd = setupConsumerRepo();
 
-	seedPlanWorkspace({ cwd, name: 'declared-phased', areas: [areaTouching({ modify: paths(41) })] });
+	seedPlanWorkspace({ cwd, name: 'synced-first' });
 
-	const prompts: string[] = [];
-	const driver = phasedDraftDriver({
-		onCall: (prompt) => prompts.push(prompt),
-		phaseBody: cleanPlanBody({ documentation: 'Nothing user-facing — no docs needed.' }),
-	});
-	const result = await runPlanDraft({ cwd, driver, name: 'declared-phased' });
+	// what a writer under the engine-owned section writes: no `## Decision Log`
+	const authoredBody = cleanPlanBody().replace(`${renderDecisionLog({ decisions: [] })}\n\n`, '');
+	const invocations: DriverInvocation[] = [];
+	const driver = createDraftDriver({ bodies: [authoredBody], onInvoke: (invocation) => invocations.push(invocation) });
+	const result = await runPlanDraft({ cwd, driver, name: 'synced-first' });
 
+	// the counterfactual, stated on the input: an absent section blocks
+	expect(authoredBody.includes('## Decision Log')).toBeFalsy();
 	expectStatus(result, 'complete');
-	// a phase file carries the claim a single plan would, so the phase spawn is
-	// told what the repository declared — and the overview spawn is briefed from
-	// the same config rather than from a second copy of it
-	expect(prompts.map((prompt) => prompt.includes('- `docs/configuration.md` — Every configuration key.'))).toStrictEqual([true, true]);
+	// the engine composed the section onto disk between the spawn and the lint
+	expect(readFileSync(join(cwd, '.lightsout', 'plans', 'synced-first', 'plan.md'), 'utf8')).toContain(renderDecisionLog({ decisions: [] }));
+	// so the first lint reported no decision-log finding — one would cost a repair
+	expect(invocations.filter((invocation) => invocation.prompt.includes('# Repair input'))).toStrictEqual([]);
+});
+
+test('plan draft: the writer is granted the sync prefix beside the lint prefix and told to sync first', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedPlanWorkspace({ cwd, name: 'sync-granted' });
+	// the one spawn granted no sync: a phased overview, which resolves no deliverable
+	seedPlanWorkspace({ cwd, name: 'no-sync', areas: [areaTouching({ modify: paths(41) })] });
+
+	const singleSpawns: DriverInvocation[] = [];
+	const overviewSpawns: DriverInvocation[] = [];
+	const recordingPhasedDriver = recordingDriver({ driver: createPhasedDraftDriver(), invocations: overviewSpawns });
+	const granted = await runPlanDraft({
+		cwd,
+		driver: createDraftDriver({ bodies: [cleanPlanBody()], onInvoke: (invocation) => singleSpawns.push(invocation) }),
+		name: 'sync-granted',
+	});
+	const ungranted = await runPlanDraft({ cwd, driver: recordingPhasedDriver, name: 'no-sync' });
+
+	expectStatus(granted, 'complete');
+	expectStatus(ungranted, 'complete');
+
+	const [writer] = singleSpawns;
+	const grants = writer.allowedCommands ?? [];
+	const syncPrefix = grants.find((grant) => grant.endsWith(' plan sync-decisions')) ?? '';
+	const lintPrefix = grants.find((grant) => grant.endsWith(' plan lint')) ?? '';
+
+	// exactly the two prefixes, got: ${grants.join(', ')}
+	expect(grants.length).toBe(2);
+	expect(syncPrefix.length > 0 && lintPrefix.length > 0).toBeTruthy();
+	// both granted unquoted — the harness matches an allowed prefix literally
+	expect(`${syncPrefix}${lintPrefix}`.includes('"')).toBeFalsy();
+
+	const syncCommand = `${syncPrefix} --name sync-granted --cwd "${cwd}"`;
+	const lintCommand = `${lintPrefix} --name sync-granted --cwd "${cwd}"`;
+
+	// each granted prefix is extended verbatim, the consumer path quoted
+	expect(writer.prompt.includes(syncCommand)).toBeTruthy();
+	expect(writer.prompt.includes(lintCommand)).toBeTruthy();
+	// and the Self-lint section names the sync first, so the writer's own lint
+	// never reports the section it is forbidden to write
+	expect(writer.prompt.indexOf(syncCommand) < writer.prompt.indexOf(lintCommand)).toBeTruthy();
+
+	const [overviewSpawn] = overviewSpawns;
+
+	// the ungranted spawn carries neither the extra grant nor the extra line
+	expect(overviewSpawn.allowedCommands).toBe(undefined);
+	expect(overviewSpawn.prompt.includes('plan sync-decisions')).toBeFalsy();
 });

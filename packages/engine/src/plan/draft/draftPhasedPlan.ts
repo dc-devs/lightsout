@@ -1,11 +1,12 @@
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
-import { PlanVariant, type StructuralFinding } from '#src/contracts/index.ts';
+import { type DecisionsRecord, PlanVariant, type StructuralFinding } from '#src/contracts/index.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 import { planDraftOutputs } from '#src/plan/common/paths/planDraftOutputs.ts';
 import type { DraftContext } from '#src/plan/common/types/DraftContext.ts';
 import type { RunPlanDraftResult } from '#src/plan/common/types/RunPlanDraftResult.ts';
 import { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.ts';
+import { syncPlanDecisions } from '#src/plan/decisionLog/index.ts';
 import { authorPhaseFiles } from '#src/plan/draft/authorPhaseFiles.ts';
 import { authorPlanFiles } from '#src/plan/draft/common/utils/authorPlanFiles.ts';
 import { convergePlanStructure } from '#src/plan/draft/common/utils/convergePlanStructure.ts';
@@ -21,6 +22,52 @@ interface Params {
 	/** Names the overview spawn's transcript — `draft`, or `draft-overview` when this is a re-draft of an abandoned single plan. */
 	step: string;
 }
+
+/**
+ * The deterministic door check on the breakdown the overview declares, and the
+ * overview text the phase writers are then authored against — or the stop that
+ * ends the draft before a single phase spawn is paid for.
+ *
+ * The overview is re-synced after the check because a reshape round rewrites
+ * `overview.md`, and a phase writer authors against the text in its prompt
+ * rather than the file: a log composed only on disk would still fan out stale.
+ */
+const readCheckedBreakdown = async ({
+	params,
+	decisions,
+	advisories,
+	draftStop,
+}: {
+	params: Parameters<typeof repairPhaseBreakdown>[0];
+	decisions: DecisionsRecord;
+	advisories: StructuralFinding[];
+	draftStop: ReturnType<typeof createDraftStop>;
+	// Stated rather than inferred: the inferred union gives the phase branch an
+	// optional `stop`, which leaves `'stop' in checked` narrowing to both halves.
+}): Promise<{ stop: RunPlanDraftResult } | { overviewText: string; declarations: ReturnType<typeof parsePhaseDeclarations> }> => {
+	const { cwd, name, overviewPath } = params;
+	const breakdown = await repairPhaseBreakdown(params);
+
+	if (breakdown.status === PlanRunStatus.PausedRateLimit) {
+		return { stop: draftStop({ status: PlanRunStatus.PausedRateLimit, error: breakdown.error }) };
+	}
+
+	if (breakdown.status === PlanRunStatus.Failed) {
+		return { stop: draftStop({ status: PlanRunStatus.Failed, error: breakdown.error }) };
+	}
+
+	advisories.push(...getAdvisoryFindings({ findings: breakdown.findings }));
+
+	if (getBlockingFindings({ findings: breakdown.findings }).length > 0) {
+		return { stop: draftStop({ status: PlanRunStatus.StructuralIssues, findings: breakdown.findings, planPaths: [overviewPath] }) };
+	}
+
+	await syncPlanDecisions({ cwd, name, planPaths: [overviewPath], decisions });
+
+	const overviewText = await readFile(overviewPath, 'utf8');
+
+	return { overviewText, declarations: parsePhaseDeclarations({ plan: parsePlan({ content: overviewText, base: basename(overviewPath) }) }) };
+};
 
 /**
  * Draft a phased plan: an overview spawn, a deterministic door check on the
@@ -57,31 +104,28 @@ export const draftPhasedPlan = async ({ context, step }: Params): Promise<RunPla
 		return authored.stop;
 	}
 
+	// By path rather than by deliverable: the folder holds only overview.md at
+	// this moment, which `resolvePlanDeliverable` reads as no plan found.
+	await syncPlanDecisions({ cwd, name, planPaths: [overviewPath], decisions });
+
 	const spawn = { cwd, driver, name, workspaceDir, model, effort, permissions, timeoutMs, progress };
-	const breakdown = await repairPhaseBreakdown({ ...spawn, overviewPath, brainstormDecisionsPath, executorFileLimit });
+	const checked = await readCheckedBreakdown({
+		params: { ...spawn, overviewPath, brainstormDecisionsPath, executorFileLimit },
+		decisions,
+		advisories,
+		draftStop,
+	});
 
-	if (breakdown.status === PlanRunStatus.PausedRateLimit) {
-		return draftStop({ status: PlanRunStatus.PausedRateLimit, error: breakdown.error });
+	if ('stop' in checked) {
+		return checked.stop;
 	}
 
-	if (breakdown.status === PlanRunStatus.Failed) {
-		return draftStop({ status: PlanRunStatus.Failed, error: breakdown.error });
-	}
-
-	advisories.push(...getAdvisoryFindings({ findings: breakdown.findings }));
-
-	if (getBlockingFindings({ findings: breakdown.findings }).length > 0) {
-		return draftStop({ status: PlanRunStatus.StructuralIssues, findings: breakdown.findings, planPaths: [overviewPath] });
-	}
-
-	const overviewText = await readFile(overviewPath, 'utf8');
-	const declarations = parsePhaseDeclarations({ plan: parsePlan({ content: overviewText, base: basename(overviewPath) }) });
 	const phases = await authorPhaseFiles({
 		...spawn,
 		facts,
 		decisions,
-		overviewText,
-		declarations,
+		overviewText: checked.overviewText,
+		declarations: checked.declarations,
 		executorFileLimit,
 		standards,
 		docs: config?.docs,
@@ -99,6 +143,10 @@ export const draftPhasedPlan = async ({ context, step }: Params): Promise<RunPla
 	if (phases.status === PlanRunStatus.Failed) {
 		return draftStop({ status: PlanRunStatus.Failed, error: phases.error });
 	}
+
+	// Each phase file gets its pointer at the overview's history before anything
+	// reads it — the stamp below, and the closing lint after that.
+	await syncPlanDecisions({ cwd, name, planPaths: phases.planPaths, decisions });
 
 	// The overview's counts were an estimate made before any phase file existed;
 	// now they are a fact the engine can state, so the consistency check goes

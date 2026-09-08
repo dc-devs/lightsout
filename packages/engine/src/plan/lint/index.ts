@@ -1,4 +1,6 @@
 export { checkAcceptanceLedger } from '#src/plan/lint/checkAcceptanceLedger.ts';
+export { checkDecisionLog } from '#src/plan/lint/checkDecisionLog.ts';
+export { checkDeliverableDecisionLogs } from '#src/plan/lint/checkDeliverableDecisionLogs.ts';
 export { checkFileProvenance } from '#src/plan/lint/checkFileProvenance.ts';
 export { checkPhaseBreakdown } from '#src/plan/lint/checkPhaseBreakdown.ts';
 export { checkPhaseCount } from '#src/plan/lint/checkPhaseCount.ts';

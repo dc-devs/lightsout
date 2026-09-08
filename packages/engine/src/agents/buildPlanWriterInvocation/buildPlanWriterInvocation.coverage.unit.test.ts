@@ -1,20 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { buildPlanWriterInvocation } from '#src/agents/index.ts';
-import type { DecisionsRecord, PlanFacts } from '#src/contracts/index.ts';
-
-/** A minimal verified PlanFacts — the ledger brief does not vary with any of it. */
-const facts = (): PlanFacts => ({
-	request: 'add a foo endpoint',
-	areas: [],
-	verification: { pathsChecked: 0, missingPaths: [], scriptsChecked: 0, missingScripts: [] },
-	verifiedAt: '2026-07-09T00:00:00.000Z',
-});
-
-/** A one-row decisions record, so the assembled prompt is a realistic one. */
-const decisions = (): DecisionsRecord => ({
-	planName: 'foo-endpoint',
-	decisions: [{ source: 'Elicitation', question: 'Which route?', options: 'a / b', choice: 'a', rationale: 'shortest path', assumption: false }],
-});
+import { ledgerBriefOf, writerInvocation } from '#tests/helpers/planWriterInputs.ts';
 
 /**
  * A contract spawn, cut down to the acceptance-test ledger brief alone — from
@@ -22,17 +7,7 @@ const decisions = (): DecisionsRecord => ({
  * brief the plan writer is handed and nothing from a neighbouring section.
  */
 const setupLedgerBrief = () => {
-	const invocation = buildPlanWriterInvocation({
-		facts: facts(),
-		decisions: decisions(),
-		outputs: [{ path: '/repo/.lightsout/plans/foo/plan.md', variant: 'single' as const }],
-		limits: { executorFileLimit: 50, createdFileCeiling: 30 },
-		contract: true,
-	});
-
-	const rest = invocation.prompt.slice(invocation.prompt.indexOf('## Acceptance-test ledger'));
-	const nextHeading = rest.search(/\n\n## /);
-	const brief = nextHeading === -1 ? rest : rest.slice(0, nextHeading);
+	const brief = ledgerBriefOf({ prompt: writerInvocation({ contract: true }).prompt });
 
 	return { brief, rules: brief.split('\n').filter((line) => line.startsWith('- ')) };
 };
@@ -59,11 +34,11 @@ test('buildPlanWriterInvocation: the ledger brief still refuses a row naming a t
 	});
 });
 
-test('buildPlanWriterInvocation: the ledger brief keeps its four rules, the move rule beside the already-exists rule', () => {
+test('buildPlanWriterInvocation: the ledger brief keeps its five rules, the move rule beside the already-exists rule', () => {
 	const { brief, rules } = setupLedgerBrief();
 
 	expect({
-		// four rules, each a top-level bullet in the same shape as its neighbours
+		// five rules, each a top-level bullet in the same shape as its neighbours
 		ruleCount: rules.length,
 		everyRuleIsABullet: rules.every((rule) => rule.startsWith('- A ') || rule.startsWith('- Every ')),
 		// the move rule sits directly after the rule about naming an existing file,
@@ -76,7 +51,7 @@ test('buildPlanWriterInvocation: the ledger brief keeps its four rules, the move
 		keepsTheProseFilesRule: /listed under `## Prose Files` instead/.test(brief),
 		keepsTheEveryFileReachedRule: /either reached by a row or\n {2}named under `## Prose Files`/.test(brief),
 	}).toEqual({
-		ruleCount: 4,
+		ruleCount: 5,
 		everyRuleIsABullet: true,
 		movesRuleFollowsTheExistingFileRule: true,
 		movesRulePrecedesTheProseFilesRule: true,

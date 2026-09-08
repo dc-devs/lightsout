@@ -502,6 +502,9 @@ exported signatures of every created file, the file each new file mirrors, and
 the decisions — plus an `## Acceptance Tests` table with one row per acceptance
 criterion: the criterion, the test file that states it, the exact test name, and
 the gate that runs it. Behaviour a plan used to narrate in prose becomes a row.
+The contract shape is its own plan template, chosen by `plan.contract`, and a
+criterion in it names the inputs, the condition that makes the case distinct, the
+expected result and the failure case the test pins.
 A file whose behaviour no test can state — a document, a config file — is listed
 under `## Prose Files` with the reason, and stays described in words.
 

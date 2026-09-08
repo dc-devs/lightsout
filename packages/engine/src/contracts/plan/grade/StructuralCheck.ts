@@ -8,7 +8,8 @@
  * The two ledger checks read a contract plan's `## Acceptance Tests` table: one
  * asks whether every row and prose-files exemption is well formed, the other
  * whether the plan's source files are all reached by a row or excused with a
- * reason.
+ * reason. The decision-log check compares a plan file's `## Decision Log`
+ * against the saved decision records the engine composes it from.
  * Values are internal to findings reports.
  */
 export const StructuralCheck = {
@@ -28,6 +29,7 @@ export const StructuralCheck = {
 	MoveWellFormed: 'move-well-formed',
 	LedgerWellFormed: 'ledger-well-formed',
 	LedgerCovers: 'ledger-covers',
+	DecisionLogCurrent: 'decision-log-current',
 } as const;
 
 export type StructuralCheck = (typeof StructuralCheck)[keyof typeof StructuralCheck];

@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { type PhaseFile, parsePlan } from '#src/plan/index.ts';
+import { decisionLogReference, type PhaseFile, parsePlan, renderDecisionLog } from '#src/plan/index.ts';
 
 /** What one implementable phase file says it does — every field the cross-phase checks read. */
 export interface PhaseSpec {
@@ -20,6 +20,8 @@ export interface PhaseSpec {
 	commands?: string[];
 	/** The optional `## File Budget` this phase declares for itself. */
 	fileBudget?: number;
+	/** Whether the file carries the Decision Log pointer. A phase of a phased deliverable does; a body standing in for a single `plan.md` carries the rendered table instead. */
+	reference?: boolean;
 }
 
 /** One row of the overview's `## Phases` table and the `## Phase Declarations` block that goes with it. */
@@ -76,6 +78,7 @@ export const phaseBody = ({
 	handsForward = 'The next phase builds on this one.',
 	commands = ['true'],
 	fileBudget,
+	reference = true,
 }: PhaseSpec = {}) => {
 	const paths = [
 		pathSection({ heading: 'Files to Create', paths: create }),
@@ -91,6 +94,8 @@ export const phaseBody = ({
 ## Context
 
 ${note}
+
+${reference ? decisionLogReference() : renderDecisionLog({ decisions: [] })}
 
 ## Global Constraints
 
@@ -116,6 +121,8 @@ ${handsForward}
 
 /** The overview file, whose presence alone is what makes a deliverable phased, carrying one table row and one declaration block per phase. */
 export const overviewBody = ({ rows }: { rows: DeclarationSpec[] }) => `# Demo — Overview
+
+${renderDecisionLog({ decisions: [] })}
 
 ## Global Constraints
 

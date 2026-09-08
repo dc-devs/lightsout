@@ -230,3 +230,26 @@ test('a plan file the memory has settled nothing for gets no settled section', (
 	expect(sections.some((section) => section.startsWith('# Findings already settled for this plan file'))).toBeFalsy();
 	expect(sections.length).toBe(4);
 });
+
+test('the surface brief counts a ledger row as behaviour stated', () => {
+	const { systemPrompt } = buildPlanGapCheckInvocation({ planText, lens: GapCheckLens.Surface });
+
+	const brief = systemPrompt.split('\n\n---\n\n')[1];
+	const flattened = brief.replace(/\s+/g, ' ');
+
+	// the heading a contract plan states its behaviour under — an address, so it
+	// is pinned exactly; the sentences around it are copy, matched with slack
+	expect(brief.includes('## Acceptance Tests')).toBeTruthy();
+	expect(/acceptance tests`? row is stated/i.test(flattened)).toBeTruthy();
+	// and the consequence: an entry that names its signatures and points at its
+	// rows is complete, so the reader stops asking for the paragraph back
+	expect(/rather than underspecified/i.test(flattened)).toBeTruthy();
+	// the two areas the surface lens may report are unchanged — these are the
+	// report's own values, so they are pinned as literals
+	expect(brief.includes('underspecified-surface')).toBeTruthy();
+	expect(brief.includes('insufficient-detail')).toBeTruthy();
+	// no third area joined them: seams, forks and standards stay with the other
+	// two lenses, and a reader handed a fourth slug reports a duplicate
+	const otherAreas = Object.values(GapArea).filter((area) => area !== GapArea.UnderspecifiedSurface && area !== GapArea.InsufficientDetail);
+	expect(otherAreas.filter((area) => brief.includes(area))).toEqual([]);
+});

@@ -102,3 +102,15 @@ test('renderUsage: prints the self-check line, so an agent-run command is listed
 	expect(selfCheck).toContain('lightsout self-check --run <id> [--cwd <path>]');
 	expect(lines.indexOf(selfCheck)).toBe(ticketState + 1);
 });
+
+test('renderUsage: prints the plan sync-decisions line between plan draft and plan lint', () => {
+	const { lines } = setupRenderUsage();
+
+	const sync = lines.filter((line) => line.startsWith('  lightsout plan sync-decisions'));
+	const draft = lines.findIndex((line) => line.startsWith('  lightsout plan draft'));
+	const lint = lines.findIndex((line) => line.startsWith('  lightsout plan lint'));
+
+	expect(sync).toStrictEqual(['  lightsout plan sync-decisions --name <name> [--cwd <path>]']);
+	expect(lines.indexOf(sync[0] ?? '')).toBe(draft + 1);
+	expect(lint).toBe(draft + 2);
+});

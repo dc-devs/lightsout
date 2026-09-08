@@ -1,7 +1,9 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
+import type { DecisionRow } from '#src/contracts/index.ts';
 import type { DriverInvocation } from '#src/drivers/index.ts';
+import { renderDecisionLog } from '#src/plan/decisionLog/index.ts';
 import { runPlanDraft } from '#src/plan/draft/runPlanDraft.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createDraftDriver } from '#tests/helpers/createDraftDriver.ts';
@@ -15,7 +17,7 @@ import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 // the plan's own, ride the repair invocation by path, and are narrated either way.
 
 /** One brainstorm-settled row, as `/brainstorm` writes it into brainstorm-decisions.json. */
-const brainstormRow = {
+const brainstormRow: DecisionRow = {
 	source: 'Brainstorm',
 	question: 'which shape?',
 	options: 'a / b',
@@ -25,7 +27,22 @@ const brainstormRow = {
 };
 
 /** One plan-owned Elicitation row, as the session writes it into decisions.json. */
-const elicitationRow = { source: 'Elicitation', question: 'which route?', options: 'x / y', choice: 'x', rationale: 'shortest path', assumption: false };
+const elicitationRow: DecisionRow = {
+	source: 'Elicitation',
+	question: 'which route?',
+	options: 'x / y',
+	choice: 'x',
+	rationale: 'shortest path',
+	assumption: false,
+};
+
+/**
+ * The clean skeleton carrying the Decision Log the merged record renders. The
+ * draft's own repair loop lints the written plan against that record, so a body
+ * whose log came from an empty one would be stale the moment it landed.
+ */
+const recordedPlan = ({ decisions }: { decisions: DecisionRow[] }) =>
+	cleanPlanBody().replace(renderDecisionLog({ decisions: [] }), renderDecisionLog({ decisions }));
 
 /** The clean skeleton with a planted placeholder, so the structural lint forces one repair. */
 const dirtyPlan = () => cleanPlanBody().replace('A new module exporting', 'TBD — a new module exporting');
@@ -39,7 +56,7 @@ test("plan draft: a seeded brainstorm record rides the draft prompt with its row
 	const prompts: string[] = [];
 	const result = await runPlanDraft({
 		cwd,
-		driver: createDraftDriver({ bodies: [cleanPlanBody()], onCall: (prompt) => prompts.push(prompt) }),
+		driver: createDraftDriver({ bodies: [recordedPlan({ decisions: [brainstormRow, elicitationRow] })], onCall: (prompt) => prompts.push(prompt) }),
 		name: 'handed-off',
 	});
 
@@ -63,7 +80,7 @@ test("plan draft: no brainstorm file drafts from the plan's own rows exactly as 
 	const prompts: string[] = [];
 	const result = await runPlanDraft({
 		cwd,
-		driver: createDraftDriver({ bodies: [cleanPlanBody()], onCall: (prompt) => prompts.push(prompt) }),
+		driver: createDraftDriver({ bodies: [recordedPlan({ decisions: [elicitationRow] })], onCall: (prompt) => prompts.push(prompt) }),
 		name: 'no-handoff',
 	});
 
@@ -97,7 +114,10 @@ test('plan draft: a brainstorm hand-off rides the repair invocation as a referen
 	seedPlanWorkspace({ cwd, name: 'handoff-repair', brainstormDecisions: { planName: 'handoff-repair', decisions: [brainstormRow] } });
 
 	const invocations: DriverInvocation[] = [];
-	const driver = createDraftDriver({ bodies: [dirtyPlan(), cleanPlanBody()], onInvoke: (invocation) => invocations.push(invocation) });
+	const driver = createDraftDriver({
+		bodies: [dirtyPlan(), recordedPlan({ decisions: [brainstormRow] })],
+		onInvoke: (invocation) => invocations.push(invocation),
+	});
 	const result = await runPlanDraft({ cwd, driver, name: 'handoff-repair' });
 
 	expectStatus(result, 'complete');
@@ -119,7 +139,7 @@ test('plan draft: progress narrates how many brainstorm decisions were carried i
 	const messages: string[] = [];
 	const result = await runPlanDraft({
 		cwd,
-		driver: createDraftDriver({ bodies: [cleanPlanBody()] }),
+		driver: createDraftDriver({ bodies: [recordedPlan({ decisions: [brainstormRow] })] }),
 		name: 'narrated-handoff',
 		onProgress: (message) => messages.push(message),
 	});

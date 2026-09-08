@@ -158,9 +158,11 @@ The plan is graded and revised until nothing is left for the implementation agen
 
 Re-grading after a repair is cheap on purpose: the grader reads the phases that repair can reach rather than the whole plan, it stops before spawning anything when the mechanical checks already fail, and a question someone already settled is not asked again. What does not get cheaper is approval — that still needs a passing review of the whole plan against the current code, standards and configuration.
 
-With the `plan` config block turned on, the plan is a contract rather than a narrative: the file map, the exported signatures, the file each new file mirrors, the decisions, and an acceptance-test ledger naming one test per acceptance criterion. Files with no testable behaviour — documents, config — are listed separately and stay described in words. Each plan file is then weighed from its own counts, and a small one is graded by deterministic checks alone instead of by a fleet of readers.
+With the `plan` config block turned on, the plan is a contract rather than a narrative: the file map, the exported signatures, the file each new file mirrors, the decisions, and an acceptance-test ledger naming one test per acceptance criterion. Such a repository is drafted from a dedicated contract template, so a file entry carries the signatures, the wiring and the constraints while every testable behaviour is an acceptance-test row rather than a paragraph. Files with no testable behaviour — documents, config — are listed separately and stay described in words. Each plan file is then weighed from its own counts, and a small one is graded by deterministic checks alone instead of by a fleet of readers.
 
 When a plan starts from a `/brainstorm` hand-off, the decisions already settled there are carried straight into the plan rather than asked again; a settled decision is re-opened only when exploring the code turns up a concrete conflict.
+
+The plan's Decision Log is composed by the engine from the saved decision records rather than typed out by the writer. `lightsout plan sync-decisions --name <name>` regenerates it in every file of the plan — run it after a decision is recorded, and again as often as you like: a file whose log already matches the records is left untouched.
 
 Once a ticket-backed plan is approved as ready, run `lightsout plan publish --name <name>`. It attaches only the durable design record — the single or
 phased plan deliverable and whichever of `brainstorm-notes.md`, `decisions.json`,

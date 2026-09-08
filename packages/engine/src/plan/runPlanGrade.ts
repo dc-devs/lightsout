@@ -1,4 +1,5 @@
 import { basename, join } from 'node:path';
+import { messageOf } from '#src/common/utils/messageOf.ts';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
 import { type GradeInputs, type GradeMemory, type GradeReport, GradeScope, type StructuralFinding } from '#src/contracts/index.ts';
 import { appendGradeHistory } from '#src/plan/appendGradeHistory.ts';
@@ -189,7 +190,7 @@ export const runPlanGrade = async (params: PlanGradeParams): Promise<RunPlanGrad
 	const gradePath = join(workspaceDir, gradeFileName);
 	// Both deterministic passes cover every plan file, overview included — the
 	// overview has its own required-section set, and the lint is cross-phase.
-	const structural = await lintPlanStructure({ cwd, planPaths, config });
+	const structural = await lintPlanStructure({ cwd, planPaths, decisions: pass.decisions, config });
 	// Read beside the lint rather than after the fan-out, so the stamped sha is the one the structural findings were measured against.
 	const stamp = await readGradeStamp({ cwd });
 	const blockingStructural = getBlockingFindings({ findings: structural });
@@ -207,7 +208,7 @@ export const runPlanGrade = async (params: PlanGradeParams): Promise<RunPlanGrad
 	try {
 		found = await readGradeMemory({ cwd, name });
 	} catch (cause) {
-		return { status: PlanRunStatus.Failed, workspaceDir, error: cause instanceof Error ? cause.message : String(cause) };
+		return { status: PlanRunStatus.Failed, workspaceDir, error: messageOf({ error: cause }) };
 	}
 
 	const inputs = await getGradeInputs({ cwd, planPaths, standards: params.standards, config, model: params.model, effort: params.effort });

@@ -5,6 +5,7 @@ import { pathExists } from '#src/plan/common/paths/pathExists.ts';
 import { planDraftOutputs } from '#src/plan/common/paths/planDraftOutputs.ts';
 import type { DraftContext } from '#src/plan/common/types/DraftContext.ts';
 import type { RunPlanDraftResult } from '#src/plan/common/types/RunPlanDraftResult.ts';
+import { buildPlanSyncDecisionsCommand, syncPlanDecisions } from '#src/plan/decisionLog/index.ts';
 import { authorPlanFiles } from '#src/plan/draft/common/utils/authorPlanFiles.ts';
 import { buildPlanLintCommand } from '#src/plan/draft/common/utils/buildPlanLintCommand.ts';
 import { convergePlanStructure } from '#src/plan/draft/common/utils/convergePlanStructure.ts';
@@ -47,19 +48,32 @@ const deleteAbandonedPlan = async ({ path }: { path: string }) => {
  * repair loop's job.
  */
 export const draftSinglePlan = async ({ context }: Params): Promise<RunPlanDraftResult> => {
-	const { cwd, name, workspaceDir, progress } = context;
+	const { cwd, name, workspaceDir, decisions, progress } = context;
 	const outputs = planDraftOutputs({ cwd, name, variant: PlanVariant.Single });
 	// Appended to once the closing lint has run, and read at every stop, so no
 	// exit can be added that quietly drops what the human was told.
 	const advisories: StructuralFinding[] = [];
 	const draftStop = createDraftStop({ workspaceDir, advisories });
-	const authored = await authorPlanFiles({ context, outputs, step: 'draft', lint: buildPlanLintCommand({ cwd, name }) });
+	const authored = await authorPlanFiles({
+		context,
+		outputs,
+		step: 'draft',
+		lint: buildPlanLintCommand({ cwd, name }),
+		sync: buildPlanSyncDecisionsCommand({ cwd, name }),
+	});
 
 	if ('stop' in authored) {
 		return authored.stop;
 	}
 
 	const { planPaths, report } = authored;
+
+	// The writer was granted the same sync and may already have run it; the runner
+	// rewrites a file only when its section differs, so this is then a no-op on
+	// disk. It stands anyway, because a denied tool or a skipped self-lint must
+	// not decide whether the plan the convergence lints carries a current log.
+	await syncPlanDecisions({ cwd, name, planPaths, decisions });
+
 	const converged = await convergePlanStructure({ context, planPaths, variant: PlanVariant.Single, reports: [report], advisories });
 	const overCeiling = converged.blocking.find((finding) => finding.check === StructuralCheck.CreatedFilesWithinCeiling);
 

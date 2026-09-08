@@ -32,6 +32,7 @@ const usageOrder = [
 	'brainstorm-publish',
 	'plan-verify-facts',
 	'plan-draft',
+	'plan-sync-decisions',
 	'plan-lint',
 	'plan-dedup',
 	'plan-grade',

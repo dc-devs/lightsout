@@ -2,7 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { readJsonlRecords } from '#src/common/utils/readJsonlRecords.ts';
-import { Effort, GradeReport, Permissions } from '#src/contracts/index.ts';
+import { DecisionSource, Effort, GradeReport, Permissions } from '#src/contracts/index.ts';
 import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
 import { gradeHistoryPath } from '#src/plan/gradeHistoryPath.ts';
 import { runPlanGrade } from '#src/plan/runPlanGrade.ts';
@@ -64,6 +64,30 @@ const setupPriorArtCollision = () => {
 	// word-order twin — the same tier-0 name key, and not a mere casing pair —
 	// so the detector still sees prior art.
 	writeFileSync(join(seeded.cwd, 'src', 'thingNew.ts'), 'export const thingNew = 1;\n');
+
+	return seeded;
+};
+
+/** The same repo, whose plan carries the Decision Log rendered from an empty record while a row has since been added to `decisions.json` and never synced in. */
+const setupStaleDecisionLog = () => {
+	const seeded = setup({ name: 'stale-log' });
+
+	writeFileSync(
+		join(seeded.cwd, '.lightsout', 'plans', 'stale-log', 'decisions.json'),
+		JSON.stringify({
+			planName: 'stale-log',
+			decisions: [
+				{
+					source: DecisionSource.Grill,
+					question: 'what a failed read returns',
+					options: 'throw / return null',
+					choice: 'return null',
+					rationale: 'every sibling in this module already does',
+					assumption: false,
+				},
+			],
+		}),
+	);
 
 	return seeded;
 };
@@ -218,6 +242,23 @@ test('plan grade: a structural defect gates independently of the gap agent', asy
 	expectStatus(result, 'complete');
 	expect('grade' in result).toBeTruthy();
 	expect(result.grade.structural.length > 0).toBeTruthy();
+	expect(result.grade.passed).toBe(false);
+});
+
+test('runPlanGrade: a stale Decision Log lands in the structural findings and holds the grade below A', async () => {
+	const { cwd, name, driver } = setupStaleDecisionLog();
+
+	const result = await runPlanGrade({ cwd, driver, name });
+
+	expectStatus(result, 'complete');
+	// the plan's log disagrees with the record it is composed from — a
+	// deterministic finding no judge weighs in on, and enough on its own to hold
+	// the plan below the bar with every gap-check clean
+	expect(result.grade.structural).toEqual(
+		expect.arrayContaining([expect.objectContaining({ check: 'decision-log-current', severity: 'blocking', phase: 'plan.md' })]),
+	);
+	expect(result.grade.gaps).toStrictEqual([]);
+	expect(result.grade.grade).toBe('below-A');
 	expect(result.grade.passed).toBe(false);
 });
 

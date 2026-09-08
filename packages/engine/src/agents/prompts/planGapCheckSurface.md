@@ -11,7 +11,10 @@ earlier-phase modify, delete or move section, ask:
   parameter types, the return type?
 - Is the behaviour stated, or only the intent? "Create a service that manages
   sessions" is intent; "a class holding the session map, with `start`, `end` and
-  `list`" is a definition.
+  `list`" is a definition. In a plan carrying a ledger, behaviour stated in an
+  `## Acceptance Tests` row is stated: an entry that names its signatures and
+  points at its rows is complete rather than underspecified, and asking for the
+  same expectation a second time in prose is asking the plan to repeat itself.
 - Does the entry say what the code **returns** in the ordinary case, in enough
   detail that two agents would write the same shape?
 - For a modified file, does the plan say what changes, or only that the file is

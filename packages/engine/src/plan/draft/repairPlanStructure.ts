@@ -1,9 +1,10 @@
 import { join } from 'node:path';
 import { buildPlanRepairInvocation } from '#src/agents/index.ts';
-import { type Effort, type LightsoutConfig, type Permissions, PlanFixReport, type StructuralFinding } from '#src/contracts/index.ts';
+import { type DecisionsRecord, type Effort, type LightsoutConfig, type Permissions, PlanFixReport, type StructuralFinding } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { PlanRepairResult } from '#src/plan/common/types/PlanRepairResult.ts';
 import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
+import { syncPlanDecisions } from '#src/plan/decisionLog/index.ts';
 import { convergeFindings } from '#src/plan/draft/common/utils/convergeFindings.ts';
 import { lintPlanStructure } from '#src/plan/lint/index.ts';
 
@@ -18,6 +19,8 @@ interface Params {
 	workspaceDir: string;
 	/** Absolute path of the workspace's brainstorm-decisions.json when one exists — the repairer Reads it alongside the plan's own decisions. */
 	brainstormDecisionsPath?: string;
+	/** The merged record the draft was started from — what the loop's own lint holds the plan's Decision Log to. */
+	decisions: DecisionsRecord;
 	config?: LightsoutConfig;
 	model?: string;
 	effort?: Effort;
@@ -57,15 +60,24 @@ const runRepairAttempt = ({ params, findings, attempt }: { params: Params; findi
  * The lint always answers, so the unreadable-inputs exit `convergeFindings`
  * offers is unreachable here: a plan file the repairer deleted or broke comes
  * back as a finding rather than as no answer at all.
+ *
+ * Every round composes the Decision Log before it lints it. The section is the
+ * engine's, and the repairer is told not to touch it, so a round that displaced
+ * or damaged it is corrected here rather than handed back to the repairer as a
+ * finding it has been forbidden to fix.
  */
 export const repairPlanStructure = async (params: Params): Promise<PlanRepairResult> => {
-	const { cwd, name, planPaths, config, progress } = params;
+	const { cwd, name, planPaths, decisions, config, progress } = params;
 
 	return convergeFindings({
 		name,
 		verb: 'repair',
 		findingNoun: 'structural finding(s)',
-		check: () => lintPlanStructure({ cwd, planPaths, config }),
+		check: async () => {
+			await syncPlanDecisions({ cwd, name, planPaths, decisions });
+
+			return lintPlanStructure({ cwd, planPaths, decisions, config });
+		},
 		unreadableError: `the plan file(s) could not be linted at ${planPaths.join(', ')}`,
 		runAttempt: ({ findings, attempt }) => runRepairAttempt({ params, findings, attempt }),
 		progress,

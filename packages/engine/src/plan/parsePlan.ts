@@ -144,6 +144,7 @@ export const parsePlan = ({ content, base }: Params): ParsedPlan => {
 	const lines = content.split('\n');
 	const parsed = parseSections({ lines });
 	const sections = new Map<string, string[]>([...parsed].map(([heading, section]) => [heading, section.lines]));
+	const decisionLogSection = parsed.get('Decision Log');
 	const ledgerSection = parsed.get('Acceptance Tests');
 	const proseSection = parsed.get('Prose Files');
 	const ledger = parseAcceptanceLedger({ sectionLines: ledgerSection?.lines, firstLine: ledgerSection?.firstLine ?? 1 });
@@ -171,6 +172,14 @@ export const parsePlan = ({ content, base }: Params): ParsedPlan => {
 		deletePaths: pathsFromLines({ sectionLines: sections.get('Files to Delete'), lineMatches: isSubheading }),
 		movePaths: moves,
 		malformedMoveLines: malformedLines,
+		// The heading sits one line above the section's first line, and the span
+		// runs to the last line before the next `##` — blank lines included, which
+		// is what lets the rewriter replace the whole span and write exactly one
+		// blank line back.
+		decisionLogRange:
+			decisionLogSection === undefined
+				? undefined
+				: { start: decisionLogSection.firstLine - 1, end: decisionLogSection.firstLine - 1 + decisionLogSection.lines.length },
 		fileBudget: fileBudgetFrom({ sectionLines: sections.get('File Budget') }),
 		mirrorPaths: pathsFromLines({ sectionLines: sections.get('Patterns to Mirror'), lineMatches: (line) => /^\s*-\s+/.test(line) }),
 		verificationCommands: commandsFromVerification({ sectionLines: sections.get('Verification') }),

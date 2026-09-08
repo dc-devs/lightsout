@@ -18,6 +18,8 @@ export interface ParsedPlan {
 	movePaths: { from: string; to: string }[];
 	/** 1-based line numbers of `## Files to Move` headings that did not yield two paths. */
 	malformedMoveLines: number[];
+	/** 1-based inclusive line range of the `## Decision Log` section — its heading line through the last line before the next `##`. Absent when the file has no such section. */
+	decisionLogRange?: { start: number; end: number };
 	/** `## File Budget` — the touched-file allowance this plan or phase declares for itself, absent when it takes the configured default. */
 	fileBudget?: number;
 	mirrorPaths: string[];

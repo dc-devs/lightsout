@@ -1,3 +1,4 @@
+import { renderDecisionLog } from '#src/plan/index.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { overviewMarker } from '#tests/helpers/overviewMarker.ts';
 import { secondPhaseBody } from '#tests/helpers/secondPhaseBody.ts';
@@ -11,7 +12,7 @@ const laterPhases = [
 
 /** One later phase's body: the clean skeleton, with the module it creates spelled in its own word. */
 const laterPhaseBody = ({ subject }: { subject: string }) =>
-	cleanPlanBody({ title: 'Graded Plan' })
+	cleanPlanBody({ title: 'Graded Plan', reference: true })
 		.replace(/new-thing/g, `${subject}-thing`)
 		.replace(/newThing/g, `${subject}Thing`);
 
@@ -22,6 +23,8 @@ const laterPhaseBody = ({ subject }: { subject: string }) =>
  * structural finding, which stops a grading pass before any checker is spawned.
  */
 const fivePhaseOverview = () => `# Graded Plan — Overview
+
+${renderDecisionLog({ decisions: [] })}
 
 ## Global Constraints
 
@@ -67,7 +70,7 @@ ${laterPhases
 /** A structurally clean five-phase deliverable — the fixture for a fan-out whose fifteen checkers overrun the twelve-slot ceiling. */
 export const fivePhasePlanFiles = (): Record<string, string> => ({
 	'overview.md': fivePhaseOverview(),
-	'phase1-core.md': cleanPlanBody({ title: 'Graded Plan' }),
+	'phase1-core.md': cleanPlanBody({ title: 'Graded Plan', reference: true }),
 	'phase2-extra.md': secondPhaseBody(),
 	...Object.fromEntries(laterPhases.map(({ file, subject }) => [file, laterPhaseBody({ subject })])),
 });

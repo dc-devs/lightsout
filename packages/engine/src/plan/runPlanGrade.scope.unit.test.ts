@@ -4,7 +4,7 @@ import { describe, expect, test } from '@jest/globals';
 import { type ConfigDocs, GradeReport } from '#src/contracts/index.ts';
 import type { DriverInvocation } from '#src/drivers/index.ts';
 import { gradeHistoryPath } from '#src/plan/gradeHistoryPath.ts';
-import { gradeMemoryPath } from '#src/plan/index.ts';
+import { gradeMemoryPath, renderDecisionLog } from '#src/plan/index.ts';
 import { runPlanGrade } from '#src/plan/runPlanGrade.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createGapCheckDriver } from '#tests/helpers/createGapCheckDriver.ts';
@@ -34,6 +34,8 @@ const declaredDocs: ConfigDocs = [{ path: 'README.md', covers: 'The product tour
 
 /** A structurally clean three-phase overview: the same shape the two-phase fixture has, with a third row and block. */
 const threePhaseOverview = `# Graded Plan — Overview
+
+${renderDecisionLog({ decisions: [] })}
 
 ## Global Constraints
 
@@ -74,7 +76,7 @@ const threePhaseOverview = `# Graded Plan — Overview
 
 /** One clean phase, spelled end to end in its own word, so every path and identifier in it belongs to it alone. */
 const phaseBody = ({ subject, documentation }: { subject: string; documentation?: string }): string =>
-	cleanPlanBody({ title: 'Graded Plan', documentation })
+	cleanPlanBody({ title: 'Graded Plan', documentation, reference: true })
 		.replace(/new-thing/g, `${subject}-thing`)
 		.replace(/newThing/g, `${subject}Thing`)
 		.replace(/src\/index\.js/g, `src/${subject}.js`);

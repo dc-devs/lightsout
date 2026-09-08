@@ -1,7 +1,7 @@
 import { planSteps } from '#src/commands/common/constants/build/planSteps.ts';
 import { type CommandCatalogEntry, CommandGroup, CommandRecordKind } from '#src/contracts/index.ts';
 
-/** `/plan` — six subcommands under one command word, so it carries six invocations rather than one. */
+/** `/plan` — seven subcommands under one command word, so it carries seven invocations rather than one. */
 export const planCatalogEntry: CommandCatalogEntry = {
 	id: 'plan',
 	slash: '/plan',
@@ -13,6 +13,7 @@ export const planCatalogEntry: CommandCatalogEntry = {
 	invocations: [
 		{ id: 'plan-verify-facts', positional: 'verify-facts' },
 		{ id: 'plan-draft', positional: 'draft' },
+		{ id: 'plan-sync-decisions', positional: 'sync-decisions' },
 		{ id: 'plan-lint', positional: 'lint' },
 		{ id: 'plan-dedup', positional: 'dedup' },
 		{ id: 'plan-grade', positional: 'grade', note: '--phase grades only those phases, and always marks the result incomplete' },

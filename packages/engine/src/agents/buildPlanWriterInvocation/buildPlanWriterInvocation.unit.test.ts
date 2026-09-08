@@ -1,26 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { buildPlanWriterInvocation } from '#src/agents/index.ts';
-import type { DecisionsRecord, PlanFacts } from '#src/contracts/index.ts';
 import type { PhaseDeclaration } from '#src/plan/index.ts';
-
-/** A minimal verified PlanFacts with distinctive values to spot in the prompt. */
-const facts = (): PlanFacts => ({
-	request: 'add a foo endpoint',
-	areas: [],
-	verification: { pathsChecked: 0, missingPaths: [], scriptsChecked: 0, missingScripts: [] },
-	verifiedAt: '2026-07-09T00:00:00.000Z',
-});
-
-/** A one-row decisions record keyed by a distinctive plan name. */
-const decisions = (): DecisionsRecord => ({
-	planName: 'foo-endpoint',
-	decisions: [{ source: 'Elicitation', question: 'Which route?', options: 'a / b', choice: 'a', rationale: 'shortest path', assumption: false }],
-});
-
-const singleOutput = () => [{ path: '/repo/.lightsout/plans/foo/plan.md', variant: 'single' as const }];
-
-/** The two engine-owned size numbers every spawn is assembled with. */
-const limits = () => ({ executorFileLimit: 50, createdFileCeiling: 30 });
+import { ledgerBriefOf, planFacts, writerInvocation } from '#tests/helpers/planWriterInputs.ts';
 
 /** One overview declaration row, as `parsePhaseDeclarations` returns it. */
 const declarationRow = (): PhaseDeclaration => ({
@@ -35,7 +15,7 @@ const declarationRow = (): PhaseDeclaration => ({
 });
 
 test('buildPlanWriterInvocation: single-variant prompt carries the request, output line, decisions, and facts — no phased or standards sections', () => {
-	const invocation = buildPlanWriterInvocation({ facts: facts(), decisions: decisions(), outputs: singleOutput(), limits: limits() });
+	const invocation = writerInvocation();
 
 	// the writer invocation marker leads the prompt
 	expect(invocation.prompt.startsWith('# Draft input')).toBeTruthy();
@@ -56,7 +36,7 @@ test('buildPlanWriterInvocation: single-variant prompt carries the request, outp
 });
 
 test('buildPlanWriterInvocation: author-only — no corrective findings surface anywhere in the invocation', () => {
-	const invocation = buildPlanWriterInvocation({ facts: facts(), decisions: decisions(), outputs: singleOutput(), limits: limits() });
+	const invocation = writerInvocation();
 
 	// the prompt carries no corrective findings section
 	expect(invocation.prompt.includes('Structural findings')).toBeFalsy();
@@ -65,12 +45,11 @@ test('buildPlanWriterInvocation: author-only — no corrective findings surface 
 });
 
 test('buildPlanWriterInvocation: system prompt is the stable role prompt with the plan template appended, identical across invocations', () => {
-	const first = buildPlanWriterInvocation({ facts: facts(), decisions: decisions(), outputs: singleOutput(), limits: limits() });
-	const second = buildPlanWriterInvocation({
-		facts: { ...facts(), request: 'a different request' },
+	const first = writerInvocation();
+	const second = writerInvocation({
+		facts: { ...planFacts(), request: 'a different request' },
 		decisions: { planName: 'other-plan', decisions: [] },
 		outputs: [{ path: '/elsewhere/overview.md', variant: 'overview' }],
-		limits: limits(),
 		standards: '## Tabs only',
 		lintCommand: 'node /elsewhere/cli.mjs plan lint --name other-plan',
 	});
@@ -88,7 +67,7 @@ test('buildPlanWriterInvocation: system prompt is the stable role prompt with th
 });
 
 test('buildPlanWriterInvocation: the system prompt documents the Brainstorm origin as engine-merged rows', () => {
-	const invocation = buildPlanWriterInvocation({ facts: facts(), decisions: decisions(), outputs: singleOutput(), limits: limits() });
+	const invocation = writerInvocation();
 
 	// the role prompt names the origin the merged rows arrive under
 	expect(invocation.systemPrompt).toMatch(/`Brainstorm` rows/);
@@ -97,14 +76,11 @@ test('buildPlanWriterInvocation: the system prompt documents the Brainstorm orig
 });
 
 test('buildPlanWriterInvocation: an overview output adds the overview-only section naming that one path', () => {
-	const invocation = buildPlanWriterInvocation({
-		facts: facts(),
-		decisions: decisions(),
+	const invocation = writerInvocation({
 		outputs: [
 			{ path: '/repo/.lightsout/plans/foo/overview.md', variant: 'overview' },
 			{ path: '/repo/.lightsout/plans/foo/phase1-contracts.md', variant: 'phase' },
 		],
-		limits: limits(),
 	});
 
 	expect(invocation.prompt.includes('- /repo/.lightsout/plans/foo/overview.md — variant: overview')).toBeTruthy();
@@ -122,14 +98,11 @@ test('buildPlanWriterInvocation: an overview output adds the overview-only secti
 
 test('buildPlanWriterInvocation: a declaration adds the phase-authoring section with both declaration rows and the settled overview', () => {
 	const previous = { ...declarationRow(), number: 1, file: 'phase1-contracts.md', creates: ['src/contracts.ts'], exports: ['Contract'] };
-	const invocation = buildPlanWriterInvocation({
-		facts: facts(),
-		decisions: decisions(),
+	const invocation = writerInvocation({
 		outputs: [{ path: '/repo/.lightsout/plans/foo/phase2-wiring.md', variant: 'phase' }],
 		overviewText: '# Foo — Overview\n\nOVERVIEW-SENTINEL',
 		declaration: declarationRow(),
 		previousDeclaration: previous,
-		limits: limits(),
 	});
 
 	expect(invocation.prompt.includes('## Phase authoring')).toBeTruthy();
@@ -149,13 +122,10 @@ test('buildPlanWriterInvocation: a declaration adds the phase-authoring section 
 });
 
 test('buildPlanWriterInvocation: phase 1 is told there is no previous phase rather than handed an empty row', () => {
-	const invocation = buildPlanWriterInvocation({
-		facts: facts(),
-		decisions: decisions(),
+	const invocation = writerInvocation({
 		outputs: [{ path: '/repo/.lightsout/plans/foo/phase1-contracts.md', variant: 'phase' }],
 		overviewText: '# Foo — Overview',
 		declaration: { ...declarationRow(), number: 1, file: 'phase1-contracts.md' },
-		limits: limits(),
 	});
 
 	expect(invocation.prompt.includes('This is phase 1 — there is no previous phase.')).toBeTruthy();
@@ -163,10 +133,7 @@ test('buildPlanWriterInvocation: phase 1 is told there is no previous phase rath
 });
 
 test('buildPlanWriterInvocation: the size numbers are substituted into the template rather than hard-coded in it', () => {
-	const invocation = buildPlanWriterInvocation({
-		facts: facts(),
-		decisions: decisions(),
-		outputs: singleOutput(),
+	const invocation = writerInvocation({
 		limits: { executorFileLimit: 80, createdFileCeiling: 12 },
 	});
 
@@ -180,7 +147,9 @@ test('buildPlanWriterInvocation: the size numbers are substituted into the templ
 test('buildPlanWriterInvocation: a lint command adds the self-lint section verbatim, before the report-contract reminder', () => {
 	const lintCommand = 'node /repo/plugin/dist/cli.mjs plan lint --name foo-endpoint --cwd /repo';
 
-	const invocation = buildPlanWriterInvocation({ facts: facts(), decisions: decisions(), outputs: singleOutput(), limits: limits(), lintCommand });
+	const invocation = writerInvocation({
+		lintCommand,
+	});
 
 	expect(invocation.prompt.includes('## Self-lint')).toBeTruthy();
 	// the exact command lands verbatim in a code span
@@ -190,14 +159,11 @@ test('buildPlanWriterInvocation: a lint command adds the self-lint section verba
 });
 
 test('buildPlanWriterInvocation: with every optional input present, all sections land in assembly order', () => {
-	const invocation = buildPlanWriterInvocation({
-		facts: facts(),
-		decisions: decisions(),
+	const invocation = writerInvocation({
 		outputs: [
 			{ path: '/repo/.lightsout/plans/foo/overview.md', variant: 'overview' },
 			{ path: '/repo/.lightsout/plans/foo/phase1-contracts.md', variant: 'phase' },
 		],
-		limits: limits(),
 		standards: '## Tabs only',
 		lintCommand: 'node /repo/plugin/dist/cli.mjs plan lint --name foo-endpoint',
 	});
@@ -220,14 +186,11 @@ test('buildPlanWriterInvocation: with every optional input present, all sections
 });
 
 test('buildPlanWriterInvocation: an overview listed after a phase output still drives the overview-only section', () => {
-	const invocation = buildPlanWriterInvocation({
-		facts: facts(),
-		decisions: decisions(),
+	const invocation = writerInvocation({
 		outputs: [
 			{ path: '/repo/.lightsout/plans/bar/phase1-contracts.md', variant: 'phase' },
 			{ path: '/repo/.lightsout/plans/bar/overview.md', variant: 'overview' },
 		],
-		limits: limits(),
 	});
 
 	// the overview is found regardless of its position in outputs
@@ -239,7 +202,9 @@ test('buildPlanWriterInvocation: an overview listed after a phase output still d
 test('buildPlanWriterInvocation: supplemental standards are inlined verbatim in their own section', () => {
 	const standards = '## Tabs only\n\nUse tabs, never spaces.';
 
-	const invocation = buildPlanWriterInvocation({ facts: facts(), decisions: decisions(), outputs: singleOutput(), limits: limits(), standards });
+	const invocation = writerInvocation({
+		standards,
+	});
 
 	expect(invocation.prompt.includes('## Code standards (supplemental)')).toBeTruthy();
 	// the standards text lands verbatim
@@ -247,10 +212,7 @@ test('buildPlanWriterInvocation: supplemental standards are inlined verbatim in 
 });
 
 test('buildPlanWriterInvocation: every occurrence of each size token is substituted, not just the first', () => {
-	const invocation = buildPlanWriterInvocation({
-		facts: facts(),
-		decisions: decisions(),
-		outputs: singleOutput(),
+	const invocation = writerInvocation({
 		limits: { executorFileLimit: 80, createdFileCeiling: 12 },
 	});
 
@@ -263,12 +225,9 @@ test('buildPlanWriterInvocation: every occurrence of each size token is substitu
 });
 
 test('buildPlanWriterInvocation: a declaration without the settled overview text emits no phase-authoring section', () => {
-	const invocation = buildPlanWriterInvocation({
-		facts: facts(),
-		decisions: decisions(),
+	const invocation = writerInvocation({
 		outputs: [{ path: '/repo/.lightsout/plans/foo/phase2-wiring.md', variant: 'phase' }],
 		declaration: declarationRow(),
-		limits: limits(),
 	});
 
 	// the phase brief inlines the overview verbatim, so it is not assembled without one
@@ -280,11 +239,7 @@ test('buildPlanWriterInvocation: a declaration without the settled overview text
 });
 
 test('buildPlanWriterInvocation: declared documentation surfaces add the template rule and the prompt brief', () => {
-	const invocation = buildPlanWriterInvocation({
-		facts: facts(),
-		decisions: decisions(),
-		outputs: singleOutput(),
-		limits: limits(),
+	const invocation = writerInvocation({
 		docs: [
 			{ path: 'README.md', covers: 'The product tour.' },
 			{ path: 'docs/configuration.md', covers: 'Every configuration key.' },
@@ -301,7 +256,7 @@ test('buildPlanWriterInvocation: declared documentation surfaces add the templat
 });
 
 test('buildPlanWriterInvocation: a repository declaring no surfaces sees no documentation text and no standing token', () => {
-	const invocation = buildPlanWriterInvocation({ facts: facts(), decisions: decisions(), outputs: singleOutput(), limits: limits() });
+	const invocation = writerInvocation();
 
 	// no rule in the template, no section in the prompt — an undeclared repository
 	// pays nothing for a key it never wrote
@@ -320,11 +275,7 @@ test('buildPlanWriterInvocation: a repository declaring no surfaces sees no docu
 });
 
 test('buildPlanWriterInvocation: a contract repository adds the template rule and the acceptance-test ledger brief', () => {
-	const invocation = buildPlanWriterInvocation({
-		facts: facts(),
-		decisions: decisions(),
-		outputs: singleOutput(),
-		limits: limits(),
+	const invocation = writerInvocation({
 		contract: true,
 	});
 
@@ -345,7 +296,7 @@ test('buildPlanWriterInvocation: a contract repository adds the template rule an
 });
 
 test('buildPlanWriterInvocation: a repository that writes no contract plans sees no ledger text and no standing token', () => {
-	const invocation = buildPlanWriterInvocation({ facts: facts(), decisions: decisions(), outputs: singleOutput(), limits: limits() });
+	const invocation = writerInvocation();
 
 	// no rule in the template and no brief in the prompt — the invocation is what it
 	// was before the key existed
@@ -357,18 +308,13 @@ test('buildPlanWriterInvocation: a repository that writes no contract plans sees
 });
 
 test('buildPlanWriterInvocation: the ledger brief allows a row on a file the plan modifies and refuses one on a move source', () => {
-	const invocation = buildPlanWriterInvocation({
-		facts: facts(),
-		decisions: decisions(),
-		outputs: singleOutput(),
-		limits: limits(),
+	const invocation = writerInvocation({
 		contract: true,
 	});
 
 	// the ledger brief alone, cut at the next section, so no match can come from
 	// a neighbouring section of the prompt
-	const start = invocation.prompt.indexOf('## Acceptance-test ledger');
-	const ledger = invocation.prompt.slice(start, invocation.prompt.indexOf('\n\n## ', start + 1));
+	const ledger = ledgerBriefOf({ prompt: invocation.prompt });
 
 	// the brief is present at all — a missing heading would leave the slice empty
 	expect(invocation.prompt.includes('## Acceptance-test ledger')).toBeTruthy();

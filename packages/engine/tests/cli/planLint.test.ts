@@ -4,6 +4,7 @@ import { expect, test } from '@jest/globals';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { runCli } from '#tests/helpers/runCli.ts';
+import { writeEmptyDecisions } from '#tests/helpers/writeEmptyDecisions.ts';
 
 // A consumer repo with a plan deliverable and deliberately NO
 // lightsout.config.json: `plan lint` is deterministic and must route before
@@ -18,6 +19,7 @@ const seedPlanLintFixture = async ({ body }: { body: string }) => {
 	await mkdir(planDir, { recursive: true });
 	await writeFile(join(cwd, 'src', 'index.js'), 'export const one = 1;\n', 'utf8');
 	await writeFile(join(planDir, 'plan.md'), body, 'utf8');
+	writeEmptyDecisions({ dir: planDir, name: 'demo' });
 
 	return { cwd };
 };

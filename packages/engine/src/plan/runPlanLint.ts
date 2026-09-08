@@ -29,7 +29,7 @@ export const runPlanLint = async ({ cwd, name, onProgress }: Params): Promise<Ru
 		return { status: PlanRunStatus.Failed, error: inputs.error };
 	}
 
-	const findings = await lintPlanStructure({ cwd, planPaths: inputs.planPaths, config: inputs.config });
+	const findings = await lintPlanStructure({ cwd, planPaths: inputs.planPaths, decisions: inputs.decisions, config: inputs.config });
 
 	const blocking = getBlockingFindings({ findings });
 

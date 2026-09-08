@@ -5,16 +5,20 @@ import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { planDraftCommand } from '#src/cli/plan/index.ts';
 import { PlanDraftStatus, PlanFixStatus, PlanVariant } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
+import { renderDecisionLog } from '#src/plan/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { overviewBody } from '#tests/helpers/phasePlan.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeEmptyDecisions } from '#tests/helpers/writeEmptyDecisions.ts';
 
 /** The command's own output, with the progress printer's timestamped narration dropped. */
 const printedLines = ({ logged }: { logged: string[] }) => logged.filter((line) => !/^\[\+\d+:\d\d\]/.test(line));
 
-/** A minimal overview-variant plan: the four sections that variant requires, one declared phase, no placeholders. */
+/** A minimal overview-variant plan: the four sections that variant requires, one declared phase, no placeholders, and the Decision Log rendered from the empty seeded record. */
 const overviewPlanBody = () => `# Demo — Overview
+
+${renderDecisionLog({ decisions: [] })}
 
 ## Phases
 
@@ -57,7 +61,7 @@ const phasedWriterDriver = (): Driver => ({
 		const phase = prompt.includes('## Phase authoring');
 
 		if (path !== undefined) {
-			writeFileSync(path, phase ? cleanPlanBody() : overviewPlanBody());
+			writeFileSync(path, phase ? cleanPlanBody({ reference: true }) : overviewPlanBody());
 		}
 
 		return {
@@ -126,7 +130,7 @@ const setupDraft = ({ args = [] }: { args?: string[] } = {}) => {
 			verifiedAt: '2026-01-01T00:00:00.000Z',
 		}),
 	);
-	writeFileSync(join(workspaceDir, 'decisions.json'), JSON.stringify({ planName: 'demo', decisions: [] }));
+	writeEmptyDecisions({ dir: workspaceDir, name: 'demo' });
 
 	return { cwd, planDir: workspaceDir, name: 'demo', flags: parseFlags({ args }), ...captured };
 };

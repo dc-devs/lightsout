@@ -29,6 +29,7 @@
 		"build:default-pack": "node scripts/buildDefaultPackView.mjs",
 		"check:default-pack": "node scripts/buildDefaultPackView.mjs --check",
 		"build:workflow-specs": "node scripts/buildWorkflowSpecs.mjs",
+		"compare:plan-drafts": "node scripts/comparePlanDrafts.mjs",
 		"build:config-reference": "node scripts/buildConfigKeyReference.mjs",
 		"build:plugin-prompts": "node scripts/buildPluginPrompts.mjs",
 		"build:sprawl": "node scripts/buildSprawlDataset.mjs",

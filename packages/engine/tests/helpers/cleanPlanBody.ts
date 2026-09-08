@@ -1,3 +1,5 @@
+import { decisionLogReference, renderDecisionLog } from '#src/plan/index.ts';
+
 /**
  * A structurally clean single plan: every required section present, no
  * placeholders, its modify/mirror path (`src/index.js`) real and its create path
@@ -5,16 +7,32 @@
  * Its paths line up with `setupConsumerRepo`, so `lintPlanStructure` reports
  * nothing against a repo built by that helper.
  *
+ * The `## Decision Log` is rendered by the engine's own renderer from an empty
+ * record, so the fixture can never drift from the section the currency check
+ * re-renders. Unlike `documentation` it is not opt-in: that check runs on every
+ * plan file. `reference` swaps the table for the pointer sentence, which is what
+ * a phase file of a phased deliverable carries instead.
+ *
  * The `## Documentation` section is opt-in because the required-section set is:
  * only a repository declaring a `docs` block needs one, so omitting the
  * parameter leaves the body byte-identical to what an undeclared repo's tests
  * have always linted.
  */
-export const cleanPlanBody = ({ title = 'Clean Plan', documentation }: { title?: string; documentation?: string } = {}) => `# ${title}
+export const cleanPlanBody = ({
+	title = 'Clean Plan',
+	documentation,
+	reference = false,
+}: {
+	title?: string;
+	documentation?: string;
+	reference?: boolean;
+} = {}) => `# ${title}
 
 ## Context
 
 A tiny clean plan for the structural lint.
+
+${reference ? decisionLogReference() : renderDecisionLog({ decisions: [] })}
 
 ## Global Constraints
 

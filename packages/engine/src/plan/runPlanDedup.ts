@@ -14,6 +14,7 @@ import { getPlanDetectionPass } from '#src/plan/common/utils/getPlanDetectionPas
 import { isRateLimited } from '#src/plan/common/utils/isRateLimited.ts';
 import { matchDedupVerdicts } from '#src/plan/common/utils/matchDedupVerdicts.ts';
 import { detectPriorArtCandidates } from '#src/plan/detectPriorArtCandidates.ts';
+import { checkDeliverableDecisionLogs } from '#src/plan/lint/index.ts';
 
 interface Params {
 	cwd: string;
@@ -159,6 +160,16 @@ export const runPlanDedup = async (params: Params): Promise<RunPlanDedupResult> 
 
 	if (error) {
 		return { status: PlanRunStatus.Failed, workspaceDir, error };
+	}
+
+	const stale = checkDeliverableDecisionLogs({ cwd, name, overviewText: pass.overviewText, files: planFiles, decisions: pass.decisions });
+
+	// A read-only pass cannot compose the section, so it refuses to bless the plan
+	// instead: no report on disk, no judge spawned, and the remedy named.
+	if (stale.length > 0) {
+		const files = [...new Set(stale.map(({ phase }) => phase))].join(', ');
+
+		return { status: PlanRunStatus.Failed, workspaceDir, error: `${files}: ${stale[0].issue} — ${stale[0].fix}` };
 	}
 
 	const candidates = await detectPriorArtCandidates({ cwd, planPaths, config });

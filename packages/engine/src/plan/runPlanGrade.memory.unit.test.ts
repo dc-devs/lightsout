@@ -59,7 +59,7 @@ const setupLostReader = ({ name }: { name: string }) => {
 		name,
 		files: {
 			'overview.md': cleanOverviewBody(),
-			'phase1-core.md': cleanPlanBody({ title: 'Graded Plan' }),
+			'phase1-core.md': cleanPlanBody({ title: 'Graded Plan', reference: true }),
 			'phase2-extra.md': secondPhaseBody(),
 		},
 	});

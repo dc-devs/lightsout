@@ -1,13 +1,15 @@
-import { writeFileSync } from 'node:fs';
 import { expect, test } from '@jest/globals';
-import { PlanVariant } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
 import { runPlanDraft } from '#src/plan/draft/runPlanDraft.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createDraftDriver } from '#tests/helpers/createDraftDriver.ts';
+import { createScriptedDraftDriver } from '#tests/helpers/createScriptedDraftDriver.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
+import { phaseRow } from '#tests/helpers/phasedDraftFixture.ts';
 import { overviewBody } from '#tests/helpers/phasePlan.ts';
+import { planTemplateOf } from '#tests/helpers/planTemplateOf.ts';
+import { recordingDriver } from '#tests/helpers/recordingDriver.ts';
 import { seedPlanWorkspace } from '#tests/helpers/seedPlanWorkspace.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
@@ -16,7 +18,7 @@ import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 // key drafts exactly as it did before the key existed.
 
 /** The clean single plan plus the ledger a contract repository's writer is briefed to add — one row for the file it creates. */
-const contractPlanBody = () => `${cleanPlanBody()}
+const contractPlanBody = ({ reference = false }: { reference?: boolean } = {}) => `${cleanPlanBody({ reference })}
 ## Acceptance Tests
 
 | Criterion | Test file | Test name | Gate |
@@ -34,37 +36,15 @@ const areaTouching = ({ count }: { count: number }) => ({
 
 /**
  * A phased writer stub: the overview spawn writes the overview, and each phase
- * spawn writes the contract phase file its prompt names. Which stage it is in is
- * read off the brief the builder emitted, exactly as a real writer would.
+ * spawn writes the contract phase file its prompt names — the contract bodies
+ * being the one thing this file's draft differs by.
  */
-const phasedDraftDriver = ({ onCall }: { onCall: (prompt: string) => void }): Driver => ({
-	name: 'stub',
-	invoke: async ({ prompt }) => {
-		onCall(prompt);
-
-		const path = /- (\S+\.md)/.exec(prompt)?.[1];
-
-		// the engine dictates one output path per spawn
-		expectDefined(path);
-
-		const phase = prompt.includes('## Phase authoring');
+const phasedDraftDriver = ({ onCall }: { onCall: (prompt: string) => void }): Driver =>
+	createScriptedDraftDriver({
+		onCall: ({ prompt }) => onCall(prompt),
 		// the declared counts are the ones the contract phase body actually lands on
-		const row = { number: 1, file: 'phase1-core.md', scope: 'the core', created: 1, touched: 2 };
-
-		writeFileSync(path, phase ? contractPlanBody() : overviewBody({ rows: [row] }));
-
-		return {
-			text: JSON.stringify({
-				status: 'drafted',
-				filesWritten: [{ path, variant: phase ? PlanVariant.Phase : PlanVariant.Overview, scope: phase ? 'the core' : 'phased' }],
-				decisionsApplied: 0,
-				assumptions: [],
-				discrepancies: [],
-			}),
-			exitCode: 0,
-		};
-	},
-});
+		respond: ({ role }) => (role === 'phase' ? contractPlanBody({ reference: true }) : overviewBody({ rows: [phaseRow()] })),
+	});
 
 /** A seeded plan workspace in a repository that writes contract plans or does not, plus the prompt collector the act writes into. */
 const setupContractDraft = ({ contract, name, touching = 0 }: { contract: boolean; name: string; touching?: number }) => {
@@ -75,6 +55,14 @@ const setupContractDraft = ({ contract, name, touching = 0 }: { contract: boolea
 	const prompts: string[] = [];
 
 	return { cwd, name, prompts, onCall: (prompt: string) => prompts.push(prompt) };
+};
+
+/** The phased contract draft of `setupContractDraft`, with every invocation recorded — the system prompt is where the template rides, and the prompt collector alone cannot see it. */
+const setupTemplateDraft = ({ name }: { name: string }) => {
+	const { cwd, onCall } = setupContractDraft({ contract: true, name, touching: 41 });
+	const invocations: DriverInvocation[] = [];
+
+	return { cwd, name, driver: recordingDriver({ driver: phasedDraftDriver({ onCall }), invocations }), invocations };
 };
 
 test('plan draft: a contract repository briefs its writer on the acceptance-test ledger', async () => {
@@ -114,4 +102,24 @@ test('plan draft: a contract repository briefs its overview and phase spawns fro
 	// briefed too — and from the config the overview spawn was briefed from,
 	// rather than from a second copy of it
 	expect(prompts.map((prompt) => prompt.includes('## Acceptance-test ledger'))).toStrictEqual([true, true]);
+});
+
+test('plan draft: a contract repository hands the contract template to its overview and phase spawns alike', async () => {
+	const { cwd, name, driver, invocations } = setupTemplateDraft({ name: 'contract-template' });
+
+	const result = await runPlanDraft({ cwd, driver, name });
+
+	expectStatus(result, 'complete');
+
+	const templates = invocations.filter(({ prompt }) => prompt.includes('# Draft input')).map((invocation) => planTemplateOf(invocation));
+
+	// one config key chooses the template, so the overview spawn and the phase
+	// spawn are handed the same text — and it is the contract shape, whose ledger
+	// rule and required ledger sections the narrative template does not carry
+	expect({
+		writerSpawns: templates.length,
+		distinctTemplates: new Set(templates).size,
+		ledgerSections: templates.every((template) => template.includes('## Acceptance Tests') && template.includes('## Prose Files')),
+		ledgerRule: templates.every((template) => template.includes('Acceptance tests named, not narrated.')),
+	}).toStrictEqual({ writerSpawns: 2, distinctTemplates: 1, ledgerSections: true, ledgerRule: true });
 });

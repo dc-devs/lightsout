@@ -248,4 +248,40 @@ describe('checkProsePaths', () => {
 		// exemption for every path that looks like a test
 		await expect(missing({ cwd, planPath, plan })).resolves.toStrictEqual(['path named in prose does not exist: src/deep/nested/thing.unit.test.ts']);
 	});
+
+	test('checkProsePaths: a path named inside the Decision Log is history, and the same path outside it is still checked', async () => {
+		const { cwd, planPath, plan } = setup({
+			prose: 'Nothing in this paragraph names a file.',
+			sections: [
+				'## Decision Log',
+				'',
+				'| # | Source | Decision / Question | Options Considered | Choice | Rationale |',
+				'|---|--------|---------------------|--------------------|--------|-----------|',
+				'| 1 | Brainstorm | Where does the reader live? | `src/rejected/option.ts` / a new module | A new module. | The rejected file is history. |',
+				'| 2 | Brainstorm | Which idea was dropped? | `src/dropped/idea.ts` / the one built | The one built. | Recorded, not claimed. |',
+				'',
+				'## Notes',
+				'',
+				'The dropped idea still lives at `src/dropped/idea.ts` today.',
+				'',
+			].join('\n'),
+		});
+
+		const findings = await check({ cwd, planPath, plan });
+
+		// a recorded decision may name a path that was rejected or has since moved,
+		// so the log's own lines are passed over — `src/rejected/option.ts` appears
+		// nowhere else and is silent, while `src/dropped/idea.ts` is reported at
+		// line 16, the line OUTSIDE the section, not at line 12 inside it
+		expect(findings).toStrictEqual([
+			{
+				check: StructuralCheck.ProsePathExists,
+				severity: FindingSeverity.Blocking,
+				phase: 'demo.md',
+				issue: 'path named in prose does not exist: src/dropped/idea.ts',
+				location: 'demo.md:16',
+				fix: 'correct the path, or drop the backticks if the span is not naming a real file',
+			},
+		]);
+	});
 });

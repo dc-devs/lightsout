@@ -162,3 +162,38 @@ test('buildPlanRepairInvocation: a repository declaring no surfaces gets the inv
 		'## Reference files (Read on demand)',
 	]);
 });
+
+test('the repairer is told the Decision Log is engine-composed and never hand-edited', () => {
+	const { decisionsPath, factsPath } = setupRepair();
+
+	const { systemPrompt } = buildPlanRepairInvocation({
+		findings: [
+			finding({
+				check: 'decision-log-current',
+				location: '## Decision Log',
+				issue: 'the Decision Log disagrees with the saved decision records',
+				fix: 'run `lightsout plan sync-decisions --name widget-flag`',
+			}),
+		],
+		planPaths: ['/tmp/plans/widget-flag.md'],
+		decisionsPath,
+		factsPath,
+	});
+
+	const workflow = systemPrompt.slice(systemPrompt.indexOf('## Workflow'), systemPrompt.indexOf('## Report'));
+	const operationalRules = systemPrompt.slice(systemPrompt.indexOf('## Operational rules'));
+
+	// the operational rules hand the section to the engine and forbid a hand edit
+	expect(operationalRules).toMatch(/## Decision Log/);
+	expect(operationalRules).toMatch(/engine/i);
+	expect(operationalRules).toMatch(/by hand/i);
+	// a finding naming the section is reported, not fixed
+	expect(operationalRules).toMatch(/discrepancies/);
+	// the hard rule against restructuring names the section too, so a repairer
+	// reading only the workflow still learns it is off limits
+	expect(workflow).toMatch(/Decision Log/);
+	// the Global Constraints rebuild rule and its last-row-wins statement survive
+	// untouched — who renders the table does not change which decisions bind
+	expect(systemPrompt.includes('rebuilds a section derived from decisions (Global Constraints above all)')).toBeTruthy();
+	expect(systemPrompt.includes('the last row sharing a `question` is the live one')).toBeTruthy();
+});

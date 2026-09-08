@@ -1,8 +1,10 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { renderDecisionLog } from '#src/plan/index.ts';
 import { minimalPlanBody } from '#tests/helpers/minimalPlanBody.ts';
 import { overviewMarker } from '#tests/helpers/overviewMarker.ts';
 import { seedSourceRepo } from '#tests/helpers/seedSourceRepo.ts';
+import { writeEmptyDecisions } from '#tests/helpers/writeEmptyDecisions.ts';
 
 interface Params {
 	/** Source files the repo already holds — what a planned symbol can collide with. */
@@ -22,10 +24,14 @@ export const seedPhasedDedupPlan = ({ existing, phases, name = 'p' }: Params): {
 	const workspaceDir = join(cwd, '.lightsout', 'plans', name);
 
 	mkdirSync(workspaceDir, { recursive: true });
-	writeFileSync(join(workspaceDir, 'overview.md'), `# Plan — Overview\n\n## Cross-Phase Dependencies\n\n- ${overviewMarker}\n`);
+	writeFileSync(
+		join(workspaceDir, 'overview.md'),
+		`# Plan — Overview\n\n${renderDecisionLog({ decisions: [] })}\n\n## Cross-Phase Dependencies\n\n- ${overviewMarker}\n`,
+	);
+	writeEmptyDecisions({ dir: workspaceDir, name });
 
 	phases.forEach((creates, index) => {
-		writeFileSync(join(workspaceDir, `phase${index + 1}-part.md`), minimalPlanBody({ title: `Phase ${index + 1}`, creates }));
+		writeFileSync(join(workspaceDir, `phase${index + 1}-part.md`), minimalPlanBody({ title: `Phase ${index + 1}`, creates, reference: true }));
 	});
 
 	return { cwd, name, workspaceDir };

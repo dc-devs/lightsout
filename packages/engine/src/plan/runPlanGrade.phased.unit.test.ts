@@ -22,7 +22,7 @@ import { writePlanDeliverable } from '#tests/helpers/writePlanDeliverable.ts';
 /** The two-phase deliverable every case here grades, unless it asks for other phase files. */
 const defaultPhaseFiles = () => ({
 	'overview.md': cleanOverviewBody(),
-	'phase1-core.md': cleanPlanBody({ title: 'Graded Plan' }),
+	'phase1-core.md': cleanPlanBody({ title: 'Graded Plan', reference: true }),
 	'phase2-extra.md': secondPhaseBody(),
 });
 
@@ -163,7 +163,10 @@ test('plan grade: --phase 1 selects phase1 numerically, never also a phase10 sha
 	// leave this case with nothing to say about how `--phase 1` selects.
 	const { cwd, name, driver, invocations } = setup({
 		name: 'ten',
-		files: { 'phase1-core.md': cleanPlanBody({ title: 'Graded Plan' }), 'phase10-extra.md': secondPhaseBody() },
+		files: {
+			'phase1-core.md': cleanPlanBody({ title: 'Graded Plan', reference: true }),
+			'phase10-extra.md': secondPhaseBody(),
+		},
 	});
 
 	const result = await runPlanGrade({ cwd, driver, name, phases: ['1'] });

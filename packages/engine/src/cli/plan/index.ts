@@ -4,5 +4,6 @@ export { planDraftCommand } from '#src/cli/plan/planDraftCommand.ts';
 export { planGradeCommand } from '#src/cli/plan/planGradeCommand.ts';
 export { planLintCommand } from '#src/cli/plan/planLintCommand.ts';
 export { planPublishCommand } from '#src/cli/plan/planPublishCommand.ts';
+export { planSyncDecisionsCommand } from '#src/cli/plan/planSyncDecisionsCommand.ts';
 export { planVerifyFactsCommand } from '#src/cli/plan/planVerifyFactsCommand.ts';
 export { readPlanningStandards } from '#src/cli/plan/readPlanningStandards.ts';
