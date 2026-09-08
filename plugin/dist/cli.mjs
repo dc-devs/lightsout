@@ -131509,9 +131509,28 @@ var parseFlags = ({ args }) => {
 import { existsSync, readFileSync } from "node:fs";
 import { join as join37 } from "node:path";
 import { parseEnv } from "node:util";
-var loadRepoEnvFile = ({ cwd }) => {
-  const envFilePath = join37(cwd, ".env");
-  if (!existsSync(envFilePath)) {
+
+// src/common/git/readGitPrimaryCheckout.ts
+import { dirname as dirname4 } from "node:path";
+var readGitPrimaryCheckout = async ({ cwd }) => {
+  const common = await runCommand({ command: "git rev-parse --path-format=absolute --git-common-dir", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  const gitDir = common && common.exitCode === 0 ? common.stdout.trim() : "";
+  return gitDir === "" ? void 0 : dirname4(gitDir);
+};
+
+// src/cli/common/utils/loadRepoEnvFile.ts
+var resolveEnvFilePath = async ({ cwd }) => {
+  const own = join37(cwd, ".env");
+  if (existsSync(own)) {
+    return own;
+  }
+  const primary = await readGitPrimaryCheckout({ cwd });
+  const shared = primary === void 0 ? void 0 : join37(primary, ".env");
+  return shared !== void 0 && shared !== own && existsSync(shared) ? shared : void 0;
+};
+var loadRepoEnvFile = async ({ cwd }) => {
+  const envFilePath = await resolveEnvFilePath({ cwd });
+  if (envFilePath === void 0) {
     return;
   }
   try {
@@ -132046,14 +132065,14 @@ var appendCommandLog = async ({ cwd, runId, record: record3 }) => {
 
 // src/common/utils/appendJsonlRecords.ts
 import { appendFile as appendFile4, mkdir as mkdir9 } from "node:fs/promises";
-import { dirname as dirname4 } from "node:path";
+import { dirname as dirname5 } from "node:path";
 var appendJsonlRecords = async ({ path, schema, entries, runId, step }) => {
   if (entries.length === 0) {
     return;
   }
   const at = (/* @__PURE__ */ new Date()).toISOString();
   const lines = entries.map((entry) => JSON.stringify(schema.parse({ ...entry, at, runId, step }))).join("\n");
-  await mkdir9(dirname4(path), { recursive: true });
+  await mkdir9(dirname5(path), { recursive: true });
   await appendFile4(path, `${lines}
 `, "utf8");
 };
@@ -132223,7 +132242,7 @@ var listRunIds = async ({ cwd }) => {
 
 // src/runState/lock/acquireRunLock.ts
 import { mkdir as mkdir11, unlink, writeFile as writeFile10 } from "node:fs/promises";
-import { dirname as dirname5 } from "node:path";
+import { dirname as dirname6 } from "node:path";
 
 // src/runState/lock/common/utils/getRunLockPath.ts
 import { join as join51 } from "node:path";
@@ -132254,7 +132273,7 @@ var acquireRunLock = async ({ cwd, runId }) => {
   const lockPath = getRunLockPath({ cwd });
   const payload = `${JSON.stringify({ pid: process.pid, runId, startedAt: (/* @__PURE__ */ new Date()).toISOString() }, null, "	")}
 `;
-  await mkdir11(dirname5(lockPath), { recursive: true });
+  await mkdir11(dirname6(lockPath), { recursive: true });
   let stalePid;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
@@ -133085,7 +133104,7 @@ var findUnfinishedSequence = async ({ cwd, overviewPath }) => {
 
 // src/phases/initializeSequence.ts
 import { access, readFile as readFile27 } from "node:fs/promises";
-import { dirname as dirname6, join as join55 } from "node:path";
+import { dirname as dirname7, join as join55 } from "node:path";
 var getPhaseFiles = async ({ cwd, overview }) => {
   const overviewFullPath = join55(cwd, overview);
   const overviewContent = await readFile27(overviewFullPath, "utf8").catch(() => void 0);
@@ -133105,7 +133124,7 @@ var getPhaseFiles = async ({ cwd, overview }) => {
 var assertPhaseFilesExist = async ({ cwd, overview, phases }) => {
   const missing = [];
   for (const file2 of phases) {
-    const phasePath = join55(dirname6(overview), file2);
+    const phasePath = join55(dirname7(overview), file2);
     const present = await access(join55(cwd, phasePath)).then(
       () => true,
       () => false
@@ -133153,7 +133172,7 @@ var initializeSequence = async ({ cwd, driver, config: config2, overviewPath, st
 };
 
 // src/phases/runPhase.ts
-import { dirname as dirname15, join as join100 } from "node:path";
+import { dirname as dirname16, join as join100 } from "node:path";
 
 // src/pipeline/readPlanPackages.ts
 var unquote = (value) => value.trim().replace(/^['"]|['"]$/g, "");
@@ -133208,7 +133227,7 @@ var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
 
 // src/pipeline/approvedTests/approveTestFiles.ts
 import { mkdir as mkdir13, readFile as readFile28, rm as rm3, writeFile as writeFile11 } from "node:fs/promises";
-import { dirname as dirname7, join as join59 } from "node:path";
+import { dirname as dirname8, join as join59 } from "node:path";
 
 // src/pipeline/approvedTests/approvedTestPath.ts
 import { join as join58 } from "node:path";
@@ -133236,7 +133255,7 @@ var approveTestFiles = async ({ run, paths }) => {
       records.push({ path, removed: true });
       continue;
     }
-    await mkdir13(dirname7(copy), { recursive: true });
+    await mkdir13(dirname8(copy), { recursive: true });
     await writeFile11(copy, content);
     records.push({ path, sha256: sha256({ content }), removed: false });
   }
@@ -133348,7 +133367,7 @@ var applyTestDispositions = async ({
 
 // src/pipeline/approvedTests/collectTestChanges.ts
 import { mkdir as mkdir14, readFile as readFile31, rm as rm5, writeFile as writeFile12 } from "node:fs/promises";
-import { dirname as dirname8, join as join61, relative as relative9 } from "node:path";
+import { dirname as dirname9, join as join61, relative as relative9 } from "node:path";
 
 // src/pipeline/approvedTests/common/constants/TestChangeKind.ts
 var TestChangeKind = {
@@ -133372,7 +133391,7 @@ var kindOf = ({ live: live2, approved }) => {
 var diffOf = async ({ cwd, path, kind, approved, scratch }) => {
   const before = join61(scratch, path);
   if (approved !== void 0) {
-    await mkdir14(dirname8(before), { recursive: true });
+    await mkdir14(dirname9(before), { recursive: true });
     await writeFile12(before, approved, "utf8");
   }
   const left = approved === void 0 ? emptySide : relative9(cwd, before);
@@ -133390,7 +133409,7 @@ var collectTestChanges = async ({ run }) => {
   if (candidates.length === 0) {
     return [];
   }
-  const scratch = join61(dirname8(approvedTestsDir({ cwd: run.cwd, runId: manifest.runId })), "approved-scratch");
+  const scratch = join61(dirname9(approvedTestsDir({ cwd: run.cwd, runId: manifest.runId })), "approved-scratch");
   await rm5(scratch, { recursive: true, force: true });
   await mkdir14(scratch, { recursive: true });
   const changes = [];
@@ -133949,7 +133968,7 @@ ${problems.map((problem) => `- ${problem}`).join("\n")}`);
 
 // src/standardsPacks/resolveDefaultStandardsPack.ts
 import { existsSync as existsSync2 } from "node:fs";
-import { dirname as dirname9, join as join68, resolve as resolve7 } from "node:path";
+import { dirname as dirname10, join as join68, resolve as resolve7 } from "node:path";
 var overrideVariable = "LIGHTSOUT_DEFAULT_STANDARDS";
 var resolveDefaultStandardsPack = ({ startDir } = {}) => {
   const override = process.env[overrideVariable];
@@ -133961,12 +133980,12 @@ var resolveDefaultStandardsPack = ({ startDir } = {}) => {
     return overridden;
   }
   const entryPoint = process.argv[1];
-  let current = resolve7(startDir ?? (entryPoint === void 0 ? process.cwd() : dirname9(entryPoint)));
+  let current = resolve7(startDir ?? (entryPoint === void 0 ? process.cwd() : dirname10(entryPoint)));
   let found;
   while (found === void 0) {
     const candidates = [join68(current, "standards"), join68(current, "plugin", "standards")];
     found = candidates.find((candidate) => existsSync2(join68(candidate, "lightsout-standards.json")));
-    const parent = dirname9(current);
+    const parent = dirname10(current);
     if (found === void 0 && parent === current) {
       throw new Error(`bundled default standards not found next to the engine (searched upward from ${current})`);
     }
@@ -134972,7 +134991,7 @@ var isCoverageCollectedFile = ({ absolutePath, collection }) => {
 };
 
 // src/coverage/selectCollectedFiles/common/utils/readCoverageCollection.ts
-import { dirname as dirname10, resolve as resolve11 } from "node:path";
+import { dirname as dirname11, resolve as resolve11 } from "node:path";
 var defaultIgnorePatterns = ["/node_modules/"];
 var JestConfigShape = external_exports.looseObject({
   rootDir: external_exports.string().optional().catch(void 0),
@@ -134987,7 +135006,7 @@ var readCoverageCollection = ({ loaded }) => {
   if (!parsed.success) {
     return void 0;
   }
-  const configDir = dirname10(loaded.configPath);
+  const configDir = dirname11(loaded.configPath);
   return {
     rootDir: parsed.data.rootDir === void 0 ? configDir : resolve11(configDir, parsed.data.rootDir),
     collectCoverageFrom: parsed.data.collectCoverageFrom,
@@ -135019,7 +135038,7 @@ var selectCollectedFiles = async ({ cwd, config: config2, files }) => {
 
 // src/coverage/selectUnloadableFiles/selectUnloadableFiles.ts
 import { readFile as readFile43 } from "node:fs/promises";
-import { dirname as dirname12, join as join79 } from "node:path";
+import { dirname as dirname13, join as join79 } from "node:path";
 
 // src/common/sourceFiles/isUnloadableSourceFile.ts
 var hasModuleScopeAwait = ({ node, compiler }) => {
@@ -135103,7 +135122,7 @@ var readJestModuleMode = ({ loaded }) => {
 
 // src/coverage/selectUnloadableFiles/common/utils/readNearestPackageType.ts
 import { readFile as readFile42 } from "node:fs/promises";
-import { dirname as dirname11, join as join78, relative as relative11, sep as sep3 } from "node:path";
+import { dirname as dirname12, join as join78, relative as relative11, sep as sep3 } from "node:path";
 var withinScope = ({ directory, scopeRoot }) => {
   const path = relative11(scopeRoot, directory);
   return path === "" || !(path === ".." || path.startsWith(`..${sep3}`));
@@ -135122,7 +135141,7 @@ var readNearestPackageType = async ({ fileDir, scopeRoot }) => {
   let type;
   while (type === void 0 && withinScope({ directory, scopeRoot })) {
     type = await readManifestType({ manifestPath: join78(directory, "package.json") });
-    const parent = dirname11(directory);
+    const parent = dirname12(directory);
     if (parent === directory) {
       break;
     }
@@ -135156,7 +135175,7 @@ var selectUnloadableFiles = async ({ cwd, config: config2, files, compiler }) =>
     if (!modes.has(scope.scope)) {
       modes.set(scope.scope, readJestModuleMode({ loaded: await loadScopeJestConfig({ scopeRoot, command: scope.command }) }));
     }
-    const fileDir = dirname12(join79(root, file2));
+    const fileDir = dirname13(join79(root, file2));
     if (!packageTypes.has(fileDir)) {
       packageTypes.set(fileDir, await readNearestPackageType({ fileDir, scopeRoot }));
     }
@@ -136228,7 +136247,7 @@ var invokeCoverageAgent = async ({
 };
 
 // src/coverage/batch/checkTestsOnly.ts
-import { dirname as dirname13 } from "node:path";
+import { dirname as dirname14 } from "node:path";
 
 // src/common/utils/collectBatchChanges.ts
 var collectBatchChanges = async ({ cwd, config: config2, reportedFiles, attributedFiles }) => {
@@ -136251,7 +136270,7 @@ var checkTestsOnly = async ({
   reportedFiles,
   attributedFiles
 }) => {
-  const coverageDir = dirname13(config2["coverage-summary-path"] ?? defaultCoverageSummaryPath);
+  const coverageDir = dirname14(config2["coverage-summary-path"] ?? defaultCoverageSummaryPath);
   const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
   const changedFiles = (await collectBatchChanges({ cwd, config: config2, reportedFiles, attributedFiles })).filter(
     (path) => !isMeasurementOutput({ path, coverageDir, packagesDir })
@@ -149369,15 +149388,15 @@ var buildTestFileInput = async ({ cwd, tests, cache }) => {
 };
 
 // src/standardsCheck/common/checkInputs/buildTypeCheckerInput.ts
-import { dirname as dirname14, join as join95, resolve as resolve12 } from "node:path";
+import { dirname as dirname15, join as join95, resolve as resolve12 } from "node:path";
 var findNearestConfig = ({ cwd, path, compiler }) => {
-  let folder = dirname14(resolve12(cwd, path));
+  let folder = dirname15(resolve12(cwd, path));
   while (folder.startsWith(cwd)) {
     const candidate = join95(folder, "tsconfig.json");
     if (compiler.sys.fileExists(candidate)) {
       return candidate;
     }
-    folder = dirname14(folder);
+    folder = dirname15(folder);
   }
   return void 0;
 };
@@ -149388,7 +149407,7 @@ var buildPrograms = ({ configPaths, compiler }) => {
     if (read.error !== void 0) {
       continue;
     }
-    const parsed = compiler.parseJsonConfigFileContent(read.config, compiler.sys, dirname14(configPath));
+    const parsed = compiler.parseJsonConfigFileContent(read.config, compiler.sys, dirname15(configPath));
     programs.set(configPath, compiler.createProgram({ rootNames: parsed.fileNames, options: parsed.options }));
   }
   return programs;
@@ -150811,7 +150830,7 @@ var runPhase = async ({
     cwd,
     driver,
     config: config2,
-    planPath: join100(dirname15(current.plan), step.id),
+    planPath: join100(dirname16(current.plan), step.id),
     overviewPath: current.plan,
     parentRunId: current.runId,
     existing: childManifest,
@@ -151517,12 +151536,12 @@ var readBranchState = async ({ cwd, branch }) => {
 
 // src/queue/branchState/writeBranchState.ts
 import { mkdir as mkdir20, rename as rename4 } from "node:fs/promises";
-import { dirname as dirname16 } from "node:path";
+import { dirname as dirname17 } from "node:path";
 var writeBranchState = async ({ cwd, branch, phase, onProgress }) => {
   const record3 = { branch, phase, updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
   const statePath = getBranchStatePath({ cwd, branch });
   try {
-    await mkdir20(dirname16(statePath), { recursive: true });
+    await mkdir20(dirname17(statePath), { recursive: true });
     await writeJsonFile({ path: `${statePath}.tmp`, value: record3 });
     await rename4(`${statePath}.tmp`, statePath);
   } catch (error51) {
@@ -151919,10 +151938,10 @@ import { stat as stat9 } from "node:fs/promises";
 import { join as join110 } from "node:path";
 
 // src/queue/common/utils/getWorktreesRoot.ts
-import { basename as basename30, dirname as dirname17, join as join109, resolve as resolve13 } from "node:path";
+import { basename as basename30, dirname as dirname18, join as join109, resolve as resolve13 } from "node:path";
 var getWorktreesRoot = ({ cwd }) => {
   const repo = resolve13(cwd);
-  return join109(dirname17(repo), `${basename30(repo)}-worktrees`);
+  return join109(dirname18(repo), `${basename30(repo)}-worktrees`);
 };
 
 // src/queue/worktrees/createTicketWorktree.ts
@@ -155484,7 +155503,7 @@ var toStandardsPackRuleListing = ({ rule, fixtureCounts }) => ({
 var DeclaredConfig = external_exports.object({ timeouts: external_exports.record(external_exports.string(), external_exports.unknown()).optional() }).catchall(external_exports.unknown());
 
 // src/views/common/utils/getRunTitle.ts
-import { basename as basename32, dirname as dirname18 } from "node:path";
+import { basename as basename32, dirname as dirname19 } from "node:path";
 var namedRuleLimit = 3;
 var describeRules = ({ rules }) => {
   const distinct = [...new Set(rules)];
@@ -155495,7 +155514,7 @@ var describeRules = ({ rules }) => {
 var getRunTitle = ({ plan, worklist }) => {
   const name = basename32(plan);
   const stem = name.replace(/\.md$/, "");
-  const folder = basename32(dirname18(plan));
+  const folder = basename32(dirname19(plan));
   const rules = worklist?.kind === PipelineKind.Refactor ? worklist.worklist?.batches.map((batch) => batch.rule) ?? [] : [];
   let title;
   if (worklist?.kind === PipelineKind.Coverage) {
@@ -155999,7 +156018,7 @@ var getStreamText = async ({ stream }) => {
 
 // src/voice/createVoiceMarker.ts
 import { mkdir as mkdir25, writeFile as writeFile26 } from "node:fs/promises";
-import { dirname as dirname19 } from "node:path";
+import { dirname as dirname20 } from "node:path";
 
 // src/voice/common/paths/getVoiceMarkerPath.ts
 import { join as join126 } from "node:path";
@@ -156010,7 +156029,7 @@ var getVoiceMarkerPath = ({ cwd }) => {
 // src/voice/createVoiceMarker.ts
 var createVoiceMarker = async ({ cwd }) => {
   const markerPath = getVoiceMarkerPath({ cwd });
-  await mkdir25(dirname19(markerPath), { recursive: true });
+  await mkdir25(dirname20(markerPath), { recursive: true });
   await writeFile26(markerPath, "", "utf8");
 };
 
@@ -156343,7 +156362,7 @@ var main = async () => {
   const [command, ...rest] = process.argv.slice(2);
   const flags = parseFlags({ args: rest });
   const cwd = getStringFlag({ flags, name: "cwd" }) ?? process.cwd();
-  loadRepoEnvFile({ cwd });
+  await loadRepoEnvFile({ cwd });
   const run = command === void 0 ? void 0 : commands[command];
   const problem = command === void 0 || run === void 0 ? void 0 : getUnknownFlagsMessage({ command, flags });
   if (run && problem === void 0) {
