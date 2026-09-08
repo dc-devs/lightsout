@@ -99,7 +99,7 @@
 		"test-mock-return-in-hook": "blocking",
 		"test-nested-describe": "blocking",
 		"test-not-beside-subject": "blocking",
-		"test-size-file": "advisory",
+		"test-size-file": "blocking",
 		"test-support-in-src": "blocking"
 	},
 	"agent-commands": ["pnpm", "python3", "rsvg-convert"],
