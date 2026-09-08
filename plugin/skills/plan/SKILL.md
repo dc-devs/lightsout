@@ -116,7 +116,21 @@ all three count:
 |---|---|
 | `.lightsout/plans/<name>/brainstorm-decisions.json` | what was settled with the user in the brainstorm before this session |
 | `.lightsout/plans/<name>/decisions.json` | what was settled earlier in this plan session |
-| the drafted plan's `## Decision Log` | the rows of both, plus every answer folded in since the draft |
+| the drafted plan's `## Decision Log` | a rendering of the rows of both, composed by the engine — read a settled answer here, never write one |
+
+**Record first, refresh, then edit the plan.** The engine composes the
+`## Decision Log` from the two record files, so a row written into a plan file
+by hand is overwritten the next time it runs. Every decision made after the
+draft — a grill answer, a dedup resolution, a converge resolution, a veto — is
+appended to `decisions.json` **first**, then the log is refreshed with:
+
+```sh
+node "<plugin-root>/dist/cli.mjs" plan sync-decisions --name <name>
+```
+
+Only then edit the plan content the answer changes — implementation detail,
+acceptance rows, constraints. Never write a `Decision Log` row by hand. The
+steps below call this **the sync command**.
 
 A ticket's `## Decisions` lines are the same kind of record: outcomes the
 user settled before shaping began. Elicitation harvests them into
@@ -141,8 +155,9 @@ the contradicting `file:line` stated in the Context.
 **new** row in `decisions.json`, **repeating the original row's `question`
 text verbatim**, with a rationale naming the `file:line` and saying which row
 it supersedes. The repeated question text is what marks the supersession: the
-plan writer treats the last row sharing a question as the live one, so the
-corrected answer wins while both rows stay in the Decision Log. Never edit
+engine's renderer marks every earlier row sharing that question as superseded
+by the later one, so the corrected answer is the binding one while both rows
+stay in the log. Run the sync command afterwards. Never edit
 `brainstorm-decisions.json` — brainstorm owns it, and both rows belong in the
 log.
 
@@ -338,14 +353,15 @@ creates across more phases — and re-run `plan draft`.
   any one → escalate. (Typical escalations: a genuine fork, anything that
   could bend the plan's direction, a question with two defensible answers —
   illustrative, never a filter.) **When in doubt, escalate.**
-- **Self-answered** → fold the answer into `plan.md` via Edit, append a
-  `Decision Log` row with `Source = Grill` and a rationale ending in
-  `(self-answered)`, and mirror it into `decisions.json` with
-  `"assumption": true`. Do not surface it live.
+- **Self-answered** → append the row to `decisions.json` with
+  `"source": "Grill"`, `"assumption": true` and a rationale ending in
+  `(self-answered)`, run the sync command, then fold the answer into `plan.md`
+  via Edit. Do not surface it live.
 - **Escalated** → **one question at a time**, in the Question format (one
-  full labeled block per message — never two). After each answer,
-  **immediately fold it into `plan.md` via Edit** and append a
-  `Decision Log` row with `Source = Grill`. Do not batch edits to the end.
+  full labeled block per message — never two). After each answer, append the
+  `decisions.json` row with `"source": "Grill"`, run the sync command, and
+  **immediately fold the answer into `plan.md` via Edit**. Do not batch edits
+  to the end.
 - Continue until **the user says stop** — do not self-terminate. Self-answering
   a question never counts as stopping.
 - **The grill also interrogates the ledger.** With `plan.contract` on, the
@@ -353,7 +369,8 @@ creates across more phases — and re-run `plan draft`.
   three questions belong in the stream like any other: an acceptance criterion
   with no row, a row whose named test could not fail if the feature were never
   built, and a prose file that a test could have stated after all. Each finding
-  lands where it belongs — a Decision Log row, or a new ledger row.
+  lands where it belongs — a `decisions.json` row followed by the sync
+  command, or a new ledger row.
 - **Assumption digest.** When the user stops, list every self-answered
   question with its chosen answer. A veto re-opens that question as an
   escalation — fold the corrected answer into `plan.md` before moving on.
@@ -378,8 +395,9 @@ subcommand's; you only conduct the review and apply the chosen edits.
   **Question** asks which to pick; **Options** summarizes the resolutions to
   choose between; **Recommendation** is the judge's `recommendation` in plain
   words. Get the user's choice per finding **or** offer **auto-accept**
-  (apply every `recommendation`, showing a summary first). Apply each chosen
-  resolution to `plan.md` via Edit:
+  (apply every `recommendation`, showing a summary first). Append one
+  `decisions.json` row with `"source": "Dedup"` per resolution and run the
+  sync command once, then apply each chosen resolution to `plan.md` via Edit:
   - **reuse** → drop the Files-to-Create entry; wire the plan's usage to the
     existing symbol.
   - **extend** → add a Files-to-Modify entry for the existing symbol.
@@ -388,7 +406,6 @@ subcommand's; you only conduct the review and apply the chosen edits.
   - **defer** → leave the entry; record the accepted duplication in `## Prior Art`
     (logged debt).
   - **distinct** → record the justification in `## Prior Art`.
-  Append a `Decision Log` row `Source = Dedup` for each resolution.
 - Each finding carries the `phase` it was planned in — the plan file's
   basename. Apply the resolution to **that** file, not to `plan.md`.
 - `"complete": false` means a judge failed or hit the rate-limit wall. The
@@ -404,12 +421,13 @@ Read `.lightsout/plans/<name>/grade.json`:
 - `"passed": false` with `gaps` → surface **only the blocking gaps**: the ones
   whose `outcome` is `needs-a-human` or `unjudged`. Put each in the Question
   format (at most 2 per message, recommended-first), **grouped by the gap's
-  `phase`**. Resolve each by **editing the plan file its `phase` names** in place
-  via Edit — `plan.md` for a single plan, that `phase<N>-<slug>.md` for a phased
-  one (+ a `Decision Log` row, `Source = Converge`; mirror the resolution into
-  `decisions.json`). Then re-run `plan grade`. Repeat until `passed` or the user
-  calls it. **Do NOT re-run `plan draft`** — a re-draft regenerates the plan
-  files and would clobber the Grill edits already folded in.
+  `phase`**. Resolve each by appending a `decisions.json` row with
+  `"source": "Converge"`, running the sync command, then **editing the plan
+  file the gap's `phase` names** in place via Edit — `plan.md` for a single
+  plan, that `phase<N>-<slug>.md` for a phased one. Then re-run `plan grade`.
+  Repeat until `passed` or the user calls it. **Do NOT re-run `plan draft`** —
+  a re-draft regenerates the plan files and would clobber the Grill edits
+  already folded in.
 - A blocking gap whose answer the record already carries is **not surfaced** —
   see [Settled decisions](#settled-decisions). A re-grade re-reads the plan
   from scratch and can raise a gap over something settled in Elicitation,

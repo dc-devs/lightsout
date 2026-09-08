@@ -12,6 +12,7 @@ import { createPhasedDraftDriver } from '#tests/helpers/createPhasedDraftDriver.
 import { dirtyPlanBody } from '#tests/helpers/dirtyPlanBody.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
+import { recordingDriver } from '#tests/helpers/recordingDriver.ts';
 import { seedPlanWorkspace } from '#tests/helpers/seedPlanWorkspace.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
@@ -71,13 +72,13 @@ test('plan draft: the writer is handed the self-lint command and granted exactly
 
 	const [writer] = invocations;
 
-	// the writer carries exactly one command grant
-	expect(writer.allowedCommands?.length).toBe(1);
+	const lintGrants = (writer.allowedCommands ?? []).filter((grant) => grant.endsWith(' plan lint'));
 
-	const prefix = writer.allowedCommands?.[0] ?? '';
+	// exactly one of the writer's grants is the plan-lint prefix, got: ${(writer.allowedCommands ?? []).join(', ')}
+	expect(lintGrants.length).toBe(1);
 
-	// the grant is the plan-lint prefix, got: ${prefix}
-	expect(prefix.endsWith(' plan lint')).toBeTruthy();
+	const [prefix = ''] = lintGrants;
+
 	// the granted prefix is unquoted — the harness matches it literally
 	expect(prefix.includes('"')).toBeFalsy();
 	// the embedded command extends the granted prefix verbatim, the consumer path
@@ -320,4 +321,72 @@ test('plan draft: still carries brainstorm rows in first through the shared merg
 	expect(draftPrompt.indexOf('"source": "Brainstorm"') < draftPrompt.indexOf('"source": "Elicitation"')).toBeTruthy();
 	// the progress line the shared reader emits still reaches the watcher
 	expect(messages).toEqual(expect.arrayContaining([expect.stringMatching(/1 brainstorm decision/)]));
+});
+
+test('plan draft: the drafted plan.md is synced before the structural convergence reads it', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedPlanWorkspace({ cwd, name: 'synced-first' });
+
+	// what a writer under the engine-owned section writes: no `## Decision Log`
+	const authoredBody = cleanPlanBody().replace(`${renderDecisionLog({ decisions: [] })}\n\n`, '');
+	const invocations: DriverInvocation[] = [];
+	const driver = createDraftDriver({ bodies: [authoredBody], onInvoke: (invocation) => invocations.push(invocation) });
+	const result = await runPlanDraft({ cwd, driver, name: 'synced-first' });
+
+	// the counterfactual, stated on the input: an absent section blocks
+	expect(authoredBody.includes('## Decision Log')).toBeFalsy();
+	expectStatus(result, 'complete');
+	// the engine composed the section onto disk between the spawn and the lint
+	expect(readFileSync(join(cwd, '.lightsout', 'plans', 'synced-first', 'plan.md'), 'utf8')).toContain(renderDecisionLog({ decisions: [] }));
+	// so the first lint reported no decision-log finding — one would cost a repair
+	expect(invocations.filter((invocation) => invocation.prompt.includes('# Repair input'))).toStrictEqual([]);
+});
+
+test('plan draft: the writer is granted the sync prefix beside the lint prefix and told to sync first', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedPlanWorkspace({ cwd, name: 'sync-granted' });
+	// the one spawn granted no sync: a phased overview, which resolves no deliverable
+	seedPlanWorkspace({ cwd, name: 'no-sync', areas: [areaTouching({ modify: paths(41) })] });
+
+	const singleSpawns: DriverInvocation[] = [];
+	const overviewSpawns: DriverInvocation[] = [];
+	const recordingPhasedDriver = recordingDriver({ driver: createPhasedDraftDriver(), invocations: overviewSpawns });
+	const granted = await runPlanDraft({
+		cwd,
+		driver: createDraftDriver({ bodies: [cleanPlanBody()], onInvoke: (invocation) => singleSpawns.push(invocation) }),
+		name: 'sync-granted',
+	});
+	const ungranted = await runPlanDraft({ cwd, driver: recordingPhasedDriver, name: 'no-sync' });
+
+	expectStatus(granted, 'complete');
+	expectStatus(ungranted, 'complete');
+
+	const [writer] = singleSpawns;
+	const grants = writer.allowedCommands ?? [];
+	const syncPrefix = grants.find((grant) => grant.endsWith(' plan sync-decisions')) ?? '';
+	const lintPrefix = grants.find((grant) => grant.endsWith(' plan lint')) ?? '';
+
+	// exactly the two prefixes, got: ${grants.join(', ')}
+	expect(grants.length).toBe(2);
+	expect(syncPrefix.length > 0 && lintPrefix.length > 0).toBeTruthy();
+	// both granted unquoted — the harness matches an allowed prefix literally
+	expect(`${syncPrefix}${lintPrefix}`.includes('"')).toBeFalsy();
+
+	const syncCommand = `${syncPrefix} --name sync-granted --cwd "${cwd}"`;
+	const lintCommand = `${lintPrefix} --name sync-granted --cwd "${cwd}"`;
+
+	// each granted prefix is extended verbatim, the consumer path quoted
+	expect(writer.prompt.includes(syncCommand)).toBeTruthy();
+	expect(writer.prompt.includes(lintCommand)).toBeTruthy();
+	// and the Self-lint section names the sync first, so the writer's own lint
+	// never reports the section it is forbidden to write
+	expect(writer.prompt.indexOf(syncCommand) < writer.prompt.indexOf(lintCommand)).toBeTruthy();
+
+	const [overviewSpawn] = overviewSpawns;
+
+	// the ungranted spawn carries neither the extra grant nor the extra line
+	expect(overviewSpawn.allowedCommands).toBe(undefined);
+	expect(overviewSpawn.prompt.includes('plan sync-decisions')).toBeFalsy();
 });

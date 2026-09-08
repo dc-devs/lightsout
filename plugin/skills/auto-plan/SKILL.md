@@ -90,7 +90,7 @@ Ask the human to choose exactly one: authorize one more round, explicitly accept
 the current below-A plan and proceed to implementation, or change direction /
 settle a genuine product-level decision. Do not auto-approve or auto-implement a below-A plan.
 Only an explicit human acceptance may bypass the A-grade requirement; record it
-in the plan's Decision Log and `decisions.json` before rolling onward.
+in `decisions.json` and run the sync command before rolling onward.
 
 The only exception is a question that genuinely clears the escalation bar:
 one that cannot be resolved from the record and whose alternatives visibly
@@ -108,18 +108,32 @@ records count, and all three are the user's:
 |---|---|
 | `.lightsout/plans/<name>/brainstorm-decisions.json` | what was settled with the user in a brainstorm before this session |
 | `.lightsout/plans/<name>/decisions.json` | what was settled earlier in this run |
-| the drafted plan's `## Decision Log` | the rows of both, plus every answer folded in since the draft |
+| the drafted plan's `## Decision Log` | a rendering of the rows of both, composed by the engine — read a settled answer here, never write one |
 
-A settled question is **dropped**, not answered again: no new `Decision Log`
-row, no new decisions row, and it never enters the bar's routing at all.
+**Record first, refresh, then edit the plan.** The engine composes the
+`## Decision Log` from the two record files, so a row written into a plan file
+by hand is overwritten the next time it runs. Every decision made after the
+draft — a grill answer, a dedup resolution, a converge resolution, a veto — is
+appended to `decisions.json` **first**, then the log is refreshed with:
+
+```sh
+node "<plugin-root>/dist/cli.mjs" plan sync-decisions --name <name>
+```
+
+Only then edit the plan content the answer changes. Never write a
+`Decision Log` row by hand. The steps below call this **the sync command**.
+
+A settled question is **dropped**, not answered again: it adds no record
+anywhere, and it never enters the bar's routing at all.
 
 **Re-open a settled decision only for a contradiction you can name at a
 specific `file:line`.** A re-opened decision is recorded as a **new** row that
 **repeats the original row's `question` text verbatim**, with a rationale naming
-the `file:line` and saying which row it supersedes — the plan writer treats the
-last row sharing a question as the live one. Never edit
-`brainstorm-decisions.json`; brainstorm owns it, and both rows belong in the
-log.
+the `file:line` and saying which row it supersedes — the engine's renderer
+marks every earlier row sharing that question as superseded by the later one,
+so the corrected answer is the binding one while both rows stay in the log.
+Run the sync command afterwards. Never edit `brainstorm-decisions.json`;
+brainstorm owns it, and both rows belong in the log.
 
 **A settled decision is not a self-answer.** It never enters the assumption
 digest, because the user already made it.
@@ -241,11 +255,11 @@ new file mirrors, and the acceptance-test ledger — because that is what a plan
 carries that a test cannot state for itself.
 
 - **Drop** a question the record already answers, with no new row.
-- **Route the rest through the bar.** Self-answered → fold the answer into the
-  plan file via Edit, append a `Decision Log` row with `Source = Grill` and a
-  rationale ending `(self-answered)`, and mirror it into decisions.json with
-  `"assumption": true`. Above the bar → an unscheduled checkpoint, or a park
-  under `auto-approve-plan`.
+- **Route the rest through the bar.** Self-answered → append the row to
+  `decisions.json` with `"source": "Grill"`, `"assumption": true` and a
+  rationale ending `(self-answered)`, run the sync command, then fold the
+  answer into the plan file via Edit. Above the bar → an unscheduled
+  checkpoint, or a park under `auto-approve-plan`.
 - **Stop rule.** The plan skill grills until the user says stop; there is no
   user here, so: **stop when one complete pass over every plan file produces no
   question whose answer would change the plan.** A second pass that only
@@ -259,16 +273,17 @@ node "<plugin-root>/dist/cli.mjs" plan dedup --name <name>
 ```
 
 Read `.lightsout/plans/<name>/dedup.json`. Every finding's `recommendation` is a
-best-practice call and therefore below the bar: **auto-accept them all**, and
-apply each resolution to the plan file the finding's `phase` names — `reuse`
-drops the Files-to-Create entry and wires the plan's usage to the existing
-symbol; `extend` adds a Files-to-Modify entry for it; `extract` adds the shared
-file at `suggestedLocation` plus a Files-to-Modify entry per `migrateCallers`;
-`defer` leaves the entry and records the accepted duplication in `## Prior Art`;
-`distinct` records the justification there. Append a `Decision Log` row
-`Source = Dedup` for each. A finding whose resolution the record already carries
-is applied from the record, not re-decided. `"complete": false` means the scan
-was partial — resolve what is there and re-run dedup.
+best-practice call and therefore below the bar: **auto-accept them all**. Append
+one `decisions.json` row with `"source": "Dedup"` per resolution and run the
+sync command once, then apply each resolution to the plan file the finding's
+`phase` names — `reuse` drops the Files-to-Create entry and wires the plan's
+usage to the existing symbol; `extend` adds a Files-to-Modify entry for it;
+`extract` adds the shared file at `suggestedLocation` plus a Files-to-Modify
+entry per `migrateCallers`; `defer` leaves the entry and records the accepted
+duplication in `## Prior Art`; `distinct` records the justification there. A
+finding whose resolution the record already carries is applied from the record,
+not re-decided. `"complete": false` means the scan was partial — resolve what is
+there and re-run dedup.
 
 ```sh
 node "<plugin-root>/dist/cli.mjs" plan grade --name <name>
@@ -277,10 +292,10 @@ node "<plugin-root>/dist/cli.mjs" plan grade --name <name>
 Read `.lightsout/plans/<name>/grade.json`. `"passed": true` **and**
 `"complete": true` → go on. Otherwise take the blocking gaps (`needs-a-human`
 and `unjudged`), route each through the bar, and resolve the below-bar ones by
-editing the plan file the gap's `phase` names — plus a `Decision Log` row
-`Source = Converge`, mirrored into decisions.json — then re-grade. **Never
-re-run `plan draft`**: it regenerates the plan files and would clobber every
-edit folded in since.
+appending a `decisions.json` row with `"source": "Converge"`, running the sync
+command, then editing the plan file the gap's `phase` names — then re-grade.
+**Never re-run `plan draft`**: it regenerates the plan files and would clobber
+every edit folded in since.
 
 - **A pass whose `incompleteReason` names blocking structural findings ran no
   semantic reader.** Its `gaps` list is empty because nobody looked. Fix the
@@ -323,9 +338,9 @@ Then the ask, in one line: approve, veto specific digest rows, or change
 direction.
 
 - **A veto re-opens exactly that question.** Ask it live in the Question format,
-  fold the corrected answer into the plan file via Edit, append a `Decision Log`
-  row with `Source = Converge`, mirror it into decisions.json, re-grade, and
-  show a short amended digest. Never re-draft.
+  append the corrected answer to `decisions.json` with `"source": "Converge"`,
+  run the sync command, fold the answer into the plan file via Edit, re-grade,
+  and show a short amended digest. Never re-draft.
 - **A change of direction is a stop.** Say plainly that this is what
   the interactive `plan` skill is for, and hand the plan folder over.
 

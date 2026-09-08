@@ -1,4 +1,5 @@
 import { basename, join } from 'node:path';
+import { messageOf } from '#src/common/utils/messageOf.ts';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
 import { type GradeInputs, type GradeMemory, type GradeReport, GradeScope, type StructuralFinding } from '#src/contracts/index.ts';
 import { appendGradeHistory } from '#src/plan/appendGradeHistory.ts';
@@ -207,7 +208,7 @@ export const runPlanGrade = async (params: PlanGradeParams): Promise<RunPlanGrad
 	try {
 		found = await readGradeMemory({ cwd, name });
 	} catch (cause) {
-		return { status: PlanRunStatus.Failed, workspaceDir, error: cause instanceof Error ? cause.message : String(cause) };
+		return { status: PlanRunStatus.Failed, workspaceDir, error: messageOf({ error: cause }) };
 	}
 
 	const inputs = await getGradeInputs({ cwd, planPaths, standards: params.standards, config, model: params.model, effort: params.effort });

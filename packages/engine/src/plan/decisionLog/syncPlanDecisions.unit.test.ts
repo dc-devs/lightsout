@@ -107,7 +107,18 @@ const setupPhasedPlan = ({ overview = true }: { overview?: boolean } = {}) => {
 
 	seedDecisions({ dir, name, rows: twoRows });
 
-	return { cwd, name, readFile: (base: string) => readFileSync(join(dir, base), 'utf8') };
+	return { cwd, name, path: (base: string) => join(dir, base), readFile: (base: string) => readFileSync(join(dir, base), 'utf8') };
+};
+
+/** The workspace a phased draft holds between its overview spawn and its first phase file: `overview.md` alone, which resolves to no plan at all. */
+const setupOverviewOnly = () => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-sync-'));
+	const name = 'mid-draft';
+	const dir = writePhasedPlanDeliverable({ cwd, name, files: { 'overview.md': planBody({ title: 'Overview' }) } });
+
+	seedDecisions({ dir, name, rows: twoRows });
+
+	return { cwd, name, overviewPath: join(dir, 'overview.md'), readFile: (base: string) => readFileSync(join(dir, base), 'utf8') };
 };
 
 describe('syncPlanDecisions', () => {
@@ -234,5 +245,85 @@ describe('syncPlanDecisions', () => {
 			rows: tableRows({ section }).length,
 			choice: section.includes('The ones the caller handed in'),
 		}).toStrictEqual({ reported: { 'plan.md': true }, rows: 1, choice: true });
+	});
+
+	test('syncPlanDecisions: syncs the paths it is handed for a workspace whose deliverable does not resolve', async () => {
+		const draft = setupOverviewOnly();
+		const decisions: DecisionsRecord = {
+			planName: draft.name,
+			decisions: [decisionRow({ question: 'Which record is rendered?', choice: 'The one the draft is holding' })],
+		};
+
+		const result = await syncPlanDecisions({ cwd: draft.cwd, name: draft.name, planPaths: [draft.overviewPath], decisions });
+
+		expectStatus(result, 'complete');
+		const section = decisionLogSection({ text: draft.readFile('overview.md') });
+		// stated paths and a stated record together: neither the deliverable nor the
+		// workspace's own decisions.json is read, and the overview still gets the table
+		expect({
+			reported: updatedByFile({ files: result.files }),
+			rows: tableRows({ section }).length,
+			handedChoice: section.includes('The one the draft is holding'),
+		}).toStrictEqual({ reported: { 'overview.md': true }, rows: 1, handedChoice: true });
+	});
+
+	test('syncPlanDecisions: fails on that same overview-only workspace when it is handed no paths', async () => {
+		const draft = setupOverviewOnly();
+
+		const result = await syncPlanDecisions({ cwd: draft.cwd, name: draft.name });
+
+		expectStatus(result, 'failed');
+		// the resolver reads an overview with no phase file beside it as no plan, so
+		// the stated paths above are what made the difference — and nothing is written
+		expect({ error: result.error, text: draft.readFile('overview.md') }).toEqual({
+			error: expect.stringContaining('no plan found'),
+			text: planBody({ title: 'Overview' }),
+		});
+	});
+
+	test('syncPlanDecisions: picks each handed path a rendering from its name and leaves every other file alone', async () => {
+		const phased = setupPhasedPlan();
+
+		const result = await syncPlanDecisions({
+			cwd: phased.cwd,
+			name: phased.name,
+			planPaths: [phased.path('overview.md'), phased.path('phase1-core.md')],
+		});
+
+		expectStatus(result, 'complete');
+		const overview = decisionLogSection({ text: phased.readFile('overview.md') });
+		const first = decisionLogSection({ text: phased.readFile('phase1-core.md') });
+
+		// the name decides the rendering for a stated path exactly as it does for a
+		// resolved one, and the phase file left out of the list is untouched
+		expect({
+			reported: updatedByFile({ files: result.files }),
+			overviewRows: tableRows({ section: overview }).length,
+			firstRows: tableRows({ section: first }).length,
+			firstPoints: first.includes('overview.md'),
+			second: phased.readFile('phase2-wire.md'),
+		}).toStrictEqual({
+			reported: { 'overview.md': true, 'phase1-core.md': true },
+			overviewRows: 2,
+			firstRows: 0,
+			firstPoints: true,
+			second: planBody({ title: 'Phase 2 — Wire' }),
+		});
+	});
+
+	test('syncPlanDecisions: syncs handed phase paths with no overview beside them rather than refusing them', async () => {
+		const phased = setupPhasedPlan({ overview: false });
+
+		const result = await syncPlanDecisions({ cwd: phased.cwd, name: phased.name, planPaths: [phased.path('phase1-core.md')] });
+
+		expectStatus(result, 'complete');
+		const first = decisionLogSection({ text: phased.readFile('phase1-core.md') });
+		// the refusal over a missing overview belongs to the resolved path only: the
+		// caller that states its paths owns where the table lives
+		expect({
+			reported: updatedByFile({ files: result.files }),
+			rows: tableRows({ section: first }).length,
+			points: first.includes('overview.md'),
+		}).toStrictEqual({ reported: { 'phase1-core.md': true }, rows: 0, points: true });
 	});
 });

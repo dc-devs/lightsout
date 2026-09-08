@@ -4,6 +4,7 @@ import { type DecisionsRecord, type Effort, type LightsoutConfig, type Permissio
 import type { Driver } from '#src/drivers/index.ts';
 import type { PlanRepairResult } from '#src/plan/common/types/PlanRepairResult.ts';
 import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
+import { syncPlanDecisions } from '#src/plan/decisionLog/index.ts';
 import { convergeFindings } from '#src/plan/draft/common/utils/convergeFindings.ts';
 import { lintPlanStructure } from '#src/plan/lint/index.ts';
 
@@ -59,6 +60,11 @@ const runRepairAttempt = ({ params, findings, attempt }: { params: Params; findi
  * The lint always answers, so the unreadable-inputs exit `convergeFindings`
  * offers is unreachable here: a plan file the repairer deleted or broke comes
  * back as a finding rather than as no answer at all.
+ *
+ * Every round composes the Decision Log before it lints it. The section is the
+ * engine's, and the repairer is told not to touch it, so a round that displaced
+ * or damaged it is corrected here rather than handed back to the repairer as a
+ * finding it has been forbidden to fix.
  */
 export const repairPlanStructure = async (params: Params): Promise<PlanRepairResult> => {
 	const { cwd, name, planPaths, decisions, config, progress } = params;
@@ -67,7 +73,11 @@ export const repairPlanStructure = async (params: Params): Promise<PlanRepairRes
 		name,
 		verb: 'repair',
 		findingNoun: 'structural finding(s)',
-		check: () => lintPlanStructure({ cwd, planPaths, decisions, config }),
+		check: async () => {
+			await syncPlanDecisions({ cwd, name, planPaths, decisions });
+
+			return lintPlanStructure({ cwd, planPaths, decisions, config });
+		},
 		unreadableError: `the plan file(s) could not be linted at ${planPaths.join(', ')}`,
 		runAttempt: ({ findings, attempt }) => runRepairAttempt({ params, findings, attempt }),
 		progress,

@@ -6,6 +6,10 @@ deterministic structural lint (`plan grade`, structure) and the gap-check agent
 **Overview Plan** (multi-phase context), and **Phase Plan** (one implementation
 scope under an overview).
 
+This repository writes plans as CONTRACTS: an implementable plan states its
+testable behaviour in `## Acceptance Tests` rows, and its file entries state the
+surface — signatures, wiring, constraints — that no test can carry.
+
 ## Rules (all variants)
 
 These mirror the structural-lint and gap-check rubrics — a plan violating them
@@ -40,8 +44,8 @@ will not reach A:
 - **Within the created-file ceiling.** Each plan (or each phase) CREATES at most
   {{createdFileCeiling}} source files. This is a hard ceiling: a phase over it is split, and no
   declaration raises it. A created file has to be specified — its signatures, its
-  exports, its behaviour written out — which is what makes creating that many of
-  them a full phase.
+  exports, its behaviour stated by its rows — which is what makes creating that
+  many of them a full phase.
 - **Touched files counted and declared.** Each plan (or each phase) also states
   how many source files it touches in total (created, modified, modified from an
   earlier phase, deleted, and both sides of every move). Above {{fileLimit}} the plan is
@@ -60,6 +64,26 @@ will not reach A:
   `## Global Constraints` section for session-stated project-wide constraints;
   `None` is valid content. Phases inherit the overview's — a phase may write
   "See overview."
+- **Acceptance tests named, not narrated.** Every IMPLEMENTABLE variant — a
+  Single Plan, and each Phase Plan — carries a `## Acceptance Tests` table with
+  one row per acceptance criterion: the criterion, the test file that states it
+  in a backticked span, the exact test name, and the gate that runs it. A file
+  whose behaviour no test can state is listed under `## Prose Files` with the
+  reason instead. Every created or modified source file is reached by a row or
+  named in that list. An Overview Plan carries neither section: the overview
+  creates nothing, so a row written there would belong to no executor.
+- **Behaviour lives in the ledger.** A file entry states the file's exported
+  signatures, the imports it needs and the names it exports, the integration
+  points it wires into, the file it mirrors, and the architectural constraints
+  binding it — and then says that its behaviour is stated in the
+  `## Acceptance Tests` rows. Narrating the same expectation in prose beside a
+  row that already states it is the duplication this shape exists to remove.
+  Prose no test can express — a constraint, an ordering requirement, the reason
+  a path was rejected — still belongs in the entry.
+- **A criterion is a testable sentence.** Each `## Acceptance Tests` row's
+  criterion names the inputs, the condition that makes the case distinct, the
+  expected result, and the failure case the test pins. A criterion naming only a
+  subject is intent, not a criterion.
 {{documentationRule}}
 
 ---
@@ -102,16 +126,19 @@ repo's package directory convention (default `packages`). -->
 
 ### `<packagesDir>/<name>/src/path/to/file.ts`
 
-<Purpose. Key contents: exported functions/classes with full signatures,
-methods, imports it needs, what it exports. Enough detail that a fresh-context
-agent writes the right code without guessing.>
+<Purpose in one line. Then the surface: exported functions/classes with full
+signatures, the imports it needs, what it exports, the integration points it
+wires into, the file it mirrors, and the architectural constraints binding it.
+Close by saying its behaviour is stated in the `## Acceptance Tests` rows — do
+not restate there what a row already holds.>
 
 ## Files to Modify
 
 ### `<packagesDir>/<name>/src/path/to/existing.ts`
 
 <What changes and where: which function/section, what is added/removed/changed,
-and how it integrates with the created files.>
+the resulting signature, and how it integrates with the created files. The
+expectation it must then satisfy is a row, not a paragraph.>
 
 ## Files to Modify from Earlier Phases
 
@@ -172,6 +199,26 @@ justifies its newness:
 
 - `<resolved check command>` — types clean
 - `<resolved test-unit command>` — tests pass
+
+## Acceptance Tests
+
+<!-- One row per acceptance criterion. The test file goes in backticks and may
+already exist; the test name is the exact string the test writer will use; the
+gate is a key from the repository's gates, and a blank cell means `test`. Each
+criterion names the inputs, the condition that makes the case distinct, the
+expected result, and the failure case it pins. -->
+
+| Criterion | Test file | Test name | Gate |
+|-----------|-----------|-----------|------|
+| <one-line acceptance criterion> | `<packagesDir>/<name>/src/path/to/file.unit.test.ts` | <exact test name> | test |
+
+## Prose Files
+
+<!-- One bullet per file whose behaviour no test can state, each also listed
+under one of the file headings above. A bullet with no reason is a blocking
+finding. -->
+
+- `<path>` — <why no test states this file's behaviour>
 
 ## What Next Plan Expects
 
@@ -286,3 +333,6 @@ Identical to the Single Plan with these adjustments:
 - **What Next Plan Expects** is mandatory and chains: it must list exactly what
   the next phase's Prerequisites will claim. The final phase states "None —
   final phase."
+- **Acceptance Tests** and **Prose Files** are required in every phase and never
+  on the overview: the overview creates nothing, so a row written there would
+  belong to no executor.

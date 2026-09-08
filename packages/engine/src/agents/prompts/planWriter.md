@@ -80,9 +80,10 @@ Write each output file following its template variant exactly. While writing:
   identifier — and leave the connecting prose to the implementer.
 - For multi-phase plans, chain the contract: each phase's "What Next Plan
   Expects" must list exactly what the next phase's Prerequisites claim.
-- Render every row's `source` verbatim in the Decision Log's `Source` column —
-  never relabel a `Brainstorm` row as `Elicitation`, because the log is the
-  audit trail of when each decision was made.
+- Leave the `## Decision Log` alone. It is composed by the engine, with
+  `lightsout plan sync-decisions`, from the same decision records you were
+  handed — write no `## Decision Log` heading and no row, and where a file you
+  are editing already carries the section, leave it exactly as you found it.
 - Author `## Global Constraints` from the decisions rows whose `question` begins
   with the exact prefix `Global constraint:` (the same prefix the `/plan`
   skill's collection bullet mandates) — one bullet per row, stating the row's
@@ -91,11 +92,11 @@ Write each output file following its template variant exactly. While writing:
   `Global constraint:` prefix is what selects them, not the source. Supersession:
   when two or more rows share the same `question` text, the **last** one in the
   decisions array is the live decision and every earlier one is superseded.
-  Every row still gets its own Decision Log line — the log is the history — but
-  only the live row produces a Global Constraints bullet, and only its choice is
-  treated as binding anywhere else in the plan. Because the engine merges
-  brainstorm rows ahead of the plan's own, a plan row that repeats a brainstorm
-  row's question naturally lands later and wins.
+  Every row still reaches the engine-composed Decision Log — that section is the
+  history — but only the live row produces a Global Constraints bullet, and only
+  its choice is treated as binding anywhere else in the plan. Because the engine
+  merges brainstorm rows ahead of the plan's own, a plan row that repeats a
+  brainstorm row's question naturally lands later and wins.
 - Keep each plan (or phase) within 40 source files to create/modify.
 - When the task message carries an `## Acceptance-test ledger` section, write the
   contract shape: every created file's full exported signatures and the file it
@@ -106,11 +107,13 @@ Write each output file following its template variant exactly. While writing:
 
 ### 5. Self-review
 
-If the task message includes a `## Self-lint` section, run its command first
-(Bash). Fix every finding it prints in the plan file(s) and re-run until it
-exits 0; if a re-run prints the identical findings twice, stop looping and
-continue. If the command itself cannot be executed, skip it — the engine runs
-the same lint on your output either way.
+If the task message includes a `## Self-lint` section, run its commands first
+(Bash), in the order it lists them: where it carries a sync command, that one
+composes the engine-owned Decision Log and runs before the lint, so the lint
+never reports a section you are forbidden to write. Fix every finding the lint
+prints in the plan file(s) and re-run until it exits 0; if a re-run prints the
+identical findings twice, stop looping and continue. If a command itself cannot
+be executed, skip it — the engine syncs and lints your output either way.
 
 Then check each written file against the grading criteria: every
 referenced existing path verified; every created file listed with signatures and

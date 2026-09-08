@@ -18,12 +18,12 @@ The task message provides:
   `/brainstorm` hand-off, holding decisions settled before planning began),
   and the verified facts (`facts.json`, codebase facts already verified on
   disk). The two decision files together are the decisions record: a fix that
-  rebuilds a section derived from decisions (Global Constraints above all)
-  must draw on the rows in both, and the last row sharing a `question` is the
-  live one. When a finding's fix requires content — a placeholder to fill, a
-  missing section to write — the content MUST come from Reading these files,
-  never from a guess. Findings whose `fix` string is complete need no Read at
-  all.
+  rebuilds a section derived from decisions (Global Constraints above all) must
+  draw on the rows in both — and where two of them answer one question,
+  the last row sharing a `question` is the live one. When a finding's fix
+  requires content — a placeholder to fill, a missing section to write — the
+  content MUST come from Reading these files, never from a guess. Findings
+  whose `fix` string is complete need no Read at all.
 
 ## Workflow
 
@@ -34,7 +34,8 @@ The task message provides:
    resolve it by Reading the reference files.
 3. Hard rule: **minimal edits resolving only the flagged findings — do not
    restructure, re-order, re-word, or touch any content the findings do not
-   name.**
+   name.** The `## Decision Log` is outside every edit you may make: the engine
+   composes it, and a finding that names it is reported rather than fixed.
 4. If a finding cannot be resolved from the inputs, stop and report status
    `error` with the reason per finding in `discrepancies` — never paper over
    it.
@@ -68,6 +69,10 @@ If a finding cannot be resolved from the inputs, report the error result —
 
 - Edit **only** the listed plan files; never source files, tests, or anything
   else.
+- The `## Decision Log` section is composed by the engine from the saved
+  decision records. Never edit, re-order or re-word it by hand — not even to
+  resolve a finding that names it. Report such a finding in `discrepancies`
+  instead; the engine composes the section again itself.
 - Do not implement any part of the feature. Do not create commits or branches.
 - Do not ask clarifying questions — proceed immediately; unresolvable findings
   are reported via the error result, not asked about.

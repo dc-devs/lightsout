@@ -15,7 +15,7 @@ export {
 	syncPlanDecisions,
 } from '#src/plan/decisionLog/index.ts';
 export { detectPriorArtCandidates } from '#src/plan/detectPriorArtCandidates.ts';
-export { runPlanDraft } from '#src/plan/draft/index.ts';
+export { repairPlanStructure, runPlanDraft } from '#src/plan/draft/index.ts';
 export { gradeHistoryPath } from '#src/plan/gradeHistoryPath.ts';
 export { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';
 export { parsePlan } from '#src/plan/parsePlan.ts';

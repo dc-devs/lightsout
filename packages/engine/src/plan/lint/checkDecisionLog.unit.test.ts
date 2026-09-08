@@ -56,6 +56,12 @@ const setupCheck = ({
 	return { params: { plan, phase: base, decisions, phased, syncCommand } };
 };
 
+/** Both halves of the empty-record case: the plan carrying the section an empty record renders, and the plan carrying no section at all. */
+const setupEmptyRecordFiles = () => ({
+	carrying: setupCheck({ rows: [] }).params,
+	absent: setupCheck({ rows: [], carries: 'nothing' }).params,
+});
+
 /** The four files of one phased deliverable: each of the two shapes carrying each of the two sections. */
 const setupPhasedFiles = () => {
 	const rows = [{ question: 'where does the complete history live?' }];
@@ -150,8 +156,7 @@ describe('checkDecisionLog', () => {
 	});
 
 	test('checkDecisionLog: an empty record still demands its rendered section', () => {
-		const { params: carrying } = setupCheck({ rows: [] });
-		const { params: absent } = setupCheck({ rows: [], carries: 'nothing' });
+		const { carrying, absent } = setupEmptyRecordFiles();
 
 		const checked = {
 			carrying: checkDecisionLog(carrying).map((finding) => finding.check),

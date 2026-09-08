@@ -1,10 +1,10 @@
-import { contractRule } from '#src/agents/buildPlanWriterInvocation/common/utils/contractRule.ts';
+import { ledgerSection } from '#src/agents/buildPlanWriterInvocation/common/constants/ledgerSection.ts';
 import { documentationRule } from '#src/agents/buildPlanWriterInvocation/common/utils/documentationRule.ts';
 import { documentationSection } from '#src/agents/buildPlanWriterInvocation/common/utils/documentationSection.ts';
-import { ledgerSection } from '#src/agents/buildPlanWriterInvocation/common/utils/ledgerSection.ts';
 import { overviewSection } from '#src/agents/buildPlanWriterInvocation/common/utils/overviewSection.ts';
 import { phaseSection } from '#src/agents/buildPlanWriterInvocation/common/utils/phaseSection.ts';
 import { applyPromptTokens } from '#src/agents/common/utils/applyPromptTokens.ts';
+import planContractTemplate from '#src/agents/prompts/planContractTemplate.md';
 import planTemplate from '#src/agents/prompts/planTemplate.md';
 import planWriterPrompt from '#src/agents/prompts/planWriter.md';
 import { type ConfigDocs, type DecisionsRecord, type PlanFacts, PlanVariant } from '#src/contracts/index.ts';
@@ -27,6 +27,8 @@ interface Params {
 	standards?: string;
 	/** Exact self-lint command the writer runs before reporting. Absent = prose self-review only. */
 	lintCommand?: string;
+	/** Exact Decision Log sync command the writer runs before its self-lint. Absent = this spawn was granted none, and the section names the lint alone. */
+	syncCommand?: string;
 	/** The repository's declared documentation surfaces. Absent = this repository declares none, and the writer sees no documentation text anywhere in the invocation. */
 	docs?: ConfigDocs;
 	/** `plan.contract` from config. True = write the contract shape with an acceptance-test ledger. Absent or false = the invocation is byte-identical to the one produced before the key existed. */
@@ -48,7 +50,7 @@ interface Params {
  * The documentation brief and the template's documentation rule are both driven
  * by the repository's declared surfaces, so a repository declaring none produces
  * a byte-identical invocation to the one it produced before the key existed. The
- * ledger brief and the template's contract rule follow the same shape off
+ * ledger brief and the choice of template follow the same shape off
  * `plan.contract`.
  */
 export const buildPlanWriterInvocation = ({
@@ -61,6 +63,7 @@ export const buildPlanWriterInvocation = ({
 	limits,
 	standards,
 	lintCommand,
+	syncCommand,
 	docs,
 	contract,
 }: Params): { systemPrompt: string; prompt: string } => {
@@ -81,7 +84,7 @@ export const buildPlanWriterInvocation = ({
 	}
 
 	if (contract === true) {
-		sections.push(ledgerSection());
+		sections.push(ledgerSection);
 	}
 
 	sections.push(`## Decisions record\n\n\`\`\`json\n${JSON.stringify(decisions, undefined, '\t')}\n\`\`\``);
@@ -92,8 +95,20 @@ export const buildPlanWriterInvocation = ({
 	}
 
 	if (lintCommand) {
+		// Named first where it was granted: it composes the section the writer is
+		// told not to write, so a lint run ahead of it reports a defect the writer
+		// is not allowed to fix.
+		const sync =
+			syncCommand === undefined
+				? ''
+				: '`' +
+					syncCommand +
+					'`\n\nIt composes the engine-owned `## Decision Log` from the same decision records you were handed, in every plan file of this plan. That section is not yours to write, and composing it first is what keeps the lint below from reporting it against you. Then run:\n\n';
+
 		sections.push(
-			'## Self-lint\n\nAfter writing the plan file(s) and before reporting, run:\n\n`' +
+			'## Self-lint\n\nAfter writing the plan file(s) and before reporting, run:\n\n' +
+				sync +
+				'`' +
 				lintCommand +
 				'`\n\nIt prints structural findings and exits 1 while any remain, 0 when clean. Fix each finding in the plan file(s) and re-run until it exits 0. If a re-run reports the identical findings twice, stop and report anyway. If the command itself cannot be executed (denied tool, sandbox), skip it — the checklist self-review still applies and the engine re-lints your output either way.',
 		);
@@ -104,12 +119,11 @@ export const buildPlanWriterInvocation = ({
 	);
 
 	const template = applyPromptTokens({
-		text: planTemplate,
+		text: contract === true ? planContractTemplate : planTemplate,
 		tokens: {
 			fileLimit: limits.executorFileLimit,
 			createdFileCeiling: limits.createdFileCeiling,
 			documentationRule: documentationRule({ docs }),
-			contractRule: contractRule({ contract }),
 		},
 	});
 

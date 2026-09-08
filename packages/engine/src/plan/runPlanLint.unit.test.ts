@@ -2,9 +2,10 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { DecisionSource, type DecisionsRecord, FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
-import { decisionLogReference, renderDecisionLog } from '#src/plan/decisionLog/index.ts';
+import { renderDecisionLog } from '#src/plan/decisionLog/index.ts';
 import { runPlanLint } from '#src/plan/runPlanLint.ts';
 import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advisoryPlan.ts';
+import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
@@ -28,61 +29,12 @@ const writeDecisions = ({ cwd, name, record }: { cwd: string; name: string; reco
 /**
  * A structurally clean single plan whose paths resolve against setupConsumerRepo.
  * `createPath` is per-file: two phases creating one path is a real cross-phase
- * defect. `reference` gives the file the Decision Log pointer a phase of a
- * phased deliverable carries instead of the table.
+ * defect, so the shared body's create path is swapped for the given one.
+ * `reference` gives the file the Decision Log pointer a phase of a phased
+ * deliverable carries instead of the table.
  */
-const cleanPlan = ({ createPath = 'src/new-thing.ts', reference = false }: { createPath?: string; reference?: boolean } = {}) => `# Clean Plan
-
-## Context
-
-A tiny clean plan for the structural lint.
-
-${reference ? decisionLogReference() : renderDecisionLog({ decisions: [] })}
-
-## Global Constraints
-
-- None
-
-## Prerequisites
-
-- None
-
-## Files to Create
-
-### \`${createPath}\`
-
-A new module exporting \`newThing\`.
-
-## Files to Modify
-
-### \`src/index.js\`
-
-Re-export \`newThing\`.
-
-## Patterns to Mirror
-
-- \`src/index.js\` — mirror its single-export shape.
-
-## Prior Art
-
-- \`newThing\` — searched newThing/new-thing, found none (new).
-
-## Scope Boundaries
-
-**Do:**
-- Add \`newThing\`.
-
-**Do NOT:**
-- Touch anything else.
-
-## Verification
-
-- \`true\` — types clean
-
-## What Next Plan Expects
-
-None — standalone plan.
-`;
+const cleanPlan = ({ createPath = 'src/new-thing.ts', reference = false }: { createPath?: string; reference?: boolean } = {}) =>
+	cleanPlanBody({ reference }).replace('src/new-thing.ts', createPath);
 
 test('plan lint: a clean plan returns complete with no findings and names the plan file', async () => {
 	const cwd = setupConsumerRepo();

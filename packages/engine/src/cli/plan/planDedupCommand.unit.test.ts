@@ -4,8 +4,8 @@ import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { planDedupCommand } from '#src/cli/plan/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { renderDecisionLog } from '#src/plan/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { minimalPlanBody } from '#tests/helpers/minimalPlanBody.ts';
 import { writeEmptyDecisions } from '#tests/helpers/writeEmptyDecisions.ts';
 
 /** The command's own output, with the progress printer's timestamped narration dropped. */
@@ -43,10 +43,7 @@ const setupDedup = ({ existing = [], creates = [], plan = true }: { existing?: s
 	mkdirSync(planDir, { recursive: true });
 
 	if (plan) {
-		writeFileSync(
-			join(planDir, 'plan.md'),
-			`# Plan\n\n${renderDecisionLog({ decisions: [] })}\n\n## Files to Create\n\n${creates.map((path) => `### \`${path}\`\n\nnew.\n`).join('\n')}\n`,
-		);
+		writeFileSync(join(planDir, 'plan.md'), minimalPlanBody({ title: 'Plan', creates }));
 		writeEmptyDecisions({ dir: planDir, name: 'demo' });
 	}
 
