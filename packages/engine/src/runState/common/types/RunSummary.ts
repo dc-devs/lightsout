@@ -1,4 +1,5 @@
 import type { RunUsage } from '#src/contracts/index.ts';
+import type { CleanupSummary } from '#src/runState/common/types/CleanupSummary.ts';
 import type { StepSummary } from '#src/runState/common/types/StepSummary.ts';
 
 /** A run's evidence aggregated into one report card — see {@link summarizeRun}. */
@@ -14,6 +15,8 @@ export interface RunSummary {
 	gates: { commands: number; reruns: number; skipped: number };
 	/** Sum of the authoritative per-step verification repair counters, in first-seen step/family order. */
 	verificationRepairs: { gateFamily: string; attempts: number }[];
+	/** The implementation cleanup pass's outcome; undefined for a run whose refactor step recorded none. */
+	cleanup: CleanupSummary | undefined;
 	/** Final messages that failed their contract and cost a re-emit retry. */
 	rejectedReports: number;
 	frictionByArea: { area: string; count: number }[];

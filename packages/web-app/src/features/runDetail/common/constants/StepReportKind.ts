@@ -8,6 +8,8 @@ export const StepReportKind = {
 	Writers: 'writers',
 	/** The shared report every working agent role emits. */
 	Work: 'work',
+	/** The implementation cleanup pass's record of what it spent and left behind. */
+	Cleanup: 'cleanup',
 	/** Nothing this app recognises — shown as the JSON the manifest stores. */
 	Raw: 'raw',
 } as const;

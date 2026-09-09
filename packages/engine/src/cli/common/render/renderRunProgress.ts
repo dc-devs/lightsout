@@ -3,6 +3,7 @@ import { statusIcons } from '#src/cli/common/constants/statusIcons.ts';
 import { dim } from '#src/cli/common/terminal/dim.ts';
 import { paintStatus } from '#src/cli/common/terminal/paintStatus.ts';
 import { formatClockDuration } from '#src/cli/common/utils/formatClockDuration.ts';
+import { plural } from '#src/cli/common/utils/plural.ts';
 import { RunStatus } from '#src/contracts/index.ts';
 import type { RunProgress, RunProgressRow } from '#src/views/index.ts';
 
@@ -55,23 +56,18 @@ const rowCells = ({ row }: { row: RunProgressRow }) => {
 const collapseWhitespace = ({ text }: { text: string }) => text.replace(/\s+/g, ' ').trim();
 
 /**
- * How wide a wrapped diagnosis is allowed to run.
- *
- * The block's rules span its widest line, so one long unwrapped line does not
- * overflow — it drags the rules out with it, and a supervisor diagnosis runs to
- * several hundred characters. A fixed ceiling keeps the block the shape the
- * layout was chosen as, and the rules still grow for a long step id the way they
- * always did.
- */
-const diagnosisWidth = 96;
-
-/**
  * A labelled diagnostic wrapped onto as many lines as it needs, the label on the
  * first and the rest hanging under its text — the shape the single-line entries
  * beside it already read as, so a long one does not become a different kind of
  * row.
  */
 const wrapLabelled = ({ label, text }: { label: string; text: string }) => {
+	// The block's rules span its widest line, so one long unwrapped line does not
+	// overflow — it drags the rules out with it, and a supervisor diagnosis runs
+	// to several hundred characters. A fixed ceiling keeps the block the shape the
+	// layout was chosen as, and the rules still grow for a long step id the way
+	// they always did.
+	const diagnosisWidth = 96;
 	const indent = ` ${label.padEnd('last output'.length)}   `;
 	const width = Math.max(diagnosisWidth - indent.length, 1);
 	const lines: string[] = [];
@@ -120,6 +116,40 @@ const verificationLines = ({ row }: { row: RunProgressRow }) => {
 	return lines;
 };
 
+/**
+ * What the bounded cleanup pass has spent and what it is leaving behind, on the
+ * diagnostic line beside the verification one — two budgets, never one number.
+ *
+ * A record with no reason yet is a cleanup still running, or a run parked
+ * mid-loop: it reads as in progress rather than borrowing a reason that never
+ * happened. A count is named only when there is one, and each is labelled the
+ * way this block labels everything — name first, then the number — so the line
+ * reads as the verification line beside it does.
+ */
+const cleanupLines = ({ row }: { row: RunProgressRow }) => {
+	const cleanup = row.cleanup;
+
+	if (cleanup === undefined) {
+		return [];
+	}
+
+	const parts = [`${cleanup.rounds} round${plural({ count: cleanup.rounds })}`, cleanup.endReason ?? 'in progress'];
+
+	if (cleanup.remainingFindings > 0) {
+		parts.push(`remaining ${cleanup.remainingFindings}`);
+	}
+
+	if (cleanup.carriedFindings > 0) {
+		parts.push(`carried ${cleanup.carriedFindings}`);
+	}
+
+	if (cleanup.failures > 0) {
+		parts.push(`failed ${cleanup.failures}`);
+	}
+
+	return [` cleanup       ${parts.join(' · ')}`];
+};
+
 interface Params {
 	progress: RunProgress;
 }
@@ -149,7 +179,7 @@ export const renderRunProgress = ({ progress }: Params): string[] => {
 
 		return cell.duration === undefined ? `${head}${emDash}` : `${head}${cell.outcome.padEnd(outcomeWidth)}${cell.duration.padStart(durationWidth)}`;
 	});
-	const diagnosticLines = progress.rows.flatMap((row) => verificationLines({ row }));
+	const diagnosticLines = progress.rows.flatMap((row) => [...verificationLines({ row }), ...cleanupLines({ row })]);
 	const cost = progress.costUsd === undefined ? '' : ` · ${formatCost({ usd: progress.costUsd })}`;
 	const totalsLine = ` elapsed ${formatClockDuration({ ms: progress.elapsedMs })} · ${progress.changedFileCount} files${cost}`;
 	const nowLine = progress.now === undefined ? undefined : ` now  ${progress.now}`;

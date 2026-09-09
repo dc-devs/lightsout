@@ -3,8 +3,54 @@ import { formatCost, formatDuration, formatTokenCount } from '@lightsout/shared'
 import { printStepTable } from '#src/cli/common/render/printStepTable.ts';
 import { bold } from '#src/cli/common/terminal/bold.ts';
 import { paintStatus } from '#src/cli/common/terminal/paintStatus.ts';
+import { plural } from '#src/cli/common/utils/plural.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
-import { isRunPaused, summarizeRun } from '#src/runState/index.ts';
+import { type CleanupSummary, isRunPaused, type RunSummary, summarizeRun } from '#src/runState/index.ts';
+
+/** One labelled line of the result block — the label column every line below shares. */
+const label = ({ name, value }: { name: string; value: string }) => console.log(`${name.padEnd(10)}${value}`);
+
+/** What the run's gate commands cost it: how many ran, how many were re-run past a flake, and how many had no script to run. */
+const describeGates = ({ gates }: { gates: RunSummary['gates'] }) => {
+	const parts = [`${gates.commands} command${plural({ count: gates.commands })}`];
+
+	if (gates.reruns > 0) {
+		parts.push(`${gates.reruns} flake re-run${plural({ count: gates.reruns })}`);
+	}
+
+	if (gates.skipped > 0) {
+		parts.push(`${gates.skipped} skipped (no script)`);
+	}
+
+	return parts.join(' · ');
+};
+
+/**
+ * What the bounded cleanup pass spent and what it left behind.
+ *
+ * A report, never a verdict: remaining findings are recorded here and the run's
+ * own status is untouched by them. A count is named only when there is one —
+ * four zeroes say less than the two facts that are always true — and each is
+ * labelled the way this block labels everything, number first, as the `gates`
+ * line above it does.
+ */
+const describeCleanup = ({ cleanup }: { cleanup: CleanupSummary }) => {
+	const parts = [`${cleanup.rounds} round${plural({ count: cleanup.rounds })}`, cleanup.endReason ?? 'in progress'];
+
+	if (cleanup.remainingFindings > 0) {
+		parts.push(`${cleanup.remainingFindings} remaining`);
+	}
+
+	if (cleanup.carriedFindings > 0) {
+		parts.push(`${cleanup.carriedFindings} carried forward`);
+	}
+
+	if (cleanup.failures > 0) {
+		parts.push(`${cleanup.failures} failed attempt${plural({ count: cleanup.failures })}`);
+	}
+
+	return parts.join(' · ');
+};
 
 interface Params {
 	result: PipelineResult;
@@ -14,8 +60,6 @@ interface Params {
 export const printResult = async ({ result, cwd }: Params): Promise<void> => {
 	const { manifest, ok, error } = result;
 	const summary = await summarizeRun({ cwd, manifest });
-	const label = ({ name, value }: { name: string; value: string }) => console.log(`${name.padEnd(10)}${value}`);
-	const plural = ({ count }: { count: number }) => (count === 1 ? '' : 's');
 
 	console.log('');
 	label({ name: 'run', value: `${manifest.runId.slice(0, 8)} · ${paintStatus({ status: manifest.status, text: bold(manifest.status.toUpperCase()) })}` });
@@ -43,20 +87,14 @@ export const printResult = async ({ result, cwd }: Params): Promise<void> => {
 	printStepTable({ steps: summary.steps, activeMs: summary.activeMs });
 	console.log('');
 
-	const gateParts = [`${summary.gates.commands} command${plural({ count: summary.gates.commands })}`];
-
-	if (summary.gates.reruns > 0) {
-		gateParts.push(`${summary.gates.reruns} flake re-run${plural({ count: summary.gates.reruns })}`);
-	}
-
-	if (summary.gates.skipped > 0) {
-		gateParts.push(`${summary.gates.skipped} skipped (no script)`);
-	}
-
-	label({ name: 'gates', value: gateParts.join(' · ') });
+	label({ name: 'gates', value: describeGates({ gates: summary.gates }) });
 
 	if (summary.rejectedReports > 0) {
 		label({ name: 'retries', value: `${summary.rejectedReports} rejected report${plural({ count: summary.rejectedReports })} re-emitted` });
+	}
+
+	if (summary.cleanup) {
+		label({ name: 'cleanup', value: describeCleanup({ cleanup: summary.cleanup }) });
 	}
 
 	if (summary.frictionByArea.length > 0) {

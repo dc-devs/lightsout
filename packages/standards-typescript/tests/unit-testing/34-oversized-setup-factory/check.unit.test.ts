@@ -32,6 +32,17 @@ const twoFactoriesSource = [
 	'const setupCustomer = ({ a = 1, b = 2, c = 3, d = 4, e = 5 }: Params = {}) => ({ a });',
 ].join('\n');
 
+/** Two sprawling factories of five and four parameters, on lines 3 and 5, and one on line 7 whose nested default the pattern cannot read. */
+const measuredFactoriesSource = [
+	"import { describe, expect, test } from '@jest/globals';",
+	'',
+	'const setupInvoice = ({ a = 1, b = 2, c = 3, d = 4, e = 5 }: Params = {}) => ({ a });',
+	'',
+	'const setupCustomer = ({ a = 1, b = 2, c = 3, d = 4 }: Params = {}) => ({ a });',
+	'',
+	"const setupNested = ({ customer = { name: 'Ada' }, b = 2, c = 3, d = 4, e = 5 }: Params = {}) => ({ b });",
+].join('\n');
+
 describe('oversized-setup-factory check', () => {
 	test('asks for test files, the one input kind that carries test text alone', () => {
 		expect(check.inputKind).toBe('test-file');
@@ -48,6 +59,7 @@ describe('oversized-setup-factory check', () => {
 				files: [{ path: 'src/feature/getLabel.unit.test.ts', startLine: 3, endLine: 3 }],
 				detail: "'setupInvoice' takes 4 parameters (line 3), over the cap of 3",
 				guidance: 'A substantially different arrangement gets a second named factory. Heuristic — judge before acting.',
+				measure: 4,
 			},
 		]);
 	});
@@ -98,6 +110,26 @@ describe('oversized-setup-factory check', () => {
 				],
 				detail: "'setupInvoice' takes 4 parameters (line 3), 'setupCustomer' takes 5 parameters (line 5), over the cap of 3",
 				guidance: 'A substantially different arrangement gets a second named factory. Heuristic — judge before acting.',
+				measure: 9,
+			},
+		]);
+	});
+
+	test('sums the declared parameters of every oversized factory into one measure', async () => {
+		const input = setupTestFileInput({ contents: [[path, measuredFactoriesSource]] });
+
+		const findings = await check.run({ input, settings: { maxParams: 3 } });
+
+		expect(findings).toStrictEqual([
+			{
+				siteKey: 'oversized-setup-factory:src/feature/getLabel.unit.test.ts',
+				files: [
+					{ path: 'src/feature/getLabel.unit.test.ts', startLine: 3, endLine: 3 },
+					{ path: 'src/feature/getLabel.unit.test.ts', startLine: 5, endLine: 5 },
+				],
+				detail: "'setupInvoice' takes 5 parameters (line 3), 'setupCustomer' takes 4 parameters (line 5), over the cap of 3",
+				guidance: 'A substantially different arrangement gets a second named factory. Heuristic — judge before acting.',
+				measure: 9,
 			},
 		]);
 	});

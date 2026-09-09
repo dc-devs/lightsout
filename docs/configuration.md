@@ -225,8 +225,8 @@ failure.
 ## Field reference
 
 The table below lists the top-level keys. A block with keys of its own — `gates`,
-`standards-checks`, `ship`, `ticket-tracker`, `queue`, `plan`, `auto-plan` and
-`docs` — is documented in the
+`standards-checks`, `ship`, `ticket-tracker`, `queue`, `plan`, `implement`,
+`auto-plan` and `docs` — is documented in the
 subsections beneath it.
 
 The table is generated from the engine’s own descriptions, the same sentences the
@@ -263,6 +263,7 @@ is overwritten the next time `pnpm build:config-reference` runs.
 | `queue` | no | Opt-in queue settings: which ticket label names each planning status, what this tracker calls each status the engine writes, which statuses count as available work, how many tickets run at once, and the per-ticket worker and question timeouts. Tracker identity lives in `ticket-tracker`, so this block holds queue behaviour only. |
 | `auto-plan` | no | Opt-in auto-plan settings: whether the proposal comes before drafting, whether an approved proposal starts the build, and whether the proposal is skipped when nothing clears the escalation bar. Every key is off by default, so an absent block is the most supervised behaviour. |
 | `plan` | no | Opt-in plan settings: whether plans are written as contracts with an acceptance-test ledger — a table naming the test that states each acceptance criterion — and graded by weight, spawning the reader fan-out only for the plan files that earn it, plus the counts above which a plan file is heavy. Off by default, so an absent block is exactly today’s behaviour: the same template, the same required sections, every plan file read by every lens. |
+| `implement` | no | Opt-in implementation settings. `implement.refactor.max-rounds` is how many cleanup executor rounds one run may spend at most — a whole number above zero, defaulting to 2, which is also what an absent block spends. The budget is a ceiling rather than a target: cleanup stops early when nothing qualifying is left, and only a deterministic blocking finding the run’s own edits introduced or measurably worsened can spend a round. Whatever cleanup leaves behind is recorded and never stops the run. |
 | `docs` | no | Opt-in documentation surfaces: each entry a repo-relative path and a one-line `covers` saying what that document is responsible for. Declaring the block turns on the plan-time documentation check — the plan writer is briefed on the surfaces, every implementable plan file must carry a `## Documentation` statement, and `plan grade` runs one whole-plan checker that verifies it. A repository that declares no block sees none of it: no section, no prompt text, no checker spawn. |
 
 <!-- /generated:config-key-reference -->
@@ -540,6 +541,36 @@ The block is strict for the same reason `ship` is: an unknown key fails parsing
 rather than silently disabling a setting you believe is on. Omit the block and
 nothing changes — the same template, the same required sections, and every plan
 file read by every lens.
+
+### Implement settings
+
+| Field                            | Required | What it controls                                                                          |
+| -------------------------------- | -------: | ------------------------------------------------------------------------------------------ |
+| `implement.refactor.max-rounds`  |       no | How many cleanup executor rounds one implementation run may spend at most. Defaults to `2`. |
+
+A cleanup round is one invocation of the cleanup agent at the end of an
+implementation run: it is handed the standards findings that qualify as this
+run's own work, it edits, and the deterministic checks are run again over what
+it changed.
+
+The budget is a maximum, not a target. Cleanup stops as soon as nothing
+qualifying is left, and it never starts at all when there was nothing to hand
+the agent — a run that leaves the code clean spends no rounds however high this
+number is. What may spend a round is narrow: a deterministic blocking finding
+that this run's own edits introduced, or one whose measured size this run made
+worse. Debt the run inherited, a finding whose provenance cannot be established,
+and the judgment reviewer's opinions are all recorded and handed forward without
+buying an attempt.
+
+Whatever cleanup leaves behind never stops the run. Remaining findings are
+written into the run report and the run carries on to its normal verification,
+which has its own separate repair budget. Raise this number to buy more tidying
+time per run; lower it to spend less. Turning cleanup off entirely is what the
+skip control does, which is why `0` is refused rather than read as "no cleanup".
+
+The block is strict for the same reason `ship` and `plan` are: an unknown key
+fails parsing rather than silently leaving the default budget in force while
+your config file believes it raised it.
 
 ### Auto-plan settings
 

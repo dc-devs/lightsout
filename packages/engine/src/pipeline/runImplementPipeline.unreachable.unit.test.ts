@@ -7,6 +7,7 @@ import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
 import { report } from '#tests/helpers/report.ts';
+import { reviewOneAdvisory } from '#tests/helpers/reviewOneAdvisory.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { reachabilityRulesOff, setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -40,11 +41,14 @@ const setupOrphanRun = async ({ scripts, onWriteTests, onRefactor }: SetupParams
 	const driver: Driver = {
 		name: 'stub',
 		invoke: withTestChangeReview({
-			invoke: async ({ prompt }) => {
+			invoke: async ({ prompt, systemPrompt }) => {
 				const role = roleOf(prompt);
 
 				if (role === 'standards-review') {
-					return { text: reviewReport(), exitCode: 0 };
+					// One advisory, so the bounded cleanup loop has something to hand its
+					// first round: this fixture's tree carries no qualifying deterministic
+					// finding, and cleanup no longer spends a round on nothing.
+					return { text: reviewOneAdvisory({ systemPrompt, path: 'src/feature/feature.ts' }), exitCode: 0 };
 				}
 
 				if (role === 'write-tests') {

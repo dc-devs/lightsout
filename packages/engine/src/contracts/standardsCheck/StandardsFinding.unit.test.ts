@@ -286,6 +286,17 @@ describe('StandardsFinding', () => {
 		}
 	});
 
+	test('a measure a capped rule reported is persisted rather than dropped', () => {
+		const { finding } = setupFinding({ extra: { rule: 'size-file', severity: 'blocking', measure: 214 } });
+
+		const parsed = StandardsFinding.parse(finding);
+
+		// the number arrives through the RawStandardsFinding shape spread rather than a
+		// second declaration — an undeclared key would be stripped here, leaving the
+		// count readable only inside the detail prose
+		expect(parsed.measure).toBe(214);
+	});
+
 	test('keys the contract does not declare are stripped from the finding and from each site', () => {
 		const { finding } = setupFinding({
 			extra: { tier: 1, files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48, tokens: 180 }] },

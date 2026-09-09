@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import { renderRunProgress } from '#src/cli/common/render/renderRunProgress.ts';
 import { RunStatus } from '#src/contracts/index.ts';
+import type { CleanupSummary } from '#src/runState/index.ts';
 import type { RunProgress, RunProgressRow } from '#src/views/index.ts';
 
 /** The escape byte every ANSI sequence opens with, built rather than written, so no control character sits in this source. */
@@ -19,8 +20,23 @@ const rowOf = (overrides: Partial<RunProgressRow> = {}): RunProgressRow => ({
 	attempts: 1,
 	durationMs: 1_000,
 	verification: undefined,
+	cleanup: undefined,
 	...overrides,
 });
+
+/** A cleanup outcome as the refactor step records it, with every count at zero until a case names one. */
+const cleanupOf = (overrides: Partial<CleanupSummary> = {}): CleanupSummary => ({
+	rounds: 0,
+	endReason: undefined,
+	remainingFindings: 0,
+	carriedFindings: 0,
+	reviewFindings: 0,
+	failures: 0,
+	...overrides,
+});
+
+/** The line the cleanup outcome is rendered onto, unpainted, or the empty string when the block drew none. */
+const cleanupLineOf = ({ lines }: { lines: string[] }) => lines.map((text) => plain({ text })).find((text) => /^ cleanup\b/.test(text)) ?? '';
 
 /** The run the chosen layout was drawn against — same ids, statuses, attempt counts and durations. */
 const sampleProgress = (overrides: Partial<RunProgress> = {}): RunProgress => ({
@@ -259,5 +275,54 @@ describe('renderRunProgress', () => {
 		} finally {
 			process.stdout.isTTY = wasTty;
 		}
+	});
+
+	test('a cleanup outcome with no end reason renders as in progress', () => {
+		const cleanup = cleanupOf({ rounds: 2 });
+		const rows = [rowOf({ id: 'refactor', status: RunStatus.Running, durationMs: 0, cleanup })];
+
+		const line = cleanupLineOf({ lines: renderRunProgress({ progress: sampleProgress({ rows }) }) });
+
+		// a run parked mid-loop has spent rounds and ended for no reason at all
+		expect(line).toMatch(/in progress/i);
+		expect(line).toMatch(/\b2\b/);
+		expect(line).toMatch(/round/i);
+		expect(line).not.toMatch(/no-work|\bclean\b|declined-twice|budget-exhausted|agent-failed/);
+	});
+
+	test('a recorded cleanup outcome renders one diagnostic line and leaves the step row untouched', () => {
+		const cleanup = cleanupOf({ rounds: 3, endReason: 'budget-exhausted', remainingFindings: 12, carriedFindings: 34, reviewFindings: 7, failures: 4 });
+		const rows = sampleProgress().rows.map((row) => (row.id === 'refactor' ? { ...row, cleanup } : row));
+
+		const plainLines = renderRunProgress({ progress: sampleProgress({ rows }) }).map((text) => plain({ text }));
+
+		const line = cleanupLineOf({ lines: plainLines });
+
+		expect(plainLines.filter((text) => /^ cleanup\b/.test(text))).toHaveLength(1);
+		expect(line).toMatch(/3.*budget-exhausted.*12.*4/);
+		// the step rows are the block's own, unmoved and unrewritten
+		expect(plainLines.slice(2, 10)).toStrictEqual(sampleBlock.slice(2, 10));
+		// and the cleanup line sits below them, inside the closing rule
+		expect(plainLines.indexOf(line)).toBeGreaterThan(plainLines.indexOf(' ·  format               —'));
+		expect(plainLines.indexOf(line)).toBeLessThan(plainLines.lastIndexOf(plainLines[1] ?? ''));
+	});
+
+	test('rows with no cleanup outcome render the block unchanged, line for line', () => {
+		const lines = renderRunProgress({ progress: sampleProgress() });
+
+		expect(lines).toStrictEqual(sampleBlock);
+	});
+
+	test('a cleanup line wider than every row widens the rules it sits inside', () => {
+		const cleanup = cleanupOf({ rounds: 3, endReason: 'budget-exhausted', remainingFindings: 12, carriedFindings: 34, reviewFindings: 7, failures: 4 });
+		const rows = [rowOf({ id: 'refactor', status: RunStatus.Running, durationMs: 0, cleanup })];
+		const plainLines = renderRunProgress({ progress: sampleProgress({ rows, now: undefined, costUsd: undefined }) }).map((text) => plain({ text }));
+
+		const line = cleanupLineOf({ lines: plainLines });
+		const rules = plainLines.filter((rule) => /^─+$/.test(rule));
+
+		expect(line.length).toBeGreaterThan((plainLines[2] ?? '').length);
+		expect(rules).toHaveLength(2);
+		expect(rules.every((rule) => rule.length === line.length)).toBe(true);
 	});
 });

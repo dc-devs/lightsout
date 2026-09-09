@@ -28,6 +28,7 @@ export { ConfigAutoPlan } from '#src/contracts/ConfigAutoPlan.ts';
 export { ConfigCommands } from '#src/contracts/ConfigCommands.ts';
 export { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
 export { ConfigGates } from '#src/contracts/ConfigGates.ts';
+export { ConfigImplement } from '#src/contracts/ConfigImplement.ts';
 export { ConfigPlan } from '#src/contracts/ConfigPlan.ts';
 export { ConfigQueue } from '#src/contracts/ConfigQueue.ts';
 export { ConfigShip } from '#src/contracts/ConfigShip.ts';
@@ -93,10 +94,12 @@ export {
 	AcceptanceTestRecord,
 	AgentUsage,
 	ApprovedTestRecord,
+	CleanupEndReason,
 	PackagesSource,
 	PhaseReport,
 	PipelineKind,
 	ProgressRecord,
+	RefactorStepReport,
 	RunLock,
 	RunManifest,
 	RunStatus,

@@ -1,4 +1,4 @@
-import { BatchReport, PhaseReport, WorkReport, WritersReport } from '@lightsout/engine/contracts';
+import { BatchReport, PhaseReport, RefactorStepReport, WorkReport, WritersReport } from '@lightsout/engine/contracts';
 import { StepReportKind } from '#src/features/runDetail/common/constants/StepReportKind.ts';
 import type { StepReport } from '#src/features/runDetail/common/types/StepReport.ts';
 
@@ -48,13 +48,29 @@ export const summarizeStepReport = ({ report }: Params): StepReport | undefined 
 		return undefined;
 	}
 
+	// Tried first, and deliberately: a cleanup record nests a whole `WorkReport`
+	// of its own, so any later candidate would read it as the wrong kind of step.
+	const cleanup = RefactorStepReport.safeParse(report);
 	const batch = BatchReport.safeParse(report);
 	const phase = PhaseReport.safeParse(report);
 	const writers = WritersReport.safeParse(report);
 	const work = WorkReport.safeParse(report);
 	let summary: StepReport;
 
-	if (batch.success) {
+	if (cleanup.success) {
+		const { roundsUsed, endReason, remaining, inherited, uncertain, finalReview, failures, lastReport } = cleanup.data;
+
+		summary = {
+			kind: StepReportKind.Cleanup,
+			rounds: roundsUsed,
+			endReason,
+			remaining: remaining.length,
+			carried: inherited.length + uncertain.length,
+			reviewFindings: finalReview.length,
+			failures,
+			summary: lastReport?.summary,
+		};
+	} else if (batch.success) {
 		summary = {
 			kind: StepReportKind.Batch,
 			outcome: batch.data.outcome,

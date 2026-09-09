@@ -35,6 +35,13 @@ export const RawStandardsFinding = z.object({
 	 * the same reason, so a reader is told once rather than once per site.
 	 */
 	guidance: z.string().optional(),
+	/**
+	 * The number a capped rule compared against its cap — lines, files,
+	 * parameters. Declared so a later read can tell a site that grew from a site
+	 * that merely moved; the `detail` prose states the same number for a human
+	 * and is free to be reworded. Absent on every rule that measures nothing.
+	 */
+	measure: z.number().optional(),
 });
 
 export type RawStandardsFinding = z.infer<typeof RawStandardsFinding>;

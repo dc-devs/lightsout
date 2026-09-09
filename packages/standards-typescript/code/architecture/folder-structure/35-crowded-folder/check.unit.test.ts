@@ -18,6 +18,7 @@ describe('crowded-folder check', () => {
 				files: [{ path: 'src/wide' }],
 				detail: '4 files in one flat folder (cap ~3)',
 				guidance: 'Group them by domain, or graduate the concepts hiding in the pile.',
+				measure: 4,
 			},
 		]);
 	});
@@ -62,6 +63,7 @@ describe('crowded-folder check', () => {
 				files: [{ path: 'src/wide' }],
 				detail: '4 files in one flat folder (cap ~3)',
 				guidance: 'Group them by domain, or graduate the concepts hiding in the pile.',
+				measure: 4,
 			},
 		]);
 	});
@@ -87,6 +89,7 @@ describe('crowded-folder check', () => {
 				files: [{ path: '.' }],
 				detail: '3 files in one flat folder (cap ~2)',
 				guidance: 'Group them by domain, or graduate the concepts hiding in the pile.',
+				measure: 3,
 			},
 		]);
 	});
@@ -163,6 +166,7 @@ describe('crowded-folder check', () => {
 				files: [{ path: 'src/wide' }],
 				detail: '4 files in one flat folder (cap ~3)',
 				guidance: 'Group them by domain, or graduate the concepts hiding in the pile.',
+				measure: 4,
 			},
 		]);
 	});
@@ -224,5 +228,32 @@ describe('crowded-folder check', () => {
 		const findings = await check.run({ input: setupOtherKindInput(), settings: { cap: 3 } });
 
 		expect(findings).toStrictEqual([]);
+	});
+
+	test('reports the counted file total as the measure, excluding what the count already excludes', async () => {
+		const input = setupFileListInput({
+			files: [
+				'src/wide/a.ts',
+				'src/wide/b.ts',
+				'src/wide/c.ts',
+				'src/wide/d.ts',
+				'src/wide/e.ts',
+				'src/wide/f.ts',
+				'src/a.ts',
+				'src/b.ts',
+				'src/c.ts',
+				'src/d.ts',
+				'src/e.ts',
+				'src/router.tsx',
+			],
+			dependencies: [['.', ['@tanstack/react-start']]],
+		});
+
+		const findings = await check.run({ input, settings: { cap: 3 } });
+
+		expect(findings.map(({ siteKey, measure }) => ({ siteKey, measure }))).toStrictEqual([
+			{ siteKey: 'crowded-folder:src/wide', measure: 6 },
+			{ siteKey: 'crowded-folder:src', measure: 5 },
+		]);
 	});
 });

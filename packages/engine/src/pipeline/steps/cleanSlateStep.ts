@@ -6,6 +6,42 @@ import { approveTestFiles } from '#src/pipeline/approvedTests/index.ts';
 import { runVerificationGates } from '#src/pipeline/common/utils/runVerificationGates.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
+import { writeRunStandardsBaseline } from '#src/runState/index.ts';
+import { runStandardsCheck } from '#src/standardsCheck/index.ts';
+
+/**
+ * The deterministic findings as they stand before the run's first agent turn,
+ * written into the run's own folder.
+ *
+ * The whole repository rather than the run's subpath, and `all` rather than the
+ * committed debt ledger's suppression, because the comparison point has to be
+ * complete: a violation hidden today still has to read as inherited tomorrow,
+ * when the run's edits make it visible. `persist` is off so a run never clobbers
+ * the report the user's own `lightsout standards-check` wrote.
+ *
+ * Optional evidence, never a gate. A pack that cannot load is recorded and
+ * clean-slate still passes — cleanup treats an absent baseline as "no comparison
+ * point" rather than inventing provenance, and a run must not be stopped by the
+ * part of the machinery that only feeds optional cleanup.
+ */
+const captureStandardsBaseline = async ({ run }: { run: PipelineRun }) => {
+	run.progress('capturing the pre-edit standards baseline over the whole repository — this is the last moment the tree is the state the run started from');
+
+	try {
+		const { findings, notes } = await runStandardsCheck({ cwd: run.cwd, persist: false, all: true });
+
+		await writeRunStandardsBaseline({
+			cwd: run.cwd,
+			runId: run.current().runId,
+			snapshot: { at: new Date().toISOString(), path: '.', findings, notes },
+		});
+		run.progress(`pre-edit standards baseline captured — ${findings.length} findings`);
+	} catch (error) {
+		const reason = error instanceof Error ? error.message : String(error);
+
+		run.progress(`pre-edit standards baseline not captured — ${reason}. Cleanup will have no comparison point; the run carries on.`);
+	}
+};
 
 interface Params {
 	run: PipelineRun;
@@ -69,6 +105,8 @@ export const cleanSlateStep = ({ run, ledgerGates }: Params): PipelineStep['run'
 		// here, or the first checkpoint with a bundle would put it in front of the
 		// reviewer as somebody's edit to a test.
 		const approvedTests = await approveTestFiles({ run, paths: baselineDirtyFiles.filter((path) => isTestSideFile({ path })) });
+
+		await captureStandardsBaseline({ run });
 
 		await run.setStep({ record: { ...record, status: RunStatus.Passed }, patch: { baselineDirtyFiles, approvedTests } });
 		run.progress('step clean-slate passed');

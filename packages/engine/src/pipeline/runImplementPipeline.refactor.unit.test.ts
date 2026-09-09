@@ -4,6 +4,8 @@ import { expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
+import { cleanupRecordOf } from '#tests/helpers/cleanupRecordOf.ts';
+import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
@@ -14,12 +16,8 @@ import { writeSource } from '#tests/helpers/writeSource.ts';
 /** The rule ids the standards reviewer was handed, in the order its invocation lists them. */
 const ruleIdsOffered = ({ systemPrompt }: { systemPrompt: string }) => [...systemPrompt.matchAll(/Rule id: `([^`]+)`/g)].map(([, id]) => id ?? '');
 
-/** The repo-relative files the standards reviewer was asked to read. */
-const filesOffered = ({ prompt }: { prompt: string }) =>
-	prompt
-		.split('\n')
-		.filter((line) => line.startsWith('- '))
-		.map((line) => line.slice(2));
+/** The repo-relative files the standards reviewer was asked to read, one per list line of its prompt. */
+const filesOffered = ({ prompt }: { prompt: string }) => [...prompt.matchAll(/^- (.+)$/gm)].map(([, path]) => path ?? '');
 
 /**
  * A consumer repo whose implement step lands `source` at `src/subject.js` —
@@ -36,12 +34,15 @@ const setupRefactorRun = async ({
 	extraSources = {},
 	onReview = () => reviewReport(),
 	onRefactor,
+	parkRound,
 	config: repoConfig,
 }: {
 	source: string;
 	extraSources?: Record<string, string>;
 	onReview?: (params: { ruleIds: string[] }) => string;
 	onRefactor: (params: { pass: number; cwd: string }) => string;
+	/** The cleanup round the harness answers with a rate limit instead of a report. */
+	parkRound?: number;
 	/** Extra repo config — for a fixture whose subject is a shape some rule objects to. */
 	config?: Record<string, unknown>;
 }) => {
@@ -78,7 +79,7 @@ const setupRefactorRun = async ({
 					passes += 1;
 					refactorPrompts.push(prompt);
 
-					return { text: onRefactor({ pass: passes, cwd: dir }), exitCode: 0 };
+					return passes === parkRound ? { text: '', exitCode: 1, rateLimited: true } : { text: onRefactor({ pass: passes, cwd: dir }), exitCode: 0 };
 				}
 
 				writeSource({ dir, path: 'src/subject.js', source });
@@ -110,123 +111,21 @@ const setupRefactorRun = async ({
 	};
 };
 
-test('refactor: a failed report stops the run as failed, carrying the failure text the agent reported', async () => {
-	const { dir, driver, config, passesRun } = await setupRefactorRun({
-		source: 'export const feature = () => 2;\n',
-		onRefactor: () => report({ status: 'failed', failures: ['REFACTOR-FAILURE-SENTINEL'] }),
-	});
-
-	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
-
-	expect(result.ok).toBe(false);
-	expect(result.manifest.status).toBe('failed');
-	expect(result.error ?? '').toMatch(/refactor: failed — REFACTOR-FAILURE-SENTINEL/);
-	// a failed report ends the loop on the spot
-	expect(passesRun()).toBe(1);
-	expect(result.manifest.steps.find((step) => step.id === 'refactor')?.status).toBe('failed');
-	// the run never reached the refactor verify
-	expect(result.manifest.steps.find((step) => step.id === 'verify-refactor')).toBe(undefined);
-});
-
-test('refactor: a terminated report escalates rather than failing — it needs a human, not a retry', async () => {
-	const { dir, driver, config, passesRun } = await setupRefactorRun({
-		source: 'export const feature = () => 2;\n',
-		onRefactor: () => report({ status: 'terminated:scope', failures: ['REFACTOR-SCOPE-SENTINEL'] }),
-	});
-
-	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
-
-	expect(result.ok).toBe(false);
-	expect(result.manifest.status).toBe('escalated');
-	expect(result.error ?? '').toMatch(/refactor: terminated:scope — REFACTOR-SCOPE-SENTINEL/);
-	// a terminated report ends the loop on the spot
-	expect(passesRun()).toBe(1);
-	expect(result.manifest.steps.find((step) => step.id === 'refactor')?.status).toBe('escalated');
-});
-
-test('refactor: a loop that spends every pass still changing files cannot walk past the standards gate', async () => {
-	const { dir, driver, config, passesRun } = await setupRefactorRun({
-		source: 'export const first = () => 1;\nexport const second = () => 2;\n',
-		onRefactor: ({ pass, cwd }) => {
-			// Every pass edits the file and reports the change, so the loop never
-			// takes its no-change exit — it simply runs out of passes.
-			writeSource({ dir: cwd, path: 'src/subject.js', source: `export const first = () => ${pass};\nexport const second = () => 2;\n` });
-
-			return report({ changedFiles: [{ path: 'src/subject.js', summary: `pass ${pass}` }] });
-		},
-	});
-
-	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
-
-	expect(result.ok).toBe(false);
-	expect(result.manifest.status).toBe('escalated');
-	// a pass that changes files always earns the next one — the budget is spent in
-	// full
-	expect(passesRun()).toBe(2);
-	// the post-loop check escalates on the findings that survived
-	expect(result.error ?? '').toMatch(/persist after 2 pass\(es\)/);
-	// the surviving cluster is named
-	expect(result.error ?? '').toMatch(/multi-export:src\/subject\.js/);
-	// with the site a human has to open
-	expect(result.error ?? '').toMatch(/at src\/subject\.js/);
-	// an agent that reported no friction contributes no rationale block
-	expect(result.error ?? '').not.toMatch(/account of its final pass/);
-});
-
-test('refactor: a pass declining the identical gating set escalates early rather than re-buying the same answer', async () => {
-	const { dir, driver, config, passesRun } = await setupRefactorRun({
-		source: 'export const first = () => 1;\nexport const second = () => 2;\n',
-		// Every pass judges the findings not worth acting on and reports no
-		// changes, so the site keys the checks report are identical each pass.
-		onRefactor: () => report({ changedFiles: [] }),
-	});
-
-	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
-
-	expect(result.ok).toBe(false);
-	expect(result.manifest.status).toBe('escalated');
-	// the disagreement is stable by the second pass — the third is never spent
-	expect(passesRun()).toBe(2);
-	expect(result.error ?? '').toMatch(/persist after 2 pass\(es\)/);
-	// the site key that came back unchanged across both passes is named
-	expect(result.error ?? '').toMatch(/multi-export:src\/subject\.js/);
-	expect(result.error ?? '').toMatch(/at src\/subject\.js/);
-});
-
-test("refactor: the escalation carries the agent's reported friction as its account of the final pass", async () => {
-	const { dir, driver, config } = await setupRefactorRun({
-		source: 'export const first = () => 1;\nexport const second = () => 2;\n',
-		onRefactor: () =>
-			report({
-				changedFiles: [],
-				friction: [{ kind: 'decision', area: 'plan', detail: 'SPLIT-WOULD-BREAK-THE-BARREL' }],
-			}),
-	});
-
-	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
-
-	// the human reading the escalation gets the agent's reasoning, not just the sites
-	expect(result.error ?? '').toMatch(/account of its final pass/);
-	expect(result.error ?? '').toMatch(/- \[plan\] SPLIT-WOULD-BREAK-THE-BARREL/);
-	// and the persisting site key still leads the message
-	expect(result.error ?? '').toMatch(/multi-export:src\/subject\.js/);
-});
-
-test('refactor: a first decline narrates how much the checks still report before buying another pass', async () => {
+test('refactor: a first decline narrates how much still qualifies before buying another round', async () => {
 	const { dir, driver, config, progress, onProgress } = await setupRefactorRun({
 		source: 'export const first = () => 1;\nexport const second = () => 2;\n',
-		// A no-change pass whose work-list is the first one seen — the loop has
-		// nothing to compare it against yet, so it narrates and spends another pass.
+		// A no-change round whose work list is the first one seen — the loop has
+		// nothing to compare it against yet, so it narrates and spends another round.
 		onRefactor: () => report({ changedFiles: [] }),
 	});
 
 	await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md', onProgress });
 
-	expect(progress.some((line) => /^refactor pass 1: no changes but the checks still report [1-9]\d* blocking — another pass$/.test(line))).toBe(true);
+	expect(progress.some((line) => /^refactor round 1: no changes but [1-9]\d* qualifying blocking finding\(s\) remain — another round$/.test(line))).toBe(true);
 });
 
-test('refactor: a star re-export blocks the loop on its own — severity is the whole gate, with no allow-list of blockable rules', async () => {
-	const { dir, driver, config } = await setupRefactorRun({
+test('refactor: a star re-export is cleanup work on its own — severity is the whole lever, with no allow-list of blockable rules', async () => {
+	const { dir, driver, config, refactorPrompts } = await setupRefactorRun({
 		// The subject file is deliberately clean (one export, named for its
 		// file), so the only work-list finding in the tree is the `export *` in
 		// the planted barrel — a rule no allow-list of site-key prefixes let
@@ -243,13 +142,15 @@ test('refactor: a star re-export blocks the loop on its own — severity is the 
 	});
 
 	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+	const cleanup = cleanupRecordOf({ steps: result.manifest.steps });
 
-	expect(result.ok).toBe(false);
-	expect(result.manifest.status).toBe('escalated');
-	expect(result.error ?? '').toMatch(/barrel-star:src\/widget\/index\.ts/);
-	expect(result.error ?? '').toMatch(/at src\/widget\/index\.ts/);
-	// it carried the escalation alone — no other finding was blocking
-	expect(result.error ?? '').toMatch(/1 blocking persist/);
+	expectDefined(cleanup);
+	// it earned the round alone — no other finding was blocking
+	expect(refactorPrompts[0] ?? '').toMatch(/Blocking —[\s\S]*- \[barrel-star\] src\/widget\/index\.ts/);
+	expect(cleanup.remaining.map((finding) => finding.siteKey)).toStrictEqual(['barrel-star:src/widget/index.ts']);
+	// and left standing it is recorded, never a stop
+	expect(result.manifest.steps.find((step) => step.id === 'refactor')?.status).toBe('passed');
+	expect(result.ok).toBe(true);
 });
 
 test('refactor: the gate narration counts the work-list and the advisories, and nothing else', async () => {
@@ -313,10 +214,13 @@ test('refactor: a review that could not run is narrated and left behind — the 
 	});
 
 	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md', onProgress });
+	const cleanup = cleanupRecordOf({ steps: result.manifest.steps });
 
+	expectDefined(cleanup);
 	expect(progress.some((line) => line.startsWith('agent review skipped —'))).toBe(true);
-	// the work-list the machine checks reported is what ended the run
-	expect(result.manifest.status).toBe('escalated');
+	// the work list the machine checks reported is what cleanup spent its rounds on, and what it recorded
+	expect(cleanup.remaining.map((finding) => finding.siteKey)).toContain('multi-export:src/subject.js');
+	expect(result.ok).toBe(true);
 });
 
 test("refactor: the review reads the run's changed source — not the tests the run wrote, nor files it never touched", async () => {
@@ -329,20 +233,17 @@ test("refactor: the review reads the run's changed source — not the tests the 
 	await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
 
 	// the repo's committed src/index.js and the writers' test/subject.test.js are
-	// both absent — scope is this run's changed source and nothing else
-	expect(reviewScopes).toStrictEqual([
-		['src/subject.js', 'src/widget.js', 'src/useSubject.js'],
-		['src/subject.js', 'src/widget.js', 'src/useSubject.js'],
-	]);
+	// both absent — scope is this run's changed source and nothing else. Cleanup
+	// changed nothing, so that one read is the only one bought.
+	expect(reviewScopes).toStrictEqual([['src/subject.js', 'src/widget.js', 'src/useSubject.js']]);
 });
 
-test('refactor: a loop that spends every pass on a tree the checks find clean passes at the post-loop check', async () => {
+test('refactor: a tree the checks find clean spends no cleanup round at all', async () => {
 	const { dir, driver, config, passesRun } = await setupRefactorRun({
 		source: 'export const subject = () => 1;\n',
 		onRefactor: ({ pass, cwd }) => {
-			// Every pass edits the file and reports the change, so the loop never
-			// takes its no-change exit — but nothing it writes is a work-list
-			// finding, so the post-loop check has nothing to escalate on.
+			// Never reached: nothing in this tree qualifies, and the reviewer reports
+			// nothing either, so there is no work to hand an executor.
 			writeSource({ dir: cwd, path: 'src/subject.js', source: `export const subject = () => ${pass};\n` });
 
 			return report({ changedFiles: [{ path: 'src/subject.js', summary: `pass ${pass}` }] });
@@ -350,27 +251,14 @@ test('refactor: a loop that spends every pass on a tree the checks find clean pa
 	});
 
 	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+	const cleanup = cleanupRecordOf({ steps: result.manifest.steps });
 
+	expectDefined(cleanup);
 	expect(result.ok).toBe(true);
 	expect(result.manifest.steps.find((step) => step.id === 'refactor')?.status).toBe('passed');
-	// the full pass budget was spent, and the post-loop check let the run through
-	expect(passesRun()).toBe(2);
-});
-
-test('refactor: a blocking finding whose only site is a test file the run wrote gates the run', async () => {
-	// `src/__tests__/helper.js` is a test file by path and nothing else names it,
-	// so before the gate read a changed-file view that keeps tests, this finding
-	// could not be matched and the run reported zero blocking with it standing.
-	const { dir, driver, config } = await setupRefactorRun({
-		source: 'export const subject = () => 1;\n',
-		extraSources: { 'src/__tests__/helper.js': 'export const helper = () => 1;\n' },
-		onRefactor: () => report({ changedFiles: [] }),
-	});
-
-	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
-
-	expect(result.ok).toBe(false);
-	expect(result.error ?? '').toMatch(/test-in-tests-folder/);
+	// the budget is a maximum, not a quota — an empty work list buys nothing
+	expect(passesRun()).toBe(0);
+	expect(cleanup).toEqual(expect.objectContaining({ roundsUsed: 0, endReason: 'no-work' }));
 });
 
 test('refactor: the executor may write the test files its findings name, or it is handed work it cannot do', async () => {
@@ -385,4 +273,116 @@ test('refactor: the executor may write the test files its findings name, or it i
 	// the scope section is the executor's write permission — a finding on a file
 	// missing from it is a blocking demand the role prompt forbids acting on
 	expect(refactorPrompts[0] ?? '').toContain('src/__tests__/helper.js');
+});
+
+/**
+ * A refactor run whose one cleanup round rewrites `src/subject.js` down to a
+ * single export — which rewrites the consumer beside it too, so the round
+ * edits two files — while the report it hands back names only the subject.
+ * `finalFindings` answers the judgment reviewer's SECOND read, the one over the
+ * files cleanup changed; the first read reports nothing.
+ */
+const setupOmittedEditRun = async ({ finalFindings = () => reviewReport() }: { finalFindings?: (params: { ruleIds: string[] }) => string } = {}) => {
+	let reviews = 0;
+
+	return setupRefactorRun({
+		source: 'export const first = () => 1;\nexport const second = () => 2;\n',
+		onReview: ({ ruleIds }) => {
+			reviews += 1;
+
+			return reviews === 1 ? reviewReport() : finalFindings({ ruleIds });
+		},
+		onRefactor: ({ cwd }) => {
+			writeSource({ dir: cwd, path: 'src/subject.js', source: 'export const first = () => 1;\n' });
+
+			return report({ changedFiles: [{ path: 'src/subject.js', summary: 'dropped the second export' }] });
+		},
+	});
+};
+
+test('a file the cleanup report omitted is still found by content and reviewed', async () => {
+	const { dir, driver, config, reviewScopes } = await setupOmittedEditRun();
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+
+	// the consumer the round rewrote is on the step record even though the
+	// report never named it — bytes, not claims, decide what cleanup changed
+	expect(result.manifest.steps.find((step) => step.id === 'refactor')?.changedFiles).toEqual(expect.arrayContaining(['src/subject.js', 'src/useSubject.js']));
+	// and the final review is handed both of them
+	expect([...(reviewScopes.at(-1) ?? [])].sort()).toStrictEqual(['src/subject.js', 'src/useSubject.js']);
+});
+
+test('an introduced blocking finding on a test file the run wrote is worked and recorded, never a stop', async () => {
+	const { dir, driver, config, refactorPrompts } = await setupRefactorRun({
+		source: 'export const subject = () => 1;\n',
+		// a test file by path that the run itself wrote, so the finding on it is
+		// absent from the pre-edit baseline and qualifies as this run's own work
+		extraSources: { 'src/__tests__/helper.js': 'export const helper = () => 1;\n' },
+		onRefactor: () => report({ changedFiles: [] }),
+	});
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+	const cleanup = cleanupRecordOf({ steps: result.manifest.steps });
+
+	expectDefined(cleanup);
+	// severity still directs the effort: it is handed over as blocking work
+	expect(refactorPrompts[0] ?? '').toMatch(/Blocking —[\s\S]*- \[test-in-tests-folder\]/);
+	// the executor left it, so it is recorded rather than escalated
+	expect(cleanup.remaining.map((finding) => finding.rule)).toContain('test-in-tests-folder');
+	expect(result.manifest.steps.find((step) => step.id === 'refactor')?.status).toBe('passed');
+	expect(result.ok).toBe(true);
+});
+
+test('a rate-limited cleanup round parks the run with its round count recorded', async () => {
+	const { dir, driver, config } = await setupRefactorRun({
+		// a two-export file gives cleanup qualifying work to spend a round on, and
+		// the harness answers that round with a rate limit rather than a report
+		source: 'export const first = () => 1;\nexport const second = () => 2;\n',
+		parkRound: 1,
+		onRefactor: () => report({ changedFiles: [] }),
+	});
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+	const cleanup = cleanupRecordOf({ steps: result.manifest.steps });
+
+	expectDefined(cleanup);
+	expect(result.manifest.status).toBe('paused-rate-limit');
+	// the park bought no outcome, so the resume re-invokes that same round
+	expect(cleanup.roundsUsed).toBe(0);
+	// and a park is not an ending — nothing claims cleanup finished
+	expect(cleanup.endReason).toBe(undefined);
+});
+
+test('the final review reads the files cleanup changed and buys no round', async () => {
+	const { dir, driver, config, reviewScopes, passesRun } = await setupOmittedEditRun({
+		finalFindings: ({ ruleIds }) => reviewReport([{ rule: ruleIds[0], files: [{ path: 'src/subject.js' }], detail: 'FINAL-REVIEW-SENTINEL' }]),
+	});
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+	const cleanup = cleanupRecordOf({ steps: result.manifest.steps });
+
+	expectDefined(cleanup);
+	// exactly the files the round changed — not the whole run's changed source
+	expect([...(reviewScopes.at(-1) ?? [])].sort()).toStrictEqual(['src/subject.js', 'src/useSubject.js']);
+	expect(cleanup.finalReview.map((finding) => finding.detail)).toStrictEqual(['FINAL-REVIEW-SENTINEL']);
+	// the reviewer objected and bought nothing — one round is all that was spent
+	expect(passesRun()).toBe(1);
+});
+
+test('cleanup that changed nothing reuses its initial review as the final one', async () => {
+	const { dir, driver, config, reviewScopes } = await setupRefactorRun({
+		source: 'export const first = () => 1;\nexport const second = () => 2;\n',
+		onReview: ({ ruleIds }) => reviewReport([{ rule: ruleIds[0], files: [{ path: 'src/subject.js' }], detail: 'ONE-READ-SENTINEL' }]),
+		// every round declines, so cleanup leaves the tree byte-identical
+		onRefactor: () => report({ changedFiles: [] }),
+	});
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+	const cleanup = cleanupRecordOf({ steps: result.manifest.steps });
+
+	expectDefined(cleanup);
+	// unchanged code is not paid for twice
+	expect(reviewScopes).toHaveLength(1);
+	expect(cleanup.initialReview.map((finding) => finding.detail)).toStrictEqual(['ONE-READ-SENTINEL']);
+	expect(cleanup.finalReview.map((finding) => finding.detail)).toStrictEqual(['ONE-READ-SENTINEL']);
 });
