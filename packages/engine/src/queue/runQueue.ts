@@ -67,6 +67,10 @@ const drainAndShip = async ({
 		settings,
 		trackerSettings,
 		shipSettings,
+		// Built here from what the drain already holds: `config` is the effective
+		// config and `driver` the resolved harness, so the merge lane's integration
+		// step recovers with exactly what the builders were given.
+		shipIntegration: { config, driver },
 		config,
 		env,
 		defaultBranch,

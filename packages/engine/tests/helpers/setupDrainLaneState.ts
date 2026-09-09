@@ -8,6 +8,7 @@ import type { QueueDrainReport, TicketRunOutcome } from '#src/queue/index.ts';
 import { queueOutcomeFixture } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import type { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
+import { shipIntegrationFixture } from '#tests/helpers/shipIntegrationFixture.ts';
 import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
@@ -29,6 +30,7 @@ export const setupDrainLaneState = ({ maxParallel = 2 }: { maxParallel?: number 
 		settings: queueSettingsFixture({ maxParallel }),
 		trackerSettings: trackerSettingsFixture(),
 		shipSettings: shipSettingsFixture(),
+		shipIntegration: shipIntegrationFixture(),
 		defaultBranch: 'main',
 		env: {},
 		planPath: join(cwd, 'queue.md'),

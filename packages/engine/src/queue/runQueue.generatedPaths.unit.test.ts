@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process';
 import { basename, dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
+import { type LightsoutConfig, ShipBlockReason, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
@@ -100,6 +100,16 @@ const shippedResult: ShipResult = {
 	failingChecks: [],
 };
 
+/** A ship that stopped on the integrated tree's gates — what parks the branch and leaves its worktree to read. */
+const blockedResult: ShipResult = {
+	status: ShipStatus.Blocked,
+	branch,
+	ticketRef: 'lo-70',
+	reason: ShipBlockReason.IntegrationGatesFailed,
+	detail: 'tsc: 3 errors',
+	failingChecks: ['check'],
+};
+
 const ticket: TrackerTicket = {
 	id: 'id-70',
 	identifier: 'LO-70',
@@ -131,10 +141,12 @@ const leaveWork = ({ worktreePath, source }: { worktreePath: string; source: boo
  * A real repo with a real remote, one eligible ticket, and every worker step
  * stubbed green.
  *
- * `gateError` is how a test keeps the worktree on disk to read: the re-gate
- * after the rebase parks the branch, and a parked branch is never cleaned up.
+ * `shipBlocked` is how a test keeps the worktree on disk to read: a ship that
+ * blocks parks the branch, and a parked branch is never cleaned up. Integrating
+ * the default branch and re-running the gates belong to the shared ship
+ * sequence now, so blocking that sequence is what a red re-gate used to be.
  */
-const setupQueueRun = ({ gateError }: { gateError?: string } = {}) => {
+const setupQueueRun = ({ shipBlocked = false }: { shipBlocked?: boolean } = {}) => {
 	const { cwd } = setupBranchRepo();
 	const progress: string[] = [];
 	const relay = terminalRelayFixture();
@@ -150,8 +162,8 @@ const setupQueueRun = ({ gateError }: { gateError?: string } = {}) => {
 	mockSetTicketLabel.mockResolvedValue(undefined);
 	mockReconcileShippedTicket.mockResolvedValue(undefined);
 	mockFindPullRequest.mockResolvedValue(undefined);
-	mockRunGates.mockResolvedValue({ error: gateError, failedFamilies: gateError === undefined ? [] : ['check'], crashes: [], coordination: undefined });
-	mockRunShip.mockResolvedValue(shippedResult);
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+	mockRunShip.mockResolvedValue(shipBlocked ? blockedResult : shippedResult);
 	mockRunWorkerWithRelay.mockResolvedValue({});
 
 	const drain = () =>
@@ -173,7 +185,7 @@ const setupQueueRun = ({ gateError }: { gateError?: string } = {}) => {
 
 describe('runQueue', () => {
 	test('keeps the build output a worker rebuilt off the ticket branch, so a later branch has no generated file to conflict with', async () => {
-		const { cwd, drain, relay } = setupQueueRun({ gateError: 'tsc: 3 errors' });
+		const { cwd, drain, relay } = setupQueueRun({ shipBlocked: true });
 
 		mockRunWorkerWithRelay.mockImplementation(({ worktreePath }) => leaveWork({ worktreePath, source: true }));
 

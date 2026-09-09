@@ -1,3 +1,7 @@
+import { execSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { contradictoryShipFlagsMessage } from '#src/cli/common/constants/contradictoryShipFlagsMessage.ts';
 import { exitAfterImplement } from '#src/cli/common/utils/exitAfterImplement.ts';
@@ -27,7 +31,10 @@ const setupChain = ({
 			'pr create': { stdout: 'https://forge.example/acme/repo/pull/41' },
 			'pr edit': { exitCode: 0 },
 			'pr view 41 --json number': { stdout: viewed },
-			'pr view 41 --json mergeCommit': { stdout: '{"mergeCommit":{"oid":"0f1e2d3c"}}' },
+			'pr view 41 --json headRefOid': { stdout: '{"headRefOid":"__HEAD__"}' },
+			'pr view 41 --json state': {
+				stdout: '{"state":"MERGED","mergeCommit":{"oid":"0f1e2d3c"},"headRefOid":"__HEAD__","mergeStateStatus":"CLEAN","reviewDecision":null}',
+			},
 			'pr checks': { stdout: checks },
 			'pr merge': { exitCode: 0 },
 		},
@@ -36,6 +43,30 @@ const setupChain = ({
 	const config = LightsoutConfig.parse({ gates: { check: 'true', test: 'true', 'test-coverage': false }, ...(ship === undefined ? {} : { ship }) });
 
 	return { config, cwd, readForgeLog, result: { ok, manifest: manifestOf({ status: ok ? RunStatus.Passed : RunStatus.Failed }) }, ...captured };
+};
+
+/**
+ * The same passed run and stubbed forge, standing on a branch whose remote
+ * default branch has gained a commit of its own since the branch was cut.
+ *
+ * The commit touches a file the feature branch never wrote, so integrating it
+ * is an ordinary merge — what is under test is whether the post-implement path
+ * integrates at all, not what it does with a conflict.
+ */
+const setupMovedDefaultBranch = () => {
+	const chain = setupChain();
+	const origin = execSync('git remote get-url origin', { cwd: chain.cwd }).toString().trim();
+	const upstream = mkdtempSync(join(tmpdir(), 'lightsout-upstream-'));
+
+	execSync(`git clone -q ${origin} .`, { cwd: upstream, stdio: 'ignore' });
+	execSync('git config user.name t && git config user.email t@t', { cwd: upstream, stdio: 'ignore' });
+	writeFileSync(join(upstream, 'docs.md'), '# docs\n');
+	execSync('git add -A && git commit -qm "document the release"', { cwd: upstream, stdio: 'ignore' });
+	execSync('git push -q origin main', { cwd: upstream, stdio: 'ignore' });
+
+	const defaultCommit = execSync('git rev-parse HEAD', { cwd: upstream }).toString().trim();
+
+	return { ...chain, origin, defaultCommit };
 };
 
 describe('exitAfterImplement', () => {
@@ -123,5 +154,19 @@ describe('exitAfterImplement', () => {
 		expect(errors.some((line) => line.includes('ship.ticket-pattern'))).toBe(true);
 		expect(readForgeLog()).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('ships the post-implement branch through the integration step, and still refuses to ship a failed run', async () => {
+		const { config, cwd, result, origin, defaultCommit, readForgeLog, exitCodes } = setupMovedDefaultBranch();
+
+		await expect(exitAfterImplement({ config, cwd, result, shipFlag: true, noShipFlag: false, env: {} })).rejects.toThrow(/process\.exit/);
+
+		// The branch that reached the remote carries the default branch's newer
+		// commit, which it can only do if the shared sequence merged it in first —
+		// a post-implement path that shipped without the integration bundle would
+		// have pushed the branch exactly as the run left it.
+		expect(execSync('git rev-list refs/heads/lo-60-ship', { cwd: origin }).toString().trim().split('\n')).toContain(defaultCommit);
+		expect(readForgeLog().some((line) => line.startsWith('pr merge'))).toBe(true);
+		expect(exitCodes).toStrictEqual([0]);
 	});
 });

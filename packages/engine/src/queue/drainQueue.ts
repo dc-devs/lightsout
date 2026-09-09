@@ -9,7 +9,7 @@ import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.
 import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
 import { settleMergedTrees } from '#src/queue/common/utils/settleMergedTrees.ts';
 import { runDrainLanes } from '#src/queue/drainLanes/index.ts';
-import type { ShipSettings } from '#src/ship/index.ts';
+import type { ShipIntegration, ShipSettings } from '#src/ship/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
@@ -21,6 +21,8 @@ interface Params {
 	settings: QueueSettings;
 	trackerSettings: TrackerSettings;
 	shipSettings: ShipSettings;
+	/** The effective config and harness the merge lane's integration step verifies and repairs with. */
+	shipIntegration: ShipIntegration;
 	config: LightsoutConfig;
 	/** The process environment the tracker credentials are read from. Passed rather than read, so a test never needs to mutate `process.env`. */
 	env: NodeJS.ProcessEnv;
@@ -67,6 +69,7 @@ export const drainQueue = async ({
 	settings,
 	trackerSettings,
 	shipSettings,
+	shipIntegration,
 	config,
 	env,
 	defaultBranch,
@@ -90,6 +93,7 @@ export const drainQueue = async ({
 		settings,
 		trackerSettings,
 		shipSettings,
+		shipIntegration,
 		defaultBranch,
 		env,
 		planPath,

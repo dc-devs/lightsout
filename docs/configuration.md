@@ -258,7 +258,7 @@ is overwritten the next time `pnpm build:config-reference` runs.
 | `standards-packs` | no | Standards packs a run works against. Unspecified = the pack the plugin ships; `false` = explicitly none; an array = exactly these pack roots, each the folder holding `lightsout-standards.json`, repo-relative or absolute. One pack carries both the code and the test documents, which is why there is a single key rather than two. A root that cannot be loaded is a hard error. |
 | `standards-channels` | no | Framework channels of the loaded standards packs (e.g. 'react', 'tanstack'). Unspecified = detected per run from the scoped packages' package.json dependencies; an array REPLACES detection, and an empty one means base documents only. |
 | `standards-checks` | no | Per-rule severity and settings overrides for `lightsout standards-check`, keyed by rule id. A rule not named here keeps its pack’s default — silence is never a change. |
-| `ship` | no | Opt-in `lightsout ship` settings: the branch ticket pattern whose `ticket` capture group becomes the result’s ticket reference, the pull request body template, the merge method, whether a passed implement run chains into ship, and an optional pre-ship command run before anything is pushed. |
+| `ship` | no | Opt-in `lightsout ship` settings: the branch ticket pattern whose `ticket` capture group becomes the result’s ticket reference, the pull request body template, the merge method, whether a passed implement run chains into ship, an optional pre-ship command that prepares the release candidate before it is verified, and the explicit exception for a repository that intentionally has no CI. |
 | `ticket-tracker` | no | Opt-in tracker identity: which provider the engine talks to and that provider’s address and credential environment variables — a Linear team and API key, or a Jira Cloud site, project, API token and account email. Every command that reads or writes a ticket resolves it from here, so tracker identity is spelled once rather than once per command. |
 | `queue` | no | Opt-in queue settings: which ticket label names each planning status, what this tracker calls each status the engine writes, which statuses count as available work, how many tickets run at once, and the per-ticket worker and question timeouts. Tracker identity lives in `ticket-tracker`, so this block holds queue behaviour only. |
 | `auto-plan` | no | Opt-in auto-plan settings: whether the proposal comes before drafting, whether an approved proposal starts the build, and whether the proposal is skipped when nothing clears the escalation bar. Every key is off by default, so an absent block is the most supervised behaviour. |
@@ -397,7 +397,14 @@ A repository that wants the strict profile promotes those rules itself — an ex
 | `ship.pr-body`        |       no | The pull request body template. Brace-wrapped tokens are substituted: `branch`, and one per named group of the ticket pattern. An unknown token is left exactly as written. Defaults to the bare ticket token on its own.            |
 | `ship.merge-method`   |       no | How the forge merges: `merge`, `squash`, or `rebase`. Defaults to `merge`.                                                                                                                                                          |
 | `ship.after-implement` |       no | When true, a passed `/implement` run chains into ship without `--ship` being typed. Defaults to `false`.                                                                                                                             |
-| `ship.pre-ship`       |       no | A shell command run in the checkout before anything is pushed — the home for a repository's own pre-ship convention, such as rebuilding committed build outputs or bumping a shipped version. File changes it leaves behind are committed to the branch; a non-zero exit blocks the ship with the command's own output. No default. |
+| `ship.pre-ship`       |       no | A shell command that prepares the release candidate — the home for a repository's own pre-ship convention, such as rebuilding committed build outputs or bumping a shipped version. Ship requires a clean committed branch before it runs, runs it against the freshly fetched default branch (its exact commit is in `LIGHTSOUT_SHIP_BASE_COMMIT`), and commits what it leaves behind only once your own gates have passed against it. A non-zero exit blocks the ship with the command's own output. No default. |
+| `ship.allow-no-ci`    |       no | When `true`, a pull request whose check list is readable and genuinely empty may merge after the usual one-minute registration grace. Defaults to `false`: ship waits up to thirty minutes for checks to appear and then blocks with `checks-missing`. It applies only to ABSENT checks — a failed, pending, unreadable or wrong-commit check is enforced exactly as it always was — and lightsout never sets it for you. |
+
+Set `allow-no-ci` only for a repository that intentionally has no CI:
+
+```jsonc
+"ship": { "allow-no-ci": true }
+```
 
 This block is where branch-to-ticket and pull-request conventions live; the
 tracker connection lives in `ticket-tracker` below. Name a plan folder after
@@ -741,6 +748,7 @@ The following example shows how the optional configuration fields fit together:
     "merge-method": "merge",
     "after-implement": false,
     "pre-ship": "node scripts/make-tree-shippable.mjs",
+    "allow-no-ci": false,
   },
 
   // Ticket tracker: who the engine talks to about a ticket

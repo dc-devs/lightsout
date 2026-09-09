@@ -53,4 +53,17 @@ describe('resolveShipSettings', () => {
 
 		expect(settings).toBe(undefined);
 	});
+
+	test.each([
+		{ ship: undefined, expected: false },
+		{ ship: {}, expected: false },
+		{ ship: { 'allow-no-ci': false }, expected: false },
+		{ ship: { 'allow-no-ci': true }, expected: true },
+	])('requires CI unless the repository explicitly opts out', ({ ship, expected }) => {
+		const { config } = setupConfig({ ship });
+
+		const settings = resolveShipSettings({ config });
+
+		expect(settings).toEqual(expect.objectContaining({ allowNoCi: expected }));
+	});
 });

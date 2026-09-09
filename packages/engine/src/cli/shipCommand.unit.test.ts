@@ -1,11 +1,27 @@
 import { execSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
 import { shipCommand } from '#src/cli/shipCommand.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
+
+// Mocked Imports
+// -------------------------
+// The ship sequence itself is not stubbed out — it still runs for real, so every
+// case here keeps the outcome it had. The stand-in only records what the command
+// handed it, because the integration bundle is built here and read by an agent
+// spawn that a green ship never reaches.
+type RunShip = typeof import('#src/ship/index.ts').runShip;
+
+const mockRunShip = jest.fn<RunShip>((params) => jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts').runShip(params));
+
+jest.mock('#src/ship/index.ts', () => ({
+	...jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts'),
+	runShip: (params: Parameters<RunShip>[0]) => mockRunShip(params),
+}));
+// -------------------------
 
 const viewed = '{"number":41,"url":"https://forge.example/acme/repo/pull/41","title":"Add the ship command","headRefName":"lo-60-ship"}';
 
@@ -43,7 +59,10 @@ const setupShipCommand = ({
 			'pr create': { stdout: 'https://forge.example/acme/repo/pull/41' },
 			'pr edit': { exitCode: 0 },
 			'pr view 41 --json number': { stdout: viewed },
-			'pr view 41 --json mergeCommit': { stdout: '{"mergeCommit":{"oid":"0f1e2d3c"}}' },
+			'pr view 41 --json headRefOid': { stdout: '{"headRefOid":"__HEAD__"}' },
+			'pr view 41 --json state': {
+				stdout: '{"state":"MERGED","mergeCommit":{"oid":"0f1e2d3c"},"headRefOid":"__HEAD__","mergeStateStatus":"CLEAN","reviewDecision":null}',
+			},
 			'pr checks': { stdout: checks },
 			'pr merge': { exitCode: 0 },
 		},
@@ -67,6 +86,43 @@ const setupShipCommand = ({
 	for (const [path, content] of Object.entries(dirty ?? {})) {
 		writeFileSync(join(cwd, path), content);
 	}
+
+	return { context: { flags: new Map<string, string | true>(), rest: [], cwd }, ...captured };
+};
+
+/** A repo whose `commands.implement` names a harness of its own, standing beside a global harness that is not it. */
+const setupImplementHarness = () => {
+	const captured = captureCommandOutput();
+
+	stubForgeOnPath({
+		responses: {
+			'auth status': { exitCode: 0 },
+			'pr list': { stdout: '[]' },
+			'pr create': { stdout: 'https://forge.example/acme/repo/pull/41' },
+			'pr edit': { exitCode: 0 },
+			'pr view 41 --json number': { stdout: viewed },
+			'pr view 41 --json headRefOid': { stdout: '{"headRefOid":"__HEAD__"}' },
+			'pr view 41 --json state': {
+				stdout: '{"state":"MERGED","mergeCommit":{"oid":"0f1e2d3c"},"headRefOid":"__HEAD__","mergeStateStatus":"CLEAN","reviewDecision":null}',
+			},
+			'pr checks': { stdout: '[{"name":"unit","bucket":"pass"}]' },
+			'pr merge': { exitCode: 0 },
+		},
+	});
+
+	const { cwd } = setupBranchRepo({ branch: 'lo-60-ship' });
+
+	writeFileSync(
+		join(cwd, 'lightsout.config.json'),
+		JSON.stringify({
+			gates: { check: 'true', test: 'true', 'test-coverage': false },
+			harness: 'claude-code',
+			model: 'opus',
+			commands: { implement: { harness: 'codex', model: 'gpt-5-codex' } },
+			ship: { 'ticket-pattern': '^(?<ticket>lo-(?<number>\\d+))' },
+		}),
+	);
+	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm config', { cwd, stdio: 'ignore' });
 
 	return { context: { flags: new Map<string, string | true>(), rest: [], cwd }, ...captured };
 };
@@ -121,6 +177,24 @@ describe('shipCommand', () => {
 		// the run still happened, so it still left the result file a tracker skill reads
 		expect(logged.some((line) => line.includes(join('.lightsout', 'ship', 'lo-60-ship.json')))).toBe(true);
 		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('resolves the integration harness from the implement command entry', async () => {
+		const { context } = setupImplementHarness();
+
+		await expect(shipCommand(context)).rejects.toThrow(/process\.exit/);
+
+		const handed = mockRunShip.mock.calls[0]?.[0];
+
+		// The `implement` entry, not the global harness beside it: a merge conflict
+		// and a red gate are implementation work, so the recovery spawns the
+		// harness the repo picked for implementing.
+		expect(handed?.integration).toEqual(
+			expect.objectContaining({
+				config: expect.objectContaining({ harness: 'codex', model: 'gpt-5-codex' }),
+				driver: expect.objectContaining({ name: 'codex' }),
+			}),
+		);
 	});
 
 	test('a ticket pattern that cannot capture a ticket is a startup usage error, and no run is recorded for it', async () => {

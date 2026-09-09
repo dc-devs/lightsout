@@ -3,7 +3,7 @@ import type { GateHolds } from '#src/gates/index.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
-import type { ShipSettings } from '#src/ship/index.ts';
+import type { ShipIntegration, ShipSettings } from '#src/ship/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 
 /** Everything the drain's lanes need that never changes while one drain runs. */
@@ -18,6 +18,8 @@ export interface LaneContext {
 	settings: QueueSettings;
 	trackerSettings: TrackerSettings;
 	shipSettings: ShipSettings;
+	/** The effective config and harness the merge lane's integration step verifies and repairs with. */
+	shipIntegration: ShipIntegration;
 	defaultBranch: string;
 	/** The process environment the tracker credentials are read from. */
 	env: NodeJS.ProcessEnv;

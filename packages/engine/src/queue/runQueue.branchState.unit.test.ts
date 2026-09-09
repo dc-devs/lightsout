@@ -2,7 +2,7 @@ import { execFileSync, execSync } from 'node:child_process';
 import { existsSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { BranchPhase, type LightsoutConfig, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
+import { BranchPhase, type LightsoutConfig, ShipBlockReason, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
@@ -99,6 +99,16 @@ const shippedResult: ShipResult = {
 	failingChecks: [],
 };
 
+/** A ship that stopped on the integrated tree's gates, leaving the branch finished but unmerged. */
+const blockedResult: ShipResult = {
+	status: ShipStatus.Blocked,
+	branch,
+	ticketRef: 'lo-70',
+	reason: ShipBlockReason.IntegrationGatesFailed,
+	detail: 'tsc: 3 errors',
+	failingChecks: ['check'],
+};
+
 const ticketOf = ({ status }: { status: string }): TrackerTicket => ({
 	id: 'id-70',
 	identifier: 'LO-70',
@@ -145,7 +155,15 @@ const commitInWorktree = ({ worktreePath }: { worktreePath: string }): Promise<W
 };
 
 /** A real repo with a real remote, the tracker answering whatever the test names, and every worker step stubbed green. */
-const setupQueueRun = ({ eligible = [], parked = [], gateError }: { eligible?: TrackerTicket[]; parked?: TrackerTicket[]; gateError?: string } = {}) => {
+const setupQueueRun = ({
+	eligible = [],
+	parked = [],
+	shipBlocked = false,
+}: {
+	eligible?: TrackerTicket[];
+	parked?: TrackerTicket[];
+	shipBlocked?: boolean;
+} = {}) => {
 	const { cwd } = setupBranchRepo();
 	const progress: string[] = [];
 
@@ -155,8 +173,8 @@ const setupQueueRun = ({ eligible = [], parked = [], gateError }: { eligible?: T
 	mockSetTicketLabel.mockResolvedValue(undefined);
 	mockReconcileShippedTicket.mockResolvedValue(undefined);
 	mockFindPullRequest.mockResolvedValue(undefined);
-	mockRunGates.mockResolvedValue({ error: gateError, failedFamilies: gateError === undefined ? [] : ['check'], crashes: [], coordination: undefined });
-	mockRunShip.mockResolvedValue(shippedResult);
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+	mockRunShip.mockResolvedValue(shipBlocked ? blockedResult : shippedResult);
 	mockRunWorkerWithRelay.mockResolvedValue({});
 
 	return { cwd, progress, ...startDrain({ cwd, progress }) };
@@ -164,14 +182,18 @@ const setupQueueRun = ({ eligible = [], parked = [], gateError }: { eligible?: T
 
 /**
  * A repo an earlier drain left mid-flight: its worker finished, the branch was
- * recorded ready, and only the merge failed — so the worktree is still on disk
+ * recorded ready, and only the ship failed — so the worktree is still on disk
  * and the ticket sits at the in-progress status the eligible query cannot see.
+ *
+ * The first ship is blocked rather than the gates reddened: integrating the
+ * default branch and re-gating belong to the shared ship sequence now, so a
+ * blocked ship is what leaves a finished branch unmerged.
  *
  * The first drain is arrangement, so the worker's call log is cleared before the
  * test acts: what the act must show is that the SECOND drain spends no worker.
  */
 const setupUnshippedBranch = async () => {
-	const first = setupQueueRun({ eligible: [ticketOf({ status: 'Ready to implement' })], gateError: 'tsc: 3 errors' });
+	const first = setupQueueRun({ eligible: [ticketOf({ status: 'Ready to implement' })], shipBlocked: true });
 
 	mockRunWorkerWithRelay.mockImplementation(commitInWorktree);
 
@@ -180,7 +202,7 @@ const setupUnshippedBranch = async () => {
 
 	mockListTickets.mockResolvedValue([]);
 	mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf({ status: 'In Progress' })]);
-	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+	mockRunShip.mockResolvedValue(shippedResult);
 	mockRunWorkerWithRelay.mockClear();
 
 	const progress: string[] = [];

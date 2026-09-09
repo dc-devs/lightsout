@@ -19,6 +19,7 @@ const mergeBranch = async ({ context, state, outcome }: { context: LaneContext; 
 			cwd: context.cwd,
 			config: context.config,
 			shipSettings: context.shipSettings,
+			integration: context.shipIntegration,
 			defaultBranch: context.defaultBranch,
 			env: context.env,
 			outcome,

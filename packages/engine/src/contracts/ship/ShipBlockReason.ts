@@ -1,9 +1,10 @@
 /**
  * Why a ship attempt stopped.
  *
- * A typed stop rather than a hidden retry: ship never loops on a red check or
- * a refused merge, so the reason is the whole answer, and re-running
- * `lightsout ship` is the resume path.
+ * A typed stop, reached only once ship's own bounded recovery is spent: the
+ * sequence integrates, repairs and re-attempts within one invocation, and the
+ * reason it finally records is the whole answer. Re-running `lightsout ship`
+ * is still the resume path.
  */
 export const ShipBlockReason = {
 	/** Uncommitted or untracked changes in the working tree. */
@@ -28,6 +29,25 @@ export const ShipBlockReason = {
 	ChecksTimedOut: 'checks-timed-out',
 	/** The forge refused the merge (conflict, protected branch, review required). */
 	MergeRejected: 'merge-rejected',
+	/** Git could not fetch `origin`, could not start the merge, or could not say what commit the branch was on. */
+	IntegrationUnavailable: 'integration-unavailable',
+	/** Merging the remote default branch left conflicts that the bounded recovery did not settle. */
+	IntegrationConflict: 'integration-conflict',
+	/** The integrated branch did not pass the repository's own gates within the repair allowance. */
+	IntegrationGatesFailed: 'integration-gates-failed',
+	/**
+	 * The integrated branch was never judged at all, because the shared gate
+	 * reservation could not be had: another gate run held the machine for longer
+	 * than the wait allows.
+	 *
+	 * Separate from `IntegrationGatesFailed` because no gate command ran, so
+	 * there is no verdict about the code and no repair to spend — and because a
+	 * ticket-backed ship takes a durable hold on exactly this reason and on no
+	 * other.
+	 */
+	IntegrationGatesUnavailable: 'integration-gates-unavailable',
+	/** No CI checks appeared for the pushed commit before the wait ceiling, and the repository has not explicitly opted out. */
+	ChecksMissing: 'checks-missing',
 } as const;
 
 export type ShipBlockReason = (typeof ShipBlockReason)[keyof typeof ShipBlockReason];

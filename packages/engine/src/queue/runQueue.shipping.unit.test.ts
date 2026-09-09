@@ -3,13 +3,13 @@ import { existsSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { BranchPhase, type GateResult, type LightsoutConfig, ShipMergeMethod, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
+import { BranchPhase, type GateResult, type LightsoutConfig, ShipBlockReason, ShipMergeMethod, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import { type QuestionRelay, type QueueFailure, type QueueSettings, readBranchState, runQueue, type TicketRunOutcome } from '#src/queue/index.ts';
-import type { ShipSettings } from '#src/ship/index.ts';
+import type { ShipIntegration, ShipSettings } from '#src/ship/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -69,11 +69,11 @@ jest.mock('#src/gates/index.ts', () => ({
 // The forge merge is the one thing here that would leave the machine. Git, the
 // worktree and the branch-state record all stay real, because what this file
 // asserts is what the queue does around the merge.
-const mockRunShip = jest.fn<(params: { cwd: string }) => Promise<ShipResult>>();
+const mockRunShip = jest.fn<(params: { cwd: string; integration: ShipIntegration }) => Promise<ShipResult>>();
 
 jest.mock('#src/ship/index.ts', () => ({
 	...jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts'),
-	runShip: (params: { cwd: string }) => mockRunShip(params),
+	runShip: (params: { cwd: string; integration: ShipIntegration }) => mockRunShip(params),
 }));
 // -------------------------
 
@@ -85,6 +85,7 @@ const shipSettings: ShipSettings = {
 	mergeMethod: ShipMergeMethod.Merge,
 	afterImplement: false,
 	preShip: undefined,
+	allowNoCi: false,
 };
 
 const ticket: TicketSummary = {
@@ -128,7 +129,7 @@ const shippedResult: ShipResult = {
  * A parked worktree carrying committed work, handed to the drain as the scan's
  * one ready outcome — the shape this queue exists to ship without a worker.
  */
-const setupQueueShipping = async ({ gateError }: { gateError?: string } = {}) => {
+const setupQueueShipping = async ({ shipBlock }: { shipBlock?: { reason: ShipBlockReason; detail: string } } = {}) => {
 	const { cwd } = setupBranchRepo();
 	const branch = 'lo-70-structured-gate-result';
 	const worktree = join(dirname(cwd), `${basename(cwd)}-worktrees`, branch);
@@ -146,8 +147,8 @@ const setupQueueShipping = async ({ gateError }: { gateError?: string } = {}) =>
 		leftBehind: [],
 		merged: [],
 	} satisfies ParkedWork);
-	mockRunGates.mockResolvedValue({ error: gateError, failedFamilies: gateError === undefined ? [] : ['check'], crashes: [], coordination: undefined });
-	mockRunShip.mockResolvedValue(shippedResult);
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+	mockRunShip.mockResolvedValue(shipBlock === undefined ? shippedResult : { status: ShipStatus.Blocked, ...shipBlock, failingChecks: [] });
 	mockSetTicketLabel.mockResolvedValue(undefined);
 
 	const progress: string[] = [];
@@ -183,16 +184,29 @@ describe('runQueue', () => {
 		expect(await readBranchState({ cwd, branch })).toEqual(expect.objectContaining({ phase: BranchPhase.Merged }));
 	});
 
-	test('parks a ready branch when its post-rebase gate result carries an error', async () => {
-		const { cwd, worktree, settings, progress } = await setupQueueShipping({ gateError: 'tsc: 3 errors' });
+	test('parks a ready branch when the shared ship sequence could not make its integration green', async () => {
+		const { cwd, worktree, settings, progress } = await setupQueueShipping({
+			shipBlock: { reason: ShipBlockReason.IntegrationGatesFailed, detail: 'tsc: 3 errors' },
+		});
 
 		const result = await drainQueue({ cwd, settings, progress });
 
 		expect(result).toEqual({
-			outcomes: [expect.objectContaining({ ticket, ready: false, error: 'tsc: 3 errors' })],
+			outcomes: [expect.objectContaining({ ticket, ready: false, error: 'integration-gates-failed: tsc: 3 errors' })],
 			leftBehind: [],
 		});
-		expect(mockRunGates).toHaveBeenCalledWith(expect.objectContaining({ cwd: worktree, coverage: true }));
-		expect(progress).toContain('LO-70 · not shipped: tsc: 3 errors');
+		// the gates ran inside the ship rather than here, and the worktree is left
+		// where a human can read it
+		expect(mockRunGates).not.toHaveBeenCalled();
+		expect(existsSync(worktree)).toBe(true);
+		expect(progress).toContain('LO-70 · not shipped: integration-gates-failed: tsc: 3 errors');
+	});
+
+	test("hands the drain's own harness to the merge lane's integration step", async () => {
+		const { cwd, settings, progress } = await setupQueueShipping();
+
+		await drainQueue({ cwd, settings, progress });
+
+		expect(mockRunShip).toHaveBeenCalledWith(expect.objectContaining({ integration: { config, driver } }));
 	});
 });

@@ -30,4 +30,26 @@ describe('ConfigShip', () => {
 
 		expect(parsed.success).toBe(false);
 	});
+
+	test('accepts only an explicit boolean no-CI exception', () => {
+		const omitted = ConfigShip.parse({});
+		const explicitFalse = ConfigShip.parse({ 'allow-no-ci': false });
+		const explicitTrue = ConfigShip.parse({ 'allow-no-ci': true });
+		const asString = ConfigShip.safeParse({ 'allow-no-ci': 'true' });
+		const asNumber = ConfigShip.safeParse({ 'allow-no-ci': 1 });
+
+		expect({
+			omitted: omitted['allow-no-ci'],
+			explicitFalse: explicitFalse['allow-no-ci'],
+			explicitTrue: explicitTrue['allow-no-ci'],
+			stringAccepted: asString.success,
+			numberAccepted: asNumber.success,
+		}).toStrictEqual({
+			omitted: undefined,
+			explicitFalse: false,
+			explicitTrue: true,
+			stringAccepted: false,
+			numberAccepted: false,
+		});
+	});
 });
