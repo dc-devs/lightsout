@@ -22,6 +22,8 @@ const describeReport = ({ report }: { report?: object }) => {
 		line = `implemented by run ${summary.runId.slice(0, 8)}`;
 	} else if (summary?.kind === StepReportKind.Writers) {
 		line = `${formatCount({ count: summary.count, noun: 'writer batch', plural: 'writer batches' })} · ${formatCount({ count: summary.fileCount, noun: 'file' })}`;
+	} else if (summary?.kind === StepReportKind.Cleanup) {
+		line = `${formatCount({ count: summary.rounds, noun: 'round' })} · ${summary.endReason ?? 'in progress'} · ${formatCount({ count: summary.remaining, noun: 'finding' })} still standing`;
 	} else if (summary?.kind === StepReportKind.Work) {
 		line = summary.summary;
 	}

@@ -7,7 +7,7 @@ export const check: StandardsCheckModule = buildTestLimitCheck({
 	report: ({ file, text, limit }) => {
 		const lineCount = text.split('\n').length;
 
-		return lineCount <= limit ? undefined : { files: [{ path: file }], detail: `${lineCount} lines (cap ~${limit})` };
+		return lineCount <= limit ? undefined : { files: [{ path: file }], detail: `${lineCount} lines (cap ~${limit})`, measure: lineCount };
 	},
 	guidance:
 		'A test file this long is a module asking for promotion — give each internal unit a direct test beside it, export the unit from the module’s barrel, and leave the boundary file its orchestration.',

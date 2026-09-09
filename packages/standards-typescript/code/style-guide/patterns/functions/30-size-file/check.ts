@@ -24,6 +24,9 @@ const buildFileFindings = ({ input, settings }: { input: SyntaxTreeInput; settin
 					files: [{ path }],
 					detail: `${lineCount} lines (cap ~${cap})`,
 					guidance: 'Split the file, or graduate the concept it has grown into.',
+					// The length, not the distance past the cap, so the same file measures
+					// the same however the cap is retuned.
+					measure: lineCount,
 				}),
 			);
 		}

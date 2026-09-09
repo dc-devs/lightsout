@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import { resumeCommand } from '#src/cli/resumeCommand.ts';
-import { RunStatus } from '#src/contracts/index.ts';
+import type { StandardsFinding } from '#src/contracts/index.ts';
+import { CleanupEndReason, RunStatus, StandardsSeverity } from '#src/contracts/index.ts';
 import { manifestOf, runId, setupResume } from '#tests/helpers/setupResume.ts';
 
 /**
@@ -45,6 +46,54 @@ const setupResumeEvidence = () =>
 			unreachableChangedFiles: ['src/orphan.ts', 'src/stray.ts'],
 		}),
 		evidence: { friction: seededFriction, rejectedReports: ['rejected-implement-1.json', 'implement-1.json'] },
+	});
+
+/** One deterministic standards finding. Only the site key varies: the cleanup line counts findings, it never reads them. */
+const finding = ({ siteKey }: { siteKey: string }): StandardsFinding => ({
+	rule: 'size-file',
+	severity: StandardsSeverity.Blocking,
+	siteKey,
+	files: [{ path: `src/${siteKey}.ts` }],
+	detail: '412 lines, cap 400',
+	measure: 412,
+});
+
+/**
+ * A resumed run whose refactor step already recorded a bounded cleanup pass.
+ * `endReason` absent is a run parked mid-loop: the rounds are on disk because
+ * the record is written before each invocation, and no member of the closed
+ * reason set is true yet. The resumed pipeline stops at its own plan read, so
+ * the seeded record is still what the report card renders.
+ */
+const setupResumeCleanup = ({
+	roundsUsed = 2,
+	endReason,
+	remaining = [],
+	inherited = [],
+	uncertain = [],
+	failures = [],
+}: {
+	roundsUsed?: number;
+	endReason?: CleanupEndReason;
+	remaining?: StandardsFinding[];
+	inherited?: StandardsFinding[];
+	uncertain?: StandardsFinding[];
+	failures?: string[];
+} = {}) =>
+	setupResume({
+		args: ['--run', runId],
+		manifest: manifestOf({
+			pipeline: 'implement',
+			steps: [
+				{ id: 'implement', status: RunStatus.Passed, attempts: 1 },
+				{
+					id: 'refactor',
+					status: RunStatus.Passed,
+					attempts: 3,
+					report: { roundsUsed, ...(endReason ? { endReason } : {}), remaining, inherited, uncertain, failures, initialReview: [], finalReview: [] },
+				},
+			],
+		}),
 	});
 
 /** The step-table rows the summary printed, each split back into its trimmed cell values. */
@@ -121,6 +170,40 @@ describe('resumeCommand run summary', () => {
 
 		// the fourth log entry belongs to another run, so the total is 3 rather than 4
 		expect(logged).toContain('friction  3 · plan 2 · environment 1');
+	});
+
+	test('the bounded cleanup pass is reported as what it spent, why it ended, and what it left behind', async () => {
+		const { context, logged } = setupResumeCleanup({
+			roundsUsed: 2,
+			endReason: CleanupEndReason.BudgetExhausted,
+			remaining: [finding({ siteKey: 'a' }), finding({ siteKey: 'b' }), finding({ siteKey: 'c' })],
+			inherited: [finding({ siteKey: 'd' }), finding({ siteKey: 'e' })],
+			uncertain: [finding({ siteKey: 'f' }), finding({ siteKey: 'g' })],
+			failures: ['cleanup agent timed out after 20 minutes'],
+		});
+
+		await expect(resumeCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// inherited debt and findings of unestablished provenance are one figure — both were recorded and never worked
+		expect(logged).toContain('cleanup   2 rounds · budget-exhausted · 3 remaining · 4 carried forward · 1 failed attempt');
+	});
+
+	test('a run parked mid-cleanup reports the rounds it spent and says cleanup is still in progress rather than naming an ending', async () => {
+		const { context, logged } = setupResumeCleanup({ roundsUsed: 1 });
+
+		await expect(resumeCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// no finding and no failure was recorded, so the line states only the two facts that are always true
+		expect(logged).toContain('cleanup   1 round · in progress');
+	});
+
+	test('a run whose steps recorded no cleanup pass prints no cleanup line at all', async () => {
+		const { context, logged } = setupResumeSummary();
+
+		await expect(resumeCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// a zeroed cleanup line would read as a pass that ran and found nothing — a different fact from one that never ran
+		expect(logged.filter((line) => line.startsWith('cleanup'))).toStrictEqual([]);
 	});
 
 	test('a report that failed its contract is counted as a retry, so a re-emit never passes unnoticed', async () => {

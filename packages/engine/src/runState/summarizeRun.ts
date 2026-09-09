@@ -5,7 +5,9 @@ import { isSelfCheckStep } from '#src/common/selfCheck/isSelfCheckStep.ts';
 import { readJsonlRecords } from '#src/common/utils/readJsonlRecords.ts';
 import type { RunManifest } from '#src/contracts/index.ts';
 import { getRunDir } from '#src/runState/common/paths/getRunDir.ts';
+import type { CleanupSummary } from '#src/runState/common/types/CleanupSummary.ts';
 import type { RunSummary } from '#src/runState/common/types/RunSummary.ts';
+import { buildCleanupSummary } from '#src/runState/common/utils/buildCleanupSummary.ts';
 import { readFriction } from '#src/runState/readFriction.ts';
 
 const LedgerRecord = z.object({
@@ -73,6 +75,7 @@ export const summarizeRun = async ({ cwd, manifest }: Params): Promise<RunSummar
 		}
 	}
 
+	const cleanup = manifest.steps.reduce<CleanupSummary | undefined>((found, step) => buildCleanupSummary({ step }) ?? found, undefined);
 	const { usage } = manifest;
 	const readableInput = usage ? usage.cacheReadTokens + usage.cacheCreationTokens + usage.inputTokens : 0;
 
@@ -96,6 +99,7 @@ export const summarizeRun = async ({ cwd, manifest }: Params): Promise<RunSummar
 			skipped: commands.filter((command) => command.skipped).length,
 		},
 		verificationRepairs: [...verificationRepairs.entries()].map(([gateFamily, attempts]) => ({ gateFamily, attempts })),
+		cleanup,
 		rejectedReports: agentFiles.filter((name) => name.startsWith('rejected-')).length,
 		frictionByArea: [...frictionByArea.entries()].map(([area, count]) => ({ area, count })),
 	};

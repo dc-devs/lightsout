@@ -12,6 +12,18 @@ const Section = ({ label, children }: { label: string; children: ReactNode }) =>
 	</div>
 );
 
+/** Whatever went wrong inside one step, or nothing at all when nothing did — the same block wherever a report carries failures. */
+const FailuresSection = ({ failures }: { failures: string[] }) =>
+	failures.length === 0 ? null : (
+		<Section label="failures">
+			<ul className="list-disc space-y-1 pl-5 text-status-failed text-xs">
+				{failures.map((failure) => (
+					<li key={failure}>{failure}</li>
+				))}
+			</ul>
+		</Section>
+	);
+
 interface Props {
 	report: StepReport;
 	/** Render a phase report's child run as plain mono text instead of a link — the demo frame. Defaults false. */
@@ -81,6 +93,20 @@ export const StepReportSummary = ({ report, linksDisabled = false }: Props) => {
 				</ul>
 			</>
 		);
+	} else if (report.kind === StepReportKind.Cleanup) {
+		content = (
+			<>
+				<p>
+					{formatCount({ count: report.rounds, noun: 'round' })} · {report.endReason ?? 'in progress'}
+				</p>
+				<p className="text-muted-foreground-strong text-xs">
+					{formatCount({ count: report.remaining, noun: 'finding' })} still standing · {formatCount({ count: report.carried, noun: 'finding' })} carried forward
+					· {formatCount({ count: report.reviewFindings, noun: 'review finding' })}
+				</p>
+				<FailuresSection failures={report.failures} />
+				{report.summary === undefined ? null : <p className="text-muted-foreground-strong text-xs">{report.summary}</p>}
+			</>
+		);
 	} else {
 		content = (
 			<>
@@ -98,15 +124,7 @@ export const StepReportSummary = ({ report, linksDisabled = false }: Props) => {
 						</ul>
 					</Section>
 				)}
-				{report.failures.length === 0 ? null : (
-					<Section label="failures">
-						<ul className="list-disc space-y-1 pl-5 text-status-failed text-xs">
-							{report.failures.map((failure) => (
-								<li key={failure}>{failure}</li>
-							))}
-						</ul>
-					</Section>
-				)}
+				<FailuresSection failures={report.failures} />
 			</>
 		);
 	}

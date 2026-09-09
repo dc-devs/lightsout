@@ -56,6 +56,10 @@ export const check: StandardsCheckModule = buildTestLimitCheck({
 			: {
 					files: buildLineSites({ file, spans: sprawling }),
 					detail: `${sprawling.map((factory) => `'${factory.name}' takes ${factory.count} parameters (line ${factory.startLine})`).join(', ')}, over the cap of ${limit}`,
+					// Summed over every oversized factory the finding covers, and only over
+					// the ones the flat-list pattern could read — a factory it cannot judge
+					// contributes nothing to the finding and nothing to the number.
+					measure: sprawling.reduce((total, { count }) => total + count, 0),
 				};
 	},
 	guidance: 'A substantially different arrangement gets a second named factory. Heuristic — judge before acting.',

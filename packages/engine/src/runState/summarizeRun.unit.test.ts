@@ -2,14 +2,16 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import { type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import { type RefactorStepReport, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { summarizeRun } from '#src/runState/index.ts';
+import { countableFindings } from '#tests/helpers/countableFindings.ts';
 import { report } from '#tests/helpers/report.ts';
-import { reviewReport } from '#tests/helpers/reviewReport.ts';
+import { reviewOneAdvisory } from '#tests/helpers/reviewOneAdvisory.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { manifestOf } from '#tests/helpers/setupResume.ts';
 import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
@@ -21,25 +23,17 @@ const usage = {
 	costUsd: 0.5,
 };
 
-const manifest = (overrides: Partial<RunManifest> = {}): RunManifest => ({
-	runId: 'run-summary',
-	createdAt: '2026-07-03T00:00:00.000Z',
-	updatedAt: '2026-07-03T00:10:00.000Z',
-	plan: 'plan.md',
-	harness: 'stub',
-	status: RunStatus.Passed,
-	currentStep: null,
-	steps: [],
-	changedFiles: [],
-	packages: [],
-	baselineDirtyFiles: [],
-	testSubjects: [],
-	acceptanceTests: [],
-	approvedTests: [],
-	unreachableChangedFiles: [],
-	coverageExcludedChangedFiles: [],
-	...overrides,
-});
+/** A finished ten-minute run, so a wall clock and a per-step tally both have something to read. */
+const manifest = (overrides: Partial<RunManifest> = {}): RunManifest =>
+	manifestOf({
+		runId: 'run-summary',
+		createdAt: '2026-07-03T00:00:00.000Z',
+		updatedAt: '2026-07-03T00:10:00.000Z',
+		plan: 'plan.md',
+		harness: 'stub',
+		status: RunStatus.Passed,
+		...overrides,
+	});
 
 interface PlantParams {
 	/** Raw agents.jsonl lines — malformed ones included, to pin ledger tolerance. */
@@ -71,17 +65,29 @@ const plantEvidence = ({ agents = [], commands = [], agentFiles = [], friction =
 	return { cwd, manifest: planted };
 };
 
+/** A verify step's persisted sub-state, carrying only the repair counts a case cares about. */
+const verification = ({ repairAttempts }: { repairAttempts: Record<string, number> }): StepRecord['verification'] => ({
+	failedFamilies: [],
+	repairAttempts,
+	failures: [],
+	needsFormatting: false,
+	guidedRepairAttempted: false,
+});
+
 /** Drive a whole implement run with a stub driver, so the summary reads evidence the pipeline itself wrote. */
 const setupPipelineRun = async () => {
 	const cwd = setupConsumerRepo();
 	const driver: Driver = {
 		name: 'stub',
 		invoke: withTestChangeReview({
-			invoke: async ({ prompt }) => {
+			invoke: async ({ prompt, systemPrompt }) => {
 				const role = roleOf(prompt);
 
 				if (role === 'standards-review') {
-					return { text: reviewReport(), exitCode: 0 };
+					// One advisory, so the bounded cleanup loop has something to hand its
+					// first round: this fixture's tree carries no qualifying deterministic
+					// finding, and cleanup no longer spends a round on nothing.
+					return { text: reviewOneAdvisory({ systemPrompt, path: 'src/feature.js' }), exitCode: 0 };
 				}
 
 				if (role === 'write-tests') {
@@ -177,13 +183,6 @@ test('summarizeRun tolerates a run dir with no ledger, no commands, no friction'
 });
 
 test('summarizeRun sums persisted verification repairs by family in first-seen order', async () => {
-	const verification = ({ repairAttempts }: { repairAttempts: Record<string, number> }) => ({
-		failedFamilies: [],
-		repairAttempts,
-		failures: [],
-		needsFormatting: false,
-		guidedRepairAttempted: false,
-	});
 	const { cwd, manifest: planted } = plantEvidence({
 		overrides: {
 			steps: [
@@ -336,4 +335,64 @@ test('summarizeRun: leaves self-check gate executions out of the gate counts, re
 	// the counts nor the clock — a record written outside any step still does
 	expect(summary.gates).toStrictEqual({ commands: 3, reruns: 1, skipped: 1 });
 	expect(summary.gateMs).toBe(175);
+});
+
+/** A cleanup pass whose six recorded numbers are all different, so a reader that transposed two lists cannot pass. */
+const cleanupReport = (): RefactorStepReport => ({
+	roundsUsed: 3,
+	endReason: 'budget-exhausted',
+	remaining: countableFindings({ count: 2, rule: 'size-file' }),
+	inherited: countableFindings({ count: 1, rule: 'crowded-folder' }),
+	uncertain: countableFindings({ count: 3, rule: 'star-re-export' }),
+	failures: ['the cleanup agent timed out', 'the cleanup agent returned no usable report'],
+	initialReview: countableFindings({ count: 7, rule: 'naming' }),
+	finalReview: countableFindings({ count: 5, rule: 'size-function' }),
+});
+
+test('summarizeRun reports the refactor step cleanup outcome alongside, never inside, the verification repair counts', async () => {
+	const { cwd, manifest: planted } = plantEvidence({
+		overrides: {
+			steps: [
+				{ id: 'refactor', status: RunStatus.Passed, attempts: 4, report: cleanupReport() },
+				{ id: 'verify-implement', status: RunStatus.Passed, attempts: 3, verification: verification({ repairAttempts: { check: 2, test: 1 } }) },
+			],
+		},
+	});
+
+	const summary = await summarizeRun({ cwd, manifest: planted });
+
+	// carried is the inherited debt plus the unattributable findings: 1 + 3
+	expect(summary.cleanup).toStrictEqual({
+		rounds: 3,
+		endReason: 'budget-exhausted',
+		remainingFindings: 2,
+		carriedFindings: 4,
+		reviewFindings: 5,
+		failures: 2,
+	});
+	// the cleanup rounds bill to cleanup alone — the gate repairs are untouched
+	expect(summary.verificationRepairs).toStrictEqual([
+		{ gateFamily: 'check', attempts: 2 },
+		{ gateFamily: 'test', attempts: 1 },
+	]);
+});
+
+test('summarizeRun leaves cleanup undefined for a run that recorded no cleanup pass', async () => {
+	const { cwd, manifest: planted } = plantEvidence({
+		overrides: {
+			steps: [
+				{ id: 'phase-1', status: RunStatus.Passed, attempts: 1, report: { runId: 'child-run' } },
+				{ id: 'refactor', status: RunStatus.Passed, attempts: 0 },
+			],
+		},
+	});
+
+	const summary = await summarizeRun({ cwd, manifest: planted });
+
+	// a coordinator report and a skipped pass are both "no cleanup happened"
+	expect(summary.cleanup).toBe(undefined);
+	expect(summary.steps.map((step) => step.id)).toStrictEqual(['phase-1', 'refactor']);
+	expect(summary.verificationRepairs).toStrictEqual([]);
+	expect(summary.rejectedReports).toBe(0);
+	expect(summary.frictionByArea).toStrictEqual([]);
 });

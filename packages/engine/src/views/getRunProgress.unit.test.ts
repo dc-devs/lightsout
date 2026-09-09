@@ -38,6 +38,27 @@ const stepOf = (overrides: Partial<StepRecord> = {}): StepRecord => ({
 	...overrides,
 });
 
+/** One deterministic finding, as `StandardsFinding` declares it — only its presence in a list matters here. */
+const finding = {
+	rule: 'size-file',
+	severity: 'blocking',
+	siteKey: 'size-file:src/views/getRunProgress.ts',
+	files: [{ path: 'src/views/getRunProgress.ts' }],
+	detail: 'the file is over its line cap',
+};
+
+/** A refactor step's own account of implementation cleanup, as `RefactorStepReport` declares it. */
+const cleanupReport = {
+	roundsUsed: 2,
+	endReason: 'budget-exhausted',
+	remaining: [finding, finding],
+	inherited: [finding],
+	uncertain: [finding],
+	failures: ['refactor executor timed out after 20 minutes'],
+	initialReview: [],
+	finalReview: [finding],
+};
+
 /**
  * A real repo holding the run's own evidence — its progress log and, when the
  * case wants one, a filed ship result. The manifest is passed in rather than
@@ -119,6 +140,27 @@ describe('getRunProgress', () => {
 		]);
 		expect(progress.rows.map((row) => row.durationMs)).toStrictEqual([1_000, undefined, undefined]);
 		expect(progress.rows.map((row) => row.verification)).toStrictEqual([undefined, undefined, undefined]);
+	});
+
+	test('the refactor row carries the cleanup outcome and every other row, pending and ship included, carries none', async () => {
+		const { cwd, manifest } = setupProgress({
+			manifest: manifestOf({
+				status: RunStatus.Passed,
+				willShip: true,
+				branch: 'lo-124-cleanup',
+				steps: [stepOf({ id: 'clean-slate' }), stepOf({ id: 'refactor', report: cleanupReport })],
+				stepOrder: ['clean-slate', 'refactor', 'verify'],
+			}),
+		});
+
+		const progress = await getRunProgress({ cwd, manifest, lock: undefined });
+
+		expect(progress.rows.map((row) => [row.id, row.cleanup])).toStrictEqual([
+			['clean-slate', undefined],
+			['refactor', { rounds: 2, endReason: 'budget-exhausted', remainingFindings: 2, carriedFindings: 2, reviewFindings: 1, failures: 1 }],
+			['verify', undefined],
+			['ship', undefined],
+		]);
 	});
 
 	test('a run whose pipeline declared no order gets no pending rows at all — a guessed row is worse than none', async () => {
@@ -234,7 +276,14 @@ describe('getRunProgress', () => {
 
 		const progress = await getRunProgress({ cwd, manifest, lock: undefined });
 
-		expect(progress.rows.at(-1)).toStrictEqual({ id: 'ship', status: expected, attempts: 1, durationMs: undefined, verification: undefined });
+		expect(progress.rows.at(-1)).toStrictEqual({
+			id: 'ship',
+			status: expected,
+			attempts: 1,
+			durationMs: undefined,
+			verification: undefined,
+			cleanup: undefined,
+		});
 		expect(progress.awaitingShip).toBe(false);
 	});
 
@@ -246,7 +295,14 @@ describe('getRunProgress', () => {
 
 		const progress = await getRunProgress({ cwd, manifest, lock: undefined });
 
-		expect(progress.rows.at(-1)).toStrictEqual({ id: 'ship', status: undefined, attempts: 0, durationMs: undefined, verification: undefined });
+		expect(progress.rows.at(-1)).toStrictEqual({
+			id: 'ship',
+			status: undefined,
+			attempts: 0,
+			durationMs: undefined,
+			verification: undefined,
+			cleanup: undefined,
+		});
 	});
 
 	test.each([

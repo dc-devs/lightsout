@@ -24,8 +24,18 @@ describe('size-file check', () => {
 				files: [{ path: 'src/reporting/buildReportSummary.ts' }],
 				detail: '7 lines (cap ~6)',
 				guidance: 'Split the file, or graduate the concept it has grown into.',
+				measure: 7,
 			},
 		]);
+	});
+
+	test("reports the file's line count as the measure, independent of the cap it was measured against", async () => {
+		const input = setupSyntaxTreeInput({ sources: [['src/reporting/buildReportSummary.ts', buildSource({ lines: 7 })]] });
+
+		const againstSix = await check.run({ input, settings: caps });
+		const againstARetunedCap = await check.run({ input, settings: { file: 3, tsxFile: 9 } });
+
+		expect([againstSix[0]?.measure, againstARetunedCap[0]?.measure]).toStrictEqual([7, 7]);
 	});
 
 	test('leaves a file measured to exactly its cap — the cap is the last allowed line, not the first banned one', async () => {
@@ -55,6 +65,7 @@ describe('size-file check', () => {
 				files: [{ path: 'src/reporting/ReportPanel.tsx' }],
 				detail: '10 lines (cap ~9)',
 				guidance: 'Split the file, or graduate the concept it has grown into.',
+				measure: 10,
 			},
 		]);
 	});

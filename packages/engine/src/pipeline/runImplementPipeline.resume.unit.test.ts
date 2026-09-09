@@ -1,5 +1,8 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
+import { StandardsSnapshot } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { readRunManifest } from '#src/runState/index.ts';
@@ -81,4 +84,64 @@ test('resume skips passed steps and continues attempt counts', async () => {
 	expect(counts['write-tests']).toBe(2);
 	// attempts continue across resume
 	expect(resumed.manifest.steps.find((step) => step.id === 'write-tests')?.attempts).toBe(2);
+});
+
+test('resume: the pre-edit standards baseline survives a park and is not rewritten', async () => {
+	const dir = setupConsumerRepo();
+	const parkOnWrite: Driver = {
+		name: 'stub',
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
+
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
+
+				if (role === 'write-tests') {
+					return { text: '', exitCode: 1, rateLimited: true };
+				}
+
+				if (role === 'implement') {
+					writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
+
+					return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
+				}
+
+				return { text: report(), exitCode: 0 };
+			},
+		}),
+	};
+	const config = await readConfig({ cwd: dir });
+	const parked = await runImplementPipeline({ cwd: dir, driver: parkOnWrite, config, planPath: 'plan.md' });
+	// the run folder's own comparison point, beside the manifest
+	const baselinePath = join(dir, '.lightsout', 'runs', parked.manifest.runId, 'standards-baseline.json');
+	const atPark = readFileSync(baselinePath, 'utf8');
+
+	expect(parked.manifest.status).toBe('paused-rate-limit');
+	// clean-slate passed before the park, so it captured a baseline
+	expect(parked.manifest.steps.find((step) => step.id === 'clean-slate')?.status).toBe('passed');
+	expect(StandardsSnapshot.safeParse(JSON.parse(atPark)).success).toBe(true);
+
+	const resumeDriver: Driver = {
+		name: 'stub',
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
+
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
+
+				return { text: report(), exitCode: 0 };
+			},
+		}),
+	};
+	const existing = await readRunManifest({ cwd: dir, runId: parked.manifest.runId });
+	const resumed = await runImplementPipeline({ cwd: dir, driver: resumeDriver, config, existing });
+	const afterResume = readFileSync(baselinePath, 'utf8');
+
+	expect(resumed.ok).toBe(true);
+	// the resume skipped the passed clean-slate, so the pre-edit measurement stands
+	expect(afterResume).toBe(atPark);
 });

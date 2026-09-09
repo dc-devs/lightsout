@@ -57,6 +57,47 @@ describe('RawStandardsFinding', () => {
 		expect(parsed.guidance).toBe('Split the file along the seam its two exports already draw.');
 	});
 
+	test('a measure a capped rule reported survives the read boundary', () => {
+		const { finding } = setupRawFinding({ extra: { measure: 214 } });
+
+		const parsed = RawStandardsFinding.parse(finding);
+
+		// the number a capped rule compared against its cap has to reach a reader
+		// as a number — it lived only inside the detail prose before, which is
+		// written for a human and free to be reworded
+		expect(parsed).toStrictEqual({
+			siteKey: 'size-file:src/standardsPacks/readStandardsPack.ts',
+			files: [{ path: 'src/standardsPacks/readStandardsPack.ts', startLine: 1, endLine: 214 }],
+			detail: 'a 214-line file against a 200-line limit',
+			measure: 214,
+		});
+	});
+
+	test('rejects a measure given as a numeric string rather than coercing it', () => {
+		const { finding } = setupRawFinding({ extra: { measure: '214' } });
+
+		const result = RawStandardsFinding.safeParse(finding);
+
+		// the measure is compared against an earlier measure of the same site — a
+		// string would compare as text, so a rule that stringified its count has to
+		// fail loudly rather than yield a value that silently mis-orders
+		expect(result.success).toBe(false);
+	});
+
+	test('a finding with no measure parses and gains no measure key', () => {
+		const { finding } = setupRawFinding();
+
+		const parsed = RawStandardsFinding.parse(finding);
+
+		// the key stays absent rather than present holding undefined, so every
+		// unmeasured rule's finding is the same shape it was before the field existed
+		expect(parsed).toStrictEqual({
+			siteKey: 'size-file:src/standardsPacks/readStandardsPack.ts',
+			files: [{ path: 'src/standardsPacks/readStandardsPack.ts', startLine: 1, endLine: 214 }],
+			detail: 'a 214-line file against a 200-line limit',
+		});
+	});
+
 	test('a whole-file finding parses with no line span', () => {
 		const { finding } = setupRawFinding({ extra: { files: [{ path: 'src/standardsPacks/index.ts' }] } });
 

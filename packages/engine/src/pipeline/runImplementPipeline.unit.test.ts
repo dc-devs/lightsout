@@ -7,7 +7,7 @@ import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { readFriction } from '#src/runState/index.ts';
 import { readCommandLog } from '#tests/helpers/readCommandLog.ts';
 import { report } from '#tests/helpers/report.ts';
-import { reviewReport } from '#tests/helpers/reviewReport.ts';
+import { reviewOneAdvisory } from '#tests/helpers/reviewOneAdvisory.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
@@ -43,7 +43,10 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 				const role = roleOf(prompt);
 
 				if (role === 'standards-review') {
-					return { text: reviewReport(), exitCode: 0 };
+					// One advisory, so the bounded cleanup loop has something to hand its
+					// first round: this fixture's tree carries no qualifying deterministic
+					// finding, and cleanup no longer spends a round on nothing.
+					return { text: reviewOneAdvisory({ systemPrompt, path: 'src/feature.js' }), exitCode: 0 };
 				}
 
 				prompts[role] ??= [];
@@ -124,8 +127,9 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	expect(result.manifest.changedFiles.includes('src/infra.tf')).toBeTruthy();
 	// refactor review list is JS/TS only
 	expect(prompts.refactor?.[0]?.includes('src/infra.tf')).toBeFalsy();
-	// refactor looped until an empty pass
-	expect(refactorPass).toBe(2);
+	// the reviewer's advisory earned the one round; the round left the tree with
+	// nothing qualifying, so cleanup ended there rather than spending its budget
+	expect(refactorPass).toBe(1);
 	expect(result.manifest.steps.find((step) => step.id === 'refactor')?.attempts).toBe(2);
 	// coverage gate ran at clean-slate and both post-test verification steps
 	expect(countLog(dir, 'cov.log')).toBe(3);
@@ -162,8 +166,8 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	// interpolated from the constant: a line built from the same constant the
 	// assertion reads says the same thing whatever the number is.
 	expect(progress.some((line) => line.includes('4 group(s): 4 subject(s) covering 4 changed file(s), up to 10 writers in parallel'))).toBeTruthy();
-	// refactor loop end announced
-	expect(progress.some((line) => line.includes('refactor pass 2: no changes — loop complete'))).toBeTruthy();
+	// cleanup's ending is announced, with the reason it ended
+	expect(progress.some((line) => line.includes('step refactor passed — cleanup ended: clean'))).toBeTruthy();
 });
 
 test('implement that changes nothing fails instead of passing vacuously', async () => {

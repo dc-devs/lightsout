@@ -68,6 +68,7 @@ describe('size-function check', () => {
 				detail: "function 'buildReportSummary' is 7 lines (cap ~5)",
 				guidance:
 					'Extract logic. Exempt only when every statement is a call to a named step (or the assignment of its result) and the flow is linear — any inline loop, branch, or transformation disqualifies.',
+				measure: 7,
 			},
 		]);
 	});
@@ -140,6 +141,7 @@ describe('size-function check', () => {
 				detail: "function 'buildReportSummary' is 12 lines (cap ~5)",
 				guidance:
 					'Extract logic. Exempt only when every statement is a call to a named step (or the assignment of its result) and the flow is linear — any inline loop, branch, or transformation disqualifies.',
+				measure: 12,
 			},
 		]);
 	});
@@ -158,6 +160,7 @@ describe('size-function check', () => {
 			detail: "function 'buildReportSummary' is 10 lines (cap ~5); function 'convert' is 6 lines (cap ~5)",
 			guidance:
 				'Extract logic. Exempt only when every statement is a call to a named step (or the assignment of its result) and the flow is linear — any inline loop, branch, or transformation disqualifies.',
+			measure: 16,
 		});
 	});
 
@@ -172,6 +175,7 @@ describe('size-function check', () => {
 			detail: "function 'total' is 6 lines (cap ~5)",
 			guidance:
 				'Extract logic. Exempt only when every statement is a call to a named step (or the assignment of its result) and the flow is linear — any inline loop, branch, or transformation disqualifies.',
+			measure: 6,
 		});
 	});
 
@@ -194,6 +198,39 @@ describe('size-function check', () => {
 				detail: "function 'buildReportSummary' is 7 lines (cap ~5); function 'buildReportTotals' is 6 lines (cap ~5)",
 				guidance:
 					'Extract logic. Exempt only when every statement is a call to a named step (or the assignment of its result) and the flow is linear — any inline loop, branch, or transformation disqualifies.',
+				measure: 13,
+			},
+		]);
+	});
+
+	test('sums the lines of every oversized function in the file into one measure', async () => {
+		const grownSource = [buildArrow({ name: 'buildReportSummary', lines: 7 }), buildArrow({ name: 'buildReportTotals', lines: 6 })].join('\n');
+		const singleSource = [buildArrow({ name: 'buildReportSummary', lines: 7 }), buildArrow({ name: 'buildReportTotals', lines: 4 })].join('\n');
+		const grownInput = setupSyntaxTreeInput({ sources: [['src/reporting/summaries.ts', grownSource]] });
+		const singleInput = setupSyntaxTreeInput({ sources: [['src/reporting/summaries.ts', singleSource]] });
+
+		const grownFindings = await check.run({ input: grownInput, settings: caps });
+		const singleFindings = await check.run({ input: singleInput, settings: caps });
+
+		expect([grownFindings[0], singleFindings[0]]).toStrictEqual([
+			{
+				siteKey: 'size-function:src/reporting/summaries.ts',
+				files: [
+					{ path: 'src/reporting/summaries.ts', startLine: 1, endLine: 7 },
+					{ path: 'src/reporting/summaries.ts', startLine: 8, endLine: 13 },
+				],
+				detail: "function 'buildReportSummary' is 7 lines (cap ~5); function 'buildReportTotals' is 6 lines (cap ~5)",
+				guidance:
+					'Extract logic. Exempt only when every statement is a call to a named step (or the assignment of its result) and the flow is linear — any inline loop, branch, or transformation disqualifies.',
+				measure: 13,
+			},
+			{
+				siteKey: 'size-function:src/reporting/summaries.ts',
+				files: [{ path: 'src/reporting/summaries.ts', startLine: 1, endLine: 7 }],
+				detail: "function 'buildReportSummary' is 7 lines (cap ~5)",
+				guidance:
+					'Extract logic. Exempt only when every statement is a call to a named step (or the assignment of its result) and the flow is linear — any inline loop, branch, or transformation disqualifies.',
+				measure: 7,
 			},
 		]);
 	});

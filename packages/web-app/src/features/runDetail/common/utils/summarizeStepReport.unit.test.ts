@@ -3,6 +3,14 @@ import { summarizeStepReport } from '#src/features/runDetail/index.ts';
 
 const setupReport = ({ report }: { report?: unknown } = {}) => ({ report });
 
+const finding = ({ rule, siteKey }: { rule: string; siteKey: string }) => ({
+	rule,
+	severity: 'blocking',
+	siteKey,
+	files: [{ path: siteKey }],
+	detail: 'over the cap',
+});
+
 describe('summarizeStepReport', () => {
 	test('says nothing when the step recorded no report', () => {
 		const { report } = setupReport();
@@ -102,6 +110,71 @@ describe('summarizeStepReport', () => {
 			summary: 'added the run detail route',
 			files: [{ path: 'src/routes/runs.$runId.tsx', summary: 'the page' }],
 			failures: [],
+		});
+	});
+
+	test('reads a cleanup record as what it spent, why it ended and what it left behind', () => {
+		const { report } = setupReport({
+			report: {
+				roundsUsed: 2,
+				endReason: 'budget-exhausted',
+				remaining: [finding({ rule: 'size-file', siteKey: 'src/a.ts' })],
+				inherited: [finding({ rule: 'crowded-folder', siteKey: 'src/legacy' })],
+				uncertain: [finding({ rule: 'size-function', siteKey: 'src/b.ts:doThing' })],
+				failures: ['the second round timed out'],
+				initialReview: [finding({ rule: 'naming', siteKey: 'src/a.ts:thing' })],
+				finalReview: [
+					finding({ rule: 'naming', siteKey: 'src/a.ts:thing' }),
+					finding({ rule: 'naming', siteKey: 'src/b.ts:other' }),
+					finding({ rule: 'naming', siteKey: 'src/c.ts:third' }),
+				],
+				lastReport: {
+					status: 'complete',
+					changedFiles: [{ path: 'src/a.ts', summary: 'split the reader out' }],
+					summary: 'split the oversized reader',
+					failures: [],
+				},
+			},
+		});
+
+		const summary = summarizeStepReport({ report });
+
+		expect(summary).toStrictEqual({
+			kind: 'cleanup',
+			rounds: 2,
+			endReason: 'budget-exhausted',
+			remaining: 1,
+			carried: 2,
+			reviewFindings: 3,
+			failures: ['the second round timed out'],
+			summary: 'split the oversized reader',
+		});
+	});
+
+	test('reads a mid-loop cleanup record as cleanup still in progress', () => {
+		const { report } = setupReport({
+			report: {
+				roundsUsed: 1,
+				remaining: [finding({ rule: 'size-file', siteKey: 'src/a.ts' })],
+				inherited: [],
+				uncertain: [],
+				failures: [],
+				initialReview: [],
+				finalReview: [],
+			},
+		});
+
+		const summary = summarizeStepReport({ report });
+
+		expect(summary).toStrictEqual({
+			kind: 'cleanup',
+			rounds: 1,
+			endReason: undefined,
+			remaining: 1,
+			carried: 0,
+			reviewFindings: 0,
+			failures: [],
+			summary: undefined,
 		});
 	});
 

@@ -1,6 +1,8 @@
 export { applyStandardsBaseline } from '#src/standardsCheck/applyStandardsBaseline.ts';
+export { attributeStandardsFindings } from '#src/standardsCheck/attributeStandardsFindings.ts';
 export { buildDominantPathNote } from '#src/standardsCheck/buildDominantPathNote.ts';
 export { buildStandardsHealth } from '#src/standardsCheck/buildStandardsHealth.ts';
+export type { AttributedFindings } from '#src/standardsCheck/common/types/AttributedFindings.ts';
 export type { StandardsHealth } from '#src/standardsCheck/common/types/StandardsHealth.ts';
 export type { StandardsHealthRule } from '#src/standardsCheck/common/types/StandardsHealthRule.ts';
 export type { StandardsRuleListing } from '#src/standardsCheck/common/types/StandardsRuleListing.ts';

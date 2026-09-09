@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { RunView } from '@lightsout/engine';
-import { PipelineKind } from '@lightsout/engine/contracts';
+import { CleanupEndReason, PipelineKind, StandardsSeverity } from '@lightsout/engine/contracts';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { toRunDetailView } from '#src/features/runDetail/common/utils/toRunDetailView.ts';
@@ -28,6 +28,28 @@ Object.assign(HTMLElement.prototype, { scrollIntoView: mockScrollIntoView });
 // -------------------------
 
 const parent = { runId: 'ffff0000ffff0000', step: 'phase2-indexing.md', title: 'add search' };
+
+/** One deterministic finding a cleanup record still carries — only the fields the overview counts. */
+const buildFinding = ({ siteKey }: { siteKey: string }) => ({
+	rule: 'size-file',
+	severity: StandardsSeverity.Blocking,
+	siteKey,
+	files: [{ path: siteKey }],
+	detail: '420 lines, cap 300',
+});
+
+/** A cleanup record as the refactor step writes it — a finished pass that left nothing behind, over which a test varies one field. */
+const buildCleanupReport = ({ overrides = {} }: { overrides?: Record<string, unknown> } = {}) => ({
+	roundsUsed: 1,
+	endReason: CleanupEndReason.Clean,
+	remaining: [],
+	inherited: [],
+	uncertain: [],
+	failures: [],
+	initialReview: [],
+	finalReview: [],
+	...overrides,
+});
 
 const setupRunDetailBody = ({ overrides = {}, linksDisabled, tab }: { overrides?: Partial<RunView>; linksDisabled?: boolean; tab?: string } = {}) => {
 	jest.useFakeTimers();
@@ -231,6 +253,83 @@ describe('RunDetailBody', () => {
 		const row = screen.getByRole('button', { name: /implement/ });
 
 		expect(row).toHaveTextContent('the reader is covered');
+	});
+
+	test('reads the cleanup pass on the overview as what it spent and what it left standing', () => {
+		setupRunDetailBody({
+			overrides: {
+				steps: [
+					buildRunStep({
+						overrides: {
+							id: 'refactor',
+							report: {
+								roundsUsed: 2,
+								endReason: CleanupEndReason.BudgetExhausted,
+								remaining: [buildFinding({ siteKey: 'src/a.ts' }), buildFinding({ siteKey: 'src/b.ts' }), buildFinding({ siteKey: 'src/c.ts' })],
+								inherited: [],
+								uncertain: [],
+								failures: [],
+								initialReview: [],
+								finalReview: [],
+							},
+						},
+					}),
+				],
+			},
+		});
+
+		const row = screen.getByRole('button', { name: /refactor/ });
+
+		expect(row).toHaveTextContent(/2 rounds.*budget-exhausted.*3/);
+	});
+
+	test('opens the cleanup pass in full as what it spent, what it left behind, what failed and what the last round did', () => {
+		setupRunDetailBody({
+			overrides: {
+				steps: [
+					buildRunStep({
+						overrides: {
+							id: 'refactor',
+							report: buildCleanupReport({
+								overrides: {
+									roundsUsed: 2,
+									endReason: CleanupEndReason.BudgetExhausted,
+									remaining: [buildFinding({ siteKey: 'src/a.ts' })],
+									inherited: [buildFinding({ siteKey: 'src/legacy.ts' })],
+									uncertain: [buildFinding({ siteKey: 'src/b.ts' })],
+									finalReview: [buildFinding({ siteKey: 'src/c.ts' })],
+									failures: ['the second round timed out'],
+									lastReport: { status: 'complete', summary: 'split the oversized reader', changedFiles: [], failures: [] },
+								},
+							}),
+						},
+					}),
+				],
+			},
+			tab: 'Steps',
+		});
+
+		const card = screen.getByRole('article');
+
+		expect(card).toHaveTextContent('2 rounds · budget-exhausted');
+		expect(card).toHaveTextContent('1 finding still standing · 2 findings carried forward · 1 review finding');
+		expect(card).toHaveTextContent('the second round timed out');
+		expect(card).toHaveTextContent('split the oversized reader');
+	});
+
+	test('shows a cleanup pass that has not ended yet as in progress, and says nothing about failures it has none of', () => {
+		setupRunDetailBody({
+			overrides: {
+				steps: [buildRunStep({ overrides: { id: 'refactor', report: buildCleanupReport({ overrides: { endReason: undefined } }) } })],
+			},
+			tab: 'Steps',
+		});
+
+		const card = screen.getByRole('article');
+
+		expect(card).toHaveTextContent('1 round · in progress');
+		expect(card).toHaveTextContent('0 findings still standing · 0 findings carried forward · 0 review findings');
+		expect(screen.queryByText('failures')).not.toBeInTheDocument();
 	});
 
 	test('leaves a report matching no contract off the overview row, since its JSON is a tab away', () => {
