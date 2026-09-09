@@ -48,6 +48,9 @@ export const check: StandardsCheckModule = {
 					files: [{ path: directory }],
 					detail: `${paths.length} files in one flat folder (cap ~${cap})`,
 					guidance: 'Group them by domain, or graduate the concepts hiding in the pile.',
+					// The narrowed count, not the raw directory listing — a folder must not
+					// read as grown because a framework put another route file in it.
+					measure: paths.length,
 				}),
 			);
 	},

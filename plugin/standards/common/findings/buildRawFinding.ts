@@ -7,6 +7,8 @@ interface Params {
 	files: RawStandardsFinding['files'];
 	detail: string;
 	guidance: string;
+	/** The number this rule compared against its cap, when it has one. */
+	measure?: number;
 }
 
 /**
@@ -19,9 +21,13 @@ interface Params {
  * identity whenever code above it moved, which breaks the debt ledger (accepted
  * debt reappears) and the gate (a resolved finding reads as unresolved).
  */
-export const buildRawFinding = ({ rule, files, detail, guidance }: Params): RawStandardsFinding => ({
+export const buildRawFinding = ({ rule, files, detail, guidance, measure }: Params): RawStandardsFinding => ({
 	siteKey: `${rule}:${getSiteGroupKey({ files })}`,
 	files,
 	detail,
 	guidance,
+	// Spread rather than assigned, so an unmeasured rule's finding carries no
+	// `measure` key at all — a key holding undefined would change the shape every
+	// unmeasured rule asserts on.
+	...(measure === undefined ? {} : { measure }),
 });

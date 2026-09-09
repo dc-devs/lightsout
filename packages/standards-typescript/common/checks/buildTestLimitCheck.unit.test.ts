@@ -14,6 +14,18 @@ const check = buildTestLimitCheck({
 	guidance: 'the remedy line',
 });
 
+const measuredCheck = buildTestLimitCheck({
+	rule: 'demo-measured-limit',
+	setting: 'maxLines',
+	// Reports the same line count as a number beside the prose, the way a capped rule now does.
+	report: ({ file, text, limit }) => {
+		const lines = text.split('\n').length;
+
+		return lines > limit ? { files: [{ path: file }], detail: `${lines} lines (cap ${limit})`, measure: lines } : undefined;
+	},
+	guidance: 'the remedy line',
+});
+
 describe('buildTestLimitCheck', () => {
 	test('asks for test files, resolves the named setting, and reports what the measurement returns', async () => {
 		expect(check.inputKind).toBe('test-file');
@@ -34,5 +46,25 @@ describe('buildTestLimitCheck', () => {
 		const input = setupTestFileInput({ contents: [['src/fits.unit.test.ts', 'a\nb\nc']] });
 
 		expect(await check.run({ input, settings: { maxLines: 3 } })).toStrictEqual([]);
+	});
+
+	test('threads a measurement the report supplies and omits the key when it supplies none', async () => {
+		const input = setupTestFileInput({ contents: [['src/long.unit.test.ts', 'a\nb\nc\nd']] });
+
+		const measured = await measuredCheck.run({ input, settings: { maxLines: 3 } });
+		const unmeasured = await check.run({ input, settings: { maxLines: 3 } });
+
+		expect(measured).toStrictEqual([
+			{
+				siteKey: 'demo-measured-limit:src/long.unit.test.ts',
+				files: [{ path: 'src/long.unit.test.ts' }],
+				detail: '4 lines (cap 3)',
+				guidance: 'the remedy line',
+				measure: 4,
+			},
+		]);
+		expect(unmeasured).toStrictEqual([
+			{ siteKey: 'demo-limit:src/long.unit.test.ts', files: [{ path: 'src/long.unit.test.ts' }], detail: '4 lines (cap 3)', guidance: 'the remedy line' },
+		]);
 	});
 });

@@ -65,4 +65,32 @@ describe('buildRawFinding', () => {
 
 		expect(finding.siteKey).toBe('test-assert-in-hook:');
 	});
+
+	test('carries a measure through beside a site key the number never enters', () => {
+		const { rule, files, detail, guidance } = setupFinding();
+
+		const finding = buildRawFinding({ rule, files, detail, guidance, measure: 214 });
+
+		expect(finding).toStrictEqual({
+			siteKey: 'test-assert-in-hook:src/alpha.unit.test.ts',
+			files: [{ path: 'src/alpha.unit.test.ts', startLine: 3, endLine: 5 }],
+			detail: 'beforeEach at line 3 asserts',
+			guidance: 'Act and assert live in the `test`; a hook only arranges.',
+			measure: 214,
+		});
+	});
+
+	test('a call with no measure returns a finding carrying no measure key', () => {
+		const { rule, files, detail, guidance } = setupFinding();
+
+		const finding = buildRawFinding({ rule, files, detail, guidance });
+
+		expect(finding).toStrictEqual({
+			siteKey: 'test-assert-in-hook:src/alpha.unit.test.ts',
+			files: [{ path: 'src/alpha.unit.test.ts', startLine: 3, endLine: 5 }],
+			detail: 'beforeEach at line 3 asserts',
+			guidance: 'Act and assert live in the `test`; a hook only arranges.',
+		});
+		expect('measure' in finding).toBe(false);
+	});
 });

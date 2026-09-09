@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { statusCommand } from '#src/cli/statusCommand.ts';
-import { type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import { type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // Mocked Imports
@@ -63,6 +63,38 @@ const manifestOf = ({ runId, ...overrides }: { runId: string } & Partial<RunMani
 	...overrides,
 });
 
+/** One deterministic finding, as `StandardsFinding` declares it — only its presence in a list counts here. */
+const finding = {
+	rule: 'size-file',
+	severity: 'blocking',
+	siteKey: 'size-file:src/cli/statusCommand.ts',
+	files: [{ path: 'src/cli/statusCommand.ts' }],
+	detail: 'the file is over its line cap',
+};
+
+/**
+ * A refactor step carrying the cleanup record `RefactorStepReport` declares —
+ * rounds spent, two qualifying findings still standing, one inherited finding
+ * nobody worked, and one cleanup attempt that failed. A case that names no end
+ * reason gets a record with none, which is a run parked mid-loop.
+ */
+const refactorStepOf = ({ rounds = 2, endReason }: { rounds?: number; endReason?: string } = {}): StepRecord => ({
+	id: 'refactor',
+	status: RunStatus.Passed,
+	attempts: 3,
+	durationMs: 90_000,
+	report: {
+		roundsUsed: rounds,
+		...(endReason === undefined ? {} : { endReason }),
+		remaining: [finding, finding],
+		inherited: [finding],
+		uncertain: [],
+		failures: ['refactor executor timed out after 20 minutes'],
+		initialReview: [finding],
+		finalReview: [finding],
+	},
+});
+
 /** A real repo holding the given manifests, and the flag map the dispatcher would hand the command. */
 const setupDetail = ({ manifests = [], args = {} }: { manifests?: RunManifest[]; args?: Record<string, string | true> } = {}) => {
 	const captured = captureCommandOutput();
@@ -78,6 +110,16 @@ const setupDetail = ({ manifests = [], args = {} }: { manifests?: RunManifest[];
 	}
 
 	return { context: { flags: new Map<string, string | true>(Object.entries(args)), rest: [], cwd }, ...captured };
+};
+
+/** The run the cleanup cases open: the failed implement step this file already describes, with a refactor step recording a cleanup pass after it. */
+const setupCleanupRun = ({ rounds, endReason }: { rounds?: number; endReason?: string } = {}) => {
+	const implementSteps = manifestOf({ runId: 'run-alpha' }).steps;
+
+	return setupDetail({
+		manifests: [manifestOf({ runId: 'run-alpha', steps: [...implementSteps, refactorStepOf({ rounds, endReason })] })],
+		args: { run: 'run-alpha' },
+	});
 };
 
 describe('statusCommand detail view', () => {
@@ -104,6 +146,37 @@ describe('statusCommand detail view', () => {
 		expect(logged).toContain(' diagnosis     stale dependency graph');
 		expect(logged).toContain(' last output   FINAL OUTPUT');
 		expect(errors).toStrictEqual([]);
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('--run prints the refactor step cleanup record on its own line, beside the verification one', async () => {
+		const { context, logged, exitCodes } = setupCleanupRun({ endReason: 'budget-exhausted' });
+
+		await expect(statusCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged).toContain(' cleanup       2 rounds · budget-exhausted · remaining 2 · carried 1 · failed 1');
+		// the two budgets stay two lines: a cleanup round is not a verification repair
+		expect(logged).toContain(' verification  check, test · groups root, api · repairs check=2, test=1 · guided yes');
+		expect(logged.filter((line) => line.startsWith(' cleanup'))).toHaveLength(1);
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('--run says a refactor step that recorded no ending is cleanup still in progress', async () => {
+		const { context, logged, exitCodes } = setupCleanupRun({ rounds: 1 });
+
+		await expect(statusCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged).toContain(' cleanup       1 round · in progress · remaining 2 · carried 1 · failed 1');
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('--run on a run whose steps recorded no cleanup prints no cleanup line at all', async () => {
+		const { context, logged, exitCodes } = setupDetail({ manifests: [manifestOf({ runId: 'run-alpha' })], args: { run: 'run-alpha' } });
+
+		await expect(statusCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged.filter((line) => line.startsWith(' cleanup'))).toStrictEqual([]);
+		expect(logged.some((line) => line.startsWith(' ✗  implement'))).toBe(true);
 		expect(exitCodes).toStrictEqual([0]);
 	});
 

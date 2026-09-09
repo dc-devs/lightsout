@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { z } from 'zod';
+import { defaultRefactorMaxRounds } from '#src/common/constants/defaultRefactorMaxRounds.ts';
 import { LightsoutConfig } from '#src/contracts/index.ts';
 import { configKeyDescriptions } from '#src/views/common/constants/configKeyDescriptions.ts';
 
@@ -50,5 +51,18 @@ describe('configKeyDescriptions', () => {
 	test('counts a block-shaped key as live, so `queue` cannot ship without a sentence the way it once did', () => {
 		expect(isTombstone({ key: 'queue' })).toBe(false);
 		expect(configKeyDescriptions.queue).toBeDefined();
+	});
+
+	test('counts the implement block as live, so it cannot ship without a sentence', () => {
+		expect(isTombstone({ key: 'implement' })).toBe(false);
+		expect(configKeyDescriptions.implement).toEqual(expect.any(String));
+	});
+
+	test('names the round budget the engine really spends, so the page and the generated table cannot promise a number nothing enforces', () => {
+		// the block is shown as the file wrote it, so this sentence is the only
+		// place the page states what an unconfigured repo gets — a sentence naming
+		// a different number than the engine's own default would be a lie the
+		// generated table in the documentation repeats
+		expect(configKeyDescriptions.implement).toMatch(new RegExp(`\\b${defaultRefactorMaxRounds}\\b`));
 	});
 });

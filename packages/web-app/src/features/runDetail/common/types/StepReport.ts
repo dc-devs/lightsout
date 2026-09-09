@@ -34,6 +34,20 @@ interface WorkStepReport {
 	failures: string[];
 }
 
+/** The implementation cleanup pass: what it spent, why it ended, and what it left behind. */
+interface CleanupStepReport {
+	kind: typeof StepReportKind.Cleanup;
+	rounds: number;
+	/** Undefined while cleanup is still running or parked mid-loop. */
+	endReason: string | undefined;
+	remaining: number;
+	carried: number;
+	reviewFindings: number;
+	failures: string[];
+	/** The last executor's one-line summary, when a round ran. */
+	summary: string | undefined;
+}
+
 /** A report matching no contract this app knows — its JSON, so the evidence is still readable. */
 interface RawStepReport {
 	kind: typeof StepReportKind.Raw;
@@ -50,4 +64,4 @@ interface RawStepReport {
  * its shape belongs to whichever role produced it — so the only way to show one
  * is to try each contract and say so honestly when none fits.
  */
-export type StepReport = BatchStepReport | PhaseStepReport | WritersStepReport | WorkStepReport | RawStepReport;
+export type StepReport = BatchStepReport | PhaseStepReport | WritersStepReport | WorkStepReport | CleanupStepReport | RawStepReport;

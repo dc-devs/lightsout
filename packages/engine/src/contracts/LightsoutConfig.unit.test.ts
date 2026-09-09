@@ -301,3 +301,33 @@ test('LightsoutConfig: the plan block is optional, keeps its own kebab-case spel
 	expect('plan' in LightsoutConfig.parse(base)).toBe(false);
 	expect(LightsoutConfig.parse(base).plan).toBe(undefined);
 });
+
+test('LightsoutConfig: the implement block is optional, keeps its own kebab-case spelling, and stays strict through the composition', () => {
+	const parsed = LightsoutConfig.parse({ ...base, implement: { refactor: { 'max-rounds': 5 } } });
+
+	// the block survives parsing as the file wrote it — nothing renames a key on
+	// the way through, so the cleanup loop reads the budget the repo spelled and a
+	// manifest's config snapshot still round-trips
+	expect(parsed.implement).toStrictEqual({ refactor: { 'max-rounds': 5 } });
+	// a block declared with nothing in it parses too — the budget has a documented
+	// default behind it
+	expect(LightsoutConfig.parse({ ...base, implement: { refactor: {} } }).implement).toStrictEqual({ refactor: {} });
+
+	// the block's own strictness fires through the composition, at both levels: a
+	// stripped typo would leave the default budget in force while the file
+	// believes it raised it
+	expect(LightsoutConfig.safeParse({ ...base, implement: { refactors: { 'max-rounds': 5 } } }).success).toBe(false);
+	expect(LightsoutConfig.safeParse({ ...base, implement: { refactor: { 'max-round': 3 } } }).success).toBe(false);
+	// and its numeric refusal fires too — a round is a whole executor invocation,
+	// and zero is not how cleanup is turned off
+	expect(LightsoutConfig.safeParse({ ...base, implement: { refactor: { 'max-rounds': 0 } } }).success).toBe(false);
+
+	// the key inside commands is a different block: a harness choice for the
+	// implement command never reads as the command's own settings
+	expect(LightsoutConfig.parse({ ...base, commands: { implement: { harness: 'codex' } } }).implement).toBe(undefined);
+
+	// implement is opt-in: an absent block leaves no key on the parsed config,
+	// which is what tells cleanup "unset" rather than "declared empty"
+	expect('implement' in LightsoutConfig.parse(base)).toBe(false);
+	expect(LightsoutConfig.parse(base).implement).toBe(undefined);
+});

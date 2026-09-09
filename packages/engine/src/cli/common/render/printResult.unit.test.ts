@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, jest, test } from '@jest/globals';
 import { printResult } from '#src/cli/common/render/printResult.ts';
-import type { FrictionRecord, RunManifest } from '#src/contracts/index.ts';
-import { FrictionArea, PackagesSource, RunStatus } from '#src/contracts/index.ts';
+import type { FrictionRecord, RunManifest, StandardsFinding } from '#src/contracts/index.ts';
+import { CleanupEndReason, FrictionArea, PackagesSource, RunStatus, StandardsSeverity } from '#src/contracts/index.ts';
 
 // printResult summarizes a run from the evidence the run left on disk, so the
 // arrangement is a real run directory in a temp repo — the summary is driven
@@ -195,6 +195,79 @@ test('printResult: files that finished the run unreachable surface as a named wa
 		'gates     0s',
 		'gates     0 commands',
 		'warning   unreachable-changed-files: src/orphan.ts, src/other.ts — changed, but no public surface reaches them; no tests cover them',
+		'evidence  .lightsout/runs/run-1234-abcd/',
+	]);
+});
+
+/** One deterministic standards finding. Only the site key varies: the cleanup line counts findings, it never reads them. */
+const finding = ({ siteKey }: { siteKey: string }): StandardsFinding => ({
+	rule: 'size-file',
+	severity: StandardsSeverity.Blocking,
+	siteKey,
+	files: [{ path: `src/${siteKey}.ts` }],
+	detail: '412 lines, cap 400',
+	measure: 412,
+});
+
+test('printResult: a run that spent cleanup rounds prints one cleanup line naming the rounds, the reason, what remains and what failed', async () => {
+	const { result, cwd, logged } = setupResult({
+		manifest: {
+			steps: [
+				{ id: 'implement', status: RunStatus.Passed, attempts: 1 },
+				{
+					id: 'refactor',
+					status: RunStatus.Passed,
+					attempts: 3,
+					report: {
+						roundsUsed: 2,
+						endReason: CleanupEndReason.BudgetExhausted,
+						remaining: [finding({ siteKey: 'a' }), finding({ siteKey: 'b' }), finding({ siteKey: 'c' })],
+						inherited: [finding({ siteKey: 'd' }), finding({ siteKey: 'e' })],
+						uncertain: [finding({ siteKey: 'f' }), finding({ siteKey: 'g' })],
+						failures: ['cleanup agent timed out after 20 minutes'],
+						initialReview: [],
+						finalReview: [finding({ siteKey: 'h' })],
+					},
+				},
+			],
+		},
+	});
+
+	await printResult({ result, cwd });
+
+	const lines = labelLines({ logged });
+	const cleanupLines = lines.filter((line) => line.startsWith('cleanup'));
+
+	expect(cleanupLines).toHaveLength(1);
+	// The wording is the printer's own; the four facts the line has to carry are
+	// pinned, and each count is tied to the word it belongs to so a transposed
+	// pair cannot pass.
+	expect(cleanupLines[0]).toMatch(/\b2 rounds?\b/);
+	expect(cleanupLines[0]).toContain('budget-exhausted');
+	expect(cleanupLines[0]).toMatch(/\b3\b[^0-9]*(remain|standing)/);
+	expect(cleanupLines[0]).toMatch(/\b1\b[^0-9]*fail/);
+	expect(lines).toContain('gates     0 commands');
+	expect(lines).toContain('evidence  .lightsout/runs/run-1234-abcd/');
+});
+
+test('printResult: a run with no cleanup record prints no cleanup line', async () => {
+	const { result, cwd, logged } = setupResult({
+		manifest: {
+			steps: [
+				{ id: 'implement', status: RunStatus.Passed, attempts: 1 },
+				{ id: 'refactor', status: RunStatus.Passed, attempts: 1 },
+			],
+		},
+	});
+
+	await printResult({ result, cwd });
+
+	expect(labelLines({ logged })).toStrictEqual([
+		'run       run-1234 · PASSED',
+		'plan      feature.md',
+		'wall      3s',
+		'gates     0s',
+		'gates     0 commands',
 		'evidence  .lightsout/runs/run-1234-abcd/',
 	]);
 });

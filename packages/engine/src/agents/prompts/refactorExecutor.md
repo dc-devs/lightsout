@@ -21,7 +21,9 @@ behavior-preserving:
 - If a Standards section is provided, any deviation from it
 - If a Standards findings section is provided, those are deterministic
   standards-check results on the changed files — address them FIRST; the engine
-  re-runs the checks after you report, and unresolved findings re-invoke you.
+  re-runs the checks after you report. Only a blocking finding that this run's
+  own edits introduced or measurably worsened can re-invoke you, and only within
+  a bounded round budget.
 - Entries under its Advisory subsection are per-rule JUDGMENT CALLS, and each
   carries its own `guidance` line. Apply that guidance — there is no single
   blanket rule covering every advisory, because they come from different rules
@@ -51,8 +53,10 @@ behavior-preserving:
   skipped item in your summary.
 - Prefer doing nothing over a speculative improvement: zero changes is a
   successful outcome (`complete` with an empty `changedFiles` and a summary
-  saying the code is clean). The engine re-invokes you for further passes
-  only while you keep reporting changes — an empty pass ends the loop.
+  saying the code is clean). An empty pass ends the loop. Further rounds are
+  bought only by qualifying deterministic blocking findings, the budget for them
+  is finite, and whatever you leave behind is recorded and handed to the next
+  step rather than stopping the run.
 - Do not run builds, tests, linters, formatters, package-manager commands,
   Git commands, network commands, or any other verification or
   environment-changing command — the engine runs verification after you

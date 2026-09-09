@@ -22,6 +22,11 @@ const gateOverridesBlock = {
 	'verify-implement': ['check', 'test-coverage'],
 };
 
+/** The implement block as a repo writes it, kebab-case key and all, so the section proves it reads the file rather than the engine's default of 2. */
+const implementBlock = {
+	refactor: { 'max-rounds': 5 },
+};
+
 /** A parsed config, so the sections are built from the same value a run would hand them. */
 const buildSections = ({ config = {} }: { config?: Record<string, unknown> } = {}) =>
 	buildConfigSections({
@@ -89,5 +94,17 @@ describe('buildConfigSections', () => {
 			fromConfig: true,
 			description: configKeyDescriptions['gate-overrides'],
 		});
+	});
+
+	test('renders an Implement section holding the block the config wrote', () => {
+		const implement = buildSections({ config: { implement: implementBlock } }).find((section) => section.title === 'Implement');
+
+		expect(implement?.fields).toStrictEqual([{ key: 'implement', value: implementBlock, fromConfig: true, description: configKeyDescriptions.implement }]);
+	});
+
+	test('renders the Implement section as an unset block when the config omits it', () => {
+		const implement = buildSections().find((section) => section.title === 'Implement');
+
+		expect(implement?.fields).toStrictEqual([{ key: 'implement', value: null, fromConfig: false, description: configKeyDescriptions.implement }]);
 	});
 });

@@ -104,6 +104,7 @@ describe('getReader config', () => {
 			{ title: 'Queue', keys: ['queue'] },
 			{ title: 'Auto plan', keys: ['auto-plan'] },
 			{ title: 'Plan', keys: ['plan'] },
+			{ title: 'Implement', keys: ['implement'] },
 			{ title: 'Docs', keys: ['docs'] },
 		]);
 	});

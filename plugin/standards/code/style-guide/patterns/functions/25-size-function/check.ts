@@ -81,6 +81,10 @@ const buildFileFindings = ({ input, settings }: { input: SyntaxTreeInput; settin
 					detail: oversized.map(({ kind, name, lines, cap }) => `${kind} '${name}' is ${lines} lines (cap ~${cap})`).join('; '),
 					guidance:
 						'Extract logic. Exempt only when every statement is a call to a named step (or the assignment of its result) and the flow is linear — any inline loop, branch, or transformation disqualifies.',
+					// One finding covers every oversized function in the file, so the measure
+					// sums them: it rises when one grows and when a second goes over the cap,
+					// which are the two ways this one site gets worse.
+					measure: oversized.reduce((total, { lines }) => total + lines, 0),
 				}),
 			);
 		}

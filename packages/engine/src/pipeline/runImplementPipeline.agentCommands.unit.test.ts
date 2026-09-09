@@ -6,6 +6,7 @@ import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { report } from '#tests/helpers/report.ts';
+import { reviewOneAdvisory } from '#tests/helpers/reviewOneAdvisory.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -119,7 +120,10 @@ test('grants every working role the self-check prefix, and tells only the execut
 				const role = roleOf(prompt);
 
 				if (role === 'standards-review') {
-					return { text: reviewReport(), exitCode: 0 };
+					// One advisory, so the bounded cleanup loop has something to hand its
+					// first round: this fixture's tree carries no qualifying deterministic
+					// finding, and cleanup no longer spends a round on nothing.
+					return { text: reviewOneAdvisory({ systemPrompt, path: 'src/feature.js' }), exitCode: 0 };
 				}
 
 				invocations.push({ role, systemPrompt, allowedCommands });

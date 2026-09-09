@@ -30,7 +30,7 @@ Completing the task is not enough. Agents should leave the repository better tha
 
 - **Humans decide. Agents execute.** Before implementation begins, you and the planning agent agree on a complete design spec: scope, architecture, files touched, tradeoffs, constraints, and acceptance criteria. Once every decision is settled, the implementation agent follows the plan without guessing or inventing the design as it goes.
 - **Makes code standards a first-class concern.** Your style guide and architecture rules are injected into planning, implementation, testing, and refactoring. The agent follows the standards you defined instead of copying whatever patterns it happens to find in the repository.
-- **Improves the codebase with every run.** During planning, agents search for existing helpers and similar implementations, then identify where shared abstractions can replace duplicated logic. Every run ends with a mandatory refactoring pass.
+- **Improves the codebase with every run.** During planning, agents search for existing helpers and similar implementations, then identify where shared abstractions can replace duplicated logic. Every run ends with a bounded cleanup pass.
 - **Puts deterministic gates between every stage.** Lightsout formats the full repository after each code-writing phase, then runs your tests, lint, type checks, and coverage commands directly instead of asking an agent to verify its own work. A red verification family receives a bounded repair allowance of its own before the run escalates.
 - **Makes every run auditable.** All gate results, agent conversations, decisions, and costs are recorded in the run manifest. A successful run does not just claim it passed. It can prove it.
 
@@ -136,7 +136,7 @@ Use `/plan` to explore the codebase and settle the scope, architecture, files to
 
 5. **Hand the spec to the factory.**
 
-Use `/implement`, then walk away. The implementation agent follows the finished spec, writes the code and tests, and performs a mandatory refactoring pass. Deterministic gates verify every stage, and the complete run is recorded in .lightsout/runs/<id>/.
+Use `/implement`, then walk away. The implementation agent follows the finished spec, writes the code and tests, and ends with a bounded cleanup pass. Deterministic gates verify every stage, and the complete run is recorded in .lightsout/runs/<id>/.
 
 ## Commands
 
@@ -207,7 +207,7 @@ What happens after you approve — stop at the hand-off line, or start the build
 
 ### /implement
 
-Hand the finished spec to the factory. `/implement` follows the plan, writes the code and tests, and performs a mandatory refactoring pass.
+Hand the finished spec to the factory. `/implement` follows the plan, writes the code and tests, and ends with a bounded cleanup pass. That pass buys another cleanup round only for a deterministic blocking finding the run's own edits introduced or measurably worsened — inherited debt and a reviewer's judgment call are recorded, never worked — and the number of rounds is capped at two by default, set by `implement.refactor.max-rounds`. Whatever cleanup leaves behind, the run carries on to its normal verification gates rather than stopping, and the run report says how many rounds were spent, why cleanup ended, what remains and what failed.
 
 When the plan carries an acceptance-test ledger, the run writes those tests first — after the clean-slate gate run and before the implementation agent starts. From then on, every change an agent makes to a test file is compared against the version last approved for this run and judged by a separate agent that may only read, never write. A correction the plan's own changes force — an import pointing at a file the plan moved, a renamed fixture, a stale bit of setup — is approved and becomes the new approved version. Weakening what a test asserts, or deleting, renaming or skipping one of the ledger's named tests without the plan asking for it, is refused: the checkpoint goes red naming the test and the reason, and the agent is sent back to fix it. The engine never puts a file back on its own.
 

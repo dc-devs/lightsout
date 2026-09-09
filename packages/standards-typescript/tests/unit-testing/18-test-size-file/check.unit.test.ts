@@ -22,6 +22,7 @@ describe('test-size-file check', () => {
 				detail: '6 lines (cap ~5)',
 				guidance:
 					'A test file this long is a module asking for promotion — give each internal unit a direct test beside it, export the unit from the module’s barrel, and leave the boundary file its orchestration.',
+				measure: 6,
 			},
 		]);
 	});
@@ -32,6 +33,28 @@ describe('test-size-file check', () => {
 		const findings = await check.run({ input, settings: { testFile: 5 } });
 
 		expect(findings).toStrictEqual([]);
+	});
+
+	test("reports the test file's line count as the measure", async () => {
+		const input = setupTestFileInput({
+			contents: [
+				['src/doctor/runDoctor.unit.test.ts', buildTestSource({ lines: 4 })],
+				['src/doctor/runQuick.unit.test.ts', buildTestSource({ lines: 2 })],
+			],
+		});
+
+		const findings = await check.run({ input, settings: { testFile: 3 } });
+
+		expect(findings).toStrictEqual([
+			{
+				siteKey: 'test-size-file:src/doctor/runDoctor.unit.test.ts',
+				files: [{ path: 'src/doctor/runDoctor.unit.test.ts' }],
+				detail: '4 lines (cap ~3)',
+				guidance:
+					'A test file this long is a module asking for promotion — give each internal unit a direct test beside it, export the unit from the module’s barrel, and leave the boundary file its orchestration.',
+				measure: 4,
+			},
+		]);
 	});
 
 	test('reports each oversized file on its own, so one monster cannot hide another', async () => {
