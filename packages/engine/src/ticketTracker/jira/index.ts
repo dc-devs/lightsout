@@ -5,6 +5,6 @@ export { listLabelNames } from '#src/ticketTracker/jira/listLabelNames.ts';
 export { listTickets } from '#src/ticketTracker/jira/listTickets.ts';
 export { readTicketAsset } from '#src/ticketTracker/jira/readTicketAsset.ts';
 export { setExclusiveLabel } from '#src/ticketTracker/jira/setExclusiveLabel.ts';
-export { setParkedLabel } from '#src/ticketTracker/jira/setParkedLabel.ts';
 export { setTicketAttachment } from '#src/ticketTracker/jira/setTicketAttachment.ts';
+export { setTicketLabel } from '#src/ticketTracker/jira/setTicketLabel.ts';
 export { setTicketStatus } from '#src/ticketTracker/jira/setTicketStatus.ts';

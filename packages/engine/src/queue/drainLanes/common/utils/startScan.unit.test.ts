@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, jest, test } from '@jest/globals';
+import type { GateHolds } from '#src/gates/index.ts';
 import { startScan } from '#src/queue/drainLanes/common/utils/startScan.ts';
 import type { listNextWave, reconcileMergedTickets } from '#src/queue/ticketSelection/index.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
@@ -79,6 +80,24 @@ describe('startScan', () => {
 		expect(lane.state.blockedByIdentifier.size).toBe(0);
 		expect(readFileSync(lane.context.planPath, 'utf8')).toContain('LO-70 · direct · lo-70-ticket-70');
 		expect(lane.progress).toContain('LO-70 · joined the run already in flight');
+	});
+
+	test('hands the holds to the re-scan', async () => {
+		const lane = setupScan();
+		const holds: GateHolds = {
+			'lo-70': {
+				takenAt: '2026-01-01T00:00:00.000Z',
+				runId: 'run-a1b2c3',
+				worktreePath: '/tmp/lightsout/lo-70',
+				reason: 'the gates never got the machine within the wait',
+				labelConfirmed: true,
+			},
+		};
+
+		startScan({ context: { ...lane.context, holds }, state: lane.state, flight: lane.flight });
+		await Promise.all(lane.flight.tasks.values());
+
+		expect(mockScan).toHaveBeenCalledWith(expect.objectContaining({ holds }));
 	});
 
 	test('settles a thrown tracker error, stops future scans, and explains the failure', async () => {

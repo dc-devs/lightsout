@@ -14,21 +14,21 @@ import { setupQueueDrain } from '#tests/helpers/setupQueueDrain.ts';
 // The park label is opt-in, written after the serial merge, and never a
 // precondition for building — three claims about WHEN the drain writes it and
 // over WHICH list, which is why this file stubs the write itself. What the
-// write does to a tracker is `setParkedLabel`'s own test.
-type LabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; parked: boolean };
+// write does to a tracker is `setTicketLabel`'s own test.
+type LabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; present: boolean };
 
 const mockListEligibleTickets = jest.fn<() => Promise<TicketSummary[] | QueueFailure>>();
 const mockScanParkedWorktrees = jest.fn<() => Promise<ParkedWork | QueueFailure>>();
 const mockRunQueueTicket = jest.fn<(params: { ticket: TicketSummary }) => Promise<TicketRunOutcome>>();
 const mockShipOneBranch = jest.fn<(params: { outcome: TicketRunOutcome }) => Promise<TicketRunOutcome>>();
-const mockSetParkedLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure | undefined>>();
+const mockSetTicketLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure | undefined>>();
 
 jest.mock('#src/queue/ticketSelection/listEligibleTickets.ts', () => ({ listEligibleTickets: () => mockListEligibleTickets() }));
 jest.mock('#src/ticketTracker/index.ts', () => ({
 	listLabelNames: () =>
 		Promise.resolve(['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed']),
 	appendTicketNote: () => Promise.resolve(undefined),
-	setParkedLabel: (params: LabelParams) => mockSetParkedLabel(params),
+	setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params),
 }));
 jest.mock('#src/queue/worktrees/scanParkedWorktrees.ts', () => ({ scanParkedWorktrees: () => mockScanParkedWorktrees() }));
 jest.mock('#src/queue/runQueueTicket.ts', () => ({ runQueueTicket: (params: { ticket: TicketSummary }) => mockRunQueueTicket(params) }));
@@ -41,7 +41,7 @@ const setupDrain = ({ eligible = [] }: { eligible?: TicketSummary[] } = {}) => {
 	mockScanParkedWorktrees.mockResolvedValue({ resumed: [], outcomes: [], leftBehind: [], merged: [] });
 	mockRunQueueTicket.mockImplementation(({ ticket }) => Promise.resolve(outcomeOf({ ticket })));
 	mockShipOneBranch.mockImplementation(({ outcome }) => Promise.resolve(outcome));
-	mockSetParkedLabel.mockResolvedValue(undefined);
+	mockSetTicketLabel.mockResolvedValue(undefined);
 
 	return setupQueueDrain();
 };
@@ -59,16 +59,16 @@ describe('runQueue', () => {
 		await drain({ settings: queueSettingsFixture({ parkedLabel: 'queue-parked' }) });
 		relay.close();
 
-		expect(mockSetParkedLabel.mock.calls.map(([params]) => ({ ticketId: params.ticketId, label: params.label, parked: params.parked }))).toStrictEqual([
-			{ ticketId: 'id-70', label: 'queue-parked', parked: false },
-			{ ticketId: 'id-71', label: 'queue-parked', parked: true },
+		expect(mockSetTicketLabel.mock.calls.map(([params]) => ({ ticketId: params.ticketId, label: params.label, present: params.present }))).toStrictEqual([
+			{ ticketId: 'id-70', label: 'queue-parked', present: false },
+			{ ticketId: 'id-71', label: 'queue-parked', present: true },
 		]);
 	});
 
 	test('reports a failed label write as progress and still hands the drain back, because the tracker is never a precondition for building', async () => {
 		const { drain, relay, progress } = setupDrain({ eligible: [ticketOf({ number: 70 })] });
 
-		mockSetParkedLabel.mockResolvedValue({ error: 'there is no LO team to create the label on' });
+		mockSetTicketLabel.mockResolvedValue({ error: 'there is no LO team to create the label on' });
 
 		const report = await drain({ settings: queueSettingsFixture({ parkedLabel: 'queue-parked' }) });
 
@@ -87,6 +87,6 @@ describe('runQueue', () => {
 		await drain();
 		relay.close();
 
-		expect(mockSetParkedLabel).not.toHaveBeenCalled();
+		expect(mockSetTicketLabel).not.toHaveBeenCalled();
 	});
 });

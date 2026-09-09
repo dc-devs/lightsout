@@ -35,7 +35,7 @@ export const formatAndVerify = async ({ context, record }: Params): Promise<Repa
 	await run.setStep({ record: next });
 
 	if (error !== undefined) {
-		return { record: next, result: { error, failedFamilies: ['format'], crashes: [], failures, gates: [] } };
+		return { record: next, result: { error, failedFamilies: ['format'], crashes: [], coordination: undefined, failures, gates: [] } };
 	}
 
 	const result = await reviewAndVerify({ run, id, coverage, final, planContent, overviewContent, acceptanceTests });

@@ -30,7 +30,11 @@ interface Params<TResult> {
  * skipped when an earlier attempt already passed it. A red gate after a batch
  * can only mean "the batch's doing" if the baseline was green.
  *
- * @returns the run-ending result when the baseline is red, undefined to proceed
+ * A gate run that never got the machine ends the run escalated with its own
+ * reason instead, and records no passed pre-flight step, so a later attempt runs
+ * the baseline again rather than inheriting a proof nothing established.
+ *
+ * @returns the run-ending result when the baseline is red or the machine was never available, undefined to proceed
  */
 export const runPreflightGate = async <TResult>({ run, coverage, label, redBaselineError }: Params<TResult>): Promise<TResult | undefined> => {
 	const steps = run.current().steps;
@@ -48,7 +52,7 @@ export const runPreflightGate = async <TResult>({ run, coverage, label, redBasel
 	await run.setStep({ record });
 	run.progress(label);
 
-	const { error: gateError } = await runGates({
+	const { error: gateError, coordination } = await runGates({
 		cwd: run.cwd,
 		config: run.config,
 		coverage,
@@ -59,7 +63,13 @@ export const runPreflightGate = async <TResult>({ run, coverage, label, redBasel
 
 	let result: TResult | undefined;
 
-	if (gateError) {
+	if (coordination !== undefined) {
+		// The gates never started, so the baseline was neither proved nor
+		// disproved: the run ends for a human naming the machine, never with the
+		// red-baseline sentence, which asserts something about the consumer's code
+		// that no command here established.
+		result = await run.stop({ record, status: RunStatus.Escalated, error: coordination });
+	} else if (gateError) {
 		result = await run.stop({ record, status: RunStatus.Failed, error: `${redBaselineError}\n${gateError}` });
 	} else {
 		await run.setStep({ record: { ...record, status: RunStatus.Passed } });

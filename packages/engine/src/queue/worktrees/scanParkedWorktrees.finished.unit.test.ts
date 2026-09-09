@@ -3,6 +3,7 @@ import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { BranchPhase } from '#src/contracts/index.ts';
+import type { GateHolds } from '#src/gates/index.ts';
 import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
 import { createTicketWorktree } from '#src/queue/worktrees/createTicketWorktree.ts';
 import { scanParkedWorktrees } from '#src/queue/worktrees/scanParkedWorktrees.ts';
@@ -20,11 +21,11 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 // Git and the branch-state records are real, because the two new questions this
 // file is about are answered from the record first and the forge second.
 const mockGetTicketsByIdentifiers = jest.fn<(params: { identifiers: string[] }) => Promise<TrackerTicket[] | TrackerFailure>>();
-const mockSetParkedLabel = jest.fn<(params: { ticketId: string; label: string | undefined; parked: boolean }) => Promise<TrackerFailure | undefined>>();
+const mockSetTicketLabel = jest.fn<(params: { ticketId: string; label: string | undefined; present: boolean }) => Promise<TrackerFailure | undefined>>();
 
 jest.mock('#src/ticketTracker/index.ts', () => ({
 	getTicketsByIdentifiers: (params: { identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
-	setParkedLabel: (params: { ticketId: string; label: string | undefined; parked: boolean }) => mockSetParkedLabel(params),
+	setTicketLabel: (params: { ticketId: string; label: string | undefined; present: boolean }) => mockSetTicketLabel(params),
 }));
 // -------------------------
 const mockFindPullRequest = jest.fn<(params: { branch: string; cwd: string; state: string }) => Promise<PullRequestSummary | undefined>>();
@@ -36,6 +37,9 @@ jest.mock('#src/ship/index.ts', () => ({
 // -------------------------
 
 const settings = queueSettingsFixture({ parkedLabel: 'queue-parked' });
+
+/** No repository in this file has ever timed out waiting for the machine. */
+const holds: GateHolds = {};
 
 const trackerSettings = trackerSettingsFixture();
 
@@ -91,7 +95,7 @@ const setupParkedScan = async ({
 	const worktreePath = String(await createTicketWorktree({ cwd, branch, defaultBranch: 'main' }));
 
 	mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf({ finished })]);
-	mockSetParkedLabel.mockResolvedValue(undefined);
+	mockSetTicketLabel.mockResolvedValue(undefined);
 	mockFindPullRequest.mockResolvedValue(pullRequest);
 
 	if (committed) {
@@ -107,7 +111,7 @@ const setupParkedScan = async ({
 	}
 
 	const progress: string[] = [];
-	const params = { cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, onProgress: (message: string) => progress.push(message) };
+	const params = { cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds, onProgress: (message: string) => progress.push(message) };
 
 	return { cwd, branch, worktreePath, progress, params };
 };
@@ -200,7 +204,7 @@ describe('scanParkedWorktrees', () => {
 		const parked = await scanParked(params);
 
 		expect(parked.leftBehind).toHaveLength(1);
-		expect(mockSetParkedLabel).not.toHaveBeenCalled();
+		expect(mockSetTicketLabel).not.toHaveBeenCalled();
 	});
 
 	test('classifies an unfinished ticket on an unmerged branch exactly as before, so the new questions change nothing else', async () => {

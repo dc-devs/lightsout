@@ -3,6 +3,7 @@ import type { measureCoverageBatch } from '#src/coverage/batch/measureCoverageBa
 import { CoverageBatchStopKind } from '#src/coverage/common/constants/CoverageBatchStopKind.ts';
 import type { CoverageBatch } from '#src/coverage/common/types/CoverageBatch.ts';
 import type { CoverageBatchStop } from '#src/coverage/common/types/CoverageBatchStop.ts';
+import type { GateRunResult } from '#src/gates/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
 
 interface Params {
@@ -17,8 +18,8 @@ interface Params {
 	testsOnly: () => Promise<string | undefined>;
 	/** Re-measure the batch's scope. */
 	measure: () => ReturnType<typeof measureCoverageBatch>;
-	/** Run the batch's gates and return the failure output, or undefined when green. */
-	gates: () => Promise<string | undefined>;
+	/** Run the batch's gates and answer their whole verdict — a red, a crash, or a run that never started. */
+	gates: () => Promise<GateRunResult>;
 	/** Build the batch's done stop — the caller's shared post-step, which attaches the rationale and the changed files. */
 	finish: (params: { outcome: BatchOutcome; files: CoverageBatchReport['files'] }) => CoverageBatchStop;
 }
@@ -54,7 +55,10 @@ const salvage = async ({
 	const salvaged = await measure();
 	let stop: CoverageBatchStop = { kind: CoverageBatchStopKind.Failed, error: `${batchId}: ${failure}` };
 
-	if (salvaged.improved && !(await gates())) {
+	// `.error` rather than the whole answer: work on disk is salvaged only when
+	// the gates actually ran and came back green, and a gate run that never
+	// started proves nothing about a dead agent's work.
+	if (salvaged.improved && (await gates()).error === undefined) {
 		rationale.push(`[other] salvaged: agent invocation failed (${failure}) but coverage improved and gates are green`);
 		onProgress(`${batchId}: invocation failed but coverage moved on disk — salvaged as resolved`);
 

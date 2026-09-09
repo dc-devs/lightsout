@@ -4,6 +4,7 @@ import { RunStatus } from '#src/contracts/index.ts';
 import { checkTestResultsCapability } from '#src/gates/index.ts';
 import { approveTestFiles } from '#src/pipeline/approvedTests/index.ts';
 import { runVerificationGates } from '#src/pipeline/common/utils/runVerificationGates.ts';
+import { stopOnGateCoordination } from '#src/pipeline/common/utils/stopOnGateCoordination.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
 import { writeRunStandardsBaseline } from '#src/runState/index.ts';
@@ -70,7 +71,15 @@ export const cleanSlateStep = ({ run, ledgerGates }: Params): PipelineStep['run'
 
 		// No acceptance rows here: the ledger's tests have not been written yet, so
 		// every one of them would read as a test that never ran.
-		const { error, failures, gates } = await runVerificationGates({ run, coverage: true, checkpoint: 'clean-slate', rows: [] });
+		const { error, coordination, failures, gates } = await runVerificationGates({ run, coverage: true, checkpoint: 'clean-slate', rows: [] });
+
+		// A gate run that never started is a third case with a third first move,
+		// and it is answered before the timeout-versus-red discrimination below:
+		// that one asks whether a gate which ran finished, and has nothing to say
+		// about gates that were never spent.
+		if (coordination !== undefined) {
+			return stopOnGateCoordination({ run, stepId: 'clean-slate', record, coordination, error });
+		}
 
 		if (error) {
 			// A gate that never finished is a different problem from a gate that

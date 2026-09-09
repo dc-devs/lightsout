@@ -1,5 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { GateHold, LightsoutConfig } from '#src/contracts/index.ts';
+import type { GateHolds } from '#src/gates/index.ts';
 import { requireImplementLifecycle } from '#src/ticketLifecycle/index.ts';
 import type { TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
 
@@ -18,6 +19,12 @@ interface LifecycleParams {
 const mockReadGitCurrentBranch = jest.fn<(params: { cwd: string }) => Promise<string | undefined>>();
 const mockGetTicketsByIdentifiers = jest.fn<(params: { settings: TrackerSettings; identifiers: string[] }) => Promise<TrackerTicket[] | TrackerFailure>>();
 const mockUpdateTicketLifecycle = jest.fn<(params: LifecycleParams) => Promise<TrackerFailure | undefined>>();
+// The hold module is another module's entry point with its own tests. What this
+// file owns is that the guard consults it, answers its sentence verbatim, and
+// writes nothing when it says the ticket is held.
+const mockSyncGateHolds = jest.fn<(params: { cwd: string; settings: TrackerSettings; onProgress?: (message: string) => void }) => Promise<GateHolds>>();
+const mockIsTicketGateHeld = jest.fn<(params: { holds: GateHolds; identifier: string; labels: string[] }) => boolean>();
+const mockDescribeGateHold = jest.fn<(params: { hold: GateHold | undefined; identifier: string }) => string>();
 
 jest.mock('#src/common/git/readGitCurrentBranch.ts', () => ({ readGitCurrentBranch: (params: { cwd: string }) => mockReadGitCurrentBranch(params) }));
 jest.mock('#src/ticketTracker/index.ts', () => ({
@@ -26,6 +33,11 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 }));
 jest.mock('#src/ticketLifecycle/updateTicketLifecycle.ts', () => ({
 	updateTicketLifecycle: (params: LifecycleParams) => mockUpdateTicketLifecycle(params),
+}));
+jest.mock('#src/gates/index.ts', () => ({
+	syncGateHolds: (params: { cwd: string; settings: TrackerSettings; onProgress?: (message: string) => void }) => mockSyncGateHolds(params),
+	isTicketGateHeld: (params: { holds: GateHolds; identifier: string; labels: string[] }) => mockIsTicketGateHeld(params),
+	describeGateHold: (params: { hold: GateHold | undefined; identifier: string }) => mockDescribeGateHold(params),
 }));
 // -------------------------
 
@@ -54,24 +66,43 @@ const ticketWith = ({ labels, status = 'Backlog' }: { labels: string[]; status?:
 	unfinishedBlockers: [],
 });
 
+/** The hold the gate reservation left behind for this branch's ticket, as the reconciler answers it. */
+const heldHold: GateHold = {
+	takenAt: '2026-02-14T09:30:00.000Z',
+	runId: 'run-7f3a',
+	worktreePath: '/repo/.worktrees/lo-88',
+	reason: 'gates never started: this run waited 30m for another gate run on this machine to finish.',
+	labelConfirmed: true,
+};
+/** The one sentence the hold module writes for every refusal site, which this guard answers verbatim. */
+const heldSentence = 'lo-88 is held: run run-7f3a in /repo/.worktrees/lo-88 never got the machine — remove queue-blocked-gate-timed-out to release it';
+
 /** A checkout on a ticket branch, whose tracker read and write answer whatever the test wants. */
 const setupGuard = ({
 	branch = 'lo-88-begin',
 	detached = false,
 	found = [ticketWith({ labels: ['planning-ready-auto-plan'] })],
 	writeFailure,
+	holds = {},
+	held = Object.keys(holds).length > 0,
 }: {
 	branch?: string;
 	/** A checkout sitting on no branch at all, which is what the git read answers undefined for. */
 	detached?: boolean;
 	found?: TrackerTicket[] | TrackerFailure;
 	writeFailure?: TrackerFailure;
+	/** What the reconciler answers — a hold it kept, or nothing left once a human removed the label. */
+	holds?: GateHolds;
+	held?: boolean;
 } = {}) => {
 	const progress: string[] = [];
 
 	mockReadGitCurrentBranch.mockResolvedValue(detached ? undefined : branch);
 	mockGetTicketsByIdentifiers.mockResolvedValue(found);
 	mockUpdateTicketLifecycle.mockResolvedValue(writeFailure);
+	mockSyncGateHolds.mockResolvedValue(holds);
+	mockIsTicketGateHeld.mockReturnValue(held);
+	mockDescribeGateHold.mockReturnValue(heldSentence);
 
 	const guard = ({ ticketRef, config: given = config, silent = false }: { ticketRef?: string; config?: LightsoutConfig; silent?: boolean } = {}) =>
 		requireImplementLifecycle({ cwd: '/repo', config: given, env, ticketRef, onProgress: silent ? undefined : (message: string) => progress.push(message) });
@@ -235,5 +266,26 @@ describe('requireImplementLifecycle', () => {
 
 		expect(refused).toContain("'shaped'");
 		expect(mockUpdateTicketLifecycle).not.toHaveBeenCalled();
+	});
+
+	test('refuses a held ticket before writing any lifecycle field', async () => {
+		const { guard } = setupGuard({ holds: { 'lo-88': heldHold } });
+
+		const refused = await guard();
+
+		expect(refused).toBe(heldSentence);
+		expect(mockDescribeGateHold).toHaveBeenCalledWith(expect.objectContaining({ hold: heldHold }));
+		expect(mockUpdateTicketLifecycle).not.toHaveBeenCalled();
+	});
+
+	test('starts once the hold is released', async () => {
+		const { guard } = setupGuard({ holds: {} });
+
+		const refused = await guard();
+
+		expect(refused).toBeUndefined();
+		expect(mockUpdateTicketLifecycle).toHaveBeenCalledWith(
+			expect.objectContaining({ ticketId: 'id-88', trackerStatus: 'in-progress', currentStatus: 'Backlog' }),
+		);
 	});
 });

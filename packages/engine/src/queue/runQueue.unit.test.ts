@@ -28,17 +28,17 @@ const mockListEligibleTickets = jest.fn<() => Promise<TicketSummary[] | QueueFai
 const mockScanParkedWorktrees = jest.fn<() => Promise<ParkedWork | QueueFailure>>();
 const mockRunQueueTicket = jest.fn<(params: { ticket: TicketSummary; serializeWorktreeAdd: SerializeWorktreeAdd }) => Promise<TicketRunOutcome>>();
 const mockShipOneBranch = jest.fn<(params: { outcome: TicketRunOutcome }) => Promise<TicketRunOutcome>>();
-/** The label write is covered by `setParkedLabel`'s own tests; what this file owns is which list the drain settles it over, and when. */
-type LabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; parked: boolean };
+/** The label write is covered by `setTicketLabel`'s own tests; what this file owns is which list the drain settles it over, and when. */
+type LabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; present: boolean };
 
-const mockSetParkedLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure | undefined>>();
+const mockSetTicketLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure | undefined>>();
 
 jest.mock('#src/queue/ticketSelection/listEligibleTickets.ts', () => ({ listEligibleTickets: () => mockListEligibleTickets() }));
 jest.mock('#src/ticketTracker/index.ts', () => ({
 	listLabelNames: () =>
 		Promise.resolve(['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed']),
 	appendTicketNote: () => Promise.resolve(undefined),
-	setParkedLabel: (params: LabelParams) => mockSetParkedLabel(params),
+	setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params),
 }));
 jest.mock('#src/queue/worktrees/scanParkedWorktrees.ts', () => ({ scanParkedWorktrees: () => mockScanParkedWorktrees() }));
 jest.mock('#src/queue/runQueueTicket.ts', () => ({
@@ -55,7 +55,7 @@ const setupDrain = ({ eligible = [], parked }: { eligible?: TicketSummary[]; par
 	mockScanParkedWorktrees.mockResolvedValue(parked ?? { resumed: [], outcomes: [], leftBehind: [], merged: [] });
 	mockRunQueueTicket.mockImplementation(({ ticket }) => Promise.resolve(outcomeOf({ ticket })));
 	mockShipOneBranch.mockImplementation(({ outcome }) => Promise.resolve(outcome));
-	mockSetParkedLabel.mockResolvedValue(undefined);
+	mockSetTicketLabel.mockResolvedValue(undefined);
 
 	return setupQueueDrain();
 };

@@ -15,8 +15,8 @@ interface Params {
 
 /** The tracker read itself, settling a refusal as the stop it should have returned rather than letting it reach the drain's race. */
 const runScan = async ({ context, state }: { context: LaneContext; state: LaneState }) => {
-	const { settings, trackerSettings, onProgress } = context;
-	const scanned = listNextWave({ settings, trackerSettings, attempted: state.attempted, onProgress });
+	const { settings, trackerSettings, holds, onProgress } = context;
+	const scanned = listNextWave({ settings, trackerSettings, attempted: state.attempted, holds, onProgress });
 	const next = await scanned.catch((thrown: unknown) => ({ error: messageOf({ error: thrown }) }));
 
 	if ('error' in next) {

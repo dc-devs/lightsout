@@ -118,6 +118,8 @@ export const setupDrainLanes = ({
 	const params = {
 		cwd,
 		config,
+		runId: 'drain-lanes-1',
+		holds: {},
 		settings: queueSettingsFixture({ maxParallel }),
 		trackerSettings: trackerSettingsFixture(),
 		shipSettings: shipSettingsFixture(),

@@ -39,9 +39,9 @@ const conflictPath = 'shared.ts';
 
 const author = '-c user.name=t -c user.email=t@t';
 
-const green: GateRunResult = { error: undefined, failedFamilies: [], crashes: [] };
+const green: GateRunResult = { error: undefined, failedFamilies: [], crashes: [], coordination: undefined };
 
-const red: GateRunResult = { error: 'test: 2 failing', failedFamilies: ['test'], crashes: [] };
+const red: GateRunResult = { error: 'test: 2 failing', failedFamilies: ['test'], crashes: [], coordination: undefined };
 
 const git = ({ cwd, command }: { cwd: string; command: string }) => execSync(`git ${command}`, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 

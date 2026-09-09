@@ -8,4 +8,15 @@ export interface SelfCheckResult {
 	gates: GateResult[];
 	error: string | undefined;
 	crashes: string[];
+	/**
+	 * Why the machine was never available — who held it, in which worktree, and
+	 * for how long. Set only with `SelfCheckReason.Coordination`, and empty on
+	 * every other ending.
+	 *
+	 * Required-but-possibly-undefined rather than optional, for the same reason
+	 * the channel on `GateRunResult` is: the compiler then finds every literal
+	 * that builds one of these instead of letting one silently inherit a missing
+	 * member.
+	 */
+	coordination: string | undefined;
 }

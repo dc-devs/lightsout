@@ -14,6 +14,7 @@ import { readConfig } from '#src/common/config/readConfig.ts';
 import { PipelineKind, RunStatus } from '#src/contracts/index.ts';
 import { getDriver } from '#src/drivers/index.ts';
 import { RunNotFoundError, readRunManifest, writeRunManifest } from '#src/runState/index.ts';
+import { requireImplementLifecycle } from '#src/ticketLifecycle/index.ts';
 
 /**
  * Pipelines that own their own resume door, and the whole instruction that
@@ -34,9 +35,15 @@ const resumeCommandByPipeline: Record<PipelineKind, string | undefined> = {
 	[PipelineKind.Direct]: 'lightsout implement-direct --ticket <path> (re-run with the same ticket)',
 };
 
-export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
-	const skipRefactor = flags.get('skip-refactor') === true;
-
+/**
+ * The run `--run` names, once every reason this door is the wrong one has been
+ * ruled out — a missing flag, an id nothing on disk matches, a pipeline that
+ * owns its own resume command, and a run that already passed.
+ *
+ * Each of those exits the process rather than answering, so whatever this
+ * returns is a run resume may genuinely continue.
+ */
+const readResumableRun = async ({ cwd, flags }: { cwd: string; flags: CommandContext['flags'] }) => {
 	const runId = getStringFlag({ flags, name: 'run' });
 
 	if (!runId) {
@@ -68,6 +75,12 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 		return exitCli({ code: 1 });
 	}
 
+	return { manifest, pipeline };
+};
+
+export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
+	const skipRefactor = flags.get('skip-refactor') === true;
+	const { manifest, pipeline } = await readResumableRun({ cwd, flags });
 	const loaded = await readConfig({ cwd });
 
 	// A resumed run ships on the same terms a first run does: whatever the
@@ -77,6 +90,19 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 	const shipIntent = resolveCommandShipIntent({ config: loaded, flags, env: process.env });
 
 	if (shipIntent === undefined) {
+		return exitCli({ code: 1 });
+	}
+
+	// Every pipeline still here is Implement or Phases — the rest were turned away
+	// above — and both write source, so both owe the pre-source lifecycle write
+	// the implement entries already make. It is also what refuses a ticket under a
+	// gate hold, and it runs before the restamp below so a refused resume mutates
+	// nothing. No `ticketRef`: a resumed run is ticket-backed through its branch,
+	// which the guard reads for itself.
+	const refusal = await requireImplementLifecycle({ cwd, config: loaded, env: process.env, onProgress: createProgressPrinter() });
+
+	if (refusal !== undefined) {
+		console.error(refusal);
 		return exitCli({ code: 1 });
 	}
 

@@ -53,6 +53,16 @@ describe('startShip', () => {
 		expect(lane.flight.ships).toBe(0);
 	});
 
+	test('hands the coordinator run id to the merge', async () => {
+		const lane = setupShip();
+
+		Object.assign(lane.context, { runId: 'coordinator-run-7' });
+		startShip(lane);
+		await Promise.all(lane.flight.tasks.values());
+
+		expect(mockShip).toHaveBeenCalledWith(expect.objectContaining({ runId: 'coordinator-run-7', outcome: lane.outcome }));
+	});
+
 	test('parks a rejected merge without requesting a rescan or losing its worktree', async () => {
 		const lane = setupShip();
 

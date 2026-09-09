@@ -66,7 +66,7 @@ const checkpoint = 'verify-implement';
 const setupFormattingReentry = () => {
 	mockRunFormatter.mockResolvedValue(undefined);
 	mockReviewTestChanges.mockResolvedValue({ rateLimited: true });
-	mockRunVerificationGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], failures: [], gates: [] });
+	mockRunVerificationGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined, failures: [], gates: [] });
 
 	const owedFormatting = { failedFamilies: [], repairAttempts: {}, failures: [], needsFormatting: true, guidedRepairAttempted: false };
 	const steps: StepRecord[] = [{ id: checkpoint, status: RunStatus.Running, attempts: 1, verification: owedFormatting }];

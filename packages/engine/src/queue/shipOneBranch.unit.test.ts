@@ -23,8 +23,22 @@ import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 // standing on is git's own answer.
 const mockRunGates = jest.fn<(params: { cwd: string }) => Promise<GateRunResult>>();
 const mockRunShip = jest.fn<(params: { cwd: string }) => Promise<ShipResult>>();
+const mockTakeGateHold =
+	jest.fn<
+		(params: {
+			cwd: string;
+			config: LightsoutConfig;
+			ticketRef: string | undefined;
+			runId: string;
+			worktreePath: string;
+			reason: string;
+		}) => Promise<string | undefined>
+	>();
 
-jest.mock('#src/gates/index.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
+jest.mock('#src/gates/index.ts', () => ({
+	runGates: (params: { cwd: string }) => mockRunGates(params),
+	takeGateHold: (params: Parameters<typeof mockTakeGateHold>[0]) => mockTakeGateHold(params),
+}));
 jest.mock('#src/ship/index.ts', () => ({ runShip: (params: { cwd: string }) => mockRunShip(params) }));
 // -------------------------
 
@@ -79,8 +93,9 @@ const setupReadyBranch = async ({ number = 70, content = 'export const value = 1
 	writeRepoFile({ cwd: worktreePath, path: 'work.ts', content });
 	execSync(`git add -A && git ${author} commit -qm work`, { cwd: worktreePath, stdio: 'ignore' });
 
-	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [] });
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
 	mockRunShip.mockResolvedValue(shippedResult);
+	mockTakeGateHold.mockResolvedValue(undefined);
 
 	const outcome: TicketRunOutcome = { ticket: ticketOf({ number }), branch, worktreePath, ready: true };
 
@@ -99,12 +114,14 @@ const ship = async ({
 	outcome,
 	shipConfig = config,
 	serialize = serializeMainCheckout,
+	runId = 'drain-41',
 	onProgress,
 }: {
 	cwd: string;
 	outcome: TicketRunOutcome;
 	shipConfig?: LightsoutConfig;
 	serialize?: <Result>(params: { task: () => Promise<Result> }) => Promise<Result>;
+	runId?: string;
 	onProgress?: (message: string) => void;
 }) =>
 	shipOneBranch({
@@ -115,9 +132,19 @@ const ship = async ({
 		defaultBranch: 'main',
 		env: {},
 		outcome,
+		runId,
 		serializeMainCheckout: serialize,
 		onProgress,
 	});
+
+/** A ship that stopped because the shared gate reservation was never acquired — the one block a hold is taken on. */
+const gatesUnavailableResult: ShipResult = {
+	status: ShipStatus.Blocked,
+	branch: 'lo-70-drain',
+	reason: ShipBlockReason.IntegrationGatesUnavailable,
+	detail: 'the gates never got the machine within 30m: run drain-8 in /tmp/lo-71-other, held for 31m',
+	failingChecks: [],
+};
 
 /** The commit the branch is standing on — the evidence that nothing here moved it. */
 const headOf = ({ cwd }: { cwd: string }) => execSync('git rev-parse HEAD', { cwd }).toString().trim();
@@ -241,5 +268,53 @@ describe('shipOneBranch', () => {
 		// The removal ran inside the serializer, on a worktree that was still there when it took the chain.
 		expect(serialized).toEqual([true]);
 		expect(existsSync(outcome.worktreePath)).toBe(false);
+	});
+
+	test('takes a gate hold when the shipping gates never got the machine', async () => {
+		const { cwd, outcome } = await setupReadyBranch();
+
+		mockRunShip.mockResolvedValue(gatesUnavailableResult);
+
+		const parked = await ship({ cwd, outcome, runId: 'drain-41' });
+
+		// The reason a human reads names the machine, not gate output that nothing
+		// produced — and the hold is what stops the next drain picking it straight
+		// back up.
+		expect(parked).toEqual(expect.objectContaining({ ready: false, error: gatesUnavailableResult.detail }));
+		expect(mockTakeGateHold).toHaveBeenCalledWith(
+			expect.objectContaining({ ticketRef: 'LO-70', runId: 'drain-41', worktreePath: outcome.worktreePath, reason: gatesUnavailableResult.detail }),
+		);
+		// Parked, never merged: the worktree and its commits are exactly where the run left them.
+		expect(existsSync(outcome.worktreePath)).toBe(true);
+	});
+
+	test('reports a refused label write beside the park reason, so a hold the tracker would not record is still visible', async () => {
+		const { cwd, outcome } = await setupReadyBranch();
+
+		mockRunShip.mockResolvedValue(gatesUnavailableResult);
+		mockTakeGateHold.mockResolvedValue('the tracker refused the queue-blocked-gate-timed-out label: 403 forbidden');
+
+		const parked = await ship({ cwd, outcome });
+
+		expect(parked).toEqual(
+			expect.objectContaining({ ready: false, error: expect.stringContaining('the tracker refused the queue-blocked-gate-timed-out label') }),
+		);
+	});
+
+	test('takes no hold when the ship was blocked for any other reason, so an ordinary park is never turned into one only a human can release', async () => {
+		const { cwd, outcome } = await setupReadyBranch();
+
+		mockRunShip.mockResolvedValue({
+			status: ShipStatus.Blocked,
+			branch: 'lo-70-drain',
+			reason: ShipBlockReason.IntegrationGatesFailed,
+			detail: 'tsc: 3 errors',
+			failingChecks: [],
+		});
+
+		const parked = await ship({ cwd, outcome });
+
+		expect(parked).toEqual(expect.objectContaining({ ready: false, error: 'integration-gates-failed: tsc: 3 errors' }));
+		expect(mockTakeGateHold).not.toHaveBeenCalled();
 	});
 });

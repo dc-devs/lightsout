@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { type LightsoutConfig, PipelineKind, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
+import { type GateHolds, syncGateHolds } from '#src/gates/index.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
@@ -47,8 +48,9 @@ const drainAndShip = async ({
 	defaultBranch,
 	first,
 	parked,
+	holds,
 	onProgress,
-}: Params & { runId: string; defaultBranch: string; first: WaveSelection; parked: ParkedWork }) => {
+}: Params & { runId: string; defaultBranch: string; first: WaveSelection; parked: ParkedWork; holds: GateHolds }) => {
 	const coordinatorRunDir = getRunDir({ cwd, runId });
 	const planPath = join(coordinatorRunDir, 'queue.md');
 	const manifest = await createRun({ cwd, runId, plan: planPath, pipeline: PipelineKind.Queue, driver: driverName, config });
@@ -60,6 +62,8 @@ const drainAndShip = async ({
 	const serializeMainCheckout = createMainCheckoutSerializer();
 	const drained = await drainQueue({
 		cwd,
+		runId,
+		holds,
 		settings,
 		trackerSettings,
 		shipSettings,
@@ -150,13 +154,24 @@ export const runQueue = async ({
 		return eligible;
 	}
 
-	const parked = await scanParkedWorktrees({ cwd, defaultBranch, settings, trackerSettings, shipSettings, onProgress });
+	// Once per drain, and before the parked scan: the scan is the first site that
+	// would otherwise clear a held ticket's parked label. A hold taken while this
+	// drain runs belongs to a ticket already attempted and never re-offered, so a
+	// snapshot misses nothing this drain could act on.
+	const holds = await syncGateHolds({ cwd, settings: trackerSettings, onProgress });
+	const parked = await scanParkedWorktrees({ cwd, defaultBranch, settings, trackerSettings, shipSettings, holds, onProgress });
 
 	if ('error' in parked) {
 		return parked;
 	}
 
-	const first = selectWaveTickets({ tickets: [...parked.resumed, ...orderTickets({ tickets: eligible })], settings, attempted: new Set<string>(), onProgress });
+	const first = selectWaveTickets({
+		tickets: [...parked.resumed, ...orderTickets({ tickets: eligible })],
+		settings,
+		attempted: new Set<string>(),
+		holds,
+		onProgress,
+	});
 
 	if (first.runnable.length === 0 && parked.outcomes.length === 0 && parked.merged.length === 0) {
 		onProgress?.(
@@ -173,6 +188,22 @@ export const runQueue = async ({
 	return withRunLock({
 		params: { cwd, onProgress },
 		run: ({ runId }) =>
-			drainAndShip({ cwd, runId, settings, trackerSettings, shipSettings, config, env, driver, driverName, relay, defaultBranch, first, parked, onProgress }),
+			drainAndShip({
+				cwd,
+				runId,
+				settings,
+				trackerSettings,
+				shipSettings,
+				config,
+				env,
+				driver,
+				driverName,
+				relay,
+				defaultBranch,
+				first,
+				parked,
+				holds,
+				onProgress,
+			}),
 	});
 };

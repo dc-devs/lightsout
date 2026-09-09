@@ -104,7 +104,7 @@ describe('runShip', () => {
 
 	test('verifies an already-up-to-date branch before pushing and creates no unnecessary merge commit', async () => {
 		const { baseline, cwd, invocations, ship } = setupShip({
-			gateRuns: [{ error: 'test: 1 failing', failedFamilies: ['test'], crashes: [] }, green],
+			gateRuns: [{ error: 'test: 1 failing', failedFamilies: ['test'], crashes: [], coordination: undefined }, green],
 			onAttempt: ({ cwd: repo }) => writeFileSync(join(repo, 'feature.md'), '# feature, repaired\n'),
 		});
 
@@ -151,7 +151,7 @@ describe('runShip', () => {
 	test('blocks and restores when the integrated tree cannot be made green', async () => {
 		const { baseline, cwd, ship } = setupShip({
 			defaultBranch: { path: 'main-one.txt', content: 'the default branch moved on\n' },
-			gateRuns: [{ error: 'test: 3 failing', failedFamilies: ['test'], crashes: [] }],
+			gateRuns: [{ error: 'test: 3 failing', failedFamilies: ['test'], crashes: [], coordination: undefined }],
 		});
 
 		const result = await ship();
@@ -193,7 +193,7 @@ describe('runShip', () => {
 	test('reports restoration failure alongside the original integration failure without pushing', async () => {
 		const { cwd, ship } = setupShip({
 			defaultBranch: { path: 'main-one.txt', content: 'the default branch moved on\n' },
-			gateRuns: [{ error: 'test: 3 failing', failedFamilies: ['test'], crashes: [] }],
+			gateRuns: [{ error: 'test: 3 failing', failedFamilies: ['test'], crashes: [], coordination: undefined }],
 			onAttempt: ({ cwd: repo }) => lockStrayDirectory({ cwd: repo }),
 		});
 

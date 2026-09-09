@@ -1,4 +1,5 @@
-import { BranchPhase, type LightsoutConfig, ShipStatus } from '#src/contracts/index.ts';
+import { BranchPhase, type LightsoutConfig, ShipBlockReason, ShipStatus } from '#src/contracts/index.ts';
+import { takeGateHold } from '#src/gates/index.ts';
 import { writeBranchState } from '#src/queue/branchState/index.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import { removeTicketWorktree } from '#src/queue/worktrees/index.ts';
@@ -15,8 +16,9 @@ interface Params {
 	defaultBranch: string;
 	/** The process environment the tracker credentials are read from. Passed rather than read, so a test never needs to mutate `process.env`. */
 	env: NodeJS.ProcessEnv;
-	/** The ready outcome whose branch is being merged. */
 	outcome: TicketRunOutcome;
+	/** The coordinator run's id, recorded on any hold this merge has to take. */
+	runId: string;
 	/** Runs a task with no other main-checkout git mutation in flight. The merge tail removes a worktree there while builders may be adding one. */
 	serializeMainCheckout: <Result>(params: { task: () => Promise<Result> }) => Promise<Result>;
 	onProgress?: (message: string) => void;
@@ -46,8 +48,6 @@ interface Params {
  * a worktree and skips itself there; the next branch's own fetch picks this
  * merge up from the remote rather than from a local branch.
  *
- * @param outcome - the ready outcome whose branch is being merged
- * @param serializeMainCheckout - wraps the worktree removal, the one thing here that touches the main checkout
  * @returns the same outcome, `ready` flipped to false when it could not merge
  */
 export const shipOneBranch = async ({
@@ -58,6 +58,7 @@ export const shipOneBranch = async ({
 	defaultBranch,
 	env,
 	outcome,
+	runId,
 	serializeMainCheckout,
 	onProgress,
 }: Params): Promise<TicketRunOutcome> => {
@@ -70,6 +71,28 @@ export const shipOneBranch = async ({
 	onProgress?.(`${outcome.ticket.identifier} · merging ${outcome.branch} into origin/${defaultBranch}`);
 
 	const shipped = await runShip({ cwd: outcome.worktreePath, settings: shipSettings, integration, onProgress });
+
+	// A ship that never got the machine parks exactly as any other block does —
+	// the worktree stays and the drain carries on with other tickets — but the
+	// reason a human reads names the machine rather than gate output nothing
+	// produced, and the hold is what makes the stop stick until a human releases
+	// it. Taken here, after `runShip` returned, so no gate reservation is held
+	// while the tracker calls run.
+	if (shipped.status === ShipStatus.Blocked && shipped.reason === ShipBlockReason.IntegrationGatesUnavailable) {
+		const coordination = shipped.detail ?? 'the shared gate reservation was never acquired';
+		const holdFailure = await takeGateHold({
+			cwd,
+			config,
+			env,
+			ticketRef: outcome.ticket.identifier,
+			runId,
+			worktreePath: outcome.worktreePath,
+			reason: coordination,
+			onProgress,
+		});
+
+		return park({ error: holdFailure === undefined ? coordination : `${coordination} ${holdFailure}` });
+	}
 
 	if (shipped.status === ShipStatus.Blocked) {
 		return park({ error: `${shipped.reason}: ${shipped.detail}` });

@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { BatchOutcome, type StandardsFinding, StandardsSeverity, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
+import type { GateRunResult } from '#src/gates/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
 import { getAttemptStop } from '#src/refactor/batch/index.ts';
 import { BatchStopKind } from '#src/refactor/common/constants/BatchStopKind.ts';
@@ -45,12 +46,15 @@ const setupAttempt = ({
 	attempt,
 	remaining = [finding.siteKey],
 	gateError,
+	coordination,
 }: {
 	attempt: AgentOutcome<WorkReport>;
 	/** Site keys a live re-check would still find (default: everything persists). */
 	remaining?: string[];
 	/** What the gates return when consulted — red output, or undefined for green. */
 	gateError?: string;
+	/** Why the gate run never started, when the machine was held by another run. */
+	coordination?: string;
 }) => {
 	const rationale: string[] = [];
 	const progress: string[] = [];
@@ -69,7 +73,14 @@ const setupAttempt = ({
 				rationale,
 				onProgress: (message: string) => progress.push(message),
 				remainingSiteKeys: async () => remaining,
-				gates: async () => gateError,
+				gates: async (): Promise<GateRunResult> => ({
+					error: gateError,
+					// A gate run that never started names no failed family, exactly as
+					// the reservation sets it.
+					failedFamilies: gateError !== undefined && coordination === undefined ? ['test'] : [],
+					crashes: [],
+					coordination,
+				}),
 				finish,
 			}),
 	};
@@ -111,6 +122,21 @@ describe('getAttemptStop', () => {
 
 		expect(await run()).toStrictEqual({ kind: BatchStopKind.Failed, error: 'batch-01:multi-export:src: harness crashed' });
 		expect(finished).toStrictEqual([]);
+	});
+
+	test('getAttemptStop: a dead agent is not salvaged on a gate run that never got the machine', async () => {
+		const { run, finished, rationale, progress } = setupAttempt({
+			attempt: { ok: false, failure: 'harness crashed', rateLimited: false },
+			remaining: [],
+			gateError: 'gates did not run: another run holds the machine',
+			coordination: 'gates did not run: another run holds the machine',
+		});
+
+		expect(await run()).toStrictEqual({ kind: BatchStopKind.Failed, error: 'batch-01:multi-export:src: harness crashed' });
+		// a gate run that never started proves nothing about the work on disk
+		expect(finished).toStrictEqual([]);
+		expect(rationale).toStrictEqual([]);
+		expect(progress).toStrictEqual([]);
 	});
 
 	test('a scope refusal is a decline carrying the live remainder, with the reasons kept as rationale', async () => {

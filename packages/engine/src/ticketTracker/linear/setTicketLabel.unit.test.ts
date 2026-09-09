@@ -1,5 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { setParkedLabel } from '#src/ticketTracker/linear/setParkedLabel.ts';
+import { setTicketLabel } from '#src/ticketTracker/linear/setTicketLabel.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
@@ -59,16 +59,54 @@ const setupClient = ({
 	return { labelFilters, created, added, removed };
 };
 
-describe('setParkedLabel', () => {
+describe('setTicketLabel', () => {
+	test('adds, removes and creates by the present flag', async () => {
+		const adding = setupClient({ labels: [{ id: 'label-1' }] });
+
+		await setTicketLabel({ settings, ticketId: 'id-70', label: 'queue-blocked-gate-timed-out', present: true });
+
+		expect(adding).toEqual(
+			expect.objectContaining({
+				added: [{ id: 'id-70', labelId: 'label-1' }],
+				removed: [],
+				created: [],
+			}),
+		);
+
+		const removing = setupClient({ labels: [{ id: 'label-1' }] });
+
+		await setTicketLabel({ settings, ticketId: 'id-70', label: 'queue-blocked-gate-timed-out', present: false });
+
+		expect(removing).toEqual(
+			expect.objectContaining({
+				added: [],
+				removed: [{ id: 'id-70', labelId: 'label-1' }],
+				created: [],
+			}),
+		);
+
+		const creating = setupClient({ labels: [] });
+
+		await setTicketLabel({ settings, ticketId: 'id-70', label: 'queue-blocked-gate-timed-out', present: true });
+
+		expect(creating).toEqual(
+			expect.objectContaining({
+				created: [{ name: 'queue-blocked-gate-timed-out', teamId: 'team-lo' }],
+				added: [{ id: 'id-70', labelId: 'label-new' }],
+				removed: [],
+			}),
+		);
+	});
+
 	test('does nothing at all when the repo named no label — the label is opt-in and must never be invented', async () => {
-		expect(await setParkedLabel({ settings, ticketId: 'id-70', label: undefined, parked: true })).toBeUndefined();
+		expect(await setTicketLabel({ settings, ticketId: 'id-70', label: undefined, present: true })).toBeUndefined();
 		expect(mockRunLinear).not.toHaveBeenCalled();
 	});
 
 	test('puts the team’s existing label on a ticket that just parked', async () => {
 		const { labelFilters, added, created } = setupClient({ labels: [{ id: 'label-1' }] });
 
-		expect(await setParkedLabel({ settings, ticketId: 'id-70', label: 'queue-parked', parked: true })).toBeUndefined();
+		expect(await setTicketLabel({ settings, ticketId: 'id-70', label: 'queue-parked', present: true })).toBeUndefined();
 
 		expect(labelFilters).toStrictEqual([{ name: { eq: 'queue-parked' }, team: { key: { eq: 'LO' } } }]);
 		expect(added).toStrictEqual([{ id: 'id-70', labelId: 'label-1' }]);
@@ -78,7 +116,7 @@ describe('setParkedLabel', () => {
 	test('takes the label off a ticket that resumed or shipped', async () => {
 		const { removed } = setupClient({ labels: [{ id: 'label-1' }] });
 
-		await setParkedLabel({ settings, ticketId: 'id-70', label: 'queue-parked', parked: false });
+		await setTicketLabel({ settings, ticketId: 'id-70', label: 'queue-parked', present: false });
 
 		expect(removed).toStrictEqual([{ id: 'id-70', labelId: 'label-1' }]);
 	});
@@ -86,7 +124,7 @@ describe('setParkedLabel', () => {
 	test('creates the label on the team on first use, so adopting the setting is zero setup', async () => {
 		const { created, added } = setupClient({ labels: [] });
 
-		expect(await setParkedLabel({ settings, ticketId: 'id-70', label: 'queue-parked', parked: true })).toBeUndefined();
+		expect(await setTicketLabel({ settings, ticketId: 'id-70', label: 'queue-parked', present: true })).toBeUndefined();
 
 		expect(created).toStrictEqual([{ name: 'queue-parked', teamId: 'team-lo' }]);
 		expect(added).toStrictEqual([{ id: 'id-70', labelId: 'label-new' }]);
@@ -95,7 +133,7 @@ describe('setParkedLabel', () => {
 	test('creates nothing when clearing a label the team never had — there is nothing to remove', async () => {
 		const { created, removed } = setupClient({ labels: [] });
 
-		expect(await setParkedLabel({ settings, ticketId: 'id-70', label: 'queue-parked', parked: false })).toBeUndefined();
+		expect(await setTicketLabel({ settings, ticketId: 'id-70', label: 'queue-parked', present: false })).toBeUndefined();
 
 		expect(created).toStrictEqual([]);
 		expect(removed).toStrictEqual([]);
@@ -104,7 +142,7 @@ describe('setParkedLabel', () => {
 	test('names the team it cannot create the label on, rather than passing as a silent no-op', async () => {
 		const { added } = setupClient({ labels: [], teams: [] });
 
-		expect(await setParkedLabel({ settings, ticketId: 'id-70', label: 'queue-parked', parked: true })).toStrictEqual({
+		expect(await setTicketLabel({ settings, ticketId: 'id-70', label: 'queue-parked', present: true })).toStrictEqual({
 			error: "there is no 'LO' team to create the 'queue-parked' label on",
 		});
 		expect(added).toStrictEqual([]);
@@ -113,7 +151,7 @@ describe('setParkedLabel', () => {
 	test('says so when the tracker creates the label but names no id for it, rather than reporting a write that never happened', async () => {
 		const { added } = setupClient({ labels: [], namesCreatedLabel: false });
 
-		expect(await setParkedLabel({ settings, ticketId: 'id-70', label: 'queue-parked', parked: true })).toStrictEqual({
+		expect(await setTicketLabel({ settings, ticketId: 'id-70', label: 'queue-parked', present: true })).toStrictEqual({
 			error: "the tracker created the 'queue-parked' label but named no id for it",
 		});
 		expect(added).toStrictEqual([]);
@@ -122,7 +160,7 @@ describe('setParkedLabel', () => {
 	test('hands a tracker failure back untouched', async () => {
 		mockRunLinear.mockResolvedValue({ error: 'the tracker did not answer' });
 
-		expect(await setParkedLabel({ settings, ticketId: 'id-70', label: 'queue-parked', parked: true })).toStrictEqual({
+		expect(await setTicketLabel({ settings, ticketId: 'id-70', label: 'queue-parked', present: true })).toStrictEqual({
 			error: 'the tracker did not answer',
 		});
 	});

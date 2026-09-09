@@ -61,5 +61,6 @@ export const runGateSet = async ({ entries, label, gate, failFast = true }: Para
 		error: failures.length > 0 ? failures.join('\n\n') : undefined,
 		failedFamilies: [...new Set(failedFamilies)],
 		crashes,
+		coordination: undefined,
 	};
 };

@@ -28,7 +28,7 @@ export const shipScenarioFixtures: {
 	/** The one file both sides edit, so merging the default branch in has to conflict. */
 	conflictPath: 'shared.ts',
 	author: '-c user.name=t -c user.email=t@t',
-	green: { error: undefined, failedFamilies: [], crashes: [] },
+	green: { error: undefined, failedFamilies: [], crashes: [], coordination: undefined },
 	greenChecks: { finished: true, green: true, failing: [], pending: [], passing: ['unit'], readable: true },
 	/** A readable observation listing no checks at all at the wait ceiling — absent CI, not a timeout. */
 	missingChecks: { finished: false, green: true, failing: [], pending: [], passing: [], readable: true },

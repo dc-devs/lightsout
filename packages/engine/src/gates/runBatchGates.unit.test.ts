@@ -50,7 +50,7 @@ describe('runBatchGates', () => {
 	test('runs only the packages the tree actually touched, sparing every other suite', async () => {
 		const { dir, config, gates } = await setupTouched({ files: ['packages/api/src/added.js'] });
 
-		const error = await runBatchGates({ cwd: dir, config, coverage: true, runId: 'run-1', step: 'batch-01:api', onProgress: () => undefined });
+		const { error } = await runBatchGates({ cwd: dir, config, coverage: true, runId: 'run-1', step: 'batch-01:api', onProgress: () => undefined });
 
 		expect(error).toBe(undefined);
 		expect(gates().includes('@acme/api check')).toBeTruthy();
@@ -125,7 +125,7 @@ describe('runBatchGates', () => {
 	test('without git truth the batch falls back to verifying the whole repo', async () => {
 		const { dir, config, gates } = await setupTouched({ files: ['packages/api/src/added.js'], git: false });
 
-		const error = await runBatchGates({ cwd: dir, config, coverage: false, runId: 'run-1', step: 'batch-01:api', onProgress: () => undefined });
+		const { error } = await runBatchGates({ cwd: dir, config, coverage: false, runId: 'run-1', step: 'batch-01:api', onProgress: () => undefined });
 
 		expect(error).toBe(undefined);
 		// no diff to scope by means no package is provably safe to skip — the
@@ -137,11 +137,31 @@ describe('runBatchGates', () => {
 	test('a red gate comes back as the failure text, not a swallowed error', async () => {
 		const { dir, config } = await setupConfiguredPackagesDir({ packagesDir: 'packages', packageCheck: 'node -e "process.exit(3)" {package}' });
 
-		const error = await runBatchGates({ cwd: dir, config, coverage: false, runId: 'run-1', step: 'batch-01:api', onProgress: () => undefined });
+		const { error, failedFamilies, crashes, coordination } = await runBatchGates({
+			cwd: dir,
+			config,
+			coverage: false,
+			runId: 'run-1',
+			step: 'batch-01:api',
+			onProgress: () => undefined,
+		});
 
 		// the caller's fix loop routes on this string — a lost failure would be
 		// read as a green batch
 		expect(error).toContain('exit 3');
 		expect(error).toContain('[api]');
+		// and the channels beside it say this red IS evidence about the code: a
+		// family to hand a fix agent, no crash, and no machine it never got
+		expect({ failedFamilies, crashes, coordination }).toStrictEqual({ failedFamilies: ['check'], crashes: [], coordination: undefined });
+	});
+
+	test('runBatchGates: answers the whole gate result rather than only its error', async () => {
+		const { dir, config } = await setupTouched({ files: ['packages/api/src/added.js'] });
+
+		const result = await runBatchGates({ cwd: dir, config, coverage: false, runId: 'run-1', step: 'batch-01:api', onProgress: () => undefined });
+
+		// a batch consumer has to tell a red gate from a gate run that never
+		// started, and a bare error string cannot say which it is looking at
+		expect(result).toStrictEqual({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
 	});
 });

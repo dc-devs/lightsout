@@ -1,11 +1,11 @@
 import { mkdir, rm } from 'node:fs/promises';
-import { relative } from 'node:path';
 import { testReporterEnv } from '#src/common/constants/testReporterEnv.ts';
 import { runCommand } from '#src/common/processes/runCommand.ts';
 import type { CommandResult } from '#src/common/types/CommandResult.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { FrictionArea, type GateResult } from '#src/contracts/index.ts';
 import type { RunGate } from '#src/gates/common/types/RunGate.ts';
+import { buildGateResult } from '#src/gates/common/utils/buildGateResult.ts';
 import { testResultsDir, writeJestReporter } from '#src/gates/testResults/index.ts';
 import { appendCommandLog, appendFriction } from '#src/runState/index.ts';
 
@@ -21,6 +21,10 @@ interface Params {
 	onGateResult?: (result: GateResult) => void;
 	/** Live progress sink — one line per command result. Silent when omitted. */
 	onProgress?: (message: string) => void;
+	/** The shared gate reservation's record of a gate process group, called once per attempt that spawned. */
+	onGateSpawn?: ({ pid }: { pid: number }) => void;
+	/** The same reservation forgetting that group once the attempt settles, the timeout path included. */
+	onGateExit?: ({ pid }: { pid: number }) => void;
 }
 
 /**
@@ -94,47 +98,6 @@ const isWorkerCrash = ({ kind, result }: { kind: string; result: CommandResult }
 };
 
 /**
- * One execution's evidence, in the single shape both sinks carry: the
- * commands.jsonl record adds only the log-specific `at`/`step` on top of it, so
- * building it twice is how the two would drift.
- */
-const buildGateResult = ({
-	cwd,
-	kind,
-	group,
-	command,
-	result,
-	durationMs,
-	crashed,
-	rerun,
-	evidenceDir,
-}: {
-	cwd: string;
-	kind: string;
-	group: string;
-	command: string;
-	result: CommandResult;
-	durationMs: number;
-	crashed: boolean;
-	rerun?: boolean;
-	evidenceDir?: string;
-}): GateResult => {
-	const outputTailChars = 2000;
-
-	return {
-		kind,
-		group,
-		command,
-		exitCode: result.exitCode,
-		durationMs,
-		...(rerun ? { rerun: true } : {}),
-		...(crashed ? { crashed: true } : {}),
-		...(evidenceDir ? { testResultsDir: relative(cwd, evidenceDir) } : {}),
-		...(result.exitCode === 0 ? {} : { outputTail: `${result.stdout}\n${result.stderr}`.slice(-outputTailChars) }),
-	};
-};
-
-/**
  * One execution's per-test evidence slot: the reporter file the run folder holds,
  * and a directory of its own, cleared and recreated before the command starts so
  * a re-run after a worker crash is never judged on the crashed attempt's results.
@@ -158,6 +121,46 @@ const prepareEvidence = async ({ cwd, runId, step, kind, group }: { cwd: string;
 };
 
 /**
+ * Write an absorbed worker crash down, for a crashed attempt in a run that has
+ * a run folder. Silent for every other execution.
+ *
+ * A re-run that goes green leaves the run's verdict untouched, so this durable
+ * entry is the only place an operator can later see that the toolchain, not the
+ * code, cost the run a gate.
+ */
+const recordCrashFriction = async ({
+	cwd,
+	runId,
+	step,
+	kind,
+	group,
+	crashed,
+}: {
+	cwd: string;
+	runId?: string;
+	step?: string;
+	kind: string;
+	group: string;
+	crashed: boolean;
+}) => {
+	if (!crashed || !runId) {
+		return;
+	}
+
+	await appendFriction({
+		cwd,
+		runId,
+		step: step ?? 'gates',
+		friction: [
+			{
+				area: FrictionArea.Environment,
+				detail: `gate [${group}] ${kind} crashed: a jest worker was terminated by SIGSEGV with no failing test beside it — the known V8 worker crash, re-run up to ${maxCrashAttempts} times.`,
+			},
+		],
+	});
+};
+
+/**
  * The engine's gate-execution policy, as a single reusable `RunGate`: run a
  * command under a hard timeout, re-run it while a known worker crash is the
  * only thing red about it, and record the same evidence to both sinks.
@@ -168,17 +171,36 @@ const prepareEvidence = async ({ cwd, runId, step, kind, group }: { cwd: string;
  * exactly. A module internal; its behaviour is pinned through `runGates`' own
  * tests, where the crash workaround and evidence entries are asserted.
  */
-export const createGateRunner = ({ cwd, timeoutMs, runId, step, onGateResult, onProgress }: Params): RunGate => {
+export const createGateRunner = ({ cwd, timeoutMs, runId, step, onGateResult, onProgress, onGateSpawn, onGateExit }: Params): RunGate => {
 	const executeOnce = async ({ kind, command, group, rerun }: { kind: string; command: string; group: string; rerun?: boolean }) => {
 		const evidence = await prepareEvidence({ cwd, runId, step, kind, group });
 		const startedAt = Date.now();
 		let result: CommandResult;
+		// The pairing is strict: an exit is reported only for an attempt that
+		// produced a pid. A spawn that failed outright never does, and reporting
+		// one for it would either write an undefined into the reservation's group
+		// list or drop another attempt's entry — and that list is what the reclaim
+		// rule reads before the machine is handed to a second run.
+		let spawnedPid: number | undefined;
 
 		try {
-			result = await runCommand({ command, cwd, timeoutMs, env: evidence?.env });
+			result = await runCommand({
+				command,
+				cwd,
+				timeoutMs,
+				env: evidence?.env,
+				onSpawn: ({ pid }) => {
+					spawnedPid = pid;
+					onGateSpawn?.({ pid });
+				},
+			});
 		} catch (error) {
 			// A gate that times out or fails to spawn is a red gate, not a crash.
 			result = { exitCode: -1, stdout: '', stderr: messageOf({ error }) };
+		}
+
+		if (spawnedPid !== undefined) {
+			onGateExit?.({ pid: spawnedPid });
 		}
 
 		const crashed = isWorkerCrash({ kind, result });
@@ -193,23 +215,7 @@ export const createGateRunner = ({ cwd, timeoutMs, runId, step, onGateResult, on
 			await appendCommandLog({ cwd, runId, record: { at: new Date().toISOString(), step, ...gateResult } });
 		}
 
-		// Even an absorbed crash is written down. A re-run that goes green
-		// leaves the run's verdict untouched, so this durable entry is the only
-		// place an operator can later see that the toolchain, not the code,
-		// cost the run a gate.
-		if (crashed && runId) {
-			await appendFriction({
-				cwd,
-				runId,
-				step: step ?? 'gates',
-				friction: [
-					{
-						area: FrictionArea.Environment,
-						detail: `gate [${group}] ${kind} crashed: a jest worker was terminated by SIGSEGV with no failing test beside it — the known V8 worker crash, re-run up to ${maxCrashAttempts} times.`,
-					},
-				],
-			});
-		}
+		await recordCrashFriction({ cwd, runId, step, kind, group, crashed });
 
 		onGateResult?.(gateResult);
 

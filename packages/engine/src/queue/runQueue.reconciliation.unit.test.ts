@@ -39,7 +39,7 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 	listLabelNames: () =>
 		Promise.resolve(['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed']),
 	appendTicketNote: () => Promise.resolve(undefined),
-	setParkedLabel: () => Promise.resolve(undefined),
+	setTicketLabel: () => Promise.resolve(undefined),
 }));
 // -------------------------
 // The lifecycle barrel keeps every other member real: the queue's startup check
@@ -49,7 +49,10 @@ jest.mock('#src/ticketLifecycle/index.ts', () => ({
 	reconcileShippedTicket: (params: ReconcileShippedParams) => mockReconcileShippedTicket(params),
 }));
 // -------------------------
-jest.mock('#src/gates/index.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
+jest.mock('#src/gates/index.ts', () => ({
+	...jest.requireActual<typeof import('#src/gates/index.ts')>('#src/gates/index.ts'),
+	runGates: (params: { cwd: string }) => mockRunGates(params),
+}));
 // The two ends of the drain, stubbed on one barrel. Everything else stays real:
 // `PullRequestState` is a plain constant nothing gains from doubling.
 jest.mock('#src/ship/index.ts', () => ({
@@ -130,7 +133,7 @@ const setupShippedBranch = ({ doneWriteFailure }: { doneWriteFailure?: string } 
 	mockListEligibleTickets.mockResolvedValue([]);
 	mockScanParkedWorktrees.mockResolvedValue({ resumed: [], outcomes: [ready], leftBehind: [], merged: [] });
 	mockFindPullRequest.mockResolvedValue(undefined);
-	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [] });
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
 	mockRunShip.mockResolvedValue(shippedResult);
 	mockReconcileShippedTicket.mockResolvedValue(doneWriteFailure);
 

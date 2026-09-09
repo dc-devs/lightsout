@@ -20,7 +20,24 @@ export type { SelfCheckResult } from '#src/gates/common/types/SelfCheckResult.ts
 // callers of `runGates` that keep what it observed share this rather than
 // spelling the key themselves.
 export { collectGateObservations } from '#src/gates/common/utils/collectGateObservations.ts';
+// The one spelling of a gate run that never started because the machine was
+// taken. Published because a later caller emits it from outside this module,
+// and two spellings of one event read as two different events.
+export { describeGateCoordinationTimeout } from '#src/gates/common/utils/describeGateCoordinationTimeout.ts';
 export { resolveGateSchedule } from '#src/gates/common/utils/resolveGateSchedule.ts';
+// The durable hold a coordination failure takes on ticket-backed work, and the
+// one predicate every refusal site shares. Published here so `queue/`,
+// `ticketLifecycle/` and `pipeline/` never reach into this module's internals:
+// the readers and writers beneath these five names stay private, because a
+// caller that could read the holds without `syncGateHolds` could act on an
+// unreconciled one.
+export type { GateHolds } from '#src/gates/gateHolds/index.ts';
+export { describeGateHold, gateBlockedLabel, isTicketGateHeld, syncGateHolds, takeGateHold } from '#src/gates/gateHolds/index.ts';
+// The shared reservation that serialises whole gate runs across a repository's
+// worktrees. `runGateSchedule` and `stageCountOf` stay internal: what a run
+// schedules is this module's own business.
+export type { GateLockOutcome } from '#src/gates/gateLock/index.ts';
+export { withGateLock } from '#src/gates/gateLock/index.ts';
 export { runBatchGates } from '#src/gates/runBatchGates.ts';
 export { runGates } from '#src/gates/runGates.ts';
 export { runSelfCheck } from '#src/gates/runSelfCheck.ts';

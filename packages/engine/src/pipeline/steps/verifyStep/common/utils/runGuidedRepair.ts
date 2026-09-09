@@ -21,7 +21,14 @@ interface Params {
 export const runGuidedRepair = async ({ context, record, result }: Params): Promise<GuidedRepairOutcome> => {
 	// A crashed gate buys no judgment either — the supervisor would be asked to rule on a toolchain fault. A red with no failed family
 	// is that same shape: the checkpoint could not be run, so there is nothing to rule on and nothing to repair — as `runCheapRepairs` decides too.
-	if (!result.error || result.failedFamilies.length === 0 || result.crashes.length > 0 || record.verification?.guidedRepairAttempted) {
+	// A gate run that never got the machine is the plainest case of it: not one command executed, so the supervisor would rule on nothing at all.
+	if (
+		!result.error ||
+		result.failedFamilies.length === 0 ||
+		result.crashes.length > 0 ||
+		result.coordination !== undefined ||
+		record.verification?.guidedRepairAttempted
+	) {
 		return { record, result, ruling: undefined };
 	}
 

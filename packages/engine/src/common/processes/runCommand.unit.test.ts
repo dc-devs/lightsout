@@ -1,7 +1,7 @@
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, test } from '@jest/globals';
+import { expect, jest, test } from '@jest/globals';
 import { runCommand } from '#src/common/processes/runCommand.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 
@@ -13,6 +13,13 @@ const setupCwd = ({ files = {} }: { files?: Record<string, string> } = {}) => {
 	}
 
 	return { cwd };
+};
+
+const setupOnSpawn = () => {
+	const { cwd } = setupCwd();
+	const onSpawn = jest.fn<({ pid }: { pid: number }) => void>();
+
+	return { cwd, onSpawn };
 };
 
 test('runCommand: a green command resolves with exit code 0 and its captured stdout', async () => {
@@ -72,4 +79,21 @@ test('runCommand: merges the given environment entries over the inherited enviro
 	// wins over the inherited value of the same name, and every unnamed inherited
 	// entry survives — without which a gate command would run with no PATH
 	expect(result).toStrictEqual({ exitCode: 0, stdout: 'from-params|/tmp/overridden-home|path-inherited\n', stderr: '' });
+});
+
+test("reports the spawned shell's pid once through onSpawn, before the command settles", async () => {
+	const { cwd, onSpawn } = setupOnSpawn();
+
+	// `echo $$` prints the shell's own pid, which is also its process-group id
+	// because the spawn is detached
+	const pending = runCommand({ command: 'echo $$', cwd, onSpawn });
+	const pidsBeforeSettling = onSpawn.mock.calls.map(([{ pid }]) => pid);
+	const result = await pending;
+
+	// the group id must reach the caller while the command is still running, or
+	// the reservation would learn it only once there was nothing left to record
+	expect({ pidsBeforeSettling, callCount: onSpawn.mock.calls.length }).toStrictEqual({
+		pidsBeforeSettling: [Number(result.stdout.trim())],
+		callCount: 1,
+	});
 });

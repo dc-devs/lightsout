@@ -1,4 +1,5 @@
 import { RunStatus, type StepRecord, SupervisorDecision } from '#src/contracts/index.ts';
+import { stopOnGateCoordination } from '#src/pipeline/common/utils/stopOnGateCoordination.ts';
 import { stopOnGateCrash } from '#src/pipeline/common/utils/stopOnGateCrash.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
 import { reviewAndVerify } from '#src/pipeline/steps/verify/index.ts';
@@ -56,6 +57,12 @@ const runVerificationStep = async ({ context }: { context: VerifyContext }) => {
 	}
 
 	({ record, result } = guided);
+
+	// Both repair stages step aside for a gate run that never started, so one check here catches it wherever it appeared. It comes
+	// before the crash check: a checkpoint that never got the machine spent no gate for a crash to be attributed to.
+	if (result.coordination !== undefined) {
+		return stopOnGateCoordination({ run, stepId: id, record, coordination: result.coordination, error: result.error });
+	}
 
 	// Both repair stages step aside for a crash, so one check here catches it wherever it appeared.
 	if (result.crashes.length > 0) {

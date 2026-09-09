@@ -15,4 +15,19 @@ export interface GateRunResult {
 	 * reads nothing but `error` still fails closed.
 	 */
 	crashes: string[];
+	/**
+	 * Why this gate run never started — the machine was held by another gate run
+	 * of the same repository, or the shared reservation could not be written at
+	 * all. Set together with `error` and with `failedFamilies: []`, exactly as
+	 * `crashes` is, so a caller reading only `error` still fails closed while a
+	 * caller that would spend a repair has one member to check rather than a
+	 * message to parse.
+	 *
+	 * Not evidence about the code: no gate command executed, so no fix agent may
+	 * be spent on it and no supervisor bought. Declared required-but-possibly-
+	 * undefined rather than optional, so the compiler finds every literal that
+	 * builds one of these instead of letting a caller silently inherit a missing
+	 * member.
+	 */
+	coordination: string | undefined;
 }

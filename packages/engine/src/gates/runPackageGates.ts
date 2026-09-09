@@ -122,7 +122,7 @@ export const runPackageGates = async ({
 	try {
 		manifest = await readPackageManifest({ cwd, packagesDir, packageDir });
 	} catch (error) {
-		return { error: messageOf({ error }), failedFamilies: ['package-manifest'], crashes: [] };
+		return { error: messageOf({ error }), failedFamilies: ['package-manifest'], crashes: [], coordination: undefined };
 	}
 
 	const templates = resolvePackageGatesConfig({ packageGates: scoped });

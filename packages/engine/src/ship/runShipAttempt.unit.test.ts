@@ -45,7 +45,7 @@ const setupAttempt = () => {
 		reviewDecision: null,
 	});
 
-	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [] });
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
 
 	stubForgeOnPath({
 		responses: {

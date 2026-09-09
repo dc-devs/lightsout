@@ -35,6 +35,17 @@ export const ShipBlockReason = {
 	IntegrationConflict: 'integration-conflict',
 	/** The integrated branch did not pass the repository's own gates within the repair allowance. */
 	IntegrationGatesFailed: 'integration-gates-failed',
+	/**
+	 * The integrated branch was never judged at all, because the shared gate
+	 * reservation could not be had: another gate run held the machine for longer
+	 * than the wait allows.
+	 *
+	 * Separate from `IntegrationGatesFailed` because no gate command ran, so
+	 * there is no verdict about the code and no repair to spend — and because a
+	 * ticket-backed ship takes a durable hold on exactly this reason and on no
+	 * other.
+	 */
+	IntegrationGatesUnavailable: 'integration-gates-unavailable',
 	/** No CI checks appeared for the pushed commit before the wait ceiling, and the repository has not explicitly opted out. */
 	ChecksMissing: 'checks-missing',
 } as const;

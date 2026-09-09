@@ -73,15 +73,20 @@ test('a red generate short-circuits the gate set — no gate runs behind broken 
 	expect(readGateLog({ dir })).toStrictEqual([]);
 });
 
-test('a gate that cannot spawn is a red gate, not a crash — and is never re-run', async () => {
-	const dir = setupConsumerRepo();
+test('a gate the runner could not get an exit code from is a red gate, not a crash — and is never re-run', async () => {
+	// The trigger is the gate's own deadline rather than a missing working
+	// directory: the shared gate reservation is taken in that directory before
+	// any gate runs, so a run pointed at one that does not exist now stops with a
+	// coordination reason and never reaches the runner this case is about. Both
+	// paths reach the runner's synthetic -1 through the same catch.
+	const dir = setupConsumerRepo({ scripts: { check: 'sleep 30' }, config: { timeouts: { 'gate-minutes': 0.005 } } });
 	const config = await readConfig({ cwd: dir });
 	const results: GateResult[] = [];
 
-	const { error, failedFamilies } = await runGates({ cwd: join(dir, 'no-such-dir'), config, onGateResult: (result) => results.push(result) });
+	const { error, failedFamilies } = await runGates({ cwd: dir, config, onGateResult: (result) => results.push(result) });
 
 	expect(error ?? '').toMatch(/check failed \(exit -1\)/);
-	expect(error ?? '').toMatch(/ENOENT/);
+	expect(error ?? '').toMatch(/timed out/);
 	expect(failedFamilies).toStrictEqual(['check']);
 
 	const checks = results.filter((result) => result.kind === 'check');
@@ -90,8 +95,8 @@ test('a gate that cannot spawn is a red gate, not a crash — and is never re-ru
 	expect(checks.length).toBe(1);
 	expect(checks[0]?.exitCode).toBe(-1);
 	expect(checks[0]?.rerun).toBe(undefined);
-	// the spawn error is the red gate’s evidence
-	expect(checks[0]?.outputTail ?? '').toMatch(/ENOENT/);
+	// the runner's own error is the red gate’s evidence
+	expect(checks[0]?.outputTail ?? '').toMatch(/timed out/);
 });
 
 test('a package whose manifest cannot be resolved fails its own group only — the rest of the fan-out still runs', async () => {

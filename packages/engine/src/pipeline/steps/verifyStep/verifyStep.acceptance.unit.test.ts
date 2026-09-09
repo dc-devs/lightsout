@@ -33,7 +33,7 @@ jest.mock('#src/pipeline/common/utils/runVerificationGates.ts', () => ({
  * came back green.
  */
 const setupAcceptanceRun = () => {
-	mockRunVerificationGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], failures: [], gates: [] });
+	mockRunVerificationGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined, failures: [], gates: [] });
 
 	const manifest = { runId: 'run-1', steps: [], changedFiles: [], packages: [], acceptanceTests: [], approvedTests: [] } as unknown as RunManifest;
 	const progress: string[] = [];

@@ -9,6 +9,8 @@ interface Params {
 	timeoutMs?: number;
 	/** Entries merged over the inherited environment — how the engine reaches a child process it does not own the command of. */
 	env?: Record<string, string>;
+	/** Called once with the spawned shell's pid, which is also its process-group id because the spawn is detached. */
+	onSpawn?: ({ pid }: { pid: number }) => void;
 }
 
 /**
@@ -17,7 +19,7 @@ interface Params {
  * sweet-talk. Rejects only on spawn failure or timeout; a non-zero exit is a
  * result, not an exception (the engine owns what failure means).
  */
-export const runCommand = ({ command, cwd, timeoutMs, env }: Params): Promise<CommandResult> => {
+export const runCommand = ({ command, cwd, timeoutMs, env, onSpawn }: Params): Promise<CommandResult> => {
 	// `env` is passed explicitly rather than left to ambient inheritance. In
 	// production this is identical — the child inherited exactly these values
 	// anyway — but it makes the environment a visible input, which is what lets
@@ -31,6 +33,14 @@ export const runCommand = ({ command, cwd, timeoutMs, env }: Params): Promise<Co
 	// relays the signal, which is the job the terminal's foreground group did
 	// before the child left it.
 	const child = spawn(command, { cwd, shell: true, stdio: ['ignore', 'pipe', 'pipe'], env: env ? { ...process.env, ...env } : process.env, detached: true });
+
+	// Reported before the output collector is wired, because this is the only
+	// place the group id surfaces at all: nothing downstream of
+	// `collectChildOutput` ever sees it, and the shared gate reservation has to
+	// record the group while the command is still running.
+	if (child.pid !== undefined) {
+		onSpawn?.({ pid: child.pid });
+	}
 
 	return collectChildOutput({
 		child,

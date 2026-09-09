@@ -19,7 +19,7 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 // -------------------------
 type TicketSummary = TicketRunOutcome['ticket'];
 type ListEligibleParams = { settings: QueueSettings; trackerSettings: TrackerSettings };
-type SetParkedLabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; parked: boolean };
+type SetTicketLabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; present: boolean };
 type ScanParkedParams = {
 	cwd: string;
 	defaultBranch: string;
@@ -42,7 +42,7 @@ type RunGatesParams = {
 };
 
 const mockListEligibleTickets = jest.fn<(params: ListEligibleParams) => Promise<TicketSummary[] | QueueFailure>>();
-const mockSetParkedLabel = jest.fn<(params: SetParkedLabelParams) => Promise<QueueFailure | undefined>>();
+const mockSetTicketLabel = jest.fn<(params: SetTicketLabelParams) => Promise<QueueFailure | undefined>>();
 
 jest.mock('#src/queue/ticketSelection/listEligibleTickets.ts', () => ({
 	listEligibleTickets: (params: ListEligibleParams) => mockListEligibleTickets(params),
@@ -50,7 +50,7 @@ jest.mock('#src/queue/ticketSelection/listEligibleTickets.ts', () => ({
 jest.mock('#src/ticketTracker/index.ts', () => ({
 	listLabelNames: () =>
 		Promise.resolve(['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed']),
-	setParkedLabel: (params: SetParkedLabelParams) => mockSetParkedLabel(params),
+	setTicketLabel: (params: SetTicketLabelParams) => mockSetTicketLabel(params),
 }));
 // -------------------------
 const mockScanParkedWorktrees = jest.fn<(params: ScanParkedParams) => Promise<ParkedWork | QueueFailure>>();
@@ -62,6 +62,7 @@ jest.mock('#src/queue/worktrees/scanParkedWorktrees.ts', () => ({
 const mockRunGates = jest.fn<(params: RunGatesParams) => Promise<GateRunResult>>();
 
 jest.mock('#src/gates/index.ts', () => ({
+	...jest.requireActual<typeof import('#src/gates/index.ts')>('#src/gates/index.ts'),
 	runGates: (params: RunGatesParams) => mockRunGates(params),
 }));
 // -------------------------
@@ -146,9 +147,9 @@ const setupQueueShipping = async ({ shipBlock }: { shipBlock?: { reason: ShipBlo
 		leftBehind: [],
 		merged: [],
 	} satisfies ParkedWork);
-	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [] });
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
 	mockRunShip.mockResolvedValue(shipBlock === undefined ? shippedResult : { status: ShipStatus.Blocked, ...shipBlock, failingChecks: [] });
-	mockSetParkedLabel.mockResolvedValue(undefined);
+	mockSetTicketLabel.mockResolvedValue(undefined);
 
 	const progress: string[] = [];
 	const settings = queueSettingsFixture();

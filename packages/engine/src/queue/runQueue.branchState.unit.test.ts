@@ -26,12 +26,12 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 type ListTicketsParams = { settings: TrackerSettings; labelNames: string[]; statuses: string[] };
 type IdentifiersParams = { settings: TrackerSettings; identifiers: string[] };
 type StatusParams = { settings: TrackerSettings; ticketId: string; statusName: string };
-type LabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; parked: boolean };
+type LabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; present: boolean };
 
 const mockListTickets = jest.fn<(params: ListTicketsParams) => Promise<TrackerTicket[] | TrackerFailure>>();
 const mockGetTicketsByIdentifiers = jest.fn<(params: IdentifiersParams) => Promise<TrackerTicket[] | TrackerFailure>>();
 const mockSetTicketStatus = jest.fn<(params: StatusParams) => Promise<TrackerFailure | undefined>>();
-const mockSetParkedLabel = jest.fn<(params: LabelParams) => Promise<TrackerFailure | undefined>>();
+const mockSetTicketLabel = jest.fn<(params: LabelParams) => Promise<TrackerFailure | undefined>>();
 
 jest.mock('#src/ticketTracker/index.ts', () => ({
 	listLabelNames: () =>
@@ -39,7 +39,7 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 	appendTicketNote: () => Promise.resolve(undefined),
 	getTicketsByIdentifiers: (params: IdentifiersParams) => mockGetTicketsByIdentifiers(params),
 	listTickets: (params: ListTicketsParams) => mockListTickets(params),
-	setParkedLabel: (params: LabelParams) => mockSetParkedLabel(params),
+	setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params),
 	setTicketStatus: (params: StatusParams) => mockSetTicketStatus(params),
 }));
 // -------------------------
@@ -57,7 +57,10 @@ jest.mock('#src/ticketLifecycle/index.ts', () => ({
 // -------------------------
 const mockRunGates = jest.fn<(params: { cwd: string }) => Promise<GateRunResult>>();
 
-jest.mock('#src/gates/index.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
+jest.mock('#src/gates/index.ts', () => ({
+	...jest.requireActual<typeof import('#src/gates/index.ts')>('#src/gates/index.ts'),
+	runGates: (params: { cwd: string }) => mockRunGates(params),
+}));
 // -------------------------
 type FindPullRequestParams = { branch: string; cwd: string; state: string };
 
@@ -167,10 +170,10 @@ const setupQueueRun = ({
 	mockListTickets.mockResolvedValue(eligible);
 	mockGetTicketsByIdentifiers.mockResolvedValue(parked);
 	mockSetTicketStatus.mockResolvedValue(undefined);
-	mockSetParkedLabel.mockResolvedValue(undefined);
+	mockSetTicketLabel.mockResolvedValue(undefined);
 	mockReconcileShippedTicket.mockResolvedValue(undefined);
 	mockFindPullRequest.mockResolvedValue(undefined);
-	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [] });
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
 	mockRunShip.mockResolvedValue(shipBlocked ? blockedResult : shippedResult);
 	mockRunWorkerWithRelay.mockResolvedValue({});
 

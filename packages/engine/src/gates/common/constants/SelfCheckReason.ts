@@ -1,7 +1,7 @@
 /**
  * Why one self-check ended as it did.
  *
- * Only `Ran` carries a gate verdict; the other three each print an ending of
+ * Only `Ran` carries a gate verdict; the other four each print an ending of
  * their own, none of them is a failure of the change, and none of them may read
  * as a check that passed.
  */
@@ -14,6 +14,8 @@ export const SelfCheckReason = {
 	NothingScheduled: 'nothing-scheduled',
 	/** The engine could not work out what to check, because reading the repository's git status failed. */
 	Unavailable: 'unavailable',
+	/** Another gate run of this repository held the machine, so not one gate command executed. */
+	Coordination: 'coordination',
 } as const;
 
 export type SelfCheckReason = (typeof SelfCheckReason)[keyof typeof SelfCheckReason];

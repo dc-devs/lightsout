@@ -78,8 +78,8 @@ jest.mock('#src/common/utils/consultSupervisor.ts', () => ({
 const checkpoint = 'verify-implement';
 
 /** A gate run that came back green, and one that came back red under the unit-test family. */
-const greenGates: VerificationResult = { error: undefined, failedFamilies: [], crashes: [], failures: [], gates: [] };
-const redGates: VerificationResult = { error: 'unit tests failed', failedFamilies: ['test'], crashes: [], failures: [], gates: [] };
+const greenGates: VerificationResult = { error: undefined, failedFamilies: [], crashes: [], coordination: undefined, failures: [], gates: [] };
+const redGates: VerificationResult = { error: 'unit tests failed', failedFamilies: ['test'], crashes: [], coordination: undefined, failures: [], gates: [] };
 
 interface SetupParams {
 	/** What the reviewer answers, one entry per checkpoint entry; the last is repeated once the list is spent. */

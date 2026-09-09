@@ -42,6 +42,21 @@ const verifyCandidate = async ({
 
 	const gates = await runGates({ cwd, config: integration.config, coverage: true, includeRoot: true, onProgress });
 
+	// A gate run that never started is not a red one. No command executed, so
+	// there is nothing to hand an integrator and nothing to repair — the same
+	// refusal the crash below states, for the other reason a gate can produce no
+	// verdict. Its own reason, because a ticket-backed ship takes a durable hold
+	// on this one and on no other.
+	if (gates.coordination !== undefined) {
+		return {
+			blocked: {
+				reason: ShipBlockReason.IntegrationGatesUnavailable,
+				detail: gates.coordination,
+				paths: [],
+			},
+		};
+	}
+
 	if (gates.crashes.length > 0) {
 		return {
 			blocked: {
