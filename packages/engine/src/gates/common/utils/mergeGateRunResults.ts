@@ -20,5 +20,10 @@ export const mergeGateRunResults = ({ results }: Params): GateRunResult => {
 		error: errors.length > 0 ? errors.join('\n\n') : undefined,
 		failedFamilies: [...new Set(results.flatMap((result) => result.failedFamilies))],
 		crashes: results.flatMap((result) => result.crashes),
+		// A constant rather than a fold: the inputs here are the groups of a stage
+		// and the stages of a checkpoint, and the reservation is taken around the
+		// whole schedule — so no input this is ever given can carry a coordination
+		// reason, and folding one would be a branch no test could reach.
+		coordination: undefined,
 	};
 };

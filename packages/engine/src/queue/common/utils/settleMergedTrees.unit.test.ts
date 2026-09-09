@@ -4,7 +4,7 @@ import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { MergedParkedTree } from '#src/queue/common/types/MergedParkedTree.ts';
 import { settleMergedTrees } from '#src/queue/common/utils/settleMergedTrees.ts';
-import type { TrackerFailure } from '#src/ticketTracker/index.ts';
+import type { TrackerFailure, TrackerSettings } from '#src/ticketTracker/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
@@ -16,7 +16,8 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 const mockReconcileShippedTicket = jest.fn<(params: { ticketRef: string | undefined }) => Promise<string | undefined>>();
 const mockReadGitChangedFiles = jest.fn<(params: { cwd: string }) => Promise<string[] | undefined>>();
 const mockRemoveTicketWorktree = jest.fn<(params: { cwd: string; worktreePath: string; branch: string }) => Promise<void>>();
-const mockSetParkedLabel = jest.fn<(params: { ticketId: string; parked: boolean }) => Promise<TrackerFailure | undefined>>();
+const mockSetTicketLabel =
+	jest.fn<(params: { settings: TrackerSettings; ticketId: string; label: string | undefined; present: boolean }) => Promise<TrackerFailure | undefined>>();
 
 jest.mock('#src/ticketLifecycle/index.ts', () => ({
 	reconcileShippedTicket: (params: { ticketRef: string | undefined }) => mockReconcileShippedTicket(params),
@@ -25,7 +26,9 @@ jest.mock('#src/common/git/readGitChangedFiles.ts', () => ({ readGitChangedFiles
 jest.mock('#src/queue/worktrees/removeTicketWorktree.ts', () => ({
 	removeTicketWorktree: (params: { cwd: string; worktreePath: string; branch: string }) => mockRemoveTicketWorktree(params),
 }));
-jest.mock('#src/ticketTracker/index.ts', () => ({ setParkedLabel: (params: { ticketId: string; parked: boolean }) => mockSetParkedLabel(params) }));
+jest.mock('#src/ticketTracker/index.ts', () => ({
+	setTicketLabel: (params: { settings: TrackerSettings; ticketId: string; label: string | undefined; present: boolean }) => mockSetTicketLabel(params),
+}));
 // -------------------------
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
@@ -66,7 +69,7 @@ const setupSettle = ({
 	mockReconcileShippedTicket.mockResolvedValue(reconciliationFailure);
 	mockReadGitChangedFiles.mockResolvedValue(changedFilesFor[worktree]);
 	mockRemoveTicketWorktree.mockResolvedValue(undefined);
-	mockSetParkedLabel.mockResolvedValue(labelFailure);
+	mockSetTicketLabel.mockResolvedValue(labelFailure);
 
 	const settle = ({ numbers }: { numbers: number[] }) =>
 		settleMergedTrees({
@@ -74,6 +77,32 @@ const setupSettle = ({
 			config,
 			env: {},
 			settings: queueSettingsFixture(),
+			trackerSettings: trackerSettingsFixture(),
+			merged: numbers.map((number) => treeOf({ number })),
+			onProgress: (message) => progress.push(message),
+		});
+
+	return { settle, progress };
+};
+
+/**
+ * A drain with a configured parked label, so the label a merged tree's ticket
+ * is written with can be named rather than inferred from `undefined`.
+ */
+const setupLabelWrites = ({ parkedLabel = 'queue-parked' }: { parkedLabel?: string } = {}) => {
+	const progress: string[] = [];
+
+	mockReconcileShippedTicket.mockResolvedValue(undefined);
+	mockReadGitChangedFiles.mockResolvedValue(changedFilesFor.clean);
+	mockRemoveTicketWorktree.mockResolvedValue(undefined);
+	mockSetTicketLabel.mockResolvedValue(undefined);
+
+	const settle = ({ numbers }: { numbers: number[] }) =>
+		settleMergedTrees({
+			cwd: '/repo',
+			config,
+			env: {},
+			settings: queueSettingsFixture({ parkedLabel }),
 			trackerSettings: trackerSettingsFixture(),
 			merged: numbers.map((number) => treeOf({ number })),
 			onProgress: (message) => progress.push(message),
@@ -117,7 +146,7 @@ describe('settleMergedTrees', () => {
 		await settle({ numbers: [70] });
 
 		expect(mockRemoveTicketWorktree).toHaveBeenCalledWith({ cwd: '/repo', worktreePath: '/repo-worktrees/lo-70-drain', branch: 'lo-70-drain' });
-		expect(mockSetParkedLabel).toHaveBeenCalledWith(expect.objectContaining({ ticketId: 'id-70', parked: false }));
+		expect(mockSetTicketLabel).toHaveBeenCalledWith(expect.objectContaining({ ticketId: 'id-70', present: false }));
 	});
 
 	test('keeps a worktree with uncommitted changes and says so in the reason', async () => {
@@ -146,5 +175,16 @@ describe('settleMergedTrees', () => {
 
 		expect(progress).toContain('LO-70 · the parked label could not be cleared: the tracker refused the label write');
 		expect(settled[0]?.settled).toBe(true);
+	});
+
+	test('never clears the gate-blocked label', async () => {
+		const { settle } = setupLabelWrites();
+
+		await settle({ numbers: [70, 71] });
+
+		expect(mockSetTicketLabel.mock.calls.map(([params]) => ({ ticketId: params.ticketId, label: params.label, present: params.present }))).toStrictEqual([
+			{ ticketId: 'id-70', label: 'queue-parked', present: false },
+			{ ticketId: 'id-71', label: 'queue-parked', present: false },
+		]);
 	});
 });

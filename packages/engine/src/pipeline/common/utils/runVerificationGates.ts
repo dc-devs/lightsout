@@ -125,14 +125,14 @@ export const runVerificationGates = async ({ run, coverage, checkpoint, rows, fi
 		});
 
 		if (acceptanceError !== undefined) {
-			verdict = { error: acceptanceError, failedFamilies: ['acceptance-tests'], crashes: [], failures: [] };
+			verdict = { error: acceptanceError, failedFamilies: ['acceptance-tests'], crashes: [], coordination: undefined, failures: [] };
 		} else if (coverageRan) {
 			const executedError = await changedFilesExecutedError({ run, packagesDir });
 
 			verdict =
 				executedError === undefined
-					? { error: undefined, failedFamilies: [], crashes: [], failures: [] }
-					: { error: executedError, failedFamilies: ['changed-files-executed'], crashes: [], failures: [] };
+					? { error: undefined, failedFamilies: [], crashes: [], coordination: undefined, failures: [] }
+					: { error: executedError, failedFamilies: ['changed-files-executed'], crashes: [], coordination: undefined, failures: [] };
 		}
 	}
 

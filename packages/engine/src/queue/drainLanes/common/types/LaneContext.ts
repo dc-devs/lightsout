@@ -1,4 +1,5 @@
 import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { GateHolds } from '#src/gates/index.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
@@ -10,6 +11,10 @@ export interface LaneContext {
 	/** The main repository checkout. */
 	cwd: string;
 	config: LightsoutConfig;
+	/** The coordinator run's own id, so a hold the ship lane takes names the run that took it. */
+	runId: string;
+	/** The holds reconciled once at the drain's start, read by every re-scan. */
+	holds: GateHolds;
 	settings: QueueSettings;
 	trackerSettings: TrackerSettings;
 	shipSettings: ShipSettings;

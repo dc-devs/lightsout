@@ -1,6 +1,6 @@
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
-import { setParkedLabel, type TrackerSettings } from '#src/ticketTracker/index.ts';
+import { setTicketLabel, type TrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
 	settings: QueueSettings;
@@ -29,7 +29,7 @@ export const settleParkedLabels = async ({ settings, trackerSettings, outcomes, 
 
 	await Promise.all(
 		outcomes.map(async (outcome) => {
-			const written = await setParkedLabel({ settings: trackerSettings, ticketId: outcome.ticket.id, label: settings.parkedLabel, parked: !outcome.ready });
+			const written = await setTicketLabel({ settings: trackerSettings, ticketId: outcome.ticket.id, label: settings.parkedLabel, present: !outcome.ready });
 
 			if (written !== undefined) {
 				onProgress?.(`${outcome.ticket.identifier} · the '${settings.parkedLabel}' label could not be written: ${written.error}`);

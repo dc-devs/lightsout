@@ -22,6 +22,7 @@ const mergeBranch = async ({ context, state, outcome }: { context: LaneContext; 
 			defaultBranch: context.defaultBranch,
 			env: context.env,
 			outcome,
+			runId: context.runId,
 			serializeMainCheckout: context.serializeMainCheckout,
 			onProgress: context.onProgress,
 		});

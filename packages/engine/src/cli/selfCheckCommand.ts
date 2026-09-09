@@ -23,8 +23,8 @@ interface StepSelfCheck {
 const verdictLine = "The engine's own gates run afterwards over the full scope and are the only verdict.";
 
 /**
- * The headline for an ending that ran no gate. None of the three says anything
- * is wrong with the change, and none of them may read as a check that passed.
+ * The headline for an ending that ran no gate. None of the four says anything is
+ * wrong with the change, and none of them may read as a check that passed.
  */
 const noGateHeadlines: Record<Exclude<SelfCheckReason, typeof SelfCheckReason.Ran>, string> = {
 	[SelfCheckReason.NothingChanged]: 'nothing to check — the tree holds no change yet',
@@ -32,6 +32,8 @@ const noGateHeadlines: Record<Exclude<SelfCheckReason, typeof SelfCheckReason.Ra
 		'no gates were run — the checkpoint this step precedes schedules none, or every package in scope skipped the ones it does',
 	[SelfCheckReason.Unavailable]:
 		"the engine could not work out what to check — reading this repository's git status failed, which is the engine failing rather than your change being red",
+	[SelfCheckReason.Coordination]:
+		'no gates were run — another gate run of this repository holds the machine, so this check was still waiting for it rather than your change being red',
 };
 
 /**
@@ -126,6 +128,12 @@ export const selfCheckCommand = async ({ flags, cwd }: CommandContext): Promise<
 	const scheduled = result.gateNames.length === 0 ? '' : ` (${result.gateNames.join(', ')})`;
 
 	console.log(`\n${bold(`self-check ${step}`)} — ${headline}${scheduled}. ${verdictLine}`);
+
+	// Who holds the machine, in which worktree, and for how long — printed under
+	// the headline, and never alongside gate evidence, because no gate ran.
+	if (result.coordination !== undefined) {
+		console.log(`\n${result.coordination}`);
+	}
 
 	if (result.reason === SelfCheckReason.Ran) {
 		printGateFailures({ result });

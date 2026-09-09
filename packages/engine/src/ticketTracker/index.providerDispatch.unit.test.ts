@@ -7,8 +7,8 @@ import {
 	listTickets,
 	readTicketAsset,
 	setExclusiveLabel,
-	setParkedLabel,
 	setTicketAttachment,
+	setTicketLabel,
 	setTicketStatus,
 } from '#src/ticketTracker/index.ts';
 import * as mockJiraAdapterModule from '#src/ticketTracker/jira/index.ts';
@@ -33,8 +33,8 @@ jest.mock('#src/ticketTracker/linear/index.ts', () => ({
 	listTickets: jest.fn<LinearAdapter['listTickets']>(),
 	readTicketAsset: jest.fn<LinearAdapter['readTicketAsset']>(),
 	setExclusiveLabel: jest.fn<LinearAdapter['setExclusiveLabel']>(),
-	setParkedLabel: jest.fn<LinearAdapter['setParkedLabel']>(),
 	setTicketAttachment: jest.fn<LinearAdapter['setTicketAttachment']>(),
+	setTicketLabel: jest.fn<LinearAdapter['setTicketLabel']>(),
 	setTicketStatus: jest.fn<LinearAdapter['setTicketStatus']>(),
 }));
 jest.mock('#src/ticketTracker/jira/index.ts', () => ({
@@ -45,8 +45,8 @@ jest.mock('#src/ticketTracker/jira/index.ts', () => ({
 	listTickets: jest.fn<JiraAdapter['listTickets']>(),
 	readTicketAsset: jest.fn<JiraAdapter['readTicketAsset']>(),
 	setExclusiveLabel: jest.fn<JiraAdapter['setExclusiveLabel']>(),
-	setParkedLabel: jest.fn<JiraAdapter['setParkedLabel']>(),
 	setTicketAttachment: jest.fn<JiraAdapter['setTicketAttachment']>(),
+	setTicketLabel: jest.fn<JiraAdapter['setTicketLabel']>(),
 	setTicketStatus: jest.fn<JiraAdapter['setTicketStatus']>(),
 }));
 // -------------------------
@@ -64,8 +64,8 @@ const setup = () => {
 		adapter.listTickets.mockResolvedValue([]);
 		adapter.readTicketAsset.mockResolvedValue('body');
 		adapter.setExclusiveLabel.mockResolvedValue(undefined);
-		adapter.setParkedLabel.mockResolvedValue(undefined);
 		adapter.setTicketAttachment.mockResolvedValue(undefined);
+		adapter.setTicketLabel.mockResolvedValue(undefined);
 		adapter.setTicketStatus.mockResolvedValue(undefined);
 	}
 
@@ -85,7 +85,7 @@ describe('tracker provider dispatch', () => {
 		await listTickets({ settings, labelNames: ['route-direct'], statuses: ['Ready'] });
 		await readTicketAsset({ settings, url: 'https://example.atlassian.net/rest/api/3/attachment/content/7' });
 		await setExclusiveLabel({ settings, ticketId: '1001', label: 'shaped', groupLabels: ['shaped', 'raw'] });
-		await setParkedLabel({ settings, ticketId: '1001', label: 'parked', parked: true });
+		await setTicketLabel({ settings, ticketId: '1001', label: 'parked', present: true });
 		await setTicketAttachment({ settings, ticketId: '1001', title: 'plan.md', content, contentType: 'text/markdown' });
 		await setTicketStatus({ settings, ticketId: '1001', statusName: 'Done' });
 
@@ -99,7 +99,7 @@ describe('tracker provider dispatch', () => {
 			url: 'https://example.atlassian.net/rest/api/3/attachment/content/7',
 		});
 		expect(mockJiraAdapter.setExclusiveLabel).toHaveBeenCalledWith({ settings, ticketId: '1001', label: 'shaped', groupLabels: ['shaped', 'raw'] });
-		expect(mockJiraAdapter.setParkedLabel).toHaveBeenCalledWith({ settings, ticketId: '1001', label: 'parked', parked: true });
+		expect(mockJiraAdapter.setTicketLabel).toHaveBeenCalledWith({ settings, ticketId: '1001', label: 'parked', present: true });
 		expect(mockJiraAdapter.setTicketAttachment).toHaveBeenCalledWith({ settings, ticketId: '1001', title: 'plan.md', content, contentType: 'text/markdown' });
 		expect(mockJiraAdapter.setTicketStatus).toHaveBeenCalledWith({ settings, ticketId: '1001', statusName: 'Done' });
 		expect(mockLinearAdapter.listTickets).not.toHaveBeenCalled();
@@ -177,6 +177,51 @@ describe('tracker provider dispatch', () => {
 		const settings = jiraTrackerSettingsFixture();
 
 		const failure = await setExclusiveLabel({ settings, ticketId: '1001', label: 'shaped', groupLabels: ['shaped', 'raw'] });
+
+		expect(failure).toBeUndefined();
+	});
+
+	test('setTicketLabel dispatches by provider with the present flag', async () => {
+		const { mockLinearAdapter, mockJiraAdapter } = setup();
+		const linearSettings = trackerSettingsFixture();
+		const jiraSettings = jiraTrackerSettingsFixture();
+
+		await setTicketLabel({ settings: linearSettings, ticketId: '1001', label: 'queue-blocked-gate-timed-out', present: true });
+		await setTicketLabel({ settings: jiraSettings, ticketId: '2002', label: 'queue-blocked-gate-timed-out', present: false });
+
+		expect(mockLinearAdapter.setTicketLabel).toHaveBeenCalledWith({
+			settings: linearSettings,
+			ticketId: '1001',
+			label: 'queue-blocked-gate-timed-out',
+			present: true,
+		});
+		expect(mockJiraAdapter.setTicketLabel).toHaveBeenCalledWith({
+			settings: jiraSettings,
+			ticketId: '2002',
+			label: 'queue-blocked-gate-timed-out',
+			present: false,
+		});
+		expect(mockLinearAdapter.setTicketLabel).toHaveBeenCalledTimes(1);
+		expect(mockJiraAdapter.setTicketLabel).toHaveBeenCalledTimes(1);
+	});
+
+	test('answers the failure its provider answered when a ticket label write fails', async () => {
+		const { mockLinearAdapter } = setup();
+		const settings = trackerSettingsFixture();
+
+		mockLinearAdapter.setTicketLabel.mockResolvedValue({ error: "the 'LO' team has no 'queue-blocked-gate-timed-out' label" });
+
+		const failure = await setTicketLabel({ settings, ticketId: '1001', label: 'queue-blocked-gate-timed-out', present: true });
+
+		expect(failure).toStrictEqual({ error: "the 'LO' team has no 'queue-blocked-gate-timed-out' label" });
+	});
+
+	test('answers undefined when its provider wrote the ticket label', async () => {
+		setup();
+
+		const settings = jiraTrackerSettingsFixture();
+
+		const failure = await setTicketLabel({ settings, ticketId: '2002', label: 'queue-blocked-gate-timed-out', present: false });
 
 		expect(failure).toBeUndefined();
 	});

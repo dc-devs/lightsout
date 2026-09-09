@@ -1,5 +1,8 @@
 import { describe, expect, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
+import type { GateHold } from '#src/contracts/index.ts';
+import type { GateHolds } from '#src/gates/index.ts';
+import { describeGateHold, gateBlockedLabel } from '#src/gates/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { selectWaveTickets } from '#src/queue/ticketSelection/selectWaveTickets.ts';
@@ -23,12 +26,22 @@ const ticketOf = (overrides: Partial<TicketSummary> = {}): TicketSummary => ({
 	...overrides,
 });
 
-const select = ({ tickets, attempted = [] }: { tickets: TicketSummary[]; attempted?: string[] }) => {
+const holdOf = (overrides: Partial<GateHold> = {}): GateHold => ({
+	takenAt: '2026-01-02T03:04:05.000Z',
+	runId: 'run-42',
+	worktreePath: '/tmp/worktrees/lo-70',
+	reason: 'the gates never got the machine within the wait ceiling',
+	labelConfirmed: true,
+	...overrides,
+});
+
+const select = ({ tickets, attempted = [], holds = {} }: { tickets: TicketSummary[]; attempted?: string[]; holds?: GateHolds }) => {
 	const progress: string[] = [];
 	const selection = selectWaveTickets({
 		tickets,
 		settings,
 		attempted: new Set(attempted),
+		holds,
 		onProgress: (message) => progress.push(message),
 	});
 
@@ -114,5 +127,24 @@ describe('selectWaveTickets', () => {
 
 		expect(runnable).toEqual([expect.objectContaining({ identifier: 'LO-70' })]);
 		expect(blocked).toEqual([{ identifier: 'LO-99', reason: expect.stringContaining('blocked by LO-69') }]);
+	});
+
+	test('refuses a label-only hold with the shared sentence', () => {
+		const { runnable, blocked, progress } = select({ tickets: [ticketOf({ labels: [gateBlockedLabel] })], holds: {} });
+
+		expect(runnable).toStrictEqual([]);
+		expect(blocked).toStrictEqual([{ identifier: 'LO-70', reason: describeGateHold({ hold: undefined, identifier: 'LO-70' }) }]);
+		expect(progress).toStrictEqual([`LO-70 · ${describeGateHold({ hold: undefined, identifier: 'LO-70' })}`]);
+	});
+
+	test("leaves a held ticket behind with the hold's reason", () => {
+		const hold = holdOf();
+		const { runnable, blocked } = select({
+			tickets: [ticketOf(), ticketOf({ id: 'id-71', identifier: 'LO-71' })],
+			holds: { 'lo-70': hold },
+		});
+
+		expect(runnable).toEqual([expect.objectContaining({ identifier: 'LO-71' })]);
+		expect(blocked).toStrictEqual([{ identifier: 'LO-70', reason: describeGateHold({ hold, identifier: 'LO-70' }) }]);
 	});
 });

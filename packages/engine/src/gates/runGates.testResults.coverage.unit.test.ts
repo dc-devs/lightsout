@@ -44,7 +44,11 @@ describe('runGates', () => {
 		// engine points the command at nothing of its own and the reporter stays
 		// inert — which is exactly what an ordinary developer run looks like.
 		expect(recordedResultsDir({ dir }).startsWith(dir)).toBe(false);
-		expect(existsSync(join(dir, '.lightsout'))).toBe(false);
+		expect(existsSync(join(dir, '.lightsout', 'runs'))).toBe(false);
+		// That folder does exist now — it is where the shared gate reservation lives
+		// — so what says no run folder was written is the absence of `runs/`, and the
+		// reservation itself is handed back before the call returns.
+		expect(existsSync(join(dir, '.lightsout', 'gate-lock.json'))).toBe(false);
 		expect(recordedDirs({ results })).toStrictEqual([
 			['check', undefined],
 			['test', undefined],

@@ -104,7 +104,7 @@ describe('runGates', () => {
 
 		const result = await runGates({ cwd: dir, config, schedule: { kind: GateScheduleKind.Off }, onGateResult: (gate) => gates.push(gate) });
 
-		expect(result).toStrictEqual({ error: undefined, failedFamilies: [], crashes: [] });
+		expect(result).toStrictEqual({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
 		// "off" is the one spelling that means "run nothing" on purpose, and the
 		// codegen command a gate set would normally run first is nothing either
 		expect(gates).toStrictEqual([]);

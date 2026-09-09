@@ -92,3 +92,23 @@ test('runVerificationGates: runs the changed-file execution check only once ever
 	expect(result.failedFamilies).toStrictEqual(['changed-files-executed']);
 	expect(result.error ?? '').toContain('changed-file-execution: 1 changed file(s) never executed under the tests: src/feature.ts');
 });
+
+test('runVerificationGates: an acceptance-check failure carries no coordination reason', async () => {
+	const { run } = await setupAcceptanceRun({ schedule: ['test'], tests: [{ file: acceptanceFile, name: 'widget: something else' }] });
+
+	const result = await runVerificationGates({
+		run,
+		coverage: false,
+		checkpoint: 'verify-tests',
+		rows: [{ testFile: acceptanceFile, testName: acceptanceName, gate: 'test' }],
+	});
+
+	// the gates ran and came back green, and the checkpoint is red only because
+	// the acceptance row it had to prove never executed — a verdict about the
+	// code, so the coordination channel stays empty and the repair budget applies
+	// to it as it does to any other red
+	expect(result.coordination).toBeUndefined();
+	expect(result.failedFamilies).toStrictEqual(['acceptance-tests']);
+	expect(result.error).toBeDefined();
+	expect(result.crashes).toStrictEqual([]);
+});

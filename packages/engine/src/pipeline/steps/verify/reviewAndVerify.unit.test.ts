@@ -45,7 +45,7 @@ jest.mock('#src/pipeline/steps/verify/approveRunnerSnapshots.ts', () => ({
 }));
 // -------------------------
 
-const greenGates: GateOutcome = { error: undefined, failedFamilies: [], crashes: [], failures: [], gates: [] };
+const greenGates: GateOutcome = { error: undefined, failedFamilies: [], crashes: [], coordination: undefined, failures: [], gates: [] };
 
 /**
  * One verification checkpoint's collaborators, with the acceptance mapping held
@@ -96,6 +96,7 @@ test('reviewAndVerify: a refused review returns the review family with no gate r
 		error: 'test-change review refused this checkpoint: packages/engine/src/widget.unit.test.ts — the assertion was weakened',
 		failedFamilies: ['test-review'],
 		crashes: [],
+		coordination: undefined,
 		failures: [],
 	});
 	expect(mockRunVerificationGates).not.toHaveBeenCalled();
@@ -128,4 +129,34 @@ test('reviewAndVerify: a refused review returns the review family with no gate r
 		expect.objectContaining({ checkpoint: 'verify-refactor', coverage: true, final: true, rows: renamedRows }),
 	);
 	expect(verified).toStrictEqual(greenGates);
+});
+
+test('reviewAndVerify: a refused review carries no coordination reason', async () => {
+	const { run, acceptanceTests } = setupCheckpoint({
+		review: { error: 'test-change review refused this checkpoint: packages/engine/src/widget.unit.test.ts — the assertion was weakened' },
+	});
+
+	const refusal = await reviewAndVerify({
+		run,
+		id: 'verify-tests',
+		coverage: true,
+		final: false,
+		planContent: '# Plan',
+		overviewContent: '# Overview',
+		acceptanceTests,
+	});
+
+	// The review is judgment about the diff, reached before any gate is spent, so
+	// the machine was never asked for and nothing about it is in question. The
+	// coordination channel stays empty, which is what keeps the refusal an
+	// ordinary red the checkpoint's fix role repairs under its existing budget
+	// rather than a reason to end the run.
+	expect(refusal).toEqual(
+		expect.objectContaining({
+			error: expect.stringContaining('the assertion was weakened'),
+			failedFamilies: ['test-review'],
+			coordination: undefined,
+		}),
+	);
+	expect(mockRunVerificationGates).not.toHaveBeenCalled();
 });

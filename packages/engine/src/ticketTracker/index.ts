@@ -13,6 +13,6 @@ export { listTickets } from '#src/ticketTracker/listTickets.ts';
 export { readTicketAsset } from '#src/ticketTracker/readTicketAsset.ts';
 export { resolveTrackerSettings } from '#src/ticketTracker/resolveTrackerSettings.ts';
 export { setExclusiveLabel } from '#src/ticketTracker/setExclusiveLabel.ts';
-export { setParkedLabel } from '#src/ticketTracker/setParkedLabel.ts';
 export { setTicketAttachment } from '#src/ticketTracker/setTicketAttachment.ts';
+export { setTicketLabel } from '#src/ticketTracker/setTicketLabel.ts';
 export { setTicketStatus } from '#src/ticketTracker/setTicketStatus.ts';

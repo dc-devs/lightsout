@@ -1,4 +1,6 @@
 import { execSync } from 'node:child_process';
+import { unlinkSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { type RefactorBatch, StandardsSeverity } from '#src/contracts/index.ts';
@@ -10,6 +12,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { verdict } from '#tests/helpers/verdict.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /**
@@ -109,6 +112,94 @@ const setupBatch = async ({ answer, packs = [] }: { answer: (params: { pass: num
 	return { run, executorPrompts, reviewSystemPrompts };
 };
 
+/**
+ * One site in a repo whose test gate is red for exactly as long as a `BROKEN`
+ * marker sits at its root, and an executor whose pass clears the site and leaves
+ * that marker behind.
+ *
+ * The batch therefore arrives at its gates with the work done and the tree red,
+ * which is the only way into the verify path the batch owns: a fixed number of
+ * cheap fix attempts, and then — because these ones never remove the marker —
+ * the supervisor. `ruling` is what the supervisor answers and `healOnGuidance`
+ * says whether the guided fix removes the marker, so the two together choose
+ * which ending the batch reaches.
+ *
+ * The gates are the real ones: the point of the arrangement is what the batch
+ * does with a verdict it did not invent.
+ */
+const setupRedGateBatch = async ({ ruling, healOnGuidance = false }: { ruling: Record<string, unknown>; healOnGuidance?: boolean }) => {
+	const dir = setupConsumerRepo({ scripts: { test: 'test ! -f BROKEN' } });
+
+	writeSource({ dir, path: 'src/one.ts', source: 'export const alphaOne = 1;\nexport const betaOne = 2;\n' });
+	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm fixture', { cwd: dir });
+
+	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
+	const batch: RefactorBatch = {
+		id: 'batch-01:multi-export:src',
+		rule: 'multi-export',
+		folder: 'src',
+		blocking: findings.filter((finding) => finding.rule === 'multi-export'),
+		advisories: [],
+	};
+	// Every agent the batch spends, in the order it spent them — which is what
+	// says whether a budget was kept and whether an ending was bought.
+	const spent: string[] = [];
+	const config = await readConfig({ cwd: dir });
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async ({ prompt }) => {
+			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
+			if (role === 'supervisor') {
+				spent.push('supervisor');
+
+				return { text: verdict(ruling), exitCode: 0 };
+			}
+
+			// A gate fix wears the executor's role and carries the red that sent the
+			// work back, which is what tells the two apart here.
+			if (prompt.includes('# Verification failure')) {
+				spent.push('fix');
+
+				if (healOnGuidance && prompt.includes('Supervisor guidance')) {
+					unlinkSync(join(dir, 'BROKEN'));
+				}
+
+				return { text: report(), exitCode: 0 };
+			}
+
+			spent.push('executor');
+			splitFile({ dir, file: 'src/one.ts', first: 'alphaOne', second: 'betaOne' });
+			writeFileSync(join(dir, 'BROKEN'), 'x');
+
+			return { text: report({ changedFiles: [{ path: 'src/one.ts', summary: 'split' }] }), exitCode: 0 };
+		},
+	};
+
+	const run = () =>
+		runBatch({
+			cwd: dir,
+			runId: 'run-01',
+			driver,
+			config,
+			batch,
+			packs: [],
+			channels: [],
+			checkAll: false,
+			agentReview: true,
+			agentTimeoutMs: 60_000,
+			attributedFiles: [],
+			onProgress: () => undefined,
+			recordUsage: async () => undefined,
+		});
+
+	return { run, spent };
+};
+
 describe('runBatch', () => {
 	test('a requeue that changes the tree and still leaves a site standing spends the budget and declines', async () => {
 		const { run, executorPrompts } = await setupBatch({
@@ -166,5 +257,30 @@ describe('runBatch', () => {
 		// the same judgment rules on both sides of the edits — a batch reviewed
 		// against a different set afterwards could report its own baseline as new
 		expect(reviewSystemPrompts.map((systemPrompt) => systemPrompt.includes('Rule id: `single-return`'))).toStrictEqual([true, true]);
+	});
+
+	test('a red gate the cheap fixes cannot clear reaches the supervisor, and an escalate ruling ends the batch', async () => {
+		const { run, spent } = await setupRedGateBatch({ ruling: { decision: 'escalate', diagnosis: 'DIAGNOSIS-SENTINEL' } });
+
+		const stop = await run();
+
+		// two mechanical attempts and one supervisor consult — an escalate ruling
+		// buys no guided retry, so the batch ends on the supervisor's word
+		expect(spent).toStrictEqual(['executor', 'fix', 'fix', 'supervisor']);
+		expect(stop).toEqual({ kind: 'escalated', error: expect.stringContaining('DIAGNOSIS-SENTINEL') });
+	});
+
+	test('a supervisor’s guided retry that clears the red lets the batch finish resolved', async () => {
+		const { run, spent } = await setupRedGateBatch({
+			ruling: { decision: 'retry', diagnosis: 'a marker file the pass left behind', guidance: 'delete BROKEN' },
+			healOnGuidance: true,
+		});
+
+		const stop = await run();
+
+		// the guided retry is the last agent the batch spends: the re-run after it
+		// is green, so the batch is classified on its sites rather than escalated
+		expect(spent).toStrictEqual(['executor', 'fix', 'fix', 'supervisor', 'fix']);
+		expect(stop.kind === 'done' && stop.report).toEqual(expect.objectContaining({ outcome: 'resolved', remainingSiteKeys: [] }));
 	});
 });

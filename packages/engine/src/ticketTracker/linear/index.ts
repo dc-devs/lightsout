@@ -5,6 +5,6 @@ export { listLabelNames } from '#src/ticketTracker/linear/listLabelNames.ts';
 export { listTickets } from '#src/ticketTracker/linear/listTickets.ts';
 export { readTicketAsset } from '#src/ticketTracker/linear/readTicketAsset.ts';
 export { setExclusiveLabel } from '#src/ticketTracker/linear/setExclusiveLabel.ts';
-export { setParkedLabel } from '#src/ticketTracker/linear/setParkedLabel.ts';
 export { setTicketAttachment } from '#src/ticketTracker/linear/setTicketAttachment.ts';
+export { setTicketLabel } from '#src/ticketTracker/linear/setTicketLabel.ts';
 export { setTicketStatus } from '#src/ticketTracker/linear/setTicketStatus.ts';

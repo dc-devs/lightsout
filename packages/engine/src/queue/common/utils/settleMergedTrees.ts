@@ -4,7 +4,7 @@ import type { MergedParkedTree } from '#src/queue/common/types/MergedParkedTree.
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import { settleReconciledWorktree } from '#src/queue/common/utils/settleReconciledWorktree.ts';
 import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
-import { setParkedLabel, type TrackerSettings } from '#src/ticketTracker/index.ts';
+import { setTicketLabel, type TrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
 	/** The main repository checkout. */
@@ -44,7 +44,7 @@ export const settleMergedTrees = async ({ cwd, config, env, settings, trackerSet
 		const heldWorktree = await settleReconciledWorktree({ cwd, worktreePath: tree.worktreePath, branch: tree.branch, onProgress });
 		// The ticket is finished, so the label that says a human is needed comes
 		// off; a tracker that refuses it is a progress line and nothing more.
-		const cleared = await setParkedLabel({ settings: trackerSettings, ticketId: tree.ticket.id, label: settings.parkedLabel, parked: false });
+		const cleared = await setTicketLabel({ settings: trackerSettings, ticketId: tree.ticket.id, label: settings.parkedLabel, present: false });
 
 		if (cleared !== undefined) {
 			onProgress?.(`${tree.ticket.identifier} · the parked label could not be cleared: ${cleared.error}`);

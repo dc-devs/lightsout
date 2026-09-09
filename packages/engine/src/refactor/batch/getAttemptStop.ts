@@ -1,4 +1,5 @@
 import { BatchOutcome, type StandardsFinding, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
+import type { GateRunResult } from '#src/gates/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
 import { BatchStopKind } from '#src/refactor/common/constants/BatchStopKind.ts';
 import type { BatchStop } from '#src/refactor/common/types/BatchStop.ts';
@@ -14,8 +15,8 @@ interface Params {
 	onProgress: (message: string) => void;
 	/** Which of the given findings are still live in the tree. */
 	remainingSiteKeys: (params: { frozen: StandardsFinding[] }) => Promise<string[]>;
-	/** Run the batch's gates and return the failure output, or undefined when green. */
-	gates: () => Promise<string | undefined>;
+	/** Run the batch's gates and answer their whole verdict — a red, a crash, or a run that never started. */
+	gates: () => Promise<GateRunResult>;
 	/** Build the batch's done stop — the caller's shared post-step, which attaches the report and the changed files. */
 	finish: (params: { outcome: BatchOutcome; remainingSiteKeys: string[] }) => Promise<BatchStop>;
 }
@@ -43,10 +44,11 @@ export const getAttemptStop = async ({
 	if (!attempt.ok) {
 		if (attempt.rateLimited) {
 			stop = { kind: BatchStopKind.Parked };
-		} else if ((await remainingSiteKeys({ frozen: workFindings })).length === 0 && !(await gates())) {
+		} else if ((await remainingSiteKeys({ frozen: workFindings })).length === 0 && (await gates()).error === undefined) {
 			// Salvage check — an agent can die after finishing its edits but before
 			// reporting. If the sites are verifiably gone AND gates are green, the
-			// work is done — classify it, don't discard it.
+			// work is done — classify it, don't discard it. A gate run that never
+			// started is not green: it proves nothing about the work on disk.
 			rationale.push(`[other] salvaged: agent invocation failed (${attempt.failure}) but the sites are resolved and gates are green`);
 			onProgress(`${batchId}: invocation failed but work verified on disk — salvaged as resolved`);
 

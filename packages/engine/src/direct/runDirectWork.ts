@@ -4,6 +4,7 @@ import { maxCheapFixRetries } from '#src/common/constants/maxCheapFixRetries.ts'
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { RunState } from '#src/common/services/RunState.ts';
 import type { AnsweredQuestion } from '#src/common/types/AnsweredQuestion.ts';
+import { describeGateCoordinationStop } from '#src/common/utils/describeGateCoordinationStop.ts';
 import { runPreflightGate } from '#src/common/utils/runPreflightGate.ts';
 import { type LightsoutConfig, PipelineKind, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
 import { stopDirectRun } from '#src/direct/common/utils/stopDirectRun.ts';
@@ -71,13 +72,112 @@ const createDirectRun = async ({
 };
 
 /**
+ * End a direct run whose gates never started, because another gate run of this
+ * repository held the machine for longer than the wait allows.
+ *
+ * Nothing here was judged, so no fix attempt is spent and no worker is
+ * re-invoked; the tree the run built is left exactly where it is.
+ */
+const stopDirectOnCoordination = ({ run, record, coordination }: { run: RunState; record: StepRecord; coordination: string }) => {
+	run.progress('the gates never started — another run holds this machine, and no fix was attempted');
+
+	return stopDirectRun({
+		run,
+		record,
+		status: RunStatus.Escalated,
+		error: describeGateCoordinationStop({ stepId: 'verify', coordination }),
+	});
+};
+
+/**
+ * End a direct run on a gate that crashed instead of failing.
+ *
+ * A crashed gate reached no verdict, so there is nothing to repair and nothing
+ * the next attempt would do differently — it stops without spending an attempt,
+ * rather than handing the worker a suite that is not broken.
+ */
+const stopDirectOnCrash = ({ run, record, crashes, gateError }: { run: RunState; record: StepRecord; crashes: string[]; gateError: string | undefined }) => {
+	run.progress('a gate crashed rather than failed — no fix attempted');
+
+	return stopDirectRun({
+		run,
+		record,
+		status: RunStatus.Escalated,
+		error: [
+			'verify: a gate crashed instead of failing — the known jest worker SIGSEGV, not a verdict about the code.',
+			'No fix was attempted and no fix attempt was spent; re-running the run is the answer.',
+			crashes.join('\n'),
+			gateError ?? '',
+		].join('\n\n'),
+	});
+};
+
+/**
+ * Build from the ticket body, gate the result, and hand a red gate back to the
+ * worker until the cheap fix budget is spent — the whole of the direct run once
+ * the pre-flight baseline has proved the tree green.
+ *
+ * There is no supervisor, no unit-test writer and no standards review: the
+ * repo's gates are the only bar.
+ */
+const buildAndVerify = async ({
+	run,
+	driver,
+	ticketRef,
+	ticketBody,
+	standards,
+	answeredQuestion,
+}: {
+	run: RunState;
+	driver: Driver;
+	ticketRef: string;
+	ticketBody: string;
+	standards?: string;
+	answeredQuestion?: AnsweredQuestion;
+}) => {
+	let errorContext: string | undefined;
+
+	for (let attempt = 0; ; attempt += 1) {
+		const stopped = await invokeDirectWorker({ run, driver, ticketRef, ticketBody, standards, answeredQuestion, errorContext });
+
+		if (stopped) {
+			return stopped;
+		}
+
+		const { record, gateError, crashes, coordination } = await verifyDirectWork({ run });
+
+		if (coordination !== undefined) {
+			return stopDirectOnCoordination({ run, record, coordination });
+		}
+
+		if (crashes.length > 0) {
+			return stopDirectOnCrash({ run, record, crashes, gateError });
+		}
+
+		if (gateError === undefined) {
+			await run.update({ patch: { status: RunStatus.Passed, currentStep: null } });
+
+			const passed: PipelineResult = { ok: true, manifest: run.current() };
+
+			return passed;
+		}
+
+		errorContext = gateError;
+
+		if (attempt === maxCheapFixRetries) {
+			return stopDirectRun({ run, record, status: RunStatus.Failed, error: gateError });
+		}
+
+		run.progress(`the gates are red — re-invoking the worker with their output (fix ${attempt + 1} of ${maxCheapFixRetries})`);
+	}
+};
+
+/**
  * The direct run's body — always entered holding the run lock.
  *
  * Pre-flight green gate → build from the ticket body → the repo's own gates,
- * with a bounded fix loop → done. There is no supervisor, no unit-test writer
- * and no standards review: the repo's gates are the only bar, and the coverage
- * gate is included from the pre-flight onward so a repo that requires tests
- * still requires them.
+ * with a bounded fix loop → done. The coverage gate is included from the
+ * pre-flight onward, so a repo that requires tests still requires them.
  */
 const executeDirectWork = async ({
 	cwd,
@@ -117,52 +217,7 @@ const executeDirectWork = async ({
 
 	const { standards } = await resolveStandards({ cwd, config, packages: [] });
 
-	let errorContext: string | undefined;
-
-	for (let attempt = 0; ; attempt += 1) {
-		const stopped = await invokeDirectWorker({ run, driver, ticketRef, ticketBody, standards, answeredQuestion, errorContext });
-
-		if (stopped) {
-			return stopped;
-		}
-
-		const { record, gateError, crashes } = await verifyDirectWork({ run });
-
-		// A gate that crashed reached no verdict, so there is nothing to repair
-		// and nothing the next attempt would do differently. It stops without
-		// spending an attempt, and says so, rather than handing the worker a
-		// suite that is not broken.
-		if (crashes.length > 0) {
-			run.progress('a gate crashed rather than failed — no fix attempted');
-
-			return stop({
-				record,
-				status: RunStatus.Escalated,
-				error: [
-					'verify: a gate crashed instead of failing — the known jest worker SIGSEGV, not a verdict about the code.',
-					'No fix was attempted and no fix attempt was spent; re-running the run is the answer.',
-					crashes.join('\n'),
-					gateError ?? '',
-				].join('\n\n'),
-			});
-		}
-
-		if (gateError === undefined) {
-			await run.update({ patch: { status: RunStatus.Passed, currentStep: null } });
-
-			const passed: PipelineResult = { ok: true, manifest: run.current() };
-
-			return passed;
-		}
-
-		errorContext = gateError;
-
-		if (attempt === maxCheapFixRetries) {
-			return stopDirectRun({ run, record, status: RunStatus.Failed, error: gateError });
-		}
-
-		run.progress(`the gates are red — re-invoking the worker with their output (fix ${attempt + 1} of ${maxCheapFixRetries})`);
-	}
+	return buildAndVerify({ run, driver, ticketRef, ticketBody, standards, answeredQuestion });
 };
 
 /**

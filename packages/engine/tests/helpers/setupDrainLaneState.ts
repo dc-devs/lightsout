@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { jest } from '@jest/globals';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { GateHolds } from '#src/gates/index.ts';
 import type { QueueDrainReport, TicketRunOutcome } from '#src/queue/index.ts';
 import { queueOutcomeFixture } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
@@ -18,9 +19,13 @@ export const setupDrainLaneState = ({ maxParallel = 2 }: { maxParallel?: number 
 		.mockImplementation(async ({ ticket }) => queueOutcomeFixture({ ticket }));
 	const progress: string[] = [];
 	const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
+	/** No repository these lane tests stand up has ever timed out waiting for the machine. */
+	const holds: GateHolds = {};
 	const context = {
 		cwd,
 		config,
+		runId: 'lane-drain-1',
+		holds,
 		settings: queueSettingsFixture({ maxParallel }),
 		trackerSettings: trackerSettingsFixture(),
 		shipSettings: shipSettingsFixture(),

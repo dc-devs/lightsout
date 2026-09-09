@@ -1,5 +1,6 @@
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { describeGateHold, isTicketGateHeld, syncGateHolds } from '#src/gates/index.ts';
 import { readBranchTicketRef } from '#src/ship/index.ts';
 import { TrackerStatusRole } from '#src/ticketLifecycle/common/constants/TrackerStatusRole.ts';
 import type { LifecycleSettings } from '#src/ticketLifecycle/common/types/LifecycleSettings.ts';
@@ -53,6 +54,12 @@ const toPreImplementationPlanningStatus = ({ labels, lifecycle }: { labels: stri
  * `ship.ticket-pattern` matches, both proceed untouched — there is nothing to
  * synchronize and no ticket to refuse on behalf of.
  *
+ * A ticket under a durable gate hold is refused outright, and refused here —
+ * after the ticket is fetched and before any lifecycle write — so a held ticket
+ * is never moved to In Progress and then turned away. The holds are reconciled
+ * rather than read raw, so a ticket whose label a human just removed starts on
+ * the first try.
+ *
  * A ticket already at the configured done status keeps that status. Re-running
  * implement on a shipped branch is ordinary — a fix-up after a merge — and
  * moving it back to In Progress would make merged work look unshipped for as
@@ -96,6 +103,12 @@ export const requireImplementLifecycle = async ({ cwd, config, env, ticketRef, o
 
 	if (ticket === undefined) {
 		return `no ticket ${reference} was found on the tracker, and \`lightsout implement\` records In Progress before it changes any source`;
+	}
+
+	const holds = await syncGateHolds({ cwd, settings: trackerSettings, onProgress });
+
+	if (isTicketGateHeld({ holds, identifier: reference, labels: ticket.labels })) {
+		return describeGateHold({ hold: holds[reference.toLowerCase()], identifier: reference });
 	}
 
 	const shipped = ticket.status === lifecycle.statusNames[TrackerStatusRole.Done];

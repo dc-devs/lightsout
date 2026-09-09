@@ -10,14 +10,14 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 
 // Mocked Imports
 // -------------------------
-// The label write is covered by `setParkedLabel`'s own tests. What this file
+// The label write is covered by `setTicketLabel`'s own tests. What this file
 // owns is which outcome is labelled which way, and that a failed write costs
 // the run nothing.
-type LabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; parked: boolean };
+type LabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; present: boolean };
 
-const mockSetParkedLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure | undefined>>();
+const mockSetTicketLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({ setParkedLabel: (params: LabelParams) => mockSetParkedLabel(params) }));
+jest.mock('#src/ticketTracker/index.ts', () => ({ setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params) }));
 // -------------------------
 
 const outcomeOf = ({ number, ready }: { number: number; ready: boolean }): TicketRunOutcome => ({
@@ -42,7 +42,7 @@ const outcomeOf = ({ number, ready }: { number: number; ready: boolean }): Ticke
 
 describe('settleParkedLabels', () => {
 	test('labels every outcome that did not ship and clears the label from every one that did', async () => {
-		mockSetParkedLabel.mockResolvedValue(undefined);
+		mockSetTicketLabel.mockResolvedValue(undefined);
 
 		await settleParkedLabels({
 			settings: queueSettingsFixture({ parkedLabel: 'queue-parked' }),
@@ -50,10 +50,22 @@ describe('settleParkedLabels', () => {
 			outcomes: [outcomeOf({ number: 70, ready: true }), outcomeOf({ number: 71, ready: false })],
 		});
 
-		expect(mockSetParkedLabel.mock.calls.map(([params]) => ({ ticketId: params.ticketId, label: params.label, parked: params.parked }))).toStrictEqual([
-			{ ticketId: 'id-70', label: 'queue-parked', parked: false },
-			{ ticketId: 'id-71', label: 'queue-parked', parked: true },
+		expect(mockSetTicketLabel.mock.calls.map(([params]) => ({ ticketId: params.ticketId, label: params.label, present: params.present }))).toStrictEqual([
+			{ ticketId: 'id-70', label: 'queue-parked', present: false },
+			{ ticketId: 'id-71', label: 'queue-parked', present: true },
 		]);
+	});
+
+	test('never writes the gate-blocked label', async () => {
+		mockSetTicketLabel.mockResolvedValue(undefined);
+
+		await settleParkedLabels({
+			settings: queueSettingsFixture({ parkedLabel: 'queue-parked' }),
+			trackerSettings: trackerSettingsFixture(),
+			outcomes: [outcomeOf({ number: 80, ready: true }), outcomeOf({ number: 81, ready: false })],
+		});
+
+		expect(mockSetTicketLabel.mock.calls.map(([params]) => params.label)).toStrictEqual(['queue-parked', 'queue-parked']);
 	});
 
 	test('writes nothing at all when the repo opted out, so a tracker nobody configured is never touched', async () => {
@@ -63,13 +75,13 @@ describe('settleParkedLabels', () => {
 			outcomes: [outcomeOf({ number: 70, ready: false })],
 		});
 
-		expect(mockSetParkedLabel).not.toHaveBeenCalled();
+		expect(mockSetTicketLabel).not.toHaveBeenCalled();
 	});
 
 	test('reports a failed write as progress and lets the drain finish — the tracker is a courtesy, never a precondition', async () => {
 		const progress: string[] = [];
 
-		mockSetParkedLabel.mockResolvedValue({ error: 'the tracker did not answer' });
+		mockSetTicketLabel.mockResolvedValue({ error: 'the tracker did not answer' });
 
 		await expect(
 			settleParkedLabels({

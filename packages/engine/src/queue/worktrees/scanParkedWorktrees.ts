@@ -2,6 +2,7 @@ import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { gitTimeoutMs } from '#src/common/constants/gitTimeoutMs.ts';
 import { runCommand } from '#src/common/processes/runCommand.ts';
+import { describeGateHold, type GateHolds, isTicketGateHeld } from '#src/gates/index.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
@@ -9,11 +10,10 @@ import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { establishBranchMerge } from '#src/queue/common/utils/establishBranchMerge.ts';
 import { getWorktreesRoot } from '#src/queue/common/utils/getWorktreesRoot.ts';
 import { toPlanningSummaries } from '#src/queue/common/utils/toPlanningSummaries.ts';
-import { ParkedTreeBucket } from '#src/queue/worktrees/common/constants/ParkedTreeBucket.ts';
 import type { ParkedTree } from '#src/queue/worktrees/common/types/ParkedTree.ts';
-import { classifyTree } from '#src/queue/worktrees/common/utils/classifyTree.ts';
+import { settleUnmergedTree } from '#src/queue/worktrees/common/utils/settleUnmergedTree.ts';
 import { readTicketMatch, type ShipSettings } from '#src/ship/index.ts';
-import { getTicketsByIdentifiers, setParkedLabel, type TrackerSettings } from '#src/ticketTracker/index.ts';
+import { getTicketsByIdentifiers, type TrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
 	/** The main repository checkout. */
@@ -22,6 +22,8 @@ interface Params {
 	settings: QueueSettings;
 	trackerSettings: TrackerSettings;
 	shipSettings: ShipSettings;
+	/** The holds this drain reconciled before the scan, so a held tree is left exactly where it is. */
+	holds: GateHolds;
 	onProgress?: (message: string) => void;
 }
 
@@ -81,34 +83,42 @@ const listQueueWorktrees = async ({ cwd, shipSettings, onProgress }: { cwd: stri
 
 /**
  * Why a parked worktree is left alone rather than resumed, or undefined when
- * its ticket still delegates the work to the queue.
+ * its ticket still delegates the work to the queue and nothing holds it.
  *
- * A removed planning-status label is the user withdrawing the automation, and a
- * label changed back to a shaping state says the same thing: the tree is theirs
- * to inspect or delete, and the queue names it rather than touching it.
+ * Two causes, asked in that order. A removed planning-status label is the user
+ * withdrawing the automation, and a label changed back to a shaping state says
+ * the same thing: the tree is theirs to inspect or delete, and the queue names
+ * it rather than touching it. A gate hold says a human owes the ticket a look
+ * before anything runs again, and it is asked here — before the merge check,
+ * and before the drain branch that would clear the parked label — so nothing
+ * about a held tree is settled.
  */
-const describeWithdrawal = ({
+const describeLeftBehind = ({
 	tree,
 	matched,
 	runnable,
 	settings,
+	holds,
 }: {
 	tree: ParkedTree;
 	matched: TicketSummary[];
 	runnable: TicketSummary[];
 	settings: QueueSettings;
+	holds: GateHolds;
 }) => {
-	let withdrawal: string | undefined;
+	let reason: string | undefined;
 
 	if (matched.length === 0) {
-		withdrawal = `its worktree at ${tree.path} is parked, but the ticket carries no planning status label any more`;
+		reason = `its worktree at ${tree.path} is parked, but the ticket carries no planning status label any more`;
 	} else if (runnable.length === 0) {
 		const carried = matched.map((ticket) => `'${settings.lifecycle.planningStatusLabels[ticket.planningStatus]}'`).join(' and ');
 
-		withdrawal = `its worktree at ${tree.path} is parked, but the ticket now carries ${carried}, which the queue never resumes`;
+		reason = `its worktree at ${tree.path} is parked, but the ticket now carries ${carried}, which the queue never resumes`;
+	} else if (isTicketGateHeld({ holds, identifier: tree.identifier, labels: runnable[0].labels })) {
+		reason = describeGateHold({ hold: holds[tree.identifier.toLowerCase()], identifier: tree.identifier });
 	}
 
-	return withdrawal;
+	return reason;
 };
 
 /**
@@ -142,6 +152,7 @@ export const scanParkedWorktrees = async ({
 	settings,
 	trackerSettings,
 	shipSettings,
+	holds,
 	onProgress,
 }: Params): Promise<ParkedWork | QueueFailure> => {
 	const trees = await listQueueWorktrees({ cwd, shipSettings, onProgress });
@@ -165,11 +176,11 @@ export const scanParkedWorktrees = async ({
 	for (const tree of trees) {
 		const matched = summaries.filter((ticket) => ticket.identifier.toLowerCase() === tree.identifier.toLowerCase());
 		const runnable = matched.filter((ticket) => ticket.worker !== undefined);
-		const withdrawn = describeWithdrawal({ tree, matched, runnable, settings });
+		const left = describeLeftBehind({ tree, matched, runnable, settings, holds });
 
-		if (withdrawn !== undefined) {
-			onProgress?.(`${tree.identifier} · ${withdrawn}`);
-			parked.leftBehind.push({ identifier: tree.identifier, reason: withdrawn });
+		if (left !== undefined) {
+			onProgress?.(`${tree.identifier} · ${left}`);
+			parked.leftBehind.push({ identifier: tree.identifier, reason: left });
 			continue;
 		}
 
@@ -193,24 +204,12 @@ export const scanParkedWorktrees = async ({
 			continue;
 		}
 
-		const bucket = await classifyTree({ cwd, tree, defaultBranch, onProgress });
+		const outcome = await settleUnmergedTree({ cwd, tree, ticket, defaultBranch, settings, trackerSettings, onProgress });
 
-		if (bucket === ParkedTreeBucket.Drain) {
-			const cleared = await setParkedLabel({ settings: trackerSettings, ticketId: ticket.id, label: settings.parkedLabel, parked: false });
-
-			if (cleared !== undefined) {
-				onProgress?.(`${tree.identifier} · the parked label could not be cleared: ${cleared.error}`);
-			}
-
+		if (outcome === undefined) {
 			parked.resumed.push(...runnable);
 		} else {
-			parked.outcomes.push({
-				ticket,
-				branch: tree.branch,
-				worktreePath: tree.path,
-				ready: bucket === ParkedTreeBucket.Ship,
-				error: bucket === ParkedTreeBucket.Ship ? undefined : `git could not read the worktree at ${tree.path}`,
-			});
+			parked.outcomes.push(outcome);
 		}
 	}
 

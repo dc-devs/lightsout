@@ -21,8 +21,9 @@ export const runCheapRepairs = async ({ context, record, result }: Params): Prom
 	let currentRecord = record;
 	let currentResult = result;
 
-	// A crash ends the loop: a red the fix agent must not be shown is a red the loop has nothing left to do about.
-	while (currentResult.error && currentResult.crashes.length === 0) {
+	// A crash ends the loop, and so does a gate run that never got the machine: a red the fix agent must not be shown is a red the
+	// loop has nothing left to do about, whether no gate reached a verdict or none of them ran at all.
+	while (currentResult.error && currentResult.crashes.length === 0 && currentResult.coordination === undefined) {
 		const repairable = [...new Set(currentResult.failedFamilies)].filter(
 			(family) => (currentRecord.verification?.repairAttempts[family] ?? 0) < maxCheapFixRetries,
 		);

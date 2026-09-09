@@ -215,6 +215,19 @@ The run is not done until each named test has actually run and passed. The test 
 
 After each code-writing stage, the full repository is formatted before deterministic gates run. If a test, lint, type-check, coverage, build, or formatting family fails, that family receives bounded repair attempts before the run escalates; root and package executions of the same family share the allowance. When the run succeeds, the complete record is written to `.lightsout/runs/<id>/`.
 
+Gate runs are taken one at a time across every worktree of one repository on
+one machine, so four queued tickets can no longer start `pnpm test` in the same
+second and fail each other under load. The reservation is a shared
+`.lightsout/gate-lock.json` in the repository's primary checkout. A run that
+cannot have the machine says so, names the run and worktree holding it, and
+keeps saying so while it waits; the wait is capped at 30 minutes and is
+separate from each command's own timeout. A run whose wait expires stops there
+and asks for a human: nothing was judged, so no fix agent is spent and no
+supervisor is bought, and the worktree with every commit in it is left where it
+is, ready to carry on once the machine is free. A repository that never runs
+concurrent gates sees no change: the reservation is uncontended, taken without
+a pause, and nothing is printed about waiting.
+
 A finished plan is not stuck on the machine that wrote it. `/implement` looks
 for the plan folder on local disk first. When a ticket-named folder is absent,
 it fetches that ticket's durable plan attachments and reconstructs the folder,
@@ -281,6 +294,8 @@ The planning-status label is how a human opts a ticket in, and the pair names th
 Each ticket gets a fresh worktree cut from the default branch, the config's `setup` command, and a harness run, with up to `max-parallel` tickets in flight at once — a budget the merge lane shares. The queue moves a ticket to In Progress before its worker touches source and to Done once a merge is confirmed, and it reconciles a ticket whose branch already merged rather than building it again. A ticket blocked by another ticket that is not finished is not picked up: it is left behind with the blocker named. Building and merging run at the same time: a finished branch is merged as soon as a slot is free, rather than waiting for unrelated builds it has nothing to do with. Merges are still taken one at a time, each rebased onto the tip of the default branch and re-run through the gates before it goes in, and every merge re-reads the tracker so the tickets it just unblocked join the run already in flight — a chain of dependent tickets ships in order, in one run. It stops when a re-read finds nothing new.
 
 When a worker hits a question only a human can answer, the queue relays it: to your terminal by default, or — with `--file-relay` — to a mailbox the `queue` skill watches from a Claude Code or Codex session, so you can keep working and answer when asked. A question nobody answers parks its ticket after `question-timeout`; a later run picks parked work back up, worktree and all. A worktree whose ticket a human already closed is never resumed: if its branch merged, the ticket is reconciled to Done, and if it did not, the worktree is reported and left in place because it may hold work nobody has merged. The queue writes down where each branch stands — still being built, finished and waiting to merge, or already merged — so a later run picks the work back up as what it actually is, and never rebuilds a branch that is already finished or merges one twice.
+
+A hold is the stronger case. Only one gate run at a time may use the machine across all of a repository's worktrees, and a run whose gates never got it within the wait ceiling stops without judging the code: no gate command ran, so nothing about the code failed. Its worktree and every commit in it are left exactly as they are, and the ticket is put on hold — recorded as the `queue-blocked-gate-timed-out` label beside the parked one. Neither a later `lightsout queue` run nor `lightsout resume` will take that ticket while the label stands. Removing the label from the ticket is what releases it; the queue never removes it for you.
 
 Exit codes carry the whole story: `0` — everything eligible shipped; `2` — work remains that a re-run picks up (parked or left-behind tickets); `1` — the queue refused to start, and the message says why.
 

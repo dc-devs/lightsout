@@ -1,3 +1,4 @@
+import { describeGateHold, type GateHolds, isTicketGateHeld } from '#src/gates/index.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
@@ -11,6 +12,8 @@ interface Params {
 	settings: QueueSettings;
 	/** Lower-cased identifiers this invocation has already offered to a wave. */
 	attempted: Set<string>;
+	/** The holds this drain reconciled once, at its start. */
+	holds: GateHolds;
 	onProgress?: (message: string) => void;
 }
 
@@ -30,8 +33,13 @@ interface Params {
  * A ticket with an unfinished blocker is left behind rather than reordered — the
  * queue drains everything unblocked, then re-scans, and correct chain order
  * falls out of the repetition.
+ *
+ * A held ticket leaves through the same `blocked` channel, and deliberately not
+ * through `skipped`: a hold is released by a human at a moment nothing here can
+ * predict, so the ticket is re-offered by the next scan exactly as a blocked one
+ * is rather than being settled for the invocation.
  */
-export const selectWaveTickets = ({ tickets, settings, attempted, onProgress }: Params): WaveSelection => {
+export const selectWaveTickets = ({ tickets, settings, attempted, holds, onProgress }: Params): WaveSelection => {
 	const fresh = tickets.filter((ticket) => !attempted.has(ticket.identifier.toLowerCase()));
 	const { ordered, leftBehind } = dedupeTickets({ tickets: fresh, settings, onProgress });
 	const runnable: RunnableTicket[] = [];
@@ -39,6 +47,14 @@ export const selectWaveTickets = ({ tickets, settings, attempted, onProgress }: 
 
 	for (const ticket of ordered) {
 		if (ticket.worker === undefined) {
+			continue;
+		}
+
+		if (isTicketGateHeld({ holds, identifier: ticket.identifier, labels: ticket.labels })) {
+			const held = describeGateHold({ hold: holds[ticket.identifier.toLowerCase()], identifier: ticket.identifier });
+
+			onProgress?.(`${ticket.identifier} · ${held}`);
+			blocked.push({ identifier: ticket.identifier, reason: held });
 			continue;
 		}
 

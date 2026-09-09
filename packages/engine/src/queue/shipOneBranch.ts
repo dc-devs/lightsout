@@ -1,7 +1,7 @@
 import { gitTimeoutMs } from '#src/common/constants/gitTimeoutMs.ts';
 import { runCommand } from '#src/common/processes/runCommand.ts';
 import { BranchPhase, type LightsoutConfig, ShipStatus } from '#src/contracts/index.ts';
-import { runGates } from '#src/gates/index.ts';
+import { runGates, takeGateHold } from '#src/gates/index.ts';
 import { writeBranchState } from '#src/queue/branchState/index.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import { runOrDescribeFailure } from '#src/queue/common/utils/runOrDescribeFailure.ts';
@@ -17,8 +17,9 @@ interface Params {
 	defaultBranch: string;
 	/** The process environment the tracker credentials are read from. Passed rather than read, so a test never needs to mutate `process.env`. */
 	env: NodeJS.ProcessEnv;
-	/** The ready outcome whose branch is being merged. */
 	outcome: TicketRunOutcome;
+	/** The coordinator run's id, recorded on any hold this merge has to take. */
+	runId: string;
 	/** Runs a task with no other main-checkout git mutation in flight. The merge tail removes a worktree there while builders may be adding one. */
 	serializeMainCheckout: <Result>(params: { task: () => Promise<Result> }) => Promise<Result>;
 	onProgress?: (message: string) => void;
@@ -68,8 +69,6 @@ const rebaseOntoDefault = async ({ worktreePath, defaultBranch }: { worktreePath
  * own fetch, so it picks this merge up from the remote rather than from a local
  * branch.
  *
- * @param outcome - the ready outcome whose branch is being merged
- * @param serializeMainCheckout - wraps the worktree removal, the one thing here that touches the main checkout
  * @returns the same outcome, `ready` flipped to false when it could not merge
  */
 export const shipOneBranch = async ({
@@ -79,6 +78,7 @@ export const shipOneBranch = async ({
 	defaultBranch,
 	env,
 	outcome,
+	runId,
 	serializeMainCheckout,
 	onProgress,
 }: Params): Promise<TicketRunOutcome> => {
@@ -98,7 +98,28 @@ export const shipOneBranch = async ({
 
 	// The rebase moved the branch onto commits it has never been tested
 	// against, so the gates run again before anything merges.
-	const { error: gateError } = await runGates({ cwd: outcome.worktreePath, config, coverage: true, onProgress });
+	const { error: gateError, coordination } = await runGates({ cwd: outcome.worktreePath, config, coverage: true, onProgress });
+
+	// A gate run that never started parks exactly as a red one does — the
+	// worktree stays and the drain carries on with other tickets — but the reason
+	// a human reads names the machine rather than gate output nothing produced,
+	// and the hold is what makes the stop stick until a human releases it. The
+	// tracker calls it makes happen after `runGates` returned, so no gate
+	// reservation is held while they run.
+	if (coordination !== undefined) {
+		const holdFailure = await takeGateHold({
+			cwd,
+			config,
+			env,
+			ticketRef: outcome.ticket.identifier,
+			runId,
+			worktreePath: outcome.worktreePath,
+			reason: coordination,
+			onProgress,
+		});
+
+		return park({ error: holdFailure === undefined ? coordination : `${coordination} ${holdFailure}` });
+	}
 
 	if (gateError !== undefined) {
 		return park({ error: gateError });

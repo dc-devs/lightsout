@@ -137,6 +137,11 @@ interface Params {
  * cheap-tier gates the following checkpoint would run, plus the build, narrowed
  * to the packages the live git diff touched.
  *
+ * It is the one gate caller in the engine that does not wait for the machine: a
+ * busy machine ends it on the coordination reason at once, carrying no gate
+ * verdict at all, because an advisory check has nothing to gain from half an
+ * hour of a paid agent session.
+ *
  * It records no verdict anywhere. Its executions land in the run's command log
  * under a step name of their own, so the checkpoint that follows reads its own
  * evidence and the run's accounting can subtract this work; the engine's gates
@@ -147,7 +152,7 @@ export const runSelfCheck = async ({ cwd, config, coverage, checkpoint, wholeRep
 	// The shape every ending that runs no gate shares — held once rather than
 	// written out per branch, which is where one branch eventually forgets a
 	// field.
-	let result: SelfCheckResult = { reason: SelfCheckReason.NothingScheduled, gateNames, gates: [], error: undefined, crashes: [] };
+	let result: SelfCheckResult = { reason: SelfCheckReason.NothingScheduled, gateNames, gates: [], error: undefined, crashes: [], coordination: undefined };
 
 	// The empty name list is answered before any gate call at all, because an
 	// exact schedule with an empty list still runs the configured codegen command
@@ -168,6 +173,11 @@ export const runSelfCheck = async ({ cwd, config, coverage, checkpoint, wholeRep
 				runId,
 				step: buildSelfCheckStep({ step }),
 				schedule: { kind: GateScheduleKind.Exact, gates: gateNames },
+				// This check runs inside the writing agent's own spawn and records no
+				// verdict anywhere, so a machine another run holds ends it at once
+				// rather than holding a paid session open for the full wait. Every
+				// checkpoint that decides the run still waits the whole ceiling.
+				waitForMachine: false,
 				onGateResult: collector.onGateResult,
 				onProgress,
 			});
@@ -179,7 +189,17 @@ export const runSelfCheck = async ({ cwd, config, coverage, checkpoint, wholeRep
 			// error string.
 			const ranNothing = gates.every((observation) => observation.skipped === true);
 
-			result = ranNothing ? { ...result, gates } : { reason: SelfCheckReason.Ran, gateNames, gates, error: run.error, crashes: run.crashes };
+			if (run.coordination !== undefined) {
+				// Read before anything classifies this as a run that produced a
+				// verdict: no gate command executed, so the answer is about the
+				// machine rather than the change, and `ranNothing` — which asks
+				// whether every observation is a skip — has nothing to say about it.
+				result = { reason: SelfCheckReason.Coordination, gateNames, gates, error: undefined, crashes: [], coordination: run.coordination };
+			} else {
+				result = ranNothing
+					? { ...result, gates }
+					: { reason: SelfCheckReason.Ran, gateNames, gates, error: run.error, crashes: run.crashes, coordination: undefined };
+			}
 		}
 	}
 

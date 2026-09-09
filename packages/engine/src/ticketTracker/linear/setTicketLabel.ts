@@ -7,7 +7,8 @@ interface Params {
 	settings: LinearTrackerSettings;
 	ticketId: string;
 	label: string | undefined;
-	parked: boolean;
+	/** Whether the label should end up on the ticket. False takes it off. */
+	present: boolean;
 }
 
 const createTeamLabel = async ({ client, team, label }: { client: LinearClient; team: string; label: string }) => {
@@ -22,7 +23,7 @@ const createTeamLabel = async ({ client, team, label }: { client: LinearClient; 
 	return created.issueLabelId ?? { error: `the tracker created the '${label}' label but named no id for it` };
 };
 
-export const setParkedLabel = async ({ settings, ticketId, label, parked }: Params): Promise<TrackerFailure | undefined> => {
+export const setTicketLabel = async ({ settings, ticketId, label, present }: Params): Promise<TrackerFailure | undefined> => {
 	if (label === undefined) {
 		return undefined;
 	}
@@ -33,7 +34,7 @@ export const setParkedLabel = async ({ settings, ticketId, label, parked }: Para
 			const labels = await client.issueLabels({ filter: { name: { eq: label }, team: { key: { eq: settings.team } } } });
 			const existing = labels.nodes.at(0);
 
-			if (existing === undefined && !parked) {
+			if (existing === undefined && !present) {
 				return undefined;
 			}
 
@@ -43,7 +44,7 @@ export const setParkedLabel = async ({ settings, ticketId, label, parked }: Para
 				return labelId;
 			}
 
-			await (parked ? client.issueAddLabel(ticketId, labelId) : client.issueRemoveLabel(ticketId, labelId));
+			await (present ? client.issueAddLabel(ticketId, labelId) : client.issueRemoveLabel(ticketId, labelId));
 			return undefined;
 		},
 	});

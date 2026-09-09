@@ -1,6 +1,7 @@
 import { maxCheapFixRetries } from '#src/common/constants/maxCheapFixRetries.ts';
 import type { AgentUsage, LightsoutConfig } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
+import type { GateRunResult } from '#src/gates/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
 import { SettleKind } from '#src/refactor/batch/common/constants/SettleKind.ts';
 import type { SettleOutcome } from '#src/refactor/batch/common/types/SettleOutcome.ts';
@@ -20,8 +21,8 @@ interface Params {
 	recordUsage: (params: { step: string; usage?: AgentUsage }) => Promise<void>;
 	/** One fix attempt through the caller's gate-kind routing — a red COVERAGE gate goes to the test writer, everything else back to the refactor executor. */
 	invokeFix: (params: { label: string; gateError: string; guidance?: string }) => Promise<AgentOutcome<unknown>>;
-	/** Run the batch's gates and return the failure output, or undefined when green. */
-	gates: () => Promise<string | undefined>;
+	/** Run the batch's gates and answer their whole verdict — a red, a crash, or a run that never started. */
+	gates: () => Promise<GateRunResult>;
 }
 
 /**
@@ -31,6 +32,10 @@ interface Params {
  * only if those are spent — the supervisor's exception path, which buys at most
  * one guided retry before escalating. Rate limits park at whichever stage they
  * happen in, so nothing is lost and the run resumes where it stopped.
+ *
+ * A gate run that never got the machine ends the settle before either stage
+ * spends anything: not one command executed, so there is nothing for a fix agent
+ * to repair and nothing for a supervisor to rule on.
  *
  * Separate from the batch loop because the loop's job is what to DO with the
  * answer — resolved, declined, requeued — and this is how the answer is
@@ -49,38 +54,50 @@ export const settleBatchGates = async ({
 	invokeFix,
 	gates,
 }: Params): Promise<SettleOutcome> => {
-	let gateError = await gates();
+	let result = await gates();
+	let outcome: SettleOutcome | undefined;
 
-	for (let retry = 1; gateError && retry <= maxCheapFixRetries; retry += 1) {
+	for (let retry = 1; outcome === undefined && result.error && result.coordination === undefined && retry <= maxCheapFixRetries; retry += 1) {
 		onProgress(`${batchId}: gate red — fix attempt ${retry}/${maxCheapFixRetries}`);
 
-		const fix = await invokeFix({ label: `fix-${retry}`, gateError });
+		const fix = await invokeFix({ label: `fix-${retry}`, gateError: result.error });
 
 		if (!fix.ok && fix.rateLimited) {
-			return { kind: SettleKind.Parked };
+			outcome = { kind: SettleKind.Parked };
+		} else {
+			result = await gates();
 		}
-
-		gateError = await gates();
 	}
 
-	if (!gateError) {
-		return { kind: SettleKind.Green };
+	// Held as its own value so the guided-fix closure below carries the red that
+	// survived the cheap retries, rather than re-reading a variable the loop reassigns.
+	const gateError = result.error;
+
+	// Undefined here means the loop ran to its end rather than parking on a rate limit.
+	if (outcome === undefined) {
+		if (result.coordination !== undefined) {
+			outcome = { kind: SettleKind.Escalated, error: result.coordination };
+		} else if (!gateError) {
+			outcome = { kind: SettleKind.Green };
+		} else {
+			// Exception path: mechanical retries exhausted — bring in judgment.
+			outcome = await superviseBatch({
+				cwd,
+				runId,
+				driver,
+				config,
+				batchId,
+				planContent,
+				gateError,
+				attempts,
+				maxCheapFixRetries,
+				onProgress,
+				recordUsage,
+				invokeGuidedFix: ({ guidance }) => invokeFix({ label: 'supervised-fix', gateError, guidance }),
+				gates,
+			});
+		}
 	}
 
-	// Exception path: mechanical retries exhausted — bring in judgment.
-	return superviseBatch({
-		cwd,
-		runId,
-		driver,
-		config,
-		batchId,
-		planContent,
-		gateError,
-		attempts,
-		maxCheapFixRetries,
-		onProgress,
-		recordUsage,
-		invokeGuidedFix: ({ guidance }) => invokeFix({ label: 'supervised-fix', gateError, guidance }),
-		gates,
-	});
+	return outcome;
 };

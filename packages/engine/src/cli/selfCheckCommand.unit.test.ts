@@ -5,6 +5,7 @@ import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { selfCheckCommand } from '#src/cli/selfCheckCommand.ts';
 import { type GateResult, type LightsoutConfig, PipelineKind, RunStatus } from '#src/contracts/index.ts';
+import { SelfCheckReason } from '#src/gates/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { seedRunDir } from '#tests/helpers/seedRunDir.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -30,11 +31,12 @@ interface SelfCheckParams {
 }
 
 interface SelfCheckResult {
-	reason: 'ran' | 'nothing-changed' | 'nothing-scheduled' | 'unavailable';
+	reason: SelfCheckReason;
 	gateNames: string[];
 	gates: GateResult[];
 	error: string | undefined;
 	crashes: string[];
+	coordination: string | undefined;
 }
 
 const mockRunSelfCheck = jest.fn<(params: SelfCheckParams) => Promise<SelfCheckResult>>();
@@ -62,13 +64,15 @@ const endingOf = ({
 	gates = [],
 	error,
 	crashes = [],
+	coordination,
 }: {
 	reason: SelfCheckResult['reason'];
 	gateNames?: string[];
 	gates?: GateResult[];
 	error?: string;
 	crashes?: string[];
-}): SelfCheckResult => ({ reason, gateNames, gates, error, crashes });
+	coordination?: string;
+}): SelfCheckResult => ({ reason, gateNames, gates, error, crashes, coordination });
 
 /**
  * A consumer repo holding one seeded run per step the case exercises, with the
@@ -282,5 +286,41 @@ describe('selfCheckCommand', () => {
 		expect(output).toContain('engine: jest worker crashed twice in [api]');
 		expect(output).not.toContain('pnpm build');
 		expect(output).not.toContain('pnpm lint');
+	});
+
+	// Two acts, because the criterion is the contrast: the same command must end
+	// a self-check that never got the machine differently from one whose gates
+	// ran and went red. Each act is given a different red gate, so the log tells
+	// which ending printed gate evidence and which printed none.
+	test('selfCheckCommand: a coordination ending prints the waiting headline and exits zero', async () => {
+		const { contexts, logged, exitCodes } = await setupSelfCheck({
+			steps: ['implement', 'implement'],
+			results: [
+				endingOf({
+					reason: SelfCheckReason.Coordination,
+					gateNames: [],
+					gates: [silentRedGate],
+					coordination: 'run-7 in /tmp/worktrees/run-7, taken 4 minutes ago',
+				}),
+				endingOf({ reason: SelfCheckReason.Ran, error: 'check failed in [api]: exit 1', gates: [redGate] }),
+			],
+		});
+
+		await expect(selfCheckCommand(contexts[0])).rejects.toThrow(/process\.exit/);
+		await expect(selfCheckCommand(contexts[1])).rejects.toThrow(/process\.exit/);
+
+		const output = logged.join('\n');
+
+		// the gates never ran, so there is no evidence about the change: the
+		// headline names the machine rather than the code, the holder's own detail
+		// prints beneath it, and no gate is handed over as something to repair
+		expect(exitCodes).toStrictEqual([0, 1]);
+		expect(output).toMatch(/machine/i);
+		expect(output).toMatch(/waiting|waited|holds|held/i);
+		expect(output).toContain('run-7 in /tmp/worktrees/run-7, taken 4 minutes ago');
+		expect(output).not.toContain('pnpm test --filter api');
+		// and the gates that did run and went red still end the check at 1, with
+		// their own evidence printed
+		expect(output).toContain('src/thing.ts:3 unused import');
 	});
 });

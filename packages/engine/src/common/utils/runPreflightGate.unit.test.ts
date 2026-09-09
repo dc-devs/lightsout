@@ -38,7 +38,7 @@ const setupPreflightGate = ({ steps = [], gateError, gateProgress }: { steps?: S
 			onProgress?.(gateProgress);
 		}
 
-		return { error: gateError, failedFamilies: gateError === undefined ? [] : ['check'], crashes: [] };
+		return { error: gateError, failedFamilies: gateError === undefined ? [] : ['check'], crashes: [], coordination: undefined };
 	});
 
 	const progress: string[] = [];
@@ -115,6 +115,31 @@ describe('runPreflightGate', () => {
 				error: 'Codebase is not green before refactoring — fix this first.\ncheck: exit 1',
 			},
 		]);
+	});
+
+	test('runPreflightGate: a coordination failure escalates instead of reporting a red baseline', async () => {
+		const { setSteps, stops, args } = setupPreflightGate();
+		mockRunGates.mockResolvedValue({
+			error: 'gates never started',
+			failedFamilies: [],
+			crashes: [],
+			coordination: 'run-9999-zzzz holds the machine in /repo-sibling, held for 31m',
+		});
+
+		const result = await runPreflightGate(args);
+
+		// the gates never ran, so nothing here is evidence about the consumer's code
+		expect(result).toStrictEqual({ stopped: 'escalated' });
+		expect(stops).toStrictEqual([
+			{
+				record: { id: 'pre-flight', status: 'running', attempts: 1 },
+				status: 'escalated',
+				error: expect.stringContaining('run-9999-zzzz holds the machine in /repo-sibling, held for 31m'),
+			},
+		]);
+		expect(stops[0]?.error).not.toContain('Codebase is not green before refactoring');
+		// no passed pre-flight step is recorded, so a later attempt runs the baseline again
+		expect(setSteps).toStrictEqual([{ id: 'pre-flight', status: 'running', attempts: 1 }]);
 	});
 
 	test('a step an earlier attempt already passed is skipped rather than re-run', async () => {

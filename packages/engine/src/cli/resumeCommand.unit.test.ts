@@ -1,13 +1,46 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
 import { resumeCommand } from '#src/cli/resumeCommand.ts';
-import { RunStatus } from '#src/contracts/index.ts';
+import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import { manifestOf, runId, setupResume } from '#tests/helpers/setupResume.ts';
+
+// Mocked Imports
+// -------------------------
+// Whether the pre-source lifecycle write can be made — and whether a gate hold
+// stands against the ticket — is the guard's own contract, tested beside it.
+// What this file pins is what resume does with the guard's answer. Every other
+// lifecycle export stays real.
+interface GuardParams {
+	cwd: string;
+	config: LightsoutConfig;
+	env: NodeJS.ProcessEnv;
+	ticketRef?: string;
+	onProgress?: (message: string) => void;
+}
+
+const mockRequireImplementLifecycle = jest.fn<(params: GuardParams) => Promise<string | undefined>>();
+
+jest.mock('#src/ticketLifecycle/index.ts', () => ({
+	...jest.requireActual<typeof import('#src/ticketLifecycle/index.ts')>('#src/ticketLifecycle/index.ts'),
+	requireImplementLifecycle: (params: GuardParams) => mockRequireImplementLifecycle(params),
+}));
+// -------------------------
 
 /** The seeded run's manifest as it stands on disk after the command ran. */
 const readManifest = ({ cwd }: { cwd: string }): { willShip?: boolean } =>
 	JSON.parse(readFileSync(join(cwd, '.lightsout', 'runs', runId, 'manifest.json'), 'utf8'));
+
+/** The sentence a held ticket's refusal carries — human-facing copy, and here it is the fixture the guard answers with. */
+const heldSentence =
+	"lo-88 · on hold: run run-abc could not get the machine for its gates, so it stopped without judging the code — remove the 'queue-blocked-gate-timed-out' label from the ticket to release it";
+
+/** A seeded resume whose pre-source lifecycle guard answers exactly what the case asks for. */
+const setupResumeGuard = ({ manifest, refusal }: { manifest: RunManifest; refusal?: string }) => {
+	mockRequireImplementLifecycle.mockResolvedValue(refusal);
+
+	return setupResume({ args: ['--run', runId], manifest });
+};
 
 describe('resumeCommand', () => {
 	test('without --run it prints the usage text on stderr and exits 1 before reading any run', async () => {
@@ -265,5 +298,37 @@ describe('resumeCommand', () => {
 		await expect(resumeCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(logged.some((line) => line.startsWith('  harness: claude-code · model: sonnet-x'))).toBeTruthy();
+	});
+
+	test('refuses to resume a held ticket without touching the manifest', async () => {
+		const { context, cwd, logged, errors, exitCodes } = setupResumeGuard({
+			manifest: manifestOf({ pipeline: 'implement', willShip: true }),
+			refusal: heldSentence,
+		});
+
+		await expect(resumeCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(mockRequireImplementLifecycle).toHaveBeenCalledWith(
+			expect.objectContaining({ cwd, config: expect.anything(), env: process.env, onProgress: expect.any(Function) }),
+		);
+		expect(errors).toStrictEqual([heldSentence]);
+		expect(exitCodes).toStrictEqual([1]);
+		// nothing printed and the seeded ship stamp still standing: the refusal
+		// landed before the restamp and before any pipeline began
+		expect(logged).toStrictEqual([]);
+		expect(readManifest({ cwd }).willShip).toBe(true);
+	});
+
+	test('resumes an unheld run unchanged', async () => {
+		const { context, cwd, logged, errors, exitCodes } = setupResumeGuard({ manifest: manifestOf({ pipeline: 'implement', willShip: true }) });
+
+		await expect(resumeCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged[0]).toBe(`lightsout: resuming run ${runId} (was: failed, plan: ghost.md)`);
+		expect(errors.join('\n')).toMatch(/plan file not found: .*ghost\.md/);
+		expect(exitCodes).toStrictEqual([1]);
+		// nothing asks for a ship, so the restamp the guard stands in front of still
+		// cleared the stamp — the run behaves exactly as it does today
+		expect(readManifest({ cwd }).willShip).toBe(false);
 	});
 });

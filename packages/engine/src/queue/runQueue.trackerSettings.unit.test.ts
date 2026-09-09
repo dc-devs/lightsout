@@ -21,12 +21,12 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 type ListTicketsParams = { settings: TrackerSettings; labelNames: string[]; statuses: string[] };
 type IdentifiersParams = { settings: TrackerSettings; identifiers: string[] };
 type StatusParams = { settings: TrackerSettings; ticketId: string; statusName: string };
-type LabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; parked: boolean };
+type LabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; present: boolean };
 
 const mockListTickets = jest.fn<(params: ListTicketsParams) => Promise<TrackerTicket[] | TrackerFailure>>();
 const mockGetTicketsByIdentifiers = jest.fn<(params: IdentifiersParams) => Promise<TrackerTicket[] | TrackerFailure>>();
 const mockSetTicketStatus = jest.fn<(params: StatusParams) => Promise<TrackerFailure | undefined>>();
-const mockSetParkedLabel = jest.fn<(params: LabelParams) => Promise<TrackerFailure | undefined>>();
+const mockSetTicketLabel = jest.fn<(params: LabelParams) => Promise<TrackerFailure | undefined>>();
 
 jest.mock('#src/ticketTracker/index.ts', () => ({
 	listLabelNames: () =>
@@ -34,7 +34,7 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 	appendTicketNote: () => Promise.resolve(undefined),
 	getTicketsByIdentifiers: (params: IdentifiersParams) => mockGetTicketsByIdentifiers(params),
 	listTickets: (params: ListTicketsParams) => mockListTickets(params),
-	setParkedLabel: (params: LabelParams) => mockSetParkedLabel(params),
+	setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params),
 	setTicketStatus: (params: StatusParams) => mockSetTicketStatus(params),
 }));
 // -------------------------
@@ -114,7 +114,7 @@ const setupDrain = ({
 	mockListTickets.mockResolvedValue(eligible);
 	mockGetTicketsByIdentifiers.mockResolvedValue(parkedTicket === undefined ? [] : [parkedTicket]);
 	mockSetTicketStatus.mockResolvedValue(undefined);
-	mockSetParkedLabel.mockResolvedValue(undefined);
+	mockSetTicketLabel.mockResolvedValue(undefined);
 	mockCreateTicketWorktree.mockImplementation(({ branch }) => Promise.resolve(join(worktreesRoot, branch)));
 	mockRunWorkerWithRelay.mockResolvedValue({});
 	mockShipOneBranch.mockImplementation(({ outcome }) => Promise.resolve(outcome));
@@ -155,11 +155,11 @@ describe('runQueue', () => {
 		await drain({ settings: queueSettingsFixture({ parkedLabel: 'queue-parked' }) });
 		relay.close();
 
-		expect(mockSetParkedLabel).toHaveBeenCalledWith({
+		expect(mockSetTicketLabel).toHaveBeenCalledWith({
 			settings: { provider: 'linear', ticketPrefix: 'LO', team: 'LO', apiKey: 'lin_key' },
 			ticketId: 'id-70',
 			label: 'queue-parked',
-			parked: false,
+			present: false,
 		});
 	});
 

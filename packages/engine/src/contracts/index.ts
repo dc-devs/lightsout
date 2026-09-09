@@ -48,7 +48,7 @@ export { Effort } from '#src/contracts/Effort.ts';
 export { FrictionArea, FrictionEntry, FrictionRecord } from '#src/contracts/friction/index.ts';
 export { GateOverride } from '#src/contracts/GateOverride.ts';
 export { GateOverrides } from '#src/contracts/GateOverrides.ts';
-export { GateResult, TestCaseStatus, TestResultsFile } from '#src/contracts/gates/index.ts';
+export { GateHold, GateLock, GateResult, TestCaseStatus, TestResultsFile } from '#src/contracts/gates/index.ts';
 export { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 export { PackageGates } from '#src/contracts/PackageGates.ts';
 export { Permissions } from '#src/contracts/Permissions.ts';

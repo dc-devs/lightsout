@@ -1,4 +1,5 @@
 import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { GateHolds } from '#src/gates/index.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
@@ -13,6 +14,10 @@ import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
 	cwd: string;
+	/** The coordinator run's own id, forwarded so the ship lane can name the run that took a hold. */
+	runId: string;
+	/** The holds reconciled once before the parked scan, forwarded unchanged. */
+	holds: GateHolds;
 	settings: QueueSettings;
 	trackerSettings: TrackerSettings;
 	shipSettings: ShipSettings;
@@ -57,6 +62,8 @@ const toParkedIdentifiers = ({ parked }: { parked: ParkedWork }) => [
  */
 export const drainQueue = async ({
 	cwd,
+	runId,
+	holds,
 	settings,
 	trackerSettings,
 	shipSettings,
@@ -77,6 +84,8 @@ export const drainQueue = async ({
 
 	const drained = await runDrainLanes({
 		cwd,
+		runId,
+		holds,
 		config,
 		settings,
 		trackerSettings,

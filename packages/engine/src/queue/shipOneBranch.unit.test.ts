@@ -9,7 +9,7 @@ import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { shipOneBranch } from '#src/queue/shipOneBranch.ts';
-import { createTicketWorktree } from '#src/queue/worktrees/createTicketWorktree.ts';
+import { createTicketWorktree } from '#src/queue/worktrees/index.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
 import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
@@ -21,8 +21,23 @@ import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 // exists for — a stubbed one would prove nothing about conflicts.
 const mockRunGates = jest.fn<(params: { cwd: string }) => Promise<GateRunResult>>();
 const mockRunShip = jest.fn<(params: { cwd: string }) => Promise<ShipResult>>();
+const mockTakeGateHold =
+	jest.fn<
+		(params: {
+			cwd: string;
+			config: LightsoutConfig;
+			ticketRef: string | undefined;
+			runId: string;
+			worktreePath: string;
+			reason: string;
+		}) => Promise<string | undefined>
+	>();
 
-jest.mock('#src/gates/index.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
+jest.mock('#src/gates/index.ts', () => ({
+	runGates: (params: { cwd: string }) => mockRunGates(params),
+	takeGateHold: (params: { cwd: string; config: LightsoutConfig; ticketRef: string | undefined; runId: string; worktreePath: string; reason: string }) =>
+		mockTakeGateHold(params),
+}));
 jest.mock('#src/ship/index.ts', () => ({ runShip: (params: { cwd: string }) => mockRunShip(params) }));
 // -------------------------
 
@@ -74,8 +89,9 @@ const setupReadyBranch = async ({ number = 70, content = 'export const value = 1
 	writeRepoFile({ cwd: worktreePath, path: 'work.ts', content });
 	execSync(`git add -A && git ${author} commit -qm work`, { cwd: worktreePath, stdio: 'ignore' });
 
-	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [] });
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
 	mockRunShip.mockResolvedValue(shippedResult);
+	mockTakeGateHold.mockResolvedValue(undefined);
 
 	const outcome: TicketRunOutcome = { ticket: ticketOf({ number }), branch, worktreePath, ready: true };
 
@@ -88,8 +104,17 @@ const advanceOrigin = ({ cwd, file, content }: { cwd: string; file: string; cont
 	execSync(`git add -A && git ${author} commit -qm main-moved && git push -q origin main`, { cwd, stdio: 'ignore' });
 };
 
-const ship = async ({ cwd, outcome, onProgress }: { cwd: string; outcome: TicketRunOutcome; onProgress?: (message: string) => void }) =>
-	shipOneBranch({ cwd, config, shipSettings, defaultBranch: 'main', env: {}, outcome, serializeMainCheckout, onProgress });
+const ship = async ({
+	cwd,
+	outcome,
+	runId = 'drain-41',
+	onProgress,
+}: {
+	cwd: string;
+	outcome: TicketRunOutcome;
+	runId?: string;
+	onProgress?: (message: string) => void;
+}) => shipOneBranch({ cwd, config, shipSettings, defaultBranch: 'main', env: {}, outcome, runId, serializeMainCheckout, onProgress });
 
 describe('shipOneBranch', () => {
 	test('answers with the outcome still ready when the merge landed, which is how the drain knows to re-read the tracker', async () => {
@@ -138,12 +163,89 @@ describe('shipOneBranch', () => {
 	test('parks a branch whose gates came back red after the rebase, rather than merging what nothing vouches for', async () => {
 		const { cwd, outcome } = await setupReadyBranch();
 
-		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [] });
+		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [], coordination: undefined });
 
 		const shipped = await ship({ cwd, outcome });
 
 		expect(shipped).toEqual(expect.objectContaining({ ready: false, error: 'tsc: 3 errors' }));
 		expect(mockRunShip).not.toHaveBeenCalled();
+	});
+
+	test('shipOneBranch: a coordination failure parks the branch naming the machine rather than the gates', async () => {
+		const { cwd, outcome } = await setupReadyBranch();
+
+		mockRunGates.mockResolvedValue({
+			error: 'gates did not run',
+			failedFamilies: [],
+			crashes: [],
+			coordination: 'another run holds the machine: run drain-41 in /tmp/lo-71-other, held for 31m',
+		});
+
+		const shipped = await ship({ cwd, outcome });
+
+		// The reason a human reads names the machine, not the gate output beside it.
+		expect(shipped).toEqual(
+			expect.objectContaining({
+				ready: false,
+				error: 'another run holds the machine: run drain-41 in /tmp/lo-71-other, held for 31m',
+			}),
+		);
+		expect(mockRunShip).not.toHaveBeenCalled();
+		expect(existsSync(outcome.worktreePath)).toBe(true);
+	});
+
+	test('takes a gate hold when the shipping gates never got the machine', async () => {
+		const { cwd, outcome } = await setupReadyBranch();
+
+		mockRunGates.mockResolvedValue({
+			error: 'gates did not run',
+			failedFamilies: [],
+			crashes: [],
+			coordination: 'the gates never got the machine within 30m: run drain-8 in /tmp/lo-71-other, held for 31m',
+		});
+
+		const shipped = await ship({ cwd, outcome, runId: 'drain-41' });
+
+		// The hold is what makes the stop stick: the next drain and a manual
+		// resume both refuse this ticket until a human releases it.
+		expect(mockTakeGateHold).toHaveBeenCalledWith(
+			expect.objectContaining({
+				ticketRef: 'LO-70',
+				runId: 'drain-41',
+				worktreePath: outcome.worktreePath,
+				reason: 'the gates never got the machine within 30m: run drain-8 in /tmp/lo-71-other, held for 31m',
+			}),
+		);
+		expect(shipped).toEqual(
+			expect.objectContaining({
+				ready: false,
+				error: expect.stringContaining('the gates never got the machine within 30m'),
+			}),
+		);
+		// No merge is attempted and the worktree with its commits is left alone —
+		// a gate run that never started is no evidence about the code.
+		expect(mockRunShip).not.toHaveBeenCalled();
+		expect(existsSync(outcome.worktreePath)).toBe(true);
+	});
+
+	test('reports a refused label write beside the park reason', async () => {
+		const { cwd, outcome } = await setupReadyBranch();
+
+		mockRunGates.mockResolvedValue({
+			error: 'gates did not run',
+			failedFamilies: [],
+			crashes: [],
+			coordination: 'the gates never got the machine within 30m: run drain-8 in /tmp/lo-71-other, held for 31m',
+		});
+		mockTakeGateHold.mockResolvedValue('the tracker refused the queue-blocked-gate-timed-out label: 403 forbidden');
+
+		const shipped = await ship({ cwd, outcome });
+
+		// Both halves reach the drain's output: why the run stopped, and that the
+		// tracker never recorded the hold the local record already holds.
+		expect(shipped.error).toEqual(expect.stringContaining('the gates never got the machine within 30m'));
+		expect(shipped.error).toEqual(expect.stringContaining('the tracker refused the queue-blocked-gate-timed-out label: 403 forbidden'));
+		expect(shipped.ready).toBe(false);
 	});
 
 	test('parks a blocked ship carrying the forge’s own reason and detail, and keeps the worktree', async () => {
@@ -199,7 +301,7 @@ describe('shipOneBranch', () => {
 		const { cwd, outcome } = await setupReadyBranch();
 		const progress: string[] = [];
 
-		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [] });
+		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [], coordination: undefined });
 		await ship({ cwd, outcome, onProgress: (message) => progress.push(message) });
 
 		expect(progress).toEqual([expect.stringContaining('rebasing lo-70-drain'), expect.stringContaining('LO-70 · not shipped: tsc: 3 errors')]);

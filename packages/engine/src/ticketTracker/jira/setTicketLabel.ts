@@ -6,14 +6,15 @@ interface Params {
 	settings: JiraTrackerSettings;
 	ticketId: string;
 	label: string | undefined;
-	parked: boolean;
+	/** Whether the label should end up on the ticket. False takes it off. */
+	present: boolean;
 }
 
 interface LabelsResponse {
 	fields: { labels?: string[] | null };
 }
 
-export const setParkedLabel = async ({ settings, ticketId, label, parked }: Params): Promise<TrackerFailure | undefined> => {
+export const setTicketLabel = async ({ settings, ticketId, label, present }: Params): Promise<TrackerFailure | undefined> => {
 	if (label === undefined) {
 		return undefined;
 	}
@@ -25,11 +26,11 @@ export const setParkedLabel = async ({ settings, ticketId, label, parked }: Para
 			const issue = await client.request<LabelsResponse>({ method: 'GET', path: `${path}?fields=labels`, response: 'json' });
 			const labels = issue.fields.labels ?? [];
 
-			if ((parked && labels.includes(label)) || (!parked && !labels.includes(label))) {
+			if ((present && labels.includes(label)) || (!present && !labels.includes(label))) {
 				return undefined;
 			}
 
-			await client.request({ method: 'PUT', path, body: { update: { labels: [{ [parked ? 'add' : 'remove']: label }] } }, response: 'empty' });
+			await client.request({ method: 'PUT', path, body: { update: { labels: [{ [present ? 'add' : 'remove']: label }] } }, response: 'empty' });
 			return undefined;
 		},
 	});
