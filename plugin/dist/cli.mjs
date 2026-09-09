@@ -151898,7 +151898,7 @@ var maxWriterGroupFiles2 = 12;
 var groupTestTargets = async ({ run, subjects, compiler }) => {
   const targets = [...subjects.keys()];
   if (!compiler) {
-    return targets.map((target) => ({ subjects: subjects.get(target) ?? [target], mustExecute: [target], cluster: target }));
+    return targets.map((target) => ({ subjects: subjects.get(target) ?? [target], mustExecute: [target] }));
   }
   const byPackage = partitionByPackage({ files: targets, packagesDir: run.config["packages-dir"] ?? defaultPackagesDir });
   const groups = [];
@@ -151913,14 +151913,8 @@ var groupTestTargets = async ({ run, subjects, compiler }) => {
         (target) => (subjects.get(target) ?? []).filter((subject) => subject !== target).map((subject) => ({ from: target, to: subject }))
       )
     ];
-    let componentIndex = 0;
     for (const component of groupConnectedFiles({ files: union2, edges })) {
       const componentTargets = component.filter((file2) => targetSet.has(file2));
-      if (componentTargets.length === 0) {
-        continue;
-      }
-      const cluster = `${partition}#${componentIndex}`;
-      componentIndex += 1;
       if (componentTargets.length > maxWriterGroupFiles2) {
         run.progress(
           `write-tests: import component of ${componentTargets.length} files exceeds the ${maxWriterGroupFiles2}-file writer cap \u2014 splitting into sorted chunks`
@@ -151929,8 +151923,7 @@ var groupTestTargets = async ({ run, subjects, compiler }) => {
       for (const chunk of chunkFileGroup({ files: componentTargets, max: maxWriterGroupFiles2 })) {
         groups.push({
           subjects: [...new Set(chunk.flatMap((target) => subjects.get(target) ?? []))].sort(),
-          mustExecute: [...chunk].sort(),
-          cluster
+          mustExecute: [...chunk].sort()
         });
       }
     }
@@ -151997,47 +151990,91 @@ var createWriterAggregate = ({ run, step, label: label2 }) => {
   return { collect, isParked: () => parked, result: () => ({ reports, failures, terminated, parked }) };
 };
 
-// src/pipeline/common/utils/drainChains.ts
-var drainChains = async ({ chains, aggregate, collectWarm, isSettled }) => {
-  let next = 0;
-  const runSlot = async () => {
-    while (next < chains.length && !aggregate.isParked()) {
-      const chain = chains[next];
-      next += 1;
-      if (chain === void 0) {
-        return;
+// src/pipeline/steps/drainBySubjects.ts
+var createSubjectReservations = () => {
+  const held = /* @__PURE__ */ new Set();
+  return {
+    isFree: ({ group }) => group.subjects.every((subject) => !held.has(subject)),
+    reserve: ({ group }) => {
+      for (const subject of group.subjects) {
+        held.add(subject);
       }
-      const results = await chain();
-      if (isSettled()) {
-        await collectWarm();
-      }
-      for (const result of results) {
-        await aggregate.collect({ result });
+    },
+    release: ({ group }) => {
+      for (const subject of group.subjects) {
+        held.delete(subject);
       }
     }
   };
-  await Promise.all(Array.from({ length: Math.min(testWriterConcurrency, chains.length) }, () => runSlot()));
+};
+var takeEligible = ({ waiting, reservations }) => {
+  const group = waiting.find((candidate) => reservations.isFree({ group: candidate }));
+  if (group) {
+    waiting.splice(waiting.indexOf(group), 1);
+  }
+  return group;
+};
+var drainBySubjects = async ({ groups, spawnWriter, aggregate, warm, collectWarm }) => {
+  const reservations = createSubjectReservations();
+  const waiting = [...groups];
+  const running = /* @__PURE__ */ new Map();
+  let nextTicket = 0;
+  let failure;
+  const track = ({ settle }) => {
+    const ticket = nextTicket;
+    nextTicket += 1;
+    running.set(
+      ticket,
+      (async () => {
+        try {
+          await settle();
+        } catch (error51) {
+          failure = failure ?? { error: error51 };
+        } finally {
+          running.delete(ticket);
+        }
+      })()
+    );
+  };
+  const startEligible = () => {
+    while (!aggregate.isParked() && running.size < testWriterConcurrency) {
+      const group = takeEligible({ waiting, reservations });
+      if (group === void 0) {
+        break;
+      }
+      reservations.reserve({ group });
+      track({
+        settle: async () => {
+          const result = await spawnWriter({ group }).finally(() => {
+            reservations.release({ group });
+          });
+          await aggregate.collect({ result });
+        }
+      });
+    }
+  };
+  if (warm) {
+    reservations.reserve({ group: warm.group });
+    track({
+      settle: async () => {
+        await warm.spawn.finally(() => {
+          reservations.release({ group: warm.group });
+        });
+        await collectWarm();
+      }
+    });
+  }
+  startEligible();
+  while (running.size > 0) {
+    await Promise.race([...running.values()]);
+    startEligible();
+  }
+  if (failure) {
+    throw failure.error;
+  }
 };
 
 // src/pipeline/steps/runWriterBatches.ts
-var chainGroups = ({ groups }) => {
-  const byCluster = /* @__PURE__ */ new Map();
-  for (const group of groups) {
-    byCluster.set(group.cluster, [...byCluster.get(group.cluster) ?? [], group]);
-  }
-  return [...byCluster.values()];
-};
-var runChain = async ({ chain, spawnWriter }) => {
-  const results = [];
-  for (const group of chain) {
-    const result = await spawnWriter({ group });
-    results.push(result);
-    if (!result.ok && result.rateLimited) {
-      break;
-    }
-  }
-  return results;
-};
 var runWriterBatches = async ({
   run,
   groups,
@@ -152060,25 +152097,19 @@ var runWriterBatches = async ({
       onFirstEvent
     })
   });
-  const chains = chainGroups({ groups });
-  const warmed = groups.length > 1;
-  const { warm, collectWarm, awaitGate, isSettled } = createWarmSpawn({ group: warmed ? groups[0] : void 0, spawnWriter, aggregate });
+  const warmGroup = groups.length > 1 ? groups[0] : void 0;
+  const { warm, collectWarm, awaitGate, isSettled } = createWarmSpawn({ group: warmGroup, spawnWriter, aggregate });
   await awaitGate();
-  const firstChainRest = warmed ? chains[0]?.slice(1) ?? [] : [];
-  const restChains = [];
-  if (warm && firstChainRest.length > 0) {
-    restChains.push(async () => {
-      const warmResult = await warm;
-      return !warmResult.ok && warmResult.rateLimited ? [] : runChain({ chain: firstChainRest, spawnWriter });
-    });
-  }
-  for (const chain of warmed ? chains.slice(1) : chains) {
-    restChains.push(() => runChain({ chain, spawnWriter }));
-  }
   if (isSettled()) {
     await collectWarm();
   }
-  await drainChains({ chains: restChains, aggregate, collectWarm, isSettled });
+  await drainBySubjects({
+    groups: warmGroup ? groups.slice(1) : groups,
+    spawnWriter,
+    aggregate,
+    warm: warm && warmGroup ? { spawn: warm, group: warmGroup } : void 0,
+    collectWarm
+  });
   await collectWarm();
   return aggregate.result();
 };
@@ -152277,6 +152308,28 @@ ${error51}` });
     run.progress("step clean-slate passed");
     return void 0;
   };
+};
+
+// src/pipeline/common/utils/drainChains.ts
+var drainChains = async ({ chains, aggregate, collectWarm, isSettled }) => {
+  let next = 0;
+  const runSlot = async () => {
+    while (next < chains.length && !aggregate.isParked()) {
+      const chain = chains[next];
+      next += 1;
+      if (chain === void 0) {
+        return;
+      }
+      const results = await chain();
+      if (isSettled()) {
+        await collectWarm();
+      }
+      for (const result of results) {
+        await aggregate.collect({ result });
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(testWriterConcurrency, chains.length) }, () => runSlot()));
 };
 
 // src/pipeline/steps/ledger/readCommittedTestSource.ts
