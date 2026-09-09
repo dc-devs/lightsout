@@ -241,11 +241,15 @@ describe('withGateLock', () => {
 		await jest.advanceTimersByTimeAsync(6_000);
 		const enteredWhileClaimed = [...entered];
 		releaseBody();
-		await advanceUntilSettled({ promise: Promise.all([first, second]), limitMs: 30_000 });
+		// A generous virtual budget rather than a tight one: the loser polls every
+		// two seconds and does real filesystem work between polls, so a fixed
+		// budget that fits on a fast machine starves it on a slow one. The clock
+		// is fake, so the extra rounds cost no wall time.
+		await advanceUntilSettled({ promise: Promise.all([first, second]), limitMs: 120_000 });
 
 		// the second caller found a live holder — the winner — and waited for it
 		expect({ enteredWhileClaimed: enteredWhileClaimed.length, enteredInTotal: entered.length }).toStrictEqual({ enteredWhileClaimed: 1, enteredInTotal: 2 });
-	});
+	}, 60_000);
 
 	test('claims a leftover even when told not to wait', async () => {
 		const { cwd, runBody } = setupGateLock({ heldBy: leftover });
