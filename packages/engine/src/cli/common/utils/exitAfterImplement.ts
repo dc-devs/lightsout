@@ -3,6 +3,7 @@ import { unusableTicketPatternMessage } from '#src/cli/common/constants/unusable
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { exitForRunResult } from '#src/cli/common/utils/exitForRunResult.ts';
+import { resolveEffectiveConfigAndDriver } from '#src/cli/common/utils/resolveEffectiveConfigAndDriver.ts';
 import { type LightsoutConfig, ShipStatus } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { resolveShipIntent, runShip } from '#src/ship/index.ts';
@@ -57,7 +58,10 @@ export const exitAfterImplement = async ({ config, cwd, result, shipFlag, noShip
 		return exitCli({ code: 1 });
 	}
 
-	const shipped = await runShip({ cwd, settings: intent.settings, onProgress: createProgressPrinter() });
+	// Same harness the run itself used: the branch reaching the remote has the
+	// default branch merged into it, and settling that is implementation work.
+	const { config: effectiveConfig, driver } = resolveEffectiveConfigAndDriver({ config, command: 'implement' });
+	const shipped = await runShip({ cwd, settings: intent.settings, integration: { config: effectiveConfig, driver }, onProgress: createProgressPrinter() });
 
 	if (shipped.status === ShipStatus.Blocked) {
 		return exitCli({ code: 1 });

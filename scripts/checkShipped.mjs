@@ -1,32 +1,15 @@
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, sep } from 'node:path';
 import { buildEngine } from './buildEngine.mjs';
 import { invokedDirectly } from './invokedDirectly.mjs';
-
-/** Checks shipped build parity, manifest agreement, and version movement against a base ref. */
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
-
-/** The directories a marketplace install copies, with every host manifest that names the same build. */
-const shippedDirectories = [
-	{
-		dir: 'plugin',
-		primaryManifestPath: join('plugin', '.claude-plugin', 'plugin.json'),
-		manifestPaths: [join('plugin', '.claude-plugin', 'plugin.json'), join('plugin', '.codex-plugin', 'plugin.json')],
-	},
-	{
-		dir: 'plugin-linear',
-		primaryManifestPath: join('plugin-linear', '.claude-plugin', 'plugin.json'),
-		manifestPaths: [join('plugin-linear', '.claude-plugin', 'plugin.json'), join('plugin-linear', '.codex-plugin', 'plugin.json')],
-	},
-	{
-		dir: 'plugin-jira',
-		primaryManifestPath: join('plugin-jira', '.claude-plugin', 'plugin.json'),
-		manifestPaths: [join('plugin-jira', '.claude-plugin', 'plugin.json'), join('plugin-jira', '.codex-plugin', 'plugin.json')],
-	},
-];
+import { changedSince } from './shipRelease/changedSince.mjs';
+import { isNewer } from './shipRelease/isNewer.mjs';
+import { repoRoot } from './shipRelease/repoRoot.mjs';
+import { resolveShipBaseCommit } from './shipRelease/resolveShipBaseCommit.mjs';
+import { runGit } from './shipRelease/runGit.mjs';
+import { shippedDirectories } from './shipRelease/shippedDirectories.mjs';
 
 /** Every file under a directory, as sorted slash-separated relative paths. */
 const filesUnder = ({ dir }) =>
@@ -54,39 +37,6 @@ const firstDifference = ({ built, shipped }) => {
 	const changed = builtFiles.find((path) => !readFileSync(join(built, path)).equals(readFileSync(join(shipped, path))));
 
 	return changed === undefined ? undefined : `${changed} differs`;
-};
-
-/** A git command's stdout, or undefined when git exits non-zero (an unknown ref, usually). */
-const git = ({ args }) => {
-	const result = spawnSync('git', args, { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-	return result.status === 0 ? result.stdout.trim() : undefined;
-};
-
-/**
- * True when a path differs between a base commit and the WORKING TREE.
- *
- * The tree, not HEAD. The moment the version answer matters most is the moment
- * before the commit — `pnpm bundle` has just rewritten plugin/dist/cli.mjs and
- * it is sitting unstaged. Compared against HEAD, that rebuild is invisible, so
- * the check reported "nothing under plugin/ changed" while git showed 332
- * insertions in the same file, and asked for no bump. Omitting `...HEAD` makes
- * git compare the base against the tree, which is what the other half of this
- * script already measures.
- */
-const changedSince = ({ baseCommit, path }) => {
-	const result = spawnSync('git', ['diff', '--quiet', baseCommit, '--', path], { cwd: repoRoot, stdio: 'ignore' });
-	return result.status !== 0;
-};
-
-/** Compares by numeric segment. True only when `head` is genuinely newer, so a version that moved backwards fails too. */
-const isNewer = ({ head, base }) => {
-	const parse = ({ version }) => version.split('.').map((segment) => Number.parseInt(segment, 10) || 0);
-	const headSegments = parse({ version: head });
-	const baseSegments = parse({ version: base });
-	const differingIndex = Array.from({ length: Math.max(headSegments.length, baseSegments.length) }).findIndex(
-		(_value, index) => (headSegments[index] ?? 0) !== (baseSegments[index] ?? 0),
-	);
-	return differingIndex !== -1 && (headSegments[differingIndex] ?? 0) > (baseSegments[differingIndex] ?? 0);
 };
 
 /**
@@ -117,7 +67,7 @@ const versionVerdict = ({ baseCommit, dir, primaryManifestPath, manifestPaths })
 		return { skipped: `nothing under ${dir}/ changed` };
 	}
 
-	const baseManifest = git({ args: ['show', `${baseCommit}:${primaryManifestPath}`] });
+	const baseManifest = runGit({ args: ['show', `${baseCommit}:${primaryManifestPath}`] });
 
 	if (baseManifest === undefined) {
 		return { skipped: `${primaryManifestPath} does not exist at the base` };
@@ -138,10 +88,14 @@ const versionVerdict = ({ baseCommit, dir, primaryManifestPath, manifestPaths })
 };
 
 /**
- * @param base - git ref the version is compared against. Defaults to `origin/main`.
+ * Checks shipped build parity, manifest agreement, and version movement
+ * against a base ref.
+ *
+ * @param base - git ref the version is compared against when no exact commit is pinned. Defaults to `origin/main`.
+ * @param baseCommit - the exact commit to compare against, overriding `base`. Defaults to `LIGHTSOUT_SHIP_BASE_COMMIT`.
  * @returns every problem found, and one note per shipped directory saying what the version check did or why it was skipped
  */
-export const checkShipped = async ({ base = 'origin/main' } = {}) => {
+export const checkShipped = async ({ base = 'origin/main', baseCommit: pinnedBase } = {}) => {
 	const problems = [];
 	const work = mkdtempSync(join(tmpdir(), 'lightsout-shipped-'));
 
@@ -163,10 +117,14 @@ export const checkShipped = async ({ base = 'origin/main' } = {}) => {
 		rmSync(work, { recursive: true, force: true });
 	}
 
-	const baseCommit = git({ args: ['merge-base', base, 'HEAD'] });
+	const { baseCommit, problem, skipped } = resolveShipBaseCommit({ base, baseCommit: pinnedBase });
 
 	if (baseCommit === undefined) {
-		return { problems, versionNotes: [`version not checked: no ${base} to compare against`] };
+		if (problem !== undefined) {
+			problems.push(problem);
+		}
+
+		return { problems, versionNotes: [skipped ?? `version not checked: ${problem}`] };
 	}
 
 	const versionNotes = shippedDirectories.map((shipped) => {
@@ -183,10 +141,9 @@ export const checkShipped = async ({ base = 'origin/main' } = {}) => {
 };
 
 /**
- * Exit codes are set rather than forced with `process.exit`. When stdout is a
- * pipe — which is every caller that matters here, the hook and CI — writes are
- * asynchronous, and exiting on the line after a log discards it. The check
- * would then fail with nothing printed about why.
+ * Exit codes are set rather than forced with `process.exit`: stdout is a pipe
+ * for every caller that matters here, so exiting on the line after a log would
+ * discard it and the check would fail with nothing printed about why.
  */
 const main = async () => {
 	const baseFlag = process.argv.indexOf('--base');

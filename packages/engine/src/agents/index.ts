@@ -13,6 +13,7 @@ export { buildPromptImproverInvocation } from '#src/agents/buildPromptImproverIn
 export { buildQueueAutoPlanInvocation } from '#src/agents/buildQueueAutoPlanInvocation.ts';
 export { buildRefactorExecutorInvocation } from '#src/agents/buildRefactorExecutorInvocation.ts';
 export { buildReportReemitterInvocation } from '#src/agents/buildReportReemitterInvocation.ts';
+export { buildShipIntegratorInvocation } from '#src/agents/buildShipIntegratorInvocation.ts';
 export { buildStandardsReviewInvocation } from '#src/agents/buildStandardsReviewInvocation.ts';
 export { buildSupervisorInvocation } from '#src/agents/buildSupervisorInvocation.ts';
 export { buildTestChangeReviewInvocation } from '#src/agents/buildTestChangeReviewInvocation.ts';

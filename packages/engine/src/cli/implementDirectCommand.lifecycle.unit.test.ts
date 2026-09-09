@@ -60,6 +60,14 @@ const reconciliationSentence = "lo-70 shipped, but its tracker status could not 
 /** The pull request the stubbed forge reports once it has been opened. */
 const viewed = '{"number":41,"url":"https://forge.example/acme/repo/pull/41","title":"Drain the backlog","headRefName":"lo-70-drain"}';
 
+/**
+ * The pull request's head, answered from the checkout at call time.
+ *
+ * The candidate is whatever the ship sequence committed, so the fixture cannot
+ * write that commit down in advance.
+ */
+const headView = '{"headRefOid":"__HEAD__"}';
+
 /** What the stubbed forge answers, so a passed run can chain all the way through a real merge. */
 const forgeResponses = {
 	'auth status': { exitCode: 0 },
@@ -67,7 +75,11 @@ const forgeResponses = {
 	'pr create': { stdout: 'https://forge.example/acme/repo/pull/41' },
 	'pr edit': { exitCode: 0 },
 	'pr view 41 --json number': { stdout: viewed },
-	'pr view 41 --json mergeCommit': { stdout: '{"mergeCommit":{"oid":"0f1e2d3c"}}' },
+	'pr view 41 --json headRefOid,statusCheckRollup': { stdout: '', exitCode: 1 },
+	'pr view 41 --json headRefOid': { stdout: headView },
+	'pr view 41 --json state': {
+		stdout: '{"state":"MERGED","mergeCommit":{"oid":"0f1e2d3c"},"headRefOid":"__HEAD__","mergeStateStatus":"CLEAN","reviewDecision":null}',
+	},
 	'pr checks': { stdout: '[{"name":"unit","bucket":"pass"}]' },
 	'pr merge': { exitCode: 0 },
 };

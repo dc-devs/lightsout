@@ -1,11 +1,13 @@
 import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { runPreShip } from '#src/ship/runPreShip.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
-const setupPreShip = ({ dirty }: { dirty?: Record<string, string> } = {}) => {
+const setupPreShip = () => {
 	const progress: string[] = [];
-	const { cwd } = setupBranchRepo({ branch: 'lo-76-ship', dirty });
+	const { cwd } = setupBranchRepo({ branch: 'lo-76-ship' });
 
 	return { cwd, progress, onProgress: (message: string) => progress.push(message) };
 };
@@ -13,32 +15,21 @@ const setupPreShip = ({ dirty }: { dirty?: Record<string, string> } = {}) => {
 /** The subject of the newest commit, which is where the step's own commit shows up. */
 const readLastSubject = ({ cwd }: { cwd: string }) => execSync('git log -1 --format=%s', { cwd, encoding: 'utf8' }).trim();
 
-/** Uncommitted paths, empty when the tree is clean. */
-const readDirtyPaths = ({ cwd }: { cwd: string }) => execSync('git status --porcelain', { cwd, encoding: 'utf8' }).trim();
+/** Uncommitted paths as git prints them, whose leading status columns are part of each line. */
+const readDirtyPaths = ({ cwd }: { cwd: string }) => execSync('git status --porcelain', { cwd, encoding: 'utf8' }).split('\n').filter(Boolean);
+
+/** The commit HEAD stands on, which is what a preparation step must leave alone. */
+const readHeadCommit = ({ cwd }: { cwd: string }) => execSync('git rev-parse HEAD', { cwd, encoding: 'utf8' }).trim();
+
+/** A branch repo plus the commit it started on, so a test can prove HEAD never moved. */
+const setupPreparedTree = () => {
+	const { cwd, progress, onProgress } = setupPreShip();
+
+	return { cwd, progress, onProgress, baselineCommit: readHeadCommit({ cwd }) };
+};
 
 describe('runPreShip', () => {
-	test('runs the command and commits what it changed, so the tree it leaves is shippable', async () => {
-		const { cwd, progress, onProgress } = setupPreShip();
-
-		const failure = await runPreShip({ cwd, command: 'echo rebuilt > bundle.txt', onProgress });
-
-		expect(failure).toBe(undefined);
-		expect(readLastSubject({ cwd })).toBe('pre-ship');
-		expect(readDirtyPaths({ cwd })).toBe('');
-		expect(progress).toStrictEqual(['pre-ship: echo rebuilt > bundle.txt', 'pre-ship: committed 1 changed file(s)']);
-	});
-
-	test('commits changes the tree already carried, because a gate that regenerated an output is exactly what this step heals', async () => {
-		const { cwd, onProgress } = setupPreShip({ dirty: { 'regenerated.txt': 'from a gate\n' } });
-
-		const failure = await runPreShip({ cwd, command: 'true', onProgress });
-
-		expect(failure).toBe(undefined);
-		expect(readLastSubject({ cwd })).toBe('pre-ship');
-		expect(readDirtyPaths({ cwd })).toBe('');
-	});
-
-	test('a command that changes nothing commits nothing — the convention held already, and that is success', async () => {
+	test('a command that changes nothing leaves nothing behind — the convention held already, and that is success', async () => {
 		const { cwd, progress, onProgress } = setupPreShip();
 
 		const failure = await runPreShip({ cwd, command: 'true', onProgress });
@@ -63,5 +54,25 @@ describe('runPreShip', () => {
 		const failure = await runPreShip({ cwd, command: 'false', onProgress });
 
 		expect(failure).toStrictEqual({ stderr: '' });
+	});
+
+	test('leaves prepared changes uncommitted for verification', async () => {
+		const { cwd, progress, onProgress, baselineCommit } = setupPreparedTree();
+
+		const failure = await runPreShip({ cwd, command: 'echo rebuilt > bundle.txt && echo more >> feature.md', onProgress });
+
+		expect(failure).toBe(undefined);
+		expect(readHeadCommit({ cwd })).toBe(baselineCommit);
+		expect(readDirtyPaths({ cwd })).toEqual(expect.arrayContaining(['?? bundle.txt', ' M feature.md']));
+		expect(progress.join('\n')).not.toContain('committed');
+	});
+
+	test('hands the pinned base commit to the command, so a release convention versions against what ship merged', async () => {
+		const { cwd, onProgress } = setupPreShip();
+
+		const failure = await runPreShip({ cwd, command: 'echo "$LIGHTSOUT_SHIP_BASE_COMMIT" > base.txt', baseCommit: 'a1b2c3d4', onProgress });
+
+		expect(failure).toBe(undefined);
+		expect(readFileSync(join(cwd, 'base.txt'), 'utf8').trim()).toBe('a1b2c3d4');
 	});
 });

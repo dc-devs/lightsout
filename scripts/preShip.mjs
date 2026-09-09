@@ -1,81 +1,14 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { checkShipped } from './checkShipped.mjs';
 import { invokedDirectly } from './invokedDirectly.mjs';
-
-/**
- * Make the tree shippable — the repository's `ship.pre-ship` command.
- *
- * Two conventions guard a push here (see `.githooks/pre-push` and
- * `scripts/checkShipped.mjs`): the shipped plugin directories must match what
- * the sources build to, and a shipped directory that changed must carry a new
- * version. A human ships by running `pnpm bundle` and bumping by hand; this
- * script is that habit as code, so an unattended ship — the queue's — meets
- * the same bar without a human in the loop.
- *
- * It rebuilds first and bumps second, because the rebuild is itself a change
- * the version question must see. Only the patch segment moves, from the BASE
- * version rather than the head one, so serial queue merges each bump exactly
- * one step above whatever main holds at their turn. Nothing is committed —
- * the engine's pre-ship step commits whatever this leaves behind.
- */
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
-
-/** The directories a marketplace install copies, with every host manifest that names the same build — the same list `checkShipped.mjs` guards. */
-const shippedDirectories = [
-	{
-		dir: 'plugin',
-		primaryManifestPath: join('plugin', '.claude-plugin', 'plugin.json'),
-		manifestPaths: [join('plugin', '.claude-plugin', 'plugin.json'), join('plugin', '.codex-plugin', 'plugin.json')],
-	},
-	{
-		dir: 'plugin-linear',
-		primaryManifestPath: join('plugin-linear', '.claude-plugin', 'plugin.json'),
-		manifestPaths: [join('plugin-linear', '.claude-plugin', 'plugin.json'), join('plugin-linear', '.codex-plugin', 'plugin.json')],
-	},
-	{
-		dir: 'plugin-jira',
-		primaryManifestPath: join('plugin-jira', '.claude-plugin', 'plugin.json'),
-		manifestPaths: [join('plugin-jira', '.claude-plugin', 'plugin.json'), join('plugin-jira', '.codex-plugin', 'plugin.json')],
-	},
-];
-
-/** A git command's stdout, or undefined when git exits non-zero (an unknown ref, usually). */
-const git = ({ args }) => {
-	try {
-		return execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-	} catch {
-		return undefined;
-	}
-};
-
-/** True when a path differs between the base commit and the working tree — the tree, so a fresh rebuild counts. */
-const changedSince = ({ baseCommit, path }) => {
-	try {
-		execFileSync('git', ['diff', '--quiet', baseCommit, '--', path], { cwd: repoRoot, stdio: 'ignore' });
-
-		return false;
-	} catch {
-		return true;
-	}
-};
-
-/** Compares by numeric segment. True only when `head` is genuinely newer. */
-const isNewer = ({ head, base }) => {
-	const segments = ({ version }) => version.split('.').map((segment) => Number.parseInt(segment, 10) || 0);
-	const [headSegments, baseSegments] = [segments({ version: head }), segments({ version: base })];
-
-	for (let index = 0; index < Math.max(headSegments.length, baseSegments.length); index += 1) {
-		const [left, right] = [headSegments[index] ?? 0, baseSegments[index] ?? 0];
-
-		if (left !== right) {
-			return left > right;
-		}
-	}
-
-	return false;
-};
+import { changedSince } from './shipRelease/changedSince.mjs';
+import { isNewer } from './shipRelease/isNewer.mjs';
+import { repoRoot } from './shipRelease/repoRoot.mjs';
+import { resolveShipBaseCommit } from './shipRelease/resolveShipBaseCommit.mjs';
+import { runGit } from './shipRelease/runGit.mjs';
+import { shippedDirectories } from './shipRelease/shippedDirectories.mjs';
 
 /** The base version with its patch segment moved one step — `0.37.0` becomes `0.37.1`. */
 const bumpPatch = ({ version }) => {
@@ -98,10 +31,39 @@ const writeVersion = ({ manifestPath, from, to }) => {
 	writeFileSync(absolute, manifest.replace(`"version": "${from}"`, `"version": "${to}"`), 'utf8');
 };
 
-export const preShip = () => {
+/**
+ * Make the tree shippable — the repository's `ship.pre-ship` command.
+ *
+ * Two conventions guard a push here (see `.githooks/pre-push` and
+ * `scripts/checkShipped.mjs`): the shipped plugin directories must match what
+ * the sources build to, and a shipped directory that changed must carry a new
+ * version. A human ships by running `pnpm bundle` and bumping by hand; this
+ * script is that habit as code, so an unattended ship — the queue's — meets
+ * the same bar without a human in the loop.
+ *
+ * It rebuilds first and bumps second, because the rebuild is itself a change
+ * the version question must see. Only the patch segment moves, from the BASE
+ * version rather than the head one, so serial queue merges each bump exactly
+ * one step above whatever main holds at their turn. Nothing is committed —
+ * the engine verifies what this leaves behind and commits it only once the
+ * gates have passed.
+ *
+ * The base is `LIGHTSOUT_SHIP_BASE_COMMIT` when the engine pinned one: ship
+ * has already fetched and merged that exact commit, so it — and never the fork
+ * point the two branches share — is what the shipped version must clear. Run by
+ * hand with no pinned commit, the old `origin/main` merge base still applies.
+ */
+export const preShip = async () => {
 	execFileSync('pnpm', ['bundle'], { cwd: repoRoot, stdio: 'inherit' });
 
-	const baseCommit = git({ args: ['merge-base', 'origin/main', 'HEAD'] });
+	const { baseCommit, pinned, problem } = resolveShipBaseCommit();
+
+	// An unresolvable pin fails the hook rather than quietly falling back: the
+	// engine only pins a commit it has fetched and merged, so a pin git cannot
+	// read means the tree is not what this script was told it is.
+	if (problem !== undefined) {
+		throw new Error(`pre-ship: ${problem}`);
+	}
 
 	if (baseCommit === undefined) {
 		console.log('pre-ship: no origin/main to compare against — bundled, versions untouched');
@@ -114,7 +76,7 @@ export const preShip = () => {
 			continue;
 		}
 
-		const baseManifest = git({ args: ['show', `${baseCommit}:${primaryManifestPath}`] });
+		const baseManifest = runGit({ args: ['show', `${baseCommit}:${primaryManifestPath}`] });
 
 		if (baseManifest === undefined) {
 			continue;
@@ -134,8 +96,21 @@ export const preShip = () => {
 
 		console.log(`pre-ship: ${dir}/ host manifests ${baseVersion} -> ${targetVersion}`);
 	}
+
+	if (pinned !== true) {
+		return;
+	}
+
+	// Verified here, against the same pinned commit the versions were measured
+	// from, so the hook itself is what says the candidate is shippable rather
+	// than a later check comparing against a fork point that has since moved.
+	const { problems } = await checkShipped({ baseCommit });
+
+	if (problems.length > 0) {
+		throw new Error(`pre-ship: the prepared release is not shippable\n  ${problems.join('\n  ')}`);
+	}
 };
 
 if (invokedDirectly({ moduleUrl: import.meta.url })) {
-	preShip();
+	await preShip();
 }

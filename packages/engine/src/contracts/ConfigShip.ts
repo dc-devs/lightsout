@@ -38,13 +38,24 @@ export const ConfigShip = z
 		/** How the forge merges. Default `merge`. */
 		'merge-method': z.enum(ShipMergeMethod).optional(),
 		/**
-		 * A shell command run in the checkout before anything is pushed — the home
-		 * for a repository's own pre-ship convention, such as rebuilding committed
-		 * build outputs or bumping a shipped version. File changes it leaves behind
-		 * are committed to the branch; a non-zero exit blocks the ship with the
-		 * command's own output. Unset means no such step.
+		 * A shell command run in the checkout to prepare the release candidate —
+		 * the home for a repository's own pre-ship convention, such as rebuilding
+		 * committed build outputs or bumping a shipped version. Ship requires a
+		 * clean committed branch before it runs, runs it against the freshly
+		 * fetched default branch, and commits what it leaves behind only once the
+		 * repository's own gates have passed against it. A non-zero exit blocks
+		 * the ship with the command's own output. Unset means no such step.
 		 */
 		'pre-ship': z.string().optional(),
+		/**
+		 * When true, a pull request whose check list is readable and genuinely
+		 * empty may merge after the usual registration grace — the explicit
+		 * opt-out for a repository that intentionally has no CI. Default false,
+		 * and never set automatically. It applies only to absent checks: failed,
+		 * pending, unreadable and another commit's checks are enforced exactly as
+		 * they always were.
+		 */
+		'allow-no-ci': z.boolean().optional(),
 		/** When true, a passed `lightsout implement` run chains into ship without `--ship` being typed. Default false. */
 		'after-implement': z.boolean().optional(),
 	})
