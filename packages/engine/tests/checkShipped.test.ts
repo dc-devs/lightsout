@@ -1,9 +1,13 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { cp, mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-import { afterAll, expect, jest, test } from '@jest/globals';
+import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { expect, jest, test } from '@jest/globals';
+import { commitAll } from '#tests/helpers/commitAll.ts';
+import { mergeWithoutCommitting } from '#tests/helpers/mergeWithoutCommitting.ts';
+import { runInRepo } from '#tests/helpers/runInRepo.ts';
+import { setupShippedClone } from '#tests/helpers/setupShippedClone.ts';
+import { shippedManifestPaths } from '#tests/helpers/shippedManifestPaths.ts';
 
 // The gate that decides whether plugin/ can ship, exercised against real git
 // history. The pre-push hook and CI both run this one script, so what it
@@ -12,130 +16,18 @@ import { afterAll, expect, jest, test } from '@jest/globals';
 // Every case works in a clone. Mutating this repo to make the check fail would
 // leave the damage behind whenever a test threw before restoring.
 //
-// One clone, reset between cases, rather than one clone each. Cloning the repo,
-// linking every package's node_modules and bundling the engine is around 26s of
-// identical work, and only what a case does AFTER that setup differs — so the
-// suite paid for thirteen of them and ran for nearly six minutes. Resetting to
-// the baseline commit and clearing untracked files puts the tree back in well
-// under a second, and Jest runs a file's tests one at a time, so no case can see
-// another's edits.
-//
-// The budget stays generous: the first case pays for the whole setup, and the
-// engine bundle is the slowest part of it.
+// The clone the cases share is built once by `setupShippedClone` and reset
+// between them; the budget below is generous because the first case pays for
+// that whole setup, and the engine bundle is the slowest part of it.
 jest.setTimeout(120_000);
 
 const repoRoot = join(__dirname, '..', '..', '..');
-const manifestPath = 'plugin/.claude-plugin/plugin.json';
-const codexManifestPath = 'plugin/.codex-plugin/plugin.json';
-const addOnManifestPath = 'plugin-linear/.claude-plugin/plugin.json';
-const addOnCodexManifestPath = 'plugin-linear/.codex-plugin/plugin.json';
-const clones: string[] = [];
-
-const run = ({ cwd, command, args }: { cwd: string; command: string; args: string[] }) =>
-	execFileSync(command, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-
-const commitAll = ({ cwd, message }: { cwd: string; message: string }) => {
-	run({ cwd, command: 'git', args: ['add', '-A'] });
-	run({ cwd, command: 'git', args: ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', message] });
-};
-
-/**
- * A clone of this repo with its own history, sharing node_modules by symlink —
- * the check builds the engine, which needs esbuild and the engine's own
- * dependencies.
- *
- * Every node_modules is linked, not just the root one. This is a workspace, and
- * the package manager installs nothing at the root that a package declared for
- * itself, so a clone with only the root link cannot resolve `zod` and the build
- * fails on the first import. The clone's package list is the authority for which
- * links to make, because a package added on the branch but not yet committed has
- * no folder in the clone to link into.
- *
- * `scripts/` is copied from the working tree over what the clone checked out,
- * so these tests exercise the scripts as they stand rather than as they were
- * last committed. Everything else stays at the cloned commit, which is what
- * gives the version comparison a real base to work against.
- *
- * The engine is rebuilt and committed on main before branching. esbuild writes
- * each bundled module's path into its output, and this clone reaches its
- * dependencies through a symlink, so those paths are longer here than in a
- * normal checkout. Rebuilding once makes the clone self-consistent, so a test
- * measures the change it made rather than that difference.
- */
-const buildBaseClone = async () => {
-	const dir = join(await mkdtemp(join(tmpdir(), 'lightsout-shipped-')), 'repo');
-
-	clones.push(dir);
-	run({ cwd: repoRoot, command: 'git', args: ['clone', '--quiet', '--no-hardlinks', '--shared', repoRoot, dir] });
-	await cp(join(repoRoot, 'scripts'), join(dir, 'scripts'), { recursive: true });
-
-	for (const { claude, codex } of [
-		{ claude: manifestPath, codex: codexManifestPath },
-		{ claude: addOnManifestPath, codex: addOnCodexManifestPath },
-	]) {
-		if (!existsSync(join(dir, claude))) {
-			continue;
-		}
-
-		await mkdir(dirname(join(dir, codex)), { recursive: true });
-		const codexManifest = JSON.parse(await readFile(join(repoRoot, codex), 'utf8'));
-		const cloneVersion = JSON.parse(await readFile(join(dir, claude), 'utf8')).version;
-
-		await writeFile(join(dir, codex), `${JSON.stringify({ ...codexManifest, version: cloneVersion }, null, '\t')}\n`);
-	}
-
-	await symlink(join(repoRoot, 'node_modules'), join(dir, 'node_modules'), 'dir');
-
-	for (const entry of await readdir(join(dir, 'packages'), { withFileTypes: true })) {
-		const installed = join(repoRoot, 'packages', entry.name, 'node_modules');
-
-		if (entry.isDirectory() && existsSync(installed)) {
-			await symlink(installed, join(dir, 'packages', entry.name, 'node_modules'), 'dir');
-		}
-	}
-
-	run({ cwd: dir, command: 'node', args: [join(dir, 'scripts', 'buildEngine.mjs')] });
-
-	// A local clone checks out whatever branch this repo is on, so `main` is not
-	// guaranteed to exist here. It is named explicitly because it is what the
-	// version check compares against.
-	run({ cwd: dir, command: 'git', args: ['checkout', '-q', '-B', 'main'] });
-	commitAll({ cwd: dir, message: 'baseline' });
-
-	// The sha rather than the branch name: a case that commits on `main` — the
-	// add-on setup below does — moves the branch, and the next case has to be
-	// able to put it back.
-	return { dir, baseline: run({ cwd: dir, command: 'git', args: ['rev-parse', 'HEAD'] }).trim() };
-};
-
-/** The one clone, built on first use. Every case after the first reuses it. */
-let baseClone: Awaited<ReturnType<typeof buildBaseClone>> | undefined;
-
-/**
- * A clone standing exactly where the baseline left it, on a fresh `feature`
- * branch — what every case starts from.
- *
- * `git clean` runs without `-x`, so the node_modules symlinks the setup made
- * survive; they are ignored, and re-linking them per case is most of what this
- * change exists to avoid.
- */
-const setupClone = async () => {
-	baseClone ??= await buildBaseClone();
-
-	const { dir, baseline } = baseClone;
-
-	run({ cwd: dir, command: 'git', args: ['checkout', '-q', '--force', 'main'] });
-	run({ cwd: dir, command: 'git', args: ['reset', '--hard', '--quiet', baseline] });
-	run({ cwd: dir, command: 'git', args: ['clean', '-qfd'] });
-	run({ cwd: dir, command: 'git', args: ['checkout', '-q', '-B', 'feature'] });
-
-	return dir;
-};
+const { claude: manifestPath, codex: codexManifestPath, addOnClaude: addOnManifestPath, addOnCodex: addOnCodexManifestPath } = shippedManifestPaths;
 
 /** The check's own verdict: its exit code, and everything it printed. */
 const checkShipped = ({ cwd, base }: { cwd: string; base: string }) => {
 	try {
-		return { ok: true, output: run({ cwd, command: 'node', args: [join(cwd, 'scripts', 'checkShipped.mjs'), '--base', base] }) };
+		return { ok: true, output: runInRepo({ cwd, command: 'node', args: [join(cwd, 'scripts', 'checkShipped.mjs'), '--base', base] }) };
 	} catch (error) {
 		const failure = error as { stdout?: string; stderr?: string };
 
@@ -179,9 +71,9 @@ const setVersion = async ({ cwd, version, manifest = manifestPath }: { cwd: stri
  * whether or not the working tree's add-on files are committed yet.
  */
 const setupCloneWithAddOn = async () => {
-	const cwd = await setupClone();
+	const cwd = await setupShippedClone();
 
-	run({ cwd, command: 'git', args: ['checkout', '-q', 'main'] });
+	runInRepo({ cwd, command: 'git', args: ['checkout', '-q', 'main'] });
 	await mkdir(join(cwd, 'plugin-linear', '.claude-plugin'), { recursive: true });
 	await mkdir(join(cwd, 'plugin-linear', '.codex-plugin'), { recursive: true });
 	await mkdir(join(cwd, 'plugin-linear', 'skills', 'linear-ticket'), { recursive: true });
@@ -197,17 +89,13 @@ const setupCloneWithAddOn = async () => {
 	await setVersion({ cwd, version: '0.1.0', manifest: addOnManifestPath });
 	await writeFile(join(cwd, 'plugin-linear', 'skills', 'linear-ticket', 'SKILL.md'), '---\nname: linear-ticket\n---\n');
 	commitAll({ cwd, message: 'add-on baseline' });
-	run({ cwd, command: 'git', args: ['checkout', '-q', '-B', 'addon-feature'] });
+	runInRepo({ cwd, command: 'git', args: ['checkout', '-q', '-B', 'addon-feature'] });
 
 	return cwd;
 };
 
-afterAll(async () => {
-	await Promise.all(clones.map((dir) => rm(join(dir, '..'), { recursive: true, force: true })));
-});
-
 test('a clean tree with nothing shipped-facing changed passes, and says the version was not checked', async () => {
-	const cwd = await setupClone();
+	const cwd = await setupShippedClone();
 	const { ok, output } = checkShipped({ cwd, base: 'main' });
 
 	expect(ok).toBe(true);
@@ -216,7 +104,7 @@ test('a clean tree with nothing shipped-facing changed passes, and says the vers
 });
 
 test('host manifests with different versions fail even when both versions are newer', async () => {
-	const cwd = await setupClone();
+	const cwd = await setupShippedClone();
 
 	await setManifestVersion({ cwd, version: newer, manifest: codexManifestPath });
 	commitAll({ cwd, message: 'drift the Codex manifest version' });
@@ -255,7 +143,7 @@ test('changing the add-on plugin with a bumped version passes, reporting both di
 });
 
 test('an engine bundle that no longer matches src/ fails', async () => {
-	const cwd = await setupClone();
+	const cwd = await setupShippedClone();
 
 	await writeFile(join(cwd, 'packages/engine/src/main.ts'), `${await readFile(join(cwd, 'packages/engine/src/main.ts'), 'utf8')}\nconsole.log('drift');\n`);
 
@@ -266,7 +154,7 @@ test('an engine bundle that no longer matches src/ fails', async () => {
 });
 
 test('a standards package that no longer matches its authored source fails, naming the file that differs', async () => {
-	const cwd = await setupClone();
+	const cwd = await setupShippedClone();
 	const rule = 'packages/standards-typescript/code/architecture/architecture-decisions/05-modules-and-the-graduation-rule/rule.md';
 
 	await writeFile(join(cwd, rule), `${await readFile(join(cwd, rule), 'utf8')}\n\nDrift.\n`);
@@ -295,7 +183,7 @@ const findShippedFile = async ({ cwd }: { cwd: string }) => {
 };
 
 test('a rule folder that was never copied into the shipped package is caught, though no file differs', async () => {
-	const cwd = await setupClone();
+	const cwd = await setupShippedClone();
 
 	await rm(await findShippedFile({ cwd }));
 	commitAll({ cwd, message: 'drop a shipped file' });
@@ -307,7 +195,7 @@ test('a rule folder that was never copied into the shipped package is caught, th
 });
 
 test('changing plugin/ without bumping the version fails, and says which version it saw', async () => {
-	const cwd = await setupClone();
+	const cwd = await setupShippedClone();
 	const currentVersion = getVersion({ cwd });
 
 	await writeFile(join(cwd, 'plugin/dist/cli.mjs'), `${await readFile(join(cwd, 'plugin/dist/cli.mjs'), 'utf8')}\n// hand edit\n`);
@@ -321,7 +209,7 @@ test('changing plugin/ without bumping the version fails, and says which version
 });
 
 test('an uncommitted change under plugin/ demands the bump, before the commit exists', async () => {
-	const cwd = await setupClone();
+	const cwd = await setupShippedClone();
 	const currentVersion = getVersion({ cwd });
 
 	// Left unstaged on purpose: this is `pnpm bundle` having just rewritten the
@@ -338,7 +226,7 @@ test('an uncommitted change under plugin/ demands the bump, before the commit ex
 });
 
 test('changing plugin/ with a bumped version passes the version half', async () => {
-	const cwd = await setupClone();
+	const cwd = await setupShippedClone();
 	const currentVersion = getVersion({ cwd });
 
 	await setVersion({ cwd, version: newer });
@@ -351,7 +239,7 @@ test('changing plugin/ with a bumped version passes the version half', async () 
 });
 
 test('a version that moved backwards fails as loudly as one that never moved', async () => {
-	const cwd = await setupClone();
+	const cwd = await setupShippedClone();
 	const currentVersion = getVersion({ cwd });
 
 	await setVersion({ cwd, version: older });
@@ -364,11 +252,11 @@ test('a version that moved backwards fails as loudly as one that never moved', a
 });
 
 test('a two-digit segment compares as a number, so 0.2.10 is newer than 0.2.9', async () => {
-	const cwd = await setupClone();
+	const cwd = await setupShippedClone();
 
 	await setVersion({ cwd, version: '0.2.9' });
 	commitAll({ cwd, message: 'baseline' });
-	run({ cwd, command: 'git', args: ['checkout', '-q', '-b', 'later'] });
+	runInRepo({ cwd, command: 'git', args: ['checkout', '-q', '-b', 'later'] });
 	await setVersion({ cwd, version: '0.2.10' });
 	commitAll({ cwd, message: 'bump past nine' });
 
@@ -379,9 +267,77 @@ test('a two-digit segment compares as a number, so 0.2.10 is newer than 0.2.9', 
 });
 
 test('an unknown base ref skips the version question rather than guessing', async () => {
-	const cwd = await setupClone();
+	const cwd = await setupShippedClone();
 	const { ok, output } = checkShipped({ cwd, base: 'origin/no-such-branch' });
 
 	expect(ok).toBe(true);
 	expect(output).toMatch(/no origin\/no-such-branch to compare against/);
+});
+
+/**
+ * The check run with a base commit pinned through the environment, the way ship
+ * hands it the exact commit it fetched and merged.
+ *
+ * `--base` is still passed, so a run that ignored the pinned commit would answer
+ * from the merge base and the assertions would catch it.
+ */
+const checkShippedWithPinnedBase = ({ cwd, base, baseCommit }: { cwd: string; base: string; baseCommit: string }) => {
+	try {
+		return {
+			ok: true,
+			output: execFileSync('node', [join(cwd, 'scripts', 'checkShipped.mjs'), '--base', base], {
+				cwd,
+				encoding: 'utf8',
+				stdio: ['ignore', 'pipe', 'pipe'],
+				env: { ...process.env, LIGHTSOUT_SHIP_BASE_COMMIT: baseCommit },
+			}),
+		};
+	} catch (error) {
+		const failure = error as { stdout?: string; stderr?: string };
+
+		return { ok: false, output: `${failure.stdout ?? ''}${failure.stderr ?? ''}` };
+	}
+};
+
+test('checks the supplied base directly during an open merge', async () => {
+	const cwd = await setupShippedClone();
+	const startingVersion = getVersion({ cwd });
+	const shippedSkill = join(cwd, 'plugin', 'skills', 'implement', 'SKILL.md');
+
+	// The candidate: a change to what a marketplace install copies, committed on
+	// the feature branch while the base was still where it started.
+	await writeFile(shippedSkill, `${await readFile(shippedSkill, 'utf8')}\n\nDrift.\n`);
+	commitAll({ cwd, message: 'change what ships' });
+
+	const candidateHead = runInRepo({ cwd, command: 'git', args: ['rev-parse', 'HEAD'] }).trim();
+
+	// The base moves on and publishes a version of its own. This commit is the
+	// one ship fetches and pins.
+	runInRepo({ cwd, command: 'git', args: ['checkout', '-q', 'main'] });
+	await setVersion({ cwd, version: newer });
+	commitAll({ cwd, message: `publish ${newer}` });
+
+	const baseCommit = runInRepo({ cwd, command: 'git', args: ['rev-parse', 'HEAD'] }).trim();
+
+	// The merge ship opens before it commits anything: HEAD stays at the
+	// candidate, which predates the pinned base, while the tree already carries
+	// the published version. The merge base of the two branches is still the
+	// starting commit, so only the pinned commit can see the collision.
+	runInRepo({ cwd, command: 'git', args: ['checkout', '-q', 'feature'] });
+	mergeWithoutCommitting({ cwd, commit: baseCommit });
+
+	const pinned = checkShippedWithPinnedBase({ cwd, base: 'main', baseCommit });
+	const invalidBase = checkShippedWithPinnedBase({ cwd, base: 'main', baseCommit: 'not-a-commit' });
+	const manual = checkShipped({ cwd, base: 'main' });
+
+	expect(pinned.ok).toBe(false);
+	expect(pinned.output).toContain(`host manifests are ${newer} against a base of ${newer}`);
+	expect(invalidBase.ok).toBe(false);
+	expect(invalidBase.output).not.toMatch(/shipped plugins are current/);
+	expect(manual.ok).toBe(true);
+	expect(manual.output).toContain(`plugin/ version ${startingVersion} -> ${newer}`);
+	// The premise the pinned answer rests on, and the check's own restraint: HEAD
+	// never left the candidate commit, and the merge is still open and uncommitted.
+	expect(runInRepo({ cwd, command: 'git', args: ['rev-parse', 'HEAD'] }).trim()).toBe(candidateHead);
+	expect(existsSync(join(cwd, '.git', 'MERGE_HEAD'))).toBe(true);
 });

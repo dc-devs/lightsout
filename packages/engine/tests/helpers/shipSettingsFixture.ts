@@ -17,5 +17,6 @@ export const shipSettingsFixture = (overrides: Partial<ShipSettings> = {}): Ship
 	mergeMethod: ShipMergeMethod.Merge,
 	afterImplement: false,
 	preShip: undefined,
+	allowNoCi: false,
 	...overrides,
 });

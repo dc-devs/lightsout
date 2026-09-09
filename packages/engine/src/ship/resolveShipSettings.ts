@@ -38,5 +38,6 @@ export const resolveShipSettings = ({ config }: Params): ShipSettings | undefine
 		mergeMethod: ship?.['merge-method'] ?? ShipMergeMethod.Merge,
 		afterImplement: ship?.['after-implement'] ?? false,
 		preShip: ship?.['pre-ship'],
+		allowNoCi: ship?.['allow-no-ci'] ?? false,
 	};
 };

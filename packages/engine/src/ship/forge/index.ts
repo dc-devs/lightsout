@@ -1,8 +1,10 @@
 export { PullRequestState } from '#src/ship/forge/common/constants/PullRequestState.ts';
+export type { CheckFailure } from '#src/ship/forge/common/types/CheckFailure.ts';
 export type { ChecksSummary } from '#src/ship/forge/common/types/ChecksSummary.ts';
 export type { PullRequestSummary } from '#src/ship/forge/common/types/PullRequestSummary.ts';
 export { createPullRequest } from '#src/ship/forge/createPullRequest.ts';
 export { findPullRequest } from '#src/ship/forge/findPullRequest.ts';
 export { mergePullRequest } from '#src/ship/forge/mergePullRequest.ts';
+export { readCheckFailureLogs } from '#src/ship/forge/readCheckFailureLogs.ts';
 export { readForgeAuth } from '#src/ship/forge/readForgeAuth.ts';
 export { readPullRequestChecks } from '#src/ship/forge/readPullRequestChecks.ts';

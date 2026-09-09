@@ -5,6 +5,7 @@ import { ShipMergeMethod } from '#src/contracts/index.ts';
 import type { ChecksSummary } from '#src/ship/forge/index.ts';
 import { runShip } from '#src/ship/index.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
+import { shipIntegrationFixture } from '#tests/helpers/shipIntegrationFixture.ts';
 import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
 
 // Mocked Imports
@@ -19,6 +20,8 @@ import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
 interface WaitForChecksParams {
 	prNumber: number;
 	cwd: string;
+	allowNoCi: boolean;
+	expectedHead: string;
 	onProgress?: (message: string) => void;
 }
 
@@ -36,7 +39,11 @@ const settings = {
 	mergeMethod: ShipMergeMethod.Merge,
 	afterImplement: false,
 	preShip: undefined,
+	allowNoCi: false,
 };
+
+/** The config and harness the integration step recovers with — never spawned here, because the branch integrates cleanly and its gates are green. */
+const integration = shipIntegrationFixture();
 
 /** A branch that gets as far as an open pull request, whose checks are still running when the wait gives up. */
 const setupTimedOut = () => {
@@ -51,7 +58,7 @@ const setupTimedOut = () => {
 		},
 	});
 
-	mockWaitForChecks.mockResolvedValue({ finished: false, green: true, failing: [], pending: ['e2e', 'lint'], passing: ['unit'] });
+	mockWaitForChecks.mockResolvedValue({ finished: false, green: true, failing: [], pending: ['e2e', 'lint'], passing: ['unit'], readable: true });
 
 	const { cwd } = setupBranchRepo({ branch: 'lo-60-ship' });
 
@@ -62,7 +69,7 @@ describe('runShip', () => {
 	test('checks still running when the wait gives up block, naming every check that never finished', async () => {
 		const { cwd } = setupTimedOut();
 
-		const result = await runShip({ cwd, settings });
+		const result = await runShip({ cwd, settings, integration });
 
 		expect(result).toEqual(
 			expect.objectContaining({
@@ -78,7 +85,7 @@ describe('runShip', () => {
 	test('a wait that ran out leaves the pull request unmerged, because nothing here merges on an unfinished check', async () => {
 		const { cwd, readForgeLog } = setupTimedOut();
 
-		await runShip({ cwd, settings });
+		await runShip({ cwd, settings, integration });
 
 		expect(readForgeLog().some((line) => line.startsWith('pr merge'))).toBe(false);
 	});
@@ -86,7 +93,7 @@ describe('runShip', () => {
 	test('writes the blocked result to disk, which is how the next tool learns the merge did not happen', async () => {
 		const { cwd } = setupTimedOut();
 
-		const result = await runShip({ cwd, settings });
+		const result = await runShip({ cwd, settings, integration });
 
 		expect(JSON.parse(await readFile(join(cwd, '.lightsout', 'ship', 'lo-60-ship.json'), 'utf8'))).toStrictEqual(result);
 	});

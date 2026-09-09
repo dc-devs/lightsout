@@ -18,4 +18,14 @@ export interface ChecksSummary {
 	 * yet.
 	 */
 	passing: string[];
+	/**
+	 * Whether the observation these fields were folded from was read and
+	 * validated, rather than guessed at.
+	 *
+	 * A forge that answered with a login prompt and a forge that answered with an
+	 * empty list fold to the same four fields, and the two mean opposite things:
+	 * one is "CI has not been read", the other is "this repository has no CI for
+	 * this commit". Only the second may ever become a missing-CI verdict.
+	 */
+	readable: boolean;
 }

@@ -1,16 +1,18 @@
+import { remoteWaitTimings } from '#src/ship/common/constants/remoteWaitTimings.ts';
+import { hasNoChecks } from '#src/ship/common/utils/hasNoChecks.ts';
+import { sleep } from '#src/ship/common/utils/sleep.ts';
 import { type ChecksSummary, readPullRequestChecks } from '#src/ship/forge/index.ts';
 
 interface Params {
 	prNumber: number;
 	cwd: string;
+	/** Resolved once at the edge: whether this repository has explicitly said it has no CI. */
+	allowNoCi: boolean;
+	/** The exact candidate commit this attempt pushed — the only commit whose checks may count. */
+	expectedHead: string;
 	/** Live progress sink — one line per poll. Silent when omitted. */
 	onProgress?: (message: string) => void;
 }
-
-/** Whether the forge is listing no checks at all — which is not the same answer as "every check passed". */
-const isEmpty = ({ summary }: { summary: ChecksSummary }) => summary.failing.length === 0 && summary.pending.length === 0 && summary.passing.length === 0;
-
-const sleep = ({ ms }: { ms: number }) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /**
  * Poll the pull request's checks until they settle, or until the wait ceiling
@@ -19,28 +21,31 @@ const sleep = ({ ms }: { ms: number }) => new Promise<void>((resolve) => setTime
  * The first poll happens before any sleep, so a pull request whose checks are
  * already green merges without a pause. A poll that cannot be read is retried
  * rather than treated as failure — a transient forge error must not fail a
- * merge — and a run of unreadable polls simply ends at the same ceiling, which
- * is what lets a timed-out result still name what it was waiting on.
+ * merge — and a run of unreadable polls ends at the same ceiling, carrying
+ * `readable: false` so the caller reports a timeout rather than claiming this
+ * repository has no CI.
  *
- * An empty check list gets a grace window before it counts as "no CI". Seconds
- * after a pull request is created, "no checks" is indistinguishable from "CI
- * has not registered its checks yet", and folding it straight to green would
- * merge before the repo's own gates ever ran. A repo with no CI ships after one
- * minute; a repo whose CI is merely slow to register is caught by the first
- * poll that shows a pending check. The window applies uniformly, and an adopted
- * pull request with checks already on it is unaffected — its list is not empty.
+ * An empty check list is never a pass on its own. A repository that has
+ * explicitly opted out (`ship.allow-no-ci`) still waits out the registration
+ * grace first, because seconds after a pull request is created "no checks" is
+ * indistinguishable from "CI has not registered its checks yet". A repository
+ * that has not opted out waits to the ceiling and comes back unfinished, which
+ * is what lets the caller say `checks-missing` and name the setting.
  */
-export const waitForChecks = async ({ prNumber, cwd, onProgress }: Params): Promise<ChecksSummary> => {
-	const pollIntervalMs = 30_000;
-	const ceilingMs = 30 * 60_000;
+export const waitForChecks = async ({ prNumber, cwd, allowNoCi, expectedHead, onProgress }: Params): Promise<ChecksSummary> => {
+	const { pollIntervalMs, ceilingMs } = remoteWaitTimings;
 	const emptyGraceMs = 60_000;
 	const startedAt = Date.now();
 
-	let summary: ChecksSummary = { finished: false, green: false, failing: [], pending: [], passing: [] };
+	let summary: ChecksSummary = { finished: false, green: false, failing: [], pending: [], passing: [], readable: false };
+	let readable = false;
+	let announcedEmpty = false;
 	let waiting = true;
 
 	while (waiting) {
-		const polled = await readPullRequestChecks({ prNumber, cwd });
+		const polled = await readPullRequestChecks({ prNumber, cwd, expectedHead });
+
+		readable = polled !== undefined;
 
 		if (polled !== undefined) {
 			summary = polled;
@@ -48,9 +53,18 @@ export const waitForChecks = async ({ prNumber, cwd, onProgress }: Params): Prom
 		}
 
 		const elapsedMs = Date.now() - startedAt;
-		const graced = polled !== undefined && isEmpty({ summary: polled }) && elapsedMs < emptyGraceMs;
+		const empty = polled !== undefined && hasNoChecks({ summary: polled });
 
-		if (polled?.finished === true && !graced) {
+		if (empty && !allowNoCi && !announcedEmpty) {
+			announcedEmpty = true;
+			onProgress?.('checks: the forge lists none for this commit — ship requires CI, so it waits for them to register');
+		}
+
+		// An empty list settles only for a repository that opted out, and only
+		// once the registration grace has passed.
+		const held = empty && (!allowNoCi || elapsedMs < emptyGraceMs);
+
+		if (polled?.finished === true && !held) {
 			waiting = false;
 		} else if (elapsedMs >= ceilingMs) {
 			summary = { ...summary, finished: false };
@@ -60,5 +74,5 @@ export const waitForChecks = async ({ prNumber, cwd, onProgress }: Params): Prom
 		}
 	}
 
-	return summary;
+	return { ...summary, readable };
 };

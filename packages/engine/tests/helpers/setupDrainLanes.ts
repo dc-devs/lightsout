@@ -9,6 +9,7 @@ import { createQueueCheckoutLog } from '#tests/helpers/createQueueCheckoutLog.ts
 import { drainLaneOutcomeFixture } from '#tests/helpers/drainLaneOutcomeFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
+import { shipIntegrationFixture } from '#tests/helpers/shipIntegrationFixture.ts';
 import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
@@ -120,6 +121,7 @@ export const setupDrainLanes = ({
 		settings: queueSettingsFixture({ maxParallel }),
 		trackerSettings: trackerSettingsFixture(),
 		shipSettings: shipSettingsFixture(),
+		shipIntegration: shipIntegrationFixture(),
 		defaultBranch: 'main',
 		env: {},
 		planPath,

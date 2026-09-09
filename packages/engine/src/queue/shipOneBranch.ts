@@ -1,12 +1,8 @@
-import { gitTimeoutMs } from '#src/common/constants/gitTimeoutMs.ts';
-import { runCommand } from '#src/common/processes/runCommand.ts';
 import { BranchPhase, type LightsoutConfig, ShipStatus } from '#src/contracts/index.ts';
-import { runGates } from '#src/gates/index.ts';
 import { writeBranchState } from '#src/queue/branchState/index.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
-import { runOrDescribeFailure } from '#src/queue/common/utils/runOrDescribeFailure.ts';
 import { removeTicketWorktree } from '#src/queue/worktrees/index.ts';
-import { runShip, type ShipSettings } from '#src/ship/index.ts';
+import { runShip, type ShipIntegration, type ShipSettings } from '#src/ship/index.ts';
 import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
 
 interface Params {
@@ -14,6 +10,8 @@ interface Params {
 	cwd: string;
 	config: LightsoutConfig;
 	shipSettings: ShipSettings;
+	/** The effective config and harness the shared ship sequence's integration step verifies and repairs with. */
+	integration: ShipIntegration;
 	defaultBranch: string;
 	/** The process environment the tracker credentials are read from. Passed rather than read, so a test never needs to mutate `process.env`. */
 	env: NodeJS.ProcessEnv;
@@ -25,48 +23,28 @@ interface Params {
 }
 
 /**
- * The branch, moved onto the tip of the default branch as the remote holds it
- * now — or the conflict that stops it, with the rebase already aborted so the
- * worktree is left where a human can read it.
- */
-const rebaseOntoDefault = async ({ worktreePath, defaultBranch }: { worktreePath: string; defaultBranch: string }) => {
-	const fetchFailure = await runOrDescribeFailure({ command: 'git fetch origin', cwd: worktreePath });
-
-	if (fetchFailure !== undefined) {
-		return `git could not fetch origin: ${fetchFailure}`;
-	}
-
-	const rebaseFailure = await runOrDescribeFailure({ command: `git rebase origin/${defaultBranch}`, cwd: worktreePath });
-
-	if (rebaseFailure === undefined) {
-		return undefined;
-	}
-
-	await runCommand({ command: 'git rebase --abort', cwd: worktreePath, timeoutMs: gitTimeoutMs }).catch(() => undefined);
-
-	return `the branch would not rebase onto origin/${defaultBranch}: ${rebaseFailure}`;
-};
-
-/**
- * One ticket's branch, rebased onto the tip of the default branch as the remote
- * holds it now, re-gated and merged — or the same outcome with `ready` flipped
- * and the reason on it.
+ * One ticket's branch, merged — or the same outcome with `ready` flipped and
+ * the reason on it.
  *
  * The answer carries `ready` exactly when the merge landed, which is how the
  * drain knows a re-read of the tracker is worth making: only a merge can finish
  * a blocker's ticket and free whatever was waiting on it.
  *
- * A park writes no record, so a rebase conflict, a red gate after the rebase
- * and a blocked merge all leave the branch recorded ready: the work is
- * finished and only the merge failed, so the next run re-ships it rather than
- * spending a worker on re-doing it.
+ * Fetching, integrating the default branch and re-running the gates are the
+ * shared ship sequence's job now, for every caller rather than this one — so a
+ * conflict arrives here as the ship result's own `integration-conflict` reason
+ * instead of as a rebase this file ran itself.
  *
- * Serial ordering is not this function's job any more — `runDrainLanes` calls
- * it once per branch and never twice at a time, which is what makes rebasing
- * onto `origin/<default>` meaningful. `runShip`'s closing cleanup knows it is
- * inside a worktree and skips itself there; the next branch's rebase does its
- * own fetch, so it picks this merge up from the remote rather than from a local
- * branch.
+ * A park writes no record, so an unsettled conflict, a red gate and a blocked
+ * merge all leave the branch recorded ready: the work is finished and only the
+ * merge failed, so the next run re-ships it rather than spending a worker on
+ * re-doing it.
+ *
+ * Serial ordering is not this function's job — `runDrainLanes` calls it once
+ * per branch and never twice at a time, which is what makes integrating
+ * `origin/<default>` meaningful. `runShip`'s closing cleanup knows it is inside
+ * a worktree and skips itself there; the next branch's own fetch picks this
+ * merge up from the remote rather than from a local branch.
  *
  * @param outcome - the ready outcome whose branch is being merged
  * @param serializeMainCheckout - wraps the worktree removal, the one thing here that touches the main checkout
@@ -76,6 +54,7 @@ export const shipOneBranch = async ({
 	cwd,
 	config,
 	shipSettings,
+	integration,
 	defaultBranch,
 	env,
 	outcome,
@@ -88,23 +67,9 @@ export const shipOneBranch = async ({
 		return { ...outcome, ready: false, error };
 	};
 
-	onProgress?.(`${outcome.ticket.identifier} · rebasing ${outcome.branch} onto origin/${defaultBranch}`);
+	onProgress?.(`${outcome.ticket.identifier} · merging ${outcome.branch} into origin/${defaultBranch}`);
 
-	const conflict = await rebaseOntoDefault({ worktreePath: outcome.worktreePath, defaultBranch });
-
-	if (conflict !== undefined) {
-		return park({ error: conflict });
-	}
-
-	// The rebase moved the branch onto commits it has never been tested
-	// against, so the gates run again before anything merges.
-	const { error: gateError } = await runGates({ cwd: outcome.worktreePath, config, coverage: true, onProgress });
-
-	if (gateError !== undefined) {
-		return park({ error: gateError });
-	}
-
-	const shipped = await runShip({ cwd: outcome.worktreePath, settings: shipSettings, onProgress });
+	const shipped = await runShip({ cwd: outcome.worktreePath, settings: shipSettings, integration, onProgress });
 
 	if (shipped.status === ShipStatus.Blocked) {
 		return park({ error: `${shipped.reason}: ${shipped.detail}` });

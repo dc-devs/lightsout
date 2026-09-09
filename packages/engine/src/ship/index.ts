@@ -1,3 +1,4 @@
+export type { ShipIntegration } from '#src/ship/common/types/ShipIntegration.ts';
 export type { ShipIntent } from '#src/ship/common/types/ShipIntent.ts';
 export type { ShipSettings } from '#src/ship/common/types/ShipSettings.ts';
 // The forge readers are published because they now serve two domains: ship's
