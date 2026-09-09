@@ -4,6 +4,4 @@ export interface TestTargetGroup {
 	subjects: string[];
 	/** Repo-relative changed files that must execute under the group's tests. */
 	mustExecute: string[];
-	/** Component identity (partition key + component index). Groups sharing a cluster are chunks of one oversized component — their subjects may overlap, so they must never run concurrently. */
-	cluster: string;
 }

@@ -38,7 +38,7 @@ const narrateSkippedFiles = ({ run, deleted, inert, uncoverable }: { run: Pipeli
 	}
 };
 
-/** The write-tests fan-out: changed files resolve up to their public subjects, one writer per import-graph group — groups' subjects are disjoint across clusters, so parallel writers cannot collide on disk. */
+/** The write-tests fan-out: changed files resolve up to their public subjects, one writer per import-graph group — a writer reserves its subject files while it runs, so two writers can never hold the same file and collide on disk. */
 export const writeTestsStep = ({ run, gitPrefix, planContent, testStandards }: Params): PipelineStep['run'] => {
 	return async () => {
 		let record = run.nextRecord({ id: 'write-tests' });

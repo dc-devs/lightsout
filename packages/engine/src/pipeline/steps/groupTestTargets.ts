@@ -32,7 +32,7 @@ export const groupTestTargets = async ({ run, subjects, compiler }: Params): Pro
 	const targets = [...subjects.keys()];
 
 	if (!compiler) {
-		return targets.map((target) => ({ subjects: subjects.get(target) ?? [target], mustExecute: [target], cluster: target }));
+		return targets.map((target) => ({ subjects: subjects.get(target) ?? [target], mustExecute: [target] }));
 	}
 
 	const byPackage = partitionByPackage({ files: targets, packagesDir: run.config['packages-dir'] ?? defaultPackagesDir });
@@ -49,20 +49,12 @@ export const groupTestTargets = async ({ run, subjects, compiler }: Params): Pro
 				(subjects.get(target) ?? []).filter((subject) => subject !== target).map((subject) => ({ from: target, to: subject })),
 			),
 		];
-		let componentIndex = 0;
 
 		for (const component of groupConnectedFiles({ files: union, edges })) {
-			// Every subject rides an edge from a target, so a component always
-			// holds at least one target; the guard is belt-and-braces.
+			// Every subject that is not itself a target rides an explicit
+			// target -> subject edge, so every component holds at least one
+			// target and no empty-component guard is reachable here.
 			const componentTargets = component.filter((file) => targetSet.has(file));
-
-			if (componentTargets.length === 0) {
-				continue;
-			}
-
-			const cluster = `${partition}#${componentIndex}`;
-
-			componentIndex += 1;
 
 			if (componentTargets.length > maxWriterGroupFiles) {
 				run.progress(
@@ -76,7 +68,6 @@ export const groupTestTargets = async ({ run, subjects, compiler }: Params): Pro
 				groups.push({
 					subjects: [...new Set(chunk.flatMap((target) => subjects.get(target) ?? []))].sort(),
 					mustExecute: [...chunk].sort(),
-					cluster,
 				});
 			}
 		}
