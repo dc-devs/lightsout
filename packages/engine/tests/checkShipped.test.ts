@@ -4,6 +4,7 @@ import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, jest, test } from '@jest/globals';
 import { commitAll } from '#tests/helpers/commitAll.ts';
+import { mergeWithoutCommitting } from '#tests/helpers/mergeWithoutCommitting.ts';
 import { runInRepo } from '#tests/helpers/runInRepo.ts';
 import { setupShippedClone } from '#tests/helpers/setupShippedClone.ts';
 import { shippedManifestPaths } from '#tests/helpers/shippedManifestPaths.ts';
@@ -323,7 +324,7 @@ test('checks the supplied base directly during an open merge', async () => {
 	// the published version. The merge base of the two branches is still the
 	// starting commit, so only the pinned commit can see the collision.
 	runInRepo({ cwd, command: 'git', args: ['checkout', '-q', 'feature'] });
-	runInRepo({ cwd, command: 'git', args: ['merge', '--no-commit', '--no-ff', baseCommit] });
+	mergeWithoutCommitting({ cwd, commit: baseCommit });
 
 	const pinned = checkShippedWithPinnedBase({ cwd, base: 'main', baseCommit });
 	const invalidBase = checkShippedWithPinnedBase({ cwd, base: 'main', baseCommit: 'not-a-commit' });

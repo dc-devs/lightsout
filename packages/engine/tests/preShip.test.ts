@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { commitAll } from '#tests/helpers/commitAll.ts';
+import { mergeWithoutCommitting } from '#tests/helpers/mergeWithoutCommitting.ts';
 import { runInRepo } from '#tests/helpers/runInRepo.ts';
 
 const repoRoot = join(__dirname, '..', '..', '..');
@@ -135,7 +136,7 @@ const setupPinnedBase = async () => {
 	runInRepo({ cwd, command: 'git', args: ['checkout', '-q', 'feature'] });
 	const featureHead = runInRepo({ cwd, command: 'git', args: ['rev-parse', 'HEAD'] }).trim();
 
-	runInRepo({ cwd, command: 'git', args: ['merge', '--no-commit', '--no-ff', baseCommit] });
+	mergeWithoutCommitting({ cwd, commit: baseCommit });
 
 	const invoke = async () => {
 		const output = execFileSync('node', [join(scriptsDir, 'preShip.mjs')], {
