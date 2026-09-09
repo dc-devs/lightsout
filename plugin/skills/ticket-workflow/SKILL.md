@@ -32,6 +32,7 @@ Every fact lives in exactly one place, and everything else points at it:
 
 | Fact | Its one home |
 |---|---|
+| Who the work serves, and why it is worth doing | the ticket's three opening lines |
 | The problem, the evidence, the checks | the ticket body |
 | Decisions settled before shaping | the ticket's `## Decisions` |
 | Decisions made during shaping | the plan artifacts, attached |
@@ -47,19 +48,22 @@ check as a scope ruling, or files a ticket for an idea already rejected.
 ## Template
 
 ```markdown
-## Problem
-
-<what is wrong — observed, not theorised. Close with one sentence on
-why it matters: who is hurt, what it costs.>
-
-## Evidence
-
-<runs, files, numbers>
+As a/an <role or persona>,
+I want <one sentence summary of final deliverable>,
+So that <delivered business value>.
 
 ## Acceptance Criteria
 
 - Verify that ...
 - Verify that ...
+
+## Problem
+
+<what is wrong — observed, not theorised>
+
+## Evidence
+
+<runs, files, numbers>
 
 ## Decisions             <- optional
 
@@ -73,41 +77,37 @@ why it matters: who is hurt, what it costs.>
 Those parts are the whole ticket. If an existing ticket carries extra
 sections, do not copy them forward — match this template, not its neighbours.
 
-There is no user-story preamble. The one part of it that earned its keep —
-why the thing matters — survives as the sentence that closes Problem.
+The three opening lines and the checks come first so that a reader knows who
+the work serves, what they will get, and how success is judged before reading
+a word of the body.
 
-### Problem
+### The three opening lines
 
-What is wrong, observed rather than theorised. For a feature: what is
-absent, or what is worse without it. If you cannot state that, the ticket
-is not ready — a feature with no problem behind it is usually a preference
-looking for a justification.
+Three lines, before the first heading, and nothing else above it:
 
-The closing why-sentence names who is hurt — an agent running a plan, a
-repo adopting lightsout, a plan author, an engineer on this codebase — and
-what it costs. On a bug it is one line; the value of not being broken is
-obvious. On a feature it is the only place the reason lives, and a feature's
-reason is genuinely arguable — spend the effort there. If the sentence would
-read the same on every ticket, it is telling the reader nothing; sharpen it.
+```markdown
+As a/an <role or persona>,
+I want <one sentence summary of final deliverable>,
+So that <delivered business value>.
+```
 
-### Evidence
+**`As a/an`** names the role the work serves, never a person — "an LO
+Engineer", "a product manager", "a user of the reporting dashboard". Take
+whichever article the role reads with. A person's name dates the ticket and
+tells a later reader nothing about who is affected.
 
-Anchor to names that survive edits — symbols, rule ids, config keys, run ids,
-file paths. Avoid line numbers: `checkChangedFilesExecuted.ts:110` is stale the
-next time anyone touches the file.
+**`I want`** is one sentence on the finished deliverable, in the same
+observable terms the criteria use. It says what will exist, not how it is
+built: naming a file or a mechanism here prescribes the fix, which is the one
+thing a ticket never does.
 
-Prefer measured numbers over description. "113 summary entries, 0 ending
-`.tsx`" beats "the summary seems to be missing some files".
-
-Quote the failing output verbatim rather than paraphrasing it.
-
-On a feature there is no defect to prove. Evidence is what is already true
-about the world the feature has to fit into: what a tool it depends on can
-and cannot do, what the current code already provides, what you measured,
-and what you checked but could not confirm. Same discipline, different
-content. If you have nothing, say so in the section rather than dropping
-it — "filed from a hunch, no runs behind it" tells the next reader how much
-weight to give it.
+**`So that`** is the only place the reason lives. It names who is hurt — an
+agent running a plan, a repo adopting lightsout, a plan author, an engineer
+on this codebase — and what it costs. On a bug it is one line; the value of
+not being broken is obvious. On a feature the reason is genuinely arguable
+and this line is the whole case for building the thing — spend the effort
+there. If the line would read the same on every ticket, it is telling the
+reader nothing; sharpen it.
 
 ### Acceptance Criteria
 
@@ -141,6 +141,36 @@ wearing a checkbox:
 - Good — `Verify that a repo configured for the Pi harness completes a full run.`
 - Bad — `Verify that createPiDriver parses agent_end.`
   Names a file and a mechanism nobody has chosen yet.
+
+### Problem
+
+What is wrong, observed rather than theorised. For a feature: what is
+absent, or what is worse without it. If you cannot state that, the ticket
+is not ready — a feature with no problem behind it is usually a preference
+looking for a justification.
+
+Say what is wrong and stop. Why it is worth fixing is already the `So that`
+line's job, and repeating it here leaves two copies of the same argument to
+drift apart.
+
+### Evidence
+
+Anchor to names that survive edits — symbols, rule ids, config keys, run ids,
+file paths. Avoid line numbers: `checkChangedFilesExecuted.ts:110` is stale the
+next time anyone touches the file.
+
+Prefer measured numbers over description. "113 summary entries, 0 ending
+`.tsx`" beats "the summary seems to be missing some files".
+
+Quote the failing output verbatim rather than paraphrasing it.
+
+On a feature there is no defect to prove. Evidence is what is already true
+about the world the feature has to fit into: what a tool it depends on can
+and cannot do, what the current code already provides, what you measured,
+and what you checked but could not confirm. Same discipline, different
+content. If you have nothing, say so in the section rather than dropping
+it — "filed from a hunch, no runs behind it" tells the next reader how much
+weight to give it.
 
 ### Decisions
 
