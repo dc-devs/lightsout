@@ -65,4 +65,14 @@ describe('configKeyDescriptions', () => {
 		// generated table in the documentation repeats
 		expect(configKeyDescriptions.implement).toMatch(new RegExp(`\\b${defaultRefactorMaxRounds}\\b`));
 	});
+
+	test('counts the worktree block as live, so the shared setup key cannot ship without a sentence', () => {
+		expect(isTombstone({ key: 'worktree' })).toBe(false);
+		expect(configKeyDescriptions.worktree).toEqual(expect.any(String));
+		expect(configKeyDescriptions.worktree.trim().length).toBeGreaterThan(0);
+	});
+
+	test('names the worktree switch in the implement sentence, so the table describes every key of the block', () => {
+		expect(configKeyDescriptions.implement).toMatch(/worktree/i);
+	});
 });

@@ -16,9 +16,10 @@ import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 const mockFindPullRequest = jest.fn<(params: { branch: string; cwd: string; state: string }) => Promise<PullRequestSummary | undefined>>();
 const mockReconcileShippedTicket = jest.fn<(params: { ticketRef: string | undefined }) => Promise<string | undefined>>();
 const mockReadGitChangedFiles = jest.fn<(params: { cwd: string }) => Promise<string[] | undefined>>();
-const mockRemoveTicketWorktree = jest.fn<(params: { cwd: string; worktreePath: string; branch: string }) => Promise<void>>();
+const mockRemoveWorktree = jest.fn<(params: { cwd: string; worktreePath: string; branch: string }) => Promise<undefined>>();
 const mockReadBranchState = jest.fn<(params: { cwd: string; branch: string }) => Promise<BranchState | undefined>>();
 const mockWriteBranchState = jest.fn<(params: { cwd: string; branch: string; phase: BranchPhase }) => Promise<void>>();
+const mockReadGitPrimaryCheckout = jest.fn<(params: { cwd: string }) => Promise<string | undefined>>();
 
 jest.mock('#src/ship/index.ts', () => ({
 	...jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts'),
@@ -28,12 +29,15 @@ jest.mock('#src/ticketLifecycle/index.ts', () => ({
 	reconcileShippedTicket: (params: { ticketRef: string | undefined }) => mockReconcileShippedTicket(params),
 }));
 jest.mock('#src/common/git/readGitChangedFiles.ts', () => ({ readGitChangedFiles: (params: { cwd: string }) => mockReadGitChangedFiles(params) }));
-jest.mock('#src/queue/worktrees/removeTicketWorktree.ts', () => ({
-	removeTicketWorktree: (params: { cwd: string; worktreePath: string; branch: string }) => mockRemoveTicketWorktree(params),
+jest.mock('#src/worktree/removeWorktree.ts', () => ({
+	removeWorktree: (params: { cwd: string; worktreePath: string; branch: string }) => mockRemoveWorktree(params),
 }));
 jest.mock('#src/queue/branchState/index.ts', () => ({
 	readBranchState: (params: { cwd: string; branch: string }) => mockReadBranchState(params),
 	writeBranchState: (params: { cwd: string; branch: string; phase: BranchPhase }) => mockWriteBranchState(params),
+}));
+jest.mock('#src/common/git/readGitPrimaryCheckout.ts', () => ({
+	readGitPrimaryCheckout: (params: { cwd: string }) => mockReadGitPrimaryCheckout(params),
 }));
 // -------------------------
 
@@ -146,7 +150,7 @@ describe('reconcileMergedTickets', () => {
 
 		await reconcile({ numbers: [70] });
 
-		expect(mockRemoveTicketWorktree).toHaveBeenCalledWith(expect.objectContaining({ cwd: '/repo', branch: 'lo-70-ticket-70' }));
+		expect(mockRemoveWorktree).toHaveBeenCalledWith(expect.objectContaining({ cwd: '/repo', branch: 'lo-70-ticket-70' }));
 	});
 
 	test('keeps a dirty worktree and says so, because a merged pull request says nothing about work begun in it since', async () => {
@@ -154,7 +158,7 @@ describe('reconcileMergedTickets', () => {
 
 		const { leftBehind } = await reconcile({ numbers: [70] });
 
-		expect(mockRemoveTicketWorktree).not.toHaveBeenCalled();
+		expect(mockRemoveWorktree).not.toHaveBeenCalled();
 		expect(leftBehind[0]?.reason).toContain('left in place because it has uncommitted changes');
 	});
 
@@ -163,7 +167,7 @@ describe('reconcileMergedTickets', () => {
 
 		await reconcile({ numbers: [70] });
 
-		expect(mockRemoveTicketWorktree).not.toHaveBeenCalled();
+		expect(mockRemoveWorktree).not.toHaveBeenCalled();
 	});
 
 	test('skips a ticket whose branch this queue already recorded merged, without asking the forge at all', async () => {
@@ -215,5 +219,14 @@ describe('reconcileMergedTickets', () => {
 		expect(kept).toStrictEqual([]);
 		expect(leftBehind[0]?.reason).toContain("LO-70 shipped, but no 'Done' transition");
 		expect(progress).toContain("LO-70 shipped, but no 'Done' transition");
+	});
+
+	test("settles the reconciled worktree at the primary checkout's sibling root", async () => {
+		const { reconcile } = setupReconcile({ merged: [70] });
+		mockReadGitPrimaryCheckout.mockResolvedValue('/primary');
+
+		await reconcile({ numbers: [70] });
+
+		expect(mockRemoveWorktree).toHaveBeenCalledWith(expect.objectContaining({ worktreePath: '/primary-worktrees/lo-70-ticket-70' }));
 	});
 });

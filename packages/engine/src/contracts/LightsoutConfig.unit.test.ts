@@ -331,3 +331,17 @@ test('LightsoutConfig: the implement block is optional, keeps its own kebab-case
 	expect('implement' in LightsoutConfig.parse(base)).toBe(false);
 	expect(LightsoutConfig.parse(base).implement).toBe(undefined);
 });
+
+test('accepts the top-level worktree block and keeps its setup command on the parsed config', () => {
+	const parsed = LightsoutConfig.parse({ ...base, worktree: { setup: 'pnpm install' } });
+
+	// the block is registered on the composed schema rather than stripped as an
+	// unknown key, so the one command that prepares a fresh worktree reaches both
+	// the queue and an isolated implementation run exactly as the file spelled it
+	expect(parsed.worktree).toStrictEqual({ setup: 'pnpm install' });
+
+	// worktree is opt-in: an absent block leaves no key on the parsed config, and
+	// a repo needing no preparation command declares none
+	expect('worktree' in LightsoutConfig.parse(base)).toBe(false);
+	expect(LightsoutConfig.parse(base).worktree).toBe(undefined);
+});

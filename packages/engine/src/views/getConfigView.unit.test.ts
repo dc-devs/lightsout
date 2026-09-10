@@ -144,12 +144,33 @@ describe('getConfigView', () => {
 			'Timeouts',
 			'Ship',
 			'Ticket tracker',
+			'Worktree',
 			'Queue',
 			'Auto plan',
 			'Plan',
 			'Implement',
 			'Docs',
 		]);
+	});
+
+	test('carries the worktree block on its own row, so the page shows the shared preparation command the file named', async () => {
+		const cwd = await seedConfiguredCwd({ config: { worktree: { setup: 'pnpm install' } } });
+
+		const view = await getConfigView({ cwd });
+
+		// the row reads the top-level block, not a key nested under queue or
+		// implement — both entry points prepare a fresh tree with the same command
+		expect(findField({ sections: view.sections, key: 'worktree' })).toEqual(expect.objectContaining({ value: { setup: 'pnpm install' }, fromConfig: true }));
+	});
+
+	test('leaves the worktree row null when the file declares no block, which is the row that reads "default: none"', async () => {
+		const cwd = await seedConfiguredCwd();
+
+		const view = await getConfigView({ cwd });
+
+		// the block is opt-in and the engine names no fallback command for it, so
+		// there is nothing to fill the row in with
+		expect(findField({ sections: view.sections, key: 'worktree' })).toEqual(expect.objectContaining({ value: null, fromConfig: false }));
 	});
 
 	test('leaves the harness and the model null when the file names neither, rather than inventing a fallback for them', async () => {

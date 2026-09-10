@@ -1,15 +1,41 @@
 import { execSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
 import { contradictoryShipFlagsMessage } from '#src/cli/common/constants/contradictoryShipFlagsMessage.ts';
 import { exitAfterImplement } from '#src/cli/common/utils/exitAfterImplement.ts';
-import { LightsoutConfig, RunStatus } from '#src/contracts/index.ts';
+import { LightsoutConfig, RunStatus, WorktreeOwner } from '#src/contracts/index.ts';
+import { readWorktreeRecord, writeWorktreeRecord } from '#src/worktree/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { manifestOf } from '#tests/helpers/setupResume.ts';
 import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
+
+// Mocked Imports
+// -------------------------
+// The tracker write is doubled only so it can be WATCHED. It forwards to the
+// real function untouched, and on the way in it lets a case record what the
+// run's workspace looked like at that instant — which is the only way the order
+// of the two steps after a merge is observable, since both leave the same disk
+// state whichever of them ran first.
+const mockOnTrackerWrite = jest.fn<() => void>();
+
+jest.mock('#src/ticketLifecycle/index.ts', () => {
+	const actual = jest.requireActual<typeof import('#src/ticketLifecycle/index.ts')>('#src/ticketLifecycle/index.ts');
+
+	type ReconcileParams = Parameters<typeof actual.reconcileShippedTicket>[0];
+
+	return {
+		...actual,
+		reconcileShippedTicket: (params: ReconcileParams) => {
+			mockOnTrackerWrite();
+
+			return actual.reconcileShippedTicket(params);
+		},
+	};
+});
+// -------------------------
 
 const viewed = '{"number":41,"url":"https://forge.example/acme/repo/pull/41","title":"Add the ship command","headRefName":"lo-60-ship"}';
 
@@ -67,6 +93,47 @@ const setupMovedDefaultBranch = () => {
 	const defaultCommit = execSync('git rev-parse HEAD', { cwd: upstream }).toString().trim();
 
 	return { ...chain, origin, defaultCommit };
+};
+
+/**
+ * The same passed run and stubbed forge, with the run's work standing in a
+ * linked worktree the launching checkout knows about only through the manifest.
+ *
+ * The launching checkout is put back on the default branch, so a ship that used
+ * it rather than the recorded workspace could not push the branch at all — and
+ * the worktree gets a commit of its own, so what reached the remote names which
+ * checkout the ship ran in. The ownership record is the real one a standalone
+ * run writes, because that record is the only thing that licenses the cleanup.
+ */
+const setupRecordedWorkspace = async ({ checks }: { checks?: string } = {}) => {
+	const chain = setupChain({ checks });
+	const branch = 'lo-60-ship';
+	const workspace = join(mkdtempSync(join(tmpdir(), 'lightsout-workspace-')), branch);
+	const origin = execSync('git remote get-url origin', { cwd: chain.cwd }).toString().trim();
+
+	execSync('git checkout -q main', { cwd: chain.cwd, stdio: 'ignore' });
+	execSync(`git worktree add -q ${workspace} ${branch}`, { cwd: chain.cwd, stdio: 'ignore' });
+	writeFileSync(join(workspace, 'workspace.md'), '# written in the workspace\n');
+	execSync('git add -A && git commit -qm "work done in the workspace"', { cwd: workspace, stdio: 'ignore' });
+
+	const workspaceCommit = execSync('git rev-parse HEAD', { cwd: workspace }).toString().trim();
+	const trackerSawWorkspace: boolean[] = [];
+
+	await writeWorktreeRecord({ cwd: chain.cwd, branch, owner: WorktreeOwner.Implement, worktreePath: workspace });
+
+	mockOnTrackerWrite.mockImplementation(() => {
+		trackerSawWorkspace.push(existsSync(workspace));
+	});
+
+	return {
+		...chain,
+		branch,
+		origin,
+		workspace,
+		workspaceCommit,
+		trackerSawWorkspace,
+		result: { ok: true, manifest: manifestOf({ status: RunStatus.Passed, branch, workspace }) },
+	};
 };
 
 describe('exitAfterImplement', () => {
@@ -167,6 +234,35 @@ describe('exitAfterImplement', () => {
 		// have pushed the branch exactly as the run left it.
 		expect(execSync('git rev-list refs/heads/lo-60-ship', { cwd: origin }).toString().trim().split('\n')).toContain(defaultCommit);
 		expect(readForgeLog().some((line) => line.startsWith('pr merge'))).toBe(true);
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('a blocked ship leaves the workspace standing', async () => {
+		const { config, cwd, result, branch, workspace, exitCodes } = await setupRecordedWorkspace({ checks: '[{"name":"unit","bucket":"fail"}]' });
+
+		await expect(exitAfterImplement({ config, cwd, result, shipFlag: true, noShipFlag: false, env: {} })).rejects.toThrow(/process\.exit/);
+
+		// nothing merged, so the tree the run built in is still there to look at,
+		// and the record still says who it belongs to
+		const record = await readWorktreeRecord({ cwd, branch });
+
+		expect(existsSync(workspace)).toBe(true);
+		expect(record).toEqual(expect.objectContaining({ branch, owner: 'implement', worktreePath: workspace }));
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test("the ship runs in the run's recorded workspace and the cleanup precedes the tracker write", async () => {
+		const { config, cwd, result, origin, workspace, workspaceCommit, trackerSawWorkspace, exitCodes } = await setupRecordedWorkspace();
+
+		await expect(exitAfterImplement({ config, cwd, result, shipFlag: true, noShipFlag: false, env: {} })).rejects.toThrow(/process\.exit/);
+
+		// the commit only the worktree holds reached the remote, which a ship run
+		// in the launching checkout — standing on the default branch — could not
+		// have pushed at all
+		expect(execSync('git rev-list refs/heads/lo-60-ship', { cwd: origin }).toString().trim().split('\n')).toContain(workspaceCommit);
+		expect(existsSync(workspace)).toBe(false);
+		// the tracker step found the tree already gone, so the removal ran first
+		expect(trackerSawWorkspace).toStrictEqual([false]);
 		expect(exitCodes).toStrictEqual([0]);
 	});
 });

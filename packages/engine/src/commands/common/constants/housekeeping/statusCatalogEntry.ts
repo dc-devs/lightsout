@@ -8,7 +8,10 @@ export const statusCatalogEntry: CommandCatalogEntry = {
 	summary: 'Show what lightsout sees in this repo: config, harness, packs, any run still parked — and, for one run, what it is doing right now.',
 	whenToUse:
 		'Run it when you come back to a repo and need to know what lightsout thinks is going on. It names the config, the harness, the packs in play, and any run still parked. Name a run and it shows what is happening inside that run instead: its steps, their outcomes and durations, and what it is working on this moment.',
-	invocations: [{ id: 'status' }, { id: 'status-run', note: 'one run in detail; --watch repaints it every two minutes' }],
+	invocations: [
+		{ id: 'status' },
+		{ id: 'status-run', note: 'one run in detail; --watch repaints it every two minutes, and without --run it follows the one run that is going' },
+	],
 	flags: [
 		{
 			name: 'run',
@@ -20,7 +23,8 @@ export const statusCatalogEntry: CommandCatalogEntry = {
 		},
 		{
 			name: 'watch',
-			meaning: 'Repaint the detail block every two minutes until the run stops, so a detached run can be followed.',
+			meaning:
+				'Repaint the detail block every two minutes until the run stops, so a detached run can be followed. Without --run it follows the one run that is going, and its phase children with it; when several unrelated runs are going it names their ids and asks for --run <id> instead of guessing.',
 			fallback: 'The block is printed once.',
 			shape: 'status-run',
 			required: false,

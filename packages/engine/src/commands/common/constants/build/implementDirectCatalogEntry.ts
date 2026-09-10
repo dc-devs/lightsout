@@ -19,6 +19,13 @@ export const implementDirectCatalogEntry: CommandCatalogEntry = {
 			required: false,
 		},
 		{ name: 'cwd', value: '<path>', meaning: 'Repository to build in.', fallback: 'The process working directory.', required: false },
+		{
+			name: 'worktree',
+			meaning: 'Build in a fresh git worktree of this repository, on a branch named after the ticket.',
+			fallback: 'The `implement.worktree` config key, which defaults to on.',
+			required: false,
+		},
+		{ name: 'no-worktree', meaning: 'Build in the checkout this was launched from rather than a worktree of its own.', required: false },
 		{ name: 'ship', meaning: 'Ship the branch after the run passes: open or adopt the PR, wait for checks, merge, clean up.', required: false },
 		{ name: 'no-ship', meaning: 'End on the run result even when the config’s `ship.after-implement` asks to chain into ship.', required: false },
 	],

@@ -55,6 +55,21 @@ test('LightsoutConfig: the retired queue.route-labels spelling is refused with a
 	expect(result.error?.message ?? '').toMatch(/`queue.route-labels` was renamed to `queue.planning-status-labels`/);
 });
 
+test('the moved queue.setup spelling is refused with a message naming worktree.setup', () => {
+	const queue = { 'max-parallel': 3, setup: 'pnpm install' };
+	const result = LightsoutConfig.safeParse({ ...base, queue });
+
+	// the preparation command is shared now — both the queue and an isolated
+	// implementation run it — so it lives at `worktree.setup`. The tombstone stays
+	// nested in the queue block because that is where a stale config writes it, and
+	// the strict block would otherwise report a generic unrecognized key naming
+	// nothing at all
+	expect(result.success).toBe(false);
+	expect(result.error?.message ?? '').toMatch(/`queue.setup` was renamed to `worktree.setup`/);
+	// the refusal is about the key, not its value: any command at all still fails
+	expect(LightsoutConfig.safeParse({ ...base, queue: { 'max-parallel': 3, setup: 'make bootstrap' } }).success).toBe(false);
+});
+
 test('LightsoutConfig: the removed driver and permissionMode keys are refused with a message naming their replacement', () => {
 	const driverResult = LightsoutConfig.safeParse({ ...base, driver: 'codex' });
 	const permissionModeResult = LightsoutConfig.safeParse({ ...base, permissionMode: 'bypassPermissions' });

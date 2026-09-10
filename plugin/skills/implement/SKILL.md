@@ -33,6 +33,10 @@ it is deterministic code. Do not add workflow steps to this file.
    - a starting phase the user asked for → `--start-phase <n>`
    - a high-level/overview plan for a single-phase run → `--overview "<path>"`
    - an explicit package scope → `--packages a,b`
+   - a request to build in the checkout the user is standing in →
+     `--no-worktree`; a request to build in an isolated worktree →
+     `--worktree`. Neither is the default to add: the engine already
+     isolates unless the repository's config says otherwise.
    - `resume` requests → `node "<plugin-root>/dist/cli.mjs" resume --run <id>`
 
 3. Start a watch on the run, also in the background:
@@ -41,9 +45,14 @@ it is deterministic code. Do not add workflow steps to this file.
    node "<plugin-root>/dist/cli.mjs" status --watch
    ```
 
-   With no `--run` it follows the run just started, waiting for it to appear,
-   and paints a fresh block every two minutes until the run stops — then it
-   exits on its own.
+   With no `--run` it follows the run just started — that run is the one run
+   going, and a phased plan's coordinator and its current phase count as one
+   run rather than two. It waits for the run to appear, then paints a fresh
+   block every two minutes until the run stops, and exits on its own.
+
+   If the command instead names several run ids and asks for `--run <id>`,
+   other unrelated runs are going in this repository. Report those ids to the
+   user and stop — do not guess which one to follow.
 
    Now relay it, in a loop, until that watch command has exited:
 
@@ -84,4 +93,8 @@ Stated so nobody adds a step for it here — the engine already does it:
   run is not done until every named test has executed and passed in the gate
   run. Nothing in this skill triggers that; the plan's own ledger is what turns
   the step on.
+- Before any source work, the engine resolves the workspace itself: it picks
+  the branch, creates the worktree, copies the plan or ticket inputs into it,
+  and runs `worktree.setup`. Nothing in this skill creates, chooses or cleans
+  up a worktree.
 - Nothing in this skill performs those writes. Do not add a step for them.

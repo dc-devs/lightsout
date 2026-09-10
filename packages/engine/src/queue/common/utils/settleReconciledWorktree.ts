@@ -1,5 +1,5 @@
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
-import { removeTicketWorktree } from '#src/queue/worktrees/index.ts';
+import { deleteWorktreeRecord, removeWorktree } from '#src/worktree/index.ts';
 
 interface Params {
 	/** The main repository checkout. */
@@ -19,6 +19,10 @@ interface Params {
  * rediscover work that already shipped. A dirty one is never removed: a merged
  * pull request says nothing about work begun in that directory since.
  *
+ * The ownership record is deleted only after a removal that worked. A record
+ * dropped beside a tree still standing is the unclaimed tree a later drain
+ * adopts, so a kept tree and a failed removal both keep theirs.
+ *
  * @returns the sentence to append to the skip reason, or undefined when there was nothing to keep
  */
 export const settleReconciledWorktree = async ({ cwd, worktreePath, branch, onProgress }: Params): Promise<string | undefined> => {
@@ -34,7 +38,11 @@ export const settleReconciledWorktree = async ({ cwd, worktreePath, branch, onPr
 		return ` — the worktree at ${worktreePath} was left in place because it has uncommitted changes`;
 	}
 
-	await removeTicketWorktree({ cwd, worktreePath, branch });
+	const removal = await removeWorktree({ cwd, worktreePath, branch });
+
+	if (removal === undefined) {
+		await deleteWorktreeRecord({ cwd, branch });
+	}
 
 	return undefined;
 };

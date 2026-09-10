@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { toBranchFileName } from '#src/common/utils/toBranchFileName.ts';
 
 interface Params {
 	cwd: string;
@@ -14,5 +15,5 @@ interface Params {
  * skill has no reason to look in.
  */
 export const getShipResultPath = ({ cwd, branch }: Params): string => {
-	return join(cwd, '.lightsout', 'ship', `${branch.replace(/[^A-Za-z0-9._-]/g, '-')}.json`);
+	return join(cwd, '.lightsout', 'ship', `${toBranchFileName({ branch })}.json`);
 };

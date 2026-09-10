@@ -33,6 +33,7 @@ export { ConfigPlan } from '#src/contracts/ConfigPlan.ts';
 export { ConfigQueue } from '#src/contracts/ConfigQueue.ts';
 export { ConfigShip } from '#src/contracts/ConfigShip.ts';
 export { ConfigTicketTracker } from '#src/contracts/ConfigTicketTracker.ts';
+export { ConfigWorktree } from '#src/contracts/ConfigWorktree.ts';
 export {
 	CommandActor,
 	CommandCatalogEntry,
@@ -157,3 +158,4 @@ export {
 	WorkReportStatus,
 	WritersReport,
 } from '#src/contracts/work/index.ts';
+export { WorktreeOwner, WorktreeRecord } from '#src/contracts/worktree/index.ts';

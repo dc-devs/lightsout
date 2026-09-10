@@ -2,13 +2,13 @@ import { execSync } from 'node:child_process';
 import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { BranchPhase, type GateHold } from '#src/contracts/index.ts';
+import { BranchPhase, type GateHold, WorktreeOwner } from '#src/contracts/index.ts';
 import type { GateHolds } from '#src/gates/index.ts';
 import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
-import { createTicketWorktree } from '#src/queue/worktrees/createTicketWorktree.ts';
 import { scanParkedWorktrees } from '#src/queue/worktrees/scanParkedWorktrees.ts';
 import type { PullRequestSummary } from '#src/ship/index.ts';
 import type { TrackerFailure, TrackerTicket } from '#src/ticketTracker/index.ts';
+import { createWorktree, deleteWorktreeRecord, readWorktreeRecord, writeWorktreeRecord } from '#src/worktree/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
@@ -81,7 +81,7 @@ const setupParkedRepo = async ({ branches }: { branches: string[] }) => {
 	const paths: Record<string, string> = {};
 
 	for (const branch of branches) {
-		paths[branch] = String(await createTicketWorktree({ cwd, branch, defaultBranch: 'main' }));
+		paths[branch] = String(await createWorktree({ cwd, branch, defaultBranch: 'main', owner: WorktreeOwner.Queue, reuseExisting: true }));
 	}
 
 	return { cwd, paths };
@@ -235,6 +235,45 @@ describe('scanParkedWorktrees', () => {
 
 		expect(parked).toStrictEqual({ resumed: [], outcomes: [], leftBehind: [], merged: [] });
 		expect(progress).toEqual([expect.stringContaining('carries no ticket the configured pattern matches')]);
+	});
+
+	test('leaves a parked tree alone when its record names an owner other than the queue', async () => {
+		const { cwd, paths } = await setupParkedRepo({ branches: ['lo-70-drain'] });
+		const progress: string[] = [];
+
+		// A tracker that would answer for LO-70, so "never asked" is a choice the scan made rather than an absence.
+		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
+		await writeWorktreeRecord({ cwd, branch: 'lo-70-drain', owner: WorktreeOwner.Implement, worktreePath: paths['lo-70-drain'] });
+
+		const parked = await scanParkedWorktrees({
+			cwd,
+			defaultBranch: 'main',
+			settings,
+			trackerSettings,
+			shipSettings,
+			holds,
+			onProgress: (message) => progress.push(message),
+		});
+
+		expect(parked).toStrictEqual({ resumed: [], outcomes: [], leftBehind: [], merged: [] });
+		expect(mockGetTicketsByIdentifiers).not.toHaveBeenCalled();
+		expect(existsSync(paths['lo-70-drain'])).toBe(true);
+		expect(progress).toEqual([expect.stringContaining(paths['lo-70-drain'])]);
+	});
+
+	test('still adopts a parked tree that carries no ownership record', async () => {
+		const { cwd, paths } = await setupParkedRepo({ branches: ['lo-70-drain'] });
+
+		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
+		commitWork({ path: paths['lo-70-drain'] });
+		// A tree an earlier drain made before ownership was ever recorded.
+		await deleteWorktreeRecord({ cwd, branch: 'lo-70-drain' });
+
+		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds });
+
+		expect(await readWorktreeRecord({ cwd, branch: 'lo-70-drain' })).toBe(undefined);
+		expect(parked.outcomes).toEqual([expect.objectContaining({ branch: 'lo-70-drain', worktreePath: paths['lo-70-drain'], ready: true })]);
+		expect(parked.leftBehind).toStrictEqual([]);
 	});
 
 	test('carries a worktree whose branch is recorded merged, without resuming it or removing anything', async () => {

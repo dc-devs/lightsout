@@ -1,8 +1,28 @@
+import { execSync } from 'node:child_process';
+import { realpathSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { startBuilds } from '#src/queue/drainLanes/common/utils/startBuilds.ts';
+import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { queueOutcomeFixture } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
+import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { setupDrainLaneState } from '#tests/helpers/setupDrainLaneState.ts';
+
+/**
+ * A lane standing in a linked worktree of a real repository — the shape a drain
+ * takes when it is launched from a worktree rather than the primary checkout.
+ */
+const setupLinkedWorktreeLane = () => {
+	const { cwd: primary } = setupBranchRepo();
+	const worktree = join(primary, '.worktrees', 'lo-131-lane-worktree');
+
+	execSync(`git worktree add -q -b lo-131-lane-worktree "${worktree}" main`, { cwd: primary, stdio: 'ignore' });
+
+	const lane = setupDrainLaneState({ maxParallel: 1 });
+
+	return { ...lane, context: { ...lane.context, cwd: worktree }, primary, worktree };
+};
 
 describe('startBuilds', () => {
 	test('subtracts active merges and retired questions from the builder budget', async () => {
@@ -52,5 +72,37 @@ describe('startBuilds', () => {
 		expect(lane.state.outcomes).toEqual([expect.objectContaining({ ticket, ready: false, error: 'worker disappeared', branch: 'lo-70-ticket-70' })]);
 		expect(lane.state.retired).toBe(0);
 		expect(lane.flight.builds).toBe(0);
+	});
+
+	test('parks a thrown build with its primary-rooted worktree path', async () => {
+		const lane = setupLinkedWorktreeLane();
+		const ticket = queueTicketFixture();
+
+		lane.state.pending.push(ticket);
+		lane.runTicket.mockRejectedValue(new Error('worker disappeared'));
+		startBuilds(lane);
+		await Promise.all(lane.flight.tasks.values());
+
+		const parked = lane.state.outcomes[0];
+
+		expectDefined(parked);
+
+		expect({
+			parent: realpathSync(dirname(dirname(parked.worktreePath))),
+			root: basename(dirname(parked.worktreePath)),
+			branch: basename(parked.worktreePath),
+			error: parked.error,
+			sitsInsideTheLinkedTree: parked.worktreePath.startsWith(lane.worktree),
+			builds: lane.flight.builds,
+			retired: lane.state.retired,
+		}).toStrictEqual({
+			parent: realpathSync(dirname(lane.primary)),
+			root: `${basename(lane.primary)}-worktrees`,
+			branch: 'lo-70-ticket-70',
+			error: 'worker disappeared',
+			sitsInsideTheLinkedTree: false,
+			builds: 0,
+			retired: 0,
+		});
 	});
 });

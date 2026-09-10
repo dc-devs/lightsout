@@ -16,19 +16,20 @@
  * `lightsout brainstorm publish`, and again for `lightsout self-check` — the
  * engine's own check, which a writing agent runs inside its own spawn. Updated
  * once more for `lightsout plan sync-decisions` — the engine composing a plan's
- * Decision Log from its saved decision records.
+ * Decision Log from its saved decision records. Updated again for the
+ * `--worktree` / `--no-worktree` pair both implement commands now take.
  */
 export const usageFixture = `lightsout — deterministic engine for coding agents
 
 usage:
-  lightsout implement --plan <path> [--overview <path>] [--packages <a,b>] [--cwd <path>] [--skip-refactor] [--ship] [--no-ship]
-  lightsout implement --plan <folder> [--start-phase <n>] [--cwd <path>] [--skip-refactor] [--ship] [--no-ship]   (folder: overview.md runs all phases, else plan.md)
-  lightsout implement-direct --ticket <path> [--ref <ticket>] [--cwd <path>] [--ship] [--no-ship]
+  lightsout implement --plan <path> [--overview <path>] [--packages <a,b>] [--cwd <path>] [--skip-refactor] [--worktree] [--no-worktree] [--ship] [--no-ship]
+  lightsout implement --plan <folder> [--start-phase <n>] [--cwd <path>] [--skip-refactor] [--worktree] [--no-worktree] [--ship] [--no-ship]   (folder: overview.md runs all phases, else plan.md)
+  lightsout implement-direct --ticket <path> [--ref <ticket>] [--cwd <path>] [--worktree] [--no-worktree] [--ship] [--no-ship]
   lightsout resume --run <id> [--cwd <path>] [--skip-refactor] [--ship] [--no-ship]
   lightsout ship [--cwd <path>]
   lightsout queue [--file-relay [dir]] [--cwd <path>]
   lightsout status [--cwd <path>]
-  lightsout status [--run <id>] [--watch] [--cwd <path>]   (one run in detail; --watch repaints it every two minutes)
+  lightsout status [--run <id>] [--watch] [--cwd <path>]   (one run in detail; --watch repaints it every two minutes, and without --run it follows the one run that is going)
   lightsout doctor [--cwd <path>]
   lightsout standards-check [--cwd <path>] [--path <subdir>] [--all] [--baseline] [--code-checks | --agent-review]
   lightsout standards-check --list [--cwd <path>]     (print the enforcement ledger)

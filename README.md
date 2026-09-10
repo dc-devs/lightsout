@@ -228,6 +228,22 @@ is, ready to carry on once the machine is free. A repository that never runs
 concurrent gates sees no change: the reservation is uncontended, taken without
 a pause, and nothing is printed about waiting.
 
+A run builds in its own git worktree by default, not in the checkout you
+started it from, so your working copy stays free for the whole run and nothing
+else in that tree is swept into the commit. The branch comes from the plan
+folder's name, or from the repository's configured branch template for a
+ticket — never from whatever branch you happen to be standing on. The tree is
+placed beside the repository in the same sibling directory the queue uses, cut
+from the freshly fetched remote default branch, and stocked with a copy of the
+plan or ticket the run was started from. An optional `worktree.setup` command —
+`pnpm install`, say — runs once in the fresh tree before any agent. The run's
+records stay in the checkout you launched from, so `lightsout status` still
+finds the run and the record survives the worktree being cleaned up. Pass
+`--no-worktree`, or set `implement.worktree` to false, to build in the
+launching checkout instead. If the tree cannot be created, the inputs cannot be
+copied, or setup fails, the run stops and says which it was — it never quietly
+builds somewhere else.
+
 A finished plan is not stuck on the machine that wrote it. `/implement` looks
 for the plan folder on local disk first. When a ticket-named folder is absent,
 it fetches that ticket's durable plan attachments and reconstructs the folder,
@@ -250,9 +266,14 @@ List every recorded run with `lightsout status`, or open one run's detailed prog
 ```text
 lightsout status --run <id>
 lightsout status --run <id> --watch
+lightsout status --watch
 ```
 
 `--watch` refreshes the detailed block until the run stops. A failing verification row shows its gate families, root/package groups, per-family repair counts, whether a supervisor-guided repair ran, the supervisor diagnosis when present, and the final output line. The complete command, exit code, timing, and output-tail history remains in `.lightsout/runs/<run-id>/commands.jsonl`.
+
+With no `--run`, `--watch` follows the one run that is going — a phased plan's coordinator and the phase it is running count as one run, not two — and waits a minute for a run you have only just started to appear. If several unrelated runs are going at once it names their ids and asks you to pick one with `--run <id>` rather than guessing which you meant. A watch already following a run stays with that run and never crosses to unrelated work.
+
+`lightsout resume --run <id>` picks a parked run back up in the workspace that run recorded, so a run built in its own worktree carries on in that worktree rather than in the checkout you happen to be standing in. Direct runs built from a ticket resume here too, from the ticket frozen beside the run: a run that already passed its gates goes straight to the commit and the ship rather than building the ticket again. If the recorded workspace has been removed, resume says so and stops.
 
 ### lightsout ship
 

@@ -2,14 +2,14 @@ import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { BranchPhase, type LightsoutConfig, ShipBlockReason, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
+import { BranchPhase, type LightsoutConfig, ShipBlockReason, type ShipResult, ShipStatus, WorktreeOwner } from '#src/contracts/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
 import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { shipOneBranch } from '#src/queue/shipOneBranch.ts';
-import { createTicketWorktree } from '#src/queue/worktrees/index.ts';
+import { createWorktree, readWorktreeRecord, writeWorktreeRecord } from '#src/worktree/index.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { shipIntegrationFixture } from '#tests/helpers/shipIntegrationFixture.ts';
@@ -88,7 +88,7 @@ const setupReadyBranch = async ({ number = 70, content = 'export const value = 1
 	execSync('git config user.name t && git config user.email t@t', { cwd, stdio: 'ignore' });
 
 	const branch = `lo-${number}-drain`;
-	const worktreePath = String(await createTicketWorktree({ cwd, branch, defaultBranch: 'main' }));
+	const worktreePath = String(await createWorktree({ cwd, branch, defaultBranch: 'main', owner: WorktreeOwner.Queue, reuseExisting: true }));
 
 	writeRepoFile({ cwd: worktreePath, path: 'work.ts', content });
 	execSync(`git add -A && git ${author} commit -qm work`, { cwd: worktreePath, stdio: 'ignore' });
@@ -316,5 +316,19 @@ describe('shipOneBranch', () => {
 
 		expect(parked).toEqual(expect.objectContaining({ ready: false, error: 'integration-gates-failed: tsc: 3 errors' }));
 		expect(mockTakeGateHold).not.toHaveBeenCalled();
+	});
+
+	test('leaves the branch recorded merged and no worktree record behind after a confirmed merge', async () => {
+		const { cwd, outcome } = await setupReadyBranch();
+
+		await writeWorktreeRecord({ cwd, branch: outcome.branch, owner: WorktreeOwner.Queue, worktreePath: outcome.worktreePath });
+
+		const shipped = await ship({ cwd, outcome });
+
+		// The record outlives the tree only when the removal failed, so a merged
+		// branch with no record left is what says the tree really came down.
+		expect(shipped.ready).toBe(true);
+		expect(await readBranchState({ cwd, branch: 'lo-70-drain' })).toEqual(expect.objectContaining({ phase: BranchPhase.Merged }));
+		expect(await readWorktreeRecord({ cwd, branch: 'lo-70-drain' })).toBe(undefined);
 	});
 });

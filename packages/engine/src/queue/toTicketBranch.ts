@@ -1,3 +1,4 @@
+import { renderBranchTemplate } from '#src/common/utils/renderBranchTemplate.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 
 interface Params {
@@ -6,41 +7,14 @@ interface Params {
 	template: string;
 }
 
-/** The title as a branch-safe word: lowercase, single dashes, no leading or trailing dash, at most 40 characters cut on a dash. */
-const toSlug = ({ title }: { title: string }) => {
-	const maxSlugLength = 40;
-	const dashed = title
-		.toLowerCase()
-		.replaceAll(/[^a-z0-9]+/g, '-')
-		.replaceAll(/^-+|-+$/g, '');
-
-	let slug = dashed;
-
-	if (dashed.length > maxSlugLength) {
-		const cut = dashed.slice(0, maxSlugLength);
-		const lastDash = cut.lastIndexOf('-');
-
-		slug = lastDash === -1 ? cut : cut.slice(0, lastDash);
-	}
-
-	// The trailing-dash strip is on the single exit path, so a cut made on a
-	// dash cannot leave one behind whichever branch produced the slug.
-	return slug.replaceAll(/-+$/g, '');
-};
-
 /**
- * The branch one ticket gets, rendered from the repo's own template.
+ * One tracker ticket's branch — the queue's five branch call sites read it here
+ * rather than each reaching into a `TicketSummary` for the two fields the
+ * shared renderer wants.
  *
- * An unknown token is left exactly as written, matching how ship's `pr-body`
- * template treats one. Whatever this produces must be matched by
- * `ship.ticket-pattern` — both are the repo's config, so a company branch
- * convention configures the two keys together, and that pairing is what links
- * the ticket, the worktree, the commits and the pull request. The plan folder
- * carries the same name and joins that chain, which is why `ship.ticket-pattern`
- * reads a folder name exactly as it reads a branch name.
- *
- * Linear's own `issue.branchName` is deliberately not used: it carries a
+ * The plan folder carries the branch's name and joins the same chain, which is
+ * why `ship.ticket-pattern` reads a folder name exactly as it reads a branch
+ * name. Linear's own `issue.branchName` is deliberately not used: it carries a
  * per-user prefix that `ship.ticket-pattern` would not match.
  */
-export const toTicketBranch = ({ ticket, template }: Params): string =>
-	template.replaceAll('{ticket}', ticket.identifier.toLowerCase()).replaceAll('{slug}', toSlug({ title: ticket.title }));
+export const toTicketBranch = ({ ticket, template }: Params): string => renderBranchTemplate({ template, ticketRef: ticket.identifier, title: ticket.title });

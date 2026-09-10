@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { readGitCommitsAhead } from '#src/common/git/readGitCommitsAhead.ts';
-import { BranchPhase, type LightsoutConfig } from '#src/contracts/index.ts';
+import { BranchPhase, type LightsoutConfig, WorktreeOwner } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
 import { commitTicketWork } from '#src/queue/commitTicketWork.ts';
@@ -8,12 +8,11 @@ import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
-import { getWorktreesRoot } from '#src/queue/common/utils/getWorktreesRoot.ts';
 import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
 import { runWorkerWithRelay } from '#src/queue/workers/index.ts';
-import { createTicketWorktree } from '#src/queue/worktrees/index.ts';
 import { TrackerStatusRole, updateTicketLifecycle } from '#src/ticketLifecycle/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import { createWorktree, resolveWorktreePath } from '#src/worktree/index.ts';
 
 interface Params {
 	/** The main repository checkout. */
@@ -162,10 +161,15 @@ export const runQueueTicket = async ({
 	const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
 	// Creation is the one step that mutates the main checkout, so it alone goes
 	// through the shared chain; everything after it runs fully parallel.
-	const created = await serializeWorktreeAdd({ task: () => createTicketWorktree({ cwd, branch, defaultBranch, setup: settings.setup, onProgress }) });
+	// Reuse is on: a tree an earlier drain parked is continued in, exactly as it
+	// always was. The owner is what makes a tree a standalone run made come back
+	// as a creation failure rather than a tree to run a worker in.
+	const created = await serializeWorktreeAdd({
+		task: () => createWorktree({ cwd, branch, defaultBranch, setup: settings.setup, owner: WorktreeOwner.Queue, reuseExisting: true, onProgress }),
+	});
 
 	if (typeof created !== 'string') {
-		return { ticket, branch, worktreePath: join(getWorktreesRoot({ cwd }), branch), ready: false, error: created.error };
+		return { ticket, branch, worktreePath: await resolveWorktreePath({ cwd, branch }), ready: false, error: created.error };
 	}
 
 	const worktreePath = created;

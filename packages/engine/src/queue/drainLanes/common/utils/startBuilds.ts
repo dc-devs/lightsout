@@ -1,13 +1,12 @@
-import { join } from 'node:path';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
-import { getWorktreesRoot } from '#src/queue/common/utils/getWorktreesRoot.ts';
 import type { LaneContext } from '#src/queue/drainLanes/common/types/LaneContext.ts';
 import type { LaneFlight } from '#src/queue/drainLanes/common/types/LaneFlight.ts';
 import type { LaneState } from '#src/queue/drainLanes/common/types/LaneState.ts';
 import { trackTask } from '#src/queue/drainLanes/common/utils/trackTask.ts';
 import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
+import { resolveWorktreePath } from '#src/worktree/index.ts';
 
 interface Params {
 	context: LaneContext;
@@ -16,9 +15,9 @@ interface Params {
 }
 
 /** A build that threw: parked carrying the message, and never `unanswered` — a crash holds no human, so its slot refills. */
-const parkedBuild = ({ context, ticket, thrown }: { context: LaneContext; ticket: RunnableTicket; thrown: unknown }): TicketRunOutcome => {
+const parkedBuild = async ({ context, ticket, thrown }: { context: LaneContext; ticket: RunnableTicket; thrown: unknown }): Promise<TicketRunOutcome> => {
 	const branch = toTicketBranch({ ticket, template: context.settings.branchTemplate });
-	const worktreePath = join(getWorktreesRoot({ cwd: context.cwd }), branch);
+	const worktreePath = await resolveWorktreePath({ cwd: context.cwd, branch });
 
 	return { ticket, branch, worktreePath, ready: false, error: messageOf({ error: thrown }) };
 };
@@ -40,7 +39,7 @@ const buildTicket = async ({ context, state, ticket }: { context: LaneContext; s
 	try {
 		settleBuild({ state, outcome: await context.runTicket({ ticket }) });
 	} catch (thrown) {
-		settleBuild({ state, outcome: parkedBuild({ context, ticket, thrown }) });
+		settleBuild({ state, outcome: await parkedBuild({ context, ticket, thrown }) });
 	}
 };
 

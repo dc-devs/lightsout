@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join, resolve } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { createRun, getRunDir, readRunManifest } from '#src/runState/index.ts';
@@ -154,6 +154,19 @@ describe('createRun', () => {
 
 		// outside a worktree there is nothing to push to, so absence is the answer
 		expect(manifest.branch).toBe(undefined);
+	});
+
+	test('records the checkout the run works in as the manifest workspace', async () => {
+		const { cwd } = setupRepo();
+
+		const manifest = await createRun({ cwd, plan: 'plan.md', driver: 'stub' });
+		const read = await readRunManifest({ cwd, runId: manifest.runId });
+
+		expect(manifest.workspace).toBe(resolve(cwd));
+		// absolute, because a later reader standing in another checkout has nothing to join it onto
+		expect(isAbsolute(read.workspace ?? '')).toBeTruthy();
+		// stamped on disk too — the returned value alone would not tell a resume where the work happened
+		expect(read.workspace).toBe(resolve(cwd));
 	});
 
 	test.each([

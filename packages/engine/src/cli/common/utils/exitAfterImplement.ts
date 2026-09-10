@@ -1,5 +1,7 @@
 import { contradictoryShipFlagsMessage } from '#src/cli/common/constants/contradictoryShipFlagsMessage.ts';
 import { unusableTicketPatternMessage } from '#src/cli/common/constants/unusableTicketPatternMessage.ts';
+import { removeShippedRunWorkspace } from '#src/cli/common/implementRun/removeShippedRunWorkspace.ts';
+import { resolveRunCwd } from '#src/cli/common/implementRun/resolveRunCwd.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { exitForRunResult } from '#src/cli/common/utils/exitForRunResult.ts';
@@ -38,6 +40,13 @@ interface Params {
  * ship they asked for, and the message has to say so. A blocked ship after a
  * passed run also exits 1, with the ship result already on disk: the code is
  * verified, the merge is not done, and that is the honest report.
+ *
+ * The ship runs in the checkout the run's manifest recorded, so a caller that
+ * hands over the launching checkout and a caller that hands over the workspace
+ * both ship the right tree. A confirmed merge then takes the workspace down
+ * before the tracker write, mirroring `shipOneBranch`: the local cleanup
+ * happens while the merge is the freshest fact, and the write that can fail
+ * without undoing anything comes last.
  */
 export const exitAfterImplement = async ({ config, cwd, result, shipFlag, noShipFlag, env }: Params): Promise<never> => {
 	const intent = resolveShipIntent({ config, shipFlag, noShipFlag, env });
@@ -58,14 +67,37 @@ export const exitAfterImplement = async ({ config, cwd, result, shipFlag, noShip
 		return exitCli({ code: 1 });
 	}
 
+	// A gate, a push or a merge run against the checkout the command was launched
+	// from would act on a tree the run was never building in, so the ship goes
+	// where the run's own records say the work happened.
+	const resolved = await resolveRunCwd({ cwd, manifest: result.manifest });
+
+	if ('error' in resolved) {
+		console.error(resolved.error);
+
+		return exitCli({ code: 1 });
+	}
+
+	const workCwd = resolved.workspace;
+
 	// Same harness the run itself used: the branch reaching the remote has the
 	// default branch merged into it, and settling that is implementation work.
 	const { config: effectiveConfig, driver } = resolveEffectiveConfigAndDriver({ config, command: 'implement' });
-	const shipped = await runShip({ cwd, settings: intent.settings, integration: { config: effectiveConfig, driver }, onProgress: createProgressPrinter() });
+	const shipped = await runShip({
+		cwd: workCwd,
+		settings: intent.settings,
+		integration: { config: effectiveConfig, driver },
+		onProgress: createProgressPrinter(),
+	});
 
 	if (shipped.status === ShipStatus.Blocked) {
 		return exitCli({ code: 1 });
 	}
+
+	// Only a lightsout-created standalone worktree comes down, and only now that
+	// the merge is confirmed: the ownership record is what licenses it, so a
+	// checkout the user selected themselves is never removed.
+	await removeShippedRunWorkspace({ cwd: workCwd, manifest: result.manifest, onProgress: createProgressPrinter() });
 
 	// The merge is confirmed here too, so the tracker learns it here too — and a
 	// refused write is a printed sentence rather than a changed exit code,

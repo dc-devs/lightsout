@@ -28,4 +28,17 @@ describe('ConfigImplement', () => {
 		expect(ConfigImplement.safeParse({ refactor: { 'max-rounds': '5' } }).success).toBe(false);
 		expect(ConfigImplement.safeParse({ refactor: 2 }).success).toBe(false);
 	});
+
+	test('accepts the worktree switch as a boolean either way and refuses it written as a string', () => {
+		expect(ConfigImplement.parse({ worktree: true })).toStrictEqual({ worktree: true });
+		expect(ConfigImplement.parse({ worktree: false })).toStrictEqual({ worktree: false });
+		expect(ConfigImplement.safeParse({ worktree: 'yes' }).success).toBe(false);
+	});
+
+	test('leaves the worktree switch optional, so a block written before it existed still parses', () => {
+		expect(ConfigImplement.parse({ refactor: { 'max-rounds': 2 } })).toStrictEqual({
+			refactor: { 'max-rounds': 2 },
+		});
+		expect(ConfigImplement.parse({})).toStrictEqual({});
+	});
 });

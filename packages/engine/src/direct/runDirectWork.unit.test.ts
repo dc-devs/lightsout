@@ -1,11 +1,11 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, RunStatus, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PipelineKind, RunStatus, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
 import { runDirectWork } from '#src/direct/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
-import { getRunDir } from '#src/runState/index.ts';
+import { createRun, getRunDir, getRunsDir } from '#src/runState/index.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // Mocked Imports
@@ -36,10 +36,15 @@ const reportOf = (overrides: Partial<WorkReport> = {}): WorkReport => ({
 	...overrides,
 });
 
-/** A consumer repo with the harness and the gates stubbed green. */
-const setupDirectRun = () => {
+/**
+ * A consumer repo with the harness and the gates stubbed green.
+ *
+ * `agentCommands` is what a consumer granted the worker of its own, which the
+ * run adds its self-check prefix to; left out, the consumer granted none.
+ */
+const setupDirectRun = ({ agentCommands }: { agentCommands?: string[] } = {}) => {
 	const cwd = setupConsumerRepo();
-	const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
+	const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false }, 'agent-commands': agentCommands };
 
 	mockInvokeAgentWithContract.mockResolvedValue({ ok: true, report: reportOf() });
 	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
@@ -70,16 +75,27 @@ const setupDirectRun = () => {
 	return { cwd, run };
 };
 
-/** The same run, started against a consumer that granted the worker shell commands of its own. */
-const setupGrantedDirectRun = () => {
+/**
+ * A consumer repo already holding a parked direct run, ready to be continued:
+ * the run exists on disk with its own id and its own recorded baseline, and
+ * the tree it left behind is the partial work a resume must keep.
+ */
+const setupContinuedDirectRun = async () => {
 	const cwd = setupConsumerRepo();
-	const config: LightsoutConfig = {
-		gates: { check: 'true', test: 'true', 'test-coverage': false },
-		'agent-commands': ['pnpm --filter api run prisma:migrate:dev:name'],
-	};
+	const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
 	mockInvokeAgentWithContract.mockResolvedValue({ ok: true, report: reportOf() });
 	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+
+	const existing = await createRun({
+		cwd,
+		plan: 'ticket.md',
+		pipeline: PipelineKind.Direct,
+		ticketRef: 'LO-70',
+		driver: 'claude-code',
+		config,
+		baselineDirtyFiles: ['src/half-done.ts'],
+	});
 
 	const run = () =>
 		runDirectWork({
@@ -89,9 +105,10 @@ const setupGrantedDirectRun = () => {
 			driver,
 			driverName: 'claude-code',
 			config,
+			existing,
 		});
 
-	return { run };
+	return { cwd, existing, run };
 };
 
 describe('runDirectWork', () => {
@@ -333,7 +350,7 @@ describe('runDirectWork', () => {
 	});
 
 	test("grants the direct worker the engine self-check prefix alongside the consumer's own commands", async () => {
-		const { run } = setupGrantedDirectRun();
+		const { run } = setupDirectRun({ agentCommands: ['pnpm --filter api run prisma:migrate:dev:name'] });
 
 		await run();
 
@@ -345,5 +362,30 @@ describe('runDirectWork', () => {
 			'pnpm --filter api run prisma:migrate:dev:name',
 			`node ${process.argv[1]} self-check`,
 		]);
+	});
+
+	test('a continued direct run reuses its run and skips the pre-flight the partial tree would fail', async () => {
+		const { cwd, existing, run } = await setupContinuedDirectRun();
+
+		const result = await run();
+
+		expect(result.manifest).toEqual(expect.objectContaining({ runId: existing.runId, baselineDirtyFiles: ['src/half-done.ts'], status: RunStatus.Passed }));
+		expect(readdirSync(getRunsDir({ cwd }))).toStrictEqual([existing.runId]);
+		expect(mockRunGates.mock.calls.map((call) => call[0].step)).toStrictEqual(['verify']);
+		expect(mockInvokeAgentWithContract).toHaveBeenCalledTimes(1);
+	});
+
+	test('a first direct run still mints its run and still refuses a red baseline', async () => {
+		const { cwd, run } = setupDirectRun();
+
+		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [], coordination: undefined });
+
+		const result = await run();
+
+		expect(result.ok).toBe(false);
+		expect(result.manifest.status).toBe(RunStatus.Failed);
+		expect(readdirSync(getRunsDir({ cwd }))).toStrictEqual([result.manifest.runId]);
+		expect(mockRunGates.mock.calls.map((call) => call[0].step)).toStrictEqual(['pre-flight']);
+		expect(mockInvokeAgentWithContract).not.toHaveBeenCalled();
 	});
 });

@@ -59,8 +59,8 @@ export const ConfigQueue = z
 		'in-progress-status': z.string().optional(),
 		/** This tracker's name for the status a ticket reaches once its merge is confirmed. Default `'Done'`. */
 		'done-status': z.string().optional(),
-		/** Command run once in a fresh worktree before any agent, e.g. `pnpm install`. Absent means nothing runs. */
-		setup: z.string().optional(),
+		/** Removed — the preparation command is shared with isolated implementation runs, so it moved to the `worktree` block. Declared only so a stale config fails loudly instead of being silently stripped. */
+		setup: renamedKey({ from: 'queue.setup', to: 'worktree.setup' }),
 		/**
 		 * How a ticket becomes a branch name. `{ticket}` is the lowercased
 		 * identifier, `{slug}` the slugged title. Default `{ticket}-{slug}`.

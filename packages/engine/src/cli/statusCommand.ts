@@ -6,7 +6,7 @@ import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { resolveWatchTarget } from '#src/cli/common/utils/resolveWatchTarget.ts';
 import { watchRunProgress } from '#src/cli/common/utils/watchRunProgress.ts';
 import { PipelineKind, RunStatus } from '#src/contracts/index.ts';
-import { getRunsDir, isRunLive, RunNotFoundError, readRunLock, readRunManifest, resolveRunId } from '#src/runState/index.ts';
+import { getRunsDir, isRunLive, RunNotFoundError, readRunManifest, readRunProcessLock, resolveRunId } from '#src/runState/index.ts';
 import { listRuns } from '#src/views/index.ts';
 
 /**
@@ -22,12 +22,13 @@ const printRunListing = async ({ cwd }: { cwd: string }) => {
 		return;
 	}
 
-	const lock = await readRunLock({ cwd });
-
 	for (const runId of runIds) {
 		const manifest = await readRunManifest({ cwd, runId }).catch(() => undefined);
 
 		if (manifest) {
+			// Taken per run rather than once: the run lock is per-checkout, so an
+			// isolated run's holder is in the workspace it recorded rather than here.
+			const lock = await readRunProcessLock({ cwd, manifest });
 			// A `running` manifest with no live process behind it is a crash
 			// leftover (killed terminal, uncaught error) — resumable, not lost.
 			const zombie = manifest.status === RunStatus.Running && !isRunLive({ manifest, lock });
@@ -72,6 +73,11 @@ const printNewestRun = async ({ cwd }: { cwd: string }) => {
  * print; `--watch` repaints that block every two minutes until the run stops,
  * which is how a detached run gets followed at all. Both detailed blocks
  * include persisted verification diagnostics through `printRunProgress`.
+ *
+ * A `--watch` with no `--run` follows the one run that is going, and its phase
+ * children with it. Several unrelated runs going at once are named back to the
+ * reader to pick between rather than guessed at, because narrating somebody
+ * else's concurrent work is worse than asking which one they meant.
  */
 export const statusCommand = async ({ cwd, flags }: CommandContext): Promise<void> => {
 	const runFlag = getStringFlag({ flags, name: 'run' });
@@ -101,10 +107,19 @@ export const statusCommand = async ({ cwd, flags }: CommandContext): Promise<voi
 
 	// The one call that spends the full grace period, waiting for a run the
 	// caller has only just started to write its first manifest. From here the
-	// watch re-resolves its own target every frame.
+	// watch re-resolves its own target every frame, inside the family it started.
 	const going = await resolveWatchTarget({ cwd });
 
-	await (going === undefined ? printNewestRun({ cwd }) : watchRunProgress({ cwd }));
+	if (going !== undefined && 'ambiguous' in going) {
+		// Naming the ids rather than guessing: an unrelated concurrent run narrated
+		// in place of the one the reader started is worse than being asked.
+		console.error(`several runs are going: ${going.ambiguous.join(', ')}`);
+		console.error('pick one with --run <id>');
+
+		return exitCli({ code: 1 });
+	}
+
+	await (going === undefined ? printNewestRun({ cwd }) : watchRunProgress({ cwd, rootRunId: going.rootRunId }));
 
 	return exitCli({ code: 0 });
 };

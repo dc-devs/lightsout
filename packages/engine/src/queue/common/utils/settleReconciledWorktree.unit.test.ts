@@ -2,8 +2,9 @@ import { execSync } from 'node:child_process';
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
+import { WorktreeOwner } from '#src/contracts/index.ts';
 import { settleReconciledWorktree } from '#src/queue/common/utils/settleReconciledWorktree.ts';
-import { createTicketWorktree } from '#src/queue/worktrees/createTicketWorktree.ts';
+import { createWorktree, readWorktreeRecord } from '#src/worktree/index.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 /** A main checkout with one real worktree on a ticket branch, cut from the default branch. */
@@ -12,7 +13,7 @@ const setupWorktree = async ({ branch }: { branch: string }) => {
 
 	execSync('git config user.name t && git config user.email t@t', { cwd, stdio: 'ignore' });
 
-	const worktreePath = String(await createTicketWorktree({ cwd, branch, defaultBranch: 'main' }));
+	const worktreePath = String(await createWorktree({ cwd, branch, defaultBranch: 'main', owner: WorktreeOwner.Queue, reuseExisting: true }));
 
 	return { cwd, worktreePath };
 };
@@ -54,5 +55,24 @@ describe('settleReconciledWorktree', () => {
 		// Nothing was read, so nothing was decided — the real tree stands.
 		expect(existsSync(worktreePath)).toBe(true);
 		expect(branchExists({ cwd, branch: 'lo-70-drain' })).toBe(true);
+	});
+
+	test('removes a clean tree and its record, and keeps a dirty tree and its record', async () => {
+		const clean = await setupWorktree({ branch: 'lo-70-clean' });
+		const dirty = await setupWorktree({ branch: 'lo-70-dirty' });
+
+		writeFileSync(join(dirty.worktreePath, 'half-done.ts'), 'export const value = 1;\n');
+
+		const cleanHeld = await settleReconciledWorktree({ cwd: clean.cwd, worktreePath: clean.worktreePath, branch: 'lo-70-clean' });
+		const dirtyHeld = await settleReconciledWorktree({ cwd: dirty.cwd, worktreePath: dirty.worktreePath, branch: 'lo-70-dirty' });
+
+		expect(cleanHeld).toBe(undefined);
+		expect(existsSync(clean.worktreePath)).toBe(false);
+		expect(await readWorktreeRecord({ cwd: clean.cwd, branch: 'lo-70-clean' })).toBe(undefined);
+		expect(dirtyHeld).toBe(` — the worktree at ${dirty.worktreePath} was left in place because it has uncommitted changes`);
+		expect(existsSync(dirty.worktreePath)).toBe(true);
+		expect(await readWorktreeRecord({ cwd: dirty.cwd, branch: 'lo-70-dirty' })).toEqual(
+			expect.objectContaining({ branch: 'lo-70-dirty', owner: 'queue', worktreePath: dirty.worktreePath }),
+		);
 	});
 });

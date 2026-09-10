@@ -44,6 +44,8 @@ export const RunManifest = z.object({
 	stepOrder: z.array(z.string()).optional(),
 	/** The git branch the run was started on, as git named it — the key a ship result is filed under. Absent on a detached HEAD, outside a worktree, and on manifests written before this field existed. */
 	branch: z.string().optional(),
+	/** Absolute path of the checkout the run's git work, gates, agents and commit happened in. Absent on a run that built in the checkout it was launched from, and on manifests written before this field existed. */
+	workspace: z.string().optional(),
 	/** Resolved before the run started: a passing run will ship this branch. Absent when no ship intent was resolved at all. */
 	willShip: z.boolean().optional(),
 	/** Source files changed so far, accumulated across steps. */

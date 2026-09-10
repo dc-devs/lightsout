@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { toBranchFileName } from '#src/common/utils/toBranchFileName.ts';
 
 interface Params {
 	/** The MAIN repository checkout, never a worktree. */
@@ -15,5 +16,5 @@ interface Params {
  * queue's branch template is free to carry slashes.
  */
 export const getBranchStatePath = ({ cwd, branch }: Params): string => {
-	return join(cwd, '.lightsout', 'branch-state', `${branch.replace(/[^A-Za-z0-9._-]/g, '-')}.json`);
+	return join(cwd, '.lightsout', 'branch-state', `${toBranchFileName({ branch })}.json`);
 };

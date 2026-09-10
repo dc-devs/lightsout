@@ -125,7 +125,7 @@ const setupDirectLifecycle = ({
 	mockCommitTicketWork.mockResolvedValue({ committed: true });
 	jest.replaceProperty(process, 'env', { ...process.env, LIGHTSOUT_NO_SHIP: '' });
 
-	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, readForgeLog, ...captured };
+	return { context: { flags: parseFlags({ args: [...args, '--no-worktree'] }), rest: [], cwd }, cwd, readForgeLog, ...captured };
 };
 
 describe('implementDirectCommand pre-source lifecycle guard', () => {

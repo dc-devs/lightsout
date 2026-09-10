@@ -8,6 +8,7 @@ import { ConfigPlan } from '#src/contracts/ConfigPlan.ts';
 import { ConfigQueue } from '#src/contracts/ConfigQueue.ts';
 import { ConfigShip } from '#src/contracts/ConfigShip.ts';
 import { ConfigTicketTracker } from '#src/contracts/ConfigTicketTracker.ts';
+import { ConfigWorktree } from '#src/contracts/ConfigWorktree.ts';
 import { renamedKey } from '#src/contracts/common/utils/renamedKey.ts';
 import { validateGateOverrideNames } from '#src/contracts/common/utils/validateGateOverrideNames.ts';
 import { Effort } from '#src/contracts/Effort.ts';
@@ -199,6 +200,8 @@ export const LightsoutConfig = z
 		plan: ConfigPlan.optional(),
 		/** Opt-in implementation settings — the cleanup round budget the refactor step spends. See `ConfigImplement`. */
 		implement: ConfigImplement.optional(),
+		/** Opt-in shared workspace preparation — the one command run inside a fresh worktree, by the queue and by an isolated implementation run alike. See `ConfigWorktree`. */
+		worktree: ConfigWorktree.optional(),
 		/** Opt-in tracker identity — provider-specific address and credential environment variables. See `ConfigTicketTracker`. */
 		'ticket-tracker': ConfigTicketTracker.optional(),
 		/** Opt-in queue settings — route labels, parallelism, eligible statuses and the queue's own timeouts. See `ConfigQueue`. */

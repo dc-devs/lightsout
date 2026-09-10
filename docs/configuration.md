@@ -260,10 +260,11 @@ is overwritten the next time `pnpm build:config-reference` runs.
 | `standards-checks` | no | Per-rule severity and settings overrides for `lightsout standards-check`, keyed by rule id. A rule not named here keeps its pack’s default — silence is never a change. |
 | `ship` | no | Opt-in `lightsout ship` settings: the branch ticket pattern whose `ticket` capture group becomes the result’s ticket reference, the pull request body template, the merge method, whether a passed implement run chains into ship, an optional pre-ship command that prepares the release candidate before it is verified, and the explicit exception for a repository that intentionally has no CI. |
 | `ticket-tracker` | no | Opt-in tracker identity: which provider the engine talks to and that provider’s address and credential environment variables — a Linear team and API key, or a Jira Cloud site, project, API token and account email. Every command that reads or writes a ticket resolves it from here, so tracker identity is spelled once rather than once per command. |
+| `worktree` | no | Opt-in shared workspace preparation. `worktree.setup` is the one command run inside a fresh worktree before any agent, such as `pnpm install` — the queue runs it in each ticket worktree it cuts, and an isolated implementation run runs it in the worktree it cuts for itself. An absent block means nothing runs. The block is strict, so a misspelled key fails parsing rather than silently leaving the command unset. |
 | `queue` | no | Opt-in queue settings: which ticket label names each planning status, what this tracker calls each status the engine writes, which statuses count as available work, how many tickets run at once, and the per-ticket worker and question timeouts. Tracker identity lives in `ticket-tracker`, so this block holds queue behaviour only. |
 | `auto-plan` | no | Opt-in auto-plan settings: whether the proposal comes before drafting, whether an approved proposal starts the build, and whether the proposal is skipped when nothing clears the escalation bar. Every key is off by default, so an absent block is the most supervised behaviour. |
 | `plan` | no | Opt-in plan settings: whether plans are written as contracts with an acceptance-test ledger — a table naming the test that states each acceptance criterion — and graded by weight, spawning the reader fan-out only for the plan files that earn it, plus the counts above which a plan file is heavy. Off by default, so an absent block is exactly today’s behaviour: the same template, the same required sections, every plan file read by every lens. |
-| `implement` | no | Opt-in implementation settings. `implement.refactor.max-rounds` is how many cleanup executor rounds one run may spend at most — a whole number above zero, defaulting to 2, which is also what an absent block spends. The budget is a ceiling rather than a target: cleanup stops early when nothing qualifying is left, and only a deterministic blocking finding the run’s own edits introduced or measurably worsened can spend a round. Whatever cleanup leaves behind is recorded and never stops the run. |
+| `implement` | no | Opt-in implementation settings. `implement.worktree` is whether an implementation run builds in its own isolated git worktree rather than the checkout it was launched from — it defaults to true, and `--worktree` and `--no-worktree` override it for one run. `implement.refactor.max-rounds` is how many cleanup executor rounds one run may spend at most — a whole number above zero, defaulting to 2, which is also what an absent block spends. The budget is a ceiling rather than a target: cleanup stops early when nothing qualifying is left, and only a deterministic blocking finding the run’s own edits introduced or measurably worsened can spend a round. Whatever cleanup leaves behind is recorded and never stops the run. |
 | `docs` | no | Opt-in documentation surfaces: each entry a repo-relative path and a one-line `covers` saying what that document is responsible for. Declaring the block turns on the plan-time documentation check — the plan writer is briefed on the surfaces, every implementable plan file must carry a `## Documentation` statement, and `plan grade` runs one whole-plan checker that verifies it. A repository that declares no block sees none of it: no section, no prompt text, no checker spawn. |
 
 <!-- /generated:config-key-reference -->
@@ -464,6 +465,21 @@ export JIRA_ACCOUNT_EMAIL='you@example.com'
 }
 ```
 
+### Worktree settings
+
+| Field            | Required | What it controls                                                                                         |
+| ---------------- | -------: | -------------------------------------------------------------------------------------------------------- |
+| `worktree.setup` |       no | Command run once in each fresh worktree before any agent, e.g. `pnpm install`. Absent means nothing runs. |
+
+Both `lightsout queue` and an isolated implementation run cut a worktree of their
+own, and both run this one command inside it before any agent starts — the queue
+once per ticket, an implementation run once per run. That is why the key sits at
+the top level rather than inside either block: it is the same command whoever
+created the tree. A repository whose worktrees need no preparation declares no
+block at all, and nothing runs. The block is strict for the same reason `ship`
+is: an unknown key fails parsing rather than silently disabling a setting you
+believe is on.
+
 ### Queue settings
 
 The `queue` block is what `lightsout queue` runs on. Without it the command refuses to start. Only `max-parallel` is required; the rest have defaults. Who the queue talks to lives in `ticket-tracker` above.
@@ -476,7 +492,7 @@ The `queue` block is what `lightsout queue` runs on. Without it the command refu
 | `queue.ready-status`     |       no | Your tracker's name for the status a ticket waits at once its shaping is finished or was never needed. Defaults to `"Ready to implement"`. It must be one of `queue.eligible-statuses`, or the queue refuses at startup naming both keys.                                     |
 | `queue.in-progress-status` |     no | Status the queue moves a ticket to when it picks it up. Defaults to `"In Progress"`.                                                                                                                                                                                        |
 | `queue.done-status`      |       no | Your tracker's name for the status a ticket reaches once its merge is confirmed. Defaults to `"Done"`.                                                                                                                                                                       |
-| `queue.setup`            |       no | Command run once in each fresh worktree before any agent, e.g. `pnpm install`. Absent means nothing runs.                                                                                                                                                                   |
+| `queue.setup`            |        — | Removed spelling. A config still carrying it fails to parse, with a message naming `worktree.setup` as the key that holds its value now.                                                                                                                                     |
 | `queue.branch-template`  |       no | How a ticket becomes a branch name. `{ticket}` is the lowercased identifier, `{slug}` the slugged title. Defaults to `{ticket}-{slug}`. Whatever it produces must be matched by `ship.ticket-pattern`. A plan folder is named exactly like the branch this template produces.                                                                        |
 | `queue.decisions-heading` |      no | The ticket-body heading relayed answers are appended under. Defaults to `## Decisions`.                                                                                                                                                                                     |
 | `queue.worker-timeout`   |       no | Ceiling for one ticket's worker session, as a duration string like `90s`, `45m` or `4h`. Per ticket, never for the drain — the queue itself runs until the backlog is dry. A hit ceiling parks the ticket resumably. Defaults to `4h`.                                        |
@@ -486,8 +502,9 @@ The `queue` block is what `lightsout queue` runs on. Without it the command refu
 
 The block is strict for the same reason `ship` is: an unknown key fails parsing
 rather than silently disabling a setting you believe is on. It contains queue
-behaviour only — planning-status labels, tracker status names, parallelism,
-setup, and timeouts. The tracker connection lives only in `ticket-tracker`.
+behaviour only — planning-status labels, tracker status names, parallelism, and
+timeouts. The tracker connection lives only in `ticket-tracker`, and the command
+that prepares a fresh worktree lives only in `worktree`.
 
 The queue reads two things about a ticket — the planning status its label names,
 and the status the ticket sits at — and takes work from exactly three pairs:
@@ -551,9 +568,16 @@ file read by every lens.
 
 ### Implement settings
 
-| Field                            | Required | What it controls                                                                          |
-| -------------------------------- | -------: | ------------------------------------------------------------------------------------------ |
-| `implement.refactor.max-rounds`  |       no | How many cleanup executor rounds one implementation run may spend at most. Defaults to `2`. |
+| Field                            | Required | What it controls                                                                                                                        |
+| -------------------------------- | -------: | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `implement.worktree`             |       no | Whether an implementation run builds in its own isolated git worktree rather than the checkout it was launched from. Defaults to `true`. |
+| `implement.refactor.max-rounds`  |       no | How many cleanup executor rounds one implementation run may spend at most. Defaults to `2`.                                             |
+
+An implementation run builds in a git worktree of its own by default, so the
+checkout you launched it from stays yours to work in. `--worktree` and
+`--no-worktree` override the setting for one run; supplying both is a startup
+failure, before any implementation begins. Whichever way it resolves, the run
+names the workspace and the branch it chose before it starts.
 
 A cleanup round is one invocation of the cleanup agent at the end of an
 implementation run: it is handed the standards findings that qualify as this
@@ -661,6 +685,11 @@ carrying the old key fails to parse and names the key that holds its value now.
 Existing tickets keep their old labels until someone relabels them; nothing in
 the engine reads a `route-` label any more.
 
+`queue.setup` → `worktree.setup`. The command prepares a worktree whoever cut
+it — the queue for a ticket, an implementation run for itself — so it stopped
+being a queue setting. A configuration still carrying the old key fails to parse
+and names its new home.
+
 That message is the live answer, which is why there is no list of every tombstone the
 schema declares here.
 
@@ -758,12 +787,17 @@ The following example shows how the optional configuration fields fit together:
     "api-key-env": "LINEAR_API_KEY",
   },
 
+  // Worktree: the one command run inside every fresh worktree, by the queue
+  // and by an isolated implementation run alike
+  "worktree": {
+    "setup": "pnpm install",
+  },
+
   // Queue: which tickets to drain, and how many run at once.
   // The five planning-status labels and the four status names all default, so
   // a repository whose tracker spells them the same way configures none of them.
   "queue": {
     "max-parallel": 2,
-    "setup": "pnpm install",
     "worker-timeout": "4h",
     "question-timeout": "1h",
     "parked-label": "queue-parked",

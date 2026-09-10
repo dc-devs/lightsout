@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { RunStatus } from '#src/contracts/index.ts';
@@ -169,5 +169,53 @@ test('live is true only for the run the repo lock actually names', async () => {
 		{ id: 'run-live', live: true, resumable: false },
 		// a `running` manifest with nothing behind it is a crash leftover — resumable, not lost
 		{ id: 'run-zombie', live: false, resumable: true },
+	]);
+});
+
+test('each run is asked for its own holder, so a run locking the workspace it recorded is live beside one locking the checkout here', async () => {
+	const cwd = await freshCwd();
+	const workspace = join(cwd, 'workspaces', 'run-isolated');
+
+	await seedRunDir({ cwd, manifest: { runId: 'run-isolated', status: RunStatus.Running, workspace, updatedAt: '2026-01-02T00:00:00.000Z' } });
+	await seedRunDir({ cwd, manifest: { runId: 'run-here', status: RunStatus.Running, updatedAt: '2026-01-01T00:00:00.000Z' } });
+	await mkdir(join(workspace, '.lightsout'), { recursive: true });
+	await writeFile(
+		join(workspace, '.lightsout', 'lock.json'),
+		JSON.stringify({ pid: process.pid, runId: 'run-isolated', startedAt: '2026-01-01T00:00:00.000Z' }),
+		'utf8',
+	);
+	await writeFile(join(cwd, '.lightsout', 'lock.json'), JSON.stringify({ pid: process.pid, runId: 'run-here', startedAt: '2026-01-01T00:00:00.000Z' }), 'utf8');
+
+	const runs = await listRuns({ cwd });
+
+	// one lock read for the whole list would brand the isolated run a crash
+	// leftover, because the checkout the list is read from names the other run
+	expect(runs.map((run) => ({ id: run.runId, live: run.live, resumable: run.resumable }))).toStrictEqual([
+		{ id: 'run-isolated', live: true, resumable: false },
+		{ id: 'run-here', live: true, resumable: false },
+	]);
+});
+
+test('a recorded workspace that has gone falls back to the checkout the list is read from rather than dropping the run', async () => {
+	const cwd = await freshCwd();
+
+	await seedRunDir({
+		cwd,
+		manifest: { runId: 'run-gone', status: RunStatus.Running, workspace: join(cwd, 'workspaces', 'removed'), updatedAt: '2026-01-02T00:00:00.000Z' },
+	});
+	await seedRunDir({
+		cwd,
+		manifest: { runId: 'run-stale', status: RunStatus.Running, workspace: join(cwd, 'workspaces', 'removed'), updatedAt: '2026-01-01T00:00:00.000Z' },
+	});
+	await writeFile(join(cwd, '.lightsout', 'lock.json'), JSON.stringify({ pid: process.pid, runId: 'run-gone', startedAt: '2026-01-01T00:00:00.000Z' }), 'utf8');
+
+	const runs = await listRuns({ cwd });
+
+	// a missing workspace is never the list's business to report, so the holder
+	// question falls back here — and the run this checkout does not name stays
+	// the crash leftover a resume would pick up
+	expect(runs.map((run) => ({ id: run.runId, live: run.live, resumable: run.resumable }))).toStrictEqual([
+		{ id: 'run-gone', live: true, resumable: false },
+		{ id: 'run-stale', live: false, resumable: true },
 	]);
 });

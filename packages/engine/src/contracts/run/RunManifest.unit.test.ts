@@ -184,3 +184,19 @@ test('RunManifest: an unparseable config snapshot fails the manifest', () => {
 	// cannot smuggle in a shape the config schema refuses
 	expect(RunManifest.safeParse(stale).success).toBe(false);
 });
+
+test('RunManifest: workspace records where the run worked, is optional so older manifests keep reading, and refuses a non-string', () => {
+	const workspace = '/Users/dev/code/app-worktrees/lo-70-isolate-the-run';
+
+	const recorded = RunManifest.parse({ ...base, harness: 'codex', branch: 'lo-70-isolate-the-run', workspace });
+
+	// branch names what the run built, workspace names where — the checkout its
+	// git work, gates, agents and commit happened in
+	expect(recorded.workspace).toBe(workspace);
+	// a run that built in the checkout it was launched from records no workspace,
+	// and neither does a manifest written before the field existed
+	expect(RunManifest.parse({ ...base, harness: 'codex' }).workspace).toBeUndefined();
+	// a non-string workspace is a corrupt manifest, not a path a resumed run
+	// could work in
+	expect(RunManifest.safeParse({ ...base, harness: 'codex', workspace: 3 }).success).toBe(false);
+});

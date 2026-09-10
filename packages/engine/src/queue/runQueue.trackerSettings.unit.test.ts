@@ -41,10 +41,10 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 // The three steps that would spend real time on a machine: cutting a worktree,
 // running a harness, and merging. Each is covered by its own tests, and none of
 // them reads tracker identity.
-const mockCreateTicketWorktree = jest.fn<(params: { cwd: string; branch: string }) => Promise<string | QueueFailure>>();
+const mockCreateWorktree = jest.fn<(params: { cwd: string; branch: string }) => Promise<string | QueueFailure>>();
 
-jest.mock('#src/queue/worktrees/createTicketWorktree.ts', () => ({
-	createTicketWorktree: (params: { cwd: string; branch: string }) => mockCreateTicketWorktree(params),
+jest.mock('#src/worktree/createWorktree.ts', () => ({
+	createWorktree: (params: { cwd: string; branch: string }) => mockCreateWorktree(params),
 }));
 // -------------------------
 const mockRunWorkerWithRelay = jest.fn<() => Promise<WorkerOutcome>>();
@@ -115,7 +115,7 @@ const setupDrain = ({
 	mockGetTicketsByIdentifiers.mockResolvedValue(parkedTicket === undefined ? [] : [parkedTicket]);
 	mockSetTicketStatus.mockResolvedValue(undefined);
 	mockSetTicketLabel.mockResolvedValue(undefined);
-	mockCreateTicketWorktree.mockImplementation(({ branch }) => Promise.resolve(join(worktreesRoot, branch)));
+	mockCreateWorktree.mockImplementation(({ branch }) => Promise.resolve(join(worktreesRoot, branch)));
 	mockRunWorkerWithRelay.mockResolvedValue({});
 	mockShipOneBranch.mockImplementation(({ outcome }) => Promise.resolve(outcome));
 

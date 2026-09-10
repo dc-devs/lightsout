@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
+import { toBranchSlug } from '#src/common/utils/toBranchSlug.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
@@ -46,5 +47,13 @@ describe('toTicketBranch', () => {
 
 	test('answers an empty slug for a title with nothing branch-safe in it, rather than a dash on its own', () => {
 		expect(toTicketBranch({ ticket: ticketOf({ title: '???' }), template: '{slug}' })).toBe('');
+	});
+
+	test('slugs the title through the shared branch-slug helper', () => {
+		const title = 'Rework the entire deterministic verification pipeline end to end';
+
+		const branch = toTicketBranch({ ticket: ticketOf({ title }), template: '{ticket}-{slug}' });
+
+		expect(branch).toBe(`lo-70-${toBranchSlug({ text: title })}`);
 	});
 });

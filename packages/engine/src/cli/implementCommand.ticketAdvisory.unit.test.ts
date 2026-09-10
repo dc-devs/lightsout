@@ -31,7 +31,7 @@ const setupImplement = ({ args, config, locked }: { args: string[]; config: Reco
 		writeFileSync(join(cwd, '.lightsout', 'lock.json'), JSON.stringify({ pid: process.pid, runId: 'already-running', startedAt: '2026-01-01T00:00:00.000Z' }));
 	}
 
-	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, ...captured };
+	return { context: { flags: parseFlags({ args: [...args, '--no-worktree'] }), rest: [], cwd }, cwd, ...captured };
 };
 
 /**

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { BranchPhase, type LightsoutConfig } from '#src/contracts/index.ts';
+import { BranchPhase, type LightsoutConfig, type WorktreeOwner } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
@@ -13,6 +13,7 @@ import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { TerminalQuestionRelay } from '#src/queue/relay/index.ts';
 import { runQueueTicket } from '#src/queue/runQueueTicket.ts';
+import type { WorktreeFailure } from '#src/worktree/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
@@ -24,17 +25,27 @@ interface CommitTicketWorkParams {
 	onProgress?: (message: string) => void;
 }
 
+interface CreateWorktreeParams {
+	cwd: string;
+	branch: string;
+	defaultBranch: string;
+	setup?: string;
+	owner: WorktreeOwner;
+	reuseExisting: boolean;
+	onProgress?: (message: string) => void;
+}
+
 // Mocked Imports
 // -------------------------
 // Each step this sequence calls is covered by its own tests; what this file owns
 // is the order they run in, and which of them decides the ticket is not ready.
-const mockCreateTicketWorktree = jest.fn<(params: { branch: string }) => Promise<string | QueueFailure>>();
+const mockCreateWorktree = jest.fn<(params: CreateWorktreeParams) => Promise<string | WorktreeFailure>>();
 const mockSetTicketStatus = jest.fn<(params: { statusName: string }) => Promise<QueueFailure | undefined>>();
 const mockRunWorkerWithRelay = jest.fn<() => Promise<WorkerOutcome>>();
 const mockCommitTicketWork = jest.fn<(params: CommitTicketWorkParams) => Promise<{ committed: boolean } | QueueFailure>>();
 const mockReadGitCommitsAhead = jest.fn<(params: { cwd: string; defaultBranch: string }) => Promise<number | undefined>>();
 
-jest.mock('#src/queue/worktrees/createTicketWorktree.ts', () => ({ createTicketWorktree: (params: { branch: string }) => mockCreateTicketWorktree(params) }));
+jest.mock('#src/worktree/createWorktree.ts', () => ({ createWorktree: (params: CreateWorktreeParams) => mockCreateWorktree(params) }));
 jest.mock('#src/ticketTracker/index.ts', () => ({
 	setTicketStatus: (params: { statusName: string }) => mockSetTicketStatus(params),
 	appendTicketNote: () => Promise.resolve(undefined),
@@ -81,7 +92,7 @@ const setupTicketRun = () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-repo-'));
 	const coordinatorRunDir = mkdtempSync(join(tmpdir(), 'lightsout-ticket-'));
 
-	mockCreateTicketWorktree.mockResolvedValue('/tmp/worktrees/lo-70-drain-the-backlog');
+	mockCreateWorktree.mockResolvedValue('/tmp/worktrees/lo-70-drain-the-backlog');
 	mockSetTicketStatus.mockResolvedValue(undefined);
 	mockRunWorkerWithRelay.mockResolvedValue({});
 	mockCommitTicketWork.mockResolvedValue({ committed: true });
@@ -134,7 +145,7 @@ describe('runQueueTicket', () => {
 		const { run, relay } = setupTicketRun();
 		const serialized: string[] = [];
 
-		mockCreateTicketWorktree.mockImplementation(({ branch }) => {
+		mockCreateWorktree.mockImplementation(({ branch }) => {
 			serialized.push(branch);
 
 			return Promise.resolve('/tmp/worktrees/lo-70-drain-the-backlog');
@@ -146,10 +157,23 @@ describe('runQueueTicket', () => {
 		expect(serialized).toStrictEqual(['lo-70-drain-the-backlog']);
 	});
 
+	test("creates the ticket's worktree as the queue's, continuing one an earlier drain parked", async () => {
+		const { run, relay } = setupTicketRun();
+
+		const outcome = await run();
+
+		relay.close();
+
+		expect(outcome.ready).toBe(true);
+		// Reuse on is what lets a drain pick a parked tree back up; the owner is what
+		// stops it picking up a tree a standalone run made.
+		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch: 'lo-70-drain-the-backlog', owner: 'queue', reuseExisting: true }));
+	});
+
 	test('ends the ticket when its worktree cannot be made, without asking the tracker or spawning a worker', async () => {
 		const { run, relay } = setupTicketRun();
 
-		mockCreateTicketWorktree.mockResolvedValue({ error: 'git refused' });
+		mockCreateWorktree.mockResolvedValue({ error: 'git refused' });
 
 		const outcome = await run();
 

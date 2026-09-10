@@ -101,7 +101,7 @@ const setupImplementDirect = ({
 	// the test typed. restoreMocks puts the real environment back after each test.
 	jest.replaceProperty(process, 'env', { ...process.env, LIGHTSOUT_NO_SHIP: '' });
 
-	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, ...captured };
+	return { context: { flags: parseFlags({ args: [...args, '--no-worktree'] }), rest: [], cwd }, cwd, ...captured };
 };
 
 describe('implementDirectCommand', () => {
@@ -243,9 +243,15 @@ describe('implementDirectCommand', () => {
 		const { cwd } = setupBranchRepo();
 
 		writeFileSync(join(cwd, 'ticket.md'), '# ticket\n');
+		// The config is read before the tree is guarded, because the workspace this
+		// run builds in is resolved from it — so a repo with no config never reaches
+		// the guard this case is about.
+		writeFileSync(join(cwd, 'lightsout.config.json'), JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false } }));
 		execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm setup && rm -rf .git', { cwd, stdio: 'ignore' });
 
-		await expect(implementDirectCommand({ flags: parseFlags({ args: ['--ticket', 'ticket.md'] }), rest: [], cwd })).rejects.toThrow(/process\.exit/);
+		await expect(implementDirectCommand({ flags: parseFlags({ args: ['--ticket', 'ticket.md', '--no-worktree'] }), rest: [], cwd })).rejects.toThrow(
+			/process\.exit/,
+		);
 
 		expect(captured.errors[0]).toContain('needs a readable git worktree');
 		expect(captured.exitCodes).toStrictEqual([1]);
@@ -290,6 +296,21 @@ describe('implementDirectCommand', () => {
 
 		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
 
+		expect(errors).toStrictEqual(['the worker changed nothing']);
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	// The commit step now lives in its own file, so the run directory it writes
+	// the message into travels as a parameter rather than being derived from the
+	// checkout the work is in — the two are no longer the same directory.
+	test("the extracted commit step is still given the minted run's own directory", async () => {
+		const { context, cwd, errors, exitCodes } = setupImplementDirect({ args: ['--ticket', 'ticket.md', '--ship'] });
+
+		mockCommitTicketWork.mockResolvedValue({ committed: false });
+
+		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(mockCommitTicketWork).toHaveBeenCalledWith(expect.objectContaining({ runDir: join(cwd, '.lightsout', 'runs', 'run-1234-abcd') }));
 		expect(errors).toStrictEqual(['the worker changed nothing']);
 		expect(exitCodes).toStrictEqual([1]);
 	});

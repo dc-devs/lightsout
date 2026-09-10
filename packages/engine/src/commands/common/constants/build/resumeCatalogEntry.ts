@@ -5,9 +5,9 @@ export const resumeCatalogEntry: CommandCatalogEntry = {
 	id: 'resume',
 	cli: 'lightsout resume',
 	group: CommandGroup.Build,
-	summary: 'Pick a parked run back up where it stopped — same manifest, same work list, nothing repeated.',
+	summary: 'Pick a parked run back up where it stopped, in the workspace that run recorded — same manifest, same work list, nothing repeated.',
 	whenToUse:
-		'Use it when a run parked — a rate limit, a batch ceiling, an escalation you have now answered. It restarts from the manifest, so finished work is never redone.',
+		'Use it when a run parked — a rate limit, a batch ceiling, an escalation you have now answered. It restarts from the manifest, so finished work is never redone, and it returns to the checkout that run recorded rather than the one you happen to be standing in. A direct run built from a ticket is continued here too: it picks its unfinished stage back up from the ticket frozen beside the run, rather than being re-run from the ticket file.',
 	invocations: [{ id: 'resume' }],
 	flags: [
 		{ name: 'run', value: '<id>', meaning: 'The parked run to pick back up.', required: true },

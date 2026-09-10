@@ -2,13 +2,13 @@ import { execSync } from 'node:child_process';
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { BranchPhase } from '#src/contracts/index.ts';
+import { BranchPhase, WorktreeOwner } from '#src/contracts/index.ts';
 import type { GateHolds } from '#src/gates/index.ts';
 import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
-import { createTicketWorktree } from '#src/queue/worktrees/createTicketWorktree.ts';
 import { scanParkedWorktrees } from '#src/queue/worktrees/scanParkedWorktrees.ts';
 import type { PullRequestSummary } from '#src/ship/index.ts';
 import type { TrackerFailure, TrackerTicket } from '#src/ticketTracker/index.ts';
+import { createWorktree } from '#src/worktree/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
@@ -92,7 +92,7 @@ const setupParkedScan = async ({
 
 	execSync('git config user.name t && git config user.email t@t', { cwd, stdio: 'ignore' });
 
-	const worktreePath = String(await createTicketWorktree({ cwd, branch, defaultBranch: 'main' }));
+	const worktreePath = String(await createWorktree({ cwd, branch, defaultBranch: 'main', owner: WorktreeOwner.Queue, reuseExisting: true }));
 
 	mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf({ finished })]);
 	mockSetTicketLabel.mockResolvedValue(undefined);

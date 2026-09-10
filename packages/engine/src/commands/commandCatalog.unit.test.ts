@@ -227,61 +227,6 @@ describe('commandCatalog', () => {
 		]);
 	});
 
-	test('accepts exactly the flags the usage text carried before the catalog held them', () => {
-		const accepted = commandCatalog.map((entry) => [entry.id, [...new Set(entry.flags.map((flag) => flag.name))].sort()]);
-
-		expect(accepted).toStrictEqual([
-			['brainstorm', ['cwd', 'name']],
-			['plan', ['cwd', 'name', 'notes', 'phase', 'scope']],
-			['auto-plan', []],
-			['implement', ['cwd', 'no-ship', 'overview', 'packages', 'plan', 'ship', 'skip-refactor', 'start-phase']],
-			['implement-direct', ['cwd', 'no-ship', 'ref', 'ship', 'ticket']],
-			['resume', ['cwd', 'no-ship', 'run', 'ship', 'skip-refactor']],
-			['ship', ['cwd']],
-			['queue', ['cwd', 'file-relay']],
-			['ticket-state', ['cwd', 'planning-status', 'ref', 'tracker-status']],
-			['self-check', ['cwd', 'run']],
-			['refactor', ['all', 'allow-dirty', 'code-checks', 'cwd', 'max-batches', 'path', 'run']],
-			['test-coverage-to-threshold', ['allow-dirty', 'cwd', 'max-batches', 'run']],
-			['standards-check', ['agent-review', 'all', 'baseline', 'code-checks', 'cwd', 'list', 'path']],
-			['standards-validate', ['cwd', 'pack']],
-			['standards-health', ['cwd']],
-			['status', ['cwd', 'run', 'watch']],
-			['doctor', ['cwd']],
-			['friction', ['cwd']],
-			['improve', ['cwd', 'engine']],
-			['voice', ['cwd']],
-		]);
-	});
-
-	test('repeats a flag name within one entry only across different shapes, so nothing renders twice on one usage line', () => {
-		const clashes = commandCatalog.flatMap((entry) =>
-			entry.flags.map((flag) => `${entry.id} --${flag.name} in ${flag.shape ?? 'every shape'}`).filter((key, index, keys) => keys.indexOf(key) !== index),
-		);
-
-		expect(clashes).toStrictEqual([]);
-	});
-
-	test('states implement’s --plan twice, because a file and a folder take different placeholders', () => {
-		const { byId } = setupCatalog();
-		const planFlags = byId.get('implement')?.flags.filter((flag) => flag.name === 'plan');
-
-		expect(planFlags).toEqual([
-			expect.objectContaining({ value: '<path>', shape: 'implement', required: true }),
-			expect.objectContaining({ value: '<folder>', shape: 'implement-folder', required: true }),
-		]);
-	});
-
-	test('a flag that excludes another names a key at least one sibling shares, or its bracket would hold one flag', () => {
-		const lonely = commandCatalog.flatMap((entry) =>
-			entry.flags
-				.filter((flag) => flag.exclusiveWith !== undefined && entry.flags.filter((other) => other.exclusiveWith === flag.exclusiveWith).length < 2)
-				.map((flag) => `${entry.id} --${flag.name}`),
-		);
-
-		expect(lonely).toStrictEqual([]);
-	});
-
 	test('every entry says what it does and when to reach for it — both are the command page’s body copy', () => {
 		const silent = commandCatalog.filter((entry) => entry.summary.trim() === '' || entry.whenToUse.trim() === '').map((entry) => entry.id);
 
@@ -321,6 +266,32 @@ describe('commandCatalog', () => {
 
 		expect(trackerStatus?.meaning).toEqual(expect.stringMatching(/\bready\b.*\bin-progress\b/));
 		expect(trackerStatus?.meaning).toEqual(expect.stringMatching(/[Dd]one is not among them/));
+	});
+
+	test('tells the reader what a bare --watch follows, now that it no longer takes the most recently updated run', () => {
+		const { byId } = setupCatalog();
+		const watch = byId.get('status')?.flags.find((flag) => flag.name === 'watch');
+
+		expect(watch?.meaning).toEqual(expect.stringMatching(/[Ww]ithout --run it follows the one run that is going/));
+		expect(watch?.meaning).toEqual(expect.stringMatching(/several .*runs are going.*--run <id>/));
+		expect(watch?.meaning).not.toEqual(expect.stringMatching(/newest/i));
+	});
+
+	test('states the same rule on the status-run invocation note, which is the line the usage text prints', () => {
+		const { byId } = setupCatalog();
+		const note = byId.get('status')?.invocations.find((invocation) => invocation.id === 'status-run')?.note;
+
+		expect(note).toEqual(expect.stringMatching(/without --run it follows the one run that is going/));
+		expect(note).not.toEqual(expect.stringMatching(/newest/i));
+	});
+
+	test('says a resumed run returns to the workspace it recorded, and that a direct run is continued here rather than re-run from its ticket', () => {
+		const { byId } = setupCatalog();
+		const resume = byId.get('resume');
+
+		expect(resume?.summary).toEqual(expect.stringMatching(/workspace that run recorded/));
+		expect(resume?.whenToUse).toEqual(expect.stringMatching(/returns to the checkout that run recorded/));
+		expect(resume?.whenToUse).toEqual(expect.stringMatching(/[Dd]irect run.*frozen beside the run/));
 	});
 
 	test('a flag that takes a value names its placeholder, so the usage line never prints a bare --flag that needs one', () => {

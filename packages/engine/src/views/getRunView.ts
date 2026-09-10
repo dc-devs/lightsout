@@ -2,7 +2,7 @@ import { access } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { readJsonlRecords } from '#src/common/utils/readJsonlRecords.ts';
 import { AgentInvocation, GateEvidence, PhaseReport, PipelineKind, type RunStepView, type RunView, type StepRecord } from '#src/contracts/index.ts';
-import { getRunDir, readFriction, readRunLock, readRunManifest, summarizeRun } from '#src/runState/index.ts';
+import { getRunDir, readFriction, readRunManifest, readRunProcessLock, summarizeRun } from '#src/runState/index.ts';
 import { buildRunBurnDown } from '#src/views/common/utils/buildRunBurnDown.ts';
 import { getRunTitle } from '#src/views/common/utils/getRunTitle.ts';
 import { readFrozenWorklist } from '#src/views/common/utils/readFrozenWorklist.ts';
@@ -99,7 +99,7 @@ interface Params {
 export const getRunView = async ({ cwd, runId }: Params): Promise<RunView> => {
 	const manifest = await readRunManifest({ cwd, runId });
 	const runDir = getRunDir({ cwd, runId: manifest.runId });
-	const lock = await readRunLock({ cwd });
+	const lock = await readRunProcessLock({ cwd, manifest });
 	const summary = await summarizeRun({ cwd, manifest });
 	const usage: StepUsage = new Map(
 		summary.steps.map((step) => [step.id, { invocations: step.invocations, outputTokens: step.outputTokens, costUsd: step.costUsd }]),

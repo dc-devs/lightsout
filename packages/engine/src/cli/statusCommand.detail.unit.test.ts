@@ -13,14 +13,16 @@ import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 // takes its timings from this command. Each has its own test that drives those
 // clocks directly; what belongs here is which of them the command reaches for.
 // Everything else — the manifests, the lock, the rendering — is real.
-const mockResolveWatchTarget = jest.fn<(params: { cwd: string }) => Promise<string | undefined>>();
-const mockWatchRunProgress = jest.fn<(params: { cwd: string; runId?: string }) => Promise<void>>();
+type WatchTarget = { runId: string; rootRunId: string } | { ambiguous: string[] } | undefined;
+
+const mockResolveWatchTarget = jest.fn<(params: { cwd: string; rootRunId?: string }) => Promise<WatchTarget>>();
+const mockWatchRunProgress = jest.fn<(params: { cwd: string; runId?: string; rootRunId?: string }) => Promise<void>>();
 
 jest.mock('#src/cli/common/utils/resolveWatchTarget.ts', () => ({
-	resolveWatchTarget: (params: { cwd: string }) => mockResolveWatchTarget(params),
+	resolveWatchTarget: (params: { cwd: string; rootRunId?: string }) => mockResolveWatchTarget(params),
 }));
 jest.mock('#src/cli/common/utils/watchRunProgress.ts', () => ({
-	watchRunProgress: (params: { cwd: string; runId?: string }) => mockWatchRunProgress(params),
+	watchRunProgress: (params: { cwd: string; runId?: string; rootRunId?: string }) => mockWatchRunProgress(params),
 }));
 // -------------------------
 
@@ -215,13 +217,13 @@ describe('statusCommand detail view', () => {
 	test('a bare --watch waits for a run to be going, then follows whatever is going each frame', async () => {
 		const { context, exitCodes } = setupDetail({ manifests: [manifestOf({ runId: 'run-alpha', status: RunStatus.Running })], args: { watch: true } });
 
-		mockResolveWatchTarget.mockResolvedValue('run-alpha');
+		mockResolveWatchTarget.mockResolvedValue({ runId: 'run-alpha', rootRunId: 'run-alpha' });
 
 		await expect(statusCommand(context)).rejects.toThrow(/process\.exit/);
 
-		// no runId: follow mode re-resolves its own target, which is what makes a
-		// phased plan watchable
-		expect(mockWatchRunProgress).toHaveBeenCalledWith({ cwd: context.cwd });
+		// no runId: follow mode re-resolves its own target inside that run's family,
+		// which is what makes a phased plan watchable
+		expect(mockWatchRunProgress).toHaveBeenCalledWith({ cwd: context.cwd, rootRunId: 'run-alpha' });
 		expect(exitCodes).toStrictEqual([0]);
 	});
 

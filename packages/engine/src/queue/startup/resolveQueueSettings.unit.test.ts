@@ -33,21 +33,24 @@ describe('resolveQueueSettings', () => {
 	});
 
 	test('lets the repo override every opinionated value, because the plugin must not constrain how a team works', () => {
+		const overridden = configOf({
+			...queueBlock,
+			'planning-status-labels': { 'planning-not-needed': 'shaped-none' },
+			'eligible-statuses': ['Todo', 'Waiting'],
+			'ready-status': 'Waiting',
+			'in-progress-status': 'Building',
+			'done-status': 'Shipped',
+			'branch-template': 'feature/{ticket}',
+			'decisions-heading': '## Settled',
+			'worker-timeout': '30m',
+			'question-timeout': '90s',
+			'parked-label': 'queue-parked',
+		});
+
+		// the preparation command is the one overridable value that is not a queue
+		// setting: it prepares a worktree whoever cut it, so it rides the shared block
 		const settings = resolveQueueSettings({
-			config: configOf({
-				...queueBlock,
-				'planning-status-labels': { 'planning-not-needed': 'shaped-none' },
-				'eligible-statuses': ['Todo', 'Waiting'],
-				'ready-status': 'Waiting',
-				'in-progress-status': 'Building',
-				'done-status': 'Shipped',
-				setup: 'pnpm install',
-				'branch-template': 'feature/{ticket}',
-				'decisions-heading': '## Settled',
-				'worker-timeout': '30m',
-				'question-timeout': '90s',
-				'parked-label': 'queue-parked',
-			}),
+			config: { ...overridden, worktree: { setup: 'pnpm install' } },
 			env: { LINEAR_API_KEY: 'lin_key' },
 		});
 
@@ -104,5 +107,20 @@ describe('resolveQueueSettings', () => {
 		expect(settings).toStrictEqual({
 			error: "`queue.planning-status-labels` maps 'shaped' to both planning-complete and planning-not-needed — one label cannot mean two planning statuses",
 		});
+	});
+
+	test('reads the preparation command from the worktree block rather than the queue block', () => {
+		const settings = resolveQueueSettings({
+			config: { ...configOf({ ...queueBlock }), worktree: { setup: 'pnpm install' } },
+			env: { LINEAR_API_KEY: 'lin_key' },
+		});
+
+		expect(settings).toMatchObject({ maxParallel: 3, setup: 'pnpm install' });
+	});
+
+	test('starts a queue with no worktree block at all, leaving the preparation command unset', () => {
+		const settings = resolveQueueSettings({ config: configOf({ ...queueBlock }), env: { LINEAR_API_KEY: 'lin_key' } });
+
+		expect(settings).toMatchObject({ maxParallel: 3, setup: undefined });
 	});
 });

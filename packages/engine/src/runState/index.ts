@@ -2,6 +2,8 @@ export { appendCommandLog } from '#src/runState/appendCommandLog.ts';
 export { appendFriction } from '#src/runState/appendFriction.ts';
 export { appendReviewFindings } from '#src/runState/appendReviewFindings.ts';
 export { appendTestReview } from '#src/runState/appendTestReview.ts';
+export { getFrictionPath } from '#src/runState/common/paths/getFrictionPath.ts';
+export { getReviewFindingsPath } from '#src/runState/common/paths/getReviewFindingsPath.ts';
 export { getRunDir } from '#src/runState/common/paths/getRunDir.ts';
 export { getRunsDir } from '#src/runState/common/paths/getRunsDir.ts';
 export { resolveRunId } from '#src/runState/common/paths/resolveRunId.ts';
@@ -19,7 +21,7 @@ export { listRunIds } from '#src/runState/listRunIds.ts';
 // `withRunLock` is their only caller and it releases what it acquires; offering
 // the pair to the whole engine is an invitation to take a lock and forget it.
 // Their own tests reach them through `runState/lock/index.ts`.
-export { RunLockError, readRunLock, withRunLock } from '#src/runState/lock/index.ts';
+export { RunLockError, readRunLock, readRunProcessLock, withRunLock } from '#src/runState/lock/index.ts';
 export { createProgressSink, getProgressLogPath, readLastProgressMessage } from '#src/runState/progress/index.ts';
 export { RunNotFoundError } from '#src/runState/RunNotFoundError.ts';
 export { readFriction } from '#src/runState/readFriction.ts';

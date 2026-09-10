@@ -58,7 +58,7 @@ export const resolveQueueSettings = ({ config }: Params): QueueSettings | QueueF
 	return {
 		lifecycle,
 		maxParallel: queue['max-parallel'],
-		setup: queue.setup,
+		setup: config.worktree?.setup,
 		branchTemplate: queue['branch-template'] ?? '{ticket}-{slug}',
 		decisionsHeading: queue['decisions-heading'] ?? '## Decisions',
 		workerTimeoutMs,

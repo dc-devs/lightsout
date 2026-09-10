@@ -2,19 +2,20 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { getRequiredFlag } from '#src/cli/common/args/getRequiredFlag.ts';
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
-import { printResult } from '#src/cli/common/render/printResult.ts';
+import { commitDirectRun } from '#src/cli/common/implementRun/commitDirectRun.ts';
+import { finishImplementRun } from '#src/cli/common/implementRun/finishImplementRun.ts';
+import { openDirectWorkspace } from '#src/cli/common/implementRun/openDirectWorkspace.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
+import type { RunWorkspace } from '#src/cli/common/types/RunWorkspace.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
-import { exitAfterImplement } from '#src/cli/common/utils/exitAfterImplement.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { resolveCommandShipIntent } from '#src/cli/common/utils/resolveCommandShipIntent.ts';
 import { resolveEffectiveConfigAndDriver } from '#src/cli/common/utils/resolveEffectiveConfigAndDriver.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { readGitCurrentBranch } from '#src/common/git/readGitCurrentBranch.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { runDirectWork } from '#src/direct/index.ts';
-import { commitTicketWork } from '#src/queue/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
 import { getRunDir } from '#src/runState/index.ts';
 import { readBranchTicketRef } from '#src/ship/index.ts';
 import { requireImplementLifecycle } from '#src/ticketLifecycle/index.ts';
@@ -24,51 +25,54 @@ import { requireImplementLifecycle } from '#src/ticketLifecycle/index.ts';
  * branch's ticket reference, falling back to the branch name and then to a
  * placeholder. It only labels, so a branch the pattern cannot read is named
  * rather than refused.
+ *
+ * It reads the WORKSPACE, so an isolated run is labelled from the branch it was
+ * just put on rather than from whatever the user happened to be standing on.
  */
 const readRunLabel = async ({ cwd, config }: { cwd: string; config: LightsoutConfig }) =>
 	(await readBranchTicketRef({ config, cwd })) ?? (await readGitCurrentBranch({ cwd })) ?? 'ticket';
 
 /**
- * The commit a passed run ends on — which is what makes `--ship` and
- * `ship.after-implement` work at all — or the sentence saying why there is none.
+ * The run, and the commit a passed one ends on.
  *
- * A run that produced no commit must never chain into ship, so "the worker
- * changed nothing" is a refusal here rather than a quiet success.
- *
- * @returns undefined when the work is committed, or the one sentence saying why it is not
+ * A run that did not pass is never committed — a failed build leaves the tree
+ * for a human — so `uncommitted` stays undefined for it and the caller's exit
+ * code comes from the result instead.
  */
-const commitDirectRun = async ({
+const buildAndCommit = async ({
 	cwd,
 	ticketBody,
 	ticketRef,
-	runId,
+	driver,
+	driverName,
+	config,
 	generated,
-	onProgress,
+	willShip,
 }: {
 	cwd: string;
 	ticketBody: string;
 	ticketRef: string;
-	runId: string;
+	driver: Driver;
+	driverName: string;
+	config: LightsoutConfig;
 	generated: string[] | undefined;
-	onProgress: (message: string) => void;
+	willShip: boolean;
 }) => {
-	const subject = ticketBody
-		.split('\n')[0]
-		.replace(/^#+\s*/, '')
-		.trim();
-	const committed = await commitTicketWork({
-		cwd,
-		message: `${ticketRef} ${subject}`.trim(),
-		runDir: getRunDir({ cwd, runId }),
-		generated,
-		onProgress,
-	});
+	const result = await runDirectWork({ cwd, ticketBody, ticketRef, driver, driverName, config, willShip, onProgress: createProgressPrinter() });
+	// The run directory travels as a path rather than an id: the checkout the work
+	// is in and the checkout the run's records live in are no longer the same
+	// directory, so only the caller can say where the message file belongs.
+	const runDir = getRunDir({ cwd, runId: result.manifest.runId });
+	const uncommitted = result.ok ? await commitDirectRun({ cwd, ticketBody, ticketRef, runDir, generated, onProgress: createProgressPrinter() }) : undefined;
 
-	if ('error' in committed) {
-		return committed.error;
-	}
+	return { result, uncommitted };
+};
 
-	return committed.committed ? undefined : 'the worker changed nothing';
+/** The startup line: which checkout the run builds in, on which branch, from which ticket file. */
+const printDirectRunHeader = ({ workspace, ticketRef, ticketPath }: { workspace: RunWorkspace; ticketRef: string; ticketPath: string }) => {
+	const where = workspace.isolated ? `${workspace.cwd} on ${workspace.branch}` : `${workspace.cwd} — the checkout this was launched from`;
+
+	console.log(`lightsout: building ${ticketRef} from ${ticketPath} in ${where}`);
 };
 
 /**
@@ -81,27 +85,17 @@ const commitDirectRun = async ({
  * path can hit it.
  *
  * There is deliberately no current-branch check, mirroring `lightsout
- * implement`: the command runs on whatever branch the checkout holds, and a
+ * implement`: the run builds on whatever branch its workspace holds, and a
  * default-branch mistake is refused downstream by ship.
  */
 export const implementDirectCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
-	const ticketPath = await getRequiredFlag({ flags, name: 'ticket' });
-	const ticketBody = await readFile(resolve(cwd, ticketPath), 'utf8').catch(() => undefined);
+	const namedTicketPath = await getRequiredFlag({ flags, name: 'ticket' });
+	// Read from the launching checkout, before anything is created, so a missing
+	// file is refused without a worktree being made for it.
+	const ticketBody = await readFile(resolve(cwd, namedTicketPath), 'utf8').catch(() => undefined);
 
 	if (ticketBody === undefined) {
-		console.error(`ticket file not found: ${ticketPath}`);
-		return exitCli({ code: 1 });
-	}
-
-	const dirty = await readGitChangedFiles({ cwd });
-
-	if (dirty === undefined) {
-		console.error(`git could not read the tree at ${cwd} — implement-direct commits what it builds, so it needs a readable git worktree`);
-		return exitCli({ code: 1 });
-	}
-
-	if (dirty.length > 0) {
-		console.error('implement-direct commits everything in the tree; commit or stash your changes first');
+		console.error(`ticket file not found: ${namedTicketPath}`);
 		return exitCli({ code: 1 });
 	}
 
@@ -113,48 +107,50 @@ export const implementDirectCommand = async ({ flags, cwd }: CommandContext): Pr
 	}
 
 	const flaggedRef = getStringFlag({ flags, name: 'ref' });
-	const ticketRef = flaggedRef ?? (await readRunLabel({ cwd, config: loaded }));
+	const opened = await openDirectWorkspace({ cwd, config: loaded, flags, ticketPath: namedTicketPath, ticketBody, flaggedRef });
+
+	if ('error' in opened) {
+		console.error(opened.error);
+		return exitCli({ code: 1 });
+	}
+
+	const { workspace, ticketPath } = opened;
+	const ticketRef = flaggedRef ?? (await readRunLabel({ cwd: workspace.cwd, config: loaded }));
 	const { config, driver, driverName } = resolveEffectiveConfigAndDriver({ config: loaded, command: 'implement' });
 	// The guard is handed `--ref` itself rather than `ticketRef`, whose
 	// branch-name fallback is a run label rather than a ticket reference. Without
 	// the flag it reads the branch through `readBranchTicketRef`, the same reader
 	// the label above starts from.
-	const refused = await requireImplementLifecycle({ cwd, config: loaded, env: process.env, ticketRef: flaggedRef, onProgress: createProgressPrinter() });
+	const refused = await requireImplementLifecycle({
+		cwd: workspace.cwd,
+		config: loaded,
+		env: process.env,
+		ticketRef: flaggedRef,
+		onProgress: createProgressPrinter(),
+	});
 
 	if (refused !== undefined) {
 		console.error(refused);
 		return exitCli({ code: 1 });
 	}
 
-	console.log(`lightsout: building ${ticketRef} from ${ticketPath}`);
+	printDirectRunHeader({ workspace, ticketRef, ticketPath });
 
-	const result = await runDirectWork({
-		cwd,
+	const { result, uncommitted } = await buildAndCommit({
+		cwd: workspace.cwd,
 		ticketBody,
 		ticketRef,
 		driver,
 		driverName,
 		config,
+		generated: loaded.generated,
 		willShip: shipIntent.willShip,
-		onProgress: createProgressPrinter(),
 	});
 
-	if (result.ok) {
-		const uncommitted = await commitDirectRun({
-			cwd,
-			ticketBody,
-			ticketRef,
-			runId: result.manifest.runId,
-			generated: loaded.generated,
-			onProgress: createProgressPrinter(),
-		});
-
-		if (uncommitted !== undefined) {
-			console.error(uncommitted);
-			return exitCli({ code: 1 });
-		}
+	if (uncommitted !== undefined) {
+		console.error(uncommitted);
+		return exitCli({ code: 1 });
 	}
 
-	await printResult({ result, cwd });
-	return exitAfterImplement({ config: loaded, cwd, result, shipFlag: flags.get('ship') === true, noShipFlag: flags.get('no-ship') === true, env: process.env });
+	return finishImplementRun({ config: loaded, cwd: workspace.cwd, result, flags });
 };

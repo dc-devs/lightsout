@@ -43,7 +43,7 @@ const setupImplementLifecycle = ({ args, refusal }: { args: string[]; refusal?: 
 
 	mockRequireImplementLifecycle.mockResolvedValue(refusal);
 
-	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, ...captured };
+	return { context: { flags: parseFlags({ args: [...args, '--no-worktree'] }), rest: [], cwd }, cwd, ...captured };
 };
 
 describe('implementCommand pre-source lifecycle guard', () => {

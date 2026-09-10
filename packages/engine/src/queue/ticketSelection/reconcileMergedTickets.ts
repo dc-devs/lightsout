@@ -1,13 +1,12 @@
-import { join } from 'node:path';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import { establishBranchMerge } from '#src/queue/common/utils/establishBranchMerge.ts';
-import { getWorktreesRoot } from '#src/queue/common/utils/getWorktreesRoot.ts';
 import { settleReconciledWorktree } from '#src/queue/common/utils/settleReconciledWorktree.ts';
 import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
 import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
+import { resolveWorktreePath } from '#src/worktree/index.ts';
 
 interface Params {
 	/** The main repository checkout. */
@@ -59,7 +58,8 @@ export const reconcileMergedTickets = async ({
 			onProgress?.(reconciliationFailure);
 		}
 
-		const heldWorktree = await settleReconciledWorktree({ cwd, worktreePath: join(getWorktreesRoot({ cwd }), branch), branch, onProgress });
+		const worktreePath = await resolveWorktreePath({ cwd, branch });
+		const heldWorktree = await settleReconciledWorktree({ cwd, worktreePath, branch, onProgress });
 		const established =
 			evidence.pullRequest === undefined
 				? `its branch ${branch} is recorded merged`

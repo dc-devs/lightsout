@@ -68,7 +68,7 @@ const setupImplement = ({
 		writeFileSync(join(cwd, '.lightsout', 'lock.json'), JSON.stringify({ pid: process.pid, runId: 'already-running', startedAt: '2026-01-01T00:00:00.000Z' }));
 	}
 
-	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, ...captured };
+	return { context: { flags: parseFlags({ args: [...args, '--no-worktree'] }), rest: [], cwd }, cwd, ...captured };
 };
 
 test('implementCommand: without --plan it prints the usage text on stderr and exits 1 before loading any config', async () => {

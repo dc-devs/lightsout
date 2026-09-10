@@ -1,5 +1,5 @@
 import type { RunListing } from '#src/contracts/index.ts';
-import { listRunIds, readRunLock, readRunManifest } from '#src/runState/index.ts';
+import { listRunIds, readRunManifest, readRunProcessLock } from '#src/runState/index.ts';
 import { readRunListing } from '#src/views/common/utils/readRunListing.ts';
 
 interface Params {
@@ -15,7 +15,6 @@ interface Params {
  * corrupt directory must not take the whole history down with it.
  */
 export const listRuns = async ({ cwd }: Params): Promise<RunListing[]> => {
-	const lock = await readRunLock({ cwd });
 	const listings: RunListing[] = [];
 
 	for (const runId of await listRunIds({ cwd })) {
@@ -25,7 +24,9 @@ export const listRuns = async ({ cwd }: Params): Promise<RunListing[]> => {
 			continue;
 		}
 
-		listings.push(await readRunListing({ cwd, manifest, lock }));
+		// Per run rather than once: the run lock is per-checkout, so an isolated
+		// run's holder is in the workspace it recorded rather than here.
+		listings.push(await readRunListing({ cwd, manifest, lock: await readRunProcessLock({ cwd, manifest }) }));
 	}
 
 	return listings.sort((first, second) => second.updatedAt.localeCompare(first.updatedAt));

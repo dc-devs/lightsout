@@ -2,8 +2,8 @@ import { z } from 'zod';
 
 /**
  * The optional `implement` block of `lightsout.config.json` — the settings the
- * `implement` command itself reads, of which the cleanup round budget is the
- * only one so far.
+ * `implement` command itself reads: whether a run builds in its own isolated
+ * worktree, and the cleanup round budget.
  *
  * Not to be confused with `commands.implement`, which picks a harness for this
  * command and lives in a different block. This one is the command's own
@@ -15,6 +15,8 @@ import { z } from 'zod';
  */
 export const ConfigImplement = z
 	.object({
+		/** Whether an implementation run builds in its own isolated git worktree rather than the checkout it was launched from. Default true. `--worktree` and `--no-worktree` override it for one run. */
+		worktree: z.boolean().optional(),
 		/** Implementation cleanup — the bounded, non-blocking tidying pass that ends a run's implementation. */
 		refactor: z
 			.object({

@@ -12,7 +12,6 @@ describe('ConfigQueue', () => {
 			'ready-status': 'Waiting',
 			'in-progress-status': 'Building',
 			'done-status': 'Shipped',
-			setup: 'pnpm install',
 			'branch-template': 'feature/{ticket}-{slug}',
 			'decisions-heading': '## Settled',
 			'worker-timeout': '90m',
@@ -29,12 +28,18 @@ describe('ConfigQueue', () => {
 		expect(parsed['ready-status']).toBe('Waiting');
 		expect(parsed['in-progress-status']).toBe('Building');
 		expect(parsed['done-status']).toBe('Shipped');
-		expect(parsed.setup).toBe('pnpm install');
 		expect(parsed['decisions-heading']).toBe('## Settled');
 	});
 
 	test('refuses the retired `worker-minutes` key, because a silently ignored ceiling is worse than a refusal', () => {
 		expect(ConfigQueue.safeParse({ ...minimal, 'worker-minutes': 90 }).success).toBe(false);
+	});
+
+	test('refuses the moved `setup` key with a message naming `worktree.setup`, because a lost preparation command leaves an agent in a tree with no dependencies', () => {
+		const result = ConfigQueue.safeParse({ ...minimal, setup: 'pnpm install' });
+
+		expect(result.success).toBe(false);
+		expect(result.error?.message ?? '').toMatch(/`queue.setup` was renamed to `worktree.setup`/);
 	});
 
 	test.each([

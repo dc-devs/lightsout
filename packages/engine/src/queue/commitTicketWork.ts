@@ -3,8 +3,8 @@ import { join } from 'node:path';
 import { gitTimeoutMs } from '#src/common/constants/gitTimeoutMs.ts';
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { runCommand } from '#src/common/processes/runCommand.ts';
+import { runOrDescribeFailure } from '#src/common/processes/runOrDescribeFailure.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import { runOrDescribeFailure } from '#src/queue/common/utils/runOrDescribeFailure.ts';
 
 interface Params {
 	/** The worktree holding the work. */

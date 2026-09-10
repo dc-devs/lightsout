@@ -185,10 +185,12 @@ describe('watchRunProgress', () => {
 			steps: [{ id: 'phase1.md', status: RunStatus.Running, attempts: 1, report: { runId: 'run-child' } }],
 			updatedAt: '2026-01-01T00:10:00.000Z',
 		});
+		const childOf = ({ status, updatedAt }: { status: RunStatus; updatedAt: string }) =>
+			manifestOf({ runId: 'run-child', parentRunId: 'run-coord', plan: 'plans/demo/phase1.md', status, updatedAt });
 		const watch = setupWatch({
 			onFrame: (frame) => {
 				if (frame === 1) {
-					watch.write({ manifest: manifestOf({ runId: 'run-child', plan: 'plans/demo/phase1.md', status: RunStatus.Passed }) });
+					watch.write({ manifest: childOf({ status: RunStatus.Passed, updatedAt: '2026-01-01T00:10:00.000Z' }) });
 					watch.write({ manifest: { ...coordinator, updatedAt: '2026-01-01T00:20:00.000Z' } });
 				}
 
@@ -199,10 +201,10 @@ describe('watchRunProgress', () => {
 		});
 
 		watch.write({ manifest: coordinator });
-		watch.write({ manifest: manifestOf({ runId: 'run-child', plan: 'plans/demo/phase1.md', updatedAt: '2026-01-01T00:15:00.000Z' }) });
+		watch.write({ manifest: childOf({ status: RunStatus.Running, updatedAt: '2026-01-01T00:15:00.000Z' }) });
 		watch.lock({ runId: 'run-child', pid: process.pid });
 
-		await watchRunProgress({ cwd: watch.cwd, ...timings });
+		await watchRunProgress({ cwd: watch.cwd, rootRunId: 'run-coord', ...timings });
 
 		const blocks = framesOf({ lines: watch.lines });
 
@@ -211,6 +213,48 @@ describe('watchRunProgress', () => {
 		expect(blocks).toHaveLength(2);
 		expect(blocks[0]?.[0]?.endsWith('run-chil')).toBe(true);
 		expect(blocks[1]?.[0]?.endsWith('run-coor')).toBe(true);
+	});
+
+	test('follow mode walks its own family and paints nothing belonging to an unrelated run', async () => {
+		const coordinator = manifestOf({
+			runId: 'run-coord',
+			pipeline: 'phases',
+			plan: 'plans/demo/overview.md',
+			steps: [{ id: 'phase1.md', status: RunStatus.Running, attempts: 1, report: { runId: 'run-child' } }],
+			updatedAt: '2026-01-01T00:10:00.000Z',
+		});
+		const childOf = ({ status, updatedAt }: { status: RunStatus; updatedAt: string }) =>
+			manifestOf({ runId: 'run-child', parentRunId: 'run-coord', plan: 'plans/demo/phase1.md', status, updatedAt });
+		const watch = setupWatch({
+			onFrame: (frame) => {
+				if (frame === 1) {
+					watch.write({ manifest: childOf({ status: RunStatus.Passed, updatedAt: '2026-01-01T00:18:00.000Z' }) });
+					watch.write({ manifest: { ...coordinator, updatedAt: '2026-01-01T00:20:00.000Z' } });
+				}
+
+				if (frame === 2) {
+					watch.write({ manifest: { ...coordinator, updatedAt: '2026-01-01T00:30:00.000Z', status: RunStatus.Passed } });
+				}
+			},
+		});
+
+		watch.write({ manifest: coordinator });
+		watch.write({ manifest: childOf({ status: RunStatus.Running, updatedAt: '2026-01-01T00:15:00.000Z' }) });
+		// unrelated work, updated more recently than anything in the family — the
+		// run a newest-going choice would have painted instead
+		watch.write({ manifest: manifestOf({ runId: 'run-other', plan: 'plans/other/plan.md', updatedAt: '2026-01-01T00:59:00.000Z' }) });
+		watch.lock({ runId: 'run-child', pid: process.pid });
+
+		await watchRunProgress({ cwd: watch.cwd, rootRunId: 'run-coord', ...timings });
+
+		const blocks = framesOf({ lines: watch.lines });
+
+		// the family is walked child then coordinator, and the watch ends with the
+		// coordinator rather than crossing to the unrelated run still going
+		expect(blocks).toHaveLength(2);
+		expect(blocks[0]?.[0]?.endsWith('run-chil')).toBe(true);
+		expect(blocks[1]?.[0]?.endsWith('run-coor')).toBe(true);
+		expect(watch.lines.some((line) => line.includes('run-oth'))).toBe(false);
 	});
 
 	test('a ship result that lands mid-settle earns exactly one more frame, showing the row filled', async () => {

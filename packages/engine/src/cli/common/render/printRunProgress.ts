@@ -1,5 +1,5 @@
 import { renderRunProgress } from '#src/cli/common/render/renderRunProgress.ts';
-import { readRunLock, readRunManifest } from '#src/runState/index.ts';
+import { readRunManifest, readRunProcessLock } from '#src/runState/index.ts';
 import { getRunProgress, type RunProgress } from '#src/views/index.ts';
 
 interface Params {
@@ -20,7 +20,7 @@ interface Params {
  */
 export const printRunProgress = async ({ cwd, runId }: Params): Promise<RunProgress> => {
 	const manifest = await readRunManifest({ cwd, runId });
-	const lock = await readRunLock({ cwd });
+	const lock = await readRunProcessLock({ cwd, manifest });
 	const progress = await getRunProgress({ cwd, manifest, lock });
 
 	console.log('');

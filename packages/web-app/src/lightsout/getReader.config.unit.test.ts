@@ -101,6 +101,7 @@ describe('getReader config', () => {
 			{ title: 'Timeouts', keys: ['timeouts.agent-minutes', 'timeouts.supervisor-minutes', 'timeouts.gate-minutes'] },
 			{ title: 'Ship', keys: ['ship'] },
 			{ title: 'Ticket tracker', keys: ['ticket-tracker'] },
+			{ title: 'Worktree', keys: ['worktree'] },
 			{ title: 'Queue', keys: ['queue'] },
 			{ title: 'Auto plan', keys: ['auto-plan'] },
 			{ title: 'Plan', keys: ['plan'] },

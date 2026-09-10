@@ -15,7 +15,7 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 // settled entry, and that no failure along the way drops it.
 const mockReconcileShippedTicket = jest.fn<(params: { ticketRef: string | undefined }) => Promise<string | undefined>>();
 const mockReadGitChangedFiles = jest.fn<(params: { cwd: string }) => Promise<string[] | undefined>>();
-const mockRemoveTicketWorktree = jest.fn<(params: { cwd: string; worktreePath: string; branch: string }) => Promise<void>>();
+const mockRemoveWorktree = jest.fn<(params: { cwd: string; worktreePath: string; branch: string }) => Promise<undefined>>();
 const mockSetTicketLabel =
 	jest.fn<(params: { settings: TrackerSettings; ticketId: string; label: string | undefined; present: boolean }) => Promise<TrackerFailure | undefined>>();
 
@@ -23,8 +23,8 @@ jest.mock('#src/ticketLifecycle/index.ts', () => ({
 	reconcileShippedTicket: (params: { ticketRef: string | undefined }) => mockReconcileShippedTicket(params),
 }));
 jest.mock('#src/common/git/readGitChangedFiles.ts', () => ({ readGitChangedFiles: (params: { cwd: string }) => mockReadGitChangedFiles(params) }));
-jest.mock('#src/queue/worktrees/removeTicketWorktree.ts', () => ({
-	removeTicketWorktree: (params: { cwd: string; worktreePath: string; branch: string }) => mockRemoveTicketWorktree(params),
+jest.mock('#src/worktree/removeWorktree.ts', () => ({
+	removeWorktree: (params: { cwd: string; worktreePath: string; branch: string }) => mockRemoveWorktree(params),
 }));
 jest.mock('#src/ticketTracker/index.ts', () => ({
 	setTicketLabel: (params: { settings: TrackerSettings; ticketId: string; label: string | undefined; present: boolean }) => mockSetTicketLabel(params),
@@ -68,7 +68,7 @@ const setupSettle = ({
 
 	mockReconcileShippedTicket.mockResolvedValue(reconciliationFailure);
 	mockReadGitChangedFiles.mockResolvedValue(changedFilesFor[worktree]);
-	mockRemoveTicketWorktree.mockResolvedValue(undefined);
+	mockRemoveWorktree.mockResolvedValue(undefined);
 	mockSetTicketLabel.mockResolvedValue(labelFailure);
 
 	const settle = ({ numbers }: { numbers: number[] }) =>
@@ -94,7 +94,7 @@ const setupLabelWrites = ({ parkedLabel = 'queue-parked' }: { parkedLabel?: stri
 
 	mockReconcileShippedTicket.mockResolvedValue(undefined);
 	mockReadGitChangedFiles.mockResolvedValue(changedFilesFor.clean);
-	mockRemoveTicketWorktree.mockResolvedValue(undefined);
+	mockRemoveWorktree.mockResolvedValue(undefined);
 	mockSetTicketLabel.mockResolvedValue(undefined);
 
 	const settle = ({ numbers }: { numbers: number[] }) =>
@@ -117,7 +117,7 @@ describe('settleMergedTrees', () => {
 
 		expect(await settle({ numbers: [] })).toStrictEqual([]);
 		expect(mockReconcileShippedTicket).not.toHaveBeenCalled();
-		expect(mockRemoveTicketWorktree).not.toHaveBeenCalled();
+		expect(mockRemoveWorktree).not.toHaveBeenCalled();
 	});
 
 	test('reconciles each tree to done and reports one settled entry apiece, so nothing waits on a re-run', async () => {
@@ -145,7 +145,7 @@ describe('settleMergedTrees', () => {
 
 		await settle({ numbers: [70] });
 
-		expect(mockRemoveTicketWorktree).toHaveBeenCalledWith({ cwd: '/repo', worktreePath: '/repo-worktrees/lo-70-drain', branch: 'lo-70-drain' });
+		expect(mockRemoveWorktree).toHaveBeenCalledWith({ cwd: '/repo', worktreePath: '/repo-worktrees/lo-70-drain', branch: 'lo-70-drain' });
 		expect(mockSetTicketLabel).toHaveBeenCalledWith(expect.objectContaining({ ticketId: 'id-70', present: false }));
 	});
 
@@ -154,7 +154,7 @@ describe('settleMergedTrees', () => {
 
 		const settled = await settle({ numbers: [70] });
 
-		expect(mockRemoveTicketWorktree).not.toHaveBeenCalled();
+		expect(mockRemoveWorktree).not.toHaveBeenCalled();
 		expect(settled[0]?.reason).toContain('left in place because it has uncommitted changes');
 	});
 

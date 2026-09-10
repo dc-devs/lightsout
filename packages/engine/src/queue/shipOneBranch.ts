@@ -2,9 +2,9 @@ import { BranchPhase, type LightsoutConfig, ShipBlockReason, ShipStatus } from '
 import { takeGateHold } from '#src/gates/index.ts';
 import { writeBranchState } from '#src/queue/branchState/index.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
-import { removeTicketWorktree } from '#src/queue/worktrees/index.ts';
 import { runShip, type ShipIntegration, type ShipSettings } from '#src/ship/index.ts';
 import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
+import { deleteWorktreeRecord, removeWorktree } from '#src/worktree/index.ts';
 
 interface Params {
 	/** The main repository checkout. */
@@ -98,14 +98,20 @@ export const shipOneBranch = async ({
 		return park({ error: `${shipped.reason}: ${shipped.detail}` });
 	}
 
-	// Recorded before the cleanup that depends on it: `removeTicketWorktree`
-	// deletes the evidence a later run would otherwise read, and the tracker
-	// write below can fail, so a process killed anywhere in this tail must still
-	// leave the branch recorded merged rather than ready to merge again.
+	// Recorded before the cleanup that depends on it: `removeWorktree` deletes
+	// the evidence a later run would otherwise read, and the tracker write below
+	// can fail, so a process killed anywhere in this tail must still leave the
+	// branch recorded merged rather than ready to merge again. The ownership
+	// record goes after it, and only when the tree really came down — a record
+	// dropped beside a tree still standing is one nothing claims.
 	await writeBranchState({ cwd, branch: outcome.branch, phase: BranchPhase.Merged, onProgress });
 	// The one main-checkout mutation in this step: a builder may be adding a
 	// worktree there in the same turn, so the removal takes the shared chain.
-	await serializeMainCheckout({ task: () => removeTicketWorktree({ cwd, worktreePath: outcome.worktreePath, branch: outcome.branch }) });
+	const removal = await serializeMainCheckout({ task: () => removeWorktree({ cwd, worktreePath: outcome.worktreePath, branch: outcome.branch }) });
+
+	if (removal === undefined) {
+		await deleteWorktreeRecord({ cwd, branch: outcome.branch });
+	}
 	onProgress?.(`${outcome.ticket.identifier} · shipped as ${shipped.mergeCommit}`);
 
 	// The merge is what the Done write is evidence of, so it happens after it —

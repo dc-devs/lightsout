@@ -2,18 +2,19 @@ import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { gitTimeoutMs } from '#src/common/constants/gitTimeoutMs.ts';
 import { runCommand } from '#src/common/processes/runCommand.ts';
+import { WorktreeOwner } from '#src/contracts/index.ts';
 import { describeGateHold, type GateHolds, isTicketGateHeld } from '#src/gates/index.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { establishBranchMerge } from '#src/queue/common/utils/establishBranchMerge.ts';
-import { getWorktreesRoot } from '#src/queue/common/utils/getWorktreesRoot.ts';
 import { toPlanningSummaries } from '#src/queue/common/utils/toPlanningSummaries.ts';
 import type { ParkedTree } from '#src/queue/worktrees/common/types/ParkedTree.ts';
 import { settleUnmergedTree } from '#src/queue/worktrees/common/utils/settleUnmergedTree.ts';
 import { readTicketMatch, type ShipSettings } from '#src/ship/index.ts';
 import { getTicketsByIdentifiers, type TrackerSettings } from '#src/ticketTracker/index.ts';
+import { readWorktreeRecord, resolveWorktreesRoot } from '#src/worktree/index.ts';
 
 interface Params {
 	/** The main repository checkout. */
@@ -34,7 +35,7 @@ interface Params {
  * Git answers filesystem-resolved paths, so wherever the checkout sits behind a
  * symlink the two spellings differ. Re-rooting keeps every path the queue
  * prints, hands to a worker and removes after a merge in one form — the form
- * `createTicketWorktree` builds for a ticket picked up fresh.
+ * `createWorktree` builds for a ticket picked up fresh.
  */
 const toQueuePath = ({ path, root, realRoot }: { path: string; root: string; realRoot: string }) => {
 	for (const prefix of [root, realRoot]) {
@@ -53,7 +54,7 @@ const toQueuePath = ({ path, root, realRoot }: { path: string; root: string; rea
  */
 const listQueueWorktrees = async ({ cwd, shipSettings, onProgress }: { cwd: string; shipSettings: ShipSettings; onProgress?: (message: string) => void }) => {
 	const listed = await runCommand({ command: 'git worktree list --porcelain', cwd, timeoutMs: gitTimeoutMs }).catch(() => undefined);
-	const root = getWorktreesRoot({ cwd });
+	const root = await resolveWorktreesRoot({ cwd });
 	const realRoot = await realpath(root).catch(() => root);
 	const trees: ParkedTree[] = [];
 
@@ -72,6 +73,16 @@ const listQueueWorktrees = async ({ cwd, shipSettings, onProgress }: { cwd: stri
 			// A template edited between drains, or a tree someone made by hand.
 			// Either way it is not ours to touch.
 			onProgress?.(`leaving ${path} alone — its branch carries no ticket the configured pattern matches`);
+			continue;
+		}
+
+		const record = await readWorktreeRecord({ cwd, branch });
+
+		if (record !== undefined && record.owner !== WorktreeOwner.Queue) {
+			// A tree a standalone run made and may still be building in. A tree
+			// carrying no record at all is one an earlier drain made before
+			// ownership was recorded, and is still ours to resume.
+			onProgress?.(`leaving ${path} alone — it belongs to a '${record.owner}' run rather than the queue`);
 			continue;
 		}
 

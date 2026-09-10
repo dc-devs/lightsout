@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { readGitCurrentBranch } from '#src/common/git/readGitCurrentBranch.ts';
 import { toRepoRelativePath } from '#src/common/utils/toRepoRelativePath.ts';
 import { type LightsoutConfig, type PipelineKind, type RunManifest, RunStatus } from '#src/contracts/index.ts';
@@ -65,6 +66,11 @@ export const createRun = async ({
 		harness: driver,
 		config,
 		branch: await readGitCurrentBranch({ cwd }),
+		// Absolute, because the reader that wants it is standing in another checkout
+		// and has nothing to join a relative path onto. Written from what this
+		// function already holds rather than threaded down from three pipeline entry
+		// points: `cwd` IS the checkout the run's work happens in.
+		workspace: resolve(cwd),
 		willShip,
 		status: RunStatus.Pending,
 		currentStep: null,

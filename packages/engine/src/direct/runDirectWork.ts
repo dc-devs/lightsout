@@ -30,6 +30,8 @@ interface Params {
 	answeredQuestion?: AnsweredQuestion;
 	/** Resolved before the run starts: a passing run will ship this branch. Recorded on the manifest so the progress view can show a ship row. */
 	willShip?: boolean;
+	/** The run to continue instead of minting a new one — a resumed direct run keeps its id, its frozen ticket input and the partial changes already in its tree. */
+	existing?: RunManifest;
 	onProgress?: (message: string) => void;
 }
 
@@ -178,6 +180,13 @@ const buildAndVerify = async ({
  * Pre-flight green gate → build from the ticket body → the repo's own gates,
  * with a bounded fix loop → done. The coverage gate is included from the
  * pre-flight onward, so a repo that requires tests still requires them.
+ *
+ * A continued run (`existing` set) adopts that run's manifest rather than
+ * minting a second, and skips the pre-flight. That skip is the point rather
+ * than an optimisation: the gate exists to prove the tree was green BEFORE any
+ * agent touched it, and a resumed tree holds the run's own partial work, so
+ * re-running it would fail the run on the very changes the resume exists to
+ * preserve. Everything after it is shared by a first run and a resumed one.
  */
 const executeDirectWork = async ({
 	cwd,
@@ -189,27 +198,31 @@ const executeDirectWork = async ({
 	config,
 	answeredQuestion,
 	willShip,
+	existing,
 	onProgress,
 }: Params & { runId: string }) => {
-	const manifest = await createDirectRun({ cwd, runId, ticketBody, ticketRef, driverName, config, willShip });
+	const manifest = existing ?? (await createDirectRun({ cwd, runId, ticketBody, ticketRef, driverName, config, willShip }));
 	const run = new RunState({ cwd, config, manifest, onProgress });
 	const stop = ({ record, status, error }: { record: StepRecord; status: RunStatus; error: string }) => stopDirectRun({ run, record, status, error });
 
 	await run.update({ patch: { status: RunStatus.Running } });
 
-	const redBaseline = await runPreflightGate({
-		run: {
-			cwd,
-			config,
-			current: () => run.current(),
-			progress: (message: string) => run.progress(message),
-			setStep: (params: { record: StepRecord; patch?: Partial<RunManifest> }) => run.setStep(params),
-			stop,
-		},
-		coverage: true,
-		label: 'pre-flight — the repo’s own gates before any agent',
-		redBaselineError: `Codebase is not green before building ${ticketRef} — fix this first.`,
-	});
+	const redBaseline =
+		existing === undefined
+			? await runPreflightGate({
+					run: {
+						cwd,
+						config,
+						current: () => run.current(),
+						progress: (message: string) => run.progress(message),
+						setStep: (params: { record: StepRecord; patch?: Partial<RunManifest> }) => run.setStep(params),
+						stop,
+					},
+					coverage: true,
+					label: 'pre-flight — the repo’s own gates before any agent',
+					redBaselineError: `Codebase is not green before building ${ticketRef} — fix this first.`,
+				})
+			: undefined;
 
 	if (redBaseline) {
 		return redBaseline;
@@ -228,6 +241,7 @@ const executeDirectWork = async ({
  * existing reader of a run result already understands it. A re-invocation
  * (`answeredQuestion` set) runs in the same tree the previous attempt dirtied
  * and continues that work in place; each invocation mints its own run, so every
- * attempt keeps its own truthful record.
+ * attempt keeps its own truthful record — except a resume (`existing` set),
+ * which deliberately continues the parked run rather than minting a second.
  */
 export const runDirectWork = (params: Params): Promise<PipelineResult> => withRunLock({ params, run: executeDirectWork });
