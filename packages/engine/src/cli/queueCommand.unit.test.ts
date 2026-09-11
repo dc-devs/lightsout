@@ -53,6 +53,8 @@ jest.mock('#src/queue/index.ts', () => {
 		emptyRelayMailbox: (params: { directory: string }) => mockEmptyRelayMailbox(params),
 		TerminalQuestionRelay: recordingRelay({ kind: 'terminal' }),
 		FileQuestionRelay: recordingRelay({ kind: 'file' }),
+		// Real, because the final board must be fed from the real projection of the report.
+		toQueueBoardTickets: jest.requireActual<typeof import('#src/queue/index.ts')>('#src/queue/index.ts').toQueueBoardTickets,
 	};
 });
 jest.mock('#src/ticketTracker/index.ts', () => ({ resolveTrackerSettings: () => mockResolveTrackerSettings() }));
@@ -67,6 +69,7 @@ const outcomeOf = ({ ready, error, reconciliationFailure }: { ready: boolean; er
 		id: 'id-70',
 		identifier: 'LO-70',
 		title: 'Drain the backlog',
+		url: 'https://linear.app/lightsout/issue/LO-70',
 		description: '',
 		priority: 2,
 		createdAt: '2026-01-01T00:00:00.000Z',
@@ -128,6 +131,23 @@ const holdRunLock = ({ cwd, pid }: { cwd: string; pid: number }) => {
 	writeFileSync(join(cwd, '.lightsout', 'lock.json'), JSON.stringify({ pid, runId: 'run-live', startedAt: '2026-01-01T00:00:00.000Z' }), 'utf8');
 };
 
+/** Another ticket's outcome under its own identifier, because the board gives each identifier exactly one cell. */
+const otherOutcomeOf = ({ identifier, title, branch, error }: { identifier: string; title: string; branch: string; error: string }): TicketRunOutcome => {
+	const base = outcomeOf({ ready: false, error });
+
+	return {
+		...base,
+		ticket: { ...base.ticket, id: `id-${identifier}`, identifier, title, url: `https://linear.app/lightsout/issue/${identifier}` },
+		branch,
+		worktreePath: `/tmp/worktrees/${branch}`,
+	};
+};
+
+/** The final board's heading: the finish time is the moment the command ran, so only its shape is pinned. */
+const finishedHeading = expect.stringMatching(/^Queue finished · \d{2}:\d{2}$/);
+const boardHeaderRow = '| Build Queue | Building | Ship Queue | Shipping Now | Shipped | Parked | Blocked |';
+const boardSeparatorRow = '| --- | --- | --- | --- | --- | --- | --- |';
+
 describe('queueCommand', () => {
 	test('a drain where everything shipped names each ticket and exits 0', async () => {
 		const { context, logged, exitCodes } = setupQueueCommand({ report: { outcomes: [outcomeOf({ ready: true })], leftBehind: [] } });
@@ -143,7 +163,10 @@ describe('queueCommand', () => {
 
 		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(logged).toStrictEqual(['LO-70 lo-70-drain shipped', '  LO-70 shipped, but its tracker status could not be moved to done']);
+		// The final board comes first and ends in one blank line; the report, which holds none, is what follows it.
+		const report = logged.slice(logged.lastIndexOf('') + 1);
+
+		expect(report).toStrictEqual(['LO-70 lo-70-drain shipped', '  LO-70 shipped, but its tracker status could not be moved to done']);
 	});
 
 	test('a stale tracker keeps the drain at 0, because the branch is merged and a re-run has nothing to pick up', async () => {
@@ -389,5 +412,68 @@ describe('queueCommand', () => {
 		await expect(queueCommand(context)).rejects.toThrow('another run holds the lock');
 
 		expect(mockRelayClosed).toHaveBeenCalledTimes(1);
+	});
+
+	test('prints the final board, headed as finished, before the per-ticket report', async () => {
+		const { context, logged } = setupQueueCommand({
+			report: {
+				outcomes: [
+					outcomeOf({ ready: true }),
+					otherOutcomeOf({ identifier: 'LO-74', title: 'Fix the import', branch: 'lo-74-import', error: 'tsc: 3 errors' }),
+				],
+				leftBehind: [{ identifier: 'LO-71', reason: 'skipped: it is blocked by an unfinished ticket' }],
+			},
+		});
+
+		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged).toEqual([
+			finishedHeading,
+			'',
+			boardHeaderRow,
+			boardSeparatorRow,
+			'| — | — | — | — | [LO-70 · Drain the backlog](https://linear.app/lightsout/issue/LO-70) | [LO-74 · Fix the import](https://linear.app/lightsout/issue/LO-74) — tsc: 3 errors | LO-71 — skipped: it is blocked by an unfinished ticket |',
+			'',
+			'LO-70 lo-70-drain shipped',
+			'LO-74 lo-74-import parked: tsc: 3 errors',
+			'  worktree: /tmp/worktrees/lo-74-import',
+			'LO-71 skipped: it is blocked by an unfinished ticket',
+		]);
+	});
+
+	test('prints the final board even when the drain found nothing to do', async () => {
+		const { context, logged, exitCodes } = setupQueueCommand({ report: { outcomes: [], leftBehind: [] } });
+
+		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged).toEqual([finishedHeading, '', boardHeaderRow, boardSeparatorRow, '| — | — | — | — | — | — | — |', '']);
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('prints no board when the drain refused', async () => {
+		const { context, logged, exitCodes } = setupQueueCommand({ report: { error: 'authentication failed' } });
+
+		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged).toStrictEqual([]);
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('clips a long parked reason on the board while the report line keeps the full text', async () => {
+		const longError = 'x'.repeat(300);
+		const { context, logged } = setupQueueCommand({ report: { outcomes: [outcomeOf({ ready: false, error: longError })], leftBehind: [] } });
+
+		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged).toEqual([
+			finishedHeading,
+			'',
+			boardHeaderRow,
+			boardSeparatorRow,
+			`| — | — | — | — | — | [LO-70 · Drain the backlog](https://linear.app/lightsout/issue/LO-70) — ${'x'.repeat(119)}… | — |`,
+			'',
+			`LO-70 lo-70-drain parked: ${longError}`,
+			'  worktree: /tmp/worktrees/lo-70-drain',
+		]);
 	});
 });

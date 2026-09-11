@@ -1,5 +1,6 @@
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { GateHolds } from '#src/gates/index.ts';
+import type { QueueBoardRecorder } from '#src/queue/board/index.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
@@ -35,5 +36,7 @@ export interface LaneContext {
 	 * creation already takes the chain `runQueue.ts` captured in `runTicket`.
 	 */
 	serializeMainCheckout: <Result>(params: { task: () => Promise<Result> }) => Promise<Result>;
+	/** The coordinator run's board. The drain only records a snapshot into it on each pass, and never awaits the write. */
+	board: Pick<QueueBoardRecorder, 'record'>;
 	onProgress?: (message: string) => void;
 }

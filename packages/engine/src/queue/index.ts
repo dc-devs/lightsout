@@ -1,3 +1,4 @@
+export { getQueueBoardPath, readQueueBoard, toQueueBoardTickets } from '#src/queue/board/index.ts';
 export { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
 export { commitTicketWork } from '#src/queue/commitTicketWork.ts';
 export type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';

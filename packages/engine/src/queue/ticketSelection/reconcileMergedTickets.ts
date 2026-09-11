@@ -66,7 +66,14 @@ export const reconcileMergedTickets = async ({
 				: `its branch ${branch} already has a merged pull request #${evidence.pullRequest.number}`;
 		const reason = `skipped: ${established}, so the ticket was reconciled to done rather than built again${heldWorktree ?? ''}${reconciliationFailure === undefined ? '' : ` — ${reconciliationFailure}`}`;
 
-		leftBehind.push({ identifier: ticket.identifier, reason, settled: true });
+		leftBehind.push({
+			identifier: ticket.identifier,
+			title: ticket.title,
+			url: ticket.url,
+			reason,
+			settled: true,
+			...(reconciliationFailure === undefined ? {} : { reconciliationFailure }),
+		});
 	}
 
 	return { kept, leftBehind };

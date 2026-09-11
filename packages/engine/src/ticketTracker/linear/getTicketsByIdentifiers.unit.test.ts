@@ -34,6 +34,7 @@ const issueOf = ({
 	id: `id-${number}`,
 	identifier: `LO-${number}`,
 	title: `Ticket ${number}`,
+	url: `https://linear.app/acme-works/issue/LO-${number}/ticket-${number}`,
 	description: '',
 	priority: 3,
 	createdAt: new Date('2026-02-02T00:00:00.000Z'),
@@ -107,6 +108,7 @@ describe('getTicketsByIdentifiers', () => {
 				id: 'id-70',
 				identifier: 'LO-70',
 				title: 'Ticket 70',
+				url: 'https://linear.app/acme-works/issue/LO-70/ticket-70',
 				description: '',
 				priority: 3,
 				createdAt: '2026-02-02T00:00:00.000Z',
@@ -130,6 +132,15 @@ describe('getTicketsByIdentifiers', () => {
 		const tickets = await getTicketsByIdentifiers({ settings, identifiers: ['LO-70'] });
 
 		expect(tickets).toEqual([expect.objectContaining({ identifier: 'LO-70', status: 'Done', finished: true })]);
+	});
+
+	test('carries the issue’s own web link on a ticket looked up by identifier, which is the lookup a parked worktree makes', async () => {
+		const issue = { ...issueOf({ number: 70, labels: ['route-direct'] }), url: 'https://linear.app/acme-works/issue/LO-70/drain-the-queue' };
+		setupClient({ issues: [issue] });
+
+		const tickets = await getTicketsByIdentifiers({ settings, identifiers: ['LO-70'] });
+
+		expect(tickets).toEqual([expect.objectContaining({ identifier: 'LO-70', url: 'https://linear.app/acme-works/issue/LO-70/drain-the-queue' })]);
 	});
 
 	test('never makes a call for an empty list, because there is nothing to look up', async () => {

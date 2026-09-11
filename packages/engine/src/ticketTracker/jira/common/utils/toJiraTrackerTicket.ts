@@ -6,6 +6,8 @@ import { fromAdf } from '#src/ticketTracker/jira/fromAdf.ts';
 
 interface Params {
 	issue: JiraIssue;
+	/** The configured site origin, stored without a trailing slash. */
+	siteUrl: string;
 	unfinishedBlockers: string[];
 }
 
@@ -13,7 +15,7 @@ const priorities: Readonly<Record<string, number>> = { Highest: 1, High: 2, Medi
 
 const priorityOf = ({ name }: { name?: string }) => priorities[name ?? ''] ?? 0;
 
-export const toJiraTrackerTicket = ({ issue, unfinishedBlockers }: Params): TrackerTicket | TrackerFailure => {
+export const toJiraTrackerTicket = ({ issue, siteUrl, unfinishedBlockers }: Params): TrackerTicket | TrackerFailure => {
 	const description = fromAdf({ value: issue.fields.description });
 
 	if (description === undefined) {
@@ -42,6 +44,7 @@ export const toJiraTrackerTicket = ({ issue, unfinishedBlockers }: Params): Trac
 		id: issue.id,
 		identifier: issue.key,
 		title: issue.fields.summary,
+		url: `${siteUrl}/browse/${issue.key}`,
 		description,
 		priority: priorityOf({ name: issue.fields.priority?.name }),
 		createdAt: issue.fields.created,

@@ -190,8 +190,12 @@ export const scanParkedWorktrees = async ({
 		const left = describeLeftBehind({ tree, matched, runnable, settings, holds });
 
 		if (left !== undefined) {
+			// The tracker ticket rather than a summary: one that lost every
+			// planning-status label has no summary but is still returned.
+			const tracked = tickets.find((candidate) => candidate.identifier.toLowerCase() === tree.identifier.toLowerCase());
+
 			onProgress?.(`${tree.identifier} · ${left}`);
-			parked.leftBehind.push({ identifier: tree.identifier, reason: left });
+			parked.leftBehind.push({ identifier: tree.identifier, ...(tracked === undefined ? {} : { title: tracked.title, url: tracked.url }), reason: left });
 			continue;
 		}
 
@@ -211,7 +215,7 @@ export const scanParkedWorktrees = async ({
 			const reason = `its worktree at ${tree.path} is parked, but the tracker files the ticket as finished while its branch is not merged, so the worktree was left in place — it may hold work nobody has merged`;
 
 			onProgress?.(`${tree.identifier} · ${reason}`);
-			parked.leftBehind.push({ identifier: tree.identifier, reason });
+			parked.leftBehind.push({ identifier: tree.identifier, title: ticket.title, url: ticket.url, reason });
 			continue;
 		}
 

@@ -19,6 +19,7 @@ export const toTrackerTicket = ({ issue, labels, status, finished, unfinishedBlo
 	id: issue.id,
 	identifier: issue.identifier,
 	title: issue.title,
+	url: issue.url,
 	description: issue.description ?? '',
 	priority: issue.priority,
 	createdAt: issue.createdAt.toISOString(),

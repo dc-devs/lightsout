@@ -26,6 +26,7 @@ const ticketOf = ({ id, identifier }: { id: string; identifier: string }): Track
 	id,
 	identifier,
 	title: 'Gate runs pile onto one machine',
+	url: `https://linear.app/lightsout/issue/${identifier}`,
 	description: '',
 	priority: 2,
 	createdAt: '2026-09-01T00:00:00.000Z',

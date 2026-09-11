@@ -20,6 +20,8 @@ export interface TrackerTicket {
 	/** The human reference, e.g. 'LO-70'. */
 	identifier: string;
 	title: string;
+	/** The ticket's web page in the tracker. */
+	url: string;
 	/** The ticket body as markdown. Empty string when the ticket has none. */
 	description: string;
 	/** Provider-normalized priority, with smaller positive numbers sorting first and zero meaning unspecified. */

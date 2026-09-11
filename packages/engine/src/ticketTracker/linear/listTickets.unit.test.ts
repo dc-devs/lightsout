@@ -60,6 +60,7 @@ const issueOf = ({
 	id: `id-${number}`,
 	identifier: `LO-${number}`,
 	title: `Ticket ${number}`,
+	url: `https://linear.app/acme-works/issue/LO-${number}/ticket-${number}`,
 	description,
 	priority: 2,
 	createdAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -146,6 +147,7 @@ describe('listTickets', () => {
 				id: 'id-70',
 				identifier: 'LO-70',
 				title: 'Ticket 70',
+				url: 'https://linear.app/acme-works/issue/LO-70/ticket-70',
 				description: '',
 				priority: 2,
 				createdAt: '2026-01-01T00:00:00.000Z',
@@ -158,6 +160,7 @@ describe('listTickets', () => {
 				id: 'id-71',
 				identifier: 'LO-71',
 				title: 'Ticket 71',
+				url: 'https://linear.app/acme-works/issue/LO-71/ticket-71',
 				description: '',
 				priority: 2,
 				createdAt: '2026-01-01T00:00:00.000Z',
@@ -166,6 +169,21 @@ describe('listTickets', () => {
 				finished: false,
 				unfinishedBlockers: [],
 			},
+		]);
+	});
+
+	test('reports each issue’s own web link as the ticket’s url, never one rebuilt from its identifier', async () => {
+		// Each link holds a workspace key and a slug no identifier can rebuild, and
+		// the two differ, so a missing, rebuilt or swapped link fails the match.
+		const first = { ...issueOf({ number: 70 }), url: 'https://linear.app/acme-works/issue/LO-70/drain-the-queue' };
+		const second = { ...issueOf({ number: 71 }), url: 'https://linear.app/acme-works/issue/LO-71/show-the-board' };
+		setupClient({ issues: [first, second] });
+
+		const tickets = await listConfigured();
+
+		expect(tickets).toEqual([
+			expect.objectContaining({ identifier: 'LO-70', url: 'https://linear.app/acme-works/issue/LO-70/drain-the-queue' }),
+			expect.objectContaining({ identifier: 'LO-71', url: 'https://linear.app/acme-works/issue/LO-71/show-the-board' }),
 		]);
 	});
 

@@ -11,6 +11,7 @@ const ticketOf = (overrides: Partial<TicketSummary> = {}): TicketSummary => ({
 	id: 'id-70',
 	identifier: 'LO-70',
 	title: 'Drain the backlog',
+	url: 'https://linear.app/lightsout/issue/LO-70',
 	description: '',
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
@@ -50,7 +51,14 @@ describe('dedupeTickets', () => {
 		const { ordered, leftBehind } = dedupeTickets({ tickets, settings, onProgress: (message) => progress.push(message) });
 
 		expect(ordered).toStrictEqual([]);
-		expect(leftBehind).toEqual([{ identifier: 'LO-70', reason: expect.stringContaining("'planning-complete' and 'planning-not-needed'") }]);
+		expect(leftBehind).toEqual([
+			{
+				identifier: 'LO-70',
+				title: 'Drain the backlog',
+				url: 'https://linear.app/lightsout/issue/LO-70',
+				reason: expect.stringContaining("'planning-complete' and 'planning-not-needed'"),
+			},
+		]);
 		expect(progress).toEqual([expect.stringContaining('LO-70 ·')]);
 	});
 
@@ -58,6 +66,26 @@ describe('dedupeTickets', () => {
 		const tickets = [ticketOf(), ticketOf({ planningStatus: PlanningStatus.Complete, worker: QueueWorker.Plan })];
 
 		expect(dedupeTickets({ tickets, settings }).leftBehind).toHaveLength(1);
+	});
+
+	test('carries an ambiguous ticket’s title and link on its skipped entry, beside the unchanged reason', () => {
+		const url = 'https://linear.app/lightsout/issue/LO-70/settle-the-planning-label';
+		const tickets = [
+			ticketOf({ title: 'Settle the planning label', url }),
+			ticketOf({ title: 'Settle the planning label', url, planningStatus: PlanningStatus.Complete, worker: QueueWorker.Plan }),
+		];
+
+		const { leftBehind } = dedupeTickets({ tickets, settings });
+
+		expect(leftBehind).toStrictEqual([
+			{
+				identifier: 'LO-70',
+				title: 'Settle the planning label',
+				url: 'https://linear.app/lightsout/issue/LO-70/settle-the-planning-label',
+				reason:
+					"skipped: it carries the planning status labels 'planning-complete' and 'planning-not-needed' — leave exactly one so the queue knows what the ticket still owes",
+			},
+		]);
 	});
 
 	test('matches identifiers however they are cased, because a branch spells one lowercase and the tracker spells it up', () => {

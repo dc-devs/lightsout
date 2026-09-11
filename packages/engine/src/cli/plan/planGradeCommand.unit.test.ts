@@ -388,3 +388,36 @@ test('plan grade prints the scope, the reuse line and the memory path', async ()
 	expect(printedByReuse).toContainEqual(expect.stringContaining('grade-memory.json'));
 	expect(exitCodes).toStrictEqual([0, 0]);
 });
+
+test('records the grade step as passed when a complete grade exits 0, whatever its letter', async () => {
+	const gaps = [{ area: GapArea.OmittedDecision, gap: 'no storage choice', decision: 'pick a store', options: ['sqlite', 'postgres'] }];
+	const { cwd, driver, name, logged, exitCodes } = setupGrade({ body: cleanPlanBody(), gaps });
+
+	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+
+	const recorded = readFileSync(join(cwd, '.lightsout', 'plans', 'demo', 'planning-progress.json'), 'utf8');
+	const record = JSON.parse(recorded) as { steps: unknown[] };
+
+	// the letter is the plan's verdict, not the step's outcome: a complete pass
+	// that exits 0 is a grade step that passed, even below A
+	expect(printedLines({ logged })[0] ?? '').toMatch(/^\nplan grade demo — below-A /);
+	expect(record.steps).toEqual([expect.objectContaining({ step: 'grade', status: 'passed', attempts: 1, pid: process.pid })]);
+	expect(exitCodes).toStrictEqual([0]);
+});
+
+const rateLimitedChecker: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 1, rateLimited: true }) };
+
+test.each([
+	{ outcome: 'a rate-limited pass', driver: rateLimitedChecker, phases: undefined, status: 'paused-rate-limit' },
+	{ outcome: 'a pass narrowed to a subset', driver: createGapCheckDriver(), phases: ['plan.md'], status: 'failed' },
+])('records the grade step as $status when $outcome exits 1', async ({ driver, phases, status }) => {
+	const { cwd, name, exitCodes } = setupGrade({ body: cleanPlanBody() });
+
+	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config: undefined, phases })).rejects.toThrow(/process\.exit/);
+
+	const record = JSON.parse(readFileSync(join(cwd, '.lightsout', 'plans', 'demo', 'planning-progress.json'), 'utf8')) as { steps: unknown[] };
+
+	// both leave a grade on disk, and neither is the complete pass that exits 0
+	expect(record.steps).toEqual([expect.objectContaining({ step: 'grade', status, attempts: 1 })]);
+	expect(exitCodes).toStrictEqual([1]);
+});

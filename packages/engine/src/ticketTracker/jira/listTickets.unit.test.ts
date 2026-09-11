@@ -53,6 +53,7 @@ describe('Jira listTickets', () => {
 				id: '1001',
 				identifier: 'LO-1',
 				title: 'First',
+				url: 'https://example.atlassian.net/browse/LO-1',
 				description: 'Body',
 				priority: 5,
 				createdAt: '2026-01-01T00:00:00.000Z',
@@ -151,5 +152,35 @@ describe('Jira listTickets', () => {
 		const result = await listTickets({ settings: jiraTrackerSettingsFixture(), labelNames: ['route-direct'], statuses: ['In Progress'] });
 
 		expect(result).toEqual([expect.objectContaining({ identifier: 'LO-1', status: 'In Progress', finished: false })]);
+	});
+
+	test('builds each ticket’s url as the configured site’s browse page for its issue key', async () => {
+		mockRunJira.mockImplementation(({ request: call }) => call({ request: () => Promise.resolve({ issues: [issue], isLast: true }) }));
+
+		const exampleSite = await listTickets({
+			settings: jiraTrackerSettingsFixture({ siteUrl: 'https://example.atlassian.net' }),
+			labelNames: ['route-direct'],
+			statuses: ['Ready'],
+		});
+		const otherSite = await listTickets({
+			settings: jiraTrackerSettingsFixture({ siteUrl: 'https://other.atlassian.net' }),
+			labelNames: ['route-direct'],
+			statuses: ['Ready'],
+		});
+
+		expect(exampleSite).toEqual([expect.objectContaining({ identifier: 'LO-1', url: 'https://example.atlassian.net/browse/LO-1' })]);
+		expect(otherSite).toEqual([expect.objectContaining({ identifier: 'LO-1', url: 'https://other.atlassian.net/browse/LO-1' })]);
+	});
+
+	test('keeps a path the configured site url carries in front of each ticket’s browse page', async () => {
+		mockRunJira.mockImplementation(({ request: call }) => call({ request: () => Promise.resolve({ issues: [issue], isLast: true }) }));
+
+		const result = await listTickets({
+			settings: jiraTrackerSettingsFixture({ siteUrl: 'https://jira.example.com/tracker' }),
+			labelNames: ['route-direct'],
+			statuses: ['Ready'],
+		});
+
+		expect(result).toEqual([expect.objectContaining({ identifier: 'LO-1', url: 'https://jira.example.com/tracker/browse/LO-1' })]);
 	});
 });

@@ -51,6 +51,7 @@ const ticketOf = ({ finished = false }: { finished?: boolean } = {}): TrackerTic
 	id: 'id-lo-70',
 	identifier: 'LO-70',
 	title: 'Drain the backlog',
+	url: 'https://linear.app/lightsout/issue/LO-70',
 	description: '',
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
@@ -170,7 +171,14 @@ describe('scanParkedWorktrees', () => {
 		expect(parked).toEqual({
 			resumed: [],
 			outcomes: [],
-			leftBehind: [{ identifier: 'lo-70', reason: expect.stringContaining(worktreePath) }],
+			leftBehind: [
+				{
+					identifier: 'lo-70',
+					title: 'Drain the backlog',
+					url: 'https://linear.app/lightsout/issue/LO-70',
+					reason: expect.stringContaining(worktreePath),
+				},
+			],
 			merged: [],
 		});
 		expect(parked.leftBehind[0]?.reason).toMatch(/finished/i);
@@ -188,6 +196,23 @@ describe('scanParkedWorktrees', () => {
 		expect(parked.leftBehind[0]?.settled).toBe(undefined);
 	});
 
+	test('carries the finished ticket’s title and link on the entry that leaves its unmerged worktree in place', async () => {
+		const { worktreePath, params } = await setupParkedScan({ finished: true, committed: true });
+		mockGetTicketsByIdentifiers.mockResolvedValue([{ ...ticketOf({ finished: true }), url: 'https://linear.app/lightsout/issue/LO-70/drain-the-backlog' }]);
+
+		const parked = await scanParked(params);
+
+		// Strict, so a `settled` key — even one holding undefined — fails the match.
+		expect(parked.leftBehind).toStrictEqual([
+			{
+				identifier: 'lo-70',
+				title: 'Drain the backlog',
+				url: 'https://linear.app/lightsout/issue/LO-70/drain-the-backlog',
+				reason: `its worktree at ${worktreePath} is parked, but the tracker files the ticket as finished while its branch is not merged, so the worktree was left in place — it may hold work nobody has merged`,
+			},
+		]);
+	});
+
 	test('skips a finished ticket whose worktree is dirty, rather than sending it back through the drain', async () => {
 		const { worktreePath, params } = await setupParkedScan({ finished: true, dirty: true });
 
@@ -195,7 +220,14 @@ describe('scanParkedWorktrees', () => {
 
 		expect(parked.resumed).toStrictEqual([]);
 		expect(parked.outcomes).toStrictEqual([]);
-		expect(parked.leftBehind).toEqual([{ identifier: 'lo-70', reason: expect.stringContaining(worktreePath) }]);
+		expect(parked.leftBehind).toEqual([
+			{
+				identifier: 'lo-70',
+				title: 'Drain the backlog',
+				url: 'https://linear.app/lightsout/issue/LO-70',
+				reason: expect.stringContaining(worktreePath),
+			},
+		]);
 	});
 
 	test('touches the parked label on neither side of a finished-but-unmerged skip', async () => {

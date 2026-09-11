@@ -133,7 +133,14 @@ describe('runQueue', () => {
 		expect(pickedUp()).toStrictEqual(['LO-70']);
 		expect(report).toEqual({
 			outcomes: [expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-70' }) })],
-			leftBehind: [{ identifier: 'LO-71', reason: expect.stringContaining('blocked by LO-69') }],
+			leftBehind: [
+				{
+					identifier: 'LO-71',
+					title: 'Ticket 71',
+					url: 'https://linear.app/lightsout/issue/LO-71',
+					reason: expect.stringContaining('blocked by LO-69'),
+				},
+			],
 		});
 	});
 
@@ -155,8 +162,8 @@ describe('runQueue', () => {
 		expect(report).toEqual({
 			outcomes: [expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-70' }) })],
 			leftBehind: [
-				{ identifier: 'LO-80', reason: expect.stringContaining('planning status labels') },
-				{ identifier: 'LO-71', reason: expect.stringContaining('blocked by LO-69') },
+				{ identifier: 'LO-80', title: 'Ticket 80', url: 'https://linear.app/lightsout/issue/LO-80', reason: expect.stringContaining('planning status labels') },
+				{ identifier: 'LO-71', title: 'Ticket 71', url: 'https://linear.app/lightsout/issue/LO-71', reason: expect.stringContaining('blocked by LO-69') },
 			],
 		});
 	});
@@ -168,7 +175,17 @@ describe('runQueue', () => {
 
 		relay.close();
 
-		expect(report).toEqual({ outcomes: [], leftBehind: [{ identifier: 'LO-70', reason: expect.stringContaining('blocked by LO-69') }] });
+		expect(report).toEqual({
+			outcomes: [],
+			leftBehind: [
+				{
+					identifier: 'LO-70',
+					title: 'Ticket 70',
+					url: 'https://linear.app/lightsout/issue/LO-70',
+					reason: expect.stringContaining('blocked by LO-69'),
+				},
+			],
+		});
 		expect(progress).toContainEqual(expect.stringContaining('waiting on an unfinished blocker'));
 		expect(existsSync(join(cwd, '.lightsout', 'runs'))).toBe(false);
 	});
@@ -191,7 +208,14 @@ describe('runQueue', () => {
 				expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-70' }) }),
 				expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-71' }) }),
 			],
-			leftBehind: [{ identifier: 'LO-99', reason: expect.stringContaining('blocked by LO-69') }],
+			leftBehind: [
+				{
+					identifier: 'LO-99',
+					title: 'Ticket 99',
+					url: 'https://linear.app/lightsout/issue/LO-99',
+					reason: expect.stringContaining('blocked by LO-69'),
+				},
+			],
 		});
 	});
 
@@ -225,8 +249,18 @@ describe('runQueue', () => {
 		expect(report).toEqual({
 			outcomes: [expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-70' }) })],
 			leftBehind: [
-				{ identifier: 'LO-71', reason: expect.stringContaining('the opening selection read this hold') },
-				{ identifier: 'LO-72', reason: expect.stringContaining('the drain re-scan read this hold') },
+				{
+					identifier: 'LO-71',
+					title: 'Ticket 71',
+					url: 'https://linear.app/lightsout/issue/LO-71',
+					reason: expect.stringContaining('the opening selection read this hold'),
+				},
+				{
+					identifier: 'LO-72',
+					title: 'Ticket 72',
+					url: 'https://linear.app/lightsout/issue/LO-72',
+					reason: expect.stringContaining('the drain re-scan read this hold'),
+				},
 			],
 		});
 	});

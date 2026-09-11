@@ -36,12 +36,16 @@ export const setupDrainLaneState = ({ maxParallel = 2 }: { maxParallel?: number 
 		planPath: join(cwd, 'queue.md'),
 		runTicket,
 		serializeMainCheckout: <Result>({ task }: { task: () => Promise<Result> }) => task(),
+		/** No lane helper records the board — the drain does, once per pass. */
+		board: { record: () => undefined },
 		onProgress: (message: string) => progress.push(message),
 	};
 	const state = {
 		pending: [] as ReturnType<typeof queueTicketFixture>[],
 		queued: [] as ReturnType<typeof queueTicketFixture>[],
+		building: new Map<string, { ticket: ReturnType<typeof queueTicketFixture>; startedAt: string }>(),
 		readyToShip: [] as TicketRunOutcome[],
+		shipping: undefined as TicketRunOutcome | undefined,
 		outcomes: [] as TicketRunOutcome[],
 		leftBehind: [] as QueueDrainReport['leftBehind'],
 		attempted: new Set<string>(),

@@ -1,4 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
+import { renderProgressBlock } from '#src/cli/common/progressBlock/renderProgressBlock.ts';
 import { renderRunProgress } from '#src/cli/common/render/renderRunProgress.ts';
 import { RunStatus } from '#src/contracts/index.ts';
 import type { CleanupSummary } from '#src/runState/index.ts';
@@ -324,5 +325,21 @@ describe('renderRunProgress', () => {
 		expect(line.length).toBeGreaterThan((plainLines[2] ?? '').length);
 		expect(rules).toHaveLength(2);
 		expect(rules.every((rule) => rule.length === line.length)).toBe(true);
+	});
+
+	test("draws its block through renderProgressBlock with the run's title, short id, totals and now text", () => {
+		const progress = sampleProgress();
+		const block = renderProgressBlock({
+			title: 'phase 8 · plans',
+			tag: 'e643832a',
+			rows: progress.rows,
+			diagnostics: [],
+			totals: 'elapsed 70m 03s · 79 files · $43.54',
+			now: 'step refactor — pass 1/3',
+		});
+
+		const lines = renderRunProgress({ progress });
+
+		expect(lines).toStrictEqual(block);
 	});
 });

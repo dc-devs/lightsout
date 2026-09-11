@@ -58,6 +58,7 @@ export const checkQueueStartup = async ({ cwd, settings, trackerSettings, shipSe
 		id: 'sample',
 		identifier: `${trackerSettings.ticketPrefix}-1`,
 		title: 'sample',
+		url: '',
 		description: '',
 		priority: 0,
 		createdAt: '',

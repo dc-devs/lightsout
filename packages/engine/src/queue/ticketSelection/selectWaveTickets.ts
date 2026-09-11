@@ -54,7 +54,7 @@ export const selectWaveTickets = ({ tickets, settings, attempted, holds, onProgr
 			const held = describeGateHold({ hold: holds[ticket.identifier.toLowerCase()], identifier: ticket.identifier });
 
 			onProgress?.(`${ticket.identifier} · ${held}`);
-			blocked.push({ identifier: ticket.identifier, reason: held });
+			blocked.push({ identifier: ticket.identifier, title: ticket.title, url: ticket.url, reason: held });
 			continue;
 		}
 
@@ -66,7 +66,7 @@ export const selectWaveTickets = ({ tickets, settings, attempted, holds, onProgr
 		const reason = `waiting: blocked by ${ticket.unfinishedBlockers.join(', ')} — the queue takes it once every blocker is finished`;
 
 		onProgress?.(`${ticket.identifier} · ${reason}`);
-		blocked.push({ identifier: ticket.identifier, reason });
+		blocked.push({ identifier: ticket.identifier, title: ticket.title, url: ticket.url, reason });
 	}
 
 	return { runnable, blocked, skipped: leftBehind };

@@ -83,13 +83,16 @@ export {
 	PlanFixStatus,
 	PlanGap,
 	PlanGrade,
+	PlanningProgress,
+	PlanningStep,
+	PlanningStepRecord,
 	PlanVariant,
 	PlanWeight,
 	ProseFile,
 	StructuralCheck,
 	StructuralFinding,
 } from '#src/contracts/plan/index.ts';
-export { BranchPhase, BranchState, RelayAnswer, RelayQuestion } from '#src/contracts/queue/index.ts';
+export { BranchPhase, BranchState, QueueBoard, QueueBoardTicket, QueueLane, RelayAnswer, RelayQuestion } from '#src/contracts/queue/index.ts';
 export { BatchOutcome, BatchReport, RefactorBatch, RefactorWorklist } from '#src/contracts/refactor/index.ts';
 export {
 	AcceptanceTestRecord,
@@ -109,7 +112,7 @@ export {
 	TestReviewRecord,
 } from '#src/contracts/run/index.ts';
 export { StandardsCheckOverrides } from '#src/contracts/StandardsCheckOverrides.ts';
-export { ShipBlockReason, ShipMergeMethod, ShipResult, ShipStatus } from '#src/contracts/ship/index.ts';
+export { ShipBlockReason, ShipMergeMethod, ShippingProgress, ShippingStepId, ShipResult, ShipStatus } from '#src/contracts/ship/index.ts';
 export {
 	AdvisoryOutcome,
 	AdvisoryResponse,

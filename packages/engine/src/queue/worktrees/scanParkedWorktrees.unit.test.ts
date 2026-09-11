@@ -51,6 +51,7 @@ const ticketOf = (identifier: string, labels: string[] = ['planning-not-needed']
 	id: `id-${identifier}`,
 	identifier: identifier.toUpperCase(),
 	title: 'Drain the backlog',
+	url: `https://linear.app/lightsout/issue/${identifier.toUpperCase()}`,
 	description: '',
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
@@ -184,7 +185,14 @@ describe('scanParkedWorktrees', () => {
 		});
 
 		expect(parked.resumed).toStrictEqual([]);
-		expect(parked.leftBehind).toEqual([{ identifier: 'lo-70', reason: expect.stringContaining('no planning status label any more') }]);
+		expect(parked.leftBehind).toEqual([
+			{
+				identifier: 'lo-70',
+				title: 'Drain the backlog',
+				url: 'https://linear.app/lightsout/issue/LO-70',
+				reason: expect.stringContaining('no planning status label any more'),
+			},
+		]);
 		expect(progress).toEqual([expect.stringContaining('lo-70 ·')]);
 	});
 
@@ -205,7 +213,14 @@ describe('scanParkedWorktrees', () => {
 		});
 
 		expect(parked.resumed).toStrictEqual([]);
-		expect(parked.leftBehind).toEqual([{ identifier: 'lo-70', reason: expect.stringContaining("'planning-needs-plan'") }]);
+		expect(parked.leftBehind).toEqual([
+			{
+				identifier: 'lo-70',
+				title: 'Drain the backlog',
+				url: 'https://linear.app/lightsout/issue/LO-70',
+				reason: expect.stringContaining("'planning-needs-plan'"),
+			},
+		]);
 		expect(progress).toEqual([expect.stringContaining('lo-70 ·')]);
 	});
 
@@ -377,7 +392,14 @@ describe('scanParkedWorktrees', () => {
 			onProgress: (message) => progress.push(message),
 		});
 
-		expect(parked.leftBehind).toEqual([{ identifier: 'lo-70', reason: expect.stringContaining('queue-blocked-gate-timed-out') }]);
+		expect(parked.leftBehind).toEqual([
+			{
+				identifier: 'lo-70',
+				title: 'Drain the backlog',
+				url: 'https://linear.app/lightsout/issue/LO-70',
+				reason: expect.stringContaining('queue-blocked-gate-timed-out'),
+			},
+		]);
 		expect(parked.leftBehind[0]?.reason).toEqual(expect.stringContaining(heldReason));
 		// The unheld sibling is in the very same state, and it is resumed with its parked label cleared.
 		expect(parked.resumed).toEqual([expect.objectContaining({ identifier: 'LO-71' })]);
@@ -393,7 +415,76 @@ describe('scanParkedWorktrees', () => {
 
 		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds: { 'lo-70': holdOf() } });
 
-		expect(parked).toEqual({ resumed: [], outcomes: [], leftBehind: [{ identifier: 'lo-70', reason: expect.any(String) }], merged: [] });
+		expect(parked).toEqual({
+			resumed: [],
+			outcomes: [],
+			leftBehind: [
+				{
+					identifier: 'lo-70',
+					title: 'Drain the backlog',
+					url: 'https://linear.app/lightsout/issue/LO-70',
+					reason: expect.any(String),
+				},
+			],
+			merged: [],
+		});
 		expect(parked.leftBehind[0]?.settled).toBeUndefined();
+	});
+
+	test('carries the tracker’s title and link on the entry for a worktree whose ticket lost its planning status label', async () => {
+		const { cwd, paths } = await setupParkedRepo({ branches: ['lo-70-drain'] });
+
+		// No planning-status label, so no planning summary exists for LO-70 — only the tracker ticket does.
+		mockGetTicketsByIdentifiers.mockResolvedValue([{ ...ticketOf('lo-70', ['bug']), url: 'https://linear.app/lightsout/issue/LO-70/drain-the-backlog' }]);
+
+		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds });
+
+		expect(parked.leftBehind).toStrictEqual([
+			{
+				identifier: 'lo-70',
+				title: 'Drain the backlog',
+				url: 'https://linear.app/lightsout/issue/LO-70/drain-the-backlog',
+				reason: `its worktree at ${paths['lo-70-drain']} is parked, but the ticket carries no planning status label any more`,
+			},
+		]);
+	});
+
+	test('leaves the title and link off the entry for a worktree whose ticket the tracker no longer returns', async () => {
+		const { cwd, paths } = await setupParkedRepo({ branches: ['lo-70-drain', 'lo-71-drain'] });
+
+		// The tracker answers for the sibling only, so a link borrowed from another ticket would show here.
+		mockGetTicketsByIdentifiers.mockResolvedValue([
+			{ ...ticketOf('lo-71'), title: 'Ship the lanes', url: 'https://linear.app/lightsout/issue/LO-71/ship-the-lanes' },
+		]);
+
+		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds });
+
+		// Strict, so a `title` or `url` key — even one holding undefined or an empty string — fails the match.
+		expect(parked.leftBehind).toStrictEqual([
+			{ identifier: 'lo-70', reason: `its worktree at ${paths['lo-70-drain']} is parked, but the ticket carries no planning status label any more` },
+		]);
+	});
+
+	test('carries a held tree’s ticket title and link beside the hold’s reason', async () => {
+		const { cwd } = await setupParkedRepo({ branches: ['lo-70-drain'] });
+
+		mockGetTicketsByIdentifiers.mockResolvedValue([
+			{
+				...ticketOf('lo-70', ['planning-not-needed', 'queue-blocked-gate-timed-out']),
+				url: 'https://linear.app/lightsout/issue/LO-70/drain-the-backlog',
+			},
+		]);
+
+		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds: { 'lo-70': holdOf() } });
+
+		expect(parked.leftBehind).toEqual([
+			{
+				identifier: 'lo-70',
+				title: 'Drain the backlog',
+				url: 'https://linear.app/lightsout/issue/LO-70/drain-the-backlog',
+				reason: expect.stringContaining(heldReason),
+			},
+		]);
+		expect(mockSetTicketLabel).not.toHaveBeenCalled();
 	});
 });

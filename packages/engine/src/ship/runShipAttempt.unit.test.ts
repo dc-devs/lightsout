@@ -3,6 +3,7 @@ import { access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import type { GateRunResult } from '#src/gates/index.ts';
+import { ShippingProgressRecorder } from '#src/ship/progress/index.ts';
 import { runShipAttempt } from '#src/ship/runShipAttempt.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { shipIntegrationFixture } from '#tests/helpers/shipIntegrationFixture.ts';
@@ -70,6 +71,7 @@ const setupAttempt = () => {
 			defaultBranch: 'main',
 			ticket: { ticket: 'lo-89', number: '89' },
 			branchDiff: 'diff --git a/feature.md b/feature.md\n',
+			recorder: new ShippingProgressRecorder({ cwd, branch, maxAttempts: 1 }),
 		},
 	};
 };

@@ -53,7 +53,14 @@ export const settleMergedTrees = async ({ cwd, config, env, settings, trackerSet
 		const reason = `its worktree at ${tree.worktreePath} held a branch already recorded merged, so the ticket was reconciled to done rather than resumed${heldWorktree ?? ''}${reconciliationFailure === undefined ? '' : ` — ${reconciliationFailure}`}`;
 
 		onProgress?.(`${tree.ticket.identifier} · ${reason}`);
-		settled.push({ identifier: tree.ticket.identifier, reason, settled: true });
+		settled.push({
+			identifier: tree.ticket.identifier,
+			title: tree.ticket.title,
+			url: tree.ticket.url,
+			reason,
+			settled: true,
+			...(reconciliationFailure === undefined ? {} : { reconciliationFailure }),
+		});
 	}
 
 	return settled;

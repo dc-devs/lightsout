@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, jest, test } from '@jest/globals';
@@ -128,4 +128,36 @@ test("planVerifyFactsCommand: fetches the ticket's brainstorm before running ver
 	expect(logged[1] ?? '').toMatch(/^\nplan verify-facts demo — 1 area\(s\), verified \d{4}-\d\d-\d\dT/);
 	expect(errors).toStrictEqual([]);
 	expect(exitCodes).toStrictEqual([0]);
+});
+
+// The mocked process.exit throws, so nothing after exitCli runs: a record on
+// disk once the command has rejected was written before it exited.
+test('records the verify-facts step as passed in the planning record before it exits 0', async () => {
+	const { context, exitCodes } = setupVerifyFacts({ args: ['--name', 'demo'], authored: mixedFacts });
+
+	await expect(planVerifyFactsCommand(context)).rejects.toThrow(/process\.exit/);
+
+	const recordText = readFileSync(join(context.cwd, '.lightsout', 'plans', 'demo', 'planning-progress.json'), 'utf8');
+	const record = JSON.parse(recordText) as unknown;
+	expect(exitCodes).toStrictEqual([0]);
+	expect(record).toEqual(
+		expect.objectContaining({
+			name: 'demo',
+			steps: [expect.objectContaining({ step: 'verify-facts', status: 'passed', attempts: 1, pid: process.pid })],
+		}),
+	);
+});
+
+test('records the verify-facts step as failed in the planning record when the authored facts cannot be read and it exits 1', async () => {
+	const { context, errors, exitCodes } = setupVerifyFacts({ args: ['--name', 'demo'], authored: { areas: [] } });
+
+	await expect(planVerifyFactsCommand(context)).rejects.toThrow(/process\.exit/);
+
+	const recordText = readFileSync(join(context.cwd, '.lightsout', 'plans', 'demo', 'planning-progress.json'), 'utf8');
+	const record = JSON.parse(recordText) as { steps: unknown[] };
+
+	// facts with no request fail the authored contract, so the run stops before it verifies anything
+	expect(errors).toHaveLength(1);
+	expect(record.steps).toEqual([expect.objectContaining({ step: 'verify-facts', status: 'failed', attempts: 1 })]);
+	expect(exitCodes).toStrictEqual([1]);
 });

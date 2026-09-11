@@ -1,5 +1,6 @@
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { GateHolds } from '#src/gates/index.ts';
+import type { QueueBoardRecorder } from '#src/queue/board/index.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
@@ -35,6 +36,8 @@ interface Params {
 	runTicket: (params: { ticket: RunnableTicket }) => Promise<TicketRunOutcome>;
 	/** Runs a task with no other main-checkout git mutation in flight — one chain per drain, created in `runQueue.ts` and threaded down. */
 	serializeMainCheckout: <Result>(params: { task: () => Promise<Result> }) => Promise<Result>;
+	/** The coordinator run's board, handed to the drain that records into it. */
+	board: QueueBoardRecorder;
 	onProgress?: (message: string) => void;
 }
 
@@ -60,7 +63,10 @@ const toParkedIdentifiers = ({ parked }: { parked: ParkedWork }) => [
  * end appears exactly once in `leftBehind`.
  *
  * It opens by finishing the parked worktrees already recorded merged — work
- * that writes tickets to Done, so it waits for this function's run lock.
+ * that writes tickets to Done, so it waits for this function's run lock. What
+ * that and the parked scan left behind seeds the drain's ledger, so the board
+ * shows those tickets from the drain's first pass and the report lists them
+ * first.
  */
 export const drainQueue = async ({
 	cwd,
@@ -78,6 +84,7 @@ export const drainQueue = async ({
 	parked,
 	runTicket,
 	serializeMainCheckout,
+	board,
 	onProgress,
 }: Params): Promise<QueueDrainReport> => {
 	const leftBehind: LeftBehindTicket[] = [...parked.leftBehind];
@@ -85,7 +92,7 @@ export const drainQueue = async ({
 
 	leftBehind.push(...(await settleMergedTrees({ cwd, config, env, settings, trackerSettings, merged: parked.merged, onProgress })));
 
-	const drained = await runDrainLanes({
+	return runDrainLanes({
 		cwd,
 		runId,
 		holds,
@@ -99,12 +106,11 @@ export const drainQueue = async ({
 		planPath,
 		first,
 		carried: parked.outcomes,
+		carriedLeftBehind: leftBehind,
 		attempted,
 		runTicket,
 		serializeMainCheckout,
+		board,
 		onProgress,
 	});
-	const report: QueueDrainReport = { outcomes: drained.outcomes, leftBehind: [...leftBehind, ...drained.leftBehind] };
-
-	return report;
 };

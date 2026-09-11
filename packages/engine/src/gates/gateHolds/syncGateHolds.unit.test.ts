@@ -50,6 +50,7 @@ const ticketFor = ({ identifier, labelled }: { identifier: string; labelled: boo
 	id: `id-${identifier.toLowerCase()}`,
 	identifier,
 	title: `Hold ${identifier}`,
+	url: `https://linear.app/lightsout/issue/${identifier}`,
 	description: '',
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',

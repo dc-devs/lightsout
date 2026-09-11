@@ -42,7 +42,7 @@ export const listTickets = async ({ settings, labelNames, statuses }: Params): P
 				const page = await client.request<SearchResponse>({ method: 'POST', path: '/rest/api/3/search/jql', body, response: 'json' });
 
 				for (const issue of page.issues) {
-					const ticket = toJiraTrackerTicket({ issue, unfinishedBlockers: getJiraUnfinishedBlockers({ issue }) });
+					const ticket = toJiraTrackerTicket({ issue, siteUrl: settings.siteUrl, unfinishedBlockers: getJiraUnfinishedBlockers({ issue }) });
 
 					if ('error' in ticket) {
 						return ticket;

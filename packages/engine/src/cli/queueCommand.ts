@@ -1,6 +1,8 @@
 import { resolve } from 'node:path';
 import { pausedExitCode } from '#src/cli/common/constants/pausedExitCode.ts';
+import { QueueBoardState } from '#src/cli/common/constants/QueueBoardState.ts';
 import { unusableTicketPatternMessage } from '#src/cli/common/constants/unusableTicketPatternMessage.ts';
+import { renderQueueBoard } from '#src/cli/common/queueBoard/renderQueueBoard.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
@@ -16,6 +18,7 @@ import {
 	resolveQueueSettings,
 	runQueue,
 	TerminalQuestionRelay,
+	toQueueBoardTickets,
 } from '#src/queue/index.ts';
 import { isPidAlive, readRunLock } from '#src/runState/index.ts';
 import { resolveShipSettings } from '#src/ship/index.ts';
@@ -52,6 +55,22 @@ const resolveQueueStartup = ({ config, env }: { config: LightsoutConfig; env: No
 	}
 
 	return { settings, trackerSettings, shipSettings };
+};
+
+/**
+ * The final board, headed as finished, drawn from the report this process just
+ * drained — so it can never show another run's board, and still draws its seven
+ * columns when the drain found nothing to do and created no coordinator run.
+ */
+const printFinalBoard = ({ report }: { report: QueueDrainReport }) => {
+	const at = new Date();
+	const tickets = toQueueBoardTickets({ settled: report, at: at.toISOString() });
+
+	for (const line of renderQueueBoard({ tickets, state: QueueBoardState.Finished, at })) {
+		console.log(line);
+	}
+
+	console.log('');
 };
 
 /** One line per ticket the drain touched, and one per ticket it deliberately did not — a ticket must never vanish from the summary. */
@@ -171,6 +190,7 @@ export const queueCommand = async ({ flags, cwd }: CommandContext): Promise<void
 		return exitCli({ code: 1 });
 	}
 
+	printFinalBoard({ report });
 	printDrainReport({ report });
 
 	// The engine's own exit discipline: 0 when everything eligible shipped, 2

@@ -17,7 +17,11 @@
  * engine's own check, which a writing agent runs inside its own spawn. Updated
  * once more for `lightsout plan sync-decisions` — the engine composing a plan's
  * Decision Log from its saved decision records. Updated again for the
- * `--worktree` / `--no-worktree` pair both implement commands now take.
+ * `--worktree` / `--no-worktree` pair both implement commands now take, and
+ * again for `status --planning` — one plan's planning steps in the run block's
+ * layout — and again for `status --shipping`, one branch's ship steps in the
+ * same layout. Updated 2026-09-11 for `status --queue` — the queue's board and
+ * one status block per active ticket.
  */
 export const usageFixture = `lightsout — deterministic engine for coding agents
 
@@ -30,6 +34,9 @@ usage:
   lightsout queue [--file-relay [dir]] [--cwd <path>]
   lightsout status [--cwd <path>]
   lightsout status [--run <id>] [--watch] [--cwd <path>]   (one run in detail; --watch repaints it every two minutes, and without --run it follows the one run that is going)
+  lightsout status --planning <name> [--cwd <path>]   (one plan's planning steps, printed once)
+  lightsout status --shipping <branch> [--cwd <path>]   (one branch's ship steps, read from the checkout that ships it)
+  lightsout status --queue [--run <id>] [--cwd <path>]   (the queue's board, then one status block per active ticket, printed once)
   lightsout doctor [--cwd <path>]
   lightsout standards-check [--cwd <path>] [--path <subdir>] [--all] [--baseline] [--code-checks | --agent-review]
   lightsout standards-check --list [--cwd <path>]     (print the enforcement ledger)

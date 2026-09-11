@@ -1,3 +1,4 @@
+import type { BuildInFlight } from '#src/queue/common/types/BuildInFlight.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
@@ -8,8 +9,12 @@ export interface LaneState {
 	pending: RunnableTicket[];
 	/** Every ticket admitted so far, in admission order — what the coordinator's queue document lists. */
 	queued: RunnableTicket[];
+	/** Builds in flight, keyed by lower-cased identifier, in start order. A build leaves in the step that settles its outcome. */
+	building: Map<string, BuildInFlight>;
 	/** Branches finished and waiting for the ship lane, oldest-ready first. */
 	readyToShip: TicketRunOutcome[];
+	/** The branch the ship lane now holds, until its merge settles. */
+	shipping: TicketRunOutcome | undefined;
 	/** Settled outcomes: parked builds, and every branch the ship lane has finished with. */
 	outcomes: TicketRunOutcome[];
 	/** Tickets nothing ran, settled for good. */

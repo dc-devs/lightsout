@@ -45,6 +45,7 @@ describe('Jira getTicketsByIdentifiers', () => {
 				id: '1001',
 				identifier: 'LO-1',
 				title: 'Resume me',
+				url: 'https://example.atlassian.net/browse/LO-1',
 				description: '',
 				priority: 0,
 				createdAt: '2026-01-01T00:00:00.000Z',
@@ -99,6 +100,14 @@ describe('Jira getTicketsByIdentifiers', () => {
 		const result = await getTicketsByIdentifiers({ settings: jiraTrackerSettingsFixture(), identifiers: ['LO-1'] });
 
 		expect(result).toEqual([expect.objectContaining({ identifier: 'LO-1', status: 'Done', finished: true })]);
+	});
+
+	test('builds the url of a ticket looked up by key from the configured site, so a parked ticket links like a fresh one', async () => {
+		mockRunJira.mockImplementation(({ request: call }) => call({ request: () => Promise.resolve({ issues: [issue], isLast: true }) }));
+
+		const result = await getTicketsByIdentifiers({ settings: jiraTrackerSettingsFixture({ siteUrl: 'https://acme.atlassian.net' }), identifiers: ['LO-1'] });
+
+		expect(result).toEqual([expect.objectContaining({ identifier: 'LO-1', url: 'https://acme.atlassian.net/browse/LO-1' })]);
 	});
 
 	test('fails the read when a status carries no category — a ticket whose finishedness is unknown must never be reported as unfinished', async () => {

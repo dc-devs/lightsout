@@ -6,9 +6,9 @@ import { red } from '#src/cli/common/terminal/red.ts';
 import { yellow } from '#src/cli/common/terminal/yellow.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { planRunOptions } from '#src/cli/plan/common/utils/planRunOptions.ts';
-import { GapOutcome, type GradeReport, type LightsoutConfig } from '#src/contracts/index.ts';
+import { GapOutcome, type GradeReport, type LightsoutConfig, PlanningStep, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { getBlockingGaps, gradeHistoryPath, gradeMemoryPath, runPlanGrade } from '#src/plan/index.ts';
+import { getBlockingGaps, gradeHistoryPath, gradeMemoryPath, PlanRunStatus, recordPlanningStep, runPlanGrade } from '#src/plan/index.ts';
 
 interface Params {
 	cwd: string;
@@ -70,7 +70,20 @@ const printWeights = ({ weights }: { weights: GradeReport['weights'] }) => {
  * report, only the recorded verdict and the one way to force a new baseline.
  */
 export const planGradeCommand = async ({ cwd, driver, name, standards, config, phases }: Params): Promise<void> => {
-	const result = await runPlanGrade({ ...planRunOptions({ cwd, driver, name, standards, config }), phases });
+	const result = await recordPlanningStep({
+		cwd,
+		name,
+		step: PlanningStep.Grade,
+		work: () => runPlanGrade({ ...planRunOptions({ cwd, driver, name, standards, config }), phases }),
+		// The letter is the plan's verdict, not the step's outcome: a complete
+		// grade exits 0 below whatever its letter, so it records as passed.
+		statusOf: ({ result: graded }) =>
+			graded.status === PlanRunStatus.PausedRateLimit
+				? RunStatus.PausedRateLimit
+				: graded.gradePath !== undefined && graded.grade?.complete === true
+					? RunStatus.Passed
+					: RunStatus.Failed,
+	});
 
 	if ('error' in result) {
 		console.error(`\n${result.error}`);

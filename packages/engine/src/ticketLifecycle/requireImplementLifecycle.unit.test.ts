@@ -57,6 +57,7 @@ const ticketWith = ({ labels, status = 'Backlog' }: { labels: string[]; status?:
 	id: 'id-88',
 	identifier: 'LO-88',
 	title: 'Begin source work',
+	url: 'https://linear.app/lightsout/issue/LO-88',
 	description: '',
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',

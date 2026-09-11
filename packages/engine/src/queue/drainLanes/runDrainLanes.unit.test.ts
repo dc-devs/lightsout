@@ -199,7 +199,14 @@ describe('runDrainLanes', () => {
 		expect({ built: lanes.builds.started(), merged: lanes.merges.started(), leftBehind: report.leftBehind }).toEqual({
 			built: ['LO-1', 'LO-2', 'LO-3'],
 			merged: ['LO-2'],
-			leftBehind: [{ identifier: 'LO-4', reason: expect.stringContaining('every slot was retired') }],
+			leftBehind: [
+				{
+					identifier: 'LO-4',
+					title: 'Ticket LO-4',
+					url: 'https://linear.app/lightsout/issue/LO-70',
+					reason: expect.stringContaining('every slot was retired'),
+				},
+			],
 		});
 	});
 
@@ -213,9 +220,44 @@ describe('runDrainLanes', () => {
 		const report = await drained;
 
 		expect({ leftBehind: report.leftBehind, progress: lanes.progress }).toEqual({
-			leftBehind: [{ identifier: 'LO-2', reason: 'not started: every slot was retired by a ticket parked on an unanswered question' }],
+			leftBehind: [
+				{
+					identifier: 'LO-2',
+					title: 'Ticket LO-2',
+					url: 'https://linear.app/lightsout/issue/LO-70',
+					reason: 'not started: every slot was retired by a ticket parked on an unanswered question',
+				},
+			],
 			progress: expect.arrayContaining([expect.stringContaining('LO-2 · not started: every slot was retired')]),
 		});
+	});
+
+	test('names a never-started ticket with its title and link beside the unchanged not-started reason', async () => {
+		const blockedEntry = { identifier: 'LO-9', reason: 'blocked by LO-8' };
+		const lanes = setupLanes({ runnable: ['LO-1', 'LO-2', 'LO-3'], blocked: [blockedEntry], maxParallel: 1 });
+		const runnable = lanes.params.first.runnable.map((ticket) => ({ ...ticket, url: `https://linear.app/lightsout/issue/${ticket.identifier}` }));
+		const drained = runDrainLanes({ ...lanes.params, first: { ...lanes.params.first, runnable } });
+
+		await lanes.settle();
+		await lanes.finishBuild({ identifier: 'LO-1', end: 'unanswered' });
+
+		const report = await drained;
+
+		expect(report.leftBehind).toStrictEqual([
+			{
+				identifier: 'LO-2',
+				title: 'Ticket LO-2',
+				url: 'https://linear.app/lightsout/issue/LO-2',
+				reason: 'not started: every slot was retired by a ticket parked on an unanswered question',
+			},
+			{
+				identifier: 'LO-3',
+				title: 'Ticket LO-3',
+				url: 'https://linear.app/lightsout/issue/LO-3',
+				reason: 'not started: every slot was retired by a ticket parked on an unanswered question',
+			},
+			{ identifier: 'LO-9', reason: 'blocked by LO-8' },
+		]);
 	});
 
 	test("records a ticket admitted mid-run in the coordinator's queue document", async () => {

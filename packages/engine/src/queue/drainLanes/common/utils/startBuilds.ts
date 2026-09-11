@@ -22,7 +22,10 @@ const parkedBuild = async ({ context, ticket, thrown }: { context: LaneContext; 
 	return { ticket, branch, worktreePath, ready: false, error: messageOf({ error: thrown }) };
 };
 
-const settleBuild = ({ state, outcome }: { state: LaneState; outcome: TicketRunOutcome }) => {
+/** The build leaves `building` in the same step its outcome joins a lane, so no snapshot shows it in two or in none. */
+const settleBuild = ({ state, ticket, outcome }: { state: LaneState; ticket: RunnableTicket; outcome: TicketRunOutcome }) => {
+	state.building.delete(ticket.identifier.toLowerCase());
+
 	if (outcome.unanswered === true) {
 		state.retired += 1;
 	}
@@ -37,9 +40,9 @@ const settleBuild = ({ state, outcome }: { state: LaneState; outcome: TicketRunO
 /** One ticket built and settled — never rejecting, for the reason the ship lane never does. */
 const buildTicket = async ({ context, state, ticket }: { context: LaneContext; state: LaneState; ticket: RunnableTicket }) => {
 	try {
-		settleBuild({ state, outcome: await context.runTicket({ ticket }) });
+		settleBuild({ state, ticket, outcome: await context.runTicket({ ticket }) });
 	} catch (thrown) {
-		settleBuild({ state, outcome: await parkedBuild({ context, ticket, thrown }) });
+		settleBuild({ state, ticket, outcome: await parkedBuild({ context, ticket, thrown }) });
 	}
 };
 
@@ -60,6 +63,7 @@ export const startBuilds = ({ context, state, flight }: Params): void => {
 		}
 
 		flight.builds += 1;
+		state.building.set(ticket.identifier.toLowerCase(), { ticket, startedAt: new Date().toISOString() });
 		trackTask({
 			flight,
 			run: async () => {

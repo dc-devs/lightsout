@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { type LightsoutConfig, PipelineKind, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { type GateHolds, syncGateHolds } from '#src/gates/index.ts';
+import { BoardQuestionRelay, QueueBoardRecorder } from '#src/queue/board/index.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
@@ -33,6 +34,19 @@ interface Params {
 	onProgress?: (message: string) => void;
 }
 
+/**
+ * Passed when everything the drain ran shipped and nothing is left waiting on a re-run.
+ *
+ * A reconciled already-merged ticket is `settled` and never re-offered, so it
+ * is not work left: counting it would record an escalated coordinator run for
+ * a drain in which everything eligible shipped.
+ */
+const toCoordinatorStatus = ({ drained }: { drained: QueueDrainReport }) => {
+	const unfinished = drained.leftBehind.filter((entry) => entry.settled !== true);
+
+	return drained.outcomes.every((outcome) => outcome.ready) && unfinished.length === 0 ? RunStatus.Passed : RunStatus.Escalated;
+};
+
 /** The locked half of a drain: the coordinator run, the two lanes, then the settled labels. */
 const drainAndShip = async ({
 	cwd,
@@ -60,6 +74,9 @@ const drainAndShip = async ({
 	// One chain per drain, threaded to everything that mutates the main checkout:
 	// the builders' `git worktree add`, the merge tail's removal and the re-scan's.
 	const serializeMainCheckout = createMainCheckoutSerializer();
+	const board = new QueueBoardRecorder({ cwd, runId, branchTemplate: settings.branchTemplate, onProgress });
+	// Workers ask through this, so an open question shows on the board; delivery stays the CLI relay's.
+	const boardRelay = new BoardQuestionRelay({ relay, board });
 	const drained = await drainQueue({
 		cwd,
 		runId,
@@ -78,6 +95,7 @@ const drainAndShip = async ({
 		first,
 		parked,
 		serializeMainCheckout,
+		board,
 		onProgress,
 		runTicket: ({ ticket }) =>
 			runQueueTicket({
@@ -89,23 +107,21 @@ const drainAndShip = async ({
 				driver,
 				driverName,
 				defaultBranch,
-				relay,
+				relay: boardRelay,
 				serializeWorktreeAdd: serializeMainCheckout,
 				coordinatorRunId: runId,
 				coordinatorRunDir,
 				onProgress: relay.createProgressSink({ ticket }),
 			}),
 	});
-	// A reconciled already-merged ticket is `settled` and never re-offered, so it
-	// is not work left: counting it would record an escalated coordinator run for
-	// a drain in which everything eligible shipped.
-	const unfinished = drained.leftBehind.filter((entry) => entry.settled !== true);
-	const status = drained.outcomes.every((outcome) => outcome.ready) && unfinished.length === 0 ? RunStatus.Passed : RunStatus.Escalated;
+	const status = toCoordinatorStatus({ drained });
 
 	// One call is the whole park/ship label story: shipping has already flipped
 	// `ready` on anything it could not merge, so a ship-step park is labelled by
 	// the same line that labels a worker park.
 	await settleParkedLabels({ settings, trackerSettings, outcomes: drained.outcomes, onProgress });
+	// The last board write lands before the run records its final status.
+	await board.flush();
 	await writeManifestWithUsage({ cwd, manifest, patch: { status, currentStep: null }, usageTotals: seedUsageTotals({ usage: manifest.usage }) });
 
 	return drained;
