@@ -1,4 +1,4 @@
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
 import { type GradeInputs, type GradeMemory, type GradeReport, GradeScope, type StructuralFinding } from '#src/contracts/index.ts';
 import { appendGradeHistory } from '#src/plan/appendGradeHistory.ts';
@@ -39,11 +39,27 @@ interface Params {
 	progress: (message: string) => void;
 }
 
-/** What the next pass narrows against, and what a later invocation may report as current — each recorded only by a pass entitled to claim it. */
+/**
+ * What the next pass narrows against, and what a later invocation may report as
+ * current — each recorded only by a pass entitled to claim it.
+ *
+ * A pass records itself as the baseline when it finished every check its own
+ * scope called for, and otherwise leaves the baseline exactly where it was: a
+ * pass that lost a reader never read that phase's text, so it cannot vouch for
+ * it and must not shrink the next pass's scope.
+ *
+ * A focused pass may store the WHOLE input fingerprint because, by invariant,
+ * the only inputs it differs from its baseline by are ones it read: scope falls
+ * back to a full review whenever the code, standards, configuration, prompts or
+ * model moved or the overview changed outside its Decision Log, and the focused
+ * closure is seeded with the edited phases themselves and with the phases every
+ * changed decision row names. A closure missing an edited phase would need a
+ * plan file the overview no longer declares, and that blocking structural
+ * finding stops the pass before any scope is decided — so no runtime guard is
+ * written for it.
+ */
 const nextBaselines = ({ memory, report, inputs, at }: { memory: GradeMemory; report: GradeReport; inputs: GradeInputs; at: string }) => ({
-	// A pass that lost a reader never read that phase's text, so it cannot vouch
-	// for it and must not shrink the next pass's scope.
-	lastPass: report.complete ? { scope: report.scope, inputs, at } : memory.lastPass,
+	lastPass: report.scopeComplete ? { scope: report.scope, inputs, at } : memory.lastPass,
 	lastPassingFullReview: report.scope === GradeScope.Full && report.complete && report.passed ? { inputs, at } : memory.lastPassingFullReview,
 });
 
@@ -122,7 +138,8 @@ export const runGradePass = async ({
 		focusedOn,
 		inputs,
 		scopeReason,
-		readersSpawned: heavy.length > 0,
+		phasesRequired: heavy.map((file) => basename(file.path)),
+		documentationComplete: agents.documentationComplete,
 	});
 	const nextMemory: GradeMemory = { ...merged.memory, ...nextBaselines({ memory: merged.memory, report, inputs, at }), updatedAt: at };
 

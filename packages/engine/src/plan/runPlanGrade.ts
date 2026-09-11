@@ -78,7 +78,8 @@ const stopOnStructure = async ({
 		phasesChecked: [],
 		commit: stamp.commit,
 		treeDirty: stamp.treeDirty,
-		readersSpawned: false,
+		phasesRequired: [],
+		documentationComplete: false,
 	});
 
 	await writeJsonFile({ path: gradePath, value: report });

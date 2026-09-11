@@ -1,9 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { type ConfigDocs, GradeReport } from '#src/contracts/index.ts';
+import { type ConfigDocs, GradeMemory, GradeReport } from '#src/contracts/index.ts';
 import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
-import { getBlockingGaps } from '#src/plan/index.ts';
+import { getBlockingGaps, gradeMemoryPath } from '#src/plan/index.ts';
 import { runPlanGrade } from '#src/plan/runPlanGrade.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createGapCheckDriver } from '#tests/helpers/createGapCheckDriver.ts';
@@ -136,6 +136,26 @@ test('plan grade: a documentation checker that could not run leaves the pass inc
 	expect(recorded.complete).toBe(false);
 	expect(recorded.incompleteReason?.includes('documentation')).toBeTruthy();
 	expect(recorded.grade).toBe('below-A');
+});
+
+test('plan grade: a documentation checker that could not run records no scope baseline', async () => {
+	const { cwd, name, driver, gradePath } = setupFailingCheck({ name: 'docs-no-baseline', response: { text: 'not a report', exitCode: 1 } });
+
+	const result = await runPlanGrade({ cwd, driver, name });
+
+	expectStatus(result, 'failed');
+
+	const recorded = GradeReport.parse(JSON.parse(readFileSync(gradePath, 'utf8')));
+	const memory = GradeMemory.parse(JSON.parse(readFileSync(gradeMemoryPath({ cwd, name }), 'utf8')));
+
+	// every reader answered clean, so only the whole-plan check it owed is missing
+	// — and that alone keeps this full pass from claiming its own scope finished
+	expect(recorded.scope).toBe('full');
+	expect(recorded.phasesChecked).toStrictEqual(['plan.md']);
+	expect(recorded.scopeComplete).toBe(false);
+	// so the next pass has nothing to narrow against
+	expect(memory.lastPass).toBeUndefined();
+	expect(memory.lastPassingFullReview).toBeUndefined();
 });
 
 test('plan grade: a rate-limited documentation checker parks the pass rather than failing it', async () => {

@@ -23998,6 +23998,8 @@ var GradeReport = external_exports.object({
   phasesLight: external_exports.array(external_exports.string()).default([]),
   /** False when a READER failed or hit the rate-limit wall; the findings below are real but partial. A failed judge leaves its gap `unjudged` instead. */
   complete: external_exports.boolean().default(true),
+  /** True when every check this pass's own scope called for finished — never a whole-plan clean bill, and never an approval. Defaults to `false` so a report written before the field existed claims no coverage. */
+  scopeComplete: external_exports.boolean().default(false),
   /** Why the pass did not finish, absent when it did. */
   incompleteReason: external_exports.string().optional(),
   passed: external_exports.boolean(),
@@ -132576,7 +132578,7 @@ var runPlanDedup = async (params) => {
 };
 
 // src/plan/runPlanGrade.ts
-import { basename as basename28, join as join60 } from "node:path";
+import { basename as basename29, join as join60 } from "node:path";
 
 // src/plan/appendGradeHistory.ts
 import { appendFile as appendFile4, mkdir as mkdir15 } from "node:fs/promises";
@@ -132592,6 +132594,20 @@ var appendGradeHistory = async ({ cwd, name, report }) => {
 var gapCheckLenses = Object.values(GapCheckLens);
 
 // src/plan/common/grading/createGradeReport.ts
+var isScopeComplete = ({
+  phases,
+  phasesRequired,
+  phasesChecked,
+  phasesLight,
+  gaps,
+  documentationComplete
+}) => (
+  // A human's `--phase` narrowing speaks for the files they chose, never for the ones they left out.
+  phases === void 0 && // A pass that offered no plan file at all established nothing. A light file counts: it is an exemption the weighing made, not an unread file.
+  (phasesRequired.length > 0 || phasesLight.length > 0) && // `phasesChecked` names a file only when EVERY lens returned for it.
+  phasesRequired.every((phase) => phasesChecked.includes(phase)) && // No memory record carries an unjudged question, so only reading its plan file again can — and a baseline is a request not to.
+  gaps.every(({ outcome }) => outcome !== GapOutcome.Unjudged) && documentationComplete
+);
 var createGradeReport = ({
   name,
   phases,
@@ -132607,9 +132623,9 @@ var createGradeReport = ({
   focusedOn = [],
   inputs,
   scopeReason,
-  readersSpawned = true
+  phasesRequired,
+  documentationComplete
 }) => {
-  const everyFileLight = weights.length > 0 && weights.every(({ weight }) => weight === PlanWeight.Light);
   const narrowed = phases === void 0 ? [] : [`graded a subset on request: ${phases.join(", ")} \u2014 the structural findings still cover every plan file`];
   const read = focusedOn.length > 0 ? focusedOn.join(", ") : "no phase \u2014 nothing was edited";
   const focused = scope === GradeScope.Focused ? [`focused review of ${read} \u2014 a full review is required for approval`] : [];
@@ -132622,10 +132638,13 @@ var createGradeReport = ({
     structural,
     gaps,
     phasesChecked,
-    lenses: everyFileLight || !readersSpawned ? [] : gapCheckLenses,
+    // From what was owed, not from `phasesChecked`: a reader that failed also
+    // leaves `phasesChecked` empty, and that pass did spawn its lenses.
+    lenses: phasesRequired.length === 0 ? [] : gapCheckLenses,
     weights,
     phasesLight,
     complete: complete2,
+    scopeComplete: isScopeComplete({ phases, phasesRequired, phasesChecked, phasesLight, gaps, documentationComplete }),
     incompleteReason: complete2 ? void 0 : reasons.join("; "),
     passed: grade === PlanGrade.A,
     gradedAt: (/* @__PURE__ */ new Date()).toISOString(),
@@ -132680,7 +132699,7 @@ var readReusableGrade = async ({ gradePath, sha256: sha2562 }) => {
 };
 
 // src/plan/common/grading/runGradePass.ts
-import { join as join58 } from "node:path";
+import { basename as basename24, join as join58 } from "node:path";
 
 // src/plan/common/grading/drainGradeAgents.ts
 import { basename as basename21, relative as relative8 } from "node:path";
@@ -132951,7 +132970,8 @@ var drainGradeAgents = async ({
     gaps: [...judged.gaps, ...docsCheck.gaps],
     failures: [...readers.failures, ...docsCheck.failures],
     phasesChecked: readers.phasesChecked,
-    rateLimited: readers.rateLimited || judged.rateLimited || docsCheck.rateLimited
+    rateLimited: readers.rateLimited || judged.rateLimited || docsCheck.rateLimited,
+    documentationComplete: docsCheck.failures.length === 0
   };
 };
 
@@ -133212,9 +133232,7 @@ var writeGradeMemory = async ({ cwd, name, memory }) => {
 
 // src/plan/common/grading/runGradePass.ts
 var nextBaselines = ({ memory, report, inputs, at }) => ({
-  // A pass that lost a reader never read that phase's text, so it cannot vouch
-  // for it and must not shrink the next pass's scope.
-  lastPass: report.complete ? { scope: report.scope, inputs, at } : memory.lastPass,
+  lastPass: report.scopeComplete ? { scope: report.scope, inputs, at } : memory.lastPass,
   lastPassingFullReview: report.scope === GradeScope.Full && report.complete && report.passed ? { inputs, at } : memory.lastPassingFullReview
 });
 var runGradePass = async ({
@@ -133271,7 +133289,8 @@ var runGradePass = async ({
     focusedOn,
     inputs,
     scopeReason,
-    readersSpawned: heavy.length > 0
+    phasesRequired: heavy.map((file2) => basename24(file2.path)),
+    documentationComplete: agents.documentationComplete
   });
   const nextMemory = { ...merged.memory, ...nextBaselines({ memory: merged.memory, report, inputs, at }), updatedAt: at };
   await writeJsonFile({ path: join58(pass.workspaceDir, gradeFileName), value: report });
@@ -133308,7 +133327,7 @@ var readGradeMemory = async ({ cwd, name }) => {
 };
 
 // src/plan/common/scope/decideGradeScope.ts
-import { basename as basename25 } from "node:path";
+import { basename as basename26 } from "node:path";
 
 // src/plan/common/scope/getAffectedPhases.ts
 var getAffectedPhases = ({ connections, edited }) => {
@@ -133411,7 +133430,7 @@ var getEditedPhases = ({ current, previous }) => {
 };
 
 // src/plan/common/scope/getPhaseConnections.ts
-import { basename as basename24 } from "node:path";
+import { basename as basename25 } from "node:path";
 var isIdentifierSpan2 = ({ span }) => /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(span);
 var comparableTokens2 = ({ lines }) => {
   const tokens = /* @__PURE__ */ new Set();
@@ -133421,7 +133440,7 @@ var comparableTokens2 = ({ lines }) => {
         continue;
       }
       if (isPathToken({ token: span })) {
-        tokens.add(basename24(span));
+        tokens.add(basename25(span));
       } else if (isIdentifierSpan2({ span })) {
         tokens.add(span);
       }
@@ -133430,7 +133449,7 @@ var comparableTokens2 = ({ lines }) => {
   return tokens;
 };
 var providedBy = ({ phase, exports }) => /* @__PURE__ */ new Set([
-  ...getPlanNamedPaths({ plan: phase.plan }).map((path) => basename24(path)),
+  ...getPlanNamedPaths({ plan: phase.plan }).map((path) => basename25(path)),
   ...exports,
   ...comparableTokens2({ lines: phase.plan.sections.get("What Next Plan Expects") ?? [] })
 ]);
@@ -133463,10 +133482,10 @@ var getPhaseConnections = ({ phases, declarations }) => {
 
 // src/plan/common/scope/decideGradeScope.ts
 var parseFiles = ({ files }) => files.map((file2) => {
-  const base = basename25(file2.path);
+  const base = basename26(file2.path);
   return { path: file2.path, base, number: Number(/^phase(\d+)-/.exec(base)?.[1] ?? 1), plan: parsePlan({ content: file2.text, base }) };
 });
-var everyPhase = ({ files }) => files.map((file2) => basename25(file2.path));
+var everyPhase = ({ files }) => files.map((file2) => basename26(file2.path));
 var focusedClosure = ({ files, overviewText, edited }) => {
   const declarations = parsePhaseDeclarations({ plan: parsePlan({ content: overviewText, base: "overview.md" }) });
   const graph = getPhaseConnections({ phases: parseFiles({ files }), declarations });
@@ -133530,7 +133549,7 @@ var decideGradeScope = ({ files, overviewText, memory, inputs, narrowed }) => {
 
 // src/plan/common/scope/getGradeInputs.ts
 import { readFile as readFile27 } from "node:fs/promises";
-import { basename as basename26, join as join59 } from "node:path";
+import { basename as basename27, join as join59 } from "node:path";
 var hashFile = async ({ path }) => {
   const content = await readFile27(path).catch(() => void 0);
   return content === void 0 ? "absent" : sha256({ content });
@@ -133552,7 +133571,7 @@ var toDecisionEntry = ({ row }) => {
   };
 };
 var readDecisionLog = async ({ planPaths, decisions }) => {
-  const overviewPath = planPaths.find((path) => basename26(path) === "overview.md");
+  const overviewPath = planPaths.find((path) => basename27(path) === "overview.md");
   const text = overviewPath === void 0 ? void 0 : await readFile27(overviewPath, "utf8").catch(() => void 0);
   if (text === void 0) {
     return void 0;
@@ -133563,7 +133582,7 @@ var readDecisionLog = async ({ planPaths, decisions }) => {
   return { overview: sha256({ content: design.join("\n") }), rows: decisions.map((row) => toDecisionEntry({ row })) };
 };
 var getGradeInputs = async ({ cwd, planPaths, decisions, standards, config: config2, model, effort }) => {
-  const hashed = await Promise.all(planPaths.map(async (path) => ({ file: basename26(path), sha256: await hashFile({ path }) })));
+  const hashed = await Promise.all(planPaths.map(async (path) => ({ file: basename27(path), sha256: await hashFile({ path }) })));
   const planFiles = hashed.sort((left, right) => left.file > right.file ? 1 : -1);
   const gradedCommit = await readGitHeadCommit({ cwd });
   const changed = await readGitChangedFiles({ cwd });
@@ -133583,19 +133602,19 @@ var getGradeInputs = async ({ cwd, planPaths, decisions, standards, config: conf
 };
 
 // src/plan/common/utils/selectPhaseFiles.ts
-import { basename as basename27 } from "node:path";
-var phaseIndexOf = ({ file: file2 }) => Number(/^phase(\d+)/.exec(basename27(file2.path))?.[1] ?? Number.NaN);
+import { basename as basename28 } from "node:path";
+var phaseIndexOf = ({ file: file2 }) => Number(/^phase(\d+)/.exec(basename28(file2.path))?.[1] ?? Number.NaN);
 var selectPhaseFiles = ({ files, phases }) => {
   if (phases === void 0) {
     return { selected: files };
   }
-  const listing = `available: ${files.map((file2) => basename27(file2.path)).join(", ")}`;
+  const listing = `available: ${files.map((file2) => basename28(file2.path)).join(", ")}`;
   if (phases.length === 0) {
     return { error: `--phase named no phase file \u2014 ${listing}` };
   }
   const wanted = /* @__PURE__ */ new Set();
   for (const value of phases) {
-    const matches = /^\d+$/.test(value) ? files.filter((file2) => phaseIndexOf({ file: file2 }) === Number(value)) : files.filter((file2) => basename27(file2.path) === value);
+    const matches = /^\d+$/.test(value) ? files.filter((file2) => phaseIndexOf({ file: file2 }) === Number(value)) : files.filter((file2) => basename28(file2.path) === value);
     if (matches.length !== 1) {
       return { error: `--phase ${value} matches ${matches.length} plan file(s) \u2014 ${listing}` };
     }
@@ -133622,7 +133641,8 @@ var stopOnStructure = async ({
     phasesChecked: [],
     commit: stamp3.commit,
     treeDirty: stamp3.treeDirty,
-    readersSpawned: false
+    phasesRequired: [],
+    documentationComplete: false
   });
   await writeJsonFile({ path: gradePath, value: report });
   await appendGradeHistory({ cwd: params.cwd, name: params.name, report });
@@ -133635,7 +133655,7 @@ var runDecidedPasses = async (context) => {
   const first = await runGradePass({
     params,
     pass,
-    selected: focused ? selected.filter((file2) => decision.phases.includes(basename28(file2.path))) : selected,
+    selected: focused ? selected.filter((file2) => decision.phases.includes(basename29(file2.path))) : selected,
     scope: decision.scope,
     focusedOn: focused ? decision.phases : [],
     scopeReason: decision.reason,
@@ -135633,7 +135653,7 @@ var frictionCommand = async ({ cwd }) => {
 };
 
 // src/cli/common/render/printResult.ts
-import { basename as basename29 } from "node:path";
+import { basename as basename30 } from "node:path";
 
 // ../shared/src/formatting/formatCost.ts
 var formatCost = ({ usd }) => `$${usd.toFixed(2)}`;
@@ -135782,7 +135802,7 @@ var printResult = async ({ result, cwd }) => {
   const summary = await summarizeRun({ cwd, manifest });
   console.log("");
   label({ name: "run", value: `${manifest.runId.slice(0, 8)} \xB7 ${paintStatus({ status: manifest.status, text: bold(manifest.status.toUpperCase()) })}` });
-  label({ name: "plan", value: basename29(manifest.plan) });
+  label({ name: "plan", value: basename30(manifest.plan) });
   label({ name: "wall", value: formatDuration({ ms: summary.wallMs }) });
   if (summary.activeMs > 0) {
     label({ name: "active", value: formatDuration({ ms: summary.activeMs }) });
@@ -135906,11 +135926,11 @@ var writeWorktreeRecord = async ({ cwd, branch, owner, worktreePath, startPoint,
 import { join as join75 } from "node:path";
 
 // src/worktree/resolveWorktreesRoot.ts
-import { basename as basename30, dirname as dirname13, join as join74, resolve as resolve7 } from "node:path";
+import { basename as basename31, dirname as dirname13, join as join74, resolve as resolve7 } from "node:path";
 var resolveWorktreesRoot = async ({ cwd }) => {
   const primary = await readGitPrimaryCheckout({ cwd });
   const repo = resolve7(primary ?? cwd);
-  return join74(dirname13(repo), `${basename30(repo)}-worktrees`);
+  return join74(dirname13(repo), `${basename31(repo)}-worktrees`);
 };
 
 // src/worktree/resolveWorktreePath.ts
@@ -136656,7 +136676,7 @@ var finishImplementRun = async ({ config: config2, cwd, result, flags }) => {
 
 // src/cli/common/implementRun/copyRunInputs.ts
 import { cp as cp2, mkdir as mkdir19, stat as stat9 } from "node:fs/promises";
-import { basename as basename31, dirname as dirname14, join as join78, relative as relative11, resolve as resolve8 } from "node:path";
+import { basename as basename32, dirname as dirname14, join as join78, relative as relative11, resolve as resolve8 } from "node:path";
 var copyPlanFolder = async ({ sourceCwd, workspace, name, inputPath }) => {
   const destination = planWorkspaceDir({ cwd: workspace, name });
   const held = await stat9(destination).then(
@@ -136670,7 +136690,7 @@ var copyPlanFolder = async ({ sourceCwd, workspace, name, inputPath }) => {
 };
 var copyLooseInput = async ({ sourceCwd, workspace, inputPath }) => {
   const source = resolve8(sourceCwd, inputPath);
-  const destination = join78(workspace, ".lightsout", "inputs", basename31(source));
+  const destination = join78(workspace, ".lightsout", "inputs", basename32(source));
   await mkdir19(dirname14(destination), { recursive: true });
   await cp2(source, destination);
   return relative11(workspace, destination);
@@ -136760,7 +136780,7 @@ var linkRunRecords = async ({ sourceCwd, workspace }) => {
 };
 
 // src/cli/common/implementRun/resolveRunBranch.ts
-import { basename as basename32, extname } from "node:path";
+import { basename as basename33, extname } from "node:path";
 
 // src/common/utils/headingOf.ts
 var headingOf = ({ text }) => text.split("\n")[0].replace(/^#+\s*/, "").trim();
@@ -136782,7 +136802,7 @@ var toBranchSlug = ({ text }) => {
 var renderBranchTemplate = ({ template, ticketRef, title }) => template.replaceAll("{ticket}", ticketRef.toLowerCase()).replaceAll("{slug}", toBranchSlug({ text: title }));
 
 // src/cli/common/implementRun/resolveRunBranch.ts
-var stemOf = ({ path }) => basename32(path, extname(path));
+var stemOf = ({ path }) => basename33(path, extname(path));
 var resolveRunBranch = ({ cwd, config: config2, planPath, ticketPath, ticketRef, ticketBody }) => {
   const planName = planPath === void 0 ? void 0 : planNameFromPath({ cwd, planPath });
   const template = config2.queue?.["branch-template"] ?? "{ticket}-{slug}";
@@ -156601,7 +156621,7 @@ still on ${report.ticketRef} from an earlier publish, and not written by this ru
 };
 
 // src/cli/plan/planSyncDecisionsCommand.ts
-import { basename as basename33 } from "node:path";
+import { basename as basename34 } from "node:path";
 var planSyncDecisionsCommand = async ({ flags, cwd }) => {
   const name = await getRequiredFlag({ flags, name: "name" });
   const result = await syncPlanDecisions({ cwd, name });
@@ -156613,7 +156633,7 @@ ${result.error}`);
   console.log(`
 ${bold(`plan sync-decisions ${name}`)} \u2014 ${result.files.length} file(s)`);
   for (const file2 of result.files) {
-    console.log(`  ${basename33(file2.path)} \u2014 ${file2.updated ? "updated" : "unchanged"}`);
+    console.log(`  ${basename34(file2.path)} \u2014 ${file2.updated ? "updated" : "unchanged"}`);
   }
   return exitCli({ code: 0 });
 };
@@ -158982,7 +159002,7 @@ var toStandardsPackRuleListing = ({ rule, fixtureCounts }) => ({
 var DeclaredConfig = external_exports.object({ timeouts: external_exports.record(external_exports.string(), external_exports.unknown()).optional() }).catchall(external_exports.unknown());
 
 // src/views/common/utils/getRunTitle.ts
-import { basename as basename34, dirname as dirname27 } from "node:path";
+import { basename as basename35, dirname as dirname27 } from "node:path";
 var namedRuleLimit = 3;
 var describeRules = ({ rules }) => {
   const distinct = [...new Set(rules)];
@@ -158991,9 +159011,9 @@ var describeRules = ({ rules }) => {
   return rest > 0 ? `${named} +${rest} more` : named;
 };
 var getRunTitle = ({ plan, worklist }) => {
-  const name = basename34(plan);
+  const name = basename35(plan);
   const stem = name.replace(/\.md$/, "");
-  const folder = basename34(dirname27(plan));
+  const folder = basename35(dirname27(plan));
   const rules = worklist?.kind === PipelineKind.Refactor ? worklist.worklist?.batches.map((batch) => batch.rule) ?? [] : [];
   let title;
   if (worklist?.kind === PipelineKind.Coverage) {

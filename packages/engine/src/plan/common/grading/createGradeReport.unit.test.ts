@@ -48,7 +48,61 @@ const setupReport = ({
 	phases?: string[];
 	commit?: string;
 	treeDirty?: boolean;
-} = {}) => createGradeReport({ name: 'graded', phases, structural, gaps, failures, phasesChecked: ['plan.md'], commit, treeDirty });
+} = {}) =>
+	createGradeReport({
+		name: 'graded',
+		phases,
+		structural,
+		gaps,
+		failures,
+		phasesChecked: ['plan.md'],
+		commit,
+		treeDirty,
+		phasesRequired: ['plan.md'],
+		documentationComplete: true,
+	});
+
+/**
+ * The report a scope-coverage case grades: a full pass, defaulting to one that
+ * owed one plan file a reader, read it, and finished its documentation check.
+ */
+const setupCoverageReport = ({
+	phasesRequired = ['plan.md'],
+	phasesChecked = phasesRequired,
+	phasesLight = [],
+	gaps = [],
+	documentationComplete = true,
+}: {
+	phasesRequired?: string[];
+	phasesChecked?: string[];
+	phasesLight?: string[];
+	gaps?: GradedGap[];
+	documentationComplete?: boolean;
+} = {}) =>
+	createGradeReport({
+		name: 'graded',
+		structural: [],
+		gaps,
+		failures: [],
+		phasesChecked,
+		phasesLight,
+		phasesRequired,
+		documentationComplete,
+	});
+
+/** The report of a focused pass that owed two plan files a reader, read both, and found nothing. */
+const setupFocusedReport = () =>
+	createGradeReport({
+		name: 'graded',
+		structural: [],
+		gaps: [],
+		failures: [],
+		phasesChecked: ['phase1-core.md', 'phase2-extra.md'],
+		scope: GradeScope.Focused,
+		focusedOn: ['phase1-core.md', 'phase2-extra.md'],
+		phasesRequired: ['phase1-core.md', 'phase2-extra.md'],
+		documentationComplete: true,
+	});
 
 describe('createGradeReport', () => {
 	test('a pass that found nothing at all is an A', () => {
@@ -154,6 +208,8 @@ describe('createGradeReport', () => {
 			phasesChecked: ['phase1-core.md'],
 			weights,
 			phasesLight: ['phase2-extra.md'],
+			phasesRequired: ['phase1-core.md'],
+			documentationComplete: true,
 		});
 
 		expect(report.weights).toStrictEqual(weights);
@@ -171,6 +227,8 @@ describe('createGradeReport', () => {
 			phasesChecked: [],
 			weights: [{ phase: 'plan.md', weight: PlanWeight.Light, reasons: [] }],
 			phasesLight: ['plan.md'],
+			phasesRequired: [],
+			documentationComplete: true,
 		});
 
 		// empty lenses reads as "no reader ran", never as "every lens ran and found nothing"
@@ -186,16 +244,7 @@ describe('createGradeReport', () => {
 	});
 
 	test('a focused pass is incomplete and names the phases it read', () => {
-		const report = createGradeReport({
-			name: 'graded',
-			structural: [],
-			gaps: [],
-			failures: [],
-			phasesChecked: ['phase1-core.md', 'phase2-extra.md'],
-			scope: GradeScope.Focused,
-			focusedOn: ['phase1-core.md', 'phase2-extra.md'],
-			readersSpawned: true,
-		});
+		const report = setupFocusedReport();
 
 		// a pass that never offered every plan file to the readers is a partial record
 		expect(report.complete).toBe(false);
@@ -212,7 +261,8 @@ describe('createGradeReport', () => {
 			phasesChecked: [],
 			scope: GradeScope.Full,
 			focusedOn: [],
-			readersSpawned: false,
+			phasesRequired: [],
+			documentationComplete: true,
 		});
 
 		// the field states what ran, so a pass that spawned nothing must not claim three lenses
@@ -228,12 +278,61 @@ describe('createGradeReport', () => {
 			phasesChecked: ['phase1-core.md'],
 			scope: GradeScope.Focused,
 			focusedOn: ['phase1-core.md'],
-			readersSpawned: true,
+			phasesRequired: ['phase1-core.md'],
+			documentationComplete: true,
 		});
 
 		// a focused pass is a repair check, never an approval
 		expect(report.grade).toBe('below-A');
 		expect(report.passed).toBe(false);
 		expect(report.scope).toBe('focused');
+	});
+
+	test('a focused pass that finished every check it owed is scope-complete and still not complete', () => {
+		const report = setupFocusedReport();
+
+		// finishing its own scope is not a whole-plan clean bill
+		expect({ scopeComplete: report.scopeComplete, complete: report.complete, passed: report.passed }).toStrictEqual({
+			scopeComplete: true,
+			complete: false,
+			passed: false,
+		});
+	});
+
+	test('a pass missing a phase it owed a reader is not scope-complete', () => {
+		const report = setupCoverageReport({
+			phasesRequired: ['phase1-core.md', 'phase2-extra.md'],
+			phasesChecked: ['phase1-core.md'],
+		});
+
+		// no failure was reported, yet phase 2 has no evidence that every lens returned for it
+		expect(report.scopeComplete).toBe(false);
+	});
+
+	test('a pass leaving a finding unjudged is not scope-complete', () => {
+		const report = setupCoverageReport({ gaps: [gapOf({ outcome: GapOutcome.Unjudged })] });
+
+		// no memory record carries an unjudged question, so its plan file must be read again
+		expect(report.scopeComplete).toBe(false);
+	});
+
+	test('a pass whose every file weighed light is scope-complete and claims no lens', () => {
+		const report = setupCoverageReport({ phasesRequired: [], phasesChecked: [], phasesLight: ['plan.md'] });
+
+		// a light file is a deliberate exemption, not an unread file
+		expect({ scopeComplete: report.scopeComplete, lenses: report.lenses }).toStrictEqual({ scopeComplete: true, lenses: [] });
+	});
+
+	test('a pass that offered no plan file at all is not scope-complete', () => {
+		const report = setupCoverageReport({ phasesRequired: [], phasesChecked: [], phasesLight: [] });
+
+		// a pass that established nothing must remember nothing
+		expect({ scopeComplete: report.scopeComplete, lenses: report.lenses }).toStrictEqual({ scopeComplete: false, lenses: [] });
+	});
+
+	test('a pass whose documentation checker did not finish is not scope-complete', () => {
+		const report = setupCoverageReport({ documentationComplete: false });
+
+		expect(report.scopeComplete).toBe(false);
 	});
 });

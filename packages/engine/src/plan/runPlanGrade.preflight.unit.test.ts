@@ -110,6 +110,23 @@ test('plan grade: a preflight stop is written as an incomplete pass, not a missi
 	expect(history.length).toBe(1);
 });
 
+test('plan grade: a preflight stop claims no scope coverage', async () => {
+	const { cwd, name, driver, gradePath } = setup({ name: 'preflight-uncovered', body: blockingPlanBody() });
+
+	const result = await runPlanGrade({ cwd, driver, name });
+
+	expectStatus(result, 'complete');
+
+	// read raw rather than through the contract, whose default would supply the
+	// flag even if the stop never wrote it
+	const persisted: unknown = JSON.parse(readFileSync(gradePath, 'utf8'));
+
+	// a stop before any spawn read nothing, so it is neither a whole-plan clean
+	// bill nor a pass that finished what its own scope called for — it must never
+	// become the baseline a later repair narrows against
+	expect(persisted).toEqual(expect.objectContaining({ complete: false, scopeComplete: false }));
+});
+
 test('plan grade: a preflight stop does not touch the finding memory', async () => {
 	const { cwd, name, driver, memoryText } = setup({ name: 'preflight-remembered', body: blockingPlanBody(), memory: true });
 
