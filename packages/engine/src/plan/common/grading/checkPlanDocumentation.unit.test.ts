@@ -78,6 +78,9 @@ test('checkPlanDocumentation: a returned finding is stamped with the deliverable
 	expect(result.gaps[0]?.outcome).toBe('needs-a-human');
 	// no per-file lens produced it, which is what makes the field optional
 	expect(result.gaps[0]?.lens).toBe(undefined);
+	// it is one checker's single observation, never a group — the memory reads its
+	// one location from its own phase
+	expect(result.gaps[0]?.observations).toStrictEqual([]);
 	// and the run says what it checked and against how many surfaces
 	expect(params.messages).toStrictEqual(['plan grade demo: documentation check — 1 finding(s) against 2 declared surface(s)']);
 });

@@ -3,6 +3,7 @@ export { gradeMemoryPath } from '#src/plan/common/memory/gradeMemoryPath.ts';
 export { pathExists } from '#src/plan/common/paths/pathExists.ts';
 export type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 export type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
+export { findingLocations } from '#src/plan/common/utils/findingLocations.ts';
 export { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.ts';
 export { getBlockingGaps } from '#src/plan/common/utils/getBlockingGaps.ts';
 export { isBlockingGap } from '#src/plan/common/utils/isBlockingGap.ts';

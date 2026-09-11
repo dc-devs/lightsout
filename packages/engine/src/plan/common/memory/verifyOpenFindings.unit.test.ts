@@ -60,6 +60,8 @@ const recordOf = (overrides: Partial<GradeFindingRecord> = {}): GradeFindingReco
 	status: GradeFindingStatus.Open,
 	disposition: GapOutcome.NeedsAHuman,
 	humanDecision: 'pick the failure mode',
+	observations: [],
+	resolutions: [],
 	reopened: [],
 	...overrides,
 });
@@ -115,6 +117,34 @@ const setupRecheck = async ({
 /** The record the run returned under a given id — the fold keeps every member, so a missing one is a failure worth reading. */
 const recordIn = ({ memory, id }: { memory: GradeMemory; id: string }): GradeFindingRecord | undefined => memory.findings.find((record) => record.id === id);
 
+/** How the second plan file's reader worded the same defect — deliberately none of the representative's words, so a prompt carrying it can be told apart. */
+const secondObservationGap = 'the queue has no rule for a spawn that never answers';
+const secondObservationDecision = 'how long one spawn may run before the pass gives up on it';
+
+/** One open record a judge confirmed as a shared defect: its representative sits in the first plan file, and a second observation in the second. */
+const twoLocationRecordOf = (): GradeFindingRecord =>
+	recordOf({
+		observations: [
+			{
+				phase: 'phase-1-reader.md',
+				lens: GapCheckLens.Decisions,
+				area: GapArea.OmittedDecision,
+				gap: 'the plan picks no failure mode',
+				decision: 'what to return when the judge times out',
+				options: [],
+			},
+			{
+				phase: 'phase-2-judge.md',
+				lens: GapCheckLens.Wiring,
+				area: GapArea.PhaseSeamMismatch,
+				gap: secondObservationGap,
+				decision: secondObservationDecision,
+				options: [],
+			},
+		],
+		resolutions: [],
+	});
+
 describe('verifyOpenFindings', () => {
 	test('a record closes on a cited already-answered and on nothing else', async () => {
 		const { params } = await setupRecheck({
@@ -128,11 +158,13 @@ describe('verifyOpenFindings', () => {
 		const result = await verifyOpenFindings(params);
 
 		// a cited already-answered is the one answer that closes a record, and the
-		// closure records where the plan states the answer and when it was checked
+		// closure records where the plan states the answer and when it was checked —
+		// one entry per location, and never again in the legacy single field
 		expect(recordIn({ memory: result.memory, id: 'f1' })).toEqual(
 			expect.objectContaining({
 				status: GradeFindingStatus.Resolved,
-				resolution: { answerAt: firstPhaseLine, verifiedAt: '2026-02-02T00:00:00.000Z' },
+				resolution: undefined,
+				resolutions: [{ phase: 'phase-1-reader.md', answerAt: firstPhaseLine, verifiedAt: '2026-02-02T00:00:00.000Z' }],
 			}),
 		);
 		// a judge restating the outstanding decision closes nothing
@@ -180,7 +212,7 @@ describe('verifyOpenFindings', () => {
 		expect(recordIn({ memory: result.memory, id: 'f1' })).toEqual(
 			expect.objectContaining({
 				status: GradeFindingStatus.Resolved,
-				resolution: { answerAt: 'src/answer.ts', verifiedAt: '2026-02-02T00:00:00.000Z' },
+				resolutions: [{ phase: 'phase-1-reader.md', answerAt: 'src/answer.ts', verifiedAt: '2026-02-02T00:00:00.000Z' }],
 			}),
 		);
 		expect(recordIn({ memory: result.memory, id: 'f2' })?.status).toBe(GradeFindingStatus.Open);
@@ -254,5 +286,114 @@ describe('verifyOpenFindings', () => {
 		expect(invocations).toStrictEqual([]);
 		expect(result.memory.findings.map((record) => record.status)).toStrictEqual([GradeFindingStatus.Open, GradeFindingStatus.Open]);
 		expect(result.rateLimited).toBe(false);
+	});
+
+	test('an already-answered that cites nothing leaves the record open and names the location', async () => {
+		const { params } = await setupRecheck({
+			findings: [recordOf()],
+			answers: { 'the plan picks no failure mode': { outcome: GapOutcome.AlreadyAnswered } },
+		});
+
+		const result = await verifyOpenFindings(params);
+
+		// a dismissal with no citation is the one the engine can least check, so it
+		// closes nothing and the refusal says which plan file went uncited
+		expect(recordIn({ memory: result.memory, id: 'f1' })).toEqual(expect.objectContaining({ status: GradeFindingStatus.Open, resolutions: [] }));
+		expect(result.refusals.get('f1')).toEqual(expect.stringContaining('phase-1-reader.md'));
+	});
+
+	test('asks no judge about a pending record, which needs judging rather than re-verification', async () => {
+		const { params, invocations } = await setupRecheck({
+			findings: [
+				recordOf({
+					status: GradeFindingStatus.Pending,
+					disposition: undefined,
+					humanDecision: undefined,
+					unjudgedReason: 'the judge fan-out stopped before this finding was judged',
+				}),
+			],
+			answers: { 'the plan picks no failure mode': { outcome: GapOutcome.AlreadyAnswered, answerAt: firstPhaseLine } },
+		});
+
+		const result = await verifyOpenFindings(params);
+
+		// nobody has ruled on a pending question yet, so asking whether the plan now
+		// answers it is the wrong question — and an answer sitting in the plan must
+		// not close a finding no judge ever settled
+		expect(invocations).toStrictEqual([]);
+		expect(recordIn({ memory: result.memory, id: 'f1' })).toEqual(expect.objectContaining({ status: GradeFindingStatus.Pending, resolutions: [] }));
+	});
+
+	test('keeps a two-location record open when only one location is confirmed', async () => {
+		const { params } = await setupRecheck({
+			findings: [twoLocationRecordOf()],
+			answers: {
+				'the plan picks no failure mode': { outcome: GapOutcome.AlreadyAnswered, answerAt: firstPhaseLine },
+				// a real line of the plan, but of the FIRST file — so it is no evidence
+				// that the second occurrence was repaired
+				[secondObservationGap]: { outcome: GapOutcome.AlreadyAnswered, answerAt: firstPhaseLine },
+			},
+		});
+
+		const result = await verifyOpenFindings(params);
+
+		// fixing one occurrence never closes the others: nothing is stored until
+		// every location is confirmed against its own text
+		expect(recordIn({ memory: result.memory, id: 'f1' })).toEqual(expect.objectContaining({ status: GradeFindingStatus.Open, resolutions: [] }));
+		// and the refusal names the location it came from, so a human knows where
+		// the repair is still missing
+		expect(result.refusals.get('f1')).toEqual(expect.stringContaining('phase-2-judge.md'));
+	});
+
+	test('resolves a two-location record only once every location is confirmed', async () => {
+		const { params } = await setupRecheck({
+			findings: [twoLocationRecordOf()],
+			answers: {
+				'the plan picks no failure mode': { outcome: GapOutcome.AlreadyAnswered, answerAt: firstPhaseLine },
+				[secondObservationGap]: { outcome: GapOutcome.AlreadyAnswered, answerAt: secondPhaseLine },
+			},
+		});
+
+		const result = await verifyOpenFindings(params);
+
+		// one stored citation per location, each the one confirmed against that
+		// location's own plan text
+		const record = recordIn({ memory: result.memory, id: 'f1' });
+		expect(record?.status).toBe(GradeFindingStatus.Resolved);
+		expect(record?.resolutions).toHaveLength(2);
+		expect(record?.resolutions).toEqual(
+			expect.arrayContaining([
+				{ phase: 'phase-1-reader.md', answerAt: firstPhaseLine, verifiedAt: '2026-02-02T00:00:00.000Z' },
+				{ phase: 'phase-2-judge.md', answerAt: secondPhaseLine, verifiedAt: '2026-02-02T00:00:00.000Z' },
+			]),
+		);
+	});
+
+	test("asks one judge per location with that location's own plan text and wording", async () => {
+		const { params, invocations } = await setupRecheck({
+			findings: [twoLocationRecordOf()],
+			answers: {
+				'the plan picks no failure mode': { outcome: GapOutcome.NeedsAHuman, humanDecision: 'pick the failure mode' },
+				[secondObservationGap]: { outcome: GapOutcome.NeedsAHuman, humanDecision: 'pick the timeout' },
+			},
+		});
+
+		await verifyOpenFindings(params);
+
+		// the fan-out starts spawns in any order, so each is found by the plan text it carries
+		const firstSpawn = invocations.find(({ prompt }) => prompt.includes(firstPhaseLine));
+		const secondSpawn = invocations.find(({ prompt }) => prompt.includes(secondPhaseLine));
+		expect(invocations).toHaveLength(2);
+		// the first location's judge reads only its own file and its own wording
+		expect(firstSpawn?.prompt).toEqual(expect.stringContaining('the plan picks no failure mode'));
+		expect(firstSpawn?.prompt).not.toEqual(expect.stringContaining(secondPhaseLine));
+		expect(firstSpawn?.prompt).not.toEqual(expect.stringContaining(secondObservationGap));
+		// the second location's judge is asked in its own reader's words — never
+		// the representative's, which were written about another file
+		expect(secondSpawn?.prompt).toEqual(expect.stringContaining(secondObservationGap));
+		expect(secondSpawn?.prompt).toEqual(expect.stringContaining(secondObservationDecision));
+		expect(secondSpawn?.prompt).not.toEqual(expect.stringContaining(firstPhaseLine));
+		expect(secondSpawn?.prompt).not.toEqual(expect.stringContaining('the plan picks no failure mode'));
+		expect(secondSpawn?.prompt).not.toEqual(expect.stringContaining('what to return when the judge times out'));
 	});
 });

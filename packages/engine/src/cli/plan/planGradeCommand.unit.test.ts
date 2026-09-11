@@ -22,7 +22,7 @@ const judgedDecision = 'what the plan should do here';
 
 // A real consumer repo with a real committed deliverable: the structural half of
 // the grade is the deterministic lint, and only the gap half is stubbed.
-const setupGrade = ({ body, gaps = [], verdict, git = false }: { body?: string; gaps?: unknown[]; verdict?: unknown; git?: boolean } = {}) => {
+const setupGrade = ({ body, gaps = [], verdict, git = false }: { body?: string; gaps?: unknown[]; verdict?: Record<string, unknown>; git?: boolean } = {}) => {
 	const captured = captureCommandOutput();
 	const cwd = setupConsumerRepo({ git });
 
@@ -184,14 +184,21 @@ test('planGradeCommand: findings nobody weighed are counted apart from the ones 
 	const printed = printedLines({ logged });
 
 	expect(printed[0] ?? '').toMatch(/^\nplan grade demo — below-A /);
-	// a spike in judge failures must not read as a plan getting worse
-	expect(printed[2]).toBe('  structural: 0 · gaps: 3 (3 blocking, 3 unjudged)');
+	// a spike in judge failures must not read as a plan getting worse; the three
+	// lenses' identical unjudged wording is one pending record, so it is one blocker
+	expect(printed[2]).toBe('  structural: 0 · gaps: 1 (1 blocking, 1 unjudged)');
 	expect(printed[4]).toBe('plan.md');
-	// an unjudged finding opens no memory record, so it carries no id to print
-	expect(printed[5]).toBe('? [omitted-decision] no storage choice (surface)');
+	// an unjudged finding is kept on record as pending, so it carries the id a
+	// human names it by
+	expect(printed[5]).toBe('f1 ? [omitted-decision] no storage choice (surface)');
 	// a dismissal with no citation is a rubber stamp, and the line says the finding
 	// blocks because nobody weighed it rather than because the plan is thin
 	expect(printed[6]).toBe('   unjudged, so it blocks: the judge answered already-answered without the evidence that outcome demands');
+	// and the one blocker still carries every lens that reported it
+	const recorded = JSON.parse(readFileSync(join(cwd, '.lightsout', 'plans', 'demo', 'grade.json'), 'utf8')) as {
+		gaps: Array<{ observations: Array<{ lens: string }> }>;
+	};
+	expect(recorded.gaps.map(({ observations }) => observations.map(({ lens }) => lens))).toStrictEqual([['surface', 'wiring', 'decisions']]);
 	expect(exitCodes).toStrictEqual([0]);
 });
 

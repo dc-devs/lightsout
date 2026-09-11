@@ -31,6 +31,8 @@ const recordOf = (overrides: Partial<GradeFindingRecord> = {}): GradeFindingReco
 	disposition: GapOutcome.NeedsAHuman,
 	humanDecision: 'pick the failure mode',
 	resolution: { answerAt: survivingLine, verifiedAt: resolvedAt },
+	observations: [],
+	resolutions: [],
 	reopened: [],
 	...overrides,
 });
@@ -55,6 +57,33 @@ const setupRevalidation = async ({ findings, onDisk = [] }: { findings: GradeFin
 		params: {
 			cwd,
 			files: [{ path: join(cwd, 'phase-1-reader.md'), text: phaseText }],
+			memory,
+			at: passAt,
+		},
+	};
+};
+
+/** A second plan file, present in the deliverable but no longer stating the answer an earlier pass cited there. */
+const writerText = '# Phase 2\n\n## Decision Log\n\nThe writer stores each record as its judge left it.\n';
+
+/** A two-file plan and the memory to revalidate — a grouped record's citations are each checked against their own file. */
+const setupGroupedRevalidation = async ({ findings }: { findings: GradeFindingRecord[] }) => {
+	const cwd = await freshCwd();
+
+	const memory: GradeMemory = {
+		planName: 'demo',
+		findings,
+		nextFindingNumber: findings.length + 1,
+		updatedAt: resolvedAt,
+	};
+
+	return {
+		params: {
+			cwd,
+			files: [
+				{ path: join(cwd, 'phase-1-reader.md'), text: phaseText },
+				{ path: join(cwd, 'phase-2-writer.md'), text: writerText },
+			],
 			memory,
 			at: passAt,
 		},
@@ -92,6 +121,22 @@ describe('revalidateResolutions', () => {
 		);
 		// and the run names what it reopened, so the same pass knows to re-judge it
 		expect(result.reopened).toStrictEqual(['f1']);
+	});
+
+	test('a record reopened again keeps every earlier reopen entry ahead of the new one', async () => {
+		const earlier = { at: resolvedAt, reason: 'an earlier judge ruled the question open again', priorStatus: GradeFindingStatus.Noted };
+		const { params } = await setupRevalidation({
+			findings: [recordOf({ reopened: [earlier], resolution: { answerAt: deletedLine, verifiedAt: resolvedAt } })],
+		});
+
+		const result = await revalidateResolutions(params);
+
+		// the history is how a human reads why a question keeps coming back, so a
+		// fresh reopen is appended to it rather than replacing it
+		expect(recordIn({ memory: result.memory, id: 'f1' })?.reopened).toEqual([
+			earlier,
+			{ at: passAt, priorStatus: GradeFindingStatus.Resolved, reason: expect.stringContaining(deletedLine) },
+		]);
 	});
 
 	test('revalidation touches only a resolved record whose citation is gone', async () => {
@@ -142,5 +187,60 @@ describe('revalidateResolutions', () => {
 			expect.objectContaining({ status: GradeFindingStatus.Open, lastSeen: resolvedAt, reopened: [] }),
 		);
 		expect(result.reopened).toStrictEqual([]);
+	});
+
+	test("reopens a grouped record when any one location's citation is gone", async () => {
+		const { params } = await setupGroupedRevalidation({
+			findings: [
+				recordOf({
+					observations: [
+						{
+							phase: 'phase-1-reader.md',
+							lens: GapCheckLens.Decisions,
+							area: GapArea.OmittedDecision,
+							gap: 'the plan picks no failure mode',
+							decision: 'what to return when the judge times out',
+							options: [],
+						},
+						{
+							phase: 'phase-2-writer.md',
+							lens: GapCheckLens.Wiring,
+							area: GapArea.PhaseSeamMismatch,
+							gap: 'the writer never says what a timed-out judge leaves behind',
+							decision: 'what to return when the judge times out',
+							options: [],
+						},
+					],
+					resolution: undefined,
+					resolutions: [
+						{ phase: 'phase-1-reader.md', answerAt: survivingLine, verifiedAt: resolvedAt },
+						{ phase: 'phase-2-writer.md', answerAt: deletedLine, verifiedAt: resolvedAt },
+					],
+				}),
+			],
+		});
+
+		const result = await revalidateResolutions(params);
+
+		// the first file still states its answer, but a group whose repair came
+		// undone in one place is unresolved as a whole — so every stored
+		// resolution goes, and the reason says which location lost its citation
+		expect(recordIn({ memory: result.memory, id: 'f1' })).toEqual(
+			expect.objectContaining({
+				status: GradeFindingStatus.Open,
+				disposition: GapOutcome.NeedsAHuman,
+				resolution: undefined,
+				resolutions: [],
+				lastSeen: passAt,
+				reopened: [
+					expect.objectContaining({
+						at: passAt,
+						priorStatus: GradeFindingStatus.Resolved,
+						reason: expect.stringContaining('phase-2-writer.md'),
+					}),
+				],
+			}),
+		);
+		expect(result.reopened).toStrictEqual(['f1']);
 	});
 });

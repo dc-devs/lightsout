@@ -39,7 +39,7 @@ const foldGapResults = ({ selected, results }: { selected: DeliverableFile[]; re
 		returned.set(result.phase, (returned.get(result.phase) ?? 0) + 1);
 		// Findings start unjudged: the judging stage rules each one, and anything it
 		// never settles keeps this stamp and blocks.
-		gaps.push(...result.outcome.report.gaps.map((gap) => ({ ...gap, phase: result.phase, lens: result.lens, outcome: GapOutcome.Unjudged })));
+		gaps.push(...result.outcome.report.gaps.map((gap) => ({ ...gap, phase: result.phase, lens: result.lens, outcome: GapOutcome.Unjudged, observations: [] })));
 	}
 
 	const phasesChecked = selected.map((file) => basename(file.path)).filter((phase) => returned.get(phase) === gapCheckLenses.length);

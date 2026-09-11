@@ -1,8 +1,7 @@
 import { z } from 'zod';
-import { GapCheckLens } from '#src/contracts/plan/grade/GapCheckLens.ts';
+import { GapObservation } from '#src/contracts/plan/grade/GapObservation.ts';
 import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
 import { GapVerdict } from '#src/contracts/plan/grade/GapVerdict.ts';
-import { PlanGap } from '#src/contracts/plan/grade/PlanGap.ts';
 
 /**
  * A gap as it is persisted in `grade.json`: what the reader reported, plus the
@@ -16,17 +15,8 @@ import { PlanGap } from '#src/contracts/plan/grade/PlanGap.ts';
  * shape the agent answers in and the shape written to disk stay related by
  * construction.
  */
-export const GradedGap = PlanGap.extend({
+export const GradedGap = GapObservation.extend({
 	...GapVerdict.omit({ outcome: true, matchesFinding: true }).shape,
-	/** The plan file's basename — `phase2-cross-phase-checks.md`, or `plan.md`. */
-	phase: z.string(),
-	/**
-	 * Optional because a finding no per-file lens produced must be able to say so
-	 * rather than claim a lens it was never given. The whole-plan documentation
-	 * checker is the one producer of such a finding today; `phase` stays required,
-	 * because every finding is still labelled with a plan file a reader can open.
-	 */
-	lens: z.enum(GapCheckLens).optional(),
 	/**
 	 * Widened from the judge's three: `unjudged` is the engine's stamp and never
 	 * the judge's to claim. The default is for parsing a `grade.json` written
@@ -38,12 +28,25 @@ export const GradedGap = PlanGap.extend({
 	unjudgedReason: z.string().optional(),
 	/**
 	 * The memory record this gap belongs to — the one it was merged into, or the
-	 * open record it was surfaced from. Absent on an unjudged finding, which opens
-	 * no record. `matchesFinding` is deliberately not carried through from the
-	 * verdict: what is persisted is the id the engine resolved, never the agent's
-	 * raw claim.
+	 * record it was surfaced from. `matchesFinding` is deliberately not carried
+	 * through from the verdict: what is persisted is the id the engine resolved,
+	 * never the agent's raw claim.
 	 */
 	findingId: z.string().optional(),
+	/**
+	 * Every observation this finding covers. Empty on a single-observation finding
+	 * and on a `grade.json` written before grouping existed — read it through
+	 * `findingLocations`, which treats empty as the gap's own `phase`.
+	 */
+	observations: z.array(GapObservation).default([]),
+	/**
+	 * The engine's per-pass identifier shared by every gap one multi-observation
+	 * ruling covered — what lets the memory fold open one record for a group it has
+	 * not given a record id yet. Never an agent's to claim.
+	 */
+	groupId: z.string().optional(),
+	/** The judge's statement of the one violated requirement or contradiction a confirmed group's members are. */
+	sharedDefect: z.string().optional(),
 });
 
 export type GradedGap = z.infer<typeof GradedGap>;

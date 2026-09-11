@@ -160,6 +160,8 @@ const settledRecords: GradeFindingRecord[] = [
 		disposition: GapOutcome.NeedsAHuman,
 		humanDecision: 'the human picks the retry budget',
 		resolution: { answerAt: 'RESOLUTION-CITATION-SENTINEL: the runner retries three times', verifiedAt: '2026-01-02T00:00:00.000Z' },
+		observations: [],
+		resolutions: [],
 		reopened: [],
 	},
 	{
@@ -176,6 +178,8 @@ const settledRecords: GradeFindingRecord[] = [
 		disposition: GapOutcome.AgentCanDecide,
 		agentDecision: 'AGENT-DECISION-SENTINEL: name it toRetryDelay',
 		safeBecause: 'the name has one caller',
+		observations: [],
+		resolutions: [],
 		reopened: [],
 	},
 ];

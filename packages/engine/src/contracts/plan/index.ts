@@ -4,8 +4,11 @@ export { AuthoredFacts, ExploreArea, PathVerification, PlanFacts } from '#src/co
 export {
 	FindingSeverity,
 	GapArea,
+	GapBatchVerdict,
 	GapCheckLens,
 	GapCheckReport,
+	GapGroupVerdict,
+	GapObservation,
 	GapOutcome,
 	GapVerdict,
 	GradedGap,

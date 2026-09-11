@@ -1,7 +1,10 @@
 export { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
 export { GapArea } from '#src/contracts/plan/grade/GapArea.ts';
+export { GapBatchVerdict } from '#src/contracts/plan/grade/GapBatchVerdict.ts';
 export { GapCheckLens } from '#src/contracts/plan/grade/GapCheckLens.ts';
 export { GapCheckReport } from '#src/contracts/plan/grade/GapCheckReport.ts';
+export { GapGroupVerdict } from '#src/contracts/plan/grade/GapGroupVerdict.ts';
+export { GapObservation } from '#src/contracts/plan/grade/GapObservation.ts';
 export { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
 export { GapVerdict } from '#src/contracts/plan/grade/GapVerdict.ts';
 export { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';

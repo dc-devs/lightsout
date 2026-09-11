@@ -1,11 +1,11 @@
 import { dim } from '#src/cli/common/terminal/dim.ts';
 import { yellow } from '#src/cli/common/terminal/yellow.ts';
 import { GapOutcome, type GradedGap } from '#src/contracts/index.ts';
-import { isBlockingGap } from '#src/plan/index.ts';
+import { findingLocations, isBlockingGap } from '#src/plan/index.ts';
 
 interface Params {
 	gap: GradedGap;
-	/** Where the two lines go — stdout by default. */
+	/** Where the lines go — stdout by default. */
 	write?: (line: string) => void;
 }
 
@@ -28,13 +28,16 @@ const detailOf = ({ gap }: { gap: GradedGap }) => {
  * Render one judged gap: the memory record id when it has one, the `?` marker
  * when it gates the grade or a dim `note` when it does not, then the area, the
  * finding and — when a per-file lens found it — that lens, with the judge's own
- * evidence on the following dim line.
+ * evidence on the following dim line. A finding a judge confirmed as one defect
+ * across several plan files gains a third dim line naming every one of them and
+ * the defect they share, so the one repair item says everywhere it has to land.
  *
  * This is a renderer, not a filter — it prints every outcome, and which gaps it
  * is handed is the caller's decision. Keeping it total means the note lines are
  * ready the day something wants to show them.
  */
 export const printGradedGap = ({ gap, write = console.log }: Params): void => {
+	const locations = findingLocations({ observations: gap.observations, phase: gap.phase });
 	const marker = isBlockingGap({ gap }) ? yellow('?') : dim('note');
 
 	// The whole-plan documentation checker carries no lens, and an empty `()` would
@@ -47,4 +50,8 @@ export const printGradedGap = ({ gap, write = console.log }: Params): void => {
 
 	write(`${record}${marker} [${gap.area}] ${gap.gap}${source}`);
 	write(dim(detailOf({ gap })));
+
+	if (locations.length > 1) {
+		write(dim(`   affects ${locations.join(', ')}${gap.sharedDefect === undefined ? '' : ` — one defect: ${gap.sharedDefect}`}`));
+	}
 };

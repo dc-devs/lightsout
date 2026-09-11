@@ -82,6 +82,7 @@ export const checkPlanDocumentation = async (params: Params): Promise<{ gaps: Gr
 		area: GapArea.MissingDocumentation,
 		phase: basename(planPaths[0]),
 		outcome: GapOutcome.NeedsAHuman,
+		observations: [],
 	}));
 
 	onProgress(`plan grade ${name}: documentation check — ${gaps.length} finding(s) against ${docs.length} declared surface(s)`);

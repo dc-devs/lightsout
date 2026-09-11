@@ -1,4 +1,5 @@
 import type { GradeFindingRecord, GradeFindingStatus, GradeMemory } from '#src/contracts/index.ts';
+import { recordObservations } from '#src/plan/common/memory/recordObservations.ts';
 
 interface Params {
 	memory: GradeMemory;
@@ -9,8 +10,12 @@ interface Params {
 }
 
 /**
- * The records raised against one plan file, optionally narrowed to a set of
- * states.
+ * The records touching one plan file — any record one of whose observations
+ * sits in it, not only the one its representative names — optionally narrowed
+ * to a set of states.
+ *
+ * A grouped record is therefore returned for each of its locations, so a caller
+ * asking about several plan files at once must de-duplicate by record id.
  *
  * Spelled once because the reader's settled list and the judge's record list
  * must be cut the same way: two hand-rolled filters would agree only by
@@ -18,4 +23,8 @@ interface Params {
  * sees.
  */
 export const phaseFindingRecords = ({ memory, phase, statuses }: Params): GradeFindingRecord[] =>
-	memory.findings.filter((record) => record.phase === phase && (statuses === undefined || statuses.includes(record.status)));
+	memory.findings.filter((record) => {
+		const touches = recordObservations({ record }).some((observation) => observation.phase === phase);
+
+		return touches && (statuses === undefined || statuses.includes(record.status));
+	});

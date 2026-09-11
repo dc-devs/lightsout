@@ -82,7 +82,9 @@ const setupLostReader = ({ name }: { name: string }) => {
 			invocations.push(invocation);
 
 			if (invocation.prompt.includes('# Gap-judge input')) {
-				return { text: JSON.stringify({ outcome: 'needs-a-human', humanDecision: 'what the plan should do here' }), exitCode: 0 };
+				const covers = [...invocation.prompt.matchAll(/^### (o\d+)$/gm)].map(([, id]) => id);
+
+				return { text: JSON.stringify({ verdicts: [{ covers, outcome: 'needs-a-human', humanDecision: 'what the plan should do here' }] }), exitCode: 0 };
 			}
 
 			if (invocation.prompt.includes('# Validation error') || invocation.prompt.includes('src/other-thing.ts')) {

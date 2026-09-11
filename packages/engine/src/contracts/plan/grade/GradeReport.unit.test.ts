@@ -62,6 +62,8 @@ describe('GradeReport', () => {
 					phase: 'phase2-cross-phase-checks.md',
 					lens: 'decisions',
 					outcome: 'unjudged',
+					// a gap written before grouping existed reads as holding no other observation
+					observations: [],
 				},
 			],
 			phasesChecked: ['phase1-lint-vocabulary.md', 'phase2-cross-phase-checks.md'],
@@ -267,7 +269,8 @@ describe('GradeReport', () => {
 		const parsed = GradeReport.parse(report);
 
 		// the inherited PlanGap default survives the extend — a gap written without
-		// options reads back with an empty list, and keeps its attribution
+		// options reads back with an empty list, and keeps its attribution; one
+		// written before grouping existed reads back holding no other observation
 		expect(parsed.gaps[0]).toStrictEqual({
 			area: 'insufficient-detail',
 			gap: 'the move map names no target for tests/helpers',
@@ -276,6 +279,7 @@ describe('GradeReport', () => {
 			phase: 'plan.md',
 			lens: 'surface',
 			outcome: 'unjudged',
+			observations: [],
 		});
 	});
 

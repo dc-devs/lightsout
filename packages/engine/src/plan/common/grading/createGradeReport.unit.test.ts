@@ -21,6 +21,7 @@ const gapOf = ({ outcome }: { outcome: GapOutcome }): GradedGap => ({
 	phase: 'plan.md',
 	lens: GapCheckLens.Decisions,
 	outcome,
+	observations: [],
 });
 
 /** One structural finding at the given severity. */
