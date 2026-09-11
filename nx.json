@@ -12,12 +12,14 @@
 	// regenerates from source rather than being restored from somewhere.
 	"neverConnectToCloud": true,
 
-	// Two projects at once, against Nx's default of three. The number that matters
-	// is the product: each project starts its own Jest worker pool, so this and
-	// `maxWorkers` in tooling/jest/createJestConfig.cjs together decide how many
-	// processes a single `pnpm test:unit` puts on the machine. Two by four is
-	// eight, which leaves a 14-core laptop room for the agents that are usually
-	// running beside it, and does not oversubscribe a 2-core CI runner.
+	// Two tasks at once, against Nx's default of three — for every target except
+	// the Jest suites, which opt out below with `parallelism: false`. Each suite
+	// starts its own Jest worker pool of up to eight (`maxWorkers` in
+	// tooling/jest/createJestConfig.cjs), so two suites side by side put sixteen
+	// workers on a 14-core laptop, and the known Jest worker segfault grows with
+	// the worker count. Measured on 2026-09-11 across one night of queue gates:
+	// the whole-repo test gate, two suites at a time, crashed 12 runs in 39; the
+	// engine suite alone, at eight workers, crashed none in 17.
 	"parallel": 2,
 
 	// The interactive terminal UI rewrites the screen as it goes. Every gate
@@ -73,9 +75,13 @@
 		// typecheck cache and the standards package's test cache, with no build
 		// step in between to model.
 		"typecheck": { "cache": false, "inputs": ["default", "^default"] },
-		"test:unit": { "cache": false, "inputs": ["default", "^default"] },
+		// The Jest suites run one at a time, so a whole-repo test run never has
+		// more than one worker pool — eight workers at most — on the machine. See
+		// `parallel` above for the crash rate that decided it.
+		"test:unit": { "cache": false, "parallelism": false, "inputs": ["default", "^default"] },
 		"test:unit:coverage": {
 			"cache": false,
+			"parallelism": false,
 			"inputs": ["default", "^default"],
 			"outputs": ["{projectRoot}/coverage"]
 		},
