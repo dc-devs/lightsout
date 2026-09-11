@@ -30,6 +30,7 @@ const usageOrder = [
 	'test-coverage-to-threshold',
 	'test-coverage-to-threshold-resume',
 	'brainstorm-publish',
+	'plan-workspace',
 	'plan-verify-facts',
 	'plan-draft',
 	'plan-sync-decisions',

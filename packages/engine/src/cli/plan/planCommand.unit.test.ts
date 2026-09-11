@@ -3,6 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
+import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
+import type { PlanWorktree } from '#src/cli/plan/common/types/PlanWorktree.ts';
 import { planCommand } from '#src/cli/plan/planCommand.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
@@ -27,6 +29,19 @@ const mockResolveConfigAndDriver = jest.fn<(params: unknown) => Promise<{ config
 const mockLoadPlanningStandards = jest.fn<(params: unknown) => Promise<string | undefined>>();
 
 // -------------------------
+// The planning worktree is established through git, and its own rules are
+// pinned beside the resolver; here only where the dispatcher sends a
+// subcommand is under test. The default answer is the launching checkout
+// itself, as with isolation off, so every routing case above still reads the
+// checkout it was launched from.
+
+type OpenPlanWorktreeParams = { cwd: string; config: LightsoutConfig | undefined; flags: CommandContext['flags']; name: string };
+
+const mockOpenPlanWorktree = jest.fn<(params: OpenPlanWorktreeParams) => Promise<{ worktree: PlanWorktree } | { error: string }>>(async ({ cwd }) => ({
+	worktree: { cwd, isolated: false, created: false },
+}));
+
+// -------------------------
 
 jest.mock('#src/cli/plan/planVerifyFactsCommand.ts', () => ({ planVerifyFactsCommand: (params: unknown) => mockPlanVerifyFactsCommand(params) }));
 jest.mock('#src/cli/plan/planLintCommand.ts', () => ({ planLintCommand: (params: unknown) => mockPlanLintCommand(params) }));
@@ -37,6 +52,9 @@ jest.mock('#src/cli/plan/planPublishCommand.ts', () => ({ planPublishCommand: (p
 jest.mock('#src/cli/plan/planSyncDecisionsCommand.ts', () => ({ planSyncDecisionsCommand: (params: unknown) => mockPlanSyncDecisionsCommand(params) }));
 jest.mock('#src/cli/common/utils/resolveConfigAndDriver.ts', () => ({ resolveConfigAndDriver: (params: unknown) => mockResolveConfigAndDriver(params) }));
 jest.mock('#src/cli/plan/readPlanningStandards.ts', () => ({ readPlanningStandards: (params: unknown) => mockLoadPlanningStandards(params) }));
+jest.mock('#src/cli/plan/common/utils/openPlanWorktree.ts', () => ({
+	openPlanWorktree: (params: OpenPlanWorktreeParams) => mockOpenPlanWorktree(params),
+}));
 
 const stubDriver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };
 
@@ -85,6 +103,35 @@ const setupPlan = ({ args, repoConfig }: { args: string[]; repoConfig?: Record<s
 
 /** The first argument the given subcommand was handed. */
 const argsOf = (mock: jest.Mock<(params: unknown) => Promise<void>>) => mock.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
+
+/**
+ * The dispatcher launched from one checkout while the plan's worktree stands
+ * somewhere else — or, when `refused`, while that worktree cannot be
+ * established at all. The answer is queued once, so the one resolution a
+ * dispatch makes spends it and no later case inherits it.
+ */
+const setupWorktree = ({ args, refused = false }: { args: string[]; refused?: boolean }) => {
+	const launched = setupPlan({ args });
+	const worktreePath = join(tmpdir(), 'lightsout-worktrees', 'demo');
+	const worktree: PlanWorktree = { cwd: worktreePath, branch: 'demo', isolated: true, created: true };
+	const refusal = `Cannot establish the planning worktree at ${worktreePath}: a file already occupies that path. Pass --no-worktree to plan in the launching checkout deliberately.`;
+
+	mockOpenPlanWorktree.mockResolvedValueOnce(refused ? { error: refusal } : { worktree });
+
+	return { ...launched, worktreePath, refusal };
+};
+
+/**
+ * `plan workspace` twice over — once with no --name, and once named while its
+ * worktree cannot be established. Both contexts share one capture, so a single
+ * act dispatches both and every line either wrote is read back.
+ */
+const setupRefusedWorkspaces = () => {
+	const named = setupWorktree({ args: ['workspace', '--name', 'demo'], refused: true });
+	const namelessArgs = ['workspace'];
+
+	return { ...named, nameless: { ...named.context, flags: parseFlags({ args: namelessArgs }), rest: namelessArgs } };
+};
 
 describe('planCommand', () => {
 	test('routes verify-facts without resolving a harness, because it runs no agent', async () => {
@@ -265,5 +312,61 @@ describe('planCommand', () => {
 
 		expect(logged).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test("runs a graded pass in the plan's worktree rather than the checkout it was launched from", async () => {
+		const { context, cwd, worktreePath } = setupWorktree({ args: ['grade', '--name', 'demo'] });
+
+		await planCommand(context);
+
+		// the tree is resolved from the launching checkout, and the pass runs in the tree
+		expect(mockOpenPlanWorktree).toHaveBeenCalledWith(expect.objectContaining({ cwd, name: 'demo' }));
+		expect(argsOf(mockPlanGradeCommand)).toMatchObject({ cwd: worktreePath, name: 'demo' });
+	});
+
+	test("dispatches no subcommand when the plan's worktree cannot be established", async () => {
+		const { context, errors, exitCodes, refusal } = setupWorktree({ args: ['grade', '--name', 'demo'], refused: true });
+
+		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
+
+		const dispatches = [
+			mockPlanVerifyFactsCommand,
+			mockPlanLintCommand,
+			mockPlanDraftCommand,
+			mockPlanDedupCommand,
+			mockPlanGradeCommand,
+			mockPlanPublishCommand,
+			mockPlanSyncDecisionsCommand,
+		].reduce((total, mock) => total + mock.mock.calls.length, 0);
+		expect(errors.filter((line) => line.includes(refusal))).toHaveLength(1);
+		expect(exitCodes).toStrictEqual([1]);
+		expect(dispatches).toBe(0);
+		expect(mockResolveConfigAndDriver).not.toHaveBeenCalled();
+	});
+
+	test('establishes no worktree for a subcommand given no --name', async () => {
+		const { context, cwd } = setupPlan({ args: ['lint'] });
+
+		await planCommand(context);
+
+		// lint still receives the launching checkout, where its own --name refusal stands
+		expect(mockOpenPlanWorktree).not.toHaveBeenCalled();
+		expect(mockPlanLintCommand).toHaveBeenCalledTimes(1);
+		expect(argsOf(mockPlanLintCommand)?.cwd).toBe(cwd);
+	});
+
+	test('refuses a nameless workspace invocation and a refused tree without dispatching either', async () => {
+		const { context, nameless, logged, errors, exitCodes, refusal } = setupRefusedWorkspaces();
+
+		const outcomes = await Promise.allSettled([planCommand(nameless), planCommand(context)]);
+
+		expect(outcomes.map(({ status }) => status)).toStrictEqual(['rejected', 'rejected']);
+		// only the named invocation asked for a tree — the nameless one was refused before any
+		expect(mockOpenPlanWorktree.mock.calls.map(([params]) => params.name)).toStrictEqual(['demo']);
+		expect(errors.filter((line) => /^lightsout — deterministic engine for coding agents/.test(line))).toHaveLength(1);
+		expect(errors.filter((line) => line.includes(refusal))).toHaveLength(1);
+		// planWorkspaceCommand never ran: no path reached stdout and nothing exited 0
+		expect(logged).toStrictEqual([]);
+		expect(exitCodes).toStrictEqual([1, 1]);
 	});
 });

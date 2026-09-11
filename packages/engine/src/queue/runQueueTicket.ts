@@ -51,6 +51,34 @@ const recordPickup = async ({ cwd, branch, onProgress }: { cwd: string; branch: 
 };
 
 /**
+ * The ticket's worktree, cut from the default branch or continued in.
+ *
+ * Creation is the one step that mutates the main checkout, so it alone goes
+ * through the shared chain; everything after it runs fully parallel. Reuse is
+ * on: a tree an earlier drain parked is continued in, exactly as it always was.
+ * The owner is what makes a tree a standalone run made come back as a creation
+ * failure rather than a tree to run a worker in.
+ */
+const createTicketWorktree = ({
+	cwd,
+	branch,
+	defaultBranch,
+	setup,
+	serializeWorktreeAdd,
+	onProgress,
+}: {
+	cwd: string;
+	branch: string;
+	defaultBranch: string;
+	setup: QueueSettings['setup'];
+	serializeWorktreeAdd: Params['serializeWorktreeAdd'];
+	onProgress?: (message: string) => void;
+}) =>
+	serializeWorktreeAdd({
+		task: () => createWorktree({ cwd, branch, startPoint: `origin/${defaultBranch}`, setup, owner: WorktreeOwner.Queue, reuseExisting: true, onProgress }),
+	});
+
+/**
  * The tracker write that claims the ticket, made before ownership begins.
  *
  * Required state is recorded before any source work, so a tracker that cannot
@@ -159,14 +187,7 @@ export const runQueueTicket = async ({
 	onProgress,
 }: Params): Promise<TicketRunOutcome> => {
 	const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
-	// Creation is the one step that mutates the main checkout, so it alone goes
-	// through the shared chain; everything after it runs fully parallel.
-	// Reuse is on: a tree an earlier drain parked is continued in, exactly as it
-	// always was. The owner is what makes a tree a standalone run made come back
-	// as a creation failure rather than a tree to run a worker in.
-	const created = await serializeWorktreeAdd({
-		task: () => createWorktree({ cwd, branch, defaultBranch, setup: settings.setup, owner: WorktreeOwner.Queue, reuseExisting: true, onProgress }),
-	});
+	const created = await createTicketWorktree({ cwd, branch, defaultBranch, setup: settings.setup, serializeWorktreeAdd, onProgress });
 
 	if (typeof created !== 'string') {
 		return { ticket, branch, worktreePath: await resolveWorktreePath({ cwd, branch }), ready: false, error: created.error };

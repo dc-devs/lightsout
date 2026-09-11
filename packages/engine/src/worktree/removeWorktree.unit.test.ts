@@ -38,7 +38,7 @@ describe('removeWorktree', () => {
 		const created = await createWorktree({
 			cwd,
 			branch: 'lo-70-drain',
-			defaultBranch: 'main',
+			startPoint: 'origin/main',
 			owner: WorktreeOwner.Queue,
 			reuseExisting: true,
 		});
@@ -72,7 +72,7 @@ describe('removeWorktree', () => {
 		const created = await createWorktree({
 			cwd,
 			branch: 'lo-70-drain',
-			defaultBranch: 'main',
+			startPoint: 'origin/main',
 			owner: WorktreeOwner.Queue,
 			reuseExisting: true,
 		});
@@ -90,7 +90,7 @@ describe('removeWorktree', () => {
 		const created = await createWorktree({
 			cwd,
 			branch: 'lo-70-drain',
-			defaultBranch: 'main',
+			startPoint: 'origin/main',
 			owner: WorktreeOwner.Queue,
 			reuseExisting: true,
 		});
@@ -116,7 +116,7 @@ describe('removeWorktree', () => {
 		const created = await createWorktree({
 			cwd,
 			branch: 'lo-70-unmerged',
-			defaultBranch: 'main',
+			startPoint: 'origin/main',
 			owner: WorktreeOwner.Queue,
 			reuseExisting: true,
 		});

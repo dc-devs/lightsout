@@ -244,6 +244,17 @@ launching checkout instead. If the tree cannot be created, the inputs cannot be
 copied, or setup fails, the run stops and says which it was — it never quietly
 builds somewhere else.
 
+Planning establishes that worktree first. `/plan` and `/auto-plan` run
+`lightsout plan workspace --name <name>` before they explore or draft, which cuts
+the tree at the plan's path from your checkout's committed `HEAD`, copies in any
+plan folder you already have there, and prints the tree's path; every later plan
+step works from it, so another agent editing your checkout cannot move the code
+a grade is measured against. The implementation run then continues in that same
+tree rather than cutting a second one, and a finished plan is copied back into
+the checkout you launched from before the shipped tree is cleaned up. Pass
+`--no-worktree`, or set `plan.worktree` to false, to plan in the launching
+checkout deliberately.
+
 A finished plan is not stuck on the machine that wrote it. `/implement` looks
 for the plan folder on local disk first. When a ticket-named folder is absent,
 it fetches that ticket's durable plan attachments and reconstructs the folder,

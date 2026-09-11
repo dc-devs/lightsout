@@ -19,6 +19,8 @@ export const WorktreeRecord = z.object({
 	worktreePath: z.string(),
 	/** ISO timestamp of the creation this record describes. */
 	createdAt: z.string(),
+	/** What the branch was cut from, as the creator spelled it — `origin/<default>` for a queue or implement tree, a commit sha for a planning tree pinned to the launching checkout's HEAD. */
+	startPoint: z.string().optional(),
 });
 
 export type WorktreeRecord = z.infer<typeof WorktreeRecord>;

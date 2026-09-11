@@ -60,4 +60,28 @@ describe('writeWorktreeRecord', () => {
 
 		expect(progress).toEqual([expect.stringContaining('lo-7-isolate')]);
 	});
+
+	test('keeps the start point a tree was cut from, and stays absent when none was given', async () => {
+		const { branch, primary, worktree } = setupLinkedWorktree({ branch: 'lo-131-pinned' });
+		const adoptedBranch = 'lo-131-adopted';
+		const startPoint = '0123456789abcdef0123456789abcdef01234567';
+
+		await Promise.all([
+			writeWorktreeRecord({ cwd: primary, branch, owner: WorktreeOwner.Plan, worktreePath: worktree, startPoint }),
+			writeWorktreeRecord({ cwd: primary, branch: adoptedBranch, owner: WorktreeOwner.Plan, worktreePath: worktree }),
+		]);
+
+		expect(await readWorktreeRecord({ cwd: worktree, branch })).toEqual(
+			expect.objectContaining({ branch: 'lo-131-pinned', startPoint: '0123456789abcdef0123456789abcdef01234567' }),
+		);
+		const adopted = await readWorktreeRecord({ cwd: worktree, branch: adoptedBranch });
+
+		expect(adopted?.createdAt).toEqual(expect.any(String));
+		expect(adopted).toStrictEqual({
+			branch: 'lo-131-adopted',
+			owner: 'plan',
+			worktreePath: worktree,
+			createdAt: adopted?.createdAt,
+		});
+	});
 });

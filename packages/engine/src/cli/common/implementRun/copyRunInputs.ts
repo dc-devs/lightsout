@@ -1,4 +1,4 @@
-import { cp, mkdir } from 'node:fs/promises';
+import { cp, mkdir, stat } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { planNameFromPath, planWorkspaceDir } from '#src/plan/index.ts';
@@ -23,9 +23,24 @@ interface Params {
  * directory. The answered path is the input's own tail rebuilt
  * workspace-relative, which is what normalises an absolute `--plan` onto the
  * copy.
+ *
+ * A workspace already holding a folder of that name keeps it outright — local
+ * disk wins, the rule `ensurePlanWorkspace` states. A run continuing in the tree
+ * planning established would otherwise overwrite the graded plan and its
+ * grading memory with whatever was left in the launching checkout. Anything
+ * else standing at that path is no plan folder, and the copy is still attempted
+ * so its failure is reported.
  */
 const copyPlanFolder = async ({ sourceCwd, workspace, name, inputPath }: { sourceCwd: string; workspace: string; name: string; inputPath: string }) => {
-	await cp(planWorkspaceDir({ cwd: sourceCwd, name }), planWorkspaceDir({ cwd: workspace, name }), { recursive: true });
+	const destination = planWorkspaceDir({ cwd: workspace, name });
+	const held = await stat(destination).then(
+		(found) => found.isDirectory(),
+		() => false,
+	);
+
+	if (!held) {
+		await cp(planWorkspaceDir({ cwd: sourceCwd, name }), destination, { recursive: true });
+	}
 
 	return relative(sourceCwd, resolve(sourceCwd, inputPath));
 };

@@ -11,6 +11,8 @@ interface Params {
 	branch: string;
 	owner: WorktreeOwner;
 	worktreePath: string;
+	/** What the branch was cut from. Omitted for a branch that was adopted rather than cut, so the record never names a commit the tree did not start at. */
+	startPoint?: string;
 	onProgress?: (message: string) => void;
 }
 
@@ -22,8 +24,8 @@ interface Params {
  * `writeBranchState`'s is: the tree exists either way, and refusing to create
  * it because a JSON write failed would be the worse outcome.
  */
-export const writeWorktreeRecord = async ({ cwd, branch, owner, worktreePath, onProgress }: Params): Promise<void> => {
-	const record: WorktreeRecord = { branch, owner, worktreePath, createdAt: new Date().toISOString() };
+export const writeWorktreeRecord = async ({ cwd, branch, owner, worktreePath, startPoint, onProgress }: Params): Promise<void> => {
+	const record: WorktreeRecord = { branch, owner, worktreePath, createdAt: new Date().toISOString(), ...(startPoint === undefined ? {} : { startPoint }) };
 	const stateDir = await resolveSharedStateDir({ cwd });
 	const recordPath = getWorktreeRecordPath({ stateDir, branch });
 

@@ -173,6 +173,24 @@ its `## Decisions` lines are settled
 rows, its `## Open questions` are this run's agenda, and its acceptance criteria
 are floors, never ceilings.
 
+Once `<name>` is settled, establish the plan's own worktree as the very first
+shell command:
+
+```sh
+node "<plugin-root>/dist/cli.mjs" plan workspace --name <name>
+```
+
+Read the absolute path it prints on its last line, and do every later step from
+that directory — reading source, authoring `facts.json`, and every
+`lightsout plan …` call. The plan folder already in this checkout is copied
+into the tree; pass any rough-notes path as an absolute one, since it lives in
+the checkout you started from. A nonzero exit is the end of the run — report the
+sentence it printed and stop, never carry on in the launching checkout. The
+command is safe to re-run: a session already standing in the tree is answered
+the same path. A queue worktree needs no second tree: the command recognises the
+queue's ticket worktree and answers that same directory, so there the step is a
+no-op rather than a relocation.
+
 **2. Explore and verify the facts.** Read the files the request touches, follow
 the integration points, and note real signatures; for a feature spanning many
 packages, optionally fan out read-only Explore subagents for breadth — either
