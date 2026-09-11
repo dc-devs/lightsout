@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { ensurePlanWorkspace } from '#src/cli/common/utils/ensurePlanWorkspace.ts';
@@ -72,6 +72,47 @@ const ensure = ({ cwd, path = planPath }: { cwd: string; path?: string }) => {
 	const printed: string[] = [];
 
 	return ensurePlanWorkspace({ cwd, planPath: path, write: (line) => printed.push(line) }).then((result) => ({ result, printed }));
+};
+
+/**
+ * A plan folder sitting in the plan's own worktree. A temp checkout belongs to
+ * no repository, so its worktrees root is its own `-worktrees` sibling and the
+ * plan's tree is `<cwd>-worktrees/<plan name>` — no git, and no ownership
+ * record, because a folder being there is all this gate asks.
+ */
+const seedWorktreePlan = ({ cwd, planName, files }: { cwd: string; planName: string; files: Record<string, string> }) => {
+	const tree = join(`${cwd}-worktrees`, planName);
+	const dir = join(tree, '.lightsout', 'plans', planName);
+
+	mkdirSync(dir, { recursive: true });
+
+	for (const [file, content] of Object.entries(files)) {
+		writeFileSync(join(dir, file), content);
+	}
+
+	return { tree, dir };
+};
+
+/** A launching checkout whose own plan folder is there, beside a worktree holding a different copy of the same plan. */
+const setupPlanOnDiskAndInWorktree = async () => {
+	const cwd = await seedCwd();
+
+	mkdirSync(join(cwd, planPath), { recursive: true });
+	writeFileSync(join(cwd, planPath, 'plan.md'), '# the plan on this machine\n');
+	seedWorktreePlan({ cwd, planName: name, files: { 'plan.md': '# the copy in the worktree\n', 'grade-memory.json': '{}\n' } });
+
+	return { cwd };
+};
+
+/** A launching checkout with no plan folder, a plan worktree holding none either, and a ticket carrying no plan attachment. */
+const setupNoPlanAnywhere = async () => {
+	const cwd = await seedCwd();
+	const tree = join(`${cwd}-worktrees`, name);
+
+	mkdirSync(tree, { recursive: true });
+	mockGetTicketAttachments.mockResolvedValue([]);
+
+	return { cwd, tree };
 };
 
 describe('ensurePlanWorkspace', () => {
@@ -154,7 +195,61 @@ describe('ensurePlanWorkspace', () => {
 		mockGetTicketAttachments.mockResolvedValue([]);
 
 		expect((await ensure({ cwd })).result).toStrictEqual({
-			error: `no plan at ${join(cwd, planPath)}, and ticket lo-54 carries no plan attachment — run \`lightsout plan publish --name ${name}\` from the machine that has the plan`,
+			error: `no plan at ${join(cwd, planPath)} or in the plan's worktree at ${join(`${cwd}-worktrees`, name)}, and ticket lo-54 carries no plan attachment — run \`lightsout plan publish --name ${name}\` from the machine that has the plan`,
 		});
+	});
+
+	test("recovers a ticketless plan folder from the plan's own worktree before asking the tracker", async () => {
+		const cwd = await seedCwd();
+		const path = join('.lightsout', 'plans', 'portable-plan');
+		const { tree, dir } = seedWorktreePlan({
+			cwd,
+			planName: 'portable-plan',
+			files: { 'plan.md': '# the plan graded in its worktree\n', 'grade-memory.json': '{"passes":1}\n' },
+		});
+
+		const { result, printed } = await ensure({ cwd, path });
+
+		expect({
+			result,
+			copiedFiles: readdirSync(join(cwd, path)).sort(),
+			copiedPlan: readFileSync(join(cwd, path, 'plan.md'), 'utf8'),
+			worktreeFiles: readdirSync(dir).sort(),
+			printed,
+			trackerCalls: mockGetTicketAttachments.mock.calls.length,
+		}).toEqual({
+			result: undefined,
+			copiedFiles: ['grade-memory.json', 'plan.md'],
+			copiedPlan: '# the plan graded in its worktree\n',
+			worktreeFiles: ['grade-memory.json', 'plan.md'],
+			printed: [expect.stringContaining(tree)],
+			trackerCalls: 0,
+		});
+	});
+
+	test('keeps local disk winning outright, and names every place it looked when nothing has a plan', async () => {
+		const onDisk = await setupPlanOnDiskAndInWorktree();
+		const nowhere = await setupNoPlanAnywhere();
+
+		const kept = await ensure({ cwd: onDisk.cwd });
+		const trackerCallsWhileOnDisk = mockGetTicketAttachments.mock.calls.length;
+		const refused = await ensure({ cwd: nowhere.cwd });
+
+		expect({
+			kept,
+			localFiles: readdirSync(join(onDisk.cwd, planPath)),
+			localPlan: readFileSync(join(onDisk.cwd, planPath, 'plan.md'), 'utf8'),
+			trackerCallsWhileOnDisk,
+		}).toStrictEqual({
+			kept: { result: undefined, printed: [] },
+			localFiles: ['plan.md'],
+			localPlan: '# the plan on this machine\n',
+			trackerCallsWhileOnDisk: 0,
+		});
+		expect(refused.result).toEqual({
+			error: expect.stringContaining(join(nowhere.cwd, planPath)),
+		});
+		expect(refused.result?.error).toContain(nowhere.tree);
+		expect(refused.result?.error).toContain('ticket lo-54');
 	});
 });

@@ -28,7 +28,7 @@ interface CommitTicketWorkParams {
 interface CreateWorktreeParams {
 	cwd: string;
 	branch: string;
-	defaultBranch: string;
+	startPoint: string;
 	setup?: string;
 	owner: WorktreeOwner;
 	reuseExisting: boolean;
@@ -167,8 +167,11 @@ describe('runQueueTicket', () => {
 
 		expect(outcome.ready).toBe(true);
 		// Reuse on is what lets a drain pick a parked tree back up; the owner is what
-		// stops it picking up a tree a standalone run made.
-		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch: 'lo-70-drain-the-backlog', owner: 'queue', reuseExisting: true }));
+		// stops it picking up a tree a standalone run made. The queue composes its own
+		// start point, so its trees are still cut from the remote default.
+		expect(mockCreateWorktree).toHaveBeenCalledWith(
+			expect.objectContaining({ branch: 'lo-70-drain-the-backlog', startPoint: 'origin/main', owner: 'queue', reuseExisting: true }),
+		);
 	});
 
 	test('ends the ticket when its worktree cannot be made, without asking the tracker or spawning a worker', async () => {

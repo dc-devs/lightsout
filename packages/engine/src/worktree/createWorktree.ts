@@ -11,8 +11,8 @@ interface Params {
 	/** The checkout git runs in — the primary checkout, never the tree being made. */
 	cwd: string;
 	branch: string;
-	/** What a new branch is cut from, as `origin/<defaultBranch>`. */
-	defaultBranch: string;
+	/** What a new branch is cut from, composed by the caller — `origin/<default>` for a queue or implement tree, a commit sha for a planning tree. Unused for a branch that already exists, which is adopted at its own tip. */
+	startPoint: string;
 	/** Config `worktree.setup`, run inside the fresh tree. Skipped when undefined. */
 	setup?: string;
 	/** Who this tree belongs to, recorded durably so a later drain can tell. */
@@ -40,7 +40,7 @@ const branchExists = async ({ cwd, branch }: { cwd: string; branch: string }) =>
  * Whether the directory already at the path may be continued in, or the reason
  * it may not.
  *
- * Both entry points place one ticket's tree at the same path on the same
+ * Every entry point places one ticket's tree at the same path on the same
  * branch, so a standalone run's tree and a drain's tree for one ticket collide
  * there and nothing in the path or the branch name tells them apart. The
  * parked scan's skip stops a drain RESUMING such a tree; this is what stops it
@@ -60,8 +60,8 @@ const describeClaim = async ({ cwd, branch, owner, worktreePath }: { cwd: string
 };
 
 /**
- * A fresh tree cut for the branch, its ownership recorded and the setup command
- * run in it — or the step that refused.
+ * A fresh tree cut for the branch, its ownership and start point recorded and
+ * the setup command run in it — or the step that refused.
  *
  * Ownership is recorded after the tree exists and before setup runs, so a
  * failed setup still leaves a tree a later run can attribute rather than adopt.
@@ -69,7 +69,7 @@ const describeClaim = async ({ cwd, branch, owner, worktreePath }: { cwd: string
 const cutTree = async ({
 	cwd,
 	branch,
-	defaultBranch,
+	startPoint,
 	setup,
 	owner,
 	worktreePath,
@@ -77,14 +77,14 @@ const cutTree = async ({
 }: {
 	cwd: string;
 	branch: string;
-	defaultBranch: string;
+	startPoint: string;
 	setup?: string;
 	owner: WorktreeOwner;
 	worktreePath: string;
 	onProgress?: (message: string) => void;
 }) => {
 	const adopting = await branchExists({ cwd, branch });
-	const add = adopting ? `git worktree add ${worktreePath} ${branch}` : `git worktree add ${worktreePath} -b ${branch} origin/${defaultBranch}`;
+	const add = adopting ? `git worktree add ${worktreePath} ${branch}` : `git worktree add ${worktreePath} -b ${branch} ${startPoint}`;
 	const addFailure = await runOrDescribeFailure({ command: add, cwd });
 
 	if (addFailure !== undefined) {
@@ -92,7 +92,10 @@ const cutTree = async ({
 	}
 
 	onProgress?.(`worktree ${worktreePath} on ${branch}`);
-	await writeWorktreeRecord({ cwd, branch, owner, worktreePath, onProgress });
+	// An adopted branch stands at its own tip and was never cut at `startPoint`,
+	// so its record carries none — a record naming a commit the tree never stood
+	// on would re-create it at the wrong one.
+	await writeWorktreeRecord({ cwd, branch, owner, worktreePath, startPoint: adopting ? undefined : startPoint, onProgress });
 
 	if (setup === undefined) {
 		return undefined;
@@ -120,7 +123,9 @@ const cutTree = async ({
  * There is deliberately no `git fetch` here: the drain fetches once before it
  * starts, an isolated implementation run fetches before it calls this, and the
  * queue's serialized creation chain is what keeps concurrent tickets from
- * racing git in the main checkout.
+ * racing git in the main checkout. The start point is composed by the caller
+ * for the same reason — a planning session pins its tree to the launching
+ * checkout's commit rather than to the remote default.
  *
  * A branch that already exists with no worktree is adopted as it stands rather
  * than refused — a pre-made ticket branch is exactly what a branch-per-ticket
@@ -129,7 +134,7 @@ const cutTree = async ({
  *
  * @returns the worktree's absolute path, or the step that refused
  */
-export const createWorktree = async ({ cwd, branch, defaultBranch, setup, owner, reuseExisting, onProgress }: Params): Promise<string | WorktreeFailure> => {
+export const createWorktree = async ({ cwd, branch, startPoint, setup, owner, reuseExisting, onProgress }: Params): Promise<string | WorktreeFailure> => {
 	const worktreePath = await resolveWorktreePath({ cwd, branch });
 	const alreadyThere = await exists({ path: worktreePath });
 
@@ -147,7 +152,7 @@ export const createWorktree = async ({ cwd, branch, defaultBranch, setup, owner,
 		onProgress?.(`worktree already at ${worktreePath} — continuing in it`);
 	}
 
-	const failure = alreadyThere ? undefined : await cutTree({ cwd, branch, defaultBranch, setup, owner, worktreePath, onProgress });
+	const failure = alreadyThere ? undefined : await cutTree({ cwd, branch, startPoint, setup, owner, worktreePath, onProgress });
 
 	return failure ?? worktreePath;
 };

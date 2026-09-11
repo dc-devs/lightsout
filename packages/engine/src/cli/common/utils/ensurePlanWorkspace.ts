@@ -1,7 +1,9 @@
+import { copyPlanFolderToPrimary } from '#src/cli/common/implementRun/copyPlanFolderToPrimary.ts';
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
 import { pathExists, planNameFromPath, planWorkspaceDir, readPlanTicketRef, restorePlanWorkspace } from '#src/plan/index.ts';
 import { resolveShipSettings } from '#src/ship/index.ts';
 import { resolveTrackerSettings } from '#src/ticketTracker/index.ts';
+import { resolveWorktreePath } from '#src/worktree/index.ts';
 
 interface Params {
 	cwd: string;
@@ -12,13 +14,35 @@ interface Params {
 }
 
 /**
- * Make sure the plan folder a `--plan` value names is on disk, fetching it from
- * the folder's own ticket when it is not, and answer one sentence naming both
- * places when neither has a plan.
+ * The plan's own worktree, and whether the plan folder it holds was copied from
+ * there into the launching checkout.
+ *
+ * The tree is only read, and no ownership record is read or required: a folder
+ * being there is enough, because this reads a plan rather than choosing a
+ * baseline to plan against.
+ */
+const recoverFromWorktree = async ({ cwd, name }: { cwd: string; name: string }) => {
+	const tree = await resolveWorktreePath({ cwd, branch: name });
+	const held = await pathExists({ path: planWorkspaceDir({ cwd: tree, name }) });
+	const failure = held ? await copyPlanFolderToPrimary({ worktree: tree, primary: cwd, name }) : undefined;
+
+	return { tree, held, failure };
+};
+
+/**
+ * Make sure the plan folder a `--plan` value names is on disk — copying it from
+ * the plan's own worktree, or fetching it from the folder's own ticket, when it
+ * is not — and answer one sentence naming every place looked when none has a
+ * plan.
  *
  * Local disk wins outright, which is what lets a repo that commits its plan
  * folders work with no tracker at all: a folder that is already there is never
  * overwritten, merged into or deleted, whatever the ticket carries.
+ *
+ * The plan's worktree is the nearer source, asked before the tracker: planning
+ * holds the plan folder in the tree it established, and this gate runs against
+ * the launching checkout before any workspace is resolved. Without it a plan
+ * with no ticket could not be implemented at all once planning moved.
  *
  * The fetch is here, at the command edge, rather than inside
  * `resolvePlanDeliverable`: that resolver is shared by the read-only `plan
@@ -41,6 +65,19 @@ export const ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }
 	const dir = planWorkspaceDir({ cwd, name });
 
 	if (await pathExists({ path: dir })) {
+		return undefined;
+	}
+
+	const fromWorktree = await recoverFromWorktree({ cwd, name });
+
+	if (fromWorktree.failure !== undefined) {
+		return {
+			error: `no plan at ${dir}, and the plan folder in the plan's worktree at ${fromWorktree.tree} could not be copied here: ${fromWorktree.failure.error}`,
+		};
+	}
+
+	if (fromWorktree.held) {
+		write(`lightsout: copied the plan folder from the plan's worktree at ${fromWorktree.tree} into ${dir}`);
 		return undefined;
 	}
 
@@ -82,7 +119,7 @@ export const ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }
 
 	if (restored.length === 0) {
 		return {
-			error: `no plan at ${dir}, and ticket ${identifier} carries no plan attachment — run \`lightsout plan publish --name ${name}\` from the machine that has the plan`,
+			error: `no plan at ${dir} or in the plan's worktree at ${fromWorktree.tree}, and ticket ${identifier} carries no plan attachment — run \`lightsout plan publish --name ${name}\` from the machine that has the plan`,
 		};
 	}
 

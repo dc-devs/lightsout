@@ -50,4 +50,19 @@ describe('ConfigPlan', () => {
 		expect(ConfigPlan.safeParse({ 'weight-thresholds': 3 }).success).toBe(false);
 		expect(ConfigPlan.safeParse({ 'weight-thresholds': { 'created-files': '5' } }).success).toBe(false);
 	});
+
+	test('accepts the planning-worktree switch and still refuses a misspelled plan key', () => {
+		const switchedOff = ConfigPlan.parse({ worktree: false });
+		const unsaid = ConfigPlan.parse({ contract: true });
+		const misspelled = ConfigPlan.safeParse({ worktrees: false });
+
+		expect(switchedOff).toStrictEqual({ worktree: false });
+		expect(unsaid).toStrictEqual({ contract: true });
+		expect(Object.hasOwn(unsaid, 'worktree')).toBe(false);
+		expect(misspelled.success).toBe(false);
+	});
+
+	test('refuses the planning-worktree switch as a string, rather than reading "false" as on', () => {
+		expect(ConfigPlan.safeParse({ worktree: 'false' }).success).toBe(false);
+	});
 });

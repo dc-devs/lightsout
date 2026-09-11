@@ -7,6 +7,7 @@ import { printPlanTicketWarning } from '#src/cli/common/render/printPlanTicketWa
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { resolveConfigAndDriver } from '#src/cli/common/utils/resolveConfigAndDriver.ts';
+import { openPlanWorktree } from '#src/cli/plan/common/utils/openPlanWorktree.ts';
 import { planDedupCommand } from '#src/cli/plan/planDedupCommand.ts';
 import { planDraftCommand } from '#src/cli/plan/planDraftCommand.ts';
 import { planGradeCommand } from '#src/cli/plan/planGradeCommand.ts';
@@ -14,17 +15,56 @@ import { planLintCommand } from '#src/cli/plan/planLintCommand.ts';
 import { planPublishCommand } from '#src/cli/plan/planPublishCommand.ts';
 import { planSyncDecisionsCommand } from '#src/cli/plan/planSyncDecisionsCommand.ts';
 import { planVerifyFactsCommand } from '#src/cli/plan/planVerifyFactsCommand.ts';
+import { planWorkspaceCommand } from '#src/cli/plan/planWorkspaceCommand.ts';
 import { readPlanningStandards } from '#src/cli/plan/readPlanningStandards.ts';
+import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
 
-export const planCommand = async ({ flags, rest, cwd }: CommandContext): Promise<void> => {
+/**
+ * The checkout a subcommand acts on — the plan's worktree for every subcommand
+ * that addresses a plan by name, the launching checkout otherwise — with the
+ * ticket advisory said once, against that same checkout.
+ *
+ * This is the one place a resolver refusal is handled, for every subcommand
+ * alike: no subcommand can be dispatched without a checkout to act on, so the
+ * sentence goes to stderr and the process exits 1 with nothing dispatched. An
+ * unknown subcommand is excluded, so it still falls through to the usage error
+ * with nothing printed ahead of it, and a nameless one reaches its own refusal
+ * unchanged. The config read is the launching checkout's, so an uncommitted
+ * `plan.worktree` edit is still obeyed.
+ */
+const openDispatchCheckout = async ({ cwd, flags, subcommand }: { cwd: string; flags: CommandContext['flags']; subcommand: string | undefined }) => {
+	const name = getStringFlag({ flags, name: 'name' });
+
+	if (name === undefined || !['workspace', 'draft', 'dedup', 'grade', 'lint', 'publish', 'sync-decisions', 'verify-facts'].includes(subcommand ?? '')) {
+		return { cwd, worktree: undefined };
+	}
+
+	const opened = await openPlanWorktree({ cwd, config: await readOptionalConfig({ cwd }), flags, name });
+
+	if ('error' in opened) {
+		console.error(opened.error);
+		return exitCli({ code: 1 });
+	}
+
+	await printPlanTicketWarning({ cwd: opened.worktree.cwd, name });
+
+	return { cwd: opened.worktree.cwd, worktree: opened.worktree };
+};
+
+export const planCommand = async ({ flags, rest, cwd: launchingCwd }: CommandContext): Promise<void> => {
 	const subcommand = getPositionals({ args: rest })[0];
-	const planName = getStringFlag({ flags, name: 'name' });
 
-	// Every subcommand that addresses a plan by name gets the advisory once,
-	// before dispatch — an unknown subcommand is excluded, so it still falls
-	// through to the usage error with nothing printed ahead of it.
-	if (planName !== undefined && ['draft', 'dedup', 'grade', 'lint', 'publish', 'sync-decisions', 'verify-facts'].includes(subcommand ?? '')) {
-		await printPlanTicketWarning({ cwd, name: planName });
+	// `workspace` has no --name refusal of its own further down, so a nameless
+	// one is refused here — before any tree is established for it.
+	if (subcommand === 'workspace') {
+		await getRequiredFlag({ flags, name: 'name' });
+	}
+
+	const { cwd, worktree } = await openDispatchCheckout({ cwd: launchingCwd, flags, subcommand });
+
+	if (subcommand === 'workspace' && worktree !== undefined) {
+		await planWorkspaceCommand({ worktree });
+		return;
 	}
 
 	// verify-facts is deterministic — no agent, so no resolveConfigAndDriver.

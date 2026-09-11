@@ -1,10 +1,11 @@
-import { contradictoryWorktreeFlagsMessage } from '#src/cli/common/constants/contradictoryWorktreeFlagsMessage.ts';
+import { resolveWorktreeIsolation } from '#src/cli/common/args/resolveWorktreeIsolation.ts';
 import { linkRunRecords } from '#src/cli/common/implementRun/linkRunRecords.ts';
 import { resolveRunBranch } from '#src/cli/common/implementRun/resolveRunBranch.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import type { RunWorkspace } from '#src/cli/common/types/RunWorkspace.ts';
+import { isSamePath } from '#src/common/utils/isSamePath.ts';
 import { type LightsoutConfig, WorktreeOwner } from '#src/contracts/index.ts';
-import { createWorktree, fetchDefaultBranch, readBranchWorktree } from '#src/worktree/index.ts';
+import { createWorktree, fetchDefaultBranch, readBranchWorktree, readWorktreeRecord, resolveWorktreePath, writeWorktreeRecord } from '#src/worktree/index.ts';
 
 interface Params {
 	/** The checkout the command was launched from — `--cwd`, or the process directory. */
@@ -23,7 +24,44 @@ interface Params {
 }
 
 /**
- * The tree this run is cut into, or the step that refused.
+ * The tree a planning session established for this branch, taken over for the
+ * run — or undefined when the checkout holding the branch is anything else.
+ *
+ * Only a tree at the branch's own path whose record names the `plan` owner
+ * qualifies; a branch collision or an unrecorded tree is never evidence. The
+ * record is re-stamped to `implement` before the run begins, carrying its start
+ * point forward, because that stamp is the whole licence the post-ship cleanup
+ * reads. `worktree.setup` does not run again: planning paid for it when it cut
+ * the tree.
+ */
+const adoptPlanningTree = async ({
+	cwd,
+	branch,
+	holder,
+	onProgress,
+}: {
+	cwd: string;
+	branch: string;
+	holder: string;
+	onProgress?: (message: string) => void;
+}) => {
+	const worktreePath = await resolveWorktreePath({ cwd, branch });
+	const record = await readWorktreeRecord({ cwd, branch });
+
+	if (record?.owner !== WorktreeOwner.Plan || !(await isSamePath({ path: holder, otherPath: worktreePath }))) {
+		return undefined;
+	}
+
+	await writeWorktreeRecord({ cwd, branch, owner: WorktreeOwner.Implement, worktreePath, startPoint: record.startPoint, onProgress });
+
+	const linked = await linkRunRecords({ sourceCwd: cwd, workspace: worktreePath });
+
+	return linked ?? { path: worktreePath, created: false };
+};
+
+/**
+ * The tree this run works in — cut here, or the one planning established for
+ * the branch — or the step that refused.
  *
  * Nothing here falls back to the launching checkout: a run that asked for
  * isolation and did not get it stops, because a gate run against the tree the
@@ -43,11 +81,18 @@ const cutWorkspace = async ({
 	const holder = await readBranchWorktree({ cwd, branch });
 
 	if (holder !== undefined) {
-		return { error: `'${branch}' is already checked out at ${holder} — pass --no-worktree to build in that checkout deliberately` };
+		return (
+			(await adoptPlanningTree({ cwd, branch, holder, onProgress })) ?? {
+				error: `'${branch}' is already checked out at ${holder} — pass --no-worktree to build in that checkout deliberately`,
+			}
+		);
 	}
 
 	// A branch cut from a stale base is the thing this step exists to prevent,
-	// so a failed fetch stops the run rather than answering from yesterday.
+	// so a failed fetch stops the run rather than answering from yesterday. It
+	// comes after the adopt branch above: a run continuing in a tree that
+	// already exists needs no start point, and must not fail for a network
+	// that was down.
 	const defaultBranch = await fetchDefaultBranch({ cwd });
 
 	if (typeof defaultBranch !== 'string') {
@@ -60,7 +105,7 @@ const cutWorkspace = async ({
 	const created = await createWorktree({
 		cwd,
 		branch,
-		defaultBranch,
+		startPoint: `origin/${defaultBranch}`,
 		setup: config.worktree?.setup,
 		owner: WorktreeOwner.Implement,
 		reuseExisting: false,
@@ -73,7 +118,7 @@ const cutWorkspace = async ({
 
 	const linked = await linkRunRecords({ sourceCwd: cwd, workspace: created });
 
-	return linked ?? created;
+	return linked ?? { path: created, created: true };
 };
 
 /**
@@ -102,14 +147,11 @@ export const resolveRunWorkspace = async ({
 	ticketBody,
 	onProgress,
 }: Params): Promise<RunWorkspace | { error: string }> => {
-	const asked = flags.get('worktree') === true;
-	const refused = flags.get('no-worktree') === true;
+	const isolated = resolveWorktreeIsolation({ flags, configured: config.implement?.worktree });
 
-	if (asked && refused) {
-		return { error: contradictoryWorktreeFlagsMessage };
+	if (typeof isolated !== 'boolean') {
+		return isolated;
 	}
-
-	const isolated = refused ? false : asked || (config.implement?.worktree ?? true);
 
 	if (!isolated) {
 		return { cwd, isolated: false, created: false };
@@ -123,5 +165,5 @@ export const resolveRunWorkspace = async ({
 
 	const workspace = await cutWorkspace({ cwd, config, branch, onProgress });
 
-	return typeof workspace === 'string' ? { cwd: workspace, branch, isolated: true, created: true } : workspace;
+	return 'error' in workspace ? workspace : { cwd: workspace.path, branch, isolated: true, created: workspace.created };
 };

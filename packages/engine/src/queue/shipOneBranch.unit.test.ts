@@ -89,7 +89,7 @@ const setupReadyBranch = async ({ number = 70, content = 'export const value = 1
 	execSync('git config user.name t && git config user.email t@t', { cwd, stdio: 'ignore' });
 
 	const branch = `lo-${number}-drain`;
-	const worktreePath = String(await createWorktree({ cwd, branch, defaultBranch: 'main', owner: WorktreeOwner.Queue, reuseExisting: true }));
+	const worktreePath = String(await createWorktree({ cwd, branch, startPoint: 'origin/main', owner: WorktreeOwner.Queue, reuseExisting: true }));
 
 	writeRepoFile({ cwd: worktreePath, path: 'work.ts', content });
 	execSync(`git add -A && git ${author} commit -qm work`, { cwd: worktreePath, stdio: 'ignore' });

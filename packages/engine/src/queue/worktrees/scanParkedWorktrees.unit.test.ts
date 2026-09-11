@@ -82,7 +82,7 @@ const setupParkedRepo = async ({ branches }: { branches: string[] }) => {
 	const paths: Record<string, string> = {};
 
 	for (const branch of branches) {
-		paths[branch] = String(await createWorktree({ cwd, branch, defaultBranch: 'main', owner: WorktreeOwner.Queue, reuseExisting: true }));
+		paths[branch] = String(await createWorktree({ cwd, branch, startPoint: 'origin/main', owner: WorktreeOwner.Queue, reuseExisting: true }));
 	}
 
 	return { cwd, paths };

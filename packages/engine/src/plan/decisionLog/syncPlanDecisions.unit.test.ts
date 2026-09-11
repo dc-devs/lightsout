@@ -121,6 +121,30 @@ const setupOverviewOnly = () => {
 	return { cwd, name, overviewPath: join(dir, 'overview.md'), readFile: (base: string) => readFileSync(join(dir, base), 'utf8') };
 };
 
+/** A phased deliverable whose record holds one row declaring the phase it concerns and one row declaring none. */
+const setupDeclaringPhasedPlan = () => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-sync-'));
+	const name = 'declared-phases';
+	const bases = ['overview.md', 'phase1-core.md', 'phase2-extra.md'];
+	const dir = writePhasedPlanDeliverable({
+		cwd,
+		name,
+		files: {
+			'overview.md': planBody({ title: 'Overview' }),
+			'phase1-core.md': planBody({ title: 'Phase 1 — Core' }),
+			'phase2-extra.md': planBody({ title: 'Phase 2 — Extra' }),
+		},
+	});
+	const rows: DecisionRow[] = [
+		{ ...decisionRow({ question: 'Which phase carries the extra wiring?', choice: 'The second phase' }), phases: ['phase2-extra.md'] },
+		decisionRow({ question: 'Who writes the log?', choice: 'The engine, never a writer' }),
+	];
+
+	seedDecisions({ dir, name, rows });
+
+	return { cwd, name, bases, readFile: (base: string) => readFileSync(join(dir, base), 'utf8') };
+};
+
 describe('syncPlanDecisions', () => {
 	test('syncPlanDecisions: writes the full table into a single plan and reports it updated', async () => {
 		const plan = setupSinglePlan();
@@ -184,6 +208,36 @@ describe('syncPlanDecisions', () => {
 			texts: ['overview.md', 'phase1-core.md', 'phase2-wire.md'].map((base) => phased.readFile(base)),
 		}).toStrictEqual({
 			reported: { 'overview.md': false, 'phase1-core.md': false, 'phase2-wire.md': false },
+			texts: afterFirst,
+		});
+	});
+
+	test("syncPlanDecisions: puts a declaring row's affects marker in the overview and a repeated sync writes nothing", async () => {
+		const declared = setupDeclaringPhasedPlan();
+		const first = await syncPlanDecisions({ cwd: declared.cwd, name: declared.name });
+
+		expectStatus(first, 'complete');
+		const afterFirst = declared.bases.map((base) => declared.readFile(base));
+
+		const second = await syncPlanDecisions({ cwd: declared.cwd, name: declared.name });
+
+		expectStatus(second, 'complete');
+		const overviewRows = tableRows({ section: decisionLogSection({ text: declared.readFile('overview.md') }) });
+		// the marker sits on the declaring row of the overview's table and nowhere
+		// else, and the second run finds every file already current
+		expect({
+			firstReported: updatedByFile({ files: first.files }),
+			secondReported: updatedByFile({ files: second.files }),
+			markedRows: overviewRows.map((row) => row.includes('The second phase (affects phase2-extra.md)')),
+			undeclaredRowMarked: overviewRows[1]?.includes('(affects'),
+			phaseFilesMarked: ['phase1-core.md', 'phase2-extra.md'].map((base) => declared.readFile(base).includes('(affects')),
+			texts: declared.bases.map((base) => declared.readFile(base)),
+		}).toStrictEqual({
+			firstReported: { 'overview.md': true, 'phase1-core.md': true, 'phase2-extra.md': true },
+			secondReported: { 'overview.md': false, 'phase1-core.md': false, 'phase2-extra.md': false },
+			markedRows: [true, false],
+			undeclaredRowMarked: false,
+			phaseFilesMarked: [false, false],
 			texts: afterFirst,
 		});
 	});

@@ -103,6 +103,7 @@ describe('commandCatalog', () => {
 		const planShapes = byId.get('plan')?.invocations.map((invocation) => [invocation.id, invocation.positional]);
 
 		expect(planShapes).toStrictEqual([
+			['plan-workspace', 'workspace'],
 			['plan-verify-facts', 'verify-facts'],
 			['plan-draft', 'draft'],
 			['plan-sync-decisions', 'sync-decisions'],
@@ -121,6 +122,17 @@ describe('commandCatalog', () => {
 
 		expect(invocations[placed]).toStrictEqual({ id: 'plan-sync-decisions', positional: 'sync-decisions' });
 		expect([invocations[placed - 1]?.positional, invocations[placed + 1]?.positional]).toStrictEqual(['draft', 'lint']);
+	});
+
+	test('plan lists its workspace shape ahead of verify-facts, because it runs before anything else', () => {
+		const { byId } = setupCatalog();
+
+		const leading = byId.get('plan')?.invocations.slice(0, 2);
+
+		expect(leading).toStrictEqual([
+			{ id: 'plan-workspace', positional: 'workspace' },
+			{ id: 'plan-verify-facts', positional: 'verify-facts' },
+		]);
 	});
 
 	test('notes the extra meaning only on the plan subcommand whose flag changes its result', () => {

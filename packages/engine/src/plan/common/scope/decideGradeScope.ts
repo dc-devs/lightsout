@@ -1,6 +1,7 @@
 import { basename } from 'node:path';
 import { GradeFindingStatus, type GradeInputs, type GradeMemory, GradeScope } from '#src/contracts/index.ts';
 import { getAffectedPhases } from '#src/plan/common/scope/getAffectedPhases.ts';
+import { getDecisionReach } from '#src/plan/common/scope/getDecisionReach.ts';
 import { getEditedPhases } from '#src/plan/common/scope/getEditedPhases.ts';
 import { getPhaseConnections } from '#src/plan/common/scope/getPhaseConnections.ts';
 import type { DeliverableFile } from '#src/plan/common/types/DeliverableFile.ts';
@@ -46,6 +47,36 @@ const focusedClosure = ({ files, overviewText, edited }: { files: DeliverableFil
 };
 
 /**
+ * The phases a focused closure grows from: the edited phases, plus — for a
+ * phased plan — the phases the changed decisions name, or the reason the
+ * decision change cannot be placed. A single plan has no Decision Log part to
+ * compare and keeps its edited phases alone.
+ */
+const closureSeeds = ({
+	overviewText,
+	inputs,
+	previous,
+	overviewChanged,
+	edited,
+	phases,
+}: {
+	overviewText?: string;
+	inputs: GradeInputs;
+	previous: GradeInputs;
+	overviewChanged: boolean;
+	edited: string[];
+	phases: string[];
+}) => {
+	if (overviewText === undefined) {
+		return { seeds: edited };
+	}
+
+	const reach = getDecisionReach({ current: inputs.decisionLog, previous: previous.decisionLog, overviewChanged, edited, phaseFiles: phases });
+
+	return 'error' in reach ? { error: reach.error } : { seeds: [...edited, ...reach.phases] };
+};
+
+/**
  * How far this pass must reach, decided by the engine from the plan, the memory
  * and the fingerprint — there is no flag, because a human cannot know which
  * phases a repair can reach.
@@ -62,8 +93,9 @@ const focusedClosure = ({ files, overviewText, edited }: { files: DeliverableFil
  * 4. With no memory, or no pass recorded in it, there is no baseline to compare
  *    the plan text against.
  * 5. A non-plan-text input moving means the recorded reading no longer speaks
- *    for this pass at all; an edited overview is context every phase shares, and
- *    the closure of the edited phases cannot bound it.
+ *    for this pass at all. An overview design change is context every phase
+ *    shares; a Decision Log change reaches the phases its changed rows name; and
+ *    a change whose reach cannot be placed is a full review.
  * 6. A single plan has no phase to narrow to.
  * 7. A plan with nothing open is not a repair check — approval needs the whole
  *    plan read, and a focused pass can never grant it.
@@ -98,8 +130,10 @@ export const decideGradeScope = ({ files, overviewText, memory, inputs, narrowed
 		return full({ reason: 'full review: the code, standards, configuration, prompts or model moved since the last pass' });
 	}
 
-	if (overviewChanged) {
-		return full({ reason: 'full review: the overview changed, and it is context every phase shares' });
+	const seeded = closureSeeds({ overviewText, inputs, previous, overviewChanged, edited, phases });
+
+	if ('error' in seeded) {
+		return full({ reason: `full review: ${seeded.error}` });
 	}
 
 	if (files.length < 2 || overviewText === undefined) {
@@ -110,7 +144,7 @@ export const decideGradeScope = ({ files, overviewText, memory, inputs, narrowed
 		return full({ reason: 'full review: no finding is open, so this pass is an approval review rather than a repair check' });
 	}
 
-	const closure = focusedClosure({ files, overviewText, edited });
+	const closure = focusedClosure({ files, overviewText, edited: seeded.seeds });
 
 	if ('error' in closure) {
 		return full({ reason: `full review: the phase graph could not be built — ${closure.error}` });
@@ -120,8 +154,8 @@ export const decideGradeScope = ({ files, overviewText, memory, inputs, narrowed
 		return full({ reason: 'full review: the edited phases reach every plan file anyway' });
 	}
 
-	const reach = closure.phases.length > 0 ? closure.phases.join(', ') : 'no phase text changed';
-	const reason = `focused review: the edited phases and everything they reach — ${reach}`;
+	const reach = closure.phases.length > 0 ? closure.phases.join(', ') : 'no phase text and no decision changed';
+	const reason = `focused review: the edited phases, the phases changed decisions name, and everything they reach — ${reach}`;
 
 	return { scope: GradeScope.Focused, phases: closure.phases, reuse: false, reason };
 };

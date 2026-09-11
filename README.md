@@ -156,13 +156,13 @@ Turn the design into an executable spec. `/plan` explores the codebase, searches
 
 The plan is graded and revised until nothing is left for the implementation agent to guess, invent, or decide on its own.
 
-Re-grading after a repair is cheap on purpose: the grader reads the phases that repair can reach rather than the whole plan, it stops before spawning anything when the mechanical checks already fail, and a question someone already settled is not asked again. What does not get cheaper is approval — that still needs a passing review of the whole plan against the current code, standards and configuration.
+Re-grading after a repair is cheap on purpose: the grader reads the phases that repair can reach rather than the whole plan, it stops before spawning anything when the mechanical checks already fail, and a question someone already settled is not asked again. A decision recorded about one phase names that phase, so the re-grade reads that phase and the phases connected to it; a decision that names no phase, a global constraint, or an overview edit outside the Decision Log still means the whole plan. What does not get cheaper is approval — that still needs a passing review of the whole plan against the current code, standards and configuration.
 
 With the `plan` config block turned on, the plan is a contract rather than a narrative: the file map, the exported signatures, the file each new file mirrors, the decisions, and an acceptance-test ledger naming one test per acceptance criterion. Such a repository is drafted from a dedicated contract template, so a file entry carries the signatures, the wiring and the constraints while every testable behaviour is an acceptance-test row rather than a paragraph. Files with no testable behaviour — documents, config — are listed separately and stay described in words. Each plan file is then weighed from its own counts, and a small one is graded by deterministic checks alone instead of by a fleet of readers.
 
 When a plan starts from a `/brainstorm` hand-off, the decisions already settled there are carried straight into the plan rather than asked again; a settled decision is re-opened only when exploring the code turns up a concrete conflict.
 
-The plan's Decision Log is composed by the engine from the saved decision records rather than typed out by the writer. `lightsout plan sync-decisions --name <name>` regenerates it in every file of the plan — run it after a decision is recorded, and again as often as you like: a file whose log already matches the records is left untouched.
+The plan's Decision Log is composed by the engine from the saved decision records rather than typed out by the writer. `lightsout plan sync-decisions --name <name>` regenerates it in every file of the plan, and a decision's named phases show in its Choice cell — run it after a decision is recorded, and again as often as you like: a file whose log already matches the records is left untouched.
 
 Once a ticket-backed plan is approved as ready, run `lightsout plan publish --name <name>`. It attaches only the durable design record — the single or
 phased plan deliverable and whichever of `brainstorm-notes.md`, `decisions.json`,
@@ -243,6 +243,17 @@ finds the run and the record survives the worktree being cleaned up. Pass
 launching checkout instead. If the tree cannot be created, the inputs cannot be
 copied, or setup fails, the run stops and says which it was — it never quietly
 builds somewhere else.
+
+Planning establishes that worktree first. `/plan` and `/auto-plan` run
+`lightsout plan workspace --name <name>` before they explore or draft, which cuts
+the tree at the plan's path from your checkout's committed `HEAD`, copies in any
+plan folder you already have there, and prints the tree's path; every later plan
+step works from it, so another agent editing your checkout cannot move the code
+a grade is measured against. The implementation run then continues in that same
+tree rather than cutting a second one, and a finished plan is copied back into
+the checkout you launched from before the shipped tree is cleaned up. Pass
+`--no-worktree`, or set `plan.worktree` to false, to plan in the launching
+checkout deliberately.
 
 A finished plan is not stuck on the machine that wrote it. `/implement` looks
 for the plan folder on local disk first. When a ticket-named folder is absent,

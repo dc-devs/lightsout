@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { GradeDecisionLog } from '#src/contracts/plan/memory/GradeDecisionLog.ts';
 
 /**
  * The fingerprint of everything one grading pass measured. Two passes whose
@@ -29,6 +30,8 @@ export const GradeInputs = z.object({
 	prompts: z.string(),
 	model: z.string().optional(),
 	effort: z.string().optional(),
+	/** Present for a phased plan whose overview could be read; absent for a single plan and for a pass recorded before the field existed. Read only by the scope comparison. */
+	decisionLog: GradeDecisionLog.optional(),
 	/** sha256 over the canonical JSON of every field above — the one value a comparison uses. */
 	sha256: z.string(),
 });

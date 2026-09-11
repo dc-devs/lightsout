@@ -66,6 +66,7 @@ export {
 	GapCheckReport,
 	GapOutcome,
 	GapVerdict,
+	GradeDecisionLog,
 	GradedGap,
 	GradeFindingRecord,
 	GradeFindingStatus,

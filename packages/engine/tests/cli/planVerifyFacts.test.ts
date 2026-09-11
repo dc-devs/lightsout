@@ -49,7 +49,7 @@ const seedVerifyFactsFixture = async ({ factsBody }: { factsBody?: string } = {}
 test('cli: plan verify-facts without an authored facts.json reports the error and exits 1', async () => {
 	const cwd = await freshCwd();
 
-	const { stdout, stderr, code } = await runCli({ args: ['plan', 'verify-facts', '--name', 'demo', '--cwd', cwd] });
+	const { stdout, stderr, code } = await runCli({ args: ['plan', 'verify-facts', '--name', 'demo', '--no-worktree', '--cwd', cwd] });
 
 	expect(stdout).toBe('');
 	expect(stderr).toMatch(/no authored facts for plan demo/);
@@ -59,7 +59,7 @@ test('cli: plan verify-facts without an authored facts.json reports the error an
 test('cli: plan verify-facts with an unparsable facts.json reports the error and exits 1', async () => {
 	const { cwd } = await seedVerifyFactsFixture({ factsBody: '{"request": 42}' });
 
-	const { stdout, stderr, code } = await runCli({ args: ['plan', 'verify-facts', '--name', 'demo', '--cwd', cwd] });
+	const { stdout, stderr, code } = await runCli({ args: ['plan', 'verify-facts', '--name', 'demo', '--no-worktree', '--cwd', cwd] });
 
 	expect(stdout).toBe('');
 	expect(stderr).not.toBe('');
@@ -69,7 +69,7 @@ test('cli: plan verify-facts with an unparsable facts.json reports the error and
 test('cli: plan verify-facts stamps facts.json, warns on misses, and exits 0', async () => {
 	const { cwd, factsPath } = await seedVerifyFactsFixture();
 
-	const { stdout, stderr, code } = await runCli({ args: ['plan', 'verify-facts', '--name', 'demo', '--cwd', cwd] });
+	const { stdout, stderr, code } = await runCli({ args: ['plan', 'verify-facts', '--name', 'demo', '--no-worktree', '--cwd', cwd] });
 
 	expect(code).toBe(0);
 	expect(stderr).toBe('');
@@ -98,7 +98,9 @@ test('cli: plan verify-facts --notes freezes the notes snapshot into the workspa
 	const { cwd } = await seedVerifyFactsFixture();
 	await writeFile(join(cwd, 'rough-brainstorm-notes.md'), '# Rough notes\n\nthe idea in plain words\n', 'utf8');
 
-	const { stdout, stderr, code } = await runCli({ args: ['plan', 'verify-facts', '--name', 'demo', '--notes', 'rough-brainstorm-notes.md', '--cwd', cwd] });
+	const { stdout, stderr, code } = await runCli({
+		args: ['plan', 'verify-facts', '--name', 'demo', '--notes', 'rough-brainstorm-notes.md', '--no-worktree', '--cwd', cwd],
+	});
 
 	expect(code).toBe(0);
 	expect(stderr).toBe('');

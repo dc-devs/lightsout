@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { Effort, LightsoutConfig } from '#src/contracts/index.ts';
+import { type DecisionRow, DecisionSource, Effort, LightsoutConfig } from '#src/contracts/index.ts';
 import { getGradeInputs } from '#src/plan/common/scope/getGradeInputs.ts';
 
 // Mocked Imports
@@ -55,6 +56,7 @@ const setupInputs = ({ probe = 'read', changed = ['src/a.ts'] }: { probe?: 'read
 	const params: GradeInputsParams = {
 		cwd,
 		planPaths: [overviewPath, phaseOnePath, phaseTwoPath],
+		decisions: [],
 		standards: 'the supplemental standards text',
 		config: configOf(),
 		model: 'claude-opus-5',
@@ -62,6 +64,58 @@ const setupInputs = ({ probe = 'read', changed = ['src/a.ts'] }: { probe?: 'read
 	};
 
 	return { cwd, phaseTwoPath, params };
+};
+
+/**
+ * A planning worktree and the checkout planning was launched from, each a temp
+ * directory holding its own `src/a.ts`, with the git probes answering per
+ * directory. `advanceLaunchingCheckout` moves the launching checkout's HEAD and
+ * edits and adds source there, as another agent working in it would.
+ */
+const setupWorktreeAndLaunchingCheckout = () => {
+	const worktree = mkdtempSync(join(tmpdir(), 'lightsout-grade-inputs-worktree-'));
+	const launching = mkdtempSync(join(tmpdir(), 'lightsout-grade-inputs-launching-'));
+	const heads = new Map([
+		[worktree, '1111111111111111111111111111111111111111'],
+		[launching, '2222222222222222222222222222222222222222'],
+	]);
+	const changed = new Map([
+		[worktree, ['src/a.ts']],
+		[launching, ['src/a.ts']],
+	]);
+
+	mockReadGitHeadCommit.mockImplementation(async ({ cwd }) => heads.get(cwd));
+	mockReadGitChangedFiles.mockImplementation(async ({ cwd }) => changed.get(cwd));
+
+	for (const checkout of [worktree, launching]) {
+		mkdirSync(join(checkout, 'src'), { recursive: true });
+		writeFileSync(join(checkout, 'src', 'a.ts'), 'export const a = 1;\n');
+	}
+
+	const planDir = join(worktree, '.lightsout', 'plans', 'p');
+	const planPath = join(planDir, 'plan.md');
+
+	mkdirSync(planDir, { recursive: true });
+	writeFileSync(planPath, '# Plan\n');
+
+	const params: GradeInputsParams = {
+		cwd: worktree,
+		planPaths: [planPath],
+		decisions: [],
+		standards: 'the supplemental standards text',
+		config: configOf(),
+		model: 'claude-opus-5',
+		effort: Effort.High,
+	};
+
+	const advanceLaunchingCheckout = () => {
+		heads.set(launching, '3333333333333333333333333333333333333333');
+		changed.set(launching, ['src/a.ts', 'src/b.ts']);
+		writeFileSync(join(launching, 'src', 'a.ts'), 'export const a = 2;\n');
+		writeFileSync(join(launching, 'src', 'b.ts'), 'export const b = 1;\n');
+	};
+
+	return { params, advanceLaunchingCheckout };
 };
 
 /**
@@ -84,6 +138,117 @@ const fingerprintWithReaderBrief = async ({ brief, params }: { brief: string; pa
 	jest.dontMock('#src/agents/prompts/planGapCheck.md');
 
 	return inputs;
+};
+
+/** What a real sha256 digest looks like, as opposed to a placeholder such as `absent`. */
+const hexDigest = /^[0-9a-f]{64}$/;
+
+/**
+ * An overview whose design text and generated Decision Log can each be varied
+ * alone, so a comparison states which of the two a hash follows.
+ */
+const overviewWithLog = ({
+	design = 'The cache sits beside the store.',
+	log = '| 1 | Elicitation | Which store holds the cache? |',
+}: {
+	design?: string;
+	log?: string;
+} = {}) =>
+	[
+		'# Overview',
+		'',
+		'## Context',
+		'',
+		design,
+		'',
+		'## Decision Log',
+		'',
+		'| # | Source | Decision / Question |',
+		'|---|--------|---------------------|',
+		log,
+		'',
+		'## Global Constraints',
+		'',
+		'- None',
+		'',
+	].join('\n');
+
+/**
+ * An overview carrying two `## Decision Log` headings. The parser locates the
+ * last section of a repeated name, so `stray` sits under the heading
+ * `decisionLogRange` does not locate — the one the log-matches-record check
+ * never compares against the record.
+ */
+const overviewWithTwoLogs = ({ stray }: { stray: string }) =>
+	[
+		'# Overview',
+		'',
+		'## Decision Log',
+		'',
+		stray,
+		'',
+		'## Context',
+		'',
+		'The cache sits beside the store.',
+		'',
+		'## Decision Log',
+		'',
+		'| # | Source | Decision / Question |',
+		'|---|--------|---------------------|',
+		'| 1 | Elicitation | Which store holds the cache? |',
+		'',
+		'## Global Constraints',
+		'',
+		'- None',
+		'',
+	].join('\n');
+
+/** One merged decision row. `phases` is left off entirely unless the case declares it, which is how a row written without the field reads. */
+const decisionRow = ({ question = 'Which store holds the cache?', phases }: { question?: string; phases?: string[] } = {}): DecisionRow => ({
+	source: DecisionSource.Elicitation,
+	question,
+	options: 'The store / A side table',
+	choice: 'The store',
+	rationale: 'One place to invalidate.',
+	assumption: false,
+	...(phases === undefined ? {} : { phases }),
+});
+
+/**
+ * The phased fixture with its overview replaced by the given text and the given
+ * merged rows threaded in. `omitOverview` deletes the overview after the plan
+ * paths are taken, so the pass lists an overview it cannot read.
+ */
+const setupDecisionPlan = ({
+	overview = overviewWithLog(),
+	decisions = [],
+	omitOverview = false,
+}: {
+	overview?: string;
+	decisions?: DecisionRow[];
+	omitOverview?: boolean;
+} = {}) => {
+	const { params } = setupInputs();
+	const [overviewPath = ''] = params.planPaths;
+
+	writeFileSync(overviewPath, overview);
+
+	if (omitOverview) {
+		rmSync(overviewPath);
+	}
+
+	return { overviewPath, params: { ...params, decisions } };
+};
+
+/** A single plan — one `plan.md` and no overview — whose text carries a Decision Log, with the given merged rows threaded in. */
+const setupSinglePlan = ({ decisions }: { decisions: DecisionRow[] }) => {
+	const { params } = setupInputs();
+	const [overviewPath = ''] = params.planPaths;
+	const planPath = join(dirname(overviewPath), 'plan.md');
+
+	writeFileSync(planPath, overviewWithLog());
+
+	return { params: { ...params, planPaths: [planPath], decisions } };
 };
 
 describe('getGradeInputs', () => {
@@ -142,5 +307,127 @@ describe('getGradeInputs', () => {
 			{ path: 'src/a.ts', sha256: expect.stringMatching(/^[0-9a-f]{64}$/) },
 			{ path: 'src/deleted.ts', sha256: 'absent' },
 		]);
+	});
+
+	test('fingerprints the planning worktree alone, unmoved by the launching checkout advancing', async () => {
+		const { params, advanceLaunchingCheckout } = setupWorktreeAndLaunchingCheckout();
+
+		const before = await getGradeInputs(params);
+
+		advanceLaunchingCheckout();
+
+		const after = await getGradeInputs(params);
+
+		expect({ sha256: after.sha256, gradedCommit: after.gradedCommit }).toStrictEqual({
+			sha256: before.sha256,
+			gradedCommit: '1111111111111111111111111111111111111111',
+		});
+	});
+
+	test('the overview hash of the decision-log part ignores the Decision Log span and moves with text outside it', async () => {
+		const { overviewPath, params } = setupDecisionPlan();
+
+		const first = await getGradeInputs(params);
+
+		writeFileSync(overviewPath, overviewWithLog({ log: '| 1 | Elicitation | Which store holds the session cache? |' }));
+
+		const afterLogEdit = await getGradeInputs(params);
+
+		writeFileSync(overviewPath, overviewWithLog({ design: 'The cache sits in front of the store.' }));
+
+		const afterDesignEdit = await getGradeInputs(params);
+
+		expect(first.decisionLog?.overview).toMatch(hexDigest);
+		expect(afterLogEdit.decisionLog?.overview).toBe(first.decisionLog?.overview);
+		expect(afterDesignEdit.decisionLog?.overview).not.toBe(first.decisionLog?.overview);
+		// the whole-file hash still follows the log, so exact-input reuse sees every decision
+		expect(afterLogEdit.sha256).not.toBe(first.sha256);
+	});
+
+	test('an overview with no Decision Log section is hashed whole in the decision-log part', async () => {
+		const { params } = setupInputs();
+
+		const inputs = await getGradeInputs(params);
+
+		// with no span to leave out, every line of the overview is design text
+		expect(inputs.decisionLog).toStrictEqual({ overview: createHash('sha256').update('# Overview\n').digest('hex'), rows: [] });
+	});
+
+	test('the decision-log part carries one entry per merged row in record order with its declared phases', async () => {
+		const { params } = setupDecisionPlan({
+			decisions: [decisionRow(), decisionRow({ question: 'Which phase owns the eviction rule?', phases: ['phase-2.md', 'phase-1.md'] })],
+		});
+
+		const inputs = await getGradeInputs(params);
+
+		expect(inputs.decisionLog?.rows).toEqual([
+			{ sha256: expect.stringMatching(hexDigest), questionSha256: expect.stringMatching(hexDigest) },
+			{ sha256: expect.stringMatching(hexDigest), questionSha256: expect.stringMatching(hexDigest), phases: ['phase-2.md', 'phase-1.md'] },
+		]);
+	});
+
+	test('a decision row changing only its declared phases moves its row hash and the combined hash', async () => {
+		const { params } = setupDecisionPlan();
+
+		const first = await getGradeInputs({ ...params, decisions: [decisionRow({ phases: ['phase-1.md'] })] });
+		const second = await getGradeInputs({ ...params, decisions: [decisionRow({ phases: ['phase-2.md'] })] });
+
+		// a phases-only change keeping the combined hash would let a recorded passing
+		// grade answer a decision whose declared reach moved
+		expect(first.decisionLog?.rows[0]?.sha256).toMatch(hexDigest);
+		expect(second.decisionLog?.rows[0]?.sha256).not.toBe(first.decisionLog?.rows[0]?.sha256);
+		expect(second.sha256).not.toBe(first.sha256);
+	});
+
+	test('a Global constraint row is fingerprinted with no phases whatever it names', async () => {
+		const { params } = setupDecisionPlan({
+			decisions: [decisionRow({ question: 'Global constraint: every write goes through the store', phases: ['phase-1.md'] })],
+		});
+
+		const inputs = await getGradeInputs(params);
+
+		// a global constraint reaches the whole plan, so a phase list it names must
+		// never narrow the review a change to it gets
+		expect(inputs.decisionLog?.rows).toEqual([{ sha256: expect.stringMatching(hexDigest), questionSha256: expect.stringMatching(hexDigest) }]);
+	});
+
+	test('a single plan carries no decision-log part', async () => {
+		const { params } = setupSinglePlan({
+			decisions: [decisionRow(), decisionRow({ question: 'Which phase owns the eviction rule?', phases: ['phase-1.md'] })],
+		});
+
+		const inputs = await getGradeInputs(params);
+
+		expect({ planFiles: inputs.planFiles.map((entry) => entry.file), decisionLog: inputs.decisionLog }).toStrictEqual({
+			planFiles: ['plan.md'],
+			decisionLog: undefined,
+		});
+	});
+
+	test('text under a second Decision Log heading counts as overview design text', async () => {
+		const { overviewPath, params } = setupDecisionPlan({ overview: overviewWithTwoLogs({ stray: 'A design note filed under a repeated heading.' }) });
+
+		const first = await getGradeInputs(params);
+
+		writeFileSync(overviewPath, overviewWithTwoLogs({ stray: 'A different design note filed under a repeated heading.' }));
+
+		const afterEdit = await getGradeInputs(params);
+
+		// only the span the log check compares may leave the design hash; text the
+		// check never reads would otherwise change with no review noticing
+		expect(first.decisionLog?.overview).toMatch(hexDigest);
+		expect(afterEdit.decisionLog?.overview).not.toBe(first.decisionLog?.overview);
+	});
+
+	test('an unreadable overview leaves the decision-log part absent', async () => {
+		const { params } = setupDecisionPlan({ decisions: [decisionRow({ phases: ['phase-1.md'] })], omitOverview: true });
+
+		const inputs = await getGradeInputs(params);
+
+		// a hash of content nobody read could compare equal to a later readable pass
+		expect({ decisionLog: inputs.decisionLog, overview: inputs.planFiles.find((entry) => entry.file === 'overview.md') }).toStrictEqual({
+			decisionLog: undefined,
+			overview: { file: 'overview.md', sha256: 'absent' },
+		});
 	});
 });

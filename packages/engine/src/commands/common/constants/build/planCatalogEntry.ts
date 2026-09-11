@@ -1,7 +1,7 @@
 import { planSteps } from '#src/commands/common/constants/build/planSteps.ts';
 import { type CommandCatalogEntry, CommandGroup, CommandRecordKind } from '#src/contracts/index.ts';
 
-/** `/plan` — seven subcommands under one command word, so it carries seven invocations rather than one. */
+/** `/plan` — eight subcommands under one command word, so it carries eight invocations rather than one. */
 export const planCatalogEntry: CommandCatalogEntry = {
 	id: 'plan',
 	slash: '/plan',
@@ -11,6 +11,7 @@ export const planCatalogEntry: CommandCatalogEntry = {
 	whenToUse:
 		'Use it when you know what you want and need a plan a fresh agent could implement without guessing. It interviews you, drafts, grills the draft for edge cases, and grades the result before anyone writes code.',
 	invocations: [
+		{ id: 'plan-workspace', positional: 'workspace' },
 		{ id: 'plan-verify-facts', positional: 'verify-facts' },
 		{ id: 'plan-draft', positional: 'draft' },
 		{ id: 'plan-sync-decisions', positional: 'sync-decisions' },
@@ -45,7 +46,20 @@ export const planCatalogEntry: CommandCatalogEntry = {
 			shape: 'plan-grade',
 			required: false,
 		},
-		{ name: 'cwd', value: '<path>', meaning: 'Repository the plan workspace lives in.', fallback: 'The process working directory.', required: false },
+		{
+			name: 'cwd',
+			value: '<path>',
+			meaning: 'The checkout the command is launched from; the plan’s worktree is resolved from it.',
+			fallback: 'The process working directory.',
+			required: false,
+		},
+		{
+			name: 'worktree',
+			meaning: 'Plan in a fresh git worktree of this repository, on a branch named after the plan.',
+			fallback: 'The `plan.worktree` config key, which defaults to on.',
+			required: false,
+		},
+		{ name: 'no-worktree', meaning: 'Plan in the checkout this was launched from rather than a worktree of its own.', required: false },
 	],
 	steps: planSteps,
 	records: CommandRecordKind.Plans,

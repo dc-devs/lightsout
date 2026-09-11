@@ -1,5 +1,7 @@
+import { copyPlanFolderToPrimary } from '#src/cli/common/implementRun/copyPlanFolderToPrimary.ts';
 import { readGitPrimaryCheckout } from '#src/common/git/readGitPrimaryCheckout.ts';
 import { type RunManifest, WorktreeOwner } from '#src/contracts/index.ts';
+import { planNameFromPath } from '#src/plan/index.ts';
 import { deleteWorktreeRecord, readWorktreeRecord, removeWorktree } from '#src/worktree/index.ts';
 
 interface Params {
@@ -51,6 +53,12 @@ const describeRemovableTree = async ({ cwd, manifest }: { cwd: string; manifest:
  * record deleted beside a tree that survived is exactly the unclaimed tree a
  * later drain adopts.
  *
+ * The plan folder the tree holds is saved into the primary checkout first, so
+ * the cleanup can never delete the only local copy of a finished plan — a plan
+ * with no ticket has no attachment to fall back on. A save that fails leaves the
+ * tree and its record standing: a surviving tree is recoverable, where a deleted
+ * sole copy of a plan is not.
+ *
  * The run's own records are never touched: they live in the checkout the
  * command was launched from, which is the whole reason they are written there.
  */
@@ -58,6 +66,16 @@ export const removeShippedRunWorkspace = async ({ cwd, manifest, onProgress }: P
 	const removable = await describeRemovableTree({ cwd, manifest });
 
 	if (removable === undefined) {
+		return;
+	}
+
+	// A run started from a loose plan file outside the plans directory has no
+	// folder to save, and goes straight to the removal.
+	const name = planNameFromPath({ cwd: removable.worktreePath, planPath: manifest.plan });
+	const unsaved = name === undefined ? undefined : await copyPlanFolderToPrimary({ worktree: removable.worktreePath, primary: removable.cwd, name });
+
+	if (unsaved !== undefined) {
+		onProgress?.(`left the worktree at ${removable.worktreePath} standing: ${unsaved.error}`);
 		return;
 	}
 

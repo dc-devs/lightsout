@@ -19,7 +19,7 @@ import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 interface CreateWorktreeParams {
 	cwd: string;
 	branch: string;
-	defaultBranch: string;
+	startPoint: string;
 	setup?: string;
 	owner: WorktreeOwner;
 	reuseExisting: boolean;
