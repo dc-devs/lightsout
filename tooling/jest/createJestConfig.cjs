@@ -49,6 +49,10 @@ module.exports = ({ rootDir, ...rest }) => ({
 	// laptop hosting several agents has the cores to spend, while a four-core CI
 	// runner does not. A flat eight there oversubscribed the runner badly enough
 	// that the slowest suites passed the thirty-second per-test limit and failed.
+	//
+	// This is the whole machine's count for a test run, not one of several:
+	// nx.json runs the test targets one at a time, because two pools of eight side
+	// by side crashed far more often than one.
 	maxWorkers: Math.max(1, Math.min(8, availableParallelism() - 1)),
 	// Recycle a worker once it passes this, rather than letting it carry a heap
 	// from one test file to the next for the whole run.
