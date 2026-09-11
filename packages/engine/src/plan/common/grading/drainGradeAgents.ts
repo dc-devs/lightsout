@@ -102,6 +102,10 @@ const spawnGapChecker = async ({
  * settled records for its own plan file, so a question already answered is not
  * re-asked; each judge is shown every record for its finding's file, so it can
  * name the one a fresh finding repeats.
+ *
+ * `documentationComplete` answers whether the documentation checker finished —
+ * true too when it had nothing to do, as on a focused pass, where it cannot fail
+ * and so cannot be routed around.
  */
 export const drainGradeAgents = async ({
 	params,
@@ -110,7 +114,7 @@ export const drainGradeAgents = async ({
 	memory,
 	documentation,
 	progress,
-}: Params): Promise<{ gaps: GradedGap[]; failures: string[]; phasesChecked: string[]; rateLimited: boolean }> => {
+}: Params): Promise<{ gaps: GradedGap[]; failures: string[]; phasesChecked: string[]; rateLimited: boolean; documentationComplete: boolean }> => {
 	// Resolved once for both spawns: two independent defaults let an edit to one
 	// move that checker's ceiling and leave the other on the old number.
 	const timeoutMs = params.timeoutMs ?? 30 * 60 * 1000;
@@ -148,5 +152,6 @@ export const drainGradeAgents = async ({
 		failures: [...readers.failures, ...docsCheck.failures],
 		phasesChecked: readers.phasesChecked,
 		rateLimited: readers.rateLimited || judged.rateLimited || docsCheck.rateLimited,
+		documentationComplete: docsCheck.failures.length === 0,
 	};
 };

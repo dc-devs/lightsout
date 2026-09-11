@@ -24,6 +24,13 @@ import { GradeScope } from '#src/contracts/plan/memory/GradeScope.ts';
  * leaves one finding unweighed, which is recorded as `unjudged` on that gap and
  * blocks the grade on its own — the pass still finished.
  *
+ * `scopeComplete` answers a narrower question than `complete`: whether every
+ * check THIS pass's own scope called for finished. A focused repair pass that
+ * read every phase it owed is scope-complete and still never complete, because
+ * it is not a whole-plan clean bill. `complete` decides approval; `scopeComplete`
+ * decides only whether the pass may become the baseline the next repair narrows
+ * against.
+ *
  * `gradedAt` alone cannot tell a stale verdict from a current one: a grade taken
  * against code that has since moved on reads exactly like a fresh one. The
  * commit stamp beside it says WHAT was measured, not merely when.
@@ -43,6 +50,8 @@ export const GradeReport = z.object({
 	phasesLight: z.array(z.string()).default([]),
 	/** False when a READER failed or hit the rate-limit wall; the findings below are real but partial. A failed judge leaves its gap `unjudged` instead. */
 	complete: z.boolean().default(true),
+	/** True when every check this pass's own scope called for finished — never a whole-plan clean bill, and never an approval. Defaults to `false` so a report written before the field existed claims no coverage. */
+	scopeComplete: z.boolean().default(false),
 	/** Why the pass did not finish, absent when it did. */
 	incompleteReason: z.string().optional(),
 	passed: z.boolean(),

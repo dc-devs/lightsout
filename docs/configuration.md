@@ -570,7 +570,10 @@ comes back with a restore: a question already settled is not investigated again,
 and one nobody has verified as answered keeps blocking even when a later reader
 does not report it. A re-grade after a repair reads the edited phase files and
 every phase connected to them, falling back to the whole plan whenever that set
-cannot be established. Only a review of the whole plan can pass, and one that
+cannot be established. A repair review that finished every check its own scope
+called for becomes the comparison point the next repair narrows against, so a
+phase whose current text was already checked is not read again, while approval
+still requires a review of the whole plan. Only a review of the whole plan can pass, and one that
 already covers the current plan text, code, standards, configuration, prompts and
 model is reported as current rather than run again — deleting `grade-memory.json`
 is how a new baseline is forced.
