@@ -23643,7 +23643,15 @@ var DecisionRow = external_exports.object({
   options: external_exports.string(),
   choice: external_exports.string(),
   rationale: external_exports.string(),
-  assumption: external_exports.boolean().default(false)
+  assumption: external_exports.boolean().default(false),
+  /**
+   * The phase-file basenames the decision concerns — the same value a grade gap's
+   * or dedup finding's `phase` carries. Absent when the decision concerns the
+   * whole plan or its reach is not established. The names are checked against
+   * the plan's phase files when grading chooses its scope, not when the record is
+   * read.
+   */
+  phases: external_exports.array(external_exports.string()).min(1).optional()
 });
 
 // src/contracts/plan/decisions/BrainstormDecisions.ts
@@ -23920,6 +23928,23 @@ var StructuralFinding = external_exports.object({
   fix: external_exports.string()
 });
 
+// src/contracts/plan/memory/GradeDecisionLog.ts
+var GradeDecisionLog = external_exports.object({
+  /** sha256 of the overview's text with its Decision Log span removed; of the whole text when the overview has no such span. */
+  overview: external_exports.string(),
+  /** One entry per merged decision row, in record order, brainstorm rows first. */
+  rows: external_exports.array(
+    external_exports.object({
+      /** sha256 of the canonical JSON of the whole row. */
+      sha256: external_exports.string(),
+      /** sha256 of the row's question — what links a revision to the row it supersedes. */
+      questionSha256: external_exports.string(),
+      /** The phase files the row is taken to reach, as it declares them; absent when it reaches the whole plan. */
+      phases: external_exports.array(external_exports.string()).min(1).optional()
+    })
+  )
+});
+
 // src/contracts/plan/memory/GradeInputs.ts
 var GradeInputs = external_exports.object({
   /** One entry per plan file, overview included, keyed by basename and sorted by it. */
@@ -23941,6 +23966,8 @@ var GradeInputs = external_exports.object({
   prompts: external_exports.string(),
   model: external_exports.string().optional(),
   effort: external_exports.string().optional(),
+  /** Present for a phased plan whose overview could be read; absent for a single plan and for a pass recorded before the field existed. Read only by the scope comparison. */
+  decisionLog: GradeDecisionLog.optional(),
   /** sha256 over the canonical JSON of every field above — the one value a comparison uses. */
   sha256: external_exports.string()
 });
@@ -25093,6 +25120,7 @@ var toChoiceCell = ({ row, number: number4, binding }) => {
   const bindingNumber = binding.get(row.question);
   const markers = [
     row.assumption ? "(assumption)" : void 0,
+    row.phases === void 0 ? void 0 : `(affects ${row.phases.map((phase) => toCell({ text: phase })).join(", ")})`,
     bindingNumber !== void 0 && bindingNumber > number4 ? `(superseded by #${bindingNumber})` : void 0
   ];
   return [toCell({ text: row.choice }), ...markers.filter((marker) => marker !== void 0)].join(" ");
@@ -132938,6 +132966,52 @@ var getAffectedPhases = ({ connections, edited }) => {
   return [...affected].sort();
 };
 
+// src/plan/common/scope/getDecisionReach.ts
+var unmatchedRows = ({ rows, other }) => {
+  const available = other.map((row) => row.sha256);
+  return rows.filter((row) => {
+    const index = available.indexOf(row.sha256);
+    if (index !== -1) {
+      available.splice(index, 1);
+    }
+    return index === -1;
+  });
+};
+var joinedRows = ({ current, previous }) => {
+  const changed = [...unmatchedRows({ rows: current.rows, other: previous.rows }), ...unmatchedRows({ rows: previous.rows, other: current.rows })];
+  const questions = new Set(changed.map((row) => row.questionSha256));
+  const joinsChange = (row) => questions.has(row.questionSha256);
+  return { changed, current: current.rows.filter(joinsChange), previous: previous.rows.filter(joinsChange) };
+};
+var getDecisionReach = ({ current, previous, overviewChanged, edited, phaseFiles }) => {
+  if (previous === void 0) {
+    return { error: "the earlier pass has no decision evidence to compare against" };
+  }
+  if (current === void 0) {
+    return { error: "this pass could not read the overview, so its decisions cannot be compared" };
+  }
+  if (current.overview !== previous.overview) {
+    return { error: "the overview changed outside its Decision Log, and it is context every phase shares" };
+  }
+  const joined = joinedRows({ current, previous });
+  if (overviewChanged && joined.changed.length === 0) {
+    return { error: "the overview moved but no decision row changed, so where the change reaches cannot be placed" };
+  }
+  const rows = [...joined.current, ...joined.previous];
+  if (rows.some((row) => row.phases === void 0)) {
+    return { error: "a changed decision names no phases, so it may reach the whole plan" };
+  }
+  const named = [...new Set(rows.flatMap((row) => row.phases ?? []))].sort();
+  const unknown2 = named.filter((phase) => !phaseFiles.includes(phase));
+  if (unknown2.length > 0) {
+    return { error: `a changed decision names ${unknown2.join(", ")}, which is not a phase file of this plan` };
+  }
+  if (edited.length > 0 && joined.previous.length > 0) {
+    return { error: "a superseded or removed decision named phases while phase text also changed, so the connections its scope ran along may be gone" };
+  }
+  return { phases: named };
+};
+
 // src/common/utils/canonicalJson.ts
 var canonicalize = ({ value }) => {
   if (Array.isArray(value)) {
@@ -133038,6 +133112,20 @@ var focusedClosure = ({ files, overviewText, edited }) => {
   const graph = getPhaseConnections({ phases: parseFiles({ files }), declarations });
   return "error" in graph ? { error: graph.error } : { phases: getAffectedPhases({ connections: graph.connections, edited }) };
 };
+var closureSeeds = ({
+  overviewText,
+  inputs,
+  previous,
+  overviewChanged,
+  edited,
+  phases
+}) => {
+  if (overviewText === void 0) {
+    return { seeds: edited };
+  }
+  const reach = getDecisionReach({ current: inputs.decisionLog, previous: previous.decisionLog, overviewChanged, edited, phaseFiles: phases });
+  return "error" in reach ? { error: reach.error } : { seeds: [...edited, ...reach.phases] };
+};
 var decideGradeScope = ({ files, overviewText, memory, inputs, narrowed }) => {
   const phases = everyPhase({ files });
   const full = ({ reason: reason2 }) => ({ scope: GradeScope.Full, phases, reuse: false, reason: reason2 });
@@ -133058,8 +133146,9 @@ var decideGradeScope = ({ files, overviewText, memory, inputs, narrowed }) => {
   if (otherInputChanged) {
     return full({ reason: "full review: the code, standards, configuration, prompts or model moved since the last pass" });
   }
-  if (overviewChanged) {
-    return full({ reason: "full review: the overview changed, and it is context every phase shares" });
+  const seeded = closureSeeds({ overviewText, inputs, previous, overviewChanged, edited, phases });
+  if ("error" in seeded) {
+    return full({ reason: `full review: ${seeded.error}` });
   }
   if (files.length < 2 || overviewText === void 0) {
     return full({ reason: "full review: a single plan file has no phase closure to narrow to" });
@@ -133067,15 +133156,15 @@ var decideGradeScope = ({ files, overviewText, memory, inputs, narrowed }) => {
   if (!memory?.findings.some((record3) => record3.status === GradeFindingStatus.Open)) {
     return full({ reason: "full review: no finding is open, so this pass is an approval review rather than a repair check" });
   }
-  const closure = focusedClosure({ files, overviewText, edited });
+  const closure = focusedClosure({ files, overviewText, edited: seeded.seeds });
   if ("error" in closure) {
     return full({ reason: `full review: the phase graph could not be built \u2014 ${closure.error}` });
   }
   if (closure.phases.length >= files.length) {
     return full({ reason: "full review: the edited phases reach every plan file anyway" });
   }
-  const reach = closure.phases.length > 0 ? closure.phases.join(", ") : "no phase text changed";
-  const reason = `focused review: the edited phases and everything they reach \u2014 ${reach}`;
+  const reach = closure.phases.length > 0 ? closure.phases.join(", ") : "no phase text and no decision changed";
+  const reason = `focused review: the edited phases, the phases changed decisions name, and everything they reach \u2014 ${reach}`;
   return { scope: GradeScope.Focused, phases: closure.phases, reuse: false, reason };
 };
 
@@ -133094,11 +133183,31 @@ var planRelevantConfig = ({ config: config2 }) => ({
   "executor-file-limit": config2?.["executor-file-limit"]
 });
 var hashChangedFiles = async ({ cwd, changed }) => Promise.all([...changed].sort().map(async (path) => ({ path, sha256: await hashFile({ path: join56(cwd, path) }) })));
-var getGradeInputs = async ({ cwd, planPaths, standards, config: config2, model, effort }) => {
+var toDecisionEntry = ({ row }) => {
+  const phases = row.question.startsWith("Global constraint:") ? void 0 : row.phases;
+  return {
+    sha256: sha256({ content: canonicalJson({ value: row }) }),
+    questionSha256: sha256({ content: row.question }),
+    ...phases === void 0 ? {} : { phases }
+  };
+};
+var readDecisionLog = async ({ planPaths, decisions }) => {
+  const overviewPath = planPaths.find((path) => basename26(path) === "overview.md");
+  const text = overviewPath === void 0 ? void 0 : await readFile26(overviewPath, "utf8").catch(() => void 0);
+  if (text === void 0) {
+    return void 0;
+  }
+  const plan = parsePlan({ content: text, base: "overview.md" });
+  const range = plan.decisionLogRange;
+  const design = range === void 0 ? plan.lines : [...plan.lines.slice(0, range.start - 1), ...plan.lines.slice(range.end)];
+  return { overview: sha256({ content: design.join("\n") }), rows: decisions.map((row) => toDecisionEntry({ row })) };
+};
+var getGradeInputs = async ({ cwd, planPaths, decisions, standards, config: config2, model, effort }) => {
   const hashed = await Promise.all(planPaths.map(async (path) => ({ file: basename26(path), sha256: await hashFile({ path }) })));
   const planFiles = hashed.sort((left, right) => left.file > right.file ? 1 : -1);
   const gradedCommit = await readGitHeadCommit({ cwd });
   const changed = await readGitChangedFiles({ cwd });
+  const decisionLog = await readDecisionLog({ planPaths, decisions });
   const measured = {
     planFiles,
     gradedCommit,
@@ -133107,7 +133216,8 @@ var getGradeInputs = async ({ cwd, planPaths, standards, config: config2, model,
     config: sha256({ content: canonicalJson({ value: planRelevantConfig({ config: config2 }) }) }),
     prompts: sha256({ content: planGradePromptTexts.join("\n") }),
     model,
-    effort
+    effort,
+    decisionLog
   };
   return { ...measured, sha256: sha256({ content: canonicalJson({ value: measured }) }) };
 };
@@ -133194,7 +133304,7 @@ var runDecidedPasses = async (context) => {
   });
 };
 var runPlanGrade = async (params) => {
-  const { cwd, name, phases, onProgress } = params;
+  const { cwd, name, phases, onProgress, standards, model, effort } = params;
   const progress = onProgress ?? (() => void 0);
   const pass = await getPlanDetectionPass({ cwd, name });
   const { workspaceDir, files, planPaths, config: config2, error: error51 } = pass;
@@ -133220,7 +133330,7 @@ var runPlanGrade = async (params) => {
   } catch (cause) {
     return { status: PlanRunStatus.Failed, workspaceDir, error: messageOf({ error: cause }) };
   }
-  const inputs = await getGradeInputs({ cwd, planPaths, standards: params.standards, config: config2, model: params.model, effort: params.effort });
+  const inputs = await getGradeInputs({ cwd, planPaths, decisions: pass.decisions.decisions, standards, config: config2, model, effort });
   const decision = decideGradeScope({ files, overviewText: pass.overviewText, memory: found, inputs, narrowed: phases !== void 0 });
   const reusable = decision.reuse ? await readReusableGrade({ gradePath, sha256: inputs.sha256 }) : void 0;
   if (reusable !== void 0) {

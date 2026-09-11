@@ -132,6 +132,14 @@ Only then edit the plan content the answer changes — implementation detail,
 acceptance rows, constraints. Never write a `Decision Log` row by hand. The
 steps below call this **the sync command**.
 
+**Name the phases a decision concerns.** For a phased plan, a row that
+resolves a finding carries `"phases"` naming the finding's `phase` file, plus
+any other phase file the answer changes. A revision row that repeats a
+question names the phases its new answer concerns; the engine also covers the
+phases the row it replaces named. A decision that names its phases lets the
+next re-grade read those phases and the phases connected to them, not the
+whole plan. The step 2 glossary says when to leave the field out.
+
 A ticket's `## Decisions` lines are the same kind of record: outcomes the
 user settled before shaping began. Elicitation harvests them into
 `decisions.json` (step 2), and from then on this section governs them like
@@ -292,13 +300,21 @@ warnings into Elicitation.
     "planName": "<name>",
     "decisions": [
       { "source": "Elicitation", "question": "<q>", "options": "<A / B>",
-        "choice": "<chosen>", "rationale": "<one line>", "assumption": false }
+        "choice": "<chosen>", "rationale": "<one line>", "assumption": false },
+      { "source": "Converge", "question": "<q>", "options": "<A / B>",
+        "choice": "<chosen>", "rationale": "<one line>", "assumption": false,
+        "phases": ["phase2-<slug>.md"] }
     ]
   }
   ```
   `source` is exactly `"Elicitation"` | `"Grill"` | `"Dedup"` | `"Converge"`;
   `options` is a string; `assumption` is a bool. Mark a choice made without user
-  confirmation as an assumption.
+  confirmation as an assumption. `phases` is optional: a list of the
+  phase-file basenames the decision concerns. Leave it out when the decision
+  reaches the whole plan, when its reach is not known, on rows written before
+  the plan is drafted (phase files do not exist yet, so no Elicitation or
+  Approaches row carries it), and on `Global constraint:` rows, which always
+  reach the whole plan. Never write an empty list.
 
 **3. Approaches** — settle the design shape before drafting (interactive,
 conditional). Run this step only when the design shape is not already settled
@@ -362,6 +378,10 @@ creates across more phases — and re-run `plan draft`.
   `decisions.json` row with `"source": "Grill"`, run the sync command, and
   **immediately fold the answer into `plan.md` via Edit**. Do not batch edits
   to the end.
+- On a phased plan, either kind of Grill row carries `"phases"` naming the
+  phase files the answer changes, and a row that re-asks a question names the
+  phases its new answer concerns — see **Name the phases a decision
+  concerns** under [Settled decisions](#settled-decisions).
 - Continue until **the user says stop** — do not self-terminate. Self-answering
   a question never counts as stopping.
 - **The grill also interrogates the ledger.** With `plan.contract` on, the
@@ -396,8 +416,10 @@ subcommand's; you only conduct the review and apply the chosen edits.
   choose between; **Recommendation** is the judge's `recommendation` in plain
   words. Get the user's choice per finding **or** offer **auto-accept**
   (apply every `recommendation`, showing a summary first). Append one
-  `decisions.json` row with `"source": "Dedup"` per resolution and run the
-  sync command once, then apply each chosen resolution to `plan.md` via Edit:
+  `decisions.json` row with `"source": "Dedup"` per resolution — on a phased
+  plan with `"phases"` naming the finding's `phase` file, plus any other phase
+  file the resolution changes — and run the sync command once, then apply each
+  chosen resolution to `plan.md` via Edit:
   - **reuse** → drop the Files-to-Create entry; wire the plan's usage to the
     existing symbol.
   - **extend** → add a Files-to-Modify entry for the existing symbol.
@@ -422,7 +444,9 @@ Read `.lightsout/plans/<name>/grade.json`:
   whose `outcome` is `needs-a-human` or `unjudged`. Put each in the Question
   format (at most 2 per message, recommended-first), **grouped by the gap's
   `phase`**. Resolve each by appending a `decisions.json` row with
-  `"source": "Converge"`, running the sync command, then **editing the plan
+  `"source": "Converge"` — on a phased plan with `"phases"` naming the gap's
+  `phase` file, plus any other phase file the answer changes — running the
+  sync command, then **editing the plan
   file the gap's `phase` names** in place via Edit — `plan.md` for a single
   plan, that `phase<N>-<slug>.md` for a phased one. Then re-run `plan grade`.
   Repeat until `passed` or the user calls it. **Do NOT re-run `plan draft`** —

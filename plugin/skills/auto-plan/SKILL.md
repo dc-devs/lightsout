@@ -123,6 +123,14 @@ node "<plugin-root>/dist/cli.mjs" plan sync-decisions --name <name>
 Only then edit the plan content the answer changes. Never write a
 `Decision Log` row by hand. The steps below call this **the sync command**.
 
+**Name the phases a decision concerns.** For a phased plan, a row that
+resolves a finding carries `"phases"` naming the finding's `phase` file, plus
+any other phase file the answer changes. A revision row that repeats a
+question names the phases its new answer concerns; the engine also covers the
+phases the row it replaces named. A decision that names its phases lets the
+next re-grade read those phases and the phases connected to them, not the
+whole plan. Step 3 says when to leave the field out.
+
 A settled question is **dropped**, not answered again: it adds no record
 anywhere, and it never enters the bar's routing at all.
 
@@ -229,7 +237,13 @@ escalation bar instead of asking it.
   self-answer is the bar, and the user granted it by invoking the skill.
 - Author `.lightsout/plans/<name>/decisions.json` in the **exact** shape the
   plan skill documents: `planName`, plus a `decisions` array of
-  `source` / `question` / `options` / `choice` / `rationale` / `assumption`.
+  `source` / `question` / `options` / `choice` / `rationale` / `assumption`,
+  and the optional `phases` — a list of the phase-file basenames the decision
+  concerns. Leave `phases` out when the decision reaches the whole plan, when
+  its reach is not known, on rows written before the plan is drafted (phase
+  files do not exist yet, so no row from this step carries it), and on
+  `Global constraint:` rows, which always reach the whole plan. Never write an
+  empty list.
 
 **4. Propose early** (only when `propose-before-draft` is true). Show the
 proposal now, before any engine agent spends: the design shape in plain words,
@@ -260,6 +274,9 @@ carries that a test cannot state for itself.
   rationale ending `(self-answered)`, run the sync command, then fold the
   answer into the plan file via Edit. Above the bar → an unscheduled
   checkpoint, or a park under `auto-approve-plan`.
+- **Name the phases.** On a phased plan, a Grill row carries `"phases"` naming
+  the phase files the answer changes, and a row that re-asks a question names
+  the phases its new answer concerns.
 - **Stop rule.** The plan skill grills until the user says stop; there is no
   user here, so: **stop when one complete pass over every plan file produces no
   question whose answer would change the plan.** A second pass that only
@@ -274,8 +291,9 @@ node "<plugin-root>/dist/cli.mjs" plan dedup --name <name>
 
 Read `.lightsout/plans/<name>/dedup.json`. Every finding's `recommendation` is a
 best-practice call and therefore below the bar: **auto-accept them all**. Append
-one `decisions.json` row with `"source": "Dedup"` per resolution and run the
-sync command once, then apply each resolution to the plan file the finding's
+one `decisions.json` row with `"source": "Dedup"` per resolution — on a phased
+plan with `"phases"` naming the finding's `phase` file, plus any other phase
+file the resolution changes — and run the sync command once, then apply each resolution to the plan file the finding's
 `phase` names — `reuse` drops the Files-to-Create entry and wires the plan's
 usage to the existing symbol; `extend` adds a Files-to-Modify entry for it;
 `extract` adds the shared file at `suggestedLocation` plus a Files-to-Modify
@@ -292,8 +310,10 @@ node "<plugin-root>/dist/cli.mjs" plan grade --name <name>
 Read `.lightsout/plans/<name>/grade.json`. `"passed": true` **and**
 `"complete": true` → go on. Otherwise take the blocking gaps (`needs-a-human`
 and `unjudged`), route each through the bar, and resolve the below-bar ones by
-appending a `decisions.json` row with `"source": "Converge"`, running the sync
-command, then editing the plan file the gap's `phase` names — then re-grade.
+appending a `decisions.json` row with `"source": "Converge"` — on a phased plan
+with `"phases"` naming the gap's `phase` file, plus any other phase file the
+answer changes — running the sync command, then editing the plan file the gap's
+`phase` names — then re-grade.
 **Never re-run `plan draft`**: it regenerates the plan files and would clobber
 every edit folded in since.
 

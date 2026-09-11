@@ -48,6 +48,29 @@ const setupMemory = (overrides: Record<string, unknown> = {}) => {
 	return { memory, record, inputs };
 };
 
+const setupDecisionLogMemory = () => {
+	const { inputs } = setupMemory();
+	const withDecisionLog = {
+		...inputs,
+		decisionLog: {
+			overview: '1'.repeat(64),
+			rows: [
+				{ sha256: '2'.repeat(64), questionSha256: '3'.repeat(64) },
+				{
+					sha256: '4'.repeat(64),
+					questionSha256: '5'.repeat(64),
+					phases: ['phase1-preflight.md', 'phase2-extra.md'],
+				},
+			],
+		},
+	};
+
+	return setupMemory({
+		lastPass: { scope: 'focused', inputs: withDecisionLog, at: '2026-09-02T00:00:00.000Z' },
+		lastPassingFullReview: { inputs: withDecisionLog, at: '2026-09-01T00:00:00.000Z' },
+	});
+};
+
 describe('GradeMemory', () => {
 	test('a written memory round-trips through GradeMemory', () => {
 		const { memory } = setupMemory();
@@ -134,6 +157,63 @@ describe('GradeMemory', () => {
 			findings: [],
 			nextFindingNumber: 1,
 			updatedAt: '2026-09-02T00:00:00.000Z',
+		});
+	});
+
+	test('a pass recorded with a decision-log part round-trips through GradeMemory', () => {
+		const { memory } = setupDecisionLogMemory();
+
+		const parsed = GradeMemory.parse(memory);
+
+		// the scope comparison reads the earlier pass's decision rows back out of
+		// this file, so a dropped part or a dropped row's phases would silently
+		// widen or narrow the next review
+		expect({
+			lastPass: parsed.lastPass?.inputs.decisionLog,
+			lastPassingFullReview: parsed.lastPassingFullReview?.inputs.decisionLog,
+		}).toStrictEqual({
+			lastPass: {
+				overview: '1'.repeat(64),
+				rows: [
+					{ sha256: '2'.repeat(64), questionSha256: '3'.repeat(64) },
+					{
+						sha256: '4'.repeat(64),
+						questionSha256: '5'.repeat(64),
+						phases: ['phase1-preflight.md', 'phase2-extra.md'],
+					},
+				],
+			},
+			lastPassingFullReview: {
+				overview: '1'.repeat(64),
+				rows: [
+					{ sha256: '2'.repeat(64), questionSha256: '3'.repeat(64) },
+					{
+						sha256: '4'.repeat(64),
+						questionSha256: '5'.repeat(64),
+						phases: ['phase1-preflight.md', 'phase2-extra.md'],
+					},
+				],
+			},
+		});
+	});
+
+	test('a pass recorded before the decision-log part existed parses with the part absent', () => {
+		const { memory } = setupMemory();
+
+		const parsed = GradeMemory.parse(memory);
+
+		// an earlier pass with no decision evidence must stay without it: an empty
+		// part filled in here would compare as "no decision changed"
+		expect({
+			lastPass: parsed.lastPass?.inputs.sha256,
+			lastPassDecisionLog: parsed.lastPass?.inputs.decisionLog,
+			lastPassingFullReview: parsed.lastPassingFullReview?.inputs.sha256,
+			lastPassingFullReviewDecisionLog: parsed.lastPassingFullReview?.inputs.decisionLog,
+		}).toStrictEqual({
+			lastPass: '0'.repeat(64),
+			lastPassDecisionLog: undefined,
+			lastPassingFullReview: '0'.repeat(64),
+			lastPassingFullReviewDecisionLog: undefined,
 		});
 	});
 });
