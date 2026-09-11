@@ -14,6 +14,14 @@ export const DecisionRow = z.object({
 	choice: z.string(),
 	rationale: z.string(),
 	assumption: z.boolean().default(false),
+	/**
+	 * The phase-file basenames the decision concerns — the same value a grade gap's
+	 * or dedup finding's `phase` carries. Absent when the decision concerns the
+	 * whole plan or its reach is not established. The names are checked against
+	 * the plan's phase files when grading chooses its scope, not when the record is
+	 * read.
+	 */
+	phases: z.array(z.string()).min(1).optional(),
 });
 
 export type DecisionRow = z.infer<typeof DecisionRow>;

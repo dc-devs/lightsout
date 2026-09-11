@@ -123,4 +123,34 @@ describe('DecisionRow', () => {
 		// write beside them
 		expect(Object.keys(parsed).sort()).toStrictEqual(['assumption', 'choice', 'options', 'question', 'rationale', 'source']);
 	});
+
+	test('a row declaring phases keeps them in the order written', () => {
+		const { row } = setupRow({ phases: ['phase3-final.md', 'phase2-extra.md'] });
+
+		const parsed = DecisionRow.parse(row);
+
+		// the declared phase files survive the parse as a declared key, in the order
+		// the session wrote them
+		expect(parsed.phases).toStrictEqual(['phase3-final.md', 'phase2-extra.md']);
+	});
+
+	test('rejects an empty phases list rather than reading it as the whole plan', () => {
+		const { row } = setupRow({ phases: [] });
+
+		const result = DecisionRow.safeParse(row);
+
+		// an empty list could read as a decision reaching no phase; absence is the one
+		// way to say the whole plan
+		expect(result.success).toBe(false);
+	});
+
+	test('a row without phases parses with the field absent', () => {
+		const { row } = setupRow();
+
+		const parsed = DecisionRow.parse(row);
+
+		// no empty list is filled in — a missing list means the whole plan, or a reach
+		// not yet established
+		expect(Object.hasOwn(parsed, 'phases')).toBe(false);
+	});
 });
