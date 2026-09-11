@@ -155,8 +155,6 @@ describe('queueCommand', () => {
 	});
 
 	test('marks its own process no-ship before draining, so a worker implement run can never chain into ship', async () => {
-		delete process.env.LIGHTSOUT_NO_SHIP;
-
 		const { context } = setupQueueCommand({ report: { outcomes: [], leftBehind: [] } });
 
 		await expect(queueCommand(context)).rejects.toThrow(/process\.exit/);

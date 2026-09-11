@@ -89,9 +89,7 @@ const forgeResponses = {
  * stubbed green and the forge answering from the table above.
  *
  * `dirty` leaves a file uncommitted, which is the one refusal that lands before
- * the guard runs. LIGHTSOUT_NO_SHIP is pinned empty because a queue worker
- * exports it and it silently beats both the flag and the config; restoreMocks
- * puts the real environment back after every test.
+ * the guard runs.
  */
 const setupDirectLifecycle = ({
 	args,
@@ -123,7 +121,6 @@ const setupDirectLifecycle = ({
 	mockReconcileShippedTicket.mockResolvedValue(reconciliation);
 	mockRunDirectWork.mockResolvedValue({ ok: true, manifest: manifestOf({ status: RunStatus.Passed }) });
 	mockCommitTicketWork.mockResolvedValue({ committed: true });
-	jest.replaceProperty(process, 'env', { ...process.env, LIGHTSOUT_NO_SHIP: '' });
 
 	return { context: { flags: parseFlags({ args: [...args, '--no-worktree'] }), rest: [], cwd }, cwd, readForgeLog, ...captured };
 };
