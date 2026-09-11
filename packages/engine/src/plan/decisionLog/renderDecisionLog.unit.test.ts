@@ -137,6 +137,47 @@ describe('renderDecisionLog', () => {
 		expect(choices[1]).toContain('(assumption)');
 	});
 
+	test('renderDecisionLog: marks a row that declares phases with its affected phase files as bare names', () => {
+		const { decisions } = setupDecisions({
+			rows: [
+				{
+					choice: 'split the fixture into a helper',
+					assumption: true,
+					phases: ['phase2-extra.md', 'phase3-final.md'],
+				},
+			],
+		});
+
+		const section = renderDecisionLog({ decisions });
+
+		const choices = tableCells(section)
+			.slice(2)
+			.map((row) => row[4]);
+		// the affects marker follows the assumption marker, names the files in the
+		// order the row declared them, and carries no backticks, because a
+		// backticked path in a plan is a claim about the working tree
+		expect(choices).toStrictEqual(['split the fixture into a helper (assumption) (affects phase2-extra.md, phase3-final.md)']);
+	});
+
+	test('renderDecisionLog: leaves every row that declares no phases without an affects marker', () => {
+		const { decisions } = setupDecisions({
+			rows: [
+				{ choice: 'the engine writes the section' },
+				{ choice: 'focus the re-grade', phases: ['phase2-extra.md'] },
+				{ choice: 'keep the full review before A' },
+			],
+		});
+
+		const section = renderDecisionLog({ decisions });
+
+		const choices = tableCells(section)
+			.slice(2)
+			.map((row) => row[4]);
+		// a row without phases renders exactly its choice, so no existing plan's
+		// log turns stale when the marker is introduced
+		expect(choices).toStrictEqual(['the engine writes the section', 'focus the re-grade (affects phase2-extra.md)', 'keep the full review before A']);
+	});
+
 	test('renderDecisionLog: points every earlier row with a repeated question at the row that supersedes it', () => {
 		const { decisions } = setupDecisions({
 			rows: [

@@ -75,6 +75,35 @@ const setupPhasedFiles = () => {
 	};
 };
 
+/**
+ * A phased overview whose log was synced while its second row named no phases,
+ * checked against the record after that row gained `phases`. The two rows'
+ * authored text is identical on both sides, so the only difference is the
+ * declared phases.
+ */
+const setupPhasesDeclaredAfterSync = () => {
+	const unchanged: DecisionRow = {
+		source: DecisionSource.Elicitation,
+		question: 'is the log composed from the record?',
+		options: 'composed / hand-written',
+		choice: 'composed',
+		rationale: 'the record is the one decision history',
+		assumption: false,
+	};
+	const undeclared: DecisionRow = {
+		source: DecisionSource.Elicitation,
+		question: 'which phase does the answer reach?',
+		options: 'phase 2 / every phase',
+		choice: 'phase 2',
+		rationale: 'the finding sits on phase 2',
+		assumption: false,
+	};
+	const declared: DecisionRow = { ...undeclared, phases: ['phase2-extra.md'] };
+	const syncedBefore = renderDecisionLog({ decisions: [unchanged, undeclared] });
+
+	return setupCheck({ rows: [unchanged, declared], edit: () => syncedBefore, base: 'overview.md', phased: true }).params;
+};
+
 describe('checkDecisionLog', () => {
 	test('checkDecisionLog: a section equal to the rendered record raises nothing', () => {
 		const { params } = setupCheck({
@@ -164,5 +193,22 @@ describe('checkDecisionLog', () => {
 		};
 
 		expect(checked).toStrictEqual({ carrying: [], absent: ['decision-log-current'] });
+	});
+
+	test('checkDecisionLog: an overview synced before a row declared phases is stale against the record', () => {
+		const params = setupPhasesDeclaredAfterSync();
+
+		const findings = checkDecisionLog(params);
+
+		expect(findings).toEqual([
+			expect.objectContaining({
+				check: 'decision-log-current',
+				severity: 'blocking',
+				phase: 'overview.md',
+				// `preamble` puts the heading on line 7, which is where the section starts.
+				location: 'overview.md:7',
+				fix: expect.stringContaining(syncCommand),
+			}),
+		]);
 	});
 });

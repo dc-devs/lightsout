@@ -18,4 +18,4 @@ export {
 	StructuralFinding,
 } from '#src/contracts/plan/grade/index.ts';
 export { LedgerRow, ProseFile } from '#src/contracts/plan/ledger/index.ts';
-export { GradeFindingRecord, GradeFindingStatus, GradeInputs, GradeMemory, GradeScope } from '#src/contracts/plan/memory/index.ts';
+export { GradeDecisionLog, GradeFindingRecord, GradeFindingStatus, GradeInputs, GradeMemory, GradeScope } from '#src/contracts/plan/memory/index.ts';

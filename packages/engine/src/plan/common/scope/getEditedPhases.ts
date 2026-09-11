@@ -36,9 +36,9 @@ const otherInputMoved = ({ current, previous }: Params) =>
  *
  * The three answers are separate because the scope rule treats them
  * differently: an edited phase is the seed of the closure a focused pass reads,
- * an edited overview is context every phase shares and so forces a full review,
- * and any other input moving means the recorded review no longer speaks for the
- * current pass at all. The overview arriving in `edited` would send the closure
+ * the overview's whole-file answer is handed to `getDecisionReach`, which tells a
+ * generated Decision Log change from a design change, and any other input moving
+ * means the recorded review no longer speaks for the current pass at all. The overview arriving in `edited` would send the closure
  * walk looking for a phase named `overview.md`; an unchanged phase arriving
  * there would widen a focused pass back to the whole plan.
  */

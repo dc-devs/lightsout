@@ -29,11 +29,17 @@ const bindingRowNumbers = ({ decisions }: { decisions: DecisionRow[] }) => {
 	return binding;
 };
 
-/** The Choice cell with the markers a reader needs to weigh the row: an unconfirmed choice, and a choice a later row replaced. */
+/**
+ * The Choice cell with the markers a reader needs to weigh the row: an
+ * unconfirmed choice, the phase files the row declares it affects, and a choice
+ * a later row replaced. The phase files are bare names, because a backticked
+ * path in a plan is a claim about the working tree.
+ */
 const toChoiceCell = ({ row, number, binding }: { row: DecisionRow; number: number; binding: Map<string, number> }) => {
 	const bindingNumber = binding.get(row.question);
 	const markers = [
 		row.assumption ? '(assumption)' : undefined,
+		row.phases === undefined ? undefined : `(affects ${row.phases.map((phase) => toCell({ text: phase })).join(', ')})`,
 		bindingNumber !== undefined && bindingNumber > number ? `(superseded by #${bindingNumber})` : undefined,
 	];
 

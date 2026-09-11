@@ -157,8 +157,9 @@ const runDecidedPasses = async (context: PassContext) => {
  * everything the pass measures — the plan text, the code beside it, the
  * standards, the plan-relevant config, the prompt texts and the model. A
  * re-grade after a repair reads the edited phases and every phase connected to
- * them, falling back to the whole plan whenever that set cannot be established,
- * and a recorded passing full review that still covers the current inputs is
+ * them, falling back to the whole plan whenever that set cannot be established.
+ * A recorded decision reaches the phases it names, and the phases connected to
+ * them. A recorded passing full review that still covers the current inputs is
  * reported as current rather than paid for twice.
  *
  * **What the memory buys.** A question a judge already settled is not
@@ -172,7 +173,7 @@ const runDecidedPasses = async (context: PassContext) => {
  * EVERY plan file, because the lint is cross-phase.
  */
 export const runPlanGrade = async (params: PlanGradeParams): Promise<RunPlanGradeResult> => {
-	const { cwd, name, phases, onProgress } = params;
+	const { cwd, name, phases, onProgress, standards, model, effort } = params;
 	const progress = onProgress ?? (() => undefined);
 	const pass = await getPlanDetectionPass({ cwd, name });
 	const { workspaceDir, files, planPaths, config, error } = pass;
@@ -211,7 +212,7 @@ export const runPlanGrade = async (params: PlanGradeParams): Promise<RunPlanGrad
 		return { status: PlanRunStatus.Failed, workspaceDir, error: messageOf({ error: cause }) };
 	}
 
-	const inputs = await getGradeInputs({ cwd, planPaths, standards: params.standards, config, model: params.model, effort: params.effort });
+	const inputs = await getGradeInputs({ cwd, planPaths, decisions: pass.decisions.decisions, standards, config, model, effort });
 	const decision = decideGradeScope({ files, overviewText: pass.overviewText, memory: found, inputs, narrowed: phases !== undefined });
 	const reusable = decision.reuse ? await readReusableGrade({ gradePath, sha256: inputs.sha256 }) : undefined;
 
