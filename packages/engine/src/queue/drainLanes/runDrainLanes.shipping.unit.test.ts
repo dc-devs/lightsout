@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { type LightsoutConfig, ShipBlockReason, type ShipResult, ShipStatus, WorktreeOwner } from '#src/contracts/index.ts';
+import { QueueBoardRecorder } from '#src/queue/board/index.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import { createMainCheckoutSerializer } from '#src/queue/common/utils/createMainCheckoutSerializer.ts';
 import { runDrainLanes } from '#src/queue/drainLanes/index.ts';
@@ -65,14 +66,16 @@ const setupCarriedBranch = async ({ reason, detail }: { reason: ShipBlockReason;
 
 	const ticket = queueTicketFixture({ identifier: 'LO-70', id: 'id-LO-70', title: 'Ticket LO-70' });
 	const progress: string[] = [];
+	const runId = 'drain-41';
+	const settings = queueSettingsFixture();
 
 	const params = {
 		cwd,
 		config,
-		runId: 'drain-41',
+		runId,
 		holds: {},
 		shipIntegration: shipIntegrationFixture(),
-		settings: queueSettingsFixture(),
+		settings,
 		trackerSettings: trackerSettingsFixture(),
 		shipSettings: shipSettingsFixture(),
 		defaultBranch: 'main',
@@ -80,9 +83,11 @@ const setupCarriedBranch = async ({ reason, detail }: { reason: ShipBlockReason;
 		planPath: join(cwd, 'queue.md'),
 		first: { runnable: [], blocked: [], skipped: [] },
 		carried: [{ ticket, branch, worktreePath, ready: true }],
+		carriedLeftBehind: [],
 		attempted: new Set<string>(),
 		runTicket,
 		serializeMainCheckout: createMainCheckoutSerializer(),
+		board: new QueueBoardRecorder({ cwd, runId, branchTemplate: settings.branchTemplate }),
 		onProgress: (message: string) => progress.push(message),
 	};
 

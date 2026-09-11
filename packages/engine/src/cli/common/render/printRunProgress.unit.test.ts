@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
+import { loadRunProgressBlock } from '#src/cli/common/progressBlock/loadRunProgressBlock.ts';
 import { printRunProgress } from '#src/cli/common/render/printRunProgress.ts';
 import { type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import { RunNotFoundError } from '#src/runState/index.ts';
@@ -79,5 +80,14 @@ describe('printRunProgress', () => {
 		const { cwd } = setupPrint();
 
 		await expect(printRunProgress({ cwd, runId: 'ghost' })).rejects.toThrow(RunNotFoundError);
+	});
+
+	test('prints a blank line, then exactly the lines loadRunProgressBlock answers for the same run', async () => {
+		const { cwd, logged } = setupPrint();
+		const block = await loadRunProgressBlock({ cwd, runId });
+
+		const progress = await printRunProgress({ cwd, runId });
+
+		expect({ logged, progress }).toStrictEqual({ logged: ['', ...block.lines], progress: block.progress });
 	});
 });

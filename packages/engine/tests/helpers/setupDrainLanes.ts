@@ -31,7 +31,7 @@ export const setupDrainLanes = ({
 	serializeMainCheckout,
 	runnable = [],
 	blocked = [],
-	carried = [],
+	carriedLeftBehind = [],
 	maxParallel = 2,
 }: {
 	serializeMainCheckout: SerializeMainCheckout;
@@ -42,7 +42,7 @@ export const setupDrainLanes = ({
 	};
 	runnable?: string[];
 	blocked?: LeftBehindTicket[];
-	carried?: TicketRunOutcome[];
+	carriedLeftBehind?: LeftBehindTicket[];
 	maxParallel?: number;
 }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-lanes-'));
@@ -115,6 +115,7 @@ export const setupDrainLanes = ({
 
 	let finished = false;
 
+	const carried: TicketRunOutcome[] = [];
 	const params = {
 		cwd,
 		config,
@@ -133,9 +134,12 @@ export const setupDrainLanes = ({
 			skipped: [],
 		},
 		carried,
+		carriedLeftBehind,
 		attempted: new Set<string>(),
 		runTicket,
 		serializeMainCheckout,
+		/** A board that keeps nothing — a test about the board passes its own recorder in its place. */
+		board: { record: () => undefined },
 		onProgress: (message: string) => progress.push(message),
 	};
 

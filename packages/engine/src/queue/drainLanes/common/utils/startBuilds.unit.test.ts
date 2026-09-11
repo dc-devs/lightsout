@@ -3,6 +3,7 @@ import { realpathSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { startBuilds } from '#src/queue/drainLanes/common/utils/startBuilds.ts';
+import type { TicketRunOutcome } from '#src/queue/index.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { queueOutcomeFixture } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
@@ -104,5 +105,61 @@ describe('startBuilds', () => {
 			builds: 0,
 			retired: 0,
 		});
+	});
+
+	test('holds a started build in the building ledger until its outcome is settled', async () => {
+		const lane = setupDrainLaneState({ maxParallel: 2 });
+		const shipped = queueTicketFixture({ number: 1 });
+		const crashed = queueTicketFixture({ number: 2 });
+		const shippedOutcome = queueOutcomeFixture({ ticket: shipped });
+		const finishes = new Map<string, { resolve: (outcome: TicketRunOutcome) => void; reject: (error: Error) => void }>();
+
+		lane.state.pending.push(shipped, crashed);
+		lane.runTicket.mockImplementation(
+			({ ticket }) =>
+				new Promise<TicketRunOutcome>((resolve, reject) => {
+					finishes.set(ticket.identifier, { resolve, reject });
+				}),
+		);
+		const earliest = Date.now();
+		startBuilds(lane);
+		const latest = Date.now();
+
+		const opened = [...lane.state.building.entries()].map(([key, build]) => ({ key, ticket: build.ticket, startedAt: build.startedAt }));
+
+		expect(opened).toEqual([
+			{ key: 'lo-1', ticket: shipped, startedAt: expect.any(String) },
+			{ key: 'lo-2', ticket: crashed, startedAt: expect.any(String) },
+		]);
+		expect(
+			opened.map(({ startedAt }) => ({
+				iso: new Date(startedAt).toISOString() === startedAt,
+				duringTheCall: Date.parse(startedAt) >= earliest && Date.parse(startedAt) <= latest,
+			})),
+		).toStrictEqual([
+			{ iso: true, duringTheCall: true },
+			{ iso: true, duringTheCall: true },
+		]);
+
+		const shippedFinish = finishes.get('LO-1');
+		const shippedTask = lane.flight.tasks.get(0);
+
+		expectDefined(shippedFinish);
+		expectDefined(shippedTask);
+		shippedFinish.resolve(shippedOutcome);
+		await shippedTask;
+
+		expect([...lane.state.building.keys()]).toEqual(['lo-2']);
+		expect(lane.state.readyToShip).toEqual([shippedOutcome]);
+
+		const crashedFinish = finishes.get('LO-2');
+
+		expectDefined(crashedFinish);
+		crashedFinish.reject(new Error('worker disappeared'));
+		await Promise.all(lane.flight.tasks.values());
+
+		expect([...lane.state.building.keys()]).toEqual([]);
+		expect(lane.state.readyToShip).toEqual([shippedOutcome]);
+		expect(lane.state.outcomes).toEqual([expect.objectContaining({ ticket: crashed, ready: false, error: 'worker disappeared' })]);
 	});
 });

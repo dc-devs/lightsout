@@ -1,5 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { startShip } from '#src/queue/drainLanes/common/utils/startShip.ts';
+import type { TicketRunOutcome } from '#src/queue/index.ts';
 import type { shipOneBranch } from '#src/queue/shipOneBranch.ts';
 import { queueOutcomeFixture } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
@@ -17,6 +18,19 @@ const setupShip = () => {
 	mockShip.mockResolvedValue(outcome);
 
 	return { ...lane, outcome };
+};
+
+/** A ready branch whose merge stays open until the test settles it, merged or rejected. */
+const setupHeldShip = ({ settle }: { settle: 'merged' | 'rejected' }) => {
+	const lane = setupShip();
+	let settleMerge = (): void => undefined;
+	const merge = new Promise<TicketRunOutcome>((resolve, reject) => {
+		settleMerge = () => (settle === 'merged' ? resolve(lane.outcome) : reject(new Error('forge disconnected')));
+	});
+
+	mockShip.mockReturnValue(merge);
+
+	return { ...lane, settleMerge };
 };
 
 describe('startShip', () => {
@@ -73,5 +87,23 @@ describe('startShip', () => {
 		expect(lane.state.outcomes).toEqual([{ ...lane.outcome, ready: false, error: 'forge disconnected' }]);
 		expect(lane.state.rescanRequested).toBe(false);
 		expect(lane.flight.ships).toBe(0);
+	});
+
+	test.each([
+		{ settle: 'merged' as const, settledAs: {} },
+		{ settle: 'rejected' as const, settledAs: { ready: false, error: 'forge disconnected' } },
+	])('holds the branch being merged in the shipping ledger until it settles', async ({ settle, settledAs }) => {
+		const lane = setupHeldShip({ settle });
+
+		startShip(lane);
+
+		expect(lane.state.readyToShip).toEqual([]);
+		expect(lane.state.shipping).toBe(lane.outcome);
+
+		lane.settleMerge();
+		await Promise.all(lane.flight.tasks.values());
+
+		expect(lane.state.shipping).toBeUndefined();
+		expect(lane.state.outcomes).toEqual([{ ...lane.outcome, ...settledAs }]);
 	});
 });

@@ -8,6 +8,22 @@
 export interface LeftBehindTicket {
 	identifier: string;
 	reason: string;
+	title?: string;
+	/**
+	 * The ticket's web page. Set, with `title`, wherever the step that makes the
+	 * entry has the ticket in hand; both are absent only for a parked worktree
+	 * whose ticket the tracker no longer returns, and a reader then shows the
+	 * identifier alone.
+	 */
+	url?: string;
+	/**
+	 * Why the ticket's tracker state could not be reconciled after its merge.
+	 *
+	 * Set only on a `settled` entry whose done write failed, mirroring
+	 * `TicketRunOutcome.reconciliationFailure`. The same text stays folded into
+	 * `reason`; this field lets a reader show the failure without parsing it.
+	 */
+	reconciliationFailure?: string;
 	/**
 	 * True when the entry is reported but nothing is waiting on a re-run — an
 	 * already-merged ticket the drain reconciled to Done. Two steps produce one:

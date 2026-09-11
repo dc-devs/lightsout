@@ -40,6 +40,7 @@ const treeOf = ({ number }: { number: number }): MergedParkedTree => ({
 		id: `id-${number}`,
 		identifier: `LO-${number}`,
 		title: `Ticket ${number}`,
+		url: `https://linear.app/lightsout/issue/LO-${number}`,
 		description: '',
 		priority: 2,
 		createdAt: '2026-01-01T00:00:00.000Z',
@@ -111,6 +112,35 @@ const setupLabelWrites = ({ parkedLabel = 'queue-parked' }: { parkedLabel?: stri
 	return { settle, progress };
 };
 
+/**
+ * One merged tree whose ticket carries a title and a web link of its own, so the
+ * settled entry's copies can be traced back to that ticket and nowhere else.
+ */
+const setupLinkedTree = ({ reconciliationFailure }: { reconciliationFailure?: string } = {}) => {
+	mockReconcileShippedTicket.mockResolvedValue(reconciliationFailure);
+	mockReadGitChangedFiles.mockResolvedValue(changedFilesFor.clean);
+	mockRemoveWorktree.mockResolvedValue(undefined);
+	mockSetTicketLabel.mockResolvedValue(undefined);
+
+	const tree = treeOf({ number: 70 });
+	const linked: MergedParkedTree = {
+		...tree,
+		ticket: { ...tree.ticket, title: 'Drain the merged trees', url: 'https://linear.app/lightsout/issue/LO-70/drain-the-merged-trees' },
+	};
+
+	const settle = () =>
+		settleMergedTrees({
+			cwd: '/repo',
+			config,
+			env: {},
+			settings: queueSettingsFixture(),
+			trackerSettings: trackerSettingsFixture(),
+			merged: [linked],
+		});
+
+	return { settle };
+};
+
 describe('settleMergedTrees', () => {
 	test('answers nothing and touches nothing when the scan found no merged tree', async () => {
 		const { settle } = setupSettle();
@@ -129,11 +159,15 @@ describe('settleMergedTrees', () => {
 		expect(settled).toStrictEqual([
 			{
 				identifier: 'LO-70',
+				title: 'Ticket 70',
+				url: 'https://linear.app/lightsout/issue/LO-70',
 				reason: 'its worktree at /repo-worktrees/lo-70-drain held a branch already recorded merged, so the ticket was reconciled to done rather than resumed',
 				settled: true,
 			},
 			{
 				identifier: 'LO-71',
+				title: 'Ticket 71',
+				url: 'https://linear.app/lightsout/issue/LO-71',
 				reason: 'its worktree at /repo-worktrees/lo-71-drain held a branch already recorded merged, so the ticket was reconciled to done rather than resumed',
 				settled: true,
 			},
@@ -185,6 +219,40 @@ describe('settleMergedTrees', () => {
 		expect(mockSetTicketLabel.mock.calls.map(([params]) => ({ ticketId: params.ticketId, label: params.label, present: params.present }))).toStrictEqual([
 			{ ticketId: 'id-70', label: 'queue-parked', present: false },
 			{ ticketId: 'id-71', label: 'queue-parked', present: false },
+		]);
+	});
+
+	test('records a failed reconciliation as the settled entry’s reconciliationFailure, leaving the reason text unchanged', async () => {
+		const { settle } = setupLinkedTree({ reconciliationFailure: "LO-70 shipped, but no 'Done' transition" });
+
+		const settled = await settle();
+
+		expect(settled).toStrictEqual([
+			{
+				identifier: 'LO-70',
+				title: 'Drain the merged trees',
+				url: 'https://linear.app/lightsout/issue/LO-70/drain-the-merged-trees',
+				reason:
+					"its worktree at /repo-worktrees/lo-70-drain held a branch already recorded merged, so the ticket was reconciled to done rather than resumed — LO-70 shipped, but no 'Done' transition",
+				settled: true,
+				reconciliationFailure: "LO-70 shipped, but no 'Done' transition",
+			},
+		]);
+	});
+
+	test('carries the merged tree’s ticket title and link, and no reconciliationFailure, when the done write succeeded', async () => {
+		const { settle } = setupLinkedTree();
+
+		const settled = await settle();
+
+		expect(settled).toStrictEqual([
+			{
+				identifier: 'LO-70',
+				title: 'Drain the merged trees',
+				url: 'https://linear.app/lightsout/issue/LO-70/drain-the-merged-trees',
+				reason: 'its worktree at /repo-worktrees/lo-70-drain held a branch already recorded merged, so the ticket was reconciled to done rather than resumed',
+				settled: true,
+			},
 		]);
 	});
 });

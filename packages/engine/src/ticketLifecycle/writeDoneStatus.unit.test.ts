@@ -48,6 +48,7 @@ const ticketAt = ({ status }: { status: string }): TrackerTicket => ({
 	id: 'internal-id',
 	identifier: 'LO-79',
 	title: 'Workers commit generated files',
+	url: 'https://linear.app/lightsout/issue/LO-79',
 	description: '',
 	priority: 2,
 	createdAt: '2026-08-30T22:40:41.813Z',

@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
@@ -148,6 +148,50 @@ test('planDraftCommand: a structurally clean draft reports its variant, lists ea
 	expect(printed[1]).toBe(`  ✓ ${join(planDir, 'plan.md')}`);
 	expect(errors).toStrictEqual([]);
 	expect(exitCodes).toStrictEqual([0]);
+});
+
+test('records the draft step as passed in the planning record before it exits 0', async () => {
+	const { cwd, planDir, name, flags, exitCodes } = setupDraft();
+
+	await expect(
+		planDraftCommand({ cwd, driver: writerDriver({ body: cleanPlanBody() }), name, standards: undefined, config: undefined, flags }),
+	).rejects.toThrow(/process\.exit/);
+
+	// the record lands before the exit, so it is on disk the moment the command stops
+	const record: unknown = JSON.parse(readFileSync(join(planDir, 'planning-progress.json'), 'utf8'));
+
+	expect(record).toEqual(expect.objectContaining({ name: 'demo', steps: [expect.objectContaining({ step: 'draft', status: 'passed', attempts: 1 })] }));
+	expect(exitCodes).toStrictEqual([0]);
+});
+
+/** A plan-writer stub whose harness reports it hit its subscription rate limit. */
+const rateLimitedWriter = (): Driver => ({
+	name: 'stub',
+	invoke: async () => ({ text: '', exitCode: 1, rateLimited: true }),
+});
+
+/** A writer report naming one facts/decisions discrepancy — the draft ends as a facts error. */
+const factsErrorReport = {
+	status: PlanDraftStatus.Error,
+	filesWritten: [],
+	decisionsApplied: 0,
+	assumptions: [],
+	discrepancies: ['src/gone.ts does not exist'],
+};
+
+test.each([
+	{ outcome: 'a rate-limited writer', driver: rateLimitedWriter(), status: 'paused-rate-limit' },
+	{ outcome: 'a facts error', driver: writerDriver({ report: factsErrorReport }), status: 'failed' },
+])('records the draft step as $status when $outcome ends the draft with exit 1', async ({ driver, status }) => {
+	const { cwd, planDir, name, flags, exitCodes } = setupDraft();
+
+	await expect(planDraftCommand({ cwd, driver, name, standards: undefined, config: undefined, flags })).rejects.toThrow(/process\.exit/);
+
+	// a rate limit is a pause to resume, not a failure — the record keeps the two apart
+	const record: unknown = JSON.parse(readFileSync(join(planDir, 'planning-progress.json'), 'utf8'));
+
+	expect(record).toEqual(expect.objectContaining({ steps: [expect.objectContaining({ step: 'draft', status, attempts: 1 })] }));
+	expect(exitCodes).toStrictEqual([1]);
 });
 
 test('planDraftCommand: --scope phased drafts the overview variant and says so', async () => {

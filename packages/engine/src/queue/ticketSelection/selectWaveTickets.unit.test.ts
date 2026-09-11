@@ -14,6 +14,7 @@ const ticketOf = (overrides: Partial<TicketSummary> = {}): TicketSummary => ({
 	id: 'id-70',
 	identifier: 'LO-70',
 	title: 'Drain the backlog',
+	url: 'https://linear.app/lightsout/issue/LO-70',
 	description: '',
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
@@ -60,13 +61,27 @@ describe('selectWaveTickets', () => {
 		const { runnable, blocked } = select({ tickets: [ticketOf({ unfinishedBlockers: ['LO-69'] })] });
 
 		expect(runnable).toStrictEqual([]);
-		expect(blocked).toEqual([{ identifier: 'LO-70', reason: expect.stringContaining('blocked by LO-69') }]);
+		expect(blocked).toEqual([
+			{
+				identifier: 'LO-70',
+				title: 'Drain the backlog',
+				url: 'https://linear.app/lightsout/issue/LO-70',
+				reason: expect.stringContaining('blocked by LO-69'),
+			},
+		]);
 	});
 
 	test('names every unfinished blocker, because the ticket waits on all of them', () => {
 		const { blocked } = select({ tickets: [ticketOf({ unfinishedBlockers: ['LO-68', 'LO-69'] })] });
 
-		expect(blocked).toEqual([{ identifier: 'LO-70', reason: expect.stringContaining('blocked by LO-68, LO-69') }]);
+		expect(blocked).toEqual([
+			{
+				identifier: 'LO-70',
+				title: 'Drain the backlog',
+				url: 'https://linear.app/lightsout/issue/LO-70',
+				reason: expect.stringContaining('blocked by LO-68, LO-69'),
+			},
+		]);
 	});
 
 	test('announces the hold-back as progress, the same way the ambiguous-label skip is announced', () => {
@@ -107,7 +122,14 @@ describe('selectWaveTickets', () => {
 		const { runnable, skipped } = select({ tickets: [ticketOf(), ticketOf({ planningStatus: PlanningStatus.Complete, worker: QueueWorker.Plan })] });
 
 		expect(runnable).toStrictEqual([]);
-		expect(skipped).toEqual([{ identifier: 'LO-70', reason: expect.stringContaining('planning status labels') }]);
+		expect(skipped).toEqual([
+			{
+				identifier: 'LO-70',
+				title: 'Drain the backlog',
+				url: 'https://linear.app/lightsout/issue/LO-70',
+				reason: expect.stringContaining('planning status labels'),
+			},
+		]);
 	});
 
 	test('drops a ticket whose pair selects no worker in silence, because a ticket still being shaped is an ordinary state', () => {
@@ -122,18 +144,32 @@ describe('selectWaveTickets', () => {
 	});
 
 	test('holds a resumed ticket back on its blockers exactly as a fresh one, because resuming is a pickup too', () => {
-		const resumed = ticketOf({ id: 'id-99', identifier: 'LO-99', unfinishedBlockers: ['LO-69'] });
+		const resumed = ticketOf({ id: 'id-99', identifier: 'LO-99', url: 'https://linear.app/lightsout/issue/LO-99', unfinishedBlockers: ['LO-69'] });
 		const { runnable, blocked } = select({ tickets: [resumed, ticketOf()] });
 
 		expect(runnable).toEqual([expect.objectContaining({ identifier: 'LO-70' })]);
-		expect(blocked).toEqual([{ identifier: 'LO-99', reason: expect.stringContaining('blocked by LO-69') }]);
+		expect(blocked).toEqual([
+			{
+				identifier: 'LO-99',
+				title: 'Drain the backlog',
+				url: 'https://linear.app/lightsout/issue/LO-99',
+				reason: expect.stringContaining('blocked by LO-69'),
+			},
+		]);
 	});
 
 	test('refuses a label-only hold with the shared sentence', () => {
 		const { runnable, blocked, progress } = select({ tickets: [ticketOf({ labels: [gateBlockedLabel] })], holds: {} });
 
 		expect(runnable).toStrictEqual([]);
-		expect(blocked).toStrictEqual([{ identifier: 'LO-70', reason: describeGateHold({ hold: undefined, identifier: 'LO-70' }) }]);
+		expect(blocked).toStrictEqual([
+			{
+				identifier: 'LO-70',
+				title: 'Drain the backlog',
+				url: 'https://linear.app/lightsout/issue/LO-70',
+				reason: describeGateHold({ hold: undefined, identifier: 'LO-70' }),
+			},
+		]);
 		expect(progress).toStrictEqual([`LO-70 · ${describeGateHold({ hold: undefined, identifier: 'LO-70' })}`]);
 	});
 
@@ -145,6 +181,45 @@ describe('selectWaveTickets', () => {
 		});
 
 		expect(runnable).toEqual([expect.objectContaining({ identifier: 'LO-71' })]);
-		expect(blocked).toStrictEqual([{ identifier: 'LO-70', reason: describeGateHold({ hold, identifier: 'LO-70' }) }]);
+		expect(blocked).toStrictEqual([
+			{
+				identifier: 'LO-70',
+				title: 'Drain the backlog',
+				url: 'https://linear.app/lightsout/issue/LO-70',
+				reason: describeGateHold({ hold, identifier: 'LO-70' }),
+			},
+		]);
+	});
+
+	test('carries a blocked ticket’s title and link on its left-behind entry, beside the unchanged blocker reason', () => {
+		const { blocked } = select({
+			tickets: [ticketOf({ title: 'Chain the migrations', url: 'https://linear.app/lightsout/issue/LO-70', unfinishedBlockers: ['LO-69'] })],
+		});
+
+		expect(blocked).toStrictEqual([
+			{
+				identifier: 'LO-70',
+				title: 'Chain the migrations',
+				url: 'https://linear.app/lightsout/issue/LO-70',
+				reason: 'waiting: blocked by LO-69 — the queue takes it once every blocker is finished',
+			},
+		]);
+	});
+
+	test('carries a gate-held ticket’s title and link on its left-behind entry, beside the hold’s reason', () => {
+		const hold = holdOf();
+		const { blocked } = select({
+			tickets: [ticketOf({ title: 'Hold the gates', url: 'https://example.atlassian.net/browse/LO-70' })],
+			holds: { 'lo-70': hold },
+		});
+
+		expect(blocked).toStrictEqual([
+			{
+				identifier: 'LO-70',
+				title: 'Hold the gates',
+				url: 'https://example.atlassian.net/browse/LO-70',
+				reason: describeGateHold({ hold, identifier: 'LO-70' }),
+			},
+		]);
 	});
 });

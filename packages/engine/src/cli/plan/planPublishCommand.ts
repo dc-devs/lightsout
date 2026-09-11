@@ -4,7 +4,8 @@ import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import { publishPlan } from '#src/plan/index.ts';
+import { PlanningStep, RunStatus } from '#src/contracts/index.ts';
+import { publishPlan, recordPlanningStep } from '#src/plan/index.ts';
 
 /**
  * `lightsout plan publish` at the terminal.
@@ -22,7 +23,13 @@ import { publishPlan } from '#src/plan/index.ts';
 export const planPublishCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const name = await getRequiredFlag({ flags, name: 'name' });
 	const config = await readConfig({ cwd });
-	const report = await publishPlan({ cwd, name, config, env: process.env, onProgress: createProgressPrinter() });
+	const report = await recordPlanningStep({
+		cwd,
+		name,
+		step: PlanningStep.Publish,
+		work: () => publishPlan({ cwd, name, config, env: process.env, onProgress: createProgressPrinter() }),
+		statusOf: ({ result }) => (result.error === undefined ? RunStatus.Passed : RunStatus.Failed),
+	});
 
 	if (report.error !== undefined) {
 		console.error(`\n${report.error}`);

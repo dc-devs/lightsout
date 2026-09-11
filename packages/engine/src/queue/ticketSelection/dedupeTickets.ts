@@ -48,7 +48,7 @@ export const dedupeTickets = ({ tickets, settings, onProgress }: Params): { orde
 		const reason = `skipped: it carries the planning status labels ${labels} — leave exactly one so the queue knows what the ticket still owes`;
 
 		onProgress?.(`${ticket.identifier} · ${reason}`);
-		leftBehind.push({ identifier: ticket.identifier, reason });
+		leftBehind.push({ identifier: ticket.identifier, title: ticket.title, url: ticket.url, reason });
 	}
 
 	return { ordered, leftBehind };

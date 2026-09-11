@@ -1,5 +1,9 @@
 import { readdir } from 'node:fs/promises';
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
+import { usage } from '#src/cli/common/constants/usage.ts';
+import { loadPlanningProgressBlock } from '#src/cli/common/progressBlock/loadPlanningProgressBlock.ts';
+import { loadShippingProgressBlock } from '#src/cli/common/progressBlock/loadShippingProgressBlock.ts';
+import { printQueueStatus } from '#src/cli/common/queueBoard/printQueueStatus.ts';
 import { printRunProgress } from '#src/cli/common/render/printRunProgress.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
@@ -64,6 +68,85 @@ const printNewestRun = async ({ cwd }: { cwd: string }) => {
 };
 
 /**
+ * `--planning <name>`: one plan's planning block, printed once. It is not a
+ * run, so it has no run to name and nothing to repaint — beside `--run` or
+ * `--watch`, or with no plan name, the request makes no sense and is refused
+ * with the usage text. A missing or unreadable record is a normal answer.
+ */
+const printPlanningStatus = async ({ cwd, flags }: { cwd: string; flags: Map<string, string | true> }) => {
+	const name = getStringFlag({ flags, name: 'planning' });
+
+	if (name === undefined || flags.has('run') || flags.has('watch')) {
+		console.error(usage);
+		return exitCli({ code: 1 });
+	}
+
+	console.log('');
+
+	for (const line of await loadPlanningProgressBlock({ cwd, name })) {
+		console.log(line);
+	}
+
+	return exitCli({ code: 0 });
+};
+
+/**
+ * `--shipping <branch>`: one branch's shipping block, read from the checkout
+ * that ships it and printed once. Like `--planning` it is not a run: beside
+ * `--run`, `--watch` or `--planning`, or with no branch, the request is refused
+ * with the usage text. A missing or unreadable record is a normal answer.
+ */
+const printShippingStatus = async ({ cwd, flags }: { cwd: string; flags: Map<string, string | true> }) => {
+	const branch = getStringFlag({ flags, name: 'shipping' });
+
+	if (branch === undefined || flags.has('run') || flags.has('watch') || flags.has('planning')) {
+		console.error(usage);
+		return exitCli({ code: 1 });
+	}
+
+	console.log('');
+
+	for (const line of await loadShippingProgressBlock({ cwd, branch })) {
+		console.log(line);
+	}
+
+	return exitCli({ code: 0 });
+};
+
+/**
+ * A run id the user typed is theirs to get wrong: an unknown one is a message,
+ * never the stack of the manifest path we tried to open. The run form and the
+ * queue form both resolve through here, so an unknown id has one answer.
+ */
+const resolveTypedRunId = ({ cwd, runId }: { cwd: string; runId: string }) =>
+	resolveRunId({ cwd, runId }).catch((error: unknown) => {
+		if (error instanceof RunNotFoundError) {
+			console.error(error.message);
+			return exitCli({ code: 1 });
+		}
+
+		throw error;
+	});
+
+/**
+ * `--queue`: the queue's board and one status block per active ticket, printed
+ * once. It takes `--run <id>` to name a queue run and nothing else: beside
+ * `--watch`, `--planning` or `--shipping`, or carrying a value of its own, the
+ * request is refused with the usage text.
+ */
+const printQueueForm = async ({ cwd, flags }: { cwd: string; flags: Map<string, string | true> }) => {
+	if (flags.get('queue') !== true || flags.has('watch') || flags.has('planning') || flags.has('shipping')) {
+		console.error(usage);
+		return exitCli({ code: 1 });
+	}
+
+	const runFlag = getStringFlag({ flags, name: 'run' });
+	const runId = runFlag === undefined ? undefined : await resolveTypedRunId({ cwd, runId: runFlag });
+
+	return exitCli({ code: await printQueueStatus({ cwd, runId }) });
+};
+
+/**
  * `lightsout status` — which runs this repo has, or what is happening inside
  * one of them.
  *
@@ -78,10 +161,39 @@ const printNewestRun = async ({ cwd }: { cwd: string }) => {
  * children with it. Several unrelated runs going at once are named back to the
  * reader to pick between rather than guessed at, because narrating somebody
  * else's concurrent work is worse than asking which one they meant.
+ *
+ * `--planning <name>` shows a plan that is still being planned: the steps its
+ * `lightsout plan` subcommands recorded in the plan folder, in the same block
+ * layout as a run's, printed once. It stands alone — beside `--run` or
+ * `--watch` it prints the usage text and exits 1.
+ *
+ * `--shipping <branch>` shows a branch that is being shipped: the six steps the
+ * ship sequence recorded in the checkout that ships it, in the same layout,
+ * printed once. It stands alone too — beside `--run`, `--watch` or
+ * `--planning` it prints the usage text and exits 1.
+ *
+ * `--queue` shows a queue run: its seven-column board, then one fenced block
+ * per active ticket holding exactly what `--run`, `--planning` or `--shipping`
+ * prints for that ticket's worktree. It follows the live queue run the
+ * checkout's run lock names, or the one `--run <id>` names, and prints once —
+ * beside `--watch`, `--planning` or `--shipping` it prints the usage text and
+ * exits 1.
  */
 export const statusCommand = async ({ cwd, flags }: CommandContext): Promise<void> => {
 	const runFlag = getStringFlag({ flags, name: 'run' });
 	const watch = flags.get('watch') === true;
+
+	if (flags.has('queue')) {
+		return printQueueForm({ cwd, flags });
+	}
+
+	if (flags.has('shipping')) {
+		return printShippingStatus({ cwd, flags });
+	}
+
+	if (flags.has('planning')) {
+		return printPlanningStatus({ cwd, flags });
+	}
 
 	if (runFlag === undefined && !watch) {
 		await printRunListing({ cwd });
@@ -89,16 +201,7 @@ export const statusCommand = async ({ cwd, flags }: CommandContext): Promise<voi
 	}
 
 	if (runFlag !== undefined) {
-		// A run id the user typed is theirs to get wrong: an unknown one is a
-		// message, never the stack of the manifest path we tried to open.
-		const runId = await resolveRunId({ cwd, runId: runFlag }).catch((error: unknown) => {
-			if (error instanceof RunNotFoundError) {
-				console.error(error.message);
-				return exitCli({ code: 1 });
-			}
-
-			throw error;
-		});
+		const runId = await resolveTypedRunId({ cwd, runId: runFlag });
 
 		await (watch ? watchRunProgress({ cwd, runId }) : printRunProgress({ cwd, runId }));
 

@@ -191,7 +191,15 @@ describe('runQueue', () => {
 				expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-70' }) }),
 				expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-71' }) }),
 			],
-			leftBehind: [{ identifier: 'LO-99', reason: expect.stringContaining('held a branch already recorded merged'), settled: true }],
+			leftBehind: [
+				{
+					identifier: 'LO-99',
+					title: 'Ticket 99',
+					url: 'https://linear.app/lightsout/issue/LO-99',
+					reason: expect.stringContaining('held a branch already recorded merged'),
+					settled: true,
+				},
+			],
 		});
 	});
 
@@ -271,7 +279,7 @@ describe('runQueue', () => {
 		expect(report).toEqual({
 			outcomes: [expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-70' }), unanswered: true })],
 			leftBehind: expect.arrayContaining([
-				{ identifier: 'LO-71', reason: expect.stringContaining('not started') },
+				{ identifier: 'LO-71', title: 'Ticket 71', url: 'https://linear.app/lightsout/issue/LO-71', reason: expect.stringContaining('not started') },
 				expect.objectContaining({ identifier: 'LO-72' }),
 			]),
 		});
@@ -328,7 +336,14 @@ describe('runQueue', () => {
 
 		expect(report).toEqual({
 			outcomes: [expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-70' }) })],
-			leftBehind: [{ identifier: 'LO-71', reason: expect.stringContaining('blocked by LO-69') }],
+			leftBehind: [
+				{
+					identifier: 'LO-71',
+					title: 'Ticket 71',
+					url: 'https://linear.app/lightsout/issue/LO-71',
+					reason: expect.stringContaining('blocked by LO-69'),
+				},
+			],
 		});
 		expect(progress).toContainEqual(expect.stringContaining('the re-scan for newly unblocked tickets failed'));
 	});

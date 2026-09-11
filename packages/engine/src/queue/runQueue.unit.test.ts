@@ -294,7 +294,14 @@ describe('runQueue', () => {
 
 		expect(report).toEqual({
 			outcomes: [expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-99' }) })],
-			leftBehind: [{ identifier: 'LO-70', reason: expect.stringContaining('planning status labels') }],
+			leftBehind: [
+				{
+					identifier: 'LO-70',
+					title: 'Ticket 70',
+					url: 'https://linear.app/lightsout/issue/LO-70',
+					reason: expect.stringContaining('planning status labels'),
+				},
+			],
 		});
 	});
 });

@@ -1,6 +1,5 @@
-import { renderRunProgress } from '#src/cli/common/render/renderRunProgress.ts';
-import { readRunManifest, readRunProcessLock } from '#src/runState/index.ts';
-import { getRunProgress, type RunProgress } from '#src/views/index.ts';
+import { loadRunProgressBlock } from '#src/cli/common/progressBlock/loadRunProgressBlock.ts';
+import type { RunProgress } from '#src/views/index.ts';
 
 interface Params {
 	cwd: string;
@@ -19,13 +18,11 @@ interface Params {
  * @throws {RunNotFoundError} When no run on disk answers to the given id.
  */
 export const printRunProgress = async ({ cwd, runId }: Params): Promise<RunProgress> => {
-	const manifest = await readRunManifest({ cwd, runId });
-	const lock = await readRunProcessLock({ cwd, manifest });
-	const progress = await getRunProgress({ cwd, manifest, lock });
+	const { progress, lines } = await loadRunProgressBlock({ cwd, runId });
 
 	console.log('');
 
-	for (const line of renderRunProgress({ progress })) {
+	for (const line of lines) {
 		console.log(line);
 	}
 

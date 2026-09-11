@@ -6,7 +6,8 @@ import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { ensureBrainstormFiles } from '#src/cli/common/utils/ensureBrainstormFiles.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import { PlanRunStatus, runPlanVerifyFacts } from '#src/plan/index.ts';
+import { PlanningStep, RunStatus } from '#src/contracts/index.ts';
+import { PlanRunStatus, recordPlanningStep, runPlanVerifyFacts } from '#src/plan/index.ts';
 
 export const planVerifyFactsCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const name = getStringFlag({ flags, name: 'name' });
@@ -23,7 +24,14 @@ export const planVerifyFactsCommand = async ({ flags, cwd }: CommandContext): Pr
 	await ensureBrainstormFiles({ cwd, name });
 
 	const notesFile = getStringFlag({ flags, name: 'notes' });
-	const result = await runPlanVerifyFacts({ cwd, name, notesFile, onProgress: createProgressPrinter() });
+	const result = await recordPlanningStep({
+		cwd,
+		name,
+		step: PlanningStep.VerifyFacts,
+		work: () => runPlanVerifyFacts({ cwd, name, notesFile, onProgress: createProgressPrinter() }),
+		// The same conditions that pick exit 1 and exit 0 below.
+		statusOf: ({ result: verified }) => (verified.status === PlanRunStatus.Failed || !verified.facts ? RunStatus.Failed : RunStatus.Passed),
+	});
 
 	if (result.status === PlanRunStatus.Failed || !result.facts) {
 		console.error(`\n${result.error ?? 'plan verify-facts failed'}`);

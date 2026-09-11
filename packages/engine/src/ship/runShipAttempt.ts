@@ -1,15 +1,17 @@
 import { readGitHeadCommit } from '#src/common/git/readGitHeadCommit.ts';
-import { ShipBlockReason, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
+import { ShipBlockReason, ShippingStepId, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
 import type { ShipAttemptResult } from '#src/ship/common/types/ShipAttemptResult.ts';
 import type { ShipIntegration } from '#src/ship/common/types/ShipIntegration.ts';
 import type { ShipSettings } from '#src/ship/common/types/ShipSettings.ts';
+import type { ShipStopFields } from '#src/ship/common/types/ShipStopFields.ts';
 import { appendCommandOutput } from '#src/ship/common/utils/appendCommandOutput.ts';
-import { hasNoChecks } from '#src/ship/common/utils/hasNoChecks.ts';
-import { type CheckFailure, mergePullRequest, readCheckFailureLogs } from '#src/ship/forge/index.ts';
+import { createBlockedAttempt } from '#src/ship/common/utils/createBlockedAttempt.ts';
+import { mergePullRequest, type PullRequestSummary } from '#src/ship/forge/index.ts';
 import { integrateDefaultBranch } from '#src/ship/integration/index.ts';
 import { openPullRequest } from '#src/ship/openPullRequest.ts';
+import type { ShippingProgressRecorder } from '#src/ship/progress/index.ts';
 import { publishCandidate } from '#src/ship/publishCandidate.ts';
-import { waitForChecks } from '#src/ship/waitForChecks.ts';
+import { readCheckStop } from '#src/ship/readCheckStop.ts';
 
 type ProgressSink = (message: string) => void;
 
@@ -25,92 +27,15 @@ interface Params {
 	branchDiff: string;
 	/** The previous attempt's failure evidence, when this attempt is meant to repair a demonstrated CI defect. */
 	ciEvidence?: string;
+	/** Records each step as it starts and finishes. Required, so no attempt can run without recording. */
+	recorder: ShippingProgressRecorder;
 	onProgress?: ProgressSink;
 }
-
-/** Everything a blocked result carries that this attempt already knows. */
-interface StopFields {
-	branch: string;
-	ticketRef: string;
-}
-
-/** A proposal, never a persisted result: `runShip` alone decides which attempt's outcome becomes the record. */
-const blocked = ({
-	stop,
-	reason,
-	detail,
-	failingChecks = [],
-	retryable = false,
-	ciEvidence,
-}: {
-	stop: StopFields;
-	reason: ShipBlockReason;
-	detail: string;
-	failingChecks?: string[];
-	retryable?: boolean;
-	ciEvidence?: string;
-}): ShipAttemptResult => ({ result: { status: ShipStatus.Blocked, failingChecks, ...stop, reason, detail }, retryable, ciEvidence });
-
-/** The failing runs' output, as one block of diagnostic data the repair attempt is handed. */
-const describeEvidence = ({ evidence }: { evidence: CheckFailure[] }) =>
-	evidence.map((failure) => `## ${failure.name} (run ${failure.runId}, commit ${failure.commit})\n\n${failure.output}`).join('\n\n');
-
-/** What the checks came back as, folded into the stop the sequence owes for it — or nothing, when they were green. */
-const readCheckStop = async ({
-	prNumber,
-	candidate,
-	cwd,
-	settings,
-	stop,
-	onProgress,
-}: {
-	prNumber: number;
-	candidate: string;
-	cwd: string;
-	settings: ShipSettings;
-	stop: StopFields;
-	onProgress?: ProgressSink;
-}) => {
-	const checks = await waitForChecks({ prNumber, cwd, allowNoCi: settings.allowNoCi, expectedHead: candidate, onProgress });
-
-	// Read successfully AND listing nothing is the one observation that means
-	// this repository has no CI, as against one that could not be read.
-	if (!checks.finished && checks.readable && hasNoChecks({ summary: checks })) {
-		return blocked({
-			stop,
-			reason: ShipBlockReason.ChecksMissing,
-			detail:
-				'No CI checks appeared for this commit. If this repository intentionally has no CI, set ship.allow-no-ci to true in lightsout.config.json, commit the change, and rerun ship.',
-		});
-	}
-
-	if (!checks.finished) {
-		return blocked({ stop, reason: ShipBlockReason.ChecksTimedOut, detail: 'checks were still running at the wait ceiling', failingChecks: checks.pending });
-	}
-
-	if (checks.green) {
-		return undefined;
-	}
-
-	const evidence = await readCheckFailureLogs({ prNumber, commit: candidate, failingChecks: checks.failing, cwd });
-
-	return blocked({
-		stop,
-		reason: ShipBlockReason.ChecksFailed,
-		detail:
-			evidence === undefined
-				? 'one or more checks finished red, and no failure evidence for this commit could be read — nothing was guessed at'
-				: 'one or more checks finished red; the failing run’s own output was handed to the next attempt',
-		failingChecks: checks.failing,
-		retryable: evidence !== undefined,
-		ciEvidence: evidence === undefined ? undefined : describeEvidence({ evidence }),
-	});
-};
 
 /** The attempt's own inputs, with the ticket reference already resolved and the stop fields it would report. */
-interface PrepareParams extends Omit<Params, 'ticket'> {
+interface PrepareParams extends Omit<Params, 'ticket' | 'recorder'> {
 	ticketRef: string;
-	stop: StopFields;
+	stop: ShipStopFields;
 }
 
 /**
@@ -123,7 +48,7 @@ const prepareCandidate = async ({ cwd, settings, integration, branch, defaultBra
 	const baselineCommit = await readGitHeadCommit({ cwd });
 
 	if (baselineCommit === undefined) {
-		return blocked({ stop, reason: ShipBlockReason.IntegrationUnavailable, detail: `git could not name the commit '${branch}' is standing on` });
+		return createBlockedAttempt({ stop, reason: ShipBlockReason.IntegrationUnavailable, detail: `git could not name the commit '${branch}' is standing on` });
 	}
 
 	const integrationFailure = await integrateDefaultBranch({
@@ -140,12 +65,83 @@ const prepareCandidate = async ({ cwd, settings, integration, branch, defaultBra
 	});
 
 	if (integrationFailure !== undefined) {
-		return blocked({ stop, reason: integrationFailure.reason, detail: integrationFailure.detail, failingChecks: integrationFailure.paths });
+		return createBlockedAttempt({ stop, reason: integrationFailure.reason, detail: integrationFailure.detail, failingChecks: integrationFailure.paths });
 	}
 
 	const candidate = await readGitHeadCommit({ cwd });
 
-	return candidate ?? blocked({ stop, reason: ShipBlockReason.IntegrationUnavailable, detail: 'git could not name the verified candidate commit' });
+	return (
+		candidate ?? createBlockedAttempt({ stop, reason: ShipBlockReason.IntegrationUnavailable, detail: 'git could not name the verified candidate commit' })
+	);
+};
+
+/**
+ * One step of the attempt, recorded as it starts and as it finishes — passed or
+ * failed by the step's own answer. A step that stops the attempt is finished
+ * failed before its stop is returned, and the steps after it stay untouched.
+ */
+const recordStep = async <Answer>({
+	recorder,
+	step,
+	run,
+	passed,
+}: {
+	recorder: ShippingProgressRecorder;
+	step: ShippingStepId;
+	run: () => Promise<Answer>;
+	passed: (answer: Answer) => boolean;
+}) => {
+	recorder.startStep({ step });
+
+	const answer = await run();
+
+	recorder.finishStep({ step, passed: passed(answer) });
+
+	return answer;
+};
+
+/** The configured merge of the green candidate: the shipped result, or the refusal that ends the attempt — retryable only for a base the forge proved stale. */
+const mergeCandidate = async ({
+	pullRequest,
+	candidate,
+	cwd,
+	settings,
+	stop,
+	recorder,
+}: {
+	pullRequest: PullRequestSummary;
+	candidate: string;
+	cwd: string;
+	settings: ShipSettings;
+	stop: ShipStopFields;
+	recorder: ShippingProgressRecorder;
+}) => {
+	const mergeCommit = await recordStep({
+		recorder,
+		step: ShippingStepId.Merge,
+		run: () => mergePullRequest({ prNumber: pullRequest.number, mergeMethod: settings.mergeMethod, expectedHead: candidate, cwd }),
+		passed: (merged) => typeof merged === 'string',
+	});
+
+	if (typeof mergeCommit !== 'string') {
+		const detail = appendCommandOutput({ sentence: `the forge refused to merge #${pullRequest.number}`, stderr: mergeCommit.stderr });
+
+		return createBlockedAttempt({ stop, reason: ShipBlockReason.MergeRejected, detail, retryable: mergeCommit.staleBase === true });
+	}
+
+	return {
+		result: {
+			status: ShipStatus.Shipped,
+			...stop,
+			prNumber: pullRequest.number,
+			prUrl: pullRequest.url,
+			prTitle: pullRequest.title,
+			mergeCommit,
+			mergedAt: new Date().toISOString(),
+			failingChecks: [],
+		} satisfies ShipResult,
+		retryable: false,
+	};
 };
 
 /**
@@ -173,58 +169,55 @@ export const runShipAttempt = async ({
 	ticket,
 	branchDiff,
 	ciEvidence,
+	recorder,
 	onProgress,
 }: Params): Promise<ShipAttemptResult> => {
 	const ticketRef = ticket.ticket ?? branch;
-	const stop: StopFields = { branch, ticketRef };
-	const candidate = await prepareCandidate({ cwd, settings, integration, branch, defaultBranch, ticketRef, branchDiff, ciEvidence, stop, onProgress });
+	const stop: ShipStopFields = { branch, ticketRef };
+
+	const candidate = await recordStep({
+		recorder,
+		step: ShippingStepId.Integrate,
+		run: () => prepareCandidate({ cwd, settings, integration, branch, defaultBranch, ticketRef, branchDiff, ciEvidence, stop, onProgress }),
+		passed: (prepared) => typeof prepared === 'string',
+	});
 
 	if (typeof candidate !== 'string') {
 		return candidate;
 	}
 
-	const pushFailure = await publishCandidate({ branch, cwd, candidate });
+	const pushFailure = await recordStep({
+		recorder,
+		step: ShippingStepId.Push,
+		run: () => publishCandidate({ branch, cwd, candidate }),
+		passed: (failure) => failure === undefined,
+	});
 
 	if (pushFailure !== undefined) {
 		const detail = appendCommandOutput({ sentence: `git could not push '${branch}' to origin`, stderr: pushFailure.stderr });
 
-		return blocked({ stop, reason: ShipBlockReason.PushFailed, detail });
+		return createBlockedAttempt({ stop, reason: ShipBlockReason.PushFailed, detail });
 	}
 
-	const pullRequest = await openPullRequest({ branch, cwd, settings, ticket, onProgress });
+	const pullRequest = await recordStep({
+		recorder,
+		step: ShippingStepId.PullRequest,
+		run: () => openPullRequest({ branch, cwd, settings, ticket, onProgress }),
+		passed: (opened) => !('stderr' in opened),
+	});
 
 	if ('stderr' in pullRequest) {
 		const detail = appendCommandOutput({ sentence: `no pull request could be opened or read for '${branch}'`, stderr: pullRequest.stderr });
 
-		return blocked({ stop, reason: ShipBlockReason.PullRequestUnavailable, detail });
+		return createBlockedAttempt({ stop, reason: ShipBlockReason.PullRequestUnavailable, detail });
 	}
 
-	const checkStop = await readCheckStop({ prNumber: pullRequest.number, candidate, cwd, settings, stop, onProgress });
+	const checkStop = await recordStep({
+		recorder,
+		step: ShippingStepId.Checks,
+		run: () => readCheckStop({ prNumber: pullRequest.number, candidate, cwd, settings, stop, onProgress }),
+		passed: (stopped) => stopped === undefined,
+	});
 
-	if (checkStop !== undefined) {
-		return checkStop;
-	}
-
-	const mergeCommit = await mergePullRequest({ prNumber: pullRequest.number, mergeMethod: settings.mergeMethod, expectedHead: candidate, cwd });
-
-	if (typeof mergeCommit !== 'string') {
-		const detail = appendCommandOutput({ sentence: `the forge refused to merge #${pullRequest.number}`, stderr: mergeCommit.stderr });
-
-		return blocked({ stop, reason: ShipBlockReason.MergeRejected, detail, retryable: mergeCommit.staleBase === true });
-	}
-
-	return {
-		result: {
-			status: ShipStatus.Shipped,
-			branch,
-			ticketRef,
-			prNumber: pullRequest.number,
-			prUrl: pullRequest.url,
-			prTitle: pullRequest.title,
-			mergeCommit,
-			mergedAt: new Date().toISOString(),
-			failingChecks: [],
-		} satisfies ShipResult,
-		retryable: false,
-	};
+	return checkStop ?? mergeCandidate({ pullRequest, candidate, cwd, settings, stop, recorder });
 };

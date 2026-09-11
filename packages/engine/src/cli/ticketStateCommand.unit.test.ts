@@ -43,6 +43,7 @@ const ticket: TrackerTicket = {
 	id: 'id-88',
 	identifier: 'LO-88',
 	title: 'Write a ticket state',
+	url: 'https://linear.app/lightsout/issue/LO-88',
 	description: '',
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',

@@ -27,7 +27,7 @@ describe('commandCatalog flags', () => {
 			['standards-check', ['agent-review', 'all', 'baseline', 'code-checks', 'cwd', 'list', 'path']],
 			['standards-validate', ['cwd', 'pack']],
 			['standards-health', ['cwd']],
-			['status', ['cwd', 'run', 'watch']],
+			['status', ['cwd', 'planning', 'queue', 'run', 'shipping', 'watch']],
 			['doctor', ['cwd']],
 			['friction', ['cwd']],
 			['improve', ['cwd', 'engine']],

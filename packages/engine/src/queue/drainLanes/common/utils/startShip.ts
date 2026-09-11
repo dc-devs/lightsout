@@ -28,6 +28,7 @@ const mergeBranch = async ({ context, state, outcome }: { context: LaneContext; 
 			onProgress: context.onProgress,
 		});
 
+		state.shipping = undefined;
 		state.outcomes.push(shipped);
 
 		if (shipped.ready) {
@@ -38,6 +39,7 @@ const mergeBranch = async ({ context, state, outcome }: { context: LaneContext; 
 	} catch (thrown) {
 		// Settled the way the merge's own park path does: worktree intact, and no
 		// re-scan, because nothing landed.
+		state.shipping = undefined;
 		state.outcomes.push({ ...outcome, ready: false, error: messageOf({ error: thrown }) });
 	}
 };
@@ -55,6 +57,7 @@ export const startShip = ({ context, state, flight }: Params): void => {
 	const waiting = flight.ships > 0 || flight.builds >= context.settings.maxParallel ? undefined : state.readyToShip.shift();
 
 	if (waiting !== undefined) {
+		state.shipping = waiting;
 		flight.ships += 1;
 		trackTask({
 			flight,

@@ -1,10 +1,11 @@
 import { maxCheapFixRetries } from '#src/common/constants/maxCheapFixRetries.ts';
-import { type ShipBlockReason, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
+import { type ShipBlockReason, ShippingStepId, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
 import { checkShipPreconditions } from '#src/ship/checkShipPreconditions.ts';
 import type { ShipIntegration } from '#src/ship/common/types/ShipIntegration.ts';
 import type { ShipSettings } from '#src/ship/common/types/ShipSettings.ts';
 import { quoteGitArgument } from '#src/ship/common/utils/quoteGitArgument.ts';
 import { runGit } from '#src/ship/common/utils/runGit.ts';
+import { ShippingProgressRecorder } from '#src/ship/progress/index.ts';
 import { runShipAttempt } from '#src/ship/runShipAttempt.ts';
 import { syncDefaultBranch } from '#src/ship/syncDefaultBranch.ts';
 import { writeShipResult } from '#src/ship/writeShipResult.ts';
@@ -98,6 +99,10 @@ const readBranchDiff = async ({ cwd, defaultBranch }: { cwd: string; defaultBran
  * work is preserved and nothing is ever force-pushed or reset behind a commit
  * the remote already holds. Only a confirmed merge earns the local cleanup, and
  * it runs once.
+ *
+ * Once the preconditions pass, the sequence also records each of its six steps
+ * in a shipping progress record beside the result, which is what
+ * `lightsout status --shipping` reads while the ship is still going.
  */
 export const runShip = async ({ cwd, settings, integration, onProgress }: Params): Promise<ShipResult> => {
 	const preconditions = await checkShipPreconditions({ cwd, ticketPattern: settings.ticketPattern });
@@ -108,21 +113,38 @@ export const runShip = async ({ cwd, settings, integration, onProgress }: Params
 
 	const { branch, defaultBranch, ticket } = preconditions;
 	const maxAttempts = 1 + maxCheapFixRetries;
+	const recorder = new ShippingProgressRecorder({ cwd, branch, maxAttempts });
 
-	onProgress?.(`ship: ${branch} → ${defaultBranch}, ticket ${ticket.ticket}`);
+	recorder.beginAttempt({ attempt: 1 });
+
+	// Every line still reaches the caller unchanged; the record keeps the last one as what the ship is doing now.
+	const trackedProgress: ProgressSink = (message) => {
+		onProgress?.(message);
+		recorder.noteProgress({ message });
+	};
+
+	trackedProgress(`ship: ${branch} → ${defaultBranch}, ticket ${ticket.ticket}`);
 
 	const branchDiff = await readBranchDiff({ cwd, defaultBranch });
-	const attempt = { cwd, settings, integration, branch, defaultBranch, ticket, branchDiff, onProgress };
+	const attempt = { cwd, settings, integration, branch, defaultBranch, ticket, branchDiff, recorder, onProgress: trackedProgress };
 	let outcome = await runShipAttempt(attempt);
 
 	for (let spent = 1; spent < maxAttempts && outcome.retryable; spent += 1) {
-		onProgress?.(`ship: attempt ${spent} did not merge — refreshing and trying again (${spent + 1} of ${maxAttempts})`);
+		trackedProgress(`ship: attempt ${spent} did not merge — refreshing and trying again (${spent + 1} of ${maxAttempts})`);
+		recorder.beginAttempt({ attempt: spent + 1 });
 		outcome = await runShipAttempt({ ...attempt, ciEvidence: outcome.ciEvidence });
 	}
 
 	if (outcome.result.status === ShipStatus.Shipped) {
-		await syncDefaultBranch({ cwd, defaultBranch, branch, onProgress });
+		recorder.startStep({ step: ShippingStepId.Sync });
+		await syncDefaultBranch({ cwd, defaultBranch, branch, onProgress: trackedProgress });
+		// Passed whatever the cleanup met: a sync that did not work is a progress line, never a failed ship.
+		recorder.finishStep({ step: ShippingStepId.Sync, passed: true });
 	}
 
-	return record({ cwd, onProgress, result: outcome.result });
+	const result = await record({ cwd, onProgress: trackedProgress, result: outcome.result });
+
+	await recorder.end();
+
+	return result;
 };

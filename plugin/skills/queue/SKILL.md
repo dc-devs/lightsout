@@ -36,35 +36,94 @@ engine, where it is deterministic code. Do not add workflow steps to this file.
    Run it with the Bash tool in the background — the harness notifies the
    session when a background command exits. Tell the user it has started and
    that they can keep working; questions will come to them here.
+
+   Then post the launch snapshot. Run, in the foreground:
+
+   ```sh
+   node "<plugin-root>/dist/cli.mjs" status --queue
+   ```
+
+   It may wait up to a minute for the queue run to appear. Post its output
+   into the conversation **verbatim** — no commentary, no summary, no
+   reformatting. The engine owns that rendering: a board of seven columns
+   (a markdown table), then one fenced status block per active ticket. The
+   skill only carries it. Record the **next update time** as an absolute
+   time ten minutes after this post, as epoch seconds:
+
+   ```sh
+   echo $(( $(date +%s) + 600 ))
+   ```
+
+   Also create an empty **relayed list** — a file that holds the name of each
+   question file already posted, one name per line. Keep it outside the
+   mailbox folder, which the engine owns and empties:
+
+   ```sh
+   mktemp
+   ```
+
+   If the queue's background command has already exited by now, skip to
+   step 7.
 4. Watch the mailbox at `.lightsout/queue/relay` under the repo root — the
    path the engine prints on startup — with a **watcher of its own**: a
    second background Bash command that polls every 15 seconds and exits as
-   soon as either a file matching `*.question.json` exists or the queue
-   process has ended, e.g.
+   soon as one of three things holds:
+   - a `*.question.json` file exists whose name is not in the relayed list;
+   - the clock has reached the stored next update time;
+   - the queue process has ended.
+
+   For example, with the stored values put in place of the placeholders:
 
    ```sh
-   while [ -z "$(ls .lightsout/queue/relay/*.question.json 2>/dev/null)" ] && kill -0 <queue-pid> 2>/dev/null; do sleep 15; done
+   while kill -0 <queue-pid> 2>/dev/null && [ "$(date +%s)" -lt <next-update-epoch> ]; do
+     new=""
+     for file in .lightsout/queue/relay/*.question.json; do
+       [ -e "$file" ] && ! grep -qxF "$(basename "$file")" "<relayed-list>" && new="$file"
+     done
+     [ -n "$new" ] && break
+     sleep 15
+   done
    ```
 
    Because both the queue and the watcher run in the background, the session
    stays free for the user between events; the watcher exiting is what wakes
    the session. (A harness with a dedicated wait-on-condition tool may use it
-   in place of the shell loop — same cadence, same two wake conditions.)
-5. When the watcher wakes the session: read each `*.question.json` file — it
-   holds `ticket`, `title`, `question` and `askedAt` — and put the complete
-   ticket context and question in the final response that waits for the user's
-   answer, never only in commentary. When they answer, write the answer beside
-   it as a sibling file: same stem,
-   `.answer.json` instead of `.question.json`, holding
+   in place of the shell loop — same cadence, same three wake conditions.)
+5. When the watcher wakes the session, check which conditions hold:
+   - **The next update time has been reached:** run
+     `node "<plugin-root>/dist/cli.mjs" status --queue`, post its output
+     verbatim, and set the next update time to ten minutes after this post.
+   - **A question file not yet relayed exists:** read it — it holds `ticket`,
+     `title`, `question` and `askedAt` — and put the complete ticket context
+     and question in the response, never only in commentary. Add its file
+     name to the relayed list. A question neither resets the update clock nor
+     waits for it.
+   - **Both are due:** the complete `status --queue` output comes first and
+     the question block last, in the same response.
+
+   Any post made while a relayed question is still unanswered ends with that
+   question's complete block again, after the board, so the response that
+   waits for the user always carries the whole question.
+
+   Then re-start the watcher (step 4) at once, with the kept next update time,
+   and give the session back to the user. Do not wait for an answer: the
+   ten-minute posts continue while a question is open, because the other
+   workers keep running.
+
+   When the user answers, write the answer beside the question as a sibling
+   file: same stem, `.answer.json` instead of `.question.json`, holding
    `{"answer": "<what the user said>"}`. The engine picks it up within two
-   seconds, deletes both files, and the worker continues. Then re-start the
-   watcher (step 4) and give the session back to the user.
+   seconds, deletes both files, and the worker continues. Drop that question's
+   file name from the relayed list, then re-start the watcher (step 4) with
+   the kept next update time.
 6. A question the user does not answer parks its ticket once the config's
    `question-timeout` elapses (default one hour). Say so if they ask; a later
    drain picks parked work back up.
 7. When the queue's own background command exits, stop any running watcher
-   and relay the report verbatim: one line per ticket — shipped, parked with
-   the reason and its worktree path, or left behind with why.
+   and relay the queue's final output verbatim, from the finished board —
+   headed `Queue finished` — through the report lines after it: one line per
+   ticket — shipped, parked with the reason and its worktree path, or left
+   behind with why. Post no further `status --queue` updates.
 
 The bare `node "<absolute path to cli.mjs>" queue` command still exists for
 anyone who would rather hold their own terminal, where questions are asked on
@@ -118,6 +177,16 @@ stdin instead.
   everything unblocked runs and ships, then it re-reads the tracker and takes
   whatever the finished work just unblocked, stopping when a re-read finds
   nothing new.
+- **The ten-minute posts:** at launch and then every ten minutes, this
+  session posts the output of `lightsout status --queue`. First comes a board
+  with seven columns — Build Queue, Building, Ship Queue, Shipping Now,
+  Shipped, Parked and Blocked — where each ticket sits in the one column it is
+  in now, so tickets move across the columns from one post to the next. Below
+  the board is a detail block for each active ticket: one that is building,
+  shipping, or waiting for an answer. A detail block is exactly what
+  `lightsout status` prints for that ticket's run, planning or ship in its
+  worktree. This is separate from the implement skill's two-minute watch,
+  which follows a single run.
 - **Exit codes:** 0 — everything eligible shipped. 2 — work remains that a
   re-run picks up (parked or left-behind tickets). 1 — the queue refused to
   start; the message says why.

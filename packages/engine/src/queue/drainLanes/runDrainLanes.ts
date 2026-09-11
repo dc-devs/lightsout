@@ -1,3 +1,4 @@
+import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
@@ -15,16 +16,28 @@ interface Params extends LaneContext {
 	first: WaveSelection;
 	/** Outcomes settled before the drain began — the parked scan's. Ready ones enter the ship lane ahead of every branch built here. */
 	carried: TicketRunOutcome[];
+	/** The entries settled before the drain began: the parked scan's, then the settled merged trees'. The report lists them first, in this order. */
+	carriedLeftBehind: LeftBehindTicket[];
 	/** Lower-cased identifiers the parked scan already settled, never offered to a builder. */
 	attempted: Set<string>;
 }
 
-const seedState = ({ attempted, carried }: { attempted: Set<string>; carried: TicketRunOutcome[] }): LaneState => ({
+const seedState = ({
+	attempted,
+	carried,
+	carriedLeftBehind,
+}: {
+	attempted: Set<string>;
+	carried: TicketRunOutcome[];
+	carriedLeftBehind: LeftBehindTicket[];
+}): LaneState => ({
 	pending: [],
 	queued: [],
+	building: new Map(),
 	readyToShip: carried.filter((outcome) => outcome.ready),
+	shipping: undefined,
 	outcomes: carried.filter((outcome) => !outcome.ready),
-	leftBehind: [],
+	leftBehind: [...carriedLeftBehind],
 	attempted: new Set(attempted),
 	blockedByIdentifier: new Map(),
 	retired: 0,
@@ -33,18 +46,38 @@ const seedState = ({ attempted, carried }: { attempted: Set<string>; carried: Ti
 	scansStopped: false,
 });
 
-/** Everything nothing ever ran, named rather than dropped: the tickets no slot reached, then whatever is still blocked. */
+/**
+ * Everything nothing ever ran, named rather than dropped: the tickets no slot reached, then whatever is still blocked.
+ *
+ * Both move out of the lists they were in, so the last board snapshot shows each of them once, in Blocked.
+ */
 const finishDrain = ({ context, state }: { context: LaneContext; state: LaneState }): QueueDrainReport => {
 	for (const ticket of state.pending) {
 		const reason = 'not started: every slot was retired by a ticket parked on an unanswered question';
 
-		state.leftBehind.push({ identifier: ticket.identifier, reason });
+		state.leftBehind.push({ identifier: ticket.identifier, title: ticket.title, url: ticket.url, reason });
 		context.onProgress?.(`${ticket.identifier} · ${reason}`);
 	}
 
+	state.pending = [];
 	state.leftBehind.push(...state.blockedByIdentifier.values());
+	state.blockedByIdentifier.clear();
 
 	return { outcomes: state.outcomes, leftBehind: state.leftBehind };
+};
+
+/** Hand the board the ledger as it stands. Never awaited: a slow or failed board write must not hold the drain up. */
+const recordBoard = ({ context, state }: { context: LaneContext; state: LaneState }) => {
+	context.board.record({
+		settled: { outcomes: state.outcomes, leftBehind: state.leftBehind },
+		lanes: {
+			pending: state.pending,
+			building: [...state.building.values()],
+			readyToShip: state.readyToShip,
+			shipping: state.shipping,
+			blocked: [...state.blockedByIdentifier.values()],
+		},
+	});
 };
 
 /**
@@ -64,8 +97,8 @@ const finishDrain = ({ context, state }: { context: LaneContext; state: LaneStat
  * as never started. It terminates because `attempted` only grows, so only
  * finitely many scans can admit anything.
  */
-export const runDrainLanes = async ({ first, carried, attempted, ...context }: Params): Promise<QueueDrainReport> => {
-	const state = seedState({ attempted, carried });
+export const runDrainLanes = async ({ first, carried, carriedLeftBehind, attempted, ...context }: Params): Promise<QueueDrainReport> => {
+	const state = seedState({ attempted, carried, carriedLeftBehind });
 	const flight: LaneFlight = { tasks: new Map(), builds: 0, ships: 0, scans: 0, nextKey: 0 };
 
 	await admitScanned({ context, state, selection: first });
@@ -75,6 +108,7 @@ export const runDrainLanes = async ({ first, carried, attempted, ...context }: P
 		startShip({ context, state, flight });
 		startBuilds({ context, state, flight });
 		startScan({ context, state, flight });
+		recordBoard({ context, state });
 
 		if (flight.tasks.size === 0) {
 			break;
@@ -83,5 +117,9 @@ export const runDrainLanes = async ({ first, carried, attempted, ...context }: P
 		flight.tasks.delete(await Promise.race(flight.tasks.values()));
 	}
 
-	return finishDrain({ context, state });
+	const report = finishDrain({ context, state });
+
+	recordBoard({ context, state });
+
+	return report;
 };

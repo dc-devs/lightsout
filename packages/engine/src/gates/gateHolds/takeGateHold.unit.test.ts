@@ -46,6 +46,7 @@ const ticket: TrackerTicket = {
 	id: 'id-118',
 	identifier: 'LO-118',
 	title: 'Gate runs pile onto one machine',
+	url: 'https://linear.app/lightsout/issue/LO-118',
 	description: '',
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',

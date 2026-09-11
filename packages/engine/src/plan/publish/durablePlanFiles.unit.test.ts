@@ -112,4 +112,18 @@ describe('durablePlanFiles', () => {
 
 		expect((await durablePlanFiles({ cwd, name })).files.map((file) => file.name)).toStrictEqual(['plan.md']);
 	});
+
+	test('the planning progress record stays on the machine and is never listed to publish', async () => {
+		const { cwd, name } = setupPlanFolder({
+			files: {
+				'plan.md': '# plan',
+				'planning-progress.json':
+					'{"name":"lo-54-portable-plan","updatedAt":"2026-01-01T00:00:00.000Z","steps":[{"step":"draft","status":"passed","attempts":1,"pid":1,"startedAt":"2026-01-01T00:00:00.000Z","finishedAt":"2026-01-01T00:00:30.000Z","durationMs":30000}]}',
+			},
+		});
+
+		const set = await durablePlanFiles({ cwd, name });
+
+		expect(set.files.map((file) => file.name)).not.toContain('planning-progress.json');
+	});
 });

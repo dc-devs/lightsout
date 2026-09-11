@@ -114,3 +114,50 @@ test('renderUsage: prints the plan sync-decisions line between plan draft and pl
 	expect(lines.indexOf(sync[0] ?? '')).toBe(draft + 1);
 	expect(lint).toBe(draft + 2);
 });
+
+test('prints the status --planning line directly after the status --run line', () => {
+	const { lines } = setupRenderUsage();
+
+	const planning = lines.filter((line) => line.startsWith('  lightsout status --planning'));
+	const run = lines.findIndex((line) => line.startsWith('  lightsout status ') && line.includes('--run <id>'));
+
+	expect(planning).toHaveLength(1);
+	expect(planning[0]).toContain('lightsout status --planning <name> [--cwd <path>]');
+	expect(lines.indexOf(planning[0] ?? '')).toBe(run + 1);
+});
+
+test('renderUsage: prints the status --shipping line after the other status lines and before doctor', () => {
+	const { lines } = setupRenderUsage();
+
+	const shipping = lines.filter((line) => line.startsWith('  lightsout status --shipping <branch> [--cwd <path>]'));
+	const mentions = lines.filter((line) => line.includes('--shipping'));
+	const shippingIndex = lines.indexOf(shipping[0] ?? '');
+	// The --queue shape came after --shipping and is the one status line printed below it; its own test pins that.
+	const queueIndex = lines.findIndex((line) => line.startsWith('  lightsout status --queue'));
+	const otherStatus = lines.flatMap((line, index) =>
+		line.startsWith('  lightsout status ') && index !== shippingIndex && index !== queueIndex ? [index] : [],
+	);
+	const doctor = lines.findIndex((line) => line.startsWith('  lightsout doctor'));
+
+	expect(shipping).toHaveLength(1);
+	expect(mentions).toStrictEqual(shipping);
+	expect(otherStatus.length).toBeGreaterThan(0);
+	expect(Math.max(...otherStatus)).toBeLessThan(shippingIndex);
+	expect(shippingIndex).toBeLessThan(doctor);
+});
+
+test('renderUsage: prints the status --queue shape after the other status lines, with --run and without --watch', () => {
+	const { lines } = setupRenderUsage();
+
+	const queue = lines.filter((line) => line.startsWith('  lightsout status --queue'));
+	const mentions = lines.filter((line) => line.includes('--queue'));
+	const queueIndex = lines.indexOf(queue[0] ?? '');
+	const otherStatus = lines.flatMap((line, index) => (line.startsWith('  lightsout status') && index !== queueIndex ? [index] : []));
+
+	expect(queue).toHaveLength(1);
+	expect(mentions).toStrictEqual(queue);
+	expect(queue[0]).toMatch(/^ {2}lightsout status --queue \[--run <id>\] \[--cwd <path>\](?: |$)/);
+	expect(queue[0]).not.toContain('--watch');
+	expect(otherStatus.length).toBeGreaterThan(0);
+	expect(queueIndex).toBe(Math.max(...otherStatus) + 1);
+});

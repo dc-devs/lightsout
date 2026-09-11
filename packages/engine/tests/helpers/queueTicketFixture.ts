@@ -9,6 +9,7 @@ export const queueTicketFixture = ({ number = 70, ...overrides }: { number?: num
 	id: `id-${number}`,
 	identifier: `LO-${number}`,
 	title: `Ticket ${number}`,
+	url: `https://linear.app/lightsout/issue/LO-${number}`,
 	description: '',
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',

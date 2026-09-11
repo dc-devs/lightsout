@@ -23,6 +23,7 @@ const ticketOf = ({ number, labels, status = 'Backlog' }: { number: number; labe
 	id: `id-${number}`,
 	identifier: `LO-${number}`,
 	title: `Ticket ${number}`,
+	url: `https://linear.app/lightsout/issue/LO-${number}`,
 	description: '',
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',

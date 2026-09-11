@@ -16,6 +16,7 @@ const ticketOf = ({
 	id: `id-${number}`,
 	identifier: `LO-${number}`,
 	title: `Ticket ${number}`,
+	url: `https://linear.app/lightsout/issue/LO-${number}`,
 	description: '',
 	priority,
 	createdAt,

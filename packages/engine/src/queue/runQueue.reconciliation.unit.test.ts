@@ -193,7 +193,15 @@ describe('runQueue', () => {
 
 		expect(report).toEqual({
 			outcomes: [],
-			leftBehind: [{ identifier: 'LO-70', reason: expect.stringContaining('held a branch already recorded merged'), settled: true }],
+			leftBehind: [
+				{
+					identifier: 'LO-70',
+					title: 'Ticket 70',
+					url: 'https://linear.app/lightsout/issue/LO-70',
+					reason: expect.stringContaining('held a branch already recorded merged'),
+					settled: true,
+				},
+			],
 		});
 		expect(mockReconcileShippedTicket).toHaveBeenCalledWith(expect.objectContaining({ ticketRef: 'LO-70' }));
 		// The tree is clean, so it goes; a worker is never spent on work that merged.
@@ -237,7 +245,15 @@ describe('runQueue', () => {
 
 		expect(report).toEqual({
 			outcomes: [expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-71' }) })],
-			leftBehind: [{ identifier: 'LO-70', reason: expect.stringContaining('already has a merged pull request #41'), settled: true }],
+			leftBehind: [
+				{
+					identifier: 'LO-70',
+					title: 'Ticket 70',
+					url: 'https://linear.app/lightsout/issue/LO-70',
+					reason: expect.stringContaining('already has a merged pull request #41'),
+					settled: true,
+				},
+			],
 		});
 	});
 
@@ -266,7 +282,17 @@ describe('runQueue', () => {
 		expect(mockFindPullRequest.mock.calls.map((call) => call[0].branch)).toStrictEqual(['lo-71-ticket-71']);
 		expect(mockRunQueueTicket.mock.calls.map((call) => call[0].ticket.identifier)).toStrictEqual(['LO-71']);
 		expect(report).toEqual(
-			expect.objectContaining({ leftBehind: [{ identifier: 'LO-70', reason: expect.stringContaining('is recorded merged'), settled: true }] }),
+			expect.objectContaining({
+				leftBehind: [
+					{
+						identifier: 'LO-70',
+						title: 'Ticket 70',
+						url: 'https://linear.app/lightsout/issue/LO-70',
+						reason: expect.stringContaining('is recorded merged'),
+						settled: true,
+					},
+				],
+			}),
 		);
 	});
 
@@ -365,7 +391,15 @@ describe('runQueue', () => {
 		expect(mockRunQueueTicket.mock.calls.map((call) => call[0].ticket.identifier)).toStrictEqual(['LO-71']);
 		expect(report).toEqual(
 			expect.objectContaining({
-				leftBehind: expect.arrayContaining([{ identifier: 'LO-70', reason: expect.stringContaining('already has a merged pull request #41'), settled: true }]),
+				leftBehind: expect.arrayContaining([
+					{
+						identifier: 'LO-70',
+						title: 'Ticket 70',
+						url: 'https://linear.app/lightsout/issue/LO-70',
+						reason: expect.stringContaining('already has a merged pull request #41'),
+						settled: true,
+					},
+				]),
 			}),
 		);
 	});

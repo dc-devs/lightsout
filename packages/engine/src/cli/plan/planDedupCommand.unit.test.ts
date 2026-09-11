@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
@@ -133,5 +133,42 @@ test('planDedupCommand: a rate-limited harness prints the exact re-run command a
 	// never allow, so the partial report says what it is before it says what it found
 	expect(printed[0] ?? '').toMatch(/^\nincomplete scan — plan\.md: rate limited or overloaded/);
 	expect(printed[1] ?? '').toMatch(/^\nplan dedup demo — no duplication found/);
+	expect(exitCodes).toStrictEqual([1]);
+});
+
+test('records the dedup step as passed in the planning record before it exits 0', async () => {
+	const { cwd, name, exitCodes } = setupDedup({ existing: ['src/index.ts'], creates: ['src/brandNewWidget.ts'] });
+	const calls = { count: 0 };
+
+	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts: [], calls }), name, standards: undefined, config: undefined })).rejects.toThrow(
+		/process\.exit/,
+	);
+
+	// the exit throws, so a record read afterwards was written before the command exited
+	const record = JSON.parse(readFileSync(join(cwd, '.lightsout', 'plans', 'demo', 'planning-progress.json'), 'utf8')) as {
+		steps: { step: string; status: string }[];
+	};
+
+	expect(record.steps.find((entry) => entry.step === 'dedup')).toEqual(expect.objectContaining({ step: 'dedup', status: 'passed' }));
+	expect(exitCodes).toStrictEqual([0]);
+});
+
+test.each([
+	{
+		outcome: 'a rate-limited scan',
+		arrangement: { existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] },
+		driver: rateLimitedDriver(),
+		status: 'paused-rate-limit',
+	},
+	{ outcome: 'an unresolvable deliverable', arrangement: { plan: false }, driver: judgeDriver({ verdicts: [], calls: { count: 0 } }), status: 'failed' },
+])('records the dedup step as $status when $outcome exits 1', async ({ arrangement, driver, status }) => {
+	const { cwd, name, exitCodes } = setupDedup(arrangement);
+
+	await expect(planDedupCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+
+	// a rate limit is a pause to resume, not a failure — the record keeps the two apart
+	const record = JSON.parse(readFileSync(join(cwd, '.lightsout', 'plans', 'demo', 'planning-progress.json'), 'utf8')) as { steps: unknown[] };
+
+	expect(record.steps).toEqual([expect.objectContaining({ step: 'dedup', status, attempts: 1 })]);
 	expect(exitCodes).toStrictEqual([1]);
 });

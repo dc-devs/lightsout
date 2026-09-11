@@ -23,6 +23,7 @@ export { planNameFromPath } from '#src/plan/planNameFromPath.ts';
 export { plansDir } from '#src/plan/plansDir.ts';
 export { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 export { planWorkspacePath } from '#src/plan/planWorkspacePath.ts';
+export { getPlanningProgressPath, readPlanningProgress, recordPlanningStep } from '#src/plan/progress/index.ts';
 export { durablePlanFiles, publishPlan } from '#src/plan/publish/index.ts';
 export { readBrainstormDecisions } from '#src/plan/readBrainstormDecisions.ts';
 export { readDecisions } from '#src/plan/readDecisions.ts';

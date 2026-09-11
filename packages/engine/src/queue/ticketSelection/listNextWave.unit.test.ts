@@ -28,6 +28,7 @@ const ticketOf = ({ number }: { number: number }): TicketSummary => ({
 	id: `id-${number}`,
 	identifier: `LO-${number}`,
 	title: `Ticket ${number}`,
+	url: `https://linear.app/lightsout/issue/LO-${number}`,
 	description: '',
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
@@ -70,7 +71,7 @@ describe('listNextWave', () => {
 		expect(selection).toEqual(
 			expect.objectContaining({
 				runnable: [expect.objectContaining({ identifier: 'LO-71' })],
-				blocked: [{ identifier: 'LO-70', reason: expect.stringContaining(holdReason) }],
+				blocked: [{ identifier: 'LO-70', title: 'Ticket 70', url: 'https://linear.app/lightsout/issue/LO-70', reason: expect.stringContaining(holdReason) }],
 			}),
 		);
 	});

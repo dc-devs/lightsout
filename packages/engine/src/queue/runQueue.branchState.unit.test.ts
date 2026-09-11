@@ -113,6 +113,7 @@ const ticketOf = ({ status }: { status: string }): TrackerTicket => ({
 	id: 'id-70',
 	identifier: 'LO-70',
 	title: 'Drain the backlog',
+	url: 'https://linear.app/lightsout/issue/LO-70',
 	description: '',
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
@@ -214,10 +215,14 @@ const setupUnshippedBranch = async () => {
  * The leftovers of a run killed between the merge and the cleanup that follows
  * it: the branch is recorded merged, its worktree survived, and its ticket is
  * still at the in-progress status no eligible query returns.
+ *
+ * `doneWriteFailure` is the sentence the reconciler answers when the tracker
+ * would not take the Done write; left off, the write succeeds.
  */
-const setupMergedWorktree = async () => {
+const setupMergedWorktree = async ({ doneWriteFailure }: { doneWriteFailure?: string } = {}) => {
 	const base = setupQueueRun({ parked: [ticketOf({ status: 'In Progress' })] });
 
+	mockReconcileShippedTicket.mockResolvedValue(doneWriteFailure);
 	execFileSync('git', ['worktree', 'add', worktreeOf({ cwd: base.cwd }), '-b', branch, 'origin/main'], { cwd: base.cwd, stdio: 'ignore' });
 	await writeBranchState({ cwd: base.cwd, branch, phase: BranchPhase.Merged });
 
@@ -296,5 +301,48 @@ describe('runQueue', () => {
 
 		expect(mockReconcileShippedTicket).toHaveBeenCalledWith(expect.objectContaining({ ticketRef: 'LO-70' }));
 		expect(existsSync(worktreeOf({ cwd }))).toBe(false);
+	});
+
+	test('names that ticket by its title and link on the settled entry, with no reconciliationFailure key when the done write succeeded', async () => {
+		const { drain, relay } = await setupMergedWorktree();
+
+		const report = await drain();
+
+		relay.close();
+
+		expect(report).toStrictEqual({
+			outcomes: [],
+			leftBehind: [
+				{
+					identifier: 'LO-70',
+					title: 'Drain the backlog',
+					url: 'https://linear.app/lightsout/issue/LO-70',
+					reason: expect.stringContaining('already recorded merged'),
+					settled: true,
+				},
+			],
+		});
+	});
+
+	test('carries a failed done write as the settled entry’s reconciliationFailure, while the reason still ends with it', async () => {
+		const { drain, relay } = await setupMergedWorktree({ doneWriteFailure: "LO-70 shipped, but its tracker status could not be moved to 'Done'" });
+
+		const report = await drain();
+
+		relay.close();
+
+		expect(report).toStrictEqual({
+			outcomes: [],
+			leftBehind: [
+				{
+					identifier: 'LO-70',
+					title: 'Drain the backlog',
+					url: 'https://linear.app/lightsout/issue/LO-70',
+					reason: expect.stringMatching(/already recorded merged.* — LO-70 shipped, but its tracker status could not be moved to 'Done'$/),
+					settled: true,
+					reconciliationFailure: "LO-70 shipped, but its tracker status could not be moved to 'Done'",
+				},
+			],
+		});
 	});
 });

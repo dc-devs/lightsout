@@ -57,7 +57,7 @@ export const getTicketsByIdentifiers = async ({ settings, identifiers }: Params)
 			const tickets: TrackerTicket[] = [];
 
 			for (const issue of issues) {
-				const ticket = toJiraTrackerTicket({ issue, unfinishedBlockers: getJiraUnfinishedBlockers({ issue }) });
+				const ticket = toJiraTrackerTicket({ issue, siteUrl: settings.siteUrl, unfinishedBlockers: getJiraUnfinishedBlockers({ issue }) });
 
 				if ('error' in ticket) {
 					return ticket;

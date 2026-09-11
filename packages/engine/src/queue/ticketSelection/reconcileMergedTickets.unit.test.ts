@@ -47,6 +47,7 @@ const ticketOf = ({ number }: { number: number }): RunnableTicket => ({
 	id: `id-${number}`,
 	identifier: `LO-${number}`,
 	title: `Ticket ${number}`,
+	url: `https://linear.app/lightsout/issue/LO-${number}`,
 	description: '',
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',
@@ -103,6 +104,24 @@ const setupReconcile = ({
 	return { reconcile, progress };
 };
 
+/** One ticket, LO-70, whose branch already merged, carrying a web link of its own so its entry can be checked against the ticket it was made from. */
+const setupLinkedReconcile = ({ reconciliationFailure }: { reconciliationFailure?: string } = {}) => {
+	const { progress } = setupReconcile({ merged: [70], reconciliationFailure });
+	const ticket: RunnableTicket = { ...ticketOf({ number: 70 }), url: 'https://linear.app/lightsout/issue/LO-70/ticket-70' };
+
+	const reconcile = () =>
+		reconcileMergedTickets({
+			cwd: '/repo',
+			config,
+			env: {},
+			settings: queueSettingsFixture(),
+			tickets: [ticket],
+			onProgress: (message) => progress.push(message),
+		});
+
+	return { reconcile };
+};
+
 describe('reconcileMergedTickets', () => {
 	test('keeps a ticket whose branch has no merged pull request, which is every ticket the queue is meant to run', async () => {
 		const { reconcile } = setupReconcile();
@@ -131,6 +150,8 @@ describe('reconcileMergedTickets', () => {
 		expect(leftBehind).toStrictEqual([
 			{
 				identifier: 'LO-70',
+				title: 'Ticket 70',
+				url: 'https://linear.app/lightsout/issue/LO-70',
 				reason: 'skipped: its branch lo-70-ticket-70 already has a merged pull request #41, so the ticket was reconciled to done rather than built again',
 				settled: true,
 			},
@@ -180,6 +201,8 @@ describe('reconcileMergedTickets', () => {
 		expect(leftBehind).toStrictEqual([
 			{
 				identifier: 'LO-70',
+				title: 'Ticket 70',
+				url: 'https://linear.app/lightsout/issue/LO-70',
 				reason: 'skipped: its branch lo-70-ticket-70 is recorded merged, so the ticket was reconciled to done rather than built again',
 				settled: true,
 			},
@@ -228,5 +251,39 @@ describe('reconcileMergedTickets', () => {
 		await reconcile({ numbers: [70] });
 
 		expect(mockRemoveWorktree).toHaveBeenCalledWith(expect.objectContaining({ worktreePath: '/primary-worktrees/lo-70-ticket-70' }));
+	});
+
+	test('records a failed done write as the entry’s reconciliationFailure and leaves the reason text as it was', async () => {
+		const { reconcile } = setupLinkedReconcile({ reconciliationFailure: "LO-70 shipped, but no 'Done' transition" });
+
+		const { leftBehind } = await reconcile();
+
+		expect(leftBehind).toStrictEqual([
+			{
+				identifier: 'LO-70',
+				title: 'Ticket 70',
+				url: 'https://linear.app/lightsout/issue/LO-70/ticket-70',
+				reason:
+					"skipped: its branch lo-70-ticket-70 already has a merged pull request #41, so the ticket was reconciled to done rather than built again — LO-70 shipped, but no 'Done' transition",
+				settled: true,
+				reconciliationFailure: "LO-70 shipped, but no 'Done' transition",
+			},
+		]);
+	});
+
+	test('leaves reconciliationFailure off an entry whose done write succeeded, and still carries the ticket’s title and link', async () => {
+		const { reconcile } = setupLinkedReconcile();
+
+		const { leftBehind } = await reconcile();
+
+		expect(leftBehind).toStrictEqual([
+			{
+				identifier: 'LO-70',
+				title: 'Ticket 70',
+				url: 'https://linear.app/lightsout/issue/LO-70/ticket-70',
+				reason: 'skipped: its branch lo-70-ticket-70 already has a merged pull request #41, so the ticket was reconciled to done rather than built again',
+				settled: true,
+			},
+		]);
 	});
 });

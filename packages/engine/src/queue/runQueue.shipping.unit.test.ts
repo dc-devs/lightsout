@@ -92,6 +92,7 @@ const ticket: TicketSummary = {
 	id: 'id-70',
 	identifier: 'LO-70',
 	title: 'Structured gate result',
+	url: 'https://linear.app/lightsout/issue/LO-70',
 	description: '',
 	priority: 2,
 	createdAt: '2026-01-01T00:00:00.000Z',

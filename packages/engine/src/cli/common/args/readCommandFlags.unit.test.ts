@@ -13,7 +13,7 @@ test('readCommandFlags: allows --cwd everywhere, since the dispatcher reads it b
 });
 
 test('readCommandFlags: status accepts the detail view flags alongside --cwd, unioned across both of its shapes', () => {
-	expect([...readCommandFlags({ command: 'status' })].sort()).toStrictEqual(['cwd', 'run', 'watch']);
+	expect([...readCommandFlags({ command: 'status' })].sort()).toStrictEqual(['cwd', 'planning', 'queue', 'run', 'shipping', 'watch']);
 });
 
 test('readCommandFlags: keeps one command flags out of another', () => {
