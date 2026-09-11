@@ -44,6 +44,31 @@ const setupLooseInput = async ({ fileName = 'lo-9-ticket.md', outside = false }:
 	return { sourceCwd, workspace, inputPath };
 };
 
+const gradedPlanBody = '# plan\n\nthe graded, repaired plan\n';
+const gradeMemoryBody = '{"passes":[{"grade":"A"}]}\n';
+const stalePlanBody = '# plan\n\nthe draft left behind before planning moved\n';
+
+/**
+ * A workspace already holding the graded plan folder planning left in it,
+ * beside a launching checkout holding an older folder of the same name.
+ */
+const setupStockedWorkspace = async () => {
+	const sourceCwd = await freshCwd();
+	const workspace = await freshCwd();
+	const staleDir = join(sourceCwd, planFolderPath);
+	const gradedDir = join(workspace, planFolderPath);
+
+	mkdirSync(staleDir, { recursive: true });
+	writeFileSync(join(staleDir, 'plan.md'), stalePlanBody);
+	writeFileSync(join(staleDir, 'grade-memory.json'), '{"passes":[]}\n');
+	writeFileSync(join(staleDir, 'facts.json'), factsBody);
+	mkdirSync(gradedDir, { recursive: true });
+	writeFileSync(join(gradedDir, 'plan.md'), gradedPlanBody);
+	writeFileSync(join(gradedDir, 'grade-memory.json'), gradeMemoryBody);
+
+	return { sourceCwd, workspace, gradedDir };
+};
+
 describe('copyRunInputs', () => {
 	test('copies the whole plan folder and answers its workspace-relative path', async () => {
 		const { sourceCwd, workspace, planDir } = await setupPlanFolder();
@@ -104,5 +129,16 @@ describe('copyRunInputs', () => {
 
 		expect(result).toEqual({ error: expect.any(String) });
 		expect(readdirSync(workspace)).toStrictEqual(['.lightsout']);
+	});
+
+	test('never copies a plan folder over one the workspace already holds', async () => {
+		const { sourceCwd, workspace, gradedDir } = await setupStockedWorkspace();
+
+		const result = await copyRunInputs({ sourceCwd, workspace, planPath: planFolderPath });
+
+		expect(result).toEqual({ planPath: planFolderPath });
+		expect(readdirSync(gradedDir).sort()).toStrictEqual(['grade-memory.json', 'plan.md']);
+		expect(readFileSync(join(gradedDir, 'plan.md'), 'utf8')).toBe(gradedPlanBody);
+		expect(readFileSync(join(gradedDir, 'grade-memory.json'), 'utf8')).toBe(gradeMemoryBody);
 	});
 });

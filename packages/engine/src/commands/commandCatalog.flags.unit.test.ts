@@ -13,7 +13,7 @@ describe('commandCatalog flags', () => {
 
 		expect(accepted).toStrictEqual([
 			['brainstorm', ['cwd', 'name']],
-			['plan', ['cwd', 'name', 'notes', 'phase', 'scope']],
+			['plan', ['cwd', 'name', 'no-worktree', 'notes', 'phase', 'scope', 'worktree']],
 			['auto-plan', []],
 			['implement', ['cwd', 'no-ship', 'no-worktree', 'overview', 'packages', 'plan', 'ship', 'skip-refactor', 'start-phase', 'worktree']],
 			['implement-direct', ['cwd', 'no-ship', 'no-worktree', 'ref', 'ship', 'ticket', 'worktree']],
@@ -86,6 +86,18 @@ describe('commandCatalog flags', () => {
 			['implement-direct --worktree', undefined, false, undefined],
 			['implement-direct --no-worktree', undefined, false, undefined],
 		]);
+	});
+
+	test('plan accepts the worktree flags, with the config key named as the fallback', () => {
+		const { byId } = setupCatalog();
+
+		const isolationFlags = (byId.get('plan')?.flags ?? []).filter((flag) => flag.name === 'worktree' || flag.name === 'no-worktree');
+
+		expect(isolationFlags.map((flag) => [flag.name, flag.required, flag.shape])).toStrictEqual([
+			['worktree', false, undefined],
+			['no-worktree', false, undefined],
+		]);
+		expect(isolationFlags.find((flag) => flag.name === 'worktree')?.fallback).toEqual(expect.stringMatching(/plan\.worktree/));
 	});
 
 	test('a flag that excludes another names a key at least one sibling shares, or its bracket would hold one flag', () => {

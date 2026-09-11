@@ -1,12 +1,12 @@
 /**
  * The resolved answer to "which checkout does this run work in?".
  *
- * `created` and `isolated` cannot disagree while `createWorktree` is called
- * with `reuseExisting: false` — a leftover directory is refused rather than
- * adopted, so an isolated run always made its own tree. Both are still
- * recorded, because they answer different questions and only one of them
- * survives a change to that flag; removal itself is gated on the worktree
- * ownership record, never on this type alone.
+ * `created` and `isolated` genuinely differ: a run continuing in the tree a
+ * planning session established is `isolated: true, created: false`, while a
+ * run that cut its own tree is `isolated: true, created: true`. Removal is
+ * still gated on the worktree ownership record, never on this type — the run
+ * that continues in a planning tree re-stamps that record to `implement`, which
+ * is what licenses the post-ship cleanup.
  */
 export interface RunWorkspace {
 	/** Absolute path of the checkout every step after resolution acts on. */

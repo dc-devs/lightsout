@@ -197,6 +197,22 @@ fetches the brainstorm the ticket carries. Step 2's `Honor the brainstorm
 hand-off` bullet reads the folder again after that command has run rather than
 trusting the answer here.
 
+Once `<name>` is settled, establish the plan's own worktree as the very first
+shell command:
+
+```sh
+node "<plugin-root>/dist/cli.mjs" plan workspace --name <name>
+```
+
+Read the absolute path it prints on its last line, and do every later step from
+that directory — reading source, authoring `facts.json`, and every
+`lightsout plan …` call. The plan folder already in this checkout is copied
+into the tree, so the brainstorm files read above are there too; pass any
+rough-notes path as an absolute one, since it lives in the checkout you started
+from. A nonzero exit is the end of the session — report the sentence it printed
+and stop, never carry on in the launching checkout. The command is safe to
+re-run: a session already standing in the tree is answered the same path.
+
 **1. Explore (in-context) + verify.** Explore the codebase yourself: read the
 files the request touches, follow the integration points, and note real
 signatures. For a feature spanning many packages/layers, optionally fan out

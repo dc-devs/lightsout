@@ -2,7 +2,7 @@ import { join, resolve } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { contradictoryWorktreeFlagsMessage } from '#src/cli/common/constants/contradictoryWorktreeFlagsMessage.ts';
 import { resolveRunWorkspace } from '#src/cli/common/implementRun/resolveRunWorkspace.ts';
-import type { LightsoutConfig, WorktreeOwner } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorktreeOwner, WorktreeRecord } from '#src/contracts/index.ts';
 
 // Mocked Imports
 // -------------------------
@@ -15,7 +15,7 @@ type WorktreeFailure = { error: string };
 interface CreateParams {
 	cwd: string;
 	branch: string;
-	defaultBranch: string;
+	startPoint: string;
 	setup?: string;
 	owner: WorktreeOwner;
 	reuseExisting: boolean;
@@ -26,10 +26,26 @@ const mockCreateWorktree = jest.fn<(params: CreateParams) => Promise<string | Wo
 const mockFetchDefaultBranch = jest.fn<(params: { cwd: string }) => Promise<string | WorktreeFailure>>();
 const mockReadBranchWorktree = jest.fn<(params: { cwd: string; branch: string }) => Promise<string | undefined>>();
 
+interface RecordParams {
+	cwd: string;
+	branch: string;
+	owner: WorktreeOwner;
+	worktreePath: string;
+	startPoint?: string;
+	onProgress?: (message: string) => void;
+}
+
+const mockResolveWorktreePath = jest.fn<(params: { cwd: string; branch: string }) => Promise<string>>();
+const mockReadWorktreeRecord = jest.fn<(params: { cwd: string; branch: string }) => Promise<WorktreeRecord | undefined>>();
+const mockWriteWorktreeRecord = jest.fn<(params: RecordParams) => Promise<void>>();
+
 jest.mock('#src/worktree/index.ts', () => ({
 	createWorktree: (params: CreateParams) => mockCreateWorktree(params),
 	fetchDefaultBranch: (params: { cwd: string }) => mockFetchDefaultBranch(params),
 	readBranchWorktree: (params: { cwd: string; branch: string }) => mockReadBranchWorktree(params),
+	resolveWorktreePath: (params: { cwd: string; branch: string }) => mockResolveWorktreePath(params),
+	readWorktreeRecord: (params: { cwd: string; branch: string }) => mockReadWorktreeRecord(params),
+	writeWorktreeRecord: (params: RecordParams) => mockWriteWorktreeRecord(params),
 }));
 // -------------------------
 const mockLinkRunRecords = jest.fn<(params: { sourceCwd: string; workspace: string }) => Promise<{ error: string } | undefined>>();
@@ -44,11 +60,23 @@ const branch = 'lo-9-isolated-run';
 const planPath = join('.lightsout', 'plans', branch);
 const worktreePath = resolve('/tmp/lightsout-launching-checkout-worktrees', branch);
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
+const pinnedCommit = '3f5c1a9e8b7d6c5b4a39281706f5e4d3c2b1a098';
+
+/** The ownership record a tree at the branch's path carries, as the step that placed it there wrote it. */
+const recordOwnedBy = ({ owner, startPoint }: { owner: WorktreeOwner; startPoint: string }): WorktreeRecord => ({
+	branch,
+	owner,
+	worktreePath,
+	createdAt: '2026-01-01T00:00:00.000Z',
+	startPoint,
+});
 
 /** What the mocked worktree module and record linker answer this resolver back. */
 interface Answers {
 	/** The checkout already holding the branch, when a case is about one. */
 	holder?: string;
+	/** The ownership record at the branch's path, when a case is about one. */
+	record?: WorktreeRecord;
 	fetched?: string | WorktreeFailure;
 	created?: string | WorktreeFailure;
 	linked?: { error: string };
@@ -56,10 +84,13 @@ interface Answers {
 
 /** A repo whose branch is free, whose remote answers, and whose tree is cut without complaint. */
 const setupWorkspace = ({ worktree, setup, flags = [], answers = {} }: { worktree?: boolean; setup?: string; flags?: string[]; answers?: Answers } = {}) => {
-	const { holder, fetched = 'main', created = worktreePath, linked } = answers;
+	const { holder, record, fetched = 'main', created = worktreePath, linked } = answers;
 
 	mockFetchDefaultBranch.mockResolvedValue(fetched);
 	mockReadBranchWorktree.mockResolvedValue(holder);
+	mockResolveWorktreePath.mockResolvedValue(worktreePath);
+	mockReadWorktreeRecord.mockResolvedValue(record);
+	mockWriteWorktreeRecord.mockResolvedValue(undefined);
 	mockCreateWorktree.mockResolvedValue(created);
 	mockLinkRunRecords.mockResolvedValue(linked);
 
@@ -164,4 +195,32 @@ describe('resolveRunWorkspace', () => {
 		expect(workspace).toEqual(expect.objectContaining({ isolated: true, created: true }));
 		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch, owner: 'implement', reuseExisting: false }));
 	});
+
+	test('continues in the tree planning established and takes ownership of it', async () => {
+		const { config, flags } = setupWorkspace({
+			setup: 'pnpm install',
+			answers: { holder: worktreePath, record: recordOwnedBy({ owner: 'plan', startPoint: pinnedCommit }) },
+		});
+
+		const workspace = await resolveRunWorkspace({ cwd: sourceCwd, config, flags, planPath });
+
+		expect(workspace).toStrictEqual({ cwd: worktreePath, branch, isolated: true, created: false });
+		expect(mockWriteWorktreeRecord).toHaveBeenCalledWith(expect.objectContaining({ branch, owner: 'implement', worktreePath, startPoint: pinnedCommit }));
+		expect(mockLinkRunRecords).toHaveBeenCalledWith({ sourceCwd, workspace: worktreePath });
+		expect(mockCreateWorktree).not.toHaveBeenCalled();
+	});
+
+	test.each([{ record: recordOwnedBy({ owner: 'queue', startPoint: 'origin/main' }) }, { record: undefined }])(
+		'still refuses a tree planning never recorded',
+		async ({ record }) => {
+			const { config, flags } = setupWorkspace({ answers: { holder: worktreePath, record } });
+
+			const workspace = await resolveRunWorkspace({ cwd: sourceCwd, config, flags, planPath });
+
+			expect(workspace).toEqual({ error: expect.stringContaining(worktreePath) });
+			expect(workspace).toEqual({ error: expect.stringContaining('--no-worktree') });
+			expect(mockWriteWorktreeRecord).not.toHaveBeenCalled();
+			expect(mockCreateWorktree).not.toHaveBeenCalled();
+		},
+	);
 });

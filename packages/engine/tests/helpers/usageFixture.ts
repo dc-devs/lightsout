@@ -17,7 +17,9 @@
  * engine's own check, which a writing agent runs inside its own spawn. Updated
  * once more for `lightsout plan sync-decisions` — the engine composing a plan's
  * Decision Log from its saved decision records. Updated again for the
- * `--worktree` / `--no-worktree` pair both implement commands now take.
+ * `--worktree` / `--no-worktree` pair both implement commands now take, and
+ * again for `lightsout plan workspace` and the same pair on every plan
+ * subcommand.
  */
 export const usageFixture = `lightsout — deterministic engine for coding agents
 
@@ -40,13 +42,14 @@ usage:
   lightsout test-coverage-to-threshold [--cwd <path>] [--max-batches <n>] [--allow-dirty]
   lightsout test-coverage-to-threshold --run <id> [--cwd <path>]   (resume a parked coverage run)
   lightsout brainstorm publish --name <name> [--cwd <path>]
-  lightsout plan verify-facts --name <name> [--notes <path>] [--cwd <path>]
-  lightsout plan draft --name <name> [--scope single|phased] [--cwd <path>]
-  lightsout plan sync-decisions --name <name> [--cwd <path>]
-  lightsout plan lint --name <name> [--cwd <path>]
-  lightsout plan dedup --name <name> [--cwd <path>]
-  lightsout plan grade --name <name> [--phase <n[,n]>] [--cwd <path>]   (--phase grades only those phases, and always marks the result incomplete)
-  lightsout plan publish --name <name> [--cwd <path>]
+  lightsout plan workspace --name <name> [--cwd <path>] [--worktree] [--no-worktree]
+  lightsout plan verify-facts --name <name> [--notes <path>] [--cwd <path>] [--worktree] [--no-worktree]
+  lightsout plan draft --name <name> [--scope single|phased] [--cwd <path>] [--worktree] [--no-worktree]
+  lightsout plan sync-decisions --name <name> [--cwd <path>] [--worktree] [--no-worktree]
+  lightsout plan lint --name <name> [--cwd <path>] [--worktree] [--no-worktree]
+  lightsout plan dedup --name <name> [--cwd <path>] [--worktree] [--no-worktree]
+  lightsout plan grade --name <name> [--phase <n[,n]>] [--cwd <path>] [--worktree] [--no-worktree]   (--phase grades only those phases, and always marks the result incomplete)
+  lightsout plan publish --name <name> [--cwd <path>] [--worktree] [--no-worktree]
   lightsout ticket-state --ref <ticket> [--planning-status <status>] [--tracker-status ready|in-progress] [--cwd <path>]
   lightsout self-check --run <id> [--cwd <path>]
   lightsout friction [--cwd <path>]

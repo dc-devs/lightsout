@@ -3,12 +3,13 @@ import { z } from 'zod';
 /**
  * The optional `plan` block of `lightsout.config.json` — whether this
  * repository's plans are written as contracts with an acceptance-test ledger,
- * and the counts above which one plan file is heavy enough to earn the reader
- * fan-out.
+ * the counts above which one plan file is heavy enough to earn the reader
+ * fan-out, and whether a planning session works in its own worktree.
  *
- * Every key is off by default, so an absent block is exactly the behaviour
- * every plan command had before this key existed: the same template, the same
- * required sections, the reader fleet on every plan file. Turning `contract` on
+ * Every key but `worktree` is off by default, so an absent block writes and
+ * grades plans exactly as every plan command did before those keys existed: the
+ * same template, the same required sections, the reader fleet on every plan
+ * file. `worktree` defaults on, as `implement.worktree` does. Turning `contract` on
  * is a repository saying its plans carry the tests that state their acceptance
  * criteria, so grading may be mostly mechanical.
  *
@@ -20,6 +21,8 @@ export const ConfigPlan = z
 	.object({
 		/** When true the writer produces the contract shape with an acceptance-test ledger, the lint requires the ledger section, and the grade weighs each plan file and spawns readers only for heavy ones. Default false: every plan command behaves exactly as before this key existed. */
 		contract: z.boolean().optional(),
+		/** Whether a planning session works in its own isolated git worktree rather than the checkout it was launched from. Default true. `--worktree` and `--no-worktree` override it for one command. */
+		worktree: z.boolean().optional(),
 		/** The counts above which a plan file is heavy. Each key optional; see `defaultWeightThresholds`. */
 		'weight-thresholds': z
 			.object({

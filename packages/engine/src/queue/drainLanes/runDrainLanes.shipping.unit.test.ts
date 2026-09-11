@@ -55,7 +55,7 @@ const runTicket = (): Promise<TicketRunOutcome> => Promise.reject(new Error('the
 const setupCarriedBranch = async ({ reason, detail }: { reason: ShipBlockReason; detail: string }) => {
 	const { cwd } = setupBranchRepo();
 	const branch = 'lo-70-drain';
-	const worktreePath = String(await createWorktree({ cwd, branch, defaultBranch: 'main', owner: WorktreeOwner.Queue, reuseExisting: true }));
+	const worktreePath = String(await createWorktree({ cwd, branch, startPoint: 'origin/main', owner: WorktreeOwner.Queue, reuseExisting: true }));
 
 	writeRepoFile({ cwd: worktreePath, path: 'work.ts', content: 'export const value = 1;\n' });
 	execSync(`git add -A && git ${author} commit -qm work`, { cwd: worktreePath, stdio: 'ignore' });

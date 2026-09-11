@@ -1,4 +1,5 @@
 import { existsSync, mkdtempSync } from 'node:fs';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
@@ -36,7 +37,7 @@ const manifestFor = ({ branch, workspace }: { branch: string; workspace?: string
  */
 const setupShippedRun = async ({ branch, owner }: { branch: string; owner: WorktreeOwner }) => {
 	const { cwd } = setupBranchRepo();
-	const created = await createWorktree({ cwd, branch, defaultBranch: 'main', owner, reuseExisting: false });
+	const created = await createWorktree({ cwd, branch, startPoint: 'origin/main', owner, reuseExisting: false });
 	const worktreePath = String(created);
 	const runDir = await seedRunDir({ cwd, manifest: { runId: 'run-shipped', branch, workspace: worktreePath } });
 
@@ -51,6 +52,34 @@ const setupUnremovableTree = async ({ branch }: { branch: string }) => {
 	await writeWorktreeRecord({ cwd, branch, owner: WorktreeOwner.Implement, worktreePath: standing });
 
 	return { cwd, standing };
+};
+
+/**
+ * A shipped `implement`-owned tree holding the only copy of the `demo` plan
+ * folder the manifest names — a ticketless plan, with no attachment to fall
+ * back on.
+ *
+ * `blockPrimary` leaves a plain file where the primary checkout's plans
+ * directory would go, so the folder cannot be saved there whoever runs the
+ * suite; the ownership records sit beside it and stay writable.
+ */
+const setupShippedPlan = async ({ branch, blockPrimary = false }: { branch: string; blockPrimary?: boolean }) => {
+	const shipped = await setupShippedRun({ branch, owner: WorktreeOwner.Implement });
+	const planDir = join(shipped.worktreePath, '.lightsout', 'plans', 'demo');
+	const progress: string[] = [];
+
+	await mkdir(planDir, { recursive: true });
+	await writeFile(join(planDir, 'plan.md'), '# graded plan\n', 'utf8');
+
+	if (blockPrimary) {
+		await writeFile(join(shipped.cwd, '.lightsout', 'plans'), 'not a directory\n', 'utf8');
+	}
+
+	const onProgress = (message: string) => {
+		progress.push(message);
+	};
+
+	return { ...shipped, progress, onProgress };
 };
 
 describe('removeShippedRunWorkspace', () => {
@@ -113,5 +142,31 @@ describe('removeShippedRunWorkspace', () => {
 		expect(settled).toBeUndefined();
 		expect(existsSync(standing)).toBe(true);
 		expect(await readWorktreeRecord({ cwd, branch: 'lo-70-stuck' })).toEqual(expect.objectContaining({ owner: 'implement', worktreePath: standing }));
+	});
+
+	test('saves the plan folder into the primary checkout before the shipped tree comes down', async () => {
+		const { cwd, worktreePath } = await setupShippedPlan({ branch: 'lo-131-saved' });
+
+		await removeShippedRunWorkspace({ cwd: worktreePath, manifest: manifestFor({ branch: 'lo-131-saved', workspace: worktreePath }) });
+
+		expect(existsSync(worktreePath)).toBe(false);
+		expect(await readFile(join(cwd, '.lightsout', 'plans', 'demo', 'plan.md'), 'utf8')).toBe('# graded plan\n');
+	});
+
+	test('leaves the shipped tree standing when the plan folder cannot be saved', async () => {
+		const { cwd, worktreePath, progress, onProgress } = await setupShippedPlan({ branch: 'lo-131-unsaved', blockPrimary: true });
+
+		// A throw would land here as the error itself, so the assertion below pins
+		// both halves: nothing was thrown, and the helper answered nothing.
+		const settled = await removeShippedRunWorkspace({
+			cwd: worktreePath,
+			manifest: manifestFor({ branch: 'lo-131-unsaved', workspace: worktreePath }),
+			onProgress,
+		}).catch((thrown: unknown) => thrown);
+
+		expect(settled).toBeUndefined();
+		expect(progress).toEqual(expect.arrayContaining([expect.stringContaining(join('.lightsout', 'plans', 'demo'))]));
+		expect(existsSync(join(worktreePath, '.lightsout', 'plans', 'demo', 'plan.md'))).toBe(true);
+		expect(await readWorktreeRecord({ cwd, branch: 'lo-131-unsaved' })).toEqual(expect.objectContaining({ owner: 'implement', worktreePath }));
 	});
 });

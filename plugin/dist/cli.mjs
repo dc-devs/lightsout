@@ -22759,6 +22759,8 @@ var ConfigImplement = external_exports.object({
 var ConfigPlan = external_exports.object({
   /** When true the writer produces the contract shape with an acceptance-test ledger, the lint requires the ledger section, and the grade weighs each plan file and spawns readers only for heavy ones. Default false: every plan command behaves exactly as before this key existed. */
   contract: external_exports.boolean().optional(),
+  /** Whether a planning session works in its own isolated git worktree rather than the checkout it was launched from. Default true. `--worktree` and `--no-worktree` override it for one command. */
+  worktree: external_exports.boolean().optional(),
   /** The counts above which a plan file is heavy. Each key optional; see `defaultWeightThresholds`. */
   "weight-thresholds": external_exports.object({
     /** A file creating more source files than this is heavy. Default 3. */
@@ -25014,7 +25016,8 @@ var WritersReport = external_exports.object({
 // src/contracts/worktree/WorktreeOwner.ts
 var WorktreeOwner = {
   Queue: "queue",
-  Implement: "implement"
+  Implement: "implement",
+  Plan: "plan"
 };
 
 // src/contracts/worktree/WorktreeRecord.ts
@@ -25025,7 +25028,9 @@ var WorktreeRecord = external_exports.object({
   /** The tree's absolute path, as the creator spelled it. */
   worktreePath: external_exports.string(),
   /** ISO timestamp of the creation this record describes. */
-  createdAt: external_exports.string()
+  createdAt: external_exports.string(),
+  /** What the branch was cut from, as the creator spelled it — `origin/<default>` for a queue or implement tree, a commit sha for a planning tree pinned to the launching checkout's HEAD. */
+  startPoint: external_exports.string().optional()
 });
 
 // src/plan/common/utils/getBlockingFindings.ts
@@ -133987,6 +133992,7 @@ var planCatalogEntry = {
   summary: "Produce a rigorous, implementation-ready plan for a feature \u2014 one a fresh-context agent can implement without guessing.",
   whenToUse: "Use it when you know what you want and need a plan a fresh agent could implement without guessing. It interviews you, drafts, grills the draft for edge cases, and grades the result before anyone writes code.",
   invocations: [
+    { id: "plan-workspace", positional: "workspace" },
     { id: "plan-verify-facts", positional: "verify-facts" },
     { id: "plan-draft", positional: "draft" },
     { id: "plan-sync-decisions", positional: "sync-decisions" },
@@ -134021,7 +134027,20 @@ var planCatalogEntry = {
       shape: "plan-grade",
       required: false
     },
-    { name: "cwd", value: "<path>", meaning: "Repository the plan workspace lives in.", fallback: "The process working directory.", required: false }
+    {
+      name: "cwd",
+      value: "<path>",
+      meaning: "The checkout the command is launched from; the plan\u2019s worktree is resolved from it.",
+      fallback: "The process working directory.",
+      required: false
+    },
+    {
+      name: "worktree",
+      meaning: "Plan in a fresh git worktree of this repository, on a branch named after the plan.",
+      fallback: "The `plan.worktree` config key, which defaults to on.",
+      required: false
+    },
+    { name: "no-worktree", meaning: "Plan in the checkout this was launched from rather than a worktree of its own.", required: false }
   ],
   steps: planSteps,
   records: CommandRecordKind.Plans,
@@ -134539,6 +134558,7 @@ var usageOrder = [
   "test-coverage-to-threshold",
   "test-coverage-to-threshold-resume",
   "brainstorm-publish",
+  "plan-workspace",
   "plan-verify-facts",
   "plan-draft",
   "plan-sync-decisions",
@@ -135430,6 +135450,22 @@ var contradictoryShipFlagsMessage = "--ship and --no-ship contradict each other 
 // src/cli/common/constants/unusableTicketPatternMessage.ts
 var unusableTicketPatternMessage = "ship: `ship.ticket-pattern` must be a valid regular expression carrying a `ticket` named group";
 
+// src/cli/common/implementRun/copyPlanFolderToPrimary.ts
+import { cp } from "node:fs/promises";
+var copyPlanFolderToPrimary = async ({ worktree, primary, name }) => {
+  const source = planWorkspaceDir({ cwd: worktree, name });
+  const destination = planWorkspaceDir({ cwd: primary, name });
+  let failure;
+  if (await pathExists({ path: source })) {
+    try {
+      await cp(source, destination, { recursive: true });
+    } catch (error51) {
+      failure = { error: `the plan folder could not be saved into ${destination}: ${messageOf({ error: error51 })}` };
+    }
+  }
+  return failure;
+};
+
 // src/worktree/createWorktree.ts
 import { stat as stat6 } from "node:fs/promises";
 
@@ -135463,8 +135499,8 @@ var readWorktreeRecord = async ({ cwd, branch }) => {
 // src/worktree/records/writeWorktreeRecord.ts
 import { mkdir as mkdir17, rename as rename4 } from "node:fs/promises";
 import { dirname as dirname11 } from "node:path";
-var writeWorktreeRecord = async ({ cwd, branch, owner, worktreePath, onProgress }) => {
-  const record3 = { branch, owner, worktreePath, createdAt: (/* @__PURE__ */ new Date()).toISOString() };
+var writeWorktreeRecord = async ({ cwd, branch, owner, worktreePath, startPoint, onProgress }) => {
+  const record3 = { branch, owner, worktreePath, createdAt: (/* @__PURE__ */ new Date()).toISOString(), ...startPoint === void 0 ? {} : { startPoint } };
   const stateDir = await resolveSharedStateDir({ cwd });
   const recordPath = getWorktreeRecordPath({ stateDir, branch });
   try {
@@ -135507,20 +135543,20 @@ var describeClaim = async ({ cwd, branch, owner, worktreePath }) => {
 var cutTree = async ({
   cwd,
   branch,
-  defaultBranch,
+  startPoint,
   setup,
   owner,
   worktreePath,
   onProgress
 }) => {
   const adopting = await branchExists({ cwd, branch });
-  const add = adopting ? `git worktree add ${worktreePath} ${branch}` : `git worktree add ${worktreePath} -b ${branch} origin/${defaultBranch}`;
+  const add = adopting ? `git worktree add ${worktreePath} ${branch}` : `git worktree add ${worktreePath} -b ${branch} ${startPoint}`;
   const addFailure = await runOrDescribeFailure({ command: add, cwd });
   if (addFailure !== void 0) {
     return { error: `git could not create a worktree for '${branch}': ${addFailure}` };
   }
   onProgress?.(`worktree ${worktreePath} on ${branch}`);
-  await writeWorktreeRecord({ cwd, branch, owner, worktreePath, onProgress });
+  await writeWorktreeRecord({ cwd, branch, owner, worktreePath, startPoint: adopting ? void 0 : startPoint, onProgress });
   if (setup === void 0) {
     return void 0;
   }
@@ -135532,7 +135568,7 @@ var cutTree = async ({
   onProgress?.(`setup finished in ${worktreePath}`);
   return void 0;
 };
-var createWorktree = async ({ cwd, branch, defaultBranch, setup, owner, reuseExisting, onProgress }) => {
+var createWorktree = async ({ cwd, branch, startPoint, setup, owner, reuseExisting, onProgress }) => {
   const worktreePath = await resolveWorktreePath({ cwd, branch });
   const alreadyThere = await exists({ path: worktreePath });
   if (alreadyThere && !reuseExisting) {
@@ -135545,7 +135581,7 @@ var createWorktree = async ({ cwd, branch, defaultBranch, setup, owner, reuseExi
   if (alreadyThere) {
     onProgress?.(`worktree already at ${worktreePath} \u2014 continuing in it`);
   }
-  const failure = alreadyThere ? void 0 : await cutTree({ cwd, branch, defaultBranch, setup, owner, worktreePath, onProgress });
+  const failure = alreadyThere ? void 0 : await cutTree({ cwd, branch, startPoint, setup, owner, worktreePath, onProgress });
   return failure ?? worktreePath;
 };
 
@@ -135598,6 +135634,12 @@ var describeRemovableTree = async ({ cwd, manifest }) => {
 var removeShippedRunWorkspace = async ({ cwd, manifest, onProgress }) => {
   const removable = await describeRemovableTree({ cwd, manifest });
   if (removable === void 0) {
+    return;
+  }
+  const name = planNameFromPath({ cwd: removable.worktreePath, planPath: manifest.plan });
+  const unsaved = name === void 0 ? void 0 : await copyPlanFolderToPrimary({ worktree: removable.worktreePath, primary: removable.cwd, name });
+  if (unsaved !== void 0) {
+    onProgress?.(`left the worktree at ${removable.worktreePath} standing: ${unsaved.error}`);
     return;
   }
   const failure = await removeWorktree(removable);
@@ -136224,17 +136266,24 @@ var finishImplementRun = async ({ config: config2, cwd, result, flags }) => {
 };
 
 // src/cli/common/implementRun/copyRunInputs.ts
-import { cp, mkdir as mkdir18 } from "node:fs/promises";
+import { cp as cp2, mkdir as mkdir18, stat as stat8 } from "node:fs/promises";
 import { basename as basename31, dirname as dirname13, join as join75, relative as relative11, resolve as resolve8 } from "node:path";
 var copyPlanFolder = async ({ sourceCwd, workspace, name, inputPath }) => {
-  await cp(planWorkspaceDir({ cwd: sourceCwd, name }), planWorkspaceDir({ cwd: workspace, name }), { recursive: true });
+  const destination = planWorkspaceDir({ cwd: workspace, name });
+  const held = await stat8(destination).then(
+    (found) => found.isDirectory(),
+    () => false
+  );
+  if (!held) {
+    await cp2(planWorkspaceDir({ cwd: sourceCwd, name }), destination, { recursive: true });
+  }
   return relative11(sourceCwd, resolve8(sourceCwd, inputPath));
 };
 var copyLooseInput = async ({ sourceCwd, workspace, inputPath }) => {
   const source = resolve8(sourceCwd, inputPath);
   const destination = join75(workspace, ".lightsout", "inputs", basename31(source));
   await mkdir18(dirname13(destination), { recursive: true });
-  await cp(source, destination);
+  await cp2(source, destination);
   return relative11(workspace, destination);
 };
 var copyOneInput = ({ sourceCwd, workspace, inputPath }) => {
@@ -136264,6 +136313,16 @@ var copyRunInputs = async ({
 
 // src/cli/common/constants/contradictoryWorktreeFlagsMessage.ts
 var contradictoryWorktreeFlagsMessage = "--worktree and --no-worktree contradict each other \u2014 pass at most one";
+
+// src/cli/common/args/resolveWorktreeIsolation.ts
+var resolveWorktreeIsolation = ({ flags, configured }) => {
+  const asked = flags.get("worktree") === true;
+  const refused = flags.get("no-worktree") === true;
+  if (asked && refused) {
+    return { error: contradictoryWorktreeFlagsMessage };
+  }
+  return refused ? false : asked || (configured ?? true);
+};
 
 // src/cli/common/implementRun/linkRunRecords.ts
 import { lstat, mkdir as mkdir19, readlink, symlink } from "node:fs/promises";
@@ -136353,7 +136412,29 @@ var resolveRunBranch = ({ cwd, config: config2, planPath, ticketPath, ticketRef,
   } : branch;
 };
 
+// src/common/utils/isSamePath.ts
+import { realpath } from "node:fs/promises";
+var isSamePath = async ({ path, otherPath }) => {
+  const [real, otherReal] = await Promise.all([path, otherPath].map((candidate) => realpath(candidate).catch(() => candidate)));
+  return real === otherReal;
+};
+
 // src/cli/common/implementRun/resolveRunWorkspace.ts
+var adoptPlanningTree = async ({
+  cwd,
+  branch,
+  holder,
+  onProgress
+}) => {
+  const worktreePath = await resolveWorktreePath({ cwd, branch });
+  const record3 = await readWorktreeRecord({ cwd, branch });
+  if (record3?.owner !== WorktreeOwner.Plan || !await isSamePath({ path: holder, otherPath: worktreePath })) {
+    return void 0;
+  }
+  await writeWorktreeRecord({ cwd, branch, owner: WorktreeOwner.Implement, worktreePath, startPoint: record3.startPoint, onProgress });
+  const linked = await linkRunRecords({ sourceCwd: cwd, workspace: worktreePath });
+  return linked ?? { path: worktreePath, created: false };
+};
 var cutWorkspace = async ({
   cwd,
   config: config2,
@@ -136362,7 +136443,9 @@ var cutWorkspace = async ({
 }) => {
   const holder = await readBranchWorktree({ cwd, branch });
   if (holder !== void 0) {
-    return { error: `'${branch}' is already checked out at ${holder} \u2014 pass --no-worktree to build in that checkout deliberately` };
+    return await adoptPlanningTree({ cwd, branch, holder, onProgress }) ?? {
+      error: `'${branch}' is already checked out at ${holder} \u2014 pass --no-worktree to build in that checkout deliberately`
+    };
   }
   const defaultBranch = await fetchDefaultBranch({ cwd });
   if (typeof defaultBranch !== "string") {
@@ -136371,7 +136454,7 @@ var cutWorkspace = async ({
   const created = await createWorktree({
     cwd,
     branch,
-    defaultBranch,
+    startPoint: `origin/${defaultBranch}`,
     setup: config2.worktree?.setup,
     owner: WorktreeOwner.Implement,
     reuseExisting: false,
@@ -136381,7 +136464,7 @@ var cutWorkspace = async ({
     return created;
   }
   const linked = await linkRunRecords({ sourceCwd: cwd, workspace: created });
-  return linked ?? created;
+  return linked ?? { path: created, created: true };
 };
 var resolveRunWorkspace = async ({
   cwd,
@@ -136393,12 +136476,10 @@ var resolveRunWorkspace = async ({
   ticketBody,
   onProgress
 }) => {
-  const asked = flags.get("worktree") === true;
-  const refused = flags.get("no-worktree") === true;
-  if (asked && refused) {
-    return { error: contradictoryWorktreeFlagsMessage };
+  const isolated = resolveWorktreeIsolation({ flags, configured: config2.implement?.worktree });
+  if (typeof isolated !== "boolean") {
+    return isolated;
   }
-  const isolated = refused ? false : asked || (config2.implement?.worktree ?? true);
   if (!isolated) {
     return { cwd, isolated: false, created: false };
   }
@@ -136407,21 +136488,21 @@ var resolveRunWorkspace = async ({
     return branch;
   }
   const workspace = await cutWorkspace({ cwd, config: config2, branch, onProgress });
-  return typeof workspace === "string" ? { cwd: workspace, branch, isolated: true, created: true } : workspace;
+  return "error" in workspace ? workspace : { cwd: workspace.path, branch, isolated: true, created: workspace.created };
 };
 
 // src/cli/common/utils/resolvePlanTarget.ts
-import { stat as stat8 } from "node:fs/promises";
+import { stat as stat9 } from "node:fs/promises";
 import { join as join77, resolve as resolve10 } from "node:path";
 var resolvePlanTarget = async ({ cwd, planPath }) => {
-  const isDirectory = await stat8(resolve10(cwd, planPath)).then(
+  const isDirectory = await stat9(resolve10(cwd, planPath)).then(
     (entry) => entry.isDirectory(),
     () => false
   );
   if (!isDirectory) {
     return { planPath };
   }
-  const holds = async (name) => stat8(resolve10(cwd, planPath, name)).then(
+  const holds = async (name) => stat9(resolve10(cwd, planPath, name)).then(
     (entry) => entry.isFile(),
     () => false
   );
@@ -136524,6 +136605,12 @@ var printRunHeader = ({ config: config2, driver, cwd }) => {
 };
 
 // src/cli/common/utils/ensurePlanWorkspace.ts
+var recoverFromWorktree = async ({ cwd, name }) => {
+  const tree = await resolveWorktreePath({ cwd, branch: name });
+  const held = await pathExists({ path: planWorkspaceDir({ cwd: tree, name }) });
+  const failure = held ? await copyPlanFolderToPrimary({ worktree: tree, primary: cwd, name }) : void 0;
+  return { tree, held, failure };
+};
 var ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }) => {
   const name = planNameFromPath({ cwd, planPath });
   if (name === void 0) {
@@ -136531,6 +136618,16 @@ var ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }) => {
   }
   const dir = planWorkspaceDir({ cwd, name });
   if (await pathExists({ path: dir })) {
+    return void 0;
+  }
+  const fromWorktree = await recoverFromWorktree({ cwd, name });
+  if (fromWorktree.failure !== void 0) {
+    return {
+      error: `no plan at ${dir}, and the plan folder in the plan's worktree at ${fromWorktree.tree} could not be copied here: ${fromWorktree.failure.error}`
+    };
+  }
+  if (fromWorktree.held) {
+    write(`lightsout: copied the plan folder from the plan's worktree at ${fromWorktree.tree} into ${dir}`);
     return void 0;
   }
   const config2 = await readOptionalConfig({ cwd });
@@ -136559,7 +136656,7 @@ var ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }) => {
   }
   if (restored.length === 0) {
     return {
-      error: `no plan at ${dir}, and ticket ${identifier} carries no plan attachment \u2014 run \`lightsout plan publish --name ${name}\` from the machine that has the plan`
+      error: `no plan at ${dir} or in the plan's worktree at ${fromWorktree.tree}, and ticket ${identifier} carries no plan attachment \u2014 run \`lightsout plan publish --name ${name}\` from the machine that has the plan`
     };
   }
   write(`lightsout: fetched ${restored.length} plan file(s) from ticket ${identifier} into ${dir}`);
@@ -136994,7 +137091,7 @@ var reviewTestChanges = async ({ run, checkpoint, planContent, overviewContent }
 };
 
 // src/common/workspace/listWorkspacePackages.ts
-import { readdir as readdir16, stat as stat9 } from "node:fs/promises";
+import { readdir as readdir16, stat as stat10 } from "node:fs/promises";
 import { join as join85 } from "node:path";
 var listWorkspacePackages = async ({ cwd, packagesDir }) => {
   const root = join85(cwd, packagesDir);
@@ -137002,7 +137099,7 @@ var listWorkspacePackages = async ({ cwd, packagesDir }) => {
   const directories = entries.filter((entry) => entry.isDirectory() && !entry.name.startsWith("."));
   const hasManifest = await Promise.all(
     directories.map(
-      ({ name }) => stat9(join85(root, name, "package.json")).then(() => true).catch(() => false)
+      ({ name }) => stat10(join85(root, name, "package.json")).then(() => true).catch(() => false)
     )
   );
   return directories.filter((_, index) => hasManifest[index]).map(({ name }) => name);
@@ -137835,10 +137932,10 @@ import { createRequire as createRequire3 } from "node:module";
 import { join as join93 } from "node:path";
 
 // src/coverage/loadScopeJestConfig/common/utils/resolveJestConfigPath.ts
-import { readFile as readFile42, stat as stat10 } from "node:fs/promises";
+import { readFile as readFile42, stat as stat11 } from "node:fs/promises";
 import { join as join92, resolve as resolve14 } from "node:path";
 var configFileNames = ["jest.config.cjs", "jest.config.js", "jest.config.mjs", "jest.config.json"];
-var exists2 = ({ path }) => stat10(path).then(
+var exists2 = ({ path }) => stat11(path).then(
   () => true,
   () => false
 );
@@ -152721,7 +152818,7 @@ var runWriterBatches = async ({
 };
 
 // src/pipeline/steps/selectTestTargets.ts
-import { readFile as readFile54, stat as stat11 } from "node:fs/promises";
+import { readFile as readFile54, stat as stat12 } from "node:fs/promises";
 import { join as join111 } from "node:path";
 var selectTestTargets = async ({
   run,
@@ -152741,7 +152838,7 @@ var selectTestTargets = async ({
   for (const file2 of candidates) {
     const content = await readFile54(join111(run.cwd, file2), "utf8").catch(() => void 0);
     if (content === void 0) {
-      const exists3 = await stat11(join111(run.cwd, file2)).then(
+      const exists3 = await stat12(join111(run.cwd, file2)).then(
         () => true,
         () => false
       );
@@ -154792,6 +154889,16 @@ var recordPickup = async ({ cwd, branch, onProgress }) => {
     await writeBranchState({ cwd, branch, phase: BranchPhase.Building, onProgress });
   }
 };
+var createTicketWorktree = ({
+  cwd,
+  branch,
+  defaultBranch,
+  setup,
+  serializeWorktreeAdd,
+  onProgress
+}) => serializeWorktreeAdd({
+  task: () => createWorktree({ cwd, branch, startPoint: `origin/${defaultBranch}`, setup, owner: WorktreeOwner.Queue, reuseExisting: true, onProgress })
+});
 var claimOwnership = async ({ settings, trackerSettings, ticket }) => {
   const inProgress = settings.lifecycle.statusNames[TrackerStatusRole.InProgress];
   const moved = await updateTicketLifecycle({
@@ -154849,9 +154956,7 @@ var runQueueTicket = async ({
   onProgress
 }) => {
   const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
-  const created = await serializeWorktreeAdd({
-    task: () => createWorktree({ cwd, branch, defaultBranch, setup: settings.setup, owner: WorktreeOwner.Queue, reuseExisting: true, onProgress })
-  });
+  const created = await createTicketWorktree({ cwd, branch, defaultBranch, setup: settings.setup, serializeWorktreeAdd, onProgress });
   if (typeof created !== "string") {
     return { ticket, branch, worktreePath: await resolveWorktreePath({ cwd, branch }), ready: false, error: created.error };
   }
@@ -155009,7 +155114,7 @@ var resolveQueueSettings = ({ config: config2 }) => {
 };
 
 // src/queue/worktrees/scanParkedWorktrees.ts
-import { realpath } from "node:fs/promises";
+import { realpath as realpath2 } from "node:fs/promises";
 import { join as join123 } from "node:path";
 
 // src/queue/worktrees/common/constants/ParkedTreeBucket.ts
@@ -155090,7 +155195,7 @@ var toQueuePath = ({ path, root, realRoot }) => {
 var listQueueWorktrees = async ({ cwd, shipSettings, onProgress }) => {
   const listed = await runCommand({ command: "git worktree list --porcelain", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
   const root = await resolveWorktreesRoot({ cwd });
-  const realRoot = await realpath(root).catch(() => root);
+  const realRoot = await realpath2(root).catch(() => root);
   const trees = [];
   for (const block of (listed?.exitCode === 0 ? listed.stdout : "").split("\n\n")) {
     const reported = /^worktree (.+)$/m.exec(block)?.[1];
@@ -155436,11 +155541,11 @@ var implementDirectCommand = async ({ flags, cwd }) => {
 };
 
 // src/cli/common/utils/resolveConfigAndDriver.ts
-import { stat as stat12 } from "node:fs/promises";
+import { stat as stat13 } from "node:fs/promises";
 import { join as join125 } from "node:path";
 var resolveConfigAndDriver = async ({ cwd, command }) => {
   const configPath = join125(cwd, "lightsout.config.json");
-  const present = await stat12(configPath).then(
+  const present = await stat13(configPath).then(
     () => true,
     () => false
   );
@@ -155521,6 +155626,94 @@ var getListFlag = ({ flags, name }) => {
     return void 0;
   }
   return (getStringFlag({ flags, name }) ?? "").split(",").map((part) => part.trim()).filter((part) => part.length > 0);
+};
+
+// src/cli/plan/common/utils/copyPlanFolderToWorktree.ts
+import { cp as cp3 } from "node:fs/promises";
+var copyPlanFolderToWorktree = async ({ sourceCwd, worktree, name }) => {
+  const source = planWorkspaceDir({ cwd: sourceCwd, name });
+  const destination = planWorkspaceDir({ cwd: worktree, name });
+  const skipped = await isSamePath({ path: worktree, otherPath: sourceCwd }) || !await pathExists({ path: source }) || await pathExists({ path: destination });
+  let failure;
+  if (!skipped) {
+    try {
+      await cp3(source, destination, { recursive: true });
+    } catch (error51) {
+      failure = { error: `the plan folder ${source} could not be copied into the worktree at ${destination}: ${messageOf({ error: error51 })}` };
+    }
+  }
+  return failure;
+};
+
+// src/cli/plan/common/utils/resolvePlanWorktree.ts
+var noWorktreeRemedy = "pass --no-worktree to plan in the launching checkout deliberately";
+var continueInTree = async ({ cwd, name, treePath }) => {
+  const record3 = await readWorktreeRecord({ cwd, branch: name });
+  if (record3?.owner === WorktreeOwner.Plan || record3?.owner === WorktreeOwner.Queue) {
+    return { cwd: treePath, branch: name, isolated: true, created: false };
+  }
+  const reason = record3 === void 0 ? "no ownership record claims it for this plan" : `its ownership record names a '${record3.owner}' run, not this plan`;
+  return { error: `the worktree at ${treePath} cannot be planned in: ${reason} \u2014 ${noWorktreeRemedy}` };
+};
+var cutPlanTree = async ({
+  cwd,
+  config: config2,
+  name,
+  treePath,
+  onProgress
+}) => {
+  const recorded = await readWorktreeRecord({ cwd, branch: name });
+  const startPoint = recorded?.startPoint ?? await readGitHeadCommit({ cwd });
+  if (startPoint === void 0) {
+    return { error: `no worktree was made at ${treePath}: the launching checkout has no commit to plan from \u2014 ${noWorktreeRemedy}` };
+  }
+  const created = await createWorktree({
+    cwd,
+    branch: name,
+    startPoint,
+    setup: config2?.worktree?.setup,
+    owner: WorktreeOwner.Plan,
+    reuseExisting: false,
+    onProgress
+  });
+  return typeof created === "string" ? { cwd: created, branch: name, isolated: true, created: true } : { error: `${created.error} \u2014 ${noWorktreeRemedy}` };
+};
+var resolvePlanWorktree = async ({ cwd, config: config2, flags, name, onProgress }) => {
+  const isolated = resolveWorktreeIsolation({ flags, configured: config2?.plan?.worktree });
+  if (typeof isolated !== "boolean") {
+    return isolated;
+  }
+  if (!isolated) {
+    return { cwd, isolated: false, created: false };
+  }
+  const treePath = await resolveWorktreePath({ cwd, branch: name });
+  if (await isSamePath({ path: cwd, otherPath: treePath })) {
+    return { cwd: treePath, branch: name, isolated: true, created: false };
+  }
+  const holder = await readBranchWorktree({ cwd, branch: name });
+  let worktree;
+  if (holder === void 0) {
+    worktree = await cutPlanTree({ cwd, config: config2, name, treePath, onProgress });
+  } else if (await isSamePath({ path: holder, otherPath: treePath })) {
+    worktree = await continueInTree({ cwd, name, treePath });
+  } else {
+    worktree = { error: `'${name}' is already checked out at ${holder} \u2014 plan from ${holder}, or ${noWorktreeRemedy}` };
+  }
+  return worktree;
+};
+
+// src/cli/plan/common/utils/openPlanWorktree.ts
+var openPlanWorktree = async ({ cwd, config: config2, flags, name }) => {
+  const worktree = await resolvePlanWorktree({ cwd, config: config2, flags, name, onProgress: createProgressPrinter() });
+  if ("error" in worktree) {
+    return { error: worktree.error };
+  }
+  if (worktree.isolated && !await isSamePath({ path: cwd, otherPath: worktree.cwd })) {
+    console.log(`lightsout: workspace ${worktree.cwd}
+  branch: ${worktree.branch}`);
+  }
+  const copied = await copyPlanFolderToWorktree({ sourceCwd: cwd, worktree: worktree.cwd, name });
+  return copied ?? { worktree };
 };
 
 // src/cli/plan/common/utils/planRunOptions.ts
@@ -155826,6 +156019,12 @@ facts: ${result.factsPath}`);
   return exitCli({ code: 0 });
 };
 
+// src/cli/plan/planWorkspaceCommand.ts
+var planWorkspaceCommand = async ({ worktree }) => {
+  console.log(worktree.cwd);
+  return exitCli({ code: 0 });
+};
+
 // src/cli/plan/readPlanningStandards.ts
 var readPlanningStandards = async ({ cwd, config: config2 }) => {
   let standards;
@@ -155842,11 +156041,28 @@ var readPlanningStandards = async ({ cwd, config: config2 }) => {
 };
 
 // src/cli/plan/planCommand.ts
-var planCommand = async ({ flags, rest, cwd }) => {
+var openDispatchCheckout = async ({ cwd, flags, subcommand }) => {
+  const name = getStringFlag({ flags, name: "name" });
+  if (name === void 0 || !["workspace", "draft", "dedup", "grade", "lint", "publish", "sync-decisions", "verify-facts"].includes(subcommand ?? "")) {
+    return { cwd, worktree: void 0 };
+  }
+  const opened = await openPlanWorktree({ cwd, config: await readOptionalConfig({ cwd }), flags, name });
+  if ("error" in opened) {
+    console.error(opened.error);
+    return exitCli({ code: 1 });
+  }
+  await printPlanTicketWarning({ cwd: opened.worktree.cwd, name });
+  return { cwd: opened.worktree.cwd, worktree: opened.worktree };
+};
+var planCommand = async ({ flags, rest, cwd: launchingCwd }) => {
   const subcommand = getPositionals({ args: rest })[0];
-  const planName = getStringFlag({ flags, name: "name" });
-  if (planName !== void 0 && ["draft", "dedup", "grade", "lint", "publish", "sync-decisions", "verify-facts"].includes(subcommand ?? "")) {
-    await printPlanTicketWarning({ cwd, name: planName });
+  if (subcommand === "workspace") {
+    await getRequiredFlag({ flags, name: "name" });
+  }
+  const { cwd, worktree } = await openDispatchCheckout({ cwd: launchingCwd, flags, subcommand });
+  if (subcommand === "workspace" && worktree !== void 0) {
+    await planWorkspaceCommand({ worktree });
+    return;
   }
   if (subcommand === "verify-facts") {
     await planVerifyFactsCommand({ flags, rest, cwd });
@@ -158042,7 +158258,7 @@ var getRunProgress = async ({ cwd, manifest, lock }) => {
 };
 
 // src/views/common/services/StandardsPackBundleCache.ts
-import { readdir as readdir22, stat as stat13 } from "node:fs/promises";
+import { readdir as readdir22, stat as stat14 } from "node:fs/promises";
 import { isAbsolute as isAbsolute4, join as join132, sep as sep4 } from "node:path";
 
 // src/views/common/utils/readPackFixtures.ts
@@ -158081,7 +158297,7 @@ var getNewestMtime = async ({ root }) => {
   let newest = 0;
   for (const entry of entries) {
     const path = join132(root, entry.name);
-    const at = entry.isDirectory() ? await getNewestMtime({ root: path }) : await stat13(path).then(
+    const at = entry.isDirectory() ? await getNewestMtime({ root: path }) : await stat14(path).then(
       (stats) => stats.mtimeMs,
       () => 0
     );

@@ -8,6 +8,7 @@ import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
 import { isDurablePlanAttachmentName } from '#src/plan/common/utils/isDurablePlanAttachmentName.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import { resolveWorktreePath } from '#src/worktree/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -122,6 +123,30 @@ const setupFetch = ({
 	return { context: { flags: parseFlags({ args: [...args, '--no-worktree'] }), rest: [], cwd }, cwd, ...captured };
 };
 
+/**
+ * A ticketless plan whose folder lives only in its own planning worktree — what
+ * planning in a worktree hands the launching checkout — in a repo naming no
+ * ticket tracker, so there is no attachment to fall back on. `blocked` makes the
+ * launching checkout's plans directory a plain file, so the folder cannot be
+ * copied back into it.
+ */
+const setupWorktreePlan = async ({ blocked = false }: { blocked?: boolean } = {}) => {
+	const ticketless = 'portable-plan';
+	const path = join('.lightsout', 'plans', ticketless);
+	const fetched = setupFetch({ args: ['--plan', path], config: {} });
+	const tree = await resolveWorktreePath({ cwd: fetched.cwd, branch: ticketless });
+
+	mkdirSync(join(tree, path), { recursive: true });
+	writeFileSync(join(tree, path, 'plan.md'), '# Plan: graded in its worktree\n');
+	writeFileSync(join(tree, path, 'grade-memory.json'), '{"passes":1}\n');
+
+	if (blocked) {
+		writeFileSync(join(fetched.cwd, '.lightsout', 'plans'), 'not a directory\n');
+	}
+
+	return { ...fetched, path, tree };
+};
+
 describe('implementCommand', () => {
 	test('a plan folder already on disk is the one that runs — the ticket is never asked', async () => {
 		const { context, cwd, logged, exitCodes } = setupFetch({ onDisk: { 'plan.md': '# Plan: the copy on this machine\n' } });
@@ -182,12 +207,13 @@ describe('implementCommand', () => {
 
 	test('a ticket carrying no plan attachment stops the run with one sentence naming both places it looked', async () => {
 		const { context, cwd, logged, errors, exitCodes } = setupFetch({ titles: [] });
+		const tree = await resolveWorktreePath({ cwd, branch: name });
 
 		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(logged).toStrictEqual([]);
 		expect(errors).toStrictEqual([
-			`no plan at ${join(cwd, planPath)}, and ticket lo-54 carries no plan attachment — run \`lightsout plan publish --name ${name}\` from the machine that has the plan`,
+			`no plan at ${join(cwd, planPath)} or in the plan's worktree at ${tree}, and ticket lo-54 carries no plan attachment — run \`lightsout plan publish --name ${name}\` from the machine that has the plan`,
 		]);
 		expect(existsSync(join(cwd, planPath))).toBe(false);
 		expect(exitCodes).toStrictEqual([1]);
@@ -255,6 +281,33 @@ describe('implementCommand', () => {
 		expect(errors).toStrictEqual([
 			`no plan at ${join(cwd, planPath)}, and the ticket to fetch one from cannot be read: ship.ticket-pattern is not a regular expression capturing a 'ticket' group`,
 		]);
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('a ticketless plan planned in its own worktree is copied back from there, and the run starts on it', async () => {
+		const { context, cwd, path, tree, logged, exitCodes } = await setupWorktreePlan();
+
+		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// the copy line comes before the run header, because the run reads the copied folder
+		expect(logged[0]).toContain(tree);
+		expect(logged[1]).toBe('lightsout: starting run');
+		expect(logged[2]).toBe(`  plan: ${join(path, 'plan.md')}`);
+		expect(readFileSync(join(cwd, path, 'plan.md'), 'utf8')).toBe('# Plan: graded in its worktree\n');
+		expect(readFileSync(join(cwd, path, 'grade-memory.json'), 'utf8')).toBe('{"passes":1}\n');
+		expect(readFileSync(join(tree, path, 'plan.md'), 'utf8')).toBe('# Plan: graded in its worktree\n');
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('a plan folder its worktree holds but this checkout cannot take stops the run, naming the worktree', async () => {
+		const { context, cwd, path, tree, logged, errors, exitCodes } = await setupWorktreePlan({ blocked: true });
+
+		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged).toStrictEqual([]);
+		expect(errors).toEqual([expect.stringContaining(`no plan at ${join(cwd, path)}`)]);
+		expect(errors).toEqual([expect.stringContaining(tree)]);
+		expect(readFileSync(join(tree, path, 'plan.md'), 'utf8')).toBe('# Plan: graded in its worktree\n');
 		expect(exitCodes).toStrictEqual([1]);
 	});
 });

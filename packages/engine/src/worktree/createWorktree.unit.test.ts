@@ -30,6 +30,24 @@ const setupOccupiedPath = async ({ branch, owner }: { branch: string; owner?: Wo
 	return { cwd, worktreePath };
 };
 
+/** A checkout whose HEAD carries a commit the remote has not got, so its sha and `origin/main` name different commits. */
+const setupUnpushedCommit = async () => {
+	const { cwd, worktreesRoot } = await setupMainCheckout();
+
+	execSync('git commit -q --allow-empty -m "not yet pushed"', { cwd, stdio: 'ignore' });
+
+	return { cwd, worktreesRoot, commit: execSync('git rev-parse HEAD', { cwd }).toString().trim() };
+};
+
+/** A checkout holding a pre-made branch whose tip sits one commit ahead of the remote default, with no worktree on it. */
+const setupPremadeBranch = async ({ branch }: { branch: string }) => {
+	const { cwd, worktreesRoot } = await setupMainCheckout();
+
+	execSync(`git checkout -q -b ${branch} && git commit -q --allow-empty -m "branch work" && git checkout -q main`, { cwd, stdio: 'ignore' });
+
+	return { cwd, worktreesRoot, tip: execSync(`git rev-parse ${branch}`, { cwd }).toString().trim() };
+};
+
 /** Every worktree this test made, cleaned up so the temp repos do not outlive the run. */
 const cleanUp = async ({ cwd, worktreesRoot, branch }: { cwd: string; worktreesRoot: string; branch: string }) => {
 	await removeWorktree({ cwd, worktreePath: join(worktreesRoot, branch), branch });
@@ -39,7 +57,7 @@ describe('createWorktree', () => {
 	test('cuts the branch from the remote default and puts its worktree beside the repo, never inside it', async () => {
 		const { cwd, worktreesRoot } = await setupMainCheckout();
 
-		const created = await createWorktree({ cwd, branch: 'lo-70-drain', defaultBranch: 'main', owner: WorktreeOwner.Queue, reuseExisting: true });
+		const created = await createWorktree({ cwd, branch: 'lo-70-drain', startPoint: 'origin/main', owner: WorktreeOwner.Queue, reuseExisting: true });
 
 		expect(created).toBe(join(worktreesRoot, 'lo-70-drain'));
 		expect(typeof created === 'string' && existsSync(join(created, 'README.md'))).toBe(true);
@@ -55,7 +73,7 @@ describe('createWorktree', () => {
 	test('nests a slash-bearing branch under the worktrees root, so a company branch convention needs no engine change', async () => {
 		const { cwd, worktreesRoot } = await setupMainCheckout();
 
-		const created = await createWorktree({ cwd, branch: 'feature/lo-70-drain', defaultBranch: 'main', owner: WorktreeOwner.Queue, reuseExisting: true });
+		const created = await createWorktree({ cwd, branch: 'feature/lo-70-drain', startPoint: 'origin/main', owner: WorktreeOwner.Queue, reuseExisting: true });
 
 		expect(created).toBe(join(worktreesRoot, 'feature', 'lo-70-drain'));
 
@@ -66,11 +84,11 @@ describe('createWorktree', () => {
 		const { cwd, worktreesRoot } = await setupMainCheckout();
 		const progress: string[] = [];
 
-		const first = await createWorktree({ cwd, branch: 'lo-70-drain', defaultBranch: 'main', owner: WorktreeOwner.Queue, reuseExisting: true });
+		const first = await createWorktree({ cwd, branch: 'lo-70-drain', startPoint: 'origin/main', owner: WorktreeOwner.Queue, reuseExisting: true });
 		const second = await createWorktree({
 			cwd,
 			branch: 'lo-70-drain',
-			defaultBranch: 'main',
+			startPoint: 'origin/main',
 			owner: WorktreeOwner.Queue,
 			reuseExisting: true,
 			onProgress: (message) => progress.push(message),
@@ -87,7 +105,7 @@ describe('createWorktree', () => {
 
 		execSync('git branch lo-70-drain', { cwd, stdio: 'ignore' });
 
-		const created = await createWorktree({ cwd, branch: 'lo-70-drain', defaultBranch: 'main', owner: WorktreeOwner.Queue, reuseExisting: true });
+		const created = await createWorktree({ cwd, branch: 'lo-70-drain', startPoint: 'origin/main', owner: WorktreeOwner.Queue, reuseExisting: true });
 
 		expect(typeof created).toBe('string');
 		expect(
@@ -106,7 +124,7 @@ describe('createWorktree', () => {
 		const created = await createWorktree({
 			cwd,
 			branch: 'lo-70-drain',
-			defaultBranch: 'main',
+			startPoint: 'origin/main',
 			owner: WorktreeOwner.Queue,
 			reuseExisting: true,
 			setup: 'echo installed > installed.txt',
@@ -125,7 +143,7 @@ describe('createWorktree', () => {
 		const created = await createWorktree({
 			cwd,
 			branch: 'lo-70-drain',
-			defaultBranch: 'main',
+			startPoint: 'origin/main',
 			owner: WorktreeOwner.Queue,
 			reuseExisting: true,
 			setup: 'echo broken >&2; exit 3',
@@ -140,7 +158,7 @@ describe('createWorktree', () => {
 		const created = await createWorktree({
 			cwd: '/lightsout/no/such/checkout',
 			branch: 'lo-70-drain',
-			defaultBranch: 'main',
+			startPoint: 'origin/main',
 			owner: WorktreeOwner.Queue,
 			reuseExisting: true,
 		});
@@ -151,7 +169,7 @@ describe('createWorktree', () => {
 	test('names the git command that refused when the branch cannot be cut at all', async () => {
 		const { cwd } = await setupMainCheckout();
 
-		const created = await createWorktree({ cwd, branch: 'lo-70-drain', defaultBranch: 'no-such-branch', owner: WorktreeOwner.Queue, reuseExisting: true });
+		const created = await createWorktree({ cwd, branch: 'lo-70-drain', startPoint: 'origin/no-such-branch', owner: WorktreeOwner.Queue, reuseExisting: true });
 
 		expect(created).toEqual({ error: expect.stringContaining("git could not create a worktree for 'lo-70-drain'") });
 	});
@@ -159,7 +177,7 @@ describe('createWorktree', () => {
 	test('refuses a path a directory already occupies when reuse is off, naming the path', async () => {
 		const { cwd, worktreePath } = await setupOccupiedPath({ branch: 'lo-70-drain' });
 
-		const created = await createWorktree({ cwd, branch: 'lo-70-drain', defaultBranch: 'main', owner: WorktreeOwner.Implement, reuseExisting: false });
+		const created = await createWorktree({ cwd, branch: 'lo-70-drain', startPoint: 'origin/main', owner: WorktreeOwner.Implement, reuseExisting: false });
 
 		expect(created).toEqual({ error: expect.stringContaining(worktreePath) });
 		expect(existsSync(join(worktreePath, 'README.md'))).toBe(false);
@@ -174,7 +192,7 @@ describe('createWorktree', () => {
 		const created = await createWorktree({
 			cwd,
 			branch: 'lo-70-drain',
-			defaultBranch: 'main',
+			startPoint: 'origin/main',
 			owner: WorktreeOwner.Queue,
 			reuseExisting: true,
 			onProgress: (message) => progress.push(message),
@@ -189,7 +207,7 @@ describe('createWorktree', () => {
 	test('refuses to continue in a tree whose ownership record names a different owner', async () => {
 		const { cwd, worktreePath } = await setupOccupiedPath({ branch: 'lo-70-drain', owner: WorktreeOwner.Implement });
 
-		const created = await createWorktree({ cwd, branch: 'lo-70-drain', defaultBranch: 'main', owner: WorktreeOwner.Queue, reuseExisting: true });
+		const created = await createWorktree({ cwd, branch: 'lo-70-drain', startPoint: 'origin/main', owner: WorktreeOwner.Queue, reuseExisting: true });
 
 		expect(created).toEqual({ error: expect.stringContaining(worktreePath) });
 		expect(created).toEqual({ error: expect.stringContaining('implement') });
@@ -203,7 +221,7 @@ describe('createWorktree', () => {
 	test('continues in a tree its own owner recorded', async () => {
 		const { cwd, worktreePath } = await setupOccupiedPath({ branch: 'lo-70-drain', owner: WorktreeOwner.Queue });
 
-		const created = await createWorktree({ cwd, branch: 'lo-70-drain', defaultBranch: 'main', owner: WorktreeOwner.Queue, reuseExisting: true });
+		const created = await createWorktree({ cwd, branch: 'lo-70-drain', startPoint: 'origin/main', owner: WorktreeOwner.Queue, reuseExisting: true });
 
 		expect(created).toBe(worktreePath);
 
@@ -213,7 +231,7 @@ describe('createWorktree', () => {
 	test("records the tree's owner in the primary checkout as part of creating it", async () => {
 		const { cwd, worktreesRoot } = await setupMainCheckout();
 
-		const created = await createWorktree({ cwd, branch: 'lo-70-drain', defaultBranch: 'main', owner: WorktreeOwner.Queue, reuseExisting: false });
+		const created = await createWorktree({ cwd, branch: 'lo-70-drain', startPoint: 'origin/main', owner: WorktreeOwner.Queue, reuseExisting: false });
 
 		expect(await readWorktreeRecord({ cwd, branch: 'lo-70-drain' })).toEqual(
 			expect.objectContaining({ branch: 'lo-70-drain', owner: 'queue', worktreePath: created }),
@@ -229,7 +247,7 @@ describe('createWorktree', () => {
 		const created = await createWorktree({
 			cwd,
 			branch: 'lo-70-drain',
-			defaultBranch: 'main',
+			startPoint: 'origin/main',
 			owner: WorktreeOwner.Queue,
 			reuseExisting: false,
 			setup: 'echo broken >&2; exit 3',
@@ -238,6 +256,42 @@ describe('createWorktree', () => {
 		expect(created).toEqual({ error: expect.stringContaining(join(worktreesRoot, 'lo-70-drain')) });
 		expect(created).toEqual({ error: expect.stringContaining('broken') });
 		expect(await readWorktreeRecord({ cwd, branch: 'lo-70-drain' })).toEqual(expect.objectContaining({ owner: 'queue' }));
+
+		await cleanUp({ cwd, worktreesRoot, branch: 'lo-70-drain' });
+	});
+
+	test('cuts a new branch at the start point it was given and records it', async () => {
+		const { cwd, worktreesRoot, commit } = await setupUnpushedCommit();
+
+		const created = await createWorktree({ cwd, branch: 'lo-131-plan', startPoint: commit, owner: WorktreeOwner.Plan, reuseExisting: false });
+
+		expect(
+			execSync('git rev-parse HEAD', { cwd: String(created) })
+				.toString()
+				.trim(),
+		).toBe(commit);
+		expect(await readWorktreeRecord({ cwd, branch: 'lo-131-plan' })).toEqual(
+			expect.objectContaining({ branch: 'lo-131-plan', owner: 'plan', worktreePath: created, startPoint: commit }),
+		);
+
+		await cleanUp({ cwd, worktreesRoot, branch: 'lo-131-plan' });
+	});
+
+	test('records no start point for a branch it adopted rather than cut', async () => {
+		const { cwd, worktreesRoot, tip } = await setupPremadeBranch({ branch: 'lo-70-drain' });
+
+		const created = await createWorktree({ cwd, branch: 'lo-70-drain', startPoint: 'origin/main', owner: WorktreeOwner.Queue, reuseExisting: true });
+
+		const record = await readWorktreeRecord({ cwd, branch: 'lo-70-drain' });
+
+		expect(
+			execSync('git rev-parse HEAD', { cwd: String(created) })
+				.toString()
+				.trim(),
+		).toBe(tip);
+		expect(record).toEqual(expect.objectContaining({ branch: 'lo-70-drain', owner: 'queue', worktreePath: created }));
+		// Throws on an undefined record, so this cannot pass because nothing was written.
+		expect(record).not.toHaveProperty('startPoint');
 
 		await cleanUp({ cwd, worktreesRoot, branch: 'lo-70-drain' });
 	});

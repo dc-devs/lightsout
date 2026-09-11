@@ -92,7 +92,7 @@ const setupParkedScan = async ({
 
 	execSync('git config user.name t && git config user.email t@t', { cwd, stdio: 'ignore' });
 
-	const worktreePath = String(await createWorktree({ cwd, branch, defaultBranch: 'main', owner: WorktreeOwner.Queue, reuseExisting: true }));
+	const worktreePath = String(await createWorktree({ cwd, branch, startPoint: 'origin/main', owner: WorktreeOwner.Queue, reuseExisting: true }));
 
 	mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf({ finished })]);
 	mockSetTicketLabel.mockResolvedValue(undefined);

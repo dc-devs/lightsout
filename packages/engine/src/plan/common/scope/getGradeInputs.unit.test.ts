@@ -67,6 +67,58 @@ const setupInputs = ({ probe = 'read', changed = ['src/a.ts'] }: { probe?: 'read
 };
 
 /**
+ * A planning worktree and the checkout planning was launched from, each a temp
+ * directory holding its own `src/a.ts`, with the git probes answering per
+ * directory. `advanceLaunchingCheckout` moves the launching checkout's HEAD and
+ * edits and adds source there, as another agent working in it would.
+ */
+const setupWorktreeAndLaunchingCheckout = () => {
+	const worktree = mkdtempSync(join(tmpdir(), 'lightsout-grade-inputs-worktree-'));
+	const launching = mkdtempSync(join(tmpdir(), 'lightsout-grade-inputs-launching-'));
+	const heads = new Map([
+		[worktree, '1111111111111111111111111111111111111111'],
+		[launching, '2222222222222222222222222222222222222222'],
+	]);
+	const changed = new Map([
+		[worktree, ['src/a.ts']],
+		[launching, ['src/a.ts']],
+	]);
+
+	mockReadGitHeadCommit.mockImplementation(async ({ cwd }) => heads.get(cwd));
+	mockReadGitChangedFiles.mockImplementation(async ({ cwd }) => changed.get(cwd));
+
+	for (const checkout of [worktree, launching]) {
+		mkdirSync(join(checkout, 'src'), { recursive: true });
+		writeFileSync(join(checkout, 'src', 'a.ts'), 'export const a = 1;\n');
+	}
+
+	const planDir = join(worktree, '.lightsout', 'plans', 'p');
+	const planPath = join(planDir, 'plan.md');
+
+	mkdirSync(planDir, { recursive: true });
+	writeFileSync(planPath, '# Plan\n');
+
+	const params: GradeInputsParams = {
+		cwd: worktree,
+		planPaths: [planPath],
+		decisions: [],
+		standards: 'the supplemental standards text',
+		config: configOf(),
+		model: 'claude-opus-5',
+		effort: Effort.High,
+	};
+
+	const advanceLaunchingCheckout = () => {
+		heads.set(launching, '3333333333333333333333333333333333333333');
+		changed.set(launching, ['src/a.ts', 'src/b.ts']);
+		writeFileSync(join(launching, 'src', 'a.ts'), 'export const a = 2;\n');
+		writeFileSync(join(launching, 'src', 'b.ts'), 'export const b = 1;\n');
+	};
+
+	return { params, advanceLaunchingCheckout };
+};
+
+/**
  * The fingerprint one pass takes with the reader brief replaced by the given
  * text. The module is required fresh inside `isolateModules`, so a prompt read
  * once at module load is genuinely re-taken rather than served from the first
@@ -255,6 +307,21 @@ describe('getGradeInputs', () => {
 			{ path: 'src/a.ts', sha256: expect.stringMatching(/^[0-9a-f]{64}$/) },
 			{ path: 'src/deleted.ts', sha256: 'absent' },
 		]);
+	});
+
+	test('fingerprints the planning worktree alone, unmoved by the launching checkout advancing', async () => {
+		const { params, advanceLaunchingCheckout } = setupWorktreeAndLaunchingCheckout();
+
+		const before = await getGradeInputs(params);
+
+		advanceLaunchingCheckout();
+
+		const after = await getGradeInputs(params);
+
+		expect({ sha256: after.sha256, gradedCommit: after.gradedCommit }).toStrictEqual({
+			sha256: before.sha256,
+			gradedCommit: '1111111111111111111111111111111111111111',
+		});
 	});
 
 	test('the overview hash of the decision-log part ignores the Decision Log span and moves with text outside it', async () => {

@@ -27,7 +27,7 @@ const seedPlanLintFixture = async ({ body }: { body: string }) => {
 test('cli: plan lint on a clean plan reports clean and exits 0', async () => {
 	const { cwd } = await seedPlanLintFixture({ body: cleanPlanBody() });
 
-	const { stdout, stderr, code } = await runCli({ args: ['plan', 'lint', '--name', 'demo', '--cwd', cwd] });
+	const { stdout, stderr, code } = await runCli({ args: ['plan', 'lint', '--name', 'demo', '--no-worktree', '--cwd', cwd] });
 
 	expect(stderr).toBe('');
 	expect(stdout).toMatch(/plan lint demo: 0 blocking, 0 advisory finding\(s\) across 1 file\(s\)/);
@@ -40,7 +40,7 @@ test('cli: plan lint on a clean plan reports clean and exits 0', async () => {
 test('cli: plan lint on a plan with a placeholder prints the finding and exits 1', async () => {
 	const { cwd } = await seedPlanLintFixture({ body: cleanPlanBody().replace('A new module exporting', 'TBD — a new module exporting') });
 
-	const { stdout, stderr, code } = await runCli({ args: ['plan', 'lint', '--name', 'demo', '--cwd', cwd] });
+	const { stdout, stderr, code } = await runCli({ args: ['plan', 'lint', '--name', 'demo', '--no-worktree', '--cwd', cwd] });
 
 	expect(stderr).toBe('');
 	expect(stdout).toMatch(/plan lint demo — 1 blocking finding\(s\) \(1 file\(s\)\)/);
@@ -52,7 +52,7 @@ test('cli: plan lint on a plan with a placeholder prints the finding and exits 1
 test('cli: plan lint without a plan deliverable reports the error and exits 1', async () => {
 	const cwd = await freshCwd();
 
-	const { stdout, stderr, code } = await runCli({ args: ['plan', 'lint', '--name', 'ghost', '--cwd', cwd] });
+	const { stdout, stderr, code } = await runCli({ args: ['plan', 'lint', '--name', 'ghost', '--no-worktree', '--cwd', cwd] });
 
 	expect(stdout).toBe('');
 	expect(stderr).toMatch(/no plan found for 'ghost'/);
