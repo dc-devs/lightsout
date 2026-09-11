@@ -71,6 +71,7 @@ describe('GradeReport', () => {
 			weights: [],
 			phasesLight: [],
 			complete: true,
+			scopeComplete: false,
 			passed: false,
 			gradedAt: '2026-08-04T00:00:00.000Z',
 			scope: 'full',
@@ -343,5 +344,15 @@ describe('GradeReport', () => {
 		expect(parsed.scope).toBe('full');
 		expect(parsed.focusedOn).toStrictEqual([]);
 		expect(parsed.inputs).toBe(undefined);
+	});
+
+	test('a report written before scope coverage existed parses as claiming none', () => {
+		const { report } = setupReport();
+
+		const parsed = GradeReport.parse(report);
+
+		// an older record never said its own scope finished, so it must not read as
+		// having established coverage the repair baseline could narrow against
+		expect(parsed.scopeComplete).toBe(false);
 	});
 });

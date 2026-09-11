@@ -28,6 +28,7 @@ const reportOf = ({
 	weights: [],
 	phasesLight: [],
 	complete,
+	scopeComplete: complete,
 	incompleteReason,
 	passed: grade === PlanGrade.A,
 	gradedAt,

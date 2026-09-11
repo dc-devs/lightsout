@@ -1,11 +1,11 @@
 import {
+	GapOutcome,
 	type GradedGap,
 	type GradeInputs,
 	type GradeReport,
 	GradeScope,
 	type PhaseWeight,
 	PlanGrade,
-	PlanWeight,
 	type StructuralFinding,
 } from '#src/contracts/index.ts';
 import { gapCheckLenses } from '#src/plan/common/constants/gapCheckLenses.ts';
@@ -39,9 +39,46 @@ interface Params {
 	inputs?: GradeInputs;
 	/** One line naming the rule that chose this pass's scope. */
 	scopeReason?: string;
-	/** Whether any reader was offered a plan file at all — what `lenses` states. */
-	readersSpawned?: boolean;
+	/** The plan files this pass owed a reader — what `lenses` states, and what `scopeComplete` holds `phasesChecked` against. */
+	phasesRequired: string[];
+	/** Whether the whole-plan documentation checker finished, or had nothing to do on this pass. */
+	documentationComplete: boolean;
 }
+
+/**
+ * Whether every check this pass's own scope called for finished — the question
+ * the repair baseline asks, and a narrower one than `complete`.
+ *
+ * It is computed from positive per-file evidence rather than from an empty
+ * failure list: an empty reader-failure list would not notice a phase whose
+ * readers never started, and the pass's rate-limit flag merges readers, judges
+ * and the documentation checker, so it would reject good reading when only a
+ * judge failed.
+ */
+const isScopeComplete = ({
+	phases,
+	phasesRequired,
+	phasesChecked,
+	phasesLight,
+	gaps,
+	documentationComplete,
+}: {
+	phases?: string[];
+	phasesRequired: string[];
+	phasesChecked: string[];
+	phasesLight: string[];
+	gaps: GradedGap[];
+	documentationComplete: boolean;
+}) =>
+	// A human's `--phase` narrowing speaks for the files they chose, never for the ones they left out.
+	phases === undefined &&
+	// A pass that offered no plan file at all established nothing. A light file counts: it is an exemption the weighing made, not an unread file.
+	(phasesRequired.length > 0 || phasesLight.length > 0) &&
+	// `phasesChecked` names a file only when EVERY lens returned for it.
+	phasesRequired.every((phase) => phasesChecked.includes(phase)) &&
+	// No memory record carries an unjudged question, so only reading its plan file again can — and a baseline is a request not to.
+	gaps.every(({ outcome }) => outcome !== GapOutcome.Unjudged) &&
+	documentationComplete;
 
 /**
  * The verdict and the statement of what it covers, in one place. A pass is
@@ -60,15 +97,18 @@ interface Params {
  * make a pass incomplete, because its finding already blocks on its own.
  *
  * `lenses` states what actually ran rather than what exists: it is the full lens
- * list when a reader was spawned at all, and empty otherwise — every file
- * weighed light, the structural preflight stopped the pass before any spawn, or
- * a focused pass whose edited closure was empty. A grade whose `lenses` is empty
- * then reads as "no reader ran", never as "every lens ran and found nothing".
+ * list when this pass owed any plan file a reader, and empty otherwise — every
+ * file weighed light, the structural preflight stopped the pass before any
+ * spawn, or a focused pass whose edited closure was empty. A grade whose
+ * `lenses` is empty then reads as "no reader ran", never as "every lens ran and
+ * found nothing".
  *
  * A focused pass is incomplete by construction, in the one spelling this report
  * already has for a partial record: it never offered every plan file to the
  * readers, so it is not a clean bill whatever it found, and it can never be the
- * pass that approves a plan.
+ * pass that approves a plan. It may still be `scopeComplete` — every check its
+ * own scope called for finished — which is what lets it become the baseline the
+ * next repair narrows against without approving anything.
  */
 export const createGradeReport = ({
 	name,
@@ -85,12 +125,9 @@ export const createGradeReport = ({
 	focusedOn = [],
 	inputs,
 	scopeReason,
-	readersSpawned = true,
+	phasesRequired,
+	documentationComplete,
 }: Params): GradeReport => {
-	// Not "nothing was checked": a reader that failed also leaves `phasesChecked`
-	// empty, and that pass did spawn its lenses. Only a weighing where every file
-	// came out light means no reader ever ran.
-	const everyFileLight = weights.length > 0 && weights.every(({ weight }) => weight === PlanWeight.Light);
 	const narrowed = phases === undefined ? [] : [`graded a subset on request: ${phases.join(', ')} — the structural findings still cover every plan file`];
 	const read = focusedOn.length > 0 ? focusedOn.join(', ') : 'no phase — nothing was edited';
 	const focused = scope === GradeScope.Focused ? [`focused review of ${read} — a full review is required for approval`] : [];
@@ -105,10 +142,13 @@ export const createGradeReport = ({
 		structural,
 		gaps,
 		phasesChecked,
-		lenses: everyFileLight || !readersSpawned ? [] : gapCheckLenses,
+		// From what was owed, not from `phasesChecked`: a reader that failed also
+		// leaves `phasesChecked` empty, and that pass did spawn its lenses.
+		lenses: phasesRequired.length === 0 ? [] : gapCheckLenses,
 		weights,
 		phasesLight,
 		complete,
+		scopeComplete: isScopeComplete({ phases, phasesRequired, phasesChecked, phasesLight, gaps, documentationComplete }),
 		incompleteReason: complete ? undefined : reasons.join('; '),
 		passed: grade === PlanGrade.A,
 		gradedAt: new Date().toISOString(),
