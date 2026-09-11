@@ -95,11 +95,6 @@ const setupImplementDirect = ({
 
 	mockRunDirectWork.mockResolvedValue({ ok: true, manifest: manifestOf(RunStatus.Passed) });
 	mockCommitTicketWork.mockResolvedValue({ committed: true });
-	// LIGHTSOUT_NO_SHIP silently beats both the flag and the config, and the
-	// session running this suite may well have it exported — a queue worker sets
-	// it for exactly that reason. Pinned empty so the ship cases read the flags
-	// the test typed. restoreMocks puts the real environment back after each test.
-	jest.replaceProperty(process, 'env', { ...process.env, LIGHTSOUT_NO_SHIP: '' });
 
 	return { context: { flags: parseFlags({ args: [...args, '--no-worktree'] }), rest: [], cwd }, cwd, ...captured };
 };

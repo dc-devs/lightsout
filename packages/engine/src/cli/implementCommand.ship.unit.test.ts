@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, jest, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { implementCommand } from '#src/cli/implementCommand.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
@@ -21,12 +21,6 @@ const planFolder = 'plans/demo';
 const setupImplementShip = ({ args, config, phases, locked }: { args: string[]; config?: Record<string, unknown>; phases?: number; locked?: boolean }) => {
 	const captured = captureCommandOutput();
 	const cwd = setupConsumerRepo({ config });
-
-	// LIGHTSOUT_NO_SHIP silently beats both the flag and the config, and the
-	// session running this suite may well have it exported — a queue worker sets
-	// it for exactly that reason. Pinned empty so each case reads the flags it
-	// typed. restoreMocks puts the real environment back after every test.
-	jest.replaceProperty(process, 'env', { ...process.env, LIGHTSOUT_NO_SHIP: '' });
 
 	if (phases !== undefined) {
 		const rows = Array.from({ length: phases }, (_, index) => `| ${index + 1} | \`phase${index + 1}.md\` | scope |`);
