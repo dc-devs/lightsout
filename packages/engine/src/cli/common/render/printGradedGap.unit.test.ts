@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
 import { printGradedGap } from '#src/cli/common/render/printGradedGap.ts';
-import { GapArea, GapCheckLens, GapOutcome, type GradedGap } from '#src/contracts/index.ts';
+import { GapArea, GapCheckLens, type GapObservation, GapOutcome, type GradedGap } from '#src/contracts/index.ts';
 
 // The gap's whole output IS its two lines, so capturing the writer is the
 // arrangement. isTTY is pinned off so the assertions read the plain text a piped
@@ -18,6 +18,7 @@ const setupGradedGap = ({ gap = {} }: { gap?: Partial<GradedGap> } = {}) => {
 		phase: 'plan.md',
 		lens: GapCheckLens.Decisions,
 		outcome: GapOutcome.NeedsAHuman,
+		observations: [],
 		...gap,
 	};
 
@@ -170,5 +171,59 @@ test('a gap carrying a memory record id prints it, and a refusal note rides the 
 	expect(logged).toStrictEqual([
 		'f7 ? [omitted-decision] the plan picks no failure mode (decisions)',
 		'   decide: pick the failure mode — citation not found in the plan text: ## Decision Log',
+	]);
+});
+
+const observation: GapObservation = {
+	area: GapArea.OmittedDecision,
+	gap: 'the plan picks no failure mode',
+	decision: 'what to return when the judge times out',
+	options: [],
+	phase: 'phase1-grading.md',
+	lens: GapCheckLens.Decisions,
+};
+
+test('prints every affected location for a grouped finding', () => {
+	const grouped = setupGradedGap({
+		gap: {
+			phase: 'phase1-grading.md',
+			humanDecision: 'pick the failure mode',
+			sharedDefect: 'the two phases disagree on what a timed-out judge returns',
+			observations: [observation, { ...observation, phase: 'phase2-memory.md', lens: GapCheckLens.Wiring, gap: 'the memory phase assumes the judge throws' }],
+		},
+	});
+	const single = setupGradedGap({ gap: { phase: 'phase1-grading.md', humanDecision: 'pick the failure mode', observations: [observation] } });
+
+	printGradedGap({ gap: grouped.gap, write: grouped.write });
+	printGradedGap({ gap: single.gap, write: single.write });
+
+	// the grouped finding keeps its two lines and gains a third naming every place
+	// the one repair has to land, plus the defect the judge confirmed them as
+	expect(grouped.logged).toEqual([
+		'? [omitted-decision] the plan picks no failure mode (decisions)',
+		'   decide: pick the failure mode',
+		expect.stringMatching(/phase1-grading\.md.*phase2-memory\.md/),
+	]);
+	expect(grouped.logged[2]).toContain('the two phases disagree on what a timed-out judge returns');
+	// one location is today's output exactly: no third line
+	expect(single.logged).toStrictEqual(['? [omitted-decision] the plan picks no failure mode (decisions)', '   decide: pick the failure mode']);
+});
+
+test('printGradedGap: a finding spanning two plan files with no shared-defect statement still names both locations', () => {
+	const { gap, logged, write } = setupGradedGap({
+		gap: {
+			phase: 'phase1-grading.md',
+			humanDecision: 'pick the failure mode',
+			observations: [observation, { ...observation, phase: 'phase2-memory.md' }],
+		},
+	});
+
+	printGradedGap({ gap, write });
+
+	// the locations line never invents a defect statement the judge did not give
+	expect(logged).toStrictEqual([
+		'? [omitted-decision] the plan picks no failure mode (decisions)',
+		'   decide: pick the failure mode',
+		'   affects phase1-grading.md, phase2-memory.md',
 	]);
 });

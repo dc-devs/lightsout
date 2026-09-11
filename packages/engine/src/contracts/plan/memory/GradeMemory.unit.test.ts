@@ -99,6 +99,11 @@ describe('GradeMemory', () => {
 						answerAt: 'Decision Log row 27: a malformed memory fails the pass naming the file',
 						verifiedAt: '2026-09-02T00:00:00.000Z',
 					},
+					// a record written before grouping existed holds no observation list
+					// and no per-location resolutions of its own; readers fall back to
+					// its representative fields and its single resolution
+					observations: [],
+					resolutions: [],
 					reopened: [{ at: '2026-09-01T12:00:00.000Z', reason: 'the cited row was deleted', priorStatus: 'resolved' }],
 				},
 			],

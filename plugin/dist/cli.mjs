@@ -8023,6 +8023,9 @@ var pathExists = ({ path }) => stat(path).then(
   () => false
 );
 
+// src/plan/common/utils/findingLocations.ts
+var findingLocations = ({ observations, phase }) => observations.length === 0 ? [phase] : [...new Set(observations.map((observation) => observation.phase))];
+
 // ../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/external.js
 var external_exports = {};
 __export(external_exports, {
@@ -23790,29 +23793,6 @@ var GapArea = {
   MissingDocumentation: "missing-documentation"
 };
 
-// src/contracts/plan/grade/GapCheckLens.ts
-var GapCheckLens = {
-  /** What each file must expose: methods, signatures, behaviour, return values. */
-  Surface: "surface",
-  /** How the pieces connect: exports against imports, prerequisites, hand-offs, integration points. */
-  Wiring: "wiring",
-  /** What was never decided: edge cases, error handling, and contradictions with the standards. */
-  Decisions: "decisions"
-};
-
-// src/contracts/plan/grade/PlanGap.ts
-var PlanGap = external_exports.object({
-  area: external_exports.enum(GapArea),
-  gap: external_exports.string(),
-  decision: external_exports.string(),
-  options: external_exports.array(external_exports.string()).default([])
-});
-
-// src/contracts/plan/grade/GapCheckReport.ts
-var GapCheckReport = external_exports.object({
-  gaps: external_exports.array(PlanGap).default([])
-});
-
 // src/contracts/plan/grade/GapOutcome.ts
 var GapOutcome = {
   NeedsAHuman: "needs-a-human",
@@ -23836,9 +23816,44 @@ var GapVerdict = external_exports.object({
   matchesFinding: external_exports.string().optional()
 });
 
-// src/contracts/plan/grade/GradedGap.ts
-var GradedGap = PlanGap.extend({
-  ...GapVerdict.omit({ outcome: true, matchesFinding: true }).shape,
+// src/contracts/plan/grade/GapGroupVerdict.ts
+var GapGroupVerdict = GapVerdict.omit({ answerAt: true }).extend({
+  /** The engine-assigned identifiers (`o1`, `o2`, …) of every observation this ruling settles. Two or more is a claim that they are one defect. */
+  covers: external_exports.array(external_exports.string()).default([]),
+  /** Two or more covered: the one violated requirement or contradiction every covered observation is. */
+  sharedDefect: external_exports.string().optional(),
+  /** `already-answered`: one citation per plan file the covered observations span, each quoted from that file's own text or naming a path on disk. */
+  answers: external_exports.array(external_exports.object({ phase: external_exports.string(), answerAt: external_exports.string() })).default([])
+});
+
+// src/contracts/plan/grade/GapBatchVerdict.ts
+var GapBatchVerdict = external_exports.object({ verdicts: external_exports.array(GapGroupVerdict).default([]) });
+
+// src/contracts/plan/grade/GapCheckLens.ts
+var GapCheckLens = {
+  /** What each file must expose: methods, signatures, behaviour, return values. */
+  Surface: "surface",
+  /** How the pieces connect: exports against imports, prerequisites, hand-offs, integration points. */
+  Wiring: "wiring",
+  /** What was never decided: edge cases, error handling, and contradictions with the standards. */
+  Decisions: "decisions"
+};
+
+// src/contracts/plan/grade/PlanGap.ts
+var PlanGap = external_exports.object({
+  area: external_exports.enum(GapArea),
+  gap: external_exports.string(),
+  decision: external_exports.string(),
+  options: external_exports.array(external_exports.string()).default([])
+});
+
+// src/contracts/plan/grade/GapCheckReport.ts
+var GapCheckReport = external_exports.object({
+  gaps: external_exports.array(PlanGap).default([])
+});
+
+// src/contracts/plan/grade/GapObservation.ts
+var GapObservation = PlanGap.extend({
   /** The plan file's basename — `phase2-cross-phase-checks.md`, or `plan.md`. */
   phase: external_exports.string(),
   /**
@@ -23847,7 +23862,12 @@ var GradedGap = PlanGap.extend({
    * checker is the one producer of such a finding today; `phase` stays required,
    * because every finding is still labelled with a plan file a reader can open.
    */
-  lens: external_exports.enum(GapCheckLens).optional(),
+  lens: external_exports.enum(GapCheckLens).optional()
+});
+
+// src/contracts/plan/grade/GradedGap.ts
+var GradedGap = GapObservation.extend({
+  ...GapVerdict.omit({ outcome: true, matchesFinding: true }).shape,
   /**
    * Widened from the judge's three: `unjudged` is the engine's stamp and never
    * the judge's to claim. The default is for parsing a `grade.json` written
@@ -23859,12 +23879,25 @@ var GradedGap = PlanGap.extend({
   unjudgedReason: external_exports.string().optional(),
   /**
    * The memory record this gap belongs to — the one it was merged into, or the
-   * open record it was surfaced from. Absent on an unjudged finding, which opens
-   * no record. `matchesFinding` is deliberately not carried through from the
-   * verdict: what is persisted is the id the engine resolved, never the agent's
-   * raw claim.
+   * record it was surfaced from. `matchesFinding` is deliberately not carried
+   * through from the verdict: what is persisted is the id the engine resolved,
+   * never the agent's raw claim.
    */
-  findingId: external_exports.string().optional()
+  findingId: external_exports.string().optional(),
+  /**
+   * Every observation this finding covers. Empty on a single-observation finding
+   * and on a `grade.json` written before grouping existed — read it through
+   * `findingLocations`, which treats empty as the gap's own `phase`.
+   */
+  observations: external_exports.array(GapObservation).default([]),
+  /**
+   * The engine's per-pass identifier shared by every gap one multi-observation
+   * ruling covered — what lets the memory fold open one record for a group it has
+   * not given a record id yet. Never an agent's to claim.
+   */
+  groupId: external_exports.string().optional(),
+  /** The judge's statement of the one violated requirement or contradiction a confirmed group's members are. */
+  sharedDefect: external_exports.string().optional()
 });
 
 // src/contracts/plan/grade/PlanWeight.ts
@@ -24048,7 +24081,11 @@ var GradeFindingStatus = {
   /** An open record a re-verification judge closed by citing where the plan now states the answer. */
   Resolved: "resolved",
   /** A finding a judge ruled the implementing agent can settle, or showed was already answered. Closed on creation. */
-  Noted: "noted"
+  Noted: "noted",
+  /** A finding no judge settled. Blocks like `Open`, and the next pass re-offers it to a judge rather than to the re-verification judges. */
+  Pending: "pending",
+  /** A record whose obligation moved onto another when a judge confirmed the two were one defect. Never blocks, never re-verified, never shown to a judge. */
+  Superseded: "superseded"
 };
 
 // src/contracts/plan/memory/GradeFindingRecord.ts
@@ -24062,17 +24099,31 @@ var GradeFindingRecord = external_exports.object({
   gap: external_exports.string(),
   decision: external_exports.string(),
   options: external_exports.array(external_exports.string()).default([]),
+  /** Every original observation the record holds, each with its own phase, lens and wording. Empty on a record written before grouping existed — read it through `recordObservations`. */
+  observations: external_exports.array(GapObservation).default([]),
   firstSeen: external_exports.string(),
   lastSeen: external_exports.string(),
   status: external_exports.enum(GradeFindingStatus),
-  /** The judge outcome that created the record, kept verbatim and never rewritten. `unjudged` is excluded: an unjudged finding opens no record. */
-  disposition: external_exports.enum([GapOutcome.NeedsAHuman, GapOutcome.AgentCanDecide, GapOutcome.AlreadyAnswered]),
+  /**
+   * The judge outcome that settled the record, kept verbatim and never rewritten
+   * once written. Absent only on a `pending` record, which no judge has ruled on;
+   * `unjudged` is excluded because it is the engine's stamp, not a ruling.
+   */
+  disposition: external_exports.enum([GapOutcome.NeedsAHuman, GapOutcome.AgentCanDecide, GapOutcome.AlreadyAnswered]).optional(),
+  /** Why nobody settled a `pending` record, so the blocker it surfaces as can say what went wrong. */
+  unjudgedReason: external_exports.string().optional(),
+  /** The confirmed group's shared-defect statement, kept verbatim and never rewritten. */
+  sharedDefect: external_exports.string().optional(),
+  /** Set only on a `superseded` record: the id of the record that now carries its obligation. Never cleared, so the trail stays readable. */
+  supersededBy: external_exports.string().optional(),
   humanDecision: external_exports.string().optional(),
   agentDecision: external_exports.string().optional(),
   safeBecause: external_exports.string().optional(),
   answerAt: external_exports.string().optional(),
-  /** Set only on a `resolved` record: where the plan now states the answer, and when a judge verified it. */
+  /** The single-location closure written before per-location resolutions existed. Read only through `recordResolutions`; nothing writes it again. */
   resolution: external_exports.object({ answerAt: external_exports.string(), verifiedAt: external_exports.string() }).optional(),
+  /** Set only on a `resolved` record: one confirmed citation per affected location, and when a judge verified it. */
+  resolutions: external_exports.array(external_exports.object({ phase: external_exports.string(), answerAt: external_exports.string(), verifiedAt: external_exports.string() })).default([]),
   reopened: external_exports.array(external_exports.object({ at: external_exports.string(), reason: external_exports.string(), priorStatus: external_exports.enum(GradeFindingStatus) })).default([])
 });
 
@@ -26125,10 +26176,18 @@ ${text}`),
 };
 
 // src/agents/prompts/planFindingRecheck.md
-var planFindingRecheck_default = '# Role: Re-check a Settled Plan Question\n\nYou are handed **one** question a human was previously asked to settle, and the\ncurrent text of the plan it was raised against. You answer **one** question\nabout it: does the plan now state the answer? You work autonomously and your\nfinal message is machine-parsed \u2014 one JSON object, not prose.\n\n## What you are given\n\nThe task message provides the current plan text and the single record on file \u2014\nits id, the area it was raised under, what the reader found missing, the\ndecision it demanded, the options offered, and what the original judge said a\nhuman had to decide. When present, the overview plan (shared context for a\nphased plan \u2014 read it, do not judge it standalone) and supplemental code\nstandards are appended to these role instructions rather than arriving in the\ntask message.\n\nYou may read the repository. You make no edits.\n\n## The plan\'s other phases\n\nWhen the task message names the plan\'s folder, the plan is phased and its other\nphase files are on disk beside the text you were given. A question raised\nagainst one phase can be answered in another \u2014 a repair often moves a decision\ninto the overview\'s Decision Log or into the phase that owns the seam. Open a\nsibling when the answer plausibly moved there.\n\n## The two answers\n\n- **`already-answered`** \u2014 the plan now genuinely settles this question. A\n  reader of the plan would not have to guess, invent, or decide anything the\n  record asked about.\n- **`needs-a-human`** \u2014 it does not. Restate the outstanding decision in\n  `humanDecision`, in the terms a human can answer.\n\nYou never rule `agent-can-decide`. Downgrading a human\'s question to an\nassumption the implementing agent may make is not re-verification; it is\nanswering a different question from the one on file. If the plan does not state\nthe answer, the answer is `needs-a-human`.\n\n## The citation rule\n\n`answerAt` is your evidence, and the engine checks it before it closes anything.\n\n- Paste the **exact plan line** that states the answer \u2014 a Decision Log row, a\n  sentence from a file entry, a rule from a Scope Boundaries bullet. Copy it\n  verbatim from the text you were given.\n- Never paraphrase it, never give a heading on its own, and never describe where\n  to look ("see the Decision Log"). The engine looks for your quote in the plan\n  text; a quote it cannot find refuses the closure and the record stays open and\n  blocking.\n- A file path is the one non-quote citation allowed, and it must be a file that\n  is really on disk.\n\nA record you cannot close honestly is a record that should stay open. An\ninvented citation does not close it \u2014 it costs the run a pass and leaves the\nquestion exactly where it was.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text. Your message starts with\n`{` and ends with `}`.\n\n```\n{\n	"outcome": "already-answered|needs-a-human",\n	"answerAt": "<already-answered: the exact plan line that states the answer, or a file path on disk>",\n	"humanDecision": "<needs-a-human: the decision still outstanding>"\n}\n```\n';
+var planFindingRecheck_default = '# Role: Re-check a Settled Plan Question\n\nYou are handed **one** question a human was previously asked to settle, and the\ncurrent text of the plan it was raised against. You answer **one** question\nabout it: does the plan now state the answer? You work autonomously and your\nfinal message is machine-parsed \u2014 one JSON object, not prose.\n\n## What you are given\n\nThe task message provides the current plan text and the single record on file \u2014\nits id, the area it was raised under, what the reader found missing, the\ndecision it demanded, the options offered, and what the original judge said a\nhuman had to decide. When present, the overview plan (shared context for a\nphased plan \u2014 read it, do not judge it standalone) and supplemental code\nstandards are appended to these role instructions rather than arriving in the\ntask message.\n\nYou may read the repository. You make no edits.\n\n## The plan\'s other phases\n\nWhen the task message names the plan\'s folder, the plan is phased and its other\nphase files are on disk beside the text you were given. A question raised\nagainst one phase can be answered in another \u2014 a repair often moves a decision\ninto the overview\'s Decision Log or into the phase that owns the seam. Open a\nsibling when the answer plausibly moved there.\n\n## A record that spans several plan files\n\nA judge may have confirmed that readers in several plan files described one\ndefect, and the record then holds each of their observations. When the task\nmessage says this spawn asks about one plan file of such a record, answer **only\nfor that file**, in the words of that file\'s own observation. The record closes\nonly once every one of its files is confirmed separately, so an answer stated in\na different file is no evidence about this one \u2014 cite the plan text you were\ngiven, never a line from a sibling.\n\n## The two answers\n\n- **`already-answered`** \u2014 the plan now genuinely settles this question. A\n  reader of the plan would not have to guess, invent, or decide anything the\n  record asked about.\n- **`needs-a-human`** \u2014 it does not. Restate the outstanding decision in\n  `humanDecision`, in the terms a human can answer.\n\nYou never rule `agent-can-decide`. Downgrading a human\'s question to an\nassumption the implementing agent may make is not re-verification; it is\nanswering a different question from the one on file. If the plan does not state\nthe answer, the answer is `needs-a-human`.\n\n## The citation rule\n\n`answerAt` is your evidence, and the engine checks it before it closes anything.\n\n- Paste the **exact plan line** that states the answer \u2014 a Decision Log row, a\n  sentence from a file entry, a rule from a Scope Boundaries bullet. Copy it\n  verbatim from the text you were given.\n- Never paraphrase it, never give a heading on its own, and never describe where\n  to look ("see the Decision Log"). The engine looks for your quote in the plan\n  text; a quote it cannot find refuses the closure and the record stays open and\n  blocking.\n- A file path is the one non-quote citation allowed, and it must be a file that\n  is really on disk.\n\nA record you cannot close honestly is a record that should stay open. An\ninvented citation does not close it \u2014 it costs the run a pass and leaves the\nquestion exactly where it was.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text. Your message starts with\n`{` and ends with `}`.\n\n```\n{\n	"outcome": "already-answered|needs-a-human",\n	"answerAt": "<already-answered: the exact plan line that states the answer, or a file path on disk>",\n	"humanDecision": "<needs-a-human: the decision still outstanding>"\n}\n```\n';
 
 // src/agents/buildPlanFindingRecheckInvocation.ts
-var buildPlanFindingRecheckInvocation = ({ planText, overviewText, standards, planDir, record: record3 }) => {
+var buildPlanFindingRecheckInvocation = ({
+  planText,
+  overviewText,
+  standards,
+  planDir,
+  record: record3,
+  observation,
+  locations = []
+}) => {
   const roleSections = [planFindingRecheck_default];
   if (overviewText) {
     roleSections.push(`# Overview (context only \u2014 do not judge standalone)
@@ -26152,15 +26211,20 @@ ${planText}`];
 The plan's other phase files are in \`${planDir}\`. Open one when the answer to this question plausibly moved there; ignore them otherwise.`
     );
   }
+  const located = locations.length > 1 ? observation : void 0;
+  const asked = located ?? record3;
+  const others = locations.filter((location) => location !== asked.phase).join(", ");
+  const where = located === void 0 ? [] : [`- this spawn asks about ${located.phase} only; the record also appears in ${others}`];
   sections.push(
     [
       "## The question on record",
       "",
       `- record: ${record3.id}`,
-      `- area: ${record3.area}`,
-      `- finding: ${record3.gap}`,
-      `- the reader says this must be decided: ${record3.decision}`,
-      `- options the reader offered: ${record3.options.length > 0 ? record3.options.join(" / ") : "none offered"}`,
+      ...where,
+      `- area: ${asked.area}`,
+      `- finding: ${asked.gap}`,
+      `- the reader says this must be decided: ${asked.decision}`,
+      `- options the reader offered: ${asked.options.length > 0 ? asked.options.join(" / ") : "none offered"}`,
       `- what the original judge said a human must settle: ${record3.humanDecision ?? "not recorded"}`
     ].join("\n"),
     "Remember: your entire final message must be exactly one JSON GapVerdict object \u2014 nothing else."
@@ -26245,24 +26309,41 @@ ${planText}`,
 };
 
 // src/agents/prompts/planGapJudge.md
-var planGapJudge_default = '# Role: Judge a Plan Gap\n\nYou are handed **one** finding a reader raised against a plan, and you answer\n**one** question about it: who has to settle it. You work autonomously and your\nfinal message is machine-parsed \u2014 one JSON object, not prose.\n\n## What you are given\n\nThe task message provides the plan file the finding was raised against and the\nfinding itself. When present, the overview plan (shared context for a phased\nplan \u2014 read it, do not judge it standalone) and supplemental code standards are\nappended to these role instructions rather than arriving in the task message.\n\nYou may read the repository. You make no edits.\n\n## The plan\'s other phases\n\nWhen the task message names the plan\'s folder, the plan is phased and its other\nphase files are on disk beside the one you were given. A finding about something\na neighbouring phase produces or consumes cannot be settled from one phase file\nalone, and a judge that guesses at the neighbour is the rubber stamp this brief\nexists to prevent \u2014 so open the sibling file and look.\n\nA finding contained entirely in its own phase needs none of this. Do not read\nthe whole plan out of thoroughness.\n\n## The one question\n\nWho settles this finding: a human, the implementing agent, or nobody, because it\nis already answered.\n\n## The bar\n\nCould a fresh-context agent implementing this plan derive the answer from the\nplan, the overview, the codebase and the standards \u2014 and be right?\n\nThis is the same bar the reader briefs state, which is why you read the\nrepository rather than the plan text alone. "The plan does not say it" is not\nenough; the question is whether the agent would still get it right.\n\n## The three outcomes, and the evidence each demands\n\n- **`needs-a-human`** \u2014 the agent cannot work it out. Two defensible answers\n  exist and the plan picks neither, or the choice turns on intent nothing in the\n  repository carries. Supply **`humanDecision`**: the decision the human has to\n  make.\n- **`agent-can-decide`** \u2014 the agent can settle it correctly on its own, from\n  the plan, the codebase or the standards. Supply **`agentDecision`** (what it\n  would decide) and **`safeBecause`** (why that choice is safe to make\n  unattended).\n- **`already-answered`** \u2014 the reader missed an answer that is already there.\n  Supply **`answerAt`**: where it lives, as a line of the plan, a `file:symbol`,\n  or a named standards rule.\n\n## Findings already on record for this plan file\n\nThe task message may list the records the plan\'s memory already holds for this\nfile, each with an id and the state it is in. When it does, decide **first**\nwhether the finding you were given is the **same question** as one of them.\n\n- If it is, put that record\'s id in **`matchesFinding`**. If it is not, leave the\n  field unset.\n- Never name an id that is not on the list. One the plan does not hold points\n  nowhere, and the engine treats the whole verdict as no answer at all \u2014 which\n  blocks the plan.\n- Matching is **orthogonal to your ruling**: a matched finding still gets a full\n  verdict with the evidence that outcome demands.\n- A match you rule `needs-a-human` **reopens** a record someone already closed.\n  Rule that way only on evidence the earlier clearance was wrong, or that the\n  assumptions it rested on have changed. A reader re-wording a settled question\n  is not such evidence.\n\n## Rules\n\n- Judge only the finding you were given. Do not read the plan for new gaps, and\n  do not re-check its structure \u2014 that is verified deterministically in code.\n- The evidence your outcome demands is mandatory. An answer without it is\n  discarded and the finding is treated as unjudged, which blocks the plan.\n- Cite what you actually read. A `file:symbol` you did not open is worse than no\n  citation, and a citation naming a file that is not on disk is discarded.\n- When you cannot tell, `needs-a-human` is the safe answer. Asking costs one\n  question; waving something through costs an unattended run that stalls.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text. Your message starts with\n`{` and ends with `}`. Include only the evidence fields your outcome demands.\n\n```\n{\n	"outcome": "needs-a-human|agent-can-decide|already-answered",\n	"humanDecision": "<needs-a-human only>",\n	"agentDecision": "<agent-can-decide only>",\n	"safeBecause": "<agent-can-decide only>",\n	"answerAt": "<already-answered only>",\n	"matchesFinding": "<the id of the record this finding repeats, when one is on the list>"\n}\n```\n';
+var planGapJudge_default = '# Role: Judge a Plan Gap Batch\n\nYou are handed **several observations** readers raised against a plan, and you\nanswer **one** question about each: who has to settle it. Before that, you\ndecide which of them describe the same underlying defect. You work autonomously\nand your final message is machine-parsed \u2014 one JSON object, not prose.\n\n## What you are given\n\nThe task message provides the text of every plan file the observations span \u2014\none `## Plan file:` section each \u2014 and the observations themselves, each under\nan engine-assigned identifier (`### o1`, `### o4`, \u2026) with its plan file, area,\nlens, finding, decision and offered options. When present, the overview plan\n(shared context for a phased plan \u2014 read it, do not judge it standalone) and\nsupplemental code standards are appended to these role instructions rather than\narriving in the task message.\n\nYou may read the repository. You make no edits.\n\n## The plan\'s other phases\n\nWhen the task message names the plan\'s folder, the plan is phased and its other\nphase files are on disk beside the ones you were given. An observation about\nsomething a neighbouring phase produces or consumes cannot be settled from one\nside alone, and a judge that guesses at the neighbour is the rubber stamp this\nbrief exists to prevent \u2014 so when the neighbour is not one of the plan files you\nwere given, open it and look.\n\nAn observation contained entirely in the files you were given needs none of\nthis. Do not read the whole plan out of thoroughness.\n\n## First: which observations are one defect\n\nThe engine put these observations together because their wording overlaps. That\nis a hint, never proof. Two or more observations are the **same defect** only\nwhen you can state:\n\n- a **common violated requirement or contradiction** every one of them is an\n  instance of, and\n- **one corrective decision** that settles every one of them.\n\nShared wording, a shared symbol or an overlapping file is not enough on its own.\nObservations of one contradiction seen from two phases usually ARE one defect;\ntwo different questions that happen to name the same file usually are NOT.\n\nWhen you are not sure, keep them apart. Being unsure is a normal answer, not a\nfailure: an observation you rule on its own is judged exactly as it would be\nalone.\n\n## The one question\n\nFor each defect \u2014 a confirmed group, or a single observation \u2014 who settles it: a\nhuman, the implementing agent, or nobody, because it is already answered.\n\n## The bar\n\nCould a fresh-context agent implementing this plan derive the answer from the\nplan, the overview, the codebase and the standards \u2014 and be right?\n\nThis is the same bar the reader briefs state, which is why you read the\nrepository rather than the plan text alone. "The plan does not say it" is not\nenough; the question is whether the agent would still get it right.\n\n## The three outcomes, and the evidence each demands\n\n- **`needs-a-human`** \u2014 the agent cannot work it out. Two defensible answers\n  exist and the plan picks neither, or the choice turns on intent nothing in the\n  repository carries. Supply **`humanDecision`**: the decision the human has to\n  make.\n- **`agent-can-decide`** \u2014 the agent can settle it correctly on its own, from\n  the plan, the codebase or the standards. Supply **`agentDecision`** (what it\n  would decide) and **`safeBecause`** (why that choice is safe to make\n  unattended).\n- **`already-answered`** \u2014 the reader missed an answer that is already there.\n  Supply **`answers`**: one entry for **every** plan file the ruling\'s\n  observations span, each naming that file in `phase` and giving, in `answerAt`,\n  either the exact line of **that file** that states the answer \u2014 copied\n  verbatim from its `## Plan file:` section \u2014 or the path of a file on disk.\n  Every file a ruling spans is one of the `## Plan file:` sections you were\n  given, so you are never asked to cite a file you cannot read. One citation\n  waving away a contradiction observed in two files is refused: an answer in one\n  file is no evidence about the other.\n\n## Your rulings\n\nYou return a **list** of rulings.\n\n- A ruling names the identifiers it covers in **`covers`**. Naming two or more is\n  your claim that they are one defect, and it must state that defect in\n  **`sharedDefect`** \u2014 the common requirement or contradiction, in one sentence.\n  Naming one is an ordinary single ruling.\n- **Every identifier you were given must appear in exactly one ruling.** An\n  observation no ruling covers, one covered by two rulings, and any identifier\n  you were not given all leave the affected observations unjudged \u2014 which blocks\n  the plan.\n- A ruling over a group settles the whole group with one outcome. There is no\n  vote: if the members need different outcomes, they are not one defect.\n\n## Findings already on record\n\nThe task message may list the records the plan\'s memory already holds for the\nplan files you were given, each with an id and the state it is in. When it\ndoes, decide **first**, for each ruling, whether it is the **same question** as\none of them.\n\n- If it is, put that record\'s id in the ruling\'s **`matchesFinding`**. If it is\n  not, leave the field unset.\n- Never name an id that is not on the list. One the plan does not hold points\n  nowhere, and the engine treats that whole ruling as no answer at all \u2014 which\n  blocks the plan.\n- Matching is **orthogonal to your ruling**: a matched ruling still gets a full\n  verdict with the evidence its outcome demands.\n- A match you rule `needs-a-human` **reopens** a record someone already closed.\n  Rule that way only on evidence the earlier clearance was wrong, or that the\n  assumptions it rested on have changed. A reader re-wording a settled question\n  is not such evidence.\n\n## Rules\n\n- Judge only the observations you were given. Do not read the plan for new\n  gaps, and do not re-check its structure \u2014 that is verified deterministically\n  in code.\n- The evidence your outcome demands is mandatory. A ruling without it is\n  discarded and every observation it covers is treated as unjudged, which blocks\n  the plan.\n- Cite what you actually read. A citation the engine cannot find in the plan\n  file it names, or a path that is not on disk, is discarded and blocks.\n- When you cannot tell, `needs-a-human` is the safe answer. Asking costs one\n  question; waving something through costs an unattended run that stalls.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text. Your message starts with\n`{` and ends with `}`. Include only the evidence fields each outcome demands.\n\n```\n{\n	"verdicts": [\n		{\n			"covers": ["<every identifier this ruling settles>"],\n			"sharedDefect": "<two or more covered: the one defect they all are>",\n			"outcome": "needs-a-human|agent-can-decide|already-answered",\n			"humanDecision": "<needs-a-human only>",\n			"agentDecision": "<agent-can-decide only>",\n			"safeBecause": "<agent-can-decide only>",\n			"answers": [{ "phase": "<a plan file the ruling spans>", "answerAt": "<already-answered only: that file\'s exact line, or a path on disk>" }],\n			"matchesFinding": "<the id of the record this ruling repeats, when one is on the list>"\n		}\n	]\n}\n```\n';
 
 // src/agents/buildPlanGapJudgeInvocation.ts
 var recordsSection = ({ records }) => [
-  "## Findings already on record for this plan file",
+  "## Findings already on record",
   "",
   ...records.map((record3) => `- ${record3.id} (${record3.status}) \u2014 ${record3.gap}`),
   "",
-  "Decide first whether the finding below is the SAME QUESTION as one of these. If it",
-  "is, put that record's id in `matchesFinding`; otherwise leave the field unset.",
-  "Never name an id that is not on this list \u2014 one the plan does not hold points",
-  "nowhere, and the engine treats it as no answer at all.",
+  "Decide first, for each ruling, whether it is the SAME QUESTION as one of these. If",
+  "it is, put that record's id in the ruling's `matchesFinding`; otherwise leave the",
+  "field unset. Never name an id that is not on this list \u2014 one the plan does not",
+  "hold points nowhere, and the engine treats that ruling as no answer at all.",
   "",
   "Matching is orthogonal to your ruling: a matched finding still gets a full verdict.",
   "A match you rule `needs-a-human` REOPENS a closed record, so rule that way only on",
   "evidence the earlier clearance was wrong or that its assumptions have changed."
 ].join("\n");
-var buildPlanGapJudgeInvocation = ({ planText, overviewText, standards, planDir, records, gap }) => {
+var observationEntry = ({ id, observation }) => [
+  `### ${id}`,
+  "",
+  `- plan file: ${observation.phase}`,
+  `- area: ${observation.area}`,
+  `- lens: ${observation.lens}`,
+  `- finding: ${observation.gap}`,
+  `- the reader says this must be decided: ${observation.decision}`,
+  `- options the reader offered: ${observation.options.length > 0 ? observation.options.join(" / ") : "none offered"}`
+].join("\n");
+var buildPlanGapJudgeInvocation = ({
+  planTexts,
+  overviewText,
+  standards,
+  planDir,
+  records,
+  observations
+}) => {
   const roleSections = [planGapJudge_default];
   if (overviewText) {
     roleSections.push(`# Overview (context only \u2014 do not judge standalone)
@@ -26276,30 +26357,22 @@ The implementing agent loads these too \u2014 they are part of what it could der
 
 ${standards}`);
   }
-  const sections = [`# Gap-judge input`, `## Plan the finding was raised against
+  const sections = ["# Gap-judge input", ...planTexts.map(({ phase, text }) => `## Plan file: ${phase}
 
-${planText}`];
+${text}`)];
   if (planDir) {
     sections.push(
       `## The plan's other phases
 
-The plan's other phase files are in \`${planDir}\`. Open one when this finding is about something a neighbouring phase produces or consumes; ignore them otherwise.`
+The plan's other phase files are in \`${planDir}\`. Open one when an observation is about something a neighbouring phase this batch does not span produces or consumes; ignore them otherwise.`
     );
   }
   if (records && records.length > 0) {
     sections.push(recordsSection({ records }));
   }
   sections.push(
-    [
-      "## The finding to judge",
-      "",
-      `- area: ${gap.area}`,
-      `- lens: ${gap.lens}`,
-      `- finding: ${gap.gap}`,
-      `- the reader says this must be decided: ${gap.decision}`,
-      `- options the reader offered: ${gap.options.length > 0 ? gap.options.join(" / ") : "none offered"}`
-    ].join("\n"),
-    "Remember: your entire final message must be exactly one JSON GapVerdict object \u2014 nothing else."
+    ["## The observations to judge", "", observations.map((entry) => observationEntry(entry)).join("\n\n")].join("\n"),
+    "Remember: your entire final message must be exactly one JSON GapBatchVerdict object \u2014 nothing else."
   );
   return {
     systemPrompt: roleSections.join("\n\n---\n\n"),
@@ -132578,7 +132651,7 @@ var runPlanDedup = async (params) => {
 };
 
 // src/plan/runPlanGrade.ts
-import { basename as basename29, join as join60 } from "node:path";
+import { basename as basename30, join as join60 } from "node:path";
 
 // src/plan/appendGradeHistory.ts
 import { appendFile as appendFile4, mkdir as mkdir15 } from "node:fs/promises";
@@ -132699,7 +132772,38 @@ var readReusableGrade = async ({ gradePath, sha256: sha2562 }) => {
 };
 
 // src/plan/common/grading/runGradePass.ts
-import { basename as basename24, join as join58 } from "node:path";
+import { basename as basename25, join as join58 } from "node:path";
+
+// src/plan/common/memory/collapseText.ts
+var collapseText = ({ text }) => text.replace(/\s+/g, " ").trim().toLowerCase();
+
+// src/plan/common/observations/dedupeObservations.ts
+var dedupeObservations = ({ observations }) => {
+  const seen = /* @__PURE__ */ new Set();
+  return observations.filter((observation) => {
+    const key = JSON.stringify([observation.phase, observation.lens, observation.area, collapseText({ text: observation.gap })]);
+    const repeat = seen.has(key);
+    seen.add(key);
+    return !repeat;
+  });
+};
+
+// src/plan/common/observations/gapObservations.ts
+var gapObservations = ({ gap }) => gap.observations.length > 0 ? gap.observations : [{ phase: gap.phase, lens: gap.lens, area: gap.area, gap: gap.gap, decision: gap.decision, options: gap.options }];
+
+// src/plan/common/grading/collapseGroupedGaps.ts
+var collapseSide = ({ gap, gaps }) => {
+  const blocking = isBlockingGap({ gap });
+  const side = gaps.filter((member) => member.findingId === gap.findingId && isBlockingGap({ gap: member }) === blocking);
+  let collapsed = [];
+  if (side.length === 1) {
+    collapsed = [gap];
+  } else if (side[0] === gap) {
+    collapsed = [{ ...gap, observations: dedupeObservations({ observations: side.flatMap((member) => gapObservations({ gap: member })) }) }];
+  }
+  return collapsed;
+};
+var collapseGroupedGaps = ({ gaps }) => gaps.flatMap((gap) => (gap.findingId ?? "") === "" ? [gap] : collapseSide({ gap, gaps }));
 
 // src/plan/common/grading/drainGradeAgents.ts
 import { basename as basename21, relative as relative8 } from "node:path";
@@ -132733,7 +132837,8 @@ var checkPlanDocumentation = async (params) => {
     ...gap,
     area: GapArea.MissingDocumentation,
     phase: basename18(planPaths[0]),
-    outcome: GapOutcome.NeedsAHuman
+    outcome: GapOutcome.NeedsAHuman,
+    observations: []
   }));
   onProgress(`plan grade ${name}: documentation check \u2014 ${gaps.length} finding(s) against ${docs.length} declared surface(s)`);
   return { gaps, failures: [], rateLimited: false };
@@ -132754,7 +132859,7 @@ var foldGapResults = ({ selected, results }) => {
       continue;
     }
     returned.set(result.phase, (returned.get(result.phase) ?? 0) + 1);
-    gaps.push(...result.outcome.report.gaps.map((gap) => ({ ...gap, phase: result.phase, lens: result.lens, outcome: GapOutcome.Unjudged })));
+    gaps.push(...result.outcome.report.gaps.map((gap) => ({ ...gap, phase: result.phase, lens: result.lens, outcome: GapOutcome.Unjudged, observations: [] })));
   }
   const phasesChecked = selected.map((file2) => basename19(file2.path)).filter((phase) => returned.get(phase) === gapCheckLenses.length);
   return { gaps, failures, phasesChecked };
@@ -132772,7 +132877,99 @@ var drainGapCheckers = async ({
 };
 
 // src/plan/common/grading/judgeGaps.ts
-import { basename as basename20, relative as relative7 } from "node:path";
+import { relative as relative7 } from "node:path";
+
+// src/plan/common/grading/groupGapCandidates.ts
+import { basename as basename20 } from "node:path";
+
+// src/common/fileGroups/groupConnectedFiles.ts
+var groupConnectedFiles = ({ files, edges }) => {
+  const parent = new Map(files.map((file2) => [file2, file2]));
+  const find = (file2) => {
+    const up = parent.get(file2);
+    if (up === void 0 || up === file2) {
+      return file2;
+    }
+    const root = find(up);
+    parent.set(file2, root);
+    return root;
+  };
+  for (const { from, to } of edges) {
+    if (!parent.has(from) || !parent.has(to)) {
+      continue;
+    }
+    const rootFrom = find(from);
+    const rootTo = find(to);
+    if (rootFrom !== rootTo) {
+      parent.set(rootFrom, rootTo);
+    }
+  }
+  const byRoot = /* @__PURE__ */ new Map();
+  for (const file2 of files) {
+    const root = find(file2);
+    byRoot.set(root, [...byRoot.get(root) ?? [], file2]);
+  }
+  return [...byRoot.values()].map((group) => [...group].sort()).sort((a, b) => (a[0] ?? "").localeCompare(b[0] ?? ""));
+};
+
+// src/plan/common/constants/gapBatchLimits.ts
+var gapBatchLimits = { maxObservations: 8, maxPlanFiles: 3 };
+
+// src/plan/common/grading/distinctiveWords.ts
+var distinctiveWords = ({ text }) => {
+  const minimumLength = 6;
+  return new Set(
+    text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((word) => word.length >= minimumLength)
+  );
+};
+
+// src/plan/common/grading/groupGapCandidates.ts
+var candidatesOf = ({ gaps, files }) => gaps.flatMap((gap, index) => {
+  const locations = findingLocations({ observations: gap.observations, phase: gap.phase }).flatMap((phase) => {
+    const file2 = files.find((candidate) => basename20(candidate.path) === phase);
+    return file2 === void 0 ? [] : [{ phase, text: file2.text }];
+  });
+  return locations.length === 0 ? [] : [{ id: `o${index + 1}`, index, gap, locations, words: distinctiveWords({ text: `${gap.gap} ${gap.decision}` }) }];
+});
+var relatedPairs = ({ candidates }) => {
+  const minimumSharedWords = 2;
+  return candidates.flatMap(
+    (first, position) => candidates.slice(position + 1).filter((second) => [...first.words].filter((word) => second.words.has(word)).length >= minimumSharedWords).map((second) => ({ from: first.id, to: second.id }))
+  );
+};
+var spannedLocations = ({ members }) => [
+  ...new Map(members.flatMap((member) => member.locations).map((location) => [location.phase, location])).values()
+];
+var splitGroup = ({ members }) => {
+  const batches = [];
+  for (const member of members) {
+    const last = batches.at(-1);
+    const fits = last !== void 0 && last.length < gapBatchLimits.maxObservations && spannedLocations({ members: [...last, member] }).length <= gapBatchLimits.maxPlanFiles;
+    if (fits) {
+      last.push(member);
+    } else {
+      batches.push([member]);
+    }
+  }
+  return batches;
+};
+var groupGapCandidates = ({ gaps, files }) => {
+  const candidates = candidatesOf({ gaps, files });
+  const components = groupConnectedFiles({ files: candidates.map(({ id }) => id), edges: relatedPairs({ candidates }) });
+  const groups = components.map((component) => {
+    const members = new Set(component);
+    return candidates.filter(({ id }) => members.has(id));
+  }).sort((first, second) => first[0].index - second[0].index);
+  return groups.flatMap(
+    (members) => splitGroup({ members }).map((batch) => ({
+      observations: batch.map(({ id, index, gap }) => ({ id, index, gap })),
+      planTexts: spannedLocations({ members: batch })
+    }))
+  );
+};
+
+// src/plan/common/constants/noJudgeRanReason.ts
+var noJudgeRanReason = "no judge ran \u2014 the fan-out stopped before this finding was judged";
 
 // src/plan/common/paths/citationPathToken.ts
 var citationPathToken = ({ citation }) => {
@@ -132784,70 +132981,175 @@ var citationPathToken = ({ citation }) => {
 import { isAbsolute as isAbsolute3, join as join57 } from "node:path";
 var citedPathExists = async ({ cwd, token }) => pathExists({ path: isAbsolute3(token) ? token : join57(cwd, token) });
 
-// src/plan/common/grading/matchGapVerdicts.ts
+// src/plan/common/memory/confirmCitation.ts
+var minimumCitationLength = 24;
+var confirmPath = async ({ cwd, token }) => {
+  const present = await citedPathExists({ cwd, token });
+  return present ? { ok: true } : { ok: false, reason: `cited ${token}, which is not on disk` };
+};
+var confirmQuote = ({ citation, planText }) => {
+  const quote2 = collapseText({ text: citation });
+  if (quote2.length < minimumCitationLength) {
+    return { ok: false, reason: `citation shorter than ${minimumCitationLength} characters: ${citation}` };
+  }
+  const found = collapseText({ text: planText }).includes(quote2);
+  return found ? { ok: true } : { ok: false, reason: `citation not found in the plan text: ${citation}` };
+};
+var confirmCitation = async ({ cwd, citation, planText }) => {
+  const token = citationPathToken({ citation });
+  return token === void 0 ? confirmQuote({ citation, planText }) : confirmPath({ cwd, token });
+};
+
+// src/plan/common/grading/accountBatchVerdicts.ts
 var isFilled = ({ value }) => (value ?? "").trim().length > 0;
 var hasRequiredEvidence = ({ verdict }) => {
   const demanded = {
     [GapOutcome.NeedsAHuman]: isFilled({ value: verdict.humanDecision }),
     [GapOutcome.AgentCanDecide]: isFilled({ value: verdict.agentDecision }) && isFilled({ value: verdict.safeBecause }),
-    [GapOutcome.AlreadyAnswered]: isFilled({ value: verdict.answerAt })
+    [GapOutcome.AlreadyAnswered]: verdict.answers.length > 0 && verdict.answers.every(({ answerAt }) => isFilled({ value: answerAt }))
   };
   return demanded[verdict.outcome];
 };
-var citesMissingPath = async ({ cwd, verdict }) => {
-  const token = citationPathToken({ citation: verdict.answerAt ?? "" });
-  if (verdict.outcome !== GapOutcome.AlreadyAnswered || token === void 0) {
-    return false;
-  }
-  return !await citedPathExists({ cwd, token });
-};
-var getUnjudgedReason = async ({
-  cwd,
-  judgeOutcome,
-  noJudgeReason,
-  recordIds
-}) => {
+var refuseCitations = async ({ cwd, batch, verdict, covered }) => {
+  const texts = new Map(batch.planTexts.map(({ phase, text }) => [phase, text]));
+  const cited = verdict.answers.map(({ phase }) => phase);
+  const spanned = covered.flatMap(({ gap }) => findingLocations({ observations: gap.observations, phase: gap.phase }));
+  const missing = [...new Set(spanned)].filter((phase) => texts.has(phase) && !cited.includes(phase));
+  const repeated = cited.filter((phase, position) => cited.indexOf(phase) !== position);
+  const foreign = cited.filter((phase) => !texts.has(phase));
   let reason;
-  if (judgeOutcome === void 0) {
-    reason = noJudgeReason ?? "no judge ran \u2014 the fan-out stopped before this finding was judged";
-  } else if (!judgeOutcome.ok) {
-    reason = judgeOutcome.rateLimited ? "the judge was rate limited or overloaded" : judgeOutcome.failure;
-  } else if (!hasRequiredEvidence({ verdict: judgeOutcome.report })) {
-    reason = `the judge answered ${judgeOutcome.report.outcome} without the evidence that outcome demands`;
-  } else if (await citesMissingPath({ cwd, verdict: judgeOutcome.report })) {
-    reason = `the judge cited ${judgeOutcome.report.answerAt}, which is not on disk`;
-  } else if (judgeOutcome.report.matchesFinding !== void 0 && !recordIds.has(judgeOutcome.report.matchesFinding)) {
-    reason = `the judge matched this finding to ${judgeOutcome.report.matchesFinding}, which is not a record this plan holds`;
+  if (missing.length > 0) {
+    reason = `the judge dismissed this as already answered but cited nothing for ${missing.join(", ")}`;
+  } else if (repeated.length > 0) {
+    reason = `the judge cited ${repeated.join(", ")} more than once`;
+  } else if (foreign.length > 0) {
+    reason = `the judge cited ${foreign.join(", ")}, a plan file this batch holds no text for`;
+  } else {
+    for (const { phase, answerAt } of verdict.answers) {
+      const confirmed = await confirmCitation({ cwd, citation: answerAt, planText: texts.get(phase) ?? "" });
+      if (!confirmed.ok) {
+        reason = `the judge's citation for ${phase} was refused \u2014 ${confirmed.reason}`;
+        break;
+      }
+    }
   }
   return reason;
 };
-var matchGapVerdicts = async ({ cwd, gaps, judgeOutcomes, noJudgeReason, recordIds = /* @__PURE__ */ new Set() }) => {
-  const judged = [];
-  for (const [index, gap] of gaps.entries()) {
-    const judgeOutcome = judgeOutcomes[index];
-    const unjudgedReason = await getUnjudgedReason({ cwd, judgeOutcome, noJudgeReason, recordIds });
-    if (unjudgedReason !== void 0 || judgeOutcome?.ok !== true) {
-      judged.push({ ...gap, outcome: GapOutcome.Unjudged, unjudgedReason });
-      continue;
-    }
-    const { matchesFinding, ...verdict } = judgeOutcome.report;
-    judged.push(matchesFinding === void 0 ? { ...gap, ...verdict } : { ...gap, ...verdict, findingId: matchesFinding });
+var refuseVerdict = async ({ cwd, batch, verdict, recordIds }) => {
+  const covers2 = [...new Set(verdict.covers)];
+  const unknown2 = covers2.filter((id) => !batch.observations.some((member) => member.id === id));
+  let reason;
+  if (unknown2.length > 0) {
+    reason = `the judge's ruling named ${unknown2.join(", ")}, which this batch never handed out, so the whole ruling is void`;
+  } else if (covers2.length > 1 && !isFilled({ value: verdict.sharedDefect })) {
+    reason = `the judge grouped ${covers2.join(", ")} as one defect without the shared-defect statement a group demands`;
+  } else if (!hasRequiredEvidence({ verdict })) {
+    reason = `the judge answered ${verdict.outcome} without the evidence that outcome demands`;
+  } else if (verdict.outcome === GapOutcome.AlreadyAnswered) {
+    reason = await refuseCitations({ cwd, batch, verdict, covered: batch.observations.filter(({ id }) => covers2.includes(id)) });
   }
-  return judged;
+  if (reason === void 0 && verdict.matchesFinding !== void 0 && !recordIds.has(verdict.matchesFinding)) {
+    reason = `the judge matched this finding to ${verdict.matchesFinding}, which is not a record this plan holds`;
+  }
+  return reason;
+};
+var standingRulings = ({ verdict, members }) => {
+  const observations = dedupeObservations({ observations: members.flatMap(({ gap }) => gapObservations({ gap })) });
+  const group = members.length > 1 ? { groupId: `g${members[0].index}`, observations } : {};
+  return members.map(({ index, gap }) => [index, { verdict, answerAt: verdict.answers.find(({ phase }) => phase === gap.phase)?.answerAt, ...group }]);
+};
+var accountBatchVerdicts = async ({ cwd, batch, outcome, recordIds, noJudgeReason }) => {
+  if (outcome === void 0 || !outcome.ok) {
+    let unjudgedReason = noJudgeReason ?? noJudgeRanReason;
+    if (outcome !== void 0) {
+      unjudgedReason = outcome.rateLimited ? "the judge was rate limited or overloaded" : outcome.failure;
+    }
+    return new Map(batch.observations.map(({ index }) => [index, { unjudgedReason }]));
+  }
+  const verdicts = outcome.report.verdicts;
+  const coverage = ({ id }) => verdicts.filter((verdict) => verdict.covers.includes(id)).length;
+  const rulings = /* @__PURE__ */ new Map();
+  for (const verdict of verdicts) {
+    const refusal = await refuseVerdict({ cwd, batch, verdict, recordIds });
+    const members = batch.observations.filter(({ id }) => verdict.covers.includes(id) && coverage({ id }) === 1);
+    const settled2 = refusal === void 0 ? standingRulings({ verdict, members }) : members.map(({ index }) => [index, { unjudgedReason: refusal }]);
+    for (const [index, ruling] of settled2) {
+      rulings.set(index, ruling);
+    }
+  }
+  for (const { id, index } of batch.observations) {
+    const count2 = coverage({ id });
+    if (count2 === 0) {
+      rulings.set(index, { unjudgedReason: "the judge's rulings did not cover this observation" });
+    } else if (count2 > 1) {
+      rulings.set(index, { unjudgedReason: "more than one of the judge's rulings covered this observation, so none of them can settle it" });
+    }
+  }
+  return rulings;
 };
 
+// src/plan/common/grading/matchGapVerdicts.ts
+var rulingFields = ({ verdict }) => ({
+  outcome: verdict.outcome,
+  ...verdict.humanDecision === void 0 ? {} : { humanDecision: verdict.humanDecision },
+  ...verdict.agentDecision === void 0 ? {} : { agentDecision: verdict.agentDecision },
+  ...verdict.safeBecause === void 0 ? {} : { safeBecause: verdict.safeBecause }
+});
+var joinRuling = ({ gap, ruling, noJudgeReason }) => {
+  const verdict = ruling?.unjudgedReason === void 0 ? ruling?.verdict : void 0;
+  if (verdict === void 0) {
+    return { ...gap, outcome: GapOutcome.Unjudged, unjudgedReason: ruling?.unjudgedReason ?? noJudgeReason ?? noJudgeRanReason };
+  }
+  return {
+    ...gap,
+    // A carried pending finding arrives with the reason an earlier pass left it
+    // unjudged; once a judge rules, that reason is stale.
+    ...gap.unjudgedReason === void 0 ? {} : { unjudgedReason: void 0 },
+    ...rulingFields({ verdict }),
+    ...ruling?.answerAt === void 0 ? {} : { answerAt: ruling.answerAt },
+    ...ruling?.observations === void 0 ? {} : { groupId: ruling.groupId, sharedDefect: verdict.sharedDefect, observations: ruling.observations },
+    // The agent's raw claim never reaches the record: what is persisted is the id
+    // the engine resolved. A carried finding with no match keeps the record it
+    // already belongs to, or it would open a second one every pass.
+    ...verdict.matchesFinding === void 0 ? {} : { findingId: verdict.matchesFinding }
+  };
+};
+var matchGapVerdicts = async ({ cwd, gaps, batches, batchOutcomes, noJudgeReason, recordIds = /* @__PURE__ */ new Set() }) => {
+  const rulings = /* @__PURE__ */ new Map();
+  for (const [slot, batch] of batches.entries()) {
+    const accounted = await accountBatchVerdicts({ cwd, batch, outcome: batchOutcomes[slot], recordIds, noJudgeReason });
+    for (const [index, ruling] of accounted) {
+      rulings.set(index, ruling);
+    }
+  }
+  return gaps.map((gap, index) => joinRuling({ gap, ruling: rulings.get(index), noJudgeReason }));
+};
+
+// src/plan/common/memory/recordObservations.ts
+var recordObservations = ({ record: record3 }) => gapObservations({ gap: record3 });
+
 // src/plan/common/memory/phaseFindingRecords.ts
-var phaseFindingRecords = ({ memory, phase, statuses }) => memory.findings.filter((record3) => record3.phase === phase && (statuses === void 0 || statuses.includes(record3.status)));
+var phaseFindingRecords = ({ memory, phase, statuses }) => memory.findings.filter((record3) => {
+  const touches = recordObservations({ record: record3 }).some((observation) => observation.phase === phase);
+  return touches && (statuses === void 0 || statuses.includes(record3.status));
+});
 
 // src/plan/common/grading/judgeGaps.ts
-var pairGapsWithPlanText = ({ selected, gaps }) => selected.flatMap((file2) => gaps.flatMap((gap, index) => gap.phase === basename20(file2.path) ? [{ index, gap, planText: file2.text }] : []));
-var spawnGapJudge = async ({ params, pair }) => {
+var judgeableStatuses = Object.values(GradeFindingStatus).filter((status) => status !== GradeFindingStatus.Superseded);
+var batchRecords = ({ memory, batch }) => [
+  ...new Map(
+    batch.planTexts.flatMap(({ phase }) => phaseFindingRecords({ memory, phase, statuses: judgeableStatuses })).map((record3) => [record3.id, record3])
+  ).values()
+];
+var spawnGapJudge = async ({ params, batch, batchIndex }) => {
   const { cwd, driver, workspaceDir, overviewText, standards, model, effort, permissions, timeoutMs = 10 * 60 * 1e3 } = params;
   const invokePlanAgent = createPlanAgentRunner({
     cwd,
     driver,
     workspaceDir,
-    step: `grade-judge-${basename20(pair.gap.phase, ".md")}-${pair.index}`,
+    // Numbered by batch rather than named by phase, because a batch may span
+    // several plan files.
+    step: `grade-judge-${batchIndex}`,
     model,
     effort,
     permissions,
@@ -132855,33 +133157,30 @@ var spawnGapJudge = async ({ params, pair }) => {
   });
   const outcome = await invokePlanAgent({
     invocation: buildPlanGapJudgeInvocation({
-      planText: pair.planText,
+      planTexts: batch.planTexts,
       overviewText,
       standards,
       // Only a phased plan has siblings to point at, and the judge opens one
-      // itself when its finding is about a seam.
+      // itself when an observation is about a seam its batch does not span.
       planDir: overviewText === void 0 ? void 0 : relative7(cwd, workspaceDir),
-      records: phaseFindingRecords({ memory: params.memory, phase: pair.gap.phase }),
-      gap: pair.gap
+      records: batchRecords({ memory: params.memory, batch }),
+      observations: batch.observations.map(({ id, gap }) => ({ id, observation: gap }))
     }),
-    contract: GapVerdict
+    contract: GapBatchVerdict
   });
   return { outcome };
 };
 var judgeGaps = async (params) => {
-  const { cwd, selected, gaps, skipReason: skipReason2, memory } = params;
-  const pairs = skipReason2 === void 0 ? pairGapsWithPlanText({ selected, gaps }) : [];
+  const { cwd, files, gaps, skipReason: skipReason2, memory } = params;
+  const batches = skipReason2 === void 0 ? groupGapCandidates({ gaps, files }) : [];
   const results = await drainTasks({
-    tasks: pairs.map((pair) => () => spawnGapJudge({ params, pair })),
+    tasks: batches.map((batch, batchIndex) => () => spawnGapJudge({ params, batch, batchIndex })),
     concurrency: planAgentConcurrency,
     shouldStop: ({ results: settled2 }) => settled2.some((result) => isRateLimited({ result }))
   });
-  const judgeOutcomes = gaps.map(() => void 0);
-  for (const [slot, pair] of pairs.entries()) {
-    judgeOutcomes[pair.index] = results[slot]?.outcome;
-  }
+  const recordIds = new Set(memory.findings.filter(({ status }) => judgeableStatuses.includes(status)).map(({ id }) => id));
   return {
-    gaps: await matchGapVerdicts({ cwd, gaps, judgeOutcomes, noJudgeReason: skipReason2, recordIds: new Set(memory.findings.map((record3) => record3.id)) }),
+    gaps: await matchGapVerdicts({ cwd, gaps, batches, batchOutcomes: results.map((result) => result?.outcome), noJudgeReason: skipReason2, recordIds }),
     rateLimited: results.some((result) => isRateLimited({ result }))
   };
 };
@@ -132933,6 +133232,7 @@ var drainGradeAgents = async ({
   params,
   pass,
   selected,
+  carried,
   memory,
   documentation,
   progress
@@ -132961,8 +133261,10 @@ var drainGradeAgents = async ({
     ...params,
     workspaceDir: pass.workspaceDir,
     overviewText: pass.overviewText,
-    selected,
-    gaps: readers.gaps,
+    // Every plan file, not the readers' selection: a carried record may name a
+    // file this pass weighed light or left out, and it still needs a judge.
+    files: pass.files,
+    gaps: [...readers.gaps, ...carried],
     skipReason: readers.rateLimited ? "the reader fan-out hit the rate-limit wall, so no judge was spawned" : void 0,
     memory
   });
@@ -133022,13 +133324,43 @@ var weighSelection = ({ selected, config: config2 }) => {
   };
 };
 
-// src/plan/common/memory/collapseText.ts
-var collapseText = ({ text }) => text.replace(/\s+/g, " ").trim().toLowerCase();
+// src/plan/common/memory/recordResolutions.ts
+var recordResolutions = ({ record: record3 }) => {
+  let resolutions = record3.resolutions;
+  if (resolutions.length === 0 && record3.resolution !== void 0) {
+    resolutions = [{ phase: record3.phase, ...record3.resolution }];
+  }
+  return resolutions;
+};
+
+// src/plan/common/memory/reopenRecord.ts
+var reopenRecord = ({ record: record3, reason, at }) => ({
+  ...record3,
+  status: GradeFindingStatus.Open,
+  resolution: void 0,
+  resolutions: [],
+  lastSeen: at,
+  reopened: [...record3.reopened, { at, reason, priorStatus: record3.status }]
+});
+
+// src/plan/common/memory/absorbObservations.ts
+var absorbObservations = ({ record: record3, observations, at }) => {
+  const merged = { ...record3, observations: dedupeObservations({ observations: [...recordObservations({ record: record3 }), ...observations] }) };
+  const cited = new Set(recordResolutions({ record: record3 }).map(({ phase }) => phase));
+  const uncovered = findingLocations({ observations: merged.observations, phase: record3.phase }).filter((location) => !cited.has(location));
+  const reason = `gained an observation at ${uncovered.join(", ")}, where no confirmed citation closes it`;
+  return record3.status === GradeFindingStatus.Resolved && uncovered.length > 0 ? reopenRecord({ record: merged, reason, at }) : merged;
+};
 
 // src/plan/common/memory/mergeFindingRecords.ts
 var dispositionOf = ({ outcome }) => outcome === GapOutcome.Unjudged ? void 0 : outcome;
+var statusFor = ({ disposition }) => disposition === GapOutcome.NeedsAHuman ? GradeFindingStatus.Open : GradeFindingStatus.Noted;
 var complete = ({ record: record3 }) => ({
   lens: void 0,
+  disposition: void 0,
+  unjudgedReason: void 0,
+  sharedDefect: void 0,
+  supersededBy: void 0,
   humanDecision: void 0,
   agentDecision: void 0,
   safeBecause: void 0,
@@ -133036,54 +133368,113 @@ var complete = ({ record: record3 }) => ({
   resolution: void 0,
   ...record3
 });
-var openRecord = ({ gap, disposition, id, at }) => complete({
-  record: {
-    id,
-    phase: gap.phase,
-    lens: gap.lens,
-    area: gap.area,
-    gap: gap.gap,
-    decision: gap.decision,
-    options: gap.options,
-    firstSeen: at,
-    lastSeen: at,
-    // A human's question blocks; a question the judge itself settled is kept
-    // only so the next pass does not re-investigate it, and gates nothing.
-    status: disposition === GapOutcome.NeedsAHuman ? GradeFindingStatus.Open : GradeFindingStatus.Noted,
+var openRecord = ({ gap, id, at }) => {
+  const disposition = dispositionOf({ outcome: gap.outcome });
+  return complete({
+    record: {
+      id,
+      phase: gap.phase,
+      lens: gap.lens,
+      area: gap.area,
+      gap: gap.gap,
+      decision: gap.decision,
+      options: gap.options,
+      observations: gapObservations({ gap }),
+      firstSeen: at,
+      lastSeen: at,
+      status: disposition === void 0 ? GradeFindingStatus.Pending : statusFor({ disposition }),
+      disposition,
+      unjudgedReason: disposition === void 0 ? gap.unjudgedReason : void 0,
+      sharedDefect: gap.sharedDefect,
+      humanDecision: gap.humanDecision,
+      agentDecision: gap.agentDecision,
+      safeBecause: gap.safeBecause,
+      answerAt: gap.answerAt,
+      resolutions: [],
+      reopened: []
+    }
+  });
+};
+var promote = ({ record: record3, gap }) => {
+  const disposition = dispositionOf({ outcome: gap.outcome });
+  if (record3.disposition !== void 0 || disposition === void 0) {
+    return record3;
+  }
+  return {
+    ...record3,
+    status: record3.status === GradeFindingStatus.Pending ? statusFor({ disposition }) : record3.status,
     disposition,
-    humanDecision: gap.humanDecision,
+    unjudgedReason: void 0,
+    humanDecision: record3.humanDecision ?? gap.humanDecision,
     agentDecision: gap.agentDecision,
     safeBecause: gap.safeBecause,
-    answerAt: gap.answerAt,
-    reopened: []
-  }
-});
+    answerAt: gap.answerAt
+  };
+};
 var touchRecord = ({ record: record3, gap, at }) => {
-  const closed = record3.status === GradeFindingStatus.Resolved || record3.status === GradeFindingStatus.Noted;
-  if (!closed || gap.outcome !== GapOutcome.NeedsAHuman) {
-    return complete({ record: { ...record3, lastSeen: at } });
-  }
-  const reopened = [...record3.reopened, { at, reason: gap.humanDecision ?? gap.decision, priorStatus: record3.status }];
-  return complete({ record: { ...record3, status: GradeFindingStatus.Open, resolution: void 0, lastSeen: at, reopened } });
+  const seen = promote({ record: { ...record3, lastSeen: at, sharedDefect: record3.sharedDefect ?? gap.sharedDefect }, gap });
+  const closed = seen.status === GradeFindingStatus.Resolved || seen.status === GradeFindingStatus.Noted;
+  const ruled = closed && gap.outcome === GapOutcome.NeedsAHuman ? reopenRecord({ record: seen, reason: gap.humanDecision ?? gap.decision, at }) : seen;
+  return complete({ record: absorbObservations({ record: ruled, observations: gapObservations({ gap }), at }) });
 };
 var matchesByText = ({ record: record3, gap }) => record3.phase === gap.phase && record3.area === gap.area && collapseText({ text: record3.gap }) === collapseText({ text: gap.gap });
-var findRecord = ({ findings, gap }) => findings.findIndex((record3) => gap.findingId === void 0 ? gap.lens === void 0 && matchesByText({ record: record3, gap }) : record3.id === gap.findingId);
-var mergeFindingRecords = ({ memory, gaps, at }) => {
+var followSupersede = ({ findings, index }) => index !== -1 && findings[index].status === GradeFindingStatus.Superseded ? followSupersede({ findings, index: findings.findIndex((record3) => record3.id === findings[index].supersededBy) }) : index;
+var findRecord = ({ findings, gap }) => {
+  let matches = () => false;
+  if (gap.findingId !== void 0) {
+    matches = (record3) => record3.id === gap.findingId;
+  } else if (gap.lens === void 0) {
+    matches = (record3) => matchesByText({ record: record3, gap });
+  } else if (gap.outcome === GapOutcome.Unjudged) {
+    matches = (record3) => record3.status === GradeFindingStatus.Pending && matchesByText({ record: record3, gap });
+  }
+  return followSupersede({ findings, index: findings.findIndex(matches) });
+};
+var creationOrder = ({ record: record3 }) => Number(record3.id.slice(1));
+var supersede = ({ survivor, absorbed, at }) => {
+  const unanswered = absorbed.status === GradeFindingStatus.Open || absorbed.status === GradeFindingStatus.Pending;
+  const reason = `absorbed the unanswered obligation of ${absorbed.id} when a judge confirmed the two were one defect`;
+  const carrying = { ...survivor, humanDecision: survivor.humanDecision ?? absorbed.humanDecision };
+  const raised = unanswered && carrying.status !== GradeFindingStatus.Open ? reopenRecord({ record: carrying, reason, at }) : carrying;
+  return {
+    survivor: absorbObservations({ record: raised, observations: recordObservations({ record: absorbed }), at }),
+    absorbed: { ...absorbed, status: GradeFindingStatus.Superseded, supersededBy: survivor.id }
+  };
+};
+var pinGroups = ({ memory, gaps, at }) => {
   const findings = [...memory.findings];
+  const pinned = /* @__PURE__ */ new Map();
+  for (const groupId of new Set(gaps.flatMap((gap) => gap.groupId === void 0 ? [] : [gap.groupId]))) {
+    const members = gaps.filter((gap) => gap.groupId === groupId && gap.findingId !== void 0);
+    const indexes = [...new Set(members.map((gap) => findRecord({ findings, gap })).filter((index) => index !== -1))];
+    const ordered = indexes.sort((first, second) => creationOrder({ record: findings[first] }) - creationOrder({ record: findings[second] }));
+    const [survivorIndex, ...absorbedIndexes] = ordered;
+    for (const absorbedIndex of absorbedIndexes) {
+      const moved = supersede({ survivor: findings[survivorIndex], absorbed: findings[absorbedIndex], at });
+      findings[survivorIndex] = complete({ record: moved.survivor });
+      findings[absorbedIndex] = complete({ record: moved.absorbed });
+    }
+    if (survivorIndex !== void 0) {
+      pinned.set(groupId, findings[survivorIndex].id);
+    }
+  }
+  return { findings, pinned };
+};
+var mergeFindingRecords = ({ memory, gaps, at }) => {
+  const { findings, pinned } = pinGroups({ memory, gaps, at });
   const stamped = [];
   let nextFindingNumber = memory.nextFindingNumber;
   for (const gap of gaps) {
-    const disposition = dispositionOf({ outcome: gap.outcome });
-    if (disposition === void 0) {
-      stamped.push(gap);
-      continue;
-    }
-    const index = findRecord({ findings, gap });
+    const pinnedId = gap.groupId === void 0 ? void 0 : pinned.get(gap.groupId);
+    const index = pinnedId === void 0 ? findRecord({ findings, gap }) : findings.findIndex((record3) => record3.id === pinnedId);
     if (index === -1) {
       const id = `f${nextFindingNumber}`;
       nextFindingNumber += 1;
-      findings.push(openRecord({ gap, disposition, id, at }));
+      findings.push(openRecord({ gap, id, at }));
       stamped.push({ ...gap, findingId: id });
+      if (gap.groupId !== void 0) {
+        pinned.set(gap.groupId, id);
+      }
       continue;
     }
     findings[index] = touchRecord({ record: findings[index], gap, at });
@@ -133093,40 +133484,37 @@ var mergeFindingRecords = ({ memory, gaps, at }) => {
 };
 
 // src/plan/common/memory/openFindingGaps.ts
+var blockingRuling = ({ record: record3, refusals }) => record3.status === GradeFindingStatus.Pending ? { outcome: GapOutcome.Unjudged, unjudgedReason: record3.unjudgedReason } : { outcome: GapOutcome.NeedsAHuman, humanDecision: record3.humanDecision, unjudgedReason: refusals?.get(record3.id) };
 var openFindingGaps = ({ memory, gaps, refusals }) => {
   const carried = new Set(gaps.filter((gap) => isBlockingGap({ gap })).map((gap) => gap.findingId));
-  return memory.findings.filter((record3) => record3.status === GradeFindingStatus.Open && !carried.has(record3.id)).map((record3) => ({
+  const blocking = [GradeFindingStatus.Open, GradeFindingStatus.Pending];
+  return memory.findings.filter((record3) => blocking.includes(record3.status) && !carried.has(record3.id)).map((record3) => ({
     area: record3.area,
     gap: record3.gap,
     decision: record3.decision,
     options: record3.options,
     phase: record3.phase,
     lens: record3.lens,
-    outcome: GapOutcome.NeedsAHuman,
-    humanDecision: record3.humanDecision,
-    unjudgedReason: refusals?.get(record3.id),
+    observations: record3.observations,
+    sharedDefect: record3.sharedDefect,
+    ...blockingRuling({ record: record3, refusals }),
     findingId: record3.id
   }));
 };
 
-// src/plan/common/memory/confirmCitation.ts
-var minimumCitationLength = 24;
-var confirmPath = async ({ cwd, token }) => {
-  const present = await citedPathExists({ cwd, token });
-  return present ? { ok: true } : { ok: false, reason: `cited ${token}, which is not on disk` };
-};
-var confirmQuote = ({ citation, planText }) => {
-  const quote2 = collapseText({ text: citation });
-  if (quote2.length < minimumCitationLength) {
-    return { ok: false, reason: `citation shorter than ${minimumCitationLength} characters: ${citation}` };
-  }
-  const found = collapseText({ text: planText }).includes(quote2);
-  return found ? { ok: true } : { ok: false, reason: `citation not found in the plan text: ${citation}` };
-};
-var confirmCitation = async ({ cwd, citation, planText }) => {
-  const token = citationPathToken({ citation });
-  return token === void 0 ? confirmQuote({ citation, planText }) : confirmPath({ cwd, token });
-};
+// src/plan/common/memory/pendingFindingGaps.ts
+var pendingFindingGaps = ({ memory }) => memory.findings.filter((record3) => record3.status === GradeFindingStatus.Pending).map((record3) => ({
+  area: record3.area,
+  gap: record3.gap,
+  decision: record3.decision,
+  options: record3.options,
+  phase: record3.phase,
+  lens: record3.lens,
+  observations: recordObservations({ record: record3 }),
+  outcome: GapOutcome.Unjudged,
+  unjudgedReason: record3.unjudgedReason,
+  findingId: record3.id
+}));
 
 // src/plan/common/memory/recheckPlanText.ts
 import { basename as basename23 } from "node:path";
@@ -133140,36 +133528,54 @@ ${file2.text}`);
 };
 
 // src/plan/common/memory/revalidateResolutions.ts
-var reopen = ({ record: record3, citation, at }) => {
-  const entry = { at, reason: `resolution citation no longer found in the plan: ${citation}`, priorStatus: GradeFindingStatus.Resolved };
-  return { ...record3, status: GradeFindingStatus.Open, resolution: void 0, lastSeen: at, reopened: [...record3.reopened, entry] };
+var firstLostCitation = async ({ params, record: record3 }) => {
+  const { cwd, files, overviewText } = params;
+  let lost;
+  for (const { phase, answerAt } of recordResolutions({ record: record3 })) {
+    const confirmed = await confirmCitation({ cwd, citation: answerAt, planText: recheckPlanText({ files, overviewText, phase }) });
+    if (!confirmed.ok) {
+      lost = { phase, answerAt };
+      break;
+    }
+  }
+  return lost;
 };
-var revalidateResolutions = async ({ cwd, files, overviewText, memory, at }) => {
+var revalidateResolutions = async (params) => {
+  const { memory, at } = params;
   const findings = [];
   const reopened = [];
   for (const record3 of memory.findings) {
-    const citation = record3.status === GradeFindingStatus.Resolved ? record3.resolution?.answerAt : void 0;
-    const planText = recheckPlanText({ files, overviewText, phase: record3.phase });
-    const confirmed = citation === void 0 ? void 0 : await confirmCitation({ cwd, citation, planText });
-    if (citation === void 0 || confirmed?.ok === true) {
+    const lost = record3.status === GradeFindingStatus.Resolved ? await firstLostCitation({ params, record: record3 }) : void 0;
+    if (lost === void 0) {
       findings.push(record3);
       continue;
     }
     reopened.push(record3.id);
-    findings.push(reopen({ record: record3, citation, at }));
+    findings.push(reopenRecord({ record: record3, reason: `resolution citation for ${lost.phase} no longer found in the plan: ${lost.answerAt}`, at }));
   }
   return { memory: { ...memory, findings }, reopened };
 };
 
 // src/plan/common/memory/verifyOpenFindings.ts
-import { relative as relative9 } from "node:path";
+import { basename as basename24, relative as relative9 } from "node:path";
+var recheckPairs = ({ record: record3, files, overviewText }) => {
+  const observations = recordObservations({ record: record3 });
+  const locations = findingLocations({ observations, phase: record3.phase });
+  return locations.map((location) => ({
+    record: record3,
+    location,
+    locations,
+    observation: observations.filter((observation) => observation.phase === location)[0],
+    planText: recheckPlanText({ files, overviewText, phase: location })
+  }));
+};
 var spawnRecheck = async ({ params, pair }) => {
   const { cwd, driver, workspaceDir, overviewText, standards, model, effort, permissions, timeoutMs = 10 * 60 * 1e3 } = params;
   const invokePlanAgent = createPlanAgentRunner({
     cwd,
     driver,
     workspaceDir,
-    step: `grade-recheck-${pair.record.id}`,
+    step: `grade-recheck-${pair.record.id}-${basename24(pair.location, ".md")}`,
     model,
     effort,
     permissions,
@@ -133183,27 +133589,43 @@ var spawnRecheck = async ({ params, pair }) => {
       // Only a phased plan has siblings to point at, and a record raised
       // against one phase may now be answered in another.
       planDir: overviewText === void 0 ? void 0 : relative9(cwd, workspaceDir),
-      record: pair.record
+      record: pair.record,
+      observation: pair.observation,
+      locations: pair.locations
     }),
     contract: GapVerdict
   });
   return { outcome };
 };
-var settleRecord = async ({ cwd, pair, outcome, at }) => {
+var checkLocation = async ({ cwd, pair, outcome }) => {
   const report = outcome?.ok === true ? outcome.report : void 0;
   const citation = report?.outcome === GapOutcome.AlreadyAnswered ? report.answerAt ?? "" : void 0;
   const confirmed = citation === void 0 ? void 0 : await confirmCitation({ cwd, citation, planText: pair.planText });
-  if (confirmed?.ok !== true || citation === void 0) {
-    return { record: { ...pair.record, resolution: void 0 }, refusal: confirmed?.ok === false ? confirmed.reason : void 0 };
-  }
-  const resolution = { answerAt: citation, verifiedAt: at };
-  return { record: { ...pair.record, status: GradeFindingStatus.Resolved, resolution }, refusal: void 0 };
+  return {
+    resolution: confirmed?.ok === true && citation !== void 0 ? { phase: pair.location, answerAt: citation } : void 0,
+    refusal: confirmed?.ok === false ? `${pair.location}: ${confirmed.reason}` : void 0
+  };
+};
+var settleRecord = async ({
+  cwd,
+  record: record3,
+  located,
+  at
+}) => {
+  const checks = await Promise.all(located.map(({ pair, outcome }) => checkLocation({ cwd, pair, outcome })));
+  const resolutions = checks.flatMap(({ resolution }) => resolution === void 0 ? [] : [{ ...resolution, verifiedAt: at }]);
+  const refusals = checks.flatMap(({ refusal }) => refusal === void 0 ? [] : [refusal]);
+  const closed = resolutions.length === located.length;
+  return {
+    record: closed ? { ...record3, status: GradeFindingStatus.Resolved, resolution: void 0, resolutions } : { ...record3, resolution: void 0 },
+    refusal: refusals.length > 0 ? refusals.join("; ") : void 0
+  };
 };
 var verifyOpenFindings = async (params) => {
   const { cwd, files, overviewText, memory, at, skipReason: skipReason2 } = params;
   const open = memory.findings.filter((record3) => record3.status === GradeFindingStatus.Open);
   const asked = skipReason2 === void 0 ? open : [];
-  const pairs = asked.map((record3) => ({ record: record3, planText: recheckPlanText({ files, overviewText, phase: record3.phase }) }));
+  const pairs = asked.flatMap((record3) => recheckPairs({ record: record3, files, overviewText }));
   const results = await drainTasks({
     tasks: pairs.map((pair) => () => spawnRecheck({ params, pair })),
     concurrency: planAgentConcurrency,
@@ -133211,9 +133633,10 @@ var verifyOpenFindings = async (params) => {
   });
   const settled2 = /* @__PURE__ */ new Map();
   const refusals = /* @__PURE__ */ new Map();
-  for (const [slot, pair] of pairs.entries()) {
-    const { record: record3, refusal } = await settleRecord({ cwd, pair, outcome: results[slot]?.outcome, at });
-    settled2.set(record3.id, record3);
+  for (const record3 of asked) {
+    const located = pairs.flatMap((pair, slot) => pair.record === record3 ? [{ pair, outcome: results[slot]?.outcome }] : []);
+    const { record: next, refusal } = await settleRecord({ cwd, record: record3, located, at });
+    settled2.set(record3.id, next);
     if (refusal !== void 0) {
       refusals.set(record3.id, refusal);
     }
@@ -133253,10 +133676,11 @@ var runGradePass = async ({
   const { weights, heavy, light } = weighSelection({ selected, config: pass.config });
   const documentation = scope === GradeScope.Full;
   const revalidated = await revalidateResolutions({ cwd, files: pass.files, overviewText: pass.overviewText, memory, at });
+  const carried = pendingFindingGaps({ memory: revalidated.memory });
   progress(
-    `plan grade ${name}: ${scope} pass \u2014 ${structural.length} structural finding(s), gap-checking ${heavy.length} of ${pass.files.length} plan file(s) \xD7 ${gapCheckLenses.length} lens(es)${light.length > 0 ? `, ${light.length} weighed light and read by nobody` : ""}${revalidated.reopened.length > 0 ? `, ${revalidated.reopened.length} resolved finding(s) reopened because the plan no longer states their answer` : ""}`
+    `plan grade ${name}: ${scope} pass \u2014 ${structural.length} structural finding(s), gap-checking ${heavy.length} of ${pass.files.length} plan file(s) \xD7 ${gapCheckLenses.length} lens(es)${light.length > 0 ? `, ${light.length} weighed light and read by nobody` : ""}${revalidated.reopened.length > 0 ? `, ${revalidated.reopened.length} resolved finding(s) reopened because the plan no longer states their answer` : ""}${carried.length > 0 ? `, ${carried.length} pending finding(s) carried in for a judge` : ""}`
   );
-  const agents = await drainGradeAgents({ params, pass, selected: heavy, memory: revalidated.memory, documentation, progress });
+  const agents = await drainGradeAgents({ params, pass, selected: heavy, carried, memory: revalidated.memory, documentation, progress });
   const verified = await verifyOpenFindings({
     cwd,
     driver: params.driver,
@@ -133273,7 +133697,7 @@ var runGradePass = async ({
     skipReason: agents.rateLimited ? "the reader fan-out hit the rate-limit wall, so no finding was re-verified" : void 0
   });
   const merged = mergeFindingRecords({ memory: verified.memory, gaps: agents.gaps, at });
-  const gaps = [...merged.gaps, ...openFindingGaps({ memory: merged.memory, gaps: merged.gaps, refusals: verified.refusals })];
+  const gaps = collapseGroupedGaps({ gaps: [...merged.gaps, ...openFindingGaps({ memory: merged.memory, gaps: merged.gaps, refusals: verified.refusals })] });
   const report = createGradeReport({
     name,
     phases,
@@ -133289,7 +133713,7 @@ var runGradePass = async ({
     focusedOn,
     inputs,
     scopeReason,
-    phasesRequired: heavy.map((file2) => basename24(file2.path)),
+    phasesRequired: heavy.map((file2) => basename25(file2.path)),
     documentationComplete: agents.documentationComplete
   });
   const nextMemory = { ...merged.memory, ...nextBaselines({ memory: merged.memory, report, inputs, at }), updatedAt: at };
@@ -133327,7 +133751,7 @@ var readGradeMemory = async ({ cwd, name }) => {
 };
 
 // src/plan/common/scope/decideGradeScope.ts
-import { basename as basename26 } from "node:path";
+import { basename as basename27 } from "node:path";
 
 // src/plan/common/scope/getAffectedPhases.ts
 var getAffectedPhases = ({ connections, edited }) => {
@@ -133430,7 +133854,7 @@ var getEditedPhases = ({ current, previous }) => {
 };
 
 // src/plan/common/scope/getPhaseConnections.ts
-import { basename as basename25 } from "node:path";
+import { basename as basename26 } from "node:path";
 var isIdentifierSpan2 = ({ span }) => /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(span);
 var comparableTokens2 = ({ lines }) => {
   const tokens = /* @__PURE__ */ new Set();
@@ -133440,7 +133864,7 @@ var comparableTokens2 = ({ lines }) => {
         continue;
       }
       if (isPathToken({ token: span })) {
-        tokens.add(basename25(span));
+        tokens.add(basename26(span));
       } else if (isIdentifierSpan2({ span })) {
         tokens.add(span);
       }
@@ -133449,7 +133873,7 @@ var comparableTokens2 = ({ lines }) => {
   return tokens;
 };
 var providedBy = ({ phase, exports }) => /* @__PURE__ */ new Set([
-  ...getPlanNamedPaths({ plan: phase.plan }).map((path) => basename25(path)),
+  ...getPlanNamedPaths({ plan: phase.plan }).map((path) => basename26(path)),
   ...exports,
   ...comparableTokens2({ lines: phase.plan.sections.get("What Next Plan Expects") ?? [] })
 ]);
@@ -133482,10 +133906,10 @@ var getPhaseConnections = ({ phases, declarations }) => {
 
 // src/plan/common/scope/decideGradeScope.ts
 var parseFiles = ({ files }) => files.map((file2) => {
-  const base = basename26(file2.path);
+  const base = basename27(file2.path);
   return { path: file2.path, base, number: Number(/^phase(\d+)-/.exec(base)?.[1] ?? 1), plan: parsePlan({ content: file2.text, base }) };
 });
-var everyPhase = ({ files }) => files.map((file2) => basename26(file2.path));
+var everyPhase = ({ files }) => files.map((file2) => basename27(file2.path));
 var focusedClosure = ({ files, overviewText, edited }) => {
   const declarations = parsePhaseDeclarations({ plan: parsePlan({ content: overviewText, base: "overview.md" }) });
   const graph = getPhaseConnections({ phases: parseFiles({ files }), declarations });
@@ -133549,7 +133973,7 @@ var decideGradeScope = ({ files, overviewText, memory, inputs, narrowed }) => {
 
 // src/plan/common/scope/getGradeInputs.ts
 import { readFile as readFile27 } from "node:fs/promises";
-import { basename as basename27, join as join59 } from "node:path";
+import { basename as basename28, join as join59 } from "node:path";
 var hashFile = async ({ path }) => {
   const content = await readFile27(path).catch(() => void 0);
   return content === void 0 ? "absent" : sha256({ content });
@@ -133571,7 +133995,7 @@ var toDecisionEntry = ({ row }) => {
   };
 };
 var readDecisionLog = async ({ planPaths, decisions }) => {
-  const overviewPath = planPaths.find((path) => basename27(path) === "overview.md");
+  const overviewPath = planPaths.find((path) => basename28(path) === "overview.md");
   const text = overviewPath === void 0 ? void 0 : await readFile27(overviewPath, "utf8").catch(() => void 0);
   if (text === void 0) {
     return void 0;
@@ -133582,7 +134006,7 @@ var readDecisionLog = async ({ planPaths, decisions }) => {
   return { overview: sha256({ content: design.join("\n") }), rows: decisions.map((row) => toDecisionEntry({ row })) };
 };
 var getGradeInputs = async ({ cwd, planPaths, decisions, standards, config: config2, model, effort }) => {
-  const hashed = await Promise.all(planPaths.map(async (path) => ({ file: basename27(path), sha256: await hashFile({ path }) })));
+  const hashed = await Promise.all(planPaths.map(async (path) => ({ file: basename28(path), sha256: await hashFile({ path }) })));
   const planFiles = hashed.sort((left, right) => left.file > right.file ? 1 : -1);
   const gradedCommit = await readGitHeadCommit({ cwd });
   const changed = await readGitChangedFiles({ cwd });
@@ -133602,19 +134026,19 @@ var getGradeInputs = async ({ cwd, planPaths, decisions, standards, config: conf
 };
 
 // src/plan/common/utils/selectPhaseFiles.ts
-import { basename as basename28 } from "node:path";
-var phaseIndexOf = ({ file: file2 }) => Number(/^phase(\d+)/.exec(basename28(file2.path))?.[1] ?? Number.NaN);
+import { basename as basename29 } from "node:path";
+var phaseIndexOf = ({ file: file2 }) => Number(/^phase(\d+)/.exec(basename29(file2.path))?.[1] ?? Number.NaN);
 var selectPhaseFiles = ({ files, phases }) => {
   if (phases === void 0) {
     return { selected: files };
   }
-  const listing = `available: ${files.map((file2) => basename28(file2.path)).join(", ")}`;
+  const listing = `available: ${files.map((file2) => basename29(file2.path)).join(", ")}`;
   if (phases.length === 0) {
     return { error: `--phase named no phase file \u2014 ${listing}` };
   }
   const wanted = /* @__PURE__ */ new Set();
   for (const value of phases) {
-    const matches = /^\d+$/.test(value) ? files.filter((file2) => phaseIndexOf({ file: file2 }) === Number(value)) : files.filter((file2) => basename28(file2.path) === value);
+    const matches = /^\d+$/.test(value) ? files.filter((file2) => phaseIndexOf({ file: file2 }) === Number(value)) : files.filter((file2) => basename29(file2.path) === value);
     if (matches.length !== 1) {
       return { error: `--phase ${value} matches ${matches.length} plan file(s) \u2014 ${listing}` };
     }
@@ -133655,7 +134079,7 @@ var runDecidedPasses = async (context) => {
   const first = await runGradePass({
     params,
     pass,
-    selected: focused ? selected.filter((file2) => decision.phases.includes(basename29(file2.path))) : selected,
+    selected: focused ? selected.filter((file2) => decision.phases.includes(basename30(file2.path))) : selected,
     scope: decision.scope,
     focusedOn: focused ? decision.phases : [],
     scopeReason: decision.reason,
@@ -135653,7 +136077,7 @@ var frictionCommand = async ({ cwd }) => {
 };
 
 // src/cli/common/render/printResult.ts
-import { basename as basename30 } from "node:path";
+import { basename as basename31 } from "node:path";
 
 // ../shared/src/formatting/formatCost.ts
 var formatCost = ({ usd }) => `$${usd.toFixed(2)}`;
@@ -135802,7 +136226,7 @@ var printResult = async ({ result, cwd }) => {
   const summary = await summarizeRun({ cwd, manifest });
   console.log("");
   label({ name: "run", value: `${manifest.runId.slice(0, 8)} \xB7 ${paintStatus({ status: manifest.status, text: bold(manifest.status.toUpperCase()) })}` });
-  label({ name: "plan", value: basename30(manifest.plan) });
+  label({ name: "plan", value: basename31(manifest.plan) });
   label({ name: "wall", value: formatDuration({ ms: summary.wallMs }) });
   if (summary.activeMs > 0) {
     label({ name: "active", value: formatDuration({ ms: summary.activeMs }) });
@@ -135926,11 +136350,11 @@ var writeWorktreeRecord = async ({ cwd, branch, owner, worktreePath, startPoint,
 import { join as join75 } from "node:path";
 
 // src/worktree/resolveWorktreesRoot.ts
-import { basename as basename31, dirname as dirname13, join as join74, resolve as resolve7 } from "node:path";
+import { basename as basename32, dirname as dirname13, join as join74, resolve as resolve7 } from "node:path";
 var resolveWorktreesRoot = async ({ cwd }) => {
   const primary = await readGitPrimaryCheckout({ cwd });
   const repo = resolve7(primary ?? cwd);
-  return join74(dirname13(repo), `${basename31(repo)}-worktrees`);
+  return join74(dirname13(repo), `${basename32(repo)}-worktrees`);
 };
 
 // src/worktree/resolveWorktreePath.ts
@@ -136676,7 +137100,7 @@ var finishImplementRun = async ({ config: config2, cwd, result, flags }) => {
 
 // src/cli/common/implementRun/copyRunInputs.ts
 import { cp as cp2, mkdir as mkdir19, stat as stat9 } from "node:fs/promises";
-import { basename as basename32, dirname as dirname14, join as join78, relative as relative11, resolve as resolve8 } from "node:path";
+import { basename as basename33, dirname as dirname14, join as join78, relative as relative11, resolve as resolve8 } from "node:path";
 var copyPlanFolder = async ({ sourceCwd, workspace, name, inputPath }) => {
   const destination = planWorkspaceDir({ cwd: workspace, name });
   const held = await stat9(destination).then(
@@ -136690,7 +137114,7 @@ var copyPlanFolder = async ({ sourceCwd, workspace, name, inputPath }) => {
 };
 var copyLooseInput = async ({ sourceCwd, workspace, inputPath }) => {
   const source = resolve8(sourceCwd, inputPath);
-  const destination = join78(workspace, ".lightsout", "inputs", basename32(source));
+  const destination = join78(workspace, ".lightsout", "inputs", basename33(source));
   await mkdir19(dirname14(destination), { recursive: true });
   await cp2(source, destination);
   return relative11(workspace, destination);
@@ -136780,7 +137204,7 @@ var linkRunRecords = async ({ sourceCwd, workspace }) => {
 };
 
 // src/cli/common/implementRun/resolveRunBranch.ts
-import { basename as basename33, extname } from "node:path";
+import { basename as basename34, extname } from "node:path";
 
 // src/common/utils/headingOf.ts
 var headingOf = ({ text }) => text.split("\n")[0].replace(/^#+\s*/, "").trim();
@@ -136802,7 +137226,7 @@ var toBranchSlug = ({ text }) => {
 var renderBranchTemplate = ({ template, ticketRef, title }) => template.replaceAll("{ticket}", ticketRef.toLowerCase()).replaceAll("{slug}", toBranchSlug({ text: title }));
 
 // src/cli/common/implementRun/resolveRunBranch.ts
-var stemOf = ({ path }) => basename33(path, extname(path));
+var stemOf = ({ path }) => basename34(path, extname(path));
 var resolveRunBranch = ({ cwd, config: config2, planPath, ticketPath, ticketRef, ticketBody }) => {
   const planName = planPath === void 0 ? void 0 : planNameFromPath({ cwd, planPath });
   const template = config2.queue?.["branch-template"] ?? "{ticket}-{slug}";
@@ -138210,16 +138634,16 @@ var maxWriterGroupFiles = 12;
 var buildCoverageBatch = ({ files, components, batchNumber, batchSize = 5 }) => {
   const scope = files[0].scope;
   const candidateByPath = new Map(files.map((file2) => [file2.path, file2]));
-  const candidatesOf = ({ members: members2 }) => members2.flatMap((path) => candidateByPath.get(path) ?? []);
+  const candidatesOf2 = ({ members: members2 }) => members2.flatMap((path) => candidateByPath.get(path) ?? []);
   const worstOf = ({ candidates }) => Math.min(...candidates.map((candidate) => candidate.statementsPct));
   const groupOf = ({ component }) => {
-    const candidates = candidatesOf({ members: component });
+    const candidates = candidatesOf2({ members: component });
     if (component.length <= maxWriterGroupFiles || candidates.length === 0) {
       return { members: component, candidates };
     }
     const worst = candidates.sort((left, right) => left.statementsPct - right.statementsPct || left.path.localeCompare(right.path))[0];
     const members2 = chunkFileGroup({ files: component, max: maxWriterGroupFiles }).filter((chunk) => chunk.includes(worst.path)).flat();
-    return { members: members2, candidates: candidatesOf({ members: members2 }) };
+    return { members: members2, candidates: candidatesOf2({ members: members2 }) };
   };
   const ranked = components.map((component) => groupOf({ component })).filter((group) => group.candidates.length > 0).sort(
     (left, right) => worstOf({ candidates: left.candidates }) - worstOf({ candidates: right.candidates }) || left.members[0].localeCompare(right.members[0])
@@ -139241,36 +139665,6 @@ var runCoverageBatch = async ({
     stop = finish({ outcome: measured.improved ? BatchOutcome.Resolved : BatchOutcome.Declined, files: measured.files });
   }
   return stop;
-};
-
-// src/common/fileGroups/groupConnectedFiles.ts
-var groupConnectedFiles = ({ files, edges }) => {
-  const parent = new Map(files.map((file2) => [file2, file2]));
-  const find = (file2) => {
-    const up = parent.get(file2);
-    if (up === void 0 || up === file2) {
-      return file2;
-    }
-    const root = find(up);
-    parent.set(file2, root);
-    return root;
-  };
-  for (const { from, to } of edges) {
-    if (!parent.has(from) || !parent.has(to)) {
-      continue;
-    }
-    const rootFrom = find(from);
-    const rootTo = find(to);
-    if (rootFrom !== rootTo) {
-      parent.set(rootFrom, rootTo);
-    }
-  }
-  const byRoot = /* @__PURE__ */ new Map();
-  for (const file2 of files) {
-    const root = find(file2);
-    byRoot.set(root, [...byRoot.get(root) ?? [], file2]);
-  }
-  return [...byRoot.values()].map((group) => [...group].sort()).sort((a, b) => (a[0] ?? "").localeCompare(b[0] ?? ""));
 };
 
 // src/coverage/selectCoverageCandidates.ts
@@ -156495,11 +156889,15 @@ var detailOf = ({ gap }) => {
   return lines[gap.outcome];
 };
 var printGradedGap = ({ gap, write = console.log }) => {
+  const locations = findingLocations({ observations: gap.observations, phase: gap.phase });
   const marker = isBlockingGap({ gap }) ? yellow("?") : dim("note");
   const source = gap.lens === void 0 ? "" : ` ${dim(`(${gap.lens})`)}`;
   const record3 = gap.findingId === void 0 ? "" : `${dim(gap.findingId)} `;
   write(`${record3}${marker} [${gap.area}] ${gap.gap}${source}`);
   write(dim(detailOf({ gap })));
+  if (locations.length > 1) {
+    write(dim(`   affects ${locations.join(", ")}${gap.sharedDefect === void 0 ? "" : ` \u2014 one defect: ${gap.sharedDefect}`}`));
+  }
 };
 
 // src/cli/plan/planGradeCommand.ts
@@ -156621,7 +157019,7 @@ still on ${report.ticketRef} from an earlier publish, and not written by this ru
 };
 
 // src/cli/plan/planSyncDecisionsCommand.ts
-import { basename as basename34 } from "node:path";
+import { basename as basename35 } from "node:path";
 var planSyncDecisionsCommand = async ({ flags, cwd }) => {
   const name = await getRequiredFlag({ flags, name: "name" });
   const result = await syncPlanDecisions({ cwd, name });
@@ -156633,7 +157031,7 @@ ${result.error}`);
   console.log(`
 ${bold(`plan sync-decisions ${name}`)} \u2014 ${result.files.length} file(s)`);
   for (const file2 of result.files) {
-    console.log(`  ${basename34(file2.path)} \u2014 ${file2.updated ? "updated" : "unchanged"}`);
+    console.log(`  ${basename35(file2.path)} \u2014 ${file2.updated ? "updated" : "unchanged"}`);
   }
   return exitCli({ code: 0 });
 };
@@ -159002,7 +159400,7 @@ var toStandardsPackRuleListing = ({ rule, fixtureCounts }) => ({
 var DeclaredConfig = external_exports.object({ timeouts: external_exports.record(external_exports.string(), external_exports.unknown()).optional() }).catchall(external_exports.unknown());
 
 // src/views/common/utils/getRunTitle.ts
-import { basename as basename35, dirname as dirname27 } from "node:path";
+import { basename as basename36, dirname as dirname27 } from "node:path";
 var namedRuleLimit = 3;
 var describeRules = ({ rules }) => {
   const distinct = [...new Set(rules)];
@@ -159011,9 +159409,9 @@ var describeRules = ({ rules }) => {
   return rest > 0 ? `${named} +${rest} more` : named;
 };
 var getRunTitle = ({ plan, worklist }) => {
-  const name = basename35(plan);
+  const name = basename36(plan);
   const stem = name.replace(/\.md$/, "");
-  const folder = basename35(dirname27(plan));
+  const folder = basename36(dirname27(plan));
   const rules = worklist?.kind === PipelineKind.Refactor ? worklist.worklist?.batches.map((batch) => batch.rule) ?? [] : [];
   let title;
   if (worklist?.kind === PipelineKind.Coverage) {

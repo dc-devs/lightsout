@@ -29,7 +29,7 @@ const setup = ({
 	name: string;
 	body?: string;
 	gaps?: unknown[];
-	verdict?: unknown;
+	verdict?: Record<string, unknown>;
 }) => {
 	const cwd = setupConsumerRepo();
 	const dir = writePlanDeliverable({ cwd, name, body });
@@ -92,7 +92,12 @@ const setupStaleDecisionLog = () => {
 	return seeded;
 };
 
-/** The same repo, where the surface lens' finding is judged settled and the other two lenses' findings are ruled a human's to answer. */
+/**
+ * The same repo, where the surface lens' finding is judged settled and the other
+ * two lenses' findings are ruled a human's to answer. The three findings share a
+ * batch, so the judge rules each observation on its own, read from the lens its
+ * block in the prompt names.
+ */
 const setupMixedVerdicts = () => {
 	const seeded = setup({ name: 'mixed' });
 	const driver: Driver = {
@@ -104,16 +109,13 @@ const setupMixedVerdicts = () => {
 				return { text: JSON.stringify({ gaps: [omittedDecisionGap] }), exitCode: 0 };
 			}
 
-			const settled = invocation.prompt.includes('- lens: surface');
+			const verdicts = [...invocation.prompt.matchAll(/^### (o\d+)\n[\s\S]*?^- lens: (\w+)$/gm)].map(([, id, lens]) =>
+				lens === 'surface'
+					? { covers: [id], outcome: 'agent-can-decide', agentDecision: 'return null', safeBecause: 'every sibling in this module already does' }
+					: { covers: [id], outcome: 'needs-a-human', humanDecision: 'what the plan should do here' },
+			);
 
-			return {
-				text: JSON.stringify(
-					settled
-						? { outcome: 'agent-can-decide', agentDecision: 'return null', safeBecause: 'every sibling in this module already does' }
-						: { outcome: 'needs-a-human', humanDecision: 'what the plan should do here' },
-				),
-				exitCode: 0,
-			};
+			return { text: JSON.stringify({ verdicts }), exitCode: 0 };
 		},
 	};
 
@@ -179,7 +181,7 @@ test('plan grade: a judge that dismisses a finding by citing a file that is not 
 	// nowhere is not a considered answer
 	expect(result.grade.grade).toBe('below-A');
 	expect(result.grade.gaps[0]?.outcome).toBe('unjudged');
-	expect(result.grade.gaps[0]?.unjudgedReason).toBe('the judge cited src/nowhere.ts:answer, which is not on disk');
+	expect(result.grade.gaps[0]?.unjudgedReason).toBe("the judge's citation for plan.md was refused — cited src/nowhere.ts, which is not on disk");
 });
 
 test('plan grade: a gap-returning stub fails the plan with the gaps recorded', async () => {

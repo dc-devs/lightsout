@@ -12,6 +12,7 @@ const setupGaps = ({ outcomes }: { outcomes: GapOutcome[] }) => {
 		phase: 'plan.md',
 		lens: GapCheckLens.Decisions,
 		outcome,
+		observations: [],
 	}));
 
 	return { gaps };

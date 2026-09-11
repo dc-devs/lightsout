@@ -25,6 +25,16 @@ against one phase can be answered in another — a repair often moves a decision
 into the overview's Decision Log or into the phase that owns the seam. Open a
 sibling when the answer plausibly moved there.
 
+## A record that spans several plan files
+
+A judge may have confirmed that readers in several plan files described one
+defect, and the record then holds each of their observations. When the task
+message says this spawn asks about one plan file of such a record, answer **only
+for that file**, in the words of that file's own observation. The record closes
+only once every one of its files is confirmed separately, so an answer stated in
+a different file is no evidence about this one — cite the plan text you were
+given, never a line from a sibling.
+
 ## The two answers
 
 - **`already-answered`** — the plan now genuinely settles this question. A

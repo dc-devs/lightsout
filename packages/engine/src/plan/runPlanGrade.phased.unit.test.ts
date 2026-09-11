@@ -84,7 +84,7 @@ test('plan grade: a phased plan writes one verdict into the plan folder, coverin
 	expect(recorded.structural).toStrictEqual([]);
 });
 
-test("plan grade: every finding a phased plan's readers return gets its own judge, given its phase's text and told where the siblings are", async () => {
+test("plan grade: the findings a phased plan's readers return reach one judge per candidate batch, given every spanned phase's text and told where the siblings are", async () => {
 	const { cwd, name, driver, invocations } = setup({ name: 'phased-judged', gaps: [omittedDecisionGap] });
 
 	const result = await runPlanGrade({ cwd, driver, name });
@@ -93,10 +93,11 @@ test("plan grade: every finding a phased plan's readers return gets its own judg
 
 	const judges = invocations.filter(({ prompt }) => prompt.includes('# Gap-judge input'));
 
-	// six readers returned one finding each, and the question a judge answers is
-	// narrow by construction: one finding per spawn, never a phase's batch
-	expect(judges.length).toBe(6);
-	expect(judges.filter(({ prompt }) => prompt.includes('src/other-thing.ts')).length).toBe(3);
+	// six readers returned the same wording, which puts all six in one candidate
+	// batch spanning both phases — one judge, handed both phase files' text, where
+	// six judges would each have seen only half the evidence
+	expect(judges.length).toBe(1);
+	expect(judges.every(({ prompt }) => prompt.includes('src/other-thing.ts') && prompt.includes('src/new-thing.ts'))).toBe(true);
 	// a seam finding cannot be settled from one side, so a phased plan's judge is
 	// told the folder its neighbours sit in rather than handed their text
 	expect(judges.every(({ prompt }) => prompt.includes(`The plan's other phase files are in \`${join('.lightsout', 'plans', 'phased-judged')}\``))).toBe(true);

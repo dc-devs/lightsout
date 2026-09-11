@@ -1,8 +1,8 @@
 import planFindingRecheckPrompt from '#src/agents/prompts/planFindingRecheck.md';
-import type { GradeFindingRecord } from '#src/contracts/index.ts';
+import type { GapObservation, GradeFindingRecord } from '#src/contracts/index.ts';
 
 interface Params {
-	/** The current text of the plan file the record's question was raised against. */
+	/** The current text of the plan file this spawn asks about. */
 	planText: string;
 	/** Overview plan text — context for a phased plan, never judged standalone. */
 	overviewText?: string;
@@ -16,15 +16,40 @@ interface Params {
 	planDir?: string;
 	/** The one open record this judge re-checks. */
 	record: GradeFindingRecord;
+	/** The record's observation at the plan file this spawn asks about. */
+	observation?: GapObservation;
+	/**
+	 * Every plan file the record spans, in the caller's order. Passed in rather
+	 * than derived here, because the rule that derives it lives inside the plan
+	 * module. Two or more is what makes this spawn one location of several; the
+	 * observation's presence alone says nothing, since the caller passes one on
+	 * every spawn.
+	 */
+	locations?: string[];
 }
 
 /**
  * Assemble one plan finding re-check invocation deterministically. A grade run
- * spawns one of these per open record with the same brief, overview and
- * standards, so those live in the system prompt the harness caches through; the
- * current plan text and the single record are the per-invocation prompt.
+ * spawns one of these per location of every open record with the same brief,
+ * overview and standards, so those live in the system prompt the harness caches
+ * through; the current plan text and the single record are the per-invocation
+ * prompt.
+ *
+ * For a record spanning several plan files the question is asked in the covered
+ * location's own reader's words, and a line names the file this spawn covers and
+ * the record's other locations, so the judge answers for this file alone. A
+ * record with one location gets exactly the prompt it got before grouping
+ * existed.
  */
-export const buildPlanFindingRecheckInvocation = ({ planText, overviewText, standards, planDir, record }: Params): { systemPrompt: string; prompt: string } => {
+export const buildPlanFindingRecheckInvocation = ({
+	planText,
+	overviewText,
+	standards,
+	planDir,
+	record,
+	observation,
+	locations = [],
+}: Params): { systemPrompt: string; prompt: string } => {
 	const roleSections = [planFindingRecheckPrompt];
 
 	if (overviewText) {
@@ -43,15 +68,21 @@ export const buildPlanFindingRecheckInvocation = ({ planText, overviewText, stan
 		);
 	}
 
+	const located = locations.length > 1 ? observation : undefined;
+	const asked = located ?? record;
+	const others = locations.filter((location) => location !== asked.phase).join(', ');
+	const where = located === undefined ? [] : [`- this spawn asks about ${located.phase} only; the record also appears in ${others}`];
+
 	sections.push(
 		[
 			'## The question on record',
 			'',
 			`- record: ${record.id}`,
-			`- area: ${record.area}`,
-			`- finding: ${record.gap}`,
-			`- the reader says this must be decided: ${record.decision}`,
-			`- options the reader offered: ${record.options.length > 0 ? record.options.join(' / ') : 'none offered'}`,
+			...where,
+			`- area: ${asked.area}`,
+			`- finding: ${asked.gap}`,
+			`- the reader says this must be decided: ${asked.decision}`,
+			`- options the reader offered: ${asked.options.length > 0 ? asked.options.join(' / ') : 'none offered'}`,
 			`- what the original judge said a human must settle: ${record.humanDecision ?? 'not recorded'}`,
 		].join('\n'),
 		'Remember: your entire final message must be exactly one JSON GapVerdict object — nothing else.',

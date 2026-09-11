@@ -69,8 +69,10 @@ test('plan grade: a phase whose one lens failed is not claimed as checked, thoug
 	// the phase with a dead lens is absent; the fully-checked one is claimed
 	expect(recorded.phasesChecked).toStrictEqual(['phase2-extra.md']);
 	// and the surviving checkers' findings are kept — one failure never discards
-	// the other five
-	expect(recorded.gaps.map(({ phase, lens }) => `${phase}/${lens}`)).toStrictEqual([
+	// the other five. No judge settled them, and the same wording in one plan file
+	// is one pending record, so each plan file's blocker carries every lens that
+	// reported it
+	expect(recorded.gaps.flatMap(({ observations }) => observations.map(({ phase, lens }) => `${phase}/${lens}`))).toStrictEqual([
 		'phase1-core.md/surface',
 		'phase1-core.md/decisions',
 		'phase2-extra.md/surface',
@@ -100,9 +102,12 @@ test('plan grade: a judge that never satisfies its contract leaves its finding u
 
 	expect(recorded.complete).toBe(true);
 	expect(recorded.phasesChecked).toStrictEqual(['plan.md']);
-	// and failing closed is what keeps it out of a clean bill
+	// and failing closed is what keeps it out of a clean bill: the three lenses'
+	// identical finding is one pending record, blocking, with every lens on it
 	expect(recorded.grade).toBe('below-A');
-	expect(recorded.gaps.map(({ outcome }) => outcome)).toStrictEqual(['unjudged', 'unjudged', 'unjudged']);
+	expect(recorded.gaps.map(({ outcome, observations }) => ({ outcome, lenses: observations.map(({ lens }) => lens) }))).toStrictEqual([
+		{ outcome: 'unjudged', lenses: ['surface', 'wiring', 'decisions'] },
+	]);
 	expect(recorded.gaps[0]?.unjudgedReason ?? '').not.toBe('');
 });
 
@@ -229,15 +234,22 @@ test('plan grade: a rate-limited checker stops new checkers launching, and the p
 test('plan grade: a judge wall stops new judges launching, and the findings nobody reached still come back saying so', async () => {
 	// Five phase files times three lenses, each reader returning one gap: fifteen
 	// findings against the same twelve-slot ceiling, so the tail cannot all start.
+	// Each reader words its finding apart, sharing no two distinctive words with
+	// another, so every finding is a judge batch of its own.
 	const { cwd, name, invocations, gradePath } = setupPhased({ name: 'judge-walled-tail', files: fivePhasePlanFiles() });
+	let reported = 0;
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async (invocation) => {
 			invocations.push(invocation);
 
-			return invocation.prompt.includes('# Gap-judge input')
-				? { text: '', exitCode: 1, rateLimited: true }
-				: { text: JSON.stringify({ gaps: [omittedDecisionGap] }), exitCode: 0 };
+			if (invocation.prompt.includes('# Gap-judge input')) {
+				return { text: '', exitCode: 1, rateLimited: true };
+			}
+
+			reported += 1;
+
+			return { text: JSON.stringify({ gaps: [{ ...omittedDecisionGap, gap: `finding ${reported}`, decision: 'pick one' }] }), exitCode: 0 };
 		},
 	};
 
@@ -306,14 +318,12 @@ test('plan grade: a reader wall leaves the findings its siblings did return unju
 
 	const recorded = GradeReport.parse(JSON.parse(readFileSync(gradePath, 'utf8')));
 
-	// what phase 1's readers found is kept, and every one of it says plainly why
-	// nobody weighed it rather than reading as a plan a judge waved through
-	expect(recorded.gaps.length).toBe(3);
+	// what phase 1's readers found is kept — their identical wording is one
+	// pending record carrying all three lenses — and it says plainly why nobody
+	// weighed it rather than reading as a plan a judge waved through
 	expect(recorded.gaps.every(({ outcome }) => outcome === 'unjudged')).toBe(true);
-	expect(recorded.gaps.map(({ unjudgedReason }) => unjudgedReason)).toStrictEqual([
-		'the reader fan-out hit the rate-limit wall, so no judge was spawned',
-		'the reader fan-out hit the rate-limit wall, so no judge was spawned',
-		'the reader fan-out hit the rate-limit wall, so no judge was spawned',
+	expect(recorded.gaps.map(({ unjudgedReason, observations }) => ({ unjudgedReason, lenses: observations.map(({ lens }) => lens) }))).toStrictEqual([
+		{ unjudgedReason: 'the reader fan-out hit the rate-limit wall, so no judge was spawned', lenses: ['surface', 'wiring', 'decisions'] },
 	]);
 	// and the dead readers still keep the pass off a clean bill
 	expect(recorded.complete).toBe(false);

@@ -4,11 +4,13 @@ import { type GradeInputs, type GradeMemory, type GradeReport, GradeScope, type 
 import { appendGradeHistory } from '#src/plan/appendGradeHistory.ts';
 import { gapCheckLenses } from '#src/plan/common/constants/gapCheckLenses.ts';
 import { gradeFileName } from '#src/plan/common/constants/gradeFileName.ts';
+import { collapseGroupedGaps } from '#src/plan/common/grading/collapseGroupedGaps.ts';
 import { createGradeReport } from '#src/plan/common/grading/createGradeReport.ts';
 import { drainGradeAgents } from '#src/plan/common/grading/drainGradeAgents.ts';
 import { weighSelection } from '#src/plan/common/grading/weighSelection.ts';
 import { mergeFindingRecords } from '#src/plan/common/memory/mergeFindingRecords.ts';
 import { openFindingGaps } from '#src/plan/common/memory/openFindingGaps.ts';
+import { pendingFindingGaps } from '#src/plan/common/memory/pendingFindingGaps.ts';
 import { revalidateResolutions } from '#src/plan/common/memory/revalidateResolutions.ts';
 import { verifyOpenFindings } from '#src/plan/common/memory/verifyOpenFindings.ts';
 import { writeGradeMemory } from '#src/plan/common/memory/writeGradeMemory.ts';
@@ -81,6 +83,11 @@ const nextBaselines = ({ memory, report, inputs, at }: { memory: GradeMemory; re
  * then are this pass's own findings folded in, and every record still open joins
  * the gap list, which is what keeps a blocker blocking when no reader happened
  * to report it again.
+ *
+ * A record no judge settled on an earlier pass is `pending`: it is carried into
+ * this pass's judge stage beside the readers' findings, because it needs a
+ * ruling, not a re-read. The gap list is collapsed last, so the gaps one record
+ * holds reach the report as a single repair item.
  */
 export const runGradePass = async ({
 	params,
@@ -100,12 +107,13 @@ export const runGradePass = async ({
 	const { weights, heavy, light } = weighSelection({ selected, config: pass.config });
 	const documentation = scope === GradeScope.Full;
 	const revalidated = await revalidateResolutions({ cwd, files: pass.files, overviewText: pass.overviewText, memory, at });
+	const carried = pendingFindingGaps({ memory: revalidated.memory });
 
 	progress(
-		`plan grade ${name}: ${scope} pass — ${structural.length} structural finding(s), gap-checking ${heavy.length} of ${pass.files.length} plan file(s) × ${gapCheckLenses.length} lens(es)${light.length > 0 ? `, ${light.length} weighed light and read by nobody` : ''}${revalidated.reopened.length > 0 ? `, ${revalidated.reopened.length} resolved finding(s) reopened because the plan no longer states their answer` : ''}`,
+		`plan grade ${name}: ${scope} pass — ${structural.length} structural finding(s), gap-checking ${heavy.length} of ${pass.files.length} plan file(s) × ${gapCheckLenses.length} lens(es)${light.length > 0 ? `, ${light.length} weighed light and read by nobody` : ''}${revalidated.reopened.length > 0 ? `, ${revalidated.reopened.length} resolved finding(s) reopened because the plan no longer states their answer` : ''}${carried.length > 0 ? `, ${carried.length} pending finding(s) carried in for a judge` : ''}`,
 	);
 
-	const agents = await drainGradeAgents({ params, pass, selected: heavy, memory: revalidated.memory, documentation, progress });
+	const agents = await drainGradeAgents({ params, pass, selected: heavy, carried, memory: revalidated.memory, documentation, progress });
 	const verified = await verifyOpenFindings({
 		cwd,
 		driver: params.driver,
@@ -122,7 +130,9 @@ export const runGradePass = async ({
 		skipReason: agents.rateLimited ? 'the reader fan-out hit the rate-limit wall, so no finding was re-verified' : undefined,
 	});
 	const merged = mergeFindingRecords({ memory: verified.memory, gaps: agents.gaps, at });
-	const gaps = [...merged.gaps, ...openFindingGaps({ memory: merged.memory, gaps: merged.gaps, refusals: verified.refusals })];
+	// Collapsed after the open records join, so a pass finding and the surfaced
+	// record it belongs to reach the report as one repair item.
+	const gaps = collapseGroupedGaps({ gaps: [...merged.gaps, ...openFindingGaps({ memory: merged.memory, gaps: merged.gaps, refusals: verified.refusals })] });
 	const report = createGradeReport({
 		name,
 		phases,

@@ -74,6 +74,7 @@ describe('PlanDetail grade tab', () => {
 							phase: 'plan.md',
 							lens: GapCheckLens.Decisions,
 							outcome: GapOutcome.NeedsAHuman,
+							observations: [],
 						},
 						{
 							// A gap the checker could not name options for: the line is left
@@ -85,6 +86,7 @@ describe('PlanDetail grade tab', () => {
 							phase: 'plan.md',
 							lens: GapCheckLens.Wiring,
 							outcome: GapOutcome.NeedsAHuman,
+							observations: [],
 						},
 					],
 					phasesChecked: ['plan.md'],
@@ -129,6 +131,7 @@ describe('PlanDetail grade tab', () => {
 							options: ['docs/configuration.md', 'nothing user-facing after all'],
 							phase: 'plan.md',
 							outcome: GapOutcome.NeedsAHuman,
+							observations: [],
 						},
 						{
 							area: GapArea.UnwiredDependency,
@@ -138,6 +141,7 @@ describe('PlanDetail grade tab', () => {
 							phase: 'plan.md',
 							lens: GapCheckLens.Wiring,
 							outcome: GapOutcome.NeedsAHuman,
+							observations: [],
 						},
 					],
 					phasesChecked: ['plan.md'],

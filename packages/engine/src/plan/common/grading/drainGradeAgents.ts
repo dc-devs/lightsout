@@ -21,6 +21,8 @@ interface Params {
 	params: PlanGradeParams;
 	pass: DetectionPass;
 	selected: DeliverableFile[];
+	/** The pending records this pass re-offers to the judge: findings no judge settled on an earlier pass, which need a ruling rather than a re-read. */
+	carried: GradedGap[];
 	/** The plan's finding memory — settled records for the readers, every record for the judges. */
 	memory: GradeMemory;
 	/** Whether the whole-plan documentation checker runs. False on a focused pass, which reads part of the plan. */
@@ -88,9 +90,10 @@ const spawnGapChecker = async ({
  * rather than wall-clock, and its findings never reach the judge — the
  * checker's own job is that judgment.
  *
- * It needs no notion of weight: handed an empty selection it spawns no reader
- * and no judge, and the documentation checker still runs whenever a `docs` block
- * is declared AND this pass is one it belongs to.
+ * It needs no notion of weight: handed an empty selection it spawns no reader,
+ * and no judge unless a pending record is carried in, and the documentation
+ * checker still runs whenever a `docs` block is declared AND this pass is one it
+ * belongs to.
  *
  * `documentation` is false on a focused pass. The checker reads the whole
  * deliverable, and a whole-plan checker is not part of a pass that reads two
@@ -100,8 +103,13 @@ const spawnGapChecker = async ({
  *
  * The memory is threaded two ways, both read-only. Each reader is shown the
  * settled records for its own plan file, so a question already answered is not
- * re-asked; each judge is shown every record for its finding's file, so it can
- * name the one a fresh finding repeats.
+ * re-asked; each judge is shown every record for the plan files its batch
+ * spans, so it can name the one a fresh finding repeats.
+ *
+ * The pending records carried in join the readers' findings at the judge stage
+ * and nowhere else: a carried record is not a plan file anybody read, so the
+ * reader fan-out and the coverage it claims are exactly what they would be
+ * without it.
  *
  * `documentationComplete` answers whether the documentation checker finished —
  * true too when it had nothing to do, as on a focused pass, where it cannot fail
@@ -111,6 +119,7 @@ export const drainGradeAgents = async ({
 	params,
 	pass,
 	selected,
+	carried,
 	memory,
 	documentation,
 	progress,
@@ -141,8 +150,10 @@ export const drainGradeAgents = async ({
 		...params,
 		workspaceDir: pass.workspaceDir,
 		overviewText: pass.overviewText,
-		selected,
-		gaps: readers.gaps,
+		// Every plan file, not the readers' selection: a carried record may name a
+		// file this pass weighed light or left out, and it still needs a judge.
+		files: pass.files,
+		gaps: [...readers.gaps, ...carried],
 		skipReason: readers.rateLimited ? 'the reader fan-out hit the rate-limit wall, so no judge was spawned' : undefined,
 		memory,
 	});

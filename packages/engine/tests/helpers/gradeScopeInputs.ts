@@ -74,6 +74,8 @@ export const findingRecord = ({
 	status,
 	disposition,
 	humanDecision: 'Pick the store.',
+	observations: [],
+	resolutions: [],
 	reopened: [],
 });
 
