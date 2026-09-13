@@ -12,6 +12,7 @@ import type { LightsoutConfig } from '#src/contracts/index.ts';
 import {
 	emptyRelayMailbox,
 	FileQuestionRelay,
+	isParkedOutcome,
 	type QuestionRelay,
 	type QueueDrainReport,
 	type QueueSettings,
@@ -83,7 +84,11 @@ const printDrainReport = ({ report }: { report: QueueDrainReport }) => {
 				console.log(`  ${outcome.reconciliationFailure}`);
 			}
 		} else {
-			console.log(`${outcome.ticket.identifier} ${outcome.branch} parked: ${outcome.error ?? 'no reason recorded'}`);
+			// A ticket left open is not a park: its work is finished as far as it
+			// goes, and it is waiting on a human rather than on a re-run.
+			const stop = outcome.open === undefined ? `parked: ${outcome.error ?? 'no reason recorded'}` : `left open: ${outcome.open}`;
+
+			console.log(`${outcome.ticket.identifier} ${outcome.branch} ${stop}`);
 			console.log(`  worktree: ${outcome.worktreePath}`);
 		}
 	}
@@ -199,7 +204,9 @@ export const queueCommand = async ({ flags, cwd }: CommandContext): Promise<void
 	// re-run has nothing to pick up for it, so it never makes the drain exit 2.
 	// A reconciliation failure does not either — the branch is merged and will
 	// not be offered again; only the tracker is stale, and the line above says so.
-	const resumable = report.leftBehind.some((entry) => entry.settled !== true) || report.outcomes.some((outcome) => !outcome.ready);
+	// A ticket left open does not either: it is waiting on a human decision — a
+	// ship request, a plan somebody is still writing — not on a re-run.
+	const resumable = report.leftBehind.some((entry) => entry.settled !== true) || report.outcomes.some((outcome) => isParkedOutcome({ outcome }));
 
 	return exitCli({ code: resumable ? pausedExitCode : 0 });
 };

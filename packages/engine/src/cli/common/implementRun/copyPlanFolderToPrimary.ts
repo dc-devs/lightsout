@@ -7,14 +7,20 @@ interface Params {
 	worktree: string;
 	/** The checkout the folder is saved into. */
 	primary: string;
-	/** The plan's name — the folder under `.lightsout/plans/`. */
+	/** Whichever folder under `.lightsout/plans/` is copied — a plan address for one plan, or a ticket folder's name for every plan it holds. */
 	name: string;
 }
 
 /**
- * Put the plan folder a worktree holds into another checkout, so removing the
- * tree can never delete the only local copy of a plan — including one with no
- * tracker ticket, which has no attachment to fall back on.
+ * Put the folder a worktree holds under `.lightsout/plans/` into another
+ * checkout, so removing the tree can never delete the only local copy of a plan
+ * — including one with no tracker ticket, which has no attachment to fall back
+ * on.
+ *
+ * What is copied is whatever the name addresses: one plan folder for a plan
+ * address, or a whole ticket folder — every plan inside it — when handed a
+ * ticket folder's name. A file only the destination holds, such as the ticket
+ * record, is left in place.
  *
  * The tree's folder is copied over what the destination holds, and a file only
  * the destination has is left in place: the tree's copy is the graded, repaired

@@ -1,6 +1,8 @@
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import { usage } from '#src/cli/common/constants/usage.ts';
 import { continueDirectRun } from '#src/cli/common/implementRun/continueDirectRun.ts';
+import { readResumeClearance } from '#src/cli/common/implementRun/readResumeClearance.ts';
+import { reportTicketPlanOutcome } from '#src/cli/common/implementRun/reportTicketPlanOutcome.ts';
 import { resolveRunCwd } from '#src/cli/common/implementRun/resolveRunCwd.ts';
 import { printResult } from '#src/cli/common/render/printResult.ts';
 import { printRunHeader } from '#src/cli/common/render/printRunHeader.ts';
@@ -9,14 +11,13 @@ import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrint
 import { exitAfterImplement } from '#src/cli/common/utils/exitAfterImplement.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { resolveCommandHarness } from '#src/cli/common/utils/resolveCommandHarness.ts';
-import { resolveCommandShipIntent } from '#src/cli/common/utils/resolveCommandShipIntent.ts';
 import { runPhasesOrFailFast } from '#src/cli/common/utils/runPhasesOrFailFast.ts';
 import { runPipelineOrFailFast } from '#src/cli/common/utils/runPipelineOrFailFast.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { type LightsoutConfig, PipelineKind, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import { type Driver, getDriver } from '#src/drivers/index.ts';
 import { RunNotFoundError, readRunManifest, writeRunManifest } from '#src/runState/index.ts';
-import { requireImplementLifecycle } from '#src/ticketLifecycle/index.ts';
+import { runTicketPlanLifecycle } from '#src/ticket/index.ts';
 
 /**
  * Pipelines that own their own resume door, and the whole instruction that
@@ -156,31 +157,15 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 
 	const workspace = located.workspace;
 	const loaded = await readConfig({ cwd });
+	// Before the tracker write and before the ship restamp, so a resume nothing
+	// will let happen mutates nothing on the way to saying so.
+	const clearance = await readResumeClearance({ workspace, manifest, loaded, flags });
 
-	// A resumed run ships on the same terms a first run does: whatever the
-	// config and the flags say, settled here rather than inherited. A fix, a
-	// resume and a merge is the whole point of parking, and a run that had to be
-	// resumed is not a run that deserves to end unshipped and unmentioned.
-	const shipIntent = resolveCommandShipIntent({ config: loaded, flags, env: process.env });
-
-	if (shipIntent === undefined) {
+	if (clearance === undefined) {
 		return exitCli({ code: 1 });
 	}
 
-	// Every pipeline still here writes source, so each owes the pre-source
-	// lifecycle write the implement entries already make. It is also what refuses
-	// a ticket under a gate hold, and it runs before the restamp below so a
-	// refused resume mutates nothing. It is asked of the WORKSPACE, because the
-	// branch it reads the ticket from is the one the run is building on. No
-	// `ticketRef`: a resumed run is ticket-backed through its branch, which the
-	// guard reads for itself.
-	const refusal = await requireImplementLifecycle({ cwd: workspace, config: loaded, env: process.env, onProgress: createProgressPrinter() });
-
-	if (refusal !== undefined) {
-		console.error(refusal);
-		return exitCli({ code: 1 });
-	}
-
+	const { name, shipIntent } = clearance;
 	const { resumable, config, driver } = await prepareResumedRun({ cwd, manifest, loaded, willShip: shipIntent.willShip });
 
 	console.log(`lightsout: resuming run ${manifest.runId} (was: ${manifest.status}, plan: ${manifest.plan})`);
@@ -188,17 +173,29 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 
 	// Everything that touches source acts on the workspace; only the run's own
 	// records stay in the checkout the command was launched from.
-	const result = await runResumedPipeline({
-		pipeline,
-		cwd,
-		workspace,
-		driver,
-		config,
-		generated: loaded.generated,
-		willShip: shipIntent.willShip,
-		resumable,
-		skipRefactor,
+	const outcome = await runTicketPlanLifecycle({
+		cwd: workspace,
+		name,
+		resumeRunId: manifest.runId,
+		run: () =>
+			runResumedPipeline({
+				pipeline,
+				cwd,
+				workspace,
+				driver,
+				config,
+				generated: loaded.generated,
+				willShip: shipIntent.willShip,
+				resumable,
+				skipRefactor,
+			}),
 	});
+
+	const result = reportTicketPlanOutcome({ outcome });
+
+	if (result === undefined) {
+		return exitCli({ code: 1 });
+	}
 
 	await printResult({ result, cwd });
 	return exitAfterImplement({

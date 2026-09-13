@@ -7970,6 +7970,9 @@ var brainstormAttachmentManifestName = "brainstorm-attachments.json";
 import { readFile as readFile29 } from "node:fs/promises";
 import { join as join63 } from "node:path";
 
+// src/common/attachmentManifest/attachmentTitle.ts
+var attachmentTitle = ({ prefix, name }) => prefix === void 0 ? name : `${prefix}--${name}`;
+
 // src/common/utils/sha256.ts
 import { createHash } from "node:crypto";
 var sha256 = ({ content }) => createHash("sha256").update(content).digest("hex");
@@ -8003,6 +8006,9 @@ var PlanRunStatus = {
   StructuralIssues: "structural-issues"
 };
 
+// src/plan/common/constants/planAttachmentManifestName.ts
+var planAttachmentManifestName = "plan-attachments.json";
+
 // src/plan/common/memory/gradeMemoryPath.ts
 import { join as join2 } from "node:path";
 
@@ -8015,6 +8021,12 @@ var planWorkspaceDir = ({ cwd, name }) => join(cwd, ".lightsout", "plans", name)
 
 // src/plan/common/memory/gradeMemoryPath.ts
 var gradeMemoryPath = ({ cwd, name }) => join2(planWorkspaceDir({ cwd, name }), gradeMemoryFileName);
+
+// src/plan/planWorkspacePath.ts
+var planWorkspacePath = ({ name }) => `.lightsout/plans/${name}`;
+
+// src/plan/common/paths/isRunInPlanWorkspace.ts
+var isRunInPlanWorkspace = ({ runPlan, name }) => runPlan.startsWith(`${planWorkspacePath({ name })}/`) || runPlan.startsWith(`.claude/plans/${name}/`);
 
 // src/plan/common/paths/pathExists.ts
 import { stat } from "node:fs/promises";
@@ -22758,10 +22770,18 @@ var ConfigImplement = external_exports.object({
   }).strict().optional()
 }).strict();
 
+// src/contracts/ticket/TicketMode.ts
+var TicketMode = {
+  SinglePlan: "single-plan",
+  MultiplePlan: "multiple-plan"
+};
+
 // src/contracts/ConfigPlan.ts
 var ConfigPlan = external_exports.object({
   /** When true the writer produces the contract shape with an acceptance-test ledger, the lint requires the ledger section, and the grade weighs each plan file and spawns readers only for heavy ones. Default false: every plan command behaves exactly as before this key existed. */
   contract: external_exports.boolean().optional(),
+  /** The mode a ticket's own record is created with: `single-plan`, where plan 001 alone supplies the implementation, or `multiple-plan`, where the ticket's plans implement in numeric order on one branch. Default `single-plan`. Read only when a record is created, so changing it never rewrites a ticket that already has one. */
+  "default-ticket-mode": external_exports.enum(TicketMode).optional(),
   /** Whether a planning session works in its own isolated git worktree rather than the checkout it was launched from. Default true. `--worktree` and `--no-worktree` override it for one command. */
   worktree: external_exports.boolean().optional(),
   /** The counts above which a plan file is heavy. Each key optional; see `defaultWeightThresholds`. */
@@ -24193,6 +24213,7 @@ var PlanningProgress = external_exports.object({
 var BranchPhase = {
   Building: "building",
   Ready: "ready",
+  Open: "open",
   Merged: "merged"
 };
 
@@ -24224,7 +24245,14 @@ var QueueBoardTicket = external_exports.object({
   lane: external_exports.enum(QueueLane),
   /** The queue worker value that builds the ticket. */
   worker: external_exports.string().optional(),
-  /** Set only for an auto-plan ticket: the plan folder the worker's session writes, which is named for the ticket's branch. */
+  /**
+   * Set only for an auto-plan ticket: the folder under the plans directory the
+   * worker's session writes in, which is named for the ticket's branch.
+   *
+   * For a ticket with a record of its own that is the ticket folder, and the plan
+   * the session is writing is the one inside it still being planned; for a ticket
+   * with no record it is the plan folder itself, as it always was.
+   */
   planName: external_exports.string().optional(),
   branch: external_exports.string().optional(),
   worktreePath: external_exports.string().optional(),
@@ -24650,7 +24678,17 @@ var ShipBlockReason = {
    */
   IntegrationGatesUnavailable: "integration-gates-unavailable",
   /** No CI checks appeared for the pushed commit before the wait ceiling, and the repository has not explicitly opted out. */
-  ChecksMissing: "checks-missing"
+  ChecksMissing: "checks-missing",
+  /**
+   * The branch's ticket record does not authorize shipping: a multiple-plan
+   * ticket with no satisfied ship request, a single-plan ticket whose plan 001's
+   * implementation has not finished, or a published record that diverged from
+   * this machine's copy or could not be read at all.
+   *
+   * Checked twice — once before anything is pushed, and again immediately before
+   * the merge — so a plan added while the checks were running still stops it.
+   */
+  TicketNotAuthorized: "ticket-not-authorized"
 };
 
 // src/contracts/ship/ShippingStepId.ts
@@ -24725,6 +24763,129 @@ var ShipResult = external_exports.object({
   /** Named checks that finished red or never finished — filled for 'checks-failed' and 'checks-timed-out'. */
   failingChecks: external_exports.array(external_exports.string()).default([])
 });
+
+// src/contracts/ticket/PlanId.ts
+var planIdShape = /^(?!000-)\d{3}-[a-z0-9]+(?:-[a-z0-9]+)*$/;
+var maxSlugLength = 40;
+var PlanId = external_exports.string().regex(
+  planIdShape,
+  "a plan id is three digits from 001 to 999, a hyphen, and lowercase letter-and-digit words joined by single hyphens \u2014 for example '001-search-basics'"
+).refine((id) => {
+  const slugStart = 4;
+  return id.length - slugStart <= maxSlugLength;
+}, `a plan id's slug is at most ${maxSlugLength} characters`);
+
+// src/contracts/ticket/PlanProgress.ts
+var PlanProgress = {
+  Planning: "planning",
+  Ready: "ready",
+  Implementing: "implementing",
+  Implemented: "implemented",
+  Failed: "failed"
+};
+
+// src/contracts/ticket/TicketEventKind.ts
+var TicketEventKind = {
+  PlanAdded: "plan-added",
+  PlanAdopted: "plan-adopted",
+  PlanRetitled: "plan-retitled",
+  PlanExcluded: "plan-excluded",
+  ModeChanged: "mode-changed",
+  ShipRequested: "ship-requested",
+  ShipRequestWithdrawn: "ship-request-withdrawn",
+  Shipped: "shipped"
+};
+
+// src/contracts/ticket/TicketPlan.ts
+var sha256Digest = external_exports.string().regex(/^[0-9a-f]{64}$/, "a hash is written as 64 lowercase hex characters");
+var TicketPlan = external_exports.object({
+  id: PlanId,
+  /** The plan's mutable display title. Changing it never changes the plan's identity, its folder or a pending ship request. */
+  title: external_exports.string().min(1),
+  progress: external_exports.enum(PlanProgress),
+  /** ISO timestamp of the moment the plan was added or adopted. */
+  createdAt: external_exports.string(),
+  /** The implementation run recorded against this plan — the latest one, replaced when the plan is implemented again after a repair. */
+  implementation: external_exports.object({
+    runId: external_exports.string(),
+    startedAt: external_exports.string(),
+    /** The ticket branch's HEAD when the run started. */
+    startCommit: external_exports.string(),
+    finishedAt: external_exports.string().optional(),
+    /** The plan's durable files as the passed run left them, so a later change to them is detectable. */
+    snapshot: external_exports.array(external_exports.object({ name: external_exports.string(), sha256: sha256Digest }).strict()).optional()
+  }).strict().optional(),
+  /** The SHA-256 of the plan's attachment marker as this plan was last published, which is what makes a divergent published copy detectable. */
+  publishedMarker: sha256Digest.optional(),
+  /** The recorded decision that takes this plan out of the ticket's implementation order and its shipping requirements. Final, and never a progress value. */
+  exclusion: external_exports.object({
+    at: external_exports.string(),
+    reason: external_exports.string().min(1),
+    /** Whether the human declared this plan's implementation removed from the branch. */
+    implementationRemoved: external_exports.boolean(),
+    /** The commit the repository's own gates passed on when the removal was verified. */
+    verifiedCommit: external_exports.string().optional()
+  }).strict().optional()
+}).strict();
+
+// src/common/planAddress/planNumberOf.ts
+var planNumberOf = ({ id }) => Number.parseInt(id.slice(0, 3), 10);
+
+// src/contracts/ticket/TicketRecord.ts
+var TicketRecordShape = external_exports.object({
+  schemaVersion: external_exports.literal(1),
+  /** The ticket this record belongs to, as the tracker names it — `LO-140`. */
+  ticketRef: external_exports.string().min(1),
+  /** The one branch every plan of this ticket implements on, which is also the ticket folder's name. */
+  branch: external_exports.string().min(1),
+  mode: external_exports.enum(TicketMode),
+  /** Every plan the ticket has ever held, excluded ones included, in ascending number order. */
+  plans: external_exports.array(TicketPlan),
+  /** The human's explicit request to ship, bound to the exact plans it was approved for. */
+  shipRequest: external_exports.object({ planIds: external_exports.array(PlanId).min(1), requestedAt: external_exports.string() }).strict().optional(),
+  /** What actually shipped. A record carrying it is history: nothing changes it again. */
+  shipped: external_exports.object({ at: external_exports.string(), planIds: external_exports.array(PlanId), mergeCommit: external_exports.string() }).strict().optional(),
+  history: external_exports.array(external_exports.object({ at: external_exports.string(), kind: external_exports.enum(TicketEventKind), detail: external_exports.string() }).strict())
+}).strict();
+var checkPlanOrder = ({ record: record3, ctx }) => {
+  const numbers = record3.plans.map((plan) => planNumberOf({ id: plan.id }));
+  for (const [index, number4] of numbers.entries()) {
+    const previous = numbers[index - 1];
+    if (previous !== void 0 && !(previous < number4)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `plan ${record3.plans[index]?.id} does not come after plan ${record3.plans[index - 1]?.id} \u2014 a ticket's plans are held in ascending number order and no number is ever reused`
+      });
+    }
+  }
+};
+var checkShipRequest = ({ record: record3, ctx }) => {
+  const held = new Set(record3.plans.map((plan) => plan.id));
+  const named = /* @__PURE__ */ new Set();
+  for (const planId of record3.shipRequest?.planIds ?? []) {
+    if (!held.has(planId)) {
+      ctx.addIssue({ code: "custom", message: `the ship request names plan ${planId}, which this ticket does not hold` });
+    }
+    if (named.has(planId)) {
+      ctx.addIssue({ code: "custom", message: `the ship request names plan ${planId} more than once` });
+    }
+    named.add(planId);
+  }
+};
+var TicketRecord = TicketRecordShape.superRefine((record3, ctx) => {
+  checkPlanOrder({ record: record3, ctx });
+  checkShipRequest({ record: record3, ctx });
+});
+
+// src/contracts/ticket/TicketSyncState.ts
+var sha256Digest2 = external_exports.string().regex(/^[a-f0-9]{64}$/, "a hash is written as 64 lowercase hex characters");
+var TicketSyncState = external_exports.object({
+  schemaVersion: external_exports.literal(1),
+  /** SHA-256 of the `serializeTicketRecord` bytes last published or restored. Absent before the first sync. */
+  recordSha256: sha256Digest2.optional(),
+  /** Per plan id, the SHA-256 of the plan's commit marker as this machine last published or restored it. */
+  planMarkers: external_exports.record(PlanId, sha256Digest2)
+}).strict();
 
 // src/contracts/views/AgentInvocation.ts
 var AgentInvocation = AgentUsage.extend({
@@ -24844,7 +25005,7 @@ var PlanWorkspaceFile = external_exports.object({
 
 // src/contracts/views/planWorkspace/PlanWorkspaceListing.ts
 var PlanWorkspaceListing = external_exports.object({
-  /** The kebab folder name under `.lightsout/plans/`. */
+  /** The plan's name under `.lightsout/plans/` — a plan address `<ticket-branch>/<plan-id>`, or a legacy folder's name. */
   name: external_exports.string(),
   stage: external_exports.enum(PlanStage),
   /** Present once `grade.json` exists and parses. */
@@ -25211,6 +25372,40 @@ var isBlockingGap = ({ gap }) => gap.outcome === GapOutcome.NeedsAHuman || gap.o
 // src/plan/common/utils/getBlockingGaps.ts
 var getBlockingGaps = ({ gaps }) => gaps.filter((gap) => isBlockingGap({ gap }));
 
+// src/plan/common/utils/resolvePlanDeliverable.ts
+import { readdir, readFile } from "node:fs/promises";
+import { join as join3 } from "node:path";
+var resolvePlanDeliverable = async ({ cwd, name }) => {
+  const dir = planWorkspaceDir({ cwd, name });
+  const singlePath = join3(dir, "plan.md");
+  let overviewPath;
+  let overviewText;
+  const files = [];
+  if (await pathExists({ path: singlePath })) {
+    files.push({ path: singlePath, text: await readFile(singlePath, "utf8") });
+  } else {
+    const dirEntries = await readdir(dir).catch(() => []);
+    const entries = dirEntries.filter((entry) => entry === "overview.md" || /^phase\d+.*\.md$/.test(entry)).sort();
+    for (const entry of entries) {
+      const path = join3(dir, entry);
+      const text = await readFile(path, "utf8");
+      if (entry === "overview.md") {
+        overviewPath = path;
+        overviewText = text;
+      } else {
+        files.push({ path, text });
+      }
+    }
+  }
+  if (files.length === 0) {
+    return {
+      files,
+      error: `no plan found for '${name}' \u2014 expected ${singlePath} or ${dir}/phase<N>-<slug>.md. This pass reads the disk only and asked no tracker; \`lightsout implement\` fetches a plan published to its ticket, or run \`lightsout plan publish --name ${name}\` from the machine that has it.`
+    };
+  }
+  return { overviewPath, overviewText, files };
+};
+
 // src/plan/decisionLog/buildPlanSyncDecisionsCommand.ts
 var buildPlanSyncDecisionsCommand = ({ cwd, name }) => {
   const prefix = `node ${process.argv[1]} plan sync-decisions`;
@@ -25225,14 +25420,14 @@ decision history for every phase of this plan is the log in overview.md, beside
 this file.`;
 
 // src/plan/readBrainstormDecisions.ts
-import { join as join4 } from "node:path";
+import { join as join5 } from "node:path";
 
 // src/plan/common/utils/readPlanWorkspaceFile.ts
-import { readFile } from "node:fs/promises";
-import { join as join3 } from "node:path";
+import { readFile as readFile2 } from "node:fs/promises";
+import { join as join4 } from "node:path";
 var readPlanWorkspaceFile = async ({ cwd, name, fileName, schema, notFound }) => {
-  const filePath = join3(planWorkspaceDir({ cwd, name }), fileName);
-  const raw = await readFile(filePath, "utf8").catch(() => {
+  const filePath = join4(planWorkspaceDir({ cwd, name }), fileName);
+  const raw = await readFile2(filePath, "utf8").catch(() => {
     throw new Error(notFound(filePath));
   });
   return schema.parse(JSON.parse(raw));
@@ -25241,7 +25436,7 @@ var readPlanWorkspaceFile = async ({ cwd, name, fileName, schema, notFound }) =>
 // src/plan/readBrainstormDecisions.ts
 var brainstormDecisionsFile = "brainstorm-decisions.json";
 var readBrainstormDecisions = async ({ cwd, name }) => {
-  const filePath = join4(planWorkspaceDir({ cwd, name }), brainstormDecisionsFile);
+  const filePath = join5(planWorkspaceDir({ cwd, name }), brainstormDecisionsFile);
   const present = await pathExists({ path: filePath });
   if (!present) {
     return void 0;
@@ -25325,40 +25520,6 @@ ${body}`;
 
 // src/plan/decisionLog/syncPlanDecisions.ts
 import { basename as basename2 } from "node:path";
-
-// src/plan/common/utils/resolvePlanDeliverable.ts
-import { readdir, readFile as readFile2 } from "node:fs/promises";
-import { join as join5 } from "node:path";
-var resolvePlanDeliverable = async ({ cwd, name }) => {
-  const dir = planWorkspaceDir({ cwd, name });
-  const singlePath = join5(dir, "plan.md");
-  let overviewPath;
-  let overviewText;
-  const files = [];
-  if (await pathExists({ path: singlePath })) {
-    files.push({ path: singlePath, text: await readFile2(singlePath, "utf8") });
-  } else {
-    const dirEntries = await readdir(dir).catch(() => []);
-    const entries = dirEntries.filter((entry) => entry === "overview.md" || /^phase\d+.*\.md$/.test(entry)).sort();
-    for (const entry of entries) {
-      const path = join5(dir, entry);
-      const text = await readFile2(path, "utf8");
-      if (entry === "overview.md") {
-        overviewPath = path;
-        overviewText = text;
-      } else {
-        files.push({ path, text });
-      }
-    }
-  }
-  if (files.length === 0) {
-    return {
-      files,
-      error: `no plan found for '${name}' \u2014 expected ${singlePath} or ${dir}/phase<N>-<slug>.md. This pass reads the disk only and asked no tracker; \`lightsout implement\` fetches a plan published to its ticket, or run \`lightsout plan publish --name ${name}\` from the machine that has it.`
-    };
-  }
-  return { overviewPath, overviewText, files };
-};
 
 // src/plan/decisionLog/writeDecisionLogSection.ts
 import { readFile as readFile3, writeFile } from "node:fs/promises";
@@ -26691,7 +26852,7 @@ ${promptFiles.map((file2) => `- ${file2}`).join("\n")}`,
 };
 
 // src/agents/prompts/queueAutoPlan.md
-var queueAutoPlan_default = '# Role: Headless Auto-Plan Worker\n\nYou are running unattended in a git worktree that already holds this ticket\'s\nbranch. Nobody is watching your session. The queue that spawned you relays\nanything you cannot decide to the one terminal a human is sitting at, and\nre-invokes you with their answer.\n\n## What to do\n\n1. Invoke the `lightsout:auto-plan` skill on the ticket appended below and\n   follow it exactly as written. It plans the ticket and publishes the approved\n   durable plan to that ticket.\n2. Your job ends the moment that publish step has succeeded \u2014 report then. A\n   publish failure is a worker failure to report, not a reason to continue from\n   the one local copy. The queue builds the plan itself, as an engine\n   subprocess outside this session, from the plan folder you leave in the\n   worktree: leave it exactly where it is, and name it exactly like the\n   worktree\'s branch, because that is the name the engine looks under once your\n   session has ended.\n\nThe task message names the exact engine invocation to type. That string is\nalso the only command prefix this session was granted, so wherever the skill\'s\nown text says `lightsout <subcommand>`, run the granted invocation followed by\n`<subcommand>` instead. Anything else will simply be refused.\n\nThe `lightsout:auto-plan` skill ships in the same plugin as the engine that\nspawned you, so a user running the queue has it installed. If your session\ncannot find it, do NOT improvise a planning process: report `failed` with a\nfailure saying the lightsout plugin\'s skills are not available to spawned\nsessions, so the ticket parks with a message a human can act on.\n\n## The worktree may already hold your earlier work\n\nInspect it before assuming it is fresh. A previous invocation of you may have\nwritten a plan folder \u2014 this happens after a relayed answer and after a\nrestart. An existing `.lightsout/plans/<name>/` for this ticket is yours: do\nnot re-derive a name. Fold the relayed answer into that folder and continue\nfrom where the previous invocation stopped, rather than planning it again.\n\n## You have no user\n\nNever ask a question directly \u2014 there is nobody in your session to answer it.\nWhen a question clears the skill\'s escalation bar, stop and report\n`terminated:ambiguity` with the question as the FIRST entry of `failures`. The\nengine relays it to the terminal that started the queue, records the answer on\nthe ticket, and re-invokes you with it. Ask one question at a time.\n\n## Never implement\n\nNever run the engine\'s `implement` subcommand, and never invoke the\n`lightsout:implement` skill. A build takes hours, and a build started inside an\nagent session dies with that session \u2014 which is the very failure this worker\nexists to remove. The queue runs the build itself, outside any session.\n\n## Never ship\n\nNever run `lightsout ship`, and never pass `--ship`. Shipping is the queue\'s\nown step: it rebases each branch onto fresh main and re-runs the gates, one\nbranch at a time. A branch that ships itself races that order.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. Your\nmessage starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was built, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 omit when clean" }]\n}\n```\n\nReport `complete` only when the plan was written, graded and\npublished to the ticket. Never claim work you did not do \u2014 the engine diffs the\ntree, and a false report is worse than a failed one.\n';
+var queueAutoPlan_default = '# Role: Headless Auto-Plan Worker\n\nYou are running unattended in a git worktree that already holds this ticket\'s\nbranch. Nobody is watching your session. The queue that spawned you relays\nanything you cannot decide to the one terminal a human is sitting at, and\nre-invokes you with their answer.\n\n## What to do\n\n1. Invoke the `lightsout:auto-plan` skill on the ticket appended below and\n   follow it exactly as written. It plans the ticket and publishes the approved\n   durable plan to that ticket.\n2. Your job ends the moment that publish step has succeeded \u2014 report then. A\n   publish failure is a worker failure to report, not a reason to continue from\n   the one local copy. The queue builds the plan itself, as an engine\n   subprocess outside this session, from the plan folder you leave in the\n   worktree: leave the plan in exactly the folder the task message\'s plan\n   address names, because that address is where the engine looks once your\n   session has ended.\n\nThe task message names the exact engine invocation to type. That string is\nalso the only command prefix this session was granted, so wherever the skill\'s\nown text says `lightsout <subcommand>`, run the granted invocation followed by\n`<subcommand>` instead. Anything else will simply be refused.\n\nThe `lightsout:auto-plan` skill ships in the same plugin as the engine that\nspawned you, so a user running the queue has it installed. If your session\ncannot find it, do NOT improvise a planning process: report `failed` with a\nfailure saying the lightsout plugin\'s skills are not available to spawned\nsessions, so the ticket parks with a message a human can act on.\n\n## The worktree may already hold your earlier work\n\nInspect it before assuming it is fresh. A previous invocation of you may have\nwritten a plan folder \u2014 this happens after a relayed answer and after a\nrestart. The folder the task message\'s plan address names is yours, whatever\nelse the worktree holds: do not re-derive a name, and do not touch another\nplan\'s folder. Fold the relayed answer into your own folder and continue from\nwhere the previous invocation stopped, rather than planning it again.\n\n## You have no user\n\nNever ask a question directly \u2014 there is nobody in your session to answer it.\nWhen a question clears the skill\'s escalation bar, stop and report\n`terminated:ambiguity` with the question as the FIRST entry of `failures`. The\nengine relays it to the terminal that started the queue, records the answer on\nthe ticket, and re-invokes you with it. Ask one question at a time.\n\n## Never implement\n\nNever run the engine\'s `implement` subcommand, and never invoke the\n`lightsout:implement` skill. A build takes hours, and a build started inside an\nagent session dies with that session \u2014 which is the very failure this worker\nexists to remove. The queue runs the build itself, outside any session.\n\n## Never ship\n\nNever run `lightsout ship`, and never pass `--ship`. Shipping is the queue\'s\nown step: it rebases each branch onto fresh main and re-runs the gates, one\nbranch at a time. A branch that ships itself races that order.\n\n## The ticket record is the engine\'s\n\nNever add a plan to the ticket, never change the ticket\'s mode, never request or\nwithdraw a ship request, and never exclude a plan. The engine chose the plan you\nare writing and created it on the record before your session started, and the\nqueue decides when the ticket ships. Nothing you do changes either.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. Your\nmessage starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was built, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 omit when clean" }]\n}\n```\n\nReport `complete` only when the plan was written, graded and\npublished to the ticket. Never claim work you did not do \u2014 the engine diffs the\ntree, and a false report is worse than a failed one.\n';
 
 // src/agents/buildQueueAutoPlanInvocation.ts
 var buildQueueAutoPlanInvocation = ({
@@ -26699,18 +26860,30 @@ var buildQueueAutoPlanInvocation = ({
   ticketTitle,
   ticketBody,
   engineCli,
+  planAddress,
   answeredQuestion
 }) => {
   const systemPrompt = [queueAutoPlan_default, `# Ticket ${ticketRef}: ${ticketTitle}
 
 ${ticketBody}`].join("\n\n---\n\n");
-  const sections = [`# The engine invocation
+  const sections = [
+    `# The engine invocation
 
 Run every engine subcommand as:
 
 \`${engineCli} <subcommand>\`
 
-Nothing else is granted to this session.`];
+Nothing else is granted to this session.`,
+    `# The plan you are planning
+
+Plan exactly this plan and no other:
+
+\`${planAddress}\`
+
+That is its address, and \`.lightsout/plans/${planAddress}\` is the folder in this worktree it names. Pass the address as \`--name\` to every \`plan\` and \`brainstorm\` subcommand, and leave the plan's files in exactly that folder.
+
+The engine has already added this plan to the ticket's record, so never run \`ticket add-plan\` or any other \`ticket\` subcommand.`
+  ];
   if (answeredQuestion) {
     sections.push(
       `# Your question, answered
@@ -28991,15 +29164,15 @@ var authorPlanFiles = async ({
       stop: outcome.rateLimited ? draftStop({ status: PlanRunStatus.PausedRateLimit, error: `rate limited or overloaded \u2014 re-run: lightsout plan draft --name ${name}` }) : draftStop({ status: PlanRunStatus.Failed, error: outcome.failure })
     };
   }
-  const { report } = outcome;
-  if (report.status === PlanDraftStatus.Error) {
-    return { stop: draftStop({ status: PlanRunStatus.FactsError, discrepancies: report.discrepancies }) };
+  const { report: report2 } = outcome;
+  if (report2.status === PlanDraftStatus.Error) {
+    return { stop: draftStop({ status: PlanRunStatus.FactsError, discrepancies: report2.discrepancies }) };
   }
-  const drafted = await verifyDraftedFiles({ cwd, filesWritten: report.filesWritten });
+  const drafted = await verifyDraftedFiles({ cwd, filesWritten: report2.filesWritten });
   if ("error" in drafted) {
     return { stop: draftStop({ status: PlanRunStatus.Failed, error: drafted.error }) };
   }
-  return { planPaths: drafted.planPaths, report };
+  return { planPaths: drafted.planPaths, report: report2 };
 };
 
 // src/plan/draft/common/utils/getAdvisoryFindings.ts
@@ -29185,9 +29358,9 @@ var draftSinglePlan = async ({ context }) => {
   if ("stop" in authored) {
     return authored.stop;
   }
-  const { planPaths, report } = authored;
+  const { planPaths, report: report2 } = authored;
   await syncPlanDecisions({ cwd, name, planPaths, decisions });
-  const converged = await convergePlanStructure({ context, planPaths, variant: PlanVariant.Single, reports: [report], advisories });
+  const converged = await convergePlanStructure({ context, planPaths, variant: PlanVariant.Single, reports: [report2], advisories });
   const overCeiling = converged.blocking.find((finding2) => finding2.check === StructuralCheck.CreatedFilesWithinCeiling);
   if (overCeiling) {
     progress(`plan draft ${name}: ${overCeiling.issue} \u2014 deleting ${outputs[0].path} and re-drafting phased`);
@@ -29257,6 +29430,16 @@ var gradeHistoryPath = ({ cwd, name }) => join21(planWorkspaceDir({ cwd, name })
 // src/plan/planNameFromPath.ts
 import { relative as relative3, resolve, sep } from "node:path";
 
+// src/common/planAddress/formatPlanAddress.ts
+var formatPlanAddress = ({ ticketBranch, planId }) => `${ticketBranch}/${planId}`;
+
+// src/common/planAddress/parsePlanAddress.ts
+var parsePlanAddress = ({ name }) => {
+  const [ticketBranch, planId, ...beyond] = name.split("/");
+  const addressed = beyond.length === 0 && ticketBranch !== void 0 && planId !== void 0 && ticketBranch !== "" && ticketBranch !== "." && ticketBranch !== ".." && PlanId.safeParse(planId).success;
+  return addressed ? { ticketBranch, planId } : void 0;
+};
+
 // src/plan/plansDir.ts
 import { join as join22 } from "node:path";
 var plansDir = ({ cwd }) => join22(cwd, ".lightsout", "plans");
@@ -29264,8 +29447,12 @@ var plansDir = ({ cwd }) => join22(cwd, ".lightsout", "plans");
 // src/plan/planNameFromPath.ts
 var planNameFromPath = ({ cwd, planPath }) => {
   const fromPlansDir = relative3(plansDir({ cwd }), resolve(cwd, planPath));
-  const [name] = fromPlansDir.split(sep);
-  return fromPlansDir === "" || name === "" || name === ".." ? void 0 : name;
+  const [ticketBranch, planId] = fromPlansDir.split(sep);
+  if (fromPlansDir === "" || ticketBranch === void 0 || ticketBranch === "" || ticketBranch === "..") {
+    return void 0;
+  }
+  const address = planId === void 0 ? void 0 : formatPlanAddress({ ticketBranch, planId });
+  return address !== void 0 && parsePlanAddress({ name: address }) !== void 0 ? address : ticketBranch;
 };
 
 // src/plan/progress/getPlanningProgressPath.ts
@@ -29404,1030 +29591,6 @@ var durablePlanFiles = async ({ cwd, name }) => {
     }
   }
   return { files };
-};
-
-// src/plan/publish/publishPlan.ts
-import { readFile as readFile24 } from "node:fs/promises";
-
-// src/plan/common/constants/planAttachmentManifestName.ts
-var planAttachmentManifestName = "plan-attachments.json";
-
-// src/phases/readOverviewPhases.ts
-var readOverviewPhases = ({ overviewContent }) => {
-  const files = [];
-  let inPhases = false;
-  for (const line of overviewContent.split(/\r?\n/)) {
-    const heading = /^##\s+(.+?)\s*$/.exec(line);
-    if (heading) {
-      inPhases = heading[1] === "Phases";
-      continue;
-    }
-    if (!inPhases || !line.trim().startsWith("|")) {
-      continue;
-    }
-    const cells = line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|");
-    const file2 = /`([^`]+)`/.exec(cells[1] ?? "")?.[1]?.trim();
-    if (file2) {
-      files.push(file2);
-    }
-  }
-  return files;
-};
-
-// src/plan/common/validatePlanAttachmentGeneration.ts
-var phaseNamesOf = ({ names }) => names.filter((name) => name !== "plan.md" && name !== "overview.md" && durablePlanFileNames.deliverable.test(name));
-var validatePlanAttachmentGeneration = ({ files }) => {
-  const names = files.map(({ name }) => name);
-  const hasSingle = names.includes("plan.md");
-  const hasOverview = names.includes("overview.md");
-  const phases = phaseNamesOf({ names });
-  if (hasSingle) {
-    return hasOverview || phases.length > 0 ? { error: `the plan generation (${names.join(", ")}) is not runnable \u2014 plan.md must not coexist with overview.md or phase files` } : void 0;
-  }
-  if (!hasOverview || phases.length === 0) {
-    return {
-      error: `the plan generation (${names.join(", ")}) is not runnable \u2014 expected plan.md on its own, or overview.md with at least one phase<N> file`
-    };
-  }
-  const overview = files.find(({ name }) => name === "overview.md");
-  const declared = overview === void 0 ? [] : readOverviewPhases({ overviewContent: overview.text });
-  const duplicate = declared.find((name, index) => declared.indexOf(name) !== index);
-  if (duplicate !== void 0) {
-    return { error: `overview.md lists ${duplicate} more than once in its Phases table` };
-  }
-  const declaredSorted = [...declared].sort();
-  const attachedSorted = [...phases].sort();
-  if (declaredSorted.length !== attachedSorted.length || declaredSorted.some((name, index) => name !== attachedSorted[index])) {
-    return {
-      error: `overview.md's Phases table (${declared.join(", ") || "none"}) does not exactly match the plan generation's phase files (${phases.join(", ")})`
-    };
-  }
-  return void 0;
-};
-
-// src/ship/common/utils/getShipResultPath.ts
-import { join as join25 } from "node:path";
-
-// src/common/utils/toBranchFileName.ts
-var toBranchFileName = ({ branch }) => {
-  return branch.replace(/[^A-Za-z0-9._-]/g, "-");
-};
-
-// src/ship/common/utils/getShipResultPath.ts
-var getShipResultPath = ({ cwd, branch }) => {
-  return join25(cwd, ".lightsout", "ship", `${toBranchFileName({ branch })}.json`);
-};
-
-// src/ship/forge/common/constants/PullRequestState.ts
-var PullRequestState = {
-  /** Not merged and not closed — ship's resume path adopts one of these. */
-  Open: "open",
-  /** Merged into the default branch — the queue's positive evidence that a ticket already shipped. */
-  Merged: "merged"
-};
-
-// src/ship/forge/common/utils/parseForgeJson.ts
-var parseForgeJson = ({ stdout }) => {
-  try {
-    return JSON.parse(stdout);
-  } catch {
-    return void 0;
-  }
-};
-
-// src/ship/forge/common/utils/toPullRequestSummary.ts
-var PullRequestRow = external_exports.object({ number: external_exports.number(), url: external_exports.string(), title: external_exports.string(), headRefName: external_exports.string() });
-var toPullRequestSummary = ({ row }) => {
-  const parsed = PullRequestRow.safeParse(row);
-  return parsed.success ? { number: parsed.data.number, url: parsed.data.url, title: parsed.data.title, branch: parsed.data.headRefName } : void 0;
-};
-
-// src/common/processes/runCommand.ts
-import { spawn } from "node:child_process";
-
-// src/common/constants/killGraceMs.ts
-var killGraceMs = 2e3;
-
-// src/common/processes/killProcessGroup.ts
-var killProcessGroup = ({ child, signal }) => {
-  if (child.pid !== void 0 && process.platform !== "win32") {
-    try {
-      process.kill(-child.pid, signal);
-      return;
-    } catch {
-    }
-  }
-  try {
-    child.kill(signal);
-  } catch {
-  }
-};
-
-// src/common/processes/terminateChildGroups.ts
-var settled = ({ child }) => child.exitCode !== null || child.signalCode !== null;
-var exited = ({ child }) => settled({ child }) ? Promise.resolve() : new Promise((resolve21) => child.once("exit", () => resolve21()));
-var terminateChildGroups = async ({ children, graceMs = killGraceMs }) => {
-  const targets = [...children];
-  for (const child of targets) {
-    killProcessGroup({ child, signal: "SIGTERM" });
-  }
-  if (targets.length === 0) {
-    return;
-  }
-  let grace;
-  await Promise.race([
-    Promise.all(targets.map((child) => exited({ child }))),
-    new Promise((resolve21) => {
-      grace = setTimeout(resolve21, graceMs);
-    })
-  ]);
-  clearTimeout(grace);
-  for (const child of targets) {
-    if (!settled({ child })) {
-      killProcessGroup({ child, signal: "SIGKILL" });
-    }
-  }
-};
-
-// src/common/processes/relayShutdownSignals.ts
-var relayed = ["SIGINT", "SIGTERM"];
-var live = /* @__PURE__ */ new Set();
-var installed = false;
-var shuttingDown = false;
-var onSignal = async (signal) => {
-  if (shuttingDown) {
-    return;
-  }
-  shuttingDown = true;
-  await terminateChildGroups({ children: live });
-  uninstall();
-  process.kill(process.pid, signal);
-};
-var handlers = new Map(relayed.map((signal) => [signal, () => void onSignal(signal)]));
-var install = () => {
-  if (installed) {
-    return;
-  }
-  installed = true;
-  for (const [signal, handler] of handlers) {
-    process.on(signal, handler);
-  }
-};
-function uninstall() {
-  if (!installed) {
-    return;
-  }
-  installed = false;
-  for (const [signal, handler] of handlers) {
-    process.removeListener(signal, handler);
-  }
-}
-var relayShutdownSignals = ({ child }) => {
-  live.add(child);
-  install();
-  return () => {
-    live.delete(child);
-    if (live.size === 0) {
-      uninstall();
-    }
-  };
-};
-
-// src/common/processes/collectChildOutput.ts
-var collectChildOutput = ({ child, timeout, onStdoutLine }) => {
-  return new Promise((resolve21, reject) => {
-    let stdout = "";
-    let stderr = "";
-    let lineBuffer = "";
-    const emitLines = ({ text, flush = false }) => {
-      if (!onStdoutLine) {
-        return;
-      }
-      lineBuffer += text;
-      const lines = lineBuffer.split("\n");
-      lineBuffer = flush ? "" : lines.pop() ?? "";
-      for (const line of lines) {
-        if (line.trim()) {
-          onStdoutLine(line);
-        }
-      }
-    };
-    const expire = () => {
-      killProcessGroup({ child, signal: "SIGTERM" });
-      const escalation = setTimeout(() => killProcessGroup({ child, signal: "SIGKILL" }), killGraceMs);
-      escalation.unref();
-      child.once("close", () => clearTimeout(escalation));
-      reject(new Error(timeout?.message ?? "timed out"));
-    };
-    const timer = timeout ? setTimeout(expire, timeout.ms) : void 0;
-    const stopRelay = relayShutdownSignals({ child });
-    child.stdout?.on("data", (chunk) => {
-      const text = chunk.toString();
-      stdout += text;
-      emitLines({ text });
-    });
-    child.stderr?.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-    child.on("error", (error51) => {
-      clearTimeout(timer);
-      stopRelay();
-      reject(error51);
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      stopRelay();
-      emitLines({ text: "", flush: true });
-      resolve21({ exitCode: code ?? -1, stdout, stderr });
-    });
-  });
-};
-
-// src/common/processes/runCommand.ts
-var runCommand = ({ command, cwd, timeoutMs, env, onSpawn }) => {
-  const child = spawn(command, { cwd, shell: true, stdio: ["ignore", "pipe", "pipe"], env: env ? { ...process.env, ...env } : process.env, detached: true });
-  if (child.pid !== void 0) {
-    onSpawn?.({ pid: child.pid });
-  }
-  return collectChildOutput({
-    child,
-    timeout: timeoutMs ? { ms: timeoutMs, message: `command timed out after ${timeoutMs}ms: ${command}` } : void 0
-  });
-};
-
-// src/ship/forge/runGh.ts
-var quote = ({ argument }) => `'${argument.split("'").join(`'\\''`)}'`;
-var runGh = async ({ args, cwd }) => {
-  const forgeTimeoutMs = 6e4;
-  const command = ["gh", ...args.map((argument) => quote({ argument }))].join(" ");
-  return runCommand({ command, cwd, timeoutMs: forgeTimeoutMs }).catch((error51) => ({ exitCode: -1, stdout: "", stderr: messageOf({ error: error51 }) }));
-};
-
-// src/ship/forge/createPullRequest.ts
-var readCreatedNumber = ({ stdout }) => {
-  const segment = stdout.trim().split("\n").at(-1)?.split("/").at(-1) ?? "";
-  const parsed = Number.parseInt(segment, 10);
-  return Number.isNaN(parsed) ? void 0 : parsed;
-};
-var createPullRequest = async ({ branch, body, cwd }) => {
-  const created = await runGh({ args: ["pr", "create", "--fill-first", "--head", branch], cwd });
-  const prNumber = created.exitCode === 0 ? readCreatedNumber({ stdout: created.stdout }) : void 0;
-  if (prNumber === void 0) {
-    return { stderr: created.stderr };
-  }
-  const edited = await runGh({ args: ["pr", "edit", String(prNumber), "--body", body], cwd });
-  if (edited.exitCode !== 0) {
-    return { stderr: edited.stderr };
-  }
-  const viewed = await runGh({ args: ["pr", "view", String(prNumber), "--json", "number,url,title,headRefName"], cwd });
-  const summary = viewed.exitCode === 0 ? toPullRequestSummary({ row: parseForgeJson({ stdout: viewed.stdout }) }) : void 0;
-  return summary ?? { stderr: viewed.stderr };
-};
-
-// src/ship/forge/findPullRequest.ts
-var findPullRequest = async ({ branch, cwd, state }) => {
-  const listed = await runGh({
-    args: ["pr", "list", "--head", branch, "--state", state, "--json", "number,url,title,headRefName", "--limit", "1"],
-    cwd
-  });
-  const rows = listed.exitCode === 0 ? parseForgeJson({ stdout: listed.stdout }) : void 0;
-  return Array.isArray(rows) ? toPullRequestSummary({ row: rows[0] }) : void 0;
-};
-
-// src/ship/common/constants/remoteWaitTimings.ts
-var remoteWaitTimings = { pollIntervalMs: 3e4, ceilingMs: 30 * 6e4 };
-
-// src/ship/common/utils/sleep.ts
-var sleep = ({ ms }) => new Promise((resolve21) => setTimeout(resolve21, ms));
-
-// src/ship/forge/mergePullRequest.ts
-var StateView = external_exports.object({
-  state: external_exports.string(),
-  mergeCommit: external_exports.object({ oid: external_exports.string() }).nullable(),
-  headRefOid: external_exports.string().optional(),
-  mergeStateStatus: external_exports.string().optional(),
-  reviewDecision: external_exports.string().nullable().optional()
-});
-var humanReviewDecisions = /* @__PURE__ */ new Set(["REVIEW_REQUIRED", "CHANGES_REQUESTED"]);
-var readState = async ({ prNumber, cwd }) => {
-  const viewed = await runGh({ args: ["pr", "view", String(prNumber), "--json", "state,mergeCommit,headRefOid,mergeStateStatus,reviewDecision"], cwd });
-  const view = StateView.safeParse(parseForgeJson({ stdout: viewed.stdout }));
-  return { view: view.success ? view.data : void 0, stderr: viewed.stderr };
-};
-var isStaleBase = ({ view, expectedHead }) => view !== void 0 && view.headRefOid === expectedHead && view.state === "OPEN" && view.mergeStateStatus === "BEHIND" && !humanReviewDecisions.has(view.reviewDecision ?? "");
-var confirmMerge = async ({ prNumber, cwd, mergeStderr }) => {
-  const { pollIntervalMs, ceilingMs } = remoteWaitTimings;
-  const startedAt = Date.now();
-  let last;
-  let lastStderr = mergeStderr;
-  for (; ; ) {
-    const { view, stderr } = await readState({ prNumber, cwd });
-    last = view;
-    lastStderr = stderr.trim() === "" ? lastStderr : stderr;
-    if (view?.state === "MERGED") {
-      return view.mergeCommit === null ? { stderr: lastStderr } : view.mergeCommit.oid;
-    }
-    if (Date.now() - startedAt >= ceilingMs) {
-      return { stderr: `the forge accepted the merge but #${prNumber} is still ${last?.state ?? "unreadable"} at the wait ceiling` };
-    }
-    await sleep({ ms: pollIntervalMs });
-  }
-};
-var mergePullRequest = async ({ prNumber, mergeMethod, cwd, expectedHead }) => {
-  const merged = await runGh({
-    args: ["pr", "merge", String(prNumber), `--${mergeMethod}`, "--delete-branch", "--match-head-commit", expectedHead],
-    cwd
-  });
-  if (merged.exitCode === 0) {
-    return confirmMerge({ prNumber, cwd, mergeStderr: merged.stderr });
-  }
-  const { view } = await readState({ prNumber, cwd });
-  if (view?.state === "MERGED" && view.mergeCommit !== null) {
-    return view.mergeCommit.oid;
-  }
-  return isStaleBase({ view, expectedHead }) ? { stderr: merged.stderr, staleBase: true } : { stderr: merged.stderr };
-};
-
-// src/ship/common/utils/maskSecrets.ts
-var maskSecrets = ({ text }) => text.replaceAll(/(\/\/)[^\s/@]+(?::[^\s/@]*)?@/g, "$1***@").replaceAll(/\b(gh[pousr]|github_pat)_[A-Za-z0-9_]{16,}\b/g, "***");
-
-// src/ship/forge/readCheckFailureLogs.ts
-var RollupView = external_exports.object({
-  headRefOid: external_exports.string(),
-  statusCheckRollup: external_exports.array(external_exports.object({ __typename: external_exports.string() }).catchall(external_exports.unknown()))
-});
-var ActionsCheck = external_exports.object({ __typename: external_exports.literal("CheckRun"), name: external_exports.string(), conclusion: external_exports.string(), detailsUrl: external_exports.string() });
-var RunRows = external_exports.array(external_exports.object({ databaseId: external_exports.number(), headSha: external_exports.string() }).catchall(external_exports.unknown()));
-var RunDetail = external_exports.object({
-  headSha: external_exports.string(),
-  conclusion: external_exports.string(),
-  jobs: external_exports.array(external_exports.object({ databaseId: external_exports.number(), name: external_exports.string(), conclusion: external_exports.string() }).catchall(external_exports.unknown()))
-});
-var maxEvidenceCharacters = 32e3;
-var resolveRunId = async ({ check: check2, commit, cwd }) => {
-  const linked = /^https:\/\/[^/]+\/[^/]+\/[^/]+\/actions\/runs\/(\d+)\/job\/\d+/.exec(check2.detailsUrl);
-  const linkedRunId = linked === null ? void 0 : linked[1];
-  if (linkedRunId !== void 0) {
-    return Number(linkedRunId);
-  }
-  const listed = await runGh({ args: ["run", "list", "--commit", commit, "--json", "databaseId,headSha,workflowName,status,conclusion"], cwd });
-  const rows = RunRows.safeParse(parseForgeJson({ stdout: listed.stdout }));
-  const matching = rows.success ? rows.data.filter((row) => row.headSha === commit) : [];
-  return matching.length === 1 ? matching[0]?.databaseId : void 0;
-};
-var readFailedJobLog = async ({ runId, jobName, cwd }) => {
-  const logged = await runGh({ args: ["run", "view", String(runId), "--log-failed"], cwd });
-  if (logged.exitCode !== 0) {
-    return void 0;
-  }
-  const relevant = logged.stdout.split("\n").filter((line) => line.startsWith(`${jobName}	`));
-  if (relevant.length === 0) {
-    return void 0;
-  }
-  const masked = maskSecrets({ text: relevant.join("\n") });
-  return masked.length > maxEvidenceCharacters ? `${masked.slice(0, maxEvidenceCharacters)}
-\u2026 truncated: the failed job printed more than this` : masked;
-};
-var readOneFailure = async ({ rollup, name, commit, cwd }) => {
-  const parsed = rollup.statusCheckRollup.map((entry) => ActionsCheck.safeParse(entry));
-  const row = parsed.find((candidate) => candidate.success && candidate.data.name === name);
-  if (row === void 0 || !row.success) {
-    return void 0;
-  }
-  const runId = await resolveRunId({ check: row.data, commit, cwd });
-  if (runId === void 0) {
-    return void 0;
-  }
-  const viewed = await runGh({ args: ["run", "view", String(runId), "--json", "headSha,jobs,attempt,conclusion"], cwd });
-  const detail = RunDetail.safeParse(parseForgeJson({ stdout: viewed.stdout }));
-  if (!detail.success || detail.data.headSha !== commit || detail.data.conclusion !== "failure") {
-    return void 0;
-  }
-  const job = detail.data.jobs.find((entry) => entry.name === name && entry.conclusion === "failure");
-  const output = job === void 0 ? void 0 : await readFailedJobLog({ runId, jobName: job.name, cwd });
-  return output === void 0 ? void 0 : { name, runId, commit, output };
-};
-var readCheckFailureLogs = async ({ prNumber, commit, failingChecks, cwd }) => {
-  const viewed = await runGh({ args: ["pr", "view", String(prNumber), "--json", "headRefOid,statusCheckRollup"], cwd });
-  const rollup = RollupView.safeParse(parseForgeJson({ stdout: viewed.stdout }));
-  if (!rollup.success || rollup.data.headRefOid !== commit) {
-    return void 0;
-  }
-  const failures = [];
-  for (const name of failingChecks) {
-    const failure = await readOneFailure({ rollup: rollup.data, name, commit, cwd });
-    if (failure === void 0) {
-      return void 0;
-    }
-    failures.push(failure);
-  }
-  const confirmed = await runGh({ args: ["pr", "view", String(prNumber), "--json", "headRefOid"], cwd });
-  const stillOn = RollupView.pick({ headRefOid: true }).safeParse(parseForgeJson({ stdout: confirmed.stdout }));
-  return stillOn.success && stillOn.data.headRefOid === commit && failures.length > 0 ? failures : void 0;
-};
-
-// src/ship/forge/readForgeAuth.ts
-var readForgeAuth = async ({ cwd }) => {
-  const status = await runGh({ args: ["auth", "status"], cwd });
-  return status.exitCode === 0;
-};
-
-// src/ship/forge/readPullRequestChecks.ts
-var CheckRows = external_exports.array(external_exports.object({ name: external_exports.string(), bucket: external_exports.string() }).catchall(external_exports.unknown()));
-var HeadView = external_exports.object({ headRefOid: external_exports.string() });
-var redBuckets = /* @__PURE__ */ new Set(["fail", "cancel"]);
-var greenBuckets = /* @__PURE__ */ new Set(["pass", "skipping"]);
-var knownBuckets = /* @__PURE__ */ new Set([...redBuckets, ...greenBuckets, "pending"]);
-var standsOnExpectedHead = async ({ prNumber, cwd, expectedHead }) => {
-  const viewed = await runGh({ args: ["pr", "view", String(prNumber), "--json", "headRefOid"], cwd });
-  const head = HeadView.safeParse(parseForgeJson({ stdout: viewed.stdout }));
-  return head.success && head.data.headRefOid === expectedHead;
-};
-var readPullRequestChecks = async ({ prNumber, cwd, expectedHead }) => {
-  if (!await standsOnExpectedHead({ prNumber, cwd, expectedHead })) {
-    return void 0;
-  }
-  const checked = await runGh({ args: ["pr", "checks", String(prNumber), "--json", "name,state,bucket"], cwd });
-  const rows = CheckRows.safeParse(parseForgeJson({ stdout: checked.stdout }));
-  if (!rows.success || rows.data.some((row) => !knownBuckets.has(row.bucket))) {
-    return void 0;
-  }
-  if (!await standsOnExpectedHead({ prNumber, cwd, expectedHead })) {
-    return void 0;
-  }
-  const failing = rows.data.filter((row) => redBuckets.has(row.bucket)).map((row) => row.name);
-  const pending = rows.data.filter((row) => row.bucket === "pending").map((row) => row.name);
-  const passing = rows.data.filter((row) => greenBuckets.has(row.bucket)).map((row) => row.name);
-  return { finished: pending.length === 0, green: failing.length === 0, failing, pending, passing, readable: true };
-};
-
-// src/ship/progress/readShippingProgress.ts
-import { readFile as readFile13 } from "node:fs/promises";
-
-// src/ship/progress/common/utils/getShippingProgressPath.ts
-import { join as join26 } from "node:path";
-var getShippingProgressPath = ({ cwd, branch }) => {
-  return join26(cwd, ".lightsout", "ship", "progress", `${toBranchFileName({ branch })}.json`);
-};
-
-// src/ship/progress/readShippingProgress.ts
-var isMissingFile = ({ error: error51 }) => typeof error51 === "object" && error51 !== null && "code" in error51 && error51.code === "ENOENT";
-var readShippingProgress = async ({ cwd, branch }) => {
-  const path = getShippingProgressPath({ cwd, branch });
-  let exists3 = true;
-  let progress;
-  try {
-    const parsed = ShippingProgress.safeParse(JSON.parse(await readFile13(path, "utf8")));
-    progress = parsed.success ? parsed.data : void 0;
-  } catch (error51) {
-    exists3 = !isMissingFile({ error: error51 });
-  }
-  return { path, exists: exists3, progress };
-};
-
-// src/ship/progress/ShippingProgressRecorder.ts
-import { mkdir as mkdir2, rename as rename2, stat as stat2, writeFile as writeFile5 } from "node:fs/promises";
-import { dirname, join as join27 } from "node:path";
-var attemptSteps = [ShippingStepId.Integrate, ShippingStepId.Push, ShippingStepId.PullRequest, ShippingStepId.Checks, ShippingStepId.Merge];
-var pendingSteps = () => Object.values(ShippingStepId).map((id) => ({ id, status: RunStatus.Pending }));
-var freshRecord = ({ branch, maxAttempts }) => {
-  const now = (/* @__PURE__ */ new Date()).toISOString();
-  return { branch, attempt: 1, maxAttempts, pid: process.pid, startedAt: now, updatedAt: now, steps: pendingSteps() };
-};
-var ensureIgnoreFile = async ({ folder }) => {
-  const ignorePath = join27(folder, ".gitignore");
-  const isFile = await stat2(ignorePath).then(
-    (found) => found.isFile(),
-    () => false
-  );
-  if (!isFile) {
-    await writeFile5(ignorePath, "*\n", "utf8");
-  }
-};
-var writeRecord = async ({ recordPath, record: record3 }) => {
-  const folder = dirname(recordPath);
-  const tmpPath = `${recordPath}.tmp`;
-  try {
-    await mkdir2(folder, { recursive: true });
-    await ensureIgnoreFile({ folder });
-    await writeJsonFile({ path: tmpPath, value: record3 });
-    await rename2(tmpPath, recordPath);
-  } catch {
-  }
-};
-var ShippingProgressRecorder = class {
-  recordPath;
-  record;
-  writes = Promise.resolve();
-  constructor({ cwd, branch, maxAttempts }) {
-    this.recordPath = getShippingProgressPath({ cwd, branch });
-    this.record = freshRecord({ branch, maxAttempts });
-  }
-  /** Attempt 1 starts a fresh record, replacing any an earlier ship of the branch left; a later one runs the five attempt steps again under the same start time. */
-  beginAttempt({ attempt }) {
-    const { branch, maxAttempts } = this.record;
-    this.record = attempt === 1 ? freshRecord({ branch, maxAttempts }) : {
-      ...this.record,
-      attempt,
-      steps: this.record.steps.map((step) => attemptSteps.includes(step.id) ? { id: step.id, status: RunStatus.Pending } : step)
-    };
-    this.save();
-  }
-  startStep({ step }) {
-    this.updateStep({ step, update: () => ({ id: step, status: RunStatus.Running, startedAt: (/* @__PURE__ */ new Date()).toISOString() }) });
-  }
-  finishStep({ step, passed }) {
-    const finishedAt = Date.now();
-    this.updateStep({
-      step,
-      update: (current) => ({
-        ...current,
-        status: passed ? RunStatus.Passed : RunStatus.Failed,
-        durationMs: current.startedAt === void 0 ? 0 : finishedAt - Date.parse(current.startedAt)
-      })
-    });
-  }
-  noteProgress({ message }) {
-    this.record = { ...this.record, lastProgress: message };
-    this.save();
-  }
-  /** Stamps the end, and resolves once every queued write has landed or been dropped. */
-  end() {
-    this.record = { ...this.record, endedAt: (/* @__PURE__ */ new Date()).toISOString() };
-    this.save();
-    return this.writes;
-  }
-  updateStep({ step, update }) {
-    this.record = { ...this.record, steps: this.record.steps.map((current) => current.id === step ? update(current) : current) };
-    this.save();
-  }
-  /** Stamps the change and queues a whole-record write behind the ones already queued. Each write holds its own snapshot, because `record` is replaced rather than mutated. */
-  save() {
-    const record3 = { ...this.record, pid: process.pid, updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
-    const recordPath = this.recordPath;
-    this.record = record3;
-    this.writes = this.writes.then(() => writeRecord({ recordPath, record: record3 }));
-  }
-};
-
-// src/common/constants/gitTimeoutMs.ts
-var gitTimeoutMs = 6e4;
-
-// src/common/git/readGitCurrentBranch.ts
-var readGitCurrentBranch = async ({ cwd }) => {
-  const branch = await runCommand({ command: "git rev-parse --abbrev-ref HEAD", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  const name = branch && branch.exitCode === 0 ? branch.stdout.trim() : "";
-  return name === "" || name === "HEAD" ? void 0 : name;
-};
-
-// src/ship/readTicketMatch.ts
-var readTicketMatch = ({ branch, ticketPattern }) => {
-  const groups = ticketPattern.exec(branch)?.groups;
-  const captured = Object.entries(groups ?? {}).filter((entry) => entry[1] !== void 0);
-  return captured.some(([name]) => name === "ticket") ? Object.fromEntries(captured) : void 0;
-};
-
-// src/ship/resolveShipSettings.ts
-var compilePattern = ({ source }) => {
-  try {
-    return new RegExp(source);
-  } catch {
-    return void 0;
-  }
-};
-var resolveShipSettings = ({ config: config2 }) => {
-  const ship = config2.ship;
-  const ticketPattern = compilePattern({ source: ship?.["ticket-pattern"] ?? String.raw`^(?<ticket>[a-z]+-\d+)` });
-  if (ticketPattern === void 0 || !ticketPattern.source.includes("(?<ticket>")) {
-    return void 0;
-  }
-  return {
-    ticketPattern,
-    pullRequestBody: ship?.["pr-body"] ?? "{ticket}",
-    mergeMethod: ship?.["merge-method"] ?? ShipMergeMethod.Merge,
-    afterImplement: ship?.["after-implement"] ?? false,
-    preShip: ship?.["pre-ship"],
-    allowNoCi: ship?.["allow-no-ci"] ?? false
-  };
-};
-
-// src/ship/readBranchTicketRef.ts
-var readBranchTicketRef = async ({ config: config2, cwd }) => {
-  const settings = resolveShipSettings({ config: config2 });
-  const branch = await readGitCurrentBranch({ cwd });
-  if (settings === void 0 || branch === void 0) {
-    return void 0;
-  }
-  return readTicketMatch({ branch, ticketPattern: settings.ticketPattern })?.ticket;
-};
-
-// src/ship/readShipResult.ts
-import { readFile as readFile14 } from "node:fs/promises";
-var readShipResult = async ({ cwd, branch }) => {
-  const raw = await readFile14(getShipResultPath({ cwd, branch }), "utf8").catch(() => void 0);
-  if (raw === void 0) {
-    return void 0;
-  }
-  try {
-    const parsed = ShipResult.safeParse(JSON.parse(raw));
-    return parsed.success ? parsed.data : void 0;
-  } catch {
-    return void 0;
-  }
-};
-
-// src/ship/resolveShipIntent.ts
-var resolveShipIntent = ({ config: config2, shipFlag, noShipFlag, env }) => {
-  const settings = resolveShipSettings({ config: config2 });
-  const contradictory = shipFlag && noShipFlag;
-  const suppressed = noShipFlag || (env.LIGHTSOUT_NO_SHIP ?? "") !== "";
-  const willShip = !contradictory && !suppressed && (shipFlag || settings?.afterImplement === true);
-  return { contradictory, willShip, settings };
-};
-
-// src/common/constants/maxCheapFixRetries.ts
-var maxCheapFixRetries = 2;
-
-// src/common/git/readGitPrefix.ts
-var readGitPrefix = async ({ cwd }) => {
-  const prefix = await runCommand({ command: "git rev-parse --show-prefix", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  return prefix && prefix.exitCode === 0 ? prefix.stdout.trim() : void 0;
-};
-
-// src/common/git/readGitChangedFiles.ts
-var readGitChangedFiles = async ({ cwd }) => {
-  const prefix = await readGitPrefix({ cwd });
-  if (prefix === void 0) {
-    return void 0;
-  }
-  const status = await runCommand({ command: "git status --porcelain=v1 -uall -- .", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  if (status?.exitCode !== 0) {
-    return void 0;
-  }
-  const root = prefix;
-  return status.stdout.split("\n").filter(Boolean).map((line) => {
-    const path = line.slice(3);
-    const arrow = path.lastIndexOf(" -> ");
-    const renameTarget = arrow === -1 ? path : path.slice(arrow + " -> ".length);
-    return renameTarget.replace(/^"|"$/g, "");
-  }).map((path) => root && path.startsWith(root) ? path.slice(root.length) : path).filter((path) => !path.startsWith(".lightsout/"));
-};
-
-// src/common/git/readGitDefaultBranch.ts
-var readGitDefaultBranch = async ({ cwd }) => {
-  const head = await runCommand({ command: "git rev-parse --abbrev-ref origin/HEAD", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  const name = head && head.exitCode === 0 ? head.stdout.trim() : "";
-  const remotePrefix = "origin/";
-  return name.startsWith(remotePrefix) ? name.slice(remotePrefix.length) : void 0;
-};
-
-// src/ship/checkShipPreconditions.ts
-var describeDirtyTree = ({ changed }) => {
-  const shownPaths = 5;
-  if (changed === void 0) {
-    return "git could not list the working tree, so ship cannot tell whether it is clean";
-  }
-  const shown = changed.slice(0, shownPaths).join(", ");
-  const rest = changed.length > shownPaths ? `, and ${changed.length - shownPaths} more` : "";
-  return `working tree is not clean: ${shown}${rest}`;
-};
-var checkShipPreconditions = async ({ cwd, ticketPattern }) => {
-  const branch = await readGitCurrentBranch({ cwd });
-  if (branch === void 0) {
-    return { reason: ShipBlockReason.GitUnreadable, detail: `not on a branch in a git worktree at ${cwd}` };
-  }
-  const defaultBranch = await readGitDefaultBranch({ cwd });
-  if (defaultBranch === void 0) {
-    return { reason: ShipBlockReason.DefaultBranch, detail: "origin/HEAD is unset, so ship cannot tell what it would merge into", branch };
-  }
-  if (defaultBranch === branch) {
-    return { reason: ShipBlockReason.DefaultBranch, detail: `already on the default branch '${branch}'`, branch };
-  }
-  const changed = await readGitChangedFiles({ cwd });
-  if (changed === void 0 || changed.length > 0) {
-    return { reason: ShipBlockReason.DirtyTree, detail: describeDirtyTree({ changed }), branch };
-  }
-  const ticket = readTicketMatch({ branch, ticketPattern });
-  if (ticket === void 0) {
-    return { reason: ShipBlockReason.TicketPatternMismatch, detail: `branch '${branch}' does not match ${ticketPattern.source}`, branch };
-  }
-  if (!await readForgeAuth({ cwd })) {
-    return { reason: ShipBlockReason.ForgeNotAuthenticated, detail: "gh is not installed, or is not logged in for this repository\u2019s host", branch };
-  }
-  return { branch, defaultBranch, ticket };
-};
-
-// src/ship/common/utils/quoteGitArgument.ts
-var quoteGitArgument = ({ argument }) => `'${argument.split("'").join(`'\\''`)}'`;
-
-// src/ship/common/utils/runGit.ts
-var runGit = ({ command, cwd, timeoutMs = gitTimeoutMs }) => runCommand({ command, cwd, timeoutMs }).catch(() => void 0);
-
-// src/common/git/readGitHeadCommit.ts
-var readGitHeadCommit = async ({ cwd }) => {
-  const head = await runCommand({ command: "git rev-parse HEAD", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  return head && head.exitCode === 0 ? head.stdout.trim() : void 0;
-};
-
-// src/ship/common/utils/appendCommandOutput.ts
-var appendCommandOutput = ({ sentence, stderr }) => {
-  const maxStderrCharacters = 500;
-  const trimmed = maskSecrets({ text: stderr }).trim();
-  const capped = trimmed.length > maxStderrCharacters ? `${trimmed.slice(0, maxStderrCharacters)}\u2026` : trimmed;
-  return capped === "" ? sentence : `${sentence}: ${capped}`;
-};
-
-// src/ship/common/utils/createBlockedAttempt.ts
-var createBlockedAttempt = ({ stop, reason, detail, failingChecks = [], retryable = false, ciEvidence }) => ({
-  result: { status: ShipStatus.Blocked, failingChecks, ...stop, reason, detail },
-  retryable,
-  ciEvidence
-});
-
-// src/ship/integration/common/utils/hasOpenMerge.ts
-var hasOpenMerge = async ({ cwd }) => (await runGit({ command: "git rev-parse -q --verify MERGE_HEAD", cwd }))?.exitCode === 0;
-
-// src/ship/integration/readUnmergedPaths.ts
-var readUnmergedPaths = async ({ cwd }) => {
-  const listed = await runGit({ command: "git diff --name-only --diff-filter=U -z", cwd });
-  if (listed === void 0 || listed.exitCode !== 0) {
-    return void 0;
-  }
-  return listed.stdout.split("\0").filter((path) => path !== "");
-};
-
-// src/ship/integration/mergeDefaultBranch.ts
-var noMerge = ({ failure, baseCommit }) => ({
-  baseCommit,
-  conflictPaths: [],
-  integrated: false,
-  failure
-});
-var isAlreadyIntegrated = async ({ cwd, baseCommit }) => {
-  const checked = await runGit({ command: `git merge-base --is-ancestor ${quoteGitArgument({ argument: baseCommit })} HEAD`, cwd });
-  if (checked?.exitCode === 0) {
-    return { ancestor: true };
-  }
-  return checked?.exitCode === 1 ? { ancestor: false } : { error: `git could not say whether ${baseCommit} is already on the branch` };
-};
-var pinDefaultBranch = async ({ cwd, defaultBranch }) => {
-  const fetchTimeoutMs = 6e4;
-  const fetched = await runGit({ command: "git fetch origin", cwd, timeoutMs: fetchTimeoutMs });
-  if (fetched === void 0 || fetched.exitCode !== 0) {
-    return { error: `git could not fetch origin: ${(fetched?.stderr ?? "git did not answer").trim()}` };
-  }
-  const resolved = await runGit({ command: `git rev-parse --verify ${quoteGitArgument({ argument: `origin/${defaultBranch}` })}`, cwd });
-  if (resolved === void 0 || resolved.exitCode !== 0) {
-    return { error: `git could not resolve origin/${defaultBranch} after fetching` };
-  }
-  return { baseCommit: resolved.stdout.trim() };
-};
-var mergeDefaultBranch = async ({ cwd, defaultBranch, onProgress }) => {
-  onProgress?.(`integrate: fetching origin/${defaultBranch}`);
-  const pinned = await pinDefaultBranch({ cwd, defaultBranch });
-  if ("error" in pinned) {
-    return noMerge({ failure: pinned.error });
-  }
-  const { baseCommit } = pinned;
-  const ancestry = await isAlreadyIntegrated({ cwd, baseCommit });
-  if ("error" in ancestry) {
-    return noMerge({ failure: ancestry.error, baseCommit });
-  }
-  if (ancestry.ancestor) {
-    onProgress?.(`integrate: origin/${defaultBranch} is already an ancestor \u2014 nothing to merge`);
-    return { baseCommit, conflictPaths: [], integrated: false, failure: void 0 };
-  }
-  const merged = await runGit({ command: `git merge --no-commit --no-ff ${quoteGitArgument({ argument: baseCommit })}`, cwd });
-  if (merged?.exitCode === 0) {
-    onProgress?.(`integrate: merged origin/${defaultBranch} cleanly`);
-    return { baseCommit, conflictPaths: [], integrated: true, failure: void 0 };
-  }
-  const conflictPaths = await readUnmergedPaths({ cwd });
-  if (conflictPaths === void 0 || conflictPaths.length === 0) {
-    const said = (merged?.stderr ?? "git did not answer").trim();
-    return { baseCommit, conflictPaths: [], integrated: true, failure: `git could not merge origin/${defaultBranch}: ${said}` };
-  }
-  onProgress?.(`integrate: merging origin/${defaultBranch} left ${conflictPaths.length} path(s) unmerged`);
-  return { baseCommit, conflictPaths, integrated: true, failure: void 0 };
-};
-
-// src/ship/integration/readConflictMarkerPaths.ts
-var addedMarker = /^\+(?:<{7}|>{7})(?: |$)/;
-var diffHeader = /^\+\+\+ b\/(.+)$/;
-var scanDiff = ({ diff }) => {
-  const found = [];
-  let path;
-  for (const line of diff.split("\n")) {
-    const header = diffHeader.exec(line);
-    const named = header === null ? void 0 : header[1];
-    if (named !== void 0) {
-      path = named;
-    } else if (addedMarker.test(line) && path !== void 0 && !found.includes(path)) {
-      found.push(path);
-    }
-  }
-  return found;
-};
-var readConflictMarkerPaths = async ({ cwd }) => {
-  const staged = await runGit({ command: "git -c core.quotePath=false diff --cached -U0", cwd });
-  const working = await runGit({ command: "git -c core.quotePath=false diff -U0", cwd });
-  if (staged === void 0 || staged.exitCode !== 0 || working === void 0 || working.exitCode !== 0) {
-    return void 0;
-  }
-  const marked = [...scanDiff({ diff: staged.stdout }), ...scanDiff({ diff: working.stdout })];
-  return [...new Set(marked)];
-};
-
-// src/common/constants/defaultAgentTimeoutMinutes.ts
-var defaultAgentTimeoutMinutes = 60;
-
-// src/ship/integration/invokeShipIntegrator.ts
-var invokeShipIntegrator = async ({
-  cwd,
-  integration,
-  branch,
-  defaultBranch,
-  standards,
-  conflictPaths,
-  ticketRef,
-  branchDiff,
-  ciEvidence,
-  errorContext
-}) => {
-  const { config: config2, driver } = integration;
-  const allowedCommands = config2["agent-commands"];
-  const outcome = await invokeAgentWithContract({
-    driver,
-    cwd,
-    invocation: buildShipIntegratorInvocation({
-      branch,
-      defaultBranch,
-      standards,
-      allowedCommands,
-      ticketRef,
-      conflictPaths,
-      branchDiff,
-      ciEvidence,
-      errorContext
-    }),
-    contract: WorkReport,
-    model: config2.model,
-    effort: config2.effort,
-    permissions: config2.permissions,
-    timeoutMs: (config2.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes) * 6e4,
-    allowedCommands
-  });
-  if (!outcome.ok) {
-    return outcome.failure;
-  }
-  const report = outcome.report;
-  return report.status === WorkReportStatus.Complete ? void 0 : report.failures[0] ?? report.summary;
-};
-
-// src/ship/integration/repairCiFailure.ts
-var repairCiFailure = async ({
-  cwd,
-  integration,
-  branch,
-  defaultBranch,
-  ticketRef,
-  branchDiff,
-  ciEvidence,
-  standards,
-  onProgress
-}) => {
-  onProgress?.(`integrate: repairing the remote check failure reported for ${ticketRef}`);
-  const refusal = await invokeShipIntegrator({ cwd, integration, branch, defaultBranch, standards, ticketRef, branchDiff, ciEvidence });
-  if (refusal === void 0) {
-    return void 0;
-  }
-  return { reason: ShipBlockReason.ChecksFailed, detail: `the remote check failure could not be repaired within this branch's scope: ${refusal}`, paths: [] };
-};
-
-// src/gates/common/constants/GateScheduleKind.ts
-var GateScheduleKind = {
-  /** One stage, the engine's canonical order — what every gate caller that asks for no schedule gets. */
-  Single: "single",
-  /** Two stages, cheap then expensive, with every group held at the boundary. */
-  Tiered: "tiered",
-  /** One stage, exactly these gate names in exactly this order, always stopping at the first red. */
-  Exact: "exact",
-  /** No stages at all — the checkpoint runs no gates, `gates.generate` included. */
-  Off: "off"
-};
-
-// src/gates/common/constants/SelfCheckReason.ts
-var SelfCheckReason = {
-  /** Gates were scheduled and executed — the only reason whose result says anything about the code. */
-  Ran: "ran",
-  /** The tree holds no change yet, so there was nothing to check. */
-  NothingChanged: "nothing-changed",
-  /** The checkpoint this step precedes schedules no gates, or every package in scope skipped the ones it does. */
-  NothingScheduled: "nothing-scheduled",
-  /** The engine could not work out what to check, because reading the repository's git status failed. */
-  Unavailable: "unavailable",
-  /** Another gate run of this repository held the machine, so not one gate command executed. */
-  Coordination: "coordination"
-};
-
-// src/gates/common/utils/collectGateObservations.ts
-var collectGateObservations = () => {
-  const observations = /* @__PURE__ */ new Map();
-  return {
-    onGateResult: (gateResult) => observations.set(`${gateResult.group}\0${gateResult.kind}`, gateResult),
-    observed: () => [...observations.values()]
-  };
-};
-
-// src/gates/common/utils/describeGateCoordinationTimeout.ts
-var describeGateCoordinationTimeout = ({ holder, waitedMs }) => {
-  const waited = waitedMs >= 6e4 ? `${Math.round(waitedMs / 6e4)}m` : `${Math.round(waitedMs / 1e3)}s`;
-  return `gates never started: this run waited ${waited} for another gate run on this machine to finish, and the machine is still taken by ${holder}. No gate command executed, so nothing here is evidence about the code \u2014 the worktree and every commit in it are exactly as they were. Wait for the holder to finish, or find out why it has not.`;
-};
-
-// src/gates/common/utils/resolveGateSchedule.ts
-var resolveGateSchedule = ({ override }) => {
-  if (override === void 0) {
-    return { kind: GateScheduleKind.Tiered };
-  }
-  return override === "off" ? { kind: GateScheduleKind.Off } : { kind: GateScheduleKind.Exact, gates: override };
-};
-
-// src/gates/gateHolds/common/constants/gateBlockedLabel.ts
-var gateBlockedLabel = "queue-blocked-gate-timed-out";
-
-// src/gates/gateHolds/common/utils/describeGateHold.ts
-var describeGateHold = ({ hold, identifier }) => {
-  if (hold === void 0) {
-    return `on hold: ${identifier} carries the '${gateBlockedLabel}' label, and this machine holds no local record of when or why the hold was taken. Remove the label from the ticket to release it.`;
-  }
-  const unconfirmed = hold.labelConfirmed ? "" : ` The '${gateBlockedLabel}' label write never landed on the tracker, so its absence from the ticket is not a release \u2014 this hold stands until the write succeeds and a human then removes it.`;
-  return `on hold since ${hold.takenAt}: run ${hold.runId} in ${hold.worktreePath} stopped without judging the code \u2014 ${hold.reason} Remove the '${gateBlockedLabel}' label from ${identifier} to release it.${unconfirmed}`;
-};
-
-// src/gates/gateHolds/common/utils/isTicketGateHeld.ts
-var isTicketGateHeld = ({ holds, identifier, labels }) => holds[identifier.toLowerCase()] !== void 0 || labels.includes(gateBlockedLabel);
-
-// src/gates/gateHolds/common/utils/readGateHolds.ts
-import { readdir as readdir4, readFile as readFile15 } from "node:fs/promises";
-import { join as join30 } from "node:path";
-
-// src/gates/gateHolds/common/utils/getGateHoldPaths.ts
-import { join as join29 } from "node:path";
-
-// src/common/workspace/resolveSharedStateDir.ts
-import { join as join28 } from "node:path";
-
-// src/common/git/readGitPrimaryCheckout.ts
-import { dirname as dirname2 } from "node:path";
-var readGitPrimaryCheckout = async ({ cwd }) => {
-  const common = await runCommand({ command: "git rev-parse --path-format=absolute --git-common-dir", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  const gitDir = common && common.exitCode === 0 ? common.stdout.trim() : "";
-  return gitDir === "" ? void 0 : dirname2(gitDir);
-};
-
-// src/common/workspace/resolveSharedStateDir.ts
-var resolveSharedStateDir = async ({ cwd }) => {
-  const primary = await readGitPrimaryCheckout({ cwd });
-  return join28(primary ?? cwd, ".lightsout");
-};
-
-// src/gates/gateHolds/common/utils/getGateHoldPaths.ts
-var getGateHoldPaths = async ({ cwd }) => {
-  const dir = join29(await resolveSharedStateDir({ cwd }), "gate-holds");
-  return { dir, pathFor: ({ identifier }) => join29(dir, `${identifier.toLowerCase()}.json`) };
-};
-
-// src/gates/gateHolds/common/utils/readGateHolds.ts
-var readOneHold = async ({ path }) => {
-  const raw = await readFile15(path, "utf8").catch(() => void 0);
-  if (raw === void 0) {
-    return void 0;
-  }
-  try {
-    return GateHold.parse(JSON.parse(raw));
-  } catch {
-    return void 0;
-  }
-};
-var readGateHolds = async ({ cwd }) => {
-  const { dir } = await getGateHoldPaths({ cwd });
-  const names = await readdir4(dir).catch(() => []);
-  const holds = {};
-  for (const name of names.filter((entry) => entry.endsWith(".json"))) {
-    const hold = await readOneHold({ path: join30(dir, name) });
-    if (hold !== void 0) {
-      holds[name.slice(0, -".json".length).toLowerCase()] = hold;
-    }
-  }
-  return holds;
-};
-
-// src/gates/gateHolds/common/utils/removeGateHold.ts
-import { unlink } from "node:fs/promises";
-var removeGateHold = async ({ cwd, identifier }) => {
-  const { pathFor } = await getGateHoldPaths({ cwd });
-  await unlink(pathFor({ identifier })).catch(() => void 0);
 };
 
 // src/ticketTracker/common/utils/addLineUnderHeading.ts
@@ -31990,24 +31153,24 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
       return "$" + node.name;
     },
     Document: function Document$1(node) {
-      return join140(node.definitions, "\n\n") + "\n";
+      return join153(node.definitions, "\n\n") + "\n";
     },
     OperationDefinition: function OperationDefinition(node) {
       var op = node.operation;
       var name = node.name;
-      var varDefs = wrap("(", join140(node.variableDefinitions, ", "), ")");
-      var directives = join140(node.directives, " ");
+      var varDefs = wrap("(", join153(node.variableDefinitions, ", "), ")");
+      var directives = join153(node.directives, " ");
       var selectionSet = node.selectionSet;
-      return !name && !directives && !varDefs && op === "query" ? selectionSet : join140([
+      return !name && !directives && !varDefs && op === "query" ? selectionSet : join153([
         op,
-        join140([name, varDefs]),
+        join153([name, varDefs]),
         directives,
         selectionSet
       ], " ");
     },
     VariableDefinition: function VariableDefinition(_ref) {
       var variable = _ref.variable, type = _ref.type, defaultValue = _ref.defaultValue, directives = _ref.directives;
-      return variable + ": " + type + wrap(" = ", defaultValue) + wrap(" ", join140(directives, " "));
+      return variable + ": " + type + wrap(" = ", defaultValue) + wrap(" ", join153(directives, " "));
     },
     SelectionSet: function SelectionSet(_ref2) {
       var selections = _ref2.selections;
@@ -32016,11 +31179,11 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
     Field: function Field(_ref3) {
       var alias = _ref3.alias, name = _ref3.name, args = _ref3.arguments, directives = _ref3.directives, selectionSet = _ref3.selectionSet;
       var prefix = wrap("", alias, ": ") + name;
-      var argsLine = prefix + wrap("(", join140(args, ", "), ")");
-      if (argsLine.length > MAX_LINE_LENGTH) argsLine = prefix + wrap("(\n", indent(join140(args, "\n")), "\n)");
-      return join140([
+      var argsLine = prefix + wrap("(", join153(args, ", "), ")");
+      if (argsLine.length > MAX_LINE_LENGTH) argsLine = prefix + wrap("(\n", indent(join153(args, "\n")), "\n)");
+      return join153([
         argsLine,
-        join140(directives, " "),
+        join153(directives, " "),
         selectionSet
       ], " ");
     },
@@ -32030,20 +31193,20 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
     },
     FragmentSpread: function FragmentSpread(_ref5) {
       var name = _ref5.name, directives = _ref5.directives;
-      return "..." + name + wrap(" ", join140(directives, " "));
+      return "..." + name + wrap(" ", join153(directives, " "));
     },
     InlineFragment: function InlineFragment(_ref6) {
       var typeCondition = _ref6.typeCondition, directives = _ref6.directives, selectionSet = _ref6.selectionSet;
-      return join140([
+      return join153([
         "...",
         wrap("on ", typeCondition),
-        join140(directives, " "),
+        join153(directives, " "),
         selectionSet
       ], " ");
     },
     FragmentDefinition: function FragmentDefinition(_ref7) {
       var name = _ref7.name, typeCondition = _ref7.typeCondition, variableDefinitions = _ref7.variableDefinitions, directives = _ref7.directives, selectionSet = _ref7.selectionSet;
-      return "fragment ".concat(name).concat(wrap("(", join140(variableDefinitions, ", "), ")"), " ") + "on ".concat(typeCondition, " ").concat(wrap("", join140(directives, " "), " ")) + selectionSet;
+      return "fragment ".concat(name).concat(wrap("(", join153(variableDefinitions, ", "), ")"), " ") + "on ".concat(typeCondition, " ").concat(wrap("", join153(directives, " "), " ")) + selectionSet;
     },
     IntValue: function IntValue(_ref8) {
       return _ref8.value;
@@ -32066,11 +31229,11 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
     },
     ListValue: function ListValue(_ref13) {
       var values = _ref13.values;
-      return "[" + join140(values, ", ") + "]";
+      return "[" + join153(values, ", ") + "]";
     },
     ObjectValue: function ObjectValue(_ref14) {
       var fields3 = _ref14.fields;
-      return "{" + join140(fields3, ", ") + "}";
+      return "{" + join153(fields3, ", ") + "}";
     },
     ObjectField: function ObjectField(_ref15) {
       var name = _ref15.name, value = _ref15.value;
@@ -32078,7 +31241,7 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
     },
     Directive: function Directive(_ref16) {
       var name = _ref16.name, args = _ref16.arguments;
-      return "@" + name + wrap("(", join140(args, ", "), ")");
+      return "@" + name + wrap("(", join153(args, ", "), ")");
     },
     NamedType: function NamedType(_ref17) {
       return _ref17.name;
@@ -32091,9 +31254,9 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
     },
     SchemaDefinition: addDescription(function(_ref20) {
       var directives = _ref20.directives, operationTypes = _ref20.operationTypes;
-      return join140([
+      return join153([
         "schema",
-        join140(directives, " "),
+        join153(directives, " "),
         block(operationTypes)
       ], " ");
     }),
@@ -32103,149 +31266,149 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
     },
     ScalarTypeDefinition: addDescription(function(_ref22) {
       var name = _ref22.name, directives = _ref22.directives;
-      return join140([
+      return join153([
         "scalar",
         name,
-        join140(directives, " ")
+        join153(directives, " ")
       ], " ");
     }),
     ObjectTypeDefinition: addDescription(function(_ref23) {
       var name = _ref23.name, interfaces = _ref23.interfaces, directives = _ref23.directives, fields3 = _ref23.fields;
-      return join140([
+      return join153([
         "type",
         name,
-        wrap("implements ", join140(interfaces, " & ")),
-        join140(directives, " "),
+        wrap("implements ", join153(interfaces, " & ")),
+        join153(directives, " "),
         block(fields3)
       ], " ");
     }),
     FieldDefinition: addDescription(function(_ref24) {
       var name = _ref24.name, args = _ref24.arguments, type = _ref24.type, directives = _ref24.directives;
-      return name + (hasMultilineItems(args) ? wrap("(\n", indent(join140(args, "\n")), "\n)") : wrap("(", join140(args, ", "), ")")) + ": " + type + wrap(" ", join140(directives, " "));
+      return name + (hasMultilineItems(args) ? wrap("(\n", indent(join153(args, "\n")), "\n)") : wrap("(", join153(args, ", "), ")")) + ": " + type + wrap(" ", join153(directives, " "));
     }),
     InputValueDefinition: addDescription(function(_ref25) {
       var name = _ref25.name, type = _ref25.type, defaultValue = _ref25.defaultValue, directives = _ref25.directives;
-      return join140([
+      return join153([
         name + ": " + type,
         wrap("= ", defaultValue),
-        join140(directives, " ")
+        join153(directives, " ")
       ], " ");
     }),
     InterfaceTypeDefinition: addDescription(function(_ref26) {
       var name = _ref26.name, interfaces = _ref26.interfaces, directives = _ref26.directives, fields3 = _ref26.fields;
-      return join140([
+      return join153([
         "interface",
         name,
-        wrap("implements ", join140(interfaces, " & ")),
-        join140(directives, " "),
+        wrap("implements ", join153(interfaces, " & ")),
+        join153(directives, " "),
         block(fields3)
       ], " ");
     }),
     UnionTypeDefinition: addDescription(function(_ref27) {
       var name = _ref27.name, directives = _ref27.directives, types = _ref27.types;
-      return join140([
+      return join153([
         "union",
         name,
-        join140(directives, " "),
-        types && types.length !== 0 ? "= " + join140(types, " | ") : ""
+        join153(directives, " "),
+        types && types.length !== 0 ? "= " + join153(types, " | ") : ""
       ], " ");
     }),
     EnumTypeDefinition: addDescription(function(_ref28) {
       var name = _ref28.name, directives = _ref28.directives, values = _ref28.values;
-      return join140([
+      return join153([
         "enum",
         name,
-        join140(directives, " "),
+        join153(directives, " "),
         block(values)
       ], " ");
     }),
     EnumValueDefinition: addDescription(function(_ref29) {
       var name = _ref29.name, directives = _ref29.directives;
-      return join140([name, join140(directives, " ")], " ");
+      return join153([name, join153(directives, " ")], " ");
     }),
     InputObjectTypeDefinition: addDescription(function(_ref30) {
       var name = _ref30.name, directives = _ref30.directives, fields3 = _ref30.fields;
-      return join140([
+      return join153([
         "input",
         name,
-        join140(directives, " "),
+        join153(directives, " "),
         block(fields3)
       ], " ");
     }),
     DirectiveDefinition: addDescription(function(_ref31) {
       var name = _ref31.name, args = _ref31.arguments, repeatable = _ref31.repeatable, locations = _ref31.locations;
-      return "directive @" + name + (hasMultilineItems(args) ? wrap("(\n", indent(join140(args, "\n")), "\n)") : wrap("(", join140(args, ", "), ")")) + (repeatable ? " repeatable" : "") + " on " + join140(locations, " | ");
+      return "directive @" + name + (hasMultilineItems(args) ? wrap("(\n", indent(join153(args, "\n")), "\n)") : wrap("(", join153(args, ", "), ")")) + (repeatable ? " repeatable" : "") + " on " + join153(locations, " | ");
     }),
     SchemaExtension: function SchemaExtension(_ref32) {
       var directives = _ref32.directives, operationTypes = _ref32.operationTypes;
-      return join140([
+      return join153([
         "extend schema",
-        join140(directives, " "),
+        join153(directives, " "),
         block(operationTypes)
       ], " ");
     },
     ScalarTypeExtension: function ScalarTypeExtension(_ref33) {
       var name = _ref33.name, directives = _ref33.directives;
-      return join140([
+      return join153([
         "extend scalar",
         name,
-        join140(directives, " ")
+        join153(directives, " ")
       ], " ");
     },
     ObjectTypeExtension: function ObjectTypeExtension(_ref34) {
       var name = _ref34.name, interfaces = _ref34.interfaces, directives = _ref34.directives, fields3 = _ref34.fields;
-      return join140([
+      return join153([
         "extend type",
         name,
-        wrap("implements ", join140(interfaces, " & ")),
-        join140(directives, " "),
+        wrap("implements ", join153(interfaces, " & ")),
+        join153(directives, " "),
         block(fields3)
       ], " ");
     },
     InterfaceTypeExtension: function InterfaceTypeExtension(_ref35) {
       var name = _ref35.name, interfaces = _ref35.interfaces, directives = _ref35.directives, fields3 = _ref35.fields;
-      return join140([
+      return join153([
         "extend interface",
         name,
-        wrap("implements ", join140(interfaces, " & ")),
-        join140(directives, " "),
+        wrap("implements ", join153(interfaces, " & ")),
+        join153(directives, " "),
         block(fields3)
       ], " ");
     },
     UnionTypeExtension: function UnionTypeExtension(_ref36) {
       var name = _ref36.name, directives = _ref36.directives, types = _ref36.types;
-      return join140([
+      return join153([
         "extend union",
         name,
-        join140(directives, " "),
-        types && types.length !== 0 ? "= " + join140(types, " | ") : ""
+        join153(directives, " "),
+        types && types.length !== 0 ? "= " + join153(types, " | ") : ""
       ], " ");
     },
     EnumTypeExtension: function EnumTypeExtension(_ref37) {
       var name = _ref37.name, directives = _ref37.directives, values = _ref37.values;
-      return join140([
+      return join153([
         "extend enum",
         name,
-        join140(directives, " "),
+        join153(directives, " "),
         block(values)
       ], " ");
     },
     InputObjectTypeExtension: function InputObjectTypeExtension(_ref38) {
       var name = _ref38.name, directives = _ref38.directives, fields3 = _ref38.fields;
-      return join140([
+      return join153([
         "extend input",
         name,
-        join140(directives, " "),
+        join153(directives, " "),
         block(fields3)
       ], " ");
     }
   };
   function addDescription(cb) {
     return function(node) {
-      return join140([node.description, cb(node)], "\n");
+      return join153([node.description, cb(node)], "\n");
     };
   }
-  function join140(maybeArray) {
+  function join153(maybeArray) {
     var _maybeArray$filter$jo;
     var separator = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : "";
     return (_maybeArray$filter$jo = maybeArray === null || maybeArray === void 0 ? void 0 : maybeArray.filter(function(x) {
@@ -32253,7 +31416,7 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
     }).join(separator)) !== null && _maybeArray$filter$jo !== void 0 ? _maybeArray$filter$jo : "";
   }
   function block(array2) {
-    return wrap("{\n", indent(join140(array2, "\n")), "\n}");
+    return wrap("{\n", indent(join153(array2, "\n")), "\n}");
   }
   function wrap(start, maybeString) {
     var end = arguments.length > 2 && arguments[2] !== void 0 ? arguments[2] : "";
@@ -129487,6 +128650,1124 @@ var setTicketLabel3 = async (params) => params.settings.provider === "linear" ? 
 // src/ticketTracker/setTicketStatus.ts
 var setTicketStatus3 = async (params) => params.settings.provider === "linear" ? setTicketStatus2({ ...params, settings: params.settings }) : setTicketStatus({ ...params, settings: params.settings });
 
+// src/plan/publish/common/utils/attachDurableFiles.ts
+var contentTypeOf = ({ name }) => name.endsWith(".json") ? "application/json" : "text/markdown";
+var attachDurableFiles = async ({
+  settings,
+  ticketId,
+  ticketRef,
+  attachments,
+  onProgress,
+  titlePrefix
+}) => {
+  const published = [];
+  for (const attachment of attachments) {
+    const title = attachmentTitle({ prefix: titlePrefix, name: attachment.name });
+    const failure = await setTicketAttachment3({
+      settings,
+      ticketId,
+      title,
+      content: attachment.content,
+      contentType: contentTypeOf({ name: attachment.name })
+    });
+    if (failure !== void 0) {
+      return { published, error: failure.error };
+    }
+    published.push(title);
+    onProgress(`attached ${title} to ${ticketRef}`);
+  }
+  return { published };
+};
+
+// src/plan/publish/common/utils/prepareAttachments.ts
+import { readFile as readFile13 } from "node:fs/promises";
+
+// src/phases/readOverviewPhases.ts
+var readOverviewPhases = ({ overviewContent }) => {
+  const files = [];
+  let inPhases = false;
+  for (const line of overviewContent.split(/\r?\n/)) {
+    const heading = /^##\s+(.+?)\s*$/.exec(line);
+    if (heading) {
+      inPhases = heading[1] === "Phases";
+      continue;
+    }
+    if (!inPhases || !line.trim().startsWith("|")) {
+      continue;
+    }
+    const cells = line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|");
+    const file2 = /`([^`]+)`/.exec(cells[1] ?? "")?.[1]?.trim();
+    if (file2) {
+      files.push(file2);
+    }
+  }
+  return files;
+};
+
+// src/plan/common/validatePlanAttachmentGeneration.ts
+var phaseNamesOf = ({ names }) => names.filter((name) => name !== "plan.md" && name !== "overview.md" && durablePlanFileNames.deliverable.test(name));
+var validatePlanAttachmentGeneration = ({ files }) => {
+  const names = files.map(({ name }) => name);
+  const hasSingle = names.includes("plan.md");
+  const hasOverview = names.includes("overview.md");
+  const phases = phaseNamesOf({ names });
+  if (hasSingle) {
+    return hasOverview || phases.length > 0 ? { error: `the plan generation (${names.join(", ")}) is not runnable \u2014 plan.md must not coexist with overview.md or phase files` } : void 0;
+  }
+  if (!hasOverview || phases.length === 0) {
+    return {
+      error: `the plan generation (${names.join(", ")}) is not runnable \u2014 expected plan.md on its own, or overview.md with at least one phase<N> file`
+    };
+  }
+  const overview = files.find(({ name }) => name === "overview.md");
+  const declared = overview === void 0 ? [] : readOverviewPhases({ overviewContent: overview.text });
+  const duplicate = declared.find((name, index) => declared.indexOf(name) !== index);
+  if (duplicate !== void 0) {
+    return { error: `overview.md lists ${duplicate} more than once in its Phases table` };
+  }
+  const declaredSorted = [...declared].sort();
+  const attachedSorted = [...phases].sort();
+  if (declaredSorted.length !== attachedSorted.length || declaredSorted.some((name, index) => name !== attachedSorted[index])) {
+    return {
+      error: `overview.md's Phases table (${declared.join(", ") || "none"}) does not exactly match the plan generation's phase files (${phases.join(", ")})`
+    };
+  }
+  return void 0;
+};
+
+// src/plan/publish/common/utils/prepareAttachments.ts
+var prepareAttachments = async ({ files, titlePrefix }) => {
+  const durable = [];
+  const carried = titlePrefix === void 0 ? files : files.filter(({ name }) => name !== brainstormNotesFileName);
+  for (const file2 of carried) {
+    try {
+      durable.push({ name: file2.name, content: await readFile13(file2.path) });
+    } catch (error51) {
+      return { error: `could not read ${file2.name} before publishing: ${messageOf({ error: error51 })}` };
+    }
+  }
+  const refusal = validatePlanAttachmentGeneration({ files: durable.map(({ name, content }) => ({ name, text: content.toString("utf8") })) });
+  if (refusal !== void 0) {
+    return refusal;
+  }
+  return {
+    attachments: [...durable, { name: planAttachmentManifestName, content: serializeAttachmentManifest({ files: durable }) }]
+  };
+};
+
+// src/common/attachmentManifest/scopeAttachments.ts
+var scopeAttachments = ({ attachments, prefix }) => {
+  if (prefix === void 0) {
+    return attachments;
+  }
+  const namespace = `${prefix}--`;
+  return attachments.filter(({ title }) => title.startsWith(namespace)).map((attachment) => ({ ...attachment, title: attachment.title.slice(namespace.length) }));
+};
+
+// src/plan/common/utils/isDurablePlanAttachmentName.ts
+import { basename as basename15 } from "node:path";
+var isDurablePlanAttachmentName = ({ name }) => name === basename15(name) && name !== "." && name !== ".." && !/[\\/]/.test(name) && (durablePlanFileNames.records.includes(name) || durablePlanFileNames.deliverable.test(name));
+
+// src/plan/common/utils/isPlanOnlyAttachmentName.ts
+var isPlanOnlyAttachmentName = ({ name }) => name !== brainstormNotesFileName && isDurablePlanAttachmentName({ name });
+
+// src/plan/publish/common/utils/reportStaleAttachments.ts
+var readStaleTitles = ({ titles, published, titlePrefix }) => {
+  const scoped = scopeAttachments({ attachments: titles.map((title) => ({ title })), prefix: titlePrefix });
+  const names = scoped.map(({ title }) => title).filter(
+    (name) => titlePrefix === void 0 ? durablePlanFileNames.records.includes(name) || durablePlanFileNames.deliverable.test(name) : isPlanOnlyAttachmentName({ name })
+  );
+  return names.map((name) => attachmentTitle({ prefix: titlePrefix, name })).filter((title) => !published.includes(title));
+};
+var reportStaleAttachments = async ({ settings, ticketRef, published, onProgress, titlePrefix }) => {
+  const attachments = await getTicketAttachments3({ settings, identifier: ticketRef });
+  if ("error" in attachments) {
+    onProgress(`could not read ${ticketRef}'s attachment list back: ${attachments.error}`);
+    return [];
+  }
+  const stale = readStaleTitles({ titles: attachments.map((attachment) => attachment.title), published, titlePrefix });
+  for (const title of stale) {
+    onProgress(`${title} is a plan file from an earlier publish that this run did not write \u2014 it is still on ${ticketRef}, and publish deleted nothing`);
+  }
+  return stale;
+};
+
+// src/common/planAddress/ticketFolderOf.ts
+var ticketFolderOf = ({ name }) => parsePlanAddress({ name })?.ticketBranch ?? name;
+
+// src/ship/common/utils/getShipResultPath.ts
+import { join as join25 } from "node:path";
+
+// src/common/utils/toBranchFileName.ts
+var toBranchFileName = ({ branch }) => {
+  return branch.replace(/[^A-Za-z0-9._-]/g, "-");
+};
+
+// src/ship/common/utils/getShipResultPath.ts
+var getShipResultPath = ({ cwd, branch }) => {
+  return join25(cwd, ".lightsout", "ship", `${toBranchFileName({ branch })}.json`);
+};
+
+// src/ship/forge/common/constants/PullRequestState.ts
+var PullRequestState = {
+  /** Not merged and not closed — ship's resume path adopts one of these. */
+  Open: "open",
+  /** Merged into the default branch — the queue's positive evidence that a ticket already shipped. */
+  Merged: "merged"
+};
+
+// src/ship/forge/common/utils/parseForgeJson.ts
+var parseForgeJson = ({ stdout }) => {
+  try {
+    return JSON.parse(stdout);
+  } catch {
+    return void 0;
+  }
+};
+
+// src/ship/forge/common/utils/toPullRequestSummary.ts
+var PullRequestRow = external_exports.object({ number: external_exports.number(), url: external_exports.string(), title: external_exports.string(), headRefName: external_exports.string() });
+var toPullRequestSummary = ({ row }) => {
+  const parsed = PullRequestRow.safeParse(row);
+  return parsed.success ? { number: parsed.data.number, url: parsed.data.url, title: parsed.data.title, branch: parsed.data.headRefName } : void 0;
+};
+
+// src/common/processes/runCommand.ts
+import { spawn } from "node:child_process";
+
+// src/common/constants/killGraceMs.ts
+var killGraceMs = 2e3;
+
+// src/common/processes/killProcessGroup.ts
+var killProcessGroup = ({ child, signal }) => {
+  if (child.pid !== void 0 && process.platform !== "win32") {
+    try {
+      process.kill(-child.pid, signal);
+      return;
+    } catch {
+    }
+  }
+  try {
+    child.kill(signal);
+  } catch {
+  }
+};
+
+// src/common/processes/terminateChildGroups.ts
+var settled = ({ child }) => child.exitCode !== null || child.signalCode !== null;
+var exited = ({ child }) => settled({ child }) ? Promise.resolve() : new Promise((resolve22) => child.once("exit", () => resolve22()));
+var terminateChildGroups = async ({ children, graceMs = killGraceMs }) => {
+  const targets = [...children];
+  for (const child of targets) {
+    killProcessGroup({ child, signal: "SIGTERM" });
+  }
+  if (targets.length === 0) {
+    return;
+  }
+  let grace;
+  await Promise.race([
+    Promise.all(targets.map((child) => exited({ child }))),
+    new Promise((resolve22) => {
+      grace = setTimeout(resolve22, graceMs);
+    })
+  ]);
+  clearTimeout(grace);
+  for (const child of targets) {
+    if (!settled({ child })) {
+      killProcessGroup({ child, signal: "SIGKILL" });
+    }
+  }
+};
+
+// src/common/processes/relayShutdownSignals.ts
+var relayed = ["SIGINT", "SIGTERM"];
+var live = /* @__PURE__ */ new Set();
+var installed = false;
+var shuttingDown = false;
+var onSignal = async (signal) => {
+  if (shuttingDown) {
+    return;
+  }
+  shuttingDown = true;
+  await terminateChildGroups({ children: live });
+  uninstall();
+  process.kill(process.pid, signal);
+};
+var handlers = new Map(relayed.map((signal) => [signal, () => void onSignal(signal)]));
+var install = () => {
+  if (installed) {
+    return;
+  }
+  installed = true;
+  for (const [signal, handler] of handlers) {
+    process.on(signal, handler);
+  }
+};
+function uninstall() {
+  if (!installed) {
+    return;
+  }
+  installed = false;
+  for (const [signal, handler] of handlers) {
+    process.removeListener(signal, handler);
+  }
+}
+var relayShutdownSignals = ({ child }) => {
+  live.add(child);
+  install();
+  return () => {
+    live.delete(child);
+    if (live.size === 0) {
+      uninstall();
+    }
+  };
+};
+
+// src/common/processes/collectChildOutput.ts
+var collectChildOutput = ({ child, timeout, onStdoutLine }) => {
+  return new Promise((resolve22, reject) => {
+    let stdout = "";
+    let stderr = "";
+    let lineBuffer = "";
+    const emitLines = ({ text, flush = false }) => {
+      if (!onStdoutLine) {
+        return;
+      }
+      lineBuffer += text;
+      const lines = lineBuffer.split("\n");
+      lineBuffer = flush ? "" : lines.pop() ?? "";
+      for (const line of lines) {
+        if (line.trim()) {
+          onStdoutLine(line);
+        }
+      }
+    };
+    const expire = () => {
+      killProcessGroup({ child, signal: "SIGTERM" });
+      const escalation = setTimeout(() => killProcessGroup({ child, signal: "SIGKILL" }), killGraceMs);
+      escalation.unref();
+      child.once("close", () => clearTimeout(escalation));
+      reject(new Error(timeout?.message ?? "timed out"));
+    };
+    const timer = timeout ? setTimeout(expire, timeout.ms) : void 0;
+    const stopRelay = relayShutdownSignals({ child });
+    child.stdout?.on("data", (chunk) => {
+      const text = chunk.toString();
+      stdout += text;
+      emitLines({ text });
+    });
+    child.stderr?.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", (error51) => {
+      clearTimeout(timer);
+      stopRelay();
+      reject(error51);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      stopRelay();
+      emitLines({ text: "", flush: true });
+      resolve22({ exitCode: code ?? -1, stdout, stderr });
+    });
+  });
+};
+
+// src/common/processes/runCommand.ts
+var runCommand = ({ command, cwd, timeoutMs, env, onSpawn }) => {
+  const child = spawn(command, { cwd, shell: true, stdio: ["ignore", "pipe", "pipe"], env: env ? { ...process.env, ...env } : process.env, detached: true });
+  if (child.pid !== void 0) {
+    onSpawn?.({ pid: child.pid });
+  }
+  return collectChildOutput({
+    child,
+    timeout: timeoutMs ? { ms: timeoutMs, message: `command timed out after ${timeoutMs}ms: ${command}` } : void 0
+  });
+};
+
+// src/ship/forge/runGh.ts
+var quote = ({ argument }) => `'${argument.split("'").join(`'\\''`)}'`;
+var runGh = async ({ args, cwd }) => {
+  const forgeTimeoutMs = 6e4;
+  const command = ["gh", ...args.map((argument) => quote({ argument }))].join(" ");
+  return runCommand({ command, cwd, timeoutMs: forgeTimeoutMs }).catch((error51) => ({ exitCode: -1, stdout: "", stderr: messageOf({ error: error51 }) }));
+};
+
+// src/ship/forge/createPullRequest.ts
+var readCreatedNumber = ({ stdout }) => {
+  const segment = stdout.trim().split("\n").at(-1)?.split("/").at(-1) ?? "";
+  const parsed = Number.parseInt(segment, 10);
+  return Number.isNaN(parsed) ? void 0 : parsed;
+};
+var createPullRequest = async ({ branch, body, cwd }) => {
+  const created = await runGh({ args: ["pr", "create", "--fill-first", "--head", branch], cwd });
+  const prNumber = created.exitCode === 0 ? readCreatedNumber({ stdout: created.stdout }) : void 0;
+  if (prNumber === void 0) {
+    return { stderr: created.stderr };
+  }
+  const edited = await runGh({ args: ["pr", "edit", String(prNumber), "--body", body], cwd });
+  if (edited.exitCode !== 0) {
+    return { stderr: edited.stderr };
+  }
+  const viewed = await runGh({ args: ["pr", "view", String(prNumber), "--json", "number,url,title,headRefName"], cwd });
+  const summary = viewed.exitCode === 0 ? toPullRequestSummary({ row: parseForgeJson({ stdout: viewed.stdout }) }) : void 0;
+  return summary ?? { stderr: viewed.stderr };
+};
+
+// src/ship/forge/findPullRequest.ts
+var findPullRequest = async ({ branch, cwd, state }) => {
+  const listed = await runGh({
+    args: ["pr", "list", "--head", branch, "--state", state, "--json", "number,url,title,headRefName", "--limit", "1"],
+    cwd
+  });
+  const rows = listed.exitCode === 0 ? parseForgeJson({ stdout: listed.stdout }) : void 0;
+  return Array.isArray(rows) ? toPullRequestSummary({ row: rows[0] }) : void 0;
+};
+
+// src/ship/common/constants/remoteWaitTimings.ts
+var remoteWaitTimings = { pollIntervalMs: 3e4, ceilingMs: 30 * 6e4 };
+
+// src/ship/common/utils/sleep.ts
+var sleep = ({ ms }) => new Promise((resolve22) => setTimeout(resolve22, ms));
+
+// src/ship/forge/mergePullRequest.ts
+var StateView = external_exports.object({
+  state: external_exports.string(),
+  mergeCommit: external_exports.object({ oid: external_exports.string() }).nullable(),
+  headRefOid: external_exports.string().optional(),
+  mergeStateStatus: external_exports.string().optional(),
+  reviewDecision: external_exports.string().nullable().optional()
+});
+var humanReviewDecisions = /* @__PURE__ */ new Set(["REVIEW_REQUIRED", "CHANGES_REQUESTED"]);
+var readState = async ({ prNumber, cwd }) => {
+  const viewed = await runGh({ args: ["pr", "view", String(prNumber), "--json", "state,mergeCommit,headRefOid,mergeStateStatus,reviewDecision"], cwd });
+  const view = StateView.safeParse(parseForgeJson({ stdout: viewed.stdout }));
+  return { view: view.success ? view.data : void 0, stderr: viewed.stderr };
+};
+var isStaleBase = ({ view, expectedHead }) => view !== void 0 && view.headRefOid === expectedHead && view.state === "OPEN" && view.mergeStateStatus === "BEHIND" && !humanReviewDecisions.has(view.reviewDecision ?? "");
+var confirmMerge = async ({ prNumber, cwd, mergeStderr }) => {
+  const { pollIntervalMs, ceilingMs } = remoteWaitTimings;
+  const startedAt = Date.now();
+  let last;
+  let lastStderr = mergeStderr;
+  for (; ; ) {
+    const { view, stderr } = await readState({ prNumber, cwd });
+    last = view;
+    lastStderr = stderr.trim() === "" ? lastStderr : stderr;
+    if (view?.state === "MERGED") {
+      return view.mergeCommit === null ? { stderr: lastStderr } : view.mergeCommit.oid;
+    }
+    if (Date.now() - startedAt >= ceilingMs) {
+      return { stderr: `the forge accepted the merge but #${prNumber} is still ${last?.state ?? "unreadable"} at the wait ceiling` };
+    }
+    await sleep({ ms: pollIntervalMs });
+  }
+};
+var mergePullRequest = async ({ prNumber, mergeMethod, cwd, expectedHead }) => {
+  const merged = await runGh({
+    args: ["pr", "merge", String(prNumber), `--${mergeMethod}`, "--delete-branch", "--match-head-commit", expectedHead],
+    cwd
+  });
+  if (merged.exitCode === 0) {
+    return confirmMerge({ prNumber, cwd, mergeStderr: merged.stderr });
+  }
+  const { view } = await readState({ prNumber, cwd });
+  if (view?.state === "MERGED" && view.mergeCommit !== null) {
+    return view.mergeCommit.oid;
+  }
+  return isStaleBase({ view, expectedHead }) ? { stderr: merged.stderr, staleBase: true } : { stderr: merged.stderr };
+};
+
+// src/ship/common/utils/maskSecrets.ts
+var maskSecrets = ({ text }) => text.replaceAll(/(\/\/)[^\s/@]+(?::[^\s/@]*)?@/g, "$1***@").replaceAll(/\b(gh[pousr]|github_pat)_[A-Za-z0-9_]{16,}\b/g, "***");
+
+// src/ship/forge/readCheckFailureLogs.ts
+var RollupView = external_exports.object({
+  headRefOid: external_exports.string(),
+  statusCheckRollup: external_exports.array(external_exports.object({ __typename: external_exports.string() }).catchall(external_exports.unknown()))
+});
+var ActionsCheck = external_exports.object({ __typename: external_exports.literal("CheckRun"), name: external_exports.string(), conclusion: external_exports.string(), detailsUrl: external_exports.string() });
+var RunRows = external_exports.array(external_exports.object({ databaseId: external_exports.number(), headSha: external_exports.string() }).catchall(external_exports.unknown()));
+var RunDetail = external_exports.object({
+  headSha: external_exports.string(),
+  conclusion: external_exports.string(),
+  jobs: external_exports.array(external_exports.object({ databaseId: external_exports.number(), name: external_exports.string(), conclusion: external_exports.string() }).catchall(external_exports.unknown()))
+});
+var maxEvidenceCharacters = 32e3;
+var resolveRunId = async ({ check: check2, commit, cwd }) => {
+  const linked = /^https:\/\/[^/]+\/[^/]+\/[^/]+\/actions\/runs\/(\d+)\/job\/\d+/.exec(check2.detailsUrl);
+  const linkedRunId = linked === null ? void 0 : linked[1];
+  if (linkedRunId !== void 0) {
+    return Number(linkedRunId);
+  }
+  const listed = await runGh({ args: ["run", "list", "--commit", commit, "--json", "databaseId,headSha,workflowName,status,conclusion"], cwd });
+  const rows = RunRows.safeParse(parseForgeJson({ stdout: listed.stdout }));
+  const matching = rows.success ? rows.data.filter((row) => row.headSha === commit) : [];
+  return matching.length === 1 ? matching[0]?.databaseId : void 0;
+};
+var readFailedJobLog = async ({ runId, jobName, cwd }) => {
+  const logged = await runGh({ args: ["run", "view", String(runId), "--log-failed"], cwd });
+  if (logged.exitCode !== 0) {
+    return void 0;
+  }
+  const relevant = logged.stdout.split("\n").filter((line) => line.startsWith(`${jobName}	`));
+  if (relevant.length === 0) {
+    return void 0;
+  }
+  const masked = maskSecrets({ text: relevant.join("\n") });
+  return masked.length > maxEvidenceCharacters ? `${masked.slice(0, maxEvidenceCharacters)}
+\u2026 truncated: the failed job printed more than this` : masked;
+};
+var readOneFailure = async ({ rollup, name, commit, cwd }) => {
+  const parsed = rollup.statusCheckRollup.map((entry) => ActionsCheck.safeParse(entry));
+  const row = parsed.find((candidate) => candidate.success && candidate.data.name === name);
+  if (row === void 0 || !row.success) {
+    return void 0;
+  }
+  const runId = await resolveRunId({ check: row.data, commit, cwd });
+  if (runId === void 0) {
+    return void 0;
+  }
+  const viewed = await runGh({ args: ["run", "view", String(runId), "--json", "headSha,jobs,attempt,conclusion"], cwd });
+  const detail = RunDetail.safeParse(parseForgeJson({ stdout: viewed.stdout }));
+  if (!detail.success || detail.data.headSha !== commit || detail.data.conclusion !== "failure") {
+    return void 0;
+  }
+  const job = detail.data.jobs.find((entry) => entry.name === name && entry.conclusion === "failure");
+  const output = job === void 0 ? void 0 : await readFailedJobLog({ runId, jobName: job.name, cwd });
+  return output === void 0 ? void 0 : { name, runId, commit, output };
+};
+var readCheckFailureLogs = async ({ prNumber, commit, failingChecks, cwd }) => {
+  const viewed = await runGh({ args: ["pr", "view", String(prNumber), "--json", "headRefOid,statusCheckRollup"], cwd });
+  const rollup = RollupView.safeParse(parseForgeJson({ stdout: viewed.stdout }));
+  if (!rollup.success || rollup.data.headRefOid !== commit) {
+    return void 0;
+  }
+  const failures = [];
+  for (const name of failingChecks) {
+    const failure = await readOneFailure({ rollup: rollup.data, name, commit, cwd });
+    if (failure === void 0) {
+      return void 0;
+    }
+    failures.push(failure);
+  }
+  const confirmed = await runGh({ args: ["pr", "view", String(prNumber), "--json", "headRefOid"], cwd });
+  const stillOn = RollupView.pick({ headRefOid: true }).safeParse(parseForgeJson({ stdout: confirmed.stdout }));
+  return stillOn.success && stillOn.data.headRefOid === commit && failures.length > 0 ? failures : void 0;
+};
+
+// src/ship/forge/readForgeAuth.ts
+var readForgeAuth = async ({ cwd }) => {
+  const status = await runGh({ args: ["auth", "status"], cwd });
+  return status.exitCode === 0;
+};
+
+// src/ship/forge/readPullRequestChecks.ts
+var CheckRows = external_exports.array(external_exports.object({ name: external_exports.string(), bucket: external_exports.string() }).catchall(external_exports.unknown()));
+var HeadView = external_exports.object({ headRefOid: external_exports.string() });
+var redBuckets = /* @__PURE__ */ new Set(["fail", "cancel"]);
+var greenBuckets = /* @__PURE__ */ new Set(["pass", "skipping"]);
+var knownBuckets = /* @__PURE__ */ new Set([...redBuckets, ...greenBuckets, "pending"]);
+var standsOnExpectedHead = async ({ prNumber, cwd, expectedHead }) => {
+  const viewed = await runGh({ args: ["pr", "view", String(prNumber), "--json", "headRefOid"], cwd });
+  const head = HeadView.safeParse(parseForgeJson({ stdout: viewed.stdout }));
+  return head.success && head.data.headRefOid === expectedHead;
+};
+var readPullRequestChecks = async ({ prNumber, cwd, expectedHead }) => {
+  if (!await standsOnExpectedHead({ prNumber, cwd, expectedHead })) {
+    return void 0;
+  }
+  const checked = await runGh({ args: ["pr", "checks", String(prNumber), "--json", "name,state,bucket"], cwd });
+  const rows = CheckRows.safeParse(parseForgeJson({ stdout: checked.stdout }));
+  if (!rows.success || rows.data.some((row) => !knownBuckets.has(row.bucket))) {
+    return void 0;
+  }
+  if (!await standsOnExpectedHead({ prNumber, cwd, expectedHead })) {
+    return void 0;
+  }
+  const failing = rows.data.filter((row) => redBuckets.has(row.bucket)).map((row) => row.name);
+  const pending = rows.data.filter((row) => row.bucket === "pending").map((row) => row.name);
+  const passing = rows.data.filter((row) => greenBuckets.has(row.bucket)).map((row) => row.name);
+  return { finished: pending.length === 0, green: failing.length === 0, failing, pending, passing, readable: true };
+};
+
+// src/ship/progress/readShippingProgress.ts
+import { readFile as readFile14 } from "node:fs/promises";
+
+// src/ship/progress/common/utils/getShippingProgressPath.ts
+import { join as join26 } from "node:path";
+var getShippingProgressPath = ({ cwd, branch }) => {
+  return join26(cwd, ".lightsout", "ship", "progress", `${toBranchFileName({ branch })}.json`);
+};
+
+// src/ship/progress/readShippingProgress.ts
+var isMissingFile = ({ error: error51 }) => typeof error51 === "object" && error51 !== null && "code" in error51 && error51.code === "ENOENT";
+var readShippingProgress = async ({ cwd, branch }) => {
+  const path = getShippingProgressPath({ cwd, branch });
+  let exists3 = true;
+  let progress;
+  try {
+    const parsed = ShippingProgress.safeParse(JSON.parse(await readFile14(path, "utf8")));
+    progress = parsed.success ? parsed.data : void 0;
+  } catch (error51) {
+    exists3 = !isMissingFile({ error: error51 });
+  }
+  return { path, exists: exists3, progress };
+};
+
+// src/ship/progress/ShippingProgressRecorder.ts
+import { mkdir as mkdir2, rename as rename2, stat as stat2, writeFile as writeFile5 } from "node:fs/promises";
+import { dirname, join as join27 } from "node:path";
+var attemptSteps = [ShippingStepId.Integrate, ShippingStepId.Push, ShippingStepId.PullRequest, ShippingStepId.Checks, ShippingStepId.Merge];
+var pendingSteps = () => Object.values(ShippingStepId).map((id) => ({ id, status: RunStatus.Pending }));
+var freshRecord = ({ branch, maxAttempts }) => {
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  return { branch, attempt: 1, maxAttempts, pid: process.pid, startedAt: now, updatedAt: now, steps: pendingSteps() };
+};
+var ensureIgnoreFile = async ({ folder }) => {
+  const ignorePath = join27(folder, ".gitignore");
+  const isFile = await stat2(ignorePath).then(
+    (found) => found.isFile(),
+    () => false
+  );
+  if (!isFile) {
+    await writeFile5(ignorePath, "*\n", "utf8");
+  }
+};
+var writeRecord = async ({ recordPath, record: record3 }) => {
+  const folder = dirname(recordPath);
+  const tmpPath = `${recordPath}.tmp`;
+  try {
+    await mkdir2(folder, { recursive: true });
+    await ensureIgnoreFile({ folder });
+    await writeJsonFile({ path: tmpPath, value: record3 });
+    await rename2(tmpPath, recordPath);
+  } catch {
+  }
+};
+var ShippingProgressRecorder = class {
+  recordPath;
+  record;
+  writes = Promise.resolve();
+  constructor({ cwd, branch, maxAttempts }) {
+    this.recordPath = getShippingProgressPath({ cwd, branch });
+    this.record = freshRecord({ branch, maxAttempts });
+  }
+  /** Attempt 1 starts a fresh record, replacing any an earlier ship of the branch left; a later one runs the five attempt steps again under the same start time. */
+  beginAttempt({ attempt }) {
+    const { branch, maxAttempts } = this.record;
+    this.record = attempt === 1 ? freshRecord({ branch, maxAttempts }) : {
+      ...this.record,
+      attempt,
+      steps: this.record.steps.map((step) => attemptSteps.includes(step.id) ? { id: step.id, status: RunStatus.Pending } : step)
+    };
+    this.save();
+  }
+  startStep({ step }) {
+    this.updateStep({ step, update: () => ({ id: step, status: RunStatus.Running, startedAt: (/* @__PURE__ */ new Date()).toISOString() }) });
+  }
+  finishStep({ step, passed }) {
+    const finishedAt = Date.now();
+    this.updateStep({
+      step,
+      update: (current) => ({
+        ...current,
+        status: passed ? RunStatus.Passed : RunStatus.Failed,
+        durationMs: current.startedAt === void 0 ? 0 : finishedAt - Date.parse(current.startedAt)
+      })
+    });
+  }
+  noteProgress({ message }) {
+    this.record = { ...this.record, lastProgress: message };
+    this.save();
+  }
+  /** Stamps the end, and resolves once every queued write has landed or been dropped. */
+  end() {
+    this.record = { ...this.record, endedAt: (/* @__PURE__ */ new Date()).toISOString() };
+    this.save();
+    return this.writes;
+  }
+  updateStep({ step, update }) {
+    this.record = { ...this.record, steps: this.record.steps.map((current) => current.id === step ? update(current) : current) };
+    this.save();
+  }
+  /** Stamps the change and queues a whole-record write behind the ones already queued. Each write holds its own snapshot, because `record` is replaced rather than mutated. */
+  save() {
+    const record3 = { ...this.record, pid: process.pid, updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
+    const recordPath = this.recordPath;
+    this.record = record3;
+    this.writes = this.writes.then(() => writeRecord({ recordPath, record: record3 }));
+  }
+};
+
+// src/common/constants/gitTimeoutMs.ts
+var gitTimeoutMs = 6e4;
+
+// src/common/git/readGitCurrentBranch.ts
+var readGitCurrentBranch = async ({ cwd }) => {
+  const branch = await runCommand({ command: "git rev-parse --abbrev-ref HEAD", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  const name = branch && branch.exitCode === 0 ? branch.stdout.trim() : "";
+  return name === "" || name === "HEAD" ? void 0 : name;
+};
+
+// src/ship/readTicketMatch.ts
+var readTicketMatch = ({ branch, ticketPattern }) => {
+  const groups = ticketPattern.exec(branch)?.groups;
+  const captured = Object.entries(groups ?? {}).filter((entry) => entry[1] !== void 0);
+  return captured.some(([name]) => name === "ticket") ? Object.fromEntries(captured) : void 0;
+};
+
+// src/ship/resolveShipSettings.ts
+var compilePattern = ({ source }) => {
+  try {
+    return new RegExp(source);
+  } catch {
+    return void 0;
+  }
+};
+var resolveShipSettings = ({ config: config2 }) => {
+  const ship = config2.ship;
+  const ticketPattern = compilePattern({ source: ship?.["ticket-pattern"] ?? String.raw`^(?<ticket>[a-z]+-\d+)` });
+  if (ticketPattern === void 0 || !ticketPattern.source.includes("(?<ticket>")) {
+    return void 0;
+  }
+  return {
+    ticketPattern,
+    pullRequestBody: ship?.["pr-body"] ?? "{ticket}",
+    mergeMethod: ship?.["merge-method"] ?? ShipMergeMethod.Merge,
+    afterImplement: ship?.["after-implement"] ?? false,
+    preShip: ship?.["pre-ship"],
+    allowNoCi: ship?.["allow-no-ci"] ?? false
+  };
+};
+
+// src/ship/readBranchTicketRef.ts
+var readBranchTicketRef = async ({ config: config2, cwd }) => {
+  const settings = resolveShipSettings({ config: config2 });
+  const branch = await readGitCurrentBranch({ cwd });
+  if (settings === void 0 || branch === void 0) {
+    return void 0;
+  }
+  return readTicketMatch({ branch, ticketPattern: settings.ticketPattern })?.ticket;
+};
+
+// src/ship/readShipResult.ts
+import { readFile as readFile15 } from "node:fs/promises";
+var readShipResult = async ({ cwd, branch }) => {
+  const raw = await readFile15(getShipResultPath({ cwd, branch }), "utf8").catch(() => void 0);
+  if (raw === void 0) {
+    return void 0;
+  }
+  try {
+    const parsed = ShipResult.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : void 0;
+  } catch {
+    return void 0;
+  }
+};
+
+// src/ship/resolveShipIntent.ts
+var resolveShipIntent = ({ config: config2, shipFlag, noShipFlag, env, shipRequest }) => {
+  const settings = resolveShipSettings({ config: config2 });
+  const contradictory = shipFlag && noShipFlag;
+  const suppressed = noShipFlag || (env.LIGHTSOUT_NO_SHIP ?? "") !== "";
+  const asked = shipRequest === void 0 ? shipFlag || settings?.afterImplement === true : shipRequest.blocker === void 0;
+  const stopped = contradictory || suppressed;
+  return {
+    contradictory,
+    willShip: !stopped && asked,
+    settings,
+    // The field exists only where a ticket record had a say at all, and carries a
+    // sentence only where that say is what held the run back.
+    ...shipRequest === void 0 ? {} : { shipRequestBlocker: stopped ? void 0 : shipRequest.blocker }
+  };
+};
+
+// src/common/constants/maxCheapFixRetries.ts
+var maxCheapFixRetries = 2;
+
+// src/common/git/readGitPrefix.ts
+var readGitPrefix = async ({ cwd }) => {
+  const prefix = await runCommand({ command: "git rev-parse --show-prefix", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  return prefix && prefix.exitCode === 0 ? prefix.stdout.trim() : void 0;
+};
+
+// src/common/git/readGitChangedFiles.ts
+var readGitChangedFiles = async ({ cwd }) => {
+  const prefix = await readGitPrefix({ cwd });
+  if (prefix === void 0) {
+    return void 0;
+  }
+  const status = await runCommand({ command: "git status --porcelain=v1 -uall -- .", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  if (status?.exitCode !== 0) {
+    return void 0;
+  }
+  const root = prefix;
+  return status.stdout.split("\n").filter(Boolean).map((line) => {
+    const path = line.slice(3);
+    const arrow = path.lastIndexOf(" -> ");
+    const renameTarget = arrow === -1 ? path : path.slice(arrow + " -> ".length);
+    return renameTarget.replace(/^"|"$/g, "");
+  }).map((path) => root && path.startsWith(root) ? path.slice(root.length) : path).filter((path) => !path.startsWith(".lightsout/"));
+};
+
+// src/common/git/readGitDefaultBranch.ts
+var readGitDefaultBranch = async ({ cwd }) => {
+  const head = await runCommand({ command: "git rev-parse --abbrev-ref origin/HEAD", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  const name = head && head.exitCode === 0 ? head.stdout.trim() : "";
+  const remotePrefix = "origin/";
+  return name.startsWith(remotePrefix) ? name.slice(remotePrefix.length) : void 0;
+};
+
+// src/ship/checkShipPreconditions.ts
+var describeDirtyTree = ({ changed }) => {
+  const shownPaths = 5;
+  if (changed === void 0) {
+    return "git could not list the working tree, so ship cannot tell whether it is clean";
+  }
+  const shown = changed.slice(0, shownPaths).join(", ");
+  const rest = changed.length > shownPaths ? `, and ${changed.length - shownPaths} more` : "";
+  return `working tree is not clean: ${shown}${rest}`;
+};
+var checkShipPreconditions = async ({ cwd, ticketPattern }) => {
+  const branch = await readGitCurrentBranch({ cwd });
+  if (branch === void 0) {
+    return { reason: ShipBlockReason.GitUnreadable, detail: `not on a branch in a git worktree at ${cwd}` };
+  }
+  const defaultBranch = await readGitDefaultBranch({ cwd });
+  if (defaultBranch === void 0) {
+    return { reason: ShipBlockReason.DefaultBranch, detail: "origin/HEAD is unset, so ship cannot tell what it would merge into", branch };
+  }
+  if (defaultBranch === branch) {
+    return { reason: ShipBlockReason.DefaultBranch, detail: `already on the default branch '${branch}'`, branch };
+  }
+  const changed = await readGitChangedFiles({ cwd });
+  if (changed === void 0 || changed.length > 0) {
+    return { reason: ShipBlockReason.DirtyTree, detail: describeDirtyTree({ changed }), branch };
+  }
+  const ticket = readTicketMatch({ branch, ticketPattern });
+  if (ticket === void 0) {
+    return { reason: ShipBlockReason.TicketPatternMismatch, detail: `branch '${branch}' does not match ${ticketPattern.source}`, branch };
+  }
+  if (!await readForgeAuth({ cwd })) {
+    return { reason: ShipBlockReason.ForgeNotAuthenticated, detail: "gh is not installed, or is not logged in for this repository\u2019s host", branch };
+  }
+  return { branch, defaultBranch, ticket };
+};
+
+// src/ship/common/utils/quoteGitArgument.ts
+var quoteGitArgument = ({ argument }) => `'${argument.split("'").join(`'\\''`)}'`;
+
+// src/ship/common/utils/runGit.ts
+var runGit = ({ command, cwd, timeoutMs = gitTimeoutMs }) => runCommand({ command, cwd, timeoutMs }).catch(() => void 0);
+
+// src/common/git/readGitHeadCommit.ts
+var readGitHeadCommit = async ({ cwd }) => {
+  const head = await runCommand({ command: "git rev-parse HEAD", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  return head && head.exitCode === 0 ? head.stdout.trim() : void 0;
+};
+
+// src/ship/common/utils/appendCommandOutput.ts
+var appendCommandOutput = ({ sentence, stderr }) => {
+  const maxStderrCharacters = 500;
+  const trimmed = maskSecrets({ text: stderr }).trim();
+  const capped = trimmed.length > maxStderrCharacters ? `${trimmed.slice(0, maxStderrCharacters)}\u2026` : trimmed;
+  return capped === "" ? sentence : `${sentence}: ${capped}`;
+};
+
+// src/ship/common/utils/createBlockedAttempt.ts
+var createBlockedAttempt = ({ stop, reason, detail, failingChecks = [], retryable = false, ciEvidence }) => ({
+  result: { status: ShipStatus.Blocked, failingChecks, ...stop, reason, detail },
+  retryable,
+  ciEvidence
+});
+
+// src/ship/integration/common/utils/hasOpenMerge.ts
+var hasOpenMerge = async ({ cwd }) => (await runGit({ command: "git rev-parse -q --verify MERGE_HEAD", cwd }))?.exitCode === 0;
+
+// src/ship/integration/readUnmergedPaths.ts
+var readUnmergedPaths = async ({ cwd }) => {
+  const listed = await runGit({ command: "git diff --name-only --diff-filter=U -z", cwd });
+  if (listed === void 0 || listed.exitCode !== 0) {
+    return void 0;
+  }
+  return listed.stdout.split("\0").filter((path) => path !== "");
+};
+
+// src/ship/integration/mergeDefaultBranch.ts
+var noMerge = ({ failure, baseCommit }) => ({
+  baseCommit,
+  conflictPaths: [],
+  integrated: false,
+  failure
+});
+var isAlreadyIntegrated = async ({ cwd, baseCommit }) => {
+  const checked = await runGit({ command: `git merge-base --is-ancestor ${quoteGitArgument({ argument: baseCommit })} HEAD`, cwd });
+  if (checked?.exitCode === 0) {
+    return { ancestor: true };
+  }
+  return checked?.exitCode === 1 ? { ancestor: false } : { error: `git could not say whether ${baseCommit} is already on the branch` };
+};
+var pinDefaultBranch = async ({ cwd, defaultBranch }) => {
+  const fetchTimeoutMs = 6e4;
+  const fetched = await runGit({ command: "git fetch origin", cwd, timeoutMs: fetchTimeoutMs });
+  if (fetched === void 0 || fetched.exitCode !== 0) {
+    return { error: `git could not fetch origin: ${(fetched?.stderr ?? "git did not answer").trim()}` };
+  }
+  const resolved = await runGit({ command: `git rev-parse --verify ${quoteGitArgument({ argument: `origin/${defaultBranch}` })}`, cwd });
+  if (resolved === void 0 || resolved.exitCode !== 0) {
+    return { error: `git could not resolve origin/${defaultBranch} after fetching` };
+  }
+  return { baseCommit: resolved.stdout.trim() };
+};
+var mergeDefaultBranch = async ({ cwd, defaultBranch, onProgress }) => {
+  onProgress?.(`integrate: fetching origin/${defaultBranch}`);
+  const pinned = await pinDefaultBranch({ cwd, defaultBranch });
+  if ("error" in pinned) {
+    return noMerge({ failure: pinned.error });
+  }
+  const { baseCommit } = pinned;
+  const ancestry = await isAlreadyIntegrated({ cwd, baseCommit });
+  if ("error" in ancestry) {
+    return noMerge({ failure: ancestry.error, baseCommit });
+  }
+  if (ancestry.ancestor) {
+    onProgress?.(`integrate: origin/${defaultBranch} is already an ancestor \u2014 nothing to merge`);
+    return { baseCommit, conflictPaths: [], integrated: false, failure: void 0 };
+  }
+  const merged = await runGit({ command: `git merge --no-commit --no-ff ${quoteGitArgument({ argument: baseCommit })}`, cwd });
+  if (merged?.exitCode === 0) {
+    onProgress?.(`integrate: merged origin/${defaultBranch} cleanly`);
+    return { baseCommit, conflictPaths: [], integrated: true, failure: void 0 };
+  }
+  const conflictPaths = await readUnmergedPaths({ cwd });
+  if (conflictPaths === void 0 || conflictPaths.length === 0) {
+    const said = (merged?.stderr ?? "git did not answer").trim();
+    return { baseCommit, conflictPaths: [], integrated: true, failure: `git could not merge origin/${defaultBranch}: ${said}` };
+  }
+  onProgress?.(`integrate: merging origin/${defaultBranch} left ${conflictPaths.length} path(s) unmerged`);
+  return { baseCommit, conflictPaths, integrated: true, failure: void 0 };
+};
+
+// src/ship/integration/readConflictMarkerPaths.ts
+var addedMarker = /^\+(?:<{7}|>{7})(?: |$)/;
+var diffHeader = /^\+\+\+ b\/(.+)$/;
+var scanDiff = ({ diff }) => {
+  const found = [];
+  let path;
+  for (const line of diff.split("\n")) {
+    const header = diffHeader.exec(line);
+    const named = header === null ? void 0 : header[1];
+    if (named !== void 0) {
+      path = named;
+    } else if (addedMarker.test(line) && path !== void 0 && !found.includes(path)) {
+      found.push(path);
+    }
+  }
+  return found;
+};
+var readConflictMarkerPaths = async ({ cwd }) => {
+  const staged = await runGit({ command: "git -c core.quotePath=false diff --cached -U0", cwd });
+  const working = await runGit({ command: "git -c core.quotePath=false diff -U0", cwd });
+  if (staged === void 0 || staged.exitCode !== 0 || working === void 0 || working.exitCode !== 0) {
+    return void 0;
+  }
+  const marked = [...scanDiff({ diff: staged.stdout }), ...scanDiff({ diff: working.stdout })];
+  return [...new Set(marked)];
+};
+
+// src/common/constants/defaultAgentTimeoutMinutes.ts
+var defaultAgentTimeoutMinutes = 60;
+
+// src/ship/integration/invokeShipIntegrator.ts
+var invokeShipIntegrator = async ({
+  cwd,
+  integration,
+  branch,
+  defaultBranch,
+  standards,
+  conflictPaths,
+  ticketRef,
+  branchDiff,
+  ciEvidence,
+  errorContext
+}) => {
+  const { config: config2, driver } = integration;
+  const allowedCommands = config2["agent-commands"];
+  const outcome = await invokeAgentWithContract({
+    driver,
+    cwd,
+    invocation: buildShipIntegratorInvocation({
+      branch,
+      defaultBranch,
+      standards,
+      allowedCommands,
+      ticketRef,
+      conflictPaths,
+      branchDiff,
+      ciEvidence,
+      errorContext
+    }),
+    contract: WorkReport,
+    model: config2.model,
+    effort: config2.effort,
+    permissions: config2.permissions,
+    timeoutMs: (config2.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes) * 6e4,
+    allowedCommands
+  });
+  if (!outcome.ok) {
+    return outcome.failure;
+  }
+  const report2 = outcome.report;
+  return report2.status === WorkReportStatus.Complete ? void 0 : report2.failures[0] ?? report2.summary;
+};
+
+// src/ship/integration/repairCiFailure.ts
+var repairCiFailure = async ({
+  cwd,
+  integration,
+  branch,
+  defaultBranch,
+  ticketRef,
+  branchDiff,
+  ciEvidence,
+  standards,
+  onProgress
+}) => {
+  onProgress?.(`integrate: repairing the remote check failure reported for ${ticketRef}`);
+  const refusal = await invokeShipIntegrator({ cwd, integration, branch, defaultBranch, standards, ticketRef, branchDiff, ciEvidence });
+  if (refusal === void 0) {
+    return void 0;
+  }
+  return { reason: ShipBlockReason.ChecksFailed, detail: `the remote check failure could not be repaired within this branch's scope: ${refusal}`, paths: [] };
+};
+
+// src/gates/common/constants/GateScheduleKind.ts
+var GateScheduleKind = {
+  /** One stage, the engine's canonical order — what every gate caller that asks for no schedule gets. */
+  Single: "single",
+  /** Two stages, cheap then expensive, with every group held at the boundary. */
+  Tiered: "tiered",
+  /** One stage, exactly these gate names in exactly this order, always stopping at the first red. */
+  Exact: "exact",
+  /** No stages at all — the checkpoint runs no gates, `gates.generate` included. */
+  Off: "off"
+};
+
+// src/gates/common/constants/SelfCheckReason.ts
+var SelfCheckReason = {
+  /** Gates were scheduled and executed — the only reason whose result says anything about the code. */
+  Ran: "ran",
+  /** The tree holds no change yet, so there was nothing to check. */
+  NothingChanged: "nothing-changed",
+  /** The checkpoint this step precedes schedules no gates, or every package in scope skipped the ones it does. */
+  NothingScheduled: "nothing-scheduled",
+  /** The engine could not work out what to check, because reading the repository's git status failed. */
+  Unavailable: "unavailable",
+  /** Another gate run of this repository held the machine, so not one gate command executed. */
+  Coordination: "coordination"
+};
+
+// src/gates/common/utils/collectGateObservations.ts
+var collectGateObservations = () => {
+  const observations = /* @__PURE__ */ new Map();
+  return {
+    onGateResult: (gateResult) => observations.set(`${gateResult.group}\0${gateResult.kind}`, gateResult),
+    observed: () => [...observations.values()]
+  };
+};
+
+// src/gates/common/utils/describeGateCoordinationTimeout.ts
+var describeGateCoordinationTimeout = ({ holder, waitedMs }) => {
+  const waited = waitedMs >= 6e4 ? `${Math.round(waitedMs / 6e4)}m` : `${Math.round(waitedMs / 1e3)}s`;
+  return `gates never started: this run waited ${waited} for another gate run on this machine to finish, and the machine is still taken by ${holder}. No gate command executed, so nothing here is evidence about the code \u2014 the worktree and every commit in it are exactly as they were. Wait for the holder to finish, or find out why it has not.`;
+};
+
+// src/gates/common/utils/resolveGateSchedule.ts
+var resolveGateSchedule = ({ override }) => {
+  if (override === void 0) {
+    return { kind: GateScheduleKind.Tiered };
+  }
+  return override === "off" ? { kind: GateScheduleKind.Off } : { kind: GateScheduleKind.Exact, gates: override };
+};
+
+// src/gates/gateHolds/common/constants/gateBlockedLabel.ts
+var gateBlockedLabel = "queue-blocked-gate-timed-out";
+
+// src/gates/gateHolds/common/utils/describeGateHold.ts
+var describeGateHold = ({ hold, identifier }) => {
+  if (hold === void 0) {
+    return `on hold: ${identifier} carries the '${gateBlockedLabel}' label, and this machine holds no local record of when or why the hold was taken. Remove the label from the ticket to release it.`;
+  }
+  const unconfirmed = hold.labelConfirmed ? "" : ` The '${gateBlockedLabel}' label write never landed on the tracker, so its absence from the ticket is not a release \u2014 this hold stands until the write succeeds and a human then removes it.`;
+  return `on hold since ${hold.takenAt}: run ${hold.runId} in ${hold.worktreePath} stopped without judging the code \u2014 ${hold.reason} Remove the '${gateBlockedLabel}' label from ${identifier} to release it.${unconfirmed}`;
+};
+
+// src/gates/gateHolds/common/utils/isTicketGateHeld.ts
+var isTicketGateHeld = ({ holds, identifier, labels }) => holds[identifier.toLowerCase()] !== void 0 || labels.includes(gateBlockedLabel);
+
+// src/gates/gateHolds/common/utils/readGateHolds.ts
+import { readdir as readdir4, readFile as readFile16 } from "node:fs/promises";
+import { join as join30 } from "node:path";
+
+// src/gates/gateHolds/common/utils/getGateHoldPaths.ts
+import { join as join29 } from "node:path";
+
+// src/common/workspace/resolveSharedStateDir.ts
+import { join as join28 } from "node:path";
+
+// src/common/git/readGitPrimaryCheckout.ts
+import { dirname as dirname2 } from "node:path";
+var readGitPrimaryCheckout = async ({ cwd }) => {
+  const common = await runCommand({ command: "git rev-parse --path-format=absolute --git-common-dir", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  const gitDir = common && common.exitCode === 0 ? common.stdout.trim() : "";
+  return gitDir === "" ? void 0 : dirname2(gitDir);
+};
+
+// src/common/workspace/resolveSharedStateDir.ts
+var resolveSharedStateDir = async ({ cwd }) => {
+  const primary = await readGitPrimaryCheckout({ cwd });
+  return join28(primary ?? cwd, ".lightsout");
+};
+
+// src/gates/gateHolds/common/utils/getGateHoldPaths.ts
+var getGateHoldPaths = async ({ cwd }) => {
+  const dir = join29(await resolveSharedStateDir({ cwd }), "gate-holds");
+  return { dir, pathFor: ({ identifier }) => join29(dir, `${identifier.toLowerCase()}.json`) };
+};
+
+// src/gates/gateHolds/common/utils/readGateHolds.ts
+var readOneHold = async ({ path }) => {
+  const raw = await readFile16(path, "utf8").catch(() => void 0);
+  if (raw === void 0) {
+    return void 0;
+  }
+  try {
+    return GateHold.parse(JSON.parse(raw));
+  } catch {
+    return void 0;
+  }
+};
+var readGateHolds = async ({ cwd }) => {
+  const { dir } = await getGateHoldPaths({ cwd });
+  const names = await readdir4(dir).catch(() => []);
+  const holds = {};
+  for (const name of names.filter((entry) => entry.endsWith(".json"))) {
+    const hold = await readOneHold({ path: join30(dir, name) });
+    if (hold !== void 0) {
+      holds[name.slice(0, -".json".length).toLowerCase()] = hold;
+    }
+  }
+  return holds;
+};
+
+// src/gates/gateHolds/common/utils/removeGateHold.ts
+import { unlink } from "node:fs/promises";
+var removeGateHold = async ({ cwd, identifier }) => {
+  const { pathFor } = await getGateHoldPaths({ cwd });
+  await unlink(pathFor({ identifier })).catch(() => void 0);
+};
+
 // src/gates/gateHolds/common/utils/writeGateBlockedLabel.ts
 var writeGateBlockedLabel = async ({ settings, identifier }) => {
   const found = await getTicketsByIdentifiers3({ settings, identifiers: [identifier] });
@@ -129877,9 +130158,9 @@ var RunLockError = class extends Error {
 };
 
 // src/runState/lock/readRunLock.ts
-import { readFile as readFile16 } from "node:fs/promises";
+import { readFile as readFile17 } from "node:fs/promises";
 var readRunLock = async ({ cwd }) => {
-  const raw = await readFile16(getRunLockPath({ cwd }), "utf8").catch(() => void 0);
+  const raw = await readFile17(getRunLockPath({ cwd }), "utf8").catch(() => void 0);
   if (raw === void 0) {
     return void 0;
   }
@@ -129919,6 +130200,12 @@ var acquireRunLock = async ({ cwd, runId }) => {
   throw new RunLockError("could not acquire .lightsout/lock.json \u2014 another process keeps taking the lock");
 };
 
+// src/runState/lock/readLiveRunLock.ts
+var readLiveRunLock = async ({ cwd }) => {
+  const lock = await readRunLock({ cwd });
+  return lock !== void 0 && isPidAlive({ pid: lock.pid }) ? lock : void 0;
+};
+
 // src/runState/lock/readRunProcessLock.ts
 import { stat as stat3 } from "node:fs/promises";
 var readRunProcessLock = async ({ cwd, manifest }) => {
@@ -129943,7 +130230,7 @@ var releaseRunLock = async ({ cwd, runId }) => {
 // src/runState/lock/withRunLock.ts
 import { randomUUID as randomUUID2 } from "node:crypto";
 var withRunLock = async ({ params, run }) => {
-  const runId = params.existing?.runId ?? randomUUID2();
+  const runId = params.existing?.runId ?? params.runId ?? randomUUID2();
   const lock = await acquireRunLock({ cwd: params.cwd, runId });
   if (lock.stalePid !== void 0) {
     params.onProgress?.(`stale run lock from dead pid ${lock.stalePid} \u2014 taking over`);
@@ -129976,9 +130263,9 @@ var createProgressSink = ({ cwd, runId }) => {
 };
 
 // src/common/utils/readJsonlRecords.ts
-import { readFile as readFile17 } from "node:fs/promises";
+import { readFile as readFile18 } from "node:fs/promises";
 var readJsonlRecords = async ({ path, schema }) => {
-  const raw = await readFile17(path, "utf8").catch(() => "");
+  const raw = await readFile18(path, "utf8").catch(() => "");
   return raw.split("\n").filter(Boolean).flatMap((line) => {
     try {
       const parsed = schema.safeParse(JSON.parse(line));
@@ -129999,10 +130286,10 @@ var readLastProgressMessage = async ({ cwd, runId }) => {
 var readFriction = async ({ cwd }) => readJsonlRecords({ path: getFrictionPath({ cwd }), schema: FrictionRecord });
 
 // src/runState/readRunManifest.ts
-import { readFile as readFile18 } from "node:fs/promises";
+import { readFile as readFile19 } from "node:fs/promises";
 var readRunManifest = async ({ cwd, runId }) => {
   const resolved = await resolveRunId2({ cwd, runId });
-  const raw = await readFile18(getRunManifestPath({ cwd, runId: resolved }), "utf8");
+  const raw = await readFile19(getRunManifestPath({ cwd, runId: resolved }), "utf8");
   return RunManifest.parse(JSON.parse(raw));
 };
 
@@ -130163,7 +130450,7 @@ var readGateLock = ({ lockPath }) => {
 };
 
 // src/gates/gateLock/acquireGateLock.ts
-var sleep2 = ({ ms }) => new Promise((resolve21) => setTimeout(resolve21, ms));
+var sleep2 = ({ ms }) => new Promise((resolve22) => setTimeout(resolve22, ms));
 var codeOf = ({ error: error51 }) => typeof error51 === "object" && error51 !== null && "code" in error51 ? error51.code : void 0;
 var claimLeftover = ({ lockPath, runId }) => {
   const asidePath = `${lockPath}.claim-${process.pid}-${runId}`;
@@ -130780,7 +131067,7 @@ var resolvePackageGatesConfig = ({ packageGates }) => ({
 });
 
 // src/common/workspace/readPackageManifest.ts
-import { readFile as readFile19 } from "node:fs/promises";
+import { readFile as readFile20 } from "node:fs/promises";
 import { join as join47 } from "node:path";
 var PackageManifest = external_exports.object({
   name: external_exports.string().min(1),
@@ -130788,7 +131075,7 @@ var PackageManifest = external_exports.object({
 });
 var readPackageManifest = async ({ cwd, packagesDir, packageDir }) => {
   const manifestPath = join47(cwd, packagesDir, packageDir, "package.json");
-  const raw = await readFile19(manifestPath, "utf8").catch(() => {
+  const raw = await readFile20(manifestPath, "utf8").catch(() => {
     throw new Error(`declared package '${packageDir}' has no package.json at ${manifestPath}`);
   });
   const parsed = PackageManifest.safeParse(JSON.parse(raw));
@@ -131288,14 +131575,14 @@ var restorePreIntegrationState = async ({ cwd, baselineCommit, onProgress }) => 
 import { join as join48 } from "node:path";
 
 // src/common/workspace/readDependencyNames.ts
-import { readFile as readFile20 } from "node:fs/promises";
+import { readFile as readFile21 } from "node:fs/promises";
 var Manifest2 = external_exports.object({
   dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
   devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
   peerDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
 });
 var readDependencyNames = async ({ manifestPath }) => {
-  const text = await readFile20(manifestPath, "utf8").catch(() => void 0);
+  const text = await readFile21(manifestPath, "utf8").catch(() => void 0);
   if (text === void 0) {
     return void 0;
   }
@@ -131400,14 +131687,14 @@ var importFrameworksModule = async ({ modulePath }) => {
 import { isAbsolute as isAbsolute2, resolve as resolve5 } from "node:path";
 
 // src/standardsPacks/readStandardsPack.ts
-import { readdir as readdir11, readFile as readFile23 } from "node:fs/promises";
+import { readdir as readdir11, readFile as readFile24 } from "node:fs/promises";
 import { join as join52 } from "node:path";
 
 // src/common/constants/standardsPackFrameworksFile.ts
 var standardsPackFrameworksFile = "common/frameworks/getFrameworkFacts.ts";
 
 // src/standardsPacks/common/parsing/parseDocumentFolder.ts
-import { readdir as readdir10, readFile as readFile22 } from "node:fs/promises";
+import { readdir as readdir10, readFile as readFile23 } from "node:fs/promises";
 import { join as join51 } from "node:path";
 
 // src/standardsPacks/common/parsing/parseFrontMatter.ts
@@ -131453,8 +131740,8 @@ var parseDeclaration = ({ text, schema, filePath, problems }) => {
 };
 
 // src/standardsPacks/common/parsing/parseRuleFolder.ts
-import { readFile as readFile21 } from "node:fs/promises";
-import { basename as basename15, join as join50 } from "node:path";
+import { readFile as readFile22 } from "node:fs/promises";
+import { basename as basename16, join as join50 } from "node:path";
 
 // src/standardsPacks/common/utils/hasFile.ts
 import { stat as stat4 } from "node:fs/promises";
@@ -131488,7 +131775,7 @@ var ruleDeclaration = external_exports.object({
 });
 var getRuleDeclaration = async ({ folderPath, rulePath, found }) => {
   const filePath = `${rulePath}/rule.md`;
-  const text = await readFile21(join50(folderPath, "rule.md"), "utf8").catch((error51) => {
+  const text = await readFile22(join50(folderPath, "rule.md"), "utf8").catch((error51) => {
     found.push(`${filePath}: unreadable \u2014 ${messageOf({ error: error51 })}`);
     return void 0;
   });
@@ -131496,7 +131783,7 @@ var getRuleDeclaration = async ({ folderPath, rulePath, found }) => {
   return { declaration: parsed?.declaration, prose: parsed?.body ?? "" };
 };
 var parseRuleFolder = async ({ folderPath, set: set2, documentPath, problems }) => {
-  const folderName = basename15(folderPath);
+  const folderName = basename16(folderPath);
   const rulePath = `${documentPath}/${folderName}`;
   const found = [];
   const id = /^\d+-(.+)$/.exec(folderName)?.[1];
@@ -131564,7 +131851,7 @@ var parseDocumentFolder = async ({
   set: set2,
   problems
 }) => {
-  const text = await readFile22(join51(folderPath, "document.md"), "utf8").catch(() => void 0);
+  const text = await readFile23(join51(folderPath, "document.md"), "utf8").catch(() => void 0);
   if (text === void 0) {
     problems.push(`${documentPath}/document.md: unreadable`);
     return void 0;
@@ -131626,7 +131913,7 @@ var findDuplicateIds = ({ rules }) => {
 };
 var readStandardsPack = async ({ packPath }) => {
   const rootFilePath = join52(packPath, standardsPackRootFile);
-  const rootText = await readFile23(rootFilePath, "utf8").catch(() => void 0);
+  const rootText = await readFile24(rootFilePath, "utf8").catch(() => void 0);
   if (rootText === void 0) {
     throw new Error(`standards pack root file not found: ${rootFilePath}`);
   }
@@ -132040,16 +132327,23 @@ var mergeCandidate = async ({
   candidate,
   cwd,
   settings,
+  ticketGuard,
   stop,
   recorder
 }) => {
   const mergeCommit = await recordStep({
     recorder,
     step: ShippingStepId.Merge,
-    run: () => mergePullRequest({ prNumber: pullRequest.number, mergeMethod: settings.mergeMethod, expectedHead: candidate, cwd }),
+    run: async () => {
+      const unauthorized = await ticketGuard.authorize({ cwd, branch: stop.branch });
+      return unauthorized === void 0 ? await mergePullRequest({ prNumber: pullRequest.number, mergeMethod: settings.mergeMethod, expectedHead: candidate, cwd }) : { unauthorized };
+    },
     passed: (merged) => typeof merged === "string"
   });
   if (typeof mergeCommit !== "string") {
+    if ("unauthorized" in mergeCommit) {
+      return createBlockedAttempt({ stop, reason: ShipBlockReason.TicketNotAuthorized, detail: mergeCommit.unauthorized });
+    }
     const detail = appendCommandOutput({ sentence: `the forge refused to merge #${pullRequest.number}`, stderr: mergeCommit.stderr });
     return createBlockedAttempt({ stop, reason: ShipBlockReason.MergeRejected, detail, retryable: mergeCommit.staleBase === true });
   }
@@ -132071,6 +132365,7 @@ var runShipAttempt = async ({
   cwd,
   settings,
   integration,
+  ticketGuard,
   branch,
   defaultBranch,
   ticket,
@@ -132116,7 +132411,7 @@ var runShipAttempt = async ({
     run: () => readCheckStop({ prNumber: pullRequest.number, candidate, cwd, settings, stop, onProgress }),
     passed: (stopped) => stopped === void 0
   });
-  return checkStop ?? mergeCandidate({ pullRequest, candidate, cwd, settings, stop, recorder });
+  return checkStop ?? mergeCandidate({ pullRequest, candidate, cwd, settings, ticketGuard, stop, recorder });
 };
 
 // src/ship/syncDefaultBranch.ts
@@ -132180,12 +132475,16 @@ var readBranchDiff = async ({ cwd, defaultBranch }) => {
   return diffed.stdout.length > maxDiffCharacters ? `${diffed.stdout.slice(0, maxDiffCharacters)}
 \u2026 truncated: the branch's diff is longer than this` : diffed.stdout;
 };
-var runShip = async ({ cwd, settings, integration, onProgress }) => {
+var runShip = async ({ cwd, settings, integration, ticketGuard, onProgress }) => {
   const preconditions = await checkShipPreconditions({ cwd, ticketPattern: settings.ticketPattern });
   if ("reason" in preconditions) {
     return stopShip({ cwd, onProgress, ...preconditions });
   }
   const { branch, defaultBranch, ticket } = preconditions;
+  const unauthorized = await ticketGuard.authorize({ cwd, branch });
+  if (unauthorized !== void 0) {
+    return stopShip({ cwd, onProgress, reason: ShipBlockReason.TicketNotAuthorized, detail: unauthorized, branch, ticketRef: ticket.ticket ?? branch });
+  }
   const maxAttempts = 1 + maxCheapFixRetries;
   const recorder = new ShippingProgressRecorder({ cwd, branch, maxAttempts });
   recorder.beginAttempt({ attempt: 1 });
@@ -132195,7 +132494,7 @@ var runShip = async ({ cwd, settings, integration, onProgress }) => {
   };
   trackedProgress(`ship: ${branch} \u2192 ${defaultBranch}, ticket ${ticket.ticket}`);
   const branchDiff = await readBranchDiff({ cwd, defaultBranch });
-  const attempt = { cwd, settings, integration, branch, defaultBranch, ticket, branchDiff, recorder, onProgress: trackedProgress };
+  const attempt = { cwd, settings, integration, ticketGuard, branch, defaultBranch, ticket, branchDiff, recorder, onProgress: trackedProgress };
   let outcome = await runShipAttempt(attempt);
   for (let spent = 1; spent < maxAttempts && outcome.retryable; spent += 1) {
     trackedProgress(`ship: attempt ${spent} did not merge \u2014 refreshing and trying again (${spent + 1} of ${maxAttempts})`);
@@ -132203,6 +132502,10 @@ var runShip = async ({ cwd, settings, integration, onProgress }) => {
     outcome = await runShipAttempt({ ...attempt, ciEvidence: outcome.ciEvidence });
   }
   if (outcome.result.status === ShipStatus.Shipped) {
+    const { mergeCommit } = outcome.result;
+    if (mergeCommit !== void 0) {
+      await ticketGuard.recordShipped({ cwd, branch, mergeCommit });
+    }
     recorder.startStep({ step: ShippingStepId.Sync });
     await syncDefaultBranch({ cwd, defaultBranch, branch, onProgress: trackedProgress });
     recorder.finishStep({ step: ShippingStepId.Sync, passed: true });
@@ -132213,70 +132516,10 @@ var runShip = async ({ cwd, settings, integration, onProgress }) => {
 };
 
 // src/plan/readPlanTicketRef.ts
-var readPlanTicketRef = ({ name, ticketPattern }) => readTicketMatch({ branch: name, ticketPattern })?.ticket;
+var readPlanTicketRef = ({ name, ticketPattern }) => readTicketMatch({ branch: ticketFolderOf({ name }), ticketPattern })?.ticket;
 
 // src/plan/publish/publishPlan.ts
-var contentTypeOf = ({ name }) => name.endsWith(".json") ? "application/json" : "text/markdown";
-var prepareAttachments = async ({ files }) => {
-  const durable = [];
-  for (const file2 of files) {
-    try {
-      durable.push({ name: file2.name, content: await readFile24(file2.path) });
-    } catch (error51) {
-      return { error: `could not read ${file2.name} before publishing: ${messageOf({ error: error51 })}` };
-    }
-  }
-  const refusal = validatePlanAttachmentGeneration({ files: durable.map(({ name, content }) => ({ name, text: content.toString("utf8") })) });
-  if (refusal !== void 0) {
-    return refusal;
-  }
-  return {
-    attachments: [...durable, { name: planAttachmentManifestName, content: serializeAttachmentManifest({ files: durable }) }]
-  };
-};
-var attachDurableFiles = async ({
-  settings,
-  ticketId,
-  ticketRef,
-  attachments,
-  onProgress
-}) => {
-  const published = [];
-  for (const attachment of attachments) {
-    const failure = await setTicketAttachment3({
-      settings,
-      ticketId,
-      title: attachment.name,
-      content: attachment.content,
-      contentType: contentTypeOf({ name: attachment.name })
-    });
-    if (failure !== void 0) {
-      return { published, error: failure.error };
-    }
-    published.push(attachment.name);
-    onProgress(`attached ${attachment.name} to ${ticketRef}`);
-  }
-  return { published, error: void 0 };
-};
-var readStaleTitles = ({ titles, published }) => titles.filter((title) => !published.includes(title) && (durablePlanFileNames.records.includes(title) || durablePlanFileNames.deliverable.test(title)));
-var reportStaleAttachments = async ({
-  settings,
-  ticketRef,
-  published,
-  onProgress
-}) => {
-  const attachments = await getTicketAttachments3({ settings, identifier: ticketRef });
-  if ("error" in attachments) {
-    onProgress(`could not read ${ticketRef}'s attachment list back: ${attachments.error}`);
-    return [];
-  }
-  const stale = readStaleTitles({ titles: attachments.map((attachment) => attachment.title), published });
-  for (const title of stale) {
-    onProgress(`${title} is a plan file from an earlier publish that this run did not write \u2014 it is still on ${ticketRef}, and publish deleted nothing`);
-  }
-  return stale;
-};
-var publishPlan = async ({ cwd, name, config: config2, env, onProgress }) => {
+var publishPlan = async ({ cwd, name, config: config2, env, onProgress, titlePrefix }) => {
   const durable = await durablePlanFiles({ cwd, name });
   if (durable.error !== void 0) {
     return { published: [], stale: [], error: durable.error };
@@ -132297,7 +132540,7 @@ var publishPlan = async ({ cwd, name, config: config2, env, onProgress }) => {
       error: `plan folder '${name}' carries no ticket id \u2014 name a plan folder after its ticket's branch so publish knows which ticket to attach to`
     };
   }
-  const prepared = await prepareAttachments({ files: durable.files });
+  const prepared = await prepareAttachments({ files: durable.files, titlePrefix });
   if ("error" in prepared) {
     return { ticketRef, published: [], stale: [], error: prepared.error };
   }
@@ -132313,17 +132556,21 @@ var publishPlan = async ({ cwd, name, config: config2, env, onProgress }) => {
   if (ticket === void 0) {
     return { ticketRef, published: [], stale: [], error: `there is no ${ticketRef} on the configured ticket tracker` };
   }
-  const { published, error: error51 } = await attachDurableFiles({ settings, ticketId: ticket.id, ticketRef, attachments: prepared.attachments, onProgress });
+  const { published, error: error51 } = await attachDurableFiles({
+    settings,
+    ticketId: ticket.id,
+    ticketRef,
+    attachments: prepared.attachments,
+    onProgress,
+    titlePrefix
+  });
   if (error51 !== void 0) {
     return { ticketRef, published, stale: [], error: error51 };
   }
-  const stale = await reportStaleAttachments({ settings, ticketRef, published, onProgress });
-  return { ticketRef, published, stale };
+  const stale = await reportStaleAttachments({ settings, ticketRef, published, onProgress, titlePrefix });
+  const marker = prepared.attachments.at(-1);
+  return titlePrefix === void 0 || marker === void 0 ? { ticketRef, published, stale } : { ticketRef, published, stale, markerSha256: sha256({ content: marker.content }) };
 };
-
-// src/plan/restore/restorePlanWorkspace.ts
-import { mkdir as mkdir13, mkdtemp, rename as rename5, rm as rm3, writeFile as writeFile12 } from "node:fs/promises";
-import { dirname as dirname10, join as join54 } from "node:path";
 
 // src/common/attachmentManifest/parseAttachmentManifest.ts
 var parseAttachmentManifest = ({ text, markerName, isAllowedName }) => {
@@ -132363,60 +132610,10 @@ var parseAttachmentManifest = ({ text, markerName, isAllowedName }) => {
   return { manifest: { schemaVersion: 1, files } };
 };
 
-// src/plan/common/utils/isDurablePlanAttachmentName.ts
-import { basename as basename16 } from "node:path";
-var isDurablePlanAttachmentName = ({ name }) => name === basename16(name) && name !== "." && name !== ".." && !/[\\/]/.test(name) && (durablePlanFileNames.records.includes(name) || durablePlanFileNames.deliverable.test(name));
-
-// src/plan/common/utils/isPlanOnlyAttachmentName.ts
-var isPlanOnlyAttachmentName = ({ name }) => name !== brainstormNotesFileName && isDurablePlanAttachmentName({ name });
-
-// src/plan/restore/restorePlanWorkspace.ts
-var readAttachment = async ({ settings, attachment }) => {
-  const text = await readTicketAsset3({ settings, url: attachment.url });
-  return typeof text === "string" ? { text } : { error: `the ticket's ${attachment.title} could not be read: ${text.error}` };
-};
-var selectGeneration = ({
-  manifest,
-  durableAttachments
-}) => {
-  const files = [];
-  for (const listed of manifest.files) {
-    const matches = durableAttachments.filter(({ title }) => title === listed.name);
-    if (matches.length === 0) {
-      return { error: `${planAttachmentManifestName} lists ${listed.name}, but the ticket carries no attachment with that title` };
-    }
-    if (matches.length > 1) {
-      return { error: `the ticket carries more than one attachment named ${listed.name}, so ${planAttachmentManifestName} cannot select one generation` };
-    }
-    const attachment = matches[0];
-    if (attachment === void 0) {
-      return { error: `${planAttachmentManifestName} lists ${listed.name}, but the ticket carries no attachment with that title` };
-    }
-    files.push({ title: attachment.title, url: attachment.url, sha256: listed.sha256 });
-  }
-  return { files };
-};
-var readAndVerifyGeneration = async ({ settings, files }) => {
-  const reads = await Promise.all(
-    files.map(async (file2) => ({
-      file: file2,
-      read: await readAttachment({ settings, attachment: { id: "", title: file2.title, url: file2.url } })
-    }))
-  );
-  const verified = [];
-  for (const { file: file2, read } of reads) {
-    if ("error" in read) {
-      return { error: read.error };
-    }
-    const actual = sha256({ content: read.text });
-    if (actual !== file2.sha256) {
-      return { error: `${file2.title} does not match the SHA-256 committed by ${planAttachmentManifestName} \u2014 publish the plan again` };
-    }
-    verified.push({ title: file2.title, text: read.text });
-  }
-  return { files: verified };
-};
-var writeAll = async ({ dir, files }) => {
+// src/plan/restore/common/utils/writeRestoredGeneration.ts
+import { mkdir as mkdir13, mkdtemp, rename as rename5, rm as rm3, writeFile as writeFile12 } from "node:fs/promises";
+import { dirname as dirname10, join as join54 } from "node:path";
+var writeRestoredGeneration = async ({ dir, files }) => {
   let temporaryDir;
   try {
     const parent = dirname10(dir);
@@ -132434,46 +132631,95 @@ var writeAll = async ({ dir, files }) => {
     return { error: `the restored plan could not be written: ${messageOf({ error: error51 })}` };
   }
 };
-var restorePlanWorkspace = async ({ cwd, name, identifier, settings }) => {
-  const attachments = await getTicketAttachments3({ settings, identifier });
-  if ("error" in attachments) {
-    return { restored: [], error: attachments.error };
+
+// src/plan/restore/restorePlanWorkspace.ts
+var readAttachment = async ({ settings, attachment }) => {
+  const text = await readTicketAsset3({ settings, url: attachment.url });
+  return typeof text === "string" ? { text } : { error: `the ticket's ${attachment.title} could not be read: ${text.error}` };
+};
+var selectGeneration = ({
+  manifest,
+  durableAttachments,
+  markerName
+}) => {
+  const files = [];
+  for (const listed of manifest.files) {
+    const matches = durableAttachments.filter(({ title }) => title === listed.name);
+    const attachment = matches.length === 1 ? matches[0] : void 0;
+    if (attachment === void 0) {
+      return {
+        error: matches.length === 0 ? `${markerName} lists ${listed.name}, but the ticket carries no attachment with that title` : `the ticket carries more than one attachment named ${listed.name}, so ${markerName} cannot select one generation`
+      };
+    }
+    files.push({ title: attachment.title, url: attachment.url, sha256: listed.sha256 });
   }
-  const durableAttachments = attachments.filter(({ title }) => isDurablePlanAttachmentName({ name: title }));
-  const planOnlyAttachments = attachments.filter(({ title }) => isPlanOnlyAttachmentName({ name: title }));
+  return { files };
+};
+var selectManifestAttachment = ({
+  attachments,
+  planOnlyAttachments,
+  markerName
+}) => {
   const manifests = attachments.filter(({ title }) => title === planAttachmentManifestName);
-  if (planOnlyAttachments.length === 0 && manifests.length === 0) {
-    return { restored: [] };
-  }
-  if (manifests.length === 0) {
-    return {
-      restored: [],
-      error: `the ticket carries durable plan attachments but no ${planAttachmentManifestName} commit marker \u2014 publish the plan again before implementing it`
-    };
+  const manifest = manifests.length === 1 ? manifests[0] : void 0;
+  if (manifest !== void 0) {
+    return { manifest };
   }
   if (manifests.length > 1) {
-    return {
-      restored: [],
-      error: `the ticket carries more than one ${planAttachmentManifestName} attachment, so no single committed plan generation can be selected`
-    };
+    return { error: `the ticket carries more than one ${markerName} attachment, so no single committed plan generation can be selected` };
   }
-  const manifestAttachment = manifests[0];
-  if (manifestAttachment === void 0) {
-    return { restored: [], error: `the ticket carries no ${planAttachmentManifestName} commit marker` };
+  return planOnlyAttachments.length === 0 ? { manifest: void 0 } : { error: `the ticket carries durable plan attachments but no ${markerName} commit marker \u2014 publish the plan again before implementing it` };
+};
+var readAndVerifyGeneration = async ({ settings, files, markerName }) => {
+  const reads = await Promise.all(
+    files.map(async (file2) => ({
+      file: file2,
+      read: await readAttachment({ settings, attachment: { id: "", title: file2.title, url: file2.url } })
+    }))
+  );
+  const verified = [];
+  for (const { file: file2, read } of reads) {
+    if ("error" in read) {
+      return { error: read.error };
+    }
+    const actual = sha256({ content: read.text });
+    if (actual !== file2.sha256) {
+      return { error: `${file2.title} does not match the SHA-256 committed by ${markerName} \u2014 publish the plan again` };
+    }
+    verified.push({ title: file2.title, text: read.text });
   }
-  const manifestRead = await readAttachment({ settings, attachment: manifestAttachment });
-  if ("error" in manifestRead) {
-    return { restored: [], error: manifestRead.error };
+  return { files: verified };
+};
+var restorePlanWorkspace = async ({ cwd, name, identifier, settings, titlePrefix }) => {
+  const listed = await getTicketAttachments3({ settings, identifier });
+  if ("error" in listed) {
+    return { restored: [], error: listed.error };
   }
-  const parsed = parseAttachmentManifest({ text: manifestRead.text, markerName: planAttachmentManifestName, isAllowedName: isDurablePlanAttachmentName });
-  if ("error" in parsed) {
-    return { restored: [], error: parsed.error };
-  }
-  const selected = selectGeneration({ manifest: parsed.manifest, durableAttachments });
+  const attachments = scopeAttachments({ attachments: listed, prefix: titlePrefix });
+  const markerName = attachmentTitle({ prefix: titlePrefix, name: planAttachmentManifestName });
+  const isSelectableName = titlePrefix === void 0 ? isDurablePlanAttachmentName : isPlanOnlyAttachmentName;
+  const durableAttachments = attachments.filter(({ title }) => isSelectableName({ name: title }));
+  const planOnlyAttachments = attachments.filter(({ title }) => isPlanOnlyAttachmentName({ name: title }));
+  const selected = selectManifestAttachment({ attachments, planOnlyAttachments, markerName });
   if ("error" in selected) {
     return { restored: [], error: selected.error };
   }
-  const read = await readAndVerifyGeneration({ settings, files: selected.files });
+  if (selected.manifest === void 0) {
+    return { restored: [] };
+  }
+  const manifestRead = await readAttachment({ settings, attachment: selected.manifest });
+  if ("error" in manifestRead) {
+    return { restored: [], error: manifestRead.error };
+  }
+  const parsed = parseAttachmentManifest({ text: manifestRead.text, markerName, isAllowedName: isSelectableName });
+  if ("error" in parsed) {
+    return { restored: [], error: parsed.error };
+  }
+  const generation = selectGeneration({ manifest: parsed.manifest, durableAttachments, markerName });
+  if ("error" in generation) {
+    return { restored: [], error: generation.error };
+  }
+  const read = await readAndVerifyGeneration({ settings, files: generation.files, markerName });
   if ("error" in read) {
     return { restored: [], error: read.error };
   }
@@ -132481,11 +132727,12 @@ var restorePlanWorkspace = async ({ cwd, name, identifier, settings }) => {
   if (refusal !== void 0) {
     return { restored: [], error: refusal.error };
   }
-  const written = await writeAll({ dir: planWorkspaceDir({ cwd, name }), files: read.files });
+  const written = await writeRestoredGeneration({ dir: planWorkspaceDir({ cwd, name }), files: read.files });
   if (written !== void 0) {
     return { restored: [], error: written.error };
   }
-  return { restored: read.files.map(({ title }) => title).sort() };
+  const restored = read.files.map(({ title }) => title).sort();
+  return titlePrefix === void 0 ? { restored } : { restored, markerSha256: sha256({ content: manifestRead.text }) };
 };
 
 // src/plan/runPlanDedup.ts
@@ -132656,10 +132903,10 @@ import { basename as basename30, join as join60 } from "node:path";
 // src/plan/appendGradeHistory.ts
 import { appendFile as appendFile4, mkdir as mkdir15 } from "node:fs/promises";
 import { dirname as dirname11 } from "node:path";
-var appendGradeHistory = async ({ cwd, name, report }) => {
+var appendGradeHistory = async ({ cwd, name, report: report2 }) => {
   const path = gradeHistoryPath({ cwd, name });
   await mkdir15(dirname11(path), { recursive: true });
-  await appendFile4(path, `${JSON.stringify(GradeReport.parse(report))}
+  await appendFile4(path, `${JSON.stringify(GradeReport.parse(report2))}
 `, "utf8");
 };
 
@@ -132766,9 +133013,9 @@ var readGradeStamp = async ({ cwd }) => {
 
 // src/plan/common/grading/readReusableGrade.ts
 var readReusableGrade = async ({ gradePath, sha256: sha2562 }) => {
-  const report = await readJsonFile({ path: gradePath, schema: GradeReport });
-  const qualifies = report?.passed === true && report.complete && report.scope === GradeScope.Full && report.inputs?.sha256 === sha2562;
-  return qualifies ? report : void 0;
+  const report2 = await readJsonFile({ path: gradePath, schema: GradeReport });
+  const qualifies = report2?.passed === true && report2.complete && report2.scope === GradeScope.Full && report2.inputs?.sha256 === sha2562;
+  return qualifies ? report2 : void 0;
 };
 
 // src/plan/common/grading/runGradePass.ts
@@ -133598,8 +133845,8 @@ var spawnRecheck = async ({ params, pair }) => {
   return { outcome };
 };
 var checkLocation = async ({ cwd, pair, outcome }) => {
-  const report = outcome?.ok === true ? outcome.report : void 0;
-  const citation = report?.outcome === GapOutcome.AlreadyAnswered ? report.answerAt ?? "" : void 0;
+  const report2 = outcome?.ok === true ? outcome.report : void 0;
+  const citation = report2?.outcome === GapOutcome.AlreadyAnswered ? report2.answerAt ?? "" : void 0;
   const confirmed = citation === void 0 ? void 0 : await confirmCitation({ cwd, citation, planText: pair.planText });
   return {
     resolution: confirmed?.ok === true && citation !== void 0 ? { phase: pair.location, answerAt: citation } : void 0,
@@ -133654,9 +133901,9 @@ var writeGradeMemory = async ({ cwd, name, memory }) => {
 };
 
 // src/plan/common/grading/runGradePass.ts
-var nextBaselines = ({ memory, report, inputs, at }) => ({
-  lastPass: report.scopeComplete ? { scope: report.scope, inputs, at } : memory.lastPass,
-  lastPassingFullReview: report.scope === GradeScope.Full && report.complete && report.passed ? { inputs, at } : memory.lastPassingFullReview
+var nextBaselines = ({ memory, report: report2, inputs, at }) => ({
+  lastPass: report2.scopeComplete ? { scope: report2.scope, inputs, at } : memory.lastPass,
+  lastPassingFullReview: report2.scope === GradeScope.Full && report2.complete && report2.passed ? { inputs, at } : memory.lastPassingFullReview
 });
 var runGradePass = async ({
   params,
@@ -133698,7 +133945,7 @@ var runGradePass = async ({
   });
   const merged = mergeFindingRecords({ memory: verified.memory, gaps: agents.gaps, at });
   const gaps = collapseGroupedGaps({ gaps: [...merged.gaps, ...openFindingGaps({ memory: merged.memory, gaps: merged.gaps, refusals: verified.refusals })] });
-  const report = createGradeReport({
+  const report2 = createGradeReport({
     name,
     phases,
     structural,
@@ -133716,11 +133963,11 @@ var runGradePass = async ({
     phasesRequired: heavy.map((file2) => basename25(file2.path)),
     documentationComplete: agents.documentationComplete
   });
-  const nextMemory = { ...merged.memory, ...nextBaselines({ memory: merged.memory, report, inputs, at }), updatedAt: at };
-  await writeJsonFile({ path: join58(pass.workspaceDir, gradeFileName), value: report });
-  await appendGradeHistory({ cwd, name, report });
+  const nextMemory = { ...merged.memory, ...nextBaselines({ memory: merged.memory, report: report2, inputs, at }), updatedAt: at };
+  await writeJsonFile({ path: join58(pass.workspaceDir, gradeFileName), value: report2 });
+  await appendGradeHistory({ cwd, name, report: report2 });
   await writeGradeMemory({ cwd, name, memory: nextMemory });
-  return { report, memory: nextMemory, rateLimited: agents.rateLimited || verified.rateLimited, failures: agents.failures };
+  return { report: report2, memory: nextMemory, rateLimited: agents.rateLimited || verified.rateLimited, failures: agents.failures };
 };
 
 // src/plan/common/memory/readGradeMemory.ts
@@ -134056,7 +134303,7 @@ var stopOnStructure = async ({
   stamp: stamp3,
   progress
 }) => {
-  const report = createGradeReport({
+  const report2 = createGradeReport({
     name: params.name,
     phases: params.phases,
     structural,
@@ -134068,10 +134315,10 @@ var stopOnStructure = async ({
     phasesRequired: [],
     documentationComplete: false
   });
-  await writeJsonFile({ path: gradePath, value: report });
-  await appendGradeHistory({ cwd: params.cwd, name: params.name, report });
+  await writeJsonFile({ path: gradePath, value: report2 });
+  await appendGradeHistory({ cwd: params.cwd, name: params.name, report: report2 });
   progress(`plan grade ${params.name}: ${blocking} blocking structural finding(s) \u2014 stopped before any agent was spawned`);
-  return report;
+  return report2;
 };
 var runDecidedPasses = async (context) => {
   const { params, pass, selected, decision, inputs, memory, structural, stamp: stamp3, progress } = context;
@@ -134145,15 +134392,15 @@ var runPlanGrade = async (params) => {
   }
   const memory = found ?? { planName: name, findings: [], nextFindingNumber: 1, updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
   const last = await runDecidedPasses({ params, pass, selected: selection.selected, decision, inputs, memory, structural, stamp: stamp3, progress });
-  const report = last.report;
-  const blocking = getBlockingGaps({ gaps: report.gaps });
-  progress(`plan grade ${name}: judged ${report.gaps.length} finding(s), ${blocking.length} blocking`);
-  progress(`plan grade ${name}: ${report.grade} (${structural.length} structural, ${report.gaps.length} gap(s), ${blocking.length} blocking)`);
+  const report2 = last.report;
+  const blocking = getBlockingGaps({ gaps: report2.gaps });
+  progress(`plan grade ${name}: judged ${report2.gaps.length} finding(s), ${blocking.length} blocking`);
+  progress(`plan grade ${name}: ${report2.grade} (${structural.length} structural, ${report2.gaps.length} gap(s), ${blocking.length} blocking)`);
   if (last.rateLimited) {
     const parked = `rate limited or overloaded \u2014 re-run: lightsout plan grade --name ${name}`;
-    return { status: PlanRunStatus.PausedRateLimit, workspaceDir, error: parked, grade: report, gradePath };
+    return { status: PlanRunStatus.PausedRateLimit, workspaceDir, error: parked, grade: report2, gradePath };
   }
-  return last.failures.length > 0 ? { status: PlanRunStatus.Failed, workspaceDir, error: `gap-check failed for ${last.failures.join("; ")}`, grade: report, gradePath } : { status: PlanRunStatus.Complete, workspaceDir, grade: report, gradePath };
+  return last.failures.length > 0 ? { status: PlanRunStatus.Failed, workspaceDir, error: `gap-check failed for ${last.failures.join("; ")}`, grade: report2, gradePath } : { status: PlanRunStatus.Complete, workspaceDir, grade: report2, gradePath };
 };
 
 // src/plan/runPlanLint.ts
@@ -134281,13 +134528,18 @@ var runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }) => {
 
 // src/brainstorm/publish/publishBrainstorm.ts
 var contentTypeOf2 = ({ name }) => name.endsWith(".json") ? "application/json" : "text/markdown";
-var prepareAttachments2 = async ({ dir }) => {
+var prepareAttachments2 = async ({
+  dir,
+  titlePrefix
+}) => {
   const files = [];
   for (const name of brainstormAttachmentFileNames) {
-    try {
-      files.push({ name, content: await readFile29(join63(dir, name)) });
-    } catch (error51) {
-      return { error: `could not read ${name} from ${dir} \u2014 run the \`brainstorm\` skill first: ${messageOf({ error: error51 })}` };
+    const content = await readFile29(join63(dir, name)).catch((error51) => ({ error: messageOf({ error: error51 }) }));
+    const optional2 = titlePrefix !== void 0 && name !== brainstormNotesFileName;
+    if (Buffer.isBuffer(content)) {
+      files.push({ name, content });
+    } else if (!optional2) {
+      return { error: `could not read ${name} from ${dir} \u2014 run the \`brainstorm\` skill first: ${content.error}` };
     }
   }
   return { attachments: [...files, { name: brainstormAttachmentManifestName, content: serializeAttachmentManifest({ files }) }] };
@@ -134297,27 +134549,29 @@ var attachBrainstormFiles = async ({
   ticketId,
   ticketRef,
   attachments,
-  onProgress
+  onProgress,
+  titlePrefix
 }) => {
   const published = [];
   for (const attachment of attachments) {
+    const title = attachmentTitle({ prefix: titlePrefix, name: attachment.name });
     const failure = await setTicketAttachment3({
       settings,
       ticketId,
-      title: attachment.name,
+      title,
       content: attachment.content,
       contentType: contentTypeOf2({ name: attachment.name })
     });
     if (failure !== void 0) {
       return { published, error: failure.error };
     }
-    published.push(attachment.name);
-    onProgress(`attached ${attachment.name} to ${ticketRef}`);
+    published.push(title);
+    onProgress(`attached ${title} to ${ticketRef}`);
   }
   return { published, error: void 0 };
 };
-var publishBrainstorm = async ({ cwd, name, config: config2, env, onProgress }) => {
-  const prepared = await prepareAttachments2({ dir: planWorkspaceDir({ cwd, name }) });
+var publishBrainstorm = async ({ cwd, name, config: config2, env, onProgress, titlePrefix }) => {
+  const prepared = await prepareAttachments2({ dir: planWorkspaceDir({ cwd, name }), titlePrefix });
   if ("error" in prepared) {
     return { published: [], error: prepared.error };
   }
@@ -134347,7 +134601,14 @@ var publishBrainstorm = async ({ cwd, name, config: config2, env, onProgress }) 
   if (ticket === void 0) {
     return { ticketRef, published: [], error: `there is no ${ticketRef} on the configured ticket tracker` };
   }
-  const { published, error: error51 } = await attachBrainstormFiles({ settings, ticketId: ticket.id, ticketRef, attachments: prepared.attachments, onProgress });
+  const { published, error: error51 } = await attachBrainstormFiles({
+    settings,
+    ticketId: ticket.id,
+    ticketRef,
+    attachments: prepared.attachments,
+    onProgress,
+    titlePrefix
+  });
   return error51 === void 0 ? { ticketRef, published } : { ticketRef, published, error: error51 };
 };
 
@@ -134369,7 +134630,9 @@ var readAttachment2 = async ({
 var readGeneration = async ({
   settings,
   manifest,
-  selected
+  selected,
+  markerName,
+  required: required2
 }) => {
   const files = [];
   for (const listed of manifest.files) {
@@ -134377,7 +134640,7 @@ var readGeneration = async ({
     const attachment = matches.length === 1 ? matches[0] : void 0;
     if (attachment === void 0) {
       return {
-        error: matches.length === 0 ? `${brainstormAttachmentManifestName} lists ${listed.name}, but the ticket carries no attachment with that title` : `the ticket carries more than one attachment named ${listed.name}, so ${brainstormAttachmentManifestName} cannot select one generation`
+        error: matches.length === 0 ? `${markerName} lists ${listed.name}, but the ticket carries no attachment with that title` : `the ticket carries more than one attachment named ${listed.name}, so ${markerName} cannot select one generation`
       };
     }
     const read = await readAttachment2({ settings, attachment });
@@ -134385,11 +134648,11 @@ var readGeneration = async ({
       return { error: read.error };
     }
     if (sha256({ content: read.text }) !== listed.sha256) {
-      return { error: `${listed.name} does not match the SHA-256 committed by ${brainstormAttachmentManifestName} \u2014 publish the brainstorm again` };
+      return { error: `${listed.name} does not match the SHA-256 committed by ${markerName} \u2014 publish the brainstorm again` };
     }
     files.push({ title: listed.name, text: read.text });
   }
-  const missing = brainstormAttachmentFileNames.filter((name) => !files.some(({ title }) => title === name));
+  const missing = required2.filter((name) => !files.some(({ title }) => title === name));
   return missing.length === 0 ? { files } : { error: `the brainstorm generation on the ticket is missing ${missing.join(", ")} \u2014 publish the brainstorm again from the machine holding the folder` };
 };
 var writeIntoFolder = async ({ dir, files }) => {
@@ -134410,22 +134673,25 @@ var writeIntoFolder = async ({ dir, files }) => {
   }
   return { restored: restored.sort(), skipped: skipped.sort() };
 };
-var restoreBrainstormFiles = async ({ cwd, name, identifier, settings }) => {
-  const attachments = await getTicketAttachments3({ settings, identifier });
-  if ("error" in attachments) {
-    return { restored: [], skipped: [], error: attachments.error };
+var restoreBrainstormFiles = async ({ cwd, name, identifier, settings, titlePrefix }) => {
+  const listed = await getTicketAttachments3({ settings, identifier });
+  if ("error" in listed) {
+    return { restored: [], skipped: [], error: listed.error };
   }
+  const attachments = scopeAttachments({ attachments: listed, prefix: titlePrefix });
+  const markerName = attachmentTitle({ prefix: titlePrefix, name: brainstormAttachmentManifestName });
   const selected = attachments.filter(({ title }) => brainstormAttachmentFileNames.includes(title));
   const markers = attachments.filter(({ title }) => title === brainstormAttachmentManifestName);
   const marker = markers[0];
-  if (!attachments.some(({ title }) => isBrainstormOnlyAttachmentName({ name: title })) && markers.length === 0) {
+  const isEvidence = titlePrefix === void 0 ? isBrainstormOnlyAttachmentName : ({ name: title }) => brainstormAttachmentFileNames.includes(title);
+  if (!attachments.some(({ title }) => isEvidence({ name: title })) && markers.length === 0) {
     return { restored: [], skipped: [] };
   }
   if (marker === void 0 || markers.length > 1) {
     return {
       restored: [],
       skipped: [],
-      error: marker === void 0 ? `the ticket carries brainstorm attachments but no ${brainstormAttachmentManifestName} commit marker \u2014 publish the brainstorm again` : `the ticket carries more than one ${brainstormAttachmentManifestName} attachment, so no single committed brainstorm generation can be selected`
+      error: marker === void 0 ? `the ticket carries brainstorm attachments but no ${markerName} commit marker \u2014 publish the brainstorm again` : `the ticket carries more than one ${markerName} attachment, so no single committed brainstorm generation can be selected`
     };
   }
   const markerRead = await readAttachment2({ settings, attachment: marker });
@@ -134434,15 +134700,23 @@ var restoreBrainstormFiles = async ({ cwd, name, identifier, settings }) => {
   }
   const parsed = parseAttachmentManifest({
     text: markerRead.text,
-    markerName: brainstormAttachmentManifestName,
+    markerName,
     // The list holds two bare names, so membership is already the bareness
     // guard the plan side needs `basename` for.
-    isAllowedName: ({ name: listed }) => brainstormAttachmentFileNames.includes(listed)
+    isAllowedName: ({ name: listed2 }) => brainstormAttachmentFileNames.includes(listed2)
   });
   if ("error" in parsed) {
     return { restored: [], skipped: [], error: parsed.error };
   }
-  const generation = await readGeneration({ settings, manifest: parsed.manifest, selected });
+  const generation = await readGeneration({
+    settings,
+    manifest: parsed.manifest,
+    selected,
+    markerName,
+    // Under a prefix `brainstorm-decisions.json` is optional, because a plan of
+    // a ticket may be shaped by a brainstorm that settled no decision of its own.
+    required: titlePrefix === void 0 ? brainstormAttachmentFileNames : [brainstormNotesFileName]
+  });
   if ("error" in generation) {
     return { restored: [], skipped: [], error: generation.error };
   }
@@ -134466,7 +134740,7 @@ var autoPlanCatalogEntry = {
   flags: [],
   steps: [],
   records: CommandRecordKind.Plans,
-  related: ["brainstorm", "plan", "implement", "resume", "ship", "implement-direct", "queue", "ticket-state", "self-check"]
+  related: ["brainstorm", "plan", "implement", "resume", "ship", "implement-direct", "queue", "ticket", "ticket-state", "self-check"]
 };
 
 // src/commands/common/constants/build/brainstormCatalogEntry.ts
@@ -134479,12 +134753,17 @@ var brainstormCatalogEntry = {
   whenToUse: "Reach for it when the idea is still a sentence and you are not sure it is one idea or three. It decides its own outcome \u2014 ready to implement, or ready to auto-plan \u2014 and publishes the design write-up and the settled decisions to the ticket.",
   invocations: [{ id: "brainstorm-publish", positional: "publish" }],
   flags: [
-    { name: "name", value: "<name>", meaning: "The brainstorm workspace to publish, under .lightsout/plans/.", required: true },
+    {
+      name: "name",
+      value: "<name>",
+      meaning: "The brainstorm\u2019s plan, under .lightsout/plans/ \u2014 a plan address <ticket-branch>/<NNN-slug>, or a legacy folder name.",
+      required: true
+    },
     { name: "cwd", value: "<path>", meaning: "Repository the brainstorm workspace lives in.", fallback: "The process working directory.", required: false }
   ],
   steps: [],
   records: CommandRecordKind.Plans,
-  related: ["auto-plan", "plan", "implement", "resume", "ship", "implement-direct", "queue", "ticket-state", "self-check"]
+  related: ["auto-plan", "plan", "implement", "resume", "ship", "implement-direct", "queue", "ticket", "ticket-state", "self-check"]
 };
 
 // src/commands/common/constants/build/implementSteps.ts
@@ -134637,7 +134916,7 @@ var implementCatalogEntry = {
     { name: "skip-refactor", meaning: "Skip the refactor step at the end of the run.", required: false },
     {
       name: "worktree",
-      meaning: "Build in a fresh git worktree of this repository, on a branch named after the plan.",
+      meaning: "Build in a fresh git worktree of this repository, on a branch named after the plan\u2019s ticket folder.",
       fallback: "The `implement.worktree` config key, which defaults to on.",
       required: false
     },
@@ -134647,7 +134926,7 @@ var implementCatalogEntry = {
   ],
   steps: implementSteps,
   records: CommandRecordKind.Runs,
-  related: ["auto-plan", "brainstorm", "plan", "resume", "ship", "implement-direct", "queue", "ticket-state", "self-check"],
+  related: ["auto-plan", "brainstorm", "plan", "resume", "ship", "implement-direct", "queue", "ticket", "ticket-state", "self-check"],
   graphic: {
     title: "How /implement turns the spec into verified code",
     subtitle: "Ten steps, deterministic gates throughout, and a complete record saved to disk.",
@@ -134686,7 +134965,7 @@ var implementDirectCatalogEntry = {
   ],
   steps: [],
   records: CommandRecordKind.Runs,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "queue", "resume", "ship", "ticket-state", "self-check"]
+  related: ["auto-plan", "brainstorm", "plan", "implement", "queue", "resume", "ship", "ticket", "ticket-state", "self-check"]
 };
 
 // src/commands/common/constants/build/planSteps.ts
@@ -134801,7 +135080,12 @@ var planCatalogEntry = {
     { id: "plan-publish", positional: "publish" }
   ],
   flags: [
-    { name: "name", value: "<name>", meaning: "The plan workspace to work in, under .lightsout/plans/.", required: true },
+    {
+      name: "name",
+      value: "<name>",
+      meaning: "The plan to work in, under .lightsout/plans/ \u2014 a plan address <ticket-branch>/<NNN-slug>, or a legacy folder name.",
+      required: true
+    },
     {
       name: "notes",
       value: "<path>",
@@ -134835,7 +135119,7 @@ var planCatalogEntry = {
     },
     {
       name: "worktree",
-      meaning: "Plan in a fresh git worktree of this repository, on a branch named after the plan.",
+      meaning: "Plan in a fresh git worktree of this repository, on a branch named after the plan\u2019s ticket folder.",
       fallback: "The `plan.worktree` config key, which defaults to on.",
       required: false
     },
@@ -134843,7 +135127,7 @@ var planCatalogEntry = {
   ],
   steps: planSteps,
   records: CommandRecordKind.Plans,
-  related: ["auto-plan", "brainstorm", "implement", "resume", "ship", "implement-direct", "queue", "ticket-state", "self-check"],
+  related: ["auto-plan", "brainstorm", "implement", "resume", "ship", "implement-direct", "queue", "ticket", "ticket-state", "self-check"],
   graphic: {
     title: "How /plan turns a request into an implementation-ready spec",
     subtitle: "Final spec and every decision recorded before any code is written.",
@@ -134872,7 +135156,7 @@ var queueCatalogEntry = {
   ],
   steps: [],
   records: CommandRecordKind.Runs,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "ticket-state", "self-check"]
+  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "ticket", "ticket-state", "self-check"]
 };
 
 // src/commands/common/constants/build/resumeCatalogEntry.ts
@@ -134892,7 +135176,7 @@ var resumeCatalogEntry = {
   ],
   steps: [],
   records: CommandRecordKind.Runs,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "ship", "implement-direct", "queue", "ticket-state", "self-check"]
+  related: ["auto-plan", "brainstorm", "plan", "implement", "ship", "implement-direct", "queue", "ticket", "ticket-state", "self-check"]
 };
 
 // src/commands/common/constants/build/selfCheckCatalogEntry.ts
@@ -134909,7 +135193,7 @@ var selfCheckCatalogEntry = {
   ],
   steps: [],
   records: CommandRecordKind.Nothing,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "queue", "ticket-state"]
+  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "queue", "ticket", "ticket-state"]
 };
 
 // src/commands/common/constants/build/shipCatalogEntry.ts
@@ -134923,7 +135207,128 @@ var shipCatalogEntry = {
   flags: [{ name: "cwd", value: "<path>", meaning: "Repository to ship from.", fallback: "The process working directory.", required: false }],
   steps: [],
   records: CommandRecordKind.Nothing,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "resume", "implement-direct", "queue", "ticket-state", "self-check"]
+  related: ["auto-plan", "brainstorm", "plan", "implement", "resume", "implement-direct", "queue", "ticket", "ticket-state", "self-check"]
+};
+
+// src/commands/common/constants/build/ticketCatalogEntry.ts
+var ticketCatalogEntry = {
+  id: "ticket",
+  cli: "lightsout ticket",
+  group: CommandGroup.Build,
+  summary: "Change and show a ticket's record of the plans it holds, the mode they implement in, and its request to ship.",
+  whenToUse: "Reach for it whenever a ticket gains a plan or changes shape. `add-plan` starts the next plan and `adopt` turns a folder shaped before ticket records into plan 001; `mode` moves a ticket between one plan supplying the implementation and several implementing in numeric order; `request-ship` is how a human declares a multiple-plan ticket finished, and `exclude-plan` takes a plan out of that work for good; `retitle-plan` changes only what a plan is called; `show` reads the record, and `sync` settles a record that moved on two machines at once.",
+  invocations: [
+    { id: "ticket-add-plan", positional: "add-plan" },
+    { id: "ticket-adopt", positional: "adopt" },
+    { id: "ticket-mode", positional: "mode" },
+    { id: "ticket-request-ship", positional: "request-ship" },
+    { id: "ticket-exclude-plan", positional: "exclude-plan" },
+    { id: "ticket-retitle-plan", positional: "retitle-plan" },
+    { id: "ticket-show", positional: "show" },
+    { id: "ticket-sync", positional: "sync" }
+  ],
+  flags: [
+    {
+      name: "name",
+      value: "<ticket-branch>",
+      meaning: "The ticket to act on, named by its branch \u2014 which is also its folder under .lightsout/plans/, never one plan's address.",
+      required: true
+    },
+    {
+      name: "slug",
+      value: "<slug>",
+      meaning: "The new plan's fixed slug: lowercase letter-and-digit words joined by single hyphens, at most 40 characters.",
+      shape: "ticket-add-plan",
+      required: true
+    },
+    {
+      name: "title",
+      value: "<title>",
+      meaning: "The plan's first display title, which stays changeable.",
+      fallback: "The slug is used as the title.",
+      shape: "ticket-add-plan",
+      required: false
+    },
+    {
+      name: "slug",
+      value: "<slug>",
+      meaning: "The slug plan 001 carries once the folder is adopted, in its folder name and in every attachment title.",
+      shape: "ticket-adopt",
+      required: true
+    },
+    {
+      name: "set",
+      value: "single-plan|multiple-plan",
+      meaning: "How this ticket organises its plans: single-plan means plan 001 alone supplies the implementation, multiple-plan means its plans implement in numeric order on one branch.",
+      shape: "ticket-mode",
+      required: true
+    },
+    {
+      name: "approve",
+      meaning: "Carry out a switch to single-plan mode, excluding every later plan.",
+      fallback: "The switch is previewed and nothing is changed.",
+      shape: "ticket-mode",
+      required: false
+    },
+    {
+      name: "plans",
+      value: "<id,id>",
+      meaning: "Every plan the request approves, as full ids or bare numbers \u2014 it must name each plan the ticket still includes.",
+      fallback: "Nothing is requested; give --withdraw instead to take a pending request back.",
+      shape: "ticket-request-ship",
+      required: false,
+      exclusiveWith: "ship-request"
+    },
+    {
+      name: "withdraw",
+      meaning: "Take a pending ship request back, leaving the ticket open.",
+      fallback: "Nothing is withdrawn; give --plans instead to record a request.",
+      shape: "ticket-request-ship",
+      required: false,
+      exclusiveWith: "ship-request"
+    },
+    { name: "plan", value: "<id>", meaning: "The plan to exclude, as its full id or its number on its own.", shape: "ticket-exclude-plan", required: true },
+    {
+      name: "reason",
+      value: "<text>",
+      meaning: "Why this plan is out of the ticket's work \u2014 the record's only account of the decision.",
+      shape: "ticket-exclude-plan",
+      required: true
+    },
+    {
+      name: "implementation-removed",
+      meaning: "Declare this plan's implementation taken off the branch, which the repository's own gates then verify on that branch's checkout.",
+      fallback: "The exclusion records no removal, and the plan's implementation stays where it is.",
+      shape: "ticket-exclude-plan",
+      required: false
+    },
+    { name: "plan", value: "<id>", meaning: "The plan to retitle, as its full id or its number on its own.", shape: "ticket-retitle-plan", required: true },
+    {
+      name: "title",
+      value: "<title>",
+      meaning: "The plan's new display title. Its id, its folder and any pending ship request are untouched.",
+      shape: "ticket-retitle-plan",
+      required: true
+    },
+    {
+      name: "keep",
+      value: "local|published",
+      meaning: "Which copy wins when this machine and the ticket have both changed the record.",
+      fallback: "The ordinary sync: the ticket\u2019s copy is taken when only it moved, and this machine\u2019s is sent when only it did.",
+      shape: "ticket-sync",
+      required: false
+    },
+    {
+      name: "cwd",
+      value: "<path>",
+      meaning: "Any checkout of the repository; the record is found in its primary checkout.",
+      fallback: "The process working directory.",
+      required: false
+    }
+  ],
+  steps: [],
+  records: CommandRecordKind.Plans,
+  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "queue", "ticket-state", "self-check"]
 };
 
 // src/commands/common/constants/build/ticketStateCatalogEntry.ts
@@ -134954,7 +135359,7 @@ var ticketStateCatalogEntry = {
   ],
   steps: [],
   records: CommandRecordKind.Nothing,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "queue", "self-check"]
+  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "queue", "ticket", "self-check"]
 };
 
 // src/commands/common/constants/burnDown/refactorSteps.ts
@@ -135348,6 +135753,7 @@ var commandCatalog = [
   resumeCatalogEntry,
   shipCatalogEntry,
   queueCatalogEntry,
+  ticketCatalogEntry,
   ticketStateCatalogEntry,
   selfCheckCatalogEntry,
   refactorCatalogEntry,
@@ -135399,6 +135805,14 @@ var usageOrder = [
   "plan-dedup",
   "plan-grade",
   "plan-publish",
+  "ticket-add-plan",
+  "ticket-adopt",
+  "ticket-mode",
+  "ticket-request-ship",
+  "ticket-exclude-plan",
+  "ticket-retitle-plan",
+  "ticket-show",
+  "ticket-sync",
   "ticket-state",
   "self-check",
   "friction",
@@ -135456,7 +135870,7 @@ var usage = renderUsage();
 
 // src/cli/common/utils/exitCli.ts
 var exitCli = async ({ code }) => {
-  await Promise.all([process.stdout, process.stderr].map((stream) => new Promise((resolve21) => stream.write("", () => resolve21()))));
+  await Promise.all([process.stdout, process.stderr].map((stream) => new Promise((resolve22) => stream.write("", () => resolve22()))));
   return process.exit(code);
 };
 
@@ -135500,15 +135914,22 @@ var readConfig = async ({ cwd }) => {
 var brainstormPublishCommand = async ({ flags, cwd }) => {
   const name = await getRequiredFlag({ flags, name: "name" });
   const config2 = await readConfig({ cwd });
-  const report = await publishBrainstorm({ cwd, name, config: config2, env: process.env, onProgress: createProgressPrinter() });
-  if (report.error !== void 0) {
+  const report2 = await publishBrainstorm({
+    cwd,
+    name,
+    config: config2,
+    env: process.env,
+    onProgress: createProgressPrinter(),
+    titlePrefix: parsePlanAddress({ name })?.planId
+  });
+  if (report2.error !== void 0) {
     console.error(`
-${report.error}`);
+${report2.error}`);
     return exitCli({ code: 1 });
   }
   console.log(`
-${bold(`brainstorm publish ${name}`)} \u2014 ${report.published.length} file(s) attached to ${report.ticketRef}`);
-  for (const file2 of report.published) {
+${bold(`brainstorm publish ${name}`)} \u2014 ${report2.published.length} file(s) attached to ${report2.ticketRef}`);
+  for (const file2 of report2.published) {
     console.log(`  ${file2}`);
   }
   return exitCli({ code: 0 });
@@ -136430,6 +136851,12 @@ var fetchDefaultBranch = async ({ cwd }) => {
   return defaultBranch ?? { error: unset };
 };
 
+// src/common/git/readGitRefCommit.ts
+var readGitRefCommit = async ({ cwd, ref }) => {
+  const named = await runCommand({ command: `git rev-parse --verify --quiet '${ref}^{commit}'`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  return named?.exitCode === 0 ? named.stdout.trim() : void 0;
+};
+
 // src/worktree/readBranchWorktree.ts
 var readBranchWorktree = async ({ cwd, branch }) => {
   const listed = await runCommand({ command: "git worktree list --porcelain", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
@@ -136442,6 +136869,62 @@ var readBranchWorktree = async ({ cwd, branch }) => {
     }
   }
   return found;
+};
+
+// src/worktree/prepareTicketBranch.ts
+var readAncestry = async ({ cwd, ancestor, descendant }) => {
+  const asked = await runCommand({ command: `git merge-base --is-ancestor ${ancestor} ${descendant}`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  if (asked?.exitCode !== 0 && asked?.exitCode !== 1) {
+    return void 0;
+  }
+  return asked.exitCode === 0;
+};
+var readBranchRelation = async ({ cwd, local, remote }) => {
+  const behind = await readAncestry({ cwd, ancestor: local, descendant: remote });
+  const ahead = await readAncestry({ cwd, ancestor: remote, descendant: local });
+  let relation;
+  if (ahead === true) {
+    relation = "ahead";
+  } else if (behind === true) {
+    relation = "behind";
+  } else if (ahead === false && behind === false) {
+    relation = "diverged";
+  }
+  return relation;
+};
+var fastForwardTicketBranch = async ({ cwd, branch, local, remote }) => {
+  const holder = await readBranchWorktree({ cwd, branch });
+  if (holder !== void 0) {
+    return {
+      error: `the local branch '${branch}' at ${local} is behind the pushed one at ${remote}, and the worktree at ${holder} is standing on it \u2014 bring it up to date there with \`git pull --ff-only\``
+    };
+  }
+  const failure = await runOrDescribeFailure({ command: `git branch -f ${branch} ${remote}`, cwd });
+  return failure === void 0 ? { startPoint: void 0 } : { error: `git could not move '${branch}' to the pushed commit ${remote}: ${failure}` };
+};
+var prepareTicketBranch = async ({ cwd, branch }) => {
+  const local = await readGitRefCommit({ cwd, ref: `refs/heads/${branch}` });
+  const remote = await readGitRefCommit({ cwd, ref: `refs/remotes/origin/${branch}` });
+  if (remote === void 0 || local === remote) {
+    return {};
+  }
+  if (local === void 0) {
+    return { startPoint: remote };
+  }
+  const relation = await readBranchRelation({ cwd, local, remote });
+  let prepared;
+  if (relation === "ahead") {
+    prepared = {};
+  } else if (relation === "behind") {
+    prepared = await fastForwardTicketBranch({ cwd, branch, local, remote });
+  } else if (relation === "diverged") {
+    prepared = {
+      error: `the local branch '${branch}' at ${local} has diverged from the pushed one at ${remote} \u2014 reconcile them before planning or implementing a later plan of this ticket`
+    };
+  } else {
+    prepared = { error: `git could not compare the local branch '${branch}' at ${local} with the pushed one at ${remote}` };
+  }
+  return prepared;
 };
 
 // src/worktree/removeWorktree.ts
@@ -136470,7 +136953,8 @@ var removeShippedRunWorkspace = async ({ cwd, manifest, onProgress }) => {
     return;
   }
   const name = planNameFromPath({ cwd: removable.worktreePath, planPath: manifest.plan });
-  const unsaved = name === void 0 ? void 0 : await copyPlanFolderToPrimary({ worktree: removable.worktreePath, primary: removable.cwd, name });
+  const saving = name === void 0 ? void 0 : ticketFolderOf({ name });
+  const unsaved = saving === void 0 ? void 0 : await copyPlanFolderToPrimary({ worktree: removable.worktreePath, primary: removable.cwd, name: saving });
   if (unsaved !== void 0) {
     onProgress?.(`left the worktree at ${removable.worktreePath} standing: ${unsaved.error}`);
     return;
@@ -136840,6 +137324,2204 @@ var resolveEffectiveConfigAndDriver = ({ config: config2, command }) => {
   return { config: { ...config2, harness: driverName, model, effort }, driver: getDriver({ name: driverName }), driverName };
 };
 
+// src/ticket/addTicketPlan.ts
+import { mkdir as mkdir20 } from "node:fs/promises";
+
+// src/ticket/common/record/appendTicketEvent.ts
+var appendTicketEvent = ({ record: record3, kind, detail, at }) => ({
+  ...record3,
+  history: [...record3.history, { at, kind, detail }]
+});
+
+// src/ticket/common/record/buildTicketRecord.ts
+var buildTicketRecord = ({ ticketBranch, config: config2 }) => {
+  const shipSettings = resolveShipSettings({ config: config2 });
+  if (shipSettings === void 0) {
+    return {
+      error: `ship.ticket-pattern is not a regular expression capturing a 'ticket' group, so no ticket id can be read out of the folder name '${ticketBranch}' \u2014 fix the key in lightsout.config.json`
+    };
+  }
+  const ticketRef = readTicketMatch({ branch: ticketBranch, ticketPattern: shipSettings.ticketPattern })?.ticket;
+  if (ticketRef === void 0) {
+    return {
+      error: `the plan folder '${ticketBranch}' carries no ticket id matching this repo's ship.ticket-pattern, and a ticket record is one ticket's record \u2014 name the folder after the ticket's branch`
+    };
+  }
+  return { schemaVersion: 1, ticketRef, branch: ticketBranch, mode: config2.plan?.["default-ticket-mode"] ?? TicketMode.SinglePlan, plans: [], history: [] };
+};
+
+// src/ticket/common/record/composePlanId.ts
+var composePlanId = ({ number: number4, slug }) => {
+  const parsed = PlanId.safeParse(`${String(number4).padStart(3, "0")}-${slug}`);
+  return parsed.success ? { id: parsed.data } : { error: `'${slug}' cannot be a plan slug: ${external_exports.prettifyError(parsed.error)}` };
+};
+
+// src/ticket/common/record/recordShipRequestWithdrawal.ts
+var recordShipRequestWithdrawal = ({ record: record3, detail, at }) => record3.shipRequest === void 0 ? record3 : appendTicketEvent({ record: { ...record3, shipRequest: void 0 }, kind: TicketEventKind.ShipRequestWithdrawn, detail, at });
+
+// src/common/utils/describeMissingTicketRecord.ts
+var describeMissingTicketRecord = ({ ticketBranch }) => `there is no ticket record for '${ticketBranch}' \u2014 start one with \`lightsout ticket add-plan --name ${ticketBranch} --slug <slug>\`, or turn a folder shaped before ticket records into plan 001 with \`lightsout ticket adopt --name ${ticketBranch} --slug <slug>\``;
+
+// src/ticket/common/record/requireTicketRecord.ts
+var requireTicketRecord = ({ record: record3, ticketBranch }) => {
+  if (record3 === void 0) {
+    return { error: describeMissingTicketRecord({ ticketBranch }) };
+  }
+  return record3.shipped === void 0 ? record3 : { error: `ticket ${ticketBranch} shipped as ${record3.shipped.mergeCommit}, and a shipped ticket's record is history that no longer changes` };
+};
+
+// src/ticket/common/utils/getTicketFolderPath.ts
+import { join as join78 } from "node:path";
+var getTicketFolderPath = ({ stateDir, ticketBranch }) => join78(stateDir, "plans", ticketBranch);
+
+// src/ticket/common/utils/listLegacyPlanEntries.ts
+import { readdir as readdir15 } from "node:fs/promises";
+
+// src/ticket/common/constants/ticketFileNames.ts
+var ticketFileNames = {
+  record: "ticket.json",
+  sync: "ticket-sync.json",
+  published: "ticket.published.json",
+  lock: "ticket.lock"
+};
+
+// src/ticket/common/utils/listLegacyPlanEntries.ts
+var isPlanFolder = ({ name }) => {
+  const setAside = /^(?<planId>.+)\.local-\d+$/.exec(name)?.groups?.planId;
+  return PlanId.safeParse(setAside ?? name).success;
+};
+var isTicketFile = ({ name }) => Object.values(ticketFileNames).some((ticketFile) => name === ticketFile || name.startsWith(`${ticketFile}.`) && name.endsWith(".tmp"));
+var listLegacyPlanEntries = async ({ ticketFolder }) => {
+  const entries = await readdir15(ticketFolder, { withFileTypes: true }).catch(() => []);
+  return entries.filter((entry) => !(entry.isDirectory() && isPlanFolder({ name: entry.name })) && !isTicketFile({ name: entry.name })).map((entry) => entry.name).sort();
+};
+
+// src/ticket/common/utils/resolveTicketTrackerTarget.ts
+var resolveTicketTrackerTarget = ({ config: config2, env, ticketBranch }) => {
+  if (config2["ticket-tracker"] === void 0) {
+    return {
+      localOnly: `the ticket record for '${ticketBranch}' is local only: lightsout.config.json has no \`ticket-tracker\` block naming a provider and its credentials`
+    };
+  }
+  const shipSettings = resolveShipSettings({ config: config2 });
+  if (shipSettings === void 0) {
+    return {
+      localOnly: `the ticket record for '${ticketBranch}' is local only: ship.ticket-pattern is not a regular expression capturing a 'ticket' group, so no ticket id can be read out of the folder name`
+    };
+  }
+  const ticketRef = readPlanTicketRef({ name: ticketBranch, ticketPattern: shipSettings.ticketPattern });
+  if (ticketRef === void 0) {
+    return {
+      localOnly: `the ticket record for '${ticketBranch}' is local only: that folder name carries no ticket id matching this repo's ship.ticket-pattern`
+    };
+  }
+  const settings = resolveTrackerSettings({ config: config2, env });
+  return "error" in settings ? settings : { settings, ticketRef };
+};
+
+// src/ticket/pullTicketRecord.ts
+import { join as join84 } from "node:path";
+
+// src/ticket/common/utils/serializeTicketRecord.ts
+var serializeTicketRecord = ({ record: record3 }) => {
+  const sorted = JSON.parse(canonicalJson({ value: record3 }));
+  return Buffer.from(`${JSON.stringify(sorted, void 0, "	")}
+`, "utf8");
+};
+
+// src/ticket/common/utils/readPublishedTicketRecord.ts
+var readRecordText = ({ text, ticketBranch, ticketRef }) => {
+  let value;
+  let outcome;
+  try {
+    value = JSON.parse(text);
+  } catch (error51) {
+    outcome = {
+      error: `the ${ticketFileNames.record} on ${ticketRef} is not valid JSON (${messageOf({ error: error51 })}) \u2014 run \`lightsout ticket sync --name ${ticketBranch} --keep local\` to replace it with this machine's record`
+    };
+  }
+  if (outcome === void 0) {
+    const parsed = TicketRecord.safeParse(value);
+    if (!parsed.success) {
+      outcome = {
+        error: `the ${ticketFileNames.record} on ${ticketRef} does not match the ticket record contract (${external_exports.prettifyError(parsed.error)}) \u2014 run \`lightsout ticket sync --name ${ticketBranch} --keep local\` to replace it with this machine's record`
+      };
+    } else if (parsed.data.branch !== ticketBranch) {
+      outcome = {
+        error: `the ${ticketFileNames.record} on ${ticketRef} names branch '${parsed.data.branch}', not the '${ticketBranch}' ticket it was read for`
+      };
+    } else {
+      outcome = { published: { record: parsed.data, content: serializeTicketRecord({ record: parsed.data }) } };
+    }
+  }
+  return outcome;
+};
+var readPublishedTicketRecord = async ({
+  target,
+  ticketBranch
+}) => {
+  const { settings, ticketRef } = target;
+  const attachments = await getTicketAttachments3({ settings, identifier: ticketRef });
+  if ("error" in attachments) {
+    return { error: `the ${ticketFileNames.record} on ${ticketRef} could not be read: ${attachments.error}` };
+  }
+  const carried = attachments.filter(({ title }) => title === ticketFileNames.record);
+  if (carried.length > 1) {
+    return {
+      error: `${ticketRef} carries more than one ${ticketFileNames.record} attachment, so no single published ticket record can be selected \u2014 remove the extra one on the ticket, or run \`lightsout ticket sync --name ${ticketBranch} --keep local\` to publish this machine's record over them`
+    };
+  }
+  const attachment = carried[0];
+  if (attachment === void 0) {
+    return { published: void 0 };
+  }
+  const text = await readTicketAsset3({ settings, url: attachment.url });
+  return typeof text === "string" ? readRecordText({ text, ticketBranch, ticketRef }) : { error: `the ${ticketFileNames.record} on ${ticketRef} could not be read: ${text.error}` };
+};
+
+// src/ticket/common/utils/readTicketSyncState.ts
+import { join as join79 } from "node:path";
+var readTicketSyncState = async ({ ticketFolder }) => readJsonFile({ path: join79(ticketFolder, ticketFileNames.sync), schema: TicketSyncState });
+
+// src/ticket/common/utils/surfaceTicketDivergence.ts
+import { join as join80 } from "node:path";
+
+// src/ticket/common/utils/writeTicketFolderFile.ts
+import { mkdir as mkdir19, rename as rename7, writeFile as writeFile16 } from "node:fs/promises";
+import { dirname as dirname14 } from "node:path";
+var writeTicketFolderFile = async ({ path, content }) => {
+  const temporaryPath = `${path}.tmp`;
+  await mkdir19(dirname14(path), { recursive: true });
+  await writeFile16(temporaryPath, content);
+  await rename7(temporaryPath, path);
+};
+
+// src/ticket/common/utils/surfaceTicketDivergence.ts
+var surfaceTicketDivergence = async ({ ticketFolder, ticketBranch, ticketRef, content }) => {
+  const sync = `lightsout ticket sync --name ${ticketBranch}`;
+  let saved = `the published copy is saved beside it as ${ticketFileNames.published}`;
+  try {
+    await writeTicketFolderFile({ path: join80(ticketFolder, ticketFileNames.published), content });
+  } catch (error51) {
+    saved = `the published copy could not be saved as ${ticketFileNames.published} (${messageOf({ error: error51 })})`;
+  }
+  return `the ticket record for '${ticketBranch}' moved both here and on ${ticketRef} since this machine last synced \u2014 ${saved}; run \`${sync} --keep local\` to publish this machine's copy over it, or \`${sync} --keep published\` to take the ticket's copy instead`;
+};
+
+// src/ticket/common/utils/updateTicketSyncState.ts
+import { join as join81 } from "node:path";
+var updateTicketSyncState = async ({ ticketFolder, recordSha256, planMarkers }) => {
+  const current = await readTicketSyncState({ ticketFolder });
+  const recorded = recordSha256 ?? current?.recordSha256;
+  const next = {
+    schemaVersion: 1,
+    planMarkers: { ...current?.planMarkers, ...planMarkers }
+  };
+  if (recorded !== void 0) {
+    next.recordSha256 = recorded;
+  }
+  await writeTicketFolderFile({
+    path: join81(ticketFolder, ticketFileNames.sync),
+    content: Buffer.from(`${JSON.stringify(next, void 0, "	")}
+`, "utf8")
+  });
+};
+
+// src/ticket/common/utils/withTicketRecordLock.ts
+import { randomUUID as randomUUID4 } from "node:crypto";
+import { mkdirSync as mkdirSync2, readFileSync as readFileSync3, renameSync as renameSync2, unlinkSync as unlinkSync2, writeFileSync as writeFileSync2 } from "node:fs";
+import { join as join82 } from "node:path";
+var LockHolder = external_exports.object({ pid: external_exports.number(), token: external_exports.string(), acquiredAt: external_exports.string() });
+var sleep3 = ({ ms }) => new Promise((resolve22) => setTimeout(resolve22, ms));
+var readHolder = ({ lockPath }) => {
+  let holder;
+  try {
+    holder = LockHolder.parse(JSON.parse(readFileSync3(lockPath, "utf8")));
+  } catch {
+    holder = void 0;
+  }
+  return holder;
+};
+var claimLeftover2 = ({ lockPath, token }) => {
+  const asidePath = `${lockPath}.claim-${process.pid}-${token}`;
+  let claimed = false;
+  try {
+    renameSync2(lockPath, asidePath);
+    claimed = true;
+  } catch {
+    claimed = false;
+  }
+  if (claimed) {
+    try {
+      unlinkSync2(asidePath);
+    } catch {
+    }
+  }
+  return claimed;
+};
+var createLock = ({ lockPath, token }) => {
+  let outcome;
+  try {
+    writeFileSync2(lockPath, `${JSON.stringify({ pid: process.pid, token, acquiredAt: (/* @__PURE__ */ new Date()).toISOString() })}
+`, { flag: "wx" });
+    outcome = { created: true };
+  } catch (error51) {
+    const present = typeof error51 === "object" && error51 !== null && "code" in error51 && error51.code === "EEXIST";
+    outcome = present ? { present: true } : { failure: messageOf({ error: error51 }) };
+  }
+  return outcome;
+};
+var acquireLock = async ({ lockPath, token }) => {
+  const pollIntervalMs = 100;
+  const waitCeilingMs = 1e4;
+  const startedAt = Date.now();
+  let outcome;
+  let heldBy;
+  while (outcome === void 0) {
+    const holder = readHolder({ lockPath });
+    let retryAtOnce = false;
+    if (holder !== void 0) {
+      heldBy = holder.pid;
+      retryAtOnce = !isPidAlive({ pid: holder.pid }) && claimLeftover2({ lockPath, token });
+    } else {
+      const attempt = createLock({ lockPath, token });
+      if ("created" in attempt) {
+        outcome = { acquired: true };
+      } else if ("failure" in attempt) {
+        outcome = { error: `the ticket record lock ${lockPath} could not be taken: ${attempt.failure}` };
+      } else {
+        retryAtOnce = readHolder({ lockPath }) === void 0 ? claimLeftover2({ lockPath, token }) : true;
+      }
+    }
+    if (outcome === void 0 && !retryAtOnce) {
+      if (Date.now() - startedAt >= waitCeilingMs) {
+        outcome = {
+          error: `the ticket record lock ${lockPath} is held by process ${heldBy ?? "unknown"} and was still held after ${waitCeilingMs / 1e3} seconds \u2014 wait for that command to finish, or remove the lock file if that process is gone`
+        };
+      } else {
+        await sleep3({ ms: pollIntervalMs });
+      }
+    }
+  }
+  return outcome;
+};
+var releaseLock = ({ lockPath, token }) => {
+  if (readHolder({ lockPath })?.token !== token) {
+    return;
+  }
+  try {
+    unlinkSync2(lockPath);
+  } catch {
+  }
+};
+var withTicketRecordLock = async ({ ticketFolder, run }) => {
+  try {
+    mkdirSync2(ticketFolder, { recursive: true });
+  } catch (error51) {
+    return { error: `the ticket folder ${ticketFolder} could not be created: ${messageOf({ error: error51 })}` };
+  }
+  const lockPath = join82(ticketFolder, ticketFileNames.lock);
+  const token = randomUUID4();
+  const acquisition = await acquireLock({ lockPath, token });
+  if ("error" in acquisition) {
+    return acquisition;
+  }
+  try {
+    return await run();
+  } finally {
+    releaseLock({ lockPath, token });
+  }
+};
+
+// src/ticket/readTicketRecord.ts
+import { join as join83 } from "node:path";
+
+// src/ticket/common/utils/readTicketRecordFile.ts
+import { readFile as readFile34 } from "node:fs/promises";
+var readText = async ({ recordPath }) => {
+  let outcome;
+  try {
+    outcome = { text: await readFile34(recordPath, "utf8") };
+  } catch (error51) {
+    const missing = typeof error51 === "object" && error51 !== null && "code" in error51 && error51.code === "ENOENT";
+    outcome = missing ? { missing: true } : { error: `the ticket record ${recordPath} could not be read: ${messageOf({ error: error51 })}` };
+  }
+  return outcome;
+};
+var readRecordText2 = ({ text, recordPath, ticketBranch }) => {
+  let value;
+  let outcome;
+  try {
+    value = JSON.parse(text);
+  } catch (error51) {
+    outcome = { error: `the ticket record ${recordPath} is not valid JSON: ${messageOf({ error: error51 })}` };
+  }
+  if (outcome === void 0) {
+    const parsed = TicketRecord.safeParse(value);
+    if (!parsed.success) {
+      outcome = { error: `the ticket record ${recordPath} does not match the ticket record contract: ${external_exports.prettifyError(parsed.error)}` };
+    } else if (parsed.data.branch !== ticketBranch) {
+      outcome = { error: `the ticket record ${recordPath} names branch '${parsed.data.branch}', not the '${ticketBranch}' folder it sits in` };
+    } else {
+      outcome = { record: parsed.data };
+    }
+  }
+  return outcome;
+};
+var readTicketRecordFile = async ({ recordPath, ticketBranch }) => {
+  const read = await readText({ recordPath });
+  let outcome;
+  if ("error" in read) {
+    outcome = read;
+  } else if ("missing" in read) {
+    outcome = { record: void 0 };
+  } else {
+    outcome = readRecordText2({ text: read.text, recordPath, ticketBranch });
+  }
+  return outcome;
+};
+
+// src/ticket/readTicketRecord.ts
+var readTicketRecord = async ({ cwd, ticketBranch }) => {
+  const stateDir = await resolveSharedStateDir({ cwd });
+  const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
+  return readTicketRecordFile({ recordPath: join83(ticketFolder, ticketFileNames.record), ticketBranch });
+};
+
+// src/ticket/pullTicketRecord.ts
+var takePublished = async ({
+  ticketFolder,
+  content,
+  record: record3,
+  ticketRef,
+  onProgress
+}) => {
+  let outcome;
+  try {
+    await writeTicketFolderFile({ path: join84(ticketFolder, ticketFileNames.record), content });
+    await updateTicketSyncState({ ticketFolder, recordSha256: sha256({ content }) });
+    outcome = { record: record3 };
+  } catch (error51) {
+    outcome = { error: `the ${ticketFileNames.record} published on ${ticketRef} could not be written into ${ticketFolder}: ${messageOf({ error: error51 })}` };
+  }
+  if ("record" in outcome) {
+    onProgress?.(`took the ticket record published on ${ticketRef}`);
+  }
+  return outcome;
+};
+var applyThreeWayRule = async ({
+  cwd,
+  ticketFolder,
+  ticketBranch,
+  ticketRef,
+  published,
+  onProgress
+}) => {
+  const local = await readTicketRecord({ cwd, ticketBranch });
+  if ("error" in local) {
+    return local;
+  }
+  if (published === void 0) {
+    return { record: local.record };
+  }
+  const syncState = await readTicketSyncState({ ticketFolder });
+  const publishedSha256 = sha256({ content: published.content });
+  const localSha256 = local.record === void 0 ? void 0 : sha256({ content: serializeTicketRecord({ record: local.record }) });
+  const take = () => takePublished({ ticketFolder, content: published.content, record: published.record, ticketRef, onProgress });
+  let outcome;
+  if (local.record === void 0 || localSha256 === syncState?.recordSha256) {
+    outcome = await take();
+  } else if (localSha256 === publishedSha256) {
+    outcome = syncState?.recordSha256 === publishedSha256 ? { record: local.record } : await take();
+  } else if (publishedSha256 === syncState?.recordSha256) {
+    outcome = { record: local.record };
+  } else {
+    outcome = { error: await surfaceTicketDivergence({ ticketFolder, ticketBranch, ticketRef, content: published.content }) };
+  }
+  return outcome;
+};
+var pullTicketRecord = async ({
+  cwd,
+  ticketBranch,
+  config: config2,
+  env,
+  onProgress
+}) => {
+  const target = resolveTicketTrackerTarget({ config: config2, env, ticketBranch });
+  if ("error" in target) {
+    return target;
+  }
+  if ("localOnly" in target) {
+    return readTicketRecord({ cwd, ticketBranch });
+  }
+  const published = await readPublishedTicketRecord({ target, ticketBranch });
+  if ("error" in published) {
+    return published;
+  }
+  const stateDir = await resolveSharedStateDir({ cwd });
+  const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
+  return withTicketRecordLock({
+    ticketFolder,
+    run: () => applyThreeWayRule({ cwd, ticketFolder, ticketBranch, ticketRef: target.ticketRef, published: published.published, onProgress })
+  });
+};
+
+// src/ticket/common/constants/publishedButUnrecorded.ts
+var publishedButUnrecorded = "the ticket record was published, but this machine could not record that it was";
+
+// src/ticket/common/utils/attachTicketRecordIfUnmoved.ts
+var attachTicketRecord = async ({ target, content, onProgress }) => {
+  const { settings, ticketRef } = target;
+  const tickets = await getTicketsByIdentifiers3({ settings, identifiers: [ticketRef] });
+  if ("error" in tickets) {
+    return { error: `the ticket record could not be published: ${tickets.error}` };
+  }
+  const ticket = tickets.at(0);
+  if (ticket === void 0) {
+    return { error: `the ticket record could not be published: there is no ${ticketRef} on the configured ticket tracker` };
+  }
+  const failure = await setTicketAttachment3({ settings, ticketId: ticket.id, title: ticketFileNames.record, content, contentType: "application/json" });
+  if (failure !== void 0) {
+    return { error: `the ticket record could not be published: ${failure.error}` };
+  }
+  onProgress?.(`attached ${ticketFileNames.record} to ${ticketRef}`);
+  return void 0;
+};
+var attachTicketRecordIfUnmoved = async ({
+  cwd,
+  ticketBranch,
+  target,
+  expectedPublishedSha256,
+  onProgress
+}) => {
+  const published = await readPublishedTicketRecord({ target, ticketBranch });
+  if ("error" in published) {
+    return published;
+  }
+  const local = await readTicketRecord({ cwd, ticketBranch });
+  if ("error" in local) {
+    return local;
+  }
+  if (local.record === void 0) {
+    return { error: `there is no ${ticketFileNames.record} for '${ticketBranch}' on this machine to publish` };
+  }
+  const stateDir = await resolveSharedStateDir({ cwd });
+  const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
+  const syncState = await readTicketSyncState({ ticketFolder });
+  const content = serializeTicketRecord({ record: local.record });
+  const attachedSha256 = sha256({ content });
+  const carried = published.published;
+  const publishedSha256 = carried === void 0 ? void 0 : sha256({ content: carried.content });
+  const moved = publishedSha256 !== expectedPublishedSha256 && publishedSha256 !== syncState?.recordSha256 && publishedSha256 !== attachedSha256;
+  if (carried !== void 0 && moved) {
+    const surfaced = await withTicketRecordLock({
+      ticketFolder,
+      run: () => surfaceTicketDivergence({ ticketFolder, ticketBranch, ticketRef: target.ticketRef, content: carried.content })
+    });
+    return { error: typeof surfaced === "string" ? surfaced : surfaced.error };
+  }
+  const failure = await attachTicketRecord({ target, content, onProgress });
+  return failure ?? { attachedSha256 };
+};
+
+// src/ticket/common/utils/recordTicketSyncState.ts
+import { rm as rm7 } from "node:fs/promises";
+import { join as join85 } from "node:path";
+var recordTicketSyncState = async ({
+  ticketFolder,
+  recordSha256,
+  planMarkers,
+  failure,
+  dropSurfacedCopy
+}) => {
+  const recorded = await withTicketRecordLock({
+    ticketFolder,
+    run: async () => {
+      try {
+        await updateTicketSyncState({ ticketFolder, recordSha256, planMarkers });
+        if (dropSurfacedCopy === true) {
+          await rm7(join85(ticketFolder, ticketFileNames.published), { force: true });
+        }
+        return void 0;
+      } catch (error51) {
+        return { error: `${failure}: ${messageOf({ error: error51 })}` };
+      }
+    }
+  });
+  return recorded;
+};
+
+// src/ticket/updateLocalTicketRecord.ts
+import { randomUUID as randomUUID5 } from "node:crypto";
+import { rename as rename8, writeFile as writeFile17 } from "node:fs/promises";
+import { join as join86 } from "node:path";
+var findHistoryRefusal = ({ current, next }) => {
+  const recorded = current?.history ?? [];
+  const kept = next.history.slice(0, recorded.length);
+  const dropped = recorded.length > next.history.length;
+  const rewritten = recorded.some((event, index) => canonicalJson({ value: event }) !== canonicalJson({ value: kept[index] }));
+  return dropped || rewritten ? `a ticket record's history is append-only, and the change to ${next.branch} drops or rewrites one of the ${recorded.length} events already recorded` : void 0;
+};
+var writeChangedRecord = async ({
+  ticketFolder,
+  recordPath,
+  ticketBranch,
+  current,
+  changed
+}) => {
+  const parsed = TicketRecord.safeParse(changed);
+  let outcome;
+  if (!parsed.success) {
+    outcome = { error: `the changed ticket record for ${ticketBranch} does not match the ticket record contract: ${external_exports.prettifyError(parsed.error)}` };
+  } else if (parsed.data.branch !== ticketBranch) {
+    outcome = { error: `the changed ticket record names branch '${parsed.data.branch}', not the '${ticketBranch}' ticket it was asked for` };
+  } else {
+    outcome = { record: parsed.data };
+  }
+  if ("record" in outcome) {
+    const refusal = findHistoryRefusal({ current, next: outcome.record });
+    outcome = refusal === void 0 ? outcome : { error: refusal };
+  }
+  if ("record" in outcome) {
+    const temporaryPath = join86(ticketFolder, `${ticketFileNames.record}.${randomUUID5()}.tmp`);
+    try {
+      await writeFile17(temporaryPath, serializeTicketRecord({ record: outcome.record }));
+      await rename8(temporaryPath, recordPath);
+    } catch (error51) {
+      outcome = { error: `the ticket record ${recordPath} could not be written: ${messageOf({ error: error51 })}` };
+    }
+  }
+  return outcome;
+};
+var updateLocalTicketRecord = async ({ cwd, ticketBranch, change }) => {
+  const stateDir = await resolveSharedStateDir({ cwd });
+  const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
+  const recordPath = join86(ticketFolder, ticketFileNames.record);
+  return withTicketRecordLock({
+    ticketFolder,
+    run: async () => {
+      const read = await readTicketRecordFile({ recordPath, ticketBranch });
+      if ("error" in read) {
+        return read;
+      }
+      const changed = change(read.record);
+      return "error" in changed ? changed : writeChangedRecord({ ticketFolder, recordPath, ticketBranch, current: read.record, changed });
+    }
+  });
+};
+
+// src/ticket/updateSyncedTicketRecord.ts
+var updateSyncedTicketRecord = async ({
+  cwd,
+  ticketBranch,
+  config: config2,
+  env,
+  change,
+  onProgress
+}) => {
+  const pulled = await pullTicketRecord({ cwd, ticketBranch, config: config2, env, onProgress });
+  if ("error" in pulled) {
+    return pulled;
+  }
+  const updated = await updateLocalTicketRecord({ cwd, ticketBranch, change });
+  if ("error" in updated) {
+    return updated;
+  }
+  const target = resolveTicketTrackerTarget({ config: config2, env, ticketBranch });
+  if ("error" in target || "localOnly" in target) {
+    return { record: updated.record };
+  }
+  const stateDir = await resolveSharedStateDir({ cwd });
+  const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
+  const syncState = await readTicketSyncState({ ticketFolder });
+  const attached = await attachTicketRecordIfUnmoved({
+    cwd,
+    ticketBranch,
+    target,
+    expectedPublishedSha256: syncState?.recordSha256,
+    onProgress
+  });
+  if ("error" in attached) {
+    return { record: updated.record, publishError: attached.error };
+  }
+  const recorded = await recordTicketSyncState({
+    ticketFolder,
+    recordSha256: attached.attachedSha256,
+    failure: publishedButUnrecorded
+  });
+  return recorded === void 0 ? { record: updated.record } : { record: updated.record, publishError: recorded.error };
+};
+
+// src/ticket/addTicketPlan.ts
+var maxPlanNumber = 999;
+var allocatePlanId = ({ record: record3, slug }) => {
+  const highest = record3.plans.reduce((top, plan) => Math.max(top, planNumberOf({ id: plan.id })), 0);
+  const next = highest + 1;
+  if (next > maxPlanNumber) {
+    return {
+      error: `ticket ${record3.branch} already holds plan ${String(highest).padStart(3, "0")}, and a plan's number never goes above ${maxPlanNumber} because no number is ever reused`
+    };
+  }
+  return composePlanId({ number: next, slug });
+};
+var findPublishedLegacyPlanRefusal = async ({
+  ticketBranch,
+  config: config2,
+  env
+}) => {
+  const target = resolveTicketTrackerTarget({ config: config2, env, ticketBranch });
+  if ("localOnly" in target) {
+    return void 0;
+  }
+  if ("error" in target) {
+    return target.error;
+  }
+  const attachments = await getTicketAttachments3({ settings: target.settings, identifier: target.ticketRef });
+  if ("error" in attachments) {
+    return attachments.error;
+  }
+  return attachments.some(({ title }) => title === planAttachmentManifestName) ? `${target.ticketRef} already carries a plan published before ticket records existed, so a new plan here would take a number that plan already holds \u2014 turn it into plan 001 first with \`lightsout ticket adopt --name ${ticketBranch} --slug <slug>\`` : void 0;
+};
+var addPlanToRecord = ({
+  current,
+  ticketBranch,
+  slug,
+  title,
+  config: config2,
+  legacyEntries,
+  at
+}) => {
+  const existing = current === void 0 ? void 0 : requireTicketRecord({ record: current, ticketBranch });
+  if (existing !== void 0 && "error" in existing) {
+    return existing;
+  }
+  if (legacyEntries.length > 0) {
+    return {
+      error: existing === void 0 ? `the plan folder '${ticketBranch}' still holds the files of a single-folder plan (${legacyEntries.join(", ")}) \u2014 make them plan 001 with \`lightsout ticket adopt --name ${ticketBranch} --slug <slug>\` before adding another plan` : `the ticket folder '${ticketBranch}' holds ${legacyEntries.join(", ")} beside its record, and a ticket's plan files live in that plan's own folder \u2014 move each of them into the plan folder it belongs to, or remove it, and run this again`
+    };
+  }
+  if (existing !== void 0 && existing.mode === TicketMode.SinglePlan && existing.plans.some((plan) => planNumberOf({ id: plan.id }) === 1)) {
+    return {
+      error: `ticket ${ticketBranch} is in single-plan mode, where plan 001 alone supplies the implementation \u2014 run \`lightsout ticket mode --set multiple-plan --name ${ticketBranch}\` before adding a second plan`
+    };
+  }
+  const base = existing ?? buildTicketRecord({ ticketBranch, config: config2 });
+  if ("error" in base) {
+    return base;
+  }
+  const allocated = allocatePlanId({ record: base, slug });
+  if ("error" in allocated) {
+    return allocated;
+  }
+  const added = appendTicketEvent({
+    record: { ...base, plans: [...base.plans, { id: allocated.id, title: title ?? slug, progress: PlanProgress.Planning, createdAt: at }] },
+    kind: TicketEventKind.PlanAdded,
+    detail: `plan ${allocated.id} was added to ticket ${ticketBranch}`,
+    at
+  });
+  return {
+    record: recordShipRequestWithdrawal({
+      record: added,
+      detail: `plan ${allocated.id} was added, so the ship request naming ${base.shipRequest?.planIds.join(", ") ?? ""} no longer covers the ticket's work`,
+      at
+    }),
+    planId: allocated.id,
+    withdrew: base.shipRequest !== void 0
+  };
+};
+var addTicketPlan = async ({
+  cwd,
+  ticketBranch,
+  slug,
+  title,
+  config: config2,
+  env,
+  onProgress
+}) => {
+  const pulled = await pullTicketRecord({ cwd, ticketBranch, config: config2, env, onProgress });
+  if ("error" in pulled) {
+    return pulled;
+  }
+  const published = pulled.record === void 0 ? await findPublishedLegacyPlanRefusal({ ticketBranch, config: config2, env }) : void 0;
+  if (published !== void 0) {
+    return { error: published };
+  }
+  const legacyEntries = await listLegacyPlanEntries({ ticketFolder: getTicketFolderPath({ stateDir: await resolveSharedStateDir({ cwd }), ticketBranch }) });
+  let addition;
+  const updated = await updateSyncedTicketRecord({
+    cwd,
+    ticketBranch,
+    config: config2,
+    env,
+    onProgress,
+    change: (current) => {
+      const added = addPlanToRecord({ current, ticketBranch, slug, title, config: config2, legacyEntries, at: (/* @__PURE__ */ new Date()).toISOString() });
+      if ("error" in added) {
+        return added;
+      }
+      addition = added;
+      return added.record;
+    }
+  });
+  if ("error" in updated) {
+    return updated;
+  }
+  if (addition === void 0) {
+    return { error: `the plan was not added to ticket ${ticketBranch}: the store reported no change` };
+  }
+  const address = formatPlanAddress({ ticketBranch, planId: addition.planId });
+  await mkdir20(planWorkspaceDir({ cwd, name: address }), { recursive: true });
+  return {
+    address,
+    record: updated.record,
+    notice: addition.withdrew ? `the pending ship request was withdrawn because plan ${addition.planId} was added \u2014 ask again with \`lightsout ticket request-ship --name ${ticketBranch}\` once the ticket's work is settled` : void 0,
+    publishError: updated.publishError
+  };
+};
+
+// src/ticket/adoptTicketPlan.ts
+import { mkdir as mkdir21, rename as rename9, rmdir } from "node:fs/promises";
+import { dirname as dirname15, join as join87 } from "node:path";
+
+// src/ticket/common/adoption/findLiveRunRefusal.ts
+var findLiveRunRefusal = async ({ primaryCheckout, runs }) => {
+  const locks = await Promise.all(runs.map((manifest) => readRunProcessLock({ cwd: primaryCheckout, manifest })));
+  const live2 = runs.find((manifest, index) => isRunLive({ manifest, lock: locks[index] }));
+  return live2 === void 0 ? void 0 : `run ${live2.runId} is still building ${live2.plan}, and adopting the folder would move the files out from under it \u2014 wait for that run to finish, or stop it, and run this again`;
+};
+
+// src/ticket/common/adoption/readAdoptedProgress.ts
+var readAdoptedProgress = ({ runs, hasDeliverable }) => {
+  const latest = runs.filter((manifest) => manifest.pipeline !== PipelineKind.Phases).sort((left, right) => left.createdAt < right.createdAt ? -1 : 1).at(-1);
+  let progress = hasDeliverable ? PlanProgress.Ready : PlanProgress.Planning;
+  if (latest !== void 0) {
+    progress = latest.status === RunStatus.Failed || latest.status === RunStatus.Escalated ? PlanProgress.Failed : PlanProgress.Implementing;
+  }
+  if (runs.some((manifest) => manifest.status === RunStatus.Passed)) {
+    progress = PlanProgress.Implemented;
+  }
+  return progress;
+};
+
+// src/ticket/common/adoption/readFolderRuns.ts
+var isFolderRun = ({ manifest, ticketBranch }) => manifest.parentRunId === void 0 && (manifest.pipeline === void 0 || manifest.pipeline === PipelineKind.Implement || manifest.pipeline === PipelineKind.Phases) && isRunInPlanWorkspace({ runPlan: manifest.plan, name: ticketBranch });
+var readFolderRuns = async ({ primaryCheckout, ticketBranch }) => {
+  const runIds = await listRunIds({ cwd: primaryCheckout });
+  const manifests = await Promise.all(runIds.map((runId) => readRunManifest({ cwd: primaryCheckout, runId }).catch(() => void 0)));
+  return manifests.filter((manifest) => manifest !== void 0 && isFolderRun({ manifest, ticketBranch }));
+};
+
+// src/ticket/adoptTicketPlan.ts
+var restoreBareGenerations = async ({ params, primaryCheckout }) => {
+  const { ticketBranch, config: config2, env } = params;
+  const target = resolveTicketTrackerTarget({ config: config2, env, ticketBranch });
+  if ("localOnly" in target) {
+    return void 0;
+  }
+  if ("error" in target) {
+    return target;
+  }
+  const { settings, ticketRef: identifier } = target;
+  const plan = await restorePlanWorkspace({ cwd: primaryCheckout, name: ticketBranch, identifier, settings });
+  if (plan.error !== void 0) {
+    return { error: plan.error };
+  }
+  const brainstorm = await restoreBrainstormFiles({ cwd: primaryCheckout, name: ticketBranch, identifier, settings });
+  return brainstorm.error === void 0 ? void 0 : { error: brainstorm.error };
+};
+var movePlanEntries = async ({ ticketFolder, planFolder, entries }) => {
+  const moved = [];
+  let error51;
+  try {
+    await mkdir21(planFolder, { recursive: true });
+    for (const entry of entries) {
+      await rename9(join87(ticketFolder, entry), join87(planFolder, entry));
+      moved.push(entry);
+    }
+  } catch (failure) {
+    error51 = `the files of '${ticketFolder}' could not be moved into ${planFolder}: ${messageOf({ error: failure })}`;
+  }
+  return { moved, error: error51 };
+};
+var undoMovedEntries = async ({ ticketFolder, planFolder, moved }) => {
+  for (const entry of moved) {
+    await rename9(join87(planFolder, entry), join87(ticketFolder, entry)).catch(() => void 0);
+  }
+  await rmdir(planFolder).catch(() => void 0);
+};
+var describeAdoption = ({ address, planId, hasDeliverable, runs }) => {
+  const sentences = [
+    ...hasDeliverable ? [`the adopted files are not published under plan ${planId}'s own titles yet \u2014 run \`lightsout plan publish --name ${address}\`.`] : [],
+    ...runs.some((manifest) => manifest.status !== RunStatus.Passed) ? [
+      `the earlier runs of this folder can no longer be resumed through their old plan path now that its files have moved \u2014 finish plan ${planId}'s implementation with \`lightsout implement --plan ${planWorkspacePath({ name: address })}\`.`
+    ] : []
+  ];
+  return sentences.length === 0 ? void 0 : sentences.join(" ");
+};
+var resolveAdoptionSubject = async (params) => {
+  const { cwd, ticketBranch, slug, config: config2, env, onProgress } = params;
+  const pulled = await pullTicketRecord({ cwd, ticketBranch, config: config2, env, onProgress });
+  if ("error" in pulled) {
+    return pulled;
+  }
+  if (pulled.record !== void 0) {
+    return { error: `ticket ${ticketBranch} already has a record holding ${pulled.record.plans.length} plan(s), so there is no single-folder plan to adopt` };
+  }
+  const composed = composePlanId({ number: 1, slug });
+  const born = buildTicketRecord({ ticketBranch, config: config2 });
+  if ("error" in composed) {
+    return composed;
+  }
+  if ("error" in born) {
+    return born;
+  }
+  const stateDir = await resolveSharedStateDir({ cwd });
+  const primaryCheckout = dirname15(stateDir);
+  const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
+  const onDisk = await listLegacyPlanEntries({ ticketFolder });
+  const restored = onDisk.length === 0 ? await restoreBareGenerations({ params, primaryCheckout }) : void 0;
+  if (restored !== void 0) {
+    return restored;
+  }
+  const entries = onDisk.length === 0 ? await listLegacyPlanEntries({ ticketFolder }) : onDisk;
+  if (entries.length === 0) {
+    return {
+      error: `the plan folder '${ticketBranch}' holds no files of a single-folder plan, on this machine or on its ticket, so there is nothing to adopt`
+    };
+  }
+  const runs = await readFolderRuns({ primaryCheckout, ticketBranch });
+  const live2 = await findLiveRunRefusal({ primaryCheckout, runs });
+  return live2 === void 0 ? { primaryCheckout, ticketFolder, entries, runs, planId: composed.id, born } : { error: live2 };
+};
+var adoptTicketPlan = async (params) => {
+  const subject = await resolveAdoptionSubject(params);
+  if ("error" in subject) {
+    return subject;
+  }
+  const { cwd, ticketBranch, slug, config: config2, env, onProgress } = params;
+  const { primaryCheckout, ticketFolder, entries, runs, planId, born } = subject;
+  const address = formatPlanAddress({ ticketBranch, planId });
+  const hasDeliverable = (await resolvePlanDeliverable({ cwd: primaryCheckout, name: ticketBranch })).error === void 0;
+  const at = (/* @__PURE__ */ new Date()).toISOString();
+  const adopted = appendTicketEvent({
+    record: { ...born, plans: [{ id: planId, title: slug, progress: readAdoptedProgress({ runs, hasDeliverable }), createdAt: at }] },
+    kind: TicketEventKind.PlanAdopted,
+    detail: `the single-folder plan of ${ticketBranch} was adopted as plan ${planId}`,
+    at
+  });
+  const planFolder = join87(ticketFolder, planId);
+  const appeared = `a ticket record for ${ticketBranch} appeared while its folder was being adopted, so nothing was changed`;
+  const { moved, error: moveError } = await movePlanEntries({ ticketFolder, planFolder, entries });
+  const written = moveError === void 0 ? await updateSyncedTicketRecord({
+    cwd,
+    ticketBranch,
+    config: config2,
+    env,
+    onProgress,
+    change: (current) => current === void 0 ? adopted : { error: appeared }
+  }) : { error: moveError };
+  if ("error" in written) {
+    await undoMovedEntries({ ticketFolder, planFolder, moved });
+    return written;
+  }
+  return { address, record: written.record, notice: describeAdoption({ address, planId, hasDeliverable, runs }), publishError: written.publishError };
+};
+
+// src/ticket/common/constants/TicketSyncKeep.ts
+var TicketSyncKeep = {
+  Local: "local",
+  Published: "published"
+};
+
+// src/ticket/common/exclusion/applyExclusion.ts
+var applyExclusion = ({ record: record3, target, reason, implementationRemoved, verifiedCommit, at }) => {
+  const amending = target.exclusion !== void 0;
+  const exclusion = target.exclusion === void 0 ? { at, reason, implementationRemoved, ...verifiedCommit === void 0 ? {} : { verifiedCommit } } : { ...target.exclusion, implementationRemoved: true, verifiedCommit };
+  const excluded = appendTicketEvent({
+    record: { ...record3, plans: record3.plans.map((candidate) => candidate.id === target.id ? { ...candidate, exclusion } : candidate) },
+    kind: TicketEventKind.PlanExcluded,
+    detail: amending ? `plan ${target.id}'s implementation was recorded as removed from ticket ${record3.branch}, verified at ${verifiedCommit}` : `plan ${target.id} was excluded from ticket ${record3.branch}: ${reason}`,
+    at
+  });
+  const named = record3.shipRequest?.planIds.includes(target.id) === true;
+  return {
+    record: named ? recordShipRequestWithdrawal({
+      record: excluded,
+      detail: `plan ${target.id} was excluded \u2014 ${reason} \u2014 so the ship request naming it no longer describes the ticket's work`,
+      at
+    }) : excluded,
+    withdrew: named
+  };
+};
+
+// src/ticket/common/record/isPlanImplementationStarted.ts
+var isPlanImplementationStarted = ({ plan }) => plan.progress === PlanProgress.Implementing || plan.progress === PlanProgress.Implemented || plan.progress === PlanProgress.Failed;
+
+// src/ticket/common/exclusion/findExclusionRefusal.ts
+var findExclusionRefusal = ({ record: record3, target, implementationRemoved }) => {
+  const started = isPlanImplementationStarted({ plan: target });
+  if (record3.mode === TicketMode.SinglePlan && planNumberOf({ id: target.id }) === 1) {
+    return `plan ${target.id} is the whole implementation of single-plan ticket ${record3.branch}, so excluding it would leave the ticket nothing to ship \u2014 run \`lightsout ticket mode --name ${record3.branch} --set multiple-plan\` first if this ticket's work has moved on`;
+  }
+  if (implementationRemoved && !started) {
+    return `plan ${target.id} on ticket ${record3.branch} has no implementation to remove, because its own implementation never started \u2014 exclude it without --implementation-removed`;
+  }
+  return target.exclusion !== void 0 && !(implementationRemoved && started && !target.exclusion.implementationRemoved) ? `plan ${target.id} is already excluded from ticket ${record3.branch} \u2014 ${target.exclusion.reason} \u2014 and an exclusion is final; the one thing a recorded exclusion still takes is \`--implementation-removed\`, once that plan's implementation has been taken off the branch` : void 0;
+};
+
+// src/ticket/common/exclusion/verifyTicketBranch.ts
+var verifyTicketBranch = async ({ cwd, branch, onProgress }) => {
+  const checkout = await readBranchWorktree({ cwd, branch });
+  if (checkout === void 0) {
+    return {
+      error: `no checkout of this repository holds ${branch}, and excluding a plan whose implementation started means verifying that branch first \u2014 check it out, or cut its worktree, and run this again`
+    };
+  }
+  const holder = await readLiveRunLock({ cwd: checkout });
+  if (holder !== void 0) {
+    return {
+      error: `run ${holder.runId} is still working in ${checkout}, so the gates there would verify a tree that is still changing \u2014 wait for that run to finish, or stop it`
+    };
+  }
+  const changed = await readGitChangedFiles({ cwd: checkout });
+  if (changed === void 0 || changed.length > 0) {
+    return {
+      error: `${checkout} has ${changed === void 0 ? "no readable git status" : `${changed.length} uncommitted change(s)`}, so nothing there can be verified \u2014 commit or discard them and run this again`
+    };
+  }
+  const commit = await readGitHeadCommit({ cwd: checkout });
+  if (commit === void 0) {
+    return { error: `the commit ${checkout} stands on could not be read, so no verified commit could be recorded against the exclusion` };
+  }
+  const gates = await runGates({ cwd: checkout, config: await readConfig({ cwd: checkout }), coverage: true, includeRoot: true, onProgress });
+  return gates.error === void 0 ? { commit } : { error: `this repository's own gates are red on ${branch} at ${commit}, so it cannot be verified:
+${gates.error}` };
+};
+
+// src/ticket/common/record/changeExistingTicketRecord.ts
+var changeExistingTicketRecord = async ({
+  cwd,
+  ticketBranch,
+  config: config2,
+  env,
+  onProgress,
+  change
+}) => {
+  const updated = await updateSyncedTicketRecord({
+    cwd,
+    ticketBranch,
+    config: config2,
+    env,
+    onProgress,
+    change: (current) => {
+      const record3 = requireTicketRecord({ record: current, ticketBranch });
+      return "error" in record3 ? record3 : change(record3);
+    }
+  });
+  return "error" in updated ? updated : { record: updated.record, publishError: updated.publishError };
+};
+
+// src/ticket/common/record/resolveTicketPlan.ts
+var resolveTicketPlan = ({ record: record3, token }) => {
+  const numbered = /^\d{1,3}$/.test(token) ? record3.plans.find((plan2) => planNumberOf({ id: plan2.id }) === Number(token)) : void 0;
+  const plan = record3.plans.find((candidate) => candidate.id === token) ?? numbered;
+  const held = record3.plans.length === 0 ? "it holds no plans" : `it holds ${record3.plans.map((candidate) => candidate.id).join(", ")}`;
+  return plan ?? { error: `ticket ${record3.branch} holds no plan '${token}' \u2014 ${held}` };
+};
+
+// src/ticket/excludeTicketPlan.ts
+var recordExclusion = async ({
+  params,
+  verifiedCommit
+}) => {
+  const { cwd, ticketBranch, plan, reason, implementationRemoved, config: config2, env, onProgress } = params;
+  let withdrew = false;
+  const updated = await changeExistingTicketRecord({
+    cwd,
+    ticketBranch,
+    config: config2,
+    env,
+    onProgress,
+    change: (now) => {
+      const target = resolveTicketPlan({ record: now, token: plan });
+      if ("error" in target) {
+        return target;
+      }
+      const refusal = findExclusionRefusal({ record: now, target, implementationRemoved });
+      if (refusal !== void 0) {
+        return { error: refusal };
+      }
+      const applied = applyExclusion({ record: now, target, reason, implementationRemoved, verifiedCommit, at: (/* @__PURE__ */ new Date()).toISOString() });
+      withdrew = applied.withdrew;
+      return applied.record;
+    }
+  });
+  return "error" in updated ? updated : { ...updated, withdrew };
+};
+var excludeTicketPlan = async (params) => {
+  const { cwd, ticketBranch, plan, implementationRemoved, config: config2, env, onProgress } = params;
+  const pulled = await pullTicketRecord({ cwd, ticketBranch, config: config2, env, onProgress });
+  if ("error" in pulled) {
+    return pulled;
+  }
+  const record3 = requireTicketRecord({ record: pulled.record, ticketBranch });
+  if ("error" in record3) {
+    return record3;
+  }
+  const target = resolveTicketPlan({ record: record3, token: plan });
+  if ("error" in target) {
+    return target;
+  }
+  const refusal = findExclusionRefusal({ record: record3, target, implementationRemoved });
+  if (refusal !== void 0) {
+    return { error: refusal };
+  }
+  const verification = isPlanImplementationStarted({ plan: target }) ? await verifyTicketBranch({ cwd, branch: record3.branch, onProgress }) : { commit: void 0 };
+  if ("error" in verification) {
+    return verification;
+  }
+  const written = await recordExclusion({ params, verifiedCommit: verification.commit });
+  if ("error" in written) {
+    return written;
+  }
+  return {
+    record: written.record,
+    notice: written.withdrew ? `the pending ship request was withdrawn because plan ${target.id} is no longer part of ticket ${ticketBranch}'s work \u2014 ask again with \`lightsout ticket request-ship --name ${ticketBranch}\`` : void 0,
+    publishError: written.publishError
+  };
+};
+
+// src/ticket/findBareTicketFolderRefusal.ts
+import { join as join88 } from "node:path";
+var findBareTicketFolderRefusal = async ({ cwd, name }) => {
+  if (parsePlanAddress({ name }) !== void 0) {
+    return void 0;
+  }
+  const stateDir = await resolveSharedStateDir({ cwd });
+  const recordPath = join88(getTicketFolderPath({ stateDir, ticketBranch: name }), ticketFileNames.record);
+  if (!await pathExists({ path: recordPath })) {
+    return void 0;
+  }
+  const read = await readTicketRecord({ cwd, ticketBranch: name });
+  if ("error" in read) {
+    return read.error;
+  }
+  return read.record === void 0 ? void 0 : `the plan folder '${name}' belongs to a ticket record, so name a plan as '${name}/<plan-id>' \u2014 \`lightsout ticket show --name ${name}\` lists the plans it holds`;
+};
+
+// src/ticket/findNextPlanToPlan.ts
+var findNextPlanToPlan = ({ record: record3 }) => record3.plans.find((plan) => plan.exclusion === void 0 && plan.progress === PlanProgress.Planning);
+
+// src/ticket/findPlanImplementationBlocker.ts
+var describeLowerPlanRemedy = ({ branch, plan }) => {
+  const finish = plan.implementation === void 0 ? `\`lightsout implement --plan ${planWorkspacePath({ name: formatPlanAddress({ ticketBranch: branch, planId: plan.id }) })}\`` : `\`lightsout resume --run ${plan.implementation.runId}\``;
+  return `${finish}, or take it out of the order with \`lightsout ticket exclude-plan --name ${branch} --plan ${plan.id}\``;
+};
+var findLowerPlanBlocker = ({ record: record3, planId }) => {
+  const number4 = planNumberOf({ id: planId });
+  const blocking = record3.plans.find(
+    (plan) => planNumberOf({ id: plan.id }) < number4 && plan.exclusion === void 0 && plan.progress !== PlanProgress.Implemented
+  );
+  return blocking === void 0 ? void 0 : `plan ${blocking.id} comes before ${planId} on ticket ${record3.branch} and its implementation has not finished, and a ticket's plans implement in numeric order \u2014 finish it with ${describeLowerPlanRemedy({ branch: record3.branch, plan: blocking })}`;
+};
+var findPlanImplementationBlocker = ({ record: record3, planId }) => {
+  const { branch } = record3;
+  const plan = record3.plans.find((candidate) => candidate.id === planId);
+  let blocker;
+  if (plan === void 0) {
+    blocker = `ticket ${branch} holds no plan ${planId} \u2014 \`lightsout ticket show --name ${branch}\` lists the plans it does hold`;
+  } else if (plan.exclusion !== void 0) {
+    blocker = `plan ${planId} is excluded from ticket ${branch} \u2014 ${plan.exclusion.reason} \u2014 and an exclusion is final; add follow-up work as a new plan with \`lightsout ticket add-plan --name ${branch}\``;
+  } else if (record3.mode === TicketMode.SinglePlan && planNumberOf({ id: planId }) !== 1) {
+    blocker = `ticket ${branch} is in single-plan mode, where plan 001 alone supplies the implementation, so plan ${planId} is not built \u2014 run \`lightsout ticket mode --name ${branch} --set multiple-plan\` to implement this ticket's plans in numeric order`;
+  } else if (plan.progress === PlanProgress.Implemented) {
+    blocker = `plan ${planId} is already implemented on ticket ${branch}, and an implemented plan is the scope the ticket ships on; add follow-up work as a new plan with \`lightsout ticket add-plan --name ${branch}\``;
+  } else {
+    blocker = findLowerPlanBlocker({ record: record3, planId });
+  }
+  return blocker;
+};
+
+// src/ticket/readTicketShipEligibility.ts
+var readSinglePlanEligibility = ({ record: record3 }) => {
+  const first = record3.plans.find((plan) => planNumberOf({ id: plan.id }) === 1);
+  let eligibility;
+  if (first === void 0) {
+    eligibility = { eligible: false, reason: `ticket ${record3.branch} is in single-plan mode and holds no plan 001, so nothing supplies its implementation` };
+  } else if (first.exclusion !== void 0) {
+    eligibility = {
+      eligible: false,
+      reason: `plan ${first.id} is excluded from ticket ${record3.branch} \u2014 ${first.exclusion.reason} \u2014 so a single-plan ticket has no implementation to ship`
+    };
+  } else if (first.progress !== PlanProgress.Implemented) {
+    eligibility = {
+      eligible: false,
+      reason: `the implementation of plan ${first.id} on ticket ${record3.branch} has not finished, and a single-plan ticket ships once plan 001 is implemented`
+    };
+  } else {
+    eligibility = { eligible: true };
+  }
+  return eligibility;
+};
+var describeRequestDrift = ({ missing, stale }) => {
+  const clauses = [
+    ...missing.length === 0 ? [] : [`it does not name ${missing.join(", ")}`],
+    ...stale.length === 0 ? [] : [`it names ${stale.join(", ")}, which the ticket no longer includes`]
+  ];
+  return clauses.join(", and ");
+};
+var readMultiplePlanEligibility = ({ record: record3 }) => {
+  const included = record3.plans.filter((plan) => plan.exclusion === void 0);
+  const includedIds = included.map((plan) => plan.id);
+  const request = record3.shipRequest;
+  const askAgain = `\`lightsout ticket request-ship --name ${record3.branch} --plans ${includedIds.join(",")}\``;
+  let eligibility;
+  if (request === void 0) {
+    eligibility = { eligible: false, reason: `ticket ${record3.branch} is in multiple-plan mode and carries no ship request, so ask for one with ${askAgain}` };
+  } else {
+    const missing = includedIds.filter((id) => !request.planIds.includes(id));
+    const stale = request.planIds.filter((id) => !includedIds.includes(id));
+    const waiting = included.find((plan) => plan.progress !== PlanProgress.Implemented);
+    if (missing.length > 0 || stale.length > 0) {
+      eligibility = {
+        eligible: false,
+        reason: `the ship request on ticket ${record3.branch} no longer names the plans it holds \u2014 ${describeRequestDrift({ missing, stale })} \u2014 so request shipping again with ${askAgain}`
+      };
+    } else if (waiting !== void 0) {
+      eligibility = {
+        eligible: false,
+        reason: `the implementation of plan ${waiting.id} on ticket ${record3.branch} has not finished, and every plan its ship request names is implemented before the ticket ships`
+      };
+    } else {
+      eligibility = { eligible: true };
+    }
+  }
+  return eligibility;
+};
+var readTicketShipEligibility = ({ record: record3 }) => {
+  let eligibility;
+  if (record3.shipped !== void 0) {
+    eligibility = {
+      eligible: false,
+      reason: `ticket ${record3.branch} already shipped as ${record3.shipped.mergeCommit}, so its record no longer authorizes a merge`
+    };
+  } else if (record3.mode === TicketMode.SinglePlan) {
+    eligibility = readSinglePlanEligibility({ record: record3 });
+  } else {
+    eligibility = readMultiplePlanEligibility({ record: record3 });
+  }
+  return eligibility;
+};
+
+// src/ticket/implementRun/createTicketShipGuard.ts
+var createTicketShipGuard = ({ config: config2, env, onProgress }) => ({
+  authorize: async ({ cwd, branch }) => {
+    const pulled = await pullTicketRecord({ cwd, ticketBranch: branch, config: config2, env, onProgress });
+    if ("error" in pulled) {
+      const local = await readTicketRecord({ cwd, ticketBranch: branch });
+      return "error" in local || local.record !== void 0 ? pulled.error : void 0;
+    }
+    if (pulled.record === void 0) {
+      return void 0;
+    }
+    const eligibility = readTicketShipEligibility({ record: pulled.record });
+    return eligibility.eligible ? void 0 : eligibility.reason;
+  },
+  recordShipped: async ({ cwd, branch, mergeCommit }) => {
+    const read = await readTicketRecord({ cwd, ticketBranch: branch });
+    if ("error" in read) {
+      onProgress?.(`the merge ${mergeCommit} could not be recorded on the ticket: ${read.error}`);
+      return;
+    }
+    if (read.record === void 0) {
+      return;
+    }
+    const at = (/* @__PURE__ */ new Date()).toISOString();
+    const updated = await updateSyncedTicketRecord({
+      cwd,
+      ticketBranch: branch,
+      config: config2,
+      env,
+      onProgress,
+      change: (current) => {
+        if (current === void 0) {
+          return { error: `ticket ${branch} no longer has a record, so the merge ${mergeCommit} could not be recorded on it` };
+        }
+        const planIds = current.plans.filter((plan) => plan.exclusion === void 0).map((plan) => plan.id);
+        return appendTicketEvent({
+          record: { ...current, shipped: { at, planIds, mergeCommit } },
+          kind: TicketEventKind.Shipped,
+          detail: `ticket ${branch} shipped as ${mergeCommit} with ${planIds.join(", ")}`,
+          at
+        });
+      }
+    });
+    if ("error" in updated) {
+      onProgress?.(`the merge ${mergeCommit} could not be recorded on the ticket: ${updated.error}`);
+    } else if (updated.publishError !== void 0) {
+      onProgress?.(updated.publishError);
+    }
+  }
+});
+
+// src/ticket/implementRun/readTicketRunTerms.ts
+import { basename as basename33 } from "node:path";
+
+// src/ticket/common/utils/isWholePlanRun.ts
+import { resolve as resolve8 } from "node:path";
+var wholePlanFileNames = ["plan.md", "overview.md"];
+var isWholePlanRun = ({ cwd, name, planPath, pipeline }) => {
+  if (pipeline === PipelineKind.Direct || planPath === void 0) {
+    return true;
+  }
+  const folder = planWorkspaceDir({ cwd, name });
+  return wholePlanFileNames.some((file2) => resolve8(cwd, planPath) === resolve8(folder, file2));
+};
+
+// src/ticket/implementRun/readTicketRunTerms.ts
+var readTicketRunTerms = async ({ cwd, name, planPath }) => {
+  if (name === void 0) {
+    return {};
+  }
+  const address = parsePlanAddress({ name });
+  if (address === void 0) {
+    return {};
+  }
+  const read = await readTicketRecord({ cwd, ticketBranch: address.ticketBranch });
+  if ("error" in read) {
+    return { refusal: read.error, shipRequest: { blocker: read.error } };
+  }
+  const { record: record3 } = read;
+  if (record3 === void 0) {
+    return {};
+  }
+  const { planId } = address;
+  const refusal = findPlanImplementationBlocker({ record: record3, planId });
+  let shipRequest;
+  if (planPath !== void 0 && !isWholePlanRun({ cwd, name, planPath })) {
+    shipRequest = {
+      blocker: `this run covers ${basename33(planPath)} alone, and the implementation of plan ${planId} on ticket ${record3.branch} has not finished until the whole plan runs`
+    };
+  } else if (record3.mode === TicketMode.MultiplePlan) {
+    const eligibility = readTicketShipEligibility({
+      record: { ...record3, plans: record3.plans.map((plan) => plan.id === planId ? { ...plan, progress: PlanProgress.Implemented } : plan) }
+    });
+    shipRequest = { blocker: eligibility.eligible ? void 0 : eligibility.reason };
+  }
+  return { refusal, shipRequest };
+};
+
+// src/ticket/implementRun/runTicketPlanLifecycle.ts
+import { randomUUID as randomUUID6 } from "node:crypto";
+import { readFile as readFile35 } from "node:fs/promises";
+
+// src/ticket/common/utils/findDivergentPlanIds.ts
+var findDivergentPlanIds = ({ record: record3, syncState }) => record3.plans.filter((plan) => plan.publishedMarker !== void 0 && plan.publishedMarker !== syncState?.planMarkers[plan.id]).map((plan) => plan.id);
+
+// src/ticket/implementRun/runTicketPlanLifecycle.ts
+var readPlanSnapshot = async ({ cwd, name }) => {
+  const durable = await durablePlanFiles({ cwd, name });
+  const snapshot = [];
+  for (const file2 of durable.files) {
+    const content = await readFile35(file2.path).catch(() => void 0);
+    if (content !== void 0) {
+      snapshot.push({ name: file2.name, sha256: sha256({ content }) });
+    }
+  }
+  return snapshot;
+};
+var withPlan = ({ record: record3, plan }) => ({
+  ...record3,
+  plans: record3.plans.map((candidate) => candidate.id === plan.id ? plan : candidate)
+});
+var recordImplementing = ({
+  cwd,
+  ticketBranch,
+  planId,
+  runId,
+  headCommit
+}) => updateLocalTicketRecord({
+  cwd,
+  ticketBranch,
+  change: (current) => {
+    if (current === void 0) {
+      return { error: `ticket ${ticketBranch} no longer has a record, so plan ${planId} cannot be recorded as being implemented` };
+    }
+    const blocker = findPlanImplementationBlocker({ record: current, planId });
+    if (blocker !== void 0) {
+      return { error: blocker };
+    }
+    const plan = current.plans.find((candidate) => candidate.id === planId);
+    if (plan === void 0) {
+      return { error: `ticket ${ticketBranch} holds no plan ${planId}` };
+    }
+    const started = (plan.progress === PlanProgress.Implementing || plan.progress === PlanProgress.Failed) && plan.implementation !== void 0 ? { startedAt: plan.implementation.startedAt, startCommit: plan.implementation.startCommit } : { startedAt: (/* @__PURE__ */ new Date()).toISOString(), startCommit: headCommit ?? "" };
+    return withPlan({ record: current, plan: { ...plan, progress: PlanProgress.Implementing, implementation: { runId, ...started } } });
+  }
+});
+var needsFreshStart = ({ plan }) => plan?.implementation === void 0 || plan.progress !== PlanProgress.Implementing && plan.progress !== PlanProgress.Failed;
+var recordOutcome = async ({
+  cwd,
+  ticketBranch,
+  planId,
+  name,
+  result
+}) => {
+  const whole = isWholePlanRun({ cwd, name, planPath: result.manifest.plan, pipeline: result.manifest.pipeline });
+  const failed = result.manifest.status === RunStatus.Failed || result.manifest.status === RunStatus.Escalated;
+  if (!(result.ok && whole) && !failed) {
+    return void 0;
+  }
+  const snapshot = result.ok ? await readPlanSnapshot({ cwd, name }) : void 0;
+  const finishedAt = (/* @__PURE__ */ new Date()).toISOString();
+  const updated = await updateLocalTicketRecord({
+    cwd,
+    ticketBranch,
+    change: (current) => {
+      const plan = current?.plans.find((candidate) => candidate.id === planId);
+      if (current === void 0 || plan === void 0) {
+        return { error: `ticket ${ticketBranch} no longer holds plan ${planId}, so the run's outcome could not be recorded against it` };
+      }
+      const implementation = plan.implementation ?? { runId: result.manifest.runId, startedAt: finishedAt, startCommit: "" };
+      return withPlan({
+        record: current,
+        plan: snapshot === void 0 ? { ...plan, progress: PlanProgress.Failed, implementation } : { ...plan, progress: PlanProgress.Implemented, implementation: { ...implementation, finishedAt, snapshot } }
+      });
+    }
+  });
+  return "error" in updated ? updated.error : void 0;
+};
+var runTicketPlanLifecycle = async ({ cwd, name, resumeRunId, run }) => {
+  const address = name === void 0 ? void 0 : parsePlanAddress({ name });
+  if (name === void 0 || address === void 0) {
+    return { result: await run({ runId: resumeRunId ?? randomUUID6() }) };
+  }
+  const { ticketBranch, planId } = address;
+  const read = await readTicketRecord({ cwd, ticketBranch });
+  if ("error" in read) {
+    return { refusal: read.error };
+  }
+  const { record: record3 } = read;
+  if (record3 === void 0) {
+    return { result: await run({ runId: resumeRunId ?? randomUUID6() }) };
+  }
+  const blocker = findPlanImplementationBlocker({ record: record3, planId });
+  if (blocker !== void 0) {
+    return { refusal: blocker };
+  }
+  const stateDir = await resolveSharedStateDir({ cwd });
+  const syncState = await readTicketSyncState({ ticketFolder: getTicketFolderPath({ stateDir, ticketBranch }) });
+  if (findDivergentPlanIds({ record: record3, syncState }).includes(planId)) {
+    return {
+      refusal: `plan ${planId} was published from another machine after this one last saw it, so the copy here may not be what the ticket carries \u2014 run \`lightsout ticket sync --name ${ticketBranch} --keep published\` to take the ticket's copy, or \`--keep local\` to publish this machine's over it`
+    };
+  }
+  const plan = record3.plans.find((candidate) => candidate.id === planId);
+  const fresh = needsFreshStart({ plan });
+  const headCommit = fresh ? await readGitHeadCommit({ cwd }) : void 0;
+  if (fresh && headCommit === void 0) {
+    return {
+      refusal: `git could not name the commit ${cwd} is standing on, and the implementation of plan ${planId} on ticket ${ticketBranch} is recorded against the commit it starts from`
+    };
+  }
+  const runId = resumeRunId ?? randomUUID6();
+  const started = await recordImplementing({ cwd, ticketBranch, planId, runId, headCommit });
+  if ("error" in started) {
+    return { refusal: started.error };
+  }
+  const result = await run({ runId });
+  const recordError = await recordOutcome({ cwd, ticketBranch, planId, name, result });
+  const note = result.ok && !isWholePlanRun({ cwd, name, planPath: result.manifest.plan, pipeline: result.manifest.pipeline }) ? `this run covered one phase file of plan ${planId} and it passed; the implementation of plan ${planId} on ticket ${ticketBranch} has not finished until the whole plan runs` : void 0;
+  return { result, recordError, note };
+};
+
+// src/ticket/common/utils/matchesImplementedSnapshot.ts
+import { readFile as readFile36 } from "node:fs/promises";
+var matchesImplementedSnapshot = async ({ cwd, address, snapshot }) => {
+  const durable = await durablePlanFiles({ cwd, name: address });
+  const named = new Set(snapshot.map(({ name }) => name));
+  const attachable = durable.files.filter(({ name }) => name !== brainstormNotesFileName);
+  let matches = durable.error === void 0 && attachable.every(({ name }) => named.has(name));
+  for (const entry of snapshot) {
+    const file2 = matches ? durable.files.find(({ name }) => name === entry.name) : void 0;
+    const content = file2 === void 0 ? void 0 : await readFile36(file2.path).catch(() => void 0);
+    matches = matches && content !== void 0 && sha256({ content }) === entry.sha256;
+  }
+  return matches;
+};
+
+// src/ticket/common/utils/findPlanPublishRefusal.ts
+var findPlanPublishRefusal = async ({ cwd, address, planId, ticketBranch, record: record3, syncState }) => {
+  const plan = record3?.plans.find((entry) => entry.id === planId);
+  if (record3 === void 0 || plan === void 0) {
+    return `the ticket record for '${ticketBranch}' does not hold plan ${planId} \u2014 run \`lightsout ticket add-plan --name ${ticketBranch} --slug <slug>\` to add a plan before publishing it`;
+  }
+  if (findDivergentPlanIds({ record: record3, syncState }).includes(planId)) {
+    return `plan ${planId} was published from another machine after this one last saw it, so publishing over it would lose that work \u2014 run \`lightsout ticket sync --name ${ticketBranch} --keep local\` to send this machine's copy, or \`--keep published\` to take the ticket's`;
+  }
+  const snapshot = plan.implementation?.snapshot;
+  if (plan.progress === PlanProgress.Implemented && snapshot !== void 0 && !await matchesImplementedSnapshot({ cwd, address, snapshot })) {
+    return `plan ${planId} is implemented and its files have changed since the run that implemented it, so it no longer describes what was built \u2014 run \`lightsout ticket add-plan --name ${ticketBranch} --slug <slug>\` and put the follow-up work in a plan of its own`;
+  }
+  return void 0;
+};
+
+// src/ticket/common/utils/publishBrainstormWhenNotesChanged.ts
+import { readFile as readFile37 } from "node:fs/promises";
+import { join as join89 } from "node:path";
+var readCommittedNotesHash = async ({
+  planId,
+  target
+}) => {
+  const { settings, ticketRef } = target;
+  const attachments = await getTicketAttachments3({ settings, identifier: ticketRef });
+  if ("error" in attachments) {
+    return { error: `the brainstorm generation on ${ticketRef} could not be read: ${attachments.error}` };
+  }
+  const scoped = scopeAttachments({ attachments, prefix: planId });
+  const markers = scoped.filter(({ title }) => title === brainstormAttachmentManifestName);
+  const marker = markers.length === 1 ? markers[0] : void 0;
+  if (marker === void 0) {
+    return { committed: void 0 };
+  }
+  const text = await readTicketAsset3({ settings, url: marker.url });
+  if (typeof text !== "string") {
+    return { error: `the brainstorm generation on ${ticketRef} could not be read: ${text.error}` };
+  }
+  const parsed = parseAttachmentManifest({
+    text,
+    markerName: attachmentTitle({ prefix: planId, name: brainstormAttachmentManifestName }),
+    isAllowedName: ({ name }) => brainstormAttachmentFileNames.includes(name)
+  });
+  return { committed: "error" in parsed ? void 0 : parsed.manifest.files.find(({ name }) => name === brainstormNotesFileName)?.sha256 };
+};
+var publishBrainstormWhenNotesChanged = async ({
+  cwd,
+  address,
+  planId,
+  target,
+  config: config2,
+  env,
+  onProgress
+}) => {
+  const notesPath = join89(planWorkspaceDir({ cwd, name: address }), brainstormNotesFileName);
+  if (!await pathExists({ path: notesPath })) {
+    return { published: [] };
+  }
+  const committed = await readCommittedNotesHash({ planId, target });
+  if ("error" in committed) {
+    return committed;
+  }
+  const onDisk = sha256({ content: await readFile37(notesPath) });
+  if (committed.committed === onDisk) {
+    return { published: [] };
+  }
+  const report2 = await publishBrainstorm({ cwd, name: address, config: config2, env, onProgress: onProgress ?? (() => void 0), titlePrefix: planId });
+  return report2.error === void 0 ? { published: report2.published } : { error: report2.error };
+};
+
+// src/ticket/publishTicketPlan.ts
+var recordPublishedPlan = ({ planId, markerSha256, ticketBranch }) => (current) => {
+  const plan = current?.plans.find((entry) => entry.id === planId);
+  if (current === void 0 || plan === void 0) {
+    return { error: `the ticket record for '${ticketBranch}' no longer holds plan ${planId}, so the publish could not be recorded` };
+  }
+  return {
+    ...current,
+    plans: current.plans.map(
+      (entry) => entry.id === planId ? { ...entry, publishedMarker: markerSha256, progress: entry.progress === PlanProgress.Planning ? PlanProgress.Ready : entry.progress } : entry
+    )
+  };
+};
+var recordMarkerLocally = async ({
+  cwd,
+  ticketBranch,
+  planId,
+  markerSha256
+}) => {
+  const stateDir = await resolveSharedStateDir({ cwd });
+  return recordTicketSyncState({
+    ticketFolder: getTicketFolderPath({ stateDir, ticketBranch }),
+    planMarkers: { [planId]: markerSha256 },
+    failure: `plan ${planId} was published, but this machine could not record which generation it sent`
+  });
+};
+var recordPlanPublish = async ({
+  cwd,
+  ticketBranch,
+  planId,
+  markerSha256,
+  config: config2,
+  env,
+  onProgress
+}) => {
+  const recorded = await updateSyncedTicketRecord({
+    cwd,
+    ticketBranch,
+    config: config2,
+    env,
+    change: recordPublishedPlan({ planId, markerSha256, ticketBranch }),
+    onProgress
+  });
+  if ("error" in recorded) {
+    return { published: [], recordError: recorded.error };
+  }
+  if (recorded.publishError !== void 0) {
+    return { published: [], recordError: recorded.publishError };
+  }
+  const remembered = await recordMarkerLocally({ cwd, ticketBranch, planId, markerSha256 });
+  const landed = [ticketFileNames.record];
+  return remembered === void 0 ? { published: landed } : { published: landed, recordError: remembered.error };
+};
+var publishGenerations = async ({
+  cwd,
+  address,
+  planId,
+  ticketBranch,
+  target,
+  config: config2,
+  env,
+  onProgress
+}) => {
+  const report2 = { ticketRef: target.ticketRef, published: [], stale: [] };
+  const brainstorm = await publishBrainstormWhenNotesChanged({ cwd, address, planId, target, config: config2, env, onProgress });
+  if ("error" in brainstorm) {
+    report2.error = brainstorm.error;
+  } else {
+    report2.published.push(...brainstorm.published);
+    const plan = await publishPlan({ cwd, name: address, config: config2, env, onProgress, titlePrefix: planId });
+    report2.published.push(...plan.published);
+    report2.stale = plan.stale;
+    if (plan.error !== void 0 || plan.markerSha256 === void 0) {
+      report2.error = plan.error ?? `plan ${planId} was published without a commit marker, so the ticket record cannot name the generation that landed`;
+    } else {
+      const recorded = await recordPlanPublish({ cwd, ticketBranch, planId, markerSha256: plan.markerSha256, config: config2, env, onProgress });
+      report2.published.push(...recorded.published);
+      if (recorded.recordError !== void 0) {
+        report2.recordError = recorded.recordError;
+      }
+    }
+  }
+  return report2;
+};
+var publishTicketPlan = async ({ cwd, address, config: config2, env, onProgress }) => {
+  const parsed = parsePlanAddress({ name: address });
+  if (parsed === void 0) {
+    return { published: [], stale: [], error: `'${address}' is not a plan address \u2014 a plan of a ticket is named as '<ticket-branch>/<plan-id>'` };
+  }
+  const { ticketBranch, planId } = parsed;
+  const target = resolveTicketTrackerTarget({ config: config2, env, ticketBranch });
+  if ("error" in target) {
+    return { published: [], stale: [], error: target.error };
+  }
+  if ("localOnly" in target) {
+    return { published: [], stale: [], error: `plan ${planId} cannot be published: ${target.localOnly}` };
+  }
+  const pulled = await pullTicketRecord({ cwd, ticketBranch, config: config2, env, onProgress });
+  if ("error" in pulled) {
+    return { ticketRef: target.ticketRef, published: [], stale: [], error: pulled.error };
+  }
+  const stateDir = await resolveSharedStateDir({ cwd });
+  const syncState = await readTicketSyncState({ ticketFolder: getTicketFolderPath({ stateDir, ticketBranch }) });
+  const refusal = await findPlanPublishRefusal({ cwd, address, planId, ticketBranch, record: pulled.record, syncState });
+  if (refusal !== void 0) {
+    return { ticketRef: target.ticketRef, published: [], stale: [], error: refusal };
+  }
+  return publishGenerations({ cwd, address, planId, ticketBranch, target, config: config2, env, onProgress });
+};
+
+// src/ticket/requestTicketShip.ts
+var resolveRequestedPlans = ({ record: record3, tokens }) => {
+  const named = [];
+  for (const token of tokens) {
+    const plan = resolveTicketPlan({ record: record3, token });
+    if ("error" in plan) {
+      return plan;
+    }
+    if (plan.exclusion !== void 0) {
+      return {
+        error: `plan ${plan.id} is excluded from ticket ${record3.branch} \u2014 ${plan.exclusion.reason} \u2014 so a ship request cannot name it; an exclusion is final and the plan's files stay where they are`
+      };
+    }
+    if (!named.some((candidate) => candidate.id === plan.id)) {
+      named.push(plan);
+    }
+  }
+  return named;
+};
+var findUncoveredPlansRefusal = ({ record: record3, named }) => {
+  const included = record3.plans.filter((plan) => plan.exclusion === void 0);
+  const uncovered = included.filter((plan) => !named.some((candidate) => candidate.id === plan.id));
+  return uncovered.length === 0 ? void 0 : `the ship request for ticket ${record3.branch} does not name ${uncovered.map((plan) => plan.id).join(", ")}, and a request approves every plan the ticket still includes \u2014 name them too, or take one out of the ticket's work with \`lightsout ticket exclude-plan --name ${record3.branch} --plan <id> --reason <text>\``;
+};
+var requestTicketShip = ({ cwd, ticketBranch, plans, config: config2, env, onProgress }) => changeExistingTicketRecord({
+  cwd,
+  ticketBranch,
+  config: config2,
+  env,
+  onProgress,
+  change: (record3) => {
+    if (record3.mode !== TicketMode.MultiplePlan) {
+      return {
+        error: `ticket ${ticketBranch} is in single-plan mode, where plan 001 alone supplies the implementation and this repository's own shipping settings apply \u2014 switch with \`lightsout ticket mode --name ${ticketBranch} --set multiple-plan\` before asking for a ship request`
+      };
+    }
+    if (plans.length === 0) {
+      return { error: `a ship request names the plans it approves, and none was given \u2014 name every plan ticket ${ticketBranch} still includes` };
+    }
+    const named = resolveRequestedPlans({ record: record3, tokens: plans });
+    if ("error" in named) {
+      return named;
+    }
+    const uncovered = findUncoveredPlansRefusal({ record: record3, named });
+    if (uncovered !== void 0) {
+      return { error: uncovered };
+    }
+    const planIds = record3.plans.filter((plan) => named.some((candidate) => candidate.id === plan.id)).map((plan) => plan.id);
+    const at = (/* @__PURE__ */ new Date()).toISOString();
+    return appendTicketEvent({
+      record: { ...record3, shipRequest: { planIds, requestedAt: at } },
+      kind: TicketEventKind.ShipRequested,
+      detail: `ticket ${ticketBranch} is to ship once ${planIds.join(", ")} are implemented`,
+      at
+    });
+  }
+});
+
+// src/ticket/restoreTicketPlan.ts
+var recordMarker = async ({
+  recordCwd,
+  ticketBranch,
+  planId,
+  markerSha256,
+  onProgress
+}) => {
+  const stateDir = await resolveSharedStateDir({ cwd: recordCwd });
+  const recorded = await recordTicketSyncState({
+    ticketFolder: getTicketFolderPath({ stateDir, ticketBranch }),
+    planMarkers: { [planId]: markerSha256 },
+    failure: `plan ${planId} was restored, but this machine could not record which generation it took`
+  });
+  if (recorded !== void 0) {
+    onProgress?.(recorded.error);
+  }
+};
+var restoreTicketPlan = async ({ cwd, address, config: config2, env, recordCwd, onProgress }) => {
+  const parsed = parsePlanAddress({ name: address });
+  if (parsed === void 0) {
+    return {
+      error: `'${address}' is not a plan address \u2014 a plan of a ticket is named as '<ticket-branch>/<plan-id>', for example 'lo-140-multi/001-search-basics'`
+    };
+  }
+  const { ticketBranch, planId } = parsed;
+  const target = resolveTicketTrackerTarget({ config: config2, env, ticketBranch });
+  if ("error" in target) {
+    return target;
+  }
+  if ("localOnly" in target) {
+    return { error: `plan ${planId} cannot be restored: ${target.localOnly}` };
+  }
+  const plan = await restorePlanWorkspace({ cwd, name: address, identifier: target.ticketRef, settings: target.settings, titlePrefix: planId });
+  if (plan.error !== void 0) {
+    return { error: plan.error };
+  }
+  if (plan.restored.length === 0) {
+    return { restored: [] };
+  }
+  const brainstorm = await restoreBrainstormFiles({ cwd, name: address, identifier: target.ticketRef, settings: target.settings, titlePrefix: planId });
+  if (brainstorm.error !== void 0) {
+    onProgress?.(`plan ${planId} was restored, but its brainstorm generation was not: ${brainstorm.error}`);
+  }
+  if (plan.markerSha256 !== void 0) {
+    await recordMarker({ recordCwd: recordCwd ?? cwd, ticketBranch, planId, markerSha256: plan.markerSha256, onProgress });
+  }
+  return { restored: [...plan.restored, ...brainstorm.restored].sort() };
+};
+
+// src/ticket/retitleTicketPlan.ts
+var retitleTicketPlan = ({ cwd, ticketBranch, plan, title, config: config2, env, onProgress }) => changeExistingTicketRecord({
+  cwd,
+  ticketBranch,
+  config: config2,
+  env,
+  onProgress,
+  change: (record3) => {
+    if (title.trim() === "") {
+      return { error: `a plan's display title is what a human recognises it by, so it cannot be blank` };
+    }
+    const target = resolveTicketPlan({ record: record3, token: plan });
+    if ("error" in target) {
+      return target;
+    }
+    return appendTicketEvent({
+      record: { ...record3, plans: record3.plans.map((candidate) => candidate.id === target.id ? { ...candidate, title } : candidate) },
+      kind: TicketEventKind.PlanRetitled,
+      detail: `plan ${target.id} on ticket ${ticketBranch} is now titled '${title}'`,
+      at: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  }
+});
+
+// src/ticket/setTicketMode.ts
+var switchedToSinglePlan = "switched to single-plan mode";
+var laterPlansOf = ({ record: record3 }) => record3.plans.filter((plan) => planNumberOf({ id: plan.id }) !== 1);
+var isUnaccountedImplementation = ({ plan }) => isPlanImplementationStarted({ plan }) && !(plan.exclusion?.implementationRemoved === true && plan.exclusion.verifiedCommit !== void 0);
+var describeSwitchToSinglePlan = ({
+  record: record3,
+  first,
+  later,
+  afterImplement
+}) => {
+  const firstId = first.id;
+  const chaining = afterImplement ? `\`ship.after-implement\` is true in this repository, so a passed \`lightsout implement\` or \`lightsout resume\` run of plan ${firstId} chains straight into shipping` : `\`ship.after-implement\` is false in this repository, so the ticket ships only when you run \`lightsout ship\``;
+  const eligible = first.progress === PlanProgress.Implemented ? ` Plan ${firstId} is already implemented, so this ticket becomes eligible to ship as soon as the switch is approved: \`lightsout ship\`, or the queue's next drain, would ship it.` : "";
+  return `switching ticket ${record3.branch} to single-plan mode means plan ${firstId} alone determines this ticket's implementation and shipping, and ${later.map((plan) => plan.id).join(", ")} would be excluded from both \u2014 their files stay on disk, and an exclusion is final. ${chaining}, and the queue ships the branch once plan ${firstId} is implemented whatever that setting says.${eligible} Run the same command again with --approve to make the switch.`;
+};
+var excludeDroppedPlans = ({ record: record3, dropped, at }) => {
+  let carried = record3;
+  for (const plan of dropped) {
+    carried = appendTicketEvent({
+      record: {
+        ...carried,
+        plans: carried.plans.map(
+          (candidate) => candidate.id === plan.id ? { ...candidate, exclusion: { at, reason: switchedToSinglePlan, implementationRemoved: false } } : candidate
+        )
+      },
+      kind: TicketEventKind.PlanExcluded,
+      detail: `plan ${plan.id} was excluded from ticket ${record3.branch}: ${switchedToSinglePlan}`,
+      at
+    });
+  }
+  return carried;
+};
+var switchToSinglePlan = ({
+  record: record3,
+  afterImplement,
+  approve,
+  at
+}) => {
+  const later = laterPlansOf({ record: record3 });
+  const unaccounted = later.filter((plan) => isUnaccountedImplementation({ plan }));
+  if (unaccounted.length > 0) {
+    return {
+      error: `the implementation of ${unaccounted.map((plan) => plan.id).join(", ")} on ticket ${record3.branch} has started, so plan 001 does not alone supply this ticket's implementation \u2014 remove that implementation from the branch with the agent, then record it with \`lightsout ticket exclude-plan --implementation-removed\`, and try the switch again`
+    };
+  }
+  const first = record3.plans.find((plan) => planNumberOf({ id: plan.id }) === 1);
+  if (first === void 0 || first.exclusion !== void 0) {
+    return {
+      error: first === void 0 ? `ticket ${record3.branch} holds no plan 001, and single-plan mode is plan 001 supplying the whole implementation` : `plan ${first.id} is excluded from ticket ${record3.branch}, so single-plan mode would leave the ticket with no implementation at all`
+    };
+  }
+  const dropped = later.filter((plan) => plan.exclusion === void 0);
+  if (dropped.length > 0 && !approve) {
+    return { error: describeSwitchToSinglePlan({ record: record3, first, later: dropped, afterImplement }) };
+  }
+  const excluded = excludeDroppedPlans({ record: record3, dropped, at });
+  const withdrawn = recordShipRequestWithdrawal({
+    record: excluded,
+    detail: `ticket ${record3.branch} moved to single-plan mode, so the plans its ship request approved are no longer the ticket's work`,
+    at
+  });
+  return appendTicketEvent({
+    record: { ...withdrawn, mode: TicketMode.SinglePlan },
+    kind: TicketEventKind.ModeChanged,
+    detail: `ticket ${record3.branch} is now in single-plan mode`,
+    at
+  });
+};
+var setTicketMode = async ({ cwd, ticketBranch, mode, approve, config: config2, env, onProgress }) => {
+  const shipSettings = resolveShipSettings({ config: config2 });
+  if (shipSettings === void 0) {
+    return { error: "ship.ticket-pattern is not a regular expression capturing a `ticket` group, so this repository cannot say what any branch would ship" };
+  }
+  const updated = await changeExistingTicketRecord({
+    cwd,
+    ticketBranch,
+    config: config2,
+    env,
+    onProgress,
+    change: (record3) => {
+      if (record3.mode === mode) {
+        return { error: `ticket ${ticketBranch} is already in ${mode} mode` };
+      }
+      const at = (/* @__PURE__ */ new Date()).toISOString();
+      return mode === TicketMode.SinglePlan ? switchToSinglePlan({ record: record3, afterImplement: shipSettings.afterImplement, approve, at }) : appendTicketEvent({
+        record: { ...record3, mode: TicketMode.MultiplePlan },
+        kind: TicketEventKind.ModeChanged,
+        detail: `ticket ${ticketBranch} is now in multiple-plan mode`,
+        at
+      });
+    }
+  });
+  if ("error" in updated) {
+    return updated;
+  }
+  return {
+    ...updated,
+    notice: mode === TicketMode.MultiplePlan ? `ticket ${ticketBranch} now implements its plans in numeric order, and this repository's automatic shipping no longer applies to it \u2014 say when it is finished with \`lightsout ticket request-ship --name ${ticketBranch} --plans <id,id>\`` : void 0
+  };
+};
+
+// src/ticket/divergence/mergeOneSidedPlans.ts
+var mergeOneSidedPlans = ({ kept, other, keptFrom, at }) => {
+  const source = keptFrom === TicketSyncKeep.Local ? TicketSyncKeep.Published : TicketSyncKeep.Local;
+  const held = new Map(kept.plans.map((plan) => [planNumberOf({ id: plan.id }), plan]));
+  const carried = [];
+  for (const plan of other.plans) {
+    const sameNumber = held.get(planNumberOf({ id: plan.id }));
+    if (sameNumber === void 0) {
+      carried.push(plan);
+    } else if (sameNumber.id !== plan.id) {
+      return {
+        error: `the local and published copies of the ticket record both use plan number ${plan.id.slice(0, 3)}, for '${keptFrom === TicketSyncKeep.Local ? sameNumber.id : plan.id}' here and for '${keptFrom === TicketSyncKeep.Local ? plan.id : sameNumber.id}' on the ticket \u2014 no kept record can hold both, so rename or remove one of them before syncing`
+      };
+    }
+  }
+  if (carried.length === 0) {
+    return kept;
+  }
+  return {
+    ...kept,
+    plans: [...kept.plans, ...carried].sort((left, right) => planNumberOf({ id: left.id }) - planNumberOf({ id: right.id })),
+    history: [
+      ...kept.history,
+      ...carried.map((plan) => ({
+        at,
+        kind: TicketEventKind.PlanAdded,
+        detail: `carried plan ${plan.id} over from the ${source} copy of the ticket record while keeping the ${keptFrom} copy`
+      }))
+    ]
+  };
+};
+
+// src/ticket/divergence/resolvePlanWorkingCheckout.ts
+import { dirname as dirname16 } from "node:path";
+var resolvePlanWorkingCheckout = async ({ cwd, ticketBranch, planId }) => {
+  const name = formatPlanAddress({ ticketBranch, planId });
+  const worktree = await resolveWorktreePath({ cwd, branch: ticketBranch });
+  const primary = dirname16(await resolveSharedStateDir({ cwd }));
+  const inWorktree = await pathExists({ path: planWorkspaceDir({ cwd: worktree, name }) });
+  const inPrimary = worktree !== primary && await pathExists({ path: planWorkspaceDir({ cwd: primary, name }) });
+  if (inWorktree) {
+    return { checkout: worktree, otherCopies: inPrimary ? [primary] : [] };
+  }
+  return { checkout: primary, otherCopies: [] };
+};
+
+// src/ticket/divergence/keepLocalTicketRecord.ts
+var republishDivergentPlans = async ({
+  cwd,
+  ticketBranch,
+  ticketFolder,
+  carried,
+  kept,
+  config: config2,
+  env,
+  onProgress
+}) => {
+  const markers = { recorded: {}, published: {} };
+  if (carried === void 0) {
+    return markers;
+  }
+  const syncState = await readTicketSyncState({ ticketFolder });
+  const planIds = findDivergentPlanIds({ record: carried, syncState }).filter((planId) => kept.plans.some((plan) => plan.id === planId));
+  for (const planId of planIds) {
+    const address = formatPlanAddress({ ticketBranch, planId });
+    const { checkout } = await resolvePlanWorkingCheckout({ cwd, ticketBranch, planId });
+    const held = await pathExists({ path: planWorkspaceDir({ cwd: checkout, name: address }) });
+    const publishedMarker = carried.plans.find((plan) => plan.id === planId)?.publishedMarker;
+    if (!held) {
+      onProgress?.(`plan ${planId} has no folder on this machine, so the ticket's own copy of it is left as it is and the kept record describes that copy`);
+      if (publishedMarker !== void 0) {
+        markers.recorded[planId] = publishedMarker;
+      }
+      continue;
+    }
+    const report2 = await publishPlan({ cwd: checkout, name: address, config: config2, env, onProgress: onProgress ?? (() => void 0), titlePrefix: planId });
+    if (report2.error !== void 0) {
+      return { error: `plan ${planId} could not be published over the ticket's copy, so the ticket record was left alone: ${report2.error}` };
+    }
+    if (report2.markerSha256 !== void 0) {
+      markers.recorded[planId] = report2.markerSha256;
+      markers.published[planId] = report2.markerSha256;
+    }
+  }
+  return markers;
+};
+var withPlanMarkers = ({ record: record3, markers }) => ({
+  ...record3,
+  plans: record3.plans.map((plan) => markers[plan.id] === void 0 ? plan : { ...plan, publishedMarker: markers[plan.id] })
+});
+var readRecordsToKeep = async ({
+  cwd,
+  ticketBranch,
+  target
+}) => {
+  const local = await readTicketRecord({ cwd, ticketBranch });
+  if ("error" in local) {
+    return local;
+  }
+  if (local.record === void 0) {
+    return { error: `there is no ${ticketFileNames.record} for '${ticketBranch}' on this machine, so there is no local ticket record to keep` };
+  }
+  const published = await readPublishedTicketRecord({ target, ticketBranch });
+  if ("error" in published) {
+    return published;
+  }
+  const carried = published.published;
+  const kept = carried === void 0 ? local.record : mergeOneSidedPlans({ kept: local.record, other: carried.record, keptFrom: TicketSyncKeep.Local, at: (/* @__PURE__ */ new Date()).toISOString() });
+  return "error" in kept ? kept : { kept, carried };
+};
+var keepLocalTicketRecord = async ({
+  cwd,
+  ticketBranch,
+  config: config2,
+  env,
+  target,
+  onProgress
+}) => {
+  const records = await readRecordsToKeep({ cwd, ticketBranch, target });
+  if ("error" in records) {
+    return records;
+  }
+  const { kept, carried } = records;
+  const stateDir = await resolveSharedStateDir({ cwd });
+  const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
+  const markers = await republishDivergentPlans({
+    cwd,
+    ticketBranch,
+    ticketFolder,
+    carried: carried?.record,
+    kept,
+    config: config2,
+    env,
+    onProgress
+  });
+  if ("error" in markers) {
+    return markers;
+  }
+  const applied = await updateLocalTicketRecord({ cwd, ticketBranch, change: () => withPlanMarkers({ record: kept, markers: markers.recorded }) });
+  if ("error" in applied) {
+    return applied;
+  }
+  const attached = await attachTicketRecordIfUnmoved({
+    cwd,
+    ticketBranch,
+    target,
+    expectedPublishedSha256: carried === void 0 ? void 0 : sha256({ content: carried.content }),
+    onProgress
+  });
+  if ("error" in attached) {
+    return attached;
+  }
+  const recorded = await recordTicketSyncState({
+    ticketFolder,
+    recordSha256: attached.attachedSha256,
+    planMarkers: markers.published,
+    failure: publishedButUnrecorded,
+    dropSurfacedCopy: true
+  });
+  return recorded === void 0 ? { record: applied.record } : recorded;
+};
+
+// src/ticket/divergence/keepPublishedTicketRecord.ts
+import { rename as rename10, rm as rm8 } from "node:fs/promises";
+import { join as join90 } from "node:path";
+var readPublishedPlanMarker = async ({
+  planId,
+  target
+}) => {
+  const { settings, ticketRef } = target;
+  const attachments = await getTicketAttachments3({ settings, identifier: ticketRef });
+  if ("error" in attachments) {
+    return { error: `the plan generation for ${planId} on ${ticketRef} could not be read: ${attachments.error}` };
+  }
+  const markers = scopeAttachments({ attachments, prefix: planId }).filter(({ title }) => title === planAttachmentManifestName);
+  const marker = markers.length === 1 ? markers[0] : void 0;
+  if (marker === void 0) {
+    return { marker: void 0 };
+  }
+  const text = await readTicketAsset3({ settings, url: marker.url });
+  return typeof text === "string" ? { marker: sha256({ content: text }) } : { error: `the plan generation for ${planId} on ${ticketRef} could not be read: ${text.error}` };
+};
+var setPlanFolderAside = async ({
+  checkout,
+  ticketBranch,
+  planId,
+  onProgress
+}) => {
+  const name = formatPlanAddress({ ticketBranch, planId });
+  const dir = planWorkspaceDir({ cwd: checkout, name });
+  if (!await pathExists({ path: dir })) {
+    return void 0;
+  }
+  let attempt = 1;
+  let aside = `${dir}.local-${attempt}`;
+  while (await pathExists({ path: aside })) {
+    attempt += 1;
+    aside = `${dir}.local-${attempt}`;
+  }
+  try {
+    await rename10(dir, aside);
+  } catch (error51) {
+    return { error: `the local copy of plan ${planId} at ${dir} could not be moved aside: ${messageOf({ error: error51 })}` };
+  }
+  onProgress?.(`moved ${dir} aside to ${aside} \u2014 nothing was deleted`);
+  return void 0;
+};
+var takePublishedPlan = async ({
+  cwd,
+  ticketBranch,
+  planId,
+  record: record3,
+  config: config2,
+  env,
+  target,
+  onProgress
+}) => {
+  const published = await readPublishedPlanMarker({ planId, target });
+  if ("error" in published) {
+    return published;
+  }
+  const claimed = record3.plans.find((plan) => plan.id === planId)?.publishedMarker;
+  if (published.marker === void 0 || published.marker !== claimed) {
+    return {
+      error: `${target.ticketRef}'s plan files and its ticket record disagree about plan ${planId}: the record names a commit marker the ticket does not carry, so nothing was moved \u2014 publish that plan again from the machine that holds it, or run \`lightsout ticket sync --name ${ticketBranch} --keep local\``
+    };
+  }
+  const { checkout, otherCopies } = await resolvePlanWorkingCheckout({ cwd, ticketBranch, planId });
+  for (const copy of [checkout, ...otherCopies]) {
+    const moved = await setPlanFolderAside({ checkout: copy, ticketBranch, planId, onProgress });
+    if (moved !== void 0) {
+      return moved;
+    }
+  }
+  const restored = await restoreTicketPlan({ cwd: checkout, address: formatPlanAddress({ ticketBranch, planId }), config: config2, env, recordCwd: cwd, onProgress });
+  if ("error" in restored) {
+    return restored;
+  }
+  return restored.restored.length === 0 ? {
+    error: `${target.ticketRef} carries no plan generation for ${planId}, so the published copy of that plan could not be restored \u2014 the local copy was moved aside and nothing was deleted`
+  } : void 0;
+};
+var writeKeptRecord = async ({ ticketFolder, record: record3 }) => {
+  const content = serializeTicketRecord({ record: record3 });
+  await writeTicketFolderFile({ path: join90(ticketFolder, ticketFileNames.record), content });
+  await updateTicketSyncState({ ticketFolder, recordSha256: sha256({ content }) });
+  await rm8(join90(ticketFolder, ticketFileNames.published), { force: true });
+};
+var keepPublishedTicketRecord = async ({
+  cwd,
+  ticketBranch,
+  config: config2,
+  env,
+  target,
+  onProgress
+}) => {
+  const published = await readPublishedTicketRecord({ target, ticketBranch });
+  if ("error" in published) {
+    return published;
+  }
+  if (published.published === void 0) {
+    return { error: `${target.ticketRef} carries no ${ticketFileNames.record}, so there is no published ticket record to keep` };
+  }
+  const local = await readTicketRecord({ cwd, ticketBranch });
+  if ("error" in local) {
+    return local;
+  }
+  const merged = local.record === void 0 ? published.published.record : mergeOneSidedPlans({ kept: published.published.record, other: local.record, keptFrom: TicketSyncKeep.Published, at: (/* @__PURE__ */ new Date()).toISOString() });
+  if ("error" in merged) {
+    return merged;
+  }
+  const stateDir = await resolveSharedStateDir({ cwd });
+  const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
+  const written = await withTicketRecordLock({
+    ticketFolder,
+    run: async () => {
+      try {
+        await writeKeptRecord({ ticketFolder, record: merged });
+        return void 0;
+      } catch (error51) {
+        return { error: `the published ticket record could not be written into ${ticketFolder}: ${messageOf({ error: error51 })}` };
+      }
+    }
+  });
+  if (written !== void 0) {
+    return written;
+  }
+  const syncState = await readTicketSyncState({ ticketFolder });
+  for (const planId of findDivergentPlanIds({ record: merged, syncState })) {
+    const taken = await takePublishedPlan({ cwd, ticketBranch, planId, record: merged, config: config2, env, target, onProgress });
+    if (taken !== void 0) {
+      return taken;
+    }
+  }
+  return { record: merged };
+};
+
+// src/ticket/syncTicketRecord.ts
+var catchUpTicketRecord = async ({
+  cwd,
+  ticketBranch,
+  config: config2,
+  env,
+  target,
+  onProgress
+}) => {
+  const pulled = await pullTicketRecord({ cwd, ticketBranch, config: config2, env, onProgress });
+  if ("error" in pulled) {
+    return pulled;
+  }
+  if (pulled.record === void 0) {
+    return { error: `there is no ${ticketFileNames.record} for '${ticketBranch}' on this machine or on ${target.ticketRef}, so there is nothing to sync` };
+  }
+  const stateDir = await resolveSharedStateDir({ cwd });
+  const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
+  const syncState = await readTicketSyncState({ ticketFolder });
+  const localSha256 = sha256({ content: serializeTicketRecord({ record: pulled.record }) });
+  if (localSha256 === syncState?.recordSha256) {
+    onProgress?.(`the ticket record for '${ticketBranch}' already matches the copy on ${target.ticketRef}`);
+    return { record: pulled.record };
+  }
+  const attached = await attachTicketRecordIfUnmoved({ cwd, ticketBranch, target, expectedPublishedSha256: syncState?.recordSha256, onProgress });
+  if ("error" in attached) {
+    return attached;
+  }
+  const recorded = await recordTicketSyncState({ ticketFolder, recordSha256: attached.attachedSha256, failure: publishedButUnrecorded });
+  return recorded === void 0 ? { record: pulled.record } : recorded;
+};
+var syncTicketRecord = async ({ cwd, ticketBranch, config: config2, env, keep, onProgress }) => {
+  const target = resolveTicketTrackerTarget({ config: config2, env, ticketBranch });
+  if ("error" in target) {
+    return target;
+  }
+  if ("localOnly" in target) {
+    return { error: `${target.localOnly} \u2014 \`lightsout ticket sync\` needs a configured tracker to sync against` };
+  }
+  if (keep === TicketSyncKeep.Published) {
+    return keepPublishedTicketRecord({ cwd, ticketBranch, config: config2, env, target, onProgress });
+  }
+  if (keep === TicketSyncKeep.Local) {
+    return keepLocalTicketRecord({ cwd, ticketBranch, config: config2, env, target, onProgress });
+  }
+  return catchUpTicketRecord({ cwd, ticketBranch, config: config2, env, target, onProgress });
+};
+
+// src/ticket/withdrawTicketShipRequest.ts
+var withdrawTicketShipRequest = ({ cwd, ticketBranch, config: config2, env, onProgress }) => changeExistingTicketRecord({
+  cwd,
+  ticketBranch,
+  config: config2,
+  env,
+  onProgress,
+  change: (record3) => record3.shipRequest === void 0 ? { error: `ticket ${ticketBranch} carries no ship request, so there is nothing to withdraw` } : recordShipRequestWithdrawal({
+    record: record3,
+    detail: `the request to ship ${record3.shipRequest.planIds.join(", ")} was withdrawn by hand`,
+    at: (/* @__PURE__ */ new Date()).toISOString()
+  })
+});
+
 // src/ticketLifecycle/common/constants/TrackerStatusRole.ts
 var TrackerStatusRole = {
   /** Shaping is finished or was never needed, and implementation is waiting. */
@@ -137049,12 +139731,20 @@ var requireImplementLifecycle = async ({ cwd, config: config2, env, ticketRef, o
 
 // src/cli/common/utils/exitAfterImplement.ts
 var exitAfterImplement = async ({ config: config2, cwd, result, shipFlag, noShipFlag, env }) => {
-  const intent = resolveShipIntent({ config: config2, shipFlag, noShipFlag, env });
+  const terms = await readTicketRunTerms({
+    cwd,
+    name: planNameFromPath({ cwd, planPath: result.manifest.plan }),
+    planPath: result.manifest.pipeline === PipelineKind.Direct ? void 0 : result.manifest.plan
+  });
+  const intent = resolveShipIntent({ config: config2, shipFlag, noShipFlag, env, shipRequest: terms.shipRequest });
   if (intent.contradictory) {
     console.error(contradictoryShipFlagsMessage);
     return exitCli({ code: 1 });
   }
   if (!result.ok || !intent.willShip) {
+    if (result.ok && intent.shipRequestBlocker !== void 0) {
+      console.log(intent.shipRequestBlocker);
+    }
     return exitForRunResult({ ok: result.ok, manifest: result.manifest });
   }
   if (intent.settings === void 0) {
@@ -137072,6 +139762,7 @@ var exitAfterImplement = async ({ config: config2, cwd, result, shipFlag, noShip
     cwd: workCwd,
     settings: intent.settings,
     integration: { config: effectiveConfig, driver },
+    ticketGuard: createTicketShipGuard({ config: config2, env, onProgress: createProgressPrinter() }),
     onProgress: createProgressPrinter()
   });
   if (shipped.status === ShipStatus.Blocked) {
@@ -137099,8 +139790,8 @@ var finishImplementRun = async ({ config: config2, cwd, result, flags }) => {
 };
 
 // src/cli/common/implementRun/copyRunInputs.ts
-import { cp as cp2, mkdir as mkdir19, stat as stat9 } from "node:fs/promises";
-import { basename as basename33, dirname as dirname14, join as join78, relative as relative11, resolve as resolve8 } from "node:path";
+import { cp as cp2, mkdir as mkdir22, stat as stat9 } from "node:fs/promises";
+import { basename as basename34, dirname as dirname17, join as join91, relative as relative11, resolve as resolve9 } from "node:path";
 var copyPlanFolder = async ({ sourceCwd, workspace, name, inputPath }) => {
   const destination = planWorkspaceDir({ cwd: workspace, name });
   const held = await stat9(destination).then(
@@ -137110,12 +139801,12 @@ var copyPlanFolder = async ({ sourceCwd, workspace, name, inputPath }) => {
   if (!held) {
     await cp2(planWorkspaceDir({ cwd: sourceCwd, name }), destination, { recursive: true });
   }
-  return relative11(sourceCwd, resolve8(sourceCwd, inputPath));
+  return relative11(sourceCwd, resolve9(sourceCwd, inputPath));
 };
 var copyLooseInput = async ({ sourceCwd, workspace, inputPath }) => {
-  const source = resolve8(sourceCwd, inputPath);
-  const destination = join78(workspace, ".lightsout", "inputs", basename33(source));
-  await mkdir19(dirname14(destination), { recursive: true });
+  const source = resolve9(sourceCwd, inputPath);
+  const destination = join91(workspace, ".lightsout", "inputs", basename34(source));
+  await mkdir22(dirname17(destination), { recursive: true });
   await cp2(source, destination);
   return relative11(workspace, destination);
 };
@@ -137129,7 +139820,7 @@ var copyRunInputs = async ({
   planPath,
   ticketPath
 }) => {
-  if (resolve8(workspace) === resolve8(sourceCwd)) {
+  if (resolve9(workspace) === resolve9(sourceCwd)) {
     return { planPath, ticketPath };
   }
   let copied;
@@ -137158,14 +139849,14 @@ var resolveWorktreeIsolation = ({ flags, configured }) => {
 };
 
 // src/cli/common/implementRun/linkRunRecords.ts
-import { lstat, mkdir as mkdir20, readlink, symlink } from "node:fs/promises";
-import { dirname as dirname15, join as join79, resolve as resolve9 } from "node:path";
+import { lstat, mkdir as mkdir23, readlink, symlink } from "node:fs/promises";
+import { dirname as dirname18, join as join92, resolve as resolve10 } from "node:path";
 var unnamedBranch = "unknown";
 var recordLinks = ({ sourceCwd, workspace }) => [
   { target: getRunsDir({ cwd: sourceCwd }), linkPath: getRunsDir({ cwd: workspace }), directory: true },
   {
-    target: dirname15(getShipResultPath({ cwd: sourceCwd, branch: unnamedBranch })),
-    linkPath: dirname15(getShipResultPath({ cwd: workspace, branch: unnamedBranch })),
+    target: dirname18(getShipResultPath({ cwd: sourceCwd, branch: unnamedBranch })),
+    linkPath: dirname18(getShipResultPath({ cwd: workspace, branch: unnamedBranch })),
     directory: true
   },
   { target: getFrictionPath({ cwd: sourceCwd }), linkPath: getFrictionPath({ cwd: workspace }), directory: false },
@@ -137173,14 +139864,14 @@ var recordLinks = ({ sourceCwd, workspace }) => [
 ];
 var linkOne = async ({ target, linkPath, directory }) => {
   if (directory) {
-    await mkdir20(target, { recursive: true });
+    await mkdir23(target, { recursive: true });
   }
   const standing = await lstat(linkPath).catch(() => void 0);
   const linkedTo = standing?.isSymbolicLink() === true ? await readlink(linkPath).catch(() => void 0) : void 0;
   let failure;
   if (standing === void 0) {
     await symlink(target, linkPath, directory ? "junction" : "file");
-  } else if (linkedTo === void 0 || resolve9(linkedTo) !== resolve9(target)) {
+  } else if (linkedTo === void 0 || resolve10(linkedTo) !== resolve10(target)) {
     failure = {
       error: `${linkPath} already exists and is not a link to ${target}, so the run's records could not be kept in the checkout it was launched from`
     };
@@ -137190,7 +139881,7 @@ var linkOne = async ({ target, linkPath, directory }) => {
 var linkRunRecords = async ({ sourceCwd, workspace }) => {
   let failure;
   try {
-    await mkdir20(join79(workspace, ".lightsout"), { recursive: true });
+    await mkdir23(join92(workspace, ".lightsout"), { recursive: true });
     for (const link of recordLinks({ sourceCwd, workspace })) {
       failure = await linkOne(link);
       if (failure !== void 0) {
@@ -137204,18 +139895,18 @@ var linkRunRecords = async ({ sourceCwd, workspace }) => {
 };
 
 // src/cli/common/implementRun/resolveRunBranch.ts
-import { basename as basename34, extname } from "node:path";
+import { basename as basename35, extname } from "node:path";
 
 // src/common/utils/headingOf.ts
 var headingOf = ({ text }) => text.split("\n")[0].replace(/^#+\s*/, "").trim();
 
 // src/common/utils/toBranchSlug.ts
 var toBranchSlug = ({ text }) => {
-  const maxSlugLength = 40;
+  const maxSlugLength2 = 40;
   const dashed = text.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/^-+|-+$/g, "");
   let slug = dashed;
-  if (dashed.length > maxSlugLength) {
-    const cut = dashed.slice(0, maxSlugLength);
+  if (dashed.length > maxSlugLength2) {
+    const cut = dashed.slice(0, maxSlugLength2);
     const lastDash = cut.lastIndexOf("-");
     slug = lastDash === -1 ? cut : cut.slice(0, lastDash);
   }
@@ -137226,14 +139917,14 @@ var toBranchSlug = ({ text }) => {
 var renderBranchTemplate = ({ template, ticketRef, title }) => template.replaceAll("{ticket}", ticketRef.toLowerCase()).replaceAll("{slug}", toBranchSlug({ text: title }));
 
 // src/cli/common/implementRun/resolveRunBranch.ts
-var stemOf = ({ path }) => basename34(path, extname(path));
+var stemOf = ({ path }) => basename35(path, extname(path));
 var resolveRunBranch = ({ cwd, config: config2, planPath, ticketPath, ticketRef, ticketBody }) => {
   const planName = planPath === void 0 ? void 0 : planNameFromPath({ cwd, planPath });
   const template = config2.queue?.["branch-template"] ?? "{ticket}-{slug}";
   const input = planPath ?? ticketPath;
   let branch = "";
   if (planName !== void 0) {
-    branch = planName;
+    branch = ticketFolderOf({ name: planName });
   } else if (ticketRef !== void 0) {
     branch = renderBranchTemplate({ template, ticketRef, title: headingOf({ text: ticketBody ?? "" }) });
   } else if (input !== void 0) {
@@ -137256,13 +139947,19 @@ var isSamePath = async ({ path, otherPath }) => {
 var adoptPlanningTree = async ({
   cwd,
   branch,
+  addressed,
   holder,
   onProgress
 }) => {
   const worktreePath = await resolveWorktreePath({ cwd, branch });
   const record3 = await readWorktreeRecord({ cwd, branch });
-  if (record3?.owner !== WorktreeOwner.Plan || !await isSamePath({ path: holder, otherPath: worktreePath })) {
+  const owners = addressed ? [WorktreeOwner.Plan, WorktreeOwner.Implement] : [WorktreeOwner.Plan];
+  if (record3 === void 0 || !owners.includes(record3.owner) || !await isSamePath({ path: holder, otherPath: worktreePath })) {
     return void 0;
+  }
+  const live2 = addressed ? await readLiveRunLock({ cwd: worktreePath }) : void 0;
+  if (live2 !== void 0) {
+    return { error: `the worktree at ${worktreePath} cannot be built in: run ${live2.runId} is using it right now \u2014 wait for it, or pass --no-worktree` };
   }
   await writeWorktreeRecord({ cwd, branch, owner: WorktreeOwner.Implement, worktreePath, startPoint: record3.startPoint, onProgress });
   const linked = await linkRunRecords({ sourceCwd: cwd, workspace: worktreePath });
@@ -137272,22 +139969,31 @@ var cutWorkspace = async ({
   cwd,
   config: config2,
   branch,
+  addressed,
   onProgress
 }) => {
+  const prepared = addressed ? await prepareTicketBranch({ cwd, branch }) : { startPoint: void 0 };
+  if ("error" in prepared) {
+    return prepared;
+  }
   const holder = await readBranchWorktree({ cwd, branch });
   if (holder !== void 0) {
-    return await adoptPlanningTree({ cwd, branch, holder, onProgress }) ?? {
+    return await adoptPlanningTree({ cwd, branch, addressed, holder, onProgress }) ?? {
       error: `'${branch}' is already checked out at ${holder} \u2014 pass --no-worktree to build in that checkout deliberately`
     };
   }
-  const defaultBranch = await fetchDefaultBranch({ cwd });
-  if (typeof defaultBranch !== "string") {
-    return defaultBranch;
+  let startPoint = prepared.startPoint;
+  if (startPoint === void 0) {
+    const defaultBranch = await fetchDefaultBranch({ cwd });
+    if (typeof defaultBranch !== "string") {
+      return defaultBranch;
+    }
+    startPoint = `origin/${defaultBranch}`;
   }
   const created = await createWorktree({
     cwd,
     branch,
-    startPoint: `origin/${defaultBranch}`,
+    startPoint,
     setup: config2.worktree?.setup,
     owner: WorktreeOwner.Implement,
     reuseExisting: false,
@@ -137320,30 +140026,32 @@ var resolveRunWorkspace = async ({
   if (typeof branch !== "string") {
     return branch;
   }
-  const workspace = await cutWorkspace({ cwd, config: config2, branch, onProgress });
+  const planName = planPath === void 0 ? void 0 : planNameFromPath({ cwd, planPath });
+  const addressed = planName !== void 0 && parsePlanAddress({ name: planName }) !== void 0;
+  const workspace = await cutWorkspace({ cwd, config: config2, branch, addressed, onProgress });
   return "error" in workspace ? workspace : { cwd: workspace.path, branch, isolated: true, created: workspace.created };
 };
 
 // src/cli/common/utils/resolvePlanTarget.ts
 import { stat as stat10 } from "node:fs/promises";
-import { join as join80, resolve as resolve10 } from "node:path";
+import { join as join93, resolve as resolve11 } from "node:path";
 var resolvePlanTarget = async ({ cwd, planPath }) => {
-  const isDirectory = await stat10(resolve10(cwd, planPath)).then(
+  const isDirectory = await stat10(resolve11(cwd, planPath)).then(
     (entry) => entry.isDirectory(),
     () => false
   );
   if (!isDirectory) {
     return { planPath };
   }
-  const holds = async (name) => stat10(resolve10(cwd, planPath, name)).then(
+  const holds = async (name) => stat10(resolve11(cwd, planPath, name)).then(
     (entry) => entry.isFile(),
     () => false
   );
   if (await holds("overview.md")) {
-    return { overviewPath: join80(planPath, "overview.md") };
+    return { overviewPath: join93(planPath, "overview.md") };
   }
   if (await holds("plan.md")) {
-    return { planPath: join80(planPath, "plan.md") };
+    return { planPath: join93(planPath, "plan.md") };
   }
   return { error: `plan folder holds neither overview.md nor plan.md: ${planPath}` };
 };
@@ -137369,6 +140077,21 @@ var openImplementWorkspace = async ({
   }
   const target = await resolvePlanTarget({ cwd: workspace.cwd, planPath: copied.planPath ?? planPath });
   return "error" in target ? { error: target.error } : { workspace, target };
+};
+
+// src/cli/common/implementRun/reportTicketPlanOutcome.ts
+var reportTicketPlanOutcome = ({ outcome }) => {
+  if ("refusal" in outcome) {
+    console.error(outcome.refusal);
+    return void 0;
+  }
+  if (outcome.recordError !== void 0) {
+    console.error(outcome.recordError);
+  }
+  if (outcome.note !== void 0) {
+    console.log(outcome.note);
+  }
+  return outcome.result;
 };
 
 // src/cli/common/render/printPlanTicketWarning.ts
@@ -137437,17 +140160,79 @@ var printRunHeader = ({ config: config2, driver, cwd }) => {
   }
 };
 
+// src/cli/common/render/printRunStart.ts
+var printRunStart = ({ target, overviewPath, packages, startPhase, config: config2, driver, cwd }) => {
+  console.log(`lightsout: starting run`);
+  console.log(
+    "overviewPath" in target ? `  overview: ${target.overviewPath}${startPhase === void 0 ? "" : `
+  start phase: ${startPhase}`}` : `  plan: ${target.planPath}${overviewPath ? `
+  overview: ${overviewPath}` : ""}${packages ? `
+  packages flag: ${packages.join(", ")}` : ""}`
+  );
+  printRunHeader({ config: config2, driver, cwd });
+};
+
 // src/cli/common/utils/ensurePlanWorkspace.ts
 var recoverFromWorktree = async ({ cwd, name }) => {
-  const tree = await resolveWorktreePath({ cwd, branch: name });
+  const tree = await resolveWorktreePath({ cwd, branch: ticketFolderOf({ name }) });
   const held = await pathExists({ path: planWorkspaceDir({ cwd: tree, name }) });
   const failure = held ? await copyPlanFolderToPrimary({ worktree: tree, primary: cwd, name }) : void 0;
   return { tree, held, failure };
+};
+var readTicketSource = async ({ cwd, name, dir }) => {
+  const config2 = await readOptionalConfig({ cwd });
+  if (config2 === void 0) {
+    return { error: `no plan at ${dir}, and no plan could be fetched from the ticket: this repo has no lightsout.config.json, so it names no ticket tracker` };
+  }
+  const settings = resolveTrackerSettings({ config: config2, env: process.env });
+  if ("error" in settings) {
+    return { error: `no plan at ${dir}, and no plan could be fetched from the ticket: ${settings.error}` };
+  }
+  const shipSettings = resolveShipSettings({ config: config2 });
+  if (shipSettings === void 0) {
+    return {
+      error: `no plan at ${dir}, and the ticket to fetch one from cannot be read: ship.ticket-pattern is not a regular expression capturing a 'ticket' group`
+    };
+  }
+  const identifier = readPlanTicketRef({ name, ticketPattern: shipSettings.ticketPattern });
+  return identifier === void 0 ? {
+    error: `no plan at ${dir}, and no plan could be fetched from a ticket: the plan folder name '${name}' carries no ticket id matching this repo's ship.ticket-pattern`
+  } : { config: config2, settings, identifier };
+};
+var fetchTicketPlan = async ({
+  cwd,
+  name,
+  dir,
+  tree,
+  identifier,
+  config: config2,
+  write
+}) => {
+  const ticketBranch = ticketFolderOf({ name });
+  const pulled = await pullTicketRecord({ cwd, ticketBranch, config: config2, env: process.env, onProgress: write });
+  if ("error" in pulled) {
+    return { error: `no plan at ${dir}, and the ticket record for '${ticketBranch}' could not be settled: ${pulled.error}` };
+  }
+  const restored = await restoreTicketPlan({ cwd, address: name, config: config2, env: process.env, onProgress: write });
+  if ("error" in restored) {
+    return { error: `no plan at ${dir}, and the plan attachments on ticket ${identifier} could not be restored: ${restored.error}` };
+  }
+  if (restored.restored.length === 0) {
+    return {
+      error: `no plan at ${dir} or in the plan's worktree at ${tree}, and ticket ${identifier} carries no attachment for that plan \u2014 run \`lightsout plan publish --name ${name}\` from the machine that has the plan`
+    };
+  }
+  write(`lightsout: fetched ${restored.restored.length} plan file(s) from ticket ${identifier} into ${dir}`);
+  return void 0;
 };
 var ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }) => {
   const name = planNameFromPath({ cwd, planPath });
   if (name === void 0) {
     return void 0;
+  }
+  const bare = await findBareTicketFolderRefusal({ cwd, name });
+  if (bare !== void 0) {
+    return { error: bare };
   }
   const dir = planWorkspaceDir({ cwd, name });
   if (await pathExists({ path: dir })) {
@@ -137463,27 +140248,15 @@ var ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }) => {
     write(`lightsout: copied the plan folder from the plan's worktree at ${fromWorktree.tree} into ${dir}`);
     return void 0;
   }
-  const config2 = await readOptionalConfig({ cwd });
-  if (config2 === void 0) {
-    return { error: `no plan at ${dir}, and no plan could be fetched from the ticket: this repo has no lightsout.config.json, so it names no ticket tracker` };
+  const source = await readTicketSource({ cwd, name, dir });
+  if ("error" in source) {
+    return source;
   }
-  const trackerSettings = resolveTrackerSettings({ config: config2, env: process.env });
-  if ("error" in trackerSettings) {
-    return { error: `no plan at ${dir}, and no plan could be fetched from the ticket: ${trackerSettings.error}` };
+  const { config: config2, settings, identifier } = source;
+  if (parsePlanAddress({ name }) !== void 0) {
+    return fetchTicketPlan({ cwd, name, dir, tree: fromWorktree.tree, identifier, config: config2, write });
   }
-  const shipSettings = resolveShipSettings({ config: config2 });
-  if (shipSettings === void 0) {
-    return {
-      error: `no plan at ${dir}, and the ticket to fetch one from cannot be read: ship.ticket-pattern is not a regular expression capturing a 'ticket' group`
-    };
-  }
-  const identifier = readPlanTicketRef({ name, ticketPattern: shipSettings.ticketPattern });
-  if (identifier === void 0) {
-    return {
-      error: `no plan at ${dir}, and no plan could be fetched from a ticket: the plan folder name '${name}' carries no ticket id matching this repo's ship.ticket-pattern`
-    };
-  }
-  const { restored, error: error51 } = await restorePlanWorkspace({ cwd, name, identifier, settings: trackerSettings });
+  const { restored, error: error51 } = await restorePlanWorkspace({ cwd, name, identifier, settings });
   if (error51 !== void 0) {
     return { error: `no plan at ${dir}, and the plan attachments on ticket ${identifier} could not be restored: ${error51}` };
   }
@@ -137497,12 +140270,13 @@ var ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }) => {
 };
 
 // src/cli/common/utils/resolveCommandShipIntent.ts
-var resolveCommandShipIntent = ({ config: config2, flags, env }) => {
+var resolveCommandShipIntent = ({ config: config2, flags, env, shipRequest }) => {
   const intent = resolveShipIntent({
     config: config2,
     shipFlag: flags.get("ship") === true,
     noShipFlag: flags.get("no-ship") === true,
-    env
+    env,
+    shipRequest
   });
   if (intent.contradictory) {
     console.error(contradictoryShipFlagsMessage);
@@ -137512,9 +140286,9 @@ var resolveCommandShipIntent = ({ config: config2, flags, env }) => {
 };
 
 // src/phases/findUnfinishedSequence.ts
-import { readdir as readdir15 } from "node:fs/promises";
+import { readdir as readdir16 } from "node:fs/promises";
 var findUnfinishedSequence = async ({ cwd, overviewPath }) => {
-  const runIds = await readdir15(getRunsDir({ cwd })).catch(() => []);
+  const runIds = await readdir16(getRunsDir({ cwd })).catch(() => []);
   const unfinished = [];
   for (const runId of runIds) {
     const manifest = await readRunManifest({ cwd, runId }).catch(() => void 0);
@@ -137526,11 +140300,11 @@ var findUnfinishedSequence = async ({ cwd, overviewPath }) => {
 };
 
 // src/phases/initializeSequence.ts
-import { access, readFile as readFile34 } from "node:fs/promises";
-import { dirname as dirname16, join as join81 } from "node:path";
+import { access, readFile as readFile38 } from "node:fs/promises";
+import { dirname as dirname19, join as join94 } from "node:path";
 var getPhaseFiles = async ({ cwd, overview }) => {
-  const overviewFullPath = join81(cwd, overview);
-  const overviewContent = await readFile34(overviewFullPath, "utf8").catch(() => void 0);
+  const overviewFullPath = join94(cwd, overview);
+  const overviewContent = await readFile38(overviewFullPath, "utf8").catch(() => void 0);
   if (overviewContent === void 0) {
     throw new Error(`overview file not found: ${overviewFullPath}`);
   }
@@ -137547,8 +140321,8 @@ var getPhaseFiles = async ({ cwd, overview }) => {
 var assertPhaseFilesExist = async ({ cwd, overview, phases }) => {
   const missing = [];
   for (const file2 of phases) {
-    const phasePath = join81(dirname16(overview), file2);
-    const present = await access(join81(cwd, phasePath)).then(
+    const phasePath = join94(dirname19(overview), file2);
+    const present = await access(join94(cwd, phasePath)).then(
       () => true,
       () => false
     );
@@ -137561,7 +140335,16 @@ var assertPhaseFilesExist = async ({ cwd, overview, phases }) => {
 ${missing.map((file2) => `  ${file2}`).join("\n")}`);
   }
 };
-var initializeSequence = async ({ cwd, driver, config: config2, overviewPath, startPhase, existing, willShip }) => {
+var initializeSequence = async ({
+  cwd,
+  driver,
+  config: config2,
+  overviewPath,
+  startPhase,
+  runId,
+  existing,
+  willShip
+}) => {
   if (existing) {
     const pipeline = existing.pipeline ?? PipelineKind.Implement;
     if (pipeline !== PipelineKind.Phases) {
@@ -137585,7 +140368,7 @@ var initializeSequence = async ({ cwd, driver, config: config2, overviewPath, st
   if (unfinished) {
     throw new Error(`an unfinished run for this plan already exists \u2014 resume with: lightsout resume --run ${unfinished.runId}`);
   }
-  const created = await createRun({ cwd, plan: overview, pipeline: PipelineKind.Phases, driver: driver.name, config: config2, willShip });
+  const created = await createRun({ cwd, runId, plan: overview, pipeline: PipelineKind.Phases, driver: driver.name, config: config2, willShip });
   const steps = phases.map((file2, index) => ({
     id: file2,
     status: index + 1 < firstPhase ? RunStatus.Passed : RunStatus.Pending,
@@ -137595,7 +140378,7 @@ var initializeSequence = async ({ cwd, driver, config: config2, overviewPath, st
 };
 
 // src/phases/runPhase.ts
-import { dirname as dirname24, join as join116 } from "node:path";
+import { dirname as dirname27, join as join129 } from "node:path";
 
 // src/pipeline/readPlanPackages.ts
 var unquote = (value) => value.trim().replace(/^['"]|['"]$/g, "");
@@ -137629,15 +140412,15 @@ var readPlanPackages = ({ planContent }) => {
 // src/common/workspace/resolveConsumerTypescript.ts
 import { readdirSync } from "node:fs";
 import { createRequire as createRequire2 } from "node:module";
-import { join as join82, resolve as resolve11 } from "node:path";
+import { join as join95, resolve as resolve12 } from "node:path";
 var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
-  const root = resolve11(cwd);
+  const root = resolve12(cwd);
   let packageNames = [];
   try {
-    packageNames = readdirSync(join82(root, packagesDir)).filter((name) => !name.startsWith("."));
+    packageNames = readdirSync(join95(root, packagesDir)).filter((name) => !name.startsWith("."));
   } catch {
   }
-  const manifests = [join82(root, "package.json"), ...packageNames.map((name) => join82(root, packagesDir, name, "package.json"))];
+  const manifests = [join95(root, "package.json"), ...packageNames.map((name) => join95(root, packagesDir, name, "package.json"))];
   for (const manifest of manifests) {
     try {
       const compiler = createRequire2(manifest)("typescript");
@@ -137649,21 +140432,21 @@ var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
 };
 
 // src/pipeline/approvedTests/approveTestFiles.ts
-import { mkdir as mkdir21, readFile as readFile35, rm as rm7, writeFile as writeFile16 } from "node:fs/promises";
-import { dirname as dirname17, join as join85 } from "node:path";
+import { mkdir as mkdir24, readFile as readFile39, rm as rm9, writeFile as writeFile18 } from "node:fs/promises";
+import { dirname as dirname20, join as join98 } from "node:path";
 
 // src/pipeline/approvedTests/approvedTestPath.ts
-import { join as join84 } from "node:path";
+import { join as join97 } from "node:path";
 
 // src/pipeline/approvedTests/common/utils/approvedTestsDir.ts
-import { join as join83 } from "node:path";
+import { join as join96 } from "node:path";
 var approvedTestsDir = ({ cwd, runId }) => {
-  return join83(getRunDir({ cwd, runId }), "approved");
+  return join96(getRunDir({ cwd, runId }), "approved");
 };
 
 // src/pipeline/approvedTests/approvedTestPath.ts
 var approvedTestPath = ({ cwd, runId, path }) => {
-  return join84(approvedTestsDir({ cwd, runId }), path);
+  return join97(approvedTestsDir({ cwd, runId }), path);
 };
 
 // src/pipeline/approvedTests/approveTestFiles.ts
@@ -137671,22 +140454,22 @@ var approveTestFiles = async ({ run, paths }) => {
   const { runId, approvedTests } = run.current();
   const records = [];
   for (const path of paths) {
-    const content = await readFile35(join85(run.cwd, path)).catch(() => void 0);
+    const content = await readFile39(join98(run.cwd, path)).catch(() => void 0);
     const copy = approvedTestPath({ cwd: run.cwd, runId, path });
     if (content === void 0) {
-      await rm7(copy, { force: true });
+      await rm9(copy, { force: true });
       records.push({ path, removed: true });
       continue;
     }
-    await mkdir21(dirname17(copy), { recursive: true });
-    await writeFile16(copy, content);
+    await mkdir24(dirname20(copy), { recursive: true });
+    await writeFile18(copy, content);
     records.push({ path, sha256: sha256({ content }), removed: false });
   }
   return [...approvedTests.filter((record3) => !paths.includes(record3.path)), ...records];
 };
 
 // src/pipeline/approvedTests/readApprovedTest.ts
-import { readFile as readFile36 } from "node:fs/promises";
+import { readFile as readFile40 } from "node:fs/promises";
 
 // src/common/git/readGitCommittedFile.ts
 var readGitCommittedFile = async ({ cwd, path }) => {
@@ -137703,15 +140486,15 @@ var readApprovedTest = async ({ run, path }) => {
     return void 0;
   }
   if (record3?.sha256 !== void 0) {
-    return readFile36(approvedTestPath({ cwd: run.cwd, runId, path }), "utf8").catch(() => void 0);
+    return readFile40(approvedTestPath({ cwd: run.cwd, runId, path }), "utf8").catch(() => void 0);
   }
   return readGitCommittedFile({ cwd: run.cwd, path });
 };
 
 // src/pipeline/approvedTests/removeApprovedTests.ts
-import { rm as rm8 } from "node:fs/promises";
+import { rm as rm10 } from "node:fs/promises";
 var removeApprovedTests = async ({ run }) => {
-  await rm8(approvedTestsDir({ cwd: run.cwd, runId: run.current().runId }), { recursive: true, force: true });
+  await rm10(approvedTestsDir({ cwd: run.cwd, runId: run.current().runId }), { recursive: true, force: true });
 };
 
 // src/common/sourceFiles/isSnapshotFile.ts
@@ -137728,8 +140511,8 @@ var isTestSideFile = ({ path, standardsPacks }) => {
 };
 
 // src/pipeline/approvedTests/applyTestDispositions.ts
-import { readFile as readFile37 } from "node:fs/promises";
-import { join as join86 } from "node:path";
+import { readFile as readFile41 } from "node:fs/promises";
+import { join as join99 } from "node:path";
 var requiredFields = {
   [TestDisposition.Kept]: [],
   [TestDisposition.Renamed]: ["newTestName"],
@@ -137780,7 +140563,7 @@ var applyTestDispositions = async ({
     next.push(disposition === void 0 || refusal !== void 0 ? row : applyTo({ row, disposition }));
   }
   for (const row of next) {
-    const content = await readFile37(join86(run.cwd, row.testFile), "utf8").catch(() => void 0);
+    const content = await readFile41(join99(run.cwd, row.testFile), "utf8").catch(() => void 0);
     if (content === void 0 || !holdsTestTitle({ content, testName: row.testName })) {
       rejections.push(`${row.criterion}: \`${row.testName}\` is not stated in ${row.testFile} after the review's dispositions were applied`);
     }
@@ -137789,8 +140572,8 @@ var applyTestDispositions = async ({
 };
 
 // src/pipeline/approvedTests/collectTestChanges.ts
-import { mkdir as mkdir22, readFile as readFile38, rm as rm9, writeFile as writeFile17 } from "node:fs/promises";
-import { dirname as dirname18, join as join87, relative as relative12 } from "node:path";
+import { mkdir as mkdir25, readFile as readFile42, rm as rm11, writeFile as writeFile19 } from "node:fs/promises";
+import { dirname as dirname21, join as join100, relative as relative12 } from "node:path";
 
 // src/pipeline/approvedTests/common/constants/TestChangeKind.ts
 var TestChangeKind = {
@@ -137812,10 +140595,10 @@ var kindOf = ({ live: live2, approved }) => {
   return live2 === void 0 ? TestChangeKind.Removed : TestChangeKind.Modified;
 };
 var diffOf = async ({ cwd, path, kind, approved, scratch }) => {
-  const before = join87(scratch, path);
+  const before = join100(scratch, path);
   if (approved !== void 0) {
-    await mkdir22(dirname18(before), { recursive: true });
-    await writeFile17(before, approved, "utf8");
+    await mkdir25(dirname21(before), { recursive: true });
+    await writeFile19(before, approved, "utf8");
   }
   const left = approved === void 0 ? emptySide : relative12(cwd, before);
   const right = kind === TestChangeKind.Removed ? emptySide : path;
@@ -137832,12 +140615,12 @@ var collectTestChanges = async ({ run }) => {
   if (candidates.length === 0) {
     return [];
   }
-  const scratch = join87(dirname18(approvedTestsDir({ cwd: run.cwd, runId: manifest.runId })), "approved-scratch");
-  await rm9(scratch, { recursive: true, force: true });
-  await mkdir22(scratch, { recursive: true });
+  const scratch = join100(dirname21(approvedTestsDir({ cwd: run.cwd, runId: manifest.runId })), "approved-scratch");
+  await rm11(scratch, { recursive: true, force: true });
+  await mkdir25(scratch, { recursive: true });
   const changes = [];
   for (const path of candidates) {
-    const live2 = await readFile38(join87(run.cwd, path), "utf8").catch(() => void 0);
+    const live2 = await readFile42(join100(run.cwd, path), "utf8").catch(() => void 0);
     const approved = await readApprovedTest({ run, path });
     if (live2 === approved) {
       continue;
@@ -137924,34 +140707,34 @@ var reviewTestChanges = async ({ run, checkpoint, planContent, overviewContent }
 };
 
 // src/common/workspace/listWorkspacePackages.ts
-import { readdir as readdir16, stat as stat11 } from "node:fs/promises";
-import { join as join88 } from "node:path";
+import { readdir as readdir17, stat as stat11 } from "node:fs/promises";
+import { join as join101 } from "node:path";
 var listWorkspacePackages = async ({ cwd, packagesDir }) => {
-  const root = join88(cwd, packagesDir);
-  const entries = await readdir16(root, { withFileTypes: true }).catch(() => []);
+  const root = join101(cwd, packagesDir);
+  const entries = await readdir17(root, { withFileTypes: true }).catch(() => []);
   const directories = entries.filter((entry) => entry.isDirectory() && !entry.name.startsWith("."));
   const hasManifest = await Promise.all(
     directories.map(
-      ({ name }) => stat11(join88(root, name, "package.json")).then(() => true).catch(() => false)
+      ({ name }) => stat11(join101(root, name, "package.json")).then(() => true).catch(() => false)
     )
   );
   return directories.filter((_, index) => hasManifest[index]).map(({ name }) => name);
 };
 
 // src/pipeline/common/utils/readPlanSources.ts
-import { readFile as readFile39 } from "node:fs/promises";
-import { resolve as resolve12 } from "node:path";
+import { readFile as readFile43 } from "node:fs/promises";
+import { resolve as resolve13 } from "node:path";
 var readPlanSources = async ({ cwd, plan, overview }) => {
-  const planPath = resolve12(cwd, plan);
-  const planContent = await readFile39(planPath, "utf8").catch(() => void 0);
+  const planPath = resolve13(cwd, plan);
+  const planContent = await readFile43(planPath, "utf8").catch(() => void 0);
   if (planContent === void 0) {
     return { error: `plan file not found: ${planPath}` };
   }
   if (overview === void 0) {
     return { planContent };
   }
-  const overviewPath = resolve12(cwd, overview);
-  const overviewContent = await readFile39(overviewPath, "utf8").catch(() => void 0);
+  const overviewPath = resolve13(cwd, overview);
+  const overviewContent = await readFile43(overviewPath, "utf8").catch(() => void 0);
   if (overviewContent === void 0) {
     return { error: `overview file not found: ${overviewPath}` };
   }
@@ -138045,12 +140828,12 @@ var prepareRun = async ({ run, cwd, config: config2, packages }) => {
 };
 
 // src/pipeline/common/utils/resolveTestSubjects.ts
-import { readFile as readFile42 } from "node:fs/promises";
-import { join as join91 } from "node:path";
+import { readFile as readFile46 } from "node:fs/promises";
+import { join as join104 } from "node:path";
 
 // src/common/moduleGraph/collectFolderModules.ts
-import { readFile as readFile40 } from "node:fs/promises";
-import { join as join89, posix as posix2 } from "node:path";
+import { readFile as readFile44 } from "node:fs/promises";
+import { join as join102, posix as posix2 } from "node:path";
 
 // src/common/moduleGraph/createSpecifierResolver.ts
 import { posix } from "node:path";
@@ -138086,7 +140869,7 @@ var isExternalPackage = ({ specifier }) => {
   const segments = specifier.split("/");
   return segments.length === 1 || specifier.startsWith("@") && segments.length === 2;
 };
-var readBarrelExportTargets = ({ path, content, compiler, resolve: resolve21 }) => {
+var readBarrelExportTargets = ({ path, content, compiler, resolve: resolve22 }) => {
   const scriptKind = /\.tsx$/.test(path) ? compiler.ScriptKind.TSX : compiler.ScriptKind.TS;
   const source = compiler.createSourceFile(path, content, compiler.ScriptTarget.Latest, false, scriptKind);
   const targets = /* @__PURE__ */ new Set();
@@ -138096,7 +140879,7 @@ var readBarrelExportTargets = ({ path, content, compiler, resolve: resolve21 }) 
       continue;
     }
     const specifier = statement.moduleSpecifier.text;
-    const resolved = resolve21({ from: path, specifier });
+    const resolved = resolve22({ from: path, specifier });
     if (resolved !== void 0) {
       targets.add(resolved);
     } else if (!isExternalPackage({ specifier })) {
@@ -138109,7 +140892,7 @@ var readBarrelExportTargets = ({ path, content, compiler, resolve: resolve21 }) 
 // src/common/moduleGraph/collectFolderModules.ts
 var isBarrel = ({ path }) => /^index\.tsx?$/.test(posix2.basename(path));
 var collectFolderModules = async ({ cwd, files, compiler, isMandatedModule, isFrameworkLoaded }) => {
-  const resolve21 = createSpecifierResolver({ files });
+  const resolve22 = createSpecifierResolver({ files });
   const barrelDirs = /* @__PURE__ */ new Map();
   for (const file2 of files) {
     const directory = posix2.dirname(file2);
@@ -138120,8 +140903,8 @@ var collectFolderModules = async ({ cwd, files, compiler, isMandatedModule, isFr
   const nestedModuleDirs = [...barrelDirs.keys()];
   const modules = /* @__PURE__ */ new Map();
   for (const [folder, barrelPath] of barrelDirs) {
-    const content = await readFile40(join89(cwd, barrelPath), "utf8").catch(() => void 0);
-    const surface = content === void 0 ? { targets: /* @__PURE__ */ new Set(), complete: false } : readBarrelExportTargets({ path: barrelPath, content, compiler, resolve: resolve21 });
+    const content = await readFile44(join102(cwd, barrelPath), "utf8").catch(() => void 0);
+    const surface = content === void 0 ? { targets: /* @__PURE__ */ new Set(), complete: false } : readBarrelExportTargets({ path: barrelPath, content, compiler, resolve: resolve22 });
     const prefix = `${folder}/`;
     const hasOwnCommon = files.some((file2) => file2.startsWith(`${folder}/common/`));
     const ownFiles = files.filter(
@@ -138135,19 +140918,19 @@ var collectFolderModules = async ({ cwd, files, compiler, isMandatedModule, isFr
 };
 
 // src/common/moduleGraph/collectImportEdges.ts
-import { readFile as readFile41 } from "node:fs/promises";
-import { join as join90 } from "node:path";
+import { readFile as readFile45 } from "node:fs/promises";
+import { join as join103 } from "node:path";
 var collectImportEdges = async ({ cwd, files, compiler }) => {
-  const resolve21 = createSpecifierResolver({ files });
+  const resolve22 = createSpecifierResolver({ files });
   const edges = [];
   for (const from of files) {
-    const content = await readFile41(join90(cwd, from), "utf8").catch(() => void 0);
+    const content = await readFile45(join103(cwd, from), "utf8").catch(() => void 0);
     if (content === void 0) {
       continue;
     }
     const specifiers = [...new Set(compiler.preProcessFile(content, true, true).importedFiles.map((imported) => imported.fileName))];
     for (const specifier of specifiers) {
-      const to = resolve21({ from, specifier });
+      const to = resolve22({ from, specifier });
       if (to !== void 0 && to !== from) {
         edges.push({ from, to });
       }
@@ -138199,7 +140982,7 @@ var resolvePartition = async ({
   const contents = /* @__PURE__ */ new Map();
   const isProvablyInert = async ({ file: file2 }) => {
     if (!contents.has(file2)) {
-      contents.set(file2, await readFile42(join91(cwd, file2), "utf8").catch(() => void 0));
+      contents.set(file2, await readFile46(join104(cwd, file2), "utf8").catch(() => void 0));
     }
     const content = contents.get(file2);
     return content !== void 0 && isInertSourceFile({ path: file2, content, compiler });
@@ -138286,8 +141069,8 @@ var runSteps = async ({ run, steps }) => {
 };
 
 // src/pipeline/PipelineRun.ts
-import { mkdir as mkdir23, writeFile as writeFile18 } from "node:fs/promises";
-import { join as join92 } from "node:path";
+import { mkdir as mkdir26, writeFile as writeFile20 } from "node:fs/promises";
+import { join as join105 } from "node:path";
 
 // src/common/selfCheck/buildSelfCheckCommand.ts
 var buildSelfCheckCommand = ({ cwd, runId }) => {
@@ -138455,9 +141238,9 @@ var PipelineRun = class {
   // the terminal. Evidence only: outcomes never depend on it.
   agentEventSink({ step }) {
     this.transcriptCount += 1;
-    const dir = join92(getRunDir({ cwd: this.cwd, runId: this.current().runId }), "agents");
-    const path = join92(dir, `stream-${String(this.transcriptCount).padStart(2, "0")}-${step}.jsonl`);
-    return createEventFileSink({ path, ready: mkdir23(dir, { recursive: true }) });
+    const dir = join105(getRunDir({ cwd: this.cwd, runId: this.current().runId }), "agents");
+    const path = join105(dir, `stream-${String(this.transcriptCount).padStart(2, "0")}-${step}.jsonl`);
+    return createEventFileSink({ path, ready: mkdir26(dir, { recursive: true }) });
   }
   // A final message that fails its contract is still evidence — persist it
   // to the run dir before any retry, so a rejected report never has to be
@@ -138465,10 +141248,10 @@ var PipelineRun = class {
   persistRejected({ step }) {
     return async ({ text, attempt, validationError }) => {
       this.rejectedCount += 1;
-      const dir = join92(getRunDir({ cwd: this.cwd, runId: this.current().runId }), "agents");
+      const dir = join105(getRunDir({ cwd: this.cwd, runId: this.current().runId }), "agents");
       const name = `rejected-${String(this.rejectedCount).padStart(2, "0")}-${step}-attempt${attempt}.txt`;
-      await mkdir23(dir, { recursive: true });
-      await writeFile18(join92(dir, name), `# step: ${step} \xB7 invocation attempt ${attempt}
+      await mkdir26(dir, { recursive: true });
+      await writeFile20(join105(dir, name), `# step: ${step} \xB7 invocation attempt ${attempt}
 # validation: ${validationError}
 
 ${text}`, "utf8");
@@ -138666,8 +141449,8 @@ var buildCoverageBatch = ({ files, components, batchNumber, batchSize = 5 }) => 
 };
 
 // src/coverage/checkChangedFilesExecuted.ts
-import { readFile as readFile47 } from "node:fs/promises";
-import { join as join100, relative as relative15 } from "node:path";
+import { readFile as readFile51 } from "node:fs/promises";
+import { join as join113, relative as relative15 } from "node:path";
 
 // src/common/sourceFiles/isTestableSourceFile.ts
 var isTestableSourceFile = ({ path }) => /\.(m|c)?[jt]sx?$/i.test(path);
@@ -138696,11 +141479,11 @@ var coverageScopeOf = ({ file: file2, scopes, packagesDir, monorepo }) => {
 };
 
 // src/coverage/common/utils/resolveScopeContext.ts
-import { resolve as resolve13 } from "node:path";
+import { resolve as resolve14 } from "node:path";
 
 // src/coverage/resolveCoverageScopes.ts
-import { readdir as readdir17 } from "node:fs/promises";
-import { join as join93 } from "node:path";
+import { readdir as readdir18 } from "node:fs/promises";
+import { join as join106 } from "node:path";
 var rootScope = "root";
 var listPackageScopes = async ({
   cwd,
@@ -138709,7 +141492,7 @@ var listPackageScopes = async ({
   summaryPath,
   scope
 }) => {
-  const entries = await readdir17(join93(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
+  const entries = await readdir18(join106(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
   const scriptName = extractRunScriptName({ command: template });
   const scopes = [];
   for (const entry of entries.filter((item) => item.isDirectory() && !item.name.startsWith("."))) {
@@ -138723,7 +141506,7 @@ var listPackageScopes = async ({
     scopes.push({
       scope: entry.name,
       command: template.split("{package}").join(manifest.name),
-      summaryPath: join93(packagesDir, entry.name, summaryPath)
+      summaryPath: join106(packagesDir, entry.name, summaryPath)
     });
   }
   return scopes;
@@ -138745,7 +141528,7 @@ var resolveScopeContext = async ({
 }) => {
   const summaryPath = config2["coverage-summary-path"] ?? defaultCoverageSummaryPath;
   return {
-    root: resolve13(cwd),
+    root: resolve14(cwd),
     packagesDir: config2["packages-dir"] ?? defaultPackagesDir,
     monorepo: config2["package-gates"]?.["test-coverage"] !== void 0,
     scopes: await resolveCoverageScopes({ cwd, config: config2, summaryPath })
@@ -138753,20 +141536,20 @@ var resolveScopeContext = async ({
 };
 
 // src/coverage/selectCollectedFiles/selectCollectedFiles.ts
-import { join as join97 } from "node:path";
+import { join as join110 } from "node:path";
 
 // src/coverage/common/utils/scopeRootOf.ts
-import { join as join94 } from "node:path";
-var scopeRootOf = ({ root, scope, packagesDir, monorepo }) => monorepo ? join94(root, packagesDir, scope) : root;
+import { join as join107 } from "node:path";
+var scopeRootOf = ({ root, scope, packagesDir, monorepo }) => monorepo ? join107(root, packagesDir, scope) : root;
 
 // src/coverage/loadScopeJestConfig/loadScopeJestConfig.ts
-import { readFile as readFile44 } from "node:fs/promises";
+import { readFile as readFile48 } from "node:fs/promises";
 import { createRequire as createRequire3 } from "node:module";
-import { join as join96 } from "node:path";
+import { join as join109 } from "node:path";
 
 // src/coverage/loadScopeJestConfig/common/utils/resolveJestConfigPath.ts
-import { readFile as readFile43, stat as stat12 } from "node:fs/promises";
-import { join as join95, resolve as resolve14 } from "node:path";
+import { readFile as readFile47, stat as stat12 } from "node:fs/promises";
+import { join as join108, resolve as resolve15 } from "node:path";
 var configFileNames = ["jest.config.cjs", "jest.config.js", "jest.config.mjs", "jest.config.json"];
 var exists2 = ({ path }) => stat12(path).then(
   () => true,
@@ -138781,7 +141564,7 @@ var configArgument = ({ command }) => {
 };
 var hasJestKey = async ({ manifestPath }) => {
   try {
-    const parsed = JSON.parse(await readFile43(manifestPath, "utf8"));
+    const parsed = JSON.parse(await readFile47(manifestPath, "utf8"));
     return typeof parsed === "object" && parsed !== null && "jest" in parsed;
   } catch {
     return false;
@@ -138790,19 +141573,19 @@ var hasJestKey = async ({ manifestPath }) => {
 var resolveJestConfigPath = async ({ scopeRoot, coverageScript }) => {
   const named = coverageScript === void 0 ? void 0 : configArgument({ command: coverageScript });
   if (named !== void 0) {
-    const path = resolve14(scopeRoot, named);
+    const path = resolve15(scopeRoot, named);
     return await exists2({ path }) ? path : void 0;
   }
   let found;
   for (const name of configFileNames) {
-    if (found === void 0 && await exists2({ path: join95(scopeRoot, name) })) {
-      found = join95(scopeRoot, name);
+    if (found === void 0 && await exists2({ path: join108(scopeRoot, name) })) {
+      found = join108(scopeRoot, name);
     }
   }
   if (found !== void 0) {
     return found;
   }
-  const manifestPath = join95(scopeRoot, "package.json");
+  const manifestPath = join108(scopeRoot, "package.json");
   return await hasJestKey({ manifestPath }) ? manifestPath : void 0;
 };
 
@@ -138814,7 +141597,7 @@ var resolveScopeCoverageScript = async ({ scopeRoot, command }) => {
     return command;
   }
   try {
-    const parsed = ScopeManifest.safeParse(JSON.parse(await readFile44(join96(scopeRoot, "package.json"), "utf8")));
+    const parsed = ScopeManifest.safeParse(JSON.parse(await readFile48(join109(scopeRoot, "package.json"), "utf8")));
     return parsed.success ? parsed.data.scripts?.[scriptName] : void 0;
   } catch {
     return void 0;
@@ -138954,7 +141737,7 @@ var isCoverageCollectedFile = ({ absolutePath, collection }) => {
 };
 
 // src/coverage/selectCollectedFiles/common/utils/readCoverageCollection.ts
-import { dirname as dirname19, resolve as resolve15 } from "node:path";
+import { dirname as dirname22, resolve as resolve16 } from "node:path";
 var defaultIgnorePatterns = ["/node_modules/"];
 var JestConfigShape = external_exports.looseObject({
   rootDir: external_exports.string().optional().catch(void 0),
@@ -138969,9 +141752,9 @@ var readCoverageCollection = ({ loaded }) => {
   if (!parsed.success) {
     return void 0;
   }
-  const configDir = dirname19(loaded.configPath);
+  const configDir = dirname22(loaded.configPath);
   return {
-    rootDir: parsed.data.rootDir === void 0 ? configDir : resolve15(configDir, parsed.data.rootDir),
+    rootDir: parsed.data.rootDir === void 0 ? configDir : resolve16(configDir, parsed.data.rootDir),
     collectCoverageFrom: parsed.data.collectCoverageFrom,
     coveragePathIgnorePatterns: parsed.data.coveragePathIgnorePatterns ?? defaultIgnorePatterns
   };
@@ -138994,14 +141777,14 @@ var selectCollectedFiles = async ({ cwd, config: config2, files }) => {
       collections.set(scope.scope, readCoverageCollection({ loaded: await loadScopeJestConfig({ scopeRoot, command: scope.command }) }));
     }
     const collection = collections.get(scope.scope);
-    (isCoverageCollectedFile({ absolutePath: join97(root, file2), collection }) ? collected : excluded).push(file2);
+    (isCoverageCollectedFile({ absolutePath: join110(root, file2), collection }) ? collected : excluded).push(file2);
   }
   return { collected, excluded };
 };
 
 // src/coverage/selectUnloadableFiles/selectUnloadableFiles.ts
-import { readFile as readFile46 } from "node:fs/promises";
-import { dirname as dirname21, join as join99 } from "node:path";
+import { readFile as readFile50 } from "node:fs/promises";
+import { dirname as dirname24, join as join112 } from "node:path";
 
 // src/common/sourceFiles/isUnloadableSourceFile.ts
 var hasModuleScopeAwait = ({ node, compiler }) => {
@@ -139084,15 +141867,15 @@ var readJestModuleMode = ({ loaded }) => {
 };
 
 // src/coverage/selectUnloadableFiles/common/utils/readNearestPackageType.ts
-import { readFile as readFile45 } from "node:fs/promises";
-import { dirname as dirname20, join as join98, relative as relative14, sep as sep3 } from "node:path";
+import { readFile as readFile49 } from "node:fs/promises";
+import { dirname as dirname23, join as join111, relative as relative14, sep as sep3 } from "node:path";
 var withinScope = ({ directory, scopeRoot }) => {
   const path = relative14(scopeRoot, directory);
   return path === "" || !(path === ".." || path.startsWith(`..${sep3}`));
 };
 var readManifestType = async ({ manifestPath }) => {
   try {
-    const parsed = JSON.parse(await readFile45(manifestPath, "utf8"));
+    const parsed = JSON.parse(await readFile49(manifestPath, "utf8"));
     const declared = typeof parsed === "object" && parsed !== null && "type" in parsed ? parsed.type : void 0;
     return typeof declared === "string" ? declared : void 0;
   } catch {
@@ -139103,8 +141886,8 @@ var readNearestPackageType = async ({ fileDir, scopeRoot }) => {
   let directory = fileDir;
   let type;
   while (type === void 0 && withinScope({ directory, scopeRoot })) {
-    type = await readManifestType({ manifestPath: join98(directory, "package.json") });
-    const parent = dirname20(directory);
+    type = await readManifestType({ manifestPath: join111(directory, "package.json") });
+    const parent = dirname23(directory);
     if (parent === directory) {
       break;
     }
@@ -139124,7 +141907,7 @@ var selectUnloadableFiles = async ({ cwd, config: config2, files, compiler }) =>
   const loadable = [];
   const unloadable = [];
   for (const file2 of files) {
-    const content = await readFile46(join99(cwd, file2), "utf8").catch(() => void 0);
+    const content = await readFile50(join112(cwd, file2), "utf8").catch(() => void 0);
     if (content === void 0 || !isUnloadableSourceFile({ path: file2, content, compiler })) {
       loadable.push(file2);
       continue;
@@ -139138,7 +141921,7 @@ var selectUnloadableFiles = async ({ cwd, config: config2, files, compiler }) =>
     if (!modes.has(scope.scope)) {
       modes.set(scope.scope, readJestModuleMode({ loaded: await loadScopeJestConfig({ scopeRoot, command: scope.command }) }));
     }
-    const fileDir = dirname21(join99(root, file2));
+    const fileDir = dirname24(join112(root, file2));
     if (!packageTypes.has(fileDir)) {
       packageTypes.set(fileDir, await readNearestPackageType({ fileDir, scopeRoot }));
     }
@@ -139152,7 +141935,7 @@ var selectUnloadableFiles = async ({ cwd, config: config2, files, compiler }) =>
 var ExecutionSummaryReport = external_exports.record(external_exports.string(), external_exports.looseObject({ statements: external_exports.looseObject({ covered: external_exports.unknown(), total: external_exports.unknown() }) }));
 var readExecutionSummary = async ({ cwd, summaryPath }) => {
   try {
-    const parsed = ExecutionSummaryReport.parse(JSON.parse(await readFile47(join100(cwd, summaryPath), "utf8")));
+    const parsed = ExecutionSummaryReport.parse(JSON.parse(await readFile51(join113(cwd, summaryPath), "utf8")));
     return new Map(Object.entries(parsed).map(([key, entry]) => [relative15(cwd, key), entry.statements]));
   } catch {
     return void 0;
@@ -139167,7 +141950,7 @@ var checkChangedFilesExecuted = async ({ cwd, config: config2, changedFiles, com
   for (const file2 of changedFiles.filter(
     (changed) => isTestableSourceFile({ path: changed }) && !isTestFile({ path: changed }) && !isToolingConfigFile({ path: changed, packagesDir })
   )) {
-    const content = await readFile47(join100(cwd, file2), "utf8").catch(() => void 0);
+    const content = await readFile51(join113(cwd, file2), "utf8").catch(() => void 0);
     if (content !== void 0 && !isInertSourceFile({ path: file2, content, compiler })) {
       executable.push(file2);
     }
@@ -139206,23 +141989,23 @@ var checkChangedFilesExecuted = async ({ cwd, config: config2, changedFiles, com
 };
 
 // src/coverage/initializeCoverageRun.ts
-import { readFile as readFile49, writeFile as writeFile19 } from "node:fs/promises";
-import { join as join102 } from "node:path";
+import { readFile as readFile53, writeFile as writeFile21 } from "node:fs/promises";
+import { join as join115 } from "node:path";
 
 // src/coverage/runCoverageCheck.ts
-import { readFile as readFile48 } from "node:fs/promises";
-import { join as join101, relative as relative16 } from "node:path";
+import { readFile as readFile52 } from "node:fs/promises";
+import { join as join114, relative as relative16 } from "node:path";
 var CoverageSummaryReport = external_exports.record(external_exports.string(), external_exports.looseObject({ statements: external_exports.looseObject({ pct: external_exports.unknown() }) }));
 var readJsonFile2 = async ({ path }) => {
   try {
-    const parsed = JSON.parse(await readFile48(path, "utf8"));
+    const parsed = JSON.parse(await readFile52(path, "utf8"));
     return parsed;
   } catch {
     return void 0;
   }
 };
 var readScopeSummary = async ({ cwd, scope, summaryPath, passed }) => {
-  const parsed = CoverageSummaryReport.safeParse(await readJsonFile2({ path: join101(cwd, summaryPath) }));
+  const parsed = CoverageSummaryReport.safeParse(await readJsonFile2({ path: join114(cwd, summaryPath) }));
   if (!parsed.success) {
     throw new Error(buildMissingSummaryMessage({ summaryPath, scope }));
   }
@@ -139291,7 +142074,7 @@ var initializeCoverageRun = async ({
       const command = pipeline === "refactor" ? "refactor" : "resume";
       throw new Error(`run ${existing.runId} belongs to the ${pipeline} pipeline \u2014 resume it with: lightsout ${command} --run ${existing.runId}`);
     }
-    return { manifest: existing, worklist: CoverageWorklist.parse(JSON.parse(await readFile49(join102(cwd, existing.plan), "utf8"))) };
+    return { manifest: existing, worklist: CoverageWorklist.parse(JSON.parse(await readFile53(join115(cwd, existing.plan), "utf8"))) };
   }
   if (typeof config2.gates["test-coverage"] !== "string" && config2["package-gates"]?.["test-coverage"] === void 0) {
     throw new Error('the coverage gate is opted out ("test-coverage": false) \u2014 test-coverage-to-threshold has nothing to run');
@@ -139308,9 +142091,9 @@ ${dirty.map((file2) => `  ${file2}`).join("\n")}`
   }
   const measured = await runCoverageCheck({ cwd, config: config2 });
   const worklist = { at: (/* @__PURE__ */ new Date()).toISOString(), totals: measured.totals, files: measured.files };
-  const worklistPath = join102(".lightsout", "runs", runId, "worklist.json");
+  const worklistPath = join115(".lightsout", "runs", runId, "worklist.json");
   const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: "coverage", driver: driver.name, config: config2, baselineDirtyFiles: dirty });
-  await writeFile19(join102(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
+  await writeFile21(join115(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
 `, "utf8");
   return { manifest, worklist };
 };
@@ -139402,8 +142185,8 @@ var CoverageRun = class {
 };
 
 // src/coverage/batch/invokeCoverageAgent.ts
-import { mkdir as mkdir24, writeFile as writeFile20 } from "node:fs/promises";
-import { join as join103 } from "node:path";
+import { mkdir as mkdir27, writeFile as writeFile22 } from "node:fs/promises";
+import { join as join116 } from "node:path";
 var invokeCoverageAgent = async ({
   cwd,
   runId,
@@ -139418,10 +142201,10 @@ var invokeCoverageAgent = async ({
   rationale,
   recordUsage
 }) => {
-  const agentsDir = join103(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join116(getRunDir({ cwd, runId }), "agents");
   const slug = batchId.replace(/[:/]/g, "_");
-  const streamPath = join103(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
-  await mkdir24(agentsDir, { recursive: true });
+  const streamPath = join116(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
+  await mkdir27(agentsDir, { recursive: true });
   const outcome = await invokeAgentWithContract({
     driver,
     cwd,
@@ -139434,7 +142217,7 @@ var invokeCoverageAgent = async ({
     allowedCommands: config2["agent-commands"],
     onEvent: createEventFileSink({ path: streamPath }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile20(join103(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile22(join116(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   await recordUsage({ step: `${batchId}${label2 ? ` ${label2}` : ""}`, usage: outcome.usage });
@@ -139452,7 +142235,7 @@ var invokeCoverageAgent = async ({
 };
 
 // src/coverage/batch/checkTestsOnly.ts
-import { dirname as dirname22 } from "node:path";
+import { dirname as dirname25 } from "node:path";
 
 // src/common/utils/collectBatchChanges.ts
 var collectBatchChanges = async ({ cwd, config: config2, reportedFiles, attributedFiles }) => {
@@ -139475,7 +142258,7 @@ var checkTestsOnly = async ({
   reportedFiles,
   attributedFiles
 }) => {
-  const coverageDir = dirname22(config2["coverage-summary-path"] ?? defaultCoverageSummaryPath);
+  const coverageDir = dirname25(config2["coverage-summary-path"] ?? defaultCoverageSummaryPath);
   const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
   const changedFiles = (await collectBatchChanges({ cwd, config: config2, reportedFiles, attributedFiles })).filter(
     (path) => !isMeasurementOutput({ path, coverageDir, packagesDir })
@@ -139577,16 +142360,16 @@ var getCoverageAttemptStop = async ({
     return attempt.rateLimited ? { kind: CoverageBatchStopKind.Parked } : salvage({ batchId, failure: attempt.failure, rationale, onProgress, testsOnly, measure, gates, finish });
   }
   const violation = await testsOnly();
-  const { report } = attempt;
+  const { report: report2 } = attempt;
   let stop;
   if (violation) {
     stop = { kind: CoverageBatchStopKind.Failed, error: violation };
-  } else if (report.status === WorkReportStatus.TerminatedScope || report.status === WorkReportStatus.Failed) {
-    const marker = report.status === WorkReportStatus.TerminatedScope ? "scope" : "failed";
-    rationale.push(...report.failures.map((entry) => `[${marker}] ${entry}`));
+  } else if (report2.status === WorkReportStatus.TerminatedScope || report2.status === WorkReportStatus.Failed) {
+    const marker = report2.status === WorkReportStatus.TerminatedScope ? "scope" : "failed";
+    rationale.push(...report2.failures.map((entry) => `[${marker}] ${entry}`));
     stop = finish({ outcome: BatchOutcome.Declined, files: unmeasured({ batch }) });
-  } else if (report.status !== WorkReportStatus.Complete) {
-    stop = { kind: CoverageBatchStopKind.Escalated, error: `${batchId}: ${report.status} \u2014 ${report.failures.join("; ")}` };
+  } else if (report2.status !== WorkReportStatus.Complete) {
+    stop = { kind: CoverageBatchStopKind.Escalated, error: `${batchId}: ${report2.status} \u2014 ${report2.failures.join("; ")}` };
   }
   return stop;
 };
@@ -139668,8 +142451,8 @@ var runCoverageBatch = async ({
 };
 
 // src/coverage/selectCoverageCandidates.ts
-import { readFile as readFile50 } from "node:fs/promises";
-import { join as join104 } from "node:path";
+import { readFile as readFile54 } from "node:fs/promises";
+import { join as join117 } from "node:path";
 var selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, standardsPacks, compiler }) => {
   const failingScopes = new Set(measured.totals.filter((total) => !total.passed).map((total) => total.scope));
   const candidates = [];
@@ -139677,7 +142460,7 @@ var selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, standardsP
     if (!failingScopes.has(file2.scope) || setAsidePaths.has(file2.path) || file2.statementsPct >= 100 || isTestFile({ path: file2.path, standardsPacks }) || !isTestableSourceFile({ path: file2.path })) {
       continue;
     }
-    const content = compiler === void 0 ? void 0 : await readFile50(join104(cwd, file2.path), "utf8").catch(() => void 0);
+    const content = compiler === void 0 ? void 0 : await readFile54(join117(cwd, file2.path), "utf8").catch(() => void 0);
     if (compiler !== void 0 && content !== void 0 && isInertSourceFile({ path: file2.path, content, compiler })) {
       continue;
     }
@@ -139735,14 +142518,14 @@ var settleCoverageBatch = async ({ run, batch, record: record3, outcome, decline
     const status = outcome.kind === CoverageBatchStopKind.Failed ? RunStatus.Failed : RunStatus.Escalated;
     return { result: await run.stop({ record: record3, status, error: outcome.error }), declineStreak };
   }
-  const report = CoverageBatchReport.parse(outcome.report);
+  const report2 = CoverageBatchReport.parse(outcome.report);
   await run.setStep({
-    record: { ...record3, status: RunStatus.Passed, report, changedFiles: outcome.changedFiles },
+    record: { ...record3, status: RunStatus.Passed, report: report2, changedFiles: outcome.changedFiles },
     patch: { changedFiles: [.../* @__PURE__ */ new Set([...run.current().changedFiles, ...outcome.changedFiles])] }
   });
   const settlement = { declineStreak: 0 };
-  if (report.outcome !== BatchOutcome.Declined) {
-    const struck = updateFileStrikes({ batchId: batch.id, files: report.files, fileStrikes });
+  if (report2.outcome !== BatchOutcome.Declined) {
+    const struck = updateFileStrikes({ batchId: batch.id, files: report2.files, fileStrikes });
     run.setAside.push(...struck);
     for (const path of struck.flatMap((entry) => entry.files)) {
       run.progress(`${path}: set aside after ${maxFileStrikes} batches without improvement`);
@@ -139751,8 +142534,8 @@ var settleCoverageBatch = async ({ run, batch, record: record3, outcome, decline
   } else {
     const streak = declineStreak + 1;
     settlement.declineStreak = streak;
-    run.setAside.push({ batchId: batch.id, files: report.files.map((file2) => file2.path), rationale: report.rationale });
-    run.progress(`${batch.id}: declined (${report.files.length} file(s) set aside)`);
+    run.setAside.push({ batchId: batch.id, files: report2.files.map((file2) => file2.path), rationale: report2.rationale });
+    run.progress(`${batch.id}: declined (${report2.files.length} file(s) set aside)`);
     if (streak >= maxConsecutiveDeclines) {
       const error51 = `${maxConsecutiveDeclines} consecutive batches declined \u2014 likely systemic (standards injection, gate config, or untestable source), not worth further agent spend.`;
       await run.update({ patch: { status: RunStatus.Escalated, currentStep: null } });
@@ -140034,7 +142817,7 @@ var collectChanged = async ({ run, gitPrefix, reports }) => {
   const fromGit = (await readGitChangedFiles({ cwd: run.cwd }) ?? []).filter(
     (file2) => !run.current().baselineDirtyFiles.includes(file2) && !isGeneratedFile({ file: file2 })
   );
-  const fromReports = reports.flatMap((report) => report.changedFiles.map((file2) => consumerRelative({ gitPrefix, file: file2.path }))).filter((file2) => !isGeneratedFile({ file: file2 }));
+  const fromReports = reports.flatMap((report2) => report2.changedFiles.map((file2) => consumerRelative({ gitPrefix, file: file2.path }))).filter((file2) => !isGeneratedFile({ file: file2 }));
   const changedFiles = [.../* @__PURE__ */ new Set([...run.current().changedFiles, ...fromReports, ...fromGit])];
   const fromFiles = changedFiles.flatMap((file2) => {
     const packageDir = packageOf({ file: file2, packagesDir });
@@ -140049,7 +142832,7 @@ var withStepFiles = ({ record: record3, reports, gitPrefix }) => ({
   changedFiles: [
     .../* @__PURE__ */ new Set([
       ...record3.changedFiles ?? [],
-      ...reports.flatMap((report) => report.changedFiles.map((file2) => consumerRelative({ gitPrefix, file: file2.path })))
+      ...reports.flatMap((report2) => report2.changedFiles.map((file2) => consumerRelative({ gitPrefix, file: file2.path })))
     ])
   ]
 });
@@ -140063,11 +142846,11 @@ var runFix = async ({ context, errorContext, record: record3 }) => {
   }
   let next = record3;
   if (fix.ok) {
-    const { report } = fix;
-    await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: id, friction: report.friction ?? [] });
-    if (report.status === WorkReportStatus.Complete) {
-      next = withStepFiles({ record: record3, reports: [report], gitPrefix });
-      await run.setStep({ record: { ...next, report }, patch: await collectChanged({ run, gitPrefix, reports: [report] }) });
+    const { report: report2 } = fix;
+    await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: id, friction: report2.friction ?? [] });
+    if (report2.status === WorkReportStatus.Complete) {
+      next = withStepFiles({ record: record3, reports: [report2], gitPrefix });
+      await run.setStep({ record: { ...next, report: report2 }, patch: await collectChanged({ run, gitPrefix, reports: [report2] }) });
     }
   }
   return formatAndVerify({ context, record: next });
@@ -140288,27 +143071,27 @@ var workStep = ({ run, gitPrefix, id, build, requireChanges }) => {
     if ("stopped" in outcome) {
       return outcome.stopped;
     }
-    const { report } = outcome;
-    run.progress(`step ${id}: agent report ${report.status} \u2014 ${report.changedFiles.length} changed file(s)`);
-    await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: id, friction: report.friction ?? [] });
-    if (report.status !== WorkReportStatus.Complete) {
-      const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
+    const { report: report2 } = outcome;
+    run.progress(`step ${id}: agent report ${report2.status} \u2014 ${report2.changedFiles.length} changed file(s)`);
+    await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: id, friction: report2.friction ?? [] });
+    if (report2.status !== WorkReportStatus.Complete) {
+      const status = report2.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
       return run.stop({
-        record: { ...record3, report },
+        record: { ...record3, report: report2 },
         status,
-        error: `${id}: ${report.status} \u2014 ${report.failures.join("; ")}`
+        error: `${id}: ${report2.status} \u2014 ${report2.failures.join("; ")}`
       });
     }
-    const changed = await collectChanged({ run, gitPrefix, reports: [report] });
+    const changed = await collectChanged({ run, gitPrefix, reports: [report2] });
     if (requireChanges && changed.changedFiles.length === 0) {
       return run.stop({
-        record: { ...record3, report },
+        record: { ...record3, report: report2 },
         status: RunStatus.Failed,
         error: `${id}: agent reported complete but neither its report nor git shows a single changed file \u2014 nothing was implemented, and a green verify on an unchanged codebase would be a misleading success.`
       });
     }
     await run.setStep({
-      record: withStepFiles({ record: { ...record3, status: RunStatus.Passed, report }, reports: [report], gitPrefix }),
+      record: withStepFiles({ record: { ...record3, status: RunStatus.Passed, report: report2 }, reports: [report2], gitPrefix }),
       patch: changed
     });
     run.progress(`step ${id} passed`);
@@ -140397,13 +143180,13 @@ var buildCleanupRecord = ({ context, state }) => ({
 });
 
 // src/pipeline/steps/refactorStep/common/utils/describePersistingFindings.ts
-var describePersistingFindings = ({ findings, report, roundsUsed }) => {
+var describePersistingFindings = ({ findings, report: report2, roundsUsed }) => {
   const findingLines = findings.map((finding2) => {
     const where = finding2.files.map((file2) => formatFindingSite({ file: file2 })).join(", ");
     return `- ${finding2.siteKey} \u2014 ${formatFindingText({ finding: finding2 })}
   at ${where}`;
   });
-  const rationale = (report?.friction ?? []).map((entry) => `- [${entry.area}] ${entry.detail}`);
+  const rationale = (report2?.friction ?? []).map((entry) => `- [${entry.area}] ${entry.detail}`);
   return [
     `refactor: cleanup ended with ${findings.length} qualifying blocking finding(s) still standing after ${roundsUsed} round(s) \u2014 recorded, and the run carries on:`,
     ...findingLines,
@@ -140412,12 +143195,12 @@ var describePersistingFindings = ({ findings, report, roundsUsed }) => {
 };
 
 // src/pipeline/steps/refactorStep/common/utils/fingerprintScopeFiles.ts
-import { readFile as readFile51 } from "node:fs/promises";
-import { join as join105 } from "node:path";
+import { readFile as readFile55 } from "node:fs/promises";
+import { join as join118 } from "node:path";
 var fingerprintScopeFiles = async ({ run }) => {
   const entries = await Promise.all(
     standardsScopeFiles({ run }).map(async (file2) => {
-      const content = await readFile51(join105(run.cwd, file2)).catch(() => void 0);
+      const content = await readFile55(join118(run.cwd, file2)).catch(() => void 0);
       return content === void 0 ? [] : [[file2, sha256({ content })]];
     })
   );
@@ -140430,8 +143213,8 @@ var readPriorCleanup = ({ run }) => {
 };
 
 // src/standardsCheck/applyStandardsBaseline.ts
-import { readFile as readFile52, writeFile as writeFile21 } from "node:fs/promises";
-import { join as join106 } from "node:path";
+import { readFile as readFile56, writeFile as writeFile23 } from "node:fs/promises";
+import { join as join119 } from "node:path";
 var StandardsBaseline = external_exports.object({
   at: external_exports.string(),
   path: external_exports.string(),
@@ -140444,8 +143227,8 @@ var applyStandardsBaseline = async ({
   all,
   writeBaseline
 }) => {
-  const baselinePath = join106(cwd, "lightsout.standards-baseline.json");
-  const baselineRaw = await readFile52(baselinePath, "utf8").catch(() => void 0);
+  const baselinePath = join119(cwd, "lightsout.standards-baseline.json");
+  const baselineRaw = await readFile56(baselinePath, "utf8").catch(() => void 0);
   const notes = [];
   let baselineJson;
   try {
@@ -140456,7 +143239,7 @@ var applyStandardsBaseline = async ({
   const baseline = baselineRaw === void 0 ? void 0 : StandardsBaseline.safeParse(baselineJson);
   if (writeBaseline) {
     const siteKeys = [...new Set(findings.map((finding2) => finding2.siteKey))];
-    await writeFile21(baselinePath, `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", siteKeys }, void 0, "	")}
+    await writeFile23(baselinePath, `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", siteKeys }, void 0, "	")}
 `, "utf8");
     notes.push(
       `baseline ${baseline === void 0 ? "written" : "refreshed"}: ${siteKeys.length} site(s) accepted as existing debt \u2014 commit lightsout.standards-baseline.json; future runs report only NEW findings (--all shows everything)`
@@ -140542,8 +143325,8 @@ var buildDominantPathNote = ({ findings }) => {
 };
 
 // src/standardsCheck/buildStandardsHealth.ts
-import { readFile as readFile53 } from "node:fs/promises";
-import { join as join107 } from "node:path";
+import { readFile as readFile57 } from "node:fs/promises";
+import { join as join120 } from "node:path";
 var emptyTally = () => ({
   attempted: 0,
   resolved: 0,
@@ -140568,11 +143351,11 @@ var readRefactorRun = async ({ cwd, runId }) => {
   if ((manifest.pipeline ?? "implement") !== "refactor") {
     return void 0;
   }
-  const worklist = RefactorWorklist.parse(JSON.parse(await readFile53(join107(cwd, manifest.plan), "utf8")));
+  const worklist = RefactorWorklist.parse(JSON.parse(await readFile57(join120(cwd, manifest.plan), "utf8")));
   return { worklist, steps: manifest.steps };
 };
-var countBatchSites = ({ tallies, blocking, report }) => {
-  const remaining = report ? new Set(report.remainingSiteKeys) : void 0;
+var countBatchSites = ({ tallies, blocking, report: report2 }) => {
+  const remaining = report2 ? new Set(report2.remainingSiteKeys) : void 0;
   const leftStanding = /* @__PURE__ */ new Set();
   for (const finding2 of blocking) {
     const tally = tallyFor({ tallies, rule: finding2.rule });
@@ -140586,14 +143369,14 @@ var countBatchSites = ({ tallies, blocking, report }) => {
       continue;
     }
     leftStanding.add(finding2.rule);
-    if (report?.outcome === BatchOutcome.Declined) {
+    if (report2?.outcome === BatchOutcome.Declined) {
       tally.declined += 1;
     } else {
       tally.untracked += 1;
     }
   }
   for (const rule of leftStanding) {
-    tallyFor({ tallies, rule }).reasons.push(...report?.rationale ?? []);
+    tallyFor({ tallies, rule }).reasons.push(...report2?.rationale ?? []);
   }
 };
 var countAdvice = ({ tallies, outcomes }) => {
@@ -140622,9 +143405,9 @@ var buildStandardsHealth = async ({ cwd, packs }) => {
     }
     for (const batch of run.worklist.batches) {
       const parsed = BatchReport.safeParse(run.steps.find((step) => step.id === batch.id)?.report);
-      const report = parsed.success ? parsed.data : void 0;
-      countBatchSites({ tallies, blocking: batch.blocking, report });
-      countAdvice({ tallies, outcomes: report?.advisoryOutcomes ?? [] });
+      const report2 = parsed.success ? parsed.data : void 0;
+      countBatchSites({ tallies, blocking: batch.blocking, report: report2 });
+      countAdvice({ tallies, outcomes: report2?.advisoryOutcomes ?? [] });
     }
   }
   const rules = packs.flatMap((pack) => pack.rules).map((rule) => ({
@@ -140693,15 +143476,15 @@ var listStandardsRules = async ({ cwd, config: config2 }) => {
 };
 
 // src/standardsCheck/common/paths/getStandardsSnapshotsDir.ts
-import { join as join108 } from "node:path";
+import { join as join121 } from "node:path";
 var getStandardsSnapshotsDir = ({ cwd }) => {
-  return join108(cwd, ".lightsout", "standards-check");
+  return join121(cwd, ".lightsout", "standards-check");
 };
 
 // src/standardsCheck/common/paths/getStandardsCheckPath.ts
-import { join as join109 } from "node:path";
+import { join as join122 } from "node:path";
 var getStandardsCheckPath = ({ cwd }) => {
-  return join109(cwd, ".lightsout", "standards-check.json");
+  return join122(cwd, ".lightsout", "standards-check.json");
 };
 
 // ../../node_modules/.pnpm/eventemitter3@5.0.4/node_modules/eventemitter3/index.mjs
@@ -140736,7 +143519,7 @@ var RabinKarp = class _RabinKarp {
     this.cloneValidators = cloneValidators;
   }
   async run(tokenMap, store) {
-    return new Promise((resolve21) => {
+    return new Promise((resolve22) => {
       let mapFrameInStore;
       let clone3 = null;
       const clones = [];
@@ -140768,7 +143551,7 @@ var RabinKarp = class _RabinKarp {
             if (clone3 && this.validate(clone3)) {
               clones.push(clone3);
             }
-            resolve21(clones);
+            resolve22(clones);
           }
         });
       };
@@ -140866,9 +143649,9 @@ var MemoryStore = class {
     this.values[namespace] = this.values[namespace] || {};
   }
   get(key) {
-    return new Promise((resolve21, reject) => {
+    return new Promise((resolve22, reject) => {
       if (key in this.values[this._namespace]) {
-        resolve21(this.values[this._namespace][key]);
+        resolve22(this.values[this._namespace][key]);
       } else {
         reject(new Error("not found"));
       }
@@ -152420,13 +155203,13 @@ var Tokenizer = class {
 };
 
 // src/standardsCheck/common/checkInputs/readIntoCache.ts
-import { readFile as readFile54 } from "node:fs/promises";
-import { join as join110 } from "node:path";
+import { readFile as readFile58 } from "node:fs/promises";
+import { join as join123 } from "node:path";
 var readIntoCache = async ({ cwd, paths, cache }) => {
   const texts = /* @__PURE__ */ new Map();
   for (const path of paths) {
     if (!cache.has(path)) {
-      const text = await readFile54(join110(cwd, path), "utf8").catch(() => void 0);
+      const text = await readFile58(join123(cwd, path), "utf8").catch(() => void 0);
       if (text !== void 0) {
         cache.set(path, text);
       }
@@ -152585,15 +155368,15 @@ var buildTestFileInput = async ({ cwd, tests, cache }) => {
 };
 
 // src/standardsCheck/common/checkInputs/buildTypeCheckerInput.ts
-import { dirname as dirname23, join as join111, resolve as resolve16 } from "node:path";
+import { dirname as dirname26, join as join124, resolve as resolve17 } from "node:path";
 var findNearestConfig = ({ cwd, path, compiler }) => {
-  let folder = dirname23(resolve16(cwd, path));
+  let folder = dirname26(resolve17(cwd, path));
   while (folder.startsWith(cwd)) {
-    const candidate = join111(folder, "tsconfig.json");
+    const candidate = join124(folder, "tsconfig.json");
     if (compiler.sys.fileExists(candidate)) {
       return candidate;
     }
-    folder = dirname23(folder);
+    folder = dirname26(folder);
   }
   return void 0;
 };
@@ -152604,7 +155387,7 @@ var buildPrograms = ({ configPaths, compiler }) => {
     if (read.error !== void 0) {
       continue;
     }
-    const parsed = compiler.parseJsonConfigFileContent(read.config, compiler.sys, dirname23(configPath));
+    const parsed = compiler.parseJsonConfigFileContent(read.config, compiler.sys, dirname26(configPath));
     programs.set(configPath, compiler.createProgram({ rootNames: parsed.fileNames, options: parsed.options }));
   }
   return programs;
@@ -152630,7 +155413,7 @@ var buildTypeCheckerInput = async ({
   const typedFiles = /* @__PURE__ */ new Map();
   for (const [path, configPath] of configOf2) {
     const program = programs.get(configPath);
-    const sourceFile = program?.getSourceFile(resolve16(cwd, path));
+    const sourceFile = program?.getSourceFile(resolve17(cwd, path));
     if (program !== void 0 && sourceFile !== void 0) {
       typedFiles.set(path, { sourceFile, checker: program.getTypeChecker() });
     }
@@ -152838,16 +155621,16 @@ var runPackageChecks = async ({
 };
 
 // src/standardsCheck/writeStandardsSnapshot.ts
-import { mkdir as mkdir25, writeFile as writeFile22 } from "node:fs/promises";
-import { join as join112 } from "node:path";
+import { mkdir as mkdir28, writeFile as writeFile24 } from "node:fs/promises";
+import { join as join125 } from "node:path";
 var writeStandardsSnapshot = async ({ cwd, snapshot }) => {
   const body = `${JSON.stringify(snapshot, void 0, "	")}
 `;
   const snapshotsDir = getStandardsSnapshotsDir({ cwd });
   const fileName = `${snapshot.at.replaceAll(":", "-").replaceAll(".", "-")}.json`;
-  await mkdir25(snapshotsDir, { recursive: true });
-  await writeFile22(getStandardsCheckPath({ cwd }), body, "utf8");
-  await writeFile22(join112(snapshotsDir, fileName), body, "utf8");
+  await mkdir28(snapshotsDir, { recursive: true });
+  await writeFile24(getStandardsCheckPath({ cwd }), body, "utf8");
+  await writeFile24(join125(snapshotsDir, fileName), body, "utf8");
 };
 
 // src/standardsCheck/runStandardsCheck.ts
@@ -153013,9 +155796,9 @@ var selectStandardsFindings = ({ findings, changedFiles }) => {
 };
 
 // src/standardsCheck/validateStandardsPack.ts
-import { readdir as readdir18 } from "node:fs/promises";
+import { readdir as readdir19 } from "node:fs/promises";
 import { createRequire as createRequire5 } from "node:module";
-import { join as join113 } from "node:path";
+import { join as join126 } from "node:path";
 
 // src/standardsCheck/common/utils/checkFixtureTree.ts
 var checkFixtureTree = async ({ cwd, rule, inputKind, run, label: label2, compiler }) => {
@@ -153057,7 +155840,7 @@ var getEngineTypescript = () => {
 var missingFixtureSides = async ({ fixturesPath }) => {
   const missing = [];
   for (const side of Object.values(FixtureSide2)) {
-    const entries = await readdir18(join113(fixturesPath, side)).catch(() => void 0);
+    const entries = await readdir19(join126(fixturesPath, side)).catch(() => void 0);
     if (entries === void 0 || entries.length === 0) {
       missing.push(side);
     }
@@ -153074,7 +155857,7 @@ var checkFrameworkOwned = async ({ pack, compiler }) => {
   if (frameworkOwnedFixturesPath === void 0) {
     return heldNothing;
   }
-  const entries = await readdir18(frameworkOwnedFixturesPath, { withFileTypes: true }).catch(() => []);
+  const entries = await readdir19(frameworkOwnedFixturesPath, { withFileTypes: true }).catch(() => []);
   const frameworks = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
   if (frameworks.length === 0) {
     return heldNothing;
@@ -153088,7 +155871,7 @@ var checkFrameworkOwned = async ({ pack, compiler }) => {
       }
       try {
         const found = await checkFixtureTree({
-          cwd: join113(frameworkOwnedFixturesPath, framework),
+          cwd: join126(frameworkOwnedFixturesPath, framework),
           rule,
           inputKind,
           run,
@@ -153137,7 +155920,7 @@ var validateStandardsPack = async ({ pack }) => {
     }
     for (const side of Object.values(FixtureSide2)) {
       try {
-        const found = await checkFixtureTree({ cwd: join113(rule.fixturesPath, side), rule, inputKind, run, label: `fixtures/${side}/`, compiler });
+        const found = await checkFixtureTree({ cwd: join126(rule.fixturesPath, side), rule, inputKind, run, label: `fixtures/${side}/`, compiler });
         if (side === FixtureSide2.Fail && found.length === 0) {
           problems.push(`${rule.id}: the fail fixture produced no finding \u2014 the check does not catch what the rule describes`);
         }
@@ -153173,11 +155956,11 @@ var reviewAdvisories = async ({ run, packs, channels, files }) => {
 };
 
 // src/pipeline/steps/refactorStep/common/utils/runExecutorPass.ts
-var failureOf = ({ report, failure }) => {
+var failureOf = ({ report: report2, failure }) => {
   if (failure !== void 0) {
     return `refactor: ${failure}`;
   }
-  return report === void 0 || report.status === WorkReportStatus.Complete ? void 0 : `refactor: ${report.status} \u2014 ${report.failures.join("; ")}`;
+  return report2 === void 0 || report2.status === WorkReportStatus.Complete ? void 0 : `refactor: ${report2.status} \u2014 ${report2.failures.join("; ")}`;
 };
 var editedSince = ({ before, after }) => Object.keys(after).filter((file2) => after[file2] !== before[file2]);
 var runExecutorPass = async ({
@@ -153207,16 +155990,16 @@ var runExecutorPass = async ({
   if (!outcome.ok && outcome.rateLimited) {
     return { parked: await run.stop({ record: record3, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };
   }
-  const report = outcome.ok ? outcome.report : void 0;
-  const reports = report === void 0 ? [] : [report];
-  if (report !== void 0) {
-    await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: "refactor", friction: report.friction ?? [] });
+  const report2 = outcome.ok ? outcome.report : void 0;
+  const reports = report2 === void 0 ? [] : [report2];
+  if (report2 !== void 0) {
+    await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: "refactor", friction: report2.friction ?? [] });
   }
   await run.setStep({ record: record3, patch: await collectChanged({ run, gitPrefix, reports }) });
   const edited = editedSince({ before, after: await fingerprintScopeFiles({ run }) });
   const next = withStepFiles({ record: { ...record3, changedFiles: [.../* @__PURE__ */ new Set([...record3.changedFiles ?? [], ...edited])] }, reports, gitPrefix });
   await run.setStep({ record: next });
-  return { record: next, report, failure: failureOf({ report, failure: outcome.ok ? void 0 : outcome.failure }), edited };
+  return { record: next, report: report2, failure: failureOf({ report: report2, failure: outcome.ok ? void 0 : outcome.failure }), edited };
 };
 
 // src/pipeline/steps/refactorStep/common/utils/runCleanupRound.ts
@@ -153442,8 +156225,8 @@ var createWarmSpawn = ({ group, spawnWriter, aggregate }) => {
   let settled2 = false;
   let collected = false;
   let release;
-  const gate = new Promise((resolve21) => {
-    release = resolve21;
+  const gate = new Promise((resolve22) => {
+    release = resolve22;
   });
   const warm = group === void 0 ? void 0 : spawnWriter({ group, onFirstEvent: release }).finally(() => {
     settled2 = true;
@@ -153484,13 +156267,13 @@ var createWriterAggregate = ({ run, step, label: label2 }) => {
       }
       return;
     }
-    const { report } = result;
-    await appendFriction({ cwd: run.cwd, runId: run.current().runId, step, friction: report.friction ?? [] });
-    reports.push(report);
-    run.progress(`${step}: ${name} \u2014 ${report.status}`);
-    if (report.status !== WorkReportStatus.Complete) {
-      terminated = terminated || report.status !== WorkReportStatus.Failed;
-      failures.push(`${name}: ${report.status} \u2014 ${report.failures.join("; ")}`);
+    const { report: report2 } = result;
+    await appendFriction({ cwd: run.cwd, runId: run.current().runId, step, friction: report2.friction ?? [] });
+    reports.push(report2);
+    run.progress(`${step}: ${name} \u2014 ${report2.status}`);
+    if (report2.status !== WorkReportStatus.Complete) {
+      terminated = terminated || report2.status !== WorkReportStatus.Failed;
+      failures.push(`${name}: ${report2.status} \u2014 ${report2.failures.join("; ")}`);
     }
   };
   return { collect, isParked: () => parked, result: () => ({ reports, failures, terminated, parked }) };
@@ -153621,8 +156404,8 @@ var runWriterBatches = async ({
 };
 
 // src/pipeline/steps/selectTestTargets.ts
-import { readFile as readFile55, stat as stat13 } from "node:fs/promises";
-import { join as join114 } from "node:path";
+import { readFile as readFile59, stat as stat13 } from "node:fs/promises";
+import { join as join127 } from "node:path";
 var selectTestTargets = async ({
   run,
   candidates,
@@ -153639,9 +156422,9 @@ var selectTestTargets = async ({
   const deleted = [];
   const coverageExcluded = [];
   for (const file2 of candidates) {
-    const content = await readFile55(join114(run.cwd, file2), "utf8").catch(() => void 0);
+    const content = await readFile59(join127(run.cwd, file2), "utf8").catch(() => void 0);
     if (content === void 0) {
-      const exists3 = await stat13(join114(run.cwd, file2)).then(
+      const exists3 = await stat13(join127(run.cwd, file2)).then(
         () => true,
         () => false
       );
@@ -153857,10 +156640,10 @@ var committedLedgerConflicts = async ({ cwd, assignments, movePaths }) => {
 };
 
 // src/pipeline/steps/ledger/missingLedgerNames.ts
-import { readFile as readFile56 } from "node:fs/promises";
-import { join as join115 } from "node:path";
+import { readFile as readFile60 } from "node:fs/promises";
+import { join as join128 } from "node:path";
 var missingLedgerNames = async ({ cwd, testFile, testNames }) => {
-  const content = await readFile56(join115(cwd, testFile), "utf8").catch(() => void 0);
+  const content = await readFile60(join128(cwd, testFile), "utf8").catch(() => void 0);
   return content === void 0 ? void 0 : testNames.filter((testName) => !holdsTestTitle({ content, testName }));
 };
 
@@ -154185,7 +156968,7 @@ var runPhase = async ({
     cwd,
     driver,
     config: config2,
-    planPath: join116(dirname24(current.plan), step.id),
+    planPath: join129(dirname27(current.plan), step.id),
     overviewPath: current.plan,
     parentRunId: current.runId,
     existing: childManifest,
@@ -154229,12 +157012,13 @@ var runPhasesPipeline = async ({
   config: config2,
   overviewPath,
   startPhase,
+  runId,
   existing,
   skipRefactor,
   willShip,
   onProgress
 }) => {
-  const initialized = await initializeSequence({ cwd, driver, config: config2, overviewPath, startPhase, existing, willShip });
+  const initialized = await initializeSequence({ cwd, driver, config: config2, overviewPath, startPhase, runId, existing, willShip });
   let manifest = initialized.manifest;
   const sink = createProgressSink({ cwd, runId: manifest.runId });
   const narrate = (message) => {
@@ -154313,7 +157097,12 @@ var resolveImplementInputs = async ({ flags, cwd }) => {
   if (!phased && startPhase !== void 0) {
     return { error: "--start-phase applies to a plan folder holding an overview.md \u2014 a single plan has one phase" };
   }
-  return { planPath, overviewPath, packages, startPhase, planName: planNameFromPath({ cwd, planPath }) };
+  const planName = planNameFromPath({ cwd, planPath });
+  const terms = await readTicketRunTerms({ cwd, name: planName, planPath: "overviewPath" in target ? target.overviewPath : target.planPath });
+  if (terms.refusal !== void 0) {
+    return { error: terms.refusal };
+  }
+  return { planPath, overviewPath, packages, startPhase, planName, shipRequest: terms.shipRequest };
 };
 var runResolvedPipeline = ({
   cwd,
@@ -154321,6 +157110,7 @@ var runResolvedPipeline = ({
   overviewPath,
   packages,
   startPhase,
+  runId,
   driver,
   config: config2,
   skipRefactor,
@@ -154331,6 +157121,7 @@ var runResolvedPipeline = ({
   config: config2,
   overviewPath: target.overviewPath,
   startPhase,
+  runId,
   skipRefactor,
   willShip,
   onProgress: createProgressPrinter()
@@ -154339,6 +157130,7 @@ var runResolvedPipeline = ({
   planPath: target.planPath,
   overviewPath,
   packages,
+  runId,
   driver,
   config: config2,
   skipRefactor,
@@ -154351,13 +157143,13 @@ var implementCommand = async ({ flags, cwd }) => {
     console.error(inputs.error);
     return exitCli({ code: 1 });
   }
-  const { planPath, overviewPath, packages, startPhase, planName } = inputs;
+  const { planPath, overviewPath, packages, startPhase, planName, shipRequest } = inputs;
   const skipRefactor = flags.get("skip-refactor") === true;
   const loaded = await readConfig({ cwd });
   const { driverName, model, effort } = resolveCommandHarness({ config: loaded, command: "implement" });
   const driver = getDriver({ name: driverName });
   const config2 = { ...loaded, harness: driverName, model, effort };
-  const shipIntent = resolveCommandShipIntent({ config: loaded, flags, env: process.env });
+  const shipIntent = resolveCommandShipIntent({ config: loaded, flags, env: process.env, shipRequest });
   if (shipIntent === void 0) {
     return exitCli({ code: 1 });
   }
@@ -154375,31 +157167,33 @@ var implementCommand = async ({ flags, cwd }) => {
   if (planName !== void 0) {
     await printPlanTicketWarning({ cwd, name: planName });
   }
-  console.log(`lightsout: starting run`);
-  console.log(
-    "overviewPath" in target ? `  overview: ${target.overviewPath}${startPhase === void 0 ? "" : `
-  start phase: ${startPhase}`}` : `  plan: ${target.planPath}${overviewPath ? `
-  overview: ${overviewPath}` : ""}${packages ? `
-  packages flag: ${packages.join(", ")}` : ""}`
-  );
-  printRunHeader({ config: config2, driver, cwd: workspace.cwd });
-  const result = await runResolvedPipeline({
+  printRunStart({ target, overviewPath, packages, startPhase, config: config2, driver, cwd: workspace.cwd });
+  const outcome = await runTicketPlanLifecycle({
     cwd: workspace.cwd,
-    target,
-    overviewPath,
-    packages,
-    startPhase,
-    driver,
-    config: config2,
-    skipRefactor,
-    willShip: shipIntent.willShip
+    name: planName,
+    run: ({ runId }) => runResolvedPipeline({
+      cwd: workspace.cwd,
+      target,
+      overviewPath,
+      packages,
+      startPhase,
+      runId,
+      driver,
+      config: config2,
+      skipRefactor,
+      willShip: shipIntent.willShip
+    })
   });
+  const result = reportTicketPlanOutcome({ outcome });
+  if (result === void 0) {
+    return exitCli({ code: 1 });
+  }
   return finishImplementRun({ config: loaded, cwd: workspace.cwd, result, flags });
 };
 
 // src/cli/implementDirectCommand.ts
-import { readFile as readFile58 } from "node:fs/promises";
-import { resolve as resolve17 } from "node:path";
+import { readFile as readFile62 } from "node:fs/promises";
+import { resolve as resolve18 } from "node:path";
 
 // src/queue/board/BoardQuestionRelay.ts
 var BoardQuestionRelay = class {
@@ -154431,17 +157225,17 @@ var BoardQuestionRelay = class {
 };
 
 // src/queue/board/getQueueBoardPath.ts
-import { join as join117 } from "node:path";
+import { join as join130 } from "node:path";
 var getQueueBoardPath = ({ cwd, runId }) => {
-  return join117(getRunDir({ cwd, runId }), "board.json");
+  return join130(getRunDir({ cwd, runId }), "board.json");
 };
 
 // src/queue/board/QueueBoardRecorder.ts
-import { mkdir as mkdir26, rename as rename7 } from "node:fs/promises";
-import { dirname as dirname25 } from "node:path";
+import { mkdir as mkdir29, rename as rename11 } from "node:fs/promises";
+import { dirname as dirname28 } from "node:path";
 
 // src/queue/board/toQueueBoardTickets.ts
-import { join as join118 } from "node:path";
+import { join as join131 } from "node:path";
 
 // src/queue/common/constants/QueueWorker.ts
 var QueueWorker = {
@@ -154468,7 +157262,7 @@ var describeWork = ({ ticket, branch, worktreePath }) => ({
 });
 var describeUnbuilt = ({ ticket, live: live2 }) => {
   const branch = toTicketBranch({ ticket, template: live2.branchTemplate });
-  return describeWork({ ticket, branch, worktreePath: join118(live2.worktreesRoot, branch) });
+  return describeWork({ ticket, branch, worktreePath: join131(live2.worktreesRoot, branch) });
 };
 var placeLeftBehind = ({ entry, lane, reason }) => ({
   identifier: entry.identifier,
@@ -154482,10 +157276,14 @@ var placeBuild = ({ build, live: live2 }) => {
   const work = { ...describeUnbuilt({ ticket: build.ticket, live: live2 }), buildStartedAt: build.startedAt };
   return question === void 0 ? { ...work, lane: QueueLane.Building } : { ...work, lane: QueueLane.Blocked, reason: question, question };
 };
+var placeOutcome = ({ outcome }) => {
+  if (outcome.ready) {
+    return { ...describeWork(outcome), lane: QueueLane.Shipped, reason: outcome.reconciliationFailure };
+  }
+  return outcome.open === void 0 ? { ...describeWork(outcome), lane: QueueLane.Parked, reason: outcome.error } : { ...describeWork(outcome), lane: QueueLane.Blocked, reason: outcome.open };
+};
 var placeSettled = ({ settled: settled2 }) => [
-  ...settled2.outcomes.map(
-    (outcome) => outcome.ready ? { ...describeWork(outcome), lane: QueueLane.Shipped, reason: outcome.reconciliationFailure } : { ...describeWork(outcome), lane: QueueLane.Parked, reason: outcome.error }
-  ),
+  ...settled2.outcomes.map((outcome) => placeOutcome({ outcome })),
   ...settled2.leftBehind.map(
     (entry) => entry.settled === true ? placeLeftBehind({ entry, lane: QueueLane.Shipped, reason: entry.reconciliationFailure }) : placeLeftBehind({ entry, lane: QueueLane.Blocked, reason: entry.reason })
   )
@@ -154588,9 +157386,9 @@ var QueueBoardRecorder = class {
       });
       const board = { coordinatorRunId: this.runId, updatedAt: takenAt, tickets };
       this.entered = new Map(tickets.map((ticket) => [ticket.identifier.toLowerCase(), { lane: ticket.lane, at: ticket.enteredAt }]));
-      await mkdir26(dirname25(path), { recursive: true });
+      await mkdir29(dirname28(path), { recursive: true });
       await writeJsonFile({ path: `${path}.tmp`, value: board });
-      await rename7(`${path}.tmp`, path);
+      await rename11(`${path}.tmp`, path);
     } catch (error51) {
       this.onProgress?.(`the queue board ${path} could not be written: ${messageOf({ error: error51 })}`);
     }
@@ -154603,9 +157401,9 @@ var readQueueBoard = async ({ cwd, runId }) => {
 };
 
 // src/queue/branchState/common/utils/getBranchStatePath.ts
-import { join as join119 } from "node:path";
+import { join as join132 } from "node:path";
 var getBranchStatePath = ({ cwd, branch }) => {
-  return join119(cwd, ".lightsout", "branch-state", `${toBranchFileName({ branch })}.json`);
+  return join132(cwd, ".lightsout", "branch-state", `${toBranchFileName({ branch })}.json`);
 };
 
 // src/queue/branchState/readBranchState.ts
@@ -154614,15 +157412,15 @@ var readBranchState = async ({ cwd, branch }) => {
 };
 
 // src/queue/branchState/writeBranchState.ts
-import { mkdir as mkdir27, rename as rename8 } from "node:fs/promises";
-import { dirname as dirname26 } from "node:path";
+import { mkdir as mkdir30, rename as rename12 } from "node:fs/promises";
+import { dirname as dirname29 } from "node:path";
 var writeBranchState = async ({ cwd, branch, phase, onProgress }) => {
   const record3 = { branch, phase, updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
   const statePath = getBranchStatePath({ cwd, branch });
   try {
-    await mkdir27(dirname26(statePath), { recursive: true });
+    await mkdir30(dirname29(statePath), { recursive: true });
     await writeJsonFile({ path: `${statePath}.tmp`, value: record3 });
-    await rename8(`${statePath}.tmp`, statePath);
+    await rename12(`${statePath}.tmp`, statePath);
   } catch (error51) {
     const message = error51 instanceof Error ? error51.message : String(error51);
     onProgress?.(`the branch state for ${branch} could not be recorded as '${phase}': ${message}`);
@@ -154630,12 +157428,16 @@ var writeBranchState = async ({ cwd, branch, phase, onProgress }) => {
 };
 
 // src/queue/commitTicketWork.ts
-import { mkdir as mkdir28, writeFile as writeFile23 } from "node:fs/promises";
-import { join as join120 } from "node:path";
+import { mkdir as mkdir31, writeFile as writeFile25 } from "node:fs/promises";
+import { join as join133 } from "node:path";
+
+// src/queue/common/utils/isGeneratedPath.ts
 var isGeneratedPath = ({ path, generated }) => generated.some((entry) => {
   const prefix = entry.replace(/\/$/, "");
   return path === prefix || path.startsWith(`${prefix}/`);
 });
+
+// src/queue/commitTicketWork.ts
 var toLiteralPathspec = ({ path }) => `':(literal)${path.replaceAll("'", String.raw`'\''`)}'`;
 var toPathspecs = ({ paths }) => paths.map((path) => toLiteralPathspec({ path })).join(" ");
 var discardGeneratedChanges = async ({ cwd, paths }) => {
@@ -154679,9 +157481,9 @@ var commitTicketWork = async ({ cwd, message, runDir, generated = [], onProgress
   if (sourcePaths.length === 0) {
     return { committed: false };
   }
-  const messagePath = join120(runDir, "commit-message.txt");
-  await mkdir28(runDir, { recursive: true });
-  await writeFile23(messagePath, message.endsWith("\n") ? message : `${message}
+  const messagePath = join133(runDir, "commit-message.txt");
+  await mkdir31(runDir, { recursive: true });
+  await writeFile25(messagePath, message.endsWith("\n") ? message : `${message}
 `, "utf8");
   const stageFailure = await runOrDescribeFailure({ command: "git add -A", cwd });
   if (stageFailure !== void 0) {
@@ -154694,21 +157496,24 @@ var commitTicketWork = async ({ cwd, message, runDir, generated = [], onProgress
   return { committed: true };
 };
 
+// src/queue/common/utils/isParkedOutcome.ts
+var isParkedOutcome = ({ outcome }) => !outcome.ready && outcome.open === void 0;
+
 // src/queue/relay/emptyRelayMailbox.ts
-import { mkdir as mkdir29, readdir as readdir19, rm as rm10 } from "node:fs/promises";
-import { join as join121 } from "node:path";
+import { mkdir as mkdir32, readdir as readdir20, rm as rm12 } from "node:fs/promises";
+import { join as join134 } from "node:path";
 var emptyRelayMailbox = async ({ directory }) => {
-  await mkdir29(directory, { recursive: true });
-  const entries = await readdir19(directory);
-  await Promise.all(entries.map((entry) => rm10(join121(directory, entry), { force: true, recursive: true })));
+  await mkdir32(directory, { recursive: true });
+  const entries = await readdir20(directory);
+  await Promise.all(entries.map((entry) => rm12(join134(directory, entry), { force: true, recursive: true })));
 };
 
 // src/queue/relay/FileQuestionRelay.ts
-import { readFile as readFile57, rename as rename9, rm as rm11 } from "node:fs/promises";
-import { join as join123 } from "node:path";
+import { readFile as readFile61, rename as rename13, rm as rm13 } from "node:fs/promises";
+import { join as join136 } from "node:path";
 
 // src/queue/relay/recordRelayedAnswer.ts
-import { join as join122 } from "node:path";
+import { join as join135 } from "node:path";
 var QueueQuestionRecord = external_exports.object({
   question: external_exports.string(),
   answer: external_exports.string(),
@@ -154728,7 +157533,7 @@ var recordRelayedAnswer = async ({
   onProgress
 }) => {
   await appendJsonlRecords({
-    path: join122(coordinatorRunDir, "decisions.jsonl"),
+    path: join135(coordinatorRunDir, "decisions.jsonl"),
     schema: QueueQuestionRecord,
     entries: [{ question, answer, ticket: ticket.identifier }],
     runId: coordinatorRunId,
@@ -154756,7 +157561,7 @@ var readJson2 = ({ raw }) => {
   }
 };
 var readRelayAnswer = async ({ path }) => {
-  const raw = await readFile57(path, "utf8").catch(() => void 0);
+  const raw = await readFile61(path, "utf8").catch(() => void 0);
   if (raw === void 0) {
     return void 0;
   }
@@ -154765,8 +157570,8 @@ var readRelayAnswer = async ({ path }) => {
   return answer === "" ? void 0 : answer;
 };
 var removeExchange = async ({ questionPath, answerPath }) => {
-  await rm11(questionPath, { force: true });
-  await rm11(answerPath, { force: true });
+  await rm13(questionPath, { force: true });
+  await rm13(answerPath, { force: true });
 };
 var FileQuestionRelay = class {
   settings;
@@ -154795,8 +157600,8 @@ var FileQuestionRelay = class {
     }
     this.sequence += 1;
     const stem = `${ticket.identifier.toLowerCase()}-${this.sequence}`;
-    const questionPath = join123(this.directory, `${stem}.question.json`);
-    const answerPath = join123(this.directory, `${stem}.answer.json`);
+    const questionPath = join136(this.directory, `${stem}.question.json`);
+    const answerPath = join136(this.directory, `${stem}.answer.json`);
     await this.putQuestion({ stem, questionPath, question, ticket });
     const answer = await this.waitForAnswer({ questionPath, answerPath, question });
     await removeExchange({ questionPath, answerPath });
@@ -154829,9 +157634,9 @@ var FileQuestionRelay = class {
   /** The question file, written under a temporary name and renamed in — a watcher globbing `*.question.json` must never read half of one. */
   async putQuestion({ stem, questionPath, question, ticket }) {
     const entry = RelayQuestion.parse({ ticket: ticket.identifier, title: ticket.title, question, askedAt: (/* @__PURE__ */ new Date()).toISOString() });
-    const temporaryPath = join123(this.directory, `${stem}.tmp`);
+    const temporaryPath = join136(this.directory, `${stem}.tmp`);
     await writeJsonFile({ path: temporaryPath, value: entry });
-    await rename9(temporaryPath, questionPath);
+    await rename13(temporaryPath, questionPath);
     this.createProgressSink({ ticket })(`waiting for an answer in ${questionPath}`);
   }
   /**
@@ -154865,8 +157670,8 @@ var FileQuestionRelay = class {
           throw new Error(`no answer arrived within ${this.settings.questionTimeoutMs}ms for: ${question}`);
         }
         await Promise.race([
-          new Promise((resolve21) => {
-            timer = setTimeout(resolve21, pollMs);
+          new Promise((resolve22) => {
+            timer = setTimeout(resolve22, pollMs);
           }),
           abandoned
         ]);
@@ -154992,7 +157797,7 @@ ${question}
 };
 
 // src/queue/runQueue.ts
-import { join as join129 } from "node:path";
+import { join as join142 } from "node:path";
 
 // src/queue/common/utils/createMainCheckoutSerializer.ts
 var createMainCheckoutSerializer = () => {
@@ -155302,15 +158107,15 @@ var startBuilds = ({ context, state, flight }) => {
 };
 
 // src/queue/drainLanes/common/utils/writeQueuePlan.ts
-import { writeFile as writeFile24 } from "node:fs/promises";
-import { join as join124 } from "node:path";
+import { writeFile as writeFile26 } from "node:fs/promises";
+import { join as join137 } from "node:path";
 var writeQueuePlan = async ({ path, cwd, settings, queued }) => {
   const root = await resolveWorktreesRoot({ cwd });
   const lines = queued.map((ticket) => {
     const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
-    return `- ${ticket.identifier} \xB7 ${ticket.worker} \xB7 ${branch} \xB7 ${join124(root, branch)}`;
+    return `- ${ticket.identifier} \xB7 ${ticket.worker} \xB7 ${branch} \xB7 ${join137(root, branch)}`;
   });
-  await writeFile24(path, `# queue drain
+  await writeFile26(path, `# queue drain
 
 ${lines.join("\n")}
 `, "utf8");
@@ -155350,6 +158155,24 @@ var startScan = ({ context, state, flight }) => {
 };
 
 // src/queue/shipOneBranch.ts
+var settleLandedMerge = async ({
+  cwd,
+  config: config2,
+  env,
+  outcome,
+  ticketRef,
+  mergeCommit,
+  serializeMainCheckout,
+  onProgress
+}) => {
+  await writeBranchState({ cwd, branch: outcome.branch, phase: BranchPhase.Merged, onProgress });
+  const removal = await serializeMainCheckout({ task: () => removeWorktree({ cwd, worktreePath: outcome.worktreePath, branch: outcome.branch }) });
+  if (removal === void 0) {
+    await deleteWorktreeRecord({ cwd, branch: outcome.branch });
+  }
+  onProgress?.(`${outcome.ticket.identifier} \xB7 shipped as ${mergeCommit}`);
+  return reconcileShippedTicket({ config: config2, env, ticketRef, onProgress });
+};
 var shipOneBranch = async ({
   cwd,
   config: config2,
@@ -155367,7 +158190,13 @@ var shipOneBranch = async ({
     return { ...outcome, ready: false, error: error51 };
   };
   onProgress?.(`${outcome.ticket.identifier} \xB7 merging ${outcome.branch} into origin/${defaultBranch}`);
-  const shipped = await runShip({ cwd: outcome.worktreePath, settings: shipSettings, integration, onProgress });
+  const shipped = await runShip({
+    cwd: outcome.worktreePath,
+    settings: shipSettings,
+    integration,
+    ticketGuard: createTicketShipGuard({ config: config2, env, onProgress }),
+    onProgress
+  });
   if (shipped.status === ShipStatus.Blocked && shipped.reason === ShipBlockReason.IntegrationGatesUnavailable) {
     const coordination = shipped.detail ?? "the shared gate reservation was never acquired";
     const holdFailure = await takeGateHold({
@@ -155382,16 +158211,25 @@ var shipOneBranch = async ({
     });
     return park({ error: holdFailure === void 0 ? coordination : `${coordination} ${holdFailure}` });
   }
+  if (shipped.status === ShipStatus.Blocked && shipped.reason === ShipBlockReason.TicketNotAuthorized) {
+    const waiting = shipped.detail ?? "the branch\u2019s ticket record does not authorize shipping it";
+    onProgress?.(`${outcome.ticket.identifier} \xB7 left open: ${waiting}`);
+    await writeBranchState({ cwd, branch: outcome.branch, phase: BranchPhase.Open, onProgress });
+    return { ...outcome, ready: false, open: waiting };
+  }
   if (shipped.status === ShipStatus.Blocked) {
     return park({ error: `${shipped.reason}: ${shipped.detail}` });
   }
-  await writeBranchState({ cwd, branch: outcome.branch, phase: BranchPhase.Merged, onProgress });
-  const removal = await serializeMainCheckout({ task: () => removeWorktree({ cwd, worktreePath: outcome.worktreePath, branch: outcome.branch }) });
-  if (removal === void 0) {
-    await deleteWorktreeRecord({ cwd, branch: outcome.branch });
-  }
-  onProgress?.(`${outcome.ticket.identifier} \xB7 shipped as ${shipped.mergeCommit}`);
-  const reconciliationFailure = await reconcileShippedTicket({ config: config2, env, ticketRef: shipped.ticketRef, onProgress });
+  const reconciliationFailure = await settleLandedMerge({
+    cwd,
+    config: config2,
+    env,
+    outcome,
+    ticketRef: shipped.ticketRef,
+    mergeCommit: shipped.mergeCommit,
+    serializeMainCheckout,
+    onProgress
+  });
   return reconciliationFailure === void 0 ? outcome : { ...outcome, reconciliationFailure };
 };
 
@@ -155494,9 +158332,9 @@ var runDrainLanes = async ({ first, carried, carriedLeftBehind, attempted, ...co
     }
     flight.tasks.delete(await Promise.race(flight.tasks.values()));
   }
-  const report = finishDrain({ context, state });
+  const report2 = finishDrain({ context, state });
   recordBoard({ context, state });
-  return report;
+  return report2;
 };
 
 // src/queue/drainQueue.ts
@@ -155551,7 +158389,7 @@ var drainQueue = async ({
 };
 
 // src/queue/runQueueTicket.ts
-import { join as join127 } from "node:path";
+import { join as join140 } from "node:path";
 
 // src/common/git/readGitCommitsAhead.ts
 var readGitCommitsAhead = async ({ cwd, defaultBranch }) => {
@@ -155563,9 +158401,49 @@ var readGitCommitsAhead = async ({ cwd, defaultBranch }) => {
   return Number.isFinite(commits) ? commits : void 0;
 };
 
+// src/queue/common/utils/settleWorkerOutcome.ts
+var settleWorkerOutcome = async ({
+  cwd,
+  worktreePath,
+  branch,
+  defaultBranch,
+  ticket,
+  ticketRunDir,
+  generated,
+  worked,
+  onProgress
+}) => {
+  if (worked.error !== void 0) {
+    return { ready: false, error: worked.error, unanswered: worked.unanswered };
+  }
+  if (worked.open !== void 0) {
+    await writeBranchState({ cwd, branch, phase: BranchPhase.Open, onProgress });
+    return { ready: false, open: worked.open, error: void 0, unanswered: void 0 };
+  }
+  const committed = await commitTicketWork({
+    cwd: worktreePath,
+    message: `${ticket.identifier} ${ticket.title}`,
+    runDir: ticketRunDir,
+    generated,
+    onProgress
+  });
+  if ("error" in committed) {
+    return { ready: false, error: committed.error };
+  }
+  const ahead = await readGitCommitsAhead({ cwd: worktreePath, defaultBranch });
+  if (ahead === void 0) {
+    return { ready: false, error: `git could not count the commits on ${branch}` };
+  }
+  if (ahead === 0) {
+    return { ready: false, error: "the worker left no commits on the branch" };
+  }
+  await writeBranchState({ cwd, branch, phase: BranchPhase.Ready, onProgress });
+  return { ready: true };
+};
+
 // src/direct/runDirectWork.ts
-import { writeFile as writeFile25 } from "node:fs/promises";
-import { join as join125 } from "node:path";
+import { writeFile as writeFile27 } from "node:fs/promises";
+import { join as join138 } from "node:path";
 
 // src/direct/common/utils/stopDirectRun.ts
 var stopDirectRun = async ({ run, record: record3, status, error: error51 }) => {
@@ -155622,16 +158500,16 @@ var invokeDirectWorker = async ({
     const status = outcome.rateLimited ? RunStatus.PausedRateLimit : RunStatus.Failed;
     return stopDirectRun({ run, record: record3, status, error: outcome.failure });
   }
-  const report = outcome.report;
-  const refusal = report.failures[0] ?? report.summary;
-  if (report.status === WorkReportStatus.TerminatedAmbiguity) {
+  const report2 = outcome.report;
+  const refusal = report2.failures[0] ?? report2.summary;
+  if (report2.status === WorkReportStatus.TerminatedAmbiguity) {
     return stopDirectRun({ run, record: record3, status: RunStatus.Escalated, error: refusal });
   }
-  if (report.status !== WorkReportStatus.Complete) {
+  if (report2.status !== WorkReportStatus.Complete) {
     return stopDirectRun({ run, record: record3, status: RunStatus.Failed, error: refusal });
   }
-  const changedFiles = [.../* @__PURE__ */ new Set([...run.current().changedFiles, ...report.changedFiles.map((file2) => file2.path)])];
-  await run.setStep({ record: { ...record3, status: RunStatus.Passed, report, changedFiles }, patch: { changedFiles } });
+  const changedFiles = [.../* @__PURE__ */ new Set([...run.current().changedFiles, ...report2.changedFiles.map((file2) => file2.path)])];
+  await run.setStep({ record: { ...record3, status: RunStatus.Passed, report: report2, changedFiles }, patch: { changedFiles } });
   return void 0;
 };
 
@@ -155668,7 +158546,7 @@ var createDirectRun = async ({
   config: config2,
   willShip
 }) => {
-  const ticketPath = join125(getRunDir({ cwd, runId }), "ticket.md");
+  const ticketPath = join138(getRunDir({ cwd, runId }), "ticket.md");
   const manifest = await createRun({
     cwd,
     runId,
@@ -155680,7 +158558,7 @@ var createDirectRun = async ({
     baselineDirtyFiles: await readGitChangedFiles({ cwd }),
     willShip
   });
-  await writeFile25(ticketPath, ticketBody.endsWith("\n") ? ticketBody : `${ticketBody}
+  await writeFile27(ticketPath, ticketBody.endsWith("\n") ? ticketBody : `${ticketBody}
 `, "utf8");
   return manifest;
 };
@@ -155778,22 +158656,237 @@ var executeDirectWork = async ({
 };
 var runDirectWork = (params) => withRunLock({ params, run: executeDirectWork });
 
+// src/queue/workers/common/utils/buildFromTicketBody.ts
+var toBuildOutcome = ({ outcome }) => {
+  if ("refusal" in outcome) {
+    return { error: outcome.refusal };
+  }
+  const { result, recordError } = outcome;
+  if (result.ok) {
+    return recordError === void 0 ? {} : { error: recordError };
+  }
+  const stated = result.error ?? `the run ended ${result.manifest.status}`;
+  return { error: `${stated} \u2014 \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree` };
+};
+var buildFromTicketBody = async ({ step }) => {
+  const { cwd, record: record3, plan, ticket, config: config2, driver, driverName, onProgress } = step;
+  onProgress?.(`${ticket.identifier} carries no plan deliverable for plan ${plan.id}, so it is built from the ticket body`);
+  return toBuildOutcome({
+    outcome: await runTicketPlanLifecycle({
+      cwd,
+      name: formatPlanAddress({ ticketBranch: record3.branch, planId: plan.id }),
+      run: ({ runId }) => runDirectWork({ cwd, ticketBody: ticket.description, ticketRef: ticket.identifier, runId, driver, driverName, config: config2, onProgress })
+    })
+  });
+};
+
+// src/queue/workers/common/utils/commitPlanWork.ts
+var commitPlanWork = async ({ step }) => {
+  const { cwd, record: record3, plan, ticket, ticketRunDir, config: config2, onProgress } = step;
+  const committed = await commitTicketWork({
+    cwd,
+    message: `${ticket.identifier} ${plan.id}: ${plan.title}`,
+    runDir: ticketRunDir,
+    generated: config2.generated,
+    onProgress
+  });
+  return "error" in committed ? `plan ${plan.id} on ticket ${record3.branch} was built, but its work could not be committed: ${committed.error}` : void 0;
+};
+
+// src/queue/workers/common/utils/findStalledPlanRefusal.ts
+var findStalledPlanRefusal = ({ record: record3, plan }) => {
+  if (plan.progress !== PlanProgress.Failed && plan.progress !== PlanProgress.Implementing) {
+    return void 0;
+  }
+  const finish = plan.implementation === void 0 ? "" : `finish it with \`lightsout resume --run ${plan.implementation.runId}\`, or `;
+  return `the implementation of plan ${plan.id} on ticket ${record3.branch} has not finished, and a ticket's plans implement in numeric order \u2014 ${finish}take it out of the order with \`lightsout ticket exclude-plan --name ${record3.branch} --plan ${plan.id}\``;
+};
+
+// src/queue/workers/common/utils/settleLeftoverWork.ts
+var settleLeftoverWork = async ({ step, leftover }) => {
+  const { cwd, record: record3 } = step;
+  if (leftover.length === 0) {
+    return void 0;
+  }
+  const owner = record3.plans.filter((plan) => plan.progress === PlanProgress.Implemented && plan.implementation?.finishedAt !== void 0).sort((first, second) => Date.parse(second.implementation?.finishedAt ?? "") - Date.parse(first.implementation?.finishedAt ?? "")).at(0);
+  return owner === void 0 ? `the worktree ${cwd} holds changes no implemented plan of ticket ${record3.branch} accounts for, so the queue cannot say which plan they belong to` : commitPlanWork({ step: { ...step, plan: owner } });
+};
+
 // src/queue/workers/runPlanFolderPipeline.ts
-import { join as join126 } from "node:path";
+import { join as join139 } from "node:path";
 var runPlanFolderPipeline = async ({ cwd, name, config: config2, driver, onProgress }) => {
   const folder = planWorkspaceDir({ cwd, name });
-  const overviewPath = join126(folder, "overview.md");
+  const overviewPath = join139(folder, "overview.md");
   const phased = await pathExists({ path: overviewPath });
-  const result = phased ? await runPhasesPipeline({ cwd, driver, config: config2, overviewPath, onProgress }) : await runImplementPipeline({ cwd, driver, config: config2, planPath: join126(folder, "plan.md"), onProgress });
+  const outcome = await runTicketPlanLifecycle({
+    cwd,
+    name,
+    run: ({ runId }) => phased ? runPhasesPipeline({ cwd, driver, config: config2, overviewPath, runId, onProgress }) : runImplementPipeline({ cwd, driver, config: config2, planPath: join139(folder, "plan.md"), runId, onProgress })
+  });
+  if ("refusal" in outcome) {
+    return { error: outcome.refusal };
+  }
+  const { result, recordError } = outcome;
   if (result.ok) {
-    return {};
+    return recordError === void 0 ? {} : { error: recordError };
   }
   const stated = result.error ?? `the run ended ${result.manifest.status}`;
   return { error: `${stated} \u2014 \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree` };
 };
 
+// src/queue/workers/buildTicketPlans.ts
+var readLeftoverWork = async ({ cwd, config: config2 }) => {
+  const changed = await readGitChangedFiles({ cwd }) ?? [];
+  return changed.filter((path) => !isGeneratedPath({ path, generated: config2.generated ?? [] }));
+};
+var findNextPlanToBuild = ({ record: record3 }) => record3.plans.find((plan) => plan.exclusion === void 0 && plan.progress !== PlanProgress.Implemented);
+var takePlanBeingPlanned = ({ step, allowTicketBodyBuild }) => {
+  const { record: record3, plan } = step;
+  if (record3.mode !== TicketMode.SinglePlan) {
+    return { open: `plan ${plan.id} on ticket ${record3.branch} is still being planned, so the ticket stays open until that plan is ready to implement` };
+  }
+  if (!allowTicketBodyBuild || planNumberOf({ id: plan.id }) !== 1) {
+    return {
+      error: `plan ${plan.id} on ticket ${record3.branch} is still being planned, so the ticket has nothing ready to implement \u2014 plan it with \`lightsout plan --name ${formatPlanAddress({ ticketBranch: record3.branch, planId: plan.id })}\``
+    };
+  }
+  return buildFromTicketBody({ step });
+};
+var buildReadyPlan = async ({ step }) => {
+  const { cwd, record: record3, plan, config: config2, env, driver, onProgress } = step;
+  const address = formatPlanAddress({ ticketBranch: record3.branch, planId: plan.id });
+  if (!await pathExists({ path: planWorkspaceDir({ cwd, name: address }) })) {
+    const restored = await restoreTicketPlan({ cwd, address, config: config2, env, onProgress });
+    if ("error" in restored) {
+      return { error: restored.error };
+    }
+    if (restored.restored.length === 0) {
+      return { error: `plan ${plan.id} is ready to implement on ticket ${record3.branch}, but ${record3.ticketRef} carries no published files for it` };
+    }
+  }
+  return runPlanFolderPipeline({ cwd, name: address, config: config2, driver, onProgress });
+};
+var commitAndConfirmPlan = async ({ step, branch }) => {
+  const { cwd, plan } = step;
+  const committed = await commitPlanWork({ step });
+  if (committed !== void 0) {
+    return { error: committed };
+  }
+  const reread = await readTicketRecord({ cwd, ticketBranch: branch });
+  if ("error" in reread) {
+    return reread;
+  }
+  const { record: record3 } = reread;
+  if (record3?.plans.find((candidate) => candidate.id === plan.id)?.progress !== PlanProgress.Implemented) {
+    return {
+      error: `plan ${plan.id} on ticket ${branch} was built and passed, but its implementation is not recorded as finished, so the queue stopped rather than build it again`
+    };
+  }
+  return { record: record3 };
+};
+var decideTicketOutcome = ({ record: record3 }) => {
+  const eligibility = readTicketShipEligibility({ record: record3 });
+  if (eligibility.eligible) {
+    return {};
+  }
+  return record3.mode === TicketMode.MultiplePlan ? { open: eligibility.reason } : { error: eligibility.reason };
+};
+var buildTicketPlans = async ({
+  cwd,
+  branch,
+  ticket,
+  record: record3,
+  config: config2,
+  env,
+  driver,
+  driverName,
+  ticketRunDir,
+  allowTicketBodyBuild,
+  onProgress
+}) => {
+  const leftover = await readLeftoverWork({ cwd, config: config2 });
+  let current = record3;
+  let settled2 = false;
+  for (; ; ) {
+    const plan = findNextPlanToBuild({ record: current });
+    if (plan === void 0) {
+      return decideTicketOutcome({ record: current });
+    }
+    const step = { cwd, record: current, plan, ticket, config: config2, env, driver, driverName, ticketRunDir, onProgress };
+    const stalled = findStalledPlanRefusal({ record: current, plan });
+    if (stalled !== void 0) {
+      return { error: stalled };
+    }
+    if (!settled2) {
+      const unsettled = await settleLeftoverWork({ step, leftover });
+      if (unsettled !== void 0) {
+        return { error: unsettled };
+      }
+      settled2 = true;
+    }
+    const built = plan.progress === PlanProgress.Planning ? await takePlanBeingPlanned({ step, allowTicketBodyBuild }) : await buildReadyPlan({ step });
+    if (built.error !== void 0 || built.open !== void 0) {
+      return built;
+    }
+    const confirmed = await commitAndConfirmPlan({ step, branch });
+    if ("error" in confirmed) {
+      return { error: confirmed.error };
+    }
+    current = confirmed.record;
+  }
+};
+
+// src/queue/workers/chooseAutoPlanTarget.ts
+var toFirstPlanSlug = ({ title }) => {
+  const words = toBranchSlug({ text: title }).split("-").filter(Boolean).slice(0, 3);
+  return words.length === 0 ? "plan" : words.join("-");
+};
+var chooseAutoPlanTarget = async ({
+  cwd,
+  branch,
+  ticket,
+  config: config2,
+  env,
+  onProgress
+}) => {
+  const pulled = await pullTicketRecord({ cwd, ticketBranch: branch, config: config2, env, onProgress });
+  if ("error" in pulled) {
+    return pulled;
+  }
+  if (pulled.record === void 0) {
+    const added = await addTicketPlan({
+      cwd,
+      ticketBranch: branch,
+      slug: toFirstPlanSlug({ title: ticket.title }),
+      title: ticket.title,
+      config: config2,
+      env,
+      onProgress
+    });
+    if ("error" in added) {
+      return added;
+    }
+    for (const message of [added.notice, added.publishError].filter((entry) => entry !== void 0)) {
+      onProgress?.(message);
+    }
+    return { record: added.record, address: added.address };
+  }
+  const { record: record3 } = pulled;
+  const waiting = findNextPlanToPlan({ record: record3 });
+  return waiting === void 0 ? { record: record3 } : { record: record3, address: formatPlanAddress({ ticketBranch: branch, planId: waiting.id }) };
+};
+
 // src/queue/workers/runAutoPlanWorker.ts
-var runAutoPlanWorker = async ({ cwd, ticket, branch, config: config2, driver, settings, answeredQuestion, onProgress }) => {
+var runPlanningSession = async ({
+  cwd,
+  ticket,
+  planAddress,
+  config: config2,
+  driver,
+  settings,
+  answeredQuestion,
+  onProgress
+}) => {
   const engineCli = `node ${process.argv[1]}`;
   const outcome = await invokeAgentWithContract({
     driver,
@@ -155803,6 +158896,7 @@ var runAutoPlanWorker = async ({ cwd, ticket, branch, config: config2, driver, s
       ticketTitle: ticket.title,
       ticketBody: ticket.description,
       engineCli,
+      planAddress,
       answeredQuestion
     }),
     contract: WorkReport,
@@ -155815,20 +158909,56 @@ var runAutoPlanWorker = async ({ cwd, ticket, branch, config: config2, driver, s
   if (!outcome.ok) {
     return { error: outcome.failure };
   }
-  const report = outcome.report;
-  const refusal = report.failures[0] ?? report.summary;
-  if (report.status === WorkReportStatus.TerminatedAmbiguity) {
+  const report2 = outcome.report;
+  const refusal = report2.failures[0] ?? report2.summary;
+  if (report2.status === WorkReportStatus.TerminatedAmbiguity) {
     return { question: refusal };
   }
-  if (report.status !== WorkReportStatus.Complete) {
+  if (report2.status !== WorkReportStatus.Complete) {
     return { error: refusal };
   }
-  const folder = planWorkspaceDir({ cwd, name: branch });
+  const folder = planWorkspaceDir({ cwd, name: planAddress });
   if (!await pathExists({ path: folder })) {
     return { error: `${ticket.identifier}'s auto-plan session reported a finished plan, but no plan folder exists at ${folder} \u2014 nothing was built` };
   }
   onProgress?.(`${ticket.identifier} is planned and published; the engine now runs the implement pipeline on its plan folder`);
-  return runPlanFolderPipeline({ cwd, name: branch, config: config2, driver, onProgress });
+  return void 0;
+};
+var runAutoPlanWorker = async ({
+  cwd,
+  ticket,
+  branch,
+  config: config2,
+  driver,
+  driverName,
+  settings,
+  env,
+  ticketRunDir,
+  answeredQuestion,
+  onProgress
+}) => {
+  const chosen = await chooseAutoPlanTarget({ cwd, branch, ticket, config: config2, env, onProgress });
+  if ("error" in chosen) {
+    return { error: chosen.error };
+  }
+  const build = ({ record: record3 }) => buildTicketPlans({ cwd, branch, ticket, record: record3, config: config2, env, driver, driverName, ticketRunDir, allowTicketBodyBuild: false, onProgress });
+  if (chosen.address === void 0) {
+    const built = await build({ record: chosen.record });
+    return built.open === void 0 ? built : { open: `no plan is waiting to be planned on ${ticket.identifier}: ${built.open}` };
+  }
+  const planAddress = chosen.address;
+  const stopped = await runPlanningSession({ cwd, ticket, planAddress, config: config2, driver, settings, answeredQuestion, onProgress });
+  if (stopped !== void 0) {
+    return stopped;
+  }
+  const planned = await pullTicketRecord({ cwd, ticketBranch: branch, config: config2, env, onProgress });
+  if ("error" in planned) {
+    return { error: planned.error };
+  }
+  if (planned.record === void 0) {
+    return { error: `ticket ${branch} no longer has a record, so the plan ${planAddress} the session wrote could not be built` };
+  }
+  return build({ record: planned.record });
 };
 
 // src/queue/workers/runWorkerWithRelay.ts
@@ -155865,8 +158995,29 @@ var runPlanWorker = async ({
   driver,
   driverName,
   trackerSettings,
+  env,
+  ticketRunDir,
   onProgress
 }) => {
+  const pulled = await pullTicketRecord({ cwd, ticketBranch: branch, config: config2, env, onProgress });
+  if ("error" in pulled) {
+    return { error: pulled.error };
+  }
+  if (pulled.record !== void 0) {
+    return buildTicketPlans({
+      cwd,
+      branch,
+      ticket,
+      record: pulled.record,
+      config: config2,
+      env,
+      driver,
+      driverName,
+      ticketRunDir,
+      allowTicketBodyBuild: true,
+      onProgress
+    });
+  }
   const folder = planWorkspaceDir({ cwd, name: branch });
   if (!await pathExists({ path: folder })) {
     const restored = await restorePlanWorkspace({ cwd, name: branch, identifier: ticket.identifier, settings: trackerSettings });
@@ -155892,6 +159043,8 @@ var runWorkerWithRelay = async ({
   relay,
   coordinatorRunId,
   coordinatorRunDir,
+  ticketRunDir,
+  env,
   onProgress
 }) => {
   const maxRelayedQuestions = 2;
@@ -155899,8 +159052,8 @@ var runWorkerWithRelay = async ({
   for (let turn = 0; ; turn += 1) {
     const workers = {
       [QueueWorker.Direct]: () => runDirectWorker({ cwd: worktreePath, ticket, config: config2, driver, driverName, answeredQuestion, onProgress }),
-      [QueueWorker.Plan]: () => runPlanWorker({ cwd: worktreePath, ticket, branch, config: config2, driver, driverName, trackerSettings, onProgress }),
-      [QueueWorker.AutoPlan]: () => runAutoPlanWorker({ cwd: worktreePath, ticket, branch, config: config2, driver, settings, answeredQuestion, onProgress })
+      [QueueWorker.Plan]: () => runPlanWorker({ cwd: worktreePath, ticket, branch, config: config2, driver, driverName, trackerSettings, env, ticketRunDir, onProgress }),
+      [QueueWorker.AutoPlan]: () => runAutoPlanWorker({ cwd: worktreePath, ticket, branch, config: config2, driver, driverName, settings, env, ticketRunDir, answeredQuestion, onProgress })
     };
     const outcome = await workers[ticket.worker]();
     if (outcome.question === void 0) {
@@ -155944,36 +159097,6 @@ var claimOwnership = async ({ settings, trackerSettings, ticket }) => {
   });
   return moved === void 0 ? void 0 : `the ticket status could not be moved to '${inProgress}', so no source work began: ${moved.error}`;
 };
-var settleBranchReadiness = async ({
-  cwd,
-  worktreePath,
-  branch,
-  defaultBranch,
-  ticket,
-  coordinatorRunDir,
-  generated,
-  onProgress
-}) => {
-  const committed = await commitTicketWork({
-    cwd: worktreePath,
-    message: `${ticket.identifier} ${ticket.title}`,
-    runDir: join127(coordinatorRunDir, "tickets", ticket.identifier),
-    generated,
-    onProgress
-  });
-  if ("error" in committed) {
-    return { ready: false, error: committed.error };
-  }
-  const ahead = await readGitCommitsAhead({ cwd: worktreePath, defaultBranch });
-  if (ahead === void 0) {
-    return { ready: false, error: `git could not count the commits on ${branch}` };
-  }
-  if (ahead === 0) {
-    return { ready: false, error: "the worker left no commits on the branch" };
-  }
-  await writeBranchState({ cwd, branch, phase: BranchPhase.Ready, onProgress });
-  return { ready: true };
-};
 var runQueueTicket = async ({
   cwd,
   settings,
@@ -155983,6 +159106,7 @@ var runQueueTicket = async ({
   driver,
   driverName,
   defaultBranch,
+  env,
   relay,
   serializeWorktreeAdd,
   coordinatorRunId,
@@ -155990,6 +159114,7 @@ var runQueueTicket = async ({
   onProgress
 }) => {
   const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
+  const ticketRunDir = join140(coordinatorRunDir, "tickets", ticket.identifier);
   const created = await createTicketWorktree({ cwd, branch, defaultBranch, setup: settings.setup, serializeWorktreeAdd, onProgress });
   if (typeof created !== "string") {
     return { ticket, branch, worktreePath: await resolveWorktreePath({ cwd, branch }), ready: false, error: created.error };
@@ -156012,22 +159137,22 @@ var runQueueTicket = async ({
     relay,
     coordinatorRunId,
     coordinatorRunDir,
+    ticketRunDir,
+    env,
     onProgress
   });
-  if (worked.error !== void 0) {
-    return { ticket, branch, worktreePath, ready: false, error: worked.error, unanswered: worked.unanswered };
-  }
-  const readiness = await settleBranchReadiness({
+  const settled2 = await settleWorkerOutcome({
     cwd,
     worktreePath,
     branch,
     defaultBranch,
     ticket,
-    coordinatorRunDir,
+    ticketRunDir,
     generated: config2.generated,
+    worked,
     onProgress
   });
-  return { ticket, branch, worktreePath, ...readiness };
+  return { ticket, branch, worktreePath, ...settled2 };
 };
 
 // src/queue/settleParkedLabels.ts
@@ -156037,7 +159162,12 @@ var settleParkedLabels = async ({ settings, trackerSettings, outcomes, onProgres
   }
   await Promise.all(
     outcomes.map(async (outcome) => {
-      const written = await setTicketLabel3({ settings: trackerSettings, ticketId: outcome.ticket.id, label: settings.parkedLabel, present: !outcome.ready });
+      const written = await setTicketLabel3({
+        settings: trackerSettings,
+        ticketId: outcome.ticket.id,
+        label: settings.parkedLabel,
+        present: isParkedOutcome({ outcome })
+      });
       if (written !== void 0) {
         onProgress?.(`${outcome.ticket.identifier} \xB7 the '${settings.parkedLabel}' label could not be written: ${written.error}`);
       }
@@ -156150,7 +159280,7 @@ var resolveQueueSettings = ({ config: config2 }) => {
 
 // src/queue/worktrees/scanParkedWorktrees.ts
 import { realpath as realpath2 } from "node:fs/promises";
-import { join as join128 } from "node:path";
+import { join as join141 } from "node:path";
 
 // src/queue/worktrees/common/constants/ParkedTreeBucket.ts
 var ParkedTreeBucket = {
@@ -156222,7 +159352,7 @@ var settleUnmergedTree = async ({
 var toQueuePath = ({ path, root, realRoot }) => {
   for (const prefix of [root, realRoot]) {
     if (path.startsWith(`${prefix}/`)) {
-      return join128(root, path.slice(prefix.length + 1));
+      return join141(root, path.slice(prefix.length + 1));
     }
   }
   return void 0;
@@ -156327,7 +159457,8 @@ var scanParkedWorktrees = async ({
 // src/queue/runQueue.ts
 var toCoordinatorStatus = ({ drained }) => {
   const unfinished = drained.leftBehind.filter((entry) => entry.settled !== true);
-  return drained.outcomes.every((outcome) => outcome.ready) && unfinished.length === 0 ? RunStatus.Passed : RunStatus.Escalated;
+  const parked = drained.outcomes.filter((outcome) => isParkedOutcome({ outcome }));
+  return parked.length === 0 && unfinished.length === 0 ? RunStatus.Passed : RunStatus.Escalated;
 };
 var drainAndShip = async ({
   cwd,
@@ -156347,7 +159478,7 @@ var drainAndShip = async ({
   onProgress
 }) => {
   const coordinatorRunDir = getRunDir({ cwd, runId });
-  const planPath = join129(coordinatorRunDir, "queue.md");
+  const planPath = join142(coordinatorRunDir, "queue.md");
   const manifest = await createRun({ cwd, runId, plan: planPath, pipeline: PipelineKind.Queue, driver: driverName, config: config2 });
   await writeManifestWithUsage({ cwd, manifest, patch: { status: RunStatus.Running }, usageTotals: seedUsageTotals({ usage: manifest.usage }) });
   const serializeMainCheckout = createMainCheckoutSerializer();
@@ -156382,6 +159513,7 @@ var drainAndShip = async ({
       driver,
       driverName,
       defaultBranch,
+      env,
       relay: boardRelay,
       serializeWorktreeAdd: serializeMainCheckout,
       coordinatorRunId: runId,
@@ -156512,10 +159644,28 @@ var openDirectWorkspace = async ({
   return "error" in copied ? { error: copied.error } : { workspace, ticketPath: copied.ticketPath ?? ticketPath };
 };
 
+// src/cli/common/implementRun/readBodyBuildPlanName.ts
+var readBodyBuildPlanName = async ({ cwd, branch }) => {
+  if (branch === void 0) {
+    return void 0;
+  }
+  const read = await readTicketRecord({ cwd, ticketBranch: branch });
+  if ("error" in read) {
+    return { error: read.error };
+  }
+  const record3 = read.record;
+  if (record3 === void 0 || record3.mode !== TicketMode.SinglePlan) {
+    return void 0;
+  }
+  const first = record3.plans.find((plan) => planNumberOf({ id: plan.id }) === 1 && plan.exclusion === void 0 && plan.progress !== PlanProgress.Implemented);
+  return first === void 0 ? void 0 : formatPlanAddress({ ticketBranch: branch, planId: first.id });
+};
+
 // src/cli/implementDirectCommand.ts
 var readRunLabel = async ({ cwd, config: config2 }) => await readBranchTicketRef({ config: config2, cwd }) ?? await readGitCurrentBranch({ cwd }) ?? "ticket";
 var buildAndCommit = async ({
   cwd,
+  planName,
   ticketBody,
   ticketRef,
   driver,
@@ -156524,10 +159674,36 @@ var buildAndCommit = async ({
   generated,
   willShip
 }) => {
-  const result = await runDirectWork({ cwd, ticketBody, ticketRef, driver, driverName, config: config2, willShip, onProgress: createProgressPrinter() });
+  const build = (runId) => runDirectWork({ cwd, ticketBody, ticketRef, runId, driver, driverName, config: config2, willShip, onProgress: createProgressPrinter() });
+  const outcome = planName === void 0 ? { result: await build() } : await runTicketPlanLifecycle({ cwd, name: planName, run: ({ runId }) => build(runId) });
+  if ("refusal" in outcome) {
+    return { refusal: outcome.refusal };
+  }
+  const { result } = outcome;
+  const recordError = "recordError" in outcome ? outcome.recordError : void 0;
   const runDir = getRunDir({ cwd, runId: result.manifest.runId });
   const uncommitted = result.ok ? await commitDirectRun({ cwd, ticketBody, ticketRef, runDir, generated, onProgress: createProgressPrinter() }) : void 0;
-  return { result, uncommitted };
+  return { result, uncommitted, recordError };
+};
+var prepareDirectRun = async ({
+  workspace,
+  loaded,
+  flaggedRef
+}) => {
+  const ticketRef = flaggedRef ?? await readRunLabel({ cwd: workspace.cwd, config: loaded });
+  const { config: config2, driver, driverName } = resolveEffectiveConfigAndDriver({ config: loaded, command: "implement" });
+  const refused = await requireImplementLifecycle({
+    cwd: workspace.cwd,
+    config: loaded,
+    env: process.env,
+    ticketRef: flaggedRef,
+    onProgress: createProgressPrinter()
+  });
+  if (refused !== void 0) {
+    return { error: refused };
+  }
+  const planName = await readBodyBuildPlanName({ cwd: workspace.cwd, branch: workspace.branch ?? await readGitCurrentBranch({ cwd: workspace.cwd }) });
+  return typeof planName === "object" ? planName : { ticketRef, config: config2, driver, driverName, planName };
 };
 var printDirectRunHeader = ({ workspace, ticketRef, ticketPath }) => {
   const where = workspace.isolated ? `${workspace.cwd} on ${workspace.branch}` : `${workspace.cwd} \u2014 the checkout this was launched from`;
@@ -156535,7 +159711,7 @@ var printDirectRunHeader = ({ workspace, ticketRef, ticketPath }) => {
 };
 var implementDirectCommand = async ({ flags, cwd }) => {
   const namedTicketPath = await getRequiredFlag({ flags, name: "ticket" });
-  const ticketBody = await readFile58(resolve17(cwd, namedTicketPath), "utf8").catch(() => void 0);
+  const ticketBody = await readFile62(resolve18(cwd, namedTicketPath), "utf8").catch(() => void 0);
   if (ticketBody === void 0) {
     console.error(`ticket file not found: ${namedTicketPath}`);
     return exitCli({ code: 1 });
@@ -156552,22 +159728,16 @@ var implementDirectCommand = async ({ flags, cwd }) => {
     return exitCli({ code: 1 });
   }
   const { workspace, ticketPath } = opened;
-  const ticketRef = flaggedRef ?? await readRunLabel({ cwd: workspace.cwd, config: loaded });
-  const { config: config2, driver, driverName } = resolveEffectiveConfigAndDriver({ config: loaded, command: "implement" });
-  const refused = await requireImplementLifecycle({
-    cwd: workspace.cwd,
-    config: loaded,
-    env: process.env,
-    ticketRef: flaggedRef,
-    onProgress: createProgressPrinter()
-  });
-  if (refused !== void 0) {
-    console.error(refused);
+  const prepared = await prepareDirectRun({ workspace, loaded, flaggedRef });
+  if ("error" in prepared) {
+    console.error(prepared.error);
     return exitCli({ code: 1 });
   }
+  const { ticketRef, config: config2, driver, driverName, planName } = prepared;
   printDirectRunHeader({ workspace, ticketRef, ticketPath });
-  const { result, uncommitted } = await buildAndCommit({
+  const built = await buildAndCommit({
     cwd: workspace.cwd,
+    planName,
     ticketBody,
     ticketRef,
     driver,
@@ -156576,6 +159746,14 @@ var implementDirectCommand = async ({ flags, cwd }) => {
     generated: loaded.generated,
     willShip: shipIntent.willShip
   });
+  if ("refusal" in built) {
+    console.error(built.refusal);
+    return exitCli({ code: 1 });
+  }
+  const { result, uncommitted, recordError } = built;
+  if (recordError !== void 0) {
+    console.error(recordError);
+  }
   if (uncommitted !== void 0) {
     console.error(uncommitted);
     return exitCli({ code: 1 });
@@ -156585,9 +159763,9 @@ var implementDirectCommand = async ({ flags, cwd }) => {
 
 // src/cli/common/utils/resolveConfigAndDriver.ts
 import { stat as stat14 } from "node:fs/promises";
-import { join as join130 } from "node:path";
+import { join as join143 } from "node:path";
 var resolveConfigAndDriver = async ({ cwd, command }) => {
-  const configPath = join130(cwd, "lightsout.config.json");
+  const configPath = join143(cwd, "lightsout.config.json");
   const present = await stat14(configPath).then(
     () => true,
     () => false
@@ -156608,16 +159786,16 @@ var PromptImprovementStatus = {
 };
 
 // src/runPromptImprovement.ts
-import { readdir as readdir20 } from "node:fs/promises";
-import { join as join131 } from "node:path";
+import { readdir as readdir21 } from "node:fs/promises";
+import { join as join144 } from "node:path";
 var promptsDir = "src/agents/prompts";
 var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model, effort }) => {
   const friction = await readFriction({ cwd: consumerCwd });
   if (friction.length === 0) {
     return { status: PromptImprovementStatus.NoFriction, friction };
   }
-  const files = await readdir20(join131(engineCwd, promptsDir));
-  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join131(promptsDir, file2));
+  const files = await readdir21(join144(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join144(promptsDir, file2));
   const improverTimeoutMs = 20 * 6e4;
   const outcome = await invokeAgentWithContract({
     driver,
@@ -156649,18 +159827,18 @@ var improveCommand = async ({ flags, cwd }) => {
     console.error(result.outcome.failure);
     return exitCli({ code: 1 });
   }
-  const { report } = result.outcome;
+  const { report: report2 } = result.outcome;
   console.log(`
-improve: ${report.status} (${result.friction.length} friction entries considered)`);
-  console.log(`  ${report.summary}`);
-  for (const file2 of report.changedFiles) {
+improve: ${report2.status} (${result.friction.length} friction entries considered)`);
+  console.log(`  ${report2.summary}`);
+  for (const file2 of report2.changedFiles) {
     console.log(`  ~ ${file2.path} \u2014 ${file2.summary}`);
   }
-  if (report.changedFiles.length > 0) {
+  if (report2.changedFiles.length > 0) {
     console.log(`
 review the diff in ${engineCwd} \u2014 the loop proposes, a human ships.`);
   }
-  return exitCli({ code: report.status === WorkReportStatus.Complete ? 0 : 1 });
+  return exitCli({ code: report2.status === WorkReportStatus.Complete ? 0 : 1 });
 };
 
 // src/cli/common/args/getListFlag.ts
@@ -156690,10 +159868,15 @@ var copyPlanFolderToWorktree = async ({ sourceCwd, worktree, name }) => {
 
 // src/cli/plan/common/utils/resolvePlanWorktree.ts
 var noWorktreeRemedy = "pass --no-worktree to plan in the launching checkout deliberately";
-var continueInTree = async ({ cwd, name, treePath }) => {
-  const record3 = await readWorktreeRecord({ cwd, branch: name });
-  if (record3?.owner === WorktreeOwner.Plan || record3?.owner === WorktreeOwner.Queue) {
-    return { cwd: treePath, branch: name, isolated: true, created: false };
+var continueInTree = async ({ cwd, branch, addressed, treePath }) => {
+  const holder = addressed ? await readLiveRunLock({ cwd: treePath }) : void 0;
+  if (holder !== void 0) {
+    return { error: `the worktree at ${treePath} cannot be planned in: run ${holder.runId} is using it right now \u2014 wait for it, or ${noWorktreeRemedy}` };
+  }
+  const record3 = await readWorktreeRecord({ cwd, branch });
+  const owners = addressed ? [WorktreeOwner.Plan, WorktreeOwner.Queue, WorktreeOwner.Implement] : [WorktreeOwner.Plan, WorktreeOwner.Queue];
+  if (record3 !== void 0 && owners.includes(record3.owner)) {
+    return { cwd: treePath, branch, isolated: true, created: false };
   }
   const reason = record3 === void 0 ? "no ownership record claims it for this plan" : `its ownership record names a '${record3.owner}' run, not this plan`;
   return { error: `the worktree at ${treePath} cannot be planned in: ${reason} \u2014 ${noWorktreeRemedy}` };
@@ -156701,25 +159884,26 @@ var continueInTree = async ({ cwd, name, treePath }) => {
 var cutPlanTree = async ({
   cwd,
   config: config2,
-  name,
+  branch,
+  pushedStartPoint,
   treePath,
   onProgress
 }) => {
-  const recorded = await readWorktreeRecord({ cwd, branch: name });
-  const startPoint = recorded?.startPoint ?? await readGitHeadCommit({ cwd });
+  const recorded = await readWorktreeRecord({ cwd, branch });
+  const startPoint = pushedStartPoint ?? recorded?.startPoint ?? await readGitHeadCommit({ cwd });
   if (startPoint === void 0) {
     return { error: `no worktree was made at ${treePath}: the launching checkout has no commit to plan from \u2014 ${noWorktreeRemedy}` };
   }
   const created = await createWorktree({
     cwd,
-    branch: name,
+    branch,
     startPoint,
     setup: config2?.worktree?.setup,
     owner: WorktreeOwner.Plan,
     reuseExisting: false,
     onProgress
   });
-  return typeof created === "string" ? { cwd: created, branch: name, isolated: true, created: true } : { error: `${created.error} \u2014 ${noWorktreeRemedy}` };
+  return typeof created === "string" ? { cwd: created, branch, isolated: true, created: true } : { error: `${created.error} \u2014 ${noWorktreeRemedy}` };
 };
 var resolvePlanWorktree = async ({ cwd, config: config2, flags, name, onProgress }) => {
   const isolated = resolveWorktreeIsolation({ flags, configured: config2?.plan?.worktree });
@@ -156729,18 +159913,24 @@ var resolvePlanWorktree = async ({ cwd, config: config2, flags, name, onProgress
   if (!isolated) {
     return { cwd, isolated: false, created: false };
   }
-  const treePath = await resolveWorktreePath({ cwd, branch: name });
+  const addressed = parsePlanAddress({ name }) !== void 0;
+  const branch = ticketFolderOf({ name });
+  const treePath = await resolveWorktreePath({ cwd, branch });
   if (await isSamePath({ path: cwd, otherPath: treePath })) {
-    return { cwd: treePath, branch: name, isolated: true, created: false };
+    return { cwd: treePath, branch, isolated: true, created: false };
   }
-  const holder = await readBranchWorktree({ cwd, branch: name });
+  const prepared = addressed ? await prepareTicketBranch({ cwd, branch }) : { startPoint: void 0 };
+  if ("error" in prepared) {
+    return prepared;
+  }
+  const holder = await readBranchWorktree({ cwd, branch });
   let worktree;
   if (holder === void 0) {
-    worktree = await cutPlanTree({ cwd, config: config2, name, treePath, onProgress });
+    worktree = await cutPlanTree({ cwd, config: config2, branch, pushedStartPoint: prepared.startPoint, treePath, onProgress });
   } else if (await isSamePath({ path: holder, otherPath: treePath })) {
-    worktree = await continueInTree({ cwd, name, treePath });
+    worktree = await continueInTree({ cwd, branch, addressed, treePath });
   } else {
-    worktree = { error: `'${name}' is already checked out at ${holder} \u2014 plan from ${holder}, or ${noWorktreeRemedy}` };
+    worktree = { error: `'${branch}' is already checked out at ${holder} \u2014 plan from ${holder}, or ${noWorktreeRemedy}` };
   }
   return worktree;
 };
@@ -156994,32 +160184,38 @@ ${bold(`plan lint ${name}`)} \u2014 ${headline}${note} (${planPaths.length} file
 var planPublishCommand = async ({ flags, cwd }) => {
   const name = await getRequiredFlag({ flags, name: "name" });
   const config2 = await readConfig({ cwd });
-  const report = await recordPlanningStep({
+  const address = parsePlanAddress({ name });
+  const report2 = await recordPlanningStep({
     cwd,
     name,
     step: PlanningStep.Publish,
-    work: () => publishPlan({ cwd, name, config: config2, env: process.env, onProgress: createProgressPrinter() }),
-    statusOf: ({ result }) => result.error === void 0 ? RunStatus.Passed : RunStatus.Failed
+    work: () => address === void 0 ? publishPlan({ cwd, name, config: config2, env: process.env, onProgress: createProgressPrinter() }) : publishTicketPlan({ cwd, address: name, config: config2, env: process.env, onProgress: createProgressPrinter() }),
+    statusOf: ({ result }) => result.error === void 0 && result.recordError === void 0 ? RunStatus.Passed : RunStatus.Failed
   });
-  if (report.error !== void 0) {
+  if (report2.error !== void 0) {
     console.error(`
-${report.error}`);
+${report2.error}`);
     return exitCli({ code: 1 });
   }
   console.log(`
-${bold(`plan publish ${name}`)} \u2014 ${report.published.length} file(s) attached to ${report.ticketRef}`);
-  for (const file2 of report.published) {
+${bold(`plan publish ${name}`)} \u2014 ${report2.published.length} file(s) attached to ${report2.ticketRef}`);
+  for (const file2 of report2.published) {
     console.log(`  ${file2}`);
   }
-  if (report.stale.length > 0) {
+  if (report2.stale.length > 0) {
     console.log(`
-still on ${report.ticketRef} from an earlier publish, and not written by this run: ${report.stale.join(", ")} \u2014 publish deleted nothing.`);
+still on ${report2.ticketRef} from an earlier publish, and not written by this run: ${report2.stale.join(", ")} \u2014 publish deleted nothing.`);
+  }
+  if (report2.recordError !== void 0) {
+    console.error(`
+${report2.recordError}`);
+    return exitCli({ code: 1 });
   }
   return exitCli({ code: 0 });
 };
 
 // src/cli/plan/planSyncDecisionsCommand.ts
-import { basename as basename35 } from "node:path";
+import { basename as basename36 } from "node:path";
 var planSyncDecisionsCommand = async ({ flags, cwd }) => {
   const name = await getRequiredFlag({ flags, name: "name" });
   const result = await syncPlanDecisions({ cwd, name });
@@ -157031,12 +160227,26 @@ ${result.error}`);
   console.log(`
 ${bold(`plan sync-decisions ${name}`)} \u2014 ${result.files.length} file(s)`);
   for (const file2 of result.files) {
-    console.log(`  ${basename35(file2.path)} \u2014 ${file2.updated ? "updated" : "unchanged"}`);
+    console.log(`  ${basename36(file2.path)} \u2014 ${file2.updated ? "updated" : "unchanged"}`);
   }
   return exitCli({ code: 0 });
 };
 
 // src/cli/common/utils/ensureBrainstormFiles.ts
+var report = ({
+  restored,
+  skipped,
+  identifier,
+  dir,
+  write
+}) => {
+  if (restored.length > 0) {
+    write(`lightsout: fetched ${restored.length} brainstorm file(s) from ticket ${identifier} into ${dir}`);
+  }
+  if (skipped.length > 0) {
+    write(`lightsout: kept the local ${skipped.join(", ")} \u2014 ticket ${identifier} also carries ${skipped.length > 1 ? "them" : "it"}`);
+  }
+};
 var ensureBrainstormFiles = async ({ cwd, name, write = console.log }) => {
   const config2 = await readOptionalConfig({ cwd });
   if (config2 === void 0) {
@@ -157051,16 +160261,17 @@ var ensureBrainstormFiles = async ({ cwd, name, write = console.log }) => {
   if (identifier === void 0) {
     return;
   }
-  const { restored, skipped, error: error51 } = await restoreBrainstormFiles({ cwd, name, identifier, settings: trackerSettings });
-  if (error51 !== void 0) {
-    write(`lightsout: could not fetch the brainstorm from ticket ${identifier}: ${error51}`);
-    return;
-  }
-  if (restored.length > 0) {
-    write(`lightsout: fetched ${restored.length} brainstorm file(s) from ticket ${identifier} into ${planWorkspaceDir({ cwd, name })}`);
-  }
-  if (skipped.length > 0) {
-    write(`lightsout: kept the local ${skipped.join(", ")} \u2014 ticket ${identifier} also carries ${skipped.length > 1 ? "them" : "it"}`);
+  const dir = planWorkspaceDir({ cwd, name });
+  const titlePrefix = parsePlanAddress({ name })?.planId;
+  const own = await restoreBrainstormFiles({ cwd, name, identifier, settings: trackerSettings, titlePrefix });
+  const firstPlanNumber = 1;
+  const isFirstPlan = titlePrefix !== void 0 && planNumberOf({ id: titlePrefix }) === firstPlanNumber;
+  const emptyPrefix = own.error === void 0 && own.restored.length === 0 && own.skipped.length === 0;
+  const taken = isFirstPlan && emptyPrefix ? await restoreBrainstormFiles({ cwd, name, identifier, settings: trackerSettings }) : own;
+  if (taken.error !== void 0) {
+    write(`lightsout: could not fetch the brainstorm from ticket ${identifier}: ${taken.error}`);
+  } else {
+    report({ restored: taken.restored, skipped: taken.skipped, identifier, dir, write });
   }
 };
 
@@ -157129,6 +160340,11 @@ var openDispatchCheckout = async ({ cwd, flags, subcommand }) => {
   if (name === void 0 || !["workspace", "draft", "dedup", "grade", "lint", "publish", "sync-decisions", "verify-facts"].includes(subcommand ?? "")) {
     return { cwd, worktree: void 0 };
   }
+  const bare = await findBareTicketFolderRefusal({ cwd, name });
+  if (bare !== void 0) {
+    console.error(bare);
+    return exitCli({ code: 1 });
+  }
   const opened = await openPlanWorktree({ cwd, config: await readOptionalConfig({ cwd }), flags, name });
   if ("error" in opened) {
     console.error(opened.error);
@@ -157184,7 +160400,7 @@ var planCommand = async ({ flags, rest, cwd: launchingCwd }) => {
 };
 
 // src/cli/queueCommand.ts
-import { resolve as resolve18 } from "node:path";
+import { resolve as resolve19 } from "node:path";
 
 // src/cli/common/constants/QueueBoardState.ts
 var QueueBoardState = {
@@ -157264,27 +160480,28 @@ var resolveQueueStartup = ({ config: config2, env }) => {
   }
   return { settings, trackerSettings, shipSettings };
 };
-var printFinalBoard = ({ report }) => {
+var printFinalBoard = ({ report: report2 }) => {
   const at = /* @__PURE__ */ new Date();
-  const tickets = toQueueBoardTickets({ settled: report, at: at.toISOString() });
+  const tickets = toQueueBoardTickets({ settled: report2, at: at.toISOString() });
   for (const line of renderQueueBoard({ tickets, state: QueueBoardState.Finished, at })) {
     console.log(line);
   }
   console.log("");
 };
-var printDrainReport = ({ report }) => {
-  for (const outcome of report.outcomes) {
+var printDrainReport = ({ report: report2 }) => {
+  for (const outcome of report2.outcomes) {
     if (outcome.ready) {
       console.log(`${outcome.ticket.identifier} ${outcome.branch} shipped`);
       if (outcome.reconciliationFailure !== void 0) {
         console.log(`  ${outcome.reconciliationFailure}`);
       }
     } else {
-      console.log(`${outcome.ticket.identifier} ${outcome.branch} parked: ${outcome.error ?? "no reason recorded"}`);
+      const stop = outcome.open === void 0 ? `parked: ${outcome.error ?? "no reason recorded"}` : `left open: ${outcome.open}`;
+      console.log(`${outcome.ticket.identifier} ${outcome.branch} ${stop}`);
       console.log(`  worktree: ${outcome.worktreePath}`);
     }
   }
-  for (const entry of report.leftBehind) {
+  for (const entry of report2.leftBehind) {
     console.log(`${entry.identifier} ${entry.reason}`);
   }
 };
@@ -157297,7 +160514,7 @@ var buildRelay = async ({
   if (requested === void 0) {
     return new TerminalQuestionRelay({ settings, trackerSettings, input: process.stdin, output: process.stdout });
   }
-  const directory = requested === true ? resolve18(cwd, ".lightsout", "queue", "relay") : resolve18(cwd, requested);
+  const directory = requested === true ? resolve19(cwd, ".lightsout", "queue", "relay") : resolve19(cwd, requested);
   await emptyRelayMailbox({ directory });
   console.log(`relaying questions through ${directory}`);
   return new FileQuestionRelay({ settings, trackerSettings, directory, output: process.stdout });
@@ -157323,7 +160540,7 @@ var queueCommand = async ({ flags, cwd }) => {
   }
   process.env.LIGHTSOUT_NO_SHIP = "1";
   const relay = await buildRelay({ requested, settings, trackerSettings, cwd });
-  const report = await runQueue({
+  const report2 = await runQueue({
     cwd,
     settings,
     trackerSettings,
@@ -157335,13 +160552,13 @@ var queueCommand = async ({ flags, cwd }) => {
     relay,
     onProgress: createProgressPrinter()
   }).finally(() => relay.close());
-  if ("error" in report) {
-    console.error(report.error);
+  if ("error" in report2) {
+    console.error(report2.error);
     return exitCli({ code: 1 });
   }
-  printFinalBoard({ report });
-  printDrainReport({ report });
-  const resumable = report.leftBehind.some((entry) => entry.settled !== true) || report.outcomes.some((outcome) => !outcome.ready);
+  printFinalBoard({ report: report2 });
+  printDrainReport({ report: report2 });
+  const resumable = report2.leftBehind.some((entry) => entry.settled !== true) || report2.outcomes.some((outcome) => isParkedOutcome({ outcome }));
   return exitCli({ code: resumable ? pausedExitCode : 0 });
 };
 
@@ -157472,8 +160689,8 @@ var findIntroducedFindings = ({ frozen, live: live2, severity }) => {
 };
 
 // src/refactor/initializeRun.ts
-import { readFile as readFile59, writeFile as writeFile28 } from "node:fs/promises";
-import { join as join134 } from "node:path";
+import { readFile as readFile63, writeFile as writeFile30 } from "node:fs/promises";
+import { join as join147 } from "node:path";
 
 // src/refactor/batch/batchFindings.ts
 var rulePriority = [
@@ -157725,10 +160942,10 @@ var createFixInvoker = ({ tools, files, workFindings, advisories, standards, tes
 
 // src/refactor/batch/polishBatchOutput.ts
 var polishBatchOutput = async ({ tools, batch, baseline, workFindings, standards, testStandards, onProgress }) => {
-  const resolve21 = () => tools.finish({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] });
+  const resolve22 = () => tools.finish({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] });
   const introduced = await tools.reviewOutput({ baseline });
   if (introduced.length === 0) {
-    return resolve21();
+    return resolve22();
   }
   const files = [...new Set(introduced.flatMap((finding2) => finding2.files.map((file2) => file2.path)))];
   onProgress(`${batch.id}: the review of what this batch wrote raised ${introduced.length} new advisory(s) \u2014 spending one polish pass`);
@@ -157752,7 +160969,7 @@ var polishBatchOutput = async ({ tools, batch, baseline, workFindings, standards
   }
   const revived = await tools.remainingSiteKeys({ frozen: workFindings });
   if (revived.length === 0) {
-    return resolve21();
+    return resolve22();
   }
   onProgress(`${batch.id}: the polish pass brought back ${revived.length} site(s) this batch had cleared \u2014 recorded as declined`);
   return tools.finish({ outcome: BatchOutcome.Declined, remainingSiteKeys: revived });
@@ -157816,8 +161033,8 @@ var createSiteChecker = ({ cwd, checkPath, checkAll }) => {
 };
 
 // src/refactor/batch/invokeBatchAgent.ts
-import { mkdir as mkdir30, writeFile as writeFile26 } from "node:fs/promises";
-import { join as join132 } from "node:path";
+import { mkdir as mkdir33, writeFile as writeFile28 } from "node:fs/promises";
+import { join as join145 } from "node:path";
 var invokeBatchAgent = async ({
   cwd,
   runId,
@@ -157834,10 +161051,10 @@ var invokeBatchAgent = async ({
   onProgress,
   recordUsage
 }) => {
-  const agentsDir = join132(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join145(getRunDir({ cwd, runId }), "agents");
   const slug = batch.id.replace(/[:/]/g, "_");
-  const streamPath = join132(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
-  await mkdir30(agentsDir, { recursive: true });
+  const streamPath = join145(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
+  await mkdir33(agentsDir, { recursive: true });
   const outcome = await invokeAgentWithContract({
     driver,
     cwd,
@@ -157850,7 +161067,7 @@ var invokeBatchAgent = async ({
     allowedCommands: config2["agent-commands"],
     onEvent: createEventFileSink({ path: streamPath }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile26(join132(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile28(join145(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   const formatError2 = await runFormatter({ cwd, runId, config: config2, step: batch.id });
@@ -157875,8 +161092,8 @@ var invokeBatchAgent = async ({
 };
 
 // src/refactor/batch/superviseBatch.ts
-import { mkdir as mkdir31, writeFile as writeFile27 } from "node:fs/promises";
-import { join as join133 } from "node:path";
+import { mkdir as mkdir34, writeFile as writeFile29 } from "node:fs/promises";
+import { join as join146 } from "node:path";
 var consultBatchSupervisor = async ({
   cwd,
   runId,
@@ -157887,9 +161104,9 @@ var consultBatchSupervisor = async ({
   gateError,
   attempts
 }) => {
-  const agentsDir = join133(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join146(getRunDir({ cwd, runId }), "agents");
   const slug = batchId.replace(/[:/]/g, "_");
-  await mkdir31(agentsDir, { recursive: true });
+  await mkdir34(agentsDir, { recursive: true });
   return consultSupervisor({
     driver,
     cwd,
@@ -157898,9 +161115,9 @@ var consultBatchSupervisor = async ({
     stepId: batchId,
     errorOutput: gateError,
     attempts,
-    onEvent: createEventFileSink({ path: join133(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
+    onEvent: createEventFileSink({ path: join146(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile27(join133(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile29(join146(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
 };
@@ -158237,7 +161454,7 @@ var initializeRun = async ({
     if ((existing.pipeline ?? "implement") !== "refactor") {
       throw new Error(`run ${existing.runId} belongs to the implement pipeline \u2014 resume it with: lightsout resume --run ${existing.runId}`);
     }
-    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile59(join134(cwd, existing.plan), "utf8"))) };
+    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile63(join147(cwd, existing.plan), "utf8"))) };
   }
   const dirty = await readGitChangedFiles({ cwd });
   if (dirty === void 0) {
@@ -158250,9 +161467,9 @@ ${dirty.map((file2) => `  ${file2}`).join("\n")}`
     );
   }
   const worklist = await buildWorklist({ cwd, config: config2, path, all });
-  const worklistPath = join134(".lightsout", "runs", runId, "worklist.json");
+  const worklistPath = join147(".lightsout", "runs", runId, "worklist.json");
   const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: "refactor", driver: driver.name, config: config2, baselineDirtyFiles: dirty });
-  await writeFile28(join134(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
+  await writeFile30(join147(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
 `, "utf8");
   return { manifest, worklist };
 };
@@ -158357,19 +161574,19 @@ var settleBatchOutcome = async ({ run, batch, record: record3, outcome, declineS
     const status = outcome.kind === BatchStopKind.Failed ? RunStatus.Failed : RunStatus.Escalated;
     return { result: await run.stop({ record: record3, status, error: outcome.error }), declineStreak };
   }
-  const report = BatchReport.parse(outcome.report);
+  const report2 = BatchReport.parse(outcome.report);
   await run.setStep({
-    record: { ...record3, status: RunStatus.Passed, report, changedFiles: outcome.changedFiles },
+    record: { ...record3, status: RunStatus.Passed, report: report2, changedFiles: outcome.changedFiles },
     patch: { changedFiles: [.../* @__PURE__ */ new Set([...run.current().changedFiles, ...outcome.changedFiles])] }
   });
-  if (report.outcome !== BatchOutcome.Declined) {
+  if (report2.outcome !== BatchOutcome.Declined) {
     run.progress(`${batch.id}: resolved`);
     return { declineStreak: 0 };
   }
   const streak = declineStreak + 1;
   const settlement = { declineStreak: streak };
-  run.declined.push({ batchId: batch.id, remainingSiteKeys: report.remainingSiteKeys, rationale: report.rationale });
-  run.progress(`${batch.id}: declined (${report.remainingSiteKeys.length} site(s) persist)`);
+  run.declined.push({ batchId: batch.id, remainingSiteKeys: report2.remainingSiteKeys, rationale: report2.rationale });
+  run.progress(`${batch.id}: declined (${report2.remainingSiteKeys.length} site(s) persist)`);
   if (streak >= maxConsecutiveDeclines2) {
     const error51 = `${maxConsecutiveDeclines2} consecutive batches declined \u2014 likely systemic (standards injection, gate config, or a rule bug), not worth further agent spend.`;
     await run.update({ patch: { status: RunStatus.Escalated, currentStep: null } });
@@ -158522,9 +161739,9 @@ var refactorCommand = ({ flags, cwd }) => runBatchedCommand({
 });
 
 // src/cli/common/implementRun/continueDirectRun.ts
-import { readFile as readFile60 } from "node:fs/promises";
-import { resolve as resolve19 } from "node:path";
-var readFrozenTicket = ({ cwd, manifest }) => readFile60(resolve19(cwd, manifest.plan), "utf8").catch(() => void 0);
+import { readFile as readFile64 } from "node:fs/promises";
+import { resolve as resolve20 } from "node:path";
+var readFrozenTicket = ({ cwd, manifest }) => readFile64(resolve20(cwd, manifest.plan), "utf8").catch(() => void 0);
 var describeUnownedEdits = async ({ workspace, manifest }) => {
   const record3 = manifest.branch === void 0 ? void 0 : await readWorktreeRecord({ cwd: workspace, branch: manifest.branch });
   if (record3?.owner === WorktreeOwner.Implement) {
@@ -158582,6 +161799,49 @@ var continueDirectRun = async ({ cwd, workspace, manifest, config: config2, driv
     return exitCli({ code: 1 });
   }
   return built;
+};
+
+// src/cli/common/implementRun/readResumedPlanName.ts
+var readResumedPlanName = async ({ cwd, manifest }) => {
+  const fromPath = planNameFromPath({ cwd, planPath: manifest.plan });
+  if (fromPath !== void 0 || manifest.branch === void 0) {
+    return fromPath;
+  }
+  const read = await readTicketRecord({ cwd, ticketBranch: manifest.branch });
+  if ("error" in read || read.record === void 0) {
+    return void 0;
+  }
+  const plan = read.record.plans.find((candidate) => candidate.implementation?.runId === manifest.runId);
+  return plan === void 0 ? void 0 : formatPlanAddress({ ticketBranch: manifest.branch, planId: plan.id });
+};
+
+// src/cli/common/implementRun/readResumeClearance.ts
+var readResumeClearance = async ({
+  workspace,
+  manifest,
+  loaded,
+  flags
+}) => {
+  const name = await readResumedPlanName({ cwd: workspace, manifest });
+  const terms = await readTicketRunTerms({
+    cwd: workspace,
+    name,
+    planPath: manifest.pipeline === PipelineKind.Direct ? void 0 : manifest.plan
+  });
+  if (terms.refusal !== void 0) {
+    console.error(terms.refusal);
+    return void 0;
+  }
+  const shipIntent = resolveCommandShipIntent({ config: loaded, flags, env: process.env, shipRequest: terms.shipRequest });
+  if (shipIntent === void 0) {
+    return void 0;
+  }
+  const refusal = await requireImplementLifecycle({ cwd: workspace, config: loaded, env: process.env, onProgress: createProgressPrinter() });
+  if (refusal !== void 0) {
+    console.error(refusal);
+    return void 0;
+  }
+  return { name, shipIntent };
 };
 
 // src/cli/resumeCommand.ts
@@ -158656,29 +161916,34 @@ var resumeCommand = async ({ flags, cwd }) => {
   }
   const workspace = located.workspace;
   const loaded = await readConfig({ cwd });
-  const shipIntent = resolveCommandShipIntent({ config: loaded, flags, env: process.env });
-  if (shipIntent === void 0) {
+  const clearance = await readResumeClearance({ workspace, manifest, loaded, flags });
+  if (clearance === void 0) {
     return exitCli({ code: 1 });
   }
-  const refusal = await requireImplementLifecycle({ cwd: workspace, config: loaded, env: process.env, onProgress: createProgressPrinter() });
-  if (refusal !== void 0) {
-    console.error(refusal);
-    return exitCli({ code: 1 });
-  }
+  const { name, shipIntent } = clearance;
   const { resumable, config: config2, driver } = await prepareResumedRun({ cwd, manifest, loaded, willShip: shipIntent.willShip });
   console.log(`lightsout: resuming run ${manifest.runId} (was: ${manifest.status}, plan: ${manifest.plan})`);
   printRunHeader({ config: config2, driver, cwd });
-  const result = await runResumedPipeline({
-    pipeline,
-    cwd,
-    workspace,
-    driver,
-    config: config2,
-    generated: loaded.generated,
-    willShip: shipIntent.willShip,
-    resumable,
-    skipRefactor
+  const outcome = await runTicketPlanLifecycle({
+    cwd: workspace,
+    name,
+    resumeRunId: manifest.runId,
+    run: () => runResumedPipeline({
+      pipeline,
+      cwd,
+      workspace,
+      driver,
+      config: config2,
+      generated: loaded.generated,
+      willShip: shipIntent.willShip,
+      resumable,
+      skipRefactor
+    })
   });
+  const result = reportTicketPlanOutcome({ outcome });
+  if (result === void 0) {
+    return exitCli({ code: 1 });
+  }
   await printResult({ result, cwd });
   return exitAfterImplement({
     config: loaded,
@@ -158790,7 +162055,15 @@ var shipCommand = async ({ cwd }) => {
     return exitCli({ code: 1 });
   }
   const { config: effectiveConfig, driver } = resolveEffectiveConfigAndDriver({ config: config2, command: "implement" });
-  const result = await runShip({ cwd, settings, integration: { config: effectiveConfig, driver }, onProgress: createProgressPrinter() });
+  const result = await runShip({
+    cwd,
+    settings,
+    integration: { config: effectiveConfig, driver },
+    // The branch's own ticket record has the last word on the merge, here as
+    // much as in the queue: a standalone ship is not a way around it.
+    ticketGuard: createTicketShipGuard({ config: config2, env: process.env, onProgress: createProgressPrinter() }),
+    onProgress: createProgressPrinter()
+  });
   if (result.status === ShipStatus.Shipped) {
     console.log(`shipped ${result.ticketRef}: pull request #${result.prNumber} merged as ${result.mergeCommit}`);
     console.log(`  ${result.prUrl}`);
@@ -159113,11 +162386,11 @@ var standardsHealthCommand = async ({ cwd }) => {
 };
 
 // src/cli/standardsValidateCommand.ts
-import { resolve as resolve20 } from "node:path";
+import { resolve as resolve21 } from "node:path";
 var readRequestedPack = async ({ requested, cwd }) => (
   // resolve() leaves an absolute --pack alone, so both forms the flag accepts
   // land here.
-  readStandardsPack({ packPath: requested === void 0 ? resolveDefaultStandardsPack() : resolve20(cwd, requested) })
+  readStandardsPack({ packPath: requested === void 0 ? resolveDefaultStandardsPack() : resolve21(cwd, requested) })
 );
 var standardsValidateCommand = async ({ flags, cwd }) => {
   const requested = getStringFlag({ flags, name: "pack" });
@@ -159144,7 +162417,7 @@ var standardsValidateCommand = async ({ flags, cwd }) => {
 };
 
 // src/cli/statusCommand.ts
-import { readdir as readdir23 } from "node:fs/promises";
+import { readdir as readdir24 } from "node:fs/promises";
 
 // src/cli/common/utils/formatClockDuration.ts
 var formatClockDuration = ({ ms }) => {
@@ -159400,7 +162673,7 @@ var toStandardsPackRuleListing = ({ rule, fixtureCounts }) => ({
 var DeclaredConfig = external_exports.object({ timeouts: external_exports.record(external_exports.string(), external_exports.unknown()).optional() }).catchall(external_exports.unknown());
 
 // src/views/common/utils/getRunTitle.ts
-import { basename as basename36, dirname as dirname27 } from "node:path";
+import { basename as basename37, dirname as dirname30 } from "node:path";
 var namedRuleLimit = 3;
 var describeRules = ({ rules }) => {
   const distinct = [...new Set(rules)];
@@ -159409,9 +162682,9 @@ var describeRules = ({ rules }) => {
   return rest > 0 ? `${named} +${rest} more` : named;
 };
 var getRunTitle = ({ plan, worklist }) => {
-  const name = basename36(plan);
+  const name = basename37(plan);
   const stem = name.replace(/\.md$/, "");
-  const folder = basename36(dirname27(plan));
+  const folder = basename37(dirname30(plan));
   const rules = worklist?.kind === PipelineKind.Refactor ? worklist.worklist?.batches.map((batch) => batch.rule) ?? [] : [];
   let title;
   if (worklist?.kind === PipelineKind.Coverage) {
@@ -159450,10 +162723,10 @@ var buildRunListing = ({ manifest, lock, worklist }) => {
 };
 
 // src/views/common/utils/readFrozenWorklist.ts
-import { readFile as readFile61 } from "node:fs/promises";
-import { join as join135 } from "node:path";
+import { readFile as readFile65 } from "node:fs/promises";
+import { join as join148 } from "node:path";
 var readFrozenWorklist = async ({ cwd, manifest }) => {
-  const raw = await readFile61(join135(getRunDir({ cwd, runId: manifest.runId }), "worklist.json"), "utf8").catch(() => void 0);
+  const raw = await readFile65(join148(getRunDir({ cwd, runId: manifest.runId }), "worklist.json"), "utf8").catch(() => void 0);
   let parsed;
   try {
     parsed = raw === void 0 ? void 0 : JSON.parse(raw);
@@ -159542,19 +162815,19 @@ var getRunProgress = async ({ cwd, manifest, lock }) => {
 };
 
 // src/views/common/services/StandardsPackBundleCache.ts
-import { readdir as readdir22, stat as stat15 } from "node:fs/promises";
-import { isAbsolute as isAbsolute4, join as join137, sep as sep4 } from "node:path";
+import { readdir as readdir23, stat as stat15 } from "node:fs/promises";
+import { isAbsolute as isAbsolute4, join as join150, sep as sep4 } from "node:path";
 
 // src/views/common/utils/readPackFixtures.ts
-import { readdir as readdir21, readFile as readFile62 } from "node:fs/promises";
-import { join as join136 } from "node:path";
+import { readdir as readdir22, readFile as readFile66 } from "node:fs/promises";
+import { join as join149 } from "node:path";
 var listSideFiles = async ({ root, prefix }) => {
-  const entries = await readdir21(root, { withFileTypes: true }).catch(() => []);
+  const entries = await readdir22(root, { withFileTypes: true }).catch(() => []);
   const paths = [];
   for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
     const path = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
     if (entry.isDirectory()) {
-      paths.push(...await listSideFiles({ root: join136(root, entry.name), prefix: path }));
+      paths.push(...await listSideFiles({ root: join149(root, entry.name), prefix: path }));
     } else {
       paths.push(path);
     }
@@ -159564,9 +162837,9 @@ var listSideFiles = async ({ root, prefix }) => {
 var readPackFixtures = async ({ fixturesPath }) => {
   const fixtures = [];
   for (const side of [FixtureSide.Pass, FixtureSide.Fail]) {
-    const sideRoot = join136(fixturesPath, side);
+    const sideRoot = join149(fixturesPath, side);
     for (const path of await listSideFiles({ root: sideRoot, prefix: "" })) {
-      const text = await readFile62(join136(sideRoot, ...path.split("/")), "utf8").catch(() => void 0);
+      const text = await readFile66(join149(sideRoot, ...path.split("/")), "utf8").catch(() => void 0);
       if (text !== void 0) {
         fixtures.push({ side, path, text });
       }
@@ -159577,10 +162850,10 @@ var readPackFixtures = async ({ fixturesPath }) => {
 
 // src/views/common/services/StandardsPackBundleCache.ts
 var getNewestMtime = async ({ root }) => {
-  const entries = await readdir22(root, { withFileTypes: true }).catch(() => []);
+  const entries = await readdir23(root, { withFileTypes: true }).catch(() => []);
   let newest = 0;
   for (const entry of entries) {
-    const path = join137(root, entry.name);
+    const path = join150(root, entry.name);
     const at = entry.isDirectory() ? await getNewestMtime({ root: path }) : await stat15(path).then(
       (stats) => stats.mtimeMs,
       () => 0
@@ -159705,13 +162978,26 @@ var findBuildRun = async ({ ticket, worktreePath }) => {
   const locked = lock !== void 0 && isPidAlive({ pid: lock.pid }) ? candidates.find((run) => run.runId === lock.runId) : void 0;
   return locked ?? candidates[0];
 };
+var loadPlanningBlock = async ({ worktreePath, planName }) => {
+  const read = await readTicketRecord({ cwd: worktreePath, ticketBranch: planName });
+  if ("error" in read) {
+    return [read.error];
+  }
+  const { record: record3 } = read;
+  if (record3 === void 0) {
+    return loadPlanningProgressBlock({ cwd: worktreePath, name: planName });
+  }
+  const waiting = findNextPlanToPlan({ record: record3 });
+  return waiting === void 0 ? [`no plan in ${planName} is waiting to be planned`] : loadPlanningProgressBlock({ cwd: worktreePath, name: formatPlanAddress({ ticketBranch: planName, planId: waiting.id }) });
+};
 var loadBuildBlock = async ({ ticket, worktreePath }) => {
   const run = await findBuildRun({ ticket, worktreePath });
+  const { planName } = ticket;
   let lines;
   if (run !== void 0) {
     lines = (await loadRunProgressBlock({ cwd: worktreePath, runId: run.runId })).lines;
-  } else if (ticket.planName !== void 0) {
-    lines = await loadPlanningProgressBlock({ cwd: worktreePath, name: ticket.planName });
+  } else if (planName !== void 0) {
+    lines = await loadPlanningBlock({ worktreePath, planName });
   } else {
     lines = [`no engine run has started in ${worktreePath} since ${ticket.identifier}'s build began`];
   }
@@ -159892,7 +163178,7 @@ var watchRunProgress = async ({
 
 // src/cli/statusCommand.ts
 var printRunListing = async ({ cwd }) => {
-  const runIds = await readdir23(getRunsDir({ cwd })).catch(() => []);
+  const runIds = await readdir24(getRunsDir({ cwd })).catch(() => []);
   if (runIds.length === 0) {
     console.log("no runs found");
     return;
@@ -160034,6 +163320,246 @@ var testCoverageToThresholdCommand = ({ flags, cwd }) => runBatchedCommand({
   run: ({ config: config2, driver, maxBatches, existing }) => runCoveragePipeline({ cwd, driver, config: config2, maxBatches, allowDirty: flags.get("allow-dirty") === true, existing, onProgress: createProgressPrinter() })
 });
 
+// src/cli/ticket/common/utils/finishTicketChange.ts
+var finishTicketChange = async ({ ticketBranch, outcome, describe: describe3 }) => {
+  if ("error" in outcome) {
+    console.error(outcome.error);
+    return exitCli({ code: 1 });
+  }
+  const change = outcome;
+  if (change.notice !== void 0) {
+    console.log(change.notice);
+  }
+  for (const line of describe3(change)) {
+    console.log(line);
+  }
+  if (change.publishError !== void 0) {
+    console.error(
+      `${change.publishError}
+the change is on this machine but not on the ticket \u2014 send it with \`lightsout ticket sync --name ${ticketBranch}\``
+    );
+    return exitCli({ code: 1 });
+  }
+  return exitCli({ code: 0 });
+};
+
+// src/cli/ticket/ticketAddPlanCommand.ts
+var ticketAddPlanCommand = async ({ flags, cwd }) => {
+  const ticketBranch = await getRequiredFlag({ flags, name: "name" });
+  const slug = await getRequiredFlag({ flags, name: "slug" });
+  const config2 = await readConfig({ cwd });
+  const outcome = await addTicketPlan({
+    cwd,
+    ticketBranch,
+    slug,
+    title: getStringFlag({ flags, name: "title" }),
+    config: config2,
+    env: process.env,
+    onProgress: createProgressPrinter()
+  });
+  await finishTicketChange({
+    ticketBranch,
+    outcome,
+    describe: ({ address, record: record3 }) => [`ticket ${ticketBranch} now holds ${record3.plans.length} plan(s), the newest of them:`, address]
+  });
+};
+
+// src/cli/ticket/common/utils/describePlanProgress.ts
+var planProgressWording = {
+  [PlanProgress.Planning]: "being planned",
+  [PlanProgress.Ready]: "ready to implement",
+  [PlanProgress.Implementing]: "its implementation has not finished",
+  [PlanProgress.Implemented]: "implemented",
+  [PlanProgress.Failed]: "its implementation failed"
+};
+var describePlanProgress = ({ progress }) => planProgressWording[progress];
+
+// src/cli/ticket/ticketAdoptCommand.ts
+var ticketAdoptCommand = async ({ flags, cwd }) => {
+  const ticketBranch = await getRequiredFlag({ flags, name: "name" });
+  const slug = await getRequiredFlag({ flags, name: "slug" });
+  const config2 = await readConfig({ cwd });
+  const outcome = await adoptTicketPlan({ cwd, ticketBranch, slug, config: config2, env: process.env, onProgress: createProgressPrinter() });
+  await finishTicketChange({
+    ticketBranch,
+    outcome,
+    describe: ({ address, record: record3 }) => {
+      const first = record3.plans[0];
+      return [
+        `the plan folder of ${ticketBranch} is now plan ${first?.id ?? "001"}, ${describePlanProgress({ progress: first?.progress ?? PlanProgress.Planning })}:`,
+        address
+      ];
+    }
+  });
+};
+
+// src/cli/ticket/ticketExcludePlanCommand.ts
+var ticketExcludePlanCommand = async ({ flags, cwd }) => {
+  const ticketBranch = await getRequiredFlag({ flags, name: "name" });
+  const plan = await getRequiredFlag({ flags, name: "plan" });
+  const reason = await getRequiredFlag({ flags, name: "reason" });
+  const config2 = await readConfig({ cwd });
+  const outcome = await excludeTicketPlan({
+    cwd,
+    ticketBranch,
+    plan,
+    reason,
+    implementationRemoved: flags.get("implementation-removed") === true,
+    config: config2,
+    env: process.env,
+    onProgress: createProgressPrinter()
+  });
+  await finishTicketChange({
+    ticketBranch,
+    outcome,
+    describe: ({ record: record3 }) => [
+      `ticket ${ticketBranch} now includes ${record3.plans.filter((candidate) => candidate.exclusion === void 0).length} plan(s); the excluded plan's files stay on disk`
+    ]
+  });
+};
+
+// src/cli/ticket/ticketModeCommand.ts
+var ticketModeCommand = async ({ flags, cwd }) => {
+  const ticketBranch = await getRequiredFlag({ flags, name: "name" });
+  const asked = await getRequiredFlag({ flags, name: "set" });
+  const mode = Object.values(TicketMode).find((candidate) => candidate === asked);
+  if (mode === void 0) {
+    console.error(`--set takes ${Object.values(TicketMode).join(" or ")}, and '${asked}' is neither`);
+    return exitCli({ code: 1 });
+  }
+  const config2 = await readConfig({ cwd });
+  const outcome = await setTicketMode({
+    cwd,
+    ticketBranch,
+    mode,
+    approve: flags.get("approve") === true,
+    config: config2,
+    env: process.env,
+    onProgress: createProgressPrinter()
+  });
+  await finishTicketChange({
+    ticketBranch,
+    outcome,
+    describe: ({ record: record3 }) => {
+      const excluded = record3.plans.filter((plan) => plan.exclusion !== void 0).map((plan) => plan.id);
+      return [
+        `ticket ${ticketBranch} is now in ${record3.mode} mode`,
+        ...excluded.length === 0 ? [] : [`excluded from its implementation and its shipping: ${excluded.join(", ")} \u2014 their files stay on disk`]
+      ];
+    }
+  });
+};
+
+// src/cli/ticket/ticketRequestShipCommand.ts
+var ticketRequestShipCommand = async ({ flags, cwd }) => {
+  const ticketBranch = await getRequiredFlag({ flags, name: "name" });
+  const plans = getListFlag({ flags, name: "plans" });
+  const withdraw = flags.get("withdraw") === true;
+  if (plans !== void 0 === withdraw) {
+    console.error(
+      "`lightsout ticket request-ship` takes exactly one of --plans <id,id> and --withdraw: the first records a request, the second takes one back"
+    );
+    return exitCli({ code: 1 });
+  }
+  const config2 = await readConfig({ cwd });
+  const shared = { cwd, ticketBranch, config: config2, env: process.env, onProgress: createProgressPrinter() };
+  const outcome = plans === void 0 ? await withdrawTicketShipRequest(shared) : await requestTicketShip({ ...shared, plans });
+  await finishTicketChange({
+    ticketBranch,
+    outcome,
+    describe: ({ record: record3 }) => [
+      record3.shipRequest === void 0 ? `ticket ${ticketBranch} carries no ship request, so it stays open` : `ticket ${ticketBranch} is to ship once ${record3.shipRequest.planIds.join(", ")} are implemented`
+    ]
+  });
+};
+
+// src/cli/ticket/ticketRetitlePlanCommand.ts
+var ticketRetitlePlanCommand = async ({ flags, cwd }) => {
+  const ticketBranch = await getRequiredFlag({ flags, name: "name" });
+  const plan = await getRequiredFlag({ flags, name: "plan" });
+  const title = await getRequiredFlag({ flags, name: "title" });
+  const config2 = await readConfig({ cwd });
+  const outcome = await retitleTicketPlan({ cwd, ticketBranch, plan, title, config: config2, env: process.env, onProgress: createProgressPrinter() });
+  await finishTicketChange({ ticketBranch, outcome, describe: () => [`the plan is now titled '${title}' on ticket ${ticketBranch}`] });
+};
+
+// src/cli/ticket/ticketShowCommand.ts
+var renderTicketRecord = ({ record: record3 }) => [
+  `ticket ${record3.ticketRef} on branch ${record3.branch} \u2014 ${record3.mode} mode`,
+  ...record3.plans.map((plan) => {
+    const excluded = plan.exclusion === void 0 ? "" : ` \u2014 excluded: ${plan.exclusion.reason}`;
+    return `  ${plan.id} \u2014 ${plan.title} \u2014 ${describePlanProgress({ progress: plan.progress })}${excluded}`;
+  }),
+  record3.shipRequest === void 0 ? "no ship request is pending, so this ticket stays open" : `ship request: ${record3.shipRequest.planIds.join(", ")} \u2014 the ticket ships once every one of them is implemented`,
+  ...record3.shipped === void 0 ? [] : [`shipped as ${record3.shipped.mergeCommit}`]
+];
+var ticketShowCommand = async ({ flags, cwd }) => {
+  const ticketBranch = await getRequiredFlag({ flags, name: "name" });
+  const config2 = await readConfig({ cwd });
+  const pulled = await pullTicketRecord({ cwd, ticketBranch, config: config2, env: process.env, onProgress: createProgressPrinter() });
+  if ("error" in pulled) {
+    console.error(pulled.error);
+    return exitCli({ code: 1 });
+  }
+  if (pulled.record === void 0) {
+    console.error(describeMissingTicketRecord({ ticketBranch }));
+    return exitCli({ code: 1 });
+  }
+  for (const line of renderTicketRecord({ record: pulled.record })) {
+    console.log(line);
+  }
+  return exitCli({ code: 0 });
+};
+
+// src/cli/ticket/ticketSyncCommand.ts
+var ticketSyncCommand = async ({ flags, cwd }) => {
+  const ticketBranch = await getRequiredFlag({ flags, name: "name" });
+  const asked = getStringFlag({ flags, name: "keep" });
+  const keep = Object.values(TicketSyncKeep).find((candidate) => candidate === asked);
+  if (asked !== void 0 && keep === void 0) {
+    console.error(`--keep takes ${Object.values(TicketSyncKeep).join(" or ")}, and '${asked}' is neither`);
+    return exitCli({ code: 1 });
+  }
+  const config2 = await readConfig({ cwd });
+  const synced = await syncTicketRecord({ cwd, ticketBranch, config: config2, env: process.env, keep, onProgress: createProgressPrinter() });
+  if ("error" in synced) {
+    console.error(synced.error);
+    return exitCli({ code: 1 });
+  }
+  console.log(
+    keep === void 0 ? `the ticket record for ${ticketBranch} and the copy on ${synced.record.ticketRef} are in sync` : `the ${keep} copy of ${ticketBranch}'s record is now the one on both sides`
+  );
+  return exitCli({ code: 0 });
+};
+
+// src/cli/ticket/ticketCommand.ts
+var ticketSubcommands = {
+  "add-plan": ticketAddPlanCommand,
+  adopt: ticketAdoptCommand,
+  mode: ticketModeCommand,
+  "request-ship": ticketRequestShipCommand,
+  "exclude-plan": ticketExcludePlanCommand,
+  "retitle-plan": ticketRetitlePlanCommand,
+  show: ticketShowCommand,
+  sync: ticketSyncCommand
+};
+var ticketCommand = async ({ flags, rest, cwd }) => {
+  const word = getPositionals({ args: rest })[0] ?? "";
+  const subcommand = ticketSubcommands[word];
+  if (subcommand === void 0) {
+    console.error(usage);
+    return exitCli({ code: 1 });
+  }
+  const name = getStringFlag({ flags, name: "name" });
+  if (name !== void 0 && parsePlanAddress({ name }) !== void 0) {
+    console.error(
+      `\`lightsout ticket ${word}\` acts on a whole ticket, so --name takes the ticket's branch rather than one plan's address \u2014 name ${ticketFolderOf({ name })} instead`
+    );
+    return exitCli({ code: 1 });
+  }
+  await subcommand({ flags, rest, cwd });
+};
+
 // src/cli/ticketStateCommand.ts
 var writableStatusRoles = [TrackerStatusRole.Ready, TrackerStatusRole.InProgress];
 var parsePlanningStatus = ({ value }) => {
@@ -160117,26 +163643,26 @@ var getStreamText = async ({ stream }) => {
 };
 
 // src/voice/createVoiceMarker.ts
-import { mkdir as mkdir32, writeFile as writeFile29 } from "node:fs/promises";
-import { dirname as dirname28 } from "node:path";
+import { mkdir as mkdir35, writeFile as writeFile31 } from "node:fs/promises";
+import { dirname as dirname31 } from "node:path";
 
 // src/voice/common/paths/getVoiceMarkerPath.ts
-import { join as join138 } from "node:path";
+import { join as join151 } from "node:path";
 var getVoiceMarkerPath = ({ cwd }) => {
-  return join138(cwd, ".lightsout", "voice-on");
+  return join151(cwd, ".lightsout", "voice-on");
 };
 
 // src/voice/createVoiceMarker.ts
 var createVoiceMarker = async ({ cwd }) => {
   const markerPath = getVoiceMarkerPath({ cwd });
-  await mkdir32(dirname28(markerPath), { recursive: true });
-  await writeFile29(markerPath, "", "utf8");
+  await mkdir35(dirname31(markerPath), { recursive: true });
+  await writeFile31(markerPath, "", "utf8");
 };
 
 // src/voice/deleteVoiceMarker.ts
-import { rm as rm12 } from "node:fs/promises";
+import { rm as rm14 } from "node:fs/promises";
 var deleteVoiceMarker = async ({ cwd }) => {
-  await rm12(getVoiceMarkerPath({ cwd }), { force: true });
+  await rm14(getVoiceMarkerPath({ cwd }), { force: true });
 };
 
 // src/voice/common/fields/getField.ts
@@ -160185,7 +163711,7 @@ var getSpokenPickerText = ({ toolInput }) => {
 };
 
 // src/voice/getSpokenQuestion.ts
-import { readFile as readFile63 } from "node:fs/promises";
+import { readFile as readFile67 } from "node:fs/promises";
 
 // src/voice/common/utils/isQuestionText.ts
 var isQuestionText = ({ text }) => {
@@ -160241,7 +163767,7 @@ var getQuestionTexts = ({ entries }) => {
   return texts;
 };
 var getSpokenQuestion = async ({ transcriptPath }) => {
-  const raw = await readFile63(transcriptPath, "utf8").catch(() => void 0);
+  const raw = await readFile67(transcriptPath, "utf8").catch(() => void 0);
   if (raw === void 0) {
     return void 0;
   }
@@ -160267,19 +163793,19 @@ var isVoiceOn = async ({ cwd }) => {
 
 // src/voice/speakText.ts
 import { spawn as spawn3 } from "node:child_process";
-import { writeFile as writeFile30 } from "node:fs/promises";
+import { writeFile as writeFile32 } from "node:fs/promises";
 
 // src/voice/common/paths/getVoicePidPath.ts
-import { join as join139 } from "node:path";
+import { join as join152 } from "node:path";
 var getVoicePidPath = ({ cwd }) => {
-  return join139(cwd, ".lightsout", "voice-pid");
+  return join152(cwd, ".lightsout", "voice-pid");
 };
 
 // src/voice/stopSpeech.ts
-import { readFile as readFile64, rm as rm13 } from "node:fs/promises";
+import { readFile as readFile68, rm as rm15 } from "node:fs/promises";
 var stopSpeech = async ({ cwd }) => {
   const pidPath = getVoicePidPath({ cwd });
-  const raw = await readFile64(pidPath, "utf8").catch(() => void 0);
+  const raw = await readFile68(pidPath, "utf8").catch(() => void 0);
   if (raw === void 0) {
     return;
   }
@@ -160290,7 +163816,7 @@ var stopSpeech = async ({ cwd }) => {
     } catch {
     }
   }
-  await rm13(pidPath, { force: true });
+  await rm15(pidPath, { force: true });
 };
 
 // src/voice/speakText.ts
@@ -160302,7 +163828,7 @@ var speakText = async ({ cwd, text }) => {
   child.stdin?.write(text);
   child.stdin?.end();
   if (child.pid !== void 0) {
-    await writeFile30(getVoicePidPath({ cwd }), String(child.pid), "utf8");
+    await writeFile32(getVoicePidPath({ cwd }), String(child.pid), "utf8");
   }
   child.unref();
 };
@@ -160444,6 +163970,7 @@ var commands = {
   resume: resumeCommand,
   ship: shipCommand,
   "self-check": selfCheckCommand,
+  ticket: ticketCommand,
   "ticket-state": ticketStateCommand,
   status: statusCommand,
   doctor: doctorCommand,

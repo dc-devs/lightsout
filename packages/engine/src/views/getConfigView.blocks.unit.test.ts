@@ -146,7 +146,7 @@ describe('getConfigView', () => {
 	});
 
 	test('shows the plan block whole in its own area, thresholds and all', async () => {
-		const plan = { contract: true, 'weight-thresholds': { 'created-files': 5, packages: 2 } };
+		const plan = { contract: true, 'default-ticket-mode': 'multiple-plan', 'weight-thresholds': { 'created-files': 5, packages: 2 } };
 		const cwd = await seedConfiguredCwd({ config: { plan } });
 
 		const view = await getConfigView({ cwd });

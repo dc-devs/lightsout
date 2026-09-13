@@ -122,8 +122,9 @@ engine, where it is deterministic code. Do not add workflow steps to this file.
 7. When the queue's own background command exits, stop any running watcher
    and relay the queue's final output verbatim, from the finished board —
    headed `Queue finished` — through the report lines after it: one line per
-   ticket — shipped, parked with the reason and its worktree path, or left
-   behind with why. Post no further `status --queue` updates.
+   ticket — shipped, parked with the reason and its worktree path, left open
+   with what it is waiting for, or left behind with why. Post no further
+   `status --queue` updates.
 
 The bare `node "<absolute path to cli.mjs>" queue` command still exists for
 anyone who would rather hold their own terminal, where questions are asked on
@@ -135,14 +136,23 @@ stdin instead.
   Linear team or Jira project — whose planning-status label and tracker status
   form one of three pairs:
     - `planning-ready-auto-plan` in Backlog → the auto-plan worker plans the
-      ticket first, then builds the plan it wrote.
+      ticket first, then builds the plan it wrote. The engine picks which plan
+      the session writes — the ticket's lowest-numbered plan still waiting to be
+      planned, or a new plan 001 for a ticket with no record yet — and names it
+      in the session's task message. A ticket whose plans are all past that stage
+      has nothing for the session to do and is reported open.
     - `planning-complete` in Ready to implement → the plan worker builds the
       plan already published to the ticket, fetching it when the worktree does
-      not have it. When no plan is attached it builds from **the ticket body**
-      instead, because `planning-complete` promises finished shaping, not a plan
-      folder. Two routes reach that: a brainstorm that finished all shaping
-      without writing a plan, and the brainstorm's ready-to-implement outcome,
-      which writes `planning-complete` and Ready to implement itself. In both
+      not have it. On a ticket holding several plans it builds the ones ready to
+      implement one at a time in numeric order on the ticket's branch, committing
+      each before the next starts, and stops at a lower plan still being planned,
+      being implemented, or failed. When no plan is attached it builds from **the
+      ticket body** instead, because `planning-complete` promises finished
+      shaping, not a plan folder — a route left open for plan 001 of a
+      single-plan ticket and for a ticket with no record. Two cases reach it: a
+      brainstorm that finished all shaping without writing a plan, and the
+      brainstorm's ready-to-implement outcome, which writes `planning-complete`
+      and Ready to implement itself. In both
       cases the worker reads the ticket body — not the brainstorm files the
       ticket carries, which are the durable record a person reads and the input
       planning fetches.
@@ -171,8 +181,18 @@ stdin instead.
   merged pull request. A confirmed merge moves the ticket to Done and skips the
   worker. A parked worktree for that branch is removed when its tree is clean,
   and kept with a progress line when it is dirty.
+- **Handing a later plan to the queue:** the ticket-workflow skill's
+  `## Planning status` paragraph says which statuses the queue reads and what a
+  human sets to hand it a later plan — including removing their own worktree for
+  the ticket branch first, once its work is committed. A ticket whose worktree
+  another run owns is parked, naming that owner.
 - **How it runs them:** each ticket gets its own fresh git worktree, the
   config's `setup` command, and a harness run; finished branches ship as PRs.
+  A ticket holding several plans is the exception: it is left **open** when its
+  ship request is not satisfied — no parked label, no tracker status change — and
+  every later drain looks at it again, building whichever plans have since become
+  ready to implement and shipping it once it is eligible. The ticket-workflow
+  skill's `### Ship requests` says how a human makes an open ticket ship.
   Up to `max-parallel` tickets run at once. The queue works in waves —
   everything unblocked runs and ships, then it re-reads the tracker and takes
   whatever the finished work just unblocked, stopping when a re-read finds
@@ -188,8 +208,9 @@ stdin instead.
   worktree. This is separate from the implement skill's two-minute watch,
   which follows a single run.
 - **Exit codes:** 0 — everything eligible shipped. 2 — work remains that a
-  re-run picks up (parked or left-behind tickets). 1 — the queue refused to
-  start; the message says why.
+  re-run picks up (parked or left-behind tickets); a ticket left open is not
+  that, because it waits on a human decision rather than on a re-run, so it never
+  makes the queue exit 2. 1 — the queue refused to start; the message says why.
 - **Answers are never lost:** an answer written to the mailbox is recorded in
   the queue run's decisions file and onto the ticket before the worker acts
   on it — the same guarantee, whichever channel carried it.

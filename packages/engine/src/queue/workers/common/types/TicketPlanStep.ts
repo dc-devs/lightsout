@@ -1,0 +1,23 @@
+import type { LightsoutConfig, TicketPlan, TicketRecord } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
+
+/** Everything one turn of a ticket's ordered plan build needs, carried as one value so each step of it takes the same argument. */
+export interface TicketPlanStep {
+	/** The ticket's worktree: where the plan is restored, built and committed. */
+	cwd: string;
+	/** The ticket's record as this turn of the loop read it. */
+	record: TicketRecord;
+	/** The plan this turn is on. */
+	plan: TicketPlan;
+	ticket: TicketSummary;
+	config: LightsoutConfig;
+	/** The process environment the tracker credentials are read from. */
+	env: NodeJS.ProcessEnv;
+	driver: Driver;
+	/** Recorded as the harness name on a build from the ticket body. */
+	driverName: string;
+	/** The ticket's directory under the coordinator run, where the commit message file is written. */
+	ticketRunDir: string;
+	onProgress?: (message: string) => void;
+}

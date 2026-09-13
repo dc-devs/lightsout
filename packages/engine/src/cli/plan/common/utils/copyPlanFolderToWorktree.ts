@@ -8,7 +8,7 @@ interface Params {
 	sourceCwd: string;
 	/** The planning worktree. Equal to `sourceCwd` when isolation is off, where nothing is copied. */
 	worktree: string;
-	/** The plan's name — the folder under `.lightsout/plans/`. */
+	/** A plan address or a legacy plan name — the one folder under `.lightsout/plans/` this copies. */
 	name: string;
 }
 
@@ -23,6 +23,12 @@ interface Params {
  * and a folder the worktree already holds wins outright, the rule
  * `ensurePlanWorkspace` sets: a resumed session's graded plan is never clobbered
  * by a stale copy.
+ *
+ * The unit copied is one plan folder. A tree already holding a sibling plan of
+ * the same ticket still receives this one, because the folder each name
+ * addresses is its own; and the ticket folder's own files in the launching
+ * checkout — the ticket record and its sync files — never travel with a plan,
+ * since they live once per machine in the primary checkout.
  *
  * @returns undefined when the worktree holds the folder or there was none to copy, or the one sentence saying why the copy failed
  */

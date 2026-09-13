@@ -1,5 +1,6 @@
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { ShipIntent } from '#src/ship/common/types/ShipIntent.ts';
+import type { ShipRequestTerms } from '#src/ship/common/types/ShipRequestTerms.ts';
 import { resolveShipSettings } from '#src/ship/resolveShipSettings.ts';
 
 interface Params {
@@ -10,6 +11,8 @@ interface Params {
 	noShipFlag: boolean;
 	/** The process environment, read for the queue's own suppression variable. Passed rather than read, so a test never needs to mutate `process.env`. */
 	env: NodeJS.ProcessEnv;
+	/** The ticket's own terms for this run, from `readTicketRunTerms`. Present only when the branch's ticket record decides the shipping rather than the flags. */
+	shipRequest?: ShipRequestTerms;
 }
 
 /**
@@ -29,12 +32,27 @@ interface Params {
  * unusable ticket pattern. That is deliberate: the run intended to ship, so the
  * progress table shows the row, and the exit path still refuses with the
  * message that names the key.
+ *
+ * A `shipRequest` takes the decision away from `--ship` and
+ * `ship.after-implement` entirely: a multiple-plan ticket ships when the human's
+ * explicit request is satisfied by this run and at no other time, which is what
+ * "switching to multiple-plan mode disables automatic shipping" means in
+ * practice. The two rules above still beat it, and a run they stopped carries no
+ * `shipRequestBlocker` — nothing about the ticket held it back.
  */
-export const resolveShipIntent = ({ config, shipFlag, noShipFlag, env }: Params): ShipIntent => {
+export const resolveShipIntent = ({ config, shipFlag, noShipFlag, env, shipRequest }: Params): ShipIntent => {
 	const settings = resolveShipSettings({ config });
 	const contradictory = shipFlag && noShipFlag;
 	const suppressed = noShipFlag || (env.LIGHTSOUT_NO_SHIP ?? '') !== '';
-	const willShip = !contradictory && !suppressed && (shipFlag || settings?.afterImplement === true);
+	const asked = shipRequest === undefined ? shipFlag || settings?.afterImplement === true : shipRequest.blocker === undefined;
+	const stopped = contradictory || suppressed;
 
-	return { contradictory, willShip, settings };
+	return {
+		contradictory,
+		willShip: !stopped && asked,
+		settings,
+		// The field exists only where a ticket record had a say at all, and carries a
+		// sentence only where that say is what held the run back.
+		...(shipRequest === undefined ? {} : { shipRequestBlocker: stopped ? undefined : shipRequest.blocker }),
+	};
 };

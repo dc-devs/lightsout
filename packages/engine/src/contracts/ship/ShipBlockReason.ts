@@ -48,6 +48,16 @@ export const ShipBlockReason = {
 	IntegrationGatesUnavailable: 'integration-gates-unavailable',
 	/** No CI checks appeared for the pushed commit before the wait ceiling, and the repository has not explicitly opted out. */
 	ChecksMissing: 'checks-missing',
+	/**
+	 * The branch's ticket record does not authorize shipping: a multiple-plan
+	 * ticket with no satisfied ship request, a single-plan ticket whose plan 001's
+	 * implementation has not finished, or a published record that diverged from
+	 * this machine's copy or could not be read at all.
+	 *
+	 * Checked twice — once before anything is pushed, and again immediately before
+	 * the merge — so a plan added while the checks were running still stops it.
+	 */
+	TicketNotAuthorized: 'ticket-not-authorized',
 } as const;
 
 export type ShipBlockReason = (typeof ShipBlockReason)[keyof typeof ShipBlockReason];

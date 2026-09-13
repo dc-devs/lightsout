@@ -9,7 +9,14 @@ export const QueueBoardTicket = z.object({
 	lane: z.enum(QueueLane),
 	/** The queue worker value that builds the ticket. */
 	worker: z.string().optional(),
-	/** Set only for an auto-plan ticket: the plan folder the worker's session writes, which is named for the ticket's branch. */
+	/**
+	 * Set only for an auto-plan ticket: the folder under the plans directory the
+	 * worker's session writes in, which is named for the ticket's branch.
+	 *
+	 * For a ticket with a record of its own that is the ticket folder, and the plan
+	 * the session is writing is the one inside it still being planned; for a ticket
+	 * with no record it is the plan folder itself, as it always was.
+	 */
 	planName: z.string().optional(),
 	branch: z.string().optional(),
 	worktreePath: z.string().optional(),

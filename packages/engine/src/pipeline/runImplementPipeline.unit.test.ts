@@ -4,7 +4,7 @@ import { expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
-import { readFriction } from '#src/runState/index.ts';
+import { readFriction, readRunManifest } from '#src/runState/index.ts';
 import { readCommandLog } from '#tests/helpers/readCommandLog.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewOneAdvisory } from '#tests/helpers/reviewOneAdvisory.ts';
@@ -383,4 +383,36 @@ test('a run started with no plan path at all fails before any agent spawns', asy
 	// a missing plan — never as an empty plan the agents would work from
 	expect(result.manifest.plan).toBe('');
 	expect(result.error ?? '').toMatch(/plan file not found/);
+});
+
+test('creates a fresh run under the run id it is given', async () => {
+	const dir = setupConsumerRepo();
+	const driver: Driver = {
+		name: 'stub',
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				if (roleOf(prompt) !== 'implement') {
+					return { text: report(), exitCode: 0 };
+				}
+
+				writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
+
+				return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
+			},
+		}),
+	};
+	const result = await runImplementPipeline({
+		cwd: dir,
+		driver,
+		config: await readConfig({ cwd: dir }),
+		planPath: 'plan.md',
+		runId: '9f8e7d6c-1111-4222-8333-444455556666',
+	});
+	const onDisk = await readRunManifest({ cwd: dir, runId: '9f8e7d6c-1111-4222-8333-444455556666' });
+
+	expect(result.ok).toBe(true);
+	// the id the caller minted is the run that exists, so a ticket record naming
+	// it names a run on disk
+	expect(result.manifest.runId).toBe('9f8e7d6c-1111-4222-8333-444455556666');
+	expect(onDisk.runId).toBe('9f8e7d6c-1111-4222-8333-444455556666');
 });

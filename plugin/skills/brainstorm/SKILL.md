@@ -8,9 +8,11 @@ allowed-tools: Bash, Read, Write, Grep, Glob, Task
 
 **This skill is an interactive conductor, not the engine.** It holds zero
 deterministic decisions — no gates, retries, caps, state, or contract parsing.
-It runs two engine subcommands, `brainstorm publish` and `ticket-state`, and
-only when the idea traces to a ticket; it still holds no deterministic decision
-of its own, and it never reads back what it writes. Triggering is gentle: the
+It runs a few engine subcommands, and only when the idea traces to a ticket:
+`brainstorm publish`, `ticket-state`, `ticket show` and `ticket add-plan`, plus
+`ticket mode` and `ticket adopt` once the user has agreed to those. It still
+holds no deterministic decision of its own, and it never reads back what it
+writes. Triggering is gentle: the
 description above is the only trigger — no hook, no forced invocation. Writing
 the settled-decisions file below changes nothing about this standing — the skill
 never reads the file back; the engine validates it at draft time.
@@ -116,9 +118,40 @@ does not decide that other cases are out of scope. A "no" the user settles
 here is a decision row like any other, and a rejected idea never becomes a
 new ticket.
 
+Also read what the ticket already holds:
+
+```sh
+node "<plugin-root>/dist/cli.mjs" ticket show --name <ticket-branch>
+```
+
+It prints the ticket's mode and its plans. Where the user's latest explicit
+instruction differs from the ticket text or from an earlier plan, follow the
+user; say what differs when that is useful, and ask about updating the ticket per
+the ticket-workflow skill's `## Keeping the body true` — never hold this
+conversation up waiting for that answer.
+
+On a ticket that already holds plans, read the earlier plans' records as context
+about what was built. They are not this brainstorm's settled rows. A change the
+user wants to a plan that is already implemented is work for a new plan, not a
+revision of that one.
+
 **2. Scope check.** Judge out loud: is this one buildable idea, one idea too
 big for a single pass, or several independent ideas? Several → say so, agree
 which one to shape now, and note the rest for later.
+
+On a ticket, the same check decides **which plan of the ticket this idea is**.
+The default is the lowest-numbered plan still at `planning`, unless the user says
+this is a separate plan — the rule the ticket-workflow skill's `### Adding a
+plan` states, which also says what adding one refuses. A continued plan that
+already holds a brainstorm meets step 7's question about an existing file.
+
+Two cases are asked before anything is added, in the Question format:
+
+- **Single-plan mode with plan 001 already past `planning`:** ask whether to
+  switch the ticket to multiple-plan mode. A no means this idea is not a plan on
+  this ticket, and the brainstorm says so rather than adding one anyway.
+- **A ticket folder still holding files from before ticket records:** ask whether
+  to run `lightsout ticket adopt`, which makes those files plan 001.
 
 **3. Approaches.** Present 2–3 genuinely different ways to build it, in the
 Question format — what each wins, what each costs, and which one you recommend
@@ -151,7 +184,12 @@ it spends their attention rather than the machine's.
 which exit to take. The brainstorm holds the context needed to judge, so asking
 would hand the work back for no gain.
 
-**Ready to implement** requires **all five** of:
+**Ready to implement is only open to two cases:** plan 001 of a single-plan
+ticket, and work that traces to no ticket. Every plan of a multiple-plan ticket
+ends at **ready to auto-plan**, because a later plan is built from its own plan
+deliverable rather than from the ticket body.
+
+Where it is open, **ready to implement** requires **all five** of:
 
 - every file that changes is named, along with what changes in each;
 - nothing is left open;
@@ -166,12 +204,25 @@ one line.
 **7. Write, publish, label.** Both outcomes write both files. There is no exit
 that writes nothing.
 
-Derive a kebab `<name>` from the idea and offer it for override. A brainstorm
-usually runs before a ticket exists, so the folder carries a bare slug; when a
-ticket already exists for the idea, use its canonical name instead — the plan
-folder is named exactly like the ticket's branch. When the ticket is filed later
-the folder is renamed to match, which the ticket-workflow skill's `## Plan
-folder` section spells out.
+**With no ticket**, derive a kebab `<name>` from the idea and offer it for
+override. That is the ordinary case: a brainstorm usually runs before a ticket
+exists, so the folder carries a bare slug. When the ticket is filed later the
+folder is renamed to the ticket's branch, which the ticket-workflow skill's
+`## Plan folder` section spells out.
+
+**With a ticket**, `<name>` is the plan's address — the continued plan's, or the
+one this command prints on its last line:
+
+```sh
+node "<plugin-root>/dist/cli.mjs" ticket add-plan --name <ticket-branch> --slug <slug> [--title <title>]
+```
+
+Take the printed address rather than building one, and relay any notice it prints
+about a withdrawn ship request. What that command refuses, and why, is the
+ticket-workflow skill's `### Adding a plan`; do not restate those rules here.
+
+Every `.lightsout/plans/<name>/` path and the `brainstorm publish --name <name>`
+command below then resolve unchanged.
 
 Before writing anything, show the settled decisions back to the user as a small
 table — question, choice, one-line why, and whether it is an assumption — and
@@ -201,13 +252,13 @@ Then write the notes to `.lightsout/plans/<name>/brainstorm-notes.md`, plus
 - One row per decision that establishes or changes a design choice or an
   edge-case handling — not per exchange.
 
-**If either file is already at that name**, a previous brainstorm wrote it, and
-what to do splits by case:
+**If either file is already in that plan folder**, a previous brainstorm wrote
+it, and what to do splits by case:
 
-- **Ticket-backed:** the canonical name is not negotiable — `brainstorm publish`
-  reads the ticket id off the folder name, so a folder renamed to dodge an
+- **Ticket-backed:** the address is not negotiable — `brainstorm publish` reads
+  the ticket id off the ticket-branch segment, so a folder renamed to dodge an
   existing file can never be published. Say what the existing files hold and ask
-  before replacing them; on a yes, overwrite in place and keep the name. Never
+  before replacing them; on a yes, overwrite in place and keep the address. Never
   rename.
 - **No ticket:** say so and agree a different name. A bare slug is only a local
   handle and nothing resolves a ticket from it.
@@ -247,9 +298,10 @@ exists.
   engine refuses a folder holding neither `plan.md` nor `overview.md`, which is
   exactly what this outcome writes, so any command printed here could not run.
 - **Ready to auto-plan:** print the exact next command —
-  ``Next: run the `auto-plan` skill on <ticket>`` — and add one line saying that
-  a person who would rather plan it themselves sets `planning-needs-plan` by
-  hand instead.
+  ``Next: run the `auto-plan` skill on <ticket>, plan <name>`` — naming the
+  plan's address, so the next session plans that plan rather than deriving one —
+  and add one line saying that a person who would rather plan it themselves sets
+  `planning-needs-plan` by hand instead.
 
 With no ticket, both outcomes point at the folder rather than at a tracker,
 because nothing was published. Both lines carry the same second sentence: file

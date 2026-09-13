@@ -146,6 +146,16 @@ brainstorm owns it, and both rows belong in the log.
 **A settled decision is not a self-answer.** It never enters the assumption
 digest, because the user already made it.
 
+Two further rules are the plan skill's, in its own `## Settled decisions`
+section, and apply here unchanged: the user's latest explicit instruction
+outranks every record, and on a ticket holding several plans an earlier plan's
+records are context rather than this plan's settled rows. Read them there.
+
+**Headless under `lightsout queue` there is no user to ask.** A discrepancy
+between the ticket text and the instruction being followed is recorded as a
+decisions row naming what the ticket says and which instruction won, and nothing
+is written to the ticket.
+
 ## Steps
 
 **0. Read the config.** Read `lightsout.config.json` at the repo root and take
@@ -157,20 +167,29 @@ anything else, so the user knows which checkpoints are live — for example:
 auto-plan: propose after drafting · implement on approval · proposal required
 ```
 
-**1. Name the plan and gather the source.** A plan folder is named exactly like
-its branch. A queue worktree is always already on the ticket's branch, so
-`<name>` is the current branch name verbatim and no derivation runs at all.
-Outside a worktree, when the work traces to a ticket, `<name>` is the lowercased
-ticket id followed by a slug of the title — the same string the branch is, whose
-exact shape is the repository's `ship.ticket-pattern` and
-`queue.branch-template` in its `lightsout.config.json`. With no ticket, derive a
+**1. Name the plan and gather the source.** **Under `lightsout queue`,** `<name>`
+is the plan address the task message names. The engine chose that plan and put it
+on the ticket's record before this session started, so no derivation runs at all:
+plan exactly that folder, and never run `ticket add-plan`, `ticket mode` or
+`ticket adopt`.
+
+**Outside the queue,** naming follows the plan skill's step 0: `ticket show`,
+then the lowest-numbered plan still at `planning` or a plan added with
+`ticket add-plan`. Two differences are this skill's. A switch to multiple-plan
+mode changes whether the ticket ships on its own, so it clears the escalation bar
+— it is an unscheduled checkpoint, or a park under `auto-approve-plan`. And this
+skill never adopts a ticket folder holding files from before ticket records: it
+plans that folder as it stands and names `lightsout ticket adopt` in the digest.
+
+With no ticket, derive a
 kebab `<name>` from the request (e.g. "add a rate-limit banner" →
-`rate-limit-banner`), and rename the folder to the canonical name when the
+`rate-limit-banner`), and rename the folder to the ticket's branch when the
 ticket is filed — the ticket-workflow skill's `## Plan folder` section says what
 else a rename has to update, and when it is too late to do one. When the request
 is a rough-notes file path, read it before anything else; when it already lives
-at `.lightsout/plans/<name>/brainstorm-notes.md`, take `<name>` from its folder rather than
-deriving a new one. Read `.lightsout/plans/<name>/brainstorm-decisions.json`
+under the plans directory, take `<name>` from the path segments below that
+directory rather than deriving a new one. Read
+`.lightsout/plans/<name>/brainstorm-decisions.json`
 when it exists — its rows are already settled with the user. In a fresh
 worktree it may not be on disk yet: `plan verify-facts` in step 2 fetches the
 brainstorm the ticket carries, so the folder is read again there.
@@ -390,6 +409,9 @@ work traces to a ticket:
 node "<plugin-root>/dist/cli.mjs" plan publish --name <name>
 ```
 
+A successful publish is also what moves this plan from `planning` to `ready` on
+the ticket's record.
+
 Then write the ticket's planning status. **The command differs between the two
 ways this skill runs.**
 
@@ -427,9 +449,10 @@ shaping is owed.
 
 **10. Roll onward.** Under `lightsout queue` this step does nothing at all,
 whatever `implement-on-approval` says: stop after step 9's publish and report
-`complete`. The queue runs the implement pipeline on the plan folder itself,
-outside this session, because a build started inside an agent session dies when
-that session does.
+`complete`. The queue runs the implement pipeline itself, outside this session,
+because a build started inside an agent session dies when that session does. On a
+ticket holding several plans it builds the ready ones in numeric order after this
+session ends, not this plan alone.
 
 Otherwise, with `implement-on-approval` false, print the handoff line
 and stop:
@@ -437,6 +460,11 @@ and stop:
 ```
 Next: run the `implement` skill with .lightsout/plans/<name>
 ```
+
+On a multiple-plan ticket, add the same line the plan skill's step 8 adds: the
+ticket stays open until the user files a ship request with `lightsout ticket
+request-ship`, and the ticket-workflow skill's `### Ship requests` says what it
+has to name. Never file one yourself.
 
 With it true, read `<plugin-root>/skills/implement/SKILL.md` and follow it
 in full, using `.lightsout/plans/<name>` as the provided plan path, just as if

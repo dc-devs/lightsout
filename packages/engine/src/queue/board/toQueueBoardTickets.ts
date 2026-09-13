@@ -5,6 +5,7 @@ import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { BuildInFlight } from '#src/queue/common/types/BuildInFlight.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
+import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
 
@@ -54,12 +55,21 @@ const placeBuild = ({ build, live }: { build: BuildInFlight; live: LiveQueueBoar
 	return question === undefined ? { ...work, lane: QueueLane.Building } : { ...work, lane: QueueLane.Blocked, reason: question, question };
 };
 
+/** A settled outcome's lane: shipped, blocked when the ticket was only left open, and parked otherwise. */
+const placeOutcome = ({ outcome }: { outcome: TicketRunOutcome }) => {
+	if (outcome.ready) {
+		return { ...describeWork(outcome), lane: QueueLane.Shipped, reason: outcome.reconciliationFailure };
+	}
+
+	// Blocked rather than Parked: that lane already holds the tickets waiting on a
+	// human, which is what an open ticket is waiting on.
+	return outcome.open === undefined
+		? { ...describeWork(outcome), lane: QueueLane.Parked, reason: outcome.error }
+		: { ...describeWork(outcome), lane: QueueLane.Blocked, reason: outcome.open };
+};
+
 const placeSettled = ({ settled }: { settled: QueueDrainReport }) => [
-	...settled.outcomes.map((outcome) =>
-		outcome.ready
-			? { ...describeWork(outcome), lane: QueueLane.Shipped, reason: outcome.reconciliationFailure }
-			: { ...describeWork(outcome), lane: QueueLane.Parked, reason: outcome.error },
-	),
+	...settled.outcomes.map((outcome) => placeOutcome({ outcome })),
 	...settled.leftBehind.map((entry) =>
 		entry.settled === true
 			? placeLeftBehind({ entry, lane: QueueLane.Shipped, reason: entry.reconciliationFailure })

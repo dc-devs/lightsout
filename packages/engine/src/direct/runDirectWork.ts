@@ -22,6 +22,8 @@ interface Params {
 	ticketBody: string;
 	/** The ticket's human reference, for the run header. */
 	ticketRef: string;
+	/** The id a fresh run is created under, minted by the caller so the run can be named before it starts. Ignored when resuming. */
+	runId?: string;
 	driver: Driver;
 	/** Recorded on the manifest as the harness name. */
 	driverName: string;

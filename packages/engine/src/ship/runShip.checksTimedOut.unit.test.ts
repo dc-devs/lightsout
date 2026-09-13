@@ -6,6 +6,7 @@ import type { ChecksSummary } from '#src/ship/forge/index.ts';
 import { runShip } from '#src/ship/index.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { shipIntegrationFixture } from '#tests/helpers/shipIntegrationFixture.ts';
+import { shipTicketGuardFixture } from '#tests/helpers/shipTicketGuardFixture.ts';
 import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
 
 // Mocked Imports
@@ -69,7 +70,7 @@ describe('runShip', () => {
 	test('checks still running when the wait gives up block, naming every check that never finished', async () => {
 		const { cwd } = setupTimedOut();
 
-		const result = await runShip({ cwd, settings, integration });
+		const result = await runShip({ cwd, settings, integration, ticketGuard: shipTicketGuardFixture() });
 
 		expect(result).toEqual(
 			expect.objectContaining({
@@ -85,7 +86,7 @@ describe('runShip', () => {
 	test('a wait that ran out leaves the pull request unmerged, because nothing here merges on an unfinished check', async () => {
 		const { cwd, readForgeLog } = setupTimedOut();
 
-		await runShip({ cwd, settings, integration });
+		await runShip({ cwd, settings, integration, ticketGuard: shipTicketGuardFixture() });
 
 		expect(readForgeLog().some((line) => line.startsWith('pr merge'))).toBe(false);
 	});
@@ -93,7 +94,7 @@ describe('runShip', () => {
 	test('writes the blocked result to disk, which is how the next tool learns the merge did not happen', async () => {
 		const { cwd } = setupTimedOut();
 
-		const result = await runShip({ cwd, settings, integration });
+		const result = await runShip({ cwd, settings, integration, ticketGuard: shipTicketGuardFixture() });
 
 		expect(JSON.parse(await readFile(join(cwd, '.lightsout', 'ship', 'lo-60-ship.json'), 'utf8'))).toStrictEqual(result);
 	});

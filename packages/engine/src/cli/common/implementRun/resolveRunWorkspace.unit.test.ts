@@ -2,7 +2,7 @@ import { join, resolve } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { contradictoryWorktreeFlagsMessage } from '#src/cli/common/constants/contradictoryWorktreeFlagsMessage.ts';
 import { resolveRunWorkspace } from '#src/cli/common/implementRun/resolveRunWorkspace.ts';
-import type { LightsoutConfig, WorktreeOwner, WorktreeRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig, RunLock, WorktreeOwner, WorktreeRecord } from '#src/contracts/index.ts';
 
 // Mocked Imports
 // -------------------------
@@ -38,6 +38,7 @@ interface RecordParams {
 const mockResolveWorktreePath = jest.fn<(params: { cwd: string; branch: string }) => Promise<string>>();
 const mockReadWorktreeRecord = jest.fn<(params: { cwd: string; branch: string }) => Promise<WorktreeRecord | undefined>>();
 const mockWriteWorktreeRecord = jest.fn<(params: RecordParams) => Promise<void>>();
+const mockPrepareTicketBranch = jest.fn<(params: { cwd: string; branch: string }) => Promise<{ startPoint?: string } | WorktreeFailure>>();
 
 jest.mock('#src/worktree/index.ts', () => ({
 	createWorktree: (params: CreateParams) => mockCreateWorktree(params),
@@ -46,12 +47,21 @@ jest.mock('#src/worktree/index.ts', () => ({
 	resolveWorktreePath: (params: { cwd: string; branch: string }) => mockResolveWorktreePath(params),
 	readWorktreeRecord: (params: { cwd: string; branch: string }) => mockReadWorktreeRecord(params),
 	writeWorktreeRecord: (params: RecordParams) => mockWriteWorktreeRecord(params),
+	prepareTicketBranch: (params: { cwd: string; branch: string }) => mockPrepareTicketBranch(params),
 }));
 // -------------------------
 const mockLinkRunRecords = jest.fn<(params: { sourceCwd: string; workspace: string }) => Promise<{ error: string } | undefined>>();
 
 jest.mock('#src/cli/common/implementRun/linkRunRecords.ts', () => ({
 	linkRunRecords: (params: { sourceCwd: string; workspace: string }) => mockLinkRunRecords(params),
+}));
+// -------------------------
+// The run lock of the ticket branch's own tree, which is what separates a tree
+// an earlier implementation run finished with from one a run is still using.
+const mockReadLiveRunLock = jest.fn<(params: { cwd: string }) => Promise<RunLock | undefined>>();
+
+jest.mock('#src/runState/index.ts', () => ({
+	readLiveRunLock: (params: { cwd: string }) => mockReadLiveRunLock(params),
 }));
 // -------------------------
 
@@ -101,6 +111,44 @@ const setupWorkspace = ({ worktree, setup, flags = [], answers = {} }: { worktre
 	};
 
 	return { config, flags: new Map<string, string | true>(flags.map((name) => [name, true])) };
+};
+
+const ticketBranch = 'lo-7-search';
+const ticketPlanPath = join('.lightsout', 'plans', ticketBranch, '002-ranking', 'plan.md');
+const ticketWorktreePath = resolve('/tmp/lightsout-launching-checkout-worktrees', ticketBranch);
+const pushedCommit = 'b91e40c27d3a85f6019c4ab7e2d3f5061a8c7b24';
+const liveLock: RunLock = { pid: 4242, runId: 'run-2026-09-11-implement-002-ranking', startedAt: '2026-09-11T09:00:00.000Z' };
+
+/** The ownership record the tree standing on a ticket branch carries, whichever step cut it. */
+const ticketRecordOwnedBy = ({ owner }: { owner: WorktreeOwner }): WorktreeRecord => ({
+	branch: ticketBranch,
+	owner,
+	worktreePath: ticketWorktreePath,
+	createdAt: '2026-01-01T00:00:00.000Z',
+	startPoint: pinnedCommit,
+});
+
+/**
+ * A run whose `--plan` is a plan address, against a ticket branch standing
+ * wherever the named answers put it. Separate from `setupWorkspace` because
+ * every path here is keyed by the ticket branch rather than the plan's own
+ * name, and two more seams — the ticket branch's state and the tree's run
+ * lock — decide the answer.
+ */
+const setupTicketWorkspace = ({ holder, record, lock, startPoint }: { holder?: string; record?: WorktreeRecord; lock?: RunLock; startPoint?: string } = {}) => {
+	mockPrepareTicketBranch.mockResolvedValue(startPoint === undefined ? {} : { startPoint });
+	mockReadLiveRunLock.mockResolvedValue(lock);
+	mockFetchDefaultBranch.mockResolvedValue('main');
+	mockReadBranchWorktree.mockResolvedValue(holder);
+	mockResolveWorktreePath.mockResolvedValue(ticketWorktreePath);
+	mockReadWorktreeRecord.mockResolvedValue(record);
+	mockWriteWorktreeRecord.mockResolvedValue(undefined);
+	mockCreateWorktree.mockResolvedValue(ticketWorktreePath);
+	mockLinkRunRecords.mockResolvedValue(undefined);
+
+	const config: LightsoutConfig = { gates };
+
+	return { config, flags: new Map<string, string | true>() };
 };
 
 describe('resolveRunWorkspace', () => {
@@ -223,4 +271,49 @@ describe('resolveRunWorkspace', () => {
 			expect(mockCreateWorktree).not.toHaveBeenCalled();
 		},
 	);
+
+	test('continues a plan address in the ticket tree an earlier implementation run adopted', async () => {
+		const { config, flags } = setupTicketWorkspace({ holder: ticketWorktreePath, record: ticketRecordOwnedBy({ owner: 'implement' }) });
+
+		const workspace = await resolveRunWorkspace({ cwd: sourceCwd, config, flags, planPath: ticketPlanPath });
+
+		expect(workspace).toStrictEqual({ cwd: ticketWorktreePath, branch: ticketBranch, isolated: true, created: false });
+		expect(mockWriteWorktreeRecord).toHaveBeenCalledWith(
+			expect.objectContaining({ branch: ticketBranch, owner: 'implement', worktreePath: ticketWorktreePath, startPoint: pinnedCommit }),
+		);
+		expect(mockFetchDefaultBranch).not.toHaveBeenCalled();
+		expect(mockCreateWorktree).not.toHaveBeenCalled();
+	});
+
+	test("refuses a plan address while a live run holds the ticket tree's run lock, naming the run", async () => {
+		const { config, flags } = setupTicketWorkspace({ holder: ticketWorktreePath, record: ticketRecordOwnedBy({ owner: 'plan' }), lock: liveLock });
+
+		const workspace = await resolveRunWorkspace({ cwd: sourceCwd, config, flags, planPath: ticketPlanPath });
+
+		expect(workspace).toEqual({ error: expect.stringContaining(ticketWorktreePath) });
+		expect(workspace).toEqual({ error: expect.stringContaining(liveLock.runId) });
+		expect(workspace).toEqual({ error: expect.stringContaining('--no-worktree') });
+		expect(mockWriteWorktreeRecord).not.toHaveBeenCalled();
+		expect(mockCreateWorktree).not.toHaveBeenCalled();
+	});
+
+	test('a legacy plan never adopts a tree an implementation run already owns', async () => {
+		const { config, flags } = setupWorkspace({ answers: { holder: worktreePath, record: recordOwnedBy({ owner: 'implement', startPoint: pinnedCommit }) } });
+
+		const workspace = await resolveRunWorkspace({ cwd: sourceCwd, config, flags, planPath });
+
+		expect(workspace).toEqual({ error: expect.stringContaining(worktreePath) });
+		expect(workspace).toEqual({ error: expect.stringContaining('--no-worktree') });
+		expect(mockWriteWorktreeRecord).not.toHaveBeenCalled();
+		expect(mockReadLiveRunLock).not.toHaveBeenCalled();
+	});
+
+	test('builds a later plan on the pushed ticket branch when only the remote holds it', async () => {
+		const { config, flags } = setupTicketWorkspace({ startPoint: pushedCommit });
+
+		const workspace = await resolveRunWorkspace({ cwd: sourceCwd, config, flags, planPath: ticketPlanPath });
+
+		expect(workspace).toEqual(expect.objectContaining({ cwd: ticketWorktreePath, branch: ticketBranch, isolated: true, created: true }));
+		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch: ticketBranch, startPoint: pushedCommit, owner: 'implement' }));
+	});
 });

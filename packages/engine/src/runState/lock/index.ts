@@ -1,5 +1,6 @@
 export { acquireRunLock } from '#src/runState/lock/acquireRunLock.ts';
 export { RunLockError } from '#src/runState/lock/RunLockError.ts';
+export { readLiveRunLock } from '#src/runState/lock/readLiveRunLock.ts';
 export { readRunLock } from '#src/runState/lock/readRunLock.ts';
 export { readRunProcessLock } from '#src/runState/lock/readRunProcessLock.ts';
 export { releaseRunLock } from '#src/runState/lock/releaseRunLock.ts';

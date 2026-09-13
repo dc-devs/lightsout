@@ -5,7 +5,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { planPublishCommand } from '#src/cli/plan/planPublishCommand.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
+import { planAttachmentManifestName } from '#src/plan/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
@@ -30,6 +30,8 @@ interface PublishParams {
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
 	onProgress: (message: string) => void;
+	/** The plan id every attachment title is namespaced under — never set for a legacy folder. */
+	titlePrefix?: string;
 }
 
 const mockPublishPlan = jest.fn<(params: PublishParams) => Promise<PublishReport>>();
@@ -37,6 +39,33 @@ const mockPublishPlan = jest.fn<(params: PublishParams) => Promise<PublishReport
 jest.mock('#src/plan/index.ts', () => ({
 	...jest.requireActual<typeof import('#src/plan/index.ts')>('#src/plan/index.ts'),
 	publishPlan: (params: PublishParams) => mockPublishPlan(params),
+}));
+// -------------------------
+// The ticket-record publish is the same kind of boundary: another module's
+// entry point, replaced so this file asserts only which of the two publishers a
+// name reaches, what is printed about it, and how the command ends.
+interface TicketPublishReport {
+	ticketRef?: string;
+	published: string[];
+	stale: string[];
+	error?: string;
+	/** Why ticket.json does not record a publish whose plan files did land. */
+	recordError?: string;
+}
+
+interface TicketPublishParams {
+	cwd: string;
+	address: string;
+	config: LightsoutConfig;
+	env: NodeJS.ProcessEnv;
+	onProgress: (message: string) => void;
+}
+
+const mockPublishTicketPlan = jest.fn<(params: TicketPublishParams) => Promise<TicketPublishReport>>();
+
+jest.mock('#src/ticket/index.ts', () => ({
+	...jest.requireActual<typeof import('#src/ticket/index.ts')>('#src/ticket/index.ts'),
+	publishTicketPlan: (params: TicketPublishParams) => mockPublishTicketPlan(params),
 }));
 // -------------------------
 
@@ -70,6 +99,26 @@ const setupPublishWithPlanFolder = ({ report, withConfig }: { report?: PublishRe
 	const planDir = join(published.cwd, '.lightsout', 'plans', 'demo');
 
 	mkdirSync(planDir, { recursive: true });
+
+	return { ...published, planDir };
+};
+
+/** A publish of the plan address `lo-9-x/001-a`, whose plan folder exists, so the planning record has somewhere to land. */
+const setupTicketPublish = ({
+	report = {
+		ticketRef: 'LO-9',
+		published: ['001-a--plan.md', '001-a--decisions.json', `001-a--${planAttachmentManifestName}`, 'ticket.json'],
+		stale: [],
+	},
+}: {
+	/** What the ticket-record publish answers: the plan's prefixed files, its marker and the record, by default. */
+	report?: TicketPublishReport;
+} = {}) => {
+	const published = setupPublish({ args: ['--name', 'lo-9-x/001-a'] });
+	const planDir = join(published.cwd, '.lightsout', 'plans', 'lo-9-x', '001-a');
+
+	mkdirSync(planDir, { recursive: true });
+	mockPublishTicketPlan.mockResolvedValue(report);
 
 	return { ...published, planDir };
 };
@@ -175,5 +224,64 @@ describe('planPublishCommand', () => {
 		await expect(planPublishCommand(context)).rejects.toThrow(/lightsout\.config\.json not found/);
 
 		expect(existsSync(join(planDir, 'planning-progress.json'))).toBe(false);
+	});
+
+	test('planPublishCommand: for a plan address, publishes through the ticket record and exits 0', async () => {
+		const { context, cwd, logged, errors, exitCodes } = setupTicketPublish();
+
+		await expect(planPublishCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// the plan address reaches the ticket publisher as `address`, with the
+		// repo's own tracker block, and the legacy publisher is left alone
+		expect(mockPublishTicketPlan.mock.calls[0]?.[0]).toMatchObject({
+			cwd,
+			address: 'lo-9-x/001-a',
+			config: { 'ticket-tracker': { provider: 'linear', team: 'LO', 'api-key-env': 'LINEAR_API_KEY' } },
+			onProgress: expect.any(Function),
+		});
+		expect(mockPublishPlan).not.toHaveBeenCalled();
+		expect(logged[0]).toBe('\nplan publish lo-9-x/001-a — 4 file(s) attached to LO-9');
+		expect(logged.slice(1, 5)).toStrictEqual(['  001-a--plan.md', '  001-a--decisions.json', `  001-a--${planAttachmentManifestName}`, '  ticket.json']);
+		expect(errors).toStrictEqual([]);
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('planPublishCommand: for a plan address, exits 1 and records the step failed when ticket.json could not be published', async () => {
+		const { context, planDir, logged, errors, exitCodes } = setupTicketPublish({
+			report: {
+				ticketRef: 'LO-9',
+				published: ['001-a--plan.md', `001-a--${planAttachmentManifestName}`],
+				stale: [],
+				recordError: 'the plan files are on LO-9, but ticket.json was refused by the tracker',
+			},
+		});
+
+		await expect(planPublishCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// the exit throws, so a record read afterwards was written before the command exited
+		const record = JSON.parse(readFileSync(join(planDir, 'planning-progress.json'), 'utf8')) as {
+			steps: { step: string; status: string }[];
+		};
+
+		// the plan's files did land, so they are still listed; only the record's
+		// own sentence goes to stderr, and the step is failed because the ticket
+		// record does not say the plan was published
+		expect(logged.slice(1, 3)).toStrictEqual(['  001-a--plan.md', `  001-a--${planAttachmentManifestName}`]);
+		expect(errors[0] ?? '').toContain('ticket.json was refused by the tracker');
+		expect(record.steps.find((entry) => entry.step === 'publish')).toEqual(expect.objectContaining({ step: 'publish', status: 'failed' }));
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('planPublishCommand: a legacy folder name never reaches the ticket record', async () => {
+		const { context, cwd, exitCodes } = setupPublishWithPlanFolder();
+
+		await expect(planPublishCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// a folder named for its branch alone keeps today's publish, under bare
+		// titles: no plan id prefix, and no ticket record touched
+		expect(mockPublishPlan.mock.calls[0]?.[0]).toMatchObject({ cwd, name: 'demo' });
+		expect(mockPublishPlan.mock.calls[0]?.[0]?.titlePrefix).toBeUndefined();
+		expect(mockPublishTicketPlan).not.toHaveBeenCalled();
+		expect(exitCodes).toStrictEqual([0]);
 	});
 });

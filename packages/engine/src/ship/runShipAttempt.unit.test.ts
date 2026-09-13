@@ -3,11 +3,13 @@ import { access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import type { GateRunResult } from '#src/gates/index.ts';
+import type { ShipTicketGuard } from '#src/ship/index.ts';
 import { ShippingProgressRecorder } from '#src/ship/progress/index.ts';
 import { runShipAttempt } from '#src/ship/runShipAttempt.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { shipIntegrationFixture } from '#tests/helpers/shipIntegrationFixture.ts';
 import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
+import { shipTicketGuardFixture } from '#tests/helpers/shipTicketGuardFixture.ts';
 import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
 
 // Mocked Imports
@@ -48,7 +50,7 @@ const setupAttempt = () => {
 
 	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
 
-	stubForgeOnPath({
+	const { readForgeLog } = stubForgeOnPath({
 		responses: {
 			'auth status': { exitCode: 0 },
 			'pr list': { stdout: '[]' },
@@ -63,10 +65,12 @@ const setupAttempt = () => {
 	return {
 		branch,
 		cwd,
+		readForgeLog,
 		params: {
 			cwd,
 			settings: shipSettingsFixture(),
 			integration: shipIntegrationFixture(),
+			ticketGuard: shipTicketGuardFixture(),
 			branch,
 			defaultBranch: 'main',
 			ticket: { ticket: 'lo-89', number: '89' },
@@ -78,6 +82,29 @@ const setupAttempt = () => {
 
 /** The branch this checkout stands on now — `main` once the post-merge cleanup has run, and the feature branch until then. */
 const readCurrentBranch = ({ cwd }: { cwd: string }) => execSync('git rev-parse --abbrev-ref HEAD', { cwd, encoding: 'utf8' }).trim();
+
+/** The one sentence a ticket record answers when a plan added while the checks ran put the branch outside its approved ship request. */
+const refusal = 'plan 003 was added to lo-89 after its ship request, so the ticket no longer authorizes shipping';
+
+/**
+ * The same complete candidate, with a ticket guard that authorizes nothing —
+ * the ticket whose ship request stopped covering the branch while its checks
+ * were running.
+ *
+ * The recorder is spied on rather than read back from disk, because the merge
+ * step's verdict is what this attempt tells its recorder, and the record write
+ * is queued behind a promise the attempt never waits for.
+ */
+const setupRefusedMerge = () => {
+	const { branch, params, readForgeLog } = setupAttempt();
+	const authorize = jest.fn<ShipTicketGuard['authorize']>();
+
+	authorize.mockResolvedValue(refusal);
+
+	const finishStep = jest.spyOn(params.recorder, 'finishStep');
+
+	return { authorize, branch, finishStep, params: { ...params, ticketGuard: shipTicketGuardFixture({ authorize }) }, readForgeLog };
+};
 
 describe('runShipAttempt', () => {
 	test('leaves final persistence and cleanup to the outer ship loop', async () => {
@@ -103,5 +130,24 @@ describe('runShipAttempt', () => {
 		);
 		await expect(access(join(cwd, '.lightsout', 'ship', `${branch}.json`))).rejects.toThrow();
 		expect(currentBranch).toBe(branch);
+	});
+
+	test('re-asks the ticket guard before the merge and stops without merging when it refuses', async () => {
+		const { authorize, branch, finishStep, params, readForgeLog } = setupRefusedMerge();
+
+		const attempt = await runShipAttempt(params);
+
+		const forgeLog = readForgeLog();
+
+		expect(attempt).toEqual(
+			expect.objectContaining({
+				retryable: false,
+				result: expect.objectContaining({ status: 'blocked', reason: 'ticket-not-authorized', detail: refusal, branch, ticketRef: 'lo-89' }),
+			}),
+		);
+		expect(authorize).toHaveBeenCalledWith(expect.objectContaining({ branch }));
+		expect(forgeLog.some((line) => line.startsWith('pr checks'))).toBe(true);
+		expect(forgeLog.some((line) => line.startsWith('pr merge'))).toBe(false);
+		expect(finishStep).toHaveBeenCalledWith({ step: 'merge', passed: false });
 	});
 });

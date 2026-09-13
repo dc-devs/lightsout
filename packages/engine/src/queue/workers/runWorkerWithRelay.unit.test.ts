@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import { type LightsoutConfig, type RunManifest, RunStatus, type TicketRecord } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
@@ -50,6 +50,23 @@ jest.mock('#src/plan/index.ts', () => ({
 	...jest.requireActual<typeof import('#src/plan/index.ts')>('#src/plan/index.ts'),
 	restorePlanWorkspace: (params: { cwd: string; name: string; identifier: string; settings: TrackerSettings }) => mockRestorePlanWorkspace(params),
 }));
+// -------------------------
+// Every ticket here carries no ticket record, which is the legacy shape these
+// cases were written against, so the pull is stubbed to answer nothing. What a
+// record changes is stated in `runWorkerWithRelay.planWorker.unit.test.ts`.
+interface PullTicketRecordParams {
+	cwd: string;
+	ticketBranch: string;
+	config: LightsoutConfig;
+	env: NodeJS.ProcessEnv;
+	onProgress?: (message: string) => void;
+}
+
+type PullTicketRecordResult = { record: TicketRecord | undefined } | { error: string };
+
+const mockPullTicketRecord = jest.fn<(params: PullTicketRecordParams) => Promise<PullTicketRecordResult>>();
+
+jest.mock('#src/ticket/index.ts', () => ({ pullTicketRecord: (params: PullTicketRecordParams) => mockPullTicketRecord(params) }));
 // -------------------------
 
 const settings = queueSettingsFixture();
@@ -113,6 +130,9 @@ const setupRelay = ({ answers = [] }: { answers?: string[] } = {}) => {
 	});
 
 	mockAppendTicketNote.mockResolvedValue(undefined);
+	// The ordinary ticket here carries no record, which is the legacy shape every
+	// case below this one was written against.
+	mockPullTicketRecord.mockResolvedValue({ record: undefined });
 
 	return {
 		relay: new TerminalQuestionRelay({ settings, trackerSettings: trackerSettingsFixture(), input, output }),
@@ -143,43 +163,9 @@ const runWorker = ({
 		relay,
 		coordinatorRunId: 'run-q',
 		coordinatorRunDir,
+		ticketRunDir: join(coordinatorRunDir, 'tickets', ticket.identifier),
+		env: {},
 	});
-
-/**
- * A plan worker on a ticket that carries a published brainstorm and no plan:
- * the worktree has no plan folder, and the fetch answers with nothing restored
- * and no error, which is what a brainstorm-only ticket reads as.
- */
-const setupBrainstormOnlyTicket = () => {
-	const { relay, coordinatorRunDir } = setupRelay();
-
-	mockRestorePlanWorkspace.mockResolvedValue({ restored: [] });
-	mockRunDirectWork.mockResolvedValue({ ok: true, manifest: manifestOf(RunStatus.Passed) });
-
-	const progress: string[] = [];
-
-	return {
-		relay,
-		progress,
-		params: {
-			// A fresh empty worktree: no plan folder on disk, which is what sends the worker to the ticket.
-			worktreePath: mkdtempSync(join(tmpdir(), 'lightsout-brainstorm-only-')),
-			branch: 'lo-70-drain',
-			ticket: { ...ticketOf(QueueWorker.Plan), planningStatus: PlanningStatus.Complete },
-			config,
-			driver,
-			driverName: 'claude-code',
-			settings,
-			trackerSettings: trackerSettingsFixture(),
-			relay,
-			coordinatorRunId: 'run-q',
-			coordinatorRunDir,
-			onProgress: (message: string) => {
-				progress.push(message);
-			},
-		},
-	};
-};
 
 describe('runWorkerWithRelay', () => {
 	test('a direct worker that finishes needs no question, and the relay is never used', async () => {
@@ -287,17 +273,5 @@ describe('runWorkerWithRelay', () => {
 		relay.close();
 
 		expect(outcome).toEqual({ error: expect.stringContaining('could not be relayed'), unanswered: true });
-	});
-
-	test('runWorkerWithRelay: builds a planning-complete ticket carrying only a published brainstorm from the ticket body', async () => {
-		const { relay, progress, params } = setupBrainstormOnlyTicket();
-
-		const outcome = await runWorkerWithRelay(params);
-
-		relay.close();
-
-		expect(outcome).toStrictEqual({});
-		expect(mockRunDirectWork).toHaveBeenCalledWith(expect.objectContaining({ ticketBody: 'Build the thing.', ticketRef: 'LO-70', cwd: params.worktreePath }));
-		expect(progress).toEqual([expect.stringContaining('carries no published plan')]);
 	});
 });

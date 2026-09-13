@@ -22,7 +22,9 @@
  * layout — and again for `status --shipping`, one branch's ship steps in the
  * same layout. Updated 2026-09-11 for `status --queue` — the queue's board and
  * one status block per active ticket — and again for `lightsout plan workspace`
- * and the same pair on every plan subcommand.
+ * and the same pair on every plan subcommand. Updated again for `lightsout
+ * ticket` — the eight subcommands that change and show a ticket's record of the
+ * plans it holds.
  */
 export const usageFixture = `lightsout — deterministic engine for coding agents
 
@@ -56,6 +58,14 @@ usage:
   lightsout plan dedup --name <name> [--cwd <path>] [--worktree] [--no-worktree]
   lightsout plan grade --name <name> [--phase <n[,n]>] [--cwd <path>] [--worktree] [--no-worktree]   (--phase grades only those phases, and always marks the result incomplete)
   lightsout plan publish --name <name> [--cwd <path>] [--worktree] [--no-worktree]
+  lightsout ticket add-plan --name <ticket-branch> --slug <slug> [--title <title>] [--cwd <path>]
+  lightsout ticket adopt --name <ticket-branch> --slug <slug> [--cwd <path>]
+  lightsout ticket mode --name <ticket-branch> --set single-plan|multiple-plan [--approve] [--cwd <path>]
+  lightsout ticket request-ship --name <ticket-branch> [--plans <id,id> | --withdraw] [--cwd <path>]
+  lightsout ticket exclude-plan --name <ticket-branch> --plan <id> --reason <text> [--implementation-removed] [--cwd <path>]
+  lightsout ticket retitle-plan --name <ticket-branch> --plan <id> --title <title> [--cwd <path>]
+  lightsout ticket show --name <ticket-branch> [--cwd <path>]
+  lightsout ticket sync --name <ticket-branch> [--keep local|published] [--cwd <path>]
   lightsout ticket-state --ref <ticket> [--planning-status <status>] [--tracker-status ready|in-progress] [--cwd <path>]
   lightsout self-check --run <id> [--cwd <path>]
   lightsout friction [--cwd <path>]

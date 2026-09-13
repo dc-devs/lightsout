@@ -92,6 +92,20 @@ describe('initializeSequence', () => {
 		expect(manifest.willShip).toBeUndefined();
 	});
 
+	test('creates a fresh coordinator under the run id it is given and ignores it on resume', async () => {
+		const { dir, overviewPath } = setupPlanFolder({ phases: 1 });
+		const existing = { ...foreignManifest({ pipeline: 'phases' }), plan: join('plans', 'demo', 'overview.md') };
+
+		const fresh = await initializeSequence({ cwd: dir, driver, config, overviewPath, runId: 'minted-coordinator-id' });
+
+		const resumed = await initializeSequence({ cwd: dir, driver, config, existing, runId: 'minted-coordinator-id' });
+
+		// the caller mints a fresh run's id so the plan's progress can name the run
+		// before it starts; a run being resumed keeps the id its manifest already has
+		expect(fresh.manifest.runId).toBe('minted-coordinator-id');
+		expect(resumed.manifest.runId).toBe('not-a-sequence');
+	});
+
 	test('an absolute overview path is recorded the way this repo stores plan paths', async () => {
 		const { dir } = setupPlanFolder({ phases: 1 });
 

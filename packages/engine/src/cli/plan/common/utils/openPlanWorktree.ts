@@ -11,7 +11,7 @@ interface Params {
 	cwd: string;
 	config: LightsoutConfig | undefined;
 	flags: CommandContext['flags'];
-	/** The plan's name, which is also its branch. */
+	/** A plan address, or a legacy plan name. The branch is its ticket-branch segment rather than the name itself. */
 	name: string;
 }
 

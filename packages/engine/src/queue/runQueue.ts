@@ -10,6 +10,7 @@ import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
 import { createMainCheckoutSerializer } from '#src/queue/common/utils/createMainCheckoutSerializer.ts';
+import { isParkedOutcome } from '#src/queue/common/utils/isParkedOutcome.ts';
 import { drainQueue } from '#src/queue/drainQueue.ts';
 import { runQueueTicket } from '#src/queue/runQueueTicket.ts';
 import { settleParkedLabels } from '#src/queue/settleParkedLabels.ts';
@@ -39,12 +40,15 @@ interface Params {
  *
  * A reconciled already-merged ticket is `settled` and never re-offered, so it
  * is not work left: counting it would record an escalated coordinator run for
- * a drain in which everything eligible shipped.
+ * a drain in which everything eligible shipped. A ticket the queue left open is
+ * not work left either — it waits on a human decision, and the exit code says
+ * the same, which is why both read the one parked rule.
  */
 const toCoordinatorStatus = ({ drained }: { drained: QueueDrainReport }) => {
 	const unfinished = drained.leftBehind.filter((entry) => entry.settled !== true);
+	const parked = drained.outcomes.filter((outcome) => isParkedOutcome({ outcome }));
 
-	return drained.outcomes.every((outcome) => outcome.ready) && unfinished.length === 0 ? RunStatus.Passed : RunStatus.Escalated;
+	return parked.length === 0 && unfinished.length === 0 ? RunStatus.Passed : RunStatus.Escalated;
 };
 
 /** The locked half of a drain: the coordinator run, the two lanes, then the settled labels. */
@@ -107,6 +111,7 @@ const drainAndShip = async ({
 				driver,
 				driverName,
 				defaultBranch,
+				env,
 				relay: boardRelay,
 				serializeWorktreeAdd: serializeMainCheckout,
 				coordinatorRunId: runId,

@@ -126,6 +126,7 @@ export {
 	StandardsSeverity,
 	StandardsSnapshot,
 } from '#src/contracts/standardsCheck/index.ts';
+export { PlanId, PlanProgress, TicketEventKind, TicketMode, TicketPlan, TicketRecord, TicketSyncState } from '#src/contracts/ticket/index.ts';
 export {
 	AgentInvocation,
 	ConfigFieldView,

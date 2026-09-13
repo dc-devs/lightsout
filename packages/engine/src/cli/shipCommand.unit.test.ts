@@ -3,6 +3,8 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { shipCommand } from '#src/cli/shipCommand.ts';
+import { PlanProgress, TicketEventKind, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
+import { updateLocalTicketRecord } from '#src/ticket/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
@@ -127,6 +129,74 @@ const setupImplementHarness = () => {
 	return { context: { flags: new Map<string, string | true>(), rest: [], cwd }, ...captured };
 };
 
+/**
+ * The record `lo-60-ship` carries: multiple-plan, its one plan implemented, and
+ * no ship request — the ticket whose own record says it may not be merged yet.
+ */
+const unrequestedShipRecord: TicketRecord = {
+	schemaVersion: 1,
+	ticketRef: 'LO-60',
+	branch: 'lo-60-ship',
+	mode: TicketMode.MultiplePlan,
+	plans: [
+		{
+			id: '001-ship-command',
+			title: 'Add the ship command',
+			progress: PlanProgress.Implemented,
+			createdAt: '2026-01-01T00:00:00.000Z',
+		},
+	],
+	history: [{ at: '2026-01-01T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: 'added plan 001-ship-command' }],
+};
+
+/**
+ * The same repo and forge every other case here uses, with a ticket record
+ * standing in the plans folder beside the config.
+ *
+ * The forge still answers every call and the remote is still real, so a ship
+ * that failed to consult the record would run all the way to a merge — which is
+ * what makes the absent push an assertion rather than a coincidence. The record
+ * is written before the commit because it is a file on disk: written after, it
+ * would be the dirty tree ship stops on instead.
+ */
+const setupTicketShipCommand = async () => {
+	const captured = captureCommandOutput();
+
+	stubForgeOnPath({
+		responses: {
+			'auth status': { exitCode: 0 },
+			'pr list': { stdout: '[]' },
+			'pr create': { stdout: 'https://forge.example/acme/repo/pull/41' },
+			'pr edit': { exitCode: 0 },
+			'pr view 41 --json number': { stdout: viewed },
+			'pr view 41 --json headRefOid': { stdout: '{"headRefOid":"__HEAD__"}' },
+			'pr view 41 --json state': {
+				stdout: '{"state":"MERGED","mergeCommit":{"oid":"0f1e2d3c"},"headRefOid":"__HEAD__","mergeStateStatus":"CLEAN","reviewDecision":null}',
+			},
+			'pr checks': { stdout: '[{"name":"unit","bucket":"pass"}]' },
+			'pr merge': { exitCode: 0 },
+		},
+	});
+
+	const { cwd } = setupBranchRepo({ branch: 'lo-60-ship' });
+	const seeded = await updateLocalTicketRecord({ cwd, ticketBranch: 'lo-60-ship', change: () => unrequestedShipRecord });
+
+	if ('error' in seeded) {
+		throw new Error(seeded.error);
+	}
+
+	writeFileSync(
+		join(cwd, 'lightsout.config.json'),
+		JSON.stringify({
+			gates: { check: 'true', test: 'true', 'test-coverage': false },
+			ship: { 'ticket-pattern': '^(?<ticket>lo-(?<number>\\d+))' },
+		}),
+	);
+	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm config', { cwd, stdio: 'ignore' });
+
+	return { context: { flags: new Map<string, string | true>(), rest: [], cwd }, cwd, ...captured };
+};
+
 describe('shipCommand', () => {
 	test('a branch that ships names the pull request, the merge commit and its URL, and exits 0', async () => {
 		const { context, errors, logged, exitCodes } = setupShipCommand({ ship: { 'ticket-pattern': '^(?<ticket>lo-(?<number>\\d+))' } });
@@ -204,6 +274,20 @@ describe('shipCommand', () => {
 
 		expect(errors.some((line) => line.includes('ship.ticket-pattern'))).toBe(true);
 		expect(logged).toStrictEqual([]);
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('refuses to ship a multiple-plan ticket branch that has no ship request', async () => {
+		const { context, cwd, errors, exitCodes } = await setupTicketShipCommand();
+
+		await expect(shipCommand(context)).rejects.toThrow(/process\.exit/);
+
+		const onOrigin = execSync('git ls-remote --heads origin lo-60-ship', { cwd, encoding: 'utf8' });
+
+		expect(errors.some((line) => line.includes('ticket-not-authorized') && /ship request/i.test(line))).toBe(true);
+		// The record is consulted before anything leaves the machine, so the branch
+		// the standalone command refused never reached the remote.
+		expect(onOrigin).toBe('');
 		expect(exitCodes).toStrictEqual([1]);
 	});
 });

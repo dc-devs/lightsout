@@ -29,7 +29,9 @@ it is deterministic code. Do not add workflow steps to this file.
    Pass through what the user gave you, nothing more:
    - a plan **folder** → hand it straight through as `--plan "<folder>"`; the
      engine branches on what the folder holds (an `overview.md` runs every
-     phase in order, otherwise the folder's `plan.md` runs on its own)
+     phase in order, otherwise the folder's `plan.md` runs on its own). A plan
+     inside a ticket folder is handed over by its own folder path — the one
+     ending in the plan's id — never by the ticket folder above it
    - a starting phase the user asked for → `--start-phase <n>`
    - a high-level/overview plan for a single-phase run → `--overview "<path>"`
    - an explicit package scope → `--packages a,b`
@@ -97,4 +99,19 @@ Stated so nobody adds a step for it here — the engine already does it:
   the branch, creates the worktree, copies the plan or ticket inputs into it,
   and runs `worktree.setup`. Nothing in this skill creates, chooses or cleans
   up a worktree.
+- For a plan inside a ticket folder, the engine checks the ticket's record before
+  the run. It refuses an excluded plan, a plan other than 001 of a single-plan
+  ticket, a plan behind a lower plan that is not implemented, and a plan already
+  implemented — one sentence naming the plan in the way and the command that
+  resolves it. Relay that sentence verbatim and stop; never work around it. The
+  rules behind those refusals are the ticket-workflow skill's
+  `### Implementation order and exclusions`.
+- The engine records that plan's progress around the run: being implemented when
+  it starts, implemented when it passes, failed when it fails or escalates. A
+  paused run leaves it being implemented, and `resume` on a failed or paused run
+  is the repair path.
+- After a passed run, a multiple-plan ticket chains into ship only when this run
+  satisfies its ship request; otherwise the engine prints the one sentence saying
+  what the ticket is still waiting for. See the ticket-workflow skill's
+  `### Ship requests`.
 - Nothing in this skill performs those writes. Do not add a step for them.

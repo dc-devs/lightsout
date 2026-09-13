@@ -177,3 +177,58 @@ test('a broken link where an archived phase should be is left out, rather than t
 
 	expect({ archived: row?.implementedFiles, phased: row?.phased }).toStrictEqual({ archived: [], phased: true });
 });
+
+test('a ticket folder lists one row per plan under its plan address, and no row of its own', async () => {
+	const cwd = await freshCwd();
+
+	await seedWorkspace({ cwd, name: 'lo-7-search/001-basics', files: { 'plan.md': '# basics' }, at: '2026-03-01T00:00:00.000Z' });
+	await seedWorkspace({ cwd, name: 'lo-7-search/002-ranking', files: { 'plan.md': '# ranking' }, at: '2026-02-01T00:00:00.000Z' });
+	await seedWorkspace({ cwd, name: 'lo-3-old', files: { 'plan.md': '# legacy' }, at: '2026-01-01T00:00:00.000Z' });
+
+	const listings = await listPlanWorkspaces({ cwd });
+
+	// the ticket folder itself is not a plan, so a row named lo-7-search would be a fourth entry here
+	expect(listings.map((listing) => listing.name)).toStrictEqual(['lo-7-search/001-basics', 'lo-7-search/002-ranking', 'lo-3-old']);
+});
+
+test("a ticket folder's own files and a subfolder that is no plan contribute no row of their own", async () => {
+	const cwd = await freshCwd();
+
+	await seedWorkspace({ cwd, name: 'lo-7-search', files: { 'ticket.json': '{}' } });
+	await seedWorkspace({ cwd, name: 'lo-7-search/001-basics', files: { 'plan.md': '# basics' } });
+	await seedWorkspace({ cwd, name: 'lo-7-search/scratch', files: { 'notes.md': '# scratch' } });
+
+	const listings = await listPlanWorkspaces({ cwd });
+
+	// the ticket record is the folder's own file and `scratch` is no plan id, so the one plan is the one row
+	expect(listings.map((listing) => listing.name)).toStrictEqual(['lo-7-search/001-basics']);
+});
+
+test('each plan of a ticket folder counts only the runs its own folder named', async () => {
+	const cwd = await freshCwd();
+
+	await seedWorkspace({ cwd, name: 'lo-7-search/001-basics', files: { 'plan.md': '# basics' } });
+	await seedWorkspace({ cwd, name: 'lo-7-search/002-ranking', files: { 'plan.md': '# ranking' } });
+	await seedRunDir({ cwd, manifest: { runId: 'run-basics', plan: '.lightsout/plans/lo-7-search/001-basics/plan.md', status: RunStatus.Passed } });
+	await seedRunDir({ cwd, manifest: { runId: 'run-ranking', plan: '.lightsout/plans/lo-7-search/002-ranking/plan.md', status: RunStatus.Failed } });
+
+	const listings = await listPlanWorkspaces({ cwd });
+
+	expect(Object.fromEntries(listings.map((listing) => [listing.name, listing.runCount]))).toStrictEqual({
+		'lo-7-search/001-basics': 1,
+		'lo-7-search/002-ranking': 1,
+	});
+});
+
+test('a workspace does not count the runs of a sibling whose folder name starts with its own', async () => {
+	const cwd = await freshCwd();
+
+	await seedWorkspace({ cwd, name: 'lo-7', files: { 'plan.md': '# seven' } });
+	await seedWorkspace({ cwd, name: 'lo-70', files: { 'plan.md': '# seventy' } });
+	await seedRunDir({ cwd, manifest: { runId: 'run-seventy', plan: '.lightsout/plans/lo-70/plan.md', status: RunStatus.Passed } });
+
+	const listings = await listPlanWorkspaces({ cwd });
+
+	// only the separator after the folder name keeps lo-7 from claiming lo-70's run
+	expect(Object.fromEntries(listings.map((listing) => [listing.name, listing.runCount]))).toStrictEqual({ 'lo-7': 0, 'lo-70': 1 });
+});

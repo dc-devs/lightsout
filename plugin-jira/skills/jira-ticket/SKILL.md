@@ -29,7 +29,7 @@ queue's startup check reports a configured planning-status label as missing, the
 fix is to apply that exact label to any issue in the project — not to create it,
 which is an action Jira does not offer.
 
-Use the Jira issue key in the branch, plan-folder, and pull-request conventions
+Use the Jira issue key in the branch, ticket-folder, and pull-request conventions
 defined by `ticket-workflow`. Jira links work by that key; the shared workflow
 decides the exact branch and pull-request text.
 
@@ -115,6 +115,10 @@ curl --fail-with-body --silent --show-error \
 The `ticket-workflow` skill is the one home for which files travel and for the
 command that publishes a finished plan. Do not enumerate or upload that durable
 set by hand; follow its ready-to-implement publish step.
+
+The engine uploads the ticket's own record and each plan's prefixed files itself.
+Never upload or replace any of them by hand — see the ticket-workflow skill's
+`### Attachment titles`.
 
 When the shared workflow calls for a Jira attachment before a finished plan
 exists, Jira requires multipart field name `file` and the

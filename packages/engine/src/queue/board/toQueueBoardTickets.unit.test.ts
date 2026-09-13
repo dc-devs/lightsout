@@ -75,6 +75,26 @@ describe('toQueueBoardTickets', () => {
 		]);
 	});
 
+	test('toQueueBoardTickets: puts a ticket left open in Blocked with its reason', () => {
+		const { settled, at } = setupSettled({
+			outcomes: [
+				queueOutcomeFixture({
+					ticket: queueTicketFixture({ number: 140 }),
+					ready: false,
+					open: 'No ship request names plan 002-search-basics',
+				}),
+				queueOutcomeFixture({ ticket: queueTicketFixture({ number: 141 }), ready: false, error: 'The lint gate failed' }),
+			],
+		});
+
+		const tickets = toQueueBoardTickets({ settled, at });
+
+		expect(laneRows(tickets)).toEqual([
+			{ identifier: 'LO-141', lane: 'parked', reason: 'The lint gate failed' },
+			{ identifier: 'LO-140', lane: 'blocked', reason: 'No ship request names plan 002-search-basics' },
+		]);
+	});
+
 	test('puts reconciled left-behind entries in Shipped and the rest in Blocked', () => {
 		const { settled, at } = setupSettled({
 			leftBehind: [

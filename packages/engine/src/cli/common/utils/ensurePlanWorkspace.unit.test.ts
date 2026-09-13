@@ -4,7 +4,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { ensurePlanWorkspace } from '#src/cli/common/utils/ensurePlanWorkspace.ts';
 import { serializeAttachmentManifest } from '#src/common/attachmentManifest/serializeAttachmentManifest.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
+import { planAttachmentManifestName } from '#src/plan/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
@@ -46,6 +46,16 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 					apiUserEmail: env[block['api-user-email-env']] ?? '',
 				};
 	},
+}));
+// -------------------------
+// The ticket module is the second seam, and a legacy name only ever reaches
+// its first step: the folder has no ticket record, so nothing is refused and
+// the two record-backed steps are never taken. They are stubbed to reject so
+// that a legacy name silently taking one would fail the test rather than pass.
+jest.mock('#src/ticket/index.ts', () => ({
+	findBareTicketFolderRefusal: () => Promise.resolve(undefined),
+	pullTicketRecord: () => Promise.reject(new Error('a legacy plan name must not pull a ticket record')),
+	restoreTicketPlan: () => Promise.reject(new Error('a legacy plan name must not restore a ticket plan')),
 }));
 // -------------------------
 

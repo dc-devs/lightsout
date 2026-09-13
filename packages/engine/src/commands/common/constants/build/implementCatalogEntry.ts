@@ -48,7 +48,7 @@ export const implementCatalogEntry: CommandCatalogEntry = {
 		{ name: 'skip-refactor', meaning: 'Skip the refactor step at the end of the run.', required: false },
 		{
 			name: 'worktree',
-			meaning: 'Build in a fresh git worktree of this repository, on a branch named after the plan.',
+			meaning: 'Build in a fresh git worktree of this repository, on a branch named after the plan’s ticket folder.',
 			fallback: 'The `implement.worktree` config key, which defaults to on.',
 			required: false,
 		},
@@ -58,7 +58,7 @@ export const implementCatalogEntry: CommandCatalogEntry = {
 	],
 	steps: implementSteps,
 	records: CommandRecordKind.Runs,
-	related: ['auto-plan', 'brainstorm', 'plan', 'resume', 'ship', 'implement-direct', 'queue', 'ticket-state', 'self-check'],
+	related: ['auto-plan', 'brainstorm', 'plan', 'resume', 'ship', 'implement-direct', 'queue', 'ticket', 'ticket-state', 'self-check'],
 	graphic: {
 		title: 'How /implement turns the spec into verified code',
 		subtitle: 'Ten steps, deterministic gates throughout, and a complete record saved to disk.',

@@ -56,4 +56,44 @@ describe('resolveShipIntent', () => {
 
 		expect(intent).toStrictEqual({ contradictory: false, willShip: false, settings: undefined });
 	});
+
+	test('a satisfied ship request ships without --ship or after-implement', () => {
+		const intent = resolveShipIntent({
+			config: configOf({ ship: { 'after-implement': false } }),
+			shipFlag: false,
+			noShipFlag: false,
+			env: {},
+			shipRequest: { blocker: undefined },
+		});
+
+		// the ticket record already said to ship this set of plans, so the run
+		// that finishes it needs no flag and no repository default
+		expect(intent).toEqual(expect.objectContaining({ contradictory: false, willShip: true, shipRequestBlocker: undefined }));
+	});
+
+	test('an unsatisfied ship request beats both --ship and after-implement and says why', () => {
+		const blocker = 'The ticket has no ship request, so this run does not ship it.';
+
+		const intent = resolveShipIntent({
+			config: configOf({ ship: { 'after-implement': true } }),
+			shipFlag: true,
+			noShipFlag: false,
+			env: {},
+			shipRequest: { blocker },
+		});
+
+		expect(intent).toEqual(expect.objectContaining({ contradictory: false, willShip: false, shipRequestBlocker: blocker }));
+	});
+
+	test('--no-ship and LIGHTSOUT_NO_SHIP still stop a satisfied ship request, with no ship-request sentence', () => {
+		const config = configOf({ ship: { 'after-implement': true } });
+
+		const byFlag = resolveShipIntent({ config, shipFlag: false, noShipFlag: true, env: {}, shipRequest: { blocker: undefined } });
+		const byEnv = resolveShipIntent({ config, shipFlag: false, noShipFlag: false, env: { LIGHTSOUT_NO_SHIP: '1' }, shipRequest: { blocker: undefined } });
+
+		// a suppressed run is not a run the ticket held back, so it says nothing
+		// about the ship request
+		expect(byFlag).toEqual(expect.objectContaining({ willShip: false, shipRequestBlocker: undefined }));
+		expect(byEnv).toEqual(expect.objectContaining({ willShip: false, shipRequestBlocker: undefined }));
+	});
 });

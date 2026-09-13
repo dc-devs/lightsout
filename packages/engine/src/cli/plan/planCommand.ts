@@ -18,6 +18,7 @@ import { planVerifyFactsCommand } from '#src/cli/plan/planVerifyFactsCommand.ts'
 import { planWorkspaceCommand } from '#src/cli/plan/planWorkspaceCommand.ts';
 import { readPlanningStandards } from '#src/cli/plan/readPlanningStandards.ts';
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
+import { findBareTicketFolderRefusal } from '#src/ticket/index.ts';
 
 /**
  * The checkout a subcommand acts on — the plan's worktree for every subcommand
@@ -31,12 +32,23 @@ import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
  * with nothing printed ahead of it, and a nameless one reaches its own refusal
  * unchanged. The config read is the launching checkout's, so an uncommitted
  * `plan.worktree` edit is still obeyed.
+ *
+ * A bare name whose ticket folder already holds a ticket record is refused
+ * before any tree is cut: that folder holds a ticket's plans rather than a plan,
+ * so every subcommand under it would draft, grade or publish the wrong thing.
  */
 const openDispatchCheckout = async ({ cwd, flags, subcommand }: { cwd: string; flags: CommandContext['flags']; subcommand: string | undefined }) => {
 	const name = getStringFlag({ flags, name: 'name' });
 
 	if (name === undefined || !['workspace', 'draft', 'dedup', 'grade', 'lint', 'publish', 'sync-decisions', 'verify-facts'].includes(subcommand ?? '')) {
 		return { cwd, worktree: undefined };
+	}
+
+	const bare = await findBareTicketFolderRefusal({ cwd, name });
+
+	if (bare !== undefined) {
+		console.error(bare);
+		return exitCli({ code: 1 });
 	}
 
 	const opened = await openPlanWorktree({ cwd, config: await readOptionalConfig({ cwd }), flags, name });

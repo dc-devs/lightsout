@@ -1,13 +1,15 @@
 import { contradictoryShipFlagsMessage } from '#src/cli/common/constants/contradictoryShipFlagsMessage.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { resolveShipIntent, type ShipIntent } from '#src/ship/index.ts';
+import { resolveShipIntent, type ShipIntent, type ShipRequestTerms } from '#src/ship/index.ts';
 
 interface Params {
 	config: LightsoutConfig;
 	flags: CommandContext['flags'];
 	/** The process environment, read for the queue's own suppression variable. Passed rather than read, so a test never needs to mutate `process.env`. */
 	env: NodeJS.ProcessEnv;
+	/** The ticket's own terms for this run, when the plan being built belongs to a ticket record. */
+	shipRequest?: ShipRequestTerms;
 }
 
 /**
@@ -23,12 +25,13 @@ interface Params {
  * typed — the message is already on stderr and the caller exits 1 without
  * starting any work.
  */
-export const resolveCommandShipIntent = ({ config, flags, env }: Params): ShipIntent | undefined => {
+export const resolveCommandShipIntent = ({ config, flags, env, shipRequest }: Params): ShipIntent | undefined => {
 	const intent = resolveShipIntent({
 		config,
 		shipFlag: flags.get('ship') === true,
 		noShipFlag: flags.get('no-ship') === true,
 		env,
+		shipRequest,
 	});
 
 	if (intent.contradictory) {

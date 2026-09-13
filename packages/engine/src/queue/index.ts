@@ -6,6 +6,7 @@ export type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.
 export type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 export type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 export type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
+export { isParkedOutcome } from '#src/queue/common/utils/isParkedOutcome.ts';
 export { emptyRelayMailbox, FileQuestionRelay, TerminalQuestionRelay } from '#src/queue/relay/index.ts';
 export { runQueue } from '#src/queue/runQueue.ts';
 export { resolveQueueSettings } from '#src/queue/startup/index.ts';
