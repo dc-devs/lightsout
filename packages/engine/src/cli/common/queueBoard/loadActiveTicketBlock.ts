@@ -1,10 +1,12 @@
 import { loadPlanningProgressBlock } from '#src/cli/common/progressBlock/loadPlanningProgressBlock.ts';
 import { loadRunProgressBlock } from '#src/cli/common/progressBlock/loadRunProgressBlock.ts';
 import { loadShippingProgressBlock } from '#src/cli/common/progressBlock/loadShippingProgressBlock.ts';
+import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { type QueueBoardTicket, QueueLane } from '#src/contracts/index.ts';
 import { pathExists } from '#src/plan/index.ts';
 import { isPidAlive, readRunLock } from '#src/runState/index.ts';
 import { readShippingProgress } from '#src/ship/index.ts';
+import { findNextPlanToPlan, readTicketRecord } from '#src/ticket/index.ts';
 import { listRuns } from '#src/views/index.ts';
 
 /**
@@ -51,15 +53,45 @@ const findBuildRun = async ({ ticket, worktreePath }: { ticket: QueueBoardTicket
 	return locked ?? candidates[0];
 };
 
+/**
+ * The planning block of the plan an auto-plan session is actually writing.
+ *
+ * The board records the folder under the plans directory, which for a ticket with
+ * a record of its own is the ticket folder rather than a plan: the plan being
+ * written is the one inside it still being planned, so the block is read for that
+ * plan's address. A folder with no record is a plan folder itself and is read
+ * exactly as it always was.
+ */
+const loadPlanningBlock = async ({ worktreePath, planName }: { worktreePath: string; planName: string }) => {
+	const read = await readTicketRecord({ cwd: worktreePath, ticketBranch: planName });
+
+	if ('error' in read) {
+		return [read.error];
+	}
+
+	const { record } = read;
+
+	if (record === undefined) {
+		return loadPlanningProgressBlock({ cwd: worktreePath, name: planName });
+	}
+
+	const waiting = findNextPlanToPlan({ record });
+
+	return waiting === undefined
+		? [`no plan in ${planName} is waiting to be planned`]
+		: loadPlanningProgressBlock({ cwd: worktreePath, name: formatPlanAddress({ ticketBranch: planName, planId: waiting.id }) });
+};
+
 /** A building ticket's run block; before any run, an auto-plan ticket's planning block, or a notice for any other ticket. */
 const loadBuildBlock = async ({ ticket, worktreePath }: { ticket: QueueBoardTicket; worktreePath: string }) => {
 	const run = await findBuildRun({ ticket, worktreePath });
+	const { planName } = ticket;
 	let lines: string[];
 
 	if (run !== undefined) {
 		lines = (await loadRunProgressBlock({ cwd: worktreePath, runId: run.runId })).lines;
-	} else if (ticket.planName !== undefined) {
-		lines = await loadPlanningProgressBlock({ cwd: worktreePath, name: ticket.planName });
+	} else if (planName !== undefined) {
+		lines = await loadPlanningBlock({ worktreePath, planName });
 	} else {
 		lines = [`no engine run has started in ${worktreePath} since ${ticket.identifier}'s build began`];
 	}

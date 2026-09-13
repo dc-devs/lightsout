@@ -8,6 +8,7 @@ import { report } from '#tests/helpers/report.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { shipIntegrationFixture } from '#tests/helpers/shipIntegrationFixture.ts';
 import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
+import { shipTicketGuardFixture } from '#tests/helpers/shipTicketGuardFixture.ts';
 import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
 
 // A scenario of its own because what it pins is what the repair attempt is
@@ -100,7 +101,7 @@ const setupRepair = ({ oversizedDiff = false }: SetupParams = {}) => {
 		},
 	};
 
-	const ship = () => runShip({ cwd, settings: shipSettingsFixture(), integration: shipIntegrationFixture({ driver }) });
+	const ship = () => runShip({ cwd, settings: shipSettingsFixture(), integration: shipIntegrationFixture({ driver }), ticketGuard: shipTicketGuardFixture() });
 
 	return { invocations, ship };
 };

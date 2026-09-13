@@ -4,6 +4,7 @@ import type { ShipAttemptResult } from '#src/ship/common/types/ShipAttemptResult
 import type { ShipIntegration } from '#src/ship/common/types/ShipIntegration.ts';
 import type { ShipSettings } from '#src/ship/common/types/ShipSettings.ts';
 import type { ShipStopFields } from '#src/ship/common/types/ShipStopFields.ts';
+import type { ShipTicketGuard } from '#src/ship/common/types/ShipTicketGuard.ts';
 import { appendCommandOutput } from '#src/ship/common/utils/appendCommandOutput.ts';
 import { createBlockedAttempt } from '#src/ship/common/utils/createBlockedAttempt.ts';
 import { mergePullRequest, type PullRequestSummary } from '#src/ship/forge/index.ts';
@@ -19,6 +20,8 @@ interface Params {
 	cwd: string;
 	settings: ShipSettings;
 	integration: ShipIntegration;
+	/** The branch's ticket record's say over the merge, re-asked here immediately before it. */
+	ticketGuard: ShipTicketGuard;
 	branch: string;
 	defaultBranch: string;
 	/** The branch's ticket capture groups — `ticket` plus whatever else the pattern names. */
@@ -33,7 +36,7 @@ interface Params {
 }
 
 /** The attempt's own inputs, with the ticket reference already resolved and the stop fields it would report. */
-interface PrepareParams extends Omit<Params, 'ticket' | 'recorder'> {
+interface PrepareParams extends Omit<Params, 'ticket' | 'recorder' | 'ticketGuard'> {
 	ticketRef: string;
 	stop: ShipStopFields;
 }
@@ -100,12 +103,22 @@ const recordStep = async <Answer>({
 	return answer;
 };
 
-/** The configured merge of the green candidate: the shipped result, or the refusal that ends the attempt — retryable only for a base the forge proved stale. */
+/**
+ * The configured merge of the green candidate: the shipped result, or the
+ * refusal that ends the attempt — retryable only for a base the forge proved
+ * stale.
+ *
+ * The ticket record is re-asked inside the recorded merge step, after the checks
+ * went green and before the forge is asked for anything: a plan added to the
+ * ticket while those checks were running takes the branch outside its approved
+ * ship request, and this is the last moment that can still stop the merge.
+ */
 const mergeCandidate = async ({
 	pullRequest,
 	candidate,
 	cwd,
 	settings,
+	ticketGuard,
 	stop,
 	recorder,
 }: {
@@ -113,17 +126,28 @@ const mergeCandidate = async ({
 	candidate: string;
 	cwd: string;
 	settings: ShipSettings;
+	ticketGuard: ShipTicketGuard;
 	stop: ShipStopFields;
 	recorder: ShippingProgressRecorder;
 }) => {
 	const mergeCommit = await recordStep({
 		recorder,
 		step: ShippingStepId.Merge,
-		run: () => mergePullRequest({ prNumber: pullRequest.number, mergeMethod: settings.mergeMethod, expectedHead: candidate, cwd }),
+		run: async () => {
+			const unauthorized = await ticketGuard.authorize({ cwd, branch: stop.branch });
+
+			return unauthorized === undefined
+				? await mergePullRequest({ prNumber: pullRequest.number, mergeMethod: settings.mergeMethod, expectedHead: candidate, cwd })
+				: { unauthorized };
+		},
 		passed: (merged) => typeof merged === 'string',
 	});
 
 	if (typeof mergeCommit !== 'string') {
+		if ('unauthorized' in mergeCommit) {
+			return createBlockedAttempt({ stop, reason: ShipBlockReason.TicketNotAuthorized, detail: mergeCommit.unauthorized });
+		}
+
 		const detail = appendCommandOutput({ sentence: `the forge refused to merge #${pullRequest.number}`, stderr: mergeCommit.stderr });
 
 		return createBlockedAttempt({ stop, reason: ShipBlockReason.MergeRejected, detail, retryable: mergeCommit.staleBase === true });
@@ -164,6 +188,7 @@ export const runShipAttempt = async ({
 	cwd,
 	settings,
 	integration,
+	ticketGuard,
 	branch,
 	defaultBranch,
 	ticket,
@@ -219,5 +244,5 @@ export const runShipAttempt = async ({
 		passed: (stopped) => stopped === undefined,
 	});
 
-	return checkStop ?? mergeCandidate({ pullRequest, candidate, cwd, settings, stop, recorder });
+	return checkStop ?? mergeCandidate({ pullRequest, candidate, cwd, settings, ticketGuard, stop, recorder });
 };

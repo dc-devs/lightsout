@@ -95,4 +95,19 @@ describe('settleParkedLabels', () => {
 
 		expect(progress).toStrictEqual(["LO-70 · the 'queue-parked' label could not be written: the tracker did not answer"]);
 	});
+
+	test('settleParkedLabels: clears the label from a ticket left open', async () => {
+		mockSetTicketLabel.mockResolvedValue(undefined);
+
+		await settleParkedLabels({
+			settings: queueSettingsFixture({ parkedLabel: 'queue-parked' }),
+			trackerSettings: trackerSettingsFixture(),
+			outcomes: [{ ...outcomeOf({ number: 140, ready: false }), open: 'no ship request names this ticket yet' }, outcomeOf({ number: 141, ready: false })],
+		});
+
+		expect(mockSetTicketLabel.mock.calls.map(([params]) => ({ ticketId: params.ticketId, label: params.label, present: params.present }))).toStrictEqual([
+			{ ticketId: 'id-140', label: 'queue-parked', present: false },
+			{ ticketId: 'id-141', label: 'queue-parked', present: true },
+		]);
+	});
 });

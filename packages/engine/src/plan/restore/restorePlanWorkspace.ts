@@ -1,14 +1,15 @@
-import { mkdir, mkdtemp, rename, rm, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { attachmentTitle } from '#src/common/attachmentManifest/attachmentTitle.ts';
 import { parseAttachmentManifest } from '#src/common/attachmentManifest/parseAttachmentManifest.ts';
+import { scopeAttachments } from '#src/common/attachmentManifest/scopeAttachments.ts';
 import type { AttachmentManifest } from '#src/common/types/AttachmentManifest.ts';
-import { messageOf } from '#src/common/utils/messageOf.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
 import { isDurablePlanAttachmentName } from '#src/plan/common/utils/isDurablePlanAttachmentName.ts';
 import { isPlanOnlyAttachmentName } from '#src/plan/common/utils/isPlanOnlyAttachmentName.ts';
 import { validatePlanAttachmentGeneration } from '#src/plan/common/validatePlanAttachmentGeneration.ts';
 import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
+import type { ReadGenerationFile } from '#src/plan/restore/common/types/ReadGenerationFile.ts';
+import { writeRestoredGeneration } from '#src/plan/restore/common/utils/writeRestoredGeneration.ts';
 import { getTicketAttachments, readTicketAsset, type TrackerAttachment, type TrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
@@ -18,6 +19,8 @@ interface Params {
 	/** The ticket reference that folder's name carries, e.g. 'lo-54'. */
 	identifier: string;
 	settings: TrackerSettings;
+	/** The plan id the ticket's titles for this plan are namespaced under; absent for a legacy folder. */
+	titlePrefix?: string;
 }
 
 interface RestoredPlanWorkspace {
@@ -25,17 +28,14 @@ interface RestoredPlanWorkspace {
 	restored: string[];
 	/** Set when the ticket could not supply one complete, verified generation or it could not be written. */
 	error?: string;
+	/** SHA-256 of the marker text this generation was selected by, set for a prefixed restore that wrote a folder. */
+	markerSha256?: string;
 }
 
 interface GenerationFile {
 	title: string;
 	url: string;
 	sha256: string;
-}
-
-interface ReadGenerationFile {
-	title: string;
-	text: string;
 }
 
 /** Read one attachment while retaining its title in every refusal. */
@@ -52,27 +52,25 @@ const readAttachment = async ({ settings, attachment }: { settings: TrackerSetti
 const selectGeneration = ({
 	manifest,
 	durableAttachments,
+	markerName,
 }: {
 	manifest: AttachmentManifest;
 	durableAttachments: TrackerAttachment[];
+	markerName: string;
 }): { files: GenerationFile[] } | { error: string } => {
 	const files: GenerationFile[] = [];
 
 	for (const listed of manifest.files) {
 		const matches = durableAttachments.filter(({ title }) => title === listed.name);
-
-		if (matches.length === 0) {
-			return { error: `${planAttachmentManifestName} lists ${listed.name}, but the ticket carries no attachment with that title` };
-		}
-
-		if (matches.length > 1) {
-			return { error: `the ticket carries more than one attachment named ${listed.name}, so ${planAttachmentManifestName} cannot select one generation` };
-		}
-
-		const attachment = matches[0];
+		const attachment = matches.length === 1 ? matches[0] : undefined;
 
 		if (attachment === undefined) {
-			return { error: `${planAttachmentManifestName} lists ${listed.name}, but the ticket carries no attachment with that title` };
+			return {
+				error:
+					matches.length === 0
+						? `${markerName} lists ${listed.name}, but the ticket carries no attachment with that title`
+						: `the ticket carries more than one attachment named ${listed.name}, so ${markerName} cannot select one generation`,
+			};
 		}
 
 		files.push({ title: attachment.title, url: attachment.url, sha256: listed.sha256 });
@@ -81,8 +79,41 @@ const selectGeneration = ({
 	return { files };
 };
 
+/**
+ * The one commit marker this restore selects a generation by.
+ *
+ * Three outcomes, and the difference between them matters: exactly one marker
+ * is a generation to restore, no marker with no plan attachments at all is a
+ * ticket that has never carried a plan, and anything else is a ticket whose
+ * plan cannot be read without republishing it.
+ */
+const selectManifestAttachment = ({
+	attachments,
+	planOnlyAttachments,
+	markerName,
+}: {
+	attachments: TrackerAttachment[];
+	planOnlyAttachments: TrackerAttachment[];
+	markerName: string;
+}): { manifest: TrackerAttachment | undefined } | { error: string } => {
+	const manifests = attachments.filter(({ title }) => title === planAttachmentManifestName);
+	const manifest = manifests.length === 1 ? manifests[0] : undefined;
+
+	if (manifest !== undefined) {
+		return { manifest };
+	}
+
+	if (manifests.length > 1) {
+		return { error: `the ticket carries more than one ${markerName} attachment, so no single committed plan generation can be selected` };
+	}
+
+	return planOnlyAttachments.length === 0
+		? { manifest: undefined }
+		: { error: `the ticket carries durable plan attachments but no ${markerName} commit marker — publish the plan again before implementing it` };
+};
+
 /** Every selected attachment's verified text, or the first contextual read/hash refusal. */
-const readAndVerifyGeneration = async ({ settings, files }: { settings: TrackerSettings; files: GenerationFile[] }) => {
+const readAndVerifyGeneration = async ({ settings, files, markerName }: { settings: TrackerSettings; files: GenerationFile[]; markerName: string }) => {
 	const reads = await Promise.all(
 		files.map(async (file) => ({
 			file,
@@ -99,42 +130,13 @@ const readAndVerifyGeneration = async ({ settings, files }: { settings: TrackerS
 		const actual = sha256({ content: read.text });
 
 		if (actual !== file.sha256) {
-			return { error: `${file.title} does not match the SHA-256 committed by ${planAttachmentManifestName} — publish the plan again` };
+			return { error: `${file.title} does not match the SHA-256 committed by ${markerName} — publish the plan again` };
 		}
 
 		verified.push({ title: file.title, text: read.text });
 	}
 
 	return { files: verified };
-};
-
-/** Write the complete restored set off to the side, then expose it with one rename. */
-const writeAll = async ({ dir, files }: { dir: string; files: ReadGenerationFile[] }) => {
-	let temporaryDir: string | undefined;
-
-	try {
-		const parent = dirname(dir);
-
-		await mkdir(parent, { recursive: true });
-		temporaryDir = await mkdtemp(join(parent, '.restore-'));
-
-		// The set is small, and sequential writes guarantee no sibling write is
-		// still touching the temporary directory if one fails and cleanup begins.
-		for (const { title, text } of files) {
-			await writeFile(join(temporaryDir, title), text, 'utf8');
-		}
-
-		await rename(temporaryDir, dir);
-
-		return undefined;
-	} catch (error) {
-		if (temporaryDir !== undefined) {
-			// Cleanup is best-effort and must never hide the primary setup/write error.
-			await rm(temporaryDir, { recursive: true, force: true }).catch(() => undefined);
-		}
-
-		return { error: `the restored plan could not be written: ${messageOf({ error })}` };
-	}
 };
 
 /**
@@ -146,14 +148,23 @@ const writeAll = async ({ dir, files }: { dir: string; files: ReadGenerationFile
  * therefore be fetched instead of an incomplete folder permanently winning the
  * disk-first check.
  */
-export const restorePlanWorkspace = async ({ cwd, name, identifier, settings }: Params): Promise<RestoredPlanWorkspace> => {
-	const attachments = await getTicketAttachments({ settings, identifier });
+export const restorePlanWorkspace = async ({ cwd, name, identifier, settings, titlePrefix }: Params): Promise<RestoredPlanWorkspace> => {
+	const listed = await getTicketAttachments({ settings, identifier });
 
-	if ('error' in attachments) {
-		return { restored: [], error: attachments.error };
+	if ('error' in listed) {
+		return { restored: [], error: listed.error };
 	}
 
-	const durableAttachments = attachments.filter(({ title }) => isDurablePlanAttachmentName({ name: title }));
+	// Everything below is written against bare file names, so one plan's
+	// namespace is turned back into the single-plan list those steps already
+	// read before any of them runs.
+	const attachments = scopeAttachments({ attachments: listed, prefix: titlePrefix });
+	const markerName = attachmentTitle({ prefix: titlePrefix, name: planAttachmentManifestName });
+	// Under a prefix the brainstorm generation owns `brainstorm-notes.md`, so a
+	// plan generation may neither carry it nor commit it; a legacy marker still
+	// may, which is why the selectable set stays the wider one there.
+	const isSelectableName = titlePrefix === undefined ? isDurablePlanAttachmentName : isPlanOnlyAttachmentName;
+	const durableAttachments = attachments.filter(({ title }) => isSelectableName({ name: title }));
 	// Two different questions, deliberately asked with two predicates. Which
 	// attachments this generation may select stays the durable set, so a plan
 	// marker listing `brainstorm-notes.md` still restores it. Whether a plan was
@@ -161,51 +172,35 @@ export const restorePlanWorkspace = async ({ cwd, name, identifier, settings }: 
 	// sends it too — a ticket carrying only a brainstorm is a ticket with no
 	// plan, not an interrupted plan upload.
 	const planOnlyAttachments = attachments.filter(({ title }) => isPlanOnlyAttachmentName({ name: title }));
-	const manifests = attachments.filter(({ title }) => title === planAttachmentManifestName);
-
-	if (planOnlyAttachments.length === 0 && manifests.length === 0) {
-		return { restored: [] };
-	}
-
-	if (manifests.length === 0) {
-		return {
-			restored: [],
-			error: `the ticket carries durable plan attachments but no ${planAttachmentManifestName} commit marker — publish the plan again before implementing it`,
-		};
-	}
-
-	if (manifests.length > 1) {
-		return {
-			restored: [],
-			error: `the ticket carries more than one ${planAttachmentManifestName} attachment, so no single committed plan generation can be selected`,
-		};
-	}
-
-	const manifestAttachment = manifests[0];
-
-	if (manifestAttachment === undefined) {
-		return { restored: [], error: `the ticket carries no ${planAttachmentManifestName} commit marker` };
-	}
-
-	const manifestRead = await readAttachment({ settings, attachment: manifestAttachment });
-
-	if ('error' in manifestRead) {
-		return { restored: [], error: manifestRead.error };
-	}
-
-	const parsed = parseAttachmentManifest({ text: manifestRead.text, markerName: planAttachmentManifestName, isAllowedName: isDurablePlanAttachmentName });
-
-	if ('error' in parsed) {
-		return { restored: [], error: parsed.error };
-	}
-
-	const selected = selectGeneration({ manifest: parsed.manifest, durableAttachments });
+	const selected = selectManifestAttachment({ attachments, planOnlyAttachments, markerName });
 
 	if ('error' in selected) {
 		return { restored: [], error: selected.error };
 	}
 
-	const read = await readAndVerifyGeneration({ settings, files: selected.files });
+	if (selected.manifest === undefined) {
+		return { restored: [] };
+	}
+
+	const manifestRead = await readAttachment({ settings, attachment: selected.manifest });
+
+	if ('error' in manifestRead) {
+		return { restored: [], error: manifestRead.error };
+	}
+
+	const parsed = parseAttachmentManifest({ text: manifestRead.text, markerName, isAllowedName: isSelectableName });
+
+	if ('error' in parsed) {
+		return { restored: [], error: parsed.error };
+	}
+
+	const generation = selectGeneration({ manifest: parsed.manifest, durableAttachments, markerName });
+
+	if ('error' in generation) {
+		return { restored: [], error: generation.error };
+	}
+
+	const read = await readAndVerifyGeneration({ settings, files: generation.files, markerName });
 
 	if ('error' in read) {
 		return { restored: [], error: read.error };
@@ -217,11 +212,13 @@ export const restorePlanWorkspace = async ({ cwd, name, identifier, settings }: 
 		return { restored: [], error: refusal.error };
 	}
 
-	const written = await writeAll({ dir: planWorkspaceDir({ cwd, name }), files: read.files });
+	const written = await writeRestoredGeneration({ dir: planWorkspaceDir({ cwd, name }), files: read.files });
 
 	if (written !== undefined) {
 		return { restored: [], error: written.error };
 	}
 
-	return { restored: read.files.map(({ title }) => title).sort() };
+	const restored = read.files.map(({ title }) => title).sort();
+
+	return titlePrefix === undefined ? { restored } : { restored, markerSha256: sha256({ content: manifestRead.text }) };
 };

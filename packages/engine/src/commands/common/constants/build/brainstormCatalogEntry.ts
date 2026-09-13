@@ -12,10 +12,15 @@ export const brainstormCatalogEntry: CommandCatalogEntry = {
 		'Reach for it when the idea is still a sentence and you are not sure it is one idea or three. It decides its own outcome — ready to implement, or ready to auto-plan — and publishes the design write-up and the settled decisions to the ticket.',
 	invocations: [{ id: 'brainstorm-publish', positional: 'publish' }],
 	flags: [
-		{ name: 'name', value: '<name>', meaning: 'The brainstorm workspace to publish, under .lightsout/plans/.', required: true },
+		{
+			name: 'name',
+			value: '<name>',
+			meaning: 'The brainstorm’s plan, under .lightsout/plans/ — a plan address <ticket-branch>/<NNN-slug>, or a legacy folder name.',
+			required: true,
+		},
 		{ name: 'cwd', value: '<path>', meaning: 'Repository the brainstorm workspace lives in.', fallback: 'The process working directory.', required: false },
 	],
 	steps: [],
 	records: CommandRecordKind.Plans,
-	related: ['auto-plan', 'plan', 'implement', 'resume', 'ship', 'implement-direct', 'queue', 'ticket-state', 'self-check'],
+	related: ['auto-plan', 'plan', 'implement', 'resume', 'ship', 'implement-direct', 'queue', 'ticket', 'ticket-state', 'self-check'],
 };

@@ -35,3 +35,27 @@ test('readPlanTicketRef: a slug that merely looks like a ticket id is read as on
 	// a ticket id looks like, which is the drift this reader exists to prevent
 	expect(readPlanTicketRef({ name: 'phase-2-cleanup', ticketPattern: defaultPattern })).toBe('phase-2');
 });
+
+test('readPlanTicketRef: a plan address answers the ticket id its ticket-branch segment carries', () => {
+	// the id ends this repo's branch names, so matching the whole address would
+	// answer undefined — the ticket is read off the ticket-branch segment alone
+	const ticketPattern = /(?<ticket>\d+)$/;
+
+	expect(readPlanTicketRef({ name: 'fix-login-123/001-search', ticketPattern })).toBe('123');
+});
+
+test('readPlanTicketRef: a plan id that reads like a ticket id is never taken for the plan address ticket', () => {
+	// only the ticket-branch segment is matched, so an unanchored pattern cannot
+	// reach into the plan id and invent a ticket the ticket folder does not carry
+	const ticketPattern = /(?<ticket>[a-z]+-\d+)/;
+
+	expect(readPlanTicketRef({ name: 'search-basics/001-lo-52-thing', ticketPattern })).toBe(undefined);
+});
+
+test('readPlanTicketRef: a multi-segment name that is not a plan address is still matched whole', () => {
+	// `notes-99` is no plan id, so the whole name is its own ticket folder and reads
+	// exactly as it did before addresses existed
+	const ticketPattern = /(?<ticket>\d+)$/;
+
+	expect(readPlanTicketRef({ name: 'lo-7-search/notes-99', ticketPattern })).toBe('99');
+});

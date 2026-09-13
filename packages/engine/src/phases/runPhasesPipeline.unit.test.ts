@@ -1,98 +1,14 @@
 import { chmodSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { join } from 'node:path';
 import { afterEach, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { PhaseReport, type RunManifest, RunStatus } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
 import { runPhasesPipeline } from '#src/phases/index.ts';
 import { RunLockError, readRunManifest, writeRunManifest } from '#src/runState/index.ts';
+import { createPhaseDriver } from '#tests/helpers/createPhaseDriver.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
-import { report } from '#tests/helpers/report.ts';
-import { reviewReport } from '#tests/helpers/reviewReport.ts';
-import { roleOf } from '#tests/helpers/roleOf.ts';
-import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
-import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
-
-/**
- * A consumer repo holding a plan folder: an overview whose Phases table names
- * one file per phase, plus the phase files themselves. Each phase file carries
- * its own sentinel, so a stub agent can tell which phase it was handed.
- */
-const setupPhasedRepo = ({ phases, duplicate = false }: { phases: number; duplicate?: boolean }) => {
-	const dir = setupConsumerRepo();
-	const folder = join(dir, 'plans', 'demo');
-	const rows = Array.from({ length: phases }, (_, index) => `| ${index + 1} | \`phase${duplicate ? 1 : index + 1}.md\` | scope |`);
-
-	mkdirSync(folder, { recursive: true });
-	writeFileSync(join(folder, 'overview.md'), `# Feature — Overview\n\n## Phases\n\n| # | File | Scope |\n|---|------|-------|\n${rows.join('\n')}\n`);
-
-	for (let phase = 1; phase <= phases; phase += 1) {
-		writeFileSync(join(folder, `phase${phase}.md`), `# Feature — Phase ${phase}\n\nPHASE-${phase}-SENTINEL\n`);
-	}
-
-	return { dir, overviewPath: join('plans', 'demo', 'overview.md') };
-};
-
-/**
- * A stub harness that implements each phase for real (a source file per phase,
- * a test file per source file) and pushes the phase number it was handed onto
- * `seen`. `failAt` returns a failed report for that phase; `parkAt` reports a
- * rate limit instead.
- */
-const createPhaseDriver = ({
-	dir,
-	seen,
-	failAt,
-	parkAt,
-	usage,
-}: {
-	dir: string;
-	seen: number[];
-	failAt?: number;
-	parkAt?: number;
-	usage?: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number; costUsd: number };
-}): Driver => ({
-	name: 'stub',
-	invoke: withTestChangeReview({
-		invoke: async ({ prompt, systemPrompt }) => {
-			const role = roleOf(prompt);
-
-			if (role === 'standards-review') {
-				return { text: reviewReport(), exitCode: 0 };
-			}
-
-			if (role === 'write-tests') {
-				const target = /- (\S+)/.exec(prompt)?.[1] ?? 'unknown.js';
-				const testFile = `test/${basename(target, '.js')}.test.js`;
-
-				mkdirSync(join(dir, 'test'), { recursive: true });
-				writeFileSync(join(dir, testFile), '// stub test\n');
-
-				return { text: report({ changedFiles: [{ path: testFile, summary: 'tests' }] }), exitCode: 0, usage };
-			}
-
-			if (role !== 'implement') {
-				return { text: report(), exitCode: 0, usage };
-			}
-
-			const phase = Number(/PHASE-(\d+)-SENTINEL/.exec(systemPrompt ?? '')?.[1] ?? 0);
-
-			seen.push(phase);
-
-			if (phase === parkAt) {
-				return { text: '', exitCode: 1, rateLimited: true };
-			}
-
-			if (phase === failAt) {
-				return { text: report({ status: 'failed', failures: [`PHASE-${phase}-FAILURE`] }), exitCode: 0, usage };
-			}
-
-			writeFileSync(join(dir, `src/phase${phase}.js`), `export const phase${phase} = ${phase};\n`);
-
-			return { text: report({ changedFiles: [{ path: `src/phase${phase}.js`, summary: 'feature' }] }), exitCode: 0, usage };
-		},
-	}),
-});
+import { readPhaseChildRuns } from '#tests/helpers/readPhaseChildRuns.ts';
+import { setupPhasedRepo } from '#tests/helpers/setupPhasedRepo.ts';
 
 /** Field-wise sum of what the per-phase runs actually recorded — the number the sequence report must show. */
 const totalUsage = ({ children }: { children: RunManifest[] }) =>
@@ -107,10 +23,6 @@ const totalUsage = ({ children }: { children: RunManifest[] }) =>
 		}),
 		{ invocations: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0 },
 	);
-
-/** The per-phase run behind each coordinator step, in phase order. */
-const readChildren = ({ cwd, manifest }: { cwd: string; manifest: RunManifest }) =>
-	Promise.all(manifest.steps.map((step) => readRunManifest({ cwd, runId: PhaseReport.parse(step.report).runId })));
 
 /** Permission bits do not apply to root, so the fs failure they provoke is unreachable there. */
 const skipAsRoot = process.getuid?.() === 0;
@@ -154,7 +66,7 @@ test('runPhasesPipeline: a fresh sequence runs every phase in the overview order
 	expect(result.manifest.steps.every((step) => PhaseReport.safeParse(step.report).success)).toBeTruthy();
 	// and each of those runs records the coordinator on its own manifest, so a
 	// reader never has to reconstruct the link by opening every other run
-	expect((await readChildren({ cwd: dir, manifest: result.manifest })).map((child) => child.parentRunId)).toStrictEqual([
+	expect((await readPhaseChildRuns({ cwd: dir, manifest: result.manifest })).map((child) => child.parentRunId)).toStrictEqual([
 		result.manifest.runId,
 		result.manifest.runId,
 	]);
@@ -198,7 +110,7 @@ test('runPhasesPipeline: the ship stamp lands on the coordinator alone, never on
 		skipRefactor: true,
 		willShip: true,
 	});
-	const children = await readChildren({ cwd: dir, manifest: result.manifest });
+	const children = await readPhaseChildRuns({ cwd: dir, manifest: result.manifest });
 
 	// only the coordinator ships — a phase run carrying the stamp would draw a
 	// ship row nothing will ever fill
@@ -215,7 +127,7 @@ test('runPhasesPipeline: the sequence report carries its phases tokens, cost, an
 		overviewPath,
 		skipRefactor: true,
 	});
-	const children = await readChildren({ cwd: dir, manifest: result.manifest });
+	const children = await readPhaseChildRuns({ cwd: dir, manifest: result.manifest });
 
 	expect(result.ok).toBe(true);
 	// an overnight run's report must show what the whole sequence cost
@@ -397,4 +309,25 @@ testUnlessRoot('runPhasesPipeline: a phase that throws for a reason other than t
 	// the reason is recorded against the phase, not swallowed
 	expect(resumed.manifest.steps[0]?.error ?? '').toMatch(/EACCES/);
 	expect(resumed.error ?? '').toMatch(/EACCES/);
+});
+
+test("hands a fresh sequence's run id to its coordinator and never to a phase's run", async () => {
+	const { dir, overviewPath } = setupPhasedRepo({ phases: 2 });
+	const result = await runPhasesPipeline({
+		cwd: dir,
+		driver: createPhaseDriver({ dir, seen: [] }),
+		config: await readConfig({ cwd: dir }),
+		overviewPath,
+		runId: 'pre-minted-sequence-run',
+		skipRefactor: true,
+	});
+	const children = await readPhaseChildRuns({ cwd: dir, manifest: result.manifest });
+
+	// the caller named the run before it started, so the record that names it
+	// points at the coordinator that exists
+	expect(result.manifest.runId).toBe('pre-minted-sequence-run');
+	// a phase's own run mints its own id under the parent link — a child sharing
+	// the coordinator's id would overwrite the coordinator's manifest
+	expect(children.map((child) => child.runId).includes('pre-minted-sequence-run')).toBe(false);
+	expect(children.map((child) => child.parentRunId)).toStrictEqual(['pre-minted-sequence-run', 'pre-minted-sequence-run']);
 });

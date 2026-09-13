@@ -22,6 +22,14 @@ describe('resolveRunBranch', () => {
 		expect(branch).toBe('LO-42-Ship_It');
 	});
 
+	test('names the branch after the ticket folder when the plan lies in a plan subfolder', () => {
+		const { cwd, config } = setupRepo();
+
+		const branch = resolveRunBranch({ cwd, config, planPath: '.lightsout/plans/lo-7-search/002-ranking/plan.md' });
+
+		expect(branch).toBe('lo-7-search');
+	});
+
 	test('slugs the file stem when the plan lives outside the plans directory', () => {
 		const { cwd, config } = setupRepo();
 

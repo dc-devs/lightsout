@@ -13,6 +13,8 @@ interface Params {
 	overviewPath?: string;
 	/** 1-based phase a fresh sequence starts from; earlier phases are recorded as passed outside the sequence. Default 1. */
 	startPhase?: number;
+	/** The id a fresh sequence's COORDINATOR is created under, minted by the caller. Each phase's child run still mints its own under the parent link. */
+	runId?: string;
 	/** Resume: an existing coordinator manifest — phases already passed are skipped. */
 	existing?: RunManifest;
 	skipRefactor?: boolean;
@@ -44,12 +46,13 @@ export const runPhasesPipeline = async ({
 	config,
 	overviewPath,
 	startPhase,
+	runId,
 	existing,
 	skipRefactor,
 	willShip,
 	onProgress,
 }: Params): Promise<PipelineResult> => {
-	const initialized = await initializeSequence({ cwd, driver, config, overviewPath, startPhase, existing, willShip });
+	const initialized = await initializeSequence({ cwd, driver, config, overviewPath, startPhase, runId, existing, willShip });
 
 	let manifest = initialized.manifest;
 

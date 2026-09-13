@@ -6,9 +6,11 @@ import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrint
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { exitForRunResult } from '#src/cli/common/utils/exitForRunResult.ts';
 import { resolveEffectiveConfigAndDriver } from '#src/cli/common/utils/resolveEffectiveConfigAndDriver.ts';
-import { type LightsoutConfig, ShipStatus } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PipelineKind, ShipStatus } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
+import { planNameFromPath } from '#src/plan/index.ts';
 import { resolveShipIntent, runShip } from '#src/ship/index.ts';
+import { createTicketShipGuard, readTicketRunTerms } from '#src/ticket/index.ts';
 import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
 
 interface Params {
@@ -41,6 +43,12 @@ interface Params {
  * passed run also exits 1, with the ship result already on disk: the code is
  * verified, the merge is not done, and that is the honest report.
  *
+ * A run of a plan inside a ticket folder ships on its ticket's terms instead:
+ * `readTicketRunTerms` is asked with the same name the command asked before the
+ * run, so a multiple-plan ticket ships exactly when this run satisfies the
+ * human's explicit ship request, and a run that therefore does not ship prints
+ * the one sentence saying why.
+ *
  * The ship runs in the checkout the run's manifest recorded, so a caller that
  * hands over the launching checkout and a caller that hands over the workspace
  * both ship the right tree. A confirmed merge then takes the workspace down
@@ -49,7 +57,12 @@ interface Params {
  * without undoing anything comes last.
  */
 export const exitAfterImplement = async ({ config, cwd, result, shipFlag, noShipFlag, env }: Params): Promise<never> => {
-	const intent = resolveShipIntent({ config, shipFlag, noShipFlag, env });
+	const terms = await readTicketRunTerms({
+		cwd,
+		name: planNameFromPath({ cwd, planPath: result.manifest.plan }),
+		planPath: result.manifest.pipeline === PipelineKind.Direct ? undefined : result.manifest.plan,
+	});
+	const intent = resolveShipIntent({ config, shipFlag, noShipFlag, env, shipRequest: terms.shipRequest });
 
 	if (intent.contradictory) {
 		console.error(contradictoryShipFlagsMessage);
@@ -58,6 +71,12 @@ export const exitAfterImplement = async ({ config, cwd, result, shipFlag, noShip
 	}
 
 	if (!result.ok || !intent.willShip) {
+		// A passed run the ticket held back is not a failure, so the reason is a
+		// printed sentence and the exit code is still the run's own.
+		if (result.ok && intent.shipRequestBlocker !== undefined) {
+			console.log(intent.shipRequestBlocker);
+		}
+
 		return exitForRunResult({ ok: result.ok, manifest: result.manifest });
 	}
 
@@ -87,6 +106,7 @@ export const exitAfterImplement = async ({ config, cwd, result, shipFlag, noShip
 		cwd: workCwd,
 		settings: intent.settings,
 		integration: { config: effectiveConfig, driver },
+		ticketGuard: createTicketShipGuard({ config, env, onProgress: createProgressPrinter() }),
 		onProgress: createProgressPrinter(),
 	});
 

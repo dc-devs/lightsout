@@ -65,6 +65,27 @@ describe('withRunLock', () => {
 		expect(runId).toBe('run-resumed');
 	});
 
+	test("takes a fresh run's pre-minted id and still prefers the id of a run being resumed", async () => {
+		const { cwd } = setupRunLock();
+
+		const minted = await withRunLock({
+			params: { cwd, runId: 'run-pre-minted' },
+			run: async ({ runId }) => ({ runId, holder: await readRunLock({ cwd }) }),
+		});
+		const resumed = await withRunLock({
+			params: { cwd, existing: { runId: 'run-resumed' }, runId: 'run-pre-minted' },
+			run: async (params) => params.runId,
+		});
+
+		// a caller that named the run before it started gets that name, but the run
+		// being resumed keeps its own id
+		expect({ bodyRunId: minted.runId, lockedRunId: minted.holder?.runId, resumed }).toStrictEqual({
+			bodyRunId: 'run-pre-minted',
+			lockedRunId: 'run-pre-minted',
+			resumed: 'run-resumed',
+		});
+	});
+
 	test('returns the body result and releases the lock once the body is done', async () => {
 		const { cwd } = setupRunLock();
 

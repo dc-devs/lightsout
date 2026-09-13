@@ -24,5 +24,6 @@ export { standardsHealthCommand } from '#src/cli/standardsHealthCommand.ts';
 export { standardsValidateCommand } from '#src/cli/standardsValidateCommand.ts';
 export { statusCommand } from '#src/cli/statusCommand.ts';
 export { testCoverageToThresholdCommand } from '#src/cli/testCoverageToThresholdCommand.ts';
+export { ticketCommand } from '#src/cli/ticket/index.ts';
 export { ticketStateCommand } from '#src/cli/ticketStateCommand.ts';
 export { voiceCommand } from '#src/cli/voice/index.ts';

@@ -10,14 +10,16 @@ import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
+import { buildTicketPlans } from '#src/queue/workers/buildTicketPlans.ts';
 import { runAutoPlanWorker } from '#src/queue/workers/runAutoPlanWorker.ts';
 import { runPlanFolderPipeline } from '#src/queue/workers/runPlanFolderPipeline.ts';
+import { pullTicketRecord } from '#src/ticket/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
 	/** The worktree this ticket is built in. */
 	worktreePath: string;
-	/** The ticket's branch, which is also the name of its plan folder. */
+	/** The ticket's branch, which is also the ticket folder its plans live under. */
 	branch: string;
 	settings: QueueSettings;
 	trackerSettings: TrackerSettings;
@@ -30,6 +32,10 @@ interface Params {
 	coordinatorRunId: string;
 	/** The coordinator run's directory in the main checkout, where the relay records them. */
 	coordinatorRunDir: string;
+	/** The ticket's own directory under the coordinator run, where every commit message file this ticket needs is written. */
+	ticketRunDir: string;
+	/** The process environment the tracker credentials are read from. Passed rather than read, so a test never needs to mutate `process.env`. */
+	env: NodeJS.ProcessEnv;
 	onProgress?: (message: string) => void;
 }
 
@@ -72,16 +78,20 @@ const runDirectWorker = async ({
 };
 
 /**
- * The plan worker: implement the plan the ticket already carries.
+ * The plan worker: implement the plan or plans the ticket already carries.
  *
- * The plan folder is named exactly like the branch, and `.lightsout` is
- * gitignored, so a fresh worktree has none — the ordinary case is fetching it
- * back from the ticket's own attachments.
+ * A ticket with a record of its own is built plan by plan through
+ * `buildTicketPlans`: its plans that are ready to implement go in numeric order,
+ * each committed as its own commit, and the loop decides whether the ticket then
+ * ships, stays open, or parks.
  *
- * A ticket carrying no plan at all is not an error: shaping may have finished on
- * approved brainstorm material, whose outcome lives in the ticket body. It then
- * builds from the body, announced so the run is legible — and stays distinct
- * from the direct worker, which never looks for a plan at all.
+ * A ticket with no record keeps exactly the shape it always had. The plan folder
+ * is named like the branch, and `.lightsout` is gitignored, so a fresh worktree
+ * has none — the ordinary case is fetching it back from the ticket's own
+ * attachments. A ticket carrying no plan at all is not an error either: shaping
+ * may have finished on approved brainstorm material, whose outcome lives in the
+ * ticket body. It then builds from the body, announced so the run is legible —
+ * and stays distinct from the direct worker, which never looks for a plan at all.
  */
 const runPlanWorker = async ({
 	cwd,
@@ -91,6 +101,8 @@ const runPlanWorker = async ({
 	driver,
 	driverName,
 	trackerSettings,
+	env,
+	ticketRunDir,
 	onProgress,
 }: {
 	cwd: string;
@@ -100,8 +112,32 @@ const runPlanWorker = async ({
 	driver: Driver;
 	driverName: string;
 	trackerSettings: TrackerSettings;
+	env: NodeJS.ProcessEnv;
+	ticketRunDir: string;
 	onProgress?: (message: string) => void;
 }): Promise<WorkerOutcome> => {
+	const pulled = await pullTicketRecord({ cwd, ticketBranch: branch, config, env, onProgress });
+
+	if ('error' in pulled) {
+		return { error: pulled.error };
+	}
+
+	if (pulled.record !== undefined) {
+		return buildTicketPlans({
+			cwd,
+			branch,
+			ticket,
+			record: pulled.record,
+			config,
+			env,
+			driver,
+			driverName,
+			ticketRunDir,
+			allowTicketBodyBuild: true,
+			onProgress,
+		});
+	}
+
 	const folder = planWorkspaceDir({ cwd, name: branch });
 
 	if (!(await pathExists({ path: folder }))) {
@@ -141,6 +177,8 @@ export const runWorkerWithRelay = async ({
 	relay,
 	coordinatorRunId,
 	coordinatorRunDir,
+	ticketRunDir,
+	env,
 	onProgress,
 }: Params): Promise<WorkerOutcome> => {
 	// The relay's own policy, deliberately its own number rather than the
@@ -152,8 +190,10 @@ export const runWorkerWithRelay = async ({
 	for (let turn = 0; ; turn += 1) {
 		const workers: Record<QueueWorker, () => Promise<WorkerOutcome>> = {
 			[QueueWorker.Direct]: () => runDirectWorker({ cwd: worktreePath, ticket, config, driver, driverName, answeredQuestion, onProgress }),
-			[QueueWorker.Plan]: () => runPlanWorker({ cwd: worktreePath, ticket, branch, config, driver, driverName, trackerSettings, onProgress }),
-			[QueueWorker.AutoPlan]: () => runAutoPlanWorker({ cwd: worktreePath, ticket, branch, config, driver, settings, answeredQuestion, onProgress }),
+			[QueueWorker.Plan]: () =>
+				runPlanWorker({ cwd: worktreePath, ticket, branch, config, driver, driverName, trackerSettings, env, ticketRunDir, onProgress }),
+			[QueueWorker.AutoPlan]: () =>
+				runAutoPlanWorker({ cwd: worktreePath, ticket, branch, config, driver, driverName, settings, env, ticketRunDir, answeredQuestion, onProgress }),
 		};
 		const outcome = await workers[ticket.worker]();
 

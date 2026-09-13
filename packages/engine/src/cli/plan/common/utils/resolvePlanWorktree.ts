@@ -2,9 +2,12 @@ import { resolveWorktreeIsolation } from '#src/cli/common/args/resolveWorktreeIs
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import type { PlanWorktree } from '#src/cli/plan/common/types/PlanWorktree.ts';
 import { readGitHeadCommit } from '#src/common/git/readGitHeadCommit.ts';
+import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
+import { ticketFolderOf } from '#src/common/planAddress/ticketFolderOf.ts';
 import { isSamePath } from '#src/common/utils/isSamePath.ts';
 import { type LightsoutConfig, WorktreeOwner } from '#src/contracts/index.ts';
-import { createWorktree, readBranchWorktree, readWorktreeRecord, resolveWorktreePath } from '#src/worktree/index.ts';
+import { readLiveRunLock } from '#src/runState/index.ts';
+import { createWorktree, prepareTicketBranch, readBranchWorktree, readWorktreeRecord, resolveWorktreePath } from '#src/worktree/index.ts';
 
 interface Params {
 	/** The checkout the command was launched from — `--cwd`, or the process directory. */
@@ -12,7 +15,7 @@ interface Params {
 	/** The launching checkout's config, so a repository whose config is not yet committed still gets the isolation it asked for. */
 	config: LightsoutConfig | undefined;
 	flags: CommandContext['flags'];
-	/** The plan's name, which is also its branch. */
+	/** A plan address, or a legacy plan name. The branch is its ticket-branch segment, never the address. */
 	name: string;
 	onProgress?: (message: string) => void;
 }
@@ -21,20 +24,34 @@ interface Params {
 const noWorktreeRemedy = 'pass --no-worktree to plan in the launching checkout deliberately';
 
 /**
- * The tree already standing at the plan's path, continued in — or the refusal
+ * The tree already standing at the branch's path, continued in — or the refusal
  * when nothing proves it is this plan's.
  *
  * A `plan` record is a resumed session; a `queue` record is the drain's ticket
  * tree, which is already this plan's workspace. Neither record is re-stamped:
  * the queue's resume and cleanup recognise their tree by its own owner. A tree
- * an implementation run owns and a tree nothing claims are both refused, because
- * a branch collision and an occupied directory are never evidence.
+ * nothing claims is refused, because an occupied directory is never evidence.
+ *
+ * For a plan address an `implement` record is accepted too: every plan of a
+ * ticket lives on the one branch, so the tree an earlier plan's implementation
+ * run adopted is exactly where the next plan must be researched. What separates
+ * that from a run still editing the tree is the run lock, not the record, so an
+ * address is refused whatever the owner while a live run holds it. A legacy name
+ * accepts neither the `implement` record nor the lock question: its tree is one
+ * plan's alone, and a run owning it means the plan is being built.
  */
-const continueInTree = async ({ cwd, name, treePath }: { cwd: string; name: string; treePath: string }) => {
-	const record = await readWorktreeRecord({ cwd, branch: name });
+const continueInTree = async ({ cwd, branch, addressed, treePath }: { cwd: string; branch: string; addressed: boolean; treePath: string }) => {
+	const holder = addressed ? await readLiveRunLock({ cwd: treePath }) : undefined;
 
-	if (record?.owner === WorktreeOwner.Plan || record?.owner === WorktreeOwner.Queue) {
-		return { cwd: treePath, branch: name, isolated: true, created: false };
+	if (holder !== undefined) {
+		return { error: `the worktree at ${treePath} cannot be planned in: run ${holder.runId} is using it right now — wait for it, or ${noWorktreeRemedy}` };
+	}
+
+	const record = await readWorktreeRecord({ cwd, branch });
+	const owners: WorktreeOwner[] = addressed ? [WorktreeOwner.Plan, WorktreeOwner.Queue, WorktreeOwner.Implement] : [WorktreeOwner.Plan, WorktreeOwner.Queue];
+
+	if (record !== undefined && owners.includes(record.owner)) {
+		return { cwd: treePath, branch, isolated: true, created: false };
 	}
 
 	const reason = record === undefined ? 'no ownership record claims it for this plan' : `its ownership record names a '${record.owner}' run, not this plan`;
@@ -49,23 +66,31 @@ const continueInTree = async ({ cwd, name, treePath }: { cwd: string; name: stri
  * checkout's committed HEAD, and a tree whose record already carries a start
  * point is re-cut at that same commit. A record with none belongs to a branch
  * that was adopted rather than cut, and `createWorktree` adopts a branch git
- * already knows whatever start point it is handed.
+ * already knows whatever start point it is handed — which is what puts a later
+ * plan's tree on the ticket branch's current implementation.
+ *
+ * A ticket branch only the remote holds is the one case where neither of those
+ * is right: `prepareTicketBranch` answers the pushed commit, and it wins, so the
+ * local ticket branch is created at the implementation that was pushed rather
+ * than at whatever this checkout happens to stand on.
  */
 const cutPlanTree = async ({
 	cwd,
 	config,
-	name,
+	branch,
+	pushedStartPoint,
 	treePath,
 	onProgress,
 }: {
 	cwd: string;
 	config: LightsoutConfig | undefined;
-	name: string;
+	branch: string;
+	pushedStartPoint: string | undefined;
 	treePath: string;
 	onProgress?: (message: string) => void;
 }) => {
-	const recorded = await readWorktreeRecord({ cwd, branch: name });
-	const startPoint = recorded?.startPoint ?? (await readGitHeadCommit({ cwd }));
+	const recorded = await readWorktreeRecord({ cwd, branch });
+	const startPoint = pushedStartPoint ?? recorded?.startPoint ?? (await readGitHeadCommit({ cwd }));
 
 	if (startPoint === undefined) {
 		return { error: `no worktree was made at ${treePath}: the launching checkout has no commit to plan from — ${noWorktreeRemedy}` };
@@ -75,7 +100,7 @@ const cutPlanTree = async ({
 	// same tree becomes the implementation workspace.
 	const created = await createWorktree({
 		cwd,
-		branch: name,
+		branch,
 		startPoint,
 		setup: config?.worktree?.setup,
 		owner: WorktreeOwner.Plan,
@@ -83,7 +108,7 @@ const cutPlanTree = async ({
 		onProgress,
 	});
 
-	return typeof created === 'string' ? { cwd: created, branch: name, isolated: true, created: true } : { error: `${created.error} — ${noWorktreeRemedy}` };
+	return typeof created === 'string' ? { cwd: created, branch, isolated: true, created: true } : { error: `${created.error} — ${noWorktreeRemedy}` };
 };
 
 /**
@@ -96,6 +121,13 @@ const cutPlanTree = async ({
  * `plan.worktree`, and nothing touches git at all when isolation is off. The
  * tree is `resolveWorktreePath`'s, so planning, the queue and `implement` agree
  * on where a branch's tree sits.
+ *
+ * The branch is the plan's ticket folder, never the plan's own address, so every
+ * plan of one ticket plans in the one tree on the one branch. For an address the
+ * ticket branch is settled first — a branch only the remote holds supplies the
+ * start point, and a branch behind or diverged from the pushed one is refused —
+ * because a later plan must be researched against the implementation the branch
+ * already carries.
  *
  * A session already standing in that tree is answered as it stands, whatever
  * its record says: it adopts nothing, having moved nowhere, which is what keeps
@@ -116,21 +148,30 @@ export const resolvePlanWorktree = async ({ cwd, config, flags, name, onProgress
 		return { cwd, isolated: false, created: false };
 	}
 
-	const treePath = await resolveWorktreePath({ cwd, branch: name });
+	const addressed = parsePlanAddress({ name }) !== undefined;
+	const branch = ticketFolderOf({ name });
+	const treePath = await resolveWorktreePath({ cwd, branch });
 
 	if (await isSamePath({ path: cwd, otherPath: treePath })) {
-		return { cwd: treePath, branch: name, isolated: true, created: false };
+		return { cwd: treePath, branch, isolated: true, created: false };
 	}
 
-	const holder = await readBranchWorktree({ cwd, branch: name });
+	// A legacy name keeps today's start points, so its branch is never inspected.
+	const prepared = addressed ? await prepareTicketBranch({ cwd, branch }) : { startPoint: undefined };
+
+	if ('error' in prepared) {
+		return prepared;
+	}
+
+	const holder = await readBranchWorktree({ cwd, branch });
 	let worktree: PlanWorktree | { error: string };
 
 	if (holder === undefined) {
-		worktree = await cutPlanTree({ cwd, config, name, treePath, onProgress });
+		worktree = await cutPlanTree({ cwd, config, branch, pushedStartPoint: prepared.startPoint, treePath, onProgress });
 	} else if (await isSamePath({ path: holder, otherPath: treePath })) {
-		worktree = await continueInTree({ cwd, name, treePath });
+		worktree = await continueInTree({ cwd, branch, addressed, treePath });
 	} else {
-		worktree = { error: `'${name}' is already checked out at ${holder} — plan from ${holder}, or ${noWorktreeRemedy}` };
+		worktree = { error: `'${branch}' is already checked out at ${holder} — plan from ${holder}, or ${noWorktreeRemedy}` };
 	}
 
 	return worktree;

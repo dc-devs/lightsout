@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
@@ -119,6 +119,32 @@ const setupWorktree = ({ args, refused = false }: { args: string[]; refused?: bo
 	mockOpenPlanWorktree.mockResolvedValueOnce(refused ? { error: refusal } : { worktree });
 
 	return { ...launched, worktreePath, refusal };
+};
+
+/**
+ * A checkout whose plans folder already holds a ticket record for the named
+ * folder — the state that makes a bare `--name` the wrong way to address a
+ * plan. No repository stands above the temporary directory, so its own
+ * `.lightsout` folder is the shared one the record is read from.
+ */
+const setupTicketRecordFolder = ({ args, ticketBranch }: { args: string[]; ticketBranch: string }) => {
+	const launched = setupPlan({ args });
+	const ticketFolder = join(launched.cwd, '.lightsout', 'plans', ticketBranch);
+
+	mkdirSync(ticketFolder, { recursive: true });
+	writeFileSync(
+		join(ticketFolder, 'ticket.json'),
+		JSON.stringify({
+			schemaVersion: 1,
+			ticketRef: 'LO-9',
+			branch: ticketBranch,
+			mode: 'multiple-plan',
+			plans: [{ id: '001-search-basics', title: 'Search basics', progress: 'ready', createdAt: '2026-01-01T00:00:00.000Z' }],
+			history: [{ at: '2026-01-01T00:00:00.000Z', kind: 'plan-added', detail: 'added plan 001-search-basics' }],
+		}),
+	);
+
+	return launched;
 };
 
 /**
@@ -353,6 +379,23 @@ describe('planCommand', () => {
 		expect(mockOpenPlanWorktree).not.toHaveBeenCalled();
 		expect(mockPlanLintCommand).toHaveBeenCalledTimes(1);
 		expect(argsOf(mockPlanLintCommand)?.cwd).toBe(cwd);
+	});
+
+	test('planCommand: refuses a bare name whose ticket folder has a ticket record before any subcommand runs', async () => {
+		const { context, errors, exitCodes } = setupTicketRecordFolder({ args: ['publish', '--name', 'lo-9-x'], ticketBranch: 'lo-9-x' });
+
+		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// the refusal's own wording is pinned beside findBareTicketFolderRefusal;
+		// what the dispatcher owns is that the one sentence reaches stderr whole,
+		// names the folder and says how to list the plans it holds
+		expect(errors).toHaveLength(1);
+		expect(errors[0]).toContain('lo-9-x');
+		expect(errors[0]).toMatch(/lightsout ticket show/);
+		// nothing was published, and no tree was cut for a name that cannot address a plan
+		expect(mockPlanPublishCommand).not.toHaveBeenCalled();
+		expect(mockOpenPlanWorktree).not.toHaveBeenCalled();
+		expect(exitCodes).toStrictEqual([1]);
 	});
 
 	test('refuses a nameless workspace invocation and a refused tree without dispatching either', async () => {

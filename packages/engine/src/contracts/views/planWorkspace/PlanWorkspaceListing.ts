@@ -11,7 +11,7 @@ import { PlanWorkspaceFile } from '#src/contracts/views/planWorkspace/PlanWorksp
  * `RunListing` strikes.
  */
 export const PlanWorkspaceListing = z.object({
-	/** The kebab folder name under `.lightsout/plans/`. */
+	/** The plan's name under `.lightsout/plans/` — a plan address `<ticket-branch>/<plan-id>`, or a legacy folder's name. */
 	name: z.string(),
 	stage: z.enum(PlanStage),
 	/** Present once `grade.json` exists and parses. */

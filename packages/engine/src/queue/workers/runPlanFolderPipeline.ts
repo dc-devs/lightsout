@@ -5,11 +5,12 @@ import { runPhasesPipeline } from '#src/phases/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { pathExists, planWorkspaceDir } from '#src/plan/index.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
+import { runTicketPlanLifecycle } from '#src/ticket/index.ts';
 
 interface Params {
 	/** The worktree holding the plan folder, and where the pipeline runs. */
 	cwd: string;
-	/** The plan folder's name, which is the ticket's branch. */
+	/** The plan's address, `<ticket-branch>/<plan-id>`, or the branch-named folder of a ticket with no record. */
 	name: string;
 	config: LightsoutConfig;
 	driver: Driver;
@@ -24,6 +25,11 @@ interface Params {
  * fetches a missing one back from the ticket, and the auto-plan worker fails,
  * because a session that reported a plan it never wrote built nothing.
  *
+ * The run goes through the ticket lifecycle helper, so a plan the ticket's record
+ * says may not be built yet becomes a worker error rather than a build — and a
+ * plan that passes is recorded implemented on the record every later plan and
+ * every ship reads. A folder with no record builds exactly as it always has.
+ *
  * It never relays a question. The implement pipelines take an existing manifest
  * and have no answer channel, so a question relayed out of here could never be
  * answered back into the run that asked it; an escalated run parks with its
@@ -33,12 +39,23 @@ export const runPlanFolderPipeline = async ({ cwd, name, config, driver, onProgr
 	const folder = planWorkspaceDir({ cwd, name });
 	const overviewPath = join(folder, 'overview.md');
 	const phased = await pathExists({ path: overviewPath });
-	const result = phased
-		? await runPhasesPipeline({ cwd, driver, config, overviewPath, onProgress })
-		: await runImplementPipeline({ cwd, driver, config, planPath: join(folder, 'plan.md'), onProgress });
+	const outcome = await runTicketPlanLifecycle({
+		cwd,
+		name,
+		run: ({ runId }) =>
+			phased
+				? runPhasesPipeline({ cwd, driver, config, overviewPath, runId, onProgress })
+				: runImplementPipeline({ cwd, driver, config, planPath: join(folder, 'plan.md'), runId, onProgress }),
+	});
+
+	if ('refusal' in outcome) {
+		return { error: outcome.refusal };
+	}
+
+	const { result, recordError } = outcome;
 
 	if (result.ok) {
-		return {};
+		return recordError === undefined ? {} : { error: recordError };
 	}
 
 	const stated = result.error ?? `the run ended ${result.manifest.status}`;

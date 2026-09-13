@@ -14,6 +14,6 @@ For all coding changes and diagnosis, only suggest or apply best-practice soluti
 Prefer correctness over speed of response.
 
 ## Linear Tickets and Git Branches
-One ticket = one branch = one plan folder = one PR — follow the `ticket-workflow` skill, with `linear-ticket` for the Linear mechanics.
+One ticket = one branch = one PR, and a ticket folder holds its plans — follow the `ticket-workflow` skill, with `linear-ticket` for the Linear mechanics.
 
 Never file a ticket unless I asked for that specific ticket in the moment, or a lightsout skill explicitly instructs it — those skills you follow. Noticing something worth a ticket is not permission to create one — say what you found and wait.

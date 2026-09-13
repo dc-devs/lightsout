@@ -1,5 +1,9 @@
 export { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
+// The plan marker's title is published because the ticket module names it when
+// it reads one plan's generation off a ticket; its value does not change.
+export { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
 export { gradeMemoryPath } from '#src/plan/common/memory/gradeMemoryPath.ts';
+export { isRunInPlanWorkspace } from '#src/plan/common/paths/isRunInPlanWorkspace.ts';
 export { pathExists } from '#src/plan/common/paths/pathExists.ts';
 export type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 export type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
@@ -7,6 +11,10 @@ export { findingLocations } from '#src/plan/common/utils/findingLocations.ts';
 export { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.ts';
 export { getBlockingGaps } from '#src/plan/common/utils/getBlockingGaps.ts';
 export { isBlockingGap } from '#src/plan/common/utils/isBlockingGap.ts';
+// Published for the ticket module's adoption, which asks the plan module's one
+// answer to 'does this folder hold a plan deliverable' rather than restating
+// the naming rule across the boundary.
+export { resolvePlanDeliverable } from '#src/plan/common/utils/resolvePlanDeliverable.ts';
 export {
 	buildPlanSyncDecisionsCommand,
 	decisionLogReference,

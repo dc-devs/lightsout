@@ -83,6 +83,59 @@ const folderOf = ({ dir }: { dir: string }) => {
 	}
 };
 
+interface PrefixedSetupParams {
+	/** Every attachment title the ticket carries, apart from the commit markers below. */
+	attachments: string[];
+	/** Commit markers to build, keyed by their full attachment title, each listing the bare file names it commits. */
+	markers?: Record<string, string[]>;
+	/** The plan the files are written into — a plan address for a plan inside a ticket folder. */
+	planName?: string;
+}
+
+/** The plan id a prefixed attachment title carries, or undefined for a bare title. */
+const prefixOf = ({ title }: { title: string }) => (title.includes('--') ? title.slice(0, title.indexOf('--')) : undefined);
+
+/**
+ * Build a ticket carrying several plans' brainstorm generations side by side,
+ * each under its own plan id prefix, plus the bare-title generation a ticket
+ * shaped before ticket records carries.
+ *
+ * A marker commits bare file names while the attachment itself wears the
+ * marker's own prefix, so a generation can only ever verify against the files
+ * published under the same plan id.
+ */
+const setupPrefixed = ({ attachments, markers = {}, planName = name }: PrefixedSetupParams) => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-restore-brainstorm-prefixed-'));
+	const dir = join(cwd, '.lightsout', 'plans', planName);
+
+	const markerBodies: Record<string, string> = {};
+
+	for (const [markerTitle, listed] of Object.entries(markers)) {
+		const prefix = prefixOf({ title: markerTitle });
+
+		markerBodies[markerTitle] = serializeAttachmentManifest({
+			files: listed.map((file) => ({
+				name: file,
+				content: Buffer.from(defaultBody({ title: prefix === undefined ? file : `${prefix}--${file}` }), 'utf8'),
+			})),
+		}).toString('utf8');
+	}
+
+	const titles = [...attachments, ...Object.keys(markers)];
+
+	mockGetTicketAttachments.mockResolvedValue(titles.map((title, index) => ({ id: `att-${index}`, title, url: `https://assets.example/${index}` })));
+	mockReadTicketAsset.mockImplementation(async ({ url }) => {
+		const title = titles[Number(url.split('/').at(-1))] ?? '';
+
+		return markerBodies[title] ?? defaultBody({ title });
+	});
+
+	return { cwd, dir, planName };
+};
+
+const restorePrefixed = ({ cwd, planName, titlePrefix }: { cwd: string; planName: string; titlePrefix?: string }) =>
+	restoreBrainstormFiles({ cwd, name: planName, identifier: 'lo-117', settings, titlePrefix });
+
 describe('restoreBrainstormFiles', () => {
 	test('restoreBrainstormFiles: writes both files into a folder that already holds facts.json', async () => {
 		const { cwd, dir } = setup({
@@ -176,5 +229,57 @@ describe('restoreBrainstormFiles', () => {
 
 		expect(restored).toStrictEqual({ restored: [], skipped: [] });
 		expect(folderOf({ dir })).toBeUndefined();
+	});
+
+	test("restoreBrainstormFiles: with a title prefix, restores a notes-only generation under that prefix and ignores other plans' and bare brainstorm titles", async () => {
+		const { cwd, dir, planName } = setupPrefixed({
+			planName: `${name}/001-x`,
+			attachments: [
+				'001-x--brainstorm-notes.md',
+				'002-y--brainstorm-notes.md',
+				'002-y--brainstorm-decisions.json',
+				'brainstorm-notes.md',
+				'brainstorm-decisions.json',
+			],
+			markers: {
+				'001-x--brainstorm-attachments.json': ['brainstorm-notes.md'],
+				'002-y--brainstorm-attachments.json': ['brainstorm-notes.md', 'brainstorm-decisions.json'],
+				'brainstorm-attachments.json': ['brainstorm-notes.md', 'brainstorm-decisions.json'],
+			},
+		});
+
+		const restored = await restorePrefixed({ cwd, planName, titlePrefix: '001-x' });
+
+		expect(restored).toStrictEqual({ restored: ['brainstorm-notes.md'], skipped: [] });
+		expect(folderOf({ dir })).toStrictEqual(['brainstorm-notes.md']);
+		expect(readFileSync(join(dir, 'brainstorm-notes.md'), 'utf8')).toBe('body of 001-x--brainstorm-notes.md\n');
+	});
+
+	test('restoreBrainstormFiles: with a title prefix, refuses prefixed brainstorm-notes.md with no prefixed marker', async () => {
+		const { cwd, dir, planName } = setupPrefixed({
+			planName: `${name}/001-x`,
+			attachments: ['001-x--brainstorm-notes.md'],
+			markers: { 'brainstorm-attachments.json': ['brainstorm-notes.md', 'brainstorm-decisions.json'] },
+		});
+
+		const restored = await restorePrefixed({ cwd, planName, titlePrefix: '001-x' });
+
+		expect(restored.restored).toStrictEqual([]);
+		expect(restored.skipped).toStrictEqual([]);
+		expect(restored.error).toEqual(expect.stringContaining('001-x--brainstorm-attachments.json'));
+		expect(folderOf({ dir })).toBeUndefined();
+	});
+
+	test('restoreBrainstormFiles: without a title prefix, ignores prefixed brainstorm titles', async () => {
+		const { cwd, dir, planName } = setupPrefixed({
+			attachments: ['001-x--brainstorm-notes.md', '001-x--brainstorm-decisions.json'],
+			markers: { '001-x--brainstorm-attachments.json': ['brainstorm-notes.md', 'brainstorm-decisions.json'] },
+		});
+
+		const restored = await restorePrefixed({ cwd, planName });
+
+		expect(restored).toStrictEqual({ restored: [], skipped: [] });
+		expect(folderOf({ dir })).toBeUndefined();
+		expect(mockReadTicketAsset).not.toHaveBeenCalled();
 	});
 });

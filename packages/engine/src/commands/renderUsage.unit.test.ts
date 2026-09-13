@@ -161,3 +161,24 @@ test('renderUsage: prints the status --queue shape after the other status lines,
 	expect(otherStatus.length).toBeGreaterThan(0);
 	expect(queueIndex).toBe(Math.max(...otherStatus) + 1);
 });
+
+test('prints one ticket line per subcommand between plan publish and ticket-state', () => {
+	const { lines } = setupRenderUsage();
+
+	const ticket = lines.filter((line) => line.startsWith('  lightsout ticket '));
+	const planPublish = lines.findIndex((line) => line.startsWith('  lightsout plan publish'));
+	const ticketState = lines.findIndex((line) => line.startsWith('  lightsout ticket-state'));
+
+	expect(ticket).toStrictEqual([
+		'  lightsout ticket add-plan --name <ticket-branch> --slug <slug> [--title <title>] [--cwd <path>]',
+		'  lightsout ticket adopt --name <ticket-branch> --slug <slug> [--cwd <path>]',
+		'  lightsout ticket mode --name <ticket-branch> --set single-plan|multiple-plan [--approve] [--cwd <path>]',
+		'  lightsout ticket request-ship --name <ticket-branch> [--plans <id,id> | --withdraw] [--cwd <path>]',
+		'  lightsout ticket exclude-plan --name <ticket-branch> --plan <id> --reason <text> [--implementation-removed] [--cwd <path>]',
+		'  lightsout ticket retitle-plan --name <ticket-branch> --plan <id> --title <title> [--cwd <path>]',
+		'  lightsout ticket show --name <ticket-branch> [--cwd <path>]',
+		'  lightsout ticket sync --name <ticket-branch> [--keep local|published] [--cwd <path>]',
+	]);
+	expect(lines.indexOf(ticket[0] ?? '')).toBe(planPublish + 1);
+	expect(ticketState).toBe(planPublish + 9);
+});

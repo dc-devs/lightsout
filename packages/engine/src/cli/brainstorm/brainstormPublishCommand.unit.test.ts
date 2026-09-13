@@ -27,6 +27,8 @@ interface PublishParams {
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
 	onProgress: (message: string) => void;
+	/** The plan id every attachment title is namespaced under; absent for a legacy folder. */
+	titlePrefix?: string;
 }
 
 const mockPublishBrainstorm = jest.fn<(params: PublishParams) => Promise<BrainstormPublishReport>>();
@@ -88,5 +90,22 @@ describe('brainstormPublishCommand', () => {
 		expect(logged).toStrictEqual([]);
 		expect(errors[0]).toBe("\nnothing to publish for 'demo': brainstorm-decisions.json not found — run the brainstorm skill first");
 		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('brainstormPublishCommand: for a plan address, publishes under the plan id prefix', async () => {
+		// One plan of a ticket owns its own attachment namespace, so the plan id of
+		// the address it is named by is what the action must namespace its titles
+		// under; a legacy single folder keeps bare titles and so gets no prefix.
+		const { context: addressed } = setupPublish({ args: ['--name', 'lo-9-x/001-a'] });
+
+		await expect(brainstormPublishCommand(addressed)).rejects.toThrow(/process\.exit/);
+
+		expect(mockPublishBrainstorm.mock.calls[0]?.[0]).toMatchObject({ name: 'lo-9-x/001-a', titlePrefix: '001-a' });
+
+		const { context: legacy } = setupPublish({ args: ['--name', 'lo-9-x'] });
+
+		await expect(brainstormPublishCommand(legacy)).rejects.toThrow(/process\.exit/);
+
+		expect(mockPublishBrainstorm.mock.calls[1]?.[0]?.titlePrefix).toBeUndefined();
 	});
 });

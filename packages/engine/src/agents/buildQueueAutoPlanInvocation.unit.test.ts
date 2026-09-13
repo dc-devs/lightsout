@@ -6,6 +6,7 @@ const base = {
 	ticketTitle: 'Drain the backlog',
 	ticketBody: 'Build the thing.',
 	engineCli: 'node /plugin/dist/cli.mjs',
+	planAddress: 'lo-7-search/002-search-basics',
 };
 
 describe('buildQueueAutoPlanInvocation', () => {
@@ -21,6 +22,29 @@ describe('buildQueueAutoPlanInvocation', () => {
 		const { prompt } = buildQueueAutoPlanInvocation(base);
 
 		expect(prompt).toContain('`node /plugin/dist/cli.mjs <subcommand>`');
+	});
+
+	test('buildQueueAutoPlanInvocation: names the plan address the engine chose', () => {
+		const { prompt } = buildQueueAutoPlanInvocation(base);
+
+		expect(prompt).toContain('lo-7-search/002-search-basics');
+		expect(prompt).toContain('.lightsout/plans/lo-7-search/002-search-basics');
+		expect(prompt).toMatch(/--name/);
+	});
+
+	test('puts the plan address after the engine invocation, so the session reads the granted command prefix first', () => {
+		const { prompt } = buildQueueAutoPlanInvocation(base);
+
+		const headings = prompt.split('\n\n').filter((section) => section.startsWith('# '));
+
+		expect(headings.slice(0, 2)).toEqual(['# The engine invocation', '# The plan you are planning']);
+	});
+
+	test('leaves the ticket record to the engine, so the session never adds the plan itself', () => {
+		const { prompt } = buildQueueAutoPlanInvocation(base);
+
+		expect(prompt).toMatch(/never run[^\n]*`ticket add-plan`/);
+		expect(prompt).toMatch(/any other `ticket` subcommand/);
 	});
 
 	test('forbids the two things only the queue may do: asking a question directly, and shipping', () => {

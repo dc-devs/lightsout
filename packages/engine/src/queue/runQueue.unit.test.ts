@@ -60,6 +60,26 @@ const setupDrain = ({ eligible = [], parked }: { eligible?: TicketSummary[]; par
 	return setupQueueDrain();
 };
 
+/** Two tickets — one the ship lane merges and one its worker leaves open — with the tracker credentials handed to the drain. */
+const setupOpenDrain = ({ env }: { env: NodeJS.ProcessEnv }) => {
+	const shipped = ticketOf({ number: 70 });
+	const left = ticketOf({ number: 71 });
+
+	mockListEligibleTickets.mockResolvedValue([shipped, left]);
+	mockScanParkedWorktrees.mockResolvedValue({ resumed: [], outcomes: [], leftBehind: [], merged: [] });
+	mockRunQueueTicket.mockImplementation(({ ticket }) =>
+		Promise.resolve(
+			ticket.identifier === left.identifier
+				? outcomeOf({ ticket, ready: false, open: 'no ship request names the plans this ticket includes' })
+				: outcomeOf({ ticket }),
+		),
+	);
+	mockShipOneBranch.mockImplementation(({ outcome }) => Promise.resolve(outcome));
+	mockSetTicketLabel.mockResolvedValue(undefined);
+
+	return setupQueueDrain({ env });
+};
+
 /** The one manifest the drain's coordinator run wrote. */
 const readCoordinatorRun = ({ cwd }: { cwd: string }) => {
 	const runsDir = join(cwd, '.lightsout', 'runs');
@@ -280,6 +300,16 @@ describe('runQueue', () => {
 
 		expect(report).toEqual({ outcomes: [expect.objectContaining({ ready: false })], leftBehind: [] });
 		expect(readCoordinatorRun({ cwd }).manifest.status).toBe(RunStatus.Escalated);
+	});
+
+	test('runQueue: ends the coordinator run passed when the only unshipped ticket was left open', async () => {
+		const { cwd, drain, relay } = setupOpenDrain({ env: { LINEAR_API_KEY: 'queue-token' } });
+
+		await drain();
+		relay.close();
+
+		expect(readCoordinatorRun({ cwd }).manifest.status).toBe(RunStatus.Passed);
+		expect(mockRunQueueTicket).toHaveBeenCalledWith(expect.objectContaining({ env: { LINEAR_API_KEY: 'queue-token' } }));
 	});
 
 	test('carries a skipped ticket into the report beside the outcomes, so nothing vanishes from the summary', async () => {

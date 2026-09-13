@@ -8,4 +8,6 @@ export interface ShipIntent {
 	willShip: boolean;
 	/** The resolved ship block, or undefined when the configured ticket pattern cannot do its job. */
 	settings: ShipSettings | undefined;
+	/** Why a passing run will not ship a multiple-plan ticket, set only when the ticket's own ship request is what keeps `willShip` false. */
+	shipRequestBlocker?: string;
 }

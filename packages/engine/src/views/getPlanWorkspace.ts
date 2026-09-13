@@ -1,4 +1,5 @@
 import { stat } from 'node:fs/promises';
+import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import {
 	BrainstormDecisions,
 	DecisionsRecord,
@@ -17,8 +18,23 @@ import { readPlanWorkspaceFiles } from '#src/views/common/utils/readPlanWorkspac
 import { listRuns } from '#src/views/listRuns.ts';
 import { PlanWorkspaceNotFoundError } from '#src/views/PlanWorkspaceNotFoundError.ts';
 
-/** A workspace name that could only address something outside the plans folder — the defence `getPlanDocument` applies to its path. */
-const escapesPlansFolder = ({ name }: { name: string }) => name === '' || name === '..' || name.includes('/') || name.includes('\\');
+/** One path segment that could only address something outside the folder it is joined to. */
+const escapesFolder = ({ segment }: { segment: string }) => segment === '' || segment === '..' || segment.includes('/') || segment.includes('\\');
+
+/**
+ * A workspace name that could only address something outside the plans folder —
+ * the defence `getPlanDocument` applies to its path.
+ *
+ * A plan address is the one name allowed to carry a separator, and its
+ * ticket-branch segment is held to the same single-segment test a legacy name
+ * must pass. Every other name with a separator is refused, so a second segment
+ * that is not a plan id can never be opened.
+ */
+const escapesPlansFolder = ({ name }: { name: string }) => {
+	const address = parsePlanAddress({ name });
+
+	return escapesFolder({ segment: address?.ticketBranch ?? name });
+};
 
 /**
  * Every JSON record the workspace holds, each read leniently.
@@ -57,7 +73,7 @@ interface Params {
  * implemented it.
  *
  * @param cwd - the repo whose `.lightsout/plans/` is read
- * @param name - the workspace's kebab folder name, exactly as the URL carried it
+ * @param name - the plan's name, exactly as the URL carried it: a plan address `<ticket-branch>/<plan-id>`, or a legacy folder's name
  * @throws {PlanWorkspaceNotFoundError} When no folder under `.lightsout/plans/` answers to the name.
  */
 export const getPlanWorkspace = async ({ cwd, name }: Params): Promise<PlanWorkspaceView> => {

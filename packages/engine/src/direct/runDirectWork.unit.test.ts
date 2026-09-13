@@ -52,11 +52,13 @@ const setupDirectRun = ({ agentCommands }: { agentCommands?: string[] } = {}) =>
 	const run = ({
 		answeredQuestion,
 		onProgress,
+		runId,
 		ticketBody = '# Drain the backlog\n\nBuild the thing.',
 		willShip,
 	}: {
 		answeredQuestion?: { question: string; answer: string };
 		onProgress?: (message: string) => void;
+		runId?: string;
 		ticketBody?: string;
 		willShip?: boolean;
 	} = {}) =>
@@ -68,6 +70,7 @@ const setupDirectRun = ({ agentCommands }: { agentCommands?: string[] } = {}) =>
 			driverName: 'claude-code',
 			config,
 			answeredQuestion,
+			runId,
 			willShip,
 			onProgress,
 		});
@@ -387,5 +390,18 @@ describe('runDirectWork', () => {
 		expect(readdirSync(getRunsDir({ cwd }))).toStrictEqual([result.manifest.runId]);
 		expect(mockRunGates.mock.calls.map((call) => call[0].step)).toStrictEqual(['pre-flight']);
 		expect(mockInvokeAgentWithContract).not.toHaveBeenCalled();
+	});
+
+	test('creates a fresh direct run under the run id it is given', async () => {
+		const ticketBody = '# Drain the backlog\n\nBuild the thing.';
+		const { cwd, run } = setupDirectRun();
+
+		const result = await run({ runId: '20260912-pre-minted', ticketBody });
+
+		// the id the caller minted is the run that exists, so a ticket record
+		// naming it names a run on disk
+		expect(result.manifest.runId).toBe('20260912-pre-minted');
+		expect(readdirSync(getRunsDir({ cwd }))).toStrictEqual(['20260912-pre-minted']);
+		expect(readFileSync(`${getRunDir({ cwd, runId: '20260912-pre-minted' })}/ticket.md`, 'utf8')).toBe(`${ticketBody}\n`);
 	});
 });

@@ -57,7 +57,8 @@ test('a file where a workspace folder should be is a not-found too, not a walk o
 	await expect(getPlanWorkspace({ cwd, name })).rejects.toThrow(PlanWorkspaceNotFoundError);
 });
 
-test.each([{ named: '../runs' }, { named: 'nested/plan' }, { named: '..' }, { named: '' }])(
+// a backslash is never the address separator, so such a name stays one segment — and one segment holding a separator is refused
+test.each([{ named: '../runs' }, { named: 'nested/plan' }, { named: '..' }, { named: '' }, { named: 'lo-7-search\\001-basics' }])(
 	'a name that could only address something outside the plans folder — $named — is refused before any disk is touched',
 	async ({ named }) => {
 		await expect(getPlanWorkspace({ cwd: await freshCwd(), name: named })).rejects.toThrow(PlanWorkspaceNotFoundError);
@@ -162,5 +163,63 @@ test('the notes a brainstorm left come back with the workspace, sized rather tha
 		bytes: '# rough idea'.length,
 		hasNotes: true,
 		stage: PlanStage.NotesOnly,
+	});
+});
+
+/** A ticket folder on disk, holding one plan subfolder per name given. */
+const seedTicketFolder = async ({ ticketBranch, planIds }: { ticketBranch: string; planIds: string[] }) => {
+	const cwd = await freshCwd();
+
+	for (const planId of planIds) {
+		const dir = join(cwd, '.lightsout', 'plans', ticketBranch, planId);
+
+		await mkdir(dir, { recursive: true });
+		await writeFile(join(dir, 'plan.md'), `# ${planId}`, 'utf8');
+	}
+
+	return { cwd };
+};
+
+test("a plan address opens that plan's folder inside its ticket folder", async () => {
+	const { cwd } = await seedTicketFolder({ ticketBranch: 'lo-7-search', planIds: ['001-basics', '002-ranking'] });
+
+	const view = await getPlanWorkspace({ cwd, name: 'lo-7-search/001-basics' });
+
+	expect({ name: view.listing.name, plan: view.planFile?.name, rootPath: view.rootPath }).toStrictEqual({
+		name: 'lo-7-search/001-basics',
+		plan: 'plan.md',
+		rootPath: join(cwd, '.lightsout', 'plans', 'lo-7-search', '001-basics'),
+	});
+});
+
+test('a name with a separator that is not a safe plan address is a not-found', async () => {
+	// the last one is seeded on disk, so only the guard can refuse it
+	const { cwd } = await seedTicketFolder({ ticketBranch: 'lo-7-search', planIds: ['not-a-plan'] });
+
+	await expect(getPlanWorkspace({ cwd, name: '../001-basics' })).rejects.toThrow(PlanWorkspaceNotFoundError);
+	await expect(getPlanWorkspace({ cwd, name: 'a/b/001-basics' })).rejects.toThrow(PlanWorkspaceNotFoundError);
+	await expect(getPlanWorkspace({ cwd, name: 'lo-7-search/not-a-plan' })).rejects.toThrow(PlanWorkspaceNotFoundError);
+});
+
+test("a plan address counts the runs of its own folder alone, and not a sibling plan's", async () => {
+	const { cwd } = await seedTicketFolder({ ticketBranch: 'lo-7-search', planIds: ['001-basics', '002-ranking'] });
+
+	await seedRunDir({ cwd, manifest: { runId: 'run-basics', plan: '.lightsout/plans/lo-7-search/001-basics/plan.md', status: RunStatus.Passed } });
+	await seedRunDir({ cwd, manifest: { runId: 'run-ranking', plan: '.lightsout/plans/lo-7-search/002-ranking/plan.md', status: RunStatus.Passed } });
+	const view = await getPlanWorkspace({ cwd, name: 'lo-7-search/001-basics' });
+
+	expect({ runs: view.runs.map((run) => run.runId), runCount: view.listing.runCount }).toStrictEqual({ runs: ['run-basics'], runCount: 1 });
+});
+
+test('a run recorded under the historical plans folder still comes back with the workspace it built', async () => {
+	const { cwd } = await seedWorkspace({ files: { 'plan.md': '# plan' } });
+
+	// manifests written before the plans folder moved still carry this path
+	await seedRunDir({ cwd, manifest: { runId: 'run-historical', plan: `.claude/plans/${name}/plan.md`, status: RunStatus.Passed } });
+	const view = await getPlanWorkspace({ cwd, name });
+
+	expect({ runs: view.runs.map((run) => run.runId), stage: view.listing.stage }).toStrictEqual({
+		runs: ['run-historical'],
+		stage: PlanStage.Implemented,
 	});
 });

@@ -8,11 +8,14 @@ import { BranchPhase, type LightsoutConfig, type WorktreeOwner } from '#src/cont
 import type { Driver } from '#src/drivers/index.ts';
 import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
+import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
+import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { TerminalQuestionRelay } from '#src/queue/relay/index.ts';
 import { runQueueTicket } from '#src/queue/runQueueTicket.ts';
+import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import type { WorktreeFailure } from '#src/worktree/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
@@ -35,13 +38,30 @@ interface CreateWorktreeParams {
 	onProgress?: (message: string) => void;
 }
 
+interface RunWorkerWithRelayParams {
+	worktreePath: string;
+	branch: string;
+	settings: QueueSettings;
+	trackerSettings: TrackerSettings;
+	ticket: RunnableTicket;
+	config: LightsoutConfig;
+	driver: Driver;
+	driverName: string;
+	env: NodeJS.ProcessEnv;
+	relay: QuestionRelay;
+	coordinatorRunId: string;
+	coordinatorRunDir: string;
+	ticketRunDir: string;
+	onProgress?: (message: string) => void;
+}
+
 // Mocked Imports
 // -------------------------
 // Each step this sequence calls is covered by its own tests; what this file owns
 // is the order they run in, and which of them decides the ticket is not ready.
 const mockCreateWorktree = jest.fn<(params: CreateWorktreeParams) => Promise<string | WorktreeFailure>>();
 const mockSetTicketStatus = jest.fn<(params: { statusName: string }) => Promise<QueueFailure | undefined>>();
-const mockRunWorkerWithRelay = jest.fn<() => Promise<WorkerOutcome>>();
+const mockRunWorkerWithRelay = jest.fn<(params: RunWorkerWithRelayParams) => Promise<WorkerOutcome>>();
 const mockCommitTicketWork = jest.fn<(params: CommitTicketWorkParams) => Promise<{ committed: boolean } | QueueFailure>>();
 const mockReadGitCommitsAhead = jest.fn<(params: { cwd: string; defaultBranch: string }) => Promise<number | undefined>>();
 
@@ -50,7 +70,9 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 	setTicketStatus: (params: { statusName: string }) => mockSetTicketStatus(params),
 	appendTicketNote: () => Promise.resolve(undefined),
 }));
-jest.mock('#src/queue/workers/runWorkerWithRelay.ts', () => ({ runWorkerWithRelay: () => mockRunWorkerWithRelay() }));
+jest.mock('#src/queue/workers/runWorkerWithRelay.ts', () => ({
+	runWorkerWithRelay: (params: RunWorkerWithRelayParams) => mockRunWorkerWithRelay(params),
+}));
 jest.mock('#src/queue/commitTicketWork.ts', () => ({
 	commitTicketWork: (params: CommitTicketWorkParams) => mockCommitTicketWork(params),
 }));
@@ -101,6 +123,9 @@ const setupTicketRun = () => {
 
 	const relay = new TerminalQuestionRelay({ settings, trackerSettings, input: new PassThrough(), output: new PassThrough() });
 
+	// Passed rather than read, so no test mutates the real process environment.
+	const env: NodeJS.ProcessEnv = { LINEAR_API_KEY: 'lin_key' };
+
 	const run = ({ ticket: given = ticket }: { ticket?: RunnableTicket } = {}) =>
 		runQueueTicket({
 			cwd,
@@ -111,6 +136,7 @@ const setupTicketRun = () => {
 			driver,
 			driverName: 'claude-code',
 			defaultBranch: 'main',
+			env,
 			relay,
 			serializeWorktreeAdd: ({ task }) => task(),
 			coordinatorRunId: 'run-q',
@@ -118,7 +144,7 @@ const setupTicketRun = () => {
 			onProgress: (message) => progress.push(message),
 		});
 
-	return { run, relay, cwd, coordinatorRunDir, progress };
+	return { run, relay, cwd, coordinatorRunDir, env, progress };
 };
 
 describe('runQueueTicket', () => {
@@ -320,5 +346,54 @@ describe('runQueueTicket', () => {
 		relay.close();
 
 		expect(await readBranchState({ cwd, branch: 'lo-70-drain-the-backlog' })).toEqual(expect.objectContaining({ phase: BranchPhase.Building }));
+	});
+
+	test("runQueueTicket: parks a ticket whose branch's worktree belongs to a human's plan or implement run", async () => {
+		const { run, relay } = setupTicketRun();
+
+		// The queue builds, ships and removes only trees it owns, so a tree another
+		// owner's record claims comes back as a creation failure naming that owner.
+		mockCreateWorktree.mockResolvedValue({ error: "the worktree at /tmp/worktrees/lo-70-drain-the-backlog belongs to a 'plan' run, so it was left alone" });
+
+		const outcome = await run();
+
+		relay.close();
+
+		expect(outcome).toEqual(expect.objectContaining({ ready: false, error: expect.stringContaining("belongs to a 'plan' run") }));
+		expect(mockRunWorkerWithRelay).not.toHaveBeenCalled();
+	});
+
+	test("runQueueTicket: records an open ticket's branch open and reports it open without committing", async () => {
+		const { run, relay, cwd } = setupTicketRun();
+
+		mockRunWorkerWithRelay.mockResolvedValue({ open: 'plan 002-search-basics is waiting for a ship request' });
+
+		const outcome = await run();
+
+		relay.close();
+
+		expect(outcome).toEqual(
+			expect.objectContaining({ ready: false, open: 'plan 002-search-basics is waiting for a ship request', error: undefined, unanswered: undefined }),
+		);
+		// Every plan the loop built was already committed by the loop, so there is
+		// nothing left to commit and no commit count worth reading.
+		expect(mockCommitTicketWork).not.toHaveBeenCalled();
+		expect(mockReadGitCommitsAhead).not.toHaveBeenCalled();
+		expect(await readBranchState({ cwd, branch: 'lo-70-drain-the-backlog' })).toEqual(expect.objectContaining({ phase: BranchPhase.Open }));
+	});
+
+	test('runQueueTicket: hands the worker the environment and the one ticket run directory', async () => {
+		const { run, relay, coordinatorRunDir, env } = setupTicketRun();
+
+		await run();
+
+		relay.close();
+
+		const ticketRunDir = join(coordinatorRunDir, 'tickets', 'LO-70');
+
+		// One directory for both: the loop's per-plan commits and this final commit
+		// must write their message files to the same place.
+		expect(mockRunWorkerWithRelay).toHaveBeenCalledWith(expect.objectContaining({ env, ticketRunDir }));
+		expect(mockCommitTicketWork).toHaveBeenCalledWith(expect.objectContaining({ runDir: ticketRunDir }));
 	});
 });

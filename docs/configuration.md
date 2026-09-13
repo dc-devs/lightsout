@@ -263,7 +263,7 @@ is overwritten the next time `pnpm build:config-reference` runs.
 | `worktree` | no | Opt-in shared workspace preparation. `worktree.setup` is the one command run inside a fresh worktree before any agent, such as `pnpm install` — the queue runs it in each ticket worktree it cuts, and an isolated implementation run runs it in the worktree it cuts for itself. An absent block means nothing runs. The block is strict, so a misspelled key fails parsing rather than silently leaving the command unset. |
 | `queue` | no | Opt-in queue settings: which ticket label names each planning status, what this tracker calls each status the engine writes, which statuses count as available work, how many tickets run at once, and the per-ticket worker and question timeouts. Tracker identity lives in `ticket-tracker`, so this block holds queue behaviour only. |
 | `auto-plan` | no | Opt-in auto-plan settings: whether the proposal comes before drafting, whether an approved proposal starts the build, and whether the proposal is skipped when nothing clears the escalation bar. Every key is off by default, so an absent block is the most supervised behaviour. |
-| `plan` | no | Opt-in plan settings: whether plans are written as contracts with an acceptance-test ledger — a table naming the test that states each acceptance criterion — and graded by weight, spawning the reader fan-out only for the plan files that earn it, plus the counts above which a plan file is heavy. Those are off by default, so an absent block writes and grades plans exactly as before: the same template, the same required sections, every plan file read by every lens. `plan.worktree` is whether a planning session works in its own isolated git worktree rather than the checkout it was launched from — it defaults to true, `--worktree` and `--no-worktree` override it for one command, and the implementation run continues in the tree planning established. |
+| `plan` | no | Opt-in plan settings: whether plans are written as contracts with an acceptance-test ledger — a table naming the test that states each acceptance criterion — and graded by weight, spawning the reader fan-out only for the plan files that earn it, plus the counts above which a plan file is heavy. Those are off by default, so an absent block writes and grades plans exactly as before: the same template, the same required sections, every plan file read by every lens. `plan.worktree` is whether a planning session works in its own isolated git worktree rather than the checkout it was launched from — it defaults to true, `--worktree` and `--no-worktree` override it for one command, and the implementation run continues in the tree planning established. `plan.default-ticket-mode` is the mode a ticket's own record is created with — `single-plan`, where plan 001 alone supplies the ticket's implementation, or `multiple-plan`, where the ticket's plans implement in numeric order on one branch and it ships only on an explicit ship request. It defaults to `single-plan` and is read only when a record is created, so it never changes a ticket that already has one. |
 | `implement` | no | Opt-in implementation settings. `implement.worktree` is whether an implementation run builds in its own isolated git worktree rather than the checkout it was launched from — it defaults to true, and `--worktree` and `--no-worktree` override it for one run. `implement.refactor.max-rounds` is how many cleanup executor rounds one run may spend at most — a whole number above zero, defaulting to 2, which is also what an absent block spends. The budget is a ceiling rather than a target: cleanup stops early when nothing qualifying is left, and only a deterministic blocking finding the run’s own edits introduced or measurably worsened can spend a round. Whatever cleanup leaves behind is recorded and never stops the run. |
 | `docs` | no | Opt-in documentation surfaces: each entry a repo-relative path and a one-line `covers` saying what that document is responsible for. Declaring the block turns on the plan-time documentation check — the plan writer is briefed on the surfaces, every implementable plan file must carry a `## Documentation` statement, and `plan grade` runs one whole-plan checker that verifies it. A repository that declares no block sees none of it: no section, no prompt text, no checker spawn. |
 
@@ -394,10 +394,10 @@ A repository that wants the strict profile promotes those rules itself — an ex
 
 | Field                 | Required | What it controls                                                                                                                                                                                                                     |
 | --------------------- | -------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ship.ticket-pattern` |       no | A JavaScript regular expression source matched against the branch name. It must carry a named group `ticket`, whose value becomes the result's ticket reference; every other named group becomes a token the body template may use. Defaults to `^(?<ticket>[a-z]+-\d+)`. The same pattern is matched against a plan folder's name; a folder carrying no ticket id draws a warning and nothing more. |
+| `ship.ticket-pattern` |       no | A JavaScript regular expression source matched against the branch name. It must carry a named group `ticket`, whose value becomes the result's ticket reference; every other named group becomes a token the body template may use. Defaults to `^(?<ticket>[a-z]+-\d+)`. The same pattern is matched against a plan's own name — for a plan address, its ticket-branch segment — so every plan of one ticket reads the same ticket id; a folder carrying no ticket id draws a warning and nothing more. |
 | `ship.pr-body`        |       no | The pull request body template. Brace-wrapped tokens are substituted: `branch`, and one per named group of the ticket pattern. An unknown token is left exactly as written. Defaults to the bare ticket token on its own.            |
 | `ship.merge-method`   |       no | How the forge merges: `merge`, `squash`, or `rebase`. Defaults to `merge`.                                                                                                                                                          |
-| `ship.after-implement` |       no | When true, a passed `/implement` run chains into ship without `--ship` being typed. Defaults to `false`.                                                                                                                             |
+| `ship.after-implement` |       no | When true, a passed `/implement` run chains into ship without `--ship` being typed. Defaults to `false`. It applies to a branch with no ticket record and to a `single-plan` ticket; a `multiple-plan` ticket ignores it and chains exactly when the run satisfies that ticket's own ship request. |
 | `ship.pre-ship`       |       no | A shell command that prepares the release candidate — the home for a repository's own pre-ship convention, such as rebuilding committed build outputs or bumping a shipped version. Ship requires a clean committed branch before it runs, runs it against the freshly fetched default branch (its exact commit is in `LIGHTSOUT_SHIP_BASE_COMMIT`), and commits what it leaves behind only once your own gates have passed against it. A non-zero exit blocks the ship with the command's own output. No default. |
 | `ship.allow-no-ci`    |       no | When `true`, a pull request whose check list is readable and genuinely empty may merge after the usual one-minute registration grace. Defaults to `false`: ship waits up to thirty minutes for checks to appear and then blocks with `checks-missing`. It applies only to ABSENT checks — a failed, pending, unreadable or wrong-commit check is enforced exactly as it always was — and lightsout never sets it for you. |
 
@@ -407,10 +407,23 @@ Set `allow-no-ci` only for a repository that intentionally has no CI:
 "ship": { "allow-no-ci": true }
 ```
 
+A branch whose ticket has a record in `.lightsout/plans/<branch>/ticket.json`
+merges only when that record authorizes it: a `single-plan` ticket once plan 001
+is implemented, a `multiple-plan` ticket once an explicit ship request naming its
+included plans is satisfied. The record is asked twice — before anything is
+pushed, and again immediately before the merge, so a plan added while the checks
+were running still stops it — and a refusal is written as a blocked result with
+reason `ticket-not-authorized` and one sentence saying what the ticket is waiting
+for. A published record that diverged from this machine's copy, or one that could
+not be read, blocks the same way. A branch with no record merges exactly as it
+did before ticket records existed.
+
 This block is where branch-to-ticket and pull-request conventions live; the
-tracker connection lives in `ticket-tracker` below. Name a plan folder after
-its ticket's branch, so the plan, branch, and ticket match by construction; a
-folder that does not is used exactly as before, with a warning. The default
+tracker connection lives in `ticket-tracker` below. Name a ticket folder after
+its ticket's branch, so the plans, branch, and ticket match by construction; that
+folder holds the ticket's plans, one subfolder each, and the `ticket-workflow`
+skill's `## Plan folder` is where the rules for it live. A folder that is not
+named after a branch is used exactly as before, with a warning. The default
 body is deliberately inert — a body that closes a ticket automatically is a
 team's convention, not the engine's. The block is strict: an unknown key fails
 parsing rather than silently disabling a setting you believe is on.
@@ -493,11 +506,11 @@ The `queue` block is what `lightsout queue` runs on. Without it the command refu
 | `queue.in-progress-status` |     no | Status the queue moves a ticket to when it picks it up. Defaults to `"In Progress"`.                                                                                                                                                                                        |
 | `queue.done-status`      |       no | Your tracker's name for the status a ticket reaches once its merge is confirmed. Defaults to `"Done"`.                                                                                                                                                                       |
 | `queue.setup`            |        — | Removed spelling. A config still carrying it fails to parse, with a message naming `worktree.setup` as the key that holds its value now.                                                                                                                                     |
-| `queue.branch-template`  |       no | How a ticket becomes a branch name. `{ticket}` is the lowercased identifier, `{slug}` the slugged title. Defaults to `{ticket}-{slug}`. Whatever it produces must be matched by `ship.ticket-pattern`. A plan folder is named exactly like the branch this template produces.                                                                        |
+| `queue.branch-template`  |       no | How a ticket becomes a branch name. `{ticket}` is the lowercased identifier, `{slug}` the slugged title. Defaults to `{ticket}-{slug}`. Whatever it produces must be matched by `ship.ticket-pattern`. A ticket folder is named exactly like the branch this template produces, and holds that ticket's plans.                                                                        |
 | `queue.decisions-heading` |      no | The ticket-body heading relayed answers are appended under. Defaults to `## Decisions`.                                                                                                                                                                                     |
 | `queue.worker-timeout`   |       no | Ceiling for one ticket's worker session, as a duration string like `90s`, `45m` or `4h`. Per ticket, never for the drain — the queue itself runs until the backlog is dry. A hit ceiling parks the ticket resumably. Defaults to `4h`.                                        |
 | `queue.question-timeout` |       no | How long one relayed question waits for an answer before its ticket parks, as a duration string. Only `--file-relay` observes it; the terminal relay waits on the person at the terminal. Defaults to `1h`.                                                                   |
-| `queue.parked-label`     |       no | The ticket label the queue sets when a ticket parks and clears when it resumes or ships. Opt-in with no default. Linear creates the team label on first use; Jira updates issue labels directly.                                                                            |
+| `queue.parked-label`     |       no | The ticket label the queue sets when a ticket parks and clears when it resumes or ships. It is cleared from a ticket the queue leaves open too: that ticket is waiting on a human decision rather than parked. Opt-in with no default. Linear creates the team label on first use; Jira updates issue labels directly. |
 | `queue.route-labels`     |        — | Removed spelling. A config still carrying it fails to parse, with a message naming `queue.planning-status-labels` as the key that holds its value now.                                                                                                                       |
 
 The block is strict for the same reason `ship` is: an unknown key fails parsing
@@ -511,8 +524,8 @@ and the status the ticket sits at — and takes work from exactly three pairs:
 
 | Planning status | Tracker status | What runs |
 | --- | --- | --- |
-| `planning-ready-auto-plan` | Backlog | the ticket is planned first, then implemented |
-| `planning-complete` | Ready to implement | the plan published to the ticket is implemented |
+| `planning-ready-auto-plan` | Backlog | the engine picks which plan of the ticket is planned first, then implements it |
+| `planning-complete` | Ready to implement | the ticket's plans that are ready to implement are implemented in numeric order |
 | `planning-not-needed` | Ready to implement | the ticket body is built straight |
 
 Every other combination is left alone. `planning-needs-brainstorm` and
@@ -521,14 +534,32 @@ Every other combination is left alone. `planning-needs-brainstorm` and
 into Ready to implement is the shaping workflow's job. Backlog here means any
 eligible status that is not your ready status.
 
+A ticket whose record is `multiple-plan` and whose ship request is not satisfied
+is left **open** rather than parked: it takes no parked label, its tracker status
+is left alone, and it does not make the drain exit 2. Every later drain looks at
+it again and builds whichever of its plans have since become ready to implement,
+or ships it once its request is satisfied.
+
 ### Plan settings
 
 | Field                                  | Required | What it controls                                                                                                                                            |
 | -------------------------------------- | -------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `plan.default-ticket-mode`             |       no | The mode a ticket's own record is created with: `single-plan` or `multiple-plan`. Defaults to `single-plan`.                                                  |
 | `plan.contract`                        |       no | When true, plans are written as contracts carrying an acceptance-test ledger, the structural lint requires that ledger, and `plan grade` weighs each plan file and spawns readers only for the heavy ones. Defaults to `false`. |
 | `plan.weight-thresholds.created-files` |       no | A plan file creating more source files than this is heavy. Defaults to `3`.                                                                                  |
 | `plan.weight-thresholds.packages`      |       no | A plan file touching more packages than this is heavy. Defaults to `1`.                                                                                      |
 | `plan.worktree`                        |       no | Whether a planning session works in its own isolated git worktree rather than the checkout it was launched from. Defaults to `true`.                        |
+
+`plan.default-ticket-mode` only seeds the mode saved on a ticket's own record,
+at the moment that record is created. In `single-plan` mode plan 001 alone
+supplies the ticket's implementation — that one plan may still have phases — and
+`ship.after-implement` applies exactly as it always has. In `multiple-plan` mode
+the ticket's plans implement in numeric order on the one ticket branch, and the
+ticket ships only when an explicit ship request naming the included plans is
+satisfied. Changing the key never changes a ticket that already has a record;
+`lightsout ticket mode` does that, one ticket at a time. What each mode means for
+the ticket, and what switching between them costs, is the `ticket-workflow`
+skill's `### Modes`.
 
 A planning session works in a git worktree of its own by default, so work
 another agent does in the checkout you launched it from cannot move the code a
@@ -542,6 +573,21 @@ override the setting for one command; supplying both is a startup failure. The
 tree planning establishes is the one the implementation run continues in, and a
 finished plan is copied back into the primary checkout before the shipped tree
 is cleaned up.
+
+Name a plan by its address — `<ticket-branch>/<NNN-slug>` — and the tree and
+its branch are the ticket folder's rather than the plan's, so every plan of one
+ticket is planned and built in the one tree on the one branch. A later plan
+continues in that tree when its ownership record names a plan, queue or
+implementation run, and is refused while a live run holds it, naming the run.
+With no tree, an existing ticket branch is adopted at its own tip, so a later
+plan reads the implementation already on it; when only `origin/<ticket-branch>`
+exists, the tree is cut at that pushed commit, and a local ticket branch that is
+behind the pushed one is fast-forwarded when no tree holds it and reported
+otherwise. Nothing is fetched to work any of that out — implementation commits
+travel by `git push` and `git fetch` alone. Plan folders are copied into and out
+of the tree one plan at a time, and a shipped tree's whole ticket folder is
+copied back to the primary checkout before the tree comes down, so no sibling
+plan is lost with it.
 
 A contract plan carries what a test cannot detect — the file map, the full
 exported signatures of every created file, the file each new file mirrors, and

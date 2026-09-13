@@ -15,7 +15,8 @@ interface Params {
 }
 
 /**
- * The whole plan folder, copied to the same place under the workspace, so an
+ * The plan folder the input lies in — one plan subfolder of a ticket folder, or
+ * a legacy folder whole — copied to the same place under the workspace, so an
  * `overview.md`, its phase files and the plan's working files all arrive
  * together and overview-and-phase resolution keeps working untouched.
  *
@@ -25,11 +26,13 @@ interface Params {
  * copy.
  *
  * A workspace already holding a folder of that name keeps it outright — local
- * disk wins, the rule `ensurePlanWorkspace` states. A run continuing in the tree
- * planning established would otherwise overwrite the graded plan and its
- * grading memory with whatever was left in the launching checkout. Anything
- * else standing at that path is no plan folder, and the copy is still attempted
- * so its failure is reported.
+ * disk wins, the rule `ensurePlanWorkspace` states. That is judged per plan
+ * folder, so a workspace already holding an earlier plan of the same ticket
+ * still receives this one. A run continuing in the tree planning established
+ * would otherwise overwrite the graded plan and its grading memory with
+ * whatever was left in the launching checkout. Anything else standing at that
+ * path is no plan folder, and the copy is still attempted so its failure is
+ * reported.
  */
 const copyPlanFolder = async ({ sourceCwd, workspace, name, inputPath }: { sourceCwd: string; workspace: string; name: string; inputPath: string }) => {
 	const destination = planWorkspaceDir({ cwd: workspace, name });

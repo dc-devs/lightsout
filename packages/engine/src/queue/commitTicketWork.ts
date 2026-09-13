@@ -5,6 +5,7 @@ import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { runCommand } from '#src/common/processes/runCommand.ts';
 import { runOrDescribeFailure } from '#src/common/processes/runOrDescribeFailure.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
+import { isGeneratedPath } from '#src/queue/common/utils/isGeneratedPath.ts';
 
 interface Params {
 	/** The worktree holding the work. */
@@ -22,24 +23,6 @@ interface Params {
 	/** Live progress sink — one line when generated changes were discarded. */
 	onProgress?: (message: string) => void;
 }
-
-/**
- * Whether one changed path falls under a configured generated entry.
- *
- * The trailing slash is stripped exactly as the source walk strips it, so a
- * directory prefix (`plugin/dist/`) and a single file
- * (`packages/web-app/src/routeTree.gen.ts`) both work without a second
- * spelling. The boundary is a path segment rather than the walk's bare
- * `startsWith`, deliberately: a walk that skips one extra file only misses a
- * check, while here a bare prefix would delete a source file named
- * `plugin/distortion.ts` before the commit.
- */
-const isGeneratedPath = ({ path, generated }: { path: string; generated: string[] }) =>
-	generated.some((entry) => {
-		const prefix = entry.replace(/\/$/, '');
-
-		return path === prefix || path.startsWith(`${prefix}/`);
-	});
 
 /**
  * One path as a git pathspec that means exactly that file.
