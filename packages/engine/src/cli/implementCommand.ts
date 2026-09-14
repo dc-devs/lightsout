@@ -2,8 +2,9 @@ import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import { usage } from '#src/cli/common/constants/usage.ts';
 import { finishImplementRun } from '#src/cli/common/implementRun/finishImplementRun.ts';
 import { openImplementWorkspace } from '#src/cli/common/implementRun/openImplementWorkspace.ts';
+import { reportTicketPlanOutcome } from '#src/cli/common/implementRun/reportTicketPlanOutcome.ts';
 import { printPlanTicketWarning } from '#src/cli/common/render/printPlanTicketWarning.ts';
-import { printRunHeader } from '#src/cli/common/render/printRunHeader.ts';
+import { printRunStart } from '#src/cli/common/render/printRunStart.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import type { PlanTarget } from '#src/cli/common/types/PlanTarget.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
@@ -18,6 +19,7 @@ import { readConfig } from '#src/common/config/readConfig.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { type Driver, getDriver } from '#src/drivers/index.ts';
 import { planNameFromPath } from '#src/plan/index.ts';
+import { readTicketRunTerms, runTicketPlanLifecycle } from '#src/ticket/index.ts';
 import { requireImplementLifecycle } from '#src/ticketLifecycle/index.ts';
 
 /**
@@ -32,6 +34,10 @@ import { requireImplementLifecycle } from '#src/ticketLifecycle/index.ts';
  * Every check here reads the LAUNCHING checkout, and every one of them runs
  * before a workspace is resolved: no worktree may be created for a flag
  * combination that is going to be refused.
+ *
+ * The ticket record's own refusal is read here for the same reason: a plan the
+ * ticket says may not be built yet must be refused before a tree is cut and
+ * before the tracker is told the ticket has started.
  */
 const resolveImplementInputs = async ({ flags, cwd }: { flags: CommandContext['flags']; cwd: string }) => {
 	const planPath = getStringFlag({ flags, name: 'plan' });
@@ -83,7 +89,14 @@ const resolveImplementInputs = async ({ flags, cwd }: { flags: CommandContext['f
 		return { error: '--start-phase applies to a plan folder holding an overview.md — a single plan has one phase' };
 	}
 
-	return { planPath, overviewPath, packages, startPhase, planName: planNameFromPath({ cwd, planPath }) };
+	const planName = planNameFromPath({ cwd, planPath });
+	const terms = await readTicketRunTerms({ cwd, name: planName, planPath: 'overviewPath' in target ? target.overviewPath : target.planPath });
+
+	if (terms.refusal !== undefined) {
+		return { error: terms.refusal };
+	}
+
+	return { planPath, overviewPath, packages, startPhase, planName, shipRequest: terms.shipRequest };
 };
 
 /** The pipeline the resolved plan target asks for: every phase of a folder holding an overview, or the one plan. */
@@ -93,6 +106,7 @@ const runResolvedPipeline = ({
 	overviewPath,
 	packages,
 	startPhase,
+	runId,
 	driver,
 	config,
 	skipRefactor,
@@ -103,6 +117,8 @@ const runResolvedPipeline = ({
 	overviewPath: string | undefined;
 	packages: string[] | undefined;
 	startPhase: number | undefined;
+	/** The id the run is created under, minted before it started so the ticket record can name it. */
+	runId: string;
 	driver: Driver;
 	config: LightsoutConfig;
 	skipRefactor: boolean;
@@ -115,6 +131,7 @@ const runResolvedPipeline = ({
 				config,
 				overviewPath: target.overviewPath,
 				startPhase,
+				runId,
 				skipRefactor,
 				willShip,
 				onProgress: createProgressPrinter(),
@@ -124,6 +141,7 @@ const runResolvedPipeline = ({
 				planPath: target.planPath,
 				overviewPath,
 				packages,
+				runId,
 				driver,
 				config,
 				skipRefactor,
@@ -139,13 +157,13 @@ export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<
 		return exitCli({ code: 1 });
 	}
 
-	const { planPath, overviewPath, packages, startPhase, planName } = inputs;
+	const { planPath, overviewPath, packages, startPhase, planName, shipRequest } = inputs;
 	const skipRefactor = flags.get('skip-refactor') === true;
 	const loaded = await readConfig({ cwd });
 	const { driverName, model, effort } = resolveCommandHarness({ config: loaded, command: 'implement' });
 	const driver = getDriver({ name: driverName });
 	const config = { ...loaded, harness: driverName, model, effort };
-	const shipIntent = resolveCommandShipIntent({ config: loaded, flags, env: process.env });
+	const shipIntent = resolveCommandShipIntent({ config: loaded, flags, env: process.env, shipRequest });
 
 	if (shipIntent === undefined) {
 		return exitCli({ code: 1 });
@@ -176,25 +194,34 @@ export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<
 		await printPlanTicketWarning({ cwd, name: planName });
 	}
 
-	console.log(`lightsout: starting run`);
-	console.log(
-		'overviewPath' in target
-			? `  overview: ${target.overviewPath}${startPhase === undefined ? '' : `\n  start phase: ${startPhase}`}`
-			: `  plan: ${target.planPath}${overviewPath ? `\n  overview: ${overviewPath}` : ''}${packages ? `\n  packages flag: ${packages.join(', ')}` : ''}`,
-	);
-	printRunHeader({ config, driver, cwd: workspace.cwd });
+	printRunStart({ target, overviewPath, packages, startPhase, config, driver, cwd: workspace.cwd });
 
-	const result = await runResolvedPipeline({
+	// The record's own bookkeeping around the run: the plan is marked implementing
+	// under the id the pipeline is handed, and the outcome is recorded against it.
+	// A legacy folder and a ticket with no record run exactly as they always have.
+	const outcome = await runTicketPlanLifecycle({
 		cwd: workspace.cwd,
-		target,
-		overviewPath,
-		packages,
-		startPhase,
-		driver,
-		config,
-		skipRefactor,
-		willShip: shipIntent.willShip,
+		name: planName,
+		run: ({ runId }) =>
+			runResolvedPipeline({
+				cwd: workspace.cwd,
+				target,
+				overviewPath,
+				packages,
+				startPhase,
+				runId,
+				driver,
+				config,
+				skipRefactor,
+				willShip: shipIntent.willShip,
+			}),
 	});
+
+	const result = reportTicketPlanOutcome({ outcome });
+
+	if (result === undefined) {
+		return exitCli({ code: 1 });
+	}
 
 	return finishImplementRun({ config: loaded, cwd: workspace.cwd, result, flags });
 };

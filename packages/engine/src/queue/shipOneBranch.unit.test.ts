@@ -9,6 +9,7 @@ import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { shipOneBranch } from '#src/queue/shipOneBranch.ts';
+import type { ShipTicketGuard } from '#src/ship/index.ts';
 import { createWorktree, readWorktreeRecord, writeWorktreeRecord } from '#src/worktree/index.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -22,7 +23,7 @@ import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 // covered by its own tests. Git is real, so what this step leaves the branch
 // standing on is git's own answer.
 const mockRunGates = jest.fn<(params: { cwd: string }) => Promise<GateRunResult>>();
-const mockRunShip = jest.fn<(params: { cwd: string }) => Promise<ShipResult>>();
+const mockRunShip = jest.fn<(params: { cwd: string; ticketGuard: ShipTicketGuard }) => Promise<ShipResult>>();
 const mockTakeGateHold =
 	jest.fn<
 		(params: {
@@ -39,7 +40,7 @@ jest.mock('#src/gates/index.ts', () => ({
 	runGates: (params: { cwd: string }) => mockRunGates(params),
 	takeGateHold: (params: Parameters<typeof mockTakeGateHold>[0]) => mockTakeGateHold(params),
 }));
-jest.mock('#src/ship/index.ts', () => ({ runShip: (params: { cwd: string }) => mockRunShip(params) }));
+jest.mock('#src/ship/index.ts', () => ({ runShip: (params: Parameters<typeof mockRunShip>[0]) => mockRunShip(params) }));
 // -------------------------
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };

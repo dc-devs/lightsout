@@ -20,6 +20,7 @@ describe('commandCatalog flags', () => {
 			['resume', ['cwd', 'no-ship', 'run', 'ship', 'skip-refactor']],
 			['ship', ['cwd']],
 			['queue', ['cwd', 'file-relay']],
+			['ticket', ['approve', 'cwd', 'implementation-removed', 'keep', 'name', 'plan', 'plans', 'reason', 'set', 'slug', 'title', 'withdraw']],
 			['ticket-state', ['cwd', 'planning-status', 'ref', 'tracker-status']],
 			['self-check', ['cwd', 'run']],
 			['refactor', ['all', 'allow-dirty', 'code-checks', 'cwd', 'max-batches', 'path', 'run']],
@@ -111,6 +112,56 @@ describe('commandCatalog flags', () => {
 		// the accepted set is read from this row, so the flag works exactly when --help says it does
 		expect(legacyFlags.map((flag) => [flag.name, flag.value, flag.shape, flag.required])).toStrictEqual([['legacy', undefined, 'plan-draft', false]]);
 		expect(draftLine).toEqual(expect.stringContaining('[--legacy]'));
+	});
+
+	test('scopes each ticket flag to the subcommand that reads it', () => {
+		const { byId } = setupCatalog();
+
+		const ticketFlags = byId.get('ticket')?.flags ?? [];
+
+		expect(ticketFlags.map((flag) => [flag.name, flag.shape])).toStrictEqual([
+			['name', undefined],
+			['slug', 'ticket-add-plan'],
+			['title', 'ticket-add-plan'],
+			['slug', 'ticket-adopt'],
+			['set', 'ticket-mode'],
+			['approve', 'ticket-mode'],
+			['plans', 'ticket-request-ship'],
+			['withdraw', 'ticket-request-ship'],
+			['plan', 'ticket-exclude-plan'],
+			['reason', 'ticket-exclude-plan'],
+			['implementation-removed', 'ticket-exclude-plan'],
+			['plan', 'ticket-retitle-plan'],
+			['title', 'ticket-retitle-plan'],
+			['keep', 'ticket-sync'],
+			['cwd', undefined],
+		]);
+		expect(ticketFlags.filter((flag) => flag.exclusiveWith !== undefined).map((flag) => flag.name)).toStrictEqual(['plans', 'withdraw']);
+		expect(new Set(ticketFlags.filter((flag) => flag.exclusiveWith !== undefined).map((flag) => flag.exclusiveWith)).size).toBe(1);
+	});
+
+	test('tells the reader what happens without each optional ticket flag, and gives the required ones no fallback', () => {
+		const { byId } = setupCatalog();
+
+		const ticketFlags = byId.get('ticket')?.flags ?? [];
+
+		expect(ticketFlags.map((flag) => [`${flag.name} in ${flag.shape ?? 'every shape'}`, flag.required, flag.fallback !== undefined])).toStrictEqual([
+			['name in every shape', true, false],
+			['slug in ticket-add-plan', true, false],
+			['title in ticket-add-plan', false, true],
+			['slug in ticket-adopt', true, false],
+			['set in ticket-mode', true, false],
+			['approve in ticket-mode', false, true],
+			['plans in ticket-request-ship', false, true],
+			['withdraw in ticket-request-ship', false, true],
+			['plan in ticket-exclude-plan', true, false],
+			['reason in ticket-exclude-plan', true, false],
+			['implementation-removed in ticket-exclude-plan', false, true],
+			['plan in ticket-retitle-plan', true, false],
+			['title in ticket-retitle-plan', true, false],
+			['keep in ticket-sync', false, true],
+			['cwd in every shape', false, true],
+		]);
 	});
 
 	test('a flag that excludes another names a key at least one sibling shares, or its bracket would hold one flag', () => {

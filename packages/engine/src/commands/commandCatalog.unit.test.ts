@@ -1,5 +1,4 @@
 import { describe, expect, test } from '@jest/globals';
-import { readCommandFlags } from '#src/cli/common/args/readCommandFlags.ts';
 import { commandCatalog } from '#src/commands/index.ts';
 import { CommandCatalogEntry } from '#src/contracts/index.ts';
 
@@ -16,7 +15,7 @@ describe('commandCatalog', () => {
 		const rejected = commandCatalog.filter((entry) => !CommandCatalogEntry.safeParse(entry).success).map((entry) => entry.id);
 
 		expect(rejected).toStrictEqual([]);
-		expect(ids).toHaveLength(20);
+		expect(ids).toHaveLength(21);
 	});
 
 	test('ids are unique — two entries answering to one word would make the route ambiguous', () => {
@@ -48,6 +47,7 @@ describe('commandCatalog', () => {
 				'standards-validate',
 				'status',
 				'test-coverage-to-threshold',
+				'ticket',
 				'ticket-state',
 				'voice',
 			].sort(),
@@ -174,6 +174,7 @@ describe('commandCatalog', () => {
 			['build', 'resume'],
 			['build', 'ship'],
 			['build', 'queue'],
+			['build', 'ticket'],
 			['build', 'ticket-state'],
 			['build', 'self-check'],
 			['burn-down', 'refactor'],
@@ -211,6 +212,7 @@ describe('commandCatalog', () => {
 			['resume', 'runs'],
 			['ship', 'nothing'],
 			['queue', 'runs'],
+			['ticket', 'plans'],
 			['ticket-state', 'nothing'],
 			['self-check', 'nothing'],
 			['refactor', 'runs'],
@@ -252,6 +254,30 @@ describe('commandCatalog', () => {
 		expect(mute).toStrictEqual([]);
 	});
 
+	test('carries the ticket command in the build group with one invocation per subcommand', () => {
+		const { ids, byId } = setupCatalog();
+		const ticket = byId.get('ticket');
+		const neighbours = ['brainstorm', 'plan', 'auto-plan', 'implement', 'implement-direct', 'resume', 'ship', 'queue', 'ticket-state', 'self-check'];
+
+		const shapes = ticket?.invocations.map((invocation) => [invocation.id, invocation.positional]);
+		const silentBack = neighbours.filter((id) => byId.get(id)?.related.includes('ticket') !== true);
+
+		expect(ticket).toEqual(expect.objectContaining({ id: 'ticket', cli: 'lightsout ticket', group: 'build', records: 'plans' }));
+		expect(ids[ids.indexOf('ticket') + 1]).toBe('ticket-state');
+		expect(shapes).toStrictEqual([
+			['ticket-add-plan', 'add-plan'],
+			['ticket-adopt', 'adopt'],
+			['ticket-mode', 'mode'],
+			['ticket-request-ship', 'request-ship'],
+			['ticket-exclude-plan', 'exclude-plan'],
+			['ticket-retitle-plan', 'retitle-plan'],
+			['ticket-show', 'show'],
+			['ticket-sync', 'sync'],
+		]);
+		expect([...(ticket?.related ?? [])].sort()).toStrictEqual([...neighbours].sort());
+		expect(silentBack).toStrictEqual([]);
+	});
+
 	test('gives ticket-state one required reference and three optional flags, since a tracker write with no ticket has no subject', () => {
 		const { byId } = setupCatalog();
 		const flags = byId.get('ticket-state')?.flags.map((flag) => [flag.name, flag.value, flag.required]);
@@ -279,78 +305,6 @@ describe('commandCatalog', () => {
 
 		expect(trackerStatus?.meaning).toEqual(expect.stringMatching(/\bready\b.*\bin-progress\b/));
 		expect(trackerStatus?.meaning).toEqual(expect.stringMatching(/[Dd]one is not among them/));
-	});
-
-	test('tells the reader what a bare --watch follows, now that it no longer takes the most recently updated run', () => {
-		const { byId } = setupCatalog();
-		const watch = byId.get('status')?.flags.find((flag) => flag.name === 'watch');
-
-		expect(watch?.meaning).toEqual(expect.stringMatching(/[Ww]ithout --run it follows the one run that is going/));
-		expect(watch?.meaning).toEqual(expect.stringMatching(/several .*runs are going.*--run <id>/));
-		expect(watch?.meaning).not.toEqual(expect.stringMatching(/newest/i));
-	});
-
-	test('states the same rule on the status-run invocation note, which is the line the usage text prints', () => {
-		const { byId } = setupCatalog();
-		const note = byId.get('status')?.invocations.find((invocation) => invocation.id === 'status-run')?.note;
-
-		expect(note).toEqual(expect.stringMatching(/without --run it follows the one run that is going/));
-		expect(note).not.toEqual(expect.stringMatching(/newest/i));
-	});
-
-	test('gives status --planning its own invocation, with a required <name> flag shaped to it', () => {
-		const { byId } = setupCatalog();
-		const invocationIds = byId.get('status')?.invocations.map((invocation) => invocation.id) ?? [];
-		const planning = byId.get('status')?.flags.find((flag) => flag.name === 'planning');
-
-		const accepted = readCommandFlags({ command: 'status' });
-
-		expect(invocationIds[invocationIds.indexOf('status-run') + 1]).toBe('status-planning');
-		expect(planning).toEqual(expect.objectContaining({ name: 'planning', value: '<name>', shape: 'status-planning', required: true }));
-		expect(accepted.has('planning')).toBe(true);
-	});
-
-	test('gives status a shipping shape whose --shipping flag is required and belongs to that shape alone', () => {
-		const { byId } = setupCatalog();
-		const status = byId.get('status');
-
-		const invocationIds = status?.invocations.map((invocation) => invocation.id) ?? [];
-		const shippingInvocation = status?.invocations.find((invocation) => invocation.id === 'status-shipping');
-		const shipping = status?.flags.find((flag) => flag.name === 'shipping');
-		const shapedToShipping = status?.flags.filter((flag) => flag.shape === 'status-shipping').map((flag) => flag.name);
-
-		expect(invocationIds).toEqual(expect.arrayContaining(['status', 'status-run', 'status-shipping']));
-		expect(shippingInvocation?.note?.trim()).toEqual(expect.stringMatching(/\S/));
-		expect(shipping).toEqual(expect.objectContaining({ name: 'shipping', value: '<branch>', shape: 'status-shipping', required: true }));
-		expect(shapedToShipping).toStrictEqual(['shipping']);
-	});
-
-	test('status offers --queue as its own invocation, with --run beside it and --watch kept off it', () => {
-		const { byId } = setupCatalog();
-		const status = byId.get('status');
-
-		const invocationIds = status?.invocations.map((invocation) => invocation.id) ?? [];
-		const shapedToQueue = status?.flags.filter((flag) => flag.shape === 'status-queue').map((flag) => [flag.name, flag.value, flag.required]);
-		const watch = status?.flags.find((flag) => flag.name === 'watch');
-
-		expect(invocationIds).toEqual(expect.arrayContaining(['status-queue']));
-		expect(shapedToQueue).toStrictEqual([
-			['queue', undefined, true],
-			['run', '<id>', false],
-		]);
-		expect(watch?.shape).toBe('status-run');
-	});
-
-	test('tells the reader a bare --queue waits for the live queue run the run lock names, and gives the required --queue no fallback', () => {
-		const { byId } = setupCatalog();
-		const shapedToQueue = byId.get('status')?.flags.filter((flag) => flag.shape === 'status-queue') ?? [];
-
-		const fallbacks = shapedToQueue.map((flag) => [flag.name, flag.fallback]);
-
-		expect(fallbacks).toEqual([
-			['queue', undefined],
-			['run', expect.stringMatching(/live queue run.*run lock.*up to a minute/)],
-		]);
 	});
 
 	test('says a resumed run returns to the workspace it recorded, and that a direct run is continued here rather than re-run from its ticket', () => {
@@ -407,7 +361,7 @@ describe('commandCatalog', () => {
 
 	test('pairs the self-check with every other Build command in both directions', () => {
 		const { byId } = setupCatalog();
-		const neighbours = ['brainstorm', 'plan', 'auto-plan', 'implement', 'implement-direct', 'resume', 'ship', 'queue', 'ticket-state'];
+		const neighbours = ['brainstorm', 'plan', 'auto-plan', 'implement', 'implement-direct', 'resume', 'ship', 'queue', 'ticket', 'ticket-state'];
 
 		const named = [...(byId.get('self-check')?.related ?? [])].sort();
 		const silentBack = neighbours.filter((id) => byId.get(id)?.related.includes('self-check') !== true);

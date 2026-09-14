@@ -96,7 +96,7 @@ Completing the task is not enough. Agents should leave the repository better tha
    repository carries:
 
    ```markdown
-   One ticket = one branch = one PR — follow the `ticket-workflow` skill, with `linear-ticket` or `jira-ticket` for tracker mechanics.
+   One ticket = one branch = one PR, and a ticket folder holds its plans — follow the `ticket-workflow` skill, with `linear-ticket` or `jira-ticket` for tracker mechanics.
    ```
 
    The command examples below use Claude Code's slash-command form. In Codex,
@@ -146,6 +146,8 @@ Design before you build. `/brainstorm` turns a rough idea into a clear direction
 
 Once the direction is settled, it decides its own outcome: ready to implement, when it can name every file that changes and nothing is left open, or ready to auto-plan otherwise. Both outcomes save the same two things — the design write-up, and the list of decisions that were settled, in a form the planning skills honor — and both publish those files to the ticket with `lightsout brainstorm publish`, so a fresh machine can read them.
 
+On a ticket, the brainstorm works in one plan of that ticket's folder — the plan still waiting to be planned, or a new one it adds — and publishes under that plan's own attachment titles, so it never touches what another plan of the ticket settled.
+
 ```text
 /brainstorm add rate limiting to the public API
 ```
@@ -173,12 +175,32 @@ marker written last. Transcripts and other run state stay local. Publishing
 again replaces each same-titled attachment, so an amended plan can be published
 safely without creating duplicate attachments under those names.
 
+Naming the plan by its address — `<ticket-branch>/<NNN-slug>` — publishes it
+under its own plan id instead: every title becomes `<plan-id>--<file name>`,
+with a `<plan-id>--plan-attachments.json` marker whose entries keep the bare
+file names. Publishing one plan never lists, replaces or reports another plan's
+attachments. `brainstorm-notes.md` is left to that plan's brainstorm generation,
+which is published first whenever the notes on disk are not the bytes its marker
+commits, and the ticket's own record is published beside them as `ticket.json`.
+A folder named after its branch alone keeps bare titles and no record.
+
 A brainstorm publishes its own record the same way: `lightsout brainstorm
 publish --name <name>` attaches `brainstorm-notes.md` and
 `brainstorm-decisions.json` plus a `brainstorm-attachments.json` integrity
 marker written last, under its own title so it never collides with the plan's
-generation. `lightsout plan verify-facts` fetches both files back into the plan
-folder, so planning on a fresh machine starts from what the brainstorm settled.
+generation. Under a plan address those titles carry the plan id prefix too, and
+`brainstorm-decisions.json` is optional there — a plan of a ticket may be shaped
+by a brainstorm that settled no decision of its own. `lightsout plan
+verify-facts` fetches the brainstorm back into the plan folder, so planning on a
+fresh machine starts from what the brainstorm settled.
+
+A ticket can hold several plans. Its record says which mode it is in — single-plan,
+where plan 001 alone supplies the implementation, or multiple-plan, where the
+plans implement in numeric order on the one branch — seeded by
+`plan.default-ticket-mode` when the record is created. Plans are created and
+changed through `lightsout ticket`, never by hand, and a multiple-plan ticket
+ships only once a human's ship request is satisfied. The `ticket-workflow` skill
+is where those rules live; [`lightsout ticket`](#lightsout-ticket) is the command.
 
 [![How /plan turns a request into an implementation-ready spec](assets/plan-workflow-light.svg)](assets/plan-workflow-light.svg)
 
@@ -232,7 +254,7 @@ a pause, and nothing is printed about waiting.
 
 A run builds in its own git worktree by default, not in the checkout you
 started it from, so your working copy stays free for the whole run and nothing
-else in that tree is swept into the commit. The branch comes from the plan
+else in that tree is swept into the commit. The branch comes from the ticket
 folder's name, or from the repository's configured branch template for a
 ticket — never from whatever branch you happen to be standing on. The tree is
 placed beside the repository in the same sibling directory the queue uses, cut
@@ -257,6 +279,13 @@ the checkout you launched from before the shipped tree is cleaned up. Pass
 `--no-worktree`, or set `plan.worktree` to false, to plan in the launching
 checkout deliberately.
 
+When the name is a plan address — `<ticket-branch>/<NNN-slug>` — the tree is
+the ticket branch's, so a later plan of the same ticket continues in it and is
+researched against the implementation already there. That continuation is
+refused while a live run holds the tree, naming the run. The whole ticket
+folder, every plan in it, is copied back to your checkout before a shipped tree
+is cleaned up.
+
 A finished plan is not stuck on the machine that wrote it. `/implement` looks
 for the plan folder on local disk first. When a ticket-named folder is absent,
 it fetches that ticket's durable plan attachments and reconstructs the folder,
@@ -265,6 +294,33 @@ integrity marker must name a complete generation and match every file's hash;
 an interrupted or mixed publish is refused without leaving a partial folder.
 It never restores transcripts or other run state. If neither source can supply
 a plan, the run stops with one message naming both places it looked.
+
+For a plan address the ticket's own record is settled first — written into the
+primary checkout as `ticket.json` — and then that plan's prefixed generation is
+restored into its folder. A record that moved both here and on the ticket is
+never overwritten: the published copy is saved beside it as
+`ticket.published.json`, and `lightsout ticket sync --name <ticket-branch>
+--keep local` or `--keep published` says which copy wins. A plan folder that
+gives way to a restore is renamed aside, never deleted. Publishing and restoring
+move planning records only — implementation commits still travel by `git push`
+and `git fetch`.
+
+A run of a plan inside a ticket folder is checked against that ticket's record
+before any tree is cut and before the tracker is told the ticket has started. A
+plan whose lower-numbered sibling's implementation has not finished, a plan taken
+out of the ticket's work, a plan other than 001 of a single-plan ticket, and a
+plan already implemented are each refused in one sentence naming the plan in the
+way and the command that resolves it. A run that does go ahead records the plan
+as being implemented under the run's own id and the commit it started from, and
+records what the run ended as — implemented with a snapshot of the plan's files,
+or failed. A run of one phase file alone does not finish the plan's
+implementation, and says so.
+
+Shipping follows the ticket too. A multiple-plan ticket ignores `--ship` and
+`ship.after-implement`: it chains into ship exactly when this run satisfies the
+ship request a human asked for, and otherwise prints the one sentence saying what
+it is still waiting for and exits on the run's own result. A single-plan ticket,
+and a branch with no ticket record, chain exactly as they always have.
 
 [![How /implement turns the spec into verified code](assets/implement-workflow-light.svg)](assets/implement-workflow-light.svg)
 
@@ -302,6 +358,16 @@ With no `--run`, `--watch` follows the one run that is going — a phased plan's
 
 Take a committed branch from where it stands to merged and cleaned up. `lightsout ship` merges the remote default branch into it, prepares the release with your own pre-ship command, runs your own gates against the result, commits what passed, pushes the branch, opens or adopts the pull request, waits for that commit's checks, merges, deletes the branch and syncs the default branch — then writes one JSON result a tracker skill can read. Nothing is committed or pushed before your gates are green: a merge conflict or a red gate gets a bounded agent recovery, and when that runs out the branch is put back exactly where ship found it. A merge the forge refuses because the default branch moved on, and a check that fails on the commit ship pushed, each earn another complete attempt; there are at most three per invocation. While it runs, ship also records each step's progress beside its result, and `lightsout status --shipping <branch>` reads it.
 
+A branch whose ticket has a record merges only when that record authorizes it:
+a single-plan ticket once plan 001 is implemented, a multiple-plan ticket once an
+explicit ship request naming its included plans is satisfied. The record is asked
+before anything is pushed and again immediately before the merge, so a plan added
+to the ticket while its checks were running still stops it. A refusal is a blocked
+result with reason `ticket-not-authorized` and one sentence saying what the ticket
+is waiting for, and nothing reaches the remote. A branch with no ticket record
+ships exactly as it always has. How a human files that request is the
+`ticket-workflow` skill's `### Ship requests`.
+
 It has no slash command of its own. Its house conventions — the branch pattern that carries a ticket reference, the pull request body, the merge method, and whether a passed `/implement` run chains straight into it — live in the `ship` config block. See [Configuration](docs/configuration.md).
 
 ```text
@@ -326,6 +392,44 @@ names those roles resolve to live in the `queue` config block. See
 lightsout ticket-state --ref LO-88 --planning-status planning-complete --tracker-status ready
 ```
 
+### lightsout ticket
+
+A ticket owns one branch and a record of the numbered plans on it. Each plan is
+addressed as the ticket's branch and the plan's id joined by a slash —
+`lo-140-multi/002-queue-order` — and that address is what every `plan`
+subcommand and `implement` are given. The record itself,
+`.lightsout/plans/<ticket-branch>/ticket.json`, holds the ticket's mode, its
+plans and how far each one's implementation has got, any plan taken out of that
+work, and the request to ship.
+
+`add-plan` starts the next plan and prints its address. `adopt` turns a folder
+shaped before ticket records existed into plan 001, moving its files into the
+plan's own folder and leaving them otherwise untouched. `mode` moves the ticket
+between single-plan — plan 001 alone supplies the implementation, and this
+repository's automatic shipping applies — and multiple-plan, where the plans
+implement in numeric order on the one branch; a switch back to single-plan is
+previewed first and only made with `--approve`, because it excludes every later
+plan. `request-ship` is how a human declares a multiple-plan ticket finished,
+and it must name every plan the ticket still includes; `--withdraw` takes it
+back. `exclude-plan` takes one plan out of the ticket's work for good — a plan
+whose implementation started is only excluded on a branch this repository's own
+gates have just passed on — and `retitle-plan` changes only what a plan is
+called, never its id, its folder or a pending request. `show` reads the record,
+and `sync` settles one that moved on two machines at once.
+
+Every change is published to the ticket when a `ticket-tracker` block is
+configured, so another machine restores the ticket's settings and its plans;
+implementation commits travel by `git push` and `git fetch` as they always did.
+A plan folder with no record keeps working exactly as it did before. For what
+`ship.after-implement` means to a single-plan ticket, see the `ship` block in
+[Configuration](docs/configuration.md).
+
+```text
+lightsout ticket add-plan --name lo-140-multi --slug queue-order
+lightsout ticket mode --name lo-140-multi --set multiple-plan
+lightsout ticket request-ship --name lo-140-multi --plans 001-record,002-queue-order
+```
+
 ### lightsout queue
 
 Drain the backlog lights-out. `lightsout queue` reads the configured Linear team
@@ -337,13 +441,17 @@ The planning-status label is how a human opts a ticket in, and the pair names th
 
 Each ticket gets a fresh worktree cut from the default branch, the config's `setup` command, and a harness run, with up to `max-parallel` tickets in flight at once — a budget the merge lane shares. The queue moves a ticket to In Progress before its worker touches source and to Done once a merge is confirmed, and it reconciles a ticket whose branch already merged rather than building it again. A ticket blocked by another ticket that is not finished is not picked up: it is left behind with the blocker named. Building and merging run at the same time: a finished branch is merged as soon as a slot is free, rather than waiting for unrelated builds it has nothing to do with. Merges are still taken one at a time, and the shared ship sequence is what brings the tip of the default branch into each branch and re-runs the gates before it goes in — the same preparation every shipping path gets. Every merge re-reads the tracker so the tickets it just unblocked join the run already in flight — a chain of dependent tickets ships in order, in one run. It stops when a re-read finds nothing new.
 
-When a worker hits a question only a human can answer, the queue relays it: to your terminal by default, or — with `--file-relay` — to a mailbox the `queue` skill watches from a Claude Code or Codex session, so you can keep working and answer when asked. A question nobody answers parks its ticket after `question-timeout`; a later run picks parked work back up, worktree and all. A worktree whose ticket a human already closed is never resumed: if its branch merged, the ticket is reconciled to Done, and if it did not, the worktree is reported and left in place because it may hold work nobody has merged. The queue writes down where each branch stands — still being built, finished and waiting to merge, or already merged — so a later run picks the work back up as what it actually is, and never rebuilds a branch that is already finished or merges one twice.
+When a worker hits a question only a human can answer, the queue relays it: to your terminal by default, or — with `--file-relay` — to a mailbox the `queue` skill watches from a Claude Code or Codex session, so you can keep working and answer when asked. A question nobody answers parks its ticket after `question-timeout`; a later run picks parked work back up, worktree and all. A worktree whose ticket a human already closed is never resumed: if its branch merged, the ticket is reconciled to Done, and if it did not, the worktree is reported and left in place because it may hold work nobody has merged. The queue writes down where each branch stands — still being built, finished and waiting to merge, left open, or already merged — so a later run picks the work back up as what it actually is, and never rebuilds a branch that is already finished or merges one twice.
+
+A ticket that owns several plans has the plans that are ready to implement built one at a time, lowest number first, each committed as its own commit — so a later plan is built on what the plans before it left, and any one plan's implementation can be taken out again by its own commit. A lower plan somebody is still planning holds the plans after it back. A plan whose implementation failed, or whose implementation has not finished, parks the ticket naming that plan, `lightsout resume` to finish it and `lightsout ticket exclude-plan` to take it out of the order — the queue repairs neither itself.
+
+A ticket with several plans that nothing has yet approved shipping is left open rather than parked: it takes no parked label, keeps its tracker status and keeps its worktree, and a later run picks it up again to build whichever plans have since become ready to implement, or to ship it once its ship request is satisfied. For an auto-plan ticket the engine chooses which plan the session writes — the lowest plan still being planned, or a new plan 001 when the ticket has no plans yet.
 
 A hold is the stronger case. Only one gate run at a time may use the machine across all of a repository's worktrees, and a run whose gates never got it within the wait ceiling stops without judging the code: no gate command ran, so nothing about the code failed. Its worktree and every commit in it are left exactly as they are, and the ticket is put on hold — recorded as the `queue-blocked-gate-timed-out` label beside the parked one. Neither a later `lightsout queue` run nor `lightsout resume` will take that ticket while the label stands. Removing the label from the ticket is what releases it; the queue never removes it for you.
 
 When the queue ends it prints a final board, headed as finished, with every ticket in the column it ended in, and then its per-ticket report. With the `queue` skill, the conversation also gets a board at launch and a `lightsout status --queue` update every ten minutes while the queue drains. A queue held in a terminal prints no periodic board; run `lightsout status --queue` for one.
 
-Exit codes carry the whole story: `0` — everything eligible shipped; `2` — work remains that a re-run picks up (parked or left-behind tickets); `1` — the queue refused to start, and the message says why.
+Exit codes carry the whole story: `0` — everything eligible shipped; `2` — work remains that a re-run picks up (parked or left-behind tickets), which a ticket left open is not, because it waits on a human decision rather than on a re-run; `1` — the queue refused to start, and the message says why.
 
 It needs two blocks in `lightsout.config.json`: `ticket-tracker` holds the
 provider-specific connection and names its credential environment variables;

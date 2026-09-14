@@ -29,12 +29,14 @@ interface CreateParams {
 }
 
 const mockCreateWorktree = jest.fn<(params: CreateParams) => Promise<string | WorktreeFailure>>();
+const mockPrepareTicketBranch = jest.fn<(params: { cwd: string; branch: string }) => Promise<{ startPoint?: string } | WorktreeFailure>>();
 const mockReadBranchWorktree = jest.fn<(params: { cwd: string; branch: string }) => Promise<string | undefined>>();
 const mockReadWorktreeRecord = jest.fn<(params: { cwd: string; branch: string }) => Promise<WorktreeRecord | undefined>>();
 const mockResolveWorktreePath = jest.fn<(params: { cwd: string; branch: string }) => Promise<string>>();
 
 jest.mock('#src/worktree/index.ts', () => ({
 	createWorktree: (params: CreateParams) => mockCreateWorktree(params),
+	prepareTicketBranch: (params: { cwd: string; branch: string }) => mockPrepareTicketBranch(params),
 	readBranchWorktree: (params: { cwd: string; branch: string }) => mockReadBranchWorktree(params),
 	readWorktreeRecord: (params: { cwd: string; branch: string }) => mockReadWorktreeRecord(params),
 	resolveWorktreePath: (params: { cwd: string; branch: string }) => mockResolveWorktreePath(params),
@@ -120,6 +122,83 @@ const setupWorkspace = async ({
 	return { context: { flags: parseFlags({ args }), rest: args, cwd }, sourceCwd, tree, sourcePlanDir, ...captured };
 };
 
+/**
+ * The same launching checkout, running `plan workspace` for a plan addressed
+ * inside its ticket folder — `lo-7-search/002-ranking`, whose plan folder is the
+ * only thing the checkout holds.
+ *
+ * Nothing holds the ticket branch and no ownership record names it, so the
+ * command cuts a fresh tree, and the ticket branch needs no move, so the branch
+ * preparation answers no start point of its own.
+ */
+const setupTicketPlanWorkspace = async () => {
+	const captured = captureCommandOutput();
+	const root = await realpath(await freshCwd());
+	const sourceCwd = join(root, 'launching-checkout');
+	const tree = join(root, 'launching-checkout-worktrees', 'lo-7-search');
+	const sourcePlanDir = join(sourceCwd, '.lightsout', 'plans', 'lo-7-search', '002-ranking');
+
+	await mkdir(sourcePlanDir, { recursive: true });
+	await writeFile(join(sourceCwd, 'lightsout.config.json'), JSON.stringify({ gates, worktree: { setup: setupCommand } }));
+	await writeFile(join(sourcePlanDir, 'brainstorm-notes.md'), '# Brainstorm notes\n');
+	await writeFile(join(sourcePlanDir, 'brainstorm-decisions.json'), '{"decisions":[]}\n');
+
+	mockResolveWorktreePath.mockResolvedValue(tree);
+	mockReadBranchWorktree.mockResolvedValue(undefined);
+	mockReadWorktreeRecord.mockResolvedValue(undefined);
+	mockPrepareTicketBranch.mockResolvedValue({});
+	mockReadGitHeadCommit.mockResolvedValue(launchingHead);
+	// The cut itself: git would make the directory, so the mock does.
+	mockCreateWorktree.mockImplementation(async () => {
+		await mkdir(tree, { recursive: true });
+
+		return tree;
+	});
+
+	const args = ['workspace', '--name', 'lo-7-search/002-ranking'];
+
+	return { context: { flags: parseFlags({ args }), rest: args, cwd: sourceCwd }, sourceCwd, tree, ...captured };
+};
+
+/**
+ * The same launching checkout and plan address, with a tree already standing at
+ * the TICKET branch's path — the tree an earlier plan of this ticket was
+ * planned and built in.
+ *
+ * `owner` is what that tree's ownership record names. `heldBy` plants a live
+ * run lock inside it, this process's own pid being the one lock a test can
+ * prove alive, which is what says a run is still editing the tree rather than
+ * having finished with it.
+ */
+const setupStandingTicketTree = async ({ owner, heldBy }: { owner: WorktreeOwner; heldBy?: string }) => {
+	const captured = captureCommandOutput();
+	const root = await realpath(await freshCwd());
+	const sourceCwd = join(root, 'launching-checkout');
+	const tree = join(root, 'launching-checkout-worktrees', 'lo-7-search');
+	const sourcePlanDir = join(sourceCwd, '.lightsout', 'plans', 'lo-7-search', '002-ranking');
+
+	await mkdir(sourcePlanDir, { recursive: true });
+	await mkdir(tree, { recursive: true });
+	await writeFile(join(sourceCwd, 'lightsout.config.json'), JSON.stringify({ gates }));
+	await writeFile(join(sourcePlanDir, 'brainstorm-notes.md'), '# Brainstorm notes\n');
+	await writeFile(join(sourcePlanDir, 'brainstorm-decisions.json'), '{"decisions":[]}\n');
+
+	if (heldBy !== undefined) {
+		await mkdir(join(tree, '.lightsout'), { recursive: true });
+		await writeFile(join(tree, '.lightsout', 'lock.json'), JSON.stringify({ pid: process.pid, runId: heldBy, startedAt: '2026-09-11T09:00:00.000Z' }));
+	}
+
+	mockResolveWorktreePath.mockResolvedValue(tree);
+	mockReadBranchWorktree.mockResolvedValue(tree);
+	mockReadWorktreeRecord.mockResolvedValue({ branch: 'lo-7-search', owner, worktreePath: tree, createdAt: '2026-09-01T09:00:00.000Z' });
+	mockPrepareTicketBranch.mockResolvedValue({});
+	mockReadGitHeadCommit.mockResolvedValue(launchingHead);
+
+	const args = ['workspace', '--name', 'lo-7-search/002-ranking'];
+
+	return { context: { flags: parseFlags({ args }), rest: args, cwd: sourceCwd }, sourceCwd, tree, ...captured };
+};
+
 /** The files a plan folder holds, read back by name. */
 const readPlanFolder = async ({ dir }: { dir: string }) => ({
 	notes: await readFile(join(dir, 'brainstorm-notes.md'), 'utf8'),
@@ -197,6 +276,50 @@ describe('planCommand', () => {
 		expect(errors).toEqual([expect.stringContaining(join(tree, '.lightsout', 'plans', name))]);
 		expect(logged).not.toContain(tree);
 		expect(original).toStrictEqual({ notes: '# Brainstorm notes\n', decisions: '{"decisions":[]}\n' });
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test("a plan address cuts its tree on the ticket branch and stocks it with that plan's folder", async () => {
+		const { context, sourceCwd, tree, logged, errors, exitCodes } = await setupTicketPlanWorkspace();
+
+		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
+
+		const stocked = await readPlanFolder({ dir: join(tree, '.lightsout', 'plans', 'lo-7-search', '002-ranking') });
+		// the tree and the branch it stands on are the ticket folder's, never the plan address
+		expect(mockResolveWorktreePath).toHaveBeenCalledWith({ cwd: sourceCwd, branch: 'lo-7-search' });
+		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch: 'lo-7-search', owner: 'plan' }));
+		// one announcement naming the tree and its branch, then the path alone
+		expect(logged).toEqual([expect.stringContaining(tree), tree]);
+		expect(logged[0]).toMatch(/branch: lo-7-search$/);
+		expect(stocked).toStrictEqual({ notes: '# Brainstorm notes\n', decisions: '{"decisions":[]}\n' });
+		expect(errors).toStrictEqual([]);
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('a later plan continues in the ticket tree an implementation run owns, and is stocked there', async () => {
+		const { context, tree, logged, errors, exitCodes } = await setupStandingTicketTree({ owner: 'implement' });
+
+		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
+
+		const stocked = await readPlanFolder({ dir: join(tree, '.lightsout', 'plans', 'lo-7-search', '002-ranking') });
+		// the tree an earlier plan's run adopted is where the next plan belongs, so
+		// nothing is cut and the path is answered as it stands
+		expect(mockCreateWorktree).not.toHaveBeenCalled();
+		expect(logged.at(-1)).toBe(tree);
+		expect(stocked).toStrictEqual({ notes: '# Brainstorm notes\n', decisions: '{"decisions":[]}\n' });
+		expect(errors).toStrictEqual([]);
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('refuses a later plan while a live run holds the ticket tree, naming the run and printing no path', async () => {
+		const { context, tree, logged, errors, exitCodes } = await setupStandingTicketTree({ owner: 'plan', heldBy: 'run-ranking-in-flight' });
+
+		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(errors).toEqual([expect.stringContaining(tree)]);
+		expect(errors).toEqual([expect.stringContaining('run-ranking-in-flight')]);
+		expect(errors).toEqual([expect.stringContaining('--no-worktree')]);
+		expect(logged).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([1]);
 	});
 });

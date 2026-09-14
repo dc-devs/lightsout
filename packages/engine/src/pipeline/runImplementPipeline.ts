@@ -48,6 +48,8 @@ interface Params {
 	cwd: string;
 	driver: Driver;
 	config: LightsoutConfig;
+	/** The id a fresh run is created under, minted by the caller so the run can be named before it starts. Ignored when resuming. */
+	runId?: string;
 	/** Plan path for a fresh run. Ignored when resuming (the manifest owns it). */
 	planPath?: string;
 	/** Optional overview plan path (high-level context for a phased plan). Ignored when resuming. */

@@ -21,7 +21,12 @@ export const planCatalogEntry: CommandCatalogEntry = {
 		{ id: 'plan-publish', positional: 'publish' },
 	],
 	flags: [
-		{ name: 'name', value: '<name>', meaning: 'The plan workspace to work in, under .lightsout/plans/.', required: true },
+		{
+			name: 'name',
+			value: '<name>',
+			meaning: 'The plan to work in, under .lightsout/plans/ — a plan address <ticket-branch>/<NNN-slug>, or a legacy folder name.',
+			required: true,
+		},
 		{
 			name: 'notes',
 			value: '<path>',
@@ -62,7 +67,7 @@ export const planCatalogEntry: CommandCatalogEntry = {
 		},
 		{
 			name: 'worktree',
-			meaning: 'Plan in a fresh git worktree of this repository, on a branch named after the plan.',
+			meaning: 'Plan in a fresh git worktree of this repository, on a branch named after the plan’s ticket folder.',
 			fallback: 'The `plan.worktree` config key, which defaults to on.',
 			required: false,
 		},
@@ -70,7 +75,7 @@ export const planCatalogEntry: CommandCatalogEntry = {
 	],
 	steps: planSteps,
 	records: CommandRecordKind.Plans,
-	related: ['auto-plan', 'brainstorm', 'implement', 'resume', 'ship', 'implement-direct', 'queue', 'ticket-state', 'self-check'],
+	related: ['auto-plan', 'brainstorm', 'implement', 'resume', 'ship', 'implement-direct', 'queue', 'ticket', 'ticket-state', 'self-check'],
 	graphic: {
 		title: 'How /plan turns a request into an implementation-ready spec',
 		subtitle: 'Final spec and every decision recorded before any code is written.',

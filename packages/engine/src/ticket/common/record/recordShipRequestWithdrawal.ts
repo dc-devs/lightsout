@@ -1,0 +1,23 @@
+import { TicketEventKind, type TicketRecord } from '#src/contracts/index.ts';
+import { appendTicketEvent } from '#src/ticket/common/record/appendTicketEvent.ts';
+
+interface Params {
+	record: TicketRecord;
+	/** Why the request no longer describes the ticket's work — the sentence the history keeps. */
+	detail: string;
+	at: string;
+}
+
+/**
+ * The record with any pending ship request taken off it, and the withdrawal
+ * recorded.
+ *
+ * A record carrying no request comes back untouched, so every caller calls this
+ * unconditionally rather than each deciding for itself whether there was one to
+ * withdraw. The request that was made stays readable beside its withdrawal,
+ * which is the whole point of recording one rather than replacing the field.
+ */
+export const recordShipRequestWithdrawal = ({ record, detail, at }: Params): TicketRecord =>
+	record.shipRequest === undefined
+		? record
+		: appendTicketEvent({ record: { ...record, shipRequest: undefined }, kind: TicketEventKind.ShipRequestWithdrawn, detail, at });

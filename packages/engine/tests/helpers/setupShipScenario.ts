@@ -13,6 +13,7 @@ import { shipIntegrationFixture } from '#tests/helpers/shipIntegrationFixture.ts
 import { shipScenarioFixtures } from '#tests/helpers/shipScenarioFixtures.ts';
 import { shipScenarioGit } from '#tests/helpers/shipScenarioGit.ts';
 import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
+import { shipTicketGuardFixture } from '#tests/helpers/shipTicketGuardFixture.ts';
 
 const { author, branch, conflictPath, green, greenChecks, mergedCommit, pullRequest } = shipScenarioFixtures;
 const { advanceDefaultBranch, git, gitOut, headOf, remoteTip } = shipScenarioGit;
@@ -197,6 +198,7 @@ export const setupShipScenario = ({
 			cwd,
 			settings: shipSettingsFixture(settings),
 			integration: shipIntegrationFixture({ driver }),
+			ticketGuard: shipTicketGuardFixture(),
 			onProgress: (message: string) => progress.push(message),
 		});
 

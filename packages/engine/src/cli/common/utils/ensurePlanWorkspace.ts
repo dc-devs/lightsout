@@ -1,8 +1,12 @@
 import { copyPlanFolderToPrimary } from '#src/cli/common/implementRun/copyPlanFolderToPrimary.ts';
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
+import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
+import { ticketFolderOf } from '#src/common/planAddress/ticketFolderOf.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { pathExists, planNameFromPath, planWorkspaceDir, readPlanTicketRef, restorePlanWorkspace } from '#src/plan/index.ts';
 import { resolveShipSettings } from '#src/ship/index.ts';
-import { resolveTrackerSettings } from '#src/ticketTracker/index.ts';
+import { findBareTicketFolderRefusal, pullTicketRecord, restoreTicketPlan } from '#src/ticket/index.ts';
+import { resolveTrackerSettings, type TrackerSettings } from '#src/ticketTracker/index.ts';
 import { resolveWorktreePath } from '#src/worktree/index.ts';
 
 interface Params {
@@ -17,16 +21,117 @@ interface Params {
  * The plan's own worktree, and whether the plan folder it holds was copied from
  * there into the launching checkout.
  *
+ * The tree is keyed by the plan's ticket folder, because that is the branch
+ * every plan of one ticket is planned and built on; the folder looked for
+ * inside it is still the one the name addresses.
+ *
  * The tree is only read, and no ownership record is read or required: a folder
  * being there is enough, because this reads a plan rather than choosing a
  * baseline to plan against.
  */
 const recoverFromWorktree = async ({ cwd, name }: { cwd: string; name: string }) => {
-	const tree = await resolveWorktreePath({ cwd, branch: name });
+	const tree = await resolveWorktreePath({ cwd, branch: ticketFolderOf({ name }) });
 	const held = await pathExists({ path: planWorkspaceDir({ cwd: tree, name }) });
 	const failure = held ? await copyPlanFolderToPrimary({ worktree: tree, primary: cwd, name }) : undefined;
 
 	return { tree, held, failure };
+};
+
+interface TicketSource {
+	config: LightsoutConfig;
+	settings: TrackerSettings;
+	/** The ticket reference the folder's name carries, e.g. 'lo-54'. */
+	identifier: string;
+}
+
+/**
+ * Everything needed to ask a ticket for a plan, or the one sentence saying
+ * which part of it this repo does not have.
+ *
+ * Every sentence names the folder that is missing first, because that is the
+ * problem the user is actually looking at; the tracker is only why it could not
+ * be solved for them.
+ */
+const readTicketSource = async ({ cwd, name, dir }: { cwd: string; name: string; dir: string }): Promise<TicketSource | { error: string }> => {
+	// Unguarded: a config the engine cannot parse must fail loudly here, exactly
+	// as it does for every other `implement` step.
+	const config = await readOptionalConfig({ cwd });
+
+	if (config === undefined) {
+		return { error: `no plan at ${dir}, and no plan could be fetched from the ticket: this repo has no lightsout.config.json, so it names no ticket tracker` };
+	}
+
+	const settings = resolveTrackerSettings({ config, env: process.env });
+
+	if ('error' in settings) {
+		return { error: `no plan at ${dir}, and no plan could be fetched from the ticket: ${settings.error}` };
+	}
+
+	const shipSettings = resolveShipSettings({ config });
+
+	if (shipSettings === undefined) {
+		return {
+			error: `no plan at ${dir}, and the ticket to fetch one from cannot be read: ship.ticket-pattern is not a regular expression capturing a 'ticket' group`,
+		};
+	}
+
+	const identifier = readPlanTicketRef({ name, ticketPattern: shipSettings.ticketPattern });
+
+	return identifier === undefined
+		? {
+				error: `no plan at ${dir}, and no plan could be fetched from a ticket: the plan folder name '${name}' carries no ticket id matching this repo's ship.ticket-pattern`,
+			}
+		: { config, settings, identifier };
+};
+
+/**
+ * Settle the ticket's record into this machine, then write the addressed plan's
+ * own generation into its folder.
+ *
+ * The record comes first because it is what says the plan exists at all, and a
+ * record this machine cannot settle — one that moved here and on the ticket —
+ * has to stop the run rather than be worked around: the plan restored under it
+ * could be from either side of the divergence.
+ */
+const fetchTicketPlan = async ({
+	cwd,
+	name,
+	dir,
+	tree,
+	identifier,
+	config,
+	write,
+}: {
+	cwd: string;
+	name: string;
+	dir: string;
+	tree: string;
+	identifier: string;
+	config: LightsoutConfig;
+	write: (line: string) => void;
+}) => {
+	const ticketBranch = ticketFolderOf({ name });
+	const pulled = await pullTicketRecord({ cwd, ticketBranch, config, env: process.env, onProgress: write });
+
+	if ('error' in pulled) {
+		return { error: `no plan at ${dir}, and the ticket record for '${ticketBranch}' could not be settled: ${pulled.error}` };
+	}
+
+	const restored = await restoreTicketPlan({ cwd, address: name, config, env: process.env, onProgress: write });
+
+	if ('error' in restored) {
+		return { error: `no plan at ${dir}, and the plan attachments on ticket ${identifier} could not be restored: ${restored.error}` };
+	}
+
+	if (restored.restored.length === 0) {
+		return {
+			error: `no plan at ${dir} or in the plan's worktree at ${tree}, and ticket ${identifier} carries no attachment for that plan — run \`lightsout plan publish --name ${name}\` from the machine that has the plan`,
+		};
+	}
+
+	write(`lightsout: fetched ${restored.restored.length} plan file(s) from ticket ${identifier} into ${dir}`);
+
+	return undefined;
 };
 
 /**
@@ -34,6 +139,10 @@ const recoverFromWorktree = async ({ cwd, name }: { cwd: string; name: string })
  * the plan's own worktree, or fetching it from the folder's own ticket, when it
  * is not — and answer one sentence naming every place looked when none has a
  * plan.
+ *
+ * A bare name whose ticket folder already has a record is refused before
+ * anything else, disk included: that folder holds a ticket's plans rather than
+ * a plan, so restoring a single-folder generation into it would write over them.
  *
  * Local disk wins outright, which is what lets a repo that commits its plan
  * folders work with no tracker at all: a folder that is already there is never
@@ -62,6 +171,12 @@ export const ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }
 		return undefined;
 	}
 
+	const bare = await findBareTicketFolderRefusal({ cwd, name });
+
+	if (bare !== undefined) {
+		return { error: bare };
+	}
+
 	const dir = planWorkspaceDir({ cwd, name });
 
 	if (await pathExists({ path: dir })) {
@@ -81,37 +196,19 @@ export const ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }
 		return undefined;
 	}
 
-	// Unguarded: a config the engine cannot parse must fail loudly here, exactly
-	// as it does for every other `implement` step.
-	const config = await readOptionalConfig({ cwd });
+	const source = await readTicketSource({ cwd, name, dir });
 
-	if (config === undefined) {
-		return { error: `no plan at ${dir}, and no plan could be fetched from the ticket: this repo has no lightsout.config.json, so it names no ticket tracker` };
+	if ('error' in source) {
+		return source;
 	}
 
-	const trackerSettings = resolveTrackerSettings({ config, env: process.env });
+	const { config, settings, identifier } = source;
 
-	if ('error' in trackerSettings) {
-		return { error: `no plan at ${dir}, and no plan could be fetched from the ticket: ${trackerSettings.error}` };
+	if (parsePlanAddress({ name }) !== undefined) {
+		return fetchTicketPlan({ cwd, name, dir, tree: fromWorktree.tree, identifier, config, write });
 	}
 
-	const shipSettings = resolveShipSettings({ config });
-
-	if (shipSettings === undefined) {
-		return {
-			error: `no plan at ${dir}, and the ticket to fetch one from cannot be read: ship.ticket-pattern is not a regular expression capturing a 'ticket' group`,
-		};
-	}
-
-	const identifier = readPlanTicketRef({ name, ticketPattern: shipSettings.ticketPattern });
-
-	if (identifier === undefined) {
-		return {
-			error: `no plan at ${dir}, and no plan could be fetched from a ticket: the plan folder name '${name}' carries no ticket id matching this repo's ship.ticket-pattern`,
-		};
-	}
-
-	const { restored, error } = await restorePlanWorkspace({ cwd, name, identifier, settings: trackerSettings });
+	const { restored, error } = await restorePlanWorkspace({ cwd, name, identifier, settings });
 
 	if (error !== undefined) {
 		return { error: `no plan at ${dir}, and the plan attachments on ticket ${identifier} could not be restored: ${error}` };

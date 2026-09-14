@@ -1,4 +1,5 @@
 import { basename, extname } from 'node:path';
+import { ticketFolderOf } from '#src/common/planAddress/ticketFolderOf.ts';
 import { headingOf } from '#src/common/utils/headingOf.ts';
 import { renderBranchTemplate } from '#src/common/utils/renderBranchTemplate.ts';
 import { toBranchSlug } from '#src/common/utils/toBranchSlug.ts';
@@ -44,9 +45,11 @@ export const resolveRunBranch = ({ cwd, config, planPath, ticketPath, ticketRef,
 	let branch = '';
 
 	if (planName !== undefined) {
-		// The canonical plan-folder name, character for character: the folder, the
+		// The ticket folder's own name, character for character: the folder, the
 		// branch and the ticket pattern are one chain, and re-slugging breaks it.
-		branch = planName;
+		// For a plan address that folder is the ticket-branch segment, so every
+		// plan of one ticket builds on the one branch.
+		branch = ticketFolderOf({ name: planName });
 	} else if (ticketRef !== undefined) {
 		branch = renderBranchTemplate({ template, ticketRef, title: headingOf({ text: ticketBody ?? '' }) });
 	} else if (input !== undefined) {

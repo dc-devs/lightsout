@@ -5,6 +5,7 @@ import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import { commitDirectRun } from '#src/cli/common/implementRun/commitDirectRun.ts';
 import { finishImplementRun } from '#src/cli/common/implementRun/finishImplementRun.ts';
 import { openDirectWorkspace } from '#src/cli/common/implementRun/openDirectWorkspace.ts';
+import { readBodyBuildPlanName } from '#src/cli/common/implementRun/readBodyBuildPlanName.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import type { RunWorkspace } from '#src/cli/common/types/RunWorkspace.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
@@ -18,6 +19,7 @@ import { runDirectWork } from '#src/direct/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { getRunDir } from '#src/runState/index.ts';
 import { readBranchTicketRef } from '#src/ship/index.ts';
+import { runTicketPlanLifecycle } from '#src/ticket/index.ts';
 import { requireImplementLifecycle } from '#src/ticketLifecycle/index.ts';
 
 /**
@@ -41,6 +43,7 @@ const readRunLabel = async ({ cwd, config }: { cwd: string; config: LightsoutCon
  */
 const buildAndCommit = async ({
 	cwd,
+	planName,
 	ticketBody,
 	ticketRef,
 	driver,
@@ -50,6 +53,8 @@ const buildAndCommit = async ({
 	willShip,
 }: {
 	cwd: string;
+	/** The ticket plan this build implements, when the record says one claims it. */
+	planName: string | undefined;
 	ticketBody: string;
 	ticketRef: string;
 	driver: Driver;
@@ -58,14 +63,69 @@ const buildAndCommit = async ({
 	generated: string[] | undefined;
 	willShip: boolean;
 }) => {
-	const result = await runDirectWork({ cwd, ticketBody, ticketRef, driver, driverName, config, willShip, onProgress: createProgressPrinter() });
+	const build = (runId?: string) =>
+		runDirectWork({ cwd, ticketBody, ticketRef, runId, driver, driverName, config, willShip, onProgress: createProgressPrinter() });
+	// A build no plan claims is the build this command has always run: no
+	// pre-minted id, and nothing written to any record.
+	const outcome = planName === undefined ? { result: await build() } : await runTicketPlanLifecycle({ cwd, name: planName, run: ({ runId }) => build(runId) });
+
+	if ('refusal' in outcome) {
+		return { refusal: outcome.refusal };
+	}
+
+	const { result } = outcome;
+	const recordError = 'recordError' in outcome ? outcome.recordError : undefined;
 	// The run directory travels as a path rather than an id: the checkout the work
 	// is in and the checkout the run's records live in are no longer the same
 	// directory, so only the caller can say where the message file belongs.
 	const runDir = getRunDir({ cwd, runId: result.manifest.runId });
 	const uncommitted = result.ok ? await commitDirectRun({ cwd, ticketBody, ticketRef, runDir, generated, onProgress: createProgressPrinter() }) : undefined;
 
-	return { result, uncommitted };
+	return { result, uncommitted, recordError };
+};
+
+/**
+ * Everything the opened workspace settles before a model is spent: the label the
+ * run and its commit carry, the harness they run under, the pre-source lifecycle
+ * write the branch's ticket owes, and the plan (if any) the ticket record says
+ * this body build is the implementation of.
+ *
+ * They all read the WORKSPACE, because the branch the build happens on is the
+ * one they all answer for, and each refusal leaves before anything is built.
+ *
+ * @returns the run's label, harness and claimed plan, or the one sentence refusing the run
+ */
+const prepareDirectRun = async ({
+	workspace,
+	loaded,
+	flaggedRef,
+}: {
+	workspace: RunWorkspace;
+	loaded: LightsoutConfig;
+	/** `--ref` as typed, or undefined. */
+	flaggedRef: string | undefined;
+}) => {
+	const ticketRef = flaggedRef ?? (await readRunLabel({ cwd: workspace.cwd, config: loaded }));
+	const { config, driver, driverName } = resolveEffectiveConfigAndDriver({ config: loaded, command: 'implement' });
+	// The guard is handed `--ref` itself rather than `ticketRef`, whose
+	// branch-name fallback is a run label rather than a ticket reference. Without
+	// the flag it reads the branch through `readBranchTicketRef`, the same reader
+	// the label above starts from.
+	const refused = await requireImplementLifecycle({
+		cwd: workspace.cwd,
+		config: loaded,
+		env: process.env,
+		ticketRef: flaggedRef,
+		onProgress: createProgressPrinter(),
+	});
+
+	if (refused !== undefined) {
+		return { error: refused };
+	}
+
+	const planName = await readBodyBuildPlanName({ cwd: workspace.cwd, branch: workspace.branch ?? (await readGitCurrentBranch({ cwd: workspace.cwd })) });
+
+	return typeof planName === 'object' ? planName : { ticketRef, config, driver, driverName, planName };
 };
 
 /** The startup line: which checkout the run builds in, on which branch, from which ticket file. */
@@ -115,29 +175,20 @@ export const implementDirectCommand = async ({ flags, cwd }: CommandContext): Pr
 	}
 
 	const { workspace, ticketPath } = opened;
-	const ticketRef = flaggedRef ?? (await readRunLabel({ cwd: workspace.cwd, config: loaded }));
-	const { config, driver, driverName } = resolveEffectiveConfigAndDriver({ config: loaded, command: 'implement' });
-	// The guard is handed `--ref` itself rather than `ticketRef`, whose
-	// branch-name fallback is a run label rather than a ticket reference. Without
-	// the flag it reads the branch through `readBranchTicketRef`, the same reader
-	// the label above starts from.
-	const refused = await requireImplementLifecycle({
-		cwd: workspace.cwd,
-		config: loaded,
-		env: process.env,
-		ticketRef: flaggedRef,
-		onProgress: createProgressPrinter(),
-	});
+	const prepared = await prepareDirectRun({ workspace, loaded, flaggedRef });
 
-	if (refused !== undefined) {
-		console.error(refused);
+	if ('error' in prepared) {
+		console.error(prepared.error);
 		return exitCli({ code: 1 });
 	}
 
+	const { ticketRef, config, driver, driverName, planName } = prepared;
+
 	printDirectRunHeader({ workspace, ticketRef, ticketPath });
 
-	const { result, uncommitted } = await buildAndCommit({
+	const built = await buildAndCommit({
 		cwd: workspace.cwd,
+		planName,
 		ticketBody,
 		ticketRef,
 		driver,
@@ -146,6 +197,17 @@ export const implementDirectCommand = async ({ flags, cwd }: CommandContext): Pr
 		generated: loaded.generated,
 		willShip: shipIntent.willShip,
 	});
+
+	if ('refusal' in built) {
+		console.error(built.refusal);
+		return exitCli({ code: 1 });
+	}
+
+	const { result, uncommitted, recordError } = built;
+
+	if (recordError !== undefined) {
+		console.error(recordError);
+	}
 
 	if (uncommitted !== undefined) {
 		console.error(uncommitted);

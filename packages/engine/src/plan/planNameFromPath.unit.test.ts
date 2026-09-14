@@ -32,3 +32,25 @@ test('planNameFromPath: a path above the plans directory answers undefined rathe
 	expect(planNameFromPath({ cwd, planPath: join('.lightsout', 'runs', 'latest') })).toBe(undefined);
 	expect(planNameFromPath({ cwd, planPath: resolve('/elsewhere/plans/demo') })).toBe(undefined);
 });
+
+test('planNameFromPath: a file inside a plan subfolder of a ticket folder answers the plan address', () => {
+	// the address is spelled with `/` whatever the platform's path separator is,
+	// because it is the `--name` value every plan subcommand takes
+	expect(planNameFromPath({ cwd, planPath: join('.lightsout', 'plans', 'lo-7-search', '001-search-basics', 'plan.md') })).toBe('lo-7-search/001-search-basics');
+});
+
+test('planNameFromPath: a file deeper inside a plan subfolder still answers that plan address', () => {
+	// only the first two segments under the plans directory decide the address,
+	// so a path that walks further into the plan's own files reads the same
+	expect(planNameFromPath({ cwd, planPath: join('.lightsout', 'plans', 'lo-7-search', '001-search-basics', 'decisions', 'log.md') })).toBe(
+		'lo-7-search/001-search-basics',
+	);
+});
+
+test('planNameFromPath: a plan subfolder given without a file answers its plan address', () => {
+	expect(planNameFromPath({ cwd, planPath: join('.lightsout', 'plans', 'lo-7-search', '002-ranking') })).toBe('lo-7-search/002-ranking');
+});
+
+test('planNameFromPath: a subfolder whose name is not a plan id leaves the legacy folder name', () => {
+	expect(planNameFromPath({ cwd, planPath: join('.lightsout', 'plans', 'lo-7-search', 'implemented', 'phase1-search.md') })).toBe('lo-7-search');
+});

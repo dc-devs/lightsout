@@ -169,26 +169,60 @@ stay in the log. Run the sync command afterwards. Never edit
 `brainstorm-decisions.json` — brainstorm owns it, and both rows belong in the
 log.
 
+**The user's latest explicit instruction outranks every record.** When what they
+say now contradicts a settled row, follow them. Record the new answer as a **new**
+row repeating the original row's `question` text verbatim, with a rationale
+naming the instruction and saying which row it supersedes, then run the sync
+command. This sits beside the `file:line` re-open rule above, not in place of it:
+that rule is about what *you* may re-open on your own, and this one is about what
+the user has already decided to change.
+
+**On a ticket holding several plans, an earlier plan's records are context, not
+this plan's settled rows.** Read them for what was built and why, and do not
+harvest their rows into this plan's `decisions.json`. The ticket's own
+`## Decisions` lines still bind every plan of the ticket until they are
+explicitly revised. Where this plan's direction conflicts with what an earlier
+plan settled, surface it to the user rather than deciding it quietly. A change to
+a plan whose implementation is already finished belongs in **this** plan — never
+in an edit to that earlier one.
+
 **This narrows what gets asked, not how hard a step pushes.** Every question
 that is not already settled is still asked, at whatever intensity its step
 calls for. Dropping a settled question is not a licence to drop a hard one.
 
 ## Steps
 
-**0. Name the plan.** A plan folder is named exactly like its branch. When the
-work traces to a ticket and the session is already on that ticket's branch,
-`<name>` is the current branch name verbatim. When it traces to a ticket but
-the session is on another branch, `<name>` is the lowercased ticket id followed
-by a slug of the title — the same string the branch is, whose exact shape is
-the repository's `ship.ticket-pattern` and `queue.branch-template` in its
-`lightsout.config.json`. With no ticket, derive a kebab `<name>` from the
+**0. Name the plan.** **With a ticket**, `<name>` is the plan's address — the
+ticket's branch, a slash and the plan's id. Read what the ticket already holds
+first:
+
+```sh
+node "<plugin-root>/dist/cli.mjs" ticket show --name <ticket-branch>
+```
+
+Then continue the lowest-numbered plan still at `planning`, unless the user says
+this is a separate plan — in which case add one:
+
+```sh
+node "<plugin-root>/dist/cli.mjs" ticket add-plan --name <ticket-branch> --slug <slug> [--title <title>]
+```
+
+and take the address it prints on its last line. What that command refuses, and
+why, is the ticket-workflow skill's `### Adding a plan`. Two questions come
+first, in the Question format: in single-plan mode with plan 001 already there,
+whether to switch the ticket to multiple-plan mode; and on a ticket folder still
+holding files from before ticket records, whether to run `lightsout ticket
+adopt`. Declining the second is fine — planning then carries on in that folder as
+it stands.
+
+**With no ticket**, derive a kebab `<name>` from the
 request (e.g. "add a rate-limit banner" → `rate-limit-banner`), and rename the
-folder to the canonical name when the ticket is filed — see the
+folder to the ticket's branch when the ticket is filed — see the
 ticket-workflow skill's `## Plan folder` section for what a rename also has to
 update, and when it is too late to do one. When the request is a rough-notes
 file path (given by the user, or a `/brainstorm` handoff), read it before
-anything else; when it already lives at `.lightsout/plans/<name>/brainstorm-notes.md`,
-take `<name>` from its folder instead of deriving a new one. Also read
+anything else; when it already lives under the plans directory, take `<name>`
+from the path segments below that directory instead of deriving a new one. Also read
 `.lightsout/plans/<name>/brainstorm-decisions.json` when it exists — its rows
 are decisions already settled with the user. Absent → nothing changes; that is
 the normal path for a plan that started from a direct request. This read is not
@@ -212,6 +246,15 @@ rough-notes path as an absolute one, since it lives in the checkout you started
 from. A nonzero exit is the end of the session — report the sentence it printed
 and stop, never carry on in the launching checkout. The command is safe to
 re-run: a session already standing in the tree is answered the same path.
+
+For a plan address, the tree is the ticket branch's, so a later plan of the
+ticket continues in the tree its earlier plans used and is researched against the
+implementation already on that branch. While a live implementation run holds that
+tree, the command refuses and names the run: report its sentence and stop.
+
+Surface any discrepancy between the ticket text and the user's current direction
+per the ticket-workflow skill's `## Keeping the body true` — and never hold this
+session up waiting on a ticket edit.
 
 **1. Explore (in-context) + verify.** Explore the codebase yourself: read the
 files the request touches, follow the integration points, and note real
@@ -240,8 +283,9 @@ Then run:
 ```sh
 node "<plugin-root>/dist/cli.mjs" plan verify-facts --name <name> [--notes "<path>"]
 ```
-It also fetches both brainstorm files the ticket carries —
-`brainstorm-notes.md` and `brainstorm-decisions.json` — into
+It also fetches this plan's own brainstorm from the ticket —
+`brainstorm-notes.md`, plus `brainstorm-decisions.json` when that brainstorm
+settled anything, so its absence is ordinary rather than a fault — into
 `.lightsout/plans/<name>/` before it reads anything, so a fresh worktree has
 them without the folder having travelled.
 
@@ -553,13 +597,19 @@ node "<plugin-root>/dist/cli.mjs" ticket-state --ref <ticket> --planning-status 
 ```
 
 Publish first, so the durable plan is on the ticket before anything claims the
-ticket is ready to build. Between the two commands, drain the ticket's
-`## Open questions` of every line the shaping answered. Then run `ticket-state`.
-A nonzero exit from either command is a stop: report the exact failure and do
-not print the handoff line below, because a ticket another machine cannot
-recover is not ready for anyone. The rule behind the order is the
+ticket is ready to build. A successful publish is also what moves this plan from
+`planning` to `ready` on the ticket's record. Between the two commands, drain the
+ticket's `## Open questions` of every line the shaping answered. Then run
+`ticket-state`. A nonzero exit from either command is a stop: report the exact
+failure and do not print the handoff line below, because a ticket another machine
+cannot recover is not ready for anyone. The rule behind the order is the
 ticket-workflow skill's `### Publish when the ticket is ready to implement, not
 at close` section.
+
+On a multiple-plan ticket, add one line to the handoff: the ticket stays open
+until the user files a ship request with `lightsout ticket request-ship`, and the
+ticket-workflow skill's `### Ship requests` says what that request has to name.
+Never file one yourself — the user decides the finish line.
 
 With no ticket, skip both commands.
 

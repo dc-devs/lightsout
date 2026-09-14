@@ -12,12 +12,12 @@ import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 const at = '2026-01-01T00:00:00.000Z';
 
 /** The manifest of a run that has just shipped, recording the branch and the workspace its worktree cleanup is decided from. */
-const manifestFor = ({ branch, workspace }: { branch: string; workspace?: string }): RunManifest =>
+const manifestFor = ({ branch, workspace, plan = '.lightsout/plans/demo/plan.md' }: { branch: string; workspace?: string; plan?: string }): RunManifest =>
 	RunManifest.parse({
 		runId: 'run-shipped',
 		createdAt: at,
 		updatedAt: at,
-		plan: '.lightsout/plans/demo/plan.md',
+		plan,
 		harness: 'claude-code',
 		status: 'passed',
 		currentStep: null,
@@ -80,6 +80,26 @@ const setupShippedPlan = async ({ branch, blockPrimary = false }: { branch: stri
 	};
 
 	return { ...shipped, progress, onProgress };
+};
+
+/**
+ * A shipped `implement`-owned tree holding two plan folders of one ticket — the
+ * plan address the run built, and an earlier sibling plan of the same ticket
+ * that this run never touched.
+ *
+ * The primary checkout holds neither, so what reaches it is exactly what the
+ * cleanup saved before the tree came down.
+ */
+const setupShippedTicketPlans = async ({ branch }: { branch: string }) => {
+	const shipped = await setupShippedRun({ branch, owner: WorktreeOwner.Implement });
+	const ticketDir = join(shipped.worktreePath, '.lightsout', 'plans', branch);
+
+	await mkdir(join(ticketDir, '001-basics'), { recursive: true });
+	await writeFile(join(ticketDir, '001-basics', 'plan.md'), '# the first plan\n', 'utf8');
+	await mkdir(join(ticketDir, '002-ranking'), { recursive: true });
+	await writeFile(join(ticketDir, '002-ranking', 'plan.md'), '# the later plan\n', 'utf8');
+
+	return shipped;
 };
 
 describe('removeShippedRunWorkspace', () => {
@@ -151,6 +171,27 @@ describe('removeShippedRunWorkspace', () => {
 
 		expect(existsSync(worktreePath)).toBe(false);
 		expect(await readFile(join(cwd, '.lightsout', 'plans', 'demo', 'plan.md'), 'utf8')).toBe('# graded plan\n');
+	});
+
+	test("saves the whole ticket folder into the primary checkout before a plan address's shipped tree comes down", async () => {
+		const { cwd, worktreePath } = await setupShippedTicketPlans({ branch: 'lo-7-search' });
+
+		await removeShippedRunWorkspace({
+			cwd: worktreePath,
+			manifest: manifestFor({
+				branch: 'lo-7-search',
+				workspace: worktreePath,
+				plan: '.lightsout/plans/lo-7-search/002-ranking/plan.md',
+			}),
+		});
+
+		const savedTicketDir = join(cwd, '.lightsout', 'plans', 'lo-7-search');
+
+		expect(existsSync(worktreePath)).toBe(false);
+		expect(await readFile(join(savedTicketDir, '002-ranking', 'plan.md'), 'utf8')).toBe('# the later plan\n');
+		// The sibling plan the run never built lives in the same tree, and is the
+		// copy that a per-plan save would have deleted with it.
+		expect(await readFile(join(savedTicketDir, '001-basics', 'plan.md'), 'utf8')).toBe('# the first plan\n');
 	});
 
 	test('leaves the shipped tree standing when the plan folder cannot be saved', async () => {

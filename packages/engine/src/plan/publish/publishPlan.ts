@@ -1,15 +1,12 @@
-import { readFile } from 'node:fs/promises';
-import { serializeAttachmentManifest } from '#src/common/attachmentManifest/serializeAttachmentManifest.ts';
-import { messageOf } from '#src/common/utils/messageOf.ts';
+import { sha256 } from '#src/common/utils/sha256.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { durablePlanFileNames } from '#src/plan/common/constants/durablePlanFileNames.ts';
-import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
-import type { DurablePlanFile } from '#src/plan/common/types/DurablePlanFile.ts';
-import { validatePlanAttachmentGeneration } from '#src/plan/common/validatePlanAttachmentGeneration.ts';
+import { attachDurableFiles } from '#src/plan/publish/common/utils/attachDurableFiles.ts';
+import { prepareAttachments } from '#src/plan/publish/common/utils/prepareAttachments.ts';
+import { reportStaleAttachments } from '#src/plan/publish/common/utils/reportStaleAttachments.ts';
 import { durablePlanFiles } from '#src/plan/publish/durablePlanFiles.ts';
 import { readPlanTicketRef } from '#src/plan/readPlanTicketRef.ts';
 import { resolveShipSettings } from '#src/ship/index.ts';
-import { getTicketAttachments, getTicketsByIdentifiers, resolveTrackerSettings, setTicketAttachment, type TrackerSettings } from '#src/ticketTracker/index.ts';
+import { getTicketsByIdentifiers, resolveTrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
 	cwd: string;
@@ -19,6 +16,8 @@ interface Params {
 	/** The process environment the tracker API key is read from. Passed rather than read, so a test never mutates `process.env`. */
 	env: NodeJS.ProcessEnv;
 	onProgress: (message: string) => void;
+	/** The plan id every attachment title is namespaced under; absent for a legacy folder, whose titles stay bare. */
+	titlePrefix?: string;
 }
 
 interface PublishReport {
@@ -30,119 +29,13 @@ interface PublishReport {
 	stale: string[];
 	/** Set when the publish stopped — the one sentence saying why. */
 	error?: string;
+	/**
+	 * SHA-256 of the commit marker's bytes, set only for a prefixed publish in
+	 * which every attachment including the marker landed. A legacy folder has no
+	 * ticket record to record a generation in, so nothing asks for it there.
+	 */
+	markerSha256?: string;
 }
-
-/** The tracker previews an attachment by its content type, and the durable set holds only these two shapes. */
-const contentTypeOf = ({ name }: { name: string }) => (name.endsWith('.json') ? 'application/json' : 'text/markdown');
-
-interface PreparedAttachment {
-	name: string;
-	content: Buffer;
-}
-
-/**
- * Read a complete immutable snapshot before the first outward mutation, then
- * append the manifest that commits exactly those bytes.
- */
-const prepareAttachments = async ({ files }: { files: DurablePlanFile[] }): Promise<{ attachments: PreparedAttachment[] } | { error: string }> => {
-	const durable: PreparedAttachment[] = [];
-
-	for (const file of files) {
-		try {
-			durable.push({ name: file.name, content: await readFile(file.path) });
-		} catch (error) {
-			return { error: `could not read ${file.name} before publishing: ${messageOf({ error })}` };
-		}
-	}
-
-	const refusal = validatePlanAttachmentGeneration({ files: durable.map(({ name, content }) => ({ name, text: content.toString('utf8') })) });
-
-	if (refusal !== undefined) {
-		return refusal;
-	}
-
-	return {
-		attachments: [...durable, { name: planAttachmentManifestName, content: serializeAttachmentManifest({ files: durable }) }],
-	};
-};
-
-/** Attach the prepared snapshot in order, with its manifest last, stopping at the first tracker refusal. */
-const attachDurableFiles = async ({
-	settings,
-	ticketId,
-	ticketRef,
-	attachments,
-	onProgress,
-}: {
-	settings: TrackerSettings;
-	ticketId: string;
-	ticketRef: string;
-	attachments: PreparedAttachment[];
-	onProgress: (message: string) => void;
-}) => {
-	const published: string[] = [];
-
-	for (const attachment of attachments) {
-		const failure = await setTicketAttachment({
-			settings,
-			ticketId,
-			title: attachment.name,
-			content: attachment.content,
-			contentType: contentTypeOf({ name: attachment.name }),
-		});
-
-		// A stopped loop keeps what did land, so a partial publish is visible
-		// rather than silent.
-		if (failure !== undefined) {
-			return { published, error: failure.error };
-		}
-
-		published.push(attachment.name);
-		onProgress(`attached ${attachment.name} to ${ticketRef}`);
-	}
-
-	return { published, error: undefined };
-};
-
-/** Every attachment title on the ticket that names a durable plan file this run did not write. */
-const readStaleTitles = ({ titles, published }: { titles: string[]; published: string[] }) =>
-	titles.filter((title) => !published.includes(title) && (durablePlanFileNames.records.includes(title) || durablePlanFileNames.deliverable.test(title)));
-
-/**
- * Name the durable-titled attachments an earlier publish left on the ticket,
- * and answer with them.
- *
- * The read is advisory: one that did not come back reports itself and answers
- * with nothing, because the files are already on the ticket and a publish that
- * succeeded must not be turned into a reported failure by it.
- */
-const reportStaleAttachments = async ({
-	settings,
-	ticketRef,
-	published,
-	onProgress,
-}: {
-	settings: TrackerSettings;
-	ticketRef: string;
-	published: string[];
-	onProgress: (message: string) => void;
-}) => {
-	const attachments = await getTicketAttachments({ settings, identifier: ticketRef });
-
-	if ('error' in attachments) {
-		onProgress(`could not read ${ticketRef}'s attachment list back: ${attachments.error}`);
-
-		return [];
-	}
-
-	const stale = readStaleTitles({ titles: attachments.map((attachment) => attachment.title), published });
-
-	for (const title of stale) {
-		onProgress(`${title} is a plan file from an earlier publish that this run did not write — it is still on ${ticketRef}, and publish deleted nothing`);
-	}
-
-	return stale;
-};
 
 /**
  * Put a plan folder's durable set on the ticket the folder is named after,
@@ -159,7 +52,7 @@ const reportStaleAttachments = async ({
  * deleting an attachment this run did not write would still be an unattended
  * destructive act on an outward surface.
  */
-export const publishPlan = async ({ cwd, name, config, env, onProgress }: Params): Promise<PublishReport> => {
+export const publishPlan = async ({ cwd, name, config, env, onProgress, titlePrefix }: Params): Promise<PublishReport> => {
 	const durable = await durablePlanFiles({ cwd, name });
 
 	if (durable.error !== undefined) {
@@ -186,7 +79,7 @@ export const publishPlan = async ({ cwd, name, config, env, onProgress }: Params
 		};
 	}
 
-	const prepared = await prepareAttachments({ files: durable.files });
+	const prepared = await prepareAttachments({ files: durable.files, titlePrefix });
 
 	if ('error' in prepared) {
 		return { ticketRef, published: [], stale: [], error: prepared.error };
@@ -210,13 +103,23 @@ export const publishPlan = async ({ cwd, name, config, env, onProgress }: Params
 		return { ticketRef, published: [], stale: [], error: `there is no ${ticketRef} on the configured ticket tracker` };
 	}
 
-	const { published, error } = await attachDurableFiles({ settings, ticketId: ticket.id, ticketRef, attachments: prepared.attachments, onProgress });
+	const { published, error } = await attachDurableFiles({
+		settings,
+		ticketId: ticket.id,
+		ticketRef,
+		attachments: prepared.attachments,
+		onProgress,
+		titlePrefix,
+	});
 
 	if (error !== undefined) {
 		return { ticketRef, published, stale: [], error };
 	}
 
-	const stale = await reportStaleAttachments({ settings, ticketRef, published, onProgress });
+	const stale = await reportStaleAttachments({ settings, ticketRef, published, onProgress, titlePrefix });
+	const marker = prepared.attachments.at(-1);
 
-	return { ticketRef, published, stale };
+	return titlePrefix === undefined || marker === undefined
+		? { ticketRef, published, stale }
+		: { ticketRef, published, stale, markerSha256: sha256({ content: marker.content }) };
 };

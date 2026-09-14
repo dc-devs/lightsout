@@ -20,6 +20,7 @@ const commandIds = [
 	'resume',
 	'ship',
 	'queue',
+	'ticket',
 	'ticket-state',
 	'self-check',
 	'refactor',

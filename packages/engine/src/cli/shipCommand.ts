@@ -6,6 +6,7 @@ import { resolveEffectiveConfigAndDriver } from '#src/cli/common/utils/resolveEf
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { ShipStatus } from '#src/contracts/index.ts';
 import { resolveShipSettings, runShip } from '#src/ship/index.ts';
+import { createTicketShipGuard } from '#src/ticket/index.ts';
 import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
 
 /**
@@ -30,7 +31,15 @@ export const shipCommand = async ({ cwd }: CommandContext): Promise<void> => {
 	// spawns whatever this repository picked for implementing. The ship settings
 	// still come from the config as read — a harness override touches no `ship` key.
 	const { config: effectiveConfig, driver } = resolveEffectiveConfigAndDriver({ config, command: 'implement' });
-	const result = await runShip({ cwd, settings, integration: { config: effectiveConfig, driver }, onProgress: createProgressPrinter() });
+	const result = await runShip({
+		cwd,
+		settings,
+		integration: { config: effectiveConfig, driver },
+		// The branch's own ticket record has the last word on the merge, here as
+		// much as in the queue: a standalone ship is not a way around it.
+		ticketGuard: createTicketShipGuard({ config, env: process.env, onProgress: createProgressPrinter() }),
+		onProgress: createProgressPrinter(),
+	});
 
 	if (result.status === ShipStatus.Shipped) {
 		console.log(`shipped ${result.ticketRef}: pull request #${result.prNumber} merged as ${result.mergeCommit}`);

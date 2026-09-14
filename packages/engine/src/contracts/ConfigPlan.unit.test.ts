@@ -65,4 +65,22 @@ describe('ConfigPlan', () => {
 	test('refuses the planning-worktree switch as a string, rather than reading "false" as on', () => {
 		expect(ConfigPlan.safeParse({ worktree: 'false' }).success).toBe(false);
 	});
+
+	test('accepts either ticket mode as the repository default and adds no key when unsaid', () => {
+		const single = ConfigPlan.parse({ 'default-ticket-mode': 'single-plan' });
+		const multiple = ConfigPlan.parse({ 'default-ticket-mode': 'multiple-plan' });
+		const unsaid = ConfigPlan.parse({ contract: true });
+
+		expect(single).toStrictEqual({ 'default-ticket-mode': 'single-plan' });
+		expect(multiple).toStrictEqual({ 'default-ticket-mode': 'multiple-plan' });
+		expect(Object.hasOwn(unsaid, 'default-ticket-mode')).toBe(false);
+	});
+
+	test('refuses a default ticket mode outside the two modes and its camelCase spelling', () => {
+		const outsideTheModes = ConfigPlan.safeParse({ 'default-ticket-mode': 'multiple' });
+		const camelCase = ConfigPlan.safeParse({ defaultTicketMode: 'single-plan' });
+
+		expect(outsideTheModes.success).toBe(false);
+		expect(camelCase.success).toBe(false);
+	});
 });

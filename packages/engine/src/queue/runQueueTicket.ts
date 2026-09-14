@@ -1,13 +1,12 @@
 import { join } from 'node:path';
-import { readGitCommitsAhead } from '#src/common/git/readGitCommitsAhead.ts';
 import { BranchPhase, type LightsoutConfig, WorktreeOwner } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
-import { commitTicketWork } from '#src/queue/commitTicketWork.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
+import { settleWorkerOutcome } from '#src/queue/common/utils/settleWorkerOutcome.ts';
 import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
 import { runWorkerWithRelay } from '#src/queue/workers/index.ts';
 import { TrackerStatusRole, updateTicketLifecycle } from '#src/ticketLifecycle/index.ts';
@@ -26,6 +25,8 @@ interface Params {
 	driverName: string;
 	/** The default branch, read once by the queue. */
 	defaultBranch: string;
+	/** The process environment the tracker credentials are read from. Passed rather than read, so a test never needs to mutate `process.env`. */
+	env: NodeJS.ProcessEnv;
 	relay: QuestionRelay;
 	/** Queue-owned serializer wrapping every `git worktree add` in the main checkout — one chain built by the drain, shared by all tickets. */
 	serializeWorktreeAdd: <Result>(params: { task: () => Promise<Result> }) => Promise<Result>;
@@ -104,62 +105,7 @@ const claimOwnership = async ({ settings, trackerSettings, ticket }: { settings:
 };
 
 /**
- * The commit step and the branch's verdict after it: ready when the branch
- * carries commits ahead of the default branch, whether or not this session
- * added any.
- *
- * `committed` no longer decides anything — it reports what this commit step
- * did. A branch git cannot count is not a fact worth recording, so that answer
- * parks the ticket and leaves the record where it was.
- */
-const settleBranchReadiness = async ({
-	cwd,
-	worktreePath,
-	branch,
-	defaultBranch,
-	ticket,
-	coordinatorRunDir,
-	generated,
-	onProgress,
-}: {
-	cwd: string;
-	worktreePath: string;
-	branch: string;
-	defaultBranch: string;
-	ticket: RunnableTicket;
-	coordinatorRunDir: string;
-	generated: string[] | undefined;
-	onProgress?: (message: string) => void;
-}) => {
-	const committed = await commitTicketWork({
-		cwd: worktreePath,
-		message: `${ticket.identifier} ${ticket.title}`,
-		runDir: join(coordinatorRunDir, 'tickets', ticket.identifier),
-		generated,
-		onProgress,
-	});
-
-	if ('error' in committed) {
-		return { ready: false, error: committed.error };
-	}
-
-	const ahead = await readGitCommitsAhead({ cwd: worktreePath, defaultBranch });
-
-	if (ahead === undefined) {
-		return { ready: false, error: `git could not count the commits on ${branch}` };
-	}
-
-	if (ahead === 0) {
-		return { ready: false, error: 'the worker left no commits on the branch' };
-	}
-
-	await writeBranchState({ cwd, branch, phase: BranchPhase.Ready, onProgress });
-
-	return { ready: true };
-};
-
-/**
- * One ticket, from pickup to committed-and-ready.
+ * One ticket, from pickup to committed-and-ready, or left open.
  *
  * It deliberately does not ship: the queue merges the ready branches serially,
  * and a worker shipping itself would race that order. The worktree is never
@@ -170,6 +116,11 @@ const settleBranchReadiness = async ({
  * branch — whether or not this session added any — so a resumed ticket whose
  * work was committed by an earlier run is never reported as having changed
  * nothing.
+ *
+ * A worker that left the ticket open is the third answer: every plan it built was
+ * already committed plan by plan, so nothing is committed and no commit is
+ * counted here — the branch is recorded open, which is what makes the next drain
+ * re-evaluate the ticket rather than merge it.
  */
 export const runQueueTicket = async ({
 	cwd,
@@ -180,6 +131,7 @@ export const runQueueTicket = async ({
 	driver,
 	driverName,
 	defaultBranch,
+	env,
 	relay,
 	serializeWorktreeAdd,
 	coordinatorRunId,
@@ -187,6 +139,9 @@ export const runQueueTicket = async ({
 	onProgress,
 }: Params): Promise<TicketRunOutcome> => {
 	const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
+	// One directory for every commit message file this ticket needs: the plan
+	// loop's per-plan commits and the final commit below write to the same place.
+	const ticketRunDir = join(coordinatorRunDir, 'tickets', ticket.identifier);
 	const created = await createTicketWorktree({ cwd, branch, defaultBranch, setup: settings.setup, serializeWorktreeAdd, onProgress });
 
 	if (typeof created !== 'string') {
@@ -215,25 +170,22 @@ export const runQueueTicket = async ({
 		relay,
 		coordinatorRunId,
 		coordinatorRunDir,
+		ticketRunDir,
+		env,
 		onProgress,
 	});
 
-	if (worked.error !== undefined) {
-		// Committing work nothing vouches for would hand the ship step a branch
-		// with no evidence behind it.
-		return { ticket, branch, worktreePath, ready: false, error: worked.error, unanswered: worked.unanswered };
-	}
-
-	const readiness = await settleBranchReadiness({
+	const settled = await settleWorkerOutcome({
 		cwd,
 		worktreePath,
 		branch,
 		defaultBranch,
 		ticket,
-		coordinatorRunDir,
+		ticketRunDir,
 		generated: config.generated,
+		worked,
 		onProgress,
 	});
 
-	return { ticket, branch, worktreePath, ...readiness };
+	return { ticket, branch, worktreePath, ...settled };
 };

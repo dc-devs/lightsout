@@ -1,5 +1,6 @@
 import { copyPlanFolderToPrimary } from '#src/cli/common/implementRun/copyPlanFolderToPrimary.ts';
 import { readGitPrimaryCheckout } from '#src/common/git/readGitPrimaryCheckout.ts';
+import { ticketFolderOf } from '#src/common/planAddress/ticketFolderOf.ts';
 import { type RunManifest, WorktreeOwner } from '#src/contracts/index.ts';
 import { planNameFromPath } from '#src/plan/index.ts';
 import { deleteWorktreeRecord, readWorktreeRecord, removeWorktree } from '#src/worktree/index.ts';
@@ -71,8 +72,14 @@ export const removeShippedRunWorkspace = async ({ cwd, manifest, onProgress }: P
 
 	// A run started from a loose plan file outside the plans directory has no
 	// folder to save, and goes straight to the removal.
+	//
+	// The whole ticket folder is saved rather than the one plan this run built:
+	// the ticket's other plans live in the same tree, and a per-plan save would
+	// take them down with it. A legacy name is its own ticket folder, so it saves
+	// exactly what it always saved.
 	const name = planNameFromPath({ cwd: removable.worktreePath, planPath: manifest.plan });
-	const unsaved = name === undefined ? undefined : await copyPlanFolderToPrimary({ worktree: removable.worktreePath, primary: removable.cwd, name });
+	const saving = name === undefined ? undefined : ticketFolderOf({ name });
+	const unsaved = saving === undefined ? undefined : await copyPlanFolderToPrimary({ worktree: removable.worktreePath, primary: removable.cwd, name: saving });
 
 	if (unsaved !== undefined) {
 		onProgress?.(`left the worktree at ${removable.worktreePath} standing: ${unsaved.error}`);

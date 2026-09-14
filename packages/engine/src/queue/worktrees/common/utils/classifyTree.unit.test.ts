@@ -74,4 +74,15 @@ describe('classifyTree', () => {
 		// had been read before git was: uncommitted work must never reach the merge.
 		expect({ dirty, unreadable }).toStrictEqual({ dirty: 'drain', unreadable: 'unreadable' });
 	});
+
+	test('classifyTree: sends a branch recorded open back to the drain', async () => {
+		const { cwd, defaultBranch } = setupClassify({ recorded: { 'lo-140-open': BranchPhase.Open } });
+
+		const open = await classifyTree({ cwd, tree: treeOf({ branch: 'lo-140-open' }), defaultBranch });
+
+		// An open ticket's own worker has to look at it again — the plans it may
+		// still build, or a ship request it is still waiting on — so it must never
+		// go straight to the merge.
+		expect(open).toBe('drain');
+	});
 });

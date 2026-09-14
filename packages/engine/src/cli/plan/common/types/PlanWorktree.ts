@@ -9,7 +9,7 @@
 export interface PlanWorktree {
 	/** Absolute path of the checkout every plan subcommand acts on. */
 	cwd: string;
-	/** The branch the tree stands on — the plan's own name. Absent when isolation is off. */
+	/** The branch the tree stands on — the ticket-branch segment of a plan address, or the legacy plan name. Absent when isolation is off. */
 	branch?: string;
 	/** True when planning works in a worktree rather than the launching checkout. */
 	isolated: boolean;

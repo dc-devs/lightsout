@@ -69,6 +69,29 @@ const setupStockedWorkspace = async () => {
 	return { sourceCwd, workspace, gradedDir };
 };
 
+const ticketFolderPath = join('.lightsout', 'plans', 'lo-7-search');
+const earlierPlanBody = '# plan\n\nthe earlier plan the workspace already holds\n';
+const laterPlanBody = '# plan\n\nthe later plan of the same ticket\n';
+
+/**
+ * A launching checkout holding the later plan folder of a ticket, beside a
+ * workspace already holding an earlier plan folder of the same ticket.
+ */
+const setupTicketFolder = async () => {
+	const sourceCwd = await freshCwd();
+	const workspace = await freshCwd();
+	const laterDir = join(sourceCwd, ticketFolderPath, '002-ranking');
+	const earlierDir = join(workspace, ticketFolderPath, '001-basics');
+
+	mkdirSync(laterDir, { recursive: true });
+	writeFileSync(join(laterDir, 'plan.md'), laterPlanBody);
+	writeFileSync(join(laterDir, 'facts.json'), factsBody);
+	mkdirSync(earlierDir, { recursive: true });
+	writeFileSync(join(earlierDir, 'plan.md'), earlierPlanBody);
+
+	return { sourceCwd, workspace, earlierDir };
+};
+
 describe('copyRunInputs', () => {
 	test('copies the whole plan folder and answers its workspace-relative path', async () => {
 		const { sourceCwd, workspace, planDir } = await setupPlanFolder();
@@ -140,5 +163,17 @@ describe('copyRunInputs', () => {
 		expect(readdirSync(gradedDir).sort()).toStrictEqual(['grade-memory.json', 'plan.md']);
 		expect(readFileSync(join(gradedDir, 'plan.md'), 'utf8')).toBe(gradedPlanBody);
 		expect(readFileSync(join(gradedDir, 'grade-memory.json'), 'utf8')).toBe(gradeMemoryBody);
+	});
+
+	test("copies a later plan's folder into a workspace that already holds an earlier plan of the same ticket", async () => {
+		const { sourceCwd, workspace, earlierDir } = await setupTicketFolder();
+
+		const result = await copyRunInputs({ sourceCwd, workspace, planPath: join(ticketFolderPath, '002-ranking', 'plan.md') });
+
+		expect(result).toEqual({ planPath: join(ticketFolderPath, '002-ranking', 'plan.md') });
+		expect(readdirSync(join(workspace, ticketFolderPath, '002-ranking')).sort()).toStrictEqual(['facts.json', 'plan.md']);
+		expect(readFileSync(join(workspace, ticketFolderPath, '002-ranking', 'plan.md'), 'utf8')).toBe(laterPlanBody);
+		expect(readdirSync(earlierDir)).toStrictEqual(['plan.md']);
+		expect(readFileSync(join(earlierDir, 'plan.md'), 'utf8')).toBe(earlierPlanBody);
 	});
 });

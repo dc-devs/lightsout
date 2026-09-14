@@ -3,7 +3,10 @@ import { join } from 'node:path';
 import { brainstormAttachmentFileNames } from '#src/brainstorm/common/constants/brainstormAttachmentFileNames.ts';
 import { brainstormAttachmentManifestName } from '#src/brainstorm/common/constants/brainstormAttachmentManifestName.ts';
 import { isBrainstormOnlyAttachmentName } from '#src/brainstorm/common/utils/isBrainstormOnlyAttachmentName.ts';
+import { attachmentTitle } from '#src/common/attachmentManifest/attachmentTitle.ts';
 import { parseAttachmentManifest } from '#src/common/attachmentManifest/parseAttachmentManifest.ts';
+import { scopeAttachments } from '#src/common/attachmentManifest/scopeAttachments.ts';
+import { brainstormNotesFileName } from '#src/common/constants/brainstormNotesFileName.ts';
 import type { AttachmentManifest } from '#src/common/types/AttachmentManifest.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
@@ -17,6 +20,8 @@ interface Params {
 	/** The ticket reference that folder's name carries, e.g. 'lo-117'. */
 	identifier: string;
 	settings: TrackerSettings;
+	/** The plan id the ticket's titles for this plan are namespaced under; absent for a legacy folder. */
+	titlePrefix?: string;
 }
 
 interface RestoredBrainstormFiles {
@@ -57,10 +62,15 @@ const readGeneration = async ({
 	settings,
 	manifest,
 	selected,
+	markerName,
+	required,
 }: {
 	settings: TrackerSettings;
 	manifest: AttachmentManifest;
 	selected: TrackerAttachment[];
+	markerName: string;
+	/** Which of this generation's names the marker must have committed. */
+	required: string[];
 }): Promise<{ files: ReadGenerationFile[] } | { error: string }> => {
 	const files: ReadGenerationFile[] = [];
 
@@ -72,8 +82,8 @@ const readGeneration = async ({
 			return {
 				error:
 					matches.length === 0
-						? `${brainstormAttachmentManifestName} lists ${listed.name}, but the ticket carries no attachment with that title`
-						: `the ticket carries more than one attachment named ${listed.name}, so ${brainstormAttachmentManifestName} cannot select one generation`,
+						? `${markerName} lists ${listed.name}, but the ticket carries no attachment with that title`
+						: `the ticket carries more than one attachment named ${listed.name}, so ${markerName} cannot select one generation`,
 			};
 		}
 
@@ -84,13 +94,13 @@ const readGeneration = async ({
 		}
 
 		if (sha256({ content: read.text }) !== listed.sha256) {
-			return { error: `${listed.name} does not match the SHA-256 committed by ${brainstormAttachmentManifestName} — publish the brainstorm again` };
+			return { error: `${listed.name} does not match the SHA-256 committed by ${markerName} — publish the brainstorm again` };
 		}
 
 		files.push({ title: listed.name, text: read.text });
 	}
 
-	const missing = brainstormAttachmentFileNames.filter((name) => !files.some(({ title }) => title === name));
+	const missing = required.filter((name) => !files.some(({ title }) => title === name));
 
 	return missing.length === 0
 		? { files }
@@ -128,27 +138,41 @@ const writeIntoFolder = async ({ dir, files }: { dir: string; files: ReadGenerat
 };
 
 /**
- * Rebuild a brainstorm's two files from the one ticket generation committed by
- * `brainstorm-attachments.json`.
+ * Rebuild a brainstorm's files from the one ticket generation committed by
+ * `brainstorm-attachments.json` — the ticket's own, or, under a plan id prefix,
+ * that plan's.
  *
  * "Did a brainstorm publish to this ticket?" is asked with
- * `isBrainstormOnlyAttachmentName`, never with the selected set: the selected
- * set includes `brainstorm-notes.md`, which a published *plan* carries too, so
- * asking with it would refuse on every plan-carrying ticket. A ticket with no
- * published brainstorm is the ordinary case and is not a failure.
+ * `isBrainstormOnlyAttachmentName` for a legacy folder, never with the selected
+ * set: the selected set includes `brainstorm-notes.md`, which a published
+ * legacy *plan* carries too, so asking with it would refuse on every
+ * plan-carrying ticket. Under a prefix the plan generation no longer carries the
+ * notes, so that exclusion would only hide a notes-only generation — there, any
+ * of the generation's own names counts. A ticket with no published brainstorm is
+ * the ordinary case and is not a failure.
  */
-export const restoreBrainstormFiles = async ({ cwd, name, identifier, settings }: Params): Promise<RestoredBrainstormFiles> => {
-	const attachments = await getTicketAttachments({ settings, identifier });
+export const restoreBrainstormFiles = async ({ cwd, name, identifier, settings, titlePrefix }: Params): Promise<RestoredBrainstormFiles> => {
+	const listed = await getTicketAttachments({ settings, identifier });
 
-	if ('error' in attachments) {
-		return { restored: [], skipped: [], error: attachments.error };
+	if ('error' in listed) {
+		return { restored: [], skipped: [], error: listed.error };
 	}
 
+	// One plan's namespace is turned back into the single-generation list every
+	// step below already reads, before any of them runs.
+	const attachments = scopeAttachments({ attachments: listed, prefix: titlePrefix });
+	const markerName = attachmentTitle({ prefix: titlePrefix, name: brainstormAttachmentManifestName });
 	const selected = attachments.filter(({ title }) => brainstormAttachmentFileNames.includes(title));
 	const markers = attachments.filter(({ title }) => title === brainstormAttachmentManifestName);
 	const marker = markers[0];
+	// Under a prefix the plan generation never carries the notes, so any of this
+	// generation's names is evidence a brainstorm was published for this plan. A
+	// legacy ticket's two generations share `brainstorm-notes.md`, which is why
+	// the wider question there still excludes it.
+	const isEvidence =
+		titlePrefix === undefined ? isBrainstormOnlyAttachmentName : ({ name: title }: { name: string }) => brainstormAttachmentFileNames.includes(title);
 
-	if (!attachments.some(({ title }) => isBrainstormOnlyAttachmentName({ name: title })) && markers.length === 0) {
+	if (!attachments.some(({ title }) => isEvidence({ name: title })) && markers.length === 0) {
 		return { restored: [], skipped: [] };
 	}
 
@@ -158,8 +182,8 @@ export const restoreBrainstormFiles = async ({ cwd, name, identifier, settings }
 			skipped: [],
 			error:
 				marker === undefined
-					? `the ticket carries brainstorm attachments but no ${brainstormAttachmentManifestName} commit marker — publish the brainstorm again`
-					: `the ticket carries more than one ${brainstormAttachmentManifestName} attachment, so no single committed brainstorm generation can be selected`,
+					? `the ticket carries brainstorm attachments but no ${markerName} commit marker — publish the brainstorm again`
+					: `the ticket carries more than one ${markerName} attachment, so no single committed brainstorm generation can be selected`,
 		};
 	}
 
@@ -171,7 +195,7 @@ export const restoreBrainstormFiles = async ({ cwd, name, identifier, settings }
 
 	const parsed = parseAttachmentManifest({
 		text: markerRead.text,
-		markerName: brainstormAttachmentManifestName,
+		markerName,
 		// The list holds two bare names, so membership is already the bareness
 		// guard the plan side needs `basename` for.
 		isAllowedName: ({ name: listed }) => brainstormAttachmentFileNames.includes(listed),
@@ -181,7 +205,15 @@ export const restoreBrainstormFiles = async ({ cwd, name, identifier, settings }
 		return { restored: [], skipped: [], error: parsed.error };
 	}
 
-	const generation = await readGeneration({ settings, manifest: parsed.manifest, selected });
+	const generation = await readGeneration({
+		settings,
+		manifest: parsed.manifest,
+		selected,
+		markerName,
+		// Under a prefix `brainstorm-decisions.json` is optional, because a plan of
+		// a ticket may be shaped by a brainstorm that settled no decision of its own.
+		required: titlePrefix === undefined ? brainstormAttachmentFileNames : [brainstormNotesFileName],
+	});
 
 	if ('error' in generation) {
 		return { restored: [], skipped: [], error: generation.error };
