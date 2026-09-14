@@ -17,6 +17,10 @@ interface Params {
 	reports: PlanDraftReport[];
 	/** Accumulated advisories, appended to by this step and read at whichever exit it produces. */
 	advisories: StructuralFinding[];
+	/** Forwarded to `repairPlanStructure` — only the focused draft flow sets it. */
+	mechanicalRepair?: boolean;
+	/** Forwarded to `repairPlanStructure` — the overview of a phased deliverable. */
+	overviewPath?: string;
 }
 
 /**
@@ -40,9 +44,11 @@ export const convergePlanStructure = async ({
 	variant,
 	reports,
 	advisories,
+	mechanicalRepair,
+	overviewPath,
 }: Params): Promise<{ result: RunPlanDraftResult; blocking: StructuralFinding[] }> => {
 	const { cwd, driver, name, workspaceDir, brainstormDecisionsPath, decisions, config, model, effort, permissions, timeoutMs, progress } = context;
-	const draftStop = createDraftStop({ workspaceDir, advisories });
+	const draftStop = createDraftStop({ workspaceDir, advisories, implementation: context.implementation });
 	const repaired = await repairPlanStructure({
 		cwd,
 		driver,
@@ -57,6 +63,8 @@ export const convergePlanStructure = async ({
 		permissions,
 		timeoutMs,
 		progress,
+		mechanicalRepair,
+		overviewPath,
 	});
 
 	if (repaired.status === PlanRunStatus.PausedRateLimit) {

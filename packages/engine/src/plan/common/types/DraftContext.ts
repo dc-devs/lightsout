@@ -1,4 +1,4 @@
-import type { DecisionsRecord, Effort, LightsoutConfig, Permissions, PlanFacts } from '#src/contracts/index.ts';
+import type { DecisionsRecord, DraftImplementation, Effort, LightsoutConfig, Permissions, PlanFacts, SourceEvidenceIndex } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 
 /**
@@ -17,6 +17,10 @@ export interface DraftContext {
 	decisions: DecisionsRecord;
 	/** Absolute path of the workspace's brainstorm-decisions.json when one exists. */
 	brainstormDecisionsPath?: string;
+	/** Which drafting implementation is running. Required, because every result carries it and a context that could omit it would let a flow build a result that does not say what produced it. */
+	implementation: DraftImplementation;
+	/** The source evidence collected once for this draft. Present only on a focused draft — a legacy draft never collects it and must not pay for it. */
+	evidence?: SourceEvidenceIndex;
 	config?: LightsoutConfig;
 	/** `executor-file-limit` from config, already defaulted — the one number the lint, the estimate and both prompts read. */
 	executorFileLimit: number;

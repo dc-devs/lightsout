@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import type { z } from 'zod';
 import { createEventFileSink } from '#src/common/utils/createEventFileSink.ts';
 import type { Effort, Permissions } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { AgentEnvironment, Driver } from '#src/drivers/index.ts';
 import { type AgentOutcome, invokeAgentWithContract } from '#src/invoke/index.ts';
 
 interface Params {
@@ -19,6 +19,8 @@ interface Params {
 	timeoutMs?: number;
 	/** Fresh role invocations each of this step's calls may spend. Defaults to the chokepoint's own default of one. */
 	maxRoleAttempts?: number;
+	/** A focused role's requested agent environment, relayed on every call this runner makes. A runner created without one produces exactly today's invocation. */
+	environment?: AgentEnvironment;
 }
 
 interface CallParams<Contract extends z.ZodType> {
@@ -57,6 +59,7 @@ export const createPlanAgentRunner = ({
 	permissions,
 	timeoutMs,
 	maxRoleAttempts,
+	environment,
 }: Params): (<Contract extends z.ZodType>(params: CallParams<Contract>) => Promise<AgentOutcome<z.infer<Contract>>>) => {
 	const onEvent = createEventFileSink({ path: join(workspaceDir, `${step}-stream.jsonl`) });
 
@@ -72,6 +75,7 @@ export const createPlanAgentRunner = ({
 			timeoutMs,
 			maxRoleAttempts,
 			allowedCommands,
+			environment,
 			onEvent,
 			onRejectedOutput: async ({ text, attempt }) => {
 				const name = `${step}-rejected-${label === undefined ? '' : `${label}-`}${attempt}.txt`;

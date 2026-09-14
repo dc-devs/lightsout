@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { z } from 'zod';
-import type { Driver } from '#src/drivers/index.ts';
+import type { AgentEnvironment, Driver } from '#src/drivers/index.ts';
 import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
 import { outcomeFields } from '#tests/helpers/outcomeFields.ts';
 
@@ -150,5 +150,44 @@ describe('createPlanAgentRunner', () => {
 		await invokePlanAgent({ invocation: { systemPrompt: '', prompt: '' }, contract: Contract, allowedCommands: ['node cli plan lint'] });
 
 		expect(granted).toStrictEqual([['node cli plan lint']]);
+	});
+
+	test('relays a requested environment and adds none when it is absent', async () => {
+		const workspaceDir = setupWorkspace();
+		const requested: (AgentEnvironment | undefined)[] = [];
+		const driver: Driver = {
+			name: 'stub',
+			invoke: async (invocation) => {
+				requested.push(invocation.environment);
+
+				return { text: JSON.stringify({ ok: true }), exitCode: 0 };
+			},
+		};
+		const environment: AgentEnvironment = {
+			noMcpServers: true,
+			noSkillCatalog: true,
+			toolAllowlist: true,
+			settingsPreserved: true,
+			tools: ['Bash', 'Edit', 'Glob', 'Grep', 'Read', 'Write'],
+		};
+		const invokeFocused = createPlanAgentRunner({ cwd: workspaceDir, driver, workspaceDir, step: 'draft', environment });
+		const invokeLegacy = createPlanAgentRunner({ cwd: workspaceDir, driver, workspaceDir, step: 'draft' });
+
+		await invokeFocused({ invocation: { systemPrompt: '', prompt: '' }, contract: Contract });
+		await invokeLegacy({ invocation: { systemPrompt: '', prompt: '' }, contract: Contract });
+
+		// The focused request reaches the harness whole, and a runner created
+		// without one leaves the member absent rather than inventing a value —
+		// an ordinary spawn must stay byte-identical to what it was before.
+		expect(requested).toStrictEqual([
+			{
+				noMcpServers: true,
+				noSkillCatalog: true,
+				toolAllowlist: true,
+				settingsPreserved: true,
+				tools: ['Bash', 'Edit', 'Glob', 'Grep', 'Read', 'Write'],
+			},
+			undefined,
+		]);
 	});
 });

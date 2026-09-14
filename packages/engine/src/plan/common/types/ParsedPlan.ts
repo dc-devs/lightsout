@@ -20,6 +20,8 @@ export interface ParsedPlan {
 	malformedMoveLines: number[];
 	/** 1-based inclusive line range of the `## Decision Log` section — its heading line through the last line before the next `##`. Absent when the file has no such section. */
 	decisionLogRange?: { start: number; end: number };
+	/** Every `##` section's 1-based inclusive line range — its heading line through the last line before the next `##`. */
+	sectionRanges: Map<string, { start: number; end: number }>;
 	/** `## File Budget` — the touched-file allowance this plan or phase declares for itself, absent when it takes the configured default. */
 	fileBudget?: number;
 	mirrorPaths: string[];

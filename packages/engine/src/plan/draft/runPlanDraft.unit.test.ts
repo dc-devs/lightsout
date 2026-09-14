@@ -202,7 +202,7 @@ test('plan draft: a report.status of error returns facts-error and writes no pla
 	seedPlanWorkspace({ cwd, name: 'bad-facts' });
 
 	const driver: Driver = {
-		name: 'stub',
+		name: 'claude-code',
 		invoke: async () => ({
 			text: JSON.stringify({
 				status: 'error',

@@ -36,6 +36,13 @@ export const planCatalogEntry: CommandCatalogEntry = {
 			required: false,
 		},
 		{
+			name: 'legacy',
+			meaning: 'Draft with the previous drafting implementation rather than the focused one.',
+			fallback: 'The focused drafting implementation.',
+			shape: 'plan-draft',
+			required: false,
+		},
+		{
 			name: 'scope',
 			value: 'single|phased',
 			meaning: 'Whether to write one plan or an overview with a file per phase.',

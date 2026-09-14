@@ -2,7 +2,7 @@ import type { z } from 'zod';
 import { buildReportReemitterInvocation } from '#src/agents/index.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { AgentUsage, Effort, Permissions } from '#src/contracts/index.ts';
-import type { Driver, DriverInvocation, DriverResult } from '#src/drivers/index.ts';
+import type { AgentEnvironment, Driver, DriverInvocation, DriverResult } from '#src/drivers/index.ts';
 import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
 import { extractJsonReport } from '#src/invoke/extractJsonReport.ts';
 
@@ -81,6 +81,13 @@ interface Params<Contract extends z.ZodType> {
 	/** Consumer-granted command prefixes, relayed to the driver's allowed-tools mechanism. */
 	allowedCommands?: string[];
 	/**
+	 * A focused role's requested agent environment, relayed onto every rung of the
+	 * ladder. The re-emit rung carries the same one as the role rung: it runs
+	 * against the same harness process shape, and a differently-equipped retry
+	 * would be a second, untested environment.
+	 */
+	environment?: AgentEnvironment;
+	/**
 	 * Fresh role invocations this call may spend before giving up on the
 	 * contract — the re-run ceiling. Defaults to 1: one role invocation plus its
 	 * one cheap re-emit, which is every caller's behaviour today. Only the plan
@@ -121,6 +128,7 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 	permissions,
 	timeoutMs,
 	allowedCommands,
+	environment,
 	maxRoleAttempts = 1,
 	onEvent,
 	onRejectedOutput,
@@ -153,7 +161,7 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 
 		attempt += 1;
 
-		const rung = await spawnRung({ driver, invocation: { ...active, cwd, model, effort, permissions, timeoutMs, allowedCommands, onEvent } });
+		const rung = await spawnRung({ driver, invocation: { ...active, cwd, model, effort, permissions, timeoutMs, allowedCommands, environment, onEvent } });
 
 		if (!rung.ok) {
 			settled = { ok: false, failure: rung.failure, rateLimited: false };

@@ -29,6 +29,7 @@ const planWith = ({
 	deletePaths,
 	movePaths,
 	malformedMoveLines: [],
+	sectionRanges: new Map(),
 	mirrorPaths: [],
 	verificationCommands: commands,
 	ledger: [],

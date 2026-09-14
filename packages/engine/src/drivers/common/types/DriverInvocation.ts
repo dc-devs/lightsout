@@ -1,4 +1,5 @@
 import type { Effort, Permissions } from '#src/contracts/index.ts';
+import type { AgentEnvironment } from '#src/drivers/common/types/AgentEnvironment.ts';
 
 export interface DriverInvocation {
 	/** Full user-message prompt, assembled deterministically by the engine (plan, standards, task). */
@@ -26,6 +27,12 @@ export interface DriverInvocation {
 	 * told to honor lives in the invocation prompt.
 	 */
 	allowedCommands?: string[];
+	/**
+	 * A focused role's requested agent environment, translated by each driver.
+	 * Omitted by every ordinary invocation — an invocation without it produces
+	 * byte-identical argv to one built before this member existed.
+	 */
+	environment?: AgentEnvironment;
 	/** Kill the harness process after this many ms. The driver rejects; the engine decides what a hang means. */
 	timeoutMs?: number;
 	/**

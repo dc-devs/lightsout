@@ -19,7 +19,7 @@ test('plan draft: a rate-limited author parks the run before any repair', async 
 
 	let calls = 0;
 	const driver: Driver = {
-		name: 'stub',
+		name: 'claude-code',
 		invoke: async () => {
 			calls += 1;
 
@@ -72,7 +72,7 @@ test('plan draft: an author invocation failure returns failed with the driver er
 	seedPlanWorkspace({ cwd, name: 'author-spawn-fail' });
 
 	const driver: Driver = {
-		name: 'stub',
+		name: 'claude-code',
 		invoke: async () => {
 			throw new Error('spawn failed');
 		},
@@ -90,7 +90,7 @@ test('plan draft: a drafted report listing no files returns failed', async () =>
 	seedPlanWorkspace({ cwd, name: 'no-files' });
 
 	const driver: Driver = {
-		name: 'stub',
+		name: 'claude-code',
 		invoke: async () => ({
 			text: JSON.stringify({ status: 'drafted', filesWritten: [], decisionsApplied: 0, assumptions: [], discrepancies: [] }),
 			exitCode: 0,
@@ -109,7 +109,7 @@ test('plan draft: a drafted report naming an unwritten file returns failed', asy
 
 	const ghostPath = join(cwd, '.lightsout', 'plans', 'ghost-file', 'plan.md');
 	const driver: Driver = {
-		name: 'stub',
+		name: 'claude-code',
 		// Reports the file as written without ever writing it.
 		invoke: async () => ({
 			text: JSON.stringify({

@@ -36,6 +36,13 @@ interface Params {
  * allow is not a grant this engine may make. The binding grant is the
  * prompt-level list the engine injects into the invocation, exactly as it
  * already is on codex.
+ *
+ * There is no focused-environment mapping here either — `getDriverCapabilities`
+ * holds the record of which isolation controls each variant was verified to
+ * have. Neither variant reaches for a wholesale minimal mode to fake a control
+ * its published flags cannot express, for the same reason the `--config`
+ * overlay is refused above: a blunt instrument that can quietly close what a
+ * user's own settings allow is not one this engine may use.
  */
 export const buildPiArgs = ({ variant, systemPromptPath, model, effort, permissions }: Params): string[] => {
 	const args = ['-p', '--mode', 'json', '--no-session'];

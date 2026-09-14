@@ -5,7 +5,7 @@ import { describe, expect, test } from '@jest/globals';
 import { type DecisionsRecord, Effort, Permissions, type PlanFacts, PlanVariant } from '#src/contracts/index.ts';
 import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
-import { authorPhaseFiles } from '#src/plan/draft/authorPhaseFiles.ts';
+import { authorPhaseFiles } from '#src/plan/draft/legacy/authorPhaseFiles.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
 

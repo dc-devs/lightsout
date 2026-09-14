@@ -191,4 +191,22 @@ describe('parsePlan', () => {
 		// what tells the rewriter to insert one instead
 		expect(plan.decisionLogRange).toBeUndefined();
 	});
+
+	test('records a 1-based inclusive line range for every section, matching the decision log range', () => {
+		const content =
+			'# Plan\n\n## Context\n\nWhy this plan exists.\n\n## Decision Log\n\n| # | Source |\n|---|--------|\n| 1 | Brainstorm |\n\n## Verification\n\n- `pnpm check`\n';
+		const plan = parse({ content });
+
+		// every section spans its own heading line through the last line before the
+		// next `##`, the blank line between them included — the same span the
+		// Decision Log's own range already states, so the two can never disagree
+		expect({ ranges: [...plan.sectionRanges], decisionLogRange: plan.decisionLogRange }).toStrictEqual({
+			ranges: [
+				['Context', { start: 3, end: 6 }],
+				['Decision Log', { start: 7, end: 12 }],
+				['Verification', { start: 13, end: 16 }],
+			],
+			decisionLogRange: { start: 7, end: 12 },
+		});
+	});
 });

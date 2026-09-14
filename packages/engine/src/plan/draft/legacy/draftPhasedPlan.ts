@@ -7,11 +7,12 @@ import type { DraftContext } from '#src/plan/common/types/DraftContext.ts';
 import type { RunPlanDraftResult } from '#src/plan/common/types/RunPlanDraftResult.ts';
 import { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.ts';
 import { syncPlanDecisions } from '#src/plan/decisionLog/index.ts';
-import { authorPhaseFiles } from '#src/plan/draft/authorPhaseFiles.ts';
-import { authorPlanFiles } from '#src/plan/draft/common/utils/authorPlanFiles.ts';
 import { convergePlanStructure } from '#src/plan/draft/common/utils/convergePlanStructure.ts';
 import { createDraftStop } from '#src/plan/draft/common/utils/createDraftStop.ts';
 import { getAdvisoryFindings } from '#src/plan/draft/common/utils/getAdvisoryFindings.ts';
+import { stopForPhaseFailure } from '#src/plan/draft/common/utils/stopForPhaseFailure.ts';
+import { authorPhaseFiles } from '#src/plan/draft/legacy/authorPhaseFiles.ts';
+import { authorPlanFiles } from '#src/plan/draft/legacy/common/utils/authorPlanFiles.ts';
 import { repairPhaseBreakdown } from '#src/plan/draft/repairPhaseBreakdown.ts';
 import { stampPhaseCounts } from '#src/plan/draft/stampPhaseCounts.ts';
 import { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';
@@ -97,7 +98,7 @@ export const draftPhasedPlan = async ({ context, step }: Params): Promise<RunPla
 	// warning gates nothing, but it is the human's only notice of what reviewing
 	// this plan will cost them, so it has to ride whichever way the draft ends.
 	const advisories: StructuralFinding[] = [];
-	const draftStop = createDraftStop({ workspaceDir, advisories });
+	const draftStop = createDraftStop({ workspaceDir, advisories, implementation: context.implementation });
 	const authored = await authorPlanFiles({ context, outputs, step });
 
 	if ('stop' in authored) {
@@ -132,16 +133,8 @@ export const draftPhasedPlan = async ({ context, step }: Params): Promise<RunPla
 		contract: config?.plan?.contract,
 	});
 
-	if (phases.status === PlanRunStatus.FactsError) {
-		return draftStop({ status: PlanRunStatus.FactsError, discrepancies: phases.discrepancies });
-	}
-
-	if (phases.status === PlanRunStatus.PausedRateLimit) {
-		return draftStop({ status: PlanRunStatus.PausedRateLimit, error: phases.error });
-	}
-
-	if (phases.status === PlanRunStatus.Failed) {
-		return draftStop({ status: PlanRunStatus.Failed, error: phases.error });
+	if (phases.status !== PlanRunStatus.Complete) {
+		return stopForPhaseFailure({ phases, draftStop });
 	}
 
 	// Each phase file gets its pointer at the overview's history before anything

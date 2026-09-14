@@ -52,7 +52,7 @@ usage:
   lightsout brainstorm publish --name <name> [--cwd <path>]
   lightsout plan workspace --name <name> [--cwd <path>] [--worktree] [--no-worktree]
   lightsout plan verify-facts --name <name> [--notes <path>] [--cwd <path>] [--worktree] [--no-worktree]
-  lightsout plan draft --name <name> [--scope single|phased] [--cwd <path>] [--worktree] [--no-worktree]
+  lightsout plan draft --name <name> [--legacy] [--scope single|phased] [--cwd <path>] [--worktree] [--no-worktree]
   lightsout plan sync-decisions --name <name> [--cwd <path>] [--worktree] [--no-worktree]
   lightsout plan lint --name <name> [--cwd <path>] [--worktree] [--no-worktree]
   lightsout plan dedup --name <name> [--cwd <path>] [--worktree] [--no-worktree]
