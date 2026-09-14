@@ -37,6 +37,17 @@ const parseSections = ({ lines }: { lines: string[] }) => {
 	return sections;
 };
 
+/**
+ * One section's 1-based inclusive line range. The heading sits one line above
+ * the section's first line, and the span runs to the last line before the next
+ * `##` — blank lines included, which is what lets the rewriter replace the whole
+ * span and write exactly one blank line back.
+ */
+const rangeOf = ({ section }: { section: { lines: string[]; firstLine: number } }) => ({
+	start: section.firstLine - 1,
+	end: section.firstLine - 1 + section.lines.length,
+});
+
 /** Paths from the leading code span of each line in a section that matches `lineMatches` (`###` subheadings or `-` bullets). */
 const pathsFromLines = ({ sectionLines, lineMatches }: { sectionLines: string[] | undefined; lineMatches: (line: string) => boolean }) => {
 	if (!sectionLines) {
@@ -172,14 +183,8 @@ export const parsePlan = ({ content, base }: Params): ParsedPlan => {
 		deletePaths: pathsFromLines({ sectionLines: sections.get('Files to Delete'), lineMatches: isSubheading }),
 		movePaths: moves,
 		malformedMoveLines: malformedLines,
-		// The heading sits one line above the section's first line, and the span
-		// runs to the last line before the next `##` — blank lines included, which
-		// is what lets the rewriter replace the whole span and write exactly one
-		// blank line back.
-		decisionLogRange:
-			decisionLogSection === undefined
-				? undefined
-				: { start: decisionLogSection.firstLine - 1, end: decisionLogSection.firstLine - 1 + decisionLogSection.lines.length },
+		decisionLogRange: decisionLogSection === undefined ? undefined : rangeOf({ section: decisionLogSection }),
+		sectionRanges: new Map([...parsed].map(([heading, section]) => [heading, rangeOf({ section })])),
 		fileBudget: fileBudgetFrom({ sectionLines: sections.get('File Budget') }),
 		mirrorPaths: pathsFromLines({ sectionLines: sections.get('Patterns to Mirror'), lineMatches: (line) => /^\s*-\s+/.test(line) }),
 		verificationCommands: commandsFromVerification({ sectionLines: sections.get('Verification') }),

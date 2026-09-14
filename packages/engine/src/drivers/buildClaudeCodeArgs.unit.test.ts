@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
 import { Permissions } from '#src/contracts/index.ts';
-import { buildClaudeCodeArgs } from '#src/drivers/index.ts';
+import { type AgentEnvironment, buildClaudeCodeArgs } from '#src/drivers/index.ts';
 
 test('buildClaudeCodeArgs: with no options the argv is exactly the base flags', () => {
 	expect(buildClaudeCodeArgs({})).toStrictEqual(['-p', '--output-format', 'stream-json', '--verbose', '--exclude-dynamic-system-prompt-sections']);
@@ -41,4 +41,100 @@ test('buildClaudeCodeArgs: a system prompt path rides the file flag, not the arg
 	const args = buildClaudeCodeArgs({ systemPromptPath: '/tmp/role.md' });
 
 	expect(args.slice(-2)).toStrictEqual(['--append-system-prompt-file', '/tmp/role.md']);
+});
+
+test('buildClaudeCodeArgs: a focused environment emits the three isolation flags before the grant flag', () => {
+	const environment: AgentEnvironment = {
+		noMcpServers: true,
+		noSkillCatalog: true,
+		toolAllowlist: true,
+		settingsPreserved: true,
+		tools: ['Read', 'Grep', 'Edit'],
+	};
+
+	const args = buildClaudeCodeArgs({ permissions: Permissions.Write, allowedCommands: ['pnpm'], environment });
+
+	expect(args.slice(-8)).toStrictEqual([
+		'--permission-mode',
+		'acceptEdits',
+		'--strict-mcp-config',
+		'--disable-slash-commands',
+		'--tools',
+		'Read,Grep,Edit',
+		'--allowedTools',
+		'Bash(pnpm:*)',
+	]);
+});
+
+test('buildClaudeCodeArgs: an environment requiring no control emits no isolation flag', () => {
+	const environment: AgentEnvironment = {
+		noMcpServers: false,
+		noSkillCatalog: false,
+		toolAllowlist: false,
+		settingsPreserved: false,
+		tools: [],
+	};
+
+	const args = buildClaudeCodeArgs({ environment });
+
+	expect(args).toStrictEqual(['-p', '--output-format', 'stream-json', '--verbose', '--exclude-dynamic-system-prompt-sections']);
+});
+
+test('buildClaudeCodeArgs: isolation never rides a wholesale minimal mode', () => {
+	const environment: AgentEnvironment = {
+		noMcpServers: true,
+		noSkillCatalog: true,
+		toolAllowlist: true,
+		settingsPreserved: true,
+		tools: ['Read'],
+	};
+
+	const args = buildClaudeCodeArgs({ permissions: Permissions.FullAccess, environment });
+
+	expect(args).not.toContain('--bare');
+	expect(args).not.toContain('--restricted');
+	expect(args).not.toContain('--safe-mode');
+	expect(args).toContain('--strict-mcp-config');
+	expect(args).toContain('--disable-slash-commands');
+	expect(args.slice(args.indexOf('--permission-mode'), args.indexOf('--permission-mode') + 2)).toStrictEqual(['--permission-mode', 'bypassPermissions']);
+});
+
+test('buildClaudeCodeArgs: a focused environment emits no flag that drops repository instructions, permissions or authentication', () => {
+	const environment: AgentEnvironment = {
+		noMcpServers: true,
+		noSkillCatalog: true,
+		toolAllowlist: true,
+		settingsPreserved: true,
+		tools: ['Read', 'Write'],
+	};
+
+	const args = buildClaudeCodeArgs({ systemPromptPath: '/tmp/role.md', model: 'opus', effort: 'high', permissions: Permissions.Write, environment });
+
+	expect(args.filter((arg) => ['--setting-sources', '--bare', '--restricted', '--safe-mode'].includes(arg))).toStrictEqual([]);
+	expect(args.slice(-3)).toStrictEqual(['--disable-slash-commands', '--tools', 'Read,Write']);
+});
+
+test('buildClaudeCodeArgs: each control is emitted on its own, and a tool list is ignored unless the allowlist is required', () => {
+	const environment: AgentEnvironment = {
+		noMcpServers: false,
+		noSkillCatalog: true,
+		toolAllowlist: false,
+		settingsPreserved: true,
+		tools: ['Read', 'Grep'],
+	};
+
+	const args = buildClaudeCodeArgs({ permissions: Permissions.Write, environment });
+
+	// A builder that emitted the bundle whenever any control was set, rather
+	// than one flag per control, emits the other two here as well.
+	expect(args).toStrictEqual([
+		'-p',
+		'--output-format',
+		'stream-json',
+		'--verbose',
+		'--exclude-dynamic-system-prompt-sections',
+		'--permission-mode',
+		'acceptEdits',
+		'--disable-slash-commands',
+	]);
 });

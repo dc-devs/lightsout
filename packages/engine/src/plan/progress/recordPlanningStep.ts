@@ -1,4 +1,5 @@
 import { messageOf } from '#src/common/utils/messageOf.ts';
+import type { DraftImplementation } from '#src/contracts/index.ts';
 import { type PlanningProgress, PlanningStep, type PlanningStepRecord, RunStatus } from '#src/contracts/index.ts';
 import { writePlanningProgress } from '#src/plan/progress/common/utils/writePlanningProgress.ts';
 import { getPlanningProgressPath } from '#src/plan/progress/getPlanningProgressPath.ts';
@@ -48,6 +49,14 @@ interface Params<Result> {
 	work: () => Promise<Result>;
 	/** The status the finished step records, chosen by the caller to agree with the exit code it then returns. */
 	statusOf: ({ result }: { result: Result }) => RunStatus;
+	/**
+	 * Which drafting implementation is producing this step's work — written on the
+	 * running entry as well as the finished one, so a record read mid-draft
+	 * already says what is producing it. Named for the field it writes rather than
+	 * taking a general extras bag: the record's shape is a contract, and a bag
+	 * would let any caller widen it without the contract changing.
+	 */
+	implementation?: DraftImplementation;
 }
 
 /**
@@ -61,7 +70,7 @@ interface Params<Result> {
  * lock: plan subcommands on one plan folder run one at a time, and a lock would
  * add a failure path to planning work for a record only a reader uses.
  */
-export const recordPlanningStep = async <Result>({ cwd, name, step, work, statusOf }: Params<Result>): Promise<Result> => {
+export const recordPlanningStep = async <Result>({ cwd, name, step, work, statusOf, implementation }: Params<Result>): Promise<Result> => {
 	const started = await recordEntry({
 		cwd,
 		name,
@@ -72,6 +81,7 @@ export const recordPlanningStep = async <Result>({ cwd, name, step, work, status
 			attempts: (previous?.attempts ?? 0) + 1,
 			pid: process.pid,
 			startedAt: new Date().toISOString(),
+			implementation,
 		}),
 	});
 	let status: RunStatus = RunStatus.Failed;

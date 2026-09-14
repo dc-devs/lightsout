@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, jest, test } from '@jest/globals';
 import { type DecisionsRecord, FindingSeverity, LightsoutConfig, StructuralCheck } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import type { SyncedPlanFile } from '#src/plan/decisionLog/index.ts';
+import type { SyncedPlanFile } from '#src/plan/common/types/SyncedPlanFile.ts';
 import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advisoryPlan.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { dirtyPlanBody } from '#tests/helpers/dirtyPlanBody.ts';

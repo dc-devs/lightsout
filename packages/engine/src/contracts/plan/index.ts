@@ -1,5 +1,6 @@
 export { BrainstormDecisions, DecisionRow, DecisionSource, DecisionsRecord } from '#src/contracts/plan/decisions/index.ts';
-export { PlanDraftReport, PlanDraftStatus, PlanFixReport, PlanFixStatus, PlanVariant } from '#src/contracts/plan/draft/index.ts';
+export { DraftImplementation, PlanDraftReport, PlanDraftStatus, PlanFixReport, PlanFixStatus, PlanVariant } from '#src/contracts/plan/draft/index.ts';
+export { SourceEvidenceEntry, SourceEvidenceIndex, SourceEvidenceKind } from '#src/contracts/plan/evidence/index.ts';
 export { AuthoredFacts, ExploreArea, PathVerification, PlanFacts } from '#src/contracts/plan/facts/index.ts';
 export {
 	FindingSeverity,

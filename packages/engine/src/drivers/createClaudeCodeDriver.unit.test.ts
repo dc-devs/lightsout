@@ -118,6 +118,44 @@ test('createClaudeCodeDriver: the invocation model, effort, permissions, and gra
 	]);
 });
 
+test('createClaudeCodeDriver: a focused environment reaches the spawned process as flags', async () => {
+	const { driver, cwd, readArgv } = await setupClaude();
+
+	await driver.invoke({
+		prompt: 'TASK',
+		cwd,
+		model: 'opus',
+		effort: Effort.XHigh,
+		permissions: Permissions.Write,
+		allowedCommands: ['pnpm'],
+		environment: { noMcpServers: true, noSkillCatalog: true, toolAllowlist: true, settingsPreserved: true, tools: ['Read', 'Grep', 'Edit'] },
+	});
+
+	// The isolation flags ride between the permission mode and the variadic
+	// grant flag, and the allowlist is one comma-joined argument — a driver
+	// that dropped the environment on the floor while destructuring the
+	// invocation loses all three.
+	expect(await readArgv()).toStrictEqual([
+		'-p',
+		'--output-format',
+		'stream-json',
+		'--verbose',
+		'--exclude-dynamic-system-prompt-sections',
+		'--model',
+		'opus',
+		'--effort',
+		'xhigh',
+		'--permission-mode',
+		'acceptEdits',
+		'--strict-mcp-config',
+		'--disable-slash-commands',
+		'--tools',
+		'Read,Grep,Edit',
+		'--allowedTools',
+		'Bash(pnpm:*)',
+	]);
+});
+
 test('createClaudeCodeDriver: the system prompt reaches the harness as a file, not as argv', async () => {
 	const { driver, cwd, readSystemPromptCopy } = await setupClaude();
 

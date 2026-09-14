@@ -50,7 +50,10 @@ export const createScriptedDraftDriver = ({
 	respond: (params: { role: DraftRole; path: string; file: string }) => DraftAnswer;
 	onCall?: (params: { role: DraftRole; file: string; prompt: string }) => void;
 }): Driver => ({
-	name: 'stub',
+	// Named for the one harness the capability registry credits with every control
+	// the focused drafting environment asks for: the draft preflight reads the
+	// capabilities by driver name and refuses an unknown one before spawning.
+	name: 'claude-code',
 	invoke: async ({ prompt }) => {
 		const role = briefRole({ prompt });
 		const path = /- (\S+\.md)/.exec(prompt)?.[1];

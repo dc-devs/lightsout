@@ -21,7 +21,11 @@ export const createPhasedDraftDriver = ({
 	onCall?: (prompt: string) => void;
 	phaseBody?: string;
 } = {}): Driver => ({
-	name: 'stub',
+	// Named for the one harness the capability registry credits with every control
+	// the focused drafting environment asks for. The draft's preflight reads the
+	// capabilities by driver name and refuses an unknown one before spawning, so a
+	// stub answering to an invented name could never reach a draft flow at all.
+	name: 'claude-code',
 	invoke: async ({ prompt }) => {
 		onCall?.(prompt);
 

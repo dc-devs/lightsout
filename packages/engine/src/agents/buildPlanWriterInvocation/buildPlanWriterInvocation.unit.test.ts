@@ -331,3 +331,41 @@ test('buildPlanWriterInvocation: the ledger brief allows a row on a file the pla
 	expect(ledger).toMatch(/Files to Move/);
 	expect(ledger).toMatch(/moves away|move'?s source|source side/i);
 });
+
+test('buildPlanWriterInvocation: the documentation, ledger and phase-authoring briefs still land after the shared slabs move to agents/common', () => {
+	const invocation = writerInvocation({
+		outputs: [{ path: '/repo/.lightsout/plans/foo/phase2-wiring.md', variant: 'phase' }],
+		overviewText: '# Foo — Overview\n\nOVERVIEW-SENTINEL',
+		declaration: declarationRow(),
+		previousDeclaration: { ...declarationRow(), number: 1, file: 'phase1-contracts.md', creates: ['src/contracts.ts'], exports: ['Contract'] },
+		docs: [{ path: 'README.md', covers: 'The product tour.' }],
+		contract: true,
+	});
+
+	// the phase-authoring brief still carries both declaration rows and the
+	// settled overview — the slab moved home, it did not lose its inputs
+	expect(invocation.prompt.includes('## Phase authoring')).toBeTruthy();
+	expect(invocation.prompt.includes('"file": "phase2-wiring.md"')).toBeTruthy();
+	expect(invocation.prompt.includes('"file": "phase1-contracts.md"')).toBeTruthy();
+	expect(invocation.prompt.includes('OVERVIEW-SENTINEL')).toBeTruthy();
+	// the documentation brief still names each declared surface with what it covers
+	expect(invocation.prompt.includes('## Documentation surfaces')).toBeTruthy();
+	expect(invocation.prompt.includes('- `README.md` — The product tour.')).toBeTruthy();
+	// the ledger brief still carries the table shape it dictates
+	expect(invocation.prompt.includes('## Acceptance-test ledger')).toBeTruthy();
+	expect(invocation.prompt.includes('| Criterion | Test file | Test name | Gate |')).toBeTruthy();
+	// the template's documentation rule, whose text is the fourth moved slab,
+	// still reaches the system prompt substituted rather than left as a token
+	expect(invocation.systemPrompt.includes('- **Documentation stated.**')).toBeTruthy();
+	expect(invocation.systemPrompt.includes('{{documentationRule}}')).toBeFalsy();
+	// and all three briefs land in assembly order, none dropped by the promotion
+	expect(invocation.prompt.split('\n\n').filter((section) => section.startsWith('## '))).toStrictEqual([
+		'## Feature request',
+		'## Output files',
+		'## Phase authoring',
+		'## Documentation surfaces',
+		'## Acceptance-test ledger',
+		'## Decisions record',
+		'## Verified facts',
+	]);
+});

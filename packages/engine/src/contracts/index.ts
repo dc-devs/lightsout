@@ -59,6 +59,7 @@ export {
 	DecisionRow,
 	DecisionSource,
 	DecisionsRecord,
+	DraftImplementation,
 	ExploreArea,
 	FindingSeverity,
 	GapArea,
@@ -93,6 +94,9 @@ export {
 	PlanVariant,
 	PlanWeight,
 	ProseFile,
+	SourceEvidenceEntry,
+	SourceEvidenceIndex,
+	SourceEvidenceKind,
 	StructuralCheck,
 	StructuralFinding,
 } from '#src/contracts/plan/index.ts';

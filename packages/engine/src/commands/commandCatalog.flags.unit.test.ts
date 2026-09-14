@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { commandCatalog } from '#src/commands/index.ts';
+import { commandCatalog, renderUsage } from '#src/commands/index.ts';
 
 const setupCatalog = () => {
 	const byId = new Map(commandCatalog.map((entry) => [entry.id, entry]));
@@ -13,7 +13,7 @@ describe('commandCatalog flags', () => {
 
 		expect(accepted).toStrictEqual([
 			['brainstorm', ['cwd', 'name']],
-			['plan', ['cwd', 'name', 'no-worktree', 'notes', 'phase', 'scope', 'worktree']],
+			['plan', ['cwd', 'legacy', 'name', 'no-worktree', 'notes', 'phase', 'scope', 'worktree']],
 			['auto-plan', []],
 			['implement', ['cwd', 'no-ship', 'no-worktree', 'overview', 'packages', 'plan', 'ship', 'skip-refactor', 'start-phase', 'worktree']],
 			['implement-direct', ['cwd', 'no-ship', 'no-worktree', 'ref', 'ship', 'ticket', 'worktree']],
@@ -98,6 +98,19 @@ describe('commandCatalog flags', () => {
 			['no-worktree', false, undefined],
 		]);
 		expect(isolationFlags.find((flag) => flag.name === 'worktree')?.fallback).toEqual(expect.stringMatching(/plan\.worktree/));
+	});
+
+	test('plan accepts the legacy flag on the draft invocation and renders it in the usage text', () => {
+		const { byId } = setupCatalog();
+		const legacyFlags = (byId.get('plan')?.flags ?? []).filter((flag) => flag.name === 'legacy');
+
+		const draftLine = renderUsage()
+			.split('\n')
+			.find((line) => line.startsWith('  lightsout plan draft'));
+
+		// the accepted set is read from this row, so the flag works exactly when --help says it does
+		expect(legacyFlags.map((flag) => [flag.name, flag.value, flag.shape, flag.required])).toStrictEqual([['legacy', undefined, 'plan-draft', false]]);
+		expect(draftLine).toEqual(expect.stringContaining('[--legacy]'));
 	});
 
 	test('a flag that excludes another names a key at least one sibling shares, or its bracket would hold one flag', () => {

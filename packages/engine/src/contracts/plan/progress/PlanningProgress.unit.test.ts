@@ -29,6 +29,26 @@ const setupRecords = () => {
 	return { record, recordWithUnknownStep, recordWithZeroAttempts };
 };
 
+const setupLegacyDraftRecord = () => {
+	const legacyRecord = {
+		name: 'queue-swim-lanes',
+		updatedAt: '2026-09-10T09:02:00.000Z',
+		steps: [
+			{
+				step: 'draft',
+				status: 'passed',
+				attempts: 1,
+				pid: 4244,
+				startedAt: '2026-09-10T09:01:00.000Z',
+				finishedAt: '2026-09-10T09:02:00.000Z',
+				durationMs: 60_000,
+			},
+		],
+	};
+
+	return { legacyRecord };
+};
+
 describe('PlanningProgress', () => {
 	test('accepts a well-formed planning record and rejects an unknown step id or zero attempts', () => {
 		const { record, recordWithUnknownStep, recordWithZeroAttempts } = setupRecords();
@@ -61,6 +81,28 @@ describe('PlanningProgress', () => {
 		});
 		expect(unknownStep.success).toBe(false);
 		expect(zeroAttempts.success).toBe(false);
+	});
+
+	test('parses a planning record whose steps carry no implementation', () => {
+		const { legacyRecord } = setupLegacyDraftRecord();
+
+		const parsed = PlanningProgress.safeParse(legacyRecord);
+
+		expect(parsed.data).toStrictEqual({
+			name: 'queue-swim-lanes',
+			updatedAt: '2026-09-10T09:02:00.000Z',
+			steps: [
+				{
+					step: 'draft',
+					status: 'passed',
+					attempts: 1,
+					pid: 4244,
+					startedAt: '2026-09-10T09:01:00.000Z',
+					finishedAt: '2026-09-10T09:02:00.000Z',
+					durationMs: 60_000,
+				},
+			],
+		});
 	});
 });
 

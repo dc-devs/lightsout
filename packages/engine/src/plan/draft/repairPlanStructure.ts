@@ -6,6 +6,7 @@ import type { PlanRepairResult } from '#src/plan/common/types/PlanRepairResult.t
 import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
 import { syncPlanDecisions } from '#src/plan/decisionLog/index.ts';
 import { convergeFindings } from '#src/plan/draft/common/utils/convergeFindings.ts';
+import { repairMechanicalFindings } from '#src/plan/draft/repairMechanicalFindings.ts';
 import { lintPlanStructure } from '#src/plan/lint/index.ts';
 
 interface Params {
@@ -27,6 +28,10 @@ interface Params {
 	permissions?: Permissions;
 	timeoutMs: number;
 	progress: (message: string) => void;
+	/** True when the caller wants each round to regenerate every engine-owned section — the Decision Log, the Global Constraints, the stamped phase counts and the phase sections — before it lints. Unset leaves the round syncing only the Decision Log, which is what the legacy draft flow gets. */
+	mechanicalRepair?: boolean;
+	/** Absolute path of the overview when the deliverable is phased. Read only when `mechanicalRepair` is set. */
+	overviewPath?: string;
 }
 
 /**
@@ -65,16 +70,24 @@ const runRepairAttempt = ({ params, findings, attempt }: { params: Params; findi
  * engine's, and the repairer is told not to touch it, so a round that displaced
  * or damaged it is corrected here rather than handed back to the repairer as a
  * finding it has been forbidden to fix.
+ *
+ * A caller asking for `mechanicalRepair` gets the whole deterministic pass in
+ * place of that bare sync: every engine-owned section is regenerated first, so a
+ * defect the engine can settle from a record is never reported and never reaches
+ * a spawn. It is opt-in rather than default-on because both draft flows share
+ * this loop, and the legacy one must keep its current repair behaviour.
  */
 export const repairPlanStructure = async (params: Params): Promise<PlanRepairResult> => {
-	const { cwd, name, planPaths, decisions, config, progress } = params;
+	const { cwd, name, planPaths, decisions, config, progress, mechanicalRepair, overviewPath } = params;
 
 	return convergeFindings({
 		name,
 		verb: 'repair',
 		findingNoun: 'structural finding(s)',
 		check: async () => {
-			await syncPlanDecisions({ cwd, name, planPaths, decisions });
+			await (mechanicalRepair === true
+				? repairMechanicalFindings({ cwd, name, planPaths, decisions, overviewPath })
+				: syncPlanDecisions({ cwd, name, planPaths, decisions }));
 
 			return lintPlanStructure({ cwd, planPaths, decisions, config });
 		},

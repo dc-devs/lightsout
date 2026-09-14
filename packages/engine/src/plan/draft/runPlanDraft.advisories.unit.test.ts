@@ -87,7 +87,7 @@ describe('runPlanDraft advisories', () => {
 
 		seedPlanWorkspace({ cwd, name: 'rate-limited' });
 
-		const driver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 1, rateLimited: true }) };
+		const driver: Driver = { name: 'claude-code', invoke: async () => ({ text: '', exitCode: 1, rateLimited: true }) };
 		const result = await runPlanDraft({ cwd, driver, name: 'rate-limited' });
 
 		expectStatus(result, 'paused-rate-limit');

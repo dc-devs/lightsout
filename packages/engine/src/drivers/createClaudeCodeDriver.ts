@@ -52,7 +52,7 @@ export const createClaudeCodeDriver = (): Driver => {
 	const driver: Driver = {
 		name: 'claude-code',
 		invoke: async (invocation) => {
-			const { prompt, systemPrompt, model, effort, permissions, allowedCommands, cwd, timeoutMs, onEvent } = invocation;
+			const { prompt, systemPrompt, model, effort, permissions, allowedCommands, environment, cwd, timeoutMs, onEvent } = invocation;
 
 			let resultEvent: z.infer<typeof ResultEvent> | undefined;
 
@@ -62,7 +62,7 @@ export const createClaudeCodeDriver = (): Driver => {
 			// path too, and never throws.
 			const { exitCode, stdout, stderr } = await spawnCollect({
 				command: 'claude',
-				args: buildClaudeCodeArgs({ systemPromptPath: systemPromptFile?.path, model, effort, permissions, allowedCommands }),
+				args: buildClaudeCodeArgs({ systemPromptPath: systemPromptFile?.path, model, effort, permissions, allowedCommands, environment }),
 				cwd,
 				stdinText: prompt,
 				timeoutMs,

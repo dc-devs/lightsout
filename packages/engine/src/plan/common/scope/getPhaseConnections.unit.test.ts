@@ -34,6 +34,7 @@ const planWith = ({ base, create = [], modify = [], mentions = [], handsForward 
 		deletePaths: [],
 		movePaths: [],
 		malformedMoveLines: [],
+		sectionRanges: new Map(),
 		mirrorPaths: [],
 		verificationCommands: [],
 		ledger: [],

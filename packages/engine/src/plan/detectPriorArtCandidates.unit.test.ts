@@ -245,3 +245,25 @@ test('detectPriorArtCandidates: a delete in one plan file empties the path for a
 	// leaves behind
 	expect(candidates).toStrictEqual([]);
 });
+
+test('detectPriorArtCandidates: the shared export census yields the same candidates as the inline census it replaced', async () => {
+	const { cwd, planPaths } = setup({
+		existing: ['src/other/fetchUser.ts', 'src/legacy/getUser.ts'],
+		creates: ['src/getUser.ts'],
+		deletes: ['src/legacy/getUser.ts'],
+	});
+
+	const candidates = await detectPriorArtCandidates({ cwd, planPaths });
+
+	// the census moved behind `buildExportCensus` and the bucket comparison behind
+	// `detectExportCollisions` — the whole verdict, not just its path list, has to
+	// come back byte-for-byte what the inline census returned
+	expect(candidates).toStrictEqual([
+		{
+			plannedSymbol: 'getUser',
+			plannedPath: 'src/getUser.ts',
+			phase: 'plan.md',
+			collidesWith: [{ name: 'fetchUser', path: 'src/other/fetchUser.ts' }],
+		},
+	]);
+});

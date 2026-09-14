@@ -51,7 +51,7 @@ const outputPathFrom = (prompt: string) => /- (\S+\.md)/.exec(prompt)?.[1];
  * the one phase spawn writes the phase file its own prompt names.
  */
 const phasedWriterDriver = (): Driver => ({
-	name: 'stub',
+	name: 'claude-code',
 	invoke: async ({ prompt }) => {
 		const path = outputPathFrom(prompt);
 
@@ -84,7 +84,7 @@ const phasedWriterDriver = (): Driver => ({
  * `report` overrides the drafted report to drive the non-drafted outcomes.
  */
 const writerDriver = ({ body, variant = PlanVariant.Single, report }: { body?: string; variant?: PlanVariant; report?: unknown }): Driver => ({
-	name: 'stub',
+	name: 'claude-code',
 	invoke: async ({ prompt }) => {
 		if (prompt.includes('# Repair input')) {
 			return { text: JSON.stringify({ status: PlanFixStatus.Error, filesEdited: [], discrepancies: ['cannot resolve from the findings'] }), exitCode: 0 };
@@ -166,7 +166,7 @@ test('records the draft step as passed in the planning record before it exits 0'
 
 /** A plan-writer stub whose harness reports it hit its subscription rate limit. */
 const rateLimitedWriter = (): Driver => ({
-	name: 'stub',
+	name: 'claude-code',
 	invoke: async () => ({ text: '', exitCode: 1, rateLimited: true }),
 });
 
@@ -336,7 +336,7 @@ test('planDraftCommand: a hand-back counts and lists only the blocking findings,
  * file.
  */
 const phasedFactsErrorDriver = ({ phases }: { phases: number }): Driver => ({
-	name: 'stub',
+	name: 'claude-code',
 	invoke: async ({ prompt }) => {
 		if (prompt.includes('## Phase authoring')) {
 			return {
