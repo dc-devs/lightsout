@@ -14,7 +14,11 @@ interface Params {
 	cwd: string;
 	/** Kebab plan name — the folder the plan's own files live in. */
 	name: string;
-	facts: PlanFacts;
+	facts?: PlanFacts;
+	/** Explicit acquisitions extend the shared byte cache without repository discovery. */
+	targets?: Array<{ path: string; role: string }>;
+	/** When supplied, these observed bytes are authoritative; missing map entries are invalid input. */
+	sourceBytes?: ReadonlyMap<string, string>;
 	/** Absent = defaults; supplies `packages-dir` for the compiler resolution. */
 	config?: LightsoutConfig;
 }
@@ -101,7 +105,8 @@ const collectEntry = ({
  * an error: `verifyFacts` never checked an integration point's `at`, so the
  * record says the file was absent and the call returns normally.
  */
-export const collectSourceEvidence = async ({ cwd, name, facts, config }: Params): Promise<SourceEvidenceIndex> => {
+export const collectSourceEvidence = async ({ cwd, name, facts, config, targets, sourceBytes }: Params): Promise<SourceEvidenceIndex> => {
+	if (facts === undefined && targets === undefined) throw new Error('Source evidence requires facts or explicit targets');
 	const path = sourceEvidencePath({ cwd, name });
 	// Unlike the grade memory, an unreadable record is discarded rather than thrown
 	// on: that one holds decisions a human settled and cannot be recomputed, while
@@ -109,10 +114,14 @@ export const collectSourceEvidence = async ({ cwd, name, facts, config }: Params
 	const previous = await readJsonFile({ path, schema: SourceEvidenceIndex });
 	const stored = new Map((previous?.entries ?? []).map((entry) => [entry.path, entry]));
 	const compiler = resolveConsumerTypescript({ cwd, packagesDir: config?.['packages-dir'] ?? defaultPackagesDir });
-	const entries: SourceEvidenceEntry[] = [];
+	const wanted = facts === undefined ? new Map<string, string[]>() : wantedPaths({ facts });
+	for (const target of targets ?? []) wanted.set(target.path, [...new Set([...(wanted.get(target.path) ?? []), target.role])]);
+	const entries: SourceEvidenceEntry[] = targets === undefined ? [] : [...stored.values()].filter((entry) => !wanted.has(entry.path));
 
-	for (const [relative, roles] of wantedPaths({ facts })) {
-		const content = await readFile(join(cwd, relative), 'utf8').catch(() => undefined);
+	for (const [relative, requestedRoles] of wanted) {
+		if (sourceBytes !== undefined && !sourceBytes.has(relative)) throw new Error(`Observed source bytes are missing: ${relative}`);
+		const roles = targets === undefined ? requestedRoles : [...new Set([...(stored.get(relative)?.roles ?? []), ...requestedRoles])];
+		const content = sourceBytes === undefined ? await readFile(join(cwd, relative), 'utf8').catch(() => undefined) : sourceBytes.get(relative);
 
 		if (content === undefined) {
 			entries.push({ path: relative, sha256: '', kind: SourceEvidenceKind.Missing, bytes: 0, text: '', roles, definitions: [] });
@@ -130,6 +139,7 @@ export const collectSourceEvidence = async ({ cwd, name, facts, config }: Params
 
 	const index = SourceEvidenceIndex.parse({
 		planName: name,
+		...(targets === undefined ? {} : { acquisition: { version: 1, semantics: 'bytes-only', paths: [...wanted.keys()].sort() } }),
 		entries: entries.sort((left, right) => left.path.localeCompare(right.path)),
 		collectedAt: new Date().toISOString(),
 	});

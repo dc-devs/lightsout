@@ -1,7 +1,9 @@
+import { encodeMarkdownTableCell } from '#src/plan/common/rewriting/encodeMarkdownTableCell.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 
 interface Params {
 	declaration: PhaseDeclaration;
+	lossless?: boolean;
 }
 
 /** One authored field as a table cell: trimmed, its pipes escaped so a cell cannot split its own row, and its line breaks folded so a row stays one line. */
@@ -19,11 +21,11 @@ const toCell = ({ text }: { text: string }) => text.trim().replaceAll('|', '\\|'
  * can still report it. The literal text of an absent value must never reach a
  * cell, which is what an unguarded interpolation would put there.
  */
-export const renderPhaseRow = ({ declaration }: Params): string => {
+export const renderPhaseRow = ({ declaration, lossless = false }: Params): string => {
 	const cells = [
 		String(declaration.number),
 		`\`${declaration.file}\``,
-		toCell({ text: declaration.scope }),
+		lossless ? encodeMarkdownTableCell({ text: declaration.scope }) : toCell({ text: declaration.scope }),
 		declaration.createdCount === undefined ? '' : String(declaration.createdCount),
 		declaration.touchedCount === undefined ? '' : String(declaration.touchedCount),
 	];

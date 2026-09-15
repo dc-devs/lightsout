@@ -77,3 +77,39 @@ describe('parseAcceptanceLedger', () => {
 		expect(parseAcceptanceLedger({ sectionLines: undefined, firstLine: 1 })).toStrictEqual({ rows: [], malformedLines: [] });
 	});
 });
+
+test('parseAcceptanceLedger retains escaped pipes, newlines, code characters and literal entity text in exact test identity', () => {
+	const line = '| keeps \\ and \\| characters | `src/retry.unit.test.ts` | &#32;keeps&#124;after&#10;failure&#96; &amp;#10; &lt;x&gt;&#13;&#32; | test |';
+
+	const parsed = parseAcceptanceLedger({ sectionLines: [line], firstLine: 7 });
+
+	expect(parsed).toEqual({
+		rows: [
+			{ criterion: 'keeps \\ and | characters', testFile: 'src/retry.unit.test.ts', testName: ' keeps|after\nfailure` &#10; <x>\r ', gate: 'test', line: 7 },
+		],
+		malformedLines: [],
+	});
+});
+
+test('parseAcceptanceLedger preserves a real criterion named Criterion instead of mistaking it for table furniture', () => {
+	const line = '| Criterion | `src/a.unit.test.ts` | preserves the criterion | test |';
+
+	const parsed = parseAcceptanceLedger({ sectionLines: [line], firstLine: 3 });
+
+	expect(parsed).toEqual({
+		rows: [{ criterion: 'Criterion', testFile: 'src/a.unit.test.ts', testName: 'preserves the criterion', gate: 'test', line: 3 }],
+		malformedLines: [],
+	});
+});
+
+test('parseAcceptanceLedger reads a row without a closing border and retains a final escaped pipe as test identity', () => {
+	const parsed = parseAcceptanceLedger({
+		sectionLines: ['| Criterion | Test file | Test name', '| criterion | `src/a.unit.test.ts` | ends with \\|'],
+		firstLine: 1,
+	});
+
+	expect(parsed).toEqual({
+		rows: [{ criterion: 'criterion', testFile: 'src/a.unit.test.ts', testName: 'ends with |', gate: 'test', line: 2 }],
+		malformedLines: [],
+	});
+});

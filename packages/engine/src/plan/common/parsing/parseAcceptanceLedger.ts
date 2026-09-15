@@ -1,4 +1,5 @@
 import type { LedgerRow } from '#src/contracts/index.ts';
+import { parseMarkdownTableCells } from '#src/plan/common/parsing/parseMarkdownTableCells.ts';
 
 interface Params {
 	/** The lines under the `## Acceptance Tests` heading, or undefined when the section is absent. */
@@ -7,23 +8,13 @@ interface Params {
 	firstLine: number;
 }
 
-/** The cells of a markdown table row, without the empty spans the leading and trailing pipes produce. */
-const cellsOf = ({ line }: { line: string }) => {
-	const cells = line.trim().split('|');
-
-	if (cells[0].trim() === '') {
-		cells.shift();
-	}
-
-	if (cells.length > 0 && cells[cells.length - 1].trim() === '') {
-		cells.pop();
-	}
-
-	return cells.map((cell) => cell.trim());
-};
-
 /** The template's own header row and the `|---|` rule beneath it — structure rather than content, so neither is a row and neither is malformed. */
-const isTableFurniture = ({ cells }: { cells: string[] }) => cells[0].toLowerCase() === 'criterion' || cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+const isTableFurniture = ({ cells }: { cells: string[] }) =>
+	(cells.length >= 3 &&
+		cells.length <= 4 &&
+		['criterion', 'test file', 'test name'].every((heading, index) => cells[index]?.toLowerCase() === heading) &&
+		(cells.length === 3 || cells[3].toLowerCase() === 'gate')) ||
+	cells.every((cell) => /^:?-{3,}:?$/.test(cell));
 
 /**
  * Read the `## Acceptance Tests` section of a plan file into rows.
@@ -48,7 +39,7 @@ export const parseAcceptanceLedger = ({ sectionLines, firstLine }: Params): { ro
 			continue;
 		}
 
-		const cells = cellsOf({ line });
+		const cells = parseMarkdownTableCells({ line });
 
 		if (cells.length === 0 || isTableFurniture({ cells })) {
 			continue;

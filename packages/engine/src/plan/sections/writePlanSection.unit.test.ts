@@ -157,3 +157,16 @@ describe('writePlanSection', () => {
 		});
 	});
 });
+
+test.each(['# Plan\n## Context\nfirst\n## Context\nsecond\n', '# Plan\n## Context\n~~~md\nunclosed\n'])(
+	'writePlanSection refuses ambiguous authored content without touching bytes or modification time',
+	async (content) => {
+		const plan = setupPlanFile({ content });
+
+		const write = writePlanSection({ path: plan.path, heading: 'Context', section: '## Context\nnew content' });
+
+		await expect(write).rejects.toThrow(/Ambiguous planning sections/);
+		expect(plan.readPlan()).toBe(content);
+		expect(statSync(plan.path).mtimeMs).toBe(plan.modifiedAt);
+	},
+);

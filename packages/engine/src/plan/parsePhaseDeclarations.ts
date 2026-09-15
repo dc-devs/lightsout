@@ -1,4 +1,6 @@
 import { planSentinelTokens } from '#src/plan/common/constants/planSentinelTokens.ts';
+import { maskPlanCodeFences } from '#src/plan/common/parsing/maskPlanCodeFences.ts';
+import { parseMarkdownTableCells } from '#src/plan/common/parsing/parseMarkdownTableCells.ts';
 import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 import { getCodeSpans } from '#src/plan/common/utils/getCodeSpans.ts';
@@ -59,7 +61,7 @@ const rowsFrom = ({ sectionLines }: { sectionLines: string[] | undefined }) => {
 			continue;
 		}
 
-		const cells = line.split('|').slice(1, -1);
+		const cells = parseMarkdownTableCells({ line });
 		const number = integerFrom({ cell: cells[0] });
 		const file = fileFrom({ cell: cells[1] });
 
@@ -70,7 +72,7 @@ const rowsFrom = ({ sectionLines }: { sectionLines: string[] | undefined }) => {
 		rows.push({
 			number,
 			file,
-			scope: cells[2]?.trim() ?? '',
+			scope: cells[2] ?? '',
 			createdCount: integerFrom({ cell: cells[3] }),
 			touchedCount: integerFrom({ cell: cells[4] }),
 		});
@@ -147,8 +149,8 @@ const blocksFrom = ({ sectionLines }: { sectionLines: string[] | undefined }) =>
  * Rows are returned in table order.
  */
 export const parsePhaseDeclarations = ({ plan }: Params): PhaseDeclaration[] => {
-	const rows = rowsFrom({ sectionLines: plan.sections.get('Phases') });
-	const blocks = blocksFrom({ sectionLines: plan.sections.get('Phase Declarations') });
+	const rows = rowsFrom({ sectionLines: maskPlanCodeFences({ lines: plan.sections.get('Phases') ?? [] }).lines });
+	const blocks = blocksFrom({ sectionLines: maskPlanCodeFences({ lines: plan.sections.get('Phase Declarations') ?? [] }).lines });
 	const claimed = new Set<string>();
 	const declared = rows.map((row) => {
 		const block = blocks.find(({ file }) => file === row.file);

@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
+import type { StandardsReader } from '#src/common/types/StandardsReader.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { StandardsCheckModule, StandardsSet } from '#src/contracts/index.ts';
 import { StandardsSeverity } from '#src/contracts/index.ts';
@@ -10,6 +11,7 @@ import { hasFile } from '#src/standardsPacks/common/utils/hasFile.ts';
 import { importCheckModule } from '#src/standardsPacks/common/utils/importCheckModule.ts';
 
 interface Params {
+	reader?: StandardsReader;
 	/** Absolute rule folder path. */
 	folderPath: string;
 	set: StandardsSet;
@@ -27,13 +29,25 @@ const ruleDeclaration = z.object({
 });
 
 /** rule.md read: what it declares and the prose it argues. Either part is absent when the file cannot supply it. */
-const getRuleDeclaration = async ({ folderPath, rulePath, found }: { folderPath: string; rulePath: string; found: string[] }) => {
+const getRuleDeclaration = async ({
+	folderPath,
+	rulePath,
+	found,
+	reader,
+}: {
+	folderPath: string;
+	rulePath: string;
+	found: string[];
+	reader?: StandardsReader;
+}) => {
 	const filePath = `${rulePath}/rule.md`;
-	const text = await readFile(join(folderPath, 'rule.md'), 'utf8').catch((error: unknown) => {
-		found.push(`${filePath}: unreadable — ${messageOf({ error })}`);
+	const text = await (reader === undefined ? readFile(join(folderPath, 'rule.md'), 'utf8') : reader.text({ path: join(folderPath, 'rule.md') })).catch(
+		(error: unknown) => {
+			found.push(`${filePath}: unreadable — ${messageOf({ error })}`);
 
-		return undefined;
-	});
+			return undefined;
+		},
+	);
 	const parsed = text === undefined ? undefined : parseDeclaration({ text, schema: ruleDeclaration, filePath, problems: found });
 
 	return { declaration: parsed?.declaration, prose: parsed?.body ?? '' };
@@ -52,7 +66,7 @@ const getRuleDeclaration = async ({ folderPath, rulePath, found }: { folderPath:
  * @param documentPath - pack-relative path of the owning document folder
  * @param problems - sink the loader throws as one batch
  */
-export const parseRuleFolder = async ({ folderPath, set, documentPath, problems }: Params): Promise<LoadedStandardsRule | undefined> => {
+export const parseRuleFolder = async ({ folderPath, set, documentPath, problems, reader }: Params): Promise<LoadedStandardsRule | undefined> => {
 	const folderName = basename(folderPath);
 	const rulePath = `${documentPath}/${folderName}`;
 	const found: string[] = [];
@@ -62,9 +76,9 @@ export const parseRuleFolder = async ({ folderPath, set, documentPath, problems 
 		found.push(`${rulePath}: rule folder must be named <NN>-<rule-id>, e.g. 01-${folderName}`);
 	}
 
-	const { declaration, prose } = await getRuleDeclaration({ folderPath, rulePath, found });
+	const { declaration, prose } = await getRuleDeclaration({ folderPath, rulePath, found, reader });
 	const checkPath = join(folderPath, 'check.ts');
-	const hasCheck = await hasFile({ path: checkPath });
+	const hasCheck = await hasFile({ path: checkPath, reader });
 
 	if (declaration?.checked === true && !hasCheck) {
 		found.push(`${rulePath}: declares checked: true but ships no check.ts`);

@@ -1,4 +1,5 @@
 import { PlanFileKind } from '#src/plan/common/constants/PlanFileKind.ts';
+import { maskPlanCodeFences } from '#src/plan/common/parsing/maskPlanCodeFences.ts';
 import { parseAcceptanceLedger } from '#src/plan/common/parsing/parseAcceptanceLedger.ts';
 import { parseProseFiles } from '#src/plan/common/parsing/parseProseFiles.ts';
 import { pathFromLine } from '#src/plan/common/paths/pathFromLine.ts';
@@ -15,15 +16,17 @@ import { planCreatePaths } from '#src/plan/planCreatePaths.ts';
  * prose-files parsers both number their malformed lines that way, and a finding
  * a human cannot jump to is a finding they have to hunt for.
  */
-const parseSections = ({ lines }: { lines: string[] }) => {
+const parseSections = ({ lines, masked }: { lines: string[]; masked: string[] }) => {
+	const duplicateSections: string[] = [];
 	const sections = new Map<string, { lines: string[]; firstLine: number }>();
 	let current: string | undefined;
 
 	for (const [index, line] of lines.entries()) {
-		const heading = /^##\s+(.+?)\s*$/.exec(line);
+		const heading = /^##\s+(.+?)\s*$/.exec(masked[index]);
 
 		if (heading) {
 			current = heading[1];
+			if (sections.has(current)) duplicateSections.push(current);
 			sections.set(current, { lines: [], firstLine: index + 2 });
 
 			continue;
@@ -34,7 +37,7 @@ const parseSections = ({ lines }: { lines: string[] }) => {
 		}
 	}
 
-	return sections;
+	return { sections, duplicateSections };
 };
 
 /**
@@ -153,15 +156,22 @@ interface Params {
 /** Parse a plan file's text into the typed `ParsedPlan` the structural lint keys off. */
 export const parsePlan = ({ content, base }: Params): ParsedPlan => {
 	const lines = content.split('\n');
-	const parsed = parseSections({ lines });
+	const masked = maskPlanCodeFences({ lines });
+	const { sections: parsed, duplicateSections } = parseSections({ lines, masked: masked.lines });
 	const sections = new Map<string, string[]>([...parsed].map(([heading, section]) => [heading, section.lines]));
+	const structural = new Map(
+		[...parsed].map(([heading, section]) => [
+			heading,
+			{ ...section, lines: masked.lines.slice(section.firstLine - 1, section.firstLine - 1 + section.lines.length) },
+		]),
+	);
 	const decisionLogSection = parsed.get('Decision Log');
-	const ledgerSection = parsed.get('Acceptance Tests');
-	const proseSection = parsed.get('Prose Files');
+	const ledgerSection = structural.get('Acceptance Tests');
+	const proseSection = structural.get('Prose Files');
 	const ledger = parseAcceptanceLedger({ sectionLines: ledgerSection?.lines, firstLine: ledgerSection?.firstLine ?? 1 });
 	const prose = parseProseFiles({ sectionLines: proseSection?.lines, firstLine: proseSection?.firstLine ?? 1 });
 	const title =
-		lines
+		masked.lines
 			.find((line) => /^#\s+/.test(line))
 			?.replace(/^#\s+/, '')
 			.trim() ?? '';
@@ -170,24 +180,26 @@ export const parsePlan = ({ content, base }: Params): ParsedPlan => {
 			? PlanFileKind.Overview
 			: PlanFileKind.Implementable;
 	const isSubheading = (line: string) => /^###\s+/.test(line);
-	const { moves, malformedLines } = movesFromPlan({ lines });
+	const { moves, malformedLines } = movesFromPlan({ lines: masked.lines });
 
 	return {
 		base,
 		title,
 		variant,
 		sections,
+		...(duplicateSections.length > 0 ? { duplicateSections } : {}),
+		...(masked.unterminated ? { unterminatedFence: true } : {}),
 		createPaths: planCreatePaths({ planText: content }),
-		modifyPaths: pathsFromLines({ sectionLines: sections.get('Files to Modify'), lineMatches: isSubheading }),
-		earlierPhaseModifyPaths: pathsFromLines({ sectionLines: sections.get('Files to Modify from Earlier Phases'), lineMatches: isSubheading }),
-		deletePaths: pathsFromLines({ sectionLines: sections.get('Files to Delete'), lineMatches: isSubheading }),
+		modifyPaths: pathsFromLines({ sectionLines: structural.get('Files to Modify')?.lines, lineMatches: isSubheading }),
+		earlierPhaseModifyPaths: pathsFromLines({ sectionLines: structural.get('Files to Modify from Earlier Phases')?.lines, lineMatches: isSubheading }),
+		deletePaths: pathsFromLines({ sectionLines: structural.get('Files to Delete')?.lines, lineMatches: isSubheading }),
 		movePaths: moves,
 		malformedMoveLines: malformedLines,
 		decisionLogRange: decisionLogSection === undefined ? undefined : rangeOf({ section: decisionLogSection }),
 		sectionRanges: new Map([...parsed].map(([heading, section]) => [heading, rangeOf({ section })])),
-		fileBudget: fileBudgetFrom({ sectionLines: sections.get('File Budget') }),
-		mirrorPaths: pathsFromLines({ sectionLines: sections.get('Patterns to Mirror'), lineMatches: (line) => /^\s*-\s+/.test(line) }),
-		verificationCommands: commandsFromVerification({ sectionLines: sections.get('Verification') }),
+		fileBudget: fileBudgetFrom({ sectionLines: structural.get('File Budget')?.lines }),
+		mirrorPaths: pathsFromLines({ sectionLines: structural.get('Patterns to Mirror')?.lines, lineMatches: (line) => /^\s*-\s+/.test(line) }),
+		verificationCommands: commandsFromVerification({ sectionLines: structural.get('Verification')?.lines }),
 		ledger: ledger.rows,
 		malformedLedgerLines: ledger.malformedLines,
 		proseFiles: prose.files,

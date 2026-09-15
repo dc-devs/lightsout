@@ -1,3 +1,4 @@
+import type { CanonicalPlanningPhase } from '#src/plan/common/types/CanonicalPlanningPhase.ts';
 import type { CrossPhaseLintResult } from '#src/plan/common/types/CrossPhaseLintResult.ts';
 import type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
 import type { PhaseProvenance } from '#src/plan/common/types/PhaseProvenance.ts';
@@ -10,6 +11,7 @@ import { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';
 
 interface Params {
 	cwd: string;
+	canonicalPhases?: CanonicalPlanningPhase[];
 	/** The parsed overview, when the deliverable is phased. */
 	overview?: PhaseFile;
 	/** Implementable plan files, ordered by phase number. */
@@ -33,20 +35,26 @@ interface Params {
  * phase provably removes — the one case where this pass overrules a per-file
  * finding rather than adding to it.
  */
-export const lintPlanCrossPhase = async ({ cwd, overview, phases, provenance, counts }: Params): Promise<CrossPhaseLintResult> => {
+export const lintPlanCrossPhase = async ({ cwd, overview, phases, provenance, counts, canonicalPhases }: Params): Promise<CrossPhaseLintResult> => {
 	if (overview === undefined && phases.length <= 1) {
 		return { findings: [], clearedCreates: new Set<string>() };
 	}
 
 	const provenanceResult = await checkFileProvenance({ cwd, phases, provenance });
-	const findings = [...provenanceResult.findings, ...checkPhaseHandoffs({ phases })];
+	const findings = [...provenanceResult.findings, ...checkPhaseHandoffs({ phases, canonicalPhases })];
 
 	if (overview !== undefined) {
 		const declarations = parsePhaseDeclarations({ plan: overview.plan });
 
 		findings.push(
-			...checkPhaseDeclarations({ declarations, phases, overviewBase: overview.base, counts }),
-			...checkPhaseCount({ phaseCount: phases.length, overviewBase: overview.base }),
+			...checkPhaseDeclarations({
+				declarations,
+				phases,
+				overviewBase: overview.base,
+				counts,
+				canonicalPhaseFiles: canonicalPhases?.map((phase) => phase.file),
+			}),
+			...checkPhaseCount({ phaseCount: phases.length, overviewBase: overview.base, canonical: canonicalPhases !== undefined }),
 		);
 	}
 

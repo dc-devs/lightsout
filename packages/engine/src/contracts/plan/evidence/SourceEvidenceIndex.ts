@@ -16,6 +16,11 @@ export const SourceEvidenceIndex = z.object({
 	/** One entry per repo-relative path, sorted by path. */
 	entries: z.array(SourceEvidenceEntry).default([]),
 	collectedAt: z.string(),
+	/** Byte-cache acquisition metadata never proves semantic freshness. */
+	acquisition: z
+		.object({ version: z.literal(1), semantics: z.literal('bytes-only'), paths: z.array(z.string()) })
+		.strict()
+		.optional(),
 });
 
 export type SourceEvidenceIndex = z.infer<typeof SourceEvidenceIndex>;

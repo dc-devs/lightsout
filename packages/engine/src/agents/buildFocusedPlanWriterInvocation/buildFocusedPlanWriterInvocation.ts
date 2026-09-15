@@ -1,3 +1,4 @@
+import { buildAuthoritativePlanInvocation } from '#src/agents/buildFocusedPlanWriterInvocation/common/utils/buildAuthoritativePlanInvocation.ts';
 import { evidenceSection } from '#src/agents/buildFocusedPlanWriterInvocation/common/utils/evidenceSection.ts';
 import { focusedOverviewSection } from '#src/agents/buildFocusedPlanWriterInvocation/common/utils/focusedOverviewSection.ts';
 import { priorArtSection } from '#src/agents/buildFocusedPlanWriterInvocation/common/utils/priorArtSection.ts';
@@ -67,7 +68,7 @@ interface Params {
  * renderer lives in the plan module and importing it here would turn this
  * module's type-only dependency on `plan` into a runtime cycle.
  */
-export const buildFocusedPlanWriterInvocation = ({
+const buildLegacyFocusedPlanWriterInvocation = ({
 	facts,
 	decisions,
 	outputs,
@@ -142,3 +143,9 @@ export const buildFocusedPlanWriterInvocation = ({
 		prompt: sections.join('\n\n'),
 	};
 };
+
+/** Select the bound canonical packet without reloading legacy facts or decisions. */
+export const buildFocusedPlanWriterInvocation = (
+	params: Params | Parameters<typeof buildAuthoritativePlanInvocation>[0],
+): { systemPrompt: string; prompt: string } =>
+	'authoritativePacket' in params ? buildAuthoritativePlanInvocation(params) : buildLegacyFocusedPlanWriterInvocation(params);

@@ -23,6 +23,7 @@ import { getBlockingGaps } from '#src/plan/common/utils/getBlockingGaps.ts';
 import { getPlanDetectionPass } from '#src/plan/common/utils/getPlanDetectionPass.ts';
 import { selectPhaseFiles } from '#src/plan/common/utils/selectPhaseFiles.ts';
 import { lintPlanStructure } from '#src/plan/lint/index.ts';
+import { type PlanningRuntime, runPlanningGrade } from '#src/plan/workflow/index.ts';
 
 type DetectionPass = Awaited<ReturnType<typeof getPlanDetectionPass>>;
 
@@ -30,19 +31,6 @@ type RunPlanGradeResult =
 	| { status: typeof PlanRunStatus.Complete; workspaceDir: string; grade: GradeReport; gradePath: string; reused?: boolean }
 	| { status: typeof PlanRunStatus.Failed; workspaceDir: string; error: string; grade?: GradeReport; gradePath?: string }
 	| { status: typeof PlanRunStatus.PausedRateLimit; workspaceDir: string; error: string; grade?: GradeReport; gradePath?: string };
-
-/** What one invocation's passes are run from, gathered once so the focused pass and the full review that may follow it are given the same thing. */
-interface PassContext {
-	params: PlanGradeParams;
-	pass: DetectionPass;
-	selected: DeliverableFile[];
-	decision: GradeScopeDecision;
-	inputs: GradeInputs;
-	memory: GradeMemory;
-	structural: StructuralFinding[];
-	stamp: GradeStamp;
-	progress: (message: string) => void;
-}
 
 /**
  * The pass a blocking structural finding buys: the verdict written and appended,
@@ -98,8 +86,27 @@ const stopOnStructure = async ({
  * can forget to. A focused pass that still has a blocker stops here: the repair
  * is unproven, and the expensive full review would only say so again.
  */
-const runDecidedPasses = async (context: PassContext) => {
-	const { params, pass, selected, decision, inputs, memory, structural, stamp, progress } = context;
+const runDecidedPasses = async ({
+	params,
+	pass,
+	selected,
+	decision,
+	inputs,
+	memory,
+	structural,
+	stamp,
+	progress,
+}: {
+	params: PlanGradeParams;
+	pass: DetectionPass;
+	selected: DeliverableFile[];
+	decision: GradeScopeDecision;
+	inputs: GradeInputs;
+	memory: GradeMemory;
+	structural: StructuralFinding[];
+	stamp: GradeStamp;
+	progress: (message: string) => void;
+}) => {
 	const focused = decision.scope === GradeScope.Focused;
 	const first = await runGradePass({
 		params,
@@ -173,7 +180,14 @@ const runDecidedPasses = async (context: PassContext) => {
  * exactly as before; the structural lint and the prior-art detection still cover
  * EVERY plan file, because the lint is cross-phase.
  */
-export const runPlanGrade = async (params: PlanGradeParams): Promise<RunPlanGradeResult> => {
+export const runPlanGrade = async (params: PlanGradeParams | { runtime: PlanningRuntime }): Promise<RunPlanGradeResult> => {
+	if ('runtime' in params) {
+		try {
+			return { status: PlanRunStatus.Complete, ...(await runPlanningGrade(params)) };
+		} catch (error) {
+			return { status: PlanRunStatus.Failed, workspaceDir: join(params.runtime.cwd, '.lightsout', 'plans', params.runtime.name), error: messageOf({ error }) };
+		}
+	}
 	const { cwd, name, phases, onProgress, standards, model, effort } = params;
 	const progress = onProgress ?? (() => undefined);
 	const pass = await getPlanDetectionPass({ cwd, name });

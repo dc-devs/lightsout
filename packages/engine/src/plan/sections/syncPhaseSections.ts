@@ -1,7 +1,6 @@
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 import type { SyncedPlanFile } from '#src/plan/common/types/SyncedPlanFile.ts';
-import { renderPhaseDeclaration } from '#src/plan/sections/renderPhaseDeclaration.ts';
-import { renderPhaseRow } from '#src/plan/sections/renderPhaseRow.ts';
+import { renderPhaseSections } from '#src/plan/sections/renderPhaseSections.ts';
 import { writePlanSection } from '#src/plan/sections/writePlanSection.ts';
 
 interface Params {
@@ -12,25 +11,6 @@ interface Params {
 	/** Basenames of the deliverable's phase files. A declaration naming anything else is not rendered. */
 	phaseFiles: string[];
 }
-
-/** The lead-in both sections carry, telling a reader they are composed rather than hand-written. */
-const composedNote = "Composed by `lightsout plan draft` from this plan's phase files. Do not edit by hand.";
-
-/** The `## Phases` section: its lead-in, the table's fixed header and separator, then one row per matched phase. */
-const renderPhasesSection = ({ declarations }: { declarations: PhaseDeclaration[] }) => {
-	const headerRow = '| # | File | Scope | Creates | Touches |';
-	const separatorRow = '|---|------|-------|---------|---------|';
-	const rows = declarations.map((declaration) => renderPhaseRow({ declaration }));
-
-	return `## Phases\n\n${composedNote}\n\n${[headerRow, separatorRow, ...rows].join('\n')}`;
-};
-
-/** The `## Phase Declarations` section: its lead-in, then one block per matched phase. */
-const renderDeclarationsSection = ({ declarations }: { declarations: PhaseDeclaration[] }) => {
-	const blocks = declarations.map((declaration) => renderPhaseDeclaration({ declaration }));
-
-	return `## Phase Declarations\n\n${composedNote}\n\n${blocks.join('\n\n')}`;
-};
 
 /**
  * Regenerate an overview's `## Phases` table and `## Phase Declarations` blocks
@@ -65,16 +45,17 @@ export const syncPhaseSections = async ({ overviewPath, declarations, phaseFiles
 		return { path: overviewPath, updated: false };
 	}
 
+	const sections = renderPhaseSections({ declarations: matched });
 	const phases = await writePlanSection({
 		path: overviewPath,
 		heading: 'Phases',
-		section: renderPhasesSection({ declarations: matched }),
+		section: sections.get('Phases') ?? '',
 		after: 'Global Constraints',
 	});
 	const blocks = await writePlanSection({
 		path: overviewPath,
 		heading: 'Phase Declarations',
-		section: renderDeclarationsSection({ declarations: matched }),
+		section: sections.get('Phase Declarations') ?? '',
 		after: 'Phases',
 	});
 

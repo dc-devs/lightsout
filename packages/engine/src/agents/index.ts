@@ -20,3 +20,5 @@ export { buildSupervisorInvocation } from '#src/agents/buildSupervisorInvocation
 export { buildTestChangeReviewInvocation } from '#src/agents/buildTestChangeReviewInvocation.ts';
 export { buildUnitTestWriterInvocation } from '#src/agents/buildUnitTestWriterInvocation.ts';
 export { planGradePromptTexts } from '#src/agents/common/constants/planGradePromptTexts.ts';
+export { documentationRule } from '#src/agents/common/utils/documentationRule.ts';
+export { documentationSection } from '#src/agents/common/utils/documentationSection.ts';

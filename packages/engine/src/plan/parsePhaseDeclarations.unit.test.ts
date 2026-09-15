@@ -224,3 +224,26 @@ describe('parsePhaseDeclarations', () => {
 		expect(parsePhaseDeclarations({ plan })).toStrictEqual([]);
 	});
 });
+
+test('parsePhaseDeclarations retains partial declaration rows and ignores non-table prose without inventing missing fields', () => {
+	const { plan } = setupOverview({
+		rows: 'Explanation before rows.\n| 1 | phase1-core.md\n| 2 |\n| 3 | ignored.txt | not a phase | 0 | 0 |',
+		declarations: 'Explanation before the first declaration.',
+	});
+
+	const declarations = parsePhaseDeclarations({ plan });
+
+	expect(declarations).toStrictEqual([
+		{
+			number: 1,
+			file: 'phase1-core.md',
+			scope: '',
+			createdCount: undefined,
+			touchedCount: undefined,
+			creates: [],
+			exports: [],
+			scripts: [],
+			fileBudget: undefined,
+		},
+	]);
+});

@@ -15,6 +15,7 @@ import { isRateLimited } from '#src/plan/common/utils/isRateLimited.ts';
 import { matchDedupVerdicts } from '#src/plan/common/utils/matchDedupVerdicts.ts';
 import { detectPriorArtCandidates } from '#src/plan/detectPriorArtCandidates.ts';
 import { checkDeliverableDecisionLogs } from '#src/plan/lint/index.ts';
+import { collectPlanningPriorArt, type PlanningRuntime, readPlanningSnapshot, runPlanningGrade } from '#src/plan/workflow/index.ts';
 
 interface Params {
 	cwd: string;
@@ -134,6 +135,32 @@ const foldDedupResults = ({ results }: { results: Array<DedupResult | undefined>
 	return { findings, reviewed, failures, rateLimited: results.some((result) => isRateLimited({ result })) };
 };
 
+const runCanonicalDedup = async ({ runtime }: { runtime: PlanningRuntime }): Promise<RunPlanDedupResult> => {
+	const workspaceDir = join(runtime.cwd, '.lightsout', 'plans', runtime.name);
+	const snapshot = await readPlanningSnapshot({ cwd: runtime.cwd, name: runtime.name });
+	if (!snapshot) return { status: PlanRunStatus.Failed, workspaceDir, error: 'Canonical planning input is unavailable' };
+	const current = await collectPlanningPriorArt({ runtime, snapshot });
+	const dedupPath = join(workspaceDir, 'dedup.json');
+	const { grade } = await runPlanningGrade({ runtime });
+	const dedup: DedupReport = {
+		planName: runtime.name,
+		findings: [],
+		reviewed: [],
+		complete: grade.passed,
+		...(grade.passed ? {} : { incompleteReason: grade.incompleteReason ?? 'Current canonical investigation and independent coverage remain incomplete.' }),
+		reviewedAt: new Date().toISOString(),
+		workflow: {
+			format: 'planning-dedup-v1',
+			generation: grade.workflow?.generation ?? current.digest,
+			observationArtifacts: current.record.artifacts.filter((artifact) => artifact.path.startsWith('planning-prior-art/')).map((artifact) => artifact.path),
+			findingIds: grade.workflow?.findings.map((finding) => finding.id) ?? [],
+			coverageReceiptIds: grade.workflow?.coverageReceiptIds ?? [],
+		},
+	};
+	await writeJsonFile({ path: dedupPath, value: dedup });
+	return { status: PlanRunStatus.Complete, workspaceDir, dedup, dedupPath };
+};
+
 /**
  * Read-only prior-art detector for the interactive Dedup Review pass:
  * deterministically detect every planned new symbol that name-collides with an
@@ -152,7 +179,8 @@ const foldDedupResults = ({ results }: { results: Array<DedupResult | undefined>
  * pass: what finished is persisted, marked incomplete, and the runner still
  * reports the failure so a human re-runs.
  */
-export const runPlanDedup = async (params: Params): Promise<RunPlanDedupResult> => {
+export const runPlanDedup = async (params: Params | { runtime: PlanningRuntime }): Promise<RunPlanDedupResult> => {
+	if ('runtime' in params) return runCanonicalDedup({ runtime: params.runtime });
 	const { cwd, name, onProgress } = params;
 	const progress = onProgress ?? (() => undefined);
 	const pass = await getPlanDetectionPass({ cwd, name });

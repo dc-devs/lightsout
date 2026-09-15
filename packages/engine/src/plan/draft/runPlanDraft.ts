@@ -2,6 +2,7 @@ import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
 import { defaultExecutorFileLimit } from '#src/common/constants/defaultExecutorFileLimit.ts';
+import type { PlanningRoleResult, PlanningWork } from '#src/contracts/index.ts';
 import { DraftImplementation, type Effort, type Permissions, PlanVariant } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
@@ -16,6 +17,7 @@ import { preflightDraftEnvironment } from '#src/plan/draft/preflightDraftEnviron
 import { collectSourceEvidence } from '#src/plan/evidence/index.ts';
 import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 import { readPlanFacts } from '#src/plan/readPlanFacts.ts';
+import { draftPlanningArtifacts, type PlanningRuntime, type PlanningSnapshot } from '#src/plan/workflow/index.ts';
 
 interface Params {
 	cwd: string;
@@ -71,7 +73,7 @@ interface Params {
  * authoring step, never re-run mid-convergence. Brainstorm's settled rows are
  * merged in at read time, so the plan's own `decisions.json` stays plan-owned.
  */
-export const runPlanDraft = async ({
+const runLegacyPlanDraft = async ({
 	cwd,
 	driver,
 	name,
@@ -131,3 +133,19 @@ export const runPlanDraft = async ({
 
 	return variant === PlanVariant.Single ? draftSinglePlan({ context }) : draftPhasedPlan({ context, step: 'draft' });
 };
+
+interface AuthoritativeParams {
+	runtime: PlanningRuntime;
+	snapshot: PlanningSnapshot;
+	work: PlanningWork;
+}
+
+/** Author a claimed canonical assignment without restarting saved phases; retain the old caller signature until command composition switches. */
+function dispatchPlanDraft(params: AuthoritativeParams): Promise<PlanningRoleResult>;
+function dispatchPlanDraft(params: Params): Promise<RunPlanDraftResult>;
+function dispatchPlanDraft(params: Params | AuthoritativeParams): Promise<RunPlanDraftResult | PlanningRoleResult> {
+	return 'runtime' in params ? draftPlanningArtifacts(params) : runLegacyPlanDraft(params);
+}
+
+/** Dispatch the canonical claimed authoring operation or the compatible historical caller. */
+export const runPlanDraft = dispatchPlanDraft;

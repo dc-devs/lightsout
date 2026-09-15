@@ -2,6 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { standardsPackFrameworksFile } from '#src/common/constants/standardsPackFrameworksFile.ts';
 import { standardsPackRootFile } from '#src/common/constants/standardsPackRootFile.ts';
+import type { StandardsReader } from '#src/common/types/StandardsReader.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { StandardsPackRoot, StandardsSet } from '#src/contracts/index.ts';
 import { parseDocumentFolder } from '#src/standardsPacks/common/parsing/parseDocumentFolder.ts';
@@ -12,10 +13,13 @@ import { formatSchemaIssues } from '#src/standardsPacks/common/utils/formatSchem
 import { hasFile } from '#src/standardsPacks/common/utils/hasFile.ts';
 
 interface Params {
+	reader?: StandardsReader;
 	packPath: string;
 }
 
 interface WalkParams {
+	reader?: StandardsReader;
+	optional?: boolean;
 	folderPath: string;
 	documentPath: string;
 	set: StandardsSet;
@@ -32,15 +36,16 @@ interface WalkParams {
  * Folders with no marker file (a pack's own `common/` helpers, grouping
  * folders) are simply passed through.
  */
-const walk = async ({ folderPath, documentPath, set, problems, documents, rules }: WalkParams) => {
-	const entries = await readdir(folderPath, { withFileTypes: true }).catch(() => undefined);
+const walk = async ({ folderPath, documentPath, set, problems, documents, rules, reader, optional }: WalkParams) => {
+	const entries =
+		reader === undefined ? await readdir(folderPath, { withFileTypes: true }).catch(() => undefined) : await reader.list({ path: folderPath, optional });
 
 	if (entries === undefined) {
 		return;
 	}
 
 	if (entries.some((entry) => entry.name === 'document.md')) {
-		const parsed = await parseDocumentFolder({ folderPath, documentPath, set, problems });
+		const parsed = await parseDocumentFolder({ folderPath, documentPath, set, problems, reader });
 
 		if (parsed !== undefined) {
 			documents.push(parsed.document);
@@ -53,7 +58,7 @@ const walk = async ({ folderPath, documentPath, set, problems, documents, rules 
 			.sort();
 
 		for (const name of directories) {
-			await walk({ folderPath: join(folderPath, name), documentPath: `${documentPath}/${name}`, set, problems, documents, rules });
+			await walk({ folderPath: join(folderPath, name), documentPath: `${documentPath}/${name}`, set, problems, documents, rules, reader });
 		}
 	}
 };
@@ -91,9 +96,9 @@ const findDuplicateIds = ({ rules }: { rules: LoadedStandardsRule[] }) => {
  * @param packPath - absolute pack root (the folder holding lightsout-standards.json)
  * @throws {Error} When the root file is missing or invalid, or the tree has any structural or honesty problem.
  */
-export const readStandardsPack = async ({ packPath }: Params): Promise<LoadedStandardsPack> => {
+export const readStandardsPack = async ({ packPath, reader }: Params): Promise<LoadedStandardsPack> => {
 	const rootFilePath = join(packPath, standardsPackRootFile);
-	const rootText = await readFile(rootFilePath, 'utf8').catch(() => undefined);
+	const rootText = reader === undefined ? await readFile(rootFilePath, 'utf8').catch(() => undefined) : await reader.text({ path: rootFilePath });
 
 	if (rootText === undefined) {
 		throw new Error(`standards pack root file not found: ${rootFilePath}`);
@@ -118,7 +123,7 @@ export const readStandardsPack = async ({ packPath }: Params): Promise<LoadedSta
 	const rules: LoadedStandardsRule[] = [];
 
 	for (const set of [StandardsSet.Code, StandardsSet.Tests]) {
-		await walk({ folderPath: join(packPath, set), documentPath: set, set, problems, documents, rules });
+		await walk({ folderPath: join(packPath, set), documentPath: set, set, problems, documents, rules, reader, optional: true });
 	}
 
 	if (documents.length === 0) {
@@ -135,14 +140,14 @@ export const readStandardsPack = async ({ packPath }: Params): Promise<LoadedSta
 	// pack that ships one holds every checked rule to it; a pack that does not
 	// is told so by `standards-validate` rather than failed by it.
 	const frameworkOwnedFixturesPath = join(packPath, 'fixtures', 'framework-owned');
-	const hasFrameworkOwned = await hasFile({ path: frameworkOwnedFixturesPath });
+	const hasFrameworkOwned = await hasFile({ path: frameworkOwnedFixturesPath, reader });
 
 	// Recorded the same way, and for the same reason: a pack that ships no
 	// framework facts leaves the engine's mirrors answering no rather than
 	// failing the load. The constant is pack-relative and `/`-separated, so
 	// `join` is what makes it a path on this machine.
 	const frameworksModulePath = join(packPath, standardsPackFrameworksFile);
-	const hasFrameworksModule = await hasFile({ path: frameworksModulePath });
+	const hasFrameworksModule = await hasFile({ path: frameworksModulePath, reader });
 
 	return {
 		name: root.data.name,

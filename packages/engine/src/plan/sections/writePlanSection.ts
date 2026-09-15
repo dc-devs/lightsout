@@ -1,9 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
-import { replaceSectionSpan } from '#src/plan/common/rewriting/replaceSectionSpan.ts';
 import { writePlanFileIfChanged } from '#src/plan/common/rewriting/writePlanFileIfChanged.ts';
 import type { SyncedPlanFile } from '#src/plan/common/types/SyncedPlanFile.ts';
-import { parsePlan } from '#src/plan/parsePlan.ts';
+import { rewritePlanSection } from '#src/plan/sections/rewritePlanSection.ts';
 
 interface Params {
 	/** Absolute path of the plan file to rewrite. */
@@ -17,23 +16,6 @@ interface Params {
 }
 
 /**
- * The file's lines with the section inserted, for a file that carries no such
- * heading: immediately after the anchor section's own span, or appended when the
- * file carries no anchor either — a section the plan needs is never dropped for
- * want of somewhere tidy to put it.
- */
-const insertSection = ({ lines, anchorEnd, sectionLines }: { lines: string[]; anchorEnd?: number; sectionLines: string[] }) => {
-	if (anchorEnd === undefined) {
-		const trailingNewline = lines.at(-1) === '';
-		const body = trailingNewline ? lines.slice(0, -1) : lines;
-
-		return [...body, '', ...sectionLines, ...(trailingNewline ? [''] : [])];
-	}
-
-	return [...lines.slice(0, anchorEnd), ...sectionLines, '', ...lines.slice(anchorEnd)];
-};
-
-/**
  * Put one rendered section into one plan file under its `##` heading, and touch
  * nothing else.
  *
@@ -43,13 +25,6 @@ const insertSection = ({ lines, anchorEnd, sectionLines }: { lines: string[]; an
  */
 export const writePlanSection = async ({ path, heading, section, after }: Params): Promise<SyncedPlanFile> => {
 	const original = await readFile(path, 'utf8');
-	const plan = parsePlan({ content: original, base: basename(path) });
-	const sectionLines = section.split('\n');
-	const range = plan.sectionRanges.get(heading);
-	const lines =
-		range === undefined
-			? insertSection({ lines: plan.lines, anchorEnd: after === undefined ? undefined : plan.sectionRanges.get(after)?.end, sectionLines })
-			: replaceSectionSpan({ lines: plan.lines, start: range.start, end: range.end, sectionLines });
-
-	return writePlanFileIfChanged({ path, original, lines });
+	const content = rewritePlanSection({ content: original, base: basename(path), heading, section, after });
+	return writePlanFileIfChanged({ path, original, lines: content.split('\n') });
 };

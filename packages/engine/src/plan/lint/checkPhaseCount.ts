@@ -3,6 +3,7 @@ import { FindingSeverity, StructuralCheck, type StructuralFinding } from '#src/c
 interface Params {
 	/** How many implementable phases the plan has. */
 	phaseCount: number;
+	canonical?: boolean;
 	/** The finding label — the overview's basename. */
 	overviewBase: string;
 }
@@ -23,7 +24,7 @@ interface Params {
  * overview and no check at all — trading a checkable edge for an unchecked one.
  * Phase size is the thing that is capped.
  */
-export const checkPhaseCount = ({ phaseCount, overviewBase }: Params): StructuralFinding[] => {
+export const checkPhaseCount = ({ phaseCount, overviewBase, canonical = false }: Params): StructuralFinding[] => {
 	const softThreshold = 8;
 
 	if (phaseCount <= softThreshold) {
@@ -35,9 +36,13 @@ export const checkPhaseCount = ({ phaseCount, overviewBase }: Params): Structura
 			check: StructuralCheck.PhaseCount,
 			severity: FindingSeverity.Advisory,
 			phase: overviewBase,
-			issue: `this plan has ${phaseCount} phases, so one grading pass runs ${phaseCount * 3} gap-check agents — three lenses per phase`,
+			issue: canonical
+				? `This plan has ${phaseCount} implementation phases and their declared dependency edges require coverage.`
+				: `this plan has ${phaseCount} phases, so one grading pass runs ${phaseCount * 3} gap-check agents — three lenses per phase`,
 			location: `${overviewBase} → Phases`,
-			fix: `legal, and no phase count is refused — but every one of those ${phaseCount * 3} checkers can raise gaps you have to decide in one sitting`,
+			fix: canonical
+				? 'Keep each phase within its file limits and pressure-test all shared obligations. Phase count does not predict paid invocation count.'
+				: `legal, and no phase count is refused — but every one of those ${phaseCount * 3} checkers can raise gaps you have to decide in one sitting`,
 		},
 	];
 };

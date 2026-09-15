@@ -4,6 +4,7 @@ import type { PhaseProvenance } from '#src/plan/common/types/PhaseProvenance.ts'
 interface Params {
 	/** Every implementable plan file, already ordered by phase number. */
 	phases: PhaseFile[];
+	ancestors?: Map<string, Set<string>>;
 }
 
 /**
@@ -15,7 +16,7 @@ interface Params {
  * A single plan resolves to a one-phase walk with empty `providedBefore` and
  * `removedBefore` sets, which is exactly right: it has no predecessor.
  */
-export const getPhaseProvenance = ({ phases }: Params): PhaseProvenance => {
+export const getPhaseProvenance = ({ phases, ancestors }: Params): PhaseProvenance => {
 	const providedBefore = new Map<string, Set<string>>();
 	const removedBefore = new Map<string, Set<string>>();
 	const createdBy = new Map<string, string>();
@@ -41,5 +42,12 @@ export const getPhaseProvenance = ({ phases }: Params): PhaseProvenance => {
 		}
 	}
 
+	if (ancestors)
+		for (const phase of phases) {
+			const allowed = ancestors.get(phase.base);
+			const lineage = getPhaseProvenance({ phases: phases.filter((item) => item.base === phase.base || allowed?.has(item.base)) });
+			providedBefore.set(phase.base, lineage.providedBefore.get(phase.base) ?? new Set());
+			removedBefore.set(phase.base, lineage.removedBefore.get(phase.base) ?? new Set());
+		}
 	return { providedBefore, removedBefore, createdBy, removedBy };
 };
