@@ -5,16 +5,16 @@ import { PlanningDependency, type PlanningRecord, type PlanningScope, PlanningVo
 import { hasPlanningUncertainty } from '#src/plan/workflow/common/evidence/hasPlanningUncertainty.ts';
 import { normalizePlanningUnknownEvidence } from '#src/plan/workflow/common/evidence/normalizePlanningUnknownEvidence.ts';
 import { planningEvidencePolicy } from '#src/plan/workflow/common/evidence/planningEvidencePolicy.ts';
+import { planningFindingSettlement } from '#src/plan/workflow/common/review/planningFindingSettlement.ts';
 import { attachPlanningData } from '#src/plan/workflow/common/runtime/attachPlanningData.ts';
 import { planningSemanticBasis } from '#src/plan/workflow/common/runtime/planningSemanticBasis.ts';
 import { updatePlanningSnapshot } from '#src/plan/workflow/common/runtime/updatePlanningSnapshot.ts';
-import { PlanningBaseline } from '#src/plan/workflow/common/types/PlanningBaseline.ts';
+import { PlanningBaseline } from '#src/plan/workflow/common/types/invocation/PlanningBaseline.ts';
 import type { PlanningRuntime } from '#src/plan/workflow/common/types/PlanningRuntime.ts';
 import type { PlanningSnapshot } from '#src/plan/workflow/common/types/PlanningSnapshot.ts';
 import type { PlanningStandards } from '#src/plan/workflow/common/types/PlanningStandards.ts';
 import { applyPlanningInvalidation } from '#src/plan/workflow/common/utils/applyPlanningInvalidation.ts';
 import { fingerprintPlanningDependencies } from '#src/plan/workflow/evidence/index.ts';
-import { planningFindingSettlement } from '#src/plan/workflow/review/index.ts';
 
 interface Params {
 	runtime: PlanningRuntime;

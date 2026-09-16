@@ -1,4 +1,6 @@
 import type { LedgerRow } from '#src/contracts/index.ts';
+import { planTextEncodingMarker } from '#src/plan/common/constants/planTextEncodingMarker.ts';
+import { decodeMarkdownText } from '#src/plan/common/parsing/decodeMarkdownText.ts';
 import { parseMarkdownTableCells } from '#src/plan/common/parsing/parseMarkdownTableCells.ts';
 
 interface Params {
@@ -31,6 +33,7 @@ const isTableFurniture = ({ cells }: { cells: string[] }) =>
  * disk; the lint is what opens the files the rows name.
  */
 export const parseAcceptanceLedger = ({ sectionLines, firstLine }: Params): { rows: LedgerRow[]; malformedLines: number[] } => {
+	const lossless = sectionLines?.includes(planTextEncodingMarker) ?? false;
 	const rows: LedgerRow[] = [];
 	const malformedLines: number[] = [];
 
@@ -39,13 +42,15 @@ export const parseAcceptanceLedger = ({ sectionLines, firstLine }: Params): { ro
 			continue;
 		}
 
-		const cells = parseMarkdownTableCells({ line });
+		const raw = parseMarkdownTableCells({ line, decode: false });
+		const cells = raw.map((text) => decodeMarkdownText({ text, lossless }));
 
 		if (cells.length === 0 || isTableFurniture({ cells })) {
 			continue;
 		}
 
-		const testFile = /`([^`]+)`/.exec(cells[1] ?? '')?.[1].trim();
+		const span = /`([^`]+)`/.exec((lossless ? raw[1] : cells[1]) ?? '')?.[1];
+		const testFile = span === undefined ? undefined : lossless ? decodeMarkdownText({ text: span.trim() }) : span.trim();
 
 		if (cells.filter((cell) => cell !== '').length < 3 || testFile === undefined || testFile === '') {
 			malformedLines.push(firstLine + index);

@@ -113,3 +113,35 @@ test('parseAcceptanceLedger reads a row without a closing border and retains a f
 		malformedLines: [],
 	});
 });
+
+test('parseAcceptanceLedger preserves all encoded boundary whitespace and backticks inside the file span', () => {
+	const line =
+		'| &#160;criterion&#8232; | `&#32;src/a&#96;b&#124;&amp;#9;.unit.test.ts&#9;` | &#9;&#11;&#12;&#160;&#5760;&#8192;&#8193;&#8194;&#8195;&#8196;&#8197;&#8198;&#8199;&#8200;&#8201;&#8202;&#8232;&#8233;&#8239;&#8287;&#12288;&#65279; | test |';
+
+	const parsed = parseAcceptanceLedger({ sectionLines: ['<!-- lightsout:text-encoding=entities-v1 -->', line], firstLine: 3 });
+
+	expect(parsed).toEqual({
+		rows: [
+			{
+				criterion: '\u00a0criterion\u2028',
+				testFile: ' src/a`b|&#9;.unit.test.ts\t',
+				testName: '\t\v\f\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff',
+				gate: 'test',
+				line: 4,
+			},
+		],
+		malformedLines: [],
+	});
+});
+
+test('parseAcceptanceLedger retains newly supported literal entities in unmarked legacy tables', () => {
+	const parsed = parseAcceptanceLedger({ sectionLines: ['| keep&#9; | `src/literal&#9;.ts` | name&#160; | test |'], firstLine: 1 });
+	expect(parsed.rows).toEqual([{ criterion: 'keep&#9;', testFile: 'src/literal&#9;.ts', testName: 'name&#160;', gate: 'test', line: 1 }]);
+});
+test('parseAcceptanceLedger reports an unmatched file span in encoded tables', () => {
+	const parsed = parseAcceptanceLedger({
+		sectionLines: ['<!-- lightsout:text-encoding=entities-v1 -->', '| retained | `src/open&#96;.ts | named test | test |'],
+		firstLine: 1,
+	});
+	expect(parsed).toEqual({ rows: [], malformedLines: [2] });
+});

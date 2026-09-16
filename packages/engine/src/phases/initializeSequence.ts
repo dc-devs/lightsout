@@ -5,6 +5,8 @@ import { type LightsoutConfig, PipelineKind, type RunManifest, RunStatus, type S
 import type { Driver } from '#src/drivers/index.ts';
 import { findUnfinishedSequence } from '#src/phases/findUnfinishedSequence.ts';
 import { readOverviewPhases } from '#src/phases/readOverviewPhases.ts';
+import { validateSequenceHandoff } from '#src/phases/validateSequenceHandoff.ts';
+import { preparePlanningHandoff } from '#src/plan/index.ts';
 import { createRun, writeRunManifest } from '#src/runState/index.ts';
 
 interface Params {
@@ -99,7 +101,8 @@ export const initializeSequence = async ({
 			);
 		}
 
-		return { manifest: existing };
+		await preparePlanningHandoff({ cwd, config, plan: existing.plan, existing });
+		return { manifest: await validateSequenceHandoff({ cwd, manifest: existing }) };
 	}
 
 	if (!overviewPath) {
@@ -109,14 +112,16 @@ export const initializeSequence = async ({
 	// The relative form up front, not only in the record: the phase-file checks
 	// and the unfinished-sequence guard below all read it.
 	const overview = toRepoRelativePath({ cwd, path: overviewPath });
-	const phases = await getPhaseFiles({ cwd, overview });
+	const handoff = await preparePlanningHandoff({ cwd, config, plan: overview });
+	const phases = handoff ? handoff.phases.map((phase) => phase.path) : await getPhaseFiles({ cwd, overview });
+	if (handoff && (startPhase ?? 1) !== 1) throw new Error('Canonical phases require completed coordinator prerequisites; resume the existing sequence');
 	const firstPhase = startPhase ?? 1;
 
 	if (!Number.isInteger(firstPhase) || firstPhase < 1 || firstPhase > phases.length) {
 		throw new Error(`--start-phase must be between 1 and ${phases.length} — the overview lists ${phases.length} phase(s), got ${firstPhase}`);
 	}
 
-	await assertPhaseFilesExist({ cwd, overview, phases });
+	if (!handoff) await assertPhaseFilesExist({ cwd, overview, phases });
 
 	const unfinished = await findUnfinishedSequence({ cwd, overviewPath: overview });
 
@@ -124,7 +129,16 @@ export const initializeSequence = async ({
 		throw new Error(`an unfinished run for this plan already exists — resume with: lightsout resume --run ${unfinished.runId}`);
 	}
 
-	const created = await createRun({ cwd, runId, plan: overview, pipeline: PipelineKind.Phases, driver: driver.name, config, willShip });
+	const created = await createRun({
+		cwd,
+		runId,
+		plan: overview,
+		pipeline: PipelineKind.Phases,
+		driver: driver.name,
+		config,
+		willShip,
+		planningHandoff: handoff,
+	});
 	// Phases below the starting one are recorded as done OUTSIDE the sequence —
 	// adopted, never re-run, and never counted as this run's work.
 	const steps: StepRecord[] = phases.map((file, index) => ({

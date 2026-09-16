@@ -1,4 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
+import { planTextEncodingMarker } from '#src/plan/common/constants/planTextEncodingMarker.ts';
 import { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';
 import { parsePlan } from '#src/plan/parsePlan.ts';
 
@@ -245,5 +246,12 @@ test('parsePhaseDeclarations retains partial declaration rows and ignores non-ta
 			scripts: [],
 			fileBudget: undefined,
 		},
+	]);
+});
+
+test('preserves missing fields in a lossless phase declaration for structural validation', () => {
+	const params = setupOverview({ rows: `${planTextEncodingMarker}\n| 1 | phase1.md |`, declarations: '### Phase 1 — `phase1.md`' });
+	expect(parsePhaseDeclarations(params)).toStrictEqual([
+		{ number: 1, file: 'phase1.md', scope: '', createdCount: undefined, touchedCount: undefined, creates: [], exports: [], scripts: [], fileBudget: undefined },
 	]);
 });

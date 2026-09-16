@@ -17,6 +17,7 @@ import { planningStoreFixture } from '#tests/helpers/planningStoreFixture.ts';
 import { planningWorkflowResponse } from '#tests/helpers/planningWorkflowResponse.ts';
 
 interface Options {
+	name?: string;
 	stage?: PlanningRuntime['stage'];
 	respond?: (params: {
 		invocation: DriverInvocation;
@@ -72,8 +73,8 @@ const evaluate = ({
 };
 
 /** Deterministic service predicate for scheduler tests; production readiness is exercised in its own phase. */
-export const planningWorkflowFixture = async ({ stage = PlanningVocabulary.Stage.Implementation, respond }: Options = {}) => {
-	const fixture = await planningStoreFixture();
+export const planningWorkflowFixture = async ({ stage = PlanningVocabulary.Stage.Implementation, respond, name }: Options = {}) => {
+	const fixture = await planningStoreFixture({ name });
 	await writeFile(join(fixture.cwd, 'package.json'), '{"name":"workflow-test"}');
 	const calls: DriverInvocation[] = [];
 	let semanticInvocation: DriverInvocation | undefined;

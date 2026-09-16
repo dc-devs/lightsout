@@ -1,5 +1,6 @@
 import { attachmentTitle } from '#src/common/attachmentManifest/attachmentTitle.ts';
 import { parseAttachmentManifest } from '#src/common/attachmentManifest/parseAttachmentManifest.ts';
+import { readManifestAttachment } from '#src/common/attachmentManifest/readManifestAttachment.ts';
 import { scopeAttachments } from '#src/common/attachmentManifest/scopeAttachments.ts';
 import type { AttachmentManifest } from '#src/common/types/AttachmentManifest.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
@@ -7,10 +8,9 @@ import { planAttachmentManifestName } from '#src/plan/common/constants/planAttac
 import { isDurablePlanAttachmentName } from '#src/plan/common/utils/isDurablePlanAttachmentName.ts';
 import { isPlanOnlyAttachmentName } from '#src/plan/common/utils/isPlanOnlyAttachmentName.ts';
 import { validatePlanAttachmentGeneration } from '#src/plan/common/validatePlanAttachmentGeneration.ts';
-import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 import type { ReadGenerationFile } from '#src/plan/restore/common/types/ReadGenerationFile.ts';
-import { writeRestoredGeneration } from '#src/plan/restore/common/utils/writeRestoredGeneration.ts';
-import { getTicketAttachments, readTicketAsset, type TrackerAttachment, type TrackerSettings } from '#src/ticketTracker/index.ts';
+import { restoreVerifiedFiles } from '#src/plan/restore/common/utils/restoreVerifiedFiles.ts';
+import { getTicketAttachments, type TrackerAttachment, type TrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
 	cwd: string;
@@ -21,6 +21,9 @@ interface Params {
 	settings: TrackerSettings;
 	/** The plan id the ticket's titles for this plan are namespaced under; absent for a legacy folder. */
 	titlePrefix?: string;
+	expectedMarker?: string;
+	/** Validate and stage related required files before the plan directory becomes visible. */
+	beforeExpose?: (params: { directory: string }) => Promise<void>;
 }
 
 interface RestoredPlanWorkspace {
@@ -39,11 +42,6 @@ interface GenerationFile {
 }
 
 /** Read one attachment while retaining its title in every refusal. */
-const readAttachment = async ({ settings, attachment }: { settings: TrackerSettings; attachment: TrackerAttachment }) => {
-	const text = await readTicketAsset({ settings, url: attachment.url });
-
-	return typeof text === 'string' ? { text } : { error: `the ticket's ${attachment.title} could not be read: ${text.error}` };
-};
 
 /**
  * Resolve the manifest's exact generation. Unlisted durable attachments are
@@ -117,7 +115,7 @@ const readAndVerifyGeneration = async ({ settings, files, markerName }: { settin
 	const reads = await Promise.all(
 		files.map(async (file) => ({
 			file,
-			read: await readAttachment({ settings, attachment: { id: '', title: file.title, url: file.url } }),
+			read: await readManifestAttachment({ settings, attachment: { id: '', title: file.title, url: file.url } }),
 		})),
 	);
 	const verified: ReadGenerationFile[] = [];
@@ -139,25 +137,7 @@ const readAndVerifyGeneration = async ({ settings, files, markerName }: { settin
 	return { files: verified };
 };
 
-/**
- * Rebuild a plan folder from the one ticket generation committed by
- * `plan-attachments.json`. The manifest is transport metadata and is never
- * written into the workspace; run state is neither listed nor restored.
- *
- * Every refusal path creates no plan folder. A later successful publish can
- * therefore be fetched instead of an incomplete folder permanently winning the
- * disk-first check.
- */
-export const restorePlanWorkspace = async ({ cwd, name, identifier, settings, titlePrefix }: Params): Promise<RestoredPlanWorkspace> => {
-	const listed = await getTicketAttachments({ settings, identifier });
-
-	if ('error' in listed) {
-		return { restored: [], error: listed.error };
-	}
-
-	// Everything below is written against bare file names, so one plan's
-	// namespace is turned back into the single-plan list those steps already
-	// read before any of them runs.
+const selectNamespace = ({ listed, titlePrefix }: { listed: TrackerAttachment[]; titlePrefix?: string }) => {
 	const attachments = scopeAttachments({ attachments: listed, prefix: titlePrefix });
 	const markerName = attachmentTitle({ prefix: titlePrefix, name: planAttachmentManifestName });
 	// Under a prefix the brainstorm generation owns `brainstorm-notes.md`, so a
@@ -172,6 +152,36 @@ export const restorePlanWorkspace = async ({ cwd, name, identifier, settings, ti
 	// sends it too — a ticket carrying only a brainstorm is a ticket with no
 	// plan, not an interrupted plan upload.
 	const planOnlyAttachments = attachments.filter(({ title }) => isPlanOnlyAttachmentName({ name: title }));
+	return { attachments, markerName, isSelectableName, durableAttachments, planOnlyAttachments };
+};
+/**
+ * Rebuild a plan folder from the one ticket generation committed by
+ * `plan-attachments.json`. The manifest is transport metadata and is never
+ * written into the workspace; run state is neither listed nor restored.
+ *
+ * Every refusal path creates no plan folder. A later successful publish can
+ * therefore be fetched instead of an incomplete folder permanently winning the
+ * disk-first check.
+ */
+export const restorePlanWorkspace = async ({
+	cwd,
+	name,
+	identifier,
+	settings,
+	titlePrefix,
+	expectedMarker,
+	beforeExpose,
+}: Params): Promise<RestoredPlanWorkspace> => {
+	const listed = await getTicketAttachments({ settings, identifier });
+
+	if ('error' in listed) {
+		return { restored: [], error: listed.error };
+	}
+
+	// Everything below is written against bare file names, so one plan's
+	// namespace is turned back into the single-plan list those steps already
+	// read before any of them runs.
+	const { attachments, markerName, isSelectableName, durableAttachments, planOnlyAttachments } = selectNamespace({ listed, titlePrefix });
 	const selected = selectManifestAttachment({ attachments, planOnlyAttachments, markerName });
 
 	if ('error' in selected) {
@@ -179,14 +189,17 @@ export const restorePlanWorkspace = async ({ cwd, name, identifier, settings, ti
 	}
 
 	if (selected.manifest === undefined) {
-		return { restored: [] };
+		return { restored: [], ...(expectedMarker ? { error: 'The ticket record requires a published plan generation, but its marker is missing' } : {}) };
 	}
 
-	const manifestRead = await readAttachment({ settings, attachment: selected.manifest });
+	const manifestRead = await readManifestAttachment({ settings, attachment: selected.manifest });
 
 	if ('error' in manifestRead) {
 		return { restored: [], error: manifestRead.error };
 	}
+
+	if (expectedMarker !== undefined && sha256({ content: manifestRead.text }) !== expectedMarker)
+		return { restored: [], error: 'Published plan marker differs from the selected ticket record' };
 
 	const parsed = parseAttachmentManifest({ text: manifestRead.text, markerName, isAllowedName: isSelectableName });
 
@@ -212,8 +225,7 @@ export const restorePlanWorkspace = async ({ cwd, name, identifier, settings, ti
 		return { restored: [], error: refusal.error };
 	}
 
-	const written = await writeRestoredGeneration({ dir: planWorkspaceDir({ cwd, name }), files: read.files });
-
+	const written = await restoreVerifiedFiles({ cwd, name, files: read.files, manifest: parsed.manifest, marker: manifestRead.text, beforeExpose });
 	if (written !== undefined) {
 		return { restored: [], error: written.error };
 	}

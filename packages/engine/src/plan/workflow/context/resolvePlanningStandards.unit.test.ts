@@ -201,3 +201,28 @@ test.each([false, true])('refuses changed acquisition inputs with repeated read=
 
 	await expect(resolvePlanningStandards(params)).rejects.toThrow(/changed during resolution/);
 });
+
+const setupRelocated = async ({ changed = false }: { changed?: boolean } = {}) => {
+	const first = await setupFrameworkUnion();
+	const second = await setupFrameworkUnion();
+	const previous = await resolvePlanningStandards(first.params);
+	if (changed) await second.write('house/code/base/document.md', '# Base\nPreserve newly required ordering too.');
+	return { ...second, previous };
+};
+test('preserves exact standards policy and channel identities across identical fresh checkouts', async () => {
+	const { params, previous } = await setupRelocated();
+
+	const current = await resolvePlanningStandards(params);
+
+	expect(current).toEqual(previous);
+	expect(current.observations.every((observation) => observation.path.startsWith('workspace/'))).toBe(true);
+});
+
+test('still rejects changed standards bytes after relocation', async () => {
+	const { params, previous } = await setupRelocated({ changed: true });
+
+	const current = await resolvePlanningStandards(params);
+
+	expect(current.policyDigest).not.toBe(previous.policyDigest);
+	expect(current.channels).not.toEqual(previous.channels);
+});

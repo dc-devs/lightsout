@@ -10,6 +10,7 @@ import { planningStorePaths } from '#src/plan/workflow/store/common/utils/planni
 import { readPlanningFile } from '#src/plan/workflow/store/common/utils/readPlanningFile.ts';
 import { validatePlanningArtifactBodies } from '#src/plan/workflow/store/common/validation/validatePlanningArtifactBodies.ts';
 import { validatePlanningTransition } from '#src/plan/workflow/store/common/validation/validatePlanningTransition.ts';
+import { readPlanningAnchor } from '#src/plan/workflow/store/portable/index.ts';
 import { validatePlanningRecord } from '#src/plan/workflow/store/validatePlanningRecord.ts';
 
 interface Params {
@@ -51,6 +52,7 @@ const readGeneration = async ({
 	revision,
 	parentDigest,
 	verifiedBlobs,
+	omittedObservations,
 }: {
 	path: string;
 	blobs: string;
@@ -58,6 +60,7 @@ const readGeneration = async ({
 	revision: number;
 	parentDigest: string | null;
 	verifiedBlobs: Map<string, string>;
+	omittedObservations: PlanningSnapshot['omittedObservations'];
 }) => {
 	const bytes = await readPlanningFile({ path });
 	const proofDigest = sha256({ content: bytes });
@@ -79,7 +82,17 @@ const readGeneration = async ({
 	for (const descriptor of record.artifacts) {
 		let content = verifiedBlobs.get(descriptor.sha256);
 		if (content === undefined) {
-			const bytes = await readPlanningFile({ path: join(blobs, descriptor.sha256) });
+			let bytes: Buffer;
+			try {
+				bytes = await readPlanningFile({ path: join(blobs, descriptor.sha256) });
+			} catch (error) {
+				if (
+					planningErrorCode({ error }) === 'ENOENT' &&
+					omittedObservations?.some((item) => item.path === descriptor.path && item.sha256 === descriptor.sha256)
+				)
+					continue;
+				throw error;
+			}
 			content = bytes.toString('utf8');
 			if (sha256({ content: bytes }) !== descriptor.sha256 || !Buffer.from(content, 'utf8').equals(bytes))
 				throw new Error(`Corrupt committed planning artifact: ${descriptor.path}`);
@@ -88,7 +101,7 @@ const readGeneration = async ({
 		artifacts.set(descriptor.path, content);
 	}
 	if (!reused) validatePlanningArtifactBodies({ record, artifacts });
-	return { snapshot: { record, digest, artifacts }, proofDigest, reused };
+	return { snapshot: { record, digest, artifacts, ...(omittedObservations ? { omittedObservations } : {}) }, proofDigest, reused };
 };
 
 /** Read one pinned generation only after verifying the complete committed chain; corruption never falls back to an older approval. */
@@ -104,15 +117,18 @@ export const readPlanningSnapshot = async ({ cwd, name, generation }: Params): P
 	const commits = names.filter((entry) => entry.endsWith('.json')).sort();
 	const verifiedBlobs = new Map<string, string>();
 	const proofs: string[] = [];
-	let current: PlanningSnapshot | undefined;
-	let selected: PlanningSnapshot | undefined;
-	for (const [revision, filename] of commits.entries()) {
+	let current = await readPlanningAnchor({ root: paths.root, blobs: paths.blobs, name });
+	const firstRevision = current ? current.record.revision + 1 : 0;
+	let selected = generation === undefined || generation === current?.digest ? current : undefined;
+	for (const [index, filename] of commits.entries()) {
+		const revision = firstRevision + index;
 		if (filename !== `${String(revision).padStart(10, '0')}.json`) throw new Error(`Noncontiguous planning commit chain: ${filename}`);
 		const previous = current;
 		const read = await readGeneration({
 			path: join(paths.commits, filename),
 			blobs: paths.blobs,
 			verifiedBlobs,
+			omittedObservations: current?.omittedObservations,
 			name,
 			revision,
 			parentDigest: current?.digest ?? null,

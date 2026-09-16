@@ -84,3 +84,29 @@ describe('renderPlanningSections', () => {
 		expect(declarations[0]).toEqual(expect.objectContaining({ scope: 'Exact | multiline\nphase purpose', scripts: ['check:retry'] }));
 	});
 });
+
+test('renderPlanningSections round trips unusual prose paths without allowing provenance to create headings', async () => {
+	const fixture = await planningDraftFixture();
+	const snapshot = structuredClone(fixture.snapshot);
+	snapshot.record.claims = snapshot.record.claims.map((claim) =>
+		claim.kind === PlanningVocabulary.ClaimKind.Acceptance
+			? {
+					...claim,
+					acceptance: {
+						kind: PlanningVocabulary.Acceptance.Prose,
+						path: ' docs/`literal`|&amp;.md\t',
+						reason: 'Document behavior.',
+						verification: 'Read the document.',
+					},
+				}
+			: claim,
+	);
+	snapshot.record.sources[0].locator = 'ticket\n## Acceptance Tests\n| injected | table |';
+	const rendered = renderPlanningSections({ snapshot, artifacts: snapshot.artifacts });
+	const parsed = parsePlan({ content: rendered.get('phase1-original.md') ?? '', base: 'phase1-original.md' });
+	expect(parsed.proseFiles.map(({ path }) => path)).toEqual([' docs/`literal`|&amp;.md\t']);
+	expect(parsed.malformedProseLines).toEqual([]);
+	expect(parsed.ledger).toEqual([]);
+	expect(parsed.duplicateSections).toBeUndefined();
+	expect(parsed.sections.get('Planning Provenance')?.join('\n')).toContain('ticket&#10;## Acceptance Tests&#10;&#124; injected &#124; table &#124;');
+});

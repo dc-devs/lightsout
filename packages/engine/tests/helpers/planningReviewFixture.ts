@@ -19,14 +19,15 @@ import { planningWorkflowFixture } from '#tests/helpers/planningWorkflowFixture.
 import { planningWorkflowResponse } from '#tests/helpers/planningWorkflowResponse.ts';
 
 interface Options {
+	name?: string;
 	stage?: PlanningWork['stage'];
 	sourceText?: string;
 	respond?: (params: { response: PlanningRoleResult; snapshot: NonNullable<Awaited<ReturnType<typeof readPlanningSnapshot>>> }) => PlanningRoleResult;
 }
 
 /** Actual role invocations and accepted immutable proofs; the only model substitute is a controlled semantic response. */
-export const planningReviewFixture = async ({ stage = PlanningVocabulary.Stage.Implementation, sourceText, respond }: Options = {}) => {
-	const fixture = await planningWorkflowFixture({ stage });
+export const planningReviewFixture = async ({ stage = PlanningVocabulary.Stage.Implementation, sourceText, respond, name }: Options = {}) => {
+	const fixture = await planningWorkflowFixture({ stage, name });
 	const current = async () => {
 		const snapshot = await readPlanningSnapshot(fixture);
 		if (!snapshot) throw new Error('Review fixture lost its canonical generation');

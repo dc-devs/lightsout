@@ -1,6 +1,7 @@
 import type { Effort, LightsoutConfig, Permissions, PlanningVocabulary } from '#src/contracts/index.ts';
 import type { Driver, DriverResult } from '#src/drivers/index.ts';
 import type { PlanningMode } from '#src/plan/workflow/common/constants/PlanningMode.ts';
+import type { PlanningExecutionPolicy } from '#src/plan/workflow/common/policy/PlanningExecutionPolicy.ts';
 import type { PlanningServices } from '#src/plan/workflow/common/types/PlanningServices.ts';
 import type { PlanningStoreIO } from '#src/plan/workflow/common/types/PlanningStoreIO.ts';
 import type { PlanningLease } from '#src/plan/workflow/store/index.ts';
@@ -15,6 +16,8 @@ export interface PlanningRuntime {
 	effort?: Effort;
 	permissions?: Permissions;
 	standards: string;
+	/** Captured by production composition; test ports and legacy snapshots may omit until entry. */
+	executionPolicy?: { policy: PlanningExecutionPolicy; reference: { stage: PlanningRuntime['stage']; artifact: string; sha256: string } };
 	mode: PlanningMode;
 	stage: (typeof PlanningVocabulary.Stage)[keyof typeof PlanningVocabulary.Stage];
 	services: PlanningServices;

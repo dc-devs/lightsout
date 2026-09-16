@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { type PlanningRunResult, PlanningVocabulary } from '#src/contracts/index.ts';
+import { adoptPlanningExecutionPolicy } from '#src/plan/workflow/common/policy/adoptPlanningExecutionPolicy.ts';
 import type { PlanningRuntime } from '#src/plan/workflow/common/types/PlanningRuntime.ts';
+import { ensurePlanningInput } from '#src/plan/workflow/input/index.ts';
 import { executePlanningWork } from '#src/plan/workflow/runPlanning/common/utils/executePlanningWork.ts';
 import { finishPlanningCycle } from '#src/plan/workflow/runPlanning/common/utils/finishPlanningCycle.ts';
 import { refreshPlanningCycle } from '#src/plan/workflow/runPlanning/common/utils/refreshPlanningCycle.ts';
-import { importPlanningWorkspace, readPlanningSnapshot } from '#src/plan/workflow/store/index.ts';
+import { readPlanningSnapshot } from '#src/plan/workflow/store/index.ts';
 
 interface Params {
 	runtime: PlanningRuntime;
@@ -13,13 +15,7 @@ interface Params {
 /** Restore, claim, dispatch and verify until every obligation closes or a concrete user/external decision prevents progress. */
 export const runPlanning = async ({ runtime }: Params): Promise<PlanningRunResult> => {
 	let cycleId: string = randomUUID();
-	let snapshot =
-		(await readPlanningSnapshot({ cwd: runtime.cwd, name: runtime.name })) ??
-		(await importPlanningWorkspace({
-			cwd: runtime.cwd,
-			name: runtime.name,
-			inputs: { input: { stage: runtime.stage, sources: [], claims: [], confirmations: [] }, artifacts: [] },
-		}));
+	let snapshot = await ensurePlanningInput({ runtime });
 	if (snapshot.record.sources.length === 0)
 		return {
 			status: PlanningVocabulary.Status.ExternallyBlocked,
@@ -28,6 +24,7 @@ export const runPlanning = async ({ runtime }: Params): Promise<PlanningRunResul
 			continuation: runtime.name,
 			cause: 'Original planning input is missing; capture the requested feature before invoking an agent.',
 		};
+	snapshot = await adoptPlanningExecutionPolicy({ runtime, snapshot });
 	for (;;) {
 		const cycle = await refreshPlanningCycle({ runtime, snapshot, cycleId });
 		snapshot = cycle.snapshot;

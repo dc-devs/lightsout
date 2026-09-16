@@ -1,3 +1,4 @@
+import { planTextEncodingMarker } from '#src/plan/common/constants/planTextEncodingMarker.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 import { renderPhaseDeclaration } from '#src/plan/sections/renderPhaseDeclaration.ts';
 import { renderPhaseRow } from '#src/plan/sections/renderPhaseRow.ts';
@@ -16,19 +17,19 @@ const renderPhasesSection = ({ declarations, lossless }: { declarations: PhaseDe
 	const separatorRow = '|---|------|-------|---------|---------|';
 	const rows = declarations.map((declaration) => renderPhaseRow({ declaration, lossless }));
 
-	return `## Phases\n\n${composedNote}\n\n${[headerRow, separatorRow, ...rows].join('\n')}`;
+	return `## Phases\n\n${composedNote}${lossless ? `\n\n${planTextEncodingMarker}` : ''}\n\n${[headerRow, separatorRow, ...rows].join('\n')}`;
 };
 
 /** The `## Phase Declarations` section: its lead-in, then one block per matched phase. */
-const renderDeclarationsSection = ({ declarations }: { declarations: PhaseDeclaration[] }) => {
-	const blocks = declarations.map((declaration) => renderPhaseDeclaration({ declaration }));
+const renderDeclarationsSection = ({ declarations, lossless }: { declarations: PhaseDeclaration[]; lossless?: boolean }) => {
+	const blocks = declarations.map((declaration) => renderPhaseDeclaration({ declaration, lossless }));
 
-	return `## Phase Declarations\n\n${composedNote}\n\n${blocks.join('\n\n')}`;
+	return `## Phase Declarations\n\n${composedNote}${lossless ? `\n\n${planTextEncodingMarker}` : ''}\n\n${blocks.join('\n\n')}`;
 };
 
 /** Render both linked phase sections from the same ordered declarations. */
 export const renderPhaseSections = ({ declarations, lossless }: Params): Map<string, string> =>
 	new Map([
 		['Phases', renderPhasesSection({ declarations, lossless })],
-		['Phase Declarations', renderDeclarationsSection({ declarations })],
+		['Phase Declarations', renderDeclarationsSection({ declarations, lossless })],
 	]);

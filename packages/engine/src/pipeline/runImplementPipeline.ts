@@ -1,19 +1,19 @@
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
-import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { readGitPrefix } from '#src/common/git/readGitPrefix.ts';
 import { excludedSourcePaths } from '#src/common/sourceFiles/excludedSourcePaths.ts';
 import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
 import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
-import { type LightsoutConfig, PipelineKind, type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import { type LightsoutConfig, type PlanningHandoff, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { removeApprovedTests } from '#src/pipeline/approvedTests/index.ts';
+import { prepareImplementationRun } from '#src/pipeline/common/handoff/prepareImplementationRun.ts';
 import { prepareRun } from '#src/pipeline/common/utils/prepareRun.ts';
 import { resolveTestSubjects } from '#src/pipeline/common/utils/resolveTestSubjects.ts';
 import { runSteps } from '#src/pipeline/common/utils/runSteps.ts';
 import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
-import { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import { buildSteps } from '#src/pipeline/steps/buildSteps/index.ts';
-import { createRun, withRunLock } from '#src/runState/index.ts';
+import { withRunLock } from '#src/runState/index.ts';
 import { getPackFrameworkFacts } from '#src/standardsPacks/index.ts';
 
 // The end-of-run look at the files write-tests skipped as unreachable: later
@@ -45,6 +45,7 @@ const recheckUnreachable = async ({ run }: { run: PipelineRun }) => {
 };
 
 interface Params {
+	planningHandoff?: PlanningHandoff;
 	cwd: string;
 	driver: Driver;
 	config: LightsoutConfig;
@@ -95,26 +96,21 @@ const executePipeline = async ({
 	skipRefactor,
 	willShip,
 	onProgress,
+	planningHandoff,
 }: Params & { runId: string }): Promise<PipelineResult> => {
-	const run = new PipelineRun({
+	const run = await prepareImplementationRun({
 		cwd,
-		config,
+		runId,
 		driver,
+		config,
+		planPath,
+		overviewPath,
+		parentRunId,
+		packages,
+		existing,
+		willShip,
 		onProgress,
-		manifest:
-			existing ??
-			(await createRun({
-				cwd,
-				runId,
-				plan: planPath ?? '',
-				pipeline: PipelineKind.Implement,
-				overview: overviewPath,
-				parentRunId,
-				driver: driver.name,
-				config,
-				baselineDirtyFiles: await readGitChangedFiles({ cwd }),
-				willShip,
-			})),
+		planningHandoff,
 	});
 	const prepared = await prepareRun({ run, cwd, config, packages });
 
@@ -146,10 +142,8 @@ const executePipeline = async ({
 	}
 
 	await recheckUnreachable({ run });
-	// Every step passed, so the approved copies have no reader left: they are the
-	// working baseline a resume diffs against, and a run that finished needs none.
-	// A failed, parked or escalated run never reaches here and keeps them.
-	await removeApprovedTests({ run });
+	// Canonical continuation rechecks completed runs against their approved tests.
+	if (!run.current().planningHandoff) await removeApprovedTests({ run });
 	await run.update({ patch: { status: RunStatus.Passed, currentStep: null } });
 
 	const passed: PipelineResult = { ok: true, manifest: run.current() };

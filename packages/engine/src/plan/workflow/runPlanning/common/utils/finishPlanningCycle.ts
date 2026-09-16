@@ -1,7 +1,8 @@
 import { PlanningRunResult, PlanningVocabulary } from '#src/contracts/index.ts';
+import { resolvePlanningAlignment } from '#src/plan/workflow/common/review/resolvePlanningAlignment.ts';
+import type { PlanningCycle } from '#src/plan/workflow/common/types/PlanningCycle.ts';
 import type { PlanningRuntime } from '#src/plan/workflow/common/types/PlanningRuntime.ts';
-import { resolvePlanningAlignment } from '#src/plan/workflow/review/index.ts';
-import type { PlanningCycle } from '#src/plan/workflow/runPlanning/common/types/PlanningCycle.ts';
+import { recordPlanningCompletion } from '#src/plan/workflow/completion/index.ts';
 import { materializePlanningViews } from '#src/plan/workflow/store/index.ts';
 
 interface Params {
@@ -39,9 +40,13 @@ export const finishPlanningCycle = async ({ runtime, cycle }: Params): Promise<P
 			const deliverables = snapshot.record.artifacts
 				.filter((artifact) => artifact.variant !== PlanningVocabulary.Artifact.Data)
 				.map((artifact) => artifact.path);
-			await materializePlanningViews({ cwd: runtime.cwd, name: runtime.name, snapshot });
 			result = { status: PlanningVocabulary.Status.Complete, name: runtime.name, generation: snapshot.digest, readiness, deliverables };
 		}
+	}
+	if (result?.status === PlanningVocabulary.Status.Aligned || result?.status === PlanningVocabulary.Status.Complete) {
+		const completed = await recordPlanningCompletion({ runtime, cycle });
+		result = { ...result, generation: completed.digest, readiness: { ...result.readiness, generation: completed.digest } };
+		if (result.status === PlanningVocabulary.Status.Complete) await materializePlanningViews({ cwd: runtime.cwd, name: runtime.name, snapshot: completed });
 	}
 	return result === undefined ? undefined : PlanningRunResult.parse(result);
 };

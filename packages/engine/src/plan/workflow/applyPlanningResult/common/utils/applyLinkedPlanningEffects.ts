@@ -3,10 +3,10 @@ import { PlanningClaim, PlanningVocabulary } from '#src/contracts/index.ts';
 import type { PlanningAcceptance } from '#src/plan/workflow/applyPlanningResult/common/types/PlanningAcceptance.ts';
 import { hasPlanningUncertainty } from '#src/plan/workflow/common/evidence/hasPlanningUncertainty.ts';
 import { normalizePlanningUnknownEvidence } from '#src/plan/workflow/common/evidence/normalizePlanningUnknownEvidence.ts';
+import { schedulePlanningFollowup } from '#src/plan/workflow/common/questions/schedulePlanningFollowup.ts';
 import { applyPlanningArtifacts } from '#src/plan/workflow/common/runtime/applyPlanningArtifacts.ts';
 import { applyPlanningReview } from '#src/plan/workflow/common/runtime/applyPlanningReview.ts';
 import { composePlanningViews } from '#src/plan/workflow/common/runtime/composePlanningViews.ts';
-import { schedulePlanningFollowup } from '#src/plan/workflow/common/runtime/schedulePlanningFollowup.ts';
 import { validatePlanningCitations } from '#src/plan/workflow/common/runtime/validatePlanningCitations.ts';
 
 /** Apply linked semantic effects only after the invocation's entire input basis passes validation. */

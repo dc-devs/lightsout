@@ -24,7 +24,7 @@ const toCell = ({ text }: { text: string }) => text.trim().replaceAll('|', '\\|'
 export const renderPhaseRow = ({ declaration, lossless = false }: Params): string => {
 	const cells = [
 		String(declaration.number),
-		`\`${declaration.file}\``,
+		`\`${lossless ? encodeMarkdownTableCell({ text: declaration.file }) : declaration.file}\``,
 		lossless ? encodeMarkdownTableCell({ text: declaration.scope }) : toCell({ text: declaration.scope }),
 		declaration.createdCount === undefined ? '' : String(declaration.createdCount),
 		declaration.touchedCount === undefined ? '' : String(declaration.touchedCount),

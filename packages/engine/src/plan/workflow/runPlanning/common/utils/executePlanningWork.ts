@@ -7,10 +7,10 @@ import { planningSemanticBasis } from '#src/plan/workflow/common/runtime/plannin
 import { recordPlanningFailure } from '#src/plan/workflow/common/runtime/recordPlanningFailure.ts';
 import { updatePlanningSnapshot } from '#src/plan/workflow/common/runtime/updatePlanningSnapshot.ts';
 import { PlanningInvocationFailure } from '#src/plan/workflow/common/services/PlanningInvocationFailure.ts';
+import type { PlanningCycle } from '#src/plan/workflow/common/types/PlanningCycle.ts';
 import type { PlanningRuntime } from '#src/plan/workflow/common/types/PlanningRuntime.ts';
 import type { PlanningSnapshot } from '#src/plan/workflow/common/types/PlanningSnapshot.ts';
 import { invokePlanningRole } from '#src/plan/workflow/invokePlanningRole.ts';
-import type { PlanningCycle } from '#src/plan/workflow/runPlanning/common/types/PlanningCycle.ts';
 import { selectPlanningWork } from '#src/plan/workflow/selectPlanningWork.ts';
 import { claimPlanningAttempt } from '#src/plan/workflow/store/index.ts';
 

@@ -1,11 +1,11 @@
+// Dependencies
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { type LightsoutConfig, type TicketRecord, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
+import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import type { AgentOutcome } from '#src/invoke/index.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { runAutoPlanWorker } from '#src/queue/workers/runAutoPlanWorker.ts';
@@ -13,20 +13,10 @@ import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 
 // Mocked Imports
 // -------------------------
-// The planning session spawns a harness, the choice reads the ticket record and
-// the build loop runs pipelines — each covered by its own tests. What this file
-// owns is the seam between them: which plan the session is handed, what its
-// report means, and whether the ordered build is handed over at all. The one
-// thing read out of the harness call here is the plan address the invocation
-// carries, so the real invocation builder still runs.
-interface InvokeCall {
-	invocation: { prompt: string };
-}
-
-const mockInvokeAgentWithContract = jest.fn<(params: InvokeCall) => Promise<AgentOutcome<WorkReport>>>();
-
-jest.mock('#src/invoke/index.ts', () => ({
-	invokeAgentWithContract: (params: InvokeCall) => mockInvokeAgentWithContract(params),
+// The direct runtime's behavioral tests exercise real planning separately; this seam owns target selection and build ownership.
+const mockRunPlanningSession = jest.fn<typeof import('#src/queue/workers/runPlanningSession.ts').runPlanningSession>();
+jest.mock('#src/queue/workers/runPlanningSession.ts', () => ({
+	runPlanningSession: (params: Parameters<typeof mockRunPlanningSession>[0]) => mockRunPlanningSession(params),
 }));
 // -------------------------
 interface ChooseAutoPlanTargetParams {
@@ -118,14 +108,6 @@ const plannedRecord: TicketRecord = {
 	plans: chosenRecord.plans.map((plan) => (plan.id === planId ? { ...plan, progress: 'ready' } : plan)),
 };
 
-const reportOf = (overrides: Partial<WorkReport> = {}): WorkReport => ({
-	status: WorkReportStatus.Complete,
-	changedFiles: [],
-	summary: 'planned it',
-	failures: [],
-	...overrides,
-});
-
 /**
  * The worker's arguments against a real worktree on disk, since the missing-folder
  * guard reads the tree rather than a stub.
@@ -136,13 +118,13 @@ const reportOf = (overrides: Partial<WorkReport> = {}): WorkReport => ({
  */
 const setupAutoPlanWorker = ({
 	choice = { record: chosenRecord, address },
-	report = reportOf(),
+	stopped,
 	pulled = { record: plannedRecord },
 	build = {},
 	planFolder = true,
 }: {
 	choice?: ChooseAutoPlanTargetResult;
-	report?: WorkReport;
+	stopped?: WorkerOutcome;
 	pulled?: PullTicketRecordResult;
 	build?: WorkerOutcome;
 	planFolder?: boolean;
@@ -156,7 +138,7 @@ const setupAutoPlanWorker = ({
 	}
 
 	mockChooseAutoPlanTarget.mockResolvedValue(choice);
-	mockInvokeAgentWithContract.mockResolvedValue({ ok: true, report });
+	mockRunPlanningSession.mockResolvedValue(stopped);
 	mockPullTicketRecord.mockResolvedValue(pulled);
 	mockBuildTicketPlans.mockResolvedValue(build);
 
@@ -190,16 +172,8 @@ describe('runAutoPlanWorker', () => {
 		expect(mockBuildTicketPlans).toHaveBeenCalledWith(expect.objectContaining({ cwd: params.cwd, branch }));
 	});
 
-	test('announces on the progress stream that the engine is taking the build over', async () => {
-		const { params, progress } = setupAutoPlanWorker();
-
-		await runAutoPlanWorker(params);
-
-		expect(progress).toContainEqual(expect.stringContaining('implement pipeline'));
-	});
-
 	test('starts no build for a turn the session ended by asking a question', async () => {
-		const { params } = setupAutoPlanWorker({ report: reportOf({ status: WorkReportStatus.TerminatedAmbiguity, failures: ['Which one?'] }) });
+		const { params } = setupAutoPlanWorker({ stopped: { question: 'Which one?' } });
 
 		const outcome = await runAutoPlanWorker(params);
 
@@ -213,10 +187,10 @@ describe('runAutoPlanWorker', () => {
 		const outcome = await runAutoPlanWorker(params);
 
 		expect(outcome).toStrictEqual({});
-		expect(mockInvokeAgentWithContract.mock.calls[0]?.[0].invocation.prompt).toContain(address);
+		expect(mockRunPlanningSession).toHaveBeenCalledWith(expect.objectContaining({ planAddress: address, config: params.config }));
 		// the record is read again after the session, because publishing the plan
 		// moved it from still being planned to ready to implement
-		expect(mockPullTicketRecord.mock.invocationCallOrder[0]).toBeGreaterThan(mockInvokeAgentWithContract.mock.invocationCallOrder[0] ?? 0);
+		expect(mockPullTicketRecord.mock.invocationCallOrder[0]).toBeGreaterThan(mockRunPlanningSession.mock.invocationCallOrder[0] ?? 0);
 		expect(mockBuildTicketPlans).toHaveBeenCalledWith(expect.objectContaining({ record: plannedRecord, allowTicketBodyBuild: false }));
 	});
 
@@ -226,18 +200,18 @@ describe('runAutoPlanWorker', () => {
 
 		const outcome = await runAutoPlanWorker(params);
 
-		expect(mockInvokeAgentWithContract).not.toHaveBeenCalled();
+		expect(mockRunPlanningSession).not.toHaveBeenCalled();
 		expect(outcome).toEqual({ open: expect.stringContaining('no plan is waiting to be planned') });
 		expect(outcome.open).toEqual(expect.stringContaining(loopReason));
 		expect(mockBuildTicketPlans).toHaveBeenCalledWith(expect.objectContaining({ record: chosenRecord, allowTicketBodyBuild: false }));
 	});
 
-	test('runAutoPlanWorker: parks when the session left no folder at the chosen address', async () => {
-		const { params, folder } = setupAutoPlanWorker({ planFolder: false });
+	test('propagates a planner publication failure without starting implementation', async () => {
+		const { params } = setupAutoPlanWorker({ stopped: { error: 'Upload refused' } });
 
 		const outcome = await runAutoPlanWorker(params);
 
-		expect(outcome).toEqual({ error: expect.stringContaining(folder) });
+		expect(outcome).toEqual({ error: 'Upload refused' });
 		expect(mockBuildTicketPlans).not.toHaveBeenCalled();
 	});
 
@@ -248,7 +222,7 @@ describe('runAutoPlanWorker', () => {
 		const outcome = await runAutoPlanWorker(params);
 
 		expect(outcome).toStrictEqual({ error: choiceError });
-		expect(mockInvokeAgentWithContract).not.toHaveBeenCalled();
+		expect(mockRunPlanningSession).not.toHaveBeenCalled();
 		expect(mockBuildTicketPlans).not.toHaveBeenCalled();
 	});
 });

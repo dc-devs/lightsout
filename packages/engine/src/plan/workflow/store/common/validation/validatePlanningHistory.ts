@@ -10,6 +10,8 @@ interface Params {
 export const validatePlanningHistory = ({ previous, record }: Params): void => {
 	if (canonicalJson({ value: previous.legacySettlements ?? [] }) !== canonicalJson({ value: record.legacySettlements ?? [] }))
 		throw new Error('Historical settlements may only be created by initial import');
+	for (const policy of previous.executionPolicies ?? [])
+		if (!record.executionPolicies?.some((item) => item.stage === policy.stage)) throw new Error('An adopted planning execution policy cannot be removed');
 	for (const confirmation of previous.confirmations) {
 		if (canonicalJson({ value: record.confirmations.find((item) => item.id === confirmation.id) }) !== canonicalJson({ value: confirmation }))
 			throw new Error('Original confirmation provenance cannot be changed or deleted');
@@ -24,14 +26,18 @@ export const validatePlanningHistory = ({ previous, record }: Params): void => {
 	}
 	for (const artifact of previous.artifacts.filter(
 		(item) =>
+			item.path === 'planning-brainstorm-handoff.json' ||
 			item.path.startsWith('planning-results/') ||
 			item.path.startsWith('planning-originals/') ||
 			item.path.startsWith('planning-legacy') ||
 			[
 				'planning-invocations/',
+				'planning-execution-policies/',
 				'planning-observations/',
 				'planning-baselines/',
 				'planning-questions/',
+				'planning-proposal-approvals/',
+				'planning-imported-attempts/',
 				'planning-adjudication-requests/',
 				'planning-assurance-obligations/',
 				'planning-assurances/',

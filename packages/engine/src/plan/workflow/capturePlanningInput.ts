@@ -1,15 +1,18 @@
 import { canonicalJson } from '#src/common/utils/canonicalJson.ts';
 import { PlanningInput, type PlanningRecord, PlanningVocabulary } from '#src/contracts/index.ts';
+import { archivePlanningBrainstorm } from '#src/plan/workflow/brainstorm/index.ts';
+import { adoptPlanningExecutionPolicy } from '#src/plan/workflow/common/policy/adoptPlanningExecutionPolicy.ts';
+import { resolvePlanningAlignment } from '#src/plan/workflow/common/review/resolvePlanningAlignment.ts';
 import { updatePlanningSnapshot } from '#src/plan/workflow/common/runtime/updatePlanningSnapshot.ts';
 import type { PlanningRuntime } from '#src/plan/workflow/common/types/PlanningRuntime.ts';
 import type { PlanningSnapshot } from '#src/plan/workflow/common/types/PlanningSnapshot.ts';
 import { applyPlanningInvalidation } from '#src/plan/workflow/common/utils/applyPlanningInvalidation.ts';
-import { resolvePlanningAlignment } from '#src/plan/workflow/review/index.ts';
-import { importPlanningWorkspace, initialPlanningWork, planningDataArtifact } from '#src/plan/workflow/store/index.ts';
+import { importPlanningWorkspace, initialPlanningWork, planningDataArtifact, readPlanningEntrySnapshot } from '#src/plan/workflow/store/index.ts';
 
 interface Params {
 	runtime: PlanningRuntime;
 	input: PlanningInput;
+	expectedGeneration?: string;
 }
 
 const invalidateCapturedInput = ({
@@ -62,15 +65,21 @@ const invalidateCapturedInput = ({
 };
 
 /** Capture original wording and foreground assertions before dispatch, retaining all earlier authority. */
-export const capturePlanningInput = async ({ runtime, input: proposed }: Params): Promise<PlanningSnapshot> => {
+export const capturePlanningInput = async ({ runtime, input: proposed, expectedGeneration }: Params): Promise<PlanningSnapshot> => {
 	const input = PlanningInput.parse(proposed);
 	if (input.stage !== runtime.stage) throw new Error('Planning input and runtime stages disagree');
-	await importPlanningWorkspace({ cwd: runtime.cwd, name: runtime.name, inputs: { input, artifacts: [] } });
+	const imported =
+		(await readPlanningEntrySnapshot({ cwd: runtime.cwd, name: runtime.name })) ??
+		(await importPlanningWorkspace({ cwd: runtime.cwd, name: runtime.name, inputs: { input, artifacts: [] } }));
+	await adoptPlanningExecutionPolicy({ runtime, snapshot: imported });
 	return updatePlanningSnapshot({
 		runtime,
 		propose: async (snapshot) => {
+			if (expectedGeneration !== undefined && snapshot.digest !== expectedGeneration)
+				throw new Error('Planning changed before foreground input capture; re-enter with the current choices');
 			const record = structuredClone(snapshot.record);
 			const artifacts = new Map(snapshot.artifacts);
+			archivePlanningBrainstorm({ snapshot, record, artifacts, stage: input.stage });
 			let changed = false;
 			for (const source of input.sources) {
 				if (!record.sources.some((existing) => canonicalJson({ value: existing }) === canonicalJson({ value: source }))) {

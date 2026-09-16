@@ -1,12 +1,9 @@
-import { bold } from '#src/cli/common/terminal/bold.ts';
-import { dim } from '#src/cli/common/terminal/dim.ts';
-import { green } from '#src/cli/common/terminal/green.ts';
-import { yellow } from '#src/cli/common/terminal/yellow.ts';
+import { printPlanningFinding } from '#src/cli/common/render/planning/printPlanningFinding.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import { planRunOptions } from '#src/cli/plan/common/utils/planRunOptions.ts';
+import { preparePlanningCommand } from '#src/cli/plan/common/utils/preparePlanningCommand.ts';
 import { type LightsoutConfig, PlanningStep, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { PlanRunStatus, recordPlanningStep, runPlanDedup } from '#src/plan/index.ts';
+import { PlanRunStatus, readPlanningSnapshot, recordPlanningStep, runPlanDedup } from '#src/plan/index.ts';
 
 interface Params {
 	cwd: string;
@@ -16,58 +13,31 @@ interface Params {
 	config: LightsoutConfig | undefined;
 }
 
-/**
- * `plan dedup` at the terminal.
- *
- * The failure branches are handled here rather than through `exitOnPlanFailure`
- * for the reason `plan grade`'s are: a failed judge now leaves a real partial
- * report on disk, and the helper would exit before the caller could print it.
- */
-export const planDedupCommand = async ({ cwd, driver, name, standards, config }: Params): Promise<void> => {
+/** Display the canonical investigation and findings without manufacturing standalone duplication judgments. */
+export const planDedupCommand = async ({ cwd, driver, name, config }: Params): Promise<void> => {
+	const runtime = await preparePlanningCommand({ cwd, driver, name, config });
 	const result = await recordPlanningStep({
 		cwd,
 		name,
 		step: PlanningStep.Dedup,
-		work: () => runPlanDedup(planRunOptions({ cwd, driver, name, standards, config })),
-		// A written, complete scan is the one case that exits 0 below.
-		statusOf: ({ result: deduped }) =>
-			deduped.status === PlanRunStatus.PausedRateLimit
-				? RunStatus.PausedRateLimit
-				: deduped.dedupPath !== undefined && deduped.dedup?.complete === true
-					? RunStatus.Passed
-					: RunStatus.Failed,
+		work: () => runPlanDedup({ runtime }),
+		statusOf: ({ result: scanned }) => (scanned.status === PlanRunStatus.Complete && scanned.dedup.complete ? RunStatus.Passed : RunStatus.Failed),
 	});
-
-	if ('error' in result) {
-		console.error(`\n${result.error}`);
-	}
-
+	if ('error' in result) console.error(result.error);
 	const dedup = 'dedup' in result ? result.dedup : undefined;
-	const dedupPath = 'dedupPath' in result ? result.dedupPath : undefined;
-
-	// Nothing was written — the deliverable did not resolve. The error above is
-	// the whole report.
-	if (dedup === undefined || dedupPath === undefined) {
-		return exitCli({ code: 1 });
-	}
-
-	const count = dedup.findings.length;
-
-	if (!dedup.complete) {
-		console.log(`\n${yellow('incomplete scan')} — ${dedup.incompleteReason ?? 'the pass did not finish'}`);
-	}
-
+	if (!dedup || !result.dedupPath || !dedup.workflow) return exitCli({ code: 1 });
+	const snapshot = await readPlanningSnapshot({ cwd, name, generation: dedup.workflow.generation });
+	if (!snapshot) throw new Error('The recorded prior-art generation is unavailable');
+	console.log(`plan dedup ${name} — ${dedup.complete ? 'complete' : 'incomplete'} canonical investigation`);
+	if (dedup.incompleteReason) console.log(dedup.incompleteReason);
 	console.log(
-		`\n${bold(`plan dedup ${name}`)} — ${count > 0 ? yellow(`${count} duplication(s) to review`) : green('no duplication found')} (reviewed ${dedup.reviewedAt})`,
+		`generation: ${snapshot.digest}; observations: ${dedup.workflow.observationArtifacts.length}; independent coverage: ${dedup.workflow.coverageReceiptIds.length} receipt(s)`,
 	);
-
-	for (const finding of dedup.findings) {
-		console.log(
-			`${yellow('⧉')} ${finding.phase} · ${finding.plannedSymbol} [${finding.recommendation}] collides with ${finding.collidesWith.map((collision) => collision.path).join(', ')}`,
-		);
-		console.log(dim(`   ${finding.rationale}`));
+	for (const id of dedup.workflow.findingIds) {
+		const finding = snapshot.record.findings.find((item) => item.id === id);
+		if (!finding) throw new Error(`The recorded canonical finding is unavailable: ${id}`);
+		printPlanningFinding({ finding });
 	}
-
-	console.log(`\ndedup: ${dedupPath}`);
+	console.log(`dedup: ${result.dedupPath}`);
 	return exitCli({ code: dedup.complete ? 0 : 1 });
 };

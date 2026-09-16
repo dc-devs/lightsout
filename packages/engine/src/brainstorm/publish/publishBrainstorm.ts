@@ -7,7 +7,7 @@ import { serializeAttachmentManifest } from '#src/common/attachmentManifest/seri
 import { brainstormNotesFileName } from '#src/common/constants/brainstormNotesFileName.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { planWorkspaceDir, readPlanTicketRef } from '#src/plan/index.ts';
+import { planWorkspaceDir, readPlanTicketRef, resolveBrainstormGeneration } from '#src/plan/index.ts';
 import { resolveShipSettings } from '#src/ship/index.ts';
 import { getTicketsByIdentifiers, resolveTrackerSettings, setTicketAttachment, type TrackerSettings } from '#src/ticketTracker/index.ts';
 
@@ -60,7 +60,7 @@ const prepareAttachments = async ({
 
 	for (const name of brainstormAttachmentFileNames) {
 		const content = await readFile(join(dir, name)).catch((error: unknown) => ({ error: messageOf({ error }) }));
-		const optional = titlePrefix !== undefined && name !== brainstormNotesFileName;
+		const optional = name === 'brainstorm-record.json' || (titlePrefix !== undefined && name !== brainstormNotesFileName);
 
 		if (Buffer.isBuffer(content)) {
 			files.push({ name, content });
@@ -129,7 +129,21 @@ const attachBrainstormFiles = async ({
  * ticket — restore ignores it, because the marker written last does not list it.
  */
 export const publishBrainstorm = async ({ cwd, name, config, env, onProgress, titlePrefix }: Params): Promise<BrainstormPublishReport> => {
-	const prepared = await prepareAttachments({ dir: planWorkspaceDir({ cwd, name }), titlePrefix });
+	let prepared: Awaited<ReturnType<typeof prepareAttachments>>;
+	try {
+		const canonical = await resolveBrainstormGeneration({ cwd, name, config });
+		if (canonical) {
+			const files = [...canonical.files].map(([name, text]) => ({ name, content: Buffer.from(text) }));
+			prepared = {
+				attachments: [
+					...files,
+					{ name: brainstormAttachmentManifestName, content: serializeAttachmentManifest({ files, brainstormGeneration: canonical.generation }) },
+				],
+			};
+		} else prepared = await prepareAttachments({ dir: planWorkspaceDir({ cwd, name }), titlePrefix });
+	} catch (error) {
+		return { published: [], error: messageOf({ error }) };
+	}
 
 	if ('error' in prepared) {
 		return { published: [], error: prepared.error };

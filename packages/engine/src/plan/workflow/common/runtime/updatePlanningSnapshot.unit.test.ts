@@ -1,10 +1,12 @@
 import { rm } from 'node:fs/promises';
+import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { PlanningVocabulary } from '#src/contracts/index.ts';
 import { updatePlanningSnapshot } from '#src/plan/workflow/common/runtime/updatePlanningSnapshot.ts';
 import { claimPlanningAttempt, commitPlanningSnapshot } from '#src/plan/workflow/store/index.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { planningCompletedFixture, planningCompletionCandidate } from '#tests/helpers/planningCompletedFixture.ts';
+import { planningWorkflowFixture } from '#tests/helpers/planningWorkflowFixture.ts';
 
 test('retiring current verification requires a fresh review while preserving the completed repair and receipt history', async () => {
 	const fixture = await planningCompletedFixture();
@@ -56,4 +58,46 @@ test('retiring current verification requires a fresh review while preserving the
 	} finally {
 		await rm(fixture.cwd, { recursive: true, force: true });
 	}
+});
+
+test.each([false, true])('does not return stale authority after a concurrent no-op transaction, candidate: %s', async (candidate) => {
+	const fixture = await planningWorkflowFixture();
+	const original = await fixture.capture();
+	const first = await updatePlanningSnapshot({
+		runtime: fixture.runtime,
+		propose: async (current) => ({ record: current.record, artifacts: current.artifacts }),
+	});
+	const latest = await commitPlanningSnapshot({
+		...fixture,
+		expectedRevision: first.record.revision,
+		parentDigest: first.digest,
+		record: { ...first.record, revision: first.record.revision + 1, parentDigest: first.digest },
+		artifacts: first.artifacts,
+	});
+	if (!latest.committed) throw new Error('Fixture lost transaction');
+	const result = await updatePlanningSnapshot({
+		runtime: fixture.runtime,
+		snapshot: candidate ? first : original,
+		propose: async (current) => (candidate ? { record: current.record, artifacts: current.artifacts } : undefined),
+	});
+	expect(result.digest).toBe(latest.snapshot.digest);
+});
+
+test.each([false, true])('refuses a disappeared generation during a transaction, candidate: %s', async (candidate) => {
+	const fixture = await planningWorkflowFixture();
+	await fixture.capture();
+	const snapshot = await updatePlanningSnapshot({
+		runtime: fixture.runtime,
+		propose: async (current) => ({ record: current.record, artifacts: current.artifacts }),
+	});
+	await expect(
+		updatePlanningSnapshot({
+			runtime: fixture.runtime,
+			snapshot,
+			propose: async (current) => {
+				await rm(join(fixture.root, '.planning'), { recursive: true });
+				return candidate ? { record: current.record, artifacts: current.artifacts } : undefined;
+			},
+		}),
+	).rejects.toThrow('disappeared during a transaction');
 });

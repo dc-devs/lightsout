@@ -31,7 +31,6 @@ const setup = async ({ mutation }: { mutation: string }) => {
 	if (mutation === 'extra') parameters.artifacts.set('extra.md', 'Undeclared artifact');
 	if (mutation === 'missing') {
 		parameters.artifacts.delete('plan.md');
-		parameters.artifacts.set('elsewhere.md', context.text);
 	}
 	if (mutation === 'changed') parameters.artifacts.set('plan.md', 'Wrong bytes');
 	return parameters;

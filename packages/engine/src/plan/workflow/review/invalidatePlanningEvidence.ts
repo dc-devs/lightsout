@@ -1,13 +1,13 @@
 import { canonicalJson } from '#src/common/utils/canonicalJson.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import { type PlanningDependency, PlanningVocabulary } from '#src/contracts/index.ts';
+import { planningFindingSettlement } from '#src/plan/workflow/common/review/planningFindingSettlement.ts';
 import { planningSemanticBasis } from '#src/plan/workflow/common/runtime/planningSemanticBasis.ts';
-import { PlanningBaseline } from '#src/plan/workflow/common/types/PlanningBaseline.ts';
+import { PlanningBaseline } from '#src/plan/workflow/common/types/invocation/PlanningBaseline.ts';
 import type { PlanningSemanticDelta } from '#src/plan/workflow/common/types/PlanningSemanticDelta.ts';
 import type { PlanningSnapshot } from '#src/plan/workflow/common/types/PlanningSnapshot.ts';
 import { planningScopesIntersect } from '#src/plan/workflow/common/utils/planningScopesIntersect.ts';
 import { readPlanningProof } from '#src/plan/workflow/common/utils/proofs/readPlanningProof.ts';
-import { planningFindingSettlement } from '#src/plan/workflow/review/common/utils/planningFindingSettlement.ts';
 
 interface Params {
 	snapshot: PlanningSnapshot;

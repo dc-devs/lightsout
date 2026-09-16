@@ -1,104 +1,28 @@
-import { mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { describe, expect, jest, test } from '@jest/globals';
-import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
+import { describe, expect, test } from '@jest/globals';
 import { planDraftCommand } from '#src/cli/plan/index.ts';
-import { type DraftImplementation, type Effort, type Permissions, PlanVariant } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { PlanRunStatus, type runPlanDraft } from '#src/plan/index.ts';
-import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { planningWorkflowFixture } from '#tests/helpers/planningWorkflowFixture.ts';
 
-// Mocked Imports
-// -------------------------
-// The runner is the only seam replaced: what this file owns is which
-// implementation the command resolves from the flag and where that choice goes.
-// Every other export of the plan module stays real, so the planning record the
-// command writes around the runner lands on disk and is read back from the file
-// it actually wrote.
-interface DraftParams {
-	cwd: string;
-	driver: Driver;
-	name: string;
-	scope?: PlanVariant;
-	standards?: string;
-	model?: string;
-	effort?: Effort;
-	permissions?: Permissions;
-	timeoutMs?: number;
-	onProgress?: (message: string) => void;
-	implementation?: DraftImplementation;
-}
-
-const mockRunPlanDraft = jest.fn<(params: DraftParams) => ReturnType<typeof runPlanDraft>>();
-
-jest.mock('#src/plan/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/plan/index.ts')>('#src/plan/index.ts'),
-	runPlanDraft: (params: DraftParams) => mockRunPlanDraft(params),
-}));
-// -------------------------
-
-/** Never invoked — the runner above is stubbed, so nothing reaches a harness. */
-const driver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };
-
-/** The draft step's entry in one plan folder's planning record, read off disk. */
-const draftStepOf = ({ cwd, name }: { cwd: string; name: string }): unknown => {
-	const record = JSON.parse(readFileSync(join(cwd, '.lightsout', 'plans', name, 'planning-progress.json'), 'utf8')) as { steps: unknown[] };
-
-	return record.steps[0];
-};
-
-/**
- * One temp repo holding a plan folder per implementation — the folders must
- * exist before the command runs, because the planning record is never what
- * creates one — with the runner answering a clean single-plan draft for
- * whichever plan it was asked for.
- */
-const setupDraftCommands = () => {
-	const captured = captureCommandOutput();
-	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-plan-draft-legacy-'));
-	const names = { legacy: 'legacy-draft', focused: 'focused-draft' };
-
-	for (const name of Object.values(names)) {
-		mkdirSync(join(cwd, '.lightsout', 'plans', name), { recursive: true });
-	}
-
-	mockRunPlanDraft.mockImplementation(async ({ name, implementation }) => {
-		const workspaceDir = join(cwd, '.lightsout', 'plans', name);
-
-		return {
-			status: PlanRunStatus.Complete,
-			workspaceDir,
-			planPaths: [join(workspaceDir, 'plan.md')],
-			variant: PlanVariant.Single,
-			reports: [],
-			advisories: [],
-			implementation: implementation ?? 'focused',
-		};
-	});
-
-	return { cwd, names, legacyFlags: parseFlags({ args: ['--legacy'] }), focusedFlags: parseFlags({ args: [] }), ...captured };
+const setup = async () => {
+	const fixture = await planningWorkflowFixture();
+	return {
+		...fixture,
+		params: {
+			...fixture,
+			driver: fixture.runtime.driver,
+			config: fixture.runtime.config,
+			standards: undefined,
+			flags: new Map<string, string | true>([['legacy', true]]),
+		},
+	};
 };
 
 describe('planDraftCommand', () => {
-	test('selects and records the legacy implementation only when the flag is typed', async () => {
-		const { cwd, names, legacyFlags, focusedFlags, exitCodes } = setupDraftCommands();
+	test('refuses the retired legacy selector before invoking a provider or creating a planning attempt', async () => {
+		const fixture = await setup();
 
-		await expect(planDraftCommand({ cwd, driver, name: names.legacy, standards: undefined, config: undefined, flags: legacyFlags })).rejects.toThrow(
-			/process\.exit/,
-		);
-		await expect(planDraftCommand({ cwd, driver, name: names.focused, standards: undefined, config: undefined, flags: focusedFlags })).rejects.toThrow(
-			/process\.exit/,
-		);
+		const run = planDraftCommand(fixture.params);
 
-		// the typed flag is the only way legacy is reached, and its absence is a
-		// resolved focused draft rather than a question left to the runner
-		expect(mockRunPlanDraft.mock.calls[0]?.[0]).toEqual(expect.objectContaining({ name: 'legacy-draft', implementation: 'legacy' }));
-		expect(mockRunPlanDraft.mock.calls[1]?.[0]).toEqual(expect.objectContaining({ name: 'focused-draft', implementation: 'focused' }));
-		// the record is what attributes a plan folder to the implementation that
-		// produced it, so the choice has to survive the run onto disk
-		expect(draftStepOf({ cwd, name: names.legacy })).toEqual(expect.objectContaining({ step: 'draft', status: 'passed', implementation: 'legacy' }));
-		expect(draftStepOf({ cwd, name: names.focused })).toEqual(expect.objectContaining({ step: 'draft', status: 'passed', implementation: 'focused' }));
-		expect(exitCodes).toStrictEqual([0, 0]);
+		await expect(run).rejects.toThrow('no longer selects an authoring engine');
+		expect(fixture.calls).toEqual([]);
 	});
 });

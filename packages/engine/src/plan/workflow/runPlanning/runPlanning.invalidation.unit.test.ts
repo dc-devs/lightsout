@@ -1,9 +1,9 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { PlanningEvidence, PlanningRoleResult, PlanningVocabulary, type PlanningWork } from '#src/contracts/index.ts';
+import { PlanningVocabulary, type PlanningWork } from '#src/contracts/index.ts';
 import { applyPlanningResult, readPlanningSnapshot, runPlanning } from '#src/plan/index.ts';
-import { planningReviewFixture } from '#tests/helpers/planningReviewFixture.ts';
+import { planningArchitectEvidenceFixture } from '#tests/helpers/planningArchitectEvidenceFixture.ts';
 import { planningRoleProposalFixture } from '#tests/helpers/planningRoleProposalFixture.ts';
 import { planningEvidenceContinuationScenario } from '#tests/helpers/planningWorkflowEvidenceScenario.ts';
 
@@ -146,57 +146,8 @@ test('accepts freshly reacquired observations after a source change and retains 
 }, 60_000);
 
 test('directly refreshes an architect-owned conclusion after its source changes without replaying the author or diagnosing missing work', async () => {
-	const fixture = await planningReviewFixture();
-	const sourcePath = join(fixture.cwd, 'handler.ts');
-	await writeFile(sourcePath, 'export const retention = "completed uploads";');
-	const invoke = fixture.runtime.driver.invoke;
-	fixture.runtime.driver = {
-		...fixture.runtime.driver,
-		invoke: async (invocation) => {
-			const output = await invoke(invocation);
-			const response = PlanningRoleResult.parse(JSON.parse(output.text));
-			const packet = JSON.parse(invocation.prompt).context;
-			if (response.kind !== PlanningVocabulary.ResultKind.Terminal || !('evidence' in response)) return output;
-			if (response.role !== PlanningVocabulary.Role.Architect && !response.workId.startsWith('reinvestigate:')) return output;
-			const observed = packet.evidence.find(
-				(item: { evidence: { dependencyReach: string } }) => item.evidence.dependencyReach === PlanningVocabulary.DependencyReach.Known,
-			);
-			if (!observed)
-				return {
-					exitCode: 0,
-					text: JSON.stringify({
-						...JSON.parse(invocation.prompt).identity,
-						kind: PlanningVocabulary.ResultKind.EvidenceRequest,
-						requests: [
-							{
-								requestId: 'retention-source',
-								operation: PlanningVocabulary.Operation.ReadFile,
-								path: 'handler.ts',
-								reason: 'Inspect the retention contract supporting the architectural conclusion.',
-							},
-						],
-					}),
-				};
-			const acquired = PlanningEvidence.parse(observed.evidence);
-			const targets =
-				response.role === PlanningVocabulary.Role.Architect
-					? [{ id: 'architect-retention' }]
-					: (packet.incompleteEvidence ?? []).filter((item: { assignmentId: string }) => item.assignmentId === response.workId);
-			return {
-				...output,
-				text: JSON.stringify({
-					...response,
-					evidence: targets.map(({ id }: { id: string }) => ({
-						...acquired,
-						id,
-						claimIds: ['required'],
-						conclusion: `Observed retention contract: ${observed.content}`,
-						complete: true,
-					})),
-				}),
-			};
-		},
-	};
+	const fixture = await planningArchitectEvidenceFixture();
+	const { sourcePath } = fixture;
 	const initial = await fixture.run();
 	expect(initial.status).toBe(PlanningVocabulary.Status.Complete);
 	const before = await fixture.current();

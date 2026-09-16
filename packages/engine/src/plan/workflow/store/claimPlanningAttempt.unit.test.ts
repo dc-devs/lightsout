@@ -61,3 +61,9 @@ describe('claimPlanningAttempt', () => {
 		await expect(claimPlanningAttempt(parameters)).rejects.toThrow(message);
 	});
 });
+
+test('refuses to claim an implementation assignment from the brainstorm stage', async () => {
+	const { parameters } = await setup({ variant: 'stage' });
+	parameters.runtime.stage = PlanningVocabulary.Stage.Brainstorm;
+	await expect(claimPlanningAttempt(parameters)).rejects.toThrow('stage');
+});

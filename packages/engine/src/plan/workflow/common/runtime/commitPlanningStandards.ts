@@ -20,6 +20,8 @@ export const commitPlanningStandards = async ({ runtime }: Params): Promise<{ sn
 		role: PlanningVocabulary.Role.Architect,
 		scope: { kind: PlanningVocabulary.Scope.WholePlan, claimIds: [], phaseIds: [], packageRoots: [] },
 	});
+	if (runtime.executionPolicy && runtime.executionPolicy.policy.standardsPolicyDigest !== standards.policyDigest)
+		throw new Error('Planning standards changed; stop and re-enter to adopt the updated policy');
 	const bundle = PlanningStandardsBundle.parse({
 		format: 'planning-standards-v1',
 		policyDigest: standards.policyDigest,

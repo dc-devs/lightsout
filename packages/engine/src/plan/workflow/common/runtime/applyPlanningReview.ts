@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import { PlanningAdjudicationRequest, type PlanningRecord, type PlanningRoleResult, PlanningVocabulary } from '#src/contracts/index.ts';
+import { validatePlanningUnknownAssessments } from '#src/plan/workflow/common/review/validatePlanningUnknownAssessments.ts';
 import { attachPlanningData } from '#src/plan/workflow/common/runtime/attachPlanningData.ts';
 import { validatePlanningCitations } from '#src/plan/workflow/common/runtime/validatePlanningCitations.ts';
+import type { PlanningInvocation } from '#src/plan/workflow/common/types/invocation/PlanningInvocation.ts';
 import { PlanningAssuranceObligation } from '#src/plan/workflow/common/types/PlanningAssuranceObligation.ts';
-import type { PlanningInvocation } from '#src/plan/workflow/common/types/PlanningInvocation.ts';
 import type { PlanningRuntime } from '#src/plan/workflow/common/types/PlanningRuntime.ts';
 import { PlanningSettlement } from '#src/plan/workflow/common/types/PlanningSettlement.ts';
 import type { PlanningSnapshot } from '#src/plan/workflow/common/types/PlanningSnapshot.ts';
@@ -126,23 +127,14 @@ const applyAssurance = async ({
 			...obligation.dependencyIds,
 			...invocation.dependencies.filter((item) => item.kind === PlanningVocabulary.Dependency.Unknown).map((item) => item.id),
 		]);
-		if ([...assignedIds].some((id) => !assessments.some((item) => item.dependencyIds.includes(id))))
-			throw new Error('Unknown reach requires a fresh explicit assessment of every obligation');
 		if (!invocation.assuranceBasis) throw new Error('Unknown assessment lacks a current invocation basis');
-		const blockedReasons: string[] = [];
-		for (const assessment of assessments) {
-			if (assessment.dependencyIds.some((id) => !assignedIds.has(id)) || assessment.claimIds.some((id) => !record.claims.some((claim) => claim.id === id)))
-				throw new Error('Unknown assessment references an unassigned dependency or claim');
-			await validate({ citations: assessment.citations });
-			if (assessment.outcome === PlanningVocabulary.UnknownAssessment.Unavailable) blockedReasons.push(`${assessment.paths.join(', ')}: ${assessment.reason}`);
-			if (
-				assessment.outcome === PlanningVocabulary.UnknownAssessment.Acquired &&
-				!assessment.evidenceIds.some((id) =>
-					record.evidence.some((evidence) => evidence.id === id && evidence.dependencyReach === PlanningVocabulary.DependencyReach.Known),
-				)
-			)
-				throw new Error('Acquired unknown information requires independently observed evidence');
-		}
+		const blockedReasons = await validatePlanningUnknownAssessments({
+			assignedIds,
+			claimIds: new Set(record.claims.map((claim) => claim.id)),
+			evidence: record.evidence,
+			assessments,
+			validateCitations: validate,
+		});
 		attachPlanningData({
 			record,
 			artifacts,

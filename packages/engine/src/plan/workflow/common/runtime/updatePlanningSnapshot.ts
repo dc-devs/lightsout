@@ -1,9 +1,11 @@
 import { canonicalJson } from '#src/common/utils/canonicalJson.ts';
 import { type PlanningRecord, PlanningVocabulary } from '#src/contracts/index.ts';
+import { assertPlanningExecutionPolicy } from '#src/plan/workflow/common/policy/assertPlanningExecutionPolicy.ts';
+import { getCurrentPlanningReviews } from '#src/plan/workflow/common/review/getCurrentPlanningReviews.ts';
+import { planningFindingSettlement } from '#src/plan/workflow/common/review/planningFindingSettlement.ts';
 import { composePlanningViews } from '#src/plan/workflow/common/runtime/composePlanningViews.ts';
 import type { PlanningRuntime } from '#src/plan/workflow/common/types/PlanningRuntime.ts';
 import type { PlanningSnapshot } from '#src/plan/workflow/common/types/PlanningSnapshot.ts';
-import { getCurrentPlanningReviews, planningFindingSettlement } from '#src/plan/workflow/review/index.ts';
 import { commitPlanningSnapshot, readPlanningSnapshot } from '#src/plan/workflow/store/index.ts';
 
 interface Params {
@@ -19,15 +21,25 @@ export const updatePlanningSnapshot = async ({ runtime, propose, snapshot: suppl
 	if (initial === undefined) throw new Error('Planning input must be captured before a workflow transaction');
 	let snapshot: PlanningSnapshot = initial;
 	for (;;) {
+		assertPlanningExecutionPolicy({ runtime, snapshot });
 		const candidate = await propose(snapshot);
-		if (candidate === undefined) return snapshot;
+		if (candidate === undefined) {
+			const latest = await readPlanningSnapshot({ cwd: runtime.cwd, name: runtime.name });
+			if (!latest) throw new Error('Planning generation disappeared during a transaction');
+			assertPlanningExecutionPolicy({ runtime, snapshot: latest });
+			if (latest.digest !== snapshot.digest) {
+				snapshot = latest;
+				continue;
+			}
+			return snapshot;
+		}
 		const completing = candidate.record.work.some(
 			(work) =>
 				work.status === PlanningVocabulary.WorkState.Complete &&
 				work.resultReceiptId !== snapshot.record.work.find((item) => item.id === work.id)?.resultReceiptId,
 		);
 		if (!completing) candidate.artifacts = composePlanningViews({ runtime, previous: snapshot, record: candidate.record, artifacts: candidate.artifacts });
-		const prospective = { record: { ...candidate.record, revision: snapshot.record.revision + 1 }, artifacts: candidate.artifacts, digest: snapshot.digest };
+		const prospective = { ...snapshot, record: { ...candidate.record, revision: snapshot.record.revision + 1 }, artifacts: candidate.artifacts };
 		const reviews = candidate.record.findings.some((finding) => finding.state === PlanningVocabulary.FindingState.Verified)
 			? getCurrentPlanningReviews({ snapshot: prospective })
 			: [];
@@ -39,7 +51,16 @@ export const updatePlanningSnapshot = async ({ runtime, propose, snapshot: suppl
 		const sameRecord = canonicalJson({ value: candidate.record }) === canonicalJson({ value: snapshot.record });
 		const sameArtifacts =
 			candidate.artifacts.size === snapshot.artifacts.size && [...candidate.artifacts].every(([path, content]) => snapshot.artifacts.get(path) === content);
-		if (sameRecord && sameArtifacts) return snapshot;
+		if (sameRecord && sameArtifacts) {
+			const latest = await readPlanningSnapshot({ cwd: runtime.cwd, name: runtime.name });
+			if (!latest) throw new Error('Planning generation disappeared during a transaction');
+			assertPlanningExecutionPolicy({ runtime, snapshot: latest });
+			if (latest.digest !== snapshot.digest) {
+				snapshot = latest;
+				continue;
+			}
+			return snapshot;
+		}
 		const committed = await commitPlanningSnapshot({
 			cwd: runtime.cwd,
 			name: runtime.name,

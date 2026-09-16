@@ -30,3 +30,11 @@ test('refuses replaced or unowned attempts before persisting invocation authorit
 	}
 	expect(fixture.calls).toHaveLength(0);
 });
+
+test('refuses to continue an invocation after its role policy changes', async () => {
+	const fixture = await planningClaimedWorkflowFixture();
+	const prepared = await preparePlanningInvocation(fixture);
+	fixture.runtime.model = 'changed-model';
+	await expect(preparePlanningInvocation({ ...fixture, snapshot: prepared.snapshot })).rejects.toThrow('Binding obligations changed');
+	expect(fixture.calls).toStrictEqual([]);
+});

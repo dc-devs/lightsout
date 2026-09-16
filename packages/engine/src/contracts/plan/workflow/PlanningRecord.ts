@@ -5,6 +5,7 @@ import { PlanningDigest } from '#src/contracts/plan/workflow/common/types/Planni
 import { PlanningLegacySettlement } from '#src/contracts/plan/workflow/common/types/PlanningLegacySettlement.ts';
 import { PlanningOrigin } from '#src/contracts/plan/workflow/common/types/PlanningOrigin.ts';
 import { PlanningPath } from '#src/contracts/plan/workflow/common/types/PlanningPath.ts';
+import { PlanningPolicyReference } from '#src/contracts/plan/workflow/common/types/PlanningPolicyReference.ts';
 import { PlanningStandard } from '#src/contracts/plan/workflow/common/types/PlanningStandard.ts';
 import { PlanningClaim } from '#src/contracts/plan/workflow/PlanningClaim.ts';
 import { PlanningEvidence } from '#src/contracts/plan/workflow/PlanningEvidence.ts';
@@ -29,6 +30,7 @@ export const PlanningRecord = z
 		confirmations: z.array(PlanningConfirmation),
 		standards: z.array(PlanningStandard),
 		legacySettlements: z.array(PlanningLegacySettlement).optional(),
+		executionPolicies: z.array(PlanningPolicyReference).optional(),
 	})
 	.strict();
 export type PlanningRecord = z.infer<typeof PlanningRecord>;

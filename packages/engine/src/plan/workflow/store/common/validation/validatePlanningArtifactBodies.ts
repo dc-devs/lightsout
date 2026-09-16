@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { canonicalJson } from '#src/common/utils/canonicalJson.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import { DecisionsRecord, type PlanningRecord, PlanningVocabulary } from '#src/contracts/index.ts';
+import { validatePlanningProposalApprovals } from '#src/plan/workflow/common/answers/validatePlanningProposalApprovals.ts';
+import { readPlanningExecutionPolicy } from '#src/plan/workflow/common/policy/readPlanningExecutionPolicy.ts';
 import { readPlanningResultReceipts } from '#src/plan/workflow/store/common/validation/readPlanningResultReceipts.ts';
 
 interface Params {
@@ -11,6 +13,8 @@ interface Params {
 
 /** Hashes protect bytes; these bindings protect the meaning of engine-owned historical and result receipts. */
 export const validatePlanningArtifactBodies = ({ record, artifacts }: Params): void => {
+	validatePlanningProposalApprovals({ snapshot: { record, artifacts, digest: '' } });
+	for (const stage of Object.values(PlanningVocabulary.Stage)) readPlanningExecutionPolicy({ snapshot: { record, artifacts, digest: '' }, stage });
 	for (const legacy of record.legacySettlements ?? []) {
 		const text = artifacts.get(legacy.artifact);
 		if (text === undefined || sha256({ content: text }) !== legacy.artifactDigest) throw new Error('Historical source bytes are missing or changed');

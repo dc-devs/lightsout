@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs';
+import { rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
@@ -62,6 +62,7 @@ interface SetupParams {
 	committed: string;
 	/** What each ledger-writer invocation leaves on disk, in the order they are spawned. */
 	passes?: string[];
+	repairFailure?: 'rate-limit' | 'failure' | 'missing-file';
 }
 
 /**
@@ -69,7 +70,7 @@ interface SetupParams {
  * that answers every role of a full run: the ledger writer leaves whatever the
  * case gives it, and the executor lands the module the ledger is about.
  */
-const setupLedgerTitlesRun = async ({ committed, passes = [statingBody] }: SetupParams) => {
+const setupLedgerTitlesRun = async ({ committed, passes = [statingBody], repairFailure }: SetupParams) => {
 	const dir = setupConsumerRepo({
 		plan: planContent,
 		scripts: { test: ledgerTestGate },
@@ -94,6 +95,13 @@ const setupLedgerTitlesRun = async ({ committed, passes = [statingBody] }: Setup
 				}
 
 				if (role === 'write-ledger-tests') {
+					if (pass === 1 && repairFailure) {
+						if (repairFailure === 'missing-file') {
+							rmSync(join(dir, ledgerFile));
+							return { text: report(), exitCode: 0 };
+						}
+						return { text: 'Writer interrupted', exitCode: 1, rateLimited: repairFailure === 'rate-limit' };
+					}
 					writeFileSync(join(dir, ledgerFile), passes[pass] ?? statingBody);
 					pass += 1;
 
@@ -163,4 +171,23 @@ describe('runImplementPipeline', () => {
 		// decoys — a passing run removes the copies, and the record is the evidence
 		expect(result.manifest.approvedTests).toStrictEqual(approvedStatingFile);
 	});
+});
+
+test.each(['rate-limit', 'failure', 'missing-file'] as const)('stops without acceptance approval when the ledger repair ends %s', async (repairFailure) => {
+	const fixture = await setupLedgerTitlesRun({ committed: quotingBody, passes: [quotingBody], repairFailure });
+	const result = await runImplementPipeline({ cwd: fixture.dir, driver: fixture.driver, config: fixture.config, planPath: 'plan.md', skipRefactor: true });
+	expect(result.ok).toBe(false);
+	expect(result.manifest.status).toBe(repairFailure === 'rate-limit' ? 'paused-rate-limit' : 'failed');
+	expect(result.manifest.acceptanceTests).toStrictEqual([]);
+	expect(result.manifest.steps.some((step) => step.id === 'implement')).toBe(false);
+});
+
+test('does not approve ledger bytes when the configured formatter fails', async () => {
+	const fixture = await setupLedgerTitlesRun({ committed: quotingBody });
+	fixture.config.gates.format = 'exit 1';
+	const result = await runImplementPipeline({ cwd: fixture.dir, driver: fixture.driver, config: fixture.config, planPath: 'plan.md', skipRefactor: true });
+	expect(result.ok).toBe(false);
+	expect(result.manifest.status).toBe('failed');
+	expect(result.error).toContain('format');
+	expect(result.manifest.approvedTests).toStrictEqual([]);
 });

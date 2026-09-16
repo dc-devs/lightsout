@@ -1,10 +1,13 @@
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
+import { canonicalJson } from '#src/common/utils/canonicalJson.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { listWorkspacePackages } from '#src/common/workspace/listWorkspacePackages.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { PlanningVocabulary } from '#src/contracts/index.ts';
 import { readPlanSources } from '#src/pipeline/common/utils/readPlanSources.ts';
 import { resolvePackageScope } from '#src/pipeline/common/utils/resolvePackageScope.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import { readPlanningHandoff, resolvePlanningStandards } from '#src/plan/index.ts';
 import { type ResolvedStandards, resolveStandards } from '#src/standards/index.ts';
 
 interface Params {
@@ -39,7 +42,7 @@ interface Prepared {
  */
 export const prepareRun = async ({ run, cwd, config, packages }: Params): Promise<Prepared | { error: string }> => {
 	const manifest = run.current();
-	const sources = await readPlanSources({ cwd, plan: manifest.plan, overview: manifest.overview });
+	const sources = await readPlanSources({ cwd, plan: manifest.plan, overview: manifest.overview, handoff: manifest.planningHandoff });
 
 	if ('error' in sources) {
 		return sources;
@@ -88,5 +91,22 @@ export const prepareRun = async ({ run, cwd, config, packages }: Params): Promis
 		);
 	}
 
+	if (manifest.planningHandoff) {
+		const snapshot = await readPlanningHandoff({ cwd, handoff: manifest.planningHandoff });
+		const current = await resolvePlanningStandards({
+			cwd,
+			config,
+			role: PlanningVocabulary.Role.Architect,
+			scope: { kind: PlanningVocabulary.Scope.WholePlan, claimIds: [], phaseIds: [], packageRoots: [] },
+		});
+		const recorded = snapshot.artifacts.get('planning-standards.json');
+		if (
+			recorded !==
+			canonicalJson({
+				value: { format: 'planning-standards-v1', policyDigest: current.policyDigest, observations: current.observations, channels: current.channels },
+			})
+		)
+			return { error: 'Applicable standards changed; reconcile the frozen handoff before resuming' };
+	}
 	return { ...sources, standards: resolved.standards, testStandards: resolved.testStandards };
 };

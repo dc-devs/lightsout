@@ -77,6 +77,7 @@ export const completePlanningAttempt = async ({
 			acceptedRevision: receipt.acceptedRevision,
 			packetDigest: baseline.inputDigest,
 			invocationPolicyDigest: invocation.invocationPolicyDigest,
+			executionPolicyDigest: invocation.executionPolicyDigest,
 			observationPaths: invocation.observationPaths,
 			dependencies: baseline.dependencies,
 			semanticBasis,

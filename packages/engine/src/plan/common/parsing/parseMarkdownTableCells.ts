@@ -1,9 +1,12 @@
+import { decodeMarkdownText } from '#src/plan/common/parsing/decodeMarkdownText.ts';
+
 interface Params {
 	line: string;
+	decode?: boolean;
 }
 
 /** Read Markdown table cells, including escaped delimiters and lossless engine-encoded text. */
-export const parseMarkdownTableCells = ({ line }: Params): string[] => {
+export const parseMarkdownTableCells = ({ line, decode = true }: Params): string[] => {
 	const cells: string[] = [];
 	let cell = '';
 	const text = line.trim();
@@ -20,16 +23,5 @@ export const parseMarkdownTableCells = ({ line }: Params): string[] => {
 	cells.push(cell);
 	if (text.startsWith('|')) cells.shift();
 	if (text.endsWith('|') && cells.at(-1) === '') cells.pop();
-	const entities: Record<string, string> = {
-		'&amp;': '&',
-		'&lt;': '<',
-		'&gt;': '>',
-		'&#92;': '\\',
-		'&#124;': '|',
-		'&#96;': '`',
-		'&#13;': '\r',
-		'&#10;': '\n',
-		'&#32;': ' ',
-	};
-	return cells.map((value) => value.trim().replace(/&(?:amp|lt|gt|#92|#124|#96|#13|#10|#32);/g, (entity) => entities[entity]));
+	return cells.map((value) => (decode ? decodeMarkdownText({ text: value.trim(), lossless: false }) : value.trim()));
 };

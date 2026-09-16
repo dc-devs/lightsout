@@ -1,5 +1,6 @@
 import { canonicalJson } from '#src/common/utils/canonicalJson.ts';
 import { type PlanningRecord, PlanningVocabulary } from '#src/contracts/index.ts';
+import { validatePlanningProposalApprovals } from '#src/plan/workflow/common/answers/validatePlanningProposalApprovals.ts';
 import type { PlanningSnapshot } from '#src/plan/workflow/common/types/PlanningSnapshot.ts';
 import { PlanningResultReceipt } from '#src/plan/workflow/store/common/types/PlanningResultReceipt.ts';
 import { planningResultReceiptPath } from '#src/plan/workflow/store/common/utils/planningResultReceiptPath.ts';
@@ -15,6 +16,7 @@ interface Params {
 
 /** A delayed result cannot complete a replaced attempt, and established historical authority cannot be rewritten. */
 export const validatePlanningTransition = ({ previous, record, artifacts }: Params): void => {
+	validatePlanningProposalApprovals({ snapshot: { record, artifacts, digest: '' }, previous });
 	const before = previous?.record;
 	if (before !== undefined) {
 		validatePlanningHistory({ previous: before, record });

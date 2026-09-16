@@ -29,15 +29,19 @@ const stageArtifacts = async ({
 	artifacts,
 	blobs,
 	io,
+	current,
 }: {
 	record: PlanningRecord;
 	artifacts: ReadonlyMap<string, string>;
 	blobs: string;
 	io?: PlanningStoreIO;
+	current?: PlanningSnapshot;
 }) => {
-	if (record.artifacts.length !== artifacts.size) throw new Error('Planning artifact descriptors must name every staged artifact exactly once');
+	if ([...artifacts.keys()].some((path) => !record.artifacts.some((item) => item.path === path)))
+		throw new Error('Planning artifact descriptors must name every staged artifact exactly once');
 	for (const descriptor of record.artifacts) {
 		const text = artifacts.get(descriptor.path);
+		if (text === undefined && current?.omittedObservations?.some((item) => item.path === descriptor.path && item.sha256 === descriptor.sha256)) continue;
 		if (text === undefined || sha256({ content: text }) !== descriptor.sha256)
 			throw new Error(`Planning artifact does not match its descriptor: ${descriptor.path}`);
 		const path = join(blobs, descriptor.sha256);
@@ -68,7 +72,7 @@ export const commitPlanningSnapshot = async ({
 	validatePlanningArtifactBodies({ record, artifacts });
 	validatePlanningTransition({ previous: current, record, artifacts });
 	const paths = await planningStorePaths({ cwd, name, create: true });
-	await stageArtifacts({ record, artifacts, blobs: paths.blobs, io });
+	await stageArtifacts({ record, artifacts, blobs: paths.blobs, io, current });
 	const text = canonicalJson({ value: record });
 	const digest = sha256({ content: text });
 	const candidate = join(paths.staging, `${digest}.json`);

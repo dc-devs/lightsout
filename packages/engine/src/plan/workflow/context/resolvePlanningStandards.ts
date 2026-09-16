@@ -7,6 +7,7 @@ import { listWorkspacePackages } from '#src/common/workspace/listWorkspacePackag
 import { type LightsoutConfig, type PlanningDependency, type PlanningScope, PlanningVocabulary } from '#src/contracts/index.ts';
 import type { PlanningStandards } from '#src/plan/workflow/common/types/PlanningStandards.ts';
 import { ObservedStandardsReader } from '#src/plan/workflow/context/common/utils/ObservedStandardsReader.ts';
+import { planningStandardsLocation } from '#src/plan/workflow/context/common/utils/planningStandardsLocation.ts';
 import { resolveStandardsChannels } from '#src/standards/index.ts';
 import { buildStandardsDocuments, resolveStandardsPackRoots, resolveStandardsPacks } from '#src/standardsPacks/index.ts';
 
@@ -16,6 +17,27 @@ interface Params {
 	role: (typeof PlanningVocabulary.Role)[keyof typeof PlanningVocabulary.Role];
 	scope: PlanningScope;
 }
+
+const standardsDependencies = ({ cwd, observations }: { cwd: string; observations: PlanningStandards['observations'] }) => {
+	const dependencies: PlanningDependency[] = [];
+	for (const observation of observations) {
+		const path = relative(cwd, observation.path) || '.';
+		if (isAbsolute(path) || path === '..' || path.startsWith('../') || observation.kind === PlanningVocabulary.Observation.Presence) continue;
+		const id = `standards:${observation.kind}:${path}`;
+		if (observation.kind === PlanningVocabulary.Observation.Absence) dependencies.push({ id, kind: PlanningVocabulary.Dependency.Absence, path });
+		else if (observation.kind === PlanningVocabulary.Observation.Content)
+			dependencies.push({ id, kind: PlanningVocabulary.Dependency.Content, path, sha256: observation.sha256 });
+		else
+			dependencies.push({
+				id,
+				kind: PlanningVocabulary.Dependency.Membership,
+				root: path,
+				policy: { exclude: [], recursive: false },
+				fingerprint: observation.sha256,
+			});
+	}
+	return dependencies;
+};
 
 /** Resolve exact existing standards text without changing planning state; the coordinator commits this stable plan-scope bundle. */
 export const resolvePlanningStandards = async ({ cwd, config, scope }: Params): Promise<PlanningStandards> => {
@@ -34,9 +56,17 @@ export const resolvePlanningStandards = async ({ cwd, config, scope }: Params): 
 	const frameworkChannels = roots.length === 0 ? [] : await resolveStandardsChannels({ cwd, config, packages, reader, includeRoot });
 	const packs = await resolveStandardsPacks({ cwd, config, reader });
 	const rendered = packs.map((pack) => buildStandardsDocuments({ pack, channels: frameworkChannels }));
-	const identity = packs.map((pack) => ({ name: pack.name, formatVersion: pack.formatVersion, root: relative(cwd, pack.rootPath) || '.', built: pack.built }));
+	const identity = packs.map((pack) => ({
+		name: pack.name,
+		formatVersion: pack.formatVersion,
+		root: planningStandardsLocation({ cwd, roots, path: pack.rootPath }),
+		built: pack.built,
+	}));
 	await reader.verify();
-	const observations = [...reader.observations.values()].sort((a, b) => `${a.path}:${a.kind}`.localeCompare(`${b.path}:${b.kind}`));
+	const rawObservations = [...reader.observations.values()];
+	const observations = rawObservations
+		.map((observation) => ({ ...observation, path: planningStandardsLocation({ cwd, roots, path: observation.path }) }))
+		.sort((a, b) => `${a.path}:${a.kind}`.localeCompare(`${b.path}:${b.kind}`));
 	const policy = {
 		renderer: 'planning-standards-v1',
 		packages,
@@ -72,23 +102,7 @@ export const resolvePlanningStandards = async ({ cwd, config, scope }: Params): 
 			sha256: sha256({ content: text }),
 		});
 	}
-	const dependencies: PlanningDependency[] = [];
-	for (const observation of observations) {
-		const path = relative(cwd, observation.path) || '.';
-		if (isAbsolute(path) || path === '..' || path.startsWith('../') || observation.kind === PlanningVocabulary.Observation.Presence) continue;
-		const id = `standards:${observation.kind}:${path}`;
-		if (observation.kind === PlanningVocabulary.Observation.Absence) dependencies.push({ id, kind: PlanningVocabulary.Dependency.Absence, path });
-		else if (observation.kind === PlanningVocabulary.Observation.Content)
-			dependencies.push({ id, kind: PlanningVocabulary.Dependency.Content, path, sha256: observation.sha256 });
-		else
-			dependencies.push({
-				id,
-				kind: PlanningVocabulary.Dependency.Membership,
-				root: path,
-				policy: { exclude: [], recursive: false },
-				fingerprint: observation.sha256,
-			});
-	}
+	const dependencies = standardsDependencies({ cwd, observations: rawObservations });
 	return {
 		content: channels.map((channel) => `# ${channel.channel} standards\n\n${channel.text}`).join('\n\n'),
 		channels,

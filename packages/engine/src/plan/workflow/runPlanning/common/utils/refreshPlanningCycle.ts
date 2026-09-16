@@ -1,16 +1,16 @@
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { PlanningReadiness, type PlanningRunResult, PlanningVocabulary } from '#src/contracts/index.ts';
+import { pendingPlanningQuestion } from '#src/plan/workflow/common/questions/pendingPlanningQuestion.ts';
+import { planningIntegrationBasis } from '#src/plan/workflow/common/review/planningIntegrationBasis.ts';
 import { commitPlanningStandards } from '#src/plan/workflow/common/runtime/commitPlanningStandards.ts';
-import { pendingPlanningQuestion } from '#src/plan/workflow/common/runtime/pendingPlanningQuestion.ts';
 import { recoverPlanningResult } from '#src/plan/workflow/common/runtime/recoverPlanningResult.ts';
 import { refreshPlanningAssurance } from '#src/plan/workflow/common/runtime/refreshPlanningAssurance.ts';
 import { refreshPlanningWork } from '#src/plan/workflow/common/runtime/refreshPlanningWork.ts';
 import { syncPlanningStructure } from '#src/plan/workflow/common/runtime/syncPlanningStructure.ts';
 import { PlanningAssuranceObligation } from '#src/plan/workflow/common/types/PlanningAssuranceObligation.ts';
+import type { PlanningCycle } from '#src/plan/workflow/common/types/PlanningCycle.ts';
 import type { PlanningRuntime } from '#src/plan/workflow/common/types/PlanningRuntime.ts';
 import type { PlanningSnapshot } from '#src/plan/workflow/common/types/PlanningSnapshot.ts';
-import { planningIntegrationBasis } from '#src/plan/workflow/review/index.ts';
-import type { PlanningCycle } from '#src/plan/workflow/runPlanning/common/types/PlanningCycle.ts';
 
 interface Params {
 	runtime: PlanningRuntime;
@@ -61,7 +61,7 @@ const evaluateCycle = async ({
 				stage: runtime.stage,
 			}),
 		);
-		cycle = { snapshot, cycleId, structural, readiness, recovered: false };
+		cycle = { snapshot, cycleId, structural, readiness, assurance: assured.assurance, recovered: false };
 	}
 	return cycle;
 };
@@ -91,6 +91,13 @@ export const refreshPlanningCycle = async ({ runtime, snapshot, cycleId }: Param
 			cycle = await evaluateCycle({ runtime, snapshot, cycleId });
 			// Required unavailable information and newly scheduled assurance must precede final design approval.
 			if (!cycle.result) cycle.result = await pendingPlanningQuestion({ runtime, snapshot: cycle.snapshot });
+			if (!cycle.result)
+				cycle.result = await runtime.services.proposal?.({
+					runtime,
+					snapshot: cycle.snapshot,
+					ready: cycle.readiness?.ready ?? false,
+					assurance: cycle.assurance,
+				});
 		}
 	}
 	return cycle;

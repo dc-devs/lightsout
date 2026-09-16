@@ -1,3 +1,5 @@
+import type { PlanningRunResult, PlanningVocabulary } from '#src/contracts/index.ts';
+
 /**
  * What one worker invocation amounted to, with every worker's different report
  * shape already normalized: a question to relay, an error to park on, a reason
@@ -5,6 +7,7 @@
  */
 export interface WorkerOutcome {
 	question?: string;
+	planningQuestion?: Extract<PlanningRunResult, { status: typeof PlanningVocabulary.Status.AwaitingUser }>;
 	error?: string;
 	/** True when the error is a question nobody answered — the one park that says the human is away. */
 	unanswered?: boolean;

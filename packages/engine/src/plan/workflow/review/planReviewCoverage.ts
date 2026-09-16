@@ -1,12 +1,12 @@
 import { canonicalJson } from '#src/common/utils/canonicalJson.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import { type PlanningScope, PlanningVocabulary, type PlanningWork } from '#src/contracts/index.ts';
+import { planningFindingSettlement } from '#src/plan/workflow/common/review/planningFindingSettlement.ts';
+import { planningIntegrationBasis } from '#src/plan/workflow/common/review/planningIntegrationBasis.ts';
+import { planningReviewObligations } from '#src/plan/workflow/common/review/planningReviewObligations.ts';
 import type { PlanningSnapshot } from '#src/plan/workflow/common/types/PlanningSnapshot.ts';
 import { selectPlanningArtifacts } from '#src/plan/workflow/common/utils/selectPlanningArtifacts.ts';
 import { selectPlanningClaims } from '#src/plan/workflow/common/utils/selectPlanningClaims.ts';
-import { planningFindingSettlement } from '#src/plan/workflow/review/common/utils/planningFindingSettlement.ts';
-import { planningIntegrationBasis } from '#src/plan/workflow/review/common/utils/planningIntegrationBasis.ts';
-import { planningReviewObligations } from '#src/plan/workflow/review/common/utils/planningReviewObligations.ts';
 
 interface Params {
 	snapshot: PlanningSnapshot;
@@ -100,6 +100,7 @@ const addCoverage = ({
 			value: {
 				role,
 				stage,
+				executionPolicy: record.executionPolicies?.find((item) => item.stage === stage),
 				scope,
 				assignment,
 				semantic: planningIntegrationBasis({ snapshot }),

@@ -8,11 +8,13 @@ import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { resolveConfigAndDriver } from '#src/cli/common/utils/resolveConfigAndDriver.ts';
 import { openPlanWorktree } from '#src/cli/plan/common/utils/openPlanWorktree.ts';
+import { planAnswerCommand } from '#src/cli/plan/planAnswerCommand.ts';
 import { planDedupCommand } from '#src/cli/plan/planDedupCommand.ts';
 import { planDraftCommand } from '#src/cli/plan/planDraftCommand.ts';
 import { planGradeCommand } from '#src/cli/plan/planGradeCommand.ts';
 import { planLintCommand } from '#src/cli/plan/planLintCommand.ts';
 import { planPublishCommand } from '#src/cli/plan/planPublishCommand.ts';
+import { planRunCommand } from '#src/cli/plan/planRunCommand.ts';
 import { planSyncDecisionsCommand } from '#src/cli/plan/planSyncDecisionsCommand.ts';
 import { planVerifyFactsCommand } from '#src/cli/plan/planVerifyFactsCommand.ts';
 import { planWorkspaceCommand } from '#src/cli/plan/planWorkspaceCommand.ts';
@@ -40,7 +42,10 @@ import { findBareTicketFolderRefusal } from '#src/ticket/index.ts';
 const openDispatchCheckout = async ({ cwd, flags, subcommand }: { cwd: string; flags: CommandContext['flags']; subcommand: string | undefined }) => {
 	const name = getStringFlag({ flags, name: 'name' });
 
-	if (name === undefined || !['workspace', 'draft', 'dedup', 'grade', 'lint', 'publish', 'sync-decisions', 'verify-facts'].includes(subcommand ?? '')) {
+	if (
+		name === undefined ||
+		!['workspace', 'run', 'answer', 'draft', 'dedup', 'grade', 'lint', 'publish', 'sync-decisions', 'verify-facts'].includes(subcommand ?? '')
+	) {
 		return { cwd, worktree: undefined };
 	}
 
@@ -76,6 +81,15 @@ export const planCommand = async ({ flags, rest, cwd: launchingCwd }: CommandCon
 
 	if (subcommand === 'workspace' && worktree !== undefined) {
 		await planWorkspaceCommand({ worktree });
+		return;
+	}
+
+	if (subcommand === 'run') {
+		await planRunCommand({ cwd, flags, rest });
+		return;
+	}
+	if (subcommand === 'answer') {
+		await planAnswerCommand({ cwd, flags, rest });
 		return;
 	}
 

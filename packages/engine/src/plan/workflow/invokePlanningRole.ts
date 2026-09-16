@@ -3,15 +3,18 @@ import { messageOf } from '#src/common/utils/messageOf.ts';
 import { type PlanningRoleResult, PlanningVocabulary, type PlanningWork } from '#src/contracts/index.ts';
 import { type Driver, type DriverResult, getDriverCapabilities, getMissingEnvironmentControls } from '#src/drivers/index.ts';
 import { invokeAgentWithContract } from '#src/invoke/index.ts';
+import { planningRoleEnvironment } from '#src/plan/workflow/common/constants/planningRoleEnvironment.ts';
+import { assertPlanningDispatch } from '#src/plan/workflow/common/policy/assertPlanningDispatch.ts';
 import { getPlanningRoleProtocol } from '#src/plan/workflow/common/runtime/getPlanningRoleProtocol.ts';
 import { preparePlanningInvocation } from '#src/plan/workflow/common/runtime/preparePlanningInvocation.ts';
 import { PlanningInvocationFailure } from '#src/plan/workflow/common/services/PlanningInvocationFailure.ts';
 import type { PlanningRuntime } from '#src/plan/workflow/common/types/PlanningRuntime.ts';
 import type { PlanningSnapshot } from '#src/plan/workflow/common/types/PlanningSnapshot.ts';
+import type { PlanningStandards } from '#src/plan/workflow/common/types/PlanningStandards.ts';
 import { recordPlanningUsage } from '#src/plan/workflow/common/utils/recordPlanningUsage.ts';
 import { resolvePlanningStandards } from '#src/plan/workflow/context/index.ts';
 
-const environment = { noMcpServers: true, noSkillCatalog: true, toolAllowlist: true, settingsPreserved: true, tools: [] };
+const environment = planningRoleEnvironment;
 
 interface Params {
 	runtime: PlanningRuntime;
@@ -22,6 +25,8 @@ interface Params {
 
 /** Observe each real provider call, including formatting rungs, without replacing its configured execution policy. */
 const observedDriver = ({
+	driver,
+	standards,
 	runtime,
 	work,
 	attemptId,
@@ -31,36 +36,41 @@ const observedDriver = ({
 	work: PlanningWork;
 	attemptId: string;
 	persistenceFailed: (error: PlanningInvocationFailure) => void;
-}): Driver => ({
-	name: runtime.driver.name,
-	invoke: async (invocation) => {
-		const startedAt = runtime.clock?.() ?? Date.now();
-		let result: DriverResult;
-		let providerError: unknown;
-		try {
-			result = await runtime.driver.invoke(invocation);
-		} catch (error) {
-			providerError = error;
-			result = { text: messageOf({ error }), exitCode: 1 };
-		}
-		const pending = { workId: work.id, attemptId, result, startedAt, endedAt: runtime.clock?.() ?? Date.now() };
-		runtime.pendingOutput = pending;
-		try {
-			await recordPlanningUsage({ cwd: runtime.cwd, name: runtime.name, ...pending });
-		} catch (error) {
-			const failure = new PlanningInvocationFailure({
-				message: `Planning output persistence is unavailable: ${messageOf({ error })}`,
-				externallyBlocked: true,
-				preserveAttempt: true,
-			});
-			persistenceFailed(failure);
-			throw failure;
-		}
-		runtime.pendingOutput = undefined;
-		if (providerError !== undefined) throw providerError;
-		return result;
-	},
-});
+	driver: Driver;
+	standards: PlanningStandards;
+}): Driver => {
+	return {
+		name: driver.name,
+		invoke: async (invocation) => {
+			await assertPlanningDispatch({ runtime, driver, work, standards });
+			const startedAt = runtime.clock?.() ?? Date.now();
+			let result: DriverResult;
+			let providerError: unknown;
+			try {
+				result = await driver.invoke(invocation);
+			} catch (error) {
+				providerError = error;
+				result = { text: messageOf({ error }), exitCode: 1 };
+			}
+			const pending = { workId: work.id, attemptId, result, startedAt, endedAt: runtime.clock?.() ?? Date.now() };
+			runtime.pendingOutput = pending;
+			try {
+				await recordPlanningUsage({ cwd: runtime.cwd, name: runtime.name, ...pending });
+			} catch (error) {
+				const failure = new PlanningInvocationFailure({
+					message: `Planning output persistence is unavailable: ${messageOf({ error })}`,
+					externallyBlocked: true,
+					preserveAttempt: true,
+				});
+				persistenceFailed(failure);
+				throw failure;
+			}
+			runtime.pendingOutput = undefined;
+			if (providerError !== undefined) throw providerError;
+			return result;
+		},
+	};
+};
 
 const roleContract = ({ work }: { work: PlanningWork }) => {
 	const contract = getPlanningRoleProtocol({ role: work.role }).schema.refine(
@@ -103,6 +113,7 @@ const invocationPrompt = ({ work, prepared }: { work: PlanningWork; prepared: Aw
 
 /** Dispatch one claimed logical assignment, durably continuing evidence requests until a valid terminal proposal arrives. */
 export const invokePlanningRole = async ({ runtime, work, snapshot, evidenceRequests = [] }: Params): Promise<PlanningRoleResult> => {
+	const driver = runtime.driver;
 	const missing = getMissingEnvironmentControls({ environment, capabilities: getDriverCapabilities({ name: runtime.driver.name }) });
 	if (missing.length > 0)
 		throw new PlanningInvocationFailure({
@@ -145,6 +156,8 @@ export const invokePlanningRole = async ({ runtime, work, snapshot, evidenceRequ
 			const prompt = invocationPrompt({ work, prepared });
 			const outcome = await invokeAgentWithContract({
 				driver: observedDriver({
+					driver,
+					standards,
 					runtime,
 					work,
 					attemptId,

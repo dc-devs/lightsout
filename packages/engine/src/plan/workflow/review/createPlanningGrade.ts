@@ -7,9 +7,9 @@ import {
 	PlanningVocabulary,
 	type StructuralFinding,
 } from '#src/contracts/index.ts';
+import { planningIntegrationBasis } from '#src/plan/workflow/common/review/planningIntegrationBasis.ts';
+import { planningReviewObligations } from '#src/plan/workflow/common/review/planningReviewObligations.ts';
 import type { PlanningSnapshot } from '#src/plan/workflow/common/types/PlanningSnapshot.ts';
-import { planningIntegrationBasis } from '#src/plan/workflow/review/common/utils/planningIntegrationBasis.ts';
-import { planningReviewObligations } from '#src/plan/workflow/review/common/utils/planningReviewObligations.ts';
 
 interface Params {
 	snapshot: PlanningSnapshot;

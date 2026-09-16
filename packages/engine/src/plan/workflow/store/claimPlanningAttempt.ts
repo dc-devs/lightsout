@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { PlanningVocabulary } from '#src/contracts/index.ts';
+import { assertPlanningExecutionPolicy } from '#src/plan/workflow/common/policy/assertPlanningExecutionPolicy.ts';
 import type { PlanningRuntime } from '#src/plan/workflow/common/types/PlanningRuntime.ts';
 import type { PlanningSnapshot } from '#src/plan/workflow/common/types/PlanningSnapshot.ts';
 import { commitPlanningSnapshot } from '#src/plan/workflow/store/commitPlanningSnapshot.ts';
@@ -19,8 +20,10 @@ export const claimPlanningAttempt = async ({
 }: Params): Promise<{ claimed: true; attemptId: string; snapshot: PlanningSnapshot } | { claimed: false; snapshot: PlanningSnapshot }> => {
 	const snapshot = await readPlanningSnapshot({ cwd: runtime.cwd, name: runtime.name });
 	if (snapshot === undefined) throw new Error('Planning work cannot be claimed before its snapshot exists');
+	assertPlanningExecutionPolicy({ runtime, snapshot });
 	const work = snapshot.record.work.find((item) => item.id === workId);
 	if (work === undefined) throw new Error(`Unknown planning work: ${workId}`);
+	if (work.stage !== runtime.stage) throw new Error('Planning work belongs to a different stage');
 	if (work.inputDigest !== expectedInputDigest || work.status === PlanningVocabulary.WorkState.Complete) return { claimed: false, snapshot };
 	if (!work.prerequisiteIds.every((id) => snapshot.record.work.some((item) => item.id === id && item.status === PlanningVocabulary.WorkState.Complete)))
 		return { claimed: false, snapshot };
@@ -60,6 +63,7 @@ export const claimPlanningAttempt = async ({
 	await runtime.lease.renew({ attemptId });
 	const latest = await readPlanningSnapshot({ cwd: runtime.cwd, name: runtime.name });
 	if (latest === undefined) throw new Error('Claimed planning generation disappeared');
+	assertPlanningExecutionPolicy({ runtime, snapshot: latest });
 	const active = latest.record.work.find((item) => item.id === workId);
 	return active?.currentAttemptId === attemptId && active.status === PlanningVocabulary.WorkState.Running && active.inputDigest === expectedInputDigest
 		? { claimed: true, attemptId, snapshot: latest }

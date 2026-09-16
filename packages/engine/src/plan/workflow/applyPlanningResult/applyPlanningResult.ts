@@ -12,6 +12,7 @@ import { updatePlanningSnapshot } from '#src/plan/workflow/common/runtime/update
 import { PlanningInvocationFailure } from '#src/plan/workflow/common/services/PlanningInvocationFailure.ts';
 import type { PlanningRuntime } from '#src/plan/workflow/common/types/PlanningRuntime.ts';
 import type { PlanningSnapshot } from '#src/plan/workflow/common/types/PlanningSnapshot.ts';
+import { requirePlanningObservationContent } from '#src/plan/workflow/common/utils/transport/requirePlanningObservationContent.ts';
 import { resolvePlanningStandards } from '#src/plan/workflow/context/index.ts';
 import { fingerprintPlanningDependencies } from '#src/plan/workflow/evidence/index.ts';
 import { validatePlanningRecord } from '#src/plan/workflow/store/index.ts';
@@ -79,7 +80,9 @@ export const applyPlanningResult = async ({
 			const artifacts = new Map(current.artifacts);
 			try {
 				const mapped = normalizePlanningProposal({ record, result });
-				const observations = readPlanningObservations({ snapshot: current, paths: invocation.observationPaths });
+				const observations = requirePlanningObservationContent({
+					observations: readPlanningObservations({ snapshot: current, paths: invocation.observationPaths }),
+				});
 				const acceptance = { runtime, current, record, artifacts, result, mapped, work, invocation, standards, observations };
 				await applyLinkedPlanningEffects(acceptance);
 				await completePlanningAttempt(acceptance);

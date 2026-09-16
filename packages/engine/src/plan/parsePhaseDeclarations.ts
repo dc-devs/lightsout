@@ -1,4 +1,6 @@
 import { planSentinelTokens } from '#src/plan/common/constants/planSentinelTokens.ts';
+import { planTextEncodingMarker } from '#src/plan/common/constants/planTextEncodingMarker.ts';
+import { decodeMarkdownText } from '#src/plan/common/parsing/decodeMarkdownText.ts';
 import { maskPlanCodeFences } from '#src/plan/common/parsing/maskPlanCodeFences.ts';
 import { parseMarkdownTableCells } from '#src/plan/common/parsing/parseMarkdownTableCells.ts';
 import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
@@ -32,10 +34,11 @@ interface PhaseBlock {
 const integerFrom = ({ cell }: { cell: string | undefined }) => (/^\d+$/.test(cell?.trim() ?? '') ? Number(cell?.trim()) : undefined);
 
 /** The `.md` filename a cell names, from its backtick span or its bare text. */
-const fileFrom = ({ cell }: { cell: string | undefined }) => {
-	const candidate = getCodeSpans({ line: cell ?? '' })[0] ?? cell?.trim() ?? '';
+const fileFrom = ({ cell, lossless }: { cell: string | undefined; lossless: boolean }) => {
+	const candidate =
+		getCodeSpans({ line: cell ?? '', decode: lossless })[0] ?? (lossless ? decodeMarkdownText({ text: cell?.trim() ?? '' }) : (cell?.trim() ?? ''));
 
-	return candidate.endsWith('.md') ? candidate : undefined;
+	return (lossless ? candidate.trimEnd() : candidate).endsWith('.md') ? candidate : undefined;
 };
 
 /** The bullet line carrying `- **<label>:**`, whatever its casing. */
@@ -46,24 +49,25 @@ const bulletLine = ({ lines, label }: { lines: string[]; label: string }) => {
 };
 
 /** One bullet's declared values: its backticked spans, minus the sentinels the template defines as "nothing to declare". */
-const bulletValues = ({ lines, label }: { lines: string[]; label: string }) => {
+const bulletValues = ({ lines, label, lossless }: { lines: string[]; label: string; lossless: boolean }) => {
 	const line = bulletLine({ lines, label });
 
-	return line === undefined ? [] : getCodeSpans({ line }).filter((span) => !planSentinelTokens.has(span));
+	return line === undefined ? [] : getCodeSpans({ line, decode: lossless }).filter((span) => !planSentinelTokens.has(span));
 };
 
 /** The `## Phases` table's rows: every line whose first cell is an integer, so the header and separator rows drop out. */
-const rowsFrom = ({ sectionLines }: { sectionLines: string[] | undefined }) => {
+const rowsFrom = ({ sectionLines }: { sectionLines: string[] }) => {
 	const rows: PhaseRow[] = [];
+	const lossless = sectionLines.includes(planTextEncodingMarker);
 
-	for (const line of sectionLines ?? []) {
+	for (const line of sectionLines) {
 		if (!line.trim().startsWith('|')) {
 			continue;
 		}
 
-		const cells = parseMarkdownTableCells({ line });
+		const cells = parseMarkdownTableCells({ line, decode: !lossless });
 		const number = integerFrom({ cell: cells[0] });
-		const file = fileFrom({ cell: cells[1] });
+		const file = fileFrom({ cell: cells[1], lossless });
 
 		if (number === undefined || file === undefined) {
 			continue;
@@ -72,7 +76,7 @@ const rowsFrom = ({ sectionLines }: { sectionLines: string[] | undefined }) => {
 		rows.push({
 			number,
 			file,
-			scope: cells[2] ?? '',
+			scope: lossless ? decodeMarkdownText({ text: cells[2] ?? '' }) : (cells[2] ?? ''),
 			createdCount: integerFrom({ cell: cells[3] }),
 			touchedCount: integerFrom({ cell: cells[4] }),
 		});
@@ -89,14 +93,15 @@ const fileBudgetFrom = ({ lines }: { lines: string[] }) => {
 };
 
 /** The `## Phase Declarations` section's `### Phase <n> — ` blocks, in document order. */
-const blocksFrom = ({ sectionLines }: { sectionLines: string[] | undefined }) => {
+const blocksFrom = ({ sectionLines }: { sectionLines: string[] }) => {
 	const blocks: { file: string; lines: string[] }[] = [];
+	const lossless = sectionLines.includes(planTextEncodingMarker);
 
-	for (const line of sectionLines ?? []) {
+	for (const line of sectionLines) {
 		const header = /^###\s+Phase\s+\d+\s*[—–-]\s*`([^`]+)`/.exec(line);
 
 		if (header) {
-			blocks.push({ file: header[1].trim(), lines: [] });
+			blocks.push({ file: lossless ? decodeMarkdownText({ text: header[1].trim() }) : header[1].trim(), lines: [] });
 
 			continue;
 		}
@@ -109,9 +114,9 @@ const blocksFrom = ({ sectionLines }: { sectionLines: string[] | undefined }) =>
 	for (const { file, lines } of blocks) {
 		parsed.push({
 			file,
-			creates: bulletValues({ lines, label: 'Creates' }),
-			exports: bulletValues({ lines, label: 'Exports' }),
-			scripts: bulletValues({ lines, label: 'Scripts' }),
+			creates: bulletValues({ lines, label: 'Creates', lossless }),
+			exports: bulletValues({ lines, label: 'Exports', lossless }),
+			scripts: bulletValues({ lines, label: 'Scripts', lossless }),
 			fileBudget: fileBudgetFrom({ lines }),
 		});
 	}

@@ -1,17 +1,17 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { brainstormAttachmentFileNames } from '#src/brainstorm/common/constants/brainstormAttachmentFileNames.ts';
 import { brainstormAttachmentManifestName } from '#src/brainstorm/common/constants/brainstormAttachmentManifestName.ts';
 import { isBrainstormOnlyAttachmentName } from '#src/brainstorm/common/utils/isBrainstormOnlyAttachmentName.ts';
+import { writeBrainstormFiles } from '#src/brainstorm/restore/common/utils/writeBrainstormFiles.ts';
 import { attachmentTitle } from '#src/common/attachmentManifest/attachmentTitle.ts';
 import { parseAttachmentManifest } from '#src/common/attachmentManifest/parseAttachmentManifest.ts';
+import { readManifestAttachment } from '#src/common/attachmentManifest/readManifestAttachment.ts';
 import { scopeAttachments } from '#src/common/attachmentManifest/scopeAttachments.ts';
 import { brainstormNotesFileName } from '#src/common/constants/brainstormNotesFileName.ts';
 import type { AttachmentManifest } from '#src/common/types/AttachmentManifest.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
-import { pathExists, planWorkspaceDir } from '#src/plan/index.ts';
-import { getTicketAttachments, readTicketAsset, type TrackerAttachment, type TrackerSettings } from '#src/ticketTracker/index.ts';
+import { planWorkspaceDir, restoreBrainstormGeneration, validateBrainstormRestoreBinding } from '#src/plan/index.ts';
+import { getTicketAttachments, type TrackerAttachment, type TrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
 	cwd: string;
@@ -22,6 +22,8 @@ interface Params {
 	settings: TrackerSettings;
 	/** The plan id the ticket's titles for this plan are namespaced under; absent for a legacy folder. */
 	titlePrefix?: string;
+	/** Optional private plan staging directory, supplied before atomic publication of a combined restore. */
+	directory?: string;
 }
 
 interface RestoredBrainstormFiles {
@@ -45,17 +47,6 @@ interface ReadGenerationFile {
  * widen into one shape carrying an optional `error`, and `'error' in read`
  * stops narrowing at the call site.
  */
-const readAttachment = async ({
-	settings,
-	attachment,
-}: {
-	settings: TrackerSettings;
-	attachment: TrackerAttachment;
-}): Promise<{ text: string } | { error: string }> => {
-	const text = await readTicketAsset({ settings, url: attachment.url });
-
-	return typeof text === 'string' ? { text } : { error: `the ticket's ${attachment.title} could not be read: ${text.error}` };
-};
 
 /** Resolve the marker's exact generation, then read and hash-verify every asset it names. */
 const readGeneration = async ({
@@ -87,7 +78,7 @@ const readGeneration = async ({
 			};
 		}
 
-		const read = await readAttachment({ settings, attachment });
+		const read = await readManifestAttachment({ settings, attachment });
 
 		if ('error' in read) {
 			return { error: read.error };
@@ -114,27 +105,43 @@ const readGeneration = async ({
  * with one rename and so requires the folder not to exist, and planning has
  * already authored `facts.json` here by the time this runs.
  */
-const writeIntoFolder = async ({ dir, files }: { dir: string; files: ReadGenerationFile[] }) => {
-	const restored: string[] = [];
-	const skipped: string[] = [];
 
-	try {
-		await mkdir(dir, { recursive: true });
-
-		for (const { title, text } of files) {
-			if (await pathExists({ path: join(dir, title) })) {
-				skipped.push(title);
-				continue;
-			}
-
-			await writeFile(join(dir, title), text, 'utf8');
-			restored.push(title);
+const restoreGeneration = async ({
+	cwd,
+	name,
+	directory,
+	manifest,
+	files,
+	marker,
+}: {
+	cwd: string;
+	name: string;
+	directory?: string;
+	manifest: AttachmentManifest;
+	files: ReadGenerationFile[];
+	marker: string;
+}) => {
+	if (manifest.brainstormGeneration !== undefined || files.some((file) => file.title === 'brainstorm-record.json')) {
+		try {
+			if (!manifest.brainstormGeneration) throw new Error('New-format brainstorm requires an explicit generation marker');
+			return await restoreBrainstormGeneration({
+				cwd,
+				name,
+				directory,
+				files: new Map(files.map((file) => [file.title, file.text])),
+				generation: manifest.brainstormGeneration,
+				marker: marker,
+			});
+		} catch (error) {
+			return { restored: [], skipped: [], error: messageOf({ error }) };
 		}
-	} catch (error) {
-		return { restored: [], skipped: [], error: `the fetched brainstorm could not be written: ${messageOf({ error })}` };
 	}
-
-	return { restored: restored.sort(), skipped: skipped.sort() };
+	try {
+		await validateBrainstormRestoreBinding({ cwd, name, directory });
+	} catch (error) {
+		return { restored: [], skipped: [], error: messageOf({ error }) };
+	}
+	return writeBrainstormFiles({ dir: directory ?? planWorkspaceDir({ cwd, name }), files: files });
 };
 
 /**
@@ -151,7 +158,7 @@ const writeIntoFolder = async ({ dir, files }: { dir: string; files: ReadGenerat
  * of the generation's own names counts. A ticket with no published brainstorm is
  * the ordinary case and is not a failure.
  */
-export const restoreBrainstormFiles = async ({ cwd, name, identifier, settings, titlePrefix }: Params): Promise<RestoredBrainstormFiles> => {
+export const restoreBrainstormFiles = async ({ cwd, name, identifier, settings, titlePrefix, directory }: Params): Promise<RestoredBrainstormFiles> => {
 	const listed = await getTicketAttachments({ settings, identifier });
 
 	if ('error' in listed) {
@@ -173,6 +180,11 @@ export const restoreBrainstormFiles = async ({ cwd, name, identifier, settings, 
 		titlePrefix === undefined ? isBrainstormOnlyAttachmentName : ({ name: title }: { name: string }) => brainstormAttachmentFileNames.includes(title);
 
 	if (!attachments.some(({ title }) => isEvidence({ name: title })) && markers.length === 0) {
+		try {
+			await validateBrainstormRestoreBinding({ cwd, name, directory });
+		} catch (error) {
+			return { restored: [], skipped: [], error: messageOf({ error }) };
+		}
 		return { restored: [], skipped: [] };
 	}
 
@@ -187,7 +199,7 @@ export const restoreBrainstormFiles = async ({ cwd, name, identifier, settings, 
 		};
 	}
 
-	const markerRead = await readAttachment({ settings, attachment: marker });
+	const markerRead = await readManifestAttachment({ settings, attachment: marker });
 
 	if ('error' in markerRead) {
 		return { restored: [], skipped: [], error: markerRead.error };
@@ -212,12 +224,12 @@ export const restoreBrainstormFiles = async ({ cwd, name, identifier, settings, 
 		markerName,
 		// Under a prefix `brainstorm-decisions.json` is optional, because a plan of
 		// a ticket may be shaped by a brainstorm that settled no decision of its own.
-		required: titlePrefix === undefined ? brainstormAttachmentFileNames : [brainstormNotesFileName],
+		required: titlePrefix === undefined ? brainstormAttachmentFileNames.filter((name) => name !== 'brainstorm-record.json') : [brainstormNotesFileName],
 	});
 
 	if ('error' in generation) {
 		return { restored: [], skipped: [], error: generation.error };
 	}
 
-	return writeIntoFolder({ dir: planWorkspaceDir({ cwd, name }), files: generation.files });
+	return restoreGeneration({ cwd, name, directory, manifest: parsed.manifest, files: generation.files, marker: markerRead.text });
 };

@@ -1,4 +1,4 @@
-import { PlanningInvocation } from '#src/plan/workflow/common/types/PlanningInvocation.ts';
+import { PlanningInvocation } from '#src/plan/workflow/common/types/invocation/PlanningInvocation.ts';
 import type { PlanningSnapshot } from '#src/plan/workflow/common/types/PlanningSnapshot.ts';
 
 interface Params {

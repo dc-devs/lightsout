@@ -47,3 +47,30 @@ describe('renderPhaseSections', () => {
 		expect([...sections.keys()]).toEqual(['Phases', 'Phase Declarations']);
 	});
 });
+
+const setupExactDeclaration = (): PhaseDeclaration => ({
+	number: 1,
+	file: 'phase1-`literal` &amp; \tname.md\t',
+	scope: '\u00a0Keep\u2028every\u2029boundary\ufeff',
+	creates: [' src/`part`|&amp;.ts\t'],
+	exports: ['\ufeffliteral`name'],
+	scripts: ['\tcheck:exact|&#9;\u00a0'],
+});
+
+test('renderPhaseSections preserves exact encoded filenames and declaration values without decoding twice', () => {
+	const declaration = setupExactDeclaration();
+
+	const sections = renderPhaseSections({ declarations: [declaration], lossless: true });
+	const plan = parsePlan({ content: `# Overview\n\n${[...sections.values()].join('\n\n')}`, base: 'overview.md' });
+	const parsed = parsePhaseDeclarations({ plan });
+
+	expect(parsed).toEqual([declaration]);
+	expect(plan.duplicateSections).toBeUndefined();
+});
+
+test('renderPhaseSections retains literal legacy declaration entities', () => {
+	const declaration = { ...setup()[0], creates: ['src/literal&#9;.ts'], exports: ['literal&amp;'], scripts: ['check:&#32;'] };
+	const sections = renderPhaseSections({ declarations: [declaration] });
+	const parsed = parsePhaseDeclarations({ plan: parsePlan({ content: [...sections.values()].join('\n\n'), base: 'overview.md' }) });
+	expect(parsed[0]).toEqual(expect.objectContaining({ creates: ['src/literal&#9;.ts'], exports: ['literal&amp;'], scripts: ['check:&#32;'] }));
+});

@@ -1,5 +1,6 @@
 import { basename } from 'node:path';
 import { type PlanningArtifact, type PlanningClaim, type PlanningScope, PlanningVocabulary } from '#src/contracts/index.ts';
+import { planTextEncodingMarker } from '#src/plan/common/constants/planTextEncodingMarker.ts';
 import { encodeMarkdownTableCell } from '#src/plan/common/rewriting/encodeMarkdownTableCell.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 import { getPlanTouchedPaths } from '#src/plan/common/utils/getPlanTouchedPaths.ts';
@@ -59,13 +60,16 @@ const ledgerSections = ({ claims }: { claims: PlanningClaim[] }): Map<string, st
 			tests.push(`| ${cells.join(' | ')} |`);
 		} else {
 			prose.push(
-				`- \`${claim.acceptance.path}\` — ${encodeMarkdownTableCell({ text: claim.acceptance.reason })} Verification: ${encodeMarkdownTableCell({ text: claim.acceptance.verification })}`,
+				`- \`${encodeMarkdownTableCell({ text: claim.acceptance.path })}\` — ${encodeMarkdownTableCell({ text: claim.acceptance.reason })} Verification: ${encodeMarkdownTableCell({ text: claim.acceptance.verification })}`,
 			);
 		}
 	}
 	return new Map([
-		['Acceptance Tests', `## Acceptance Tests\n\n| Criterion | Test file | Test name | Gate |\n|---|---|---|---|\n${tests.join('\n')}`],
-		['Prose Files', `## Prose Files\n\n${prose.length ? prose.join('\n') : 'None.'}`],
+		[
+			'Acceptance Tests',
+			`## Acceptance Tests\n\n${planTextEncodingMarker}\n\n| Criterion | Test file | Test name | Gate |\n|---|---|---|---|\n${tests.join('\n')}`,
+		],
+		['Prose Files', `## Prose Files\n\n${planTextEncodingMarker}\n\n${prose.length ? prose.join('\n') : 'None.'}`],
 	]);
 };
 
@@ -82,7 +86,7 @@ const provenanceSection = ({ snapshot, artifact, claims }: { snapshot: PlanningS
 		...snapshot.record.standards.map((standard) => `- Standards ${standard.channel}: ${standard.sha256}`),
 		...(artifact.phaseId ? [`- Stable phase identity: ${artifact.phaseId}`] : []),
 	];
-	return `## Planning Provenance\n\n${rows.join('\n')}`;
+	return `## Planning Provenance\n\n${rows.map((text) => encodeMarkdownTableCell({ text })).join('\n')}`;
 };
 
 /** Build linked views from canonical meanings without embedding a generation or self-referential artifact hash. */

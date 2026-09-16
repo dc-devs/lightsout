@@ -11,6 +11,5 @@ export const encodeMarkdownTableCell = ({ text }: Params): string =>
 		.replaceAll('>', '&gt;')
 		.replaceAll('|', '&#124;')
 		.replaceAll('`', '&#96;')
-		.replaceAll('\r', '&#13;')
-		.replaceAll('\n', '&#10;')
+		.replace(/[\t-\r\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]/g, (character) => `&#${character.charCodeAt(0)};`)
 		.replace(/^ +| +$/g, (spaces) => '&#32;'.repeat(spaces.length));

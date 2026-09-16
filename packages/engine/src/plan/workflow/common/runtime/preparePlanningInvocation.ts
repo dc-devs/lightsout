@@ -9,12 +9,13 @@ import { readPlanningInvocation } from '#src/plan/workflow/common/runtime/readPl
 import { readPlanningObservations } from '#src/plan/workflow/common/runtime/readPlanningObservations.ts';
 import { refreshPlanningAssurance } from '#src/plan/workflow/common/runtime/refreshPlanningAssurance.ts';
 import { updatePlanningSnapshot } from '#src/plan/workflow/common/runtime/updatePlanningSnapshot.ts';
+import type { PlanningInvocation } from '#src/plan/workflow/common/types/invocation/PlanningInvocation.ts';
 import { PlanningAssuranceObligation } from '#src/plan/workflow/common/types/PlanningAssuranceObligation.ts';
-import type { PlanningInvocation } from '#src/plan/workflow/common/types/PlanningInvocation.ts';
 import type { PlanningPacket } from '#src/plan/workflow/common/types/PlanningPacket.ts';
 import type { PlanningRuntime } from '#src/plan/workflow/common/types/PlanningRuntime.ts';
 import type { PlanningSnapshot } from '#src/plan/workflow/common/types/PlanningSnapshot.ts';
 import type { PlanningStandards } from '#src/plan/workflow/common/types/PlanningStandards.ts';
+import type { PlanningObservation } from '#src/plan/workflow/common/types/transport/PlanningObservation.ts';
 import { fingerprintPlanningDependencies, readPlanningEvidence } from '#src/plan/workflow/evidence/index.ts';
 
 interface Params {
@@ -36,17 +37,17 @@ const acquireObservations = async ({
 	const paths =
 		previous?.observationPaths ??
 		(work.id.startsWith('assurance:')
-			? [...snapshot.artifacts]
-					.filter(([path]) => {
+			? snapshot.record.artifacts
+					.filter(({ path }) => {
 						if (!path.startsWith('planning-observations/')) return false;
 						const observation = readPlanningObservations({ snapshot, paths: [path] })[0];
 						if (!observation) throw new Error('Assurance observation is missing');
 						return observation.evidence.dependencies.some((dependency) => dependency.kind === PlanningVocabulary.Dependency.Unknown);
 					})
-					.map(([path]) => path)
+					.map(({ path }) => path)
 			: []);
 	const observations = readPlanningObservations({ snapshot, paths });
-	const acquired = new Map<string, (typeof observations)[number]>();
+	const acquired = new Map<string, PlanningObservation>();
 	for (const observed of observations) {
 		const freshness = await fingerprintPlanningDependencies({
 			cwd: runtime.cwd,
@@ -55,14 +56,14 @@ const acquireObservations = async ({
 			dependencies: observed.evidence.dependencies,
 			policy: planningEvidencePolicy({ exclude: [] }),
 		});
-		if (!freshness.current && previous?.attemptId === work.currentAttemptId)
+		if ((!freshness.current || !observed.available) && previous?.attemptId === work.currentAttemptId)
 			throw new Error('Evidence changed during the same logical attempt; restart with fresh authority');
-		acquired.set(
-			`${observed.evidence.assignmentId}:${observed.request.requestId}`,
-			freshness.current
-				? observed
-				: { request: observed.request, ...(await readPlanningEvidence({ runtime, assignmentId: work.id, request: observed.request })) },
-		);
+		let observation: PlanningObservation;
+		if (freshness.current && observed.available) {
+			const { available: _available, ...value } = observed;
+			observation = value;
+		} else observation = { request: observed.request, ...(await readPlanningEvidence({ runtime, assignmentId: work.id, request: observed.request })) };
+		acquired.set(`${observed.evidence.assignmentId}:${observed.request.requestId}`, observation);
 	}
 	for (const request of requests) {
 		const key = `${work.id}:${request.requestId}`;
@@ -153,6 +154,7 @@ export const preparePlanningInvocation = async ({
 				inputDigest: active.inputDigest,
 				packetDigest: packet.inputDigest,
 				invocationPolicyDigest: packet.invocationPolicyDigest,
+				executionPolicyDigest: runtime.executionPolicy?.reference.sha256,
 				...(assuranceBasis ? { assuranceBasis } : {}),
 				baseGeneration: current.digest,
 				sequence: (readPlanningInvocation({ snapshot: current, workId: work.id })?.sequence ?? 0) + 1,

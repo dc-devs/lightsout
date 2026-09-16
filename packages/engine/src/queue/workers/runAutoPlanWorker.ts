@@ -1,14 +1,13 @@
-import { buildQueueAutoPlanInvocation } from '#src/agents/index.ts';
 import type { AnsweredQuestion } from '#src/common/types/AnsweredQuestion.ts';
-import { type LightsoutConfig, type TicketRecord, WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
+import { messageOf } from '#src/common/utils/messageOf.ts';
+import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { invokeAgentWithContract } from '#src/invoke/index.ts';
-import { pathExists, planWorkspaceDir } from '#src/plan/index.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { buildTicketPlans } from '#src/queue/workers/buildTicketPlans.ts';
 import { chooseAutoPlanTarget } from '#src/queue/workers/chooseAutoPlanTarget.ts';
+import { runPlanningSession } from '#src/queue/workers/runPlanningSession.ts';
 import { pullTicketRecord } from '#src/ticket/index.ts';
 
 interface Params {
@@ -32,85 +31,12 @@ interface Params {
 }
 
 /**
- * The planning session itself: one headless run of the auto-plan skill on the
- * plan the engine chose.
- *
- * @returns the outcome the worker stops on, or undefined once the plan is written and its folder is on disk
- */
-const runPlanningSession = async ({
-	cwd,
-	ticket,
-	planAddress,
-	config,
-	driver,
-	settings,
-	answeredQuestion,
-	onProgress,
-}: {
-	cwd: string;
-	ticket: TicketSummary;
-	planAddress: string;
-	config: LightsoutConfig;
-	driver: Driver;
-	settings: QueueSettings;
-	answeredQuestion?: AnsweredQuestion;
-	onProgress?: (message: string) => void;
-}) => {
-	// Under `write` permissions a harness only runs granted prefixes — so the
-	// engine grants itself, and the prompt is told the same words verbatim.
-	const engineCli = `node ${process.argv[1]}`;
-	const outcome = await invokeAgentWithContract({
-		driver,
-		cwd,
-		invocation: buildQueueAutoPlanInvocation({
-			ticketRef: ticket.identifier,
-			ticketTitle: ticket.title,
-			ticketBody: ticket.description,
-			engineCli,
-			planAddress,
-			answeredQuestion,
-		}),
-		contract: WorkReport,
-		model: config.model,
-		effort: config.effort,
-		permissions: config.permissions,
-		timeoutMs: settings.workerTimeoutMs,
-		allowedCommands: [...(config['agent-commands'] ?? []), engineCli],
-	});
-
-	if (!outcome.ok) {
-		return { error: outcome.failure };
-	}
-
-	const report: WorkReport = outcome.report;
-	const refusal = report.failures[0] ?? report.summary;
-
-	if (report.status === WorkReportStatus.TerminatedAmbiguity) {
-		return { question: refusal };
-	}
-
-	if (report.status !== WorkReportStatus.Complete) {
-		return { error: refusal };
-	}
-
-	const folder = planWorkspaceDir({ cwd, name: planAddress });
-
-	if (!(await pathExists({ path: folder }))) {
-		return { error: `${ticket.identifier}'s auto-plan session reported a finished plan, but no plan folder exists at ${folder} — nothing was built` };
-	}
-
-	onProgress?.(`${ticket.identifier} is planned and published; the engine now runs the implement pipeline on its plan folder`);
-
-	return undefined;
-};
-
-/**
- * The auto-plan worker: one headless session plans the ticket, and the engine
+ * The auto-plan worker: the typed planner plans the ticket, and the engine
  * builds what it wrote.
  *
  * The engine, not the session, chooses which plan is planned: the lowest plan of
  * the ticket still being planned, or a new plan 001 when the ticket has no plans
- * yet. The session is handed that plan's address and told to plan exactly it, so
+ * yet. The runtime receives that exact address, so
  * no name is ever derived twice.
  *
  * The session's job ends when the plan is written, graded and published — then
@@ -125,7 +51,6 @@ export const runAutoPlanWorker = async ({
 	config,
 	driver,
 	driverName,
-	settings,
 	env,
 	ticketRunDir,
 	answeredQuestion,
@@ -137,8 +62,10 @@ export const runAutoPlanWorker = async ({
 		return { error: chosen.error };
 	}
 
-	const build = ({ record }: { record: TicketRecord }) =>
-		buildTicketPlans({ cwd, branch, ticket, record, config, env, driver, driverName, ticketRunDir, allowTicketBodyBuild: false, onProgress });
+	const build = ({ record }: { record: TicketRecord }): Promise<WorkerOutcome> =>
+		config['auto-plan']?.['implement-on-approval'] === false
+			? Promise.resolve({ open: 'Automatic implementation is disabled.' })
+			: buildTicketPlans({ cwd, branch, ticket, record, config, env, driver, driverName, ticketRunDir, allowTicketBodyBuild: false, onProgress });
 
 	if (chosen.address === undefined) {
 		// No session is spent on a ticket with nothing waiting to be planned: a plan
@@ -150,7 +77,17 @@ export const runAutoPlanWorker = async ({
 	}
 
 	const planAddress = chosen.address;
-	const stopped = await runPlanningSession({ cwd, ticket, planAddress, config, driver, settings, answeredQuestion, onProgress });
+	const stopped = await runPlanningSession({
+		cwd,
+		ticket,
+		planAddress,
+		config,
+		driver,
+		env,
+		planningAnswer: answeredQuestion?.planningAnswer,
+		expectedMarker: chosen.record.plans.find((plan) => chosen.address?.endsWith(`/${plan.id}`))?.publishedMarker,
+		onProgress,
+	}).catch((error: unknown) => ({ error: messageOf({ error }) }));
 
 	if (stopped !== undefined) {
 		return stopped;

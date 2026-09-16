@@ -146,6 +146,7 @@ export {
 	StepRecord,
 	TestReviewRecord,
 } from '#src/contracts/run/index.ts';
+export { PlanningHandoff } from '#src/contracts/run/PlanningHandoff.ts';
 export { StandardsCheckOverrides } from '#src/contracts/StandardsCheckOverrides.ts';
 export { ShipBlockReason, ShipMergeMethod, ShippingProgress, ShippingStepId, ShipResult, ShipStatus } from '#src/contracts/ship/index.ts';
 export {

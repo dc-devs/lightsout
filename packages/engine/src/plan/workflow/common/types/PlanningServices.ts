@@ -1,4 +1,12 @@
-import type { PlanningDependency, PlanningReadiness, PlanningRoleResult, PlanningVocabulary, PlanningWork, StructuralFinding } from '#src/contracts/index.ts';
+import type {
+	PlanningDependency,
+	PlanningReadiness,
+	PlanningRoleResult,
+	PlanningRunResult,
+	PlanningVocabulary,
+	PlanningWork,
+	StructuralFinding,
+} from '#src/contracts/index.ts';
 import type { PlanningAssuranceContext } from '#src/plan/workflow/common/types/PlanningAssuranceContext.ts';
 import type { PlanningIntegrationContext } from '#src/plan/workflow/common/types/PlanningIntegrationContext.ts';
 import type { PlanningRuntime } from '#src/plan/workflow/common/types/PlanningRuntime.ts';
@@ -7,6 +15,12 @@ import type { PlanningSnapshot } from '#src/plan/workflow/common/types/PlanningS
 
 /** Ports let the scheduler enforce sequencing before production role implementations are composed. */
 export interface PlanningServices {
+	proposal?: (params: {
+		runtime: PlanningRuntime;
+		snapshot: PlanningSnapshot;
+		ready: boolean;
+		assurance?: PlanningAssuranceContext;
+	}) => Promise<Extract<PlanningRunResult, { status: typeof PlanningVocabulary.Status.AwaitingUser }> | undefined>;
 	priorArt?: (params: { runtime: PlanningRuntime; snapshot: PlanningSnapshot; work: PlanningWork }) => Promise<PlanningSnapshot>;
 	integrationContext?: (params: { runtime: PlanningRuntime; snapshot: PlanningSnapshot }) => Promise<PlanningIntegrationContext>;
 	/** Pure projection before receipt creation; authored unknown spans must fail without loss. */

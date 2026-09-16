@@ -14,7 +14,7 @@ import { renderPlanningSections } from '#src/plan/workflow/draft/renderPlanningS
 import { PlanningResultReceipt, planningResultReceiptPath, validatePlanningRecord } from '#src/plan/workflow/store/index.ts';
 
 interface Params {
-	runtime: PlanningRuntime;
+	runtime: Pick<PlanningRuntime, 'cwd' | 'name' | 'config'>;
 	snapshot: PlanningSnapshot;
 	artifacts: ReadonlyMap<string, string>;
 }

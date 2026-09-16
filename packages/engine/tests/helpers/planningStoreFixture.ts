@@ -4,9 +4,8 @@ import { sha256 } from '#src/common/utils/sha256.ts';
 import { type PlanningArtifact, type PlanningRecord, PlanningVocabulary } from '#src/contracts/index.ts';
 import { freshCwd } from './freshCwd.ts';
 
-export const planningStoreFixture = async () => {
+export const planningStoreFixture = async ({ name = 'store-contract' }: { name?: string } = {}) => {
 	const cwd = await freshCwd();
-	const name = 'store-contract';
 	const scope = { kind: PlanningVocabulary.Scope.WholePlan, claimIds: [], phaseIds: [], packageRoots: [] };
 	const text = 'Preserve completed uploads';
 	const origin = { artifact: 'notes.md', locator: 'Requirement', text, sha256: sha256({ content: text }) };

@@ -4,16 +4,16 @@ import { type PlanningDependency, PlanningVocabulary } from '#src/contracts/inde
 import { fingerprintUnknownPlanningReach } from '#src/plan/workflow/common/evidence/fingerprintUnknownPlanningReach.ts';
 import { hasPlanningUncertainty } from '#src/plan/workflow/common/evidence/hasPlanningUncertainty.ts';
 import { planningEvidencePolicy } from '#src/plan/workflow/common/evidence/planningEvidencePolicy.ts';
+import { getCurrentPlanningReviews } from '#src/plan/workflow/common/review/getCurrentPlanningReviews.ts';
 import { attachPlanningData } from '#src/plan/workflow/common/runtime/attachPlanningData.ts';
 import { updatePlanningSnapshot } from '#src/plan/workflow/common/runtime/updatePlanningSnapshot.ts';
+import { PlanningBaseline } from '#src/plan/workflow/common/types/invocation/PlanningBaseline.ts';
+import { PlanningInvocation } from '#src/plan/workflow/common/types/invocation/PlanningInvocation.ts';
 import type { PlanningAssuranceContext } from '#src/plan/workflow/common/types/PlanningAssuranceContext.ts';
 import { PlanningAssuranceResult } from '#src/plan/workflow/common/types/PlanningAssuranceResult.ts';
-import { PlanningBaseline } from '#src/plan/workflow/common/types/PlanningBaseline.ts';
-import { PlanningInvocation } from '#src/plan/workflow/common/types/PlanningInvocation.ts';
 import type { PlanningRuntime } from '#src/plan/workflow/common/types/PlanningRuntime.ts';
 import type { PlanningSnapshot } from '#src/plan/workflow/common/types/PlanningSnapshot.ts';
 import { readPlanningProof } from '#src/plan/workflow/common/utils/proofs/readPlanningProof.ts';
-import { getCurrentPlanningReviews } from '#src/plan/workflow/review/index.ts';
 
 interface Params {
 	runtime: PlanningRuntime;

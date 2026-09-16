@@ -1,7 +1,8 @@
 import { expect, test } from '@jest/globals';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import { PlanningVocabulary } from '#src/contracts/index.ts';
-import { answerPlanningQuestion, capturePlanningInput, readPlanningSnapshot, runPlanning } from '#src/plan/index.ts';
+import { answerPlanningQuestion, capturePlanningInput, createPlanningRuntime, readPlanningSnapshot, runPlanning } from '#src/plan/index.ts';
+import { planningAlignedFixture } from '#tests/helpers/planningAlignedFixture.ts';
 import { planningWorkflowFixture } from '#tests/helpers/planningWorkflowFixture.ts';
 import { planningQuestionAnswer } from '#tests/helpers/planningWorkflowQuestionScenario.ts';
 
@@ -34,11 +35,17 @@ test.each(['stage', 'confirmation', 'claim', 'missing-predecessor', 'unconfirmed
 );
 
 test('adds implementation obligations on stage handoff while preserving captured brainstorm history', async () => {
-	const fixture = await planningWorkflowFixture({ stage: PlanningVocabulary.Stage.Brainstorm });
-	const before = await fixture.capture();
-	fixture.runtime.stage = PlanningVocabulary.Stage.Implementation;
+	const fixture = await planningAlignedFixture();
+	const before = fixture.snapshot;
+	const runtime = await createPlanningRuntime({
+		...fixture,
+		driver: fixture.runtime.driver,
+		config: fixture.runtime.config,
+		mode: fixture.runtime.mode,
+		stage: PlanningVocabulary.Stage.Implementation,
+	});
 
-	const result = await capturePlanningInput({ runtime: fixture.runtime, input: { stage: fixture.runtime.stage, sources: [], claims: [], confirmations: [] } });
+	const result = await capturePlanningInput({ runtime, input: { stage: runtime.stage, sources: [], claims: [], confirmations: [] } });
 
 	expect(result.record.sources).toStrictEqual(before.record.sources);
 	expect(result.record.confirmations).toStrictEqual(before.record.confirmations);

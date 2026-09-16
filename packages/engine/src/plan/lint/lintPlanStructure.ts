@@ -1,5 +1,3 @@
-import { readFile } from 'node:fs/promises';
-import { basename } from 'node:path';
 import { defaultExecutorFileLimit } from '#src/common/constants/defaultExecutorFileLimit.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { type DecisionsRecord, FindingSeverity, type LightsoutConfig, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
@@ -20,10 +18,10 @@ import { checkProsePaths } from '#src/plan/lint/checkProsePaths.ts';
 import { checkVerificationScripts } from '#src/plan/lint/checkVerificationScripts.ts';
 import { canonicalPlanningAncestors } from '#src/plan/lint/common/utils/canonicalPlanningAncestors.ts';
 import { isPhasedDeliverable } from '#src/plan/lint/common/utils/isPhasedDeliverable.ts';
+import { readPlanPhaseFiles } from '#src/plan/lint/common/utils/readPlanPhaseFiles.ts';
 import { lintPlanCrossPhase } from '#src/plan/lint/lintPlanCrossPhase.ts';
 import { scanPlaceholders } from '#src/plan/lint/scanPlaceholders.ts';
 import { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';
-import { parsePlan } from '#src/plan/parsePlan.ts';
 
 interface Params {
 	cwd: string;
@@ -47,40 +45,6 @@ const requiredSections = {
 } as const;
 
 /** A phase file's position in the walk: `overview.md` precedes every phase, and a lone `plan.md` is phase one. */
-const phaseNumber = ({ base }: { base: string }) => (base === 'overview.md' ? 0 : Number(/^phase(\d+)-/.exec(base)?.[1] ?? 1));
-
-/** Read and parse every plan file once, so each check reads a `PhaseFile` rather than re-parsing the text. An unreadable file yields its finding here and no `PhaseFile` at all. */
-const readPhaseFiles = async ({ planPaths, canonicalPhases }: { planPaths: string[]; canonicalPhases?: CanonicalPlanningPhase[] }) => {
-	const phases: PhaseFile[] = [];
-	const findings: StructuralFinding[] = [];
-
-	for (const planPath of planPaths) {
-		const content = await readFile(planPath, 'utf8').catch(() => undefined);
-		const base = basename(planPath);
-
-		if (content === undefined) {
-			findings.push({
-				check: StructuralCheck.SectionsPresent,
-				severity: FindingSeverity.Blocking,
-				phase: base,
-				issue: 'plan file could not be read',
-				location: planPath,
-				fix: 'ensure the draft wrote the plan file at this path',
-			});
-
-			continue;
-		}
-
-		phases.push({
-			path: planPath,
-			base,
-			number: canonicalPhases && base !== 'overview.md' ? canonicalPhases.findIndex((phase) => phase.file === base) + 1 : phaseNumber({ base }),
-			plan: parsePlan({ content, base }),
-		});
-	}
-
-	return { phases, findings };
-};
 
 /** SectionsPresent — the required headings for this file's variant, plus the ones a declared `docs` block and `plan.contract` add to the implementable ones. */
 const checkSections = ({ phase, docsDeclared, contract }: { phase: PhaseFile; docsDeclared: boolean; contract: boolean }) => {
@@ -214,7 +178,7 @@ export const lintPlanStructure = async ({ cwd, planPaths, decisions, config, can
 	const contract = config?.plan?.contract === true;
 	const gateKeys = new Set(Object.keys(config?.gates ?? {}));
 	const configCommands = new Set(Object.values(config?.gates ?? {}).filter((value): value is string => typeof value === 'string'));
-	const { phases, findings } = await readPhaseFiles({ planPaths, canonicalPhases });
+	const { phases, findings } = await readPlanPhaseFiles({ planPaths, canonicalPhases });
 	const overview = phases.find((file) => file.plan.variant === PlanFileKind.Overview);
 	const implementable = phases.filter((file) => file.plan.variant !== PlanFileKind.Overview).sort((one, other) => one.number - other.number);
 	const phased = isPhasedDeliverable({ hasOverview: overview !== undefined, implementableCount: implementable.length });

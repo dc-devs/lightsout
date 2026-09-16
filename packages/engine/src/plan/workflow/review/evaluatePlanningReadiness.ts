@@ -1,15 +1,15 @@
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { FindingSeverity, PlanningReadiness, PlanningVocabulary, type StructuralFinding } from '#src/contracts/index.ts';
 import { hasPlanningUncertainty } from '#src/plan/workflow/common/evidence/hasPlanningUncertainty.ts';
+import { planningAssuranceReady } from '#src/plan/workflow/common/review/planningAssuranceReady.ts';
+import { planningFindingSettlement } from '#src/plan/workflow/common/review/planningFindingSettlement.ts';
+import { planningIntegrationBasis } from '#src/plan/workflow/common/review/planningIntegrationBasis.ts';
+import { planningReviewObligations } from '#src/plan/workflow/common/review/planningReviewObligations.ts';
+import { resolvePlanningAlignment } from '#src/plan/workflow/common/review/resolvePlanningAlignment.ts';
 import type { PlanningAssuranceContext } from '#src/plan/workflow/common/types/PlanningAssuranceContext.ts';
 import type { PlanningRuntime } from '#src/plan/workflow/common/types/PlanningRuntime.ts';
 import type { PlanningSnapshot } from '#src/plan/workflow/common/types/PlanningSnapshot.ts';
 import { renderPlanningContract, validatePlanningCoverage } from '#src/plan/workflow/draft/index.ts';
-import { planningAssuranceReady } from '#src/plan/workflow/review/common/utils/planningAssuranceReady.ts';
-import { planningFindingSettlement } from '#src/plan/workflow/review/common/utils/planningFindingSettlement.ts';
-import { planningIntegrationBasis } from '#src/plan/workflow/review/common/utils/planningIntegrationBasis.ts';
-import { planningReviewObligations } from '#src/plan/workflow/review/common/utils/planningReviewObligations.ts';
-import { resolvePlanningAlignment } from '#src/plan/workflow/review/resolvePlanningAlignment.ts';
 
 interface Params {
 	snapshot: PlanningSnapshot;
