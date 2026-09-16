@@ -76,6 +76,7 @@ export {
 	PlanningMode,
 	PlanningResultReceipt,
 	planningDataArtifact,
+	planningStorePaths,
 	planReviewCoverage,
 	preparePlanningHandoff,
 	readHandoffSources,

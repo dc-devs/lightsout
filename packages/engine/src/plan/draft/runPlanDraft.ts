@@ -12,7 +12,6 @@ import { readMergedDecisions } from '#src/plan/decisionLog/index.ts';
 import { planWriterEnvironment } from '#src/plan/draft/common/constants/planWriterEnvironment.ts';
 import { estimatePlanScope } from '#src/plan/draft/estimatePlanScope.ts';
 import { draftFocusedPhasedPlan, draftFocusedSinglePlan } from '#src/plan/draft/focused/index.ts';
-import { draftPhasedPlan, draftSinglePlan } from '#src/plan/draft/legacy/index.ts';
 import { preflightDraftEnvironment } from '#src/plan/draft/preflightDraftEnvironment.ts';
 import { collectSourceEvidence } from '#src/plan/evidence/index.ts';
 import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
@@ -26,8 +25,6 @@ interface Params {
 	name: string;
 	/** Force a variant; otherwise it is estimated from the facts' touched-file count. */
 	scope?: PlanVariant;
-	/** Which drafting implementation to use. Absent means focused, which is what makes focused the default without any caller opting in. */
-	implementation?: DraftImplementation;
 	/** Supplemental code standards, threaded into the plan-writer invocation. */
 	standards?: string;
 	model?: string;
@@ -38,8 +35,9 @@ interface Params {
 }
 
 /**
- * Draft a structurally clean plan. The engine owns the *path* (told to the
- * agent) and *verifies* the write; the agent owns the content.
+ * Draft a structurally clean plan from a plan folder's own files. The engine
+ * owns the *path* (told to the agent) and *verifies* the write; the agent owns
+ * the content.
  *
  * A single plan is one spawn writing `plan.md`, converged by
  * `repairPlanStructure`. A phased plan is drafted in **two stages**: one spawn
@@ -55,30 +53,29 @@ interface Params {
  * sizes, with a bounded reshape loop behind it: the cheapest moment to refuse an
  * unbuildable phase is before any phase file has been paid for.
  *
- * Two implementations author those spawns. **Focused** is the default and needs
- * no caller to ask for it: its writers run in a restricted agent environment and
- * are handed source evidence the engine collected once, rather than each
- * re-reading the same files. **Legacy** is the previous implementation, reached
- * only by typing `--legacy` on `lightsout plan draft`, and its behaviour is
- * unchanged. The engine never runs both, compares them, or falls back from one
- * to the other.
+ * There is one authoring implementation and no way to pick another: its writers
+ * run in a restricted agent environment and are handed source evidence the
+ * engine collected once, rather than each re-reading the same files. A run is
+ * refused before any agent is spawned when the resolved harness cannot provide a
+ * control that environment asks for. The refusal comes back through the ordinary
+ * failed member, so every downstream reader keeps working, and it runs before
+ * the evidence collection — collecting evidence walks and reads the repository,
+ * and a run about to be refused should not pay for it.
  *
- * A focused run is refused before any agent is spawned when the resolved harness
- * cannot provide a control the focused environment asks for. The refusal comes
- * back through the ordinary failed member, so every downstream reader keeps
- * working, and it runs before the evidence collection — collecting evidence walks
- * and reads the repository, and a run about to be refused should not pay for it.
+ * This is the older, file-driven entry, kept for a plan folder whose facts and
+ * decisions are its record. Canonical planning does not come through here: it
+ * dispatches a claimed assignment to `draftPlanningArtifacts` on the overload
+ * below, which authors against the planning record instead.
  *
- * `plan draft` overwrites an existing deliverable — it is the from-scratch
- * authoring step, never re-run mid-convergence. Brainstorm's settled rows are
- * merged in at read time, so the plan's own `decisions.json` stays plan-owned.
+ * It overwrites an existing deliverable — it is the from-scratch authoring step,
+ * never re-run mid-convergence. Brainstorm's settled rows are merged in at read
+ * time, so the plan's own `decisions.json` stays plan-owned.
  */
-const runLegacyPlanDraft = async ({
+const runPlanFolderDraft = async ({
 	cwd,
 	driver,
 	name,
 	scope,
-	implementation = DraftImplementation.Focused,
 	standards,
 	model,
 	effort,
@@ -96,10 +93,8 @@ const runLegacyPlanDraft = async ({
 	const config = await readOptionalConfig({ cwd });
 	const executorFileLimit = config?.['executor-file-limit'] ?? defaultExecutorFileLimit;
 	const variant = scope ?? estimatePlanScope({ facts, executorFileLimit });
-	const focused = implementation === DraftImplementation.Focused;
-	// Legacy skips the preflight entirely, which is what makes `--legacy` a usable
-	// escape on a harness that cannot provide the focused environment.
-	const refusal = focused ? preflightDraftEnvironment({ driver, environment: planWriterEnvironment }) : undefined;
+	const implementation = DraftImplementation.Focused;
+	const refusal = preflightDraftEnvironment({ driver, environment: planWriterEnvironment });
 
 	if (refusal !== undefined) {
 		return { status: PlanRunStatus.Failed, workspaceDir, error: refusal, advisories: [], implementation };
@@ -116,7 +111,7 @@ const runLegacyPlanDraft = async ({
 		decisions: merged,
 		brainstormDecisionsPath: brainstorm ? join(workspaceDir, 'brainstorm-decisions.json') : undefined,
 		implementation,
-		evidence: focused ? await collectSourceEvidence({ cwd, name, facts, config }) : undefined,
+		evidence: await collectSourceEvidence({ cwd, name, facts, config }),
 		config,
 		executorFileLimit,
 		standards,
@@ -127,11 +122,7 @@ const runLegacyPlanDraft = async ({
 		progress,
 	};
 
-	if (focused) {
-		return variant === PlanVariant.Single ? draftFocusedSinglePlan({ context }) : draftFocusedPhasedPlan({ context, step: 'draft' });
-	}
-
-	return variant === PlanVariant.Single ? draftSinglePlan({ context }) : draftPhasedPlan({ context, step: 'draft' });
+	return variant === PlanVariant.Single ? draftFocusedSinglePlan({ context }) : draftFocusedPhasedPlan({ context, step: 'draft' });
 };
 
 interface AuthoritativeParams {
@@ -144,7 +135,7 @@ interface AuthoritativeParams {
 function dispatchPlanDraft(params: AuthoritativeParams): Promise<PlanningRoleResult>;
 function dispatchPlanDraft(params: Params): Promise<RunPlanDraftResult>;
 function dispatchPlanDraft(params: Params | AuthoritativeParams): Promise<RunPlanDraftResult | PlanningRoleResult> {
-	return 'runtime' in params ? draftPlanningArtifacts(params) : runLegacyPlanDraft(params);
+	return 'runtime' in params ? draftPlanningArtifacts(params) : runPlanFolderDraft(params);
 }
 
 /** Dispatch the canonical claimed authoring operation or the compatible historical caller. */

@@ -50,9 +50,11 @@ usage:
   lightsout test-coverage-to-threshold [--cwd <path>] [--max-batches <n>] [--allow-dirty]
   lightsout test-coverage-to-threshold --run <id> [--cwd <path>]   (resume a parked coverage run)
   lightsout brainstorm publish --name <name> [--cwd <path>]
+  lightsout plan run --name <name> [--stage brainstorm|implementation] [--mode interactive|automatic] [--input-file <path>] [--cwd <path>] [--worktree] [--no-worktree]
+  lightsout plan answer --name <name> --answer-file <path> [--stage brainstorm|implementation] [--mode interactive|automatic] [--cwd <path>] [--worktree] [--no-worktree]
   lightsout plan workspace --name <name> [--cwd <path>] [--worktree] [--no-worktree]
   lightsout plan verify-facts --name <name> [--notes <path>] [--cwd <path>] [--worktree] [--no-worktree]
-  lightsout plan draft --name <name> [--legacy] [--scope single|phased] [--cwd <path>] [--worktree] [--no-worktree]
+  lightsout plan draft --name <name> [--scope single|phased] [--cwd <path>] [--worktree] [--no-worktree]
   lightsout plan sync-decisions --name <name> [--cwd <path>] [--worktree] [--no-worktree]
   lightsout plan lint --name <name> [--cwd <path>] [--worktree] [--no-worktree]
   lightsout plan dedup --name <name> [--cwd <path>] [--worktree] [--no-worktree]

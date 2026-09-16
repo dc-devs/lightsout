@@ -90,6 +90,7 @@ export {
 	PlanGrade,
 	PlanningAnswer,
 	PlanningArtifact,
+	PlanningCanonicalProgress,
 	PlanningCitation,
 	PlanningClaim,
 	PlanningConfirmation,

@@ -106,13 +106,12 @@ const spawnPhase = async ({
  * Spawn one focused plan-writer per declared phase, concurrently, each authoring
  * exactly one `phase<N>-<slug>.md` against the overview's settled declaration.
  *
- * The focused sibling of `authorPhaseFiles`, differing in two places: each spawn
- * carries its own narrowed evidence brief and the census result for the symbols
- * its declaration names, and each requests the focused environment. What a spawn
- * carries is the implementation's policy and is stated here; how its outcome is
- * read afterwards is not, so the result type and the fold that produces it are
- * shared with legacy rather than written twice. The transcript step names are
- * unchanged — `scripts/comparePlanDrafts.mjs` reads them by those names.
+ * Each spawn carries its own narrowed evidence brief and the census result for
+ * the symbols its declaration names, and each requests the focused environment.
+ * What a spawn carries is stated here; how its outcome is read afterwards is
+ * not, which is why the result type lives beside the declaration rather than in
+ * this file. The transcript step names are unchanged —
+ * `scripts/comparePlanDrafts.mjs` reads them by those names.
  *
  * The export census is built once here rather than per spawn: it is one
  * repository-wide read, and every phase's declared symbols are compared against

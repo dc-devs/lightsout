@@ -51,6 +51,7 @@ export {
 	PlanningLease,
 	PlanningResultReceipt,
 	planningDataArtifact,
+	planningStorePaths,
 	readPlanningEntrySnapshot,
 	readPlanningSnapshot,
 	validatePlanningGeneration,
