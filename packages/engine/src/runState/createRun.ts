@@ -3,11 +3,12 @@ import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { readGitCurrentBranch } from '#src/common/git/readGitCurrentBranch.ts';
 import { toRepoRelativePath } from '#src/common/utils/toRepoRelativePath.ts';
-import { type LightsoutConfig, type PipelineKind, type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import { type LightsoutConfig, type PipelineKind, type PlanningHandoff, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import { getRunDir } from '#src/runState/common/paths/getRunDir.ts';
 import { writeRunManifest } from '#src/runState/writeRunManifest.ts';
 
 interface Params {
+	planningHandoff?: PlanningHandoff;
 	cwd: string;
 	/** Pre-minted run id (the lock is taken under it before anything is written). Fresh UUID when omitted. */
 	runId?: string;
@@ -52,6 +53,7 @@ export const createRun = async ({
 	config,
 	baselineDirtyFiles,
 	willShip,
+	planningHandoff,
 }: Params): Promise<RunManifest> => {
 	const now = new Date().toISOString();
 	const manifest: RunManifest = {
@@ -72,6 +74,7 @@ export const createRun = async ({
 		// points: `cwd` IS the checkout the run's work happens in.
 		workspace: resolve(cwd),
 		willShip,
+		planningHandoff,
 		status: RunStatus.Pending,
 		currentStep: null,
 		steps: [],

@@ -1,7 +1,8 @@
+import { renderCanonicalPlanningBlock } from '#src/cli/common/progressBlock/renderCanonicalPlanningBlock.ts';
 import { renderProgressBlock } from '#src/cli/common/progressBlock/renderProgressBlock.ts';
 import { formatClockDuration } from '#src/cli/common/utils/formatClockDuration.ts';
 import { type PlanningProgress, PlanningStep, type PlanningStepRecord, RunStatus } from '#src/contracts/index.ts';
-import { getPlanningProgressPath, pathExists, readPlanningProgress } from '#src/plan/index.ts';
+import { getPlanningProgressPath, pathExists, planningStorePaths, readPlanningProgress } from '#src/plan/index.ts';
 import { isPidAlive } from '#src/runState/index.ts';
 
 /** Local 24-hour HH:MM — the clock a reader compares against the one on their own screen. */
@@ -106,24 +107,54 @@ interface Params {
 }
 
 /**
- * A plan's planning block as lines, in the run block's layout. It prints
- * nothing, and never throws for a missing or unreadable record: a missing one
- * draws every step not reached, and an unreadable one answers a single line
- * naming the file.
+ * The record surfaces this plan actually has on disk, canonical store first.
  *
- * Liveness is judged only by the recorded pid, and the clock is read once, so
- * every time the block shows agrees with every other.
+ * Both are asked, rather than the legacy file alone: a plan whose whole state
+ * lives in the canonical store used to read here as a plan that had never
+ * planned anything. What the list is for is telling "nothing was ever recorded"
+ * apart from "something is recorded and cannot be read" — and, in the second
+ * case, naming the surface that failed.
+ */
+const recordedSurfaces = async ({ cwd, name }: { cwd: string; name: string }) => {
+	const paths = await planningStorePaths({ cwd, name });
+	const candidates = [paths.root, getPlanningProgressPath({ cwd, name })];
+	const present = [];
+
+	for (const path of candidates) {
+		if (await pathExists({ path })) {
+			present.push(path);
+		}
+	}
+
+	return present;
+};
+
+/**
+ * A plan's planning block as lines, in the run block's layout. It prints
+ * nothing, and never throws for a missing or unreadable record: a plan that
+ * recorded nothing draws every legacy step not reached, and a record that is
+ * there and cannot be read answers a single line naming the surface it is on.
+ *
+ * A plan whose state lives in the canonical planning store is drawn from that
+ * store's own work, blockers and recorded spend; the five fixed steps are
+ * drawn only for a plan whose record is the older `planning-progress.json`.
+ *
+ * Liveness of a legacy step is judged only by the recorded pid, and the clock
+ * is read once, so every time the block shows agrees with every other.
  */
 export const loadPlanningProgressBlock = async ({ cwd, name }: Params): Promise<string[]> => {
-	const recordPath = getPlanningProgressPath({ cwd, name });
 	const nowMs = Date.now();
-	// A missing record reads as an empty one; a record that is there but cannot be used is `undefined`.
-	const progress: PlanningProgress | undefined = (await pathExists({ path: recordPath }))
-		? await readPlanningProgress({ cwd, name })
-		: { name, updatedAt: new Date(nowMs).toISOString(), steps: [] };
+	const surfaces = await recordedSurfaces({ cwd, name });
+	// Nothing recorded anywhere reads as an empty legacy record; a surface that is there and cannot be used is `undefined`.
+	const progress: PlanningProgress | undefined =
+		surfaces.length === 0 ? { name, updatedAt: new Date(nowMs).toISOString(), steps: [] } : await readPlanningProgress({ cwd, name });
 
 	if (progress === undefined) {
-		return [`the planning record ${recordPath} could not be read`];
+		return [`the planning record ${surfaces.join(' and ')} could not be read`];
+	}
+
+	if (progress.canonical !== undefined) {
+		return renderCanonicalPlanningBlock({ name, canonical: progress.canonical });
 	}
 
 	const { live, dead } = splitRunning({ steps: progress.steps });

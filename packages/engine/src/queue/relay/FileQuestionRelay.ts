@@ -110,6 +110,10 @@ export class FileQuestionRelay implements QuestionRelay {
 		const answerPath = join(this.directory, `${stem}.answer.json`);
 
 		await this.putQuestion({ stem, questionPath, question, ticket });
+		if (this.closed) {
+			await removeExchange({ questionPath, answerPath });
+			throw new Error(relayClosedMessage);
+		}
 
 		const answer = await this.waitForAnswer({ questionPath, answerPath, question });
 

@@ -1,4 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
+import { canonicalJson } from '#src/common/utils/canonicalJson.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { type LightsoutConfig, PhaseReport, type RunManifest, RunStatus, type RunUsage, type StepRecord } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
@@ -59,10 +61,19 @@ const addUsage = ({ total, child }: { total?: RunUsage; child?: RunUsage }) => {
  * run may be a crash between the child finishing and the coordinator recording
  * it, and the child's own manifest settles which.
  */
-const readRecordedChild = async ({ cwd, step }: { cwd: string; step: StepRecord }) => {
+const readRecordedChild = async ({ cwd, step, manifest }: { cwd: string; step: StepRecord; manifest: RunManifest }) => {
 	const recorded = PhaseReport.safeParse(step.report);
 
-	return recorded.success ? await readRunManifest({ cwd, runId: recorded.data.runId }).catch(() => undefined) : undefined;
+	const childManifest = recorded.success ? await readRunManifest({ cwd, runId: recorded.data.runId }).catch(() => undefined) : undefined;
+	if (
+		manifest.planningHandoff &&
+		childManifest &&
+		(childManifest.parentRunId !== manifest.runId ||
+			childManifest.plan !== join(dirname(manifest.plan), step.id) ||
+			canonicalJson({ value: childManifest.planningHandoff }) !== canonicalJson({ value: manifest.planningHandoff }))
+	)
+		throw new Error('Recorded child differs from its frozen coordinator');
+	return childManifest;
 };
 
 /**
@@ -120,9 +131,11 @@ export const runPhase = async ({
 }: PhaseParams): Promise<{ manifest: RunManifest; result?: PipelineResult }> => {
 	onProgress?.(`phase ${index + 1}/${total}: ${step.id}`);
 
-	const childManifest = await readRecordedChild({ cwd, step });
+	const childManifest = await readRecordedChild({ cwd, step, manifest });
 
-	if (childManifest?.status === RunStatus.Passed) {
+	const childRunId = childManifest?.runId ?? randomUUID();
+
+	if (!manifest.planningHandoff && childManifest?.status === RunStatus.Passed) {
 		return { manifest: await persistStep({ cwd, manifest, index, record: { ...step, status: RunStatus.Passed } }) };
 	}
 
@@ -130,7 +143,7 @@ export const runPhase = async ({
 		cwd,
 		manifest,
 		index,
-		record: { ...step, status: RunStatus.Running, error: undefined },
+		record: { ...step, status: RunStatus.Running, error: undefined, ...(manifest.planningHandoff ? { report: { runId: childRunId } } : {}) },
 		patch: { status: RunStatus.Running, currentStep: step.id },
 	});
 
@@ -142,6 +155,8 @@ export const runPhase = async ({
 		overviewPath: current.plan,
 		parentRunId: current.runId,
 		existing: childManifest,
+		runId: childRunId,
+		planningHandoff: current.planningHandoff,
 		skipRefactor,
 		onProgress,
 	});
@@ -151,7 +166,7 @@ export const runPhase = async ({
 			cwd,
 			manifest: current,
 			index,
-			record: { ...step, status: RunStatus.Failed, error: childResult.failure },
+			record: { ...current.steps[index], status: RunStatus.Failed, error: childResult.failure },
 			patch: { status: RunStatus.Failed },
 		});
 

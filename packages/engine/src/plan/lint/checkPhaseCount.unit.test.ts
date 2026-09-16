@@ -33,3 +33,16 @@ describe('checkPhaseCount', () => {
 		expect(findings[0]?.phase).toBe('plan-overview.md');
 	});
 });
+
+test('checkPhaseCount describes canonical phase dependencies without inventing a reviewer count', () => {
+	const findings = checkPhaseCount({ phaseCount: 12, overviewBase: 'overview.md', canonical: true });
+
+	expect(findings).toEqual([
+		expect.objectContaining({
+			severity: FindingSeverity.Advisory,
+			issue: 'This plan has 12 implementation phases and their declared dependency edges require coverage.',
+		}),
+	]);
+	expect(findings[0]?.fix).toContain('Phase count does not predict paid invocation count.');
+	expect(findings[0]?.issue).not.toContain('36');
+});

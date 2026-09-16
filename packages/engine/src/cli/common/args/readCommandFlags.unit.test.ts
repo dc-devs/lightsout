@@ -24,7 +24,7 @@ test('readCommandFlags: keeps one command flags out of another', () => {
 test('readCommandFlags: gathers every subcommand flags under the command that dispatches them', () => {
 	const flags = readCommandFlags({ command: 'plan' });
 
-	expect([...flags].sort()).toStrictEqual(['cwd', 'legacy', 'name', 'no-worktree', 'notes', 'phase', 'scope', 'worktree']);
+	expect([...flags].sort()).toStrictEqual(['answer-file', 'cwd', 'input-file', 'mode', 'name', 'no-worktree', 'notes', 'phase', 'scope', 'stage', 'worktree']);
 });
 
 test('readCommandFlags: a name the usage text never mentions accepts nothing beyond --cwd', () => {

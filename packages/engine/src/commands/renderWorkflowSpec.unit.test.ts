@@ -30,24 +30,30 @@ describe('renderWorkflowSpec', () => {
 		expect(spec).toEqual(
 			expect.objectContaining({
 				cards: expect.arrayContaining([
-					expect.objectContaining({ title: 'RECORD THE FACTS', tag: { label: 'the engine', tone: 'to' } }),
-					expect.objectContaining({ title: 'CHOOSE THE APPROACH', tag: { label: 'you decide', tone: 'from' } }),
+					expect.objectContaining({ title: 'INVESTIGATE WHAT THE CODE SAYS', tag: { label: 'the engine', tone: 'to' } }),
+					expect.objectContaining({ title: 'SETTLE WHAT ONLY YOU CAN SETTLE', tag: { label: 'you decide', tone: 'from' } }),
 				]),
 			}),
 		);
 	});
 
-	test('a step keeps its own artifact label, and one without a note carries no note key at all', () => {
-		const spec = renderWorkflowSpec({ id: 'plan' });
+	test('a step keeps its own artifact label, and one without it carries no label key at all', () => {
+		const spec = renderWorkflowSpec({ id: 'refactor' });
 
 		expect(spec).toEqual(
 			expect.objectContaining({
 				cards: expect.arrayContaining([
-					expect.objectContaining({
-						title: 'CREATE THE PLAN WORKSPACE',
-						savedLabel: 'SAVED WHEN NOTES EXIST',
-						saved: ['.lightsout/plans/<name>/brainstorm-notes.md'],
-					}),
+					// the one step whose artifacts are read rather than written overrides the graphic-wide label
+					expect.objectContaining({ title: 'FIND THE WORK', savedLabel: 'READ FROM DISK' }),
+					// an exact object rather than a containing one: a step naming no label of
+					// its own leaves the key out entirely rather than repeating the default
+					{
+						title: 'GROUP INTO BATCHES',
+						tag: expect.anything(),
+						bullets: expect.anything(),
+						note: expect.anything(),
+						saved: expect.anything(),
+					},
 				]),
 			}),
 		);
@@ -59,14 +65,14 @@ describe('renderWorkflowSpec', () => {
 		expect(spec).toEqual(
 			expect.objectContaining({
 				cards: [
-					expect.objectContaining({ title: 'CREATE THE PLAN WORKSPACE' }),
-					expect.objectContaining({ title: 'RECORD THE FACTS' }),
-					expect.objectContaining({ title: 'SETTLE THE SCOPE AND CONSTRAINTS' }),
-					expect.objectContaining({ title: 'CHOOSE THE APPROACH' }),
+					expect.objectContaining({ title: 'CAPTURE THE REQUEST AS IT WAS WRITTEN' }),
+					expect.objectContaining({ title: 'INVESTIGATE WHAT THE CODE SAYS' }),
+					expect.objectContaining({ title: 'SETTLE WHAT ONLY YOU CAN SETTLE' }),
+					expect.objectContaining({ title: 'CHALLENGE THE DESIGN BEFORE A LINE IS WRITTEN' }),
 					expect.objectContaining({ title: 'WRITE THE IMPLEMENTATION PLAN' }),
-					expect.objectContaining({ title: 'STRESS-TEST THE PLAN' }),
-					expect.objectContaining({ title: 'CATCH DUPLICATION BEFORE CODING' }),
-					expect.objectContaining({ title: 'GET THE PLAN TO AN A GRADE' }),
+					expect.objectContaining({ title: 'CHALLENGE THE WRITTEN PLAN' }),
+					expect.objectContaining({ title: 'REPAIR EVERY FINDING, THEN REVIEW THE WHOLE' }),
+					expect.objectContaining({ title: 'RECORD READINESS, HAND OFF' }),
 				],
 			}),
 		);
@@ -79,15 +85,15 @@ describe('renderWorkflowSpec', () => {
 			expect.objectContaining({
 				cards: expect.arrayContaining([
 					{
-						title: 'RECORD THE FACTS',
+						title: 'INVESTIGATE WHAT THE CODE SAYS',
 						tag: { label: 'the engine', tone: 'to' },
 						bullets: [
-							'Inspect the code and files relevant to the plan request',
-							'Record the repository facts the plan will rely on',
-							'Verify every referenced file and path before moving forward',
+							'Open the files the request touches and record what was read',
+							'Record what could not be established as an unknown, not as a guess',
+							'Share each conclusion, so the next role reads it instead of re-deriving it',
 						],
-						note: 'Ensures the plan reflects the repository’s current state, not assumptions',
-						saved: ['.lightsout/plans/<name>/facts.json'],
+						note: 'Stops the plan resting on a signature nobody opened',
+						saved: ['.lightsout/plans/<name>/.planning/'],
 					},
 				]),
 			}),

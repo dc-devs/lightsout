@@ -6,6 +6,7 @@ import type { Driver } from '#src/drivers/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 import { planAgentConcurrency } from '#src/plan/common/constants/planAgentConcurrency.ts';
+import { resolvePlanningAdapterRuntime } from '#src/plan/common/planning/resolvePlanningAdapterRuntime.ts';
 import type { DeliverableFile } from '#src/plan/common/types/DeliverableFile.ts';
 import type { PriorArtCandidate } from '#src/plan/common/types/PriorArtCandidate.ts';
 import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
@@ -15,6 +16,7 @@ import { isRateLimited } from '#src/plan/common/utils/isRateLimited.ts';
 import { matchDedupVerdicts } from '#src/plan/common/utils/matchDedupVerdicts.ts';
 import { detectPriorArtCandidates } from '#src/plan/detectPriorArtCandidates.ts';
 import { checkDeliverableDecisionLogs } from '#src/plan/lint/index.ts';
+import { type PlanningRuntime, runPlanningDedup } from '#src/plan/workflow/index.ts';
 
 interface Params {
 	cwd: string;
@@ -152,7 +154,10 @@ const foldDedupResults = ({ results }: { results: Array<DedupResult | undefined>
  * pass: what finished is persisted, marked incomplete, and the runner still
  * reports the failure so a human re-runs.
  */
-export const runPlanDedup = async (params: Params): Promise<RunPlanDedupResult> => {
+export const runPlanDedup = async (params: Params | { runtime: PlanningRuntime }): Promise<RunPlanDedupResult> => {
+	const runtime = 'runtime' in params ? params.runtime : await resolvePlanningAdapterRuntime(params);
+	if (runtime) return runPlanningDedup({ runtime });
+	if ('runtime' in params) throw new Error('Canonical runtime is required');
 	const { cwd, name, onProgress } = params;
 	const progress = onProgress ?? (() => undefined);
 	const pass = await getPlanDetectionPass({ cwd, name });

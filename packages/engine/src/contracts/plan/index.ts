@@ -23,4 +23,35 @@ export {
 } from '#src/contracts/plan/grade/index.ts';
 export { LedgerRow, ProseFile } from '#src/contracts/plan/ledger/index.ts';
 export { GradeDecisionLog, GradeFindingRecord, GradeFindingStatus, GradeInputs, GradeMemory, GradeScope } from '#src/contracts/plan/memory/index.ts';
-export { PlanningProgress, PlanningStep, PlanningStepRecord } from '#src/contracts/plan/progress/index.ts';
+export { PlanningCanonicalProgress, PlanningProgress, PlanningStep, PlanningStepRecord } from '#src/contracts/plan/progress/index.ts';
+export {
+	PlanningAdjudicationRequest,
+	PlanningAnswer,
+	PlanningArtifact,
+	PlanningArtifactLayout,
+	PlanningCitation,
+	PlanningClaim,
+	PlanningConfirmation,
+	PlanningContract,
+	PlanningDependency,
+	PlanningDigest,
+	PlanningEvidence,
+	PlanningEvidenceRequest,
+	PlanningFinding,
+	PlanningInput,
+	PlanningLegacySettlement,
+	PlanningOrigin,
+	PlanningPath,
+	PlanningQuestion,
+	PlanningReadiness,
+	PlanningRecord,
+	PlanningReviewReceipt,
+	PlanningRoleResult,
+	PlanningRunResult,
+	PlanningScope,
+	PlanningStandard,
+	PlanningStandardsBundle,
+	PlanningUnknownAssessment,
+	PlanningVocabulary,
+	PlanningWork,
+} from '#src/contracts/plan/workflow/index.ts';

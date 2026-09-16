@@ -38,7 +38,7 @@ import { gradeMemoryFileName } from '#src/plan/common/constants/gradeMemoryFileN
  */
 export const durablePlanFileNames: { records: string[]; deliverable: RegExp } = {
 	/** The plan's working records, each attached when the folder holds it. */
-	records: [brainstormNotesFileName, 'decisions.json', gradeFileName, gradeMemoryFileName],
+	records: [brainstormNotesFileName, 'decisions.json', gradeFileName, gradeMemoryFileName, 'planning-record.json', 'planning-standards.json'],
 	/** A plan deliverable's own file name, spelled exactly as `resolvePlanDeliverable` matches it. */
 	deliverable: /^(?:plan\.md|overview\.md|phase\d+.*\.md)$/,
 };

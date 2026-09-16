@@ -8,6 +8,10 @@ export interface ParsedPlan {
 	variant: PlanFileKind;
 	/** `## Section title` → the lines beneath it (up to the next `##`). */
 	sections: Map<string, string[]>;
+	/** Ambiguous headings cannot be safely rewritten. */
+	duplicateSections?: string[];
+	/** An unclosed example fence makes following structure ambiguous. */
+	unterminatedFence?: boolean;
 	createPaths: string[];
 	modifyPaths: string[];
 	/** `## Files to Modify from Earlier Phases` — paths a prior phase creates, so absent from disk. */

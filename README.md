@@ -132,7 +132,7 @@ Use `/brainstorm` to pressure-test a rough idea, explore alternative approaches 
 
 4. **Turn the design into an executable spec.**
 
-Use `/plan` to explore the codebase and settle the scope, architecture, files touched, constraints, edge cases, and acceptance criteria. The plan is graded until nothing is left for the implementation agent to guess, invent, or decide on its own.
+Use `/plan` to investigate the codebase and settle the architecture, the files touched, the constraints, the edge cases and the exact acceptance obligations. The design is challenged before anything is drafted and the draft is challenged afterwards, and the plan is not ready until nothing is left for the implementation agent to guess, invent, or decide on its own. [The planning workflow](docs/planning-workflow.md) is the full guide.
 
 5. **Hand the spec to the factory.**
 
@@ -142,9 +142,9 @@ Use `/implement`, then walk away. The implementation agent follows the finished 
 
 ### /brainstorm
 
-Design before you build. `/brainstorm` turns a rough idea into a clear direction through dialogue. It asks questions, explores alternative approaches, explains the tradeoffs, and recommends a path forward.
+Design before you build. `/brainstorm` turns a rough idea into a clear direction through dialogue. It asks questions, explores the branches, weighs alternative approaches, explains the tradeoffs and recommends a path forward. What it owns is the product: what gets built, what it is worth, and what is explicitly out. Before it settles, it hands the converged design to a reader who was not in the conversation, so the questions the session stopped seeing get asked.
 
-Once the direction is settled, it decides its own outcome: ready to implement, when it can name every file that changes and nothing is left open, or ready to auto-plan otherwise. Both outcomes save the same two things — the design write-up, and the list of decisions that were settled, in a form the planning skills honor — and both publish those files to the ticket with `lightsout brainstorm publish`, so a fresh machine can read them.
+Once the direction is settled, it records your own wording, the decisions you confirmed, and which technical questions it is handing to planning. That last part is what lets `/plan` inherit the alignment instead of interviewing you about it again. It decides its own outcome: ready to implement, when it can name every file that changes and nothing is left open, or ready to auto-plan otherwise. Both outcomes save the same two things — the design write-up, and the list of decisions that were settled — and both publish those files to the ticket with `lightsout brainstorm publish`, so a fresh machine can read them.
 
 On a ticket, the brainstorm works in one plan of that ticket's folder — the plan still waiting to be planned, or a new one it adds — and publishes under that plan's own attachment titles, so it never touches what another plan of the ticket settled.
 
@@ -154,15 +154,26 @@ On a ticket, the brainstorm works in one plan of that ticket's folder — the pl
 
 ### /plan
 
-Turn the design into an executable spec. `/plan` explores the codebase, searches for existing helpers and similar implementations, and works through the scope, architecture, files touched, constraints, edge cases, abstractions, and acceptance criteria.
+Turn the design into an executable spec. `/plan` investigates the codebase, searches for existing helpers and similar implementations, and works through the architecture, the files touched, the constraints, the edge cases, the abstractions and the exact acceptance obligations. Where the work traces to a `/brainstorm`, the product direction settled there is inherited rather than re-interviewed.
 
-The plan is graded and revised until nothing is left for the implementation agent to guess, invent, or decide on its own.
+The design is challenged by a reviewer that did not choose it, before a line of the plan is written; the written plan is challenged again against the same original request; every finding is repaired and then verified by someone other than its repairer; and a final reviewer reads the whole plan end to end. Readiness is derived from those records rather than declared — an obligation your request carried that the plan does not cover keeps the plan unready, however well the rest reads. There is no shortcut that skips a reader on a hunch and no hard planning budget that stops the work half-finished.
+
+Two commands carry it. `lightsout plan run` moves planning to its next real checkpoint and prints one typed result; `lightsout plan answer` is how a decision comes back.
+
+```sh
+lightsout plan run --name lo-64-rate-limit/001-public-api --input-file .lightsout/input.json
+lightsout plan answer --name lo-64-rate-limit/001-public-api --answer-file .lightsout/answer.json
+```
+
+Both files are strict JSON — the original sources with their digests and your own approving messages on the way in, and the exact question identity plus your confirmation on the way back. Neither accepts a plain-text answer, because a model must not be able to mint your approval. `--stage brainstorm` settles the product instead, and `--mode automatic` is what `/auto-plan` runs.
+
+A run that died mid-planning recovers the responses it already paid for rather than buying them again. That is planning's own recovery and is not the same as resuming an implementation run, which keeps the files already written and then re-runs the ordinary gates. An implementation run freezes the completed planning generation and its ordered phases — that is planning authority, not a snapshot of your source, and it replays no previous verification.
 
 Re-grading after a repair is cheap on purpose: the grader reads the phases that repair can reach rather than the whole plan, it stops before spawning anything when the mechanical checks already fail, and a question someone already settled is not asked again. A decision recorded about one phase names that phase, so the re-grade reads that phase and the phases connected to it; a decision that names no phase, a global constraint, or an overview edit outside the Decision Log still means the whole plan. Reader findings that describe one defect — the same contradiction reported from two phases, say — are weighed together in a single judgment and reported as one repair item that names every place the defect appears, and that item closes only once the fix is confirmed in each of those places. A finding no judge settled stays on record and blocks until one does. What does not get cheaper is approval — that still needs a passing review of the whole plan against the current code, standards and configuration.
 
 With the `plan` config block turned on, the plan is a contract rather than a narrative: the file map, the exported signatures, the file each new file mirrors, the decisions, and an acceptance-test ledger naming one test per acceptance criterion. Such a repository is drafted from a dedicated contract template, so a file entry carries the signatures, the wiring and the constraints while every testable behaviour is an acceptance-test row rather than a paragraph. Files with no testable behaviour — documents, config — are listed separately and stay described in words. Each plan file is then weighed from its own counts, and a small one is graded by deterministic checks alone instead of by a fleet of readers.
 
-Drafting itself is done by the focused implementation, which is the default. The engine reads the source files the verified facts recorded once and hands that evidence to every plan writer, instead of each writer opening the same files again, and it compares each writer's planned symbol names against the repository's existing exports once rather than searching per symbol. Those writers run in a focused agent environment: no MCP servers, no skill catalogue, and a named list of the tools a plan writer actually uses — with the configured model, effort, permissions and authentication untouched. The previous implementation is still there for any single run: type `lightsout plan draft --legacy`. Nothing switches to it on your behalf — a harness that cannot provide the focused environment stops the run before spending on an agent, naming the control it lacks, rather than quietly drafting in the environment you did not ask for.
+There is one authoring implementation and no way to pick another. The engine reads the source files once and hands that evidence to every plan writer, instead of each writer opening the same files again, and it compares each writer's planned symbol names against the repository's existing exports once rather than searching per symbol. Those writers run in a restricted agent environment: no MCP servers, no skill catalogue, and a named list of the tools a plan writer actually uses — with the configured model, effort, permissions and authentication untouched. Nothing is substituted on your behalf — a harness that cannot provide that environment stops the run before spending on an agent, naming every control it lacks, rather than quietly drafting in the environment you did not ask for.
 
 When a plan starts from a `/brainstorm` hand-off, the decisions already settled there are carried straight into the plan rather than asked again; a settled decision is re-opened only when exploring the code turns up a concrete conflict.
 
@@ -202,6 +213,10 @@ changed through `lightsout ticket`, never by hand, and a multiple-plan ticket
 ships only once a human's ship request is satisfied. The `ticket-workflow` skill
 is where those rules live; [`lightsout ticket`](#lightsout-ticket) is the command.
 
+Plans written before the planning store existed still read: a plan folder whose record is `facts.json` and `decisions.json` drafts through the same engine, and an authored Markdown plan is still a supported implementation input.
+
+`lightsout status --planning <name>` shows what the records hold — the work items, the blocking findings still open, the saved conclusions reused, and what the recorded provider calls cost, with each call counted once. What was not recorded is shown as unavailable rather than filled in, and planning cost is never read as an implementation outcome. Those diagnostics exist so a later evaluation has something honest to read; no saving is claimed or measured.
+
 [![How /plan turns a request into an implementation-ready spec](assets/plan-workflow-light.svg)](assets/plan-workflow-light.svg)
 
 
@@ -219,11 +234,11 @@ Or start from a plain description:
 
 ### /auto-plan
 
-Plan a ticket without the interview. `/auto-plan` does the work `/plan` does, but answers the questions itself — every question that falls below a written escalation bar. It stops only for the ones two reasonable engineers would answer differently.
+Plan a ticket without the interview. `/auto-plan` is the same planner `/plan` runs, in automatic mode: the same records, the same independent challenges before and after drafting, the same derived readiness. The only difference is who answers — every question below a written escalation bar is answered by the engine, and it stops for the ones two reasonable engineers would answer differently. A question that clears the bar arrives in full, with its context, its options and a recommendation; it is never guessed past because a run is taking a while.
 
 It then shows one proposal, carrying a digest of every question it answered for itself. Any of those answers can be vetoed there.
 
-What happens after you approve — stop at the hand-off line, or start the build — is the `auto-plan` config block's decision. Reach for it when the ticket is shaped enough that you would answer most of the interview with "you decide".
+Which checkpoints stand — a proposal before drafting, a proposal at all, and whether approving one starts the build — is the `auto-plan` config block's decision, and the engine reads it directly. Approving a proposal approves that proposal; a product decision the planner has not reached yet still stops the run with its own question. Reach for it when the ticket is shaped enough that you would answer most of the interview with "you decide".
 
 ```text
 /auto-plan LO-64
@@ -521,6 +536,7 @@ lightsout standards-health
 
 ## Documentation
 
+- [The planning workflow](docs/planning-workflow.md)
 - [Configuration](docs/configuration.md)
 - [Monorepos](docs/monorepos.md)
 

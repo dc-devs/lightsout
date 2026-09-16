@@ -283,3 +283,48 @@ describe('restoreBrainstormFiles', () => {
 		expect(mockReadTicketAsset).not.toHaveBeenCalled();
 	});
 });
+
+test.each(['missing-asset', 'duplicate-asset', 'asset-unavailable', 'marker-unavailable', 'invalid-marker'])(
+	'refuses an unreadable or ambiguous brainstorm generation: %s',
+	async (defect) => {
+		const attachments = defect === 'missing-asset' ? ['brainstorm-notes.md'] : ['brainstorm-notes.md', 'brainstorm-decisions.json'];
+		if (defect === 'duplicate-asset') attachments.push('brainstorm-notes.md');
+		const fixture = setup({ attachments, ...(defect === 'invalid-marker' ? { manifestText: '{}' } : {}) });
+		if (defect === 'asset-unavailable')
+			mockReadTicketAsset.mockImplementation(async ({ url }) =>
+				url.endsWith('/2')
+					? serializeAttachmentManifest({
+							files: ['brainstorm-notes.md', 'brainstorm-decisions.json'].map((title) => ({ name: title, content: Buffer.from(defaultBody({ title })) })),
+						}).toString()
+					: { error: 'Asset unavailable' },
+			);
+		if (defect === 'marker-unavailable') mockReadTicketAsset.mockResolvedValue({ error: 'Marker unavailable' });
+		const result = await restore(fixture);
+		expect(result.error).toMatch(/no attachment|more than one attachment|Asset unavailable|Marker unavailable|schemaVersion/);
+		expect(result.restored).toStrictEqual([]);
+		expect(folderOf(fixture)).toBeUndefined();
+	},
+);
+
+test('refuses canonical brainstorm content with no generation binding', async () => {
+	const fixture = setup({
+		attachments: ['brainstorm-notes.md', 'brainstorm-decisions.json', 'brainstorm-record.json'],
+		manifestFiles: ['brainstorm-notes.md', 'brainstorm-decisions.json', 'brainstorm-record.json'],
+	});
+	const result = await restore(fixture);
+	expect(result.error).toBe('New-format brainstorm requires an explicit generation marker');
+	expect(result.restored).toStrictEqual([]);
+});
+
+test('returns canonical validation failures without exposing partially restored files', async () => {
+	const files = ['brainstorm-notes.md', 'brainstorm-decisions.json', 'brainstorm-record.json'];
+	const marker = serializeAttachmentManifest({
+		files: files.map((title) => ({ name: title, content: Buffer.from(defaultBody({ title })) })),
+		brainstormGeneration: 'a'.repeat(64),
+	}).toString();
+	const fixture = setup({ attachments: files, manifestFiles: files, manifestText: marker });
+	const result = await restore(fixture);
+	expect(result.error).toBeDefined();
+	expect(result.restored).toStrictEqual([]);
+	expect(folderOf(fixture)).toBeUndefined();
+});

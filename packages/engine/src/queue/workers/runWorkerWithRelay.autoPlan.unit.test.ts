@@ -3,9 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { type LightsoutConfig, type TicketRecord, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
+import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import type { AgentOutcome } from '#src/invoke/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
@@ -32,10 +31,9 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 // pipelines against a real repository — each covered by its own tests. Stubbing
 // the pair leaves the engine's plan choice and the worker's handling of the
 // record as the only things these cases exercise.
-const mockInvokeAgentWithContract = jest.fn<(params: { invocation: { prompt: string } }) => Promise<AgentOutcome<WorkReport>>>();
-
-jest.mock('#src/invoke/index.ts', () => ({
-	invokeAgentWithContract: (params: { invocation: { prompt: string } }) => mockInvokeAgentWithContract(params),
+const mockRunPlanningSession = jest.fn<typeof import('#src/queue/workers/runPlanningSession.ts').runPlanningSession>();
+jest.mock('#src/queue/workers/runPlanningSession.ts', () => ({
+	runPlanningSession: (params: Parameters<typeof mockRunPlanningSession>[0]) => mockRunPlanningSession(params),
 }));
 // -------------------------
 interface BuildTicketPlansParams {
@@ -146,14 +144,6 @@ const relayThatIsNeverAsked = (): QuestionRelay => ({
 	close: () => undefined,
 });
 
-const reportOf = (overrides: Partial<WorkReport> = {}): WorkReport => ({
-	status: WorkReportStatus.Complete,
-	changedFiles: [],
-	summary: 'planned it',
-	failures: [],
-	...overrides,
-});
-
 /**
  * An auto-plan ticket in a real worktree, with the record the engine's choice
  * reads first and the record it reads again once the session has ended.
@@ -182,7 +172,7 @@ const setupAutoPlanTicket = ({
 
 	mockPullTicketRecord.mockResolvedValueOnce(chosenPull).mockResolvedValue(plannedPull);
 	mockAddTicketPlan.mockResolvedValue(added);
-	mockInvokeAgentWithContract.mockResolvedValue({ ok: true, report: reportOf() });
+	mockRunPlanningSession.mockResolvedValue(undefined);
 	mockBuildTicketPlans.mockResolvedValue({});
 
 	return {
@@ -216,7 +206,7 @@ describe('runWorkerWithRelay', () => {
 		expect(outcome).toStrictEqual({});
 		// the excluded 002 is passed over, and the session is told the address
 		// rather than left to derive a name of its own
-		expect(mockInvokeAgentWithContract.mock.calls[0]?.[0].invocation.prompt).toContain(`${branch}/003-drain-order`);
+		expect(mockRunPlanningSession.mock.calls[0]?.[0].planAddress).toContain(`${branch}/003-drain-order`);
 		expect(mockAddTicketPlan).not.toHaveBeenCalled();
 		expect(mockBuildTicketPlans).toHaveBeenCalledWith(
 			expect.objectContaining({ cwd: worktreePath, branch, record: recordAfterPlanning, allowTicketBodyBuild: false }),
@@ -243,7 +233,7 @@ describe('runWorkerWithRelay', () => {
 		expect(outcome).toStrictEqual({});
 		expect(mockAddTicketPlan).toHaveBeenCalledWith(expect.objectContaining({ ticketBranch: branch, slug: 'drain-the-backlog', title: 'Drain the backlog' }));
 		expect(progress).toEqual(expect.arrayContaining([expect.stringContaining('ship request was withdrawn'), expect.stringContaining('tracker refused it')]));
-		expect(mockInvokeAgentWithContract.mock.calls[0]?.[0].invocation.prompt).toContain(`${branch}/001-drain-the-backlog`);
+		expect(mockRunPlanningSession.mock.calls[0]?.[0].planAddress).toContain(`${branch}/001-drain-the-backlog`);
 	});
 
 	test('runWorkerWithRelay: an auto-plan ticket whose record pull after the session fails builds nothing', async () => {

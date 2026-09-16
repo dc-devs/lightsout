@@ -1,8 +1,11 @@
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
+import type { StandardsReader } from '#src/common/types/StandardsReader.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { detectStandardsChannels } from '#src/standards/detectStandardsChannels.ts';
 
 interface Params {
+	reader?: StandardsReader;
+	includeRoot?: boolean;
 	cwd: string;
 	/** The consumer's config, absent on a repo that has none. */
 	config: LightsoutConfig | undefined;
@@ -25,5 +28,12 @@ interface Params {
  * @param config - the consumer's config, whose `standards-channels` key overrides detection outright
  * @param packages - the run's package scope, which detection reads
  */
-export const resolveStandardsChannels = async ({ cwd, config, packages }: Params): Promise<string[]> =>
-	config?.['standards-channels'] ?? detectStandardsChannels({ cwd, packagesDir: config?.['packages-dir'] ?? defaultPackagesDir, packages });
+export const resolveStandardsChannels = async ({ cwd, config, packages, reader, includeRoot }: Params): Promise<string[]> =>
+	config?.['standards-channels'] ??
+	detectStandardsChannels({
+		cwd,
+		packagesDir: config?.['packages-dir'] ?? defaultPackagesDir,
+		packages,
+		reader,
+		...(includeRoot === undefined ? {} : { includeRoot }),
+	});

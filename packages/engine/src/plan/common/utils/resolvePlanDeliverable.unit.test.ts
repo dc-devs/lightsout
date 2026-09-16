@@ -1,8 +1,14 @@
+import { describe, expect, test } from '@jest/globals';
+import { planningHandoffFixture } from '#tests/helpers/planningHandoffFixture.ts';
+import { planningWorkflowFixture } from '#tests/helpers/planningWorkflowFixture.ts';
+
+// Dependencies
+
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { describe, expect, test } from '@jest/globals';
 import { resolvePlanDeliverable } from '#src/plan/common/utils/resolvePlanDeliverable.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { planningPinFixture } from '#tests/helpers/planningPinFixture.ts';
 
 /**
  * A repo root whose plan folder holds exactly the named files. Pass no files at
@@ -27,6 +33,23 @@ const setupPlanFolder = async ({ files = {} }: { files?: Record<string, string> 
 };
 
 describe('resolvePlanDeliverable', () => {
+	test('reads the committed generation despite changed flat projections and stray phase files', async () => {
+		const fixture = await planningPinFixture();
+		await writeFile(join(fixture.root, 'plan.md'), 'unapproved replacement');
+		await writeFile(join(fixture.root, 'phase99-unapproved.md'), 'unapproved extra phase');
+
+		const resolved = await resolvePlanDeliverable(fixture);
+
+		expect(resolved.files).toEqual([{ path: join(fixture.root, 'plan.md'), text: fixture.snapshot.artifacts.get('plan.md') }]);
+		expect(resolved.overviewPath).toBeUndefined();
+	});
+
+	test('rejects a new-format marker without its generation instead of grading a legacy-looking flat file', async () => {
+		const fixture = await setupPlanFolder({ files: { 'plan.md': '# Flat plan', 'planning-record.json': '{}' } });
+
+		await expect(resolvePlanDeliverable(fixture)).rejects.toThrow('missing its canonical generation');
+	});
+
 	test('resolves a single plan to plan.md alone, with no overview', async () => {
 		const { cwd, name, dir } = await setupPlanFolder({
 			files: { 'plan.md': '# The single plan\n', 'brainstorm-notes.md': 'working notes\n' },
@@ -138,4 +161,20 @@ describe('resolvePlanDeliverable', () => {
 			expect.stringContaining(`\`lightsout implement\` fetches a plan published to its ticket, or run \`lightsout plan publish --name ${name}\``),
 		);
 	});
+});
+
+test('resolves canonical phases and overview from one completed generation', async () => {
+	const fixture = await planningHandoffFixture({ phased: true });
+	const resolved = await resolvePlanDeliverable(fixture);
+	expect(resolved.overviewPath).toBe(join(fixture.root, 'overview.md'));
+	expect(resolved.overviewText).toContain('Phases');
+	expect(resolved.files.map((file) => file.path)).toStrictEqual(fixture.handoff.phases.map((phase) => join(fixture.root, phase.path)));
+});
+
+test('reports canonical input with no deliverable as unfinished', async () => {
+	const fixture = await planningWorkflowFixture();
+	await fixture.capture();
+	const resolved = await resolvePlanDeliverable(fixture);
+	expect(resolved.files).toStrictEqual([]);
+	expect(resolved.error).toContain('no implementation deliverable yet');
 });

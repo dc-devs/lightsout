@@ -4,6 +4,7 @@ import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.t
 interface Params {
 	/** Rows parsed from the overview, orphan blocks included. */
 	declarations: PhaseDeclaration[];
+	canonicalPhaseFiles?: string[];
 	/** What the calling check calls each place a defect points at — the one thing the two spellings of these rules differ by. */
 	locations: {
 		/** The '## Phase Declarations' section. */
@@ -30,7 +31,7 @@ interface Params {
  * is blocking, but which file a defect is reported against depends on which
  * check found it.
  */
-export const getDeclarationDefects = ({ declarations, locations }: Params): Pick<StructuralFinding, 'issue' | 'location' | 'fix'>[] => {
+export const getDeclarationDefects = ({ declarations, locations, canonicalPhaseFiles }: Params): Pick<StructuralFinding, 'issue' | 'location' | 'fix'>[] => {
 	const defects: Pick<StructuralFinding, 'issue' | 'location' | 'fix'>[] = [];
 	const numbered = declarations.filter((declaration) => declaration.number > 0);
 	const numbers = numbered.map((declaration) => declaration.number).sort((one, other) => one - other);
@@ -51,11 +52,17 @@ export const getDeclarationDefects = ({ declarations, locations }: Params): Pick
 		});
 	}
 
-	for (const declaration of numbered.filter((candidate) => !new RegExp(`^phase${candidate.number}-.+\\.md$`).test(candidate.file))) {
+	for (const declaration of numbered.filter((candidate) =>
+		canonicalPhaseFiles ? canonicalPhaseFiles[candidate.number - 1] !== candidate.file : !new RegExp(`^phase${candidate.number}-.+\\.md$`).test(candidate.file),
+	)) {
 		defects.push({
-			issue: `phase ${declaration.number} is declared in '${declaration.file}', whose name does not read phase${declaration.number}-<slug>.md`,
+			issue: canonicalPhaseFiles
+				? `Phase ${declaration.number} names ${declaration.file}, which disagrees with the canonical phase order`
+				: `phase ${declaration.number} is declared in '${declaration.file}', whose name does not read phase${declaration.number}-<slug>.md`,
 			location: locations.phaseRow(declaration.file),
-			fix: 'rename the file or the row so the number and the filename agree',
+			fix: canonicalPhaseFiles
+				? 'Regenerate the row from canonical identities and order; keep unrelated phase filenames stable.'
+				: 'rename the file or the row so the number and the filename agree',
 		});
 	}
 

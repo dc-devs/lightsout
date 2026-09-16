@@ -3,9 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { type LightsoutConfig, type TicketRecord, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
+import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import type { AgentOutcome } from '#src/invoke/index.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { runAutoPlanWorker } from '#src/queue/workers/runAutoPlanWorker.ts';
@@ -25,17 +24,9 @@ import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 
 // Mocked Imports
 // -------------------------
-/** The fields of the harness invocation these cases read; the real call carries more. */
-interface InvokeCall {
-	invocation: { prompt: string };
-	timeoutMs?: number;
-	allowedCommands?: string[];
-}
-
-const mockInvokeAgentWithContract = jest.fn<(params: InvokeCall) => Promise<AgentOutcome<WorkReport>>>();
-
-jest.mock('#src/invoke/index.ts', () => ({
-	invokeAgentWithContract: (params: InvokeCall) => mockInvokeAgentWithContract(params),
+const mockRunPlanningSession = jest.fn<typeof import('#src/queue/workers/runPlanningSession.ts').runPlanningSession>();
+jest.mock('#src/queue/workers/runPlanningSession.ts', () => ({
+	runPlanningSession: (params: Parameters<typeof mockRunPlanningSession>[0]) => mockRunPlanningSession(params),
 }));
 // -------------------------
 // The engine's choice of plan and the ordered build around the session are each
@@ -85,14 +76,6 @@ const record: TicketRecord = {
 	history: [],
 };
 
-const reportOf = (overrides: Partial<WorkReport> = {}): WorkReport => ({
-	status: WorkReportStatus.Complete,
-	changedFiles: [],
-	summary: 'planned it',
-	failures: [],
-	...overrides,
-});
-
 /**
  * The worker's arguments against a real worktree holding the chosen plan's
  * folder, since the missing-folder guard reads the tree rather than a stub.
@@ -102,10 +85,10 @@ const reportOf = (overrides: Partial<WorkReport> = {}): WorkReport => ({
  * what the session is allowed to run.
  */
 const setupAutoPlanWorker = ({
-	outcome = { ok: true, report: reportOf() },
+	outcome,
 	config = { gates: { check: 'true', test: 'true', 'test-coverage': false } },
 }: {
-	outcome?: AgentOutcome<WorkReport>;
+	outcome?: WorkerOutcome;
 	config?: LightsoutConfig;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-auto-plan-coverage-'));
@@ -115,7 +98,7 @@ const setupAutoPlanWorker = ({
 	writeFileSync(join(folder, 'plan.md'), '# The plan\n');
 
 	mockChooseAutoPlanTarget.mockResolvedValue({ record, address });
-	mockInvokeAgentWithContract.mockResolvedValue(outcome);
+	mockRunPlanningSession.mockResolvedValue(outcome);
 	mockPullTicketRecord.mockResolvedValue({ record });
 	mockBuildTicketPlans.mockResolvedValue({});
 
@@ -135,27 +118,27 @@ const setupAutoPlanWorker = ({
 };
 
 describe('runAutoPlanWorker', () => {
-	test('gives the auto-plan session the ceiling the settings already carry, in milliseconds and unconverted', async () => {
+	test('passes the exact selected address and config to the typed planner without a session budget', async () => {
 		const { params } = setupAutoPlanWorker();
 
 		await runAutoPlanWorker(params);
 
-		expect(mockInvokeAgentWithContract.mock.calls[0]?.[0].timeoutMs).toBe(14_400_000);
+		expect(mockRunPlanningSession).toHaveBeenCalledWith(expect.objectContaining({ planAddress: address, config: params.config }));
 	});
 
 	test('parks an auto-plan worker whose report is neither a question nor success', async () => {
 		const { params } = setupAutoPlanWorker({
-			outcome: { ok: true, report: reportOf({ status: WorkReportStatus.Failed, failures: ['the lightsout plugin skills are not available'] }) },
+			outcome: { error: 'Required planning inputs are unavailable' },
 		});
 
 		const workerOutcome = await runAutoPlanWorker(params);
 
-		expect(workerOutcome).toStrictEqual({ error: 'the lightsout plugin skills are not available' });
+		expect(workerOutcome).toStrictEqual({ error: 'Required planning inputs are unavailable' });
 		expect(mockBuildTicketPlans).not.toHaveBeenCalled();
 	});
 
 	test('parks a harness that refused outright, so a rate limit never reads as finished work', async () => {
-		const { params } = setupAutoPlanWorker({ outcome: { ok: false, failure: 'harness rate limited or overloaded', rateLimited: true } });
+		const { params } = setupAutoPlanWorker({ outcome: { error: 'harness rate limited or overloaded' } });
 
 		const workerOutcome = await runAutoPlanWorker(params);
 
@@ -163,7 +146,7 @@ describe('runAutoPlanWorker', () => {
 		expect(mockBuildTicketPlans).not.toHaveBeenCalled();
 	});
 
-	test('lets the session run the repository’s own agent commands, with the engine it is told to call appended', async () => {
+	test('preserves repository command configuration without granting a headless engine interpreter', async () => {
 		const { params } = setupAutoPlanWorker({
 			config: { gates: { check: 'true', test: 'true', 'test-coverage': false }, 'agent-commands': ['gh issue view', 'git log'] },
 		});
@@ -172,6 +155,6 @@ describe('runAutoPlanWorker', () => {
 
 		// the engine grants itself last, so a repository that lists no commands
 		// still reaches the subcommands the prompt tells the session to run
-		expect(mockInvokeAgentWithContract.mock.calls[0]?.[0].allowedCommands).toStrictEqual(['gh issue view', 'git log', `node ${process.argv[1]}`]);
+		expect(mockRunPlanningSession.mock.calls[0]?.[0].config['agent-commands']).toEqual(['gh issue view', 'git log']);
 	});
 });

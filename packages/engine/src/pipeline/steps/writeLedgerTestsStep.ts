@@ -3,6 +3,7 @@ import { runFormatter } from '#src/common/processes/runFormatter.ts';
 import { type LedgerRow, RunStatus, type WorkReport } from '#src/contracts/index.ts';
 import { approveTestFiles } from '#src/pipeline/approvedTests/index.ts';
 import { testWriterConcurrency } from '#src/pipeline/common/constants/testWriterConcurrency.ts';
+import { mergeHandoffAcceptance } from '#src/pipeline/common/handoff/mergeHandoffAcceptance.ts';
 import type { WriterResult } from '#src/pipeline/common/types/WriterResult.ts';
 import { collectChanged } from '#src/pipeline/common/utils/collectChanged.ts';
 import { createWarmSpawn } from '#src/pipeline/common/utils/createWarmSpawn.ts';
@@ -11,7 +12,7 @@ import { drainChains } from '#src/pipeline/common/utils/drainChains.ts';
 import { withStepFiles } from '#src/pipeline/common/utils/withStepFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
-import { committedLedgerConflicts, missingLedgerNames, seedAcceptanceTests } from '#src/pipeline/steps/ledger/index.ts';
+import { committedLedgerConflicts, groupLedgerRows, missingLedgerNames } from '#src/pipeline/steps/ledger/index.ts';
 
 const stepId = 'write-ledger-tests';
 
@@ -45,15 +46,6 @@ interface LedgerWriteOutcome {
 }
 
 // First-appearance order, so the warm-up spawn owns the ledger's first file.
-const groupRows = ({ rows }: { rows: LedgerRow[] }) => {
-	const byFile = new Map<string, LedgerRow[]>();
-
-	for (const row of rows) {
-		byFile.set(row.testFile, [...(byFile.get(row.testFile) ?? []), row]);
-	}
-
-	return [...byFile].map(([testFile, fileRows]) => ({ testFile, rows: fileRows }));
-};
 
 const namesOf = ({ assignment }: { assignment: LedgerAssignment }) => assignment.rows.map((row) => row.testName);
 
@@ -201,7 +193,7 @@ export const writeLedgerTestsStep = ({
 
 		await run.setStep({ record });
 
-		const assignments = groupRows({ rows });
+		const assignments = groupLedgerRows({ rows });
 		const conflicts = await committedLedgerConflicts({
 			cwd: run.cwd,
 			assignments: assignments.map((assignment) => ({ testFile: assignment.testFile, testNames: namesOf({ assignment }) })),
@@ -239,7 +231,7 @@ export const writeLedgerTestsStep = ({
 		}
 
 		const approvedTests = await approveTestFiles({ run, paths: assignments.map((assignment) => assignment.testFile) });
-		const acceptanceTests = seedAcceptanceTests({ rows });
+		const acceptanceTests = mergeHandoffAcceptance({ manifest: run.current(), rows });
 
 		await run.setStep({ record: { ...record, status: RunStatus.Passed, report: { reports } }, patch: { approvedTests, acceptanceTests } });
 		run.progress(`step ${stepId} passed — ${assignments.length} ledger test file(s) approved`);

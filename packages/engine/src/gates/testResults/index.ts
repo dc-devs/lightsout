@@ -7,6 +7,7 @@
 // either would invite a caller to re-implement half of a rule this module owns.
 export { checkAcceptanceTests } from '#src/gates/testResults/checkAcceptanceTests.ts';
 export { checkTestResultsCapability } from '#src/gates/testResults/checkTestResultsCapability.ts';
+export { normalizeTestResults } from '#src/gates/testResults/normalizeTestResults.ts';
 export { readTestResults } from '#src/gates/testResults/readTestResults.ts';
 export { testResultsDir } from '#src/gates/testResults/testResultsDir.ts';
 export { writeJestReporter } from '#src/gates/testResults/writeJestReporter.ts';

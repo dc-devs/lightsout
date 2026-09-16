@@ -1,10 +1,9 @@
-import { readFile } from 'node:fs/promises';
-import { basename } from 'node:path';
 import { defaultExecutorFileLimit } from '#src/common/constants/defaultExecutorFileLimit.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { type DecisionsRecord, FindingSeverity, type LightsoutConfig, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
 import { PlanFileKind } from '#src/plan/common/constants/PlanFileKind.ts';
 import { readRepoPathIndex } from '#src/plan/common/paths/readRepoPathIndex.ts';
+import type { CanonicalPlanningPhase } from '#src/plan/common/types/CanonicalPlanningPhase.ts';
 import type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
 import type { PhaseSizeCounts } from '#src/plan/common/types/PhaseSizeCounts.ts';
 import { getPhaseProvenance } from '#src/plan/common/utils/getPhaseProvenance.ts';
@@ -17,11 +16,12 @@ import { checkPlanPaths } from '#src/plan/lint/checkPlanPaths.ts';
 import { checkPlanSizes } from '#src/plan/lint/checkPlanSizes.ts';
 import { checkProsePaths } from '#src/plan/lint/checkProsePaths.ts';
 import { checkVerificationScripts } from '#src/plan/lint/checkVerificationScripts.ts';
+import { canonicalPlanningAncestors } from '#src/plan/lint/common/utils/canonicalPlanningAncestors.ts';
 import { isPhasedDeliverable } from '#src/plan/lint/common/utils/isPhasedDeliverable.ts';
+import { readPlanPhaseFiles } from '#src/plan/lint/common/utils/readPlanPhaseFiles.ts';
 import { lintPlanCrossPhase } from '#src/plan/lint/lintPlanCrossPhase.ts';
 import { scanPlaceholders } from '#src/plan/lint/scanPlaceholders.ts';
 import { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';
-import { parsePlan } from '#src/plan/parsePlan.ts';
 
 interface Params {
 	cwd: string;
@@ -30,6 +30,7 @@ interface Params {
 	/** The merged decision record every plan file's Decision Log has to agree with. Required: an absent record would silently no-op the currency check. */
 	decisions: DecisionsRecord;
 	config?: LightsoutConfig;
+	canonicalPhases?: CanonicalPlanningPhase[];
 }
 
 /**
@@ -44,35 +45,6 @@ const requiredSections = {
 } as const;
 
 /** A phase file's position in the walk: `overview.md` precedes every phase, and a lone `plan.md` is phase one. */
-const phaseNumber = ({ base }: { base: string }) => (base === 'overview.md' ? 0 : Number(/^phase(\d+)-/.exec(base)?.[1] ?? 1));
-
-/** Read and parse every plan file once, so each check reads a `PhaseFile` rather than re-parsing the text. An unreadable file yields its finding here and no `PhaseFile` at all. */
-const readPhaseFiles = async ({ planPaths }: { planPaths: string[] }) => {
-	const phases: PhaseFile[] = [];
-	const findings: StructuralFinding[] = [];
-
-	for (const planPath of planPaths) {
-		const content = await readFile(planPath, 'utf8').catch(() => undefined);
-		const base = basename(planPath);
-
-		if (content === undefined) {
-			findings.push({
-				check: StructuralCheck.SectionsPresent,
-				severity: FindingSeverity.Blocking,
-				phase: base,
-				issue: 'plan file could not be read',
-				location: planPath,
-				fix: 'ensure the draft wrote the plan file at this path',
-			});
-
-			continue;
-		}
-
-		phases.push({ path: planPath, base, number: phaseNumber({ base }), plan: parsePlan({ content, base }) });
-	}
-
-	return { phases, findings };
-};
 
 /** SectionsPresent — the required headings for this file's variant, plus the ones a declared `docs` block and `plan.contract` add to the implementable ones. */
 const checkSections = ({ phase, docsDeclared, contract }: { phase: PhaseFile; docsDeclared: boolean; contract: boolean }) => {
@@ -122,7 +94,7 @@ const checkMoves = ({ phase }: { phase: PhaseFile }) =>
  * legitimately verify with a script only the plan creates, and the overview —
  * which stands for the whole deliverable — sees the union.
  */
-const getDeclaredScripts = ({ overview, phases }: { overview?: PhaseFile; phases: PhaseFile[] }) => {
+const getDeclaredScripts = ({ overview, phases, ancestors }: { overview?: PhaseFile; phases: PhaseFile[]; ancestors?: Map<string, Set<string>> }) => {
 	const byPhase = new Map<string, Set<string>>();
 
 	if (!overview) {
@@ -137,7 +109,12 @@ const getDeclaredScripts = ({ overview, phases }: { overview?: PhaseFile; phases
 			running.add(script);
 		}
 
-		byPhase.set(phase.base, new Set(running));
+		byPhase.set(
+			phase.base,
+			ancestors
+				? new Set(declarations.filter((item) => item.file === phase.base || ancestors.get(phase.base)?.has(item.file)).flatMap((item) => item.scripts))
+				: new Set(running),
+		);
 	}
 
 	byPhase.set(overview.base, new Set(declarations.flatMap((declaration) => declaration.scripts)));
@@ -194,19 +171,20 @@ const checkPackages = ({ phase, packagesDir }: { phase: PhaseFile; packagesDir: 
  * dropped, because delete-then-recreate is legitimate work the per-file check
  * cannot recognise on its own.
  */
-export const lintPlanStructure = async ({ cwd, planPaths, decisions, config }: Params): Promise<StructuralFinding[]> => {
+export const lintPlanStructure = async ({ cwd, planPaths, decisions, config, canonicalPhases }: Params): Promise<StructuralFinding[]> => {
 	const packagesDir = config?.['packages-dir'] ?? defaultPackagesDir;
 	const fileLimit = config?.['executor-file-limit'] ?? defaultExecutorFileLimit;
 	const docsDeclared = (config?.docs?.length ?? 0) > 0;
 	const contract = config?.plan?.contract === true;
 	const gateKeys = new Set(Object.keys(config?.gates ?? {}));
 	const configCommands = new Set(Object.values(config?.gates ?? {}).filter((value): value is string => typeof value === 'string'));
-	const { phases, findings } = await readPhaseFiles({ planPaths });
+	const { phases, findings } = await readPlanPhaseFiles({ planPaths, canonicalPhases });
 	const overview = phases.find((file) => file.plan.variant === PlanFileKind.Overview);
 	const implementable = phases.filter((file) => file.plan.variant !== PlanFileKind.Overview).sort((one, other) => one.number - other.number);
 	const phased = isPhasedDeliverable({ hasOverview: overview !== undefined, implementableCount: implementable.length });
-	const provenance = getPhaseProvenance({ phases: implementable });
-	const declaredByPhase = getDeclaredScripts({ overview, phases: implementable });
+	const ancestors = canonicalPhases ? canonicalPlanningAncestors({ phases: canonicalPhases }) : undefined;
+	const provenance = getPhaseProvenance({ phases: implementable, ancestors });
+	const declaredByPhase = getDeclaredScripts({ overview, phases: implementable, ancestors });
 	// Read once per lint run rather than once per plan file, for the same reason
 	// `getDeclaredScripts` is hoisted: a ten-file phased plan would otherwise walk
 	// the repo ten times.
@@ -226,6 +204,18 @@ export const lintPlanStructure = async ({ cwd, planPaths, decisions, config }: P
 
 		findings.push(
 			...checkSections({ phase, docsDeclared, contract }),
+			...((phase.plan.duplicateSections?.length ?? 0) > 0 || phase.plan.unterminatedFence
+				? [
+						{
+							check: StructuralCheck.SectionsPresent,
+							severity: FindingSeverity.Blocking,
+							phase: phase.base,
+							issue: 'Duplicate sections or an unterminated code fence require repair',
+							location: phase.base,
+							fix: 'Preserve authored text while restoring unambiguous headings and fences.',
+						},
+					]
+				: []),
 			...(await checkPlanPaths({ ...shared, provided, phased })),
 			...(await checkProsePaths({ ...shared, planned, index: repoIndex })),
 			...(await checkVerificationScripts({ ...shared, packagesDir, configCommands, declaredScripts })),
@@ -240,7 +230,7 @@ export const lintPlanStructure = async ({ cwd, planPaths, decisions, config }: P
 		);
 	}
 
-	const crossPhase = await lintPlanCrossPhase({ cwd, overview, phases: implementable, provenance, counts });
+	const crossPhase = await lintPlanCrossPhase({ cwd, overview, phases: implementable, provenance, counts, canonicalPhases });
 
 	return [...findings.filter((finding) => !isCleared({ finding, clearedCreates: crossPhase.clearedCreates })), ...crossPhase.findings];
 };

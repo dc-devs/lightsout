@@ -12,6 +12,8 @@ interface Params {
 	cwd: string;
 	/** The plan's address, `<ticket-branch>/<plan-id>`. */
 	address: string;
+	expectedMarker?: string;
+	requireBrainstorm?: boolean;
 	config: LightsoutConfig;
 	/** The process environment the tracker API key is read from. */
 	env: NodeJS.ProcessEnv;
@@ -66,7 +68,16 @@ const recordMarker = async ({
  * it themselves, and a restore that pulled would read the tracker twice for
  * every plan the queue restores.
  */
-export const restoreTicketPlan = async ({ cwd, address, config, env, recordCwd, onProgress }: Params): Promise<{ restored: string[] } | { error: string }> => {
+export const restoreTicketPlan = async ({
+	cwd,
+	address,
+	config,
+	env,
+	recordCwd,
+	onProgress,
+	expectedMarker,
+	requireBrainstorm,
+}: Params): Promise<{ restored: string[] } | { error: string }> => {
 	const parsed = parsePlanAddress({ name: address });
 
 	if (parsed === undefined) {
@@ -86,19 +97,44 @@ export const restoreTicketPlan = async ({ cwd, address, config, env, recordCwd, 
 		return { error: `plan ${planId} cannot be restored: ${target.localOnly}` };
 	}
 
-	const plan = await restorePlanWorkspace({ cwd, name: address, identifier: target.ticketRef, settings: target.settings, titlePrefix: planId });
+	let stagedBrainstorm: Awaited<ReturnType<typeof restoreBrainstormFiles>> | undefined;
+	const plan = await restorePlanWorkspace({
+		cwd,
+		name: address,
+		identifier: target.ticketRef,
+		settings: target.settings,
+		titlePrefix: planId,
+		expectedMarker,
+		...(requireBrainstorm
+			? {
+					beforeExpose: async ({ directory }: { directory: string }) => {
+						stagedBrainstorm = await restoreBrainstormFiles({
+							cwd,
+							name: address,
+							identifier: target.ticketRef,
+							settings: target.settings,
+							titlePrefix: planId,
+							directory,
+						});
+						if (stagedBrainstorm.error) throw new Error(stagedBrainstorm.error);
+					},
+				}
+			: {}),
+	});
 
 	if (plan.error !== undefined) {
 		return { error: plan.error };
 	}
 
-	if (plan.restored.length === 0) {
+	if (plan.restored.length === 0 && !requireBrainstorm) {
 		return { restored: [] };
 	}
 
-	const brainstorm = await restoreBrainstormFiles({ cwd, name: address, identifier: target.ticketRef, settings: target.settings, titlePrefix: planId });
+	const brainstorm =
+		stagedBrainstorm ?? (await restoreBrainstormFiles({ cwd, name: address, identifier: target.ticketRef, settings: target.settings, titlePrefix: planId }));
 
 	if (brainstorm.error !== undefined) {
+		if (requireBrainstorm) return { error: brainstorm.error };
 		onProgress?.(`plan ${planId} was restored, but its brainstorm generation was not: ${brainstorm.error}`);
 	}
 

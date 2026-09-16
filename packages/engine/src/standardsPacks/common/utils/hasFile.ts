@@ -1,6 +1,8 @@
 import { stat } from 'node:fs/promises';
+import type { StandardsReader } from '#src/common/types/StandardsReader.ts';
 
 interface Params {
+	reader?: StandardsReader;
 	/** Absolute path of the file to look for. */
 	path: string;
 }
@@ -13,8 +15,10 @@ interface Params {
  *
  * @param path - absolute path of the file to look for
  */
-export const hasFile = async ({ path }: Params): Promise<boolean> =>
-	stat(path).then(
-		() => true,
-		() => false,
-	);
+export const hasFile = async ({ path, reader }: Params): Promise<boolean> =>
+	reader !== undefined
+		? reader.exists({ path })
+		: stat(path).then(
+				() => true,
+				() => false,
+			);

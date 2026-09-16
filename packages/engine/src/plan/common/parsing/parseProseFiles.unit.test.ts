@@ -54,3 +54,8 @@ describe('parseProseFiles', () => {
 		expect(parseProseFiles({ sectionLines: undefined, firstLine: 1 })).toStrictEqual({ files: [], malformedLines: [] });
 	});
 });
+
+test('parseProseFiles retains literal entities in legacy paths', () => {
+	const result = parseProseFiles({ sectionLines: ['- `docs/literal&#9;.md` — Explain retries.'], firstLine: 1 });
+	expect(result.files).toEqual([{ path: 'docs/literal&#9;.md', reason: 'Explain retries.', line: 1 }]);
+});

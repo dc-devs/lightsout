@@ -1,7 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import type { PlanningHandoff } from '#src/contracts/index.ts';
+import { readHandoffSources } from '#src/plan/index.ts';
 
 interface Params {
+	handoff?: PlanningHandoff;
 	cwd: string;
 	/** Plan path as the manifest recorded it — repo-relative by contract; an absolute one from an older record still reads. */
 	plan: string;
@@ -18,7 +21,13 @@ interface Params {
  * spawn agents with nothing to implement. The overview is only required when
  * the manifest says there is one.
  */
-export const readPlanSources = async ({ cwd, plan, overview }: Params): Promise<{ planContent: string; overviewContent?: string } | { error: string }> => {
+export const readPlanSources = async ({
+	cwd,
+	plan,
+	overview,
+	handoff,
+}: Params): Promise<{ planContent: string; overviewContent?: string } | { error: string }> => {
+	if (handoff) return readHandoffSources({ cwd, handoff, plan, overview });
 	// resolve, not join: a relative record is read under the repo, and an
 	// absolute one is read where it points instead of being glued onto the repo.
 	const planPath = resolve(cwd, plan);

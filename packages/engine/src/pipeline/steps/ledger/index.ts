@@ -3,5 +3,6 @@
 // check has a use for it.
 
 export { committedLedgerConflicts } from '#src/pipeline/steps/ledger/committedLedgerConflicts.ts';
+export { groupLedgerRows } from '#src/pipeline/steps/ledger/groupLedgerRows.ts';
 export { missingLedgerNames } from '#src/pipeline/steps/ledger/missingLedgerNames.ts';
 export { seedAcceptanceTests } from '#src/pipeline/steps/ledger/seedAcceptanceTests.ts';

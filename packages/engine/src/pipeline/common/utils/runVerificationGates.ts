@@ -78,14 +78,15 @@ interface Params {
  */
 export const runVerificationGates = async ({ run, coverage, checkpoint, rows, final }: Params): Promise<VerificationResult> => {
 	const packagesDir = run.config['packages-dir'] ?? defaultPackagesDir;
-	const hasRootChanges = run.current().changedFiles.some((file) => packageOf({ file, packagesDir }) === undefined);
+	const acceptancePackages = run.current().planningHandoff ? rows.map((row) => packageOf({ file: row.testFile, packagesDir })) : [];
+	const hasRootChanges = acceptancePackages.includes(undefined) || run.current().changedFiles.some((file) => packageOf({ file, packagesDir }) === undefined);
 	const collector = collectGateObservations();
 
 	const result = await runGates({
 		cwd: run.cwd,
 		config: run.config,
 		coverage,
-		packages: run.current().packages,
+		packages: [...new Set([...run.current().packages, ...acceptancePackages.filter((name) => name !== undefined)])],
 		includeRoot: hasRootChanges,
 		failFast: false,
 		schedule: resolveGateSchedule({ override: resolveGateOverride({ overrides: run.config['gate-overrides'], checkpoint }) }),

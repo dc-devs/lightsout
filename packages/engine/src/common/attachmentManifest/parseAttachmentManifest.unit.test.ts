@@ -51,3 +51,19 @@ describe('parseAttachmentManifest', () => {
 		);
 	});
 });
+
+test.each([
+	{},
+	{ schemaVersion: 1 },
+	{ schemaVersion: 1, files: [null] },
+	{ schemaVersion: 1, files: [[]] },
+	{ schemaVersion: 1, files: [{}] },
+	{ schemaVersion: 1, files: [{ name: 'brainstorm-notes.md' }] },
+	{ schemaVersion: 1, files: [{ name: 'brainstorm-notes.md', sha256: sha }], brainstormGeneration: 1 },
+	{ schemaVersion: 1, files: [{ name: 'brainstorm-notes.md', sha256: sha }], brainstormGeneration: 'not-a-digest' },
+	{ schemaVersion: 1, files: [{ name: 'brainstorm-notes.md', sha256: sha }], brainstormGeneration: sha },
+	{ schemaVersion: 1, files: [{ name: 'brainstorm-notes.md', sha256: sha }], planningGeneration: 1 },
+])('refuses incomplete or ambiguous attachment authority: %j', (value) => {
+	const result = parseAttachmentManifest(setupBrainstormMarker({ text: JSON.stringify(value) }));
+	expect(result).toEqual({ error: expect.stringContaining('brainstorm-attachments.json') });
+});

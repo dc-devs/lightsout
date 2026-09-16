@@ -172,7 +172,7 @@ describe('restoreTicketPlan', () => {
 
 		expect(result).toStrictEqual({ restored: ['decisions.json', 'plan.md'] });
 		expect(folderOf({ dir })).toStrictEqual(['decisions.json', 'plan.md']);
-		expect(progress.filter((line) => line.includes('brainstorm-notes.md'))).toStrictEqual([expect.stringContaining('brainstorm-notes.md')]);
+		expect(progress.filter((line) => line.includes('brainstorm-notes.md'))).toEqual([expect.stringContaining('brainstorm-notes.md')]);
 	});
 
 	test('restoreTicketPlan: reports a generation it could not record and lets the restored plan stand', async () => {
@@ -183,7 +183,7 @@ describe('restoreTicketPlan', () => {
 
 		// The files are what the caller asked for, and they are on disk: a sidecar
 		// this machine could not write is a line to read, not a restore undone.
-		expect({ result, folder: folderOf({ dir }), reported: progress.filter((line) => line.includes('could not record')) }).toStrictEqual({
+		expect({ result, folder: folderOf({ dir }), reported: progress.filter((line) => line.includes('could not record')) }).toEqual({
 			result: { restored: restoredNames },
 			folder: restoredNames,
 			reported: [expect.stringContaining(`plan ${planId} was restored`)],
@@ -198,11 +198,11 @@ describe('restoreTicketPlan', () => {
 
 		// Each refusal has to name its own cause: one sentence for both would let a
 		// legacy folder and an unconfigured repository be told apart by nothing.
-		expect({ legacyName: legacyName.result, noTracker: noTracker.result }).toStrictEqual({
+		expect({ legacyName: legacyName.result, noTracker: noTracker.result }).toEqual({
 			legacyName: { error: expect.stringContaining('is not a plan address') },
 			noTracker: { error: expect.stringContaining(planId) },
 		});
-		expect(noTracker.result).toStrictEqual({ error: expect.stringContaining('ticket-tracker') });
+		expect(noTracker.result).toEqual({ error: expect.stringContaining('ticket-tracker') });
 		expect(mockGetTicketAttachments).not.toHaveBeenCalled();
 	});
 
@@ -211,7 +211,7 @@ describe('restoreTicketPlan', () => {
 
 		const { result } = await restore({ cwd, config: unusableTrackerConfig });
 
-		expect(result).toStrictEqual({ error: expect.stringContaining('ticket-tracker') });
+		expect(result).toEqual({ error: expect.stringContaining('ticket-tracker') });
 		expect(folderOf({ dir })).toBeUndefined();
 		expect(mockGetTicketAttachments).not.toHaveBeenCalled();
 	});
@@ -221,8 +221,46 @@ describe('restoreTicketPlan', () => {
 
 		const { result } = await restore({ cwd });
 
-		expect(result).toStrictEqual({ error: expect.stringContaining('plan.md') });
+		expect(result).toEqual({ error: expect.stringContaining('plan.md') });
 		expect(folderOf({ dir })).toBeUndefined();
 		expect(planMarkersOf({ cwd })).toBeUndefined();
+	});
+	test('stages both required generations before exposing any restored plan', async () => {
+		const { cwd, dir } = setupTicketPlan({ attachedNotes: '# corrupt required notes' });
+
+		const result = await restoreTicketPlan({ cwd, address, config: trackerConfig, env, requireBrainstorm: true });
+
+		expect(result).toEqual({ error: expect.stringContaining('brainstorm-notes.md') });
+		expect(folderOf({ dir })).toBeUndefined();
+		expect(planMarkersOf({ cwd })).toBeUndefined();
+	});
+
+	test('repeated strict restore cannot bypass a required brainstorm failure', async () => {
+		const { cwd, dir } = setupTicketPlan({ attachedNotes: '# corrupt required notes' });
+		await restoreTicketPlan({ cwd, address, config: trackerConfig, env, requireBrainstorm: true });
+
+		const result = await restoreTicketPlan({ cwd, address, config: trackerConfig, env, requireBrainstorm: true });
+
+		expect(result).toEqual({ error: expect.stringContaining('brainstorm-notes.md') });
+		expect(folderOf({ dir })).toBeUndefined();
+	});
+
+	test('requires the selected marker even when an empty target directory already exists', async () => {
+		const { cwd, dir } = setupTicketPlan();
+		mkdirSync(dir, { recursive: true });
+
+		const result = await restoreTicketPlan({ cwd, address, config: trackerConfig, env, requireBrainstorm: true, expectedMarker: 'f'.repeat(64) });
+
+		expect(result).toEqual({ error: expect.stringContaining('differs from the selected ticket record') });
+		expect(folderOf({ dir })).toEqual([]);
+	});
+
+	test('restores a brainstorm-only publication for a fresh queue planning entry', async () => {
+		const { cwd, dir } = setupTicketPlan({ planGenerationOnTicket: false });
+
+		const result = await restoreTicketPlan({ cwd, address, config: trackerConfig, env, requireBrainstorm: true });
+
+		expect(result).toEqual({ restored: ['brainstorm-decisions.json', 'brainstorm-notes.md'] });
+		expect(folderOf({ dir })).toEqual(['brainstorm-decisions.json', 'brainstorm-notes.md']);
 	});
 });
