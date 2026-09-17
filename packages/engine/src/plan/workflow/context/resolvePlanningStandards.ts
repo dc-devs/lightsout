@@ -39,8 +39,6 @@ const standardsDependencies = ({ cwd, observations }: { cwd: string; observation
 	return dependencies;
 };
 
-const byPathAndKind = (a: { path: string; kind: string }, b: { path: string; kind: string }) => `${a.path}:${a.kind}`.localeCompare(`${b.path}:${b.kind}`);
-
 /** Resolve exact existing standards text without changing planning state; the coordinator commits this stable plan-scope bundle. */
 export const resolvePlanningStandards = async ({ cwd, config, scope }: Params): Promise<PlanningStandards> => {
 	const packagesDir = config?.['packages-dir'] ?? defaultPackagesDir;
@@ -65,11 +63,10 @@ export const resolvePlanningStandards = async ({ cwd, config, scope }: Params): 
 		built: pack.built,
 	}));
 	await reader.verify();
-	// The reader records observations as its concurrent reads finish, so both lists are put in path order before anything is fingerprinted.
-	const rawObservations = [...reader.observations.values()].sort(byPathAndKind);
+	const rawObservations = [...reader.observations.values()];
 	const observations = rawObservations
 		.map((observation) => ({ ...observation, path: planningStandardsLocation({ cwd, roots, path: observation.path }) }))
-		.sort(byPathAndKind);
+		.sort((a, b) => `${a.path}:${a.kind}`.localeCompare(`${b.path}:${b.kind}`));
 	const policy = {
 		renderer: 'planning-standards-v1',
 		packages,

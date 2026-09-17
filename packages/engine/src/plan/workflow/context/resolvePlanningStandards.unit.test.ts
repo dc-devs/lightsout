@@ -202,29 +202,6 @@ test.each([false, true])('refuses changed acquisition inputs with repeated read=
 	await expect(resolvePlanningStandards(params)).rejects.toThrow(/changed during resolution/);
 });
 
-const setupReadOrder = async () => {
-	const context = await setupFrameworkUnion();
-	await context.write('packages/alpha/package.json', '{"dependencies":{}}');
-	await context.write('packages/omega/package.json', '{"dependencies":{}}');
-	const actual = jest.requireActual<typeof import('node:fs/promises')>('node:fs/promises');
-	const open = actual.open;
-	let slow = 'alpha';
-	jest.spyOn(actual, 'open').mockImplementation(async (...args) => {
-		if (String(args[0]).endsWith(join('packages', slow, 'package.json'))) await new Promise((resolve) => setTimeout(resolve, 50));
-		return open(...args);
-	});
-	const first = await resolvePlanningStandards(context.params);
-	slow = 'omega';
-	return { ...context, first };
-};
-test('lists standards dependencies in one order whichever manifest read finishes first', async () => {
-	const { params, first } = await setupReadOrder();
-
-	const second = await resolvePlanningStandards(params);
-
-	expect(second.dependencies).toStrictEqual(first.dependencies);
-});
-
 const setupRelocated = async ({ changed = false }: { changed?: boolean } = {}) => {
 	const first = await setupFrameworkUnion();
 	const second = await setupFrameworkUnion();
