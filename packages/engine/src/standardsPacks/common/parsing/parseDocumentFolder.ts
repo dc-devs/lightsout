@@ -1,7 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
-import type { StandardsReader } from '#src/common/types/StandardsReader.ts';
 import type { StandardsSet } from '#src/contracts/index.ts';
 import { parseDeclaration } from '#src/standardsPacks/common/parsing/parseDeclaration.ts';
 import { parseRuleFolder } from '#src/standardsPacks/common/parsing/parseRuleFolder.ts';
@@ -10,7 +9,6 @@ import type { LoadedStandardsRule } from '#src/standardsPacks/common/types/Loade
 import { hasFile } from '#src/standardsPacks/common/utils/hasFile.ts';
 
 interface Params {
-	reader?: StandardsReader;
 	/** Absolute document folder path (contains document.md). */
 	folderPath: string;
 	/** Pack-relative path of the folder. */
@@ -29,8 +27,8 @@ const documentDeclaration = z.object({
 });
 
 /** The rule folders directly under a document, in assembly (lexicographic) order. */
-const listRuleFolders = async ({ folderPath, reader }: { folderPath: string; reader?: StandardsReader }) => {
-	const entries = reader === undefined ? await readdir(folderPath, { withFileTypes: true }).catch(() => []) : await reader.list({ path: folderPath });
+const listRuleFolders = async ({ folderPath }: { folderPath: string }) => {
+	const entries = await readdir(folderPath, { withFileTypes: true }).catch(() => []);
 	const directories = entries
 		.filter((entry) => entry.isDirectory())
 		.map((entry) => entry.name)
@@ -38,7 +36,7 @@ const listRuleFolders = async ({ folderPath, reader }: { folderPath: string; rea
 	const folders: string[] = [];
 
 	for (const name of directories) {
-		const isRule = await hasFile({ path: join(folderPath, name, 'rule.md'), reader });
+		const isRule = await hasFile({ path: join(folderPath, name, 'rule.md') });
 
 		if (isRule) {
 			folders.push(name);
@@ -64,12 +62,8 @@ export const parseDocumentFolder = async ({
 	documentPath,
 	set,
 	problems,
-	reader,
 }: Params): Promise<{ document: LoadedStandardsDocument; rules: LoadedStandardsRule[] } | undefined> => {
-	const text =
-		reader === undefined
-			? await readFile(join(folderPath, 'document.md'), 'utf8').catch(() => undefined)
-			: await reader.text({ path: join(folderPath, 'document.md') });
+	const text = await readFile(join(folderPath, 'document.md'), 'utf8').catch(() => undefined);
 
 	if (text === undefined) {
 		problems.push(`${documentPath}/document.md: unreadable`);
@@ -85,8 +79,8 @@ export const parseDocumentFolder = async ({
 	});
 	const rules: LoadedStandardsRule[] = [];
 
-	for (const name of await listRuleFolders({ folderPath, reader })) {
-		const rule = await parseRuleFolder({ folderPath: join(folderPath, name), set, documentPath, problems, reader });
+	for (const name of await listRuleFolders({ folderPath })) {
+		const rule = await parseRuleFolder({ folderPath: join(folderPath, name), set, documentPath, problems });
 
 		if (rule !== undefined && declaration !== undefined) {
 			rules.push({ ...rule, channel: declaration.channel });

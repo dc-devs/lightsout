@@ -1,5 +1,3 @@
-import type { PlanningAnswer } from '#src/contracts/index.ts';
-
 /**
  * A question a worker stopped on, paired with the answer it was given.
  *
@@ -9,6 +7,4 @@ import type { PlanningAnswer } from '#src/contracts/index.ts';
 export interface AnsweredQuestion {
 	question: string;
 	answer: string;
-	/** Exact durable planning checkpoint answered by the relay, when this is a planning question. */
-	planningAnswer?: PlanningAnswer;
 }

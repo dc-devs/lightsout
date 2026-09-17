@@ -130,26 +130,3 @@ describe('getPhaseProvenance', () => {
 		}).toStrictEqual({ providedBefore: {}, removedBefore: {}, createdBy: {}, removedBy: {} });
 	});
 });
-
-test('getPhaseProvenance supplies only explicit ancestors while retaining global collision ownership', () => {
-	const { phases } = setupPhases({
-		phases: [
-			{ base: 'root.md', create: ['src/root.ts'], remove: ['src/old.ts'] },
-			{ base: 'sibling.md', create: ['src/sibling.ts'] },
-			{ base: 'child.md', move: [{ from: 'src/root.ts', to: 'src/new.ts' }] },
-			{ base: 'leaf.md' },
-		],
-	});
-	const ancestors = new Map([
-		['root.md', new Set<string>()],
-		['sibling.md', new Set<string>()],
-		['child.md', new Set(['root.md'])],
-		['leaf.md', new Set(['root.md', 'child.md'])],
-	]);
-
-	const provenance = getPhaseProvenance({ phases, ancestors });
-
-	expect(asLists({ map: provenance.providedBefore })).toEqual({ 'root.md': [], 'sibling.md': [], 'child.md': ['src/root.ts'], 'leaf.md': ['src/new.ts'] });
-	expect(asLists({ map: provenance.removedBefore })['leaf.md']).toEqual(['src/old.ts', 'src/root.ts']);
-	expect(Object.fromEntries(provenance.createdBy)).toEqual({ 'src/root.ts': 'root.md', 'src/sibling.ts': 'sibling.md', 'src/new.ts': 'child.md' });
-});

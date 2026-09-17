@@ -17,7 +17,6 @@ interface Params {
 	cwd: string;
 	/** The plan's address, `<ticket-branch>/<plan-id>`. */
 	address: string;
-	expectedGeneration?: string;
 	config: LightsoutConfig;
 	/** The process environment the tracker API key is read from. */
 	env: NodeJS.ProcessEnv;
@@ -130,7 +129,6 @@ const recordPlanPublish = async ({
 const publishGenerations = async ({
 	cwd,
 	address,
-	expectedGeneration,
 	planId,
 	ticketBranch,
 	target,
@@ -140,7 +138,6 @@ const publishGenerations = async ({
 }: {
 	cwd: string;
 	address: string;
-	expectedGeneration?: string;
 	planId: string;
 	ticketBranch: string;
 	target: TicketTrackerTarget;
@@ -156,7 +153,7 @@ const publishGenerations = async ({
 	} else {
 		report.published.push(...brainstorm.published);
 
-		const plan = await publishPlan({ cwd, name: address, config, env, onProgress, titlePrefix: planId, expectedGeneration });
+		const plan = await publishPlan({ cwd, name: address, config, env, onProgress, titlePrefix: planId });
 
 		report.published.push(...plan.published);
 		report.stale = plan.stale;
@@ -193,7 +190,7 @@ const publishGenerations = async ({
  * divergent: both the record and the sidecar still name the old generation, and
  * running `lightsout plan publish` a second time finishes the job.
  */
-export const publishTicketPlan = async ({ cwd, address, config, env, onProgress, expectedGeneration }: Params): Promise<TicketPlanPublishReport> => {
+export const publishTicketPlan = async ({ cwd, address, config, env, onProgress }: Params): Promise<TicketPlanPublishReport> => {
 	const parsed = parsePlanAddress({ name: address });
 
 	if (parsed === undefined) {
@@ -225,5 +222,5 @@ export const publishTicketPlan = async ({ cwd, address, config, env, onProgress,
 		return { ticketRef: target.ticketRef, published: [], stale: [], error: refusal };
 	}
 
-	return publishGenerations({ cwd, address, expectedGeneration, planId, ticketBranch, target, config, env, onProgress });
+	return publishGenerations({ cwd, address, planId, ticketBranch, target, config, env, onProgress });
 };

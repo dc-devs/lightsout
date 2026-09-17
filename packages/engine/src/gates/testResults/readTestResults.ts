@@ -1,8 +1,7 @@
 import { readdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { readJsonFile } from '#src/common/utils/readJsonFile.ts';
 import { TestResultsFile } from '#src/contracts/index.ts';
-import { normalizeTestResults } from '#src/gates/testResults/normalizeTestResults.ts';
 
 interface Params {
 	cwd: string;
@@ -29,8 +28,8 @@ export const readTestResults = async ({ cwd, dir }: Params): Promise<TestResults
 	for (const entry of entries.filter((name) => name.endsWith('.json'))) {
 		const parsed = await readJsonFile({ path: join(dir, entry), schema: TestResultsFile });
 
-		merged.push(...(parsed?.testResults ?? []));
+		merged.push(...(parsed?.testResults ?? []).map((file) => ({ ...file, testFilePath: relative(cwd, file.testFilePath) })));
 	}
 
-	return merged.length ? normalizeTestResults({ cwd, results: merged }) : merged;
+	return merged;
 };

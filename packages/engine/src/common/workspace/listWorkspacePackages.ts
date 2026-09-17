@@ -1,9 +1,7 @@
 import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { StandardsReader } from '#src/common/types/StandardsReader.ts';
 
 interface Params {
-	reader?: StandardsReader;
 	cwd: string;
 	/** Monorepo package parent dir (e.g. 'packages'). */
 	packagesDir: string;
@@ -19,20 +17,17 @@ interface Params {
  * and it would steal the precise error `readPackageManifest` already gives.
  *
  * A missing or unreadable packages dir yields an empty list rather than
- * throwing for legacy callers. An observed reader instead preserves absence
- * and propagates unreadability so planning cannot infer an empty workspace.
+ * throwing: callers read that as "nothing is known about this workspace".
  */
-export const listWorkspacePackages = async ({ cwd, packagesDir, reader }: Params): Promise<string[]> => {
+export const listWorkspacePackages = async ({ cwd, packagesDir }: Params): Promise<string[]> => {
 	const root = join(cwd, packagesDir);
-	const entries = reader === undefined ? await readdir(root, { withFileTypes: true }).catch(() => []) : await reader.list({ path: root, optional: true });
+	const entries = await readdir(root, { withFileTypes: true }).catch(() => []);
 	const directories = entries.filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'));
 	const hasManifest = await Promise.all(
 		directories.map(({ name }) =>
-			reader !== undefined
-				? reader.exists({ path: join(root, name, 'package.json') })
-				: stat(join(root, name, 'package.json'))
-						.then(() => true)
-						.catch(() => false),
+			stat(join(root, name, 'package.json'))
+				.then(() => true)
+				.catch(() => false),
 		),
 	);
 

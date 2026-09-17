@@ -5,10 +5,9 @@ import { attachmentTitle } from '#src/common/attachmentManifest/attachmentTitle.
 import { parseAttachmentManifest } from '#src/common/attachmentManifest/parseAttachmentManifest.ts';
 import { scopeAttachments } from '#src/common/attachmentManifest/scopeAttachments.ts';
 import { brainstormNotesFileName } from '#src/common/constants/brainstormNotesFileName.ts';
-import { messageOf } from '#src/common/utils/messageOf.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { pathExists, planWorkspaceDir, resolveBrainstormGeneration } from '#src/plan/index.ts';
+import { pathExists, planWorkspaceDir } from '#src/plan/index.ts';
 import type { TicketTrackerTarget } from '#src/ticket/common/types/TicketTrackerTarget.ts';
 import { getTicketAttachments, readTicketAsset } from '#src/ticketTracker/index.ts';
 
@@ -85,27 +84,19 @@ export const publishBrainstormWhenNotesChanged = async ({
 	env,
 	onProgress,
 }: Params): Promise<{ published: string[] } | { error: string }> => {
-	let canonical: Awaited<ReturnType<typeof resolveBrainstormGeneration>>;
-	try {
-		canonical = await resolveBrainstormGeneration({ cwd, name: address, config });
-	} catch (error) {
-		return { error: messageOf({ error }) };
-	}
 	const notesPath = join(planWorkspaceDir({ cwd, name: address }), brainstormNotesFileName);
 
-	if (!canonical && !(await pathExists({ path: notesPath }))) {
+	if (!(await pathExists({ path: notesPath }))) {
 		return { published: [] };
 	}
 
-	// A notes hash alone cannot prove that the remote canonical core and decisions are intact.
-	// Republish the small deterministic handoff before publishing its dependent plan.
-	const committed = canonical ? { committed: undefined } : await readCommittedNotesHash({ planId, target });
+	const committed = await readCommittedNotesHash({ planId, target });
 
 	if ('error' in committed) {
 		return committed;
 	}
 
-	const onDisk = sha256({ content: canonical?.files.get(brainstormNotesFileName) ?? (await readFile(notesPath)) });
+	const onDisk = sha256({ content: await readFile(notesPath) });
 
 	if (committed.committed === onDisk) {
 		return { published: [] };

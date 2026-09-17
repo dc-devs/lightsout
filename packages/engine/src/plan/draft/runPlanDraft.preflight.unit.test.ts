@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
+import { DraftImplementation } from '#src/contracts/index.ts';
 import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
 import { runPlanDraft } from '#src/plan/draft/runPlanDraft.ts';
 import { sourceEvidencePath } from '#src/plan/evidence/index.ts';
@@ -12,13 +13,13 @@ import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /**
  * A seeded plan workspace whose driver answers to `omp` — the one registered
- * harness that declares every control the drafting environment asks for except
- * the MCP exclusion, so a draft against it is refused for exactly one named
- * reason.
+ * harness that declares every focused control except the MCP exclusion, so a
+ * focused run against it is refused for exactly one named reason while a legacy
+ * run against the very same driver still drafts.
  *
  * The driver itself is an ordinary working author: if the preflight ever lets a
- * run through, the failure is the missing refusal rather than a stub that could
- * not write.
+ * focused run through, the failure is the missing refusal rather than a stub
+ * that could not write.
  */
 const setupIncapableHarness = ({ name }: { name: string }) => {
 	const cwd = setupConsumerRepo();
@@ -51,17 +52,14 @@ describe('runPlanDraft', () => {
 		expect(existsSync(join(planDir, 'plan.md'))).toBeFalsy();
 	});
 
-	test('offers no way past the refusal, because there is no second authoring implementation', async () => {
-		const { cwd, driver, invocations, planDir } = setupIncapableHarness({ name: 'no-escape' });
+	test('skips the environment preflight for a legacy draft', async () => {
+		const { cwd, driver, planDir } = setupIncapableHarness({ name: 'legacy-on-omp' });
 
-		const result = await runPlanDraft({ cwd, driver, name: 'no-escape' });
+		const result = await runPlanDraft({ cwd, driver, name: 'legacy-on-omp', implementation: DraftImplementation.Legacy });
 
-		expectStatus(result, 'failed');
-		// the same harness is refused on every draft of this folder: there is no
-		// flag, no mode and no implementation that reaches an unrestricted writer
-		expect(result.error).not.toMatch(/--legacy/);
-		expect(result.implementation).toBe('focused');
-		expect(invocations).toStrictEqual([]);
-		expect(existsSync(join(planDir, 'plan.md'))).toBeFalsy();
+		// the same harness the focused preflight refuses drafts normally under
+		// legacy — which is what makes the flag a usable escape rather than advice
+		expectStatus(result, 'complete');
+		expect(result.planPaths).toStrictEqual([join(planDir, 'plan.md')]);
 	});
 });

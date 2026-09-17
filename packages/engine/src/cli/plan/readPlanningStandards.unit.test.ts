@@ -75,12 +75,12 @@ test('readPlanningStandards: standards turned off explicitly loads nothing at al
 	expect(logged).toStrictEqual([]);
 });
 
-test('readPlanningStandards: planning receives the code and test standards needed by a fresh implementer', async () => {
+test('readPlanningStandards: planning gets the code set only — the test tree is not its business', async () => {
 	const { cwd } = setupStandards();
 
 	const standards = await readPlanningStandards({ cwd, config: configWith({}) });
 
-	expect((standards ?? '').includes('<!-- lightsout-defaults: tests/')).toBe(true);
+	expect((standards ?? '').includes('<!-- lightsout-defaults: tests/')).toBeFalsy();
 });
 
 test('readPlanningStandards: a react dependency in the consumer manifest activates the react channel', async () => {
@@ -116,22 +116,26 @@ test('readPlanningStandards: several declared packages all reach the plan, in co
 	expect(logged).toStrictEqual([]);
 });
 
-test('readPlanningStandards: a package carrying only a test tree contributes its exact test guidance', async () => {
+test('readPlanningStandards: a package carrying only a test tree contributes nothing, and that is not a failure', async () => {
 	const { cwd, logged } = setupStandards({
 		packages: [{ at: 'standards/tests-only', name: 'tests-only', ruleId: 'mock-prefix', prose: 'Name mocks so they read as mocks.', set: 'tests' }],
 	});
 
 	const standards = await readPlanningStandards({ cwd, config: configWith({ 'standards-packs': ['standards/tests-only'] }) });
 
-	expect(standards).toContain('Name mocks so they read as mocks.');
+	// the package loaded fine — it simply has no code set, so planning gets nothing and nothing is narrated
+	expect(standards).toBe(undefined);
 	expect(logged).toStrictEqual([]);
 });
 
-test('readPlanningStandards: an unavailable declared pack rejects before planning can omit its standards', async () => {
+test('readPlanningStandards: a declared standards pack that does not exist is non-fatal — it narrates and returns nothing', async () => {
 	const { cwd, logged, errors } = setupStandards();
 
-	await expect(readPlanningStandards({ cwd, config: configWith({ 'standards-packs': ['missing-standards'] }) })).rejects.toThrow(/missing-standards/);
+	const standards = await readPlanningStandards({ cwd, config: configWith({ 'standards-packs': ['missing-standards'] }) });
 
-	expect(logged).toStrictEqual([]);
+	// planning continues without standards rather than dying on them
+	expect(standards).toBe(undefined);
+	expect(logged.length).toBe(1);
+	expect(logged[0] ?? '').toMatch(/^standards not loaded \(non-fatal\): standards pack root file not found: .*missing-standards/);
 	expect(errors).toStrictEqual([]);
 });

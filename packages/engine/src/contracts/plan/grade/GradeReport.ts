@@ -7,8 +7,6 @@ import { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.t
 import { GradeInputs } from '#src/contracts/plan/memory/GradeInputs.ts';
 import { GradeScope } from '#src/contracts/plan/memory/GradeScope.ts';
 
-import { PlanningDigest, PlanningFinding, PlanningVocabulary } from '#src/contracts/plan/workflow/index.ts';
-
 /**
  * The persisted `grade.json`: a plan's grade plus the evidence behind it — the
  * deterministic structural findings and the agent-found decision gaps. `passed`
@@ -39,19 +37,6 @@ import { PlanningDigest, PlanningFinding, PlanningVocabulary } from '#src/contra
  */
 export const GradeReport = z.object({
 	planName: z.string(),
-	/** Current canonical workflow proof; legacy lens fields never authorize this generation. */
-	workflow: z
-		.object({
-			format: z.literal('planning-grade-v1'),
-			generation: PlanningDigest,
-			inputDigest: PlanningDigest,
-			target: z.enum(PlanningVocabulary.Target),
-			coverageReceiptIds: z.array(z.string().min(1)),
-			integrationReceiptId: z.string().min(1).optional(),
-			findings: z.array(PlanningFinding),
-		})
-		.strict()
-		.optional(),
 	grade: z.enum(PlanGrade),
 	structural: z.array(StructuralFinding).default([]),
 	gaps: z.array(GradedGap).default([]),

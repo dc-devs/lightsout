@@ -1,15 +1,7 @@
 import { planSteps } from '#src/commands/common/constants/build/planSteps.ts';
 import { type CommandCatalogEntry, CommandGroup, CommandRecordKind } from '#src/contracts/index.ts';
 
-/**
- * `/plan` — one command word over ten invocations.
- *
- * `run` and `answer` are the planner: `run` carries the plan forward until it
- * needs a person or an outside decision, and `answer` is how that decision comes
- * back. The eight that follow are the older step commands, kept because plan
- * folders and scripts still call them by name; each of them enters the same
- * planner, so nothing is reached only through one of them.
- */
+/** `/plan` — eight subcommands under one command word, so it carries eight invocations rather than one. */
 export const planCatalogEntry: CommandCatalogEntry = {
 	id: 'plan',
 	slash: '/plan',
@@ -17,10 +9,8 @@ export const planCatalogEntry: CommandCatalogEntry = {
 	group: CommandGroup.Build,
 	summary: 'Produce a rigorous, implementation-ready plan for a feature — one a fresh-context agent can implement without guessing.',
 	whenToUse:
-		'Use it when you know what you want and need a plan a fresh agent could implement without guessing. It investigates the repository, pressure-tests the design and the drafted plan against independent review, and asks you only the decisions that are genuinely yours to make.',
+		'Use it when you know what you want and need a plan a fresh agent could implement without guessing. It interviews you, drafts, grills the draft for edge cases, and grades the result before anyone writes code.',
 	invocations: [
-		{ id: 'plan-run', positional: 'run' },
-		{ id: 'plan-answer', positional: 'answer' },
 		{ id: 'plan-workspace', positional: 'workspace' },
 		{ id: 'plan-verify-facts', positional: 'verify-facts' },
 		{ id: 'plan-draft', positional: 'draft' },
@@ -38,60 +28,18 @@ export const planCatalogEntry: CommandCatalogEntry = {
 			required: true,
 		},
 		{
-			name: 'answer-file',
-			value: '<path>',
-			meaning:
-				'A JSON file holding one PlanningAnswer: the questionId, checkpointRevision and questionDigest the run printed, the option picked or the text typed, and the confirmation carrying the user’s own message.',
-			shape: 'plan-answer',
-			required: true,
-		},
-		{
-			name: 'stage',
-			value: 'brainstorm|implementation',
-			meaning: 'Which stage to carry: brainstorm settles the product direction, implementation turns a settled direction into a plan.',
-			fallback: 'implementation.',
-			shape: 'plan-run',
-			required: false,
-		},
-		{
-			name: 'stage',
-			value: 'brainstorm|implementation',
-			meaning: 'The stage the answered question belongs to.',
-			fallback: 'implementation.',
-			shape: 'plan-answer',
-			required: false,
-		},
-		{
-			name: 'mode',
-			value: 'interactive|automatic',
-			meaning: 'Who answers: interactive stops at every question for you, automatic answers what it can and stops only at a genuine product decision.',
-			fallback: 'interactive.',
-			shape: 'plan-run',
-			required: false,
-		},
-		{
-			name: 'mode',
-			value: 'interactive|automatic',
-			meaning: 'Who answers the questions that follow this one.',
-			fallback: 'interactive.',
-			shape: 'plan-answer',
-			required: false,
-		},
-		{
-			name: 'input-file',
-			value: '<path>',
-			meaning:
-				'A JSON file holding one PlanningInput: the original sources with their digests, the claims made from them, and the confirmations carrying the user’s own approving messages.',
-			fallback: 'The plan carries on from what it already recorded.',
-			shape: 'plan-run',
-			required: false,
-		},
-		{
 			name: 'notes',
 			value: '<path>',
 			meaning: 'Rough notes to start from — a /brainstorm file, or anything you wrote yourself.',
 			fallback: 'The workspace starts from the request alone.',
 			shape: 'plan-verify-facts',
+			required: false,
+		},
+		{
+			name: 'legacy',
+			meaning: 'Draft with the previous drafting implementation rather than the focused one.',
+			fallback: 'The focused drafting implementation.',
+			shape: 'plan-draft',
 			required: false,
 		},
 		{

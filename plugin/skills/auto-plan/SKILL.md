@@ -1,26 +1,17 @@
 ---
 name: auto-plan
-description: Plan a ticket alone — the engine answers every question below a written escalation bar, stops at the ones that are genuinely yours, and rolls onward per the auto-plan config block. Use when the user asks to auto-plan a ticket, plan it without the interview, or hand a ticket straight to the factory. Input is a ticket, a feature description, or a rough-notes file path. Output feeds the `implement` skill.
+description: Plan a ticket alone — self-answers every question below a written escalation bar, shows you one proposal, and rolls onward per the auto-plan config block. Use when the user asks to auto-plan a ticket, plan it without the interview, or hand a ticket straight to the factory. Input is a ticket, a feature description, or a rough-notes file path. Output feeds the `implement` skill.
 allowed-tools: Bash, BashOutput, Read, Write, Edit, Grep, Glob, Task
 ---
 
 # lightsout: auto-plan
 
-**This skill is the interactive conductor, not the engine.** It runs the same
-planner the `plan` skill runs, with one difference: `--mode automatic`, which
-tells the engine to answer every question it can and stop only at the ones that
-are genuinely the user's. Everything else is identical — the same records, the
-same investigation, the same independent challenge before drafting and after it,
-the same repair-and-verify, the same derived readiness.
-
-**Do not add gates, retries, caps, repair budgets or contract parsing here.**
-There is no worker loop to run, no round limit to count and no re-draft to
-order. Do not read `.planning/` and do not keep a state machine beside the
-engine's.
-
-**Under `lightsout queue` this skill is not invoked at all.** The queue runs the
-planner itself, in its own process, and then runs the build. Nothing below
-applies there.
+**This skill is the interactive conductor, not the engine.** All determinism —
+fact verification, the draft↔structural-lint loop, dedup detection, grading —
+lives in the `lightsout plan …` subcommands as deterministic code. **Do not add
+gates, retries, caps, or contract parsing here.** What is particular to this
+skill: **it answers the questions the plan skill puts to the user, and stops
+only at the checkpoints the config leaves standing.**
 
 Resolve the plugin root once from this loaded skill's absolute path: it is two
 directories above this `SKILL.md`. In Claude Code, `${CLAUDE_PLUGIN_ROOT}` may
@@ -31,25 +22,26 @@ reinstall the plugin or run `pnpm bundle`.
 
 ## Question format
 
-When this skill does put a question to the user — an escalation the engine
-raised, a parked question, a vetoed digest row — it uses the labeled four-part
-shape (**Context**, **Question**, **Options**, **Recommendation**) documented in
+When this skill does put a question to the user — an escalation, a parked
+question, a vetoed digest row — it uses the labeled four-part shape
+(**Context**, **Question**, **Options**, **Recommendation**) documented in
 the plan skill, which is the authoritative copy and lives at
-`<plugin-root>/skills/plan/SKILL.md`. Read it there rather than recalling it.
-Its durable-delivery rule applies here too: put every complete question block in
-the final response that waits for the user's answer, never only in commentary.
-Two other rules are the easiest to lose and are repeated here: **never ask
-through an option-picker tool** — every question is written out in that final
-response, because a picker's one-line labels cannot carry a Context or an
-Options list — and **one full-format question per final response**.
+`<plugin-root>/skills/plan/SKILL.md`. Read it there rather than
+recalling it. Its durable-delivery rule applies here too: put every complete
+question block in the final response that waits for the user's answer, never
+only in commentary. Two other rules are the easiest to lose and are repeated
+here: **never ask through an option-picker tool** — every question is written
+out in that final response, because a picker's one-line labels cannot carry a
+Context or an Options list — and **one full-format question per final response**.
 
 ## The escalation bar
 
-This is the bar automatic mode applies. The engine applies it; this section says
-what it means, so a question that arrives can be recognised for what it is and
-relayed rather than second-guessed.
+**This section is a cross-skill contract.** The `brainstorm` skill reads it
+here, at `<plugin-root>/skills/auto-plan/SKILL.md`, to test the questions its
+probe turns up — so there is one definition and no second copy. Do not rename
+the heading or move the section without updating that reader.
 
-A question is the user's only when **both** hold:
+Escalate a question to the user only when **both** of these hold:
 
 1. Two reasonable engineers, given everything already settled, would choose
    differently.
@@ -57,7 +49,7 @@ A question is the user's only when **both** hold:
    read, a behaviour they will see, a cost they will pay, or a decision they
    will live with.
 
-Fail either one and it is not theirs.
+Fail either one and you answer it yourself.
 
 **A best-practice question never escalates, however hard it is.** How to
 structure a file, which existing pattern to mirror, what to name a private
@@ -65,136 +57,336 @@ helper, where a test goes, how to keep a function under the size cap — the
 standards and the surrounding code answer these, and a user who is asked one
 learns nothing they did not already delegate.
 
-**A question that clears the bar is never planned past.** It arrives as an
-`awaiting-user` result carrying its own context, options and recommendation, and
-nothing moves until it is answered. Without `auto-approve-plan` you ask it and
-carry on; with `auto-approve-plan` the run parks — see
+**When you are unsure whether a question clears the bar, answer it yourself and
+put it in the digest.** This is the opposite of the plan skill's "when in doubt,
+escalate", and deliberately so: a wrong self-answer costs one plan edit at the
+proposal, where every self-answer is listed and veto-able, while a needless
+escalation costs the thing this skill exists to save.
+
+**A question that clears the bar is never planned past.** Without
+`auto-approve-plan` it becomes an unscheduled checkpoint: ask it in the Question
+format, one at a time, before the step that depends on it, then fold the answer
+in and carry on. Under `auto-approve-plan` the run parks instead — see
 [Parking a run](#parking-a-run).
 
-**You do not lower the bar and you do not raise it.** Relay what arrives. Do not
-answer an escalation on the user's behalf because a run is taking a while, and
-do not manufacture one because a decision feels weighty — the engine already
-made that call from the record, which is more than this session can see.
+## Convergence invariant
 
-## What is already settled
+**A grade below A is never a terminal success state.** Treat a grader's
+`needs-a-human` or `unjudged` label as evidence to evaluate through this
+skill's escalation bar, not as authority to stop the run. For every finding
+below the bar, resolve it from the approved scope, recorded decisions, and
+repository conventions; update the plan and decisions; then re-run the
+applicable validation, deduplication, and grade checks.
 
-**A settled decision is never re-asked, and you are not the one who decides
-that.** The engine holds the settled claims, the confirmations behind them and
-the questions it has already had answered; it does not raise a question whose
-answer is on the record. A question that reaches you is one the record cannot
-answer.
+**Convergence budget.** After the initial grade, perform at most **two**
+repair rounds. Each round resolves every below-bar finding, records the
+decisions, runs the applicable validation and deduplication checks, then grades
+again — and each regrade is mostly mechanical, because the deterministic checks
+re-run for free. A passed, complete grade (A) proceeds normally.
 
-**Brainstorm alignment is inherited, not re-interviewed.** When the work traces
-to a `/brainstorm` that reached alignment, the product direction it settled is
-already in the record along with the technical questions it delegated. Do not
-re-open any of it.
+If both rounds are spent and the plan remains below A, preserve the complete
+grade history and present the remaining gaps and the changes the rounds made.
+Ask the human to choose exactly one: authorize one more round, explicitly accept
+the current below-A plan and proceed to implementation, or change direction /
+settle a genuine product-level decision. Do not auto-approve or auto-implement a below-A plan.
+Only an explicit human acceptance may bypass the A-grade requirement; record it
+in `decisions.json` and run the sync command before rolling onward.
 
-**The user's latest explicit instruction still outranks the record.** Follow it,
-and say so plainly in the answer you send back so the record carries the
-supersession.
+The only exception is a question that genuinely clears the escalation bar:
+one that cannot be resolved from the record and whose alternatives visibly
+change the product. Park that question using the configured parking path. Do
+not manufacture such an escalation because convergence is inconvenient or a
+grader labeled it `needs-a-human`.
 
-**On a ticket holding several plans, an earlier plan's records are context.**
-Read them for what was built and why. A change to a plan whose implementation is
-finished belongs in **this** plan, never in an edit to that one.
+## Settled decisions
+
+**Settled means settled — never re-answer it.** Before routing any question
+through the bar, check whether the answer is already on the record. Three
+records count, and all three are the user's:
+
+| Where | Holds |
+|---|---|
+| `.lightsout/plans/<name>/brainstorm-decisions.json` | what was settled with the user in a brainstorm before this session |
+| `.lightsout/plans/<name>/decisions.json` | what was settled earlier in this run |
+| the drafted plan's `## Decision Log` | a rendering of the rows of both, composed by the engine — read a settled answer here, never write one |
+
+**Record first, refresh, then edit the plan.** The engine composes the
+`## Decision Log` from the two record files, so a row written into a plan file
+by hand is overwritten the next time it runs. Every decision made after the
+draft — a grill answer, a dedup resolution, a converge resolution, a veto — is
+appended to `decisions.json` **first**, then the log is refreshed with:
+
+```sh
+node "<plugin-root>/dist/cli.mjs" plan sync-decisions --name <name>
+```
+
+Only then edit the plan content the answer changes. Never write a
+`Decision Log` row by hand. The steps below call this **the sync command**.
+
+**Name the phases a decision concerns.** For a phased plan, a row that
+resolves a finding carries `"phases"` naming the finding's `phase` file, plus
+any other phase file the answer changes. A revision row that repeats a
+question names the phases its new answer concerns; the engine also covers the
+phases the row it replaces named. A decision that names its phases lets the
+next re-grade read those phases and the phases connected to them, not the
+whole plan. Step 3 says when to leave the field out.
+
+A settled question is **dropped**, not answered again: it adds no record
+anywhere, and it never enters the bar's routing at all.
+
+**Re-open a settled decision only for a contradiction you can name at a
+specific `file:line`.** A re-opened decision is recorded as a **new** row that
+**repeats the original row's `question` text verbatim**, with a rationale naming
+the `file:line` and saying which row it supersedes — the engine's renderer
+marks every earlier row sharing that question as superseded by the later one,
+so the corrected answer is the binding one while both rows stay in the log.
+Run the sync command afterwards. Never edit `brainstorm-decisions.json`;
+brainstorm owns it, and both rows belong in the log.
+
+**A settled decision is not a self-answer.** It never enters the assumption
+digest, because the user already made it.
+
+Two further rules are the plan skill's, in its own `## Settled decisions`
+section, and apply here unchanged: the user's latest explicit instruction
+outranks every record, and on a ticket holding several plans an earlier plan's
+records are context rather than this plan's settled rows. Read them there.
+
+**Headless under `lightsout queue` there is no user to ask.** A discrepancy
+between the ticket text and the instruction being followed is recorded as a
+decisions row naming what the ticket says and which instruction won, and nothing
+is written to the ticket.
 
 ## Steps
 
 **0. Read the config.** Read `lightsout.config.json` at the repo root and take
-its `auto-plan` block. A missing file, a missing block or a missing key all mean
-`false`. State the three resolved values back in one line before doing anything
-else, so the user knows which checkpoints are live — for example:
+its `auto-plan` block. A missing file, a missing block or a missing key all
+mean `false`. State the three resolved values back in one line before doing
+anything else, so the user knows which checkpoints are live — for example:
 
 ```
 auto-plan: propose after drafting · implement on approval · proposal required
 ```
 
-These keys decide **which checkpoints stand**, never how thoroughly the plan is
-worked, and they are not standing product approval: a product decision the
-planner reaches later still stops the run with its own question whatever the
-block says.
+**1. Name the plan and gather the source.** **Under `lightsout queue`,** `<name>`
+is the plan address the task message names. The engine chose that plan and put it
+on the ticket's record before this session started, so no derivation runs at all:
+plan exactly that folder, and never run `ticket add-plan`, `ticket mode` or
+`ticket adopt`.
 
-**1. Name the plan and open its tree.** Naming follows the plan skill's step 1 —
-`ticket show`, then the lowest-numbered plan still at `planning` or a plan added
-with `ticket add-plan` — with two differences of this skill's own.
+**Outside the queue,** naming follows the plan skill's step 0: `ticket show`,
+then the lowest-numbered plan still at `planning` or a plan added with
+`ticket add-plan`. Two differences are this skill's. A switch to multiple-plan
+mode changes whether the ticket ships on its own, so it clears the escalation bar
+— it is an unscheduled checkpoint, or a park under `auto-approve-plan`. And this
+skill never adopts a ticket folder holding files from before ticket records: it
+plans that folder as it stands and names `lightsout ticket adopt` in the digest.
 
-A switch to multiple-plan mode changes whether the ticket ships on its own, so it
-is the user's: ask it, or park it under `auto-approve-plan`. And this skill never
-adopts a ticket folder holding files from before ticket records: it plans that
-folder as it stands and names `lightsout ticket adopt` in the digest.
+With no ticket, derive a
+kebab `<name>` from the request (e.g. "add a rate-limit banner" →
+`rate-limit-banner`), and rename the folder to the ticket's branch when the
+ticket is filed — the ticket-workflow skill's `## Plan folder` section says what
+else a rename has to update, and when it is too late to do one. When the request
+is a rough-notes file path, read it before anything else; when it already lives
+under the plans directory, take `<name>` from the path segments below that
+directory rather than deriving a new one. Read
+`.lightsout/plans/<name>/brainstorm-decisions.json`
+when it exists — its rows are already settled with the user. In a fresh
+worktree it may not be on disk yet: `plan verify-facts` in step 2 fetches the
+brainstorm the ticket carries, so the folder is read again there.
 
-With no ticket, derive a kebab `<name>` from the request. When the request is a
-rough-notes file path, read it before anything else; when it already lives under
-the plans directory, take `<name>` from the path segments below that directory.
+When the work traces to a ticket, read the ticket and follow the
+ticket-workflow skill at `<plugin-root>/skills/ticket-workflow/SKILL.md`:
+its `## Decisions` lines are settled
+rows, its `## Open questions` are this run's agenda, and its acceptance criteria
+are floors, never ceilings.
 
-Then, as the very first shell command after `<name>` is settled:
+Once `<name>` is settled, establish the plan's own worktree as the very first
+shell command:
 
 ```sh
 node "<plugin-root>/dist/cli.mjs" plan workspace --name <name>
 ```
 
-Work from the absolute path it prints. A nonzero exit is the end of the run —
-report the sentence it printed and stop.
+Read the absolute path it prints on its last line, and do every later step from
+that directory — reading source, authoring `facts.json`, and every
+`lightsout plan …` call. The plan folder already in this checkout is copied
+into the tree; pass any rough-notes path as an absolute one, since it lives in
+the checkout you started from. A nonzero exit is the end of the run — report the
+sentence it printed and stop, never carry on in the launching checkout. The
+command is safe to re-run: a session already standing in the tree is answered
+the same path. A queue worktree needs no second tree: the command recognises the
+queue's ticket worktree and answers that same directory, so there the step is a
+no-op rather than a relocation.
 
-**2. Capture what the user actually asked for.** Write one `PlanningInput` JSON
-file holding the **original wording** — the ticket's own title and description,
-the user's request, the rough notes — the claims made from it, and a confirmation
-per settled user claim carrying the message where they said it.
-
-The shape is strict. Each `sources` entry carries the text and the SHA-256 of
-exactly that text; a claim with `"owner": "user"` and `"state": "settled"` names
-the `confirmationId` that settles it; that confirmation's `approvedDigest` is the
-digest of the source the claim came from.
-
-**Never invent a source, a confirmation or an approval the user did not give.**
-This skill answers questions on the user's behalf; it does not get to record
-their approval. A self-answer is a planner decision and belongs in the digest,
-not in a confirmation.
-
-A plan continuing from an aligned brainstorm already has its record — pass
-`--input-file` only for material that is genuinely new. A plan folder of the
-older shape needs no input file at all.
-
-**3. Run the planner in automatic mode.**
+**2. Explore and verify the facts.** Read the files the request touches, follow
+the integration points, and note real signatures; for a feature spanning many
+packages, optionally fan out read-only Explore subagents for breadth — either
+way YOU author the facts, and only from paths you confirmed by reading them.
+Author `.lightsout/plans/<name>/facts.json` in the **exact** shape the plan
+skill documents (the engine hard-parses it). Then run:
 
 ```sh
-node "<plugin-root>/dist/cli.mjs" plan run --name <name> --mode automatic [--input-file <path>]
+node "<plugin-root>/dist/cli.mjs" plan verify-facts --name <name> [--notes "<path>"]
 ```
 
-It investigates, settles the design, has it challenged before drafting, drafts,
-has the draft challenged again, repairs and verifies each finding, and reviews
-the whole — answering every question below the bar itself. It prints one typed
-result and exits.
+**That command also fetches the brainstorm the ticket carries** — both
+`brainstorm-notes.md` and `brainstorm-decisions.json` — into
+`.lightsout/plans/<name>/`, before it reads anything. So they have now landed in
+the folder even in a fresh worktree that never saw them, and they must be read
+there before the interview is routed. Step 3's `Settled decisions` check reads
+them at that point, not before.
 
-- **`awaiting-user`** — either a question that cleared the bar, or the proposal
-  checkpoint the config left standing. Handle it per step 4, then send the answer
-  back:
+Pass `--notes` when the request came from a rough-notes file. **When the run
+traces to a ticket instead, author the notes yourself first** — the idea in the
+ticket's words, the scope call, the approach chosen and the ones rejected with a
+one-line why — write them to a temporary path and pass that via `--notes`, so
+the frozen `brainstorm-notes.md` carries this self-brainstorm's reasoning the way it would
+carry a human brainstorm's. The snapshot is write-once; re-running verify-facts
+never clobbers it. **Skip the self-authored notes entirely when `verify-facts`
+fetched a `brainstorm-notes.md` from the ticket**: that file is the brainstorm's
+own record, the write-once snapshot already makes it win, and authoring a second
+one only invites this skill to believe its own summary is the record.
 
-  ```sh
-  node "<plugin-root>/dist/cli.mjs" plan answer --name <name> --mode automatic --answer-file <path>
-  ```
+Fix any genuinely wrong path in facts.json and re-run verify-facts. While
+reading, deliberately check each settled brainstorm decision against the code
+and note any conflict with the exact `file:line`.
 
-  The answer file repeats the `questionId`, `checkpointRevision` and
-  `questionDigest` the result printed, plus the option picked or the text typed,
-  plus a confirmation carrying the user's message. An answer naming a checkpoint
-  the plan has moved past is refused rather than applied to the wrong question —
-  re-run `plan run` and handle what it asks now.
+**3. Answer the interview yourself.** Work the plan skill's Elicitation agenda
+— the scope check, the global-constraint collection, the harvest of the session
+and of the ticket, the brainstorm hand-off — but route every item through the
+escalation bar instead of asking it.
 
-- **`complete`** — readiness was derived from the records and persisted with the
-  generation it certifies. Go to step 5.
+- **Harvested rows are settled.** Decisions the user already made in this
+  session, in the ticket's `## Decisions`, or in a brainstorm row are recorded
+  with `"assumption": false` and never enter the digest.
+- **Every self-answer is a row** with `"source": "Elicitation"` and
+  `"assumption": true`.
+- **Global constraints.** A project-wide rule the user has already stated (in
+  the ticket, in the session, or in a brainstorm row) gets its own row whose
+  `question` begins exactly `Global constraint:`. Do **not** invent one; when
+  none was stated there are no such rows and the plan's section will read
+  `None`.
+- **The scope call** — one plan, one phased plan, or several independent plans
+  — clears the bar whenever it would split the ticket into more than one plan,
+  because that decides what gets built. A single-versus-phased call does not:
+  the engine makes its own estimate at draft time.
+- **There is no alignment checkpoint to earn.** This skill's licence to
+  self-answer is the bar, and the user granted it by invoking the skill.
+- Author `.lightsout/plans/<name>/decisions.json` in the **exact** shape the
+  plan skill documents: `planName`, plus a `decisions` array of
+  `source` / `question` / `options` / `choice` / `rationale` / `assumption`,
+  and the optional `phases` — a list of the phase-file basenames the decision
+  concerns. Leave `phases` out when the decision reaches the whole plan, when
+  its reach is not known, on rows written before the plan is drafted (phase
+  files do not exist yet, so no row from this step carries it), and on
+  `Global constraint:` rows, which always reach the whole plan. Never write an
+  empty list.
 
-- **`externally-blocked`** — report the `cause` it printed and stop.
+**4. Propose early** (only when `propose-before-draft` is true). Show the
+proposal now, before any engine agent spends: the design shape in plain words,
+the digest of step 3's self-answers, and the plan folder path. Run step 8's
+proposal handling. On approval, continue to step 5 and show no second proposal.
 
-Re-run `plan run` after each answer, until it prints `complete` or
-`externally-blocked`. A below-par grade is not a place to stop and neither is a
-long run: what ends this is the engine's result.
+**5. Draft.** Run:
 
-**4. The proposal.** When the result is the proposal checkpoint, make it one
-final response. It carries, in this order:
+```sh
+node "<plugin-root>/dist/cli.mjs" plan draft --name <name>
+```
+
+Pass `--scope single|phased` only to override the engine's estimate. On a facts
+error, correct facts.json, re-run verify-facts and re-draft. On remaining
+structural issues on a phased plan, resplit the overview's `## Phases` table and
+its `## Phase Declarations` to spread the creates across more phases, then
+re-run draft.
+
+**6. Grill it yourself.** Generate the same relentless stream of edge-case
+questions against the drafted plan; grilling intensity never drops. The pass
+interrogates the contract — the file map, the exported signatures, the file each
+new file mirrors, and the acceptance-test ledger — because that is what a plan
+carries that a test cannot state for itself.
+
+- **Drop** a question the record already answers, with no new row.
+- **Route the rest through the bar.** Self-answered → append the row to
+  `decisions.json` with `"source": "Grill"`, `"assumption": true` and a
+  rationale ending `(self-answered)`, run the sync command, then fold the
+  answer into the plan file via Edit. Above the bar → an unscheduled
+  checkpoint, or a park under `auto-approve-plan`.
+- **Name the phases.** On a phased plan, a Grill row carries `"phases"` naming
+  the phase files the answer changes, and a row that re-asks a question names
+  the phases its new answer concerns.
+- **Stop rule.** The plan skill grills until the user says stop; there is no
+  user here, so: **stop when one complete pass over every plan file produces no
+  question whose answer would change the plan.** A second pass that only
+  re-treads settled ground is the signal. An unbounded loop with no human in it
+  does not terminate on its own.
+
+**7. Dedup and grade.**
+
+```sh
+node "<plugin-root>/dist/cli.mjs" plan dedup --name <name>
+```
+
+Read `.lightsout/plans/<name>/dedup.json`. Every finding's `recommendation` is a
+best-practice call and therefore below the bar: **auto-accept them all**. Append
+one `decisions.json` row with `"source": "Dedup"` per resolution — on a phased
+plan with `"phases"` naming the finding's `phase` file, plus any other phase
+file the resolution changes — and run the sync command once, then apply each resolution to the plan file the finding's
+`phase` names — `reuse` drops the Files-to-Create entry and wires the plan's
+usage to the existing symbol; `extend` adds a Files-to-Modify entry for it;
+`extract` adds the shared file at `suggestedLocation` plus a Files-to-Modify
+entry per `migrateCallers`; `defer` leaves the entry and records the accepted
+duplication in `## Prior Art`; `distinct` records the justification there. A
+finding whose resolution the record already carries is applied from the record,
+not re-decided. `"complete": false` means the scan was partial — resolve what is
+there and re-run dedup.
+
+```sh
+node "<plugin-root>/dist/cli.mjs" plan grade --name <name>
+```
+
+Read `.lightsout/plans/<name>/grade.json`. `"passed": true` **and**
+`"complete": true` → go on. Otherwise take the blocking gaps (`needs-a-human`
+and `unjudged`), route each through the bar, and resolve the below-bar ones by
+appending a `decisions.json` row with `"source": "Converge"` — on a phased plan
+with `"phases"` naming the gap's `phase` file, plus any other phase file the
+answer changes — running the sync command, then editing the plan file the gap's
+`phase` names — then re-grade.
+**Never re-run `plan draft`**: it regenerates the plan files and would clobber
+every edit folded in since.
+
+- **A pass whose `incompleteReason` names blocking structural findings ran no
+  semantic reader.** Its `gaps` list is empty because nobody looked. Fix the
+  structural findings and re-grade before reading anything into it.
+- `scope` says how far the pass reached. Only a `full` pass can be `passed`; a
+  `focused` pass is a repair check and is always `"complete": false`. The engine
+  chooses the scope and runs the full review itself once a focused pass clears,
+  so a focused pass is one pass — clearing it buys no extra repair round.
+- A blocking gap carrying a `findingId` is a finding the plan has seen before.
+  Its record is in `.lightsout/plans/<name>/grade-memory.json`, which the engine
+  owns: never edit it, and never treat a finding's absence from a later pass as
+  it being resolved. A record closes only when the plan states the answer and the
+  engine's re-verification judge cites where.
+- When a re-grade reports that a recorded passing full review still covers the
+  current inputs, nothing was re-run and that grade is current. Deleting
+  `grade-memory.json` forces a new baseline.
+- **Convergence rule.** A below-A grade is work to do, not a proposal input.
+  Apply the [convergence invariant](#convergence-invariant): resolve every
+  below-bar gap, record the decision, re-run validation and deduplication when
+  the edit affects them, and re-grade until the result is passed and complete
+  or the two repair rounds are spent. Do not stop merely because two grades
+  have similar findings, a run is taking a long time, or the grader used a
+  `needs-a-human`/`unjudged` label.
+
+**8. The proposal.** One final response, unless `auto-approve-plan` is true
+and nothing cleared the bar. The proposal and its approval request are the
+deliverable for that turn: do not put any part only in commentary. It carries,
+in this order:
 
 - what the plan builds, in plain words — two or three sentences, no jargon;
-- **the assumption digest**: a table of every question this session answered for
-  itself — the question, the choice, the one-line why — in the order they were
-  made;
+- **the assumption digest**: a table of every self-answered question — the
+  question, the choice, and the one-line why — in the order the rows were made;
+- any question that cleared the bar and any gap left unresolved, each in the
+  Question format;
 - the counts the plan states (files created, files touched) and where the plan
   folder is on disk;
 - what approval does next, read from the config: start the build, or stop.
@@ -202,56 +394,86 @@ final response. It carries, in this order:
 Then the ask, in one line: approve, veto specific digest rows, or change
 direction.
 
-- **Approval** is sent as the answer, with a confirmation carrying the user's
-  own approving message.
-- **A veto re-opens exactly that question.** Ask it live in the Question format
-  and send the corrected answer back through `plan answer`. Never edit the plan
-  files by hand to apply it — the answer belongs in the record, and a hand edit
-  is authority the engine cannot see.
-- **A change of direction is a stop.** Say plainly that this is what the
-  interactive `plan` skill is for, and hand the plan folder over.
+- **A veto re-opens exactly that question.** Ask it live in the Question format,
+  append the corrected answer to `decisions.json` with `"source": "Converge"`,
+  run the sync command, fold the answer into the plan file via Edit, re-grade,
+  and show a short amended digest. Never re-draft.
+- **A change of direction is a stop.** Say plainly that this is what
+  the interactive `plan` skill is for, and hand the plan folder over.
 
-When the result is a question rather than the proposal, it cleared the bar: ask
-it in the Question format, one at a time, before the proposal — or park it, per
-[Parking a run](#parking-a-run).
-
-**5. Publish the approved ticket-backed plan.** Once the planner has printed
-`complete` and the work traces to a ticket:
+**9. Publish the approved ticket-backed plan.** Once approval exists — explicit
+or automatic — and before either handing off or implementing, publish when the
+work traces to a ticket:
 
 ```sh
 node "<plugin-root>/dist/cli.mjs" plan publish --name <name>
+```
+
+A successful publish is also what moves this plan from `planning` to `ready` on
+the ticket's record.
+
+Then write the ticket's planning status. **The command differs between the two
+ways this skill runs.**
+
+Interactive run — the planning status and the tracker status move together:
+
+```sh
 node "<plugin-root>/dist/cli.mjs" ticket-state --ref <ticket> --planning-status planning-complete --tracker-status ready
 ```
 
-A successful publish is what moves this plan from `planning` to `ready` on the
-ticket's record. A nonzero exit from either is a stop: report the exact failure
-and do not hand off or implement an artifact another machine cannot recover.
-A plan whose citations rest on evidence that cannot travel stays blocked at
-publish rather than being published in a form that no longer proves what it
-claims — report what it says.
+Headless under `lightsout queue` — the planning status alone:
 
-Never treat a `complete` result as a substitute for these commands: readiness
-proves the plan is ready, publish makes that ready plan durable.
+```sh
+node "<plugin-root>/dist/cli.mjs" ticket-state --ref <ticket> --planning-status planning-complete
+```
 
-With no ticket, skip both commands.
+Under the queue the ticket is **already In Progress**: the queue records that
+before this worker's agent starts. Passing `--tracker-status ready` there would
+move the ticket backwards out of In Progress while a live worktree still owns
+its branch — and `planning-complete` at Ready to implement is one of the three
+pairs the queue selects, so a later drain could pick up work already underway.
+The build the queue runs after this session ends would then write In Progress a
+third time. Omitting the flag writes the planning status and leaves the tracker
+status alone.
 
-**6. Roll onward.** With `implement-on-approval` false, print the handoff line
+With no ticket, skip both commands. A nonzero exit from either is a stop: report
+the exact failure and do not hand off or implement an artifact another machine
+cannot recover. Under `lightsout queue`, report that as `failed` in the worker's
+final JSON so the ticket parks with the actionable error. Never treat a
+passing grade or automatic approval as a substitute for these commands; the
+grade proves the plan is ready, while publish makes that ready plan durable.
+Writing `planning-complete` here is what the implement run finds and preserves —
+step 10's run interactively, and the queue's own engine-owned build under
+`lightsout queue` — so the ticket never enters In Progress still claiming
+shaping is owed.
+
+**10. Roll onward.** Under `lightsout queue` this step does nothing at all,
+whatever `implement-on-approval` says: stop after step 9's publish and report
+`complete`. The queue runs the implement pipeline itself, outside this session,
+because a build started inside an agent session dies when that session does. On a
+ticket holding several plans it builds the ready ones in numeric order after this
+session ends, not this plan alone.
+
+Otherwise, with `implement-on-approval` false, print the handoff line
 and stop:
 
 ```
 Next: run the `implement` skill with .lightsout/plans/<name>
 ```
 
-On a multiple-plan ticket, add the line the plan skill adds: the ticket stays
-open until the user files a ship request with `lightsout ticket request-ship`.
-Never file one yourself.
+On a multiple-plan ticket, add the same line the plan skill's step 8 adds: the
+ticket stays open until the user files a ship request with `lightsout ticket
+request-ship`, and the ticket-workflow skill's `### Ship requests` says what it
+has to name. Never file one yourself.
 
-With it true, read `<plugin-root>/skills/implement/SKILL.md` and follow it in
-full, using `.lightsout/plans/<name>` as the provided plan path, just as if the
-user had invoked `implement` directly. That includes backgrounding the
+With it true, read `<plugin-root>/skills/implement/SKILL.md` and follow it
+in full, using `.lightsout/plans/<name>` as the provided plan path, just as if
+the user had invoked `implement` directly. That includes backgrounding the
 implementation, starting `status --watch`, relaying every progress block
 verbatim until the watch exits, and then relaying the engine's final report.
 Running the implementation CLI alone skips the watch and is not the handoff.
+The implement skill owns the launch and status-relay procedure so both entry
+points stay in step.
 
 The engine performs the In Progress write itself at the `implement` edge and
 refuses to start when it fails, so this skill writes nothing further. Whether
@@ -260,45 +482,47 @@ not this skill's.
 
 ## Parking a run
 
-When `auto-approve-plan` is true and the engine raises a question, there is no
-proposal to carry it in and this skill does not guess past it. It:
+When `auto-approve-plan` is true and a question clears the bar, there is no proposal
+to carry it in and the skill does not guess past it. It:
 
-- stops, leaving the plan exactly where the engine left it;
+- stops before the step that depends on the answer;
 - when the work traces to a ticket, appends the question to that ticket's
   `## Open questions` section, creating the section when absent, following the
-  ticket-workflow skill at `<plugin-root>/skills/ticket-workflow/SKILL.md` —
-  written as a question, never as a prescription. Neither field is written: the
-  ticket keeps `planning-ready-auto-plan` and its current tracker status. A
-  parked run is waiting on a human, and reclassifying the ticket underneath them
-  would hide that;
+  ticket-workflow skill at `<plugin-root>/skills/ticket-workflow/SKILL.md`
+  — written as a question, never as a
+  prescription. Neither field is written: the ticket keeps
+  `planning-ready-auto-plan` and its current tracker status. A parked run is
+  waiting on a human, and reclassifying the ticket underneath them would hide
+  that;
 - when there is no ticket, states the question in the final response instead;
-- reports the plan folder path, and says that `plan answer`, the interactive
-  `plan` skill, or a re-run after the question is settled continues the work from
-  where it stopped.
+- reports the plan folder path, and says that the interactive `plan` skill or a re-run
+  after the question is settled continues the work.
 
-`auto-approve-plan` means *do not wait for me when nothing needs me*. It never
-means *guess past what does*.
+`auto-approve-plan` means *do not wait for me when nothing needs me*. It never means
+*guess past what does*.
 
-## Diagnostics
+## Parking under `lightsout queue`
 
-`lightsout status --planning <name>` shows what the records hold: the work items
-and their states, the blocking findings still open, the saved conclusions
-available for reuse, the findings repaired and verified, what the recorded
-provider calls cost, and the outcome of the implement run this repository holds
-for the plan.
+When this skill runs headlessly under `lightsout queue`, there is no user in
+the session to park a question to, and no ticket step to write it on. The
+parking above does not apply. Instead:
 
-Read it as it is written. Detail the records do not hold is shown as
-unavailable, and relaying it as a zero, a pass or a saving is a claim the records
-do not support. Planning cost is never an implementation outcome, and a low one
-is not evidence that anything worked.
+- stop before the step that depends on the answer;
+- report `terminated:ambiguity` as the final JSON, with the question as the
+  first entry of `failures`, and stop there — nothing is written to the ticket
+  from inside the session.
+
+The engine relays the question to the terminal that started the queue, writes
+the answer to the run's decisions file and to the ticket's `## Decisions`
+section, and re-invokes with it. The worktree keeps whatever was already done,
+so the re-invocation continues rather than starting over.
 
 ## What this skill never does
 
-- It adds no engine subcommand and changes no engine planning machinery. Every
-  deterministic step is the engine's, reached through `plan run` and
-  `plan answer`.
+- It adds no engine subcommand and changes no engine plan machinery. Every
+  deterministic step is the `lightsout plan …` subcommands as they already
+  stand.
 - It never edits the plan or brainstorm skills. Those are the manual route and
   stay exactly as they are.
-- It does not lower the escalation bar because a run is taking long.
-- It does not edit plan files by hand to settle a question.
-- It does not record a confirmation the user did not give.
+- It does not lower the bar because a run is taking long.
+- It does not skip Dedup or Grade to reach the proposal sooner.

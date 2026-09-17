@@ -9,7 +9,4 @@
 export interface AttachmentManifest {
 	schemaVersion: 1;
 	files: { name: string; sha256: string }[];
-	/** Presence requires the canonical portable record even if an attachment was lost. */
-	planningGeneration?: string;
-	brainstormGeneration?: string;
 }

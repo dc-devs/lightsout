@@ -2,8 +2,8 @@ import { sha256 } from '#src/common/utils/sha256.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { attachDurableFiles } from '#src/plan/publish/common/utils/attachDurableFiles.ts';
 import { prepareAttachments } from '#src/plan/publish/common/utils/prepareAttachments.ts';
-import { readPublicationFiles } from '#src/plan/publish/common/utils/readPublicationFiles.ts';
 import { reportStaleAttachments } from '#src/plan/publish/common/utils/reportStaleAttachments.ts';
+import { durablePlanFiles } from '#src/plan/publish/durablePlanFiles.ts';
 import { readPlanTicketRef } from '#src/plan/readPlanTicketRef.ts';
 import { resolveShipSettings } from '#src/ship/index.ts';
 import { getTicketsByIdentifiers, resolveTrackerSettings } from '#src/ticketTracker/index.ts';
@@ -12,7 +12,6 @@ interface Params {
 	cwd: string;
 	/** Kebab plan name — the folder the plan's own files live in. */
 	name: string;
-	expectedGeneration?: string;
 	config: LightsoutConfig;
 	/** The process environment the tracker API key is read from. Passed rather than read, so a test never mutates `process.env`. */
 	env: NodeJS.ProcessEnv;
@@ -53,8 +52,8 @@ interface PublishReport {
  * deleting an attachment this run did not write would still be an unattended
  * destructive act on an outward surface.
  */
-export const publishPlan = async ({ cwd, name, config, env, onProgress, titlePrefix, expectedGeneration }: Params): Promise<PublishReport> => {
-	const durable = await readPublicationFiles({ cwd, name, expectedGeneration, config });
+export const publishPlan = async ({ cwd, name, config, env, onProgress, titlePrefix }: Params): Promise<PublishReport> => {
+	const durable = await durablePlanFiles({ cwd, name });
 
 	if (durable.error !== undefined) {
 		return { published: [], stale: [], error: durable.error };
@@ -80,7 +79,7 @@ export const publishPlan = async ({ cwd, name, config, env, onProgress, titlePre
 		};
 	}
 
-	const prepared = await prepareAttachments({ files: durable.files, resolved: durable.resolved, titlePrefix });
+	const prepared = await prepareAttachments({ files: durable.files, titlePrefix });
 
 	if ('error' in prepared) {
 		return { ticketRef, published: [], stale: [], error: prepared.error };

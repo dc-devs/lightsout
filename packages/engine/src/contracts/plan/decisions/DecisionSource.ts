@@ -9,7 +9,6 @@
  * `decisions.json`.
  */
 export const DecisionSource = {
-	Planning: 'Planning',
 	Brainstorm: 'Brainstorm',
 	Elicitation: 'Elicitation',
 	Grill: 'Grill',

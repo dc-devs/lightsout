@@ -236,21 +236,6 @@ describe('runWorkerWithRelay', () => {
 		expect(mockRunAutoPlanWorker).toHaveBeenLastCalledWith(expect.objectContaining({ answeredQuestion: { question: 'Which one?', answer: 'the second one' } }));
 	});
 
-	test('continues automatic planning beyond two resolved questions', async () => {
-		const { relay, coordinatorRunDir } = setupRelay({ answers: ['first', 'second', 'third'] });
-		mockRunAutoPlanWorker
-			.mockResolvedValueOnce({ question: 'First?' })
-			.mockResolvedValueOnce({ question: 'Second?' })
-			.mockResolvedValueOnce({ question: 'Third?' })
-			.mockResolvedValueOnce({});
-
-		const outcome = await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueWorker.AutoPlan) });
-
-		relay.close();
-		expect(outcome).toEqual({});
-		expect(mockRunAutoPlanWorker).toHaveBeenCalledTimes(4);
-	});
-
 	test('hands the plan folder the plan worker located to the engine-owned build', async () => {
 		const { relay, coordinatorRunDir } = setupRelay();
 		const worktreePath = mkdtempSync(join(tmpdir(), 'lightsout-plan-worker-'));

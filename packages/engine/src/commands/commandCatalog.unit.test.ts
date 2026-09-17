@@ -103,8 +103,6 @@ describe('commandCatalog', () => {
 		const planShapes = byId.get('plan')?.invocations.map((invocation) => [invocation.id, invocation.positional]);
 
 		expect(planShapes).toStrictEqual([
-			['plan-run', 'run'],
-			['plan-answer', 'answer'],
 			['plan-workspace', 'workspace'],
 			['plan-verify-facts', 'verify-facts'],
 			['plan-draft', 'draft'],
@@ -126,19 +124,15 @@ describe('commandCatalog', () => {
 		expect([invocations[placed - 1]?.positional, invocations[placed + 1]?.positional]).toStrictEqual(['draft', 'lint']);
 	});
 
-	test('plan lists the planner ahead of the step commands, because run and answer are how a plan is carried', () => {
+	test('plan lists its workspace shape ahead of verify-facts, because it runs before anything else', () => {
 		const { byId } = setupCatalog();
-		const invocations = byId.get('plan')?.invocations ?? [];
 
-		const leading = invocations.slice(0, 2);
-		const workspace = invocations.findIndex((invocation) => invocation.positional === 'workspace');
+		const leading = byId.get('plan')?.invocations.slice(0, 2);
 
 		expect(leading).toStrictEqual([
-			{ id: 'plan-run', positional: 'run' },
-			{ id: 'plan-answer', positional: 'answer' },
+			{ id: 'plan-workspace', positional: 'workspace' },
+			{ id: 'plan-verify-facts', positional: 'verify-facts' },
 		]);
-		// the step commands keep their own order behind them, workspace still ahead of verify-facts
-		expect([invocations[workspace]?.positional, invocations[workspace + 1]?.positional]).toStrictEqual(['workspace', 'verify-facts']);
 	});
 
 	test('notes the extra meaning only on the plan subcommand whose flag changes its result', () => {

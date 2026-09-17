@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { DecisionRow } from '#src/contracts/index.ts';
+import { type DecisionRow, DraftImplementation } from '#src/contracts/index.ts';
 import type { DriverInvocation } from '#src/drivers/index.ts';
 import { runPlanDraft } from '#src/plan/draft/index.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
@@ -14,19 +14,18 @@ import { recordingDriver } from '#tests/helpers/recordingDriver.ts';
 import { seedPlanWorkspace } from '#tests/helpers/seedPlanWorkspace.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
-// The older, file-driven entry: a plan folder whose record is `facts.json` and
-// `decisions.json` rather than the canonical planning store. Those folders
-// predate canonical storage and still draft, so what they are owed is pinned
-// here — every engine-owned section composed, and the two-stage phased fan-out
-// intact. What is gone is the choice of authoring engine: there is one, and no
-// caller can ask for another.
+// What a legacy draft must keep doing once the focused implementation becomes
+// the default: its repair round composes the Decision Log and nothing else, its
+// writer spawn asks the harness for no environment at all, and its two-stage
+// phased flow still fans out from an overview.
 
 /**
- * One settled row the draft must render into `## Global Constraints`.
+ * One settled row a focused draft would render into `## Global Constraints`, and
+ * which a legacy draft must leave unrendered.
  *
  * The `Global constraint:` question prefix is what marks a row as binding the
  * whole plan, and the choice text is deliberately unlike anything the fixture
- * body carries, so the rendered bullet is visible by those words alone.
+ * body carries, so a regenerated bullet would be visible by those words alone.
  */
 const constraintRow: DecisionRow = {
 	source: 'Elicitation',
@@ -38,14 +37,14 @@ const constraintRow: DecisionRow = {
 };
 
 /**
- * A plan folder of the older shape, clean against the structural lint, whose
+ * A legacy single draft over a repo the structural lint is clean against, whose
  * saved record holds the one constraint row.
  *
  * The authored body renders its `## Decision Log` from an EMPTY record and
- * states `- None` under `## Global Constraints`, so both sections arrive stale —
- * which is what makes the composed result readable off the file.
+ * states `- None` under `## Global Constraints`, so both sections arrive stale.
+ * Which of the two the draft rewrites is then the whole answer.
  */
-const setupFolderDraft = ({ name }: { name: string }) => {
+const setupLegacyDraft = ({ name }: { name: string }) => {
 	const cwd = setupConsumerRepo();
 
 	seedPlanWorkspace({ cwd, name });
@@ -60,8 +59,17 @@ const setupFolderDraft = ({ name }: { name: string }) => {
 	return { cwd, driver, name, planDir, invocations };
 };
 
-/** The same older folder shape, with facts touching enough paths to estimate the phased variant and a harness answering every spawn the two-stage flow emits. */
-const setupFolderPhasedDraft = ({ name }: { name: string }) => {
+/**
+ * A legacy draft of a plan the estimate reads as phased: facts touching enough
+ * paths for the overview variant, and a scripted harness answering every spawn
+ * shape the two-stage flow can emit.
+ *
+ * A substantially different arrangement from the single draft above, so it is a
+ * factory of its own: the phased flow is reached only by the estimate, and the
+ * legacy one is reached only by typing the flag, so nothing else in the suite
+ * runs it at all.
+ */
+const setupLegacyPhasedDraft = ({ name }: { name: string }) => {
 	const draft = setupPhasedDraft({ name });
 	const invocations: DriverInvocation[] = [];
 	const driver = recordingDriver({
@@ -76,60 +84,64 @@ const setupFolderPhasedDraft = ({ name }: { name: string }) => {
 	return { ...draft, driver, invocations };
 };
 
-describe('runPlanDraft from a plan folder', () => {
-	test('composes every engine-owned section from the folder’s own saved rows', async () => {
-		const { cwd, driver, name, planDir } = setupFolderDraft({ name: 'folder-rows' });
+describe('runPlanDraft legacy implementation', () => {
+	test("leaves a legacy convergence's repair rounds unchanged", async () => {
+		const { cwd, driver, name, planDir } = setupLegacyDraft({ name: 'legacy-rounds' });
 
-		const result = await runPlanDraft({ cwd, driver, name });
+		const result = await runPlanDraft({ cwd, driver, name, implementation: DraftImplementation.Legacy });
 
 		expectStatus(result, 'complete');
 
 		const plan = readFileSync(join(planDir, 'plan.md'), 'utf8');
 
-		// the log row and the rendered bullet together prove the folder's saved
-		// record reached both engine-owned sections, rather than one of them
+		// the log row proves the round did sync the one section legacy owns; the
+		// untouched `- None` and the absent constraint bullet prove it regenerated
+		// no other engine-owned section, which is only true while the mechanical
+		// repair pass stays off a legacy convergence
 		expect({
 			logComposed: plan.includes('| Global constraint: which runtime? |'),
 			constraintsAsAuthored: plan.includes('## Global Constraints\n\n- None'),
 			constraintBulletRendered: plan.includes('- Node only'),
-		}).toStrictEqual({ logComposed: true, constraintsAsAuthored: false, constraintBulletRendered: true });
+		}).toStrictEqual({ logComposed: true, constraintsAsAuthored: true, constraintBulletRendered: false });
 	});
 
-	test('spawns the writer into the restricted environment, with no way to ask for another', async () => {
-		const { cwd, driver, name, invocations } = setupFolderDraft({ name: 'folder-spawn' });
+	test("leaves a legacy spawn's driver invocation unchanged", async () => {
+		const { cwd, driver, name, invocations } = setupLegacyDraft({ name: 'legacy-spawn' });
 
-		const result = await runPlanDraft({ cwd, driver, name });
+		const result = await runPlanDraft({ cwd, driver, name, implementation: DraftImplementation.Legacy });
 
 		expectStatus(result, 'complete');
-		// a clean body needs no structural repair, so the writer is the whole spawn
-		// set — and it reaches the harness carrying the environment request, which
-		// is now the only environment a plan writer is ever spawned into
+		// a clean body needs no repair, so the writer is the whole spawn set — and
+		// it reaches the harness carrying no environment request, exactly as it did
+		// before the focused implementation existed
 		expect(invocations.map(({ prompt, environment }) => ({ role: prompt.includes('# Draft input') ? 'writer' : 'other', environment }))).toStrictEqual([
-			{ role: 'writer', environment: expect.objectContaining({ noMcpServers: true, noSkillCatalog: true, toolAllowlist: true, settingsPreserved: true }) },
+			{ role: 'writer', environment: undefined },
 		]);
 	});
 
-	test('fans a phased folder draft out from its overview, one spawn per declared phase', async () => {
-		const { cwd, driver, name, planDir, calls, invocations } = setupFolderPhasedDraft({ name: 'folder-phased' });
+	test('fans a legacy phased draft out from its overview, asking for no environment on either stage', async () => {
+		const { cwd, driver, name, planDir, calls, invocations } = setupLegacyPhasedDraft({ name: 'legacy-phased' });
 
-		const result = await runPlanDraft({ cwd, driver, name });
+		const result = await runPlanDraft({ cwd, driver, name, implementation: DraftImplementation.Legacy });
 
 		expectStatus(result, 'complete');
 		// One overview spawn, then one spawn per declared phase, and both files on
-		// disk: the two-stage flow an older plan folder still reaches.
+		// disk: the two-stage flow the flag has to keep reaching, spawning exactly
+		// what it spawned before the focused implementation took the default.
 		expect({
 			variant: result.variant,
 			roles: calls.map(({ role }) => role),
 			planPaths: result.planPaths,
 			overview: existsSync(join(planDir, 'overview.md')),
 			phase: existsSync(join(planDir, 'phase1-core.md')),
+			environments: invocations.map(({ environment }) => environment),
 		}).toStrictEqual({
 			variant: 'overview',
 			roles: ['overview', 'phase'],
 			planPaths: [join(planDir, 'overview.md'), join(planDir, 'phase1-core.md')],
 			overview: true,
 			phase: true,
+			environments: [undefined, undefined],
 		});
-		expect(invocations.map(({ environment }) => environment !== undefined)).toStrictEqual(invocations.map(() => true));
 	});
 });

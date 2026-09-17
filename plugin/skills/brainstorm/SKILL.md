@@ -1,6 +1,6 @@
 ---
 name: brainstorm
-description: Shape a vague idea into a buildable direction through dialogue — explores the branches, offers competing approaches with trade-offs and a recommendation, and converges on a design stated in plain words. Use when the user has a rough idea, wants to think through a feature before planning it, or asks to brainstorm. It settles the product, states which technical questions it is handing to planning, and always writes the design write-up and the settled decisions, publishing both to the ticket.
+description: Shape a vague idea into a buildable direction through dialogue — checks whether it is one idea or several, offers 2–3 competing approaches with trade-offs and a recommendation, and converges on a design stated in plain words. Use when the user has a rough idea, wants to think through a feature before planning it, or asks to brainstorm. It decides its own outcome — ready to implement, or ready to auto-plan — and always writes the design write-up and the settled decisions, publishing both to the ticket.
 allowed-tools: Bash, Read, Write, Grep, Glob, Task
 ---
 
@@ -15,19 +15,7 @@ holds no deterministic decision of its own, and it never reads back what it
 writes. Triggering is gentle: the
 description above is the only trigger — no hook, no forced invocation. Writing
 the settled-decisions file below changes nothing about this standing — the skill
-never reads the file back; the engine validates it when planning ingests it.
-
-**What this skill owns is the product.** What gets built, what it is worth, what
-is explicitly out, and which of the approaches on the table wins. It does not
-settle the implementation: the file layout, the private structure, the internal
-names and the test placement are the planner's, and this skill says so in
-writing rather than guessing at them.
-
-**It never parses the planning store and never invents a scheduler.** There is
-one engine loop, reached through `lightsout plan run` and `lightsout plan
-answer`; this skill guides the dialogue and calls the engine. It does not read
-`.planning/`, does not decide which role runs next, and does not keep a state
-machine of its own beside the engine's.
+never reads the file back; the engine validates it at draft time.
 
 ## Question format
 
@@ -174,72 +162,23 @@ say so in one line.
 it touches, what is explicitly out — and iterate until the user confirms it
 matches what they meant.
 
-**5. Hand the converged design to the engine.** The session that had the
-conversation is the worst judge of whether it covered everything — believing it
-did is the exact failure this step exists to catch. The engine's brainstorm
-stage is what challenges it, with a reader that was not in the room.
+**5. Probe for what is still open.** The session that had the conversation is
+the worst judge of whether it covered everything — believing it did is the
+exact failure this step exists to catch. So hand the work to a reader who was
+not there.
 
-`<name>` is the plan this idea belongs to. Settle it **now** rather than at the
-end — the engine records against it — following step 7's `<name>` rules, which
-are the one place they are stated.
+Write the converged design out in full, plus the ticket when there is one, and
+spawn a subagent with no memory of this conversation. Its brief: read that
+statement and the ticket, read nothing else of the conversation, and answer
+with the questions a builder would still have to guess at.
 
-Write one `PlanningInput` JSON file holding the **original wording** of what the
-user asked for, the claims made from it, and a confirmation per settled claim
-carrying the user's own message. Then:
-
-```sh
-node "<plugin-root>/dist/cli.mjs" plan run --name <name> --stage brainstorm --input-file <path>
-```
-
-Its shape is strict and the engine validates every field. Three rules decide
-whether it is accepted at all, so get them right rather than discovering them
-from an error:
-
-- each `sources` entry carries the user's own text and the SHA-256 of exactly
-  that text in `sha256`;
-- a claim marked `"state": "settled"` with `"owner": "user"` names the
-  `confirmationId` of the confirmation that settles it — nothing else may settle
-  a user claim;
-- that confirmation's `approvedDigest` is the digest of the source the claim
-  came from, and its `messageText` is what the user actually said.
-
-Never invent a source, a confirmation, or an approval the user did not give.
-There is no plain-text answer route and no way to mint one; a fabricated
-confirmation is the one failure this contract exists to prevent.
-
-The command prints one typed result and exits:
-
-- **`awaiting-user`** — a genuine question, carrying its own context, options
-  and recommendation. Put it to the user in the Question format, one at a time,
-  then send the answer back:
-
-  ```sh
-  node "<plugin-root>/dist/cli.mjs" plan answer --name <name> --stage brainstorm --answer-file <path>
-  ```
-
-  The answer file repeats the `questionId`, `checkpointRevision` and
-  `questionDigest` the result printed, plus the option picked or the text the
-  user typed, plus a confirmation carrying their message. An answer that names a
-  question the plan has moved past is refused rather than applied to the wrong
-  one — re-run `plan run` and ask again.
-
-- **`aligned`** — the engine's own statement that the product direction is
-  settled and independently challenged. This is the authoritative alignment, and
-  it is the only thing that licenses step 7's publish.
-
-- **`externally-blocked`** — report the `cause` it printed and stop. Do not
-  work around it.
-
-Keep answering until the result is `aligned`. There is no round limit here to
-apply and no point at which "the user said stop" substitutes for alignment: what
-ends this is the engine's result, and a user who wants to stop early stops the
-session rather than being recorded as aligned.
-
-**Say what you are delegating.** Before the last `plan run`, state in the design
-which technical questions you are handing to planning — the file layout, the
-internal structure, the private names, where the tests go. Planning inherits
-this alignment and will not re-interview the user about the product, so
-anything you leave unsaid is something it has to work out for itself.
+Test each returned question against the escalation bar defined in the
+`auto-plan` skill's `## The escalation bar` section, at
+`<plugin-root>/skills/auto-plan/SKILL.md`. Read it there — that section is the
+one definition of the bar and this skill never restates it. Ask what clears the
+bar in the Question format, one at a time, fold each answer into the design,
+then probe once more. **At most two rounds**, then stop: a loop with a human in
+it spends their attention rather than the machine's.
 
 **6. Judge the outcome.** The skill decides this itself; never ask the user
 which exit to take. The brainstorm holds the context needed to judge, so asking
@@ -263,9 +202,7 @@ Anything else is **ready to auto-plan**. Say which outcome you chose and why, in
 one line.
 
 **7. Write, publish, label.** Both outcomes write both files. There is no exit
-that writes nothing, and nothing here runs before step 5 returned `aligned` —
-publishing a direction the engine has not aligned would put an unchallenged
-design on the ticket under the same title an aligned one uses.
+that writes nothing.
 
 **With no ticket**, derive a kebab `<name>` from the idea and offer it for
 override. That is the ordinary case: a brainstorm usually runs before a ticket

@@ -31,21 +31,6 @@ export const captureCommandOutput = (): CapturedCommandOutput => {
 		errors.push(String(args[0]));
 	});
 
-	// Console output is captured above; Jest's worker streams do not consistently
-	// call back for an empty drain write. Model that unowned stream boundary while
-	// leaving nonempty writes real. exitCli's own tests exercise drain ordering.
-	for (const stream of [process.stdout, process.stderr]) {
-		const write = stream.write.bind(stream);
-		jest.spyOn(stream, 'write').mockImplementation((chunk, encoding, callback) => {
-			if (chunk === '') {
-				const complete = typeof encoding === 'function' ? encoding : callback;
-				queueMicrotask(() => complete?.());
-				return true;
-			}
-			return write(chunk, encoding, callback);
-		});
-	}
-
 	jest.spyOn(process, 'exit').mockImplementation((code?: number | string | null): never => {
 		exitCodes.push(code);
 

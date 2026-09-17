@@ -1,5 +1,5 @@
 ---
-description: 'Plan a ticket alone — the engine answers every question below a written escalation bar, stops at the ones that are genuinely yours, and rolls onward per the auto-plan config block. Use when the user asks to auto-plan a ticket, plan it without the interview, or hand a ticket straight to the factory. Input is a ticket, a feature description, or a rough-notes file path. Output feeds the `implement` skill.'
+description: 'Plan a ticket alone — self-answers every question below a written escalation bar, shows you one proposal, and rolls onward per the auto-plan config block. Use when the user asks to auto-plan a ticket, plan it without the interview, or hand a ticket straight to the factory. Input is a ticket, a feature description, or a rough-notes file path. Output feeds the `implement` skill.'
 ---
 <!-- generated:lightsout-prompt -->
 

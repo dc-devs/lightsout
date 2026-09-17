@@ -30,7 +30,7 @@ test('passes a harness that declares every requested control', () => {
 	expect(refusal).toBeUndefined();
 });
 
-test('names every missing control and the one remedy that exists, offering no fallback', () => {
+test('names every missing control and the legacy escape in one refusal', () => {
 	// pi declares the tool allowlist and leaves the harness's own settings
 	// alone, but can express neither MCP exclusion nor skill exclusion — two
 	// missing controls, so a message naming only the first is a failure.
@@ -39,13 +39,10 @@ test('names every missing control and the one remedy that exists, offering no fa
 	const refusal = preflightDraftEnvironment({ driver, environment });
 
 	// The refusal is human-facing copy, so each claim is matched loosely: the
-	// harness it resolved, both controls it cannot provide, and the configuration
-	// change that resolves it.
+	// harness it resolved, both controls it cannot provide, and the flag that
+	// reaches the legacy implementation instead.
 	expect(refusal).toEqual(expect.stringMatching(/\bpi\b/));
 	expect(refusal).toEqual(expect.stringMatching(/mcp/i));
 	expect(refusal).toEqual(expect.stringMatching(/skill/i));
-	expect(refusal).toEqual(expect.stringMatching(/harness/i));
-	// there is no second authoring implementation to fall back to, so nothing may
-	// read as though waiting or retrying would produce one
-	expect(refusal).not.toEqual(expect.stringMatching(/--legacy|fall ?back|retry|try again with/i));
+	expect(refusal).toEqual(expect.stringMatching(/--legacy/));
 });

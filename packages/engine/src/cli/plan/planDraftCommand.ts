@@ -1,8 +1,16 @@
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
-import { printPlanningRunResult } from '#src/cli/plan/common/utils/printPlanningRunResult.ts';
-import { type LightsoutConfig, PlanningVocabulary, PlanVariant } from '#src/contracts/index.ts';
+import { printStructuralFinding } from '#src/cli/common/render/printStructuralFinding.ts';
+import { bold } from '#src/cli/common/terminal/bold.ts';
+import { green } from '#src/cli/common/terminal/green.ts';
+import { red } from '#src/cli/common/terminal/red.ts';
+import { yellow } from '#src/cli/common/terminal/yellow.ts';
+import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { exitOnPlanFailure } from '#src/cli/plan/common/utils/exitOnPlanFailure.ts';
+import { planRunOptions } from '#src/cli/plan/common/utils/planRunOptions.ts';
+import type { LightsoutConfig, StructuralFinding } from '#src/contracts/index.ts';
+import { DraftImplementation, PlanningStep, PlanVariant, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { capturePlanningLayout, createPlanningRuntime, ensurePlanningInput, PlanningMode, runPlanning } from '#src/plan/index.ts';
+import { getBlockingFindings, PlanRunStatus, recordPlanningStep, runPlanDraft } from '#src/plan/index.ts';
 
 interface Params {
 	cwd: string;
@@ -13,24 +21,78 @@ interface Params {
 	flags: Map<string, string | true>;
 }
 
-/** Draft is a compatibility command name for the authoritative planner, including its approval and completion obligations. */
-export const planDraftCommand = async ({ cwd, driver, name, config, flags }: Params): Promise<void> => {
-	if (flags.has('legacy')) throw new Error('--legacy no longer selects an authoring engine; existing legacy artifacts remain readable.');
-	const scope = getStringFlag({ flags, name: 'scope' });
-	if (flags.has('scope') && scope !== 'single' && scope !== 'phased') throw new Error('--scope must be single or phased');
-	if (!config) throw new Error('Planning requires lightsout.config.json');
-	const runtime = await createPlanningRuntime({
+/**
+ * Advisories gate nothing, so however the draft ended is where they get read at
+ * all — beneath the written paths on success, beneath the errors otherwise.
+ * Computed, persisted and never seen is the failure this exists to prevent: one
+ * of them is the over-eight-phases note, whose whole job is telling the human
+ * how many decisions the review will put in front of them.
+ */
+const printPlanAdvisories = ({ advisories }: { advisories: StructuralFinding[] }) => {
+	for (const finding of advisories) {
+		printStructuralFinding({ finding });
+	}
+};
+
+export const planDraftCommand = async ({ cwd, driver, name, standards, config, flags }: Params): Promise<void> => {
+	const scopeFlag = getStringFlag({ flags, name: 'scope' });
+	const scope = scopeFlag === 'phased' ? PlanVariant.Overview : scopeFlag === 'single' ? PlanVariant.Single : undefined;
+	// A valueless flag, read the way `--worktree` is: typed or not, never a value.
+	// It has no config key on purpose — a persistent default is exactly how legacy
+	// would quietly become the default again.
+	const implementation = flags.get('legacy') === true ? DraftImplementation.Legacy : DraftImplementation.Focused;
+	const drafted = await recordPlanningStep({
 		cwd,
 		name,
-		config,
-		driver,
-		mode: PlanningMode.Interactive,
-		stage: PlanningVocabulary.Stage.Implementation,
-		onProgress: (message) => console.error(message),
+		step: PlanningStep.Draft,
+		implementation,
+		work: () => runPlanDraft({ ...planRunOptions({ cwd, driver, name, standards, config }), scope, implementation }),
+		// A facts error or structural issues exit 1 below, so they record as failed.
+		statusOf: ({ result }) =>
+			result.status === PlanRunStatus.Complete
+				? RunStatus.Passed
+				: result.status === PlanRunStatus.PausedRateLimit
+					? RunStatus.PausedRateLimit
+					: RunStatus.Failed,
 	});
-	const snapshot = await ensurePlanningInput({ runtime });
-	if (scope && snapshot.record.sources.some((source) => source.artifact !== 'foreground-layout.txt'))
-		await capturePlanningLayout({ runtime, scope: scope === 'phased' ? PlanVariant.Overview : PlanVariant.Single });
-	const result = await runPlanning({ runtime });
-	await printPlanningRunResult({ result });
+	const result = await exitOnPlanFailure({ result: drafted });
+
+	if (result.status === PlanRunStatus.FactsError) {
+		console.error(`\n${red('facts error')} — the plan-writer found the facts/decisions do not match the codebase. Re-explore, then re-draft:`);
+
+		for (const discrepancy of result.discrepancies) {
+			console.error(`  ${yellow('⚠')} ${discrepancy}`);
+		}
+
+		printPlanAdvisories({ advisories: result.advisories });
+
+		return exitCli({ code: 1 });
+	}
+
+	// A refused phase breakdown surfaces here too, so each line leads with the
+	// plan file the finding is in — on a phased draft that is the difference
+	// between a navigable list and twenty unattributed lines.
+	if (result.status === PlanRunStatus.StructuralIssues) {
+		const blocking = getBlockingFindings({ findings: result.findings });
+
+		console.error(`\n${red(`${blocking.length} structural issue(s)`)} remain after re-drafting — resolve, then re-draft:`);
+
+		for (const finding of blocking) {
+			printStructuralFinding({ finding, write: console.error });
+		}
+
+		printPlanAdvisories({ advisories: result.advisories });
+
+		return exitCli({ code: 1 });
+	}
+
+	console.log(`\n${bold(`plan draft ${name}`)} — ${result.variant}, structurally clean`);
+
+	for (const path of result.planPaths) {
+		console.log(`  ${green('✓')} ${path}`);
+	}
+
+	printPlanAdvisories({ advisories: result.advisories });
+
+	return exitCli({ code: 0 });
 };
