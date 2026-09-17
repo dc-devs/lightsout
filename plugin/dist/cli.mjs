@@ -31136,6 +31136,7 @@ var standardsDependencies = ({ cwd, observations }) => {
   }
   return dependencies;
 };
+var byPathAndKind = (a, b) => `${a.path}:${a.kind}`.localeCompare(`${b.path}:${b.kind}`);
 var resolvePlanningStandards = async ({ cwd, config: config2, scope }) => {
   const packagesDir = config2?.["packages-dir"] ?? defaultPackagesDir;
   const roots2 = resolveStandardsPackRoots({ cwd, standardsPacks: config2?.["standards-packs"] });
@@ -31159,8 +31160,8 @@ var resolvePlanningStandards = async ({ cwd, config: config2, scope }) => {
     built: pack.built
   }));
   await reader.verify();
-  const rawObservations = [...reader.observations.values()];
-  const observations = rawObservations.map((observation) => ({ ...observation, path: planningStandardsLocation({ cwd, roots: roots2, path: observation.path }) })).sort((a, b) => `${a.path}:${a.kind}`.localeCompare(`${b.path}:${b.kind}`));
+  const rawObservations = [...reader.observations.values()].sort(byPathAndKind);
+  const observations = rawObservations.map((observation) => ({ ...observation, path: planningStandardsLocation({ cwd, roots: roots2, path: observation.path }) })).sort(byPathAndKind);
   const policy = {
     renderer: "planning-standards-v1",
     packages,
