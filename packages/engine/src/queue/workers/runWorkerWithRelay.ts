@@ -11,7 +11,6 @@ import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { buildTicketPlans } from '#src/queue/workers/buildTicketPlans.ts';
-import { recordPlanningRelayAnswer } from '#src/queue/workers/recordPlanningRelayAnswer.ts';
 import { runAutoPlanWorker } from '#src/queue/workers/runAutoPlanWorker.ts';
 import { runPlanFolderPipeline } from '#src/queue/workers/runPlanFolderPipeline.ts';
 import { pullTicketRecord } from '#src/ticket/index.ts';
@@ -202,7 +201,7 @@ export const runWorkerWithRelay = async ({
 			return outcome;
 		}
 
-		if (ticket.worker !== QueueWorker.AutoPlan && turn === maxRelayedQuestions) {
+		if (turn === maxRelayedQuestions) {
 			return { error: `the worker is still asking after ${turn} answered question(s): ${outcome.question}` };
 		}
 
@@ -216,17 +215,5 @@ export const runWorkerWithRelay = async ({
 		}
 
 		answeredQuestion = { question: outcome.question, answer };
-		if (outcome.planningQuestion) {
-			try {
-				answeredQuestion.planningAnswer = await recordPlanningRelayAnswer({
-					checkpoint: outcome.planningQuestion,
-					text: answer,
-					ticketRunDir,
-					coordinatorRunId,
-				});
-			} catch (error) {
-				return { error: `The planning answer could not be recorded: ${messageOf({ error })}`, unanswered: true };
-			}
-		}
 	}
 };

@@ -4,7 +4,6 @@ import { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestRecord.ts
 import { ApprovedTestRecord } from '#src/contracts/run/ApprovedTestRecord.ts';
 import { PackagesSource } from '#src/contracts/run/PackagesSource.ts';
 import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
-import { PlanningHandoff } from '#src/contracts/run/PlanningHandoff.ts';
 import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import { RunUsage } from '#src/contracts/run/RunUsage.ts';
 import { StepRecord } from '#src/contracts/run/StepRecord.ts';
@@ -17,7 +16,6 @@ import { StepRecord } from '#src/contracts/run/StepRecord.ts';
  */
 export const RunManifest = z.object({
 	runId: z.string(),
-	planningHandoff: PlanningHandoff.optional(),
 	createdAt: z.string(),
 	updatedAt: z.string(),
 	/** Path to the plan file the run implements, relative to the target repo. For a phases run this is the overview path. */

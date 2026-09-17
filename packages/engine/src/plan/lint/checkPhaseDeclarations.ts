@@ -9,7 +9,6 @@ import { getDeclarationDefects } from '#src/plan/lint/common/utils/getDeclaratio
 interface Params {
 	/** Rows parsed from the overview. */
 	declarations: PhaseDeclaration[];
-	canonicalPhaseFiles?: string[];
 	/** Implementable plan files, ordered by phase number. */
 	phases: PhaseFile[];
 	/** The overview's basename — the finding label for a declaration-side defect. */
@@ -44,7 +43,7 @@ const namesIn = ({ phase }: { phase: PhaseFile }) => {
 };
 
 /** The declaration set and the phase-file set must name each other exactly, and the numbering must read 1..n. */
-const phaseSetDefects = ({ declarations, phases, overviewBase, canonicalPhaseFiles }: Omit<Params, 'counts'>) => {
+const phaseSetDefects = ({ declarations, phases, overviewBase }: Omit<Params, 'counts'>) => {
 	const defects: Defect[] = [];
 
 	for (const declaration of declarations.filter((candidate) => !phases.some((phase) => phase.base === candidate.file))) {
@@ -68,7 +67,6 @@ const phaseSetDefects = ({ declarations, phases, overviewBase, canonicalPhaseFil
 	defects.push(
 		...getDeclarationDefects({
 			declarations,
-			canonicalPhaseFiles,
 			locations: {
 				declarationsSection: `${overviewBase} → Phase Declarations`,
 				phasesTable: `${overviewBase} → Phases`,
@@ -181,8 +179,8 @@ const nameDefects = ({ declaration, phase, overviewBase }: { declaration: PhaseD
  * check reads the phase files, so without this the declaration could quietly
  * describe a plan that no longer exists.
  */
-export const checkPhaseDeclarations = ({ declarations, phases, overviewBase, counts, canonicalPhaseFiles }: Params): StructuralFinding[] => {
-	const defects = phaseSetDefects({ declarations, phases, overviewBase, canonicalPhaseFiles });
+export const checkPhaseDeclarations = ({ declarations, phases, overviewBase, counts }: Params): StructuralFinding[] => {
+	const defects = phaseSetDefects({ declarations, phases, overviewBase });
 
 	for (const declaration of declarations) {
 		const phase = phases.find((candidate) => candidate.base === declaration.file);

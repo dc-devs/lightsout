@@ -1,14 +1,26 @@
-import type { StandardsReader } from '#src/common/types/StandardsReader.ts';
+import { isAbsolute, resolve } from 'node:path';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 import { readStandardsPack } from '#src/standardsPacks/readStandardsPack.ts';
-import { resolveStandardsPackRoots } from '#src/standardsPacks/resolveStandardsPackRoots.ts';
+import { resolveDefaultStandardsPack } from '#src/standardsPacks/resolveDefaultStandardsPack.ts';
 
 interface Params {
-	reader?: StandardsReader;
 	cwd: string;
 	config?: LightsoutConfig;
 }
+
+/** The roots the config asks for, absolute — its three-way meaning stated once. */
+const resolveRoots = ({ cwd, standardsPacks }: { cwd: string; standardsPacks: string[] | false | undefined }) => {
+	if (standardsPacks === false) {
+		return [];
+	}
+
+	if (standardsPacks === undefined) {
+		return [resolveDefaultStandardsPack()];
+	}
+
+	return standardsPacks.map((entry) => (isAbsolute(entry) ? entry : resolve(cwd, entry)));
+};
 
 /**
  * Rule ids collide across packs exactly as they collide inside one: a config
@@ -48,12 +60,12 @@ const findCrossPackDuplicates = ({ packs }: { packs: LoadedStandardsPack[] }) =>
  * @param config - the consumer's config; absent means the bundled default pack
  * @throws {Error} When a declared pack cannot be loaded, or two loaded packs claim one rule id.
  */
-export const resolveStandardsPacks = async ({ cwd, config, reader }: Params): Promise<LoadedStandardsPack[]> => {
-	const roots = resolveStandardsPackRoots({ cwd, standardsPacks: config?.['standards-packs'] });
+export const resolveStandardsPacks = async ({ cwd, config }: Params): Promise<LoadedStandardsPack[]> => {
+	const roots = resolveRoots({ cwd, standardsPacks: config?.['standards-packs'] });
 	const packs: LoadedStandardsPack[] = [];
 
 	for (const packPath of roots) {
-		packs.push(await readStandardsPack({ packPath, reader }));
+		packs.push(await readStandardsPack({ packPath }));
 	}
 
 	const duplicates = findCrossPackDuplicates({ packs });

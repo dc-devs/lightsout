@@ -229,36 +229,3 @@ describe('checkPhaseDeclarations', () => {
 		expect(findings.map((finding) => finding.issue)).toStrictEqual(['the file budget declared for phase1-core.md (3) is below its own touched count (5)']);
 	});
 });
-
-test('checkPhaseDeclarations accepts stable filenames when canonical identities put them in a different numeric order', () => {
-	const phases = phaseFilesFor({ specs: [{ base: 'phase9-core.md' }, { base: 'phase2-extra.md' }] });
-	const declarations = [declarationFor({ file: 'phase9-core.md' }), declarationFor({ number: 2, file: 'phase2-extra.md' })];
-
-	const findings = checkPhaseDeclarations({
-		declarations,
-		phases,
-		overviewBase: 'overview.md',
-		counts: new Map(),
-		canonicalPhaseFiles: ['phase9-core.md', 'phase2-extra.md'],
-	});
-
-	expect(findings).toEqual([]);
-});
-
-test('checkPhaseDeclarations rejects a row that matches its old filename number but disagrees with canonical order', () => {
-	const phases = phaseFilesFor({ specs: [{ base: 'phase1-core.md' }, { base: 'phase2-extra.md' }] });
-	const declarations = [declarationFor({ file: 'phase1-core.md' }), declarationFor({ number: 2, file: 'phase2-extra.md' })];
-
-	const findings = checkPhaseDeclarations({
-		declarations,
-		phases,
-		overviewBase: 'overview.md',
-		counts: new Map(),
-		canonicalPhaseFiles: ['phase2-extra.md', 'phase1-core.md'],
-	});
-
-	expect(findings.map(({ issue }) => issue)).toEqual([
-		'Phase 1 names phase1-core.md, which disagrees with the canonical phase order',
-		'Phase 2 names phase2-extra.md, which disagrees with the canonical phase order',
-	]);
-});

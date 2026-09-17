@@ -4,7 +4,6 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { loadPlanningProgressBlock } from '#src/cli/common/progressBlock/loadPlanningProgressBlock.ts';
 import { type PlanningProgress, PlanningStep, type PlanningStepRecord, RunStatus } from '#src/contracts/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
-import { planningCanonicalDiagnosticsFixture } from '#tests/helpers/planningCanonicalDiagnosticsFixture.ts';
 
 /** The plan folder every case reads. */
 const name = 'demo';
@@ -144,13 +143,6 @@ const setupPlanningBlock = async ({ record, folder = true }: { record?: string; 
 	}
 
 	return { cwd, recordPath };
-};
-
-/** The canonical-only plan of the fixture, with the clock the legacy cases fake handed back. */
-const setupCanonicalDiagnostics = async () => {
-	jest.useRealTimers();
-
-	return planningCanonicalDiagnosticsFixture();
 };
 
 describe('loadPlanningProgressBlock', () => {
@@ -297,25 +289,5 @@ describe('loadPlanningProgressBlock', () => {
 		expect(nowLine).toMatch(/failed/i);
 		expect(nowLine).toContain(localClock({ iso: gradeFinishedAt }));
 		expect(nowLine).not.toMatch(/verify-facts|draft|dedup|publish/);
-	});
-
-	test('reports honest efficiency diagnostics without weakening completion', async () => {
-		const { cwd, name: plan } = await setupCanonicalDiagnostics();
-
-		const lines = await loadPlanningProgressBlock({ cwd, name: plan });
-		const block = lines.join('\n');
-
-		expect(lines[0]).toMatch(/ planning$/);
-		expect(block).toMatch(/author|investigate/i);
-		expect(block).toMatch(/architect/i);
-		expect(block).toMatch(/repair/i);
-		expect(block).toMatch(/contract-drift|blocking/i);
-		expect(block).not.toMatch(/\bof 5 passed\b/);
-		expect(block).toContain('$0.25');
-		expect(block).not.toContain('$0.50');
-		expect(block).toMatch(/unavailable|unknown|partial|not recorded/i);
-		expect(block).toMatch(/implementation[^\n]*(failed|unavailable|unknown|not recorded)/i);
-		expect(block).not.toMatch(/implementation (succeeded|passed|complete)\b/i);
-		expect(block).not.toMatch(/planning complete|ready to implement/i);
 	});
 });

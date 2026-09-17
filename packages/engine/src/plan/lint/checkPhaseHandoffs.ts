@@ -2,14 +2,12 @@ import { basename } from 'node:path';
 import { FindingSeverity, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
 import { planSentinelTokens } from '#src/plan/common/constants/planSentinelTokens.ts';
 import { isPathToken } from '#src/plan/common/paths/isPathToken.ts';
-import type { CanonicalPlanningPhase } from '#src/plan/common/types/CanonicalPlanningPhase.ts';
 import type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
 import { getCodeSpans } from '#src/plan/common/utils/getCodeSpans.ts';
 
 interface Params {
 	/** Implementable plan files, ordered by phase number. */
 	phases: PhaseFile[];
-	canonicalPhases?: CanonicalPlanningPhase[];
 }
 
 /** A span that is exactly one bare identifier — no dots, hyphens, calls, type expressions or spaces. */
@@ -85,20 +83,13 @@ const comparableTokens = ({ sectionLines }: { sectionLines: string[] }) => {
  * The final phase is not checked forward: it has no successor, and the template
  * already has it state "None — final phase."
  */
-export const checkPhaseHandoffs = ({ phases, canonicalPhases }: Params): StructuralFinding[] => {
+export const checkPhaseHandoffs = ({ phases }: Params): StructuralFinding[] => {
 	const findings: StructuralFinding[] = [];
 
-	for (const [index, phase] of phases.entries()) {
-		const identity = canonicalPhases?.find((item) => item.file === phase.base);
-		const nexts = canonicalPhases
-			? phases.filter((item) => identity !== undefined && canonicalPhases.find((entry) => entry.file === item.base)?.prerequisiteIds.includes(identity.id))
-			: phases.slice(index + 1, index + 2);
-		if (nexts.length === 0) continue;
-		const next = nexts[0];
+	for (const [index, phase] of phases.slice(0, -1).entries()) {
+		const next = phases[index + 1];
 		const handedForward = phase.plan.sections.get('What Next Plan Expects');
-		const claimed = nexts.every((item) => item.plan.sections.has('Prerequisites'))
-			? nexts.flatMap((item) => item.plan.sections.get('Prerequisites') ?? [])
-			: undefined;
+		const claimed = next.plan.sections.get('Prerequisites');
 
 		if (handedForward === undefined || claimed === undefined) {
 			continue;

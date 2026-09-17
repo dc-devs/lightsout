@@ -1,7 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import type { ConfigView } from '#src/contracts/index.ts';
 import { getConfigView } from '#src/views/index.ts';
-import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { jiraTicketTrackerConfigBlock, ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { seedConfiguredCwd } from '#tests/helpers/seedConfiguredCwd.ts';
 
@@ -216,37 +215,5 @@ describe('getConfigView', () => {
 		const view = await getConfigView({ cwd });
 
 		expect(findField({ sections: view.sections, key: 'docs' })).toEqual(expect.objectContaining({ value: null, fromConfig: false }));
-	});
-
-	test('says the plan block’s two older settings are compatibility only, and that neither can make an unready plan ready', async () => {
-		const cwd = await seedConfiguredCwd({ config: { plan: { contract: true, 'weight-thresholds': { 'created-files': 5, packages: 2 } } } });
-
-		const view = await getConfigView({ cwd });
-
-		const plan = findField({ sections: view.sections, key: 'plan' });
-
-		expectDefined(plan);
-		// the row shows the block whole, so this sentence is the only place the page
-		// says what `contract` and `weight-thresholds` still mean — a reader who took
-		// them for the current rule would believe a spared reader lowers the bar
-		expect(plan.description).toMatch(/compatibilit/i);
-		expect(plan.description).toMatch(/weight-thresholds/);
-		expect(plan.description).toMatch(/unready plan ready/i);
-	});
-
-	test('says an auto-plan approval covers the proposal it was shown, and never a product decision made later', async () => {
-		const cwd = await seedConfiguredCwd({ config: { 'auto-plan': { 'auto-approve-plan': true, 'implement-on-approval': true } } });
-
-		const view = await getConfigView({ cwd });
-
-		const autoPlan = findField({ sections: view.sections, key: 'auto-plan' });
-
-		expectDefined(autoPlan);
-		// a repo reading these keys as blanket product approval would expect the run
-		// never to stop again, and one reading them as a thoroughness dial would
-		// expect a thinner plan — the sentence has to deny both
-		expect(autoPlan.description).toMatch(/not standing approval/i);
-		expect(autoPlan.description).toMatch(/its own question/i);
-		expect(autoPlan.description).toMatch(/never how thoroughly/i);
 	});
 });

@@ -22,13 +22,11 @@ const controlWording: Record<string, string> = {
  * introspects no harness: the flag checking happened when the capability record
  * was written.
  *
- * The message names the harness and every control it cannot provide rather than
- * only the first, then says the one thing that actually resolves it: configure a
- * harness that can express them. It offers no retry, no downgrade and no second
- * authoring implementation, because there is none — a message hinting at a
- * fallback teaches the reader to wait for one that will never come, and
- * substituting a harness or dropping a requested control on their behalf would
- * spend an agent in an environment they did not ask for.
+ * The message names the harness, every control it cannot provide rather than
+ * only the first, and the flag that reaches the legacy implementation instead. It
+ * deliberately does not offer a retry, a downgrade, or a legacy run on the
+ * reader's behalf — a message hinting at a fallback teaches the reader to wait
+ * for one that will never come.
  *
  * @returns undefined when the harness can provide every requested control, otherwise the refusal message
  */
@@ -44,9 +42,9 @@ export const preflightDraftEnvironment = ({ driver, environment }: Params): stri
 	return [
 		`the ${driver.name} harness cannot provide the focused drafting environment, so this draft was refused before any agent was spawned.`,
 		'',
-		'Missing control(s):',
+		`Missing control(s):`,
 		reasons,
 		'',
-		'Configure a harness that can provide them under `commands.plan` or `harness` in lightsout.config.json, then run the draft again.',
+		'Draft with the previous implementation instead: lightsout plan draft --legacy',
 	].join('\n');
 };

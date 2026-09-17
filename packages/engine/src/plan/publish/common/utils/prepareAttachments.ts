@@ -3,14 +3,12 @@ import { serializeAttachmentManifest } from '#src/common/attachmentManifest/seri
 import { brainstormNotesFileName } from '#src/common/constants/brainstormNotesFileName.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
-import { readPlanningTransport } from '#src/plan/common/planning/readPlanningTransport.ts';
 import type { DurablePlanFile } from '#src/plan/common/types/DurablePlanFile.ts';
 import { validatePlanAttachmentGeneration } from '#src/plan/common/validatePlanAttachmentGeneration.ts';
 import type { PreparedAttachment } from '#src/plan/publish/common/types/PreparedAttachment.ts';
 
 interface Params {
 	files: DurablePlanFile[];
-	resolved?: ReadonlyMap<string, string>;
 	/** The plan id the titles will be namespaced under; absent for a legacy folder. */
 	titlePrefix?: string;
 }
@@ -19,12 +17,12 @@ interface Params {
  * Read a complete immutable snapshot before the first outward mutation, then
  * append the manifest that commits exactly those bytes.
  */
-export const prepareAttachments = async ({ files, titlePrefix, resolved }: Params): Promise<{ attachments: PreparedAttachment[] } | { error: string }> => {
-	const durable: PreparedAttachment[] = resolved ? [...resolved].map(([name, content]) => ({ name, content: Buffer.from(content) })) : [];
+export const prepareAttachments = async ({ files, titlePrefix }: Params): Promise<{ attachments: PreparedAttachment[] } | { error: string }> => {
+	const durable: PreparedAttachment[] = [];
 	// Under a prefix the brainstorm generation owns `brainstorm-notes.md`
 	// outright, so the plan generation neither sends it nor commits it. A legacy
 	// folder's two generations still both carry it, as they always have.
-	const carried = resolved ? [] : titlePrefix === undefined ? files : files.filter(({ name }) => name !== brainstormNotesFileName);
+	const carried = titlePrefix === undefined ? files : files.filter(({ name }) => name !== brainstormNotesFileName);
 
 	for (const file of carried) {
 		try {
@@ -40,15 +38,7 @@ export const prepareAttachments = async ({ files, titlePrefix, resolved }: Param
 		return refusal;
 	}
 
-	try {
-		const snapshot = readPlanningTransport({ files: new Map(durable.map(({ name, content }) => [name, content.toString('utf8')])) });
-		return {
-			attachments: [
-				...durable,
-				{ name: planAttachmentManifestName, content: serializeAttachmentManifest({ files: durable, planningGeneration: snapshot?.digest }) },
-			],
-		};
-	} catch (error) {
-		return { error: messageOf({ error }) };
-	}
+	return {
+		attachments: [...durable, { name: planAttachmentManifestName, content: serializeAttachmentManifest({ files: durable }) }],
+	};
 };

@@ -1,6 +1,4 @@
 import type { ProseFile } from '#src/contracts/index.ts';
-import { planTextEncodingMarker } from '#src/plan/common/constants/planTextEncodingMarker.ts';
-import { decodeMarkdownText } from '#src/plan/common/parsing/decodeMarkdownText.ts';
 
 interface Params {
 	/** The lines under the `## Prose Files` heading, or undefined when the section is absent. */
@@ -10,12 +8,10 @@ interface Params {
 }
 
 /** The first backticked span in a bullet and everything written after it — the path it names, and where its reason would be. */
-const splitAtSpan = ({ line, lossless }: { line: string; lossless: boolean }) => {
+const splitAtSpan = ({ line }: { line: string }) => {
 	const span = /`([^`]+)`/.exec(line);
 
-	return span === null
-		? undefined
-		: { path: lossless ? decodeMarkdownText({ text: span[1].trim() }) : span[1].trim(), rest: line.slice(span.index + span[0].length) };
+	return span === null ? undefined : { path: span[1].trim(), rest: line.slice(span.index + span[0].length) };
 };
 
 /**
@@ -38,7 +34,7 @@ export const parseProseFiles = ({ sectionLines, firstLine }: Params): { files: P
 			continue;
 		}
 
-		const named = splitAtSpan({ line, lossless: sectionLines?.includes(planTextEncodingMarker) ?? false });
+		const named = splitAtSpan({ line });
 
 		if (named === undefined) {
 			continue;

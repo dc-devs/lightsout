@@ -6,5 +6,4 @@ export { getPackFrameworkFacts } from '#src/standardsPacks/getPackFrameworkFacts
 export { readStandardsPack } from '#src/standardsPacks/readStandardsPack.ts';
 export { resolveAuthoredStandardsPack } from '#src/standardsPacks/resolveAuthoredStandardsPack.ts';
 export { resolveDefaultStandardsPack } from '#src/standardsPacks/resolveDefaultStandardsPack.ts';
-export { resolveStandardsPackRoots } from '#src/standardsPacks/resolveStandardsPackRoots.ts';
 export { resolveStandardsPacks } from '#src/standardsPacks/resolveStandardsPacks.ts';

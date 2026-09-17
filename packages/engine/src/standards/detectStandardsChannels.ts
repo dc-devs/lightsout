@@ -1,5 +1,4 @@
 import { join } from 'node:path';
-import type { StandardsReader } from '#src/common/types/StandardsReader.ts';
 import { readDependencyNames } from '#src/common/workspace/readDependencyNames.ts';
 
 /** A channel activates when ANY scoped package depends on one of its signal packages. */
@@ -10,8 +9,6 @@ const channelSignals: Record<string, string[]> = {
 };
 
 interface Params {
-	reader?: StandardsReader;
-	includeRoot?: boolean;
 	cwd: string;
 	packagesDir: string;
 	/** Package scope (directory names). Empty = non-monorepo → the root package.json decides. */
@@ -23,22 +20,15 @@ interface Params {
  * scoped packages' package.json dependencies — a terraform package never
  * pays the React-docs token tax, and a web package gets them without any
  * config. Consumers can override with `standards-channels` in the config.
- * Legacy callers tolerate unreadable manifests; an observed reader makes unavailable
- * scoped manifests actionable errors. includeRoot composes root and package frameworks.
+ * Unreadable manifests contribute nothing (the packages themselves fail
+ * later, at gate time, with a better error).
  */
-export const detectStandardsChannels = async ({ cwd, packagesDir, packages, reader, includeRoot = false }: Params): Promise<string[]> => {
-	const manifestPaths = [
-		...(packages.length === 0 || includeRoot ? [join(cwd, 'package.json')] : []),
-		...packages.map((name) => join(cwd, packagesDir, name, 'package.json')),
-	];
+export const detectStandardsChannels = async ({ cwd, packagesDir, packages }: Params): Promise<string[]> => {
+	const manifestPaths = packages.length > 0 ? packages.map((name) => join(cwd, packagesDir, name, 'package.json')) : [join(cwd, 'package.json')];
 	const dependencies = new Set<string>();
 
 	for (const manifestPath of manifestPaths) {
-		for (const name of (await readDependencyNames({
-			manifestPath,
-			reader,
-			...(reader === undefined ? {} : { required: manifestPath !== join(cwd, 'package.json') }),
-		})) ?? []) {
+		for (const name of (await readDependencyNames({ manifestPath })) ?? []) {
 			dependencies.add(name);
 		}
 	}

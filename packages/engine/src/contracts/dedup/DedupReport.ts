@@ -33,16 +33,6 @@ export const DedupReport = z.object({
 	/** Why the scan did not finish, absent when it did. */
 	incompleteReason: z.string().optional(),
 	reviewedAt: z.string(),
-	workflow: z
-		.object({
-			format: z.literal('planning-dedup-v1'),
-			generation: z.string().min(1),
-			observationArtifacts: z.array(z.string()),
-			findingIds: z.array(z.string()),
-			coverageReceiptIds: z.array(z.string()),
-		})
-		.strict()
-		.optional(),
 });
 
 export type DedupReport = z.infer<typeof DedupReport>;

@@ -5,7 +5,6 @@ export { CleanupEndReason } from '#src/contracts/run/CleanupEndReason.ts';
 export { PackagesSource } from '#src/contracts/run/PackagesSource.ts';
 export { PhaseReport } from '#src/contracts/run/PhaseReport.ts';
 export { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
-export { PlanningHandoff } from '#src/contracts/run/PlanningHandoff.ts';
 export { ProgressRecord } from '#src/contracts/run/ProgressRecord.ts';
 export { RefactorStepReport } from '#src/contracts/run/RefactorStepReport.ts';
 export { RunLock } from '#src/contracts/run/RunLock.ts';

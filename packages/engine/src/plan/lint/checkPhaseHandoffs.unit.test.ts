@@ -125,28 +125,3 @@ describe('checkPhaseHandoffs', () => {
 		]);
 	});
 });
-
-test('checkPhaseHandoffs checks the union of direct children and ignores unrelated siblings', () => {
-	const phases = [
-		phaseFile({ base: 'root.md', body: phaseBody({ handsForward: '`readUpload` and `writeUpload`' }) }),
-		phaseFile({ base: 'unrelated.md', body: phaseBody({ prerequisites: 'None' }) }),
-		phaseFile({ base: 'reader.md', body: phaseBody({ prerequisites: '`readUpload`' }) }),
-		phaseFile({ base: 'writer.md', body: phaseBody({ prerequisites: '`writeUpload`' }) }),
-	];
-	const canonicalPhases = phases.map(({ base }, index) => ({ file: base, id: base, prerequisiteIds: index > 1 ? ['root.md'] : [] }));
-
-	const findings = checkPhaseHandoffs({ phases, canonicalPhases });
-
-	expect(findings).toEqual([]);
-});
-
-test('checkPhaseHandoffs reports a missing child contract against its actual dependency edge', () => {
-	const { phases } = setupPair({ handsForward: '`readUpload`', prerequisites: 'None' });
-	const canonicalPhases = phases.map(({ base }, index) => ({ file: base, id: base, prerequisiteIds: index === 1 ? [phases[0].base] : [] }));
-
-	const findings = checkPhaseHandoffs({ phases, canonicalPhases });
-
-	expect(findings).toEqual([
-		expect.objectContaining({ phase: phases[1].base, severity: FindingSeverity.Blocking, issue: expect.stringContaining('readUpload') }),
-	]);
-});

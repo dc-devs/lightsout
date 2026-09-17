@@ -30,12 +30,7 @@ export const parseAttachmentManifest = ({ text, markerName, isAllowedName }: Par
 		return { error: `${markerName} must contain an object` };
 	}
 
-	const candidate = {
-		schemaVersion: 'schemaVersion' in value ? value.schemaVersion : undefined,
-		files: 'files' in value ? value.files : undefined,
-		planningGeneration: 'planningGeneration' in value ? value.planningGeneration : undefined,
-		brainstormGeneration: 'brainstormGeneration' in value ? value.brainstormGeneration : undefined,
-	};
+	const candidate = value as { schemaVersion?: unknown; files?: unknown };
 
 	if (candidate.schemaVersion !== 1) {
 		return { error: `${markerName} has unsupported schemaVersion ${JSON.stringify(candidate.schemaVersion)} — expected 1` };
@@ -52,7 +47,7 @@ export const parseAttachmentManifest = ({ text, markerName, isAllowedName }: Par
 			return { error: `${markerName} contains a file entry that is not an object` };
 		}
 
-		const file = { name: 'name' in entry ? entry.name : undefined, sha256: 'sha256' in entry ? entry.sha256 : undefined };
+		const file = entry as { name?: unknown; sha256?: unknown };
 
 		if (typeof file.name !== 'string' || !isAllowedName({ name: file.name })) {
 			return { error: `${markerName} contains a non-durable or unsafe file name: ${JSON.stringify(file.name)}` };
@@ -69,26 +64,5 @@ export const parseAttachmentManifest = ({ text, markerName, isAllowedName }: Par
 		files.push({ name: file.name, sha256: file.sha256 });
 	}
 
-	if (candidate.planningGeneration !== undefined) {
-		if (typeof candidate.planningGeneration !== 'string' || !/^[a-f0-9]{64}$/.test(candidate.planningGeneration))
-			return { error: `${markerName} has an invalid planning generation` };
-		if (!files.some((file) => file.name === 'planning-record.json')) return { error: `${markerName} requires its canonical planning-record.json` };
-	}
-	if (candidate.brainstormGeneration !== undefined) {
-		if (
-			candidate.planningGeneration !== undefined ||
-			typeof candidate.brainstormGeneration !== 'string' ||
-			!/^[a-f0-9]{64}$/.test(candidate.brainstormGeneration)
-		)
-			return { error: `${markerName} has an invalid brainstorm generation` };
-		if (!files.some((file) => file.name === 'brainstorm-record.json')) return { error: `${markerName} requires its canonical brainstorm-record.json` };
-	}
-	return {
-		manifest: {
-			schemaVersion: 1,
-			files,
-			...(candidate.brainstormGeneration === undefined ? {} : { brainstormGeneration: candidate.brainstormGeneration }),
-			...(candidate.planningGeneration === undefined ? {} : { planningGeneration: candidate.planningGeneration }),
-		},
-	};
+	return { manifest: { schemaVersion: 1, files } };
 };

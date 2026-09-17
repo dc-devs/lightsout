@@ -28,7 +28,10 @@ describe('commandCatalog graphics', () => {
 			entry.steps.filter((step) => step.savedLabel !== undefined).map((step) => [step.title, step.savedLabel]),
 		);
 
-		expect(overrides).toStrictEqual([['FIND THE WORK', 'READ FROM DISK']]);
+		expect(overrides).toStrictEqual([
+			['CREATE THE PLAN WORKSPACE', 'SAVED WHEN NOTES EXIST'],
+			['FIND THE WORK', 'READ FROM DISK'],
+		]);
 	});
 
 	test('each drawn command’s steps run from the step that opens its infographic to the step that closes it', () => {
@@ -40,7 +43,7 @@ describe('commandCatalog graphics', () => {
 		});
 
 		expect(ends).toStrictEqual([
-			['plan', 'CAPTURE THE REQUEST AS IT WAS WRITTEN', 'RECORD READINESS, HAND OFF'],
+			['plan', 'CREATE THE PLAN WORKSPACE', 'GET THE PLAN TO AN A GRADE'],
 			['implement', 'START THE RUN', 'REPORT THE RESULT'],
 			['refactor', 'START THE RUN', 'REVIEW AND COMMIT'],
 		]);

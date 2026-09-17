@@ -1,10 +1,8 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { PlanningVocabulary } from '#src/contracts/index.ts';
 import { pathExists } from '#src/plan/common/paths/pathExists.ts';
 import type { DeliverableFile } from '#src/plan/common/types/DeliverableFile.ts';
 import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
-import { readPlanningEntrySnapshot } from '#src/plan/workflow/index.ts';
 
 interface Params {
 	cwd: string;
@@ -38,24 +36,6 @@ interface ResolvedDeliverable {
 export const resolvePlanDeliverable = async ({ cwd, name }: Params): Promise<ResolvedDeliverable> => {
 	const dir = planWorkspaceDir({ cwd, name });
 	const singlePath = join(dir, 'plan.md');
-	const snapshot = await readPlanningEntrySnapshot({ cwd, name });
-	if (snapshot) {
-		const deliverables = snapshot.record.artifacts.filter((artifact) => artifact.variant !== PlanningVocabulary.Artifact.Data);
-		const overview = deliverables.find((artifact) => artifact.variant === PlanningVocabulary.Artifact.Overview);
-		const files = deliverables
-			.filter((artifact) => artifact.variant !== PlanningVocabulary.Artifact.Overview)
-			.map((artifact) => {
-				const text = snapshot.artifacts.get(artifact.path);
-				if (text === undefined) throw new Error(`Committed planning deliverable is missing: ${artifact.path}`);
-				return { path: join(dir, artifact.path), text };
-			});
-		return {
-			overviewPath: overview ? join(dir, overview.path) : undefined,
-			overviewText: overview ? snapshot.artifacts.get(overview.path) : undefined,
-			files,
-			...(files.length ? {} : { error: `Canonical planning generation for '${name}' has no implementation deliverable yet` }),
-		};
-	}
 
 	let overviewPath: string | undefined;
 	let overviewText: string | undefined;

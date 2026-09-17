@@ -42,14 +42,13 @@ const ticket: TicketSummary = {
 };
 
 /** A relay over a throwaway mailbox, kept apart from the coordinator run directory it records into. */
-const setupRelay = ({ questionTimeoutMs = 30_000, closeOnPublication = false }: { questionTimeoutMs?: number; closeOnPublication?: boolean } = {}) => {
+const setupRelay = ({ questionTimeoutMs = 30_000 }: { questionTimeoutMs?: number } = {}) => {
 	const directory = mkdtempSync(join(tmpdir(), 'lightsout-mailbox-'));
 	const coordinatorRunDir = mkdtempSync(join(tmpdir(), 'lightsout-relay-run-'));
 	const written: string[] = [];
 	const output = new Writable({
 		write(chunk: Buffer, _encoding, done) {
 			written.push(chunk.toString());
-			if (closeOnPublication) relay.close();
 			done();
 		},
 	});
@@ -196,10 +195,4 @@ describe('FileQuestionRelay', () => {
 
 		expect(output()).toBe('LO-70 · implement — building LO-70\n');
 	});
-});
-
-test('rejects and removes a question when shutdown arrives during publication, before wait registration', async () => {
-	const { ask, directory } = setupRelay({ closeOnPublication: true });
-	await expect(ask()).rejects.toThrow('the question relay is closed — no answer can arrive');
-	expect(readdirSync(directory)).toStrictEqual([]);
 });

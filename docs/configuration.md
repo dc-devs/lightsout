@@ -262,8 +262,8 @@ is overwritten the next time `pnpm build:config-reference` runs.
 | `ticket-tracker` | no | Opt-in tracker identity: which provider the engine talks to and that provider’s address and credential environment variables — a Linear team and API key, or a Jira Cloud site, project, API token and account email. Every command that reads or writes a ticket resolves it from here, so tracker identity is spelled once rather than once per command. |
 | `worktree` | no | Opt-in shared workspace preparation. `worktree.setup` is the one command run inside a fresh worktree before any agent, such as `pnpm install` — the queue runs it in each ticket worktree it cuts, and an isolated implementation run runs it in the worktree it cuts for itself. An absent block means nothing runs. The block is strict, so a misspelled key fails parsing rather than silently leaving the command unset. |
 | `queue` | no | Opt-in queue settings: which ticket label names each planning status, what this tracker calls each status the engine writes, which statuses count as available work, how many tickets run at once, and the per-ticket worker and question timeouts. Tracker identity lives in `ticket-tracker`, so this block holds queue behaviour only. |
-| `auto-plan` | no | Opt-in auto-plan settings: whether the proposal comes before drafting, whether an approved proposal starts the build, and whether the proposal is skipped when nothing clears the escalation bar. The engine reads these itself — automatic mode runs the same planner the interactive entry runs — so they decide which checkpoints stand, never how thoroughly the plan is worked. Approval here approves the proposal it was shown; it is not standing approval for a product decision made later, which still stops the run with its own question. Every key is off by default, so an absent block is the most supervised behaviour. |
-| `plan` | no | Opt-in plan settings. `plan.contract` and `plan.weight-thresholds` are compatibility settings for the older grade-by-weight path: `contract` makes a plan carry an acceptance-test ledger — a table naming the test that states each acceptance criterion — and `weight-thresholds` gives the counts above which one plan file is heavy enough to earn the reader fan-out. Both still parse and still apply where a plan is graded that way, and neither can lower what the planner requires: readiness is derived from the planning records — every original obligation traced, every blocking finding repaired and independently verified — so a weight that spares a reader cannot make an unready plan ready. `plan.worktree` is whether a planning session works in its own isolated git worktree rather than the checkout it was launched from — it defaults to true, `--worktree` and `--no-worktree` override it for one command, and the implementation run continues in the tree planning established. `plan.default-ticket-mode` is the mode a ticket's own record is created with — `single-plan`, where plan 001 alone supplies the ticket's implementation, or `multiple-plan`, where the ticket's plans implement in numeric order on one branch and it ships only on an explicit ship request. It defaults to `single-plan` and is read only when a record is created, so it never changes a ticket that already has one. |
+| `auto-plan` | no | Opt-in auto-plan settings: whether the proposal comes before drafting, whether an approved proposal starts the build, and whether the proposal is skipped when nothing clears the escalation bar. Every key is off by default, so an absent block is the most supervised behaviour. |
+| `plan` | no | Opt-in plan settings: whether plans are written as contracts with an acceptance-test ledger — a table naming the test that states each acceptance criterion — and graded by weight, spawning the reader fan-out only for the plan files that earn it, plus the counts above which a plan file is heavy. Those are off by default, so an absent block writes and grades plans exactly as before: the same template, the same required sections, every plan file read by every lens. `plan.worktree` is whether a planning session works in its own isolated git worktree rather than the checkout it was launched from — it defaults to true, `--worktree` and `--no-worktree` override it for one command, and the implementation run continues in the tree planning established. `plan.default-ticket-mode` is the mode a ticket's own record is created with — `single-plan`, where plan 001 alone supplies the ticket's implementation, or `multiple-plan`, where the ticket's plans implement in numeric order on one branch and it ships only on an explicit ship request. It defaults to `single-plan` and is read only when a record is created, so it never changes a ticket that already has one. |
 | `implement` | no | Opt-in implementation settings. `implement.worktree` is whether an implementation run builds in its own isolated git worktree rather than the checkout it was launched from — it defaults to true, and `--worktree` and `--no-worktree` override it for one run. `implement.refactor.max-rounds` is how many cleanup executor rounds one run may spend at most — a whole number above zero, defaulting to 2, which is also what an absent block spends. The budget is a ceiling rather than a target: cleanup stops early when nothing qualifying is left, and only a deterministic blocking finding the run’s own edits introduced or measurably worsened can spend a round. Whatever cleanup leaves behind is recorded and never stops the run. |
 | `docs` | no | Opt-in documentation surfaces: each entry a repo-relative path and a one-line `covers` saying what that document is responsible for. Declaring the block turns on the plan-time documentation check — the plan writer is briefed on the surfaces, every implementable plan file must carry a `## Documentation` statement, and `plan grade` runs one whole-plan checker that verifies it. A repository that declares no block sees none of it: no section, no prompt text, no checker spawn. |
 
@@ -589,13 +589,6 @@ of the tree one plan at a time, and a shipped tree's whole ticket folder is
 copied back to the primary checkout before the tree comes down, so no sibling
 plan is lost with it.
 
-`plan.contract` and `plan.weight-thresholds` are compatibility settings. They
-still parse and they still apply where a plan is graded the weighed way, and
-neither can lower what the planner requires: readiness is derived from the
-planning records — every obligation your request carried traced, every blocking
-finding repaired and independently verified — so a weight that spares a reader
-cannot make an unready plan ready.
-
 A contract plan carries what a test cannot detect — the file map, the full
 exported signatures of every created file, the file each new file mirrors, and
 the decisions — plus an `## Acceptance Tests` table with one row per acceptance
@@ -635,16 +628,6 @@ The block is strict for the same reason `ship` is: an unknown key fails parsing
 rather than silently disabling a setting you believe is on. Omit the block and
 nothing changes — the same template, the same required sections, and every plan
 file read by every lens.
-
-**Stage and mode are not config keys.** Which stage a planning command carries
-— `brainstorm`, which settles the product, or `implementation`, which turns a
-settled direction into a plan — and who answers its questions — `interactive`,
-which stops at each one for you, or `automatic`, which answers what it can — are
-chosen per command with `--stage` and `--mode` on `lightsout plan run` and
-`lightsout plan answer`. They default to `implementation` and `interactive`.
-There is deliberately no key for either: a repository-wide default would decide
-who owns a product question, and that belongs on the command that asks it.
-[The planning workflow](planning-workflow.md) is the full guide.
 
 ### Implement settings
 
@@ -692,20 +675,7 @@ your config file believes it raised it.
 | `auto-plan.auto-approve-plan`    |       no | When true, the proposal is skipped entirely, provided nothing cleared the escalation bar; a question that clears it parks the run instead of being guessed past. Defaults to `false`.    |
 | `auto-plan.auto-approve`         |        — | Removed spelling of `auto-approve-plan`. A config still carrying it fails to parse, with a message naming the key that replaced it.                                                      |
 
-Every key is off by default, so an absent block is the most supervised behaviour there is — the whole ticket is planned, one proposal is shown, and it stops. Turning a key on is a repository saying the factory may carry on that far without asking. The block is strict for the same reason `ship` is.
-
-The engine reads this block itself. Automatic mode runs the same planner the
-interactive entry runs — the same records, the same independent challenges
-before and after drafting, the same derived readiness — so these keys decide
-which checkpoints stand, never how thoroughly the plan is worked. There is no
-repair budget here and no round limit to set.
-
-**These keys are not standing product approval.** An approval approves the
-proposal it was shown. A product decision the planner reaches later — a name a
-user will read, a behaviour they will see, a public contract, a cost — still
-stops the run with its own question, carrying the context, the options and a
-recommendation, whatever this block says. `auto-approve-plan` means *do not wait
-for me when nothing needs me*; it never means *guess past what does*.
+Every key is off by default, so an absent block is the most supervised behaviour there is — the skill plans the whole ticket, shows one proposal, and stops. Turning a key on is a repository saying the factory may carry on that far without asking. The block is strict for the same reason `ship` is.
 
 ### Docs settings
 

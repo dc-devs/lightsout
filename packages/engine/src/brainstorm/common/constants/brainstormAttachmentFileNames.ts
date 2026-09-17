@@ -8,4 +8,4 @@ import { brainstormNotesFileName } from '#src/common/constants/brainstormNotesFi
  * the plan's Decision Log and attaching it there would put them on the ticket
  * twice.
  */
-export const brainstormAttachmentFileNames: string[] = [brainstormNotesFileName, 'brainstorm-decisions.json', 'brainstorm-record.json'];
+export const brainstormAttachmentFileNames: string[] = [brainstormNotesFileName, 'brainstorm-decisions.json'];

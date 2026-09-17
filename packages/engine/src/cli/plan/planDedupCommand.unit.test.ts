@@ -1,48 +1,174 @@
-// Dependencies
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { describe, expect, test } from '@jest/globals';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { expect, test } from '@jest/globals';
 import { planDedupCommand } from '#src/cli/plan/index.ts';
-import { planningCanonicalCommandFixture as setup } from '#tests/helpers/planningCanonicalCommandFixture.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { minimalPlanBody } from '#tests/helpers/minimalPlanBody.ts';
+import { writeEmptyDecisions } from '#tests/helpers/writeEmptyDecisions.ts';
 
-describe('planDedupCommand', () => {
-	test('reports canonical prior-art evidence and its independent review without a separate judge fleet', async () => {
-		const fixture = await setup();
+/** The command's own output, with the progress printer's timestamped narration dropped. */
+const printedLines = ({ logged }: { logged: string[] }) => logged.filter((line) => !/^\[\+\d+:\d\d\]/.test(line));
 
-		const run = planDedupCommand(fixture.params);
+/** A dedup-judge stub returning a fixed verdict set and counting the invocations it was actually handed. */
+const judgeDriver = ({ verdicts, calls }: { verdicts: unknown[]; calls: { count: number } }): Driver => ({
+	name: 'stub',
+	invoke: async () => {
+		calls.count += 1;
 
-		await expect(run).rejects.toThrow('process.exit');
-		expect(fixture.exitCodes).toEqual([0]);
-		const dedup = JSON.parse(await readFile(join(fixture.root, 'dedup.json'), 'utf8'));
-		expect(dedup).toEqual(
-			expect.objectContaining({ complete: true, workflow: expect.objectContaining({ format: 'planning-dedup-v1', coverageReceiptIds: expect.any(Array) }) }),
-		);
-		expect(dedup.workflow.coverageReceiptIds.length).toBeGreaterThan(0);
-		expect(fixture.calls).toHaveLength(fixture.callsBefore);
-	});
+		return { text: JSON.stringify({ verdicts }), exitCode: 0 };
+	},
+});
 
-	test('reports an unfinished investigation as incomplete instead of implying an empty passing review', async () => {
-		const fixture = await setup({ complete: false });
+/** A judge stub whose harness reports it hit its subscription rate limit. */
+const rateLimitedDriver = (): Driver => ({
+	name: 'stub',
+	invoke: async () => ({ text: '', exitCode: 1, rateLimited: true }),
+});
 
-		const run = planDedupCommand(fixture.params);
+// A temp repo holding the given existing source files and a plan that creates
+// the given paths — the same arrangement the deterministic prior-art detector
+// is exercised with, so the collisions the judge rules on are real ones.
+const setupDedup = ({ existing = [], creates = [], plan = true }: { existing?: string[]; creates?: string[]; plan?: boolean } = {}) => {
+	const captured = captureCommandOutput();
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-dedup-command-'));
+	const planDir = join(cwd, '.lightsout', 'plans', 'demo');
 
-		await expect(run).rejects.toThrow('process.exit');
-		expect(fixture.exitCodes).toEqual([1]);
-		const dedup = JSON.parse(await readFile(join(fixture.root, 'dedup.json'), 'utf8'));
-		expect(dedup.complete).toBe(false);
-		expect(dedup.incompleteReason).toBeTruthy();
-		expect(fixture.calls).toHaveLength(fixture.callsBefore);
-	});
-	test('shows unresolved canonical findings with their consequences and required remedy', async () => {
-		const fixture = await setup({ finding: true });
+	for (const relative of existing) {
+		mkdirSync(dirname(join(cwd, relative)), { recursive: true });
+		writeFileSync(join(cwd, relative), 'export const x = 1;\n');
+	}
 
-		const run = planDedupCommand(fixture.params);
+	mkdirSync(planDir, { recursive: true });
 
-		await expect(run).rejects.toThrow('process.exit');
-		expect(fixture.exitCodes).toEqual([1]);
-		expect(fixture.logged.some((line) => line.includes('existing-retry-helper'))).toBe(true);
-		expect(fixture.logged.some((line) => line.includes('user must upload completed content again'))).toBe(true);
-		expect(fixture.logged.some((line) => line.includes('Preserve retry identity'))).toBe(true);
-		expect(fixture.logged.some((line) => line.includes('no duplication found'))).toBe(false);
-	});
+	if (plan) {
+		writeFileSync(join(planDir, 'plan.md'), minimalPlanBody({ title: 'Plan', creates }));
+		writeEmptyDecisions({ dir: planDir, name: 'demo' });
+	}
+
+	return { cwd, name: 'demo', ...captured };
+};
+
+test('planDedupCommand: a plan with no colliding symbols reports no duplication, never calls the judge, and exits 0', async () => {
+	const { cwd, name, logged, errors, exitCodes } = setupDedup({ existing: ['src/index.ts'], creates: ['src/brandNewWidget.ts'] });
+	const calls = { count: 0 };
+
+	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts: [], calls }), name, standards: undefined, config: undefined })).rejects.toThrow(
+		/process\.exit/,
+	);
+
+	const printed = printedLines({ logged });
+
+	// no candidates means no agent call
+	expect(calls.count).toBe(0);
+	expect(printed[0] ?? '').toMatch(/^\nplan dedup demo — no duplication found \(reviewed \d{4}-\d\d-\d\dT/);
+	expect(printed[1]).toBe(`\ndedup: ${join(cwd, '.lightsout', 'plans', 'demo', 'dedup.json')}`);
+	expect(errors).toStrictEqual([]);
+	expect(exitCodes).toStrictEqual([0]);
+});
+
+test('planDedupCommand: a confirmed duplicate prints its recommendation, what it collides with, its rationale, and exits 0', async () => {
+	const { cwd, name, logged, exitCodes } = setupDedup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+	const calls = { count: 0 };
+	const verdicts = [{ plannedSymbol: 'getUser', isDuplicate: true, recommendation: 'reuse', rationale: 'fetchUser already does this' }];
+
+	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts, calls }), name, standards: undefined, config: undefined })).rejects.toThrow(
+		/process\.exit/,
+	);
+
+	const printed = printedLines({ logged });
+
+	// the judge ruled on the detected candidate
+	expect(calls.count).toBe(1);
+	expect(printed[0] ?? '').toMatch(/^\nplan dedup demo — 1 duplication\(s\) to review \(reviewed \d{4}-\d\d-\d\dT/);
+	// the finding leads with the plan file that planned it, so the skill edits the
+	// right phase rather than `plan.md` by default
+	expect(printed[1] ?? '').toMatch(/^⧉ plan\.md · getUser \[reuse\] collides with \S*fetchUser\.ts$/);
+	expect(printed[2]).toBe('   fetchUser already does this');
+	expect(printed[3]).toBe(`\ndedup: ${join(cwd, '.lightsout', 'plans', 'demo', 'dedup.json')}`);
+	expect(exitCodes).toStrictEqual([0]);
+});
+
+test('planDedupCommand: a verdict that rules the collision distinct leaves no finding to review', async () => {
+	const { cwd, name, logged, exitCodes } = setupDedup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+	const calls = { count: 0 };
+	const verdicts = [{ plannedSymbol: 'getUser', isDuplicate: false, recommendation: 'distinct', rationale: 'different concept' }];
+
+	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts, calls }), name, standards: undefined, config: undefined })).rejects.toThrow(
+		/process\.exit/,
+	);
+
+	const printed = printedLines({ logged });
+
+	expect(calls.count).toBe(1);
+	expect(printed[0] ?? '').toMatch(/^\nplan dedup demo — no duplication found/);
+	// a dropped verdict prints no finding line, got: ${JSON.stringify(printed)}
+	expect(printed.length).toBe(2);
+	expect(exitCodes).toStrictEqual([0]);
+});
+
+test('planDedupCommand: an unresolvable deliverable reports the error on stderr and exits 1', async () => {
+	const { cwd, name, logged, errors, exitCodes } = setupDedup({ plan: false });
+	const calls = { count: 0 };
+
+	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts: [], calls }), name, standards: undefined, config: undefined })).rejects.toThrow(
+		/process\.exit/,
+	);
+
+	expect(printedLines({ logged })).toStrictEqual([]);
+	expect(errors[0] ?? '').toMatch(/no plan found for 'demo'/);
+	expect(exitCodes).toStrictEqual([1]);
+});
+
+test('planDedupCommand: a rate-limited harness prints the exact re-run command and marks the partial scan incomplete rather than reporting an empty review', async () => {
+	const { cwd, name, logged, errors, exitCodes } = setupDedup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+
+	await expect(planDedupCommand({ cwd, driver: rateLimitedDriver(), name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+
+	const printed = printedLines({ logged });
+
+	expect(errors[0] ?? '').toMatch(/rate limited or overloaded — re-run: lightsout plan dedup --name demo$/);
+	// "no duplication found" under an unfinished scan is the one reading this must
+	// never allow, so the partial report says what it is before it says what it found
+	expect(printed[0] ?? '').toMatch(/^\nincomplete scan — plan\.md: rate limited or overloaded/);
+	expect(printed[1] ?? '').toMatch(/^\nplan dedup demo — no duplication found/);
+	expect(exitCodes).toStrictEqual([1]);
+});
+
+test('records the dedup step as passed in the planning record before it exits 0', async () => {
+	const { cwd, name, exitCodes } = setupDedup({ existing: ['src/index.ts'], creates: ['src/brandNewWidget.ts'] });
+	const calls = { count: 0 };
+
+	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts: [], calls }), name, standards: undefined, config: undefined })).rejects.toThrow(
+		/process\.exit/,
+	);
+
+	// the exit throws, so a record read afterwards was written before the command exited
+	const record = JSON.parse(readFileSync(join(cwd, '.lightsout', 'plans', 'demo', 'planning-progress.json'), 'utf8')) as {
+		steps: { step: string; status: string }[];
+	};
+
+	expect(record.steps.find((entry) => entry.step === 'dedup')).toEqual(expect.objectContaining({ step: 'dedup', status: 'passed' }));
+	expect(exitCodes).toStrictEqual([0]);
+});
+
+test.each([
+	{
+		outcome: 'a rate-limited scan',
+		arrangement: { existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] },
+		driver: rateLimitedDriver(),
+		status: 'paused-rate-limit',
+	},
+	{ outcome: 'an unresolvable deliverable', arrangement: { plan: false }, driver: judgeDriver({ verdicts: [], calls: { count: 0 } }), status: 'failed' },
+])('records the dedup step as $status when $outcome exits 1', async ({ arrangement, driver, status }) => {
+	const { cwd, name, exitCodes } = setupDedup(arrangement);
+
+	await expect(planDedupCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+
+	// a rate limit is a pause to resume, not a failure — the record keeps the two apart
+	const record = JSON.parse(readFileSync(join(cwd, '.lightsout', 'plans', 'demo', 'planning-progress.json'), 'utf8')) as { steps: unknown[] };
+
+	expect(record.steps).toEqual([expect.objectContaining({ step: 'dedup', status, attempts: 1 })]);
+	expect(exitCodes).toStrictEqual([1]);
 });

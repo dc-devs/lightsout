@@ -13,7 +13,7 @@ describe('commandCatalog flags', () => {
 
 		expect(accepted).toStrictEqual([
 			['brainstorm', ['cwd', 'name']],
-			['plan', ['answer-file', 'cwd', 'input-file', 'mode', 'name', 'no-worktree', 'notes', 'phase', 'scope', 'stage', 'worktree']],
+			['plan', ['cwd', 'legacy', 'name', 'no-worktree', 'notes', 'phase', 'scope', 'worktree']],
 			['auto-plan', []],
 			['implement', ['cwd', 'no-ship', 'no-worktree', 'overview', 'packages', 'plan', 'ship', 'skip-refactor', 'start-phase', 'worktree']],
 			['implement-direct', ['cwd', 'no-ship', 'no-worktree', 'ref', 'ship', 'ticket', 'worktree']],
@@ -101,28 +101,17 @@ describe('commandCatalog flags', () => {
 		expect(isolationFlags.find((flag) => flag.name === 'worktree')?.fallback).toEqual(expect.stringMatching(/plan\.worktree/));
 	});
 
-	test('plan offers the planner as run and answer, and no longer offers a drafting engine to pick', () => {
+	test('plan accepts the legacy flag on the draft invocation and renders it in the usage text', () => {
 		const { byId } = setupCatalog();
-		const entry = byId.get('plan');
+		const legacyFlags = (byId.get('plan')?.flags ?? []).filter((flag) => flag.name === 'legacy');
 
-		const lines = renderUsage().split('\n');
-		const draftLine = lines.find((line) => line.startsWith('  lightsout plan draft'));
+		const draftLine = renderUsage()
+			.split('\n')
+			.find((line) => line.startsWith('  lightsout plan draft'));
 
-		// the accepted set is read from these rows, so each flag works exactly when --help says it does
-		expect((entry?.flags ?? []).map((flag) => [flag.name, flag.value, flag.shape, flag.required])).toEqual(
-			expect.arrayContaining([
-				['answer-file', '<path>', 'plan-answer', true],
-				['stage', 'brainstorm|implementation', 'plan-run', false],
-				['mode', 'interactive|automatic', 'plan-run', false],
-				['input-file', '<path>', 'plan-run', false],
-			]),
-		);
-		expect((entry?.invocations ?? []).map((invocation) => invocation.positional)).toEqual(expect.arrayContaining(['run', 'answer']));
-		expect(lines.some((line) => line.startsWith('  lightsout plan run '))).toBe(true);
-		expect(lines.some((line) => line.startsWith('  lightsout plan answer '))).toBe(true);
-		// the drafting engine is no longer a choice a reader can make, so nothing offers one
-		expect((entry?.flags ?? []).some((flag) => flag.name === 'legacy')).toBe(false);
-		expect(draftLine).not.toEqual(expect.stringContaining('--legacy'));
+		// the accepted set is read from this row, so the flag works exactly when --help says it does
+		expect(legacyFlags.map((flag) => [flag.name, flag.value, flag.shape, flag.required])).toStrictEqual([['legacy', undefined, 'plan-draft', false]]);
+		expect(draftLine).toEqual(expect.stringContaining('[--legacy]'));
 	});
 
 	test('scopes each ticket flag to the subcommand that reads it', () => {

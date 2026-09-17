@@ -1,4 +1,3 @@
-import { maskPlanCodeFences } from '#src/plan/common/parsing/maskPlanCodeFences.ts';
 import { pathFromLine } from '#src/plan/common/paths/pathFromLine.ts';
 
 interface Params {
@@ -19,7 +18,7 @@ export const planCreatePaths = ({ planText }: Params): string[] => {
 	const paths: string[] = [];
 	let inCreateSection = false;
 
-	for (const line of maskPlanCodeFences({ lines: planText.split('\n') }).lines) {
+	for (const line of planText.split('\n')) {
 		const heading = /^##\s+(.+?)\s*$/.exec(line);
 
 		if (heading) {
