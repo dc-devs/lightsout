@@ -141958,7 +141958,7 @@ var findUnfinishedSequence = async ({ cwd, overviewPath }) => {
 import { access, readFile as readFile42 } from "node:fs/promises";
 import { dirname as dirname20, join as join100 } from "node:path";
 var getPhaseFiles = async ({ cwd, overview }) => {
-  const overviewFullPath = join100(cwd, overview);
+  const overviewFullPath = await resolveRecordedPlanPath({ cwd, path: overview });
   const overviewContent = await readFile42(overviewFullPath, "utf8").catch(() => void 0);
   if (overviewContent === void 0) {
     throw new Error(`overview file not found: ${overviewFullPath}`);
@@ -141977,7 +141977,7 @@ var assertPhaseFilesExist = async ({ cwd, overview, phases }) => {
   const missing = [];
   for (const file2 of phases) {
     const phasePath = join100(dirname20(overview), file2);
-    const present = await access(join100(cwd, phasePath)).then(
+    const present = await access(await resolveRecordedPlanPath({ cwd, path: phasePath })).then(
       () => true,
       () => false
     );
