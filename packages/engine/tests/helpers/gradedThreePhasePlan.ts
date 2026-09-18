@@ -144,7 +144,7 @@ export const setupGraded = async ({ name, gaps = [], recheckVerdict, edited, doc
 	const invocations: DriverInvocation[] = [];
 	const driver = createGapCheckDriver({ gaps: readerGaps, invocations, recheckVerdict });
 	const gradePath = join(dir, 'grade.json');
-	const historyPath = gradeHistoryPath({ cwd, name });
+	const historyPath = await gradeHistoryPath({ cwd, name });
 
 	await runPlanGrade({ cwd, driver, name });
 

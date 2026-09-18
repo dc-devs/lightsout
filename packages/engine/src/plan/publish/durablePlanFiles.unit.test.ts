@@ -1,11 +1,32 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
+import { serializeAttachmentManifest } from '#src/common/attachmentManifest/serializeAttachmentManifest.ts';
+import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
 import { durablePlanFiles } from '#src/plan/publish/durablePlanFiles.ts';
+import { restorePlanWorkspace } from '#src/plan/restore/index.ts';
+import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
+import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
-// No mocks: the subject reads a plan folder off disk, so the arrangement is a
-// real temporary folder holding exactly the files each case is about.
+// Mocked Imports
+// -------------------------
+type Attachment = { id: string; title: string; url: string };
+
+const mockGetTicketAttachments = jest.fn<(params: { identifier: string }) => Promise<Attachment[]>>();
+const mockReadTicketAsset = jest.fn<(params: { url: string }) => Promise<string>>();
+
+jest.mock('#src/ticketTracker/index.ts', () => ({
+	getTicketAttachments: (params: { identifier: string }) => mockGetTicketAttachments(params),
+	readTicketAsset: (params: { url: string }) => mockReadTicketAsset(params),
+}));
+// -------------------------
+
+// No mocks here: the subject reads a plan folder off disk, so the arrangement is
+// a real temporary folder holding exactly the files each case is about. Only the
+// ticket the restore case fetches from is doubled, because it would leave the
+// machine.
 const setupPlanFolder = ({ files }: { files: Record<string, string> }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-durable-plan-files-'));
 	const dir = join(cwd, '.lightsout', 'plans', 'lo-54-portable-plan');
@@ -17,6 +38,34 @@ const setupPlanFolder = ({ files }: { files: Record<string, string> }) => {
 	}
 
 	return { cwd, dir, name: 'lo-54-portable-plan' };
+};
+
+/**
+ * A primary checkout with a linked worktree cut from it, and a ticket carrying
+ * one published generation of the plan — the shape a plan command runs in once
+ * plan data stays in the main checkout.
+ */
+const setupTicketAndWorktree = () => {
+	// The real path on both sides, because macOS's temporary directory is a
+	// symlink and git answers with the directory it resolved to.
+	const primary = realpathSync(setupBranchRepo().cwd);
+	const worktree = join(primary, '.worktrees', 'lo-54-portable-plan');
+
+	execSync(`git worktree add -q -b lo-54-portable-plan "${worktree}" main`, { cwd: primary, stdio: 'ignore' });
+
+	const generation = [
+		{ title: 'plan.md', body: '# plan\n' },
+		{ title: 'brainstorm-notes.md', body: '# notes\n' },
+	];
+	const marker = serializeAttachmentManifest({
+		files: generation.map(({ title, body }) => ({ name: title, content: Buffer.from(body, 'utf8') })),
+	}).toString('utf8');
+	const assets = [...generation, { title: planAttachmentManifestName, body: marker }];
+
+	mockGetTicketAttachments.mockResolvedValue(assets.map(({ title }, index) => ({ id: `att-${index}`, title, url: `https://assets.example/${index}` })));
+	mockReadTicketAsset.mockImplementation(async ({ url }) => assets[Number(url.split('/').at(-1))]?.body ?? '');
+
+	return { primary, worktree, dir: join(primary, '.lightsout', 'plans', 'lo-54-portable-plan'), name: 'lo-54-portable-plan' };
 };
 
 /** Run state a plan folder always holds and no publish ever carries. */
@@ -125,5 +174,31 @@ describe('durablePlanFiles', () => {
 		const set = await durablePlanFiles({ cwd, name });
 
 		expect(set.files.map((file) => file.name)).not.toContain('planning-progress.json');
+	});
+
+	test("publish and restore act on the primary checkout's plan folder from any checkout", async () => {
+		const { worktree, dir, name } = setupTicketAndWorktree();
+
+		const restored = await restorePlanWorkspace({ cwd: worktree, name, identifier: 'lo-54', settings: trackerSettingsFixture() });
+		const published = await durablePlanFiles({ cwd: worktree, name });
+
+		// One assertion over both directions, because the claim is that they meet on
+		// one folder: the restore run from the worktree writes the primary's folder,
+		// and the publish run from the same worktree finds exactly those files there
+		// rather than nothing at all.
+		expect({
+			restored: restored.restored,
+			primaryFolder: readdirSync(dir).sort(),
+			published: published.files,
+			worktreeHoldsLightsoutData: existsSync(join(worktree, '.lightsout')),
+		}).toStrictEqual({
+			restored: ['brainstorm-notes.md', 'plan.md'],
+			primaryFolder: ['brainstorm-notes.md', 'plan.md'],
+			published: [
+				{ name: 'plan.md', path: join(dir, 'plan.md') },
+				{ name: 'brainstorm-notes.md', path: join(dir, 'brainstorm-notes.md') },
+			],
+			worktreeHoldsLightsoutData: false,
+		});
 	});
 });

@@ -231,7 +231,7 @@ export const addTicketPlan = async ({
 
 	const address = formatPlanAddress({ ticketBranch, planId: addition.planId });
 
-	await mkdir(planWorkspaceDir({ cwd, name: address }), { recursive: true });
+	await mkdir(await planWorkspaceDir({ cwd, name: address }), { recursive: true });
 
 	return {
 		address,

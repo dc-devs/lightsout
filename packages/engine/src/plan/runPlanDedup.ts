@@ -1,9 +1,19 @@
 import { basename, join } from 'node:path';
+import type { ActivityLevel } from '#src/activity/index.ts';
 import { buildPlanDedupInvocation } from '#src/agents/index.ts';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
-import { type DedupFinding, DedupJudgment, type DedupReport, type Effort, type Permissions, type ReviewedCollision } from '#src/contracts/index.ts';
+import {
+	ActivityLevelKind,
+	type DedupFinding,
+	DedupJudgment,
+	type DedupReport,
+	type Effort,
+	type Permissions,
+	type ReviewedCollision,
+} from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
+import { getPlanRunStatus } from '#src/plan/common/activity/getPlanRunStatus.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 import { planAgentConcurrency } from '#src/plan/common/constants/planAgentConcurrency.ts';
 import type { DeliverableFile } from '#src/plan/common/types/DeliverableFile.ts';
@@ -27,6 +37,8 @@ interface Params {
 	effort?: Effort;
 	permissions?: Permissions;
 	timeoutMs?: number;
+	/** The command-run level the judge fan-out opens its own pass level under. Absent wherever no run is being recorded. */
+	level?: ActivityLevel;
 	onProgress?: (message: string) => void;
 }
 
@@ -74,7 +86,7 @@ const spawnDedupJudge = async ({
 	pass: Awaited<ReturnType<typeof getPlanDetectionPass>>;
 	group: DedupGroup;
 }): Promise<DedupResult> => {
-	const { cwd, driver, standards, model, effort, permissions, timeoutMs = 30 * 60 * 1000 } = params;
+	const { cwd, driver, standards, model, effort, permissions, timeoutMs = 30 * 60 * 1000, level } = params;
 	const invokePlanAgent = createPlanAgentRunner({
 		cwd,
 		driver,
@@ -84,6 +96,7 @@ const spawnDedupJudge = async ({
 		effort,
 		permissions,
 		timeoutMs,
+		level,
 	});
 	const outcome = await invokePlanAgent({
 		invocation: buildPlanDedupInvocation({ planText: group.text, overviewText: pass.overviewText, candidates: group.candidates, standards }),
@@ -122,13 +135,7 @@ const foldDedupResults = ({ results }: { results: Array<DedupResult | undefined>
 		}
 
 		findings.push(...matchDedupVerdicts({ candidates: result.group.candidates, verdicts: result.outcome.report.verdicts }));
-		reviewed.push(
-			...result.group.candidates.map(({ plannedSymbol, plannedPath, phase }) => ({
-				plannedSymbol,
-				plannedPath,
-				phase,
-			})),
-		);
+		reviewed.push(...result.group.candidates.map(({ plannedSymbol, plannedPath, phase }) => ({ plannedSymbol, plannedPath, phase })));
 	}
 
 	return { findings, reviewed, failures, rateLimited: results.some((result) => isRateLimited({ result })) };
@@ -145,12 +152,15 @@ const foldDedupResults = ({ results }: { results: Array<DedupResult | undefined>
  *
  * A phased plan is judged one agent per plan file, all at once, each given only
  * its own file's text and its own file's collisions and each duplication
- * labelled with the file that planned it. Gluing every phase into one prompt is
- * the single-agent-whole-plan shape the draft and the grade were split out of,
- * and it has not bitten yet only because the deterministic scan found no
- * collisions on the plans run so far. A judge that fails no longer discards the
- * pass: what finished is persisted, marked incomplete, and the runner still
- * reports the failure so a human re-runs.
+ * labelled with the file that planned it. The whole fan-out is one activity
+ * level with a step per spawn, and a run with no candidates opens none at all:
+ * a grouping row over zero spawns is a row for work that never happened.
+ *
+ * Gluing every phase into one prompt is the single-agent-whole-plan shape the
+ * draft and the grade were split out of, and it has not bitten yet only because
+ * the deterministic scan found no collisions on the plans run so far. A judge
+ * that fails no longer discards the pass: what finished is persisted, marked
+ * incomplete, and the runner still reports the failure so a human re-runs.
  */
 export const runPlanDedup = async (params: Params): Promise<RunPlanDedupResult> => {
 	const { cwd, name, onProgress } = params;
@@ -208,16 +218,21 @@ export const runPlanDedup = async (params: Params): Promise<RunPlanDedupResult> 
 
 	progress(`plan dedup ${name}: ${candidates.length} candidate(s) detected across ${groups.length} plan file(s), judging`);
 
+	const fanOut = params.level?.open({ level: ActivityLevelKind.Pass, label: 'judge fan-out' });
 	const results = await drainTasks({
-		tasks: groups.map((group) => () => spawnDedupJudge({ params, pass, group })),
+		tasks: groups.map((group) => () => spawnDedupJudge({ params: { ...params, level: fanOut }, pass, group })),
 		concurrency: planAgentConcurrency,
 	});
 	const { findings, reviewed, failures, rateLimited } = foldDedupResults({ results });
 	const dedup = await writeReport({ findings, reviewed, incompleteReason: failures.length > 0 ? failures.join('; ') : undefined });
+	// Read once by the fan-out's end mark and by what this runner answers, so the
+	// row in the report and the exit code can never disagree about the judges.
+	const status = rateLimited ? PlanRunStatus.PausedRateLimit : failures.length > 0 ? PlanRunStatus.Failed : PlanRunStatus.Complete;
 
 	progress(`plan dedup ${name}: ${findings.length} duplication(s) to review`);
+	fanOut?.close({ outcome: getPlanRunStatus({ status }) });
 
-	if (rateLimited) {
+	if (status === PlanRunStatus.PausedRateLimit) {
 		const parked = `rate limited or overloaded — re-run: lightsout plan dedup --name ${name}`;
 
 		return { status: PlanRunStatus.PausedRateLimit, workspaceDir, error: parked, dedup, dedupPath };

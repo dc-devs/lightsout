@@ -1,16 +1,11 @@
-import { chmod, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { afterAll, expect, test } from '@jest/globals';
-import { Permissions } from '#src/contracts/index.ts';
+import type { HarnessProcessUsage } from '#src/contracts/index.ts';
 import { createOmpDriver, createPiDriver } from '#src/drivers/index.ts';
+import { fakeHarnessOnPath } from '#tests/helpers/fakeHarnessOnPath.ts';
 
-// The `pi`/`omp` binaries are the one unowned boundary here, so each setup
-// writes fake ones onto PATH: they record the argv and stdin they were handed,
-// copy any system-prompt file they were pointed at (the real one is deleted
-// before the invocation returns), stream the scenario's stdout, and exit with
-// the scenario's code. Nothing else is stubbed — the driver under test is the
-// real one, spawning a real process.
+// How the driver reads a stream: the answer it takes from it, the events it
+// relays, and the session spend it adds up message by message. What the spawned
+// process was handed is the sibling `.spawn.` file's business.
 const realPath = process.env.PATH ?? '';
 
 afterAll(() => {
@@ -23,137 +18,56 @@ const event = (fields: Record<string, unknown>) => `${JSON.stringify(fields)}\n`
 /** The usage envelope omp 18.1.6 attaches to assistant messages — pi shares the shape. */
 const usage = { input: 7774, output: 3, cacheRead: 9472, cacheWrite: 0, cost: { total: 0.01335952 } };
 
-const setupBinary = async ({
-	binary,
-	stdoutChunks = [],
-	stderr = '',
-	exitCode = 0,
-}: {
-	binary: 'pi' | 'omp';
-	stdoutChunks?: string[];
-	stderr?: string;
-	exitCode?: number;
-}) => {
-	const dir = await mkdtemp(join(tmpdir(), `lightsout-pi-driver-`));
-	const binDir = join(dir, 'bin');
-	const argvPath = join(dir, 'argv.txt');
-	const stdinPath = join(dir, 'stdin.txt');
-	const promptCopyPath = join(dir, 'system-prompt-copy.md');
+/** One scenario for a fake pi-family binary, whose name also picks the driver under test. */
+type Scenario = Omit<Parameters<typeof fakeHarnessOnPath>[0], 'binary' | 'systemPromptFlag'> & { binary: 'pi' | 'omp' };
 
-	await mkdir(binDir);
-	await writeFile(
-		join(binDir, binary),
-		[
-			'#!/bin/sh',
-			`printf '%s\\n' "$@" > '${argvPath}'`,
-			"prev=''",
-			'for arg in "$@"; do',
-			`  if [ "$prev" = "--append-system-prompt" ]; then cp "$arg" '${promptCopyPath}'; fi`,
-			'  prev="$arg"',
-			'done',
-			`cat > '${stdinPath}'`,
-			...stdoutChunks.flatMap((chunk) => [`printf '%s' '${chunk}'`]),
-			`printf '%s' '${stderr}' >&2`,
-			`exit ${exitCode}`,
-		].join('\n'),
-		'utf8',
-	);
-	await chmod(join(binDir, binary), 0o755);
-
-	process.env.PATH = `${binDir}:${realPath}`;
-
-	return {
-		driver: binary === 'pi' ? createPiDriver() : createOmpDriver(),
-		cwd: dir,
-		readArgv: async () => (await readFile(argvPath, 'utf8')).split('\n').slice(0, -1),
-		readStdin: async () => readFile(stdinPath, 'utf8'),
-		readSystemPromptCopy: async () => readFile(promptCopyPath, 'utf8'),
-	};
-};
-
-/** A PATH holding neither pi-family binary at all — the harness-not-installed scenario. */
-const setupWithoutBinaries = async () => {
-	const dir = await mkdtemp(join(tmpdir(), 'lightsout-pi-missing-'));
-	const binDir = join(dir, 'bin');
-
-	await mkdir(binDir);
-
-	process.env.PATH = binDir;
-
-	return { cwd: dir };
-};
-
-test('createPiDriver: each factory reports the harness name the manifest will record it under', () => {
-	expect(createPiDriver().name).toBe('pi');
-	expect(createOmpDriver().name).toBe('omp');
+const setupBinary = async ({ binary, ...scenario }: Scenario) => ({
+	driver: binary === 'pi' ? createPiDriver() : createOmpDriver(),
+	...(await fakeHarnessOnPath({ binary, systemPromptFlag: '--append-system-prompt', ...scenario })),
 });
 
-test('createPiDriver: the invocation model, effort, and omp approval tier reach the spawned process as flags', async () => {
-	const { driver, cwd, readArgv } = await setupBinary({ binary: 'omp' });
+/**
+ * Three assistant turns of one real multi-turn omp session, captured by hand
+ * from the installed omp 18.1.6 binary and trimmed to the counts this driver
+ * reads. The capture settles what `cost.total` means: on the second turn omp
+ * states input 0.0019968, output 0.000058 and cacheRead 0.00020736, which add
+ * to that same turn's total of 0.00226216 — so `total` is one message's spend
+ * and never a running one. The per-turn `input` counts fall as the context
+ * moves into the cache, so the last turn's counts are nowhere near the
+ * session's.
+ */
+const capturedTurns = [
+	{ input: 18073, output: 122, cacheRead: 0, cacheWrite: 0, cost: { total: 0.0027719499999999996 } },
+	{ input: 13312, output: 116, cacheRead: 6912, cacheWrite: 0, cost: { total: 0.00226216 } },
+	{ input: 6690, output: 134, cacheRead: 20224, cacheWrite: 0, cost: { total: 0.00167722 } },
+];
 
-	await driver.invoke({
-		prompt: 'task',
-		cwd,
-		model: 'zai/glm-5.3',
-		effort: 'high',
-		permissions: Permissions.Write,
-	});
-
-	const argv = await readArgv();
-	expect(argv).toContain('-p');
-	expect(argv).toContain('json');
-	expect(argv).toContain('--no-session');
-	expect(argv[argv.indexOf('--model') + 1]).toBe('zai/glm-5.3');
-	expect(argv[argv.indexOf('--thinking') + 1]).toBe('high');
-	expect(argv[argv.indexOf('--approval-mode') + 1]).toBe('write');
+/** One captured turn as the stream carries it: an assistant message with prose and its own usage. */
+const capturedTurn = ({ index, text }: { index: number; text: string }) => ({
+	role: 'assistant',
+	content: [{ type: 'text', text }],
+	usage: capturedTurns[index],
 });
 
-test('createPiDriver: bare pi gets the same model and effort but never an approval flag — it has no permission system', async () => {
-	const { driver, cwd, readArgv } = await setupBinary({ binary: 'pi' });
-
-	await driver.invoke({ prompt: 'task', cwd, model: 'glm-4.7', permissions: Permissions.FullAccess });
-
-	const argv = await readArgv();
-	expect(argv[argv.indexOf('--model') + 1]).toBe('glm-4.7');
-	expect(argv).not.toContain('--approval-mode');
-});
-
-test('createPiDriver: the system prompt reaches the harness as a file, not as argv', async () => {
-	const { driver, cwd, readArgv, readSystemPromptCopy } = await setupBinary({
+/** The whole captured session as omp streams it: a `message_end` per turn, then `agent_end` restating every message. */
+const setupCapturedSession = () =>
+	setupBinary({
 		binary: 'omp',
-		stdoutChunks: [event({ type: 'agent_end', messages: [{ role: 'assistant', content: [{ type: 'text', text: 'ok' }] }], isTerminal: true })],
+		stdoutChunks: [
+			event({ type: 'message_end', message: capturedTurn({ index: 0, text: 'reading the docs' }) }),
+			event({ type: 'message_end', message: capturedTurn({ index: 1, text: 'reading two more' }) }),
+			event({
+				type: 'agent_end',
+				messages: [
+					{ role: 'user', content: [{ type: 'text', text: 'task' }] },
+					capturedTurn({ index: 0, text: 'reading the docs' }),
+					capturedTurn({ index: 1, text: 'reading two more' }),
+					capturedTurn({ index: 2, text: 'the answer' }),
+				],
+				isTerminal: true,
+			}),
+		],
 	});
-
-	await driver.invoke({ prompt: 'task', systemPrompt: '# Role\nBe the executor.', cwd });
-
-	const argv = await readArgv();
-	expect(argv[argv.indexOf('--append-system-prompt') + 1]).toMatch(/system-prompt\.md$/);
-	// what the harness was pointed at is the prompt's contents, not the prompt itself
-	expect(await readSystemPromptCopy()).toBe('# Role\nBe the executor.');
-});
-
-test('createPiDriver: the system prompt file is removed once the invocation returns', async () => {
-	const { driver, cwd, readArgv } = await setupBinary({
-		binary: 'pi',
-		stdoutChunks: [event({ type: 'agent_end', messages: [{ role: 'assistant', content: [{ type: 'text', text: 'ok' }] }], isTerminal: true })],
-	});
-
-	await driver.invoke({ prompt: 'task', systemPrompt: 'role', cwd });
-
-	const promptPath = (await readArgv())[readArgv.length - 1];
-	await expect(readFile(promptPath, 'utf8')).rejects.toThrow();
-});
-
-test('createPiDriver: the task prompt rides stdin verbatim, sidestepping the argv ceiling', async () => {
-	const { driver, cwd, readStdin } = await setupBinary({
-		binary: 'omp',
-		stdoutChunks: [event({ type: 'agent_end', messages: [{ role: 'assistant', content: [{ type: 'text', text: 'ok' }] }], isTerminal: true })],
-	});
-
-	await driver.invoke({ prompt: 'a task\nwith lines', cwd });
-
-	expect(await readStdin()).toBe('a task\nwith lines');
-});
 
 test('createPiDriver: agent_end supplies the text and the normalized usage, text blocks only', async () => {
 	const { driver, cwd } = await setupBinary({
@@ -192,12 +106,15 @@ test('createPiDriver: agent_end supplies the text and the normalized usage, text
 
 	expect(result.exitCode).toBe(0);
 	expect(result.text).toBe('the answer');
+	// Two assistant messages carried usage — the tool-call round and the final
+	// answer — so the process spent both, and the repeat of the tool-call round
+	// inside agent_end adds nothing a second time.
 	expect(result.usage).toStrictEqual({
-		inputTokens: 7774,
-		outputTokens: 3,
-		cacheReadTokens: 9472,
+		inputTokens: 15548,
+		outputTokens: 6,
+		cacheReadTokens: 18944,
 		cacheCreationTokens: 0,
-		costUsd: 0.01335952,
+		costUsd: 0.02671904,
 	});
 });
 
@@ -246,6 +163,21 @@ test('createPiDriver: a final message reporting no usage reports no usage at all
 	expect(result.usage).toBeUndefined();
 });
 
+test('createPiDriver: a message stating only some of its counts contributes those and nothing invented for the rest', async () => {
+	const { driver, cwd } = await setupBinary({
+		binary: 'omp',
+		stdoutChunks: [
+			// this harness omits a count it has nothing to say about — no cache
+			// figures and no cost on a first uncached turn
+			event({ type: 'message_end', message: { role: 'assistant', content: [{ type: 'text', text: 'ok' }], usage: { input: 10 } } }),
+		],
+	});
+
+	const result = await driver.invoke({ prompt: 'task', cwd });
+
+	expect(result.usage).toStrictEqual({ inputTokens: 10, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0 });
+});
+
 test('createPiDriver: an errored 529 overload parks like a rate limit — transient, never a failed batch', async () => {
 	const { driver, cwd } = await setupBinary({
 		binary: 'omp',
@@ -279,8 +211,56 @@ test('createPiDriver: a clean exit whose stream carries no assistant message is 
 	expect(result.rateLimited).toBe(false);
 });
 
-test('createPiDriver: a harness that is not installed rejects with the spawn failure', async () => {
-	const { cwd } = await setupWithoutBinaries();
+test("createPiDriver: a multi-turn session reports the whole process's tokens, not the last message's", async () => {
+	const { driver, cwd } = await setupCapturedSession();
 
-	await expect(createOmpDriver().invoke({ prompt: 'task', cwd })).rejects.toThrow();
+	const result = await driver.invoke({ prompt: 'task', cwd });
+
+	// 18073 + 13312 + 6690 input, not the final turn's 6690 alone
+	expect(result.usage).toEqual(expect.objectContaining({ inputTokens: 38075, outputTokens: 372, cacheReadTokens: 27136, cacheCreationTokens: 0 }));
+});
+
+test("createPiDriver: the reported cost is the session's, as the captured transcript states it", async () => {
+	const { driver, cwd } = await setupCapturedSession();
+
+	const result = await driver.invoke({ prompt: 'task', cwd });
+
+	// 0.00277195 + 0.00226216 + 0.00167722 — three per-message totals added up
+	expect(result.usage?.costUsd).toBeCloseTo(0.00671133, 8);
+});
+
+test('createPiDriver: usage streams per message so a stream that never ends still reports', async () => {
+	const { driver, cwd } = await setupBinary({
+		binary: 'omp',
+		stdoutChunks: [
+			event({ type: 'message_end', message: capturedTurn({ index: 0, text: 'reading the docs' }) }),
+			event({ type: 'message_end', message: capturedTurn({ index: 1, text: 'reading two more' }) }),
+		],
+	});
+
+	const reported: HarnessProcessUsage[] = [];
+	await driver.invoke({ prompt: 'task', cwd, onUsage: (streamed) => reported.push(streamed) });
+
+	const last = reported.at(-1);
+	expect(last).toEqual(expect.objectContaining({ inputTokens: 31385, outputTokens: 238, cacheReadTokens: 6912, cacheCreationTokens: 0 }));
+	expect(last?.costUsd).toBeCloseTo(0.00503411, 8);
+});
+
+test('createPiDriver: a message carried by both message_end and agent_end is counted once', async () => {
+	const { driver, cwd } = await setupBinary({
+		binary: 'omp',
+		stdoutChunks: [
+			event({ type: 'message_end', message: capturedTurn({ index: 0, text: 'reading the docs' }) }),
+			event({
+				type: 'agent_end',
+				messages: [capturedTurn({ index: 0, text: 'reading the docs' }), capturedTurn({ index: 1, text: 'the answer' })],
+				isTerminal: true,
+			}),
+		],
+	});
+
+	const result = await driver.invoke({ prompt: 'task', cwd });
+
+	// the repeated first turn adds 18073 once, so the total is 31385 and never 49458
+	expect(result.usage).toEqual(expect.objectContaining({ inputTokens: 31385, outputTokens: 238, cacheReadTokens: 6912, cacheCreationTokens: 0 }));
 });

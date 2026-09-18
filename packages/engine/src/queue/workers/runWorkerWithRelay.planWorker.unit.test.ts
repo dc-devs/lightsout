@@ -1,4 +1,5 @@
-import { mkdtempSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
@@ -14,6 +15,7 @@ import { TerminalQuestionRelay } from '#src/queue/relay/index.ts';
 import { runWorkerWithRelay } from '#src/queue/workers/runWorkerWithRelay.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
+import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 /**
@@ -229,6 +231,50 @@ const setupPlanWorkerTicket = ({ pull }: { pull: PullTicketRecordResult }) => {
 	};
 };
 
+/**
+ * The queue's own shape for a ticket with no record: a primary checkout holding
+ * the branch's plan folder, and the ticket's linked worktree — cut from that
+ * checkout — as the tree the worker builds in. The folder never leaves the main
+ * checkout, so the worker has to look there rather than in the tree it stands in.
+ */
+const setupPlanWorkerInWorktree = () => {
+	const { relay, coordinatorRunDir } = setupRelay();
+	// realpath on both sides, so macOS's symlinked temp directory cannot make the
+	// folder written here and the one git answers with look like different places.
+	const primary = realpathSync(setupBranchRepo().cwd);
+	const worktreePath = join(primary, '.worktrees', 'lo-70-drain');
+
+	execSync(`git worktree add -q -b lo-70-drain "${worktreePath}" main`, { cwd: primary, stdio: 'ignore' });
+
+	const folder = join(primary, '.lightsout', 'plans', 'lo-70-drain');
+
+	mkdirSync(folder, { recursive: true });
+	writeFileSync(join(folder, 'plan.md'), '# Plan\n');
+
+	mockPullTicketRecord.mockResolvedValue({ record: undefined });
+	mockRunPlanFolderPipeline.mockResolvedValue({});
+
+	return {
+		relay,
+		worktreePath,
+		params: {
+			worktreePath,
+			branch: 'lo-70-drain',
+			ticket: ticketOf(QueueWorker.Plan),
+			config,
+			driver,
+			driverName: 'claude-code',
+			settings,
+			trackerSettings: trackerSettingsFixture(),
+			relay,
+			coordinatorRunId: 'run-q',
+			coordinatorRunDir,
+			ticketRunDir: join(coordinatorRunDir, 'tickets', 'LO-70'),
+			env: { LINEAR_API_KEY: 'key-1' },
+		},
+	};
+};
+
 describe('runWorkerWithRelay', () => {
 	test('runWorkerWithRelay: builds a planning-complete ticket carrying only a published brainstorm from the ticket body', async () => {
 		const { relay, progress, params } = setupBrainstormOnlyTicket();
@@ -267,6 +313,18 @@ describe('runWorkerWithRelay', () => {
 		expect(mockRestorePlanWorkspace).toHaveBeenCalledWith(expect.objectContaining({ cwd: worktreePath, name: 'lo-70-drain' }));
 		expect(mockRunPlanFolderPipeline).toHaveBeenCalledWith(expect.objectContaining({ cwd: worktreePath, name: 'lo-70-drain' }));
 		expect(mockBuildTicketPlans).not.toHaveBeenCalled();
+	});
+
+	test('runWorkerWithRelay: a plan worker in a linked worktree finds the plan folder the primary checkout holds', async () => {
+		const { relay, params, worktreePath } = setupPlanWorkerInWorktree();
+
+		const outcome = await runWorkerWithRelay(params);
+
+		relay.close();
+
+		expect(outcome).toStrictEqual({});
+		expect(mockRunPlanFolderPipeline).toHaveBeenCalledWith(expect.objectContaining({ cwd: worktreePath, name: 'lo-70-drain' }));
+		expect(mockRestorePlanWorkspace).not.toHaveBeenCalled();
 	});
 
 	test('runWorkerWithRelay: a plan-worker ticket whose published plan cannot be fetched parks', async () => {

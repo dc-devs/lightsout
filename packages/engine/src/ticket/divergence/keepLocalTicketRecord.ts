@@ -81,7 +81,7 @@ const republishDivergentPlans = async ({
 	for (const planId of planIds) {
 		const address = formatPlanAddress({ ticketBranch, planId });
 		const { checkout } = await resolvePlanWorkingCheckout({ cwd, ticketBranch, planId });
-		const held = await pathExists({ path: planWorkspaceDir({ cwd: checkout, name: address }) });
+		const held = await pathExists({ path: await planWorkspaceDir({ cwd: checkout, name: address }) });
 		const publishedMarker = carried.plans.find((plan) => plan.id === planId)?.publishedMarker;
 
 		if (!held) {

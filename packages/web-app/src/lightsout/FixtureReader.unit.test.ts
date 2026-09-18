@@ -22,7 +22,7 @@ describe('FixtureReader', () => {
 		expect(runs).toHaveLength(3);
 	});
 
-	test('answers with the engine’s whole command catalog — all twenty-one commands in group order, since a build with no repo still documents them', async () => {
+	test('answers with the engine’s whole command catalog — all twenty-two commands in group order, since a build with no repo still documents them', async () => {
 		const { reader } = setupReader();
 
 		const commands = await reader.listCommands();
@@ -45,6 +45,7 @@ describe('FixtureReader', () => {
 			'standards-validate',
 			'standards-health',
 			'status',
+			'report',
 			'doctor',
 			'friction',
 			'improve',
@@ -102,6 +103,7 @@ describe('FixtureReader', () => {
 			'standards-validate': 'nothing',
 			'standards-health': 'nothing',
 			status: 'nothing',
+			report: 'nothing',
 			doctor: 'nothing',
 			friction: 'nothing',
 			improve: 'nothing',

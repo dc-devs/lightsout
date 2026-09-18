@@ -1,5 +1,6 @@
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { ActivityLevel } from '#src/activity/index.ts';
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
 import { defaultExecutorFileLimit } from '#src/common/constants/defaultExecutorFileLimit.ts';
 import { DraftImplementation, type Effort, type Permissions, PlanVariant } from '#src/contracts/index.ts';
@@ -32,6 +33,8 @@ interface Params {
 	effort?: Effort;
 	permissions?: Permissions;
 	timeoutMs?: number;
+	/** The command-run level this draft's spawns attach to. Absent wherever no run is being recorded. */
+	level?: ActivityLevel;
 	onProgress?: (message: string) => void;
 }
 
@@ -61,6 +64,10 @@ interface Params {
  * unchanged. The engine never runs both, compares them, or falls back from one
  * to the other.
  *
+ * The preflight refusal below returns before the context is built and so opens
+ * no level at all — the refuse-before-any-work rule applied to the one refusal
+ * this runner has.
+ *
  * A focused run is refused before any agent is spawned when the resolved harness
  * cannot provide a control the focused environment asks for. The refusal comes
  * back through the ordinary failed member, so every downstream reader keeps
@@ -82,10 +89,11 @@ export const runPlanDraft = async ({
 	effort,
 	permissions,
 	timeoutMs = 30 * 60 * 1000,
+	level,
 	onProgress,
 }: Params): Promise<RunPlanDraftResult> => {
 	const progress = onProgress ?? (() => undefined);
-	const workspaceDir = planWorkspaceDir({ cwd, name });
+	const workspaceDir = await planWorkspaceDir({ cwd, name });
 
 	await mkdir(workspaceDir, { recursive: true });
 
@@ -122,6 +130,7 @@ export const runPlanDraft = async ({
 		effort,
 		permissions,
 		timeoutMs,
+		level,
 		progress,
 	};
 

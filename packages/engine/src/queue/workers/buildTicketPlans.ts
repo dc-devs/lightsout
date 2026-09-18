@@ -80,7 +80,7 @@ const buildReadyPlan = async ({ step }: { step: TicketPlanStep }) => {
 	const { cwd, record, plan, config, env, driver, onProgress } = step;
 	const address = formatPlanAddress({ ticketBranch: record.branch, planId: plan.id });
 
-	if (!(await pathExists({ path: planWorkspaceDir({ cwd, name: address }) }))) {
+	if (!(await pathExists({ path: await planWorkspaceDir({ cwd, name: address }) }))) {
 		const restored = await restoreTicketPlan({ cwd, address, config, env, onProgress });
 
 		if ('error' in restored) {

@@ -138,7 +138,7 @@ const runPlanWorker = async ({
 		});
 	}
 
-	const folder = planWorkspaceDir({ cwd, name: branch });
+	const folder = await planWorkspaceDir({ cwd, name: branch });
 
 	if (!(await pathExists({ path: folder }))) {
 		const restored = await restorePlanWorkspace({ cwd, name: branch, identifier: ticket.identifier, settings: trackerSettings });

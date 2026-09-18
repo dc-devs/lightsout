@@ -1,7 +1,9 @@
 import { join } from 'node:path';
+import type { ActivityLevel } from '#src/activity/index.ts';
 import { buildFocusedPlanWriterInvocation } from '#src/agents/index.ts';
 import { createdFileCeiling } from '#src/common/constants/createdFileCeiling.ts';
 import {
+	ActivityLevelKind,
 	type ConfigDocs,
 	type DecisionsRecord,
 	type Effort,
@@ -12,6 +14,7 @@ import {
 	type SourceEvidenceIndex,
 } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
+import { getPlanRunStatus } from '#src/plan/common/activity/getPlanRunStatus.ts';
 import { planDraftConcurrency } from '#src/plan/common/constants/planDraftConcurrency.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
@@ -23,7 +26,6 @@ import type { PhaseOutcome } from '#src/plan/draft/common/types/PhaseOutcome.ts'
 import { foldPhaseOutcomes } from '#src/plan/draft/common/utils/foldPhaseOutcomes.ts';
 import { selectPhaseEvidence } from '#src/plan/draft/focused/common/utils/selectPhaseEvidence.ts';
 import { buildExportCensus, detectExportCollisions, type ExportCensus, renderEvidenceBrief } from '#src/plan/evidence/index.ts';
-import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 
 interface Params {
 	cwd: string;
@@ -49,6 +51,8 @@ interface Params {
 	effort?: Effort;
 	permissions?: Permissions;
 	timeoutMs: number;
+	/** The command-run level this fan-out opens its own pass level under. Absent wherever no run is being recorded. */
+	level?: ActivityLevel;
 	progress: (message: string) => void;
 }
 
@@ -77,13 +81,14 @@ const spawnPhase = async ({
 		permissions,
 		timeoutMs,
 		environment: planWriterEnvironment,
+		level: params.level,
 	});
 	const selected = selectPhaseEvidence({ evidence, facts, declaration });
 	const outcome = await invokePlanAgent({
 		invocation: buildFocusedPlanWriterInvocation({
 			facts,
 			decisions,
-			outputs: [{ path: join(planWorkspaceDir({ cwd, name }), declaration.file), variant: PlanVariant.Phase }],
+			outputs: [{ path: join(workspaceDir, declaration.file), variant: PlanVariant.Phase }],
 			overviewText,
 			declaration,
 			previousDeclaration,
@@ -124,15 +129,23 @@ const spawnPhase = async ({
  *
  * A phase spawn gets no self-lint command: its siblings are not on disk yet, so
  * a lint run there would report artefacts of when it looked rather than defects.
+ *
+ * The whole fan-out is ONE level, with the concurrent writers as its steps: the
+ * report's question here is what authoring the phases cost as against what the
+ * overview did, which a flat list of spawns under the command run could not
+ * answer. It is closed once `drainTasks` settles, including when a rate-limited
+ * spawn stopped it early.
  */
 export const authorFocusedPhaseFiles = async (params: Params): Promise<AuthorPhaseFilesResult> => {
 	const { cwd, name, declarations, progress } = params;
 
 	progress(`plan draft ${name}: authoring ${declarations.length} phase file(s), up to ${planDraftConcurrency} at a time`);
 
+	const fanOut = params.level?.open({ level: ActivityLevelKind.Pass, label: 'phase fan-out' });
 	const census = await buildExportCensus({ cwd });
+	const spawning = { ...params, level: fanOut };
 	const tasks = declarations.map(
-		(declaration, index) => () => spawnPhase({ params, declaration, previousDeclaration: index === 0 ? undefined : declarations[index - 1], census }),
+		(declaration, index) => () => spawnPhase({ params: spawning, declaration, previousDeclaration: index === 0 ? undefined : declarations[index - 1], census }),
 	);
 	// A wall met by launching another eighteen spawns into it is still a wall:
 	// once one phase rate-limits, no further phase is started.
@@ -141,6 +154,11 @@ export const authorFocusedPhaseFiles = async (params: Params): Promise<AuthorPha
 		concurrency: planDraftConcurrency,
 		shouldStop: ({ results: settled }) => settled.some((result) => isRateLimited({ result })),
 	});
+	const folded = await foldPhaseOutcomes({ cwd, name, declarations, results });
 
-	return foldPhaseOutcomes({ cwd, name, declarations, results });
+	// From the fold's own verdict, so the row in the report and the draft's
+	// result can never disagree about whether the phases were authored.
+	fanOut?.close({ outcome: getPlanRunStatus({ status: folded.status }) });
+
+	return folded;
 };

@@ -48,7 +48,7 @@ export const durablePlanFiles = async ({ cwd, name }: Params): Promise<DurableSe
 		};
 	}
 
-	const dir = planWorkspaceDir({ cwd, name });
+	const dir = await planWorkspaceDir({ cwd, name });
 	const deliverablePaths = deliverable.overviewPath === undefined ? [] : [deliverable.overviewPath];
 	// The resolver already sorts the phase files, so the attachment order is the
 	// reading order.

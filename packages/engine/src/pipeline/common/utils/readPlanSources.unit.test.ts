@@ -1,8 +1,10 @@
+import { execSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readPlanSources } from '#src/pipeline/common/utils/readPlanSources.ts';
+import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 /** A temp repo holding the given repo-relative files. */
 const setupRepo = ({ files = {} }: { files?: Record<string, string> } = {}) => {
@@ -14,6 +16,24 @@ const setupRepo = ({ files = {} }: { files?: Record<string, string> } = {}) => {
 	}
 
 	return { cwd };
+};
+
+/**
+ * A primary checkout holding the plan folder, with a linked worktree cut from
+ * it — the shape a run works in once plan data stays in the main checkout.
+ */
+const setupPlanInPrimary = ({ files = {} }: { files?: Record<string, string> } = {}) => {
+	const { cwd } = setupBranchRepo();
+	const worktree = join(cwd, '.worktrees', 'lo-150-observability');
+
+	execSync(`git worktree add -q -b lo-150-observability "${worktree}" main`, { cwd, stdio: 'ignore' });
+
+	for (const [path, content] of Object.entries(files)) {
+		mkdirSync(dirname(join(cwd, path)), { recursive: true });
+		writeFileSync(join(cwd, path), content);
+	}
+
+	return { primary: cwd, worktree };
 };
 
 describe('readPlanSources', () => {
@@ -66,5 +86,25 @@ describe('readPlanSources', () => {
 		const sources = await readPlanSources({ cwd, plan: '.lightsout/plans/search/phase1.md', overview: '.lightsout/plans/search/overview.md' });
 
 		expect('error' in sources && sources.error).toContain('overview file not found');
+	});
+
+	test('a recorded plans-directory path is read from the primary checkout when the run works in a linked worktree', async () => {
+		const { worktree } = setupPlanInPrimary({
+			files: {
+				'.lightsout/plans/lo-150/phase1.md': '# Phase 1\nheld by the primary\n',
+				'.lightsout/plans/lo-150/overview.md': '# Overview\nheld by the primary\n',
+			},
+		});
+
+		const sources = await readPlanSources({
+			cwd: worktree,
+			plan: '.lightsout/plans/lo-150/phase1.md',
+			overview: '.lightsout/plans/lo-150/overview.md',
+		});
+
+		expect(sources).toStrictEqual({
+			planContent: '# Phase 1\nheld by the primary\n',
+			overviewContent: '# Overview\nheld by the primary\n',
+		});
 	});
 });

@@ -115,7 +115,7 @@ describe('runPlanGrade', () => {
 		expect(readFileSync(historyPath, 'utf8')).toBe(historyText);
 		// and the run says so, naming the one file a human deletes to force a new
 		// baseline — a silent skip would read as a pass that ran
-		expect(messages).toEqual(expect.arrayContaining([expect.stringContaining(gradeMemoryPath({ cwd, name }))]));
+		expect(messages).toEqual(expect.arrayContaining([expect.stringContaining(await gradeMemoryPath({ cwd, name }))]));
 	});
 
 	test('plan grade: changed code invalidates the recorded full review', async () => {

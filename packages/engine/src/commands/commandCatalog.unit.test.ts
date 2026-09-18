@@ -15,7 +15,7 @@ describe('commandCatalog', () => {
 		const rejected = commandCatalog.filter((entry) => !CommandCatalogEntry.safeParse(entry).success).map((entry) => entry.id);
 
 		expect(rejected).toStrictEqual([]);
-		expect(ids).toHaveLength(21);
+		expect(ids).toHaveLength(22);
 	});
 
 	test('ids are unique — two entries answering to one word would make the route ambiguous', () => {
@@ -39,6 +39,7 @@ describe('commandCatalog', () => {
 				'plan',
 				'queue',
 				'refactor',
+				'report',
 				'resume',
 				'self-check',
 				'ship',
@@ -183,6 +184,7 @@ describe('commandCatalog', () => {
 			['standards', 'standards-validate'],
 			['standards', 'standards-health'],
 			['housekeeping', 'status'],
+			['housekeeping', 'report'],
 			['housekeeping', 'doctor'],
 			['housekeeping', 'friction'],
 			['housekeeping', 'improve'],
@@ -221,6 +223,7 @@ describe('commandCatalog', () => {
 			['standards-validate', 'nothing'],
 			['standards-health', 'nothing'],
 			['status', 'nothing'],
+			['report', 'nothing'],
 			['doctor', 'nothing'],
 			['friction', 'nothing'],
 			['improve', 'nothing'],
@@ -328,43 +331,33 @@ describe('commandCatalog', () => {
 		]);
 	});
 
-	test('gives the self-check its own Build-group entry, so its flags are accepted rather than rejected as unknown', () => {
+	test('commandCatalog: report declares the plan, json and cwd flags and no others', () => {
 		const { byId } = setupCatalog();
 
-		const selfCheck = byId.get('self-check');
+		const report = byId.get('report');
 
-		expect(selfCheck).toEqual(
+		expect(report).toEqual(
 			expect.objectContaining({
-				id: 'self-check',
-				cli: 'lightsout self-check',
-				group: 'build',
-				invocations: [{ id: 'self-check' }],
-				steps: [],
+				id: 'report',
+				cli: 'lightsout report',
+				group: 'housekeeping',
+				invocations: [{ id: 'report' }],
 				records: 'nothing',
 			}),
 		);
-		// no slash form, because the plugin ships no skill for it, and no infographic
-		expect(selfCheck?.slash).toBeUndefined();
-		expect(selfCheck?.graphic).toBeUndefined();
-	});
-
-	test('accepts only --run and --cwd on the self-check, so an appended flag can never widen it', () => {
-		const { byId } = setupCatalog();
-
-		const flags = byId.get('self-check')?.flags.map((flag) => [flag.name, flag.value, flag.required]);
-
-		expect(flags).toStrictEqual([
-			['run', '<id>', true],
+		expect(report?.flags.map((flag) => [flag.name, flag.value, flag.required])).toStrictEqual([
+			['plan', '<name>', true],
+			['json', undefined, false],
 			['cwd', '<path>', false],
 		]);
 	});
 
-	test('pairs the self-check with every other Build command in both directions', () => {
+	test('commandCatalog: report is related to every other housekeeping command, both ways', () => {
 		const { byId } = setupCatalog();
-		const neighbours = ['brainstorm', 'plan', 'auto-plan', 'implement', 'implement-direct', 'resume', 'ship', 'queue', 'ticket', 'ticket-state'];
+		const neighbours = ['status', 'doctor', 'friction', 'improve', 'voice'];
 
-		const named = [...(byId.get('self-check')?.related ?? [])].sort();
-		const silentBack = neighbours.filter((id) => byId.get(id)?.related.includes('self-check') !== true);
+		const named = [...(byId.get('report')?.related ?? [])].sort();
+		const silentBack = neighbours.filter((id) => byId.get(id)?.related.includes('report') !== true);
 
 		expect(named).toStrictEqual([...neighbours].sort());
 		expect(silentBack).toStrictEqual([]);

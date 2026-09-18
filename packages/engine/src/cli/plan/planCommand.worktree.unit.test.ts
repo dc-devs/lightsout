@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
@@ -10,12 +11,11 @@ import { freshCwd } from '#tests/helpers/freshCwd.ts';
 // Mocked Imports
 // -------------------------
 // The sibling planCommand.unit.test.ts stubs the planning-worktree opener to pin
-// routing. This suite runs the real opener, resolver and stocking copy under
-// `plan workspace`, so the announcement, the copied plan folder and the printed
-// path are asserted as the command produces them. Only the git seams are
-// mocked: the worktree module's barrel and the HEAD read. The directories are
-// real, because every path comparison goes through `realpath` and the plan
-// folder is copied on disk.
+// routing. This suite runs the real opener and resolver under `plan workspace`,
+// so the announcement, the untouched plan folder and the printed path are
+// asserted as the command produces them. Only the git seams are mocked: the
+// worktree module's barrel and the HEAD read. The directories are real, because
+// every path comparison goes through `realpath`.
 type WorktreeFailure = { error: string };
 
 interface CreateParams {
@@ -61,23 +61,20 @@ const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-cov
  * `launchFromTree` puts a tree at the plan's path before the command runs and
  * launches the command from inside it. `record` is the ownership record beside
  * the branch. `committed: false` is a launching
- * checkout with no commit, whose HEAD reads as nothing. `unstockable` makes the
- * cut tree's `.lightsout` a plain file, so no plan folder can be copied in.
- * `brainstorm` plants a plan folder in the launching checkout.
+ * checkout with no commit, whose HEAD reads as nothing. `brainstorm` plants a
+ * plan folder in the launching checkout.
  */
 const setupWorkspace = async ({
 	flags = [],
 	launchFromTree = false,
 	record,
 	committed = true,
-	unstockable = false,
 	brainstorm = false,
 }: {
 	flags?: string[];
 	launchFromTree?: boolean;
 	record?: { owner: WorktreeOwner; startPoint?: string };
 	committed?: boolean;
-	unstockable?: boolean;
 	brainstorm?: boolean;
 } = {}) => {
 	const captured = captureCommandOutput();
@@ -108,10 +105,6 @@ const setupWorkspace = async ({
 	// The cut itself: git would make the directory, so the mock does.
 	mockCreateWorktree.mockImplementation(async () => {
 		await mkdir(tree, { recursive: true });
-
-		if (unstockable) {
-			await writeFile(join(tree, '.lightsout'), 'not a directory\n');
-		}
 
 		return tree;
 	});
@@ -206,19 +199,20 @@ const readPlanFolder = async ({ dir }: { dir: string }) => ({
 });
 
 describe('planCommand', () => {
-	test('cuts the plan worktree at the launching HEAD, stocks it with the brainstorm folder, and prints its path last', async () => {
+	test('cuts the plan worktree at the launching HEAD, leaves the plan folder in the launching checkout, and prints its path last', async () => {
 		const { context, tree, sourcePlanDir, logged, errors, exitCodes } = await setupWorkspace({ brainstorm: true });
 
 		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
 
-		const stocked = await readPlanFolder({ dir: join(tree, '.lightsout', 'plans', name) });
 		const original = await readPlanFolder({ dir: sourcePlanDir });
 		// the launching checkout's own config decides the setup a new planning tree runs
 		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ startPoint: launchingHead, owner: 'plan', setup: setupCommand }));
 		// one announcement naming the tree and its branch, then the path alone
 		expect(logged).toEqual([expect.stringContaining(tree), tree]);
 		expect(logged[0]).toContain(`branch: ${name}`);
-		expect(stocked).toStrictEqual({ notes: '# Brainstorm notes\n', decisions: '{"decisions":[]}\n' });
+		// the tree holds code work only, so nothing was copied into it and the
+		// launching checkout's folder is exactly as it was
+		expect(existsSync(join(tree, '.lightsout', 'plans'))).toBe(false);
 		expect(original).toStrictEqual({ notes: '# Brainstorm notes\n', decisions: '{"decisions":[]}\n' });
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);
@@ -267,46 +261,32 @@ describe('planCommand', () => {
 		expect(exitCodes).toStrictEqual([1]);
 	});
 
-	test('stops with the destination named when the brainstorm folder cannot be copied into the tree, printing no path', async () => {
-		const { context, tree, sourcePlanDir, logged, errors, exitCodes } = await setupWorkspace({ brainstorm: true, unstockable: true });
-
-		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
-
-		const original = await readPlanFolder({ dir: sourcePlanDir });
-		expect(errors).toEqual([expect.stringContaining(join(tree, '.lightsout', 'plans', name))]);
-		expect(logged).not.toContain(tree);
-		expect(original).toStrictEqual({ notes: '# Brainstorm notes\n', decisions: '{"decisions":[]}\n' });
-		expect(exitCodes).toStrictEqual([1]);
-	});
-
-	test("a plan address cuts its tree on the ticket branch and stocks it with that plan's folder", async () => {
+	test("a plan address cuts its tree on the ticket branch and leaves that plan's folder where it is", async () => {
 		const { context, sourceCwd, tree, logged, errors, exitCodes } = await setupTicketPlanWorkspace();
 
 		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
 
-		const stocked = await readPlanFolder({ dir: join(tree, '.lightsout', 'plans', 'lo-7-search', '002-ranking') });
 		// the tree and the branch it stands on are the ticket folder's, never the plan address
 		expect(mockResolveWorktreePath).toHaveBeenCalledWith({ cwd: sourceCwd, branch: 'lo-7-search' });
 		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch: 'lo-7-search', owner: 'plan' }));
 		// one announcement naming the tree and its branch, then the path alone
 		expect(logged).toEqual([expect.stringContaining(tree), tree]);
 		expect(logged[0]).toMatch(/branch: lo-7-search$/);
-		expect(stocked).toStrictEqual({ notes: '# Brainstorm notes\n', decisions: '{"decisions":[]}\n' });
+		expect(existsSync(join(tree, '.lightsout', 'plans'))).toBe(false);
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);
 	});
 
-	test('a later plan continues in the ticket tree an implementation run owns, and is stocked there', async () => {
+	test('a later plan continues in the ticket tree an implementation run owns, carrying no plan folder into it', async () => {
 		const { context, tree, logged, errors, exitCodes } = await setupStandingTicketTree({ owner: 'implement' });
 
 		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
 
-		const stocked = await readPlanFolder({ dir: join(tree, '.lightsout', 'plans', 'lo-7-search', '002-ranking') });
 		// the tree an earlier plan's run adopted is where the next plan belongs, so
 		// nothing is cut and the path is answered as it stands
 		expect(mockCreateWorktree).not.toHaveBeenCalled();
 		expect(logged.at(-1)).toBe(tree);
-		expect(stocked).toStrictEqual({ notes: '# Brainstorm notes\n', decisions: '{"decisions":[]}\n' });
+		expect(existsSync(join(tree, '.lightsout', 'plans'))).toBe(false);
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);
 	});

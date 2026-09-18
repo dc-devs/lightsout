@@ -10,7 +10,7 @@ import { planRunOptions } from '#src/cli/plan/common/utils/planRunOptions.ts';
 import type { LightsoutConfig, StructuralFinding } from '#src/contracts/index.ts';
 import { DraftImplementation, PlanningStep, PlanVariant, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { getBlockingFindings, PlanRunStatus, recordPlanningStep, runPlanDraft } from '#src/plan/index.ts';
+import { getBlockingFindings, PlanRunStatus, recordPlanCommandRun, recordPlanningStep, runPlanDraft } from '#src/plan/index.ts';
 
 interface Params {
 	cwd: string;
@@ -41,19 +41,28 @@ export const planDraftCommand = async ({ cwd, driver, name, standards, config, f
 	// It has no config key on purpose — a persistent default is exactly how legacy
 	// would quietly become the default again.
 	const implementation = flags.get('legacy') === true ? DraftImplementation.Legacy : DraftImplementation.Focused;
-	const drafted = await recordPlanningStep({
+	// A facts error or structural issues exit 1 below, so they record as failed —
+	// one reading, shared by both records.
+	const statusOf = ({ result }: { result: Awaited<ReturnType<typeof runPlanDraft>> }) =>
+		result.status === PlanRunStatus.Complete
+			? RunStatus.Passed
+			: result.status === PlanRunStatus.PausedRateLimit
+				? RunStatus.PausedRateLimit
+				: RunStatus.Failed;
+	const drafted = await recordPlanCommandRun({
 		cwd,
 		name,
-		step: PlanningStep.Draft,
-		implementation,
-		work: () => runPlanDraft({ ...planRunOptions({ cwd, driver, name, standards, config }), scope, implementation }),
-		// A facts error or structural issues exit 1 below, so they record as failed.
-		statusOf: ({ result }) =>
-			result.status === PlanRunStatus.Complete
-				? RunStatus.Passed
-				: result.status === PlanRunStatus.PausedRateLimit
-					? RunStatus.PausedRateLimit
-					: RunStatus.Failed,
+		label: 'plan draft',
+		statusOf,
+		work: ({ level }) =>
+			recordPlanningStep({
+				cwd,
+				name,
+				step: PlanningStep.Draft,
+				implementation,
+				work: () => runPlanDraft({ ...planRunOptions({ cwd, driver, name, standards, config }), scope, implementation, level }),
+				statusOf,
+			}),
 	});
 	const result = await exitOnPlanFailure({ result: drafted });
 

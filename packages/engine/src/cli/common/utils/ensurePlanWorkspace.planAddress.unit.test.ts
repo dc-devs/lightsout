@@ -98,10 +98,15 @@ const laterPlanPath = join('.lightsout', 'plans', ticketBranch, '002-ranking');
 const laterPlanBody = '# the later plan, planned in the ticket tree\n';
 
 /**
- * A later plan's folder waiting in the ticket branch's own worktree: the tree is
- * keyed by the ticket-branch segment of the plan address, so it sits at
- * `<cwd>-worktrees/lo-7-search`, and the folder it holds is that tree's
+ * A later plan's folder waiting in the ticket branch's own worktree, with the
+ * ticket able to supply that plan: the tree is keyed by the ticket-branch
+ * segment of the plan address, so it sits at `<cwd>-worktrees/lo-7-search`, and
+ * the folder it holds is that tree's
  * `.lightsout/plans/lo-7-search/002-ranking`.
+ *
+ * The tree's copy is no longer a source to recover from, so the ticket is the
+ * only place left to ask — and it answers with text of its own, which is what
+ * tells the two copies apart afterwards.
  */
 const setupPlanInTicketWorktree = async () => {
 	const cwd = await seedCwd();
@@ -112,7 +117,16 @@ const setupPlanInTicketWorktree = async () => {
 	writeFileSync(join(dir, 'plan.md'), laterPlanBody);
 	writeFileSync(join(dir, 'grade-memory.json'), '{"passes":2}\n');
 
-	return { cwd, tree };
+	mockFindBareTicketFolderRefusal.mockResolvedValue(undefined);
+	mockPullTicketRecord.mockResolvedValue({ record: ticketRecord });
+	mockRestoreTicketPlan.mockImplementation(async ({ cwd: checkout, address }) => {
+		mkdirSync(join(checkout, '.lightsout', 'plans', address), { recursive: true });
+		writeFileSync(join(checkout, '.lightsout', 'plans', address, 'plan.md'), restoredFileBody);
+
+		return { restored: ['plan.md'] };
+	});
+
+	return { cwd, tree, worktreeDir: dir };
 };
 
 const recordedBranch = 'lo-9-x';
@@ -180,24 +194,28 @@ const setupAddressedPlan = async ({
 };
 
 describe('ensurePlanWorkspace for a plan address', () => {
-	test("recovers a plan address's folder from the ticket branch's worktree", async () => {
-		const { cwd, tree } = await setupPlanInTicketWorktree();
+	test("a plan address's folder sitting in the ticket branch's worktree is never recovered from it", async () => {
+		const { cwd, tree, worktreeDir } = await setupPlanInTicketWorktree();
 
 		const { result, printed } = await ensure({ cwd, path: laterPlanPath });
 
 		expect({
 			result,
-			copiedFiles: readdirSync(join(cwd, laterPlanPath)).sort(),
-			copiedPlan: readFileSync(join(cwd, laterPlanPath, 'plan.md'), 'utf8'),
+			writtenFiles: readdirSync(join(cwd, laterPlanPath)).sort(),
+			writtenPlan: readFileSync(join(cwd, laterPlanPath, 'plan.md'), 'utf8'),
+			worktreeFiles: readdirSync(worktreeDir).sort(),
 			printed,
-			trackerCalls: mockGetTicketAttachments.mock.calls.length,
+			restoreCalls: mockRestoreTicketPlan.mock.calls.length,
 		}).toEqual({
 			result: undefined,
-			copiedFiles: ['grade-memory.json', 'plan.md'],
-			copiedPlan: laterPlanBody,
-			printed: [expect.stringContaining(tree)],
-			trackerCalls: 0,
+			// the ticket's own text, not the tree's, and the tree is left as it was
+			writtenFiles: ['plan.md'],
+			writtenPlan: restoredFileBody,
+			worktreeFiles: ['grade-memory.json', 'plan.md'],
+			printed: [expect.stringContaining(join(cwd, laterPlanPath))],
+			restoreCalls: 1,
 		});
+		expect(printed.join('\n')).not.toContain(tree);
 	});
 
 	test("ensurePlanWorkspace: for a plan address, restores the ticket record and the plan's prefixed generation and says so", async () => {
@@ -222,7 +240,7 @@ describe('ensurePlanWorkspace for a plan address', () => {
 		});
 	});
 
-	test("ensurePlanWorkspace: for a plan address, recovers the plan folder from the ticket branch's worktree", async () => {
+	test("ensurePlanWorkspace: for a plan address, a copy in the ticket branch's worktree is passed over for the ticket", async () => {
 		const { cwd, tree } = await setupAddressedPlan({
 			inWorktree: { 'plan.md': '# planned in the ticket branch tree\n', 'grade-memory.json': '{"passes":1}\n' },
 		});
@@ -231,20 +249,21 @@ describe('ensurePlanWorkspace for a plan address', () => {
 
 		expect({
 			result,
-			copiedFiles: readdirSync(join(cwd, recordedPlanPath)).sort(),
-			copiedPlan: readFileSync(join(cwd, recordedPlanPath, 'plan.md'), 'utf8'),
+			writtenFiles: readdirSync(join(cwd, recordedPlanPath)).sort(),
+			writtenPlan: readFileSync(join(cwd, recordedPlanPath, 'plan.md'), 'utf8'),
+			worktreeFiles: readdirSync(join(tree, recordedPlanPath)).sort(),
 			printed,
-			trackerCalls: mockGetTicketAttachments.mock.calls.length,
 			pullCalls: mockPullTicketRecord.mock.calls.length,
 			restoreCalls: mockRestoreTicketPlan.mock.calls.length,
 		}).toEqual({
 			result: undefined,
-			copiedFiles: ['grade-memory.json', 'plan.md'],
-			copiedPlan: '# planned in the ticket branch tree\n',
-			printed: [expect.stringContaining(tree)],
-			trackerCalls: 0,
-			pullCalls: 0,
-			restoreCalls: 0,
+			// the ticket's generation, not the tree's copy, and the tree untouched
+			writtenFiles: ['brainstorm-notes.md', 'plan.md'],
+			writtenPlan: restoredFileBody,
+			worktreeFiles: ['grade-memory.json', 'plan.md'],
+			printed: [`lightsout: fetched 2 plan file(s) from ticket lo-9 into ${join(cwd, recordedPlanPath)}`],
+			pullCalls: 1,
+			restoreCalls: 1,
 		});
 	});
 

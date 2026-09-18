@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { PipelineKind } from '#src/contracts/index.ts';
-import { planWorkspaceDir } from '#src/plan/index.ts';
+import { planWorkspaceDir, resolveRecordedPlanPath } from '#src/plan/index.ts';
 
 interface Params {
 	/** The checkout the run builds in, which the plan path is resolved against. */
@@ -31,12 +31,15 @@ const wholePlanFileNames = ['plan.md', 'overview.md'];
  *
  * @returns true when the run covers the whole plan
  */
-export const isWholePlanRun = ({ cwd, name, planPath, pipeline }: Params): boolean => {
+export const isWholePlanRun = async ({ cwd, name, planPath, pipeline }: Params): Promise<boolean> => {
 	if (pipeline === PipelineKind.Direct || planPath === undefined) {
 		return true;
 	}
 
-	const folder = planWorkspaceDir({ cwd, name });
+	// The folder is the primary checkout's whatever checkout the run builds in, so
+	// the recorded path has to be rooted the same way or no run ever matches.
+	const folder = await planWorkspaceDir({ cwd, name });
+	const recorded = await resolveRecordedPlanPath({ cwd, path: planPath });
 
-	return wholePlanFileNames.some((file) => resolve(cwd, planPath) === resolve(folder, file));
+	return wholePlanFileNames.some((file) => recorded === resolve(folder, file));
 };

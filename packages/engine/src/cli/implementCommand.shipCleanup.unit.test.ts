@@ -62,16 +62,12 @@ const merged: ShipResult = { status: 'shipped', ticketRef: 'lo-7', failingChecks
  * A shipped run of the ticket's LATER plan, in a repo with a real origin behind
  * it.
  *
- * The launching checkout holds that plan's folder and a note of its own beside
- * it — a plain file rather than `ticket.json`, because a run of one of a
- * ticket's plans writes that plan's progress into the record, so the record's
- * bytes are not something a shipped run leaves alone; that the record itself
- * survives the save is pinned by `copyPlanFolderToPrimary`'s own test. The
- * earlier plan of the same ticket is written into
- * the tree while the run is going, because that is where a sibling plan lives —
- * planned in the ticket's tree and never copied back — so what the primary
- * checkout holds afterwards is exactly what the cleanup saved out of the tree
- * before removing it.
+ * The launching checkout holds that plan's folder, the ticket's earlier plan and
+ * a note of its own beside them, because that is where every plan folder lives
+ * whichever checkout a command runs from. A folder of the same name is planted
+ * inside the tree while the run is going, holding different text, so a rescue
+ * copy out of the tree would be visible rather than silent: only a copy could
+ * put the tree's text into the primary checkout afterwards.
  */
 const setupShippedTicketRun = async () => {
 	const captured = captureCommandOutput();
@@ -81,14 +77,16 @@ const setupShippedTicketRun = async () => {
 	writeFileSync(join(cwd, 'lightsout.config.json'), JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false } }));
 	mkdirSync(join(cwd, laterPlanFolder), { recursive: true });
 	writeFileSync(join(cwd, laterPlanFolder, 'plan.md'), planBody);
+	mkdirSync(join(cwd, earlierPlanFolder), { recursive: true });
+	writeFileSync(join(cwd, earlierPlanFolder, 'plan.md'), earlierPlanBody);
 	writeFileSync(join(cwd, ticketFolder, 'notes.md'), primaryOnlyNotes);
 
 	mockRequireImplementLifecycle.mockResolvedValue(undefined);
 	mockPrintResult.mockResolvedValue(undefined);
 	mockRunShip.mockResolvedValue(merged);
 	mockRunPipelineOrFailFast.mockImplementation(({ cwd: workspace, planPath }) => {
-		mkdirSync(join(workspace, earlierPlanFolder), { recursive: true });
-		writeFileSync(join(workspace, earlierPlanFolder, 'plan.md'), earlierPlanBody);
+		mkdirSync(join(workspace, laterPlanFolder), { recursive: true });
+		writeFileSync(join(workspace, laterPlanFolder, 'plan.md'), '# a stale copy no cleanup may read\n');
 
 		const manifest: RunManifest = manifestOf({ status: RunStatus.Passed, branch: ticketBranch, workspace, plan: planPath });
 
@@ -101,7 +99,7 @@ const setupShippedTicketRun = async () => {
 };
 
 describe('implementCommand ship cleanup', () => {
-	test('saves the whole ticket folder into the primary checkout before the shipped tree comes down', async () => {
+	test('takes the shipped tree down with no plan to save, leaving the primary checkout untouched', async () => {
 		const { context, cwd, treePath, exitCodes } = await setupShippedTicketRun();
 
 		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
@@ -111,8 +109,9 @@ describe('implementCommand ship cleanup', () => {
 		expect(mockRunPipelineOrFailFast).toHaveBeenCalledWith(expect.objectContaining({ cwd: treePath }));
 		expect(existsSync(treePath)).toBe(false);
 		expect(record).toBeUndefined();
-		// the plan this run built came back, and so did the ticket's other plan —
-		// which lived only in the tree, and a per-plan save would have taken it down
+		// the plan this run built and the ticket's other plan are both still the
+		// primary checkout's own text — a rescue copy would have overwritten the one
+		// the tree also held
 		expect(readFileSync(join(cwd, laterPlanFolder, 'plan.md'), 'utf8')).toBe(planBody);
 		expect(readFileSync(join(cwd, earlierPlanFolder, 'plan.md'), 'utf8')).toBe(earlierPlanBody);
 		// a file only the primary checkout holds is left exactly where it is

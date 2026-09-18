@@ -1,8 +1,9 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
+import type { ActivityLevel } from '#src/activity/index.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import { WorkReport } from '#src/contracts/index.ts';
+import { type HarnessProcessMark, WorkReport } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { invokeAgentWithContract } from '#src/invoke/invokeAgentWithContract.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
@@ -22,6 +23,23 @@ const stubUsage = (outputTokens: number) => ({
 	cacheCreationTokens: 5,
 	costUsd: 0.5,
 });
+
+/** A level handle that collects every process mark written under it, less the two fields the handle itself supplies. */
+const collectProcessMarks = () => {
+	const marks: Omit<HarnessProcessMark, 'kind' | 'levelId'>[] = [];
+
+	const activity: ActivityLevel = {
+		id: 'level-under-test',
+		open: () => activity,
+		close: () => undefined,
+		recordProcess: (process) => {
+			marks.push(process);
+		},
+		settled: async () => undefined,
+	};
+
+	return { activity, marks };
+};
 
 test('usage sums across a re-emit retry — one role invocation, one bill', async () => {
 	let calls = 0;
@@ -184,6 +202,25 @@ test('usage spent before a driver throw is still reported', async () => {
 
 	expect(failure).toBe('agent invocation failed: spawn ENOENT');
 	expect(usage).toStrictEqual({ inputTokens: 10, outputTokens: 100, cacheReadTokens: 1000, cacheCreationTokens: 5, costUsd: 0.5 });
+});
+
+test('invokeAgentWithContract: each process record carries the model its spawn ran under, and none when no model was requested', async () => {
+	const driver: Driver = { name: 'stub', invoke: async () => ({ text: report(), exitCode: 0, usage: stubUsage(100) }) };
+	const requested = collectProcessMarks();
+	const harnessDefault = collectProcessMarks();
+
+	await invokeAgentWithContract({
+		driver,
+		cwd: '.',
+		invocation: { systemPrompt: 's', prompt: 'p' },
+		contract: WorkReport,
+		activity: requested.activity,
+		model: 'claude-opus-5',
+	});
+	await invokeAgentWithContract({ driver, cwd: '.', invocation: { systemPrompt: 's', prompt: 'p' }, contract: WorkReport, activity: harnessDefault.activity });
+
+	expect(requested.marks.map(({ model }) => model)).toStrictEqual(['claude-opus-5']);
+	expect(harnessDefault.marks.map(({ model }) => model)).toStrictEqual([undefined]);
 });
 
 test('pipeline writes agents.jsonl per invocation and aggregates usage into the manifest', async () => {

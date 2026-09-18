@@ -1,6 +1,7 @@
-import { relative, resolve, sep } from 'node:path';
+import { relative, sep } from 'node:path';
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
+import { resolveRecordedPlanPath } from '#src/plan/common/paths/resolveRecordedPlanPath.ts';
 import { plansDir } from '#src/plan/plansDir.ts';
 
 interface Params {
@@ -16,7 +17,11 @@ interface Params {
  * `planWorkspaceDir` and `planWorkspacePath` build a path from a name; this
  * reads a name back out of one, so the rules that are about a plan's name — the
  * ticket it carries above all — can be asked of a command that takes a path
- * instead. It asks `plansDir` rather than writing the prefix again.
+ * instead. It asks `plansDir` rather than writing the prefix again, and resolves
+ * the given value through `resolveRecordedPlanPath` so that a plans-directory
+ * path handed from a linked worktree is rooted where `plansDir` answers: rooting
+ * the two differently would relativise every such path to a walk-up and read as
+ * no plan at all.
  *
  * A path inside a plan subfolder of a ticket folder answers that plan's address,
  * spelled with `/` whatever the platform's path separator is, because the
@@ -29,8 +34,8 @@ interface Params {
  * a `--plan` pointing at an arbitrary markdown file is not a plan workspace,
  * and its parent folder's name is nobody's convention to keep.
  */
-export const planNameFromPath = ({ cwd, planPath }: Params): string | undefined => {
-	const fromPlansDir = relative(plansDir({ cwd }), resolve(cwd, planPath));
+export const planNameFromPath = async ({ cwd, planPath }: Params): Promise<string | undefined> => {
+	const fromPlansDir = relative(await plansDir({ cwd }), await resolveRecordedPlanPath({ cwd, path: planPath }));
 	const [ticketBranch, planId] = fromPlansDir.split(sep);
 
 	// `relative` walks up with `..` segments, and answers an absolute path

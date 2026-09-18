@@ -46,12 +46,13 @@ const spawnGapChecker = async ({
 	timeoutMs: number;
 	memory: GradeMemory;
 }): Promise<GapResult> => {
-	const { cwd, driver, standards, model, effort, permissions } = params;
+	const { cwd, driver, standards, model, effort, permissions, level } = params;
 	const invokePlanAgent = createPlanAgentRunner({
 		cwd,
 		driver,
 		workspaceDir: pass.workspaceDir,
 		step: `grade-${basename(file.path, '.md')}-${lens}`,
+		level,
 		model,
 		effort,
 		permissions,
@@ -133,6 +134,7 @@ export const drainGradeAgents = async ({
 		checkPlanDocumentation({
 			cwd: params.cwd,
 			driver: params.driver,
+			level: params.level,
 			name: params.name,
 			workspaceDir: pass.workspaceDir,
 			planPaths: pass.planPaths,

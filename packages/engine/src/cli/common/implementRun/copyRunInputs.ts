@@ -1,7 +1,7 @@
-import { cp, mkdir, stat } from 'node:fs/promises';
+import { cp, mkdir } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { planNameFromPath, planWorkspaceDir } from '#src/plan/index.ts';
+import { planNameFromPath } from '#src/plan/index.ts';
 
 interface Params {
 	/** The checkout the command was launched from. */
@@ -13,40 +13,6 @@ interface Params {
 	/** `--ticket` exactly as the user typed it. */
 	ticketPath?: string;
 }
-
-/**
- * The plan folder the input lies in — one plan subfolder of a ticket folder, or
- * a legacy folder whole — copied to the same place under the workspace, so an
- * `overview.md`, its phase files and the plan's working files all arrive
- * together and overview-and-phase resolution keeps working untouched.
- *
- * That place is already inside the workspace's gitignored lightsout state
- * directory. The answered path is the input's own tail rebuilt
- * workspace-relative, which is what normalises an absolute `--plan` onto the
- * copy.
- *
- * A workspace already holding a folder of that name keeps it outright — local
- * disk wins, the rule `ensurePlanWorkspace` states. That is judged per plan
- * folder, so a workspace already holding an earlier plan of the same ticket
- * still receives this one. A run continuing in the tree planning established
- * would otherwise overwrite the graded plan and its grading memory with
- * whatever was left in the launching checkout. Anything else standing at that
- * path is no plan folder, and the copy is still attempted so its failure is
- * reported.
- */
-const copyPlanFolder = async ({ sourceCwd, workspace, name, inputPath }: { sourceCwd: string; workspace: string; name: string; inputPath: string }) => {
-	const destination = planWorkspaceDir({ cwd: workspace, name });
-	const held = await stat(destination).then(
-		(found) => found.isDirectory(),
-		() => false,
-	);
-
-	if (!held) {
-		await cp(planWorkspaceDir({ cwd: sourceCwd, name }), destination, { recursive: true });
-	}
-
-	return relative(sourceCwd, resolve(sourceCwd, inputPath));
-};
 
 /**
  * A loose plan file or a direct run's ticket file, copied to one file under an
@@ -67,16 +33,30 @@ const copyLooseInput = async ({ sourceCwd, workspace, inputPath }: { sourceCwd: 
 	return relative(workspace, destination);
 };
 
-/** One input copied into the workspace, answered as the path to read it back at from there. */
-const copyOneInput = ({ sourceCwd, workspace, inputPath }: { sourceCwd: string; workspace: string; inputPath: string }) => {
-	const name = planNameFromPath({ cwd: sourceCwd, planPath: inputPath });
+/**
+ * One input made readable from the workspace, answered as the path to read it
+ * back at from there.
+ *
+ * An input naming a plan is answered where it already is: a plan folder lives in
+ * the main checkout whichever checkout a run works in, so copying it into the
+ * workspace would copy a directory onto itself. It is still answered
+ * repo-relative, which is what an absolute `--plan` is normalised to and what
+ * the run manifest records. Anything else is a loose file and is still copied in.
+ */
+const copyOneInput = async ({ sourceCwd, workspace, inputPath }: { sourceCwd: string; workspace: string; inputPath: string }) => {
+	const name = await planNameFromPath({ cwd: sourceCwd, planPath: inputPath });
 
-	return name === undefined ? copyLooseInput({ sourceCwd, workspace, inputPath }) : copyPlanFolder({ sourceCwd, workspace, name, inputPath });
+	return name === undefined ? copyLooseInput({ sourceCwd, workspace, inputPath }) : relative(sourceCwd, resolve(sourceCwd, inputPath));
 };
 
 /**
- * Copy a run's inputs into the workspace and answer where they are to be read
- * from there, so the run is independent of later edits to the source files.
+ * Copy a run's loose inputs into the workspace and answer where every input is
+ * to be read from there.
+ *
+ * A loose input is copied, so the run is independent of later edits to it. A
+ * plan folder is not: it lives in the main checkout whichever checkout the run
+ * works in, which is the one input a run shares with the checkout and the price
+ * of that folder surviving a tree that gets removed.
  *
  * Every copy lands inside the workspace's own gitignored lightsout state
  * directory, and nowhere else. A direct run ends in `git add -A`, which stages

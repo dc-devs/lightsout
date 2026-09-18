@@ -1,11 +1,13 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { type LightsoutConfig, PlanProgress, TicketEventKind, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { planWorkspaceDir } from '#src/plan/index.ts';
 import { addTicketPlan, updateLocalTicketRecord } from '#src/ticket/index.ts';
 import type { TrackerAttachment, TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
-import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
+import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 // Mocked Imports
 // -------------------------
@@ -45,7 +47,6 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 /** The ticket folder's name, which is also the branch every record below names. */
 const ticketBranch = 'lo-140-multi';
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
-const trackerBlock: LightsoutConfig['ticket-tracker'] = { ...ticketTrackerConfigBlock, provider: 'linear' };
 const env = { LINEAR_API_KEY: 'lin_key' };
 
 const planOf = ({ id, progress = PlanProgress.Planning, excluded = false }: { id: string; progress?: PlanProgress; excluded?: boolean }): TicketPlan => ({
@@ -88,8 +89,6 @@ const setupAddPlan = async ({
 	topLevelFiles = [],
 	/** Directories planted at the ticket folder's top level. */
 	topLevelFolders = [],
-	/** The attachments the ticket carries, read only when a tracker is configured, or the failure the tracker answers with. */
-	attachments = [],
 }: {
 	record?: TicketRecord;
 	branch?: string;
@@ -98,7 +97,6 @@ const setupAddPlan = async ({
 	config?: LightsoutConfig;
 	topLevelFiles?: string[];
 	topLevelFolders?: string[];
-	attachments?: TrackerAttachment[] | TrackerFailure;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-add-plan-'));
 	const ticketFolder = join(cwd, '.lightsout', 'plans', branch);
@@ -119,7 +117,7 @@ const setupAddPlan = async ({
 		writeFileSync(join(ticketFolder, name), `# ${name}\n`);
 	}
 
-	mockGetTicketAttachments.mockResolvedValue(attachments);
+	mockGetTicketAttachments.mockResolvedValue([]);
 	// Narrowed to the two fields a publish reads: no row here publishes, and the
 	// rest of a tracker's issue shape would say nothing about this function.
 	mockGetTicketsByIdentifiers.mockResolvedValue([{ id: 'id-140', identifier: 'LO-140' } as TrackerTicket]);
@@ -133,6 +131,29 @@ const setupAddPlan = async ({
 		progress,
 		planFolderOf: ({ planId }: { planId: string }) => join(ticketFolder, planId),
 		params: { cwd, ticketBranch: branch, slug, title, config, env, onProgress: (message: string) => progress.push(message) },
+	};
+};
+
+/**
+ * A real primary checkout with a linked worktree added from it, standing on the
+ * ticket's own branch — the shape a plan command runs in once `plan.worktree`
+ * moves the session into a tree, and the one place a plan folder could be made
+ * in a directory that is removed when the tree is.
+ */
+const setupAddPlanFromWorktree = () => {
+	const { cwd } = setupBranchRepo();
+	const worktree = join(cwd, '.worktrees', ticketBranch);
+
+	execSync(`git worktree add -q -b ${ticketBranch} "${worktree}" main`, { cwd, stdio: 'ignore' });
+	mockGetTicketAttachments.mockResolvedValue([]);
+	mockGetTicketsByIdentifiers.mockResolvedValue([{ id: 'id-140', identifier: 'LO-140' } as TrackerTicket]);
+	mockReadTicketAsset.mockResolvedValue({ error: 'no asset' });
+	mockSetTicketAttachment.mockResolvedValue(undefined);
+
+	return {
+		worktree,
+		primaryTicketFolder: join(realpathSync(cwd), '.lightsout', 'plans', ticketBranch),
+		params: { cwd: worktree, ticketBranch, slug: 'search-basics', config: { gates }, env },
 	};
 };
 
@@ -329,44 +350,6 @@ describe('addTicketPlan', () => {
 		expect(existsSync(planFolderOf({ planId: '1000-fix-search' }))).toBe(false);
 	});
 
-	test('refuses when the ticket carries a plan published before ticket records and names ticket adopt', async () => {
-		const { params, recordPath, planFolderOf } = await setupAddPlan({
-			config: { gates, 'ticket-tracker': trackerBlock },
-			attachments: [{ id: 'att-1', title: 'plan-attachments.json', url: 'https://assets.example.com/plan-attachments.json' }],
-		});
-
-		const result = await addTicketPlan(params);
-
-		expect(result).toEqual({ error: expect.stringContaining('ticket adopt') });
-		expect(existsSync(recordPath)).toBe(false);
-		expect(existsSync(planFolderOf({ planId: '001-search-basics' }))).toBe(false);
-		expect(mockSetTicketAttachment).not.toHaveBeenCalled();
-	});
-
-	test("refuses when the ticket's attachments could not be read at all", async () => {
-		// Unread attachments cannot say whether a plan was published here before
-		// ticket records existed, so passing over the failure is what would let a
-		// new plan 001 land on top of one. Adding a plan reads the ticket twice,
-		// and both reads owe that refusal.
-		const { params, recordPath, planFolderOf } = await setupAddPlan({
-			config: { gates, 'ticket-tracker': trackerBlock },
-			attachments: { error: 'the tracker answered 503' },
-		});
-
-		const whileReadingTheRecord = await addTicketPlan(params);
-		// One clean answer lets the record read through, so the call fails on the
-		// read after it: the look for a plan published before ticket records.
-		mockGetTicketAttachments.mockResolvedValueOnce([]);
-		const whileLookingForALegacyPlan = await addTicketPlan(params);
-
-		expect(whileReadingTheRecord).toEqual({ error: expect.stringContaining('ticket.json') });
-		expect(whileReadingTheRecord).toEqual({ error: expect.stringContaining('503') });
-		expect(whileLookingForALegacyPlan).toEqual({ error: expect.not.stringContaining('ticket.json') });
-		expect(whileLookingForALegacyPlan).toEqual({ error: expect.stringContaining('503') });
-		expect(existsSync(recordPath)).toBe(false);
-		expect(existsSync(planFolderOf({ planId: '001-search-basics' }))).toBe(false);
-	});
-
 	test('refuses a ship.ticket-pattern that reads no ticket id out of any branch, naming the key', async () => {
 		// The pattern compiles but captures no `ticket` group, so no branch name
 		// can be read as a ticket and a record born here would name none.
@@ -377,5 +360,29 @@ describe('addTicketPlan', () => {
 		expect(result).toEqual({ error: expect.stringContaining('ship.ticket-pattern') });
 		expect(existsSync(recordPath)).toBe(false);
 		expect(existsSync(planFolderOf({ planId: '001-search-basics' }))).toBe(false);
+	});
+
+	test("a plan added from a linked worktree is created in the primary checkout's plans directory", async () => {
+		const { worktree, primaryTicketFolder, params } = setupAddPlanFromWorktree();
+
+		const result = await addTicketPlan(params);
+
+		// The folder the ticket sync's keep paths read is asked for here the same
+		// way they ask for it, so one answer proves both land on one copy.
+		const landed = {
+			address: 'address' in result ? result.address : result.error,
+			planFolderUnderPrimary: existsSync(join(primaryTicketFolder, '001-search-basics')),
+			recordUnderPrimary: existsSync(join(primaryTicketFolder, 'ticket.json')),
+			folderTheTicketSyncReads: existsSync(await planWorkspaceDir({ cwd: worktree, name: 'lo-140-multi/001-search-basics' })),
+			planDataInsideTheWorktree: existsSync(join(worktree, '.lightsout')),
+		};
+
+		expect(landed).toStrictEqual({
+			address: 'lo-140-multi/001-search-basics',
+			planFolderUnderPrimary: true,
+			recordUnderPrimary: true,
+			folderTheTicketSyncReads: true,
+			planDataInsideTheWorktree: false,
+		});
 	});
 });

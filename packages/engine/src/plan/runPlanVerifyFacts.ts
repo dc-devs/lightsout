@@ -68,7 +68,7 @@ type RunPlanVerifyFactsResult =
  */
 export const runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }: Params): Promise<RunPlanVerifyFactsResult> => {
 	const progress = onProgress ?? (() => undefined);
-	const workspaceDir = planWorkspaceDir({ cwd, name });
+	const workspaceDir = await planWorkspaceDir({ cwd, name });
 	const factsPath = join(workspaceDir, 'facts.json');
 
 	// The snapshot runs before the facts read: the notes freeze even when the

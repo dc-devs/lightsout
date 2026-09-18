@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
+import { activityRecordPath, buildActivityTree, readActivityMarks } from '#src/activity/index.ts';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { planPublishCommand } from '#src/cli/plan/planPublishCommand.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
@@ -283,5 +284,92 @@ describe('planPublishCommand', () => {
 		expect(mockPublishPlan.mock.calls[0]?.[0]?.titlePrefix).toBeUndefined();
 		expect(mockPublishTicketPlan).not.toHaveBeenCalled();
 		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	// The activity record lands in the same plan folder as the planning record.
+	// Publishing spawns no agent, so its command run is a leaf: the level's own
+	// time is the whole of what it records, and a child under it would be a step
+	// that never ran.
+	test('records the publish as a childless command run in the activity record, beside the planning record', async () => {
+		const { context, planDir, exitCodes } = setupPublishWithPlanFolder();
+
+		await expect(planPublishCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// the exit throws, so a record read afterwards was written before the command exited
+		const report = buildActivityTree({ plan: 'demo', marks: await readActivityMarks({ dir: planDir }) });
+		const planning = JSON.parse(readFileSync(join(planDir, 'planning-progress.json'), 'utf8')) as unknown;
+
+		expect(report.roots).toEqual([
+			expect.objectContaining({
+				level: 'plan',
+				startedAt: expect.any(String),
+				endedAt: expect.any(String),
+				processes: [],
+				children: [
+					expect.objectContaining({
+						level: 'command-run',
+						label: expect.stringMatching(/publish/),
+						startedAt: expect.any(String),
+						endedAt: expect.any(String),
+						outcome: 'passed',
+						processes: [],
+						children: [],
+					}),
+				],
+			}),
+		]);
+		expect(planning).toEqual(expect.objectContaining({ steps: [expect.objectContaining({ step: 'publish', status: 'passed' })] }));
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('ends the command run failed in the activity record when publishing reports an error, and exits 1', async () => {
+		const { context, planDir, exitCodes } = setupPublishWithPlanFolder({
+			report: { published: [], stale: [], error: "nothing to publish for 'demo': no plan found" },
+		});
+
+		await expect(planPublishCommand(context)).rejects.toThrow(/process\.exit/);
+
+		const report = buildActivityTree({ plan: 'demo', marks: await readActivityMarks({ dir: planDir }) });
+
+		// the command run's own outcome agrees with the exit code the command then returns
+		expect(report.roots[0]?.children).toEqual([expect.objectContaining({ level: 'command-run', outcome: 'failed', endedAt: expect.any(String) })]);
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('a plan whose files landed but whose ticket record did not ends the command run failed in the activity record', async () => {
+		const { context, planDir, exitCodes } = setupTicketPublish({
+			report: {
+				ticketRef: 'LO-9',
+				published: ['001-a--plan.md'],
+				stale: [],
+				recordError: 'the plan files are on LO-9, but ticket.json was refused by the tracker',
+			},
+		});
+
+		await expect(planPublishCommand(context)).rejects.toThrow(/process\.exit/);
+
+		const report = buildActivityTree({ plan: 'lo-9-x/001-a', marks: await readActivityMarks({ dir: planDir }) });
+
+		// nothing on the ticket says which generation the files are, so the
+		// command run reads failed even though the attachments did land
+		expect(report.roots[0]?.children).toEqual([expect.objectContaining({ level: 'command-run', outcome: 'failed' })]);
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('a repo carrying no lightsout.config.json writes no activity record, because the refusal comes before any work', async () => {
+		const { context, planDir } = setupPublishWithPlanFolder({ withConfig: false });
+
+		await expect(planPublishCommand(context)).rejects.toThrow(/lightsout\.config\.json not found/);
+
+		expect(existsSync(activityRecordPath({ dir: planDir }))).toBe(false);
+	});
+
+	test('a publish without --name writes no activity record, because the refusal comes before the plan folder is resolved', async () => {
+		const { context, cwd, exitCodes } = setupPublish({ args: [] });
+
+		await expect(planPublishCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(existsSync(activityRecordPath({ dir: join(cwd, '.lightsout', 'plans', 'demo') }))).toBe(false);
+		expect(exitCodes).toStrictEqual([1]);
 	});
 });

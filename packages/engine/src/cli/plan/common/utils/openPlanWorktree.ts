@@ -1,7 +1,6 @@
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import type { PlanWorktree } from '#src/cli/plan/common/types/PlanWorktree.ts';
-import { copyPlanFolderToWorktree } from '#src/cli/plan/common/utils/copyPlanFolderToWorktree.ts';
 import { resolvePlanWorktree } from '#src/cli/plan/common/utils/resolvePlanWorktree.ts';
 import { isSamePath } from '#src/common/utils/isSamePath.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
@@ -16,9 +15,12 @@ interface Params {
 }
 
 /**
- * The checkout a planning session acts on, announced when the session moved
- * into it and stocked with the plan folder the launching checkout holds — or the
- * one sentence saying why there is none.
+ * The checkout a planning session acts on, announced when the session moved into
+ * it — or the one sentence saying why there is none.
+ *
+ * The tree holds code work only. A plan folder lives in the main checkout
+ * whichever checkout a plan command runs from, so there is nothing to stock the
+ * tree with and nothing inside it to lose when it is removed.
  */
 export const openPlanWorktree = async ({ cwd, config, flags, name }: Params): Promise<{ worktree: PlanWorktree } | { error: string }> => {
 	const worktree = await resolvePlanWorktree({ cwd, config, flags, name, onProgress: createProgressPrinter() });
@@ -34,7 +36,5 @@ export const openPlanWorktree = async ({ cwd, config, flags, name }: Params): Pr
 		console.log(`lightsout: workspace ${worktree.cwd}\n  branch: ${worktree.branch}`);
 	}
 
-	const copied = await copyPlanFolderToWorktree({ sourceCwd: cwd, worktree: worktree.cwd, name });
-
-	return copied ?? { worktree };
+	return { worktree };
 };

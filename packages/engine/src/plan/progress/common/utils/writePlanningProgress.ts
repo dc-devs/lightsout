@@ -20,11 +20,11 @@ interface Params {
  * caller owns reporting it.
  */
 export const writePlanningProgress = async ({ cwd, progress }: Params): Promise<void> => {
-	if (!(await pathExists({ path: planWorkspaceDir({ cwd, name: progress.name }) }))) {
+	if (!(await pathExists({ path: await planWorkspaceDir({ cwd, name: progress.name }) }))) {
 		return;
 	}
 
-	const recordPath = getPlanningProgressPath({ cwd, name: progress.name });
+	const recordPath = await getPlanningProgressPath({ cwd, name: progress.name });
 	const tmpPath = `${recordPath}.tmp`;
 
 	await writeJsonFile({ path: tmpPath, value: progress });

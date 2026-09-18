@@ -67,5 +67,5 @@ export const statusCatalogEntry: CommandCatalogEntry = {
 	],
 	steps: [],
 	records: CommandRecordKind.Nothing,
-	related: ['doctor', 'friction', 'improve', 'voice'],
+	related: ['doctor', 'friction', 'improve', 'voice', 'report'],
 };

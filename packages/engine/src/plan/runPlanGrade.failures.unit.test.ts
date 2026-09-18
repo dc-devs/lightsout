@@ -338,7 +338,7 @@ test('plan grade: a pass that did not finish is appended to the grade history be
 
 	expectStatus(result, 'paused-rate-limit');
 
-	const history = await readJsonlRecords({ path: gradeHistoryPath({ cwd, name }), schema: GradeReport });
+	const history = await readJsonlRecords({ path: await gradeHistoryPath({ cwd, name }), schema: GradeReport });
 
 	// a pass the wall ground to a halt is still part of how the plan got its
 	// grade — recording only the passes that finished would hide the re-runs

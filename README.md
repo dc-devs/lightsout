@@ -259,10 +259,11 @@ folder's name, or from the repository's configured branch template for a
 ticket — never from whatever branch you happen to be standing on. The tree is
 placed beside the repository in the same sibling directory the queue uses, cut
 from the freshly fetched remote default branch, and stocked with a copy of the
-plan or ticket the run was started from. An optional `worktree.setup` command —
-`pnpm install`, say — runs once in the fresh tree before any agent. The run's
-records stay in the checkout you launched from, so `lightsout status` still
-finds the run and the record survives the worktree being cleaned up. Pass
+ticket the run was started from. A plan folder is not copied in: it stays in
+your main checkout and the run reads it there. An optional `worktree.setup`
+command — `pnpm install`, say — runs once in the fresh tree before any agent.
+The run's records stay in the checkout you launched from, so `lightsout status`
+still finds the run and the record survives the worktree being cleaned up. Pass
 `--no-worktree`, or set `implement.worktree` to false, to build in the
 launching checkout instead. If the tree cannot be created, the inputs cannot be
 copied, or setup fails, the run stops and says which it was — it never quietly
@@ -270,21 +271,21 @@ builds somewhere else.
 
 Planning establishes that worktree first. `/plan` and `/auto-plan` run
 `lightsout plan workspace --name <name>` before they explore or draft, which cuts
-the tree at the plan's path from your checkout's committed `HEAD`, copies in any
-plan folder you already have there, and prints the tree's path; every later plan
-step works from it, so another agent editing your checkout cannot move the code
-a grade is measured against. The implementation run then continues in that same
-tree rather than cutting a second one, and a finished plan is copied back into
-the checkout you launched from before the shipped tree is cleaned up. Pass
-`--no-worktree`, or set `plan.worktree` to false, to plan in the launching
-checkout deliberately.
+the tree at the plan's path from your checkout's committed `HEAD` and prints the
+tree's path; every later plan step works from it, so another agent editing your
+checkout cannot move the code a grade is measured against. The tree holds code
+work only: the plan folder itself stays in your main checkout at
+`.lightsout/plans/<name>/`, whichever checkout a plan command runs from, and is
+never copied either way. The implementation run then continues in that same tree
+rather than cutting a second one. Pass `--no-worktree`, or set `plan.worktree` to
+false, to plan in the launching checkout deliberately.
 
 When the name is a plan address — `<ticket-branch>/<NNN-slug>` — the tree is
 the ticket branch's, so a later plan of the same ticket continues in it and is
 researched against the implementation already there. That continuation is
-refused while a live run holds the tree, naming the run. The whole ticket
-folder, every plan in it, is copied back to your checkout before a shipped tree
-is cleaned up.
+refused while a live run holds the tree, naming the run. The ticket folder and
+every plan in it sit in your main checkout throughout, so a shipped tree being
+cleaned up takes nothing with it.
 
 A finished plan is not stuck on the machine that wrote it. `/implement` looks
 for the plan folder on local disk first. When a ticket-named folder is absent,
@@ -353,6 +354,71 @@ With no `--run`, `--watch` follows the one run that is going — a phased plan's
 `--queue` shows a queue run as one update: first a board with seven columns — Build Queue, Building, Ship Queue, Shipping Now, Shipped, Parked and Blocked — then one block for each active ticket. A ticket is active while it is building, while it is shipping, or while its worker waits for an answer to a relayed question. Each block is exactly what the standalone `--run`, `--planning` or `--shipping` form prints for that ticket's worktree. It waits up to a minute for a queue that has just started, and prints a single line when no queue run is going. `--run <id>` names a past or crashed queue run instead: a crashed one is shown as stopped, with no ticket active. `--queue` prints once and cannot be combined with `--watch`, `--planning` or `--shipping`.
 
 `lightsout resume --run <id>` picks a parked run back up in the workspace that run recorded, so a run built in its own worktree carries on in that worktree rather than in the checkout you happen to be standing in. Direct runs built from a ticket resume here too, from the ticket frozen beside the run: a run that already passed its gates goes straight to the commit and the ship rather than building the ticket again. If the recorded workspace has been removed, resume says so and stops.
+
+### lightsout report
+
+Answer where a plan's hours and money went. `lightsout report` reads the
+activity record each `lightsout plan` subcommand wrote as it ran, and prints one
+tree: the plan, each command run inside it, each pass, each step, and beneath
+them every individual harness process with its own time, tokens, cost and how it
+ended.
+
+```text
+lightsout report --plan <name>
+lightsout report --plan <name> --json
+```
+
+Every level carries its elapsed wall time and its summed agent time as separate
+columns, plus how many harness processes were running at once at its busiest
+moment — up to twelve grading agents run together, so summed agent time
+routinely exceeds the wall clock, and that count is what makes the gap read as
+concurrency rather than as an error. Each child's share divides its parent's
+agent time, so a level's children add to one hundred percent, and time when no
+agent was running gets its own labelled row so a level accounts for every second
+it held. The plan's own row shows the elapsed time beside the engine time — its
+command runs added up — with the waiting between command runs as a row of its
+own, which is the number that answers why a plan took a whole afternoon. After
+the tree, a short section names the individual calls worth opening: the slowest
+few and the most expensive few.
+
+A name may address one plan, a plan folder written before ticket addresses
+existed, or a whole ticket folder — in which case each plan of the ticket gets
+its own tree beneath one totalled ticket row. `--json` prints the same totalled
+tree as data rather than the table, so anything reading it reads the one
+calculation the table reads.
+
+Tokens are always shown; a cost is shown only where the harness itself stated
+one, and a figure nothing reported prints as not reported rather than as zero.
+An extra, clearly labelled estimated-cost column appears when the repository
+configures a price list — model identifiers with dollars-per-million rates — in
+the `pricing` config block. Nothing computed from those rates is ever stored.
+See [Configuration](docs/configuration.md). It reads only what the plan commands
+already recorded, so it spawns nothing and spends nothing.
+
+### lightsout doctor
+
+Check an install end to end before blaming the work. `lightsout doctor` reads
+the repository and reports one line per check — whether the config parses, which
+harness it names and whether that binary answers, whether run state is ignored
+by git, whether every scoped gate has a script, and what the bundled standards
+assume about the linter and the test setup. Each warning or failure carries the
+exact change that clears it. It never edits anything.
+
+```text
+lightsout doctor
+lightsout doctor --usage-probe
+```
+
+Every token figure `lightsout report` prints comes from one adapter's reading of
+one harness's own output, pinned in the test suite against output captured by
+hand. A harness that renames a token field breaks that reading silently: plans
+keep running and the token columns simply go blank. `--usage-probe` is the
+ten-second check for it — it spends one throwaway agent call on the configured
+harness and reports whether that harness's token fields still reach the engine,
+both when the call settles and while it streams. It therefore spends from your
+own subscription, so it is off unless you ask for it: a plain `lightsout doctor`
+spawns no agent and spends nothing. Codex is never probed — its driver reads no
+usage by design.
 
 ### lightsout ship
 

@@ -22,7 +22,7 @@ interface Params<Shape> {
  * The shared reader behind `readDecisions`/`readPlanFacts`.
  */
 export const readPlanWorkspaceFile = async <Shape>({ cwd, name, fileName, schema, notFound }: Params<Shape>): Promise<Shape> => {
-	const filePath = join(planWorkspaceDir({ cwd, name }), fileName);
+	const filePath = join(await planWorkspaceDir({ cwd, name }), fileName);
 	const raw = await readFile(filePath, 'utf8').catch(() => {
 		throw new Error(notFound(filePath));
 	});

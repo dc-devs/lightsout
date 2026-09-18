@@ -29,6 +29,67 @@ const ResultEvent = ResultEnvelope.extend({
 	total_cost_usd: z.number().optional(),
 });
 
+/**
+ * One streamed `assistant` event (verified against claude 2.1.200). Only the
+ * input side is read: the harness emits the same message once per content
+ * block, so `message.id` is what tells a repeat from a new message, and the
+ * streamed `output_tokens` is a placeholder — one captured drafting transcript
+ * streamed 86 output tokens against a terminal session figure of 38790.
+ */
+const AssistantEvent = z.object({
+	type: z.literal('assistant'),
+	message: z.object({
+		id: z.string(),
+		usage: z
+			.object({
+				input_tokens: z.number().optional(),
+				cache_read_input_tokens: z.number().optional(),
+				cache_creation_input_tokens: z.number().optional(),
+			})
+			.optional(),
+	}),
+});
+
+/** The terminal event's own counts, normalized. Undefined when it stated neither tokens nor cost. */
+const resultUsage = ({ event }: { event: z.infer<typeof ResultEvent> }) =>
+	event.usage || event.total_cost_usd !== undefined
+		? {
+				inputTokens: event.usage?.input_tokens ?? 0,
+				outputTokens: event.usage?.output_tokens ?? 0,
+				cacheReadTokens: event.usage?.cache_read_input_tokens ?? 0,
+				cacheCreationTokens: event.usage?.cache_creation_input_tokens ?? 0,
+				costUsd: event.total_cost_usd ?? 0,
+			}
+		: undefined;
+
+/**
+ * Adds up the input-side counts the streamed assistant messages carry, each
+ * message once, and answers the running total whenever a fresh one lands.
+ *
+ * Output tokens and cost stay out of it: the harness knows neither while the
+ * message is being emitted, and reporting the streamed placeholder would print
+ * a figure hundreds of times too small where "not reported" is the truth.
+ */
+const createAssistantUsageTally = () => {
+	const counted = new Set<string>();
+	const total = { inputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 };
+
+	return ({ event }: { event: unknown }) => {
+		const parsed = AssistantEvent.safeParse(event);
+
+		if (!parsed.success || !parsed.data.message.usage || counted.has(parsed.data.message.id)) {
+			return undefined;
+		}
+
+		counted.add(parsed.data.message.id);
+		total.inputTokens += parsed.data.message.usage.input_tokens ?? 0;
+		total.cacheReadTokens += parsed.data.message.usage.cache_read_input_tokens ?? 0;
+		total.cacheCreationTokens += parsed.data.message.usage.cache_creation_input_tokens ?? 0;
+
+		return { ...total };
+	};
+};
+
 /** Fallback for non-stream output (`--output-format json`): the whole stdout is one envelope. */
 const parseEnvelope = ({ stdout }: { stdout: string }) => {
 	try {
@@ -52,9 +113,10 @@ export const createClaudeCodeDriver = (): Driver => {
 	const driver: Driver = {
 		name: 'claude-code',
 		invoke: async (invocation) => {
-			const { prompt, systemPrompt, model, effort, permissions, allowedCommands, environment, cwd, timeoutMs, onEvent } = invocation;
+			const { prompt, systemPrompt, model, effort, permissions, allowedCommands, environment, cwd, timeoutMs, onEvent, onUsage } = invocation;
 
 			let resultEvent: z.infer<typeof ResultEvent> | undefined;
+			const tallyAssistantUsage = createAssistantUsageTally();
 
 			const systemPromptFile = systemPrompt ? await writeSystemPromptFile({ systemPrompt }) : undefined;
 
@@ -79,6 +141,20 @@ export const createClaudeCodeDriver = (): Driver => {
 
 					if (parsed.success) {
 						resultEvent = parsed.data;
+
+						// The terminal envelope supersedes the streamed accumulation:
+						// it is the only place the harness states output tokens and cost.
+						const settled = resultUsage({ event: parsed.data });
+
+						if (settled) {
+							onUsage?.(settled);
+						}
+					}
+
+					const streamed = tallyAssistantUsage({ event });
+
+					if (streamed) {
+						onUsage?.(streamed);
 					}
 
 					onEvent?.(event);
@@ -88,16 +164,7 @@ export const createClaudeCodeDriver = (): Driver => {
 			const envelope = resultEvent ?? parseEnvelope({ stdout });
 			const text = envelope?.result ?? stdout ?? '';
 			const errored = envelope?.is_error === true || exitCode !== 0;
-			const usage =
-				resultEvent && (resultEvent.usage || resultEvent.total_cost_usd !== undefined)
-					? {
-							inputTokens: resultEvent.usage?.input_tokens ?? 0,
-							outputTokens: resultEvent.usage?.output_tokens ?? 0,
-							cacheReadTokens: resultEvent.usage?.cache_read_input_tokens ?? 0,
-							cacheCreationTokens: resultEvent.usage?.cache_creation_input_tokens ?? 0,
-							costUsd: resultEvent.total_cost_usd ?? 0,
-						}
-					: undefined;
+			const usage = resultEvent ? resultUsage({ event: resultEvent }) : undefined;
 
 			return {
 				text: text || stderr,

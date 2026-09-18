@@ -12,5 +12,5 @@ export const frictionCatalogEntry: CommandCatalogEntry = {
 	flags: [{ name: 'cwd', value: '<path>', meaning: 'Repository whose runs are read.', fallback: 'The process working directory.', required: false }],
 	steps: [],
 	records: CommandRecordKind.Nothing,
-	related: ['status', 'doctor', 'improve', 'voice'],
+	related: ['status', 'doctor', 'improve', 'voice', 'report'],
 };

@@ -8,4 +8,4 @@ interface Params {
 }
 
 /** A plan's planning record lives beside its other working files: `<plan folder>/planning-progress.json`. */
-export const getPlanningProgressPath = ({ cwd, name }: Params): string => join(planWorkspaceDir({ cwd, name }), 'planning-progress.json');
+export const getPlanningProgressPath = async ({ cwd, name }: Params): Promise<string> => join(await planWorkspaceDir({ cwd, name }), 'planning-progress.json');

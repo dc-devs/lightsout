@@ -81,7 +81,7 @@ export const getPlanWorkspace = async ({ cwd, name }: Params): Promise<PlanWorks
 		throw new PlanWorkspaceNotFoundError({ name });
 	}
 
-	const rootPath = planWorkspaceDir({ cwd, name });
+	const rootPath = await planWorkspaceDir({ cwd, name });
 	const stats = await stat(rootPath).catch(() => undefined);
 
 	if (stats?.isDirectory() !== true) {

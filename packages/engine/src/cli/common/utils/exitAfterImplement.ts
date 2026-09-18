@@ -59,7 +59,7 @@ interface Params {
 export const exitAfterImplement = async ({ config, cwd, result, shipFlag, noShipFlag, env }: Params): Promise<never> => {
 	const terms = await readTicketRunTerms({
 		cwd,
-		name: planNameFromPath({ cwd, planPath: result.manifest.plan }),
+		name: await planNameFromPath({ cwd, planPath: result.manifest.plan }),
 		planPath: result.manifest.pipeline === PipelineKind.Direct ? undefined : result.manifest.plan,
 	});
 	const intent = resolveShipIntent({ config, shipFlag, noShipFlag, env, shipRequest: terms.shipRequest });

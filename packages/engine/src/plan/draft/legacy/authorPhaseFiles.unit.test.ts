@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
@@ -8,6 +9,7 @@ import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.t
 import { authorPhaseFiles } from '#src/plan/draft/legacy/authorPhaseFiles.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
+import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 /** The verified facts every phase spawn is handed — content is irrelevant here, only that it rides each invocation. */
 const facts: PlanFacts = {
@@ -102,6 +104,23 @@ const setupFanOut = ({ count, driver }: { count: number; driver: Driver }) => {
 	};
 };
 
+/**
+ * The same fan-out launched from a linked worktree, with the plan folder held
+ * by the primary checkout it was cut from — the shape a phased draft runs in
+ * once `plan.worktree` moves the session into a tree.
+ */
+const setupFanOutFromWorktree = ({ count, driver }: { count: number; driver: Driver }) => {
+	const { params } = setupFanOut({ count, driver });
+	const { cwd: primary } = setupBranchRepo();
+	const worktree = join(primary, '.worktrees', 'demo');
+	const workspaceDir = join(primary, '.lightsout', 'plans', 'demo');
+
+	execSync(`git worktree add -q -b demo "${worktree}" main`, { cwd: primary, stdio: 'ignore' });
+	mkdirSync(workspaceDir, { recursive: true });
+
+	return { worktree, workspaceDir, params: { ...params, cwd: worktree, workspaceDir } };
+};
+
 describe('authorPhaseFiles', () => {
 	test('one spawn per declared phase writes one file each, returned in phase order with a report apiece', async () => {
 		const invocations: DriverInvocation[] = [];
@@ -117,6 +136,18 @@ describe('authorPhaseFiles', () => {
 			planPaths: [1, 2, 3].map((number) => join(cwd, '.lightsout', 'plans', 'demo', `phase${number}-step.md`)),
 			reports: 3,
 		});
+	});
+
+	test('every phase file is authored in the workspace the fan-out was handed, not one re-derived from the checkout it runs in', async () => {
+		const { worktree, workspaceDir, params } = setupFanOutFromWorktree({ count: 2, driver: phaseDriver() });
+
+		const result = await authorPhaseFiles(params);
+
+		expectStatus(result, 'complete');
+		// the primary checkout's plan folder is the one a phase file survives in:
+		// the tree this drafted from is removed once its work ships
+		expect(result.planPaths).toStrictEqual([1, 2].map((number) => join(workspaceDir, `phase${number}-step.md`)));
+		expect(existsSync(join(worktree, '.lightsout'))).toBe(false);
 	});
 
 	test('each phase spawn is handed its own declaration and its predecessor’s, and phase 1 is told it has none', async () => {

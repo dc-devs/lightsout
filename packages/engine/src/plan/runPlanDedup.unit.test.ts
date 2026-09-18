@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { DecisionSource, DedupReport, Effort, Permissions } from '#src/contracts/index.ts';
@@ -7,7 +8,10 @@ import { runPlanDedup } from '#src/plan/runPlanDedup.ts';
 import { createDedupJudgeDriver } from '#tests/helpers/createDedupJudgeDriver.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
+import { minimalPlanBody } from '#tests/helpers/minimalPlanBody.ts';
 import { seedDedupPlan } from '#tests/helpers/seedDedupPlan.ts';
+import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
+import { writeEmptyDecisions } from '#tests/helpers/writeEmptyDecisions.ts';
 
 // The single-plan detect-judge-persist path: what a verdict becomes, what the
 // no-candidate no-op writes, and what the caller's settings do to the spawn.
@@ -73,6 +77,40 @@ const setupStaleLog = () => {
 		name,
 		dedupPath: join(workspaceDir, 'dedup.json'),
 		driver: createUncalledDriver({ reason: 'the judge must not be invoked when a plan file Decision Log is stale' }),
+	};
+};
+
+/**
+ * The same collision, arranged across two checkouts: a real primary checkout
+ * holding the plan folder, and a linked worktree cut from it holding the source
+ * the planned symbol collides with — the shape a plan command runs in when
+ * `plan.worktree` has moved the session into a tree.
+ */
+const setupLinkedWorktreePlan = ({ verdicts = [] }: { verdicts?: unknown[] } = {}) => {
+	const name = 'p';
+	const { cwd } = setupBranchRepo();
+	const primary = realpathSync(cwd);
+	const worktree = join(primary, '.worktrees', 'lo-150-planning-observability');
+
+	execSync(`git worktree add -q -b lo-150-planning-observability "${worktree}" main`, { cwd: primary, stdio: 'ignore' });
+
+	// the export the plan's symbol collides with is the checkout's own source,
+	// which the worktree holds like any other checkout
+	mkdirSync(join(worktree, 'src'), { recursive: true });
+	writeFileSync(join(worktree, 'src', 'fetchUser.ts'), 'export const x = 1;\n');
+
+	const workspaceDir = join(primary, '.lightsout', 'plans', name);
+
+	mkdirSync(workspaceDir, { recursive: true });
+	writeFileSync(join(workspaceDir, 'plan.md'), minimalPlanBody({ title: 'Plan', creates: ['src/getUser.ts'] }));
+	writeEmptyDecisions({ dir: workspaceDir, name });
+
+	return {
+		name,
+		worktree,
+		workspaceDir,
+		dedupPath: join(workspaceDir, 'dedup.json'),
+		driver: createDedupJudgeDriver({ verdicts }),
 	};
 };
 
@@ -240,4 +278,28 @@ test('runPlanDedup: a current Decision Log lets the pass reach candidate detecti
 	expect(invocations.length).toBe(1);
 	expect(result.dedup.findings.map(({ plannedSymbol }) => plannedSymbol)).toStrictEqual(['getUser']);
 	expect(existsSync(dedupPath)).toBeTruthy();
+});
+
+test("a dedup run from a linked worktree reads and writes the primary checkout's plan folder", async () => {
+	const { name, worktree, driver, workspaceDir, dedupPath } = setupLinkedWorktreePlan({ verdicts: [duplicateVerdict] });
+
+	const result = await runPlanDedup({ cwd: worktree, driver, name });
+
+	expectStatus(result, 'complete');
+	// the deliverable is resolved from the primary's plan folder, so the pass
+	// judges a real plan file instead of refusing with the no-plan-found message
+	expect(result.workspaceDir).toBe(workspaceDir);
+	expect(result.dedupPath).toBe(dedupPath);
+	expect(result.dedup.findings.map(({ plannedSymbol }) => plannedSymbol)).toStrictEqual(['getUser']);
+	expect(existsSync(dedupPath)).toBeTruthy();
+
+	const persisted = DedupReport.parse(JSON.parse(readFileSync(dedupPath, 'utf8')));
+
+	// dedup.json lands in the primary checkout's plan folder, and the worktree is
+	// left with no plans directory at all — a removed tree cannot take it away
+	expect(persisted.planName).toBe('p');
+	expect(persisted.findings.map(({ plannedSymbol, recommendation }) => ({ plannedSymbol, recommendation }))).toStrictEqual([
+		{ plannedSymbol: 'getUser', recommendation: 'reuse' },
+	]);
+	expect(existsSync(join(worktree, '.lightsout'))).toBeFalsy();
 });

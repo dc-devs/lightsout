@@ -14,5 +14,7 @@ interface Params {
  * a plan that recorded nothing has a normal answer.
  */
 export const readPlanningProgress = async ({ cwd, name }: Params): Promise<PlanningProgress | undefined> => {
-	return readJsonFile({ path: getPlanningProgressPath({ cwd, name }), schema: PlanningProgress });
+	const path = await getPlanningProgressPath({ cwd, name });
+
+	return readJsonFile({ path, schema: PlanningProgress });
 };

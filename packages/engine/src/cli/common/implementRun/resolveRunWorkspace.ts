@@ -202,13 +202,13 @@ export const resolveRunWorkspace = async ({
 		return { cwd, isolated: false, created: false };
 	}
 
-	const branch = resolveRunBranch({ cwd, config, planPath, ticketPath, ticketRef, ticketBody });
+	const branch = await resolveRunBranch({ cwd, config, planPath, ticketPath, ticketRef, ticketBody });
 
 	if (typeof branch !== 'string') {
 		return branch;
 	}
 
-	const planName = planPath === undefined ? undefined : planNameFromPath({ cwd, planPath });
+	const planName = planPath === undefined ? undefined : await planNameFromPath({ cwd, planPath });
 	const addressed = planName !== undefined && parsePlanAddress({ name: planName }) !== undefined;
 	const workspace = await cutWorkspace({ cwd, config, branch, addressed, onProgress });
 

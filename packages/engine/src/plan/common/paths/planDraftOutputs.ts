@@ -17,8 +17,8 @@ interface Params {
  * and the agent chooses the phase breakdown, so the phase paths come back in its
  * report rather than being dictated up front.
  */
-export const planDraftOutputs = ({ cwd, name, variant }: Params): { path: string; variant: PlanVariant }[] => {
-	const dir = planWorkspaceDir({ cwd, name });
+export const planDraftOutputs = async ({ cwd, name, variant }: Params): Promise<{ path: string; variant: PlanVariant }[]> => {
+	const dir = await planWorkspaceDir({ cwd, name });
 
 	return variant === PlanVariant.Single
 		? [{ path: join(dir, 'plan.md'), variant: PlanVariant.Single }]

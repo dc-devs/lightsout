@@ -182,3 +182,12 @@ test('prints one ticket line per subcommand between plan publish and ticket-stat
 	expect(lines.indexOf(ticket[0] ?? '')).toBe(planPublish + 1);
 	expect(ticketState).toBe(planPublish + 9);
 });
+
+test('renderUsage: prints a report line naming --plan and --json', () => {
+	const { lines } = setupRenderUsage();
+
+	const report = lines.filter((line) => line.startsWith('  lightsout report'));
+
+	expect(report).toHaveLength(1);
+	expect(report[0]).toMatch(/^ {2}lightsout report --plan <name> \[--json\] \[--cwd <path>\](?: |$)/);
+});

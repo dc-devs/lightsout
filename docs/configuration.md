@@ -265,6 +265,7 @@ is overwritten the next time `pnpm build:config-reference` runs.
 | `auto-plan` | no | Opt-in auto-plan settings: whether the proposal comes before drafting, whether an approved proposal starts the build, and whether the proposal is skipped when nothing clears the escalation bar. Every key is off by default, so an absent block is the most supervised behaviour. |
 | `plan` | no | Opt-in plan settings: whether plans are written as contracts with an acceptance-test ledger — a table naming the test that states each acceptance criterion — and graded by weight, spawning the reader fan-out only for the plan files that earn it, plus the counts above which a plan file is heavy. Those are off by default, so an absent block writes and grades plans exactly as before: the same template, the same required sections, every plan file read by every lens. `plan.worktree` is whether a planning session works in its own isolated git worktree rather than the checkout it was launched from — it defaults to true, `--worktree` and `--no-worktree` override it for one command, and the implementation run continues in the tree planning established. `plan.default-ticket-mode` is the mode a ticket's own record is created with — `single-plan`, where plan 001 alone supplies the ticket's implementation, or `multiple-plan`, where the ticket's plans implement in numeric order on one branch and it ships only on an explicit ship request. It defaults to `single-plan` and is read only when a record is created, so it never changes a ticket that already has one. |
 | `implement` | no | Opt-in implementation settings. `implement.worktree` is whether an implementation run builds in its own isolated git worktree rather than the checkout it was launched from — it defaults to true, and `--worktree` and `--no-worktree` override it for one run. `implement.refactor.max-rounds` is how many cleanup executor rounds one run may spend at most — a whole number above zero, defaulting to 2, which is also what an absent block spends. The budget is a ceiling rather than a target: cleanup stops early when nothing qualifying is left, and only a deterministic blocking finding the run’s own edits introduced or measurably worsened can spend a round. Whatever cleanup leaves behind is recorded and never stops the run. |
+| `pricing` | no | Optional published rates, keyed by the model identifier a harness was invoked with, each entry giving `input`, `output`, `cache-read` and `cache-write` as US dollars per million tokens — the unit vendors publish, so a rate is copied rather than converted. It is optional and has no default. It is read only by `lightsout report`, where it buys one separate, clearly labelled estimated-cost column; nothing computed from it is ever stored, so the activity record stays a statement of what a harness itself reported. Each entry is strict, so a misspelled rate name fails parsing rather than silently leaving that token count unpriced while the column still prints a total. |
 | `docs` | no | Opt-in documentation surfaces: each entry a repo-relative path and a one-line `covers` saying what that document is responsible for. Declaring the block turns on the plan-time documentation check — the plan writer is briefed on the surfaces, every implementable plan file must carry a `## Documentation` statement, and `plan grade` runs one whole-plan checker that verifies it. A repository that declares no block sees none of it: no section, no prompt text, no checker spawn. |
 
 <!-- /generated:config-key-reference -->
@@ -665,6 +666,53 @@ skip control does, which is why `0` is refused rather than read as "no cleanup".
 The block is strict for the same reason `ship` and `plan` are: an unknown key
 fails parsing rather than silently leaving the default budget in force while
 your config file believes it raised it.
+
+### Pricing settings
+
+| Field                        | Required | What it controls                                                                            |
+| ---------------------------- | -------: | ------------------------------------------------------------------------------------------- |
+| `pricing.<model>.input`      |      yes | US dollars per million input tokens for that model.                                          |
+| `pricing.<model>.output`     |      yes | US dollars per million output tokens.                                                        |
+| `pricing.<model>.cache-read` |      yes | US dollars per million tokens read from the prompt cache.                                    |
+| `pricing.<model>.cache-write`|      yes | US dollars per million tokens written to the prompt cache.                                   |
+
+```json
+{
+	"pricing": {
+		"claude-opus-5": {
+			"input": 15,
+			"output": 75,
+			"cache-read": 1.5,
+			"cache-write": 18.75
+		}
+	}
+}
+```
+
+The block is keyed by the model identifier a harness was invoked with — the same
+string you would put in the top-level `model` key, or in a `commands` entry. Each
+entry gives one rate per token count the activity record carries, so no rate can
+be applied to a count it does not match, and every rate is dollars per million
+tokens because that is the unit harness vendors publish: you copy the published
+number rather than converting it.
+
+It buys exactly one thing, and only in `lightsout report`: a separate column,
+labelled as an estimate, holding those rates applied to the tokens the record
+already holds. Every other figure in that report is something a harness itself
+stated.
+
+Nothing computed from this block is ever written to disk. The activity record
+stores the tokens a process reported and the cost only when the harness stated
+one, so the saved record stays provable years later whatever you do to these
+rates. A model this block does not name shows no estimate rather than an
+estimate of zero — a rate nobody stated cannot be guessed at, and a zero there
+would be indistinguishable from an agent that really did spend nothing.
+
+The block is optional and has no default. A repository that configures no rates
+still gets the whole report and loses only that column. Each entry is strict for
+the same reason `ship` and `plan` are: a misspelled rate name fails parsing
+rather than silently leaving that token count unpriced while the column still
+prints a total.
 
 ### Auto-plan settings
 

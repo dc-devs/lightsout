@@ -1,8 +1,19 @@
 import { join } from 'node:path';
+import type { ActivityLevel } from '#src/activity/index.ts';
 import { buildPlanWriterInvocation } from '#src/agents/index.ts';
 import { createdFileCeiling } from '#src/common/constants/createdFileCeiling.ts';
-import { type ConfigDocs, type DecisionsRecord, type Effort, type Permissions, PlanDraftReport, type PlanFacts, PlanVariant } from '#src/contracts/index.ts';
+import {
+	ActivityLevelKind,
+	type ConfigDocs,
+	type DecisionsRecord,
+	type Effort,
+	type Permissions,
+	PlanDraftReport,
+	type PlanFacts,
+	PlanVariant,
+} from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
+import { getPlanRunStatus } from '#src/plan/common/activity/getPlanRunStatus.ts';
 import { planDraftConcurrency } from '#src/plan/common/constants/planDraftConcurrency.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
@@ -11,7 +22,6 @@ import { isRateLimited } from '#src/plan/common/utils/isRateLimited.ts';
 import type { AuthorPhaseFilesResult } from '#src/plan/draft/common/types/AuthorPhaseFilesResult.ts';
 import type { PhaseOutcome } from '#src/plan/draft/common/types/PhaseOutcome.ts';
 import { foldPhaseOutcomes } from '#src/plan/draft/common/utils/foldPhaseOutcomes.ts';
-import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 
 interface Params {
 	cwd: string;
@@ -35,6 +45,8 @@ interface Params {
 	effort?: Effort;
 	permissions?: Permissions;
 	timeoutMs: number;
+	/** The command-run level this fan-out opens its own pass level under. Absent wherever no run is being recorded. */
+	level?: ActivityLevel;
 	progress: (message: string) => void;
 }
 
@@ -59,12 +71,13 @@ const spawnPhase = async ({
 		effort,
 		permissions,
 		timeoutMs,
+		level: params.level,
 	});
 	const outcome = await invokePlanAgent({
 		invocation: buildPlanWriterInvocation({
 			facts,
 			decisions,
-			outputs: [{ path: join(planWorkspaceDir({ cwd, name }), declaration.file), variant: PlanVariant.Phase }],
+			outputs: [{ path: join(workspaceDir, declaration.file), variant: PlanVariant.Phase }],
 			overviewText,
 			declaration,
 			previousDeclaration,
@@ -94,14 +107,20 @@ const spawnPhase = async ({
  * A phase spawn gets no self-lint command: its siblings are not on disk yet, so
  * a lint run there would report artefacts of when it looked rather than defects.
  * `repairPlanStructure` converges the finished set instead.
+ *
+ * The whole fan-out is ONE level with the concurrent writers as its steps, the
+ * same shape the focused fan-out records: which writer ran is what `--legacy`
+ * chooses, never what a plan run records.
  */
 export const authorPhaseFiles = async (params: Params): Promise<AuthorPhaseFilesResult> => {
 	const { cwd, name, declarations, progress } = params;
 
 	progress(`plan draft ${name}: authoring ${declarations.length} phase file(s), up to ${planDraftConcurrency} at a time`);
 
+	const fanOut = params.level?.open({ level: ActivityLevelKind.Pass, label: 'phase fan-out' });
+	const spawning = { ...params, level: fanOut };
 	const tasks = declarations.map(
-		(declaration, index) => () => spawnPhase({ params, declaration, previousDeclaration: index === 0 ? undefined : declarations[index - 1] }),
+		(declaration, index) => () => spawnPhase({ params: spawning, declaration, previousDeclaration: index === 0 ? undefined : declarations[index - 1] }),
 	);
 	// A wall met by launching another eighteen spawns into it is still a wall:
 	// once one phase rate-limits, no further phase is started.
@@ -110,6 +129,9 @@ export const authorPhaseFiles = async (params: Params): Promise<AuthorPhaseFiles
 		concurrency: planDraftConcurrency,
 		shouldStop: ({ results: settled }) => settled.some((result) => isRateLimited({ result })),
 	});
+	const folded = await foldPhaseOutcomes({ cwd, name, declarations, results });
 
-	return foldPhaseOutcomes({ cwd, name, declarations, results });
+	fanOut?.close({ outcome: getPlanRunStatus({ status: folded.status }) });
+
+	return folded;
 };

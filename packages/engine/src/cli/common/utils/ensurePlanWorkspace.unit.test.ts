@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { ensurePlanWorkspace } from '#src/cli/common/utils/ensurePlanWorkspace.ts';
@@ -125,6 +125,21 @@ const setupNoPlanAnywhere = async () => {
 	return { cwd, tree };
 };
 
+/**
+ * A launching checkout with no plan folder, a worktree standing at the plan's
+ * branch that does hold one, and a ticket carrying no plan attachment. The
+ * tree's copy is no longer a source to recover from, so the only place left to
+ * ask is the ticket.
+ */
+const setupPlanOnlyInWorktree = async () => {
+	const cwd = await seedCwd();
+	const { tree, dir } = seedWorktreePlan({ cwd, planName: name, files: { 'plan.md': '# the copy in the worktree\n' } });
+
+	mockGetTicketAttachments.mockResolvedValue([]);
+
+	return { cwd, tree, worktreeDir: dir };
+};
+
 describe('ensurePlanWorkspace', () => {
 	test('a plan folder already on disk wins outright — the tracker is never asked', async () => {
 		const cwd = await seedCwd();
@@ -199,17 +214,17 @@ describe('ensurePlanWorkspace', () => {
 		});
 	});
 
-	test('names both places and the command that puts a plan on the ticket', async () => {
+	test('names the missing folder and the command that puts a plan on the ticket', async () => {
 		const cwd = await seedCwd();
 
 		mockGetTicketAttachments.mockResolvedValue([]);
 
 		expect((await ensure({ cwd })).result).toStrictEqual({
-			error: `no plan at ${join(cwd, planPath)} or in the plan's worktree at ${join(`${cwd}-worktrees`, name)}, and ticket lo-54 carries no plan attachment — run \`lightsout plan publish --name ${name}\` from the machine that has the plan`,
+			error: `no plan at ${join(cwd, planPath)}, and ticket lo-54 carries no plan attachment — run \`lightsout plan publish --name ${name}\` from the machine that has the plan`,
 		});
 	});
 
-	test("recovers a ticketless plan folder from the plan's own worktree before asking the tracker", async () => {
+	test('a ticketless plan folder sitting in a worktree is never recovered from it', async () => {
 		const cwd = await seedCwd();
 		const path = join('.lightsout', 'plans', 'portable-plan');
 		const { tree, dir } = seedWorktreePlan({
@@ -220,21 +235,22 @@ describe('ensurePlanWorkspace', () => {
 
 		const { result, printed } = await ensure({ cwd, path });
 
+		// The name carries no ticket id, so there is nowhere left to ask: the tree's
+		// copy is not a source, and the refusal names the missing folder alone.
 		expect({
-			result,
-			copiedFiles: readdirSync(join(cwd, path)).sort(),
-			copiedPlan: readFileSync(join(cwd, path, 'plan.md'), 'utf8'),
+			error: result?.error,
+			folderWritten: existsSync(join(cwd, path)),
 			worktreeFiles: readdirSync(dir).sort(),
 			printed,
 			trackerCalls: mockGetTicketAttachments.mock.calls.length,
 		}).toEqual({
-			result: undefined,
-			copiedFiles: ['grade-memory.json', 'plan.md'],
-			copiedPlan: '# the plan graded in its worktree\n',
+			error: `no plan at ${join(cwd, path)}, and no plan could be fetched from a ticket: the plan folder name 'portable-plan' carries no ticket id matching this repo's ship.ticket-pattern`,
+			folderWritten: false,
 			worktreeFiles: ['grade-memory.json', 'plan.md'],
-			printed: [expect.stringContaining(tree)],
+			printed: [],
 			trackerCalls: 0,
 		});
+		expect(result?.error).not.toContain(tree);
 	});
 
 	test('keeps local disk winning outright, and names every place it looked when nothing has a plan', async () => {
@@ -259,7 +275,29 @@ describe('ensurePlanWorkspace', () => {
 		expect(refused.result).toEqual({
 			error: expect.stringContaining(join(nowhere.cwd, planPath)),
 		});
-		expect(refused.result?.error).toContain(nowhere.tree);
+		expect(refused.result?.error).not.toContain(nowhere.tree);
 		expect(refused.result?.error).toContain('ticket lo-54');
+	});
+
+	test('an absent plan folder goes straight to the ticket restore, naming no worktree copy', async () => {
+		const { cwd, tree, worktreeDir } = await setupPlanOnlyInWorktree();
+
+		const { result, printed } = await ensure({ cwd });
+
+		expect({
+			error: result?.error,
+			folderWritten: existsSync(join(cwd, planPath)),
+			worktreeFiles: readdirSync(worktreeDir),
+			printed,
+			trackerCalls: mockGetTicketAttachments.mock.calls.length,
+		}).toEqual({
+			error: expect.stringContaining(join(cwd, planPath)),
+			folderWritten: false,
+			worktreeFiles: ['plan.md'],
+			printed: [],
+			trackerCalls: 1,
+		});
+		expect(result?.error).toContain('ticket lo-54');
+		expect(result?.error).not.toContain(tree);
 	});
 });

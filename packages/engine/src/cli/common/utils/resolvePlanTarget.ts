@@ -1,5 +1,6 @@
 import { stat } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
+import { resolveRecordedPlanPath } from '#src/plan/index.ts';
 
 interface Params {
 	cwd: string;
@@ -13,9 +14,15 @@ interface Params {
  * already owns the missing-file error. A directory means "run this plan,
  * however it is shaped": overview.md → all phases, plan.md → single run,
  * neither → an error naming both expectations.
+ *
+ * Where the value is looked for is `resolveRecordedPlanPath`'s answer, not
+ * `cwd`'s own: a plan folder lives in the primary checkout whichever checkout
+ * the run works in, so a run isolated in a worktree would otherwise find no
+ * folder there and take a plan folder for a plain file.
  */
 export const resolvePlanTarget = async ({ cwd, planPath }: Params): Promise<{ planPath: string } | { overviewPath: string } | { error: string }> => {
-	const isDirectory = await stat(resolve(cwd, planPath)).then(
+	const dir = await resolveRecordedPlanPath({ cwd, path: planPath });
+	const isDirectory = await stat(dir).then(
 		(entry) => entry.isDirectory(),
 		() => false,
 	);
@@ -24,19 +31,19 @@ export const resolvePlanTarget = async ({ cwd, planPath }: Params): Promise<{ pl
 		return { planPath };
 	}
 
-	const holds = async (name: string) =>
-		stat(resolve(cwd, planPath, name)).then(
+	const holds = async ({ name }: { name: string }) =>
+		stat(join(dir, name)).then(
 			(entry) => entry.isFile(),
 			() => false,
 		);
 
 	// The joins are built from the user's own path, not the resolved absolute,
 	// so a relative --plan stays relative — the form manifests store today.
-	if (await holds('overview.md')) {
+	if (await holds({ name: 'overview.md' })) {
 		return { overviewPath: join(planPath, 'overview.md') };
 	}
 
-	if (await holds('plan.md')) {
+	if (await holds({ name: 'plan.md' })) {
 		return { planPath: join(planPath, 'plan.md') };
 	}
 

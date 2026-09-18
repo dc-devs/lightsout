@@ -29,6 +29,7 @@ const commandIds = [
 	'standards-validate',
 	'standards-health',
 	'status',
+	'report',
 	'doctor',
 	'friction',
 	'improve',

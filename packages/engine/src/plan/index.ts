@@ -5,6 +5,7 @@ export { planAttachmentManifestName } from '#src/plan/common/constants/planAttac
 export { gradeMemoryPath } from '#src/plan/common/memory/gradeMemoryPath.ts';
 export { isRunInPlanWorkspace } from '#src/plan/common/paths/isRunInPlanWorkspace.ts';
 export { pathExists } from '#src/plan/common/paths/pathExists.ts';
+export { resolveRecordedPlanPath } from '#src/plan/common/paths/resolveRecordedPlanPath.ts';
 export type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 export type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
 export type { SyncedPlanFile } from '#src/plan/common/types/SyncedPlanFile.ts';
@@ -27,7 +28,7 @@ export { planNameFromPath } from '#src/plan/planNameFromPath.ts';
 export { plansDir } from '#src/plan/plansDir.ts';
 export { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 export { planWorkspacePath } from '#src/plan/planWorkspacePath.ts';
-export { getPlanningProgressPath, readPlanningProgress, recordPlanningStep } from '#src/plan/progress/index.ts';
+export { getPlanningProgressPath, readPlanningProgress, recordPlanCommandRun, recordPlanningStep } from '#src/plan/progress/index.ts';
 export { durablePlanFiles, publishPlan } from '#src/plan/publish/index.ts';
 export { readBrainstormDecisions } from '#src/plan/readBrainstormDecisions.ts';
 export { readDecisions } from '#src/plan/readDecisions.ts';

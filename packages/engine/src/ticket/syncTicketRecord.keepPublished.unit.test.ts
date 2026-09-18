@@ -246,16 +246,20 @@ describe('syncTicketRecord', () => {
 		expect(readFileSync(join(ticketFolder, planId, 'plan.md'), 'utf8')).toBe('local work\n');
 	});
 
-	test("syncTicketRecord: keeping the published copy acts on the plan's working copy and sets aside every local copy", async () => {
+	test("syncTicketRecord: keeping the published copy acts on the primary checkout's copy and leaves a worktree's own alone", async () => {
 		const { cwd, ticketFolder, worktreeTicketFolder } = setupDivergentPlan({ worktreeHoldsPlan: true });
 
 		await syncTicketRecord({ cwd, ticketBranch, config, env, keep: TicketSyncKeep.Published });
 
-		expect(folderOf({ dir: worktreeTicketFolder })).toStrictEqual([planId, `${planId}.local-1`]);
-		expect(readFileSync(join(worktreeTicketFolder, planId, 'plan.md'), 'utf8')).toBe(planBody);
-		expect(readFileSync(join(worktreeTicketFolder, `${planId}.local-1`, 'plan.md'), 'utf8')).toBe('worktree work\n');
-		expect(folderOf({ dir: ticketFolder })).toStrictEqual([`${planId}.local-1`, 'ticket-sync.json', 'ticket.json']);
+		// a plan folder lives in the primary checkout, so that is the copy the sync
+		// acts on: the divergent one is set aside and the published one restored
+		expect(folderOf({ dir: ticketFolder })).toStrictEqual([planId, `${planId}.local-1`, 'ticket-sync.json', 'ticket.json']);
+		expect(readFileSync(join(ticketFolder, planId, 'plan.md'), 'utf8')).toBe(planBody);
 		expect(readFileSync(join(ticketFolder, `${planId}.local-1`, 'plan.md'), 'utf8')).toBe('local work\n');
+		// a directory a worktree happens to hold is nobody's plan folder, so it is
+		// neither read nor moved
+		expect(folderOf({ dir: worktreeTicketFolder })).toStrictEqual([planId]);
+		expect(readFileSync(join(worktreeTicketFolder, planId, 'plan.md'), 'utf8')).toBe('worktree work\n');
 	});
 
 	test('syncTicketRecord: keeping the published copy takes it whole when this machine holds no record of its own', async () => {

@@ -15,5 +15,5 @@ export const improveCatalogEntry: CommandCatalogEntry = {
 	],
 	steps: [],
 	records: CommandRecordKind.Nothing,
-	related: ['status', 'doctor', 'friction', 'voice'],
+	related: ['status', 'doctor', 'friction', 'voice', 'report'],
 };

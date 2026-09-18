@@ -34,7 +34,7 @@ interface ResolvedDeliverable {
  * doing it — `implement` owns the restore, at its own command edge.
  */
 export const resolvePlanDeliverable = async ({ cwd, name }: Params): Promise<ResolvedDeliverable> => {
-	const dir = planWorkspaceDir({ cwd, name });
+	const dir = await planWorkspaceDir({ cwd, name });
 	const singlePath = join(dir, 'plan.md');
 
 	let overviewPath: string | undefined;

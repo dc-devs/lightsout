@@ -146,7 +146,7 @@ test('plan grade: a documentation checker that could not run records no scope ba
 	expectStatus(result, 'failed');
 
 	const recorded = GradeReport.parse(JSON.parse(readFileSync(gradePath, 'utf8')));
-	const memory = GradeMemory.parse(JSON.parse(readFileSync(gradeMemoryPath({ cwd, name }), 'utf8')));
+	const memory = GradeMemory.parse(JSON.parse(readFileSync(await gradeMemoryPath({ cwd, name }), 'utf8')));
 
 	// every reader answered clean, so only the whole-plan check it owed is missing
 	// — and that alone keeps this full pass from claiming its own scope finished

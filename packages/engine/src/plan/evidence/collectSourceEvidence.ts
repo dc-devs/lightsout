@@ -102,7 +102,7 @@ const collectEntry = ({
  * record says the file was absent and the call returns normally.
  */
 export const collectSourceEvidence = async ({ cwd, name, facts, config }: Params): Promise<SourceEvidenceIndex> => {
-	const path = sourceEvidencePath({ cwd, name });
+	const path = await sourceEvidencePath({ cwd, name });
 	// Unlike the grade memory, an unreadable record is discarded rather than thrown
 	// on: that one holds decisions a human settled and cannot be recomputed, while
 	// this holds bytes the repository still has, so collecting them again is honest.

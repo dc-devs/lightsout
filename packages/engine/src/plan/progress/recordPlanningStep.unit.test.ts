@@ -1,10 +1,13 @@
+import { execSync } from 'node:child_process';
+import { existsSync, realpathSync } from 'node:fs';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { format } from 'node:util';
 import { describe, expect, jest, test } from '@jest/globals';
 import { DraftImplementation, type PlanningProgress, PlanningStep, type PlanningStepRecord, RunStatus } from '#src/contracts/index.ts';
-import { recordPlanningStep } from '#src/plan/progress/index.ts';
+import { readPlanningProgress, recordPlanningStep } from '#src/plan/progress/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 // No module mocks: the recorder's whole job is a file in a plan folder, so each
 // case arranges a real temporary checkout and reads the record back off disk.
@@ -111,6 +114,45 @@ const setupRecording = async ({
 	});
 
 	return { cwd, recordPath, work, workResult, seenByWork, statusOf, logged, errors };
+};
+
+/** The finished draft entry a first run writes — the same entry whichever checkout reads it back. */
+const freshDraftPassed = {
+	step: 'draft',
+	status: 'passed',
+	attempts: 1,
+	pid: process.pid,
+	startedAt: isoTime,
+	finishedAt: isoTime,
+	durationMs: expect.any(Number),
+};
+
+/**
+ * A primary checkout with a linked worktree cut from it, the plan folder held
+ * only by the primary, and a work that reads the record back from inside the
+ * tree while the step is still running — the shape a plan command takes once
+ * `plan.worktree` moves the session into a tree that is later removed.
+ */
+const setupWorktreeRecording = async () => {
+	const { cwd: primary } = setupBranchRepo();
+	const worktree = join(primary, '.worktrees', name);
+
+	execSync(`git worktree add -q -b ${name} "${worktree}" main`, { cwd: primary, stdio: 'ignore' });
+
+	const primaryRecordPath = join(realpathSync(primary), '.lightsout', 'plans', name, 'planning-progress.json');
+
+	await mkdir(dirname(primaryRecordPath), { recursive: true });
+
+	const workResult: WorkResult = { converged: true };
+	const seenByWork: (PlanningProgress | undefined)[] = [];
+	const work = jest.fn<() => Promise<WorkResult>>(async () => {
+		seenByWork.push(await readPlanningProgress({ cwd: worktree, name }));
+
+		return workResult;
+	});
+	const statusOf = jest.fn<(params: { result: WorkResult }) => RunStatus>().mockReturnValue(RunStatus.Passed);
+
+	return { worktree, primaryRecordPath, work, seenByWork, statusOf };
 };
 
 describe('recordPlanningStep', () => {
@@ -272,5 +314,24 @@ describe('recordPlanningStep', () => {
 				durationMs: expect.any(Number),
 			},
 		]);
+	});
+
+	test("a step recorded from a linked worktree lands in the primary checkout's planning record", async () => {
+		const { worktree, primaryRecordPath, work, seenByWork, statusOf } = await setupWorktreeRecording();
+
+		await recordPlanningStep({ cwd: worktree, name, step: PlanningStep.Draft, work, statusOf });
+		const primaryRecord = await readRecord({ path: primaryRecordPath });
+		const readFromWorktree = await readPlanningProgress({ cwd: worktree, name });
+
+		expect(seenByWork).toEqual([
+			{
+				name,
+				updatedAt: isoTime,
+				steps: [{ step: 'draft', status: 'running', attempts: 1, pid: process.pid, startedAt: isoTime }],
+			},
+		]);
+		expect(primaryRecord).toEqual({ name, updatedAt: isoTime, steps: [freshDraftPassed] });
+		expect(readFromWorktree).toEqual({ name, updatedAt: isoTime, steps: [freshDraftPassed] });
+		expect(existsSync(join(worktree, '.lightsout'))).toBe(false);
 	});
 });

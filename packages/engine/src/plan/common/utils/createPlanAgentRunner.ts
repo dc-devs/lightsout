@@ -1,10 +1,12 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { z } from 'zod';
+import type { ActivityLevel } from '#src/activity/index.ts';
 import { createEventFileSink } from '#src/common/utils/createEventFileSink.ts';
-import type { Effort, Permissions } from '#src/contracts/index.ts';
+import { ActivityLevelKind, type Effort, type Permissions } from '#src/contracts/index.ts';
 import type { AgentEnvironment, Driver } from '#src/drivers/index.ts';
 import { type AgentOutcome, invokeAgentWithContract } from '#src/invoke/index.ts';
+import { getAgentOutcomeStatus } from '#src/plan/common/activity/getAgentOutcomeStatus.ts';
 
 interface Params {
 	cwd: string;
@@ -21,6 +23,8 @@ interface Params {
 	maxRoleAttempts?: number;
 	/** A focused role's requested agent environment, relayed on every call this runner makes. A runner created without one produces exactly today's invocation. */
 	environment?: AgentEnvironment;
+	/** The level each of this runner's calls opens its own step level under. Absent wherever no run is being recorded, which leaves every call exactly as it was. */
+	level?: ActivityLevel;
 }
 
 interface CallParams<Contract extends z.ZodType> {
@@ -48,6 +52,12 @@ interface CallParams<Contract extends z.ZodType> {
  * Classifying the outcome stays with the caller: a rate limit and a failure
  * mean different things per step, down to the exact re-run command a human is
  * told to type.
+ *
+ * The step LEVEL, unlike that sink, is opened per call: a level has to end when
+ * its call ends, and a runner has no disposal hook to end one on. Two calls
+ * from one runner therefore produce two sibling rows under the same label,
+ * which is the truth — they were two requests. A runner created without a level
+ * opens nothing, hands the chokepoint nothing, and writes no mark.
  */
 export const createPlanAgentRunner = ({
 	cwd,
@@ -60,11 +70,13 @@ export const createPlanAgentRunner = ({
 	timeoutMs,
 	maxRoleAttempts,
 	environment,
+	level,
 }: Params): (<Contract extends z.ZodType>(params: CallParams<Contract>) => Promise<AgentOutcome<z.infer<Contract>>>) => {
 	const onEvent = createEventFileSink({ path: join(workspaceDir, `${step}-stream.jsonl`) });
 
-	return <Contract extends z.ZodType>({ invocation, contract, label, allowedCommands }: CallParams<Contract>) =>
-		invokeAgentWithContract({
+	return async <Contract extends z.ZodType>({ invocation, contract, label, allowedCommands }: CallParams<Contract>) => {
+		const stepLevel = level?.open({ level: ActivityLevelKind.Step, label: label === undefined ? step : `${step}-${label}` });
+		const outcome = await invokeAgentWithContract({
 			driver,
 			cwd,
 			invocation,
@@ -82,5 +94,11 @@ export const createPlanAgentRunner = ({
 
 				await writeFile(join(workspaceDir, name), text, 'utf8').catch(() => undefined);
 			},
+			activity: stepLevel,
 		});
+
+		stepLevel?.close({ outcome: getAgentOutcomeStatus({ outcome }) });
+
+		return outcome;
+	};
 };

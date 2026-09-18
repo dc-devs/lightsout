@@ -212,7 +212,7 @@ export const restorePlanWorkspace = async ({ cwd, name, identifier, settings, ti
 		return { restored: [], error: refusal.error };
 	}
 
-	const written = await writeRestoredGeneration({ dir: planWorkspaceDir({ cwd, name }), files: read.files });
+	const written = await writeRestoredGeneration({ dir: await planWorkspaceDir({ cwd, name }), files: read.files });
 
 	if (written !== undefined) {
 		return { restored: [], error: written.error };

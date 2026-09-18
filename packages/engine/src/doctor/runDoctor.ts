@@ -6,6 +6,7 @@ import { checkConfiguredPaths } from '#src/doctor/checkConfiguredPaths.ts';
 import { checkCoverageSummary } from '#src/doctor/checkCoverageSummary.ts';
 import { checkGitignore } from '#src/doctor/checkGitignore.ts';
 import { checkHarness } from '#src/doctor/checkHarness.ts';
+import { checkHarnessUsage } from '#src/doctor/checkHarnessUsage.ts';
 import { checkJestMocks } from '#src/doctor/checkJestMocks.ts';
 import { checkJestReporter } from '#src/doctor/checkJestReporter.ts';
 import { checkLintRules } from '#src/doctor/checkLintRules.ts';
@@ -14,6 +15,7 @@ import { checkSourceWalk } from '#src/doctor/checkSourceWalk.ts';
 import { checkUserEvent } from '#src/doctor/checkUserEvent.ts';
 import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';
 import { resolvePackageDirs } from '#src/doctor/resolvePackageDirs.ts';
+import type { Driver } from '#src/drivers/index.ts';
 
 const severityRank: Record<DoctorCheck['status'], number> = { pass: 0, note: 1, warn: 2, fail: 3 };
 
@@ -44,6 +46,10 @@ interface Params {
 	cwd: string;
 	/** Test seam for the harness binary probe — defaults to running `<binary> --version`. */
 	probeHarness?: (params: { binary: string }) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
+	/** Run the opt-in harness-usage probe, which spawns one real agent call. Default false. */
+	usageProbe?: boolean;
+	/** Test seam for that probe's agent call — defaults to the driver the config names. */
+	usageDriver?: Driver;
 }
 
 /**
@@ -51,11 +57,13 @@ interface Params {
  * the bundled standards make: config validity, harness binary, gitignore run
  * state, scoped-gate script coverage, Jest mock-cleanup config, Jest per-test
  * reporter config, generated and vendored paths, coverage summary reporting,
- * script binaries. Each warn/fail carries
+ * script binaries. `usageProbe` adds the one check that is not free — a single
+ * real agent call confirming the harness's token fields still parse — and is
+ * off unless the caller asks for it. Each warn/fail carries
  * the exact fix; the doctor NEVER mutates — repo-wide changes (e.g.
  * `clearMocks: true`) are a human's decision to apply and verify.
  */
-export const runDoctor = async ({ cwd, probeHarness }: Params): Promise<DoctorCheck[]> => {
+export const runDoctor = async ({ cwd, probeHarness, usageProbe, usageDriver }: Params): Promise<DoctorCheck[]> => {
 	const checks: DoctorCheck[] = [];
 
 	let config: LightsoutConfig;
@@ -82,6 +90,15 @@ export const runDoctor = async ({ cwd, probeHarness }: Params): Promise<DoctorCh
 	});
 
 	checks.push(await checkHarness({ cwd, config, probeHarness }));
+
+	// Only when asked for: the probe spends real money on the user's own
+	// subscription. It sits beside the harness binary check because the two are
+	// one question — is the harness there, and does it still report what it used
+	// to — and an asked-for probe always has something to say.
+	if (usageProbe) {
+		checks.push(await checkHarnessUsage({ cwd, config, driver: usageDriver }));
+	}
+
 	checks.push(await checkGitignore({ cwd }));
 	checks.push(await checkSourceWalk({ cwd, generated: config.generated }));
 

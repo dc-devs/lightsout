@@ -149,6 +149,7 @@ describe('getConfigView', () => {
 			'Auto plan',
 			'Plan',
 			'Implement',
+			'Pricing',
 			'Docs',
 		]);
 	});

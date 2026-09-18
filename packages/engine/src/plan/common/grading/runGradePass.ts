@@ -1,6 +1,14 @@
 import { basename, join } from 'node:path';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
-import { type GradeInputs, type GradeMemory, type GradeReport, GradeScope, type StructuralFinding } from '#src/contracts/index.ts';
+import {
+	ActivityLevelKind,
+	type GradeInputs,
+	type GradeMemory,
+	type GradeReport,
+	GradeScope,
+	RunStatus,
+	type StructuralFinding,
+} from '#src/contracts/index.ts';
 import { appendGradeHistory } from '#src/plan/appendGradeHistory.ts';
 import { gapCheckLenses } from '#src/plan/common/constants/gapCheckLenses.ts';
 import { gradeFileName } from '#src/plan/common/constants/gradeFileName.ts';
@@ -66,6 +74,30 @@ const nextBaselines = ({ memory, report, inputs, at }: { memory: GradeMemory; re
 });
 
 /**
+ * The pass's three records, written before the runner returns whatever the
+ * outcome: the engine gives up on a rate limit immediately with no retry, so
+ * discarding the pass would turn one unlucky checker into thirty wasted spawns.
+ * The coverage fields are what make a partial record safe to keep.
+ */
+const persistPass = async ({
+	cwd,
+	name,
+	workspaceDir,
+	report,
+	memory,
+}: {
+	cwd: string;
+	name: string;
+	workspaceDir: string;
+	report: GradeReport;
+	memory: GradeMemory;
+}) => {
+	await writeJsonFile({ path: join(workspaceDir, gradeFileName), value: report });
+	await appendGradeHistory({ cwd, name, report });
+	await writeGradeMemory({ cwd, name, memory });
+};
+
+/**
  * One complete semantic pass, start to finish: weigh the selection, re-check
  * what the memory holds settled, run the agents, fold what they found back into
  * the memory, and persist the verdict beside it.
@@ -88,6 +120,13 @@ const nextBaselines = ({ memory, report, inputs, at }: { memory: GradeMemory; re
  * this pass's judge stage beside the readers' findings, because it needs a
  * ruling, not a re-read. The gap list is collapsed last, so the gaps one record
  * holds reach the report as a single repair item.
+ *
+ * The pass's own activity level is opened here rather than in the caller, for
+ * the same reason the sequence is: one invocation may run this twice, and two
+ * passes are two rows. Every spawn below it is attached by SUBSTITUTING the
+ * pass into the params object it is handed, so the judge — which is called with
+ * a spread of that same object — lands on the pass rather than on the command
+ * run, with no override for a later edit to forget.
  */
 export const runGradePass = async ({
 	params,
@@ -103,6 +142,8 @@ export const runGradePass = async ({
 	progress,
 }: Params): Promise<{ report: GradeReport; memory: GradeMemory; rateLimited: boolean; failures: string[] }> => {
 	const { cwd, name, phases } = params;
+	const passLevel = params.level?.open({ level: ActivityLevelKind.Pass, label: `${scope} pass` });
+	const passParams = { ...params, level: passLevel };
 	const at = new Date().toISOString();
 	const { weights, heavy, light } = weighSelection({ selected, config: pass.config });
 	const documentation = scope === GradeScope.Full;
@@ -113,10 +154,11 @@ export const runGradePass = async ({
 		`plan grade ${name}: ${scope} pass — ${structural.length} structural finding(s), gap-checking ${heavy.length} of ${pass.files.length} plan file(s) × ${gapCheckLenses.length} lens(es)${light.length > 0 ? `, ${light.length} weighed light and read by nobody` : ''}${revalidated.reopened.length > 0 ? `, ${revalidated.reopened.length} resolved finding(s) reopened because the plan no longer states their answer` : ''}${carried.length > 0 ? `, ${carried.length} pending finding(s) carried in for a judge` : ''}`,
 	);
 
-	const agents = await drainGradeAgents({ params, pass, selected: heavy, carried, memory: revalidated.memory, documentation, progress });
+	const agents = await drainGradeAgents({ params: passParams, pass, selected: heavy, carried, memory: revalidated.memory, documentation, progress });
 	const verified = await verifyOpenFindings({
 		cwd,
 		driver: params.driver,
+		level: passLevel,
 		workspaceDir: pass.workspaceDir,
 		overviewText: pass.overviewText,
 		standards: params.standards,
@@ -153,13 +195,10 @@ export const runGradePass = async ({
 	});
 	const nextMemory: GradeMemory = { ...merged.memory, ...nextBaselines({ memory: merged.memory, report, inputs, at }), updatedAt: at };
 
-	// Persisted before the runner returns, whatever the outcome: the engine gives
-	// up on a rate limit immediately with no retry, so discarding the pass would
-	// turn one unlucky checker into thirty wasted spawns. The coverage fields are
-	// what make a partial record safe to keep.
-	await writeJsonFile({ path: join(pass.workspaceDir, gradeFileName), value: report });
-	await appendGradeHistory({ cwd, name, report });
-	await writeGradeMemory({ cwd, name, memory: nextMemory });
+	await persistPass({ cwd, name, workspaceDir: pass.workspaceDir, report, memory: nextMemory });
 
-	return { report, memory: nextMemory, rateLimited: agents.rateLimited || verified.rateLimited, failures: agents.failures };
+	const rateLimited = agents.rateLimited || verified.rateLimited;
+
+	passLevel?.close({ outcome: rateLimited ? RunStatus.PausedRateLimit : agents.failures.length > 0 ? RunStatus.Failed : RunStatus.Passed });
+	return { report, memory: nextMemory, rateLimited, failures: agents.failures };
 };

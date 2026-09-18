@@ -91,8 +91,8 @@ const readCheckedBreakdown = async ({
  */
 export const draftPhasedPlan = async ({ context, step }: Params): Promise<RunPlanDraftResult> => {
 	const { cwd, driver, name, workspaceDir, facts, decisions, brainstormDecisionsPath, config, executorFileLimit } = context;
-	const { standards, model, effort, permissions, timeoutMs, progress } = context;
-	const outputs = planDraftOutputs({ cwd, name, variant: PlanVariant.Overview });
+	const { standards, model, effort, permissions, timeoutMs, level, progress } = context;
+	const outputs = await planDraftOutputs({ cwd, name, variant: PlanVariant.Overview });
 	const overviewPath = outputs[0].path;
 	// Appended to as each check reports, and read at every stop: a breakdown
 	// warning gates nothing, but it is the human's only notice of what reviewing
@@ -109,7 +109,7 @@ export const draftPhasedPlan = async ({ context, step }: Params): Promise<RunPla
 	// this moment, which `resolvePlanDeliverable` reads as no plan found.
 	await syncPlanDecisions({ cwd, name, planPaths: [overviewPath], decisions });
 
-	const spawn = { cwd, driver, name, workspaceDir, model, effort, permissions, timeoutMs, progress };
+	const spawn = { cwd, driver, name, workspaceDir, model, effort, permissions, timeoutMs, level, progress };
 	const checked = await readCheckedBreakdown({
 		params: { ...spawn, overviewPath, brainstormDecisionsPath, executorFileLimit },
 		decisions,

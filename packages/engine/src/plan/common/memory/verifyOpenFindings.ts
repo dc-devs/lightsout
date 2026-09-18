@@ -1,4 +1,5 @@
 import { basename, relative } from 'node:path';
+import type { ActivityLevel } from '#src/activity/index.ts';
 import { buildPlanFindingRecheckInvocation } from '#src/agents/index.ts';
 import {
 	type Effort,
@@ -41,6 +42,8 @@ interface Params {
 	at: string;
 	/** Set when the caller already hit the rate-limit wall: nothing is spawned and every record stays open. */
 	skipReason?: string;
+	/** The pass level each re-verification spawn opens its step under. Named at the call site, because this `Params` is built field by field rather than spread. */
+	level?: ActivityLevel;
 }
 
 /** One open record at one of its locations, paired with the current text of that location — the same text both the judge and the citation check read. */
@@ -74,12 +77,13 @@ const spawnRecheck = async ({ params, pair }: { params: Params; pair: RecheckPai
 	// Ten minutes, the judges' number rather than the readers' thirty: a
 	// re-verification judge that never answers leaves its record open, which
 	// blocks, so its failure costs one extra question rather than a lost pass.
-	const { cwd, driver, workspaceDir, overviewText, standards, model, effort, permissions, timeoutMs = 10 * 60 * 1000 } = params;
+	const { cwd, driver, workspaceDir, overviewText, standards, model, effort, permissions, timeoutMs = 10 * 60 * 1000, level } = params;
 	const invokePlanAgent = createPlanAgentRunner({
 		cwd,
 		driver,
 		workspaceDir,
 		step: `grade-recheck-${pair.record.id}-${basename(pair.location, '.md')}`,
+		level,
 		model,
 		effort,
 		permissions,

@@ -29,7 +29,8 @@ describe('commandCatalog flags', () => {
 			['standards-validate', ['cwd', 'pack']],
 			['standards-health', ['cwd']],
 			['status', ['cwd', 'planning', 'queue', 'run', 'shipping', 'watch']],
-			['doctor', ['cwd']],
+			['report', ['cwd', 'json', 'plan']],
+			['doctor', ['cwd', 'usage-probe']],
 			['friction', ['cwd']],
 			['improve', ['cwd', 'engine']],
 			['voice', ['cwd']],
@@ -112,6 +113,32 @@ describe('commandCatalog flags', () => {
 		// the accepted set is read from this row, so the flag works exactly when --help says it does
 		expect(legacyFlags.map((flag) => [flag.name, flag.value, flag.shape, flag.required])).toStrictEqual([['legacy', undefined, 'plan-draft', false]]);
 		expect(draftLine).toEqual(expect.stringContaining('[--legacy]'));
+	});
+
+	test('doctor accepts --usage-probe and renders it on its usage line', () => {
+		const { byId } = setupCatalog();
+		const doctorFlags = byId.get('doctor')?.flags ?? [];
+
+		const doctorLine = renderUsage()
+			.split('\n')
+			.find((line) => line.startsWith('  lightsout doctor'));
+
+		// the accepted set is read from these rows, so the flag works exactly when --help says it does
+		expect(doctorFlags.map((flag) => [flag.name, flag.value, flag.shape, flag.required, flag.fallback])).toStrictEqual([
+			['cwd', '<path>', undefined, false, 'The process working directory.'],
+			['usage-probe', undefined, undefined, false, undefined],
+		]);
+		expect(doctorLine).toEqual(expect.stringContaining('[--usage-probe]'));
+	});
+
+	test('the usage-probe row says it spends a real call on the configured harness, and what that call answers', () => {
+		const { byId } = setupCatalog();
+		const usageProbe = byId.get('doctor')?.flags.find((flag) => flag.name === 'usage-probe');
+
+		// human-facing copy, so the wording is loose — what it has to carry is the one spawn, the question it answers, and the cost
+		expect(usageProbe?.meaning).toEqual(expect.stringMatching(/one .*agent call.*harness/i));
+		expect(usageProbe?.meaning).toEqual(expect.stringMatching(/token.*parse/i));
+		expect(usageProbe?.meaning).toEqual(expect.stringMatching(/money/i));
 	});
 
 	test('scopes each ticket flag to the subcommand that reads it', () => {

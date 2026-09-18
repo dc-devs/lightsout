@@ -3,8 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { z } from 'zod';
-import type { AgentEnvironment, Driver } from '#src/drivers/index.ts';
+import type { ActivityLevel } from '#src/activity/index.ts';
+import type { RunStatus } from '#src/contracts/index.ts';
+import type { AgentEnvironment, Driver, DriverInvocation } from '#src/drivers/index.ts';
 import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
+import { createRateLimitedDriver } from '#tests/helpers/createRateLimitedDriver.ts';
 import { outcomeFields } from '#tests/helpers/outcomeFields.ts';
 
 const Contract = z.object({ ok: z.boolean() });
@@ -52,6 +55,47 @@ const readTranscript = async ({ path, count }: { path: string; count: number }) 
 	}
 
 	throw new Error(`transcript never reached ${count} line(s): ${path}`);
+};
+
+/** One level a runner opened: its id, what kind of level it is, and its label. */
+interface OpenedLevel {
+	id: string;
+	level: string;
+	label: string;
+}
+
+/**
+ * A command-run level whose children are visible from outside.
+ *
+ * Every child it opens is collected, and every harness process recorded under
+ * any level — the command run itself included — is collected by the id of the
+ * level it landed on. A step level the chokepoint never received therefore
+ * shows up as a process recorded on the parent rather than on the step.
+ */
+const setupLevel = () => {
+	const opened: OpenedLevel[] = [];
+	const recordedOn: string[] = [];
+	const closed: { id: string; outcome: RunStatus }[] = [];
+
+	const levelWithId = (id: string): ActivityLevel => ({
+		id,
+		open: ({ level, label }) => {
+			const child = levelWithId(`${id}/${level}-${opened.length + 1}`);
+
+			opened.push({ id: child.id, level, label });
+
+			return child;
+		},
+		close: ({ outcome }) => {
+			closed.push({ id, outcome });
+		},
+		recordProcess: () => {
+			recordedOn.push(id);
+		},
+		settled: async () => undefined,
+	});
+
+	return { level: levelWithId('command-run'), opened, recordedOn, closed };
 };
 
 describe('createPlanAgentRunner', () => {
@@ -189,5 +233,92 @@ describe('createPlanAgentRunner', () => {
 			},
 			undefined,
 		]);
+	});
+
+	test('each call opens its own step level and hands it to the chokepoint', async () => {
+		const workspaceDir = setupWorkspace();
+		const answer = JSON.stringify({ ok: true });
+		const driver = stubDriver({ answers: [answer, answer] });
+		const { level, opened, recordedOn } = setupLevel();
+		const invokePlanAgent = createPlanAgentRunner({ cwd: workspaceDir, driver, workspaceDir, step: 'grade', level });
+
+		await invokePlanAgent({ invocation: { systemPrompt: '', prompt: '' }, contract: Contract });
+		await invokePlanAgent({ invocation: { systemPrompt: '', prompt: '' }, contract: Contract });
+
+		// One step level per call, not one per runner: two calls really were two
+		// requests, and a shared level would report them as one row.
+		expect(opened).toStrictEqual([
+			{ id: 'command-run/step-1', level: 'step', label: 'grade' },
+			{ id: 'command-run/step-2', level: 'step', label: 'grade' },
+		]);
+		// Each call's harness process lands on that call's own step level, never
+		// on the command run above it — which would put every step's spend in one
+		// row and lose the step the report exists to name.
+		expect(recordedOn).toStrictEqual(['command-run/step-1', 'command-run/step-2']);
+	});
+
+	test.each<{ settled: string; driver: () => Driver; outcome: RunStatus }>([
+		{ settled: 'answered on contract', driver: () => stubDriver({ answers: [JSON.stringify({ ok: true })] }), outcome: 'passed' },
+		// parked rather than failed: the wall is resumable, and a row reading
+		// failed would send a human to diagnose a re-run
+		{ settled: 'met the rate-limit wall', driver: createRateLimitedDriver, outcome: 'paused-rate-limit' },
+	])('closes the step level of a call that $settled as $outcome', async ({ driver, outcome }) => {
+		const workspaceDir = setupWorkspace();
+		const { level, closed } = setupLevel();
+		const invokePlanAgent = createPlanAgentRunner({ cwd: workspaceDir, driver: driver(), workspaceDir, step: 'grade', level });
+
+		await invokePlanAgent({ invocation: { systemPrompt: '', prompt: '' }, contract: Contract });
+
+		// the step's own level carries how its call settled, and the command run
+		// above it is left open for whatever it opens next
+		expect(closed).toStrictEqual([{ id: 'command-run/step-1', outcome }]);
+	});
+
+	test('a runner with no level invokes exactly as before and records nothing', async () => {
+		const workspaceDir = setupWorkspace();
+		const spawned: DriverInvocation[] = [];
+		const driver: Driver = {
+			name: 'stub',
+			invoke: async (invocation) => {
+				spawned.push(invocation);
+
+				return { text: JSON.stringify({ ok: true }), exitCode: 0 };
+			},
+		};
+		const invokePlanAgent = createPlanAgentRunner({ cwd: workspaceDir, driver, workspaceDir, step: 'draft' });
+
+		const { report } = outcomeFields(await invokePlanAgent({ invocation: { systemPrompt: 'ROLE-SYSTEM-PROMPT', prompt: 'ROLE-PROMPT' }, contract: Contract }));
+
+		expect(report).toStrictEqual({ ok: true });
+		// One ordinary spawn, carrying nothing an open level would have added to
+		// it: a caller with no recorder must reach the harness exactly as it did
+		// before the record existed.
+		expect(
+			spawned.map(({ systemPrompt, prompt, cwd, model, effort, permissions, timeoutMs, allowedCommands, environment }) => ({
+				systemPrompt,
+				prompt,
+				cwd,
+				model,
+				effort,
+				permissions,
+				timeoutMs,
+				allowedCommands,
+				environment,
+			})),
+		).toStrictEqual([
+			{
+				systemPrompt: 'ROLE-SYSTEM-PROMPT',
+				prompt: 'ROLE-PROMPT',
+				cwd: workspaceDir,
+				model: undefined,
+				effort: undefined,
+				permissions: undefined,
+				timeoutMs: undefined,
+				allowedCommands: undefined,
+				environment: undefined,
+			},
+		]);
+		// No level, no record: the plan folder gains no activity file at all.
+		expect(readdirSync(workspaceDir)).not.toContain('activity.jsonl');
 	});
 });

@@ -37,7 +37,8 @@ const reportOf = ({
 });
 
 /** The ledger as a reader gets it back: every line parsed against the report contract. */
-const readHistory = ({ cwd, name }: { cwd: string; name: string }) => readJsonlRecords({ path: gradeHistoryPath({ cwd, name }), schema: GradeReport });
+const readHistory = async ({ cwd, name }: { cwd: string; name: string }) =>
+	readJsonlRecords({ path: await gradeHistoryPath({ cwd, name }), schema: GradeReport });
 
 test('appendGradeHistory: one pass appends one readable line', async () => {
 	const cwd = setupConsumerRepo();

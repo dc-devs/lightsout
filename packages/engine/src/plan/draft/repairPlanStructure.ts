@@ -1,7 +1,17 @@
 import { join } from 'node:path';
+import type { ActivityLevel } from '#src/activity/index.ts';
 import { buildPlanRepairInvocation } from '#src/agents/index.ts';
-import { type DecisionsRecord, type Effort, type LightsoutConfig, type Permissions, PlanFixReport, type StructuralFinding } from '#src/contracts/index.ts';
+import {
+	ActivityLevelKind,
+	type DecisionsRecord,
+	type Effort,
+	type LightsoutConfig,
+	type Permissions,
+	PlanFixReport,
+	type StructuralFinding,
+} from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
+import { getAgentOutcomeStatus } from '#src/plan/common/activity/getAgentOutcomeStatus.ts';
 import type { PlanRepairResult } from '#src/plan/common/types/PlanRepairResult.ts';
 import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
 import { syncPlanDecisions } from '#src/plan/decisionLog/index.ts';
@@ -27,6 +37,8 @@ interface Params {
 	effort?: Effort;
 	permissions?: Permissions;
 	timeoutMs: number;
+	/** The command-run level each repair attempt opens its own pass level under. Absent wherever no run is being recorded. */
+	level?: ActivityLevel;
 	progress: (message: string) => void;
 	/** True when the caller wants each round to regenerate every engine-owned section — the Decision Log, the Global Constraints, the stamped phase counts and the phase sections — before it lints. Unset leaves the round syncing only the Decision Log, which is what the legacy draft flow gets. */
 	mechanicalRepair?: boolean;
@@ -38,12 +50,16 @@ interface Params {
  * One repair round: its own agent runner, so each attempt keeps its own
  * transcript under the name the workspace already uses, pointed at the blocking
  * findings alongside the decisions and facts the plan was written from.
+ *
+ * Its own activity level too, labelled with that same attempt number, so a row
+ * in the report and a transcript in the plan folder are findable from each
+ * other.
  */
-const runRepairAttempt = ({ params, findings, attempt }: { params: Params; findings: StructuralFinding[]; attempt: number }) => {
+const runRepairAttempt = async ({ params, findings, attempt }: { params: Params; findings: StructuralFinding[]; attempt: number }) => {
 	const { cwd, driver, planPaths, workspaceDir, brainstormDecisionsPath, config, model, effort, permissions, timeoutMs } = params;
-	const invokePlanAgent = createPlanAgentRunner({ cwd, driver, workspaceDir, step: `repair-${attempt}`, model, effort, permissions, timeoutMs });
-
-	return invokePlanAgent({
+	const round = params.level?.open({ level: ActivityLevelKind.Pass, label: `structural repair ${attempt}` });
+	const invokePlanAgent = createPlanAgentRunner({ cwd, driver, workspaceDir, step: `repair-${attempt}`, model, effort, permissions, timeoutMs, level: round });
+	const outcome = await invokePlanAgent({
 		invocation: buildPlanRepairInvocation({
 			findings,
 			planPaths,
@@ -54,6 +70,10 @@ const runRepairAttempt = ({ params, findings, attempt }: { params: Params; findi
 		}),
 		contract: PlanFixReport,
 	});
+
+	round?.close({ outcome: getAgentOutcomeStatus({ outcome }) });
+
+	return outcome;
 };
 
 /**

@@ -219,7 +219,7 @@ export const runPlanGrade = async (params: PlanGradeParams): Promise<RunPlanGrad
 
 	if (reusable !== undefined) {
 		progress(
-			`plan grade ${name}: the recorded passing full review still covers the current inputs — nothing was re-run; delete ${gradeMemoryPath({ cwd, name })} to force a new baseline`,
+			`plan grade ${name}: the recorded passing full review still covers the current inputs — nothing was re-run; delete ${await gradeMemoryPath({ cwd, name })} to force a new baseline`,
 		);
 
 		return { status: PlanRunStatus.Complete, workspaceDir, grade: reusable, gradePath, reused: true };

@@ -1,10 +1,13 @@
+import { execSync } from 'node:child_process';
+import { realpathSync } from 'node:fs';
 import { mkdir, symlink, utimes, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { PlanGrade, PlanStage, RunStatus } from '#src/contracts/index.ts';
-import { listPlanWorkspaces } from '#src/views/index.ts';
+import { getPlanWorkspace, listPlanWorkspaces } from '#src/views/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { seedRunDir } from '#tests/helpers/seedRunDir.ts';
+import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 /** A graded report, written as `plan grade` writes one. */
 const gradeJson = ({ grade }: { grade: PlanGrade }) =>
@@ -231,4 +234,46 @@ test('a workspace does not count the runs of a sibling whose folder name starts 
 
 	// only the separator after the folder name keeps lo-7 from claiming lo-70's run
 	expect(Object.fromEntries(listings.map((listing) => [listing.name, listing.runCount]))).toStrictEqual({ 'lo-7': 0, 'lo-70': 1 });
+});
+
+/**
+ * A primary checkout holding the plans a case names, with a linked worktree cut
+ * from it — the shape the views are asked from once a session moves into a tree.
+ */
+const setupWorktreeView = async ({ plans = { 'lo-150-observability': { 'plan.md': '# plan' } } }: { plans?: Record<string, Record<string, string>> } = {}) => {
+	const { cwd } = setupBranchRepo();
+	const worktree = join(cwd, '.worktrees', 'lo-150-observability');
+
+	for (const [name, files] of Object.entries(plans)) {
+		await seedWorkspace({ cwd, name, files });
+	}
+
+	execSync(`git worktree add -q -b lo-150-observability "${worktree}" main`, { cwd, stdio: 'ignore' });
+
+	return { primary: cwd, worktree };
+};
+
+test("the plan views list and open the primary checkout's plans from inside a linked worktree", async () => {
+	const { primary, worktree } = await setupWorktreeView();
+
+	const listings = await listPlanWorkspaces({ cwd: worktree });
+	const view = await getPlanWorkspace({ cwd: worktree, name: 'lo-150-observability' });
+
+	// the worktree holds no plans folder at all, so a view rooted on it would report a repo with no plans
+	expect({ listed: listings.map((listing) => listing.name), plan: view.planFile?.name, rootPath: realpathSync(view.rootPath) }).toStrictEqual({
+		listed: ['lo-150-observability'],
+		plan: 'plan.md',
+		rootPath: realpathSync(join(primary, '.lightsout', 'plans', 'lo-150-observability')),
+	});
+});
+
+test('a ticket folder read from a linked worktree still lists one row per plan address', async () => {
+	const { worktree } = await setupWorktreeView({
+		plans: { 'lo-7-search/001-basics': { 'plan.md': '# basics' }, 'lo-7-search/002-ranking': { 'plan.md': '# ranking' } },
+	});
+
+	const listings = await listPlanWorkspaces({ cwd: worktree });
+
+	// the plans inside a ticket folder are read from the primary too, or the folder reads as empty and lists one row of its own name
+	expect(listings.map((listing) => listing.name).sort()).toStrictEqual(['lo-7-search/001-basics', 'lo-7-search/002-ranking']);
 });

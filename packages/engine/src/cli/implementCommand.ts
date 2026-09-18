@@ -89,7 +89,7 @@ const resolveImplementInputs = async ({ flags, cwd }: { flags: CommandContext['f
 		return { error: '--start-phase applies to a plan folder holding an overview.md — a single plan has one phase' };
 	}
 
-	const planName = planNameFromPath({ cwd, planPath });
+	const planName = await planNameFromPath({ cwd, planPath });
 	const terms = await readTicketRunTerms({ cwd, name: planName, planPath: 'overviewPath' in target ? target.overviewPath : target.planPath });
 
 	if (terms.refusal !== undefined) {

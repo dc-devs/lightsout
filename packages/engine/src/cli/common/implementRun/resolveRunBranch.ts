@@ -27,10 +27,9 @@ const stemOf = ({ path }: { path: string }) => basename(path, extname(path));
  * The branch an isolated run is put on, derived from the input the user named,
  * or the one sentence saying the input names no branch.
  *
- * Pure — it reads no disk and runs no command — which is what lets it be tested
- * on its own. Its one caller is `resolveRunWorkspace`, which calls it only once
- * isolation is decided: a run building in the launching checkout needs no
- * branch and must never be refused for failing to derive one.
+ * Its one caller is `resolveRunWorkspace`, which calls it only once isolation is
+ * decided: a run building in the launching checkout needs no branch and must
+ * never be refused for failing to derive one.
  *
  * The template is read out of the `queue` block deliberately. That block is the
  * repository's single statement of how a branch is named for a ticket, and
@@ -38,8 +37,8 @@ const stemOf = ({ path }: { path: string }) => basename(path, extname(path));
  * standalone runs would let the two drift and break the
  * ticket-to-branch-to-pull-request chain.
  */
-export const resolveRunBranch = ({ cwd, config, planPath, ticketPath, ticketRef, ticketBody }: Params): string | { error: string } => {
-	const planName = planPath === undefined ? undefined : planNameFromPath({ cwd, planPath });
+export const resolveRunBranch = async ({ cwd, config, planPath, ticketPath, ticketRef, ticketBody }: Params): Promise<string | { error: string }> => {
+	const planName = planPath === undefined ? undefined : await planNameFromPath({ cwd, planPath });
 	const template = config.queue?.['branch-template'] ?? '{ticket}-{slug}';
 	const input = planPath ?? ticketPath;
 	let branch = '';
