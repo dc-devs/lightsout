@@ -1,4 +1,3 @@
-import { copyPlanFolderToPrimary } from '#src/cli/common/implementRun/copyPlanFolderToPrimary.ts';
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { ticketFolderOf } from '#src/common/planAddress/ticketFolderOf.ts';
@@ -16,26 +15,6 @@ interface Params {
 	/** Where the "fetched from the ticket" line goes — stdout by default, so a test reads what was printed. */
 	write?: (line: string) => void;
 }
-
-/**
- * The plan's own worktree, and whether the plan folder it holds was copied from
- * there into the launching checkout.
- *
- * The tree is keyed by the plan's ticket folder, because that is the branch
- * every plan of one ticket is planned and built on; the folder looked for
- * inside it is still the one the name addresses.
- *
- * The tree is only read, and no ownership record is read or required: a folder
- * being there is enough, because this reads a plan rather than choosing a
- * baseline to plan against.
- */
-const recoverFromWorktree = async ({ cwd, name }: { cwd: string; name: string }) => {
-	const tree = await resolveWorktreePath({ cwd, branch: ticketFolderOf({ name }) });
-	const held = await pathExists({ path: planWorkspaceDir({ cwd: tree, name }) });
-	const failure = held ? await copyPlanFolderToPrimary({ worktree: tree, primary: cwd, name }) : undefined;
-
-	return { tree, held, failure };
-};
 
 interface TicketSource {
 	config: LightsoutConfig;
@@ -135,10 +114,9 @@ const fetchTicketPlan = async ({
 };
 
 /**
- * Make sure the plan folder a `--plan` value names is on disk — copying it from
- * the plan's own worktree, or fetching it from the folder's own ticket, when it
- * is not — and answer one sentence naming every place looked when none has a
- * plan.
+ * Make sure the plan folder a `--plan` value names is on disk — fetching it from
+ * the folder's own ticket when it is not — and answer one sentence naming every
+ * place looked when none has a plan.
  *
  * A bare name whose ticket folder already has a record is refused before
  * anything else, disk included: that folder holds a ticket's plans rather than
@@ -148,10 +126,10 @@ const fetchTicketPlan = async ({
  * folders work with no tracker at all: a folder that is already there is never
  * overwritten, merged into or deleted, whatever the ticket carries.
  *
- * The plan's worktree is the nearer source, asked before the tracker: planning
- * holds the plan folder in the tree it established, and this gate runs against
- * the launching checkout before any workspace is resolved. Without it a plan
- * with no ticket could not be implemented at all once planning moved.
+ * There is no nearer source than disk. A plan folder lives in the main checkout
+ * whichever checkout a plan command ran from, so a plan planning finished is
+ * already the folder this gate just looked at, and no worktree ever holds a copy
+ * to recover.
  *
  * The fetch is here, at the command edge, rather than inside
  * `resolvePlanDeliverable`: that resolver is shared by the read-only `plan
@@ -163,7 +141,7 @@ const fetchTicketPlan = async ({
  * check in `implementCommand` does.
  */
 export const ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }: Params): Promise<{ error: string } | undefined> => {
-	const name = planNameFromPath({ cwd, planPath });
+	const name = await planNameFromPath({ cwd, planPath });
 
 	// A `--plan` pointing anywhere outside the repo's plans directory is nobody's
 	// plan workspace and has no ticket to ask.
@@ -177,22 +155,9 @@ export const ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }
 		return { error: bare };
 	}
 
-	const dir = planWorkspaceDir({ cwd, name });
+	const dir = await planWorkspaceDir({ cwd, name });
 
 	if (await pathExists({ path: dir })) {
-		return undefined;
-	}
-
-	const fromWorktree = await recoverFromWorktree({ cwd, name });
-
-	if (fromWorktree.failure !== undefined) {
-		return {
-			error: `no plan at ${dir}, and the plan folder in the plan's worktree at ${fromWorktree.tree} could not be copied here: ${fromWorktree.failure.error}`,
-		};
-	}
-
-	if (fromWorktree.held) {
-		write(`lightsout: copied the plan folder from the plan's worktree at ${fromWorktree.tree} into ${dir}`);
 		return undefined;
 	}
 
@@ -205,7 +170,7 @@ export const ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }
 	const { config, settings, identifier } = source;
 
 	if (parsePlanAddress({ name }) !== undefined) {
-		return fetchTicketPlan({ cwd, name, dir, tree: fromWorktree.tree, identifier, config, write });
+		return fetchTicketPlan({ cwd, name, dir, tree: await resolveWorktreePath({ cwd, branch: ticketFolderOf({ name }) }), identifier, config, write });
 	}
 
 	const { restored, error } = await restorePlanWorkspace({ cwd, name, identifier, settings });
@@ -216,7 +181,7 @@ export const ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }
 
 	if (restored.length === 0) {
 		return {
-			error: `no plan at ${dir} or in the plan's worktree at ${fromWorktree.tree}, and ticket ${identifier} carries no plan attachment — run \`lightsout plan publish --name ${name}\` from the machine that has the plan`,
+			error: `no plan at ${dir}, and ticket ${identifier} carries no plan attachment — run \`lightsout plan publish --name ${name}\` from the machine that has the plan`,
 		};
 	}
 

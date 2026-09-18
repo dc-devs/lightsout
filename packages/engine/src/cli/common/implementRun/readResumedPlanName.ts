@@ -23,7 +23,7 @@ interface Params {
  * @returns the plan address or legacy folder name the run belongs to, or undefined
  */
 export const readResumedPlanName = async ({ cwd, manifest }: Params): Promise<string | undefined> => {
-	const fromPath = planNameFromPath({ cwd, planPath: manifest.plan });
+	const fromPath = await planNameFromPath({ cwd, planPath: manifest.plan });
 
 	if (fromPath !== undefined || manifest.branch === undefined) {
 		return fromPath;

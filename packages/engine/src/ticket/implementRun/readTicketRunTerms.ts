@@ -60,7 +60,7 @@ export const readTicketRunTerms = async ({ cwd, name, planPath }: Params): Promi
 	const refusal = findPlanImplementationBlocker({ record, planId });
 	let shipRequest: TicketRunTerms['shipRequest'];
 
-	if (planPath !== undefined && !isWholePlanRun({ cwd, name, planPath })) {
+	if (planPath !== undefined && !(await isWholePlanRun({ cwd, name, planPath }))) {
 		// A run of one phase file never records the plan implemented, so it can never
 		// satisfy a ship request either — in any mode.
 		shipRequest = {

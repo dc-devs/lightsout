@@ -9,8 +9,15 @@ export const doctorCatalogEntry: CommandCatalogEntry = {
 	whenToUse:
 		'Run it first, on a repo where something is not working. It checks config, harness, gates and standards in order and names the first thing that is missing.',
 	invocations: [{ id: 'doctor' }],
-	flags: [{ name: 'cwd', value: '<path>', meaning: 'Repository to check the install of.', fallback: 'The process working directory.', required: false }],
+	flags: [
+		{ name: 'cwd', value: '<path>', meaning: 'Repository to check the install of.', fallback: 'The process working directory.', required: false },
+		{
+			name: 'usage-probe',
+			meaning: 'Spend one throwaway agent call on the configured harness to confirm its token fields still parse. Real money on your own subscription.',
+			required: false,
+		},
+	],
 	steps: [],
 	records: CommandRecordKind.Nothing,
-	related: ['status', 'friction', 'improve', 'voice'],
+	related: ['status', 'friction', 'improve', 'voice', 'report'],
 };

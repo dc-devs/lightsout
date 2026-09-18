@@ -16,4 +16,4 @@ interface Params {
  * state that crosses passes — which questions are still open, which were
  * settled and how, and what the last qualifying review measured.
  */
-export const gradeMemoryPath = ({ cwd, name }: Params): string => join(planWorkspaceDir({ cwd, name }), gradeMemoryFileName);
+export const gradeMemoryPath = async ({ cwd, name }: Params): Promise<string> => join(await planWorkspaceDir({ cwd, name }), gradeMemoryFileName);

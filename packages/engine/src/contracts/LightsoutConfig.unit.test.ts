@@ -345,3 +345,31 @@ test('accepts the top-level worktree block and keeps its setup command on the pa
 	expect('worktree' in LightsoutConfig.parse(base)).toBe(false);
 	expect(LightsoutConfig.parse(base).worktree).toBe(undefined);
 });
+
+test('LightsoutConfig: the pricing block is optional, keeps its own kebab-case spelling, and stays strict through the composition', () => {
+	const rates = { input: 15, output: 75, 'cache-read': 1.5, 'cache-write': 18.75 };
+	const haiku = { input: 1, output: 5, 'cache-read': 0.1, 'cache-write': 1.25 };
+
+	const parsed = LightsoutConfig.parse({ ...base, pricing: { 'claude-opus-5': rates, 'claude-haiku-4-5': haiku } });
+
+	// the block survives parsing as the file wrote it — the model keys are the
+	// identifiers a harness was invoked with, and the four rate names keep the
+	// spelling the report matches each recorded token count against
+	expect(parsed.pricing).toStrictEqual({
+		'claude-opus-5': { input: 15, output: 75, 'cache-read': 1.5, 'cache-write': 18.75 },
+		'claude-haiku-4-5': { input: 1, output: 5, 'cache-read': 0.1, 'cache-write': 1.25 },
+	});
+
+	// the block's own strictness fires through the composition: a stripped typo
+	// would leave that token count unpriced while the estimate still printed a
+	// total the reader would take as complete
+	expect(LightsoutConfig.safeParse({ ...base, pricing: { 'claude-opus-5': { ...rates, cache_read: 1.5 } } }).success).toBe(false);
+	// and its numeric refusal fires too — there is no negative price
+	expect(LightsoutConfig.safeParse({ ...base, pricing: { 'claude-opus-5': { ...rates, output: -75 } } }).success).toBe(false);
+
+	// pricing is opt-in: an absent block leaves no key on the parsed config, which
+	// is what tells the report to print every other figure and drop the one
+	// estimated-cost column rather than guess a rate nobody stated
+	expect('pricing' in LightsoutConfig.parse(base)).toBe(false);
+	expect(LightsoutConfig.parse(base).pricing).toBe(undefined);
+});

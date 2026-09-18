@@ -36,7 +36,7 @@ interface Params {
  * worktree intact instead, the engine's existing recovery path for one.
  */
 export const runPlanFolderPipeline = async ({ cwd, name, config, driver, onProgress }: Params): Promise<WorkerOutcome> => {
-	const folder = planWorkspaceDir({ cwd, name });
+	const folder = await planWorkspaceDir({ cwd, name });
 	const overviewPath = join(folder, 'overview.md');
 	const phased = await pathExists({ path: overviewPath });
 	const outcome = await runTicketPlanLifecycle({

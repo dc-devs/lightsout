@@ -20,7 +20,7 @@ type PlanDetectionPass = Awaited<ReturnType<typeof getPlanDetectionInputs>> & {
  * workspace.
  */
 export const getPlanDetectionPass = async ({ cwd, name }: Params): Promise<PlanDetectionPass> => {
-	const workspaceDir = planWorkspaceDir({ cwd, name });
+	const workspaceDir = await planWorkspaceDir({ cwd, name });
 
 	await mkdir(workspaceDir, { recursive: true });
 

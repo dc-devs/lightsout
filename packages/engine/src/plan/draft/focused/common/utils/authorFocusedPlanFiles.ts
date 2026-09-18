@@ -13,7 +13,7 @@ import { createDraftStop } from '#src/plan/draft/common/utils/createDraftStop.ts
 interface Params {
 	context: DraftContext;
 	/** Where to write, and which template variant applies — the engine's paths, never the agent's. */
-	outputs: ReturnType<typeof planDraftOutputs>;
+	outputs: Awaited<ReturnType<typeof planDraftOutputs>>;
 	/** Names this spawn's transcript: `draft`, or `draft-overview` for the overview of a phased re-draft. */
 	step: string;
 	/** The engine's collected source evidence for this assignment, already rendered. */
@@ -61,6 +61,7 @@ export const authorFocusedPlanFiles = async ({
 		permissions,
 		timeoutMs,
 		environment: planWriterEnvironment,
+		level: context.level,
 	});
 	const grantedPrefixes = [sync?.prefix, lint?.prefix].filter((prefix) => prefix !== undefined);
 	const outcome = await invokePlanAgent({

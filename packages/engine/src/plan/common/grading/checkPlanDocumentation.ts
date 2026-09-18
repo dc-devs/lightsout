@@ -1,4 +1,5 @@
 import { basename } from 'node:path';
+import type { ActivityLevel } from '#src/activity/index.ts';
 import { buildPlanDocsCheckInvocation } from '#src/agents/index.ts';
 import { type ConfigDocs, type Effort, GapArea, GapCheckReport, GapOutcome, type GradedGap, type Permissions } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
@@ -25,6 +26,8 @@ interface Params {
 	permissions?: Permissions;
 	/** Agent ceiling, resolved by the caller — this pass reads the same volume of plan text the readers do, so it shares their number. */
 	timeoutMs: number;
+	/** The pass level this checker's spawn opens its step under. Named at the call site, because this `Params` is built field by field rather than spread. */
+	level?: ActivityLevel;
 	onProgress: (message: string) => void;
 }
 
@@ -47,13 +50,13 @@ interface Params {
  */
 export const checkPlanDocumentation = async (params: Params): Promise<{ gaps: GradedGap[]; failures: string[]; rateLimited: boolean }> => {
 	const { cwd, driver, name, workspaceDir, planPaths, files, overviewText, docs, model, effort, permissions } = params;
-	const { timeoutMs, onProgress } = params;
+	const { timeoutMs, level, onProgress } = params;
 
 	if (docs === undefined || docs.length === 0) {
 		return { gaps: [], failures: [], rateLimited: false };
 	}
 
-	const invokePlanAgent = createPlanAgentRunner({ cwd, driver, workspaceDir, step: 'grade-documentation', model, effort, permissions, timeoutMs });
+	const invokePlanAgent = createPlanAgentRunner({ cwd, driver, workspaceDir, step: 'grade-documentation', model, effort, permissions, timeoutMs, level });
 	const outcome = await invokePlanAgent({
 		invocation: buildPlanDocsCheckInvocation({
 			planFiles: files.map((file) => ({ file: basename(file.path), text: file.text })),

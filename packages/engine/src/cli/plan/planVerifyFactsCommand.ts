@@ -7,7 +7,7 @@ import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrint
 import { ensureBrainstormFiles } from '#src/cli/common/utils/ensureBrainstormFiles.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { PlanningStep, RunStatus } from '#src/contracts/index.ts';
-import { PlanRunStatus, recordPlanningStep, runPlanVerifyFacts } from '#src/plan/index.ts';
+import { PlanRunStatus, recordPlanCommandRun, recordPlanningStep, runPlanVerifyFacts } from '#src/plan/index.ts';
 
 export const planVerifyFactsCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const name = getStringFlag({ flags, name: 'name' });
@@ -24,13 +24,28 @@ export const planVerifyFactsCommand = async ({ flags, cwd }: CommandContext): Pr
 	await ensureBrainstormFiles({ cwd, name });
 
 	const notesFile = getStringFlag({ flags, name: 'notes' });
-	const result = await recordPlanningStep({
+	// The same conditions that pick exit 1 and exit 0 below, and the one reading
+	// both records state — a step this run failed must not read as passed in the
+	// activity record.
+	const statusOf = ({ result: verified }: { result: Awaited<ReturnType<typeof runPlanVerifyFacts>> }) =>
+		verified.status === PlanRunStatus.Failed || !verified.facts ? RunStatus.Failed : RunStatus.Passed;
+	// Wrapped outside the planning-step record and inside the refusals above, so
+	// a command that refuses before doing any work opens no level at all. This
+	// subcommand spawns no agent, so its command run carries no child: the
+	// level's own time is the whole of what it records.
+	const result = await recordPlanCommandRun({
 		cwd,
 		name,
-		step: PlanningStep.VerifyFacts,
-		work: () => runPlanVerifyFacts({ cwd, name, notesFile, onProgress: createProgressPrinter() }),
-		// The same conditions that pick exit 1 and exit 0 below.
-		statusOf: ({ result: verified }) => (verified.status === PlanRunStatus.Failed || !verified.facts ? RunStatus.Failed : RunStatus.Passed),
+		label: 'plan verify-facts',
+		statusOf,
+		work: () =>
+			recordPlanningStep({
+				cwd,
+				name,
+				step: PlanningStep.VerifyFacts,
+				work: () => runPlanVerifyFacts({ cwd, name, notesFile, onProgress: createProgressPrinter() }),
+				statusOf,
+			}),
 	});
 
 	if (result.status === PlanRunStatus.Failed || !result.facts) {

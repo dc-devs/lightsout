@@ -15,8 +15,8 @@ import { omittedDecisionGap, recheckMarker, setupGraded } from '#tests/helpers/g
 // phase it skipped, and without surviving a change to the code beside the plan.
 
 /** The persisted memory, read the way the next pass reads it. */
-const readMemory = ({ cwd, name }: { cwd: string; name: string }): GradeMemory =>
-	GradeMemory.parse(JSON.parse(readFileSync(gradeMemoryPath({ cwd, name }), 'utf8')));
+const readMemory = async ({ cwd, name }: { cwd: string; name: string }): Promise<GradeMemory> =>
+	GradeMemory.parse(JSON.parse(readFileSync(await gradeMemoryPath({ cwd, name }), 'utf8')));
 
 /** New text for one input that moves its content hash and changes nothing the lint or the phase graph reads. */
 const repairAgain = ({ path }: { path: string }) => {
@@ -48,7 +48,7 @@ const recheckedIds = ({ invocations }: { invocations: DriverInvocation[] }): str
  */
 const setupRepair = async ({ name }: { name: string }) => {
 	const graded = await setupGraded({ name, gaps: [omittedDecisionGap], edited: 'phase2-extra.md' });
-	const baseline = readMemory({ cwd: graded.cwd, name }).lastPass;
+	const baseline = (await readMemory({ cwd: graded.cwd, name })).lastPass;
 
 	// an absent baseline would leave nothing to compare the pass's fingerprint against
 	if (baseline === undefined) {
@@ -71,7 +71,7 @@ const setupRepair = async ({ name }: { name: string }) => {
 const setupSecondRepair = async ({ name, edited }: { name: string; edited: string }) => {
 	const graded = await setupGraded({ name, gaps: [omittedDecisionGap], edited: 'phase2-extra.md' });
 	const first = await runPlanGrade({ cwd: graded.cwd, driver: graded.driver, name });
-	const memory = readMemory({ cwd: graded.cwd, name });
+	const memory = await readMemory({ cwd: graded.cwd, name });
 	const skipped = memory.findings.filter(({ status, phase }) => status === 'open' && phase !== 'phase3-final.md').map(({ id, phase }) => ({ id, phase }));
 
 	// with no open record on either skipped phase, "still blocks" would hold vacuously
@@ -118,7 +118,7 @@ describe('runPlanGrade', () => {
 			}),
 		);
 
-		const memory = readMemory({ cwd, name });
+		const memory = await readMemory({ cwd, name });
 
 		// the next repair narrows against what THIS pass measured
 		expect(memory.lastPass).toEqual({ scope: 'focused', inputs: result.grade.inputs, at: expect.any(String) });
@@ -166,7 +166,7 @@ describe('runPlanGrade', () => {
 
 		expectStatus(result, 'complete');
 
-		const recorded = readMemory({ cwd, name }).lastPass;
+		const recorded = (await readMemory({ cwd, name })).lastPass;
 
 		expectDefined(recorded);
 

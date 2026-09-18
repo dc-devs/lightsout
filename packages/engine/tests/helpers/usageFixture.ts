@@ -24,7 +24,10 @@
  * one status block per active ticket — and again for `lightsout plan workspace`
  * and the same pair on every plan subcommand. Updated again for `lightsout
  * ticket` — the eight subcommands that change and show a ticket's record of the
- * plans it holds.
+ * plans it holds. Updated again for
+ * `lightsout report` — where one plan's or one ticket's hours and money went,
+ * down to each harness process. Updated once more for `doctor --usage-probe` —
+ * the opt-in check that one live harness call still reports its token fields.
  */
 export const usageFixture = `lightsout — deterministic engine for coding agents
 
@@ -40,7 +43,8 @@ usage:
   lightsout status --planning <name> [--cwd <path>]   (one plan's planning steps, printed once)
   lightsout status --shipping <branch> [--cwd <path>]   (one branch's ship steps, read from the checkout that ships it)
   lightsout status --queue [--run <id>] [--cwd <path>]   (the queue's board, then one status block per active ticket, printed once)
-  lightsout doctor [--cwd <path>]
+  lightsout report --plan <name> [--json] [--cwd <path>]
+  lightsout doctor [--cwd <path>] [--usage-probe]
   lightsout standards-check [--cwd <path>] [--path <subdir>] [--all] [--baseline] [--code-checks | --agent-review]
   lightsout standards-check --list [--cwd <path>]     (print the enforcement ledger)
   lightsout standards-validate [--pack <path>] [--cwd <path>]   (run every check against its own fixtures)

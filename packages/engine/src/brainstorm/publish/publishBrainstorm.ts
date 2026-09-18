@@ -129,7 +129,7 @@ const attachBrainstormFiles = async ({
  * ticket — restore ignores it, because the marker written last does not list it.
  */
 export const publishBrainstorm = async ({ cwd, name, config, env, onProgress, titlePrefix }: Params): Promise<BrainstormPublishReport> => {
-	const prepared = await prepareAttachments({ dir: planWorkspaceDir({ cwd, name }), titlePrefix });
+	const prepared = await prepareAttachments({ dir: await planWorkspaceDir({ cwd, name }), titlePrefix });
 
 	if ('error' in prepared) {
 		return { published: [], error: prepared.error };

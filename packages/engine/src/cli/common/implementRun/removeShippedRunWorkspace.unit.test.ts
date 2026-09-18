@@ -55,49 +55,22 @@ const setupUnremovableTree = async ({ branch }: { branch: string }) => {
 };
 
 /**
- * A shipped `implement`-owned tree holding the only copy of the `demo` plan
- * folder the manifest names — a ticketless plan, with no attachment to fall
- * back on.
+ * A shipped `implement`-owned tree for a plan whose folder lives in the primary
+ * checkout, which is where every plan folder now lives.
  *
- * `blockPrimary` leaves a plain file where the primary checkout's plans
- * directory would go, so the folder cannot be saved there whoever runs the
- * suite; the ownership records sit beside it and stay writable.
+ * A folder of the same name is planted inside the tree holding different text,
+ * so a rescue copy out of the tree would be visible rather than silent: only a
+ * copy could put the tree's text into the primary checkout's plan file.
  */
-const setupShippedPlan = async ({ branch, blockPrimary = false }: { branch: string; blockPrimary?: boolean }) => {
+const setupPrimaryHeldPlan = async ({ branch }: { branch: string }) => {
 	const shipped = await setupShippedRun({ branch, owner: WorktreeOwner.Implement });
-	const planDir = join(shipped.worktreePath, '.lightsout', 'plans', 'demo');
-	const progress: string[] = [];
+	const primaryPlanDir = join(shipped.cwd, '.lightsout', 'plans', 'demo');
+	const treePlanDir = join(shipped.worktreePath, '.lightsout', 'plans', 'demo');
 
-	await mkdir(planDir, { recursive: true });
-	await writeFile(join(planDir, 'plan.md'), '# graded plan\n', 'utf8');
-
-	if (blockPrimary) {
-		await writeFile(join(shipped.cwd, '.lightsout', 'plans'), 'not a directory\n', 'utf8');
-	}
-
-	const onProgress = (message: string) => {
-		progress.push(message);
-	};
-
-	return { ...shipped, progress, onProgress };
-};
-
-/**
- * A shipped `implement`-owned tree holding two plan folders of one ticket — the
- * plan address the run built, and an earlier sibling plan of the same ticket
- * that this run never touched.
- *
- * The primary checkout holds neither, so what reaches it is exactly what the
- * cleanup saved before the tree came down.
- */
-const setupShippedTicketPlans = async ({ branch }: { branch: string }) => {
-	const shipped = await setupShippedRun({ branch, owner: WorktreeOwner.Implement });
-	const ticketDir = join(shipped.worktreePath, '.lightsout', 'plans', branch);
-
-	await mkdir(join(ticketDir, '001-basics'), { recursive: true });
-	await writeFile(join(ticketDir, '001-basics', 'plan.md'), '# the first plan\n', 'utf8');
-	await mkdir(join(ticketDir, '002-ranking'), { recursive: true });
-	await writeFile(join(ticketDir, '002-ranking', 'plan.md'), '# the later plan\n', 'utf8');
+	await mkdir(primaryPlanDir, { recursive: true });
+	await writeFile(join(primaryPlanDir, 'plan.md'), '# the plan the primary checkout holds\n', 'utf8');
+	await mkdir(treePlanDir, { recursive: true });
+	await writeFile(join(treePlanDir, 'plan.md'), '# a stale copy no cleanup may read\n', 'utf8');
 
 	return shipped;
 };
@@ -164,50 +137,15 @@ describe('removeShippedRunWorkspace', () => {
 		expect(await readWorktreeRecord({ cwd, branch: 'lo-70-stuck' })).toEqual(expect.objectContaining({ owner: 'implement', worktreePath: standing }));
 	});
 
-	test('saves the plan folder into the primary checkout before the shipped tree comes down', async () => {
-		const { cwd, worktreePath } = await setupShippedPlan({ branch: 'lo-131-saved' });
+	test('a shipped tree is removed with no plan folder to save and the primary checkout keeps the plan', async () => {
+		const { cwd, worktreePath } = await setupPrimaryHeldPlan({ branch: 'lo-150-shipped' });
 
-		await removeShippedRunWorkspace({ cwd: worktreePath, manifest: manifestFor({ branch: 'lo-131-saved', workspace: worktreePath }) });
-
-		expect(existsSync(worktreePath)).toBe(false);
-		expect(await readFile(join(cwd, '.lightsout', 'plans', 'demo', 'plan.md'), 'utf8')).toBe('# graded plan\n');
-	});
-
-	test("saves the whole ticket folder into the primary checkout before a plan address's shipped tree comes down", async () => {
-		const { cwd, worktreePath } = await setupShippedTicketPlans({ branch: 'lo-7-search' });
-
-		await removeShippedRunWorkspace({
-			cwd: worktreePath,
-			manifest: manifestFor({
-				branch: 'lo-7-search',
-				workspace: worktreePath,
-				plan: '.lightsout/plans/lo-7-search/002-ranking/plan.md',
-			}),
-		});
-
-		const savedTicketDir = join(cwd, '.lightsout', 'plans', 'lo-7-search');
+		// Handed the workspace rather than the launching checkout — the way the
+		// ship tail calls it — so the primary checkout must be resolved here.
+		await removeShippedRunWorkspace({ cwd: worktreePath, manifest: manifestFor({ branch: 'lo-150-shipped', workspace: worktreePath }) });
 
 		expect(existsSync(worktreePath)).toBe(false);
-		expect(await readFile(join(savedTicketDir, '002-ranking', 'plan.md'), 'utf8')).toBe('# the later plan\n');
-		// The sibling plan the run never built lives in the same tree, and is the
-		// copy that a per-plan save would have deleted with it.
-		expect(await readFile(join(savedTicketDir, '001-basics', 'plan.md'), 'utf8')).toBe('# the first plan\n');
-	});
-
-	test('leaves the shipped tree standing when the plan folder cannot be saved', async () => {
-		const { cwd, worktreePath, progress, onProgress } = await setupShippedPlan({ branch: 'lo-131-unsaved', blockPrimary: true });
-
-		// A throw would land here as the error itself, so the assertion below pins
-		// both halves: nothing was thrown, and the helper answered nothing.
-		const settled = await removeShippedRunWorkspace({
-			cwd: worktreePath,
-			manifest: manifestFor({ branch: 'lo-131-unsaved', workspace: worktreePath }),
-			onProgress,
-		}).catch((thrown: unknown) => thrown);
-
-		expect(settled).toBeUndefined();
-		expect(progress).toEqual(expect.arrayContaining([expect.stringContaining(join('.lightsout', 'plans', 'demo'))]));
-		expect(existsSync(join(worktreePath, '.lightsout', 'plans', 'demo', 'plan.md'))).toBe(true);
-		expect(await readWorktreeRecord({ cwd, branch: 'lo-131-unsaved' })).toEqual(expect.objectContaining({ owner: 'implement', worktreePath }));
+		expect(await readFile(join(cwd, '.lightsout', 'plans', 'demo', 'plan.md'), 'utf8')).toBe('# the plan the primary checkout holds\n');
+		expect(await readWorktreeRecord({ cwd, branch: 'lo-150-shipped' })).toBeUndefined();
 	});
 });

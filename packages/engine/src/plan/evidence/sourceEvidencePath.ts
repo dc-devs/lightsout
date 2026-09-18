@@ -17,4 +17,4 @@ interface Params {
  * state, regenerable from the repository and the facts, so it never travels with
  * a published plan.
  */
-export const sourceEvidencePath = ({ cwd, name }: Params): string => join(planWorkspaceDir({ cwd, name }), 'source-evidence.json');
+export const sourceEvidencePath = async ({ cwd, name }: Params): Promise<string> => join(await planWorkspaceDir({ cwd, name }), 'source-evidence.json');

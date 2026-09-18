@@ -1,13 +1,27 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { GapArea, GapCheckLens, GapOutcome, type GradeFindingRecord, GradeFindingStatus, GradeMemory, GradeReport, GradeScope } from '#src/contracts/index.ts';
+import type { ActivityLevel } from '#src/activity/index.ts';
+import {
+	ActivityLevelKind,
+	GapArea,
+	GapCheckLens,
+	GapOutcome,
+	type GradeFindingRecord,
+	GradeFindingStatus,
+	GradeMemory,
+	GradeReport,
+	GradeScope,
+	type RunStatus,
+} from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runGradePass } from '#src/plan/common/grading/runGradePass.ts';
 import { getPlanDetectionPass } from '#src/plan/common/utils/getPlanDetectionPass.ts';
 import { gradeMemoryPath } from '#src/plan/index.ts';
 import { cleanOverviewBody } from '#tests/helpers/cleanOverviewBody.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
+import { createOffContractDriver } from '#tests/helpers/createOffContractDriver.ts';
+import { createRateLimitedDriver } from '#tests/helpers/createRateLimitedDriver.ts';
 import { gapCheckLensOf } from '#tests/helpers/gapCheckLensOf.ts';
 import { inputsFor, passAt } from '#tests/helpers/gradeScopeInputs.ts';
 import { secondPhaseBody } from '#tests/helpers/secondPhaseBody.ts';
@@ -133,12 +147,49 @@ const setupGradePass = async ({ name, driver, findings }: { name: string; driver
 		},
 		messages,
 		gradePath: join(pass.workspaceDir, 'grade.json'),
-		memoryPath: gradeMemoryPath({ cwd, name }),
+		memoryPath: await gradeMemoryPath({ cwd, name }),
 	};
 };
 
 /** A two-phase plan with an empty memory, and every argument one full pass over it takes. */
 const setupSharedDefect = async ({ name }: { name: string }) => setupGradePass({ name, driver: createSharedDefectDriver(), findings: [] });
+
+/** One level the pass opened, as the handle it was given saw it: what it is called, and how it closed. */
+interface RecordedLevel {
+	kind: ActivityLevelKind;
+	label: string;
+	outcome?: RunStatus;
+	children: RecordedLevel[];
+}
+
+/**
+ * A level handle that records the tree opened beneath it instead of writing a
+ * file — the seam a plan subcommand threads in, so what the pass closed with is
+ * readable from outside.
+ */
+const handleFor = ({ node }: { node: RecordedLevel }): ActivityLevel => ({
+	id: node.label,
+	open: ({ level, label }) => {
+		const child: RecordedLevel = { kind: level, label, children: [] };
+
+		node.children.push(child);
+
+		return handleFor({ node: child });
+	},
+	close: ({ outcome }) => {
+		node.outcome = node.outcome ?? outcome;
+	},
+	recordProcess: () => undefined,
+	settled: async () => undefined,
+});
+
+/** The same two-phase pass, run over a command-run level whose children are collected. */
+const setupRecordedPass = async ({ name, driver }: { name: string; driver: Driver }) => {
+	const { args } = await setupGradePass({ name, driver, findings: [] });
+	const commandRun: RecordedLevel = { kind: ActivityLevelKind.CommandRun, label: 'plan grade', children: [] };
+
+	return { args: { ...args, params: { ...args.params, level: handleFor({ node: commandRun }) } }, commandRun };
+};
 
 describe('runGradePass', () => {
 	test('reports one blocker and stores one record for a confirmed shared defect', async () => {
@@ -181,5 +232,25 @@ describe('runGradePass', () => {
 			findings: [expect.objectContaining({ id: 'f1', status: GradeFindingStatus.Open, disposition: GapOutcome.NeedsAHuman })],
 			unjudgedReasons: [undefined],
 		});
+	});
+
+	test.each<{ name: string; readers: string; driver: () => Driver; outcome: RunStatus }>([
+		// blockers are the pass doing its job, not the pass breaking: a row
+		// reading failed here would send a human to diagnose a working grade
+		{ name: 'level-passed', readers: 'all answered, finding a blocker', driver: createSharedDefectDriver, outcome: 'passed' },
+		{ name: 'level-failed', readers: 'answered off contract', driver: () => createOffContractDriver({ text: 'looks fine to me' }), outcome: 'failed' },
+		// the wall is resumable, so the row says parked rather than failed
+		{ name: 'level-parked', readers: 'met the rate-limit wall', driver: createRateLimitedDriver, outcome: 'paused-rate-limit' },
+	])('opens one pass level named for its scope and closes it as $outcome when the readers $readers', async ({ name, driver, outcome }) => {
+		const { args, commandRun } = await setupRecordedPass({ name, driver: driver() });
+
+		await runGradePass(args);
+
+		// one row per pass, named by the scope that pass covered, carrying the
+		// verdict the pass itself came to — a second row would double-count the
+		// whole pass, and a missing one would lose it from the report entirely
+		expect(commandRun.children.map(({ kind, label, outcome: closed }) => ({ kind, label, closed }))).toStrictEqual([
+			{ kind: 'pass', label: 'full pass', closed: outcome },
+		]);
 	});
 });

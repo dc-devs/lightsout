@@ -1,9 +1,11 @@
+import { execSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readBrainstormDecisions } from '#src/plan/readBrainstormDecisions.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
+import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 /**
  * A temp repo whose plan workspace holds the given raw `brainstorm-decisions.json`.
@@ -29,6 +31,32 @@ const decisionRow = {
 	choice: '.claude/plans',
 	rationale: 'the committed, human-reviewed path implement reads',
 	assumption: false,
+};
+
+/** One plan folder holding the given decision row, under whichever checkout root it is handed. */
+const writeDecisions = ({ root, name, choice }: { root: string; name: string; choice: string }) => {
+	mkdirSync(join(root, '.lightsout', 'plans', name), { recursive: true });
+	writeFileSync(
+		join(root, '.lightsout', 'plans', name, 'brainstorm-decisions.json'),
+		JSON.stringify({ planName: name, decisions: [{ ...decisionRow, choice }] }),
+	);
+};
+
+/**
+ * A primary checkout with a linked worktree cut from it, each holding a plan
+ * folder of the same name with a different settled choice in it — so a read
+ * resolving against the checkout it was handed answers the worktree's copy, and
+ * only a read resolving the primary answers the one that survives the tree.
+ */
+const setupWorktreeWorkspace = ({ name = 'grill-me' }: { name?: string } = {}) => {
+	const { cwd: primary } = setupBranchRepo();
+	const worktree = join(primary, '.worktrees', name);
+
+	execSync(`git worktree add -q -b ${name} "${worktree}" main`, { cwd: primary, stdio: 'ignore' });
+	writeDecisions({ root: primary, name, choice: '.claude/plans' });
+	writeDecisions({ root: worktree, name, choice: 'the copy inside the tree' });
+
+	return { worktree, name };
 };
 
 describe('readBrainstormDecisions', () => {
@@ -96,6 +124,16 @@ describe('readBrainstormDecisions', () => {
 
 		// the file was read — it is the shape that failed
 		expect(error.message).toMatch(/planName/);
+	});
+
+	test("reads the primary checkout's plan folder when asked from inside a linked worktree", async () => {
+		const { worktree, name } = setupWorktreeWorkspace();
+
+		const record = await readBrainstormDecisions({ cwd: worktree, name });
+
+		// a planning worktree is removed once its work ships, so the decisions a
+		// draft reads are the main checkout's whichever checkout it runs in
+		expect(record).toStrictEqual({ planName: 'grill-me', decisions: [{ ...decisionRow, choice: '.claude/plans' }] });
 	});
 
 	test('a file that is present but unreadable names the mid-draft race, not the missing-file path', async () => {

@@ -1,3 +1,4 @@
+import type { ActivityLevel } from '#src/activity/index.ts';
 import type { Effort, Permissions } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 
@@ -20,5 +21,15 @@ export interface PlanGradeParams {
 	effort?: Effort;
 	permissions?: Permissions;
 	timeoutMs?: number;
+	/**
+	 * The level this pass's spawns attach to. Optional, so a caller with no
+	 * recorder open runs exactly as it does today.
+	 *
+	 * Its meaning is positional rather than fixed: `runPlanGrade` is handed the
+	 * command run, and `runGradePass` substitutes its own pass level before
+	 * threading the object further down. That substitution is why the field is
+	 * named for the attachment point rather than for the command run.
+	 */
+	level?: ActivityLevel;
 	onProgress?: (message: string) => void;
 }

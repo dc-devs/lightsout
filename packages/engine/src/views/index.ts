@@ -1,4 +1,5 @@
 export { ConfigNotFoundError } from '#src/views/ConfigNotFoundError.ts';
+export type { PlanActivityReport } from '#src/views/common/types/PlanActivityReport.ts';
 export type { RunProgress } from '#src/views/common/types/RunProgress.ts';
 export type { RunProgressRow } from '#src/views/common/types/RunProgressRow.ts';
 export { toStandardsPackListing } from '#src/views/common/utils/toStandardsPackListing.ts';
@@ -17,5 +18,6 @@ export { listPlanWorkspaces } from '#src/views/listPlanWorkspaces.ts';
 export { listRuns } from '#src/views/listRuns.ts';
 export { listStandardsPacks } from '#src/views/listStandardsPacks.ts';
 export { PlanWorkspaceNotFoundError } from '#src/views/PlanWorkspaceNotFoundError.ts';
+export { readPlanActivityReports } from '#src/views/readPlanActivityReports.ts';
 export { StandardsPackNotFoundError } from '#src/views/StandardsPackNotFoundError.ts';
 export { StandardsPackRuleNotFoundError } from '#src/views/StandardsPackRuleNotFoundError.ts';

@@ -64,11 +64,11 @@ describe('readPlanningProgress', () => {
 		expect(readings).toStrictEqual([validRecord, undefined, undefined, undefined]);
 	});
 
-	test('getPlanningProgressPath names planning-progress.json inside the plan folder', () => {
+	test('getPlanningProgressPath names planning-progress.json inside the plan folder', async () => {
 		const cwd = mkdtempSync(join(tmpdir(), 'lightsout-planning-progress-'));
-		const planFolder = planWorkspaceDir({ cwd, name: 'demo' });
+		const planFolder = await planWorkspaceDir({ cwd, name: 'demo' });
 
-		const path = getPlanningProgressPath({ cwd, name: 'demo' });
+		const path = await getPlanningProgressPath({ cwd, name: 'demo' });
 
 		expect(path).toBe(join(planFolder, 'planning-progress.json'));
 	});

@@ -75,7 +75,7 @@ export const ensureBrainstormFiles = async ({ cwd, name, write = console.log }: 
 		return;
 	}
 
-	const dir = planWorkspaceDir({ cwd, name });
+	const dir = await planWorkspaceDir({ cwd, name });
 	const titlePrefix = parsePlanAddress({ name })?.planId;
 	const own = await restoreBrainstormFiles({ cwd, name, identifier, settings: trackerSettings, titlePrefix });
 

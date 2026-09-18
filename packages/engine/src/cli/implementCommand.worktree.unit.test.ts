@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
@@ -93,9 +94,11 @@ jest.mock('#src/cli/common/render/printResult.ts', () => ({
 const planFolder = join('.lightsout', 'plans', 'lo-42-add-widgets');
 const branch = 'lo-42-add-widgets';
 
-/** What the plan says when the run starts, and what a mid-run edit to the source would make it say. */
+/** What the plan says when the run starts. */
 const planBody = '# Plan: add widgets\n';
-const editedPlanBody = '# Plan: edited while the run was going\n';
+
+/** What the plan file at the repo root says — the loose input a `--plan` outside the plans directory names. */
+const loosePlanBody = '# Plan: a note nobody filed under a ticket\n';
 
 /**
  * A run that passed. Nothing downstream of the pipeline is real here — the
@@ -108,37 +111,42 @@ const passedResult = { ok: true, manifest: { runId: 'aaaaaaaa-1111-2222-3333-444
  * A real consumer repo holding a real plan folder, and a real directory standing
  * in for the worktree git would have cut.
  *
- * `fetchFailure` is how a workspace that cannot be resolved becomes observable,
- * and `editsSourcePlan` rewrites the launching checkout's own plan file at the
- * moment the pipeline starts — an edit that lands after the copy was taken. The
- * two `workspace*` switches leave something standing where the record link or
- * the input copy belongs, which is how each of those two steps is made to fail
- * with the real code running.
+ * The workspace is a real linked worktree cut from that repo, because that is
+ * the only shape in which a plan path resolves the way it does in a real run:
+ * the plan folder stays in the checkout the command was launched from, and the
+ * tree reaches it by resolving its own primary checkout.
+ *
+ * The repo also carries a plan file at its root, outside the plans directory,
+ * which is the loose input a case pointing `--plan` at a plain file names.
+ *
+ * `fetchFailure` is how a workspace that cannot be resolved becomes observable.
+ * The `blocked` switches leave something standing in the workspace where the
+ * record link has to be written, which is how that step is made to fail with the
+ * real code running.
  */
 const setupImplementWorktree = ({
 	args,
 	fetchFailure,
-	editsSourcePlan = false,
 	phased = false,
 	blocked,
 }: {
 	args: string[];
 	fetchFailure?: string;
-	editsSourcePlan?: boolean;
 	/** A plan folder holding an overview.md, so the run is every phase of one plan rather than a single one. */
 	phased?: boolean;
 	/**
-	 * What is left standing in the workspace where one of the two steps after
-	 * creation has to write: a runs directory of the workspace's own where the
-	 * link belongs, a file where the whole state directory belongs, or a file
-	 * where the copied plan folder belongs.
+	 * What is left standing in the workspace where the record link has to be
+	 * written: a runs directory of the workspace's own, or a file where the whole
+	 * state directory belongs.
 	 */
-	blocked?: 'own-runs-dir' | 'state-file' | 'plan-file';
+	blocked?: 'own-runs-dir' | 'state-file';
 }) => {
 	const captured = captureCommandOutput();
-	const cwd = setupConsumerRepo();
-	const workspace = mkdtempSync(join(tmpdir(), 'lightsout-workspace-'));
+	const cwd = setupConsumerRepo({ plan: loosePlanBody });
+	const workspace = join(mkdtempSync(join(tmpdir(), 'lightsout-workspace-')), 'tree');
 	const printedBeforeLifecycle: string[] = [];
+
+	execSync(`git worktree add -q --detach "${workspace}"`, { cwd, stdio: 'ignore' });
 
 	mkdirSync(join(cwd, planFolder), { recursive: true });
 	writeFileSync(join(cwd, planFolder, phased ? 'overview.md' : 'plan.md'), planBody);
@@ -155,11 +163,6 @@ const setupImplementWorktree = ({
 		writeFileSync(join(workspace, '.lightsout'), 'a file where the state directory belongs\n');
 	}
 
-	if (blocked === 'plan-file') {
-		mkdirSync(join(workspace, '.lightsout', 'plans'), { recursive: true });
-		writeFileSync(join(workspace, planFolder), 'a file where the plan folder belongs\n');
-	}
-
 	mockFetchDefaultBranch.mockResolvedValue(fetchFailure === undefined ? 'main' : { error: fetchFailure });
 	mockReadBranchWorktree.mockResolvedValue(undefined);
 	mockCreateWorktree.mockResolvedValue(workspace);
@@ -168,13 +171,7 @@ const setupImplementWorktree = ({
 
 		return Promise.resolve(undefined);
 	});
-	mockRunPipelineOrFailFast.mockImplementation(() => {
-		if (editsSourcePlan) {
-			writeFileSync(join(cwd, planFolder, 'plan.md'), editedPlanBody);
-		}
-
-		return Promise.resolve(passedResult);
-	});
+	mockRunPipelineOrFailFast.mockResolvedValue(passedResult);
 	mockRunPhasesOrFailFast.mockResolvedValue(passedResult);
 	mockPrintResult.mockResolvedValue(undefined);
 	mockExitAfterImplement.mockResolvedValue(undefined);
@@ -196,16 +193,28 @@ describe('implementCommand worktree isolation', () => {
 		expect(mockRunPipelineOrFailFast).toHaveBeenCalledWith(expect.objectContaining({ cwd: workspace }));
 	});
 
-	test('runs the pipeline against the plan copied into the workspace', async () => {
-		const { context, cwd, workspace } = setupImplementWorktree({ args: ['--plan', planFolder], editsSourcePlan: true });
+	test('runs the pipeline against the plan folder the launching checkout holds, copying none of it in', async () => {
+		const { context, cwd, workspace } = setupImplementWorktree({ args: ['--plan', planFolder] });
 
 		await implementCommand(context);
 
 		expect(mockRunPipelineOrFailFast).toHaveBeenCalledWith(expect.objectContaining({ cwd: workspace, planPath: join(planFolder, 'plan.md') }));
-		// the source was rewritten the moment the pipeline started, and the plan the
-		// run builds is untouched by it
-		expect(readFileSync(join(cwd, planFolder, 'plan.md'), 'utf8')).toBe(editedPlanBody);
-		expect(readFileSync(join(workspace, planFolder, 'plan.md'), 'utf8')).toBe(planBody);
+		// the folder stayed where it was, so the tree coming down takes no copy of
+		// it — and the shape of the plan was read from the folder that really holds it
+		expect(readFileSync(join(cwd, planFolder, 'plan.md'), 'utf8')).toBe(planBody);
+		expect(existsSync(join(workspace, planFolder))).toBe(false);
+	});
+
+	test('copies a plan file outside the plans directory into the workspace and runs the copy', async () => {
+		const { context, workspace } = setupImplementWorktree({ args: ['--plan', 'plan.md'] });
+
+		await implementCommand(context);
+
+		// a loose file is nobody's plan folder: it is still copied in, and the copy
+		// is still read against the workspace rather than looked for in the
+		// launching checkout the way a plans-directory path now is
+		expect(mockRunPipelineOrFailFast).toHaveBeenCalledWith(expect.objectContaining({ cwd: workspace, planPath: join('.lightsout', 'inputs', 'plan.md') }));
+		expect(readFileSync(join(workspace, '.lightsout', 'inputs', 'plan.md'), 'utf8')).toBe(loosePlanBody);
 	});
 
 	test('builds in the launching checkout when the run opts out', async () => {
@@ -274,17 +283,6 @@ describe('implementCommand worktree isolation', () => {
 		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(errors.join('\n')).toContain(cwd);
-		expect(mockRunPipelineOrFailFast).not.toHaveBeenCalled();
-		expect(exitCodes).toStrictEqual([1]);
-	});
-
-	test('exits when the plan cannot be copied into the workspace, rather than building an empty one', async () => {
-		const { context, workspace, errors, exitCodes } = setupImplementWorktree({ args: ['--plan', planFolder], blocked: 'plan-file' });
-
-		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
-
-		expect(errors.join('\n')).toContain(workspace);
-		expect(mockRequireImplementLifecycle).not.toHaveBeenCalled();
 		expect(mockRunPipelineOrFailFast).not.toHaveBeenCalled();
 		expect(exitCodes).toStrictEqual([1]);
 	});

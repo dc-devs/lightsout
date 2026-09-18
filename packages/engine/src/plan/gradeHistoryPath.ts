@@ -16,4 +16,4 @@ interface Params {
  * holds the latest pass and is still the file to read for a verdict; this is how
  * a human sees a plan go C → B → A, and which finding kept coming back.
  */
-export const gradeHistoryPath = ({ cwd, name }: Params): string => join(planWorkspaceDir({ cwd, name }), 'grade-history.jsonl');
+export const gradeHistoryPath = async ({ cwd, name }: Params): Promise<string> => join(await planWorkspaceDir({ cwd, name }), 'grade-history.jsonl');

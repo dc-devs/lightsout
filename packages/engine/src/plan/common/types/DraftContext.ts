@@ -1,3 +1,4 @@
+import type { ActivityLevel } from '#src/activity/index.ts';
 import type { DecisionsRecord, DraftImplementation, Effort, LightsoutConfig, Permissions, PlanFacts, SourceEvidenceIndex } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 
@@ -29,5 +30,7 @@ export interface DraftContext {
 	effort?: Effort;
 	permissions?: Permissions;
 	timeoutMs: number;
+	/** The level a draft flow's spawns attach to — the command run. Absent wherever no run is being recorded. Held on the context so both flows and every helper handed the whole context are wired identically. */
+	level?: ActivityLevel;
 	progress: (message: string) => void;
 }

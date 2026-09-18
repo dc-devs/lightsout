@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, jest, test } from '@jest/globals';
+import { buildActivityTree, readActivityMarks } from '#src/activity/index.ts';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { planVerifyFactsCommand } from '#src/cli/plan/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
@@ -159,5 +160,78 @@ test('records the verify-facts step as failed in the planning record when the au
 	// facts with no request fail the authored contract, so the run stops before it verifies anything
 	expect(errors).toHaveLength(1);
 	expect(record.steps).toEqual([expect.objectContaining({ step: 'verify-facts', status: 'failed', attempts: 1 })]);
+	expect(exitCodes).toStrictEqual([1]);
+});
+
+// The activity record is written into the same plan folder as the planning
+// record. verify-facts spawns no agent, so its command run is a leaf: the
+// level's own time is the whole of what it records, and a child level under it
+// would be a step that never ran.
+test('a deterministic subcommand records a childless command run beside the planning record', async () => {
+	const { context, exitCodes } = setupVerifyFacts({ args: ['--name', 'demo'], authored: mixedFacts });
+
+	await expect(planVerifyFactsCommand(context)).rejects.toThrow(/process\.exit/);
+
+	const planDir = join(context.cwd, '.lightsout', 'plans', 'demo');
+	const report = buildActivityTree({ plan: 'demo', marks: await readActivityMarks({ dir: planDir }) });
+	const planning = JSON.parse(readFileSync(join(planDir, 'planning-progress.json'), 'utf8')) as unknown;
+
+	expect(report.roots).toEqual([
+		expect.objectContaining({
+			level: 'plan',
+			processes: [],
+			children: [
+				expect.objectContaining({
+					level: 'command-run',
+					label: expect.stringMatching(/verify-facts/),
+					startedAt: expect.any(String),
+					endedAt: expect.any(String),
+					outcome: 'passed',
+					processes: [],
+					children: [],
+				}),
+			],
+		}),
+	]);
+	expect(planning).toEqual(
+		expect.objectContaining({
+			name: 'demo',
+			steps: [expect.objectContaining({ step: 'verify-facts', status: 'passed', attempts: 1, pid: process.pid })],
+		}),
+	);
+	expect(exitCodes).toStrictEqual([0]);
+});
+
+// The outcome the command run's end mark carries is the one that agrees with
+// the exit code: a run that exits 1 must not read as passed in the activity
+// record, and the plan level above it closes on the same outcome.
+test('records the failed outcome on the command run and the plan level when the run exits 1', async () => {
+	const { context, exitCodes } = setupVerifyFacts({ args: ['--name', 'demo'], authored: { areas: [] } });
+
+	await expect(planVerifyFactsCommand(context)).rejects.toThrow(/process\.exit/);
+
+	const planDir = join(context.cwd, '.lightsout', 'plans', 'demo');
+	const report = buildActivityTree({ plan: 'demo', marks: await readActivityMarks({ dir: planDir }) });
+
+	expect(report.roots).toEqual([
+		expect.objectContaining({
+			level: 'plan',
+			outcome: 'failed',
+			children: [expect.objectContaining({ level: 'command-run', label: expect.stringMatching(/verify-facts/), outcome: 'failed', children: [] })],
+		}),
+	]);
+	expect(exitCodes).toStrictEqual([1]);
+});
+
+// The wrapper sits inside the missing-`--name` refusal, so a command that spent
+// nothing leaves the plan folder without an activity record at all.
+test('a run that refuses for a missing --name writes no activity record', async () => {
+	const { context, exitCodes } = setupVerifyFacts({ args: [] });
+
+	await expect(planVerifyFactsCommand(context)).rejects.toThrow(/process\.exit/);
+
+	const marks = await readActivityMarks({ dir: join(context.cwd, '.lightsout', 'plans', 'demo') });
+
+	expect(marks).toStrictEqual([]);
 	expect(exitCodes).toStrictEqual([1]);
 });

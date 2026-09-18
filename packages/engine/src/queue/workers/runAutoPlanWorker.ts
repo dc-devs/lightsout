@@ -93,7 +93,7 @@ const runPlanningSession = async ({
 		return { error: refusal };
 	}
 
-	const folder = planWorkspaceDir({ cwd, name: planAddress });
+	const folder = await planWorkspaceDir({ cwd, name: planAddress });
 
 	if (!(await pathExists({ path: folder }))) {
 		return { error: `${ticket.identifier}'s auto-plan session reported a finished plan, but no plan folder exists at ${folder} — nothing was built` };

@@ -34,8 +34,8 @@ const recordEntry = async ({
 	const entry = entryOf({ previous: current?.steps.find((candidate) => candidate.step === step) });
 	const progress: PlanningProgress = { name, updatedAt: new Date().toISOString(), steps: withEntry({ progress: current, entry }) };
 
-	await writePlanningProgress({ cwd, progress }).catch((error: unknown) => {
-		console.error(`the planning progress record at ${getPlanningProgressPath({ cwd, name })} could not be written: ${messageOf({ error })}`);
+	await writePlanningProgress({ cwd, progress }).catch(async (error: unknown) => {
+		console.error(`the planning progress record at ${await getPlanningProgressPath({ cwd, name })} could not be written: ${messageOf({ error })}`);
 	});
 
 	return entry;

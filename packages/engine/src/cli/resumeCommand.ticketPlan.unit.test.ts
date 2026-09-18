@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { resumeCommand } from '#src/cli/resumeCommand.ts';
@@ -107,14 +108,41 @@ const planWith = ({
 const readRecord = ({ workspace }: { workspace: string }): TicketRecord =>
 	JSON.parse(readFileSync(join(workspace, '.lightsout', 'plans', ticketBranch, 'ticket.json'), 'utf8'));
 
+/**
+ * A linked worktree of the ticket's checkout — the workspace an isolated run
+ * parks in. It holds no plans directory and no ticket record of its own: both
+ * stay in the checkout the tree was cut from.
+ */
+const cutRunWorktree = ({ primary }: { primary: string }) => {
+	const worktree = join(mkdtempSync(join(tmpdir(), 'lightsout-resume-tree-')), 'tree');
+
+	execSync(`git worktree add -q --detach "${worktree}"`, { cwd: primary, stdio: 'ignore' });
+
+	return worktree;
+};
+
 /** The seeded run's manifest as it stands on disk in the checkout the command was launched from. */
 const readManifest = ({ cwd }: { cwd: string }): { willShip?: boolean } =>
 	JSON.parse(readFileSync(join(cwd, '.lightsout', 'runs', runId, 'manifest.json'), 'utf8'));
 
+/** The manifest a parked run left behind, which is what resuming reads. */
+interface ParkedRun {
+	/** What the manifest records as the run's plan: a plan's own deliverable, or the ticket body a direct run froze. */
+	plan: string;
+	status: RunStatus;
+	/** The ship stamp the parked manifest already carries. */
+	willShip?: boolean;
+	pipeline?: PipelineKind;
+}
+
 /**
  * A parked run of one of a ticket's plans: the run's records in the checkout
- * the command was launched from, and the ticket branch's own checkout as the
- * workspace, holding the ticket record beside a folder per plan.
+ * the command was launched from, and the ticket branch's own checkout holding
+ * the ticket record beside a folder per plan.
+ *
+ * That checkout is the workspace the run recorded, unless `isolated` puts the
+ * run in a linked worktree cut from it — the shape every plan folder and every
+ * ticket record is reached from its primary checkout in.
  *
  * Run state is gitignored there so the record and the run's files never read as
  * work a resumed direct build has to commit.
@@ -122,31 +150,30 @@ const readManifest = ({ cwd }: { cwd: string }): { willShip?: boolean } =>
 const setupTicketResume = ({
 	mode = TicketMode.MultiplePlan,
 	plans,
-	plan,
-	status,
-	willShip,
-	pipeline = PipelineKind.Implement,
+	parked,
+	isolated = false,
 }: {
 	mode?: TicketMode;
 	plans: TicketPlan[];
-	/** What the manifest records as the run's plan: a plan's own deliverable, or the ticket body a direct run froze. */
-	plan: string;
-	status: RunStatus;
-	/** The ship stamp the parked manifest already carries. */
-	willShip?: boolean;
-	pipeline?: PipelineKind;
+	/** The manifest the parked run left behind. */
+	parked: ParkedRun;
+	/** Whether the parked run's workspace is a linked worktree rather than the ticket's own checkout. */
+	isolated?: boolean;
 }) => {
-	const { cwd: workspace } = setupBranchRepo({ branch: ticketBranch });
+	const { plan, status, willShip, pipeline = PipelineKind.Implement } = parked;
 
-	writeRepoFile({ cwd: workspace, path: '.gitignore', content: '.lightsout/\n' });
-	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm ignore', { cwd: workspace, stdio: 'ignore' });
+	const { cwd: primary } = setupBranchRepo({ branch: ticketBranch });
 
+	writeRepoFile({ cwd: primary, path: '.gitignore', content: '.lightsout/\n' });
+	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm ignore', { cwd: primary, stdio: 'ignore' });
+
+	const workspace = isolated ? cutRunWorktree({ primary }) : primary;
 	const record: TicketRecord = { schemaVersion: 1, ticketRef: 'LO-140', branch: ticketBranch, mode, plans, history: [] };
 
-	writeRepoFile({ cwd: workspace, path: join('.lightsout', 'plans', ticketBranch, 'ticket.json'), content: JSON.stringify(record) });
+	writeRepoFile({ cwd: primary, path: join('.lightsout', 'plans', ticketBranch, 'ticket.json'), content: JSON.stringify(record) });
 
 	for (const entry of plans) {
-		writeRepoFile({ cwd: workspace, path: planPath({ planId: entry.id }), content: `# ${entry.title}\n` });
+		writeRepoFile({ cwd: primary, path: planPath({ planId: entry.id }), content: `# ${entry.title}\n` });
 	}
 
 	const seeded = setupResume({
@@ -167,7 +194,7 @@ const setupTicketResume = ({
 		manifest: manifestOf({ pipeline: PipelineKind.Direct, status: RunStatus.Passed, plan, ticketRef: 'LO-140', branch: ticketBranch, workspace }),
 	});
 
-	return { workspace, seededRecord: record, ...seeded };
+	return { primary, workspace, seededRecord: record, ...seeded };
 };
 
 describe('resumeCommand ticket plans', () => {
@@ -180,8 +207,7 @@ describe('resumeCommand ticket plans', () => {
 					implementation: { runId, startedAt: '2026-03-02T09:00:00.000Z', startCommit: 'c0ffee1' },
 				}),
 			],
-			plan: planPath({ planId: planOne }),
-			status: RunStatus.Failed,
+			parked: { plan: planPath({ planId: planOne }), status: RunStatus.Failed },
 		});
 
 		await resumeCommand(context);
@@ -198,6 +224,30 @@ describe('resumeCommand ticket plans', () => {
 		expect(mockRunPipelineOrFailFast).toHaveBeenCalledTimes(1);
 	});
 
+	test('resuming a run parked in a linked worktree records the plan in the primary checkout', async () => {
+		const { context, primary, workspace } = setupTicketResume({
+			plans: [
+				planWith({
+					id: planOne,
+					progress: PlanProgress.Failed,
+					implementation: { runId, startedAt: '2026-03-02T09:00:00.000Z', startCommit: 'c0ffee1' },
+				}),
+			],
+			parked: { plan: planPath({ planId: planOne }), status: RunStatus.Failed },
+			isolated: true,
+		});
+
+		await resumeCommand(context);
+
+		// the run's plan path is repo-relative and the folder it names is the
+		// primary checkout's, so a tree that resolved it against itself would find
+		// no plan there and the run would belong to nothing
+		expect(mockRunPipelineOrFailFast).toHaveBeenCalledWith(expect.objectContaining({ cwd: workspace }));
+		expect(readRecord({ workspace: primary }).plans[0]).toEqual(
+			expect.objectContaining({ id: planOne, progress: 'implemented', implementation: expect.objectContaining({ runId }) }),
+		);
+	});
+
 	test('refuses to resume the run of a plan excluded since it parked, changing nothing', async () => {
 		const { context, cwd, workspace, errors, exitCodes } = setupTicketResume({
 			plans: [
@@ -209,9 +259,7 @@ describe('resumeCommand ticket plans', () => {
 					excludedFor: 'replaced by a later plan',
 				}),
 			],
-			plan: planPath({ planId: planTwo }),
-			status: RunStatus.PausedRateLimit,
-			willShip: true,
+			parked: { plan: planPath({ planId: planTwo }), status: RunStatus.PausedRateLimit, willShip: true },
 		});
 
 		await expect(resumeCommand(context)).rejects.toThrow(/process\.exit/);
@@ -238,8 +286,7 @@ describe('resumeCommand ticket plans', () => {
 					publishedMarker: otherMachineMarker,
 				}),
 			],
-			plan: planPath({ planId: planOne }),
-			status: RunStatus.Failed,
+			parked: { plan: planPath({ planId: planOne }), status: RunStatus.Failed },
 		});
 
 		await expect(resumeCommand(context)).rejects.toThrow(/process\.exit/);
@@ -258,9 +305,7 @@ describe('resumeCommand ticket plans', () => {
 		const { context, workspace, seededRecord } = setupTicketResume({
 			mode: TicketMode.SinglePlan,
 			plans: [planWith({ id: planOne, progress: PlanProgress.Ready })],
-			plan: frozenTicketPath,
-			status: RunStatus.Failed,
-			pipeline: PipelineKind.Direct,
+			parked: { plan: frozenTicketPath, status: RunStatus.Failed, pipeline: PipelineKind.Direct },
 		});
 
 		await resumeCommand(context);
@@ -281,9 +326,7 @@ describe('resumeCommand ticket plans', () => {
 					implementation: { runId, startedAt: '2026-03-02T09:00:00.000Z', startCommit: 'c0ffee1' },
 				}),
 			],
-			plan: frozenTicketPath,
-			status: RunStatus.Failed,
-			pipeline: PipelineKind.Direct,
+			parked: { plan: frozenTicketPath, status: RunStatus.Failed, pipeline: PipelineKind.Direct },
 		});
 
 		await resumeCommand(context);

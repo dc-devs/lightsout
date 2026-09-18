@@ -15,6 +15,7 @@ export { planCommand } from '#src/cli/plan/index.ts';
 export { queueCommand } from '#src/cli/queueCommand.ts';
 export { readStandardsLedger } from '#src/cli/readStandardsLedger.ts';
 export { refactorCommand } from '#src/cli/refactorCommand.ts';
+export { reportCommand } from '#src/cli/reportCommand.ts';
 export { resumeCommand } from '#src/cli/resumeCommand.ts';
 export { reviewStandards } from '#src/cli/reviewStandards.ts';
 export { selfCheckCommand } from '#src/cli/selfCheckCommand.ts';

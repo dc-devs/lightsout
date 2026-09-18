@@ -35,7 +35,7 @@ const readJson = async ({ path }: { path: string }): Promise<{ value: unknown } 
  * @throws {Error} When the file is not JSON, or is JSON that is not a `GradeMemory`.
  */
 export const readGradeMemory = async ({ cwd, name }: Params): Promise<GradeMemory | undefined> => {
-	const path = gradeMemoryPath({ cwd, name });
+	const path = await gradeMemoryPath({ cwd, name });
 
 	if (!(await pathExists({ path }))) {
 		return undefined;

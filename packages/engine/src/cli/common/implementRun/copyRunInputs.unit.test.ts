@@ -11,7 +11,7 @@ const phaseBody = '# phase 3: isolated implement\n';
 const factsBody = '{"facts":[]}\n';
 const ticketBody = '# LO-9 run implement in a new worktree\n';
 
-/** A launching checkout holding a real plan folder, beside an empty workspace to copy it into. */
+/** A launching checkout holding a real plan folder, beside an empty workspace the run works in. */
 const setupPlanFolder = async () => {
 	const sourceCwd = await freshCwd();
 	const workspace = await freshCwd();
@@ -92,26 +92,46 @@ const setupTicketFolder = async () => {
 	return { sourceCwd, workspace, earlierDir };
 };
 
+/**
+ * A launching checkout holding both a real plan folder and one loose markdown
+ * input, beside an empty workspace — the two kinds of input a run is given at
+ * once.
+ */
+const setupPlanFolderAndLooseInput = async () => {
+	const sourceCwd = await freshCwd();
+	const workspace = await freshCwd();
+	const planDir = join(sourceCwd, planFolderPath);
+	const notesDir = join(sourceCwd, 'notes');
+
+	mkdirSync(planDir, { recursive: true });
+	writeFileSync(join(planDir, 'overview.md'), overviewBody);
+	writeFileSync(join(planDir, 'facts.json'), factsBody);
+	mkdirSync(notesDir, { recursive: true });
+	writeFileSync(join(notesDir, 'lo-9-ticket.md'), ticketBody);
+
+	return { sourceCwd, workspace, planDir, loosePath: join('notes', 'lo-9-ticket.md') };
+};
+
 describe('copyRunInputs', () => {
-	test('copies the whole plan folder and answers its workspace-relative path', async () => {
+	test('leaves the whole plan folder where it is and answers its repo-relative path', async () => {
 		const { sourceCwd, workspace, planDir } = await setupPlanFolder();
 
 		const result = await copyRunInputs({ sourceCwd, workspace, planPath: planFolderPath });
 
 		expect(result).toEqual({ planPath: planFolderPath });
-		expect(readdirSync(join(workspace, planFolderPath)).sort()).toStrictEqual(['facts.json', 'overview.md', 'phase3-isolated-implement.md']);
-		expect(readFileSync(join(workspace, planFolderPath, 'overview.md'), 'utf8')).toBe(overviewBody);
+		expect(existsSync(join(workspace, planFolderPath))).toBe(false);
 		expect(readdirSync(planDir).sort()).toStrictEqual(['facts.json', 'overview.md', 'phase3-isolated-implement.md']);
 		expect(readFileSync(join(planDir, 'overview.md'), 'utf8')).toBe(overviewBody);
 	});
 
-	test('normalises an absolute plan path onto the copy in the workspace', async () => {
-		const { sourceCwd, workspace } = await setupPlanFolder();
+	test('normalises an absolute plan path onto the repo-relative one the manifest records', async () => {
+		const { sourceCwd, workspace, planDir } = await setupPlanFolder();
 
 		const result = await copyRunInputs({ sourceCwd, workspace, planPath: join(sourceCwd, planFolderPath) });
 
 		expect(result).toEqual({ planPath: planFolderPath });
-		expect(readFileSync(join(workspace, planFolderPath, 'phase3-isolated-implement.md'), 'utf8')).toBe(phaseBody);
+		expect(existsSync(join(workspace, planFolderPath))).toBe(false);
+		expect(readFileSync(join(planDir, 'phase3-isolated-implement.md'), 'utf8')).toBe(phaseBody);
 	});
 
 	test('copies a ticket file into the ignored state directory, never onto a tracked path', async () => {
@@ -165,15 +185,27 @@ describe('copyRunInputs', () => {
 		expect(readFileSync(join(gradedDir, 'grade-memory.json'), 'utf8')).toBe(gradeMemoryBody);
 	});
 
-	test("copies a later plan's folder into a workspace that already holds an earlier plan of the same ticket", async () => {
+	test("a later plan of a ticket is answered where it is, leaving the workspace's earlier plan alone", async () => {
 		const { sourceCwd, workspace, earlierDir } = await setupTicketFolder();
 
 		const result = await copyRunInputs({ sourceCwd, workspace, planPath: join(ticketFolderPath, '002-ranking', 'plan.md') });
 
 		expect(result).toEqual({ planPath: join(ticketFolderPath, '002-ranking', 'plan.md') });
-		expect(readdirSync(join(workspace, ticketFolderPath, '002-ranking')).sort()).toStrictEqual(['facts.json', 'plan.md']);
-		expect(readFileSync(join(workspace, ticketFolderPath, '002-ranking', 'plan.md'), 'utf8')).toBe(laterPlanBody);
+		expect(existsSync(join(workspace, ticketFolderPath, '002-ranking'))).toBe(false);
+		expect(readFileSync(join(sourceCwd, ticketFolderPath, '002-ranking', 'plan.md'), 'utf8')).toBe(laterPlanBody);
 		expect(readdirSync(earlierDir)).toStrictEqual(['plan.md']);
 		expect(readFileSync(join(earlierDir, 'plan.md'), 'utf8')).toBe(earlierPlanBody);
+	});
+
+	test('a plan-folder input is left where it is and answered unchanged, while a loose input is still copied in', async () => {
+		const { sourceCwd, workspace, planDir, loosePath } = await setupPlanFolderAndLooseInput();
+
+		const result = await copyRunInputs({ sourceCwd, workspace, planPath: planFolderPath, ticketPath: loosePath });
+
+		expect(result).toStrictEqual({ planPath: planFolderPath, ticketPath: join('.lightsout', 'inputs', 'lo-9-ticket.md') });
+		expect(existsSync(join(workspace, '.lightsout', 'plans'))).toBe(false);
+		expect(readFileSync(join(workspace, '.lightsout', 'inputs', 'lo-9-ticket.md'), 'utf8')).toBe(ticketBody);
+		expect(readdirSync(planDir).sort()).toStrictEqual(['facts.json', 'overview.md']);
+		expect(readFileSync(join(planDir, 'overview.md'), 'utf8')).toBe(overviewBody);
 	});
 });

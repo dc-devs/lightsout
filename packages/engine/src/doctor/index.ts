@@ -2,6 +2,7 @@ export { checkConfiguredPaths } from '#src/doctor/checkConfiguredPaths.ts';
 export { checkCoverageSummary } from '#src/doctor/checkCoverageSummary.ts';
 export { checkGitignore } from '#src/doctor/checkGitignore.ts';
 export { checkHarness } from '#src/doctor/checkHarness.ts';
+export { checkHarnessUsage } from '#src/doctor/checkHarnessUsage.ts';
 export { checkJestMocks } from '#src/doctor/checkJestMocks.ts';
 export { checkJestReporter } from '#src/doctor/checkJestReporter.ts';
 export { checkLintRules } from '#src/doctor/checkLintRules.ts';

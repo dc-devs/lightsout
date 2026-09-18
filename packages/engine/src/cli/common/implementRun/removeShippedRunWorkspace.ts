@@ -1,8 +1,5 @@
-import { copyPlanFolderToPrimary } from '#src/cli/common/implementRun/copyPlanFolderToPrimary.ts';
 import { readGitPrimaryCheckout } from '#src/common/git/readGitPrimaryCheckout.ts';
-import { ticketFolderOf } from '#src/common/planAddress/ticketFolderOf.ts';
 import { type RunManifest, WorktreeOwner } from '#src/contracts/index.ts';
-import { planNameFromPath } from '#src/plan/index.ts';
 import { deleteWorktreeRecord, readWorktreeRecord, removeWorktree } from '#src/worktree/index.ts';
 
 interface Params {
@@ -54,11 +51,9 @@ const describeRemovableTree = async ({ cwd, manifest }: { cwd: string; manifest:
  * record deleted beside a tree that survived is exactly the unclaimed tree a
  * later drain adopts.
  *
- * The plan folder the tree holds is saved into the primary checkout first, so
- * the cleanup can never delete the only local copy of a finished plan — a plan
- * with no ticket has no attachment to fall back on. A save that fails leaves the
- * tree and its record standing: a surviving tree is recoverable, where a deleted
- * sole copy of a plan is not.
+ * Nothing is saved out of the tree first, because a tree never holds a plan: a
+ * plan folder lives in the main checkout whichever checkout a command runs from,
+ * so removing the tree can take no copy of a plan with it.
  *
  * The run's own records are never touched: they live in the checkout the
  * command was launched from, which is the whole reason they are written there.
@@ -67,22 +62,6 @@ export const removeShippedRunWorkspace = async ({ cwd, manifest, onProgress }: P
 	const removable = await describeRemovableTree({ cwd, manifest });
 
 	if (removable === undefined) {
-		return;
-	}
-
-	// A run started from a loose plan file outside the plans directory has no
-	// folder to save, and goes straight to the removal.
-	//
-	// The whole ticket folder is saved rather than the one plan this run built:
-	// the ticket's other plans live in the same tree, and a per-plan save would
-	// take them down with it. A legacy name is its own ticket folder, so it saves
-	// exactly what it always saved.
-	const name = planNameFromPath({ cwd: removable.worktreePath, planPath: manifest.plan });
-	const saving = name === undefined ? undefined : ticketFolderOf({ name });
-	const unsaved = saving === undefined ? undefined : await copyPlanFolderToPrimary({ worktree: removable.worktreePath, primary: removable.cwd, name: saving });
-
-	if (unsaved !== undefined) {
-		onProgress?.(`left the worktree at ${removable.worktreePath} standing: ${unsaved.error}`);
 		return;
 	}
 

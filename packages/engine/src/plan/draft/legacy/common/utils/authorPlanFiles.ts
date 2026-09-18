@@ -12,7 +12,7 @@ import { createDraftStop } from '#src/plan/draft/common/utils/createDraftStop.ts
 interface Params {
 	context: DraftContext;
 	/** Where to write, and which template variant applies — the engine's paths, never the agent's. */
-	outputs: ReturnType<typeof planDraftOutputs>;
+	outputs: Awaited<ReturnType<typeof planDraftOutputs>>;
 	/** Names this spawn's transcript: `draft`, or `draft-overview` for the overview of a phased re-draft. */
 	step: string;
 	/** The self-lint command and the prefix it is granted. Absent on an overview spawn: no phase file exists yet, so the lint would only ever error. */
@@ -42,7 +42,7 @@ export const authorPlanFiles = async ({
 	// Nothing has been checked yet at any of this step's exits, so every one of
 	// them carries an empty advisory set — stated once rather than four times.
 	const draftStop = createDraftStop({ workspaceDir, advisories: [], implementation: context.implementation });
-	const invokePlanAgent = createPlanAgentRunner({ cwd, driver, workspaceDir, step, model, effort, permissions, timeoutMs });
+	const invokePlanAgent = createPlanAgentRunner({ cwd, driver, workspaceDir, step, model, effort, permissions, timeoutMs, level: context.level });
 	// In the order the writer runs them, and only the ones this spawn was given:
 	// a spawn granted nothing at all asks the harness for nothing at all.
 	const grantedPrefixes = [sync?.prefix, lint?.prefix].filter((prefix) => prefix !== undefined);

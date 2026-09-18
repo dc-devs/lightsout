@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -6,6 +7,7 @@ import { loadPlanningProgressBlock } from '#src/cli/common/progressBlock/loadPla
 import { statusCommand } from '#src/cli/statusCommand.ts';
 import { type PlanningProgress, PlanningStep, RunStatus } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { usageFixture } from '#tests/helpers/usageFixture.ts';
 
 // Mocked Imports
@@ -59,6 +61,34 @@ const finishedRecord: PlanningProgress = {
 };
 
 /**
+ * A second demo record with a different step finished, written inside a linked
+ * worktree — the answer a status run from that tree must not give.
+ */
+const worktreeDecoyRecord: PlanningProgress = {
+	name: 'demo',
+	updatedAt: '2026-09-11T11:05:00.000Z',
+	steps: [
+		{
+			step: PlanningStep.Dedup,
+			status: RunStatus.Passed,
+			attempts: 1,
+			pid: process.pid,
+			startedAt: '2026-09-11T11:00:00.000Z',
+			finishedAt: '2026-09-11T11:00:10.000Z',
+			durationMs: 10_000,
+		},
+	],
+};
+
+/** Put a demo plan folder holding the given record into one checkout. */
+const writeDemoRecord = ({ checkout, record }: { checkout: string; record: PlanningProgress }) => {
+	const planDir = join(checkout, '.lightsout', 'plans', 'demo');
+
+	mkdirSync(planDir, { recursive: true });
+	writeFileSync(join(planDir, 'planning-progress.json'), `${JSON.stringify(record, null, '\t')}\n`, 'utf8');
+};
+
+/**
  * A real checkout with an empty runs folder and, unless told otherwise, a demo
  * plan folder — holding the given record when there is one. `expected` is what
  * the planning loader answers for that checkout, taken before any output is
@@ -90,6 +120,26 @@ const setupPointedCheckout = async () => {
 	jest.spyOn(process, 'cwd').mockReturnValue(processDir);
 
 	return setupPlanning({ record: finishedRecord });
+};
+
+/**
+ * A real repository with a linked worktree cut from it: the plan's record is in
+ * the primary checkout, where every plan folder now lives, and the tree holds a
+ * demo record of its own so the case can say which of the two was read.
+ */
+const setupWorktreeCheckout = () => {
+	const { cwd: primary } = setupBranchRepo();
+	const worktree = join(primary, '.worktrees', 'lo-150-planning-status');
+
+	execSync(`git worktree add -q -b lo-150-planning-status "${worktree}" main`, { cwd: primary, stdio: 'ignore' });
+	writeDemoRecord({ checkout: primary, record: finishedRecord });
+	writeDemoRecord({ checkout: worktree, record: worktreeDecoyRecord });
+	mockResolveWatchTarget.mockResolvedValue(undefined);
+	mockWatchRunProgress.mockResolvedValue(undefined);
+
+	const captured = captureCommandOutput();
+
+	return { context: { flags: new Map<string, string | true>([['planning', 'demo']]), rest: [], cwd: worktree }, ...captured };
 };
 
 describe('statusCommand --planning', () => {
@@ -166,6 +216,22 @@ describe('statusCommand --planning', () => {
 		expect(logged).toStrictEqual(['', ...expected]);
 		// the checkout's verify-facts entry, which an empty process folder could not have drawn
 		expect(logged.some((line) => /^ ✓ {2}verify-facts +passed \(x2\) +0m 30s$/.test(line))).toBe(true);
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('--planning from inside a linked worktree prints the planning record the primary checkout holds', async () => {
+		const { context, logged, errors, exitCodes } = setupWorktreeCheckout();
+
+		await expect(statusCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged[1]).toMatch(/^demo +planning$/);
+		// the primary's record: verify-facts passed twice, then draft failed
+		expect(logged.some((line) => /^ ✓ {2}verify-facts +passed \(x2\) +0m 30s$/.test(line))).toBe(true);
+		expect(logged.some((line) => /^ ✗ {2}draft +failed +1m 00s$/.test(line))).toBe(true);
+		// the tree's own record had dedup passed, so a dedup row with no outcome says it was never read
+		expect(logged.some((line) => /^ · {2}dedup +—$/.test(line))).toBe(true);
+		expect(logged).toContain(' elapsed 2m 00s · 1 of 5 passed');
+		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);
 	});
 });

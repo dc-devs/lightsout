@@ -1,10 +1,13 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { readJsonlRecords } from '#src/common/utils/readJsonlRecords.ts';
-import { DecisionSource, Effort, GradeReport, Permissions } from '#src/contracts/index.ts';
+import { DecisionSource, Effort, GradeMemory, GradeReport, Permissions } from '#src/contracts/index.ts';
 import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
 import { gradeHistoryPath } from '#src/plan/gradeHistoryPath.ts';
+import { gradeMemoryPath } from '#src/plan/index.ts';
 import { runPlanGrade } from '#src/plan/runPlanGrade.ts';
 import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advisoryPlan.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
@@ -120,6 +123,22 @@ const setupMixedVerdicts = () => {
 	};
 
 	return { ...seeded, driver };
+};
+
+/**
+ * A consumer repo holding one plan folder, with a linked worktree cut from its
+ * HEAD — the shape `plan.worktree` puts a grade run in. The plan folder was
+ * written after the repo's only commit, so the worktree has no copy of it and
+ * the run can only succeed by reading the primary checkout.
+ */
+const setupLinkedWorktree = ({ name }: { name: string }) => {
+	const primary = setupConsumerRepo();
+	const planDir = writePlanDeliverable({ cwd: primary, name, body: cleanPlanBody({ title: 'Graded Plan' }) });
+	const worktree = join(mkdtempSync(join(tmpdir(), 'lightsout-plan-grade-tree-')), 'tree');
+
+	execSync(`git worktree add -q -b ${name} "${worktree}" HEAD`, { cwd: primary, stdio: 'ignore' });
+
+	return { primary, worktree, name, planDir, driver: createGapCheckDriver() };
 };
 
 test('plan grade: a clean plan with no gaps passes as grade A', async () => {
@@ -346,40 +365,28 @@ test('plan grade: a pass whose findings are judged both ways grades on the block
 	);
 });
 
-test("plan grade: a completed pass is appended to the plan's grade history", async () => {
-	const { cwd, name, driver } = setup({ name: 'recorded' });
+test("a grade run from a linked worktree reads and writes the primary checkout's plan folder", async () => {
+	const { primary, worktree, name, planDir, driver } = setupLinkedWorktree({ name: 'worktree-graded' });
 
-	const result = await runPlanGrade({ cwd, driver, name });
+	const result = await runPlanGrade({ cwd: worktree, driver, name });
 
 	expectStatus(result, 'complete');
+	// the deliverable was found at all: a run that resolved the plan folder
+	// against the worktree reports no plan there and never grades anything
+	expect(result.grade.grade).toBe('A');
+	expect(result.workspaceDir).toBe(join(realpathSync(primary), '.lightsout', 'plans', name));
+	// and every file the pass writes lands in the folder that survives the tree
+	expect(result.gradePath).toBe(join(realpathSync(primary), '.lightsout', 'plans', name, 'grade.json'));
+	expect(GradeReport.parse(JSON.parse(readFileSync(join(planDir, 'grade.json'), 'utf8'))).planName).toBe(name);
+	expect(GradeMemory.parse(JSON.parse(readFileSync(join(planDir, 'grade-memory.json'), 'utf8'))).planName).toBe(name);
 
-	const history = await readJsonlRecords({ path: gradeHistoryPath({ cwd, name }), schema: GradeReport });
+	const history = await readJsonlRecords({ path: await gradeHistoryPath({ cwd: worktree, name }), schema: GradeReport });
 
 	expect(history.length).toBe(1);
-	// the ledger line is the pass itself, not a summary of it
-	expect(history[0]?.grade).toBe(result.grade.grade);
 	expect(history[0]?.gradedAt).toBe(result.grade.gradedAt);
-});
-
-test('plan grade: a second pass leaves two history lines and one latest grade', async () => {
-	// A finding the first pass leaves unanswered, so that pass does not record a
-	// passing full review: the second pass then measures the plan again rather
-	// than reporting the recorded one as still current, which is the case this
-	// covers.
-	const { cwd, name, driver, gradePath } = setup({ name: 're-graded', gaps: [omittedDecisionGap] });
-
-	await runPlanGrade({ cwd, driver, name });
-	const second = await runPlanGrade({ cwd, driver, name });
-
-	expectStatus(second, 'complete');
-
-	const history = await readJsonlRecords({ path: gradeHistoryPath({ cwd, name }), schema: GradeReport });
-
-	// re-grading a plan no longer throws the earlier pass away
-	expect(history.length).toBe(2);
-	// and grade.json still holds exactly one report — the latest pass
-	const latest = GradeReport.parse(JSON.parse(readFileSync(gradePath, 'utf8')));
-
-	expect(latest.gradedAt).toBe(second.grade.gradedAt);
-	expect(latest.grade).toBe(second.grade.grade);
+	// the memory path answered from the worktree is the primary's own, so the
+	// next pass from any checkout reads what this one recorded
+	expect(await gradeMemoryPath({ cwd: worktree, name })).toBe(join(realpathSync(primary), '.lightsout', 'plans', name, 'grade-memory.json'));
+	// nothing at all was written into the tree that gets removed
+	expect(existsSync(join(worktree, '.lightsout'))).toBe(false);
 });

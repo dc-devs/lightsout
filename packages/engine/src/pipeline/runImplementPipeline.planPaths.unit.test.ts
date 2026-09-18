@@ -1,4 +1,6 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
@@ -90,4 +92,83 @@ test('a relative --plan is recorded exactly as named — the form it always had'
 
 	expect(result.ok).toBe(true);
 	expect(result.manifest.plan).toBe('plan.md');
+});
+
+/** The plan folder the primary checkout holds, in the form run state records it. */
+const planFolder = join('.lightsout', 'plans', 'lo-150-observability');
+
+/**
+ * The same run, arranged the way one really works now: the plan folder stays in
+ * the primary checkout and the pipeline works in a linked worktree cut from it.
+ *
+ * The tree is cut outside the repository, so every file the run sees there is
+ * one the worktree itself carries — a plan read from it could only have come
+ * from the primary. The plan and the overview are written after the fixture's
+ * commit, so they are the primary checkout's own files and no worktree holds a
+ * copy of either.
+ */
+const setupWorktreePlanRun = async () => {
+	const primary = setupConsumerRepo();
+	const worktree = join(mkdtempSync(join(tmpdir(), 'lightsout-plan-worktree-')), 'tree');
+	const briefs: string[] = [];
+
+	execSync(`git worktree add -q -b lo-150-observability "${worktree}"`, { cwd: primary, stdio: 'ignore' });
+
+	mkdirSync(join(primary, planFolder), { recursive: true });
+	writeFileSync(join(primary, planFolder, 'phase1-observability.md'), '# Phase 1\n\nPLAN-SENTINEL\n');
+	writeFileSync(join(primary, planFolder, 'overview.md'), '# Overview\n\nOVERVIEW-SENTINEL\n');
+
+	const driver: Driver = {
+		name: 'stub',
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt, systemPrompt }) => {
+				const role = roleOf(prompt);
+
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
+
+				if (role === 'write-tests') {
+					mkdirSync(join(worktree, 'test'), { recursive: true });
+					writeFileSync(join(worktree, 'test/feature.test.js'), '// stub test\n');
+
+					return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
+				}
+
+				if (role === 'implement') {
+					briefs.push(systemPrompt ?? '');
+				}
+
+				writeSource({ dir: worktree, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
+
+				return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
+			},
+		}),
+	};
+
+	return { primary, worktree, driver, briefs, config: await readConfig({ cwd: worktree }) };
+};
+
+test('a run working in a linked worktree reads its plan and overview from the primary checkout', async () => {
+	const { primary, worktree, driver, briefs, config } = await setupWorktreePlanRun();
+
+	const result = await runImplementPipeline({
+		cwd: worktree,
+		driver,
+		config,
+		planPath: join(planFolder, 'phase1-observability.md'),
+		overviewPath: join(planFolder, 'overview.md'),
+		skipRefactor: true,
+	});
+
+	// the run found both files, though the worktree it works in holds neither
+	expect(result.ok).toBe(true);
+	expect(briefs[0]).toContain('PLAN-SENTINEL');
+	expect(briefs[0]).toContain('OVERVIEW-SENTINEL');
+	// recorded exactly as it was named, so a resume reads it back the same way
+	expect(result.manifest.plan).toBe(join(planFolder, 'phase1-observability.md'));
+	expect(result.manifest.overview).toBe(join(planFolder, 'overview.md'));
+	// and nothing put a plan folder inside the tree, which is removed when the work ships
+	expect(existsSync(join(worktree, '.lightsout', 'plans'))).toBe(false);
+	expect(readFileSync(join(primary, planFolder, 'phase1-observability.md'), 'utf8')).toBe('# Phase 1\n\nPLAN-SENTINEL\n');
 });

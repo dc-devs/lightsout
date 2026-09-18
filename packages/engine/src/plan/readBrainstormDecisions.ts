@@ -20,7 +20,7 @@ interface Params {
  * settled and the engine could not read would re-open them for no reason.
  */
 export const readBrainstormDecisions = async ({ cwd, name }: Params): Promise<BrainstormDecisions | undefined> => {
-	const filePath = join(planWorkspaceDir({ cwd, name }), brainstormDecisionsFile);
+	const filePath = join(await planWorkspaceDir({ cwd, name }), brainstormDecisionsFile);
 	const present = await pathExists({ path: filePath });
 
 	if (!present) {

@@ -45,7 +45,7 @@ interface Params {
  * finished plan look active. Every other directory is skipped entirely.
  */
 export const readPlanWorkspaceFiles = async ({ cwd, name }: Params): Promise<PlanWorkspaceFiles> => {
-	const dir = planWorkspaceDir({ cwd, name });
+	const dir = await planWorkspaceDir({ cwd, name });
 	const workspacePath = planWorkspacePath({ name });
 	const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
 	const folderStats = await stat(dir).catch(() => undefined);

@@ -1,9 +1,10 @@
 import type { z } from 'zod';
+import type { ActivityLevel } from '#src/activity/index.ts';
 import { buildReportReemitterInvocation } from '#src/agents/index.ts';
-import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { AgentUsage, Effort, Permissions } from '#src/contracts/index.ts';
-import type { AgentEnvironment, Driver, DriverInvocation, DriverResult } from '#src/drivers/index.ts';
+import type { AgentEnvironment, Driver } from '#src/drivers/index.ts';
 import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
+import { recordHarnessProcess } from '#src/invoke/common/utils/recordHarnessProcess.ts';
 import { extractJsonReport } from '#src/invoke/extractJsonReport.ts';
 
 /**
@@ -45,29 +46,11 @@ const shouldReemit = ({ payload, maxRoleAttempts }: { payload: unknown; maxRoleA
 	maxRoleAttempts === 1 || (typeof payload === 'object' && payload !== null);
 
 /**
- * One rung of the ladder: spawn the harness and say what it produced, without
- * deciding what happens next. Kept apart from the loop that decides, so that
- * loop has room for the reasoning behind each of its exits — a chokepoint whose
- * reasoning has been squeezed out to fit a line cap is the wrong thing to leave
- * behind.
+ * What ended the ladder, minus the bill: `usage` is threaded onto the outcome
+ * once, at the single exit, so no rung can return an outcome that under-reports
+ * what the call burned.
  */
-const spawnRung = async ({
-	driver,
-	invocation,
-}: {
-	driver: Driver;
-	invocation: DriverInvocation;
-}): Promise<{ ok: true; result: DriverResult } | { ok: false; failure: string }> => {
-	try {
-		return { ok: true, result: await driver.invoke(invocation) };
-	} catch (error) {
-		// Timeouts and spawn failures are step failures the engine records
-		// and the run resumes from — never uncaught crashes that zombie the
-		// manifest. No blind retry: a second identical timeout just doubles
-		// the cost of learning the ceiling is too low.
-		return { ok: false, failure: `agent invocation failed: ${messageOf({ error })}` };
-	}
-};
+type LadderResult<Report> = { ok: true; report: Report } | { ok: false; failure: string; rateLimited: boolean };
 
 interface Params<Contract extends z.ZodType> {
 	driver: Driver;
@@ -99,6 +82,12 @@ interface Params<Contract extends z.ZodType> {
 	onEvent?: (event: unknown) => void;
 	/** Called with the raw final message whenever it fails the contract — the caller persists it as run evidence. */
 	onRejectedOutput?: (params: { text: string; attempt: number; validationError: string }) => Promise<void> | void;
+	/**
+	 * The level each of this call's harness processes is recorded under. Omitted
+	 * wherever no run is being recorded — the ladder then behaves exactly as it
+	 * does today.
+	 */
+	activity?: ActivityLevel;
 }
 
 /**
@@ -132,18 +121,13 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 	maxRoleAttempts = 1,
 	onEvent,
 	onRejectedOutput,
+	activity,
 }: Params<Contract>): Promise<AgentOutcome<z.infer<Contract>>> => {
-	// What ended the ladder, minus the bill: `usage` is threaded on once, at the
-	// single exit, so no rung can return an outcome that under-reports what the
-	// call burned. Its starting value is what a ceiling below one returns — a
-	// ladder with no rungs says so rather than throwing at a value no caller
-	// passes — and every contract rejection overwrites it, so a ladder that runs
-	// out ends carrying the last rung's reason.
-	let settled: { ok: true; report: z.infer<Contract> } | { ok: false; failure: string; rateLimited: boolean } = {
-		ok: false,
-		failure: 'no attempts made',
-		rateLimited: false,
-	};
+	// The starting value is what a ceiling below one returns — a ladder with no
+	// rungs says so rather than throwing at a value no caller passes — and every
+	// contract rejection overwrites it, so a ladder that runs out ends carrying
+	// the last rung's reason.
+	let settled: LadderResult<z.infer<Contract>> = { ok: false, failure: 'no attempts made', rateLimited: false };
 	let rejected: { rejectedText: string; validationError: string } | undefined;
 	let usage: AgentUsage | undefined;
 	let attempt = 0;
@@ -161,7 +145,13 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 
 		attempt += 1;
 
-		const rung = await spawnRung({ driver, invocation: { ...active, cwd, model, effort, permissions, timeoutMs, allowedCommands, environment, onEvent } });
+		const rung = await recordHarnessProcess({
+			driver,
+			invocation: { ...active, cwd, model, effort, permissions, timeoutMs, allowedCommands, environment, onEvent },
+			activity,
+			spawn: attempt,
+			reemit: isReemit,
+		});
 
 		if (!rung.ok) {
 			settled = { ok: false, failure: rung.failure, rateLimited: false };

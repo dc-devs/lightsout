@@ -115,7 +115,7 @@ interface Params {
  * every time the block shows agrees with every other.
  */
 export const loadPlanningProgressBlock = async ({ cwd, name }: Params): Promise<string[]> => {
-	const recordPath = getPlanningProgressPath({ cwd, name });
+	const recordPath = await getPlanningProgressPath({ cwd, name });
 	const nowMs = Date.now();
 	// A missing record reads as an empty one; a record that is there but cannot be used is `undefined`.
 	const progress: PlanningProgress | undefined = (await pathExists({ path: recordPath }))

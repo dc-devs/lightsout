@@ -67,7 +67,7 @@ interface SetupParams {
  */
 const setupDecided = async ({ name, gaps = [], recheckVerdict, phases, synced = true }: SetupParams) => {
 	const graded = await setupGraded({ name, gaps, recheckVerdict });
-	const decisionsPath = join(planWorkspaceDir({ cwd: graded.cwd, name }), 'decisions.json');
+	const decisionsPath = join(await planWorkspaceDir({ cwd: graded.cwd, name }), 'decisions.json');
 	const record = DecisionsRecord.parse(JSON.parse(readFileSync(decisionsPath, 'utf8')));
 
 	writeFileSync(decisionsPath, JSON.stringify({ ...record, decisions: [...record.decisions, decisionRow({ phases })] }));

@@ -1,9 +1,11 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { PlanFacts } from '#src/contracts/index.ts';
 import { runPlanVerifyFacts } from '#src/plan/runPlanVerifyFacts.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
+import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** Seed the workspace's authored facts.json with the given raw content. */
@@ -190,4 +192,36 @@ test('plan verify-facts: re-running on a stamped file re-verifies and re-stamps'
 	expect(restamped.verification.missingPaths).toStrictEqual([]);
 	// the authored request survives the re-stamp
 	expect(restamped.request).toBe('add a foo endpoint');
+});
+
+/**
+ * A primary checkout with a linked worktree cut from it, the plan's authored
+ * facts seeded in the primary's plan folder — the shape a plan command runs in
+ * whenever `plan.worktree` moves the session into a tree.
+ */
+const setupWorktreeSession = ({ name }: { name: string }) => {
+	const { cwd } = setupBranchRepo();
+	const primary = realpathSync(cwd);
+	const worktree = join(primary, '.worktrees', name);
+
+	execSync(`git worktree add -q -b ${name} "${worktree}" main`, { cwd: primary, stdio: 'ignore' });
+	seedFacts({ cwd: primary, name, content: authoredFacts({ ghost: false }) });
+
+	return { primary, worktree };
+};
+
+test("facts are written into the primary checkout's plan folder when the command runs in a worktree", async () => {
+	const { primary, worktree } = setupWorktreeSession({ name: 'worktree-session' });
+
+	const result = await runPlanVerifyFacts({ cwd: worktree, name: 'worktree-session' });
+
+	expectStatus(result, 'complete');
+	// the stamped file is the primary checkout's, whichever checkout the command ran in
+	expect(result.factsPath).toBe(join(primary, '.lightsout', 'plans', 'worktree-session', 'facts.json'));
+
+	const stamped = PlanFacts.parse(JSON.parse(readFileSync(join(primary, '.lightsout', 'plans', 'worktree-session', 'facts.json'), 'utf8')));
+
+	expect(stamped.request).toBe('add a foo endpoint');
+	// a plan folder in a tree that gets removed would take the plan with it
+	expect(existsSync(join(worktree, '.lightsout', 'plans'))).toBeFalsy();
 });

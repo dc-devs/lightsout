@@ -8,7 +8,7 @@ import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { planRunOptions } from '#src/cli/plan/common/utils/planRunOptions.ts';
 import { GapOutcome, type GradeReport, type LightsoutConfig, PlanningStep, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { getBlockingGaps, gradeHistoryPath, gradeMemoryPath, PlanRunStatus, recordPlanningStep, runPlanGrade } from '#src/plan/index.ts';
+import { getBlockingGaps, gradeHistoryPath, gradeMemoryPath, PlanRunStatus, recordPlanCommandRun, recordPlanningStep, runPlanGrade } from '#src/plan/index.ts';
 
 interface Params {
 	cwd: string;
@@ -51,6 +51,18 @@ const printWeights = ({ weights }: { weights: GradeReport['weights'] }) => {
 };
 
 /**
+ * The letter is the plan's verdict, not the step's outcome: a complete grade
+ * exits 0 below whatever its letter, so it records as passed. Read by both
+ * records, so the activity row and the planning step can never disagree.
+ */
+const gradeStatus = ({ result: graded }: { result: Awaited<ReturnType<typeof runPlanGrade>> }) =>
+	graded.status === PlanRunStatus.PausedRateLimit
+		? RunStatus.PausedRateLimit
+		: graded.gradePath !== undefined && graded.grade?.complete === true
+			? RunStatus.Passed
+			: RunStatus.Failed;
+
+/**
  * `plan grade` at the terminal.
  *
  * The failure branches are handled here rather than through `exitOnPlanFailure`
@@ -70,19 +82,19 @@ const printWeights = ({ weights }: { weights: GradeReport['weights'] }) => {
  * report, only the recorded verdict and the one way to force a new baseline.
  */
 export const planGradeCommand = async ({ cwd, driver, name, standards, config, phases }: Params): Promise<void> => {
-	const result = await recordPlanningStep({
+	const result = await recordPlanCommandRun({
 		cwd,
 		name,
-		step: PlanningStep.Grade,
-		work: () => runPlanGrade({ ...planRunOptions({ cwd, driver, name, standards, config }), phases }),
-		// The letter is the plan's verdict, not the step's outcome: a complete
-		// grade exits 0 below whatever its letter, so it records as passed.
-		statusOf: ({ result: graded }) =>
-			graded.status === PlanRunStatus.PausedRateLimit
-				? RunStatus.PausedRateLimit
-				: graded.gradePath !== undefined && graded.grade?.complete === true
-					? RunStatus.Passed
-					: RunStatus.Failed,
+		label: 'plan grade',
+		statusOf: gradeStatus,
+		work: ({ level }) =>
+			recordPlanningStep({
+				cwd,
+				name,
+				step: PlanningStep.Grade,
+				work: () => runPlanGrade({ ...planRunOptions({ cwd, driver, name, standards, config }), phases, level }),
+				statusOf: gradeStatus,
+			}),
 	});
 
 	if ('error' in result) {
@@ -113,7 +125,7 @@ export const planGradeCommand = async ({ cwd, driver, name, standards, config, p
 
 	if ('reused' in result && result.reused) {
 		console.log(
-			`  the recorded passing full review still covers the current inputs — nothing was re-run; delete ${gradeMemoryPath({ cwd, name })} to force a new baseline`,
+			`  the recorded passing full review still covers the current inputs — nothing was re-run; delete ${await gradeMemoryPath({ cwd, name })} to force a new baseline`,
 		);
 	} else {
 		const focus = grade.focusedOn.length > 0 ? ` — read ${grade.focusedOn.join(', ')}` : '';
@@ -141,7 +153,7 @@ export const planGradeCommand = async ({ cwd, driver, name, standards, config, p
 	printGaps({ gaps: blocking });
 
 	console.log(`\ngrade: ${gradePath}`);
-	console.log(`history: ${gradeHistoryPath({ cwd, name })}`);
-	console.log(`memory: ${gradeMemoryPath({ cwd, name })}`);
+	console.log(`history: ${await gradeHistoryPath({ cwd, name })}`);
+	console.log(`memory: ${await gradeMemoryPath({ cwd, name })}`);
 	return exitCli({ code: grade.complete ? 0 : 1 });
 };

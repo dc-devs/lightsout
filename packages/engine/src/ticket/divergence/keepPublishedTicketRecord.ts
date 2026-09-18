@@ -77,7 +77,7 @@ const setPlanFolderAside = async ({
 	onProgress?: (message: string) => void;
 }) => {
 	const name = formatPlanAddress({ ticketBranch, planId });
-	const dir = planWorkspaceDir({ cwd: checkout, name });
+	const dir = await planWorkspaceDir({ cwd: checkout, name });
 
 	if (!(await pathExists({ path: dir }))) {
 		return undefined;

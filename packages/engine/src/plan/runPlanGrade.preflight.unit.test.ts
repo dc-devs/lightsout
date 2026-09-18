@@ -53,22 +53,22 @@ const memoryFixture = ({ name }: { name: string }) =>
 	)}\n`;
 
 /** A consumer repo with one plan on disk, the checker stub reading it, and the collector the act writes into. */
-const setup = ({ name, body, memory = false }: { name: string; body: string; memory?: boolean }) => {
+const setup = async ({ name, body, memory = false }: { name: string; body: string; memory?: boolean }) => {
 	const cwd = setupConsumerRepo();
 	const dir = writePlanDeliverable({ cwd, name, body });
 	const invocations: DriverInvocation[] = [];
 	const memoryText = memoryFixture({ name });
 
 	if (memory) {
-		writeFileSync(gradeMemoryPath({ cwd, name }), memoryText);
+		writeFileSync(await gradeMemoryPath({ cwd, name }), memoryText);
 	}
 
 	return { cwd, name, invocations, memoryText, gradePath: join(dir, 'grade.json'), driver: createGapCheckDriver({ invocations }) };
 };
 
 /** The same repo, planning a mostly-mechanical edit across 50 planted modules — the advisory size note and nothing blocking. */
-const setupAdvisory = ({ name }: { name: string }) => {
-	const seeded = setup({ name, body: advisoryPlanBody({ title: 'Graded Plan' }) });
+const setupAdvisory = async ({ name }: { name: string }) => {
+	const seeded = await setup({ name, body: advisoryPlanBody({ title: 'Graded Plan' }) });
 
 	plantAdvisoryTouchedFiles({ cwd: seeded.cwd });
 
@@ -76,7 +76,7 @@ const setupAdvisory = ({ name }: { name: string }) => {
 };
 
 test('plan grade: a blocking structural finding spawns no agent at all', async () => {
-	const { cwd, name, driver, invocations } = setup({ name: 'preflight-stopped', body: blockingPlanBody() });
+	const { cwd, name, driver, invocations } = await setup({ name: 'preflight-stopped', body: blockingPlanBody() });
 
 	const result = await runPlanGrade({ cwd, driver, name });
 
@@ -90,7 +90,7 @@ test('plan grade: a blocking structural finding spawns no agent at all', async (
 });
 
 test('plan grade: a preflight stop is written as an incomplete pass, not a missing one', async () => {
-	const { cwd, name, driver, gradePath } = setup({ name: 'preflight-recorded', body: blockingPlanBody() });
+	const { cwd, name, driver, gradePath } = await setup({ name: 'preflight-recorded', body: blockingPlanBody() });
 
 	const result = await runPlanGrade({ cwd, driver, name });
 
@@ -104,14 +104,14 @@ test('plan grade: a preflight stop is written as an incomplete pass, not a missi
 	expect(persisted).toEqual(expect.objectContaining({ grade: 'below-A', passed: false, complete: false, gaps: [], phasesChecked: [] }));
 	expect(persisted.incompleteReason).toEqual(expect.stringContaining('structural'));
 
-	const history = await readJsonlRecords({ path: gradeHistoryPath({ cwd, name }), schema: GradeReport });
+	const history = await readJsonlRecords({ path: await gradeHistoryPath({ cwd, name }), schema: GradeReport });
 
 	// and the stop is a pass in the ledger like any other
 	expect(history.length).toBe(1);
 });
 
 test('plan grade: a preflight stop claims no scope coverage', async () => {
-	const { cwd, name, driver, gradePath } = setup({ name: 'preflight-uncovered', body: blockingPlanBody() });
+	const { cwd, name, driver, gradePath } = await setup({ name: 'preflight-uncovered', body: blockingPlanBody() });
 
 	const result = await runPlanGrade({ cwd, driver, name });
 
@@ -128,7 +128,7 @@ test('plan grade: a preflight stop claims no scope coverage', async () => {
 });
 
 test('plan grade: a preflight stop does not touch the finding memory', async () => {
-	const { cwd, name, driver, memoryText } = setup({ name: 'preflight-remembered', body: blockingPlanBody(), memory: true });
+	const { cwd, name, driver, memoryText } = await setup({ name: 'preflight-remembered', body: blockingPlanBody(), memory: true });
 
 	const result = await runPlanGrade({ cwd, driver, name });
 
@@ -136,11 +136,11 @@ test('plan grade: a preflight stop does not touch the finding memory', async () 
 	// nothing was judged, so nothing about the settled record set changed — a stop
 	// that rewrote the memory would move a plan's decisions on evidence it never
 	// gathered
-	expect(readFileSync(gradeMemoryPath({ cwd, name }), 'utf8')).toBe(memoryText);
+	expect(readFileSync(await gradeMemoryPath({ cwd, name }), 'utf8')).toBe(memoryText);
 });
 
 test('plan grade: an advisory structural finding still runs the semantic pass', async () => {
-	const { cwd, name, driver, invocations } = setupAdvisory({ name: 'preflight-advisory' });
+	const { cwd, name, driver, invocations } = await setupAdvisory({ name: 'preflight-advisory' });
 
 	const result = await runPlanGrade({ cwd, driver, name });
 

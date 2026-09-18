@@ -41,7 +41,7 @@ interface Params {
  */
 export const draftFocusedSinglePlan = async ({ context }: Params): Promise<RunPlanDraftResult> => {
 	const { cwd, name, workspaceDir, decisions, evidence, progress } = context;
-	const outputs = planDraftOutputs({ cwd, name, variant: PlanVariant.Single });
+	const outputs = await planDraftOutputs({ cwd, name, variant: PlanVariant.Single });
 	// Appended to once the closing lint has run, and read at every stop, so no
 	// exit can be added that quietly drops what the human was told.
 	const advisories: StructuralFinding[] = [];

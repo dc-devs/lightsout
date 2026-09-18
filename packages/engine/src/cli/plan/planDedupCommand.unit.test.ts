@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
+import { buildActivityTree, readActivityMarks } from '#src/activity/index.ts';
 import { planDedupCommand } from '#src/cli/plan/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
@@ -170,5 +171,83 @@ test.each([
 	const record = JSON.parse(readFileSync(join(cwd, '.lightsout', 'plans', 'demo', 'planning-progress.json'), 'utf8')) as { steps: unknown[] };
 
 	expect(record.steps).toEqual([expect.objectContaining({ step: 'dedup', status, attempts: 1 })]);
+	expect(exitCodes).toStrictEqual([1]);
+});
+
+// The activity record sits beside the planning record in the same plan folder.
+// The command run is what the judges hang from: the fan-out level the runner
+// opens can only be a child of it if the command threaded its level down.
+test('records the command run and the judge fan-out beneath it in the activity record', async () => {
+	const { cwd, name, exitCodes } = setupDedup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+	const verdicts = [{ plannedSymbol: 'getUser', isDuplicate: true, recommendation: 'reuse', rationale: 'fetchUser already does this' }];
+
+	await expect(
+		planDedupCommand({ cwd, driver: judgeDriver({ verdicts, calls: { count: 0 } }), name, standards: undefined, config: undefined }),
+	).rejects.toThrow(/process\.exit/);
+
+	const planDir = join(cwd, '.lightsout', 'plans', 'demo');
+	const report = buildActivityTree({ plan: 'demo', marks: await readActivityMarks({ dir: planDir }) });
+
+	expect(report.roots).toEqual([
+		expect.objectContaining({
+			level: 'plan',
+			label: 'demo',
+			outcome: 'passed',
+			children: [
+				expect.objectContaining({
+					level: 'command-run',
+					label: 'plan dedup',
+					startedAt: expect.any(String),
+					endedAt: expect.any(String),
+					outcome: 'passed',
+					children: [
+						expect.objectContaining({
+							level: 'pass',
+							children: [expect.objectContaining({ level: 'step', label: 'dedup-plan', outcome: 'passed' })],
+						}),
+					],
+				}),
+			],
+		}),
+	]);
+	expect(exitCodes).toStrictEqual([0]);
+});
+
+test('records a command run with no child level when there is nothing for a judge to rule on', async () => {
+	const { cwd, name, exitCodes } = setupDedup({ existing: ['src/index.ts'], creates: ['src/brandNewWidget.ts'] });
+
+	await expect(
+		planDedupCommand({ cwd, driver: judgeDriver({ verdicts: [], calls: { count: 0 } }), name, standards: undefined, config: undefined }),
+	).rejects.toThrow(/process\.exit/);
+
+	const report = buildActivityTree({ plan: 'demo', marks: await readActivityMarks({ dir: join(cwd, '.lightsout', 'plans', 'demo') }) });
+
+	// a grouping row over zero spawns would be a row for work that never happened
+	expect(report.roots[0].children).toEqual([
+		expect.objectContaining({ level: 'command-run', label: 'plan dedup', outcome: 'passed', processes: [], children: [] }),
+	]);
+	expect(exitCodes).toStrictEqual([0]);
+});
+
+test.each([
+	{
+		outcome: 'a rate-limited judge',
+		arrangement: { existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] },
+		driver: rateLimitedDriver(),
+		status: 'paused-rate-limit',
+	},
+	{ outcome: 'an unresolvable deliverable', arrangement: { plan: false }, driver: judgeDriver({ verdicts: [], calls: { count: 0 } }), status: 'failed' },
+])('ends the command run as $status when $outcome exits 1', async ({ arrangement, driver, status }) => {
+	const { cwd, name, exitCodes } = setupDedup(arrangement);
+
+	await expect(planDedupCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+
+	const report = buildActivityTree({ plan: 'demo', marks: await readActivityMarks({ dir: join(cwd, '.lightsout', 'plans', 'demo') }) });
+
+	// the command run's end mark agrees with the exit code it then returns, and a
+	// pause to resume is kept apart from a failure here as it is in the planning record
+	expect(report.roots[0].children[0]).toEqual(
+		expect.objectContaining({ level: 'command-run', label: 'plan dedup', endedAt: expect.any(String), outcome: status }),
+	);
 	expect(exitCodes).toStrictEqual([1]);
 });

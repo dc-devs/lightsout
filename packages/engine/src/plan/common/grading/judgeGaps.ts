@@ -1,4 +1,5 @@
 import { relative } from 'node:path';
+import type { ActivityLevel } from '#src/activity/index.ts';
 import { buildPlanGapJudgeInvocation } from '#src/agents/index.ts';
 import { type Effort, GapBatchVerdict, type GradedGap, GradeFindingStatus, type GradeMemory, type Permissions } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
@@ -32,6 +33,8 @@ interface Params {
 	skipReason?: string;
 	/** The plan's finding memory — each judge is shown the records for the plan files its batch spans, and only ids a judge may be shown may be named. */
 	memory: GradeMemory;
+	/** The pass level each judge spawn opens its step under. It arrives through the caller's spread, so no call site names it. */
+	level?: ActivityLevel;
 }
 
 /** Every record state a judge may be shown and name — all but `superseded`, whose question now lives on the record that absorbed it. */
@@ -56,7 +59,7 @@ const spawnGapJudge = async ({ params, batch, batchIndex }: { params: Params; ba
 	// judge holding a slot for half an hour stalls the whole fan-out. Not five: a
 	// reader takes about three minutes for more work, so ten fires only on
 	// something genuinely stuck.
-	const { cwd, driver, workspaceDir, overviewText, standards, model, effort, permissions, timeoutMs = 10 * 60 * 1000 } = params;
+	const { cwd, driver, workspaceDir, overviewText, standards, model, effort, permissions, timeoutMs = 10 * 60 * 1000, level } = params;
 	const invokePlanAgent = createPlanAgentRunner({
 		cwd,
 		driver,
@@ -64,6 +67,7 @@ const spawnGapJudge = async ({ params, batch, batchIndex }: { params: Params; ba
 		// Numbered by batch rather than named by phase, because a batch may span
 		// several plan files.
 		step: `grade-judge-${batchIndex}`,
+		level,
 		model,
 		effort,
 		permissions,

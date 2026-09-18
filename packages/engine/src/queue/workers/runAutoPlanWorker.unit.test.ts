@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
@@ -10,6 +11,7 @@ import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { runAutoPlanWorker } from '#src/queue/workers/runAutoPlanWorker.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
+import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 // Mocked Imports
 // -------------------------
@@ -180,6 +182,46 @@ const setupAutoPlanWorker = ({
 	};
 };
 
+/**
+ * The queue's own shape: a primary checkout with the ticket's linked worktree
+ * cut from it, the headless session planning inside that tree, and the plan
+ * folder held only by the primary — which is where the finished-folder guard
+ * has to look once a plan folder never leaves the main checkout.
+ */
+const setupHeadlessWorktreeSession = () => {
+	const { cwd } = setupBranchRepo();
+	// realpath on both sides, so macOS's symlinked temp directory cannot make the
+	// folder written here and the one git answers with look like different places.
+	const primary = realpathSync(cwd);
+	const worktree = join(primary, '.worktrees', branch);
+
+	execSync(`git worktree add -q -b ${branch} "${worktree}" main`, { cwd: primary, stdio: 'ignore' });
+
+	const folder = join(primary, '.lightsout', 'plans', branch, planId);
+
+	mkdirSync(folder, { recursive: true });
+	writeFileSync(join(folder, 'plan.md'), '# The plan\n');
+
+	mockChooseAutoPlanTarget.mockResolvedValue({ record: chosenRecord, address });
+	mockInvokeAgentWithContract.mockResolvedValue({ ok: true, report: reportOf() });
+	mockPullTicketRecord.mockResolvedValue({ record: plannedRecord });
+	mockBuildTicketPlans.mockResolvedValue({});
+
+	return {
+		params: {
+			cwd: worktree,
+			ticket,
+			branch,
+			config,
+			driver,
+			driverName: 'claude-code',
+			settings: queueSettingsFixture(),
+			env: { LINEAR_API_KEY: 'key-1' },
+			ticketRunDir: join(worktree, '.lightsout', 'runs', 'run-q', 'tickets', 'LO-70'),
+		},
+	};
+};
+
 describe('runAutoPlanWorker', () => {
 	test('the engine runs the build itself once the auto-plan session reports its plan complete', async () => {
 		const { params } = setupAutoPlanWorker({ build: { error: 'tsc: 3 errors' } });
@@ -239,6 +281,15 @@ describe('runAutoPlanWorker', () => {
 
 		expect(outcome).toEqual({ error: expect.stringContaining(folder) });
 		expect(mockBuildTicketPlans).not.toHaveBeenCalled();
+	});
+
+	test("a headless planning session's plan folder is found in the primary checkout", async () => {
+		const { params } = setupHeadlessWorktreeSession();
+
+		const outcome = await runAutoPlanWorker(params);
+
+		expect(outcome).toStrictEqual({});
+		expect(mockBuildTicketPlans).toHaveBeenCalledWith(expect.objectContaining({ cwd: params.cwd, branch, record: plannedRecord }));
 	});
 
 	test('runAutoPlanWorker: a failed plan choice starts no session', async () => {

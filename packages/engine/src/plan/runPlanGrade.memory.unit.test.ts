@@ -53,7 +53,7 @@ const staleInputs = {
  * the plan — is answered off contract too, because the only reader failing here
  * is the second phase's.
  */
-const setupLostReader = ({ name }: { name: string }) => {
+const setupLostReader = async ({ name }: { name: string }) => {
 	const cwd = setupConsumerRepo();
 	const dir = writePhasedPlanDeliverable({
 		cwd,
@@ -98,7 +98,7 @@ const setupLostReader = ({ name }: { name: string }) => {
 		},
 	};
 
-	return { cwd, name, driver, memoryPath: gradeMemoryPath({ cwd, name }) };
+	return { cwd, name, driver, memoryPath: await gradeMemoryPath({ cwd, name }) };
 };
 
 /**
@@ -128,7 +128,7 @@ const withLostPhaseTwoReader = ({ driver }: { driver: Driver }): Driver => ({
  */
 const setupRegraded = async ({ name, edited, lostReader = false }: { name: string; edited?: string; lostReader?: boolean }) => {
 	const graded = await setupGraded({ name, gaps: [omittedDecisionGap], edited });
-	const memoryPath = gradeMemoryPath({ cwd: graded.cwd, name });
+	const memoryPath = await gradeMemoryPath({ cwd: graded.cwd, name });
 	const baseline = GradeMemory.parse(JSON.parse(readFileSync(memoryPath, 'utf8'))).lastPass;
 
 	// an absent baseline would make "left where it was" hold vacuously
@@ -140,16 +140,16 @@ const setupRegraded = async ({ name, edited, lostReader = false }: { name: strin
 };
 
 /** A clean single plan with no memory file beside it, and a stub whose readers find nothing. */
-const setupFirstPass = ({ name }: { name: string }) => {
+const setupFirstPass = async ({ name }: { name: string }) => {
 	const cwd = setupConsumerRepo();
 
 	writePlanDeliverable({ cwd, name, body: cleanPlanBody({ title: 'Graded Plan' }) });
 
-	return { cwd, name, driver: createGapCheckDriver(), memoryPath: gradeMemoryPath({ cwd, name }) };
+	return { cwd, name, driver: createGapCheckDriver(), memoryPath: await gradeMemoryPath({ cwd, name }) };
 };
 
 /** The same clean plan, over a memory file that is valid JSON and not a `GradeMemory`, read by a driver that must never be spawned. */
-const setupMalformedMemory = ({ name }: { name: string }) => {
+const setupMalformedMemory = async ({ name }: { name: string }) => {
 	const cwd = setupConsumerRepo();
 	const dir = writePlanDeliverable({ cwd, name, body: cleanPlanBody({ title: 'Graded Plan' }) });
 	const malformed = '{ "planName": 5 }';
@@ -161,14 +161,14 @@ const setupMalformedMemory = ({ name }: { name: string }) => {
 		name,
 		malformed,
 		driver: createUncalledDriver({ reason: 'a malformed memory file must stop the pass before any agent is spawned' }),
-		memoryPath: gradeMemoryPath({ cwd, name }),
+		memoryPath: await gradeMemoryPath({ cwd, name }),
 		gradePath: join(dir, 'grade.json'),
 	};
 };
 
 describe('runPlanGrade', () => {
 	test('plan grade: a pass that lost a reader does not become the scope baseline', async () => {
-		const { cwd, name, driver, memoryPath } = setupLostReader({ name: 'lost-reader' });
+		const { cwd, name, driver, memoryPath } = await setupLostReader({ name: 'lost-reader' });
 
 		const result = await runPlanGrade({ cwd, driver, name });
 
@@ -237,7 +237,7 @@ describe('runPlanGrade', () => {
 	});
 
 	test('plan grade: an absent memory file yields a full review and a fresh memory', async () => {
-		const { cwd, name, driver, memoryPath } = setupFirstPass({ name: 'first-pass' });
+		const { cwd, name, driver, memoryPath } = await setupFirstPass({ name: 'first-pass' });
 
 		const result = await runPlanGrade({ cwd, driver, name });
 
@@ -259,7 +259,7 @@ describe('runPlanGrade', () => {
 	});
 
 	test('plan grade: a malformed memory file fails the pass before any spawn', async () => {
-		const { cwd, name, driver, malformed, memoryPath, gradePath } = setupMalformedMemory({ name: 'malformed-memory' });
+		const { cwd, name, driver, malformed, memoryPath, gradePath } = await setupMalformedMemory({ name: 'malformed-memory' });
 
 		const result = await runPlanGrade({ cwd, driver, name });
 

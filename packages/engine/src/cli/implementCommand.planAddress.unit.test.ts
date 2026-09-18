@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
@@ -71,14 +71,12 @@ jest.mock('#src/cli/common/utils/exitAfterImplement.ts', () => ({
 const ticketBranch = 'lo-7-search';
 const ticketFolder = join('.lightsout', 'plans', ticketBranch);
 const laterPlanFolder = join(ticketFolder, '002-ranking');
-const earlierPlanFolder = join(ticketFolder, '001-basics');
 
 /** A plan folder named for its branch alone — what every plan carried before addresses existed. */
 const legacyBranch = 'lo-9-legacy-plan';
 const legacyPlanFolder = join('.lightsout', 'plans', legacyBranch);
 
 const planBody = '# Plan: rank the results\n';
-const earlierPlanBody = '# Plan: the basics, graded in this tree\n';
 const pinnedCommit = '0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d';
 
 /** A run that passed. Nothing downstream of the pipeline is real here, so the result only has to be the same object each step is handed. */
@@ -91,9 +89,7 @@ const passedResult = { ok: true, manifest: { runId: 'aaaaaaaa-1111-2222-3333-444
  * `standing` writes the ownership record a tree at that path carries and makes
  * the directory, so the branch is held; `heldBy` plants a live run lock in it,
  * this process's own pid being the one lock a test can prove alive. With
- * neither, nothing holds the branch and the run cuts a tree — a directory
- * already holding an earlier plan of the same ticket, which is what a tree the
- * ticket's first plan was built in looks like.
+ * neither, nothing holds the branch and the run cuts a tree of its own.
  */
 const setupTicketRun = async ({
 	planFolder = laterPlanFolder,
@@ -113,8 +109,6 @@ const setupTicketRun = async ({
 
 	mkdirSync(join(cwd, planFolder), { recursive: true });
 	writeFileSync(join(cwd, planFolder, 'plan.md'), planBody);
-	mkdirSync(join(workspace, earlierPlanFolder), { recursive: true });
-	writeFileSync(join(workspace, earlierPlanFolder, 'plan.md'), earlierPlanBody);
 
 	if (standing !== undefined) {
 		mkdirSync(treePath, { recursive: true });
@@ -139,36 +133,9 @@ const setupTicketRun = async ({
 	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, treePath, workspace, ...captured };
 };
 
-/**
- * A launching checkout that holds no plan folder at all, and a tree at the
- * TICKET BRANCH's worktree path that holds the addressed plan — what planning
- * a later plan in the ticket's own tree leaves behind.
- *
- * The run opts out of isolation, so the only checkout in play is the launching
- * one and what lands there is exactly what the recovery copied.
- */
-const setupRecoveredPlan = async () => {
-	const captured = captureCommandOutput();
-	const cwd = setupConsumerRepo();
-	const treePath = await resolveWorktreePath({ cwd, branch: ticketBranch });
-
-	mkdirSync(join(treePath, laterPlanFolder), { recursive: true });
-	writeFileSync(join(treePath, laterPlanFolder, 'plan.md'), planBody);
-	writeFileSync(join(treePath, laterPlanFolder, 'grade-memory.json'), '{"passes":1}\n');
-
-	mockRequireImplementLifecycle.mockResolvedValue(undefined);
-	mockRunPipelineOrFailFast.mockResolvedValue(passedResult);
-	mockPrintResult.mockResolvedValue(undefined);
-	mockExitAfterImplement.mockResolvedValue(undefined);
-
-	const args = ['--plan', join(laterPlanFolder, 'plan.md'), '--no-worktree'];
-
-	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, treePath, ...captured };
-};
-
 describe('implementCommand plan addresses', () => {
-	test("cuts the tree on the ticket branch and copies in only the addressed plan's folder", async () => {
-		const { context, workspace, logged } = await setupTicketRun();
+	test('cuts the tree on the ticket branch and leaves the addressed plan where it is', async () => {
+		const { context, cwd, workspace, logged } = await setupTicketRun();
 
 		await implementCommand(context);
 
@@ -177,10 +144,10 @@ describe('implementCommand plan addresses', () => {
 		// on a branch of its own
 		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch: ticketBranch, owner: 'implement' }));
 		expect(logged.join('\n')).toContain(`branch: ${ticketBranch}`);
-		expect(readFileSync(join(workspace, laterPlanFolder, 'plan.md'), 'utf8')).toBe(planBody);
-		// the sibling plan the workspace already held is neither overwritten nor
-		// skipped over: the copy is judged one plan folder at a time
-		expect(readFileSync(join(workspace, earlierPlanFolder, 'plan.md'), 'utf8')).toBe(earlierPlanBody);
+		// the tree holds code work only: the plan folder stays in the checkout the
+		// command was launched from, and the run is still handed its path
+		expect(existsSync(join(workspace, ticketFolder))).toBe(false);
+		expect(readFileSync(join(cwd, laterPlanFolder, 'plan.md'), 'utf8')).toBe(planBody);
 		expect(mockRunPipelineOrFailFast).toHaveBeenCalledWith(expect.objectContaining({ cwd: workspace, planPath: join(laterPlanFolder, 'plan.md') }));
 	});
 
@@ -195,7 +162,6 @@ describe('implementCommand plan addresses', () => {
 		// the adoption leaves the tree recorded as an implementation run's, still
 		// pointing at itself and still carrying the commit it was cut at
 		expect(record).toEqual(expect.objectContaining({ owner: 'implement', worktreePath: treePath, startPoint: pinnedCommit }));
-		expect(readFileSync(join(treePath, laterPlanFolder, 'plan.md'), 'utf8')).toBe(planBody);
 	});
 
 	test('refuses a plan address while a live run holds the ticket tree, naming the run', async () => {
@@ -228,19 +194,5 @@ describe('implementCommand plan addresses', () => {
 		expect(record).toEqual(expect.objectContaining({ owner: 'implement', startPoint: pinnedCommit }));
 		expect(mockRunPipelineOrFailFast).not.toHaveBeenCalled();
 		expect(exitCodes).toStrictEqual([1]);
-	});
-
-	test("recovers a plan address's folder from the ticket branch's worktree before the run starts", async () => {
-		const { context, cwd, treePath, logged } = await setupRecoveredPlan();
-
-		await implementCommand(context);
-
-		// the tree was looked for under the ticket branch, never under the address,
-		// and the whole plan folder came back — its grading memory included
-		expect(logged[0]).toContain(treePath);
-		expect(readFileSync(join(cwd, laterPlanFolder, 'plan.md'), 'utf8')).toBe(planBody);
-		expect(readFileSync(join(cwd, laterPlanFolder, 'grade-memory.json'), 'utf8')).toBe('{"passes":1}\n');
-		expect(readFileSync(join(treePath, laterPlanFolder, 'plan.md'), 'utf8')).toBe(planBody);
-		expect(mockRunPipelineOrFailFast).toHaveBeenCalledWith(expect.objectContaining({ cwd, planPath: join(laterPlanFolder, 'plan.md') }));
 	});
 });

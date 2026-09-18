@@ -15,5 +15,5 @@ interface Params {
  * The same rule `appendGradeHistory` follows for the grade ledger.
  */
 export const writeGradeMemory = async ({ cwd, name, memory }: Params): Promise<void> => {
-	await writeJsonFile({ path: gradeMemoryPath({ cwd, name }), value: GradeMemory.parse(memory) });
+	await writeJsonFile({ path: await gradeMemoryPath({ cwd, name }), value: GradeMemory.parse(memory) });
 };

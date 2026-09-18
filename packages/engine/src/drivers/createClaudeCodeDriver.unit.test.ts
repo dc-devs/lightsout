@@ -1,17 +1,11 @@
-import { existsSync } from 'node:fs';
-import { chmod, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { afterAll, expect, test } from '@jest/globals';
-import { Effort, Permissions } from '#src/contracts/index.ts';
+import type { HarnessProcessUsage } from '#src/contracts/index.ts';
 import { createClaudeCodeDriver } from '#src/drivers/index.ts';
+import { fakeHarnessOnPath } from '#tests/helpers/fakeHarnessOnPath.ts';
 
-// The `claude` binary is the one unowned boundary here, so each setup writes a
-// fake one onto PATH: it records the argv and stdin it was handed, copies any
-// system-prompt file it was pointed at (the real one is deleted before the
-// invocation returns), streams the scenario's stdout, and exits with the
-// scenario's code. Nothing else is stubbed — the driver under test is the real
-// one, spawning a real process.
+// How the driver reads a stream: the verdict it reaches, the events it relays,
+// and the usage it reports as the process runs and once it ends. What the
+// spawned process was handed is the sibling `.spawn.` file's business.
 const realPath = process.env.PATH ?? '';
 
 afterAll(() => {
@@ -21,175 +15,29 @@ afterAll(() => {
 /** One stream-json event as the harness emits it: a complete JSON line. */
 const event = (fields: Record<string, unknown>) => `${JSON.stringify(fields)}\n`;
 
-const setupClaude = async ({
-	stdoutChunks = [],
-	chunkDelay = false,
-	stderr = '',
-	exitCode = 0,
-	delaySeconds = 0,
-	readsStdin = true,
-}: {
-	stdoutChunks?: string[];
-	chunkDelay?: boolean;
-	stderr?: string;
-	exitCode?: number;
-	delaySeconds?: number;
-	/** `false` exits before touching stdin — a harness that rejects its flags and bails. */
-	readsStdin?: boolean;
-} = {}) => {
-	const dir = await mkdtemp(join(tmpdir(), 'lightsout-claude-driver-'));
-	const binDir = join(dir, 'bin');
-	const argvPath = join(dir, 'argv.txt');
-	const stdinPath = join(dir, 'stdin.txt');
-	const promptCopyPath = join(dir, 'system-prompt-copy.md');
+/** One scenario for the fake `claude`, less the two fields every claude scenario shares. */
+type Scenario = Omit<Parameters<typeof fakeHarnessOnPath>[0], 'binary' | 'systemPromptFlag'>;
 
-	await mkdir(binDir);
-	await writeFile(
-		join(binDir, 'claude'),
-		[
-			'#!/bin/sh',
-			`printf '%s\\n' "$@" > '${argvPath}'`,
-			"prev=''",
-			'for arg in "$@"; do',
-			`  if [ "$prev" = "--append-system-prompt-file" ]; then cp "$arg" '${promptCopyPath}'; fi`,
-			'  prev="$arg"',
-			'done',
-			...(readsStdin ? [`cat > '${stdinPath}'`] : []),
-			// `exec` so the hang IS this process rather than a child of it: a plain
-			// `sleep` would survive the driver's SIGKILL, outlive the test as an
-			// orphan, and keep the inherited stdout pipe open.
-			...(delaySeconds > 0 ? [`exec sleep ${delaySeconds}`] : []),
-			...stdoutChunks.flatMap((chunk, index) => [...(index > 0 && chunkDelay ? ['sleep 0.2'] : []), `printf '%s' '${chunk}'`]),
-			`printf '%s' '${stderr}' >&2`,
-			`exit ${exitCode}`,
-		].join('\n'),
-		'utf8',
-	);
-	await chmod(join(binDir, 'claude'), 0o755);
+const setupClaude = async (scenario: Scenario = {}) => ({
+	driver: createClaudeCodeDriver(),
+	...(await fakeHarnessOnPath({ binary: 'claude', systemPromptFlag: '--append-system-prompt-file', ...scenario })),
+});
 
-	process.env.PATH = `${binDir}:${realPath}`;
-
-	return {
-		driver: createClaudeCodeDriver(),
-		cwd: dir,
-		readArgv: async () => (await readFile(argvPath, 'utf8')).split('\n').slice(0, -1),
-		readStdin: async () => readFile(stdinPath, 'utf8'),
-		readSystemPromptCopy: async () => readFile(promptCopyPath, 'utf8'),
-	};
-};
-
-/** A PATH holding no `claude` at all — the harness-not-installed scenario. */
-const setupWithoutClaude = async () => {
-	const dir = await mkdtemp(join(tmpdir(), 'lightsout-claude-missing-'));
-	const binDir = join(dir, 'bin');
-
-	await mkdir(binDir);
-
-	process.env.PATH = binDir;
-
-	return { driver: createClaudeCodeDriver(), cwd: dir };
-};
+/**
+ * One streamed `assistant` event. The harness emits the same message once per
+ * content block, so `id` is what tells a repeat from a new message, and its
+ * `output_tokens` is a placeholder the driver must never report as a count.
+ */
+const assistantEvent = ({ id, input, cacheRead, cacheCreation }: { id: string; input: number; cacheRead: number; cacheCreation: number }) =>
+	event({
+		type: 'assistant',
+		message: { id, usage: { input_tokens: input, output_tokens: 2, cache_read_input_tokens: cacheRead, cache_creation_input_tokens: cacheCreation } },
+	});
 
 test('createClaudeCodeDriver: the driver reports the harness name the manifest records it under', () => {
 	const driver = createClaudeCodeDriver();
 
 	expect(driver.name).toBe('claude-code');
-});
-
-test('createClaudeCodeDriver: the invocation model, effort, permissions, and grants reach the spawned process as flags', async () => {
-	const { driver, cwd, readArgv } = await setupClaude();
-
-	await driver.invoke({ prompt: 'TASK', cwd, model: 'opus', effort: Effort.XHigh, permissions: Permissions.Write, allowedCommands: ['pnpm'] });
-
-	expect(await readArgv()).toStrictEqual([
-		'-p',
-		'--output-format',
-		'stream-json',
-		'--verbose',
-		'--exclude-dynamic-system-prompt-sections',
-		'--model',
-		'opus',
-		'--effort',
-		'xhigh',
-		'--permission-mode',
-		'acceptEdits',
-		'--allowedTools',
-		'Bash(pnpm:*)',
-	]);
-});
-
-test('createClaudeCodeDriver: a focused environment reaches the spawned process as flags', async () => {
-	const { driver, cwd, readArgv } = await setupClaude();
-
-	await driver.invoke({
-		prompt: 'TASK',
-		cwd,
-		model: 'opus',
-		effort: Effort.XHigh,
-		permissions: Permissions.Write,
-		allowedCommands: ['pnpm'],
-		environment: { noMcpServers: true, noSkillCatalog: true, toolAllowlist: true, settingsPreserved: true, tools: ['Read', 'Grep', 'Edit'] },
-	});
-
-	// The isolation flags ride between the permission mode and the variadic
-	// grant flag, and the allowlist is one comma-joined argument — a driver
-	// that dropped the environment on the floor while destructuring the
-	// invocation loses all three.
-	expect(await readArgv()).toStrictEqual([
-		'-p',
-		'--output-format',
-		'stream-json',
-		'--verbose',
-		'--exclude-dynamic-system-prompt-sections',
-		'--model',
-		'opus',
-		'--effort',
-		'xhigh',
-		'--permission-mode',
-		'acceptEdits',
-		'--strict-mcp-config',
-		'--disable-slash-commands',
-		'--tools',
-		'Read,Grep,Edit',
-		'--allowedTools',
-		'Bash(pnpm:*)',
-	]);
-});
-
-test('createClaudeCodeDriver: the system prompt reaches the harness as a file, not as argv', async () => {
-	const { driver, cwd, readSystemPromptCopy } = await setupClaude();
-
-	await driver.invoke({ prompt: 'TASK', systemPrompt: '# Role\n\nBe deterministic.\n', cwd });
-
-	expect(await readSystemPromptCopy()).toBe('# Role\n\nBe deterministic.\n');
-});
-
-test('createClaudeCodeDriver: the system prompt file is removed once the invocation returns', async () => {
-	const { driver, cwd, readArgv } = await setupClaude();
-
-	await driver.invoke({ prompt: 'TASK', systemPrompt: 'ROLE', cwd });
-
-	const argv = await readArgv();
-	const promptPath = argv[argv.indexOf('--append-system-prompt-file') + 1];
-
-	// the temp prompt file outlives only the spawn
-	expect(existsSync(promptPath)).toBe(false);
-});
-
-test('createClaudeCodeDriver: without a system prompt no prompt-file flag is passed', async () => {
-	const { driver, cwd, readArgv } = await setupClaude();
-
-	await driver.invoke({ prompt: 'TASK', cwd });
-
-	expect(await readArgv()).toStrictEqual(['-p', '--output-format', 'stream-json', '--verbose', '--exclude-dynamic-system-prompt-sections']);
-});
-
-test('createClaudeCodeDriver: the task prompt rides stdin verbatim, sidestepping the argv ceiling', async () => {
-	const { driver, cwd, readStdin } = await setupClaude();
-
-	await driver.invoke({ prompt: 'TASK with — unicode\nand a second line', systemPrompt: 'ROLE', cwd });
-
-	expect(await readStdin()).toBe('TASK with — unicode\nand a second line');
 });
 
 test('createClaudeCodeDriver: the final result event supplies the text and the normalized usage', async () => {
@@ -321,16 +169,6 @@ test('createClaudeCodeDriver: an errored 529 overload parks like a rate limit �
 	expect(result.rateLimited).toBe(true);
 });
 
-test('createClaudeCodeDriver: a harness that exits without reading a large prompt yields its exit code, not a crashed engine', async () => {
-	const { driver, cwd } = await setupClaude({ stdoutChunks: ['unknown option --nope'], exitCode: 2, readsStdin: false });
-
-	// Larger than a pipe buffer, so the write still has bytes in flight when
-	// the child is gone and EPIPE is raised on the stdin stream.
-	const result = await driver.invoke({ prompt: 'x'.repeat(2 * 1024 * 1024), cwd });
-
-	expect(result).toStrictEqual({ text: 'unknown option --nope', exitCode: 2, rateLimited: false, usage: undefined });
-});
-
 test('createClaudeCodeDriver: a failure whose text merely contains the digits 529 is not parked as an overload', async () => {
 	const { driver, cwd } = await setupClaude({
 		stdoutChunks: [event({ type: 'result', result: 'src/report.ts:529 — cannot find name `total` (1529 tokens used)', is_error: true })],
@@ -365,23 +203,90 @@ test('createClaudeCodeDriver: a harness that prints nothing falls back to stderr
 	expect(result).toStrictEqual({ text: 'claude: rate limit exceeded', exitCode: 1, rateLimited: true, usage: undefined });
 });
 
-test('createClaudeCodeDriver: a hung harness is killed at the timeout, and the system prompt file still gets removed', async () => {
-	const { driver, cwd, readArgv } = await setupClaude({ delaySeconds: 5 });
+test('createClaudeCodeDriver: an assistant message repeated per content block is counted once', async () => {
+	const block = assistantEvent({ id: 'msg_01', input: 100, cacheRead: 200, cacheCreation: 300 });
+	const { driver, cwd } = await setupClaude({ stdoutChunks: [block + block] });
+	const reported: HarnessProcessUsage[] = [];
 
-	// The timeout has to outlast process spawn on a loaded machine: the fake
-	// harness records its argv before it hangs, and the assertions below read
-	// that recording. Too tight a budget kills the shell before it writes.
-	await expect(driver.invoke({ prompt: 'TASK', systemPrompt: 'ROLE', cwd, timeoutMs: 1500 })).rejects.toThrow(/claude timed out after 1500ms/);
+	await driver.invoke({ prompt: 'TASK', cwd, onUsage: (usage) => reported.push(usage) });
 
-	const argv = await readArgv();
-	const promptPath = argv[argv.indexOf('--append-system-prompt-file') + 1];
-
-	// cleanup runs on the error path too
-	expect(existsSync(promptPath)).toBe(false);
+	// the one message's own counts, not twice them
+	expect(reported.at(-1)).toEqual({ inputTokens: 100, cacheReadTokens: 200, cacheCreationTokens: 300 });
 });
 
-test('createClaudeCodeDriver: a harness that is not installed rejects with the spawn failure', async () => {
-	const { driver, cwd } = await setupWithoutClaude();
+test('createClaudeCodeDriver: streamed usage reports the input side and leaves output and cost unreported', async () => {
+	const { driver, cwd } = await setupClaude({
+		stdoutChunks: [
+			assistantEvent({ id: 'msg_01', input: 10, cacheRead: 20, cacheCreation: 30 }) +
+				assistantEvent({ id: 'msg_02', input: 5, cacheRead: 6, cacheCreation: 7 }),
+		],
+	});
+	const reported: HarnessProcessUsage[] = [];
 
-	await expect(driver.invoke({ prompt: 'TASK', cwd })).rejects.toThrow(/ENOENT/);
+	await driver.invoke({ prompt: 'TASK', cwd, onUsage: (usage) => reported.push(usage) });
+
+	// output tokens and cost are absent, never zero and never the streamed
+	// placeholder — the harness knows neither until its terminal event
+	expect(reported.at(-1)).toEqual({ inputTokens: 15, cacheReadTokens: 26, cacheCreationTokens: 37 });
+});
+
+test('createClaudeCodeDriver: the terminal result event supersedes the streamed accumulation', async () => {
+	const { driver, cwd } = await setupClaude({
+		stdoutChunks: [
+			assistantEvent({ id: 'msg_01', input: 10, cacheRead: 20, cacheCreation: 30 }) +
+				event({
+					type: 'result',
+					result: 'FINAL',
+					usage: { input_tokens: 1200, output_tokens: 3400, cache_read_input_tokens: 5600, cache_creation_input_tokens: 7800 },
+					total_cost_usd: 0.42,
+				}),
+		],
+	});
+	const reported: HarnessProcessUsage[] = [];
+
+	const result = await driver.invoke({ prompt: 'TASK', cwd, onUsage: (usage) => reported.push(usage) });
+
+	expect(reported.at(-1)).toEqual({ inputTokens: 1200, outputTokens: 3400, cacheReadTokens: 5600, cacheCreationTokens: 7800, costUsd: 0.42 });
+	expect(result.usage).toStrictEqual({ inputTokens: 1200, outputTokens: 3400, cacheReadTokens: 5600, cacheCreationTokens: 7800, costUsd: 0.42 });
+});
+
+test('createClaudeCodeDriver: an assistant message stating no usage reports nothing and leaves the running total alone', async () => {
+	const { driver, cwd } = await setupClaude({
+		stdoutChunks: [event({ type: 'assistant', message: { id: 'msg_01' } }) + assistantEvent({ id: 'msg_02', input: 10, cacheRead: 20, cacheCreation: 30 })],
+	});
+	const reported: HarnessProcessUsage[] = [];
+
+	await driver.invoke({ prompt: 'TASK', cwd, onUsage: (usage) => reported.push(usage) });
+
+	// the silent message produces no payload at all, and the message after it
+	// still reports its own counts rather than inheriting a zero
+	expect(reported).toStrictEqual([{ inputTokens: 10, cacheReadTokens: 20, cacheCreationTokens: 30 }]);
+});
+
+test('createClaudeCodeDriver: a streamed message stating only some counts contributes the ones it stated', async () => {
+	const { driver, cwd } = await setupClaude({
+		stdoutChunks: [
+			event({ type: 'assistant', message: { id: 'msg_01', usage: { input_tokens: 40 } } }) +
+				event({ type: 'assistant', message: { id: 'msg_02', usage: { cache_read_input_tokens: 9 } } }),
+		],
+	});
+	const reported: HarnessProcessUsage[] = [];
+
+	await driver.invoke({ prompt: 'TASK', cwd, onUsage: (usage) => reported.push(usage) });
+
+	expect(reported.at(-1)).toStrictEqual({ inputTokens: 40, cacheReadTokens: 9, cacheCreationTokens: 0 });
+});
+
+test('createClaudeCodeDriver: streamed counts never become the returned usage when the result event states none', async () => {
+	const { driver, cwd } = await setupClaude({
+		stdoutChunks: [assistantEvent({ id: 'msg_01', input: 10, cacheRead: 20, cacheCreation: 30 }) + event({ type: 'result', result: 'FINAL' })],
+	});
+	const reported: HarnessProcessUsage[] = [];
+
+	const result = await driver.invoke({ prompt: 'TASK', cwd, onUsage: (usage) => reported.push(usage) });
+
+	// what the process reported while it ran is evidence for the record; the
+	// returned usage is still only what the terminal envelope stated
+	expect(reported.at(-1)).toStrictEqual({ inputTokens: 10, cacheReadTokens: 20, cacheCreationTokens: 30 });
+	expect(result).toStrictEqual({ text: 'FINAL', exitCode: 0, rateLimited: false, usage: undefined });
 });

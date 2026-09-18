@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { resolveRecordedPlanPath } from '#src/plan/index.ts';
 
 interface Params {
 	cwd: string;
@@ -19,9 +19,10 @@ interface Params {
  * the manifest says there is one.
  */
 export const readPlanSources = async ({ cwd, plan, overview }: Params): Promise<{ planContent: string; overviewContent?: string } | { error: string }> => {
-	// resolve, not join: a relative record is read under the repo, and an
-	// absolute one is read where it points instead of being glued onto the repo.
-	const planPath = resolve(cwd, plan);
+	// The shared resolver, not a bare resolve: a plans-directory record is read
+	// from the primary checkout whichever checkout the run works in, an absolute
+	// one is read where it points, and every other record is read under the repo.
+	const planPath = await resolveRecordedPlanPath({ cwd, path: plan });
 	const planContent = await readFile(planPath, 'utf8').catch(() => undefined);
 
 	if (planContent === undefined) {
@@ -32,7 +33,7 @@ export const readPlanSources = async ({ cwd, plan, overview }: Params): Promise<
 		return { planContent };
 	}
 
-	const overviewPath = resolve(cwd, overview);
+	const overviewPath = await resolveRecordedPlanPath({ cwd, path: overview });
 	const overviewContent = await readFile(overviewPath, 'utf8').catch(() => undefined);
 
 	if (overviewContent === undefined) {

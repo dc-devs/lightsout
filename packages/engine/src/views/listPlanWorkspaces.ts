@@ -19,7 +19,7 @@ interface Params {
  * every plan subfolder it holds, or its own name when it holds none.
  */
 const namesOf = async ({ cwd, folder }: { cwd: string; folder: string }) => {
-	const children = await readdir(join(plansDir({ cwd }), folder), { withFileTypes: true }).catch(() => []);
+	const children = await readdir(join(await plansDir({ cwd }), folder), { withFileTypes: true }).catch(() => []);
 	const addresses = children
 		.filter((child) => child.isDirectory())
 		.map((child) => formatPlanAddress({ ticketBranch: folder, planId: child.name }))
@@ -45,7 +45,7 @@ const namesOf = async ({ cwd, folder }: { cwd: string; folder: string }) => {
  * @param cwd - the repo whose `.lightsout/plans/` is read; a missing folder is an empty list, since a fresh clone has none
  */
 export const listPlanWorkspaces = async ({ cwd }: Params): Promise<PlanWorkspaceListing[]> => {
-	const entries = await readdir(plansDir({ cwd }), { withFileTypes: true }).catch(() => []);
+	const entries = await readdir(await plansDir({ cwd }), { withFileTypes: true }).catch(() => []);
 	const runs = await listRuns({ cwd });
 	const listings: PlanWorkspaceListing[] = [];
 

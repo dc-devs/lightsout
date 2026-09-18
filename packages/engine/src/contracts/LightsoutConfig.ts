@@ -5,6 +5,7 @@ import { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
 import { ConfigGates } from '#src/contracts/ConfigGates.ts';
 import { ConfigImplement } from '#src/contracts/ConfigImplement.ts';
 import { ConfigPlan } from '#src/contracts/ConfigPlan.ts';
+import { ConfigPricing } from '#src/contracts/ConfigPricing.ts';
 import { ConfigQueue } from '#src/contracts/ConfigQueue.ts';
 import { ConfigShip } from '#src/contracts/ConfigShip.ts';
 import { ConfigTicketTracker } from '#src/contracts/ConfigTicketTracker.ts';
@@ -200,6 +201,8 @@ export const LightsoutConfig = z
 		plan: ConfigPlan.optional(),
 		/** Opt-in implementation settings — the cleanup round budget the refactor step spends. See `ConfigImplement`. */
 		implement: ConfigImplement.optional(),
+		/** Opt-in published rates, keyed by model identifier, in dollars per million tokens. Read only by `lightsout report`, to print a separate estimated-cost column; nothing computed from it is ever stored. See `ConfigPricing`. */
+		pricing: ConfigPricing.optional(),
 		/** Opt-in shared workspace preparation — the one command run inside a fresh worktree, by the queue and by an isolated implementation run alike. See `ConfigWorktree`. */
 		worktree: ConfigWorktree.optional(),
 		/** Opt-in tracker identity — provider-specific address and credential environment variables. See `ConfigTicketTracker`. */

@@ -1,4 +1,4 @@
-import type { Effort, Permissions } from '#src/contracts/index.ts';
+import type { Effort, HarnessProcessUsage, Permissions } from '#src/contracts/index.ts';
 import type { AgentEnvironment } from '#src/drivers/common/types/AgentEnvironment.ts';
 
 export interface DriverInvocation {
@@ -41,4 +41,11 @@ export interface DriverInvocation {
 	 * stream never call it — the engine must not depend on it for outcomes.
 	 */
 	onEvent?: (event: unknown) => void;
+	/**
+	 * Called whenever this process's stream reports fresh usage, each payload
+	 * the running total so far. Drivers that cannot read usage mid-stream never
+	 * call it — a process that reported nothing is then recorded as having
+	 * reported nothing, never as zero.
+	 */
+	onUsage?: (usage: HarnessProcessUsage) => void;
 }

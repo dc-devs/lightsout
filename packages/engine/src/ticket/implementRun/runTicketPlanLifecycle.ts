@@ -119,7 +119,7 @@ const recordOutcome = async ({
 	name: string;
 	result: PipelineResult;
 }) => {
-	const whole = isWholePlanRun({ cwd, name, planPath: result.manifest.plan, pipeline: result.manifest.pipeline });
+	const whole = await isWholePlanRun({ cwd, name, planPath: result.manifest.plan, pipeline: result.manifest.pipeline });
 	const failed = result.manifest.status === RunStatus.Failed || result.manifest.status === RunStatus.Escalated;
 
 	// A pass that covered one phase, and a pause, both leave the plan exactly as
@@ -232,7 +232,7 @@ export const runTicketPlanLifecycle = async ({ cwd, name, resumeRunId, run }: Pa
 	const result = await run({ runId });
 	const recordError = await recordOutcome({ cwd, ticketBranch, planId, name, result });
 	const note =
-		result.ok && !isWholePlanRun({ cwd, name, planPath: result.manifest.plan, pipeline: result.manifest.pipeline })
+		result.ok && !(await isWholePlanRun({ cwd, name, planPath: result.manifest.plan, pipeline: result.manifest.pipeline }))
 			? `this run covered one phase file of plan ${planId} and it passed; the implementation of plan ${planId} on ticket ${ticketBranch} has not finished until the whole plan runs`
 			: undefined;
 

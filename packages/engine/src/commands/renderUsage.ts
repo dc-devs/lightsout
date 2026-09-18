@@ -23,6 +23,7 @@ const usageOrder = [
 	'status-planning',
 	'status-shipping',
 	'status-queue',
+	'report',
 	'doctor',
 	'standards-check',
 	'standards-check-list',

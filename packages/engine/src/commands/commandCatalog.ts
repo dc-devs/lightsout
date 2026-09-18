@@ -14,6 +14,7 @@ import { testCoverageToThresholdCatalogEntry } from '#src/commands/common/consta
 import { doctorCatalogEntry } from '#src/commands/common/constants/housekeeping/doctorCatalogEntry.ts';
 import { frictionCatalogEntry } from '#src/commands/common/constants/housekeeping/frictionCatalogEntry.ts';
 import { improveCatalogEntry } from '#src/commands/common/constants/housekeeping/improveCatalogEntry.ts';
+import { reportCatalogEntry } from '#src/commands/common/constants/housekeeping/reportCatalogEntry.ts';
 import { statusCatalogEntry } from '#src/commands/common/constants/housekeeping/statusCatalogEntry.ts';
 import { voiceCatalogEntry } from '#src/commands/common/constants/housekeeping/voiceCatalogEntry.ts';
 import { standardsCheckCatalogEntry } from '#src/commands/common/constants/standards/standardsCheckCatalogEntry.ts';
@@ -61,6 +62,7 @@ export const commandCatalog: CommandCatalogEntry[] = [
 	standardsValidateCatalogEntry,
 	standardsHealthCatalogEntry,
 	statusCatalogEntry,
+	reportCatalogEntry,
 	doctorCatalogEntry,
 	frictionCatalogEntry,
 	improveCatalogEntry,

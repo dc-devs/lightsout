@@ -15,5 +15,5 @@ export const voiceCatalogEntry: CommandCatalogEntry = {
 	flags: [{ name: 'cwd', value: '<path>', meaning: 'Project the setting belongs to.', fallback: 'The process working directory.', required: false }],
 	steps: [],
 	records: CommandRecordKind.Nothing,
-	related: ['status', 'doctor', 'friction', 'improve'],
+	related: ['status', 'doctor', 'friction', 'improve', 'report'],
 };

@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { runDoctor } from '#src/doctor/index.ts';
+import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const passingProbe = async () => ({ exitCode: 0, stdout: '2.1.201 (Claude Code)\n', stderr: '' });
@@ -236,4 +237,72 @@ test('a repo that opted out of standards entirely gets no lint-rules line at all
 	expect(checks.get('lint-rules')).toBe(undefined);
 	// the checks that do not hang off the standards still report
 	expect(checks.get('config')?.status).toBe('pass');
+});
+
+// The usage probe spends real money on the user's own subscription, so what
+// this file owns about it is the same orchestration question as every other
+// check: does it run at all, and does asking for it disturb the rest.
+
+/**
+ * A harness stub that reports both readings the probe takes — the streamed
+ * token counts an event carries, and the normalized usage a settled call
+ * returns — while recording every invocation it was handed.
+ */
+const setupUsageDriver = () => {
+	const invocations: DriverInvocation[] = [];
+
+	const usageDriver: Driver = {
+		name: 'claude-code',
+		invoke: async (invocation: DriverInvocation) => {
+			invocations.push(invocation);
+			invocation.onEvent?.({ type: 'assistant', message: { usage: { input_tokens: 120, output_tokens: 34 } } });
+
+			return {
+				text: 'ok',
+				exitCode: 0,
+				usage: { inputTokens: 120, outputTokens: 34, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0.002 },
+			};
+		},
+	};
+
+	return { invocations, usageDriver };
+};
+
+test('runDoctor omits the harness-usage check unless it is asked for', async () => {
+	const dir = setupConsumerRepo();
+	const { invocations, usageDriver } = setupUsageDriver();
+
+	writeFileSync(join(dir, '.gitignore'), '.lightsout\n');
+
+	const checks = byId(await runDoctor({ cwd: dir, probeHarness: passingProbe, usageDriver }));
+
+	// no flag, no probe — and the seam standing in for the harness call is
+	// proof that nothing was spawned, not merely that no line was printed
+	expect(checks.get('harness-usage')).toBe(undefined);
+	expect(invocations).toStrictEqual([]);
+	// the checks that always run are untouched by the probe's absence
+	expect(checks.get('harness')?.status).toBe('pass');
+	expect(checks.get('config')?.status).toBe('pass');
+});
+
+test('runDoctor adds the harness-usage check when the probe is asked for', async () => {
+	const dir = setupConsumerRepo();
+	const { invocations, usageDriver } = setupUsageDriver();
+
+	writeFileSync(join(dir, '.gitignore'), '.lightsout\n');
+
+	const report = await runDoctor({ cwd: dir, probeHarness: passingProbe, usageProbe: true, usageDriver });
+	const checks = byId(report);
+
+	expect(checks.get('harness-usage')?.status).toBe('pass');
+	expect(invocations.length).toBe(1);
+	// asking for the probe drops none of the checks that always run
+	expect(checks.get('harness')?.status).toBe('pass');
+	expect(checks.get('config')?.status).toBe('pass');
+	expect(checks.get('gitignore')?.status).toBe('pass');
+	expect(checks.get('script-binaries')?.status).toBe('pass');
+	// and the report stays positives-first, the probe sorted among its peers
+	const ranks = report.map((check) => ({ pass: 0, note: 1, warn: 2, fail: 3 })[check.status]);
+
+	expect([...ranks].sort((a, b) => a - b)).toStrictEqual(ranks);
 });

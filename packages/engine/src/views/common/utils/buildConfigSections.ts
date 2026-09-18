@@ -48,6 +48,7 @@ const configFieldReaders: Record<string, (params: { config: LightsoutConfig }) =
 	'auto-plan': ({ config }) => config['auto-plan'],
 	plan: ({ config }) => config.plan,
 	implement: ({ config }) => config.implement,
+	pricing: ({ config }) => config.pricing,
 	docs: ({ config }) => config.docs,
 };
 
@@ -66,6 +67,7 @@ const configSectionKeys: Array<{ title: string; keys: string[] }> = [
 	{ title: 'Auto plan', keys: ['auto-plan'] },
 	{ title: 'Plan', keys: ['plan'] },
 	{ title: 'Implement', keys: ['implement'] },
+	{ title: 'Pricing', keys: ['pricing'] },
 	{ title: 'Docs', keys: ['docs'] },
 ];
 

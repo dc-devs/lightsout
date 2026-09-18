@@ -219,5 +219,5 @@ export const restoreBrainstormFiles = async ({ cwd, name, identifier, settings, 
 		return { restored: [], skipped: [], error: generation.error };
 	}
 
-	return writeIntoFolder({ dir: planWorkspaceDir({ cwd, name }), files: generation.files });
+	return writeIntoFolder({ dir: await planWorkspaceDir({ cwd, name }), files: generation.files });
 };

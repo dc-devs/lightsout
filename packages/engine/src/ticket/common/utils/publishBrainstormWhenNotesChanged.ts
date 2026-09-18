@@ -84,7 +84,7 @@ export const publishBrainstormWhenNotesChanged = async ({
 	env,
 	onProgress,
 }: Params): Promise<{ published: string[] } | { error: string }> => {
-	const notesPath = join(planWorkspaceDir({ cwd, name: address }), brainstormNotesFileName);
+	const notesPath = join(await planWorkspaceDir({ cwd, name: address }), brainstormNotesFileName);
 
 	if (!(await pathExists({ path: notesPath }))) {
 		return { published: [] };

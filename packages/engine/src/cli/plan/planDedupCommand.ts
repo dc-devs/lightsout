@@ -6,7 +6,7 @@ import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { planRunOptions } from '#src/cli/plan/common/utils/planRunOptions.ts';
 import { type LightsoutConfig, PlanningStep, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { PlanRunStatus, recordPlanningStep, runPlanDedup } from '#src/plan/index.ts';
+import { PlanRunStatus, recordPlanCommandRun, recordPlanningStep, runPlanDedup } from '#src/plan/index.ts';
 
 interface Params {
 	cwd: string;
@@ -24,18 +24,27 @@ interface Params {
  * report on disk, and the helper would exit before the caller could print it.
  */
 export const planDedupCommand = async ({ cwd, driver, name, standards, config }: Params): Promise<void> => {
-	const result = await recordPlanningStep({
+	// A written, complete scan is the one case that exits 0 below — one reading,
+	// shared by both records.
+	const statusOf = ({ result: deduped }: { result: Awaited<ReturnType<typeof runPlanDedup>> }) =>
+		deduped.status === PlanRunStatus.PausedRateLimit
+			? RunStatus.PausedRateLimit
+			: deduped.dedupPath !== undefined && deduped.dedup?.complete === true
+				? RunStatus.Passed
+				: RunStatus.Failed;
+	const result = await recordPlanCommandRun({
 		cwd,
 		name,
-		step: PlanningStep.Dedup,
-		work: () => runPlanDedup(planRunOptions({ cwd, driver, name, standards, config })),
-		// A written, complete scan is the one case that exits 0 below.
-		statusOf: ({ result: deduped }) =>
-			deduped.status === PlanRunStatus.PausedRateLimit
-				? RunStatus.PausedRateLimit
-				: deduped.dedupPath !== undefined && deduped.dedup?.complete === true
-					? RunStatus.Passed
-					: RunStatus.Failed,
+		label: 'plan dedup',
+		statusOf,
+		work: ({ level }) =>
+			recordPlanningStep({
+				cwd,
+				name,
+				step: PlanningStep.Dedup,
+				work: () => runPlanDedup({ ...planRunOptions({ cwd, driver, name, standards, config }), level }),
+				statusOf,
+			}),
 	});
 
 	if ('error' in result) {

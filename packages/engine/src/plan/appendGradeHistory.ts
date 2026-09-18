@@ -27,7 +27,7 @@ interface Params {
  * when called on its own.
  */
 export const appendGradeHistory = async ({ cwd, name, report }: Params): Promise<void> => {
-	const path = gradeHistoryPath({ cwd, name });
+	const path = await gradeHistoryPath({ cwd, name });
 
 	await mkdir(dirname(path), { recursive: true });
 	await appendFile(path, `${JSON.stringify(GradeReport.parse(report))}\n`, 'utf8');

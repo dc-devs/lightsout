@@ -30,7 +30,9 @@ interface Params {
  *
  * Spelled once because both flows end identically, and an exit shape that is
  * hand-written twice is one edit away from the two ending differently for no
- * stated reason.
+ * stated reason. The command-run level goes through here for the same reason:
+ * wiring it once is what keeps the focused and legacy convergences recording
+ * one shape.
  *
  * The blocking findings come back beside the result because one caller acts on
  * them rather than returning them: a single plan busting the created-file
@@ -47,7 +49,7 @@ export const convergePlanStructure = async ({
 	mechanicalRepair,
 	overviewPath,
 }: Params): Promise<{ result: RunPlanDraftResult; blocking: StructuralFinding[] }> => {
-	const { cwd, driver, name, workspaceDir, brainstormDecisionsPath, decisions, config, model, effort, permissions, timeoutMs, progress } = context;
+	const { cwd, driver, name, workspaceDir, brainstormDecisionsPath, decisions, config, model, effort, permissions, timeoutMs, level, progress } = context;
 	const draftStop = createDraftStop({ workspaceDir, advisories, implementation: context.implementation });
 	const repaired = await repairPlanStructure({
 		cwd,
@@ -62,6 +64,7 @@ export const convergePlanStructure = async ({
 		effort,
 		permissions,
 		timeoutMs,
+		level,
 		progress,
 		mechanicalRepair,
 		overviewPath,

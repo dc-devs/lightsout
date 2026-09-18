@@ -191,6 +191,34 @@ describe('getConfigView', () => {
 		expect(findField({ sections: view.sections, key: 'implement' })).toEqual(expect.objectContaining({ value: null, fromConfig: false }));
 	});
 
+	test('shows the pricing block whole in its own area, keyed by model with all four per-million rates', async () => {
+		const pricing = {
+			'claude-opus-5': { input: 15, output: 75, 'cache-read': 1.5, 'cache-write': 18.75 },
+			'claude-haiku-4-5-20251001': { input: 1, output: 5, 'cache-read': 0.1, 'cache-write': 1.25 },
+		};
+		const cwd = await seedConfiguredCwd({ config: { pricing } });
+
+		const view = await getConfigView({ cwd });
+
+		const pricingSection = view.sections.find((section) => section.title === 'Pricing');
+
+		expect(pricingSection?.fields).toEqual([
+			// the sentence is the schema's own, so the page and the config reference
+			// cannot say different things about the same block
+			expect.objectContaining({ key: 'pricing', value: pricing, fromConfig: true, description: expect.stringContaining('per million tokens') }),
+		]);
+	});
+
+	test('leaves pricing null when the file omits it, because rates are opt-in and the engine can guess no rate nobody stated', async () => {
+		const cwd = await seedConfiguredCwd();
+
+		const view = await getConfigView({ cwd });
+
+		// the row is present and unset rather than absent — the page has to show the
+		// block is available, and an absent block costs only the estimate column
+		expect(findField({ sections: view.sections, key: 'pricing' })).toEqual(expect.objectContaining({ value: null, fromConfig: false }));
+	});
+
 	test('shows the docs block whole in its own area, so a declared surface and what it covers are both on the page', async () => {
 		const docs = [
 			{ path: 'README.md', covers: 'The product tour and the index of every other document.' },
