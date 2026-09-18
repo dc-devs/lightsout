@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,6 +8,7 @@ import type { Driver } from '#src/drivers/index.ts';
 import { initializeSequence } from '#src/phases/index.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 import { plantSequence } from '#tests/helpers/plantSequence.ts';
+import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 const driver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };
@@ -47,6 +49,29 @@ const foreignManifest = ({ pipeline }: { pipeline?: PipelineKind }): RunManifest
 	unreachableChangedFiles: [],
 	coverageExcludedChangedFiles: [],
 });
+
+/**
+ * A primary checkout holding a plan folder under `.lightsout/plans`, with a
+ * linked worktree added from it — the shape every phased run works in, where
+ * the plan folder is in the primary and the run's cwd is the worktree.
+ */
+const setupLinkedPlanWorktree = ({ phases }: { phases: number }) => {
+	const { cwd } = setupBranchRepo();
+	const worktree = join(cwd, '.worktrees', 'lo-151-read-coverage');
+	const folder = join(cwd, '.lightsout', 'plans', 'lo-151', '001-read-coverage');
+	const rows = Array.from({ length: phases }, (_, index) => `| ${index + 1} | \`phase${index + 1}.md\` | scope |`);
+
+	mkdirSync(folder, { recursive: true });
+	writeFileSync(join(folder, 'overview.md'), `# Feature — Overview\n\n## Phases\n\n| # | File | Scope |\n|---|------|-------|\n${rows.join('\n')}\n`);
+
+	for (let phase = 1; phase <= phases; phase += 1) {
+		writeFileSync(join(folder, `phase${phase}.md`), `# Feature — Phase ${phase}\n`);
+	}
+
+	execSync(`git worktree add -q -b lo-151-read-coverage "${worktree}" main`, { cwd, stdio: 'ignore' });
+
+	return { worktree, overviewPath: join('.lightsout', 'plans', 'lo-151', '001-read-coverage', 'overview.md') };
+};
 
 describe('initializeSequence', () => {
 	test('a fresh sequence gets one pending step per phase, in the overview’s written order', async () => {
@@ -210,5 +235,17 @@ describe('initializeSequence', () => {
 
 		expect(error.message).toMatch(/an unfinished run for this plan already exists/);
 		expect(error.message).toContain('lightsout resume --run mid-flight-sequence');
+	});
+
+	test('a phased plan whose folder lives in the primary checkout initializes from a linked worktree', async () => {
+		const { worktree, overviewPath } = setupLinkedPlanWorktree({ phases: 3 });
+
+		const { manifest } = await initializeSequence({ cwd: worktree, driver, config, overviewPath });
+
+		// The plan folder sits in the primary checkout, never in the worktree the
+		// run works in. Resolving either the overview or its phase files against
+		// the worktree names files that are not there, and the coordinator dies
+		// before any phase starts.
+		expect(manifest.steps.map((step) => step.id)).toStrictEqual(['phase1.md', 'phase2.md', 'phase3.md']);
 	});
 });
