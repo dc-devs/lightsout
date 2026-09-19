@@ -11,8 +11,15 @@ import { GradeDecisionLog } from '#src/contracts/plan/memory/GradeDecisionLog.ts
  * compared for equality, never interpreted.
  */
 export const GradeInputs = z.object({
-	/** One entry per plan file, overview included, keyed by basename and sorted by it. */
-	planFiles: z.array(z.object({ file: z.string(), sha256: z.string() })).default([]),
+	/**
+	 * One entry per plan file, overview included, keyed by basename and sorted by
+	 * it. `designSha256` is the hash of the text a reader of that file actually
+	 * read — its content with every engine-generated region removed and the
+	 * overview text credited to it hashed in. Absent means nobody measured it,
+	 * which is an entry recorded before design hashes existed or a plan file that
+	 * could not be read, and it never compares equal to a present one.
+	 */
+	planFiles: z.array(z.object({ file: z.string(), sha256: z.string(), designSha256: z.string().optional() })).default([]),
 	/** `HEAD` when the pass ran; absent outside a git worktree. */
 	gradedCommit: z.string().optional(),
 	/**
@@ -30,7 +37,7 @@ export const GradeInputs = z.object({
 	prompts: z.string(),
 	model: z.string().optional(),
 	effort: z.string().optional(),
-	/** Present for a phased plan whose overview could be read; absent for a single plan and for a pass recorded before the field existed. Read only by the scope comparison. */
+	/** Present for every plan whose decisions were read; absent for a pass recorded before the field existed. Read only by the scope comparison. */
 	decisionLog: GradeDecisionLog.optional(),
 	/** sha256 over the canonical JSON of every field above — the one value a comparison uses. */
 	sha256: z.string(),

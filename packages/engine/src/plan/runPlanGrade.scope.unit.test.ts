@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, test } from '@jest/globals';
-import { GradeReport } from '#src/contracts/index.ts';
+import type { ActivityLevel } from '#src/activity/index.ts';
+import { type ActivityLevelKind, GradeReport } from '#src/contracts/index.ts';
 import { gradeMemoryPath } from '#src/plan/index.ts';
 import { runPlanGrade } from '#src/plan/runPlanGrade.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
@@ -21,6 +22,22 @@ import {
 // How far one `plan grade` pass reaches: the phases a repair can touch, the
 // whole plan when the scope cannot be narrowed, and the passing review that is
 // reported as current rather than paid for twice.
+
+/**
+ * A level handle that records the kind of every level opened beneath it and
+ * nothing else — enough for a test to tell one grading pass from two.
+ */
+const countingLevel = ({ opened }: { opened: ActivityLevelKind[] }): ActivityLevel => ({
+	id: 'command-run',
+	open: ({ level }) => {
+		opened.push(level);
+
+		return countingLevel({ opened });
+	},
+	close: () => undefined,
+	recordProcess: () => undefined,
+	settled: async () => undefined,
+});
 
 describe('runPlanGrade', () => {
 	test('plan grade: a focused pass reads the edited phase and its connected neighbour only', async () => {
@@ -55,28 +72,31 @@ describe('runPlanGrade', () => {
 		expect(result.grade.passed).toBe(false);
 	});
 
-	test('plan grade: a cleared focused pass is followed by a full review in one invocation', async () => {
+	test('plan grade: a cleared focused pass ends the invocation rather than buying a full review', async () => {
 		const { cwd, name, driver, invocations, historyPath, gradePath } = await setupGraded({
-			name: 'focused-cleared',
+			name: 'focused-cleared-ends',
 			gaps: [omittedDecisionGap],
 			recheckVerdict: closingVerdict,
 			edited: 'phase2-extra.md',
 		});
+		const opened: ActivityLevelKind[] = [];
 
-		const result = await runPlanGrade({ cwd, driver, name });
+		const result = await runPlanGrade({ cwd, driver, name, level: countingLevel({ opened }) });
 
 		expectStatus(result, 'complete');
-		// six readers for the closure, then nine for the whole plan — two passes, one
-		// invocation, no second call from the caller
-		expect(countOf({ invocations, marker: gapCheckMarker })).toBe(15);
-		expect(historyScopes({ historyPath })).toStrictEqual(['full', 'focused', 'full']);
+		// the repair's closure is read once and the whole-plan fan-out that used to
+		// follow it is never spawned, so phase 3 is never handed to a reader
+		expect(countOf({ invocations, marker: gapCheckMarker })).toBe(6);
+		expect(readerPhases({ invocations })).toStrictEqual(['phase1-core.md', 'phase2-extra.md']);
+		// one pass ran: one line appended to the history, one pass level recorded
+		expect(historyScopes({ historyPath })).toStrictEqual(['full', 'focused']);
+		expect(opened.filter((kind) => kind === 'pass')).toStrictEqual(['pass']);
 
 		const recorded = GradeReport.parse(JSON.parse(readFileSync(gradePath, 'utf8')));
 
-		// the verdict left on disk is the full one, and only a full one may pass
-		expect(recorded.scope).toBe('full');
-		expect(recorded.passed).toBe(true);
-		expect(result.grade.scope).toBe('full');
+		// the verdict left on disk is the focused pass's own — there is no later one
+		expect(recorded.scope).toBe('focused');
+		expect(result.grade.scope).toBe('focused');
 	});
 
 	test('plan grade: a focused pass with a blocker left runs no full review and cannot pass', async () => {
@@ -95,8 +115,10 @@ describe('runPlanGrade', () => {
 		expect(historyScopes({ historyPath })).toStrictEqual(['full', 'focused']);
 		expect(result.grade.scope).toBe('focused');
 		expect(result.grade.passed).toBe(false);
-		expect(result.grade.complete).toBe(false);
-		expect(result.grade.incompleteReason ?? '').toContain('phase2-extra.md');
+		// the plan IS covered at its current text — the unclosed blocker alone is
+		// what refuses the A, and it refuses it without a second pass being bought
+		expect(result.grade.complete).toBe(true);
+		expect(result.grade.gaps.some(({ phase }) => phase === 'phase2-extra.md')).toBe(true);
 	});
 
 	test('plan grade: a qualifying full review is reported as current and never repeated', async () => {
@@ -180,7 +202,7 @@ describe('runPlanGrade', () => {
 		expect(result.grade.passed).toBe(true);
 	});
 
-	test('plan grade: the documentation checker runs on full passes only', async () => {
+	test('plan grade: the documentation checker runs from its own record, whatever the pass read', async () => {
 		const { cwd, name, driver, invocations } = await setupGraded({
 			name: 'docs-scope',
 			gaps: [omittedDecisionGap],
@@ -192,12 +214,12 @@ describe('runPlanGrade', () => {
 		const result = await runPlanGrade({ cwd, driver, name });
 
 		expectStatus(result, 'complete');
-		// two passes ran, and only one of them spawned the whole-plan checker: a
-		// checker that reads every file is not part of a pass that reads two
-		expect(countOf({ invocations, marker: gapCheckMarker })).toBe(15);
+		// the repair moved a plan file the recorded documentation check measured, so
+		// that record no longer stands and the checker runs — on the one narrow pass
+		// this invocation buys, because there is no whole-plan review behind it to
+		// leave the job to
+		expect(countOf({ invocations, marker: gapCheckMarker })).toBe(6);
 		expect(countOf({ invocations, marker: docsCheckMarker })).toBe(1);
-		// and the one that spawned it is the full pass, which comes second
-		expect(invocations.findIndex(({ prompt }) => prompt.includes(docsCheckMarker))).toBeGreaterThan(5);
-		expect(result.grade.scope).toBe('full');
+		expect(result.grade.scope).toBe('focused');
 	});
 });

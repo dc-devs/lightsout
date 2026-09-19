@@ -2,6 +2,7 @@ import { type DecisionsRecord, FindingSeverity, StructuralCheck, type Structural
 import { PlanFileKind } from '#src/plan/common/constants/PlanFileKind.ts';
 import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
 import { decisionLogReference, renderDecisionLog } from '#src/plan/decisionLog/index.ts';
+import { getComparableSection } from '#src/plan/lint/common/utils/getComparableSection.ts';
 
 interface Params {
 	/** The parsed plan file — read for its `decisionLogRange`, its `lines` and its variant. */
@@ -27,22 +28,6 @@ const expectedSection = ({ plan, decisions, phased }: { plan: ParsedPlan; decisi
 	phased && plan.variant === PlanFileKind.Implementable ? decisionLogReference() : renderDecisionLog({ decisions: decisions.decisions });
 
 /**
- * One section's lines as they compare: each line's trailing whitespace removed
- * and trailing blank lines dropped. How a section joins the heading below it is
- * the rewriter's business, so a file that differs from the rendered text only in
- * how it ends is current rather than stale.
- */
-const comparable = ({ lines }: { lines: string[] }) => {
-	const trimmed = lines.map((line) => line.replace(/\s+$/, ''));
-
-	while (trimmed.at(-1) === '') {
-		trimmed.pop();
-	}
-
-	return trimmed.join('\n');
-};
-
-/**
  * DecisionLogCurrent — a plan file whose `## Decision Log` is not the section
  * the engine would compose from the saved decision records, or which has no
  * such section at all.
@@ -66,8 +51,8 @@ export const checkDecisionLog = ({ plan, phase, decisions, phased, syncCommand }
 		return [{ ...shared, issue: "no '## Decision Log' section — the engine composes one for every plan file", location: phase, fix }];
 	}
 
-	const carried = comparable({ lines: plan.lines.slice(range.start - 1, range.end) });
-	const expected = comparable({ lines: expectedSection({ plan, decisions, phased }).split('\n') });
+	const carried = getComparableSection({ lines: plan.lines.slice(range.start - 1, range.end) });
+	const expected = getComparableSection({ lines: expectedSection({ plan, decisions, phased }).split('\n') });
 
 	return carried === expected
 		? []

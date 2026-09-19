@@ -6,6 +6,9 @@ import { readGitHeadCommit } from '#src/common/git/readGitHeadCommit.ts';
 import { canonicalJson } from '#src/common/utils/canonicalJson.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import type { DecisionRow, Effort, GradeInputs, LightsoutConfig } from '#src/contracts/index.ts';
+import { getOverviewDesignHashes } from '#src/plan/common/scope/getOverviewDesignHashes.ts';
+import { getPlanDesignHash } from '#src/plan/common/scope/getPlanDesignHash.ts';
+import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
 import { parsePlan } from '#src/plan/parsePlan.ts';
 
 interface Params {
@@ -51,35 +54,69 @@ const toDecisionEntry = ({ row }: { row: DecisionRow }) => {
 	};
 };
 
+/** The basename every phased plan's overview carries, and the one plan file whose text some of is about another. */
+const overviewBase = 'overview.md';
+
 /**
- * The decision-log part of a phased plan's fingerprint, or `undefined` for a
- * single plan and for an overview that could not be read — never a hash of
- * content nobody read.
- *
- * The overview is hashed with the span `parsePlan` locates as the Decision Log
- * removed. That span is safe to leave out because the blocking log-matches-record
- * check stops the pass before this runs, and the rows it was rendered from are
- * fingerprinted one by one beside it.
+ * One plan file as this pass read it: the bytes behind its whole-file hash and
+ * the parse its design hash is taken from. A file that could not be read carries
+ * the literal `absent` hash and no parse at all — never a real digest, so an
+ * unread file never compares equal to a read one.
  */
-const readDecisionLog = async ({ planPaths, decisions }: { planPaths: string[]; decisions: DecisionRow[] }) => {
-	const overviewPath = planPaths.find((path) => basename(path) === 'overview.md');
-	const text = overviewPath === undefined ? undefined : await readFile(overviewPath, 'utf8').catch(() => undefined);
+const readPlanFile = async ({ path }: { path: string }) => {
+	const file = basename(path);
+	const content = await readFile(path).catch(() => undefined);
 
-	if (text === undefined) {
-		return undefined;
-	}
-
-	const plan = parsePlan({ content: text, base: 'overview.md' });
-	const range = plan.decisionLogRange;
-	const design = range === undefined ? plan.lines : [...plan.lines.slice(0, range.start - 1), ...plan.lines.slice(range.end)];
-
-	return { overview: sha256({ content: design.join('\n') }), rows: decisions.map((row) => toDecisionEntry({ row })) };
+	return content === undefined
+		? { file, sha256: 'absent' }
+		: { file, sha256: sha256({ content }), plan: parsePlan({ content: content.toString('utf8'), base: file }) };
 };
 
 /**
- * Fingerprint everything one grading pass measures: the plan text, the code
- * beside it, the standards, the plan-relevant config, the prompts, the model
- * and, for a phased plan, the decision rows its overview's log is rendered from.
+ * The decision part of this pass's fingerprint: one entry per merged row for
+ * every plan, and the overview's shared design hash when an overview was read.
+ *
+ * The overview's generated spans are safe to leave out of that hash because each
+ * is guarded by its own blocking check — the log-matches-record check and the
+ * Global Constraints currency check both stop the pass before this runs — and
+ * the rows the log was rendered from are fingerprinted one by one beside it.
+ */
+const readDecisionPart = ({ decisions, overviewDesign }: { decisions: DecisionRow[]; overviewDesign?: string }) => ({
+	...(overviewDesign === undefined ? {} : { overviewDesign }),
+	rows: decisions.map((row) => toDecisionEntry({ row })),
+});
+
+/**
+ * Each plan file's design hash, keyed by basename: the overview's is the text
+ * every phase shares, and a phase file's takes in the overview text credited to
+ * that phase. When no span of the overview can be credited, the overview is
+ * treated as wholly shared and no phase is handed any of its text, which widens
+ * the pass rather than crediting a phase with a span that may not be its own.
+ */
+const designHashesOf = ({ read }: { read: { file: string; plan?: ParsedPlan }[] }) => {
+	const overview = read.find((entry) => entry.file === overviewBase)?.plan;
+	const phaseFiles = read.map(({ file }) => file).filter((file) => file !== overviewBase);
+	const split = overview === undefined ? undefined : getOverviewDesignHashes({ overview, phaseFiles });
+	const hashes = new Map<string, string>();
+
+	for (const { file, plan } of read) {
+		if (plan === undefined) {
+			continue;
+		}
+
+		const attributed = split !== undefined && !('error' in split) ? split.attributed.get(file) : undefined;
+
+		hashes.set(file, file === overviewBase && split !== undefined ? split.shared : getPlanDesignHash({ plan, attributed }));
+	}
+
+	return hashes;
+};
+
+/**
+ * Fingerprint everything one grading pass measures: the plan text both whole and
+ * as a reader read it, the code beside it, the standards, the plan-relevant
+ * config, the prompts, the model and the decision rows the plan's log is
+ * rendered from.
  *
  * Each probe is its own statement, as in `readGradeStamp`, because they fail
  * independently: an unread changed-file list is left ABSENT rather than written
@@ -88,11 +125,16 @@ const readDecisionLog = async ({ planPaths, decisions }: { planPaths: string[]; 
  * what makes a dirty tree comparable at all instead of permanently uncertain.
  */
 export const getGradeInputs = async ({ cwd, planPaths, decisions, standards, config, model, effort }: Params): Promise<GradeInputs> => {
-	const hashed = await Promise.all(planPaths.map(async (path) => ({ file: basename(path), sha256: await hashFile({ path }) })));
-	const planFiles = hashed.sort((left, right) => (left.file > right.file ? 1 : -1));
+	const read = (await Promise.all(planPaths.map((path) => readPlanFile({ path })))).sort((left, right) => (left.file > right.file ? 1 : -1));
+	const designHashes = designHashesOf({ read });
+	const planFiles = read.map(({ file, sha256: fileSha256 }) => {
+		const designSha256 = designHashes.get(file);
+
+		return { file, sha256: fileSha256, ...(designSha256 === undefined ? {} : { designSha256 }) };
+	});
 	const gradedCommit = await readGitHeadCommit({ cwd });
 	const changed = await readGitChangedFiles({ cwd });
-	const decisionLog = await readDecisionLog({ planPaths, decisions });
+	const decisionLog = readDecisionPart({ decisions, overviewDesign: designHashes.get(overviewBase) });
 	const measured = {
 		planFiles,
 		gradedCommit,

@@ -48,27 +48,103 @@ const setupMemory = (overrides: Record<string, unknown> = {}) => {
 	return { memory, record, inputs };
 };
 
-const setupDecisionLogMemory = () => {
-	const { inputs } = setupMemory();
-	const withDecisionLog = {
-		...inputs,
-		decisionLog: {
-			overview: '1'.repeat(64),
-			rows: [
-				{ sha256: '2'.repeat(64), questionSha256: '3'.repeat(64) },
-				{
-					sha256: '4'.repeat(64),
-					questionSha256: '5'.repeat(64),
-					phases: ['phase1-preflight.md', 'phase2-extra.md'],
-				},
-			],
-		},
-	};
+/** The same memory with one fingerprint on BOTH of its recorded passes, so a test reads each field back twice over. */
+const setupMemoryFingerprinted = ({ extra }: { extra: Record<string, unknown> }) => {
+	const inputs = { ...setupMemory().inputs, ...extra };
 
 	return setupMemory({
-		lastPass: { scope: 'focused', inputs: withDecisionLog, at: '2026-09-02T00:00:00.000Z' },
-		lastPassingFullReview: { inputs: withDecisionLog, at: '2026-09-01T00:00:00.000Z' },
+		lastPass: { scope: 'focused', inputs, at: '2026-09-02T00:00:00.000Z' },
+		lastPassingFullReview: { inputs, at: '2026-09-01T00:00:00.000Z' },
 	});
+};
+
+/** The decision rows the decision-log cases measure, shared by the fixture and the expectation it is read back against. */
+const decisionLogPart = {
+	overviewDesign: '1'.repeat(64),
+	rows: [
+		{ sha256: '2'.repeat(64), questionSha256: '3'.repeat(64) },
+		{
+			sha256: '4'.repeat(64),
+			questionSha256: '5'.repeat(64),
+			phases: ['phase1-preflight.md', 'phase2-extra.md'],
+		},
+	],
+};
+
+/** The two plan files a pass recorded before design hashes existed carries — a whole-file digest and nothing else. */
+const unhashedPlanFiles = [
+	{ file: 'overview.md', sha256: 'a'.repeat(64) },
+	{ file: 'phase1-preflight.md', sha256: 'b'.repeat(64) },
+];
+
+/** The two plan files a design-hash case measures, each carrying the digest of the text a reader read. */
+const designHashedPlanFiles = [
+	{ file: 'overview.md', sha256: 'a'.repeat(64), designSha256: '6'.repeat(64) },
+	{ file: 'phase1-preflight.md', sha256: 'b'.repeat(64), designSha256: '7'.repeat(64) },
+];
+
+const setupDecisionLogMemory = () => setupMemoryFingerprinted({ extra: { decisionLog: decisionLogPart } });
+
+const setupDesignHashMemory = () =>
+	setupMemoryFingerprinted({
+		extra: {
+			planFiles: designHashedPlanFiles,
+			decisionLog: {
+				overviewDesign: '8'.repeat(64),
+				rows: [{ sha256: '2'.repeat(64), questionSha256: '3'.repeat(64) }],
+			},
+		},
+	});
+
+const setupPreDesignHashMemory = () =>
+	setupMemoryFingerprinted({
+		extra: {
+			decisionLog: {
+				overview: '1'.repeat(64),
+				rows: [{ sha256: '2'.repeat(64), questionSha256: '3'.repeat(64) }],
+			},
+		},
+	});
+
+const setupCoverageMemory = () =>
+	setupMemory({
+		coverage: {
+			readers: [
+				{
+					file: 'phase1-preflight.md',
+					lens: 'decisions',
+					designSha256: '9'.repeat(64),
+					neighbours: ['overview.md', 'phase2-extra.md'],
+					at: '2026-09-02T00:00:00.000Z',
+				},
+				{
+					file: 'phase2-extra.md',
+					lens: 'wiring',
+					designSha256: 'c'.repeat(64),
+					neighbours: [],
+					at: '2026-09-02T00:00:00.000Z',
+				},
+			],
+			docs: {
+				planFiles: [
+					{ file: 'overview.md', designSha256: 'd'.repeat(64) },
+					{ file: 'phase1-preflight.md', designSha256: '9'.repeat(64) },
+				],
+				at: '2026-09-02T00:00:00.000Z',
+			},
+		},
+	});
+
+const setupRecheckedFindings = () => {
+	const { record } = setupMemory();
+	const stamped = {
+		...record,
+		id: 'f2',
+		status: 'open',
+		lastRecheckedAt: '2026-09-03T00:00:00.000Z',
+	};
+
+	return setupMemory({ findings: [record, stamped], nextFindingNumber: 3 });
 };
 
 describe('GradeMemory', () => {
@@ -142,6 +218,9 @@ describe('GradeMemory', () => {
 					sha256: '0'.repeat(64),
 				},
 			},
+			// no pass has recorded a reading yet, so the contract fills the field
+			// rather than leaving it absent
+			coverage: { readers: [] },
 			nextFindingNumber: 2,
 			updatedAt: '2026-09-02T00:00:00.000Z',
 		});
@@ -160,6 +239,7 @@ describe('GradeMemory', () => {
 		expect(parsed).toStrictEqual({
 			planName: 'grade-scope-and-finding-memory',
 			findings: [],
+			coverage: { readers: [] },
 			nextFindingNumber: 1,
 			updatedAt: '2026-09-02T00:00:00.000Z',
 		});
@@ -176,30 +256,7 @@ describe('GradeMemory', () => {
 		expect({
 			lastPass: parsed.lastPass?.inputs.decisionLog,
 			lastPassingFullReview: parsed.lastPassingFullReview?.inputs.decisionLog,
-		}).toStrictEqual({
-			lastPass: {
-				overview: '1'.repeat(64),
-				rows: [
-					{ sha256: '2'.repeat(64), questionSha256: '3'.repeat(64) },
-					{
-						sha256: '4'.repeat(64),
-						questionSha256: '5'.repeat(64),
-						phases: ['phase1-preflight.md', 'phase2-extra.md'],
-					},
-				],
-			},
-			lastPassingFullReview: {
-				overview: '1'.repeat(64),
-				rows: [
-					{ sha256: '2'.repeat(64), questionSha256: '3'.repeat(64) },
-					{
-						sha256: '4'.repeat(64),
-						questionSha256: '5'.repeat(64),
-						phases: ['phase1-preflight.md', 'phase2-extra.md'],
-					},
-				],
-			},
-		});
+		}).toStrictEqual({ lastPass: decisionLogPart, lastPassingFullReview: decisionLogPart });
 	});
 
 	test('a pass recorded before the decision-log part existed parses with the part absent', () => {
@@ -220,5 +277,111 @@ describe('GradeMemory', () => {
 			lastPassingFullReview: '0'.repeat(64),
 			lastPassingFullReviewDecisionLog: undefined,
 		});
+	});
+
+	test('a pass recorded with design hashes round-trips through GradeMemory', () => {
+		const { memory } = setupDesignHashMemory();
+
+		const parsed = GradeMemory.parse(memory);
+
+		// the next pass decides how far it reaches from the text a reader actually
+		// read, so a dropped per-file design hash or a dropped shared overview hash
+		// would make a recorded reading unreadable
+		expect({
+			lastPassPlanFiles: parsed.lastPass?.inputs.planFiles,
+			lastPassOverviewDesign: parsed.lastPass?.inputs.decisionLog?.overviewDesign,
+			fullReviewPlanFiles: parsed.lastPassingFullReview?.inputs.planFiles,
+			fullReviewOverviewDesign: parsed.lastPassingFullReview?.inputs.decisionLog?.overviewDesign,
+		}).toStrictEqual({
+			lastPassPlanFiles: designHashedPlanFiles,
+			lastPassOverviewDesign: '8'.repeat(64),
+			fullReviewPlanFiles: designHashedPlanFiles,
+			fullReviewOverviewDesign: '8'.repeat(64),
+		});
+	});
+
+	test('a memory recorded before design hashes parses with them absent', () => {
+		const { memory } = setupPreDesignHashMemory();
+
+		const parsed = GradeMemory.parse(memory);
+
+		// nobody measured the design text of that earlier pass, and an absent
+		// measurement must never read as a match: no plan file is handed a digest,
+		// and the old whole-overview field is not mistaken for the shared design
+		// hash, so the plan takes exactly one full re-baseline
+		expect({
+			lastPassPlanFiles: parsed.lastPass?.inputs.planFiles,
+			lastPassOverviewDesign: parsed.lastPass?.inputs.decisionLog?.overviewDesign,
+			lastPassRows: parsed.lastPass?.inputs.decisionLog?.rows,
+			fullReviewPlanFiles: parsed.lastPassingFullReview?.inputs.planFiles,
+			fullReviewOverviewDesign: parsed.lastPassingFullReview?.inputs.decisionLog?.overviewDesign,
+		}).toStrictEqual({
+			lastPassPlanFiles: unhashedPlanFiles,
+			lastPassOverviewDesign: undefined,
+			lastPassRows: [{ sha256: '2'.repeat(64), questionSha256: '3'.repeat(64) }],
+			fullReviewPlanFiles: unhashedPlanFiles,
+			fullReviewOverviewDesign: undefined,
+		});
+	});
+
+	test('a memory carrying read coverage round-trips through GradeMemory', () => {
+		const { memory } = setupCoverageMemory();
+
+		const parsed = GradeMemory.parse(memory);
+
+		// the next pass decides what it may skip from these entries alone, so a
+		// dropped file, lens, design hash, neighbour list or stamp would either
+		// re-buy a reading already paid for or reuse one that no longer stands
+		expect(parsed.coverage).toStrictEqual({
+			readers: [
+				{
+					file: 'phase1-preflight.md',
+					lens: 'decisions',
+					designSha256: '9'.repeat(64),
+					neighbours: ['overview.md', 'phase2-extra.md'],
+					at: '2026-09-02T00:00:00.000Z',
+				},
+				{
+					file: 'phase2-extra.md',
+					lens: 'wiring',
+					designSha256: 'c'.repeat(64),
+					neighbours: [],
+					at: '2026-09-02T00:00:00.000Z',
+				},
+			],
+			docs: {
+				planFiles: [
+					{ file: 'overview.md', designSha256: 'd'.repeat(64) },
+					{ file: 'phase1-preflight.md', designSha256: '9'.repeat(64) },
+				],
+				at: '2026-09-02T00:00:00.000Z',
+			},
+		});
+	});
+
+	test('a memory written before coverage existed parses with no coverage claimed', () => {
+		const { memory } = setupMemory();
+
+		const parsed = GradeMemory.parse(memory);
+
+		// nobody recorded a reading on that plan, and an absent record must claim
+		// none rather than be rejected or handed an invented documentation entry:
+		// the plan takes exactly one full re-baseline
+		expect(parsed.coverage).toStrictEqual({ readers: [] });
+	});
+
+	test('a recheck stamp round-trips, and a record written before it stays unstamped', () => {
+		const { memory } = setupRecheckedFindings();
+
+		const parsed = GradeMemory.parse(memory);
+
+		// the narrowed re-verification asks about every record no judge has ever
+		// answered, so a stamp lost on the way to disk buys a judge that was already
+		// paid for, and a stamp invented on a record written before the field
+		// silences that record forever
+		expect(parsed.findings.map(({ id, lastRecheckedAt }) => ({ id, lastRecheckedAt }))).toStrictEqual([
+			{ id: 'f1', lastRecheckedAt: undefined },
+			{ id: 'f2', lastRecheckedAt: '2026-09-03T00:00:00.000Z' },
+		]);
 	});
 });

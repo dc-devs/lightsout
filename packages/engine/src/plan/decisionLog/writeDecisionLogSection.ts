@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
+import { generatedPlanRegions } from '#src/plan/common/constants/generatedPlanRegions.ts';
 import { replaceSectionSpan } from '#src/plan/common/rewriting/replaceSectionSpan.ts';
 import { writePlanFileIfChanged } from '#src/plan/common/rewriting/writePlanFileIfChanged.ts';
 import type { SyncedPlanFile } from '#src/plan/common/types/SyncedPlanFile.ts';
@@ -19,7 +20,7 @@ interface Params {
  * appended rather than dropped.
  */
 const insertSection = ({ lines, sectionLines }: { lines: string[]; sectionLines: string[] }) => {
-	const anchor = lines.findIndex((line) => /^##\s+Global Constraints\s*$/.test(line));
+	const anchor = lines.findIndex((line) => /^##\s+(.+?)\s*$/.exec(line)?.[1] === generatedPlanRegions.globalConstraints);
 	const trailingNewline = lines.at(-1) === '';
 	const body = trailingNewline ? lines.slice(0, -1) : lines;
 

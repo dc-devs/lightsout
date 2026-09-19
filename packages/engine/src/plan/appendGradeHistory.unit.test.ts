@@ -27,6 +27,7 @@ const reportOf = ({
 	lenses: [GapCheckLens.Surface, GapCheckLens.Wiring, GapCheckLens.Decisions],
 	weights: [],
 	phasesLight: [],
+	covered: ['plan.md'],
 	complete,
 	scopeComplete: complete,
 	incompleteReason,

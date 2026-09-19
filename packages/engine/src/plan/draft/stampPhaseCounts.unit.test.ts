@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { stampPhaseCounts } from '#src/plan/draft/stampPhaseCounts.ts';
+import { declaredRecord } from '#tests/helpers/declaredRecord.ts';
 import { type DeclarationSpec, overviewBody, type PhaseSpec, phaseBody } from '#tests/helpers/phasePlan.ts';
 
 // The count stamp: the overview's `## Phases` table is authored before any
@@ -128,7 +129,7 @@ describe('stampPhaseCounts', () => {
 		// either overwrite the declaration or leave the two copies disagreeing, and
 		// the declared creates/exports/scripts are claims the consistency check
 		// must still be able to fail
-		expect(declarations).toStrictEqual([
+		expect(declaredRecord({ declarations })).toStrictEqual([
 			{
 				number: 1,
 				file: 'phase1-core.md',

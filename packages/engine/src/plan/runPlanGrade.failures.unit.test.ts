@@ -225,9 +225,10 @@ test('plan grade: a rate-limited checker stops new checkers launching, and the p
 	// nothing finished all three lenses, so nothing is claimed
 	expect(recorded.phasesChecked).toStrictEqual([]);
 	expect(recorded.complete).toBe(false);
-	// the phase whose checkers never started is named nowhere — not as a failure,
-	// and above all not as checked and clean
-	expect(recorded.incompleteReason ?? '').not.toMatch(/phase5-last\.md/);
+	// the phase whose checkers never started is named as one nothing has read —
+	// never as a reader that failed, and above all not as checked and clean
+	expect(recorded.incompleteReason ?? '').not.toMatch(/phase5-last\.md\/\w+:/);
+	expect(recorded.incompleteReason ?? '').toMatch(/no reading covers .*phase5-last\.md/);
 	expect(recorded.incompleteReason ?? '').toMatch(/phase1-core\.md\/surface: rate limited or overloaded/);
 });
 

@@ -15,6 +15,7 @@ import { readGradeMemory } from '#src/plan/common/memory/readGradeMemory.ts';
 import { decideGradeScope } from '#src/plan/common/scope/decideGradeScope.ts';
 import { getGradeInputs } from '#src/plan/common/scope/getGradeInputs.ts';
 import type { DeliverableFile } from '#src/plan/common/types/DeliverableFile.ts';
+import type { DetectionPass } from '#src/plan/common/types/DetectionPass.ts';
 import type { GradeScopeDecision } from '#src/plan/common/types/GradeScopeDecision.ts';
 import type { GradeStamp } from '#src/plan/common/types/GradeStamp.ts';
 import type { PlanGradeParams } from '#src/plan/common/types/PlanGradeParams.ts';
@@ -24,14 +25,12 @@ import { getPlanDetectionPass } from '#src/plan/common/utils/getPlanDetectionPas
 import { selectPhaseFiles } from '#src/plan/common/utils/selectPhaseFiles.ts';
 import { lintPlanStructure } from '#src/plan/lint/index.ts';
 
-type DetectionPass = Awaited<ReturnType<typeof getPlanDetectionPass>>;
-
 type RunPlanGradeResult =
 	| { status: typeof PlanRunStatus.Complete; workspaceDir: string; grade: GradeReport; gradePath: string; reused?: boolean }
 	| { status: typeof PlanRunStatus.Failed; workspaceDir: string; error: string; grade?: GradeReport; gradePath?: string }
 	| { status: typeof PlanRunStatus.PausedRateLimit; workspaceDir: string; error: string; grade?: GradeReport; gradePath?: string };
 
-/** What one invocation's passes are run from, gathered once so the focused pass and the full review that may follow it are given the same thing. */
+/** What one invocation's pass is run from, gathered once by the caller so the runner is handed one object rather than nine arguments. */
 interface PassContext {
 	params: PlanGradeParams;
 	pass: DetectionPass;
@@ -90,18 +89,19 @@ const stopOnStructure = async ({
 };
 
 /**
- * The decided pass, plus the full review a cleared focused one earns.
+ * The pass the scope decision chose — one pass, and the invocation ends with it.
  *
- * A focused pass is a repair check and can never approve a plan, so a clean one
- * is the moment to pay for the review approval actually needs — in this same
- * invocation, because a caller that had to notice and re-run is a caller that
- * can forget to. A focused pass that still has a blocker stops here: the repair
- * is unproven, and the expensive full review would only say so again.
+ * Approval is granted from the read coverage and the closed findings rather than
+ * from how far one pass reached, so the pass that reads a repair is the pass that
+ * may approve it. A whole-plan review bought afterwards would re-read files the
+ * record already covers at the very text they still carry, which is the repeated
+ * work the record exists to stop.
  */
-const runDecidedPasses = async (context: PassContext) => {
+const runDecidedPass = async (context: PassContext) => {
 	const { params, pass, selected, decision, inputs, memory, structural, stamp, progress } = context;
 	const focused = decision.scope === GradeScope.Focused;
-	const first = await runGradePass({
+
+	return runGradePass({
 		params,
 		pass,
 		selected: focused ? selected.filter((file) => decision.phases.includes(basename(file.path))) : selected,
@@ -110,25 +110,6 @@ const runDecidedPasses = async (context: PassContext) => {
 		scopeReason: decision.reason,
 		inputs,
 		memory,
-		structural,
-		stamp,
-		progress,
-	});
-	const cleared = focused && !first.rateLimited && first.failures.length === 0 && getBlockingGaps({ gaps: first.report.gaps }).length === 0;
-
-	if (!cleared) {
-		return first;
-	}
-
-	return runGradePass({
-		params,
-		pass,
-		selected,
-		scope: GradeScope.Full,
-		focusedOn: [],
-		scopeReason: 'full review after the focused pass cleared every blocker',
-		inputs,
-		memory: first.memory,
 		structural,
 		stamp,
 		progress,
@@ -160,7 +141,11 @@ const runDecidedPasses = async (context: PassContext) => {
  * re-grade after a repair reads the edited phases and every phase connected to
  * them, falling back to the whole plan whenever that set cannot be established.
  * A recorded decision reaches the phases it names, and the phases connected to
- * them. A recorded passing full review that still covers the current inputs is
+ * them. What is left of that reach is narrowed once more by the read coverage:
+ * a plan file a recorded pass already read at the very text it still carries is
+ * not read again, and a pass approves once every plan file is covered at its
+ * current text and every finding is closed — whatever that one pass itself read.
+ * A recorded passing full review that still covers the current inputs is
  * reported as current rather than paid for twice.
  *
  * **What the memory buys.** A question a judge already settled is not
@@ -225,8 +210,8 @@ export const runPlanGrade = async (params: PlanGradeParams): Promise<RunPlanGrad
 		return { status: PlanRunStatus.Complete, workspaceDir, grade: reusable, gradePath, reused: true };
 	}
 
-	const memory: GradeMemory = found ?? { planName: name, findings: [], nextFindingNumber: 1, updatedAt: new Date().toISOString() };
-	const last = await runDecidedPasses({ params, pass, selected: selection.selected, decision, inputs, memory, structural, stamp, progress });
+	const memory: GradeMemory = found ?? { planName: name, findings: [], coverage: { readers: [] }, nextFindingNumber: 1, updatedAt: new Date().toISOString() };
+	const last = await runDecidedPass({ params, pass, selected: selection.selected, decision, inputs, memory, structural, stamp, progress });
 	const report = last.report;
 	const blocking = getBlockingGaps({ gaps: report.gaps });
 

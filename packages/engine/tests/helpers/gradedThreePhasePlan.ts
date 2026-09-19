@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type ConfigDocs, GradeReport } from '#src/contracts/index.ts';
 import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
-import { gradeHistoryPath, renderDecisionLog, runPlanGrade } from '#src/plan/index.ts';
+import { gradeHistoryPath, renderDecisionLog, renderGlobalConstraints, runPlanGrade } from '#src/plan/index.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createGapCheckDriver } from '#tests/helpers/createGapCheckDriver.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -28,9 +28,7 @@ const threePhaseOverview = `# Graded Plan — Overview
 
 ${renderDecisionLog({ decisions: [] })}
 
-## Global Constraints
-
-- None
+${renderGlobalConstraints({ decisions: [] })}
 
 ## Phases
 

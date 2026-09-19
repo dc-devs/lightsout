@@ -1,3 +1,4 @@
+import { generatedPlanRegions } from '#src/plan/common/constants/generatedPlanRegions.ts';
 import { PlanFileKind } from '#src/plan/common/constants/PlanFileKind.ts';
 import { parseAcceptanceLedger } from '#src/plan/common/parsing/parseAcceptanceLedger.ts';
 import { parseProseFiles } from '#src/plan/common/parsing/parseProseFiles.ts';
@@ -130,6 +131,26 @@ const movesFromPlan = ({ lines }: { lines: string[] }) => {
 	return { moves, malformedLines };
 };
 
+/**
+ * The line range of every engine-composed region this file carries, keyed by
+ * heading. A region the file lacks gets no entry at all: an invented empty span
+ * would read to the section writers as a section to replace rather than one to
+ * insert.
+ */
+const generatedRangesFrom = ({ parsed }: { parsed: Map<string, { lines: string[]; firstLine: number }> }) => {
+	const ranges = new Map<string, { start: number; end: number }>();
+
+	for (const heading of Object.values(generatedPlanRegions)) {
+		const section = parsed.get(heading);
+
+		if (section !== undefined) {
+			ranges.set(heading, rangeOf({ section }));
+		}
+	}
+
+	return ranges;
+};
+
 /** The first integer in the optional `## File Budget` section — the touched-file allowance a plan declares for itself. */
 const fileBudgetFrom = ({ sectionLines }: { sectionLines: string[] | undefined }) => {
 	for (const line of sectionLines ?? []) {
@@ -155,7 +176,7 @@ export const parsePlan = ({ content, base }: Params): ParsedPlan => {
 	const lines = content.split('\n');
 	const parsed = parseSections({ lines });
 	const sections = new Map<string, string[]>([...parsed].map(([heading, section]) => [heading, section.lines]));
-	const decisionLogSection = parsed.get('Decision Log');
+	const generatedRegionRanges = generatedRangesFrom({ parsed });
 	const ledgerSection = parsed.get('Acceptance Tests');
 	const proseSection = parsed.get('Prose Files');
 	const ledger = parseAcceptanceLedger({ sectionLines: ledgerSection?.lines, firstLine: ledgerSection?.firstLine ?? 1 });
@@ -183,7 +204,8 @@ export const parsePlan = ({ content, base }: Params): ParsedPlan => {
 		deletePaths: pathsFromLines({ sectionLines: sections.get('Files to Delete'), lineMatches: isSubheading }),
 		movePaths: moves,
 		malformedMoveLines: malformedLines,
-		decisionLogRange: decisionLogSection === undefined ? undefined : rangeOf({ section: decisionLogSection }),
+		generatedRegionRanges,
+		decisionLogRange: generatedRegionRanges.get(generatedPlanRegions.decisionLog),
 		sectionRanges: new Map([...parsed].map(([heading, section]) => [heading, rangeOf({ section })])),
 		fileBudget: fileBudgetFrom({ sectionLines: sections.get('File Budget') }),
 		mirrorPaths: pathsFromLines({ sectionLines: sections.get('Patterns to Mirror'), lineMatches: (line) => /^\s*-\s+/.test(line) }),

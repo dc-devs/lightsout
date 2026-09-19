@@ -3,7 +3,7 @@ import type { GradeInputs } from '#src/contracts/index.ts';
 import { getEditedPhases } from '#src/plan/common/scope/getEditedPhases.ts';
 
 interface InputsSpec {
-	planFiles?: { file: string; sha256: string }[];
+	planFiles?: GradeInputs['planFiles'];
 	/** Left out of the fingerprint entirely, the way a git probe that did not run leaves it. */
 	omitChangedFiles?: boolean;
 }
@@ -21,6 +21,9 @@ const inputsWith = ({ planFiles = [], omitChangedFiles = false }: InputsSpec): G
 	sha256: 'combined-a',
 });
 
+/** One plan file's two hashes, its design hash derived from its whole-file hash — so a fixture that moves a file moves the text a reader read with it. */
+const entryFor = ({ file, content }: { file: string; content: string }) => ({ file, sha256: content, designSha256: `${content}-design` });
+
 /** A three-file phased plan on both sides, with the shas each side gives the overview and the second phase. */
 const setupPhaseEdit = ({
 	previousOverview,
@@ -35,16 +38,16 @@ const setupPhaseEdit = ({
 }) => {
 	const previous = inputsWith({
 		planFiles: [
-			{ file: 'overview.md', sha256: previousOverview },
-			{ file: 'phase1-core.md', sha256: 'phase1-a' },
-			{ file: 'phase2-extra.md', sha256: previousSecond },
+			entryFor({ file: 'overview.md', content: previousOverview }),
+			entryFor({ file: 'phase1-core.md', content: 'phase1-a' }),
+			entryFor({ file: 'phase2-extra.md', content: previousSecond }),
 		],
 	});
 	const current = inputsWith({
 		planFiles: [
-			{ file: 'overview.md', sha256: currentOverview },
-			{ file: 'phase1-core.md', sha256: 'phase1-a' },
-			{ file: 'phase2-extra.md', sha256: currentSecond },
+			entryFor({ file: 'overview.md', content: currentOverview }),
+			entryFor({ file: 'phase1-core.md', content: 'phase1-a' }),
+			entryFor({ file: 'phase2-extra.md', content: currentSecond }),
 		],
 	});
 
@@ -53,7 +56,7 @@ const setupPhaseEdit = ({
 
 /** The two fingerprints a probe row compares, each side either carrying its changed-file list or missing it. */
 const setupProbe = ({ currentAbsent, previousAbsent }: { currentAbsent: boolean; previousAbsent: boolean }) => {
-	const planFiles = [{ file: 'plan.md', sha256: 'plan-a' }];
+	const planFiles = [entryFor({ file: 'plan.md', content: 'plan-a' })];
 	const previous = inputsWith({ planFiles, omitChangedFiles: previousAbsent });
 	const current = inputsWith({ planFiles, omitChangedFiles: currentAbsent });
 
@@ -62,7 +65,7 @@ const setupProbe = ({ currentAbsent, previousAbsent }: { currentAbsent: boolean;
 
 /** The two fingerprints a moved-input row compares: identical plan text, and exactly one non-plan input given a different value. */
 const setupInputMove = ({ moved }: { moved: Partial<GradeInputs> }) => {
-	const planFiles = [{ file: 'plan.md', sha256: 'plan-a' }];
+	const planFiles = [entryFor({ file: 'plan.md', content: 'plan-a' })];
 	const previous = inputsWith({ planFiles });
 	const current = { ...inputsWith({ planFiles }), ...moved };
 
@@ -71,11 +74,39 @@ const setupInputMove = ({ moved }: { moved: Partial<GradeInputs> }) => {
 
 /** A phase the previous pass never measured, beside one both passes hashed the same way. */
 const setupAddedPhase = () => {
-	const previous = inputsWith({ planFiles: [{ file: 'phase1-core.md', sha256: 'phase1-a' }] });
+	const previous = inputsWith({ planFiles: [entryFor({ file: 'phase1-core.md', content: 'phase1-a' })] });
+	const current = inputsWith({
+		planFiles: [entryFor({ file: 'phase1-core.md', content: 'phase1-a' }), entryFor({ file: 'phase2-extra.md', content: 'phase2-a' })],
+	});
+
+	return { previous, current };
+};
+
+/** One plan-file entry as a fingerprint carries it: its whole-file hash, and its design hash when one was measured. */
+type Entry = { sha256: string; designSha256?: string };
+
+/** A two-file phased plan on both sides, where each side states its own whole-file and design hashes for the overview and the phase. */
+const setupDesignHashes = ({
+	previousOverview,
+	currentOverview,
+	previousPhase,
+	currentPhase,
+}: {
+	previousOverview: Entry;
+	currentOverview: Entry;
+	previousPhase: Entry;
+	currentPhase: Entry;
+}) => {
+	const previous = inputsWith({
+		planFiles: [
+			{ file: 'overview.md', ...previousOverview },
+			{ file: 'phase1-core.md', ...previousPhase },
+		],
+	});
 	const current = inputsWith({
 		planFiles: [
-			{ file: 'phase1-core.md', sha256: 'phase1-a' },
-			{ file: 'phase2-extra.md', sha256: 'phase2-a' },
+			{ file: 'overview.md', ...currentOverview },
+			{ file: 'phase1-core.md', ...currentPhase },
 		],
 	});
 
@@ -96,7 +127,7 @@ describe('getEditedPhases', () => {
 		// the overview arriving in `edited` would send the closure walk looking for a
 		// phase named overview.md, and an unchanged phase arriving there would widen
 		// a focused pass back to the whole plan
-		expect(edits).toStrictEqual({ edited: ['phase2-extra.md'], overviewChanged: true, otherInputChanged: false });
+		expect(edits).toStrictEqual({ edited: ['phase2-extra.md'], overviewFileChanged: true, otherInputChanged: false });
 	});
 
 	test.each([
@@ -110,7 +141,7 @@ describe('getEditedPhases', () => {
 
 		// an unread probe read as "no code changed" would let a focused pass narrow
 		// against a code state nobody measured
-		expect(edits).toStrictEqual({ edited: [], overviewChanged: false, otherInputChanged: true });
+		expect(edits).toStrictEqual({ edited: [], overviewFileChanged: false, otherInputChanged: true });
 	});
 
 	test.each<{ label: string; moved: Partial<GradeInputs> }>([
@@ -128,7 +159,7 @@ describe('getEditedPhases', () => {
 
 		// the recorded reading no longer speaks for this pass, so no closure of
 		// edited phases may bound it
-		expect(edits).toStrictEqual({ edited: [], overviewChanged: false, otherInputChanged: true });
+		expect(edits).toStrictEqual({ edited: [], overviewFileChanged: false, otherInputChanged: true });
 	});
 
 	test('a plan file present on one side only reads as edited', () => {
@@ -138,6 +169,51 @@ describe('getEditedPhases', () => {
 
 		// a resplit that added a phase leaves it with no recorded hash at all, and a
 		// phase nobody has read must seed the closure rather than be skipped
-		expect(edits).toStrictEqual({ edited: ['phase2-extra.md'], overviewChanged: false, otherInputChanged: false });
+		expect(edits).toStrictEqual({ edited: ['phase2-extra.md'], overviewFileChanged: false, otherInputChanged: false });
+	});
+
+	test("the overview's whole-file move is reported without any phase being called edited", () => {
+		const { previous, current } = setupDesignHashes({
+			previousOverview: { sha256: 'overview-file-a', designSha256: 'overview-design-a' },
+			currentOverview: { sha256: 'overview-file-b', designSha256: 'overview-design-a' },
+			previousPhase: { sha256: 'phase1-file-a', designSha256: 'phase1-design-a' },
+			currentPhase: { sha256: 'phase1-file-a', designSha256: 'phase1-design-a' },
+		});
+
+		const edits = getEditedPhases({ current, previous });
+
+		// the overview's file move is what `getDecisionReach` reads, and it is a
+		// different fact from its design moving, so it may not pull a phase into `edited`
+		expect(edits).toStrictEqual({ edited: [], overviewFileChanged: true, otherInputChanged: false });
+	});
+
+	test('a plan file with a design hash on one side only is reported as edited', () => {
+		const { previous, current } = setupDesignHashes({
+			previousOverview: { sha256: 'overview-file-a', designSha256: 'overview-design-a' },
+			currentOverview: { sha256: 'overview-file-a', designSha256: 'overview-design-a' },
+			previousPhase: { sha256: 'phase1-file-a' },
+			currentPhase: { sha256: 'phase1-file-a', designSha256: 'phase1-design-a' },
+		});
+
+		const edits = getEditedPhases({ current, previous });
+
+		// a fingerprint recorded before design hashes existed measured no design at
+		// all, which is not evidence that the design is unchanged
+		expect(edits).toStrictEqual({ edited: ['phase1-core.md'], overviewFileChanged: false, otherInputChanged: false });
+	});
+
+	test('a phase whose generated regions alone were rewritten is not reported as edited', () => {
+		const { previous, current } = setupDesignHashes({
+			previousOverview: { sha256: 'overview-file-a', designSha256: 'overview-design-a' },
+			currentOverview: { sha256: 'overview-file-a', designSha256: 'overview-design-a' },
+			previousPhase: { sha256: 'phase1-file-a', designSha256: 'phase1-design-a' },
+			currentPhase: { sha256: 'phase1-file-b', designSha256: 'phase1-design-a' },
+		});
+
+		const edits = getEditedPhases({ current, previous });
+
+		// only engine-generated text moved, so the design a reader read is unchanged
+		// and the pass must not widen to this phase
+		expect(edits).toStrictEqual({ edited: [], overviewFileChanged: false, otherInputChanged: false });
 	});
 });

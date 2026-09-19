@@ -6,6 +6,7 @@ import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.t
 import { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';
 import { parsePlan } from '#src/plan/parsePlan.ts';
 import { syncPhaseSections } from '#src/plan/sections/index.ts';
+import { declaredRecord } from '#tests/helpers/declaredRecord.ts';
 
 // The overview's `## Phases` table and its `## Phase Declarations` blocks state
 // the same phase's size and hand-offs twice, so this rewrites both from one
@@ -128,8 +129,14 @@ const sectionOf = ({ text, heading }: { text: string; heading: string }) => {
 	return (next === -1 ? rest : rest.slice(0, next)).join('\n');
 };
 
-/** What the overview now declares, read back through the parser the lint uses — the table and the blocks joined into one row per phase. */
-const declaredBy = ({ text }: { text: string }) => parsePhaseDeclarations({ plan: parsePlan({ content: text, base: 'overview.md' }) });
+/**
+ * What the overview now declares, read back through the parser the lint uses —
+ * the table and the blocks joined into one row per phase, with the lines the
+ * parser reports each span at left out: where a span sits is not part of the
+ * record this sync renders from.
+ */
+const declaredBy = ({ text }: { text: string }) =>
+	declaredRecord({ declarations: parsePhaseDeclarations({ plan: parsePlan({ content: text, base: 'overview.md' }) }) });
 
 /** An overview on disk, backdated so that any rewrite moves its modification time. */
 const setupOverview = ({ rows = staleRows, blocks = staleBlocks }: { rows?: string; blocks?: string } = {}) => {
@@ -155,6 +162,37 @@ const setupOverview = ({ rows = staleRows, blocks = staleBlocks }: { rows?: stri
 		backdate,
 		readOverview: () => readFileSync(overviewPath, 'utf8'),
 		modifiedAt: () => statSync(overviewPath).mtimeMs,
+	};
+};
+
+/** An overview carrying the constraints section the phase table is placed below, and neither phase section for the sync to replace. */
+const overviewWithoutPhaseSections = `# Focused Drafting — Overview
+
+## Context
+
+why this plan exists, in the writer's own words.
+
+## Global Constraints
+
+- every write goes through the store
+
+## Cross-Phase Dependencies
+
+- Phase 2 depends on Phase 1's exported builder.
+`;
+
+/** The same overview on disk, carrying neither phase section, so the sync has to place both rather than replace them. */
+const setupOverviewWithoutPhaseSections = () => {
+	const workspaceDir = mkdtempSync(join(tmpdir(), 'lightsout-phase-sections-placed-'));
+	const overviewPath = join(workspaceDir, 'overview.md');
+
+	writeFileSync(overviewPath, overviewWithoutPhaseSections, 'utf8');
+
+	return {
+		overviewPath,
+		declarations: phaseRecord,
+		phaseFiles: ['phase1-core.md', 'phase2-extra.md'],
+		readOverview: () => readFileSync(overviewPath, 'utf8'),
 	};
 };
 
@@ -244,6 +282,30 @@ describe('syncPhaseSections', () => {
 			written: { path: overview.overviewPath, updated: false },
 			text: overview.original,
 			modifiedAt,
+		});
+	});
+
+	test('places both missing phase sections on their anchors — the table below the constraints, the blocks below the table', async () => {
+		const overview = setupOverviewWithoutPhaseSections();
+
+		const written = await syncPhaseSections({
+			overviewPath: overview.overviewPath,
+			declarations: overview.declarations,
+			phaseFiles: overview.phaseFiles,
+		});
+
+		const after = overview.readOverview();
+		// neither section is there to replace, so each one's anchor alone decides
+		// where it lands; reading the record back off the placed sections proves
+		// they are the rendered ones rather than two headings in the right order
+		expect({
+			written,
+			headings: after.split('\n').filter((line) => line.startsWith('## ')),
+			declared: declaredBy({ text: after }),
+		}).toStrictEqual({
+			written: { path: overview.overviewPath, updated: true },
+			headings: ['## Context', '## Global Constraints', '## Phases', '## Phase Declarations', '## Cross-Phase Dependencies'],
+			declared: phaseRecord,
 		});
 	});
 });

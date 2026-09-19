@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { renderDecisionLog } from '#src/plan/index.ts';
+import { renderDecisionLog, renderGlobalConstraints } from '#src/plan/index.ts';
 import { minimalPlanBody } from '#tests/helpers/minimalPlanBody.ts';
 import { overviewMarker } from '#tests/helpers/overviewMarker.ts';
 import { seedSourceRepo } from '#tests/helpers/seedSourceRepo.ts';
@@ -26,7 +26,9 @@ export const seedPhasedDedupPlan = ({ existing, phases, name = 'p' }: Params): {
 	mkdirSync(workspaceDir, { recursive: true });
 	writeFileSync(
 		join(workspaceDir, 'overview.md'),
-		`# Plan — Overview\n\n${renderDecisionLog({ decisions: [] })}\n\n## Cross-Phase Dependencies\n\n- ${overviewMarker}\n`,
+		`# Plan — Overview\n\n${renderDecisionLog({ decisions: [] })}\n\n${renderGlobalConstraints({
+			decisions: [],
+		})}\n\n## Cross-Phase Dependencies\n\n- ${overviewMarker}\n`,
 	);
 	writeEmptyDecisions({ dir: workspaceDir, name });
 

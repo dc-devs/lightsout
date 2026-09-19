@@ -6,6 +6,7 @@ import type { DraftContext } from '#src/plan/common/types/DraftContext.ts';
 import { selectPhaseEvidence } from '#src/plan/draft/focused/common/utils/selectPhaseEvidence.ts';
 import { draftFocusedPhasedPlan } from '#src/plan/draft/focused/index.ts';
 import type { PhaseDeclaration } from '#src/plan/index.ts';
+import { renderGlobalConstraints } from '#src/plan/sections/index.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createScriptedDraftDriver, unchangedFixReport } from '#tests/helpers/createScriptedDraftDriver.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
@@ -62,7 +63,7 @@ const draftEvidence = ({ planName }: { planName: string }): SourceEvidenceIndex 
 });
 
 /** The clean phase body with its `## Global Constraints` section removed, so only the engine can put one back. */
-const phaseWithoutConstraints = () => cleanPlanBody({ reference: true }).replace('## Global Constraints\n\n- None\n\n', '');
+const phaseWithoutConstraints = () => cleanPlanBody({ reference: true }).replace(`${renderGlobalConstraints({ decisions: [] })}\n\n`, '');
 
 /** The clean phase body declaring its own `## File Budget`, with `placeholder` planting the one defect no record can settle. */
 const phaseWithBudget = ({ placeholder = false }: { placeholder?: boolean } = {}) => {

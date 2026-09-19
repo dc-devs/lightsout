@@ -80,6 +80,31 @@ const setupStaleLog = () => {
 	};
 };
 
+/** The same collision repo, its `## Global Constraints` hand-edited to a rule the seeded record never carried — so the displayed rules and the record disagree. */
+const setupStaleConstraints = () => {
+	const { cwd, name, workspaceDir } = seedDedupPlan({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+	const planPath = join(workspaceDir, 'plan.md');
+	const handEdited = [
+		'## Global Constraints',
+		'',
+		"Composed from this plan's saved decision records — every `Global constraint:` row. Do not edit by hand.",
+		'',
+		'- ship it before Friday',
+		'',
+	].join('\n');
+
+	// the record seeded beside the plan states no constraint at all, so a bullet
+	// nobody settled is the hand edit the currency check exists to catch
+	writeFileSync(planPath, readFileSync(planPath, 'utf8').replace('## Files to Create', `${handEdited}\n## Files to Create`));
+
+	return {
+		cwd,
+		name,
+		dedupPath: join(workspaceDir, 'dedup.json'),
+		driver: createUncalledDriver({ reason: 'the judge must not be invoked when a plan file Global Constraints section is stale' }),
+	};
+};
+
 /**
  * The same collision, arranged across two checkouts: a real primary checkout
  * holding the plan folder, and a linked worktree cut from it holding the source
@@ -261,6 +286,21 @@ test('runPlanDedup: a stale Decision Log fails the pass before any report is wri
 	expectStatus(result, 'failed');
 	// a read-only pass refuses to bless a stale plan: nothing on disk to read as a
 	// blessing, no judge spawned, and an error naming the file and its remedy
+	expect(existsSync(dedupPath)).toBeFalsy();
+	expect(result.dedup).toBeUndefined();
+	expect(result.error).toContain('plan.md');
+	expect(result.error).toContain('plan sync-decisions');
+});
+
+test('runPlanDedup: a stale Global Constraints section fails the pass before any report is written or judge spawned', async () => {
+	const { cwd, name, driver, dedupPath } = setupStaleConstraints();
+
+	const result = await runPlanDedup({ cwd, driver, name });
+
+	expectStatus(result, 'failed');
+	// the rules binding a plan are composed from the record too, so a hand-edited
+	// one refuses the pass exactly as a stale Decision Log does: nothing on disk
+	// to read as a blessing, no judge spawned, and the file and its remedy named
 	expect(existsSync(dedupPath)).toBeFalsy();
 	expect(result.dedup).toBeUndefined();
 	expect(result.error).toContain('plan.md');

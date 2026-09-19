@@ -1,5 +1,3 @@
-import { readFile } from 'node:fs/promises';
-import { basename } from 'node:path';
 import { defaultExecutorFileLimit } from '#src/common/constants/defaultExecutorFileLimit.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { type DecisionsRecord, FindingSeverity, type LightsoutConfig, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
@@ -13,15 +11,17 @@ import { getPlanTouchedPaths } from '#src/plan/common/utils/getPlanTouchedPaths.
 import { buildPlanSyncDecisionsCommand } from '#src/plan/decisionLog/index.ts';
 import { checkAcceptanceLedger } from '#src/plan/lint/checkAcceptanceLedger.ts';
 import { checkDecisionLog } from '#src/plan/lint/checkDecisionLog.ts';
+import { checkGlobalConstraints } from '#src/plan/lint/checkGlobalConstraints.ts';
+import { checkHandoffDeclared } from '#src/plan/lint/checkHandoffDeclared.ts';
 import { checkPlanPaths } from '#src/plan/lint/checkPlanPaths.ts';
 import { checkPlanSizes } from '#src/plan/lint/checkPlanSizes.ts';
 import { checkProsePaths } from '#src/plan/lint/checkProsePaths.ts';
 import { checkVerificationScripts } from '#src/plan/lint/checkVerificationScripts.ts';
 import { isPhasedDeliverable } from '#src/plan/lint/common/utils/isPhasedDeliverable.ts';
+import { readPhaseFiles } from '#src/plan/lint/common/utils/readPhaseFiles.ts';
 import { lintPlanCrossPhase } from '#src/plan/lint/lintPlanCrossPhase.ts';
 import { scanPlaceholders } from '#src/plan/lint/scanPlaceholders.ts';
 import { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';
-import { parsePlan } from '#src/plan/parsePlan.ts';
 
 interface Params {
 	cwd: string;
@@ -42,37 +42,6 @@ const requiredSections = {
 	[PlanFileKind.Implementable]: ['Prerequisites', 'Global Constraints', 'Scope Boundaries', 'Verification', 'What Next Plan Expects'],
 	[PlanFileKind.Overview]: ['Phases', 'Phase Declarations', 'Cross-Phase Dependencies', 'Global Constraints'],
 } as const;
-
-/** A phase file's position in the walk: `overview.md` precedes every phase, and a lone `plan.md` is phase one. */
-const phaseNumber = ({ base }: { base: string }) => (base === 'overview.md' ? 0 : Number(/^phase(\d+)-/.exec(base)?.[1] ?? 1));
-
-/** Read and parse every plan file once, so each check reads a `PhaseFile` rather than re-parsing the text. An unreadable file yields its finding here and no `PhaseFile` at all. */
-const readPhaseFiles = async ({ planPaths }: { planPaths: string[] }) => {
-	const phases: PhaseFile[] = [];
-	const findings: StructuralFinding[] = [];
-
-	for (const planPath of planPaths) {
-		const content = await readFile(planPath, 'utf8').catch(() => undefined);
-		const base = basename(planPath);
-
-		if (content === undefined) {
-			findings.push({
-				check: StructuralCheck.SectionsPresent,
-				severity: FindingSeverity.Blocking,
-				phase: base,
-				issue: 'plan file could not be read',
-				location: planPath,
-				fix: 'ensure the draft wrote the plan file at this path',
-			});
-
-			continue;
-		}
-
-		phases.push({ path: planPath, base, number: phaseNumber({ base }), plan: parsePlan({ content, base }) });
-	}
-
-	return { phases, findings };
-};
 
 /** SectionsPresent — the required headings for this file's variant, plus the ones a declared `docs` block and `plan.contract` add to the implementable ones. */
 const checkSections = ({ phase, docsDeclared, contract }: { phase: PhaseFile; docsDeclared: boolean; contract: boolean }) => {
@@ -233,6 +202,8 @@ export const lintPlanStructure = async ({ cwd, planPaths, decisions, config }: P
 				? await checkAcceptanceLedger({ plan: phase.plan, cwd, phase: phase.base, required: contract, gateKeys })
 				: []),
 			...checkDecisionLog({ plan: phase.plan, phase: phase.base, decisions, phased, syncCommand }),
+			...checkGlobalConstraints({ plan: phase.plan, phase: phase.base, decisions, syncCommand }),
+			...checkHandoffDeclared({ plan: phase.plan, phase: phase.base }),
 			...checkPlaceholders({ phase }),
 			...checkMoves({ phase }),
 			...checkPlanSizes({ phase, fileLimit, counts: sizes }),

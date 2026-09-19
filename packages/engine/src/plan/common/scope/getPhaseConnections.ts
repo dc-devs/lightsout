@@ -1,9 +1,7 @@
 import { basename } from 'node:path';
-import { planSentinelTokens } from '#src/plan/common/constants/planSentinelTokens.ts';
-import { isPathToken } from '#src/plan/common/paths/isPathToken.ts';
+import { getComparableTokens } from '#src/plan/common/naming/getComparableTokens.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 import type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
-import { getCodeSpans } from '#src/plan/common/utils/getCodeSpans.ts';
 import { getPlanNamedPaths } from '#src/plan/common/utils/getPlanNamedPaths.ts';
 
 interface Params {
@@ -13,42 +11,12 @@ interface Params {
 	declarations: PhaseDeclaration[];
 }
 
-/** A span that is exactly one bare identifier — no dots, hyphens, calls, type expressions or spaces. */
-const isIdentifierSpan = ({ span }: { span: string }) => /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(span);
-
-/**
- * A set of lines reduced to comparable tokens, by the rules `checkPhaseHandoffs`
- * already compares hand-offs with: a path span by its basename, so the same file
- * spelled repo-relative and through a package alias still matches; a bare
- * identifier verbatim; the template's `none` sentinels skipped, because a
- * declared absence is not a name; everything else ignored as prose.
- */
-const comparableTokens = ({ lines }: { lines: string[] }) => {
-	const tokens = new Set<string>();
-
-	for (const line of lines) {
-		for (const span of getCodeSpans({ line })) {
-			if (planSentinelTokens.has(span)) {
-				continue;
-			}
-
-			if (isPathToken({ token: span })) {
-				tokens.add(basename(span));
-			} else if (isIdentifierSpan({ span })) {
-				tokens.add(span);
-			}
-		}
-	}
-
-	return tokens;
-};
-
 /** What one phase supplies to the others: every path it names under a file heading, its declared exports, and the tokens it hands forward. */
 const providedBy = ({ phase, exports }: { phase: PhaseFile; exports: string[] }) =>
 	new Set<string>([
 		...getPlanNamedPaths({ plan: phase.plan }).map((path) => basename(path)),
 		...exports,
-		...comparableTokens({ lines: phase.plan.sections.get('What Next Plan Expects') ?? [] }),
+		...getComparableTokens({ lines: phase.plan.sections.get('What Next Plan Expects') ?? [] }).keys(),
 	]);
 
 /**
@@ -86,7 +54,7 @@ export const getPhaseConnections = ({ phases, declarations }: Params): { connect
 
 	for (const { phase, declaration } of paired) {
 		provides.set(phase.base, providedBy({ phase, exports: declaration?.exports ?? [] }));
-		consumes.set(phase.base, comparableTokens({ lines: phase.plan.lines }));
+		consumes.set(phase.base, new Set(getComparableTokens({ lines: phase.plan.lines }).keys()));
 	}
 
 	const connections = new Map<string, Set<string>>(phases.map((phase) => [phase.base, new Set<string>()]));

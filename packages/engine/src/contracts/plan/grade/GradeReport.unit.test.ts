@@ -76,6 +76,7 @@ describe('GradeReport', () => {
 			gradedAt: '2026-08-04T00:00:00.000Z',
 			scope: 'full',
 			focusedOn: [],
+			covered: [],
 		});
 	});
 
@@ -354,5 +355,23 @@ describe('GradeReport', () => {
 		// an older record never said its own scope finished, so it must not read as
 		// having established coverage the repair baseline could narrow against
 		expect(parsed.scopeComplete).toBe(false);
+	});
+
+	test('the covered plan files round-trip, and a report written before them claims none', () => {
+		const { report: older } = setupReport();
+		const { report: current } = setupReport({
+			scope: 'focused',
+			focusedOn: ['phase2-cross-phase-checks.md'],
+			covered: ['phase1-lint-vocabulary.md', 'phase2-cross-phase-checks.md', 'phase3-two-stage-draft.md'],
+		});
+
+		const withoutCoverage = GradeReport.parse(older);
+		const withCoverage = GradeReport.parse(current);
+
+		// the terminal line tells a reading from a reuse by comparing covered against
+		// phasesChecked, so the files a pass stood on must survive the round trip;
+		// an older report claims no coverage rather than reading as a whole-plan one
+		expect(withCoverage.covered).toStrictEqual(['phase1-lint-vocabulary.md', 'phase2-cross-phase-checks.md', 'phase3-two-stage-draft.md']);
+		expect(withoutCoverage.covered).toStrictEqual([]);
 	});
 });

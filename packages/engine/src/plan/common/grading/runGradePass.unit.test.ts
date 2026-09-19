@@ -127,7 +127,7 @@ const setupGradePass = async ({ name, driver, findings }: { name: string; driver
 	});
 
 	const pass = await getPlanDetectionPass({ cwd, name });
-	const memory: GradeMemory = { planName: name, findings, nextFindingNumber: findings.length + 1, updatedAt: passAt };
+	const memory: GradeMemory = { planName: name, findings, coverage: { readers: [] }, nextFindingNumber: findings.length + 1, updatedAt: passAt };
 
 	return {
 		args: {

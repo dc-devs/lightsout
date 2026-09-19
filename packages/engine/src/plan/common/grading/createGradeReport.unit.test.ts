@@ -34,7 +34,10 @@ const findingOf = ({ severity }: { severity: FindingSeverity }): StructuralFindi
 	fix: 'correct the path or list it under Files to Create',
 });
 
-/** The report a case grades, defaulting to a finished pass over one plan file with nothing wrong. */
+/**
+ * The report a case grades, defaulting to a finished full pass over one plan
+ * file that owed a reader, was read, and had nothing wrong.
+ */
 const setupReport = ({
 	gaps = [],
 	structural = [],
@@ -42,6 +45,10 @@ const setupReport = ({
 	phases,
 	commit,
 	treeDirty,
+	phasesRequired = ['plan.md'],
+	phasesChecked = phasesRequired,
+	phasesLight = [],
+	documentationComplete = true,
 }: {
 	gaps?: GradedGap[];
 	structural?: StructuralFinding[];
@@ -49,6 +56,10 @@ const setupReport = ({
 	phases?: string[];
 	commit?: string;
 	treeDirty?: boolean;
+	phasesRequired?: string[];
+	phasesChecked?: string[];
+	phasesLight?: string[];
+	documentationComplete?: boolean;
 } = {}) =>
 	createGradeReport({
 		name: 'graded',
@@ -56,29 +67,31 @@ const setupReport = ({
 		structural,
 		gaps,
 		failures,
-		phasesChecked: ['plan.md'],
+		phasesChecked,
+		phasesLight,
 		commit,
 		treeDirty,
-		phasesRequired: ['plan.md'],
-		documentationComplete: true,
+		phasesRequired,
+		documentationComplete,
 	});
 
 /**
- * The report a scope-coverage case grades: a full pass, defaulting to one that
- * owed one plan file a reader, read it, and finished its documentation check.
+ * The report a read-coverage case grades: a focused pass over a two-file plan,
+ * defaulting to one that read the first file, whose coverage stands for both,
+ * and whose whole-plan documentation record stands too.
  */
-const setupCoverageReport = ({
-	phasesRequired = ['plan.md'],
-	phasesChecked = phasesRequired,
-	phasesLight = [],
+const setupCoveredReport = ({
+	phasesChecked = ['phase1-core.md'],
 	gaps = [],
-	documentationComplete = true,
+	planFiles = ['phase1-core.md', 'phase2-extra.md'],
+	covered = ['phase1-core.md', 'phase2-extra.md'],
+	documentationCovered = true,
 }: {
-	phasesRequired?: string[];
 	phasesChecked?: string[];
-	phasesLight?: string[];
 	gaps?: GradedGap[];
-	documentationComplete?: boolean;
+	planFiles?: string[];
+	covered?: string[];
+	documentationCovered?: boolean;
 } = {}) =>
 	createGradeReport({
 		name: 'graded',
@@ -86,23 +99,24 @@ const setupCoverageReport = ({
 		gaps,
 		failures: [],
 		phasesChecked,
-		phasesLight,
-		phasesRequired,
-		documentationComplete,
+		scope: GradeScope.Focused,
+		focusedOn: phasesChecked,
+		phasesRequired: phasesChecked,
+		documentationComplete: true,
+		planFiles,
+		covered,
+		documentationCovered,
 	});
 
-/** The report of a focused pass that owed two plan files a reader, read both, and found nothing. */
+/**
+ * The report of a focused pass over a three-file plan that owed two of them a
+ * reader, read both, and found nothing — while the third is covered by no
+ * recorded reading, so the plan as a whole is not covered.
+ */
 const setupFocusedReport = () =>
-	createGradeReport({
-		name: 'graded',
-		structural: [],
-		gaps: [],
-		failures: [],
+	setupCoveredReport({
 		phasesChecked: ['phase1-core.md', 'phase2-extra.md'],
-		scope: GradeScope.Focused,
-		focusedOn: ['phase1-core.md', 'phase2-extra.md'],
-		phasesRequired: ['phase1-core.md', 'phase2-extra.md'],
-		documentationComplete: true,
+		planFiles: ['phase1-core.md', 'phase2-extra.md', 'phase3-final.md'],
 	});
 
 describe('createGradeReport', () => {
@@ -244,46 +258,28 @@ describe('createGradeReport', () => {
 		expect(report.lenses).toStrictEqual(['surface', 'wiring', 'decisions']);
 	});
 
-	test('a focused pass is incomplete and names the phases it read', () => {
+	test('a focused pass records the phases it read and is incomplete while a plan file is uncovered', () => {
 		const report = setupFocusedReport();
 
-		// a pass that never offered every plan file to the readers is a partial record
+		// a plan no reading covers in full is a partial record, and the reason names
+		// the file nothing speaks for rather than the ones this pass did read
 		expect(report.complete).toBe(false);
-		expect(report.incompleteReason ?? '').toMatch(/phase1-core\.md, phase2-extra\.md/);
+		expect(report.incompleteReason ?? '').toMatch(/phase3-final\.md/);
 		expect(report.focusedOn).toStrictEqual(['phase1-core.md', 'phase2-extra.md']);
 	});
 
 	test('a pass with no reader spawned reports an empty lens list', () => {
-		const report = createGradeReport({
-			name: 'graded',
-			structural: [],
-			gaps: [],
-			failures: [],
-			phasesChecked: [],
-			scope: GradeScope.Full,
-			focusedOn: [],
-			phasesRequired: [],
-			documentationComplete: true,
-		});
+		const report = setupReport({ phasesRequired: [], phasesChecked: [] });
 
 		// the field states what ran, so a pass that spawned nothing must not claim three lenses
 		expect(report.lenses).toStrictEqual([]);
 	});
 
-	test('a focused pass with nothing blocking is still below A', () => {
-		const report = createGradeReport({
-			name: 'graded',
-			structural: [],
-			gaps: [gapOf({ outcome: GapOutcome.AgentCanDecide })],
-			failures: [],
-			phasesChecked: ['phase1-core.md'],
-			scope: GradeScope.Focused,
-			focusedOn: ['phase1-core.md'],
-			phasesRequired: ['phase1-core.md'],
-			documentationComplete: true,
-		});
+	test('a pass whose coverage leaves a plan file out is below A whatever the findings say', () => {
+		const report = setupCoveredReport({ gaps: [gapOf({ outcome: GapOutcome.AgentCanDecide })], covered: ['phase1-core.md'] });
 
-		// a focused pass is a repair check, never an approval
+		// nothing blocking was found, and a plan file nothing has read is reason
+		// enough on its own
 		expect(report.grade).toBe('below-A');
 		expect(report.passed).toBe(false);
 		expect(report.scope).toBe('focused');
@@ -292,7 +288,8 @@ describe('createGradeReport', () => {
 	test('a focused pass that finished every check it owed is scope-complete and still not complete', () => {
 		const report = setupFocusedReport();
 
-		// finishing its own scope is not a whole-plan clean bill
+		// the two questions are separate: this pass finished every check its own
+		// scope called for, and the plan beside it is still not covered in full
 		expect({ scopeComplete: report.scopeComplete, complete: report.complete, passed: report.passed }).toStrictEqual({
 			scopeComplete: true,
 			complete: false,
@@ -301,7 +298,7 @@ describe('createGradeReport', () => {
 	});
 
 	test('a pass missing a phase it owed a reader is not scope-complete', () => {
-		const report = setupCoverageReport({
+		const report = setupReport({
 			phasesRequired: ['phase1-core.md', 'phase2-extra.md'],
 			phasesChecked: ['phase1-core.md'],
 		});
@@ -311,29 +308,71 @@ describe('createGradeReport', () => {
 	});
 
 	test('a pass leaving a finding unjudged is not scope-complete', () => {
-		const report = setupCoverageReport({ gaps: [gapOf({ outcome: GapOutcome.Unjudged })] });
+		const report = setupReport({ gaps: [gapOf({ outcome: GapOutcome.Unjudged })] });
 
 		// no memory record carries an unjudged question, so its plan file must be read again
 		expect(report.scopeComplete).toBe(false);
 	});
 
 	test('a pass whose every file weighed light is scope-complete and claims no lens', () => {
-		const report = setupCoverageReport({ phasesRequired: [], phasesChecked: [], phasesLight: ['plan.md'] });
+		const report = setupReport({ phasesRequired: [], phasesChecked: [], phasesLight: ['plan.md'] });
 
 		// a light file is a deliberate exemption, not an unread file
 		expect({ scopeComplete: report.scopeComplete, lenses: report.lenses }).toStrictEqual({ scopeComplete: true, lenses: [] });
 	});
 
 	test('a pass that offered no plan file at all is not scope-complete', () => {
-		const report = setupCoverageReport({ phasesRequired: [], phasesChecked: [], phasesLight: [] });
+		const report = setupReport({ phasesRequired: [], phasesChecked: [], phasesLight: [] });
 
 		// a pass that established nothing must remember nothing
 		expect({ scopeComplete: report.scopeComplete, lenses: report.lenses }).toStrictEqual({ scopeComplete: false, lenses: [] });
 	});
 
 	test('a pass whose documentation checker did not finish is not scope-complete', () => {
-		const report = setupCoverageReport({ documentationComplete: false });
+		const report = setupReport({ documentationComplete: false });
 
 		expect(report.scopeComplete).toBe(false);
+	});
+
+	test('a plan file left uncovered makes the pass incomplete and is named in the reason', () => {
+		const report = setupCoveredReport({ covered: ['phase1-core.md'] });
+
+		// a partial reading must never read as a clean bill
+		expect(report.complete).toBe(false);
+		expect(report.incompleteReason ?? '').toMatch(/phase2-extra\.md/);
+		expect(report.grade).toBe('below-A');
+	});
+
+	test('a focused pass whose coverage covers every plan file is complete and may be an A', () => {
+		const report = setupCoveredReport();
+
+		// approval rides on coverage, not on how far this one pass reached
+		expect({ complete: report.complete, grade: report.grade, passed: report.passed, scope: report.scope }).toStrictEqual({
+			complete: true,
+			grade: 'A',
+			passed: true,
+			scope: 'focused',
+		});
+		expect(report.incompleteReason).toBe(undefined);
+	});
+
+	test('a deliverable that offered no plan file covers nothing and says so', () => {
+		const report = setupCoveredReport({ planFiles: [], covered: [] });
+
+		// an empty plan-file set would otherwise satisfy "every plan file is
+		// covered" vacuously, and a pass that established nothing must not read as
+		// one that covered everything
+		expect(report.complete).toBe(false);
+		expect(report.incompleteReason ?? '').toMatch(/no plan file was offered/);
+		expect(report.covered).toStrictEqual([]);
+	});
+
+	test('stale documentation coverage keeps the pass incomplete however the plan files read', () => {
+		const report = setupCoveredReport({ documentationCovered: false });
+
+		// an A granted having never run the documentation checker since the baseline
+		expect(report.complete).toBe(false);
+		expect(report.incompleteReason ?? '').toMatch(/documentation/i);
+		expect(report.grade).toBe('below-A');
 	});
 });

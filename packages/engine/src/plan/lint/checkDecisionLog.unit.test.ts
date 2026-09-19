@@ -184,6 +184,31 @@ describe('checkDecisionLog', () => {
 		expect(findings).toStrictEqual([]);
 	});
 
+	test('checkDecisionLog: the shared section comparison keeps an interior blank line significant', () => {
+		const { params } = setupCheck({
+			rows: [{ question: 'does an interior blank line change the section?' }, { question: 'and is the last row still reached?' }],
+			// A blank line pushed between the two rendered rows: a line follows it, so it is interior rather than trailing.
+			edit: (section) => {
+				const lines = section.split('\n');
+
+				return [...lines.slice(0, -1), '', ...lines.slice(-1)].join('\n');
+			},
+		});
+
+		const findings = checkDecisionLog(params);
+
+		expect(findings).toEqual([
+			expect.objectContaining({
+				check: 'decision-log-current',
+				severity: 'blocking',
+				phase: 'plan.md',
+				// `preamble` puts the heading on line 7, which is where the section starts.
+				location: 'plan.md:7',
+				fix: expect.stringContaining(syncCommand),
+			}),
+		]);
+	});
+
 	test('checkDecisionLog: an empty record still demands its rendered section', () => {
 		const { carrying, absent } = setupEmptyRecordFiles();
 

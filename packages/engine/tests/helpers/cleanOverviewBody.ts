@@ -1,4 +1,4 @@
-import { renderDecisionLog } from '#src/plan/index.ts';
+import { renderDecisionLog, renderGlobalConstraints } from '#src/plan/index.ts';
 import { overviewMarker } from '#tests/helpers/overviewMarker.ts';
 
 /** A structurally clean two-phase overview — the overview variant's own required section set, and nothing declared. An overview carries the full rendered table, never the phase pointer. */
@@ -6,9 +6,7 @@ export const cleanOverviewBody = (): string => `# Graded Plan — Overview
 
 ${renderDecisionLog({ decisions: [] })}
 
-## Global Constraints
-
-- None
+${renderGlobalConstraints({ decisions: [] })}
 
 ## Phases
 

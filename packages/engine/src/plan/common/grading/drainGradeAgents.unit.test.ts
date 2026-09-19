@@ -1,6 +1,7 @@
 import { basename, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import {
+	type ConfigDocs,
 	GapArea,
 	type GapBatchVerdict,
 	GapCheckLens,
@@ -133,7 +134,7 @@ const setupGradeAgents = async ({
 		decisions: emptyDecisionsRecord(),
 		workspaceDir: cwd,
 	};
-	const memory: GradeMemory = { planName: 'demo', findings, nextFindingNumber: 2, updatedAt: '2026-01-01T00:00:00.000Z' };
+	const memory: GradeMemory = { planName: 'demo', findings, coverage: { readers: [] }, nextFindingNumber: 2, updatedAt: '2026-01-01T00:00:00.000Z' };
 
 	return {
 		invocations,
@@ -144,6 +145,53 @@ const setupGradeAgents = async ({
 			carried,
 			memory,
 			documentation: false,
+			progress: () => undefined,
+		},
+	};
+};
+
+/** The surfaces a declaring repository writes — without them the documentation checker cannot spawn at all. */
+const declaredDocs: ConfigDocs = [
+	{ path: 'README.md', covers: 'The product tour.' },
+	{ path: 'docs/configuration.md', covers: 'Every configuration key.' },
+];
+
+/** A driver that answers every spawn with an empty gap report, collecting what it was handed. */
+const createQuietDriver = ({ invocations }: { invocations: DriverInvocation[] }): Driver => ({
+	name: 'stub',
+	invoke: async (invocation) => {
+		invocations.push(invocation);
+
+		return { text: JSON.stringify({ gaps: [] }), exitCode: 0 };
+	},
+});
+
+/** A five-file plan whose repository declares documentation surfaces, graded over a selection of two. */
+const setupDocumentationPass = async ({ documentation }: { documentation: boolean }) => {
+	const cwd = await freshCwd();
+	const invocations: DriverInvocation[] = [];
+	const files = [1, 2, 3, 4, 5].map((number) => ({
+		path: join(cwd, `phase-${number}.md`),
+		text: `# Phase ${number}\n\nThe reader marker for phase ${number}.\n`,
+	}));
+	const pass: Awaited<ReturnType<typeof getPlanDetectionPass>> = {
+		files,
+		planPaths: files.map((file) => file.path),
+		decisions: emptyDecisionsRecord(),
+		workspaceDir: cwd,
+		config: { gates: { check: 'pnpm check', test: 'pnpm test:unit', 'test-coverage': 'pnpm test:coverage' }, docs: declaredDocs },
+	};
+	const memory: GradeMemory = { planName: 'demo', findings: [], coverage: { readers: [] }, nextFindingNumber: 1, updatedAt: '2026-01-01T00:00:00.000Z' };
+
+	return {
+		invocations,
+		params: {
+			params: { cwd, driver: createQuietDriver({ invocations }), name: 'demo' },
+			pass,
+			selected: files.slice(0, 2),
+			carried: [],
+			memory,
+			documentation,
 			progress: () => undefined,
 		},
 	};
@@ -192,6 +240,57 @@ describe('drainGradeAgents', () => {
 				'phase-2-judge.md/wiring',
 			],
 			phasesChecked: ['phase-1-reader.md'],
+		});
+	});
+
+	test('reports every lens that returned for a file even when a sibling lens failed', async () => {
+		const { params } = await setupGradeAgents({ failingReader: { phase: 'phase-2-judge.md', lens: GapCheckLens.Wiring } });
+
+		const result = await drainGradeAgents(params);
+
+		// coverage is recorded per plan file AND brief, so the two briefs that did
+		// return for phase two keep the reading they were paid for — while the file
+		// itself is still not claimed as checked, because one brief never answered
+		const read = result.read.map(({ phase, lens }) => `${phase}/${lens}`).sort();
+		expect({ read, phasesChecked: result.phasesChecked }).toStrictEqual({
+			read: ['phase-1-reader.md/decisions', 'phase-1-reader.md/surface', 'phase-1-reader.md/wiring', 'phase-2-judge.md/decisions', 'phase-2-judge.md/surface'],
+			phasesChecked: ['phase-1-reader.md'],
+		});
+	});
+
+	test("spawns the documentation checker from its own record rather than from the pass's scope", async () => {
+		const { params, invocations } = await setupDocumentationPass({ documentation: true });
+
+		const result = await drainGradeAgents(params);
+
+		// the checker keys on its own coverage record rather than on how far the
+		// pass reached, so a pass reading two of the plan's five files still runs it
+		const docsSpawns = invocations.filter((invocation) => invocation.prompt.includes('# Docs-check input')).length;
+		expect({
+			docsSpawns,
+			phasesChecked: result.phasesChecked,
+			planFiles: params.pass.files.length,
+			documentationComplete: result.documentationComplete,
+		}).toStrictEqual({
+			docsSpawns: 1,
+			phasesChecked: ['phase-1.md', 'phase-2.md'],
+			planFiles: 5,
+			documentationComplete: true,
+		});
+	});
+
+	test('a standing documentation record buys no spawn and still leaves the pass scope-complete', async () => {
+		const { params, invocations } = await setupDocumentationPass({ documentation: false });
+
+		const result = await drainGradeAgents(params);
+
+		// a record that still stands is not bought a second time, and a pass with
+		// nothing to ask the checker is not reported as one that failed to run it
+		const docsSpawns = invocations.filter((invocation) => invocation.prompt.includes('# Docs-check input')).length;
+		expect({ docsSpawns, documentationComplete: result.documentationComplete, failures: result.failures }).toStrictEqual({
+			docsSpawns: 0,
+			documentationComplete: true,
+			failures: [],
 		});
 	});
 

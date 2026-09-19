@@ -77,6 +77,7 @@ const setupMemory = ({
 	const memory: GradeMemory = {
 		planName: 'lo-126-plan-regrading-repeats-resolved',
 		findings,
+		coverage: { readers: [] },
 		nextFindingNumber: findings.length + 1,
 		updatedAt: '2026-09-07T00:00:00.000Z',
 	};
@@ -142,6 +143,7 @@ const setupLifecycleRecord = async ({ status }: { status: typeof GradeFindingSta
 	const memory: GradeMemory = {
 		planName: 'lo-133-duplicate-grading-reports-cause',
 		findings: [record],
+		coverage: { readers: [] },
 		nextFindingNumber: 3,
 		updatedAt: '2026-09-07T00:00:00.000Z',
 	};
@@ -177,6 +179,9 @@ const setupLifecycleRecord = async ({ status }: { status: typeof GradeFindingSta
 		],
 		memory,
 		at: '2026-09-11T00:00:00.000Z',
+		// every plan file lost its coverage, so nothing here turns on the narrowed
+		// re-verification — a superseded record is left out for being superseded
+		invalidated: ['phase1-contracts.md', 'phase2-grading.md'],
 	};
 
 	return { memory, gaps, record, observations, invocations, verifyParams };

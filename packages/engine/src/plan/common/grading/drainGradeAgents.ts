@@ -7,12 +7,10 @@ import { drainGapCheckers } from '#src/plan/common/grading/drainGapCheckers.ts';
 import { judgeGaps } from '#src/plan/common/grading/judgeGaps.ts';
 import { phaseFindingRecords } from '#src/plan/common/memory/phaseFindingRecords.ts';
 import type { DeliverableFile } from '#src/plan/common/types/DeliverableFile.ts';
+import type { DetectionPass } from '#src/plan/common/types/DetectionPass.ts';
 import type { GapResult } from '#src/plan/common/types/GapResult.ts';
 import type { PlanGradeParams } from '#src/plan/common/types/PlanGradeParams.ts';
 import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
-import type { getPlanDetectionPass } from '#src/plan/common/utils/getPlanDetectionPass.ts';
-
-type DetectionPass = Awaited<ReturnType<typeof getPlanDetectionPass>>;
 
 /** The record states a reader is shown: questions somebody already settled, and nothing that is still open. */
 const settledStatuses = [GradeFindingStatus.Resolved, GradeFindingStatus.Noted];
@@ -25,7 +23,7 @@ interface Params {
 	carried: GradedGap[];
 	/** The plan's finding memory — settled records for the readers, every record for the judges. */
 	memory: GradeMemory;
-	/** Whether the whole-plan documentation checker runs. False on a focused pass, which reads part of the plan. */
+	/** Whether the whole-plan documentation checker runs: true when its own coverage record is missing or stale, whatever this pass's scope. The caller decides it; nothing here reads the scope. */
 	documentation: boolean;
 	progress: (message: string) => void;
 }
@@ -96,11 +94,12 @@ const spawnGapChecker = async ({
  * checker still runs whenever a `docs` block is declared AND this pass is one it
  * belongs to.
  *
- * `documentation` is false on a focused pass. The checker reads the whole
- * deliverable, and a whole-plan checker is not part of a pass that reads two
- * phases — which is exactly the repeated work a focused pass exists to avoid.
- * Nothing is lost by skipping it: its open records keep blocking through the
- * memory, and the full review approval needs runs it again.
+ * `documentation` says whether the whole-plan documentation checker's OWN
+ * coverage record is missing or stale. It keys on that record rather than on
+ * this pass's scope: with no trailing whole-plan review left to fall back on, a
+ * checker skipped for being on a narrow pass would let an approval be granted
+ * having never run it since the baseline. A record that still stands buys no
+ * spawn, which is the repeated work a narrowed pass exists to avoid.
  *
  * The memory is threaded two ways, both read-only. Each reader is shown the
  * settled records for its own plan file, so a question already answered is not
@@ -113,8 +112,10 @@ const spawnGapChecker = async ({
  * without it.
  *
  * `documentationComplete` answers whether the documentation checker finished —
- * true too when it had nothing to do, as on a focused pass, where it cannot fail
- * and so cannot be routed around.
+ * true too when it had nothing to do, which is a pass whose record still stands.
+ * It is not the same question as whether that record STANDS, which is what feeds
+ * `complete`; the two booleans sit one field apart on the report, so the
+ * distinction is written down here rather than left to be inferred.
  */
 export const drainGradeAgents = async ({
 	params,
@@ -124,7 +125,14 @@ export const drainGradeAgents = async ({
 	memory,
 	documentation,
 	progress,
-}: Params): Promise<{ gaps: GradedGap[]; failures: string[]; phasesChecked: string[]; rateLimited: boolean; documentationComplete: boolean }> => {
+}: Params): Promise<{
+	gaps: GradedGap[];
+	failures: string[];
+	phasesChecked: string[];
+	read: Array<{ phase: string; lens: GapCheckLens }>;
+	rateLimited: boolean;
+	documentationComplete: boolean;
+}> => {
 	// Resolved once for both spawns: two independent defaults let an edit to one
 	// move that checker's ceiling and leave the other on the old number.
 	const timeoutMs = params.timeoutMs ?? 30 * 60 * 1000;
@@ -164,6 +172,7 @@ export const drainGradeAgents = async ({
 		gaps: [...judged.gaps, ...docsCheck.gaps],
 		failures: [...readers.failures, ...docsCheck.failures],
 		phasesChecked: readers.phasesChecked,
+		read: readers.read,
 		rateLimited: readers.rateLimited || judged.rateLimited || docsCheck.rateLimited,
 		documentationComplete: docsCheck.failures.length === 0,
 	};

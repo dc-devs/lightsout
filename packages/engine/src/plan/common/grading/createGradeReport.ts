@@ -31,7 +31,7 @@ interface Params {
 	commit?: string;
 	/** Whether the working tree held uncommitted changes then; absent when the commit is. */
 	treeDirty?: boolean;
-	/** How far this pass reached. A focused pass is a repair check and is recorded as incomplete whatever it found. */
+	/** How far this pass reached — a statement about this pass alone, which no longer decides whether the plan is approved. */
 	scope?: GradeScope;
 	/** The plan files a focused pass read. Empty on a full pass. */
 	focusedOn?: string[];
@@ -43,7 +43,40 @@ interface Params {
 	phasesRequired: string[];
 	/** Whether the whole-plan documentation checker finished, or had nothing to do on this pass. */
 	documentationComplete: boolean;
+	/** Every plan file of the deliverable, overview excluded — the set `complete` is measured against. Absent on a pass that makes no coverage claim at all, which is the structural preflight stop. */
+	planFiles?: string[];
+	/** The plan files covered at their current text once this pass's own entries are recorded. Read only when `planFiles` is supplied. */
+	covered?: string[];
+	/** Whether the whole-plan documentation record stands at the current text. Read only when `planFiles` is supplied, and false by default so an unanswered claim fails closed. */
+	documentationCovered?: boolean;
 }
+
+/**
+ * Why the plan is not covered at its current text, in the one spelling this
+ * report has for a partial record.
+ *
+ * A caller that supplies no `planFiles` makes no coverage claim and gets no
+ * coverage reason — the structural preflight stop, which is already incomplete
+ * on the failure that stopped it. A caller that supplies an EMPTY one does make
+ * the claim and fails it: a deliverable that offered no plan file established
+ * nothing, the same rule `isScopeComplete` already applies.
+ *
+ * Both reasons are computed from positive per-file evidence, in the shape
+ * `isScopeComplete` uses: the covered set is checked to CONTAIN each plan file,
+ * never inferred from an empty failure list.
+ */
+const coverageReasons = ({ planFiles, covered, documentationCovered }: { planFiles?: string[]; covered: string[]; documentationCovered: boolean }) => {
+	if (planFiles === undefined) {
+		return [];
+	}
+
+	const uncovered = planFiles.filter((file) => !covered.includes(file));
+	const files = planFiles.length === 0 ? ['no plan file was offered, so nothing is covered'] : [];
+	const unread = uncovered.length === 0 ? [] : [`no reading covers ${uncovered.join(', ')} at its current text`];
+	const documentation = documentationCovered ? [] : ['the whole-plan documentation record does not stand at the current plan text'];
+
+	return [...files, ...unread, ...documentation];
+};
 
 /**
  * Whether every check this pass's own scope called for finished — the question
@@ -93,8 +126,11 @@ const isScopeComplete = ({
  * open lets an unweighed finding pass as a clean bill.
  *
  * `complete` speaks for the checks that READ the plan — the reader fan-out and
- * the whole-plan documentation checker alike. A judge that failed still does not
- * make a pass incomplete, because its finding already blocks on its own.
+ * the whole-plan documentation checker alike — and it speaks for the whole plan
+ * rather than for this one pass: every plan file covered at its current text, by
+ * this pass or by a recorded earlier one, and the documentation record standing
+ * beside them. A judge that failed still does not make a pass incomplete,
+ * because its finding already blocks on its own.
  *
  * `lenses` states what actually ran rather than what exists: it is the full lens
  * list when this pass owed any plan file a reader, and empty otherwise — every
@@ -103,12 +139,13 @@ const isScopeComplete = ({
  * `lenses` is empty then reads as "no reader ran", never as "every lens ran and
  * found nothing".
  *
- * A focused pass is incomplete by construction, in the one spelling this report
- * already has for a partial record: it never offered every plan file to the
- * readers, so it is not a clean bill whatever it found, and it can never be the
- * pass that approves a plan. It may still be `scopeComplete` — every check its
- * own scope called for finished — which is what lets it become the baseline the
- * next repair narrows against without approving anything.
+ * How far this pass reached decides nothing here. A focused pass whose coverage
+ * covers every plan file is complete and may be an A, because the plan IS
+ * covered — by this pass's own reading and the recorded readings beside it. A
+ * full pass with a file left uncovered is not. `scopeComplete` still answers its
+ * own narrower question — whether every check this pass's own scope called for
+ * finished — which is what lets a repair check become the baseline the next
+ * repair narrows against without approving anything.
  */
 export const createGradeReport = ({
 	name,
@@ -127,11 +164,14 @@ export const createGradeReport = ({
 	scopeReason,
 	phasesRequired,
 	documentationComplete,
+	planFiles,
+	covered = [],
+	documentationCovered = false,
 }: Params): GradeReport => {
 	const narrowed = phases === undefined ? [] : [`graded a subset on request: ${phases.join(', ')} — the structural findings still cover every plan file`];
-	const read = focusedOn.length > 0 ? focusedOn.join(', ') : 'no phase — nothing was edited';
-	const focused = scope === GradeScope.Focused ? [`focused review of ${read} — a full review is required for approval`] : [];
-	const reasons = [...narrowed, ...focused, ...failures];
+	// The failures first: a checker that fell over is the cause, and the plan files
+	// left uncovered are usually its consequence.
+	const reasons = [...narrowed, ...failures, ...coverageReasons({ planFiles, covered, documentationCovered })];
 	const complete = reasons.length === 0;
 	const grade =
 		complete && getBlockingFindings({ findings: structural }).length === 0 && getBlockingGaps({ gaps }).length === 0 ? PlanGrade.A : PlanGrade.BelowA;
@@ -156,6 +196,7 @@ export const createGradeReport = ({
 		gradedTreeDirty: treeDirty,
 		scope,
 		focusedOn,
+		covered,
 		inputs,
 		scopeReason,
 	};

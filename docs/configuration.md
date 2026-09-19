@@ -619,11 +619,15 @@ does not report it. A re-grade after a repair reads the edited phase files and
 every phase connected to them, falling back to the whole plan whenever that set
 cannot be established. A repair review that finished every check its own scope
 called for becomes the comparison point the next repair narrows against, so a
-phase whose current text was already checked is not read again, while approval
-still requires a review of the whole plan. Only a review of the whole plan can pass, and one that
-already covers the current plan text, code, standards, configuration, prompts and
-model is reported as current rather than run again — deleting `grade-memory.json`
-is how a new baseline is forced.
+phase whose current text was already checked is not read again. The same record
+decides approval: a pass passes once every plan file is covered at its current
+text — by that pass or by a recorded earlier one — and every finding is closed,
+whatever that pass itself read. A change to the code, standards, configuration,
+prompts or model drops the whole record and costs one full re-baseline, and a
+review already covering the current plan text, code, standards, configuration,
+prompts and model is reported as current rather than run again — deleting
+`grade-memory.json`, which holds the coverage record as well as the findings, is
+how a new baseline is forced.
 
 The block is strict for the same reason `ship` is: an unknown key fails parsing
 rather than silently disabling a setting you believe is on. Omit the block and

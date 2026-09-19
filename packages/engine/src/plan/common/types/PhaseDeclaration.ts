@@ -24,4 +24,8 @@ export interface PhaseDeclaration {
 	scripts: string[];
 	/** The phase's declared `## File Budget`, absent when it takes the configured default. */
 	fileBudget?: number;
+	/** 1-based line of this phase's row in the overview's `## Phases` table; absent for a declaration block with no matching row. */
+	rowLine?: number;
+	/** 1-based inclusive line range of this phase's `### Phase <N>` block; absent for a table row with no matching block. */
+	blockRange?: { start: number; end: number };
 }

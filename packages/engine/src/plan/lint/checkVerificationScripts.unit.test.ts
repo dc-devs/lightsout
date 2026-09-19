@@ -29,6 +29,7 @@ const planWith = ({
 	deletePaths,
 	movePaths,
 	malformedMoveLines: [],
+	generatedRegionRanges: new Map(),
 	sectionRanges: new Map(),
 	mirrorPaths: [],
 	verificationCommands: commands,

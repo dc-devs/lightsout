@@ -1,14 +1,14 @@
 import { basename } from 'node:path';
-import { GradeFindingStatus, type GradeInputs, type GradeMemory, GradeScope } from '#src/contracts/index.ts';
-import { getAffectedPhases } from '#src/plan/common/scope/getAffectedPhases.ts';
-import { getDecisionReach } from '#src/plan/common/scope/getDecisionReach.ts';
+import type { GradeInputs, GradeMemory } from '#src/contracts/index.ts';
+import { GradeScope } from '#src/contracts/index.ts';
+import { gapCheckLenses } from '#src/plan/common/constants/gapCheckLenses.ts';
+import { getCoverageSeeds } from '#src/plan/common/scope/getCoverageSeeds.ts';
+import { getDesignHashes } from '#src/plan/common/scope/getDesignHashes.ts';
 import { getEditedPhases } from '#src/plan/common/scope/getEditedPhases.ts';
-import { getPhaseConnections } from '#src/plan/common/scope/getPhaseConnections.ts';
+import { getPhaseGraph } from '#src/plan/common/scope/getPhaseGraph.ts';
+import { getStandingCoverage } from '#src/plan/common/scope/getStandingCoverage.ts';
 import type { DeliverableFile } from '#src/plan/common/types/DeliverableFile.ts';
 import type { GradeScopeDecision } from '#src/plan/common/types/GradeScopeDecision.ts';
-import type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
-import { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';
-import { parsePlan } from '#src/plan/parsePlan.ts';
 
 interface Params {
 	/** Every implementable plan file with its text, in deliverable order. */
@@ -23,63 +23,13 @@ interface Params {
 	narrowed: boolean;
 }
 
-/** The deliverable's plan files, parsed — the same shape the lint walks, built here because the decision reads the plan text itself. */
-const parseFiles = ({ files }: { files: DeliverableFile[] }): PhaseFile[] =>
-	files.map((file) => {
-		const base = basename(file.path);
-
-		return { path: file.path, base, number: Number(/^phase(\d+)-/.exec(base)?.[1] ?? 1), plan: parsePlan({ content: file.text, base }) };
-	});
-
 /** Every plan file the readers would be offered by a full pass. */
 const everyPhase = ({ files }: { files: DeliverableFile[] }) => files.map((file) => basename(file.path));
 
 /**
- * The closure a focused pass would read, or the reason the graph could not say —
- * kept separate from the rules above it so the fallback to a full review is one
- * branch rather than one per way of failing.
- */
-const focusedClosure = ({ files, overviewText, edited }: { files: DeliverableFile[]; overviewText: string; edited: string[] }) => {
-	const declarations = parsePhaseDeclarations({ plan: parsePlan({ content: overviewText, base: 'overview.md' }) });
-	const graph = getPhaseConnections({ phases: parseFiles({ files }), declarations });
-
-	return 'error' in graph ? { error: graph.error } : { phases: getAffectedPhases({ connections: graph.connections, edited }) };
-};
-
-/**
- * The phases a focused closure grows from: the edited phases, plus — for a
- * phased plan — the phases the changed decisions name, or the reason the
- * decision change cannot be placed. A single plan has no Decision Log part to
- * compare and keeps its edited phases alone.
- */
-const closureSeeds = ({
-	overviewText,
-	inputs,
-	previous,
-	overviewChanged,
-	edited,
-	phases,
-}: {
-	overviewText?: string;
-	inputs: GradeInputs;
-	previous: GradeInputs;
-	overviewChanged: boolean;
-	edited: string[];
-	phases: string[];
-}) => {
-	if (overviewText === undefined) {
-		return { seeds: edited };
-	}
-
-	const reach = getDecisionReach({ current: inputs.decisionLog, previous: previous.decisionLog, overviewChanged, edited, phaseFiles: phases });
-
-	return 'error' in reach ? { error: reach.error } : { seeds: [...edited, ...reach.phases] };
-};
-
-/**
- * How far this pass must reach, decided by the engine from the plan, the memory
- * and the fingerprint — there is no flag, because a human cannot know which
- * phases a repair can reach.
+ * How far this pass must reach, decided by the engine from the plan, the memory,
+ * the fingerprint and what the readers have already read — there is no flag,
+ * because a human cannot know which phases a repair can reach.
  *
  * The rules fire in order and every one of them falls back to a full review,
  * because the global constraint is that a cheaper pass must never turn an
@@ -93,14 +43,21 @@ const closureSeeds = ({
  * 4. With no memory, or no pass recorded in it, there is no baseline to compare
  *    the plan text against.
  * 5. A non-plan-text input moving means the recorded reading no longer speaks
- *    for this pass at all. An overview design change is context every phase
- *    shares; a Decision Log change reaches the phases its changed rows name; and
- *    a change whose reach cannot be placed is a full review.
+ *    for this pass at all. A change to the overview's SHARED design text — what
+ *    is left once every generated region and every span credited to one phase is
+ *    taken out — is context every phase shares; a Decision Log change reaches the
+ *    phases its changed rows name; and a change whose reach cannot be placed is a
+ *    full review.
  * 6. A single plan has no phase to narrow to.
- * 7. A plan with nothing open is not a repair check — approval needs the whole
- *    plan read, and a focused pass can never grant it.
- * 8. A graph that cannot be built cannot bound anything.
- * 9. A closure covering every file is a full pass by another name.
+ * 7. A graph that cannot be built cannot bound anything.
+ * 8. What is left is the plan files whose coverage does not stand: the ones this
+ *    pass owes a reading. A set covering every file is a full pass by another
+ *    name.
+ *
+ * Nothing here decides whether the plan is approved. That is read from the
+ * coverage and the closed findings afterwards, which is why a pass whose
+ * coverage already stands everywhere may read nothing at all and still be the
+ * pass that grants an A.
  */
 export const decideGradeScope = ({ files, overviewText, memory, inputs, narrowed }: Params): GradeScopeDecision => {
 	const phases = everyPhase({ files });
@@ -124,13 +81,13 @@ export const decideGradeScope = ({ files, overviewText, memory, inputs, narrowed
 		return full({ reason: 'full review: no earlier pass is on record, so this pass is the baseline' });
 	}
 
-	const { edited, overviewChanged, otherInputChanged } = getEditedPhases({ current: inputs, previous });
+	const { otherInputChanged } = getEditedPhases({ current: inputs, previous });
 
 	if (otherInputChanged) {
 		return full({ reason: 'full review: the code, standards, configuration, prompts or model moved since the last pass' });
 	}
 
-	const seeded = closureSeeds({ overviewText, inputs, previous, overviewChanged, edited, phases });
+	const seeded = getCoverageSeeds({ inputs, previous, overviewText, phaseFiles: phases });
 
 	if ('error' in seeded) {
 		return full({ reason: `full review: ${seeded.error}` });
@@ -140,22 +97,28 @@ export const decideGradeScope = ({ files, overviewText, memory, inputs, narrowed
 		return full({ reason: 'full review: a single plan file has no phase closure to narrow to' });
 	}
 
-	if (!memory?.findings.some((record) => record.status === GradeFindingStatus.Open)) {
-		return full({ reason: 'full review: no finding is open, so this pass is an approval review rather than a repair check' });
+	const graph = getPhaseGraph({ files, overviewText });
+
+	if ('error' in graph) {
+		return full({ reason: `full review: the phase graph could not be built — ${graph.error}` });
 	}
 
-	const closure = focusedClosure({ files, overviewText, edited: seeded.seeds });
+	const standing = getStandingCoverage({
+		coverage: memory?.coverage ?? { readers: [] },
+		designHashes: getDesignHashes({ inputs }),
+		phaseFiles: phases,
+		lenses: gapCheckLenses,
+		connections: graph.connections,
+		otherInputChanged: false,
+		seeds: seeded.seeds,
+	});
 
-	if ('error' in closure) {
-		return full({ reason: `full review: the phase graph could not be built — ${closure.error}` });
+	if (standing.invalidated.length >= files.length) {
+		return full({ reason: 'full review: no recorded reading still stands, so this pass reads every plan file anyway' });
 	}
 
-	if (closure.phases.length >= files.length) {
-		return full({ reason: 'full review: the edited phases reach every plan file anyway' });
-	}
+	const reach = standing.invalidated.length > 0 ? standing.invalidated.join(', ') : 'nothing — every plan file is covered at its current text';
+	const reason = `focused review: the plan files whose recorded reading no longer stands — ${reach}`;
 
-	const reach = closure.phases.length > 0 ? closure.phases.join(', ') : 'no phase text and no decision changed';
-	const reason = `focused review: the edited phases, the phases changed decisions name, and everything they reach — ${reach}`;
-
-	return { scope: GradeScope.Focused, phases: closure.phases, reuse: false, reason };
+	return { scope: GradeScope.Focused, phases: standing.invalidated, reuse: false, reason };
 };
