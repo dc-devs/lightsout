@@ -28418,6 +28418,9 @@ var extractJsonReport = ({ text }) => {
   return lastEmbeddedJsonObject({ text: trimmed });
 };
 
+// src/invoke/getAgentOutcomeStatus.ts
+var getAgentOutcomeStatus = ({ outcome }) => outcome.ok ? RunStatus.Passed : outcome.rateLimited ? RunStatus.PausedRateLimit : RunStatus.Failed;
+
 // src/invoke/common/utils/recordHarnessProcess.ts
 var recordHarnessProcess = async ({
   driver,
@@ -28461,21 +28464,22 @@ var recordHarnessProcess = async ({
     });
   } catch {
   }
-  return rung;
+  return { ...rung, usage: usage2 };
 };
 
 // src/invoke/invokeAgentWithContract.ts
-var sumUsage = ({ total, attempt }) => {
-  if (!attempt) {
+var sumUsage = ({ total, rungUsage }) => {
+  const { inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens, costUsd } = rungUsage ?? {};
+  if ([inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens, costUsd].every((reported) => reported === void 0)) {
     return total;
   }
   const base = total ?? { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0 };
   return {
-    inputTokens: base.inputTokens + attempt.inputTokens,
-    outputTokens: base.outputTokens + attempt.outputTokens,
-    cacheReadTokens: base.cacheReadTokens + attempt.cacheReadTokens,
-    cacheCreationTokens: base.cacheCreationTokens + attempt.cacheCreationTokens,
-    costUsd: base.costUsd + attempt.costUsd
+    inputTokens: base.inputTokens + (inputTokens ?? 0),
+    outputTokens: base.outputTokens + (outputTokens ?? 0),
+    cacheReadTokens: base.cacheReadTokens + (cacheReadTokens ?? 0),
+    cacheCreationTokens: base.cacheCreationTokens + (cacheCreationTokens ?? 0),
+    costUsd: base.costUsd + (costUsd ?? 0)
   };
 };
 var shouldReemit = ({ payload, maxRoleAttempts }) => maxRoleAttempts === 1 || typeof payload === "object" && payload !== null;
@@ -28514,11 +28518,11 @@ var invokeAgentWithContract = async ({
       spawn: attempt,
       reemit: isReemit
     });
+    usage2 = sumUsage({ total: usage2, rungUsage: rung.usage });
     if (!rung.ok) {
       settled2 = { ok: false, failure: rung.failure, rateLimited: false };
       break;
     }
-    usage2 = sumUsage({ total: usage2, attempt: rung.result.usage });
     if (rung.result.rateLimited) {
       settled2 = { ok: false, failure: "harness rate limited or overloaded", rateLimited: true };
       break;
@@ -28535,9 +28539,6 @@ var invokeAgentWithContract = async ({
   }
   return { ...settled2, usage: usage2 };
 };
-
-// src/plan/common/activity/getAgentOutcomeStatus.ts
-var getAgentOutcomeStatus = ({ outcome }) => outcome.ok ? RunStatus.Passed : outcome.rateLimited ? RunStatus.PausedRateLimit : RunStatus.Failed;
 
 // src/plan/common/utils/createPlanAgentRunner.ts
 var createPlanAgentRunner = ({
@@ -31675,6 +31676,9 @@ var missingRecord = async ({ dir }) => {
   return stat2(path).then((found) => found.isFile() ? void 0 : `the activity record at ${path} could not be written: it is not a file`).catch((error51) => `the activity record at ${path} could not be written: ${messageOf({ error: error51 })}`);
 };
 var recordPlanCommandRun = async ({ cwd, name, label: label2, work, statusOf }) => {
+  if (name === void 0) {
+    return work({ level: void 0 });
+  }
   const dir = await planWorkspaceDir({ cwd, name });
   const plan = createActivityRecorder({ dir, level: ActivityLevelKind.Plan, label: name });
   const commandRun = plan.open({ level: ActivityLevelKind.CommandRun, label: label2 });
@@ -142192,84 +142196,6 @@ var reportTicketPlanOutcome = ({ outcome }) => {
   return outcome.result;
 };
 
-// src/cli/common/render/printPlanTicketWarning.ts
-var printPlanTicketWarning = async ({ cwd, name, write = console.log }) => {
-  const config2 = await readOptionalConfig({ cwd }).catch(() => void 0);
-  if (config2?.["ticket-tracker"] === void 0) {
-    return;
-  }
-  const settings = resolveShipSettings({ config: config2 });
-  if (settings === void 0) {
-    return;
-  }
-  if (readPlanTicketRef({ name, ticketPattern: settings.ticketPattern }) !== void 0) {
-    return;
-  }
-  write(
-    `${yellow("\u26A0")} plan folder '${name}' carries no ticket id \u2014 name a plan folder after its ticket's branch, matching this repo's ship.ticket-pattern. Continuing from the folder path.`
-  );
-};
-
-// src/common/constants/defaultSupervisorTimeoutMinutes.ts
-var defaultSupervisorTimeoutMinutes = 15;
-
-// src/cli/common/render/printRunHeader.ts
-var describeStandardsPacks = ({ value }) => {
-  if (value === false) {
-    return "none (explicit)";
-  }
-  if (value === void 0) {
-    return "lightsout-defaults (none configured \u2014 set to false to disable, or list pack roots)";
-  }
-  return value.join(", ");
-};
-var printRunHeader = ({ config: config2, driver, cwd }) => {
-  const coverage = config2.gates["test-coverage"] === false ? "off (explicit)" : config2.gates["test-coverage"];
-  console.log(`  cwd: ${cwd}`);
-  console.log(`  standards packs: ${describeStandardsPacks({ value: config2["standards-packs"] })}`);
-  console.log(
-    `  harness: ${driver.name} \xB7 model: ${config2.model ?? "harness default"} \xB7 effort: ${config2.effort ?? "harness default"} \xB7 permissions: ${config2.permissions ?? Permissions.Write}`
-  );
-  console.log(
-    `  timeouts: agent ${config2.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes}m \xB7 supervisor ${config2.timeouts?.["supervisor-minutes"] ?? defaultSupervisorTimeoutMinutes}m \xB7 gate ${config2.timeouts?.["gate-minutes"] ?? defaultGateTimeoutMinutes}m`
-  );
-  console.log(`  gates (root): check=[${config2.gates.check}] test=[${config2.gates.test}] coverage=[${coverage}]`);
-  if (config2.gates.generate) {
-    console.log(`  generate (before every gate set): [${config2.gates.generate}]`);
-  }
-  if (config2["agent-commands"] && config2["agent-commands"].length > 0) {
-    console.log(`  agent commands (granted, prefix match): ${config2["agent-commands"].map((command) => `[${command}]`).join(" ")}`);
-  }
-  if (config2.generated) {
-    console.log(`  generated (never attributed): ${config2.generated.join(", ")}`);
-  }
-  if (config2.vendored) {
-    console.log(`  vendored (never checked, still attributed): ${config2.vendored.join(", ")}`);
-  }
-  if (config2.gates.build) {
-    console.log(`  gates (root, opt-in): build=[${config2.gates.build}]`);
-  }
-  if (config2.gates.format) {
-    console.log(`  format: [${config2.gates.format}]`);
-  }
-  if (config2["package-gates"]) {
-    const scopedCoverage = config2["package-gates"]["test-coverage"] ? ` coverage=[${config2["package-gates"]["test-coverage"]}]` : "";
-    console.log(`  gates (per package): check=[${config2["package-gates"].check}] test=[${config2["package-gates"].test}]${scopedCoverage}`);
-  }
-};
-
-// src/cli/common/render/printRunStart.ts
-var printRunStart = ({ target, overviewPath, packages, startPhase, config: config2, driver, cwd }) => {
-  console.log(`lightsout: starting run`);
-  console.log(
-    "overviewPath" in target ? `  overview: ${target.overviewPath}${startPhase === void 0 ? "" : `
-  start phase: ${startPhase}`}` : `  plan: ${target.planPath}${overviewPath ? `
-  overview: ${overviewPath}` : ""}${packages ? `
-  packages flag: ${packages.join(", ")}` : ""}`
-  );
-  printRunHeader({ config: config2, driver, cwd });
-};
-
 // src/cli/common/utils/ensurePlanWorkspace.ts
 var readTicketSource = async ({ cwd, name, dir }) => {
   const config2 = await readOptionalConfig({ cwd });
@@ -142349,6 +142275,127 @@ var ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }) => {
   }
   write(`lightsout: fetched ${restored.length} plan file(s) from ticket ${identifier} into ${dir}`);
   return void 0;
+};
+
+// src/cli/common/implementRun/resolveImplementInputs.ts
+var resolveImplementInputs = async ({
+  flags,
+  cwd
+}) => {
+  const planPath = getStringFlag({ flags, name: "plan" });
+  const overviewPath = getStringFlag({ flags, name: "overview" });
+  const packagesFlag = getStringFlag({ flags, name: "packages" });
+  const startPhaseFlag = getStringFlag({ flags, name: "start-phase" });
+  const packages = packagesFlag ? packagesFlag.split(",").map((name) => name.trim()).filter(Boolean) : void 0;
+  if (!planPath) {
+    return { error: usage };
+  }
+  const startPhase = startPhaseFlag === void 0 ? void 0 : Number.parseInt(startPhaseFlag, 10);
+  if (startPhase !== void 0 && (!Number.isFinite(startPhase) || startPhase < 1)) {
+    return { error: `--start-phase must be a positive integer, got '${startPhaseFlag}'` };
+  }
+  const ensured = await ensurePlanWorkspace({ cwd, planPath });
+  if (ensured !== void 0) {
+    return { error: ensured.error };
+  }
+  const target = await resolvePlanTarget({ cwd, planPath });
+  if ("error" in target) {
+    return { error: target.error };
+  }
+  const phased = "overviewPath" in target;
+  if (phased && overviewPath !== void 0) {
+    return { error: "--overview applies to a single-plan run \u2014 a plan folder with an overview.md already runs every phase" };
+  }
+  if (phased && packages !== void 0) {
+    return { error: "--packages applies to a single-plan run \u2014 every phase of a plan folder reads its own scope" };
+  }
+  if (!phased && startPhase !== void 0) {
+    return { error: "--start-phase applies to a plan folder holding an overview.md \u2014 a single plan has one phase" };
+  }
+  const planName = await planNameFromPath({ cwd, planPath });
+  const terms = await readTicketRunTerms({ cwd, name: planName, planPath: "overviewPath" in target ? target.overviewPath : target.planPath });
+  if (terms.refusal !== void 0) {
+    return { error: terms.refusal };
+  }
+  return { planPath, overviewPath, packages, startPhase, planName, shipRequest: terms.shipRequest };
+};
+
+// src/cli/common/render/printPlanTicketWarning.ts
+var printPlanTicketWarning = async ({ cwd, name, write = console.log }) => {
+  const config2 = await readOptionalConfig({ cwd }).catch(() => void 0);
+  if (config2?.["ticket-tracker"] === void 0) {
+    return;
+  }
+  const settings = resolveShipSettings({ config: config2 });
+  if (settings === void 0) {
+    return;
+  }
+  if (readPlanTicketRef({ name, ticketPattern: settings.ticketPattern }) !== void 0) {
+    return;
+  }
+  write(
+    `${yellow("\u26A0")} plan folder '${name}' carries no ticket id \u2014 name a plan folder after its ticket's branch, matching this repo's ship.ticket-pattern. Continuing from the folder path.`
+  );
+};
+
+// src/common/constants/defaultSupervisorTimeoutMinutes.ts
+var defaultSupervisorTimeoutMinutes = 15;
+
+// src/cli/common/render/printRunHeader.ts
+var describeStandardsPacks = ({ value }) => {
+  if (value === false) {
+    return "none (explicit)";
+  }
+  if (value === void 0) {
+    return "lightsout-defaults (none configured \u2014 set to false to disable, or list pack roots)";
+  }
+  return value.join(", ");
+};
+var printRunHeader = ({ config: config2, driver, cwd }) => {
+  const coverage = config2.gates["test-coverage"] === false ? "off (explicit)" : config2.gates["test-coverage"];
+  console.log(`  cwd: ${cwd}`);
+  console.log(`  standards packs: ${describeStandardsPacks({ value: config2["standards-packs"] })}`);
+  console.log(
+    `  harness: ${driver.name} \xB7 model: ${config2.model ?? "harness default"} \xB7 effort: ${config2.effort ?? "harness default"} \xB7 permissions: ${config2.permissions ?? Permissions.Write}`
+  );
+  console.log(
+    `  timeouts: agent ${config2.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes}m \xB7 supervisor ${config2.timeouts?.["supervisor-minutes"] ?? defaultSupervisorTimeoutMinutes}m \xB7 gate ${config2.timeouts?.["gate-minutes"] ?? defaultGateTimeoutMinutes}m`
+  );
+  console.log(`  gates (root): check=[${config2.gates.check}] test=[${config2.gates.test}] coverage=[${coverage}]`);
+  if (config2.gates.generate) {
+    console.log(`  generate (before every gate set): [${config2.gates.generate}]`);
+  }
+  if (config2["agent-commands"] && config2["agent-commands"].length > 0) {
+    console.log(`  agent commands (granted, prefix match): ${config2["agent-commands"].map((command) => `[${command}]`).join(" ")}`);
+  }
+  if (config2.generated) {
+    console.log(`  generated (never attributed): ${config2.generated.join(", ")}`);
+  }
+  if (config2.vendored) {
+    console.log(`  vendored (never checked, still attributed): ${config2.vendored.join(", ")}`);
+  }
+  if (config2.gates.build) {
+    console.log(`  gates (root, opt-in): build=[${config2.gates.build}]`);
+  }
+  if (config2.gates.format) {
+    console.log(`  format: [${config2.gates.format}]`);
+  }
+  if (config2["package-gates"]) {
+    const scopedCoverage = config2["package-gates"]["test-coverage"] ? ` coverage=[${config2["package-gates"]["test-coverage"]}]` : "";
+    console.log(`  gates (per package): check=[${config2["package-gates"].check}] test=[${config2["package-gates"].test}]${scopedCoverage}`);
+  }
+};
+
+// src/cli/common/render/printRunStart.ts
+var printRunStart = ({ target, overviewPath, packages, startPhase, config: config2, driver, cwd }) => {
+  console.log(`lightsout: starting run`);
+  console.log(
+    "overviewPath" in target ? `  overview: ${target.overviewPath}${startPhase === void 0 ? "" : `
+  start phase: ${startPhase}`}` : `  plan: ${target.planPath}${overviewPath ? `
+  overview: ${overviewPath}` : ""}${packages ? `
+  packages flag: ${packages.join(", ")}` : ""}`
+  );
+  printRunHeader({ config: config2, driver, cwd });
 };
 
 // src/cli/common/utils/resolveCommandShipIntent.ts
@@ -142704,7 +142751,8 @@ var consultTestChangeReviewer = async ({
   changedFiles,
   changes,
   onEvent,
-  onRejectedOutput
+  onRejectedOutput,
+  activity
 }) => {
   return invokeAgentWithContract({
     driver,
@@ -142716,7 +142764,8 @@ var consultTestChangeReviewer = async ({
     permissions: reviewerPermissions,
     timeoutMs: (config2.timeouts?.["supervisor-minutes"] ?? defaultSupervisorTimeoutMinutes) * 6e4,
     onEvent,
-    onRejectedOutput
+    onRejectedOutput,
+    activity
   });
 };
 
@@ -142729,6 +142778,7 @@ var reviewTestChanges = async ({ run, checkpoint, planContent, overviewContent }
   const manifest = run.current();
   const step = `${checkpoint}-test-review`;
   run.progress(`${checkpoint}: ${changes.length} test-side file(s) changed \u2014 reviewing them against the plan before the gates run`);
+  const stepLevel = run.openStepLevel({ step });
   const outcome = await consultTestChangeReviewer({
     driver: run.driver,
     cwd: run.cwd,
@@ -142740,8 +142790,10 @@ var reviewTestChanges = async ({ run, checkpoint, planContent, overviewContent }
     changedFiles: manifest.changedFiles.filter((file2) => !isTestSideFile({ path: file2 })),
     changes,
     onEvent: run.agentEventSink({ step }),
-    onRejectedOutput: run.persistRejected({ step })
+    onRejectedOutput: run.persistRejected({ step }),
+    activity: stepLevel
   });
+  stepLevel?.close({ outcome: getAgentOutcomeStatus({ outcome }) });
   await run.recordUsage({ step, usage: outcome.usage });
   if (!outcome.ok) {
     return outcome.rateLimited ? { rateLimited: true } : { error: `${checkpoint}: the test-change reviewer did not return a verdict \u2014 ${outcome.failure}` };
@@ -143222,9 +143274,11 @@ var PipelineRun = class {
   stepTimers = /* @__PURE__ */ new Map();
   transcriptCount = 0;
   rejectedCount = 0;
-  constructor({ cwd, config: config2, driver, manifest, onProgress }) {
+  level;
+  constructor({ cwd, config: config2, driver, manifest, level, onProgress }) {
     this.runState = new RunState({ cwd, config: config2, manifest, onProgress });
     this.driver = driver;
+    this.level = level;
   }
   get cwd() {
     return this.runState.cwd;
@@ -143289,6 +143343,10 @@ var PipelineRun = class {
       this.progress(`  ${step} \xB7 usage: ${formatUsage({ usage: usage2 })}`);
     }
   }
+  /** Open one step level under this run's own level, for an agent call that does not go through `invokeRole`. Answers undefined when no run is being recorded. */
+  openStepLevel({ step }) {
+    return this.level?.open({ level: ActivityLevelKind.Step, label: step });
+  }
   // Every agent invocation's full event stream (tool calls, chat text, the
   // final result) is teed to agents/stream-NN-<step>.jsonl — the chat as
   // on-disk run evidence, tail-able live for anyone who wants the
@@ -143328,6 +143386,7 @@ ${text}`, "utf8");
     onFirstEvent
   }) {
     const sink = this.agentEventSink({ step });
+    const stepLevel = this.openStepLevel({ step });
     let seenFirst = false;
     const outcome = await invokeAgentWithContract({
       driver: this.driver,
@@ -143350,8 +143409,10 @@ ${text}`, "utf8");
         }
         sink(event);
       },
-      onRejectedOutput: this.persistRejected({ step })
+      onRejectedOutput: this.persistRejected({ step }),
+      activity: stepLevel
     });
+    stepLevel?.close({ outcome: getAgentOutcomeStatus({ outcome }) });
     await this.recordUsage({ step, usage: outcome.usage });
     return outcome;
   }
@@ -144969,7 +145030,8 @@ var consultSupervisor = async ({
   errorOutput,
   attempts,
   onEvent,
-  onRejectedOutput
+  onRejectedOutput,
+  activity
 }) => {
   return invokeAgentWithContract({
     driver,
@@ -144981,7 +145043,8 @@ var consultSupervisor = async ({
     permissions: supervisorPermissions,
     timeoutMs: (config2.timeouts?.["supervisor-minutes"] ?? defaultSupervisorTimeoutMinutes) * 6e4,
     onEvent,
-    onRejectedOutput
+    onRejectedOutput,
+    activity
   });
 };
 
@@ -144991,7 +145054,9 @@ var runGuidedRepair = async ({ context, record: record3, result }) => {
     return { record: record3, result, ruling: void 0 };
   }
   const { run, id, planContent } = context;
+  const step = `${id}-supervisor`;
   run.progress(`step ${id}: mechanical retries exhausted \u2014 consulting supervisor`);
+  const stepLevel = run.openStepLevel({ step });
   const verdict = await consultSupervisor({
     driver: run.driver,
     cwd: run.cwd,
@@ -145000,10 +145065,12 @@ var runGuidedRepair = async ({ context, record: record3, result }) => {
     stepId: id,
     errorOutput: result.error,
     attempts: record3.attempts,
-    onEvent: run.agentEventSink({ step: `${id}-supervisor` }),
-    onRejectedOutput: run.persistRejected({ step: `${id}-supervisor` })
+    onEvent: run.agentEventSink({ step }),
+    onRejectedOutput: run.persistRejected({ step }),
+    activity: stepLevel
   });
-  await run.recordUsage({ step: `${id}-supervisor`, usage: verdict.usage });
+  stepLevel?.close({ outcome: getAgentOutcomeStatus({ outcome: verdict }) });
+  await run.recordUsage({ step, usage: verdict.usage });
   if (!verdict.ok && verdict.rateLimited) {
     return { parked: await run.stop({ record: record3, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };
   }
@@ -158904,6 +158971,7 @@ var executePipeline = async ({
   packages,
   existing,
   skipRefactor,
+  level,
   willShip,
   onProgress
 }) => {
@@ -158911,6 +158979,7 @@ var executePipeline = async ({
     cwd,
     config: config2,
     driver,
+    level,
     onProgress,
     manifest: existing ?? await createRun({
       cwd,
@@ -159000,6 +159069,33 @@ var runChild = async (params) => {
   }
   return result;
 };
+var recordFinishedChild = async ({
+  cwd,
+  manifest,
+  index,
+  step,
+  total,
+  childResult
+}) => {
+  const child = childResult.manifest;
+  const current = await persistStep({
+    cwd,
+    manifest,
+    index,
+    record: recordFromChild({ step, childResult }),
+    patch: {
+      status: childResult.ok ? RunStatus.Running : child.status,
+      changedFiles: [.../* @__PURE__ */ new Set([...manifest.changedFiles, ...child.changedFiles])],
+      usage: addUsage({ total: manifest.usage, child: child.usage })
+    }
+  });
+  if (childResult.ok) {
+    return { manifest: current };
+  }
+  const stopped = `phase ${index + 1}/${total} (${step.id}) ended ${child.status} \u2014 resume with: lightsout resume --run ${current.runId}`;
+  return { manifest: current, result: { ok: false, manifest: current, error: childResult.error ? `${stopped}
+${childResult.error}` : stopped } };
+};
 var runPhase = async ({
   cwd,
   driver,
@@ -159009,9 +159105,11 @@ var runPhase = async ({
   step,
   total,
   skipRefactor,
+  level,
   onProgress
 }) => {
-  onProgress?.(`phase ${index + 1}/${total}: ${step.id}`);
+  const label2 = `phase ${index + 1}/${total}: ${step.id}`;
+  onProgress?.(label2);
   const childManifest = await readRecordedChild({ cwd, step });
   if (childManifest?.status === RunStatus.Passed) {
     return { manifest: await persistStep({ cwd, manifest, index, record: { ...step, status: RunStatus.Passed } }) };
@@ -159023,45 +159121,36 @@ var runPhase = async ({
     record: { ...step, status: RunStatus.Running, error: void 0 },
     patch: { status: RunStatus.Running, currentStep: step.id }
   });
-  const childResult = await runChild({
-    cwd,
-    driver,
-    config: config2,
-    planPath: join134(dirname28(current.plan), step.id),
-    overviewPath: current.plan,
-    parentRunId: current.runId,
-    existing: childManifest,
-    skipRefactor,
-    onProgress
-  });
-  if ("failure" in childResult) {
-    current = await persistStep({
+  const pass = level?.open({ level: ActivityLevelKind.Pass, label: label2 });
+  let outcome = RunStatus.Failed;
+  try {
+    const childResult = await runChild({
       cwd,
-      manifest: current,
-      index,
-      record: { ...step, status: RunStatus.Failed, error: childResult.failure },
-      patch: { status: RunStatus.Failed }
+      driver,
+      config: config2,
+      planPath: join134(dirname28(current.plan), step.id),
+      overviewPath: current.plan,
+      parentRunId: current.runId,
+      existing: childManifest,
+      skipRefactor,
+      level: pass,
+      onProgress
     });
-    return { manifest: current, result: { ok: false, manifest: current, error: childResult.failure } };
-  }
-  const child = childResult.manifest;
-  current = await persistStep({
-    cwd,
-    manifest: current,
-    index,
-    record: recordFromChild({ step, childResult }),
-    patch: {
-      status: childResult.ok ? RunStatus.Running : child.status,
-      changedFiles: [.../* @__PURE__ */ new Set([...current.changedFiles, ...child.changedFiles])],
-      usage: addUsage({ total: current.usage, child: child.usage })
+    if ("failure" in childResult) {
+      current = await persistStep({
+        cwd,
+        manifest: current,
+        index,
+        record: { ...step, status: RunStatus.Failed, error: childResult.failure },
+        patch: { status: RunStatus.Failed }
+      });
+      return { manifest: current, result: { ok: false, manifest: current, error: childResult.failure } };
     }
-  });
-  if (childResult.ok) {
-    return { manifest: current };
+    outcome = childResult.manifest.status;
+    return await recordFinishedChild({ cwd, manifest: current, index, step, total, childResult });
+  } finally {
+    pass?.close({ outcome });
   }
-  const stopped = `phase ${index + 1}/${total} (${step.id}) ended ${child.status} \u2014 resume with: lightsout resume --run ${current.runId}`;
-  return { manifest: current, result: { ok: false, manifest: current, error: childResult.error ? `${stopped}
-${childResult.error}` : stopped } };
 };
 
 // src/phases/runPhasesPipeline.ts
@@ -159074,6 +159163,7 @@ var runPhasesPipeline = async ({
   runId,
   existing,
   skipRefactor,
+  level,
   willShip,
   onProgress
 }) => {
@@ -159089,7 +159179,7 @@ var runPhasesPipeline = async ({
     if (step.status === RunStatus.Passed) {
       continue;
     }
-    const phase = await runPhase({ cwd, driver, config: config2, manifest, index, step, total, skipRefactor, onProgress: narrate });
+    const phase = await runPhase({ cwd, driver, config: config2, manifest, index, step, total, skipRefactor, level, onProgress: narrate });
     manifest = phase.manifest;
     if (phase.result) {
       return phase.result;
@@ -159125,46 +159215,10 @@ ${error51.message}`);
 };
 
 // src/cli/implementCommand.ts
-var resolveImplementInputs = async ({ flags, cwd }) => {
-  const planPath = getStringFlag({ flags, name: "plan" });
-  const overviewPath = getStringFlag({ flags, name: "overview" });
-  const packagesFlag = getStringFlag({ flags, name: "packages" });
-  const startPhaseFlag = getStringFlag({ flags, name: "start-phase" });
-  const packages = packagesFlag ? packagesFlag.split(",").map((name) => name.trim()).filter(Boolean) : void 0;
-  if (!planPath) {
-    return { error: usage };
-  }
-  const startPhase = startPhaseFlag === void 0 ? void 0 : Number.parseInt(startPhaseFlag, 10);
-  if (startPhase !== void 0 && (!Number.isFinite(startPhase) || startPhase < 1)) {
-    return { error: `--start-phase must be a positive integer, got '${startPhaseFlag}'` };
-  }
-  const ensured = await ensurePlanWorkspace({ cwd, planPath });
-  if (ensured !== void 0) {
-    return { error: ensured.error };
-  }
-  const target = await resolvePlanTarget({ cwd, planPath });
-  if ("error" in target) {
-    return { error: target.error };
-  }
-  const phased = "overviewPath" in target;
-  if (phased && overviewPath !== void 0) {
-    return { error: "--overview applies to a single-plan run \u2014 a plan folder with an overview.md already runs every phase" };
-  }
-  if (phased && packages !== void 0) {
-    return { error: "--packages applies to a single-plan run \u2014 every phase of a plan folder reads its own scope" };
-  }
-  if (!phased && startPhase !== void 0) {
-    return { error: "--start-phase applies to a plan folder holding an overview.md \u2014 a single plan has one phase" };
-  }
-  const planName = await planNameFromPath({ cwd, planPath });
-  const terms = await readTicketRunTerms({ cwd, name: planName, planPath: "overviewPath" in target ? target.overviewPath : target.planPath });
-  if (terms.refusal !== void 0) {
-    return { error: terms.refusal };
-  }
-  return { planPath, overviewPath, packages, startPhase, planName, shipRequest: terms.shipRequest };
-};
 var runResolvedPipeline = ({
   cwd,
+  workspace,
+  planName,
   target,
   overviewPath,
   packages,
@@ -159174,28 +159228,39 @@ var runResolvedPipeline = ({
   config: config2,
   skipRefactor,
   willShip
-}) => "overviewPath" in target ? runPhasesOrFailFast({
-  cwd,
-  driver,
-  config: config2,
-  overviewPath: target.overviewPath,
-  startPhase,
-  runId,
-  skipRefactor,
-  willShip,
-  onProgress: createProgressPrinter()
-}) : runPipelineOrFailFast({
-  cwd,
-  planPath: target.planPath,
-  overviewPath,
-  packages,
-  runId,
-  driver,
-  config: config2,
-  skipRefactor,
-  willShip,
-  onProgress: createProgressPrinter()
-});
+}) => (
+  // Written out because inferring it would be circular: `work`'s own parameter is typed from it.
+  recordPlanCommandRun({
+    cwd,
+    name: planName,
+    label: "implement",
+    statusOf: ({ result }) => result.manifest.status,
+    work: ({ level }) => "overviewPath" in target ? runPhasesOrFailFast({
+      cwd: workspace,
+      driver,
+      config: config2,
+      overviewPath: target.overviewPath,
+      startPhase,
+      runId,
+      skipRefactor,
+      willShip,
+      level,
+      onProgress: createProgressPrinter()
+    }) : runPipelineOrFailFast({
+      cwd: workspace,
+      planPath: target.planPath,
+      overviewPath,
+      packages,
+      runId,
+      driver,
+      config: config2,
+      skipRefactor,
+      willShip,
+      level,
+      onProgress: createProgressPrinter()
+    })
+  })
+);
 var implementCommand = async ({ flags, cwd }) => {
   const inputs = await resolveImplementInputs({ flags, cwd });
   if ("error" in inputs) {
@@ -159231,7 +159296,9 @@ var implementCommand = async ({ flags, cwd }) => {
     cwd: workspace.cwd,
     name: planName,
     run: ({ runId }) => runResolvedPipeline({
-      cwd: workspace.cwd,
+      cwd,
+      workspace: workspace.cwd,
+      planName,
       target,
       overviewPath,
       packages,
@@ -160780,7 +160847,13 @@ var runPlanFolderPipeline = async ({ cwd, name, config: config2, driver, onProgr
   const outcome = await runTicketPlanLifecycle({
     cwd,
     name,
-    run: ({ runId }) => phased ? runPhasesPipeline({ cwd, driver, config: config2, overviewPath, runId, onProgress }) : runImplementPipeline({ cwd, driver, config: config2, planPath: join144(folder, "plan.md"), runId, onProgress })
+    run: ({ runId }) => recordPlanCommandRun({
+      cwd,
+      name,
+      label: "implement",
+      statusOf: ({ result: result2 }) => result2.manifest.status,
+      work: ({ level }) => phased ? runPhasesPipeline({ cwd, driver, config: config2, overviewPath, runId, level, onProgress }) : runImplementPipeline({ cwd, driver, config: config2, planPath: join144(folder, "plan.md"), runId, level, onProgress })
+    })
   });
   if ("refusal" in outcome) {
     return { error: outcome.refusal };
@@ -164498,12 +164571,13 @@ var runResumedPipeline = ({
   generated,
   willShip,
   resumable,
-  skipRefactor
+  skipRefactor,
+  level
 }) => {
   if (pipeline === PipelineKind.Direct) {
     return continueDirectRun({ cwd, workspace, manifest: resumable, config: config2, driver, generated, willShip });
   }
-  const params = { cwd: workspace, driver, config: config2, existing: resumable, skipRefactor, onProgress: createProgressPrinter() };
+  const params = { cwd: workspace, driver, config: config2, existing: resumable, skipRefactor, level, onProgress: createProgressPrinter() };
   return pipeline === PipelineKind.Phases ? runPhasesOrFailFast(params) : runPipelineOrFailFast(params);
 };
 var prepareResumedRun = async ({ cwd, manifest, loaded, willShip }) => {
@@ -164539,16 +164613,23 @@ var resumeCommand = async ({ flags, cwd }) => {
     cwd: workspace,
     name,
     resumeRunId: manifest.runId,
-    run: () => runResumedPipeline({
-      pipeline,
+    run: () => recordPlanCommandRun({
       cwd,
-      workspace,
-      driver,
-      config: config2,
-      generated: loaded.generated,
-      willShip: shipIntent.willShip,
-      resumable,
-      skipRefactor
+      name: pipeline === PipelineKind.Direct ? void 0 : name,
+      label: "resume",
+      statusOf: ({ result: result2 }) => result2.manifest.status,
+      work: ({ level }) => runResumedPipeline({
+        pipeline,
+        cwd,
+        workspace,
+        driver,
+        config: config2,
+        generated: loaded.generated,
+        willShip: shipIntent.willShip,
+        resumable,
+        skipRefactor,
+        level
+      })
     })
   });
   const result = reportTicketPlanOutcome({ outcome });
