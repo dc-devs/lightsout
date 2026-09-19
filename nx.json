@@ -20,6 +20,11 @@
 	// the worker count. Measured on 2026-09-11 across one night of queue gates:
 	// the whole-repo test gate, two suites at a time, crashed 12 runs in 39; the
 	// engine suite alone, at eight workers, crashed none in 17.
+	//
+	// This settles one Nx process only. Several builds at once — `lightsout queue`
+	// with `max-parallel` above one — are separate processes in separate
+	// worktrees, and nothing here can see them. They divide the pool instead, via
+	// LIGHTSOUT_CONCURRENT_BUILDS in tooling/jest/createJestConfig.cjs.
 	"parallel": 2,
 
 	// The interactive terminal UI rewrites the screen as it goes. Every gate
