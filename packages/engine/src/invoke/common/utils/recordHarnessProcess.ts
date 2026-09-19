@@ -32,6 +32,11 @@ interface Params {
  * kept as it arrives and written when nothing better came back; a spawn that
  * reported neither writes no usage, never a zero that would be
  * indistinguishable from a real one.
+ *
+ * That one figure is also handed back, on both arms, so the caller's running
+ * total takes exactly what the process mark carries. A second reading of the
+ * stream elsewhere would be a second notion of what a spawn spent, and the two
+ * records would drift apart again.
  */
 export const recordHarnessProcess = async ({
 	driver,
@@ -39,7 +44,7 @@ export const recordHarnessProcess = async ({
 	activity,
 	spawn,
 	reemit,
-}: Params): Promise<{ ok: true; result: DriverResult } | { ok: false; failure: string }> => {
+}: Params): Promise<{ ok: true; result: DriverResult; usage?: HarnessProcessUsage } | { ok: false; failure: string; usage?: HarnessProcessUsage }> => {
 	const startedAt = new Date();
 	let streamed: HarnessProcessUsage | undefined;
 	let rung: { ok: true; result: DriverResult } | { ok: false; failure: string };
@@ -86,5 +91,5 @@ export const recordHarnessProcess = async ({
 		// Evidence never fails the work it describes.
 	}
 
-	return rung;
+	return { ...rung, usage };
 };
