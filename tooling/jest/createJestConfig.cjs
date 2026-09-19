@@ -4,6 +4,38 @@ const { join } = require('node:path');
 const toolingDir = __dirname;
 
 /**
+ * How many builds share this machine, read from `LIGHTSOUT_CONCURRENT_BUILDS`.
+ *
+ * One unless that variable says otherwise. The worker ceiling below is a whole
+ * machine's budget, and nx.json keeps a single run inside it by running the
+ * test targets one at a time. That guard reaches only as far as one Nx process:
+ * `lightsout queue` builds each ticket in its own worktree as its own process,
+ * and neither can see the other, so two builds put two full pools on one
+ * machine — the sixteen-workers-on-fourteen-cores case nx.json measured at 12
+ * crashed runs in 39. Nothing in the process can discover how many siblings it
+ * has, so whoever starts them says, and each pool takes its share.
+ *
+ * A value that is present but unusable throws rather than quietly falling back
+ * to one: a typo would otherwise leave every pool at full width while the
+ * person who set it believes the machine is capped.
+ */
+const readConcurrentBuilds = () => {
+	const raw = process.env.LIGHTSOUT_CONCURRENT_BUILDS;
+
+	if (raw === undefined || raw.trim() === '') {
+		return 1;
+	}
+
+	const parsed = Number(raw);
+
+	if (!Number.isInteger(parsed) || parsed < 1) {
+		throw new Error(`LIGHTSOUT_CONCURRENT_BUILDS must be a whole number of 1 or more, and is ${JSON.stringify(raw)}`);
+	}
+
+	return parsed;
+};
+
+/**
  * The Jest settings every package in this workspace shares.
  *
  * A factory rather than a `preset`, because Jest merges a preset by rules that
@@ -50,10 +82,13 @@ module.exports = ({ rootDir, ...rest }) => ({
 	// runner does not. A flat eight there oversubscribed the runner badly enough
 	// that the slowest suites passed the thirty-second per-test limit and failed.
 	//
-	// This is the whole machine's count for a test run, not one of several:
+	// Eight is the whole machine's count for ONE test run, not one of several:
 	// nx.json runs the test targets one at a time, because two pools of eight side
-	// by side crashed far more often than one.
-	maxWorkers: Math.max(1, Math.min(8, availableParallelism() - 1)),
+	// by side crashed far more often than one. Several runs at once are outside
+	// what Nx can serialise, so the ceiling is divided by the number of builds
+	// sharing the machine — see `readConcurrentBuilds` above. A run that says
+	// nothing is the only run, and keeps the full eight.
+	maxWorkers: Math.max(1, Math.floor(Math.min(8, availableParallelism() - 1) / readConcurrentBuilds())),
 	// Recycle a worker once it passes this, rather than letting it carry a heap
 	// from one test file to the next for the whole run.
 	//
