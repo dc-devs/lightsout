@@ -28461,21 +28461,22 @@ var recordHarnessProcess = async ({
     });
   } catch {
   }
-  return rung;
+  return { ...rung, usage: usage2 };
 };
 
 // src/invoke/invokeAgentWithContract.ts
-var sumUsage = ({ total, attempt }) => {
-  if (!attempt) {
+var sumUsage = ({ total, rungUsage }) => {
+  const { inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens, costUsd } = rungUsage ?? {};
+  if ([inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens, costUsd].every((reported) => reported === void 0)) {
     return total;
   }
   const base = total ?? { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0 };
   return {
-    inputTokens: base.inputTokens + attempt.inputTokens,
-    outputTokens: base.outputTokens + attempt.outputTokens,
-    cacheReadTokens: base.cacheReadTokens + attempt.cacheReadTokens,
-    cacheCreationTokens: base.cacheCreationTokens + attempt.cacheCreationTokens,
-    costUsd: base.costUsd + attempt.costUsd
+    inputTokens: base.inputTokens + (inputTokens ?? 0),
+    outputTokens: base.outputTokens + (outputTokens ?? 0),
+    cacheReadTokens: base.cacheReadTokens + (cacheReadTokens ?? 0),
+    cacheCreationTokens: base.cacheCreationTokens + (cacheCreationTokens ?? 0),
+    costUsd: base.costUsd + (costUsd ?? 0)
   };
 };
 var shouldReemit = ({ payload, maxRoleAttempts }) => maxRoleAttempts === 1 || typeof payload === "object" && payload !== null;
@@ -28514,11 +28515,11 @@ var invokeAgentWithContract = async ({
       spawn: attempt,
       reemit: isReemit
     });
+    usage2 = sumUsage({ total: usage2, rungUsage: rung.usage });
     if (!rung.ok) {
       settled2 = { ok: false, failure: rung.failure, rateLimited: false };
       break;
     }
-    usage2 = sumUsage({ total: usage2, attempt: rung.result.usage });
     if (rung.result.rateLimited) {
       settled2 = { ok: false, failure: "harness rate limited or overloaded", rateLimited: true };
       break;
