@@ -1,7 +1,7 @@
 import type { z } from 'zod';
 import type { ActivityLevel } from '#src/activity/index.ts';
 import { buildReportReemitterInvocation } from '#src/agents/index.ts';
-import type { AgentUsage, Effort, Permissions } from '#src/contracts/index.ts';
+import type { AgentUsage, Effort, HarnessProcessUsage, Permissions } from '#src/contracts/index.ts';
 import type { AgentEnvironment, Driver } from '#src/drivers/index.ts';
 import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
 import { recordHarnessProcess } from '#src/invoke/common/utils/recordHarnessProcess.ts';
@@ -12,20 +12,28 @@ import { extractJsonReport } from '#src/invoke/extractJsonReport.ts';
  * both cost tokens, and the caller accounts per call, not per process spawn.
  * Stays `undefined` until some rung reports usage, so a harness that reports
  * nothing is recorded as nothing rather than as zero.
+ *
+ * A rung reports per field, because a process killed before its terminal result
+ * event has token counts and no cost. Field by field, absent adds nothing, and
+ * a figure holding no field at all leaves the total exactly as it was — the
+ * same rule the activity fold follows, so the two readers state one spawn's
+ * spend identically.
  */
-const sumUsage = ({ total, attempt }: { total?: AgentUsage; attempt?: AgentUsage }) => {
-	if (!attempt) {
+const sumUsage = ({ total, rungUsage }: { total?: AgentUsage; rungUsage?: HarnessProcessUsage }) => {
+	const { inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens, costUsd } = rungUsage ?? {};
+
+	if ([inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens, costUsd].every((reported) => reported === undefined)) {
 		return total;
 	}
 
 	const base = total ?? { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0 };
 
 	return {
-		inputTokens: base.inputTokens + attempt.inputTokens,
-		outputTokens: base.outputTokens + attempt.outputTokens,
-		cacheReadTokens: base.cacheReadTokens + attempt.cacheReadTokens,
-		cacheCreationTokens: base.cacheCreationTokens + attempt.cacheCreationTokens,
-		costUsd: base.costUsd + attempt.costUsd,
+		inputTokens: base.inputTokens + (inputTokens ?? 0),
+		outputTokens: base.outputTokens + (outputTokens ?? 0),
+		cacheReadTokens: base.cacheReadTokens + (cacheReadTokens ?? 0),
+		cacheCreationTokens: base.cacheCreationTokens + (cacheCreationTokens ?? 0),
+		costUsd: base.costUsd + (costUsd ?? 0),
 	};
 };
 
@@ -153,13 +161,14 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 			reemit: isReemit,
 		});
 
+		// Above the failure break, and exactly once per rung: a killed spawn still burned what it streamed, and dropping it would underbill its own activity mark.
+		usage = sumUsage({ total: usage, rungUsage: rung.usage });
+
 		if (!rung.ok) {
 			settled = { ok: false, failure: rung.failure, rateLimited: false };
 
 			break;
 		}
-
-		usage = sumUsage({ total: usage, attempt: rung.result.usage });
 
 		if (rung.result.rateLimited) {
 			settled = { ok: false, failure: 'harness rate limited or overloaded', rateLimited: true };
