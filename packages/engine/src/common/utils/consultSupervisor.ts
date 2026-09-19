@@ -1,3 +1,4 @@
+import type { ActivityLevel } from '#src/activity/index.ts';
 import { buildSupervisorInvocation } from '#src/agents/index.ts';
 import { defaultSupervisorTimeoutMinutes } from '#src/common/constants/defaultSupervisorTimeoutMinutes.ts';
 import { type LightsoutConfig, Permissions, SupervisorVerdict } from '#src/contracts/index.ts';
@@ -18,6 +19,8 @@ interface Params {
 	attempts: number;
 	onEvent?: (event: unknown) => void;
 	onRejectedOutput?: (params: { text: string; attempt: number; validationError: string }) => Promise<void> | void;
+	/** The level this consult's harness processes are recorded under. Absent wherever no run is being recorded. */
+	activity?: ActivityLevel;
 }
 
 /**
@@ -36,6 +39,7 @@ export const consultSupervisor = async ({
 	attempts,
 	onEvent,
 	onRejectedOutput,
+	activity,
 }: Params): Promise<AgentOutcome<SupervisorVerdict>> => {
 	return invokeAgentWithContract({
 		driver,
@@ -48,5 +52,6 @@ export const consultSupervisor = async ({
 		timeoutMs: (config.timeouts?.['supervisor-minutes'] ?? defaultSupervisorTimeoutMinutes) * 60_000,
 		onEvent,
 		onRejectedOutput,
+		activity,
 	});
 };

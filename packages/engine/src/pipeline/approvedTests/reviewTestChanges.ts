@@ -1,4 +1,5 @@
 import { isTestSideFile } from '#src/common/sourceFiles/isTestSideFile.ts';
+import { getAgentOutcomeStatus } from '#src/invoke/index.ts';
 import { applyTestDispositions } from '#src/pipeline/approvedTests/applyTestDispositions.ts';
 import { approveTestFiles } from '#src/pipeline/approvedTests/approveTestFiles.ts';
 import { collectTestChanges } from '#src/pipeline/approvedTests/collectTestChanges.ts';
@@ -45,6 +46,7 @@ export const reviewTestChanges = async ({ run, checkpoint, planContent, overview
 
 	run.progress(`${checkpoint}: ${changes.length} test-side file(s) changed — reviewing them against the plan before the gates run`);
 
+	const stepLevel = run.openStepLevel({ step });
 	const outcome = await consultTestChangeReviewer({
 		driver: run.driver,
 		cwd: run.cwd,
@@ -57,7 +59,12 @@ export const reviewTestChanges = async ({ run, checkpoint, planContent, overview
 		changes,
 		onEvent: run.agentEventSink({ step }),
 		onRejectedOutput: run.persistRejected({ step }),
+		activity: stepLevel,
 	});
+
+	// Closed before the usage record and before either red branch below, so a
+	// rate-limited or refused review still ends its own level.
+	stepLevel?.close({ outcome: getAgentOutcomeStatus({ outcome }) });
 
 	await run.recordUsage({ step, usage: outcome.usage });
 

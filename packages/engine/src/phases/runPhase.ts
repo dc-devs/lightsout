@@ -1,6 +1,7 @@
 import { dirname, join } from 'node:path';
+import type { ActivityLevel } from '#src/activity/index.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { type LightsoutConfig, PhaseReport, type RunManifest, RunStatus, type RunUsage, type StepRecord } from '#src/contracts/index.ts';
+import { ActivityLevelKind, type LightsoutConfig, PhaseReport, type RunManifest, RunStatus, type RunUsage, type StepRecord } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { type PipelineResult, runImplementPipeline } from '#src/pipeline/index.ts';
 import { RunLockError, readRunManifest, writeRunManifest } from '#src/runState/index.ts';
@@ -88,6 +89,48 @@ const runChild = async (params: Parameters<typeof runImplementPipeline>[0]): Pro
 	return result;
 };
 
+/**
+ * What the coordinator records once a phase's child run has settled: the step
+ * merged into the coordinator's manifest, plus the result that stops the whole
+ * sequence when the child ended short of passing.
+ */
+const recordFinishedChild = async ({
+	cwd,
+	manifest,
+	index,
+	step,
+	total,
+	childResult,
+}: {
+	cwd: string;
+	manifest: RunManifest;
+	index: number;
+	step: StepRecord;
+	total: number;
+	childResult: PipelineResult;
+}) => {
+	const child = childResult.manifest;
+	const current = await persistStep({
+		cwd,
+		manifest,
+		index,
+		record: recordFromChild({ step, childResult }),
+		patch: {
+			status: childResult.ok ? RunStatus.Running : child.status,
+			changedFiles: [...new Set([...manifest.changedFiles, ...child.changedFiles])],
+			usage: addUsage({ total: manifest.usage, child: child.usage }),
+		},
+	});
+
+	if (childResult.ok) {
+		return { manifest: current };
+	}
+
+	const stopped = `phase ${index + 1}/${total} (${step.id}) ended ${child.status} — resume with: lightsout resume --run ${current.runId}`;
+
+	return { manifest: current, result: { ok: false, manifest: current, error: childResult.error ? `${stopped}\n${childResult.error}` : stopped } };
+};
+
 interface PhaseParams {
 	cwd: string;
 	driver: Driver;
@@ -97,6 +140,8 @@ interface PhaseParams {
 	step: StepRecord;
 	total: number;
 	skipRefactor?: boolean;
+	/** The command-run level this phase's own pass level is opened under. Absent wherever no run is being recorded. */
+	level?: ActivityLevel;
 	onProgress?: (message: string) => void;
 }
 
@@ -116,9 +161,14 @@ export const runPhase = async ({
 	step,
 	total,
 	skipRefactor,
+	level,
 	onProgress,
 }: PhaseParams): Promise<{ manifest: RunManifest; result?: PipelineResult }> => {
-	onProgress?.(`phase ${index + 1}/${total}: ${step.id}`);
+	// One string for the narration and the recorded label alike, so the report
+	// and the live progress line can never name a phase differently.
+	const label = `phase ${index + 1}/${total}: ${step.id}`;
+
+	onProgress?.(label);
 
 	const childManifest = await readRecordedChild({ cwd, step });
 
@@ -134,49 +184,42 @@ export const runPhase = async ({
 		patch: { status: RunStatus.Running, currentStep: step.id },
 	});
 
-	const childResult = await runChild({
-		cwd,
-		driver,
-		config,
-		planPath: join(dirname(current.plan), step.id),
-		overviewPath: current.plan,
-		parentRunId: current.runId,
-		existing: childManifest,
-		skipRefactor,
-		onProgress,
-	});
+	// Opened only below the already-passed guard, so a phase a resume finds
+	// finished writes no zero-length row for work no process did, and closed in a
+	// `finally` so a lock the child could not take still ends the level.
+	const pass = level?.open({ level: ActivityLevelKind.Pass, label });
+	let outcome: RunStatus = RunStatus.Failed;
 
-	if ('failure' in childResult) {
-		current = await persistStep({
+	try {
+		const childResult = await runChild({
 			cwd,
-			manifest: current,
-			index,
-			record: { ...step, status: RunStatus.Failed, error: childResult.failure },
-			patch: { status: RunStatus.Failed },
+			driver,
+			config,
+			planPath: join(dirname(current.plan), step.id),
+			overviewPath: current.plan,
+			parentRunId: current.runId,
+			existing: childManifest,
+			skipRefactor,
+			level: pass,
+			onProgress,
 		});
 
-		return { manifest: current, result: { ok: false, manifest: current, error: childResult.failure } };
+		if ('failure' in childResult) {
+			current = await persistStep({
+				cwd,
+				manifest: current,
+				index,
+				record: { ...step, status: RunStatus.Failed, error: childResult.failure },
+				patch: { status: RunStatus.Failed },
+			});
+
+			return { manifest: current, result: { ok: false, manifest: current, error: childResult.failure } };
+		}
+
+		outcome = childResult.manifest.status;
+
+		return await recordFinishedChild({ cwd, manifest: current, index, step, total, childResult });
+	} finally {
+		pass?.close({ outcome });
 	}
-
-	const child = childResult.manifest;
-
-	current = await persistStep({
-		cwd,
-		manifest: current,
-		index,
-		record: recordFromChild({ step, childResult }),
-		patch: {
-			status: childResult.ok ? RunStatus.Running : child.status,
-			changedFiles: [...new Set([...current.changedFiles, ...child.changedFiles])],
-			usage: addUsage({ total: current.usage, child: child.usage }),
-		},
-	});
-
-	if (childResult.ok) {
-		return { manifest: current };
-	}
-
-	const stopped = `phase ${index + 1}/${total} (${step.id}) ended ${child.status} — resume with: lightsout resume --run ${current.runId}`;
-
-	return { manifest: current, result: { ok: false, manifest: current, error: childResult.error ? `${stopped}\n${childResult.error}` : stopped } };
 };

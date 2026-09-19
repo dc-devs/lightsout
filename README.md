@@ -358,10 +358,20 @@ With no `--run`, `--watch` follows the one run that is going — a phased plan's
 ### lightsout report
 
 Answer where a plan's hours and money went. `lightsout report` reads the
-activity record each `lightsout plan` subcommand wrote as it ran, and prints one
-tree: the plan, each command run inside it, each pass, each step, and beneath
-them every individual harness process with its own time, tokens, cost and how it
-ended.
+activity record a plan's own commands wrote as they ran — each `lightsout plan`
+subcommand, and the implementation that follows them — and prints one tree: the
+plan, each command run inside it, each pass, each step, and beneath them every
+individual harness process with its own time, tokens, cost and how it ended.
+
+Implementation is the bigger half of what a plan costs, and it is accounted for
+here too. `lightsout implement` adds a command run of its own beneath the same
+plan, and each `lightsout resume` of it adds another beside that one rather than
+starting a second plan. A phased plan's phases are the passes inside one such
+command run, named the way the run narrates them as it works, and every agent
+the run spawns — each role, the supervisor it consults, each test-change review
+— is a step carrying its own time, tokens and ending. A run built from a plan
+path outside the plans directory has no plan folder to write into, so it
+contributes nothing to any record and is otherwise unaffected.
 
 ```text
 lightsout report --plan <name>
@@ -392,8 +402,9 @@ one, and a figure nothing reported prints as not reported rather than as zero.
 An extra, clearly labelled estimated-cost column appears when the repository
 configures a price list — model identifiers with dollars-per-million rates — in
 the `pricing` config block. Nothing computed from those rates is ever stored.
-See [Configuration](docs/configuration.md). It reads only what the plan commands
-already recorded, so it spawns nothing and spends nothing.
+See [Configuration](docs/configuration.md). It reads only what the planning and
+implementation commands already recorded, so it spawns nothing and spends
+nothing.
 
 ### lightsout doctor
 

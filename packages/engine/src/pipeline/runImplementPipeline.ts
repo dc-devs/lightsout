@@ -1,3 +1,4 @@
+import type { ActivityLevel } from '#src/activity/index.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { readGitPrefix } from '#src/common/git/readGitPrefix.ts';
@@ -61,6 +62,8 @@ interface Params {
 	/** Resume: an existing manifest — steps already passed are skipped. */
 	existing?: RunManifest;
 	skipRefactor?: boolean;
+	/** The level this run's agent calls open their own step levels under. Absent wherever no run is being recorded — a phase run is handed its phase's pass level, a single run its command run's. */
+	level?: ActivityLevel;
 	/** Resolved before the run starts: a passing run will ship this branch. Recorded on the manifest so the progress view can show a ship row. Ignored when resuming — the existing manifest already carries it. */
 	willShip?: boolean;
 	/** Live progress sink (steps, gate results, agent reports). Silent when omitted. */
@@ -93,6 +96,7 @@ const executePipeline = async ({
 	packages,
 	existing,
 	skipRefactor,
+	level,
 	willShip,
 	onProgress,
 }: Params & { runId: string }): Promise<PipelineResult> => {
@@ -100,6 +104,7 @@ const executePipeline = async ({
 		cwd,
 		config,
 		driver,
+		level,
 		onProgress,
 		manifest:
 			existing ??

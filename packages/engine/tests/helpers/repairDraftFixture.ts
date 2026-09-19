@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import type { ActivityLevel } from '#src/activity/index.ts';
 import type { DecisionsRecord, LightsoutConfig } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { repairPlanStructure } from '#src/plan/index.ts';
@@ -59,6 +60,7 @@ export const runRepairLoop = ({
 	driver,
 	config,
 	decisions = emptyDecisionsRecord(),
+	level,
 	progress = () => {},
 }: {
 	cwd: string;
@@ -67,5 +69,7 @@ export const runRepairLoop = ({
 	driver: Driver;
 	config?: LightsoutConfig;
 	decisions?: DecisionsRecord;
+	/** The command-run level each round opens its own pass level under. Left out by every case that is not reading the record. */
+	level?: ActivityLevel;
 	progress?: (message: string) => void;
-}) => repairPlanStructure({ cwd, driver, name: 'demo', planPaths: [planPath], workspaceDir, config, decisions, timeoutMs: 60_000, progress });
+}) => repairPlanStructure({ cwd, driver, name: 'demo', planPaths: [planPath], workspaceDir, config, decisions, timeoutMs: 60_000, level, progress });

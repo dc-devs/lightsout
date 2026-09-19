@@ -11,7 +11,7 @@ import {
 	type StructuralFinding,
 } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { getAgentOutcomeStatus } from '#src/plan/common/activity/getAgentOutcomeStatus.ts';
+import { getAgentOutcomeStatus } from '#src/invoke/index.ts';
 import type { PlanRepairResult } from '#src/plan/common/types/PlanRepairResult.ts';
 import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
 import { syncPlanDecisions } from '#src/plan/decisionLog/index.ts';

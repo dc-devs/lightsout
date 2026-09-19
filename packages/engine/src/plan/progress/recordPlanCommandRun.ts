@@ -6,12 +6,12 @@ import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 
 interface Params<Result> {
 	cwd: string;
-	/** A plan address or a legacy plan name — the folder the record is written in. */
-	name: string;
+	/** A plan address or a legacy plan name — the folder the record is written in. Undefined when the caller has no plan folder, which records nothing. */
+	name: string | undefined;
 	/** What this command run is called in the report, e.g. the subcommand's own words. Free text: the recorder is handed a label, never a planning enum. */
 	label: string;
-	/** The subcommand's own work, handed the command-run level to open its children on. */
-	work: ({ level }: { level: ActivityLevel }) => Promise<Result>;
+	/** The subcommand's own work, handed the command-run level to open its children on — or undefined when nothing is being recorded. */
+	work: ({ level }: { level: ActivityLevel | undefined }) => Promise<Result>;
 	/** The outcome the command run's end mark carries, chosen by the caller to agree with the exit code it then returns. */
 	statusOf: ({ result }: { result: Result }) => RunStatus;
 }
@@ -53,8 +53,16 @@ const missingRecord = async ({ dir }: { dir: string }) => {
  * latest-end rules are what turn that into one correct plan span. And the
  * folder is resolved from `planWorkspaceDir` rather than from a path a caller
  * passes, so the record can only ever land in the main checkout.
+ *
+ * A caller with no plan name — an implement run pointed at a plan file outside
+ * the plans directory — has no folder the record belongs in, so nothing is
+ * resolved, nothing is written, and the work runs holding no level.
  */
 export const recordPlanCommandRun = async <Result>({ cwd, name, label, work, statusOf }: Params<Result>): Promise<Result> => {
+	if (name === undefined) {
+		return work({ level: undefined });
+	}
+
 	const dir = await planWorkspaceDir({ cwd, name });
 	const plan = createActivityRecorder({ dir, level: ActivityLevelKind.Plan, label: name });
 	const commandRun = plan.open({ level: ActivityLevelKind.CommandRun, label });

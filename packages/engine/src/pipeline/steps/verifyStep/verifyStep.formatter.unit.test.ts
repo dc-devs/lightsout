@@ -120,6 +120,9 @@ const setupFormatterRun = ({ formatterAnswers = [undefined] }: SetupParams = {})
 			return { ok: false as const, manifest, error };
 		},
 		invokeRole: async () => ({ ok: false as const, rateLimited: false, error: 'the fix role does not settle this tree' }),
+		// No level is being recorded in these cases, which is the shape a run
+		// outside the plans directory takes: every agent call opens nothing.
+		openStepLevel: () => undefined,
 		agentEventSink: () => () => {},
 		persistRejected: () => async () => {},
 		recordUsage: async () => {},
