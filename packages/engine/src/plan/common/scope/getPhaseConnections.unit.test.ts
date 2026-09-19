@@ -13,6 +13,8 @@ interface PhaseSpec {
 	mentions?: string[];
 	/** The `## What Next Plan Expects` tokens this phase hands to the next one. */
 	handsForward?: string[];
+	/** `## What Next Plan Expects` lines written verbatim — for the template's text-level absence spelling, which carries no backticked span. */
+	handsForwardText?: string[];
 	/** The `- **Exports:**` values the overview declares for this phase — provided, though the phase's own text never names them. */
 	exports?: string[];
 	/** Set false to leave this phase out of the overview's `## Phase Declarations`. */
@@ -20,8 +22,8 @@ interface PhaseSpec {
 }
 
 /** A parsed plan carrying the two things the graph reads: the paths its headings name, and every backticked span in its text. */
-const planWith = ({ base, create = [], modify = [], mentions = [], handsForward = [] }: PhaseSpec): PhaseFile['plan'] => {
-	const handoffLines = handsForward.map((token) => `- \`${token}\``);
+const planWith = ({ base, create = [], modify = [], mentions = [], handsForward = [], handsForwardText = [] }: PhaseSpec): PhaseFile['plan'] => {
+	const handoffLines = [...handsForward.map((token) => `- \`${token}\``), ...handsForwardText];
 
 	return {
 		base,
@@ -34,6 +36,7 @@ const planWith = ({ base, create = [], modify = [], mentions = [], handsForward 
 		deletePaths: [],
 		movePaths: [],
 		malformedMoveLines: [],
+		generatedRegionRanges: new Map(),
 		sectionRanges: new Map(),
 		mirrorPaths: [],
 		verificationCommands: [],
@@ -153,5 +156,21 @@ describe('getPhaseConnections', () => {
 		// a declared absence is not a name being handed over; reading it as one
 		// would join every phase that declares nothing to every other
 		expect(edgesOf({ result })).toStrictEqual({ 'phase1-solo.md': [], 'phase2-solo.md': [] });
+	});
+
+	test("getPhaseConnections: a hand-off holding only the template's none sentinel supplies no edge", () => {
+		const { phases, declarations } = setupPhases({
+			specs: [
+				{ base: 'phase1-final.md', create: ['src/final.ts'], handsForwardText: ['None — final phase.'] },
+				{ base: 'phase2-later.md', create: ['src/later.ts'], mentions: ['None'] },
+			],
+		});
+
+		const result = getPhaseConnections({ phases, declarations });
+
+		// the template writes an absence as a bare sentence rather than a backticked
+		// span, and it is still an absence: a phase whose text says the same word must
+		// not be joined to it, or every phase declaring nothing would join every other
+		expect(edgesOf({ result })).toStrictEqual({ 'phase1-final.md': [], 'phase2-later.md': [] });
 	});
 });

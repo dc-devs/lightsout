@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 import { GradeFindingStatus, type GradeInputs } from '#src/contracts/index.ts';
 import { decideGradeScope } from '#src/plan/common/scope/decideGradeScope.ts';
 import { getDecisionReach } from '#src/plan/common/scope/getDecisionReach.ts';
-import { findingRecord, inputsFor, memoryFor, phasedFiles, phasedPlanFiles, soloPhaseFile } from '#tests/helpers/gradeScopeInputs.ts';
+import { findingRecord, inputsFor, memoryFor, passAt, phasedFiles, phasedPlanFiles, planFileHashes, soloPhaseFile } from '#tests/helpers/gradeScopeInputs.ts';
 import { overviewBody } from '#tests/helpers/phasePlan.ts';
 
 /** The decision row both passes carry unchanged. It names no phase, as a brainstorm row never does, so it widens the pass only if it is read as changed. */
@@ -23,12 +23,25 @@ const threePhasePlan = () => ({
 /** The plan-file hashes of the three-phase plan; the first phase's hash and the overview's are the two a pass moves. */
 const planFilesFor = ({ phaseOne, overview }: { phaseOne: string; overview: string }) => [
 	...phasedPlanFiles({ phaseOne, overview }),
-	{ file: 'phase3-solo.md', sha256: 'phase3-1' },
+	planFileHashes({ file: 'phase3-solo.md', content: 'phase3-1' }),
 ];
 
-/** One open question on the first phase, so the pass is a repair check rather than an approval review. */
-const openMemoryFor = ({ previous }: { previous: GradeInputs }) =>
-	memoryFor({ findings: [findingRecord({ id: 'f1', phase: 'phase1-core.md', status: GradeFindingStatus.Open })], lastPass: previous });
+/**
+ * One open question on the first phase, so the pass is a repair check rather than
+ * an approval review — and a recorded reading of every phase file at the very
+ * design text the earlier pass measured, so the only reading that falls is the
+ * one the fixture moved.
+ */
+const openMemoryFor = ({ previous }: { previous: GradeInputs }) => ({
+	...memoryFor({ findings: [findingRecord({ id: 'f1', phase: 'phase1-core.md', status: GradeFindingStatus.Open })], lastPass: previous }),
+	coverage: {
+		readers: previous.planFiles
+			.filter(({ file }) => file !== 'overview.md')
+			.flatMap(({ file, designSha256 }) =>
+				['surface', 'wiring', 'decisions'].map((lens) => ({ file, lens, designSha256: designSha256 ?? '', neighbours: [], at: passAt })),
+			),
+	},
+});
 
 interface DecisionChangeSpec {
 	/** Leave the added row's `phases` out, so its reach is not established. */
@@ -61,7 +74,7 @@ const setupDecisionChange = ({ namesNoPhase = false, designMoved = false }: Deci
 	const reach = getDecisionReach({
 		current: inputs.decisionLog,
 		previous: previous.decisionLog,
-		overviewChanged: true,
+		overviewFileChanged: true,
 		edited: [],
 		phaseFiles: ['phase1-core.md', 'phase2-extra.md', 'phase3-solo.md'],
 	});
@@ -85,6 +98,38 @@ const setupLegacyBaseline = () => {
 		omitDecisionLog: true,
 	});
 	const inputs = inputsFor({ planFiles: planFilesFor({ phaseOne: 'phase1-2', overview: 'overview-1' }), sha256: 'inputs-current' });
+
+	return { ...threePhasePlan(), memory: openMemoryFor({ previous }), inputs, narrowed: false };
+};
+
+/**
+ * The three-phase plan just after a sync rewrote the overview's `## Phases` row
+ * and `### Phase 1` declaration block, and nothing else. The overview's bytes
+ * moved while its shared design text did not, and the two rewritten spans are
+ * credited to the first phase, so the first phase's design hash is the only one
+ * that moved — its own file text is untouched. One question is open, so this is
+ * a repair check rather than an approval review.
+ */
+const setupSyncedPhaseSpans = () => {
+	const fingerprintFor = ({ overview, phaseOneDesign, sha256 }: { overview: string; phaseOneDesign: string; sha256: string }): GradeInputs => ({
+		planFiles: [
+			{ file: 'overview.md', sha256: overview, designSha256: 'overview-design-1' },
+			{ file: 'phase1-core.md', sha256: 'phase1-1', designSha256: phaseOneDesign },
+			{ file: 'phase2-extra.md', sha256: 'phase2-1', designSha256: 'phase2-design-1' },
+			{ file: 'phase3-solo.md', sha256: 'phase3-1', designSha256: 'phase3-design-1' },
+		],
+		gradedCommit: 'commit-abc',
+		changedFiles: [{ path: 'src/core.ts', sha256: 'code-1' }],
+		standards: 'standards-1',
+		config: 'config-1',
+		prompts: 'prompts-1',
+		model: 'opus',
+		effort: 'high',
+		decisionLog: { overviewDesign: 'overview-design-1', rows: [settledRow] },
+		sha256,
+	});
+	const previous = fingerprintFor({ overview: 'overview-1', phaseOneDesign: 'phase1-design-1', sha256: 'inputs-previous' });
+	const inputs = fingerprintFor({ overview: 'overview-2', phaseOneDesign: 'phase1-design-2', sha256: 'inputs-current' });
 
 	return { ...threePhasePlan(), memory: openMemoryFor({ previous }), inputs, narrowed: false };
 };
@@ -142,5 +187,15 @@ describe('decideGradeScope', () => {
 		// the design edit is context every phase shares, so the phase the decision
 		// names cannot stand in for everything the edit reaches
 		expect(decision).toEqual(expect.objectContaining({ scope: 'full', reuse: false, phases: ['phase1-core.md', 'phase2-extra.md', 'phase3-solo.md'] }));
+	});
+
+	test('an overview whose phase rows alone were rewritten keeps the pass focused', () => {
+		const params = setupSyncedPhaseSpans();
+
+		const decision = decideGradeScope(params);
+
+		// the rewritten spans describe the first phase alone, so the pass reads that
+		// phase and the one its shared file reaches — never the whole plan again
+		expect(decision).toEqual(expect.objectContaining({ scope: 'focused', reuse: false, phases: ['phase1-core.md', 'phase2-extra.md'] }));
 	});
 });

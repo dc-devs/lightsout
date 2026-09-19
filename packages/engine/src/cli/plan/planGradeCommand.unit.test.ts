@@ -1,57 +1,22 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { planGradeCommand } from '#src/cli/plan/index.ts';
 import { GapArea } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
 import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advisoryPlan.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
-import { cleanOverviewBody } from '#tests/helpers/cleanOverviewBody.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createGapCheckDriver } from '#tests/helpers/createGapCheckDriver.ts';
-import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
-import { writeEmptyDecisions } from '#tests/helpers/writeEmptyDecisions.ts';
-import { writePlanDeliverable } from '#tests/helpers/writePlanDeliverable.ts';
-
-/** The command's own output, with the progress printer's timestamped narration dropped. */
-const printedLines = ({ logged }: { logged: string[] }) => logged.filter((line) => !/^\[\+\d+:\d\d\]/.test(line));
-
-/** The ruling the shared stub's judges return, so the decision the command prints is the judge's own. */
-const judgedDecision = 'what the plan should do here';
-
-// A real consumer repo with a real committed deliverable: the structural half of
-// the grade is the deterministic lint, and only the gap half is stubbed.
-const setupGrade = ({ body, gaps = [], verdict, git = false }: { body?: string; gaps?: unknown[]; verdict?: Record<string, unknown>; git?: boolean } = {}) => {
-	const captured = captureCommandOutput();
-	const cwd = setupConsumerRepo({ git });
-
-	if (body !== undefined) {
-		writePlanDeliverable({ cwd, name: 'demo', body });
-	}
-
-	return { cwd, name: 'demo', driver: createGapCheckDriver({ gaps, verdict }), ...captured };
-};
-
-// A phased deliverable — an overview plus two clean phase files — so the gaps
-// the fan-out stamps carry two different plan files to group under.
-const setupPhasedGrade = ({ gaps }: { gaps: unknown[] }) => {
-	const captured = captureCommandOutput();
-	const cwd = setupConsumerRepo({ git: false });
-	const dir = join(cwd, '.lightsout', 'plans', 'demo');
-
-	mkdirSync(dir, { recursive: true });
-	writeFileSync(join(dir, 'overview.md'), cleanOverviewBody());
-	writeFileSync(join(dir, 'phase1-core.md'), cleanPlanBody({ title: 'Phase 1', reference: true }));
-	writeFileSync(
-		join(dir, 'phase2-extra.md'),
-		cleanPlanBody({ title: 'Phase 2', reference: true })
-			.replace(/new-thing/g, 'other-thing')
-			.replace(/newThing/g, 'otherThing'),
-	);
-	writeEmptyDecisions({ dir, name: 'demo' });
-
-	return { cwd, name: 'demo', driver: createGapCheckDriver({ gaps }), ...captured };
-};
+import { closingVerdict, omittedDecisionGap, setupGraded } from '#tests/helpers/gradedThreePhasePlan.ts';
+import {
+	judgedDecision,
+	printedLines,
+	rateLimitedChecker,
+	setupGrade,
+	setupPhasedGrade,
+	setupWeighedGrade,
+	storageChoiceGap,
+} from '#tests/helpers/planGradeTerminal.ts';
 
 test('planGradeCommand: a clean plan with no gaps grades A, reports both counts, the grade path and the history path, and exits 0', async () => {
 	const { cwd, driver, name, logged, errors, exitCodes } = setupGrade({ body: cleanPlanBody() });
@@ -67,14 +32,17 @@ test('planGradeCommand: a clean plan with no gaps grades A, reports both counts,
 	// the coverage statement says which files it can speak for, and with how many
 	// briefs — `N phase file(s)`, never `all plan files`
 	expect(printed[3]).toBe('  checked: 1 phase file(s) × 3 lens(es): plan.md');
+	// and what the verdict rests on, which prints even when nothing stood from an
+	// earlier pass: a reader comparing two runs needs the number both times
+	expect(printed[4]).toBe('  coverage: 1 plan file(s) covered at their current text — 1 read by this pass, 0 standing from an earlier pass');
 	// three paths, not one: the grade path names the latest pass, the history path
 	// names every pass this plan has ever had, and the memory path names what is
 	// still open and what was settled
-	expect(printed[4]).toBe(`\ngrade: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade.json')}`);
-	expect(printed[5]).toBe(`history: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade-history.jsonl')}`);
-	expect(printed[6]).toBe(`memory: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade-memory.json')}`);
+	expect(printed[5]).toBe(`\ngrade: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade.json')}`);
+	expect(printed[6]).toBe(`history: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade-history.jsonl')}`);
+	expect(printed[7]).toBe(`memory: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade-memory.json')}`);
 	// an A grade prints no finding lines, got: ${JSON.stringify(printed)}
-	expect(printed.length).toBe(7);
+	expect(printed.length).toBe(8);
 	expect(errors).toStrictEqual([]);
 	expect(exitCodes).toStrictEqual([0]);
 });
@@ -114,8 +82,7 @@ test('planGradeCommand: uncommitted work at grade time is said out loud, so the 
 });
 
 test('planGradeCommand: a gap drops the grade below A and prints the decision with the options to choose among', async () => {
-	const gaps = [{ area: GapArea.OmittedDecision, gap: 'no storage choice', decision: 'pick a store', options: ['sqlite', 'postgres'] }];
-	const { cwd, driver, name, logged, exitCodes } = setupGrade({ body: cleanPlanBody(), gaps });
+	const { cwd, driver, name, logged, exitCodes } = setupGrade({ body: cleanPlanBody(), gaps: [storageChoiceGap] });
 
 	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
 
@@ -127,21 +94,20 @@ test('planGradeCommand: a gap drops the grade below A and prints the decision wi
 	expect(printed[2]).toBe('  structural: 0 · gaps: 3 (3 blocking, 0 unjudged)');
 	expect(printed[3]).toBe('  checked: 1 phase file(s) × 3 lens(es): plan.md');
 	// gaps print grouped under the plan file they were found in
-	expect(printed[4]).toBe('plan.md');
+	expect(printed[5]).toBe('plan.md');
 	// each carries the id of the memory record it was folded into, so a human can
 	// name it when talking about what is on record
-	expect(printed[5]).toBe('f1 ? [omitted-decision] no storage choice (surface)');
+	expect(printed[6]).toBe('f1 ? [omitted-decision] no storage choice (surface)');
 	// the decision printed is the judge's, and the options are the reader's
-	expect(printed[6]).toBe(`   decide: ${judgedDecision} — options: sqlite / postgres`);
-	expect(printed[7]).toBe('f2 ? [omitted-decision] no storage choice (wiring)');
+	expect(printed[7]).toBe(`   decide: ${judgedDecision} — options: sqlite / postgres`);
+	expect(printed[8]).toBe('f2 ? [omitted-decision] no storage choice (wiring)');
 	expect(exitCodes).toStrictEqual([0]);
 });
 
 test('planGradeCommand: findings the judges cleared are counted but never printed, and the plan still grades A', async () => {
-	const gaps = [{ area: GapArea.OmittedDecision, gap: 'no storage choice', decision: 'pick a store', options: ['sqlite', 'postgres'] }];
 	const { cwd, driver, name, logged, exitCodes } = setupGrade({
 		body: cleanPlanBody(),
-		gaps,
+		gaps: [storageChoiceGap],
 		verdict: { outcome: 'agent-can-decide', agentDecision: 'use sqlite', safeBecause: 'every sibling in this repo already does' },
 	});
 
@@ -155,7 +121,7 @@ test('planGradeCommand: findings the judges cleared are counted but never printe
 	expect(printed[3]).toBe('  checked: 1 phase file(s) × 3 lens(es): plan.md');
 	// not being interrupted by findings nobody needs to act on is the point — the
 	// full record is in grade.json, got: ${JSON.stringify(printed)}
-	expect(printed.length).toBe(7);
+	expect(printed.length).toBe(8);
 	expect(exitCodes).toStrictEqual([0]);
 });
 
@@ -171,13 +137,13 @@ test('planGradeCommand: findings nobody weighed are counted apart from the ones 
 	// a spike in judge failures must not read as a plan getting worse; the three
 	// lenses' identical unjudged wording is one pending record, so it is one blocker
 	expect(printed[2]).toBe('  structural: 0 · gaps: 1 (1 blocking, 1 unjudged)');
-	expect(printed[4]).toBe('plan.md');
+	expect(printed[5]).toBe('plan.md');
 	// an unjudged finding is kept on record as pending, so it carries the id a
 	// human names it by
-	expect(printed[5]).toBe('f1 ? [omitted-decision] no storage choice (surface)');
+	expect(printed[6]).toBe('f1 ? [omitted-decision] no storage choice (surface)');
 	// a dismissal with no citation is a rubber stamp, and the line says the finding
 	// blocks because nobody weighed it rather than because the plan is thin
-	expect(printed[6]).toBe('   unjudged, so it blocks: the judge answered already-answered without the evidence that outcome demands');
+	expect(printed[7]).toBe('   unjudged, so it blocks: the judge answered already-answered without the evidence that outcome demands');
 	// and the one blocker still carries every lens that reported it
 	const recorded = JSON.parse(readFileSync(join(cwd, '.lightsout', 'plans', 'demo', 'grade.json'), 'utf8')) as {
 		gaps: Array<{ observations: Array<{ lens: string }> }>;
@@ -202,12 +168,12 @@ test('planGradeCommand: a structurally dirty plan prints the lint finding, and a
 	expect(printed[0] ?? '').toMatch(/^\nplan grade demo — below-A /);
 	expect(printed[2]).toBe('  structural: 1 · gaps: 3 (3 blocking, 0 unjudged)');
 	expect(printed[3]).toBe('  checked: 1 phase file(s) × 3 lens(es): plan.md');
-	expect(printed[4] ?? '').toMatch(/^note plan\.md \[scope-within-guardrail\] plan\.md — plan touches 51 source files/);
-	expect(printed[5] ?? '').toMatch(/^ {3}fix: legal, but the implementing agent stops at 50 files/);
-	expect(printed[6]).toBe('plan.md');
-	expect(printed[7]).toBe('f1 ? [insufficient-detail] no error handling named (surface)');
+	expect(printed[5] ?? '').toMatch(/^note plan\.md \[scope-within-guardrail\] plan\.md — plan touches 51 source files/);
+	expect(printed[6] ?? '').toMatch(/^ {3}fix: legal, but the implementing agent stops at 50 files/);
+	expect(printed[7]).toBe('plan.md');
+	expect(printed[8]).toBe('f1 ? [insufficient-detail] no error handling named (surface)');
 	// an optionless gap prints the decision alone
-	expect(printed[8]).toBe(`   decide: ${judgedDecision}`);
+	expect(printed[9]).toBe(`   decide: ${judgedDecision}`);
 	expect(exitCodes).toStrictEqual([0]);
 });
 
@@ -226,9 +192,8 @@ test('planGradeCommand: a narrowed pass says so above the verdict and exits 1, b
 
 test('planGradeCommand: a rate-limited checker prints the error AND the partial report it left on disk', async () => {
 	const { cwd, name, logged, errors, exitCodes } = setupGrade({ body: cleanPlanBody() });
-	const rateLimited: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 1, rateLimited: true }) };
 
-	await expect(planGradeCommand({ cwd, driver: rateLimited, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+	await expect(planGradeCommand({ cwd, driver: rateLimitedChecker, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
 
 	const printed = printedLines({ logged });
 
@@ -284,24 +249,52 @@ test('planGradeCommand: a phased plan prints its gaps under one heading per plan
 	expect(exitCodes).toStrictEqual([0]);
 });
 
+test('planGradeCommand: prints what coverage covered, what this pass read, and what stood from an earlier pass', async () => {
+	// a three-phase plan graded once and repaired in one phase: this pass re-reads
+	// the repaired file and its neighbour, while the third stands from the record
+	const graded = await setupGraded({ name: 'demo', gaps: [omittedDecisionGap], recheckVerdict: closingVerdict, edited: 'phase2-extra.md' });
+	const { cwd, driver, name, gradePath, logged, exitCodes } = { ...graded, ...captureCommandOutput() };
+
+	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+
+	const printed = printedLines({ logged });
+	const recorded = JSON.parse(readFileSync(gradePath, 'utf8')) as { complete: boolean; covered: string[]; phasesChecked: string[]; phasesLight: string[] };
+	// the coverage line sits directly under the line saying what this pass read
+	const coverage = printed[printed.findIndex((line) => line.startsWith('  checked:')) + 1] ?? '';
+
+	// every plan file is covered at its current text, but this pass read only the
+	// repaired file and the neighbour it hands to — the third stood from the
+	// recorded pass, and the grade is complete all the same
+	expect([...recorded.covered].sort()).toStrictEqual(['phase1-core.md', 'phase2-extra.md', 'phase3-final.md']);
+	expect(recorded.phasesChecked).toStrictEqual(['phase1-core.md', 'phase2-extra.md']);
+	expect(recorded.phasesLight).toStrictEqual([]);
+	expect(recorded.complete).toBe(true);
+	// three covered, two of them read here, one standing from an earlier pass —
+	// without those three numbers a coverage-granted A reads exactly like a
+	// whole-plan one
+	expect(coverage).toMatch(/\b3\b.*\b2\b.*\b1\b/);
+	expect(exitCodes).toStrictEqual([0]);
+});
+
 test('planGradeCommand: a contract repository prints one weight line per plan file, with the thresholds it crossed', async () => {
-	const captured = captureCommandOutput();
-	const driver = createGapCheckDriver();
-	const cwd = setupConsumerRepo({ git: false, config: { plan: { contract: true } } });
-	const body = `${cleanPlanBody().replace('## Patterns to Mirror\n\n- `src/index.js` — mirror its single-export shape.\n', '')}
-## Acceptance Tests
+	const body = cleanPlanBody().replace('## Patterns to Mirror\n\n- `src/index.js` — mirror its single-export shape.\n', '');
+	const { cwd, driver, name, logged } = setupWeighedGrade({ body });
 
-| Criterion | Test file | Test name | Gate |
-|---|---|---|---|
-| newThing is re-exported | \`src/newThing.unit.test.ts\` | re-exports newThing | test |
-`;
-
-	writePlanDeliverable({ cwd, name: 'demo', body });
-
-	await expect(planGradeCommand({ cwd, driver, name: 'demo', standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
 
 	// the reason is what makes the routing arguable rather than mysterious
-	expect(printedLines({ logged: captured.logged })).toContain('  weight: plan.md — heavy (names no pattern to mirror)');
+	expect(printedLines({ logged })).toContain('  weight: plan.md — heavy (names no pattern to mirror)');
+});
+
+test('planGradeCommand: a plan file weighed light is covered and counted as read by nobody', async () => {
+	const { cwd, driver, name, logged } = setupWeighedGrade({ body: cleanPlanBody() });
+
+	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+
+	// a light file is covered by the weighing rather than by a reading, so it
+	// belongs to neither number: counted as standing from an earlier pass it would
+	// claim a reading nobody ever paid for
+	expect(printedLines({ logged })).toContain('  coverage: 1 plan file(s) covered at their current text — 0 read by this pass, 0 standing from an earlier pass');
 });
 
 test('planGradeCommand: a grade that weighed nothing prints no weight line at all', async () => {
@@ -313,13 +306,11 @@ test('planGradeCommand: a grade that weighed nothing prints no weight line at al
 });
 
 test('records the grade step as passed when a complete grade exits 0, whatever its letter', async () => {
-	const gaps = [{ area: GapArea.OmittedDecision, gap: 'no storage choice', decision: 'pick a store', options: ['sqlite', 'postgres'] }];
-	const { cwd, driver, name, logged, exitCodes } = setupGrade({ body: cleanPlanBody(), gaps });
+	const { cwd, driver, name, logged, exitCodes } = setupGrade({ body: cleanPlanBody(), gaps: [storageChoiceGap] });
 
 	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
 
-	const recorded = readFileSync(join(cwd, '.lightsout', 'plans', 'demo', 'planning-progress.json'), 'utf8');
-	const record = JSON.parse(recorded) as { steps: unknown[] };
+	const record = JSON.parse(readFileSync(join(cwd, '.lightsout', 'plans', 'demo', 'planning-progress.json'), 'utf8')) as { steps: unknown[] };
 
 	// the letter is the plan's verdict, not the step's outcome: a complete pass
 	// that exits 0 is a grade step that passed, even below A
@@ -327,8 +318,6 @@ test('records the grade step as passed when a complete grade exits 0, whatever i
 	expect(record.steps).toEqual([expect.objectContaining({ step: 'grade', status: 'passed', attempts: 1, pid: process.pid })]);
 	expect(exitCodes).toStrictEqual([0]);
 });
-
-const rateLimitedChecker: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 1, rateLimited: true }) };
 
 test.each([
 	{ outcome: 'a rate-limited pass', driver: rateLimitedChecker, phases: undefined, status: 'paused-rate-limit' },

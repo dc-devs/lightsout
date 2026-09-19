@@ -1,4 +1,5 @@
 import type { DecisionsRecord } from '#src/contracts/index.ts';
+import { generatedPlanRegions } from '#src/plan/common/constants/generatedPlanRegions.ts';
 import type { SyncedPlanFile } from '#src/plan/common/types/SyncedPlanFile.ts';
 import { renderGlobalConstraints } from '#src/plan/sections/renderGlobalConstraints.ts';
 import { writePlanSection } from '#src/plan/sections/writePlanSection.ts';
@@ -29,7 +30,14 @@ export const syncGlobalConstraints = async ({ planPaths, decisions }: Params): P
 	const files: SyncedPlanFile[] = [];
 
 	for (const path of planPaths) {
-		files.push(await writePlanSection({ path, heading: 'Global Constraints', section, after: 'Decision Log' }));
+		files.push(
+			await writePlanSection({
+				path,
+				heading: generatedPlanRegions.globalConstraints,
+				section,
+				after: generatedPlanRegions.decisionLog,
+			}),
+		);
 	}
 
 	return files;

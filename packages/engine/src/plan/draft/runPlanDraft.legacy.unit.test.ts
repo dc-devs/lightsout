@@ -20,8 +20,8 @@ import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 // phased flow still fans out from an overview.
 
 /**
- * One settled row a focused draft would render into `## Global Constraints`, and
- * which a legacy draft must leave unrendered.
+ * One settled row every draft renders into `## Global Constraints`, composed
+ * from the record by the same command the currency check names as its remedy.
  *
  * The `Global constraint:` question prefix is what marks a row as binding the
  * whole plan, and the choice text is deliberately unlike anything the fixture
@@ -40,9 +40,10 @@ const constraintRow: DecisionRow = {
  * A legacy single draft over a repo the structural lint is clean against, whose
  * saved record holds the one constraint row.
  *
- * The authored body renders its `## Decision Log` from an EMPTY record and
- * states `- None` under `## Global Constraints`, so both sections arrive stale.
- * Which of the two the draft rewrites is then the whole answer.
+ * The authored body renders its `## Decision Log` from an EMPTY record and its
+ * `## Global Constraints` from one too, so both sections arrive stale against a
+ * record holding the one constraint row. What the draft rewrites is then the
+ * whole answer.
  */
 const setupLegacyDraft = ({ name }: { name: string }) => {
 	const cwd = setupConsumerRepo();
@@ -94,15 +95,14 @@ describe('runPlanDraft legacy implementation', () => {
 
 		const plan = readFileSync(join(planDir, 'plan.md'), 'utf8');
 
-		// the log row proves the round did sync the one section legacy owns; the
-		// untouched `- None` and the absent constraint bullet prove it regenerated
-		// no other engine-owned section, which is only true while the mechanical
-		// repair pass stays off a legacy convergence
+		// the log row and the rendered bullet prove the round composed both sections
+		// the decision record owns, which is what `plan sync-decisions` writes and
+		// therefore what a legacy convergence gets; the authored `- None` is gone
 		expect({
 			logComposed: plan.includes('| Global constraint: which runtime? |'),
 			constraintsAsAuthored: plan.includes('## Global Constraints\n\n- None'),
 			constraintBulletRendered: plan.includes('- Node only'),
-		}).toStrictEqual({ logComposed: true, constraintsAsAuthored: true, constraintBulletRendered: false });
+		}).toStrictEqual({ logComposed: true, constraintsAsAuthored: false, constraintBulletRendered: true });
 	});
 
 	test("leaves a legacy spawn's driver invocation unchanged", async () => {

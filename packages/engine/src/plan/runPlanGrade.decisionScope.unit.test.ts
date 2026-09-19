@@ -111,7 +111,7 @@ describe('runPlanGrade', () => {
 		expect(result.grade.focusedOn).toStrictEqual([]);
 	});
 
-	test('plan grade: a cleared focused pass chosen from a decision change is still followed by a full review', async () => {
+	test('plan grade: a cleared focused pass chosen from a decision change ends the invocation and may pass', async () => {
 		const { cwd, name, driver, invocations, historyPath } = await setupDecided({
 			name: 'decision-cleared',
 			gaps: [omittedDecisionGap],
@@ -122,11 +122,12 @@ describe('runPlanGrade', () => {
 		const result = await runPlanGrade({ cwd, driver, name });
 
 		expectStatus(result, 'complete');
-		// six readers for the decision's closure, then nine for the whole plan — the
-		// focused pass is a repair check, and only the full review after it may pass
-		expect(countOf({ invocations, marker: gapCheckMarker })).toBe(15);
-		expect(historyScopes({ historyPath })).toStrictEqual(['full', 'focused', 'full']);
-		expect(result.grade.scope).toBe('full');
+		// six readers for the decision's closure and no whole-plan fan-out behind
+		// them: the phase neither the decision nor its neighbour reaches is covered
+		// at the text it still carries, so the pass that read the change approves
+		expect(countOf({ invocations, marker: gapCheckMarker })).toBe(6);
+		expect(historyScopes({ historyPath })).toStrictEqual(['full', 'focused']);
+		expect(result.grade.scope).toBe('focused');
 		expect(result.grade.passed).toBe(true);
 	});
 
@@ -161,9 +162,10 @@ describe('runPlanGrade', () => {
 		// the baseline review passed, but it was measured against a record without
 		// this decision, so it no longer speaks for the current inputs
 		expect('reused' in result && result.reused).toBeFalsy();
-		// and with nothing open the pass is an approval review, which reads the whole plan
-		expect(readerPhases({ invocations })).toStrictEqual(['phase1-core.md', 'phase2-extra.md', 'phase3-final.md']);
-		expect(result.grade.scope).toBe('full');
+		// and with nothing open the pass still narrows: the decision reaches the
+		// second phase and the file it shares with the first, and no further
+		expect(readerPhases({ invocations })).toStrictEqual(['phase1-core.md', 'phase2-extra.md']);
+		expect(result.grade.scope).toBe('focused');
 	});
 
 	test('plan grade: an unsynced decision stops on the Decision Log check before any reader is spawned', async () => {

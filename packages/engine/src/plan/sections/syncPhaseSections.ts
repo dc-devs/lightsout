@@ -1,3 +1,4 @@
+import { generatedPlanRegions } from '#src/plan/common/constants/generatedPlanRegions.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 import type { SyncedPlanFile } from '#src/plan/common/types/SyncedPlanFile.ts';
 import { renderPhaseDeclaration } from '#src/plan/sections/renderPhaseDeclaration.ts';
@@ -67,15 +68,15 @@ export const syncPhaseSections = async ({ overviewPath, declarations, phaseFiles
 
 	const phases = await writePlanSection({
 		path: overviewPath,
-		heading: 'Phases',
+		heading: generatedPlanRegions.phases,
 		section: renderPhasesSection({ declarations: matched }),
-		after: 'Global Constraints',
+		after: generatedPlanRegions.globalConstraints,
 	});
 	const blocks = await writePlanSection({
 		path: overviewPath,
-		heading: 'Phase Declarations',
+		heading: generatedPlanRegions.phaseDeclarations,
 		section: renderDeclarationsSection({ declarations: matched }),
-		after: 'Phases',
+		after: generatedPlanRegions.phases,
 	});
 
 	return { path: overviewPath, updated: phases.updated || blocks.updated };

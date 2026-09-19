@@ -54,6 +54,13 @@ export const GradeFindingRecord = z.object({
 	/** Set only on a `resolved` record: one confirmed citation per affected location, and when a judge verified it. */
 	resolutions: z.array(z.object({ phase: z.string(), answerAt: z.string(), verifiedAt: z.string() })).default([]),
 	reopened: z.array(z.object({ at: z.string(), reason: z.string(), priorStatus: z.enum(GradeFindingStatus) })).default([]),
+	/**
+	 * When a re-verification judge last answered about this record, whatever the
+	 * answer — closed, refused, or never replied. Absent means NO judge has ever
+	 * been asked, which is why it is optional rather than defaulted: an invented
+	 * stamp would read as "already asked" and silence the record forever.
+	 */
+	lastRecheckedAt: z.string().optional(),
 });
 
 export type GradeFindingRecord = z.infer<typeof GradeFindingRecord>;

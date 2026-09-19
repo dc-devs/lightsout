@@ -4,7 +4,6 @@ import { buildPlanFindingRecheckInvocation } from '#src/agents/index.ts';
 import {
 	type Effort,
 	type GapObservation,
-	GapOutcome,
 	GapVerdict,
 	type GradeFindingRecord,
 	GradeFindingStatus,
@@ -12,16 +11,27 @@ import {
 	type Permissions,
 } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import type { AgentOutcome } from '#src/invoke/index.ts';
 import { planAgentConcurrency } from '#src/plan/common/constants/planAgentConcurrency.ts';
-import { confirmCitation } from '#src/plan/common/memory/confirmCitation.ts';
 import { recheckPlanText } from '#src/plan/common/memory/recheckPlanText.ts';
 import { recordObservations } from '#src/plan/common/memory/recordObservations.ts';
+import { settleRecheckedRecord } from '#src/plan/common/memory/settleRecheckedRecord.ts';
 import type { DeliverableFile } from '#src/plan/common/types/DeliverableFile.ts';
 import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
 import { drainTasks } from '#src/plan/common/utils/drainTasks.ts';
 import { findingLocations } from '#src/plan/common/utils/findingLocations.ts';
 import { isRateLimited } from '#src/plan/common/utils/isRateLimited.ts';
+
+/** One open record at one of its locations, paired with the current text of that location — the same text both the judge and the citation check read. */
+interface RecheckPair {
+	record: GradeFindingRecord;
+	/** The plan file this spawn asks about. */
+	location: string;
+	/** Every plan file the record spans, in first-appearance order. */
+	locations: string[];
+	/** The record's observation at this location, in its own reader's words. */
+	observation: GapObservation;
+	planText: string;
+}
 
 interface Params {
 	cwd: string;
@@ -42,26 +52,28 @@ interface Params {
 	at: string;
 	/** Set when the caller already hit the rate-limit wall: nothing is spawned and every record stays open. */
 	skipReason?: string;
-	/** The pass level each re-verification spawn opens its step under. Named at the call site, because this `Params` is built field by field rather than spread. */
+	/** The plan-file basenames whose read coverage fell this pass — the SAME answer the reader selection narrowed by, never a second closure computed here. */
+	invalidated: string[];
+	/** The pass level each re-verification spawn opens its step under — substituted for the command run's own before the caller spreads its params in here. */
 	level?: ActivityLevel;
 }
 
-/** One open record at one of its locations, paired with the current text of that location — the same text both the judge and the citation check read. */
-interface RecheckPair {
-	record: GradeFindingRecord;
-	/** The plan file this spawn asks about. */
-	location: string;
-	/** Every plan file the record spans, in first-appearance order. */
-	locations: string[];
-	/** The record's observation at this location, in its own reader's words. */
-	observation: GapObservation;
-	planText: string;
-}
+/** The plan files one record touches, in first-appearance order — read once and used both to decide whether to ask and to build the spawns. */
+const locationsOf = ({ record }: { record: GradeFindingRecord }) => findingLocations({ observations: recordObservations({ record }), phase: record.phase });
 
 /** One pair per location of an open record, each carrying the first observation made there and that location's own plan text. */
-const recheckPairs = ({ record, files, overviewText }: { record: GradeFindingRecord; files: DeliverableFile[]; overviewText?: string }): RecheckPair[] => {
+const recheckPairs = ({
+	record,
+	locations,
+	files,
+	overviewText,
+}: {
+	record: GradeFindingRecord;
+	locations: string[];
+	files: DeliverableFile[];
+	overviewText?: string;
+}): RecheckPair[] => {
 	const observations = recordObservations({ record });
-	const locations = findingLocations({ observations, phase: record.phase });
 
 	return locations.map((location) => ({
 		record,
@@ -71,6 +83,31 @@ const recheckPairs = ({ record, files, overviewText }: { record: GradeFindingRec
 		planText: recheckPlanText({ files, overviewText, phase: location }),
 	}));
 };
+
+/**
+ * Whether one record is worth a judge this pass: a record no judge has ever
+ * answered is always asked, and one that has been answered is asked again only
+ * where a location of it lost its reading.
+ *
+ * A location that is not one of the deliverable's current plan files — the
+ * overview a documentation finding is stamped with, or a phase file a resplit
+ * renamed away — counts as lost whatever `invalidated` holds. No coverage is
+ * recorded for such a location, so nothing can say it still stands; stamped
+ * once, the record would block approval forever even after the plan was
+ * repaired. It is not a second reach rule but the statement that a file the one
+ * rule cannot speak for is never treated as covered.
+ */
+const isWorthAsking = ({
+	record,
+	locations,
+	invalidated,
+	planFiles,
+}: {
+	record: GradeFindingRecord;
+	locations: string[];
+	invalidated: string[];
+	planFiles: string[];
+}) => record.lastRecheckedAt === undefined || locations.some((location) => invalidated.includes(location) || !planFiles.includes(location));
 
 /** One re-verification spawn: its own runner and its own transcript, because a sink shared by a dozen judges — or by one record's several locations — interleaves into one unreadable file. */
 const spawnRecheck = async ({ params, pair }: { params: Params; pair: RecheckPair }) => {
@@ -107,47 +144,6 @@ const spawnRecheck = async ({ params, pair }: { params: Params; pair: RecheckPai
 	return { outcome };
 };
 
-/** What one location's judge answer proves: a citation the engine confirmed against that location's own text, or the refusal that says why not. */
-const checkLocation = async ({ cwd, pair, outcome }: { cwd: string; pair: RecheckPair; outcome: AgentOutcome<GapVerdict> | undefined }) => {
-	const report = outcome?.ok === true ? outcome.report : undefined;
-	const citation = report?.outcome === GapOutcome.AlreadyAnswered ? (report.answerAt ?? '') : undefined;
-	const confirmed = citation === undefined ? undefined : await confirmCitation({ cwd, citation, planText: pair.planText });
-
-	return {
-		resolution: confirmed?.ok === true && citation !== undefined ? { phase: pair.location, answerAt: citation } : undefined,
-		refusal: confirmed?.ok === false ? `${pair.location}: ${confirmed.reason}` : undefined,
-	};
-};
-
-/**
- * What a record's location answers do to it: it closes only when EVERY location
- * returned `already-answered` with a citation the engine confirmed against that
- * location's own text, and its resolutions then hold one entry per location.
- * Any refusal, any failed judge and any location never asked leaves it open,
- * with each refusal on record naming the location it came from.
- */
-const settleRecord = async ({
-	cwd,
-	record,
-	located,
-	at,
-}: {
-	cwd: string;
-	record: GradeFindingRecord;
-	located: Array<{ pair: RecheckPair; outcome: AgentOutcome<GapVerdict> | undefined }>;
-	at: string;
-}) => {
-	const checks = await Promise.all(located.map(({ pair, outcome }) => checkLocation({ cwd, pair, outcome })));
-	const resolutions = checks.flatMap(({ resolution }) => (resolution === undefined ? [] : [{ ...resolution, verifiedAt: at }]));
-	const refusals = checks.flatMap(({ refusal }) => (refusal === undefined ? [] : [refusal]));
-	const closed = resolutions.length === located.length;
-
-	return {
-		record: closed ? { ...record, status: GradeFindingStatus.Resolved, resolution: undefined, resolutions } : { ...record, resolution: undefined },
-		refusal: refusals.length > 0 ? refusals.join('; ') : undefined,
-	};
-};
-
 /**
  * Ask, once per location of every open record, whether the plan now states the
  * answer there.
@@ -163,16 +159,28 @@ const settleRecord = async ({
  * Only `open` records are asked. A `pending` record needs judging rather than
  * re-verification, and a `superseded` one's question lives on its survivor.
  *
+ * Nor is every open record asked every pass. A record is asked when no
+ * re-verification judge has ever answered about it, and afterwards only when one
+ * of its locations lost its read coverage — the same invalidation the reader
+ * selection narrowed by, because two reach rules that can disagree are exactly
+ * what one reach rule exists to avoid. A record that keeps its coverage and
+ * carries a stamp is not asked and therefore not closed: it stays open and keeps
+ * blocking, which is the safe direction and needs no state of its own.
+ *
  * The text a location is asked against is its own plan file, or the whole plan
  * when it names no deliverable file — see `recheckPlanText`.
  */
 export const verifyOpenFindings = async (params: Params): Promise<{ memory: GradeMemory; rateLimited: boolean; refusals: Map<string, string> }> => {
-	const { cwd, files, overviewText, memory, at, skipReason } = params;
-	const open = memory.findings.filter((record) => record.status === GradeFindingStatus.Open);
+	const { cwd, files, overviewText, memory, at, skipReason, invalidated } = params;
+	const planFiles = files.map((file) => basename(file.path));
+	const located = memory.findings
+		.filter((record) => record.status === GradeFindingStatus.Open)
+		.map((record) => ({ record, locations: locationsOf({ record }) }));
 	// A wall met by launching another dozen spawns into it is still a wall, so a
 	// skipped pass asks nothing and every record simply stays open.
-	const asked = skipReason === undefined ? open : [];
-	const pairs = asked.flatMap((record) => recheckPairs({ record, files, overviewText }));
+	const worth = skipReason === undefined ? located.filter((entry) => isWorthAsking({ ...entry, invalidated, planFiles })) : [];
+	const asked = worth.map(({ record }) => record);
+	const pairs = worth.flatMap(({ record, locations }) => recheckPairs({ record, locations, files, overviewText }));
 	const results = await drainTasks({
 		tasks: pairs.map((pair) => () => spawnRecheck({ params, pair })),
 		concurrency: planAgentConcurrency,
@@ -182,8 +190,10 @@ export const verifyOpenFindings = async (params: Params): Promise<{ memory: Grad
 	const refusals = new Map<string, string>();
 
 	for (const record of asked) {
-		const located = pairs.flatMap((pair, slot) => (pair.record === record ? [{ pair, outcome: results[slot]?.outcome }] : []));
-		const { record: next, refusal } = await settleRecord({ cwd, record, located, at });
+		const answers = pairs.flatMap((pair, slot) =>
+			pair.record === record ? [{ location: pair.location, planText: pair.planText, outcome: results[slot]?.outcome }] : [],
+		);
+		const { record: next, refusal } = await settleRecheckedRecord({ cwd, record, located: answers, at });
 
 		settled.set(record.id, next);
 

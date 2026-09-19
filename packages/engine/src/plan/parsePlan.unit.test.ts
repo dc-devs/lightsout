@@ -209,4 +209,41 @@ describe('parsePlan', () => {
 			decisionLogRange: { start: 7, end: 12 },
 		});
 	});
+
+	test('parsePlan: generatedRegionRanges holds exactly the engine-composed sections the file carries, and no authored one', () => {
+		const content =
+			'# Plan\n\n## Context\n\nWhy this plan exists.\n\n## Decision Log\n\n| # | Source |\n\n## Global Constraints\n\n- none\n\n## Phases\n\n| # | File |\n\n## Phase Declarations\n\n### Phase 1 — `phase1.md`\n\n## Cross-Phase Dependencies\n\n- none\n';
+		const plan = parse({ content });
+
+		// only the sections the engine composes from a record are in the map, each
+		// spanning its heading line through the last line before the next `##`;
+		// Context and Cross-Phase Dependencies are authored prose and stay out
+		expect(Object.fromEntries(plan.generatedRegionRanges)).toStrictEqual({
+			'Decision Log': { start: 7, end: 10 },
+			'Global Constraints': { start: 11, end: 14 },
+			Phases: { start: 15, end: 18 },
+			'Phase Declarations': { start: 19, end: 22 },
+		});
+	});
+
+	test('parsePlan: a plan carrying no engine-composed section has an empty generatedRegionRanges and no decisionLogRange', () => {
+		const plan = parse({ content: '# Plan\n\n## Context\n\nWhy this plan exists.\n\n## Verification\n\n- `pnpm check`\n' });
+
+		// a region the file does not carry gets no entry at all — an invented empty
+		// span would read as a section to replace rather than one to insert
+		expect({ ranges: [...plan.generatedRegionRanges], decisionLogRange: plan.decisionLogRange }).toStrictEqual({
+			ranges: [],
+			decisionLogRange: undefined,
+		});
+	});
+
+	test('parsePlan: decisionLogRange is the generatedRegionRanges entry for the Decision Log, not a second scan', () => {
+		const plan = parse({ content: '# Plan\n\n## Decision Log\n\n| # | Source |\n\n## Global Constraints\n\n- none\n' });
+
+		const entry = plan.generatedRegionRanges.get('Decision Log');
+
+		// the named field is a read of the map, so the two can never disagree
+		expect(plan.decisionLogRange).toStrictEqual({ start: 3, end: 6 });
+		expect(plan.decisionLogRange).toBe(entry);
+	});
 });

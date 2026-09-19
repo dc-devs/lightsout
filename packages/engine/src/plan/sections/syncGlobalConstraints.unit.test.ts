@@ -100,6 +100,42 @@ const setupDeliverable = async ({ prime = false, stale }: { prime?: boolean; sta
 	return { bases, paths, decisions, readFile: (base: string) => readFileSync(join(dir, base), 'utf8') };
 };
 
+/** A plan file carrying the Decision Log the constraints section is placed below, and no constraints section for the sync to replace. */
+const planWithoutConstraints = ({ title }: { title: string }) => `# ${title}
+
+## Context
+
+Why this plan exists.
+
+## Decision Log
+
+Composed by \`lightsout plan sync-decisions\`. Do not edit by hand.
+
+## Verification
+
+- \`true\` — types clean
+`;
+
+/** One plan file on disk carrying no constraints section at all, so the sync has to place one rather than replace one. */
+const setupUnanchoredFile = () => {
+	const dir = mkdtempSync(join(tmpdir(), 'lightsout-constraints-placed-'));
+	const path = join(dir, 'plan.md');
+
+	writeFileSync(path, planWithoutConstraints({ title: 'Plan' }), 'utf8');
+
+	const decisions: DecisionsRecord = { planName: 'global-constraints', decisions: mixedRows };
+
+	return {
+		path,
+		decisions,
+		headings: () =>
+			readFileSync(path, 'utf8')
+				.split('\n')
+				.filter((line) => line.startsWith('## ')),
+		readFile: () => readFileSync(path, 'utf8'),
+	};
+};
+
 describe('syncGlobalConstraints', () => {
 	test("writes the same rendered constraints into every plan file and reports each file's outcome", async () => {
 		const deliverable = await setupDeliverable();
@@ -145,6 +181,25 @@ describe('syncGlobalConstraints', () => {
 			reported: { 'overview.md': false, 'phase1-core.md': false, 'phase2-wire.md': true },
 			matchingTexts: beforeMatching,
 			staleSectionRewritten: true,
+		});
+	});
+
+	test('places a missing constraints section immediately below the Decision Log it is anchored on', async () => {
+		const file = setupUnanchoredFile();
+
+		const result = await syncGlobalConstraints({ planPaths: [file.path], decisions: file.decisions });
+
+		// the file carries no section to replace, so the anchor alone decides where
+		// the rules land: below the composed Decision Log and above the sections the
+		// writer put after it, with the rendered bullets actually in them
+		expect({
+			reported: updatedByFile({ files: result }),
+			headings: file.headings(),
+			bullets: bulletLines({ section: constraintsSection({ text: file.readFile() }) }),
+		}).toStrictEqual({
+			reported: { 'plan.md': true },
+			headings: ['## Context', '## Decision Log', '## Global Constraints', '## Verification'],
+			bullets: ['- Every write goes through the store', '- No new runtime dependency is added'],
 		});
 	});
 });

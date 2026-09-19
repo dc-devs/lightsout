@@ -11,6 +11,7 @@ import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 const memoryOf = ({ name, nextFindingNumber = 4 }: { name: string; nextFindingNumber?: number }): GradeMemory => ({
 	planName: name,
 	findings: [],
+	coverage: { readers: [] },
 	nextFindingNumber,
 	updatedAt: '2026-02-01T00:00:00.000Z',
 });
@@ -77,7 +78,7 @@ describe('writeGradeMemory', () => {
 			primary: JSON.parse(readFileSync(join(primary, '.lightsout', 'plans', name, 'grade-memory.json'), 'utf8')),
 			worktreeHasPlans: existsSync(join(worktree, '.lightsout')),
 		}).toStrictEqual({
-			primary: { planName: name, findings: [], nextFindingNumber: 9, updatedAt: '2026-02-01T00:00:00.000Z' },
+			primary: { planName: name, findings: [], coverage: { readers: [] }, nextFindingNumber: 9, updatedAt: '2026-02-01T00:00:00.000Z' },
 			worktreeHasPlans: false,
 		});
 	});

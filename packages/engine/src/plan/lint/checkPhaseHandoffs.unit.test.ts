@@ -46,6 +46,25 @@ describe('checkPhaseHandoffs', () => {
 		]);
 	});
 
+	test('checkPhaseHandoffs: a token appearing only inside a longer identifier on the claiming side is not a claim', () => {
+		const { phases } = setupPair({ handsForward: '- `buildCore` exists.', prerequisites: '- `buildCoreRunner` exists.' });
+
+		const findings = checkPhaseHandoffs({ phases });
+
+		// both sides reduce to token sets, so a substring of a longer name never
+		// counts as the claim the handing phase asked for
+		expect(findings).toStrictEqual([
+			{
+				check: StructuralCheck.HandoffChained,
+				severity: FindingSeverity.Blocking,
+				phase: 'phase2-extra.md',
+				issue: "phase1-core.md hands forward `buildCore`, which this phase's Prerequisites never claim",
+				location: 'phase2-extra.md → Prerequisites',
+				fix: "name `buildCore` in '## Prerequisites', or drop it from phase1-core.md's '## What Next Plan Expects'",
+			},
+		]);
+	});
+
 	test('a path is compared by basename, so a package alias on one side still chains', () => {
 		const { phases } = setupPair({
 			handsForward: '- `packages/engine/src/plan/index.ts` re-exports it.',

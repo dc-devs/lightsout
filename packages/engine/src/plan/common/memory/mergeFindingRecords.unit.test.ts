@@ -96,6 +96,7 @@ const setupMerge = ({ findings = [], gaps = [] }: { findings?: GradeFindingRecor
 	const memory: GradeMemory = {
 		planName: 'lo-126-grade-memory',
 		findings,
+		coverage: { readers: [] },
 		nextFindingNumber: findings.length + 1,
 		updatedAt: seenAt,
 	};

@@ -63,6 +63,35 @@ const gradeStatus = ({ result: graded }: { result: Awaited<ReturnType<typeof run
 			: RunStatus.Failed;
 
 /**
+ * How far this pass reached and which rule chose that far — or, when nothing
+ * ran, the recorded verdict and the one way to force a new baseline.
+ */
+const printScope = ({ grade, reused, memoryPath }: { grade: GradeReport; reused: boolean; memoryPath: string }) => {
+	if (reused) {
+		console.log(`  the recorded passing full review still covers the current inputs — nothing was re-run; delete ${memoryPath} to force a new baseline`);
+		return;
+	}
+
+	const focus = grade.focusedOn.length > 0 ? ` — read ${grade.focusedOn.join(', ')}` : '';
+
+	console.log(`  scope: ${grade.scope}${grade.scopeReason === undefined ? '' : ` — ${grade.scopeReason}`}${focus}`);
+};
+
+/**
+ * What the verdict rests on, in three numbers rather than one: without the third
+ * a human cannot tell an approval this pass read the whole plan for from one
+ * granted mostly on earlier readings. It prints even when nothing stood, because
+ * a reader comparing two runs needs the number to be there both times.
+ */
+const printCoverage = ({ grade }: { grade: GradeReport }) => {
+	const stood = grade.covered.filter((phase) => !grade.phasesChecked.includes(phase) && !grade.phasesLight.includes(phase)).length;
+
+	console.log(
+		`  coverage: ${grade.covered.length} plan file(s) covered at their current text — ${grade.phasesChecked.length} read by this pass, ${stood} standing from an earlier pass`,
+	);
+};
+
+/**
  * `plan grade` at the terminal.
  *
  * The failure branches are handled here rather than through `exitOnPlanFailure`
@@ -80,6 +109,12 @@ const gradeStatus = ({ result: graded }: { result: Awaited<ReturnType<typeof run
  * The scope line says how far the pass reached and which rule chose that far. A
  * reused review prints in its place: nothing ran, so there is no scope to
  * report, only the recorded verdict and the one way to force a new baseline.
+ *
+ * The coverage line beneath it says what the whole verdict rests on: how many of
+ * the plan's files are covered at their current text, how many of those this pass
+ * read, and how many stood from an earlier pass. Approval is granted from that
+ * coverage, so a pass that read two files of five and still graded A has to be
+ * legible as such rather than looking like a whole-plan review.
  */
 export const planGradeCommand = async ({ cwd, driver, name, standards, config, phases }: Params): Promise<void> => {
 	const result = await recordPlanCommandRun({
@@ -123,15 +158,9 @@ export const planGradeCommand = async ({ cwd, driver, name, standards, config, p
 
 	console.log(`\n${bold(`plan grade ${name}`)} — ${grade.passed ? green(grade.grade) : red(grade.grade)} (graded ${grade.gradedAt}, ${measuredAgainst})`);
 
-	if ('reused' in result && result.reused) {
-		console.log(
-			`  the recorded passing full review still covers the current inputs — nothing was re-run; delete ${await gradeMemoryPath({ cwd, name })} to force a new baseline`,
-		);
-	} else {
-		const focus = grade.focusedOn.length > 0 ? ` — read ${grade.focusedOn.join(', ')}` : '';
+	const memoryPath = await gradeMemoryPath({ cwd, name });
 
-		console.log(`  scope: ${grade.scope}${grade.scopeReason === undefined ? '' : ` — ${grade.scopeReason}`}${focus}`);
-	}
+	printScope({ grade, reused: 'reused' in result && result.reused === true, memoryPath });
 
 	const blocking = getBlockingGaps({ gaps: grade.gaps });
 	// The two kinds of blocking finding are counted apart: a spike in judge
@@ -144,6 +173,7 @@ export const planGradeCommand = async ({ cwd, driver, name, standards, config, p
 	const checked = grade.phasesChecked.length > 0 ? `: ${grade.phasesChecked.join(', ')}` : '';
 
 	console.log(`  checked: ${grade.phasesChecked.length} phase file(s) × ${grade.lenses.length} lens(es)${checked}`);
+	printCoverage({ grade });
 	printWeights({ weights: grade.weights });
 
 	for (const finding of grade.structural) {
@@ -154,6 +184,6 @@ export const planGradeCommand = async ({ cwd, driver, name, standards, config, p
 
 	console.log(`\ngrade: ${gradePath}`);
 	console.log(`history: ${await gradeHistoryPath({ cwd, name })}`);
-	console.log(`memory: ${await gradeMemoryPath({ cwd, name })}`);
+	console.log(`memory: ${memoryPath}`);
 	return exitCli({ code: grade.complete ? 0 : 1 });
 };

@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { decisionLogReference, type PhaseFile, parsePlan, renderDecisionLog } from '#src/plan/index.ts';
+import { decisionLogReference, type PhaseFile, parsePlan, renderDecisionLog, renderGlobalConstraints } from '#src/plan/index.ts';
 
 /** What one implementable phase file says it does — every field the cross-phase checks read. */
 export interface PhaseSpec {
@@ -14,7 +14,7 @@ export interface PhaseSpec {
 	note?: string;
 	/** The `## Prerequisites` body — what this phase claims from its predecessor. */
 	prerequisites?: string;
-	/** The `## What Next Plan Expects` body — what this phase hands forward. */
+	/** The `## What Next Plan Expects` body — what this phase hands forward. Defaults to the template's absence spelling, which declares a hand-off without supplying a comparable token. */
 	handsForward?: string;
 	/** `## Verification` — one bullet per command, each in a backtick span. */
 	commands?: string[];
@@ -75,7 +75,7 @@ export const phaseBody = ({
 	move = [],
 	note = 'One phase of a phased plan.',
 	prerequisites = '- None',
-	handsForward = 'The next phase builds on this one.',
+	handsForward = 'None',
 	commands = ['true'],
 	fileBudget,
 	reference = true,
@@ -97,9 +97,7 @@ ${note}
 
 ${reference ? decisionLogReference() : renderDecisionLog({ decisions: [] })}
 
-## Global Constraints
-
-- None
+${renderGlobalConstraints({ decisions: [] })}
 
 ## Prerequisites
 
@@ -124,9 +122,7 @@ export const overviewBody = ({ rows }: { rows: DeclarationSpec[] }) => `# Demo �
 
 ${renderDecisionLog({ decisions: [] })}
 
-## Global Constraints
-
-- None
+${renderGlobalConstraints({ decisions: [] })}
 
 ## Phases
 

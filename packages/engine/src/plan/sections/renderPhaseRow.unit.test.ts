@@ -22,6 +22,9 @@ const setupDeclaration = (overrides: Partial<PhaseDeclaration> = {}) => {
 	return { declaration };
 };
 
+/** The line the rendered row lands on in the overview below — what the parser reports as the row's own provenance. */
+const renderedRowLine = 7;
+
 /** The rendered row read back the way the lint reads it: placed in an overview's `## Phases` table and parsed. */
 const parseRenderedRow = ({ row }: { row: string }) => {
 	const content = `# Demo — Overview
@@ -46,7 +49,7 @@ describe('renderPhaseRow', () => {
 
 		const row = renderPhaseRow({ declaration });
 
-		expect(parseRenderedRow({ row })).toStrictEqual([declaration]);
+		expect(parseRenderedRow({ row })).toStrictEqual([{ ...declaration, rowLine: renderedRowLine }]);
 	});
 
 	test('renders empty count cells when the declaration states no counts', () => {
@@ -54,7 +57,7 @@ describe('renderPhaseRow', () => {
 
 		const row = renderPhaseRow({ declaration });
 
-		expect(parseRenderedRow({ row })).toStrictEqual([declaration]);
+		expect(parseRenderedRow({ row })).toStrictEqual([{ ...declaration, rowLine: renderedRowLine }]);
 		expect(row).not.toContain('undefined');
 	});
 

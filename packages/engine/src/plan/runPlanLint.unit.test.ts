@@ -4,6 +4,7 @@ import { expect, test } from '@jest/globals';
 import { DecisionSource, type DecisionsRecord, FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
 import { renderDecisionLog } from '#src/plan/decisionLog/index.ts';
 import { runPlanLint } from '#src/plan/runPlanLint.ts';
+import { renderGlobalConstraints } from '#src/plan/sections/index.ts';
 import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advisoryPlan.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
@@ -115,9 +116,7 @@ const cleanOverview = ({ phaseCount = 2 }: { phaseCount?: number } = {}) => `# P
 
 ${renderDecisionLog({ decisions: [] })}
 
-## Global Constraints
-
-- None
+${renderGlobalConstraints({ decisions: [] })}
 
 ## Phases
 

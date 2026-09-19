@@ -1,4 +1,4 @@
-import { decisionLogReference, renderDecisionLog } from '#src/plan/index.ts';
+import { decisionLogReference, renderDecisionLog, renderGlobalConstraints } from '#src/plan/index.ts';
 
 /**
  * A structurally clean single plan: every required section present, no
@@ -7,11 +7,12 @@ import { decisionLogReference, renderDecisionLog } from '#src/plan/index.ts';
  * Its paths line up with `setupConsumerRepo`, so `lintPlanStructure` reports
  * nothing against a repo built by that helper.
  *
- * The `## Decision Log` is rendered by the engine's own renderer from an empty
- * record, so the fixture can never drift from the section the currency check
- * re-renders. Unlike `documentation` it is not opt-in: that check runs on every
- * plan file. `reference` swaps the table for the pointer sentence, which is what
- * a phase file of a phased deliverable carries instead.
+ * The `## Decision Log` and the `## Global Constraints` are both rendered by the
+ * engine's own renderers from an empty record, so the fixture can never drift
+ * from the sections the two currency checks re-render. Unlike `documentation`
+ * neither is opt-in: both checks run on every plan file. `reference` swaps the
+ * table for the pointer sentence, which is what a phase file of a phased
+ * deliverable carries instead.
  *
  * The `## Documentation` section is opt-in because the required-section set is:
  * only a repository declaring a `docs` block needs one, so omitting the
@@ -34,9 +35,7 @@ A tiny clean plan for the structural lint.
 
 ${reference ? decisionLogReference() : renderDecisionLog({ decisions: [] })}
 
-## Global Constraints
-
-- None
+${renderGlobalConstraints({ decisions: [] })}
 ${documentation === undefined ? '' : `\n## Documentation\n\n${documentation}\n`}
 ## Prerequisites
 

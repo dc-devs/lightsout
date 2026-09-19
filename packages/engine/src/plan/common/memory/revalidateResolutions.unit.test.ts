@@ -49,6 +49,7 @@ const setupRevalidation = async ({ findings, onDisk = [] }: { findings: GradeFin
 	const memory: GradeMemory = {
 		planName: 'demo',
 		findings,
+		coverage: { readers: [] },
 		nextFindingNumber: findings.length + 1,
 		updatedAt: resolvedAt,
 	};
@@ -73,6 +74,7 @@ const setupGroupedRevalidation = async ({ findings }: { findings: GradeFindingRe
 	const memory: GradeMemory = {
 		planName: 'demo',
 		findings,
+		coverage: { readers: [] },
 		nextFindingNumber: findings.length + 1,
 		updatedAt: resolvedAt,
 	};

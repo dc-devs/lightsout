@@ -7,7 +7,7 @@ import { gradeMemoryPath } from '#src/plan/index.ts';
 import { runPlanGrade } from '#src/plan/runPlanGrade.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
-import { omittedDecisionGap, recheckMarker, setupGraded } from '#tests/helpers/gradedThreePhasePlan.ts';
+import { closingVerdict, omittedDecisionGap, recheckMarker, setupGraded } from '#tests/helpers/gradedThreePhasePlan.ts';
 
 // What carries a repair forward in `plan grade`: a focused pass that finished
 // every check its own scope called for becomes the baseline the next repair
@@ -85,7 +85,39 @@ const setupSecondRepair = async ({ name, edited }: { name: string; edited: strin
 	return { cwd: graded.cwd, name, driver: graded.driver, invocations: graded.invocations, first, baseline: memory.lastPass, skipped };
 };
 
+/**
+ * The same plan, repaired at phase 2, with a re-verification judge that answers
+ * every open record as already settled. The act is that repair's focused pass:
+ * it reads phase 2 and the phase phase 2 consumes, leaves nothing open, and
+ * meets a memory that already covers phase 3 at the text phase 3 still has.
+ */
+const setupClearedRepair = async ({ name }: { name: string }) =>
+	setupGraded({ name, gaps: [omittedDecisionGap], recheckVerdict: closingVerdict, edited: 'phase2-extra.md' });
+
 describe('runPlanGrade', () => {
+	test('plan grade: a focused pass grants an A when coverage covers every plan file', async () => {
+		const { cwd, name, driver } = await setupClearedRepair({ name: 'repair-coverage-approves' });
+
+		const result = await runPlanGrade({ cwd, driver, name });
+
+		expectStatus(result, 'complete');
+		// phase 3 was never offered to a reader this pass, yet it is covered at the
+		// text it still carries — so the pass that read the repair is the pass that
+		// approves, with no whole-plan review behind it
+		expect(result.grade).toEqual(
+			expect.objectContaining({
+				scope: 'focused',
+				focusedOn: ['phase1-core.md', 'phase2-extra.md'],
+				phasesChecked: ['phase1-core.md', 'phase2-extra.md'],
+				covered: ['phase1-core.md', 'phase2-extra.md', 'phase3-final.md'],
+				complete: true,
+				passed: true,
+				grade: 'A',
+			}),
+		);
+		expect(result.grade.incompleteReason).toBeUndefined();
+	});
+
 	test('plan grade: a finished focused pass becomes the baseline the next repair narrows against', async () => {
 		const { cwd, name, driver, first } = await setupSecondRepair({ name: 'repair-carried', edited: 'phase3-final.md' });
 
@@ -107,13 +139,14 @@ describe('runPlanGrade', () => {
 		const result = await runPlanGrade({ cwd, driver, name });
 
 		expectStatus(result, 'complete');
-		// every phase it owed a reader answered, and it is still no whole-plan clean bill
+		// every phase it owed a reader answered, so it is scope-complete; the plan
+		// beside it is covered too, and the blocker nobody closed is what refuses the A
 		expect(result.grade).toEqual(
 			expect.objectContaining({
 				scope: 'focused',
 				phasesChecked: ['phase1-core.md', 'phase2-extra.md'],
 				scopeComplete: true,
-				complete: false,
+				complete: true,
 				passed: false,
 			}),
 		);
@@ -122,7 +155,8 @@ describe('runPlanGrade', () => {
 
 		// the next repair narrows against what THIS pass measured
 		expect(memory.lastPass).toEqual({ scope: 'focused', inputs: result.grade.inputs, at: expect.any(String) });
-		// and a focused pass can never stand in for the review approval needs
+		// and the pass did not pass, so nothing records it as the review a later
+		// invocation may report as current — however far it reached
 		expect(memory.lastPassingFullReview).toBeUndefined();
 	});
 
@@ -140,8 +174,9 @@ describe('runPlanGrade', () => {
 		expect(result.grade.gaps).toEqual(
 			expect.arrayContaining(skipped.map(({ id, phase }) => expect.objectContaining({ phase, findingId: id, outcome: 'needs-a-human' }))),
 		);
-		// and each one was asked again against the plan as it reads now
-		expect(recheckedIds({ invocations })).toEqual(expect.arrayContaining(skipped.map(({ id }) => id)));
+		// and not one of them cost a judge: their plan files kept their coverage and a
+		// judge has already answered about each, so the blocking is free
+		expect(recheckedIds({ invocations })).not.toEqual(expect.arrayContaining(skipped.map(({ id }) => id)));
 	});
 
 	test('plan grade: a source change after a focused pass forces a full review', async () => {

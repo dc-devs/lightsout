@@ -9,7 +9,10 @@
  * asks whether every row and prose-files exemption is well formed, the other
  * whether the plan's source files are all reached by a row or excused with a
  * reason. The decision-log check compares a plan file's `## Decision Log`
- * against the saved decision records the engine composes it from.
+ * against the saved decision records the engine composes it from, and the
+ * global-constraints check compares that file's `## Global Constraints` against
+ * the same records. The hand-off-declared check asks every implementable plan
+ * file to name what it hands forward, or to say it hands nothing forward.
  * Values are internal to findings reports.
  */
 export const StructuralCheck = {
@@ -30,6 +33,8 @@ export const StructuralCheck = {
 	LedgerWellFormed: 'ledger-well-formed',
 	LedgerCovers: 'ledger-covers',
 	DecisionLogCurrent: 'decision-log-current',
+	GlobalConstraintsCurrent: 'global-constraints-current',
+	HandoffDeclared: 'handoff-declared',
 } as const;
 
 export type StructuralCheck = (typeof StructuralCheck)[keyof typeof StructuralCheck];

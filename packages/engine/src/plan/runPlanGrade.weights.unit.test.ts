@@ -1,5 +1,8 @@
+import { readFileSync } from 'node:fs';
 import { expect, test } from '@jest/globals';
+import { GradeMemory } from '#src/contracts/index.ts';
 import type { DriverInvocation } from '#src/drivers/index.ts';
+import { gradeMemoryPath } from '#src/plan/index.ts';
 import { runPlanGrade } from '#src/plan/runPlanGrade.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createGapCheckDriver } from '#tests/helpers/createGapCheckDriver.ts';
@@ -90,4 +93,24 @@ test('plan grade: a declared threshold replaces the default, so a plan the defau
 	expect(result.grade.weights).toStrictEqual([{ phase: 'plan.md', weight: 'heavy', reasons: ['creates 1 source files, above 0'] }]);
 	expect(result.grade.phasesChecked).toStrictEqual(['plan.md']);
 	expect(invocations.length).toBeGreaterThan(0);
+});
+
+test('plan grade: a light plan file is covered at its current text and does not block approval', async () => {
+	const { cwd, name, driver, invocations } = setupWeighed({ mirror: true });
+
+	const result = await runPlanGrade({ cwd, driver, name });
+
+	expectStatus(result, 'complete');
+
+	const memoryFile = await gradeMemoryPath({ cwd, name });
+	const memory = GradeMemory.parse(JSON.parse(readFileSync(memoryFile, 'utf8')));
+	const entries = memory.coverage.readers.map(({ file, lens }) => `${file}:${lens}`).sort();
+
+	// nobody read it, and yet every brief holds an entry for it at its current text
+	expect(invocations).toStrictEqual([]);
+	expect(entries).toStrictEqual(['plan.md:decisions', 'plan.md:surface', 'plan.md:wiring']);
+	expect(result.grade.covered).toStrictEqual(['plan.md']);
+	expect(result.grade.complete).toBe(true);
+	expect(result.grade.incompleteReason).toBeUndefined();
+	expect(result.grade.passed).toBe(true);
 });

@@ -81,6 +81,7 @@ const setupJudging = async ({ verdicts }: { verdicts: Record<string, GapVerdict>
 	const memory: GradeMemory = {
 		planName: 'demo',
 		findings: [recordOf({ id: 'f1', phase: 'phase-1-reader.md' }), recordOf({ id: 'f2', phase: 'phase-2-judge.md' })],
+		coverage: { readers: [] },
 		nextFindingNumber: 3,
 		updatedAt: '2026-01-01T00:00:00.000Z',
 	};
@@ -195,7 +196,7 @@ const setupBatchJudging = async ({
 }) => {
 	const cwd = await freshCwd();
 	const invocations: DriverInvocation[] = [];
-	const memory: GradeMemory = { planName: 'demo', findings, nextFindingNumber: 11, updatedAt: '2026-01-01T00:00:00.000Z' };
+	const memory: GradeMemory = { planName: 'demo', findings, coverage: { readers: [] }, nextFindingNumber: 11, updatedAt: '2026-01-01T00:00:00.000Z' };
 
 	return {
 		invocations,

@@ -66,6 +66,7 @@ const setupMemory = () => {
 	const memory: GradeMemory = {
 		planName: 'lo-133-duplicate-grading-reports-cause',
 		findings: [pending, open],
+		coverage: { readers: [] },
 		nextFindingNumber: 3,
 		updatedAt: '2026-09-07T00:00:00.000Z',
 	};

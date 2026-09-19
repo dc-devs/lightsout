@@ -54,6 +54,8 @@ describe('parsePhaseDeclarations', () => {
 				exports: ['buildCore', 'CoreOptions'],
 				scripts: ['check:core'],
 				fileBudget: 12,
+				rowLine: 7,
+				blockRange: { start: 11, end: 17 },
 			},
 		]);
 	});
@@ -89,7 +91,18 @@ describe('parsePhaseDeclarations', () => {
 		const declarations = parsePhaseDeclarations({ plan });
 
 		expect(declarations).toStrictEqual([
-			{ number: 1, file: 'phase1-core.md', scope: 'the core', createdCount: 2, touchedCount: 4, creates: [], exports: [], scripts: [], fileBudget: undefined },
+			{
+				number: 1,
+				file: 'phase1-core.md',
+				scope: 'the core',
+				createdCount: 2,
+				touchedCount: 4,
+				creates: [],
+				exports: [],
+				scripts: [],
+				fileBudget: undefined,
+				rowLine: 7,
+			},
 		]);
 	});
 
@@ -121,6 +134,7 @@ describe('parsePhaseDeclarations', () => {
 			exports: [],
 			scripts: [],
 			fileBudget: undefined,
+			blockRange: { start: 17, end: 22 },
 		});
 	});
 
@@ -222,5 +236,41 @@ describe('parsePhaseDeclarations', () => {
 		const { plan } = setupBareOverview();
 
 		expect(parsePhaseDeclarations({ plan })).toStrictEqual([]);
+	});
+
+	test('each declaration carries the line of its row and the range of its block', () => {
+		const { plan } = setupOverview({
+			rows: `| 1 | \`phase1-core.md\` | the core | 0 | 0 |
+| 2 | \`phase2-extra.md\` | the extra | 0 | 0 |
+| 3 | \`phase3-lonely.md\` | the lonely | 0 | 0 |`,
+			declarations: `### Phase 1 — \`phase1-core.md\`
+
+- **Creates:** none
+- **Exports:** none
+- **Scripts:** none
+
+### Phase 2 — \`phase2-extra.md\`
+
+- **Creates:** none
+- **Exports:** none
+- **Scripts:** none
+
+### Phase 4 — \`phase4-ghost.md\`
+
+- **Creates:** none
+- **Exports:** none
+- **Scripts:** none`,
+		});
+
+		const declarations = parsePhaseDeclarations({ plan });
+
+		// the lines are absolute in the overview, and neither mismatch is repaired:
+		// the row with no block carries no range, and the orphan block no row line
+		expect(declarations.map(({ file, rowLine, blockRange }) => ({ file, rowLine, blockRange }))).toStrictEqual([
+			{ file: 'phase1-core.md', rowLine: 7, blockRange: { start: 13, end: 18 } },
+			{ file: 'phase2-extra.md', rowLine: 8, blockRange: { start: 19, end: 24 } },
+			{ file: 'phase3-lonely.md', rowLine: 9, blockRange: undefined },
+			{ file: 'phase4-ghost.md', rowLine: undefined, blockRange: { start: 25, end: 30 } },
+		]);
 	});
 });

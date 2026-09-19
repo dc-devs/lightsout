@@ -8,6 +8,7 @@ import { decisionLogReference } from '#src/plan/decisionLog/decisionLogReference
 import { readMergedDecisions } from '#src/plan/decisionLog/readMergedDecisions.ts';
 import { renderDecisionLog } from '#src/plan/decisionLog/renderDecisionLog.ts';
 import { writeDecisionLogSection } from '#src/plan/decisionLog/writeDecisionLogSection.ts';
+import { syncGlobalConstraints } from '#src/plan/sections/index.ts';
 
 interface Params {
 	cwd: string;
@@ -95,15 +96,34 @@ const resolvePaths = async ({
 };
 
 /**
- * Regenerate the `## Decision Log` of every file of one plan deliverable from
- * the saved decision records.
+ * The two per-section results as one entry per path: a file is updated when
+ * either of its engine-composed sections moved. Reported per file rather than
+ * per section because that is what the CLI prints, and a reader is told what
+ * happened to a plan file, not to a heading inside one.
+ */
+const foldSyncedFiles = ({ logs, constraints }: { logs: SyncedPlanFile[]; constraints: SyncedPlanFile[] }) => {
+	const movedConstraints = new Map(constraints.map(({ path, updated }) => [path, updated]));
+
+	return logs.map(({ path, updated }) => ({ path, updated: updated || (movedConstraints.get(path) ?? false) }));
+};
+
+/**
+ * Regenerate the two sections the engine composes from the saved decision
+ * records — the `## Decision Log` and the `## Global Constraints` — in every
+ * file of one plan deliverable.
  *
  * `plan.md` and `overview.md` carry the rendered table; every
  * `phase<N>-<slug>.md` carries the sentence pointing at the overview's copy, so
  * a phased plan keeps one history rather than one per phase, and which of the
- * two a path gets is decided from its name in every case. What a plan *is* —
- * for a caller that does not state its own paths — is answered by
- * `resolvePlanDeliverable` and nowhere else.
+ * two a path gets is decided from its name in every case. The constraints
+ * section takes no such split: every file of the deliverable gets the same
+ * rendered rules, because a phase file is handed to an implementing agent on its
+ * own. What a plan *is* — for a caller that does not state its own paths — is
+ * answered by `resolvePlanDeliverable` and nowhere else.
+ *
+ * Both sections rather than the log alone, because this is the command the
+ * currency checks name as their remedy: a `## Global Constraints` finding whose
+ * fix ran only the log would name a command that cannot clear it.
  *
  * Every way this can fail — an unresolvable deliverable, phase files with no
  * overview to hold the table, a record that was never authored — is settled
@@ -128,14 +148,16 @@ export const syncPlanDecisions = async ({ cwd, name, decisions, planPaths }: Par
 
 	const table = renderDecisionLog({ decisions: resolved.record.decisions });
 	const reference = decisionLogReference();
-	const files: SyncedPlanFile[] = [];
+	const logs: SyncedPlanFile[] = [];
 
 	for (const path of resolvedPaths.paths) {
 		const base = basename(path);
 		const section = base === 'plan.md' || base === 'overview.md' ? table : reference;
 
-		files.push(await writeDecisionLogSection({ path, section }));
+		logs.push(await writeDecisionLogSection({ path, section }));
 	}
 
-	return { status: PlanRunStatus.Complete, files };
+	const constraints = await syncGlobalConstraints({ planPaths: resolvedPaths.paths, decisions: resolved.record });
+
+	return { status: PlanRunStatus.Complete, files: foldSyncedFiles({ logs, constraints }) };
 };

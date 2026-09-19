@@ -1,124 +1,39 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type DecisionRow, DecisionSource, type DecisionsRecord } from '#src/contracts/index.ts';
+import type { DecisionRow } from '#src/contracts/index.ts';
 import { syncPlanDecisions } from '#src/plan/decisionLog/index.ts';
+import {
+	decisionLogPlanBody,
+	decisionTableRows,
+	planDecisionRow,
+	planSectionBody,
+	seedPlanDecisions,
+	setupDecisionLogPlan,
+	setupPhasedDecisionLogPlan,
+	twoDecisionRows,
+	updatedByFile,
+} from '#tests/helpers/decisionLogPlan.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
 import { writePhasedPlanDeliverable } from '#tests/helpers/writePhasedPlanDeliverable.ts';
-import { writePlanDeliverable } from '#tests/helpers/writePlanDeliverable.ts';
 
 // The runner owns the whole deliverable: `plan.md` and `overview.md` carry the
 // rendered table, every phase file carries the pointer at the overview, and a
 // deliverable that cannot resolve — no plan, no overview, no record — is
 // refused before the first byte is written.
 
-/** A plan file carrying a hand-written Decision Log the engine is about to take over, plus the heading that follows it. */
-const planBody = ({ title }: { title: string }) => `# ${title}
+/** How many entries the result carries for each basename — one sync of two sections still reports one line per file. */
+const entriesByFile = ({ files }: { files: { path: string }[] }) => {
+	const counts: Record<string, number> = {};
 
-## Context
+	for (const file of files) {
+		const key = basename(file.path);
 
-Why this plan exists.
-
-## Decision Log
-
-Whatever the writer typed here before the engine owned the section.
-
-## Global Constraints
-
-- None
-
-## Verification
-
-- \`true\` — types clean
-`;
-
-/** One decision row; only the fields a test varies are parameters. */
-const decisionRow = ({
-	question,
-	choice,
-	source = DecisionSource.Elicitation,
-}: {
-	question: string;
-	choice: string;
-	source?: DecisionSource;
-}): DecisionRow => ({ source, question, options: 'this / that', choice, rationale: 'because it is the cheaper of the two', assumption: false });
-
-const twoRows = [
-	decisionRow({ question: 'Where does the log live?', choice: 'In the overview' }),
-	decisionRow({ question: 'Who writes it?', choice: 'The engine, never a writer', source: DecisionSource.Grill }),
-];
-
-/** The `## Decision Log` section's body — its heading through the line before the next `##` heading. */
-const decisionLogSection = ({ text }: { text: string }) => {
-	const lines = text.split('\n');
-	const start = lines.findIndex((line) => line.startsWith('## Decision Log'));
-
-	if (start === -1) {
-		return '';
+		counts[key] = (counts[key] ?? 0) + 1;
 	}
 
-	const rest = lines.slice(start + 1);
-	const next = rest.findIndex((line) => line.startsWith('## '));
-
-	return (next === -1 ? rest : rest.slice(0, next)).join('\n');
-};
-
-/** The section's numbered table body rows — the header and separator rows have no integer first cell. */
-const tableRows = ({ section }: { section: string }) => section.split('\n').filter((line) => /^\|\s*\d+\s*\|/.test(line));
-
-/** Each reported file keyed by its basename, so an assertion pins what happened rather than the walk's order. */
-const updatedByFile = ({ files }: { files: { path: string; updated: boolean }[] }) =>
-	Object.fromEntries(files.map((file) => [basename(file.path), file.updated]));
-
-/** Write the plan's own `decisions.json` — the record the runner reads when it is handed none. */
-const seedDecisions = ({ dir, name, rows }: { dir: string; name: string; rows: DecisionRow[] }) => {
-	writeFileSync(join(dir, 'decisions.json'), JSON.stringify({ planName: name, decisions: rows }));
-};
-
-/** A single-file plan deliverable, with the decision record on disk unless the case is about its absence. */
-const setupSinglePlan = ({ record = true }: { record?: boolean } = {}) => {
-	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-sync-'));
-	const name = 'decision-log';
-	const dir = writePlanDeliverable({ cwd, name, body: planBody({ title: 'Decision Log' }) });
-	const planPath = join(dir, 'plan.md');
-
-	if (record) {
-		seedDecisions({ dir, name, rows: twoRows });
-	} else {
-		// the deliverable helper seeds an empty record beside every plan it writes,
-		// and this case is about the record not being there at all
-		rmSync(join(dir, 'decisions.json'));
-	}
-
-	return { cwd, name, readPlan: () => readFileSync(planPath, 'utf8') };
-};
-
-/** A phased deliverable of two phase files, with the overview beside them unless the case is about its absence. */
-const setupPhasedPlan = ({ overview = true }: { overview?: boolean } = {}) => {
-	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-sync-'));
-	const name = 'phased-log';
-	const phases = {
-		'phase1-core.md': planBody({ title: 'Phase 1 — Core' }),
-		'phase2-wire.md': planBody({ title: 'Phase 2 — Wire' }),
-	};
-	const files = overview ? { 'overview.md': planBody({ title: 'Overview' }), ...phases } : phases;
-	const dir = writePhasedPlanDeliverable({ cwd, name, files });
-
-	seedDecisions({ dir, name, rows: twoRows });
-
-	return { cwd, name, path: (base: string) => join(dir, base), readFile: (base: string) => readFileSync(join(dir, base), 'utf8') };
-};
-
-/** The workspace a phased draft holds between its overview spawn and its first phase file: `overview.md` alone, which resolves to no plan at all. */
-const setupOverviewOnly = () => {
-	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-sync-'));
-	const name = 'mid-draft';
-	const dir = writePhasedPlanDeliverable({ cwd, name, files: { 'overview.md': planBody({ title: 'Overview' }) } });
-
-	seedDecisions({ dir, name, rows: twoRows });
-
-	return { cwd, name, overviewPath: join(dir, 'overview.md'), readFile: (base: string) => readFileSync(join(dir, base), 'utf8') };
+	return counts;
 };
 
 /** A phased deliverable whose record holds one row declaring the phase it concerns and one row declaring none. */
@@ -130,34 +45,62 @@ const setupDeclaringPhasedPlan = () => {
 		cwd,
 		name,
 		files: {
-			'overview.md': planBody({ title: 'Overview' }),
-			'phase1-core.md': planBody({ title: 'Phase 1 — Core' }),
-			'phase2-extra.md': planBody({ title: 'Phase 2 — Extra' }),
+			'overview.md': decisionLogPlanBody({ title: 'Overview' }),
+			'phase1-core.md': decisionLogPlanBody({ title: 'Phase 1 — Core' }),
+			'phase2-extra.md': decisionLogPlanBody({ title: 'Phase 2 — Extra' }),
 		},
 	});
 	const rows: DecisionRow[] = [
-		{ ...decisionRow({ question: 'Which phase carries the extra wiring?', choice: 'The second phase' }), phases: ['phase2-extra.md'] },
-		decisionRow({ question: 'Who writes the log?', choice: 'The engine, never a writer' }),
+		{ ...planDecisionRow({ question: 'Which phase carries the extra wiring?', choice: 'The second phase' }), phases: ['phase2-extra.md'] },
+		planDecisionRow({ question: 'Who writes the log?', choice: 'The engine, never a writer' }),
 	];
 
-	seedDecisions({ dir, name, rows });
+	seedPlanDecisions({ dir, name, rows });
+
+	return { cwd, name, bases, readFile: (base: string) => readFileSync(join(dir, base), 'utf8') };
+};
+
+/** The shared body with its project-wide rules hand-written too, so neither engine-composed section is what the record would compose. */
+const staleBody = ({ title }: { title: string }) =>
+	decisionLogPlanBody({ title, constraints: '- Whatever rule the writer typed here before the engine owned the section' });
+
+/** A phased deliverable whose files all carry a hand-written Decision Log and a hand-written constraints bullet, beside a record holding one project-wide rule. */
+const setupStaleSectionsPlan = () => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-sync-'));
+	const name = 'stale-sections';
+	const bases = ['overview.md', 'phase1-core.md', 'phase2-wire.md'];
+	const dir = writePhasedPlanDeliverable({
+		cwd,
+		name,
+		files: {
+			'overview.md': staleBody({ title: 'Overview' }),
+			'phase1-core.md': staleBody({ title: 'Phase 1 — Core' }),
+			'phase2-wire.md': staleBody({ title: 'Phase 2 — Wire' }),
+		},
+	});
+	const constraint = planDecisionRow({
+		question: 'Global constraint: how is this machinery to be changed?',
+		choice: 'The grading machinery is restructured for modularity, not patched around',
+	});
+
+	seedPlanDecisions({ dir, name, rows: [...twoDecisionRows, constraint] });
 
 	return { cwd, name, bases, readFile: (base: string) => readFileSync(join(dir, base), 'utf8') };
 };
 
 describe('syncPlanDecisions', () => {
 	test('syncPlanDecisions: writes the full table into a single plan and reports it updated', async () => {
-		const plan = setupSinglePlan();
+		const plan = setupDecisionLogPlan();
 
 		const result = await syncPlanDecisions({ cwd: plan.cwd, name: plan.name });
 
 		expectStatus(result, 'complete');
-		const section = decisionLogSection({ text: plan.readPlan() });
+		const section = planSectionBody({ heading: 'Decision Log', text: plan.readPlan() });
 		// one table row per record, the choices written through, and no pointer at
 		// an overview a single plan does not have
 		expect({
 			reported: updatedByFile({ files: result.files }),
-			rows: tableRows({ section }).length,
+			rows: decisionTableRows({ section }).length,
 			firstChoice: section.includes('In the overview'),
 			secondChoice: section.includes('The engine, never a writer'),
 			pointsElsewhere: section.includes('overview.md'),
@@ -165,21 +108,21 @@ describe('syncPlanDecisions', () => {
 	});
 
 	test('syncPlanDecisions: gives the overview the table and every phase file the reference', async () => {
-		const phased = setupPhasedPlan();
+		const phased = setupPhasedDecisionLogPlan();
 
 		const result = await syncPlanDecisions({ cwd: phased.cwd, name: phased.name });
 
 		expectStatus(result, 'complete');
-		const overview = decisionLogSection({ text: phased.readFile('overview.md') });
-		const first = decisionLogSection({ text: phased.readFile('phase1-core.md') });
-		const second = decisionLogSection({ text: phased.readFile('phase2-wire.md') });
+		const overview = planSectionBody({ heading: 'Decision Log', text: phased.readFile('overview.md') });
+		const first = planSectionBody({ heading: 'Decision Log', text: phased.readFile('phase1-core.md') });
+		const second = planSectionBody({ heading: 'Decision Log', text: phased.readFile('phase2-wire.md') });
 
 		// the table has exactly one home, and each phase points at it
 		expect({
 			reported: updatedByFile({ files: result.files }),
-			overviewRows: tableRows({ section: overview }).length,
-			firstRows: tableRows({ section: first }).length,
-			secondRows: tableRows({ section: second }).length,
+			overviewRows: decisionTableRows({ section: overview }).length,
+			firstRows: decisionTableRows({ section: first }).length,
+			secondRows: decisionTableRows({ section: second }).length,
 			firstPoints: first.includes('overview.md'),
 			secondPoints: second.includes('overview.md'),
 		}).toStrictEqual({
@@ -193,7 +136,7 @@ describe('syncPlanDecisions', () => {
 	});
 
 	test('syncPlanDecisions: reports every file unchanged on a repeated run', async () => {
-		const phased = setupPhasedPlan();
+		const phased = setupPhasedDecisionLogPlan();
 		const first = await syncPlanDecisions({ cwd: phased.cwd, name: phased.name });
 
 		expectStatus(first, 'complete');
@@ -222,7 +165,7 @@ describe('syncPlanDecisions', () => {
 		const second = await syncPlanDecisions({ cwd: declared.cwd, name: declared.name });
 
 		expectStatus(second, 'complete');
-		const overviewRows = tableRows({ section: decisionLogSection({ text: declared.readFile('overview.md') }) });
+		const overviewRows = decisionTableRows({ section: planSectionBody({ heading: 'Decision Log', text: declared.readFile('overview.md') }) });
 		// the marker sits on the declaring row of the overview's table and nowhere
 		// else, and the second run finds every file already current
 		expect({
@@ -243,7 +186,7 @@ describe('syncPlanDecisions', () => {
 	});
 
 	test('syncPlanDecisions: fails with the resolution error when no plan answers to the name', async () => {
-		const plan = setupSinglePlan();
+		const plan = setupDecisionLogPlan();
 
 		const result = await syncPlanDecisions({ cwd: plan.cwd, name: 'no-such-plan' });
 
@@ -252,11 +195,11 @@ describe('syncPlanDecisions', () => {
 		// was looked for
 		expect(result.error).toMatch(/no-such-plan/);
 		// the plan that does exist is left exactly as it was written
-		expect(plan.readPlan()).toBe(planBody({ title: 'Decision Log' }));
+		expect(plan.readPlan()).toBe(decisionLogPlanBody({ title: 'Decision Log' }));
 	});
 
 	test('syncPlanDecisions: fails naming overview.md when phase files resolve without one and writes nothing', async () => {
-		const phased = setupPhasedPlan({ overview: false });
+		const phased = setupPhasedDecisionLogPlan({ overview: false });
 		const before = ['phase1-core.md', 'phase2-wire.md'].map((base) => phased.readFile(base));
 
 		const result = await syncPlanDecisions({ cwd: phased.cwd, name: phased.name });
@@ -270,114 +213,51 @@ describe('syncPlanDecisions', () => {
 	});
 
 	test('syncPlanDecisions: fails naming decisions.json and writes nothing when the record is missing', async () => {
-		const plan = setupSinglePlan({ record: false });
+		const plan = setupDecisionLogPlan({ record: false });
 
 		const result = await syncPlanDecisions({ cwd: plan.cwd, name: plan.name });
 
 		expectStatus(result, 'failed');
 		expect({ error: result.error, text: plan.readPlan() }).toEqual({
 			error: expect.stringContaining('decisions.json'),
-			text: planBody({ title: 'Decision Log' }),
+			text: decisionLogPlanBody({ title: 'Decision Log' }),
 		});
 	});
 
-	test('syncPlanDecisions: renders the record it was handed instead of reading the workspace', async () => {
-		const plan = setupSinglePlan({ record: false });
-		const decisions: DecisionsRecord = {
-			planName: plan.name,
-			decisions: [decisionRow({ question: 'Whose rows are these?', choice: 'The ones the caller handed in' })],
-		};
+	test('syncPlanDecisions: a stale Global Constraints section is recomposed beside the Decision Log', async () => {
+		const stale = setupStaleSectionsPlan();
+		const first = await syncPlanDecisions({ cwd: stale.cwd, name: stale.name });
 
-		const result = await syncPlanDecisions({ cwd: plan.cwd, name: plan.name, decisions });
+		expectStatus(first, 'complete');
+		const afterFirst = stale.bases.map((base) => stale.readFile(base));
 
-		expectStatus(result, 'complete');
-		const section = decisionLogSection({ text: plan.readPlan() });
-		// there is no decisions.json to read, so a synced table proves the handed
-		// rows were the ones rendered
+		const second = await syncPlanDecisions({ cwd: stale.cwd, name: stale.name });
+
+		expectStatus(second, 'complete');
+		// one run recomposes both engine-owned sections of every file and reports
+		// each file once, and the run after it finds the deliverable current
 		expect({
-			reported: updatedByFile({ files: result.files }),
-			rows: tableRows({ section }).length,
-			choice: section.includes('The ones the caller handed in'),
-		}).toStrictEqual({ reported: { 'plan.md': true }, rows: 1, choice: true });
-	});
-
-	test('syncPlanDecisions: syncs the paths it is handed for a workspace whose deliverable does not resolve', async () => {
-		const draft = setupOverviewOnly();
-		const decisions: DecisionsRecord = {
-			planName: draft.name,
-			decisions: [decisionRow({ question: 'Which record is rendered?', choice: 'The one the draft is holding' })],
-		};
-
-		const result = await syncPlanDecisions({ cwd: draft.cwd, name: draft.name, planPaths: [draft.overviewPath], decisions });
-
-		expectStatus(result, 'complete');
-		const section = decisionLogSection({ text: draft.readFile('overview.md') });
-		// stated paths and a stated record together: neither the deliverable nor the
-		// workspace's own decisions.json is read, and the overview still gets the table
-		expect({
-			reported: updatedByFile({ files: result.files }),
-			rows: tableRows({ section }).length,
-			handedChoice: section.includes('The one the draft is holding'),
-		}).toStrictEqual({ reported: { 'overview.md': true }, rows: 1, handedChoice: true });
-	});
-
-	test('syncPlanDecisions: fails on that same overview-only workspace when it is handed no paths', async () => {
-		const draft = setupOverviewOnly();
-
-		const result = await syncPlanDecisions({ cwd: draft.cwd, name: draft.name });
-
-		expectStatus(result, 'failed');
-		// the resolver reads an overview with no phase file beside it as no plan, so
-		// the stated paths above are what made the difference — and nothing is written
-		expect({ error: result.error, text: draft.readFile('overview.md') }).toEqual({
-			error: expect.stringContaining('no plan found'),
-			text: planBody({ title: 'Overview' }),
-		});
-	});
-
-	test('syncPlanDecisions: picks each handed path a rendering from its name and leaves every other file alone', async () => {
-		const phased = setupPhasedPlan();
-
-		const result = await syncPlanDecisions({
-			cwd: phased.cwd,
-			name: phased.name,
-			planPaths: [phased.path('overview.md'), phased.path('phase1-core.md')],
-		});
-
-		expectStatus(result, 'complete');
-		const overview = decisionLogSection({ text: phased.readFile('overview.md') });
-		const first = decisionLogSection({ text: phased.readFile('phase1-core.md') });
-
-		// the name decides the rendering for a stated path exactly as it does for a
-		// resolved one, and the phase file left out of the list is untouched
-		expect({
-			reported: updatedByFile({ files: result.files }),
-			overviewRows: tableRows({ section: overview }).length,
-			firstRows: tableRows({ section: first }).length,
-			firstPoints: first.includes('overview.md'),
-			second: phased.readFile('phase2-wire.md'),
+			firstReported: updatedByFile({ files: first.files }),
+			entries: entriesByFile({ files: first.files }),
+			secondReported: updatedByFile({ files: second.files }),
+			constraintWritten: stale.bases.map((base) =>
+				planSectionBody({ text: stale.readFile(base), heading: 'Global Constraints' }).includes(
+					'- The grading machinery is restructured for modularity, not patched around',
+				),
+			),
+			handEditRemains: stale.bases.map((base) => stale.readFile(base).includes('Whatever rule the writer typed here')),
+			logRows: decisionTableRows({ section: planSectionBody({ heading: 'Decision Log', text: stale.readFile('overview.md') }) }).length,
+			phasePoints: stale.readFile('phase1-core.md').includes('overview.md'),
+			texts: stale.bases.map((base) => stale.readFile(base)),
 		}).toStrictEqual({
-			reported: { 'overview.md': true, 'phase1-core.md': true },
-			overviewRows: 2,
-			firstRows: 0,
-			firstPoints: true,
-			second: planBody({ title: 'Phase 2 — Wire' }),
+			firstReported: { 'overview.md': true, 'phase1-core.md': true, 'phase2-wire.md': true },
+			entries: { 'overview.md': 1, 'phase1-core.md': 1, 'phase2-wire.md': 1 },
+			secondReported: { 'overview.md': false, 'phase1-core.md': false, 'phase2-wire.md': false },
+			constraintWritten: [true, true, true],
+			handEditRemains: [false, false, false],
+			logRows: 3,
+			phasePoints: true,
+			texts: afterFirst,
 		});
-	});
-
-	test('syncPlanDecisions: syncs handed phase paths with no overview beside them rather than refusing them', async () => {
-		const phased = setupPhasedPlan({ overview: false });
-
-		const result = await syncPlanDecisions({ cwd: phased.cwd, name: phased.name, planPaths: [phased.path('phase1-core.md')] });
-
-		expectStatus(result, 'complete');
-		const first = decisionLogSection({ text: phased.readFile('phase1-core.md') });
-		// the refusal over a missing overview belongs to the resolved path only: the
-		// caller that states its paths owns where the table lives
-		expect({
-			reported: updatedByFile({ files: result.files }),
-			rows: tableRows({ section: first }).length,
-			points: first.includes('overview.md'),
-		}).toStrictEqual({ reported: { 'phase1-core.md': true }, rows: 0, points: true });
 	});
 });

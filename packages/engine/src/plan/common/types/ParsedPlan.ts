@@ -18,7 +18,9 @@ export interface ParsedPlan {
 	movePaths: { from: string; to: string }[];
 	/** 1-based line numbers of `## Files to Move` headings that did not yield two paths. */
 	malformedMoveLines: number[];
-	/** 1-based inclusive line range of the `## Decision Log` section — its heading line through the last line before the next `##`. Absent when the file has no such section. */
+	/** Every engine-composed region `generatedPlanRegions` names that this file carries, keyed by heading, each a 1-based inclusive line range. */
+	generatedRegionRanges: Map<string, { start: number; end: number }>;
+	/** 1-based inclusive line range of the `## Decision Log` section — its heading line through the last line before the next `##`. A read of `generatedRegionRanges`, named because five call sites ask for this one region. Absent when the file has no such section. */
 	decisionLogRange?: { start: number; end: number };
 	/** Every `##` section's 1-based inclusive line range — its heading line through the last line before the next `##`. */
 	sectionRanges: Map<string, { start: number; end: number }>;

@@ -18,11 +18,10 @@ export const passAt = '2026-01-01T00:00:00.000Z';
  * two of these can only move on what a test actually varied. `probe` drops one
  * of the two git values entirely, which is not the same as setting it empty.
  *
- * The decision-log part is present by default, so a fixture's two passes
- * compare as a phased plan with no decision change. `design` is its hash of the
- * overview without the Decision Log, `decisionRows` its rows, and
- * `omitDecisionLog` leaves the part out entirely, the way a pass recorded before
- * the part existed leaves it.
+ * The decision part is present by default, so a fixture's two passes compare as
+ * a phased plan with no decision change. `design` is its hash of the overview's
+ * shared design text, `decisionRows` its rows, and `omitDecisionLog` leaves the
+ * part out entirely, the way a pass recorded before the part existed leaves it.
  */
 export const inputsFor = ({
 	planFiles,
@@ -32,7 +31,7 @@ export const inputsFor = ({
 	decisionRows = [],
 	omitDecisionLog = false,
 }: {
-	planFiles: { file: string; sha256: string }[];
+	planFiles: GradeInputs['planFiles'];
 	sha256: string;
 	probe?: 'both' | 'no-commit' | 'no-changed-files';
 	design?: string;
@@ -47,8 +46,15 @@ export const inputsFor = ({
 	prompts: 'prompts-1',
 	model: 'opus',
 	effort: 'high',
-	...(omitDecisionLog ? {} : { decisionLog: { overview: design, rows: decisionRows } }),
+	...(omitDecisionLog ? {} : { decisionLog: { overviewDesign: design, rows: decisionRows } }),
 	sha256,
+});
+
+/** One plan file's two hashes: what its whole text hashed to, and the design hash a reader's reading is recorded against. */
+export const planFileHashes = ({ file, content }: { file: string; content: string }): GradeInputs['planFiles'][number] => ({
+	file,
+	sha256: content,
+	designSha256: `${content}-design`,
 });
 
 /** One memory record. Only `status` and `phase` are read by the scope rules; the rest is what the contract demands of any record. */
@@ -93,6 +99,7 @@ export const memoryFor = ({
 	findings,
 	...(lastPass === undefined ? {} : { lastPass: { scope: GradeScope.Full, inputs: lastPass, at: passAt } }),
 	...(lastPassingFullReview === undefined ? {} : { lastPassingFullReview: { inputs: lastPassingFullReview, at: passAt } }),
+	coverage: { readers: [] },
 	nextFindingNumber: findings.length + 1,
 	updatedAt: passAt,
 });
@@ -103,11 +110,18 @@ export const phasedFiles = (): { path: string; text: string }[] => [
 	{ path: '/plans/demo/phase2-extra.md', text: phaseBody({ prerequisites: '- `src/core.ts` exists.', modify: ['src/core.ts'] }) },
 ];
 
-/** The plan-file hashes of a phased fixture; the first phase's hash and the overview's are the two a test moves. */
-export const phasedPlanFiles = ({ phaseOne, overview = 'overview-1' }: { phaseOne: string; overview?: string }): { file: string; sha256: string }[] => [
-	{ file: 'overview.md', sha256: overview },
-	{ file: 'phase1-core.md', sha256: phaseOne },
-	{ file: 'phase2-extra.md', sha256: 'phase2-1' },
+/**
+ * The plan-file hashes of a phased fixture; the first phase's hash and the
+ * overview's are the two a test moves.
+ *
+ * Each file's design hash is derived from its whole-file hash, so a fixture that
+ * moves a file moves the text a reader read along with it — which is what these
+ * fixtures were always saying, back when one hash was all a plan file carried.
+ */
+export const phasedPlanFiles = ({ phaseOne, overview = 'overview-1' }: { phaseOne: string; overview?: string }): GradeInputs['planFiles'] => [
+	planFileHashes({ file: 'overview.md', content: overview }),
+	planFileHashes({ file: 'phase1-core.md', content: phaseOne }),
+	planFileHashes({ file: 'phase2-extra.md', content: 'phase2-1' }),
 ];
 
 /** The third phase file, which shares no path, export or hand-off with the two above it — what keeps a focused closure short of the whole plan. */

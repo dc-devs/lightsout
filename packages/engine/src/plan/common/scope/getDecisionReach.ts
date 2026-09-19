@@ -7,8 +7,8 @@ interface Params {
 	current?: GradeDecisionLog;
 	/** The earlier pass's decision-log part; absent when that pass was recorded before the part existed. */
 	previous?: GradeDecisionLog;
-	/** Whether the overview's whole-file hash moved between the two passes — `getEditedPhases`' `overviewChanged`. */
-	overviewChanged: boolean;
+	/** Whether the overview's whole-file hash moved between the two passes — `getEditedPhases`' `overviewFileChanged`. */
+	overviewFileChanged: boolean;
 	/** The phase basenames whose own text changed this pass — `getEditedPhases`' `edited`. */
 	edited: string[];
 	/** Every phase-file basename the plan has now. */
@@ -55,17 +55,24 @@ const joinedRows = ({ current, previous }: { current: GradeDecisionLog; previous
  * Rows are compared as a multiset of row hashes rather than by position, so one
  * deleted row reads as one changed row rather than as every later row moving.
  * The checks run in a fixed order and the first to fail is the answer. Every one
- * of them is a case where the reach is not known — a missing part, an overview
- * design edit, a log that moved with no row changed, a changed row that names no
- * phases or names a file the plan does not have, and an earlier scope whose
- * connections this pass's phase edits may have cut — and a reach that is not
- * known comes back as an error, never as a narrower answer. Walking the
- * connections from the answer is left to `getAffectedPhases`.
+ * of them is a case where the reach is not known — a missing part, an
+ * unmeasured or edited shared design text, a log that moved with neither a row
+ * changed nor a phase edited, a changed row that names no phases or names a file
+ * the plan does not have, and an earlier scope whose connections this pass's
+ * phase edits may have cut — and a reach that is not known comes back as an
+ * error, never as a narrower answer. Walking the connections from the answer is
+ * left to `getAffectedPhases`.
+ *
+ * The shared design check is what tells an overview edit every phase reads from
+ * one a single phase owns: a phase's own row and declaration block are credited
+ * to that phase's design hash, so they move the overview's whole-file hash and
+ * arrive here in `edited` — which is why a file move beside an edited phase is
+ * placed rather than reported unplaceable.
  *
  * @returns the sorted, deduplicated phase basenames the changed rows name, or an
  * error the caller turns into a full review
  */
-export const getDecisionReach = ({ current, previous, overviewChanged, edited, phaseFiles }: Params): { phases: string[] } | { error: string } => {
+export const getDecisionReach = ({ current, previous, overviewFileChanged, edited, phaseFiles }: Params): { phases: string[] } | { error: string } => {
 	if (previous === undefined) {
 		return { error: 'the earlier pass has no decision evidence to compare against' };
 	}
@@ -74,13 +81,17 @@ export const getDecisionReach = ({ current, previous, overviewChanged, edited, p
 		return { error: 'this pass could not read the overview, so its decisions cannot be compared' };
 	}
 
-	if (current.overview !== previous.overview) {
-		return { error: 'the overview changed outside its Decision Log, and it is context every phase shares' };
+	if (current.overviewDesign === undefined || previous.overviewDesign === undefined) {
+		return { error: 'one of the two passes never measured the shared design text of the overview, so it cannot be compared' };
+	}
+
+	if (current.overviewDesign !== previous.overviewDesign) {
+		return { error: 'the overview changed outside every generated region and every per-phase span, and that is context every phase shares' };
 	}
 
 	const joined = joinedRows({ current, previous });
 
-	if (overviewChanged && joined.changed.length === 0) {
+	if (overviewFileChanged && joined.changed.length === 0 && edited.length === 0) {
 		return { error: 'the overview moved but no decision row changed, so where the change reaches cannot be placed' };
 	}
 

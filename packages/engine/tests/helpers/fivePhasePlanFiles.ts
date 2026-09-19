@@ -1,4 +1,4 @@
-import { renderDecisionLog } from '#src/plan/index.ts';
+import { renderDecisionLog, renderGlobalConstraints } from '#src/plan/index.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { overviewMarker } from '#tests/helpers/overviewMarker.ts';
 import { secondPhaseBody } from '#tests/helpers/secondPhaseBody.ts';
@@ -26,9 +26,7 @@ const fivePhaseOverview = () => `# Graded Plan — Overview
 
 ${renderDecisionLog({ decisions: [] })}
 
-## Global Constraints
-
-- None
+${renderGlobalConstraints({ decisions: [] })}
 
 ## Phases
 

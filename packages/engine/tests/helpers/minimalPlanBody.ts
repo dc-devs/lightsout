@@ -1,4 +1,4 @@
-import { decisionLogReference, renderDecisionLog } from '#src/plan/index.ts';
+import { decisionLogReference, renderDecisionLog, renderGlobalConstraints } from '#src/plan/index.ts';
 
 interface Params {
 	title: string;
@@ -8,8 +8,8 @@ interface Params {
 	reference?: boolean;
 }
 
-/** A plan body whose Files to Create names each given path — the minimum the prior-art detector reads, plus the Decision Log every plan file is checked for. */
+/** A plan body whose Files to Create names each given path — the minimum the prior-art detector reads, plus the two engine-composed sections every plan file is checked for. */
 export const minimalPlanBody = ({ title, creates, reference = false }: Params): string =>
-	`# ${title}\n\n${reference ? decisionLogReference() : renderDecisionLog({ decisions: [] })}\n\n## Files to Create\n\n${creates
-		.map((path) => `### \`${path}\`\n\nnew.\n`)
-		.join('\n')}\n`;
+	`# ${title}\n\n${reference ? decisionLogReference() : renderDecisionLog({ decisions: [] })}\n\n${renderGlobalConstraints({
+		decisions: [],
+	})}\n\n## Files to Create\n\n${creates.map((path) => `### \`${path}\`\n\nnew.\n`).join('\n')}\n`;

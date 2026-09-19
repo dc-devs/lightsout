@@ -86,9 +86,10 @@ const runRepairAttempt = async ({ params, findings, attempt }: { params: Params;
  * offers is unreachable here: a plan file the repairer deleted or broke comes
  * back as a finding rather than as no answer at all.
  *
- * Every round composes the Decision Log before it lints it. The section is the
- * engine's, and the repairer is told not to touch it, so a round that displaced
- * or damaged it is corrected here rather than handed back to the repairer as a
+ * Every round composes the two sections the decision record owns — the Decision
+ * Log and the Global Constraints — before it lints them. Both are the engine's,
+ * and the repairer is told not to touch either, so a round that displaced or
+ * damaged one is corrected here rather than handed back to the repairer as a
  * finding it has been forbidden to fix.
  *
  * A caller asking for `mechanicalRepair` gets the whole deterministic pass in

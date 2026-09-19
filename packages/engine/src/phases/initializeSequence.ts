@@ -5,6 +5,7 @@ import { type LightsoutConfig, PipelineKind, type RunManifest, RunStatus, type S
 import type { Driver } from '#src/drivers/index.ts';
 import { findUnfinishedSequence } from '#src/phases/findUnfinishedSequence.ts';
 import { readOverviewPhases } from '#src/phases/readOverviewPhases.ts';
+import { resolveRecordedPlanPath } from '#src/plan/index.ts';
 import { createRun, writeRunManifest } from '#src/runState/index.ts';
 
 interface Params {
@@ -22,7 +23,10 @@ interface Params {
 
 /** The phase file names the overview's table names, refusing an empty table and a file listed twice. */
 const getPhaseFiles = async ({ cwd, overview }: { cwd: string; overview: string }) => {
-	const overviewFullPath = join(cwd, overview);
+	// The shared resolver, not a bare join: a plan folder lives in the primary
+	// checkout whichever checkout the run works in, so a plans-directory path
+	// joined to a worktree names a file that is not there.
+	const overviewFullPath = await resolveRecordedPlanPath({ cwd, path: overview });
 	const overviewContent = await readFile(overviewFullPath, 'utf8').catch(() => undefined);
 
 	if (overviewContent === undefined) {
@@ -52,7 +56,10 @@ const assertPhaseFilesExist = async ({ cwd, overview, phases }: { cwd: string; o
 
 	for (const file of phases) {
 		const phasePath = join(dirname(overview), file);
-		const present = await access(join(cwd, phasePath)).then(
+		// Resolved the same way the overview beside it is: a phase file sits in
+		// that same plan folder, so joining it to the run's checkout would report
+		// every phase of a phased plan as missing.
+		const present = await access(await resolveRecordedPlanPath({ cwd, path: phasePath })).then(
 			() => true,
 			() => false,
 		);

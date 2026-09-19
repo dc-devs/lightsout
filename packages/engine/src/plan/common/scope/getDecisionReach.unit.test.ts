@@ -17,19 +17,24 @@ const entry = ({ id, question = id, phases }: { id: string; question?: string; p
 interface ReachSpec {
 	previousRows?: DecisionEntry[];
 	currentRows?: DecisionEntry[];
-	/** Left out entirely, the way a pass recorded before the part existed leaves it. */
-	omitPrevious?: boolean;
-	/** Left out entirely, the way a pass that could not read the overview leaves it. */
-	omitCurrent?: boolean;
-	overviewChanged?: boolean;
+	/**
+	 * What this pass's parts leave out entirely, rather than leave empty:
+	 * `previous` is a pass recorded before the decision part existed, `current` a
+	 * pass that could not read the overview, and `previousDesign` a pass recorded
+	 * before the shared overview design hash existed.
+	 */
+	omitted?: { previous?: boolean; current?: boolean; previousDesign?: boolean };
+	/** This pass's shared overview design hash; the same value as the earlier part's unless a test moves it. */
+	currentDesign?: string;
+	overviewFileChanged?: boolean;
 	edited?: string[];
 }
 
-/** The two passes' decision-log parts and the scope facts handed beside them. By default the overview moved, its design text did not, and no phase text changed. */
-const setupReach = ({ previousRows = [], currentRows = [], omitPrevious = false, omitCurrent = false, overviewChanged = true, edited = [] }: ReachSpec) => ({
-	...(omitPrevious ? {} : { previous: { overview: 'design-1', rows: previousRows } }),
-	...(omitCurrent ? {} : { current: { overview: 'design-1', rows: currentRows } }),
-	overviewChanged,
+/** The two passes' decision-log parts and the scope facts handed beside them. By default the overview's whole file moved, its shared design text did not, and no phase text changed. */
+const setupReach = ({ previousRows = [], currentRows = [], omitted = {}, currentDesign = 'design-1', overviewFileChanged = true, edited = [] }: ReachSpec) => ({
+	...(omitted.previous ? {} : { previous: { ...(omitted.previousDesign ? {} : { overviewDesign: 'design-1' }), rows: previousRows } }),
+	...(omitted.current ? {} : { current: { overviewDesign: currentDesign, rows: currentRows } }),
+	overviewFileChanged,
 	edited,
 	phaseFiles,
 });
@@ -150,12 +155,26 @@ describe('getDecisionReach', () => {
 	test('a change to the overview outside its Decision Log returns an error even when no decision row changed', () => {
 		const rows = [entry({ id: 'a' }), entry({ id: 'b', phases: ['phase2-extra.md'] })];
 		// this pass's hash of the overview without its Decision Log moved, while every row stayed put
-		const params = { ...setupReach({ previousRows: rows, currentRows: rows }), current: { overview: 'design-2', rows } };
+		const params = { ...setupReach({ previousRows: rows, currentRows: rows }), current: { overviewDesign: 'design-2', rows } };
 
 		const reach = getDecisionReach(params);
 
 		// overview design text is context every phase shares
 		expect(reach).toEqual({ error: expect.any(String) });
+	});
+
+	test.each([
+		{ currentDesign: 'design-2', omitted: {}, error: expect.stringMatching(/share/i) },
+		{ currentDesign: 'design-1', omitted: { previousDesign: true }, error: expect.any(String) },
+	])('a moved or unmeasured overview design text returns an error rather than a reach', ({ currentDesign, omitted, error }) => {
+		const rows = [entry({ id: 'a' }), entry({ id: 'b', phases: ['phase2-extra.md'] })];
+		const params = setupReach({ previousRows: rows, currentRows: rows, currentDesign, omitted });
+
+		const reach = getDecisionReach(params);
+
+		// the shared design text moved, or one side never measured it; an absence
+		// read as a match would claim a comparison nobody made
+		expect(reach).toEqual({ error });
 	});
 
 	test('a Decision Log that moved with no row changed returns an error', () => {
@@ -170,12 +189,24 @@ describe('getDecisionReach', () => {
 		expect(reach).toEqual({ error: expect.any(String) });
 	});
 
+	test('an overview file move beside an edited phase is placed rather than reported unplaceable', () => {
+		const rows = [entry({ id: 'a' }), entry({ id: 'b', phases: ['phase2-extra.md'] })];
+		const params = setupReach({ previousRows: rows, currentRows: rows, edited: ['phase1-core.md'] });
+
+		const reach = getDecisionReach(params);
+
+		// the overview's whole file moved because a phase's own row and declaration
+		// block were rewritten, and that span is now placed into `edited` rather
+		// than being a move the engine cannot account for
+		expect(reach).toStrictEqual({ phases: [] });
+	});
+
 	test.each([
-		{ omitPrevious: true, omitCurrent: false, error: expect.stringMatching(/decision evidence/i) },
-		{ omitPrevious: false, omitCurrent: true, error: expect.any(String) },
-	])('a missing decision-log part on either side returns an error', ({ omitPrevious, omitCurrent, error }) => {
+		{ omitted: { previous: true }, error: expect.stringMatching(/decision evidence/i) },
+		{ omitted: { current: true }, error: expect.any(String) },
+	])('a missing decision-log part on either side returns an error', ({ omitted, error }) => {
 		const rows = [entry({ id: 'b', phases: ['phase2-extra.md'] })];
-		const params = setupReach({ previousRows: rows, currentRows: rows, omitPrevious, omitCurrent });
+		const params = setupReach({ previousRows: rows, currentRows: rows, omitted });
 
 		const reach = getDecisionReach(params);
 
@@ -186,7 +217,7 @@ describe('getDecisionReach', () => {
 
 	test('an unchanged overview and unchanged rows reach no phase', () => {
 		const rows = [entry({ id: 'a' }), entry({ id: 'b', phases: ['phase2-extra.md'] })];
-		const params = setupReach({ previousRows: rows, currentRows: rows, overviewChanged: false });
+		const params = setupReach({ previousRows: rows, currentRows: rows, overviewFileChanged: false });
 
 		const reach = getDecisionReach(params);
 
