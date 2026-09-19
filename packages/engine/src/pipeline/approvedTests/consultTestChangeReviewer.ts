@@ -1,3 +1,4 @@
+import type { ActivityLevel } from '#src/activity/index.ts';
 import { buildTestChangeReviewInvocation } from '#src/agents/index.ts';
 import { defaultSupervisorTimeoutMinutes } from '#src/common/constants/defaultSupervisorTimeoutMinutes.ts';
 import { type AcceptanceTestRecord, type LightsoutConfig, Permissions, TestChangeReview } from '#src/contracts/index.ts';
@@ -23,6 +24,8 @@ interface Params {
 	changes: TestChange[];
 	onEvent?: (event: unknown) => void;
 	onRejectedOutput?: (params: { text: string; attempt: number; validationError: string }) => Promise<void> | void;
+	/** The level this review's harness processes are recorded under. Absent wherever no run is being recorded. */
+	activity?: ActivityLevel;
 }
 
 /**
@@ -48,6 +51,7 @@ export const consultTestChangeReviewer = async ({
 	changes,
 	onEvent,
 	onRejectedOutput,
+	activity,
 }: Params): Promise<AgentOutcome<TestChangeReview>> => {
 	return invokeAgentWithContract({
 		driver,
@@ -60,5 +64,6 @@ export const consultTestChangeReviewer = async ({
 		timeoutMs: (config.timeouts?.['supervisor-minutes'] ?? defaultSupervisorTimeoutMinutes) * 60_000,
 		onEvent,
 		onRejectedOutput,
+		activity,
 	});
 };

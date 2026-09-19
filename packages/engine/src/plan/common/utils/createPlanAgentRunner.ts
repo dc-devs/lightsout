@@ -5,8 +5,7 @@ import type { ActivityLevel } from '#src/activity/index.ts';
 import { createEventFileSink } from '#src/common/utils/createEventFileSink.ts';
 import { ActivityLevelKind, type Effort, type Permissions } from '#src/contracts/index.ts';
 import type { AgentEnvironment, Driver } from '#src/drivers/index.ts';
-import { type AgentOutcome, invokeAgentWithContract } from '#src/invoke/index.ts';
-import { getAgentOutcomeStatus } from '#src/plan/common/activity/getAgentOutcomeStatus.ts';
+import { type AgentOutcome, getAgentOutcomeStatus, invokeAgentWithContract } from '#src/invoke/index.ts';
 
 interface Params {
 	cwd: string;

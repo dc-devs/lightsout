@@ -1,5 +1,6 @@
 import { consultSupervisor } from '#src/common/utils/consultSupervisor.ts';
 import { RunStatus, type StepRecord, SupervisorDecision } from '#src/contracts/index.ts';
+import { getAgentOutcomeStatus } from '#src/invoke/index.ts';
 import type { VerificationResult } from '#src/pipeline/common/types/VerificationResult.ts';
 import type { GuidedRepairOutcome } from '#src/pipeline/steps/verifyStep/common/types/GuidedRepairOutcome.ts';
 import type { VerifyContext } from '#src/pipeline/steps/verifyStep/common/types/VerifyContext.ts';
@@ -33,7 +34,11 @@ export const runGuidedRepair = async ({ context, record, result }: Params): Prom
 	}
 
 	const { run, id, planContent } = context;
+	const step = `${id}-supervisor`;
+
 	run.progress(`step ${id}: mechanical retries exhausted — consulting supervisor`);
+
+	const stepLevel = run.openStepLevel({ step });
 	const verdict = await consultSupervisor({
 		driver: run.driver,
 		cwd: run.cwd,
@@ -42,10 +47,16 @@ export const runGuidedRepair = async ({ context, record, result }: Params): Prom
 		stepId: id,
 		errorOutput: result.error,
 		attempts: record.attempts,
-		onEvent: run.agentEventSink({ step: `${id}-supervisor` }),
-		onRejectedOutput: run.persistRejected({ step: `${id}-supervisor` }),
+		onEvent: run.agentEventSink({ step }),
+		onRejectedOutput: run.persistRejected({ step }),
+		activity: stepLevel,
 	});
-	await run.recordUsage({ step: `${id}-supervisor`, usage: verdict.usage });
+
+	// Closed before the park branch below, so every exit from here leaves the
+	// consult's own level ended.
+	stepLevel?.close({ outcome: getAgentOutcomeStatus({ outcome: verdict }) });
+
+	await run.recordUsage({ step, usage: verdict.usage });
 
 	if (!verdict.ok && verdict.rateLimited) {
 		return { parked: await run.stop({ record, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };
