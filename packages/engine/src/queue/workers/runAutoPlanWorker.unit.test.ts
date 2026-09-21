@@ -294,7 +294,7 @@ describe('runAutoPlanWorker', () => {
 	});
 
 	test('runAutoPlanWorker: a failed plan choice starts no session', async () => {
-		const choiceError = `the ticket record published on LO-70 and the local one both moved — run lightsout ticket sync --name ${branch}`;
+		const choiceError = `the ticket record published on LO-70 and the local one both moved — run lightsout work-order sync --name ${branch}`;
 		const { params } = setupAutoPlanWorker({ choice: { error: choiceError } });
 
 		const outcome = await runAutoPlanWorker(params);

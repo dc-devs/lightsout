@@ -127,7 +127,7 @@ export const excludeTicketPlan = async (params: Params): Promise<TicketRecordCha
 	return {
 		record: written.record,
 		notice: written.withdrew
-			? `the pending ship request was withdrawn because plan ${target.id} is no longer part of ticket ${ticketBranch}'s work — ask again with \`lightsout ticket request-ship --name ${ticketBranch}\``
+			? `the pending ship request was withdrawn because plan ${target.id} is no longer part of ticket ${ticketBranch}'s work — ask again with \`lightsout work-order request-ship --name ${ticketBranch}\``
 			: undefined,
 		publishError: written.publishError,
 	};

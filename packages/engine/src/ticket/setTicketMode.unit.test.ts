@@ -110,7 +110,7 @@ describe('setTicketMode', () => {
 		expect(result).toEqual(
 			expect.objectContaining({
 				record: expect.objectContaining({ mode: 'multiple-plan' }),
-				notice: expect.stringContaining('ticket request-ship'),
+				notice: expect.stringContaining('work-order request-ship'),
 			}),
 		);
 		expect(written.mode).toBe('multiple-plan');
@@ -207,7 +207,7 @@ describe('setTicketMode', () => {
 		const result = await setTicketMode({ ...params, mode: TicketMode.SinglePlan, approve: true });
 
 		expect(errorOf({ outcome: result })).toContain('002-queue-order');
-		expect(errorOf({ outcome: result })).toContain('ticket exclude-plan --implementation-removed');
+		expect(errorOf({ outcome: result })).toContain('work-order exclude-plan --implementation-removed');
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
 	});
 
@@ -256,7 +256,7 @@ describe('setTicketMode', () => {
 		const result = await setTicketMode({ ...params, mode: TicketMode.SinglePlan, approve: true });
 
 		expect(errorOf({ outcome: result })).toContain('002-queue-order');
-		expect(errorOf({ outcome: result })).toContain('ticket exclude-plan --implementation-removed');
+		expect(errorOf({ outcome: result })).toContain('work-order exclude-plan --implementation-removed');
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
 	});
 
@@ -311,7 +311,7 @@ describe('setTicketMode', () => {
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
 	});
 
-	test('refuses a ticket with no record and names only ticket add-plan', async () => {
+	test('refuses a ticket with no record and names only work-order add-plan', async () => {
 		const { params, recordPath } = await setupTicketMode({ seeded: false });
 
 		// The criterion covers both directions: neither may create a record.
@@ -322,7 +322,7 @@ describe('setTicketMode', () => {
 		// whose plans folder already holds loose files, and one command starts a
 		// plan either way — the second form naming the folder those files are in.
 		expect(errorOf({ outcome: toSingle })).toContain(`there is no ticket record for '${ticketBranch}'`);
-		expect(errorOf({ outcome: toSingle })).toContain(`lightsout ticket add-plan --name ${ticketBranch} --slug <slug>`);
+		expect(errorOf({ outcome: toSingle })).toContain(`lightsout work-order add-plan --name ${ticketBranch} --slug <slug>`);
 		expect(errorOf({ outcome: toSingle })).toContain(`--from ${ticketBranch}`);
 		// The refusal must never name a word the dispatcher now rejects.
 		expect(errorOf({ outcome: toSingle })).not.toMatch(/adopt/i);
@@ -330,5 +330,30 @@ describe('setTicketMode', () => {
 		// directions have to answer the very same sentence.
 		expect(errorOf({ outcome: toMultiple })).toBe(errorOf({ outcome: toSingle }));
 		expect(existsSync(recordPath)).toBe(false);
+	});
+
+	test('setTicketMode: the unaccounted-implementation refusal and the multiple-plan notice spell the work-order command word', async () => {
+		const unaccounted = await setupTicketMode({
+			plans: [planWith({ id: '001-record', progress: PlanProgress.Ready }), planWith({ id: '002-queue-order', progress: PlanProgress.Implemented })],
+		});
+		// The other half of the criterion: a ticket already in single-plan mode, so
+		// the switch goes through and answers the notice rather than a refusal.
+		const toMultiple = await setupTicketMode({
+			mode: TicketMode.SinglePlan,
+			plans: [planWith({ id: '001-record', progress: PlanProgress.Ready })],
+		});
+
+		const refused = await setTicketMode({ ...unaccounted.params, mode: TicketMode.SinglePlan, approve: true });
+		const switched = await setTicketMode({ ...toMultiple.params, mode: TicketMode.MultiplePlan, approve: false });
+
+		const refusal = errorOf({ outcome: refused });
+		const notice = 'error' in switched ? undefined : switched.notice;
+
+		expect(refusal).toContain('lightsout work-order exclude-plan --implementation-removed');
+		expect(notice).toContain(`lightsout work-order request-ship --name ${ticketBranch}`);
+		// The old command word anywhere in either sentence is the failure this row
+		// exists for, so both are checked for it rather than only for the new one.
+		expect(refusal).not.toContain('lightsout ticket ');
+		expect(notice).not.toContain('lightsout ticket ');
 	});
 });

@@ -235,7 +235,7 @@ describe('createTicketShipGuard', () => {
 
 		const refusal = await guard.authorize({ cwd, branch });
 
-		expect(refusal).toEqual(expect.stringContaining('lightsout ticket sync'));
+		expect(refusal).toEqual(expect.stringContaining('lightsout work-order sync'));
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
 	});
 

@@ -65,8 +65,8 @@ const recordWith = ({ plans }: { plans: TicketPlan[] }): TicketRecord => ({
 });
 
 /** Two refusals the choice only passes along: one from the record pull, one from the plan creation. */
-const divergenceError = 'the ticket record moved here and on LO-140: run lightsout ticket sync --name lo-140-multi';
-const looseFilesError = 'lo-140-multi still holds loose files: run lightsout ticket add-plan --name lo-140-multi --slug <slug> --from lo-140-multi';
+const divergenceError = 'the ticket record moved here and on LO-140: run lightsout work-order sync --name lo-140-multi';
+const looseFilesError = 'lo-140-multi still holds loose files: run lightsout work-order add-plan --name lo-140-multi --slug <slug> --from lo-140-multi';
 
 const ticketWith = ({ title }: { title: string }): TicketSummary => ({
 	id: 'id-140',

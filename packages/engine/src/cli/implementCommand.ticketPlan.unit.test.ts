@@ -291,7 +291,7 @@ describe('implementCommand ticket plans', () => {
 		// here may be older than it — building it would silently drop the other
 		// machine's work, and the sentence says which command settles that
 		expect(errors.join('\n')).toContain(firstPlan);
-		expect(errors.join('\n')).toContain('lightsout ticket sync');
+		expect(errors.join('\n')).toContain('lightsout work-order sync');
 		expect(readFileSync(join(cwd, ticketFolder, 'ticket.json'), 'utf8')).toBe(before);
 		expect(readRunIds({ cwd })).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([1]);

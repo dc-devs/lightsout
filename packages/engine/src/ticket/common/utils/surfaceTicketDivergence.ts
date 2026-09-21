@@ -25,7 +25,7 @@ interface Params {
  * can say which one the ticket keeps.
  */
 export const surfaceTicketDivergence = async ({ ticketFolder, ticketBranch, ticketRef, content }: Params): Promise<string> => {
-	const sync = `lightsout ticket sync --name ${ticketBranch}`;
+	const sync = `lightsout work-order sync --name ${ticketBranch}`;
 	let saved = `the published copy is saved beside it as ${ticketFileNames.published}`;
 
 	try {

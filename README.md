@@ -198,9 +198,10 @@ A ticket can hold several plans. Its record says which mode it is in — single-
 where plan 001 alone supplies the implementation, or multiple-plan, where the
 plans implement in numeric order on the one branch — seeded by
 `plan.default-ticket-mode` when the record is created. Plans are created and
-changed through `lightsout ticket`, never by hand, and a multiple-plan ticket
+changed through `lightsout work-order`, never by hand, and a multiple-plan ticket
 ships only once a human's ship request is satisfied. The `ticket-workflow` skill
-is where those rules live; [`lightsout ticket`](#lightsout-ticket) is the command.
+is where those rules live; [`lightsout work-order`](#lightsout-work-order) is
+the command.
 
 [![How /plan turns a request into an implementation-ready spec](assets/plan-workflow-light.svg)](assets/plan-workflow-light.svg)
 
@@ -307,7 +308,7 @@ For a plan address the ticket's own record is settled first — written into the
 primary checkout as `ticket.json` — and then that plan's prefixed generation is
 restored into its folder. A record that moved both here and on the ticket is
 never overwritten: the published copy is saved beside it as
-`ticket.published.json`, and `lightsout ticket sync --name <ticket-branch>
+`ticket.published.json`, and `lightsout work-order sync --name <ticket-branch>
 --keep local` or `--keep published` says which copy wins. A plan folder that
 gives way to a restore is renamed aside, never deleted. Publishing and restoring
 move planning records only — implementation commits still travel by `git push`
@@ -482,7 +483,7 @@ names those roles resolve to live in the `queue` config block. See
 lightsout ticket-state --ref LO-88 --planning-status planning-complete --tracker-status ready
 ```
 
-### lightsout ticket
+### lightsout work-order
 
 A ticket owns one branch and a record of the numbered plans on it. Each plan is
 addressed as the ticket's branch and the plan's id joined by a slash —
@@ -516,9 +517,9 @@ A plan folder with no record keeps working exactly as it did before. For what
 [Configuration](docs/configuration.md).
 
 ```text
-lightsout ticket add-plan --name lo-140-multi --slug queue-order
-lightsout ticket mode --name lo-140-multi --set multiple-plan
-lightsout ticket request-ship --name lo-140-multi --plans 001-record,002-queue-order
+lightsout work-order add-plan --name lo-140-multi --slug queue-order
+lightsout work-order mode --name lo-140-multi --set multiple-plan
+lightsout work-order request-ship --name lo-140-multi --plans 001-record,002-queue-order
 ```
 
 ### lightsout queue
@@ -534,7 +535,7 @@ Each ticket gets a fresh worktree cut from the default branch, the config's `set
 
 When a worker hits a question only a human can answer, the queue relays it: to your terminal by default, or — with `--file-relay` — to a mailbox the `queue` skill watches from a Claude Code or Codex session, so you can keep working and answer when asked. A question nobody answers parks its ticket after `question-timeout`; a later run picks parked work back up, worktree and all. A worktree whose ticket a human already closed is never resumed: if its branch merged, the ticket is reconciled to Done, and if it did not, the worktree is reported and left in place because it may hold work nobody has merged. The queue writes down where each branch stands — still being built, finished and waiting to merge, left open, or already merged — so a later run picks the work back up as what it actually is, and never rebuilds a branch that is already finished or merges one twice.
 
-A ticket that owns several plans has the plans that are ready to implement built one at a time, lowest number first, each committed as its own commit — so a later plan is built on what the plans before it left, and any one plan's implementation can be taken out again by its own commit. A lower plan somebody is still planning holds the plans after it back. A plan whose implementation failed, or whose implementation has not finished, parks the ticket naming that plan, `lightsout resume` to finish it and `lightsout ticket exclude-plan` to take it out of the order — the queue repairs neither itself.
+A ticket that owns several plans has the plans that are ready to implement built one at a time, lowest number first, each committed as its own commit — so a later plan is built on what the plans before it left, and any one plan's implementation can be taken out again by its own commit. A lower plan somebody is still planning holds the plans after it back. A plan whose implementation failed, or whose implementation has not finished, parks the ticket naming that plan, `lightsout resume` to finish it and `lightsout work-order exclude-plan` to take it out of the order — the queue repairs neither itself.
 
 A ticket with several plans that nothing has yet approved shipping is left open rather than parked: it takes no parked label, keeps its tracker status and keeps its worktree, and a later run picks it up again to build whichever plans have since become ready to implement, or to ship it once its ship request is satisfied. For an auto-plan ticket the engine chooses which plan the session writes — the lowest plan still being planned, or a new plan 001 when the ticket has no plans yet.
 

@@ -248,7 +248,7 @@ describe('runWorkerWithRelay', () => {
 	});
 
 	test('runWorkerWithRelay: an auto-plan ticket whose record pull after the session fails builds nothing', async () => {
-		const diverged = 'the ticket record on LO-70 and the local one both moved: resolve them with lightsout ticket sync --name lo-70-drain';
+		const diverged = 'the ticket record on LO-70 and the local one both moved: resolve them with lightsout work-order sync --name lo-70-drain';
 		const { params } = setupAutoPlanTicket({ plannedPull: { error: diverged } });
 
 		const outcome = await runWorkerWithRelay(params);

@@ -107,13 +107,13 @@ describe('requestTicketShip', () => {
 		expect(result).toEqual(expect.objectContaining({ record: stored }));
 	});
 
-	test('refuses a request that does not cover every non-excluded plan and names ticket exclude-plan', async () => {
+	test('refuses a request that does not cover every non-excluded plan and names work-order exclude-plan', async () => {
 		const { params, recordPath, before } = await setupTicketRecord();
 
 		const result = await requestTicketShip({ ...params, plans: ['1'] });
 
 		expect(result).toEqual({ error: expect.stringContaining('002-fix-x') });
-		expect(result).toEqual({ error: expect.stringContaining('ticket exclude-plan') });
+		expect(result).toEqual({ error: expect.stringContaining('work-order exclude-plan') });
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
 	});
 
@@ -152,5 +152,23 @@ describe('requestTicketShip', () => {
 
 		expect(result).toEqual({ error: expect.any(String) });
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
+	});
+
+	test('requestTicketShip: the uncovered-plans and wrong-mode refusals spell the work-order command word', async () => {
+		const uncovered = await setupTicketRecord();
+		const singlePlan = await setupTicketRecord({ mode: TicketMode.SinglePlan, plans: [planOf({ id: '001-search-basics' })] });
+
+		const results = [
+			await requestTicketShip({ ...uncovered.params, plans: ['1'] }),
+			await requestTicketShip({ ...singlePlan.params, plans: ['001-search-basics'] }),
+		];
+
+		expect(results).toEqual([
+			{ error: expect.stringContaining('lightsout work-order exclude-plan') },
+			{ error: expect.stringContaining('lightsout work-order mode') },
+		]);
+		expect(results).toEqual([{ error: expect.not.stringContaining('lightsout ticket ') }, { error: expect.not.stringContaining('lightsout ticket ') }]);
+		expect(readFileSync(uncovered.recordPath, 'utf8')).toBe(uncovered.before);
+		expect(readFileSync(singlePlan.recordPath, 'utf8')).toBe(singlePlan.before);
 	});
 });

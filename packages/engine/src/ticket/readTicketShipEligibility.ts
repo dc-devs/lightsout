@@ -45,7 +45,7 @@ const readMultiplePlanEligibility = ({ record }: Params): TicketShipEligibility 
 	const included = record.plans.filter((plan) => plan.exclusion === undefined);
 	const includedIds = included.map((plan) => plan.id);
 	const request = record.shipRequest;
-	const askAgain = `\`lightsout ticket request-ship --name ${record.branch} --plans ${includedIds.join(',')}\``;
+	const askAgain = `\`lightsout work-order request-ship --name ${record.branch} --plans ${includedIds.join(',')}\``;
 	let eligibility: TicketShipEligibility;
 
 	if (request === undefined) {

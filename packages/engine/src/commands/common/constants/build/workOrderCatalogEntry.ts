@@ -1,21 +1,21 @@
 import { type CommandCatalogEntry, CommandGroup, CommandRecordKind } from '#src/contracts/index.ts';
 
-/** `lightsout ticket` — seven subcommands under one command word, so it carries seven invocations rather than one. */
-export const ticketCatalogEntry: CommandCatalogEntry = {
-	id: 'ticket',
-	cli: 'lightsout ticket',
+/** `lightsout work-order` — seven subcommands under one command word, so it carries seven invocations rather than one. */
+export const workOrderCatalogEntry: CommandCatalogEntry = {
+	id: 'work-order',
+	cli: 'lightsout work-order',
 	group: CommandGroup.Build,
 	summary: "Change and show a ticket's record of the plans it holds, the mode they implement in, and its request to ship.",
 	whenToUse:
 		'Reach for it whenever a ticket gains a plan or changes shape. `add-plan` starts the next plan, and given `--from` makes that plan out of a named folder’s loose files; `mode` moves a ticket between one plan supplying the implementation and several implementing in numeric order; `request-ship` is how a human declares a multiple-plan ticket finished, and `exclude-plan` takes a plan out of that work for good; `retitle-plan` changes only what a plan is called; `show` reads the record, and `sync` settles a record that moved on two machines at once.',
 	invocations: [
-		{ id: 'ticket-add-plan', positional: 'add-plan' },
-		{ id: 'ticket-mode', positional: 'mode' },
-		{ id: 'ticket-request-ship', positional: 'request-ship' },
-		{ id: 'ticket-exclude-plan', positional: 'exclude-plan' },
-		{ id: 'ticket-retitle-plan', positional: 'retitle-plan' },
-		{ id: 'ticket-show', positional: 'show' },
-		{ id: 'ticket-sync', positional: 'sync' },
+		{ id: 'work-order-add-plan', positional: 'add-plan' },
+		{ id: 'work-order-mode', positional: 'mode' },
+		{ id: 'work-order-request-ship', positional: 'request-ship' },
+		{ id: 'work-order-exclude-plan', positional: 'exclude-plan' },
+		{ id: 'work-order-retitle-plan', positional: 'retitle-plan' },
+		{ id: 'work-order-show', positional: 'show' },
+		{ id: 'work-order-sync', positional: 'sync' },
 	],
 	flags: [
 		{
@@ -28,7 +28,7 @@ export const ticketCatalogEntry: CommandCatalogEntry = {
 			name: 'slug',
 			value: '<slug>',
 			meaning: "The new plan's fixed slug: lowercase letter-and-digit words joined by single hyphens, at most 40 characters.",
-			shape: 'ticket-add-plan',
+			shape: 'work-order-add-plan',
 			required: true,
 		},
 		{
@@ -36,7 +36,7 @@ export const ticketCatalogEntry: CommandCatalogEntry = {
 			value: '<title>',
 			meaning: "The plan's first display title, which stays changeable.",
 			fallback: 'The slug is used as the title.',
-			shape: 'ticket-add-plan',
+			shape: 'work-order-add-plan',
 			required: false,
 		},
 		{
@@ -45,7 +45,7 @@ export const ticketCatalogEntry: CommandCatalogEntry = {
 			meaning:
 				"A plan folder's bare name under the plans directory, whose loose files become this plan: they are moved into the plan's own folder. Never a path, and never one plan's address.",
 			fallback: 'The plan is created empty.',
-			shape: 'ticket-add-plan',
+			shape: 'work-order-add-plan',
 			required: false,
 		},
 		{
@@ -53,14 +53,14 @@ export const ticketCatalogEntry: CommandCatalogEntry = {
 			value: 'single-plan|multiple-plan',
 			meaning:
 				'How this ticket organises its plans: single-plan means plan 001 alone supplies the implementation, multiple-plan means its plans implement in numeric order on one branch.',
-			shape: 'ticket-mode',
+			shape: 'work-order-mode',
 			required: true,
 		},
 		{
 			name: 'approve',
 			meaning: 'Carry out a switch to single-plan mode, excluding every later plan.',
 			fallback: 'The switch is previewed and nothing is changed.',
-			shape: 'ticket-mode',
+			shape: 'work-order-mode',
 			required: false,
 		},
 		{
@@ -68,7 +68,7 @@ export const ticketCatalogEntry: CommandCatalogEntry = {
 			value: '<id,id>',
 			meaning: 'Every plan the request approves, as full ids or bare numbers — it must name each plan the ticket still includes.',
 			fallback: 'Nothing is requested; give --withdraw instead to take a pending request back.',
-			shape: 'ticket-request-ship',
+			shape: 'work-order-request-ship',
 			required: false,
 			exclusiveWith: 'ship-request',
 		},
@@ -76,31 +76,31 @@ export const ticketCatalogEntry: CommandCatalogEntry = {
 			name: 'withdraw',
 			meaning: 'Take a pending ship request back, leaving the ticket open.',
 			fallback: 'Nothing is withdrawn; give --plans instead to record a request.',
-			shape: 'ticket-request-ship',
+			shape: 'work-order-request-ship',
 			required: false,
 			exclusiveWith: 'ship-request',
 		},
-		{ name: 'plan', value: '<id>', meaning: 'The plan to exclude, as its full id or its number on its own.', shape: 'ticket-exclude-plan', required: true },
+		{ name: 'plan', value: '<id>', meaning: 'The plan to exclude, as its full id or its number on its own.', shape: 'work-order-exclude-plan', required: true },
 		{
 			name: 'reason',
 			value: '<text>',
 			meaning: "Why this plan is out of the ticket's work — the record's only account of the decision.",
-			shape: 'ticket-exclude-plan',
+			shape: 'work-order-exclude-plan',
 			required: true,
 		},
 		{
 			name: 'implementation-removed',
 			meaning: "Declare this plan's implementation taken off the branch, which the repository's own gates then verify on that branch's checkout.",
 			fallback: "The exclusion records no removal, and the plan's implementation stays where it is.",
-			shape: 'ticket-exclude-plan',
+			shape: 'work-order-exclude-plan',
 			required: false,
 		},
-		{ name: 'plan', value: '<id>', meaning: 'The plan to retitle, as its full id or its number on its own.', shape: 'ticket-retitle-plan', required: true },
+		{ name: 'plan', value: '<id>', meaning: 'The plan to retitle, as its full id or its number on its own.', shape: 'work-order-retitle-plan', required: true },
 		{
 			name: 'title',
 			value: '<title>',
 			meaning: "The plan's new display title. Its id, its folder and any pending ship request are untouched.",
-			shape: 'ticket-retitle-plan',
+			shape: 'work-order-retitle-plan',
 			required: true,
 		},
 		{
@@ -108,7 +108,7 @@ export const ticketCatalogEntry: CommandCatalogEntry = {
 			value: 'local|published',
 			meaning: 'Which copy wins when this machine and the ticket have both changed the record.',
 			fallback: 'The ordinary sync: the ticket’s copy is taken when only it moved, and this machine’s is sent when only it did.',
-			shape: 'ticket-sync',
+			shape: 'work-order-sync',
 			required: false,
 		},
 		{

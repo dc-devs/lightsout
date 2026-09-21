@@ -50,5 +50,5 @@ export const findBareTicketFolderRefusal = async ({ cwd, name }: Params): Promis
 
 	return read.record === undefined
 		? undefined
-		: `the plan folder '${name}' belongs to a ticket record, so name a plan as '${name}/<plan-id>' — \`lightsout ticket show --name ${name}\` lists the plans it holds`;
+		: `the plan folder '${name}' belongs to a ticket record, so name a plan as '${name}/<plan-id>' — \`lightsout work-order show --name ${name}\` lists the plans it holds`;
 };

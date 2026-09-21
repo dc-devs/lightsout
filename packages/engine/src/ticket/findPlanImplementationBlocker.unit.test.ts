@@ -70,16 +70,16 @@ describe('findPlanImplementationBlocker', () => {
 		expect(blocker).toBeUndefined();
 	});
 
-	test('refuses a plan the record does not hold and names ticket show', () => {
+	test('refuses a plan the record does not hold and names work-order show', () => {
 		const { record } = setupTicket({ plans: [planWith({ id: '001-record', progress: PlanProgress.Implemented })] });
 
 		const blocker = findPlanImplementationBlocker({ record, planId: '004-nothing-here' });
 
 		expect(blocker).toContain('004-nothing-here');
-		expect(blocker).toContain('lightsout ticket show');
+		expect(blocker).toContain('lightsout work-order show');
 	});
 
-	test('refuses an excluded plan and names its reason and ticket add-plan', () => {
+	test('refuses an excluded plan and names its reason and work-order add-plan', () => {
 		const { record } = setupTicket({
 			plans: [
 				planWith({ id: '001-record', progress: PlanProgress.Implemented }),
@@ -91,7 +91,7 @@ describe('findPlanImplementationBlocker', () => {
 
 		expect(blocker).toContain('002-addressing');
 		expect(blocker).toContain('switched to single-plan mode');
-		expect(blocker).toContain('lightsout ticket add-plan');
+		expect(blocker).toContain('lightsout work-order add-plan');
 	});
 
 	test('refuses a plan other than 001 in single-plan mode and names the mode switch', () => {
@@ -103,29 +103,29 @@ describe('findPlanImplementationBlocker', () => {
 		const blocker = findPlanImplementationBlocker({ record, planId: '002-addressing' });
 
 		expect(blocker).toContain('002-addressing');
-		expect(blocker).toContain('lightsout ticket mode');
+		expect(blocker).toContain('lightsout work-order mode');
 		expect(blocker).toContain('--set multiple-plan');
 	});
 
-	test('refuses an implemented plan and names ticket add-plan for follow-up work', () => {
+	test('refuses an implemented plan and names work-order add-plan for follow-up work', () => {
 		const { record } = setupTicket({ plans: [planWith({ id: '001-record', progress: PlanProgress.Implemented })] });
 
 		const blocker = findPlanImplementationBlocker({ record, planId: '001-record' });
 
 		expect(blocker).toContain('001-record');
-		expect(blocker).toContain('lightsout ticket add-plan');
+		expect(blocker).toContain('lightsout work-order add-plan');
 	});
 
 	test.each([
 		{
 			progress: PlanProgress.Failed,
 			runId: 'run-5c1a',
-			expected: ['001-record', 'lightsout resume --run', 'run-5c1a', 'lightsout ticket exclude-plan'],
+			expected: ['001-record', 'lightsout resume --run', 'run-5c1a', 'lightsout work-order exclude-plan'],
 		},
 		{
 			progress: PlanProgress.Ready,
 			runId: undefined,
-			expected: ['001-record', 'lightsout implement --plan', '.lightsout/tickets/lo-140-multi/plans/001-record', 'lightsout ticket exclude-plan'],
+			expected: ['001-record', 'lightsout implement --plan', '.lightsout/tickets/lo-140-multi/plans/001-record', 'lightsout work-order exclude-plan'],
 		},
 	])('refuses behind the lowest lower plan that is not implemented and names how to resolve it', ({ progress, runId, expected }) => {
 		const { record } = setupTicket({
@@ -143,5 +143,37 @@ describe('findPlanImplementationBlocker', () => {
 		expect(blocker).toContain(expected[2]);
 		expect(blocker).toContain(expected[3]);
 		expect(blocker).not.toContain('unfinished');
+	});
+
+	test('findPlanImplementationBlocker: every blocker that names a command spells the work-order command word', () => {
+		const { record } = setupTicket({
+			plans: [
+				planWith({ id: '001-record', progress: PlanProgress.Implemented }),
+				planWith({ id: '002-addressing', progress: PlanProgress.Ready, excludedFor: 'switched to single-plan mode' }),
+			],
+		});
+		const { record: singlePlanRecord } = setupTicket({
+			mode: TicketMode.SinglePlan,
+			plans: [planWith({ id: '001-record', progress: PlanProgress.Implemented }), planWith({ id: '002-addressing', progress: PlanProgress.Ready })],
+		});
+		const { record: lowerPlanRecord } = setupTicket({
+			plans: [
+				planWith({ id: '001-record', progress: PlanProgress.Failed, runId: 'run-5c1a' }),
+				planWith({ id: '002-addressing', progress: PlanProgress.Ready }),
+			],
+		});
+
+		const unheldPlan = findPlanImplementationBlocker({ record, planId: '004-nothing-here' });
+		const excludedPlan = findPlanImplementationBlocker({ record, planId: '002-addressing' });
+		const outOfModePlan = findPlanImplementationBlocker({ record: singlePlanRecord, planId: '002-addressing' });
+		const implementedPlan = findPlanImplementationBlocker({ record, planId: '001-record' });
+		const behindLowerPlan = findPlanImplementationBlocker({ record: lowerPlanRecord, planId: '002-addressing' });
+
+		expect(unheldPlan).toContain('lightsout work-order show --name lo-140-multi');
+		expect(excludedPlan).toContain('lightsout work-order add-plan --name lo-140-multi');
+		expect(outOfModePlan).toContain('lightsout work-order mode --name lo-140-multi --set multiple-plan');
+		expect(implementedPlan).toContain('lightsout work-order add-plan --name lo-140-multi');
+		expect(behindLowerPlan).toContain('lightsout work-order exclude-plan --name lo-140-multi --plan 001-record');
+		expect([unheldPlan, excludedPlan, outOfModePlan, implementedPlan, behindLowerPlan].join('\n')).not.toContain('lightsout ticket ');
 	});
 });

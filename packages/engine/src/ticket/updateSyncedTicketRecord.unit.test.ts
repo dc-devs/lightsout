@@ -199,7 +199,7 @@ describe('updateSyncedTicketRecord', () => {
 
 		const result = await updateSyncedTicketRecord(params);
 
-		expect(result).toEqual({ error: expect.stringContaining('lightsout ticket sync') });
+		expect(result).toEqual({ error: expect.stringContaining('lightsout work-order sync') });
 		expect(seen).toStrictEqual([]);
 		expect(mockSetTicketAttachment).not.toHaveBeenCalled();
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
@@ -268,7 +268,7 @@ describe('updateSyncedTicketRecord', () => {
 
 		const result = await updateSyncedTicketRecord(params);
 
-		expect(result).toEqual({ record: changed, publishError: expect.stringContaining('lightsout ticket sync') });
+		expect(result).toEqual({ record: changed, publishError: expect.stringContaining('lightsout work-order sync') });
 		expect(mockSetTicketAttachment).not.toHaveBeenCalled();
 		expect((JSON.parse(readFileSync(recordPath, 'utf8')) as TicketRecord).history).toStrictEqual(changed.history);
 		expect(syncedHashAt({ syncPath })).toBe(sha256({ content: await canonicalTicketRecordText({ record: localRecord }) }));

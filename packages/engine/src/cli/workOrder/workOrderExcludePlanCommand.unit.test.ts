@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
-import { ticketExcludePlanCommand } from '#src/cli/ticket/ticketExcludePlanCommand.ts';
+import { workOrderExcludePlanCommand } from '#src/cli/workOrder/workOrderExcludePlanCommand.ts';
 import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
@@ -34,7 +34,7 @@ jest.mock('#src/ticket/index.ts', () => ({ excludeTicketPlan: (params: ExcludeTi
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 
-/** The ticket as the exclusion leaves it: plan 002 dropped, its files still on disk. */
+/** The work order as the exclusion leaves it: plan 002 dropped, its files still on disk. */
 const excludedRecord: TicketRecord = {
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
@@ -55,7 +55,7 @@ const excludedRecord: TicketRecord = {
 
 const setupExcludePlan = ({ args, outcome = { record: excludedRecord } }: { args: string[]; outcome?: ExcludeTicketPlanResult }) => {
 	const captured = captureCommandOutput();
-	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-ticket-exclude-plan-command-'));
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-work-order-exclude-plan-command-'));
 
 	mockExcludeTicketPlan.mockResolvedValue(outcome);
 
@@ -64,11 +64,11 @@ const setupExcludePlan = ({ args, outcome = { record: excludedRecord } }: { args
 	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, ...captured };
 };
 
-describe('ticketExcludePlanCommand', () => {
-	test('passes the plan, the reason and whether the implementation was removed', async () => {
+describe('workOrderExcludePlanCommand', () => {
+	test('passes the plan, the reason and the removal flag through after the work-order rename', async () => {
 		const removed = setupExcludePlan({ args: ['--name', 'lo-140-x', '--plan', '2', '--reason', 'dropped', '--implementation-removed'] });
 
-		await expect(ticketExcludePlanCommand(removed.context)).rejects.toThrow(/process\.exit/);
+		await expect(workOrderExcludePlanCommand(removed.context)).rejects.toThrow(/process\.exit/);
 
 		// the bare number reaches the operation exactly as typed — it is the
 		// operation that decides which plan it names — and the declared removal is
@@ -91,7 +91,7 @@ describe('ticketExcludePlanCommand', () => {
 
 		const kept = setupExcludePlan({ args: ['--name', 'lo-140-x', '--plan', '2', '--reason', 'dropped'] });
 
-		await expect(ticketExcludePlanCommand(kept.context)).rejects.toThrow(/process\.exit/);
+		await expect(workOrderExcludePlanCommand(kept.context)).rejects.toThrow(/process\.exit/);
 
 		// without the flag the human has declared nothing, so the exclusion must
 		// not record a removal it cannot verify
@@ -100,7 +100,7 @@ describe('ticketExcludePlanCommand', () => {
 
 		const missingReason = setupExcludePlan({ args: ['--name', 'lo-140-x', '--plan', '2'] });
 
-		await expect(ticketExcludePlanCommand(missingReason.context)).rejects.toThrow(/process\.exit/);
+		await expect(workOrderExcludePlanCommand(missingReason.context)).rejects.toThrow(/process\.exit/);
 
 		// the reason is the record's only account of why the plan was dropped, so a
 		// missing one is a usage error and nothing is excluded

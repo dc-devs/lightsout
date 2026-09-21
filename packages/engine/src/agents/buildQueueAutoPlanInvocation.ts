@@ -42,7 +42,7 @@ export const buildQueueAutoPlanInvocation = ({
 	const systemPrompt = [queueAutoPlanPrompt, `# Ticket ${ticketRef}: ${ticketTitle}\n\n${ticketBody}`].join('\n\n---\n\n');
 	const sections = [
 		`# The engine invocation\n\nRun every engine subcommand as:\n\n\`${engineCli} <subcommand>\`\n\nNothing else is granted to this session.`,
-		`# The plan you are planning\n\nPlan exactly this plan and no other:\n\n\`${planAddress}\`\n\nThat is its address, and \`${planWorkspacePath({ name: planAddress })}\` is the folder in this worktree it names. Pass the address as \`--name\` to every \`plan\` and \`brainstorm\` subcommand, and leave the plan's files in exactly that folder.\n\nThe engine has already added this plan to the ticket's record, so never run \`ticket add-plan\` or any other \`ticket\` subcommand.`,
+		`# The plan you are planning\n\nPlan exactly this plan and no other:\n\n\`${planAddress}\`\n\nThat is its address, and \`${planWorkspacePath({ name: planAddress })}\` is the folder in this worktree it names. Pass the address as \`--name\` to every \`plan\` and \`brainstorm\` subcommand, and leave the plan's files in exactly that folder.\n\nThe engine has already added this plan to the ticket's record, so never run \`work-order add-plan\` or any other \`work-order\` subcommand.`,
 	];
 
 	if (answeredQuestion) {

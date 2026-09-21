@@ -49,7 +49,7 @@ const findUncoveredPlansRefusal = ({ record, named }: { record: TicketRecord; na
 
 	return uncovered.length === 0
 		? undefined
-		: `the ship request for ticket ${record.branch} does not name ${uncovered.map((plan) => plan.id).join(', ')}, and a request approves every plan the ticket still includes — name them too, or take one out of the ticket's work with \`lightsout ticket exclude-plan --name ${record.branch} --plan <id> --reason <text>\``;
+		: `the ship request for ticket ${record.branch} does not name ${uncovered.map((plan) => plan.id).join(', ')}, and a request approves every plan the ticket still includes — name them too, or take one out of the ticket's work with \`lightsout work-order exclude-plan --name ${record.branch} --plan <id> --reason <text>\``;
 };
 
 /**
@@ -75,7 +75,7 @@ export const requestTicketShip = ({ cwd, ticketBranch, plans, config, env, onPro
 		change: (record) => {
 			if (record.mode !== TicketMode.MultiplePlan) {
 				return {
-					error: `ticket ${ticketBranch} is in single-plan mode, where plan 001 alone supplies the implementation and this repository's own shipping settings apply — switch with \`lightsout ticket mode --name ${ticketBranch} --set multiple-plan\` before asking for a ship request`,
+					error: `ticket ${ticketBranch} is in single-plan mode, where plan 001 alone supplies the implementation and this repository's own shipping settings apply — switch with \`lightsout work-order mode --name ${ticketBranch} --set multiple-plan\` before asking for a ship request`,
 				};
 			}
 

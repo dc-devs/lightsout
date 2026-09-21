@@ -353,4 +353,27 @@ describe('excludeTicketPlan', () => {
 		expect(mockRunGates).not.toHaveBeenCalled();
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
 	});
+
+	test('excludeTicketPlan refusals and notices spell the work-order command word', async () => {
+		const singlePlan = await setupExclusion({ mode: TicketMode.SinglePlan, plans: [planOf({ id: firstPlan, progress: PlanProgress.Ready })] });
+		// A started plan, so the withdrawal rides on the verified-removal path the
+		// criterion names rather than on the plain exclusion the row above covers.
+		const started = await setupExclusion({
+			plans: [planOf({ id: firstPlan, progress: PlanProgress.Implemented }), planOf({ id: secondPlan, progress: PlanProgress.Implemented })],
+			shipRequest: { planIds: [firstPlan, secondPlan], requestedAt: '2026-02-01T00:00:00.000Z' },
+		});
+
+		const refused = await excludeTicketPlan({ ...singlePlan.base, plan: '1', reason: 'no longer wanted', implementationRemoved: false });
+		const withdrawn = await excludeTicketPlan({ ...started.base, plan: '2', reason: 'implementation removed with the agent', implementationRemoved: true });
+
+		const refusal = errorOf({ result: refused });
+		const notice = 'error' in withdrawn ? undefined : withdrawn.notice;
+
+		expect(refusal).toContain(`lightsout work-order mode --name ${ticketBranch} --set multiple-plan`);
+		expect(notice).toContain(`lightsout work-order request-ship --name ${ticketBranch}`);
+		// The old command word anywhere in either sentence is the failure this row
+		// exists for, so both are checked for it rather than only for the new one.
+		expect(refusal).not.toContain('lightsout ticket ');
+		expect(notice).not.toContain('lightsout ticket ');
+	});
 });

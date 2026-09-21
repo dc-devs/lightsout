@@ -105,7 +105,7 @@ describe('readTicketShipEligibility', () => {
 		expect(eligibility).toStrictEqual({ eligible: false, reason: expect.stringContaining('001') });
 	});
 
-	test('refuses a multiple-plan ticket with no ship request and names ticket request-ship', () => {
+	test('refuses a multiple-plan ticket with no ship request and names work-order request-ship', () => {
 		const { record } = setupRecord({
 			mode: 'multiple-plan',
 			plans: [planWith({ id: '001-record', progress: 'implemented' }), planWith({ id: '002-queue-order', progress: 'implemented' })],
@@ -113,7 +113,7 @@ describe('readTicketShipEligibility', () => {
 
 		const eligibility = readTicketShipEligibility({ record });
 
-		expect(eligibility).toStrictEqual({ eligible: false, reason: expect.stringContaining('lightsout ticket request-ship') });
+		expect(eligibility).toStrictEqual({ eligible: false, reason: expect.stringContaining('lightsout work-order request-ship') });
 	});
 
 	test('refuses a ship request whose ids differ from the plans without an exclusion and names the difference', () => {
@@ -157,6 +157,35 @@ describe('readTicketShipEligibility', () => {
 		expect(failed).toStrictEqual({ eligible: false, reason: expect.stringContaining('002-queue-order') });
 		expect(ready).toStrictEqual({ eligible: false, reason: expect.stringContaining('002-queue-order') });
 		expect(everyReason).not.toMatch(/unfinished/i);
+	});
+
+	test('readTicketShipEligibility: every refusal that names a command spells the work-order command word', () => {
+		const { record: noRequestRecord } = setupRecord({
+			mode: 'multiple-plan',
+			plans: [planWith({ id: '001-record', progress: 'implemented' }), planWith({ id: '002-queue-order', progress: 'implemented' })],
+		});
+		const { record: uncoveredRequestRecord } = setupRecord({
+			mode: 'multiple-plan',
+			plans: [
+				planWith({ id: '001-record', progress: 'implemented' }),
+				planWith({ id: '002-queue-order', progress: 'implemented' }),
+				planWith({ id: '003-ship-guard', progress: 'implemented' }),
+			],
+			shipRequest: ['001-record', '002-queue-order'],
+		});
+
+		const noRequest = readTicketShipEligibility({ record: noRequestRecord });
+		const uncoveredRequest = readTicketShipEligibility({ record: uncoveredRequestRecord });
+
+		expect(noRequest).toStrictEqual({
+			eligible: false,
+			reason: expect.stringContaining('lightsout work-order request-ship --name lo-140-multi --plans 001-record,002-queue-order'),
+		});
+		expect(uncoveredRequest).toStrictEqual({
+			eligible: false,
+			reason: expect.stringContaining('lightsout work-order request-ship --name lo-140-multi --plans 001-record,002-queue-order,003-ship-guard'),
+		});
+		expect(JSON.stringify([noRequest, uncoveredRequest])).not.toMatch(/lightsout ticket /);
 	});
 
 	test('makes a multiple-plan ticket eligible when its request covers every included implemented plan whatever their titles', () => {

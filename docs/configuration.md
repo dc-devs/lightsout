@@ -557,9 +557,9 @@ supplies the ticket's implementation — that one plan may still have phases —
 the ticket's plans implement in numeric order on the one ticket branch, and the
 ticket ships only when an explicit ship request naming the included plans is
 satisfied. Changing the key never changes a ticket that already has a record;
-`lightsout ticket mode` does that, one ticket at a time. What each mode means for
-the ticket, and what switching between them costs, is the `ticket-workflow`
-skill's `### Modes`.
+`lightsout work-order mode` does that, one ticket at a time. What each mode
+means for the ticket, and what switching between them costs, is the
+`ticket-workflow` skill's `### Modes`.
 
 A planning session works in a git worktree of its own by default, so work
 another agent does in the checkout you launched it from cannot move the code a

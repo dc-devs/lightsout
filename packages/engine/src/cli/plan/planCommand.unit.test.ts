@@ -391,7 +391,7 @@ describe('planCommand', () => {
 		// names the folder and says how to list the plans it holds
 		expect(errors).toHaveLength(1);
 		expect(errors[0]).toContain('lo-9-x');
-		expect(errors[0]).toMatch(/lightsout ticket show/);
+		expect(errors[0]).toMatch(/lightsout work-order show/);
 		// nothing was published, and no tree was cut for a name that cannot address a plan
 		expect(mockPlanPublishCommand).not.toHaveBeenCalled();
 		expect(mockOpenPlanWorktree).not.toHaveBeenCalled();

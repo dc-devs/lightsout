@@ -166,7 +166,7 @@ const recordOutcome = async ({
  * `requireImplementLifecycle` leaves it.
  *
  * Every write is local. Progress is this machine's working state, and the next
- * `lightsout ticket` subcommand or `plan publish` is what puts it on the ticket.
+ * `lightsout work-order` subcommand or `plan publish` is what puts it on the ticket.
  *
  * A pipeline that throws, or exits before its run exists, deliberately leaves
  * the plan `implementing` under an id no manifest carries: the next `implement`
@@ -206,7 +206,7 @@ export const runTicketPlanLifecycle = async ({ cwd, name, resumeRunId, run }: Pa
 
 	if (findDivergentPlanIds({ record, syncState }).includes(planId)) {
 		return {
-			refusal: `plan ${planId} was published from another machine after this one last saw it, so the copy here may not be what the ticket carries — run \`lightsout ticket sync --name ${ticketBranch} --keep published\` to take the ticket's copy, or \`--keep local\` to publish this machine's over it`,
+			refusal: `plan ${planId} was published from another machine after this one last saw it, so the copy here may not be what the ticket carries — run \`lightsout work-order sync --name ${ticketBranch} --keep published\` to take the ticket's copy, or \`--keep local\` to publish this machine's over it`,
 		};
 	}
 

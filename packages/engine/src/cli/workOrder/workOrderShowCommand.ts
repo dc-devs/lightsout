@@ -2,7 +2,7 @@ import { getRequiredFlag } from '#src/cli/common/args/getRequiredFlag.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import { describePlanProgress } from '#src/cli/ticket/common/utils/describePlanProgress.ts';
+import { describePlanProgress } from '#src/cli/workOrder/common/utils/describePlanProgress.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { describeMissingTicketRecord } from '#src/common/utils/describeMissingTicketRecord.ts';
 import type { TicketRecord } from '#src/contracts/index.ts';
@@ -23,13 +23,13 @@ const renderTicketRecord = ({ record }: { record: TicketRecord }) => [
 ];
 
 /**
- * `lightsout ticket show` at the terminal.
+ * `lightsout work-order show` at the terminal.
  *
  * The record is pulled rather than read, so a copy another machine published is
  * taken first and a divergence is reported instead of a stale answer being
  * shown as the truth.
  */
-export const ticketShowCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
+export const workOrderShowCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const ticketBranch = await getRequiredFlag({ flags, name: 'name' });
 	const config = await readConfig({ cwd });
 	const pulled = await pullTicketRecord({ cwd, ticketBranch, config, env: process.env, onProgress: createProgressPrinter() });

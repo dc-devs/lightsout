@@ -97,7 +97,7 @@ export const syncTicketRecord = async ({ cwd, ticketBranch, config, env, keep, o
 	}
 
 	if ('localOnly' in target) {
-		return { error: `${target.localOnly} — \`lightsout ticket sync\` needs a configured tracker to sync against` };
+		return { error: `${target.localOnly} — \`lightsout work-order sync\` needs a configured tracker to sync against` };
 	}
 
 	if (keep === TicketSyncKeep.Published) {

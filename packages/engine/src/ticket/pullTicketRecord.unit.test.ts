@@ -1,12 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import { type LightsoutConfig, TicketEventKind, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
-import { pullTicketRecord, readTicketRecord, updateLocalTicketRecord } from '#src/ticket/index.ts';
+import { pullTicketRecord, readTicketRecord } from '#src/ticket/index.ts';
 import type { TrackerAttachment, TrackerSettings } from '#src/ticketTracker/index.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
+import { setupPullTicketRecord } from '#tests/helpers/setupPullTicketRecord.ts';
 
 // Mocked Imports
 // -------------------------
@@ -28,12 +28,10 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 
 /** The ticket folder's name, which is also the branch every record below names. */
 const ticketBranch = 'lo-140-multi';
-const assetUrl = 'https://uploads.example.com/ticket.json';
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 /** The shared fixture typed: the raw JSON shape widens `provider` to `string`. */
 const trackerBlock: LightsoutConfig['ticket-tracker'] = { ...ticketTrackerConfigBlock, provider: 'linear' };
 const configWithTracker: LightsoutConfig = { gates, 'ticket-tracker': trackerBlock };
-const linearEnv = { LINEAR_API_KEY: 'lin_key' };
 
 /** A record the contract accepts. `detail` is what a row varies to make two records differ. */
 const recordOf = ({ branch = ticketBranch, detail = 'added plan 001-record' }: { branch?: string; detail?: string } = {}): TicketRecord => ({
@@ -46,99 +44,11 @@ const recordOf = ({ branch = ticketBranch, detail = 'added plan 001-record' }: {
 });
 
 /**
- * The exact bytes the store writes for a record, taken from a throwaway
- * checkout, so a row can name the hash a sidecar holds without this file ever
- * restating the record's byte form.
+ * The shared pull arrangement, handed this file's own tracker doubles: a
+ * throwaway checkout whose ticket folder holds whatever the row describes.
  */
-const canonicalBytesOf = async ({ record }: { record: TicketRecord }): Promise<Buffer> => {
-	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-ticket-bytes-'));
-	const written = await updateLocalTicketRecord({ cwd, ticketBranch: record.branch, change: () => record });
-
-	if ('error' in written) {
-		throw new Error(written.error);
-	}
-
-	return readFileSync(join(cwd, '.lightsout', 'tickets', record.branch, 'ticket.json'));
-};
-
-/** The ticket's own side of an arrangement: what it carries, and how it refuses to answer. */
-interface TicketSide {
-	/** The record the ticket carries as `ticket.json`. */
-	published?: TicketRecord;
-	/** Raw text for the published `ticket.json`, for the rows where it is not a valid record. */
-	publishedText?: string;
-	/** What the ticket's attachment list answers. Defaults to one `ticket.json` when a published copy is given. */
-	attachments?: TrackerAttachment[];
-	/** The sentence the tracker refuses the attachment list with. */
-	listFailure?: string;
-	/** The sentence the tracker refuses the read of the attachment's own bytes with. */
-	assetFailure?: string;
-}
-
-/**
- * A checkout outside any repository, so the shared state directory is its own
- * and the ticket folder is a path the row can name: a local record seeded
- * through the store, a sidecar naming the bytes of whichever record last
- * synced, and whatever the ticket carries.
- */
-const setupPull = async ({
-	local,
-	syncedTo,
-	ticket = {},
-	config = configWithTracker,
-	env = linearEnv,
-	branch = ticketBranch,
-}: {
-	/** The record already in the primary checkout, or none. */
-	local?: TicketRecord;
-	/** The record whose bytes the sidecar names as last published or restored. No sidecar when absent. */
-	syncedTo?: TicketRecord;
-	/** What the ticket itself answers with. Nothing at all is a ticket carrying no record. */
-	ticket?: TicketSide;
-	config?: LightsoutConfig;
-	env?: NodeJS.ProcessEnv;
-	branch?: string;
-} = {}) => {
-	const { published, publishedText, attachments, listFailure, assetFailure } = ticket;
-	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-pull-ticket-'));
-	const ticketFolder = join(cwd, '.lightsout', 'tickets', branch);
-	const recordPath = join(ticketFolder, 'ticket.json');
-	const syncPath = join(ticketFolder, 'ticket-sync.json');
-	const publishedPath = join(ticketFolder, 'ticket.published.json');
-	const text = publishedText ?? (published === undefined ? undefined : JSON.stringify(published));
-	const progress: string[] = [];
-
-	mockGetTicketAttachments.mockResolvedValue(
-		listFailure === undefined ? (attachments ?? (text === undefined ? [] : [{ id: 'att-1', title: 'ticket.json', url: assetUrl }])) : { error: listFailure },
-	);
-	mockReadTicketAsset.mockResolvedValue(assetFailure === undefined ? (text ?? { error: 'the attachment could not be read' }) : { error: assetFailure });
-
-	if (local !== undefined) {
-		const seeded = await updateLocalTicketRecord({ cwd, ticketBranch: branch, change: () => local });
-
-		if ('error' in seeded) {
-			throw new Error(seeded.error);
-		}
-	}
-
-	if (syncedTo !== undefined) {
-		mkdirSync(ticketFolder, { recursive: true });
-		writeFileSync(
-			syncPath,
-			JSON.stringify({ schemaVersion: 1, recordSha256: sha256({ content: await canonicalBytesOf({ record: syncedTo }) }), planMarkers: {} }),
-		);
-	}
-
-	return {
-		cwd,
-		recordPath,
-		syncPath,
-		publishedPath,
-		localBytes: local === undefined ? undefined : readFileSync(recordPath).toString('utf8'),
-		syncBytes: syncedTo === undefined ? undefined : readFileSync(syncPath).toString('utf8'),
-		params: { cwd, ticketBranch: branch, config, env, onProgress: (message: string) => progress.push(message) },
-	};
-};
+const setupPull = (params: Omit<Parameters<typeof setupPullTicketRecord>[0], 'mocks'> = {}) =>
+	setupPullTicketRecord({ ...params, mocks: { getTicketAttachments: mockGetTicketAttachments, readTicketAsset: mockReadTicketAsset } });
 
 /** The refusal an answer carries, so a row can read one sentence out of the union. */
 const errorOf = (answer: { record: TicketRecord | undefined } | { error: string }) => ('error' in answer ? answer.error : undefined);
@@ -219,7 +129,7 @@ describe('pullTicketRecord', () => {
 		});
 	});
 
-	test('pullTicketRecord: when both copies moved, changes nothing locally, writes ticket.published.json and names ticket sync', async () => {
+	test('pullTicketRecord: when both copies moved, changes nothing locally, writes ticket.published.json and names work-order sync', async () => {
 		const local = recordOf({ detail: 'added plan 001-local' });
 		const published = recordOf({ detail: 'added plan 001-published' });
 		const { params, recordPath, syncPath, publishedPath, localBytes, syncBytes } = await setupPull({
@@ -240,7 +150,7 @@ describe('pullTicketRecord', () => {
 			sidecar: syncBytes,
 			surfaced: published,
 		});
-		expect(error).toEqual(expect.stringContaining('lightsout ticket sync'));
+		expect(error).toEqual(expect.stringContaining('lightsout work-order sync'));
 		expect(error).toEqual(expect.stringContaining(ticketBranch));
 		expect(error).toEqual(expect.stringContaining('local'));
 		expect(error).toEqual(expect.stringContaining('published'));
@@ -271,7 +181,7 @@ describe('pullTicketRecord', () => {
 		const pulled = await pullTicketRecord(params);
 
 		expect({ error: errorOf(pulled), onDisk: readFileSync(recordPath, 'utf8'), surfaced: JSON.parse(readFileSync(publishedPath, 'utf8')) }).toEqual({
-			error: expect.stringContaining('lightsout ticket sync'),
+			error: expect.stringContaining('lightsout work-order sync'),
 			onDisk: localBytes,
 			surfaced: published,
 		});
@@ -284,16 +194,7 @@ describe('pullTicketRecord', () => {
 		// pull reading the second case's ticket.
 		const offContract = await setupPull({ local, ticket: { publishedText: JSON.stringify({ ...recordOf(), mode: 'multi' }) } });
 		const pulledOffContract = await pullTicketRecord(offContract.params);
-		const twice = await setupPull({
-			local,
-			ticket: {
-				published: recordOf({ detail: 'added plan 001-published' }),
-				attachments: [
-					{ id: 'att-1', title: 'ticket.json', url: assetUrl },
-					{ id: 'att-2', title: 'ticket.json', url: `${assetUrl}?second` },
-				],
-			},
-		});
+		const twice = await setupPull({ local, ticket: { published: recordOf({ detail: 'added plan 001-published' }), publishedTwice: true } });
 		const pulledTwice = await pullTicketRecord(twice.params);
 
 		expect({
@@ -302,7 +203,7 @@ describe('pullTicketRecord', () => {
 			twice: errorOf(pulledTwice),
 			twiceOnDisk: readFileSync(twice.recordPath, 'utf8'),
 		}).toEqual({
-			offContract: expect.stringContaining('ticket sync'),
+			offContract: expect.stringContaining('work-order sync'),
 			offContractOnDisk: offContract.localBytes,
 			twice: expect.stringContaining('ticket.json'),
 			twiceOnDisk: twice.localBytes,
@@ -390,5 +291,34 @@ describe('pullTicketRecord', () => {
 			surfaced: false,
 			sidecar: false,
 		});
+	});
+
+	test('pullTicketRecord: every unreadable-record and divergence sentence spells the work-order command word', async () => {
+		const local = recordOf({ detail: 'added plan 001-local' });
+		const published = recordOf({ detail: 'added plan 001-published' });
+		// The four cases share one pair of tracker doubles, so each is armed
+		// immediately before its own pull.
+		const notJson = await setupPull({ local, ticket: { publishedText: '{ "branch": ' } });
+		const pulledNotJson = await pullTicketRecord(notJson.params);
+		const offContract = await setupPull({ local, ticket: { publishedText: JSON.stringify({ ...recordOf(), mode: 'multi' }) } });
+		const pulledOffContract = await pullTicketRecord(offContract.params);
+		const twice = await setupPull({ local, ticket: { published, publishedTwice: true } });
+		const pulledTwice = await pullTicketRecord(twice.params);
+		const diverged = await setupPull({ local, syncedTo: recordOf({ detail: 'added plan 001-last-synced' }), ticket: { published } });
+		const pulledDiverged = await pullTicketRecord(diverged.params);
+		const sentences = {
+			notJson: errorOf(pulledNotJson),
+			offContract: errorOf(pulledOffContract),
+			twice: errorOf(pulledTwice),
+			diverged: errorOf(pulledDiverged),
+		};
+
+		expect(sentences).toEqual({
+			notJson: expect.stringContaining('lightsout work-order sync'),
+			offContract: expect.stringContaining('lightsout work-order sync'),
+			twice: expect.stringContaining('lightsout work-order sync'),
+			diverged: expect.stringContaining('lightsout work-order sync'),
+		});
+		expect(Object.values(sentences).join('\n')).not.toMatch(/lightsout ticket\b/);
 	});
 });

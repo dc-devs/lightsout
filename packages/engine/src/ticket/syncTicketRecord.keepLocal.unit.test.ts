@@ -370,7 +370,7 @@ describe('syncTicketRecord', () => {
 
 		const result = await syncTicketRecord({ ...params, keep: TicketSyncKeep.Local });
 
-		expect(errorFrom({ result })).toContain('lightsout ticket sync');
+		expect(errorFrom({ result })).toContain('lightsout work-order sync');
 		expect(mockSetTicketAttachment).not.toHaveBeenCalled();
 		expect(localRecordOf({ ticketFolder })).toStrictEqual(local);
 	});

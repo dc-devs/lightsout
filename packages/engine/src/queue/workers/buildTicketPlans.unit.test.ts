@@ -149,7 +149,7 @@ describe('buildTicketPlans', () => {
 		expect(outcome.open).toBeUndefined();
 		expect(outcome.error).toEqual(expect.stringContaining('002-search-basics'));
 		expect(outcome.error).toEqual(expect.stringContaining('lightsout resume --run run-9'));
-		expect(outcome.error).toEqual(expect.stringContaining('lightsout ticket exclude-plan'));
+		expect(outcome.error).toEqual(expect.stringContaining('lightsout work-order exclude-plan'));
 		expect(mockRunImplementPipeline).not.toHaveBeenCalled();
 	});
 
@@ -163,6 +163,19 @@ describe('buildTicketPlans', () => {
 		expect(outcome.error).toEqual(expect.stringContaining('002-search-basics'));
 		expect(outcome.error).toEqual(expect.stringContaining('lightsout resume --run run-4'));
 		expect(mockRunImplementPipeline).not.toHaveBeenCalled();
+	});
+
+	test('buildTicketPlans: the stalled-plan park sentence spells the work-order command word', async () => {
+		const secondImplementing = planOf({ id: '002-search-basics', title: 'Search basics', progress: PlanProgress.Implementing, runId: 'run-4' });
+		const { params } = setupTicketPlanBuild({ mocks, plans: [firstImplemented, secondImplementing, thirdReady] });
+
+		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
+
+		// the sentence offers both repair paths, and the second of them is the
+		// subcommand whose command word this phase renames
+		expect(outcome.error).toEqual(expect.stringContaining('lightsout resume --run run-4'));
+		expect(outcome.error).toEqual(expect.stringContaining('lightsout work-order exclude-plan --name lo-7-search --plan 002-search-basics'));
+		expect(outcome.error).not.toEqual(expect.stringContaining('lightsout ticket '));
 	});
 
 	test('buildTicketPlans: an excluded plan never holds later plans back', async () => {

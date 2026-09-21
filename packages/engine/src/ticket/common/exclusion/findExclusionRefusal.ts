@@ -21,7 +21,7 @@ export const findExclusionRefusal = ({ record, target, implementationRemoved }: 
 	const started = isPlanImplementationStarted({ plan: target });
 
 	if (record.mode === TicketMode.SinglePlan && planNumberOf({ id: target.id }) === 1) {
-		return `plan ${target.id} is the whole implementation of single-plan ticket ${record.branch}, so excluding it would leave the ticket nothing to ship — run \`lightsout ticket mode --name ${record.branch} --set multiple-plan\` first if this ticket's work has moved on`;
+		return `plan ${target.id} is the whole implementation of single-plan ticket ${record.branch}, so excluding it would leave the ticket nothing to ship — run \`lightsout work-order mode --name ${record.branch} --set multiple-plan\` first if this ticket's work has moved on`;
 	}
 
 	if (implementationRemoved && !started) {

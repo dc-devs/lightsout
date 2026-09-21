@@ -246,9 +246,26 @@ describe('runTicketPlanLifecycle: the plans it will not build', () => {
 		const outcome = await runTicketPlanLifecycle({ cwd, name, run });
 
 		expect(outcome).toEqual({ refusal: expect.stringContaining(firstPlan) });
-		expect(outcome).toEqual({ refusal: expect.stringContaining('lightsout ticket sync') });
+		expect(outcome).toEqual({ refusal: expect.stringContaining('lightsout work-order sync') });
 		expect(seenRunIds).toStrictEqual([]);
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
+	});
+
+	test('runTicketPlanLifecycle: the divergence refusal spells the work-order command word', async () => {
+		const { cwd, name, seenRunIds, run } = await setupTicketPlanLifecycle({
+			mockReadGitHeadCommit,
+			plans: [planOf({ id: firstPlan, progress: PlanProgress.Ready, publishedMarker: otherMachineMarker })],
+			planMarkers: {},
+		});
+
+		const outcome = await runTicketPlanLifecycle({ cwd, name, run });
+
+		// both halves of the remedy are one sentence: the published copy is taken
+		// by name, and the local one is published over it by the bare `--keep local`
+		expect(outcome).toEqual({ refusal: expect.stringContaining(`lightsout work-order sync --name ${ticketBranch} --keep published`) });
+		expect(outcome).toEqual({ refusal: expect.stringContaining('--keep local') });
+		expect(outcome).toEqual({ refusal: expect.not.stringContaining('lightsout ticket sync') });
+		expect(seenRunIds).toStrictEqual([]);
 	});
 
 	test('refuses a plan whose lower-numbered plan is not implemented without running it or changing the record', async () => {

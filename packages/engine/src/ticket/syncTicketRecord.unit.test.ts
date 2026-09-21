@@ -254,4 +254,18 @@ describe('syncTicketRecord', () => {
 		expect(result).not.toStrictEqual({ error: expect.stringContaining('needs a configured tracker to sync against') });
 		expect({ reads: mockGetTicketAttachments.mock.calls.length, uploads: mockSetTicketAttachment.mock.calls.length }).toStrictEqual({ reads: 0, uploads: 0 });
 	});
+
+	test('syncTicketRecord: the local-only refusal spells the work-order command word', async () => {
+		const { params } = setupSync({ local: recordOf({ title: 'The local title' }), config: { gates } });
+
+		const result = await syncTicketRecord(params);
+
+		const refusal = 'error' in result ? result.error : undefined;
+
+		expect(refusal).toEqual(expect.stringContaining('lightsout work-order sync'));
+		// The old command word anywhere in the sentence is the failure this row
+		// exists for, so it is checked for as well as for the new one.
+		expect(refusal).not.toEqual(expect.stringContaining('lightsout ticket '));
+		expect({ reads: mockGetTicketAttachments.mock.calls.length, uploads: mockSetTicketAttachment.mock.calls.length }).toStrictEqual({ reads: 0, uploads: 0 });
+	});
 });

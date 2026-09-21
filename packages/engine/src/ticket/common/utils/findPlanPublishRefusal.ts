@@ -25,17 +25,17 @@ export const findPlanPublishRefusal = async ({ cwd, address, planId, ticketBranc
 	const plan = record?.plans.find((entry) => entry.id === planId);
 
 	if (record === undefined || plan === undefined) {
-		return `the ticket record for '${ticketBranch}' does not hold plan ${planId} — run \`lightsout ticket add-plan --name ${ticketBranch} --slug <slug>\` to add a plan before publishing it`;
+		return `the ticket record for '${ticketBranch}' does not hold plan ${planId} — run \`lightsout work-order add-plan --name ${ticketBranch} --slug <slug>\` to add a plan before publishing it`;
 	}
 
 	if (findDivergentPlanIds({ record, syncState }).includes(planId)) {
-		return `plan ${planId} was published from another machine after this one last saw it, so publishing over it would lose that work — run \`lightsout ticket sync --name ${ticketBranch} --keep local\` to send this machine's copy, or \`--keep published\` to take the ticket's`;
+		return `plan ${planId} was published from another machine after this one last saw it, so publishing over it would lose that work — run \`lightsout work-order sync --name ${ticketBranch} --keep local\` to send this machine's copy, or \`--keep published\` to take the ticket's`;
 	}
 
 	const snapshot = plan.implementation?.snapshot;
 
 	if (plan.progress === PlanProgress.Implemented && snapshot !== undefined && !(await matchesImplementedSnapshot({ cwd, address, snapshot }))) {
-		return `plan ${planId} is implemented and its files have changed since the run that implemented it, so it no longer describes what was built — run \`lightsout ticket add-plan --name ${ticketBranch} --slug <slug>\` and put the follow-up work in a plan of its own`;
+		return `plan ${planId} is implemented and its files have changed since the run that implemented it, so it no longer describes what was built — run \`lightsout work-order add-plan --name ${ticketBranch} --slug <slug>\` and put the follow-up work in a plan of its own`;
 	}
 
 	return undefined;

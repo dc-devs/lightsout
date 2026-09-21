@@ -1,6 +1,7 @@
 import { expect, test } from '@jest/globals';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { runCli } from '#tests/helpers/runCli.ts';
+import { seedConfiguredCwd } from '#tests/helpers/seedConfiguredCwd.ts';
 import { usageStderr } from '#tests/helpers/usageStderr.ts';
 
 // The dispatch table's fall-through: every argv the CLI answers with the usage
@@ -89,4 +90,18 @@ test('cli: plan lint without --name prints usage to stderr and exits 1', async (
 	expect(stdout).toBe('');
 	expect(stderr).toBe(usageStderr);
 	expect(code).toBe(1);
+});
+
+test('cli: work-order is dispatched, the removed ticket command prints usage and exits 1, and ticket-state still resolves', async () => {
+	const cwd = await seedConfiguredCwd();
+
+	const workOrder = await runCli({ args: ['work-order', 'show', '--name', 'demo', '--cwd', cwd] });
+	const ticket = await runCli({ args: ['ticket', 'show', '--name', 'demo', '--cwd', cwd] });
+	const ticketState = await runCli({ args: ['ticket-state', '--ref', 'LO-158', '--cwd', cwd] });
+
+	expect(workOrder.stderr).not.toBe(usageStderr);
+	expect(workOrder.stderr).toContain('lightsout work-order add-plan');
+	expect(ticket).toEqual(expect.objectContaining({ stdout: '', stderr: usageStderr, code: 1 }));
+	expect(ticketState.stderr).not.toBe(usageStderr);
+	expect(ticketState.stderr).toContain('--planning-status');
 });

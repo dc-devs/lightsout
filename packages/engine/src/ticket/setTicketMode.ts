@@ -101,7 +101,7 @@ const switchToSinglePlan = ({
 
 	if (unaccounted.length > 0) {
 		return {
-			error: `the implementation of ${unaccounted.map((plan) => plan.id).join(', ')} on ticket ${record.branch} has started, so plan 001 does not alone supply this ticket's implementation — remove that implementation from the branch with the agent, then record it with \`lightsout ticket exclude-plan --implementation-removed\`, and try the switch again`,
+			error: `the implementation of ${unaccounted.map((plan) => plan.id).join(', ')} on ticket ${record.branch} has started, so plan 001 does not alone supply this ticket's implementation — remove that implementation from the branch with the agent, then record it with \`lightsout work-order exclude-plan --implementation-removed\`, and try the switch again`,
 		};
 	}
 
@@ -191,7 +191,7 @@ export const setTicketMode = async ({ cwd, ticketBranch, mode, approve, config, 
 		...updated,
 		notice:
 			mode === TicketMode.MultiplePlan
-				? `ticket ${ticketBranch} now implements its plans in numeric order, and this repository's automatic shipping no longer applies to it — say when it is finished with \`lightsout ticket request-ship --name ${ticketBranch} --plans <id,id>\``
+				? `ticket ${ticketBranch} now implements its plans in numeric order, and this repository's automatic shipping no longer applies to it — say when it is finished with \`lightsout work-order request-ship --name ${ticketBranch} --plans <id,id>\``
 				: undefined,
 	};
 };

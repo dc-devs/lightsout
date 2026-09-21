@@ -28,7 +28,7 @@ interface Params {
  *
  * A failure is never the whole command's failure: the bytes are already on the
  * ticket or already on disk by the time this runs, and what is lost is only this
- * machine's memory of it — which the next `lightsout ticket sync` rebuilds.
+ * machine's memory of it — which the next `lightsout work-order sync` rebuilds.
  */
 export const recordTicketSyncState = async ({
 	ticketFolder,

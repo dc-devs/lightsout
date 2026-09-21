@@ -88,14 +88,14 @@ const addPlanToRecord = ({
 		return {
 			error:
 				existing === undefined
-					? `the plan folder '${ticketBranch}' still holds loose files (${looseEntries.join(', ')}) — make them this ticket's next plan with \`lightsout ticket add-plan --name ${ticketBranch} --slug <slug> --from ${ticketBranch}\`, or take them out of the folder first`
+					? `the plan folder '${ticketBranch}' still holds loose files (${looseEntries.join(', ')}) — make them this ticket's next plan with \`lightsout work-order add-plan --name ${ticketBranch} --slug <slug> --from ${ticketBranch}\`, or take them out of the folder first`
 					: `the ticket folder '${ticketBranch}' holds ${looseEntries.join(', ')} beside its record, and a ticket's plan files live in that plan's own folder — move each of them into the plan folder it belongs to, or remove it, and run this again`,
 		};
 	}
 
 	if (existing !== undefined && existing.mode === TicketMode.SinglePlan && existing.plans.some((plan) => planNumberOf({ id: plan.id }) === 1)) {
 		return {
-			error: `ticket ${ticketBranch} is in single-plan mode, where plan 001 alone supplies the implementation — run \`lightsout ticket mode --set multiple-plan --name ${ticketBranch}\` before adding a second plan`,
+			error: `ticket ${ticketBranch} is in single-plan mode, where plan 001 alone supplies the implementation — run \`lightsout work-order mode --set multiple-plan --name ${ticketBranch}\` before adding a second plan`,
 		};
 	}
 
@@ -211,7 +211,7 @@ export const addTicketPlan = async ({
 	const sentences = [
 		...(addition.withdrew
 			? [
-					`the pending ship request was withdrawn because plan ${addition.planId} was added — ask again with \`lightsout ticket request-ship --name ${ticketBranch}\` once the ticket's work is settled`,
+					`the pending ship request was withdrawn because plan ${addition.planId} was added — ask again with \`lightsout work-order request-ship --name ${ticketBranch}\` once the ticket's work is settled`,
 				]
 			: []),
 		...(await fillPlanFolder({ cwd, address, planId: addition.planId, source, retire: from !== ticketBranch })),

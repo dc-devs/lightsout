@@ -12,7 +12,7 @@ interface Params {
  * A plan like that has been republished somewhere else since this machine last
  * saw it, so the folder here may be older than what the ticket carries.
  * Building it, or publishing over it, would lose the other machine's work
- * silently — so both refuse, and `lightsout ticket sync --keep` is what settles
+ * silently — so both refuse, and `lightsout work-order sync --keep` is what settles
  * which copy wins.
  */
 export const findDivergentPlanIds = ({ record, syncState }: Params): string[] =>

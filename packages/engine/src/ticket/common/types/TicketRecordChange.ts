@@ -13,6 +13,6 @@ export interface TicketRecordChange {
 	record: TicketRecord;
 	/** One sentence the command prints first — why a ship request was withdrawn, what a mode switch changed about shipping, what to publish next. */
 	notice?: string;
-	/** Set when the local change was written but publishing it failed; `lightsout ticket sync` retries. */
+	/** Set when the local change was written but publishing it failed; `lightsout work-order sync` retries. */
 	publishError?: string;
 }

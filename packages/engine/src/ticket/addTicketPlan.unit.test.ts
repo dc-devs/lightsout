@@ -80,7 +80,6 @@ const setupAddPlan = async ({
 	record,
 	branch = ticketBranch,
 	slug = 'search-basics',
-	title,
 	config = { gates },
 	/** Files planted at the ticket folder's top level, as a single-folder plan left them. */
 	topLevelFiles = [],
@@ -90,7 +89,6 @@ const setupAddPlan = async ({
 	record?: TicketRecord;
 	branch?: string;
 	slug?: string;
-	title?: string;
 	config?: LightsoutConfig;
 	topLevelFiles?: string[];
 	topLevelFolders?: string[];
@@ -125,9 +123,8 @@ const setupAddPlan = async ({
 		cwd,
 		ticketFolder,
 		recordPath,
-		progress,
 		planFolderOf: ({ planId }: { planId: string }) => join(ticketFolder, 'plans', planId),
-		params: { cwd, ticketBranch: branch, slug, title, config, env, onProgress: (message: string) => progress.push(message) },
+		params: { cwd, ticketBranch: branch, slug, config, env, onProgress: (message: string) => progress.push(message) },
 	};
 };
 
@@ -206,7 +203,7 @@ describe('addTicketPlan', () => {
 		expect(written.history.at(-1)?.detail).toContain('003-fix-search');
 	});
 
-	test('refuses a second plan in single-plan mode and names ticket mode --set multiple-plan', async () => {
+	test('refuses a second plan in single-plan mode and names work-order mode --set multiple-plan', async () => {
 		const { params, recordPath, planFolderOf } = await setupAddPlan({
 			slug: 'fix-search',
 			record: recordOf({ plans: [planOf({ id: '001-search-basics', progress: PlanProgress.Implemented })] }),
@@ -215,7 +212,7 @@ describe('addTicketPlan', () => {
 
 		const result = await addTicketPlan(params);
 
-		expect(result).toEqual({ error: expect.stringContaining('ticket mode --set multiple-plan') });
+		expect(result).toEqual({ error: expect.stringContaining('work-order mode --set multiple-plan') });
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
 		expect(existsSync(planFolderOf({ planId: '002-fix-search' }))).toBe(false);
 	});
@@ -227,7 +224,7 @@ describe('addTicketPlan', () => {
 
 		// The remedy has to name this ticket's own branch as the source folder,
 		// because these loose files are the ones the add would be made out of.
-		expect(result).toEqual({ error: expect.stringContaining('ticket add-plan') });
+		expect(result).toEqual({ error: expect.stringContaining('work-order add-plan') });
 		expect(result).toEqual({ error: expect.stringContaining('--from lo-140-multi') });
 		expect(result).toEqual({ error: expect.stringContaining('plan.md') });
 		expect(existsSync(recordPath)).toBe(false);
@@ -367,5 +364,34 @@ describe('addTicketPlan', () => {
 		expect(added).toEqual(expect.objectContaining({ address: 'lo-140-multi/002-ship-guard' }));
 		expect(recordAt({ recordPath: adopted.recordPath }).plans.map((plan) => plan.id)).toStrictEqual(['001-a', '002-ship-guard']);
 		expect(existsSync(adopted.planFolderOf({ planId: '002-ship-guard' }))).toBe(true);
+	});
+
+	test('every addTicketPlan sentence that names a command spells the work-order command word', async () => {
+		const loose = await setupAddPlan({ topLevelFiles: ['plan.md'] });
+		const singlePlan = await setupAddPlan({
+			slug: 'fix-search',
+			record: recordOf({ plans: [planOf({ id: '001-search-basics', progress: PlanProgress.Implemented })] }),
+		});
+		const withdrawing = await setupAddPlan({
+			slug: 'fix-search',
+			record: recordOf({
+				mode: TicketMode.MultiplePlan,
+				plans: [planOf({ id: '001-search-basics', progress: PlanProgress.Implemented })],
+				shipRequestFor: ['001-search-basics'],
+			}),
+		});
+
+		const looseRefusal = await addTicketPlan(loose.params);
+		const modeRefusal = await addTicketPlan(singlePlan.params);
+		const withdrawal = await addTicketPlan(withdrawing.params);
+
+		// The forbidden span keeps its trailing space, so `lightsout ticket-state`
+		// — the one command that genuinely names the tracker — never trips this row.
+		expect(looseRefusal).toEqual({ error: expect.stringContaining('lightsout work-order add-plan') });
+		expect(looseRefusal).toEqual({ error: expect.not.stringContaining('lightsout ticket ') });
+		expect(modeRefusal).toEqual({ error: expect.stringContaining('lightsout work-order mode --set multiple-plan') });
+		expect(modeRefusal).toEqual({ error: expect.not.stringContaining('lightsout ticket ') });
+		expect(withdrawal).toEqual(expect.objectContaining({ notice: expect.stringContaining('lightsout work-order request-ship') }));
+		expect(withdrawal).toEqual(expect.objectContaining({ notice: expect.not.stringContaining('lightsout ticket ') }));
 	});
 });

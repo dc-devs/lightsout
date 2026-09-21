@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
-import { ticketAddPlanCommand } from '#src/cli/ticket/ticketAddPlanCommand.ts';
+import { workOrderAddPlanCommand } from '#src/cli/workOrder/workOrderAddPlanCommand.ts';
 import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
@@ -53,7 +53,7 @@ const setupAddPlan = ({
 	outcome?: AddTicketPlanResult;
 } = {}) => {
 	const captured = captureCommandOutput();
-	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-ticket-add-plan-command-'));
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-work-order-add-plan-command-'));
 
 	mockAddTicketPlan.mockResolvedValue(outcome);
 
@@ -62,18 +62,18 @@ const setupAddPlan = ({
 	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, ...captured };
 };
 
-describe('ticketAddPlanCommand', () => {
-	test('prints the plan address on the last line and exits 0', async () => {
-		const { context, cwd, logged, errors, exitCodes } = setupAddPlan({
+describe('workOrderAddPlanCommand', () => {
+	test('prints the plan address last on a successful work-order add-plan and exits 1 on a refusal', async () => {
+		const added = setupAddPlan({
 			outcome: { address: 'lo-140-x/003-fix', record, notice: 'the pending ship request was withdrawn because plan 003-fix was added' },
 		});
 
-		await expect(ticketAddPlanCommand(context)).rejects.toThrow(/process\.exit/);
+		await expect(workOrderAddPlanCommand(added.context)).rejects.toThrow(/process\.exit/);
 
 		// the repo's own config reaches the operation, tracker block and all —
 		// without it the record change can resolve no tracker to publish to
 		expect(mockAddTicketPlan.mock.calls[0]?.[0]).toMatchObject({
-			cwd,
+			cwd: added.cwd,
 			ticketBranch: 'lo-140-x',
 			slug: 'fix',
 			title: 'Fix',
@@ -84,15 +84,28 @@ describe('ticketAddPlanCommand', () => {
 		// operation, which is what keeps the API key out of a second reader
 		expect(mockAddTicketPlan.mock.calls[0]?.[0]?.env).toBe(process.env);
 
-		const noticeIndex = logged.findIndex((line) => line.includes('withdrawn'));
+		const noticeIndex = added.logged.findIndex((line) => line.includes('withdrawn'));
 
 		// a skill reads the address off the last line, so the notice must land
 		// before the command's own lines rather than after them
 		expect(noticeIndex).toBeGreaterThanOrEqual(0);
-		expect(noticeIndex).toBeLessThan(logged.length - 1);
-		expect(logged.at(-1)).toContain('lo-140-x/003-fix');
-		expect(errors).toStrictEqual([]);
-		expect(exitCodes).toStrictEqual([0]);
+		expect(noticeIndex).toBeLessThan(added.logged.length - 1);
+		expect(added.logged.at(-1)).toContain('lo-140-x/003-fix');
+		expect(added.errors).toStrictEqual([]);
+		expect(added.exitCodes).toStrictEqual([0]);
+
+		const refused = setupAddPlan({
+			outcome: { error: 'lo-140-x is in single-plan mode and already holds plan 001 — run lightsout work-order mode --set multiple-plan first' },
+		});
+
+		await expect(workOrderAddPlanCommand(refused.context)).rejects.toThrow(/process\.exit/);
+
+		// a refusal is the whole output: nothing reached disk, so there is no
+		// address for a calling skill to read back
+		expect(refused.logged).toStrictEqual([]);
+		expect(refused.errors.join('\n')).toContain('lightsout work-order mode --set multiple-plan');
+		expect(refused.errors.join('\n')).not.toContain('lightsout ticket ');
+		expect(refused.exitCodes).toStrictEqual([1]);
 	});
 
 	test('passes --from through as typed and says the plan was made from that folder above the address', async () => {
@@ -104,7 +117,7 @@ describe('ticketAddPlanCommand', () => {
 			},
 		});
 
-		await expect(ticketAddPlanCommand(context)).rejects.toThrow(/process\.exit/);
+		await expect(workOrderAddPlanCommand(context)).rejects.toThrow(/process\.exit/);
 
 		// --from names a folder's bare name under the plans directory, so it
 		// reaches the operation exactly as it was typed rather than resolved here
@@ -124,7 +137,7 @@ describe('ticketAddPlanCommand', () => {
 			outcome: { address: 'lo-140-x/003-fix', record: { ...record, plans: [] } },
 		});
 
-		await expect(ticketAddPlanCommand(withoutPlanEntry.context)).rejects.toThrow(/process\.exit/);
+		await expect(workOrderAddPlanCommand(withoutPlanEntry.context)).rejects.toThrow(/process\.exit/);
 
 		// the address is the command's answer whatever the record came back
 		// holding, so the line above it falls back rather than printing 'undefined'
@@ -134,30 +147,20 @@ describe('ticketAddPlanCommand', () => {
 		expect(withoutPlanEntry.exitCodes).toStrictEqual([0]);
 	});
 
-	test('prints the refusal and exits 1 when addTicketPlan refuses', async () => {
-		const { context, logged, errors, exitCodes } = setupAddPlan({
-			outcome: { error: 'lo-140-x is in single-plan mode and already holds plan 001 — run lightsout ticket mode --set multiple-plan first' },
-		});
-
-		await expect(ticketAddPlanCommand(context)).rejects.toThrow(/process\.exit/);
-
-		expect(logged).toStrictEqual([]);
-		expect(errors.join('\n')).toContain('lightsout ticket mode --set multiple-plan');
-		expect(exitCodes).toStrictEqual([1]);
-	});
-
-	test('keeps the local change but exits 1 naming ticket sync when publishing the record fails', async () => {
+	test('keeps the local change and exits 1 naming work-order sync when publishing fails', async () => {
 		const { context, logged, errors, exitCodes } = setupAddPlan({
 			outcome: { address: 'lo-140-x/003-fix', record, publishError: 'the tracker refused the attachment: 503 service unavailable' },
 		});
 
-		await expect(ticketAddPlanCommand(context)).rejects.toThrow(/process\.exit/);
+		await expect(workOrderAddPlanCommand(context)).rejects.toThrow(/process\.exit/);
 
 		// the plan was added locally, so the address is still the command's answer;
 		// only reaching the tracker failed, and that is what the retry is for
 		expect(logged.at(-1)).toContain('lo-140-x/003-fix');
 		expect(errors.join('\n')).toContain('503 service unavailable');
-		expect(errors.join('\n')).toContain('lightsout ticket sync --name lo-140-x');
+		expect(errors.join('\n')).toContain('lightsout work-order sync --name lo-140-x');
+		// the retry sentence names the command word a reader can actually run
+		expect(errors.join('\n')).not.toContain('lightsout ticket sync');
 		expect(exitCodes).toStrictEqual([1]);
 	});
 });

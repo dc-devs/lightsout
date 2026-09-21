@@ -90,8 +90,18 @@ const localRecordOf = ({ ticketFolder }: { ticketFolder: string }): unknown => J
  *
  * The keep is always run from the worktree, because that is the checkout a plan
  * command may be launched from while every plan folder lives in the primary.
+ *
+ * `publishedMarker` is the marker the ticket's own record claims for the plan.
+ * It matches the marker the ticket actually carries unless a test hands over a
+ * different one, which is the record-and-files disagreement the keep refuses.
  */
-const setupWorktreeKeep = ({ planFolderIn }: { planFolderIn: 'primary' | 'worktree' | 'nowhere' }) => {
+const setupWorktreeKeep = ({
+	planFolderIn,
+	publishedMarker = planMarkerSha256,
+}: {
+	planFolderIn: 'primary' | 'worktree' | 'nowhere';
+	publishedMarker?: string;
+}) => {
 	const { cwd } = setupBranchRepo();
 	const primary = realpathSync(cwd);
 	const worktree = join(dirname(primary), `${basename(primary)}-worktrees`, ticketBranch);
@@ -100,7 +110,7 @@ const setupWorktreeKeep = ({ planFolderIn }: { planFolderIn: 'primary' | 'worktr
 
 	const ticketFolder = join(primary, '.lightsout', 'tickets', ticketBranch);
 	const worktreeTicketFolder = planWorkspaceFolder({ cwd: worktree, name: ticketBranch });
-	const published = recordOf({ plans: [planOf({ publishedMarker: planMarkerSha256 })] });
+	const published = recordOf({ plans: [planOf({ publishedMarker })] });
 	const progress: string[] = [];
 
 	mkdirSync(ticketFolder, { recursive: true });
@@ -164,6 +174,18 @@ describe('keepPublishedTicketRecord', () => {
 		expect(readFileSync(join(ticketFolder, 'plans', planId, 'plan.md'), 'utf8')).toBe(planBody);
 		expect(folderOf({ dir: worktreeTicketFolder })).toStrictEqual([planId]);
 		expect(readFileSync(join(worktreeTicketFolder, planId, 'plan.md'), 'utf8')).toBe('local work\n');
+	});
+
+	test('keepPublishedTicketRecord: the marker-mismatch refusal spells the work-order command word', async () => {
+		const { params, ticketFolder, progress } = setupWorktreeKeep({ planFolderIn: 'primary', publishedMarker: 'c'.repeat(64) });
+
+		const result = await keepPublishedTicketRecord(params);
+
+		expect(result).toEqual({ error: expect.stringContaining('`lightsout work-order sync --name lo-140-multi --keep local`') });
+		expect(result).toEqual({ error: expect.not.stringContaining('lightsout ticket sync') });
+		expect(folderOf({ dir: join(ticketFolder, 'plans') })).toStrictEqual([planId]);
+		expect(readFileSync(join(ticketFolder, 'plans', planId, 'plan.md'), 'utf8')).toBe('local work\n');
+		expect(progress).toStrictEqual([]);
 	});
 
 	test('restores the published copy into the primary checkout when no checkout holds a folder to set aside', async () => {

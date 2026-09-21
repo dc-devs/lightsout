@@ -1,18 +1,18 @@
 import { getRequiredFlag } from '#src/cli/common/args/getRequiredFlag.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
-import { finishTicketChange } from '#src/cli/ticket/common/utils/finishTicketChange.ts';
+import { finishWorkOrderChange } from '#src/cli/workOrder/common/utils/finishWorkOrderChange.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { excludeTicketPlan } from '#src/ticket/index.ts';
 
 /**
- * `lightsout ticket exclude-plan` at the terminal.
+ * `lightsout work-order exclude-plan` at the terminal.
  *
  * The progress printer matters here rather than being decoration: excluding a
  * plan whose implementation started runs this repository's own full gates on
  * the ticket branch, which can take minutes.
  */
-export const ticketExcludePlanCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
+export const workOrderExcludePlanCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const ticketBranch = await getRequiredFlag({ flags, name: 'name' });
 	const plan = await getRequiredFlag({ flags, name: 'plan' });
 	const reason = await getRequiredFlag({ flags, name: 'reason' });
@@ -28,7 +28,7 @@ export const ticketExcludePlanCommand = async ({ flags, cwd }: CommandContext): 
 		onProgress: createProgressPrinter(),
 	});
 
-	await finishTicketChange({
+	await finishWorkOrderChange({
 		ticketBranch,
 		outcome,
 		describe: ({ record }) => [

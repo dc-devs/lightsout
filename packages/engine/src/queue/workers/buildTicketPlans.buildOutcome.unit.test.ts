@@ -111,7 +111,7 @@ describe('buildTicketPlans', () => {
 		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
 
 		expect(outcome.error).toEqual(expect.stringContaining('002-search-basics'));
-		expect(outcome.error).toEqual(expect.stringContaining('lightsout ticket sync'));
+		expect(outcome.error).toEqual(expect.stringContaining('lightsout work-order sync'));
 		expect(mockRunImplementPipeline).not.toHaveBeenCalled();
 		expect(mockCommitTicketWork).not.toHaveBeenCalled();
 	});

@@ -107,9 +107,19 @@ describe('findBareTicketFolderRefusal', () => {
 		expect({ planAddress, bareLegacyName, bareNameWithRecord }).toStrictEqual({
 			planAddress: undefined,
 			bareLegacyName: undefined,
-			bareNameWithRecord: expect.stringContaining('lightsout ticket show --name lo-140-has-record'),
+			bareNameWithRecord: expect.stringContaining('lightsout work-order show --name lo-140-has-record'),
 		});
 		expect(bareNameWithRecord).toEqual(expect.stringContaining('lo-140-has-record/'));
+	});
+
+	test('findBareTicketFolderRefusal: the refusal spells the work-order command word', async () => {
+		const { cwd } = setupCheckout({ withRecord: 'lo-158-has-record', legacy: 'lo-158-legacy' });
+
+		const refusal = await findBareTicketFolderRefusal({ cwd, name: 'lo-158-has-record' });
+
+		expect(refusal).toEqual(expect.stringContaining("'lo-158-has-record/<plan-id>'"));
+		expect(refusal).toEqual(expect.stringContaining('lightsout work-order show --name lo-158-has-record'));
+		expect(refusal).not.toEqual(expect.stringContaining('lightsout ticket '));
 	});
 
 	test("findBareTicketFolderRefusal: asked from a linked worktree, answers from the primary checkout's record", async () => {
@@ -119,7 +129,7 @@ describe('findBareTicketFolderRefusal', () => {
 		const bareLegacyName = await findBareTicketFolderRefusal({ cwd: worktree, name: 'lo-141-legacy' });
 
 		expect({ bareNameWithRecord, bareLegacyName }).toStrictEqual({
-			bareNameWithRecord: expect.stringContaining('lightsout ticket show --name lo-140-has-record'),
+			bareNameWithRecord: expect.stringContaining('lightsout work-order show --name lo-140-has-record'),
 			bareLegacyName: undefined,
 		});
 	});

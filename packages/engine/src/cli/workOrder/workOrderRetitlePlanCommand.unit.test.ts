@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
-import { ticketRetitlePlanCommand } from '#src/cli/ticket/ticketRetitlePlanCommand.ts';
+import { workOrderRetitlePlanCommand } from '#src/cli/workOrder/workOrderRetitlePlanCommand.ts';
 import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
@@ -48,7 +48,7 @@ const retitledRecord: TicketRecord = {
 
 const setupRetitle = ({ args, result = { record: retitledRecord } }: { args: string[]; result?: RetitleResult }) => {
 	const captured = captureCommandOutput();
-	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-ticket-retitle-plan-command-'));
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-work-order-retitle-plan-command-'));
 
 	mockRetitleTicketPlan.mockResolvedValue(result);
 
@@ -57,11 +57,11 @@ const setupRetitle = ({ args, result = { record: retitledRecord } }: { args: str
 	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, ...captured };
 };
 
-describe('ticketRetitlePlanCommand', () => {
-	test('passes the plan and the new title', async () => {
+describe('workOrderRetitlePlanCommand', () => {
+	test('passes the plan and the new title through after the work-order rename', async () => {
 		const { context, cwd, logged, errors, exitCodes } = setupRetitle({ args: ['--name', 'lo-140-x', '--plan', '2', '--title', 'New'] });
 
-		await expect(ticketRetitlePlanCommand(context)).rejects.toThrow(/process\.exit/);
+		await expect(workOrderRetitlePlanCommand(context)).rejects.toThrow(/process\.exit/);
 
 		// the plan token reaches the operation exactly as it was typed: a bare
 		// number is the operation's own to resolve against the ticket's ids
@@ -74,7 +74,7 @@ describe('ticketRetitlePlanCommand', () => {
 
 		const missingTitle = setupRetitle({ args: ['--name', 'lo-140-x', '--plan', '2'] });
 
-		await expect(ticketRetitlePlanCommand(missingTitle.context)).rejects.toThrow(/process\.exit/);
+		await expect(workOrderRetitlePlanCommand(missingTitle.context)).rejects.toThrow(/process\.exit/);
 
 		// a missing title is a usage error: there is no new title to record, so the
 		// operation is never reached

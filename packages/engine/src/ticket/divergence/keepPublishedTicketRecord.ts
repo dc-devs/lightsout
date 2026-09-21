@@ -131,7 +131,7 @@ const takePublishedPlan = async ({
 
 	if (published.marker === undefined || published.marker !== claimed) {
 		return {
-			error: `${target.ticketRef}'s plan files and its ticket record disagree about plan ${planId}: the record names a commit marker the ticket does not carry, so nothing was moved — publish that plan again from the machine that holds it, or run \`lightsout ticket sync --name ${ticketBranch} --keep local\``,
+			error: `${target.ticketRef}'s plan files and its ticket record disagree about plan ${planId}: the record names a commit marker the ticket does not carry, so nothing was moved — publish that plan again from the machine that holds it, or run \`lightsout work-order sync --name ${ticketBranch} --keep local\``,
 		};
 	}
 

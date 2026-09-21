@@ -295,7 +295,7 @@ describe('resumeCommand ticket plans', () => {
 		// the copy here could build over another machine's work; the plan stays
 		// exactly as the failed run left it
 		expect(errors.join('\n')).toContain(planOne);
-		expect(errors.join('\n')).toContain('lightsout ticket sync');
+		expect(errors.join('\n')).toContain('lightsout work-order sync');
 		expect(mockRunPipelineOrFailFast).not.toHaveBeenCalled();
 		expect(readRecord({ workspace }).plans[0]?.progress).toBe('failed');
 		expect(exitCodes).toStrictEqual([1]);

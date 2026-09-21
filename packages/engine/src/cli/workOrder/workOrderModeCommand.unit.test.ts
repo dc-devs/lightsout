@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
-import { ticketModeCommand } from '#src/cli/ticket/ticketModeCommand.ts';
+import { workOrderModeCommand } from '#src/cli/workOrder/workOrderModeCommand.ts';
 import type { LightsoutConfig, TicketMode, TicketRecord } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
@@ -48,7 +48,7 @@ const switchedRecord: TicketRecord = {
 	history: [{ at: '2026-09-12T00:00:01.000Z', kind: 'mode-changed', detail: 'mode set to single-plan' }],
 };
 
-/** The same ticket once an approved switch to single-plan mode has dropped its later plans. */
+/** The same work order once an approved switch to single-plan mode has dropped its later plans. */
 const narrowedRecord: TicketRecord = {
 	...switchedRecord,
 	plans: [
@@ -79,7 +79,7 @@ const setupMode = ({
 	outcome?: TicketRecordChange | { error: string };
 }) => {
 	const captured = captureCommandOutput();
-	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-ticket-mode-command-'));
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-work-order-mode-command-'));
 
 	mockSetTicketMode.mockResolvedValue(outcome);
 
@@ -88,15 +88,37 @@ const setupMode = ({
 	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, ...captured };
 };
 
-describe('ticketModeCommand', () => {
+describe('workOrderModeCommand', () => {
+	test('refuses an unknown --set value under the work-order command word and passes a valid mode through with --approve', async () => {
+		const { context: refused, errors, exitCodes } = setupMode({ args: ['--name', 'lo-140-x', '--set', 'sideways'] });
+
+		await expect(workOrderModeCommand(refused)).rejects.toThrow(/process\.exit/);
+
+		// A word the record cannot hold never reaches the action, and the refusal
+		// names both modes so the caller can retype the flag from it alone. It must
+		// also spell no `lightsout ticket <word>` command: after the rename that
+		// command word no longer exists, so a sentence carrying it names nothing a
+		// reader can run.
+		expect(mockSetTicketMode).not.toHaveBeenCalled();
+		expect(errors.join('\n')).toEqual(expect.stringContaining('single-plan'));
+		expect(errors.join('\n')).toEqual(expect.stringContaining('multiple-plan'));
+		expect(errors.join('\n')).not.toContain('lightsout ticket ');
+		expect(exitCodes).toStrictEqual([1]);
+
+		const { context: approved, cwd } = setupMode({ args: ['--name', 'lo-140-x', '--set', 'single-plan', '--approve'] });
+
+		await expect(workOrderModeCommand(approved)).rejects.toThrow(/process\.exit/);
+
+		expect(mockSetTicketMode.mock.calls[0]?.[0]).toMatchObject({ cwd, ticketBranch: 'lo-140-x', mode: 'single-plan', approve: true });
+	});
+
 	test('refuses an unknown mode and names both modes', async () => {
 		const { context, errors, exitCodes } = setupMode({ args: ['--name', 'lo-140-x', '--set', 'sideways'] });
 
-		await expect(ticketModeCommand(context)).rejects.toThrow(/process\.exit/);
+		await expect(workOrderModeCommand(context)).rejects.toThrow(/process\.exit/);
 
-		// A word the ticket record cannot hold never reaches the action: the two
-		// modes are named here so the caller can retype the flag from the refusal
-		// alone.
+		// A word the record cannot hold never reaches the action: the two modes are
+		// named here so the caller can retype the flag from the refusal alone.
 		expect(mockSetTicketMode).not.toHaveBeenCalled();
 		expect(errors.join('\n')).toEqual(expect.stringContaining('single-plan'));
 		expect(errors.join('\n')).toEqual(expect.stringContaining('multiple-plan'));
@@ -106,7 +128,7 @@ describe('ticketModeCommand', () => {
 	test('passes the mode and whether --approve was given', async () => {
 		const { context: approved, cwd, logged: approvedLogged } = setupMode({ args: ['--name', 'lo-140-x', '--set', 'single-plan', '--approve'] });
 
-		await expect(ticketModeCommand(approved)).rejects.toThrow(/process\.exit/);
+		await expect(workOrderModeCommand(approved)).rejects.toThrow(/process\.exit/);
 
 		expect(mockSetTicketMode.mock.calls[0]?.[0]).toMatchObject({ cwd, ticketBranch: 'lo-140-x', mode: 'single-plan', approve: true });
 		// a switch that dropped nothing says so by having no excluded-plans line at
@@ -118,18 +140,18 @@ describe('ticketModeCommand', () => {
 		// absent --approve must reach the action as false rather than as nothing.
 		const { context: unapproved } = setupMode({ args: ['--name', 'lo-140-x', '--set', 'single-plan'] });
 
-		await expect(ticketModeCommand(unapproved)).rejects.toThrow(/process\.exit/);
+		await expect(workOrderModeCommand(unapproved)).rejects.toThrow(/process\.exit/);
 
 		expect(mockSetTicketMode.mock.calls[1]?.[0]?.approve).toBe(false);
 	});
 
-	test("names the ticket's new mode and every plan the switch excluded", async () => {
+	test("names the work order's new mode and every plan the switch excluded", async () => {
 		const { context, logged, errors, exitCodes } = setupMode({
 			args: ['--name', 'lo-140-x', '--set', 'single-plan', '--approve'],
-			outcome: { record: narrowedRecord, notice: 'plan 001 alone determines this ticket now' },
+			outcome: { record: narrowedRecord, notice: 'plan 001 alone determines this work order now' },
 		});
 
-		await expect(ticketModeCommand(context)).rejects.toThrow(/process\.exit/);
+		await expect(workOrderModeCommand(context)).rejects.toThrow(/process\.exit/);
 
 		const output = logged.join('\n');
 
@@ -140,7 +162,7 @@ describe('ticketModeCommand', () => {
 		expect(output).toContain('003-drop-cache');
 		// an exclusion drops a plan from the order, and never deletes its work
 		expect(output).toContain('their files stay on disk');
-		// the plan the ticket kept is not reported as one it dropped
+		// the plan the work order kept is not reported as one it dropped
 		expect(output).not.toContain('001-search-basics');
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);

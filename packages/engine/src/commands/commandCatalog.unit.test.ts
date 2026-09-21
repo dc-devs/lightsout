@@ -2,17 +2,6 @@ import { describe, expect, test } from '@jest/globals';
 import { commandCatalog } from '#src/commands/index.ts';
 import { CommandCatalogEntry } from '#src/contracts/index.ts';
 
-/** Every word `lightsout ticket` answers to, paired with its invocation id, in the order the usage prints them. */
-const ticketInvocationShapes = [
-	['ticket-add-plan', 'add-plan'],
-	['ticket-mode', 'mode'],
-	['ticket-request-ship', 'request-ship'],
-	['ticket-exclude-plan', 'exclude-plan'],
-	['ticket-retitle-plan', 'retitle-plan'],
-	['ticket-show', 'show'],
-	['ticket-sync', 'sync'],
-];
-
 const setupCatalog = () => {
 	const ids = commandCatalog.map((entry) => entry.id);
 	const byId = new Map(commandCatalog.map((entry) => [entry.id, entry]));
@@ -59,7 +48,7 @@ describe('commandCatalog', () => {
 				'standards-validate',
 				'status',
 				'test-coverage-to-threshold',
-				'ticket',
+				'work-order',
 				'ticket-state',
 				'voice',
 			].sort(),
@@ -186,7 +175,7 @@ describe('commandCatalog', () => {
 			['build', 'resume'],
 			['build', 'ship'],
 			['build', 'queue'],
-			['build', 'ticket'],
+			['build', 'work-order'],
 			['build', 'ticket-state'],
 			['build', 'self-check'],
 			['burn-down', 'refactor'],
@@ -225,7 +214,7 @@ describe('commandCatalog', () => {
 			['resume', 'runs'],
 			['ship', 'nothing'],
 			['queue', 'runs'],
-			['ticket', 'plans'],
+			['work-order', 'plans'],
 			['ticket-state', 'nothing'],
 			['self-check', 'nothing'],
 			['refactor', 'runs'],
@@ -266,29 +255,6 @@ describe('commandCatalog', () => {
 		const mute = commandCatalog.flatMap((entry) => entry.flags.filter((flag) => flag.meaning.trim() === '').map((flag) => `${entry.id} --${flag.name}`));
 
 		expect(mute).toStrictEqual([]);
-	});
-
-	test('carries the ticket command in the build group with one invocation per subcommand', () => {
-		const { ids, byId } = setupCatalog();
-		const ticket = byId.get('ticket');
-		const neighbours = ['brainstorm', 'plan', 'auto-plan', 'implement', 'implement-direct', 'resume', 'ship', 'queue', 'ticket-state', 'self-check'];
-
-		const shapes = ticket?.invocations.map((invocation) => [invocation.id, invocation.positional]);
-		const silentBack = neighbours.filter((id) => byId.get(id)?.related.includes('ticket') !== true);
-
-		expect(ticket).toEqual(expect.objectContaining({ id: 'ticket', cli: 'lightsout ticket', group: 'build', records: 'plans' }));
-		expect(ids[ids.indexOf('ticket') + 1]).toBe('ticket-state');
-		expect(shapes).toStrictEqual(ticketInvocationShapes);
-		expect([...(ticket?.related ?? [])].sort()).toStrictEqual([...neighbours].sort());
-		expect(silentBack).toStrictEqual([]);
-	});
-
-	test('drops the adopt invocation and leaves seven ticket subcommand shapes', () => {
-		const { byId } = setupCatalog();
-
-		const shapes = byId.get('ticket')?.invocations.map((invocation) => [invocation.id, invocation.positional]);
-
-		expect(shapes).toStrictEqual(ticketInvocationShapes);
 	});
 
 	test('gives ticket-state one required reference and three optional flags, since a tracker write with no ticket has no subject', () => {
@@ -378,7 +344,7 @@ describe('commandCatalog', () => {
 		const savedLines = commandCatalog.flatMap((entry) => entry.steps.flatMap((step) => step.saved.map((path) => `${entry.id} saved ${path}`)));
 		const meaningLines = commandCatalog.flatMap((entry) => entry.flags.map((flag) => `${entry.id} --${flag.name} ${flag.meaning}`));
 		const planStatePaths = (byId.get('plan')?.steps.flatMap((step) => step.saved) ?? []).filter((path) => path.startsWith('.lightsout/'));
-		const nameMeanings = ['plan', 'brainstorm', 'ticket'].map((id) => byId.get(id)?.flags.find((flag) => flag.name === 'name')?.meaning);
+		const nameMeanings = ['plan', 'brainstorm', 'work-order'].map((id) => byId.get(id)?.flags.find((flag) => flag.name === 'name')?.meaning);
 
 		const stale = [...savedLines, ...meaningLines].filter((line) => line.includes('.lightsout/plans'));
 		const unmoved = planStatePaths.filter((path) => !path.startsWith('.lightsout/tickets/'));
@@ -391,5 +357,40 @@ describe('commandCatalog', () => {
 			expect.stringContaining('.lightsout/tickets/'),
 			expect.stringContaining('.lightsout/tickets/'),
 		]);
+	});
+
+	test('commandCatalog: the work-order entry carries the renamed id, cli and seven invocation ids, and no entry answers to ticket', () => {
+		const { ids, byId } = setupCatalog();
+
+		const workOrder = byId.get('work-order');
+
+		expect(workOrder).toEqual(expect.objectContaining({ id: 'work-order', cli: 'lightsout work-order', group: 'build', records: 'plans' }));
+		expect(workOrder?.invocations.map((invocation) => [invocation.id, invocation.positional])).toStrictEqual([
+			['work-order-add-plan', 'add-plan'],
+			['work-order-mode', 'mode'],
+			['work-order-request-ship', 'request-ship'],
+			['work-order-exclude-plan', 'exclude-plan'],
+			['work-order-retitle-plan', 'retitle-plan'],
+			['work-order-show', 'show'],
+			['work-order-sync', 'sync'],
+		]);
+		expect(ids[ids.indexOf('work-order') + 1]).toBe('ticket-state');
+		expect(ids).not.toContain('ticket');
+	});
+
+	test('commandCatalog: the work-order related graph is symmetric and no entry still names ticket', () => {
+		const { byId } = setupCatalog();
+		const naming = commandCatalog.filter((entry) => entry.related.includes('work-order'));
+
+		const silentBack = naming.filter((entry) => byId.get('work-order')?.related.includes(entry.id) !== true).map((entry) => entry.id);
+		const stale = commandCatalog.filter((entry) => entry.related.includes('ticket')).map((entry) => entry.id);
+		const droppedTracker = naming.filter((entry) => entry.id !== 'ticket-state' && !entry.related.includes('ticket-state')).map((entry) => entry.id);
+
+		expect(silentBack).toStrictEqual([]);
+		expect(stale).toStrictEqual([]);
+		expect(droppedTracker).toStrictEqual([]);
+		expect(naming.map((entry) => entry.id).sort()).toStrictEqual(
+			['auto-plan', 'brainstorm', 'plan', 'implement', 'implement-direct', 'resume', 'ship', 'queue', 'ticket-state', 'self-check'].sort(),
+		);
 	});
 });

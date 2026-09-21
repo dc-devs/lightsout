@@ -295,7 +295,7 @@ describe('publishTicketPlan', () => {
 		}).toStrictEqual({
 			interrupted: {
 				error: undefined,
-				recordError: expect.stringContaining(`lightsout ticket sync --name ${ticketBranch}`),
+				recordError: expect.stringContaining(`lightsout work-order sync --name ${ticketBranch}`),
 				sidecarMarker: undefined,
 			},
 			retried: {

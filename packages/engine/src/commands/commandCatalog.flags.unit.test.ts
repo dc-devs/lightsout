@@ -21,7 +21,7 @@ describe('commandCatalog flags', () => {
 			['resume', ['cwd', 'no-ship', 'run', 'ship', 'skip-refactor']],
 			['ship', ['cwd']],
 			['queue', ['cwd', 'file-relay']],
-			['ticket', ['approve', 'cwd', 'from', 'implementation-removed', 'keep', 'name', 'plan', 'plans', 'reason', 'set', 'slug', 'title', 'withdraw']],
+			['work-order', ['approve', 'cwd', 'from', 'implementation-removed', 'keep', 'name', 'plan', 'plans', 'reason', 'set', 'slug', 'title', 'withdraw']],
 			['ticket-state', ['cwd', 'planning-status', 'ref', 'tracker-status']],
 			['self-check', ['cwd', 'run']],
 			['refactor', ['all', 'allow-dirty', 'code-checks', 'cwd', 'max-batches', 'path', 'run']],
@@ -148,67 +148,67 @@ describe('commandCatalog flags', () => {
 		expect(usageProbe?.meaning).toEqual(expect.stringMatching(/money/i));
 	});
 
-	test('scopes each ticket flag to the subcommand that reads it', () => {
+	test('scopes each work-order flag to the subcommand that reads it', () => {
 		const { byId } = setupCatalog();
 
-		const ticketFlags = byId.get('ticket')?.flags ?? [];
+		const workOrderFlags = byId.get('work-order')?.flags ?? [];
 
-		expect(ticketFlags.map((flag) => [flag.name, flag.shape])).toStrictEqual([
+		expect(workOrderFlags.map((flag) => [flag.name, flag.shape])).toStrictEqual([
 			['name', undefined],
-			['slug', 'ticket-add-plan'],
-			['title', 'ticket-add-plan'],
-			['from', 'ticket-add-plan'],
-			['set', 'ticket-mode'],
-			['approve', 'ticket-mode'],
-			['plans', 'ticket-request-ship'],
-			['withdraw', 'ticket-request-ship'],
-			['plan', 'ticket-exclude-plan'],
-			['reason', 'ticket-exclude-plan'],
-			['implementation-removed', 'ticket-exclude-plan'],
-			['plan', 'ticket-retitle-plan'],
-			['title', 'ticket-retitle-plan'],
-			['keep', 'ticket-sync'],
+			['slug', 'work-order-add-plan'],
+			['title', 'work-order-add-plan'],
+			['from', 'work-order-add-plan'],
+			['set', 'work-order-mode'],
+			['approve', 'work-order-mode'],
+			['plans', 'work-order-request-ship'],
+			['withdraw', 'work-order-request-ship'],
+			['plan', 'work-order-exclude-plan'],
+			['reason', 'work-order-exclude-plan'],
+			['implementation-removed', 'work-order-exclude-plan'],
+			['plan', 'work-order-retitle-plan'],
+			['title', 'work-order-retitle-plan'],
+			['keep', 'work-order-sync'],
 			['cwd', undefined],
 		]);
-		expect(ticketFlags.filter((flag) => flag.exclusiveWith !== undefined).map((flag) => flag.name)).toStrictEqual(['plans', 'withdraw']);
-		expect(new Set(ticketFlags.filter((flag) => flag.exclusiveWith !== undefined).map((flag) => flag.exclusiveWith)).size).toBe(1);
+		expect(workOrderFlags.filter((flag) => flag.exclusiveWith !== undefined).map((flag) => flag.name)).toStrictEqual(['plans', 'withdraw']);
+		expect(new Set(workOrderFlags.filter((flag) => flag.exclusiveWith !== undefined).map((flag) => flag.exclusiveWith)).size).toBe(1);
 	});
 
-	test('tells the reader what happens without each optional ticket flag, and gives the required ones no fallback', () => {
+	test('tells the reader what happens without each optional work-order flag, and gives the required ones no fallback', () => {
 		const { byId } = setupCatalog();
 
-		const ticketFlags = byId.get('ticket')?.flags ?? [];
+		const workOrderFlags = byId.get('work-order')?.flags ?? [];
 
-		expect(ticketFlags.map((flag) => [`${flag.name} in ${flag.shape ?? 'every shape'}`, flag.required, flag.fallback !== undefined])).toStrictEqual([
+		expect(workOrderFlags.map((flag) => [`${flag.name} in ${flag.shape ?? 'every shape'}`, flag.required, flag.fallback !== undefined])).toStrictEqual([
 			['name in every shape', true, false],
-			['slug in ticket-add-plan', true, false],
-			['title in ticket-add-plan', false, true],
-			['from in ticket-add-plan', false, true],
-			['set in ticket-mode', true, false],
-			['approve in ticket-mode', false, true],
-			['plans in ticket-request-ship', false, true],
-			['withdraw in ticket-request-ship', false, true],
-			['plan in ticket-exclude-plan', true, false],
-			['reason in ticket-exclude-plan', true, false],
-			['implementation-removed in ticket-exclude-plan', false, true],
-			['plan in ticket-retitle-plan', true, false],
-			['title in ticket-retitle-plan', true, false],
-			['keep in ticket-sync', false, true],
+			['slug in work-order-add-plan', true, false],
+			['title in work-order-add-plan', false, true],
+			['from in work-order-add-plan', false, true],
+			['set in work-order-mode', true, false],
+			['approve in work-order-mode', false, true],
+			['plans in work-order-request-ship', false, true],
+			['withdraw in work-order-request-ship', false, true],
+			['plan in work-order-exclude-plan', true, false],
+			['reason in work-order-exclude-plan', true, false],
+			['implementation-removed in work-order-exclude-plan', false, true],
+			['plan in work-order-retitle-plan', true, false],
+			['title in work-order-retitle-plan', true, false],
+			['keep in work-order-sync', false, true],
 			['cwd in every shape', false, true],
 		]);
 	});
 
-	test('scopes --from to ticket-add-plan and leaves no flag shaped to a removed invocation', () => {
+	test('scopes --from to work-order-add-plan and leaves no flag shaped to a removed invocation', () => {
 		const { byId } = setupCatalog();
-		const ticketEntry = byId.get('ticket');
-		const invocationIds = new Set((ticketEntry?.invocations ?? []).map((invocation) => invocation.id));
+		const workOrderEntry = byId.get('work-order');
+		const invocationIds = new Set((workOrderEntry?.invocations ?? []).map((invocation) => invocation.id));
 
-		const fromFlags = (ticketEntry?.flags ?? []).filter((flag) => flag.name === 'from');
-		const orphanShapes = (ticketEntry?.flags ?? [])
+		const fromFlags = (workOrderEntry?.flags ?? []).filter((flag) => flag.name === 'from');
+		const orphanShapes = (workOrderEntry?.flags ?? [])
 			.filter((flag) => flag.shape !== undefined && !invocationIds.has(flag.shape))
 			.map((flag) => `--${flag.name} in ${flag.shape ?? 'every shape'}`);
 
-		expect(fromFlags).toEqual([expect.objectContaining({ value: '<folder>', shape: 'ticket-add-plan', required: false, fallback: expect.any(String) })]);
+		expect(fromFlags).toEqual([expect.objectContaining({ value: '<folder>', shape: 'work-order-add-plan', required: false, fallback: expect.any(String) })]);
 		expect(orphanShapes).toStrictEqual([]);
 	});
 
@@ -220,5 +220,28 @@ describe('commandCatalog flags', () => {
 		);
 
 		expect(lonely).toStrictEqual([]);
+	});
+
+	test('readCommandFlags: work-order accepts its declared flags and ticket accepts none of them', () => {
+		const workOrderFlags = readCommandFlags({ command: 'work-order' });
+		const ticketFlags = readCommandFlags({ command: 'ticket' });
+
+		// the accepted set follows the entry's id, so the old command word accepts nothing the entry declares
+		expect([...workOrderFlags].sort()).toStrictEqual([
+			'approve',
+			'cwd',
+			'from',
+			'implementation-removed',
+			'keep',
+			'name',
+			'plan',
+			'plans',
+			'reason',
+			'set',
+			'slug',
+			'title',
+			'withdraw',
+		]);
+		expect(ticketFlags).toStrictEqual(new Set(['cwd']));
 	});
 });

@@ -16,7 +16,7 @@ const describeLowerPlanRemedy = ({ branch, plan }: { branch: string; plan: Ticke
 			? `\`lightsout implement --plan ${planWorkspacePath({ name: formatPlanAddress({ ticketBranch: branch, planId: plan.id }) })}\``
 			: `\`lightsout resume --run ${plan.implementation.runId}\``;
 
-	return `${finish}, or take it out of the order with \`lightsout ticket exclude-plan --name ${branch} --plan ${plan.id}\``;
+	return `${finish}, or take it out of the order with \`lightsout work-order exclude-plan --name ${branch} --plan ${plan.id}\``;
 };
 
 /** The lowest plan below this one whose implementation has not finished, if there is one — the plans are held in number order. */
@@ -53,13 +53,13 @@ export const findPlanImplementationBlocker = ({ record, planId }: Params): strin
 	let blocker: string | undefined;
 
 	if (plan === undefined) {
-		blocker = `ticket ${branch} holds no plan ${planId} — \`lightsout ticket show --name ${branch}\` lists the plans it does hold`;
+		blocker = `ticket ${branch} holds no plan ${planId} — \`lightsout work-order show --name ${branch}\` lists the plans it does hold`;
 	} else if (plan.exclusion !== undefined) {
-		blocker = `plan ${planId} is excluded from ticket ${branch} — ${plan.exclusion.reason} — and an exclusion is final; add follow-up work as a new plan with \`lightsout ticket add-plan --name ${branch}\``;
+		blocker = `plan ${planId} is excluded from ticket ${branch} — ${plan.exclusion.reason} — and an exclusion is final; add follow-up work as a new plan with \`lightsout work-order add-plan --name ${branch}\``;
 	} else if (record.mode === TicketMode.SinglePlan && planNumberOf({ id: planId }) !== 1) {
-		blocker = `ticket ${branch} is in single-plan mode, where plan 001 alone supplies the implementation, so plan ${planId} is not built — run \`lightsout ticket mode --name ${branch} --set multiple-plan\` to implement this ticket's plans in numeric order`;
+		blocker = `ticket ${branch} is in single-plan mode, where plan 001 alone supplies the implementation, so plan ${planId} is not built — run \`lightsout work-order mode --name ${branch} --set multiple-plan\` to implement this ticket's plans in numeric order`;
 	} else if (plan.progress === PlanProgress.Implemented) {
-		blocker = `plan ${planId} is already implemented on ticket ${branch}, and an implemented plan is the scope the ticket ships on; add follow-up work as a new plan with \`lightsout ticket add-plan --name ${branch}\``;
+		blocker = `plan ${planId} is already implemented on ticket ${branch}, and an implemented plan is the scope the ticket ships on; add follow-up work as a new plan with \`lightsout work-order add-plan --name ${branch}\``;
 	} else {
 		blocker = findLowerPlanBlocker({ record, planId });
 	}

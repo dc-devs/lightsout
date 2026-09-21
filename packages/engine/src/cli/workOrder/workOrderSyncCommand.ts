@@ -7,14 +7,14 @@ import { readConfig } from '#src/common/config/readConfig.ts';
 import { syncTicketRecord, TicketSyncKeep } from '#src/ticket/index.ts';
 
 /**
- * `lightsout ticket sync` at the terminal.
+ * `lightsout work-order sync` at the terminal.
  *
  * With no `--keep` this is the ordinary pull-and-catch-up, which is also how a
  * publish that failed earlier is retried. `--keep` carries out a decision about
  * a divergence, so a word naming neither copy is refused rather than guessed
  * at: keeping one copy sets the other one aside.
  */
-export const ticketSyncCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
+export const workOrderSyncCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const ticketBranch = await getRequiredFlag({ flags, name: 'name' });
 	const asked = getStringFlag({ flags, name: 'keep' });
 	const keep = Object.values(TicketSyncKeep).find((candidate) => candidate === asked);

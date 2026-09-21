@@ -10,7 +10,7 @@ interface Params<Change extends TicketRecordChange> {
 }
 
 /**
- * The one place a `lightsout ticket` subcommand's outcome becomes output and an
+ * The one place a `lightsout work-order` subcommand's outcome becomes output and an
  * exit code.
  *
  * Three endings, and the middle one is the reason this exists: a change that
@@ -19,7 +19,7 @@ interface Params<Change extends TicketRecordChange> {
  * the ticket does not know about it yet. The notice comes before the command's
  * own lines, because a caller reads the last line as the answer.
  */
-export const finishTicketChange = async <Change extends TicketRecordChange>({ ticketBranch, outcome, describe }: Params<Change>): Promise<never> => {
+export const finishWorkOrderChange = async <Change extends TicketRecordChange>({ ticketBranch, outcome, describe }: Params<Change>): Promise<never> => {
 	if ('error' in outcome) {
 		console.error(outcome.error);
 
@@ -38,7 +38,7 @@ export const finishTicketChange = async <Change extends TicketRecordChange>({ ti
 
 	if (change.publishError !== undefined) {
 		console.error(
-			`${change.publishError}\nthe change is on this machine but not on the ticket — send it with \`lightsout ticket sync --name ${ticketBranch}\``,
+			`${change.publishError}\nthe change is on this machine but not on the ticket — send it with \`lightsout work-order sync --name ${ticketBranch}\``,
 		);
 
 		return exitCli({ code: 1 });

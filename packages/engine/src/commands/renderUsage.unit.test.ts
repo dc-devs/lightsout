@@ -162,35 +162,35 @@ test('renderUsage: prints the status --queue shape after the other status lines,
 	expect(queueIndex).toBe(Math.max(...otherStatus) + 1);
 });
 
-test('prints one ticket line per subcommand between plan publish and ticket-state', () => {
+test('prints one work-order line per subcommand between plan publish and ticket-state', () => {
 	const { lines } = setupRenderUsage();
 
-	const ticket = lines.filter((line) => line.startsWith('  lightsout ticket '));
+	const workOrder = lines.filter((line) => line.startsWith('  lightsout work-order '));
 	const planPublish = lines.findIndex((line) => line.startsWith('  lightsout plan publish'));
 	const ticketState = lines.findIndex((line) => line.startsWith('  lightsout ticket-state'));
 
-	expect(ticket).toStrictEqual([
-		'  lightsout ticket add-plan --name <ticket-branch> --slug <slug> [--title <title>] [--from <folder>] [--cwd <path>]',
-		'  lightsout ticket mode --name <ticket-branch> --set single-plan|multiple-plan [--approve] [--cwd <path>]',
-		'  lightsout ticket request-ship --name <ticket-branch> [--plans <id,id> | --withdraw] [--cwd <path>]',
-		'  lightsout ticket exclude-plan --name <ticket-branch> --plan <id> --reason <text> [--implementation-removed] [--cwd <path>]',
-		'  lightsout ticket retitle-plan --name <ticket-branch> --plan <id> --title <title> [--cwd <path>]',
-		'  lightsout ticket show --name <ticket-branch> [--cwd <path>]',
-		'  lightsout ticket sync --name <ticket-branch> [--keep local|published] [--cwd <path>]',
+	expect(workOrder).toStrictEqual([
+		'  lightsout work-order add-plan --name <ticket-branch> --slug <slug> [--title <title>] [--from <folder>] [--cwd <path>]',
+		'  lightsout work-order mode --name <ticket-branch> --set single-plan|multiple-plan [--approve] [--cwd <path>]',
+		'  lightsout work-order request-ship --name <ticket-branch> [--plans <id,id> | --withdraw] [--cwd <path>]',
+		'  lightsout work-order exclude-plan --name <ticket-branch> --plan <id> --reason <text> [--implementation-removed] [--cwd <path>]',
+		'  lightsout work-order retitle-plan --name <ticket-branch> --plan <id> --title <title> [--cwd <path>]',
+		'  lightsout work-order show --name <ticket-branch> [--cwd <path>]',
+		'  lightsout work-order sync --name <ticket-branch> [--keep local|published] [--cwd <path>]',
 	]);
-	expect(lines.indexOf(ticket[0] ?? '')).toBe(planPublish + 1);
+	expect(lines.indexOf(workOrder[0] ?? '')).toBe(planPublish + 1);
 	expect(ticketState).toBe(planPublish + 8);
 });
 
-test('prints seven ticket lines with --from on add-plan and none naming adopt', () => {
+test('prints seven work-order lines with --from on add-plan and none naming adopt', () => {
 	const { lines } = setupRenderUsage();
 
-	const ticket = lines.filter((line) => line.startsWith('  lightsout ticket '));
-	const addPlan = ticket.filter((line) => line.startsWith('  lightsout ticket add-plan'));
+	const workOrder = lines.filter((line) => line.startsWith('  lightsout work-order '));
+	const addPlan = workOrder.filter((line) => line.startsWith('  lightsout work-order add-plan'));
 
-	expect(ticket).toHaveLength(7);
-	expect(addPlan).toStrictEqual(['  lightsout ticket add-plan --name <ticket-branch> --slug <slug> [--title <title>] [--from <folder>] [--cwd <path>]']);
-	expect(ticket.filter((line) => line.includes('adopt'))).toStrictEqual([]);
+	expect(workOrder).toHaveLength(7);
+	expect(addPlan).toStrictEqual(['  lightsout work-order add-plan --name <ticket-branch> --slug <slug> [--title <title>] [--from <folder>] [--cwd <path>]']);
+	expect(workOrder.filter((line) => line.includes('adopt'))).toStrictEqual([]);
 });
 
 test('renderUsage: prints a report line naming --plan and --json', () => {
@@ -217,4 +217,41 @@ test('renderUsage: prints the status --now line between the run and planning lin
 	expect(queue).toHaveLength(1);
 	expect(queue[0]).toMatch(/^ {2}lightsout status --queue \[--run <id>\] \[--wait\] \[--cwd <path>\](?: |$)/);
 	expect(queue[0]).not.toContain('--watch');
+});
+
+/** The seven subcommand lines as the renamed command word must spell them, in the settled order. */
+const workOrderUsageLines = [
+	'  lightsout work-order add-plan --name <ticket-branch> --slug <slug> [--title <title>] [--from <folder>] [--cwd <path>]',
+	'  lightsout work-order mode --name <ticket-branch> --set single-plan|multiple-plan [--approve] [--cwd <path>]',
+	'  lightsout work-order request-ship --name <ticket-branch> [--plans <id,id> | --withdraw] [--cwd <path>]',
+	'  lightsout work-order exclude-plan --name <ticket-branch> --plan <id> --reason <text> [--implementation-removed] [--cwd <path>]',
+	'  lightsout work-order retitle-plan --name <ticket-branch> --plan <id> --title <title> [--cwd <path>]',
+	'  lightsout work-order show --name <ticket-branch> [--cwd <path>]',
+	'  lightsout work-order sync --name <ticket-branch> [--keep local|published] [--cwd <path>]',
+];
+
+test('renderUsage: prints seven work-order lines between plan publish and ticket-state, and no bare ticket command line', () => {
+	const { lines } = setupRenderUsage();
+
+	const workOrder = lines.filter((line) => line.startsWith('  lightsout work-order '));
+	const planPublish = lines.findIndex((line) => line.startsWith('  lightsout plan publish'));
+	const ticketState = lines.findIndex((line) => line.startsWith('  lightsout ticket-state'));
+
+	expect(workOrder).toStrictEqual(workOrderUsageLines);
+	expect(lines.filter((line) => line.startsWith('  lightsout ticket '))).toStrictEqual([]);
+	expect(lines.indexOf(workOrder[0] ?? '')).toBe(planPublish + 1);
+	expect(ticketState).toBe(planPublish + 8);
+});
+
+test('renderUsage: the checked-in fixture spells the work-order command word with its re-flowed alignment', () => {
+	const { usage } = setupRenderUsage();
+
+	const fixtureLines = usageFixture.split('\n').filter((line) => line.startsWith('  lightsout '));
+	const health = fixtureLines.find((line) => line.startsWith('  lightsout standards-health')) ?? '';
+
+	expect(usage).toBe(usageFixture);
+	expect(fixtureLines.filter((line) => line.startsWith('  lightsout work-order '))).toStrictEqual(workOrderUsageLines);
+	expect(fixtureLines.filter((line) => line.startsWith('  lightsout ticket '))).toStrictEqual([]);
+	expect(fixtureLines.filter((line) => line.startsWith('  lightsout ticket-state'))).toHaveLength(1);
+	expect(health.indexOf('(')).toBe(54);
 });

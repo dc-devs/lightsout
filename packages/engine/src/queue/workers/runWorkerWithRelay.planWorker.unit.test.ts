@@ -343,7 +343,7 @@ describe('runWorkerWithRelay', () => {
 	});
 
 	test('runWorkerWithRelay: a plan worker whose record pull fails builds nothing', async () => {
-		const divergence = 'the ticket record on LO-70 and the local one both moved: resolve them with lightsout ticket sync --name lo-70-drain';
+		const divergence = 'the ticket record on LO-70 and the local one both moved: resolve them with lightsout work-order sync --name lo-70-drain';
 		const { relay, params } = setupPlanWorkerTicket({ pull: { error: divergence } });
 
 		const outcome = await runWorkerWithRelay(params);

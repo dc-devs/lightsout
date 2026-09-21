@@ -271,7 +271,7 @@ describe('ensurePlanWorkspace for a plan address', () => {
 
 	test('ensurePlanWorkspace: for a plan address, names the missing folder and the ticket record divergence', async () => {
 		const divergence =
-			'the local ticket record and the published one both moved — the published copy was saved as ticket.published.json, so run `lightsout ticket sync --name lo-9-x` with --keep local or --keep published';
+			'the local ticket record and the published one both moved — the published copy was saved as ticket.published.json, so run `lightsout work-order sync --name lo-9-x` with --keep local or --keep published';
 		const { cwd } = await setupAddressedPlan({ pull: { error: divergence } });
 
 		const { result } = await ensure({ cwd, path: recordedPlanPath });
@@ -315,7 +315,7 @@ describe('ensurePlanWorkspace for a plan address', () => {
 
 	test('ensurePlanWorkspace: never restores a single-folder generation into a ticket folder that has a record', async () => {
 		const refusal =
-			"plan folder 'lo-9-x' belongs to a ticket record, so name a plan as lo-9-x/<plan-id> — run `lightsout ticket show --name lo-9-x` to list them";
+			"plan folder 'lo-9-x' belongs to a ticket record, so name a plan as lo-9-x/<plan-id> — run `lightsout work-order show --name lo-9-x` to list them";
 		const { cwd } = await setupAddressedPlan({ refusal, inWorktree: { 'plan.md': '# a copy in the ticket branch tree\n' } });
 
 		const { result, printed } = await ensure({ cwd, path: recordedPlansFolder });

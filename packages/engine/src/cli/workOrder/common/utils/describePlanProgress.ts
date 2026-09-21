@@ -17,7 +17,7 @@ const planProgressWording: Record<PlanProgress, string> = {
  * How far one plan has got, in words a human reads rather than the value the
  * record stores.
  *
- * Shared by every `lightsout ticket` line that shows a plan, so a plan that is
+ * Shared by every `lightsout work-order` line that shows a plan, so a plan that is
  * only ready to implement never reads as one that is implemented, and a plan
  * whose implementation has not finished is never called unfinished.
  */

@@ -40,22 +40,32 @@ const seededRecord: TicketRecord = {
 	history: [{ at: '2026-01-02T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: 'added plan 002-beta-fix' }],
 };
 
+/** The same ticket holding no plan at all, and so carrying no ship request either. */
+const emptyRecord: TicketRecord = {
+	schemaVersion: 1,
+	ticketRef: 'LO-140',
+	branch: ticketBranch,
+	mode: TicketMode.MultiplePlan,
+	plans: [],
+	history: [],
+};
+
 /**
  * A checkout outside any repository, so the shared state directory is this
  * directory's own `.lightsout`: the record is seeded through the store itself,
  * and each plan holds a file, so a renamed or recreated folder is visible.
  */
-const setupTicketPlans = async () => {
+const setupTicketPlans = async ({ record = seededRecord }: { record?: TicketRecord } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-retitle-plan-'));
 	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
 	const recordPath = join(ticketFolder, 'ticket.json');
 
-	for (const plan of [firstPlan, secondPlan]) {
+	for (const plan of record.plans) {
 		mkdirSync(join(ticketFolder, 'plans', plan.id), { recursive: true });
 		writeFileSync(join(ticketFolder, 'plans', plan.id, 'plan.md'), `# ${plan.id}\n`);
 	}
 
-	await updateLocalTicketRecord({ cwd, ticketBranch, change: () => seededRecord });
+	await updateLocalTicketRecord({ cwd, ticketBranch, change: () => record });
 
 	return {
 		ticketFolder,
@@ -95,6 +105,22 @@ describe('retitleTicketPlan', () => {
 		const result = await retitleTicketPlan({ ...params, plan: '2', title: '   ' });
 
 		expect(result).toEqual({ error: expect.any(String) });
+		expect(readFileSync(recordPath, 'utf8')).toBe(before);
+	});
+
+	// A retitle is the shortest way to the sentence that answers a plan the
+	// ticket does not hold, and that sentence has two forms: the ids the ticket
+	// does hold, and the admission that it holds none.
+	test.each([
+		{ label: 'lists the ids it does hold', record: seededRecord, plan: '9', expected: '001-alpha-search, 002-beta-fix' },
+		{ label: 'says it holds none', record: emptyRecord, plan: '001-alpha-search', expected: 'holds no plans' },
+	])('refuses a plan the ticket does not hold and $label', async ({ record, plan, expected }) => {
+		const { recordPath, params } = await setupTicketPlans({ record });
+		const before = readFileSync(recordPath, 'utf8');
+
+		const result = await retitleTicketPlan({ ...params, plan, title: 'Search, rewritten' });
+
+		expect(result).toEqual({ error: expect.stringContaining(expected) });
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
 	});
 });

@@ -50,8 +50,18 @@ describe('buildQueueAutoPlanInvocation', () => {
 	test('leaves the ticket record to the engine, so the session never adds the plan itself', () => {
 		const { prompt } = buildQueueAutoPlanInvocation(base);
 
-		expect(prompt).toMatch(/never run[^\n]*`ticket add-plan`/);
-		expect(prompt).toMatch(/any other `ticket` subcommand/);
+		expect(prompt).toMatch(/never run[^\n]*`work-order add-plan`/);
+		expect(prompt).toMatch(/any other `work-order` subcommand/);
+	});
+
+	test('leaves no dual spelling behind: the record sentence names work-order and never the old ticket command word', () => {
+		const { prompt } = buildQueueAutoPlanInvocation(base);
+
+		const recordSentence = prompt.split('\n\n').find((section) => section.includes('already added this plan'));
+
+		expect(recordSentence).toBe(
+			"The engine has already added this plan to the ticket's record, so never run `work-order add-plan` or any other `work-order` subcommand.",
+		);
 	});
 
 	test('forbids the two things only the queue may do: asking a question directly, and shipping', () => {

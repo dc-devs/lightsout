@@ -167,7 +167,7 @@ describe('publishTicketPlan', () => {
 		const report = await publishTicketPlan(params);
 
 		expect({ error: report.error, published: report.published, attached: attachedTitles() }).toStrictEqual({
-			error: expect.stringContaining(`lightsout ticket sync --name ${ticketBranch}`),
+			error: expect.stringContaining(`lightsout work-order sync --name ${ticketBranch}`),
 			published: [],
 			attached: [],
 		});
@@ -190,7 +190,7 @@ describe('publishTicketPlan', () => {
 			republished: { error: republished.error, recordError: republished.recordError },
 			attached: attachedTitles(),
 		}).toStrictEqual({
-			refused: { error: expect.stringContaining('lightsout ticket add-plan'), published: [] },
+			refused: { error: expect.stringContaining('lightsout work-order add-plan'), published: [] },
 			republished: { error: undefined, recordError: undefined },
 			attached: [`${planId}--plan.md`, `${planId}--decisions.json`, `${planId}--plan-attachments.json`, 'ticket.json'],
 		});
@@ -210,8 +210,8 @@ describe('publishTicketPlan', () => {
 			withoutRecord: { error: withoutRecord.error, published: withoutRecord.published },
 			attached: attachedTitles(),
 		}).toStrictEqual({
-			unknownPlan: { error: expect.stringContaining(`lightsout ticket add-plan --name ${ticketBranch}`), published: [] },
-			withoutRecord: { error: expect.stringContaining(`lightsout ticket add-plan --name ${ticketBranch}`), published: [] },
+			unknownPlan: { error: expect.stringContaining(`lightsout work-order add-plan --name ${ticketBranch}`), published: [] },
+			withoutRecord: { error: expect.stringContaining(`lightsout work-order add-plan --name ${ticketBranch}`), published: [] },
 			attached: [],
 		});
 	});
@@ -232,9 +232,9 @@ describe('publishTicketPlan', () => {
 			withoutPlan: withoutPlan.error,
 			attached: attachedTitles(),
 		}).toEqual({
-			withoutDecisions: expect.stringContaining('lightsout ticket add-plan'),
-			withGrade: expect.stringContaining('lightsout ticket add-plan'),
-			withoutPlan: expect.stringContaining('lightsout ticket add-plan'),
+			withoutDecisions: expect.stringContaining('lightsout work-order add-plan'),
+			withGrade: expect.stringContaining('lightsout work-order add-plan'),
+			withoutPlan: expect.stringContaining('lightsout work-order add-plan'),
 			attached: [],
 		});
 	});
@@ -277,9 +277,42 @@ describe('publishTicketPlan', () => {
 		const report = await publishTicketPlan(params);
 
 		expect({ error: report.error, published: report.published, attached: attachedTitles() }).toStrictEqual({
-			error: expect.stringContaining(`lightsout ticket sync --name ${ticketBranch}`),
+			error: expect.stringContaining(`lightsout work-order sync --name ${ticketBranch}`),
 			published: [],
 			attached: [],
 		});
+	});
+
+	test('publishTicketPlan: every refusal that names a command spells the work-order command word', async () => {
+		const missingPlan = setupTicketPlan({
+			plans: [{ id: '002-other-plan', title: 'Another plan', progress: 'planning', createdAt: '2026-01-03T00:00:00.000Z' }],
+		});
+		const publishedElsewhere = setupTicketPlan({
+			plans: [planEntryOf({ progress: 'ready', publishedMarker: 'a'.repeat(64) })],
+			syncState: { schemaVersion: 1, planMarkers: { [planId]: 'b'.repeat(64) } },
+		});
+		const filesChanged = setupTicketPlan({
+			files: { 'plan.md': planBody, 'decisions.json': '[{"id":2}]' },
+			plans: [planEntryOf({ progress: 'implemented', snapshot: snapshotOfPlanFolder() })],
+		});
+
+		const unknownPlan = await publishTicketPlan(missingPlan.params);
+		const republished = await publishTicketPlan(publishedElsewhere.params);
+		const changed = await publishTicketPlan(filesChanged.params);
+
+		expect({
+			unknownPlan: unknownPlan.error,
+			republished: republished.error,
+			changed: changed.error,
+			attached: attachedTitles(),
+		}).toEqual({
+			unknownPlan: expect.stringContaining(`lightsout work-order add-plan --name ${ticketBranch} --slug <slug>`),
+			republished: expect.stringContaining(`lightsout work-order sync --name ${ticketBranch} --keep local`),
+			changed: expect.stringContaining(`lightsout work-order add-plan --name ${ticketBranch} --slug <slug>`),
+			attached: [],
+		});
+		// One joined string, so a single refusal left at the old command word fails
+		// the case no matter which of the three it is.
+		expect([unknownPlan.error, republished.error, changed.error].join('\n')).toEqual(expect.not.stringContaining('lightsout ticket '));
 	});
 });

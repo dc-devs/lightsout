@@ -22,7 +22,7 @@ const readRecordText = ({ text, ticketBranch, ticketRef }: { text: string; ticke
 		value = JSON.parse(text);
 	} catch (error) {
 		outcome = {
-			error: `the ${ticketFileNames.record} on ${ticketRef} is not valid JSON (${messageOf({ error })}) — run \`lightsout ticket sync --name ${ticketBranch} --keep local\` to replace it with this machine's record`,
+			error: `the ${ticketFileNames.record} on ${ticketRef} is not valid JSON (${messageOf({ error })}) — run \`lightsout work-order sync --name ${ticketBranch} --keep local\` to replace it with this machine's record`,
 		};
 	}
 
@@ -31,7 +31,7 @@ const readRecordText = ({ text, ticketBranch, ticketRef }: { text: string; ticke
 
 		if (!parsed.success) {
 			outcome = {
-				error: `the ${ticketFileNames.record} on ${ticketRef} does not match the ticket record contract (${z.prettifyError(parsed.error)}) — run \`lightsout ticket sync --name ${ticketBranch} --keep local\` to replace it with this machine's record`,
+				error: `the ${ticketFileNames.record} on ${ticketRef} does not match the ticket record contract (${z.prettifyError(parsed.error)}) — run \`lightsout work-order sync --name ${ticketBranch} --keep local\` to replace it with this machine's record`,
 			};
 		} else if (parsed.data.branch !== ticketBranch) {
 			outcome = {
@@ -67,7 +67,7 @@ export const readPublishedTicketRecord = async ({
 
 	if (carried.length > 1) {
 		return {
-			error: `${ticketRef} carries more than one ${ticketFileNames.record} attachment, so no single published ticket record can be selected — remove the extra one on the ticket, or run \`lightsout ticket sync --name ${ticketBranch} --keep local\` to publish this machine's record over them`,
+			error: `${ticketRef} carries more than one ${ticketFileNames.record} attachment, so no single published ticket record can be selected — remove the extra one on the ticket, or run \`lightsout work-order sync --name ${ticketBranch} --keep local\` to publish this machine's record over them`,
 		};
 	}
 

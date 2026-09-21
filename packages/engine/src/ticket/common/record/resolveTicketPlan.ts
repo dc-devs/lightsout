@@ -12,7 +12,7 @@ interface Params {
  * the ticket does hold.
  *
  * A bare number is accepted because a plan's number is what a human reads off
- * `lightsout ticket show`, while the full id is what every record and
+ * `lightsout work-order show`, while the full id is what every record and
  * attachment carries; both name the same plan and neither is ambiguous, since
  * no ticket ever reuses a number.
  */

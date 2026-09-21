@@ -2,19 +2,19 @@ import { getRequiredFlag } from '#src/cli/common/args/getRequiredFlag.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import { finishTicketChange } from '#src/cli/ticket/common/utils/finishTicketChange.ts';
+import { finishWorkOrderChange } from '#src/cli/workOrder/common/utils/finishWorkOrderChange.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { TicketMode } from '#src/contracts/index.ts';
 import { setTicketMode } from '#src/ticket/index.ts';
 
 /**
- * `lightsout ticket mode` at the terminal.
+ * `lightsout work-order mode` at the terminal.
  *
  * Without `--approve` a switch to single-plan mode is a preview that changes
  * nothing, so the flag is passed on as the plain boolean it is: an absent
  * `--approve` has to reach the action as false rather than as nothing.
  */
-export const ticketModeCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
+export const workOrderModeCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const ticketBranch = await getRequiredFlag({ flags, name: 'name' });
 	const asked = await getRequiredFlag({ flags, name: 'set' });
 	const mode = Object.values(TicketMode).find((candidate) => candidate === asked);
@@ -36,7 +36,7 @@ export const ticketModeCommand = async ({ flags, cwd }: CommandContext): Promise
 		onProgress: createProgressPrinter(),
 	});
 
-	await finishTicketChange({
+	await finishWorkOrderChange({
 		ticketBranch,
 		outcome,
 		describe: ({ record }) => {
