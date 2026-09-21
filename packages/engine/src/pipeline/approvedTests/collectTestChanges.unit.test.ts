@@ -43,7 +43,10 @@ const setupChangeRun = async ({ committed = {}, live = {}, approved = {}, change
 		writeRepoFile({ cwd, path, content });
 	}
 
-	execSync('git init -q && git add -A && git -c user.name=t -c user.email=t@t commit -qm init --allow-empty', { cwd });
+	execSync(
+		'git init -q && git config user.name t && git config user.email t@t && git add -A && git -c user.name=t -c user.email=t@t commit -qm init --allow-empty',
+		{ cwd },
+	);
 
 	for (const [path, content] of Object.entries(live)) {
 		if (content === null) {

@@ -24,7 +24,7 @@ const setupConflictedMerge = ({ names }: { names: string[] }) => {
 		}
 	};
 
-	git('git init -q -b main .');
+	git('git init -q -b main && git config user.name t && git config user.email t@t .');
 	git('git config user.name t && git config user.email t@t');
 	write({ content: 'base\n' });
 	git('git add -A');

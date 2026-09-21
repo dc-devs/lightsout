@@ -67,7 +67,9 @@ const _setupScopedBatchRepo = () => {
 	writeFileSync(join(dir, 'packages/api/package.json'), JSON.stringify({ name: '@acme/api', scripts: { 'test:coverage': 'x' } }));
 	writeFileSync(join(dir, scopedTarget), 'export const target = () => 1;\n');
 	writeScopedSummary({ dir, pct: 10 });
-	execSync('git init -q && git add -A && git -c user.name=t -c user.email=t@t commit -qm fixture', { cwd: dir });
+	execSync('git init -q && git config user.name t && git config user.email t@t && git add -A && git -c user.name=t -c user.email=t@t commit -qm fixture', {
+		cwd: dir,
+	});
 
 	// The run already has its folder, because `createRun` makes one before a run
 	// starts and everything written inside it looks the run up by id.

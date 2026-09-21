@@ -78,7 +78,9 @@ const setupSelfCheck = async ({
 			...(overrides === undefined ? {} : { 'gate-overrides': overrides }),
 		}),
 	);
-	execSync('git init -q && git add -A && git -c user.name=t -c user.email=t@t commit -qm init', { cwd: dir });
+	execSync('git init -q && git config user.name t && git config user.email t@t && git add -A && git -c user.name=t -c user.email=t@t commit -qm init', {
+		cwd: dir,
+	});
 
 	for (const file of changed) {
 		writeFileSync(join(dir, file), 'export const written = 1;\n');

@@ -28,7 +28,7 @@ export const setupBranchRepo = ({ branch, dirty, remoteHead = true }: Params = {
 	const git = (command: string) => execSync(command, { cwd, stdio: 'ignore' });
 
 	execSync('git init -q --bare -b main .', { cwd: origin, stdio: 'ignore' });
-	execSync('git init -q -b main .', { cwd, stdio: 'ignore' });
+	execSync('git init -q -b main && git config user.name t && git config user.email t@t .', { cwd, stdio: 'ignore' });
 	// A repo-level identity, because the subject under test may commit plainly —
 	// a CI runner has no global one, and only the fixture knows that.
 	git('git config user.name t && git config user.email t@t');
