@@ -1,0 +1,97 @@
+import { execSync } from 'node:child_process';
+import { existsSync, realpathSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, jest, test } from '@jest/globals';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { planWorkspaceDir } from '#src/plan/index.ts';
+import { addTicketPlan } from '#src/ticket/index.ts';
+import type { TrackerAttachment, TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
+import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
+
+// Mocked Imports
+// -------------------------
+// The tracker barrel is the only seam mocked: the repository, its linked
+// worktree, the record and the plan folder are all real on disk, because the
+// claim is about which checkout the plan folder and the record land in.
+const mockGetTicketAttachments = jest.fn<(params: { settings: TrackerSettings; identifier: string }) => Promise<TrackerAttachment[] | TrackerFailure>>();
+const mockGetTicketsByIdentifiers = jest.fn<(params: { settings: TrackerSettings; identifiers: string[] }) => Promise<TrackerTicket[] | TrackerFailure>>();
+const mockReadTicketAsset = jest.fn<(params: { settings: TrackerSettings; url: string }) => Promise<string | TrackerFailure>>();
+/** What `setTicketAttachment` takes, named so the mock and its wrapper each read on one line. */
+type AttachmentWrite = { settings: TrackerSettings; ticketId: string; title: string; content: Buffer; contentType: string };
+
+const mockSetTicketAttachment = jest.fn<(params: AttachmentWrite) => Promise<TrackerFailure | undefined>>();
+
+jest.mock('#src/ticketTracker/index.ts', () => ({
+	getTicketAttachments: (params: { settings: TrackerSettings; identifier: string }) => mockGetTicketAttachments(params),
+	getTicketsByIdentifiers: (params: { settings: TrackerSettings; identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
+	readTicketAsset: (params: { settings: TrackerSettings; url: string }) => mockReadTicketAsset(params),
+	resolveTrackerSettings: ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }): TrackerSettings | TrackerFailure => {
+		const block = config['ticket-tracker'];
+
+		if (block === undefined) {
+			return { error: 'this command needs a `ticket-tracker` block in lightsout.config.json naming a provider and its credentials' };
+		}
+
+		const apiKey = env[block['api-key-env']] ?? '';
+
+		return apiKey === ''
+			? { error: `the tracker API key is missing: set the \`${block['api-key-env']}\` environment variable` }
+			: { provider: 'linear', ticketPrefix: 'LO', team: 'LO', apiKey };
+	},
+	setTicketAttachment: (params: AttachmentWrite) => mockSetTicketAttachment(params),
+}));
+// -------------------------
+
+/** The ticket folder's name, which is also the branch the worktree stands on. */
+const ticketBranch = 'lo-140-multi';
+const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
+const env = { LINEAR_API_KEY: 'lin_key' };
+
+/**
+ * A real primary checkout with a linked worktree added from it, standing on the
+ * ticket's own branch — the shape a plan command runs in once `plan.worktree`
+ * moves the session into a tree, and the one place a plan folder could be made
+ * in a directory that is removed when the tree is.
+ */
+const setupAddPlanFromWorktree = () => {
+	const { cwd } = setupBranchRepo();
+	const worktree = join(cwd, '.worktrees', ticketBranch);
+
+	execSync(`git worktree add -q -b ${ticketBranch} "${worktree}" main`, { cwd, stdio: 'ignore' });
+	mockGetTicketAttachments.mockResolvedValue([]);
+	mockGetTicketsByIdentifiers.mockResolvedValue([{ id: 'id-140', identifier: 'LO-140' } as TrackerTicket]);
+	mockReadTicketAsset.mockResolvedValue({ error: 'no asset' });
+	mockSetTicketAttachment.mockResolvedValue(undefined);
+
+	return {
+		worktree,
+		primaryTicketFolder: join(realpathSync(cwd), '.lightsout', 'tickets', ticketBranch),
+		params: { cwd: worktree, ticketBranch, slug: 'search-basics', config: { gates }, env },
+	};
+};
+
+describe('addTicketPlan', () => {
+	test("a plan added from a linked worktree is created in the primary checkout's plans directory", async () => {
+		const { worktree, primaryTicketFolder, params } = setupAddPlanFromWorktree();
+
+		const result = await addTicketPlan(params);
+
+		// The folder the ticket sync's keep paths read is asked for here the same
+		// way they ask for it, so one answer proves both land on one copy.
+		const landed = {
+			address: 'address' in result ? result.address : result.error,
+			planFolderUnderPrimary: existsSync(join(primaryTicketFolder, 'plans', '001-search-basics')),
+			recordUnderPrimary: existsSync(join(primaryTicketFolder, 'ticket.json')),
+			folderTheTicketSyncReads: existsSync(await planWorkspaceDir({ cwd: worktree, name: 'lo-140-multi/001-search-basics' })),
+			planDataInsideTheWorktree: existsSync(join(worktree, '.lightsout')),
+		};
+
+		expect(landed).toStrictEqual({
+			address: 'lo-140-multi/001-search-basics',
+			planFolderUnderPrimary: true,
+			recordUnderPrimary: true,
+			folderTheTicketSyncReads: true,
+			planDataInsideTheWorktree: false,
+		});
+	});
+});

@@ -112,7 +112,7 @@ const prepareEvidence = async ({ cwd, runId, step, kind, group }: { cwd: string;
 	}
 
 	const reporterPath = await writeJestReporter({ cwd, runId });
-	const dir = testResultsDir({ cwd, runId, step: step ?? 'gates', group, kind });
+	const dir = await testResultsDir({ cwd, runId, step: step ?? 'gates', group, kind });
 
 	await rm(dir, { recursive: true, force: true });
 	await mkdir(dir, { recursive: true });

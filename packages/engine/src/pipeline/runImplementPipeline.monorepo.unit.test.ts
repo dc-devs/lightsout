@@ -9,6 +9,7 @@ import { readGateLog } from '#tests/helpers/readGateLog.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupMonorepo } from '#tests/helpers/setupMonorepo.ts';
 import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
@@ -86,7 +87,7 @@ test('front-matter scope: scoped clean-slate, name substitution, expansion, root
 	expect([...result.manifest.packages].sort()).toStrictEqual(['api', 'web']);
 	expect(result.manifest.packagesSource).toBe('front-matter');
 
-	const commandLog = readFileSync(join(dir, '.lightsout', 'runs', result.manifest.runId, 'commands.jsonl'), 'utf8')
+	const commandLog = readFileSync(join(runDirFor({ cwd: dir, runId: result.manifest.runId }), 'commands.jsonl'), 'utf8')
 		.trim()
 		.split('\n')
 		.map((line) => JSON.parse(line) as Record<string, unknown>);

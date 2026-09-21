@@ -13,6 +13,29 @@ const setupSink = ({ ready, subdir }: { ready?: Promise<unknown>; subdir?: strin
 };
 
 /**
+ * A sink handed a file name that is not known yet — the shape a caller takes
+ * when the directory the file belongs in has to be resolved first, and the sink
+ * itself must still be handed back synchronously.
+ */
+const setupPromisedPathSink = () => {
+	const dir = mkdtempSync(join(tmpdir(), 'lightsout-eventsink-'));
+	const path = join(dir, 'stream.jsonl');
+	let name: (named: string) => void = () => {};
+	const promised = new Promise<string>((resolve) => {
+		name = resolve;
+	});
+	const sink = createEventFileSink({ path: promised });
+
+	return {
+		path,
+		sink,
+		namePath: () => {
+			name(path);
+		},
+	};
+};
+
+/**
  * The sink returns void, so a test has no handle on its promise tail. Poll until
  * the file satisfies `until` rather than guessing at a delay — a fixed sleep is
  * what would make a test like this flaky.
@@ -127,5 +150,22 @@ describe('createEventFileSink', () => {
 
 		// whatever landed is still in arrival order
 		expect(events.map((event) => event.index)).toStrictEqual(events.map((event) => event.index).sort((left, right) => Number(left) - Number(right)));
+	});
+
+	test('an event emitted before the promised path settles is held, then lands in the file that promise names', async () => {
+		const { path, sink, namePath } = setupPromisedPathSink();
+
+		sink({ index: 0 });
+
+		// the file name is still unknown, so there is nowhere for the event to go
+		expect(existsSync(path)).toBe(false);
+
+		namePath();
+		sink({ index: 1 });
+
+		const events = await readEventsWhen({ path, until: hasCount({ count: 2 }) });
+
+		// both events land, in arrival order, in the file the promise resolved to
+		expect(events).toStrictEqual([{ index: 0 }, { index: 1 }]);
 	});
 });

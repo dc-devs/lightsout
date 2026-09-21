@@ -96,6 +96,6 @@ describe('runShip', () => {
 
 		const result = await runShip({ cwd, settings, integration, ticketGuard: shipTicketGuardFixture() });
 
-		expect(JSON.parse(await readFile(join(cwd, '.lightsout', 'ship', 'lo-60-ship.json'), 'utf8'))).toStrictEqual(result);
+		expect(JSON.parse(await readFile(join(cwd, '.lightsout', 'tickets', 'lo-60-ship', 'ship.json'), 'utf8'))).toStrictEqual(result);
 	});
 });

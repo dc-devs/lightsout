@@ -17,6 +17,18 @@ describe('checkGitignore', () => {
 		expect(check.status).toBe('pass');
 	});
 
+	test('a trailing-slash spelling is ignored just as the bare one is', async () => {
+		const cwd = setupConsumerRepo();
+
+		// the probe asks about a path inside the folder, so a directory-only entry
+		// answers the same as the bare name — the reason the check asks git at all
+		writeFileSync(join(cwd, '.gitignore'), '.lightsout/\n');
+
+		const check = await checkGitignore({ cwd });
+
+		expect(check.status).toBe('pass');
+	});
+
 	test('names what is not ignored so the fix is obvious', async () => {
 		const cwd = setupConsumerRepo();
 
@@ -28,16 +40,20 @@ describe('checkGitignore', () => {
 		expect(check.detail).toMatch(/run state not ignored/);
 	});
 
-	test('a repo that ignores its runs but not its plans is warned about the plans tree', async () => {
+	test('checkGitignore: a repository ignoring only the runs folder is warned, naming the one entry that fixes it', async () => {
 		const cwd = setupConsumerRepo();
 
 		writeFileSync(join(cwd, '.gitignore'), '.lightsout/runs/\n');
 
 		const check = await checkGitignore({ cwd });
 
-		// plans are run state too — without the rule the consumer commits every one
+		// one entry and no other — a per-folder list is what drifts out of step with
+		// the layout, which is why the guidance collapsed to the state directory
+		const fixEntries = (check.fix ?? '').split('\n').filter((line) => line.startsWith('.lightsout'));
+
 		expect(check.status).toBe('warn');
-		expect(check.fix).toContain('.lightsout/plans/');
+		expect(fixEntries).toEqual(['.lightsout']);
+		expect(check.detail).not.toMatch(/\.lightsout\//);
 	});
 
 	test('a directory outside any repository is reported as unevaluated, not as clean', async () => {
@@ -54,5 +70,18 @@ describe('checkGitignore', () => {
 		const check = await checkGitignore({ cwd: '/lightsout/no/such/directory' });
 
 		expect(check.detail).toMatch(/not a git repository/);
+	});
+
+	test('checkGitignore: passes when git says the whole state directory is ignored', async () => {
+		const cwd = setupConsumerRepo();
+
+		// the one entry the shipped guidance now recommends — nothing under the state
+		// directory is meant to be tracked, so nothing is left for a consumer to add
+		writeFileSync(join(cwd, '.gitignore'), '.lightsout\n');
+
+		const check = await checkGitignore({ cwd });
+
+		expect(check.status).toBe('pass');
+		expect(check.fix).toBeUndefined();
 	});
 });

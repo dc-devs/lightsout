@@ -8,6 +8,7 @@ import { type DraftImplementation, type Effort, type Permissions, PlanVariant } 
 import type { Driver } from '#src/drivers/index.ts';
 import { PlanRunStatus, type runPlanDraft } from '#src/plan/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 
 // Mocked Imports
 // -------------------------
@@ -43,7 +44,7 @@ const driver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode
 
 /** The draft step's entry in one plan folder's planning record, read off disk. */
 const draftStepOf = ({ cwd, name }: { cwd: string; name: string }): unknown => {
-	const record = JSON.parse(readFileSync(join(cwd, '.lightsout', 'plans', name, 'planning-progress.json'), 'utf8')) as { steps: unknown[] };
+	const record = JSON.parse(readFileSync(join(planWorkspaceFolder({ cwd: cwd, name: name }), 'planning-progress.json'), 'utf8')) as { steps: unknown[] };
 
 	return record.steps[0];
 };
@@ -60,11 +61,11 @@ const setupDraftCommands = () => {
 	const names = { legacy: 'legacy-draft', focused: 'focused-draft' };
 
 	for (const name of Object.values(names)) {
-		mkdirSync(join(cwd, '.lightsout', 'plans', name), { recursive: true });
+		mkdirSync(planWorkspaceFolder({ cwd: cwd, name: name }), { recursive: true });
 	}
 
 	mockRunPlanDraft.mockImplementation(async ({ name, implementation }) => {
-		const workspaceDir = join(cwd, '.lightsout', 'plans', name);
+		const workspaceDir = planWorkspaceFolder({ cwd: cwd, name: name });
 
 		return {
 			status: PlanRunStatus.Complete,

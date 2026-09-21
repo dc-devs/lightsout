@@ -6,6 +6,7 @@ import type { PlanningProgress } from '#src/contracts/index.ts';
 import { PlanningStep, RunStatus } from '#src/contracts/index.ts';
 import { planWorkspaceDir } from '#src/plan/index.ts';
 import { getPlanningProgressPath, readPlanningProgress } from '#src/plan/progress/index.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 
 const validRecord: PlanningProgress = {
 	name: 'valid',
@@ -45,10 +46,10 @@ const setupPlanFolders = () => {
 	};
 
 	for (const [name, body] of Object.entries(bodies)) {
-		mkdirSync(join(cwd, '.lightsout', 'plans', name), { recursive: true });
+		mkdirSync(planWorkspaceFolder({ cwd: cwd, name: name }), { recursive: true });
 
 		if (body !== undefined) {
-			writeFileSync(join(cwd, '.lightsout', 'plans', name, 'planning-progress.json'), body, 'utf8');
+			writeFileSync(join(planWorkspaceFolder({ cwd: cwd, name: name }), 'planning-progress.json'), body, 'utf8');
 		}
 	}
 

@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { minimalPlanBody } from '#tests/helpers/minimalPlanBody.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { seedSourceRepo } from '#tests/helpers/seedSourceRepo.ts';
 import { writeEmptyDecisions } from '#tests/helpers/writeEmptyDecisions.ts';
 
@@ -13,10 +14,10 @@ interface Params {
 	name?: string;
 }
 
-/** A temp repo with the given existing source files, a single-file plan at `.lightsout/plans/<name>/plan.md`, and the empty decision record its Decision Log is judged against. */
+/** A temp repo with the given existing source files, a single-file plan at `.lightsout/tickets/<name>/plans/plan.md`, and the empty decision record its Decision Log is judged against. */
 export const seedDedupPlan = ({ existing, creates, name = 'p' }: Params): { cwd: string; name: string; workspaceDir: string } => {
 	const cwd = seedSourceRepo({ existing });
-	const workspaceDir = join(cwd, '.lightsout', 'plans', name);
+	const workspaceDir = planWorkspaceFolder({ cwd: cwd, name: name });
 
 	mkdirSync(workspaceDir, { recursive: true });
 	writeFileSync(join(workspaceDir, 'plan.md'), minimalPlanBody({ title: 'Plan', creates }));

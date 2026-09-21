@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { resolveWatchTarget } from '#src/cli/common/utils/resolveWatchTarget.ts';
 import { PipelineKind, type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 /** Beyond any OS pid range — the live-process probe reports it dead. */
 const deadPid = 999_999_999;
@@ -44,8 +45,8 @@ const setupRuns = () => {
 	mkdirSync(join(cwd, '.lightsout', 'runs'), { recursive: true });
 
 	const plant = ({ runId, ...overrides }: { runId: string } & Partial<RunManifest>) => {
-		mkdirSync(join(cwd, '.lightsout', 'runs', runId), { recursive: true });
-		writeFileSync(join(cwd, '.lightsout', 'runs', runId, 'manifest.json'), JSON.stringify(manifestOf({ runId, ...overrides })), 'utf8');
+		mkdirSync(runDirFor({ cwd, runId }), { recursive: true });
+		writeFileSync(join(runDirFor({ cwd, runId }), 'manifest.json'), JSON.stringify(manifestOf({ runId, ...overrides })), 'utf8');
 	};
 
 	/** One checkout's run lock — the file a run's live process is recognised by. */

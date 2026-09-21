@@ -18,6 +18,8 @@ export const RunListing = z.object({
 	title: z.string(),
 	/** Repo-relative plan path, exactly as the manifest records it. */
 	plan: z.string(),
+	/** The plan this run belongs to, copied from the manifest. Absent when the run belongs to none. */
+	planName: z.string().optional(),
 	createdAt: z.string(),
 	updatedAt: z.string(),
 	/** A live process stands behind this run right now. */

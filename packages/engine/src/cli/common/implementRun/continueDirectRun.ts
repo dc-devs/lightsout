@@ -8,7 +8,7 @@ import { type LightsoutConfig, type RunManifest, RunStatus, WorktreeOwner } from
 import { runDirectWork } from '#src/direct/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
-import { getRunDir } from '#src/runState/index.ts';
+import { resolveRunDir } from '#src/runState/index.ts';
 import { readWorktreeRecord } from '#src/worktree/index.ts';
 
 /**
@@ -89,7 +89,7 @@ const commitResumedWork = async ({
 			ticketRef,
 			// The run directory comes from the checkout the records live in: the two
 			// are no longer the same directory once a run builds in a worktree.
-			runDir: getRunDir({ cwd, runId: manifest.runId }),
+			runDir: await resolveRunDir({ cwd, runId: manifest.runId }),
 			generated,
 			onProgress: createProgressPrinter(),
 		}))

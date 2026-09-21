@@ -10,6 +10,7 @@ import { readCommandLog } from '#tests/helpers/readCommandLog.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { reachabilityRulesOff, setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { verdict } from '#tests/helpers/verdict.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
@@ -67,7 +68,7 @@ const assignmentOf = ({ prompt }: { prompt: string }) => ({
 });
 
 /** The run's approved-copy root, spelled out rather than imported, so the test states the path the run promises. */
-const approvedDir = ({ dir, runId }: { dir: string; runId: string }) => join(dir, '.lightsout', 'runs', runId, 'approved');
+const approvedDir = ({ dir, runId }: { dir: string; runId: string }) => join(runDirFor({ cwd: dir, runId }), 'approved');
 
 const hashOf = ({ content }: { content: string }) => createHash('sha256').update(content).digest('hex');
 

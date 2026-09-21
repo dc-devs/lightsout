@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import type { TicketPlan, TicketRecord } from '#src/contracts/index.ts';
 import { readTicketRunTerms } from '#src/ticket/index.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 
 const ticketBranch = 'lo-140-multi';
 
@@ -18,15 +19,15 @@ const planWith = ({ id, progress }: { id: string; progress: TicketPlan['progress
 const addressOf = ({ planId }: { planId: string }) => `${ticketBranch}/${planId}`;
 
 /** The path a run manifest records for one file of a ticket plan's folder. */
-const planFileOf = ({ planId, file }: { planId: string; file: string }) => `.lightsout/plans/${ticketBranch}/${planId}/${file}`;
+const planFileOf = ({ planId, file }: { planId: string; file: string }) => `.lightsout/tickets/${ticketBranch}/plans/${planId}/${file}`;
 
 /** A checkout with no repository above it, so its own `.lightsout` folder is the one the record is looked for in. */
 const makeCheckout = () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-run-terms-'));
 
-	mkdirSync(join(cwd, '.lightsout', 'plans', ticketBranch), { recursive: true });
+	mkdirSync(planWorkspaceFolder({ cwd: cwd, name: ticketBranch }), { recursive: true });
 
-	return { cwd, recordPath: join(cwd, '.lightsout', 'plans', ticketBranch, 'ticket.json') };
+	return { cwd, recordPath: join(cwd, '.lightsout', 'tickets', ticketBranch, 'ticket.json') };
 };
 
 /** A checkout whose ticket folder exists but holds no `ticket.json`, which is what makes a folder legacy. */
@@ -69,7 +70,7 @@ describe('readTicketRunTerms', () => {
 		const legacyFolder = await readTicketRunTerms({
 			cwd,
 			name: 'lo-139-legacy-folder',
-			planPath: '.lightsout/plans/lo-139-legacy-folder/plan.md',
+			planPath: '.lightsout/tickets/lo-139-legacy-folder/plans/plan.md',
 		});
 		const outsideThePlansDirectory = await readTicketRunTerms({ cwd, name: undefined, planPath: undefined });
 		const ticketWithNoRecord = await readTicketRunTerms({

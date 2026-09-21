@@ -8,6 +8,7 @@ import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
@@ -79,7 +80,7 @@ test('write-tests warm gate: a real driver stream event releases the held-back w
 
 	// The first-event hook wraps the transcript sink — both events must still
 	// land in the warm writer's stream file, in order.
-	const agentsDir = join(dir, '.lightsout', 'runs', result.manifest.runId, 'agents');
+	const agentsDir = join(runDirFor({ cwd: dir, runId: result.manifest.runId }), 'agents');
 	const warmTranscript = readdirSync(agentsDir)
 		.filter((name) => name.startsWith('stream-') && name.includes('write-tests'))
 		.sort()[0];

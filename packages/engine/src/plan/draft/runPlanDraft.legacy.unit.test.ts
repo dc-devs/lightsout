@@ -10,6 +10,7 @@ import { createScriptedDraftDriver, unchangedFixReport } from '#tests/helpers/cr
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
 import { phaseRow, setupPhasedDraft } from '#tests/helpers/phasedDraftFixture.ts';
 import { overviewBody } from '#tests/helpers/phasePlan.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { recordingDriver } from '#tests/helpers/recordingDriver.ts';
 import { seedPlanWorkspace } from '#tests/helpers/seedPlanWorkspace.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -50,7 +51,7 @@ const setupLegacyDraft = ({ name }: { name: string }) => {
 
 	seedPlanWorkspace({ cwd, name });
 
-	const planDir = join(cwd, '.lightsout', 'plans', name);
+	const planDir = planWorkspaceFolder({ cwd: cwd, name: name });
 
 	writeFileSync(join(planDir, 'decisions.json'), JSON.stringify({ planName: name, decisions: [constraintRow] }));
 

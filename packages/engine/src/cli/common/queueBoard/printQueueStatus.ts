@@ -30,7 +30,7 @@ const printBoard = async ({ cwd, listing }: { cwd: string; listing: RunListing }
 	const board = await readQueueBoard({ cwd, runId: listing.runId });
 
 	if (board === undefined) {
-		console.log(`the queue run has no readable board yet: ${getQueueBoardPath({ cwd, runId: listing.runId })}`);
+		console.log(`the queue run has no readable board yet: ${await getQueueBoardPath({ cwd, runId: listing.runId })}`);
 		return;
 	}
 

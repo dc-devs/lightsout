@@ -13,7 +13,7 @@ import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** Write a plan file into a plan's own folder and return its absolute path. */
 const writePlan = ({ cwd, name, body }: { cwd: string; name: string; body: string }) => {
-	const dir = join(cwd, '.lightsout', 'plans', 'demo');
+	const dir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
 
 	mkdirSync(dir, { recursive: true });
 

@@ -10,6 +10,7 @@ import { countableFindings } from '#tests/helpers/countableFindings.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewOneAdvisory } from '#tests/helpers/reviewOneAdvisory.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { manifestOf } from '#tests/helpers/setupResume.ts';
 import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
@@ -46,11 +47,24 @@ interface PlantParams {
 	overrides?: Partial<RunManifest>;
 }
 
+/**
+ * A checkout holding the run's folder and nothing inside it — the run that
+ * persisted no evidence at all. The folder itself is there because `createRun`
+ * makes one before the run starts, and the summary looks the run up by id.
+ */
+const emptyRunFolder = ({ runId }: { runId: string }) => {
+	const cwd = setupConsumerRepo({ git: false });
+
+	mkdirSync(runDirFor({ cwd, runId }), { recursive: true });
+
+	return { cwd };
+};
+
 /** Write the run's persisted evidence directly — the summary is a view over exactly these files. */
 const plantEvidence = ({ agents = [], commands = [], agentFiles = [], friction = [], overrides = {} }: PlantParams = {}) => {
 	const cwd = setupConsumerRepo({ git: false });
 	const planted = manifest(overrides);
-	const runDir = join(cwd, '.lightsout', 'runs', planted.runId);
+	const runDir = runDirFor({ cwd, runId: planted.runId });
 
 	mkdirSync(join(runDir, 'agents'), { recursive: true });
 	writeFileSync(join(runDir, 'agents.jsonl'), agents.map((line) => `${line}\n`).join(''), 'utf8');
@@ -165,8 +179,9 @@ test('summarizeRun aggregates step durations, per-step usage, files, gates, and 
 
 test('summarizeRun tolerates a run dir with no ledger, no commands, no friction', async () => {
 	const ghost = manifest({ runId: 'ghost', status: RunStatus.Failed, steps: [{ id: 'clean-slate', status: RunStatus.Failed, attempts: 1 }] });
+	const { cwd } = emptyRunFolder({ runId: ghost.runId });
 
-	const summary = await summarizeRun({ cwd: '/nonexistent', manifest: ghost });
+	const summary = await summarizeRun({ cwd, manifest: ghost });
 
 	expect(summary.wallMs).toBe(600_000);
 	expect(summary.activeMs).toBe(0);
@@ -299,7 +314,9 @@ test('summarizeRun reports no cache share for a run whose input tokens are all z
 		usage: { invocations: 1, inputTokens: 0, outputTokens: 40, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0 },
 	});
 
-	const summary = await summarizeRun({ cwd: '/nonexistent', manifest: zeroInput });
+	const { cwd } = emptyRunFolder({ runId: zeroInput.runId });
+
+	const summary = await summarizeRun({ cwd, manifest: zeroInput });
 
 	// a share of nothing is not zero efficiency
 	expect(summary.cacheReadShare).toBe(undefined);
@@ -310,7 +327,9 @@ test('summarizeRun reports no cache share for a run whose input tokens are all z
 test('summarizeRun clamps wall time for a manifest stamped out of order', async () => {
 	const backwards = manifest({ runId: 'run-clock', createdAt: '2026-07-03T00:10:00.000Z', updatedAt: '2026-07-03T00:00:00.000Z' });
 
-	const summary = await summarizeRun({ cwd: '/nonexistent', manifest: backwards });
+	const { cwd } = emptyRunFolder({ runId: backwards.runId });
+
+	const summary = await summarizeRun({ cwd, manifest: backwards });
 
 	// a clock that ran backwards reports no time, never negative time
 	expect(summary.wallMs).toBe(0);

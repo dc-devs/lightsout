@@ -1,7 +1,6 @@
 import { mkdir, rename } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
-import { resolveSharedStateDir } from '#src/common/workspace/resolveSharedStateDir.ts';
 import type { WorktreeOwner, WorktreeRecord } from '#src/contracts/index.ts';
 import { getWorktreeRecordPath } from '#src/worktree/records/common/utils/getWorktreeRecordPath.ts';
 
@@ -26,10 +25,12 @@ interface Params {
  */
 export const writeWorktreeRecord = async ({ cwd, branch, owner, worktreePath, startPoint, onProgress }: Params): Promise<void> => {
 	const record: WorktreeRecord = { branch, owner, worktreePath, createdAt: new Date().toISOString(), ...(startPoint === undefined ? {} : { startPoint }) };
-	const stateDir = await resolveSharedStateDir({ cwd });
-	const recordPath = getWorktreeRecordPath({ stateDir, branch });
 
 	try {
+		// Resolved inside the try, so a checkout that cannot be resolved is reported
+		// as the same progress line a refused write is rather than thrown at the run.
+		const recordPath = await getWorktreeRecordPath({ cwd, branch });
+
 		await mkdir(dirname(recordPath), { recursive: true });
 		await writeJsonFile({ path: `${recordPath}.tmp`, value: record });
 		await rename(`${recordPath}.tmp`, recordPath);

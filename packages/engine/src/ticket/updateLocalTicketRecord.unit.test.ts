@@ -46,7 +46,7 @@ const recordOf = ({ branch = ticketBranch, history = [] }: { branch?: string; hi
  */
 const setupTicketRecord = ({ contents }: { contents?: string } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-ticket-record-'));
-	const ticketFolder = join(cwd, '.lightsout', 'plans', ticketBranch);
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
 	const recordPath = join(ticketFolder, 'ticket.json');
 
 	if (contents !== undefined) {
@@ -78,8 +78,8 @@ const setupDifferingKeyOrders = () => {
 		second,
 		firstRecord,
 		secondRecord,
-		firstPath: join(first, '.lightsout', 'plans', ticketBranch, 'ticket.json'),
-		secondPath: join(second, '.lightsout', 'plans', ticketBranch, 'ticket.json'),
+		firstPath: join(first, '.lightsout', 'tickets', ticketBranch, 'ticket.json'),
+		secondPath: join(second, '.lightsout', 'tickets', ticketBranch, 'ticket.json'),
 	};
 };
 
@@ -95,6 +95,28 @@ const expectedBytes = [
 	'}',
 	'',
 ].join('\n');
+
+/**
+ * A checkout outside any repository whose ticket folder already sits under the
+ * tickets directory, holding the sync sidecar this machine wrote on its last
+ * sync and a `plans` folder with one plan in it.
+ *
+ * The sidecar is what the record must land beside; the plans folder, and the
+ * pre-layout `.lightsout/plans` directory, are what it must never land in.
+ */
+const setupTicketFolderLayout = () => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-ticket-folder-'));
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
+	const plansFolder = join(ticketFolder, 'plans');
+	const planFile = join(plansFolder, '001-record', 'overview.md');
+	const syncBytes = `${JSON.stringify({ schemaVersion: 1, planMarkers: {} })}\n`;
+
+	mkdirSync(join(plansFolder, '001-record'), { recursive: true });
+	writeFileSync(planFile, '# plan 001-record\n');
+	writeFileSync(join(ticketFolder, 'ticket-sync.json'), syncBytes);
+
+	return { cwd, ticketFolder, plansFolder, planFile, syncBytes, recordPath: join(ticketFolder, 'ticket.json') };
+};
 
 describe('updateLocalTicketRecord', () => {
 	test('creates the ticket folder and record when none exists and passes undefined to the change', async () => {
@@ -180,7 +202,7 @@ describe('updateLocalTicketRecord', () => {
 
 		// A regular file where the ticket folder belongs: the recursive create
 		// cannot succeed, so nothing downstream of it may run.
-		mkdirSync(join(cwd, '.lightsout', 'plans'), { recursive: true });
+		mkdirSync(join(cwd, '.lightsout', 'tickets'), { recursive: true });
 		writeFileSync(ticketFolder, 'not a directory\n');
 
 		const result = await updateLocalTicketRecord({ cwd, ticketBranch, change: changeTo(recordOf()) });
@@ -209,5 +231,30 @@ describe('updateLocalTicketRecord', () => {
 
 		expect(result).toEqual({ error: expect.stringContaining(recordPath) });
 		expect(existsSync(recordPath)).toBe(false);
+	});
+
+	test("updateLocalTicketRecord: the record and its sidecar are written into the ticket's own folder", async () => {
+		const { cwd, ticketFolder, plansFolder, planFile, syncBytes, recordPath } = setupTicketFolderLayout();
+		const next = recordOf();
+
+		const result = await updateLocalTicketRecord({ cwd, ticketBranch, change: () => next });
+
+		expect({
+			result,
+			ticketFolderEntries: readdirSync(ticketFolder).sort(),
+			recordBytes: readFileSync(recordPath, 'utf8'),
+			sidecarBytes: readFileSync(join(ticketFolder, 'ticket-sync.json'), 'utf8'),
+			plansFolderEntries: readdirSync(plansFolder),
+			planBytes: readFileSync(planFile, 'utf8'),
+			prelayoutPlansDirectory: existsSync(join(cwd, '.lightsout', 'plans')),
+		}).toStrictEqual({
+			result: { record: next },
+			ticketFolderEntries: ['plans', 'ticket-sync.json', 'ticket.json'],
+			recordBytes: expectedBytes,
+			sidecarBytes: syncBytes,
+			plansFolderEntries: ['001-record'],
+			planBytes: '# plan 001-record\n',
+			prelayoutPlansDirectory: false,
+		});
 	});
 });

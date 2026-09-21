@@ -12,5 +12,5 @@ interface Params {
  * needs and a finished run does not.
  */
 export const removeApprovedTests = async ({ run }: Params): Promise<void> => {
-	await rm(approvedTestsDir({ cwd: run.cwd, runId: run.current().runId }), { recursive: true, force: true });
+	await rm(await approvedTestsDir({ cwd: run.cwd, runId: run.current().runId }), { recursive: true, force: true });
 };

@@ -1,8 +1,10 @@
+import { lstat, readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { contradictoryWorktreeFlagsMessage } from '#src/cli/common/constants/contradictoryWorktreeFlagsMessage.ts';
 import { resolveRunWorkspace } from '#src/cli/common/implementRun/resolveRunWorkspace.ts';
 import type { LightsoutConfig, RunLock, WorktreeOwner, WorktreeRecord } from '#src/contracts/index.ts';
+import { freshCwd } from '#tests/helpers/freshCwd.ts';
 
 // Mocked Imports
 // -------------------------
@@ -50,12 +52,6 @@ jest.mock('#src/worktree/index.ts', () => ({
 	prepareTicketBranch: (params: { cwd: string; branch: string }) => mockPrepareTicketBranch(params),
 }));
 // -------------------------
-const mockLinkRunRecords = jest.fn<(params: { sourceCwd: string; workspace: string }) => Promise<{ error: string } | undefined>>();
-
-jest.mock('#src/cli/common/implementRun/linkRunRecords.ts', () => ({
-	linkRunRecords: (params: { sourceCwd: string; workspace: string }) => mockLinkRunRecords(params),
-}));
-// -------------------------
 // The run lock of the ticket branch's own tree, which is what separates a tree
 // an earlier implementation run finished with from one a run is still using.
 const mockReadLiveRunLock = jest.fn<(params: { cwd: string }) => Promise<RunLock | undefined>>();
@@ -67,7 +63,7 @@ jest.mock('#src/runState/index.ts', () => ({
 
 const sourceCwd = resolve('/tmp/lightsout-launching-checkout');
 const branch = 'lo-9-isolated-run';
-const planPath = join('.lightsout', 'plans', branch);
+const planPath = join('.lightsout', 'tickets', branch, 'plans');
 const worktreePath = resolve('/tmp/lightsout-launching-checkout-worktrees', branch);
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 const pinnedCommit = '3f5c1a9e8b7d6c5b4a39281706f5e4d3c2b1a098';
@@ -81,7 +77,7 @@ const recordOwnedBy = ({ owner, startPoint }: { owner: WorktreeOwner; startPoint
 	startPoint,
 });
 
-/** What the mocked worktree module and record linker answer this resolver back. */
+/** What the mocked worktree module answers this resolver back. */
 interface Answers {
 	/** The checkout already holding the branch, when a case is about one. */
 	holder?: string;
@@ -89,12 +85,11 @@ interface Answers {
 	record?: WorktreeRecord;
 	fetched?: string | WorktreeFailure;
 	created?: string | WorktreeFailure;
-	linked?: { error: string };
 }
 
 /** A repo whose branch is free, whose remote answers, and whose tree is cut without complaint. */
 const setupWorkspace = ({ worktree, setup, flags = [], answers = {} }: { worktree?: boolean; setup?: string; flags?: string[]; answers?: Answers } = {}) => {
-	const { holder, record, fetched = 'main', created = worktreePath, linked } = answers;
+	const { holder, record, fetched = 'main', created = worktreePath } = answers;
 
 	mockFetchDefaultBranch.mockResolvedValue(fetched);
 	mockReadBranchWorktree.mockResolvedValue(holder);
@@ -102,7 +97,6 @@ const setupWorkspace = ({ worktree, setup, flags = [], answers = {} }: { worktre
 	mockReadWorktreeRecord.mockResolvedValue(record);
 	mockWriteWorktreeRecord.mockResolvedValue(undefined);
 	mockCreateWorktree.mockResolvedValue(created);
-	mockLinkRunRecords.mockResolvedValue(linked);
 
 	const config: LightsoutConfig = {
 		gates,
@@ -114,7 +108,7 @@ const setupWorkspace = ({ worktree, setup, flags = [], answers = {} }: { worktre
 };
 
 const ticketBranch = 'lo-7-search';
-const ticketPlanPath = join('.lightsout', 'plans', ticketBranch, '002-ranking', 'plan.md');
+const ticketPlanPath = join('.lightsout', 'tickets', ticketBranch, 'plans', '002-ranking', 'plan.md');
 const ticketWorktreePath = resolve('/tmp/lightsout-launching-checkout-worktrees', ticketBranch);
 const pushedCommit = 'b91e40c27d3a85f6019c4ab7e2d3f5061a8c7b24';
 const liveLock: RunLock = { pid: 4242, runId: 'run-2026-09-11-implement-002-ranking', startedAt: '2026-09-11T09:00:00.000Z' };
@@ -144,11 +138,32 @@ const setupTicketWorkspace = ({ holder, record, lock, startPoint }: { holder?: s
 	mockReadWorktreeRecord.mockResolvedValue(record);
 	mockWriteWorktreeRecord.mockResolvedValue(undefined);
 	mockCreateWorktree.mockResolvedValue(ticketWorktreePath);
-	mockLinkRunRecords.mockResolvedValue(undefined);
 
 	const config: LightsoutConfig = { gates };
 
 	return { config, flags: new Map<string, string | true>() };
+};
+
+/**
+ * A run cutting a fresh tree, where the worktree step hands back a real empty
+ * directory on disk. Separate from `setupWorkspace` because the claim is about
+ * what the cut tree holds afterwards, which needs a tree something could
+ * actually have written into.
+ */
+const setupCutWorkspace = async () => {
+	const cutPath = await freshCwd();
+
+	mockPrepareTicketBranch.mockResolvedValue({});
+	mockFetchDefaultBranch.mockResolvedValue('main');
+	mockReadBranchWorktree.mockResolvedValue(undefined);
+	mockResolveWorktreePath.mockResolvedValue(cutPath);
+	mockReadWorktreeRecord.mockResolvedValue(undefined);
+	mockWriteWorktreeRecord.mockResolvedValue(undefined);
+	mockCreateWorktree.mockResolvedValue(cutPath);
+
+	const config: LightsoutConfig = { gates };
+
+	return { config, flags: new Map<string, string | true>(), cutPath };
 };
 
 describe('resolveRunWorkspace', () => {
@@ -232,7 +247,6 @@ describe('resolveRunWorkspace', () => {
 
 		expect(workspace).toEqual({ error: expect.stringContaining(`the setup command failed in ${worktreePath}`) });
 		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ setup: 'pnpm install' }));
-		expect(mockLinkRunRecords).not.toHaveBeenCalled();
 	});
 
 	test("claims the tree as an implement run's and refuses to reuse one", async () => {
@@ -254,7 +268,6 @@ describe('resolveRunWorkspace', () => {
 
 		expect(workspace).toStrictEqual({ cwd: worktreePath, branch, isolated: true, created: false });
 		expect(mockWriteWorktreeRecord).toHaveBeenCalledWith(expect.objectContaining({ branch, owner: 'implement', worktreePath, startPoint: pinnedCommit }));
-		expect(mockLinkRunRecords).toHaveBeenCalledWith({ sourceCwd, workspace: worktreePath });
 		expect(mockCreateWorktree).not.toHaveBeenCalled();
 	});
 
@@ -315,5 +328,23 @@ describe('resolveRunWorkspace', () => {
 
 		expect(workspace).toEqual(expect.objectContaining({ cwd: ticketWorktreePath, branch: ticketBranch, isolated: true, created: true }));
 		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch: ticketBranch, startPoint: pushedCommit, owner: 'implement' }));
+	});
+
+	test('resolveRunWorkspace: leaves the cut worktree carrying no record symlinks', async () => {
+		const { config, flags, cutPath } = await setupCutWorkspace();
+
+		const workspace = await resolveRunWorkspace({ cwd: sourceCwd, config, flags, planPath });
+
+		const standing = {
+			runs: await lstat(join(cutPath, '.lightsout', 'runs')).catch(() => undefined),
+			ship: await lstat(join(cutPath, '.lightsout', 'ship')).catch(() => undefined),
+			friction: await lstat(join(cutPath, '.lightsout', 'friction.jsonl')).catch(() => undefined),
+			findings: await lstat(join(cutPath, '.lightsout', 'review-findings.jsonl')).catch(() => undefined),
+		};
+		const entries = await readdir(cutPath);
+
+		expect(workspace).toStrictEqual({ cwd: cutPath, branch, isolated: true, created: true });
+		expect(standing).toStrictEqual({ runs: undefined, ship: undefined, friction: undefined, findings: undefined });
+		expect(entries).toStrictEqual([]);
 	});
 });

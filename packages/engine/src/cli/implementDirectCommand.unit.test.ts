@@ -9,6 +9,8 @@ import type { PipelineResult } from '#src/pipeline/index.ts';
 import type { QueueFailure } from '#src/queue/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { generatedPaths } from '#tests/helpers/generatedPaths.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 // Mocked Imports
@@ -93,6 +95,9 @@ const setupImplementDirect = ({
 		writeFileSync(join(cwd, 'stray.ts'), dirty);
 	}
 
+	// The build is stubbed, so the run folder a real `createRun` would have made
+	// is planted here — the command resolves the run's directory by id.
+	seedRunFolder({ cwd, runId: manifestOf(RunStatus.Passed).runId });
 	mockRunDirectWork.mockResolvedValue({ ok: true, manifest: manifestOf(RunStatus.Passed) });
 	mockCommitTicketWork.mockResolvedValue({ committed: true });
 
@@ -115,7 +120,7 @@ describe('implementDirectCommand', () => {
 
 		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(mockCommitTicketWork).toHaveBeenCalledWith(expect.objectContaining({ runDir: join(cwd, '.lightsout', 'runs', 'run-1234-abcd') }));
+		expect(mockCommitTicketWork).toHaveBeenCalledWith(expect.objectContaining({ runDir: runDirFor({ cwd, runId: 'run-1234-abcd' }) }));
 	});
 
 	test('hands the commit step the repo’s generated paths, so a direct run’s branch carries source only', async () => {
@@ -305,7 +310,7 @@ describe('implementDirectCommand', () => {
 
 		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(mockCommitTicketWork).toHaveBeenCalledWith(expect.objectContaining({ runDir: join(cwd, '.lightsout', 'runs', 'run-1234-abcd') }));
+		expect(mockCommitTicketWork).toHaveBeenCalledWith(expect.objectContaining({ runDir: runDirFor({ cwd, runId: 'run-1234-abcd' }) }));
 		expect(errors).toStrictEqual(['the worker changed nothing']);
 		expect(exitCodes).toStrictEqual([1]);
 	});

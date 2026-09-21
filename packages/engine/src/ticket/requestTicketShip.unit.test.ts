@@ -58,7 +58,7 @@ const setupTicketRecord = async ({
 
 	await updateLocalTicketRecord({ cwd, ticketBranch, change: () => record });
 
-	const recordPath = join(cwd, '.lightsout', 'plans', ticketBranch, 'ticket.json');
+	const recordPath = join(cwd, '.lightsout', 'tickets', ticketBranch, 'ticket.json');
 
 	return { recordPath, before: readFileSync(recordPath, 'utf8'), params: { cwd, ticketBranch, config, env } };
 };

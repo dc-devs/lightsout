@@ -18,8 +18,8 @@ const freshRecord = ({ branch, maxAttempts }: { branch: string; maxAttempts: num
 };
 
 /**
- * The folder ignores everything in it, its own ignore file included, so the
- * integration step's `git add -A` never stages the record into a release
+ * The ticket folder ignores everything in it, its own ignore file included, so
+ * the integration step's `git add -A` never stages the record into a release
  * candidate and its `git clean -fd` never deletes it — whatever the
  * repository's own ignore rules cover. Anything at that path that is not a file
  * is written over, which fails, and the caller skips its record write.
@@ -36,16 +36,23 @@ const ensureIgnoreFile = async ({ folder }: { folder: string }) => {
 	}
 };
 
-/** One whole record, written through a temporary sibling file and renamed into place, never into a folder without its ignore file. */
-const writeRecord = async ({ recordPath, record }: { recordPath: string; record: ShippingProgress }) => {
-	const folder = dirname(recordPath);
-	const tmpPath = `${recordPath}.tmp`;
-
+/**
+ * One whole record, written through a temporary sibling file and renamed into
+ * place, never into a folder without its ignore file.
+ *
+ * The path arrives unresolved because the recorder's constructor cannot await
+ * one, and it is resolved inside the same `try` the write itself runs in — a
+ * checkout that cannot be resolved is dropped exactly as an unwritable file is.
+ */
+const writeRecord = async ({ recordPath, record }: { recordPath: Promise<string>; record: ShippingProgress }) => {
 	try {
+		const path = await recordPath;
+		const folder = dirname(path);
+
 		await mkdir(folder, { recursive: true });
 		await ensureIgnoreFile({ folder });
-		await writeJsonFile({ path: tmpPath, value: record });
-		await rename(tmpPath, recordPath);
+		await writeJsonFile({ path: `${path}.tmp`, value: record });
+		await rename(`${path}.tmp`, path);
 	} catch {
 		// Swallowed on purpose, with no progress line: a ship's result, ordering and
 		// output must never depend on this record. The next write tries again.
@@ -53,7 +60,7 @@ const writeRecord = async ({ recordPath, record }: { recordPath: string; record:
 };
 
 interface ConstructorParams {
-	/** The checkout being shipped. */
+	/** The checkout being shipped; the record lands in the primary one, resolved from it. */
 	cwd: string;
 	/** The branch as git names it. */
 	branch: string;
@@ -71,7 +78,7 @@ interface ConstructorParams {
  * step, and a failed write is dropped without a word.
  */
 export class ShippingProgressRecorder {
-	private readonly recordPath: string;
+	private readonly recordPath: Promise<string>;
 	private record: ShippingProgress;
 	private writes: Promise<void> = Promise.resolve();
 

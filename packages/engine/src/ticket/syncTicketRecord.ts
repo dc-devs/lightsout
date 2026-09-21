@@ -1,12 +1,11 @@
 import { sha256 } from '#src/common/utils/sha256.ts';
-import { resolveSharedStateDir } from '#src/common/workspace/resolveSharedStateDir.ts';
+import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
 import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
 import { publishedButUnrecorded } from '#src/ticket/common/constants/publishedButUnrecorded.ts';
 import { TicketSyncKeep } from '#src/ticket/common/constants/TicketSyncKeep.ts';
 import { ticketFileNames } from '#src/ticket/common/constants/ticketFileNames.ts';
 import type { TicketTrackerTarget } from '#src/ticket/common/types/TicketTrackerTarget.ts';
 import { attachTicketRecordIfUnmoved } from '#src/ticket/common/utils/attachTicketRecordIfUnmoved.ts';
-import { getTicketFolderPath } from '#src/ticket/common/utils/getTicketFolderPath.ts';
 import { readTicketSyncState } from '#src/ticket/common/utils/readTicketSyncState.ts';
 import { recordTicketSyncState } from '#src/ticket/common/utils/recordTicketSyncState.ts';
 import { resolveTicketTrackerTarget } from '#src/ticket/common/utils/resolveTicketTrackerTarget.ts';
@@ -59,8 +58,7 @@ const catchUpTicketRecord = async ({
 		return { error: `there is no ${ticketFileNames.record} for '${ticketBranch}' on this machine or on ${target.ticketRef}, so there is nothing to sync` };
 	}
 
-	const stateDir = await resolveSharedStateDir({ cwd });
-	const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
+	const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
 	const syncState = await readTicketSyncState({ ticketFolder });
 	const localSha256 = sha256({ content: serializeTicketRecord({ record: pulled.record }) });
 

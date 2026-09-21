@@ -21,7 +21,7 @@ const setupFocusedInvocation = (
 	buildFocusedPlanWriterInvocation({
 		facts: planFacts(),
 		decisions: focusedDecisions(),
-		outputs: [{ path: '/repo/.lightsout/plans/foo/plan.md', variant: PlanVariant.Single }],
+		outputs: [{ path: '/repo/.lightsout/tickets/foo/plans/plan.md', variant: PlanVariant.Single }],
 		limits: { executorFileLimit: 50, createdFileCeiling: 30 },
 		...overrides,
 	});
@@ -166,7 +166,7 @@ test('the focused role prompt replaces re-reading and per-symbol searching with 
 
 test('the focused overview brief hands the phase row and declaration pairing to the engine', () => {
 	const { prompt } = setupFocusedInvocation({
-		outputs: [{ path: '/repo/.lightsout/plans/foo/overview.md', variant: PlanVariant.Overview }],
+		outputs: [{ path: '/repo/.lightsout/tickets/foo/plans/overview.md', variant: PlanVariant.Overview }],
 	});
 
 	const brief = assignmentBriefOf(prompt);

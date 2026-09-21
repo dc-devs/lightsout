@@ -246,7 +246,7 @@ const setupPlanWorkerInWorktree = () => {
 
 	execSync(`git worktree add -q -b lo-70-drain "${worktreePath}" main`, { cwd: primary, stdio: 'ignore' });
 
-	const folder = join(primary, '.lightsout', 'plans', 'lo-70-drain');
+	const folder = join(primary, '.lightsout', 'tickets', 'lo-70-drain', 'plans');
 
 	mkdirSync(folder, { recursive: true });
 	writeFileSync(join(folder, 'plan.md'), '# Plan\n');

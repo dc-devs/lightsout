@@ -1,20 +1,36 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { BranchPhase } from '#src/contracts/index.ts';
 import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
+import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
-/** An empty main checkout, and a hand-written record file for the off-contract cases the writer would never produce. */
+/** An empty checkout, and a hand-written record file for the off-contract cases the writer would never produce. */
 const setupCheckout = ({ branch, contents }: { branch?: string; contents?: string } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-branch-state-'));
 
 	if (branch !== undefined && contents !== undefined) {
-		mkdirSync(join(cwd, '.lightsout', 'branch-state'), { recursive: true });
-		writeFileSync(join(cwd, '.lightsout', 'branch-state', `${branch}.json`), contents);
+		mkdirSync(join(cwd, '.lightsout', 'tickets', branch), { recursive: true });
+		writeFileSync(join(cwd, '.lightsout', 'tickets', branch, 'branch-state.json'), contents);
 	}
 
 	return { cwd };
+};
+
+/**
+ * A primary checkout with a second checkout of the same repository cut beside
+ * it — the shape a queue lane records from, where the reader's `cwd` and the
+ * checkout holding the record are two different directories.
+ */
+const setupLinkedCheckout = ({ branch = 'lo-70-drain' }: { branch?: string } = {}) => {
+	const { cwd } = setupBranchRepo();
+	const worktree = join(cwd, '.worktrees', 'lo-70-drain');
+
+	execSync(`git worktree add -q -b ${branch} "${worktree}" main`, { cwd, stdio: 'ignore' });
+
+	return { branch, primary: cwd, worktree };
 };
 
 describe('readBranchState', () => {
@@ -57,5 +73,20 @@ describe('readBranchState', () => {
 		const { cwd } = setupCheckout({ branch: 'lo-70-drain', contents: JSON.stringify({ phase: BranchPhase.Merged }) });
 
 		expect(await readBranchState({ cwd, branch: 'lo-70-drain' })).toBe(undefined);
+	});
+
+	test('readBranchState: reads a phase recorded from another checkout of the same repository', async () => {
+		const { branch, primary, worktree } = setupLinkedCheckout();
+
+		await writeBranchState({ cwd: primary, branch, phase: BranchPhase.Ready });
+
+		// The second checkout keeps no state folder of its own, so a read scoped to
+		// it rather than to the repository would have nothing at all to answer with.
+		expect(existsSync(join(worktree, '.lightsout'))).toBe(false);
+		expect(await readBranchState({ cwd: worktree, branch })).toEqual({
+			branch: 'lo-70-drain',
+			phase: BranchPhase.Ready,
+			updatedAt: expect.any(String),
+		});
 	});
 });

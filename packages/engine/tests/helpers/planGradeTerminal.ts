@@ -52,7 +52,7 @@ export const setupGrade = ({
 export const setupPhasedGrade = ({ gaps }: { gaps: unknown[] }) => {
 	const captured = captureCommandOutput();
 	const cwd = setupConsumerRepo({ git: false });
-	const dir = join(cwd, '.lightsout', 'plans', 'demo');
+	const dir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
 
 	const secondPhase = cleanPlanBody({ title: 'Phase 2', reference: true })
 		.replace(/new-thing/g, 'other-thing')

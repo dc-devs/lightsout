@@ -23,7 +23,7 @@
       "note": "Gives the plan a stable home without making `/brainstorm` a prerequisite",
       "savedLabel": "SAVED WHEN NOTES EXIST",
       "saved": [
-        ".lightsout/plans/<name>/brainstorm-notes.md"
+        ".lightsout/tickets/<ticket-branch>/plans/<plan-id>/brainstorm-notes.md"
       ]
     },
     {
@@ -39,7 +39,7 @@
       ],
       "note": "Ensures the plan reflects the repository’s current state, not assumptions",
       "saved": [
-        ".lightsout/plans/<name>/facts.json"
+        ".lightsout/tickets/<ticket-branch>/plans/<plan-id>/facts.json"
       ]
     },
     {
@@ -55,7 +55,7 @@
       ],
       "note": "Prevents scope and project constraints from being decided during implementation",
       "saved": [
-        ".lightsout/plans/<name>/decisions.json"
+        ".lightsout/tickets/<ticket-branch>/plans/<plan-id>/decisions.json"
       ]
     },
     {
@@ -71,7 +71,7 @@
       ],
       "note": "Ensures the design is chosen before implementation begins",
       "saved": [
-        "decisions.json"
+        ".lightsout/tickets/<ticket-branch>/plans/<plan-id>/decisions.json"
       ]
     },
     {
@@ -87,9 +87,9 @@
       ],
       "note": "Creates the specification the implementation agent will follow",
       "saved": [
-        ".lightsout/plans/<name>/plan.md",
-        ".lightsout/plans/<name>/overview.md",
-        ".lightsout/plans/<name>/phase<N>-<slug>.md"
+        ".lightsout/tickets/<ticket-branch>/plans/<plan-id>/plan.md",
+        ".lightsout/tickets/<ticket-branch>/plans/<plan-id>/overview.md",
+        ".lightsout/tickets/<ticket-branch>/plans/<plan-id>/phase<N>-<slug>.md"
       ]
     },
     {
@@ -105,7 +105,7 @@
       ],
       "note": "Prevents the implementation agent from filling gaps on its own",
       "saved": [
-        "decisions.json"
+        ".lightsout/tickets/<ticket-branch>/plans/<plan-id>/decisions.json"
       ]
     },
     {
@@ -121,7 +121,7 @@
       ],
       "note": "Prevents duplicate logic and competing abstractions",
       "saved": [
-        ".lightsout/plans/<name>/dedup.json"
+        ".lightsout/tickets/<ticket-branch>/plans/<plan-id>/dedup.json"
       ]
     },
     {
@@ -137,7 +137,7 @@
       ],
       "note": "Proves the plan is complete enough for an implementation agent with no prior context",
       "saved": [
-        ".lightsout/plans/<name>/grade.json"
+        ".lightsout/tickets/<ticket-branch>/plans/<plan-id>/grade.json"
       ]
     }
   ]

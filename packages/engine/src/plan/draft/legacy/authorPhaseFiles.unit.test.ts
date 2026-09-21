@@ -76,7 +76,7 @@ const phaseDriver = ({ respond, onInvoke }: { respond?: Respond; onInvoke?: (inv
 /** A plan workspace on disk plus the arguments the fan-out takes, ready for one act. */
 const setupFanOut = ({ count, driver }: { count: number; driver: Driver }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-phases-'));
-	const workspaceDir = join(cwd, '.lightsout', 'plans', 'demo');
+	const workspaceDir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
 
 	mkdirSync(workspaceDir, { recursive: true });
 
@@ -113,7 +113,7 @@ const setupFanOutFromWorktree = ({ count, driver }: { count: number; driver: Dri
 	const { params } = setupFanOut({ count, driver });
 	const { cwd: primary } = setupBranchRepo();
 	const worktree = join(primary, '.worktrees', 'demo');
-	const workspaceDir = join(primary, '.lightsout', 'plans', 'demo');
+	const workspaceDir = join(primary, '.lightsout', 'tickets', 'demo', 'plans');
 
 	execSync(`git worktree add -q -b demo "${worktree}" main`, { cwd: primary, stdio: 'ignore' });
 	mkdirSync(workspaceDir, { recursive: true });
@@ -133,7 +133,7 @@ describe('authorPhaseFiles', () => {
 		// none of them reading another's unfinished text
 		expect({ spawns: invocations.length, planPaths: result.planPaths, reports: result.reports.length }).toStrictEqual({
 			spawns: 3,
-			planPaths: [1, 2, 3].map((number) => join(cwd, '.lightsout', 'plans', 'demo', `phase${number}-step.md`)),
+			planPaths: [1, 2, 3].map((number) => join(cwd, '.lightsout', 'tickets', 'demo', 'plans', `phase${number}-step.md`)),
 			reports: 3,
 		});
 	});
@@ -299,8 +299,8 @@ describe('authorPhaseFiles', () => {
 		expectStatus(result, 'failed');
 		// the agent owns the content but never the claim that it exists
 		expect(result.error).toContain('not written');
-		expect(result.error).toContain(join(cwd, '.lightsout', 'plans', 'demo', 'phase2-step.md'));
-		expect(existsSync(join(cwd, '.lightsout', 'plans', 'demo', 'phase2-step.md'))).toBe(false);
+		expect(result.error).toContain(join(cwd, '.lightsout', 'tickets', 'demo', 'plans', 'phase2-step.md'));
+		expect(existsSync(join(cwd, '.lightsout', 'tickets', 'demo', 'plans', 'phase2-step.md'))).toBe(false);
 	});
 
 	test('the fan-out narrates its width and then each phase file as it settles', async () => {

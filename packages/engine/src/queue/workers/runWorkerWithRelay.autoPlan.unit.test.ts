@@ -11,6 +11,7 @@ import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { runWorkerWithRelay } from '#src/queue/workers/runWorkerWithRelay.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
@@ -173,7 +174,7 @@ const setupAutoPlanTicket = ({
 	planFolder?: string;
 } = {}) => {
 	const worktreePath = mkdtempSync(join(tmpdir(), 'lightsout-auto-plan-relay-'));
-	const folder = join(worktreePath, '.lightsout', 'plans', planFolder);
+	const folder = planWorkspaceFolder({ cwd: worktreePath, name: planFolder });
 	const coordinatorRunDir = mkdtempSync(join(tmpdir(), 'lightsout-auto-plan-run-'));
 	const progress: string[] = [];
 

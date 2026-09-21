@@ -56,7 +56,7 @@ const setupTicketMode = async ({
 	ticketPattern?: string;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-ticket-mode-'));
-	const recordPath = join(cwd, '.lightsout', 'plans', ticketBranch, 'ticket.json');
+	const recordPath = join(cwd, '.lightsout', 'tickets', ticketBranch, 'ticket.json');
 	const record: TicketRecord = {
 		schemaVersion: 1,
 		ticketRef: 'LO-140',

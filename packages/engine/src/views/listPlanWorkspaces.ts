@@ -1,9 +1,9 @@
 import { readdir } from 'node:fs/promises';
-import { join } from 'node:path';
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
+import { ticketsDir } from '#src/common/workspace/ticketsDir.ts';
 import { GradeReport, type PlanWorkspaceListing } from '#src/contracts/index.ts';
-import { plansDir } from '#src/plan/index.ts';
+import { planWorkspaceDir } from '#src/plan/index.ts';
 import { buildPlanWorkspaceListing } from '#src/views/common/utils/buildPlanWorkspaceListing.ts';
 import { matchPlanRuns } from '#src/views/common/utils/matchPlanRuns.ts';
 import { readPlanRecord } from '#src/views/common/utils/readPlanRecord.ts';
@@ -15,11 +15,22 @@ interface Params {
 }
 
 /**
- * The names one directory under the plans folder contributes: the address of
- * every plan subfolder it holds, or its own name when it holds none.
+ * The names one ticket folder contributes: the address of every plan subfolder
+ * its plans folder holds, or the ticket's own name when that folder is there
+ * and holds none — which is the brainstorm shaped before a plan id existed.
+ *
+ * A ticket folder with no plans folder at all contributes nothing. Every branch
+ * gets a folder for its ship and worktree records, so absent and empty are
+ * different answers: absent means no plan was ever shaped here, and a row for
+ * it would put a phantom plan named for the branch on the list.
  */
 const namesOf = async ({ cwd, folder }: { cwd: string; folder: string }) => {
-	const children = await readdir(join(await plansDir({ cwd }), folder), { withFileTypes: true }).catch(() => []);
+	const children = await readdir(await planWorkspaceDir({ cwd, name: folder }), { withFileTypes: true }).catch(() => undefined);
+
+	if (children === undefined) {
+		return [];
+	}
+
 	const addresses = children
 		.filter((child) => child.isDirectory())
 		.map((child) => formatPlanAddress({ ticketBranch: folder, planId: child.name }))
@@ -42,14 +53,18 @@ const namesOf = async ({ cwd, folder }: { cwd: string; folder: string }) => {
  * and no row of its own: the folder is where a ticket's plans live rather than a
  * plan itself, and each plan's own runs are what its row counts.
  *
- * @param cwd - the repo whose `.lightsout/plans/` is read; a missing folder is an empty list, since a fresh clone has none
+ * @param cwd - the repo whose `.lightsout/tickets/` is read; a missing folder is an empty list, since a fresh clone has none
  */
 export const listPlanWorkspaces = async ({ cwd }: Params): Promise<PlanWorkspaceListing[]> => {
-	const entries = await readdir(await plansDir({ cwd }), { withFileTypes: true }).catch(() => []);
-	const runs = await listRuns({ cwd });
+	const entries = await readdir(await ticketsDir({ cwd }), { withFileTypes: true }).catch(() => []);
 	const listings: PlanWorkspaceListing[] = [];
 
 	for (const entry of entries.filter((candidate) => candidate.isDirectory())) {
+		// One read of this ticket's own runs folder, shared by its plans. A filter
+		// over every run on disk would read the other tickets' runs to answer for
+		// this one's.
+		const runs = await listRuns({ cwd, ticketBranch: entry.name });
+
 		for (const name of await namesOf({ cwd, folder: entry.name })) {
 			const files = await readPlanWorkspaceFiles({ cwd, name });
 			const gradeFile = files.others.get('grade.json');

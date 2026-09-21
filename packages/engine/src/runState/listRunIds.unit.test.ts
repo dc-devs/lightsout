@@ -4,45 +4,76 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { listRunIds } from '#src/runState/index.ts';
 
-const setupRepo = ({ runs = [], files = [] }: { runs?: string[]; files?: string[] } = {}) => {
+/**
+ * A repository whose state directory holds exactly the folders and files a case
+ * names, each given as its path segments below `.lightsout` — so a case states
+ * which LOCATION a run sits in, which is the whole question this listing
+ * answers now that runs are filed under the work they belong to.
+ */
+const setupStateDirs = ({ dirs = [], files = [] }: { dirs?: string[][]; files?: string[][] } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-run-ids-'));
-	const runsDir = join(cwd, '.lightsout', 'runs');
 
-	mkdirSync(runsDir, { recursive: true });
-
-	for (const runId of runs) {
-		mkdirSync(join(runsDir, runId), { recursive: true });
+	for (const segments of dirs) {
+		mkdirSync(join(cwd, '.lightsout', ...segments), { recursive: true });
 	}
 
-	for (const file of files) {
-		writeFileSync(join(runsDir, file), 'not a run\n');
+	for (const segments of files) {
+		mkdirSync(join(cwd, '.lightsout', ...segments.slice(0, -1)), { recursive: true });
+		writeFileSync(join(cwd, '.lightsout', ...segments), 'not a run\n');
 	}
 
 	return cwd;
 };
 
 describe('listRunIds', () => {
-	test('lists every run directory, sorted, so a report over them reads the same twice', async () => {
-		const cwd = setupRepo({ runs: ['c3', 'a1', 'b2'] });
+	test("lists one ticket's runs without reading another ticket's", async () => {
+		const cwd = setupStateDirs({
+			dirs: [
+				['tickets', 'lo-155-state-layout', 'runs', 'r2-second'],
+				['tickets', 'lo-155-state-layout', 'runs', 'r1-first'],
+				['tickets', 'lo-201-other-ticket', 'runs', 'a0-other-ticket'],
+				['implement', 'runs', 'a0-loose-plan'],
+			],
+		});
 
-		expect(await listRunIds({ cwd })).toStrictEqual(['a1', 'b2', 'c3']);
+		const runIds = await listRunIds({ cwd, ticketBranch: 'lo-155-state-layout' });
+
+		expect(runIds).toStrictEqual(['r1-first', 'r2-second']);
 	});
 
-	test('a repo that has never run anything has no runs, not an error', async () => {
-		const cwd = mkdtempSync(join(tmpdir(), 'lightsout-run-ids-empty-'));
+	test('lists every run in every location when no ticket narrows it', async () => {
+		const cwd = setupStateDirs({
+			dirs: [
+				['tickets', 'lo-155-state-layout', 'runs', 'c3-ticket-run'],
+				['tickets', 'lo-201-other-ticket', 'runs', 'a1-other-ticket-run'],
+				['tickets', 'lo-9-no-runs-yet', 'runs'],
+				['implement', 'runs', 'b2-loose-plan-run'],
+				['direct', 'runs', 'd4-direct-run'],
+				['refactor', 'runs', 'e5-refactor-run'],
+				['coverage', 'runs', 'f6-coverage-run'],
+				['queue', 'runs', 'g7-queue-run'],
+			],
+			files: [['implement', 'runs', 'README.md']],
+		});
 
-		expect(await listRunIds({ cwd })).toStrictEqual([]);
+		const runIds = await listRunIds({ cwd });
+
+		expect(runIds).toStrictEqual([
+			'a1-other-ticket-run',
+			'b2-loose-plan-run',
+			'c3-ticket-run',
+			'd4-direct-run',
+			'e5-refactor-run',
+			'f6-coverage-run',
+			'g7-queue-run',
+		]);
 	});
 
-	test('a runs directory that holds nothing yet lists no runs', async () => {
-		const cwd = setupRepo();
+	test('a repo with no run locations at all has no runs, not an error', async () => {
+		const cwd = setupStateDirs();
 
-		expect(await listRunIds({ cwd })).toStrictEqual([]);
-	});
+		const runIds = await listRunIds({ cwd });
 
-	test('a stray file beside the run directories is not a run', async () => {
-		const cwd = setupRepo({ runs: ['a1'], files: ['README.md'] });
-
-		expect(await listRunIds({ cwd })).toStrictEqual(['a1']);
+		expect(runIds).toStrictEqual([]);
 	});
 });

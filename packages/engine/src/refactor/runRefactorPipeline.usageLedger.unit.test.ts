@@ -6,6 +6,7 @@ import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runRefactorPipeline } from '#src/refactor/index.ts';
 import { report } from '#tests/helpers/report.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
@@ -39,7 +40,7 @@ const setupLedgerRun = async ({ config }: { config?: Record<string, unknown> } =
 
 	const loaded = await readConfig({ cwd: dir });
 	const readLedger = (runId: string) =>
-		readFileSync(join(dir, '.lightsout', 'runs', runId, 'agents.jsonl'), 'utf8')
+		readFileSync(join(runDirFor({ cwd: dir, runId, pipeline: 'refactor' }), 'agents.jsonl'), 'utf8')
 			.trim()
 			.split('\n')
 			.map((line) => JSON.parse(line) as Record<string, unknown>);

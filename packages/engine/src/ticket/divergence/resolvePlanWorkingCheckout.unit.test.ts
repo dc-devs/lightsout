@@ -23,8 +23,8 @@ const setupTicketWorktree = () => {
 	const worktree = join(dirname(primary), `${basename(primary)}-worktrees`, ticketBranch);
 
 	execSync(`git worktree add -q -b ${ticketBranch} "${worktree}" main`, { cwd: primary, stdio: 'ignore' });
-	mkdirSync(join(primary, '.lightsout', 'plans', ticketBranch, planId), { recursive: true });
-	mkdirSync(join(worktree, '.lightsout', 'plans', ticketBranch, planId), { recursive: true });
+	mkdirSync(join(primary, '.lightsout', 'tickets', ticketBranch, 'plans', planId), { recursive: true });
+	mkdirSync(join(worktree, '.lightsout', 'tickets', ticketBranch, 'plans', planId), { recursive: true });
 
 	return { primary, worktree };
 };

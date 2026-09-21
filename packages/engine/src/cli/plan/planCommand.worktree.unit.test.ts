@@ -7,6 +7,7 @@ import { planCommand } from '#src/cli/plan/planCommand.ts';
 import type { LightsoutConfig, WorktreeOwner, WorktreeRecord } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 
 // Mocked Imports
 // -------------------------
@@ -81,7 +82,7 @@ const setupWorkspace = async ({
 	const root = await realpath(await freshCwd());
 	const sourceCwd = join(root, 'launching-checkout');
 	const tree = join(root, 'launching-checkout-worktrees', name);
-	const sourcePlanDir = join(sourceCwd, '.lightsout', 'plans', name);
+	const sourcePlanDir = planWorkspaceFolder({ cwd: sourceCwd, name: name });
 
 	await mkdir(sourceCwd, { recursive: true });
 	await writeFile(join(sourceCwd, 'lightsout.config.json'), JSON.stringify({ gates, worktree: { setup: setupCommand } }));
@@ -129,7 +130,7 @@ const setupTicketPlanWorkspace = async () => {
 	const root = await realpath(await freshCwd());
 	const sourceCwd = join(root, 'launching-checkout');
 	const tree = join(root, 'launching-checkout-worktrees', 'lo-7-search');
-	const sourcePlanDir = join(sourceCwd, '.lightsout', 'plans', 'lo-7-search', '002-ranking');
+	const sourcePlanDir = join(sourceCwd, '.lightsout', 'tickets', 'lo-7-search', 'plans', '002-ranking');
 
 	await mkdir(sourcePlanDir, { recursive: true });
 	await writeFile(join(sourceCwd, 'lightsout.config.json'), JSON.stringify({ gates, worktree: { setup: setupCommand } }));
@@ -168,7 +169,7 @@ const setupStandingTicketTree = async ({ owner, heldBy }: { owner: WorktreeOwner
 	const root = await realpath(await freshCwd());
 	const sourceCwd = join(root, 'launching-checkout');
 	const tree = join(root, 'launching-checkout-worktrees', 'lo-7-search');
-	const sourcePlanDir = join(sourceCwd, '.lightsout', 'plans', 'lo-7-search', '002-ranking');
+	const sourcePlanDir = join(sourceCwd, '.lightsout', 'tickets', 'lo-7-search', 'plans', '002-ranking');
 
 	await mkdir(sourcePlanDir, { recursive: true });
 	await mkdir(tree, { recursive: true });
@@ -212,7 +213,7 @@ describe('planCommand', () => {
 		expect(logged[0]).toContain(`branch: ${name}`);
 		// the tree holds code work only, so nothing was copied into it and the
 		// launching checkout's folder is exactly as it was
-		expect(existsSync(join(tree, '.lightsout', 'plans'))).toBe(false);
+		expect(existsSync(join(tree, '.lightsout', 'tickets'))).toBe(false);
 		expect(original).toStrictEqual({ notes: '# Brainstorm notes\n', decisions: '{"decisions":[]}\n' });
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);
@@ -272,7 +273,7 @@ describe('planCommand', () => {
 		// one announcement naming the tree and its branch, then the path alone
 		expect(logged).toEqual([expect.stringContaining(tree), tree]);
 		expect(logged[0]).toMatch(/branch: lo-7-search$/);
-		expect(existsSync(join(tree, '.lightsout', 'plans'))).toBe(false);
+		expect(existsSync(join(tree, '.lightsout', 'tickets'))).toBe(false);
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);
 	});
@@ -286,7 +287,7 @@ describe('planCommand', () => {
 		// nothing is cut and the path is answered as it stands
 		expect(mockCreateWorktree).not.toHaveBeenCalled();
 		expect(logged.at(-1)).toBe(tree);
-		expect(existsSync(join(tree, '.lightsout', 'plans'))).toBe(false);
+		expect(existsSync(join(tree, '.lightsout', 'tickets'))).toBe(false);
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);
 	});

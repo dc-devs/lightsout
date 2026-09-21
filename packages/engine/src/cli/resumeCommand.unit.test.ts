@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { resumeCommand } from '#src/cli/resumeCommand.ts';
 import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { manifestOf, runId, setupResume } from '#tests/helpers/setupResume.ts';
 
@@ -30,8 +31,7 @@ jest.mock('#src/ticketLifecycle/index.ts', () => ({
 // -------------------------
 
 /** The seeded run's manifest as it stands on disk after the command ran. */
-const readManifest = ({ cwd }: { cwd: string }): { willShip?: boolean } =>
-	JSON.parse(readFileSync(join(cwd, '.lightsout', 'runs', runId, 'manifest.json'), 'utf8'));
+const readManifest = ({ cwd }: { cwd: string }): { willShip?: boolean } => JSON.parse(readFileSync(join(runDirFor({ cwd, runId }), 'manifest.json'), 'utf8'));
 
 /** The sentence a held ticket's refusal carries — human-facing copy, and here it is the fixture the guard answers with. */
 const heldSentence =
@@ -59,7 +59,7 @@ const setupResumeWorkspace = ({ present }: { present: boolean }) => {
 	const workspace = present ? setupConsumerRepo() : mkdtempSync(join(tmpdir(), 'lightsout-gone-'));
 
 	if (present) {
-		mkdirSync(join(workspace, '.lightsout', 'runs', runId), { recursive: true });
+		mkdirSync(runDirFor({ cwd: workspace, runId }), { recursive: true });
 	} else {
 		rmSync(workspace, { recursive: true, force: true });
 	}

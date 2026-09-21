@@ -1,12 +1,10 @@
 import { join } from 'node:path';
-import { getRunDir } from '#src/runState/common/paths/getRunDir.ts';
+import { resolveRunDir } from '#src/runState/common/paths/resolveRunDir.ts';
 
 interface Params {
 	cwd: string;
 	runId: string;
 }
 
-/** One manifest per run: `<repo>/.lightsout/runs/<runId>/manifest.json`. */
-export const getRunManifestPath = ({ cwd, runId }: Params): string => {
-	return join(getRunDir({ cwd, runId }), 'manifest.json');
-};
+/** One manifest per run: `manifest.json` in the run's own folder. */
+export const getRunManifestPath = async ({ cwd, runId }: Params): Promise<string> => join(await resolveRunDir({ cwd, runId }), 'manifest.json');

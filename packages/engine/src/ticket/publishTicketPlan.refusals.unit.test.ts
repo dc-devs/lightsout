@@ -116,8 +116,8 @@ const setupTicketPlan = ({
 	published?: unknown;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-publish-ticket-plan-'));
-	const ticketFolder = join(cwd, '.lightsout', 'plans', ticketBranch);
-	const planFolder = join(ticketFolder, planId);
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
+	const planFolder = join(ticketFolder, 'plans', planId);
 	const progress: string[] = [];
 
 	mockGetTicketsByIdentifiers.mockResolvedValue([{ id: 'id-140', identifier: 'LO-140' }]);

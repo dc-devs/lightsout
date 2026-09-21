@@ -1,8 +1,10 @@
+import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import type { FrictionEntry } from '#src/contracts/index.ts';
 import { appendFriction } from '#src/runState/index.ts';
+import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 interface SetupParams {
@@ -24,6 +26,26 @@ const setupFrictionLog = ({ priorLine }: SetupParams = {}) => {
 	const readLog = () => readLines().map((line) => JSON.parse(line) as Record<string, unknown>);
 
 	return { cwd, runId, logPath, readLines, readLog };
+};
+
+/**
+ * A primary checkout with a linked worktree cut from it — the shape an isolated
+ * run works in, where the checkout the run is given and the checkout the ledger
+ * belongs to are two different directories.
+ */
+const setupWorktreeFrictionLog = () => {
+	const { cwd } = setupBranchRepo();
+	const worktree = join(cwd, '.worktrees', 'lo-7-isolate');
+
+	execSync(`git worktree add -q -b feature/lo-7-isolate "${worktree}" main`, { cwd, stdio: 'ignore' });
+
+	const readPrimaryLog = () =>
+		readFileSync(join(cwd, '.lightsout', 'friction.jsonl'), 'utf8')
+			.trim()
+			.split('\n')
+			.map((line) => JSON.parse(line) as Record<string, unknown>);
+
+	return { primary: cwd, worktree, readPrimaryLog };
 };
 
 describe('appendFriction', () => {
@@ -178,5 +200,24 @@ describe('appendFriction', () => {
 
 		// a malformed entry never leaves a half-written line behind
 		expect(existsSync(logPath)).toBe(false);
+	});
+
+	test("appendFriction: appends to the primary checkout's ledger when the run works in a linked worktree", async () => {
+		const { primary, worktree, readPrimaryLog } = setupWorktreeFrictionLog();
+
+		await appendFriction({
+			cwd: worktree,
+			runId: 'run-isolated',
+			step: 'implement',
+			friction: [{ kind: 'friction', area: 'environment', detail: 'the worktree had no jest config' }],
+		});
+
+		const log = readPrimaryLog();
+
+		// one ledger per repository, held by the checkout the worktree was cut from
+		expect(existsSync(join(primary, '.lightsout', 'friction.jsonl'))).toBe(true);
+		expect(log.map((record) => [record.detail, record.runId])).toStrictEqual([['the worktree had no jest config', 'run-isolated']]);
+		// and the worktree keeps no state directory of its own, symlinked or otherwise
+		expect(existsSync(join(worktree, '.lightsout'))).toBe(false);
 	});
 });

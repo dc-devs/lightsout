@@ -1,9 +1,8 @@
 import { join } from 'node:path';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
-import { resolveSharedStateDir } from '#src/common/workspace/resolveSharedStateDir.ts';
+import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
 import { pathExists } from '#src/plan/index.ts';
 import { ticketFileNames } from '#src/ticket/common/constants/ticketFileNames.ts';
-import { getTicketFolderPath } from '#src/ticket/common/utils/getTicketFolderPath.ts';
 import { readTicketRecord } from '#src/ticket/readTicketRecord.ts';
 
 interface Params {
@@ -37,8 +36,7 @@ export const findBareTicketFolderRefusal = async ({ cwd, name }: Params): Promis
 		return undefined;
 	}
 
-	const stateDir = await resolveSharedStateDir({ cwd });
-	const recordPath = join(getTicketFolderPath({ stateDir, ticketBranch: name }), ticketFileNames.record);
+	const recordPath = join(await ticketFolderDir({ cwd, ticketBranch: name }), ticketFileNames.record);
 
 	if (!(await pathExists({ path: recordPath }))) {
 		return undefined;

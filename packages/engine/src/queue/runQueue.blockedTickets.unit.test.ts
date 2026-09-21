@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import type { GateHold } from '#src/contracts/index.ts';
@@ -14,6 +14,7 @@ import type { ShipSettings } from '#src/ship/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { queueOutcomeFixture as outcomeOf } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueTicketFixture as ticketOf } from '#tests/helpers/queueTicketFixture.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupQueueDrain } from '#tests/helpers/setupQueueDrain.ts';
 
 // Mocked Imports
@@ -187,7 +188,7 @@ describe('runQueue', () => {
 			],
 		});
 		expect(progress).toContainEqual(expect.stringContaining('waiting on an unfinished blocker'));
-		expect(existsSync(join(cwd, '.lightsout', 'runs'))).toBe(false);
+		expect(existsSync(dirname(runDirFor({ cwd, runId: 'any', pipeline: 'queue' })))).toBe(false);
 	});
 
 	test('names a blocked RESUMED ticket once, though no later scan returns it — the eligible query hides its in-progress status', async () => {

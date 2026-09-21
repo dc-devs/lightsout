@@ -82,7 +82,7 @@ export const collectTestChanges = async ({ run }: Params): Promise<TestChange[]>
 
 	// Cleared and recreated per collection, so a stale approved side can never be
 	// the thing a diff is taken against.
-	const scratch = join(dirname(approvedTestsDir({ cwd: run.cwd, runId: manifest.runId })), 'approved-scratch');
+	const scratch = join(dirname(await approvedTestsDir({ cwd: run.cwd, runId: manifest.runId })), 'approved-scratch');
 
 	await rm(scratch, { recursive: true, force: true });
 	await mkdir(scratch, { recursive: true });

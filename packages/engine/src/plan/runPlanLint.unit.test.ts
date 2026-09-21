@@ -8,11 +8,12 @@ import { renderGlobalConstraints } from '#src/plan/sections/index.ts';
 import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advisoryPlan.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
-/** Write a plan deliverable at `.lightsout/plans/<name>/plan.md`. */
+/** Write a plan deliverable at `.lightsout/tickets/<name>/plans/plan.md`. */
 const writePlan = ({ cwd, name, body }: { cwd: string; name: string; body: string }) => {
-	const dir = join(cwd, '.lightsout', 'plans', name);
+	const dir = planWorkspaceFolder({ cwd: cwd, name: name });
 
 	mkdirSync(dir, { recursive: true });
 	writeFileSync(join(dir, 'plan.md'), body);
@@ -24,7 +25,7 @@ const writePlan = ({ cwd, name, body }: { cwd: string; name: string; body: strin
  * simply never writes it, which is how a missing record is tested.
  */
 const writeDecisions = ({ cwd, name, record }: { cwd: string; name: string; record?: DecisionsRecord }) => {
-	writeFileSync(join(cwd, '.lightsout', 'plans', name, 'decisions.json'), JSON.stringify(record ?? { planName: name, decisions: [] }));
+	writeFileSync(join(planWorkspaceFolder({ cwd: cwd, name: name }), 'decisions.json'), JSON.stringify(record ?? { planName: name, decisions: [] }));
 };
 
 /**
@@ -49,7 +50,7 @@ test('plan lint: a clean plan returns complete with no findings and names the pl
 	// clean plan should have no findings, got: ${JSON.stringify(result.findings)}
 	expect(result.findings).toStrictEqual([]);
 	// the resolved deliverable path comes back
-	expect(result.planPaths).toStrictEqual([join(cwd, '.lightsout', 'plans', 'clean', 'plan.md')]);
+	expect(result.planPaths).toStrictEqual([join(cwd, '.lightsout', 'tickets', 'clean', 'plans', 'plan.md')]);
 });
 
 test('plan lint: a planted TBD comes back as a NoPlaceholders finding', async () => {
@@ -107,8 +108,10 @@ test('plan lint: no deliverable on disk returns failed', async () => {
 	// the resolve error propagates
 	expect('error' in result && /no plan found for 'ghost'/.test(result.error)).toBeTruthy();
 	// and names both shapes it looked for, got: ${'error' in result ? result.error : ''}
-	expect('error' in result && result.error.includes(join(cwd, '.lightsout', 'plans', 'ghost', 'plan.md'))).toBeTruthy();
-	expect('error' in result && result.error.includes(join(cwd, '.lightsout', 'plans', 'ghost')) && result.error.includes('phase<N>-<slug>.md')).toBeTruthy();
+	expect('error' in result && result.error.includes(join(cwd, '.lightsout', 'tickets', 'ghost', 'plans', 'plan.md'))).toBeTruthy();
+	expect(
+		'error' in result && result.error.includes(join(cwd, '.lightsout', 'tickets', 'ghost', 'plans')) && result.error.includes('phase<N>-<slug>.md'),
+	).toBeTruthy();
 });
 
 /** A structurally clean overview file — the overview variant's own required section set. Its phase rows must name exactly the phase files written beside it, or the declaration is inconsistent with the deliverable. */
@@ -137,9 +140,9 @@ ${phaseCount > 1 ? '\n### Phase 2 — `phase2-extra.md`\n\n- **Creates:** none\n
 - Phase 2 follows phase 1.
 `;
 
-/** Write a phased deliverable into `.lightsout/plans/<name>/` and return that folder. */
+/** Write a phased deliverable into `.lightsout/tickets/<name>/plans/` and return that folder. */
 const writePhasedPlan = ({ cwd, name, files }: { cwd: string; name: string; files: Record<string, string> }) => {
-	const dir = join(cwd, '.lightsout', 'plans', name);
+	const dir = planWorkspaceFolder({ cwd: cwd, name: name });
 
 	mkdirSync(dir, { recursive: true });
 
@@ -334,5 +337,5 @@ test('runPlanLint: a missing decisions.json fails the pass with a message naming
 	expectStatus(result, 'failed');
 	// and names the file and where it was looked for, got:
 	// ${'error' in result ? result.error : ''}
-	expect('error' in result && result.error.includes(join(cwd, '.lightsout', 'plans', 'unrecorded', 'decisions.json'))).toBeTruthy();
+	expect('error' in result && result.error.includes(join(cwd, '.lightsout', 'tickets', 'unrecorded', 'plans', 'decisions.json'))).toBeTruthy();
 });

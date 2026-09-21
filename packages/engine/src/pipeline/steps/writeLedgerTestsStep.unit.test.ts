@@ -6,6 +6,7 @@ import { type LedgerRow, type LightsoutConfig, type RunManifest, RunStatus, type
 import { readApprovedTest } from '#src/pipeline/approvedTests/index.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import { writeLedgerTestsStep } from '#src/pipeline/steps/writeLedgerTestsStep.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const testFile = 'src/widget.unit.test.js';
@@ -25,6 +26,10 @@ const fileWith = ({ names }: { names: string[] }) => `${names.map((name) => `tes
  */
 const setupLedgerRun = ({ cwd, format, respond }: { cwd: string; format?: string; respond: ({ prompt }: { prompt: string }) => WorkReport }) => {
 	const manifest = { runId: 'run-1', changedFiles: [], packages: [], baselineDirtyFiles: [], acceptanceTests: [], approvedTests: [] } as unknown as RunManifest;
+
+	// The run already has its folder, because `createRun` makes one before a run
+	// starts and everything written inside it looks the run up by id.
+	seedRunFolder({ cwd, runId: manifest.runId });
 	const prompts: string[] = [];
 	const progress: string[] = [];
 	let stopped: { status: RunStatus; error: string } | undefined;

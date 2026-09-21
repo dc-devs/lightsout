@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import type { RunUsage } from '#src/contracts/index.ts';
 import { recordAgentUsage } from '#src/runState/index.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** One invocation's spend, every field a different number so a mix-up shows. */
@@ -18,7 +19,7 @@ interface SetupParams {
 const setupLedger = ({ totals, priorLine }: SetupParams = {}) => {
 	const cwd = setupConsumerRepo({ git: false });
 	const runId = 'run-ledger';
-	const ledgerPath = join(cwd, '.lightsout', 'runs', runId, 'agents.jsonl');
+	const ledgerPath = join(runDirFor({ cwd, runId }), 'agents.jsonl');
 	const runTotals: RunUsage = totals ?? {
 		invocations: 0,
 		inputTokens: 0,
@@ -28,8 +29,11 @@ const setupLedger = ({ totals, priorLine }: SetupParams = {}) => {
 		costUsd: 0,
 	};
 
+	// The ledger goes in the run's own folder, which is looked up by id — so the
+	// folder has to be on disk before anything can be appended to it.
+	mkdirSync(dirname(ledgerPath), { recursive: true });
+
 	if (priorLine) {
-		mkdirSync(dirname(ledgerPath), { recursive: true });
 		writeFileSync(ledgerPath, `${JSON.stringify(priorLine)}\n`, 'utf8');
 	}
 

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import type { GradeMemory } from '#src/contracts/index.ts';
 import { writeGradeMemory } from '#src/plan/common/memory/writeGradeMemory.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
@@ -20,7 +21,7 @@ const memoryOf = ({ name, nextFindingNumber = 4 }: { name: string; nextFindingNu
 const setupPlanFolder = () => {
 	const cwd = setupConsumerRepo();
 	const name = 'lo-150-planning-observability';
-	const dir = join(cwd, '.lightsout', 'plans', name);
+	const dir = planWorkspaceFolder({ cwd: cwd, name: name });
 
 	mkdirSync(dir, { recursive: true });
 
@@ -37,7 +38,7 @@ const setupLinkedWorktree = () => {
 	const name = 'lo-150-planning-observability';
 	const worktree = join(cwd, '.worktrees', name);
 
-	mkdirSync(join(cwd, '.lightsout', 'plans', name), { recursive: true });
+	mkdirSync(planWorkspaceFolder({ cwd: cwd, name: name }), { recursive: true });
 	execSync(`git worktree add -q -b ${name} "${worktree}" main`, { cwd, stdio: 'ignore' });
 
 	return { primary: cwd, name, worktree };
@@ -51,7 +52,7 @@ describe('writeGradeMemory', () => {
 
 		// the spelled-out path rather than the helper's own answer: a memory written
 		// anywhere else is one the next pass reads as a plan never graded
-		const written = readFileSync(join(cwd, '.lightsout', 'plans', name, 'grade-memory.json'), 'utf8');
+		const written = readFileSync(join(planWorkspaceFolder({ cwd: cwd, name: name }), 'grade-memory.json'), 'utf8');
 
 		expect(JSON.parse(written)).toEqual(expect.objectContaining({ planName: name, findings: [], nextFindingNumber: 4, updatedAt: '2026-02-01T00:00:00.000Z' }));
 	});
@@ -75,7 +76,7 @@ describe('writeGradeMemory', () => {
 		// written into the tree, the record would die with the tree — so the primary
 		// holds it and the worktree gets no plans directory at all
 		expect({
-			primary: JSON.parse(readFileSync(join(primary, '.lightsout', 'plans', name, 'grade-memory.json'), 'utf8')),
+			primary: JSON.parse(readFileSync(join(planWorkspaceFolder({ cwd: primary, name: name }), 'grade-memory.json'), 'utf8')),
 			worktreeHasPlans: existsSync(join(worktree, '.lightsout')),
 		}).toStrictEqual({
 			primary: { planName: name, findings: [], coverage: { readers: [] }, nextFindingNumber: 9, updatedAt: '2026-02-01T00:00:00.000Z' },

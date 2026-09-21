@@ -17,7 +17,7 @@ import { readGitCurrentBranch } from '#src/common/git/readGitCurrentBranch.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { runDirectWork } from '#src/direct/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { getRunDir } from '#src/runState/index.ts';
+import { resolveRunDir } from '#src/runState/index.ts';
 import { readBranchTicketRef } from '#src/ship/index.ts';
 import { runTicketPlanLifecycle } from '#src/ticket/index.ts';
 import { requireImplementLifecycle } from '#src/ticketLifecycle/index.ts';
@@ -78,7 +78,7 @@ const buildAndCommit = async ({
 	// The run directory travels as a path rather than an id: the checkout the work
 	// is in and the checkout the run's records live in are no longer the same
 	// directory, so only the caller can say where the message file belongs.
-	const runDir = getRunDir({ cwd, runId: result.manifest.runId });
+	const runDir = await resolveRunDir({ cwd, runId: result.manifest.runId });
 	const uncommitted = result.ok ? await commitDirectRun({ cwd, ticketBody, ticketRef, runDir, generated, onProgress: createProgressPrinter() }) : undefined;
 
 	return { result, uncommitted, recordError };

@@ -10,7 +10,7 @@ import { usageStderr } from '#tests/helpers/usageStderr.ts';
 // observable without a planning run to spend money on.
 const seedPlanFolderWithoutRecord = async () => {
 	const cwd = await freshCwd();
-	const planDir = join(cwd, '.lightsout', 'plans', 'demo');
+	const planDir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
 
 	await mkdir(planDir, { recursive: true });
 	await writeFile(join(planDir, 'plan.md'), '# Demo\n', 'utf8');

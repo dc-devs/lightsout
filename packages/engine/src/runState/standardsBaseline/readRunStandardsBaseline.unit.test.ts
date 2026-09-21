@@ -4,10 +4,17 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { StandardsSeverity, type StandardsSnapshot } from '#src/contracts/index.ts';
 import { readRunStandardsBaseline, writeRunStandardsBaseline } from '#src/runState/index.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 const setupBaseline = async () => {
 	const cwd = await mkdtemp(join(tmpdir(), 'lightsout-run-baseline-'));
 	const runId = 'run-baseline';
+
+	// Every run named below already has a folder, because `createRun` makes one
+	// before the run starts and the baseline path looks the run up by id.
+	for (const id of [runId, 'run-parent', 'run-child']) {
+		await mkdir(runDirFor({ cwd, runId: id }), { recursive: true });
+	}
 
 	/**
 	 * Raw bytes at one run's baseline path, instead of a snapshot the writer
@@ -16,8 +23,8 @@ const setupBaseline = async () => {
 	 * reading its parent's comparison point would be a silent wrong answer.
 	 */
 	const plantBaseline = async ({ id, body }: { id: string; body: string }) => {
-		await mkdir(join(cwd, '.lightsout', 'runs', id), { recursive: true });
-		await writeFile(join(cwd, '.lightsout', 'runs', id, 'standards-baseline.json'), body, 'utf8');
+		await mkdir(runDirFor({ cwd, runId: id }), { recursive: true });
+		await writeFile(join(runDirFor({ cwd, runId: id }), 'standards-baseline.json'), body, 'utf8');
 	};
 
 	const snapshot: StandardsSnapshot = {

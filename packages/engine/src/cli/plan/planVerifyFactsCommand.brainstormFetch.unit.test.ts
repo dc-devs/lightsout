@@ -8,6 +8,7 @@ import { serializeAttachmentManifest } from '#src/common/attachmentManifest/seri
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
@@ -131,7 +132,7 @@ const setupVerifyFactsFromWorktree = ({
 
 	git(`git worktree add -q -b ${branch} "${worktree}" main`);
 
-	const planDir = join(primary, '.lightsout', 'plans', name);
+	const planDir = planWorkspaceFolder({ cwd: primary, name: name });
 
 	mkdirSync(planDir, { recursive: true });
 	writeFileSync(join(planDir, 'facts.json'), JSON.stringify(authoredFacts));

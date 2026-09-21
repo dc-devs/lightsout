@@ -1,6 +1,6 @@
-import { resolve } from 'node:path';
+import { basename } from 'node:path';
 import { PipelineKind } from '#src/contracts/index.ts';
-import { planWorkspaceDir, resolveRecordedPlanPath } from '#src/plan/index.ts';
+import { planNameFromPath } from '#src/plan/index.ts';
 
 interface Params {
 	/** The checkout the run builds in, which the plan path is resolved against. */
@@ -29,6 +29,11 @@ const wholePlanFileNames = ['plan.md', 'overview.md'];
  * run of a plan folder counts too, because it is still started from the folder's
  * own `overview.md`.
  *
+ * The path answers the plan it belongs to rather than being joined onto one,
+ * which is the same field every other reader of a run's plan asks — a path is
+ * taken here only because one caller asks before the run exists and so has no
+ * manifest to read the name off.
+ *
  * @returns true when the run covers the whole plan
  */
 export const isWholePlanRun = async ({ cwd, name, planPath, pipeline }: Params): Promise<boolean> => {
@@ -36,10 +41,7 @@ export const isWholePlanRun = async ({ cwd, name, planPath, pipeline }: Params):
 		return true;
 	}
 
-	// The folder is the primary checkout's whatever checkout the run builds in, so
-	// the recorded path has to be rooted the same way or no run ever matches.
-	const folder = await planWorkspaceDir({ cwd, name });
-	const recorded = await resolveRecordedPlanPath({ cwd, path: planPath });
+	const belongsToPlan = (await planNameFromPath({ cwd, planPath })) === name;
 
-	return wholePlanFileNames.some((file) => recorded === resolve(folder, file));
+	return belongsToPlan && wholePlanFileNames.includes(basename(planPath));
 };

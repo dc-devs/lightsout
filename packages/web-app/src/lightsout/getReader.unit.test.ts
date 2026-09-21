@@ -43,7 +43,8 @@ const commandIds = [
  */
 const setupReader = async (): Promise<{ reader: LightsoutReader }> => {
 	const repoRoot = await mkdtemp(join(tmpdir(), 'lightsout-reader-'));
-	const runDir = join(repoRoot, '.lightsout', 'runs', runId);
+	// A run started from a plan file outside any ticket folder belongs to no plan, so the implement command's own runs folder holds it.
+	const runDir = join(repoRoot, '.lightsout', 'implement', 'runs', runId);
 
 	await mkdir(runDir, { recursive: true });
 	await mkdir(join(repoRoot, '.lightsout', 'plans'), { recursive: true });

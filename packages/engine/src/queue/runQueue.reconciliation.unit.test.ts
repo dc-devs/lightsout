@@ -11,6 +11,7 @@ import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { readBranchState, writeBranchState } from '#src/queue/index.ts';
 import type { PullRequestSummary } from '#src/ship/index.ts';
 import { queueTicketFixture as ticketOf } from '#tests/helpers/queueTicketFixture.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { setupQueueDrain } from '#tests/helpers/setupQueueDrain.ts';
 
@@ -84,7 +85,7 @@ const shippedResult: ShipResult = {
 
 /** The one manifest and the one plan the drain's coordinator run wrote. */
 const readCoordinatorRun = ({ cwd }: { cwd: string }) => {
-	const runsDir = join(cwd, '.lightsout', 'runs');
+	const runsDir = dirname(runDirFor({ cwd, runId: 'any', pipeline: 'queue' }));
 	const runId = readdirSync(runsDir)[0];
 	const manifest = JSON.parse(readFileSync(join(runsDir, runId, 'manifest.json'), 'utf8')) as RunManifest;
 

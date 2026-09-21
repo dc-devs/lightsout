@@ -14,11 +14,12 @@ const shippingStepRecord = z.object({
 
 /**
  * What the ship sequence last recorded about its own steps, written to
- * `.lightsout/ship/progress/<branch>.json` in the checkout it ships.
+ * `ship-progress.json` in the shipped branch's ticket folder, under the
+ * primary checkout rather than the checkout that ships.
  *
- * It sits beside the ship result rather than replacing it: the result is the
- * hand-off a tracker skill reads once the ship has ended, and this is what
- * `lightsout status --shipping` reads while it is still going.
+ * It sits beside the ship result in that folder rather than replacing it: the
+ * result is the hand-off a tracker skill reads once the ship has ended, and
+ * this is what `lightsout status --shipping` reads while it is still going.
  */
 export const ShippingProgress = z.object({
 	/** The branch as git names it. */

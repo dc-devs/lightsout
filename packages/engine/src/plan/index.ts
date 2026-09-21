@@ -3,7 +3,6 @@ export { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 // it reads one plan's generation off a ticket; its value does not change.
 export { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
 export { gradeMemoryPath } from '#src/plan/common/memory/gradeMemoryPath.ts';
-export { isRunInPlanWorkspace } from '#src/plan/common/paths/isRunInPlanWorkspace.ts';
 export { pathExists } from '#src/plan/common/paths/pathExists.ts';
 export { resolveRecordedPlanPath } from '#src/plan/common/paths/resolveRecordedPlanPath.ts';
 export type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
@@ -25,7 +24,6 @@ export { gradeHistoryPath } from '#src/plan/gradeHistoryPath.ts';
 export { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';
 export { parsePlan } from '#src/plan/parsePlan.ts';
 export { planNameFromPath } from '#src/plan/planNameFromPath.ts';
-export { plansDir } from '#src/plan/plansDir.ts';
 export { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 export { planWorkspacePath } from '#src/plan/planWorkspacePath.ts';
 export { getPlanningProgressPath, readPlanningProgress, recordPlanCommandRun, recordPlanningStep } from '#src/plan/progress/index.ts';

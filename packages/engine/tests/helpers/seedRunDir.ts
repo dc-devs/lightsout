@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { RunManifest } from '#src/contracts/index.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 interface Params {
 	cwd: string;
@@ -16,9 +17,12 @@ interface Params {
  * One run directory on disk: a manifest, and whatever evidence files the case
  * needs beside it. Written rather than produced by a pipeline, so a reader's
  * tests can pin shapes no real run would conveniently produce.
+ *
+ * The folder goes where the run's own plan name and pipeline put it, so a
+ * seeded run is found by the same lookup a real one is.
  */
 export const seedRunDir = async ({ cwd, manifest, logs, worklist }: Params): Promise<string> => {
-	const runDir = join(cwd, '.lightsout', 'runs', manifest.runId);
+	const runDir = runDirFor({ cwd, runId: manifest.runId, planName: manifest.planName, pipeline: manifest.pipeline });
 	const at = '2026-01-01T00:00:00.000Z';
 
 	await mkdir(runDir, { recursive: true });

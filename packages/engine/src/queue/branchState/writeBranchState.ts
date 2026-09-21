@@ -5,7 +5,7 @@ import type { BranchPhase, BranchState } from '#src/contracts/index.ts';
 import { getBranchStatePath } from '#src/queue/branchState/common/utils/getBranchStatePath.ts';
 
 interface Params {
-	/** The MAIN repository checkout, so the record outlives the worktree. */
+	/** Any checkout of the repository; the record lands in the primary one, so it outlives the worktree. */
 	cwd: string;
 	branch: string;
 	phase: BranchPhase;
@@ -23,9 +23,12 @@ interface Params {
  */
 export const writeBranchState = async ({ cwd, branch, phase, onProgress }: Params): Promise<void> => {
 	const record: BranchState = { branch, phase, updatedAt: new Date().toISOString() };
-	const statePath = getBranchStatePath({ cwd, branch });
 
 	try {
+		// Resolved inside the try, so a checkout that cannot be resolved is reported
+		// as the same progress line a refused write is rather than thrown at the lane.
+		const statePath = await getBranchStatePath({ cwd, branch });
+
 		await mkdir(dirname(statePath), { recursive: true });
 		await writeJsonFile({ path: `${statePath}.tmp`, value: record });
 		await rename(`${statePath}.tmp`, statePath);

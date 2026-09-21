@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { appendCommandLog } from '#src/runState/index.ts';
+import { appendCommandLog, RunNotFoundError } from '#src/runState/index.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 interface SetupParams {
@@ -12,10 +13,14 @@ interface SetupParams {
 const setupCommandLog = ({ priorLine }: SetupParams = {}) => {
 	const cwd = setupConsumerRepo({ git: false });
 	const runId = 'run-commands';
-	const logPath = join(cwd, '.lightsout', 'runs', runId, 'commands.jsonl');
+	const logPath = join(runDirFor({ cwd, runId }), 'commands.jsonl');
+
+	// A ledger goes in its run's own folder, which is looked up by id — so both
+	// folders have to be on disk before anything can be appended to either.
+	mkdirSync(dirname(logPath), { recursive: true });
+	mkdirSync(runDirFor({ cwd, runId: 'other-run' }), { recursive: true });
 
 	if (priorLine) {
-		mkdirSync(dirname(logPath), { recursive: true });
 		writeFileSync(logPath, `${JSON.stringify(priorLine)}\n`, 'utf8');
 	}
 
@@ -56,8 +61,8 @@ describe('appendCommandLog', () => {
 		]);
 	});
 
-	test('creates the run directory for a run that has written nothing yet', async () => {
-		const { cwd, runId, logPath } = setupCommandLog();
+	test('creates the ledger file for a run that has written nothing yet', async () => {
+		const { cwd, runId, logPath, readLog } = setupCommandLog();
 
 		await appendCommandLog({
 			cwd,
@@ -65,8 +70,26 @@ describe('appendCommandLog', () => {
 			record: { at: '2026-07-03T00:00:00.000Z', group: 'root', kind: 'check', command: 'tsc --noEmit', exitCode: 0 },
 		});
 
-		// the log lands at .lightsout/runs/<runId>/commands.jsonl: ${logPath}
+		// the folder is looked up rather than made, so the first append has to make
+		// the ledger inside it: ${logPath}
 		expect(existsSync(logPath)).toBeTruthy();
+		expect(readLog()).toStrictEqual([{ at: '2026-07-03T00:00:00.000Z', group: 'root', kind: 'check', command: 'tsc --noEmit', exitCode: 0 }]);
+	});
+
+	test('refuses a run nothing ever created, rather than leaving a ledger where no reader looks', async () => {
+		const { cwd } = setupCommandLog();
+
+		await expect(
+			appendCommandLog({
+				cwd,
+				runId: 'never-created',
+				record: { at: '2026-07-03T00:00:00.000Z', group: 'root', kind: 'check', command: 'tsc --noEmit', exitCode: 0 },
+			}),
+		).rejects.toThrow(RunNotFoundError);
+
+		// a run folder is filed under the work it belongs to, so an append that
+		// joined one would write evidence into a folder nothing ever scans
+		expect(existsSync(runDirFor({ cwd, runId: 'never-created' }))).toBe(false);
 	});
 
 	test('records a gate that never ran with its reason and no exit code', async () => {
@@ -153,7 +176,7 @@ describe('appendCommandLog', () => {
 		});
 
 		const log = readLog();
-		const otherLog = readFileSync(join(cwd, '.lightsout', 'runs', 'other-run', 'commands.jsonl'), 'utf8').trim();
+		const otherLog = readFileSync(join(runDirFor({ cwd, runId: 'other-run' }), 'commands.jsonl'), 'utf8').trim();
 
 		// a gate from another run never lands on this ledger
 		expect(log.length).toBe(1);

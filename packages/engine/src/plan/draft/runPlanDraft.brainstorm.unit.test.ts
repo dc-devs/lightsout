@@ -51,7 +51,10 @@ test("plan draft: a seeded brainstorm record rides the draft prompt with its row
 	const cwd = setupConsumerRepo();
 
 	seedPlanWorkspace({ cwd, name: 'handed-off', brainstormDecisions: { planName: 'handed-off', decisions: [brainstormRow] } });
-	writeFileSync(join(cwd, '.lightsout', 'plans', 'handed-off', 'decisions.json'), JSON.stringify({ planName: 'handed-off', decisions: [elicitationRow] }));
+	writeFileSync(
+		join(cwd, '.lightsout', 'tickets', 'handed-off', 'plans', 'decisions.json'),
+		JSON.stringify({ planName: 'handed-off', decisions: [elicitationRow] }),
+	);
 
 	const prompts: string[] = [];
 	const result = await runPlanDraft({
@@ -75,7 +78,10 @@ test("plan draft: no brainstorm file drafts from the plan's own rows exactly as 
 	const cwd = setupConsumerRepo();
 
 	seedPlanWorkspace({ cwd, name: 'no-handoff' });
-	writeFileSync(join(cwd, '.lightsout', 'plans', 'no-handoff', 'decisions.json'), JSON.stringify({ planName: 'no-handoff', decisions: [elicitationRow] }));
+	writeFileSync(
+		join(cwd, '.lightsout', 'tickets', 'no-handoff', 'plans', 'decisions.json'),
+		JSON.stringify({ planName: 'no-handoff', decisions: [elicitationRow] }),
+	);
 
 	const prompts: string[] = [];
 	const result = await runPlanDraft({
@@ -128,7 +134,7 @@ test('plan draft: a brainstorm hand-off rides the repair invocation as a referen
 	expectDefined(repairInvocation);
 	// the brainstorm reference is the workspace path — a rebuilt Global Constraints
 	// section must draw on the rows settled during brainstorm
-	expect(repairInvocation.prompt.includes(join(cwd, '.lightsout', 'plans', 'handoff-repair', 'brainstorm-decisions.json'))).toBeTruthy();
+	expect(repairInvocation.prompt.includes(join(cwd, '.lightsout', 'tickets', 'handoff-repair', 'plans', 'brainstorm-decisions.json'))).toBeTruthy();
 });
 
 test('plan draft: progress narrates how many brainstorm decisions were carried in', async () => {

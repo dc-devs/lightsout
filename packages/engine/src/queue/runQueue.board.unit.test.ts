@@ -1,5 +1,5 @@
 import { readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import type { QueueBoard } from '#src/contracts/index.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
@@ -8,10 +8,11 @@ import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { readQueueBoard } from '#src/queue/index.ts';
-import { getRunDir } from '#src/runState/index.ts';
+import { resolveRunDir } from '#src/runState/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { queueOutcomeFixture as outcomeOf } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueTicketFixture as ticketOf } from '#tests/helpers/queueTicketFixture.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupQueueDrain } from '#tests/helpers/setupQueueDrain.ts';
 
 // Mocked Imports
@@ -73,7 +74,7 @@ const setupDrain = ({
 };
 
 /** The id of the one coordinator run the drain created. */
-const readCoordinatorRunId = ({ cwd }: { cwd: string }) => readdirSync(join(cwd, '.lightsout', 'runs'))[0];
+const readCoordinatorRunId = ({ cwd }: { cwd: string }) => readdirSync(dirname(runDirFor({ cwd, runId: 'any', pipeline: 'queue' })))[0];
 
 /**
  * The board once it shows what `shows` looks for, or the last one read when it
@@ -174,7 +175,9 @@ describe('runQueue', () => {
 		const runId = readCoordinatorRunId({ cwd });
 		const [{ ticket }] = sent;
 
-		expect(cliAsk.mock.calls).toStrictEqual([[{ question: QUESTION, ticket, coordinatorRunId: runId, coordinatorRunDir: getRunDir({ cwd, runId }) }]]);
+		expect(cliAsk.mock.calls).toStrictEqual([
+			[{ question: QUESTION, ticket, coordinatorRunId: runId, coordinatorRunDir: await resolveRunDir({ cwd, runId }) }],
+		]);
 		expect(boardsWhileOpen).toEqual([
 			expect.objectContaining({
 				coordinatorRunId: runId,

@@ -130,7 +130,7 @@ const setupSync = ({
 	publishedCopyOnDisk = false,
 }: SetupParams) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-ticket-sync-keep-local-'));
-	const ticketFolder = join(cwd, '.lightsout', 'plans', ticketBranch);
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
 	const progress: string[] = [];
 	const bodies = [published, publishedAfterFirstRead ?? published].map((record) => (record === undefined ? undefined : asFileText({ value: record })));
 	let reads = 0;
@@ -150,8 +150,8 @@ const setupSync = ({
 	}
 
 	for (const planId of planFolders) {
-		mkdirSync(join(ticketFolder, planId), { recursive: true });
-		writeFileSync(join(ticketFolder, planId, 'plan.md'), `# ${planId}\n`);
+		mkdirSync(join(ticketFolder, 'plans', planId), { recursive: true });
+		writeFileSync(join(ticketFolder, 'plans', planId, 'plan.md'), `# ${planId}\n`);
 	}
 
 	mockGetTicketAttachments.mockResolvedValue(
@@ -181,6 +181,31 @@ const syncStateOf = ({ ticketFolder }: { ticketFolder: string }) => JSON.parse(r
 
 /** Every upload of the ticket record itself, in the order they were sent. */
 const recordWrites = () => mockSetTicketAttachment.mock.calls.map(([write]) => write).filter((write) => write.title === 'ticket.json');
+
+/** The abandoned pre-layout record of this same ticket, whose plan carries a title nothing should ever publish and no folder on disk. */
+const prelayoutRecord = recordOf({ plans: [planOf({ id: '003-held-here', title: 'The title in the pre-layout folder' })] });
+
+/**
+ * The sync `setupSync` arranges, with `prelayoutRecord` left in the pre-layout
+ * folder: a sync reading there would publish its title and republish nothing.
+ */
+const setupTicketFolderSync = ({ republishedMarker }: { republishedMarker: string }) => {
+	const base = setupSync({
+		local: recordOf({ plans: [planOf({ id: '003-held-here', title: 'The title in the ticket folder' })] }),
+		published: recordOf({
+			plans: [planOf({ id: '003-held-here', title: 'The title the ticket carries', publishedMarker: digestOf({ seed: '003 as the ticket carries it' }) })],
+		}),
+		syncState: { schemaVersion: 1, planMarkers: {} },
+		planFolders: ['003-held-here'],
+		republishedMarker,
+	});
+	const prelayoutFolder = join(base.cwd, '.lightsout', 'plans', ticketBranch);
+
+	mkdirSync(prelayoutFolder, { recursive: true });
+	writeFileSync(join(prelayoutFolder, 'ticket.json'), asFileText({ value: prelayoutRecord }));
+
+	return { ...base, prelayoutFolder };
+};
 
 describe('syncTicketRecord', () => {
 	test('syncTicketRecord: both keep choices carry a plan only one copy holds so no number is lost or reused', async () => {
@@ -348,5 +373,28 @@ describe('syncTicketRecord', () => {
 		expect(errorFrom({ result })).toContain('lightsout ticket sync');
 		expect(mockSetTicketAttachment).not.toHaveBeenCalled();
 		expect(localRecordOf({ ticketFolder })).toStrictEqual(local);
+	});
+
+	test("syncTicketRecord: a keep-local sync works entirely inside the ticket's own folder", async () => {
+		const republishedMarker = digestOf({ seed: '003 as the ticket folder has just published it' });
+		const { ticketFolder, prelayoutFolder, params } = setupTicketFolderSync({ republishedMarker });
+
+		const result = await syncTicketRecord({ ...params, keep: TicketSyncKeep.Local });
+
+		const [attached] = recordWrites();
+		const kept = recordOf({ plans: [planOf({ id: '003-held-here', title: 'The title in the ticket folder', publishedMarker: republishedMarker })] });
+
+		expect(result).toStrictEqual({ record: kept });
+		expect(JSON.parse(attached?.content.toString('utf8') ?? 'null')).toStrictEqual(kept);
+		expect(mockPublishPlan).toHaveBeenCalledWith(expect.objectContaining({ name: 'lo-140-multi/003-held-here', titlePrefix: '003-held-here' }));
+		expect(localRecordOf({ ticketFolder })).toStrictEqual(kept);
+		expect(syncStateOf({ ticketFolder })).toStrictEqual({
+			schemaVersion: 1,
+			recordSha256: createHash('sha256')
+				.update(attached?.content ?? Buffer.alloc(0))
+				.digest('hex'),
+			planMarkers: { '003-held-here': republishedMarker },
+		});
+		expect(JSON.parse(readFileSync(join(prelayoutFolder, 'ticket.json'), 'utf8'))).toStrictEqual(prelayoutRecord);
 	});
 });

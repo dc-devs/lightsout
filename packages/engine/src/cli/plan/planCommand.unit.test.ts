@@ -129,7 +129,7 @@ const setupWorktree = ({ args, refused = false }: { args: string[]; refused?: bo
  */
 const setupTicketRecordFolder = ({ args, ticketBranch }: { args: string[]; ticketBranch: string }) => {
 	const launched = setupPlan({ args });
-	const ticketFolder = join(launched.cwd, '.lightsout', 'plans', ticketBranch);
+	const ticketFolder = join(launched.cwd, '.lightsout', 'tickets', ticketBranch);
 
 	mkdirSync(ticketFolder, { recursive: true });
 	writeFileSync(

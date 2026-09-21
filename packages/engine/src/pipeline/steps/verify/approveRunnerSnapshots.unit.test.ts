@@ -5,6 +5,8 @@ import { expect, test } from '@jest/globals';
 import type { ApprovedTestRecord, RunManifest } from '#src/contracts/index.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import { approveRunnerSnapshots } from '#src/pipeline/steps/verify/approveRunnerSnapshots.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const runId = 'run-snapshots-1';
@@ -18,7 +20,7 @@ const freshSnapshot = 'src/__snapshots__/gadget.unit.test.ts.snap';
 const hashOf = ({ content }: { content: string }) => createHash('sha256').update(content).digest('hex');
 
 /** Where the run keeps the approved copy of one test-side file. Spelled out rather than imported, so the test states the path the run promises. */
-const approvedCopy = ({ cwd, path }: { cwd: string; path: string }) => join(cwd, '.lightsout', 'runs', runId, 'approved', path);
+const approvedCopy = ({ cwd, path }: { cwd: string; path: string }) => join(runDirFor({ cwd, runId }), 'approved', path);
 
 interface SetupParams {
 	/** Repo-relative path to content, written into the tree after the commit — what a gate run leaves behind. */
@@ -45,6 +47,10 @@ const setupSnapshotRun = ({ written = {}, approvedTests = [], changedFiles = [] 
 	}
 
 	const manifest = { runId, changedFiles, approvedTests } as unknown as RunManifest;
+
+	// The run already has its folder, because `createRun` makes one before a run
+	// starts and the approved copies are looked up inside it by run id.
+	seedRunFolder({ cwd, runId });
 	const progress: string[] = [];
 
 	const run = {

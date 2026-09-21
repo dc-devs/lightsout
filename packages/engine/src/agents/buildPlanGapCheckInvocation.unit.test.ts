@@ -94,19 +94,25 @@ test('buildPlanGapCheckInvocation: the standards section follows the brief direc
 });
 
 test('buildPlanGapCheckInvocation: the wiring lens is told where the sibling phase files live', () => {
-	const { systemPrompt } = buildPlanGapCheckInvocation({ planText, overviewText, standards, planDir: '.lightsout/plans/web-app', lens: GapCheckLens.Wiring });
+	const { systemPrompt } = buildPlanGapCheckInvocation({
+		planText,
+		overviewText,
+		standards,
+		planDir: '.lightsout/tickets/web-app/plans',
+		lens: GapCheckLens.Wiring,
+	});
 
 	const sections = systemPrompt.split('\n\n---\n\n');
 
 	// the folder section sits between the brief it serves and the overview
 	expect(sections.length).toBe(5);
 	expect(sections[2].startsWith("# The plan's other phases")).toBeTruthy();
-	expect(sections[2].includes('`.lightsout/plans/web-app`')).toBeTruthy();
+	expect(sections[2].includes('`.lightsout/tickets/web-app/plans`')).toBeTruthy();
 });
 
 test('buildPlanGapCheckInvocation: the other two lenses are never handed the plan folder', () => {
 	for (const each of [GapCheckLens.Surface, GapCheckLens.Decisions]) {
-		const { systemPrompt } = buildPlanGapCheckInvocation({ planText, planDir: '.lightsout/plans/web-app', lens: each });
+		const { systemPrompt } = buildPlanGapCheckInvocation({ planText, planDir: '.lightsout/tickets/web-app/plans', lens: each });
 
 		// their briefs push seam work to wiring — a folder they are told to leave
 		// alone is an invitation to wander outside the brief
@@ -127,7 +133,7 @@ test('buildPlanGapCheckInvocation: a single-file plan names no folder, so the wi
 });
 
 test('buildPlanGapCheckInvocation: the wiring system prompt stays byte-identical across the spawns of one pass', () => {
-	const planDir = '.lightsout/plans/web-app';
+	const planDir = '.lightsout/tickets/web-app/plans';
 	const first = buildPlanGapCheckInvocation({ planText, overviewText, standards, planDir, lens: GapCheckLens.Wiring });
 	const second = buildPlanGapCheckInvocation({ planText: '# Phase 2\n\nsomething else entirely', overviewText, standards, planDir, lens: GapCheckLens.Wiring });
 

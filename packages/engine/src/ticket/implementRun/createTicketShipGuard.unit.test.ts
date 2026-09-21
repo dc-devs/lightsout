@@ -90,7 +90,7 @@ const canonicalBytesOf = async ({ record }: { record: TicketRecord }) => {
 		throw new Error(written.error);
 	}
 
-	return readFileSync(join(cwd, '.lightsout', 'plans', ticketBranch, 'ticket.json'));
+	return readFileSync(join(cwd, '.lightsout', 'tickets', ticketBranch, 'ticket.json'));
 };
 
 /**
@@ -118,7 +118,7 @@ const setupGuard = async ({
 	env?: NodeJS.ProcessEnv;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-ship-guard-'));
-	const ticketFolder = join(cwd, '.lightsout', 'plans', ticketBranch);
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
 	const recordPath = join(ticketFolder, 'ticket.json');
 	const progress: string[] = [];
 

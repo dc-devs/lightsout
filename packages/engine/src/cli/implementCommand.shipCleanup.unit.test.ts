@@ -47,9 +47,9 @@ jest.mock('#src/cli/common/render/printResult.ts', () => ({
 // -------------------------
 
 const ticketBranch = 'lo-7-search';
-const ticketFolder = join('.lightsout', 'plans', ticketBranch);
-const laterPlanFolder = join(ticketFolder, '002-ranking');
-const earlierPlanFolder = join(ticketFolder, '001-basics');
+const ticketFolder = join('.lightsout', 'tickets', ticketBranch);
+const laterPlanFolder = join(ticketFolder, 'plans', '002-ranking');
+const earlierPlanFolder = join(ticketFolder, 'plans', '001-basics');
 
 const planBody = '# Plan: rank the results\n';
 const earlierPlanBody = '# Plan: the basics, graded in the ticket tree\n';

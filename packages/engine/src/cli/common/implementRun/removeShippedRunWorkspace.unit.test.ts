@@ -12,7 +12,15 @@ import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 const at = '2026-01-01T00:00:00.000Z';
 
 /** The manifest of a run that has just shipped, recording the branch and the workspace its worktree cleanup is decided from. */
-const manifestFor = ({ branch, workspace, plan = '.lightsout/plans/demo/plan.md' }: { branch: string; workspace?: string; plan?: string }): RunManifest =>
+const manifestFor = ({
+	branch,
+	workspace,
+	plan = '.lightsout/tickets/demo/plans/plan.md',
+}: {
+	branch: string;
+	workspace?: string;
+	plan?: string;
+}): RunManifest =>
 	RunManifest.parse({
 		runId: 'run-shipped',
 		createdAt: at,
@@ -64,8 +72,8 @@ const setupUnremovableTree = async ({ branch }: { branch: string }) => {
  */
 const setupPrimaryHeldPlan = async ({ branch }: { branch: string }) => {
 	const shipped = await setupShippedRun({ branch, owner: WorktreeOwner.Implement });
-	const primaryPlanDir = join(shipped.cwd, '.lightsout', 'plans', 'demo');
-	const treePlanDir = join(shipped.worktreePath, '.lightsout', 'plans', 'demo');
+	const primaryPlanDir = join(shipped.cwd, '.lightsout', 'tickets', 'demo', 'plans');
+	const treePlanDir = join(shipped.worktreePath, '.lightsout', 'tickets', 'demo', 'plans');
 
 	await mkdir(primaryPlanDir, { recursive: true });
 	await writeFile(join(primaryPlanDir, 'plan.md'), '# the plan the primary checkout holds\n', 'utf8');
@@ -145,7 +153,7 @@ describe('removeShippedRunWorkspace', () => {
 		await removeShippedRunWorkspace({ cwd: worktreePath, manifest: manifestFor({ branch: 'lo-150-shipped', workspace: worktreePath }) });
 
 		expect(existsSync(worktreePath)).toBe(false);
-		expect(await readFile(join(cwd, '.lightsout', 'plans', 'demo', 'plan.md'), 'utf8')).toBe('# the plan the primary checkout holds\n');
+		expect(await readFile(join(cwd, '.lightsout', 'tickets', 'demo', 'plans', 'plan.md'), 'utf8')).toBe('# the plan the primary checkout holds\n');
 		expect(await readWorktreeRecord({ cwd, branch: 'lo-150-shipped' })).toBeUndefined();
 	});
 });

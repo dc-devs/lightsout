@@ -1,10 +1,11 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { type LightsoutConfig, type PipelineKind, RefactorWorklist, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { initializeRun } from '#src/refactor/index.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
@@ -39,6 +40,24 @@ const manifestWith = ({ pipeline }: { pipeline?: PipelineKind }): RunManifest =>
 const setupPackageRepo = () =>
 	setupConsumerRepo({ sources: { 'packages/web/src/config.js': 'export const readConfig = () => 1;\nexport const saveConfig = () => 2;\n' } });
 
+/** The work-list a parked run froze, as it sits in the run's own folder. */
+const frozenWorklist = { at: '2026-01-01T00:00:00.000Z', path: 'packages/web', all: true, batches: [] };
+
+/**
+ * A parked refactor run whose frozen work-list sits in the run's own folder,
+ * while its manifest still records the flat path runs were filed under before
+ * they moved under the work they belong to — so a resume that joined the
+ * recorded path onto the checkout would open a file that is not there.
+ */
+const setupParkedRefactorRun = () => {
+	const cwd = setupConsumerRepo();
+	const runDir = seedRunFolder({ cwd, runId: 'run-1', pipeline: 'refactor' });
+
+	writeFileSync(join(runDir, 'worklist.json'), `${JSON.stringify(frozenWorklist)}\n`, 'utf8');
+
+	return { cwd };
+};
+
 /** The work-list the run froze into its run dir, read back through its contract. */
 const readFrozenWorklist = ({ cwd, manifest }: { cwd: string; manifest: RunManifest }) =>
 	RefactorWorklist.parse(JSON.parse(readFileSync(join(cwd, manifest.plan), 'utf8')));
@@ -64,6 +83,16 @@ describe('initializeRun', () => {
 		expect(error.message).toMatch(/belongs to the implement pipeline/);
 	});
 
+	test("a resume reads the frozen work-list out of the run's own folder rather than the path the manifest records", async () => {
+		const { cwd } = setupParkedRefactorRun();
+
+		const { manifest, worklist } = await initializeRun({ cwd, runId: 'run-2', driver, config, existing: manifestWith({ pipeline: 'refactor' }) });
+
+		// the parked run is resumed with the list it froze — never a fresh check of the tree
+		expect(manifest.runId).toBe('run-1');
+		expect(worklist).toStrictEqual({ at: '2026-01-01T00:00:00.000Z', path: 'packages/web', all: true, batches: [] });
+	});
+
 	test('a fresh run computes the work-list from the tree and freezes the very list it returns', async () => {
 		const cwd = setupPackageRepo();
 
@@ -71,7 +100,7 @@ describe('initializeRun', () => {
 
 		// the manifest points at the frozen file, and the frozen file is what the
 		// caller got — resume re-reads this rather than checking the tree again
-		expect(manifest.plan).toBe('.lightsout/runs/run-1/worklist.json');
+		expect(manifest.plan).toBe(join('.lightsout', 'refactor', 'runs', 'run-1', 'worklist.json'));
 		expect(readFrozenWorklist({ cwd, manifest })).toEqual(worklist);
 		// a run given no scope and no burn-down mode records both
 		expect(worklist).toEqual(expect.objectContaining({ path: '.', all: false }));

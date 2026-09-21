@@ -7,6 +7,7 @@ import { serializeAttachmentManifest } from '#src/common/attachmentManifest/seri
 import { type LightsoutConfig, PlanProgress, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
 import { keepPublishedTicketRecord } from '#src/ticket/divergence/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
@@ -97,8 +98,8 @@ const setupWorktreeKeep = ({ planFolderIn }: { planFolderIn: 'primary' | 'worktr
 
 	execSync(`git worktree add -q -b ${ticketBranch} "${worktree}" main`, { cwd: primary, stdio: 'ignore' });
 
-	const ticketFolder = join(primary, '.lightsout', 'plans', ticketBranch);
-	const worktreeTicketFolder = join(worktree, '.lightsout', 'plans', ticketBranch);
+	const ticketFolder = join(primary, '.lightsout', 'tickets', ticketBranch);
+	const worktreeTicketFolder = planWorkspaceFolder({ cwd: worktree, name: ticketBranch });
 	const published = recordOf({ plans: [planOf({ publishedMarker: planMarkerSha256 })] });
 	const progress: string[] = [];
 
@@ -107,7 +108,7 @@ const setupWorktreeKeep = ({ planFolderIn }: { planFolderIn: 'primary' | 'worktr
 	writeFileSync(join(ticketFolder, 'ticket-sync.json'), asFileText({ value: { schemaVersion: 1, planMarkers: {} } }));
 
 	if (planFolderIn !== 'nowhere') {
-		const planFolder = join(planFolderIn === 'primary' ? ticketFolder : worktreeTicketFolder, planId);
+		const planFolder = join(planFolderIn === 'primary' ? join(ticketFolder, 'plans') : worktreeTicketFolder, planId);
 
 		mkdirSync(planFolder, { recursive: true });
 		writeFileSync(join(planFolder, 'plan.md'), 'local work\n');
@@ -146,9 +147,9 @@ describe('keepPublishedTicketRecord', () => {
 
 		expect(result).toStrictEqual({ record: published });
 		expect(localRecordOf({ ticketFolder })).toStrictEqual(published);
-		expect(folderOf({ dir: ticketFolder })).toStrictEqual([planId, `${planId}.local-1`, 'ticket-sync.json', 'ticket.json']);
-		expect(readFileSync(join(ticketFolder, planId, 'plan.md'), 'utf8')).toBe(planBody);
-		expect(readFileSync(join(ticketFolder, `${planId}.local-1`, 'plan.md'), 'utf8')).toBe('local work\n');
+		expect(folderOf({ dir: join(ticketFolder, 'plans') })).toStrictEqual([planId, `${planId}.local-1`]);
+		expect(readFileSync(join(ticketFolder, 'plans', planId, 'plan.md'), 'utf8')).toBe(planBody);
+		expect(readFileSync(join(ticketFolder, 'plans', `${planId}.local-1`, 'plan.md'), 'utf8')).toBe('local work\n');
 		expect(syncStateOf({ ticketFolder }).planMarkers).toStrictEqual({ [planId]: planMarkerSha256 });
 		expect(existsSync(join(worktree, '.lightsout'))).toBe(false);
 	});
@@ -159,8 +160,8 @@ describe('keepPublishedTicketRecord', () => {
 		const result = await keepPublishedTicketRecord(params);
 
 		expect(result).toEqual({ record: expect.objectContaining({ plans: [expect.objectContaining({ publishedMarker: planMarkerSha256 })] }) });
-		expect(folderOf({ dir: ticketFolder })).toStrictEqual([planId, 'ticket-sync.json', 'ticket.json']);
-		expect(readFileSync(join(ticketFolder, planId, 'plan.md'), 'utf8')).toBe(planBody);
+		expect(folderOf({ dir: join(ticketFolder, 'plans') })).toStrictEqual([planId]);
+		expect(readFileSync(join(ticketFolder, 'plans', planId, 'plan.md'), 'utf8')).toBe(planBody);
 		expect(folderOf({ dir: worktreeTicketFolder })).toStrictEqual([planId]);
 		expect(readFileSync(join(worktreeTicketFolder, planId, 'plan.md'), 'utf8')).toBe('local work\n');
 	});
@@ -171,7 +172,7 @@ describe('keepPublishedTicketRecord', () => {
 		const result = await keepPublishedTicketRecord(params);
 
 		expect(result).toEqual({ record: expect.objectContaining({ plans: [expect.objectContaining({ publishedMarker: planMarkerSha256 })] }) });
-		expect(folderOf({ dir: ticketFolder })).toStrictEqual([planId, 'ticket-sync.json', 'ticket.json']);
-		expect(readFileSync(join(ticketFolder, planId, 'plan.md'), 'utf8')).toBe(planBody);
+		expect(folderOf({ dir: join(ticketFolder, 'plans') })).toStrictEqual([planId]);
+		expect(readFileSync(join(ticketFolder, 'plans', planId, 'plan.md'), 'utf8')).toBe(planBody);
 	});
 });

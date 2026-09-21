@@ -10,6 +10,7 @@ import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contract
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import type { QueueFailure } from '#src/queue/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 // Mocked Imports
@@ -134,6 +135,13 @@ const setupImplementDirectWorktree = ({
 			? { cwd: launchedFrom, isolated: false, created: false }
 			: { cwd: workspace, branch: workspaceBranch, isolated: true, created: true };
 	});
+	// The build is stubbed, so the run folder a real `createRun` would have made
+	// is planted in both checkouts — the command resolves the run's directory by
+	// id, against whichever checkout the build ran in. A workspace whose state
+	// directory is blocked gets none, which is the case that never builds.
+	for (const checkout of blocksTicketCopy ? [cwd] : [cwd, workspace]) {
+		seedRunFolder({ cwd: checkout, runId: manifestOf(RunStatus.Passed).runId, pipeline: 'direct' });
+	}
 	mockRunDirectWork.mockResolvedValue({ ok: true, manifest: manifestOf(RunStatus.Passed) });
 	mockCommitTicketWork.mockResolvedValue({ committed: true });
 	mockExitAfterImplement.mockResolvedValue(undefined);

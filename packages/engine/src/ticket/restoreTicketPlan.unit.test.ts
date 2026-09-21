@@ -3,10 +3,10 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { serializeAttachmentManifest } from '#src/common/attachmentManifest/serializeAttachmentManifest.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { restoreTicketPlan } from '#src/ticket/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import { attachmentMarkerText } from '#tests/helpers/attachmentMarkerText.ts';
 
 // Mocked Imports
 // -------------------------
@@ -60,10 +60,6 @@ const brainstormGeneration: Record<string, string> = {
 	'brainstorm-decisions.json': '{\n\t"decisions": []\n}\n',
 };
 
-/** The commit marker for one generation, exactly as publishing writes it. */
-const markerOf = ({ files }: { files: Record<string, string> }) =>
-	serializeAttachmentManifest({ files: Object.entries(files).map(([name, body]) => ({ name, content: Buffer.from(body, 'utf8') })) }).toString('utf8');
-
 interface SetupParams {
 	/** False when the ticket carries no plan generation under this plan's prefix. */
 	planGenerationOnTicket?: boolean;
@@ -85,7 +81,7 @@ const setupTicketPlan = ({ planGenerationOnTicket = true, attachedNotes, attache
 	const bodies: Record<string, string> = { 'plan.md': '# a legacy single-folder plan\n', '001-a--plan.md': '# plan 001 of lo-9\n' };
 
 	if (sidecarUnwritable === true) {
-		mkdirSync(join(cwd, '.lightsout', 'plans', ticketBranch, 'ticket-sync.json'), { recursive: true });
+		mkdirSync(join(cwd, '.lightsout', 'tickets', ticketBranch, 'ticket-sync.json'), { recursive: true });
 	}
 
 	if (planGenerationOnTicket) {
@@ -93,14 +89,14 @@ const setupTicketPlan = ({ planGenerationOnTicket = true, attachedNotes, attache
 			bodies[`${planId}--${name}`] = name === 'plan.md' ? (attachedPlan ?? body) : body;
 		}
 
-		bodies[planMarkerTitle] = markerOf({ files: planGeneration });
+		bodies[planMarkerTitle] = attachmentMarkerText({ files: planGeneration });
 	}
 
 	for (const [name, body] of Object.entries(brainstormGeneration)) {
 		bodies[`${planId}--${name}`] = name === 'brainstorm-notes.md' ? (attachedNotes ?? body) : body;
 	}
 
-	bodies[`${planId}--brainstorm-attachments.json`] = markerOf({ files: brainstormGeneration });
+	bodies[`${planId}--brainstorm-attachments.json`] = attachmentMarkerText({ files: brainstormGeneration });
 
 	const titles = Object.keys(bodies);
 
@@ -109,7 +105,7 @@ const setupTicketPlan = ({ planGenerationOnTicket = true, attachedNotes, attache
 
 	return {
 		cwd,
-		dir: join(cwd, '.lightsout', 'plans', ticketBranch, planId),
+		dir: join(cwd, '.lightsout', 'tickets', ticketBranch, 'plans', planId),
 		planMarkerSha256: createHash('sha256')
 			.update(bodies[planMarkerTitle] ?? '', 'utf8')
 			.digest('hex'),
@@ -134,7 +130,7 @@ const folderOf = ({ dir }: { dir: string }) => {
 /** The per-plan marker hashes the sidecar in the primary checkout's ticket folder records. */
 const planMarkersOf = ({ cwd }: { cwd: string }) => {
 	try {
-		const text = readFileSync(join(cwd, '.lightsout', 'plans', ticketBranch, 'ticket-sync.json'), 'utf8');
+		const text = readFileSync(join(cwd, '.lightsout', 'tickets', ticketBranch, 'ticket-sync.json'), 'utf8');
 
 		return (JSON.parse(text) as { planMarkers?: Record<string, string> }).planMarkers;
 	} catch {
@@ -224,5 +220,24 @@ describe('restoreTicketPlan', () => {
 		expect(result).toStrictEqual({ error: expect.stringContaining('plan.md') });
 		expect(folderOf({ dir })).toBeUndefined();
 		expect(planMarkersOf({ cwd })).toBeUndefined();
+	});
+
+	test("restoreTicketPlan: a restored plan lands inside the ticket's plans folder", async () => {
+		const { cwd } = setupTicketPlan();
+		const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
+
+		const { result } = await restore({ cwd });
+
+		// The plans folder did not exist before the restore, so finding the four
+		// files below proves it was created on the way. A ticket folder holding
+		// the plan id itself would be the plan written one level too high.
+		expect(result).toStrictEqual({ restored: ['brainstorm-decisions.json', 'brainstorm-notes.md', 'decisions.json', 'plan.md'] });
+		expect(folderOf({ dir: join(ticketFolder, 'plans', planId) })).toStrictEqual([
+			'brainstorm-decisions.json',
+			'brainstorm-notes.md',
+			'decisions.json',
+			'plan.md',
+		]);
+		expect(readdirSync(ticketFolder).sort()).toStrictEqual(['plans', 'ticket-sync.json']);
 	});
 });

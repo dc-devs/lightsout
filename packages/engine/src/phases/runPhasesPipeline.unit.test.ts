@@ -1,13 +1,14 @@
-import { chmodSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { PhaseReport, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import { runPhasesPipeline } from '#src/phases/index.ts';
-import { RunLockError, readRunManifest, writeRunManifest } from '#src/runState/index.ts';
+import { listRunIds, RunLockError, readRunManifest, writeRunManifest } from '#src/runState/index.ts';
 import { createPhaseDriver } from '#tests/helpers/createPhaseDriver.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 import { readPhaseChildRuns } from '#tests/helpers/readPhaseChildRuns.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupPhasedRepo } from '#tests/helpers/setupPhasedRepo.ts';
 
 /** Field-wise sum of what the per-phase runs actually recorded — the number the sequence report must show. */
@@ -88,7 +89,7 @@ test('runPhasesPipeline: the coordinator persists its own narration, so a watch 
 		skipRefactor: true,
 		onProgress: (message) => progress.push(message),
 	});
-	const logged = readFileSync(join(dir, '.lightsout', 'runs', result.manifest.runId, 'progress.jsonl'), 'utf8')
+	const logged = readFileSync(join(runDirFor({ cwd: dir, runId: result.manifest.runId }), 'progress.jsonl'), 'utf8')
 		.trim()
 		.split('\n')
 		.map((line): { at: string; message: string } => JSON.parse(line));
@@ -231,7 +232,7 @@ test('runPhasesPipeline: a live run lock stops the sequence untouched — nothin
 	// the lock conflict reaches the caller as itself, never as a recorded failure
 	expect(error).toBeInstanceOf(RunLockError);
 
-	const [runId] = readdirSync(join(dir, '.lightsout', 'runs'));
+	const [runId] = await listRunIds({ cwd: dir });
 	const manifest = await readRunManifest({ cwd: dir, runId });
 
 	expect(manifest.steps[0]?.status).toBe('running');

@@ -1,5 +1,6 @@
 import { stat } from 'node:fs/promises';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
+import { ticketFolderOf } from '#src/common/planAddress/ticketFolderOf.ts';
 import {
 	BrainstormDecisions,
 	DecisionsRecord,
@@ -89,7 +90,10 @@ export const getPlanWorkspace = async ({ cwd, name }: Params): Promise<PlanWorks
 	}
 
 	const files = await readPlanWorkspaceFiles({ cwd, name });
-	const runs = matchPlanRuns({ name, runs: await listRuns({ cwd }) });
+	// One ticket's runs folder, kept by the recorded name: no other ticket's runs
+	// are opened to answer for this plan.
+	const ticketBranch = ticketFolderOf({ name });
+	const runs = matchPlanRuns({ name, runs: await listRuns({ cwd, ticketBranch }) });
 	const { facts, decisions, brainstormDecisions, grade, dedup, problems } = await readRecords({ cwd, files });
 	const listing: PlanWorkspaceListing = buildPlanWorkspaceListing({
 		name,

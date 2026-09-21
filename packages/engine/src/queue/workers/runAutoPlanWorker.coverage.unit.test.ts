@@ -109,7 +109,7 @@ const setupAutoPlanWorker = ({
 	config?: LightsoutConfig;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-auto-plan-coverage-'));
-	const folder = join(cwd, '.lightsout', 'plans', branch, planId);
+	const folder = join(cwd, '.lightsout', 'tickets', branch, 'plans', planId);
 
 	mkdirSync(folder, { recursive: true });
 	writeFileSync(join(folder, 'plan.md'), '# The plan\n');

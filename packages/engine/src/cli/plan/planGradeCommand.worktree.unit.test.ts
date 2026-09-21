@@ -7,6 +7,7 @@ import { planGradeCommand } from '#src/cli/plan/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createGapCheckDriver } from '#tests/helpers/createGapCheckDriver.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { writePlanDeliverable } from '#tests/helpers/writePlanDeliverable.ts';
 
@@ -44,7 +45,7 @@ describe('planGradeCommand', () => {
 		await expect(planGradeCommand({ cwd: worktree, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
 
 		const printed = printedLines({ logged });
-		const planDir = join(primary, '.lightsout', 'plans', name);
+		const planDir = planWorkspaceFolder({ cwd: primary, name: name });
 
 		// the plan was found at all: a grade that resolved the folder against the
 		// worktree reports no plan there and grades nothing

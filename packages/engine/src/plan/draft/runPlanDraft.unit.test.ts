@@ -36,7 +36,7 @@ test('plan draft: writes plan.md and returns a valid PlanDraftReport — with no
 	writeFileSync(join(cwd, 'src/index.js'), 'export const one = 1;\n');
 	seedPlanWorkspace({ cwd, name: 'draft-me' });
 
-	const planDir = join(cwd, '.lightsout', 'plans', 'draft-me');
+	const planDir = join(cwd, '.lightsout', 'tickets', 'draft-me', 'plans');
 	const result = await runPlanDraft({ cwd, driver: createDraftDriver({ bodies: [cleanPlanBody()] }), name: 'draft-me' });
 
 	expectStatus(result, 'complete');
@@ -123,7 +123,7 @@ test('plan draft: the repair invocation references the workspace facts/decisions
 	// the dirty author forced a repair
 	expectDefined(repairInvocation);
 
-	const workspaceDir = join(cwd, '.lightsout', 'plans', 'repair-refs');
+	const workspaceDir = join(cwd, '.lightsout', 'tickets', 'repair-refs', 'plans');
 
 	// the decisions reference is the workspace path
 	expect(repairInvocation.prompt.includes(`- Decisions record: ${join(workspaceDir, 'decisions.json')}`)).toBeTruthy();
@@ -219,7 +219,7 @@ test('plan draft: a report.status of error returns facts-error and writes no pla
 	expectStatus(result, 'facts-error');
 	expect('discrepancies' in result && result.discrepancies.length === 1).toBeTruthy();
 	// no plan written on facts-error
-	expect(existsSync(join(cwd, '.lightsout', 'plans', 'bad-facts', 'plan.md'))).toBeFalsy();
+	expect(existsSync(join(cwd, '.lightsout', 'tickets', 'bad-facts', 'plans', 'plan.md'))).toBeFalsy();
 });
 
 test('plan draft: facts touching more paths than the phased threshold draft the overview variant', async () => {
@@ -234,10 +234,10 @@ test('plan draft: facts touching more paths than the phased threshold draft the 
 	expect('variant' in result).toBeTruthy();
 	expect(result.variant).toBe('overview');
 	// the phased deliverable is authored into the plan's own folder
-	expect(existsSync(join(cwd, '.lightsout', 'plans', 'big', 'overview.md'))).toBeTruthy();
+	expect(existsSync(join(cwd, '.lightsout', 'tickets', 'big', 'plans', 'overview.md'))).toBeTruthy();
 	// and its one declared phase was authored by its own spawn, not by the
 	// overview's — the split that keeps a ten-phase draft inside its timeout
-	expect(existsSync(join(cwd, '.lightsout', 'plans', 'big', 'phase1-core.md'))).toBeTruthy();
+	expect(existsSync(join(cwd, '.lightsout', 'tickets', 'big', 'plans', 'phase1-core.md'))).toBeTruthy();
 	expect(prompts.map((prompt) => (prompt.includes('## Phase authoring') ? 'phase' : 'overview'))).toStrictEqual(['overview', 'phase']);
 	// the overview spawn is never handed a self-lint: no phase file exists yet,
 	// so the command it would run always answers "no plan found"
@@ -255,7 +255,7 @@ test('plan draft: the overview\u2019s declared counts are re-stamped from what t
 
 	expectStatus(result, 'complete');
 
-	const overview = readFileSync(join(cwd, '.lightsout', 'plans', 'stamped', 'overview.md'), 'utf8');
+	const overview = readFileSync(join(cwd, '.lightsout', 'tickets', 'stamped', 'plans', 'overview.md'), 'utf8');
 
 	// the estimate the overview agent wrote is replaced by the count the phase
 	// file proves, so the consistency check never spends a repair on arithmetic
@@ -282,7 +282,7 @@ test('plan draft: an explicit scope flag overrides the estimate', async () => {
 
 test('plan draft: still carries brainstorm rows in first through the shared merged reader', async () => {
 	const cwd = setupConsumerRepo();
-	const planDir = join(cwd, '.lightsout', 'plans', 'shared-reader');
+	const planDir = join(cwd, '.lightsout', 'tickets', 'shared-reader', 'plans');
 	// one row as `/brainstorm` settles it, one as the session writes it into decisions.json
 	const brainstormRow: DecisionRow = { source: 'Brainstorm', question: 'which shape?', options: 'a / b', choice: 'a', rationale: 'settled', assumption: false };
 	const elicitationRow: DecisionRow = {
@@ -338,7 +338,7 @@ test('plan draft: the drafted plan.md is synced before the structural convergenc
 	expect(authoredBody.includes('## Decision Log')).toBeFalsy();
 	expectStatus(result, 'complete');
 	// the engine composed the section onto disk between the spawn and the lint
-	expect(readFileSync(join(cwd, '.lightsout', 'plans', 'synced-first', 'plan.md'), 'utf8')).toContain(renderDecisionLog({ decisions: [] }));
+	expect(readFileSync(join(cwd, '.lightsout', 'tickets', 'synced-first', 'plans', 'plan.md'), 'utf8')).toContain(renderDecisionLog({ decisions: [] }));
 	// so the first lint reported no decision-log finding — one would cost a repair
 	expect(invocations.filter((invocation) => invocation.prompt.includes('# Repair input'))).toStrictEqual([]);
 });

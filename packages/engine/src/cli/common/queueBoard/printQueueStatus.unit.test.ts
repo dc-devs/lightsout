@@ -10,6 +10,7 @@ import { PipelineKind, type QueueBoard, type QueueBoardTicket, QueueLane, type R
 import { getQueueBoardPath } from '#src/queue/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 // Mocked Imports
 // -------------------------
@@ -119,7 +120,12 @@ const setupQueueStatus = async ({ listing, boardTickets }: { listing: RunListing
 	mockResolveQueueRun.mockResolvedValue(listing);
 
 	const cwd = await freshCwd();
-	const boardPath = getQueueBoardPath({ cwd, runId: coordinatorRunId });
+
+	// The board lives in the coordinator run's own folder, which is looked up by
+	// id — so the folder has to be on disk before the board has a place at all.
+	mkdirSync(runDirFor({ cwd, runId: coordinatorRunId, pipeline: 'queue' }), { recursive: true });
+
+	const boardPath = await getQueueBoardPath({ cwd, runId: coordinatorRunId });
 
 	if (boardTickets !== undefined) {
 		const board: QueueBoard = { coordinatorRunId, updatedAt, tickets: boardTickets };

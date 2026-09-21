@@ -5,6 +5,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { restoreBrainstormFiles } from '#src/brainstorm/restore/restoreBrainstormFiles.ts';
 import { serializeAttachmentManifest } from '#src/common/attachmentManifest/serializeAttachmentManifest.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
@@ -49,7 +50,7 @@ interface SetupParams {
  */
 const setup = ({ attachments, bodies = {}, manifestFiles, manifestText, manifestCopies = 1, onDisk = {} }: SetupParams) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-restore-brainstorm-'));
-	const dir = join(cwd, '.lightsout', 'plans', name);
+	const dir = planWorkspaceFolder({ cwd: cwd, name: name });
 
 	if (Object.keys(onDisk).length > 0) {
 		mkdirSync(dir, { recursive: true });
@@ -106,7 +107,7 @@ const prefixOf = ({ title }: { title: string }) => (title.includes('--') ? title
  */
 const setupPrefixed = ({ attachments, markers = {}, planName = name }: PrefixedSetupParams) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-restore-brainstorm-prefixed-'));
-	const dir = join(cwd, '.lightsout', 'plans', planName);
+	const dir = planWorkspaceFolder({ cwd: cwd, name: planName });
 
 	const markerBodies: Record<string, string> = {};
 

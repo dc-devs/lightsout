@@ -13,6 +13,7 @@ import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advi
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createGapCheckDriver } from '#tests/helpers/createGapCheckDriver.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { writePlanDeliverable } from '#tests/helpers/writePlanDeliverable.ts';
 
@@ -76,7 +77,7 @@ const setupStaleDecisionLog = () => {
 	const seeded = setup({ name: 'stale-log' });
 
 	writeFileSync(
-		join(seeded.cwd, '.lightsout', 'plans', 'stale-log', 'decisions.json'),
+		join(seeded.cwd, '.lightsout', 'tickets', 'stale-log', 'plans', 'decisions.json'),
 		JSON.stringify({
 			planName: 'stale-log',
 			decisions: [
@@ -374,9 +375,9 @@ test("a grade run from a linked worktree reads and writes the primary checkout's
 	// the deliverable was found at all: a run that resolved the plan folder
 	// against the worktree reports no plan there and never grades anything
 	expect(result.grade.grade).toBe('A');
-	expect(result.workspaceDir).toBe(join(realpathSync(primary), '.lightsout', 'plans', name));
+	expect(result.workspaceDir).toBe(planWorkspaceFolder({ cwd: realpathSync(primary), name }));
 	// and every file the pass writes lands in the folder that survives the tree
-	expect(result.gradePath).toBe(join(realpathSync(primary), '.lightsout', 'plans', name, 'grade.json'));
+	expect(result.gradePath).toBe(join(planWorkspaceFolder({ cwd: realpathSync(primary), name }), 'grade.json'));
 	expect(GradeReport.parse(JSON.parse(readFileSync(join(planDir, 'grade.json'), 'utf8'))).planName).toBe(name);
 	expect(GradeMemory.parse(JSON.parse(readFileSync(join(planDir, 'grade-memory.json'), 'utf8'))).planName).toBe(name);
 
@@ -386,7 +387,7 @@ test("a grade run from a linked worktree reads and writes the primary checkout's
 	expect(history[0]?.gradedAt).toBe(result.grade.gradedAt);
 	// the memory path answered from the worktree is the primary's own, so the
 	// next pass from any checkout reads what this one recorded
-	expect(await gradeMemoryPath({ cwd: worktree, name })).toBe(join(realpathSync(primary), '.lightsout', 'plans', name, 'grade-memory.json'));
+	expect(await gradeMemoryPath({ cwd: worktree, name })).toBe(join(planWorkspaceFolder({ cwd: realpathSync(primary), name }), 'grade-memory.json'));
 	// nothing at all was written into the tree that gets removed
 	expect(existsSync(join(worktree, '.lightsout'))).toBe(false);
 });

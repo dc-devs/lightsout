@@ -5,6 +5,8 @@ import { sha256 } from '#src/common/utils/sha256.ts';
 import type { ApprovedTestRecord } from '#src/contracts/index.ts';
 import { readApprovedTest } from '#src/pipeline/approvedTests/index.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const runId = 'run-approved-1';
@@ -28,8 +30,12 @@ const setupApprovedRun = ({ copy, removed = false }: SetupParams = {}) => {
 	const cwd = setupConsumerRepo({ sources: { 'src/index.js': 'export const one = 1;\n', [testFile]: committed } });
 	const approvedTests: ApprovedTestRecord[] = [];
 
+	// The approved copies live in the run's own folder, which is looked up by
+	// id — so the folder has to be there before a copy can be filed in it.
+	seedRunFolder({ cwd, runId });
+
 	if (copy !== undefined) {
-		const target = join(cwd, '.lightsout', 'runs', runId, 'approved', testFile);
+		const target = join(runDirFor({ cwd, runId }), 'approved', testFile);
 
 		mkdirSync(dirname(target), { recursive: true });
 		writeFileSync(target, copy);

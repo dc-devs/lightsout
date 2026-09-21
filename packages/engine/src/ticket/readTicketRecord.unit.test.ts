@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readTicketRecord } from '#src/ticket/index.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 /** A record the contract accepts, written by hand so the reader is the only thing under test. */
@@ -23,9 +24,9 @@ const ticketRecordOf = ({ branch, ticketRef }: { branch: string; ticketRef: stri
 	history: [{ at: '2026-01-01T00:00:00.000Z', kind: 'plan-added', detail: 'added plan 001-ticket-record' }],
 });
 
-/** Writes a ticket folder's `ticket.json` under a checkout's plans folder, where the reader looks for it. */
+/** Writes a ticket folder's `ticket.json` under a checkout's tickets folder, where the reader looks for it. */
 const writeTicketFile = ({ cwd, ticketBranch, contents }: { cwd: string; ticketBranch: string; contents: string }) => {
-	const ticketFolder = join(cwd, '.lightsout', 'plans', ticketBranch);
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
 
 	mkdirSync(ticketFolder, { recursive: true });
 	writeFileSync(join(ticketFolder, 'ticket.json'), contents);
@@ -52,7 +53,7 @@ const setupCheckout = ({
 	const recordPaths: Record<string, string> = {};
 
 	for (const ticketBranch of emptyFolders) {
-		mkdirSync(join(cwd, '.lightsout', 'plans', ticketBranch), { recursive: true });
+		mkdirSync(planWorkspaceFolder({ cwd: cwd, name: ticketBranch }), { recursive: true });
 	}
 
 	for (const [ticketBranch, contents] of Object.entries(records)) {
@@ -60,7 +61,7 @@ const setupCheckout = ({
 	}
 
 	for (const ticketBranch of unreadable) {
-		const recordPath = join(cwd, '.lightsout', 'plans', ticketBranch, 'ticket.json');
+		const recordPath = join(cwd, '.lightsout', 'tickets', ticketBranch, 'ticket.json');
 
 		mkdirSync(recordPath, { recursive: true });
 		recordPaths[ticketBranch] = recordPath;
@@ -92,6 +93,27 @@ const setupLinkedWorktree = ({ ticketBranch }: { ticketBranch: string }) => {
 	});
 
 	return { worktree };
+};
+
+/**
+ * A checkout holding one branch's record in its own folder under the tickets
+ * directory, and a second record for the same branch left in the pre-layout
+ * plans folder. The two name different tickets, so the answer says which of
+ * the two files was read.
+ */
+const setupTicketsDirectoryCheckout = ({ ticketBranch }: { ticketBranch: string }) => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-tickets-dir-'));
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
+
+	mkdirSync(ticketFolder, { recursive: true });
+	writeFileSync(join(ticketFolder, 'ticket.json'), JSON.stringify(ticketRecordOf({ branch: ticketBranch, ticketRef: 'LO-155' })));
+
+	const preLayoutFolder = join(cwd, '.lightsout', 'plans', ticketBranch);
+
+	mkdirSync(preLayoutFolder, { recursive: true });
+	writeFileSync(join(preLayoutFolder, 'ticket.json'), JSON.stringify(ticketRecordOf({ branch: ticketBranch, ticketRef: 'LO-000' })));
+
+	return { cwd };
 };
 
 describe('readTicketRecord', () => {
@@ -145,6 +167,18 @@ describe('readTicketRecord', () => {
 			notJson: { error: expect.stringContaining(recordPaths['lo-140-not-json']) },
 			offContract: { error: expect.stringContaining(recordPaths['lo-140-off-contract']) },
 			otherBranch: { error: expect.stringContaining(recordPaths['lo-140-other-branch']) },
+		});
+	});
+
+	test("readTicketRecord: the record is read from the ticket's own folder under the tickets directory", async () => {
+		const { cwd } = setupTicketsDirectoryCheckout({ ticketBranch: 'lo-155-ticket-folder' });
+
+		const read = await readTicketRecord({ cwd, ticketBranch: 'lo-155-ticket-folder' });
+		const noFolder = await readTicketRecord({ cwd, ticketBranch: 'lo-155-no-folder' });
+
+		expect({ read, noFolder }).toStrictEqual({
+			read: { record: ticketRecordOf({ branch: 'lo-155-ticket-folder', ticketRef: 'LO-155' }) },
+			noFolder: { record: undefined },
 		});
 	});
 });

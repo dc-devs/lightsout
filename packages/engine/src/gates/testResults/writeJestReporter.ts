@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { jestReporterSource } from '#src/gates/testResults/jestReporterSource.ts';
-import { getRunDir } from '#src/runState/index.ts';
+import { resolveRunDir } from '#src/runState/index.ts';
 
 interface Params {
 	cwd: string;
@@ -18,7 +18,7 @@ interface Params {
  * behind for the rest of that run to be judged on.
  */
 export const writeJestReporter = async ({ cwd, runId }: Params): Promise<string> => {
-	const runDir = getRunDir({ cwd, runId });
+	const runDir = await resolveRunDir({ cwd, runId });
 	const reporterPath = join(runDir, 'jest-reporter.cjs');
 
 	await mkdir(runDir, { recursive: true });

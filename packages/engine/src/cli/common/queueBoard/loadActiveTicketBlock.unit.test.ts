@@ -16,6 +16,7 @@ import {
 	ShippingStepId,
 } from '#src/contracts/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { seedRunDir } from '#tests/helpers/seedRunDir.ts';
 
 /** Beyond any OS pid range — the live-process probe reports it dead. */
@@ -158,7 +159,7 @@ const setupWorktree = async ({
 	}
 
 	if (withPlanningRecord) {
-		const planDir = join(worktreePath, '.lightsout', 'plans', planName);
+		const planDir = planWorkspaceFolder({ cwd: worktreePath, name: planName });
 
 		await mkdir(planDir, { recursive: true });
 		await writeFile(join(planDir, 'planning-progress.json'), `${JSON.stringify(planningRecord(), null, '\t')}\n`, 'utf8');
@@ -179,7 +180,8 @@ const setupWorktree = async ({
 
 /**
  * A worktree for the ticket the ship lane holds: its shipping record begun at
- * `shipStartedAt`, and an engine run beside it that a run binder would pick.
+ * `shipStartedAt`, filed as `ship-progress.json` in the branch's ticket folder,
+ * and an engine run beside it that a run binder would pick.
  * `onDisk: false` answers a worktree path that is not there at all.
  */
 const setupShippingWorktree = async ({ shipStartedAt, onDisk = true }: { shipStartedAt: string; onDisk?: boolean }) => {
@@ -189,10 +191,10 @@ const setupShippingWorktree = async ({ shipStartedAt, onDisk = true }: { shipSta
 	const worktreePath = onDisk ? checkout : join(checkout, 'removed-worktree');
 
 	if (onDisk) {
-		const progressDir = join(worktreePath, '.lightsout', 'ship', 'progress');
+		const ticketFolder = join(worktreePath, '.lightsout', 'tickets', branch);
 
-		await mkdir(progressDir, { recursive: true });
-		await writeFile(join(progressDir, `${branch}.json`), `${JSON.stringify(shippingRecord({ startedAt: shipStartedAt }), null, '\t')}\n`, 'utf8');
+		await mkdir(ticketFolder, { recursive: true });
+		await writeFile(join(ticketFolder, 'ship-progress.json'), `${JSON.stringify(shippingRecord({ startedAt: shipStartedAt }), null, '\t')}\n`, 'utf8');
 		await seedRunDir({ cwd: worktreePath, manifest: manifestOf({ ...runs.b, createdAt: '2026-09-10T10:22:00.000Z' }) });
 	}
 
@@ -254,6 +256,18 @@ describe('loadActiveTicketBlock', () => {
 		const lines = await loadActiveTicketBlock({ ticket });
 
 		expect(lines).toStrictEqual(shippingBlock);
+	});
+
+	test("loadActiveTicketBlock: shows a ticket's shipping steps from the record filed in its ticket folder", async () => {
+		const { worktreePath } = await setupShippingWorktree({ shipStartedAt: '2026-09-10T10:21:00.000Z' });
+		const ticket = ticketOf({ lane: QueueLane.ShippingNow, enteredAt: enteredShippingAt, worktreePath });
+
+		const lines = await loadActiveTicketBlock({ ticket });
+
+		// The steps the record holds, rather than the every-row-unreached block a
+		// missing record draws: the worktree path is handed over as the checkout,
+		// and the record is read from the branch's ticket folder.
+		expect(lines).toEqual(expect.arrayContaining([expect.stringMatching(/integrate\s+passed/), expect.stringMatching(/push\s+running/)]));
 	});
 
 	test('gives a one-line notice for a shipping ticket whose worktree is no longer on disk', async () => {

@@ -3,6 +3,7 @@ import { realpathSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { gradeHistoryPath } from '#src/plan/gradeHistoryPath.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 /** A repo root the naming cases resolve against — nothing is read from disk, so it need not exist. */
@@ -31,7 +32,7 @@ describe('gradeHistoryPath', () => {
 		async ({ name }) => {
 			const path = await gradeHistoryPath({ cwd: looseCwd, name });
 
-			expect(path).toBe(join(looseCwd, '.lightsout', 'plans', name, 'grade-history.jsonl'));
+			expect(path).toBe(join(planWorkspaceFolder({ cwd: looseCwd, name: name }), 'grade-history.jsonl'));
 		},
 	);
 
@@ -42,6 +43,6 @@ describe('gradeHistoryPath', () => {
 
 		// a pass graded from a tree appends to the ledger that outlives it, so the
 		// C → B → A history is one file rather than one per checkout
-		expect(path).toBe(join(realpathSync(primary), '.lightsout', 'plans', 'lo-150-planning-observability', 'grade-history.jsonl'));
+		expect(path).toBe(join(realpathSync(primary), '.lightsout', 'tickets', 'lo-150-planning-observability', 'plans', 'grade-history.jsonl'));
 	});
 });

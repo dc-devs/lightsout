@@ -1,13 +1,10 @@
-import { execSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { type LightsoutConfig, PlanProgress, TicketEventKind, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
-import { planWorkspaceDir } from '#src/plan/index.ts';
 import { addTicketPlan, updateLocalTicketRecord } from '#src/ticket/index.ts';
 import type { TrackerAttachment, TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
-import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 // Mocked Imports
 // -------------------------
@@ -99,7 +96,7 @@ const setupAddPlan = async ({
 	topLevelFolders?: string[];
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-add-plan-'));
-	const ticketFolder = join(cwd, '.lightsout', 'plans', branch);
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', branch);
 	const recordPath = join(ticketFolder, 'ticket.json');
 	const progress: string[] = [];
 
@@ -107,14 +104,14 @@ const setupAddPlan = async ({
 		await updateLocalTicketRecord({ cwd, ticketBranch: branch, change: () => record });
 	}
 
-	mkdirSync(ticketFolder, { recursive: true });
+	mkdirSync(join(ticketFolder, 'plans'), { recursive: true });
 
 	for (const name of topLevelFolders) {
-		mkdirSync(join(ticketFolder, name), { recursive: true });
+		mkdirSync(join(ticketFolder, 'plans', name), { recursive: true });
 	}
 
 	for (const name of topLevelFiles) {
-		writeFileSync(join(ticketFolder, name), `# ${name}\n`);
+		writeFileSync(join(ticketFolder, 'plans', name), `# ${name}\n`);
 	}
 
 	mockGetTicketAttachments.mockResolvedValue([]);
@@ -129,31 +126,8 @@ const setupAddPlan = async ({
 		ticketFolder,
 		recordPath,
 		progress,
-		planFolderOf: ({ planId }: { planId: string }) => join(ticketFolder, planId),
+		planFolderOf: ({ planId }: { planId: string }) => join(ticketFolder, 'plans', planId),
 		params: { cwd, ticketBranch: branch, slug, title, config, env, onProgress: (message: string) => progress.push(message) },
-	};
-};
-
-/**
- * A real primary checkout with a linked worktree added from it, standing on the
- * ticket's own branch — the shape a plan command runs in once `plan.worktree`
- * moves the session into a tree, and the one place a plan folder could be made
- * in a directory that is removed when the tree is.
- */
-const setupAddPlanFromWorktree = () => {
-	const { cwd } = setupBranchRepo();
-	const worktree = join(cwd, '.worktrees', ticketBranch);
-
-	execSync(`git worktree add -q -b ${ticketBranch} "${worktree}" main`, { cwd, stdio: 'ignore' });
-	mockGetTicketAttachments.mockResolvedValue([]);
-	mockGetTicketsByIdentifiers.mockResolvedValue([{ id: 'id-140', identifier: 'LO-140' } as TrackerTicket]);
-	mockReadTicketAsset.mockResolvedValue({ error: 'no asset' });
-	mockSetTicketAttachment.mockResolvedValue(undefined);
-
-	return {
-		worktree,
-		primaryTicketFolder: join(realpathSync(cwd), '.lightsout', 'plans', ticketBranch),
-		params: { cwd: worktree, ticketBranch, slug: 'search-basics', config: { gates }, env },
 	};
 };
 
@@ -362,27 +336,31 @@ describe('addTicketPlan', () => {
 		expect(existsSync(planFolderOf({ planId: '001-search-basics' }))).toBe(false);
 	});
 
-	test("a plan added from a linked worktree is created in the primary checkout's plans directory", async () => {
-		const { worktree, primaryTicketFolder, params } = setupAddPlanFromWorktree();
-
-		const result = await addTicketPlan(params);
-
-		// The folder the ticket sync's keep paths read is asked for here the same
-		// way they ask for it, so one answer proves both land on one copy.
-		const landed = {
-			address: 'address' in result ? result.address : result.error,
-			planFolderUnderPrimary: existsSync(join(primaryTicketFolder, '001-search-basics')),
-			recordUnderPrimary: existsSync(join(primaryTicketFolder, 'ticket.json')),
-			folderTheTicketSyncReads: existsSync(await planWorkspaceDir({ cwd: worktree, name: 'lo-140-multi/001-search-basics' })),
-			planDataInsideTheWorktree: existsSync(join(worktree, '.lightsout')),
-		};
-
-		expect(landed).toStrictEqual({
-			address: 'lo-140-multi/001-search-basics',
-			planFolderUnderPrimary: true,
-			recordUnderPrimary: true,
-			folderTheTicketSyncReads: true,
-			planDataInsideTheWorktree: false,
+	test("addTicketPlan: loose files in the ticket's plans folder refuse the add, and its record files never do", async () => {
+		const loose = await setupAddPlan({ topLevelFiles: ['facts.json', 'plan.md'] });
+		const adopted = await setupAddPlan({
+			slug: 'ship-guard',
+			record: recordOf({ mode: TicketMode.MultiplePlan, plans: [planOf({ id: '001-a', progress: PlanProgress.Implemented })] }),
+			topLevelFolders: ['001-a', '002-b.local-1'],
 		});
+
+		// The ticket's own files sit one level above the folder that is read, so
+		// they can never be mistaken for the leftovers of a single-folder plan. The
+		// lock is unparseable on purpose: a leftover lock is reclaimed at once, so
+		// it stands for the listing rule rather than for the lock's wait.
+		writeFileSync(join(adopted.ticketFolder, 'ticket-sync.json'), `${JSON.stringify({ planMarkers: {}, schemaVersion: 1 })}\n`);
+		writeFileSync(join(adopted.ticketFolder, 'ticket.lock'), '{');
+		writeFileSync(join(adopted.ticketFolder, 'ticket.json.tmp'), '{}\n');
+
+		const refused = await addTicketPlan(loose.params);
+		const added = await addTicketPlan(adopted.params);
+
+		expect(refused).toEqual({ error: expect.stringContaining('ticket adopt') });
+		expect(refused).toEqual({ error: expect.stringContaining('plan.md') });
+		expect(existsSync(loose.recordPath)).toBe(false);
+		expect(existsSync(loose.planFolderOf({ planId: '001-search-basics' }))).toBe(false);
+		expect(added).toEqual(expect.objectContaining({ address: 'lo-140-multi/002-ship-guard' }));
+		expect(recordAt({ recordPath: adopted.recordPath }).plans.map((plan) => plan.id)).toStrictEqual(['001-a', '002-ship-guard']);
+		expect(existsSync(adopted.planFolderOf({ planId: '002-ship-guard' }))).toBe(true);
 	});
 });

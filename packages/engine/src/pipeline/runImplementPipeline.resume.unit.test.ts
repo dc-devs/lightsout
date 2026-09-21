@@ -9,6 +9,7 @@ import { readRunManifest } from '#src/runState/index.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
@@ -115,7 +116,7 @@ test('resume: the pre-edit standards baseline survives a park and is not rewritt
 	const config = await readConfig({ cwd: dir });
 	const parked = await runImplementPipeline({ cwd: dir, driver: parkOnWrite, config, planPath: 'plan.md' });
 	// the run folder's own comparison point, beside the manifest
-	const baselinePath = join(dir, '.lightsout', 'runs', parked.manifest.runId, 'standards-baseline.json');
+	const baselinePath = join(runDirFor({ cwd: dir, runId: parked.manifest.runId }), 'standards-baseline.json');
 	const atPark = readFileSync(baselinePath, 'utf8');
 
 	expect(parked.manifest.status).toBe('paused-rate-limit');

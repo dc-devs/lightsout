@@ -28,7 +28,7 @@ export const approveTestFiles = async ({ run, paths }: Params): Promise<Approved
 
 	for (const path of paths) {
 		const content = await readFile(join(run.cwd, path)).catch(() => undefined);
-		const copy = approvedTestPath({ cwd: run.cwd, runId, path });
+		const copy = await approvedTestPath({ cwd: run.cwd, runId, path });
 
 		if (content === undefined) {
 			// A stale copy left behind would make the next checkpoint bundle the

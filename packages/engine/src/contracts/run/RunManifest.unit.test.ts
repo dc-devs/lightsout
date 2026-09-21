@@ -200,3 +200,20 @@ test('RunManifest: workspace records where the run worked, is optional so older 
 	// could work in
 	expect(RunManifest.safeParse({ ...base, harness: 'codex', workspace: 3 }).success).toBe(false);
 });
+
+test('RunManifest: planName is optional so an earlier manifest still parses, round-trips a plan address, and refuses a non-string', () => {
+	const planName = 'lo-155-ticket-scoped-state-layout/001-recorded-plan-name';
+
+	const recorded = RunManifest.parse({ ...base, harness: 'codex', planName });
+
+	// the run declares which plan it belongs to rather than the engine guessing it
+	// from how the plan path happens to be spelled
+	expect(recorded.planName).toBe(planName);
+	// a manifest written before the field existed still reads, and a run that
+	// belongs to no plan — a refactor, coverage, queue or direct run — simply
+	// records no name
+	expect(RunManifest.parse({ ...base, harness: 'codex' }).planName).toBeUndefined();
+	// the field can only ever be a name — a number is a corrupt manifest, not a
+	// plan nobody can look up
+	expect(RunManifest.safeParse({ ...base, harness: 'codex', planName: 3 }).success).toBe(false);
+});

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readBrainstormDecisions } from '#src/plan/readBrainstormDecisions.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 /**
@@ -13,10 +14,10 @@ import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
  */
 const setupWorkspace = ({ name = 'grill-me', content }: { name?: string; content?: string } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-brainstorm-'));
-	const brainstormPath = join(cwd, '.lightsout', 'plans', name, 'brainstorm-decisions.json');
+	const brainstormPath = join(planWorkspaceFolder({ cwd: cwd, name: name }), 'brainstorm-decisions.json');
 
 	if (content !== undefined) {
-		mkdirSync(join(cwd, '.lightsout', 'plans', name), { recursive: true });
+		mkdirSync(planWorkspaceFolder({ cwd: cwd, name: name }), { recursive: true });
 		writeFileSync(brainstormPath, content);
 	}
 
@@ -35,9 +36,9 @@ const decisionRow = {
 
 /** One plan folder holding the given decision row, under whichever checkout root it is handed. */
 const writeDecisions = ({ root, name, choice }: { root: string; name: string; choice: string }) => {
-	mkdirSync(join(root, '.lightsout', 'plans', name), { recursive: true });
+	mkdirSync(planWorkspaceFolder({ cwd: root, name: name }), { recursive: true });
 	writeFileSync(
-		join(root, '.lightsout', 'plans', name, 'brainstorm-decisions.json'),
+		join(planWorkspaceFolder({ cwd: root, name: name }), 'brainstorm-decisions.json'),
 		JSON.stringify({ planName: name, decisions: [{ ...decisionRow, choice }] }),
 	);
 };
@@ -89,8 +90,11 @@ describe('readBrainstormDecisions', () => {
 	test('reads from the plan workspace keyed by name, so two plans never cross', async () => {
 		const { cwd } = setupWorkspace({ name: 'plan-a', content: JSON.stringify({ planName: 'plan-a', decisions: [] }) });
 
-		mkdirSync(join(cwd, '.lightsout', 'plans', 'plan-b'), { recursive: true });
-		writeFileSync(join(cwd, '.lightsout', 'plans', 'plan-b', 'brainstorm-decisions.json'), JSON.stringify({ planName: 'plan-b', decisions: [decisionRow] }));
+		mkdirSync(join(cwd, '.lightsout', 'tickets', 'plan-b', 'plans'), { recursive: true });
+		writeFileSync(
+			join(cwd, '.lightsout', 'tickets', 'plan-b', 'plans', 'brainstorm-decisions.json'),
+			JSON.stringify({ planName: 'plan-b', decisions: [decisionRow] }),
+		);
 
 		const record = await readBrainstormDecisions({ cwd, name: 'plan-b' });
 

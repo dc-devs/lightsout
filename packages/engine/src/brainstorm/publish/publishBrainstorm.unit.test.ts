@@ -6,6 +6,7 @@ import { publishBrainstorm } from '#src/brainstorm/publish/publishBrainstorm.ts'
 import { sha256 } from '#src/common/utils/sha256.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
 // Mocked Imports
@@ -66,7 +67,7 @@ const setupBrainstorm = ({
 	uploadFailures?: Record<string, string>;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-publish-brainstorm-'));
-	const dir = join(cwd, '.lightsout', 'plans', folder);
+	const dir = planWorkspaceFolder({ cwd: cwd, name: folder });
 	const progress: string[] = [];
 
 	mockGetTicketsByIdentifiers.mockResolvedValue(tickets);

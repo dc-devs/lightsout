@@ -69,12 +69,12 @@ test('buildPlanGapJudgeInvocation: a finding whose reader offered no options say
 });
 
 test("buildPlanGapJudgeInvocation: a phased plan's judge is told where the sibling phase files are", () => {
-	const { prompt } = buildPlanGapJudgeInvocation({ ...batchOf(), overviewText, planDir: '.lightsout/plans/web-app-design' });
+	const { prompt } = buildPlanGapJudgeInvocation({ ...batchOf(), overviewText, planDir: '.lightsout/tickets/web-app-design/plans' });
 
 	// a seam finding cannot be settled from one side, and the judge opens the
 	// neighbour itself rather than being handed every phase inline
 	expect(prompt.includes("## The plan's other phases")).toBeTruthy();
-	expect(prompt.includes("The plan's other phase files are in `.lightsout/plans/web-app-design`.")).toBeTruthy();
+	expect(prompt.includes("The plan's other phase files are in `.lightsout/tickets/web-app-design/plans`.")).toBeTruthy();
 });
 
 test('buildPlanGapJudgeInvocation: a single-file plan gets no sibling-phases section at all', () => {

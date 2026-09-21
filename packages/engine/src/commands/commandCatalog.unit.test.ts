@@ -362,4 +362,24 @@ describe('commandCatalog', () => {
 		expect(named).toStrictEqual([...neighbours].sort());
 		expect(silentBack).toStrictEqual([]);
 	});
+
+	test('commandCatalog: no catalog entry names the pre-layout plans folder', () => {
+		const { byId } = setupCatalog();
+		const savedLines = commandCatalog.flatMap((entry) => entry.steps.flatMap((step) => step.saved.map((path) => `${entry.id} saved ${path}`)));
+		const meaningLines = commandCatalog.flatMap((entry) => entry.flags.map((flag) => `${entry.id} --${flag.name} ${flag.meaning}`));
+		const planStatePaths = (byId.get('plan')?.steps.flatMap((step) => step.saved) ?? []).filter((path) => path.startsWith('.lightsout/'));
+		const nameMeanings = ['plan', 'brainstorm', 'ticket'].map((id) => byId.get(id)?.flags.find((flag) => flag.name === 'name')?.meaning);
+
+		const stale = [...savedLines, ...meaningLines].filter((line) => line.includes('.lightsout/plans'));
+		const unmoved = planStatePaths.filter((path) => !path.startsWith('.lightsout/tickets/'));
+
+		expect(stale).toStrictEqual([]);
+		expect(planStatePaths).not.toHaveLength(0);
+		expect(unmoved).toStrictEqual([]);
+		expect(nameMeanings).toEqual([
+			expect.stringContaining('.lightsout/tickets/'),
+			expect.stringContaining('.lightsout/tickets/'),
+			expect.stringContaining('.lightsout/tickets/'),
+		]);
+	});
 });

@@ -17,6 +17,7 @@ import {
 import { getQueueBoardPath } from '#src/queue/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { seedRunDir } from '#tests/helpers/seedRunDir.ts';
 import { usageFixture } from '#tests/helpers/usageFixture.ts';
 
@@ -170,7 +171,7 @@ const setupQueue = async ({
 	const board: QueueBoard = { coordinatorRunId, updatedAt: '2026-09-10T09:30:00.000Z', tickets };
 
 	await seedRunDir({ cwd, manifest: { runId: coordinatorRunId, pipeline: PipelineKind.Queue, status: listing.status } });
-	await writeFile(getQueueBoardPath({ cwd, runId: coordinatorRunId }), JSON.stringify(board), 'utf8');
+	await writeFile(await getQueueBoardPath({ cwd, runId: coordinatorRunId }), JSON.stringify(board), 'utf8');
 	mockResolveQueueRun.mockResolvedValue(listing);
 	mockResolveWatchTarget.mockResolvedValue(undefined);
 	mockWatchRunProgress.mockResolvedValue(undefined);
@@ -232,7 +233,7 @@ const setupBuildingTicket = async () => {
 const setupAutoPlanTicket = async () => {
 	const worktree = await setupWorktree();
 	const planName = 'ex-103-search-changes';
-	const planDir = join(worktree, '.lightsout', 'plans', planName);
+	const planDir = planWorkspaceFolder({ cwd: worktree, name: planName });
 
 	await mkdir(planDir, { recursive: true });
 	await writeFile(join(planDir, 'planning-progress.json'), `${JSON.stringify(planningRecordOf({ name: planName }), null, '\t')}\n`, 'utf8');
@@ -259,10 +260,10 @@ const setupAutoPlanTicket = async () => {
  */
 const setupShippingTicket = async () => {
 	const worktree = await setupWorktree();
-	const progressDir = join(worktree, '.lightsout', 'ship', 'progress');
+	const ticketFolder = join(worktree, '.lightsout', 'tickets', 'lo-7-ship');
 
-	await mkdir(progressDir, { recursive: true });
-	await writeFile(join(progressDir, 'lo-7-ship.json'), `${JSON.stringify(shippingRecord, null, '\t')}\n`, 'utf8');
+	await mkdir(ticketFolder, { recursive: true });
+	await writeFile(join(ticketFolder, 'ship-progress.json'), `${JSON.stringify(shippingRecord, null, '\t')}\n`, 'utf8');
 
 	const expected = await standaloneLines({ cwd: worktree, args: { shipping: 'lo-7-ship' } });
 	const ticket: QueueBoardTicket = {

@@ -6,6 +6,7 @@ import { type ActivityLevel, buildActivityTree, readActivityMarks } from '#src/a
 import { type ActivityLevelEnd, ActivityLevelKind, type ActivityLevelStart, type ActivityMark, ActivityMarkKind, RunStatus } from '#src/contracts/index.ts';
 import { recordPlanCommandRun } from '#src/plan/progress/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 
 // No module mocks: the wrapper's whole job is marks in a plan folder's activity
 // record, so each case arranges a real temporary checkout and reads the record
@@ -48,7 +49,7 @@ const setupCommandRun = async ({
 	status?: RunStatus;
 } = {}) => {
 	const cwd = await freshCwd();
-	const planDir = join(cwd, '.lightsout', 'plans', name);
+	const planDir = planWorkspaceFolder({ cwd: cwd, name: name });
 
 	if (planFolderTaken) {
 		await mkdir(dirname(planDir), { recursive: true });

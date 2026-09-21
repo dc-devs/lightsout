@@ -111,21 +111,21 @@ const runningWithoutStart: ShippingProgress = {
 
 /**
  * A real checkout with an empty runs folder and, when one is given, the
- * `lo-7-ship` shipping record in its ship progress folder. `expected` is what
+ * `lo-7-ship` shipping record in that branch's ticket folder. `expected` is what
  * the shipping loader answers for that checkout, taken before any output is
  * captured.
  */
 const setupShipping = async ({ args = { shipping: 'lo-7-ship' }, record }: { args?: Record<string, string | true>; record?: ShippingProgress } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-status-shipping-'));
-	const progressDir = join(cwd, '.lightsout', 'ship', 'progress');
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', 'lo-7-ship');
 
 	mkdirSync(join(cwd, '.lightsout', 'runs'), { recursive: true });
 	mockResolveWatchTarget.mockResolvedValue(undefined);
 	mockWatchRunProgress.mockResolvedValue(undefined);
 
 	if (record) {
-		mkdirSync(progressDir, { recursive: true });
-		writeFileSync(join(progressDir, 'lo-7-ship.json'), `${JSON.stringify(record, null, '\t')}\n`, 'utf8');
+		mkdirSync(ticketFolder, { recursive: true });
+		writeFileSync(join(ticketFolder, 'ship-progress.json'), `${JSON.stringify(record, null, '\t')}\n`, 'utf8');
 	}
 
 	const expected = await loadShippingProgressBlock({ cwd, branch: 'lo-7-ship' });

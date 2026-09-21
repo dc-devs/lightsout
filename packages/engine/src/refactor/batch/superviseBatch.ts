@@ -8,7 +8,7 @@ import type { GateRunResult } from '#src/gates/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
 import { SettleKind } from '#src/refactor/batch/common/constants/SettleKind.ts';
 import type { SettleOutcome } from '#src/refactor/batch/common/types/SettleOutcome.ts';
-import { getRunDir } from '#src/runState/index.ts';
+import { resolveRunDir } from '#src/runState/index.ts';
 
 interface Params {
 	cwd: string;
@@ -56,7 +56,7 @@ const consultBatchSupervisor = async ({
 	gateError: string;
 	attempts: number;
 }) => {
-	const agentsDir = join(getRunDir({ cwd, runId }), 'agents');
+	const agentsDir = join(await resolveRunDir({ cwd, runId }), 'agents');
 	const slug = batchId.replace(/[:/]/g, '_');
 
 	await mkdir(agentsDir, { recursive: true });

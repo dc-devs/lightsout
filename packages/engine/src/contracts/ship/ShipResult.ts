@@ -3,8 +3,8 @@ import { ShipBlockReason } from '#src/contracts/ship/ShipBlockReason.ts';
 import { ShipStatus } from '#src/contracts/ship/ShipStatus.ts';
 
 /**
- * What one `lightsout ship` attempt did, written to
- * `.lightsout/ship/<branch>.json` on every exit path.
+ * What one `lightsout ship` attempt did, written to `ship.json` in the shipped
+ * branch's ticket folder on every exit path.
  *
  * This is the hand-off the whole command exists to produce: the engine knows
  * "ticket reference" and nothing about any tracker, so a swappable skill reads

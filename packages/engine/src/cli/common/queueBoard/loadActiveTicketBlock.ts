@@ -24,6 +24,9 @@ const loadShippingBlock = async ({ ticket, worktreePath }: { ticket: QueueBoardT
 	} else if (!(await pathExists({ path: worktreePath }))) {
 		lines = [`the worktree ${worktreePath} is no longer on disk`];
 	} else {
+		// The worktree stands in for any checkout of the repository here: the reader
+		// resolves the primary itself, so this names the repository rather than the
+		// directory holding the record.
 		const { progress } = await readShippingProgress({ cwd: worktreePath, branch });
 		const isEarlierShip = progress !== undefined && Date.parse(progress.startedAt) < Date.parse(ticket.enteredAt);
 
@@ -109,8 +112,9 @@ interface Params {
  * `status --run`, `--planning` or `--shipping` form prints for its worktree,
  * or a one-line notice when there is nothing honest to show.
  *
- * It never draws a block of its own, and reads nothing outside the ticket's
- * own worktree.
+ * It never draws a block of its own. Every run and planning record it reads is
+ * the ticket's own worktree's; the shipping record is the branch's, which the
+ * reader resolves to the primary checkout from that worktree.
  */
 export const loadActiveTicketBlock = async ({ ticket }: Params): Promise<string[]> => {
 	const { worktreePath } = ticket;

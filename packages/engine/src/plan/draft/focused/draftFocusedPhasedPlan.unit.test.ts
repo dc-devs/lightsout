@@ -12,6 +12,7 @@ import { createScriptedDraftDriver, unchangedFixReport } from '#tests/helpers/cr
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
 import { phaseRow } from '#tests/helpers/phasedDraftFixture.ts';
 import { overviewBody } from '#tests/helpers/phasePlan.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { seedPlanWorkspace } from '#tests/helpers/seedPlanWorkspace.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
@@ -78,7 +79,7 @@ const setupFocusedPhasedDraft = ({ name, respond }: { name: string; respond: Par
 
 	seedPlanWorkspace({ cwd, name });
 
-	const planDir = join(cwd, '.lightsout', 'plans', name);
+	const planDir = planWorkspaceFolder({ cwd: cwd, name: name });
 	const calls: { role: string; file: string; prompt: string }[] = [];
 	const context: DraftContext = {
 		cwd,

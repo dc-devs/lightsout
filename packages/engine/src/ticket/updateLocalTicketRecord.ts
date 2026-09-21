@@ -4,10 +4,9 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { canonicalJson } from '#src/common/utils/canonicalJson.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { resolveSharedStateDir } from '#src/common/workspace/resolveSharedStateDir.ts';
+import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
 import { TicketRecord } from '#src/contracts/index.ts';
 import { ticketFileNames } from '#src/ticket/common/constants/ticketFileNames.ts';
-import { getTicketFolderPath } from '#src/ticket/common/utils/getTicketFolderPath.ts';
 import { readTicketRecordFile } from '#src/ticket/common/utils/readTicketRecordFile.ts';
 import { serializeTicketRecord } from '#src/ticket/common/utils/serializeTicketRecord.ts';
 import { withTicketRecordLock } from '#src/ticket/common/utils/withTicketRecordLock.ts';
@@ -94,8 +93,7 @@ const writeChangedRecord = async ({
  * caller's change has then not happened.
  */
 export const updateLocalTicketRecord = async ({ cwd, ticketBranch, change }: Params): Promise<{ record: TicketRecord } | { error: string }> => {
-	const stateDir = await resolveSharedStateDir({ cwd });
-	const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
+	const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
 	const recordPath = join(ticketFolder, ticketFileNames.record);
 
 	return withTicketRecordLock({

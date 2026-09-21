@@ -106,8 +106,8 @@ records count, and all three are the user's:
 
 | Where | Holds |
 |---|---|
-| `.lightsout/plans/<name>/brainstorm-decisions.json` | what was settled with the user in a brainstorm before this session |
-| `.lightsout/plans/<name>/decisions.json` | what was settled earlier in this run |
+| `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/brainstorm-decisions.json` | what was settled with the user in a brainstorm before this session |
+| `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/decisions.json` | what was settled earlier in this run |
 | the drafted plan's `## Decision Log` | a rendering of the rows of both, composed by the engine — read a settled answer here, never write one |
 
 **Record first, refresh, then edit the plan.** The engine composes the
@@ -189,7 +189,7 @@ else a rename has to update, and when it is too late to do one. When the request
 is a rough-notes file path, read it before anything else; when it already lives
 under the plans directory, take `<name>` from the path segments below that
 directory rather than deriving a new one. Read
-`.lightsout/plans/<name>/brainstorm-decisions.json`
+`.lightsout/tickets/<ticket-branch>/plans/<plan-id>/brainstorm-decisions.json`
 when it exists — its rows are already settled with the user. In a fresh
 worktree it may not be on disk yet: `plan verify-facts` in step 2 fetches the
 brainstorm the ticket carries, so the folder is read again there.
@@ -222,7 +222,7 @@ no-op rather than a relocation.
 the integration points, and note real signatures; for a feature spanning many
 packages, optionally fan out read-only Explore subagents for breadth — either
 way YOU author the facts, and only from paths you confirmed by reading them.
-Author `.lightsout/plans/<name>/facts.json` in the **exact** shape the plan
+Author `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/facts.json` in the **exact** shape the plan
 skill documents (the engine hard-parses it). Then run:
 
 ```sh
@@ -231,7 +231,7 @@ node "<plugin-root>/dist/cli.mjs" plan verify-facts --name <name> [--notes "<pat
 
 **That command also fetches the brainstorm the ticket carries** — both
 `brainstorm-notes.md` and `brainstorm-decisions.json` — into
-`.lightsout/plans/<name>/`, before it reads anything. So they have now landed in
+`.lightsout/tickets/<ticket-branch>/plans/<plan-id>/`, before it reads anything. So they have now landed in
 the folder even in a fresh worktree that never saw them, and they must be read
 there before the interview is routed. Step 3's `Settled decisions` check reads
 them at that point, not before.
@@ -272,7 +272,7 @@ escalation bar instead of asking it.
   the engine makes its own estimate at draft time.
 - **There is no alignment checkpoint to earn.** This skill's licence to
   self-answer is the bar, and the user granted it by invoking the skill.
-- Author `.lightsout/plans/<name>/decisions.json` in the **exact** shape the
+- Author `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/decisions.json` in the **exact** shape the
   plan skill documents: `planName`, plus a `decisions` array of
   `source` / `question` / `options` / `choice` / `rationale` / `assumption`,
   and the optional `phases` — a list of the phase-file basenames the decision
@@ -326,7 +326,7 @@ carries that a test cannot state for itself.
 node "<plugin-root>/dist/cli.mjs" plan dedup --name <name>
 ```
 
-Read `.lightsout/plans/<name>/dedup.json`. Every finding's `recommendation` is a
+Read `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/dedup.json`. Every finding's `recommendation` is a
 best-practice call and therefore below the bar: **auto-accept them all**. Append
 one `decisions.json` row with `"source": "Dedup"` per resolution — on a phased
 plan with `"phases"` naming the finding's `phase` file, plus any other phase
@@ -344,7 +344,7 @@ there and re-run dedup.
 node "<plugin-root>/dist/cli.mjs" plan grade --name <name>
 ```
 
-Read `.lightsout/plans/<name>/grade.json`. `"passed": true` **and**
+Read `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/grade.json`. `"passed": true` **and**
 `"complete": true` → go on. Otherwise take the blocking gaps (`needs-a-human`
 and `unjudged`), route each through the bar, and resolve the below-bar ones by
 appending a `decisions.json` row with `"source": "Converge"` — on a phased plan
@@ -362,7 +362,7 @@ every edit folded in since.
   chooses the scope and runs the full review itself once a focused pass clears,
   so a focused pass is one pass — clearing it buys no extra repair round.
 - A blocking gap carrying a `findingId` is a finding the plan has seen before.
-  Its record is in `.lightsout/plans/<name>/grade-memory.json`, which the engine
+  Its record is in `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/grade-memory.json`, which the engine
   owns: never edit it, and never treat a finding's absence from a later pass as
   it being resolved. A record closes only when the plan states the answer and the
   engine's re-verification judge cites where.
@@ -458,7 +458,7 @@ Otherwise, with `implement-on-approval` false, print the handoff line
 and stop:
 
 ```
-Next: run the `implement` skill with .lightsout/plans/<name>
+Next: run the `implement` skill with .lightsout/tickets/<ticket-branch>/plans/<plan-id>
 ```
 
 On a multiple-plan ticket, add the same line the plan skill's step 8 adds: the
@@ -467,7 +467,7 @@ request-ship`, and the ticket-workflow skill's `### Ship requests` says what it
 has to name. Never file one yourself.
 
 With it true, read `<plugin-root>/skills/implement/SKILL.md` and follow it
-in full, using `.lightsout/plans/<name>` as the provided plan path, just as if
+in full, using `.lightsout/tickets/<ticket-branch>/plans/<plan-id>` as the provided plan path, just as if
 the user had invoked `implement` directly. That includes backgrounding the
 implementation, starting `status --watch`, relaying every progress block
 verbatim until the watch exits, and then relaying the engine's final report.

@@ -4,20 +4,23 @@ import { readRunListing } from '#src/views/common/utils/readRunListing.ts';
 
 interface Params {
 	cwd: string;
+	/** Narrow the read to one ticket's runs folder; without it, every run this repo has. */
+	ticketBranch?: string;
 }
 
 /**
  * Every run this repo has state for, newest first — the runs list, whole, with
- * no paging.
+ * no paging. Given a ticket branch, only that ticket's own runs folder is read,
+ * which is what keeps a plan's row from opening every run on disk.
  *
  * A run whose manifest will not read is skipped in silence, the way `status` and
  * the health report skip one: a list is an account of what is readable, and one
  * corrupt directory must not take the whole history down with it.
  */
-export const listRuns = async ({ cwd }: Params): Promise<RunListing[]> => {
+export const listRuns = async ({ cwd, ticketBranch }: Params): Promise<RunListing[]> => {
 	const listings: RunListing[] = [];
 
-	for (const runId of await listRunIds({ cwd })) {
+	for (const runId of await listRunIds({ cwd, ticketBranch })) {
 		const manifest = await readRunManifest({ cwd, runId }).catch(() => undefined);
 
 		if (manifest === undefined) {

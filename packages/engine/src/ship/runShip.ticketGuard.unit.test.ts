@@ -85,7 +85,7 @@ const setupTicketGuardShip = ({ dirty, checks, refusal }: Params = {}) => {
 const publishedBranch = ({ cwd }: { cwd: string }) => execSync('git ls-remote --heads origin lo-60-ship', { cwd, encoding: 'utf8' }).trim();
 
 /** Whether the sequence filed a shipping progress record, which it only does once the preconditions and the ticket guard let it start. */
-const hasProgressRecord = ({ cwd }: { cwd: string }) => existsSync(join(cwd, '.lightsout', 'ship', 'progress', 'lo-60-ship.json'));
+const hasProgressRecord = ({ cwd }: { cwd: string }) => existsSync(join(cwd, '.lightsout', 'tickets', 'lo-60-ship', 'ship-progress.json'));
 
 // What the ticket record's say over shipping does to the sequence. What each
 // step does to the branch is the sibling scenario files' subject.

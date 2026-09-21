@@ -7,6 +7,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { DraftImplementation, type PlanningProgress, PlanningStep, type PlanningStepRecord, RunStatus } from '#src/contracts/index.ts';
 import { readPlanningProgress, recordPlanningStep } from '#src/plan/progress/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 // No module mocks: the recorder's whole job is a file in a plan folder, so each
@@ -71,7 +72,7 @@ const setupRecording = async ({
 	status?: RunStatus;
 } = {}) => {
 	const cwd = await freshCwd();
-	const planDir = join(cwd, '.lightsout', 'plans', name);
+	const planDir = planWorkspaceFolder({ cwd: cwd, name: name });
 	const recordPath = join(planDir, 'planning-progress.json');
 
 	if (planFolder) {
@@ -139,7 +140,7 @@ const setupWorktreeRecording = async () => {
 
 	execSync(`git worktree add -q -b ${name} "${worktree}" main`, { cwd: primary, stdio: 'ignore' });
 
-	const primaryRecordPath = join(realpathSync(primary), '.lightsout', 'plans', name, 'planning-progress.json');
+	const primaryRecordPath = join(planWorkspaceFolder({ cwd: realpathSync(primary), name }), 'planning-progress.json');
 
 	await mkdir(dirname(primaryRecordPath), { recursive: true });
 
