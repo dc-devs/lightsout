@@ -2,6 +2,17 @@ import { describe, expect, test } from '@jest/globals';
 import { commandCatalog } from '#src/commands/index.ts';
 import { CommandCatalogEntry } from '#src/contracts/index.ts';
 
+/** Every word `lightsout ticket` answers to, paired with its invocation id, in the order the usage prints them. */
+const ticketInvocationShapes = [
+	['ticket-add-plan', 'add-plan'],
+	['ticket-mode', 'mode'],
+	['ticket-request-ship', 'request-ship'],
+	['ticket-exclude-plan', 'exclude-plan'],
+	['ticket-retitle-plan', 'retitle-plan'],
+	['ticket-show', 'show'],
+	['ticket-sync', 'sync'],
+];
+
 const setupCatalog = () => {
 	const ids = commandCatalog.map((entry) => entry.id);
 	const byId = new Map(commandCatalog.map((entry) => [entry.id, entry]));
@@ -267,18 +278,17 @@ describe('commandCatalog', () => {
 
 		expect(ticket).toEqual(expect.objectContaining({ id: 'ticket', cli: 'lightsout ticket', group: 'build', records: 'plans' }));
 		expect(ids[ids.indexOf('ticket') + 1]).toBe('ticket-state');
-		expect(shapes).toStrictEqual([
-			['ticket-add-plan', 'add-plan'],
-			['ticket-adopt', 'adopt'],
-			['ticket-mode', 'mode'],
-			['ticket-request-ship', 'request-ship'],
-			['ticket-exclude-plan', 'exclude-plan'],
-			['ticket-retitle-plan', 'retitle-plan'],
-			['ticket-show', 'show'],
-			['ticket-sync', 'sync'],
-		]);
+		expect(shapes).toStrictEqual(ticketInvocationShapes);
 		expect([...(ticket?.related ?? [])].sort()).toStrictEqual([...neighbours].sort());
 		expect(silentBack).toStrictEqual([]);
+	});
+
+	test('drops the adopt invocation and leaves seven ticket subcommand shapes', () => {
+		const { byId } = setupCatalog();
+
+		const shapes = byId.get('ticket')?.invocations.map((invocation) => [invocation.id, invocation.positional]);
+
+		expect(shapes).toStrictEqual(ticketInvocationShapes);
 	});
 
 	test('gives ticket-state one required reference and three optional flags, since a tracker write with no ticket has no subject', () => {

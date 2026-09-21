@@ -15,7 +15,6 @@ import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 // to a tracker — so they are stubbed rather than driven.
 
 const mockTicketAddPlanCommand = jest.fn<(params: CommandContext) => Promise<void>>();
-const mockTicketAdoptCommand = jest.fn<(params: CommandContext) => Promise<void>>();
 const mockTicketModeCommand = jest.fn<(params: CommandContext) => Promise<void>>();
 const mockTicketRequestShipCommand = jest.fn<(params: CommandContext) => Promise<void>>();
 const mockTicketExcludePlanCommand = jest.fn<(params: CommandContext) => Promise<void>>();
@@ -24,7 +23,6 @@ const mockTicketShowCommand = jest.fn<(params: CommandContext) => Promise<void>>
 const mockTicketSyncCommand = jest.fn<(params: CommandContext) => Promise<void>>();
 
 jest.mock('#src/cli/ticket/ticketAddPlanCommand.ts', () => ({ ticketAddPlanCommand: (params: CommandContext) => mockTicketAddPlanCommand(params) }));
-jest.mock('#src/cli/ticket/ticketAdoptCommand.ts', () => ({ ticketAdoptCommand: (params: CommandContext) => mockTicketAdoptCommand(params) }));
 jest.mock('#src/cli/ticket/ticketModeCommand.ts', () => ({ ticketModeCommand: (params: CommandContext) => mockTicketModeCommand(params) }));
 jest.mock('#src/cli/ticket/ticketRequestShipCommand.ts', () => ({
 	ticketRequestShipCommand: (params: CommandContext) => mockTicketRequestShipCommand(params),
@@ -42,7 +40,6 @@ jest.mock('#src/cli/ticket/ticketSyncCommand.ts', () => ({ ticketSyncCommand: (p
 /** Every subcommand word, in the order the command's usage lists them, paired with the handler it must reach. */
 const handlers: Record<string, jest.Mock<(params: CommandContext) => Promise<void>>> = {
 	'add-plan': mockTicketAddPlanCommand,
-	adopt: mockTicketAdoptCommand,
 	mode: mockTicketModeCommand,
 	'request-ship': mockTicketRequestShipCommand,
 	'exclude-plan': mockTicketExcludePlanCommand,
@@ -94,9 +91,21 @@ describe('ticketCommand', () => {
 		expect(routedSoFar()).toStrictEqual([]);
 	});
 
+	test('refuses adopt as an unknown ticket subcommand', async () => {
+		// `adopt` was merged into `add-plan --from`, so the word reaches no
+		// handler of its own any more and falls to the refusal above
+		const { contexts, errors, exitCodes } = setupTicketDispatch({ invocations: [['adopt', '--name', 'lo-140-x']] });
+
+		await expect(ticketCommand(contexts[0])).rejects.toThrow(/process\.exit/);
+
+		expect(errors[0] ?? '').toMatch(/^lightsout — deterministic engine for coding agents/);
+		expect(exitCodes).toStrictEqual([1]);
+		expect(routedSoFar()).toStrictEqual([]);
+	});
+
 	test('dispatches a subcommand that was given no --name at all', async () => {
 		// there is no name to read as an address, and a required flag is each
-		// handler's own refusal — restating it here would be a ninth copy of it
+		// handler's own refusal — restating it here would be an eighth copy of it
 		const { contexts, errors, exitCodes } = setupTicketDispatch({ invocations: [['show']] });
 
 		await ticketCommand(contexts[0]);

@@ -12,8 +12,8 @@ export { findingLocations } from '#src/plan/common/utils/findingLocations.ts';
 export { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.ts';
 export { getBlockingGaps } from '#src/plan/common/utils/getBlockingGaps.ts';
 export { isBlockingGap } from '#src/plan/common/utils/isBlockingGap.ts';
-// Published for the ticket module's adoption, which asks the plan module's one
-// answer to 'does this folder hold a plan deliverable' rather than restating
+// Published for the ticket module's `--from` add, which asks the plan module's
+// one answer to 'does this folder hold a plan deliverable' rather than restating
 // the naming rule across the boundary.
 export { resolvePlanDeliverable } from '#src/plan/common/utils/resolvePlanDeliverable.ts';
 export { buildPlanSyncDecisionsCommand, decisionLogReference, readMergedDecisions, renderDecisionLog, syncPlanDecisions } from '#src/plan/decisionLog/index.ts';
