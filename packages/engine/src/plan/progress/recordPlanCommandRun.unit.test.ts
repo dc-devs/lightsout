@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { format } from 'node:util';
 import { describe, expect, jest, test } from '@jest/globals';
@@ -63,9 +63,9 @@ const setupCommandRun = async ({
 	}
 
 	const workResult: WorkResult = { converged: true };
-	const work = jest.fn<(params: { level: ActivityLevel }) => Promise<WorkResult>>(async ({ level }) => {
+	const work = jest.fn<(params: { level: ActivityLevel | undefined }) => Promise<WorkResult>>(async ({ level }) => {
 		if (childLabel !== undefined) {
-			level.open({ level: ActivityLevelKind.Pass, label: childLabel }).close({ outcome: RunStatus.Passed });
+			level?.open({ level: ActivityLevelKind.Pass, label: childLabel }).close({ outcome: RunStatus.Passed });
 		}
 
 		await new Promise((resolve) => {
@@ -87,6 +87,13 @@ const setupCommandRun = async ({
 	});
 
 	return { cwd, planDir, work, workResult, statusOf, errors };
+};
+
+/** Every file under `dir`, however deep — how a case states that nothing was written. */
+const filesUnder = async ({ dir }: { dir: string }) => {
+	const entries = await readdir(dir, { recursive: true, withFileTypes: true });
+
+	return entries.filter((entry) => entry.isFile()).map((entry) => join(entry.parentPath, entry.name));
 };
 
 describe('recordPlanCommandRun', () => {
@@ -180,5 +187,45 @@ describe('recordPlanCommandRun', () => {
 		expect(passStart).toEqual(expect.objectContaining({ kind: 'level-start', level: 'pass', label: 'grading pass', parentId: runStart?.id }));
 		expect(passStart?.parentId).toEqual(expect.any(String));
 		expect(passStart?.parentId).not.toBe(name);
+	});
+
+	test('a command run with no plan name writes no record and hands the work no level', async () => {
+		const { cwd, work, workResult, statusOf } = await setupCommandRun({ childLabel: 'a pass no level can open' });
+
+		const result = await recordPlanCommandRun({ cwd, name: undefined, label: 'implement', work, statusOf });
+
+		const files = await filesUnder({ dir: cwd });
+
+		expect(result).toBe(workResult);
+		expect(work).toHaveBeenCalledWith({ level: undefined });
+		expect(statusOf).not.toHaveBeenCalled();
+		expect(files).toEqual([]);
+	});
+
+	test('a command run with a plan name records the same marks it always has', async () => {
+		const { cwd, planDir, work, workResult, statusOf } = await setupCommandRun({ childLabel: 'drafting pass' });
+
+		const result = await recordPlanCommandRun({ cwd, name, label: 'draft', work, statusOf });
+
+		const marks = await readActivityMarks({ dir: planDir });
+		const planStart = startOf({ marks, level: ActivityLevelKind.Plan });
+		const runStart = startOf({ marks, level: ActivityLevelKind.CommandRun });
+		const passStart = startOf({ marks, level: ActivityLevelKind.Pass });
+		const starts = marks.filter(isLevelStart);
+		const ends = marks.filter(isLevelEnd);
+
+		expect(result).toBe(workResult);
+		expect(statusOf).toHaveBeenCalledWith({ result: workResult });
+		// Exactly the three levels planning has always written — the wrapper's two
+		// plus the one the work opened — and no mark of any other kind beside them.
+		expect(marks).toHaveLength(6);
+		expect(starts).toHaveLength(3);
+		expect(ends).toHaveLength(3);
+		expect(planStart).toEqual(expect.objectContaining({ kind: 'level-start', level: 'plan', label: name, id: name }));
+		expect(runStart).toEqual(expect.objectContaining({ kind: 'level-start', level: 'command-run', label: 'draft', parentId: name }));
+		expect(passStart).toEqual(expect.objectContaining({ kind: 'level-start', level: 'pass', label: 'drafting pass', parentId: runStart?.id }));
+		expect(ends).toEqual(
+			expect.arrayContaining([expect.objectContaining({ id: name, outcome: 'passed' }), expect.objectContaining({ id: runStart?.id, outcome: 'passed' })]),
+		);
 	});
 });

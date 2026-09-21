@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
@@ -6,6 +8,7 @@ import { readRunManifest } from '#src/runState/index.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
@@ -123,4 +126,71 @@ test('a driver exception (timeout, spawn failure) is a recorded failure, never a
 	expect(result.error ?? '').toMatch(/agent invocation failed.*timed out/);
 	// no blind retry after a timeout
 	expect(calls).toBe(1);
+});
+
+/**
+ * What a killed harness leaves behind: input-side counts from the messages it
+ * streamed, and no output tokens or cost — a harness states those only in the
+ * terminal result event a killed process never reaches.
+ */
+const streamedSpend = { inputTokens: 12, cacheReadTokens: 3400, cacheCreationTokens: 56 };
+
+/** A run whose implement agent — the run's first and only agent call — streams what it burned and is then killed. */
+const setupKilledAgentRun = async () => {
+	const dir = setupConsumerRepo();
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async ({ onUsage }) => {
+			onUsage?.(streamedSpend);
+			throw new Error('claude timed out after 3600000ms');
+		},
+	};
+	const readLedger = (runId: string) =>
+		readFileSync(join(runDirFor({ cwd: dir, runId }), 'agents.jsonl'), 'utf8')
+			.trim()
+			.split('\n')
+			.map((line) => JSON.parse(line) as Record<string, unknown>);
+
+	return { dir, driver, config: await readConfig({ cwd: dir }), readLedger };
+};
+
+test('a run halted by a killed agent still reports what that agent burned', async () => {
+	const { dir, driver, config, readLedger } = await setupKilledAgentRun();
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+
+	const persisted = await readRunManifest({ cwd: dir, runId: result.manifest.runId });
+
+	// the streamed counts survive the kill; what the harness never stated reads zero
+	expect(persisted.usage).toStrictEqual({
+		invocations: 1,
+		inputTokens: 12,
+		outputTokens: 0,
+		cacheReadTokens: 3400,
+		cacheCreationTokens: 56,
+		costUsd: 0,
+	});
+	expect(readLedger(result.manifest.runId)).toEqual([
+		{
+			at: expect.any(String),
+			step: 'implement',
+			inputTokens: 12,
+			outputTokens: 0,
+			cacheReadTokens: 3400,
+			cacheCreationTokens: 56,
+			costUsd: 0,
+		},
+	]);
+});
+
+test("a killed agent's call is one invocation, not one per spawn", async () => {
+	const { dir, driver, config, readLedger } = await setupKilledAgentRun();
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+
+	const persisted = await readRunManifest({ cwd: dir, runId: result.manifest.runId });
+
+	// one agent call is billed once, however many spawns its ladder made
+	expect(persisted.usage?.invocations).toBe(1);
+	expect(readLedger(result.manifest.runId).length).toBe(1);
 });

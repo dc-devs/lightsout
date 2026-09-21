@@ -117,7 +117,7 @@ ${blocks}
 /** One `##` section's body — the lines under its heading, up to the next `##` heading. */
 const sectionOf = ({ text, heading }: { text: string; heading: string }) => {
 	const lines = text.split('\n');
-	const start = lines.findIndex((line) => line === `## ${heading}`);
+	const start = lines.indexOf(`## ${heading}`);
 
 	if (start === -1) {
 		return '';
