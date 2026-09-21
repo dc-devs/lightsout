@@ -138087,10 +138087,11 @@ var statusCatalogEntry = {
   cli: "lightsout status",
   group: CommandGroup.Housekeeping,
   summary: "Show what lightsout sees in this repo: config, harness, packs, any run still parked \u2014 and, for one run, what it is doing right now.",
-  whenToUse: "Run it when you come back to a repo and need to know what lightsout thinks is going on. It names the config, the harness, the packs in play, and any run still parked. Name a run and it shows what is happening inside that run instead: its steps, their outcomes and durations, and what it is working on this moment. Name a branch with --shipping to follow it while it ships. Pass --queue while a queue drains to see every ticket on its board and what each active one is doing.",
+  whenToUse: "Run it when you come back to a repo and need to know what lightsout thinks is going on. It names the config, the harness, the packs in play, and any run still parked. Name a run and it shows what is happening inside that run instead: its steps, their outcomes and durations, and what it is working on this moment. Name a branch with --shipping to follow it while it ships. Pass --queue while a queue drains to see every ticket on its board and what each active one is doing. Pass --now to see the run that is going right now, printed once.",
   invocations: [
     { id: "status" },
     { id: "status-run", note: "one run in detail; --watch repaints it every two minutes, and without --run it follows the one run that is going" },
+    { id: "status-now", note: "the run that is going, printed once; a phased plan shows its phase sequence and the phase moving now" },
     { id: "status-planning", note: "one plan's planning steps, printed once" },
     { id: "status-shipping", note: "one branch's ship steps, read from the checkout that ships it" },
     { id: "status-queue", note: "the queue's board, then one status block per active ticket, printed once" }
@@ -138112,6 +138113,12 @@ var statusCatalogEntry = {
       required: false
     },
     {
+      name: "now",
+      meaning: "Show the run that is going, printed once and never repainted \u2014 for a phased plan, its phase sequence followed by the phase moving now. It answers at once rather than waiting for a run to appear; with nothing going it falls back to the newest run of any status, and when several unrelated runs are going it names their ids and asks for --run <id> instead of guessing. Cannot be combined with --run, --watch, --planning, --shipping or --queue.",
+      shape: "status-now",
+      required: true
+    },
+    {
       name: "planning",
       value: "<name>",
       meaning: "Show the named plan folder's planning steps \u2014 verify-facts, draft, dedup, grade, publish \u2014 with their outcomes, attempts and durations, and what is running now. Cannot be combined with --run or --watch.",
@@ -138127,7 +138134,7 @@ var statusCatalogEntry = {
     },
     {
       name: "queue",
-      meaning: "Show the queue's seven-column board \u2014 Build Queue, Building, Ship Queue, Shipping Now, Shipped, Parked, Blocked \u2014 then one block per active ticket, each exactly what --run, --planning or --shipping prints for that ticket's worktree. Printed once. Cannot be combined with --watch, --planning or --shipping.",
+      meaning: "Show the queue's seven-column board \u2014 Build Queue, Building, Ship Queue, Shipping Now, Shipped, Parked, Blocked \u2014 then one block per active ticket, each exactly what --run, --planning or --shipping prints for that ticket's worktree. Printed once. Cannot be combined with --watch, --planning, --shipping or --now.",
       shape: "status-queue",
       required: true
     },
@@ -138135,7 +138142,14 @@ var statusCatalogEntry = {
       name: "run",
       value: "<id>",
       meaning: "The queue run to show \u2014 a past or crashed one included. Takes the shortened eight-character id reports print.",
-      fallback: "The live queue run this checkout's run lock names, waited for up to a minute.",
+      fallback: "The live queue run this checkout's run lock names.",
+      shape: "status-queue",
+      required: false
+    },
+    {
+      name: "wait",
+      meaning: "Wait up to a minute for a queue run to take the lock, for a status request made right after launching a queue \u2014 the queue has not taken the lock yet, and without this the answer would be that no queue is going.",
+      fallback: "A bare --queue answers at once.",
       shape: "status-queue",
       required: false
     },
@@ -138259,6 +138273,7 @@ var usageOrder = [
   "queue",
   "status",
   "status-run",
+  "status-now",
   "status-planning",
   "status-shipping",
   "status-queue",
@@ -165368,6 +165383,22 @@ var loadRunProgressBlock = async ({ cwd, runId }) => {
   return { progress, lines: renderRunProgress({ progress }) };
 };
 
+// src/cli/common/runFamily/getRunFamilyRoot.ts
+var getRunFamilyRoot = ({ run }) => run.parentRunId ?? run.runId;
+
+// src/cli/common/progressBlock/loadRunFamilyProgressBlock.ts
+var loadRunFamilyProgressBlock = async ({ cwd, runId }) => {
+  const listings = await listRuns({ cwd });
+  const chosen = listings.find((run) => run.runId === runId);
+  const named = chosen === void 0 ? runId : getRunFamilyRoot({ run: chosen });
+  const root = listings.some((run) => run.runId === named) ? named : runId;
+  const children = listings.filter((run) => run.runId !== root && getRunFamilyRoot({ run }) === root);
+  const going = children.find((run) => run.status === RunStatus.Running || run.status === RunStatus.Pending);
+  const child = going ?? children[0];
+  const { lines } = await loadRunProgressBlock({ cwd, runId: root });
+  return child === void 0 ? lines : [...lines, "", ...(await loadRunProgressBlock({ cwd, runId: child.runId })).lines];
+};
+
 // src/cli/common/queueBoard/loadActiveTicketBlock.ts
 var loadShippingBlock = async ({ ticket, worktreePath }) => {
   const { branch } = ticket;
@@ -165407,7 +165438,7 @@ var loadBuildBlock = async ({ ticket, worktreePath }) => {
   const { planName } = ticket;
   let lines;
   if (run !== void 0) {
-    lines = (await loadRunProgressBlock({ cwd: worktreePath, runId: run.runId })).lines;
+    lines = await loadRunFamilyProgressBlock({ cwd: worktreePath, runId: run.runId });
   } else if (planName !== void 0) {
     lines = await loadPlanningBlock({ worktreePath, planName });
   } else {
@@ -165442,9 +165473,9 @@ var findLockedQueueRun = async ({ cwd }) => {
   return holder === void 0 ? void 0 : (await listRuns({ cwd })).find((run) => run.runId === holder && run.pipeline === PipelineKind.Queue);
 };
 var findNamedRun = async ({ cwd, runId }) => (await listRuns({ cwd })).find((run) => run.runId === runId);
-var resolveQueueRun = async ({ cwd, runId, graceMs = 6e4, pollMs = 2e3 }) => {
+var resolveQueueRun = async ({ cwd, runId, wait = false, graceMs = 6e4, pollMs = 2e3 }) => {
   const find = () => runId === void 0 ? findLockedQueueRun({ cwd }) : findNamedRun({ cwd, runId });
-  const deadline = Date.now() + (runId === void 0 ? graceMs : 0);
+  const deadline = Date.now() + (runId === void 0 && wait ? graceMs : 0);
   let listing = await find();
   while (listing === void 0 && Date.now() < deadline) {
     await delay(pollMs);
@@ -165480,8 +165511,8 @@ var printBoard = async ({ cwd, listing }) => {
     console.log(line);
   }
 };
-var printQueueStatus = async ({ cwd, runId }) => {
-  const listing = await resolveQueueRun({ cwd, runId });
+var printQueueStatus = async ({ cwd, runId, wait }) => {
+  const listing = await resolveQueueRun({ cwd, runId, wait });
   let code = 0;
   if (listing === void 0 && runId !== void 0) {
     console.error(`run ${runId} could not be read`);
@@ -165507,20 +165538,39 @@ var printRunProgress = async ({ cwd, runId }) => {
   return progress;
 };
 
+// src/cli/common/runStatus/printAmbiguousRuns.ts
+var printAmbiguousRuns = ({ roots }) => {
+  console.error(`several runs are going: ${roots.join(", ")}`);
+  console.error("pick one with --run <id>");
+};
+
+// src/cli/common/runStatus/printNewestRun.ts
+var printNewestRun = async ({ cwd }) => {
+  const newest = (await listRuns({ cwd }))[0]?.runId;
+  if (newest === void 0) {
+    console.log("no runs found");
+    return;
+  }
+  await printRunProgress({ cwd, runId: newest });
+};
+
 // src/cli/common/utils/resolveWatchTarget.ts
 import { setTimeout as delay2 } from "node:timers/promises";
-var rootOf = ({ run }) => run.parentRunId ?? run.runId;
-var findGoingRuns = async ({ cwd, rootRunId }) => (await listRuns({ cwd })).filter(
-  (run) => (run.status === RunStatus.Running || run.status === RunStatus.Pending) && (rootRunId === void 0 || rootOf({ run }) === rootRunId)
-);
-var groupFamilies = ({ going }) => {
+
+// src/cli/common/runFamily/groupRunFamilies.ts
+var groupRunFamilies = ({ runs }) => {
   const families = /* @__PURE__ */ new Map();
-  for (const run of going) {
-    const root = rootOf({ run });
+  for (const run of runs) {
+    const root = getRunFamilyRoot({ run });
     families.set(root, [...families.get(root) ?? [], run]);
   }
-  return [...families].map(([root, runs]) => ({ root, runs }));
+  return [...families].map(([root, grouped]) => ({ root, runs: grouped }));
 };
+
+// src/cli/common/utils/resolveWatchTarget.ts
+var findGoingRuns = async ({ cwd, rootRunId }) => (await listRuns({ cwd })).filter(
+  (run) => (run.status === RunStatus.Running || run.status === RunStatus.Pending) && (rootRunId === void 0 || getRunFamilyRoot({ run }) === rootRunId)
+);
 var selectCandidates = ({ families }) => {
   const live2 = families.filter((family) => family.runs.some((run) => run.live));
   return live2.length > 0 ? live2 : families;
@@ -165532,7 +165582,7 @@ var resolveWatchTarget = async ({ cwd, rootRunId, graceMs = 6e4, pollMs = 2e3 })
     await delay2(pollMs);
     going = await findGoingRuns({ cwd, rootRunId });
   }
-  const candidates = selectCandidates({ families: groupFamilies({ going }) });
+  const candidates = selectCandidates({ families: groupRunFamilies({ runs: going }) });
   const [only] = candidates;
   const head = only?.runs[0];
   let target;
@@ -165542,6 +165592,28 @@ var resolveWatchTarget = async ({ cwd, rootRunId, graceMs = 6e4, pollMs = 2e3 })
     target = { runId: head.runId, rootRunId: only.root };
   }
   return target;
+};
+
+// src/cli/common/runStatus/printGoingRunStatus.ts
+var printGoingRunStatus = async ({ cwd, flags }) => {
+  if (flags.get("now") !== true || flags.has("run") || flags.has("watch") || flags.has("planning") || flags.has("shipping")) {
+    console.error(usage);
+    return 1;
+  }
+  const going = await resolveWatchTarget({ cwd, graceMs: 0 });
+  let code = 0;
+  if (going !== void 0 && "ambiguous" in going) {
+    printAmbiguousRuns({ roots: going.ambiguous });
+    code = 1;
+  } else if (going === void 0) {
+    await printNewestRun({ cwd });
+  } else {
+    console.log("");
+    for (const line of await loadRunFamilyProgressBlock({ cwd, runId: going.runId })) {
+      console.log(line);
+    }
+  }
+  return code;
 };
 
 // src/cli/common/utils/watchRunProgress.ts
@@ -165607,14 +165679,6 @@ var printRunListing = async ({ cwd }) => {
     }
   }
 };
-var printNewestRun = async ({ cwd }) => {
-  const newest = (await listRuns({ cwd }))[0]?.runId;
-  if (newest === void 0) {
-    console.log("no runs found");
-    return;
-  }
-  await printRunProgress({ cwd, runId: newest });
-};
 var printPlanningStatus = async ({ cwd, flags }) => {
   const name = getStringFlag({ flags, name: "planning" });
   if (name === void 0 || flags.has("run") || flags.has("watch")) {
@@ -165647,19 +165711,29 @@ var resolveTypedRunId = ({ cwd, runId }) => resolveRunId2({ cwd, runId }).catch(
   throw error51;
 });
 var printQueueForm = async ({ cwd, flags }) => {
-  if (flags.get("queue") !== true || flags.has("watch") || flags.has("planning") || flags.has("shipping")) {
+  const valued = flags.get("queue") !== true || flags.has("wait") && flags.get("wait") !== true;
+  const clash = flags.has("watch") || flags.has("planning") || flags.has("shipping") || flags.has("now");
+  if (valued || clash) {
     console.error(usage);
     return exitCli({ code: 1 });
   }
   const runFlag = getStringFlag({ flags, name: "run" });
   const runId = runFlag === void 0 ? void 0 : await resolveTypedRunId({ cwd, runId: runFlag });
-  return exitCli({ code: await printQueueStatus({ cwd, runId }) });
+  const wait = flags.has("wait") ? true : void 0;
+  return exitCli({ code: await printQueueStatus({ cwd, runId, wait }) });
 };
 var statusCommand = async ({ cwd, flags }) => {
   const runFlag = getStringFlag({ flags, name: "run" });
   const watch = flags.get("watch") === true;
+  if (flags.has("wait") && !flags.has("queue")) {
+    console.error(usage);
+    return exitCli({ code: 1 });
+  }
   if (flags.has("queue")) {
     return printQueueForm({ cwd, flags });
+  }
+  if (flags.has("now")) {
+    return exitCli({ code: await printGoingRunStatus({ cwd, flags }) });
   }
   if (flags.has("shipping")) {
     return printShippingStatus({ cwd, flags });
@@ -165678,8 +165752,7 @@ var statusCommand = async ({ cwd, flags }) => {
   }
   const going = await resolveWatchTarget({ cwd });
   if (going !== void 0 && "ambiguous" in going) {
-    console.error(`several runs are going: ${going.ambiguous.join(", ")}`);
-    console.error("pick one with --run <id>");
+    printAmbiguousRuns({ roots: going.ambiguous });
     return exitCli({ code: 1 });
   }
   await (going === void 0 ? printNewestRun({ cwd }) : watchRunProgress({ cwd, rootRunId: going.rootRunId }));

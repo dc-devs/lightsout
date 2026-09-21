@@ -1,4 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
+import { readCommandFlags } from '#src/cli/common/args/readCommandFlags.ts';
 import { commandCatalog, renderUsage } from '#src/commands/index.ts';
 
 const setupCatalog = () => {
@@ -28,13 +29,19 @@ describe('commandCatalog flags', () => {
 			['standards-check', ['agent-review', 'all', 'baseline', 'code-checks', 'cwd', 'list', 'path']],
 			['standards-validate', ['cwd', 'pack']],
 			['standards-health', ['cwd']],
-			['status', ['cwd', 'planning', 'queue', 'run', 'shipping', 'watch']],
+			['status', ['cwd', 'now', 'planning', 'queue', 'run', 'shipping', 'wait', 'watch']],
 			['report', ['cwd', 'json', 'plan']],
 			['doctor', ['cwd', 'usage-probe']],
 			['friction', ['cwd']],
 			['improve', ['cwd', 'engine']],
 			['voice', ['cwd']],
 		]);
+	});
+
+	test('status accepts --now and --wait, since its accepted set is read from the catalog', () => {
+		const statusFlags = readCommandFlags({ command: 'status' });
+
+		expect([...statusFlags].sort()).toStrictEqual(['cwd', 'now', 'planning', 'queue', 'run', 'shipping', 'wait', 'watch']);
 	});
 
 	test('repeats a flag name within one entry only across different shapes, so nothing renders twice on one usage line', () => {

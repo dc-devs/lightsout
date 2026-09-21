@@ -1,42 +1,16 @@
 import { setTimeout as delay } from 'node:timers/promises';
+import { getRunFamilyRoot } from '#src/cli/common/runFamily/getRunFamilyRoot.ts';
+import { groupRunFamilies } from '#src/cli/common/runFamily/groupRunFamilies.ts';
+import type { RunFamily } from '#src/cli/common/types/RunFamily.ts';
 import type { WatchTarget } from '#src/cli/common/types/WatchTarget.ts';
-import { type RunListing, RunStatus } from '#src/contracts/index.ts';
+import { RunStatus } from '#src/contracts/index.ts';
 import { listRuns } from '#src/views/index.ts';
-
-/** The going runs sharing one root — a coordinator and the phase children it started are one family, and one choice. */
-interface RunFamily {
-	root: string;
-	runs: RunListing[];
-}
-
-/** The run family a listing belongs to: its coordinator when it records one, itself otherwise. */
-const rootOf = ({ run }: { run: RunListing }) => run.parentRunId ?? run.runId;
 
 /** Every run that has not finished, newest first — the order `listRuns` already answers in. */
 const findGoingRuns = async ({ cwd, rootRunId }: { cwd: string; rootRunId?: string }) =>
 	(await listRuns({ cwd })).filter(
-		(run) => (run.status === RunStatus.Running || run.status === RunStatus.Pending) && (rootRunId === undefined || rootOf({ run }) === rootRunId),
+		(run) => (run.status === RunStatus.Running || run.status === RunStatus.Pending) && (rootRunId === undefined || getRunFamilyRoot({ run }) === rootRunId),
 	);
-
-/**
- * The going runs grouped into families, keyed by root.
- *
- * A phased plan has two live manifests at once — the coordinator and the phase
- * child it started — and counting those as two active runs would call every
- * phased run ambiguous and refuse to watch any of them. They share a root, so
- * they are one family and one choice.
- */
-const groupFamilies = ({ going }: { going: RunListing[] }): RunFamily[] => {
-	const families = new Map<string, RunListing[]>();
-
-	for (const run of going) {
-		const root = rootOf({ run });
-
-		families.set(root, [...(families.get(root) ?? []), run]);
-	}
-
-	return [...families].map(([root, runs]) => ({ root, runs }));
-};
 
 /**
  * The families this choice is between: the ones with a live process behind
@@ -99,7 +73,7 @@ export const resolveWatchTarget = async ({ cwd, rootRunId, graceMs = 60_000, pol
 		going = await findGoingRuns({ cwd, rootRunId });
 	}
 
-	const candidates = selectCandidates({ families: groupFamilies({ going }) });
+	const candidates = selectCandidates({ families: groupRunFamilies({ runs: going }) });
 	const [only] = candidates;
 	// `listRuns` answers newest first, so a family's head is the run moving right
 	// now: the phase child during a phase, the coordinator in the gap between two.

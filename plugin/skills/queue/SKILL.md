@@ -40,14 +40,19 @@ engine, where it is deterministic code. Do not add workflow steps to this file.
    Then post the launch snapshot. Run, in the foreground:
 
    ```sh
-   node "<plugin-root>/dist/cli.mjs" status --queue
+   node "<plugin-root>/dist/cli.mjs" status --queue --wait
    ```
 
-   It may wait up to a minute for the queue run to appear. Post its output
-   into the conversation **verbatim** — no commentary, no summary, no
-   reformatting. The engine owns that rendering: a board of seven columns
-   (a markdown table), then one fenced status block per active ticket. The
-   skill only carries it. Record the **next update time** as an absolute
+   `--wait` is what makes it wait up to a minute for the queue run you have
+   just started to appear; without it the command answers at once, which here
+   would be that no queue is going. The ten-minute updates in step 5 run
+   against a queue that already exists, so they use the bare `status --queue`
+   and must not spend that minute.
+
+   Post its output into the conversation **verbatim** — no commentary, no
+   summary, no reformatting. The engine owns that rendering: a board of seven
+   columns (a markdown table), then one fenced status block per active ticket.
+   The skill only carries it. Record the **next update time** as an absolute
    time ten minutes after this post, as epoch seconds:
 
    ```sh

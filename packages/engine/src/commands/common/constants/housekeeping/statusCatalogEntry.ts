@@ -7,10 +7,11 @@ export const statusCatalogEntry: CommandCatalogEntry = {
 	group: CommandGroup.Housekeeping,
 	summary: 'Show what lightsout sees in this repo: config, harness, packs, any run still parked — and, for one run, what it is doing right now.',
 	whenToUse:
-		'Run it when you come back to a repo and need to know what lightsout thinks is going on. It names the config, the harness, the packs in play, and any run still parked. Name a run and it shows what is happening inside that run instead: its steps, their outcomes and durations, and what it is working on this moment. Name a branch with --shipping to follow it while it ships. Pass --queue while a queue drains to see every ticket on its board and what each active one is doing.',
+		'Run it when you come back to a repo and need to know what lightsout thinks is going on. It names the config, the harness, the packs in play, and any run still parked. Name a run and it shows what is happening inside that run instead: its steps, their outcomes and durations, and what it is working on this moment. Name a branch with --shipping to follow it while it ships. Pass --queue while a queue drains to see every ticket on its board and what each active one is doing. Pass --now to see the run that is going right now, printed once.',
 	invocations: [
 		{ id: 'status' },
 		{ id: 'status-run', note: 'one run in detail; --watch repaints it every two minutes, and without --run it follows the one run that is going' },
+		{ id: 'status-now', note: 'the run that is going, printed once; a phased plan shows its phase sequence and the phase moving now' },
 		{ id: 'status-planning', note: "one plan's planning steps, printed once" },
 		{ id: 'status-shipping', note: "one branch's ship steps, read from the checkout that ships it" },
 		{ id: 'status-queue', note: "the queue's board, then one status block per active ticket, printed once" },
@@ -33,6 +34,13 @@ export const statusCatalogEntry: CommandCatalogEntry = {
 			required: false,
 		},
 		{
+			name: 'now',
+			meaning:
+				'Show the run that is going, printed once and never repainted — for a phased plan, its phase sequence followed by the phase moving now. It answers at once rather than waiting for a run to appear; with nothing going it falls back to the newest run of any status, and when several unrelated runs are going it names their ids and asks for --run <id> instead of guessing. Cannot be combined with --run, --watch, --planning, --shipping or --queue.',
+			shape: 'status-now',
+			required: true,
+		},
+		{
 			name: 'planning',
 			value: '<name>',
 			meaning:
@@ -51,7 +59,7 @@ export const statusCatalogEntry: CommandCatalogEntry = {
 		{
 			name: 'queue',
 			meaning:
-				"Show the queue's seven-column board — Build Queue, Building, Ship Queue, Shipping Now, Shipped, Parked, Blocked — then one block per active ticket, each exactly what --run, --planning or --shipping prints for that ticket's worktree. Printed once. Cannot be combined with --watch, --planning or --shipping.",
+				"Show the queue's seven-column board — Build Queue, Building, Ship Queue, Shipping Now, Shipped, Parked, Blocked — then one block per active ticket, each exactly what --run, --planning or --shipping prints for that ticket's worktree. Printed once. Cannot be combined with --watch, --planning, --shipping or --now.",
 			shape: 'status-queue',
 			required: true,
 		},
@@ -59,7 +67,15 @@ export const statusCatalogEntry: CommandCatalogEntry = {
 			name: 'run',
 			value: '<id>',
 			meaning: 'The queue run to show — a past or crashed one included. Takes the shortened eight-character id reports print.',
-			fallback: "The live queue run this checkout's run lock names, waited for up to a minute.",
+			fallback: "The live queue run this checkout's run lock names.",
+			shape: 'status-queue',
+			required: false,
+		},
+		{
+			name: 'wait',
+			meaning:
+				'Wait up to a minute for a queue run to take the lock, for a status request made right after launching a queue — the queue has not taken the lock yet, and without this the answer would be that no queue is going.',
+			fallback: 'A bare --queue answers at once.',
 			shape: 'status-queue',
 			required: false,
 		},
