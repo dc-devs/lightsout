@@ -43,7 +43,7 @@ jest.mock('#src/direct/index.ts', () => ({
 // stated here, and git refuses on its own terms rather than on demand.
 const mockCommitTicketWork = jest.fn<(params: { cwd: string; message: string; runDir: string }) => Promise<{ committed: boolean } | QueueFailure>>();
 
-jest.mock('#src/queue/commitTicketWork.ts', () => ({
+jest.mock('#src/commit/commitTicketWork.ts', () => ({
 	commitTicketWork: (params: { cwd: string; message: string; runDir: string }) => mockCommitTicketWork(params),
 }));
 // -------------------------
@@ -126,14 +126,22 @@ describe('buildTicketPlans', () => {
 		expect(mockCommitTicketWork).not.toHaveBeenCalled();
 	});
 
-	test('buildTicketPlans: a refused commit stops the loop before the next plan', async () => {
+	test('buildTicketPlans: a refused commit stops the loop before any plan is built', async () => {
 		const refused = { error: 'git could not commit the work: the pre-commit hook refused it' };
-		const { params } = setupTicketPlanBuild({ mocks, plans: [firstImplemented, secondReady, thirdReady], commitResult: refused });
+		const { params } = setupTicketPlanBuild({
+			mocks,
+			plans: [firstImplemented, secondReady, thirdReady],
+			leftover: ['packages/engine/src/search/readIndex.ts'],
+			commitResult: refused,
+		});
 
 		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
 
+		// each plan's own pipeline commits the work it built, so the one commit
+		// left in this loop is the leftover settling — and a refusal there stops
+		// the loop rather than letting the next plan build on top of it
 		expect(outcome.error).toEqual(expect.stringContaining('the pre-commit hook refused it'));
-		expect(mockRunImplementPipeline).toHaveBeenCalledTimes(1);
+		expect(mockRunImplementPipeline).not.toHaveBeenCalled();
 	});
 
 	test('buildTicketPlans: a passed build its record does not show implemented stops instead of repeating', async () => {
@@ -173,7 +181,8 @@ describe('buildTicketPlans', () => {
 		expect(mockRunDirectWork).toHaveBeenCalledWith(
 			expect.objectContaining({ cwd, ticketBody: 'Build search.', ticketRef: 'LO-7', driverName: 'claude-code', config }),
 		);
-		expect(mockCommitTicketWork).toHaveBeenCalledWith(expect.objectContaining({ message: 'LO-7 001-search-index: Search index' }));
+		// the run's own pipeline commits what it built, so nothing is committed here
+		expect(mockCommitTicketWork).not.toHaveBeenCalled();
 		// the recorded progress is what the ship guard reads afterwards, and only
 		// the lifecycle helper writes it
 		expect(planAt({ cwd, id: '001-search-index' })?.progress).toBe('implemented');

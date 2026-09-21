@@ -20,6 +20,7 @@ const manifestOf = ({ usage }: { usage?: RunUsage } = {}): RunManifest => ({
 	currentStep: null,
 	steps: [],
 	changedFiles: [],
+	commits: [],
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],
@@ -139,6 +140,7 @@ describe('RunState', () => {
 			expect.objectContaining({
 				currentStep: 'batch-01',
 				changedFiles: ['src/a.ts'],
+				commits: [],
 				steps: [{ id: 'batch-01', status: RunStatus.Running, attempts: 1 }],
 			}),
 		);

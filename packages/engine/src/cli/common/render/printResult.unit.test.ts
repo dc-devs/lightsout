@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, jest, test } from '@jest/globals';
 import { printResult } from '#src/cli/common/render/printResult.ts';
-import type { FrictionRecord, RunManifest, StandardsFinding } from '#src/contracts/index.ts';
+import type { FrictionRecord, RunCommit, RunManifest, StandardsFinding } from '#src/contracts/index.ts';
 import { CleanupEndReason, FrictionArea, PackagesSource, RunStatus, StandardsSeverity } from '#src/contracts/index.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
@@ -50,6 +50,7 @@ const setupResult = ({
 		currentStep: null,
 		steps: [{ id: 'implement', status: RunStatus.Passed, attempts: 1 }],
 		changedFiles: [],
+		commits: [],
 		packages: [],
 		baselineDirtyFiles: [],
 		testSubjects: [],
@@ -271,4 +272,61 @@ test('printResult: a run with no cleanup record prints no cleanup line', async (
 		'gates     0 commands',
 		'evidence  .lightsout/runs/run-1234-abcd/',
 	]);
+});
+
+/** The commit lines of the result block — what the run says it left behind. */
+const commitLines = ({ logged }: { logged: string[] }) => labelLines({ logged }).filter((line) => line.startsWith('commit'));
+
+/** One commit a run recorded, addressed the way a plan run addresses its unit of work. */
+const runCommit = ({ sha, subject }: { sha: string; subject: string }): RunCommit => ({ sha, subject, runId: 'run-1234-abcd' });
+
+test('names every commit the run left behind', async () => {
+	const { result, cwd, logged } = setupResult({
+		manifest: {
+			changedFiles: ['src/a.ts'],
+			commits: [
+				runCommit({ sha: 'c0ffee1234567890c0ffee1234567890c0ffee12', subject: 'LO-150 001-planning-observability: Planning observability' }),
+				runCommit({
+					sha: 'decade9876543210decade9876543210decade98',
+					subject: 'LO-150 001-planning-observability/phase2-activity-record: Planning observability',
+				}),
+			],
+		},
+	});
+
+	await printResult({ result, cwd });
+
+	const lines = commitLines({ logged });
+
+	expect(lines).toHaveLength(1);
+	// both commits are named, each by its own sha and its own subject
+	expect(lines[0]).toContain('c0ffee1');
+	expect(lines[0]).toContain('LO-150 001-planning-observability: Planning observability');
+	expect(lines[0]).toContain('decade9');
+	expect(lines[0]).toContain('LO-150 001-planning-observability/phase2-activity-record: Planning observability');
+	// the sha is abbreviated, never spelled out in full
+	expect(lines[0]).not.toContain('c0ffee1234567890c0ffee1234567890c0ffee12');
+	expect(lines[0]).not.toContain('decade9876543210decade9876543210decade98');
+});
+
+test('says the work was already in history when the run added no commit', async () => {
+	const { result, cwd, logged } = setupResult({ manifest: { changedFiles: ['src/a.ts'], commits: [] } });
+
+	await printResult({ result, cwd });
+
+	const lines = commitLines({ logged });
+
+	// the wording is the printer's own; what the line has to carry is that the
+	// work is already committed, so nobody reaches for git status to find out
+	expect(lines).toHaveLength(1);
+	expect(lines[0]).toMatch(/already/i);
+	expect(lines[0]).toMatch(/histor/i);
+});
+
+test('prints no commit line for a run that left nothing', async () => {
+	const { result, cwd, logged } = setupResult({ ok: false, manifest: { status: RunStatus.Failed, changedFiles: [], commits: [] } });
+
+	await printResult({ result, cwd });
+
+	expect(commitLines({ logged })).toStrictEqual([]);
 });

@@ -24,6 +24,7 @@ const manifestWith = ({ pipeline, config }: { pipeline?: PipelineKind; config: L
 	currentStep: null,
 	steps: [],
 	changedFiles: [],
+	commits: [],
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],
@@ -44,7 +45,10 @@ const setupMeasurable = ({ git = true }: { git?: boolean } = {}) => {
 	);
 
 	if (git) {
-		execSync('git init -q && printf "coverage\\n" > .gitignore && git add -A && git -c user.name=t -c user.email=t@t commit -qm init', { cwd: dir });
+		execSync(
+			'git init -q && git config user.name t && git config user.email t@t && printf "coverage\\n" > .gitignore && git add -A && git -c user.name=t -c user.email=t@t commit -qm init',
+			{ cwd: dir },
+		);
 	}
 
 	return dir;
@@ -64,7 +68,10 @@ const setupScopedMeasurable = () => {
 		JSON.stringify({ total: { statements: { pct: 43 } }, [join(dir, 'packages/api/src/a.ts')]: { statements: { pct: 7 } } }),
 	);
 
-	execSync('git init -q && printf "coverage\\n" > .gitignore && git add -A && git -c user.name=t -c user.email=t@t commit -qm init', { cwd: dir });
+	execSync(
+		'git init -q && git config user.name t && git config user.email t@t && printf "coverage\\n" > .gitignore && git add -A && git -c user.name=t -c user.email=t@t commit -qm init',
+		{ cwd: dir },
+	);
 
 	return dir;
 };

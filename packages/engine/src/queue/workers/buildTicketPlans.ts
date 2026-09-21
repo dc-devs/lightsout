@@ -1,15 +1,14 @@
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
+import { isGeneratedPath } from '#src/common/sourceFiles/isGeneratedPath.ts';
 import { type LightsoutConfig, PlanProgress, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { pathExists, planWorkspaceDir } from '#src/plan/index.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
-import { isGeneratedPath } from '#src/queue/common/utils/isGeneratedPath.ts';
 import type { TicketPlanStep } from '#src/queue/workers/common/types/TicketPlanStep.ts';
 import { buildFromTicketBody } from '#src/queue/workers/common/utils/buildFromTicketBody.ts';
-import { commitPlanWork } from '#src/queue/workers/common/utils/commitPlanWork.ts';
 import { findStalledPlanRefusal } from '#src/queue/workers/common/utils/findStalledPlanRefusal.ts';
 import { settleLeftoverWork } from '#src/queue/workers/common/utils/settleLeftoverWork.ts';
 import { runPlanFolderPipeline } from '#src/queue/workers/runPlanFolderPipeline.ts';
@@ -96,21 +95,16 @@ const buildReadyPlan = async ({ step }: { step: TicketPlanStep }) => {
 };
 
 /**
- * A passed build committed, and the record read again to see what the lifecycle
- * helper wrote on the plan.
+ * The record read again to see what the lifecycle helper wrote on the plan.
  *
- * The re-read is what keeps the loop honest: a pass the record does not show as
- * an implementation that finished — a run over one phase file of the plan, say —
- * would otherwise make the next turn take the same plan again.
+ * The build's own pipeline committed the work it made, one commit per unit that
+ * passed its own gates, so nothing is committed here. The re-read is what keeps
+ * the loop honest: a pass the record does not show as an implementation that
+ * finished — a run over one phase file of the plan, say — would otherwise make
+ * the next turn take the same plan again.
  */
-const commitAndConfirmPlan = async ({ step, branch }: { step: TicketPlanStep; branch: string }) => {
+const confirmPlanImplemented = async ({ step, branch }: { step: TicketPlanStep; branch: string }) => {
 	const { cwd, plan } = step;
-	const committed = await commitPlanWork({ step });
-
-	if (committed !== undefined) {
-		return { error: committed };
-	}
-
 	const reread = await readTicketRecord({ cwd, ticketBranch: branch });
 
 	if ('error' in reread) {
@@ -143,11 +137,11 @@ const decideTicketOutcome = ({ record }: { record: TicketRecord }) => {
 
 /**
  * Build the plans of one ticket that are ready to implement, one at a time and
- * lowest number first, committing each plan's implementation as its own commit
- * before the next plan starts.
+ * lowest number first. Each plan's own pipeline commits the implementation it
+ * built before the next plan starts, so a later plan is always built on the
+ * commit the plans before it left.
  *
- * The order is the point: the plans share one branch, so a later plan must be
- * built on the implementation the plans before it left. A lower plan still being
+ * The order is the point: the plans share one branch. A lower plan still being
  * planned leaves the ticket open, and a lower plan whose implementation has not
  * finished parks it naming that plan — the queue repairs neither itself.
  *
@@ -211,7 +205,7 @@ export const buildTicketPlans = async ({
 			return built;
 		}
 
-		const confirmed = await commitAndConfirmPlan({ step, branch });
+		const confirmed = await confirmPlanImplemented({ step, branch });
 
 		if ('error' in confirmed) {
 			return { error: confirmed.error };

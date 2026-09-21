@@ -203,6 +203,10 @@ describe('resumeCommand', () => {
 			manifest: manifestOf({
 				pipeline: 'implement',
 				plan: 'plan.md',
+				// the run records work it already did: a clean tree with changed files
+				// behind it is work already in history, where a clean tree with none is
+				// the silent agent the commit step fails the run over
+				changedFiles: ['src/index.js'],
 				steps: ['clean-slate', 'implement', 'format-implement', 'verify-implement', 'write-tests', 'format-tests', 'verify-tests'].map((id) => ({
 					id,
 					status: RunStatus.Passed,

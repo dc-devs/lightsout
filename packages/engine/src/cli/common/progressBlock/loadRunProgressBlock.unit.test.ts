@@ -29,6 +29,7 @@ const manifestOf = (overrides: Partial<RunManifest> = {}): RunManifest => ({
 	],
 	stepOrder: ['implement', 'test', 'format'],
 	changedFiles: ['src/a.ts', 'src/b.ts'],
+	commits: [],
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],

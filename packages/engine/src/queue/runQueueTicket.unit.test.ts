@@ -73,7 +73,7 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 jest.mock('#src/queue/workers/runWorkerWithRelay.ts', () => ({
 	runWorkerWithRelay: (params: RunWorkerWithRelayParams) => mockRunWorkerWithRelay(params),
 }));
-jest.mock('#src/queue/commitTicketWork.ts', () => ({
+jest.mock('#src/commit/commitTicketWork.ts', () => ({
 	commitTicketWork: (params: CommitTicketWorkParams) => mockCommitTicketWork(params),
 }));
 jest.mock('#src/common/git/readGitCommitsAhead.ts', () => ({

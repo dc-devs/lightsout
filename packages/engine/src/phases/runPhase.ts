@@ -118,6 +118,9 @@ const recordFinishedChild = async ({
 		patch: {
 			status: childResult.ok ? RunStatus.Running : child.status,
 			changedFiles: [...new Set([...manifest.changedFiles, ...child.changedFiles])],
+			// Each phase's entry carries its own child run id, and a resumed phase that
+			// skips a passed child returns before this patch, so concatenating cannot double one.
+			commits: [...manifest.commits, ...child.commits],
 			usage: addUsage({ total: manifest.usage, child: child.usage }),
 		},
 	});
@@ -140,6 +143,8 @@ interface PhaseParams {
 	step: StepRecord;
 	total: number;
 	skipRefactor?: boolean;
+	/** Whether the SEQUENCE this phase belongs to was resumed. Forwarded to the child's pipeline call, because a phase that had not started when the sequence parked has no child manifest of its own to prove it from. */
+	resumed: boolean;
 	/** The command-run level this phase's own pass level is opened under. Absent wherever no run is being recorded. */
 	level?: ActivityLevel;
 	onProgress?: (message: string) => void;
@@ -161,6 +166,7 @@ export const runPhase = async ({
 	step,
 	total,
 	skipRefactor,
+	resumed,
 	level,
 	onProgress,
 }: PhaseParams): Promise<{ manifest: RunManifest; result?: PipelineResult }> => {
@@ -199,6 +205,11 @@ export const runPhase = async ({
 			overviewPath: current.plan,
 			parentRunId: current.runId,
 			existing: childManifest,
+			// The sequence's own owned set, taken before the sequence began, is the only
+			// set the unowned-edits guard can mean anything against: a phase that never
+			// started would otherwise snapshot a tree somebody may have sat in for days
+			// and call every edit in it its own.
+			inheritedBaseline: resumed && childManifest === undefined ? [...current.changedFiles, ...current.baselineDirtyFiles] : undefined,
 			skipRefactor,
 			level: pass,
 			onProgress,

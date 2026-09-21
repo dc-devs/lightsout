@@ -26,6 +26,7 @@ const manifestOf = ({ runId, ...overrides }: { runId: string } & Partial<RunMani
 	currentStep: null,
 	steps: [{ id: 'implement', status: RunStatus.Failed, attempts: 1, durationMs: 60_000 }],
 	changedFiles: [],
+	commits: [],
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],

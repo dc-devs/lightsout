@@ -6,7 +6,6 @@ import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { implementDirectCommand } from '#src/cli/implementDirectCommand.ts';
 import { type LightsoutConfig, RunStatus } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
-import type { QueueFailure } from '#src/queue/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -15,16 +14,15 @@ import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
 
 // Mocked Imports
 // -------------------------
-// The build and the commit are covered by their own tests; what this file pins
-// is the tracker write the command requires before either of them, and the one
-// that follows the merge at its exit.
+// The build is covered by its own tests, and the commit it ends on is the
+// run's own rather than this command's; what this file pins is the tracker
+// write the command requires before the build, and the one that follows the
+// merge at its exit.
 const mockRunDirectWork = jest.fn<(params: { ticketBody: string; ticketRef: string; willShip?: boolean }) => Promise<PipelineResult>>();
-const mockCommitTicketWork = jest.fn<(params: { message: string; runDir: string }) => Promise<{ committed: boolean } | QueueFailure>>();
 
 jest.mock('#src/direct/index.ts', () => ({
 	runDirectWork: (params: { ticketBody: string; ticketRef: string; willShip?: boolean }) => mockRunDirectWork(params),
 }));
-jest.mock('#src/queue/index.ts', () => ({ commitTicketWork: (params: { message: string; runDir: string }) => mockCommitTicketWork(params) }));
 // -------------------------
 interface GuardParams {
 	cwd: string;
@@ -124,7 +122,6 @@ const setupDirectLifecycle = ({
 	// is planted here — the command resolves the run's directory by id.
 	seedRunFolder({ cwd, runId: manifestOf({ status: RunStatus.Passed }).runId, pipeline: 'direct' });
 	mockRunDirectWork.mockResolvedValue({ ok: true, manifest: manifestOf({ status: RunStatus.Passed }) });
-	mockCommitTicketWork.mockResolvedValue({ committed: true });
 
 	return { context: { flags: parseFlags({ args: [...args, '--no-worktree'] }), rest: [], cwd }, cwd, readForgeLog, ...captured };
 };
@@ -171,7 +168,7 @@ describe('implementDirectCommand pre-source lifecycle guard', () => {
 
 		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(errors).toStrictEqual(['implement-direct commits everything in the tree; commit or stash your changes first']);
+		expect(errors).toStrictEqual([`the run commits everything in the tree at ${context.cwd}; commit or stash your changes first`]);
 		expect(mockRequireImplementLifecycle).not.toHaveBeenCalled();
 		expect(exitCodes).toStrictEqual([1]);
 	});

@@ -35,6 +35,7 @@ const setupResult = ({ manifest = {}, ...rest }: Omit<Partial<RefactorResult>, '
 			currentStep: null,
 			steps: [],
 			changedFiles: [],
+			commits: [],
 			packages: [],
 			baselineDirtyFiles: [],
 			testSubjects: [],
@@ -56,6 +57,7 @@ test('printRefactorResult: a resolved batch reports as resolved with its changed
 		manifest: {
 			steps: [{ id: 'batch-1', status: RunStatus.Passed, attempts: 1, changedFiles: ['src/a.ts', 'src/b.ts'] }],
 			changedFiles: ['src/a.ts', 'src/b.ts'],
+			commits: [],
 		},
 	});
 

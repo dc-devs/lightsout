@@ -109,6 +109,7 @@ const manifestOf = ({ status, plan, pipeline }: { status: RunStatus; plan: strin
 	currentStep: null,
 	steps: [],
 	changedFiles: [],
+	commits: [],
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],
@@ -214,7 +215,9 @@ export const setupTicketPlanBuild = ({
 		});
 	});
 	mocks.commitTicketWork.mockImplementation(({ message }) => {
-		calls.push(`commit ${message}`);
+		// The subject alone: the body carries the run id, which is asserted where
+		// the message is built rather than in this loop's ordering cases.
+		calls.push(`commit ${message.split('\n')[0]}`);
 
 		return Promise.resolve(commitResult);
 	});

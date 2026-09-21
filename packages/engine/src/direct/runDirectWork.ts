@@ -5,6 +5,7 @@ import { describeGateCoordinationStop } from '#src/common/utils/describeGateCoor
 import { runPreflightGate } from '#src/common/utils/runPreflightGate.ts';
 import { type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
 import { createDirectRun } from '#src/direct/common/utils/createDirectRun.ts';
+import { finishDirectRun } from '#src/direct/common/utils/finishDirectRun.ts';
 import { stopDirectRun } from '#src/direct/common/utils/stopDirectRun.ts';
 import { invokeDirectWorker } from '#src/direct/invokeDirectWorker.ts';
 import { verifyDirectWork } from '#src/direct/verifyDirectWork.ts';
@@ -91,6 +92,7 @@ const buildAndVerify = async ({
 	ticketBody,
 	standards,
 	answeredQuestion,
+	resumed,
 }: {
 	run: RunState;
 	driver: Driver;
@@ -98,6 +100,7 @@ const buildAndVerify = async ({
 	ticketBody: string;
 	standards?: string;
 	answeredQuestion?: AnsweredQuestion;
+	resumed: boolean;
 }) => {
 	let errorContext: string | undefined;
 
@@ -119,11 +122,7 @@ const buildAndVerify = async ({
 		}
 
 		if (gateError === undefined) {
-			await run.update({ patch: { status: RunStatus.Passed, currentStep: null } });
-
-			const passed: PipelineResult = { ok: true, manifest: run.current() };
-
-			return passed;
+			return finishDirectRun({ run, ticketRef, ticketBody, resumed });
 		}
 
 		errorContext = gateError;
@@ -149,6 +148,12 @@ const buildAndVerify = async ({
  * agent touched it, and a resumed tree holds the run's own partial work, so
  * re-running it would fail the run on the very changes the resume exists to
  * preserve. Everything after it is shared by a first run and a resumed one.
+ *
+ * A run whose `verify` step is already recorded passed skips the worker and the
+ * gates as well and goes straight to its commit. The step record decides that,
+ * never the run's own status: a run stopped at a refused commit is failed with
+ * its gates still green behind it, and rebuilding it would spend a model on
+ * work that is already done.
  */
 const executeDirectWork = async ({
 	cwd,
@@ -168,6 +173,10 @@ const executeDirectWork = async ({
 	const stop = ({ record, status, error }: { record: StepRecord; status: RunStatus; error: string }) => stopDirectRun({ run, record, status, error });
 
 	await run.update({ patch: { status: RunStatus.Running } });
+
+	if (run.current().steps.some((step) => step.id === 'verify' && step.status === RunStatus.Passed)) {
+		return finishDirectRun({ run, ticketRef, ticketBody, resumed: true });
+	}
 
 	const redBaseline =
 		existing === undefined
@@ -192,12 +201,12 @@ const executeDirectWork = async ({
 
 	const { standards } = await resolveStandards({ cwd, config, packages: [] });
 
-	return buildAndVerify({ run, driver, ticketRef, ticketBody, standards, answeredQuestion });
+	return buildAndVerify({ run, driver, ticketRef, ticketBody, standards, answeredQuestion, resumed: existing !== undefined });
 };
 
 /**
- * Ticket body in, verified diff out — the queue's direct worker, and the whole
- * of what `lightsout implement-direct` does before it commits.
+ * Ticket body in, committed diff out — the queue's direct worker, and the whole
+ * of what `lightsout implement-direct` does.
  *
  * Answers a `PipelineResult` rather than a new near-identical type, so every
  * existing reader of a run result already understands it. A re-invocation

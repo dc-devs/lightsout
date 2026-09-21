@@ -128,6 +128,7 @@ export {
 	PipelineKind,
 	ProgressRecord,
 	RefactorStepReport,
+	RunCommit,
 	RunLock,
 	RunManifest,
 	RunStatus,

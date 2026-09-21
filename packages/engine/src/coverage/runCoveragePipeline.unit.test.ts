@@ -50,7 +50,7 @@ const setupRepo = ({ files, check = 'true', contents = {} }: { files: Record<str
 
 	writeSummary({ dir, files });
 	execSync(
-		'git init -q && printf "coverage/\\nnode_modules/\\n.lightsout/\\n" > .gitignore && git add -A && git -c user.name=t -c user.email=t@t commit -qm init',
+		'git init -q && git config user.name t && git config user.email t@t && printf "coverage/\\nnode_modules/\\n.lightsout/\\n" > .gitignore && git add -A && git -c user.name=t -c user.email=t@t commit -qm init',
 		{ cwd: dir },
 	);
 
@@ -94,7 +94,7 @@ const _setupMonorepoRepo = ({ scopes }: { scopes: Record<string, Record<string, 
 	}
 
 	execSync(
-		'git init -q && printf "coverage/\\nnode_modules/\\n.lightsout/\\n" > .gitignore && git add -A && git -c user.name=t -c user.email=t@t commit -qm init',
+		'git init -q && git config user.name t && git config user.email t@t && printf "coverage/\\nnode_modules/\\n.lightsout/\\n" > .gitignore && git add -A && git -c user.name=t -c user.email=t@t commit -qm init',
 		{ cwd: dir },
 	);
 

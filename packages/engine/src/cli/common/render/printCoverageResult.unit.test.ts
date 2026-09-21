@@ -35,6 +35,7 @@ const setupResult = ({ manifest = {}, ...rest }: Omit<Partial<CoverageResult>, '
 			currentStep: null,
 			steps: [],
 			changedFiles: [],
+			commits: [],
 			packages: [],
 			baselineDirtyFiles: [],
 			testSubjects: [],
@@ -56,6 +57,7 @@ test('printCoverageResult: a completed run reports each batch and the coverage i
 		manifest: {
 			steps: [{ id: 'batch-01:root', status: RunStatus.Passed, attempts: 1, changedFiles: ['src/a.unit.test.ts', 'src/b.unit.test.ts'] }],
 			changedFiles: ['src/a.unit.test.ts', 'src/b.unit.test.ts'],
+			commits: [],
 		},
 	});
 

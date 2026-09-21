@@ -1,4 +1,5 @@
 import type { ActivityLevel } from '#src/activity/index.ts';
+import { commitRunWork } from '#src/commit/index.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { readGitPrefix } from '#src/common/git/readGitPrefix.ts';
@@ -45,6 +46,39 @@ const recheckUnreachable = async ({ run }: { run: PipelineRun }) => {
 	}
 };
 
+/**
+ * How a run whose every step passed ends: the unreachable re-check, the commit,
+ * and the stamp or the stop that follows.
+ *
+ * The commit's position is the whole of it. It runs before the approved copies
+ * are removed, because those copies are the baseline a resume diffs against and
+ * a refused commit has to leave them on disk — and before the passed stamp,
+ * because a run already stamped passed could not be failed by the commit that
+ * follows it. Every declared step is recorded passed by now, so the resume a
+ * refusal asks for walks straight past all of them and costs only the commit.
+ */
+const finishRun = async ({ run, resumed }: { run: PipelineRun; resumed: boolean }): Promise<PipelineResult> => {
+	await recheckUnreachable({ run });
+
+	const uncommitted = await commitRunWork({ run, resumed });
+	let result: PipelineResult;
+
+	if (uncommitted === undefined) {
+		// Every step passed, so the approved copies have no reader left. A failed,
+		// parked or escalated run never reaches here and keeps them.
+		await removeApprovedTests({ run });
+		await run.update({ patch: { status: RunStatus.Passed, currentStep: null } });
+
+		result = { ok: true, manifest: run.current() };
+	} else {
+		await run.update({ patch: { status: RunStatus.Failed } });
+
+		result = { ok: false, manifest: run.current(), error: uncommitted };
+	}
+
+	return result;
+};
+
 interface Params {
 	cwd: string;
 	driver: Driver;
@@ -61,6 +95,8 @@ interface Params {
 	packages?: string[];
 	/** Resume: an existing manifest — steps already passed are skipped. */
 	existing?: RunManifest;
+	/** What the sequence this run is a phase of already owns — supplied only when that sequence was resumed and this phase had not started, so there is no child manifest to adopt. It seeds the run's baseline in place of a fresh git snapshot. */
+	inheritedBaseline?: string[];
 	skipRefactor?: boolean;
 	/** The level this run's agent calls open their own step levels under. Absent wherever no run is being recorded — a phase run is handed its phase's pass level, a single run its command run's. */
 	level?: ActivityLevel;
@@ -95,6 +131,7 @@ const executePipeline = async ({
 	parentRunId,
 	packages,
 	existing,
+	inheritedBaseline,
 	skipRefactor,
 	level,
 	willShip,
@@ -117,7 +154,7 @@ const executePipeline = async ({
 				parentRunId,
 				driver: driver.name,
 				config,
-				baselineDirtyFiles: await readGitChangedFiles({ cwd }),
+				baselineDirtyFiles: inheritedBaseline ?? (await readGitChangedFiles({ cwd })),
 				willShip,
 			})),
 	});
@@ -150,16 +187,7 @@ const executePipeline = async ({
 		return stopped;
 	}
 
-	await recheckUnreachable({ run });
-	// Every step passed, so the approved copies have no reader left: they are the
-	// working baseline a resume diffs against, and a run that finished needs none.
-	// A failed, parked or escalated run never reaches here and keeps them.
-	await removeApprovedTests({ run });
-	await run.update({ patch: { status: RunStatus.Passed, currentStep: null } });
-
-	const passed: PipelineResult = { ok: true, manifest: run.current() };
-
-	return passed;
+	return finishRun({ run, resumed: inheritedBaseline !== undefined || existing !== undefined });
 };
 
 /**

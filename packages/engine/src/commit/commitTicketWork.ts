@@ -1,11 +1,11 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { CommitFailure } from '#src/commit/common/types/CommitFailure.ts';
 import { gitTimeoutMs } from '#src/common/constants/gitTimeoutMs.ts';
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { runCommand } from '#src/common/processes/runCommand.ts';
 import { runOrDescribeFailure } from '#src/common/processes/runOrDescribeFailure.ts';
-import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import { isGeneratedPath } from '#src/queue/common/utils/isGeneratedPath.ts';
+import { isGeneratedPath } from '#src/common/sourceFiles/isGeneratedPath.ts';
 
 interface Params {
 	/** The worktree holding the work. */
@@ -109,7 +109,7 @@ const discardGeneratedChanges = async ({ cwd, paths }: { cwd: string; paths: str
  * The message goes through a file rather than `-m`, so no ticket title needs
  * shell quoting.
  */
-export const commitTicketWork = async ({ cwd, message, runDir, generated = [], onProgress }: Params): Promise<{ committed: boolean } | QueueFailure> => {
+export const commitTicketWork = async ({ cwd, message, runDir, generated = [], onProgress }: Params): Promise<{ committed: boolean } | CommitFailure> => {
 	const changed = await readGitChangedFiles({ cwd });
 
 	if (changed === undefined) {
@@ -143,7 +143,12 @@ export const commitTicketWork = async ({ cwd, message, runDir, generated = [], o
 	await mkdir(runDir, { recursive: true });
 	await writeFile(messagePath, message.endsWith('\n') ? message : `${message}\n`, 'utf8');
 
-	const stageFailure = await runOrDescribeFailure({ command: 'git add -A', cwd });
+	// The pathspec is what keeps the staging and the change detection reading one
+	// directory. `readGitChangedFiles` reports paths under `cwd`, while a bare
+	// `git add -A` stages the whole repository — so in a consumer nested inside a
+	// larger repo the commit would carry files the run never saw. At a repository
+	// root the two spellings stage exactly the same thing.
+	const stageFailure = await runOrDescribeFailure({ command: 'git add -A -- .', cwd });
 
 	if (stageFailure !== undefined) {
 		return { error: `git could not stage the work in ${cwd}: ${stageFailure}` };

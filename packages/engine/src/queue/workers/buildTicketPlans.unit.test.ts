@@ -3,7 +3,7 @@ import { type LightsoutConfig, PlanProgress } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import { buildTicketPlans } from '#src/queue/workers/buildTicketPlans.ts';
-import { planFile, planOf, setupTicketPlanBuild } from '#tests/helpers/setupTicketPlanBuild.ts';
+import { planAt, planFile, planOf, setupTicketPlanBuild } from '#tests/helpers/setupTicketPlanBuild.ts';
 
 // Mocked Imports
 // -------------------------
@@ -33,7 +33,7 @@ jest.mock('#src/direct/index.ts', () => ({
 // stated here, and git refuses on its own terms rather than on demand.
 const mockCommitTicketWork = jest.fn<(params: { cwd: string; message: string; runDir: string }) => Promise<{ committed: boolean } | QueueFailure>>();
 
-jest.mock('#src/queue/commitTicketWork.ts', () => ({
+jest.mock('#src/commit/commitTicketWork.ts', () => ({
 	commitTicketWork: (params: { cwd: string; message: string; runDir: string }) => mockCommitTicketWork(params),
 }));
 // -------------------------
@@ -87,30 +87,22 @@ const secondReady = planOf({ id: '002-search-basics', title: 'Search basics', pr
 const thirdReady = planOf({ id: '003-search-ranking', title: 'Search ranking', progress: PlanProgress.Ready });
 
 describe('buildTicketPlans', () => {
-	test('buildTicketPlans: builds the ready plans in numeric order and commits each before the next starts', async () => {
+	test('confirms each plan without committing it a second time', async () => {
+		// The numeric build order this pins was once asserted alongside a commit
+		// the loop made between plans; that commit is the build pipeline's now, so
+		// the order and the absence of a second commit are one case.
 		const { calls, cwd, params } = setupTicketPlanBuild({ mocks, plans: [firstImplemented, secondReady, thirdReady] });
 
 		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
 
-		expect(calls).toStrictEqual([
-			`build ${planFile({ cwd, planId: '002-search-basics' })}`,
-			'commit LO-7 002-search-basics: Search basics',
-			`build ${planFile({ cwd, planId: '003-search-ranking' })}`,
-			'commit LO-7 003-search-ranking: Search ranking',
+		// each plan's own build pipeline commits the work it made, so the loop
+		// only re-reads the record to see the implementation recorded as finished
+		expect(mockCommitTicketWork).not.toHaveBeenCalled();
+		expect(calls).toStrictEqual([`build ${planFile({ cwd, planId: '002-search-basics' })}`, `build ${planFile({ cwd, planId: '003-search-ranking' })}`]);
+		expect([planAt({ cwd, id: '002-search-basics' })?.progress, planAt({ cwd, id: '003-search-ranking' })?.progress]).toStrictEqual([
+			'implemented',
+			'implemented',
 		]);
-		expect(outcome.error).toBeUndefined();
-	});
-
-	test("buildTicketPlans: commits each plan with the ticket identifier, the plan id and the plan's title", async () => {
-		const { cwd, params } = setupTicketPlanBuild({ mocks, plans: [firstImplemented, secondReady] });
-
-		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
-
-		// a plan's implementation can only be removed by its own commit if the
-		// commit says which plan it belongs to
-		expect(mockCommitTicketWork).toHaveBeenCalledWith(
-			expect.objectContaining({ cwd, message: 'LO-7 002-search-basics: Search basics', runDir: params.ticketRunDir }),
-		);
 		expect(outcome.error).toBeUndefined();
 	});
 
@@ -179,7 +171,7 @@ describe('buildTicketPlans', () => {
 
 		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
 
-		expect(calls).toStrictEqual([`build ${planFile({ cwd, planId: '003-search-ranking' })}`, 'commit LO-7 003-search-ranking: Search ranking']);
+		expect(calls).toStrictEqual([`build ${planFile({ cwd, planId: '003-search-ranking' })}`]);
 		expect(outcome.error).toBeUndefined();
 	});
 
@@ -194,11 +186,7 @@ describe('buildTicketPlans', () => {
 
 		// the leftovers can only have come from plan 001's own build or repair, so
 		// they go under its message before 002 puts anything in the tree
-		expect(calls).toStrictEqual([
-			'commit LO-7 001-search-index: Search index',
-			`build ${planFile({ cwd, planId: '002-search-basics' })}`,
-			'commit LO-7 002-search-basics: Search basics',
-		]);
+		expect(calls).toStrictEqual(['commit LO-7 001-search-index: Search index', `build ${planFile({ cwd, planId: '002-search-basics' })}`]);
 		expect(outcome.error).toBeUndefined();
 	});
 

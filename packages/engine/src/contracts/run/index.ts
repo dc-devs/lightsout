@@ -7,6 +7,7 @@ export { PhaseReport } from '#src/contracts/run/PhaseReport.ts';
 export { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
 export { ProgressRecord } from '#src/contracts/run/ProgressRecord.ts';
 export { RefactorStepReport } from '#src/contracts/run/RefactorStepReport.ts';
+export { RunCommit } from '#src/contracts/run/RunCommit.ts';
 export { RunLock } from '#src/contracts/run/RunLock.ts';
 export { RunManifest } from '#src/contracts/run/RunManifest.ts';
 export { RunStatus } from '#src/contracts/run/RunStatus.ts';

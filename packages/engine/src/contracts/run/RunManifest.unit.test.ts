@@ -201,6 +201,18 @@ test('RunManifest: workspace records where the run worked, is optional so older 
 	expect(RunManifest.safeParse({ ...base, harness: 'codex', workspace: 3 }).success).toBe(false);
 });
 
+test('defaults the commit list on a manifest written before commits were recorded', () => {
+	const parsed = RunManifest.parse({ ...base, harness: 'codex' });
+
+	// a manifest written before a run recorded its commits reads back as a run
+	// that left none, rather than failing the read boundary — every older run
+	// stays resumable
+	expect(parsed.commits).toStrictEqual([]);
+	// the key is absent on disk, not null — the default is what puts the empty
+	// list there, so the result block can read it without guarding
+	expect(RunManifest.safeParse({ ...base, harness: 'codex' }).success).toBe(true);
+});
+
 test('RunManifest: planName is optional so an earlier manifest still parses, round-trips a plan address, and refuses a non-string', () => {
 	const planName = 'lo-155-ticket-scoped-state-layout/001-recorded-plan-name';
 

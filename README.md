@@ -237,6 +237,12 @@ When the plan carries an acceptance-test ledger, the run writes those tests firs
 
 The run is not done until each named test has actually run and passed. The test command reports which individual tests it ran, and the engine reads that report, so a green command and an unchanged test name are not accepted as proof on their own.
 
+A run that passes commits what it built before it ends — one commit per unit of work that passed its own gates, which is a phase for a phased plan and the whole run otherwise. The subject names the ticket and the plan address (`LO-150 001-planning-observability/phase2-activity-record: Planning observability`), and the body names the lightsout run, so any commit traces back to the record behind it. `/implement`, `/implement-direct`, `/queue` and `/resume` all commit this way, and `/resume` neither commits a second time nor fails when the work it is resuming already landed.
+
+A run whose agents changed no files is a failure with a non-zero exit, never a quiet success: a unit that produced nothing is the signature of an agent that failed silently, and the queue parks that ticket for a human rather than shipping it.
+
+Because the commit stages the whole tree, both implement commands refuse to start in a checkout that already holds uncommitted changes — commit or stash them first. Only the checkout you chose to work in is judged; a worktree lightsout cut or adopted for the run is not, so the default path is unaffected.
+
 After each code-writing stage, the full repository is formatted before deterministic gates run. If a test, lint, type-check, coverage, build, or formatting family fails, that family receives bounded repair attempts before the run escalates; root and package executions of the same family share the allowance. When the run succeeds, the complete record is written to `.lightsout/runs/<id>/`.
 
 Gate runs are taken one at a time across every worktree of one repository on

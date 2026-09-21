@@ -4,6 +4,7 @@ import { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestRecord.ts
 import { ApprovedTestRecord } from '#src/contracts/run/ApprovedTestRecord.ts';
 import { PackagesSource } from '#src/contracts/run/PackagesSource.ts';
 import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import { RunCommit } from '#src/contracts/run/RunCommit.ts';
 import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import { RunUsage } from '#src/contracts/run/RunUsage.ts';
 import { StepRecord } from '#src/contracts/run/StepRecord.ts';
@@ -52,6 +53,8 @@ export const RunManifest = z.object({
 	willShip: z.boolean().optional(),
 	/** Source files changed so far, accumulated across steps. */
 	changedFiles: z.array(z.string()),
+	/** The commits this run left behind, in the order they were made. A phased run's coordinator carries one per phase; every other run carries at most one. */
+	commits: z.array(RunCommit).default([]),
 	/**
 	 * Package scope (directory names under the packages dir) for scoped
 	 * gates. Seeded from the plan front-matter or `--packages`, then expanded

@@ -1,4 +1,5 @@
 import { copyRunInputs } from '#src/cli/common/implementRun/copyRunInputs.ts';
+import { describeUncommittableTree } from '#src/cli/common/implementRun/describeUncommittableTree.ts';
 import { resolveRunWorkspace } from '#src/cli/common/implementRun/resolveRunWorkspace.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import type { PlanTarget } from '#src/cli/common/types/PlanTarget.ts';
@@ -21,6 +22,11 @@ interface Params {
  * announced before any source work — or the one sentence saying why there is
  * neither.
  *
+ * The checkout a person chose to work in is refused when it holds uncommitted
+ * changes, because a passing run now commits what it built: without the
+ * refusal a `--no-worktree` run would sweep their unrelated edits into the
+ * ticket's branch. A tree lightsout cut or adopted for the run is never judged.
+ *
  * The plan resolver is pure and side-effect free, so resolving the target a
  * second time here is honest rather than wasteful: the caller's first call
  * answered what the user pointed at, this one answers where that input now
@@ -36,6 +42,15 @@ export const openImplementWorkspace = async ({
 
 	if ('error' in workspace) {
 		return { error: workspace.error };
+	}
+
+	// Before the announcement and before the input copy, exactly as
+	// `openDirectWorkspace` orders it: the guard judges the tree the run will
+	// commit, rather than a tree the copy has already touched.
+	const uncommittable = await describeUncommittableTree({ cwd: workspace.cwd, isolated: workspace.isolated });
+
+	if (uncommittable !== undefined) {
+		return { error: uncommittable };
 	}
 
 	// Only an isolated run announces itself here. A run building where it was

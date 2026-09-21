@@ -143,7 +143,7 @@ describe('runImplementPipeline', () => {
 		const record = cleanupRecordOf({ steps: result.manifest.steps });
 
 		expectDefined(record);
-		expect(result.ok).toBe(true);
+		expect({ ok: result.ok, error: result.error }).toStrictEqual({ ok: true, error: undefined });
 		expect(roundsRun()).toBe(0);
 		expect(record).toEqual(expect.objectContaining({ roundsUsed: 0, endReason: 'no-work' }));
 		expect(record.inherited.map((finding) => finding.siteKey)).toContain('size-file:src/big.js');

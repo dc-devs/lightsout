@@ -1,4 +1,4 @@
-import { commitTicketWork } from '#src/queue/commitTicketWork.ts';
+import { buildRunCommitMessage, commitTicketWork } from '#src/commit/index.ts';
 import type { TicketPlanStep } from '#src/queue/workers/common/types/TicketPlanStep.ts';
 
 interface Params {
@@ -7,18 +7,22 @@ interface Params {
 
 /**
  * One plan's implementation, committed under a message naming the ticket, the
- * plan id and the plan's title.
+ * plan id and the plan's title, with the run that built it in the body.
  *
- * Each plan is committed before the next is taken, so a later plan's
- * implementation can be removed again by its own commit alone.
+ * The message goes through the shared builder so leftover work this settles
+ * carries the same shape as the commit a pipeline makes for itself. A plan with
+ * no recorded run id has nothing to put in a body, so it commits under the
+ * subject alone.
  *
  * @returns the one sentence saying why nothing was committed, or undefined once it was
  */
 export const commitPlanWork = async ({ step }: Params): Promise<string | undefined> => {
 	const { cwd, record, plan, ticket, ticketRunDir, config, onProgress } = step;
+	const subject = `${ticket.identifier} ${plan.id}: ${plan.title}`;
+	const runId = plan.implementation?.runId;
 	const committed = await commitTicketWork({
 		cwd,
-		message: `${ticket.identifier} ${plan.id}: ${plan.title}`,
+		message: runId === undefined ? subject : buildRunCommitMessage({ subject, runId }),
 		runDir: ticketRunDir,
 		generated: config.generated,
 		onProgress,

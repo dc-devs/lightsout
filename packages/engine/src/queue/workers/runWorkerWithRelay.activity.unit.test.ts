@@ -105,6 +105,7 @@ const manifestOf = ({ status }: { status: RunStatus }): RunManifest => ({
 	currentStep: null,
 	steps: [],
 	changedFiles: [],
+	commits: [],
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],
