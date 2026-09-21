@@ -55,6 +55,7 @@ const manifestOf = ({ runId, ...overrides }: { runId: string } & Partial<RunMani
 	],
 	stepOrder: ['implement', 'format'],
 	changedFiles: ['src/a.ts'],
+	commits: [],
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],

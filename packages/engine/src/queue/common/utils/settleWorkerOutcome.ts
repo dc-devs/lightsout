@@ -1,7 +1,7 @@
+import { commitTicketWork } from '#src/commit/index.ts';
 import { readGitCommitsAhead } from '#src/common/git/readGitCommitsAhead.ts';
 import { BranchPhase } from '#src/contracts/index.ts';
 import { writeBranchState } from '#src/queue/branchState/index.ts';
-import { commitTicketWork } from '#src/queue/commitTicketWork.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';

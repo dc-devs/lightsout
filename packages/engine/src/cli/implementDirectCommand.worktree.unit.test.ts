@@ -8,7 +8,6 @@ import type { RunWorkspace } from '#src/cli/common/types/RunWorkspace.ts';
 import { implementDirectCommand } from '#src/cli/implementDirectCommand.ts';
 import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
-import type { QueueFailure } from '#src/queue/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
@@ -50,9 +49,12 @@ const mockRunDirectWork = jest.fn<(params: DirectWorkParams) => Promise<Pipeline
 
 jest.mock('#src/direct/index.ts', () => ({ runDirectWork: (params: DirectWorkParams) => mockRunDirectWork(params) }));
 // -------------------------
-const mockCommitTicketWork = jest.fn<(params: CommitParams) => Promise<{ committed: boolean } | QueueFailure>>();
+const mockCommitTicketWork = jest.fn<(params: CommitParams) => Promise<{ committed: boolean } | { error: string }>>();
 
-jest.mock('#src/queue/index.ts', () => ({ commitTicketWork: (params: CommitParams) => mockCommitTicketWork(params) }));
+jest.mock('#src/commit/index.ts', () => ({
+	...jest.requireActual<typeof import('#src/commit/index.ts')>('#src/commit/index.ts'),
+	commitTicketWork: (params: CommitParams) => mockCommitTicketWork(params),
+}));
 // -------------------------
 const mockExitAfterImplement = jest.fn<(params: ExitAfterImplementParams) => Promise<void>>();
 
@@ -71,6 +73,7 @@ const manifestOf = (status: RunStatus): RunManifest => ({
 	currentStep: null,
 	steps: [],
 	changedFiles: [],
+	commits: [],
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],
@@ -153,13 +156,15 @@ describe('implementDirectCommand worktree isolation', () => {
 		expect(mockRunDirectWork).toHaveBeenCalledWith(expect.objectContaining({ cwd: workspace }));
 	});
 
-	test('builds, commits and ships in the workspace', async () => {
+	test('builds and ships in the workspace, leaving the commit to the run', async () => {
 		const { context, workspace } = setupImplementDirectWorktree({ args: ['--ticket', 'ticket.md'] });
 
 		await implementDirectCommand(context);
 
+		// the run makes its own commit before it is stamped passed, so this edge
+		// hands the workspace to the run and to the ship tail and nothing else
 		expect(mockRunDirectWork).toHaveBeenCalledWith(expect.objectContaining({ cwd: workspace }));
-		expect(mockCommitTicketWork).toHaveBeenCalledWith(expect.objectContaining({ cwd: workspace }));
+		expect(mockCommitTicketWork).not.toHaveBeenCalled();
 		expect(mockExitAfterImplement).toHaveBeenCalledWith(expect.objectContaining({ cwd: workspace }));
 	});
 
@@ -171,7 +176,26 @@ describe('implementDirectCommand worktree isolation', () => {
 
 		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(errors).toStrictEqual(['implement-direct commits everything in the tree; commit or stash your changes first']);
+		expect(errors).toStrictEqual([`the run commits everything in the tree at ${context.cwd}; commit or stash your changes first`]);
+		expect(mockRunDirectWork).not.toHaveBeenCalled();
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('still refuses a dirty workspace through the shared guard', async () => {
+		// `--no-worktree` makes the workspace the launching checkout, which is the
+		// only workspace the shared guard judges: a tree lightsout cut or adopted
+		// for the run is never judged at all.
+		const { context, errors, exitCodes } = setupImplementDirectWorktree({
+			args: ['--ticket', 'ticket.md', '--no-worktree'],
+			dirtyLaunch: 'export const stray = 1;\n',
+		});
+
+		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// The refusal is human copy, and both implement commands now give it, so
+		// only the act a reader takes from it is pinned — clear the tree first.
+		// What matters here is that it still arrives, and before a worker is spawned.
+		expect(errors.join('\n')).toMatch(/commit or stash/);
 		expect(mockRunDirectWork).not.toHaveBeenCalled();
 		expect(exitCodes).toStrictEqual([1]);
 	});

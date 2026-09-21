@@ -20,6 +20,7 @@ const manifestOf = (overrides: Partial<RunManifest> = {}): RunManifest => ({
 	currentStep: null,
 	steps: [],
 	changedFiles: [],
+	commits: [],
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],
@@ -331,6 +332,7 @@ describe('getRunProgress', () => {
 		const { cwd, manifest } = setupProgress({
 			manifest: manifestOf({
 				changedFiles: ['src/a.ts', 'src/b.ts'],
+				commits: [],
 				usage: { invocations: 2, inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 43.54 },
 			}),
 			narrated: ['step implement', 'step refactor — pass 1/3'],

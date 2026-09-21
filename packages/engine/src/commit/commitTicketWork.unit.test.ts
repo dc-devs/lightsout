@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { commitTicketWork } from '#src/queue/index.ts';
+import { commitTicketWork } from '#src/commit/index.ts';
 import { committedPaths } from '#tests/helpers/committedPaths.ts';
 import { generatedPaths } from '#tests/helpers/generatedPaths.ts';
 import { headSubject } from '#tests/helpers/headSubject.ts';
@@ -245,5 +245,24 @@ describe('commitTicketWork', () => {
 		expect(committed).toStrictEqual({ committed: true });
 		expect(committedPaths({ cwd })).toStrictEqual(['src.ts']);
 		expect(readFileSync(join(cwd, 'plugin', 'dist', 'cli.mjs'), 'utf8')).toBe('// built on main\n');
+	});
+
+	test('stages only the directory the change detection reads', async () => {
+		const { cwd: repo } = setupTicketBranch();
+		const consumer = join(repo, 'apps', 'api');
+
+		writeRepoFile({ cwd: repo, path: 'apps/api/src.ts', content: 'export const value = 1;\n' });
+		// a sibling the run never saw: the change detection reads under the consumer
+		// directory alone, so nothing outside it may ride into the commit
+		writeRepoFile({ cwd: repo, path: 'unrelated.ts', content: 'export const unrelated = 1;\n' });
+
+		const committed = await commitTicketWork({
+			cwd: consumer,
+			message: 'LO-152 consumer only',
+			runDir: join(consumer, '.lightsout', 'runs', 'run-1'),
+		});
+
+		expect(committed).toStrictEqual({ committed: true });
+		expect(committedPaths({ cwd: repo })).toStrictEqual(['apps/api/src.ts']);
 	});
 });

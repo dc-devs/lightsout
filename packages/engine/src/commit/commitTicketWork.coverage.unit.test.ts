@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
+import { commitTicketWork } from '#src/commit/index.ts';
 import type { CommandResult } from '#src/common/types/CommandResult.ts';
-import { commitTicketWork } from '#src/queue/index.ts';
 import { committedPaths } from '#tests/helpers/committedPaths.ts';
 import { generatedPaths } from '#tests/helpers/generatedPaths.ts';
 import { headSubject } from '#tests/helpers/headSubject.ts';

@@ -4,6 +4,7 @@ import { printStepTable } from '#src/cli/common/render/printStepTable.ts';
 import { bold } from '#src/cli/common/terminal/bold.ts';
 import { paintStatus } from '#src/cli/common/terminal/paintStatus.ts';
 import { plural } from '#src/cli/common/utils/plural.ts';
+import type { RunManifest } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { type CleanupSummary, isRunPaused, type RunSummary, summarizeRun } from '#src/runState/index.ts';
 
@@ -50,6 +51,23 @@ const describeCleanup = ({ cleanup }: { cleanup: CleanupSummary }) => {
 	}
 
 	return parts.join(' · ');
+};
+
+/**
+ * What the run left in the branch's history: every commit it made, by short sha
+ * and subject.
+ *
+ * A passing run that added no commit is not a run that produced nothing — its
+ * unit's commit landed on an earlier attempt — so it says so rather than
+ * leaving a reader to run `git status`. A failed run that committed nothing
+ * truthfully has no line at all, which is the undefined below.
+ */
+const describeCommits = ({ manifest, ok }: { manifest: RunManifest; ok: boolean }) => {
+	if (manifest.commits.length > 0) {
+		return manifest.commits.map((commit) => `${commit.sha.slice(0, 7)} ${commit.subject}`).join(' · ');
+	}
+
+	return ok && manifest.changedFiles.length > 0 ? 'none added — this run’s work was already in the branch’s history' : undefined;
 };
 
 interface Params {
@@ -105,6 +123,12 @@ export const printResult = async ({ result, cwd }: Params): Promise<void> => {
 
 	if (manifest.packages.length > 0) {
 		label({ name: 'scope', value: `${manifest.packages.join(' · ')}${manifest.packagesSource ? ` (${manifest.packagesSource})` : ''}` });
+	}
+
+	const commits = describeCommits({ manifest, ok });
+
+	if (commits !== undefined) {
+		label({ name: 'commit', value: commits });
 	}
 
 	if (manifest.unreachableChangedFiles.length > 0) {

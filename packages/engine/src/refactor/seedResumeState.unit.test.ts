@@ -26,6 +26,7 @@ const manifestWith = ({ steps }: { steps: StepRecord[] }): RunManifest => ({
 	currentStep: null,
 	steps,
 	changedFiles: [],
+	commits: [],
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],

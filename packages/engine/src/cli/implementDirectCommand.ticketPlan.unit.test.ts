@@ -6,7 +6,6 @@ import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { implementDirectCommand } from '#src/cli/implementDirectCommand.ts';
 import { PipelineKind, PlanProgress, RunStatus, TicketEventKind, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
-import type { QueueFailure } from '#src/queue/index.ts';
 import { readTicketRecord, updateLocalTicketRecord } from '#src/ticket/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -14,17 +13,16 @@ import { manifestOf } from '#tests/helpers/setupResume.ts';
 
 // Mocked Imports
 // -------------------------
-// The build and the commit have their own tests; what this file pins is what a
-// build from the ticket body writes to the ticket record around them. The build
-// answers under whatever run id it is handed, which is how a run created under
-// a pre-minted id behaves.
+// The build has its own tests, and the commit it ends on is the run's own
+// rather than this command's; what this file pins is what a build from the
+// ticket body writes to the ticket record around it. The build answers under
+// whatever run id it is handed, which is how a run created under a pre-minted
+// id behaves.
 const mockRunDirectWork = jest.fn<(params: { ticketBody: string; ticketRef: string; runId?: string; willShip?: boolean }) => Promise<PipelineResult>>();
-const mockCommitTicketWork = jest.fn<(params: { message: string; runDir: string }) => Promise<{ committed: boolean } | QueueFailure>>();
 
 jest.mock('#src/direct/index.ts', () => ({
 	runDirectWork: (params: { ticketBody: string; ticketRef: string; runId?: string; willShip?: boolean }) => mockRunDirectWork(params),
 }));
-jest.mock('#src/queue/index.ts', () => ({ commitTicketWork: (params: { message: string; runDir: string }) => mockCommitTicketWork(params) }));
 // -------------------------
 
 /** The ticket folder's name, which is also the branch the build stands on. */
@@ -95,7 +93,6 @@ const setupBodyBuild = async ({
 
 		return { ok: true, manifest: manifestOf({ runId: runId ?? unmintedRunId, status: RunStatus.Passed, pipeline: PipelineKind.Direct }) };
 	});
-	mockCommitTicketWork.mockResolvedValue({ committed: true });
 
 	return { context: { flags: parseFlags({ args: ['--ticket', 'ticket.md', '--no-worktree'] }), rest: [], cwd }, cwd, seeded, runIds, ...captured };
 };

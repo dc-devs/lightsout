@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
@@ -39,6 +40,11 @@ const setupImplementShip = ({ args, config, phases, locked }: { args: string[]; 
 		mkdirSync(join(cwd, '.lightsout'), { recursive: true });
 		writeFileSync(join(cwd, '.lightsout', 'lock.json'), JSON.stringify({ pid: process.pid, runId: 'already-running', startedAt: '2026-01-01T00:00:00.000Z' }));
 	}
+
+	// `implement` refuses to start in a checkout holding uncommitted changes,
+	// because a passing run commits what it built — so the phase files this
+	// fixture plants are committed rather than left in the tree.
+	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm plans --allow-empty', { cwd, stdio: 'ignore' });
 
 	return { context: { flags: parseFlags({ args: [...args, '--no-worktree'] }), rest: [], cwd }, cwd, ...captured };
 };

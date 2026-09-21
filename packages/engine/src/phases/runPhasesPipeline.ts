@@ -72,7 +72,7 @@ export const runPhasesPipeline = async ({
 			continue;
 		}
 
-		const phase = await runPhase({ cwd, driver, config, manifest, index, step, total, skipRefactor, onProgress: narrate });
+		const phase = await runPhase({ cwd, driver, config, manifest, index, step, total, resumed: existing !== undefined, skipRefactor, onProgress: narrate });
 
 		manifest = phase.manifest;
 

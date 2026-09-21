@@ -55,6 +55,25 @@ const addUsage = ({ total, child }: { total?: RunUsage; child?: RunUsage }) => {
 };
 
 /**
+ * What a finished phase leaves on the coordinator itself: the sequence's own
+ * status, and the three totals every phase adds to.
+ *
+ * Commits are concatenated rather than de-duplicated — each phase's entry
+ * carries its own child run id, and a resumed phase that skips straight past a
+ * passed child returns before this patch and so adds nothing.
+ */
+const sequencePatch = ({ current, childResult }: { current: RunManifest; childResult: PipelineResult }) => {
+	const child = childResult.manifest;
+
+	return {
+		status: childResult.ok ? RunStatus.Running : child.status,
+		changedFiles: [...new Set([...current.changedFiles, ...child.changedFiles])],
+		commits: [...current.commits, ...child.commits],
+		usage: addUsage({ total: current.usage, child: child.usage }),
+	};
+};
+
+/**
  * The child run a step already names, when there is one — a step that names a
  * run may be a crash between the child finishing and the coordinator recording
  * it, and the child's own manifest settles which.
@@ -96,6 +115,8 @@ interface PhaseParams {
 	index: number;
 	step: StepRecord;
 	total: number;
+	/** Whether the SEQUENCE this phase belongs to was resumed. Forwarded to the child's pipeline call, because a phase that had not started when the sequence parked has no child manifest of its own to prove it from. */
+	resumed: boolean;
 	skipRefactor?: boolean;
 	onProgress?: (message: string) => void;
 }
@@ -115,6 +136,7 @@ export const runPhase = async ({
 	index,
 	step,
 	total,
+	resumed,
 	skipRefactor,
 	onProgress,
 }: PhaseParams): Promise<{ manifest: RunManifest; result?: PipelineResult }> => {
@@ -142,6 +164,11 @@ export const runPhase = async ({
 		overviewPath: current.plan,
 		parentRunId: current.runId,
 		existing: childManifest,
+		// The sequence's own owned set, taken before the sequence began, is the only
+		// set the unowned-edits guard can mean anything against: a phase that never
+		// started would otherwise snapshot a tree somebody may have sat in for days
+		// and call every edit in it its own.
+		inheritedBaseline: resumed && childManifest === undefined ? [...current.changedFiles, ...current.baselineDirtyFiles] : undefined,
 		skipRefactor,
 		onProgress,
 	});
@@ -165,11 +192,7 @@ export const runPhase = async ({
 		manifest: current,
 		index,
 		record: recordFromChild({ step, childResult }),
-		patch: {
-			status: childResult.ok ? RunStatus.Running : child.status,
-			changedFiles: [...new Set([...current.changedFiles, ...child.changedFiles])],
-			usage: addUsage({ total: current.usage, child: child.usage }),
-		},
+		patch: sequencePatch({ current, childResult }),
 	});
 
 	if (childResult.ok) {

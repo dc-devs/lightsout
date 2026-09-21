@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { chmodSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, expect, test } from '@jest/globals';
@@ -23,6 +24,16 @@ const totalUsage = ({ children }: { children: RunManifest[] }) =>
 		}),
 		{ invocations: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0 },
 	);
+
+/** A phased repo whose own commits can succeed: a repo-level identity, because a CI runner has no global one, and run state kept out of `git add -A`. */
+const setupCommittablePhasedRepo = ({ phases }: { phases: number }) => {
+	const phased = setupPhasedRepo({ phases });
+
+	writeFileSync(join(phased.dir, '.gitignore'), '.lightsout/\n');
+	execSync('git config user.name t && git config user.email t@t && git add -A && git commit -qm ignore', { cwd: phased.dir, stdio: 'ignore' });
+
+	return phased;
+};
 
 /** Permission bits do not apply to root, so the fs failure they provoke is unreachable there. */
 const skipAsRoot = process.getuid?.() === 0;
@@ -330,4 +341,58 @@ test("hands a fresh sequence's run id to its coordinator and never to a phase's 
 	// the coordinator's id would overwrite the coordinator's manifest
 	expect(children.map((child) => child.runId).includes('pre-minted-sequence-run')).toBe(false);
 	expect(children.map((child) => child.parentRunId)).toStrictEqual(['pre-minted-sequence-run', 'pre-minted-sequence-run']);
+});
+
+test("gathers every phase's commit onto the coordinator manifest", async () => {
+	const { dir, overviewPath } = setupCommittablePhasedRepo({ phases: 2 });
+	const config = await readConfig({ cwd: dir });
+
+	const result = await runPhasesPipeline({ cwd: dir, driver: createPhaseDriver({ dir, seen: [] }), config, overviewPath, skipRefactor: true });
+	const children = await readPhaseChildRuns({ cwd: dir, manifest: result.manifest });
+
+	// one entry per phase, in phase order, each naming the phase's own run — a coordinator that commits nothing itself still reports what the sequence left
+	expect(result.manifest.commits.map((commit) => commit.runId)).toStrictEqual(children.map((child) => child.runId));
+	expect(result.manifest.commits.map((commit) => commit.subject)).toEqual([expect.stringContaining('phase1'), expect.stringContaining('phase2')]);
+	expect(result.manifest.commits.every((commit) => /^[0-9a-f]{7,}$/.test(commit.sha))).toBe(true);
+});
+
+test("hands an unstarted phase of a resumed sequence the sequence's own baseline", async () => {
+	const { dir, overviewPath } = setupCommittablePhasedRepo({ phases: 2 });
+	const config = await readConfig({ cwd: dir });
+	const parked = await runPhasesPipeline({ cwd: dir, driver: createPhaseDriver({ dir, seen: [], parkAt: 1 }), config, overviewPath, skipRefactor: true });
+
+	const resumed = await runPhasesPipeline({ cwd: dir, driver: createPhaseDriver({ dir, seen: [] }), config, existing: parked.manifest, skipRefactor: true });
+	const [first, second] = await readPhaseChildRuns({ cwd: dir, manifest: resumed.manifest });
+
+	// phase 2 never started, so it mints its own run — and what it counts as its own is the
+	// sequence's set, taken before the sequence began, not a snapshot of a tree somebody sat in
+	expect(second?.baselineDirtyFiles.includes('src/phase1.js')).toBe(true);
+	expect((first?.changedFiles ?? []).every((path) => second?.baselineDirtyFiles.includes(path))).toBe(true);
+});
+
+test("leaves a started phase's own recorded baseline alone", async () => {
+	const { dir, overviewPath } = setupCommittablePhasedRepo({ phases: 2 });
+	const config = await readConfig({ cwd: dir });
+	const parked = await runPhasesPipeline({ cwd: dir, driver: createPhaseDriver({ dir, seen: [], parkAt: 2 }), config, overviewPath, skipRefactor: true });
+	const [, started] = await readPhaseChildRuns({ cwd: dir, manifest: parked.manifest });
+
+	const resumed = await runPhasesPipeline({ cwd: dir, driver: createPhaseDriver({ dir, seen: [] }), config, existing: parked.manifest, skipRefactor: true });
+	const [, second] = await readPhaseChildRuns({ cwd: dir, manifest: resumed.manifest });
+
+	// phase 2 already had a run of its own, so it keeps the set that run recorded
+	expect(second?.runId).toBe(started?.runId);
+	expect(second?.baselineDirtyFiles).toStrictEqual(started?.baselineDirtyFiles);
+	expect(second?.baselineDirtyFiles.includes('src/phase1.js')).toBe(false);
+});
+
+test("leaves a fresh sequence's phases unguarded", async () => {
+	const { dir, overviewPath } = setupCommittablePhasedRepo({ phases: 2 });
+	const config = await readConfig({ cwd: dir });
+
+	const result = await runPhasesPipeline({ cwd: dir, driver: createPhaseDriver({ dir, seen: [] }), config, overviewPath, skipRefactor: true });
+	const [first, second] = await readPhaseChildRuns({ cwd: dir, manifest: result.manifest });
+
+	// nothing is inherited on a first sequence: phase 2 starts from its own snapshot of the tree phase 1's commit left clean
+	expect(first?.changedFiles.includes('src/phase1.js')).toBe(true);
+	expect((first?.changedFiles ?? []).some((path) => second?.baselineDirtyFiles.includes(path))).toBe(false);
 });

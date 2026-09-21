@@ -1,9 +1,9 @@
 import { copyRunInputs } from '#src/cli/common/implementRun/copyRunInputs.ts';
+import { describeUncommittableTree } from '#src/cli/common/implementRun/describeUncommittableTree.ts';
 import { resolveRunWorkspace } from '#src/cli/common/implementRun/resolveRunWorkspace.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import type { RunWorkspace } from '#src/cli/common/types/RunWorkspace.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
-import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 
 interface Params {
@@ -18,28 +18,6 @@ interface Params {
 	/** `--ref` exactly as the user typed it, when one was typed. */
 	flaggedRef: string | undefined;
 }
-
-/**
- * Why the workspace cannot be committed in, or undefined when it can.
- *
- * The run ends in `git add -A`, and the tree it must not sweep is the one it
- * commits in — so this is asked of the workspace, not of the checkout the
- * command was launched from. A dirty launching checkout stops mattering the
- * moment the run builds somewhere else; with `--no-worktree` the two are the
- * same tree and the refusal is unchanged.
- */
-const describeUncommittableTree = async ({ cwd }: { cwd: string }) => {
-	const dirty = await readGitChangedFiles({ cwd });
-	let refusal: string | undefined;
-
-	if (dirty === undefined) {
-		refusal = `git could not read the tree at ${cwd} — implement-direct commits what it builds, so it needs a readable git worktree`;
-	} else if (dirty.length > 0) {
-		refusal = 'implement-direct commits everything in the tree; commit or stash your changes first';
-	}
-
-	return refusal;
-};
 
 /**
  * The checkout an `implement-direct` run builds in, guarded and stocked with the
@@ -71,7 +49,7 @@ export const openDirectWorkspace = async ({
 		return { error: workspace.error };
 	}
 
-	const uncommittable = await describeUncommittableTree({ cwd: workspace.cwd });
+	const uncommittable = await describeUncommittableTree({ cwd: workspace.cwd, isolated: workspace.isolated });
 
 	if (uncommittable !== undefined) {
 		return { error: uncommittable };

@@ -13,6 +13,7 @@ const manifestOf = (overrides: Partial<RunManifest> = {}): RunManifest => ({
 	currentStep: null,
 	steps: [],
 	changedFiles: [],
+	commits: [],
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],

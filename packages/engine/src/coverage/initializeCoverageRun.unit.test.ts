@@ -23,6 +23,7 @@ const manifestWith = ({ pipeline, config }: { pipeline?: PipelineKind; config: L
 	currentStep: null,
 	steps: [],
 	changedFiles: [],
+	commits: [],
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],

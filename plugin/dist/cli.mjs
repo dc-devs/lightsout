@@ -24927,6 +24927,16 @@ var RefactorStepReport = external_exports.object({
   lastReport: WorkReport.optional()
 });
 
+// src/contracts/run/RunCommit.ts
+var RunCommit = external_exports.object({
+  /** The commit git made, as `git rev-parse HEAD` answered it straight after. */
+  sha: external_exports.string(),
+  /** The subject line this unit of work was committed under. */
+  subject: external_exports.string(),
+  /** The run that made it — a phase's own child run id, which is why a coordinator's list can name several. */
+  runId: external_exports.string()
+}).strict();
+
 // src/contracts/run/RunLock.ts
 var RunLock = external_exports.object({
   pid: external_exports.number().int(),
@@ -24997,6 +25007,8 @@ var RunManifest = external_exports.object({
   willShip: external_exports.boolean().optional(),
   /** Source files changed so far, accumulated across steps. */
   changedFiles: external_exports.array(external_exports.string()),
+  /** The commits this run left behind, in the order they were made. A phased run's coordinator carries one per phase; every other run carries at most one. */
+  commits: external_exports.array(RunCommit).default([]),
   /**
    * Package scope (directory names under the packages dir) for scoped
    * gates. Seeded from the plan front-matter or `--packages`, then expanded
@@ -132128,6 +132140,7 @@ var createRun = async ({
     currentStep: null,
     steps: [],
     changedFiles: [],
+    commits: [],
     packages: [],
     baselineDirtyFiles: baselineDirtyFiles ?? [],
     testSubjects: [],
@@ -139102,6 +139115,12 @@ var describeCleanup = ({ cleanup }) => {
   }
   return parts.join(" \xB7 ");
 };
+var describeCommits = ({ manifest, ok }) => {
+  if (manifest.commits.length > 0) {
+    return manifest.commits.map((commit) => `${commit.sha.slice(0, 7)} ${commit.subject}`).join(" \xB7 ");
+  }
+  return ok && manifest.changedFiles.length > 0 ? "none added \u2014 this run\u2019s work was already in the branch\u2019s history" : void 0;
+};
 var printResult = async ({ result, cwd }) => {
   const { manifest, ok, error: error51 } = result;
   const summary = await summarizeRun({ cwd, manifest });
@@ -139138,6 +139157,10 @@ var printResult = async ({ result, cwd }) => {
   }
   if (manifest.packages.length > 0) {
     label({ name: "scope", value: `${manifest.packages.join(" \xB7 ")}${manifest.packagesSource ? ` (${manifest.packagesSource})` : ""}` });
+  }
+  const commits = describeCommits({ manifest, ok });
+  if (commits !== void 0) {
+    label({ name: "commit", value: commits });
   }
   if (manifest.unreachableChangedFiles.length > 0) {
     label({
@@ -141939,6 +141962,21 @@ var copyRunInputs = async ({
   return copied;
 };
 
+// src/cli/common/implementRun/describeUncommittableTree.ts
+var describeUncommittableTree = async ({ cwd, isolated }) => {
+  if (isolated) {
+    return void 0;
+  }
+  const dirty = await readGitChangedFiles({ cwd });
+  let refusal;
+  if (dirty === void 0) {
+    refusal = `git could not read the tree at ${cwd} \u2014 the run commits what it builds, so it needs a readable git worktree`;
+  } else if (dirty.length > 0) {
+    refusal = `the run commits everything in the tree at ${cwd}; commit or stash your changes first`;
+  }
+  return refusal;
+};
+
 // src/cli/common/constants/contradictoryWorktreeFlagsMessage.ts
 var contradictoryWorktreeFlagsMessage = "--worktree and --no-worktree contradict each other \u2014 pass at most one";
 
@@ -142164,6 +142202,10 @@ var openImplementWorkspace = async ({
   const workspace = await resolveRunWorkspace({ cwd, config: config2, flags, planPath, onProgress: createProgressPrinter() });
   if ("error" in workspace) {
     return { error: workspace.error };
+  }
+  const uncommittable = await describeUncommittableTree({ cwd: workspace.cwd, isolated: workspace.isolated });
+  if (uncommittable !== void 0) {
+    return { error: uncommittable };
   }
   if (workspace.isolated) {
     console.log(`lightsout: workspace ${workspace.cwd}
@@ -142460,7 +142502,7 @@ var initializeSequence = async ({
 };
 
 // src/phases/runPhase.ts
-import { dirname as dirname28, join as join134 } from "node:path";
+import { dirname as dirname28, join as join135 } from "node:path";
 
 // src/pipeline/readPlanPackages.ts
 var unquote = (value) => value.trim().replace(/^['"]|['"]$/g, "");
@@ -142491,22 +142533,184 @@ var readPlanPackages = ({ planContent }) => {
   return items.length > 0 ? items : void 0;
 };
 
+// src/commit/buildRunCommitMessage.ts
+var buildRunCommitMessage = ({ subject, runId }) => `${subject}
+
+lightsout run ${runId}
+`;
+
+// src/commit/commitTicketWork.ts
+import { mkdir as mkdir25, writeFile as writeFile18 } from "node:fs/promises";
+import { join as join101 } from "node:path";
+
+// src/common/sourceFiles/isGeneratedPath.ts
+var isGeneratedPath = ({ path, generated }) => generated.some((entry) => {
+  const prefix = entry.replace(/\/$/, "");
+  return path === prefix || path.startsWith(`${prefix}/`);
+});
+
+// src/commit/commitTicketWork.ts
+var toLiteralPathspec = ({ path }) => `':(literal)${path.replaceAll("'", String.raw`'\''`)}'`;
+var toPathspecs = ({ paths }) => paths.map((path) => toLiteralPathspec({ path })).join(" ");
+var discardGeneratedChanges = async ({ cwd, paths }) => {
+  const pathspecs = toPathspecs({ paths });
+  const resetFailure = await runOrDescribeFailure({ command: `git reset -q -- ${pathspecs}`, cwd });
+  if (resetFailure !== void 0) {
+    return resetFailure;
+  }
+  const listed = await runCommand({ command: `git ls-files -z -- ${pathspecs}`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  if (listed?.exitCode !== 0) {
+    return "git could not tell which generated paths are tracked";
+  }
+  const tracked = listed.stdout.split("\0").filter(Boolean);
+  const untracked = paths.filter((path) => !tracked.includes(path));
+  const commands2 = [
+    ...tracked.length > 0 ? [`git checkout -- ${toPathspecs({ paths: tracked })}`] : [],
+    ...untracked.length > 0 ? [`git clean -fdq -- ${toPathspecs({ paths: untracked })}`] : []
+  ];
+  for (const command of commands2) {
+    const failure = await runOrDescribeFailure({ command, cwd });
+    if (failure !== void 0) {
+      return failure;
+    }
+  }
+  return void 0;
+};
+var commitTicketWork = async ({ cwd, message, runDir, generated = [], onProgress }) => {
+  const changed = await readGitChangedFiles({ cwd });
+  if (changed === void 0) {
+    return { error: `git could not read the tree at ${cwd}` };
+  }
+  const generatedPaths = changed.filter((path) => isGeneratedPath({ path, generated }));
+  const sourcePaths = changed.filter((path) => !isGeneratedPath({ path, generated }));
+  if (generatedPaths.length > 0) {
+    const discardFailure = await discardGeneratedChanges({ cwd, paths: generatedPaths });
+    if (discardFailure !== void 0) {
+      return { error: `git could not discard the generated changes in ${cwd}: ${discardFailure}` };
+    }
+    onProgress?.(`discarded ${generatedPaths.length} generated path(s) \u2014 the pre-ship step commits build output`);
+  }
+  if (sourcePaths.length === 0) {
+    return { committed: false };
+  }
+  const messagePath = join101(runDir, "commit-message.txt");
+  await mkdir25(runDir, { recursive: true });
+  await writeFile18(messagePath, message.endsWith("\n") ? message : `${message}
+`, "utf8");
+  const stageFailure = await runOrDescribeFailure({ command: "git add -A -- .", cwd });
+  if (stageFailure !== void 0) {
+    return { error: `git could not stage the work in ${cwd}: ${stageFailure}` };
+  }
+  const commitFailure = await runOrDescribeFailure({ command: `git commit -F ${messagePath}`, cwd });
+  if (commitFailure !== void 0) {
+    return { error: `git could not commit the work in ${cwd}: ${commitFailure}` };
+  }
+  return { committed: true };
+};
+
+// src/commit/common/utils/describeUnownedEdits.ts
+var describeUnownedEdits = async ({ cwd, manifest, generated }) => {
+  const record3 = manifest.branch === void 0 ? void 0 : await readWorktreeRecord({ cwd, branch: manifest.branch });
+  if (record3 !== void 0) {
+    return void 0;
+  }
+  const own = /* @__PURE__ */ new Set([...manifest.changedFiles, ...manifest.baselineDirtyFiles]);
+  const stray = (await readGitChangedFiles({ cwd }) ?? []).filter((path) => !own.has(path) && !isGeneratedPath({ path, generated }));
+  return stray.length === 0 ? void 0 : `${cwd} holds changes this run did not make: ${stray.join(", ")} \u2014 commit or stash them before resuming, or they ride into this ticket's commit`;
+};
+
+// src/commit/common/utils/readRunCommitSubject.ts
+import { basename as basename41, extname as extname2 } from "node:path";
+
+// src/common/utils/readRunLabel.ts
+var readRunLabel = async ({ cwd, config: config2 }) => await readBranchTicketRef({ config: config2, cwd }) ?? await readGitCurrentBranch({ cwd }) ?? "ticket";
+
+// src/commit/common/utils/readRunCommitSubject.ts
+var readUnit = async ({ cwd, plan }) => {
+  const name = await planNameFromPath({ cwd, planPath: plan });
+  const stem = basename41(plan, extname2(plan));
+  if (name === void 0) {
+    return { unit: stem };
+  }
+  const address = parsePlanAddress({ name });
+  const base = address?.planId ?? name;
+  return { unit: stem === "plan" ? base : `${base}/${stem}`, ticketBranch: address?.ticketBranch ?? name, planId: address?.planId };
+};
+var readTicketFacts = async ({
+  cwd,
+  ticketBranch,
+  planId,
+  onProgress
+}) => {
+  if (ticketBranch === void 0) {
+    return {};
+  }
+  const read = await readTicketRecord({ cwd, ticketBranch });
+  if ("error" in read) {
+    onProgress(`the ticket record for ${ticketBranch} could not be read, so this commit is addressed from the branch instead \u2014 ${read.error}`);
+    return {};
+  }
+  return { ticketRef: read.record?.ticketRef, title: read.record?.plans.find((plan) => plan.id === planId)?.title };
+};
+var readRunCommitSubject = async ({ cwd, manifest, config: config2, onProgress }) => {
+  const { unit, ticketBranch, planId } = await readUnit({ cwd, plan: manifest.plan });
+  const { ticketRef, title } = await readTicketFacts({ cwd, ticketBranch, planId, onProgress });
+  const reference = ticketRef ?? await readRunLabel({ cwd, config: config2 });
+  return title === void 0 ? `${reference} ${unit}` : `${reference} ${unit}: ${title}`;
+};
+
+// src/commit/commitRunWork.ts
+var commitRunWork = async ({ run, subject, resumed }) => {
+  const manifest = run.current();
+  const generated = run.config.generated ?? [];
+  const changed = manifest.changedFiles.filter((path) => !isGeneratedPath({ path, generated }));
+  const unowned = resumed ? await describeUnownedEdits({ cwd: run.cwd, manifest, generated }) : void 0;
+  if (unowned !== void 0) {
+    return unowned;
+  }
+  const line = subject ?? await readRunCommitSubject({ cwd: run.cwd, manifest, config: run.config, onProgress: (message) => run.progress(message) });
+  const committed = await commitTicketWork({
+    cwd: run.cwd,
+    message: buildRunCommitMessage({ subject: line, runId: manifest.runId }),
+    runDir: getRunDir({ cwd: run.cwd, runId: manifest.runId }),
+    generated,
+    onProgress: (message) => run.progress(message)
+  });
+  if ("error" in committed) {
+    return committed.error;
+  }
+  if (!committed.committed) {
+    if (changed.length === 0) {
+      return "the worker changed nothing";
+    }
+    run.progress("nothing left to commit \u2014 this unit\u2019s work is already in the branch\u2019s history");
+    return void 0;
+  }
+  const sha = await readGitHeadCommit({ cwd: run.cwd });
+  if (sha === void 0) {
+    return `the work in ${run.cwd} was committed but git could not name the commit \u2014 resume the run so the tree is checked again`;
+  }
+  await run.update({ patch: { commits: [...manifest.commits, { sha, subject: line, runId: manifest.runId }] } });
+  run.progress(`committed ${sha.slice(0, 7)} \u2014 ${line}`);
+  return void 0;
+};
+
 // src/pipeline/approvedTests/approveTestFiles.ts
-import { mkdir as mkdir25, readFile as readFile43, rm as rm9, writeFile as writeFile18 } from "node:fs/promises";
-import { dirname as dirname21, join as join103 } from "node:path";
+import { mkdir as mkdir26, readFile as readFile43, rm as rm9, writeFile as writeFile19 } from "node:fs/promises";
+import { dirname as dirname21, join as join104 } from "node:path";
 
 // src/pipeline/approvedTests/approvedTestPath.ts
-import { join as join102 } from "node:path";
+import { join as join103 } from "node:path";
 
 // src/pipeline/approvedTests/common/utils/approvedTestsDir.ts
-import { join as join101 } from "node:path";
+import { join as join102 } from "node:path";
 var approvedTestsDir = ({ cwd, runId }) => {
-  return join101(getRunDir({ cwd, runId }), "approved");
+  return join102(getRunDir({ cwd, runId }), "approved");
 };
 
 // src/pipeline/approvedTests/approvedTestPath.ts
 var approvedTestPath = ({ cwd, runId, path }) => {
-  return join102(approvedTestsDir({ cwd, runId }), path);
+  return join103(approvedTestsDir({ cwd, runId }), path);
 };
 
 // src/pipeline/approvedTests/approveTestFiles.ts
@@ -142514,15 +142718,15 @@ var approveTestFiles = async ({ run, paths }) => {
   const { runId, approvedTests } = run.current();
   const records = [];
   for (const path of paths) {
-    const content = await readFile43(join103(run.cwd, path)).catch(() => void 0);
+    const content = await readFile43(join104(run.cwd, path)).catch(() => void 0);
     const copy = approvedTestPath({ cwd: run.cwd, runId, path });
     if (content === void 0) {
       await rm9(copy, { force: true });
       records.push({ path, removed: true });
       continue;
     }
-    await mkdir25(dirname21(copy), { recursive: true });
-    await writeFile18(copy, content);
+    await mkdir26(dirname21(copy), { recursive: true });
+    await writeFile19(copy, content);
     records.push({ path, sha256: sha256({ content }), removed: false });
   }
   return [...approvedTests.filter((record3) => !paths.includes(record3.path)), ...records];
@@ -142572,7 +142776,7 @@ var isTestSideFile = ({ path, standardsPacks }) => {
 
 // src/pipeline/approvedTests/applyTestDispositions.ts
 import { readFile as readFile45 } from "node:fs/promises";
-import { join as join104 } from "node:path";
+import { join as join105 } from "node:path";
 var requiredFields = {
   [TestDisposition.Kept]: [],
   [TestDisposition.Renamed]: ["newTestName"],
@@ -142623,7 +142827,7 @@ var applyTestDispositions = async ({
     next.push(disposition === void 0 || refusal !== void 0 ? row : applyTo({ row, disposition }));
   }
   for (const row of next) {
-    const content = await readFile45(join104(run.cwd, row.testFile), "utf8").catch(() => void 0);
+    const content = await readFile45(join105(run.cwd, row.testFile), "utf8").catch(() => void 0);
     if (content === void 0 || !holdsTestTitle({ content, testName: row.testName })) {
       rejections.push(`${row.criterion}: \`${row.testName}\` is not stated in ${row.testFile} after the review's dispositions were applied`);
     }
@@ -142632,8 +142836,8 @@ var applyTestDispositions = async ({
 };
 
 // src/pipeline/approvedTests/collectTestChanges.ts
-import { mkdir as mkdir26, readFile as readFile46, rm as rm11, writeFile as writeFile19 } from "node:fs/promises";
-import { dirname as dirname22, join as join105, relative as relative12 } from "node:path";
+import { mkdir as mkdir27, readFile as readFile46, rm as rm11, writeFile as writeFile20 } from "node:fs/promises";
+import { dirname as dirname22, join as join106, relative as relative12 } from "node:path";
 
 // src/pipeline/approvedTests/common/constants/TestChangeKind.ts
 var TestChangeKind = {
@@ -142655,10 +142859,10 @@ var kindOf = ({ live: live2, approved }) => {
   return live2 === void 0 ? TestChangeKind.Removed : TestChangeKind.Modified;
 };
 var diffOf = async ({ cwd, path, kind, approved, scratch }) => {
-  const before = join105(scratch, path);
+  const before = join106(scratch, path);
   if (approved !== void 0) {
-    await mkdir26(dirname22(before), { recursive: true });
-    await writeFile19(before, approved, "utf8");
+    await mkdir27(dirname22(before), { recursive: true });
+    await writeFile20(before, approved, "utf8");
   }
   const left = approved === void 0 ? emptySide : relative12(cwd, before);
   const right = kind === TestChangeKind.Removed ? emptySide : path;
@@ -142675,12 +142879,12 @@ var collectTestChanges = async ({ run }) => {
   if (candidates.length === 0) {
     return [];
   }
-  const scratch = join105(dirname22(approvedTestsDir({ cwd: run.cwd, runId: manifest.runId })), "approved-scratch");
+  const scratch = join106(dirname22(approvedTestsDir({ cwd: run.cwd, runId: manifest.runId })), "approved-scratch");
   await rm11(scratch, { recursive: true, force: true });
-  await mkdir26(scratch, { recursive: true });
+  await mkdir27(scratch, { recursive: true });
   const changes = [];
   for (const path of candidates) {
-    const live2 = await readFile46(join105(run.cwd, path), "utf8").catch(() => void 0);
+    const live2 = await readFile46(join106(run.cwd, path), "utf8").catch(() => void 0);
     const approved = await readApprovedTest({ run, path });
     if (live2 === approved) {
       continue;
@@ -142768,14 +142972,14 @@ var reviewTestChanges = async ({ run, checkpoint, planContent, overviewContent }
 
 // src/common/workspace/listWorkspacePackages.ts
 import { readdir as readdir17, stat as stat11 } from "node:fs/promises";
-import { join as join106 } from "node:path";
+import { join as join107 } from "node:path";
 var listWorkspacePackages = async ({ cwd, packagesDir }) => {
-  const root = join106(cwd, packagesDir);
+  const root = join107(cwd, packagesDir);
   const entries = await readdir17(root, { withFileTypes: true }).catch(() => []);
   const directories = entries.filter((entry) => entry.isDirectory() && !entry.name.startsWith("."));
   const hasManifest = await Promise.all(
     directories.map(
-      ({ name }) => stat11(join106(root, name, "package.json")).then(() => true).catch(() => false)
+      ({ name }) => stat11(join107(root, name, "package.json")).then(() => true).catch(() => false)
     )
   );
   return directories.filter((_, index) => hasManifest[index]).map(({ name }) => name);
@@ -142888,11 +143092,11 @@ var prepareRun = async ({ run, cwd, config: config2, packages }) => {
 
 // src/pipeline/common/utils/resolveTestSubjects.ts
 import { readFile as readFile50 } from "node:fs/promises";
-import { join as join109 } from "node:path";
+import { join as join110 } from "node:path";
 
 // src/common/moduleGraph/collectFolderModules.ts
 import { readFile as readFile48 } from "node:fs/promises";
-import { join as join107, posix as posix2 } from "node:path";
+import { join as join108, posix as posix2 } from "node:path";
 
 // src/common/moduleGraph/createSpecifierResolver.ts
 import { posix } from "node:path";
@@ -142962,7 +143166,7 @@ var collectFolderModules = async ({ cwd, files, compiler, isMandatedModule, isFr
   const nestedModuleDirs = [...barrelDirs.keys()];
   const modules = /* @__PURE__ */ new Map();
   for (const [folder, barrelPath] of barrelDirs) {
-    const content = await readFile48(join107(cwd, barrelPath), "utf8").catch(() => void 0);
+    const content = await readFile48(join108(cwd, barrelPath), "utf8").catch(() => void 0);
     const surface = content === void 0 ? { targets: /* @__PURE__ */ new Set(), complete: false } : readBarrelExportTargets({ path: barrelPath, content, compiler, resolve: resolve20 });
     const prefix = `${folder}/`;
     const hasOwnCommon = files.some((file2) => file2.startsWith(`${folder}/common/`));
@@ -142978,12 +143182,12 @@ var collectFolderModules = async ({ cwd, files, compiler, isMandatedModule, isFr
 
 // src/common/moduleGraph/collectImportEdges.ts
 import { readFile as readFile49 } from "node:fs/promises";
-import { join as join108 } from "node:path";
+import { join as join109 } from "node:path";
 var collectImportEdges = async ({ cwd, files, compiler }) => {
   const resolve20 = createSpecifierResolver({ files });
   const edges = [];
   for (const from of files) {
-    const content = await readFile49(join108(cwd, from), "utf8").catch(() => void 0);
+    const content = await readFile49(join109(cwd, from), "utf8").catch(() => void 0);
     if (content === void 0) {
       continue;
     }
@@ -143041,7 +143245,7 @@ var resolvePartition = async ({
   const contents = /* @__PURE__ */ new Map();
   const isProvablyInert = async ({ file: file2 }) => {
     if (!contents.has(file2)) {
-      contents.set(file2, await readFile50(join109(cwd, file2), "utf8").catch(() => void 0));
+      contents.set(file2, await readFile50(join110(cwd, file2), "utf8").catch(() => void 0));
     }
     const content = contents.get(file2);
     return content !== void 0 && isInertSourceFile({ path: file2, content, compiler });
@@ -143128,8 +143332,8 @@ var runSteps = async ({ run, steps }) => {
 };
 
 // src/pipeline/PipelineRun.ts
-import { mkdir as mkdir27, writeFile as writeFile20 } from "node:fs/promises";
-import { join as join110 } from "node:path";
+import { mkdir as mkdir28, writeFile as writeFile21 } from "node:fs/promises";
+import { join as join111 } from "node:path";
 
 // src/common/selfCheck/buildSelfCheckCommand.ts
 var buildSelfCheckCommand = ({ cwd, runId }) => {
@@ -143297,9 +143501,9 @@ var PipelineRun = class {
   // the terminal. Evidence only: outcomes never depend on it.
   agentEventSink({ step }) {
     this.transcriptCount += 1;
-    const dir = join110(getRunDir({ cwd: this.cwd, runId: this.current().runId }), "agents");
-    const path = join110(dir, `stream-${String(this.transcriptCount).padStart(2, "0")}-${step}.jsonl`);
-    return createEventFileSink({ path, ready: mkdir27(dir, { recursive: true }) });
+    const dir = join111(getRunDir({ cwd: this.cwd, runId: this.current().runId }), "agents");
+    const path = join111(dir, `stream-${String(this.transcriptCount).padStart(2, "0")}-${step}.jsonl`);
+    return createEventFileSink({ path, ready: mkdir28(dir, { recursive: true }) });
   }
   // A final message that fails its contract is still evidence — persist it
   // to the run dir before any retry, so a rejected report never has to be
@@ -143307,10 +143511,10 @@ var PipelineRun = class {
   persistRejected({ step }) {
     return async ({ text, attempt, validationError }) => {
       this.rejectedCount += 1;
-      const dir = join110(getRunDir({ cwd: this.cwd, runId: this.current().runId }), "agents");
+      const dir = join111(getRunDir({ cwd: this.cwd, runId: this.current().runId }), "agents");
       const name = `rejected-${String(this.rejectedCount).padStart(2, "0")}-${step}-attempt${attempt}.txt`;
-      await mkdir27(dir, { recursive: true });
-      await writeFile20(join110(dir, name), `# step: ${step} \xB7 invocation attempt ${attempt}
+      await mkdir28(dir, { recursive: true });
+      await writeFile21(join111(dir, name), `# step: ${step} \xB7 invocation attempt ${attempt}
 # validation: ${validationError}
 
 ${text}`, "utf8");
@@ -143509,7 +143713,7 @@ var buildCoverageBatch = ({ files, components, batchNumber, batchSize = 5 }) => 
 
 // src/coverage/checkChangedFilesExecuted.ts
 import { readFile as readFile55 } from "node:fs/promises";
-import { join as join118, relative as relative15 } from "node:path";
+import { join as join119, relative as relative15 } from "node:path";
 
 // src/common/sourceFiles/isTestableSourceFile.ts
 var isTestableSourceFile = ({ path }) => /\.(m|c)?[jt]sx?$/i.test(path);
@@ -143542,7 +143746,7 @@ import { resolve as resolve12 } from "node:path";
 
 // src/coverage/resolveCoverageScopes.ts
 import { readdir as readdir18 } from "node:fs/promises";
-import { join as join111 } from "node:path";
+import { join as join112 } from "node:path";
 var rootScope = "root";
 var listPackageScopes = async ({
   cwd,
@@ -143551,7 +143755,7 @@ var listPackageScopes = async ({
   summaryPath,
   scope
 }) => {
-  const entries = await readdir18(join111(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
+  const entries = await readdir18(join112(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
   const scriptName = extractRunScriptName({ command: template });
   const scopes = [];
   for (const entry of entries.filter((item) => item.isDirectory() && !item.name.startsWith("."))) {
@@ -143565,7 +143769,7 @@ var listPackageScopes = async ({
     scopes.push({
       scope: entry.name,
       command: template.split("{package}").join(manifest.name),
-      summaryPath: join111(packagesDir, entry.name, summaryPath)
+      summaryPath: join112(packagesDir, entry.name, summaryPath)
     });
   }
   return scopes;
@@ -143595,20 +143799,20 @@ var resolveScopeContext = async ({
 };
 
 // src/coverage/selectCollectedFiles/selectCollectedFiles.ts
-import { join as join115 } from "node:path";
+import { join as join116 } from "node:path";
 
 // src/coverage/common/utils/scopeRootOf.ts
-import { join as join112 } from "node:path";
-var scopeRootOf = ({ root, scope, packagesDir, monorepo }) => monorepo ? join112(root, packagesDir, scope) : root;
+import { join as join113 } from "node:path";
+var scopeRootOf = ({ root, scope, packagesDir, monorepo }) => monorepo ? join113(root, packagesDir, scope) : root;
 
 // src/coverage/loadScopeJestConfig/loadScopeJestConfig.ts
 import { readFile as readFile52 } from "node:fs/promises";
 import { createRequire as createRequire3 } from "node:module";
-import { join as join114 } from "node:path";
+import { join as join115 } from "node:path";
 
 // src/coverage/loadScopeJestConfig/common/utils/resolveJestConfigPath.ts
 import { readFile as readFile51, stat as stat12 } from "node:fs/promises";
-import { join as join113, resolve as resolve13 } from "node:path";
+import { join as join114, resolve as resolve13 } from "node:path";
 var configFileNames = ["jest.config.cjs", "jest.config.js", "jest.config.mjs", "jest.config.json"];
 var exists2 = ({ path }) => stat12(path).then(
   () => true,
@@ -143637,14 +143841,14 @@ var resolveJestConfigPath = async ({ scopeRoot, coverageScript }) => {
   }
   let found;
   for (const name of configFileNames) {
-    if (found === void 0 && await exists2({ path: join113(scopeRoot, name) })) {
-      found = join113(scopeRoot, name);
+    if (found === void 0 && await exists2({ path: join114(scopeRoot, name) })) {
+      found = join114(scopeRoot, name);
     }
   }
   if (found !== void 0) {
     return found;
   }
-  const manifestPath = join113(scopeRoot, "package.json");
+  const manifestPath = join114(scopeRoot, "package.json");
   return await hasJestKey({ manifestPath }) ? manifestPath : void 0;
 };
 
@@ -143656,7 +143860,7 @@ var resolveScopeCoverageScript = async ({ scopeRoot, command }) => {
     return command;
   }
   try {
-    const parsed = ScopeManifest.safeParse(JSON.parse(await readFile52(join114(scopeRoot, "package.json"), "utf8")));
+    const parsed = ScopeManifest.safeParse(JSON.parse(await readFile52(join115(scopeRoot, "package.json"), "utf8")));
     return parsed.success ? parsed.data.scripts?.[scriptName] : void 0;
   } catch {
     return void 0;
@@ -143836,14 +144040,14 @@ var selectCollectedFiles = async ({ cwd, config: config2, files }) => {
       collections.set(scope.scope, readCoverageCollection({ loaded: await loadScopeJestConfig({ scopeRoot, command: scope.command }) }));
     }
     const collection = collections.get(scope.scope);
-    (isCoverageCollectedFile({ absolutePath: join115(root, file2), collection }) ? collected : excluded).push(file2);
+    (isCoverageCollectedFile({ absolutePath: join116(root, file2), collection }) ? collected : excluded).push(file2);
   }
   return { collected, excluded };
 };
 
 // src/coverage/selectUnloadableFiles/selectUnloadableFiles.ts
 import { readFile as readFile54 } from "node:fs/promises";
-import { dirname as dirname25, join as join117 } from "node:path";
+import { dirname as dirname25, join as join118 } from "node:path";
 
 // src/common/sourceFiles/isUnloadableSourceFile.ts
 var hasModuleScopeAwait = ({ node, compiler }) => {
@@ -143862,13 +144066,13 @@ var isUnloadableSourceFile = ({ path, content, compiler }) => {
 };
 
 // src/coverage/selectUnloadableFiles/common/utils/isEsmSourceFile.ts
-import { extname as extname2 } from "node:path";
+import { extname as extname3 } from "node:path";
 var manifestDecidedExtensions = [".js", ".jsx"];
 var isEsmSourceFile = ({ path, moduleMode, packageType }) => {
   if (moduleMode === void 0) {
     return false;
   }
-  const extension = extname2(path);
+  const extension = extname3(path);
   return moduleMode.esmExtensions.includes(extension) || packageType === "module" && manifestDecidedExtensions.includes(extension);
 };
 
@@ -143927,7 +144131,7 @@ var readJestModuleMode = ({ loaded }) => {
 
 // src/coverage/selectUnloadableFiles/common/utils/readNearestPackageType.ts
 import { readFile as readFile53 } from "node:fs/promises";
-import { dirname as dirname24, join as join116, relative as relative14, sep as sep3 } from "node:path";
+import { dirname as dirname24, join as join117, relative as relative14, sep as sep3 } from "node:path";
 var withinScope = ({ directory, scopeRoot }) => {
   const path = relative14(scopeRoot, directory);
   return path === "" || !(path === ".." || path.startsWith(`..${sep3}`));
@@ -143945,7 +144149,7 @@ var readNearestPackageType = async ({ fileDir, scopeRoot }) => {
   let directory = fileDir;
   let type;
   while (type === void 0 && withinScope({ directory, scopeRoot })) {
-    type = await readManifestType({ manifestPath: join116(directory, "package.json") });
+    type = await readManifestType({ manifestPath: join117(directory, "package.json") });
     const parent = dirname24(directory);
     if (parent === directory) {
       break;
@@ -143966,7 +144170,7 @@ var selectUnloadableFiles = async ({ cwd, config: config2, files, compiler }) =>
   const loadable = [];
   const unloadable = [];
   for (const file2 of files) {
-    const content = await readFile54(join117(cwd, file2), "utf8").catch(() => void 0);
+    const content = await readFile54(join118(cwd, file2), "utf8").catch(() => void 0);
     if (content === void 0 || !isUnloadableSourceFile({ path: file2, content, compiler })) {
       loadable.push(file2);
       continue;
@@ -143980,7 +144184,7 @@ var selectUnloadableFiles = async ({ cwd, config: config2, files, compiler }) =>
     if (!modes.has(scope.scope)) {
       modes.set(scope.scope, readJestModuleMode({ loaded: await loadScopeJestConfig({ scopeRoot, command: scope.command }) }));
     }
-    const fileDir = dirname25(join117(root, file2));
+    const fileDir = dirname25(join118(root, file2));
     if (!packageTypes.has(fileDir)) {
       packageTypes.set(fileDir, await readNearestPackageType({ fileDir, scopeRoot }));
     }
@@ -143994,7 +144198,7 @@ var selectUnloadableFiles = async ({ cwd, config: config2, files, compiler }) =>
 var ExecutionSummaryReport = external_exports.record(external_exports.string(), external_exports.looseObject({ statements: external_exports.looseObject({ covered: external_exports.unknown(), total: external_exports.unknown() }) }));
 var readExecutionSummary = async ({ cwd, summaryPath }) => {
   try {
-    const parsed = ExecutionSummaryReport.parse(JSON.parse(await readFile55(join118(cwd, summaryPath), "utf8")));
+    const parsed = ExecutionSummaryReport.parse(JSON.parse(await readFile55(join119(cwd, summaryPath), "utf8")));
     return new Map(Object.entries(parsed).map(([key, entry]) => [relative15(cwd, key), entry.statements]));
   } catch {
     return void 0;
@@ -144009,7 +144213,7 @@ var checkChangedFilesExecuted = async ({ cwd, config: config2, changedFiles, com
   for (const file2 of changedFiles.filter(
     (changed) => isTestableSourceFile({ path: changed }) && !isTestFile({ path: changed }) && !isToolingConfigFile({ path: changed, packagesDir })
   )) {
-    const content = await readFile55(join118(cwd, file2), "utf8").catch(() => void 0);
+    const content = await readFile55(join119(cwd, file2), "utf8").catch(() => void 0);
     if (content !== void 0 && !isInertSourceFile({ path: file2, content, compiler })) {
       executable.push(file2);
     }
@@ -144048,12 +144252,12 @@ var checkChangedFilesExecuted = async ({ cwd, config: config2, changedFiles, com
 };
 
 // src/coverage/initializeCoverageRun.ts
-import { readFile as readFile57, writeFile as writeFile21 } from "node:fs/promises";
-import { join as join120 } from "node:path";
+import { readFile as readFile57, writeFile as writeFile22 } from "node:fs/promises";
+import { join as join121 } from "node:path";
 
 // src/coverage/runCoverageCheck.ts
 import { readFile as readFile56 } from "node:fs/promises";
-import { join as join119, relative as relative16 } from "node:path";
+import { join as join120, relative as relative16 } from "node:path";
 var CoverageSummaryReport = external_exports.record(external_exports.string(), external_exports.looseObject({ statements: external_exports.looseObject({ pct: external_exports.unknown() }) }));
 var readJsonFile2 = async ({ path }) => {
   try {
@@ -144064,7 +144268,7 @@ var readJsonFile2 = async ({ path }) => {
   }
 };
 var readScopeSummary = async ({ cwd, scope, summaryPath, passed }) => {
-  const parsed = CoverageSummaryReport.safeParse(await readJsonFile2({ path: join119(cwd, summaryPath) }));
+  const parsed = CoverageSummaryReport.safeParse(await readJsonFile2({ path: join120(cwd, summaryPath) }));
   if (!parsed.success) {
     throw new Error(buildMissingSummaryMessage({ summaryPath, scope }));
   }
@@ -144133,7 +144337,7 @@ var initializeCoverageRun = async ({
       const command = pipeline === "refactor" ? "refactor" : "resume";
       throw new Error(`run ${existing.runId} belongs to the ${pipeline} pipeline \u2014 resume it with: lightsout ${command} --run ${existing.runId}`);
     }
-    return { manifest: existing, worklist: CoverageWorklist.parse(JSON.parse(await readFile57(join120(cwd, existing.plan), "utf8"))) };
+    return { manifest: existing, worklist: CoverageWorklist.parse(JSON.parse(await readFile57(join121(cwd, existing.plan), "utf8"))) };
   }
   if (typeof config2.gates["test-coverage"] !== "string" && config2["package-gates"]?.["test-coverage"] === void 0) {
     throw new Error('the coverage gate is opted out ("test-coverage": false) \u2014 test-coverage-to-threshold has nothing to run');
@@ -144150,9 +144354,9 @@ ${dirty.map((file2) => `  ${file2}`).join("\n")}`
   }
   const measured = await runCoverageCheck({ cwd, config: config2 });
   const worklist = { at: (/* @__PURE__ */ new Date()).toISOString(), totals: measured.totals, files: measured.files };
-  const worklistPath = join120(".lightsout", "runs", runId, "worklist.json");
+  const worklistPath = join121(".lightsout", "runs", runId, "worklist.json");
   const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: "coverage", driver: driver.name, config: config2, baselineDirtyFiles: dirty });
-  await writeFile21(join120(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
+  await writeFile22(join121(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
 `, "utf8");
   return { manifest, worklist };
 };
@@ -144244,8 +144448,8 @@ var CoverageRun = class {
 };
 
 // src/coverage/batch/invokeCoverageAgent.ts
-import { mkdir as mkdir28, writeFile as writeFile22 } from "node:fs/promises";
-import { join as join121 } from "node:path";
+import { mkdir as mkdir29, writeFile as writeFile23 } from "node:fs/promises";
+import { join as join122 } from "node:path";
 var invokeCoverageAgent = async ({
   cwd,
   runId,
@@ -144260,10 +144464,10 @@ var invokeCoverageAgent = async ({
   rationale,
   recordUsage
 }) => {
-  const agentsDir = join121(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join122(getRunDir({ cwd, runId }), "agents");
   const slug = batchId.replace(/[:/]/g, "_");
-  const streamPath = join121(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
-  await mkdir28(agentsDir, { recursive: true });
+  const streamPath = join122(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
+  await mkdir29(agentsDir, { recursive: true });
   const outcome = await invokeAgentWithContract({
     driver,
     cwd,
@@ -144276,7 +144480,7 @@ var invokeCoverageAgent = async ({
     allowedCommands: config2["agent-commands"],
     onEvent: createEventFileSink({ path: streamPath }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile22(join121(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile23(join122(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   await recordUsage({ step: `${batchId}${label2 ? ` ${label2}` : ""}`, usage: outcome.usage });
@@ -144511,7 +144715,7 @@ var runCoverageBatch = async ({
 
 // src/coverage/selectCoverageCandidates.ts
 import { readFile as readFile58 } from "node:fs/promises";
-import { join as join122 } from "node:path";
+import { join as join123 } from "node:path";
 var selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, standardsPacks, compiler }) => {
   const failingScopes = new Set(measured.totals.filter((total) => !total.passed).map((total) => total.scope));
   const candidates = [];
@@ -144519,7 +144723,7 @@ var selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, standardsP
     if (!failingScopes.has(file2.scope) || setAsidePaths.has(file2.path) || file2.statementsPct >= 100 || isTestFile({ path: file2.path, standardsPacks }) || !isTestableSourceFile({ path: file2.path })) {
       continue;
     }
-    const content = compiler === void 0 ? void 0 : await readFile58(join122(cwd, file2.path), "utf8").catch(() => void 0);
+    const content = compiler === void 0 ? void 0 : await readFile58(join123(cwd, file2.path), "utf8").catch(() => void 0);
     if (compiler !== void 0 && content !== void 0 && isInertSourceFile({ path: file2.path, content, compiler })) {
       continue;
     }
@@ -145255,11 +145459,11 @@ var describePersistingFindings = ({ findings, report: report2, roundsUsed }) => 
 
 // src/pipeline/steps/refactorStep/common/utils/fingerprintScopeFiles.ts
 import { readFile as readFile59 } from "node:fs/promises";
-import { join as join123 } from "node:path";
+import { join as join124 } from "node:path";
 var fingerprintScopeFiles = async ({ run }) => {
   const entries = await Promise.all(
     standardsScopeFiles({ run }).map(async (file2) => {
-      const content = await readFile59(join123(run.cwd, file2)).catch(() => void 0);
+      const content = await readFile59(join124(run.cwd, file2)).catch(() => void 0);
       return content === void 0 ? [] : [[file2, sha256({ content })]];
     })
   );
@@ -145272,8 +145476,8 @@ var readPriorCleanup = ({ run }) => {
 };
 
 // src/standardsCheck/applyStandardsBaseline.ts
-import { readFile as readFile60, writeFile as writeFile23 } from "node:fs/promises";
-import { join as join124 } from "node:path";
+import { readFile as readFile60, writeFile as writeFile24 } from "node:fs/promises";
+import { join as join125 } from "node:path";
 var StandardsBaseline = external_exports.object({
   at: external_exports.string(),
   path: external_exports.string(),
@@ -145286,7 +145490,7 @@ var applyStandardsBaseline = async ({
   all,
   writeBaseline
 }) => {
-  const baselinePath = join124(cwd, "lightsout.standards-baseline.json");
+  const baselinePath = join125(cwd, "lightsout.standards-baseline.json");
   const baselineRaw = await readFile60(baselinePath, "utf8").catch(() => void 0);
   const notes = [];
   let baselineJson;
@@ -145298,7 +145502,7 @@ var applyStandardsBaseline = async ({
   const baseline = baselineRaw === void 0 ? void 0 : StandardsBaseline.safeParse(baselineJson);
   if (writeBaseline) {
     const siteKeys = [...new Set(findings.map((finding2) => finding2.siteKey))];
-    await writeFile23(baselinePath, `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", siteKeys }, void 0, "	")}
+    await writeFile24(baselinePath, `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", siteKeys }, void 0, "	")}
 `, "utf8");
     notes.push(
       `baseline ${baseline === void 0 ? "written" : "refreshed"}: ${siteKeys.length} site(s) accepted as existing debt \u2014 commit lightsout.standards-baseline.json; future runs report only NEW findings (--all shows everything)`
@@ -145385,7 +145589,7 @@ var buildDominantPathNote = ({ findings }) => {
 
 // src/standardsCheck/buildStandardsHealth.ts
 import { readFile as readFile61 } from "node:fs/promises";
-import { join as join125 } from "node:path";
+import { join as join126 } from "node:path";
 var emptyTally = () => ({
   attempted: 0,
   resolved: 0,
@@ -145410,7 +145614,7 @@ var readRefactorRun = async ({ cwd, runId }) => {
   if ((manifest.pipeline ?? "implement") !== "refactor") {
     return void 0;
   }
-  const worklist = RefactorWorklist.parse(JSON.parse(await readFile61(join125(cwd, manifest.plan), "utf8")));
+  const worklist = RefactorWorklist.parse(JSON.parse(await readFile61(join126(cwd, manifest.plan), "utf8")));
   return { worklist, steps: manifest.steps };
 };
 var countBatchSites = ({ tallies, blocking, report: report2 }) => {
@@ -145535,15 +145739,15 @@ var listStandardsRules = async ({ cwd, config: config2 }) => {
 };
 
 // src/standardsCheck/common/paths/getStandardsSnapshotsDir.ts
-import { join as join126 } from "node:path";
+import { join as join127 } from "node:path";
 var getStandardsSnapshotsDir = ({ cwd }) => {
-  return join126(cwd, ".lightsout", "standards-check");
+  return join127(cwd, ".lightsout", "standards-check");
 };
 
 // src/standardsCheck/common/paths/getStandardsCheckPath.ts
-import { join as join127 } from "node:path";
+import { join as join128 } from "node:path";
 var getStandardsCheckPath = ({ cwd }) => {
-  return join127(cwd, ".lightsout", "standards-check.json");
+  return join128(cwd, ".lightsout", "standards-check.json");
 };
 
 // ../../node_modules/.pnpm/eventemitter3@5.0.4/node_modules/eventemitter3/index.mjs
@@ -157263,12 +157467,12 @@ var Tokenizer = class {
 
 // src/standardsCheck/common/checkInputs/readIntoCache.ts
 import { readFile as readFile62 } from "node:fs/promises";
-import { join as join128 } from "node:path";
+import { join as join129 } from "node:path";
 var readIntoCache = async ({ cwd, paths, cache }) => {
   const texts = /* @__PURE__ */ new Map();
   for (const path of paths) {
     if (!cache.has(path)) {
-      const text = await readFile62(join128(cwd, path), "utf8").catch(() => void 0);
+      const text = await readFile62(join129(cwd, path), "utf8").catch(() => void 0);
       if (text !== void 0) {
         cache.set(path, text);
       }
@@ -157427,11 +157631,11 @@ var buildTestFileInput = async ({ cwd, tests, cache }) => {
 };
 
 // src/standardsCheck/common/checkInputs/buildTypeCheckerInput.ts
-import { dirname as dirname27, join as join129, resolve as resolve15 } from "node:path";
+import { dirname as dirname27, join as join130, resolve as resolve15 } from "node:path";
 var findNearestConfig = ({ cwd, path, compiler }) => {
   let folder = dirname27(resolve15(cwd, path));
   while (folder.startsWith(cwd)) {
-    const candidate = join129(folder, "tsconfig.json");
+    const candidate = join130(folder, "tsconfig.json");
     if (compiler.sys.fileExists(candidate)) {
       return candidate;
     }
@@ -157680,16 +157884,16 @@ var runPackageChecks = async ({
 };
 
 // src/standardsCheck/writeStandardsSnapshot.ts
-import { mkdir as mkdir29, writeFile as writeFile24 } from "node:fs/promises";
-import { join as join130 } from "node:path";
+import { mkdir as mkdir30, writeFile as writeFile25 } from "node:fs/promises";
+import { join as join131 } from "node:path";
 var writeStandardsSnapshot = async ({ cwd, snapshot }) => {
   const body = `${JSON.stringify(snapshot, void 0, "	")}
 `;
   const snapshotsDir = getStandardsSnapshotsDir({ cwd });
   const fileName = `${snapshot.at.replaceAll(":", "-").replaceAll(".", "-")}.json`;
-  await mkdir29(snapshotsDir, { recursive: true });
-  await writeFile24(getStandardsCheckPath({ cwd }), body, "utf8");
-  await writeFile24(join130(snapshotsDir, fileName), body, "utf8");
+  await mkdir30(snapshotsDir, { recursive: true });
+  await writeFile25(getStandardsCheckPath({ cwd }), body, "utf8");
+  await writeFile25(join131(snapshotsDir, fileName), body, "utf8");
 };
 
 // src/standardsCheck/runStandardsCheck.ts
@@ -157857,7 +158061,7 @@ var selectStandardsFindings = ({ findings, changedFiles }) => {
 // src/standardsCheck/validateStandardsPack.ts
 import { readdir as readdir19 } from "node:fs/promises";
 import { createRequire as createRequire5 } from "node:module";
-import { join as join131 } from "node:path";
+import { join as join132 } from "node:path";
 
 // src/standardsCheck/common/utils/checkFixtureTree.ts
 var checkFixtureTree = async ({ cwd, rule, inputKind, run, label: label2, compiler }) => {
@@ -157899,7 +158103,7 @@ var getEngineTypescript = () => {
 var missingFixtureSides = async ({ fixturesPath }) => {
   const missing = [];
   for (const side of Object.values(FixtureSide2)) {
-    const entries = await readdir19(join131(fixturesPath, side)).catch(() => void 0);
+    const entries = await readdir19(join132(fixturesPath, side)).catch(() => void 0);
     if (entries === void 0 || entries.length === 0) {
       missing.push(side);
     }
@@ -157930,7 +158134,7 @@ var checkFrameworkOwned = async ({ pack, compiler }) => {
       }
       try {
         const found = await checkFixtureTree({
-          cwd: join131(frameworkOwnedFixturesPath, framework),
+          cwd: join132(frameworkOwnedFixturesPath, framework),
           rule,
           inputKind,
           run,
@@ -157979,7 +158183,7 @@ var validateStandardsPack = async ({ pack }) => {
     }
     for (const side of Object.values(FixtureSide2)) {
       try {
-        const found = await checkFixtureTree({ cwd: join131(rule.fixturesPath, side), rule, inputKind, run, label: `fixtures/${side}/`, compiler });
+        const found = await checkFixtureTree({ cwd: join132(rule.fixturesPath, side), rule, inputKind, run, label: `fixtures/${side}/`, compiler });
         if (side === FixtureSide2.Fail && found.length === 0) {
           problems.push(`${rule.id}: the fail fixture produced no finding \u2014 the check does not catch what the rule describes`);
         }
@@ -158464,7 +158668,7 @@ var runWriterBatches = async ({
 
 // src/pipeline/steps/selectTestTargets.ts
 import { readFile as readFile63, stat as stat13 } from "node:fs/promises";
-import { join as join132 } from "node:path";
+import { join as join133 } from "node:path";
 var selectTestTargets = async ({
   run,
   candidates,
@@ -158481,9 +158685,9 @@ var selectTestTargets = async ({
   const deleted = [];
   const coverageExcluded = [];
   for (const file2 of candidates) {
-    const content = await readFile63(join132(run.cwd, file2), "utf8").catch(() => void 0);
+    const content = await readFile63(join133(run.cwd, file2), "utf8").catch(() => void 0);
     if (content === void 0) {
-      const exists3 = await stat13(join132(run.cwd, file2)).then(
+      const exists3 = await stat13(join133(run.cwd, file2)).then(
         () => true,
         () => false
       );
@@ -158700,9 +158904,9 @@ var committedLedgerConflicts = async ({ cwd, assignments, movePaths }) => {
 
 // src/pipeline/steps/ledger/missingLedgerNames.ts
 import { readFile as readFile64 } from "node:fs/promises";
-import { join as join133 } from "node:path";
+import { join as join134 } from "node:path";
 var missingLedgerNames = async ({ cwd, testFile, testNames }) => {
-  const content = await readFile64(join133(cwd, testFile), "utf8").catch(() => void 0);
+  const content = await readFile64(join134(cwd, testFile), "utf8").catch(() => void 0);
   return content === void 0 ? void 0 : testNames.filter((testName) => !holdsTestTitle({ content, testName }));
 };
 
@@ -158893,6 +159097,20 @@ var recheckUnreachable = async ({ run }) => {
     );
   }
 };
+var finishRun = async ({ run, resumed }) => {
+  await recheckUnreachable({ run });
+  const uncommitted = await commitRunWork({ run, resumed });
+  let result;
+  if (uncommitted === void 0) {
+    await removeApprovedTests({ run });
+    await run.update({ patch: { status: RunStatus.Passed, currentStep: null } });
+    result = { ok: true, manifest: run.current() };
+  } else {
+    await run.update({ patch: { status: RunStatus.Failed } });
+    result = { ok: false, manifest: run.current(), error: uncommitted };
+  }
+  return result;
+};
 var executePipeline = async ({
   cwd,
   runId,
@@ -158903,6 +159121,7 @@ var executePipeline = async ({
   parentRunId,
   packages,
   existing,
+  inheritedBaseline,
   skipRefactor,
   willShip,
   onProgress
@@ -158921,7 +159140,7 @@ var executePipeline = async ({
       parentRunId,
       driver: driver.name,
       config: config2,
-      baselineDirtyFiles: await readGitChangedFiles({ cwd }),
+      baselineDirtyFiles: inheritedBaseline ?? await readGitChangedFiles({ cwd }),
       willShip
     })
   });
@@ -158941,11 +159160,7 @@ var executePipeline = async ({
   if (stopped) {
     return stopped;
   }
-  await recheckUnreachable({ run });
-  await removeApprovedTests({ run });
-  await run.update({ patch: { status: RunStatus.Passed, currentStep: null } });
-  const passed = { ok: true, manifest: run.current() };
-  return passed;
+  return finishRun({ run, resumed: inheritedBaseline !== void 0 || existing !== void 0 });
 };
 var runImplementPipeline = (params) => withRunLock({ params, run: executePipeline });
 
@@ -158984,6 +159199,15 @@ var addUsage = ({ total, child }) => {
     costUsd: total.costUsd + child.costUsd
   };
 };
+var sequencePatch = ({ current, childResult }) => {
+  const child = childResult.manifest;
+  return {
+    status: childResult.ok ? RunStatus.Running : child.status,
+    changedFiles: [.../* @__PURE__ */ new Set([...current.changedFiles, ...child.changedFiles])],
+    commits: [...current.commits, ...child.commits],
+    usage: addUsage({ total: current.usage, child: child.usage })
+  };
+};
 var readRecordedChild = async ({ cwd, step }) => {
   const recorded = PhaseReport.safeParse(step.report);
   return recorded.success ? await readRunManifest({ cwd, runId: recorded.data.runId }).catch(() => void 0) : void 0;
@@ -159008,6 +159232,7 @@ var runPhase = async ({
   index,
   step,
   total,
+  resumed,
   skipRefactor,
   onProgress
 }) => {
@@ -159027,10 +159252,15 @@ var runPhase = async ({
     cwd,
     driver,
     config: config2,
-    planPath: join134(dirname28(current.plan), step.id),
+    planPath: join135(dirname28(current.plan), step.id),
     overviewPath: current.plan,
     parentRunId: current.runId,
     existing: childManifest,
+    // The sequence's own owned set, taken before the sequence began, is the only
+    // set the unowned-edits guard can mean anything against: a phase that never
+    // started would otherwise snapshot a tree somebody may have sat in for days
+    // and call every edit in it its own.
+    inheritedBaseline: resumed && childManifest === void 0 ? [...current.changedFiles, ...current.baselineDirtyFiles] : void 0,
     skipRefactor,
     onProgress
   });
@@ -159050,11 +159280,7 @@ var runPhase = async ({
     manifest: current,
     index,
     record: recordFromChild({ step, childResult }),
-    patch: {
-      status: childResult.ok ? RunStatus.Running : child.status,
-      changedFiles: [.../* @__PURE__ */ new Set([...current.changedFiles, ...child.changedFiles])],
-      usage: addUsage({ total: current.usage, child: child.usage })
-    }
+    patch: sequencePatch({ current, childResult })
   });
   if (childResult.ok) {
     return { manifest: current };
@@ -159089,7 +159315,7 @@ var runPhasesPipeline = async ({
     if (step.status === RunStatus.Passed) {
       continue;
     }
-    const phase = await runPhase({ cwd, driver, config: config2, manifest, index, step, total, skipRefactor, onProgress: narrate });
+    const phase = await runPhase({ cwd, driver, config: config2, manifest, index, step, total, resumed: existing !== void 0, skipRefactor, onProgress: narrate });
     manifest = phase.manifest;
     if (phase.result) {
       return phase.result;
@@ -159251,1263 +159477,74 @@ var implementCommand = async ({ flags, cwd }) => {
 };
 
 // src/cli/implementDirectCommand.ts
-import { readFile as readFile66 } from "node:fs/promises";
+import { readFile as readFile65 } from "node:fs/promises";
 import { resolve as resolve16 } from "node:path";
 
-// src/queue/board/BoardQuestionRelay.ts
-var BoardQuestionRelay = class {
-  relay;
-  board;
-  constructor({ relay, board }) {
-    this.relay = relay;
-    this.board = board;
-  }
-  async ask({
-    question,
-    ticket,
-    coordinatorRunId,
-    coordinatorRunDir
-  }) {
-    this.board.markWaiting({ ticket, question });
-    try {
-      return await this.relay.ask({ question, ticket, coordinatorRunId, coordinatorRunDir });
-    } finally {
-      this.board.clearWaiting({ ticket });
-    }
-  }
-  createProgressSink({ ticket }) {
-    return this.relay.createProgressSink({ ticket });
-  }
-  close() {
-    this.relay.close();
-  }
-};
-
-// src/queue/board/getQueueBoardPath.ts
-import { join as join135 } from "node:path";
-var getQueueBoardPath = ({ cwd, runId }) => {
-  return join135(getRunDir({ cwd, runId }), "board.json");
-};
-
-// src/queue/board/QueueBoardRecorder.ts
-import { mkdir as mkdir30, rename as rename11 } from "node:fs/promises";
-import { dirname as dirname29 } from "node:path";
-
-// src/queue/board/toQueueBoardTickets.ts
-import { join as join136 } from "node:path";
-
-// src/queue/common/constants/QueueWorker.ts
-var QueueWorker = {
-  /** Build straight from the ticket body; the repo's gates are the only bar. */
-  Direct: "direct",
-  /** Implement the plan already published to the ticket. */
-  Plan: "plan",
-  /** Plan the ticket headlessly with the auto-plan skill; the queue then runs the implement pipeline on the plan folder that session wrote. */
-  AutoPlan: "auto-plan"
-};
-
-// src/queue/toTicketBranch.ts
-var toTicketBranch = ({ ticket, template }) => renderBranchTemplate({ template, ticketRef: ticket.identifier, title: ticket.title });
-
-// src/queue/board/toQueueBoardTickets.ts
-var describeWork = ({ ticket, branch, worktreePath }) => ({
-  identifier: ticket.identifier,
-  title: ticket.title,
-  url: ticket.url,
-  worker: ticket.worker,
-  planName: ticket.worker === QueueWorker.AutoPlan ? branch : void 0,
-  branch,
-  worktreePath
-});
-var describeUnbuilt = ({ ticket, live: live2 }) => {
-  const branch = toTicketBranch({ ticket, template: live2.branchTemplate });
-  return describeWork({ ticket, branch, worktreePath: join136(live2.worktreesRoot, branch) });
-};
-var placeLeftBehind = ({ entry, lane, reason }) => ({
-  identifier: entry.identifier,
-  title: entry.title,
-  url: entry.url,
-  lane,
-  reason
-});
-var placeBuild = ({ build, live: live2 }) => {
-  const question = live2.questions.get(build.ticket.identifier.toLowerCase());
-  const work = { ...describeUnbuilt({ ticket: build.ticket, live: live2 }), buildStartedAt: build.startedAt };
-  return question === void 0 ? { ...work, lane: QueueLane.Building } : { ...work, lane: QueueLane.Blocked, reason: question, question };
-};
-var placeOutcome = ({ outcome }) => {
-  if (outcome.ready) {
-    return { ...describeWork(outcome), lane: QueueLane.Shipped, reason: outcome.reconciliationFailure };
-  }
-  return outcome.open === void 0 ? { ...describeWork(outcome), lane: QueueLane.Parked, reason: outcome.error } : { ...describeWork(outcome), lane: QueueLane.Blocked, reason: outcome.open };
-};
-var placeSettled = ({ settled: settled2 }) => [
-  ...settled2.outcomes.map((outcome) => placeOutcome({ outcome })),
-  ...settled2.leftBehind.map(
-    (entry) => entry.settled === true ? placeLeftBehind({ entry, lane: QueueLane.Shipped, reason: entry.reconciliationFailure }) : placeLeftBehind({ entry, lane: QueueLane.Blocked, reason: entry.reason })
-  )
-];
-var placeLive = ({ live: live2 }) => [
-  ...live2.shipping === void 0 ? [] : [{ ...describeWork(live2.shipping), lane: QueueLane.ShippingNow }],
-  ...live2.readyToShip.map((outcome) => ({ ...describeWork(outcome), lane: QueueLane.ShipQueue })),
-  ...live2.building.map((build) => placeBuild({ build, live: live2 })),
-  ...live2.pending.map((ticket) => ({ ...describeUnbuilt({ ticket, live: live2 }), lane: QueueLane.BuildQueue })),
-  ...live2.blocked.map((entry) => placeLeftBehind({ entry, lane: QueueLane.Blocked, reason: entry.reason }))
-];
-var toEnteredAt = ({ ticket, live: live2, at }) => {
-  const entered = live2?.entered.get(ticket.identifier.toLowerCase());
-  return entered !== void 0 && entered.lane === ticket.lane ? entered.at : at;
-};
-var toQueueBoardTickets = ({ settled: settled2, live: live2, at }) => {
-  const records = [...placeSettled({ settled: settled2 }), ...live2 === void 0 ? [] : placeLive({ live: live2 })];
-  const claimed = /* @__PURE__ */ new Map();
-  for (const record3 of records) {
-    const key = record3.identifier.toLowerCase();
-    if (!claimed.has(key)) {
-      claimed.set(key, record3);
-    }
-  }
-  const kept = [...claimed.values()];
-  const inColumnOrder = Object.values(QueueLane).flatMap((lane) => {
-    const inLane = kept.filter((ticket) => ticket.lane === lane);
-    return [...inLane.filter((ticket) => ticket.question === void 0), ...inLane.filter((ticket) => ticket.question !== void 0)];
-  });
-  return inColumnOrder.map((ticket) => ({ ...ticket, enteredAt: toEnteredAt({ ticket, live: live2, at }) }));
-};
-
-// src/queue/board/QueueBoardRecorder.ts
-var copySnapshot = ({ settled: settled2, lanes }) => ({
-  settled: { outcomes: [...settled2.outcomes], leftBehind: [...settled2.leftBehind] },
-  lanes: {
-    pending: [...lanes.pending],
-    building: [...lanes.building],
-    readyToShip: [...lanes.readyToShip],
-    shipping: lanes.shipping,
-    blocked: [...lanes.blocked]
-  }
-});
-var QueueBoardRecorder = class {
-  cwd;
-  runId;
-  branchTemplate;
-  onProgress;
-  questions = /* @__PURE__ */ new Map();
-  entered = /* @__PURE__ */ new Map();
-  last;
-  worktreesRoot;
-  // Each write awaits its predecessor, so an older snapshot never lands over a newer one.
-  chain = Promise.resolve();
-  constructor({ cwd, runId, branchTemplate, onProgress }) {
-    this.cwd = cwd;
-    this.runId = runId;
-    this.branchTemplate = branchTemplate;
-    this.onProgress = onProgress;
-  }
-  /** Rewrite the board from the drain's ledger as it stands now. */
-  record({ settled: settled2, lanes }) {
-    this.last = copySnapshot({ settled: settled2, lanes });
-    this.enqueue();
-  }
-  /** A worker has asked a relayed question: its ticket moves to Blocked with the question until the ask settles. */
-  markWaiting({ ticket, question }) {
-    this.questions.set(ticket.identifier.toLowerCase(), question);
-    this.enqueue();
-  }
-  /** The worker's relayed question has settled, answered or not. */
-  clearWaiting({ ticket }) {
-    this.questions.delete(ticket.identifier.toLowerCase());
-    this.enqueue();
-  }
-  /** Resolves once every write asked for so far has landed or failed. Never rejects. */
-  flush() {
-    return this.chain;
-  }
-  /** Queue a write of the last snapshot with the questions open now — nothing until the drain has recorded one. */
-  enqueue() {
-    if (this.last === void 0) {
-      return;
-    }
-    const pending = { snapshot: this.last, questions: new Map(this.questions), takenAt: (/* @__PURE__ */ new Date()).toISOString() };
-    this.chain = this.chain.then(() => this.write(pending)).catch(() => void 0);
-  }
-  async write({
-    snapshot,
-    questions,
-    takenAt
-  }) {
-    const path = getQueueBoardPath({ cwd: this.cwd, runId: this.runId });
-    try {
-      this.worktreesRoot ??= await resolveWorktreesRoot({ cwd: this.cwd });
-      const tickets = toQueueBoardTickets({
-        settled: snapshot.settled,
-        live: { ...snapshot.lanes, questions, entered: this.entered, branchTemplate: this.branchTemplate, worktreesRoot: this.worktreesRoot },
-        at: takenAt
-      });
-      const board = { coordinatorRunId: this.runId, updatedAt: takenAt, tickets };
-      this.entered = new Map(tickets.map((ticket) => [ticket.identifier.toLowerCase(), { lane: ticket.lane, at: ticket.enteredAt }]));
-      await mkdir30(dirname29(path), { recursive: true });
-      await writeJsonFile({ path: `${path}.tmp`, value: board });
-      await rename11(`${path}.tmp`, path);
-    } catch (error51) {
-      this.onProgress?.(`the queue board ${path} could not be written: ${messageOf({ error: error51 })}`);
-    }
-  }
-};
-
-// src/queue/board/readQueueBoard.ts
-var readQueueBoard = async ({ cwd, runId }) => {
-  return readJsonFile({ path: getQueueBoardPath({ cwd, runId }), schema: QueueBoard });
-};
-
-// src/queue/branchState/common/utils/getBranchStatePath.ts
-import { join as join137 } from "node:path";
-var getBranchStatePath = ({ cwd, branch }) => {
-  return join137(cwd, ".lightsout", "branch-state", `${toBranchFileName({ branch })}.json`);
-};
-
-// src/queue/branchState/readBranchState.ts
-var readBranchState = async ({ cwd, branch }) => {
-  return readJsonFile({ path: getBranchStatePath({ cwd, branch }), schema: BranchState });
-};
-
-// src/queue/branchState/writeBranchState.ts
-import { mkdir as mkdir31, rename as rename12 } from "node:fs/promises";
-import { dirname as dirname30 } from "node:path";
-var writeBranchState = async ({ cwd, branch, phase, onProgress }) => {
-  const record3 = { branch, phase, updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
-  const statePath = getBranchStatePath({ cwd, branch });
-  try {
-    await mkdir31(dirname30(statePath), { recursive: true });
-    await writeJsonFile({ path: `${statePath}.tmp`, value: record3 });
-    await rename12(`${statePath}.tmp`, statePath);
-  } catch (error51) {
-    const message = error51 instanceof Error ? error51.message : String(error51);
-    onProgress?.(`the branch state for ${branch} could not be recorded as '${phase}': ${message}`);
-  }
-};
-
-// src/queue/commitTicketWork.ts
-import { mkdir as mkdir32, writeFile as writeFile25 } from "node:fs/promises";
-import { join as join138 } from "node:path";
-
-// src/queue/common/utils/isGeneratedPath.ts
-var isGeneratedPath = ({ path, generated }) => generated.some((entry) => {
-  const prefix = entry.replace(/\/$/, "");
-  return path === prefix || path.startsWith(`${prefix}/`);
-});
-
-// src/queue/commitTicketWork.ts
-var toLiteralPathspec = ({ path }) => `':(literal)${path.replaceAll("'", String.raw`'\''`)}'`;
-var toPathspecs = ({ paths }) => paths.map((path) => toLiteralPathspec({ path })).join(" ");
-var discardGeneratedChanges = async ({ cwd, paths }) => {
-  const pathspecs = toPathspecs({ paths });
-  const resetFailure = await runOrDescribeFailure({ command: `git reset -q -- ${pathspecs}`, cwd });
-  if (resetFailure !== void 0) {
-    return resetFailure;
-  }
-  const listed = await runCommand({ command: `git ls-files -z -- ${pathspecs}`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  if (listed?.exitCode !== 0) {
-    return "git could not tell which generated paths are tracked";
-  }
-  const tracked = listed.stdout.split("\0").filter(Boolean);
-  const untracked = paths.filter((path) => !tracked.includes(path));
-  const commands2 = [
-    ...tracked.length > 0 ? [`git checkout -- ${toPathspecs({ paths: tracked })}`] : [],
-    ...untracked.length > 0 ? [`git clean -fdq -- ${toPathspecs({ paths: untracked })}`] : []
-  ];
-  for (const command of commands2) {
-    const failure = await runOrDescribeFailure({ command, cwd });
-    if (failure !== void 0) {
-      return failure;
-    }
-  }
-  return void 0;
-};
-var commitTicketWork = async ({ cwd, message, runDir, generated = [], onProgress }) => {
-  const changed = await readGitChangedFiles({ cwd });
-  if (changed === void 0) {
-    return { error: `git could not read the tree at ${cwd}` };
-  }
-  const generatedPaths = changed.filter((path) => isGeneratedPath({ path, generated }));
-  const sourcePaths = changed.filter((path) => !isGeneratedPath({ path, generated }));
-  if (generatedPaths.length > 0) {
-    const discardFailure = await discardGeneratedChanges({ cwd, paths: generatedPaths });
-    if (discardFailure !== void 0) {
-      return { error: `git could not discard the generated changes in ${cwd}: ${discardFailure}` };
-    }
-    onProgress?.(`discarded ${generatedPaths.length} generated path(s) \u2014 the pre-ship step commits build output`);
-  }
-  if (sourcePaths.length === 0) {
-    return { committed: false };
-  }
-  const messagePath = join138(runDir, "commit-message.txt");
-  await mkdir32(runDir, { recursive: true });
-  await writeFile25(messagePath, message.endsWith("\n") ? message : `${message}
-`, "utf8");
-  const stageFailure = await runOrDescribeFailure({ command: "git add -A", cwd });
-  if (stageFailure !== void 0) {
-    return { error: `git could not stage the work in ${cwd}: ${stageFailure}` };
-  }
-  const commitFailure = await runOrDescribeFailure({ command: `git commit -F ${messagePath}`, cwd });
-  if (commitFailure !== void 0) {
-    return { error: `git could not commit the work in ${cwd}: ${commitFailure}` };
-  }
-  return { committed: true };
-};
-
-// src/queue/common/utils/isParkedOutcome.ts
-var isParkedOutcome = ({ outcome }) => !outcome.ready && outcome.open === void 0;
-
-// src/queue/relay/emptyRelayMailbox.ts
-import { mkdir as mkdir33, readdir as readdir20, rm as rm12 } from "node:fs/promises";
-import { join as join139 } from "node:path";
-var emptyRelayMailbox = async ({ directory }) => {
-  await mkdir33(directory, { recursive: true });
-  const entries = await readdir20(directory);
-  await Promise.all(entries.map((entry) => rm12(join139(directory, entry), { force: true, recursive: true })));
-};
-
-// src/queue/relay/FileQuestionRelay.ts
-import { readFile as readFile65, rename as rename13, rm as rm13 } from "node:fs/promises";
-import { join as join141 } from "node:path";
-
-// src/queue/relay/recordRelayedAnswer.ts
-import { join as join140 } from "node:path";
-var QueueQuestionRecord = external_exports.object({
-  question: external_exports.string(),
-  answer: external_exports.string(),
-  ticket: external_exports.string(),
-  at: external_exports.string(),
-  runId: external_exports.string(),
-  step: external_exports.string()
-});
-var recordRelayedAnswer = async ({
-  settings,
-  trackerSettings,
-  question,
-  answer,
-  ticket,
-  coordinatorRunId,
-  coordinatorRunDir,
-  onProgress
-}) => {
-  await appendJsonlRecords({
-    path: join140(coordinatorRunDir, "decisions.jsonl"),
-    schema: QueueQuestionRecord,
-    entries: [{ question, answer, ticket: ticket.identifier }],
-    runId: coordinatorRunId,
-    step: "queue-question"
-  });
-  const noted = await appendTicketNote3({
-    settings: trackerSettings,
-    ticketId: ticket.id,
-    heading: settings.decisionsHeading,
-    line: `- ${question} \u2192 ${answer}`
-  });
-  if (noted !== void 0) {
-    onProgress(`the answer could not be written to the ticket: ${noted.error}`);
-  }
-};
-
-// src/queue/relay/FileQuestionRelay.ts
-var relayClosedMessage = "the question relay is closed \u2014 no answer can arrive";
-var readJson2 = ({ raw }) => {
-  try {
-    const value = JSON.parse(raw);
-    return value;
-  } catch {
-    return void 0;
-  }
-};
-var readRelayAnswer = async ({ path }) => {
-  const raw = await readFile65(path, "utf8").catch(() => void 0);
-  if (raw === void 0) {
-    return void 0;
-  }
-  const parsed = RelayAnswer.safeParse(readJson2({ raw }));
-  const answer = parsed.success ? parsed.data.answer.trim() : "";
-  return answer === "" ? void 0 : answer;
-};
-var removeExchange = async ({ questionPath, answerPath }) => {
-  await rm13(questionPath, { force: true });
-  await rm13(answerPath, { force: true });
-};
-var FileQuestionRelay = class {
-  settings;
-  trackerSettings;
-  directory;
-  output;
-  // One question file per ticket is not enough: a worker may be answered and
-  // ask again, and the second question must not overwrite the first.
-  sequence = 0;
-  closed = false;
-  abandonWaits = /* @__PURE__ */ new Set();
-  constructor({ settings, trackerSettings, directory, output }) {
-    this.settings = settings;
-    this.trackerSettings = trackerSettings;
-    this.directory = directory;
-    this.output = output;
-  }
-  async ask({
-    question,
-    ticket,
-    coordinatorRunId,
-    coordinatorRunDir
-  }) {
-    if (this.closed) {
-      throw new Error(relayClosedMessage);
-    }
-    this.sequence += 1;
-    const stem = `${ticket.identifier.toLowerCase()}-${this.sequence}`;
-    const questionPath = join141(this.directory, `${stem}.question.json`);
-    const answerPath = join141(this.directory, `${stem}.answer.json`);
-    await this.putQuestion({ stem, questionPath, question, ticket });
-    const answer = await this.waitForAnswer({ questionPath, answerPath, question });
-    await removeExchange({ questionPath, answerPath });
-    await recordRelayedAnswer({
-      settings: this.settings,
-      trackerSettings: this.trackerSettings,
-      question,
-      answer,
-      ticket,
-      coordinatorRunId,
-      coordinatorRunDir,
-      onProgress: this.createProgressSink({ ticket })
-    });
-    return answer;
-  }
-  /** No hold-and-flush buffer, unlike the terminal relay: nothing is on screen waiting to be typed over. */
-  createProgressSink({ ticket }) {
-    return (message) => {
-      this.output.write(`${ticket.identifier} \xB7 ${message}
-`);
-    };
-  }
-  close() {
-    this.closed = true;
-    for (const abandon of [...this.abandonWaits]) {
-      abandon(new Error(relayClosedMessage));
-    }
-    this.abandonWaits.clear();
-  }
-  /** The question file, written under a temporary name and renamed in — a watcher globbing `*.question.json` must never read half of one. */
-  async putQuestion({ stem, questionPath, question, ticket }) {
-    const entry = RelayQuestion.parse({ ticket: ticket.identifier, title: ticket.title, question, askedAt: (/* @__PURE__ */ new Date()).toISOString() });
-    const temporaryPath = join141(this.directory, `${stem}.tmp`);
-    await writeJsonFile({ path: temporaryPath, value: entry });
-    await rename13(temporaryPath, questionPath);
-    this.createProgressSink({ ticket })(`waiting for an answer in ${questionPath}`);
-  }
-  /**
-   * The answer file's contents once it holds one.
-   *
-   * @throws {Error} When the question timeout elapses — both files are removed
-   * first, so a late or blank answer never lingers to look live — or when the
-   * relay closes under the wait.
-   */
-  async waitForAnswer({ questionPath, answerPath, question }) {
-    const pollMs = 2e3;
-    const deadline = Date.now() + this.settings.questionTimeoutMs;
-    let timer;
-    let abandon = () => void 0;
-    const abandoned = new Promise((_resolve, reject) => {
-      abandon = (error51) => {
-        clearTimeout(timer);
-        reject(error51);
-      };
-    });
-    abandoned.catch(() => void 0);
-    this.abandonWaits.add(abandon);
-    try {
-      for (; ; ) {
-        const answer = await readRelayAnswer({ path: answerPath });
-        if (answer !== void 0) {
-          return answer;
-        }
-        if (Date.now() >= deadline) {
-          await removeExchange({ questionPath, answerPath });
-          throw new Error(`no answer arrived within ${this.settings.questionTimeoutMs}ms for: ${question}`);
-        }
-        await Promise.race([
-          new Promise((resolve20) => {
-            timer = setTimeout(resolve20, pollMs);
-          }),
-          abandoned
-        ]);
-      }
-    } finally {
-      clearTimeout(timer);
-      this.abandonWaits.delete(abandon);
-    }
-  }
-};
-
-// src/queue/relay/TerminalQuestionRelay.ts
-import { createInterface } from "node:readline/promises";
-var noTerminalMessage = "there is no terminal to answer on \u2014 run `lightsout queue` attached to one";
-var TerminalQuestionRelay = class {
-  settings;
-  trackerSettings;
-  output;
-  terminal;
-  // Each `ask` awaits its predecessor, so the terminal never holds two
-  // half-written prompts.
-  chain = Promise.resolve();
-  prompting = false;
-  held = [];
-  ended = false;
-  abandonPrompt;
-  constructor({ settings, trackerSettings, input, output }) {
-    this.settings = settings;
-    this.trackerSettings = trackerSettings;
-    this.output = output;
-    this.terminal = createInterface({ input, output });
-    this.terminal.on("close", () => {
-      this.ended = true;
-      this.abandonPrompt?.(new Error(noTerminalMessage));
-    });
-  }
-  /**
-   * Put one worker's question to the user and answer with what they typed.
-   *
-   * Serialized: a second caller waits until the first answer is in. The answer
-   * is on disk and on the ticket before this resolves, so a worker never acts
-   * on a decision nothing recorded.
-   *
-   * @throws {Error} When there is no terminal to answer on (EOF or a closed input).
-   */
-  ask({
-    question,
-    ticket,
-    coordinatorRunId,
-    coordinatorRunDir
-  }) {
-    const answered = this.chain.then(() => this.putQuestion({ question, ticket })).then(async (answer) => {
-      await recordRelayedAnswer({
-        settings: this.settings,
-        trackerSettings: this.trackerSettings,
-        question,
-        answer,
-        ticket,
-        coordinatorRunId,
-        coordinatorRunDir,
-        onProgress: this.createProgressSink({ ticket })
-      });
-      return answer;
-    });
-    this.chain = answered.catch(() => void 0);
-    return answered;
-  }
-  /**
-   * This ticket's progress writer: every line carries the ticket identifier and
-   * goes through the relay's buffer, so an open question is never buried by the
-   * other workers. The queue hands one to each worker as its `onProgress`.
-   */
-  createProgressSink({ ticket }) {
-    return (message) => this.write({ line: `${ticket.identifier} \xB7 ${message}` });
-  }
-  /** Close the readline interface. Called once, on the way out of the command. */
-  close() {
-    this.terminal.close();
-  }
-  /** Print the question and read one typed line, re-prompting on a blank answer. */
-  async putQuestion({ question, ticket }) {
-    if (this.ended) {
-      throw new Error(noTerminalMessage);
-    }
-    this.prompting = true;
-    const abandoned = new Promise((_resolve, reject) => {
-      this.abandonPrompt = reject;
-    });
-    try {
-      this.output.write(`
-${ticket.identifier} ${ticket.title}
-${question}
-`);
-      for (; ; ) {
-        const typed = await Promise.race([this.terminal.question("answer: "), abandoned]);
-        if (typed.trim() !== "") {
-          return typed.trim();
-        }
-      }
-    } finally {
-      this.abandonPrompt = void 0;
-      this.prompting = false;
-      this.flush();
-    }
-  }
-  /** One line out, or held until the open question has been answered. */
-  write({ line }) {
-    if (this.prompting) {
-      this.held.push(line);
-      return;
-    }
-    this.output.write(`${line}
-`);
-  }
-  flush() {
-    const held = this.held;
-    this.held = [];
-    for (const line of held) {
-      this.output.write(`${line}
-`);
-    }
-  }
-};
-
-// src/queue/runQueue.ts
-import { join as join147 } from "node:path";
-
-// src/queue/common/utils/createMainCheckoutSerializer.ts
-var createMainCheckoutSerializer = () => {
-  let tail = Promise.resolve();
-  return ({ task }) => {
-    const next = tail.then(task, task);
-    tail = next.catch(() => void 0);
-    return next;
-  };
-};
-
-// src/queue/common/utils/settleReconciledWorktree.ts
-var settleReconciledWorktree = async ({ cwd, worktreePath, branch, onProgress }) => {
-  const changed = await readGitChangedFiles({ cwd: worktreePath });
-  if (changed === void 0) {
-    return void 0;
-  }
-  if (changed.length > 0) {
-    onProgress?.(`the worktree at ${worktreePath} has uncommitted changes, so it was left in place`);
-    return ` \u2014 the worktree at ${worktreePath} was left in place because it has uncommitted changes`;
-  }
-  const removal = await removeWorktree({ cwd, worktreePath, branch });
-  if (removal === void 0) {
-    await deleteWorktreeRecord({ cwd, branch });
-  }
-  return void 0;
-};
-
-// src/queue/common/utils/settleMergedTrees.ts
-var settleMergedTrees = async ({ cwd, config: config2, env, settings, trackerSettings, merged, onProgress }) => {
-  const settled2 = [];
-  for (const tree of merged) {
-    const reconciliationFailure = await reconcileShippedTicket({ config: config2, env, ticketRef: tree.ticket.identifier, onProgress });
-    if (reconciliationFailure !== void 0) {
-      onProgress?.(reconciliationFailure);
-    }
-    const heldWorktree = await settleReconciledWorktree({ cwd, worktreePath: tree.worktreePath, branch: tree.branch, onProgress });
-    const cleared = await setTicketLabel3({ settings: trackerSettings, ticketId: tree.ticket.id, label: settings.parkedLabel, present: false });
-    if (cleared !== void 0) {
-      onProgress?.(`${tree.ticket.identifier} \xB7 the parked label could not be cleared: ${cleared.error}`);
-    }
-    const reason = `its worktree at ${tree.worktreePath} held a branch already recorded merged, so the ticket was reconciled to done rather than resumed${heldWorktree ?? ""}${reconciliationFailure === void 0 ? "" : ` \u2014 ${reconciliationFailure}`}`;
-    onProgress?.(`${tree.ticket.identifier} \xB7 ${reason}`);
-    settled2.push({
-      identifier: tree.ticket.identifier,
-      title: tree.ticket.title,
-      url: tree.ticket.url,
-      reason,
-      settled: true,
-      ...reconciliationFailure === void 0 ? {} : { reconciliationFailure }
-    });
-  }
-  return settled2;
-};
-
-// src/queue/drainLanes/common/utils/admitSelection.ts
-var admitSelection = ({ state, selection }) => {
-  const admitted = [];
-  for (const ticket of selection.runnable) {
-    const identifier = ticket.identifier.toLowerCase();
-    if (!state.attempted.has(identifier)) {
-      state.attempted.add(identifier);
-      state.blockedByIdentifier.delete(identifier);
-      state.pending.push(ticket);
-      state.queued.push(ticket);
-      admitted.push(ticket);
-    }
-  }
-  for (const entry of selection.blocked) {
-    state.blockedByIdentifier.set(entry.identifier.toLowerCase(), entry);
-  }
-  for (const entry of selection.skipped) {
-    state.attempted.add(entry.identifier.toLowerCase());
-    state.blockedByIdentifier.delete(entry.identifier.toLowerCase());
-    state.leftBehind.push(entry);
-  }
-  return admitted;
-};
-
-// src/queue/common/utils/selectQueueWorker.ts
-var selectQueueWorker = ({ planningStatus, trackerStatus, readyStatus }) => {
-  const atReady = trackerStatus === void 0 || trackerStatus === readyStatus;
-  const inBacklog = trackerStatus !== readyStatus;
-  const selected = {
-    [PlanningStatus.NeedsBrainstorm]: void 0,
-    [PlanningStatus.NeedsPlan]: void 0,
-    [PlanningStatus.ReadyAutoPlan]: inBacklog ? QueueWorker.AutoPlan : void 0,
-    [PlanningStatus.Complete]: atReady ? QueueWorker.Plan : void 0,
-    [PlanningStatus.NotNeeded]: atReady ? QueueWorker.Direct : void 0
-  };
-  return selected[planningStatus];
-};
-
-// src/queue/common/utils/toPlanningSummaries.ts
-var toPlanningSummaries = ({ ticket, lifecycle, resumed }) => Object.values(PlanningStatus).filter((planningStatus) => ticket.labels.includes(lifecycle.planningStatusLabels[planningStatus])).map((planningStatus) => ({
-  ...ticket,
-  planningStatus,
-  worker: selectQueueWorker({
-    planningStatus,
-    trackerStatus: resumed ? void 0 : ticket.status,
-    readyStatus: lifecycle.statusNames[TrackerStatusRole.Ready]
-  })
-}));
-
-// src/queue/ticketSelection/listEligibleTickets.ts
-var listEligibleTickets = async ({ settings, trackerSettings }) => {
-  const tickets = await listTickets3({
-    settings: trackerSettings,
-    labelNames: Object.values(PlanningStatus).map((status) => settings.lifecycle.planningStatusLabels[status]),
-    statuses: settings.lifecycle.eligibleStatuses
-  });
-  if ("error" in tickets) {
-    return tickets;
-  }
-  return tickets.flatMap((ticket) => toPlanningSummaries({ ticket, lifecycle: settings.lifecycle, resumed: false }));
-};
-
-// src/queue/ticketSelection/orderTickets.ts
-var orderTickets = ({ tickets }) => {
-  const rank = ({ priority }) => priority === 0 ? 6 : priority;
-  return [...tickets].sort((left, right) => rank(left) - rank(right) || left.createdAt.localeCompare(right.createdAt));
-};
-
-// src/queue/ticketSelection/dedupeTickets.ts
-var dedupeTickets = ({ tickets, settings, onProgress }) => {
-  const leftBehind = [];
-  const ordered = [];
-  const seen = /* @__PURE__ */ new Set();
-  for (const ticket of tickets) {
-    const key = ticket.identifier.toLowerCase();
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    const carried = new Set(tickets.filter((other) => other.identifier.toLowerCase() === key).map((other) => other.planningStatus));
-    if (carried.size < 2) {
-      ordered.push(ticket);
-      continue;
-    }
-    const labels = Object.values(PlanningStatus).filter((status) => carried.has(status)).map((status) => `'${settings.lifecycle.planningStatusLabels[status]}'`).join(" and ");
-    const reason = `skipped: it carries the planning status labels ${labels} \u2014 leave exactly one so the queue knows what the ticket still owes`;
-    onProgress?.(`${ticket.identifier} \xB7 ${reason}`);
-    leftBehind.push({ identifier: ticket.identifier, title: ticket.title, url: ticket.url, reason });
-  }
-  return { ordered, leftBehind };
-};
-
-// src/queue/ticketSelection/selectWaveTickets.ts
-var selectWaveTickets = ({ tickets, settings, attempted, holds, onProgress }) => {
-  const fresh = tickets.filter((ticket) => !attempted.has(ticket.identifier.toLowerCase()));
-  const { ordered, leftBehind } = dedupeTickets({ tickets: fresh, settings, onProgress });
-  const runnable = [];
-  const blocked = [];
-  for (const ticket of ordered) {
-    if (ticket.worker === void 0) {
-      continue;
-    }
-    if (isTicketGateHeld({ holds, identifier: ticket.identifier, labels: ticket.labels })) {
-      const held = describeGateHold({ hold: holds[ticket.identifier.toLowerCase()], identifier: ticket.identifier });
-      onProgress?.(`${ticket.identifier} \xB7 ${held}`);
-      blocked.push({ identifier: ticket.identifier, title: ticket.title, url: ticket.url, reason: held });
-      continue;
-    }
-    if (ticket.unfinishedBlockers.length === 0) {
-      runnable.push({ ...ticket, worker: ticket.worker });
-      continue;
-    }
-    const reason = `waiting: blocked by ${ticket.unfinishedBlockers.join(", ")} \u2014 the queue takes it once every blocker is finished`;
-    onProgress?.(`${ticket.identifier} \xB7 ${reason}`);
-    blocked.push({ identifier: ticket.identifier, title: ticket.title, url: ticket.url, reason });
-  }
-  return { runnable, blocked, skipped: leftBehind };
-};
-
-// src/queue/ticketSelection/listNextWave.ts
-var listNextWave = async ({ settings, trackerSettings, attempted, holds, onProgress }) => {
-  const eligible = await listEligibleTickets({ settings, trackerSettings });
-  if ("error" in eligible) {
-    return eligible;
-  }
-  return selectWaveTickets({ tickets: orderTickets({ tickets: eligible }), settings, attempted, holds, onProgress });
-};
-
-// src/queue/common/utils/establishBranchMerge.ts
-var establishBranchMerge = async ({ cwd, branch, onProgress }) => {
-  const recorded = await readBranchState({ cwd, branch });
-  let evidence;
-  if (recorded?.phase === BranchPhase.Merged) {
-    evidence = {};
-  } else {
-    const pullRequest = await findPullRequest({ branch, cwd, state: PullRequestState.Merged });
-    if (pullRequest !== void 0) {
-      await writeBranchState({ cwd, branch, phase: BranchPhase.Merged, onProgress });
-      evidence = { pullRequest };
-    }
-  }
-  return evidence;
-};
-
-// src/queue/ticketSelection/reconcileMergedTickets.ts
-var reconcileMergedTickets = async ({
+// src/cli/common/implementRun/openDirectWorkspace.ts
+var openDirectWorkspace = async ({
   cwd,
   config: config2,
-  env,
-  settings,
-  tickets,
-  onProgress
+  flags,
+  ticketPath,
+  ticketBody,
+  flaggedRef
 }) => {
-  const kept = [];
-  const leftBehind = [];
-  for (const ticket of tickets) {
-    const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
-    const evidence = await establishBranchMerge({ cwd, branch, onProgress });
-    if (evidence === void 0) {
-      kept.push(ticket);
-      continue;
-    }
-    const reconciliationFailure = await reconcileShippedTicket({ config: config2, env, ticketRef: ticket.identifier, onProgress });
-    if (reconciliationFailure !== void 0) {
-      onProgress?.(reconciliationFailure);
-    }
-    const worktreePath = await resolveWorktreePath({ cwd, branch });
-    const heldWorktree = await settleReconciledWorktree({ cwd, worktreePath, branch, onProgress });
-    const established = evidence.pullRequest === void 0 ? `its branch ${branch} is recorded merged` : `its branch ${branch} already has a merged pull request #${evidence.pullRequest.number}`;
-    const reason = `skipped: ${established}, so the ticket was reconciled to done rather than built again${heldWorktree ?? ""}${reconciliationFailure === void 0 ? "" : ` \u2014 ${reconciliationFailure}`}`;
-    leftBehind.push({
-      identifier: ticket.identifier,
-      title: ticket.title,
-      url: ticket.url,
-      reason,
-      settled: true,
-      ...reconciliationFailure === void 0 ? {} : { reconciliationFailure }
-    });
-  }
-  return { kept, leftBehind };
-};
-
-// src/queue/drainLanes/common/utils/settleMergedSelection.ts
-var settleMergedSelection = async ({ cwd, config: config2, env, settings, selection, serializeMainCheckout, onProgress }) => {
-  const reconciled = await serializeMainCheckout({
-    task: () => reconcileMergedTickets({ cwd, config: config2, env, settings, tickets: selection.runnable, onProgress })
-  });
-  return { ...selection, runnable: reconciled.kept, skipped: [...selection.skipped, ...reconciled.leftBehind] };
-};
-
-// src/queue/drainLanes/common/utils/admitScanned.ts
-var admitScanned = async ({ context, state, selection }) => {
-  const { cwd, config: config2, env, settings, serializeMainCheckout, onProgress } = context;
-  const settled2 = await settleMergedSelection({ cwd, config: config2, env, settings, selection, serializeMainCheckout, onProgress });
-  const admitted = admitSelection({ state, selection: settled2 });
-  if (admitted.length > 0) {
-    state.idleScanSpent = false;
-  }
-  return admitted;
-};
-
-// src/queue/drainLanes/common/utils/trackTask.ts
-var trackTask = ({ flight, run }) => {
-  const key = flight.nextKey;
-  flight.nextKey += 1;
-  flight.tasks.set(
-    key,
-    run().then(() => key)
-  );
-};
-
-// src/queue/drainLanes/common/utils/startBuilds.ts
-var parkedBuild = async ({ context, ticket, thrown }) => {
-  const branch = toTicketBranch({ ticket, template: context.settings.branchTemplate });
-  const worktreePath = await resolveWorktreePath({ cwd: context.cwd, branch });
-  return { ticket, branch, worktreePath, ready: false, error: messageOf({ error: thrown }) };
-};
-var settleBuild = ({ state, ticket, outcome }) => {
-  state.building.delete(ticket.identifier.toLowerCase());
-  if (outcome.unanswered === true) {
-    state.retired += 1;
-  }
-  if (outcome.ready) {
-    state.readyToShip.push(outcome);
-  } else {
-    state.outcomes.push(outcome);
-  }
-};
-var buildTicket = async ({ context, state, ticket }) => {
-  try {
-    settleBuild({ state, ticket, outcome: await context.runTicket({ ticket }) });
-  } catch (thrown) {
-    settleBuild({ state, ticket, outcome: await parkedBuild({ context, ticket, thrown }) });
-  }
-};
-var startBuilds = ({ context, state, flight }) => {
-  while (state.pending.length > 0 && flight.builds + flight.ships + state.retired < context.settings.maxParallel) {
-    const ticket = state.pending.shift();
-    if (ticket === void 0) {
-      break;
-    }
-    flight.builds += 1;
-    state.building.set(ticket.identifier.toLowerCase(), { ticket, startedAt: (/* @__PURE__ */ new Date()).toISOString() });
-    trackTask({
-      flight,
-      run: async () => {
-        await buildTicket({ context, state, ticket });
-        flight.builds -= 1;
-      }
-    });
-  }
-};
-
-// src/queue/drainLanes/common/utils/writeQueuePlan.ts
-import { writeFile as writeFile26 } from "node:fs/promises";
-import { join as join142 } from "node:path";
-var writeQueuePlan = async ({ path, cwd, settings, queued }) => {
-  const root = await resolveWorktreesRoot({ cwd });
-  const lines = queued.map((ticket) => {
-    const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
-    return `- ${ticket.identifier} \xB7 ${ticket.worker} \xB7 ${branch} \xB7 ${join142(root, branch)}`;
-  });
-  await writeFile26(path, `# queue drain
-
-${lines.join("\n")}
-`, "utf8");
-};
-
-// src/queue/drainLanes/common/utils/startScan.ts
-var runScan = async ({ context, state }) => {
-  const { settings, trackerSettings, holds, onProgress } = context;
-  const scanned = listNextWave({ settings, trackerSettings, attempted: state.attempted, holds, onProgress });
-  const next = await scanned.catch((thrown) => ({ error: messageOf({ error: thrown }) }));
-  if ("error" in next) {
-    state.scansStopped = true;
-    onProgress?.(`the re-scan for newly unblocked tickets failed, so nothing new will join this run: ${next.error}`);
-  } else {
-    const admitted = await admitScanned({ context, state, selection: next });
-    if (admitted.length > 0) {
-      onProgress?.(`${admitted.map((ticket) => ticket.identifier).join(", ")} \xB7 joined the run already in flight`);
-      await writeQueuePlan({ path: context.planPath, cwd: context.cwd, settings, queued: state.queued });
-    }
-  }
-};
-var startScan = ({ context, state, flight }) => {
-  const allowed = flight.scans === 0 && !state.scansStopped && state.blockedByIdentifier.size > 0 && state.retired < context.settings.maxParallel;
-  const idle = flight.tasks.size === 0 && state.pending.length === 0 && state.readyToShip.length === 0 && !state.idleScanSpent;
-  if (allowed && (state.rescanRequested || idle)) {
-    state.rescanRequested = false;
-    state.idleScanSpent = true;
-    flight.scans += 1;
-    trackTask({
-      flight,
-      run: async () => {
-        await runScan({ context, state });
-        flight.scans -= 1;
-      }
-    });
-  }
-};
-
-// src/queue/shipOneBranch.ts
-var settleLandedMerge = async ({
-  cwd,
-  config: config2,
-  env,
-  outcome,
-  ticketRef,
-  mergeCommit,
-  serializeMainCheckout,
-  onProgress
-}) => {
-  await writeBranchState({ cwd, branch: outcome.branch, phase: BranchPhase.Merged, onProgress });
-  const removal = await serializeMainCheckout({ task: () => removeWorktree({ cwd, worktreePath: outcome.worktreePath, branch: outcome.branch }) });
-  if (removal === void 0) {
-    await deleteWorktreeRecord({ cwd, branch: outcome.branch });
-  }
-  onProgress?.(`${outcome.ticket.identifier} \xB7 shipped as ${mergeCommit}`);
-  return reconcileShippedTicket({ config: config2, env, ticketRef, onProgress });
-};
-var shipOneBranch = async ({
-  cwd,
-  config: config2,
-  shipSettings,
-  integration,
-  defaultBranch,
-  env,
-  outcome,
-  runId,
-  serializeMainCheckout,
-  onProgress
-}) => {
-  const park = ({ error: error51 }) => {
-    onProgress?.(`${outcome.ticket.identifier} \xB7 not shipped: ${error51}`);
-    return { ...outcome, ready: false, error: error51 };
-  };
-  onProgress?.(`${outcome.ticket.identifier} \xB7 merging ${outcome.branch} into origin/${defaultBranch}`);
-  const shipped = await runShip({
-    cwd: outcome.worktreePath,
-    settings: shipSettings,
-    integration,
-    ticketGuard: createTicketShipGuard({ config: config2, env, onProgress }),
-    onProgress
-  });
-  if (shipped.status === ShipStatus.Blocked && shipped.reason === ShipBlockReason.IntegrationGatesUnavailable) {
-    const coordination = shipped.detail ?? "the shared gate reservation was never acquired";
-    const holdFailure = await takeGateHold({
-      cwd,
-      config: config2,
-      env,
-      ticketRef: outcome.ticket.identifier,
-      runId,
-      worktreePath: outcome.worktreePath,
-      reason: coordination,
-      onProgress
-    });
-    return park({ error: holdFailure === void 0 ? coordination : `${coordination} ${holdFailure}` });
-  }
-  if (shipped.status === ShipStatus.Blocked && shipped.reason === ShipBlockReason.TicketNotAuthorized) {
-    const waiting = shipped.detail ?? "the branch\u2019s ticket record does not authorize shipping it";
-    onProgress?.(`${outcome.ticket.identifier} \xB7 left open: ${waiting}`);
-    await writeBranchState({ cwd, branch: outcome.branch, phase: BranchPhase.Open, onProgress });
-    return { ...outcome, ready: false, open: waiting };
-  }
-  if (shipped.status === ShipStatus.Blocked) {
-    return park({ error: `${shipped.reason}: ${shipped.detail}` });
-  }
-  const reconciliationFailure = await settleLandedMerge({
+  const workspace = await resolveRunWorkspace({
     cwd,
     config: config2,
-    env,
-    outcome,
-    ticketRef: shipped.ticketRef,
-    mergeCommit: shipped.mergeCommit,
-    serializeMainCheckout,
-    onProgress
+    flags,
+    ticketPath,
+    ticketRef: flaggedRef,
+    ticketBody,
+    onProgress: createProgressPrinter()
   });
-  return reconciliationFailure === void 0 ? outcome : { ...outcome, reconciliationFailure };
+  if ("error" in workspace) {
+    return { error: workspace.error };
+  }
+  const uncommittable = await describeUncommittableTree({ cwd: workspace.cwd, isolated: workspace.isolated });
+  if (uncommittable !== void 0) {
+    return { error: uncommittable };
+  }
+  const copied = await copyRunInputs({ sourceCwd: cwd, workspace: workspace.cwd, ticketPath });
+  return "error" in copied ? { error: copied.error } : { workspace, ticketPath: copied.ticketPath ?? ticketPath };
 };
 
-// src/queue/drainLanes/common/utils/startShip.ts
-var mergeBranch = async ({ context, state, outcome }) => {
-  try {
-    const shipped = await shipOneBranch({
-      cwd: context.cwd,
-      config: context.config,
-      shipSettings: context.shipSettings,
-      integration: context.shipIntegration,
-      defaultBranch: context.defaultBranch,
-      env: context.env,
-      outcome,
-      runId: context.runId,
-      serializeMainCheckout: context.serializeMainCheckout,
-      onProgress: context.onProgress
-    });
-    state.shipping = void 0;
-    state.outcomes.push(shipped);
-    if (shipped.ready) {
-      state.rescanRequested = true;
-      state.idleScanSpent = false;
-    }
-  } catch (thrown) {
-    state.shipping = void 0;
-    state.outcomes.push({ ...outcome, ready: false, error: messageOf({ error: thrown }) });
+// src/cli/common/implementRun/readBodyBuildPlanName.ts
+var readBodyBuildPlanName = async ({ cwd, branch }) => {
+  if (branch === void 0) {
+    return void 0;
   }
-};
-var startShip = ({ context, state, flight }) => {
-  const waiting = flight.ships > 0 || flight.builds >= context.settings.maxParallel ? void 0 : state.readyToShip.shift();
-  if (waiting !== void 0) {
-    state.shipping = waiting;
-    flight.ships += 1;
-    trackTask({
-      flight,
-      run: async () => {
-        await mergeBranch({ context, state, outcome: waiting });
-        flight.ships -= 1;
-      }
-    });
+  const read = await readTicketRecord({ cwd, ticketBranch: branch });
+  if ("error" in read) {
+    return { error: read.error };
   }
+  const record3 = read.record;
+  if (record3 === void 0 || record3.mode !== TicketMode.SinglePlan) {
+    return void 0;
+  }
+  const first = record3.plans.find((plan) => planNumberOf({ id: plan.id }) === 1 && plan.exclusion === void 0 && plan.progress !== PlanProgress.Implemented);
+  return first === void 0 ? void 0 : formatPlanAddress({ ticketBranch: branch, planId: first.id });
 };
 
-// src/queue/drainLanes/runDrainLanes.ts
-var seedState = ({
-  attempted,
-  carried,
-  carriedLeftBehind
-}) => ({
-  pending: [],
-  queued: [],
-  building: /* @__PURE__ */ new Map(),
-  readyToShip: carried.filter((outcome) => outcome.ready),
-  shipping: void 0,
-  outcomes: carried.filter((outcome) => !outcome.ready),
-  leftBehind: [...carriedLeftBehind],
-  attempted: new Set(attempted),
-  blockedByIdentifier: /* @__PURE__ */ new Map(),
-  retired: 0,
-  rescanRequested: false,
-  idleScanSpent: false,
-  scansStopped: false
-});
-var finishDrain = ({ context, state }) => {
-  for (const ticket of state.pending) {
-    const reason = "not started: every slot was retired by a ticket parked on an unanswered question";
-    state.leftBehind.push({ identifier: ticket.identifier, title: ticket.title, url: ticket.url, reason });
-    context.onProgress?.(`${ticket.identifier} \xB7 ${reason}`);
-  }
-  state.pending = [];
-  state.leftBehind.push(...state.blockedByIdentifier.values());
-  state.blockedByIdentifier.clear();
-  return { outcomes: state.outcomes, leftBehind: state.leftBehind };
-};
-var recordBoard = ({ context, state }) => {
-  context.board.record({
-    settled: { outcomes: state.outcomes, leftBehind: state.leftBehind },
-    lanes: {
-      pending: state.pending,
-      building: [...state.building.values()],
-      readyToShip: state.readyToShip,
-      shipping: state.shipping,
-      blocked: [...state.blockedByIdentifier.values()]
-    }
-  });
-};
-var runDrainLanes = async ({ first, carried, carriedLeftBehind, attempted, ...context }) => {
-  const state = seedState({ attempted, carried, carriedLeftBehind });
-  const flight = { tasks: /* @__PURE__ */ new Map(), builds: 0, ships: 0, scans: 0, nextKey: 0 };
-  await admitScanned({ context, state, selection: first });
-  await writeQueuePlan({ path: context.planPath, cwd: context.cwd, settings: context.settings, queued: state.queued });
-  for (; ; ) {
-    startShip({ context, state, flight });
-    startBuilds({ context, state, flight });
-    startScan({ context, state, flight });
-    recordBoard({ context, state });
-    if (flight.tasks.size === 0) {
-      break;
-    }
-    flight.tasks.delete(await Promise.race(flight.tasks.values()));
-  }
-  const report2 = finishDrain({ context, state });
-  recordBoard({ context, state });
-  return report2;
-};
-
-// src/queue/drainQueue.ts
-var toParkedIdentifiers = ({ parked }) => [
-  ...parked.outcomes.map((outcome) => outcome.ticket.identifier),
-  ...parked.leftBehind.map((entry) => entry.identifier),
-  ...parked.merged.map((tree) => tree.ticket.identifier)
-];
-var drainQueue = async ({
-  cwd,
-  runId,
-  holds,
-  settings,
-  trackerSettings,
-  shipSettings,
-  shipIntegration,
-  config: config2,
-  env,
-  defaultBranch,
-  planPath,
-  first,
-  parked,
-  runTicket,
-  serializeMainCheckout,
-  board,
-  onProgress
-}) => {
-  const leftBehind = [...parked.leftBehind];
-  const attempted = new Set(toParkedIdentifiers({ parked }).map((identifier) => identifier.toLowerCase()));
-  leftBehind.push(...await settleMergedTrees({ cwd, config: config2, env, settings, trackerSettings, merged: parked.merged, onProgress }));
-  return runDrainLanes({
+// src/direct/common/utils/createDirectRun.ts
+import { writeFile as writeFile26 } from "node:fs/promises";
+import { join as join136 } from "node:path";
+var createDirectRun = async ({ cwd, runId, ticketBody, ticketRef, driverName, config: config2, willShip }) => {
+  const ticketPath = join136(getRunDir({ cwd, runId }), "ticket.md");
+  const manifest = await createRun({
     cwd,
     runId,
-    holds,
+    plan: ticketPath,
+    pipeline: PipelineKind.Direct,
+    ticketRef,
+    driver: driverName,
     config: config2,
-    settings,
-    trackerSettings,
-    shipSettings,
-    shipIntegration,
-    defaultBranch,
-    env,
-    planPath,
-    first,
-    carried: parked.outcomes,
-    carriedLeftBehind: leftBehind,
-    attempted,
-    runTicket,
-    serializeMainCheckout,
-    board,
-    onProgress
+    baselineDirtyFiles: await readGitChangedFiles({ cwd }),
+    willShip
   });
-};
-
-// src/queue/runQueueTicket.ts
-import { join as join145 } from "node:path";
-
-// src/common/git/readGitCommitsAhead.ts
-var readGitCommitsAhead = async ({ cwd, defaultBranch }) => {
-  const counted = await runCommand({ command: `git rev-list --count origin/${defaultBranch}..HEAD`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  if (counted?.exitCode !== 0) {
-    return void 0;
-  }
-  const commits = Number.parseInt(counted.stdout.trim(), 10);
-  return Number.isFinite(commits) ? commits : void 0;
-};
-
-// src/queue/common/utils/settleWorkerOutcome.ts
-var settleWorkerOutcome = async ({
-  cwd,
-  worktreePath,
-  branch,
-  defaultBranch,
-  ticket,
-  ticketRunDir,
-  generated,
-  worked,
-  onProgress
-}) => {
-  if (worked.error !== void 0) {
-    return { ready: false, error: worked.error, unanswered: worked.unanswered };
-  }
-  if (worked.open !== void 0) {
-    await writeBranchState({ cwd, branch, phase: BranchPhase.Open, onProgress });
-    return { ready: false, open: worked.open, error: void 0, unanswered: void 0 };
-  }
-  const committed = await commitTicketWork({
-    cwd: worktreePath,
-    message: `${ticket.identifier} ${ticket.title}`,
-    runDir: ticketRunDir,
-    generated,
-    onProgress
-  });
-  if ("error" in committed) {
-    return { ready: false, error: committed.error };
-  }
-  const ahead = await readGitCommitsAhead({ cwd: worktreePath, defaultBranch });
-  if (ahead === void 0) {
-    return { ready: false, error: `git could not count the commits on ${branch}` };
-  }
-  if (ahead === 0) {
-    return { ready: false, error: "the worker left no commits on the branch" };
-  }
-  await writeBranchState({ cwd, branch, phase: BranchPhase.Ready, onProgress });
-  return { ready: true };
-};
-
-// src/direct/runDirectWork.ts
-import { writeFile as writeFile27 } from "node:fs/promises";
-import { join as join143 } from "node:path";
-
-// src/direct/common/utils/stopDirectRun.ts
-var stopDirectRun = async ({ run, record: record3, status, error: error51 }) => {
-  await run.stop({ record: record3, status, error: error51, label: "direct run" });
-  return { ok: false, manifest: run.current(), error: error51 };
+  await writeFile26(ticketPath, ticketBody.endsWith("\n") ? ticketBody : `${ticketBody}
+`, "utf8");
+  return manifest;
 };
 
 // src/direct/common/utils/nextStepRecord.ts
@@ -160516,6 +159553,24 @@ var nextStepRecord = ({ run, id }) => ({
   status: RunStatus.Running,
   attempts: (run.current().steps.find((step) => step.id === id)?.attempts ?? 0) + 1
 });
+
+// src/direct/common/utils/stopDirectRun.ts
+var stopDirectRun = async ({ run, record: record3, status, error: error51 }) => {
+  await run.stop({ record: record3, status, error: error51, label: "direct run" });
+  return { ok: false, manifest: run.current(), error: error51 };
+};
+
+// src/direct/common/utils/finishDirectRun.ts
+var finishDirectRun = async ({ run, ticketRef, ticketBody, resumed }) => {
+  const subject = `${ticketRef} ${headingOf({ text: ticketBody })}`.trim();
+  const uncommitted = await commitRunWork({ run, subject, resumed });
+  if (uncommitted !== void 0) {
+    return stopDirectRun({ run, record: nextStepRecord({ run, id: "commit" }), status: RunStatus.Failed, error: uncommitted });
+  }
+  await run.update({ patch: { status: RunStatus.Passed, currentStep: null } });
+  const passed = { ok: true, manifest: run.current() };
+  return passed;
+};
 
 // src/direct/invokeDirectWorker.ts
 var implementStep = "implement";
@@ -160596,31 +159651,6 @@ var verifyDirectWork = async ({
 };
 
 // src/direct/runDirectWork.ts
-var createDirectRun = async ({
-  cwd,
-  runId,
-  ticketBody,
-  ticketRef,
-  driverName,
-  config: config2,
-  willShip
-}) => {
-  const ticketPath = join143(getRunDir({ cwd, runId }), "ticket.md");
-  const manifest = await createRun({
-    cwd,
-    runId,
-    plan: ticketPath,
-    pipeline: PipelineKind.Direct,
-    ticketRef,
-    driver: driverName,
-    config: config2,
-    baselineDirtyFiles: await readGitChangedFiles({ cwd }),
-    willShip
-  });
-  await writeFile27(ticketPath, ticketBody.endsWith("\n") ? ticketBody : `${ticketBody}
-`, "utf8");
-  return manifest;
-};
 var stopDirectOnCoordination = ({ run, record: record3, coordination }) => {
   run.progress("the gates never started \u2014 another run holds this machine, and no fix was attempted");
   return stopDirectRun({
@@ -160650,7 +159680,8 @@ var buildAndVerify = async ({
   ticketRef,
   ticketBody,
   standards,
-  answeredQuestion
+  answeredQuestion,
+  resumed
 }) => {
   let errorContext;
   for (let attempt = 0; ; attempt += 1) {
@@ -160666,9 +159697,7 @@ var buildAndVerify = async ({
       return stopDirectOnCrash({ run, record: record3, crashes, gateError });
     }
     if (gateError === void 0) {
-      await run.update({ patch: { status: RunStatus.Passed, currentStep: null } });
-      const passed = { ok: true, manifest: run.current() };
-      return passed;
+      return finishDirectRun({ run, ticketRef, ticketBody, resumed });
     }
     errorContext = gateError;
     if (attempt === maxCheapFixRetries) {
@@ -160694,6 +159723,9 @@ var executeDirectWork = async ({
   const run = new RunState({ cwd, config: config2, manifest, onProgress });
   const stop = ({ record: record3, status, error: error51 }) => stopDirectRun({ run, record: record3, status, error: error51 });
   await run.update({ patch: { status: RunStatus.Running } });
+  if (run.current().steps.some((step) => step.id === "verify" && step.status === RunStatus.Passed)) {
+    return finishDirectRun({ run, ticketRef, ticketBody, resumed: true });
+  }
   const redBaseline = existing === void 0 ? await runPreflightGate({
     run: {
       cwd,
@@ -160711,1018 +159743,12 @@ var executeDirectWork = async ({
     return redBaseline;
   }
   const { standards } = await resolveStandards({ cwd, config: config2, packages: [] });
-  return buildAndVerify({ run, driver, ticketRef, ticketBody, standards, answeredQuestion });
+  return buildAndVerify({ run, driver, ticketRef, ticketBody, standards, answeredQuestion, resumed: existing !== void 0 });
 };
 var runDirectWork = (params) => withRunLock({ params, run: executeDirectWork });
 
-// src/queue/workers/common/utils/buildFromTicketBody.ts
-var toBuildOutcome = ({ outcome }) => {
-  if ("refusal" in outcome) {
-    return { error: outcome.refusal };
-  }
-  const { result, recordError } = outcome;
-  if (result.ok) {
-    return recordError === void 0 ? {} : { error: recordError };
-  }
-  const stated = result.error ?? `the run ended ${result.manifest.status}`;
-  return { error: `${stated} \u2014 \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree` };
-};
-var buildFromTicketBody = async ({ step }) => {
-  const { cwd, record: record3, plan, ticket, config: config2, driver, driverName, onProgress } = step;
-  onProgress?.(`${ticket.identifier} carries no plan deliverable for plan ${plan.id}, so it is built from the ticket body`);
-  return toBuildOutcome({
-    outcome: await runTicketPlanLifecycle({
-      cwd,
-      name: formatPlanAddress({ ticketBranch: record3.branch, planId: plan.id }),
-      run: ({ runId }) => runDirectWork({ cwd, ticketBody: ticket.description, ticketRef: ticket.identifier, runId, driver, driverName, config: config2, onProgress })
-    })
-  });
-};
-
-// src/queue/workers/common/utils/commitPlanWork.ts
-var commitPlanWork = async ({ step }) => {
-  const { cwd, record: record3, plan, ticket, ticketRunDir, config: config2, onProgress } = step;
-  const committed = await commitTicketWork({
-    cwd,
-    message: `${ticket.identifier} ${plan.id}: ${plan.title}`,
-    runDir: ticketRunDir,
-    generated: config2.generated,
-    onProgress
-  });
-  return "error" in committed ? `plan ${plan.id} on ticket ${record3.branch} was built, but its work could not be committed: ${committed.error}` : void 0;
-};
-
-// src/queue/workers/common/utils/findStalledPlanRefusal.ts
-var findStalledPlanRefusal = ({ record: record3, plan }) => {
-  if (plan.progress !== PlanProgress.Failed && plan.progress !== PlanProgress.Implementing) {
-    return void 0;
-  }
-  const finish = plan.implementation === void 0 ? "" : `finish it with \`lightsout resume --run ${plan.implementation.runId}\`, or `;
-  return `the implementation of plan ${plan.id} on ticket ${record3.branch} has not finished, and a ticket's plans implement in numeric order \u2014 ${finish}take it out of the order with \`lightsout ticket exclude-plan --name ${record3.branch} --plan ${plan.id}\``;
-};
-
-// src/queue/workers/common/utils/settleLeftoverWork.ts
-var settleLeftoverWork = async ({ step, leftover }) => {
-  const { cwd, record: record3 } = step;
-  if (leftover.length === 0) {
-    return void 0;
-  }
-  const owner = record3.plans.filter((plan) => plan.progress === PlanProgress.Implemented && plan.implementation?.finishedAt !== void 0).sort((first, second) => Date.parse(second.implementation?.finishedAt ?? "") - Date.parse(first.implementation?.finishedAt ?? "")).at(0);
-  return owner === void 0 ? `the worktree ${cwd} holds changes no implemented plan of ticket ${record3.branch} accounts for, so the queue cannot say which plan they belong to` : commitPlanWork({ step: { ...step, plan: owner } });
-};
-
-// src/queue/workers/runPlanFolderPipeline.ts
-import { join as join144 } from "node:path";
-var runPlanFolderPipeline = async ({ cwd, name, config: config2, driver, onProgress }) => {
-  const folder = await planWorkspaceDir({ cwd, name });
-  const overviewPath = join144(folder, "overview.md");
-  const phased = await pathExists({ path: overviewPath });
-  const outcome = await runTicketPlanLifecycle({
-    cwd,
-    name,
-    run: ({ runId }) => phased ? runPhasesPipeline({ cwd, driver, config: config2, overviewPath, runId, onProgress }) : runImplementPipeline({ cwd, driver, config: config2, planPath: join144(folder, "plan.md"), runId, onProgress })
-  });
-  if ("refusal" in outcome) {
-    return { error: outcome.refusal };
-  }
-  const { result, recordError } = outcome;
-  if (result.ok) {
-    return recordError === void 0 ? {} : { error: recordError };
-  }
-  const stated = result.error ?? `the run ended ${result.manifest.status}`;
-  return { error: `${stated} \u2014 \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree` };
-};
-
-// src/queue/workers/buildTicketPlans.ts
-var readLeftoverWork = async ({ cwd, config: config2 }) => {
-  const changed = await readGitChangedFiles({ cwd }) ?? [];
-  return changed.filter((path) => !isGeneratedPath({ path, generated: config2.generated ?? [] }));
-};
-var findNextPlanToBuild = ({ record: record3 }) => record3.plans.find((plan) => plan.exclusion === void 0 && plan.progress !== PlanProgress.Implemented);
-var takePlanBeingPlanned = ({ step, allowTicketBodyBuild }) => {
-  const { record: record3, plan } = step;
-  if (record3.mode !== TicketMode.SinglePlan) {
-    return { open: `plan ${plan.id} on ticket ${record3.branch} is still being planned, so the ticket stays open until that plan is ready to implement` };
-  }
-  if (!allowTicketBodyBuild || planNumberOf({ id: plan.id }) !== 1) {
-    return {
-      error: `plan ${plan.id} on ticket ${record3.branch} is still being planned, so the ticket has nothing ready to implement \u2014 plan it with \`lightsout plan --name ${formatPlanAddress({ ticketBranch: record3.branch, planId: plan.id })}\``
-    };
-  }
-  return buildFromTicketBody({ step });
-};
-var buildReadyPlan = async ({ step }) => {
-  const { cwd, record: record3, plan, config: config2, env, driver, onProgress } = step;
-  const address = formatPlanAddress({ ticketBranch: record3.branch, planId: plan.id });
-  if (!await pathExists({ path: await planWorkspaceDir({ cwd, name: address }) })) {
-    const restored = await restoreTicketPlan({ cwd, address, config: config2, env, onProgress });
-    if ("error" in restored) {
-      return { error: restored.error };
-    }
-    if (restored.restored.length === 0) {
-      return { error: `plan ${plan.id} is ready to implement on ticket ${record3.branch}, but ${record3.ticketRef} carries no published files for it` };
-    }
-  }
-  return runPlanFolderPipeline({ cwd, name: address, config: config2, driver, onProgress });
-};
-var commitAndConfirmPlan = async ({ step, branch }) => {
-  const { cwd, plan } = step;
-  const committed = await commitPlanWork({ step });
-  if (committed !== void 0) {
-    return { error: committed };
-  }
-  const reread = await readTicketRecord({ cwd, ticketBranch: branch });
-  if ("error" in reread) {
-    return reread;
-  }
-  const { record: record3 } = reread;
-  if (record3?.plans.find((candidate) => candidate.id === plan.id)?.progress !== PlanProgress.Implemented) {
-    return {
-      error: `plan ${plan.id} on ticket ${branch} was built and passed, but its implementation is not recorded as finished, so the queue stopped rather than build it again`
-    };
-  }
-  return { record: record3 };
-};
-var decideTicketOutcome = ({ record: record3 }) => {
-  const eligibility = readTicketShipEligibility({ record: record3 });
-  if (eligibility.eligible) {
-    return {};
-  }
-  return record3.mode === TicketMode.MultiplePlan ? { open: eligibility.reason } : { error: eligibility.reason };
-};
-var buildTicketPlans = async ({
-  cwd,
-  branch,
-  ticket,
-  record: record3,
-  config: config2,
-  env,
-  driver,
-  driverName,
-  ticketRunDir,
-  allowTicketBodyBuild,
-  onProgress
-}) => {
-  const leftover = await readLeftoverWork({ cwd, config: config2 });
-  let current = record3;
-  let settled2 = false;
-  for (; ; ) {
-    const plan = findNextPlanToBuild({ record: current });
-    if (plan === void 0) {
-      return decideTicketOutcome({ record: current });
-    }
-    const step = { cwd, record: current, plan, ticket, config: config2, env, driver, driverName, ticketRunDir, onProgress };
-    const stalled = findStalledPlanRefusal({ record: current, plan });
-    if (stalled !== void 0) {
-      return { error: stalled };
-    }
-    if (!settled2) {
-      const unsettled = await settleLeftoverWork({ step, leftover });
-      if (unsettled !== void 0) {
-        return { error: unsettled };
-      }
-      settled2 = true;
-    }
-    const built = plan.progress === PlanProgress.Planning ? await takePlanBeingPlanned({ step, allowTicketBodyBuild }) : await buildReadyPlan({ step });
-    if (built.error !== void 0 || built.open !== void 0) {
-      return built;
-    }
-    const confirmed = await commitAndConfirmPlan({ step, branch });
-    if ("error" in confirmed) {
-      return { error: confirmed.error };
-    }
-    current = confirmed.record;
-  }
-};
-
-// src/queue/workers/chooseAutoPlanTarget.ts
-var toFirstPlanSlug = ({ title }) => {
-  const words = toBranchSlug({ text: title }).split("-").filter(Boolean).slice(0, 3);
-  return words.length === 0 ? "plan" : words.join("-");
-};
-var chooseAutoPlanTarget = async ({
-  cwd,
-  branch,
-  ticket,
-  config: config2,
-  env,
-  onProgress
-}) => {
-  const pulled = await pullTicketRecord({ cwd, ticketBranch: branch, config: config2, env, onProgress });
-  if ("error" in pulled) {
-    return pulled;
-  }
-  if (pulled.record === void 0) {
-    const added = await addTicketPlan({
-      cwd,
-      ticketBranch: branch,
-      slug: toFirstPlanSlug({ title: ticket.title }),
-      title: ticket.title,
-      config: config2,
-      env,
-      onProgress
-    });
-    if ("error" in added) {
-      return added;
-    }
-    for (const message of [added.notice, added.publishError].filter((entry) => entry !== void 0)) {
-      onProgress?.(message);
-    }
-    return { record: added.record, address: added.address };
-  }
-  const { record: record3 } = pulled;
-  const waiting = findNextPlanToPlan({ record: record3 });
-  return waiting === void 0 ? { record: record3 } : { record: record3, address: formatPlanAddress({ ticketBranch: branch, planId: waiting.id }) };
-};
-
-// src/queue/workers/runAutoPlanWorker.ts
-var runPlanningSession = async ({
-  cwd,
-  ticket,
-  planAddress,
-  config: config2,
-  driver,
-  settings,
-  answeredQuestion,
-  onProgress
-}) => {
-  const engineCli = `node ${process.argv[1]}`;
-  const outcome = await invokeAgentWithContract({
-    driver,
-    cwd,
-    invocation: buildQueueAutoPlanInvocation({
-      ticketRef: ticket.identifier,
-      ticketTitle: ticket.title,
-      ticketBody: ticket.description,
-      engineCli,
-      planAddress,
-      answeredQuestion
-    }),
-    contract: WorkReport,
-    model: config2.model,
-    effort: config2.effort,
-    permissions: config2.permissions,
-    timeoutMs: settings.workerTimeoutMs,
-    allowedCommands: [...config2["agent-commands"] ?? [], engineCli]
-  });
-  if (!outcome.ok) {
-    return { error: outcome.failure };
-  }
-  const report2 = outcome.report;
-  const refusal = report2.failures[0] ?? report2.summary;
-  if (report2.status === WorkReportStatus.TerminatedAmbiguity) {
-    return { question: refusal };
-  }
-  if (report2.status !== WorkReportStatus.Complete) {
-    return { error: refusal };
-  }
-  const folder = await planWorkspaceDir({ cwd, name: planAddress });
-  if (!await pathExists({ path: folder })) {
-    return { error: `${ticket.identifier}'s auto-plan session reported a finished plan, but no plan folder exists at ${folder} \u2014 nothing was built` };
-  }
-  onProgress?.(`${ticket.identifier} is planned and published; the engine now runs the implement pipeline on its plan folder`);
-  return void 0;
-};
-var runAutoPlanWorker = async ({
-  cwd,
-  ticket,
-  branch,
-  config: config2,
-  driver,
-  driverName,
-  settings,
-  env,
-  ticketRunDir,
-  answeredQuestion,
-  onProgress
-}) => {
-  const chosen = await chooseAutoPlanTarget({ cwd, branch, ticket, config: config2, env, onProgress });
-  if ("error" in chosen) {
-    return { error: chosen.error };
-  }
-  const build = ({ record: record3 }) => buildTicketPlans({ cwd, branch, ticket, record: record3, config: config2, env, driver, driverName, ticketRunDir, allowTicketBodyBuild: false, onProgress });
-  if (chosen.address === void 0) {
-    const built = await build({ record: chosen.record });
-    return built.open === void 0 ? built : { open: `no plan is waiting to be planned on ${ticket.identifier}: ${built.open}` };
-  }
-  const planAddress = chosen.address;
-  const stopped = await runPlanningSession({ cwd, ticket, planAddress, config: config2, driver, settings, answeredQuestion, onProgress });
-  if (stopped !== void 0) {
-    return stopped;
-  }
-  const planned = await pullTicketRecord({ cwd, ticketBranch: branch, config: config2, env, onProgress });
-  if ("error" in planned) {
-    return { error: planned.error };
-  }
-  if (planned.record === void 0) {
-    return { error: `ticket ${branch} no longer has a record, so the plan ${planAddress} the session wrote could not be built` };
-  }
-  return build({ record: planned.record });
-};
-
-// src/queue/workers/runWorkerWithRelay.ts
-var runDirectWorker = async ({
-  cwd,
-  ticket,
-  config: config2,
-  driver,
-  driverName,
-  answeredQuestion,
-  onProgress
-}) => {
-  const result = await runDirectWork({
-    cwd,
-    ticketBody: ticket.description,
-    ticketRef: ticket.identifier,
-    driver,
-    driverName,
-    config: config2,
-    answeredQuestion,
-    onProgress
-  });
-  if (result.ok) {
-    return {};
-  }
-  const stated = result.error ?? `the run ended ${result.manifest.status}`;
-  return result.manifest.status === RunStatus.Escalated ? { question: stated } : { error: stated };
-};
-var runPlanWorker = async ({
-  cwd,
-  ticket,
-  branch,
-  config: config2,
-  driver,
-  driverName,
-  trackerSettings,
-  env,
-  ticketRunDir,
-  onProgress
-}) => {
-  const pulled = await pullTicketRecord({ cwd, ticketBranch: branch, config: config2, env, onProgress });
-  if ("error" in pulled) {
-    return { error: pulled.error };
-  }
-  if (pulled.record !== void 0) {
-    return buildTicketPlans({
-      cwd,
-      branch,
-      ticket,
-      record: pulled.record,
-      config: config2,
-      env,
-      driver,
-      driverName,
-      ticketRunDir,
-      allowTicketBodyBuild: true,
-      onProgress
-    });
-  }
-  const folder = await planWorkspaceDir({ cwd, name: branch });
-  if (!await pathExists({ path: folder })) {
-    const restored = await restorePlanWorkspace({ cwd, name: branch, identifier: ticket.identifier, settings: trackerSettings });
-    if (restored.error !== void 0) {
-      return { error: `the plan published to ${ticket.identifier} could not be fetched: ${restored.error}` };
-    }
-    if (restored.restored.length === 0) {
-      onProgress?.(`${ticket.identifier} carries no published plan, so it is built from the ticket body`);
-      return runDirectWorker({ cwd, ticket, config: config2, driver, driverName, onProgress });
-    }
-  }
-  return runPlanFolderPipeline({ cwd, name: branch, config: config2, driver, onProgress });
-};
-var runWorkerWithRelay = async ({
-  worktreePath,
-  branch,
-  ticket,
-  config: config2,
-  driver,
-  driverName,
-  settings,
-  trackerSettings,
-  relay,
-  coordinatorRunId,
-  coordinatorRunDir,
-  ticketRunDir,
-  env,
-  onProgress
-}) => {
-  const maxRelayedQuestions = 2;
-  let answeredQuestion;
-  for (let turn = 0; ; turn += 1) {
-    const workers = {
-      [QueueWorker.Direct]: () => runDirectWorker({ cwd: worktreePath, ticket, config: config2, driver, driverName, answeredQuestion, onProgress }),
-      [QueueWorker.Plan]: () => runPlanWorker({ cwd: worktreePath, ticket, branch, config: config2, driver, driverName, trackerSettings, env, ticketRunDir, onProgress }),
-      [QueueWorker.AutoPlan]: () => runAutoPlanWorker({ cwd: worktreePath, ticket, branch, config: config2, driver, driverName, settings, env, ticketRunDir, answeredQuestion, onProgress })
-    };
-    const outcome = await workers[ticket.worker]();
-    if (outcome.question === void 0) {
-      return outcome;
-    }
-    if (turn === maxRelayedQuestions) {
-      return { error: `the worker is still asking after ${turn} answered question(s): ${outcome.question}` };
-    }
-    const answer = await relay.ask({ question: outcome.question, ticket, coordinatorRunId, coordinatorRunDir }).catch((error51) => ({ error: error51 }));
-    if (typeof answer !== "string") {
-      return { error: `the worker asked a question that could not be relayed: ${messageOf({ error: answer.error })}`, unanswered: true };
-    }
-    answeredQuestion = { question: outcome.question, answer };
-  }
-};
-
-// src/queue/runQueueTicket.ts
-var recordPickup = async ({ cwd, branch, onProgress }) => {
-  if (await readBranchState({ cwd, branch }) === void 0) {
-    await writeBranchState({ cwd, branch, phase: BranchPhase.Building, onProgress });
-  }
-};
-var createTicketWorktree = ({
-  cwd,
-  branch,
-  defaultBranch,
-  setup,
-  serializeWorktreeAdd,
-  onProgress
-}) => serializeWorktreeAdd({
-  task: () => createWorktree({ cwd, branch, startPoint: `origin/${defaultBranch}`, setup, owner: WorktreeOwner.Queue, reuseExisting: true, onProgress })
-});
-var claimOwnership = async ({ settings, trackerSettings, ticket }) => {
-  const inProgress = settings.lifecycle.statusNames[TrackerStatusRole.InProgress];
-  const moved = await updateTicketLifecycle({
-    lifecycle: settings.lifecycle,
-    trackerSettings,
-    ticketId: ticket.id,
-    trackerStatus: TrackerStatusRole.InProgress,
-    currentStatus: ticket.status
-  });
-  return moved === void 0 ? void 0 : `the ticket status could not be moved to '${inProgress}', so no source work began: ${moved.error}`;
-};
-var runQueueTicket = async ({
-  cwd,
-  settings,
-  trackerSettings,
-  ticket,
-  config: config2,
-  driver,
-  driverName,
-  defaultBranch,
-  env,
-  relay,
-  serializeWorktreeAdd,
-  coordinatorRunId,
-  coordinatorRunDir,
-  onProgress
-}) => {
-  const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
-  const ticketRunDir = join145(coordinatorRunDir, "tickets", ticket.identifier);
-  const created = await createTicketWorktree({ cwd, branch, defaultBranch, setup: settings.setup, serializeWorktreeAdd, onProgress });
-  if (typeof created !== "string") {
-    return { ticket, branch, worktreePath: await resolveWorktreePath({ cwd, branch }), ready: false, error: created.error };
-  }
-  const worktreePath = created;
-  await recordPickup({ cwd, branch, onProgress });
-  const unclaimed = await claimOwnership({ settings, trackerSettings, ticket });
-  if (unclaimed !== void 0) {
-    return { ticket, branch, worktreePath, ready: false, error: unclaimed };
-  }
-  const worked = await runWorkerWithRelay({
-    worktreePath,
-    ticket,
-    branch,
-    config: config2,
-    driver,
-    driverName,
-    settings,
-    trackerSettings,
-    relay,
-    coordinatorRunId,
-    coordinatorRunDir,
-    ticketRunDir,
-    env,
-    onProgress
-  });
-  const settled2 = await settleWorkerOutcome({
-    cwd,
-    worktreePath,
-    branch,
-    defaultBranch,
-    ticket,
-    ticketRunDir,
-    generated: config2.generated,
-    worked,
-    onProgress
-  });
-  return { ticket, branch, worktreePath, ...settled2 };
-};
-
-// src/queue/settleParkedLabels.ts
-var settleParkedLabels = async ({ settings, trackerSettings, outcomes, onProgress }) => {
-  if (settings.parkedLabel === void 0) {
-    return;
-  }
-  await Promise.all(
-    outcomes.map(async (outcome) => {
-      const written = await setTicketLabel3({
-        settings: trackerSettings,
-        ticketId: outcome.ticket.id,
-        label: settings.parkedLabel,
-        present: isParkedOutcome({ outcome })
-      });
-      if (written !== void 0) {
-        onProgress?.(`${outcome.ticket.identifier} \xB7 the '${settings.parkedLabel}' label could not be written: ${written.error}`);
-      }
-    })
-  );
-};
-
-// src/queue/startup/checkPlanningStatusLabels.ts
-var describeFix = ({ provider, missing }) => provider === "linear" ? `create ${missing.length === 1 ? "it" : "them"} on the team` : (
-  // A Jira label comes into being the first time an issue carries it, so
-  // there is no create-a-label action to name.
-  `apply ${missing.length === 1 ? "it" : "each of them"} to any issue in the project`
-);
-var checkPlanningStatusLabels = async ({ settings, trackerSettings }) => {
-  const known = await listLabelNames3({ settings: trackerSettings });
-  if ("error" in known) {
-    return known;
-  }
-  const missing = Object.values(PlanningStatus).map((status) => settings.lifecycle.planningStatusLabels[status]).filter((label2) => !known.includes(label2));
-  if (missing.length === 0) {
-    return void 0;
-  }
-  const named = missing.map((label2) => `'${label2}'`).join(", ");
-  return {
-    error: `the tracker has no ${missing.length === 1 ? "label" : "labels"} ${named}, which \`queue.planning-status-labels\` names \u2014 ${describeFix({ provider: trackerSettings.provider, missing })}, or name the labels this tracker already has`
-  };
-};
-
-// src/queue/startup/checkQueueStartup.ts
-var checkQueueStartup = async ({ cwd, settings, trackerSettings, shipSettings }) => {
-  const readyStatus = settings.lifecycle.statusNames[TrackerStatusRole.Ready];
-  if (!settings.lifecycle.eligibleStatuses.includes(readyStatus)) {
-    return {
-      error: `\`queue.ready-status\` is '${readyStatus}', which \`queue.eligible-statuses\` does not list \u2014 no ticket waiting to be implemented would ever be picked up`
-    };
-  }
-  const labelled = await checkPlanningStatusLabels({ settings, trackerSettings });
-  if (labelled !== void 0) {
-    return labelled;
-  }
-  const sample = {
-    id: "sample",
-    identifier: `${trackerSettings.ticketPrefix}-1`,
-    title: "sample",
-    url: "",
-    description: "",
-    priority: 0,
-    createdAt: "",
-    labels: [],
-    planningStatus: PlanningStatus.NotNeeded,
-    worker: QueueWorker.Direct,
-    status: readyStatus,
-    finished: false,
-    unfinishedBlockers: []
-  };
-  const rendered = toTicketBranch({ ticket: sample, template: settings.branchTemplate });
-  if (readTicketMatch({ branch: rendered, ticketPattern: shipSettings.ticketPattern }) === void 0) {
-    return {
-      error: `\`queue.branch-template\` renders '${rendered}', which \`ship.ticket-pattern\` does not match \u2014 every queued branch would be unshippable`
-    };
-  }
-  const defaultBranch = await readGitDefaultBranch({ cwd });
-  if (defaultBranch === void 0) {
-    return { error: "the queue needs a default branch: `origin/HEAD` is unset \u2014 run `git remote set-head origin --auto`" };
-  }
-  await runCommand({ command: "git fetch origin", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  return { defaultBranch };
-};
-
-// src/queue/common/utils/parseDurationMs.ts
-var parseDurationMs = ({ value, key }) => {
-  const matched = /^(\d+)([smh])$/.exec(value.trim());
-  const amount = Number(matched?.[1] ?? 0);
-  if (matched === null || amount === 0) {
-    return { error: `\`${key}\` must be a duration like '90s', '45m' or '4h' \u2014 got '${value}'` };
-  }
-  const perUnitMs = matched[2] === "s" ? 1e3 : matched[2] === "m" ? 6e4 : 36e5;
-  return amount * perUnitMs;
-};
-
-// src/queue/startup/resolveQueueSettings.ts
-var resolveQueueSettings = ({ config: config2 }) => {
-  const queue = config2.queue;
-  if (queue === void 0) {
-    return { error: "`lightsout queue` needs a `queue` block in lightsout.config.json naming max-parallel" };
-  }
-  const lifecycle = resolveLifecycleSettings({ config: config2 });
-  if ("error" in lifecycle) {
-    return lifecycle;
-  }
-  const workerTimeoutMs = parseDurationMs({ value: queue["worker-timeout"] ?? "4h", key: "queue.worker-timeout" });
-  if (typeof workerTimeoutMs !== "number") {
-    return workerTimeoutMs;
-  }
-  const questionTimeoutMs = parseDurationMs({ value: queue["question-timeout"] ?? "1h", key: "queue.question-timeout" });
-  if (typeof questionTimeoutMs !== "number") {
-    return questionTimeoutMs;
-  }
-  return {
-    lifecycle,
-    maxParallel: queue["max-parallel"],
-    setup: config2.worktree?.setup,
-    branchTemplate: queue["branch-template"] ?? "{ticket}-{slug}",
-    decisionsHeading: queue["decisions-heading"] ?? "## Decisions",
-    workerTimeoutMs,
-    questionTimeoutMs,
-    parkedLabel: queue["parked-label"]
-  };
-};
-
-// src/queue/worktrees/scanParkedWorktrees.ts
-import { realpath as realpath2 } from "node:fs/promises";
-import { join as join146 } from "node:path";
-
-// src/queue/worktrees/common/constants/ParkedTreeBucket.ts
-var ParkedTreeBucket = {
-  Unreadable: "unreadable",
-  Drain: "drain",
-  Ship: "ship"
-};
-
-// src/queue/worktrees/common/utils/classifyUnrecordedTree.ts
-var classifyUnrecordedTree = async ({
-  cwd,
-  tree,
-  defaultBranch,
-  onProgress
-}) => {
-  const ahead = await readGitCommitsAhead({ cwd: tree.path, defaultBranch });
-  if (ahead === void 0) {
-    return ParkedTreeBucket.Drain;
-  }
-  const carriesCommits = ahead > 0;
-  await writeBranchState({ cwd, branch: tree.branch, phase: carriesCommits ? BranchPhase.Ready : BranchPhase.Building, onProgress });
-  return carriesCommits ? ParkedTreeBucket.Ship : ParkedTreeBucket.Drain;
-};
-
-// src/queue/worktrees/common/utils/classifyTree.ts
-var classifyTree = async ({ cwd, tree, defaultBranch, onProgress }) => {
-  const changed = await readGitChangedFiles({ cwd: tree.path });
-  if (changed === void 0) {
-    return ParkedTreeBucket.Unreadable;
-  }
-  if (changed.length > 0) {
-    return ParkedTreeBucket.Drain;
-  }
-  const recorded = await readBranchState({ cwd, branch: tree.branch });
-  if (recorded !== void 0) {
-    return recorded.phase === BranchPhase.Ready ? ParkedTreeBucket.Ship : ParkedTreeBucket.Drain;
-  }
-  return classifyUnrecordedTree({ cwd, tree, defaultBranch, onProgress });
-};
-
-// src/queue/worktrees/common/utils/settleUnmergedTree.ts
-var settleUnmergedTree = async ({
-  cwd,
-  tree,
-  ticket,
-  defaultBranch,
-  settings,
-  trackerSettings,
-  onProgress
-}) => {
-  const bucket = await classifyTree({ cwd, tree, defaultBranch, onProgress });
-  if (bucket === ParkedTreeBucket.Drain) {
-    const cleared = await setTicketLabel3({ settings: trackerSettings, ticketId: ticket.id, label: settings.parkedLabel, present: false });
-    if (cleared !== void 0) {
-      onProgress?.(`${tree.identifier} \xB7 the parked label could not be cleared: ${cleared.error}`);
-    }
-    return void 0;
-  }
-  return {
-    ticket,
-    branch: tree.branch,
-    worktreePath: tree.path,
-    ready: bucket === ParkedTreeBucket.Ship,
-    error: bucket === ParkedTreeBucket.Ship ? void 0 : `git could not read the worktree at ${tree.path}`
-  };
-};
-
-// src/queue/worktrees/scanParkedWorktrees.ts
-var toQueuePath = ({ path, root, realRoot }) => {
-  for (const prefix of [root, realRoot]) {
-    if (path.startsWith(`${prefix}/`)) {
-      return join146(root, path.slice(prefix.length + 1));
-    }
-  }
-  return void 0;
-};
-var listQueueWorktrees = async ({ cwd, shipSettings, onProgress }) => {
-  const listed = await runCommand({ command: "git worktree list --porcelain", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  const root = await resolveWorktreesRoot({ cwd });
-  const realRoot = await realpath2(root).catch(() => root);
-  const trees = [];
-  for (const block of (listed?.exitCode === 0 ? listed.stdout : "").split("\n\n")) {
-    const reported = /^worktree (.+)$/m.exec(block)?.[1];
-    const branch = /^branch refs\/heads\/(.+)$/m.exec(block)?.[1];
-    const path = reported === void 0 ? void 0 : toQueuePath({ path: reported, root, realRoot });
-    if (path === void 0 || branch === void 0) {
-      continue;
-    }
-    const identifier = readTicketMatch({ branch, ticketPattern: shipSettings.ticketPattern })?.ticket;
-    if (identifier === void 0) {
-      onProgress?.(`leaving ${path} alone \u2014 its branch carries no ticket the configured pattern matches`);
-      continue;
-    }
-    const record3 = await readWorktreeRecord({ cwd, branch });
-    if (record3 !== void 0 && record3.owner !== WorktreeOwner.Queue) {
-      onProgress?.(`leaving ${path} alone \u2014 it belongs to a '${record3.owner}' run rather than the queue`);
-      continue;
-    }
-    trees.push({ path, branch, identifier });
-  }
-  return trees;
-};
-var describeLeftBehind = ({
-  tree,
-  matched,
-  runnable,
-  settings,
-  holds
-}) => {
-  let reason;
-  if (matched.length === 0) {
-    reason = `its worktree at ${tree.path} is parked, but the ticket carries no planning status label any more`;
-  } else if (runnable.length === 0) {
-    const carried = matched.map((ticket) => `'${settings.lifecycle.planningStatusLabels[ticket.planningStatus]}'`).join(" and ");
-    reason = `its worktree at ${tree.path} is parked, but the ticket now carries ${carried}, which the queue never resumes`;
-  } else if (isTicketGateHeld({ holds, identifier: tree.identifier, labels: runnable[0].labels })) {
-    reason = describeGateHold({ hold: holds[tree.identifier.toLowerCase()], identifier: tree.identifier });
-  }
-  return reason;
-};
-var scanParkedWorktrees = async ({
-  cwd,
-  defaultBranch,
-  settings,
-  trackerSettings,
-  shipSettings,
-  holds,
-  onProgress
-}) => {
-  const trees = await listQueueWorktrees({ cwd, shipSettings, onProgress });
-  if (trees.length === 0) {
-    return { resumed: [], outcomes: [], leftBehind: [], merged: [] };
-  }
-  const tickets = await getTicketsByIdentifiers3({ settings: trackerSettings, identifiers: trees.map((tree) => tree.identifier) });
-  if ("error" in tickets) {
-    return tickets;
-  }
-  const summaries = tickets.flatMap((ticket) => toPlanningSummaries({ ticket, lifecycle: settings.lifecycle, resumed: true }));
-  const parked = { resumed: [], outcomes: [], leftBehind: [], merged: [] };
-  for (const tree of trees) {
-    const matched = summaries.filter((ticket2) => ticket2.identifier.toLowerCase() === tree.identifier.toLowerCase());
-    const runnable = matched.filter((ticket2) => ticket2.worker !== void 0);
-    const left = describeLeftBehind({ tree, matched, runnable, settings, holds });
-    if (left !== void 0) {
-      const tracked = tickets.find((candidate) => candidate.identifier.toLowerCase() === tree.identifier.toLowerCase());
-      onProgress?.(`${tree.identifier} \xB7 ${left}`);
-      parked.leftBehind.push({ identifier: tree.identifier, ...tracked === void 0 ? {} : { title: tracked.title, url: tracked.url }, reason: left });
-      continue;
-    }
-    const ticket = runnable[0];
-    const evidence = await establishBranchMerge({ cwd, branch: tree.branch, onProgress });
-    if (evidence !== void 0) {
-      const established = evidence.pullRequest === void 0 ? "its branch is recorded merged" : `its branch already has a merged pull request #${evidence.pullRequest.number}`;
-      onProgress?.(`${tree.identifier} \xB7 ${established}, so it is reconciled rather than resumed`);
-      parked.merged.push({ worktreePath: tree.path, branch: tree.branch, ticket });
-      continue;
-    }
-    if (ticket.finished) {
-      const reason = `its worktree at ${tree.path} is parked, but the tracker files the ticket as finished while its branch is not merged, so the worktree was left in place \u2014 it may hold work nobody has merged`;
-      onProgress?.(`${tree.identifier} \xB7 ${reason}`);
-      parked.leftBehind.push({ identifier: tree.identifier, title: ticket.title, url: ticket.url, reason });
-      continue;
-    }
-    const outcome = await settleUnmergedTree({ cwd, tree, ticket, defaultBranch, settings, trackerSettings, onProgress });
-    if (outcome === void 0) {
-      parked.resumed.push(...runnable);
-    } else {
-      parked.outcomes.push(outcome);
-    }
-  }
-  return parked;
-};
-
-// src/queue/runQueue.ts
-var toCoordinatorStatus = ({ drained }) => {
-  const unfinished = drained.leftBehind.filter((entry) => entry.settled !== true);
-  const parked = drained.outcomes.filter((outcome) => isParkedOutcome({ outcome }));
-  return parked.length === 0 && unfinished.length === 0 ? RunStatus.Passed : RunStatus.Escalated;
-};
-var drainAndShip = async ({
-  cwd,
-  runId,
-  settings,
-  trackerSettings,
-  shipSettings,
-  config: config2,
-  env,
-  driver,
-  driverName,
-  relay,
-  defaultBranch,
-  first,
-  parked,
-  holds,
-  onProgress
-}) => {
-  const coordinatorRunDir = getRunDir({ cwd, runId });
-  const planPath = join147(coordinatorRunDir, "queue.md");
-  const manifest = await createRun({ cwd, runId, plan: planPath, pipeline: PipelineKind.Queue, driver: driverName, config: config2 });
-  await writeManifestWithUsage({ cwd, manifest, patch: { status: RunStatus.Running }, usageTotals: seedUsageTotals({ usage: manifest.usage }) });
-  const serializeMainCheckout = createMainCheckoutSerializer();
-  const board = new QueueBoardRecorder({ cwd, runId, branchTemplate: settings.branchTemplate, onProgress });
-  const boardRelay = new BoardQuestionRelay({ relay, board });
-  const drained = await drainQueue({
-    cwd,
-    runId,
-    holds,
-    settings,
-    trackerSettings,
-    shipSettings,
-    // Built here from what the drain already holds: `config` is the effective
-    // config and `driver` the resolved harness, so the merge lane's integration
-    // step recovers with exactly what the builders were given.
-    shipIntegration: { config: config2, driver },
-    config: config2,
-    env,
-    defaultBranch,
-    planPath,
-    first,
-    parked,
-    serializeMainCheckout,
-    board,
-    onProgress,
-    runTicket: ({ ticket }) => runQueueTicket({
-      cwd,
-      settings,
-      trackerSettings,
-      ticket,
-      config: config2,
-      driver,
-      driverName,
-      defaultBranch,
-      env,
-      relay: boardRelay,
-      serializeWorktreeAdd: serializeMainCheckout,
-      coordinatorRunId: runId,
-      coordinatorRunDir,
-      onProgress: relay.createProgressSink({ ticket })
-    })
-  });
-  const status = toCoordinatorStatus({ drained });
-  await settleParkedLabels({ settings, trackerSettings, outcomes: drained.outcomes, onProgress });
-  await board.flush();
-  await writeManifestWithUsage({ cwd, manifest, patch: { status, currentStep: null }, usageTotals: seedUsageTotals({ usage: manifest.usage }) });
-  return drained;
-};
-var runQueue = async ({
-  cwd,
-  settings,
-  trackerSettings,
-  shipSettings,
-  config: config2,
-  env,
-  driver,
-  driverName,
-  relay,
-  onProgress
-}) => {
-  const started = await checkQueueStartup({ cwd, settings, trackerSettings, shipSettings });
-  if ("error" in started) {
-    return started;
-  }
-  const { defaultBranch } = started;
-  const eligible = await listEligibleTickets({ settings, trackerSettings });
-  if ("error" in eligible) {
-    return eligible;
-  }
-  const holds = await syncGateHolds({ cwd, settings: trackerSettings, onProgress });
-  const parked = await scanParkedWorktrees({ cwd, defaultBranch, settings, trackerSettings, shipSettings, holds, onProgress });
-  if ("error" in parked) {
-    return parked;
-  }
-  const first = selectWaveTickets({
-    tickets: [...parked.resumed, ...orderTickets({ tickets: eligible })],
-    settings,
-    attempted: /* @__PURE__ */ new Set(),
-    holds,
-    onProgress
-  });
-  if (first.runnable.length === 0 && parked.outcomes.length === 0 && parked.merged.length === 0) {
-    onProgress?.(
-      first.blocked.length > 0 ? "nothing to do \u2014 every eligible ticket is waiting on an unfinished blocker" : "nothing to do \u2014 no eligible tickets, and no parked worktrees to pick up"
-    );
-    const empty = { outcomes: [], leftBehind: [...parked.leftBehind, ...first.skipped, ...first.blocked] };
-    return empty;
-  }
-  return withRunLock({
-    params: { cwd, onProgress },
-    run: ({ runId }) => drainAndShip({
-      cwd,
-      runId,
-      settings,
-      trackerSettings,
-      shipSettings,
-      config: config2,
-      env,
-      driver,
-      driverName,
-      relay,
-      defaultBranch,
-      first,
-      parked,
-      holds,
-      onProgress
-    })
-  });
-};
-
-// src/cli/common/implementRun/commitDirectRun.ts
-var commitDirectRun = async ({ cwd, ticketBody, ticketRef, runDir, generated, onProgress }) => {
-  const subject = headingOf({ text: ticketBody });
-  const committed = await commitTicketWork({
-    cwd,
-    message: `${ticketRef} ${subject}`.trim(),
-    runDir,
-    generated,
-    onProgress
-  });
-  if ("error" in committed) {
-    return committed.error;
-  }
-  return committed.committed ? void 0 : "the worker changed nothing";
-};
-
-// src/cli/common/implementRun/openDirectWorkspace.ts
-var describeUncommittableTree = async ({ cwd }) => {
-  const dirty = await readGitChangedFiles({ cwd });
-  let refusal;
-  if (dirty === void 0) {
-    refusal = `git could not read the tree at ${cwd} \u2014 implement-direct commits what it builds, so it needs a readable git worktree`;
-  } else if (dirty.length > 0) {
-    refusal = "implement-direct commits everything in the tree; commit or stash your changes first";
-  }
-  return refusal;
-};
-var openDirectWorkspace = async ({
-  cwd,
-  config: config2,
-  flags,
-  ticketPath,
-  ticketBody,
-  flaggedRef
-}) => {
-  const workspace = await resolveRunWorkspace({
-    cwd,
-    config: config2,
-    flags,
-    ticketPath,
-    ticketRef: flaggedRef,
-    ticketBody,
-    onProgress: createProgressPrinter()
-  });
-  if ("error" in workspace) {
-    return { error: workspace.error };
-  }
-  const uncommittable = await describeUncommittableTree({ cwd: workspace.cwd });
-  if (uncommittable !== void 0) {
-    return { error: uncommittable };
-  }
-  const copied = await copyRunInputs({ sourceCwd: cwd, workspace: workspace.cwd, ticketPath });
-  return "error" in copied ? { error: copied.error } : { workspace, ticketPath: copied.ticketPath ?? ticketPath };
-};
-
-// src/cli/common/implementRun/readBodyBuildPlanName.ts
-var readBodyBuildPlanName = async ({ cwd, branch }) => {
-  if (branch === void 0) {
-    return void 0;
-  }
-  const read = await readTicketRecord({ cwd, ticketBranch: branch });
-  if ("error" in read) {
-    return { error: read.error };
-  }
-  const record3 = read.record;
-  if (record3 === void 0 || record3.mode !== TicketMode.SinglePlan) {
-    return void 0;
-  }
-  const first = record3.plans.find((plan) => planNumberOf({ id: plan.id }) === 1 && plan.exclusion === void 0 && plan.progress !== PlanProgress.Implemented);
-  return first === void 0 ? void 0 : formatPlanAddress({ ticketBranch: branch, planId: first.id });
-};
-
 // src/cli/implementDirectCommand.ts
-var readRunLabel = async ({ cwd, config: config2 }) => await readBranchTicketRef({ config: config2, cwd }) ?? await readGitCurrentBranch({ cwd }) ?? "ticket";
-var buildAndCommit = async ({
+var runDirectBuild = async ({
   cwd,
   planName,
   ticketBody,
@@ -161730,7 +159756,6 @@ var buildAndCommit = async ({
   driver,
   driverName,
   config: config2,
-  generated,
   willShip
 }) => {
   const build = (runId) => runDirectWork({ cwd, ticketBody, ticketRef, runId, driver, driverName, config: config2, willShip, onProgress: createProgressPrinter() });
@@ -161740,9 +159765,7 @@ var buildAndCommit = async ({
   }
   const { result } = outcome;
   const recordError = "recordError" in outcome ? outcome.recordError : void 0;
-  const runDir = getRunDir({ cwd, runId: result.manifest.runId });
-  const uncommitted = result.ok ? await commitDirectRun({ cwd, ticketBody, ticketRef, runDir, generated, onProgress: createProgressPrinter() }) : void 0;
-  return { result, uncommitted, recordError };
+  return { result, recordError };
 };
 var prepareDirectRun = async ({
   workspace,
@@ -161770,7 +159793,7 @@ var printDirectRunHeader = ({ workspace, ticketRef, ticketPath }) => {
 };
 var implementDirectCommand = async ({ flags, cwd }) => {
   const namedTicketPath = await getRequiredFlag({ flags, name: "ticket" });
-  const ticketBody = await readFile66(resolve16(cwd, namedTicketPath), "utf8").catch(() => void 0);
+  const ticketBody = await readFile65(resolve16(cwd, namedTicketPath), "utf8").catch(() => void 0);
   if (ticketBody === void 0) {
     console.error(`ticket file not found: ${namedTicketPath}`);
     return exitCli({ code: 1 });
@@ -161794,7 +159817,7 @@ var implementDirectCommand = async ({ flags, cwd }) => {
   }
   const { ticketRef, config: config2, driver, driverName, planName } = prepared;
   printDirectRunHeader({ workspace, ticketRef, ticketPath });
-  const built = await buildAndCommit({
+  const built = await runDirectBuild({
     cwd: workspace.cwd,
     planName,
     ticketBody,
@@ -161802,29 +159825,24 @@ var implementDirectCommand = async ({ flags, cwd }) => {
     driver,
     driverName,
     config: config2,
-    generated: loaded.generated,
     willShip: shipIntent.willShip
   });
   if ("refusal" in built) {
     console.error(built.refusal);
     return exitCli({ code: 1 });
   }
-  const { result, uncommitted, recordError } = built;
+  const { result, recordError } = built;
   if (recordError !== void 0) {
     console.error(recordError);
-  }
-  if (uncommitted !== void 0) {
-    console.error(uncommitted);
-    return exitCli({ code: 1 });
   }
   return finishImplementRun({ config: loaded, cwd: workspace.cwd, result, flags });
 };
 
 // src/cli/common/utils/resolveConfigAndDriver.ts
 import { stat as stat14 } from "node:fs/promises";
-import { join as join148 } from "node:path";
+import { join as join137 } from "node:path";
 var resolveConfigAndDriver = async ({ cwd, command }) => {
-  const configPath = join148(cwd, "lightsout.config.json");
+  const configPath = join137(cwd, "lightsout.config.json");
   const present = await stat14(configPath).then(
     () => true,
     () => false
@@ -161845,16 +159863,16 @@ var PromptImprovementStatus = {
 };
 
 // src/runPromptImprovement.ts
-import { readdir as readdir21 } from "node:fs/promises";
-import { join as join149 } from "node:path";
+import { readdir as readdir20 } from "node:fs/promises";
+import { join as join138 } from "node:path";
 var promptsDir = "src/agents/prompts";
 var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model, effort }) => {
   const friction = await readFriction({ cwd: consumerCwd });
   if (friction.length === 0) {
     return { status: PromptImprovementStatus.NoFriction, friction };
   }
-  const files = await readdir21(join149(engineCwd, promptsDir));
-  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join149(promptsDir, file2));
+  const files = await readdir20(join138(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join138(promptsDir, file2));
   const improverTimeoutMs = 20 * 6e4;
   const outcome = await invokeAgentWithContract({
     driver,
@@ -162291,7 +160309,7 @@ ${report2.recordError}`);
 };
 
 // src/cli/plan/planSyncDecisionsCommand.ts
-import { basename as basename41 } from "node:path";
+import { basename as basename42 } from "node:path";
 var planSyncDecisionsCommand = async ({ flags, cwd }) => {
   const name = await getRequiredFlag({ flags, name: "name" });
   const result = await syncPlanDecisions({ cwd, name });
@@ -162303,7 +160321,7 @@ ${result.error}`);
   console.log(`
 ${bold(`plan sync-decisions ${name}`)} \u2014 ${result.files.length} file(s)`);
   for (const file2 of result.files) {
-    console.log(`  ${basename41(file2.path)} \u2014 ${file2.updated ? "updated" : "unchanged"}`);
+    console.log(`  ${basename42(file2.path)} \u2014 ${file2.updated ? "updated" : "unchanged"}`);
   }
   return exitCli({ code: 0 });
 };
@@ -162544,6 +160562,2114 @@ var renderQueueBoard = ({ tickets, state, at }) => {
   const depth = Math.max(1, ...columns.map((cells) => cells.length));
   const body = Array.from({ length: depth }, (_, row) => toRow({ cells: columns.map((cells) => cells[row] ?? (row === 0 ? "\u2014" : "")) }));
   return [toHeading({ state, at }), "", header, separator, ...body];
+};
+
+// src/queue/board/BoardQuestionRelay.ts
+var BoardQuestionRelay = class {
+  relay;
+  board;
+  constructor({ relay, board }) {
+    this.relay = relay;
+    this.board = board;
+  }
+  async ask({
+    question,
+    ticket,
+    coordinatorRunId,
+    coordinatorRunDir
+  }) {
+    this.board.markWaiting({ ticket, question });
+    try {
+      return await this.relay.ask({ question, ticket, coordinatorRunId, coordinatorRunDir });
+    } finally {
+      this.board.clearWaiting({ ticket });
+    }
+  }
+  createProgressSink({ ticket }) {
+    return this.relay.createProgressSink({ ticket });
+  }
+  close() {
+    this.relay.close();
+  }
+};
+
+// src/queue/board/getQueueBoardPath.ts
+import { join as join139 } from "node:path";
+var getQueueBoardPath = ({ cwd, runId }) => {
+  return join139(getRunDir({ cwd, runId }), "board.json");
+};
+
+// src/queue/board/QueueBoardRecorder.ts
+import { mkdir as mkdir31, rename as rename11 } from "node:fs/promises";
+import { dirname as dirname29 } from "node:path";
+
+// src/queue/board/toQueueBoardTickets.ts
+import { join as join140 } from "node:path";
+
+// src/queue/common/constants/QueueWorker.ts
+var QueueWorker = {
+  /** Build straight from the ticket body; the repo's gates are the only bar. */
+  Direct: "direct",
+  /** Implement the plan already published to the ticket. */
+  Plan: "plan",
+  /** Plan the ticket headlessly with the auto-plan skill; the queue then runs the implement pipeline on the plan folder that session wrote. */
+  AutoPlan: "auto-plan"
+};
+
+// src/queue/toTicketBranch.ts
+var toTicketBranch = ({ ticket, template }) => renderBranchTemplate({ template, ticketRef: ticket.identifier, title: ticket.title });
+
+// src/queue/board/toQueueBoardTickets.ts
+var describeWork = ({ ticket, branch, worktreePath }) => ({
+  identifier: ticket.identifier,
+  title: ticket.title,
+  url: ticket.url,
+  worker: ticket.worker,
+  planName: ticket.worker === QueueWorker.AutoPlan ? branch : void 0,
+  branch,
+  worktreePath
+});
+var describeUnbuilt = ({ ticket, live: live2 }) => {
+  const branch = toTicketBranch({ ticket, template: live2.branchTemplate });
+  return describeWork({ ticket, branch, worktreePath: join140(live2.worktreesRoot, branch) });
+};
+var placeLeftBehind = ({ entry, lane, reason }) => ({
+  identifier: entry.identifier,
+  title: entry.title,
+  url: entry.url,
+  lane,
+  reason
+});
+var placeBuild = ({ build, live: live2 }) => {
+  const question = live2.questions.get(build.ticket.identifier.toLowerCase());
+  const work = { ...describeUnbuilt({ ticket: build.ticket, live: live2 }), buildStartedAt: build.startedAt };
+  return question === void 0 ? { ...work, lane: QueueLane.Building } : { ...work, lane: QueueLane.Blocked, reason: question, question };
+};
+var placeOutcome = ({ outcome }) => {
+  if (outcome.ready) {
+    return { ...describeWork(outcome), lane: QueueLane.Shipped, reason: outcome.reconciliationFailure };
+  }
+  return outcome.open === void 0 ? { ...describeWork(outcome), lane: QueueLane.Parked, reason: outcome.error } : { ...describeWork(outcome), lane: QueueLane.Blocked, reason: outcome.open };
+};
+var placeSettled = ({ settled: settled2 }) => [
+  ...settled2.outcomes.map((outcome) => placeOutcome({ outcome })),
+  ...settled2.leftBehind.map(
+    (entry) => entry.settled === true ? placeLeftBehind({ entry, lane: QueueLane.Shipped, reason: entry.reconciliationFailure }) : placeLeftBehind({ entry, lane: QueueLane.Blocked, reason: entry.reason })
+  )
+];
+var placeLive = ({ live: live2 }) => [
+  ...live2.shipping === void 0 ? [] : [{ ...describeWork(live2.shipping), lane: QueueLane.ShippingNow }],
+  ...live2.readyToShip.map((outcome) => ({ ...describeWork(outcome), lane: QueueLane.ShipQueue })),
+  ...live2.building.map((build) => placeBuild({ build, live: live2 })),
+  ...live2.pending.map((ticket) => ({ ...describeUnbuilt({ ticket, live: live2 }), lane: QueueLane.BuildQueue })),
+  ...live2.blocked.map((entry) => placeLeftBehind({ entry, lane: QueueLane.Blocked, reason: entry.reason }))
+];
+var toEnteredAt = ({ ticket, live: live2, at }) => {
+  const entered = live2?.entered.get(ticket.identifier.toLowerCase());
+  return entered !== void 0 && entered.lane === ticket.lane ? entered.at : at;
+};
+var toQueueBoardTickets = ({ settled: settled2, live: live2, at }) => {
+  const records = [...placeSettled({ settled: settled2 }), ...live2 === void 0 ? [] : placeLive({ live: live2 })];
+  const claimed = /* @__PURE__ */ new Map();
+  for (const record3 of records) {
+    const key = record3.identifier.toLowerCase();
+    if (!claimed.has(key)) {
+      claimed.set(key, record3);
+    }
+  }
+  const kept = [...claimed.values()];
+  const inColumnOrder = Object.values(QueueLane).flatMap((lane) => {
+    const inLane = kept.filter((ticket) => ticket.lane === lane);
+    return [...inLane.filter((ticket) => ticket.question === void 0), ...inLane.filter((ticket) => ticket.question !== void 0)];
+  });
+  return inColumnOrder.map((ticket) => ({ ...ticket, enteredAt: toEnteredAt({ ticket, live: live2, at }) }));
+};
+
+// src/queue/board/QueueBoardRecorder.ts
+var copySnapshot = ({ settled: settled2, lanes }) => ({
+  settled: { outcomes: [...settled2.outcomes], leftBehind: [...settled2.leftBehind] },
+  lanes: {
+    pending: [...lanes.pending],
+    building: [...lanes.building],
+    readyToShip: [...lanes.readyToShip],
+    shipping: lanes.shipping,
+    blocked: [...lanes.blocked]
+  }
+});
+var QueueBoardRecorder = class {
+  cwd;
+  runId;
+  branchTemplate;
+  onProgress;
+  questions = /* @__PURE__ */ new Map();
+  entered = /* @__PURE__ */ new Map();
+  last;
+  worktreesRoot;
+  // Each write awaits its predecessor, so an older snapshot never lands over a newer one.
+  chain = Promise.resolve();
+  constructor({ cwd, runId, branchTemplate, onProgress }) {
+    this.cwd = cwd;
+    this.runId = runId;
+    this.branchTemplate = branchTemplate;
+    this.onProgress = onProgress;
+  }
+  /** Rewrite the board from the drain's ledger as it stands now. */
+  record({ settled: settled2, lanes }) {
+    this.last = copySnapshot({ settled: settled2, lanes });
+    this.enqueue();
+  }
+  /** A worker has asked a relayed question: its ticket moves to Blocked with the question until the ask settles. */
+  markWaiting({ ticket, question }) {
+    this.questions.set(ticket.identifier.toLowerCase(), question);
+    this.enqueue();
+  }
+  /** The worker's relayed question has settled, answered or not. */
+  clearWaiting({ ticket }) {
+    this.questions.delete(ticket.identifier.toLowerCase());
+    this.enqueue();
+  }
+  /** Resolves once every write asked for so far has landed or failed. Never rejects. */
+  flush() {
+    return this.chain;
+  }
+  /** Queue a write of the last snapshot with the questions open now — nothing until the drain has recorded one. */
+  enqueue() {
+    if (this.last === void 0) {
+      return;
+    }
+    const pending = { snapshot: this.last, questions: new Map(this.questions), takenAt: (/* @__PURE__ */ new Date()).toISOString() };
+    this.chain = this.chain.then(() => this.write(pending)).catch(() => void 0);
+  }
+  async write({
+    snapshot,
+    questions,
+    takenAt
+  }) {
+    const path = getQueueBoardPath({ cwd: this.cwd, runId: this.runId });
+    try {
+      this.worktreesRoot ??= await resolveWorktreesRoot({ cwd: this.cwd });
+      const tickets = toQueueBoardTickets({
+        settled: snapshot.settled,
+        live: { ...snapshot.lanes, questions, entered: this.entered, branchTemplate: this.branchTemplate, worktreesRoot: this.worktreesRoot },
+        at: takenAt
+      });
+      const board = { coordinatorRunId: this.runId, updatedAt: takenAt, tickets };
+      this.entered = new Map(tickets.map((ticket) => [ticket.identifier.toLowerCase(), { lane: ticket.lane, at: ticket.enteredAt }]));
+      await mkdir31(dirname29(path), { recursive: true });
+      await writeJsonFile({ path: `${path}.tmp`, value: board });
+      await rename11(`${path}.tmp`, path);
+    } catch (error51) {
+      this.onProgress?.(`the queue board ${path} could not be written: ${messageOf({ error: error51 })}`);
+    }
+  }
+};
+
+// src/queue/board/readQueueBoard.ts
+var readQueueBoard = async ({ cwd, runId }) => {
+  return readJsonFile({ path: getQueueBoardPath({ cwd, runId }), schema: QueueBoard });
+};
+
+// src/queue/branchState/common/utils/getBranchStatePath.ts
+import { join as join141 } from "node:path";
+var getBranchStatePath = ({ cwd, branch }) => {
+  return join141(cwd, ".lightsout", "branch-state", `${toBranchFileName({ branch })}.json`);
+};
+
+// src/queue/branchState/readBranchState.ts
+var readBranchState = async ({ cwd, branch }) => {
+  return readJsonFile({ path: getBranchStatePath({ cwd, branch }), schema: BranchState });
+};
+
+// src/queue/branchState/writeBranchState.ts
+import { mkdir as mkdir32, rename as rename12 } from "node:fs/promises";
+import { dirname as dirname30 } from "node:path";
+var writeBranchState = async ({ cwd, branch, phase, onProgress }) => {
+  const record3 = { branch, phase, updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
+  const statePath = getBranchStatePath({ cwd, branch });
+  try {
+    await mkdir32(dirname30(statePath), { recursive: true });
+    await writeJsonFile({ path: `${statePath}.tmp`, value: record3 });
+    await rename12(`${statePath}.tmp`, statePath);
+  } catch (error51) {
+    const message = error51 instanceof Error ? error51.message : String(error51);
+    onProgress?.(`the branch state for ${branch} could not be recorded as '${phase}': ${message}`);
+  }
+};
+
+// src/queue/common/utils/isParkedOutcome.ts
+var isParkedOutcome = ({ outcome }) => !outcome.ready && outcome.open === void 0;
+
+// src/queue/relay/emptyRelayMailbox.ts
+import { mkdir as mkdir33, readdir as readdir21, rm as rm12 } from "node:fs/promises";
+import { join as join142 } from "node:path";
+var emptyRelayMailbox = async ({ directory }) => {
+  await mkdir33(directory, { recursive: true });
+  const entries = await readdir21(directory);
+  await Promise.all(entries.map((entry) => rm12(join142(directory, entry), { force: true, recursive: true })));
+};
+
+// src/queue/relay/FileQuestionRelay.ts
+import { readFile as readFile66, rename as rename13, rm as rm13 } from "node:fs/promises";
+import { join as join144 } from "node:path";
+
+// src/queue/relay/recordRelayedAnswer.ts
+import { join as join143 } from "node:path";
+var QueueQuestionRecord = external_exports.object({
+  question: external_exports.string(),
+  answer: external_exports.string(),
+  ticket: external_exports.string(),
+  at: external_exports.string(),
+  runId: external_exports.string(),
+  step: external_exports.string()
+});
+var recordRelayedAnswer = async ({
+  settings,
+  trackerSettings,
+  question,
+  answer,
+  ticket,
+  coordinatorRunId,
+  coordinatorRunDir,
+  onProgress
+}) => {
+  await appendJsonlRecords({
+    path: join143(coordinatorRunDir, "decisions.jsonl"),
+    schema: QueueQuestionRecord,
+    entries: [{ question, answer, ticket: ticket.identifier }],
+    runId: coordinatorRunId,
+    step: "queue-question"
+  });
+  const noted = await appendTicketNote3({
+    settings: trackerSettings,
+    ticketId: ticket.id,
+    heading: settings.decisionsHeading,
+    line: `- ${question} \u2192 ${answer}`
+  });
+  if (noted !== void 0) {
+    onProgress(`the answer could not be written to the ticket: ${noted.error}`);
+  }
+};
+
+// src/queue/relay/FileQuestionRelay.ts
+var relayClosedMessage = "the question relay is closed \u2014 no answer can arrive";
+var readJson2 = ({ raw }) => {
+  try {
+    const value = JSON.parse(raw);
+    return value;
+  } catch {
+    return void 0;
+  }
+};
+var readRelayAnswer = async ({ path }) => {
+  const raw = await readFile66(path, "utf8").catch(() => void 0);
+  if (raw === void 0) {
+    return void 0;
+  }
+  const parsed = RelayAnswer.safeParse(readJson2({ raw }));
+  const answer = parsed.success ? parsed.data.answer.trim() : "";
+  return answer === "" ? void 0 : answer;
+};
+var removeExchange = async ({ questionPath, answerPath }) => {
+  await rm13(questionPath, { force: true });
+  await rm13(answerPath, { force: true });
+};
+var FileQuestionRelay = class {
+  settings;
+  trackerSettings;
+  directory;
+  output;
+  // One question file per ticket is not enough: a worker may be answered and
+  // ask again, and the second question must not overwrite the first.
+  sequence = 0;
+  closed = false;
+  abandonWaits = /* @__PURE__ */ new Set();
+  constructor({ settings, trackerSettings, directory, output }) {
+    this.settings = settings;
+    this.trackerSettings = trackerSettings;
+    this.directory = directory;
+    this.output = output;
+  }
+  async ask({
+    question,
+    ticket,
+    coordinatorRunId,
+    coordinatorRunDir
+  }) {
+    if (this.closed) {
+      throw new Error(relayClosedMessage);
+    }
+    this.sequence += 1;
+    const stem = `${ticket.identifier.toLowerCase()}-${this.sequence}`;
+    const questionPath = join144(this.directory, `${stem}.question.json`);
+    const answerPath = join144(this.directory, `${stem}.answer.json`);
+    await this.putQuestion({ stem, questionPath, question, ticket });
+    const answer = await this.waitForAnswer({ questionPath, answerPath, question });
+    await removeExchange({ questionPath, answerPath });
+    await recordRelayedAnswer({
+      settings: this.settings,
+      trackerSettings: this.trackerSettings,
+      question,
+      answer,
+      ticket,
+      coordinatorRunId,
+      coordinatorRunDir,
+      onProgress: this.createProgressSink({ ticket })
+    });
+    return answer;
+  }
+  /** No hold-and-flush buffer, unlike the terminal relay: nothing is on screen waiting to be typed over. */
+  createProgressSink({ ticket }) {
+    return (message) => {
+      this.output.write(`${ticket.identifier} \xB7 ${message}
+`);
+    };
+  }
+  close() {
+    this.closed = true;
+    for (const abandon of [...this.abandonWaits]) {
+      abandon(new Error(relayClosedMessage));
+    }
+    this.abandonWaits.clear();
+  }
+  /** The question file, written under a temporary name and renamed in — a watcher globbing `*.question.json` must never read half of one. */
+  async putQuestion({ stem, questionPath, question, ticket }) {
+    const entry = RelayQuestion.parse({ ticket: ticket.identifier, title: ticket.title, question, askedAt: (/* @__PURE__ */ new Date()).toISOString() });
+    const temporaryPath = join144(this.directory, `${stem}.tmp`);
+    await writeJsonFile({ path: temporaryPath, value: entry });
+    await rename13(temporaryPath, questionPath);
+    this.createProgressSink({ ticket })(`waiting for an answer in ${questionPath}`);
+  }
+  /**
+   * The answer file's contents once it holds one.
+   *
+   * @throws {Error} When the question timeout elapses — both files are removed
+   * first, so a late or blank answer never lingers to look live — or when the
+   * relay closes under the wait.
+   */
+  async waitForAnswer({ questionPath, answerPath, question }) {
+    const pollMs = 2e3;
+    const deadline = Date.now() + this.settings.questionTimeoutMs;
+    let timer;
+    let abandon = () => void 0;
+    const abandoned = new Promise((_resolve, reject) => {
+      abandon = (error51) => {
+        clearTimeout(timer);
+        reject(error51);
+      };
+    });
+    abandoned.catch(() => void 0);
+    this.abandonWaits.add(abandon);
+    try {
+      for (; ; ) {
+        const answer = await readRelayAnswer({ path: answerPath });
+        if (answer !== void 0) {
+          return answer;
+        }
+        if (Date.now() >= deadline) {
+          await removeExchange({ questionPath, answerPath });
+          throw new Error(`no answer arrived within ${this.settings.questionTimeoutMs}ms for: ${question}`);
+        }
+        await Promise.race([
+          new Promise((resolve20) => {
+            timer = setTimeout(resolve20, pollMs);
+          }),
+          abandoned
+        ]);
+      }
+    } finally {
+      clearTimeout(timer);
+      this.abandonWaits.delete(abandon);
+    }
+  }
+};
+
+// src/queue/relay/TerminalQuestionRelay.ts
+import { createInterface } from "node:readline/promises";
+var noTerminalMessage = "there is no terminal to answer on \u2014 run `lightsout queue` attached to one";
+var TerminalQuestionRelay = class {
+  settings;
+  trackerSettings;
+  output;
+  terminal;
+  // Each `ask` awaits its predecessor, so the terminal never holds two
+  // half-written prompts.
+  chain = Promise.resolve();
+  prompting = false;
+  held = [];
+  ended = false;
+  abandonPrompt;
+  constructor({ settings, trackerSettings, input, output }) {
+    this.settings = settings;
+    this.trackerSettings = trackerSettings;
+    this.output = output;
+    this.terminal = createInterface({ input, output });
+    this.terminal.on("close", () => {
+      this.ended = true;
+      this.abandonPrompt?.(new Error(noTerminalMessage));
+    });
+  }
+  /**
+   * Put one worker's question to the user and answer with what they typed.
+   *
+   * Serialized: a second caller waits until the first answer is in. The answer
+   * is on disk and on the ticket before this resolves, so a worker never acts
+   * on a decision nothing recorded.
+   *
+   * @throws {Error} When there is no terminal to answer on (EOF or a closed input).
+   */
+  ask({
+    question,
+    ticket,
+    coordinatorRunId,
+    coordinatorRunDir
+  }) {
+    const answered = this.chain.then(() => this.putQuestion({ question, ticket })).then(async (answer) => {
+      await recordRelayedAnswer({
+        settings: this.settings,
+        trackerSettings: this.trackerSettings,
+        question,
+        answer,
+        ticket,
+        coordinatorRunId,
+        coordinatorRunDir,
+        onProgress: this.createProgressSink({ ticket })
+      });
+      return answer;
+    });
+    this.chain = answered.catch(() => void 0);
+    return answered;
+  }
+  /**
+   * This ticket's progress writer: every line carries the ticket identifier and
+   * goes through the relay's buffer, so an open question is never buried by the
+   * other workers. The queue hands one to each worker as its `onProgress`.
+   */
+  createProgressSink({ ticket }) {
+    return (message) => this.write({ line: `${ticket.identifier} \xB7 ${message}` });
+  }
+  /** Close the readline interface. Called once, on the way out of the command. */
+  close() {
+    this.terminal.close();
+  }
+  /** Print the question and read one typed line, re-prompting on a blank answer. */
+  async putQuestion({ question, ticket }) {
+    if (this.ended) {
+      throw new Error(noTerminalMessage);
+    }
+    this.prompting = true;
+    const abandoned = new Promise((_resolve, reject) => {
+      this.abandonPrompt = reject;
+    });
+    try {
+      this.output.write(`
+${ticket.identifier} ${ticket.title}
+${question}
+`);
+      for (; ; ) {
+        const typed = await Promise.race([this.terminal.question("answer: "), abandoned]);
+        if (typed.trim() !== "") {
+          return typed.trim();
+        }
+      }
+    } finally {
+      this.abandonPrompt = void 0;
+      this.prompting = false;
+      this.flush();
+    }
+  }
+  /** One line out, or held until the open question has been answered. */
+  write({ line }) {
+    if (this.prompting) {
+      this.held.push(line);
+      return;
+    }
+    this.output.write(`${line}
+`);
+  }
+  flush() {
+    const held = this.held;
+    this.held = [];
+    for (const line of held) {
+      this.output.write(`${line}
+`);
+    }
+  }
+};
+
+// src/queue/runQueue.ts
+import { join as join149 } from "node:path";
+
+// src/queue/common/utils/createMainCheckoutSerializer.ts
+var createMainCheckoutSerializer = () => {
+  let tail = Promise.resolve();
+  return ({ task }) => {
+    const next = tail.then(task, task);
+    tail = next.catch(() => void 0);
+    return next;
+  };
+};
+
+// src/queue/common/utils/settleReconciledWorktree.ts
+var settleReconciledWorktree = async ({ cwd, worktreePath, branch, onProgress }) => {
+  const changed = await readGitChangedFiles({ cwd: worktreePath });
+  if (changed === void 0) {
+    return void 0;
+  }
+  if (changed.length > 0) {
+    onProgress?.(`the worktree at ${worktreePath} has uncommitted changes, so it was left in place`);
+    return ` \u2014 the worktree at ${worktreePath} was left in place because it has uncommitted changes`;
+  }
+  const removal = await removeWorktree({ cwd, worktreePath, branch });
+  if (removal === void 0) {
+    await deleteWorktreeRecord({ cwd, branch });
+  }
+  return void 0;
+};
+
+// src/queue/common/utils/settleMergedTrees.ts
+var settleMergedTrees = async ({ cwd, config: config2, env, settings, trackerSettings, merged, onProgress }) => {
+  const settled2 = [];
+  for (const tree of merged) {
+    const reconciliationFailure = await reconcileShippedTicket({ config: config2, env, ticketRef: tree.ticket.identifier, onProgress });
+    if (reconciliationFailure !== void 0) {
+      onProgress?.(reconciliationFailure);
+    }
+    const heldWorktree = await settleReconciledWorktree({ cwd, worktreePath: tree.worktreePath, branch: tree.branch, onProgress });
+    const cleared = await setTicketLabel3({ settings: trackerSettings, ticketId: tree.ticket.id, label: settings.parkedLabel, present: false });
+    if (cleared !== void 0) {
+      onProgress?.(`${tree.ticket.identifier} \xB7 the parked label could not be cleared: ${cleared.error}`);
+    }
+    const reason = `its worktree at ${tree.worktreePath} held a branch already recorded merged, so the ticket was reconciled to done rather than resumed${heldWorktree ?? ""}${reconciliationFailure === void 0 ? "" : ` \u2014 ${reconciliationFailure}`}`;
+    onProgress?.(`${tree.ticket.identifier} \xB7 ${reason}`);
+    settled2.push({
+      identifier: tree.ticket.identifier,
+      title: tree.ticket.title,
+      url: tree.ticket.url,
+      reason,
+      settled: true,
+      ...reconciliationFailure === void 0 ? {} : { reconciliationFailure }
+    });
+  }
+  return settled2;
+};
+
+// src/queue/drainLanes/common/utils/admitSelection.ts
+var admitSelection = ({ state, selection }) => {
+  const admitted = [];
+  for (const ticket of selection.runnable) {
+    const identifier = ticket.identifier.toLowerCase();
+    if (!state.attempted.has(identifier)) {
+      state.attempted.add(identifier);
+      state.blockedByIdentifier.delete(identifier);
+      state.pending.push(ticket);
+      state.queued.push(ticket);
+      admitted.push(ticket);
+    }
+  }
+  for (const entry of selection.blocked) {
+    state.blockedByIdentifier.set(entry.identifier.toLowerCase(), entry);
+  }
+  for (const entry of selection.skipped) {
+    state.attempted.add(entry.identifier.toLowerCase());
+    state.blockedByIdentifier.delete(entry.identifier.toLowerCase());
+    state.leftBehind.push(entry);
+  }
+  return admitted;
+};
+
+// src/queue/common/utils/selectQueueWorker.ts
+var selectQueueWorker = ({ planningStatus, trackerStatus, readyStatus }) => {
+  const atReady = trackerStatus === void 0 || trackerStatus === readyStatus;
+  const inBacklog = trackerStatus !== readyStatus;
+  const selected = {
+    [PlanningStatus.NeedsBrainstorm]: void 0,
+    [PlanningStatus.NeedsPlan]: void 0,
+    [PlanningStatus.ReadyAutoPlan]: inBacklog ? QueueWorker.AutoPlan : void 0,
+    [PlanningStatus.Complete]: atReady ? QueueWorker.Plan : void 0,
+    [PlanningStatus.NotNeeded]: atReady ? QueueWorker.Direct : void 0
+  };
+  return selected[planningStatus];
+};
+
+// src/queue/common/utils/toPlanningSummaries.ts
+var toPlanningSummaries = ({ ticket, lifecycle, resumed }) => Object.values(PlanningStatus).filter((planningStatus) => ticket.labels.includes(lifecycle.planningStatusLabels[planningStatus])).map((planningStatus) => ({
+  ...ticket,
+  planningStatus,
+  worker: selectQueueWorker({
+    planningStatus,
+    trackerStatus: resumed ? void 0 : ticket.status,
+    readyStatus: lifecycle.statusNames[TrackerStatusRole.Ready]
+  })
+}));
+
+// src/queue/ticketSelection/listEligibleTickets.ts
+var listEligibleTickets = async ({ settings, trackerSettings }) => {
+  const tickets = await listTickets3({
+    settings: trackerSettings,
+    labelNames: Object.values(PlanningStatus).map((status) => settings.lifecycle.planningStatusLabels[status]),
+    statuses: settings.lifecycle.eligibleStatuses
+  });
+  if ("error" in tickets) {
+    return tickets;
+  }
+  return tickets.flatMap((ticket) => toPlanningSummaries({ ticket, lifecycle: settings.lifecycle, resumed: false }));
+};
+
+// src/queue/ticketSelection/orderTickets.ts
+var orderTickets = ({ tickets }) => {
+  const rank = ({ priority }) => priority === 0 ? 6 : priority;
+  return [...tickets].sort((left, right) => rank(left) - rank(right) || left.createdAt.localeCompare(right.createdAt));
+};
+
+// src/queue/ticketSelection/dedupeTickets.ts
+var dedupeTickets = ({ tickets, settings, onProgress }) => {
+  const leftBehind = [];
+  const ordered = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const ticket of tickets) {
+    const key = ticket.identifier.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    const carried = new Set(tickets.filter((other) => other.identifier.toLowerCase() === key).map((other) => other.planningStatus));
+    if (carried.size < 2) {
+      ordered.push(ticket);
+      continue;
+    }
+    const labels = Object.values(PlanningStatus).filter((status) => carried.has(status)).map((status) => `'${settings.lifecycle.planningStatusLabels[status]}'`).join(" and ");
+    const reason = `skipped: it carries the planning status labels ${labels} \u2014 leave exactly one so the queue knows what the ticket still owes`;
+    onProgress?.(`${ticket.identifier} \xB7 ${reason}`);
+    leftBehind.push({ identifier: ticket.identifier, title: ticket.title, url: ticket.url, reason });
+  }
+  return { ordered, leftBehind };
+};
+
+// src/queue/ticketSelection/selectWaveTickets.ts
+var selectWaveTickets = ({ tickets, settings, attempted, holds, onProgress }) => {
+  const fresh = tickets.filter((ticket) => !attempted.has(ticket.identifier.toLowerCase()));
+  const { ordered, leftBehind } = dedupeTickets({ tickets: fresh, settings, onProgress });
+  const runnable = [];
+  const blocked = [];
+  for (const ticket of ordered) {
+    if (ticket.worker === void 0) {
+      continue;
+    }
+    if (isTicketGateHeld({ holds, identifier: ticket.identifier, labels: ticket.labels })) {
+      const held = describeGateHold({ hold: holds[ticket.identifier.toLowerCase()], identifier: ticket.identifier });
+      onProgress?.(`${ticket.identifier} \xB7 ${held}`);
+      blocked.push({ identifier: ticket.identifier, title: ticket.title, url: ticket.url, reason: held });
+      continue;
+    }
+    if (ticket.unfinishedBlockers.length === 0) {
+      runnable.push({ ...ticket, worker: ticket.worker });
+      continue;
+    }
+    const reason = `waiting: blocked by ${ticket.unfinishedBlockers.join(", ")} \u2014 the queue takes it once every blocker is finished`;
+    onProgress?.(`${ticket.identifier} \xB7 ${reason}`);
+    blocked.push({ identifier: ticket.identifier, title: ticket.title, url: ticket.url, reason });
+  }
+  return { runnable, blocked, skipped: leftBehind };
+};
+
+// src/queue/ticketSelection/listNextWave.ts
+var listNextWave = async ({ settings, trackerSettings, attempted, holds, onProgress }) => {
+  const eligible = await listEligibleTickets({ settings, trackerSettings });
+  if ("error" in eligible) {
+    return eligible;
+  }
+  return selectWaveTickets({ tickets: orderTickets({ tickets: eligible }), settings, attempted, holds, onProgress });
+};
+
+// src/queue/common/utils/establishBranchMerge.ts
+var establishBranchMerge = async ({ cwd, branch, onProgress }) => {
+  const recorded = await readBranchState({ cwd, branch });
+  let evidence;
+  if (recorded?.phase === BranchPhase.Merged) {
+    evidence = {};
+  } else {
+    const pullRequest = await findPullRequest({ branch, cwd, state: PullRequestState.Merged });
+    if (pullRequest !== void 0) {
+      await writeBranchState({ cwd, branch, phase: BranchPhase.Merged, onProgress });
+      evidence = { pullRequest };
+    }
+  }
+  return evidence;
+};
+
+// src/queue/ticketSelection/reconcileMergedTickets.ts
+var reconcileMergedTickets = async ({
+  cwd,
+  config: config2,
+  env,
+  settings,
+  tickets,
+  onProgress
+}) => {
+  const kept = [];
+  const leftBehind = [];
+  for (const ticket of tickets) {
+    const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
+    const evidence = await establishBranchMerge({ cwd, branch, onProgress });
+    if (evidence === void 0) {
+      kept.push(ticket);
+      continue;
+    }
+    const reconciliationFailure = await reconcileShippedTicket({ config: config2, env, ticketRef: ticket.identifier, onProgress });
+    if (reconciliationFailure !== void 0) {
+      onProgress?.(reconciliationFailure);
+    }
+    const worktreePath = await resolveWorktreePath({ cwd, branch });
+    const heldWorktree = await settleReconciledWorktree({ cwd, worktreePath, branch, onProgress });
+    const established = evidence.pullRequest === void 0 ? `its branch ${branch} is recorded merged` : `its branch ${branch} already has a merged pull request #${evidence.pullRequest.number}`;
+    const reason = `skipped: ${established}, so the ticket was reconciled to done rather than built again${heldWorktree ?? ""}${reconciliationFailure === void 0 ? "" : ` \u2014 ${reconciliationFailure}`}`;
+    leftBehind.push({
+      identifier: ticket.identifier,
+      title: ticket.title,
+      url: ticket.url,
+      reason,
+      settled: true,
+      ...reconciliationFailure === void 0 ? {} : { reconciliationFailure }
+    });
+  }
+  return { kept, leftBehind };
+};
+
+// src/queue/drainLanes/common/utils/settleMergedSelection.ts
+var settleMergedSelection = async ({ cwd, config: config2, env, settings, selection, serializeMainCheckout, onProgress }) => {
+  const reconciled = await serializeMainCheckout({
+    task: () => reconcileMergedTickets({ cwd, config: config2, env, settings, tickets: selection.runnable, onProgress })
+  });
+  return { ...selection, runnable: reconciled.kept, skipped: [...selection.skipped, ...reconciled.leftBehind] };
+};
+
+// src/queue/drainLanes/common/utils/admitScanned.ts
+var admitScanned = async ({ context, state, selection }) => {
+  const { cwd, config: config2, env, settings, serializeMainCheckout, onProgress } = context;
+  const settled2 = await settleMergedSelection({ cwd, config: config2, env, settings, selection, serializeMainCheckout, onProgress });
+  const admitted = admitSelection({ state, selection: settled2 });
+  if (admitted.length > 0) {
+    state.idleScanSpent = false;
+  }
+  return admitted;
+};
+
+// src/queue/drainLanes/common/utils/trackTask.ts
+var trackTask = ({ flight, run }) => {
+  const key = flight.nextKey;
+  flight.nextKey += 1;
+  flight.tasks.set(
+    key,
+    run().then(() => key)
+  );
+};
+
+// src/queue/drainLanes/common/utils/startBuilds.ts
+var parkedBuild = async ({ context, ticket, thrown }) => {
+  const branch = toTicketBranch({ ticket, template: context.settings.branchTemplate });
+  const worktreePath = await resolveWorktreePath({ cwd: context.cwd, branch });
+  return { ticket, branch, worktreePath, ready: false, error: messageOf({ error: thrown }) };
+};
+var settleBuild = ({ state, ticket, outcome }) => {
+  state.building.delete(ticket.identifier.toLowerCase());
+  if (outcome.unanswered === true) {
+    state.retired += 1;
+  }
+  if (outcome.ready) {
+    state.readyToShip.push(outcome);
+  } else {
+    state.outcomes.push(outcome);
+  }
+};
+var buildTicket = async ({ context, state, ticket }) => {
+  try {
+    settleBuild({ state, ticket, outcome: await context.runTicket({ ticket }) });
+  } catch (thrown) {
+    settleBuild({ state, ticket, outcome: await parkedBuild({ context, ticket, thrown }) });
+  }
+};
+var startBuilds = ({ context, state, flight }) => {
+  while (state.pending.length > 0 && flight.builds + flight.ships + state.retired < context.settings.maxParallel) {
+    const ticket = state.pending.shift();
+    if (ticket === void 0) {
+      break;
+    }
+    flight.builds += 1;
+    state.building.set(ticket.identifier.toLowerCase(), { ticket, startedAt: (/* @__PURE__ */ new Date()).toISOString() });
+    trackTask({
+      flight,
+      run: async () => {
+        await buildTicket({ context, state, ticket });
+        flight.builds -= 1;
+      }
+    });
+  }
+};
+
+// src/queue/drainLanes/common/utils/writeQueuePlan.ts
+import { writeFile as writeFile27 } from "node:fs/promises";
+import { join as join145 } from "node:path";
+var writeQueuePlan = async ({ path, cwd, settings, queued }) => {
+  const root = await resolveWorktreesRoot({ cwd });
+  const lines = queued.map((ticket) => {
+    const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
+    return `- ${ticket.identifier} \xB7 ${ticket.worker} \xB7 ${branch} \xB7 ${join145(root, branch)}`;
+  });
+  await writeFile27(path, `# queue drain
+
+${lines.join("\n")}
+`, "utf8");
+};
+
+// src/queue/drainLanes/common/utils/startScan.ts
+var runScan = async ({ context, state }) => {
+  const { settings, trackerSettings, holds, onProgress } = context;
+  const scanned = listNextWave({ settings, trackerSettings, attempted: state.attempted, holds, onProgress });
+  const next = await scanned.catch((thrown) => ({ error: messageOf({ error: thrown }) }));
+  if ("error" in next) {
+    state.scansStopped = true;
+    onProgress?.(`the re-scan for newly unblocked tickets failed, so nothing new will join this run: ${next.error}`);
+  } else {
+    const admitted = await admitScanned({ context, state, selection: next });
+    if (admitted.length > 0) {
+      onProgress?.(`${admitted.map((ticket) => ticket.identifier).join(", ")} \xB7 joined the run already in flight`);
+      await writeQueuePlan({ path: context.planPath, cwd: context.cwd, settings, queued: state.queued });
+    }
+  }
+};
+var startScan = ({ context, state, flight }) => {
+  const allowed = flight.scans === 0 && !state.scansStopped && state.blockedByIdentifier.size > 0 && state.retired < context.settings.maxParallel;
+  const idle = flight.tasks.size === 0 && state.pending.length === 0 && state.readyToShip.length === 0 && !state.idleScanSpent;
+  if (allowed && (state.rescanRequested || idle)) {
+    state.rescanRequested = false;
+    state.idleScanSpent = true;
+    flight.scans += 1;
+    trackTask({
+      flight,
+      run: async () => {
+        await runScan({ context, state });
+        flight.scans -= 1;
+      }
+    });
+  }
+};
+
+// src/queue/shipOneBranch.ts
+var settleLandedMerge = async ({
+  cwd,
+  config: config2,
+  env,
+  outcome,
+  ticketRef,
+  mergeCommit,
+  serializeMainCheckout,
+  onProgress
+}) => {
+  await writeBranchState({ cwd, branch: outcome.branch, phase: BranchPhase.Merged, onProgress });
+  const removal = await serializeMainCheckout({ task: () => removeWorktree({ cwd, worktreePath: outcome.worktreePath, branch: outcome.branch }) });
+  if (removal === void 0) {
+    await deleteWorktreeRecord({ cwd, branch: outcome.branch });
+  }
+  onProgress?.(`${outcome.ticket.identifier} \xB7 shipped as ${mergeCommit}`);
+  return reconcileShippedTicket({ config: config2, env, ticketRef, onProgress });
+};
+var shipOneBranch = async ({
+  cwd,
+  config: config2,
+  shipSettings,
+  integration,
+  defaultBranch,
+  env,
+  outcome,
+  runId,
+  serializeMainCheckout,
+  onProgress
+}) => {
+  const park = ({ error: error51 }) => {
+    onProgress?.(`${outcome.ticket.identifier} \xB7 not shipped: ${error51}`);
+    return { ...outcome, ready: false, error: error51 };
+  };
+  onProgress?.(`${outcome.ticket.identifier} \xB7 merging ${outcome.branch} into origin/${defaultBranch}`);
+  const shipped = await runShip({
+    cwd: outcome.worktreePath,
+    settings: shipSettings,
+    integration,
+    ticketGuard: createTicketShipGuard({ config: config2, env, onProgress }),
+    onProgress
+  });
+  if (shipped.status === ShipStatus.Blocked && shipped.reason === ShipBlockReason.IntegrationGatesUnavailable) {
+    const coordination = shipped.detail ?? "the shared gate reservation was never acquired";
+    const holdFailure = await takeGateHold({
+      cwd,
+      config: config2,
+      env,
+      ticketRef: outcome.ticket.identifier,
+      runId,
+      worktreePath: outcome.worktreePath,
+      reason: coordination,
+      onProgress
+    });
+    return park({ error: holdFailure === void 0 ? coordination : `${coordination} ${holdFailure}` });
+  }
+  if (shipped.status === ShipStatus.Blocked && shipped.reason === ShipBlockReason.TicketNotAuthorized) {
+    const waiting = shipped.detail ?? "the branch\u2019s ticket record does not authorize shipping it";
+    onProgress?.(`${outcome.ticket.identifier} \xB7 left open: ${waiting}`);
+    await writeBranchState({ cwd, branch: outcome.branch, phase: BranchPhase.Open, onProgress });
+    return { ...outcome, ready: false, open: waiting };
+  }
+  if (shipped.status === ShipStatus.Blocked) {
+    return park({ error: `${shipped.reason}: ${shipped.detail}` });
+  }
+  const reconciliationFailure = await settleLandedMerge({
+    cwd,
+    config: config2,
+    env,
+    outcome,
+    ticketRef: shipped.ticketRef,
+    mergeCommit: shipped.mergeCommit,
+    serializeMainCheckout,
+    onProgress
+  });
+  return reconciliationFailure === void 0 ? outcome : { ...outcome, reconciliationFailure };
+};
+
+// src/queue/drainLanes/common/utils/startShip.ts
+var mergeBranch = async ({ context, state, outcome }) => {
+  try {
+    const shipped = await shipOneBranch({
+      cwd: context.cwd,
+      config: context.config,
+      shipSettings: context.shipSettings,
+      integration: context.shipIntegration,
+      defaultBranch: context.defaultBranch,
+      env: context.env,
+      outcome,
+      runId: context.runId,
+      serializeMainCheckout: context.serializeMainCheckout,
+      onProgress: context.onProgress
+    });
+    state.shipping = void 0;
+    state.outcomes.push(shipped);
+    if (shipped.ready) {
+      state.rescanRequested = true;
+      state.idleScanSpent = false;
+    }
+  } catch (thrown) {
+    state.shipping = void 0;
+    state.outcomes.push({ ...outcome, ready: false, error: messageOf({ error: thrown }) });
+  }
+};
+var startShip = ({ context, state, flight }) => {
+  const waiting = flight.ships > 0 || flight.builds >= context.settings.maxParallel ? void 0 : state.readyToShip.shift();
+  if (waiting !== void 0) {
+    state.shipping = waiting;
+    flight.ships += 1;
+    trackTask({
+      flight,
+      run: async () => {
+        await mergeBranch({ context, state, outcome: waiting });
+        flight.ships -= 1;
+      }
+    });
+  }
+};
+
+// src/queue/drainLanes/runDrainLanes.ts
+var seedState = ({
+  attempted,
+  carried,
+  carriedLeftBehind
+}) => ({
+  pending: [],
+  queued: [],
+  building: /* @__PURE__ */ new Map(),
+  readyToShip: carried.filter((outcome) => outcome.ready),
+  shipping: void 0,
+  outcomes: carried.filter((outcome) => !outcome.ready),
+  leftBehind: [...carriedLeftBehind],
+  attempted: new Set(attempted),
+  blockedByIdentifier: /* @__PURE__ */ new Map(),
+  retired: 0,
+  rescanRequested: false,
+  idleScanSpent: false,
+  scansStopped: false
+});
+var finishDrain = ({ context, state }) => {
+  for (const ticket of state.pending) {
+    const reason = "not started: every slot was retired by a ticket parked on an unanswered question";
+    state.leftBehind.push({ identifier: ticket.identifier, title: ticket.title, url: ticket.url, reason });
+    context.onProgress?.(`${ticket.identifier} \xB7 ${reason}`);
+  }
+  state.pending = [];
+  state.leftBehind.push(...state.blockedByIdentifier.values());
+  state.blockedByIdentifier.clear();
+  return { outcomes: state.outcomes, leftBehind: state.leftBehind };
+};
+var recordBoard = ({ context, state }) => {
+  context.board.record({
+    settled: { outcomes: state.outcomes, leftBehind: state.leftBehind },
+    lanes: {
+      pending: state.pending,
+      building: [...state.building.values()],
+      readyToShip: state.readyToShip,
+      shipping: state.shipping,
+      blocked: [...state.blockedByIdentifier.values()]
+    }
+  });
+};
+var runDrainLanes = async ({ first, carried, carriedLeftBehind, attempted, ...context }) => {
+  const state = seedState({ attempted, carried, carriedLeftBehind });
+  const flight = { tasks: /* @__PURE__ */ new Map(), builds: 0, ships: 0, scans: 0, nextKey: 0 };
+  await admitScanned({ context, state, selection: first });
+  await writeQueuePlan({ path: context.planPath, cwd: context.cwd, settings: context.settings, queued: state.queued });
+  for (; ; ) {
+    startShip({ context, state, flight });
+    startBuilds({ context, state, flight });
+    startScan({ context, state, flight });
+    recordBoard({ context, state });
+    if (flight.tasks.size === 0) {
+      break;
+    }
+    flight.tasks.delete(await Promise.race(flight.tasks.values()));
+  }
+  const report2 = finishDrain({ context, state });
+  recordBoard({ context, state });
+  return report2;
+};
+
+// src/queue/drainQueue.ts
+var toParkedIdentifiers = ({ parked }) => [
+  ...parked.outcomes.map((outcome) => outcome.ticket.identifier),
+  ...parked.leftBehind.map((entry) => entry.identifier),
+  ...parked.merged.map((tree) => tree.ticket.identifier)
+];
+var drainQueue = async ({
+  cwd,
+  runId,
+  holds,
+  settings,
+  trackerSettings,
+  shipSettings,
+  shipIntegration,
+  config: config2,
+  env,
+  defaultBranch,
+  planPath,
+  first,
+  parked,
+  runTicket,
+  serializeMainCheckout,
+  board,
+  onProgress
+}) => {
+  const leftBehind = [...parked.leftBehind];
+  const attempted = new Set(toParkedIdentifiers({ parked }).map((identifier) => identifier.toLowerCase()));
+  leftBehind.push(...await settleMergedTrees({ cwd, config: config2, env, settings, trackerSettings, merged: parked.merged, onProgress }));
+  return runDrainLanes({
+    cwd,
+    runId,
+    holds,
+    config: config2,
+    settings,
+    trackerSettings,
+    shipSettings,
+    shipIntegration,
+    defaultBranch,
+    env,
+    planPath,
+    first,
+    carried: parked.outcomes,
+    carriedLeftBehind: leftBehind,
+    attempted,
+    runTicket,
+    serializeMainCheckout,
+    board,
+    onProgress
+  });
+};
+
+// src/queue/runQueueTicket.ts
+import { join as join147 } from "node:path";
+
+// src/common/git/readGitCommitsAhead.ts
+var readGitCommitsAhead = async ({ cwd, defaultBranch }) => {
+  const counted = await runCommand({ command: `git rev-list --count origin/${defaultBranch}..HEAD`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  if (counted?.exitCode !== 0) {
+    return void 0;
+  }
+  const commits = Number.parseInt(counted.stdout.trim(), 10);
+  return Number.isFinite(commits) ? commits : void 0;
+};
+
+// src/queue/common/utils/settleWorkerOutcome.ts
+var settleWorkerOutcome = async ({
+  cwd,
+  worktreePath,
+  branch,
+  defaultBranch,
+  ticket,
+  ticketRunDir,
+  generated,
+  worked,
+  onProgress
+}) => {
+  if (worked.error !== void 0) {
+    return { ready: false, error: worked.error, unanswered: worked.unanswered };
+  }
+  if (worked.open !== void 0) {
+    await writeBranchState({ cwd, branch, phase: BranchPhase.Open, onProgress });
+    return { ready: false, open: worked.open, error: void 0, unanswered: void 0 };
+  }
+  const committed = await commitTicketWork({
+    cwd: worktreePath,
+    message: `${ticket.identifier} ${ticket.title}`,
+    runDir: ticketRunDir,
+    generated,
+    onProgress
+  });
+  if ("error" in committed) {
+    return { ready: false, error: committed.error };
+  }
+  const ahead = await readGitCommitsAhead({ cwd: worktreePath, defaultBranch });
+  if (ahead === void 0) {
+    return { ready: false, error: `git could not count the commits on ${branch}` };
+  }
+  if (ahead === 0) {
+    return { ready: false, error: "the worker left no commits on the branch" };
+  }
+  await writeBranchState({ cwd, branch, phase: BranchPhase.Ready, onProgress });
+  return { ready: true };
+};
+
+// src/queue/workers/common/utils/buildFromTicketBody.ts
+var toBuildOutcome = ({ outcome }) => {
+  if ("refusal" in outcome) {
+    return { error: outcome.refusal };
+  }
+  const { result, recordError } = outcome;
+  if (result.ok) {
+    return recordError === void 0 ? {} : { error: recordError };
+  }
+  const stated = result.error ?? `the run ended ${result.manifest.status}`;
+  return { error: `${stated} \u2014 \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree` };
+};
+var buildFromTicketBody = async ({ step }) => {
+  const { cwd, record: record3, plan, ticket, config: config2, driver, driverName, onProgress } = step;
+  onProgress?.(`${ticket.identifier} carries no plan deliverable for plan ${plan.id}, so it is built from the ticket body`);
+  return toBuildOutcome({
+    outcome: await runTicketPlanLifecycle({
+      cwd,
+      name: formatPlanAddress({ ticketBranch: record3.branch, planId: plan.id }),
+      run: ({ runId }) => runDirectWork({ cwd, ticketBody: ticket.description, ticketRef: ticket.identifier, runId, driver, driverName, config: config2, onProgress })
+    })
+  });
+};
+
+// src/queue/workers/common/utils/findStalledPlanRefusal.ts
+var findStalledPlanRefusal = ({ record: record3, plan }) => {
+  if (plan.progress !== PlanProgress.Failed && plan.progress !== PlanProgress.Implementing) {
+    return void 0;
+  }
+  const finish = plan.implementation === void 0 ? "" : `finish it with \`lightsout resume --run ${plan.implementation.runId}\`, or `;
+  return `the implementation of plan ${plan.id} on ticket ${record3.branch} has not finished, and a ticket's plans implement in numeric order \u2014 ${finish}take it out of the order with \`lightsout ticket exclude-plan --name ${record3.branch} --plan ${plan.id}\``;
+};
+
+// src/queue/workers/common/utils/commitPlanWork.ts
+var commitPlanWork = async ({ step }) => {
+  const { cwd, record: record3, plan, ticket, ticketRunDir, config: config2, onProgress } = step;
+  const subject = `${ticket.identifier} ${plan.id}: ${plan.title}`;
+  const runId = plan.implementation?.runId;
+  const committed = await commitTicketWork({
+    cwd,
+    message: runId === void 0 ? subject : buildRunCommitMessage({ subject, runId }),
+    runDir: ticketRunDir,
+    generated: config2.generated,
+    onProgress
+  });
+  return "error" in committed ? `plan ${plan.id} on ticket ${record3.branch} was built, but its work could not be committed: ${committed.error}` : void 0;
+};
+
+// src/queue/workers/common/utils/settleLeftoverWork.ts
+var settleLeftoverWork = async ({ step, leftover }) => {
+  const { cwd, record: record3 } = step;
+  if (leftover.length === 0) {
+    return void 0;
+  }
+  const owner = record3.plans.filter((plan) => plan.progress === PlanProgress.Implemented && plan.implementation?.finishedAt !== void 0).sort((first, second) => Date.parse(second.implementation?.finishedAt ?? "") - Date.parse(first.implementation?.finishedAt ?? "")).at(0);
+  return owner === void 0 ? `the worktree ${cwd} holds changes no implemented plan of ticket ${record3.branch} accounts for, so the queue cannot say which plan they belong to` : commitPlanWork({ step: { ...step, plan: owner } });
+};
+
+// src/queue/workers/runPlanFolderPipeline.ts
+import { join as join146 } from "node:path";
+var runPlanFolderPipeline = async ({ cwd, name, config: config2, driver, onProgress }) => {
+  const folder = await planWorkspaceDir({ cwd, name });
+  const overviewPath = join146(folder, "overview.md");
+  const phased = await pathExists({ path: overviewPath });
+  const outcome = await runTicketPlanLifecycle({
+    cwd,
+    name,
+    run: ({ runId }) => phased ? runPhasesPipeline({ cwd, driver, config: config2, overviewPath, runId, onProgress }) : runImplementPipeline({ cwd, driver, config: config2, planPath: join146(folder, "plan.md"), runId, onProgress })
+  });
+  if ("refusal" in outcome) {
+    return { error: outcome.refusal };
+  }
+  const { result, recordError } = outcome;
+  if (result.ok) {
+    return recordError === void 0 ? {} : { error: recordError };
+  }
+  const stated = result.error ?? `the run ended ${result.manifest.status}`;
+  return { error: `${stated} \u2014 \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree` };
+};
+
+// src/queue/workers/buildTicketPlans.ts
+var readLeftoverWork = async ({ cwd, config: config2 }) => {
+  const changed = await readGitChangedFiles({ cwd }) ?? [];
+  return changed.filter((path) => !isGeneratedPath({ path, generated: config2.generated ?? [] }));
+};
+var findNextPlanToBuild = ({ record: record3 }) => record3.plans.find((plan) => plan.exclusion === void 0 && plan.progress !== PlanProgress.Implemented);
+var takePlanBeingPlanned = ({ step, allowTicketBodyBuild }) => {
+  const { record: record3, plan } = step;
+  if (record3.mode !== TicketMode.SinglePlan) {
+    return { open: `plan ${plan.id} on ticket ${record3.branch} is still being planned, so the ticket stays open until that plan is ready to implement` };
+  }
+  if (!allowTicketBodyBuild || planNumberOf({ id: plan.id }) !== 1) {
+    return {
+      error: `plan ${plan.id} on ticket ${record3.branch} is still being planned, so the ticket has nothing ready to implement \u2014 plan it with \`lightsout plan --name ${formatPlanAddress({ ticketBranch: record3.branch, planId: plan.id })}\``
+    };
+  }
+  return buildFromTicketBody({ step });
+};
+var buildReadyPlan = async ({ step }) => {
+  const { cwd, record: record3, plan, config: config2, env, driver, onProgress } = step;
+  const address = formatPlanAddress({ ticketBranch: record3.branch, planId: plan.id });
+  if (!await pathExists({ path: await planWorkspaceDir({ cwd, name: address }) })) {
+    const restored = await restoreTicketPlan({ cwd, address, config: config2, env, onProgress });
+    if ("error" in restored) {
+      return { error: restored.error };
+    }
+    if (restored.restored.length === 0) {
+      return { error: `plan ${plan.id} is ready to implement on ticket ${record3.branch}, but ${record3.ticketRef} carries no published files for it` };
+    }
+  }
+  return runPlanFolderPipeline({ cwd, name: address, config: config2, driver, onProgress });
+};
+var confirmPlanImplemented = async ({ step, branch }) => {
+  const { cwd, plan } = step;
+  const reread = await readTicketRecord({ cwd, ticketBranch: branch });
+  if ("error" in reread) {
+    return reread;
+  }
+  const { record: record3 } = reread;
+  if (record3?.plans.find((candidate) => candidate.id === plan.id)?.progress !== PlanProgress.Implemented) {
+    return {
+      error: `plan ${plan.id} on ticket ${branch} was built and passed, but its implementation is not recorded as finished, so the queue stopped rather than build it again`
+    };
+  }
+  return { record: record3 };
+};
+var decideTicketOutcome = ({ record: record3 }) => {
+  const eligibility = readTicketShipEligibility({ record: record3 });
+  if (eligibility.eligible) {
+    return {};
+  }
+  return record3.mode === TicketMode.MultiplePlan ? { open: eligibility.reason } : { error: eligibility.reason };
+};
+var buildTicketPlans = async ({
+  cwd,
+  branch,
+  ticket,
+  record: record3,
+  config: config2,
+  env,
+  driver,
+  driverName,
+  ticketRunDir,
+  allowTicketBodyBuild,
+  onProgress
+}) => {
+  const leftover = await readLeftoverWork({ cwd, config: config2 });
+  let current = record3;
+  let settled2 = false;
+  for (; ; ) {
+    const plan = findNextPlanToBuild({ record: current });
+    if (plan === void 0) {
+      return decideTicketOutcome({ record: current });
+    }
+    const step = { cwd, record: current, plan, ticket, config: config2, env, driver, driverName, ticketRunDir, onProgress };
+    const stalled = findStalledPlanRefusal({ record: current, plan });
+    if (stalled !== void 0) {
+      return { error: stalled };
+    }
+    if (!settled2) {
+      const unsettled = await settleLeftoverWork({ step, leftover });
+      if (unsettled !== void 0) {
+        return { error: unsettled };
+      }
+      settled2 = true;
+    }
+    const built = plan.progress === PlanProgress.Planning ? await takePlanBeingPlanned({ step, allowTicketBodyBuild }) : await buildReadyPlan({ step });
+    if (built.error !== void 0 || built.open !== void 0) {
+      return built;
+    }
+    const confirmed = await confirmPlanImplemented({ step, branch });
+    if ("error" in confirmed) {
+      return { error: confirmed.error };
+    }
+    current = confirmed.record;
+  }
+};
+
+// src/queue/workers/chooseAutoPlanTarget.ts
+var toFirstPlanSlug = ({ title }) => {
+  const words = toBranchSlug({ text: title }).split("-").filter(Boolean).slice(0, 3);
+  return words.length === 0 ? "plan" : words.join("-");
+};
+var chooseAutoPlanTarget = async ({
+  cwd,
+  branch,
+  ticket,
+  config: config2,
+  env,
+  onProgress
+}) => {
+  const pulled = await pullTicketRecord({ cwd, ticketBranch: branch, config: config2, env, onProgress });
+  if ("error" in pulled) {
+    return pulled;
+  }
+  if (pulled.record === void 0) {
+    const added = await addTicketPlan({
+      cwd,
+      ticketBranch: branch,
+      slug: toFirstPlanSlug({ title: ticket.title }),
+      title: ticket.title,
+      config: config2,
+      env,
+      onProgress
+    });
+    if ("error" in added) {
+      return added;
+    }
+    for (const message of [added.notice, added.publishError].filter((entry) => entry !== void 0)) {
+      onProgress?.(message);
+    }
+    return { record: added.record, address: added.address };
+  }
+  const { record: record3 } = pulled;
+  const waiting = findNextPlanToPlan({ record: record3 });
+  return waiting === void 0 ? { record: record3 } : { record: record3, address: formatPlanAddress({ ticketBranch: branch, planId: waiting.id }) };
+};
+
+// src/queue/workers/runAutoPlanWorker.ts
+var runPlanningSession = async ({
+  cwd,
+  ticket,
+  planAddress,
+  config: config2,
+  driver,
+  settings,
+  answeredQuestion,
+  onProgress
+}) => {
+  const engineCli = `node ${process.argv[1]}`;
+  const outcome = await invokeAgentWithContract({
+    driver,
+    cwd,
+    invocation: buildQueueAutoPlanInvocation({
+      ticketRef: ticket.identifier,
+      ticketTitle: ticket.title,
+      ticketBody: ticket.description,
+      engineCli,
+      planAddress,
+      answeredQuestion
+    }),
+    contract: WorkReport,
+    model: config2.model,
+    effort: config2.effort,
+    permissions: config2.permissions,
+    timeoutMs: settings.workerTimeoutMs,
+    allowedCommands: [...config2["agent-commands"] ?? [], engineCli]
+  });
+  if (!outcome.ok) {
+    return { error: outcome.failure };
+  }
+  const report2 = outcome.report;
+  const refusal = report2.failures[0] ?? report2.summary;
+  if (report2.status === WorkReportStatus.TerminatedAmbiguity) {
+    return { question: refusal };
+  }
+  if (report2.status !== WorkReportStatus.Complete) {
+    return { error: refusal };
+  }
+  const folder = await planWorkspaceDir({ cwd, name: planAddress });
+  if (!await pathExists({ path: folder })) {
+    return { error: `${ticket.identifier}'s auto-plan session reported a finished plan, but no plan folder exists at ${folder} \u2014 nothing was built` };
+  }
+  onProgress?.(`${ticket.identifier} is planned and published; the engine now runs the implement pipeline on its plan folder`);
+  return void 0;
+};
+var runAutoPlanWorker = async ({
+  cwd,
+  ticket,
+  branch,
+  config: config2,
+  driver,
+  driverName,
+  settings,
+  env,
+  ticketRunDir,
+  answeredQuestion,
+  onProgress
+}) => {
+  const chosen = await chooseAutoPlanTarget({ cwd, branch, ticket, config: config2, env, onProgress });
+  if ("error" in chosen) {
+    return { error: chosen.error };
+  }
+  const build = ({ record: record3 }) => buildTicketPlans({ cwd, branch, ticket, record: record3, config: config2, env, driver, driverName, ticketRunDir, allowTicketBodyBuild: false, onProgress });
+  if (chosen.address === void 0) {
+    const built = await build({ record: chosen.record });
+    return built.open === void 0 ? built : { open: `no plan is waiting to be planned on ${ticket.identifier}: ${built.open}` };
+  }
+  const planAddress = chosen.address;
+  const stopped = await runPlanningSession({ cwd, ticket, planAddress, config: config2, driver, settings, answeredQuestion, onProgress });
+  if (stopped !== void 0) {
+    return stopped;
+  }
+  const planned = await pullTicketRecord({ cwd, ticketBranch: branch, config: config2, env, onProgress });
+  if ("error" in planned) {
+    return { error: planned.error };
+  }
+  if (planned.record === void 0) {
+    return { error: `ticket ${branch} no longer has a record, so the plan ${planAddress} the session wrote could not be built` };
+  }
+  return build({ record: planned.record });
+};
+
+// src/queue/workers/runWorkerWithRelay.ts
+var runDirectWorker = async ({
+  cwd,
+  ticket,
+  config: config2,
+  driver,
+  driverName,
+  answeredQuestion,
+  onProgress
+}) => {
+  const result = await runDirectWork({
+    cwd,
+    ticketBody: ticket.description,
+    ticketRef: ticket.identifier,
+    driver,
+    driverName,
+    config: config2,
+    answeredQuestion,
+    onProgress
+  });
+  if (result.ok) {
+    return {};
+  }
+  const stated = result.error ?? `the run ended ${result.manifest.status}`;
+  return result.manifest.status === RunStatus.Escalated ? { question: stated } : { error: stated };
+};
+var runPlanWorker = async ({
+  cwd,
+  ticket,
+  branch,
+  config: config2,
+  driver,
+  driverName,
+  trackerSettings,
+  env,
+  ticketRunDir,
+  onProgress
+}) => {
+  const pulled = await pullTicketRecord({ cwd, ticketBranch: branch, config: config2, env, onProgress });
+  if ("error" in pulled) {
+    return { error: pulled.error };
+  }
+  if (pulled.record !== void 0) {
+    return buildTicketPlans({
+      cwd,
+      branch,
+      ticket,
+      record: pulled.record,
+      config: config2,
+      env,
+      driver,
+      driverName,
+      ticketRunDir,
+      allowTicketBodyBuild: true,
+      onProgress
+    });
+  }
+  const folder = await planWorkspaceDir({ cwd, name: branch });
+  if (!await pathExists({ path: folder })) {
+    const restored = await restorePlanWorkspace({ cwd, name: branch, identifier: ticket.identifier, settings: trackerSettings });
+    if (restored.error !== void 0) {
+      return { error: `the plan published to ${ticket.identifier} could not be fetched: ${restored.error}` };
+    }
+    if (restored.restored.length === 0) {
+      onProgress?.(`${ticket.identifier} carries no published plan, so it is built from the ticket body`);
+      return runDirectWorker({ cwd, ticket, config: config2, driver, driverName, onProgress });
+    }
+  }
+  return runPlanFolderPipeline({ cwd, name: branch, config: config2, driver, onProgress });
+};
+var runWorkerWithRelay = async ({
+  worktreePath,
+  branch,
+  ticket,
+  config: config2,
+  driver,
+  driverName,
+  settings,
+  trackerSettings,
+  relay,
+  coordinatorRunId,
+  coordinatorRunDir,
+  ticketRunDir,
+  env,
+  onProgress
+}) => {
+  const maxRelayedQuestions = 2;
+  let answeredQuestion;
+  for (let turn = 0; ; turn += 1) {
+    const workers = {
+      [QueueWorker.Direct]: () => runDirectWorker({ cwd: worktreePath, ticket, config: config2, driver, driverName, answeredQuestion, onProgress }),
+      [QueueWorker.Plan]: () => runPlanWorker({ cwd: worktreePath, ticket, branch, config: config2, driver, driverName, trackerSettings, env, ticketRunDir, onProgress }),
+      [QueueWorker.AutoPlan]: () => runAutoPlanWorker({ cwd: worktreePath, ticket, branch, config: config2, driver, driverName, settings, env, ticketRunDir, answeredQuestion, onProgress })
+    };
+    const outcome = await workers[ticket.worker]();
+    if (outcome.question === void 0) {
+      return outcome;
+    }
+    if (turn === maxRelayedQuestions) {
+      return { error: `the worker is still asking after ${turn} answered question(s): ${outcome.question}` };
+    }
+    const answer = await relay.ask({ question: outcome.question, ticket, coordinatorRunId, coordinatorRunDir }).catch((error51) => ({ error: error51 }));
+    if (typeof answer !== "string") {
+      return { error: `the worker asked a question that could not be relayed: ${messageOf({ error: answer.error })}`, unanswered: true };
+    }
+    answeredQuestion = { question: outcome.question, answer };
+  }
+};
+
+// src/queue/runQueueTicket.ts
+var recordPickup = async ({ cwd, branch, onProgress }) => {
+  if (await readBranchState({ cwd, branch }) === void 0) {
+    await writeBranchState({ cwd, branch, phase: BranchPhase.Building, onProgress });
+  }
+};
+var createTicketWorktree = ({
+  cwd,
+  branch,
+  defaultBranch,
+  setup,
+  serializeWorktreeAdd,
+  onProgress
+}) => serializeWorktreeAdd({
+  task: () => createWorktree({ cwd, branch, startPoint: `origin/${defaultBranch}`, setup, owner: WorktreeOwner.Queue, reuseExisting: true, onProgress })
+});
+var claimOwnership = async ({ settings, trackerSettings, ticket }) => {
+  const inProgress = settings.lifecycle.statusNames[TrackerStatusRole.InProgress];
+  const moved = await updateTicketLifecycle({
+    lifecycle: settings.lifecycle,
+    trackerSettings,
+    ticketId: ticket.id,
+    trackerStatus: TrackerStatusRole.InProgress,
+    currentStatus: ticket.status
+  });
+  return moved === void 0 ? void 0 : `the ticket status could not be moved to '${inProgress}', so no source work began: ${moved.error}`;
+};
+var runQueueTicket = async ({
+  cwd,
+  settings,
+  trackerSettings,
+  ticket,
+  config: config2,
+  driver,
+  driverName,
+  defaultBranch,
+  env,
+  relay,
+  serializeWorktreeAdd,
+  coordinatorRunId,
+  coordinatorRunDir,
+  onProgress
+}) => {
+  const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
+  const ticketRunDir = join147(coordinatorRunDir, "tickets", ticket.identifier);
+  const created = await createTicketWorktree({ cwd, branch, defaultBranch, setup: settings.setup, serializeWorktreeAdd, onProgress });
+  if (typeof created !== "string") {
+    return { ticket, branch, worktreePath: await resolveWorktreePath({ cwd, branch }), ready: false, error: created.error };
+  }
+  const worktreePath = created;
+  await recordPickup({ cwd, branch, onProgress });
+  const unclaimed = await claimOwnership({ settings, trackerSettings, ticket });
+  if (unclaimed !== void 0) {
+    return { ticket, branch, worktreePath, ready: false, error: unclaimed };
+  }
+  const worked = await runWorkerWithRelay({
+    worktreePath,
+    ticket,
+    branch,
+    config: config2,
+    driver,
+    driverName,
+    settings,
+    trackerSettings,
+    relay,
+    coordinatorRunId,
+    coordinatorRunDir,
+    ticketRunDir,
+    env,
+    onProgress
+  });
+  const settled2 = await settleWorkerOutcome({
+    cwd,
+    worktreePath,
+    branch,
+    defaultBranch,
+    ticket,
+    ticketRunDir,
+    generated: config2.generated,
+    worked,
+    onProgress
+  });
+  return { ticket, branch, worktreePath, ...settled2 };
+};
+
+// src/queue/settleParkedLabels.ts
+var settleParkedLabels = async ({ settings, trackerSettings, outcomes, onProgress }) => {
+  if (settings.parkedLabel === void 0) {
+    return;
+  }
+  await Promise.all(
+    outcomes.map(async (outcome) => {
+      const written = await setTicketLabel3({
+        settings: trackerSettings,
+        ticketId: outcome.ticket.id,
+        label: settings.parkedLabel,
+        present: isParkedOutcome({ outcome })
+      });
+      if (written !== void 0) {
+        onProgress?.(`${outcome.ticket.identifier} \xB7 the '${settings.parkedLabel}' label could not be written: ${written.error}`);
+      }
+    })
+  );
+};
+
+// src/queue/startup/checkPlanningStatusLabels.ts
+var describeFix = ({ provider, missing }) => provider === "linear" ? `create ${missing.length === 1 ? "it" : "them"} on the team` : (
+  // A Jira label comes into being the first time an issue carries it, so
+  // there is no create-a-label action to name.
+  `apply ${missing.length === 1 ? "it" : "each of them"} to any issue in the project`
+);
+var checkPlanningStatusLabels = async ({ settings, trackerSettings }) => {
+  const known = await listLabelNames3({ settings: trackerSettings });
+  if ("error" in known) {
+    return known;
+  }
+  const missing = Object.values(PlanningStatus).map((status) => settings.lifecycle.planningStatusLabels[status]).filter((label2) => !known.includes(label2));
+  if (missing.length === 0) {
+    return void 0;
+  }
+  const named = missing.map((label2) => `'${label2}'`).join(", ");
+  return {
+    error: `the tracker has no ${missing.length === 1 ? "label" : "labels"} ${named}, which \`queue.planning-status-labels\` names \u2014 ${describeFix({ provider: trackerSettings.provider, missing })}, or name the labels this tracker already has`
+  };
+};
+
+// src/queue/startup/checkQueueStartup.ts
+var checkQueueStartup = async ({ cwd, settings, trackerSettings, shipSettings }) => {
+  const readyStatus = settings.lifecycle.statusNames[TrackerStatusRole.Ready];
+  if (!settings.lifecycle.eligibleStatuses.includes(readyStatus)) {
+    return {
+      error: `\`queue.ready-status\` is '${readyStatus}', which \`queue.eligible-statuses\` does not list \u2014 no ticket waiting to be implemented would ever be picked up`
+    };
+  }
+  const labelled = await checkPlanningStatusLabels({ settings, trackerSettings });
+  if (labelled !== void 0) {
+    return labelled;
+  }
+  const sample = {
+    id: "sample",
+    identifier: `${trackerSettings.ticketPrefix}-1`,
+    title: "sample",
+    url: "",
+    description: "",
+    priority: 0,
+    createdAt: "",
+    labels: [],
+    planningStatus: PlanningStatus.NotNeeded,
+    worker: QueueWorker.Direct,
+    status: readyStatus,
+    finished: false,
+    unfinishedBlockers: []
+  };
+  const rendered = toTicketBranch({ ticket: sample, template: settings.branchTemplate });
+  if (readTicketMatch({ branch: rendered, ticketPattern: shipSettings.ticketPattern }) === void 0) {
+    return {
+      error: `\`queue.branch-template\` renders '${rendered}', which \`ship.ticket-pattern\` does not match \u2014 every queued branch would be unshippable`
+    };
+  }
+  const defaultBranch = await readGitDefaultBranch({ cwd });
+  if (defaultBranch === void 0) {
+    return { error: "the queue needs a default branch: `origin/HEAD` is unset \u2014 run `git remote set-head origin --auto`" };
+  }
+  await runCommand({ command: "git fetch origin", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  return { defaultBranch };
+};
+
+// src/queue/common/utils/parseDurationMs.ts
+var parseDurationMs = ({ value, key }) => {
+  const matched = /^(\d+)([smh])$/.exec(value.trim());
+  const amount = Number(matched?.[1] ?? 0);
+  if (matched === null || amount === 0) {
+    return { error: `\`${key}\` must be a duration like '90s', '45m' or '4h' \u2014 got '${value}'` };
+  }
+  const perUnitMs = matched[2] === "s" ? 1e3 : matched[2] === "m" ? 6e4 : 36e5;
+  return amount * perUnitMs;
+};
+
+// src/queue/startup/resolveQueueSettings.ts
+var resolveQueueSettings = ({ config: config2 }) => {
+  const queue = config2.queue;
+  if (queue === void 0) {
+    return { error: "`lightsout queue` needs a `queue` block in lightsout.config.json naming max-parallel" };
+  }
+  const lifecycle = resolveLifecycleSettings({ config: config2 });
+  if ("error" in lifecycle) {
+    return lifecycle;
+  }
+  const workerTimeoutMs = parseDurationMs({ value: queue["worker-timeout"] ?? "4h", key: "queue.worker-timeout" });
+  if (typeof workerTimeoutMs !== "number") {
+    return workerTimeoutMs;
+  }
+  const questionTimeoutMs = parseDurationMs({ value: queue["question-timeout"] ?? "1h", key: "queue.question-timeout" });
+  if (typeof questionTimeoutMs !== "number") {
+    return questionTimeoutMs;
+  }
+  return {
+    lifecycle,
+    maxParallel: queue["max-parallel"],
+    setup: config2.worktree?.setup,
+    branchTemplate: queue["branch-template"] ?? "{ticket}-{slug}",
+    decisionsHeading: queue["decisions-heading"] ?? "## Decisions",
+    workerTimeoutMs,
+    questionTimeoutMs,
+    parkedLabel: queue["parked-label"]
+  };
+};
+
+// src/queue/worktrees/scanParkedWorktrees.ts
+import { realpath as realpath2 } from "node:fs/promises";
+import { join as join148 } from "node:path";
+
+// src/queue/worktrees/common/constants/ParkedTreeBucket.ts
+var ParkedTreeBucket = {
+  Unreadable: "unreadable",
+  Drain: "drain",
+  Ship: "ship"
+};
+
+// src/queue/worktrees/common/utils/classifyUnrecordedTree.ts
+var classifyUnrecordedTree = async ({
+  cwd,
+  tree,
+  defaultBranch,
+  onProgress
+}) => {
+  const ahead = await readGitCommitsAhead({ cwd: tree.path, defaultBranch });
+  if (ahead === void 0) {
+    return ParkedTreeBucket.Drain;
+  }
+  const carriesCommits = ahead > 0;
+  await writeBranchState({ cwd, branch: tree.branch, phase: carriesCommits ? BranchPhase.Ready : BranchPhase.Building, onProgress });
+  return carriesCommits ? ParkedTreeBucket.Ship : ParkedTreeBucket.Drain;
+};
+
+// src/queue/worktrees/common/utils/classifyTree.ts
+var classifyTree = async ({ cwd, tree, defaultBranch, onProgress }) => {
+  const changed = await readGitChangedFiles({ cwd: tree.path });
+  if (changed === void 0) {
+    return ParkedTreeBucket.Unreadable;
+  }
+  if (changed.length > 0) {
+    return ParkedTreeBucket.Drain;
+  }
+  const recorded = await readBranchState({ cwd, branch: tree.branch });
+  if (recorded !== void 0) {
+    return recorded.phase === BranchPhase.Ready ? ParkedTreeBucket.Ship : ParkedTreeBucket.Drain;
+  }
+  return classifyUnrecordedTree({ cwd, tree, defaultBranch, onProgress });
+};
+
+// src/queue/worktrees/common/utils/settleUnmergedTree.ts
+var settleUnmergedTree = async ({
+  cwd,
+  tree,
+  ticket,
+  defaultBranch,
+  settings,
+  trackerSettings,
+  onProgress
+}) => {
+  const bucket = await classifyTree({ cwd, tree, defaultBranch, onProgress });
+  if (bucket === ParkedTreeBucket.Drain) {
+    const cleared = await setTicketLabel3({ settings: trackerSettings, ticketId: ticket.id, label: settings.parkedLabel, present: false });
+    if (cleared !== void 0) {
+      onProgress?.(`${tree.identifier} \xB7 the parked label could not be cleared: ${cleared.error}`);
+    }
+    return void 0;
+  }
+  return {
+    ticket,
+    branch: tree.branch,
+    worktreePath: tree.path,
+    ready: bucket === ParkedTreeBucket.Ship,
+    error: bucket === ParkedTreeBucket.Ship ? void 0 : `git could not read the worktree at ${tree.path}`
+  };
+};
+
+// src/queue/worktrees/scanParkedWorktrees.ts
+var toQueuePath = ({ path, root, realRoot }) => {
+  for (const prefix of [root, realRoot]) {
+    if (path.startsWith(`${prefix}/`)) {
+      return join148(root, path.slice(prefix.length + 1));
+    }
+  }
+  return void 0;
+};
+var listQueueWorktrees = async ({ cwd, shipSettings, onProgress }) => {
+  const listed = await runCommand({ command: "git worktree list --porcelain", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  const root = await resolveWorktreesRoot({ cwd });
+  const realRoot = await realpath2(root).catch(() => root);
+  const trees = [];
+  for (const block of (listed?.exitCode === 0 ? listed.stdout : "").split("\n\n")) {
+    const reported = /^worktree (.+)$/m.exec(block)?.[1];
+    const branch = /^branch refs\/heads\/(.+)$/m.exec(block)?.[1];
+    const path = reported === void 0 ? void 0 : toQueuePath({ path: reported, root, realRoot });
+    if (path === void 0 || branch === void 0) {
+      continue;
+    }
+    const identifier = readTicketMatch({ branch, ticketPattern: shipSettings.ticketPattern })?.ticket;
+    if (identifier === void 0) {
+      onProgress?.(`leaving ${path} alone \u2014 its branch carries no ticket the configured pattern matches`);
+      continue;
+    }
+    const record3 = await readWorktreeRecord({ cwd, branch });
+    if (record3 !== void 0 && record3.owner !== WorktreeOwner.Queue) {
+      onProgress?.(`leaving ${path} alone \u2014 it belongs to a '${record3.owner}' run rather than the queue`);
+      continue;
+    }
+    trees.push({ path, branch, identifier });
+  }
+  return trees;
+};
+var describeLeftBehind = ({
+  tree,
+  matched,
+  runnable,
+  settings,
+  holds
+}) => {
+  let reason;
+  if (matched.length === 0) {
+    reason = `its worktree at ${tree.path} is parked, but the ticket carries no planning status label any more`;
+  } else if (runnable.length === 0) {
+    const carried = matched.map((ticket) => `'${settings.lifecycle.planningStatusLabels[ticket.planningStatus]}'`).join(" and ");
+    reason = `its worktree at ${tree.path} is parked, but the ticket now carries ${carried}, which the queue never resumes`;
+  } else if (isTicketGateHeld({ holds, identifier: tree.identifier, labels: runnable[0].labels })) {
+    reason = describeGateHold({ hold: holds[tree.identifier.toLowerCase()], identifier: tree.identifier });
+  }
+  return reason;
+};
+var scanParkedWorktrees = async ({
+  cwd,
+  defaultBranch,
+  settings,
+  trackerSettings,
+  shipSettings,
+  holds,
+  onProgress
+}) => {
+  const trees = await listQueueWorktrees({ cwd, shipSettings, onProgress });
+  if (trees.length === 0) {
+    return { resumed: [], outcomes: [], leftBehind: [], merged: [] };
+  }
+  const tickets = await getTicketsByIdentifiers3({ settings: trackerSettings, identifiers: trees.map((tree) => tree.identifier) });
+  if ("error" in tickets) {
+    return tickets;
+  }
+  const summaries = tickets.flatMap((ticket) => toPlanningSummaries({ ticket, lifecycle: settings.lifecycle, resumed: true }));
+  const parked = { resumed: [], outcomes: [], leftBehind: [], merged: [] };
+  for (const tree of trees) {
+    const matched = summaries.filter((ticket2) => ticket2.identifier.toLowerCase() === tree.identifier.toLowerCase());
+    const runnable = matched.filter((ticket2) => ticket2.worker !== void 0);
+    const left = describeLeftBehind({ tree, matched, runnable, settings, holds });
+    if (left !== void 0) {
+      const tracked = tickets.find((candidate) => candidate.identifier.toLowerCase() === tree.identifier.toLowerCase());
+      onProgress?.(`${tree.identifier} \xB7 ${left}`);
+      parked.leftBehind.push({ identifier: tree.identifier, ...tracked === void 0 ? {} : { title: tracked.title, url: tracked.url }, reason: left });
+      continue;
+    }
+    const ticket = runnable[0];
+    const evidence = await establishBranchMerge({ cwd, branch: tree.branch, onProgress });
+    if (evidence !== void 0) {
+      const established = evidence.pullRequest === void 0 ? "its branch is recorded merged" : `its branch already has a merged pull request #${evidence.pullRequest.number}`;
+      onProgress?.(`${tree.identifier} \xB7 ${established}, so it is reconciled rather than resumed`);
+      parked.merged.push({ worktreePath: tree.path, branch: tree.branch, ticket });
+      continue;
+    }
+    if (ticket.finished) {
+      const reason = `its worktree at ${tree.path} is parked, but the tracker files the ticket as finished while its branch is not merged, so the worktree was left in place \u2014 it may hold work nobody has merged`;
+      onProgress?.(`${tree.identifier} \xB7 ${reason}`);
+      parked.leftBehind.push({ identifier: tree.identifier, title: ticket.title, url: ticket.url, reason });
+      continue;
+    }
+    const outcome = await settleUnmergedTree({ cwd, tree, ticket, defaultBranch, settings, trackerSettings, onProgress });
+    if (outcome === void 0) {
+      parked.resumed.push(...runnable);
+    } else {
+      parked.outcomes.push(outcome);
+    }
+  }
+  return parked;
+};
+
+// src/queue/runQueue.ts
+var toCoordinatorStatus = ({ drained }) => {
+  const unfinished = drained.leftBehind.filter((entry) => entry.settled !== true);
+  const parked = drained.outcomes.filter((outcome) => isParkedOutcome({ outcome }));
+  return parked.length === 0 && unfinished.length === 0 ? RunStatus.Passed : RunStatus.Escalated;
+};
+var drainAndShip = async ({
+  cwd,
+  runId,
+  settings,
+  trackerSettings,
+  shipSettings,
+  config: config2,
+  env,
+  driver,
+  driverName,
+  relay,
+  defaultBranch,
+  first,
+  parked,
+  holds,
+  onProgress
+}) => {
+  const coordinatorRunDir = getRunDir({ cwd, runId });
+  const planPath = join149(coordinatorRunDir, "queue.md");
+  const manifest = await createRun({ cwd, runId, plan: planPath, pipeline: PipelineKind.Queue, driver: driverName, config: config2 });
+  await writeManifestWithUsage({ cwd, manifest, patch: { status: RunStatus.Running }, usageTotals: seedUsageTotals({ usage: manifest.usage }) });
+  const serializeMainCheckout = createMainCheckoutSerializer();
+  const board = new QueueBoardRecorder({ cwd, runId, branchTemplate: settings.branchTemplate, onProgress });
+  const boardRelay = new BoardQuestionRelay({ relay, board });
+  const drained = await drainQueue({
+    cwd,
+    runId,
+    holds,
+    settings,
+    trackerSettings,
+    shipSettings,
+    // Built here from what the drain already holds: `config` is the effective
+    // config and `driver` the resolved harness, so the merge lane's integration
+    // step recovers with exactly what the builders were given.
+    shipIntegration: { config: config2, driver },
+    config: config2,
+    env,
+    defaultBranch,
+    planPath,
+    first,
+    parked,
+    serializeMainCheckout,
+    board,
+    onProgress,
+    runTicket: ({ ticket }) => runQueueTicket({
+      cwd,
+      settings,
+      trackerSettings,
+      ticket,
+      config: config2,
+      driver,
+      driverName,
+      defaultBranch,
+      env,
+      relay: boardRelay,
+      serializeWorktreeAdd: serializeMainCheckout,
+      coordinatorRunId: runId,
+      coordinatorRunDir,
+      onProgress: relay.createProgressSink({ ticket })
+    })
+  });
+  const status = toCoordinatorStatus({ drained });
+  await settleParkedLabels({ settings, trackerSettings, outcomes: drained.outcomes, onProgress });
+  await board.flush();
+  await writeManifestWithUsage({ cwd, manifest, patch: { status, currentStep: null }, usageTotals: seedUsageTotals({ usage: manifest.usage }) });
+  return drained;
+};
+var runQueue = async ({
+  cwd,
+  settings,
+  trackerSettings,
+  shipSettings,
+  config: config2,
+  env,
+  driver,
+  driverName,
+  relay,
+  onProgress
+}) => {
+  const started = await checkQueueStartup({ cwd, settings, trackerSettings, shipSettings });
+  if ("error" in started) {
+    return started;
+  }
+  const { defaultBranch } = started;
+  const eligible = await listEligibleTickets({ settings, trackerSettings });
+  if ("error" in eligible) {
+    return eligible;
+  }
+  const holds = await syncGateHolds({ cwd, settings: trackerSettings, onProgress });
+  const parked = await scanParkedWorktrees({ cwd, defaultBranch, settings, trackerSettings, shipSettings, holds, onProgress });
+  if ("error" in parked) {
+    return parked;
+  }
+  const first = selectWaveTickets({
+    tickets: [...parked.resumed, ...orderTickets({ tickets: eligible })],
+    settings,
+    attempted: /* @__PURE__ */ new Set(),
+    holds,
+    onProgress
+  });
+  if (first.runnable.length === 0 && parked.outcomes.length === 0 && parked.merged.length === 0) {
+    onProgress?.(
+      first.blocked.length > 0 ? "nothing to do \u2014 every eligible ticket is waiting on an unfinished blocker" : "nothing to do \u2014 no eligible tickets, and no parked worktrees to pick up"
+    );
+    const empty = { outcomes: [], leftBehind: [...parked.leftBehind, ...first.skipped, ...first.blocked] };
+    return empty;
+  }
+  return withRunLock({
+    params: { cwd, onProgress },
+    run: ({ runId }) => drainAndShip({
+      cwd,
+      runId,
+      settings,
+      trackerSettings,
+      shipSettings,
+      config: config2,
+      env,
+      driver,
+      driverName,
+      relay,
+      defaultBranch,
+      first,
+      parked,
+      holds,
+      onProgress
+    })
+  });
 };
 
 // src/cli/queueCommand.ts
@@ -164025,7 +164151,7 @@ var toStandardsPackRuleListing = ({ rule, fixtureCounts }) => ({
 var DeclaredConfig = external_exports.object({ timeouts: external_exports.record(external_exports.string(), external_exports.unknown()).optional() }).catchall(external_exports.unknown());
 
 // src/views/common/utils/getRunTitle.ts
-import { basename as basename42, dirname as dirname31 } from "node:path";
+import { basename as basename43, dirname as dirname31 } from "node:path";
 var namedRuleLimit = 3;
 var describeRules = ({ rules }) => {
   const distinct = [...new Set(rules)];
@@ -164034,9 +164160,9 @@ var describeRules = ({ rules }) => {
   return rest > 0 ? `${named} +${rest} more` : named;
 };
 var getRunTitle = ({ plan, worklist }) => {
-  const name = basename42(plan);
+  const name = basename43(plan);
   const stem = name.replace(/\.md$/, "");
-  const folder = basename42(dirname31(plan));
+  const folder = basename43(dirname31(plan));
   const rules = worklist?.kind === PipelineKind.Refactor ? worklist.worklist?.batches.map((batch) => batch.rule) ?? [] : [];
   let title;
   if (worklist?.kind === PipelineKind.Coverage) {
@@ -164353,50 +164479,16 @@ var reportCommand = async ({ cwd, flags }) => {
 import { readFile as readFile70 } from "node:fs/promises";
 import { resolve as resolve18 } from "node:path";
 var readFrozenTicket = ({ cwd, manifest }) => readFile70(resolve18(cwd, manifest.plan), "utf8").catch(() => void 0);
-var describeUnownedEdits = async ({ workspace, manifest }) => {
-  const record3 = manifest.branch === void 0 ? void 0 : await readWorktreeRecord({ cwd: workspace, branch: manifest.branch });
-  if (record3?.owner === WorktreeOwner.Implement) {
-    return void 0;
-  }
-  const own = /* @__PURE__ */ new Set([...manifest.changedFiles, ...manifest.baselineDirtyFiles]);
-  const stray = (await readGitChangedFiles({ cwd: workspace }) ?? []).filter((path) => !own.has(path));
-  return stray.length === 0 ? void 0 : `${workspace} holds changes this run did not make: ${stray.join(", ")} \u2014 commit or stash them before resuming, or they ride into this ticket's commit`;
-};
-var commitResumedWork = async ({
-  cwd,
-  workspace,
-  manifest,
-  ticketBody,
-  ticketRef,
-  generated
-}) => {
-  const dirty = await readGitChangedFiles({ cwd: workspace }) ?? [];
-  if (dirty.length === 0) {
-    return void 0;
-  }
-  const unowned = await describeUnownedEdits({ workspace, manifest });
-  return unowned ?? await commitDirectRun({
-    cwd: workspace,
-    ticketBody,
-    ticketRef,
-    // The run directory comes from the checkout the records live in: the two
-    // are no longer the same directory once a run builds in a worktree.
-    runDir: getRunDir({ cwd, runId: manifest.runId }),
-    generated,
-    onProgress: createProgressPrinter()
-  });
-};
-var continueDirectRun = async ({ cwd, workspace, manifest, config: config2, driver, generated, willShip }) => {
+var continueDirectRun = async ({ cwd, workspace, manifest, config: config2, driver, willShip }) => {
   const ticketBody = await readFrozenTicket({ cwd, manifest });
   if (ticketBody === void 0) {
     console.error(`ticket file not found: ${manifest.plan}`);
     return exitCli({ code: 1 });
   }
-  const ticketRef = manifest.ticketRef ?? manifest.branch ?? "ticket";
-  const built = manifest.status === RunStatus.Passed ? { ok: true, manifest } : await runDirectWork({
+  return runDirectWork({
     cwd: workspace,
     ticketBody,
-    ticketRef,
+    ticketRef: manifest.ticketRef ?? manifest.branch ?? "ticket",
     driver,
     driverName: manifest.harness,
     config: config2,
@@ -164404,12 +164496,6 @@ var continueDirectRun = async ({ cwd, workspace, manifest, config: config2, driv
     willShip,
     onProgress: createProgressPrinter()
   });
-  const uncommitted = built.ok ? await commitResumedWork({ cwd, workspace, manifest, ticketBody, ticketRef, generated }) : void 0;
-  if (uncommitted !== void 0) {
-    console.error(uncommitted);
-    return exitCli({ code: 1 });
-  }
-  return built;
 };
 
 // src/cli/common/implementRun/readResumedPlanName.ts
@@ -164495,13 +164581,12 @@ var runResumedPipeline = ({
   workspace,
   driver,
   config: config2,
-  generated,
   willShip,
   resumable,
   skipRefactor
 }) => {
   if (pipeline === PipelineKind.Direct) {
-    return continueDirectRun({ cwd, workspace, manifest: resumable, config: config2, driver, generated, willShip });
+    return continueDirectRun({ cwd, workspace, manifest: resumable, config: config2, driver, willShip });
   }
   const params = { cwd: workspace, driver, config: config2, existing: resumable, skipRefactor, onProgress: createProgressPrinter() };
   return pipeline === PipelineKind.Phases ? runPhasesOrFailFast(params) : runPipelineOrFailFast(params);
@@ -164545,7 +164630,6 @@ var resumeCommand = async ({ flags, cwd }) => {
       workspace,
       driver,
       config: config2,
-      generated: loaded.generated,
       willShip: shipIntent.willShip,
       resumable,
       skipRefactor

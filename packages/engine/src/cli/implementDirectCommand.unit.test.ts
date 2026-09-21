@@ -6,25 +6,28 @@ import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { implementDirectCommand } from '#src/cli/implementDirectCommand.ts';
 import { type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
-import type { QueueFailure } from '#src/queue/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
-import { generatedPaths } from '#tests/helpers/generatedPaths.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 // Mocked Imports
 // -------------------------
-// The direct run spawns a harness and the commit writes git history — both
-// covered by their own tests. What this command owns is the flags it reads, the
-// dirty tree it refuses, the reference it derives, and the code it exits on.
+// The direct run spawns a harness and makes the commit itself — both covered by
+// their own tests. What this command owns is the flags it reads, the dirty tree
+// it refuses, the reference it derives, and the code it exits on. The staging
+// primitive is stubbed too, so a commit made anywhere at this edge would be
+// seen rather than silently succeed.
 type CommitParams = { message: string; runDir: string; generated: string[] | undefined; onProgress: (message: string) => void };
 
 const mockRunDirectWork = jest.fn<(params: { ticketBody: string; ticketRef: string; willShip?: boolean }) => Promise<PipelineResult>>();
-const mockCommitTicketWork = jest.fn<(params: CommitParams) => Promise<{ committed: boolean } | QueueFailure>>();
+const mockCommitTicketWork = jest.fn<(params: CommitParams) => Promise<{ committed: boolean } | { error: string }>>();
 
 jest.mock('#src/direct/index.ts', () => ({
 	runDirectWork: (params: { ticketBody: string; ticketRef: string; willShip?: boolean }) => mockRunDirectWork(params),
 }));
-jest.mock('#src/queue/index.ts', () => ({ commitTicketWork: (params: CommitParams) => mockCommitTicketWork(params) }));
+jest.mock('#src/commit/index.ts', () => ({
+	...jest.requireActual<typeof import('#src/commit/index.ts')>('#src/commit/index.ts'),
+	commitTicketWork: (params: CommitParams) => mockCommitTicketWork(params),
+}));
 // -------------------------
 
 const manifestOf = (status: RunStatus): RunManifest => ({
@@ -37,6 +40,7 @@ const manifestOf = (status: RunStatus): RunManifest => ({
 	currentStep: null,
 	steps: [],
 	changedFiles: [],
+	commits: [],
 	packages: [],
 	baselineDirtyFiles: [],
 	testSubjects: [],
@@ -100,52 +104,13 @@ const setupImplementDirect = ({
 };
 
 describe('implementDirectCommand', () => {
-	test('builds from the ticket file, labels the run with the branch’s ticket, and commits what passed', async () => {
+	test('builds from the ticket file and labels the run with the branch’s ticket', async () => {
 		const { context, exitCodes } = setupImplementDirect({ args: ['--ticket', 'ticket.md'] });
 
 		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(mockRunDirectWork).toHaveBeenCalledWith(expect.objectContaining({ ticketRef: 'lo-70', ticketBody: '# Drain the backlog\n\nBuild the thing.\n' }));
-		expect(mockCommitTicketWork).toHaveBeenCalledWith(expect.objectContaining({ message: 'lo-70 Drain the backlog' }));
 		expect(exitCodes).toStrictEqual([0]);
-	});
-
-	test('writes the commit message into the run the build just minted, so the run that owns the work owns its records', async () => {
-		const { context, cwd } = setupImplementDirect({ args: ['--ticket', 'ticket.md'] });
-
-		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
-
-		expect(mockCommitTicketWork).toHaveBeenCalledWith(expect.objectContaining({ runDir: join(cwd, '.lightsout', 'runs', 'run-1234-abcd') }));
-	});
-
-	test('hands the commit step the repo’s generated paths, so a direct run’s branch carries source only', async () => {
-		const { context } = setupImplementDirect({ args: ['--ticket', 'ticket.md'], config: { generated: generatedPaths } });
-
-		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
-
-		expect(mockCommitTicketWork).toHaveBeenCalledWith(expect.objectContaining({ generated: ['plugin/dist/', 'packages/web-app/src/routeTree.gen.ts'] }));
-	});
-
-	test('hands the commit step nothing to discard when the repo configures no generated paths, which is exactly today’s behaviour', async () => {
-		const { context } = setupImplementDirect({ args: ['--ticket', 'ticket.md'] });
-
-		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
-
-		expect(mockCommitTicketWork).toHaveBeenCalledWith(expect.objectContaining({ generated: undefined }));
-	});
-
-	test('prints the commit step’s report of the generated changes it discarded, so the run records why the branch carries no build output', async () => {
-		const { context, logged } = setupImplementDirect({ args: ['--ticket', 'ticket.md'], config: { generated: ['plugin/dist/'] } });
-
-		mockCommitTicketWork.mockImplementation(async ({ onProgress }) => {
-			onProgress('discarded 2 generated path(s) — the pre-ship step commits build output');
-
-			return { committed: true };
-		});
-
-		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
-
-		expect(logged).toContainEqual(expect.stringContaining('discarded 2 generated path(s)'));
 	});
 
 	test('takes the reference from --ref when one is typed, rather than deriving it', async () => {
@@ -228,7 +193,7 @@ describe('implementDirectCommand', () => {
 
 		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(errors).toStrictEqual(['implement-direct commits everything in the tree; commit or stash your changes first']);
+		expect(errors).toStrictEqual([`the run commits everything in the tree at ${context.cwd}; commit or stash your changes first`]);
 		expect(mockRunDirectWork).not.toHaveBeenCalled();
 		expect(exitCodes).toStrictEqual([1]);
 	});
@@ -252,7 +217,7 @@ describe('implementDirectCommand', () => {
 		expect(captured.exitCodes).toStrictEqual([1]);
 	});
 
-	test('never commits after a run that did not pass, so a failed build leaves the tree for a human', async () => {
+	test('exits 1 on a run that did not pass, so a failed build leaves the tree for a human', async () => {
 		const { context, exitCodes } = setupImplementDirect({ args: ['--ticket', 'ticket.md'] });
 
 		mockRunDirectWork.mockResolvedValue({ ok: false, manifest: manifestOf(RunStatus.Failed), error: 'tsc: 3 errors' });
@@ -273,40 +238,21 @@ describe('implementDirectCommand', () => {
 		expect(exitCodes).toStrictEqual([2]);
 	});
 
-	test('stops before any ship chaining when the commit itself could not be made', async () => {
-		const { context, errors, exitCodes } = setupImplementDirect({ args: ['--ticket', 'ticket.md', '--ship'] });
-
-		mockCommitTicketWork.mockResolvedValue({ error: 'git could not stage the work' });
-
-		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
-
-		expect(errors).toStrictEqual(['git could not stage the work']);
-		expect(exitCodes).toStrictEqual([1]);
-	});
-
-	test('stops before any ship chaining when the worker changed nothing — a run with no commit must never chain into ship', async () => {
-		const { context, errors, exitCodes } = setupImplementDirect({ args: ['--ticket', 'ticket.md', '--ship'] });
-
-		mockCommitTicketWork.mockResolvedValue({ committed: false });
+	// The commit now happens inside the run itself, one per unit of work that
+	// passed its own gates, so the command edge has none of its own left to make:
+	// it runs the build and exits on whatever the run answered.
+	test("leaves the commit to the pipeline and exits on the run's result", async () => {
+		const { context, cwd, exitCodes } = setupImplementDirect({ args: ['--ticket', 'ticket.md'] });
+		const before = execSync('git rev-parse HEAD', { cwd, encoding: 'utf8' }).trim();
 
 		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(errors).toStrictEqual(['the worker changed nothing']);
-		expect(exitCodes).toStrictEqual([1]);
-	});
+		// git itself is the witness: whichever primitive a command-edge commit
+		// reached for, a new commit would move HEAD — and none was made.
+		const after = execSync('git rev-parse HEAD', { cwd, encoding: 'utf8' }).trim();
 
-	// The commit step now lives in its own file, so the run directory it writes
-	// the message into travels as a parameter rather than being derived from the
-	// checkout the work is in — the two are no longer the same directory.
-	test("the extracted commit step is still given the minted run's own directory", async () => {
-		const { context, cwd, errors, exitCodes } = setupImplementDirect({ args: ['--ticket', 'ticket.md', '--ship'] });
-
-		mockCommitTicketWork.mockResolvedValue({ committed: false });
-
-		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
-
-		expect(mockCommitTicketWork).toHaveBeenCalledWith(expect.objectContaining({ runDir: join(cwd, '.lightsout', 'runs', 'run-1234-abcd') }));
-		expect(errors).toStrictEqual(['the worker changed nothing']);
-		expect(exitCodes).toStrictEqual([1]);
+		expect(mockCommitTicketWork).not.toHaveBeenCalled();
+		expect(after).toBe(before);
+		expect(exitCodes).toStrictEqual([0]);
 	});
 });

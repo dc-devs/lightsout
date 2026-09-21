@@ -92,7 +92,6 @@ const runResumedPipeline = ({
 	workspace,
 	driver,
 	config,
-	generated,
 	willShip,
 	resumable,
 	skipRefactor,
@@ -102,13 +101,12 @@ const runResumedPipeline = ({
 	workspace: string;
 	driver: Driver;
 	config: LightsoutConfig;
-	generated: string[] | undefined;
 	willShip: boolean;
 	resumable: RunManifest;
 	skipRefactor: boolean;
 }) => {
 	if (pipeline === PipelineKind.Direct) {
-		return continueDirectRun({ cwd, workspace, manifest: resumable, config, driver, generated, willShip });
+		return continueDirectRun({ cwd, workspace, manifest: resumable, config, driver, willShip });
 	}
 
 	const params = { cwd: workspace, driver, config, existing: resumable, skipRefactor, onProgress: createProgressPrinter() };
@@ -184,7 +182,6 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 				workspace,
 				driver,
 				config,
-				generated: loaded.generated,
 				willShip: shipIntent.willShip,
 				resumable,
 				skipRefactor,

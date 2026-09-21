@@ -51,6 +51,15 @@ describe('createRun', () => {
 		expect(manifest.acceptanceTests).toStrictEqual([]);
 	});
 
+	test('opens the commit list empty, before the run has committed anything', async () => {
+		const { cwd } = setupRepo();
+
+		const manifest = await createRun({ cwd, plan: 'plan.md', driver: 'stub' });
+
+		// asserted on the return value, not a read-back — the schema default would mask a missing write
+		expect(manifest.commits).toStrictEqual([]);
+	});
+
 	test('creates the run directory so later writes have somewhere to land', async () => {
 		const { cwd } = setupRepo();
 

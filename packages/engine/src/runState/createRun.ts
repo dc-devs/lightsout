@@ -76,6 +76,7 @@ export const createRun = async ({
 		currentStep: null,
 		steps: [],
 		changedFiles: [],
+		commits: [],
 		packages: [],
 		baselineDirtyFiles: baselineDirtyFiles ?? [],
 		testSubjects: [],
