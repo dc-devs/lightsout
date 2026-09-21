@@ -65,7 +65,8 @@ test('runPhasesPipeline: a fresh sequence runs every phase in the overview order
 		onProgress: (message) => progress.push(message),
 	});
 
-	expect(result.ok).toBe(true);
+	// the error rides along so a failure says why, rather than only that it failed
+	expect({ ok: result.ok, error: result.error }).toStrictEqual({ ok: true, error: undefined });
 	// written order, one per phase, no repeats
 	expect(seen).toStrictEqual([1, 2]);
 	expect(result.manifest.status).toBe('passed');
