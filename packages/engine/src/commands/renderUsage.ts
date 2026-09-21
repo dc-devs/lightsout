@@ -20,6 +20,7 @@ const usageOrder = [
 	'queue',
 	'status',
 	'status-run',
+	'status-now',
 	'status-planning',
 	'status-shipping',
 	'status-queue',

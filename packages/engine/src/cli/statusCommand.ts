@@ -4,13 +4,15 @@ import { loadPlanningProgressBlock } from '#src/cli/common/progressBlock/loadPla
 import { loadShippingProgressBlock } from '#src/cli/common/progressBlock/loadShippingProgressBlock.ts';
 import { printQueueStatus } from '#src/cli/common/queueBoard/printQueueStatus.ts';
 import { printRunProgress } from '#src/cli/common/render/printRunProgress.ts';
+import { printAmbiguousRuns } from '#src/cli/common/runStatus/printAmbiguousRuns.ts';
+import { printGoingRunStatus } from '#src/cli/common/runStatus/printGoingRunStatus.ts';
+import { printNewestRun } from '#src/cli/common/runStatus/printNewestRun.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { resolveWatchTarget } from '#src/cli/common/utils/resolveWatchTarget.ts';
 import { watchRunProgress } from '#src/cli/common/utils/watchRunProgress.ts';
 import { PipelineKind, RunStatus } from '#src/contracts/index.ts';
 import { isRunLive, listRunIds, RunNotFoundError, readRunManifest, readRunProcessLock, resolveRunId } from '#src/runState/index.ts';
-import { listRuns } from '#src/views/index.ts';
 
 /**
  * Every run this repo has state for, one line each — what `lightsout status`
@@ -48,22 +50,6 @@ const printRunListing = async ({ cwd }: { cwd: string }) => {
 			console.log(`${manifest.runId}  ${status}  plan: ${manifest.plan}${ticket}${phases}  updated: ${manifest.updatedAt}`);
 		}
 	}
-};
-
-/**
- * A bare `--watch` in a repo where nothing is going: the newest run of any
- * status, painted once, so a terminal user still sees the last run instead of
- * a minute of silence and a false claim that there are none.
- */
-const printNewestRun = async ({ cwd }: { cwd: string }) => {
-	const newest = (await listRuns({ cwd }))[0]?.runId;
-
-	if (newest === undefined) {
-		console.log('no runs found');
-		return;
-	}
-
-	await printRunProgress({ cwd, runId: newest });
 };
 
 /**
@@ -129,20 +115,27 @@ const resolveTypedRunId = ({ cwd, runId }: { cwd: string; runId: string }) =>
 
 /**
  * `--queue`: the queue's board and one status block per active ticket, printed
- * once. It takes `--run <id>` to name a queue run and nothing else: beside
- * `--watch`, `--planning` or `--shipping`, or carrying a value of its own, the
- * request is refused with the usage text.
+ * once. It takes `--run <id>` to name a queue run and `--wait` to spend a
+ * minute on a queue that has only just been launched: beside `--watch`,
+ * `--planning`, `--shipping` or `--now`, or with a value after `--queue` or
+ * `--wait`, the request is refused with the usage text.
  */
 const printQueueForm = async ({ cwd, flags }: { cwd: string; flags: Map<string, string | true> }) => {
-	if (flags.get('queue') !== true || flags.has('watch') || flags.has('planning') || flags.has('shipping')) {
+	const valued = flags.get('queue') !== true || (flags.has('wait') && flags.get('wait') !== true);
+	const clash = flags.has('watch') || flags.has('planning') || flags.has('shipping') || flags.has('now');
+
+	if (valued || clash) {
 		console.error(usage);
 		return exitCli({ code: 1 });
 	}
 
 	const runFlag = getStringFlag({ flags, name: 'run' });
 	const runId = runFlag === undefined ? undefined : await resolveTypedRunId({ cwd, runId: runFlag });
+	// Undefined rather than false when it was not typed, so the resolver is asked
+	// only what the reader asked for.
+	const wait = flags.has('wait') ? true : undefined;
 
-	return exitCli({ code: await printQueueStatus({ cwd, runId }) });
+	return exitCli({ code: await printQueueStatus({ cwd, runId, wait }) });
 };
 
 /**
@@ -176,14 +169,35 @@ const printQueueForm = async ({ cwd, flags }: { cwd: string; flags: Map<string, 
  * prints for that ticket's worktree. It follows the live queue run the
  * checkout's run lock names, or the one `--run <id>` names, and prints once —
  * beside `--watch`, `--planning` or `--shipping` it prints the usage text and
- * exits 1.
+ * exits 1. `--wait` asks it to wait up to a minute for a queue that has only
+ * just been launched, and is meaningless on every other form, so typed without
+ * `--queue` it prints the usage text and exits 1.
+ *
+ * `--now` shows the run that is going, printed once and never repainted, and
+ * for a phased plan both of its levels: the phase sequence, then the phase
+ * moving now. It answers at once rather than waiting for a run to appear, falls
+ * back to the newest run when nothing is going, and names several unrelated
+ * running families back rather than guessing between them. It stands alone —
+ * beside `--run`, `--watch`, `--planning`, `--shipping` or `--queue` it prints
+ * the usage text and exits 1.
  */
 export const statusCommand = async ({ cwd, flags }: CommandContext): Promise<void> => {
 	const runFlag = getStringFlag({ flags, name: 'run' });
 	const watch = flags.get('watch') === true;
 
+	// One rule rather than a clause in each form: --wait waits for a queue run to
+	// take the lock, which no other form is looking for.
+	if (flags.has('wait') && !flags.has('queue')) {
+		console.error(usage);
+		return exitCli({ code: 1 });
+	}
+
 	if (flags.has('queue')) {
 		return printQueueForm({ cwd, flags });
+	}
+
+	if (flags.has('now')) {
+		return exitCli({ code: await printGoingRunStatus({ cwd, flags }) });
 	}
 
 	if (flags.has('shipping')) {
@@ -213,10 +227,7 @@ export const statusCommand = async ({ cwd, flags }: CommandContext): Promise<voi
 	const going = await resolveWatchTarget({ cwd });
 
 	if (going !== undefined && 'ambiguous' in going) {
-		// Naming the ids rather than guessing: an unrelated concurrent run narrated
-		// in place of the one the reader started is worse than being asked.
-		console.error(`several runs are going: ${going.ambiguous.join(', ')}`);
-		console.error('pick one with --run <id>');
+		printAmbiguousRuns({ roots: going.ambiguous });
 
 		return exitCli({ code: 1 });
 	}

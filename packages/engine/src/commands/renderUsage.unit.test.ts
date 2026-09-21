@@ -191,3 +191,20 @@ test('renderUsage: prints a report line naming --plan and --json', () => {
 	expect(report).toHaveLength(1);
 	expect(report[0]).toMatch(/^ {2}lightsout report --plan <name> \[--json\] \[--cwd <path>\](?: |$)/);
 });
+
+test('renderUsage: prints the status --now line between the run and planning lines, and carries --wait on the queue line', () => {
+	const { lines } = setupRenderUsage();
+
+	const now = lines.filter((line) => line.startsWith('  lightsout status --now'));
+	const runIndex = lines.findIndex((line) => line.startsWith('  lightsout status ') && line.includes('[--watch]'));
+	const planningIndex = lines.findIndex((line) => line.startsWith('  lightsout status --planning'));
+	const queue = lines.filter((line) => line.startsWith('  lightsout status --queue'));
+
+	expect(now).toHaveLength(1);
+	expect(now[0]).toMatch(/^ {2}lightsout status --now \[--cwd <path>\](?: |$)/);
+	expect(lines.indexOf(now[0] ?? '')).toBe(runIndex + 1);
+	expect(planningIndex).toBe(runIndex + 2);
+	expect(queue).toHaveLength(1);
+	expect(queue[0]).toMatch(/^ {2}lightsout status --queue \[--run <id>\] \[--wait\] \[--cwd <path>\](?: |$)/);
+	expect(queue[0]).not.toContain('--watch');
+});

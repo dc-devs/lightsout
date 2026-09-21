@@ -1,5 +1,5 @@
 import { loadPlanningProgressBlock } from '#src/cli/common/progressBlock/loadPlanningProgressBlock.ts';
-import { loadRunProgressBlock } from '#src/cli/common/progressBlock/loadRunProgressBlock.ts';
+import { loadRunFamilyProgressBlock } from '#src/cli/common/progressBlock/loadRunFamilyProgressBlock.ts';
 import { loadShippingProgressBlock } from '#src/cli/common/progressBlock/loadShippingProgressBlock.ts';
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { type QueueBoardTicket, QueueLane } from '#src/contracts/index.ts';
@@ -85,14 +85,19 @@ const loadPlanningBlock = async ({ worktreePath, planName }: { worktreePath: str
 		: loadPlanningProgressBlock({ cwd: worktreePath, name: formatPlanAddress({ ticketBranch: planName, planId: waiting.id }) });
 };
 
-/** A building ticket's run block; before any run, an auto-plan ticket's planning block, or a notice for any other ticket. */
+/**
+ * A building ticket's run block — for a phased build, the coordinator's phase
+ * overview paired with the phase moving now, which the family loader climbs to
+ * from the run this build is bound to. Before any run, an auto-plan ticket's
+ * planning block, or a notice for any other ticket.
+ */
 const loadBuildBlock = async ({ ticket, worktreePath }: { ticket: QueueBoardTicket; worktreePath: string }) => {
 	const run = await findBuildRun({ ticket, worktreePath });
 	const { planName } = ticket;
 	let lines: string[];
 
 	if (run !== undefined) {
-		lines = (await loadRunProgressBlock({ cwd: worktreePath, runId: run.runId })).lines;
+		lines = await loadRunFamilyProgressBlock({ cwd: worktreePath, runId: run.runId });
 	} else if (planName !== undefined) {
 		lines = await loadPlanningBlock({ worktreePath, planName });
 	} else {

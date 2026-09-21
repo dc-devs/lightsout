@@ -28,6 +28,9 @@
  * `lightsout report` — where one plan's or one ticket's hours and money went,
  * down to each harness process. Updated once more for `doctor --usage-probe` —
  * the opt-in check that one live harness call still reports its token fields.
+ * Updated once more for `status --now` — the run that is going, printed once
+ * — and for `status --queue --wait`, which is now what asks the queue form to
+ * wait for a queue that has only just been launched.
  */
 export const usageFixture = `lightsout — deterministic engine for coding agents
 
@@ -40,9 +43,10 @@ usage:
   lightsout queue [--file-relay [dir]] [--cwd <path>]
   lightsout status [--cwd <path>]
   lightsout status [--run <id>] [--watch] [--cwd <path>]   (one run in detail; --watch repaints it every two minutes, and without --run it follows the one run that is going)
+  lightsout status --now [--cwd <path>]               (the run that is going, printed once; a phased plan shows its phase sequence and the phase moving now)
   lightsout status --planning <name> [--cwd <path>]   (one plan's planning steps, printed once)
   lightsout status --shipping <branch> [--cwd <path>]   (one branch's ship steps, read from the checkout that ships it)
-  lightsout status --queue [--run <id>] [--cwd <path>]   (the queue's board, then one status block per active ticket, printed once)
+  lightsout status --queue [--run <id>] [--wait] [--cwd <path>]   (the queue's board, then one status block per active ticket, printed once)
   lightsout report --plan <name> [--json] [--cwd <path>]
   lightsout doctor [--cwd <path>] [--usage-probe]
   lightsout standards-check [--cwd <path>] [--path <subdir>] [--all] [--baseline] [--code-checks | --agent-review]
