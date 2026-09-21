@@ -34,7 +34,7 @@ const rateLimitedDriver = (): Driver => ({
 const setupDedup = ({ existing = [], creates = [], plan = true }: { existing?: string[]; creates?: string[]; plan?: boolean } = {}) => {
 	const captured = captureCommandOutput();
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-dedup-command-'));
-	const planDir = join(cwd, '.lightsout', 'plans', 'demo');
+	const planDir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
 
 	for (const relative of existing) {
 		mkdirSync(dirname(join(cwd, relative)), { recursive: true });
@@ -64,7 +64,7 @@ test('planDedupCommand: a plan with no colliding symbols reports no duplication,
 	// no candidates means no agent call
 	expect(calls.count).toBe(0);
 	expect(printed[0] ?? '').toMatch(/^\nplan dedup demo — no duplication found \(reviewed \d{4}-\d\d-\d\dT/);
-	expect(printed[1]).toBe(`\ndedup: ${join(cwd, '.lightsout', 'plans', 'demo', 'dedup.json')}`);
+	expect(printed[1]).toBe(`\ndedup: ${join(cwd, '.lightsout', 'tickets', 'demo', 'plans', 'dedup.json')}`);
 	expect(errors).toStrictEqual([]);
 	expect(exitCodes).toStrictEqual([0]);
 });
@@ -87,7 +87,7 @@ test('planDedupCommand: a confirmed duplicate prints its recommendation, what it
 	// right phase rather than `plan.md` by default
 	expect(printed[1] ?? '').toMatch(/^⧉ plan\.md · getUser \[reuse\] collides with \S*fetchUser\.ts$/);
 	expect(printed[2]).toBe('   fetchUser already does this');
-	expect(printed[3]).toBe(`\ndedup: ${join(cwd, '.lightsout', 'plans', 'demo', 'dedup.json')}`);
+	expect(printed[3]).toBe(`\ndedup: ${join(cwd, '.lightsout', 'tickets', 'demo', 'plans', 'dedup.json')}`);
 	expect(exitCodes).toStrictEqual([0]);
 });
 
@@ -146,7 +146,7 @@ test('records the dedup step as passed in the planning record before it exits 0'
 	);
 
 	// the exit throws, so a record read afterwards was written before the command exited
-	const record = JSON.parse(readFileSync(join(cwd, '.lightsout', 'plans', 'demo', 'planning-progress.json'), 'utf8')) as {
+	const record = JSON.parse(readFileSync(join(cwd, '.lightsout', 'tickets', 'demo', 'plans', 'planning-progress.json'), 'utf8')) as {
 		steps: { step: string; status: string }[];
 	};
 
@@ -168,7 +168,7 @@ test.each([
 	await expect(planDedupCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
 
 	// a rate limit is a pause to resume, not a failure — the record keeps the two apart
-	const record = JSON.parse(readFileSync(join(cwd, '.lightsout', 'plans', 'demo', 'planning-progress.json'), 'utf8')) as { steps: unknown[] };
+	const record = JSON.parse(readFileSync(join(cwd, '.lightsout', 'tickets', 'demo', 'plans', 'planning-progress.json'), 'utf8')) as { steps: unknown[] };
 
 	expect(record.steps).toEqual([expect.objectContaining({ step: 'dedup', status, attempts: 1 })]);
 	expect(exitCodes).toStrictEqual([1]);
@@ -185,7 +185,7 @@ test('records the command run and the judge fan-out beneath it in the activity r
 		planDedupCommand({ cwd, driver: judgeDriver({ verdicts, calls: { count: 0 } }), name, standards: undefined, config: undefined }),
 	).rejects.toThrow(/process\.exit/);
 
-	const planDir = join(cwd, '.lightsout', 'plans', 'demo');
+	const planDir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
 	const report = buildActivityTree({ plan: 'demo', marks: await readActivityMarks({ dir: planDir }) });
 
 	expect(report.roots).toEqual([
@@ -220,7 +220,7 @@ test('records a command run with no child level when there is nothing for a judg
 		planDedupCommand({ cwd, driver: judgeDriver({ verdicts: [], calls: { count: 0 } }), name, standards: undefined, config: undefined }),
 	).rejects.toThrow(/process\.exit/);
 
-	const report = buildActivityTree({ plan: 'demo', marks: await readActivityMarks({ dir: join(cwd, '.lightsout', 'plans', 'demo') }) });
+	const report = buildActivityTree({ plan: 'demo', marks: await readActivityMarks({ dir: join(cwd, '.lightsout', 'tickets', 'demo', 'plans') }) });
 
 	// a grouping row over zero spawns would be a row for work that never happened
 	expect(report.roots[0].children).toEqual([
@@ -242,7 +242,7 @@ test.each([
 
 	await expect(planDedupCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
 
-	const report = buildActivityTree({ plan: 'demo', marks: await readActivityMarks({ dir: join(cwd, '.lightsout', 'plans', 'demo') }) });
+	const report = buildActivityTree({ plan: 'demo', marks: await readActivityMarks({ dir: join(cwd, '.lightsout', 'tickets', 'demo', 'plans') }) });
 
 	// the command run's end mark agrees with the exit code it then returns, and a
 	// pause to resume is kept apart from a failure here as it is in the planning record

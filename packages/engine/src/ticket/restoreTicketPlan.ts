@@ -1,9 +1,8 @@
 import { restoreBrainstormFiles } from '#src/brainstorm/index.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
-import { resolveSharedStateDir } from '#src/common/workspace/resolveSharedStateDir.ts';
+import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { restorePlanWorkspace } from '#src/plan/index.ts';
-import { getTicketFolderPath } from '#src/ticket/common/utils/getTicketFolderPath.ts';
 import { recordTicketSyncState } from '#src/ticket/common/utils/recordTicketSyncState.ts';
 import { resolveTicketTrackerTarget } from '#src/ticket/common/utils/resolveTicketTrackerTarget.ts';
 
@@ -38,9 +37,8 @@ const recordMarker = async ({
 	markerSha256: string;
 	onProgress?: (message: string) => void;
 }) => {
-	const stateDir = await resolveSharedStateDir({ cwd: recordCwd });
 	const recorded = await recordTicketSyncState({
-		ticketFolder: getTicketFolderPath({ stateDir, ticketBranch }),
+		ticketFolder: await ticketFolderDir({ cwd: recordCwd, ticketBranch }),
 		planMarkers: { [planId]: markerSha256 },
 		failure: `plan ${planId} was restored, but this machine could not record which generation it took`,
 	});

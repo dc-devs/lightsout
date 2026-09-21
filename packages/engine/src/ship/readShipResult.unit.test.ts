@@ -1,23 +1,45 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { ShipBlockReason, ShipStatus } from '#src/contracts/index.ts';
 import { readShipResult } from '#src/ship/index.ts';
+import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 const branch = 'lo-52-status';
 
-/** A repo whose ship directory holds exactly the given file body for this branch. */
+/** A repo whose ticket folder holds exactly the given file body for this branch. */
 const setupShipResult = ({ body }: { body?: string } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-ship-result-'));
 
-	mkdirSync(join(cwd, '.lightsout', 'ship'), { recursive: true });
+	mkdirSync(join(cwd, '.lightsout', 'tickets', branch), { recursive: true });
 
 	if (body !== undefined) {
-		writeFileSync(join(cwd, '.lightsout', 'ship', `${branch}.json`), body, 'utf8');
+		writeFileSync(join(cwd, '.lightsout', 'tickets', branch, 'ship.json'), body, 'utf8');
 	}
 
 	return { cwd };
+};
+
+/**
+ * A primary checkout with a linked worktree cut from it, and one ship result
+ * already filed in the primary's ticket folder — the shape an isolated run
+ * asks from, where the reader's `cwd` and the record's checkout differ.
+ */
+const setupLinkedWorktreeShipResult = () => {
+	const { cwd: primary } = setupBranchRepo();
+	const worktree = join(primary, '.worktrees', branch);
+
+	execSync(`git worktree add -q -b ${branch} "${worktree}" main`, { cwd: primary, stdio: 'ignore' });
+	mkdirSync(join(primary, '.lightsout', 'tickets', branch), { recursive: true });
+	writeFileSync(
+		join(primary, '.lightsout', 'tickets', branch, 'ship.json'),
+		JSON.stringify({ status: ShipStatus.Shipped, branch, ticketRef: 'lo-52', prNumber: 41, mergeCommit: '0f1e2d3c', failingChecks: [] }),
+		'utf8',
+	);
+
+	return { primary, worktree };
 };
 
 describe('readShipResult', () => {
@@ -62,10 +84,20 @@ describe('readShipResult', () => {
 	test('a branch whose slugged name differs from the branch name is still found', async () => {
 		const cwd = mkdtempSync(join(tmpdir(), 'lightsout-ship-result-'));
 
-		mkdirSync(join(cwd, '.lightsout', 'ship'), { recursive: true });
-		writeFileSync(join(cwd, '.lightsout', 'ship', 'feature-x.json'), JSON.stringify({ status: ShipStatus.Shipped, failingChecks: [] }), 'utf8');
+		mkdirSync(join(cwd, '.lightsout', 'tickets', 'feature-x'), { recursive: true });
+		writeFileSync(join(cwd, '.lightsout', 'tickets', 'feature-x', 'ship.json'), JSON.stringify({ status: ShipStatus.Shipped, failingChecks: [] }), 'utf8');
 
 		// results are filed under the slugged branch, and the reader slugs the same way
 		expect(await readShipResult({ cwd, branch: 'feature/x' })).toEqual(expect.objectContaining({ status: ShipStatus.Shipped }));
+	});
+
+	test("readShipResult: reads the primary checkout's record when asked from a linked worktree", async () => {
+		const { worktree } = setupLinkedWorktreeShipResult();
+
+		const result = await readShipResult({ cwd: worktree, branch });
+
+		expect(result).toEqual(expect.objectContaining({ status: ShipStatus.Shipped, branch, ticketRef: 'lo-52', prNumber: 41 }));
+		// the worktree holds no state directory at all, so a read scoped to it could only answer undefined
+		expect(existsSync(join(worktree, '.lightsout'))).toBe(false);
 	});
 });

@@ -12,6 +12,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewOneAdvisory } from '#tests/helpers/reviewOneAdvisory.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
@@ -269,7 +270,7 @@ test('pipeline writes agents.jsonl per invocation and aggregates usage into the 
 	expect(result.ok).toBe(true);
 
 	// implement + 2 test writers (the module and its caller) + refactor = 4 invocations
-	const ledger = readFileSync(join(dir, '.lightsout', 'runs', result.manifest.runId, 'agents.jsonl'), 'utf8')
+	const ledger = readFileSync(join(runDirFor({ cwd: dir, runId: result.manifest.runId }), 'agents.jsonl'), 'utf8')
 		.trim()
 		.split('\n')
 		.map((line) => JSON.parse(line) as Record<string, unknown>);
@@ -325,5 +326,5 @@ test('a driver reporting no usage leaves no ledger and no manifest aggregate', a
 
 	expect(result.ok).toBe(true);
 	expect(result.manifest.usage).toBe(undefined);
-	expect(() => readFileSync(join(dir, '.lightsout', 'runs', result.manifest.runId, 'agents.jsonl'))).toThrow();
+	expect(() => readFileSync(join(runDirFor({ cwd: dir, runId: result.manifest.runId }), 'agents.jsonl'))).toThrow();
 });

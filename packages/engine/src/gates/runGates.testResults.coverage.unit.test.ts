@@ -1,9 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import type { GateResult } from '#src/contracts/index.ts';
 import { runGates } from '#src/gates/index.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /**
@@ -28,6 +29,18 @@ const setupProbeRepo = async () => {
 /** The directory the suite recorded, or 'unset' where the engine named none. */
 const recordedResultsDir = ({ dir }: { dir: string }) => readFileSync(join(dir, 'env.log'), 'utf8').trim();
 
+/**
+ * Every folder a run could be filed in — one per ticket, plus one per command.
+ *
+ * Spelled out here rather than imported, so the absence of a run folder is
+ * stated against the layout this fixture expects rather than borrowed from the
+ * code under test. A single flat folder would miss every one of them.
+ */
+const runFolderLocations = ({ dir }: { dir: string }) => [
+	join(dir, '.lightsout', 'tickets'),
+	...['implement', 'direct', 'refactor', 'coverage', 'queue'].map((command) => join(dir, '.lightsout', command, 'runs')),
+];
+
 /** Every observation's kind and recorded results directory, in kind order. */
 const recordedDirs = ({ results }: { results: GateResult[] }) =>
 	results.map((result) => [result.kind, result.testResultsDir]).sort(([left], [right]) => String(left).localeCompare(String(right)));
@@ -44,10 +57,12 @@ describe('runGates', () => {
 		// engine points the command at nothing of its own and the reporter stays
 		// inert — which is exactly what an ordinary developer run looks like.
 		expect(recordedResultsDir({ dir }).startsWith(dir)).toBe(false);
-		expect(existsSync(join(dir, '.lightsout', 'runs'))).toBe(false);
-		// That folder does exist now — it is where the shared gate reservation lives
-		// — so what says no run folder was written is the absence of `runs/`, and the
-		// reservation itself is handed back before the call returns.
+		// A run is filed under its ticket or under the command that owns it, so what
+		// says no run folder was written is that every one of those is absent.
+		expect(runFolderLocations({ dir }).filter((path) => existsSync(path))).toStrictEqual([]);
+		// `.lightsout` itself does exist now — it is where the shared gate
+		// reservation lives — and the reservation is handed back before the call
+		// returns, so no lock file is left behind either.
 		expect(existsSync(join(dir, '.lightsout', 'gate-lock.json'))).toBe(false);
 		expect(recordedDirs({ results })).toStrictEqual([
 			['check', undefined],
@@ -59,10 +74,11 @@ describe('runGates', () => {
 		const { dir, config } = await setupProbeRepo();
 		const results: GateResult[] = [];
 		const runId = 'run-stepless';
+		const runDir = relative(dir, seedRunFolder({ cwd: dir, runId }));
 
 		const result = await runGates({ cwd: dir, config, runId, onGateResult: (gateResult) => results.push(gateResult) });
 
-		const testDir = join('.lightsout', 'runs', runId, 'test-results', 'gates', 'root', 'test');
+		const testDir = join(runDir, 'test-results', 'gates', 'root', 'test');
 
 		expect(result.error).toBe(undefined);
 		// A caller outside a pipeline step still gets an evidence slot per gate —
@@ -70,7 +86,7 @@ describe('runGates', () => {
 		expect(recordedResultsDir({ dir })).toBe(join(dir, testDir));
 		expect(existsSync(join(dir, testDir))).toBe(true);
 		expect(recordedDirs({ results })).toStrictEqual([
-			['check', join('.lightsout', 'runs', runId, 'test-results', 'gates', 'root', 'check')],
+			['check', join(runDir, 'test-results', 'gates', 'root', 'check')],
 			['test', testDir],
 		]);
 	});

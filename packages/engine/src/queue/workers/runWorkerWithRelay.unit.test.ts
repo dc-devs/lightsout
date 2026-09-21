@@ -240,8 +240,8 @@ describe('runWorkerWithRelay', () => {
 		const { relay, coordinatorRunDir } = setupRelay();
 		const worktreePath = mkdtempSync(join(tmpdir(), 'lightsout-plan-worker-'));
 
-		mkdirSync(join(worktreePath, '.lightsout', 'plans', 'lo-70-drain'), { recursive: true });
-		writeFileSync(join(worktreePath, '.lightsout', 'plans', 'lo-70-drain', 'plan.md'), '# Plan\n');
+		mkdirSync(join(worktreePath, '.lightsout', 'tickets', 'lo-70-drain', 'plans'), { recursive: true });
+		writeFileSync(join(worktreePath, '.lightsout', 'tickets', 'lo-70-drain', 'plans', 'plan.md'), '# Plan\n');
 		mockRunPlanFolderPipeline.mockResolvedValue({});
 
 		expect(await runWorker({ relay, coordinatorRunDir, worktreePath, ticket: ticketOf(QueueWorker.Plan) })).toStrictEqual({});

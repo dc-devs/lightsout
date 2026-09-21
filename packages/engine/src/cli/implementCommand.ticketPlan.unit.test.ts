@@ -7,6 +7,7 @@ import { PlanProgress, RunStatus, type ShipResult, TicketMode, type TicketPlan, 
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { manifestOf } from '#tests/helpers/setupResume.ts';
 
@@ -69,11 +70,11 @@ jest.mock('#src/cli/common/render/printResult.ts', () => ({
 
 /** The ticket folder two plans of one ticket share, and the branch its name yields. */
 const ticketBranch = 'lo-7-search';
-const ticketFolder = join('.lightsout', 'plans', ticketBranch);
+const ticketFolder = join('.lightsout', 'tickets', ticketBranch);
 const firstPlan = '001-basics';
 const laterPlan = '002-ranking';
-const firstPlanFolder = join(ticketFolder, firstPlan);
-const laterPlanFolder = join(ticketFolder, laterPlan);
+const firstPlanFolder = join(ticketFolder, 'plans', firstPlan);
+const laterPlanFolder = join(ticketFolder, 'plans', laterPlan);
 
 const planBody = '# Plan: the basics\n';
 const overviewBody = '# Ranking — Overview\n\n## Phases\n\n| # | File | Scope |\n|---|------|-------|\n| 1 | `phase1.md` | scope |\n';
@@ -116,7 +117,8 @@ const readRecord = ({ cwd }: { cwd: string }): TicketRecord => JSON.parse(readFi
 
 /** Every run the command left on disk, by id. */
 const readRunIds = ({ cwd }: { cwd: string }): string[] => {
-	const runs = join(cwd, '.lightsout', 'runs');
+	// A run of a ticket's plan is filed under that ticket's own runs folder.
+	const runs = dirname(runDirFor({ cwd, runId: 'any', ticketBranch }));
 
 	return existsSync(runs) ? readdirSync(runs) : [];
 };
@@ -124,7 +126,7 @@ const readRunIds = ({ cwd }: { cwd: string }): string[] => {
 /** Every manifest the command left on disk — the record the progress view later draws its ship row from. */
 const readManifests = ({ cwd }: { cwd: string }): { runId: string; willShip?: boolean }[] =>
 	readRunIds({ cwd }).map(
-		(runId) => JSON.parse(readFileSync(join(cwd, '.lightsout', 'runs', runId, 'manifest.json'), 'utf8')) as { runId: string; willShip?: boolean },
+		(runId) => JSON.parse(readFileSync(join(runDirFor({ cwd, runId, ticketBranch }), 'manifest.json'), 'utf8')) as { runId: string; willShip?: boolean },
 	);
 
 /**
@@ -182,8 +184,11 @@ const setupPassedTicketRun = ({
 
 		const manifest = manifestOf({ runId, plan: planPath, status: RunStatus.Passed });
 
-		mkdirSync(join(runCwd, '.lightsout', 'runs', runId), { recursive: true });
-		writeFileSync(join(runCwd, '.lightsout', 'runs', runId, 'manifest.json'), `${JSON.stringify(manifest)}\n`);
+		// A run of a ticket's plan is filed under that ticket's own runs folder.
+		const runDir = runDirFor({ cwd: runCwd, runId, ticketBranch });
+
+		mkdirSync(runDir, { recursive: true });
+		writeFileSync(join(runDir, 'manifest.json'), `${JSON.stringify(manifest)}\n`);
 
 		return { ok: true, manifest };
 	});

@@ -4,6 +4,7 @@ import { expect, test } from '@jest/globals';
 import { RunStatus } from '#src/contracts/index.ts';
 import { listRuns } from '#src/views/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { seedRunDir } from '#tests/helpers/seedRunDir.ts';
 
 /** A frozen refactor work-list naming the rules its batches burn down. */
@@ -37,7 +38,7 @@ test('a run directory that will not read is skipped, and the rest of the list su
 
 	await seedRunDir({ cwd, manifest: { runId: 'run-good' } });
 	await seedRunDir({ cwd, manifest: { runId: 'run-broken' } });
-	await writeFile(join(cwd, '.lightsout', 'runs', 'run-broken', 'manifest.json'), '{ not json', 'utf8');
+	await writeFile(join(runDirFor({ cwd, runId: 'run-broken' }), 'manifest.json'), '{ not json', 'utf8');
 
 	// one corrupt directory must not take the whole list down with it
 	expect((await listRuns({ cwd })).map((run) => run.runId)).toStrictEqual(['run-good']);
@@ -75,6 +76,9 @@ test('a listing row folds the manifest into what a list needs, with no JSONL fil
 		// a numbered phase file names its plan folder as well as itself
 		title: 'add-search · phase2-indexing',
 		plan: 'plans/add-search/phase2-indexing.md',
+		// a plan path outside any ticket's plans folder belongs to no plan, so the
+		// row carries no name for the plan views to match on
+		planName: undefined,
 		createdAt: '2026-01-01T00:00:00.000Z',
 		updatedAt: '2026-01-01T00:00:00.000Z',
 		live: false,
@@ -217,5 +221,55 @@ test('a recorded workspace that has gone falls back to the checkout the list is 
 	expect(runs.map((run) => ({ id: run.runId, live: run.live, resumable: run.resumable }))).toStrictEqual([
 		{ id: 'run-gone', live: true, resumable: false },
 		{ id: 'run-stale', live: false, resumable: true },
+	]);
+});
+
+test('a listing row carries the plan name its manifest recorded, and none when the manifest recorded none', async () => {
+	const cwd = await freshCwd();
+
+	await seedRunDir({
+		cwd,
+		manifest: {
+			runId: 'run-of-a-plan',
+			plan: '.lightsout/tickets/lo-155-ticket-scoped-state/plans/001-layout/phase2-recorded-plan-name.md',
+			planName: 'lo-155-ticket-scoped-state/001-layout',
+			updatedAt: '2026-01-02T00:00:00.000Z',
+		},
+	});
+	await seedRunDir({
+		cwd,
+		manifest: { runId: 'run-of-no-plan', plan: '.lightsout/runs/run-of-no-plan/worklist.json', updatedAt: '2026-01-01T00:00:00.000Z' },
+	});
+
+	const runs = await listRuns({ cwd });
+
+	// the name reaches the row the plan views match on, rather than stopping at
+	// the manifest — and a run belonging to no plan carries none to match
+	expect(runs.map((run) => ({ id: run.runId, planName: run.planName }))).toStrictEqual([
+		{ id: 'run-of-a-plan', planName: 'lo-155-ticket-scoped-state/001-layout' },
+		{ id: 'run-of-no-plan', planName: undefined },
+	]);
+});
+
+test("lists one ticket's run rows and skips an unreadable manifest among them", async () => {
+	const cwd = await freshCwd();
+
+	await seedRunDir({ cwd, manifest: { runId: 'run-first-plan', planName: 'lo-200-add-search/001-indexing', updatedAt: '2026-02-01T00:00:00.000Z' } });
+	await seedRunDir({ cwd, manifest: { runId: 'run-second-plan', planName: 'lo-200-add-search/002-querying', updatedAt: '2026-03-01T00:00:00.000Z' } });
+	const brokenRunDir = await seedRunDir({
+		cwd,
+		manifest: { runId: 'run-broken-plan', planName: 'lo-200-add-search/001-indexing', updatedAt: '2026-04-01T00:00:00.000Z' },
+	});
+	await seedRunDir({ cwd, manifest: { runId: 'run-other-ticket', planName: 'lo-201-tighten-gates/001-gates', updatedAt: '2026-05-01T00:00:00.000Z' } });
+	await writeFile(join(brokenRunDir, 'manifest.json'), '{ not json', 'utf8');
+
+	const runs = await listRuns({ cwd, ticketBranch: 'lo-200-add-search' });
+
+	// both plans of the ticket share its one runs folder, so narrowing keeps
+	// them both; the newer run of the other ticket would be first if its folder
+	// were read at all, and the corrupt manifest would be first among these
+	expect(runs.map((run) => ({ id: run.runId, planName: run.planName }))).toStrictEqual([
+		{ id: 'run-second-plan', planName: 'lo-200-add-search/002-querying' },
+		{ id: 'run-first-plan', planName: 'lo-200-add-search/001-indexing' },
 	]);
 });

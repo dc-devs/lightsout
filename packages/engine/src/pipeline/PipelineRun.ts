@@ -18,7 +18,7 @@ import {
 import type { Driver } from '#src/drivers/index.ts';
 import { getAgentOutcomeStatus, invokeAgentWithContract } from '#src/invoke/index.ts';
 import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
-import { getRunDir } from '#src/runState/index.ts';
+import { resolveRunDir } from '#src/runState/index.ts';
 
 const formatUsage = ({ usage }: { usage: AgentUsage }) =>
 	`in ${formatTokenCount({ count: usage.inputTokens })} · out ${formatTokenCount({ count: usage.outputTokens })} · cache-read ${formatTokenCount({ count: usage.cacheReadTokens })} · ${formatCost({ usd: usage.costUsd })}`;
@@ -163,10 +163,20 @@ export class PipelineRun {
 	agentEventSink({ step }: { step: string }): (event: unknown) => void {
 		this.transcriptCount += 1;
 
-		const dir = join(getRunDir({ cwd: this.cwd, runId: this.current().runId }), 'agents');
-		const path = join(dir, `stream-${String(this.transcriptCount).padStart(2, '0')}-${step}.jsonl`);
+		const name = `stream-${String(this.transcriptCount).padStart(2, '0')}-${step}.jsonl`;
+		// The run's folder is looked up inside the promise the sink already took,
+		// so the sink still returns synchronously; the transcript's file name is
+		// fixed before that promise settles. `path` and `ready` are one promise,
+		// so a lookup that fails is handled whether or not an event ever arrives.
+		const path = resolveRunDir({ cwd: this.cwd, runId: this.current().runId }).then(async (runDir) => {
+			const dir = join(runDir, 'agents');
 
-		return createEventFileSink({ path, ready: mkdir(dir, { recursive: true }) });
+			await mkdir(dir, { recursive: true });
+
+			return join(dir, name);
+		});
+
+		return createEventFileSink({ path, ready: path });
 	}
 
 	// A final message that fails its contract is still evidence — persist it
@@ -176,12 +186,12 @@ export class PipelineRun {
 		return async ({ text, attempt, validationError }) => {
 			this.rejectedCount += 1;
 
-			const dir = join(getRunDir({ cwd: this.cwd, runId: this.current().runId }), 'agents');
+			const dir = join(await resolveRunDir({ cwd: this.cwd, runId: this.current().runId }), 'agents');
 			const name = `rejected-${String(this.rejectedCount).padStart(2, '0')}-${step}-attempt${attempt}.txt`;
 
 			await mkdir(dir, { recursive: true });
 			await writeFile(join(dir, name), `# step: ${step} · invocation attempt ${attempt}\n# validation: ${validationError}\n\n${text}`, 'utf8');
-			this.progress(`step ${step}: agent final message failed the report contract — raw text saved to .lightsout/runs/${this.current().runId}/agents/${name}`);
+			this.progress(`step ${step}: agent final message failed the report contract — raw text saved to ${join(dir, name)}`);
 		};
 	}
 

@@ -9,6 +9,7 @@ import type { PipelineResult } from '#src/pipeline/index.ts';
 import type { QueueFailure } from '#src/queue/index.ts';
 import { readTicketRecord, updateLocalTicketRecord } from '#src/ticket/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { manifestOf } from '#tests/helpers/setupResume.ts';
 
@@ -84,7 +85,7 @@ const setupBodyBuild = async ({
 		throw new Error(written.error);
 	}
 
-	const recordPath = join(cwd, '.lightsout', 'plans', ticketBranch, 'ticket.json');
+	const recordPath = join(cwd, '.lightsout', 'tickets', ticketBranch, 'ticket.json');
 
 	if (corrupt) {
 		writeFileSync(recordPath, '{ half a record');
@@ -92,6 +93,9 @@ const setupBodyBuild = async ({
 
 	mockRunDirectWork.mockImplementation(async ({ runId }) => {
 		runIds.push(runId ?? unmintedRunId);
+		// The build is stubbed, so the run folder a real `createRun` would have
+		// made is planted here — the command resolves the run's directory by id.
+		seedRunFolder({ cwd, runId: runId ?? unmintedRunId, pipeline: 'direct' });
 
 		return { ok: true, manifest: manifestOf({ runId: runId ?? unmintedRunId, status: RunStatus.Passed, pipeline: PipelineKind.Direct }) };
 	});

@@ -62,7 +62,7 @@ const setupTicketChain = async ({
 } = {}) => {
 	const { cwd } = setupBranchRepo({ branch: ticketBranch });
 	const captured = captureCommandOutput();
-	const planFolder = join('.lightsout', 'plans', ticketBranch, planId);
+	const planFolder = join('.lightsout', 'tickets', ticketBranch, 'plans', planId);
 
 	mkdirSync(join(cwd, planFolder), { recursive: true });
 	writeFileSync(join(cwd, planFolder, 'plan.md'), '# Plan: the work this run built\n');

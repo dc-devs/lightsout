@@ -9,6 +9,7 @@ import { sourceEvidencePath } from '#src/plan/evidence/index.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createDraftDriver } from '#tests/helpers/createDraftDriver.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { seedPlanWorkspace } from '#tests/helpers/seedPlanWorkspace.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
@@ -33,7 +34,7 @@ const setupIncapableHarness = ({ name }: { name: string }) => {
 		name: 'omp',
 	};
 
-	return { cwd, driver, invocations, planDir: join(cwd, '.lightsout', 'plans', name) };
+	return { cwd, driver, invocations, planDir: planWorkspaceFolder({ cwd: cwd, name: name }) };
 };
 
 /**
@@ -56,7 +57,7 @@ const setupDraftFromWorktree = ({ name }: { name: string }) => {
 		driver: createDraftDriver({ bodies: [cleanPlanBody()] }),
 		// realpath on the primary because git answers the resolved path, and macOS
 		// puts every temp directory behind a symlink
-		primaryPlanDir: join(realpathSync(primary), '.lightsout', 'plans', name),
+		primaryPlanDir: planWorkspaceFolder({ cwd: realpathSync(primary), name }),
 		worktree,
 	};
 };
@@ -101,6 +102,6 @@ describe('runPlanDraft', () => {
 		// checkout reads it
 		expect(existsSync(join(primaryPlanDir, 'source-evidence.json'))).toBeTruthy();
 		// and the tree itself holds no plan data at all, so removing it takes nothing
-		expect(existsSync(join(worktree, '.lightsout', 'plans'))).toBeFalsy();
+		expect(existsSync(join(worktree, '.lightsout', 'tickets'))).toBeFalsy();
 	});
 });

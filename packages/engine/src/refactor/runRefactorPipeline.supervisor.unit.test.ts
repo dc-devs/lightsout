@@ -8,6 +8,7 @@ import { runRefactorPipeline } from '#src/refactor/index.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
@@ -107,7 +108,7 @@ test('refactor: supervisor guidance rescues a red-gated batch', async () => {
 	// the guidance rides the guided retry
 	expect(guided?.includes('delete broken.flag')).toBeTruthy();
 
-	const ledger = readFileSync(join(dir, '.lightsout/runs', result.manifest.runId, 'agents.jsonl'), 'utf8');
+	const ledger = readFileSync(join(runDirFor({ cwd: dir, runId: result.manifest.runId, pipeline: 'refactor' }), 'agents.jsonl'), 'utf8');
 
 	// the consult is on the usage ledger
 	expect(ledger.includes(':supervisor')).toBeTruthy();

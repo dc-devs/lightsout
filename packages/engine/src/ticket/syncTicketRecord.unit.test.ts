@@ -101,7 +101,7 @@ const setupSync = ({
 	sidecarUnwritable?: boolean;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-sync-ticket-'));
-	const ticketFolder = join(cwd, '.lightsout', 'plans', ticketBranch);
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
 	const recordPath = join(ticketFolder, 'ticket.json');
 	const syncPath = join(ticketFolder, 'ticket-sync.json');
 	const progress: string[] = [];

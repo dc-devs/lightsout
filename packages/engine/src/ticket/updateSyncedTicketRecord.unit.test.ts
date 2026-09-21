@@ -6,6 +6,7 @@ import { sha256 } from '#src/common/utils/sha256.ts';
 import { type LightsoutConfig, TicketEventKind, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
 import { updateLocalTicketRecord, updateSyncedTicketRecord } from '#src/ticket/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import { canonicalTicketRecordText } from '#tests/helpers/canonicalTicketRecordText.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
 // Mocked Imports
@@ -72,19 +73,6 @@ const localRecord = recordOf({ details: ['added plan 001-record'] });
 const movedPublished = recordOf({ details: ['added plan 001-record', 'added plan 002-queue-order'] });
 const otherPublished = recordOf({ details: ['added plan 001-record', 'added plan 004-elsewhere'] });
 
-/**
- * The bytes the store itself writes for a record, taken from the store in a
- * throwaway checkout rather than restated here — the published copies and the
- * hashes below have to be the exact byte form a real machine would produce.
- */
-const canonicalTextOf = async ({ record }: { record: TicketRecord }) => {
-	const scratch = mkdtempSync(join(tmpdir(), 'lightsout-synced-bytes-'));
-
-	await updateLocalTicketRecord({ cwd: scratch, ticketBranch, change: () => record });
-
-	return readFileSync(join(scratch, '.lightsout', 'plans', ticketBranch, 'ticket.json'), 'utf8');
-};
-
 const setupSyncedRecord = async ({
 	local = localRecord,
 	published,
@@ -112,21 +100,21 @@ const setupSyncedRecord = async ({
 	sidecarUnwritable?: boolean;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-synced-record-'));
-	const ticketFolder = join(cwd, '.lightsout', 'plans', ticketBranch);
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
 	const recordPath = join(ticketFolder, 'ticket.json');
 	const syncPath = join(ticketFolder, 'ticket-sync.json');
 	const publishedPath = join(ticketFolder, 'ticket.published.json');
 	const seen: (TicketRecord | undefined)[] = [];
 	const progress: string[] = [];
 	// The row that changes the published copy mid-flight swaps this variable.
-	let publishedText = published === undefined ? undefined : await canonicalTextOf({ record: published });
+	let publishedText = published === undefined ? undefined : await canonicalTicketRecordText({ record: published });
 	let reads = 0;
 	const hooks: { onPublishedRead?: (params: { call: number }) => Promise<void> } = {};
 
 	await updateLocalTicketRecord({ cwd, ticketBranch, change: () => local });
 
 	const setSyncedHash = async ({ record }: { record: TicketRecord }) => {
-		const hash = sha256({ content: await canonicalTextOf({ record }) });
+		const hash = sha256({ content: await canonicalTicketRecordText({ record }) });
 
 		writeFileSync(syncPath, `${JSON.stringify({ planMarkers: {}, recordSha256: hash, schemaVersion: 1 }, undefined, '\t')}\n`);
 	};
@@ -231,7 +219,7 @@ describe('updateSyncedTicketRecord', () => {
 		// publish failed without being told what refused it.
 		expect(result).toEqual({ record: changed, publishError: expect.stringContaining('the tracker rejected the attachment') });
 		expect((JSON.parse(readFileSync(recordPath, 'utf8')) as TicketRecord).history).toStrictEqual(changed.history);
-		expect(syncedHashAt({ syncPath })).toBe(sha256({ content: await canonicalTextOf({ record: localRecord }) }));
+		expect(syncedHashAt({ syncPath })).toBe(sha256({ content: await canonicalTicketRecordText({ record: localRecord }) }));
 	});
 
 	test("updateSyncedTicketRecord: answers the change's own refusal and writes and publishes nothing", async () => {
@@ -267,7 +255,7 @@ describe('updateSyncedTicketRecord', () => {
 			published: localRecord,
 			sidecarOf: localRecord,
 		});
-		const newerText = await canonicalTextOf({ record: otherPublished });
+		const newerText = await canonicalTicketRecordText({ record: otherPublished });
 		const changed = withEvent({ record: localRecord, detail: 'added plan 003-ship-guard' });
 
 		// The second read of the ticket is the guarded upload's own re-read: another
@@ -283,7 +271,7 @@ describe('updateSyncedTicketRecord', () => {
 		expect(result).toEqual({ record: changed, publishError: expect.stringContaining('lightsout ticket sync') });
 		expect(mockSetTicketAttachment).not.toHaveBeenCalled();
 		expect((JSON.parse(readFileSync(recordPath, 'utf8')) as TicketRecord).history).toStrictEqual(changed.history);
-		expect(syncedHashAt({ syncPath })).toBe(sha256({ content: await canonicalTextOf({ record: localRecord }) }));
+		expect(syncedHashAt({ syncPath })).toBe(sha256({ content: await canonicalTicketRecordText({ record: localRecord }) }));
 		expect(readFileSync(publishedPath, 'utf8')).toBe(newerText);
 	});
 
@@ -292,7 +280,7 @@ describe('updateSyncedTicketRecord', () => {
 			published: localRecord,
 			sidecarOf: localRecord,
 		});
-		const ownText = await canonicalTextOf({ record: otherPublished });
+		const ownText = await canonicalTicketRecordText({ record: otherPublished });
 
 		// Another process on this machine published those bytes after the pull, so
 		// the sidecar already names them: nothing of another machine's is at risk.
@@ -375,7 +363,7 @@ describe('updateSyncedTicketRecord', () => {
 		expect(result).toStrictEqual({ record: changed, publishError: 'the ticket record could not be published: the tracker API answered 503' });
 		expect((JSON.parse(readFileSync(recordPath, 'utf8')) as TicketRecord).history).toStrictEqual(changed.history);
 		expect(attachedBy()).toStrictEqual([]);
-		expect(syncedHashAt({ syncPath })).toBe(sha256({ content: await canonicalTextOf({ record: localRecord }) }));
+		expect(syncedHashAt({ syncPath })).toBe(sha256({ content: await canonicalTicketRecordText({ record: localRecord }) }));
 	});
 
 	test('updateSyncedTicketRecord: answers the publish failure when the configured tracker carries no such ticket', async () => {
@@ -392,6 +380,23 @@ describe('updateSyncedTicketRecord', () => {
 		});
 		expect((JSON.parse(readFileSync(recordPath, 'utf8')) as TicketRecord).history).toStrictEqual(changed.history);
 		expect(attachedBy()).toStrictEqual([]);
-		expect(syncedHashAt({ syncPath })).toBe(sha256({ content: await canonicalTextOf({ record: localRecord }) }));
+		expect(syncedHashAt({ syncPath })).toBe(sha256({ content: await canonicalTicketRecordText({ record: localRecord }) }));
+	});
+
+	test("updateSyncedTicketRecord: the synced write lands in the ticket's own folder", async () => {
+		const { params, cwd, recordPath, syncPath } = await setupSyncedRecord();
+		const changed = withEvent({ record: localRecord, detail: 'added plan 003-ship-guard' });
+
+		const result = await updateSyncedTicketRecord(params);
+
+		const written = readFileSync(recordPath, 'utf8');
+
+		// One folder answers all three: the record written through, the sidecar that
+		// names what was published, and the bytes the tracker was sent.
+		expect(result).toStrictEqual({ record: changed });
+		expect((JSON.parse(written) as TicketRecord).history).toStrictEqual(changed.history);
+		expect(attachedBy()).toStrictEqual([{ title: 'ticket.json', contentType: 'application/json', text: written }]);
+		expect(syncedHashAt({ syncPath })).toBe(sha256({ content: written }));
+		expect(existsSync(join(cwd, '.lightsout', 'plans'))).toBe(false);
 	});
 });

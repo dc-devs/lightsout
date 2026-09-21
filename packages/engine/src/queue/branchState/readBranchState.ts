@@ -3,7 +3,7 @@ import { BranchState } from '#src/contracts/index.ts';
 import { getBranchStatePath } from '#src/queue/branchState/common/utils/getBranchStatePath.ts';
 
 interface Params {
-	/** The MAIN repository checkout. */
+	/** Any checkout of the repository; the primary is resolved from it. */
 	cwd: string;
 	branch: string;
 }
@@ -18,5 +18,5 @@ interface Params {
  * parked scan is the one place that decides it by looking at git.
  */
 export const readBranchState = async ({ cwd, branch }: Params): Promise<BranchState | undefined> => {
-	return readJsonFile({ path: getBranchStatePath({ cwd, branch }), schema: BranchState });
+	return readJsonFile({ path: await getBranchStatePath({ cwd, branch }), schema: BranchState });
 };

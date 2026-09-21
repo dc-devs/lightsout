@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -10,6 +10,7 @@ import { resolveWorktreesRoot } from '#src/worktree/index.ts';
 import { queueOutcomeFixture } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 type RunnableTicket = ReturnType<typeof queueTicketFixture>;
 
@@ -27,22 +28,26 @@ const snapshotTime = '2026-09-10T10:00:00.000Z';
 /**
  * A recorder over a fresh main checkout, with only the clock faked, so every
  * snapshot's time is known and the file writes and the git lookup for the
- * worktrees root stay real. `runsFolderIsAFile` puts a plain file where the
- * runs folder belongs, so every board write is refused until the test calls
- * `unblockRunsFolder`. `reportsProgress: false` builds the recorder with no
- * progress sink at all.
+ * worktrees root stay real. `boardWriteBlocked` puts a directory where the
+ * board's temporary file belongs, so every board write is refused until the
+ * test calls `unblockBoardWrite`. `reportsProgress: false` builds the recorder
+ * with no progress sink at all.
  */
-const setupRecorder = ({ runsFolderIsAFile = false, reportsProgress = true }: { runsFolderIsAFile?: boolean; reportsProgress?: boolean } = {}) => {
+const setupRecorder = async ({ boardWriteBlocked = false, reportsProgress = true }: { boardWriteBlocked?: boolean; reportsProgress?: boolean } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-board-recorder-'));
 	const runId = 'run-queue-1';
 	const branchTemplate = queueSettingsFixture().branchTemplate;
 	const progress: string[] = [];
-	const boardPath = getQueueBoardPath({ cwd, runId });
-	const runsFolder = join(cwd, '.lightsout', 'runs');
 
-	if (runsFolderIsAFile) {
-		mkdirSync(join(cwd, '.lightsout'), { recursive: true });
-		writeFileSync(runsFolder, 'not a directory\n');
+	// The board sits in the coordinator run's own folder, which is looked up by
+	// id — so the folder has to be on disk before the board has a place at all.
+	mkdirSync(runDirFor({ cwd, runId, pipeline: 'queue' }), { recursive: true });
+
+	const boardPath = await getQueueBoardPath({ cwd, runId });
+	const scratchPath = `${boardPath}.tmp`;
+
+	if (boardWriteBlocked) {
+		mkdirSync(scratchPath, { recursive: true });
 	}
 
 	jest.useFakeTimers({
@@ -72,10 +77,10 @@ const setupRecorder = ({ runsFolderIsAFile = false, reportsProgress = true }: { 
 	/** The board file as the contract reads it; throws when the file is missing or off-contract. */
 	const readBoardFile = async () => QueueBoard.parse(JSON.parse(await readFile(boardPath, 'utf8')));
 
-	/** Take away the plain file in the runs folder's place, so the next board write can land. */
-	const unblockRunsFolder = () => rmSync(runsFolder);
+	/** Take away the directory in the scratch file's place, so the next board write can land. */
+	const unblockBoardWrite = () => rmSync(scratchPath, { recursive: true });
 
-	return { cwd, runId, branchTemplate, progress, boardPath, recorder, readBoardFile, unblockRunsFolder };
+	return { cwd, runId, branchTemplate, progress, boardPath, recorder, readBoardFile, unblockBoardWrite };
 };
 
 /** Lanes holding nothing but what a test names. */
@@ -90,12 +95,31 @@ const lanesOf = (overrides: Partial<Lanes> = {}): Lanes => ({
 
 const noSettled = (): QueueDrainReport => ({ outcomes: [], leftBehind: [] });
 
+/**
+ * A recorder over a checkout where the coordinator's folder was never created,
+ * so the board's own location cannot be looked up at all. Nothing is faked —
+ * the lookup runs for real and finds no run answering the id.
+ */
+const setupUnfiledRun = () => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-board-unfiled-'));
+	const runId = 'run-queue-unfiled';
+	const progress: string[] = [];
+	const recorder = new QueueBoardRecorder({
+		cwd,
+		runId,
+		branchTemplate: queueSettingsFixture().branchTemplate,
+		onProgress: (message: string) => progress.push(message),
+	});
+
+	return { cwd, runId, progress, recorder };
+};
+
 /** The identifier and lane of each ticket on a board, in board order. */
 const placesOf = (board: QueueBoard) => board.tickets.map(({ identifier, lane }) => ({ identifier, lane }));
 
 describe('QueueBoardRecorder', () => {
 	test("writes the snapshot to the run's board file through a temporary file", async () => {
-		const { cwd, runId, branchTemplate, boardPath, recorder, readBoardFile } = setupRecorder();
+		const { cwd, runId, branchTemplate, boardPath, recorder, readBoardFile } = await setupRecorder();
 		const settled: QueueDrainReport = {
 			outcomes: [queueOutcomeFixture({ ticket: queueTicketFixture({ number: 73 }) })],
 			leftBehind: [{ identifier: 'LO-74', reason: 'blocked by LO-1, which is not finished' }],
@@ -121,7 +145,7 @@ describe('QueueBoardRecorder', () => {
 	});
 
 	test('writes snapshots one at a time in the order they were recorded', async () => {
-		const { recorder, readBoardFile } = setupRecorder();
+		const { recorder, readBoardFile } = await setupRecorder();
 
 		recorder.record({ settled: noSettled(), lanes: lanesOf({ pending: [queueTicketFixture({ number: 71 })] }) });
 		recorder.record({ settled: noSettled(), lanes: lanesOf({ pending: [queueTicketFixture({ number: 72 })] }) });
@@ -132,7 +156,7 @@ describe('QueueBoardRecorder', () => {
 	});
 
 	test('writes the lanes as they stood when the snapshot was taken', async () => {
-		const { recorder, readBoardFile } = setupRecorder();
+		const { recorder, readBoardFile } = await setupRecorder();
 		const settled = noSettled();
 		const lanes = lanesOf({
 			pending: [queueTicketFixture({ number: 71 })],
@@ -153,7 +177,7 @@ describe('QueueBoardRecorder', () => {
 	});
 
 	test("keeps a ticket's entry time across writes while it stays in its lane", async () => {
-		const { recorder, readBoardFile } = setupRecorder();
+		const { recorder, readBoardFile } = await setupRecorder();
 		const staying = queueTicketFixture({ number: 71 });
 		const moving = queueTicketFixture({ number: 72 });
 
@@ -172,7 +196,7 @@ describe('QueueBoardRecorder', () => {
 	});
 
 	test('rewrites the board when a worker starts and stops waiting for an answer', async () => {
-		const { recorder, readBoardFile } = setupRecorder();
+		const { recorder, readBoardFile } = await setupRecorder();
 		const ticket = queueTicketFixture({ number: 71 });
 		const question = 'Which column comes first?';
 		recorder.record({ settled: noSettled(), lanes: lanesOf({ building: [{ ticket, startedAt: '2026-09-10T09:50:00.000Z' }] }) });
@@ -193,7 +217,7 @@ describe('QueueBoardRecorder', () => {
 	});
 
 	test('writes nothing for a wait until the drain has recorded a snapshot', async () => {
-		const { boardPath, recorder } = setupRecorder();
+		const { boardPath, recorder } = await setupRecorder();
 
 		recorder.markWaiting({ ticket: queueTicketFixture({ number: 71 }), question: 'Which column comes first?' });
 		await recorder.flush();
@@ -202,7 +226,7 @@ describe('QueueBoardRecorder', () => {
 	});
 
 	test('reports a failed board write as one progress line and keeps recording', async () => {
-		const { boardPath, progress, recorder } = setupRecorder({ runsFolderIsAFile: true });
+		const { boardPath, progress, recorder } = await setupRecorder({ boardWriteBlocked: true });
 		const snapshot = { settled: noSettled(), lanes: lanesOf({ pending: [queueTicketFixture({ number: 71 })] }) };
 
 		const recording = (async () => {
@@ -214,15 +238,33 @@ describe('QueueBoardRecorder', () => {
 
 		await expect(recording).resolves.toBeUndefined();
 		expect(progress).toEqual([expect.stringContaining(boardPath), expect.stringContaining(boardPath)]);
-		expect(progress).toEqual([expect.stringMatching(/ENOTDIR|EEXIST|not a directory/), expect.stringMatching(/ENOTDIR|EEXIST|not a directory/)]);
+		expect(progress).toEqual([
+			expect.stringMatching(/EISDIR|illegal operation on a directory/),
+			expect.stringMatching(/EISDIR|illegal operation on a directory/),
+		]);
 	});
 
-	test('writes the next snapshot after a failed write when it has no progress sink', async () => {
-		const { recorder, readBoardFile, unblockRunsFolder } = setupRecorder({ runsFolderIsAFile: true, reportsProgress: false });
+	test('names the run in its progress line when there is no folder to look the board up in', async () => {
+		const { cwd, runId, progress, recorder } = setupUnfiledRun();
 
 		recorder.record({ settled: noSettled(), lanes: lanesOf({ pending: [queueTicketFixture({ number: 71 })] }) });
 		await recorder.flush();
-		unblockRunsFolder();
+
+		// the board's folder is looked up rather than joined, so a run nothing
+		// filed has no path to name — the run id is what is left to report, and
+		// the drain carries on rather than taking the rejection
+		expect(progress).toEqual([expect.stringContaining(runId)]);
+		// and the failed lookup writes nowhere: no state directory is invented for
+		// a run that was never created
+		expect(existsSync(join(cwd, '.lightsout'))).toBe(false);
+	});
+
+	test('writes the next snapshot after a failed write when it has no progress sink', async () => {
+		const { recorder, readBoardFile, unblockBoardWrite } = await setupRecorder({ boardWriteBlocked: true, reportsProgress: false });
+
+		recorder.record({ settled: noSettled(), lanes: lanesOf({ pending: [queueTicketFixture({ number: 71 })] }) });
+		await recorder.flush();
+		unblockBoardWrite();
 		recorder.record({ settled: noSettled(), lanes: lanesOf({ pending: [queueTicketFixture({ number: 72 })] }) });
 		await recorder.flush();
 		const board = await readBoardFile();

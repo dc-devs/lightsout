@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
@@ -9,6 +9,7 @@ import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { queueOutcomeFixture as outcomeOf } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { queueTicketFixture as ticketOf } from '#tests/helpers/queueTicketFixture.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupQueueDrain } from '#tests/helpers/setupQueueDrain.ts';
 
 // Mocked Imports
@@ -63,7 +64,7 @@ const merged = () => mockShipOneBranch.mock.calls.map((call) => call[0].outcome.
 
 /** The `queue.md` the one coordinator run wrote — one line per ticket any wave picked up. */
 const readQueuePlan = ({ cwd }: { cwd: string }) => {
-	const runsDir = join(cwd, '.lightsout', 'runs');
+	const runsDir = dirname(runDirFor({ cwd, runId: 'any', pipeline: 'queue' }));
 	const runId = readdirSync(runsDir)[0];
 
 	return readFileSync(join(runsDir, runId, 'queue.md'), 'utf8');

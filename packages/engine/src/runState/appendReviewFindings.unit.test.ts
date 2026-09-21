@@ -1,8 +1,10 @@
+import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
 import { appendReviewFindings, readReviewFindings } from '#src/runState/index.ts';
+import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
@@ -33,6 +35,26 @@ const setupLedger = ({ priorLine }: SetupParams = {}) => {
 	const readLog = () => readLines().map((line) => JSON.parse(line) as Record<string, unknown>);
 
 	return { cwd, runId, logPath, readLines, readLog };
+};
+
+/**
+ * A primary checkout with a linked worktree cut from it — the shape an isolated
+ * run works in, where the checkout the run stands in and the checkout holding
+ * the ledger are two different directories.
+ */
+const setupLinkedWorktreeLedger = () => {
+	const { cwd } = setupBranchRepo();
+	const worktree = join(cwd, '.worktrees', 'lo-155-findings');
+
+	execSync(`git worktree add -q -b feature/lo-155-findings "${worktree}" main`, { cwd, stdio: 'ignore' });
+
+	const readPrimaryLog = () =>
+		readFileSync(join(cwd, '.lightsout', 'review-findings.jsonl'), 'utf8')
+			.trim()
+			.split('\n')
+			.map((line) => JSON.parse(line) as Record<string, unknown>);
+
+	return { worktree, readPrimaryLog };
 };
 
 describe('appendReviewFindings', () => {
@@ -104,6 +126,21 @@ describe('appendReviewFindings', () => {
 		await appendReviewFindings({ cwd, runId, step: 'batch-01', findings: [] });
 
 		expect(existsSync(logPath)).toBe(false);
+	});
+
+	test("appendReviewFindings: appends to and reads back the primary checkout's ledger from a linked worktree", async () => {
+		const { worktree, readPrimaryLog } = setupLinkedWorktreeLedger();
+
+		await appendReviewFindings({ cwd: worktree, runId: 'run-isolated', step: 'batch-01', findings: [finding()] });
+
+		const records = await readReviewFindings({ cwd: worktree });
+
+		// the line lands in the primary checkout's ledger, where every sibling
+		// worktree reads it — and the worktree keeps no state directory of its own
+		expect(readPrimaryLog().map((record) => [record.rule, record.runId])).toStrictEqual([['single-return', 'run-isolated']]);
+		expect(existsSync(join(worktree, '.lightsout'))).toBe(false);
+		// and the run that wrote it reads back the same line from the worktree
+		expect(records.map((entry) => [entry.rule, entry.runId, entry.step])).toStrictEqual([['single-return', 'run-isolated', 'batch-01']]);
 	});
 });
 

@@ -1,6 +1,6 @@
-import { join } from 'node:path';
 import type { DraftRole } from '#tests/helpers/createScriptedDraftDriver.ts';
 import type { DeclarationSpec } from '#tests/helpers/phasePlan.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { seedPlanWorkspace } from '#tests/helpers/seedPlanWorkspace.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
@@ -33,5 +33,5 @@ export const setupPhasedDraft = ({ name, touching = 41, executorFileLimit }: { n
 	const calls: { role: DraftRole; file: string; prompt: string }[] = [];
 	const messages: string[] = [];
 
-	return { cwd, name, calls, messages, planDir: join(cwd, '.lightsout', 'plans', name), onProgress: (message: string) => messages.push(message) };
+	return { cwd, name, calls, messages, planDir: planWorkspaceFolder({ cwd: cwd, name: name }), onProgress: (message: string) => messages.push(message) };
 };

@@ -6,6 +6,7 @@ import { serializeAttachmentManifest } from '#src/common/attachmentManifest/seri
 import { type LightsoutConfig, PlanProgress, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
 import { planAttachmentManifestName } from '#src/plan/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { seedConfiguredCwd } from '#tests/helpers/seedConfiguredCwd.ts';
 
@@ -94,7 +95,7 @@ const ensure = ({ cwd, path }: { cwd: string; path: string }) => {
 };
 
 const ticketBranch = 'lo-7-search';
-const laterPlanPath = join('.lightsout', 'plans', ticketBranch, '002-ranking');
+const laterPlanPath = join('.lightsout', 'tickets', ticketBranch, 'plans', '002-ranking');
 const laterPlanBody = '# the later plan, planned in the ticket tree\n';
 
 /**
@@ -102,7 +103,7 @@ const laterPlanBody = '# the later plan, planned in the ticket tree\n';
  * ticket able to supply that plan: the tree is keyed by the ticket-branch
  * segment of the plan address, so it sits at `<cwd>-worktrees/lo-7-search`, and
  * the folder it holds is that tree's
- * `.lightsout/plans/lo-7-search/002-ranking`.
+ * `.lightsout/tickets/lo-7-search/plans/002-ranking`.
  *
  * The tree's copy is no longer a source to recover from, so the ticket is the
  * only place left to ask — and it answers with text of its own, which is what
@@ -111,7 +112,7 @@ const laterPlanBody = '# the later plan, planned in the ticket tree\n';
 const setupPlanInTicketWorktree = async () => {
 	const cwd = await seedCwd();
 	const tree = join(`${cwd}-worktrees`, ticketBranch);
-	const dir = join(tree, '.lightsout', 'plans', ticketBranch, '002-ranking');
+	const dir = join(tree, '.lightsout', 'tickets', ticketBranch, 'plans', '002-ranking');
 
 	mkdirSync(dir, { recursive: true });
 	writeFileSync(join(dir, 'plan.md'), laterPlanBody);
@@ -120,8 +121,8 @@ const setupPlanInTicketWorktree = async () => {
 	mockFindBareTicketFolderRefusal.mockResolvedValue(undefined);
 	mockPullTicketRecord.mockResolvedValue({ record: ticketRecord });
 	mockRestoreTicketPlan.mockImplementation(async ({ cwd: checkout, address }) => {
-		mkdirSync(join(checkout, '.lightsout', 'plans', address), { recursive: true });
-		writeFileSync(join(checkout, '.lightsout', 'plans', address, 'plan.md'), restoredFileBody);
+		mkdirSync(planWorkspaceFolder({ cwd: checkout, name: address }), { recursive: true });
+		writeFileSync(join(planWorkspaceFolder({ cwd: checkout, name: address }), 'plan.md'), restoredFileBody);
 
 		return { restored: ['plan.md'] };
 	});
@@ -130,8 +131,9 @@ const setupPlanInTicketWorktree = async () => {
 };
 
 const recordedBranch = 'lo-9-x';
-const recordedPlanPath = join('.lightsout', 'plans', recordedBranch, '002-fix');
-const recordedTicketFolder = join('.lightsout', 'plans', recordedBranch);
+const recordedPlanPath = join('.lightsout', 'tickets', recordedBranch, 'plans', '002-fix');
+const recordedTicketFolder = join('.lightsout', 'tickets', recordedBranch);
+const recordedPlansFolder = join(recordedTicketFolder, 'plans');
 const restoredFileBody = '# plan 002, restored from its own prefixed generation\n';
 
 const ticketRecord: TicketRecord = {
@@ -167,16 +169,16 @@ const setupAddressedPlan = async ({
 	mockFindBareTicketFolderRefusal.mockResolvedValue(refusal);
 	mockPullTicketRecord.mockImplementation(async ({ cwd: checkout, ticketBranch: branch }) => {
 		if ('record' in pull && pull.record !== undefined) {
-			mkdirSync(join(checkout, '.lightsout', 'plans', branch), { recursive: true });
-			writeFileSync(join(checkout, '.lightsout', 'plans', branch, 'ticket.json'), JSON.stringify(pull.record));
+			mkdirSync(planWorkspaceFolder({ cwd: checkout, name: branch }), { recursive: true });
+			writeFileSync(join(checkout, '.lightsout', 'tickets', branch, 'ticket.json'), JSON.stringify(pull.record));
 		}
 
 		return pull;
 	});
 	mockRestoreTicketPlan.mockImplementation(async ({ cwd: checkout, address }) => {
 		for (const file of 'restored' in restore ? restore.restored : []) {
-			mkdirSync(join(checkout, '.lightsout', 'plans', address), { recursive: true });
-			writeFileSync(join(checkout, '.lightsout', 'plans', address, file), restoredFileBody);
+			mkdirSync(planWorkspaceFolder({ cwd: checkout, name: address }), { recursive: true });
+			writeFileSync(join(planWorkspaceFolder({ cwd: checkout, name: address }), file), restoredFileBody);
 		}
 
 		return restore;
@@ -316,12 +318,12 @@ describe('ensurePlanWorkspace for a plan address', () => {
 			"plan folder 'lo-9-x' belongs to a ticket record, so name a plan as lo-9-x/<plan-id> — run `lightsout ticket show --name lo-9-x` to list them";
 		const { cwd } = await setupAddressedPlan({ refusal, inWorktree: { 'plan.md': '# a copy in the ticket branch tree\n' } });
 
-		const { result, printed } = await ensure({ cwd, path: recordedTicketFolder });
+		const { result, printed } = await ensure({ cwd, path: recordedPlansFolder });
 
 		expect({
 			result,
 			printed,
-			folderWritten: existsSync(join(cwd, recordedTicketFolder)),
+			folderWritten: existsSync(join(cwd, recordedPlansFolder)),
 			pullCalls: mockPullTicketRecord.mock.calls.length,
 			restoreCalls: mockRestoreTicketPlan.mock.calls.length,
 			trackerCalls: mockGetTicketAttachments.mock.calls.length,

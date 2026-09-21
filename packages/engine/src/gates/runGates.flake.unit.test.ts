@@ -6,6 +6,8 @@ import type { FrictionRecord, GateResult } from '#src/contracts/index.ts';
 import { runGates } from '#src/gates/index.ts';
 import { readCommandLog } from '#tests/helpers/readCommandLog.ts';
 import { readGateLog } from '#tests/helpers/readGateLog.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { setupMonorepo } from '#tests/helpers/setupMonorepo.ts';
 
@@ -139,6 +141,8 @@ test('every crashing attempt is written to the command log and the friction ledg
 	const dir = setupConsumerRepo({ scripts: { test: crashWithTallyCommand } });
 	const config = await readConfig({ cwd: dir });
 
+	seedRunFolder({ cwd: dir, runId: 'r1' });
+
 	await runGates({ cwd: dir, config, runId: 'r1', step: 'verify-implement' });
 
 	const log = readCommandLog(dir, 'r1').filter((record) => record.kind === 'test');
@@ -191,6 +195,8 @@ describe.each(ordinaryFailureCases)('ordinary nonzero $label gate', ({ kind, evi
 		const config = await readConfig({ cwd: dir });
 		const results: GateResult[] = [];
 
+		seedRunFolder({ cwd: dir, runId: 'r1' });
+
 		const { error, failedFamilies } = await runGates({
 			cwd: dir,
 			config,
@@ -200,7 +206,7 @@ describe.each(ordinaryFailureCases)('ordinary nonzero $label gate', ({ kind, evi
 			onGateResult: (result) => results.push(result),
 		});
 		const matchingResults = results.filter((result) => result.kind === kind);
-		const log = readFileSync(join(dir, '.lightsout', 'runs', 'r1', 'commands.jsonl'), 'utf8')
+		const log = readFileSync(join(runDirFor({ cwd: dir, runId: 'r1' }), 'commands.jsonl'), 'utf8')
 			.trim()
 			.split('\n')
 			.map((line) => JSON.parse(line) as Record<string, unknown>)

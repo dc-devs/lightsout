@@ -29,7 +29,7 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 // machine.
 const setupPlanFolder = ({ files }: { files: Record<string, string> }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-durable-plan-files-'));
-	const dir = join(cwd, '.lightsout', 'plans', 'lo-54-portable-plan');
+	const dir = join(cwd, '.lightsout', 'tickets', 'lo-54-portable-plan', 'plans');
 
 	mkdirSync(dir, { recursive: true });
 
@@ -65,7 +65,7 @@ const setupTicketAndWorktree = () => {
 	mockGetTicketAttachments.mockResolvedValue(assets.map(({ title }, index) => ({ id: `att-${index}`, title, url: `https://assets.example/${index}` })));
 	mockReadTicketAsset.mockImplementation(async ({ url }) => assets[Number(url.split('/').at(-1))]?.body ?? '');
 
-	return { primary, worktree, dir: join(primary, '.lightsout', 'plans', 'lo-54-portable-plan'), name: 'lo-54-portable-plan' };
+	return { primary, worktree, dir: join(primary, '.lightsout', 'tickets', 'lo-54-portable-plan', 'plans'), name: 'lo-54-portable-plan' };
 };
 
 /** Run state a plan folder always holds and no publish ever carries. */

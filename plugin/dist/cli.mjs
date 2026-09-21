@@ -7967,8 +7967,8 @@ var brainstormAttachmentFileNames = [brainstormNotesFileName, "brainstorm-decisi
 var brainstormAttachmentManifestName = "brainstorm-attachments.json";
 
 // src/brainstorm/publish/publishBrainstorm.ts
-import { readFile as readFile34 } from "node:fs/promises";
-import { join as join71 } from "node:path";
+import { readFile as readFile33 } from "node:fs/promises";
+import { join as join75 } from "node:path";
 
 // src/common/attachmentManifest/attachmentTitle.ts
 var attachmentTitle = ({ prefix, name }) => prefix === void 0 ? name : `${prefix}--${name}`;
@@ -8010,228 +8010,13 @@ var PlanRunStatus = {
 var planAttachmentManifestName = "plan-attachments.json";
 
 // src/plan/common/memory/gradeMemoryPath.ts
-import { join as join3 } from "node:path";
+import { join as join5 } from "node:path";
 
 // src/plan/common/constants/gradeMemoryFileName.ts
 var gradeMemoryFileName = "grade-memory.json";
 
 // src/plan/planWorkspaceDir.ts
-import { join as join2 } from "node:path";
-
-// src/plan/plansDir.ts
-import { join } from "node:path";
-
-// src/common/git/readGitPrimaryCheckout.ts
-import { dirname } from "node:path";
-
-// src/common/constants/gitTimeoutMs.ts
-var gitTimeoutMs = 6e4;
-
-// src/common/processes/runCommand.ts
-import { spawn } from "node:child_process";
-
-// src/common/constants/killGraceMs.ts
-var killGraceMs = 2e3;
-
-// src/common/processes/killProcessGroup.ts
-var killProcessGroup = ({ child, signal }) => {
-  if (child.pid !== void 0 && process.platform !== "win32") {
-    try {
-      process.kill(-child.pid, signal);
-      return;
-    } catch {
-    }
-  }
-  try {
-    child.kill(signal);
-  } catch {
-  }
-};
-
-// src/common/processes/terminateChildGroups.ts
-var settled = ({ child }) => child.exitCode !== null || child.signalCode !== null;
-var exited = ({ child }) => settled({ child }) ? Promise.resolve() : new Promise((resolve20) => child.once("exit", () => resolve20()));
-var terminateChildGroups = async ({ children, graceMs = killGraceMs }) => {
-  const targets = [...children];
-  for (const child of targets) {
-    killProcessGroup({ child, signal: "SIGTERM" });
-  }
-  if (targets.length === 0) {
-    return;
-  }
-  let grace;
-  await Promise.race([
-    Promise.all(targets.map((child) => exited({ child }))),
-    new Promise((resolve20) => {
-      grace = setTimeout(resolve20, graceMs);
-    })
-  ]);
-  clearTimeout(grace);
-  for (const child of targets) {
-    if (!settled({ child })) {
-      killProcessGroup({ child, signal: "SIGKILL" });
-    }
-  }
-};
-
-// src/common/processes/relayShutdownSignals.ts
-var relayed = ["SIGINT", "SIGTERM"];
-var live = /* @__PURE__ */ new Set();
-var installed = false;
-var shuttingDown = false;
-var onSignal = async (signal) => {
-  if (shuttingDown) {
-    return;
-  }
-  shuttingDown = true;
-  await terminateChildGroups({ children: live });
-  uninstall();
-  process.kill(process.pid, signal);
-};
-var handlers = new Map(relayed.map((signal) => [signal, () => void onSignal(signal)]));
-var install = () => {
-  if (installed) {
-    return;
-  }
-  installed = true;
-  for (const [signal, handler] of handlers) {
-    process.on(signal, handler);
-  }
-};
-function uninstall() {
-  if (!installed) {
-    return;
-  }
-  installed = false;
-  for (const [signal, handler] of handlers) {
-    process.removeListener(signal, handler);
-  }
-}
-var relayShutdownSignals = ({ child }) => {
-  live.add(child);
-  install();
-  return () => {
-    live.delete(child);
-    if (live.size === 0) {
-      uninstall();
-    }
-  };
-};
-
-// src/common/processes/collectChildOutput.ts
-var collectChildOutput = ({ child, timeout, onStdoutLine }) => {
-  return new Promise((resolve20, reject) => {
-    let stdout = "";
-    let stderr = "";
-    let lineBuffer = "";
-    const emitLines = ({ text, flush = false }) => {
-      if (!onStdoutLine) {
-        return;
-      }
-      lineBuffer += text;
-      const lines = lineBuffer.split("\n");
-      lineBuffer = flush ? "" : lines.pop() ?? "";
-      for (const line of lines) {
-        if (line.trim()) {
-          onStdoutLine(line);
-        }
-      }
-    };
-    const expire = () => {
-      killProcessGroup({ child, signal: "SIGTERM" });
-      const escalation = setTimeout(() => killProcessGroup({ child, signal: "SIGKILL" }), killGraceMs);
-      escalation.unref();
-      child.once("close", () => clearTimeout(escalation));
-      reject(new Error(timeout?.message ?? "timed out"));
-    };
-    const timer = timeout ? setTimeout(expire, timeout.ms) : void 0;
-    const stopRelay = relayShutdownSignals({ child });
-    child.stdout?.on("data", (chunk) => {
-      const text = chunk.toString();
-      stdout += text;
-      emitLines({ text });
-    });
-    child.stderr?.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-    child.on("error", (error51) => {
-      clearTimeout(timer);
-      stopRelay();
-      reject(error51);
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      stopRelay();
-      emitLines({ text: "", flush: true });
-      resolve20({ exitCode: code ?? -1, stdout, stderr });
-    });
-  });
-};
-
-// src/common/processes/runCommand.ts
-var runCommand = ({ command, cwd, timeoutMs, env, onSpawn }) => {
-  const child = spawn(command, { cwd, shell: true, stdio: ["ignore", "pipe", "pipe"], env: env ? { ...process.env, ...env } : process.env, detached: true });
-  if (child.pid !== void 0) {
-    onSpawn?.({ pid: child.pid });
-  }
-  return collectChildOutput({
-    child,
-    timeout: timeoutMs ? { ms: timeoutMs, message: `command timed out after ${timeoutMs}ms: ${command}` } : void 0
-  });
-};
-
-// src/common/git/readGitPrimaryCheckout.ts
-var readGitPrimaryCheckout = async ({ cwd }) => {
-  const common = await runCommand({ command: "git rev-parse --path-format=absolute --git-common-dir", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  const gitDir = common && common.exitCode === 0 ? common.stdout.trim() : "";
-  return gitDir === "" ? void 0 : dirname(gitDir);
-};
-
-// src/common/utils/isSamePath.ts
-import { realpath } from "node:fs/promises";
-var isSamePath = async ({ path, otherPath }) => {
-  const [real, otherReal] = await Promise.all([path, otherPath].map((candidate) => realpath(candidate).catch(() => candidate)));
-  return real === otherReal;
-};
-
-// src/plan/plansDir.ts
-var plansDir = async ({ cwd }) => {
-  const primary = await readGitPrimaryCheckout({ cwd });
-  const root = primary === void 0 || await isSamePath({ path: primary, otherPath: cwd }) ? cwd : primary;
-  return join(root, ".lightsout", "plans");
-};
-
-// src/plan/planWorkspaceDir.ts
-var planWorkspaceDir = async ({ cwd, name }) => join2(await plansDir({ cwd }), name);
-
-// src/plan/common/memory/gradeMemoryPath.ts
-var gradeMemoryPath = async ({ cwd, name }) => join3(await planWorkspaceDir({ cwd, name }), gradeMemoryFileName);
-
-// src/plan/planWorkspacePath.ts
-var planWorkspacePath = ({ name }) => `.lightsout/plans/${name}`;
-
-// src/plan/common/paths/isRunInPlanWorkspace.ts
-var isRunInPlanWorkspace = ({ runPlan, name }) => runPlan.startsWith(`${planWorkspacePath({ name })}/`) || runPlan.startsWith(`.claude/plans/${name}/`);
-
-// src/plan/common/paths/pathExists.ts
-import { stat } from "node:fs/promises";
-var pathExists = ({ path }) => stat(path).then(
-  () => true,
-  () => false
-);
-
-// src/plan/common/paths/resolveRecordedPlanPath.ts
-import { join as join4, resolve } from "node:path";
-var resolveRecordedPlanPath = async ({ cwd, path }) => {
-  const [stateDir, plansFolder, ...tail] = path.split(/[/\\]/);
-  if (stateDir !== ".lightsout" || plansFolder !== "plans" || tail.length === 0) {
-    return resolve(cwd, path);
-  }
-  return join4(await plansDir({ cwd }), ...tail);
-};
-
-// src/plan/common/utils/findingLocations.ts
-var findingLocations = ({ observations, phase }) => observations.length === 0 ? [phase] : [...new Set(observations.map((observation) => observation.phase))];
+import { join as join4 } from "node:path";
 
 // ../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/external.js
 var external_exports = {};
@@ -24967,6 +24752,8 @@ var RunManifest = external_exports.object({
   updatedAt: external_exports.string(),
   /** Path to the plan file the run implements, relative to the target repo. For a phases run this is the overview path. */
   plan: external_exports.string(),
+  /** The plan this run belongs to, named the way the plans directory names it: a plan address `<ticket-branch>/<plan-id>`, or a legacy folder's bare slug. Absent on a run that belongs to no plan — a refactor, coverage, queue or direct run, and an implement run built from a plan file outside the plans directory. */
+  planName: external_exports.string().optional(),
   /** Which pipeline owns this run. Absent on pre-discriminator manifests → implement. */
   pipeline: external_exports.enum(PipelineKind).optional(),
   /** The ticket this run builds, e.g. 'LO-70'. Absent on a run started from a plan. */
@@ -25456,7 +25243,7 @@ var PlanWorkspaceFile = external_exports.object({
 
 // src/contracts/views/planWorkspace/PlanWorkspaceListing.ts
 var PlanWorkspaceListing = external_exports.object({
-  /** The plan's name under `.lightsout/plans/` — a plan address `<ticket-branch>/<plan-id>`, or a legacy folder's name. */
+  /** The plan's name under its ticket folder's `plans/` — a plan address `<ticket-branch>/<plan-id>`, or a legacy folder's name. */
   name: external_exports.string(),
   stage: external_exports.enum(PlanStage),
   /** Present once `grade.json` exists and parses. */
@@ -25473,7 +25260,7 @@ var PlanWorkspaceListing = external_exports.object({
   phaseCount: external_exports.number(),
   /** Newest mtime across every file in the workspace. */
   updatedAt: external_exports.string(),
-  /** Runs whose `plan` path sits inside this workspace. */
+  /** Runs that recorded this plan as the plan they belong to. */
   runCount: external_exports.number()
 });
 
@@ -25489,6 +25276,8 @@ var RunListing = external_exports.object({
   title: external_exports.string(),
   /** Repo-relative plan path, exactly as the manifest records it. */
   plan: external_exports.string(),
+  /** The plan this run belongs to, copied from the manifest. Absent when the run belongs to none. */
+  planName: external_exports.string().optional(),
   createdAt: external_exports.string(),
   updatedAt: external_exports.string(),
   /** A live process stands behind this run right now. */
@@ -25814,6 +25603,239 @@ var WorktreeRecord = external_exports.object({
   startPoint: external_exports.string().optional()
 });
 
+// src/common/planAddress/parsePlanAddress.ts
+var parsePlanAddress = ({ name }) => {
+  const [ticketBranch, planId, ...beyond] = name.split("/");
+  const addressed = beyond.length === 0 && ticketBranch !== void 0 && planId !== void 0 && ticketBranch !== "" && ticketBranch !== "." && ticketBranch !== ".." && PlanId.safeParse(planId).success;
+  return addressed ? { ticketBranch, planId } : void 0;
+};
+
+// src/common/workspace/ticketFolderDir.ts
+import { join as join3 } from "node:path";
+
+// src/common/workspace/ticketsDir.ts
+import { join as join2 } from "node:path";
+
+// src/common/workspace/resolveSharedStateDir.ts
+import { join } from "node:path";
+
+// src/common/git/readGitPrimaryCheckout.ts
+import { dirname } from "node:path";
+
+// src/common/constants/gitTimeoutMs.ts
+var gitTimeoutMs = 6e4;
+
+// src/common/processes/runCommand.ts
+import { spawn } from "node:child_process";
+
+// src/common/constants/killGraceMs.ts
+var killGraceMs = 2e3;
+
+// src/common/processes/killProcessGroup.ts
+var killProcessGroup = ({ child, signal }) => {
+  if (child.pid !== void 0 && process.platform !== "win32") {
+    try {
+      process.kill(-child.pid, signal);
+      return;
+    } catch {
+    }
+  }
+  try {
+    child.kill(signal);
+  } catch {
+  }
+};
+
+// src/common/processes/terminateChildGroups.ts
+var settled = ({ child }) => child.exitCode !== null || child.signalCode !== null;
+var exited = ({ child }) => settled({ child }) ? Promise.resolve() : new Promise((resolve18) => child.once("exit", () => resolve18()));
+var terminateChildGroups = async ({ children, graceMs = killGraceMs }) => {
+  const targets = [...children];
+  for (const child of targets) {
+    killProcessGroup({ child, signal: "SIGTERM" });
+  }
+  if (targets.length === 0) {
+    return;
+  }
+  let grace;
+  await Promise.race([
+    Promise.all(targets.map((child) => exited({ child }))),
+    new Promise((resolve18) => {
+      grace = setTimeout(resolve18, graceMs);
+    })
+  ]);
+  clearTimeout(grace);
+  for (const child of targets) {
+    if (!settled({ child })) {
+      killProcessGroup({ child, signal: "SIGKILL" });
+    }
+  }
+};
+
+// src/common/processes/relayShutdownSignals.ts
+var relayed = ["SIGINT", "SIGTERM"];
+var live = /* @__PURE__ */ new Set();
+var installed = false;
+var shuttingDown = false;
+var onSignal = async (signal) => {
+  if (shuttingDown) {
+    return;
+  }
+  shuttingDown = true;
+  await terminateChildGroups({ children: live });
+  uninstall();
+  process.kill(process.pid, signal);
+};
+var handlers = new Map(relayed.map((signal) => [signal, () => void onSignal(signal)]));
+var install = () => {
+  if (installed) {
+    return;
+  }
+  installed = true;
+  for (const [signal, handler] of handlers) {
+    process.on(signal, handler);
+  }
+};
+function uninstall() {
+  if (!installed) {
+    return;
+  }
+  installed = false;
+  for (const [signal, handler] of handlers) {
+    process.removeListener(signal, handler);
+  }
+}
+var relayShutdownSignals = ({ child }) => {
+  live.add(child);
+  install();
+  return () => {
+    live.delete(child);
+    if (live.size === 0) {
+      uninstall();
+    }
+  };
+};
+
+// src/common/processes/collectChildOutput.ts
+var collectChildOutput = ({ child, timeout, onStdoutLine }) => {
+  return new Promise((resolve18, reject) => {
+    let stdout = "";
+    let stderr = "";
+    let lineBuffer = "";
+    const emitLines = ({ text, flush = false }) => {
+      if (!onStdoutLine) {
+        return;
+      }
+      lineBuffer += text;
+      const lines = lineBuffer.split("\n");
+      lineBuffer = flush ? "" : lines.pop() ?? "";
+      for (const line of lines) {
+        if (line.trim()) {
+          onStdoutLine(line);
+        }
+      }
+    };
+    const expire = () => {
+      killProcessGroup({ child, signal: "SIGTERM" });
+      const escalation = setTimeout(() => killProcessGroup({ child, signal: "SIGKILL" }), killGraceMs);
+      escalation.unref();
+      child.once("close", () => clearTimeout(escalation));
+      reject(new Error(timeout?.message ?? "timed out"));
+    };
+    const timer = timeout ? setTimeout(expire, timeout.ms) : void 0;
+    const stopRelay = relayShutdownSignals({ child });
+    child.stdout?.on("data", (chunk) => {
+      const text = chunk.toString();
+      stdout += text;
+      emitLines({ text });
+    });
+    child.stderr?.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", (error51) => {
+      clearTimeout(timer);
+      stopRelay();
+      reject(error51);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      stopRelay();
+      emitLines({ text: "", flush: true });
+      resolve18({ exitCode: code ?? -1, stdout, stderr });
+    });
+  });
+};
+
+// src/common/processes/runCommand.ts
+var runCommand = ({ command, cwd, timeoutMs, env, onSpawn }) => {
+  const child = spawn(command, { cwd, shell: true, stdio: ["ignore", "pipe", "pipe"], env: env ? { ...process.env, ...env } : process.env, detached: true });
+  if (child.pid !== void 0) {
+    onSpawn?.({ pid: child.pid });
+  }
+  return collectChildOutput({
+    child,
+    timeout: timeoutMs ? { ms: timeoutMs, message: `command timed out after ${timeoutMs}ms: ${command}` } : void 0
+  });
+};
+
+// src/common/git/readGitPrimaryCheckout.ts
+var readGitPrimaryCheckout = async ({ cwd }) => {
+  const common = await runCommand({ command: "git rev-parse --path-format=absolute --git-common-dir", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  const gitDir = common && common.exitCode === 0 ? common.stdout.trim() : "";
+  return gitDir === "" ? void 0 : dirname(gitDir);
+};
+
+// src/common/utils/isSamePath.ts
+import { realpath } from "node:fs/promises";
+var isSamePath = async ({ path, otherPath }) => {
+  const [real, otherReal] = await Promise.all([path, otherPath].map((candidate) => realpath(candidate).catch(() => candidate)));
+  return real === otherReal;
+};
+
+// src/common/workspace/resolveSharedStateDir.ts
+var resolveSharedStateDir = async ({ cwd }) => {
+  const primary = await readGitPrimaryCheckout({ cwd });
+  const root = primary === void 0 || await isSamePath({ path: primary, otherPath: cwd }) ? cwd : primary;
+  return join(root, ".lightsout");
+};
+
+// src/common/workspace/ticketsDir.ts
+var ticketsDir = async ({ cwd }) => join2(await resolveSharedStateDir({ cwd }), "tickets");
+
+// src/common/workspace/ticketFolderDir.ts
+var ticketFolderDir = async ({ cwd, ticketBranch }) => join3(await ticketsDir({ cwd }), ticketBranch);
+
+// src/plan/planWorkspaceDir.ts
+var planWorkspaceDir = async ({ cwd, name }) => {
+  const address = parsePlanAddress({ name });
+  const ticketBranch = address?.ticketBranch ?? name;
+  const plansFolder = join4(await ticketFolderDir({ cwd, ticketBranch }), "plans");
+  return address === void 0 ? plansFolder : join4(plansFolder, address.planId);
+};
+
+// src/plan/common/memory/gradeMemoryPath.ts
+var gradeMemoryPath = async ({ cwd, name }) => join5(await planWorkspaceDir({ cwd, name }), gradeMemoryFileName);
+
+// src/plan/common/paths/pathExists.ts
+import { stat } from "node:fs/promises";
+var pathExists = ({ path }) => stat(path).then(
+  () => true,
+  () => false
+);
+
+// src/plan/common/paths/resolveRecordedPlanPath.ts
+import { join as join6, resolve } from "node:path";
+var resolveRecordedPlanPath = async ({ cwd, path }) => {
+  const [stateDir, ticketsFolder, ...tail] = path.split(/[/\\]/);
+  if (stateDir !== ".lightsout" || ticketsFolder !== "tickets" || tail.length === 0) {
+    return resolve(cwd, path);
+  }
+  return join6(await ticketsDir({ cwd }), ...tail);
+};
+
+// src/plan/common/utils/findingLocations.ts
+var findingLocations = ({ observations, phase }) => observations.length === 0 ? [phase] : [...new Set(observations.map((observation) => observation.phase))];
+
 // src/plan/common/utils/getBlockingFindings.ts
 var getBlockingFindings = ({ findings }) => findings.filter((finding2) => finding2.severity === FindingSeverity.Blocking);
 
@@ -25825,10 +25847,10 @@ var getBlockingGaps = ({ gaps }) => gaps.filter((gap) => isBlockingGap({ gap }))
 
 // src/plan/common/utils/resolvePlanDeliverable.ts
 import { readdir, readFile } from "node:fs/promises";
-import { join as join5 } from "node:path";
+import { join as join7 } from "node:path";
 var resolvePlanDeliverable = async ({ cwd, name }) => {
   const dir = await planWorkspaceDir({ cwd, name });
-  const singlePath = join5(dir, "plan.md");
+  const singlePath = join7(dir, "plan.md");
   let overviewPath;
   let overviewText;
   const files = [];
@@ -25838,7 +25860,7 @@ var resolvePlanDeliverable = async ({ cwd, name }) => {
     const dirEntries = await readdir(dir).catch(() => []);
     const entries = dirEntries.filter((entry) => entry === "overview.md" || /^phase\d+.*\.md$/.test(entry)).sort();
     for (const entry of entries) {
-      const path = join5(dir, entry);
+      const path = join7(dir, entry);
       const text = await readFile(path, "utf8");
       if (entry === "overview.md") {
         overviewPath = path;
@@ -25871,13 +25893,13 @@ decision history for every phase of this plan is the log in overview.md, beside
 this file.`;
 
 // src/plan/readBrainstormDecisions.ts
-import { join as join7 } from "node:path";
+import { join as join9 } from "node:path";
 
 // src/plan/common/utils/readPlanWorkspaceFile.ts
 import { readFile as readFile2 } from "node:fs/promises";
-import { join as join6 } from "node:path";
+import { join as join8 } from "node:path";
 var readPlanWorkspaceFile = async ({ cwd, name, fileName, schema, notFound }) => {
-  const filePath = join6(await planWorkspaceDir({ cwd, name }), fileName);
+  const filePath = join8(await planWorkspaceDir({ cwd, name }), fileName);
   const raw = await readFile2(filePath, "utf8").catch(() => {
     throw new Error(notFound(filePath));
   });
@@ -25887,7 +25909,7 @@ var readPlanWorkspaceFile = async ({ cwd, name, fileName, schema, notFound }) =>
 // src/plan/readBrainstormDecisions.ts
 var brainstormDecisionsFile = "brainstorm-decisions.json";
 var readBrainstormDecisions = async ({ cwd, name }) => {
-  const filePath = join7(await planWorkspaceDir({ cwd, name }), brainstormDecisionsFile);
+  const filePath = join9(await planWorkspaceDir({ cwd, name }), brainstormDecisionsFile);
   const present = await pathExists({ path: filePath });
   if (!present) {
     return void 0;
@@ -26482,7 +26504,7 @@ var isTestFile = ({ path, standardsPacks = [] }) => {
 
 // src/common/sourceFiles/listSourceFiles.ts
 import { readdir as readdir2 } from "node:fs/promises";
-import { join as join8, relative } from "node:path";
+import { join as join10, relative } from "node:path";
 
 // src/common/constants/standardsPackRootFile.ts
 var standardsPackRootFile = "lightsout-standards.json";
@@ -26505,7 +26527,7 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
       if (entry.name.startsWith(".") || entry.name === "node_modules" || !insideSource && buildOutputDirs.has(entry.name)) {
         continue;
       }
-      const path = join8(dir, entry.name);
+      const path = join10(dir, entry.name);
       if (entry.isDirectory()) {
         if (insidePack && entry.name === fixturesDir) {
           continue;
@@ -26565,7 +26587,7 @@ var buildExportCensus = async ({ cwd, config: config2, exclude = [] }) => {
 
 // src/plan/evidence/collectSourceEvidence.ts
 import { readFile as readFile6 } from "node:fs/promises";
-import { join as join11 } from "node:path";
+import { join as join13 } from "node:path";
 
 // src/common/constants/defaultPackagesDir.ts
 var defaultPackagesDir = "packages";
@@ -26595,15 +26617,15 @@ var writeJsonFile = async ({ path, value }) => {
 // src/common/workspace/resolveConsumerTypescript.ts
 import { readdirSync } from "node:fs";
 import { createRequire } from "node:module";
-import { join as join9, resolve as resolve2 } from "node:path";
+import { join as join11, resolve as resolve2 } from "node:path";
 var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
   const root = resolve2(cwd);
   let packageNames = [];
   try {
-    packageNames = readdirSync(join9(root, packagesDir)).filter((name) => !name.startsWith("."));
+    packageNames = readdirSync(join11(root, packagesDir)).filter((name) => !name.startsWith("."));
   } catch {
   }
-  const manifests = [join9(root, "package.json"), ...packageNames.map((name) => join9(root, packagesDir, name, "package.json"))];
+  const manifests = [join11(root, "package.json"), ...packageNames.map((name) => join11(root, packagesDir, name, "package.json"))];
   for (const manifest of manifests) {
     try {
       const compiler = createRequire(manifest)("typescript");
@@ -26664,8 +26686,8 @@ var extractSourceEvidence = ({ path, content, compiler }) => {
 };
 
 // src/plan/evidence/sourceEvidencePath.ts
-import { join as join10 } from "node:path";
-var sourceEvidencePath = async ({ cwd, name }) => join10(await planWorkspaceDir({ cwd, name }), "source-evidence.json");
+import { join as join12 } from "node:path";
+var sourceEvidencePath = async ({ cwd, name }) => join12(await planWorkspaceDir({ cwd, name }), "source-evidence.json");
 
 // src/plan/evidence/collectSourceEvidence.ts
 var atPath = ({ at }) => at.replace(/:\d+(?::\d+)?$/, "");
@@ -26710,7 +26732,7 @@ var collectSourceEvidence = async ({ cwd, name, facts, config: config2 }) => {
   const compiler = resolveConsumerTypescript({ cwd, packagesDir: config2?.["packages-dir"] ?? defaultPackagesDir });
   const entries = [];
   for (const [relative17, roles] of wantedPaths({ facts })) {
-    const content = await readFile6(join11(cwd, relative17), "utf8").catch(() => void 0);
+    const content = await readFile6(join13(cwd, relative17), "utf8").catch(() => void 0);
     if (content === void 0) {
       entries.push({ path: relative17, sha256: "", kind: SourceEvidenceKind.Missing, bytes: 0, text: "", roles, definitions: [] });
       continue;
@@ -26861,7 +26883,7 @@ var estimatePlanScope = ({ facts, executorFileLimit }) => {
 };
 
 // src/plan/draft/legacy/authorPhaseFiles.ts
-import { join as join14 } from "node:path";
+import { join as join16 } from "node:path";
 
 // src/agents/common/utils/changedFilesSection.ts
 var changedFilesSection = ({ changedFiles }) => changedFiles === void 0 || changedFiles.length === 0 ? void 0 : `# Previously changed files
@@ -27922,7 +27944,7 @@ Plan exactly this plan and no other:
 
 \`${planAddress}\`
 
-That is its address, and \`.lightsout/plans/${planAddress}\` is the folder in this worktree it names. Pass the address as \`--name\` to every \`plan\` and \`brainstorm\` subcommand, and leave the plan's files in exactly that folder.
+That is its address, and \`${planWorkspacePath({ name: planAddress })}\` is the folder in this worktree it names. Pass the address as \`--name\` to every \`plan\` and \`brainstorm\` subcommand, and leave the plan's files in exactly that folder.
 
 The engine has already added this plan to the ticket's record, so never run \`ticket add-plan\` or any other \`ticket\` subcommand.`
   ];
@@ -28339,14 +28361,14 @@ var planDraftConcurrency = 8;
 
 // src/plan/common/utils/createPlanAgentRunner.ts
 import { writeFile as writeFile3 } from "node:fs/promises";
-import { join as join12 } from "node:path";
+import { join as join14 } from "node:path";
 
 // src/common/utils/createEventFileSink.ts
 import { appendFile } from "node:fs/promises";
 var createEventFileSink = ({ path, ready }) => {
   let tail = ready ? ready.catch(() => void 0) : Promise.resolve();
   return (event) => {
-    tail = tail.then(() => appendFile(path, `${JSON.stringify(event)}
+    tail = tail.then(async () => appendFile(await path, `${JSON.stringify(event)}
 `, "utf8")).catch(() => void 0);
   };
 };
@@ -28554,7 +28576,7 @@ var createPlanAgentRunner = ({
   environment,
   level
 }) => {
-  const onEvent = createEventFileSink({ path: join12(workspaceDir, `${step}-stream.jsonl`) });
+  const onEvent = createEventFileSink({ path: join14(workspaceDir, `${step}-stream.jsonl`) });
   return async ({ invocation, contract, label: label2, allowedCommands }) => {
     const stepLevel = level?.open({ level: ActivityLevelKind.Step, label: label2 === void 0 ? step : `${step}-${label2}` });
     const outcome = await invokeAgentWithContract({
@@ -28572,7 +28594,7 @@ var createPlanAgentRunner = ({
       onEvent,
       onRejectedOutput: async ({ text, attempt }) => {
         const name = `${step}-rejected-${label2 === void 0 ? "" : `${label2}-`}${attempt}.txt`;
-        await writeFile3(join12(workspaceDir, name), text, "utf8").catch(() => void 0);
+        await writeFile3(join14(workspaceDir, name), text, "utf8").catch(() => void 0);
       },
       activity: stepLevel
     });
@@ -28603,9 +28625,9 @@ var drainTasks = async ({ tasks, concurrency, shouldStop }) => {
 var isRateLimited = ({ result }) => result !== void 0 && !result.outcome.ok && result.outcome.rateLimited;
 
 // src/plan/common/paths/verifyDraftedFiles.ts
-import { isAbsolute, join as join13 } from "node:path";
+import { isAbsolute, join as join15 } from "node:path";
 var verifyDraftedFiles = async ({ cwd, filesWritten }) => {
-  const planPaths = filesWritten.map((file2) => isAbsolute(file2.path) ? file2.path : join13(cwd, file2.path));
+  const planPaths = filesWritten.map((file2) => isAbsolute(file2.path) ? file2.path : join15(cwd, file2.path));
   if (planPaths.length === 0) {
     return { error: "plan-writer reported drafted but listed no files written" };
   }
@@ -28676,7 +28698,7 @@ var spawnPhase = async ({
     invocation: buildPlanWriterInvocation({
       facts,
       decisions,
-      outputs: [{ path: join14(workspaceDir, declaration.file), variant: PlanVariant.Phase }],
+      outputs: [{ path: join16(workspaceDir, declaration.file), variant: PlanVariant.Phase }],
       overviewText,
       declaration,
       previousDeclaration,
@@ -28713,10 +28735,10 @@ import { readFile as readFile14 } from "node:fs/promises";
 import { basename as basename15 } from "node:path";
 
 // src/plan/common/paths/planDraftOutputs.ts
-import { join as join15 } from "node:path";
+import { join as join17 } from "node:path";
 var planDraftOutputs = async ({ cwd, name, variant }) => {
   const dir = await planWorkspaceDir({ cwd, name });
-  return variant === PlanVariant.Single ? [{ path: join15(dir, "plan.md"), variant: PlanVariant.Single }] : [{ path: join15(dir, "overview.md"), variant: PlanVariant.Overview }];
+  return variant === PlanVariant.Single ? [{ path: join17(dir, "plan.md"), variant: PlanVariant.Single }] : [{ path: join17(dir, "overview.md"), variant: PlanVariant.Overview }];
 };
 
 // src/plan/draft/common/utils/createDraftStop.ts
@@ -28732,7 +28754,7 @@ var createDraftStop = ({
 var getAdvisoryFindings = ({ findings }) => findings.filter((finding2) => finding2.severity === FindingSeverity.Advisory);
 
 // src/plan/draft/repairPlanStructure.ts
-import { join as join22 } from "node:path";
+import { join as join24 } from "node:path";
 
 // src/plan/common/constants/maxPlanRepairAttempts.ts
 var maxPlanRepairAttempts = 3;
@@ -28971,7 +28993,7 @@ var repairMechanicalFindings = async ({ cwd, name, planPaths, decisions, overvie
 
 // src/plan/lint/checkAcceptanceLedger.ts
 import { readFile as readFile10 } from "node:fs/promises";
-import { join as join16 } from "node:path";
+import { join as join18 } from "node:path";
 
 // src/common/sourceFiles/findTestTitles.ts
 var testCallHead = /(?<![\w$.])(?:xtest|xit|fit|test|it)(?:\.(?:only|skip|concurrent|failing))*(\.each)?/g;
@@ -29117,7 +29139,7 @@ var getCoverablePaths = ({ plan }) => {
   return [...new Set(getPlanWrittenPaths({ plan }))].filter((path) => isPlanSourceFile({ path }) && !excused.has(path));
 };
 var statesTest = async ({ cwd, testFile, testName }) => {
-  const content = await readFile10(join16(cwd, testFile), "utf8").catch(() => void 0);
+  const content = await readFile10(join18(cwd, testFile), "utf8").catch(() => void 0);
   return content !== void 0 && holdsTestTitle({ content, testName });
 };
 var resolveReadPath = ({ plan, testFile }) => plan.movePaths.find((move) => move.to === testFile)?.from ?? testFile;
@@ -29294,7 +29316,7 @@ var checkDeliverableSections = ({ cwd, name, overviewText, files, decisions }) =
 };
 
 // src/plan/lint/checkFileProvenance.ts
-import { join as join17 } from "node:path";
+import { join as join19 } from "node:path";
 var stamp = ({ phase, defects }) => defects.map(({ path, issue: issue2, fix }) => ({
   check: StructuralCheck.FileProvenance,
   severity: FindingSeverity.Blocking,
@@ -29341,7 +29363,7 @@ var missingRemovalDefects = async ({
 }) => {
   const defects = [];
   for (const path of [...phase.plan.deletePaths, ...phase.plan.movePaths.map((move) => move.from)]) {
-    if (providedBefore.has(path) || removedBefore.has(path) || await pathExists({ path: join17(cwd, path) })) {
+    if (providedBefore.has(path) || removedBefore.has(path) || await pathExists({ path: join19(cwd, path) })) {
       continue;
     }
     defects.push({
@@ -29716,12 +29738,12 @@ var checkPhaseHandoffs = ({ phases }) => {
 };
 
 // src/plan/lint/checkPlanPaths.ts
-import { basename as basename10, join as join18 } from "node:path";
+import { basename as basename10, join as join20 } from "node:path";
 var locate = ({ planPath, path }) => `${basename10(planPath)} \u2192 ${path}`;
 var checkSuppliedPaths = async ({ plan, cwd, planPath, phase, provided }) => {
   const findings = [];
   for (const path of [...plan.modifyPaths, ...plan.mirrorPaths]) {
-    if (provided.has(path) || await pathExists({ path: join18(cwd, path) })) {
+    if (provided.has(path) || await pathExists({ path: join20(cwd, path) })) {
       continue;
     }
     findings.push({
@@ -29743,7 +29765,7 @@ var checkNewPaths = async ({ plan, cwd, planPath, phase, provided }) => {
   ];
   for (const { paths, label: label2 } of groups) {
     for (const path of paths) {
-      const exists3 = await pathExists({ path: join18(cwd, path) });
+      const exists3 = await pathExists({ path: join20(cwd, path) });
       if (!exists3 && !provided.has(path)) {
         continue;
       }
@@ -29762,7 +29784,7 @@ var checkNewPaths = async ({ plan, cwd, planPath, phase, provided }) => {
 var checkRemovedPaths = async ({ plan, cwd, planPath, phase, phased }) => {
   const findings = [];
   for (const path of plan.earlierPhaseModifyPaths) {
-    if (await pathExists({ path: join18(cwd, path) })) {
+    if (await pathExists({ path: join20(cwd, path) })) {
       findings.push({
         check: StructuralCheck.PathExists,
         severity: FindingSeverity.Blocking,
@@ -29774,7 +29796,7 @@ var checkRemovedPaths = async ({ plan, cwd, planPath, phase, phased }) => {
     }
   }
   for (const path of phased ? [] : [...plan.deletePaths, ...plan.movePaths.map((move) => move.from)]) {
-    if (!await pathExists({ path: join18(cwd, path) })) {
+    if (!await pathExists({ path: join20(cwd, path) })) {
       findings.push({
         check: StructuralCheck.PathExists,
         severity: FindingSeverity.Blocking,
@@ -29823,7 +29845,7 @@ var checkPlanSizes = ({ phase, fileLimit, counts }) => {
 };
 
 // src/plan/lint/checkProsePaths.ts
-import { basename as basename11, join as join19 } from "node:path";
+import { basename as basename11, join as join21 } from "node:path";
 
 // src/plan/lint/common/utils/isLineInRange.ts
 var isLineInRange = ({ line, range }) => range !== void 0 && line >= range.start && line <= range.end;
@@ -29860,7 +29882,7 @@ var getAccountedPaths = ({ plan, planned }) => [
   .../* @__PURE__ */ new Set([...getPlanNamedPaths({ plan, includeMirrors: true }), ...planned])
 ];
 var isCandidateOnDisk = async ({ candidate, cwd, index }) => {
-  const anchored = index.topLevelDirs.has(candidate.split("/")[0]) && await pathExists({ path: join19(cwd, candidate) });
+  const anchored = index.topLevelDirs.has(candidate.split("/")[0]) && await pathExists({ path: join21(cwd, candidate) });
   return anchored || index.files.some((path) => isTailOf({ candidate, path }));
 };
 var checkProsePaths = async ({ plan, cwd, planPath, phase, planned, index }) => {
@@ -29889,7 +29911,7 @@ var checkProsePaths = async ({ plan, cwd, planPath, phase, planned, index }) => 
 
 // src/plan/lint/checkVerificationScripts.ts
 import { readFile as readFile11 } from "node:fs/promises";
-import { basename as basename12, join as join20 } from "node:path";
+import { basename as basename12, join as join22 } from "node:path";
 
 // src/common/config/extractRunScriptName.ts
 var extractRunScriptName = ({ command }) => {
@@ -29941,7 +29963,7 @@ var getPackageDirs = ({ plan, packagesDir }) => {
   return packageDirs;
 };
 var getAvailableScripts = async ({ cwd, packagesDir, packageDirs }) => {
-  const manifestPaths = [join20(cwd, "package.json"), ...[...packageDirs].map((dir) => join20(cwd, packagesDir, dir, "package.json"))];
+  const manifestPaths = [join22(cwd, "package.json"), ...[...packageDirs].map((dir) => join22(cwd, packagesDir, dir, "package.json"))];
   const availableScripts = /* @__PURE__ */ new Set();
   for (const manifestPath of manifestPaths) {
     const raw = await readFile11(manifestPath, "utf8").catch(() => void 0);
@@ -30006,7 +30028,7 @@ var lintPlanCrossPhase = async ({ cwd, overview, phases, provenance, counts }) =
 
 // src/plan/common/paths/readRepoPathIndex.ts
 import { readdir as readdir3 } from "node:fs/promises";
-import { join as join21, relative as relative2 } from "node:path";
+import { join as join23, relative as relative2 } from "node:path";
 var prunedDirs = /* @__PURE__ */ new Set(["node_modules", ".git"]);
 var readEntries = ({ dir }) => readdir3(dir, { withFileTypes: true }).catch(() => void 0);
 var walkFiles = async ({ cwd, dir, entries }) => {
@@ -30015,7 +30037,7 @@ var walkFiles = async ({ cwd, dir, entries }) => {
     if (prunedDirs.has(entry.name)) {
       continue;
     }
-    const path = join21(dir, entry.name);
+    const path = join23(dir, entry.name);
     if (!entry.isDirectory()) {
       files.push(relative2(cwd, path));
       continue;
@@ -30232,9 +30254,9 @@ var runRepairAttempt = async ({ params, findings, attempt }) => {
     invocation: buildPlanRepairInvocation({
       findings,
       planPaths,
-      decisionsPath: join22(workspaceDir, "decisions.json"),
+      decisionsPath: join24(workspaceDir, "decisions.json"),
       brainstormDecisionsPath,
-      factsPath: join22(workspaceDir, "facts.json"),
+      factsPath: join24(workspaceDir, "facts.json"),
       docs: config2?.docs
     }),
     contract: PlanFixReport
@@ -30361,7 +30383,7 @@ var authorPlanFiles = async ({
 
 // src/plan/draft/repairPhaseBreakdown.ts
 import { readFile as readFile13 } from "node:fs/promises";
-import { basename as basename14, join as join23 } from "node:path";
+import { basename as basename14, join as join25 } from "node:path";
 var checkOverviewOnDisk = async ({ overviewPath, executorFileLimit }) => {
   const overviewText = await readFile13(overviewPath, "utf8").catch(() => void 0);
   return overviewText === void 0 ? void 0 : checkPhaseBreakdown({ overviewText, overviewBase: basename14(overviewPath), executorFileLimit });
@@ -30385,9 +30407,9 @@ var runReshapeAttempt = async ({ params, findings, attempt }) => {
       findings,
       planPaths: [overviewPath],
       createdFileCeiling,
-      decisionsPath: join23(workspaceDir, "decisions.json"),
+      decisionsPath: join25(workspaceDir, "decisions.json"),
       brainstormDecisionsPath,
-      factsPath: join23(workspaceDir, "facts.json")
+      factsPath: join25(workspaceDir, "facts.json")
     }),
     contract: PlanFixReport
   });
@@ -30515,10 +30537,10 @@ var draftSinglePlan = async ({ context }) => {
 
 // src/plan/draft/runPlanDraft.ts
 import { mkdir } from "node:fs/promises";
-import { join as join28 } from "node:path";
+import { join as join30 } from "node:path";
 
 // src/common/config/readOptionalConfig.ts
-import { join as join24 } from "node:path";
+import { join as join26 } from "node:path";
 
 // src/common/config/parseConfig.ts
 var describeIssues = ({ error: error51, configPath }) => {
@@ -30555,7 +30577,7 @@ var readConfigFile = async ({ configPath }) => {
 
 // src/common/config/readOptionalConfig.ts
 var readOptionalConfig = async ({ cwd }) => {
-  const configPath = join24(cwd, "lightsout.config.json");
+  const configPath = join26(cwd, "lightsout.config.json");
   const raw = await readConfigFile({ configPath });
   return raw === void 0 ? void 0 : parseConfig({ raw, configPath });
 };
@@ -30577,7 +30599,7 @@ import { readFile as readFile16 } from "node:fs/promises";
 import { basename as basename16 } from "node:path";
 
 // src/plan/draft/focused/authorFocusedPhaseFiles.ts
-import { join as join25 } from "node:path";
+import { join as join27 } from "node:path";
 
 // src/plan/draft/focused/common/utils/selectPhaseEvidence.ts
 var atPath2 = ({ at }) => at.replace(/:\d+(?::\d+)?$/, "");
@@ -30632,7 +30654,7 @@ var spawnPhase2 = async ({
     invocation: buildFocusedPlanWriterInvocation({
       facts,
       decisions,
-      outputs: [{ path: join25(workspaceDir, declaration.file), variant: PlanVariant.Phase }],
+      outputs: [{ path: join27(workspaceDir, declaration.file), variant: PlanVariant.Phase }],
       overviewText,
       declaration,
       previousDeclaration,
@@ -30959,10 +30981,10 @@ var spawnCollect = ({ command, args, cwd, stdinText, timeoutMs, onStdoutLine }) 
 // src/drivers/common/utils/writeSystemPromptFile.ts
 import { mkdtemp, rm as rm2, writeFile as writeFile5 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join as join26 } from "node:path";
+import { join as join28 } from "node:path";
 var writeSystemPromptFile = async ({ systemPrompt }) => {
-  const dir = await mkdtemp(join26(tmpdir(), "lightsout-system-prompt-"));
-  const path = join26(dir, "system-prompt.md");
+  const dir = await mkdtemp(join28(tmpdir(), "lightsout-system-prompt-"));
+  const path = join28(dir, "system-prompt.md");
   await writeFile5(path, systemPrompt, "utf8");
   return { path, cleanup: () => rm2(dir, { recursive: true, force: true }).catch(() => void 0) };
 };
@@ -31077,14 +31099,14 @@ ${stderr}` }),
 // src/drivers/createCodexDriver.ts
 import { mkdtemp as mkdtemp2, readFile as readFile17, rm as rm3 } from "node:fs/promises";
 import { tmpdir as tmpdir2 } from "node:os";
-import { join as join27 } from "node:path";
+import { join as join29 } from "node:path";
 var createCodexDriver = () => {
   const driver = {
     name: "codex",
     invoke: async (invocation) => {
       const { prompt, systemPrompt, model, effort, permissions, cwd, timeoutMs } = invocation;
-      const outDir = await mkdtemp2(join27(tmpdir2(), "lightsout-codex-"));
-      const outFile = join27(outDir, "last-message.txt");
+      const outDir = await mkdtemp2(join29(tmpdir2(), "lightsout-codex-"));
+      const outFile = join29(outDir, "last-message.txt");
       const args = buildCodexArgs({ outFile, model, effort, permissions });
       const fullPrompt = systemPrompt ? `# Role instructions
 
@@ -31337,7 +31359,7 @@ var runPlanDraft = async ({
     workspaceDir,
     facts,
     decisions: merged,
-    brainstormDecisionsPath: brainstorm ? join28(workspaceDir, "brainstorm-decisions.json") : void 0,
+    brainstormDecisionsPath: brainstorm ? join30(workspaceDir, "brainstorm-decisions.json") : void 0,
     implementation,
     evidence: focused ? await collectSourceEvidence({ cwd, name, facts, config: config2 }) : void 0,
     config: config2,
@@ -31357,8 +31379,8 @@ var runPlanDraft = async ({
 };
 
 // src/plan/gradeHistoryPath.ts
-import { join as join29 } from "node:path";
-var gradeHistoryPath = async ({ cwd, name }) => join29(await planWorkspaceDir({ cwd, name }), "grade-history.jsonl");
+import { join as join31 } from "node:path";
+var gradeHistoryPath = async ({ cwd, name }) => join31(await planWorkspaceDir({ cwd, name }), "grade-history.jsonl");
 
 // src/plan/planNameFromPath.ts
 import { relative as relative3, sep } from "node:path";
@@ -31366,27 +31388,27 @@ import { relative as relative3, sep } from "node:path";
 // src/common/planAddress/formatPlanAddress.ts
 var formatPlanAddress = ({ ticketBranch, planId }) => `${ticketBranch}/${planId}`;
 
-// src/common/planAddress/parsePlanAddress.ts
-var parsePlanAddress = ({ name }) => {
-  const [ticketBranch, planId, ...beyond] = name.split("/");
-  const addressed = beyond.length === 0 && ticketBranch !== void 0 && planId !== void 0 && ticketBranch !== "" && ticketBranch !== "." && ticketBranch !== ".." && PlanId.safeParse(planId).success;
-  return addressed ? { ticketBranch, planId } : void 0;
-};
-
 // src/plan/planNameFromPath.ts
 var planNameFromPath = async ({ cwd, planPath }) => {
-  const fromPlansDir = relative3(await plansDir({ cwd }), await resolveRecordedPlanPath({ cwd, path: planPath }));
-  const [ticketBranch, planId] = fromPlansDir.split(sep);
-  if (fromPlansDir === "" || ticketBranch === void 0 || ticketBranch === "" || ticketBranch === "..") {
+  const fromTicketsDir = relative3(await ticketsDir({ cwd }), await resolveRecordedPlanPath({ cwd, path: planPath }));
+  const [ticketBranch, folder, planId] = fromTicketsDir.split(sep);
+  if (ticketBranch === void 0 || ticketBranch === "" || ticketBranch === ".." || folder !== "plans") {
     return void 0;
   }
   const address = planId === void 0 ? void 0 : formatPlanAddress({ ticketBranch, planId });
   return address !== void 0 && parsePlanAddress({ name: address }) !== void 0 ? address : ticketBranch;
 };
 
+// src/plan/planWorkspacePath.ts
+var planWorkspacePath = ({ name }) => {
+  const address = parsePlanAddress({ name });
+  const plansFolder = `.lightsout/tickets/${address?.ticketBranch ?? name}/plans`;
+  return address === void 0 ? plansFolder : `${plansFolder}/${address.planId}`;
+};
+
 // src/plan/progress/getPlanningProgressPath.ts
-import { join as join30 } from "node:path";
-var getPlanningProgressPath = async ({ cwd, name }) => join30(await planWorkspaceDir({ cwd, name }), "planning-progress.json");
+import { join as join32 } from "node:path";
+var getPlanningProgressPath = async ({ cwd, name }) => join32(await planWorkspaceDir({ cwd, name }), "planning-progress.json");
 
 // src/plan/progress/readPlanningProgress.ts
 var readPlanningProgress = async ({ cwd, name }) => {
@@ -31398,13 +31420,13 @@ var readPlanningProgress = async ({ cwd, name }) => {
 import { stat as stat2 } from "node:fs/promises";
 
 // src/activity/activityRecordPath.ts
-import { join as join31 } from "node:path";
+import { join as join33 } from "node:path";
 
 // src/activity/common/constants/activityRecordFileName.ts
 var activityRecordFileName = "activity.jsonl";
 
 // src/activity/activityRecordPath.ts
-var activityRecordPath = ({ dir }) => join31(dir, activityRecordFileName);
+var activityRecordPath = ({ dir }) => join33(dir, activityRecordFileName);
 
 // src/activity/common/utils/gatherNodeProcesses.ts
 var gatherNodeProcesses = ({ nodes }) => nodes.flatMap((node) => [...node.processes, ...gatherNodeProcesses({ nodes: node.children })]);
@@ -31766,7 +31788,7 @@ var recordPlanningStep = async ({ cwd, name, step, work, statusOf, implementatio
 };
 
 // src/plan/publish/durablePlanFiles.ts
-import { basename as basename17, join as join32 } from "node:path";
+import { basename as basename17, join as join34 } from "node:path";
 
 // src/plan/common/constants/gradeFileName.ts
 var gradeFileName = "grade.json";
@@ -31796,7 +31818,7 @@ var durablePlanFiles = async ({ cwd, name }) => {
   const deliverablePaths = deliverable.overviewPath === void 0 ? [] : [deliverable.overviewPath];
   const files = [...deliverablePaths, ...deliverable.files.map((file2) => file2.path)].map((path) => ({ name: basename17(path), path }));
   for (const record3 of durablePlanFileNames.records) {
-    const path = join32(dir, record3);
+    const path = join34(dir, record3);
     if (await pathExists({ path })) {
       files.push({ name: record3, path });
     }
@@ -33364,24 +33386,24 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
       return "$" + node.name;
     },
     Document: function Document$1(node) {
-      return join158(node.definitions, "\n\n") + "\n";
+      return join160(node.definitions, "\n\n") + "\n";
     },
     OperationDefinition: function OperationDefinition(node) {
       var op = node.operation;
       var name = node.name;
-      var varDefs = wrap("(", join158(node.variableDefinitions, ", "), ")");
-      var directives = join158(node.directives, " ");
+      var varDefs = wrap("(", join160(node.variableDefinitions, ", "), ")");
+      var directives = join160(node.directives, " ");
       var selectionSet = node.selectionSet;
-      return !name && !directives && !varDefs && op === "query" ? selectionSet : join158([
+      return !name && !directives && !varDefs && op === "query" ? selectionSet : join160([
         op,
-        join158([name, varDefs]),
+        join160([name, varDefs]),
         directives,
         selectionSet
       ], " ");
     },
     VariableDefinition: function VariableDefinition(_ref) {
       var variable = _ref.variable, type = _ref.type, defaultValue = _ref.defaultValue, directives = _ref.directives;
-      return variable + ": " + type + wrap(" = ", defaultValue) + wrap(" ", join158(directives, " "));
+      return variable + ": " + type + wrap(" = ", defaultValue) + wrap(" ", join160(directives, " "));
     },
     SelectionSet: function SelectionSet(_ref2) {
       var selections = _ref2.selections;
@@ -33390,11 +33412,11 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
     Field: function Field(_ref3) {
       var alias = _ref3.alias, name = _ref3.name, args = _ref3.arguments, directives = _ref3.directives, selectionSet = _ref3.selectionSet;
       var prefix = wrap("", alias, ": ") + name;
-      var argsLine = prefix + wrap("(", join158(args, ", "), ")");
-      if (argsLine.length > MAX_LINE_LENGTH) argsLine = prefix + wrap("(\n", indent(join158(args, "\n")), "\n)");
-      return join158([
+      var argsLine = prefix + wrap("(", join160(args, ", "), ")");
+      if (argsLine.length > MAX_LINE_LENGTH) argsLine = prefix + wrap("(\n", indent(join160(args, "\n")), "\n)");
+      return join160([
         argsLine,
-        join158(directives, " "),
+        join160(directives, " "),
         selectionSet
       ], " ");
     },
@@ -33404,20 +33426,20 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
     },
     FragmentSpread: function FragmentSpread(_ref5) {
       var name = _ref5.name, directives = _ref5.directives;
-      return "..." + name + wrap(" ", join158(directives, " "));
+      return "..." + name + wrap(" ", join160(directives, " "));
     },
     InlineFragment: function InlineFragment(_ref6) {
       var typeCondition = _ref6.typeCondition, directives = _ref6.directives, selectionSet = _ref6.selectionSet;
-      return join158([
+      return join160([
         "...",
         wrap("on ", typeCondition),
-        join158(directives, " "),
+        join160(directives, " "),
         selectionSet
       ], " ");
     },
     FragmentDefinition: function FragmentDefinition(_ref7) {
       var name = _ref7.name, typeCondition = _ref7.typeCondition, variableDefinitions = _ref7.variableDefinitions, directives = _ref7.directives, selectionSet = _ref7.selectionSet;
-      return "fragment ".concat(name).concat(wrap("(", join158(variableDefinitions, ", "), ")"), " ") + "on ".concat(typeCondition, " ").concat(wrap("", join158(directives, " "), " ")) + selectionSet;
+      return "fragment ".concat(name).concat(wrap("(", join160(variableDefinitions, ", "), ")"), " ") + "on ".concat(typeCondition, " ").concat(wrap("", join160(directives, " "), " ")) + selectionSet;
     },
     IntValue: function IntValue(_ref8) {
       return _ref8.value;
@@ -33440,11 +33462,11 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
     },
     ListValue: function ListValue(_ref13) {
       var values = _ref13.values;
-      return "[" + join158(values, ", ") + "]";
+      return "[" + join160(values, ", ") + "]";
     },
     ObjectValue: function ObjectValue(_ref14) {
       var fields3 = _ref14.fields;
-      return "{" + join158(fields3, ", ") + "}";
+      return "{" + join160(fields3, ", ") + "}";
     },
     ObjectField: function ObjectField(_ref15) {
       var name = _ref15.name, value = _ref15.value;
@@ -33452,7 +33474,7 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
     },
     Directive: function Directive(_ref16) {
       var name = _ref16.name, args = _ref16.arguments;
-      return "@" + name + wrap("(", join158(args, ", "), ")");
+      return "@" + name + wrap("(", join160(args, ", "), ")");
     },
     NamedType: function NamedType(_ref17) {
       return _ref17.name;
@@ -33465,9 +33487,9 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
     },
     SchemaDefinition: addDescription(function(_ref20) {
       var directives = _ref20.directives, operationTypes = _ref20.operationTypes;
-      return join158([
+      return join160([
         "schema",
-        join158(directives, " "),
+        join160(directives, " "),
         block(operationTypes)
       ], " ");
     }),
@@ -33477,149 +33499,149 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
     },
     ScalarTypeDefinition: addDescription(function(_ref22) {
       var name = _ref22.name, directives = _ref22.directives;
-      return join158([
+      return join160([
         "scalar",
         name,
-        join158(directives, " ")
+        join160(directives, " ")
       ], " ");
     }),
     ObjectTypeDefinition: addDescription(function(_ref23) {
       var name = _ref23.name, interfaces = _ref23.interfaces, directives = _ref23.directives, fields3 = _ref23.fields;
-      return join158([
+      return join160([
         "type",
         name,
-        wrap("implements ", join158(interfaces, " & ")),
-        join158(directives, " "),
+        wrap("implements ", join160(interfaces, " & ")),
+        join160(directives, " "),
         block(fields3)
       ], " ");
     }),
     FieldDefinition: addDescription(function(_ref24) {
       var name = _ref24.name, args = _ref24.arguments, type = _ref24.type, directives = _ref24.directives;
-      return name + (hasMultilineItems(args) ? wrap("(\n", indent(join158(args, "\n")), "\n)") : wrap("(", join158(args, ", "), ")")) + ": " + type + wrap(" ", join158(directives, " "));
+      return name + (hasMultilineItems(args) ? wrap("(\n", indent(join160(args, "\n")), "\n)") : wrap("(", join160(args, ", "), ")")) + ": " + type + wrap(" ", join160(directives, " "));
     }),
     InputValueDefinition: addDescription(function(_ref25) {
       var name = _ref25.name, type = _ref25.type, defaultValue = _ref25.defaultValue, directives = _ref25.directives;
-      return join158([
+      return join160([
         name + ": " + type,
         wrap("= ", defaultValue),
-        join158(directives, " ")
+        join160(directives, " ")
       ], " ");
     }),
     InterfaceTypeDefinition: addDescription(function(_ref26) {
       var name = _ref26.name, interfaces = _ref26.interfaces, directives = _ref26.directives, fields3 = _ref26.fields;
-      return join158([
+      return join160([
         "interface",
         name,
-        wrap("implements ", join158(interfaces, " & ")),
-        join158(directives, " "),
+        wrap("implements ", join160(interfaces, " & ")),
+        join160(directives, " "),
         block(fields3)
       ], " ");
     }),
     UnionTypeDefinition: addDescription(function(_ref27) {
       var name = _ref27.name, directives = _ref27.directives, types = _ref27.types;
-      return join158([
+      return join160([
         "union",
         name,
-        join158(directives, " "),
-        types && types.length !== 0 ? "= " + join158(types, " | ") : ""
+        join160(directives, " "),
+        types && types.length !== 0 ? "= " + join160(types, " | ") : ""
       ], " ");
     }),
     EnumTypeDefinition: addDescription(function(_ref28) {
       var name = _ref28.name, directives = _ref28.directives, values = _ref28.values;
-      return join158([
+      return join160([
         "enum",
         name,
-        join158(directives, " "),
+        join160(directives, " "),
         block(values)
       ], " ");
     }),
     EnumValueDefinition: addDescription(function(_ref29) {
       var name = _ref29.name, directives = _ref29.directives;
-      return join158([name, join158(directives, " ")], " ");
+      return join160([name, join160(directives, " ")], " ");
     }),
     InputObjectTypeDefinition: addDescription(function(_ref30) {
       var name = _ref30.name, directives = _ref30.directives, fields3 = _ref30.fields;
-      return join158([
+      return join160([
         "input",
         name,
-        join158(directives, " "),
+        join160(directives, " "),
         block(fields3)
       ], " ");
     }),
     DirectiveDefinition: addDescription(function(_ref31) {
       var name = _ref31.name, args = _ref31.arguments, repeatable = _ref31.repeatable, locations = _ref31.locations;
-      return "directive @" + name + (hasMultilineItems(args) ? wrap("(\n", indent(join158(args, "\n")), "\n)") : wrap("(", join158(args, ", "), ")")) + (repeatable ? " repeatable" : "") + " on " + join158(locations, " | ");
+      return "directive @" + name + (hasMultilineItems(args) ? wrap("(\n", indent(join160(args, "\n")), "\n)") : wrap("(", join160(args, ", "), ")")) + (repeatable ? " repeatable" : "") + " on " + join160(locations, " | ");
     }),
     SchemaExtension: function SchemaExtension(_ref32) {
       var directives = _ref32.directives, operationTypes = _ref32.operationTypes;
-      return join158([
+      return join160([
         "extend schema",
-        join158(directives, " "),
+        join160(directives, " "),
         block(operationTypes)
       ], " ");
     },
     ScalarTypeExtension: function ScalarTypeExtension(_ref33) {
       var name = _ref33.name, directives = _ref33.directives;
-      return join158([
+      return join160([
         "extend scalar",
         name,
-        join158(directives, " ")
+        join160(directives, " ")
       ], " ");
     },
     ObjectTypeExtension: function ObjectTypeExtension(_ref34) {
       var name = _ref34.name, interfaces = _ref34.interfaces, directives = _ref34.directives, fields3 = _ref34.fields;
-      return join158([
+      return join160([
         "extend type",
         name,
-        wrap("implements ", join158(interfaces, " & ")),
-        join158(directives, " "),
+        wrap("implements ", join160(interfaces, " & ")),
+        join160(directives, " "),
         block(fields3)
       ], " ");
     },
     InterfaceTypeExtension: function InterfaceTypeExtension(_ref35) {
       var name = _ref35.name, interfaces = _ref35.interfaces, directives = _ref35.directives, fields3 = _ref35.fields;
-      return join158([
+      return join160([
         "extend interface",
         name,
-        wrap("implements ", join158(interfaces, " & ")),
-        join158(directives, " "),
+        wrap("implements ", join160(interfaces, " & ")),
+        join160(directives, " "),
         block(fields3)
       ], " ");
     },
     UnionTypeExtension: function UnionTypeExtension(_ref36) {
       var name = _ref36.name, directives = _ref36.directives, types = _ref36.types;
-      return join158([
+      return join160([
         "extend union",
         name,
-        join158(directives, " "),
-        types && types.length !== 0 ? "= " + join158(types, " | ") : ""
+        join160(directives, " "),
+        types && types.length !== 0 ? "= " + join160(types, " | ") : ""
       ], " ");
     },
     EnumTypeExtension: function EnumTypeExtension(_ref37) {
       var name = _ref37.name, directives = _ref37.directives, values = _ref37.values;
-      return join158([
+      return join160([
         "extend enum",
         name,
-        join158(directives, " "),
+        join160(directives, " "),
         block(values)
       ], " ");
     },
     InputObjectTypeExtension: function InputObjectTypeExtension(_ref38) {
       var name = _ref38.name, directives = _ref38.directives, fields3 = _ref38.fields;
-      return join158([
+      return join160([
         "extend input",
         name,
-        join158(directives, " "),
+        join160(directives, " "),
         block(fields3)
       ], " ");
     }
   };
   function addDescription(cb) {
     return function(node) {
-      return join158([node.description, cb(node)], "\n");
+      return join160([node.description, cb(node)], "\n");
     };
   }
-  function join158(maybeArray) {
+  function join160(maybeArray) {
     var _maybeArray$filter$jo;
     var separator = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : "";
     return (_maybeArray$filter$jo = maybeArray === null || maybeArray === void 0 ? void 0 : maybeArray.filter(function(x) {
@@ -33627,7 +33649,7 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
     }).join(separator)) !== null && _maybeArray$filter$jo !== void 0 ? _maybeArray$filter$jo : "";
   }
   function block(array2) {
-    return wrap("{\n", indent(join158(array2, "\n")), "\n}");
+    return wrap("{\n", indent(join160(array2, "\n")), "\n}");
   }
   function wrap(start, maybeString) {
     var end = arguments.length > 2 && arguments[2] !== void 0 ? arguments[2] : "";
@@ -131006,19 +131028,6 @@ var reportStaleAttachments = async ({ settings, ticketRef, published, onProgress
 // src/common/planAddress/ticketFolderOf.ts
 var ticketFolderOf = ({ name }) => parsePlanAddress({ name })?.ticketBranch ?? name;
 
-// src/ship/common/utils/getShipResultPath.ts
-import { join as join33 } from "node:path";
-
-// src/common/utils/toBranchFileName.ts
-var toBranchFileName = ({ branch }) => {
-  return branch.replace(/[^A-Za-z0-9._-]/g, "-");
-};
-
-// src/ship/common/utils/getShipResultPath.ts
-var getShipResultPath = ({ cwd, branch }) => {
-  return join33(cwd, ".lightsout", "ship", `${toBranchFileName({ branch })}.json`);
-};
-
 // src/ship/forge/common/constants/PullRequestState.ts
 var PullRequestState = {
   /** Not merged and not closed — ship's resume path adopts one of these. */
@@ -131086,7 +131095,7 @@ var findPullRequest = async ({ branch, cwd, state }) => {
 var remoteWaitTimings = { pollIntervalMs: 3e4, ceilingMs: 30 * 6e4 };
 
 // src/ship/common/utils/sleep.ts
-var sleep = ({ ms }) => new Promise((resolve20) => setTimeout(resolve20, ms));
+var sleep = ({ ms }) => new Promise((resolve18) => setTimeout(resolve18, ms));
 
 // src/ship/forge/mergePullRequest.ts
 var StateView = external_exports.object({
@@ -131253,15 +131262,22 @@ var readPullRequestChecks = async ({ prNumber, cwd, expectedHead }) => {
 import { readFile as readFile20 } from "node:fs/promises";
 
 // src/ship/progress/common/utils/getShippingProgressPath.ts
-import { join as join34 } from "node:path";
-var getShippingProgressPath = ({ cwd, branch }) => {
-  return join34(cwd, ".lightsout", "ship", "progress", `${toBranchFileName({ branch })}.json`);
+import { join as join35 } from "node:path";
+
+// src/common/utils/toBranchFileName.ts
+var toBranchFileName = ({ branch }) => {
+  return branch.replace(/[^A-Za-z0-9._-]/g, "-");
+};
+
+// src/ship/progress/common/utils/getShippingProgressPath.ts
+var getShippingProgressPath = async ({ cwd, branch }) => {
+  return join35(await ticketFolderDir({ cwd, ticketBranch: toBranchFileName({ branch }) }), "ship-progress.json");
 };
 
 // src/ship/progress/readShippingProgress.ts
 var isMissingFile = ({ error: error51 }) => typeof error51 === "object" && error51 !== null && "code" in error51 && error51.code === "ENOENT";
 var readShippingProgress = async ({ cwd, branch }) => {
-  const path = getShippingProgressPath({ cwd, branch });
+  const path = await getShippingProgressPath({ cwd, branch });
   let exists3 = true;
   let progress;
   try {
@@ -131275,7 +131291,7 @@ var readShippingProgress = async ({ cwd, branch }) => {
 
 // src/ship/progress/ShippingProgressRecorder.ts
 import { mkdir as mkdir3, rename as rename2, stat as stat3, writeFile as writeFile6 } from "node:fs/promises";
-import { dirname as dirname3, join as join35 } from "node:path";
+import { dirname as dirname3, join as join36 } from "node:path";
 var attemptSteps = [ShippingStepId.Integrate, ShippingStepId.Push, ShippingStepId.PullRequest, ShippingStepId.Checks, ShippingStepId.Merge];
 var pendingSteps = () => Object.values(ShippingStepId).map((id) => ({ id, status: RunStatus.Pending }));
 var freshRecord = ({ branch, maxAttempts }) => {
@@ -131283,7 +131299,7 @@ var freshRecord = ({ branch, maxAttempts }) => {
   return { branch, attempt: 1, maxAttempts, pid: process.pid, startedAt: now, updatedAt: now, steps: pendingSteps() };
 };
 var ensureIgnoreFile = async ({ folder }) => {
-  const ignorePath = join35(folder, ".gitignore");
+  const ignorePath = join36(folder, ".gitignore");
   const isFile = await stat3(ignorePath).then(
     (found) => found.isFile(),
     () => false
@@ -131293,13 +131309,13 @@ var ensureIgnoreFile = async ({ folder }) => {
   }
 };
 var writeRecord = async ({ recordPath, record: record3 }) => {
-  const folder = dirname3(recordPath);
-  const tmpPath = `${recordPath}.tmp`;
   try {
+    const path = await recordPath;
+    const folder = dirname3(path);
     await mkdir3(folder, { recursive: true });
     await ensureIgnoreFile({ folder });
-    await writeJsonFile({ path: tmpPath, value: record3 });
-    await rename2(tmpPath, recordPath);
+    await writeJsonFile({ path: `${path}.tmp`, value: record3 });
+    await rename2(`${path}.tmp`, path);
   } catch {
   }
 };
@@ -131406,19 +131422,15 @@ var readBranchTicketRef = async ({ config: config2, cwd }) => {
   return readTicketMatch({ branch, ticketPattern: settings.ticketPattern })?.ticket;
 };
 
+// src/ship/common/utils/getShipResultPath.ts
+import { join as join37 } from "node:path";
+var getShipResultPath = async ({ cwd, branch }) => {
+  return join37(await ticketFolderDir({ cwd, ticketBranch: toBranchFileName({ branch }) }), "ship.json");
+};
+
 // src/ship/readShipResult.ts
-import { readFile as readFile21 } from "node:fs/promises";
 var readShipResult = async ({ cwd, branch }) => {
-  const raw = await readFile21(getShipResultPath({ cwd, branch }), "utf8").catch(() => void 0);
-  if (raw === void 0) {
-    return void 0;
-  }
-  try {
-    const parsed = ShipResult.safeParse(JSON.parse(raw));
-    return parsed.success ? parsed.data : void 0;
-  } catch {
-    return void 0;
-  }
+  return readJsonFile({ path: await getShipResultPath({ cwd, branch }), schema: ShipResult });
 };
 
 // src/ship/resolveShipIntent.ts
@@ -131762,28 +131774,19 @@ var describeGateHold = ({ hold, identifier }) => {
 var isTicketGateHeld = ({ holds, identifier, labels }) => holds[identifier.toLowerCase()] !== void 0 || labels.includes(gateBlockedLabel);
 
 // src/gates/gateHolds/common/utils/readGateHolds.ts
-import { readdir as readdir4, readFile as readFile22 } from "node:fs/promises";
+import { readdir as readdir4, readFile as readFile21 } from "node:fs/promises";
+import { join as join39 } from "node:path";
+
+// src/gates/gateHolds/common/utils/getGateHoldPaths.ts
 import { join as join38 } from "node:path";
-
-// src/gates/gateHolds/common/utils/getGateHoldPaths.ts
-import { join as join37 } from "node:path";
-
-// src/common/workspace/resolveSharedStateDir.ts
-import { join as join36 } from "node:path";
-var resolveSharedStateDir = async ({ cwd }) => {
-  const primary = await readGitPrimaryCheckout({ cwd });
-  return join36(primary ?? cwd, ".lightsout");
-};
-
-// src/gates/gateHolds/common/utils/getGateHoldPaths.ts
 var getGateHoldPaths = async ({ cwd }) => {
-  const dir = join37(await resolveSharedStateDir({ cwd }), "gate-holds");
-  return { dir, pathFor: ({ identifier }) => join37(dir, `${identifier.toLowerCase()}.json`) };
+  const dir = join38(await resolveSharedStateDir({ cwd }), "gate-holds");
+  return { dir, pathFor: ({ identifier }) => join38(dir, `${identifier.toLowerCase()}.json`) };
 };
 
 // src/gates/gateHolds/common/utils/readGateHolds.ts
 var readOneHold = async ({ path }) => {
-  const raw = await readFile22(path, "utf8").catch(() => void 0);
+  const raw = await readFile21(path, "utf8").catch(() => void 0);
   if (raw === void 0) {
     return void 0;
   }
@@ -131798,7 +131801,7 @@ var readGateHolds = async ({ cwd }) => {
   const names = await readdir4(dir).catch(() => []);
   const holds = {};
   for (const name of names.filter((entry) => entry.endsWith(".json"))) {
-    const hold = await readOneHold({ path: join38(dir, name) });
+    const hold = await readOneHold({ path: join39(dir, name) });
     if (hold !== void 0) {
       holds[name.slice(0, -".json".length).toLowerCase()] = hold;
     }
@@ -131925,7 +131928,7 @@ var describeGateLockFailure = ({ failure }) => `gates never started: the shared 
 
 // src/gates/gateLock/acquireGateLock.ts
 import { existsSync, mkdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
-import { dirname as dirname8 } from "node:path";
+import { dirname as dirname9 } from "node:path";
 
 // src/gates/gateLock/common/constants/gateLockTimings.ts
 var gateLockTimings = {
@@ -131958,27 +131961,121 @@ var isProcessGroupAlive = ({ pgid }) => {
 
 // src/runState/common/utils/appendRunLog.ts
 import { appendFile as appendFile3, mkdir as mkdir5 } from "node:fs/promises";
-import { join as join41 } from "node:path";
+import { join as join44 } from "node:path";
 
-// src/runState/common/paths/getRunDir.ts
+// src/runState/common/services/RunDirectoryIndex.ts
+import { readdir as readdir6 } from "node:fs/promises";
+import { join as join43 } from "node:path";
+
+// src/runState/common/paths/listRunLocations.ts
+import { readdir as readdir5 } from "node:fs/promises";
+import { join as join42 } from "node:path";
+
+// src/runState/common/paths/getCommandRunsDir.ts
 import { join as join40 } from "node:path";
+var commandFolders = {
+  [PipelineKind.Implement]: "implement",
+  [PipelineKind.Phases]: "implement",
+  [PipelineKind.Direct]: "direct",
+  [PipelineKind.Refactor]: "refactor",
+  [PipelineKind.Coverage]: "coverage",
+  [PipelineKind.Queue]: "queue"
+};
+var getCommandRunsDir = ({ stateDir, pipeline }) => join40(stateDir, commandFolders[pipeline], "runs");
 
-// src/runState/common/paths/getRunsDir.ts
-import { join as join39 } from "node:path";
-var getRunsDir = ({ cwd }) => {
-  return join39(cwd, ".lightsout", "runs");
+// src/runState/common/paths/getTicketRunsDir.ts
+import { join as join41 } from "node:path";
+var getTicketRunsDir = ({ ticketFolder }) => join41(ticketFolder, "runs");
+
+// src/runState/common/paths/listRunLocations.ts
+var listRunLocations = async ({ cwd }) => {
+  const tickets = await ticketsDir({ cwd });
+  const entries = await readdir5(tickets, { withFileTypes: true }).catch(() => []);
+  const ticketRuns = entries.filter((entry) => entry.isDirectory()).map((entry) => getTicketRunsDir({ ticketFolder: join42(tickets, entry.name) }));
+  const stateDir = await resolveSharedStateDir({ cwd });
+  const commandRuns = new Set(Object.values(PipelineKind).map((pipeline) => getCommandRunsDir({ stateDir, pipeline })));
+  return [...ticketRuns, ...commandRuns];
 };
 
-// src/runState/common/paths/getRunDir.ts
-var getRunDir = ({ cwd, runId }) => {
-  return join40(getRunsDir({ cwd }), runId);
+// src/runState/RunNotFoundError.ts
+var RunNotFoundError = class extends Error {
 };
+
+// src/runState/common/services/RunDirectoryIndex.ts
+var scanLocations = async ({ cwd }) => {
+  const found = /* @__PURE__ */ new Map();
+  for (const location of await listRunLocations({ cwd })) {
+    const entries = await readdir6(location, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries.filter((candidate) => candidate.isDirectory())) {
+      found.set(entry.name, join43(location, entry.name));
+    }
+  }
+  return found;
+};
+var matchRuns = ({ known, runId }) => {
+  const exact = known.get(runId);
+  return exact === void 0 ? [...known].filter(([candidate]) => candidate.startsWith(runId)).map(([candidate, runDir]) => ({ runId: candidate, runDir })) : [{ runId, runDir: exact }];
+};
+var RunDirectoryIndex = class {
+  /** One run-id-to-directory map per `cwd` — filled by its first scan, and added to as runs are created. */
+  directories = /* @__PURE__ */ new Map();
+  scanned = /* @__PURE__ */ new Set();
+  /**
+   * Which run a typed id names, and where it is — both from one lookup, so the
+   * two questions can never be answered from two different scans.
+   *
+   * @throws {RunNotFoundError} When nothing matches the id, or when a shortened id matches more than one run — which names the matches.
+   */
+  async resolve({ cwd, runId }) {
+    let matches = matchRuns({ known: await this.load({ cwd }), runId });
+    if (matches.length === 0) {
+      matches = matchRuns({ known: await this.rescan({ cwd }), runId });
+    }
+    if (matches.length === 0) {
+      throw new RunNotFoundError(`no run matching '${runId}' \u2014 list the runs this repo has with: lightsout status`);
+    }
+    if (matches.length > 1) {
+      throw new RunNotFoundError(`run id '${runId}' matches ${matches.length} runs (${matches.map((match) => match.runId).join(", ")}) \u2014 pass more of the id`);
+    }
+    return matches[0];
+  }
+  /** Remember a directory as it is created, so the run answers to its own id before anything is written into it. */
+  record({ cwd, runId, runDir }) {
+    this.entriesFor({ cwd }).set(runId, runDir);
+  }
+  entriesFor({ cwd }) {
+    const standing = this.directories.get(cwd);
+    if (standing !== void 0) {
+      return standing;
+    }
+    const fresh = /* @__PURE__ */ new Map();
+    this.directories.set(cwd, fresh);
+    return fresh;
+  }
+  async load({ cwd }) {
+    return this.scanned.has(cwd) ? this.entriesFor({ cwd }) : this.rescan({ cwd });
+  }
+  async rescan({ cwd }) {
+    const entries = this.entriesFor({ cwd });
+    for (const [runId, runDir] of await scanLocations({ cwd })) {
+      entries.set(runId, runDir);
+    }
+    this.scanned.add(cwd);
+    return entries;
+  }
+};
+
+// src/runState/common/constants/runDirectoryIndex.ts
+var runDirectoryIndex = new RunDirectoryIndex();
+
+// src/runState/common/paths/resolveRunDir.ts
+var resolveRunDir = async ({ cwd, runId }) => (await runDirectoryIndex.resolve({ cwd, runId })).runDir;
 
 // src/runState/common/utils/appendRunLog.ts
 var appendRunLog = async ({ cwd, runId, fileName, record: record3 }) => {
-  const dir = getRunDir({ cwd, runId });
+  const dir = await resolveRunDir({ cwd, runId });
   await mkdir5(dir, { recursive: true });
-  await appendFile3(join41(dir, fileName), `${JSON.stringify(record3)}
+  await appendFile3(join44(dir, fileName), `${JSON.stringify(record3)}
 `, "utf8");
 };
 
@@ -132002,51 +132099,38 @@ var appendJsonlRecords = async ({ path, schema, entries, runId, step }) => {
 };
 
 // src/runState/common/paths/getFrictionPath.ts
-import { join as join42 } from "node:path";
-var getFrictionPath = ({ cwd }) => {
-  return join42(cwd, ".lightsout", "friction.jsonl");
+import { join as join45 } from "node:path";
+var getFrictionPath = async ({ cwd }) => {
+  return join45(await resolveSharedStateDir({ cwd }), "friction.jsonl");
 };
 
 // src/runState/appendFriction.ts
-var appendFriction = ({ cwd, runId, step, friction }) => appendJsonlRecords({ path: getFrictionPath({ cwd }), schema: FrictionRecord, entries: friction, runId, step });
+var appendFriction = async ({ cwd, runId, step, friction }) => appendJsonlRecords({ path: await getFrictionPath({ cwd }), schema: FrictionRecord, entries: friction, runId, step });
 
 // src/runState/common/paths/getReviewFindingsPath.ts
-import { join as join43 } from "node:path";
-var getReviewFindingsPath = ({ cwd }) => {
-  return join43(cwd, ".lightsout", "review-findings.jsonl");
+import { join as join46 } from "node:path";
+var getReviewFindingsPath = async ({ cwd }) => {
+  return join46(await resolveSharedStateDir({ cwd }), "review-findings.jsonl");
 };
 
 // src/runState/appendReviewFindings.ts
-var appendReviewFindings = ({ cwd, runId, step, findings }) => appendJsonlRecords({ path: getReviewFindingsPath({ cwd }), schema: ReviewFindingRecord, entries: findings, runId, step });
+var appendReviewFindings = async ({ cwd, runId, step, findings }) => appendJsonlRecords({ path: await getReviewFindingsPath({ cwd }), schema: ReviewFindingRecord, entries: findings, runId, step });
 
 // src/runState/appendTestReview.ts
 var appendTestReview = async ({ cwd, runId, record: record3 }) => {
   await appendRunLog({ cwd, runId, fileName: "test-reviews.jsonl", record: record3 });
 };
 
-// src/runState/common/paths/resolveRunId.ts
-import { readdir as readdir5 } from "node:fs/promises";
-
-// src/runState/RunNotFoundError.ts
-var RunNotFoundError = class extends Error {
+// src/runState/common/paths/resolveNewRunDir.ts
+import { join as join47 } from "node:path";
+var resolveNewRunDir = async ({ cwd, planName, ticketBranch, pipeline, runId }) => {
+  const ticket = planName === void 0 ? ticketBranch : ticketFolderOf({ name: planName });
+  const runsDir = ticket === void 0 ? getCommandRunsDir({ stateDir: await resolveSharedStateDir({ cwd }), pipeline: pipeline ?? PipelineKind.Implement }) : getTicketRunsDir({ ticketFolder: await ticketFolderDir({ cwd, ticketBranch: ticket }) });
+  return join47(runsDir, runId);
 };
 
 // src/runState/common/paths/resolveRunId.ts
-var resolveRunId2 = async ({ cwd, runId }) => {
-  const entries = await readdir5(getRunsDir({ cwd }), { withFileTypes: true }).catch(() => []);
-  const runIds = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
-  if (runIds.includes(runId)) {
-    return runId;
-  }
-  const matches = runIds.filter((candidate) => candidate.startsWith(runId));
-  if (matches.length === 1) {
-    return matches[0];
-  }
-  if (matches.length === 0) {
-    throw new RunNotFoundError(`no run matching '${runId}' \u2014 list the runs this repo has with: lightsout status`);
-  }
-  throw new RunNotFoundError(`run id '${runId}' matches ${matches.length} runs (${matches.join(", ")}) \u2014 pass more of the id`);
-};
+var resolveRunId2 = async ({ cwd, runId }) => (await runDirectoryIndex.resolve({ cwd, runId })).runId;
 
 // src/runState/common/utils/buildCleanupSummary.ts
 var buildCleanupSummary = ({ step }) => {
@@ -132079,15 +132163,13 @@ var toRepoRelativePath = ({ cwd, path }) => relative4(cwd, resolve3(cwd, path));
 import { rename as rename3, writeFile as writeFile8 } from "node:fs/promises";
 
 // src/runState/common/paths/getRunManifestPath.ts
-import { join as join44 } from "node:path";
-var getRunManifestPath = ({ cwd, runId }) => {
-  return join44(getRunDir({ cwd, runId }), "manifest.json");
-};
+import { join as join48 } from "node:path";
+var getRunManifestPath = async ({ cwd, runId }) => join48(await resolveRunDir({ cwd, runId }), "manifest.json");
 
 // src/runState/writeRunManifest.ts
 var writeRunManifest = async ({ cwd, manifest }) => {
   const stamped = { ...manifest, updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
-  const manifestPath = getRunManifestPath({ cwd, runId: manifest.runId });
+  const manifestPath = await getRunManifestPath({ cwd, runId: manifest.runId });
   const tmpPath = `${manifestPath}.tmp`;
   await writeFile8(tmpPath, `${JSON.stringify(stamped, null, "	")}
 `, "utf8");
@@ -132110,18 +132192,22 @@ var createRun = async ({
   willShip
 }) => {
   const now = (/* @__PURE__ */ new Date()).toISOString();
+  const recordedPlan = toRepoRelativePath({ cwd, path: plan });
+  const planName = await planNameFromPath({ cwd, planPath: recordedPlan });
+  const branch = await readGitCurrentBranch({ cwd });
   const manifest = {
     runId: runId ?? randomUUID2(),
     createdAt: now,
     updatedAt: now,
-    plan: toRepoRelativePath({ cwd, path: plan }),
+    plan: recordedPlan,
+    planName,
     pipeline,
     ticketRef,
     overview: overview === void 0 ? void 0 : toRepoRelativePath({ cwd, path: overview }),
     parentRunId,
     harness: driver,
     config: config2,
-    branch: await readGitCurrentBranch({ cwd }),
+    branch,
     // Absolute, because the reader that wants it is standing in another checkout
     // and has nothing to join a relative path onto. Written from what this
     // function already holds rather than threaded down from three pipeline entry
@@ -132140,7 +132226,15 @@ var createRun = async ({
     unreachableChangedFiles: [],
     coverageExcludedChangedFiles: []
   };
-  await mkdir7(getRunDir({ cwd, runId: manifest.runId }), { recursive: true });
+  const runDir = await resolveNewRunDir({
+    cwd,
+    planName,
+    ticketBranch: planName === void 0 && ticketRef !== void 0 ? branch : void 0,
+    pipeline,
+    runId: manifest.runId
+  });
+  await mkdir7(runDir, { recursive: true });
+  runDirectoryIndex.record({ cwd, runId: manifest.runId, runDir });
   return writeRunManifest({ cwd, manifest });
 };
 
@@ -132182,10 +132276,15 @@ var isRunResumable = ({ status, live: live2 }) => {
 };
 
 // src/runState/listRunIds.ts
-import { readdir as readdir6 } from "node:fs/promises";
-var listRunIds = async ({ cwd }) => {
-  const entries = await readdir6(getRunsDir({ cwd }), { withFileTypes: true }).catch(() => []);
-  return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
+import { readdir as readdir7 } from "node:fs/promises";
+var listRunIds = async ({ cwd, ticketBranch }) => {
+  const locations = ticketBranch === void 0 ? await listRunLocations({ cwd }) : [getTicketRunsDir({ ticketFolder: await ticketFolderDir({ cwd, ticketBranch }) })];
+  const runIds = [];
+  for (const location of locations) {
+    const entries = await readdir7(location, { withFileTypes: true }).catch(() => []);
+    runIds.push(...entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name));
+  }
+  return runIds.sort();
 };
 
 // src/runState/lock/acquireRunLock.ts
@@ -132193,9 +132292,9 @@ import { mkdir as mkdir8, unlink as unlink2, writeFile as writeFile9 } from "nod
 import { dirname as dirname6 } from "node:path";
 
 // src/runState/lock/common/utils/getRunLockPath.ts
-import { join as join45 } from "node:path";
+import { join as join49 } from "node:path";
 var getRunLockPath = ({ cwd }) => {
-  return join45(cwd, ".lightsout", "lock.json");
+  return join49(cwd, ".lightsout", "lock.json");
 };
 
 // src/runState/lock/RunLockError.ts
@@ -132203,9 +132302,9 @@ var RunLockError = class extends Error {
 };
 
 // src/runState/lock/readRunLock.ts
-import { readFile as readFile23 } from "node:fs/promises";
+import { readFile as readFile22 } from "node:fs/promises";
 var readRunLock = async ({ cwd }) => {
-  const raw = await readFile23(getRunLockPath({ cwd }), "utf8").catch(() => void 0);
+  const raw = await readFile22(getRunLockPath({ cwd }), "utf8").catch(() => void 0);
   if (raw === void 0) {
     return void 0;
   }
@@ -132289,19 +132388,18 @@ var withRunLock = async ({ params, run }) => {
 
 // src/runState/progress/createProgressSink.ts
 import { mkdir as mkdir9 } from "node:fs/promises";
+import { dirname as dirname7 } from "node:path";
 
 // src/runState/progress/getProgressLogPath.ts
-import { join as join46 } from "node:path";
-var getProgressLogPath = ({ cwd, runId }) => {
-  return join46(getRunDir({ cwd, runId }), "progress.jsonl");
+import { join as join50 } from "node:path";
+var getProgressLogPath = async ({ cwd, runId }) => {
+  return join50(await resolveRunDir({ cwd, runId }), "progress.jsonl");
 };
 
 // src/runState/progress/createProgressSink.ts
 var createProgressSink = ({ cwd, runId }) => {
-  const sink = createEventFileSink({
-    path: getProgressLogPath({ cwd, runId }),
-    ready: mkdir9(getRunDir({ cwd, runId }), { recursive: true })
-  });
+  const logPath = getProgressLogPath({ cwd, runId });
+  const sink = createEventFileSink({ path: logPath, ready: logPath.then((path) => mkdir9(dirname7(path), { recursive: true })) });
   return (message) => {
     sink({ at: (/* @__PURE__ */ new Date()).toISOString(), message });
   };
@@ -132309,18 +132407,17 @@ var createProgressSink = ({ cwd, runId }) => {
 
 // src/runState/progress/readLastProgressMessage.ts
 var readLastProgressMessage = async ({ cwd, runId }) => {
-  const records = await readJsonlRecords({ path: getProgressLogPath({ cwd, runId }), schema: ProgressRecord });
+  const records = await readJsonlRecords({ path: await getProgressLogPath({ cwd, runId }), schema: ProgressRecord });
   return records.at(-1)?.message;
 };
 
 // src/runState/readFriction.ts
-var readFriction = async ({ cwd }) => readJsonlRecords({ path: getFrictionPath({ cwd }), schema: FrictionRecord });
+var readFriction = async ({ cwd }) => readJsonlRecords({ path: await getFrictionPath({ cwd }), schema: FrictionRecord });
 
 // src/runState/readRunManifest.ts
-import { readFile as readFile24 } from "node:fs/promises";
+import { readFile as readFile23 } from "node:fs/promises";
 var readRunManifest = async ({ cwd, runId }) => {
-  const resolved = await resolveRunId2({ cwd, runId });
-  const raw = await readFile24(getRunManifestPath({ cwd, runId: resolved }), "utf8");
+  const raw = await readFile23(await getRunManifestPath({ cwd, runId }), "utf8");
   return RunManifest.parse(JSON.parse(raw));
 };
 
@@ -132355,28 +132452,28 @@ var seedUsageTotals = ({ usage: usage2 }) => ({
 });
 
 // src/runState/standardsBaseline/getRunStandardsBaselinePath.ts
-import { join as join47 } from "node:path";
-var getRunStandardsBaselinePath = ({ cwd, runId }) => {
-  return join47(getRunDir({ cwd, runId }), "standards-baseline.json");
+import { join as join51 } from "node:path";
+var getRunStandardsBaselinePath = async ({ cwd, runId }) => {
+  return join51(await resolveRunDir({ cwd, runId }), "standards-baseline.json");
 };
 
 // src/runState/standardsBaseline/readRunStandardsBaseline.ts
 var readRunStandardsBaseline = async ({ cwd, runId }) => {
-  return readJsonFile({ path: getRunStandardsBaselinePath({ cwd, runId }), schema: StandardsSnapshot });
+  return readJsonFile({ path: await getRunStandardsBaselinePath({ cwd, runId }), schema: StandardsSnapshot });
 };
 
 // src/runState/standardsBaseline/writeRunStandardsBaseline.ts
 import { mkdir as mkdir10 } from "node:fs/promises";
-import { dirname as dirname7 } from "node:path";
+import { dirname as dirname8 } from "node:path";
 var writeRunStandardsBaseline = async ({ cwd, runId, snapshot }) => {
-  const path = getRunStandardsBaselinePath({ cwd, runId });
-  await mkdir10(dirname7(path), { recursive: true });
+  const path = await getRunStandardsBaselinePath({ cwd, runId });
+  await mkdir10(dirname8(path), { recursive: true });
   await writeJsonFile({ path, value: snapshot });
 };
 
 // src/runState/summarizeRun.ts
-import { readdir as readdir7 } from "node:fs/promises";
-import { join as join48 } from "node:path";
+import { readdir as readdir8 } from "node:fs/promises";
+import { join as join52 } from "node:path";
 
 // src/common/selfCheck/selfCheckStepPrefix.ts
 var selfCheckStepPrefix = "self-check-";
@@ -132398,12 +132495,12 @@ var CommandRecord = external_exports.object({
   skipped: external_exports.literal(true).optional()
 });
 var summarizeRun = async ({ cwd, manifest }) => {
-  const runDir = getRunDir({ cwd, runId: manifest.runId });
-  const ledger = await readJsonlRecords({ path: join48(runDir, "agents.jsonl"), schema: LedgerRecord });
-  const commands2 = (await readJsonlRecords({ path: join48(runDir, "commands.jsonl"), schema: CommandRecord })).filter(
+  const runDir = await resolveRunDir({ cwd, runId: manifest.runId });
+  const ledger = await readJsonlRecords({ path: join52(runDir, "agents.jsonl"), schema: LedgerRecord });
+  const commands2 = (await readJsonlRecords({ path: join52(runDir, "commands.jsonl"), schema: CommandRecord })).filter(
     (command) => !isSelfCheckStep({ step: command.step })
   );
-  const agentFiles = await readdir7(join48(runDir, "agents")).catch(() => []);
+  const agentFiles = await readdir8(join52(runDir, "agents")).catch(() => []);
   const friction = (await readFriction({ cwd })).filter((entry) => entry.runId === manifest.runId);
   const perStepUsage = /* @__PURE__ */ new Map();
   for (const record3 of ledger) {
@@ -132481,7 +132578,7 @@ var readGateLock = ({ lockPath }) => {
 };
 
 // src/gates/gateLock/acquireGateLock.ts
-var sleep2 = ({ ms }) => new Promise((resolve20) => setTimeout(resolve20, ms));
+var sleep2 = ({ ms }) => new Promise((resolve18) => setTimeout(resolve18, ms));
 var codeOf = ({ error: error51 }) => typeof error51 === "object" && error51 !== null && "code" in error51 ? error51.code : void 0;
 var claimLeftover = ({ lockPath, runId }) => {
   const asidePath = `${lockPath}.claim-${process.pid}-${runId}`;
@@ -132505,14 +132602,14 @@ var createReservation = ({ lockPath, cwd, runId }) => {
     outcome = { created: true, present: false, failure: void 0 };
   } catch (error51) {
     const code = codeOf({ error: error51 });
-    const sharedFolderMissing = code === "ENOENT" && existsSync(dirname8(dirname8(lockPath)));
+    const sharedFolderMissing = code === "ENOENT" && existsSync(dirname9(dirname9(lockPath)));
     if (code === "EEXIST") {
       outcome = { created: false, present: true, failure: void 0 };
     } else if (!sharedFolderMissing) {
       outcome = { created: false, present: false, failure: messageOf({ error: error51 }) };
     } else {
       try {
-        mkdirSync(dirname8(lockPath), { recursive: true });
+        mkdirSync(dirname9(lockPath), { recursive: true });
       } catch (mkdirError) {
         outcome = { created: false, present: false, failure: messageOf({ error: mkdirError }) };
       }
@@ -132558,9 +132655,9 @@ var acquireGateLock = async ({ lockPath, cwd, runId, waitCeilingMs, onProgress }
 };
 
 // src/gates/gateLock/common/utils/getGateLockPath.ts
-import { join as join49 } from "node:path";
+import { join as join53 } from "node:path";
 var getGateLockPath = async ({ cwd }) => {
-  return join49(await resolveSharedStateDir({ cwd }), "gate-lock.json");
+  return join53(await resolveSharedStateDir({ cwd }), "gate-lock.json");
 };
 
 // src/gates/gateLock/common/utils/writeGateLockGroups.ts
@@ -132676,16 +132773,16 @@ ${result.stderr}`.slice(-outputTailChars) }
 };
 
 // src/gates/testResults/checkAcceptanceTests.ts
-import { join as join51 } from "node:path";
+import { join as join55 } from "node:path";
 
 // src/gates/testResults/readTestResults.ts
-import { readdir as readdir8 } from "node:fs/promises";
-import { join as join50, relative as relative6 } from "node:path";
+import { readdir as readdir9 } from "node:fs/promises";
+import { join as join54, relative as relative6 } from "node:path";
 var readTestResults = async ({ cwd, dir }) => {
-  const entries = await readdir8(dir).catch(() => []);
+  const entries = await readdir9(dir).catch(() => []);
   const merged = [];
   for (const entry of entries.filter((name) => name.endsWith(".json"))) {
-    const parsed = await readJsonFile({ path: join50(dir, entry), schema: TestResultsFile });
+    const parsed = await readJsonFile({ path: join54(dir, entry), schema: TestResultsFile });
     merged.push(...(parsed?.testResults ?? []).map((file2) => ({ ...file2, testFilePath: relative6(cwd, file2.testFilePath) })));
   }
   return merged;
@@ -132704,7 +132801,7 @@ var covers = ({ gate, row, packagesDir }) => gate.skipped !== true && gate.exitC
 var createResultsReader = ({ cwd }) => {
   const readings = /* @__PURE__ */ new Map();
   return ({ dir }) => {
-    const started = readings.get(dir) ?? readTestResults({ cwd, dir: join51(cwd, dir) });
+    const started = readings.get(dir) ?? readTestResults({ cwd, dir: join55(cwd, dir) });
     readings.set(dir, started);
     return started;
   };
@@ -132767,7 +132864,7 @@ var checkAcceptanceTests = async ({ cwd, rows, gates, final, packagesDir, onProg
 };
 
 // src/gates/testResults/checkTestResultsCapability.ts
-import { join as join52 } from "node:path";
+import { join as join56 } from "node:path";
 var setupAdvice = [
   "",
   `lightsout sets ${testReporterEnv.reporter} (the reporter file it wrote into the run folder) and ${testReporterEnv.resultsDir} (where that execution's results go) on every gate command.`,
@@ -132788,7 +132885,7 @@ var checkTestResultsCapability = async ({ cwd, gates, results, onProgress }) => 
       continue;
     }
     for (const green2 of greens) {
-      const written = green2.testResultsDir === void 0 ? [] : await readTestResults({ cwd, dir: join52(cwd, green2.testResultsDir) });
+      const written = green2.testResultsDir === void 0 ? [] : await readTestResults({ cwd, dir: join56(cwd, green2.testResultsDir) });
       if (written.length === 0) {
         silent.push(`- gate \`${gate}\` in group \`${green2.group}\` ran green and wrote no per-test results`);
       }
@@ -132802,16 +132899,17 @@ var checkTestResultsCapability = async ({ cwd, gates, results, onProgress }) => 
 };
 
 // src/gates/testResults/testResultsDir.ts
-import { join as join53 } from "node:path";
+import { join as join57 } from "node:path";
 var unsafeSegmentCharacters = /[^A-Za-z0-9._-]/g;
 var safeSegment = ({ segment }) => segment.replace(unsafeSegmentCharacters, "-");
-var testResultsDir = ({ cwd, runId, step, group, kind }) => {
-  return join53(getRunDir({ cwd, runId }), "test-results", safeSegment({ segment: step }), safeSegment({ segment: group }), safeSegment({ segment: kind }));
+var testResultsDir = async ({ cwd, runId, step, group, kind }) => {
+  const runDir = await resolveRunDir({ cwd, runId });
+  return join57(runDir, "test-results", safeSegment({ segment: step }), safeSegment({ segment: group }), safeSegment({ segment: kind }));
 };
 
 // src/gates/testResults/writeJestReporter.ts
 import { mkdir as mkdir11, writeFile as writeFile11 } from "node:fs/promises";
-import { join as join54 } from "node:path";
+import { join as join58 } from "node:path";
 
 // src/gates/testResults/jestReporterSource.ts
 var jestReporterSource = `const { mkdirSync, writeFileSync } = require('node:fs');
@@ -132869,8 +132967,8 @@ module.exports = LightsoutJestReporter;
 
 // src/gates/testResults/writeJestReporter.ts
 var writeJestReporter = async ({ cwd, runId }) => {
-  const runDir = getRunDir({ cwd, runId });
-  const reporterPath = join54(runDir, "jest-reporter.cjs");
+  const runDir = await resolveRunDir({ cwd, runId });
+  const reporterPath = join58(runDir, "jest-reporter.cjs");
   await mkdir11(runDir, { recursive: true });
   await writeFile11(reporterPath, jestReporterSource);
   return reporterPath;
@@ -132895,7 +132993,7 @@ var prepareEvidence = async ({ cwd, runId, step, kind, group }) => {
     return void 0;
   }
   const reporterPath = await writeJestReporter({ cwd, runId });
-  const dir = testResultsDir({ cwd, runId, step: step ?? "gates", group, kind });
+  const dir = await testResultsDir({ cwd, runId, step: step ?? "gates", group, kind });
   await rm4(dir, { recursive: true, force: true });
   await mkdir12(dir, { recursive: true });
   return { dir, env: { [testReporterEnv.reporter]: reporterPath, [testReporterEnv.resultsDir]: dir } };
@@ -133098,15 +133196,15 @@ var resolvePackageGatesConfig = ({ packageGates }) => ({
 });
 
 // src/common/workspace/readPackageManifest.ts
-import { readFile as readFile25 } from "node:fs/promises";
-import { join as join55 } from "node:path";
+import { readFile as readFile24 } from "node:fs/promises";
+import { join as join59 } from "node:path";
 var PackageManifest = external_exports.object({
   name: external_exports.string().min(1),
   scripts: external_exports.record(external_exports.string(), external_exports.string()).optional()
 });
 var readPackageManifest = async ({ cwd, packagesDir, packageDir }) => {
-  const manifestPath = join55(cwd, packagesDir, packageDir, "package.json");
-  const raw = await readFile25(manifestPath, "utf8").catch(() => {
+  const manifestPath = join59(cwd, packagesDir, packageDir, "package.json");
+  const raw = await readFile24(manifestPath, "utf8").catch(() => {
     throw new Error(`declared package '${packageDir}' has no package.json at ${manifestPath}`);
   });
   const parsed = PackageManifest.safeParse(JSON.parse(raw));
@@ -133603,17 +133701,17 @@ var restorePreIntegrationState = async ({ cwd, baselineCommit, onProgress }) => 
 };
 
 // src/standards/detectStandardsChannels.ts
-import { join as join56 } from "node:path";
+import { join as join60 } from "node:path";
 
 // src/common/workspace/readDependencyNames.ts
-import { readFile as readFile26 } from "node:fs/promises";
+import { readFile as readFile25 } from "node:fs/promises";
 var Manifest2 = external_exports.object({
   dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
   devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
   peerDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
 });
 var readDependencyNames = async ({ manifestPath }) => {
-  const text = await readFile26(manifestPath, "utf8").catch(() => void 0);
+  const text = await readFile25(manifestPath, "utf8").catch(() => void 0);
   if (text === void 0) {
     return void 0;
   }
@@ -133637,7 +133735,7 @@ var channelSignals = {
   nestjs: ["@nestjs/core"]
 };
 var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
-  const manifestPaths = packages.length > 0 ? packages.map((name) => join56(cwd, packagesDir, name, "package.json")) : [join56(cwd, "package.json")];
+  const manifestPaths = packages.length > 0 ? packages.map((name) => join60(cwd, packagesDir, name, "package.json")) : [join60(cwd, "package.json")];
   const dependencies = /* @__PURE__ */ new Set();
   for (const manifestPath of manifestPaths) {
     for (const name of await readDependencyNames({ manifestPath }) ?? []) {
@@ -133678,14 +133776,14 @@ var buildStandardsDocuments = ({ pack, channels }) => {
 };
 
 // src/common/workspace/readPackageDependencies.ts
-import { readdir as readdir9 } from "node:fs/promises";
-import { join as join57 } from "node:path";
+import { readdir as readdir10 } from "node:fs/promises";
+import { join as join61 } from "node:path";
 var readPackageDependencies = async ({ cwd, packagesDir }) => {
   const dependencies = /* @__PURE__ */ new Map();
-  dependencies.set(".", await readDependencyNames({ manifestPath: join57(cwd, "package.json") }) ?? []);
-  const children = await readdir9(join57(cwd, packagesDir)).catch(() => []);
+  dependencies.set(".", await readDependencyNames({ manifestPath: join61(cwd, "package.json") }) ?? []);
+  const children = await readdir10(join61(cwd, packagesDir)).catch(() => []);
   for (const name of children.sort()) {
-    const names = await readDependencyNames({ manifestPath: join57(cwd, packagesDir, name, "package.json") });
+    const names = await readDependencyNames({ manifestPath: join61(cwd, packagesDir, name, "package.json") });
     if (names !== void 0) {
       dependencies.set(`${packagesDir}/${name}`, names);
     }
@@ -133718,15 +133816,15 @@ var importFrameworksModule = async ({ modulePath }) => {
 import { isAbsolute as isAbsolute2, resolve as resolve6 } from "node:path";
 
 // src/standardsPacks/readStandardsPack.ts
-import { readdir as readdir11, readFile as readFile29 } from "node:fs/promises";
-import { join as join60 } from "node:path";
+import { readdir as readdir12, readFile as readFile28 } from "node:fs/promises";
+import { join as join64 } from "node:path";
 
 // src/common/constants/standardsPackFrameworksFile.ts
 var standardsPackFrameworksFile = "common/frameworks/getFrameworkFacts.ts";
 
 // src/standardsPacks/common/parsing/parseDocumentFolder.ts
-import { readdir as readdir10, readFile as readFile28 } from "node:fs/promises";
-import { join as join59 } from "node:path";
+import { readdir as readdir11, readFile as readFile27 } from "node:fs/promises";
+import { join as join63 } from "node:path";
 
 // src/standardsPacks/common/parsing/parseFrontMatter.ts
 var import_yaml = __toESM(require_dist(), 1);
@@ -133771,8 +133869,8 @@ var parseDeclaration = ({ text, schema, filePath, problems }) => {
 };
 
 // src/standardsPacks/common/parsing/parseRuleFolder.ts
-import { readFile as readFile27 } from "node:fs/promises";
-import { basename as basename19, join as join58 } from "node:path";
+import { readFile as readFile26 } from "node:fs/promises";
+import { basename as basename19, join as join62 } from "node:path";
 
 // src/standardsPacks/common/utils/hasFile.ts
 import { stat as stat5 } from "node:fs/promises";
@@ -133806,7 +133904,7 @@ var ruleDeclaration = external_exports.object({
 });
 var getRuleDeclaration = async ({ folderPath, rulePath, found }) => {
   const filePath = `${rulePath}/rule.md`;
-  const text = await readFile27(join58(folderPath, "rule.md"), "utf8").catch((error51) => {
+  const text = await readFile26(join62(folderPath, "rule.md"), "utf8").catch((error51) => {
     found.push(`${filePath}: unreadable \u2014 ${messageOf({ error: error51 })}`);
     return void 0;
   });
@@ -133822,7 +133920,7 @@ var parseRuleFolder = async ({ folderPath, set: set2, documentPath, problems }) 
     found.push(`${rulePath}: rule folder must be named <NN>-<rule-id>, e.g. 01-${folderName}`);
   }
   const { declaration, prose } = await getRuleDeclaration({ folderPath, rulePath, found });
-  const checkPath = join58(folderPath, "check.ts");
+  const checkPath = join62(folderPath, "check.ts");
   const hasCheck = await hasFile({ path: checkPath });
   if (declaration?.checked === true && !hasCheck) {
     found.push(`${rulePath}: declares checked: true but ships no check.ts`);
@@ -133830,7 +133928,7 @@ var parseRuleFolder = async ({ folderPath, set: set2, documentPath, problems }) 
   if (declaration?.checked === false && hasCheck) {
     found.push(`${rulePath}: ships a check.ts but does not declare checked: true`);
   }
-  const fixturesPath = join58(folderPath, "fixtures");
+  const fixturesPath = join62(folderPath, "fixtures");
   let check2;
   if (declaration?.checked === true && hasCheck) {
     try {
@@ -133865,11 +133963,11 @@ var documentDeclaration = external_exports.object({
   channel: external_exports.string().min(1).default("base")
 });
 var listRuleFolders = async ({ folderPath }) => {
-  const entries = await readdir10(folderPath, { withFileTypes: true }).catch(() => []);
+  const entries = await readdir11(folderPath, { withFileTypes: true }).catch(() => []);
   const directories = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
   const folders = [];
   for (const name of directories) {
-    const isRule = await hasFile({ path: join59(folderPath, name, "rule.md") });
+    const isRule = await hasFile({ path: join63(folderPath, name, "rule.md") });
     if (isRule) {
       folders.push(name);
     }
@@ -133882,7 +133980,7 @@ var parseDocumentFolder = async ({
   set: set2,
   problems
 }) => {
-  const text = await readFile28(join59(folderPath, "document.md"), "utf8").catch(() => void 0);
+  const text = await readFile27(join63(folderPath, "document.md"), "utf8").catch(() => void 0);
   if (text === void 0) {
     problems.push(`${documentPath}/document.md: unreadable`);
     return void 0;
@@ -133895,7 +133993,7 @@ var parseDocumentFolder = async ({
   });
   const rules = [];
   for (const name of await listRuleFolders({ folderPath })) {
-    const rule = await parseRuleFolder({ folderPath: join59(folderPath, name), set: set2, documentPath, problems });
+    const rule = await parseRuleFolder({ folderPath: join63(folderPath, name), set: set2, documentPath, problems });
     if (rule !== void 0 && declaration !== void 0) {
       rules.push({ ...rule, channel: declaration.channel });
     }
@@ -133912,7 +134010,7 @@ var parseDocumentFolder = async ({
 
 // src/standardsPacks/readStandardsPack.ts
 var walk = async ({ folderPath, documentPath, set: set2, problems, documents, rules }) => {
-  const entries = await readdir11(folderPath, { withFileTypes: true }).catch(() => void 0);
+  const entries = await readdir12(folderPath, { withFileTypes: true }).catch(() => void 0);
   if (entries === void 0) {
     return;
   }
@@ -133925,7 +134023,7 @@ var walk = async ({ folderPath, documentPath, set: set2, problems, documents, ru
   } else {
     const directories = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
     for (const name of directories) {
-      await walk({ folderPath: join60(folderPath, name), documentPath: `${documentPath}/${name}`, set: set2, problems, documents, rules });
+      await walk({ folderPath: join64(folderPath, name), documentPath: `${documentPath}/${name}`, set: set2, problems, documents, rules });
     }
   }
 };
@@ -133943,8 +134041,8 @@ var findDuplicateIds = ({ rules }) => {
   return duplicates;
 };
 var readStandardsPack = async ({ packPath }) => {
-  const rootFilePath = join60(packPath, standardsPackRootFile);
-  const rootText = await readFile29(rootFilePath, "utf8").catch(() => void 0);
+  const rootFilePath = join64(packPath, standardsPackRootFile);
+  const rootText = await readFile28(rootFilePath, "utf8").catch(() => void 0);
   if (rootText === void 0) {
     throw new Error(`standards pack root file not found: ${rootFilePath}`);
   }
@@ -133962,7 +134060,7 @@ var readStandardsPack = async ({ packPath }) => {
   const documents = [];
   const rules = [];
   for (const set2 of [StandardsSet.Code, StandardsSet.Tests]) {
-    await walk({ folderPath: join60(packPath, set2), documentPath: set2, set: set2, problems, documents, rules });
+    await walk({ folderPath: join64(packPath, set2), documentPath: set2, set: set2, problems, documents, rules });
   }
   if (documents.length === 0) {
     problems.push("pack declares no documents \u2014 code/ and tests/ hold no folder with a document.md");
@@ -133972,9 +134070,9 @@ var readStandardsPack = async ({ packPath }) => {
     throw new Error(`standards pack failed to load (${packPath}):
 ${problems.map((problem) => `- ${problem}`).join("\n")}`);
   }
-  const frameworkOwnedFixturesPath = join60(packPath, "fixtures", "framework-owned");
+  const frameworkOwnedFixturesPath = join64(packPath, "fixtures", "framework-owned");
   const hasFrameworkOwned = await hasFile({ path: frameworkOwnedFixturesPath });
-  const frameworksModulePath = join60(packPath, standardsPackFrameworksFile);
+  const frameworksModulePath = join64(packPath, standardsPackFrameworksFile);
   const hasFrameworksModule = await hasFile({ path: frameworksModulePath });
   return {
     name: root.data.name,
@@ -133992,24 +134090,24 @@ ${problems.map((problem) => `- ${problem}`).join("\n")}`);
 
 // src/standardsPacks/resolveDefaultStandardsPack.ts
 import { existsSync as existsSync2 } from "node:fs";
-import { dirname as dirname9, join as join61, resolve as resolve5 } from "node:path";
+import { dirname as dirname10, join as join65, resolve as resolve5 } from "node:path";
 var overrideVariable = "LIGHTSOUT_DEFAULT_STANDARDS";
 var resolveDefaultStandardsPack = ({ startDir } = {}) => {
   const override = process.env[overrideVariable];
   if (override !== void 0) {
     const overridden = resolve5(override);
-    if (!existsSync2(join61(overridden, "lightsout-standards.json"))) {
+    if (!existsSync2(join65(overridden, "lightsout-standards.json"))) {
       throw new Error(`${overrideVariable} points at ${overridden}, which holds no lightsout-standards.json`);
     }
     return overridden;
   }
   const entryPoint = process.argv[1];
-  let current = resolve5(startDir ?? (entryPoint === void 0 ? process.cwd() : dirname9(entryPoint)));
+  let current = resolve5(startDir ?? (entryPoint === void 0 ? process.cwd() : dirname10(entryPoint)));
   let found;
   while (found === void 0) {
-    const candidates = [join61(current, "standards"), join61(current, "plugin", "standards")];
-    found = candidates.find((candidate) => existsSync2(join61(candidate, "lightsout-standards.json")));
-    const parent = dirname9(current);
+    const candidates = [join65(current, "standards"), join65(current, "plugin", "standards")];
+    found = candidates.find((candidate) => existsSync2(join65(candidate, "lightsout-standards.json")));
+    const parent = dirname10(current);
     if (found === void 0 && parent === current) {
       throw new Error(`bundled default standards not found next to the engine (searched upward from ${current})`);
     }
@@ -134468,11 +134566,11 @@ var syncDefaultBranch = async ({ cwd, defaultBranch, branch, onProgress }) => {
 
 // src/ship/writeShipResult.ts
 import { mkdir as mkdir13, rename as rename4, writeFile as writeFile12 } from "node:fs/promises";
-import { dirname as dirname10 } from "node:path";
+import { dirname as dirname11 } from "node:path";
 var writeShipResult = async ({ cwd, result }) => {
-  const resultPath = getShipResultPath({ cwd, branch: result.branch ?? "unknown" });
+  const resultPath = await getShipResultPath({ cwd, branch: result.branch ?? "unknown" });
   const tmpPath = `${resultPath}.tmp`;
-  await mkdir13(dirname10(resultPath), { recursive: true });
+  await mkdir13(dirname11(resultPath), { recursive: true });
   await writeFile12(tmpPath, `${JSON.stringify(result, null, "	")}
 `, "utf8");
   await rename4(tmpPath, resultPath);
@@ -134643,15 +134741,15 @@ var parseAttachmentManifest = ({ text, markerName, isAllowedName }) => {
 
 // src/plan/restore/common/utils/writeRestoredGeneration.ts
 import { mkdir as mkdir14, mkdtemp as mkdtemp3, rename as rename5, rm as rm5, writeFile as writeFile13 } from "node:fs/promises";
-import { dirname as dirname11, join as join62 } from "node:path";
+import { dirname as dirname12, join as join66 } from "node:path";
 var writeRestoredGeneration = async ({ dir, files }) => {
   let temporaryDir;
   try {
-    const parent = dirname11(dir);
+    const parent = dirname12(dir);
     await mkdir14(parent, { recursive: true });
-    temporaryDir = await mkdtemp3(join62(parent, ".restore-"));
+    temporaryDir = await mkdtemp3(join66(parent, ".restore-"));
     for (const { title, text } of files) {
-      await writeFile13(join62(temporaryDir, title), text, "utf8");
+      await writeFile13(join66(temporaryDir, title), text, "utf8");
     }
     await rename5(temporaryDir, dir);
     return void 0;
@@ -134767,7 +134865,7 @@ var restorePlanWorkspace = async ({ cwd, name, identifier, settings, titlePrefix
 };
 
 // src/plan/runPlanDedup.ts
-import { basename as basename20, join as join63 } from "node:path";
+import { basename as basename20, join as join67 } from "node:path";
 
 // src/plan/common/constants/planAgentConcurrency.ts
 var planAgentConcurrency = 12;
@@ -134886,7 +134984,7 @@ var runPlanDedup = async (params) => {
     return { status: PlanRunStatus.Failed, workspaceDir, error: `${files}: ${stale[0].issue} \u2014 ${stale[0].fix}` };
   }
   const candidates = await detectPriorArtCandidates({ cwd, planPaths, config: config2 });
-  const dedupPath = join63(workspaceDir, "dedup.json");
+  const dedupPath = join67(workspaceDir, "dedup.json");
   const writeReport = async ({
     findings: findings2,
     reviewed: reviewed2 = [],
@@ -134927,14 +135025,14 @@ var runPlanDedup = async (params) => {
 };
 
 // src/plan/runPlanGrade.ts
-import { basename as basename35, join as join68 } from "node:path";
+import { basename as basename35, join as join72 } from "node:path";
 
 // src/plan/appendGradeHistory.ts
 import { appendFile as appendFile5, mkdir as mkdir16 } from "node:fs/promises";
-import { dirname as dirname12 } from "node:path";
+import { dirname as dirname13 } from "node:path";
 var appendGradeHistory = async ({ cwd, name, report: report2 }) => {
   const path = await gradeHistoryPath({ cwd, name });
-  await mkdir16(dirname12(path), { recursive: true });
+  await mkdir16(dirname13(path), { recursive: true });
   await appendFile5(path, `${JSON.stringify(GradeReport.parse(report2))}
 `, "utf8");
 };
@@ -135019,11 +135117,11 @@ var createGradeReport = ({
 };
 
 // src/plan/common/grading/notePriorArtCollisions.ts
-import { readFile as readFile30 } from "node:fs/promises";
-import { join as join64 } from "node:path";
+import { readFile as readFile29 } from "node:fs/promises";
+import { join as join68 } from "node:path";
 var collisionKey = ({ plannedSymbol, plannedPath, phase }) => `${phase} ${plannedPath} ${plannedSymbol}`;
 var readSettledCollisions = async ({ workspaceDir }) => {
-  const text = await readFile30(join64(workspaceDir, "dedup.json"), "utf8").catch(() => void 0);
+  const text = await readFile29(join68(workspaceDir, "dedup.json"), "utf8").catch(() => void 0);
   if (text === void 0) {
     return /* @__PURE__ */ new Set();
   }
@@ -135060,7 +135158,7 @@ var readReusableGrade = async ({ gradePath, sha256: sha2562 }) => {
 };
 
 // src/plan/common/grading/runGradePass.ts
-import { basename as basename31, join as join66 } from "node:path";
+import { basename as basename31, join as join70 } from "node:path";
 
 // src/plan/common/memory/collapseText.ts
 var collapseText = ({ text }) => text.replace(/\s+/g, " ").trim().toLowerCase();
@@ -135268,8 +135366,8 @@ var citationPathToken = ({ citation }) => {
 };
 
 // src/plan/common/paths/citedPathExists.ts
-import { isAbsolute as isAbsolute3, join as join65 } from "node:path";
-var citedPathExists = async ({ cwd, token }) => pathExists({ path: isAbsolute3(token) ? token : join65(cwd, token) });
+import { isAbsolute as isAbsolute3, join as join69 } from "node:path";
+var citedPathExists = async ({ cwd, token }) => pathExists({ path: isAbsolute3(token) ? token : join69(cwd, token) });
 
 // src/plan/common/memory/confirmCitation.ts
 var minimumCitationLength = 24;
@@ -136355,7 +136453,7 @@ var persistPass = async ({
   report: report2,
   memory
 }) => {
-  await writeJsonFile({ path: join66(workspaceDir, gradeFileName), value: report2 });
+  await writeJsonFile({ path: join70(workspaceDir, gradeFileName), value: report2 });
   await appendGradeHistory({ cwd, name, report: report2 });
   await writeGradeMemory({ cwd, name, memory });
 };
@@ -136425,9 +136523,9 @@ var runGradePass = async (args) => {
 };
 
 // src/plan/common/memory/readGradeMemory.ts
-import { readFile as readFile31 } from "node:fs/promises";
+import { readFile as readFile30 } from "node:fs/promises";
 var readJson = async ({ path }) => {
-  const text = await readFile31(path, "utf8");
+  const text = await readFile30(path, "utf8");
   try {
     const value = JSON.parse(text);
     return { value };
@@ -136503,8 +136601,8 @@ var decideGradeScope = ({ files, overviewText, memory, inputs, narrowed }) => {
 };
 
 // src/plan/common/scope/getGradeInputs.ts
-import { readFile as readFile32 } from "node:fs/promises";
-import { basename as basename33, join as join67 } from "node:path";
+import { readFile as readFile31 } from "node:fs/promises";
+import { basename as basename33, join as join71 } from "node:path";
 
 // src/plan/common/scope/getPlanDesignHash.ts
 var droppedRanges = ({ plan, keepRegions }) => [...plan.generatedRegionRanges].filter(([heading]) => !keepRegions.includes(heading)).map(([, range]) => range).sort((left, right) => right.start - left.start);
@@ -136552,7 +136650,7 @@ var getOverviewDesignHashes = ({ overview, phaseFiles }) => {
 
 // src/plan/common/scope/getGradeInputs.ts
 var hashFile = async ({ path }) => {
-  const content = await readFile32(path).catch(() => void 0);
+  const content = await readFile31(path).catch(() => void 0);
   return content === void 0 ? "absent" : sha256({ content });
 };
 var planRelevantConfig = ({ config: config2 }) => ({
@@ -136562,7 +136660,7 @@ var planRelevantConfig = ({ config: config2 }) => ({
   "packages-dir": config2?.["packages-dir"],
   "executor-file-limit": config2?.["executor-file-limit"]
 });
-var hashChangedFiles = async ({ cwd, changed }) => Promise.all([...changed].sort().map(async (path) => ({ path, sha256: await hashFile({ path: join67(cwd, path) }) })));
+var hashChangedFiles = async ({ cwd, changed }) => Promise.all([...changed].sort().map(async (path) => ({ path, sha256: await hashFile({ path: join71(cwd, path) }) })));
 var toDecisionEntry = ({ row }) => {
   const phases = row.question.startsWith("Global constraint:") ? void 0 : row.phases;
   return {
@@ -136574,7 +136672,7 @@ var toDecisionEntry = ({ row }) => {
 var overviewBase = "overview.md";
 var readPlanFile = async ({ path }) => {
   const file2 = basename33(path);
-  const content = await readFile32(path).catch(() => void 0);
+  const content = await readFile31(path).catch(() => void 0);
   return content === void 0 ? { file: file2, sha256: "absent" } : { file: file2, sha256: sha256({ content }), plan: parsePlan({ content: content.toString("utf8"), base: file2 }) };
 };
 var readDecisionPart = ({ decisions, overviewDesign }) => ({
@@ -136696,7 +136794,7 @@ var runPlanGrade = async (params) => {
   if ("error" in selection) {
     return { status: PlanRunStatus.Failed, workspaceDir, error: selection.error };
   }
-  const gradePath = join68(workspaceDir, gradeFileName);
+  const gradePath = join72(workspaceDir, gradeFileName);
   const structural = await lintPlanStructure({ cwd, planPaths, decisions: pass.decisions, config: config2 });
   const stamp3 = await readGradeStamp({ cwd });
   const blockingStructural = getBlockingFindings({ findings: structural });
@@ -136750,16 +136848,16 @@ var runPlanLint = async ({ cwd, name, onProgress }) => {
 
 // src/plan/runPlanVerifyFacts.ts
 import { copyFile, mkdir as mkdir17, writeFile as writeFile14 } from "node:fs/promises";
-import { join as join70, resolve as resolve7 } from "node:path";
+import { join as join74, resolve as resolve7 } from "node:path";
 
 // src/plan/verifyFacts.ts
-import { readFile as readFile33 } from "node:fs/promises";
-import { join as join69 } from "node:path";
+import { readFile as readFile32 } from "node:fs/promises";
+import { join as join73 } from "node:path";
 var verifyFacts = async ({ cwd, facts }) => {
   const paths = facts.areas.flatMap((area) => [...area.filesToModify.map((file2) => file2.path), ...area.patternsToMirror.map((pattern) => pattern.path)]);
   const missingPaths = [];
   for (const path of paths) {
-    const exists3 = await pathExists({ path: join69(cwd, path) });
+    const exists3 = await pathExists({ path: join73(cwd, path) });
     if (!exists3) {
       missingPaths.push(path);
     }
@@ -136770,10 +136868,10 @@ var verifyFacts = async ({ cwd, facts }) => {
     if (area.scripts.length === 0) {
       continue;
     }
-    const manifestPaths = [join69(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join69(cwd, pkg, "package.json"))];
+    const manifestPaths = [join73(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join73(cwd, pkg, "package.json"))];
     const available = /* @__PURE__ */ new Set();
     for (const manifestPath of manifestPaths) {
-      const raw = await readFile33(manifestPath, "utf8").catch(() => void 0);
+      const raw = await readFile32(manifestPath, "utf8").catch(() => void 0);
       if (raw) {
         for (const key of getManifestScriptKeys({ raw })) {
           available.add(key);
@@ -136803,7 +136901,7 @@ var snapshotNotes = async ({
   progress
 }) => {
   const source = resolve7(cwd, notesFile);
-  const destination = join70(workspaceDir, "brainstorm-notes.md");
+  const destination = join74(workspaceDir, "brainstorm-notes.md");
   const alreadyFrozen = await pathExists({ path: destination });
   if (alreadyFrozen) {
     progress("plan verify-facts \xB7 brainstorm-notes.md already frozen \u2014 snapshot skipped");
@@ -136821,7 +136919,7 @@ var snapshotNotes = async ({
 var runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }) => {
   const progress = onProgress ?? (() => void 0);
   const workspaceDir = await planWorkspaceDir({ cwd, name });
-  const factsPath = join70(workspaceDir, "facts.json");
+  const factsPath = join74(workspaceDir, "facts.json");
   if (notesFile !== void 0) {
     const snapshot = await snapshotNotes({ cwd, workspaceDir, notesFile, progress });
     if (snapshot.error !== void 0) {
@@ -136864,7 +136962,7 @@ var prepareAttachments2 = async ({
 }) => {
   const files = [];
   for (const name of brainstormAttachmentFileNames) {
-    const content = await readFile34(join71(dir, name)).catch((error51) => ({ error: messageOf({ error: error51 }) }));
+    const content = await readFile33(join75(dir, name)).catch((error51) => ({ error: messageOf({ error: error51 }) }));
     const optional2 = titlePrefix !== void 0 && name !== brainstormNotesFileName;
     if (Buffer.isBuffer(content)) {
       files.push({ name, content });
@@ -136944,7 +137042,7 @@ var publishBrainstorm = async ({ cwd, name, config: config2, env, onProgress, ti
 
 // src/brainstorm/restore/restoreBrainstormFiles.ts
 import { mkdir as mkdir18, writeFile as writeFile15 } from "node:fs/promises";
-import { join as join72 } from "node:path";
+import { join as join76 } from "node:path";
 
 // src/brainstorm/common/utils/isBrainstormOnlyAttachmentName.ts
 var isBrainstormOnlyAttachmentName = ({ name }) => name !== brainstormNotesFileName && brainstormAttachmentFileNames.includes(name);
@@ -136991,11 +137089,11 @@ var writeIntoFolder = async ({ dir, files }) => {
   try {
     await mkdir18(dir, { recursive: true });
     for (const { title, text } of files) {
-      if (await pathExists({ path: join72(dir, title) })) {
+      if (await pathExists({ path: join76(dir, title) })) {
         skipped.push(title);
         continue;
       }
-      await writeFile15(join72(dir, title), text, "utf8");
+      await writeFile15(join76(dir, title), text, "utf8");
       restored.push(title);
     }
   } catch (error51) {
@@ -137086,7 +137184,7 @@ var brainstormCatalogEntry = {
     {
       name: "name",
       value: "<name>",
-      meaning: "The brainstorm\u2019s plan, under .lightsout/plans/ \u2014 a plan address <ticket-branch>/<NNN-slug>, or a legacy folder name.",
+      meaning: "The brainstorm\u2019s plan, under .lightsout/tickets/<ticket-branch>/plans/ \u2014 a plan address <ticket-branch>/<NNN-slug>, or a legacy folder name.",
       required: true
     },
     { name: "cwd", value: "<path>", meaning: "Repository the brainstorm workspace lives in.", fallback: "The process working directory.", required: false }
@@ -137309,7 +137407,7 @@ var planSteps = [
       "Preserve any existing notes as the plan\u2019s starting context"
     ],
     note: "Gives the plan a stable home without making `/brainstorm` a prerequisite",
-    saved: [".lightsout/plans/<name>/brainstorm-notes.md"],
+    saved: [".lightsout/tickets/<ticket-branch>/plans/<plan-id>/brainstorm-notes.md"],
     savedLabel: "SAVED WHEN NOTES EXIST"
   },
   {
@@ -137321,7 +137419,7 @@ var planSteps = [
       "Verify every referenced file and path before moving forward"
     ],
     note: "Ensures the plan reflects the repository\u2019s current state, not assumptions",
-    saved: [".lightsout/plans/<name>/facts.json"]
+    saved: [".lightsout/tickets/<ticket-branch>/plans/<plan-id>/facts.json"]
   },
   {
     title: "SETTLE THE SCOPE AND CONSTRAINTS",
@@ -137332,7 +137430,7 @@ var planSteps = [
       "Planning agent asks questions until you are both aligned"
     ],
     note: "Prevents scope and project constraints from being decided during implementation",
-    saved: [".lightsout/plans/<name>/decisions.json"]
+    saved: [".lightsout/tickets/<ticket-branch>/plans/<plan-id>/decisions.json"]
   },
   {
     title: "CHOOSE THE APPROACH",
@@ -137343,7 +137441,7 @@ var planSteps = [
       "Skip this step only when the approach is already settled"
     ],
     note: "Ensures the design is chosen before implementation begins",
-    saved: ["decisions.json"]
+    saved: [".lightsout/tickets/<ticket-branch>/plans/<plan-id>/decisions.json"]
   },
   {
     title: "WRITE THE IMPLEMENTATION PLAN",
@@ -137354,7 +137452,11 @@ var planSteps = [
       "Use one plan or split larger work into clear phases"
     ],
     note: "Creates the specification the implementation agent will follow",
-    saved: [".lightsout/plans/<name>/plan.md", ".lightsout/plans/<name>/overview.md", ".lightsout/plans/<name>/phase<N>-<slug>.md"]
+    saved: [
+      ".lightsout/tickets/<ticket-branch>/plans/<plan-id>/plan.md",
+      ".lightsout/tickets/<ticket-branch>/plans/<plan-id>/overview.md",
+      ".lightsout/tickets/<ticket-branch>/plans/<plan-id>/phase<N>-<slug>.md"
+    ]
   },
   {
     title: "STRESS-TEST THE PLAN",
@@ -137365,7 +137467,7 @@ var planSteps = [
       "Every answer is added to the plan immediately"
     ],
     note: "Prevents the implementation agent from filling gaps on its own",
-    saved: ["decisions.json"]
+    saved: [".lightsout/tickets/<ticket-branch>/plans/<plan-id>/decisions.json"]
   },
   {
     title: "CATCH DUPLICATION BEFORE CODING",
@@ -137376,7 +137478,7 @@ var planSteps = [
       "Update the plan before implementation begins"
     ],
     note: "Prevents duplicate logic and competing abstractions",
-    saved: [".lightsout/plans/<name>/dedup.json"]
+    saved: [".lightsout/tickets/<ticket-branch>/plans/<plan-id>/dedup.json"]
   },
   {
     title: "GET THE PLAN TO AN A GRADE",
@@ -137387,7 +137489,7 @@ var planSteps = [
       "Re-grade until it earns an A with no unresolved gaps"
     ],
     note: "Proves the plan is complete enough for an implementation agent with no prior context",
-    saved: [".lightsout/plans/<name>/grade.json"]
+    saved: [".lightsout/tickets/<ticket-branch>/plans/<plan-id>/grade.json"]
   }
 ];
 
@@ -137413,7 +137515,7 @@ var planCatalogEntry = {
     {
       name: "name",
       value: "<name>",
-      meaning: "The plan to work in, under .lightsout/plans/ \u2014 a plan address <ticket-branch>/<NNN-slug>, or a legacy folder name.",
+      meaning: "The plan to work in, under .lightsout/tickets/<ticket-branch>/plans/ \u2014 a plan address <ticket-branch>/<NNN-slug>, or a legacy folder name.",
       required: true
     },
     {
@@ -137568,7 +137670,7 @@ var ticketCatalogEntry = {
     {
       name: "name",
       value: "<ticket-branch>",
-      meaning: "The ticket to act on, named by its branch \u2014 which is also its folder under .lightsout/plans/, never one plan's address.",
+      meaning: "The ticket to act on, named by its branch \u2014 which is also its folder under .lightsout/tickets/, never one plan's address.",
       required: true
     },
     {
@@ -138244,7 +138346,7 @@ var usage = renderUsage();
 
 // src/cli/common/utils/exitCli.ts
 var exitCli = async ({ code }) => {
-  await Promise.all([process.stdout, process.stderr].map((stream) => new Promise((resolve20) => stream.write("", () => resolve20()))));
+  await Promise.all([process.stdout, process.stderr].map((stream) => new Promise((resolve18) => stream.write("", () => resolve18()))));
   return process.exit(code);
 };
 
@@ -138274,9 +138376,9 @@ var createProgressPrinter = () => {
 };
 
 // src/common/config/readConfig.ts
-import { join as join73 } from "node:path";
+import { join as join77 } from "node:path";
 var readConfig = async ({ cwd }) => {
-  const configPath = join73(cwd, "lightsout.config.json");
+  const configPath = join77(cwd, "lightsout.config.json");
   const raw = await readConfigFile({ configPath });
   if (raw === void 0) {
     throw new Error(`lightsout.config.json not found at ${configPath}`);
@@ -138374,15 +138476,15 @@ var parseFlags = ({ args }) => {
 
 // src/cli/common/utils/loadRepoEnvFile.ts
 import { existsSync as existsSync3, readFileSync as readFileSync2 } from "node:fs";
-import { join as join74 } from "node:path";
+import { join as join78 } from "node:path";
 import { parseEnv } from "node:util";
 var resolveEnvFilePath = async ({ cwd }) => {
-  const own = join74(cwd, ".env");
+  const own = join78(cwd, ".env");
   if (existsSync3(own)) {
     return own;
   }
   const primary = await readGitPrimaryCheckout({ cwd });
-  const shared = primary === void 0 ? void 0 : join74(primary, ".env");
+  const shared = primary === void 0 ? void 0 : join78(primary, ".env");
   return shared !== void 0 && shared !== own && existsSync3(shared) ? shared : void 0;
 };
 var loadRepoEnvFile = async ({ cwd }) => {
@@ -138413,21 +138515,21 @@ var yellow = paint({ code: "33" });
 
 // src/doctor/checkConfiguredPaths.ts
 import { stat as stat6 } from "node:fs/promises";
-import { join as join75 } from "node:path";
+import { join as join79 } from "node:path";
 var checkConfiguredPaths = async ({ cwd, id, paths, fix }) => {
   if (!paths) {
     return void 0;
   }
   const absent = [];
   for (const prefix of paths) {
-    await stat6(join75(cwd, prefix)).catch(() => absent.push(prefix));
+    await stat6(join79(cwd, prefix)).catch(() => absent.push(prefix));
   }
   return absent.length === 0 ? { id, status: "pass", detail: `${paths.length} ${id} path(s) exist` } : { id, status: "warn", detail: `not found: ${absent.join(", ")}`, fix };
 };
 
 // src/doctor/checkCoverageSummary.ts
 import { stat as stat7 } from "node:fs/promises";
-import { join as join76 } from "node:path";
+import { join as join80 } from "node:path";
 
 // src/common/constants/defaultCoverageSummaryPath.ts
 var defaultCoverageSummaryPath = "coverage/coverage-summary.json";
@@ -138441,7 +138543,7 @@ var checkCoverageSummary = async ({ config: config2, packageDirs }) => {
   }
   const summaryPath = config2["coverage-summary-path"] ?? defaultCoverageSummaryPath;
   const scopes = scoped ? packageDirs.filter((entry) => entry.label !== "root") : packageDirs.filter((entry) => entry.label === "root");
-  const expected = scopes.map((entry) => ({ label: entry.label, path: join76(entry.dir, summaryPath) }));
+  const expected = scopes.map((entry) => ({ label: entry.label, path: join80(entry.dir, summaryPath) }));
   const absent = [];
   for (const entry of expected) {
     await stat7(entry.path).catch(() => absent.push(`${entry.label}: ${summaryPath}`));
@@ -138458,27 +138560,16 @@ var checkCoverageSummary = async ({ config: config2, packageDirs }) => {
 var probeTimeoutMs = 15e3;
 
 // src/doctor/checkGitignore.ts
-var gitignoreEntries = [".lightsout/runs/", ".lightsout/plans/", ".lightsout/friction.jsonl", ".lightsout/lock.json"];
 var checkGitignore = async ({ cwd }) => {
-  const notIgnored = [];
-  let gitUsable = true;
-  for (const entry of gitignoreEntries) {
-    const probePath = entry.endsWith("/") ? `${entry}probe` : entry;
-    const result = await runCommand({ command: `git check-ignore -q -- '${probePath}'`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({
-      exitCode: 128
-    }));
-    if (result.exitCode === 1) {
-      notIgnored.push(entry);
-    } else if (result.exitCode !== 0) {
-      gitUsable = false;
-    }
-  }
-  return !gitUsable ? { id: "gitignore", status: "warn", detail: "not a git repository \u2014 .gitignore not evaluated" } : notIgnored.length === 0 ? { id: "gitignore", status: "pass", detail: "run state is ignored (verified via git check-ignore)" } : {
+  const stateDir = ".lightsout";
+  const result = await runCommand({ command: `git check-ignore -q -- '${stateDir}/probe'`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({ exitCode: 128 }));
+  const gitUsable = result.exitCode === 0 || result.exitCode === 1;
+  return !gitUsable ? { id: "gitignore", status: "warn", detail: "not a git repository \u2014 .gitignore not evaluated" } : result.exitCode === 0 ? { id: "gitignore", status: "pass", detail: "the lightsout state directory is ignored (verified via git check-ignore)" } : {
     id: "gitignore",
     status: "warn",
-    detail: `run state not ignored: ${notIgnored.join(", ")}`,
+    detail: `run state not ignored: ${stateDir}`,
     fix: `add to .gitignore:
-${notIgnored.join("\n")}`
+${stateDir}`
   };
 };
 
@@ -138599,18 +138690,18 @@ var checkHarnessUsage = async ({ cwd, config: config2, driver }) => {
 };
 
 // src/doctor/checkJestMocks.ts
-import { readFile as readFile35 } from "node:fs/promises";
+import { readFile as readFile34 } from "node:fs/promises";
 
 // src/doctor/common/utils/findJestConfigs.ts
-import { readdir as readdir12 } from "node:fs/promises";
-import { join as join77 } from "node:path";
+import { readdir as readdir13 } from "node:fs/promises";
+import { join as join81 } from "node:path";
 var findJestConfigs = async ({ packageDir }) => {
-  const rootEntries = await readdir12(packageDir).catch(() => []);
-  const found = rootEntries.filter((name) => /^jest(\..+)?\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join77(packageDir, name));
+  const rootEntries = await readdir13(packageDir).catch(() => []);
+  const found = rootEntries.filter((name) => /^jest(\..+)?\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join81(packageDir, name));
   for (const testDir of ["test", "tests"]) {
-    const testEntries = await readdir12(join77(packageDir, testDir), { recursive: true }).catch(() => []);
+    const testEntries = await readdir13(join81(packageDir, testDir), { recursive: true }).catch(() => []);
     found.push(
-      ...testEntries.filter((name) => typeof name === "string" && /(^|\/)jest[^/]*\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join77(packageDir, testDir, name))
+      ...testEntries.filter((name) => typeof name === "string" && /(^|\/)jest[^/]*\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join81(packageDir, testDir, name))
     );
   }
   return found;
@@ -138623,7 +138714,7 @@ var checkJestMocks = async ({ cwd, packageDirs }) => {
   for (const { label: label2, dir } of packageDirs) {
     for (const configPath of await findJestConfigs({ packageDir: dir })) {
       jestConfigCount += 1;
-      const text = await readFile35(configPath, "utf8").catch(() => "");
+      const text = await readFile34(configPath, "utf8").catch(() => "");
       const absent = ["clearMocks", "restoreMocks"].filter((flag) => !new RegExp(`${flag}\\s*:\\s*true`).test(text));
       if (absent.length > 0) {
         jestFindings.push(`${label2}: ${configPath.slice(cwd.length + 1)} lacks ${absent.join(", ")}`);
@@ -138695,8 +138786,8 @@ var checkJestReporter = async ({ cwd, packageDirs }) => {
 };
 
 // src/doctor/checkLintRules.ts
-import { readdir as readdir13, readFile as readFile36 } from "node:fs/promises";
-import { join as join78 } from "node:path";
+import { readdir as readdir14, readFile as readFile35 } from "node:fs/promises";
+import { join as join82 } from "node:path";
 var checkLintRules = async ({ config: config2, packageDirs }) => {
   if (config2["standards-packs"] === false) {
     return void 0;
@@ -138704,13 +138795,13 @@ var checkLintRules = async ({ config: config2, packageDirs }) => {
   const lintFindings = [];
   let lintConfigCount = 0;
   for (const { label: label2, dir } of packageDirs) {
-    const entries = await readdir13(dir).catch(() => []);
+    const entries = await readdir14(dir).catch(() => []);
     const lintConfigs = entries.filter(
       (name) => /^biome\.jsonc?$/.test(name) || /^eslint\.config\.(js|cjs|mjs|ts)$/.test(name) || /^\.eslintrc(\..+)?$/.test(name)
     );
     for (const name of lintConfigs) {
       lintConfigCount += 1;
-      const text = await readFile36(join78(dir, name), "utf8").catch(() => "");
+      const text = await readFile35(join82(dir, name), "utf8").catch(() => "");
       const rules = name.startsWith("biome") ? ["useImportType", "noExplicitAny"] : ["consistent-type-imports", "no-explicit-any"];
       const unenforced = rules.filter((rule) => !text.includes(rule) || new RegExp(`${rule}"?\\s*:\\s*"off"`).test(text));
       if (unenforced.length > 0) {
@@ -138796,8 +138887,8 @@ var checkSourceWalk = async ({ cwd, generated = [] }) => {
 };
 
 // src/doctor/checkUserEvent.ts
-import { readFile as readFile37 } from "node:fs/promises";
-import { join as join79 } from "node:path";
+import { readFile as readFile36 } from "node:fs/promises";
+import { join as join83 } from "node:path";
 var packageDependencies = external_exports.object({
   dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
   devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
@@ -138805,7 +138896,7 @@ var packageDependencies = external_exports.object({
 var checkUserEvent = async ({ packageDirs }) => {
   const fireEventOnly = [];
   for (const { label: label2, dir } of packageDirs) {
-    const raw = await readFile37(join79(dir, "package.json"), "utf8").catch(() => void 0);
+    const raw = await readFile36(join83(dir, "package.json"), "utf8").catch(() => void 0);
     let json2;
     try {
       json2 = raw === void 0 ? void 0 : JSON.parse(raw);
@@ -138833,14 +138924,14 @@ var checkUserEvent = async ({ packageDirs }) => {
 };
 
 // src/doctor/resolvePackageDirs.ts
-import { readdir as readdir14 } from "node:fs/promises";
-import { join as join80 } from "node:path";
+import { readdir as readdir15 } from "node:fs/promises";
+import { join as join84 } from "node:path";
 var resolvePackageDirs = async ({ cwd, config: config2, packagesDir }) => {
   const packageDirs = [{ label: "root", dir: cwd }];
   if (!config2["package-gates"]) {
     return { packageDirs };
   }
-  const entries = await readdir14(join80(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
+  const entries = await readdir15(join84(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
   const templates = Object.entries(config2["package-gates"]).filter((pair) => typeof pair[1] === "string");
   const skips = [];
   for (const entry of entries.filter((item) => item.isDirectory() && !item.name.startsWith("."))) {
@@ -138848,7 +138939,7 @@ var resolvePackageDirs = async ({ cwd, config: config2, packagesDir }) => {
     if (!manifest) {
       continue;
     }
-    packageDirs.push({ label: entry.name, dir: join80(cwd, packagesDir, entry.name) });
+    packageDirs.push({ label: entry.name, dir: join84(cwd, packagesDir, entry.name) });
     const absent = templates.map(([kind, template]) => ({ kind, script: extractRunScriptName({ command: template }) })).filter(({ script }) => script !== void 0 && !Object.hasOwn(manifest.scripts, script));
     if (absent.length > 0) {
       skips.push(`${entry.name} (${absent.map(({ script }) => script).join(", ")})`);
@@ -139181,32 +139272,29 @@ var runOrDescribeFailure = async ({ command, cwd, timeoutMs = gitTimeoutMs, subj
 import { rm as rm6 } from "node:fs/promises";
 
 // src/worktree/records/common/utils/getWorktreeRecordPath.ts
-import { join as join81 } from "node:path";
-var getWorktreeRecordPath = ({ stateDir, branch }) => {
-  return join81(stateDir, "worktrees", `${toBranchFileName({ branch })}.json`);
+import { join as join85 } from "node:path";
+var getWorktreeRecordPath = async ({ cwd, branch }) => {
+  return join85(await ticketFolderDir({ cwd, ticketBranch: toBranchFileName({ branch }) }), "worktree.json");
 };
 
 // src/worktree/records/deleteWorktreeRecord.ts
 var deleteWorktreeRecord = async ({ cwd, branch }) => {
-  const stateDir = await resolveSharedStateDir({ cwd });
-  await rm6(getWorktreeRecordPath({ stateDir, branch }), { force: true }).catch(() => void 0);
+  await rm6(await getWorktreeRecordPath({ cwd, branch }), { force: true }).catch(() => void 0);
 };
 
 // src/worktree/records/readWorktreeRecord.ts
 var readWorktreeRecord = async ({ cwd, branch }) => {
-  const stateDir = await resolveSharedStateDir({ cwd });
-  return readJsonFile({ path: getWorktreeRecordPath({ stateDir, branch }), schema: WorktreeRecord });
+  return readJsonFile({ path: await getWorktreeRecordPath({ cwd, branch }), schema: WorktreeRecord });
 };
 
 // src/worktree/records/writeWorktreeRecord.ts
 import { mkdir as mkdir19, rename as rename6 } from "node:fs/promises";
-import { dirname as dirname13 } from "node:path";
+import { dirname as dirname14 } from "node:path";
 var writeWorktreeRecord = async ({ cwd, branch, owner, worktreePath, startPoint, onProgress }) => {
   const record3 = { branch, owner, worktreePath, createdAt: (/* @__PURE__ */ new Date()).toISOString(), ...startPoint === void 0 ? {} : { startPoint } };
-  const stateDir = await resolveSharedStateDir({ cwd });
-  const recordPath = getWorktreeRecordPath({ stateDir, branch });
   try {
-    await mkdir19(dirname13(recordPath), { recursive: true });
+    const recordPath = await getWorktreeRecordPath({ cwd, branch });
+    await mkdir19(dirname14(recordPath), { recursive: true });
     await writeJsonFile({ path: `${recordPath}.tmp`, value: record3 });
     await rename6(`${recordPath}.tmp`, recordPath);
   } catch (error51) {
@@ -139216,18 +139304,18 @@ var writeWorktreeRecord = async ({ cwd, branch, owner, worktreePath, startPoint,
 };
 
 // src/worktree/resolveWorktreePath.ts
-import { join as join83 } from "node:path";
+import { join as join87 } from "node:path";
 
 // src/worktree/resolveWorktreesRoot.ts
-import { basename as basename37, dirname as dirname14, join as join82, resolve as resolve8 } from "node:path";
+import { basename as basename37, dirname as dirname15, join as join86, resolve as resolve8 } from "node:path";
 var resolveWorktreesRoot = async ({ cwd }) => {
   const primary = await readGitPrimaryCheckout({ cwd });
   const repo = resolve8(primary ?? cwd);
-  return join82(dirname14(repo), `${basename37(repo)}-worktrees`);
+  return join86(dirname15(repo), `${basename37(repo)}-worktrees`);
 };
 
 // src/worktree/resolveWorktreePath.ts
-var resolveWorktreePath = async ({ cwd, branch }) => join83(await resolveWorktreesRoot({ cwd }), branch);
+var resolveWorktreePath = async ({ cwd, branch }) => join87(await resolveWorktreesRoot({ cwd }), branch);
 
 // src/worktree/createWorktree.ts
 var exists = async ({ path }) => {
@@ -139496,30 +139584,15 @@ var requireTicketRecord = ({ record: record3, ticketBranch }) => {
   return record3.shipped === void 0 ? record3 : { error: `ticket ${ticketBranch} shipped as ${record3.shipped.mergeCommit}, and a shipped ticket's record is history that no longer changes` };
 };
 
-// src/ticket/common/utils/getTicketFolderPath.ts
-import { join as join84 } from "node:path";
-var getTicketFolderPath = ({ stateDir, ticketBranch }) => join84(stateDir, "plans", ticketBranch);
-
 // src/ticket/common/utils/listLegacyPlanEntries.ts
-import { readdir as readdir15 } from "node:fs/promises";
-
-// src/ticket/common/constants/ticketFileNames.ts
-var ticketFileNames = {
-  record: "ticket.json",
-  sync: "ticket-sync.json",
-  published: "ticket.published.json",
-  lock: "ticket.lock"
-};
-
-// src/ticket/common/utils/listLegacyPlanEntries.ts
+import { readdir as readdir16 } from "node:fs/promises";
 var isPlanFolder = ({ name }) => {
   const setAside = /^(?<planId>.+)\.local-\d+$/.exec(name)?.groups?.planId;
   return PlanId.safeParse(setAside ?? name).success;
 };
-var isTicketFile = ({ name }) => Object.values(ticketFileNames).some((ticketFile) => name === ticketFile || name.startsWith(`${ticketFile}.`) && name.endsWith(".tmp"));
-var listLegacyPlanEntries = async ({ ticketFolder }) => {
-  const entries = await readdir15(ticketFolder, { withFileTypes: true }).catch(() => []);
-  return entries.filter((entry) => !(entry.isDirectory() && isPlanFolder({ name: entry.name })) && !isTicketFile({ name: entry.name })).map((entry) => entry.name).sort();
+var listLegacyPlanEntries = async ({ plansFolder }) => {
+  const entries = await readdir16(plansFolder, { withFileTypes: true }).catch(() => []);
+  return entries.filter((entry) => !(entry.isDirectory() && isPlanFolder({ name: entry.name }))).map((entry) => entry.name).sort();
 };
 
 // src/ticket/common/utils/resolveTicketTrackerTarget.ts
@@ -139546,7 +139619,15 @@ var resolveTicketTrackerTarget = ({ config: config2, env, ticketBranch }) => {
 };
 
 // src/ticket/pullTicketRecord.ts
-import { join as join90 } from "node:path";
+import { join as join93 } from "node:path";
+
+// src/ticket/common/constants/ticketFileNames.ts
+var ticketFileNames = {
+  record: "ticket.json",
+  sync: "ticket-sync.json",
+  published: "ticket.published.json",
+  lock: "ticket.lock"
+};
 
 // src/ticket/common/utils/serializeTicketRecord.ts
 var serializeTicketRecord = ({ record: record3 }) => {
@@ -139606,18 +139687,18 @@ var readPublishedTicketRecord = async ({
 };
 
 // src/ticket/common/utils/readTicketSyncState.ts
-import { join as join85 } from "node:path";
-var readTicketSyncState = async ({ ticketFolder }) => readJsonFile({ path: join85(ticketFolder, ticketFileNames.sync), schema: TicketSyncState });
+import { join as join88 } from "node:path";
+var readTicketSyncState = async ({ ticketFolder }) => readJsonFile({ path: join88(ticketFolder, ticketFileNames.sync), schema: TicketSyncState });
 
 // src/ticket/common/utils/surfaceTicketDivergence.ts
-import { join as join86 } from "node:path";
+import { join as join89 } from "node:path";
 
 // src/ticket/common/utils/writeTicketFolderFile.ts
 import { mkdir as mkdir20, rename as rename7, writeFile as writeFile16 } from "node:fs/promises";
-import { dirname as dirname15 } from "node:path";
+import { dirname as dirname16 } from "node:path";
 var writeTicketFolderFile = async ({ path, content }) => {
   const temporaryPath = `${path}.tmp`;
-  await mkdir20(dirname15(path), { recursive: true });
+  await mkdir20(dirname16(path), { recursive: true });
   await writeFile16(temporaryPath, content);
   await rename7(temporaryPath, path);
 };
@@ -139627,7 +139708,7 @@ var surfaceTicketDivergence = async ({ ticketFolder, ticketBranch, ticketRef, co
   const sync = `lightsout ticket sync --name ${ticketBranch}`;
   let saved = `the published copy is saved beside it as ${ticketFileNames.published}`;
   try {
-    await writeTicketFolderFile({ path: join86(ticketFolder, ticketFileNames.published), content });
+    await writeTicketFolderFile({ path: join89(ticketFolder, ticketFileNames.published), content });
   } catch (error51) {
     saved = `the published copy could not be saved as ${ticketFileNames.published} (${messageOf({ error: error51 })})`;
   }
@@ -139635,7 +139716,7 @@ var surfaceTicketDivergence = async ({ ticketFolder, ticketBranch, ticketRef, co
 };
 
 // src/ticket/common/utils/updateTicketSyncState.ts
-import { join as join87 } from "node:path";
+import { join as join90 } from "node:path";
 var updateTicketSyncState = async ({ ticketFolder, recordSha256, planMarkers }) => {
   const current = await readTicketSyncState({ ticketFolder });
   const recorded = recordSha256 ?? current?.recordSha256;
@@ -139647,7 +139728,7 @@ var updateTicketSyncState = async ({ ticketFolder, recordSha256, planMarkers }) 
     next.recordSha256 = recorded;
   }
   await writeTicketFolderFile({
-    path: join87(ticketFolder, ticketFileNames.sync),
+    path: join90(ticketFolder, ticketFileNames.sync),
     content: Buffer.from(`${JSON.stringify(next, void 0, "	")}
 `, "utf8")
   });
@@ -139656,9 +139737,9 @@ var updateTicketSyncState = async ({ ticketFolder, recordSha256, planMarkers }) 
 // src/ticket/common/utils/withTicketRecordLock.ts
 import { randomUUID as randomUUID5 } from "node:crypto";
 import { mkdirSync as mkdirSync2, readFileSync as readFileSync3, renameSync as renameSync2, unlinkSync as unlinkSync2, writeFileSync as writeFileSync2 } from "node:fs";
-import { join as join88 } from "node:path";
+import { join as join91 } from "node:path";
 var LockHolder = external_exports.object({ pid: external_exports.number(), token: external_exports.string(), acquiredAt: external_exports.string() });
-var sleep3 = ({ ms }) => new Promise((resolve20) => setTimeout(resolve20, ms));
+var sleep3 = ({ ms }) => new Promise((resolve18) => setTimeout(resolve18, ms));
 var readHolder = ({ lockPath }) => {
   let holder;
   try {
@@ -139746,7 +139827,7 @@ var withTicketRecordLock = async ({ ticketFolder, run }) => {
   } catch (error51) {
     return { error: `the ticket folder ${ticketFolder} could not be created: ${messageOf({ error: error51 })}` };
   }
-  const lockPath = join88(ticketFolder, ticketFileNames.lock);
+  const lockPath = join91(ticketFolder, ticketFileNames.lock);
   const token = randomUUID5();
   const acquisition = await acquireLock({ lockPath, token });
   if ("error" in acquisition) {
@@ -139760,14 +139841,14 @@ var withTicketRecordLock = async ({ ticketFolder, run }) => {
 };
 
 // src/ticket/readTicketRecord.ts
-import { join as join89 } from "node:path";
+import { join as join92 } from "node:path";
 
 // src/ticket/common/utils/readTicketRecordFile.ts
-import { readFile as readFile38 } from "node:fs/promises";
+import { readFile as readFile37 } from "node:fs/promises";
 var readText = async ({ recordPath }) => {
   let outcome;
   try {
-    outcome = { text: await readFile38(recordPath, "utf8") };
+    outcome = { text: await readFile37(recordPath, "utf8") };
   } catch (error51) {
     const missing = typeof error51 === "object" && error51 !== null && "code" in error51 && error51.code === "ENOENT";
     outcome = missing ? { missing: true } : { error: `the ticket record ${recordPath} could not be read: ${messageOf({ error: error51 })}` };
@@ -139809,9 +139890,8 @@ var readTicketRecordFile = async ({ recordPath, ticketBranch }) => {
 
 // src/ticket/readTicketRecord.ts
 var readTicketRecord = async ({ cwd, ticketBranch }) => {
-  const stateDir = await resolveSharedStateDir({ cwd });
-  const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
-  return readTicketRecordFile({ recordPath: join89(ticketFolder, ticketFileNames.record), ticketBranch });
+  const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
+  return readTicketRecordFile({ recordPath: join92(ticketFolder, ticketFileNames.record), ticketBranch });
 };
 
 // src/ticket/pullTicketRecord.ts
@@ -139824,7 +139904,7 @@ var takePublished = async ({
 }) => {
   let outcome;
   try {
-    await writeTicketFolderFile({ path: join90(ticketFolder, ticketFileNames.record), content });
+    await writeTicketFolderFile({ path: join93(ticketFolder, ticketFileNames.record), content });
     await updateTicketSyncState({ ticketFolder, recordSha256: sha256({ content }) });
     outcome = { record: record3 };
   } catch (error51) {
@@ -139884,8 +139964,7 @@ var pullTicketRecord = async ({
   if ("error" in published) {
     return published;
   }
-  const stateDir = await resolveSharedStateDir({ cwd });
-  const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
+  const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
   return withTicketRecordLock({
     ticketFolder,
     run: () => applyThreeWayRule({ cwd, ticketFolder, ticketBranch, ticketRef: target.ticketRef, published: published.published, onProgress })
@@ -139931,8 +140010,7 @@ var attachTicketRecordIfUnmoved = async ({
   if (local.record === void 0) {
     return { error: `there is no ${ticketFileNames.record} for '${ticketBranch}' on this machine to publish` };
   }
-  const stateDir = await resolveSharedStateDir({ cwd });
-  const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
+  const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
   const syncState = await readTicketSyncState({ ticketFolder });
   const content = serializeTicketRecord({ record: local.record });
   const attachedSha256 = sha256({ content });
@@ -139952,7 +140030,7 @@ var attachTicketRecordIfUnmoved = async ({
 
 // src/ticket/common/utils/recordTicketSyncState.ts
 import { rm as rm7 } from "node:fs/promises";
-import { join as join91 } from "node:path";
+import { join as join94 } from "node:path";
 var recordTicketSyncState = async ({
   ticketFolder,
   recordSha256,
@@ -139966,7 +140044,7 @@ var recordTicketSyncState = async ({
       try {
         await updateTicketSyncState({ ticketFolder, recordSha256, planMarkers });
         if (dropSurfacedCopy === true) {
-          await rm7(join91(ticketFolder, ticketFileNames.published), { force: true });
+          await rm7(join94(ticketFolder, ticketFileNames.published), { force: true });
         }
         return void 0;
       } catch (error51) {
@@ -139980,7 +140058,7 @@ var recordTicketSyncState = async ({
 // src/ticket/updateLocalTicketRecord.ts
 import { randomUUID as randomUUID6 } from "node:crypto";
 import { rename as rename8, writeFile as writeFile17 } from "node:fs/promises";
-import { join as join92 } from "node:path";
+import { join as join95 } from "node:path";
 var findHistoryRefusal = ({ current, next }) => {
   const recorded = current?.history ?? [];
   const kept = next.history.slice(0, recorded.length);
@@ -140009,7 +140087,7 @@ var writeChangedRecord = async ({
     outcome = refusal === void 0 ? outcome : { error: refusal };
   }
   if ("record" in outcome) {
-    const temporaryPath = join92(ticketFolder, `${ticketFileNames.record}.${randomUUID6()}.tmp`);
+    const temporaryPath = join95(ticketFolder, `${ticketFileNames.record}.${randomUUID6()}.tmp`);
     try {
       await writeFile17(temporaryPath, serializeTicketRecord({ record: outcome.record }));
       await rename8(temporaryPath, recordPath);
@@ -140020,9 +140098,8 @@ var writeChangedRecord = async ({
   return outcome;
 };
 var updateLocalTicketRecord = async ({ cwd, ticketBranch, change }) => {
-  const stateDir = await resolveSharedStateDir({ cwd });
-  const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
-  const recordPath = join92(ticketFolder, ticketFileNames.record);
+  const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
+  const recordPath = join95(ticketFolder, ticketFileNames.record);
   return withTicketRecordLock({
     ticketFolder,
     run: async () => {
@@ -140057,8 +140134,7 @@ var updateSyncedTicketRecord = async ({
   if ("error" in target || "localOnly" in target) {
     return { record: updated.record };
   }
-  const stateDir = await resolveSharedStateDir({ cwd });
-  const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
+  const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
   const syncState = await readTicketSyncState({ ticketFolder });
   const attached = await attachTicketRecordIfUnmoved({
     cwd,
@@ -140172,7 +140248,7 @@ var addTicketPlan = async ({
   if (published !== void 0) {
     return { error: published };
   }
-  const legacyEntries = await listLegacyPlanEntries({ ticketFolder: getTicketFolderPath({ stateDir: await resolveSharedStateDir({ cwd }), ticketBranch }) });
+  const legacyEntries = await listLegacyPlanEntries({ plansFolder: await planWorkspaceDir({ cwd, name: ticketBranch }) });
   let addition;
   const updated = await updateSyncedTicketRecord({
     cwd,
@@ -140207,7 +140283,7 @@ var addTicketPlan = async ({
 
 // src/ticket/adoptTicketPlan.ts
 import { mkdir as mkdir22, rename as rename9, rmdir } from "node:fs/promises";
-import { dirname as dirname16, join as join93 } from "node:path";
+import { dirname as dirname17, join as join96 } from "node:path";
 
 // src/ticket/common/adoption/findLiveRunRefusal.ts
 var findLiveRunRefusal = async ({ primaryCheckout, runs }) => {
@@ -140230,9 +140306,9 @@ var readAdoptedProgress = ({ runs, hasDeliverable }) => {
 };
 
 // src/ticket/common/adoption/readFolderRuns.ts
-var isFolderRun = ({ manifest, ticketBranch }) => manifest.parentRunId === void 0 && (manifest.pipeline === void 0 || manifest.pipeline === PipelineKind.Implement || manifest.pipeline === PipelineKind.Phases) && isRunInPlanWorkspace({ runPlan: manifest.plan, name: ticketBranch });
+var isFolderRun = ({ manifest, ticketBranch }) => manifest.parentRunId === void 0 && (manifest.pipeline === void 0 || manifest.pipeline === PipelineKind.Implement || manifest.pipeline === PipelineKind.Phases) && manifest.planName === ticketBranch;
 var readFolderRuns = async ({ primaryCheckout, ticketBranch }) => {
-  const runIds = await listRunIds({ cwd: primaryCheckout });
+  const runIds = await listRunIds({ cwd: primaryCheckout, ticketBranch });
   const manifests = await Promise.all(runIds.map((runId) => readRunManifest({ cwd: primaryCheckout, runId }).catch(() => void 0)));
   return manifests.filter((manifest) => manifest !== void 0 && isFolderRun({ manifest, ticketBranch }));
 };
@@ -140255,23 +140331,23 @@ var restoreBareGenerations = async ({ params, primaryCheckout }) => {
   const brainstorm = await restoreBrainstormFiles({ cwd: primaryCheckout, name: ticketBranch, identifier, settings });
   return brainstorm.error === void 0 ? void 0 : { error: brainstorm.error };
 };
-var movePlanEntries = async ({ ticketFolder, planFolder, entries }) => {
+var movePlanEntries = async ({ plansFolder, planFolder, entries }) => {
   const moved = [];
   let error51;
   try {
     await mkdir22(planFolder, { recursive: true });
     for (const entry of entries) {
-      await rename9(join93(ticketFolder, entry), join93(planFolder, entry));
+      await rename9(join96(plansFolder, entry), join96(planFolder, entry));
       moved.push(entry);
     }
   } catch (failure) {
-    error51 = `the files of '${ticketFolder}' could not be moved into ${planFolder}: ${messageOf({ error: failure })}`;
+    error51 = `the files of '${plansFolder}' could not be moved into ${planFolder}: ${messageOf({ error: failure })}`;
   }
   return { moved, error: error51 };
 };
-var undoMovedEntries = async ({ ticketFolder, planFolder, moved }) => {
+var undoMovedEntries = async ({ plansFolder, planFolder, moved }) => {
   for (const entry of moved) {
-    await rename9(join93(planFolder, entry), join93(ticketFolder, entry)).catch(() => void 0);
+    await rename9(join96(planFolder, entry), join96(plansFolder, entry)).catch(() => void 0);
   }
   await rmdir(planFolder).catch(() => void 0);
 };
@@ -140301,15 +140377,14 @@ var resolveAdoptionSubject = async (params) => {
   if ("error" in born) {
     return born;
   }
-  const stateDir = await resolveSharedStateDir({ cwd });
-  const primaryCheckout = dirname16(stateDir);
-  const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
-  const onDisk = await listLegacyPlanEntries({ ticketFolder });
+  const primaryCheckout = dirname17(await resolveSharedStateDir({ cwd }));
+  const plansFolder = await planWorkspaceDir({ cwd, name: ticketBranch });
+  const onDisk = await listLegacyPlanEntries({ plansFolder });
   const restored = onDisk.length === 0 ? await restoreBareGenerations({ params, primaryCheckout }) : void 0;
   if (restored !== void 0) {
     return restored;
   }
-  const entries = onDisk.length === 0 ? await listLegacyPlanEntries({ ticketFolder }) : onDisk;
+  const entries = onDisk.length === 0 ? await listLegacyPlanEntries({ plansFolder }) : onDisk;
   if (entries.length === 0) {
     return {
       error: `the plan folder '${ticketBranch}' holds no files of a single-folder plan, on this machine or on its ticket, so there is nothing to adopt`
@@ -140317,7 +140392,7 @@ var resolveAdoptionSubject = async (params) => {
   }
   const runs = await readFolderRuns({ primaryCheckout, ticketBranch });
   const live2 = await findLiveRunRefusal({ primaryCheckout, runs });
-  return live2 === void 0 ? { primaryCheckout, ticketFolder, entries, runs, planId: composed.id, born } : { error: live2 };
+  return live2 === void 0 ? { primaryCheckout, plansFolder, entries, runs, planId: composed.id, born } : { error: live2 };
 };
 var adoptTicketPlan = async (params) => {
   const subject = await resolveAdoptionSubject(params);
@@ -140325,7 +140400,7 @@ var adoptTicketPlan = async (params) => {
     return subject;
   }
   const { cwd, ticketBranch, slug, config: config2, env, onProgress } = params;
-  const { primaryCheckout, ticketFolder, entries, runs, planId, born } = subject;
+  const { primaryCheckout, plansFolder, entries, runs, planId, born } = subject;
   const address = formatPlanAddress({ ticketBranch, planId });
   const hasDeliverable = (await resolvePlanDeliverable({ cwd: primaryCheckout, name: ticketBranch })).error === void 0;
   const at = (/* @__PURE__ */ new Date()).toISOString();
@@ -140335,9 +140410,9 @@ var adoptTicketPlan = async (params) => {
     detail: `the single-folder plan of ${ticketBranch} was adopted as plan ${planId}`,
     at
   });
-  const planFolder = join93(ticketFolder, planId);
+  const planFolder = join96(plansFolder, planId);
   const appeared = `a ticket record for ${ticketBranch} appeared while its folder was being adopted, so nothing was changed`;
-  const { moved, error: moveError } = await movePlanEntries({ ticketFolder, planFolder, entries });
+  const { moved, error: moveError } = await movePlanEntries({ plansFolder, planFolder, entries });
   const written = moveError === void 0 ? await updateSyncedTicketRecord({
     cwd,
     ticketBranch,
@@ -140347,7 +140422,7 @@ var adoptTicketPlan = async (params) => {
     change: (current) => current === void 0 ? adopted : { error: appeared }
   }) : { error: moveError };
   if ("error" in written) {
-    await undoMovedEntries({ ticketFolder, planFolder, moved });
+    await undoMovedEntries({ plansFolder, planFolder, moved });
     return written;
   }
   return { address, record: written.record, notice: describeAdoption({ address, planId, hasDeliverable, runs }), publishError: written.publishError };
@@ -140518,13 +140593,12 @@ var excludeTicketPlan = async (params) => {
 };
 
 // src/ticket/findBareTicketFolderRefusal.ts
-import { join as join94 } from "node:path";
+import { join as join97 } from "node:path";
 var findBareTicketFolderRefusal = async ({ cwd, name }) => {
   if (parsePlanAddress({ name }) !== void 0) {
     return void 0;
   }
-  const stateDir = await resolveSharedStateDir({ cwd });
-  const recordPath = join94(getTicketFolderPath({ stateDir, ticketBranch: name }), ticketFileNames.record);
+  const recordPath = join97(await ticketFolderDir({ cwd, ticketBranch: name }), ticketFileNames.record);
   if (!await pathExists({ path: recordPath })) {
     return void 0;
   }
@@ -140691,18 +140765,17 @@ var createTicketShipGuard = ({ config: config2, env, onProgress }) => ({
 });
 
 // src/ticket/implementRun/readTicketRunTerms.ts
-import { basename as basename38 } from "node:path";
+import { basename as basename39 } from "node:path";
 
 // src/ticket/common/utils/isWholePlanRun.ts
-import { resolve as resolve9 } from "node:path";
+import { basename as basename38 } from "node:path";
 var wholePlanFileNames = ["plan.md", "overview.md"];
 var isWholePlanRun = async ({ cwd, name, planPath, pipeline }) => {
   if (pipeline === PipelineKind.Direct || planPath === void 0) {
     return true;
   }
-  const folder = await planWorkspaceDir({ cwd, name });
-  const recorded = await resolveRecordedPlanPath({ cwd, path: planPath });
-  return wholePlanFileNames.some((file2) => recorded === resolve9(folder, file2));
+  const belongsToPlan = await planNameFromPath({ cwd, planPath }) === name;
+  return belongsToPlan && wholePlanFileNames.includes(basename38(planPath));
 };
 
 // src/ticket/implementRun/readTicketRunTerms.ts
@@ -140727,7 +140800,7 @@ var readTicketRunTerms = async ({ cwd, name, planPath }) => {
   let shipRequest;
   if (planPath !== void 0 && !await isWholePlanRun({ cwd, name, planPath })) {
     shipRequest = {
-      blocker: `this run covers ${basename38(planPath)} alone, and the implementation of plan ${planId} on ticket ${record3.branch} has not finished until the whole plan runs`
+      blocker: `this run covers ${basename39(planPath)} alone, and the implementation of plan ${planId} on ticket ${record3.branch} has not finished until the whole plan runs`
     };
   } else if (record3.mode === TicketMode.MultiplePlan) {
     const eligibility = readTicketShipEligibility({
@@ -140740,7 +140813,7 @@ var readTicketRunTerms = async ({ cwd, name, planPath }) => {
 
 // src/ticket/implementRun/runTicketPlanLifecycle.ts
 import { randomUUID as randomUUID7 } from "node:crypto";
-import { readFile as readFile39 } from "node:fs/promises";
+import { readFile as readFile38 } from "node:fs/promises";
 
 // src/ticket/common/utils/findDivergentPlanIds.ts
 var findDivergentPlanIds = ({ record: record3, syncState }) => record3.plans.filter((plan) => plan.publishedMarker !== void 0 && plan.publishedMarker !== syncState?.planMarkers[plan.id]).map((plan) => plan.id);
@@ -140750,7 +140823,7 @@ var readPlanSnapshot = async ({ cwd, name }) => {
   const durable = await durablePlanFiles({ cwd, name });
   const snapshot = [];
   for (const file2 of durable.files) {
-    const content = await readFile39(file2.path).catch(() => void 0);
+    const content = await readFile38(file2.path).catch(() => void 0);
     if (content !== void 0) {
       snapshot.push({ name: file2.name, sha256: sha256({ content }) });
     }
@@ -140836,8 +140909,7 @@ var runTicketPlanLifecycle = async ({ cwd, name, resumeRunId, run }) => {
   if (blocker !== void 0) {
     return { refusal: blocker };
   }
-  const stateDir = await resolveSharedStateDir({ cwd });
-  const syncState = await readTicketSyncState({ ticketFolder: getTicketFolderPath({ stateDir, ticketBranch }) });
+  const syncState = await readTicketSyncState({ ticketFolder: await ticketFolderDir({ cwd, ticketBranch }) });
   if (findDivergentPlanIds({ record: record3, syncState }).includes(planId)) {
     return {
       refusal: `plan ${planId} was published from another machine after this one last saw it, so the copy here may not be what the ticket carries \u2014 run \`lightsout ticket sync --name ${ticketBranch} --keep published\` to take the ticket's copy, or \`--keep local\` to publish this machine's over it`
@@ -140863,7 +140935,7 @@ var runTicketPlanLifecycle = async ({ cwd, name, resumeRunId, run }) => {
 };
 
 // src/ticket/common/utils/matchesImplementedSnapshot.ts
-import { readFile as readFile40 } from "node:fs/promises";
+import { readFile as readFile39 } from "node:fs/promises";
 var matchesImplementedSnapshot = async ({ cwd, address, snapshot }) => {
   const durable = await durablePlanFiles({ cwd, name: address });
   const named = new Set(snapshot.map(({ name }) => name));
@@ -140871,7 +140943,7 @@ var matchesImplementedSnapshot = async ({ cwd, address, snapshot }) => {
   let matches = durable.error === void 0 && attachable.every(({ name }) => named.has(name));
   for (const entry of snapshot) {
     const file2 = matches ? durable.files.find(({ name }) => name === entry.name) : void 0;
-    const content = file2 === void 0 ? void 0 : await readFile40(file2.path).catch(() => void 0);
+    const content = file2 === void 0 ? void 0 : await readFile39(file2.path).catch(() => void 0);
     matches = matches && content !== void 0 && sha256({ content }) === entry.sha256;
   }
   return matches;
@@ -140894,8 +140966,8 @@ var findPlanPublishRefusal = async ({ cwd, address, planId, ticketBranch, record
 };
 
 // src/ticket/common/utils/publishBrainstormWhenNotesChanged.ts
-import { readFile as readFile41 } from "node:fs/promises";
-import { join as join95 } from "node:path";
+import { readFile as readFile40 } from "node:fs/promises";
+import { join as join98 } from "node:path";
 var readCommittedNotesHash = async ({
   planId,
   target
@@ -140931,7 +141003,7 @@ var publishBrainstormWhenNotesChanged = async ({
   env,
   onProgress
 }) => {
-  const notesPath = join95(await planWorkspaceDir({ cwd, name: address }), brainstormNotesFileName);
+  const notesPath = join98(await planWorkspaceDir({ cwd, name: address }), brainstormNotesFileName);
   if (!await pathExists({ path: notesPath })) {
     return { published: [] };
   }
@@ -140939,7 +141011,7 @@ var publishBrainstormWhenNotesChanged = async ({
   if ("error" in committed) {
     return committed;
   }
-  const onDisk = sha256({ content: await readFile41(notesPath) });
+  const onDisk = sha256({ content: await readFile40(notesPath) });
   if (committed.committed === onDisk) {
     return { published: [] };
   }
@@ -140960,19 +141032,11 @@ var recordPublishedPlan = ({ planId, markerSha256, ticketBranch }) => (current) 
     )
   };
 };
-var recordMarkerLocally = async ({
-  cwd,
-  ticketBranch,
-  planId,
-  markerSha256
-}) => {
-  const stateDir = await resolveSharedStateDir({ cwd });
-  return recordTicketSyncState({
-    ticketFolder: getTicketFolderPath({ stateDir, ticketBranch }),
-    planMarkers: { [planId]: markerSha256 },
-    failure: `plan ${planId} was published, but this machine could not record which generation it sent`
-  });
-};
+var recordMarkerLocally = async ({ cwd, ticketBranch, planId, markerSha256 }) => recordTicketSyncState({
+  ticketFolder: await ticketFolderDir({ cwd, ticketBranch }),
+  planMarkers: { [planId]: markerSha256 },
+  failure: `plan ${planId} was published, but this machine could not record which generation it sent`
+});
 var recordPlanPublish = async ({
   cwd,
   ticketBranch,
@@ -141048,8 +141112,7 @@ var publishTicketPlan = async ({ cwd, address, config: config2, env, onProgress 
   if ("error" in pulled) {
     return { ticketRef: target.ticketRef, published: [], stale: [], error: pulled.error };
   }
-  const stateDir = await resolveSharedStateDir({ cwd });
-  const syncState = await readTicketSyncState({ ticketFolder: getTicketFolderPath({ stateDir, ticketBranch }) });
+  const syncState = await readTicketSyncState({ ticketFolder: await ticketFolderDir({ cwd, ticketBranch }) });
   const refusal = await findPlanPublishRefusal({ cwd, address, planId, ticketBranch, record: pulled.record, syncState });
   if (refusal !== void 0) {
     return { ticketRef: target.ticketRef, published: [], stale: [], error: refusal };
@@ -141123,9 +141186,8 @@ var recordMarker = async ({
   markerSha256,
   onProgress
 }) => {
-  const stateDir = await resolveSharedStateDir({ cwd: recordCwd });
   const recorded = await recordTicketSyncState({
-    ticketFolder: getTicketFolderPath({ stateDir, ticketBranch }),
+    ticketFolder: await ticketFolderDir({ cwd: recordCwd, ticketBranch }),
     planMarkers: { [planId]: markerSha256 },
     failure: `plan ${planId} was restored, but this machine could not record which generation it took`
   });
@@ -141323,9 +141385,9 @@ var mergeOneSidedPlans = ({ kept, other, keptFrom, at }) => {
 };
 
 // src/ticket/divergence/resolvePlanWorkingCheckout.ts
-import { dirname as dirname17 } from "node:path";
+import { dirname as dirname18 } from "node:path";
 var resolvePlanWorkingCheckout = async ({ cwd }) => {
-  return { checkout: dirname17(await resolveSharedStateDir({ cwd })), otherCopies: [] };
+  return { checkout: dirname18(await resolveSharedStateDir({ cwd })), otherCopies: [] };
 };
 
 // src/ticket/divergence/keepLocalTicketRecord.ts
@@ -141405,8 +141467,7 @@ var keepLocalTicketRecord = async ({
     return records;
   }
   const { kept, carried } = records;
-  const stateDir = await resolveSharedStateDir({ cwd });
-  const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
+  const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
   const markers = await republishDivergentPlans({
     cwd,
     ticketBranch,
@@ -141446,7 +141507,7 @@ var keepLocalTicketRecord = async ({
 
 // src/ticket/divergence/keepPublishedTicketRecord.ts
 import { rename as rename10, rm as rm8 } from "node:fs/promises";
-import { join as join96 } from "node:path";
+import { join as join99 } from "node:path";
 var readPublishedPlanMarker = async ({
   planId,
   target
@@ -141526,9 +141587,9 @@ var takePublishedPlan = async ({
 };
 var writeKeptRecord = async ({ ticketFolder, record: record3 }) => {
   const content = serializeTicketRecord({ record: record3 });
-  await writeTicketFolderFile({ path: join96(ticketFolder, ticketFileNames.record), content });
+  await writeTicketFolderFile({ path: join99(ticketFolder, ticketFileNames.record), content });
   await updateTicketSyncState({ ticketFolder, recordSha256: sha256({ content }) });
-  await rm8(join96(ticketFolder, ticketFileNames.published), { force: true });
+  await rm8(join99(ticketFolder, ticketFileNames.published), { force: true });
 };
 var keepPublishedTicketRecord = async ({
   cwd,
@@ -141553,8 +141614,7 @@ var keepPublishedTicketRecord = async ({
   if ("error" in merged) {
     return merged;
   }
-  const stateDir = await resolveSharedStateDir({ cwd });
-  const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
+  const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
   const written = await withTicketRecordLock({
     ticketFolder,
     run: async () => {
@@ -141595,8 +141655,7 @@ var catchUpTicketRecord = async ({
   if (pulled.record === void 0) {
     return { error: `there is no ${ticketFileNames.record} for '${ticketBranch}' on this machine or on ${target.ticketRef}, so there is nothing to sync` };
   }
-  const stateDir = await resolveSharedStateDir({ cwd });
-  const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
+  const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
   const syncState = await readTicketSyncState({ ticketFolder });
   const localSha256 = sha256({ content: serializeTicketRecord({ record: pulled.record }) });
   if (localSha256 === syncState?.recordSha256) {
@@ -141910,17 +141969,17 @@ var finishImplementRun = async ({ config: config2, cwd, result, flags }) => {
 
 // src/cli/common/implementRun/copyRunInputs.ts
 import { cp, mkdir as mkdir23 } from "node:fs/promises";
-import { basename as basename39, dirname as dirname18, join as join97, relative as relative11, resolve as resolve10 } from "node:path";
+import { basename as basename40, dirname as dirname19, join as join100, relative as relative11, resolve as resolve9 } from "node:path";
 var copyLooseInput = async ({ sourceCwd, workspace, inputPath }) => {
-  const source = resolve10(sourceCwd, inputPath);
-  const destination = join97(workspace, ".lightsout", "inputs", basename39(source));
-  await mkdir23(dirname18(destination), { recursive: true });
+  const source = resolve9(sourceCwd, inputPath);
+  const destination = join100(workspace, ".lightsout", "inputs", basename40(source));
+  await mkdir23(dirname19(destination), { recursive: true });
   await cp(source, destination);
   return relative11(workspace, destination);
 };
 var copyOneInput = async ({ sourceCwd, workspace, inputPath }) => {
   const name = await planNameFromPath({ cwd: sourceCwd, planPath: inputPath });
-  return name === void 0 ? copyLooseInput({ sourceCwd, workspace, inputPath }) : relative11(sourceCwd, resolve10(sourceCwd, inputPath));
+  return name === void 0 ? copyLooseInput({ sourceCwd, workspace, inputPath }) : relative11(sourceCwd, resolve9(sourceCwd, inputPath));
 };
 var copyRunInputs = async ({
   sourceCwd,
@@ -141928,7 +141987,7 @@ var copyRunInputs = async ({
   planPath,
   ticketPath
 }) => {
-  if (resolve10(workspace) === resolve10(sourceCwd)) {
+  if (resolve9(workspace) === resolve9(sourceCwd)) {
     return { planPath, ticketPath };
   }
   let copied;
@@ -141956,54 +142015,8 @@ var resolveWorktreeIsolation = ({ flags, configured }) => {
   return refused ? false : asked || (configured ?? true);
 };
 
-// src/cli/common/implementRun/linkRunRecords.ts
-import { lstat, mkdir as mkdir24, readlink, symlink } from "node:fs/promises";
-import { dirname as dirname19, join as join98, resolve as resolve11 } from "node:path";
-var unnamedBranch = "unknown";
-var recordLinks = ({ sourceCwd, workspace }) => [
-  { target: getRunsDir({ cwd: sourceCwd }), linkPath: getRunsDir({ cwd: workspace }), directory: true },
-  {
-    target: dirname19(getShipResultPath({ cwd: sourceCwd, branch: unnamedBranch })),
-    linkPath: dirname19(getShipResultPath({ cwd: workspace, branch: unnamedBranch })),
-    directory: true
-  },
-  { target: getFrictionPath({ cwd: sourceCwd }), linkPath: getFrictionPath({ cwd: workspace }), directory: false },
-  { target: getReviewFindingsPath({ cwd: sourceCwd }), linkPath: getReviewFindingsPath({ cwd: workspace }), directory: false }
-];
-var linkOne = async ({ target, linkPath, directory }) => {
-  if (directory) {
-    await mkdir24(target, { recursive: true });
-  }
-  const standing = await lstat(linkPath).catch(() => void 0);
-  const linkedTo = standing?.isSymbolicLink() === true ? await readlink(linkPath).catch(() => void 0) : void 0;
-  let failure;
-  if (standing === void 0) {
-    await symlink(target, linkPath, directory ? "junction" : "file");
-  } else if (linkedTo === void 0 || resolve11(linkedTo) !== resolve11(target)) {
-    failure = {
-      error: `${linkPath} already exists and is not a link to ${target}, so the run's records could not be kept in the checkout it was launched from`
-    };
-  }
-  return failure;
-};
-var linkRunRecords = async ({ sourceCwd, workspace }) => {
-  let failure;
-  try {
-    await mkdir24(join98(workspace, ".lightsout"), { recursive: true });
-    for (const link of recordLinks({ sourceCwd, workspace })) {
-      failure = await linkOne(link);
-      if (failure !== void 0) {
-        break;
-      }
-    }
-  } catch (error51) {
-    failure = { error: `the run's records could not be linked back to ${sourceCwd}: ${messageOf({ error: error51 })}` };
-  }
-  return failure;
-};
-
 // src/cli/common/implementRun/resolveRunBranch.ts
-import { basename as basename40, extname } from "node:path";
+import { basename as basename41, extname } from "node:path";
 
 // src/common/utils/headingOf.ts
 var headingOf = ({ text }) => text.split("\n")[0].replace(/^#+\s*/, "").trim();
@@ -142025,7 +142038,7 @@ var toBranchSlug = ({ text }) => {
 var renderBranchTemplate = ({ template, ticketRef, title }) => template.replaceAll("{ticket}", ticketRef.toLowerCase()).replaceAll("{slug}", toBranchSlug({ text: title }));
 
 // src/cli/common/implementRun/resolveRunBranch.ts
-var stemOf = ({ path }) => basename40(path, extname(path));
+var stemOf = ({ path }) => basename41(path, extname(path));
 var resolveRunBranch = async ({ cwd, config: config2, planPath, ticketPath, ticketRef, ticketBody }) => {
   const planName = planPath === void 0 ? void 0 : await planNameFromPath({ cwd, planPath });
   const template = config2.queue?.["branch-template"] ?? "{ticket}-{slug}";
@@ -142063,8 +142076,7 @@ var adoptPlanningTree = async ({
     return { error: `the worktree at ${worktreePath} cannot be built in: run ${live2.runId} is using it right now \u2014 wait for it, or pass --no-worktree` };
   }
   await writeWorktreeRecord({ cwd, branch, owner: WorktreeOwner.Implement, worktreePath, startPoint: record3.startPoint, onProgress });
-  const linked = await linkRunRecords({ sourceCwd: cwd, workspace: worktreePath });
-  return linked ?? { path: worktreePath, created: false };
+  return { path: worktreePath, created: false };
 };
 var cutWorkspace = async ({
   cwd,
@@ -142103,8 +142115,7 @@ var cutWorkspace = async ({
   if (typeof created !== "string") {
     return created;
   }
-  const linked = await linkRunRecords({ sourceCwd: cwd, workspace: created });
-  return linked ?? { path: created, created: true };
+  return { path: created, created: true };
 };
 var resolveRunWorkspace = async ({
   cwd,
@@ -142135,7 +142146,7 @@ var resolveRunWorkspace = async ({
 
 // src/cli/common/utils/resolvePlanTarget.ts
 import { stat as stat10 } from "node:fs/promises";
-import { join as join99 } from "node:path";
+import { join as join101 } from "node:path";
 var resolvePlanTarget = async ({ cwd, planPath }) => {
   const dir = await resolveRecordedPlanPath({ cwd, path: planPath });
   const isDirectory = await stat10(dir).then(
@@ -142145,15 +142156,15 @@ var resolvePlanTarget = async ({ cwd, planPath }) => {
   if (!isDirectory) {
     return { planPath };
   }
-  const holds = async ({ name }) => stat10(join99(dir, name)).then(
+  const holds = async ({ name }) => stat10(join101(dir, name)).then(
     (entry) => entry.isFile(),
     () => false
   );
   if (await holds({ name: "overview.md" })) {
-    return { overviewPath: join99(planPath, "overview.md") };
+    return { overviewPath: join101(planPath, "overview.md") };
   }
   if (await holds({ name: "plan.md" })) {
-    return { planPath: join99(planPath, "plan.md") };
+    return { planPath: join101(planPath, "plan.md") };
   }
   return { error: `plan folder holds neither overview.md nor plan.md: ${planPath}` };
 };
@@ -142415,13 +142426,15 @@ var resolveCommandShipIntent = ({ config: config2, flags, env, shipRequest }) =>
 };
 
 // src/phases/findUnfinishedSequence.ts
-import { readdir as readdir16 } from "node:fs/promises";
-var findUnfinishedSequence = async ({ cwd, overviewPath }) => {
-  const runIds = await readdir16(getRunsDir({ cwd })).catch(() => []);
+var findUnfinishedSequence = async ({ cwd, planName }) => {
+  if (planName === void 0) {
+    return void 0;
+  }
+  const runIds = await listRunIds({ cwd });
   const unfinished = [];
   for (const runId of runIds) {
     const manifest = await readRunManifest({ cwd, runId }).catch(() => void 0);
-    if (manifest?.pipeline === "phases" && manifest.plan === overviewPath && manifest.status !== RunStatus.Passed) {
+    if (manifest?.pipeline === PipelineKind.Phases && manifest.planName === planName && manifest.status !== RunStatus.Passed) {
       unfinished.push(manifest);
     }
   }
@@ -142429,11 +142442,11 @@ var findUnfinishedSequence = async ({ cwd, overviewPath }) => {
 };
 
 // src/phases/initializeSequence.ts
-import { access, readFile as readFile42 } from "node:fs/promises";
-import { dirname as dirname20, join as join100 } from "node:path";
+import { access, readFile as readFile41 } from "node:fs/promises";
+import { dirname as dirname20, join as join102 } from "node:path";
 var getPhaseFiles = async ({ cwd, overview }) => {
   const overviewFullPath = await resolveRecordedPlanPath({ cwd, path: overview });
-  const overviewContent = await readFile42(overviewFullPath, "utf8").catch(() => void 0);
+  const overviewContent = await readFile41(overviewFullPath, "utf8").catch(() => void 0);
   if (overviewContent === void 0) {
     throw new Error(`overview file not found: ${overviewFullPath}`);
   }
@@ -142450,7 +142463,7 @@ var getPhaseFiles = async ({ cwd, overview }) => {
 var assertPhaseFilesExist = async ({ cwd, overview, phases }) => {
   const missing = [];
   for (const file2 of phases) {
-    const phasePath = join100(dirname20(overview), file2);
+    const phasePath = join102(dirname20(overview), file2);
     const present = await access(await resolveRecordedPlanPath({ cwd, path: phasePath })).then(
       () => true,
       () => false
@@ -142493,7 +142506,7 @@ var initializeSequence = async ({
     throw new Error(`--start-phase must be between 1 and ${phases.length} \u2014 the overview lists ${phases.length} phase(s), got ${firstPhase}`);
   }
   await assertPhaseFilesExist({ cwd, overview, phases });
-  const unfinished = await findUnfinishedSequence({ cwd, overviewPath: overview });
+  const unfinished = await findUnfinishedSequence({ cwd, planName: await planNameFromPath({ cwd, planPath: overview }) });
   if (unfinished) {
     throw new Error(`an unfinished run for this plan already exists \u2014 resume with: lightsout resume --run ${unfinished.runId}`);
   }
@@ -142507,7 +142520,7 @@ var initializeSequence = async ({
 };
 
 // src/phases/runPhase.ts
-import { dirname as dirname28, join as join134 } from "node:path";
+import { dirname as dirname28, join as join136 } from "node:path";
 
 // src/pipeline/readPlanPackages.ts
 var unquote = (value) => value.trim().replace(/^['"]|['"]$/g, "");
@@ -142539,21 +142552,21 @@ var readPlanPackages = ({ planContent }) => {
 };
 
 // src/pipeline/approvedTests/approveTestFiles.ts
-import { mkdir as mkdir25, readFile as readFile43, rm as rm9, writeFile as writeFile18 } from "node:fs/promises";
-import { dirname as dirname21, join as join103 } from "node:path";
+import { mkdir as mkdir24, readFile as readFile42, rm as rm9, writeFile as writeFile18 } from "node:fs/promises";
+import { dirname as dirname21, join as join105 } from "node:path";
 
 // src/pipeline/approvedTests/approvedTestPath.ts
-import { join as join102 } from "node:path";
+import { join as join104 } from "node:path";
 
 // src/pipeline/approvedTests/common/utils/approvedTestsDir.ts
-import { join as join101 } from "node:path";
-var approvedTestsDir = ({ cwd, runId }) => {
-  return join101(getRunDir({ cwd, runId }), "approved");
+import { join as join103 } from "node:path";
+var approvedTestsDir = async ({ cwd, runId }) => {
+  return join103(await resolveRunDir({ cwd, runId }), "approved");
 };
 
 // src/pipeline/approvedTests/approvedTestPath.ts
-var approvedTestPath = ({ cwd, runId, path }) => {
-  return join102(approvedTestsDir({ cwd, runId }), path);
+var approvedTestPath = async ({ cwd, runId, path }) => {
+  return join104(await approvedTestsDir({ cwd, runId }), path);
 };
 
 // src/pipeline/approvedTests/approveTestFiles.ts
@@ -142561,14 +142574,14 @@ var approveTestFiles = async ({ run, paths }) => {
   const { runId, approvedTests } = run.current();
   const records = [];
   for (const path of paths) {
-    const content = await readFile43(join103(run.cwd, path)).catch(() => void 0);
-    const copy = approvedTestPath({ cwd: run.cwd, runId, path });
+    const content = await readFile42(join105(run.cwd, path)).catch(() => void 0);
+    const copy = await approvedTestPath({ cwd: run.cwd, runId, path });
     if (content === void 0) {
       await rm9(copy, { force: true });
       records.push({ path, removed: true });
       continue;
     }
-    await mkdir25(dirname21(copy), { recursive: true });
+    await mkdir24(dirname21(copy), { recursive: true });
     await writeFile18(copy, content);
     records.push({ path, sha256: sha256({ content }), removed: false });
   }
@@ -142576,7 +142589,7 @@ var approveTestFiles = async ({ run, paths }) => {
 };
 
 // src/pipeline/approvedTests/readApprovedTest.ts
-import { readFile as readFile44 } from "node:fs/promises";
+import { readFile as readFile43 } from "node:fs/promises";
 
 // src/common/git/readGitCommittedFile.ts
 var readGitCommittedFile = async ({ cwd, path }) => {
@@ -142593,7 +142606,7 @@ var readApprovedTest = async ({ run, path }) => {
     return void 0;
   }
   if (record3?.sha256 !== void 0) {
-    return readFile44(approvedTestPath({ cwd: run.cwd, runId, path }), "utf8").catch(() => void 0);
+    return readFile43(await approvedTestPath({ cwd: run.cwd, runId, path }), "utf8").catch(() => void 0);
   }
   return readGitCommittedFile({ cwd: run.cwd, path });
 };
@@ -142601,7 +142614,7 @@ var readApprovedTest = async ({ run, path }) => {
 // src/pipeline/approvedTests/removeApprovedTests.ts
 import { rm as rm10 } from "node:fs/promises";
 var removeApprovedTests = async ({ run }) => {
-  await rm10(approvedTestsDir({ cwd: run.cwd, runId: run.current().runId }), { recursive: true, force: true });
+  await rm10(await approvedTestsDir({ cwd: run.cwd, runId: run.current().runId }), { recursive: true, force: true });
 };
 
 // src/common/sourceFiles/isSnapshotFile.ts
@@ -142618,8 +142631,8 @@ var isTestSideFile = ({ path, standardsPacks }) => {
 };
 
 // src/pipeline/approvedTests/applyTestDispositions.ts
-import { readFile as readFile45 } from "node:fs/promises";
-import { join as join104 } from "node:path";
+import { readFile as readFile44 } from "node:fs/promises";
+import { join as join106 } from "node:path";
 var requiredFields = {
   [TestDisposition.Kept]: [],
   [TestDisposition.Renamed]: ["newTestName"],
@@ -142670,7 +142683,7 @@ var applyTestDispositions = async ({
     next.push(disposition === void 0 || refusal !== void 0 ? row : applyTo({ row, disposition }));
   }
   for (const row of next) {
-    const content = await readFile45(join104(run.cwd, row.testFile), "utf8").catch(() => void 0);
+    const content = await readFile44(join106(run.cwd, row.testFile), "utf8").catch(() => void 0);
     if (content === void 0 || !holdsTestTitle({ content, testName: row.testName })) {
       rejections.push(`${row.criterion}: \`${row.testName}\` is not stated in ${row.testFile} after the review's dispositions were applied`);
     }
@@ -142679,8 +142692,8 @@ var applyTestDispositions = async ({
 };
 
 // src/pipeline/approvedTests/collectTestChanges.ts
-import { mkdir as mkdir26, readFile as readFile46, rm as rm11, writeFile as writeFile19 } from "node:fs/promises";
-import { dirname as dirname22, join as join105, relative as relative12 } from "node:path";
+import { mkdir as mkdir25, readFile as readFile45, rm as rm11, writeFile as writeFile19 } from "node:fs/promises";
+import { dirname as dirname22, join as join107, relative as relative12 } from "node:path";
 
 // src/pipeline/approvedTests/common/constants/TestChangeKind.ts
 var TestChangeKind = {
@@ -142702,9 +142715,9 @@ var kindOf = ({ live: live2, approved }) => {
   return live2 === void 0 ? TestChangeKind.Removed : TestChangeKind.Modified;
 };
 var diffOf = async ({ cwd, path, kind, approved, scratch }) => {
-  const before = join105(scratch, path);
+  const before = join107(scratch, path);
   if (approved !== void 0) {
-    await mkdir26(dirname22(before), { recursive: true });
+    await mkdir25(dirname22(before), { recursive: true });
     await writeFile19(before, approved, "utf8");
   }
   const left = approved === void 0 ? emptySide : relative12(cwd, before);
@@ -142722,12 +142735,12 @@ var collectTestChanges = async ({ run }) => {
   if (candidates.length === 0) {
     return [];
   }
-  const scratch = join105(dirname22(approvedTestsDir({ cwd: run.cwd, runId: manifest.runId })), "approved-scratch");
+  const scratch = join107(dirname22(await approvedTestsDir({ cwd: run.cwd, runId: manifest.runId })), "approved-scratch");
   await rm11(scratch, { recursive: true, force: true });
-  await mkdir26(scratch, { recursive: true });
+  await mkdir25(scratch, { recursive: true });
   const changes = [];
   for (const path of candidates) {
-    const live2 = await readFile46(join105(run.cwd, path), "utf8").catch(() => void 0);
+    const live2 = await readFile45(join107(run.cwd, path), "utf8").catch(() => void 0);
     const approved = await readApprovedTest({ run, path });
     if (live2 === approved) {
       continue;
@@ -142820,24 +142833,24 @@ var reviewTestChanges = async ({ run, checkpoint, planContent, overviewContent }
 
 // src/common/workspace/listWorkspacePackages.ts
 import { readdir as readdir17, stat as stat11 } from "node:fs/promises";
-import { join as join106 } from "node:path";
+import { join as join108 } from "node:path";
 var listWorkspacePackages = async ({ cwd, packagesDir }) => {
-  const root = join106(cwd, packagesDir);
+  const root = join108(cwd, packagesDir);
   const entries = await readdir17(root, { withFileTypes: true }).catch(() => []);
   const directories = entries.filter((entry) => entry.isDirectory() && !entry.name.startsWith("."));
   const hasManifest = await Promise.all(
     directories.map(
-      ({ name }) => stat11(join106(root, name, "package.json")).then(() => true).catch(() => false)
+      ({ name }) => stat11(join108(root, name, "package.json")).then(() => true).catch(() => false)
     )
   );
   return directories.filter((_, index) => hasManifest[index]).map(({ name }) => name);
 };
 
 // src/pipeline/common/utils/readPlanSources.ts
-import { readFile as readFile47 } from "node:fs/promises";
+import { readFile as readFile46 } from "node:fs/promises";
 var readPlanSources = async ({ cwd, plan, overview }) => {
   const planPath = await resolveRecordedPlanPath({ cwd, path: plan });
-  const planContent = await readFile47(planPath, "utf8").catch(() => void 0);
+  const planContent = await readFile46(planPath, "utf8").catch(() => void 0);
   if (planContent === void 0) {
     return { error: `plan file not found: ${planPath}` };
   }
@@ -142845,7 +142858,7 @@ var readPlanSources = async ({ cwd, plan, overview }) => {
     return { planContent };
   }
   const overviewPath = await resolveRecordedPlanPath({ cwd, path: overview });
-  const overviewContent = await readFile47(overviewPath, "utf8").catch(() => void 0);
+  const overviewContent = await readFile46(overviewPath, "utf8").catch(() => void 0);
   if (overviewContent === void 0) {
     return { error: `overview file not found: ${overviewPath}` };
   }
@@ -142939,12 +142952,12 @@ var prepareRun = async ({ run, cwd, config: config2, packages }) => {
 };
 
 // src/pipeline/common/utils/resolveTestSubjects.ts
-import { readFile as readFile50 } from "node:fs/promises";
-import { join as join109 } from "node:path";
+import { readFile as readFile49 } from "node:fs/promises";
+import { join as join111 } from "node:path";
 
 // src/common/moduleGraph/collectFolderModules.ts
-import { readFile as readFile48 } from "node:fs/promises";
-import { join as join107, posix as posix2 } from "node:path";
+import { readFile as readFile47 } from "node:fs/promises";
+import { join as join109, posix as posix2 } from "node:path";
 
 // src/common/moduleGraph/createSpecifierResolver.ts
 import { posix } from "node:path";
@@ -142980,7 +142993,7 @@ var isExternalPackage = ({ specifier }) => {
   const segments = specifier.split("/");
   return segments.length === 1 || specifier.startsWith("@") && segments.length === 2;
 };
-var readBarrelExportTargets = ({ path, content, compiler, resolve: resolve20 }) => {
+var readBarrelExportTargets = ({ path, content, compiler, resolve: resolve18 }) => {
   const scriptKind = /\.tsx$/.test(path) ? compiler.ScriptKind.TSX : compiler.ScriptKind.TS;
   const source = compiler.createSourceFile(path, content, compiler.ScriptTarget.Latest, false, scriptKind);
   const targets = /* @__PURE__ */ new Set();
@@ -142990,7 +143003,7 @@ var readBarrelExportTargets = ({ path, content, compiler, resolve: resolve20 }) 
       continue;
     }
     const specifier = statement.moduleSpecifier.text;
-    const resolved = resolve20({ from: path, specifier });
+    const resolved = resolve18({ from: path, specifier });
     if (resolved !== void 0) {
       targets.add(resolved);
     } else if (!isExternalPackage({ specifier })) {
@@ -143003,7 +143016,7 @@ var readBarrelExportTargets = ({ path, content, compiler, resolve: resolve20 }) 
 // src/common/moduleGraph/collectFolderModules.ts
 var isBarrel = ({ path }) => /^index\.tsx?$/.test(posix2.basename(path));
 var collectFolderModules = async ({ cwd, files, compiler, isMandatedModule, isFrameworkLoaded }) => {
-  const resolve20 = createSpecifierResolver({ files });
+  const resolve18 = createSpecifierResolver({ files });
   const barrelDirs = /* @__PURE__ */ new Map();
   for (const file2 of files) {
     const directory = posix2.dirname(file2);
@@ -143014,8 +143027,8 @@ var collectFolderModules = async ({ cwd, files, compiler, isMandatedModule, isFr
   const nestedModuleDirs = [...barrelDirs.keys()];
   const modules = /* @__PURE__ */ new Map();
   for (const [folder, barrelPath] of barrelDirs) {
-    const content = await readFile48(join107(cwd, barrelPath), "utf8").catch(() => void 0);
-    const surface = content === void 0 ? { targets: /* @__PURE__ */ new Set(), complete: false } : readBarrelExportTargets({ path: barrelPath, content, compiler, resolve: resolve20 });
+    const content = await readFile47(join109(cwd, barrelPath), "utf8").catch(() => void 0);
+    const surface = content === void 0 ? { targets: /* @__PURE__ */ new Set(), complete: false } : readBarrelExportTargets({ path: barrelPath, content, compiler, resolve: resolve18 });
     const prefix = `${folder}/`;
     const hasOwnCommon = files.some((file2) => file2.startsWith(`${folder}/common/`));
     const ownFiles = files.filter(
@@ -143029,19 +143042,19 @@ var collectFolderModules = async ({ cwd, files, compiler, isMandatedModule, isFr
 };
 
 // src/common/moduleGraph/collectImportEdges.ts
-import { readFile as readFile49 } from "node:fs/promises";
-import { join as join108 } from "node:path";
+import { readFile as readFile48 } from "node:fs/promises";
+import { join as join110 } from "node:path";
 var collectImportEdges = async ({ cwd, files, compiler }) => {
-  const resolve20 = createSpecifierResolver({ files });
+  const resolve18 = createSpecifierResolver({ files });
   const edges = [];
   for (const from of files) {
-    const content = await readFile49(join108(cwd, from), "utf8").catch(() => void 0);
+    const content = await readFile48(join110(cwd, from), "utf8").catch(() => void 0);
     if (content === void 0) {
       continue;
     }
     const specifiers = [...new Set(compiler.preProcessFile(content, true, true).importedFiles.map((imported) => imported.fileName))];
     for (const specifier of specifiers) {
-      const to = resolve20({ from, specifier });
+      const to = resolve18({ from, specifier });
       if (to !== void 0 && to !== from) {
         edges.push({ from, to });
       }
@@ -143093,7 +143106,7 @@ var resolvePartition = async ({
   const contents = /* @__PURE__ */ new Map();
   const isProvablyInert = async ({ file: file2 }) => {
     if (!contents.has(file2)) {
-      contents.set(file2, await readFile50(join109(cwd, file2), "utf8").catch(() => void 0));
+      contents.set(file2, await readFile49(join111(cwd, file2), "utf8").catch(() => void 0));
     }
     const content = contents.get(file2);
     return content !== void 0 && isInertSourceFile({ path: file2, content, compiler });
@@ -143180,8 +143193,8 @@ var runSteps = async ({ run, steps }) => {
 };
 
 // src/pipeline/PipelineRun.ts
-import { mkdir as mkdir27, writeFile as writeFile20 } from "node:fs/promises";
-import { join as join110 } from "node:path";
+import { mkdir as mkdir26, writeFile as writeFile20 } from "node:fs/promises";
+import { join as join112 } from "node:path";
 
 // src/common/selfCheck/buildSelfCheckCommand.ts
 var buildSelfCheckCommand = ({ cwd, runId }) => {
@@ -143355,9 +143368,13 @@ var PipelineRun = class {
   // the terminal. Evidence only: outcomes never depend on it.
   agentEventSink({ step }) {
     this.transcriptCount += 1;
-    const dir = join110(getRunDir({ cwd: this.cwd, runId: this.current().runId }), "agents");
-    const path = join110(dir, `stream-${String(this.transcriptCount).padStart(2, "0")}-${step}.jsonl`);
-    return createEventFileSink({ path, ready: mkdir27(dir, { recursive: true }) });
+    const name = `stream-${String(this.transcriptCount).padStart(2, "0")}-${step}.jsonl`;
+    const path = resolveRunDir({ cwd: this.cwd, runId: this.current().runId }).then(async (runDir) => {
+      const dir = join112(runDir, "agents");
+      await mkdir26(dir, { recursive: true });
+      return join112(dir, name);
+    });
+    return createEventFileSink({ path, ready: path });
   }
   // A final message that fails its contract is still evidence — persist it
   // to the run dir before any retry, so a rejected report never has to be
@@ -143365,14 +143382,14 @@ var PipelineRun = class {
   persistRejected({ step }) {
     return async ({ text, attempt, validationError }) => {
       this.rejectedCount += 1;
-      const dir = join110(getRunDir({ cwd: this.cwd, runId: this.current().runId }), "agents");
+      const dir = join112(await resolveRunDir({ cwd: this.cwd, runId: this.current().runId }), "agents");
       const name = `rejected-${String(this.rejectedCount).padStart(2, "0")}-${step}-attempt${attempt}.txt`;
-      await mkdir27(dir, { recursive: true });
-      await writeFile20(join110(dir, name), `# step: ${step} \xB7 invocation attempt ${attempt}
+      await mkdir26(dir, { recursive: true });
+      await writeFile20(join112(dir, name), `# step: ${step} \xB7 invocation attempt ${attempt}
 # validation: ${validationError}
 
 ${text}`, "utf8");
-      this.progress(`step ${step}: agent final message failed the report contract \u2014 raw text saved to .lightsout/runs/${this.current().runId}/agents/${name}`);
+      this.progress(`step ${step}: agent final message failed the report contract \u2014 raw text saved to ${join112(dir, name)}`);
     };
   }
   // onFirstEvent fires once, on the invocation's first streamed event — the
@@ -143569,8 +143586,8 @@ var buildCoverageBatch = ({ files, components, batchNumber, batchSize = 5 }) => 
 };
 
 // src/coverage/checkChangedFilesExecuted.ts
-import { readFile as readFile55 } from "node:fs/promises";
-import { join as join118, relative as relative15 } from "node:path";
+import { readFile as readFile54 } from "node:fs/promises";
+import { join as join120, relative as relative15 } from "node:path";
 
 // src/common/sourceFiles/isTestableSourceFile.ts
 var isTestableSourceFile = ({ path }) => /\.(m|c)?[jt]sx?$/i.test(path);
@@ -143599,11 +143616,11 @@ var coverageScopeOf = ({ file: file2, scopes, packagesDir, monorepo }) => {
 };
 
 // src/coverage/common/utils/resolveScopeContext.ts
-import { resolve as resolve12 } from "node:path";
+import { resolve as resolve10 } from "node:path";
 
 // src/coverage/resolveCoverageScopes.ts
 import { readdir as readdir18 } from "node:fs/promises";
-import { join as join111 } from "node:path";
+import { join as join113 } from "node:path";
 var rootScope = "root";
 var listPackageScopes = async ({
   cwd,
@@ -143612,7 +143629,7 @@ var listPackageScopes = async ({
   summaryPath,
   scope
 }) => {
-  const entries = await readdir18(join111(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
+  const entries = await readdir18(join113(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
   const scriptName = extractRunScriptName({ command: template });
   const scopes = [];
   for (const entry of entries.filter((item) => item.isDirectory() && !item.name.startsWith("."))) {
@@ -143626,7 +143643,7 @@ var listPackageScopes = async ({
     scopes.push({
       scope: entry.name,
       command: template.split("{package}").join(manifest.name),
-      summaryPath: join111(packagesDir, entry.name, summaryPath)
+      summaryPath: join113(packagesDir, entry.name, summaryPath)
     });
   }
   return scopes;
@@ -143648,7 +143665,7 @@ var resolveScopeContext = async ({
 }) => {
   const summaryPath = config2["coverage-summary-path"] ?? defaultCoverageSummaryPath;
   return {
-    root: resolve12(cwd),
+    root: resolve10(cwd),
     packagesDir: config2["packages-dir"] ?? defaultPackagesDir,
     monorepo: config2["package-gates"]?.["test-coverage"] !== void 0,
     scopes: await resolveCoverageScopes({ cwd, config: config2, summaryPath })
@@ -143656,20 +143673,20 @@ var resolveScopeContext = async ({
 };
 
 // src/coverage/selectCollectedFiles/selectCollectedFiles.ts
-import { join as join115 } from "node:path";
+import { join as join117 } from "node:path";
 
 // src/coverage/common/utils/scopeRootOf.ts
-import { join as join112 } from "node:path";
-var scopeRootOf = ({ root, scope, packagesDir, monorepo }) => monorepo ? join112(root, packagesDir, scope) : root;
+import { join as join114 } from "node:path";
+var scopeRootOf = ({ root, scope, packagesDir, monorepo }) => monorepo ? join114(root, packagesDir, scope) : root;
 
 // src/coverage/loadScopeJestConfig/loadScopeJestConfig.ts
-import { readFile as readFile52 } from "node:fs/promises";
+import { readFile as readFile51 } from "node:fs/promises";
 import { createRequire as createRequire3 } from "node:module";
-import { join as join114 } from "node:path";
+import { join as join116 } from "node:path";
 
 // src/coverage/loadScopeJestConfig/common/utils/resolveJestConfigPath.ts
-import { readFile as readFile51, stat as stat12 } from "node:fs/promises";
-import { join as join113, resolve as resolve13 } from "node:path";
+import { readFile as readFile50, stat as stat12 } from "node:fs/promises";
+import { join as join115, resolve as resolve11 } from "node:path";
 var configFileNames = ["jest.config.cjs", "jest.config.js", "jest.config.mjs", "jest.config.json"];
 var exists2 = ({ path }) => stat12(path).then(
   () => true,
@@ -143684,7 +143701,7 @@ var configArgument = ({ command }) => {
 };
 var hasJestKey = async ({ manifestPath }) => {
   try {
-    const parsed = JSON.parse(await readFile51(manifestPath, "utf8"));
+    const parsed = JSON.parse(await readFile50(manifestPath, "utf8"));
     return typeof parsed === "object" && parsed !== null && "jest" in parsed;
   } catch {
     return false;
@@ -143693,19 +143710,19 @@ var hasJestKey = async ({ manifestPath }) => {
 var resolveJestConfigPath = async ({ scopeRoot, coverageScript }) => {
   const named = coverageScript === void 0 ? void 0 : configArgument({ command: coverageScript });
   if (named !== void 0) {
-    const path = resolve13(scopeRoot, named);
+    const path = resolve11(scopeRoot, named);
     return await exists2({ path }) ? path : void 0;
   }
   let found;
   for (const name of configFileNames) {
-    if (found === void 0 && await exists2({ path: join113(scopeRoot, name) })) {
-      found = join113(scopeRoot, name);
+    if (found === void 0 && await exists2({ path: join115(scopeRoot, name) })) {
+      found = join115(scopeRoot, name);
     }
   }
   if (found !== void 0) {
     return found;
   }
-  const manifestPath = join113(scopeRoot, "package.json");
+  const manifestPath = join115(scopeRoot, "package.json");
   return await hasJestKey({ manifestPath }) ? manifestPath : void 0;
 };
 
@@ -143717,7 +143734,7 @@ var resolveScopeCoverageScript = async ({ scopeRoot, command }) => {
     return command;
   }
   try {
-    const parsed = ScopeManifest.safeParse(JSON.parse(await readFile52(join114(scopeRoot, "package.json"), "utf8")));
+    const parsed = ScopeManifest.safeParse(JSON.parse(await readFile51(join116(scopeRoot, "package.json"), "utf8")));
     return parsed.success ? parsed.data.scripts?.[scriptName] : void 0;
   } catch {
     return void 0;
@@ -143857,7 +143874,7 @@ var isCoverageCollectedFile = ({ absolutePath, collection }) => {
 };
 
 // src/coverage/selectCollectedFiles/common/utils/readCoverageCollection.ts
-import { dirname as dirname23, resolve as resolve14 } from "node:path";
+import { dirname as dirname23, resolve as resolve12 } from "node:path";
 var defaultIgnorePatterns = ["/node_modules/"];
 var JestConfigShape = external_exports.looseObject({
   rootDir: external_exports.string().optional().catch(void 0),
@@ -143874,7 +143891,7 @@ var readCoverageCollection = ({ loaded }) => {
   }
   const configDir = dirname23(loaded.configPath);
   return {
-    rootDir: parsed.data.rootDir === void 0 ? configDir : resolve14(configDir, parsed.data.rootDir),
+    rootDir: parsed.data.rootDir === void 0 ? configDir : resolve12(configDir, parsed.data.rootDir),
     collectCoverageFrom: parsed.data.collectCoverageFrom,
     coveragePathIgnorePatterns: parsed.data.coveragePathIgnorePatterns ?? defaultIgnorePatterns
   };
@@ -143897,14 +143914,14 @@ var selectCollectedFiles = async ({ cwd, config: config2, files }) => {
       collections.set(scope.scope, readCoverageCollection({ loaded: await loadScopeJestConfig({ scopeRoot, command: scope.command }) }));
     }
     const collection = collections.get(scope.scope);
-    (isCoverageCollectedFile({ absolutePath: join115(root, file2), collection }) ? collected : excluded).push(file2);
+    (isCoverageCollectedFile({ absolutePath: join117(root, file2), collection }) ? collected : excluded).push(file2);
   }
   return { collected, excluded };
 };
 
 // src/coverage/selectUnloadableFiles/selectUnloadableFiles.ts
-import { readFile as readFile54 } from "node:fs/promises";
-import { dirname as dirname25, join as join117 } from "node:path";
+import { readFile as readFile53 } from "node:fs/promises";
+import { dirname as dirname25, join as join119 } from "node:path";
 
 // src/common/sourceFiles/isUnloadableSourceFile.ts
 var hasModuleScopeAwait = ({ node, compiler }) => {
@@ -143987,15 +144004,15 @@ var readJestModuleMode = ({ loaded }) => {
 };
 
 // src/coverage/selectUnloadableFiles/common/utils/readNearestPackageType.ts
-import { readFile as readFile53 } from "node:fs/promises";
-import { dirname as dirname24, join as join116, relative as relative14, sep as sep3 } from "node:path";
+import { readFile as readFile52 } from "node:fs/promises";
+import { dirname as dirname24, join as join118, relative as relative14, sep as sep3 } from "node:path";
 var withinScope = ({ directory, scopeRoot }) => {
   const path = relative14(scopeRoot, directory);
   return path === "" || !(path === ".." || path.startsWith(`..${sep3}`));
 };
 var readManifestType = async ({ manifestPath }) => {
   try {
-    const parsed = JSON.parse(await readFile53(manifestPath, "utf8"));
+    const parsed = JSON.parse(await readFile52(manifestPath, "utf8"));
     const declared = typeof parsed === "object" && parsed !== null && "type" in parsed ? parsed.type : void 0;
     return typeof declared === "string" ? declared : void 0;
   } catch {
@@ -144006,7 +144023,7 @@ var readNearestPackageType = async ({ fileDir, scopeRoot }) => {
   let directory = fileDir;
   let type;
   while (type === void 0 && withinScope({ directory, scopeRoot })) {
-    type = await readManifestType({ manifestPath: join116(directory, "package.json") });
+    type = await readManifestType({ manifestPath: join118(directory, "package.json") });
     const parent = dirname24(directory);
     if (parent === directory) {
       break;
@@ -144027,7 +144044,7 @@ var selectUnloadableFiles = async ({ cwd, config: config2, files, compiler }) =>
   const loadable = [];
   const unloadable = [];
   for (const file2 of files) {
-    const content = await readFile54(join117(cwd, file2), "utf8").catch(() => void 0);
+    const content = await readFile53(join119(cwd, file2), "utf8").catch(() => void 0);
     if (content === void 0 || !isUnloadableSourceFile({ path: file2, content, compiler })) {
       loadable.push(file2);
       continue;
@@ -144041,7 +144058,7 @@ var selectUnloadableFiles = async ({ cwd, config: config2, files, compiler }) =>
     if (!modes.has(scope.scope)) {
       modes.set(scope.scope, readJestModuleMode({ loaded: await loadScopeJestConfig({ scopeRoot, command: scope.command }) }));
     }
-    const fileDir = dirname25(join117(root, file2));
+    const fileDir = dirname25(join119(root, file2));
     if (!packageTypes.has(fileDir)) {
       packageTypes.set(fileDir, await readNearestPackageType({ fileDir, scopeRoot }));
     }
@@ -144055,7 +144072,7 @@ var selectUnloadableFiles = async ({ cwd, config: config2, files, compiler }) =>
 var ExecutionSummaryReport = external_exports.record(external_exports.string(), external_exports.looseObject({ statements: external_exports.looseObject({ covered: external_exports.unknown(), total: external_exports.unknown() }) }));
 var readExecutionSummary = async ({ cwd, summaryPath }) => {
   try {
-    const parsed = ExecutionSummaryReport.parse(JSON.parse(await readFile55(join118(cwd, summaryPath), "utf8")));
+    const parsed = ExecutionSummaryReport.parse(JSON.parse(await readFile54(join120(cwd, summaryPath), "utf8")));
     return new Map(Object.entries(parsed).map(([key, entry]) => [relative15(cwd, key), entry.statements]));
   } catch {
     return void 0;
@@ -144070,7 +144087,7 @@ var checkChangedFilesExecuted = async ({ cwd, config: config2, changedFiles, com
   for (const file2 of changedFiles.filter(
     (changed) => isTestableSourceFile({ path: changed }) && !isTestFile({ path: changed }) && !isToolingConfigFile({ path: changed, packagesDir })
   )) {
-    const content = await readFile55(join118(cwd, file2), "utf8").catch(() => void 0);
+    const content = await readFile54(join120(cwd, file2), "utf8").catch(() => void 0);
     if (content !== void 0 && !isInertSourceFile({ path: file2, content, compiler })) {
       executable.push(file2);
     }
@@ -144109,23 +144126,23 @@ var checkChangedFilesExecuted = async ({ cwd, config: config2, changedFiles, com
 };
 
 // src/coverage/initializeCoverageRun.ts
-import { readFile as readFile57, writeFile as writeFile21 } from "node:fs/promises";
-import { join as join120 } from "node:path";
+import { readFile as readFile56, writeFile as writeFile21 } from "node:fs/promises";
+import { join as join122 } from "node:path";
 
 // src/coverage/runCoverageCheck.ts
-import { readFile as readFile56 } from "node:fs/promises";
-import { join as join119, relative as relative16 } from "node:path";
+import { readFile as readFile55 } from "node:fs/promises";
+import { join as join121, relative as relative16 } from "node:path";
 var CoverageSummaryReport = external_exports.record(external_exports.string(), external_exports.looseObject({ statements: external_exports.looseObject({ pct: external_exports.unknown() }) }));
 var readJsonFile2 = async ({ path }) => {
   try {
-    const parsed = JSON.parse(await readFile56(path, "utf8"));
+    const parsed = JSON.parse(await readFile55(path, "utf8"));
     return parsed;
   } catch {
     return void 0;
   }
 };
 var readScopeSummary = async ({ cwd, scope, summaryPath, passed }) => {
-  const parsed = CoverageSummaryReport.safeParse(await readJsonFile2({ path: join119(cwd, summaryPath) }));
+  const parsed = CoverageSummaryReport.safeParse(await readJsonFile2({ path: join121(cwd, summaryPath) }));
   if (!parsed.success) {
     throw new Error(buildMissingSummaryMessage({ summaryPath, scope }));
   }
@@ -144194,7 +144211,8 @@ var initializeCoverageRun = async ({
       const command = pipeline === "refactor" ? "refactor" : "resume";
       throw new Error(`run ${existing.runId} belongs to the ${pipeline} pipeline \u2014 resume it with: lightsout ${command} --run ${existing.runId}`);
     }
-    return { manifest: existing, worklist: CoverageWorklist.parse(JSON.parse(await readFile57(join120(cwd, existing.plan), "utf8"))) };
+    const frozen = join122(await resolveRunDir({ cwd, runId: existing.runId }), "worklist.json");
+    return { manifest: existing, worklist: CoverageWorklist.parse(JSON.parse(await readFile56(frozen, "utf8"))) };
   }
   if (typeof config2.gates["test-coverage"] !== "string" && config2["package-gates"]?.["test-coverage"] === void 0) {
     throw new Error('the coverage gate is opted out ("test-coverage": false) \u2014 test-coverage-to-threshold has nothing to run');
@@ -144211,9 +144229,9 @@ ${dirty.map((file2) => `  ${file2}`).join("\n")}`
   }
   const measured = await runCoverageCheck({ cwd, config: config2 });
   const worklist = { at: (/* @__PURE__ */ new Date()).toISOString(), totals: measured.totals, files: measured.files };
-  const worklistPath = join120(".lightsout", "runs", runId, "worklist.json");
-  const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: "coverage", driver: driver.name, config: config2, baselineDirtyFiles: dirty });
-  await writeFile21(join120(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
+  const worklistPath = join122(await resolveNewRunDir({ cwd, pipeline: PipelineKind.Coverage, runId }), "worklist.json");
+  const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: PipelineKind.Coverage, driver: driver.name, config: config2, baselineDirtyFiles: dirty });
+  await writeFile21(worklistPath, `${JSON.stringify(worklist, void 0, "	")}
 `, "utf8");
   return { manifest, worklist };
 };
@@ -144305,8 +144323,8 @@ var CoverageRun = class {
 };
 
 // src/coverage/batch/invokeCoverageAgent.ts
-import { mkdir as mkdir28, writeFile as writeFile22 } from "node:fs/promises";
-import { join as join121 } from "node:path";
+import { mkdir as mkdir27, writeFile as writeFile22 } from "node:fs/promises";
+import { join as join123 } from "node:path";
 var invokeCoverageAgent = async ({
   cwd,
   runId,
@@ -144321,10 +144339,10 @@ var invokeCoverageAgent = async ({
   rationale,
   recordUsage
 }) => {
-  const agentsDir = join121(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join123(await resolveRunDir({ cwd, runId }), "agents");
   const slug = batchId.replace(/[:/]/g, "_");
-  const streamPath = join121(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
-  await mkdir28(agentsDir, { recursive: true });
+  const streamPath = join123(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
+  await mkdir27(agentsDir, { recursive: true });
   const outcome = await invokeAgentWithContract({
     driver,
     cwd,
@@ -144337,7 +144355,7 @@ var invokeCoverageAgent = async ({
     allowedCommands: config2["agent-commands"],
     onEvent: createEventFileSink({ path: streamPath }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile22(join121(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile22(join123(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   await recordUsage({ step: `${batchId}${label2 ? ` ${label2}` : ""}`, usage: outcome.usage });
@@ -144571,8 +144589,8 @@ var runCoverageBatch = async ({
 };
 
 // src/coverage/selectCoverageCandidates.ts
-import { readFile as readFile58 } from "node:fs/promises";
-import { join as join122 } from "node:path";
+import { readFile as readFile57 } from "node:fs/promises";
+import { join as join124 } from "node:path";
 var selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, standardsPacks, compiler }) => {
   const failingScopes = new Set(measured.totals.filter((total) => !total.passed).map((total) => total.scope));
   const candidates = [];
@@ -144580,7 +144598,7 @@ var selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, standardsP
     if (!failingScopes.has(file2.scope) || setAsidePaths.has(file2.path) || file2.statementsPct >= 100 || isTestFile({ path: file2.path, standardsPacks }) || !isTestableSourceFile({ path: file2.path })) {
       continue;
     }
-    const content = compiler === void 0 ? void 0 : await readFile58(join122(cwd, file2.path), "utf8").catch(() => void 0);
+    const content = compiler === void 0 ? void 0 : await readFile57(join124(cwd, file2.path), "utf8").catch(() => void 0);
     if (compiler !== void 0 && content !== void 0 && isInertSourceFile({ path: file2.path, content, compiler })) {
       continue;
     }
@@ -145321,12 +145339,12 @@ var describePersistingFindings = ({ findings, report: report2, roundsUsed }) => 
 };
 
 // src/pipeline/steps/refactorStep/common/utils/fingerprintScopeFiles.ts
-import { readFile as readFile59 } from "node:fs/promises";
-import { join as join123 } from "node:path";
+import { readFile as readFile58 } from "node:fs/promises";
+import { join as join125 } from "node:path";
 var fingerprintScopeFiles = async ({ run }) => {
   const entries = await Promise.all(
     standardsScopeFiles({ run }).map(async (file2) => {
-      const content = await readFile59(join123(run.cwd, file2)).catch(() => void 0);
+      const content = await readFile58(join125(run.cwd, file2)).catch(() => void 0);
       return content === void 0 ? [] : [[file2, sha256({ content })]];
     })
   );
@@ -145339,8 +145357,8 @@ var readPriorCleanup = ({ run }) => {
 };
 
 // src/standardsCheck/applyStandardsBaseline.ts
-import { readFile as readFile60, writeFile as writeFile23 } from "node:fs/promises";
-import { join as join124 } from "node:path";
+import { readFile as readFile59, writeFile as writeFile23 } from "node:fs/promises";
+import { join as join126 } from "node:path";
 var StandardsBaseline = external_exports.object({
   at: external_exports.string(),
   path: external_exports.string(),
@@ -145353,8 +145371,8 @@ var applyStandardsBaseline = async ({
   all,
   writeBaseline
 }) => {
-  const baselinePath = join124(cwd, "lightsout.standards-baseline.json");
-  const baselineRaw = await readFile60(baselinePath, "utf8").catch(() => void 0);
+  const baselinePath = join126(cwd, "lightsout.standards-baseline.json");
+  const baselineRaw = await readFile59(baselinePath, "utf8").catch(() => void 0);
   const notes = [];
   let baselineJson;
   try {
@@ -145451,8 +145469,8 @@ var buildDominantPathNote = ({ findings }) => {
 };
 
 // src/standardsCheck/buildStandardsHealth.ts
-import { readFile as readFile61 } from "node:fs/promises";
-import { join as join125 } from "node:path";
+import { readFile as readFile60 } from "node:fs/promises";
+import { join as join127 } from "node:path";
 var emptyTally = () => ({
   attempted: 0,
   resolved: 0,
@@ -145477,7 +145495,7 @@ var readRefactorRun = async ({ cwd, runId }) => {
   if ((manifest.pipeline ?? "implement") !== "refactor") {
     return void 0;
   }
-  const worklist = RefactorWorklist.parse(JSON.parse(await readFile61(join125(cwd, manifest.plan), "utf8")));
+  const worklist = RefactorWorklist.parse(JSON.parse(await readFile60(join127(await resolveRunDir({ cwd, runId }), "worklist.json"), "utf8")));
   return { worklist, steps: manifest.steps };
 };
 var countBatchSites = ({ tallies, blocking, report: report2 }) => {
@@ -145602,15 +145620,15 @@ var listStandardsRules = async ({ cwd, config: config2 }) => {
 };
 
 // src/standardsCheck/common/paths/getStandardsSnapshotsDir.ts
-import { join as join126 } from "node:path";
+import { join as join128 } from "node:path";
 var getStandardsSnapshotsDir = ({ cwd }) => {
-  return join126(cwd, ".lightsout", "standards-check");
+  return join128(cwd, ".lightsout", "standards-check");
 };
 
 // src/standardsCheck/common/paths/getStandardsCheckPath.ts
-import { join as join127 } from "node:path";
+import { join as join129 } from "node:path";
 var getStandardsCheckPath = ({ cwd }) => {
-  return join127(cwd, ".lightsout", "standards-check.json");
+  return join129(cwd, ".lightsout", "standards-check.json");
 };
 
 // ../../node_modules/.pnpm/eventemitter3@5.0.4/node_modules/eventemitter3/index.mjs
@@ -145645,7 +145663,7 @@ var RabinKarp = class _RabinKarp {
     this.cloneValidators = cloneValidators;
   }
   async run(tokenMap, store) {
-    return new Promise((resolve20) => {
+    return new Promise((resolve18) => {
       let mapFrameInStore;
       let clone3 = null;
       const clones = [];
@@ -145677,7 +145695,7 @@ var RabinKarp = class _RabinKarp {
             if (clone3 && this.validate(clone3)) {
               clones.push(clone3);
             }
-            resolve20(clones);
+            resolve18(clones);
           }
         });
       };
@@ -145775,9 +145793,9 @@ var MemoryStore = class {
     this.values[namespace] = this.values[namespace] || {};
   }
   get(key) {
-    return new Promise((resolve20, reject) => {
+    return new Promise((resolve18, reject) => {
       if (key in this.values[this._namespace]) {
-        resolve20(this.values[this._namespace][key]);
+        resolve18(this.values[this._namespace][key]);
       } else {
         reject(new Error("not found"));
       }
@@ -157329,13 +157347,13 @@ var Tokenizer = class {
 };
 
 // src/standardsCheck/common/checkInputs/readIntoCache.ts
-import { readFile as readFile62 } from "node:fs/promises";
-import { join as join128 } from "node:path";
+import { readFile as readFile61 } from "node:fs/promises";
+import { join as join130 } from "node:path";
 var readIntoCache = async ({ cwd, paths, cache }) => {
   const texts = /* @__PURE__ */ new Map();
   for (const path of paths) {
     if (!cache.has(path)) {
-      const text = await readFile62(join128(cwd, path), "utf8").catch(() => void 0);
+      const text = await readFile61(join130(cwd, path), "utf8").catch(() => void 0);
       if (text !== void 0) {
         cache.set(path, text);
       }
@@ -157494,11 +157512,11 @@ var buildTestFileInput = async ({ cwd, tests, cache }) => {
 };
 
 // src/standardsCheck/common/checkInputs/buildTypeCheckerInput.ts
-import { dirname as dirname27, join as join129, resolve as resolve15 } from "node:path";
+import { dirname as dirname27, join as join131, resolve as resolve13 } from "node:path";
 var findNearestConfig = ({ cwd, path, compiler }) => {
-  let folder = dirname27(resolve15(cwd, path));
+  let folder = dirname27(resolve13(cwd, path));
   while (folder.startsWith(cwd)) {
-    const candidate = join129(folder, "tsconfig.json");
+    const candidate = join131(folder, "tsconfig.json");
     if (compiler.sys.fileExists(candidate)) {
       return candidate;
     }
@@ -157539,7 +157557,7 @@ var buildTypeCheckerInput = async ({
   const typedFiles = /* @__PURE__ */ new Map();
   for (const [path, configPath] of configOf2) {
     const program = programs.get(configPath);
-    const sourceFile = program?.getSourceFile(resolve15(cwd, path));
+    const sourceFile = program?.getSourceFile(resolve13(cwd, path));
     if (program !== void 0 && sourceFile !== void 0) {
       typedFiles.set(path, { sourceFile, checker: program.getTypeChecker() });
     }
@@ -157747,16 +157765,16 @@ var runPackageChecks = async ({
 };
 
 // src/standardsCheck/writeStandardsSnapshot.ts
-import { mkdir as mkdir29, writeFile as writeFile24 } from "node:fs/promises";
-import { join as join130 } from "node:path";
+import { mkdir as mkdir28, writeFile as writeFile24 } from "node:fs/promises";
+import { join as join132 } from "node:path";
 var writeStandardsSnapshot = async ({ cwd, snapshot }) => {
   const body = `${JSON.stringify(snapshot, void 0, "	")}
 `;
   const snapshotsDir = getStandardsSnapshotsDir({ cwd });
   const fileName = `${snapshot.at.replaceAll(":", "-").replaceAll(".", "-")}.json`;
-  await mkdir29(snapshotsDir, { recursive: true });
+  await mkdir28(snapshotsDir, { recursive: true });
   await writeFile24(getStandardsCheckPath({ cwd }), body, "utf8");
-  await writeFile24(join130(snapshotsDir, fileName), body, "utf8");
+  await writeFile24(join132(snapshotsDir, fileName), body, "utf8");
 };
 
 // src/standardsCheck/runStandardsCheck.ts
@@ -157924,7 +157942,7 @@ var selectStandardsFindings = ({ findings, changedFiles }) => {
 // src/standardsCheck/validateStandardsPack.ts
 import { readdir as readdir19 } from "node:fs/promises";
 import { createRequire as createRequire5 } from "node:module";
-import { join as join131 } from "node:path";
+import { join as join133 } from "node:path";
 
 // src/standardsCheck/common/utils/checkFixtureTree.ts
 var checkFixtureTree = async ({ cwd, rule, inputKind, run, label: label2, compiler }) => {
@@ -157966,7 +157984,7 @@ var getEngineTypescript = () => {
 var missingFixtureSides = async ({ fixturesPath }) => {
   const missing = [];
   for (const side of Object.values(FixtureSide2)) {
-    const entries = await readdir19(join131(fixturesPath, side)).catch(() => void 0);
+    const entries = await readdir19(join133(fixturesPath, side)).catch(() => void 0);
     if (entries === void 0 || entries.length === 0) {
       missing.push(side);
     }
@@ -157997,7 +158015,7 @@ var checkFrameworkOwned = async ({ pack, compiler }) => {
       }
       try {
         const found = await checkFixtureTree({
-          cwd: join131(frameworkOwnedFixturesPath, framework),
+          cwd: join133(frameworkOwnedFixturesPath, framework),
           rule,
           inputKind,
           run,
@@ -158046,7 +158064,7 @@ var validateStandardsPack = async ({ pack }) => {
     }
     for (const side of Object.values(FixtureSide2)) {
       try {
-        const found = await checkFixtureTree({ cwd: join131(rule.fixturesPath, side), rule, inputKind, run, label: `fixtures/${side}/`, compiler });
+        const found = await checkFixtureTree({ cwd: join133(rule.fixturesPath, side), rule, inputKind, run, label: `fixtures/${side}/`, compiler });
         if (side === FixtureSide2.Fail && found.length === 0) {
           problems.push(`${rule.id}: the fail fixture produced no finding \u2014 the check does not catch what the rule describes`);
         }
@@ -158351,8 +158369,8 @@ var createWarmSpawn = ({ group, spawnWriter, aggregate }) => {
   let settled2 = false;
   let collected = false;
   let release;
-  const gate = new Promise((resolve20) => {
-    release = resolve20;
+  const gate = new Promise((resolve18) => {
+    release = resolve18;
   });
   const warm = group === void 0 ? void 0 : spawnWriter({ group, onFirstEvent: release }).finally(() => {
     settled2 = true;
@@ -158530,8 +158548,8 @@ var runWriterBatches = async ({
 };
 
 // src/pipeline/steps/selectTestTargets.ts
-import { readFile as readFile63, stat as stat13 } from "node:fs/promises";
-import { join as join132 } from "node:path";
+import { readFile as readFile62, stat as stat13 } from "node:fs/promises";
+import { join as join134 } from "node:path";
 var selectTestTargets = async ({
   run,
   candidates,
@@ -158548,9 +158566,9 @@ var selectTestTargets = async ({
   const deleted = [];
   const coverageExcluded = [];
   for (const file2 of candidates) {
-    const content = await readFile63(join132(run.cwd, file2), "utf8").catch(() => void 0);
+    const content = await readFile62(join134(run.cwd, file2), "utf8").catch(() => void 0);
     if (content === void 0) {
-      const exists3 = await stat13(join132(run.cwd, file2)).then(
+      const exists3 = await stat13(join134(run.cwd, file2)).then(
         () => true,
         () => false
       );
@@ -158766,10 +158784,10 @@ var committedLedgerConflicts = async ({ cwd, assignments, movePaths }) => {
 };
 
 // src/pipeline/steps/ledger/missingLedgerNames.ts
-import { readFile as readFile64 } from "node:fs/promises";
-import { join as join133 } from "node:path";
+import { readFile as readFile63 } from "node:fs/promises";
+import { join as join135 } from "node:path";
 var missingLedgerNames = async ({ cwd, testFile, testNames }) => {
-  const content = await readFile64(join133(cwd, testFile), "utf8").catch(() => void 0);
+  const content = await readFile63(join135(cwd, testFile), "utf8").catch(() => void 0);
   return content === void 0 ? void 0 : testNames.filter((testName) => !holdsTestTitle({ content, testName }));
 };
 
@@ -159128,7 +159146,7 @@ var runPhase = async ({
       cwd,
       driver,
       config: config2,
-      planPath: join134(dirname28(current.plan), step.id),
+      planPath: join136(dirname28(current.plan), step.id),
       overviewPath: current.plan,
       parentRunId: current.runId,
       existing: childManifest,
@@ -159318,8 +159336,8 @@ var implementCommand = async ({ flags, cwd }) => {
 };
 
 // src/cli/implementDirectCommand.ts
-import { readFile as readFile66 } from "node:fs/promises";
-import { resolve as resolve16 } from "node:path";
+import { readFile as readFile65 } from "node:fs/promises";
+import { resolve as resolve14 } from "node:path";
 
 // src/queue/board/BoardQuestionRelay.ts
 var BoardQuestionRelay = class {
@@ -159351,17 +159369,17 @@ var BoardQuestionRelay = class {
 };
 
 // src/queue/board/getQueueBoardPath.ts
-import { join as join135 } from "node:path";
-var getQueueBoardPath = ({ cwd, runId }) => {
-  return join135(getRunDir({ cwd, runId }), "board.json");
+import { join as join137 } from "node:path";
+var getQueueBoardPath = async ({ cwd, runId }) => {
+  return join137(await resolveRunDir({ cwd, runId }), "board.json");
 };
 
 // src/queue/board/QueueBoardRecorder.ts
-import { mkdir as mkdir30, rename as rename11 } from "node:fs/promises";
+import { mkdir as mkdir29, rename as rename11 } from "node:fs/promises";
 import { dirname as dirname29 } from "node:path";
 
 // src/queue/board/toQueueBoardTickets.ts
-import { join as join136 } from "node:path";
+import { join as join138 } from "node:path";
 
 // src/queue/common/constants/QueueWorker.ts
 var QueueWorker = {
@@ -159388,7 +159406,7 @@ var describeWork = ({ ticket, branch, worktreePath }) => ({
 });
 var describeUnbuilt = ({ ticket, live: live2 }) => {
   const branch = toTicketBranch({ ticket, template: live2.branchTemplate });
-  return describeWork({ ticket, branch, worktreePath: join136(live2.worktreesRoot, branch) });
+  return describeWork({ ticket, branch, worktreePath: join138(live2.worktreesRoot, branch) });
 };
 var placeLeftBehind = ({ entry, lane, reason }) => ({
   identifier: entry.identifier,
@@ -159502,8 +159520,9 @@ var QueueBoardRecorder = class {
     questions,
     takenAt
   }) {
-    const path = getQueueBoardPath({ cwd: this.cwd, runId: this.runId });
+    let path;
     try {
+      path = await getQueueBoardPath({ cwd: this.cwd, runId: this.runId });
       this.worktreesRoot ??= await resolveWorktreesRoot({ cwd: this.cwd });
       const tickets = toQueueBoardTickets({
         settled: snapshot.settled,
@@ -159512,39 +159531,39 @@ var QueueBoardRecorder = class {
       });
       const board = { coordinatorRunId: this.runId, updatedAt: takenAt, tickets };
       this.entered = new Map(tickets.map((ticket) => [ticket.identifier.toLowerCase(), { lane: ticket.lane, at: ticket.enteredAt }]));
-      await mkdir30(dirname29(path), { recursive: true });
+      await mkdir29(dirname29(path), { recursive: true });
       await writeJsonFile({ path: `${path}.tmp`, value: board });
       await rename11(`${path}.tmp`, path);
     } catch (error51) {
-      this.onProgress?.(`the queue board ${path} could not be written: ${messageOf({ error: error51 })}`);
+      this.onProgress?.(`the queue board ${path ?? `of run ${this.runId}`} could not be written: ${messageOf({ error: error51 })}`);
     }
   }
 };
 
 // src/queue/board/readQueueBoard.ts
 var readQueueBoard = async ({ cwd, runId }) => {
-  return readJsonFile({ path: getQueueBoardPath({ cwd, runId }), schema: QueueBoard });
+  return readJsonFile({ path: await getQueueBoardPath({ cwd, runId }), schema: QueueBoard });
 };
 
 // src/queue/branchState/common/utils/getBranchStatePath.ts
-import { join as join137 } from "node:path";
-var getBranchStatePath = ({ cwd, branch }) => {
-  return join137(cwd, ".lightsout", "branch-state", `${toBranchFileName({ branch })}.json`);
+import { join as join139 } from "node:path";
+var getBranchStatePath = async ({ cwd, branch }) => {
+  return join139(await ticketFolderDir({ cwd, ticketBranch: toBranchFileName({ branch }) }), "branch-state.json");
 };
 
 // src/queue/branchState/readBranchState.ts
 var readBranchState = async ({ cwd, branch }) => {
-  return readJsonFile({ path: getBranchStatePath({ cwd, branch }), schema: BranchState });
+  return readJsonFile({ path: await getBranchStatePath({ cwd, branch }), schema: BranchState });
 };
 
 // src/queue/branchState/writeBranchState.ts
-import { mkdir as mkdir31, rename as rename12 } from "node:fs/promises";
+import { mkdir as mkdir30, rename as rename12 } from "node:fs/promises";
 import { dirname as dirname30 } from "node:path";
 var writeBranchState = async ({ cwd, branch, phase, onProgress }) => {
   const record3 = { branch, phase, updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
-  const statePath = getBranchStatePath({ cwd, branch });
   try {
-    await mkdir31(dirname30(statePath), { recursive: true });
+    const statePath = await getBranchStatePath({ cwd, branch });
+    await mkdir30(dirname30(statePath), { recursive: true });
     await writeJsonFile({ path: `${statePath}.tmp`, value: record3 });
     await rename12(`${statePath}.tmp`, statePath);
   } catch (error51) {
@@ -159554,8 +159573,8 @@ var writeBranchState = async ({ cwd, branch, phase, onProgress }) => {
 };
 
 // src/queue/commitTicketWork.ts
-import { mkdir as mkdir32, writeFile as writeFile25 } from "node:fs/promises";
-import { join as join138 } from "node:path";
+import { mkdir as mkdir31, writeFile as writeFile25 } from "node:fs/promises";
+import { join as join140 } from "node:path";
 
 // src/queue/common/utils/isGeneratedPath.ts
 var isGeneratedPath = ({ path, generated }) => generated.some((entry) => {
@@ -159607,8 +159626,8 @@ var commitTicketWork = async ({ cwd, message, runDir, generated = [], onProgress
   if (sourcePaths.length === 0) {
     return { committed: false };
   }
-  const messagePath = join138(runDir, "commit-message.txt");
-  await mkdir32(runDir, { recursive: true });
+  const messagePath = join140(runDir, "commit-message.txt");
+  await mkdir31(runDir, { recursive: true });
   await writeFile25(messagePath, message.endsWith("\n") ? message : `${message}
 `, "utf8");
   const stageFailure = await runOrDescribeFailure({ command: "git add -A", cwd });
@@ -159626,20 +159645,20 @@ var commitTicketWork = async ({ cwd, message, runDir, generated = [], onProgress
 var isParkedOutcome = ({ outcome }) => !outcome.ready && outcome.open === void 0;
 
 // src/queue/relay/emptyRelayMailbox.ts
-import { mkdir as mkdir33, readdir as readdir20, rm as rm12 } from "node:fs/promises";
-import { join as join139 } from "node:path";
+import { mkdir as mkdir32, readdir as readdir20, rm as rm12 } from "node:fs/promises";
+import { join as join141 } from "node:path";
 var emptyRelayMailbox = async ({ directory }) => {
-  await mkdir33(directory, { recursive: true });
+  await mkdir32(directory, { recursive: true });
   const entries = await readdir20(directory);
-  await Promise.all(entries.map((entry) => rm12(join139(directory, entry), { force: true, recursive: true })));
+  await Promise.all(entries.map((entry) => rm12(join141(directory, entry), { force: true, recursive: true })));
 };
 
 // src/queue/relay/FileQuestionRelay.ts
-import { readFile as readFile65, rename as rename13, rm as rm13 } from "node:fs/promises";
-import { join as join141 } from "node:path";
+import { readFile as readFile64, rename as rename13, rm as rm13 } from "node:fs/promises";
+import { join as join143 } from "node:path";
 
 // src/queue/relay/recordRelayedAnswer.ts
-import { join as join140 } from "node:path";
+import { join as join142 } from "node:path";
 var QueueQuestionRecord = external_exports.object({
   question: external_exports.string(),
   answer: external_exports.string(),
@@ -159659,7 +159678,7 @@ var recordRelayedAnswer = async ({
   onProgress
 }) => {
   await appendJsonlRecords({
-    path: join140(coordinatorRunDir, "decisions.jsonl"),
+    path: join142(coordinatorRunDir, "decisions.jsonl"),
     schema: QueueQuestionRecord,
     entries: [{ question, answer, ticket: ticket.identifier }],
     runId: coordinatorRunId,
@@ -159687,7 +159706,7 @@ var readJson2 = ({ raw }) => {
   }
 };
 var readRelayAnswer = async ({ path }) => {
-  const raw = await readFile65(path, "utf8").catch(() => void 0);
+  const raw = await readFile64(path, "utf8").catch(() => void 0);
   if (raw === void 0) {
     return void 0;
   }
@@ -159726,8 +159745,8 @@ var FileQuestionRelay = class {
     }
     this.sequence += 1;
     const stem = `${ticket.identifier.toLowerCase()}-${this.sequence}`;
-    const questionPath = join141(this.directory, `${stem}.question.json`);
-    const answerPath = join141(this.directory, `${stem}.answer.json`);
+    const questionPath = join143(this.directory, `${stem}.question.json`);
+    const answerPath = join143(this.directory, `${stem}.answer.json`);
     await this.putQuestion({ stem, questionPath, question, ticket });
     const answer = await this.waitForAnswer({ questionPath, answerPath, question });
     await removeExchange({ questionPath, answerPath });
@@ -159760,7 +159779,7 @@ var FileQuestionRelay = class {
   /** The question file, written under a temporary name and renamed in — a watcher globbing `*.question.json` must never read half of one. */
   async putQuestion({ stem, questionPath, question, ticket }) {
     const entry = RelayQuestion.parse({ ticket: ticket.identifier, title: ticket.title, question, askedAt: (/* @__PURE__ */ new Date()).toISOString() });
-    const temporaryPath = join141(this.directory, `${stem}.tmp`);
+    const temporaryPath = join143(this.directory, `${stem}.tmp`);
     await writeJsonFile({ path: temporaryPath, value: entry });
     await rename13(temporaryPath, questionPath);
     this.createProgressSink({ ticket })(`waiting for an answer in ${questionPath}`);
@@ -159796,8 +159815,8 @@ var FileQuestionRelay = class {
           throw new Error(`no answer arrived within ${this.settings.questionTimeoutMs}ms for: ${question}`);
         }
         await Promise.race([
-          new Promise((resolve20) => {
-            timer = setTimeout(resolve20, pollMs);
+          new Promise((resolve18) => {
+            timer = setTimeout(resolve18, pollMs);
           }),
           abandoned
         ]);
@@ -159922,9 +159941,6 @@ ${question}
   }
 };
 
-// src/queue/runQueue.ts
-import { join as join147 } from "node:path";
-
 // src/queue/common/utils/createMainCheckoutSerializer.ts
 var createMainCheckoutSerializer = () => {
   let tail = Promise.resolve();
@@ -159933,6 +159949,21 @@ var createMainCheckoutSerializer = () => {
     tail = next.catch(() => void 0);
     return next;
   };
+};
+
+// src/queue/common/utils/startCoordinatorRun.ts
+import { join as join144 } from "node:path";
+var startCoordinatorRun = async ({
+  cwd,
+  runId,
+  driverName,
+  config: config2
+}) => {
+  const coordinatorRunDir = await resolveNewRunDir({ cwd, pipeline: PipelineKind.Queue, runId });
+  const planPath = join144(coordinatorRunDir, "queue.md");
+  const manifest = await createRun({ cwd, runId, plan: planPath, pipeline: PipelineKind.Queue, driver: driverName, config: config2 });
+  await writeManifestWithUsage({ cwd, manifest, patch: { status: RunStatus.Running }, usageTotals: seedUsageTotals({ usage: manifest.usage }) });
+  return { coordinatorRunDir, planPath, manifest };
 };
 
 // src/queue/common/utils/settleReconciledWorktree.ts
@@ -160234,12 +160265,12 @@ var startBuilds = ({ context, state, flight }) => {
 
 // src/queue/drainLanes/common/utils/writeQueuePlan.ts
 import { writeFile as writeFile26 } from "node:fs/promises";
-import { join as join142 } from "node:path";
+import { join as join145 } from "node:path";
 var writeQueuePlan = async ({ path, cwd, settings, queued }) => {
   const root = await resolveWorktreesRoot({ cwd });
   const lines = queued.map((ticket) => {
     const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
-    return `- ${ticket.identifier} \xB7 ${ticket.worker} \xB7 ${branch} \xB7 ${join142(root, branch)}`;
+    return `- ${ticket.identifier} \xB7 ${ticket.worker} \xB7 ${branch} \xB7 ${join145(root, branch)}`;
   });
   await writeFile26(path, `# queue drain
 
@@ -160515,7 +160546,7 @@ var drainQueue = async ({
 };
 
 // src/queue/runQueueTicket.ts
-import { join as join145 } from "node:path";
+import { join as join148 } from "node:path";
 
 // src/common/git/readGitCommitsAhead.ts
 var readGitCommitsAhead = async ({ cwd, defaultBranch }) => {
@@ -160567,9 +160598,27 @@ var settleWorkerOutcome = async ({
   return { ready: true };
 };
 
-// src/direct/runDirectWork.ts
+// src/direct/common/utils/createDirectRun.ts
 import { writeFile as writeFile27 } from "node:fs/promises";
-import { join as join143 } from "node:path";
+import { join as join146 } from "node:path";
+var createDirectRun = async ({ cwd, runId, ticketBody, ticketRef, driverName, config: config2, willShip }) => {
+  const ticketBranch = await readGitCurrentBranch({ cwd });
+  const ticketPath = join146(await resolveNewRunDir({ cwd, ticketBranch, pipeline: PipelineKind.Direct, runId }), "ticket.md");
+  const manifest = await createRun({
+    cwd,
+    runId,
+    plan: ticketPath,
+    pipeline: PipelineKind.Direct,
+    ticketRef,
+    driver: driverName,
+    config: config2,
+    baselineDirtyFiles: await readGitChangedFiles({ cwd }),
+    willShip
+  });
+  await writeFile27(ticketPath, ticketBody.endsWith("\n") ? ticketBody : `${ticketBody}
+`, "utf8");
+  return manifest;
+};
 
 // src/direct/common/utils/stopDirectRun.ts
 var stopDirectRun = async ({ run, record: record3, status, error: error51 }) => {
@@ -160663,31 +160712,6 @@ var verifyDirectWork = async ({
 };
 
 // src/direct/runDirectWork.ts
-var createDirectRun = async ({
-  cwd,
-  runId,
-  ticketBody,
-  ticketRef,
-  driverName,
-  config: config2,
-  willShip
-}) => {
-  const ticketPath = join143(getRunDir({ cwd, runId }), "ticket.md");
-  const manifest = await createRun({
-    cwd,
-    runId,
-    plan: ticketPath,
-    pipeline: PipelineKind.Direct,
-    ticketRef,
-    driver: driverName,
-    config: config2,
-    baselineDirtyFiles: await readGitChangedFiles({ cwd }),
-    willShip
-  });
-  await writeFile27(ticketPath, ticketBody.endsWith("\n") ? ticketBody : `${ticketBody}
-`, "utf8");
-  return manifest;
-};
 var stopDirectOnCoordination = ({ run, record: record3, coordination }) => {
   run.progress("the gates never started \u2014 another run holds this machine, and no fix was attempted");
   return stopDirectRun({
@@ -160839,10 +160863,10 @@ var settleLeftoverWork = async ({ step, leftover }) => {
 };
 
 // src/queue/workers/runPlanFolderPipeline.ts
-import { join as join144 } from "node:path";
+import { join as join147 } from "node:path";
 var runPlanFolderPipeline = async ({ cwd, name, config: config2, driver, onProgress }) => {
   const folder = await planWorkspaceDir({ cwd, name });
-  const overviewPath = join144(folder, "overview.md");
+  const overviewPath = join147(folder, "overview.md");
   const phased = await pathExists({ path: overviewPath });
   const outcome = await runTicketPlanLifecycle({
     cwd,
@@ -160852,7 +160876,7 @@ var runPlanFolderPipeline = async ({ cwd, name, config: config2, driver, onProgr
       name,
       label: "implement",
       statusOf: ({ result: result2 }) => result2.manifest.status,
-      work: ({ level }) => phased ? runPhasesPipeline({ cwd, driver, config: config2, overviewPath, runId, level, onProgress }) : runImplementPipeline({ cwd, driver, config: config2, planPath: join144(folder, "plan.md"), runId, level, onProgress })
+      work: ({ level }) => phased ? runPhasesPipeline({ cwd, driver, config: config2, overviewPath, runId, level, onProgress }) : runImplementPipeline({ cwd, driver, config: config2, planPath: join147(folder, "plan.md"), runId, level, onProgress })
     })
   });
   if ("refusal" in outcome) {
@@ -161246,7 +161270,7 @@ var runQueueTicket = async ({
   onProgress
 }) => {
   const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
-  const ticketRunDir = join145(coordinatorRunDir, "tickets", ticket.identifier);
+  const ticketRunDir = join148(coordinatorRunDir, "tickets", ticket.identifier);
   const created = await createTicketWorktree({ cwd, branch, defaultBranch, setup: settings.setup, serializeWorktreeAdd, onProgress });
   if (typeof created !== "string") {
     return { ticket, branch, worktreePath: await resolveWorktreePath({ cwd, branch }), ready: false, error: created.error };
@@ -161412,7 +161436,7 @@ var resolveQueueSettings = ({ config: config2 }) => {
 
 // src/queue/worktrees/scanParkedWorktrees.ts
 import { realpath as realpath2 } from "node:fs/promises";
-import { join as join146 } from "node:path";
+import { join as join149 } from "node:path";
 
 // src/queue/worktrees/common/constants/ParkedTreeBucket.ts
 var ParkedTreeBucket = {
@@ -161484,7 +161508,7 @@ var settleUnmergedTree = async ({
 var toQueuePath = ({ path, root, realRoot }) => {
   for (const prefix of [root, realRoot]) {
     if (path.startsWith(`${prefix}/`)) {
-      return join146(root, path.slice(prefix.length + 1));
+      return join149(root, path.slice(prefix.length + 1));
     }
   }
   return void 0;
@@ -161609,10 +161633,7 @@ var drainAndShip = async ({
   holds,
   onProgress
 }) => {
-  const coordinatorRunDir = getRunDir({ cwd, runId });
-  const planPath = join147(coordinatorRunDir, "queue.md");
-  const manifest = await createRun({ cwd, runId, plan: planPath, pipeline: PipelineKind.Queue, driver: driverName, config: config2 });
-  await writeManifestWithUsage({ cwd, manifest, patch: { status: RunStatus.Running }, usageTotals: seedUsageTotals({ usage: manifest.usage }) });
+  const { coordinatorRunDir, planPath, manifest } = await startCoordinatorRun({ cwd, runId, driverName, config: config2 });
   const serializeMainCheckout = createMainCheckoutSerializer();
   const board = new QueueBoardRecorder({ cwd, runId, branchTemplate: settings.branchTemplate, onProgress });
   const boardRelay = new BoardQuestionRelay({ relay, board });
@@ -161813,7 +161834,7 @@ var buildAndCommit = async ({
   }
   const { result } = outcome;
   const recordError = "recordError" in outcome ? outcome.recordError : void 0;
-  const runDir = getRunDir({ cwd, runId: result.manifest.runId });
+  const runDir = await resolveRunDir({ cwd, runId: result.manifest.runId });
   const uncommitted = result.ok ? await commitDirectRun({ cwd, ticketBody, ticketRef, runDir, generated, onProgress: createProgressPrinter() }) : void 0;
   return { result, uncommitted, recordError };
 };
@@ -161843,7 +161864,7 @@ var printDirectRunHeader = ({ workspace, ticketRef, ticketPath }) => {
 };
 var implementDirectCommand = async ({ flags, cwd }) => {
   const namedTicketPath = await getRequiredFlag({ flags, name: "ticket" });
-  const ticketBody = await readFile66(resolve16(cwd, namedTicketPath), "utf8").catch(() => void 0);
+  const ticketBody = await readFile65(resolve14(cwd, namedTicketPath), "utf8").catch(() => void 0);
   if (ticketBody === void 0) {
     console.error(`ticket file not found: ${namedTicketPath}`);
     return exitCli({ code: 1 });
@@ -161895,9 +161916,9 @@ var implementDirectCommand = async ({ flags, cwd }) => {
 
 // src/cli/common/utils/resolveConfigAndDriver.ts
 import { stat as stat14 } from "node:fs/promises";
-import { join as join148 } from "node:path";
+import { join as join150 } from "node:path";
 var resolveConfigAndDriver = async ({ cwd, command }) => {
-  const configPath = join148(cwd, "lightsout.config.json");
+  const configPath = join150(cwd, "lightsout.config.json");
   const present = await stat14(configPath).then(
     () => true,
     () => false
@@ -161919,15 +161940,15 @@ var PromptImprovementStatus = {
 
 // src/runPromptImprovement.ts
 import { readdir as readdir21 } from "node:fs/promises";
-import { join as join149 } from "node:path";
+import { join as join151 } from "node:path";
 var promptsDir = "src/agents/prompts";
 var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model, effort }) => {
   const friction = await readFriction({ cwd: consumerCwd });
   if (friction.length === 0) {
     return { status: PromptImprovementStatus.NoFriction, friction };
   }
-  const files = await readdir21(join149(engineCwd, promptsDir));
-  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join149(promptsDir, file2));
+  const files = await readdir21(join151(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join151(promptsDir, file2));
   const improverTimeoutMs = 20 * 6e4;
   const outcome = await invokeAgentWithContract({
     driver,
@@ -162364,7 +162385,7 @@ ${report2.recordError}`);
 };
 
 // src/cli/plan/planSyncDecisionsCommand.ts
-import { basename as basename41 } from "node:path";
+import { basename as basename42 } from "node:path";
 var planSyncDecisionsCommand = async ({ flags, cwd }) => {
   const name = await getRequiredFlag({ flags, name: "name" });
   const result = await syncPlanDecisions({ cwd, name });
@@ -162376,7 +162397,7 @@ ${result.error}`);
   console.log(`
 ${bold(`plan sync-decisions ${name}`)} \u2014 ${result.files.length} file(s)`);
   for (const file2 of result.files) {
-    console.log(`  ${basename41(file2.path)} \u2014 ${file2.updated ? "updated" : "unchanged"}`);
+    console.log(`  ${basename42(file2.path)} \u2014 ${file2.updated ? "updated" : "unchanged"}`);
   }
   return exitCli({ code: 0 });
 };
@@ -162555,7 +162576,7 @@ var planCommand = async ({ flags, rest, cwd: launchingCwd }) => {
 };
 
 // src/cli/queueCommand.ts
-import { resolve as resolve17 } from "node:path";
+import { resolve as resolve15 } from "node:path";
 
 // src/cli/common/constants/QueueBoardState.ts
 var QueueBoardState = {
@@ -162669,7 +162690,7 @@ var buildRelay = async ({
   if (requested === void 0) {
     return new TerminalQuestionRelay({ settings, trackerSettings, input: process.stdin, output: process.stdout });
   }
-  const directory = requested === true ? resolve17(cwd, ".lightsout", "queue", "relay") : resolve17(cwd, requested);
+  const directory = requested === true ? resolve15(cwd, ".lightsout", "queue", "relay") : resolve15(cwd, requested);
   await emptyRelayMailbox({ directory });
   console.log(`relaying questions through ${directory}`);
   return new FileQuestionRelay({ settings, trackerSettings, directory, output: process.stdout });
@@ -162844,8 +162865,8 @@ var findIntroducedFindings = ({ frozen, live: live2, severity }) => {
 };
 
 // src/refactor/initializeRun.ts
-import { readFile as readFile67, writeFile as writeFile30 } from "node:fs/promises";
-import { join as join152 } from "node:path";
+import { readFile as readFile66, writeFile as writeFile30 } from "node:fs/promises";
+import { join as join154 } from "node:path";
 
 // src/refactor/batch/batchFindings.ts
 var rulePriority = [
@@ -163097,10 +163118,10 @@ var createFixInvoker = ({ tools, files, workFindings, advisories, standards, tes
 
 // src/refactor/batch/polishBatchOutput.ts
 var polishBatchOutput = async ({ tools, batch, baseline, workFindings, standards, testStandards, onProgress }) => {
-  const resolve20 = () => tools.finish({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] });
+  const resolve18 = () => tools.finish({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] });
   const introduced = await tools.reviewOutput({ baseline });
   if (introduced.length === 0) {
-    return resolve20();
+    return resolve18();
   }
   const files = [...new Set(introduced.flatMap((finding2) => finding2.files.map((file2) => file2.path)))];
   onProgress(`${batch.id}: the review of what this batch wrote raised ${introduced.length} new advisory(s) \u2014 spending one polish pass`);
@@ -163124,7 +163145,7 @@ var polishBatchOutput = async ({ tools, batch, baseline, workFindings, standards
   }
   const revived = await tools.remainingSiteKeys({ frozen: workFindings });
   if (revived.length === 0) {
-    return resolve20();
+    return resolve18();
   }
   onProgress(`${batch.id}: the polish pass brought back ${revived.length} site(s) this batch had cleared \u2014 recorded as declined`);
   return tools.finish({ outcome: BatchOutcome.Declined, remainingSiteKeys: revived });
@@ -163188,8 +163209,8 @@ var createSiteChecker = ({ cwd, checkPath, checkAll }) => {
 };
 
 // src/refactor/batch/invokeBatchAgent.ts
-import { mkdir as mkdir34, writeFile as writeFile28 } from "node:fs/promises";
-import { join as join150 } from "node:path";
+import { mkdir as mkdir33, writeFile as writeFile28 } from "node:fs/promises";
+import { join as join152 } from "node:path";
 var invokeBatchAgent = async ({
   cwd,
   runId,
@@ -163206,10 +163227,10 @@ var invokeBatchAgent = async ({
   onProgress,
   recordUsage
 }) => {
-  const agentsDir = join150(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join152(await resolveRunDir({ cwd, runId }), "agents");
   const slug = batch.id.replace(/[:/]/g, "_");
-  const streamPath = join150(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
-  await mkdir34(agentsDir, { recursive: true });
+  const streamPath = join152(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
+  await mkdir33(agentsDir, { recursive: true });
   const outcome = await invokeAgentWithContract({
     driver,
     cwd,
@@ -163222,7 +163243,7 @@ var invokeBatchAgent = async ({
     allowedCommands: config2["agent-commands"],
     onEvent: createEventFileSink({ path: streamPath }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile28(join150(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile28(join152(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   const formatError2 = await runFormatter({ cwd, runId, config: config2, step: batch.id });
@@ -163247,8 +163268,8 @@ var invokeBatchAgent = async ({
 };
 
 // src/refactor/batch/superviseBatch.ts
-import { mkdir as mkdir35, writeFile as writeFile29 } from "node:fs/promises";
-import { join as join151 } from "node:path";
+import { mkdir as mkdir34, writeFile as writeFile29 } from "node:fs/promises";
+import { join as join153 } from "node:path";
 var consultBatchSupervisor = async ({
   cwd,
   runId,
@@ -163259,9 +163280,9 @@ var consultBatchSupervisor = async ({
   gateError,
   attempts
 }) => {
-  const agentsDir = join151(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join153(await resolveRunDir({ cwd, runId }), "agents");
   const slug = batchId.replace(/[:/]/g, "_");
-  await mkdir35(agentsDir, { recursive: true });
+  await mkdir34(agentsDir, { recursive: true });
   return consultSupervisor({
     driver,
     cwd,
@@ -163270,9 +163291,9 @@ var consultBatchSupervisor = async ({
     stepId: batchId,
     errorOutput: gateError,
     attempts,
-    onEvent: createEventFileSink({ path: join151(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
+    onEvent: createEventFileSink({ path: join153(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile29(join151(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile29(join153(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
 };
@@ -163609,7 +163630,8 @@ var initializeRun = async ({
     if ((existing.pipeline ?? "implement") !== "refactor") {
       throw new Error(`run ${existing.runId} belongs to the implement pipeline \u2014 resume it with: lightsout resume --run ${existing.runId}`);
     }
-    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile67(join152(cwd, existing.plan), "utf8"))) };
+    const frozen = join154(await resolveRunDir({ cwd, runId: existing.runId }), "worklist.json");
+    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile66(frozen, "utf8"))) };
   }
   const dirty = await readGitChangedFiles({ cwd });
   if (dirty === void 0) {
@@ -163622,9 +163644,9 @@ ${dirty.map((file2) => `  ${file2}`).join("\n")}`
     );
   }
   const worklist = await buildWorklist({ cwd, config: config2, path, all });
-  const worklistPath = join152(".lightsout", "runs", runId, "worklist.json");
-  const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: "refactor", driver: driver.name, config: config2, baselineDirtyFiles: dirty });
-  await writeFile30(join152(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
+  const worklistPath = join154(await resolveNewRunDir({ cwd, pipeline: PipelineKind.Refactor, runId }), "worklist.json");
+  const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: PipelineKind.Refactor, driver: driver.name, config: config2, baselineDirtyFiles: dirty });
+  await writeFile30(worklistPath, `${JSON.stringify(worklist, void 0, "	")}
 `, "utf8");
   return { manifest, worklist };
 };
@@ -164075,7 +164097,7 @@ var resolveReportTargets = async ({ cwd, name }) => {
   const folder = await planWorkspaceDir({ cwd, name });
   const children = await readdir22(folder, { withFileTypes: true }).catch(() => void 0);
   if (children === void 0) {
-    return { error: `no plan folder named '${name}' under ${await plansDir({ cwd })}` };
+    return { error: `no plan folder named '${name}' under ${folder}` };
   }
   const plans = children.filter((child) => child.isDirectory()).map((child) => formatPlanAddress({ ticketBranch: name, planId: child.name })).filter((address) => parsePlanAddress({ name: address }) !== void 0).sort();
   return parsePlanAddress({ name }) !== void 0 || plans.length === 0 ? { names: [name], ticketFolder: false } : { names: plans, ticketFolder: true };
@@ -164098,7 +164120,7 @@ var toStandardsPackRuleListing = ({ rule, fixtureCounts }) => ({
 var DeclaredConfig = external_exports.object({ timeouts: external_exports.record(external_exports.string(), external_exports.unknown()).optional() }).catchall(external_exports.unknown());
 
 // src/views/common/utils/getRunTitle.ts
-import { basename as basename42, dirname as dirname31 } from "node:path";
+import { basename as basename43, dirname as dirname31 } from "node:path";
 var namedRuleLimit = 3;
 var describeRules = ({ rules }) => {
   const distinct = [...new Set(rules)];
@@ -164107,9 +164129,9 @@ var describeRules = ({ rules }) => {
   return rest > 0 ? `${named} +${rest} more` : named;
 };
 var getRunTitle = ({ plan, worklist }) => {
-  const name = basename42(plan);
+  const name = basename43(plan);
   const stem = name.replace(/\.md$/, "");
-  const folder = basename42(dirname31(plan));
+  const folder = basename43(dirname31(plan));
   const rules = worklist?.kind === PipelineKind.Refactor ? worklist.worklist?.batches.map((batch) => batch.rule) ?? [] : [];
   let title;
   if (worklist?.kind === PipelineKind.Coverage) {
@@ -164134,6 +164156,7 @@ var buildRunListing = ({ manifest, lock, worklist }) => {
     status: manifest.status,
     title: getRunTitle({ plan: manifest.plan, worklist }),
     plan: manifest.plan,
+    planName: manifest.planName,
     createdAt: manifest.createdAt,
     updatedAt: manifest.updatedAt,
     live: live2,
@@ -164148,10 +164171,10 @@ var buildRunListing = ({ manifest, lock, worklist }) => {
 };
 
 // src/views/common/utils/readFrozenWorklist.ts
-import { readFile as readFile68 } from "node:fs/promises";
-import { join as join153 } from "node:path";
+import { readFile as readFile67 } from "node:fs/promises";
+import { join as join155 } from "node:path";
 var readFrozenWorklist = async ({ cwd, manifest }) => {
-  const raw = await readFile68(join153(getRunDir({ cwd, runId: manifest.runId }), "worklist.json"), "utf8").catch(() => void 0);
+  const raw = await readFile67(join155(await resolveRunDir({ cwd, runId: manifest.runId }), "worklist.json"), "utf8").catch(() => void 0);
   let parsed;
   try {
     parsed = raw === void 0 ? void 0 : JSON.parse(raw);
@@ -164174,9 +164197,9 @@ var readRunListing = async ({ cwd, manifest, lock, worklist }) => {
 };
 
 // src/views/listRuns.ts
-var listRuns = async ({ cwd }) => {
+var listRuns = async ({ cwd, ticketBranch }) => {
   const listings = [];
-  for (const runId of await listRunIds({ cwd })) {
+  for (const runId of await listRunIds({ cwd, ticketBranch })) {
     const manifest = await readRunManifest({ cwd, runId }).catch(() => void 0);
     if (manifest === void 0) {
       continue;
@@ -164241,18 +164264,18 @@ var getRunProgress = async ({ cwd, manifest, lock }) => {
 
 // src/views/common/services/StandardsPackBundleCache.ts
 import { readdir as readdir24, stat as stat15 } from "node:fs/promises";
-import { isAbsolute as isAbsolute4, join as join155, sep as sep4 } from "node:path";
+import { isAbsolute as isAbsolute4, join as join157, sep as sep4 } from "node:path";
 
 // src/views/common/utils/readPackFixtures.ts
-import { readdir as readdir23, readFile as readFile69 } from "node:fs/promises";
-import { join as join154 } from "node:path";
+import { readdir as readdir23, readFile as readFile68 } from "node:fs/promises";
+import { join as join156 } from "node:path";
 var listSideFiles = async ({ root, prefix }) => {
   const entries = await readdir23(root, { withFileTypes: true }).catch(() => []);
   const paths = [];
   for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
     const path = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
     if (entry.isDirectory()) {
-      paths.push(...await listSideFiles({ root: join154(root, entry.name), prefix: path }));
+      paths.push(...await listSideFiles({ root: join156(root, entry.name), prefix: path }));
     } else {
       paths.push(path);
     }
@@ -164262,9 +164285,9 @@ var listSideFiles = async ({ root, prefix }) => {
 var readPackFixtures = async ({ fixturesPath }) => {
   const fixtures = [];
   for (const side of [FixtureSide.Pass, FixtureSide.Fail]) {
-    const sideRoot = join154(fixturesPath, side);
+    const sideRoot = join156(fixturesPath, side);
     for (const path of await listSideFiles({ root: sideRoot, prefix: "" })) {
-      const text = await readFile69(join154(sideRoot, ...path.split("/")), "utf8").catch(() => void 0);
+      const text = await readFile68(join156(sideRoot, ...path.split("/")), "utf8").catch(() => void 0);
       if (text !== void 0) {
         fixtures.push({ side, path, text });
       }
@@ -164278,7 +164301,7 @@ var getNewestMtime = async ({ root }) => {
   const entries = await readdir24(root, { withFileTypes: true }).catch(() => []);
   let newest = 0;
   for (const entry of entries) {
-    const path = join155(root, entry.name);
+    const path = join157(root, entry.name);
     const at = entry.isDirectory() ? await getNewestMtime({ root: path }) : await stat15(path).then(
       (stats) => stats.mtimeMs,
       () => 0
@@ -164423,9 +164446,9 @@ var reportCommand = async ({ cwd, flags }) => {
 };
 
 // src/cli/common/implementRun/continueDirectRun.ts
-import { readFile as readFile70 } from "node:fs/promises";
-import { resolve as resolve18 } from "node:path";
-var readFrozenTicket = ({ cwd, manifest }) => readFile70(resolve18(cwd, manifest.plan), "utf8").catch(() => void 0);
+import { readFile as readFile69 } from "node:fs/promises";
+import { resolve as resolve16 } from "node:path";
+var readFrozenTicket = ({ cwd, manifest }) => readFile69(resolve16(cwd, manifest.plan), "utf8").catch(() => void 0);
 var describeUnownedEdits = async ({ workspace, manifest }) => {
   const record3 = manifest.branch === void 0 ? void 0 : await readWorktreeRecord({ cwd: workspace, branch: manifest.branch });
   if (record3?.owner === WorktreeOwner.Implement) {
@@ -164454,7 +164477,7 @@ var commitResumedWork = async ({
     ticketRef,
     // The run directory comes from the checkout the records live in: the two
     // are no longer the same directory once a run builds in a worktree.
-    runDir: getRunDir({ cwd, runId: manifest.runId }),
+    runDir: await resolveRunDir({ cwd, runId: manifest.runId }),
     generated,
     onProgress: createProgressPrinter()
   });
@@ -165072,11 +165095,11 @@ var standardsHealthCommand = async ({ cwd }) => {
 };
 
 // src/cli/standardsValidateCommand.ts
-import { resolve as resolve19 } from "node:path";
+import { resolve as resolve17 } from "node:path";
 var readRequestedPack = async ({ requested, cwd }) => (
   // resolve() leaves an absolute --pack alone, so both forms the flag accepts
   // land here.
-  readStandardsPack({ packPath: requested === void 0 ? resolveDefaultStandardsPack() : resolve19(cwd, requested) })
+  readStandardsPack({ packPath: requested === void 0 ? resolveDefaultStandardsPack() : resolve17(cwd, requested) })
 );
 var standardsValidateCommand = async ({ flags, cwd }) => {
   const requested = getStringFlag({ flags, name: "pack" });
@@ -165101,9 +165124,6 @@ var standardsValidateCommand = async ({ flags, cwd }) => {
   console.log(green(`${pack.name} \u2014 ${checked} checked rule(s) validated, ${judgment} judgment-only rule(s)`));
   return exitCli({ code: 0 });
 };
-
-// src/cli/statusCommand.ts
-import { readdir as readdir25 } from "node:fs/promises";
 
 // src/cli/common/utils/formatClockDuration.ts
 var formatClockDuration = ({ ms }) => {
@@ -165448,7 +165468,7 @@ var isActive = ({ ticket }) => ticket.lane === QueueLane.Building || ticket.lane
 var printBoard = async ({ cwd, listing }) => {
   const board = await readQueueBoard({ cwd, runId: listing.runId });
   if (board === void 0) {
-    console.log(`the queue run has no readable board yet: ${getQueueBoardPath({ cwd, runId: listing.runId })}`);
+    console.log(`the queue run has no readable board yet: ${await getQueueBoardPath({ cwd, runId: listing.runId })}`);
     return;
   }
   const state = toBoardState({ listing });
@@ -165572,7 +165592,7 @@ var watchRunProgress = async ({
 
 // src/cli/statusCommand.ts
 var printRunListing = async ({ cwd }) => {
-  const runIds = await readdir25(getRunsDir({ cwd })).catch(() => []);
+  const runIds = await listRunIds({ cwd });
   if (runIds.length === 0) {
     console.log("no runs found");
     return;
@@ -166037,19 +166057,19 @@ var getStreamText = async ({ stream }) => {
 };
 
 // src/voice/createVoiceMarker.ts
-import { mkdir as mkdir36, writeFile as writeFile31 } from "node:fs/promises";
+import { mkdir as mkdir35, writeFile as writeFile31 } from "node:fs/promises";
 import { dirname as dirname32 } from "node:path";
 
 // src/voice/common/paths/getVoiceMarkerPath.ts
-import { join as join156 } from "node:path";
+import { join as join158 } from "node:path";
 var getVoiceMarkerPath = ({ cwd }) => {
-  return join156(cwd, ".lightsout", "voice-on");
+  return join158(cwd, ".lightsout", "voice-on");
 };
 
 // src/voice/createVoiceMarker.ts
 var createVoiceMarker = async ({ cwd }) => {
   const markerPath = getVoiceMarkerPath({ cwd });
-  await mkdir36(dirname32(markerPath), { recursive: true });
+  await mkdir35(dirname32(markerPath), { recursive: true });
   await writeFile31(markerPath, "", "utf8");
 };
 
@@ -166105,7 +166125,7 @@ var getSpokenPickerText = ({ toolInput }) => {
 };
 
 // src/voice/getSpokenQuestion.ts
-import { readFile as readFile71 } from "node:fs/promises";
+import { readFile as readFile70 } from "node:fs/promises";
 
 // src/voice/common/utils/isQuestionText.ts
 var isQuestionText = ({ text }) => {
@@ -166161,7 +166181,7 @@ var getQuestionTexts = ({ entries }) => {
   return texts;
 };
 var getSpokenQuestion = async ({ transcriptPath }) => {
-  const raw = await readFile71(transcriptPath, "utf8").catch(() => void 0);
+  const raw = await readFile70(transcriptPath, "utf8").catch(() => void 0);
   if (raw === void 0) {
     return void 0;
   }
@@ -166190,16 +166210,16 @@ import { spawn as spawn3 } from "node:child_process";
 import { writeFile as writeFile32 } from "node:fs/promises";
 
 // src/voice/common/paths/getVoicePidPath.ts
-import { join as join157 } from "node:path";
+import { join as join159 } from "node:path";
 var getVoicePidPath = ({ cwd }) => {
-  return join157(cwd, ".lightsout", "voice-pid");
+  return join159(cwd, ".lightsout", "voice-pid");
 };
 
 // src/voice/stopSpeech.ts
-import { readFile as readFile72, rm as rm15 } from "node:fs/promises";
+import { readFile as readFile71, rm as rm15 } from "node:fs/promises";
 var stopSpeech = async ({ cwd }) => {
   const pidPath = getVoicePidPath({ cwd });
-  const raw = await readFile72(pidPath, "utf8").catch(() => void 0);
+  const raw = await readFile71(pidPath, "utf8").catch(() => void 0);
   if (raw === void 0) {
     return;
   }

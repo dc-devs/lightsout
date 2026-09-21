@@ -1,7 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { RunManifest } from '#src/contracts/index.ts';
 import { getRunManifestPath } from '#src/runState/common/paths/getRunManifestPath.ts';
-import { resolveRunId } from '#src/runState/common/paths/resolveRunId.ts';
 
 interface Params {
 	cwd: string;
@@ -9,13 +8,14 @@ interface Params {
 }
 
 /**
- * Load a run's manifest from disk. The id is resolved first, so a run answers
- * to the shortened id its report printed. Validated at the boundary — a
- * manifest that doesn't parse is a hard error, never a guess.
+ * Load a run's manifest from disk. The run's directory is resolved first, so a
+ * run answers to the shortened id its report printed — and the id is not
+ * resolved a second time, since one lookup already answered where the manifest
+ * is. Validated at the boundary — a manifest that doesn't parse is a hard
+ * error, never a guess.
  */
 export const readRunManifest = async ({ cwd, runId }: Params): Promise<RunManifest> => {
-	const resolved = await resolveRunId({ cwd, runId });
-	const raw = await readFile(getRunManifestPath({ cwd, runId: resolved }), 'utf8');
+	const raw = await readFile(await getRunManifestPath({ cwd, runId }), 'utf8');
 
 	return RunManifest.parse(JSON.parse(raw));
 };

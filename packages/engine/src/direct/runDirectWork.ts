@@ -1,18 +1,16 @@
-import { writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { maxCheapFixRetries } from '#src/common/constants/maxCheapFixRetries.ts';
-import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { RunState } from '#src/common/services/RunState.ts';
 import type { AnsweredQuestion } from '#src/common/types/AnsweredQuestion.ts';
 import { describeGateCoordinationStop } from '#src/common/utils/describeGateCoordinationStop.ts';
 import { runPreflightGate } from '#src/common/utils/runPreflightGate.ts';
-import { type LightsoutConfig, PipelineKind, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import { createDirectRun } from '#src/direct/common/utils/createDirectRun.ts';
 import { stopDirectRun } from '#src/direct/common/utils/stopDirectRun.ts';
 import { invokeDirectWorker } from '#src/direct/invokeDirectWorker.ts';
 import { verifyDirectWork } from '#src/direct/verifyDirectWork.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
-import { createRun, getRunDir, withRunLock } from '#src/runState/index.ts';
+import { withRunLock } from '#src/runState/index.ts';
 import { resolveStandards } from '#src/standards/index.ts';
 
 interface Params {
@@ -36,44 +34,6 @@ interface Params {
 	existing?: RunManifest;
 	onProgress?: (message: string) => void;
 }
-
-/** The run this ticket is built in, with the ticket body written beside it as the document the run was built from. */
-const createDirectRun = async ({
-	cwd,
-	runId,
-	ticketBody,
-	ticketRef,
-	driverName,
-	config,
-	willShip,
-}: {
-	cwd: string;
-	runId: string;
-	ticketBody: string;
-	ticketRef: string;
-	driverName: string;
-	config: LightsoutConfig;
-	willShip?: boolean;
-}) => {
-	const ticketPath = join(getRunDir({ cwd, runId }), 'ticket.md');
-	const manifest = await createRun({
-		cwd,
-		runId,
-		plan: ticketPath,
-		pipeline: PipelineKind.Direct,
-		ticketRef,
-		driver: driverName,
-		config,
-		baselineDirtyFiles: await readGitChangedFiles({ cwd }),
-		willShip,
-	});
-
-	// There is no plan file for direct work; the ticket body is the document the
-	// run was built from, so it is what the manifest records.
-	await writeFile(ticketPath, ticketBody.endsWith('\n') ? ticketBody : `${ticketBody}\n`, 'utf8');
-
-	return manifest;
-};
 
 /**
  * End a direct run whose gates never started, because another gate run of this

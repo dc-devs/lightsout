@@ -7,6 +7,7 @@ import { serializeAttachmentManifest } from '#src/common/attachmentManifest/seri
 import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
 import { isDurablePlanAttachmentName } from '#src/plan/common/utils/isDurablePlanAttachmentName.ts';
 import { restorePlanWorkspace } from '#src/plan/restore/restorePlanWorkspace.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
@@ -52,7 +53,7 @@ const setup = ({ attachments, bodies = {}, unreadable = {}, manifestFiles, manif
 		mockGetTicketAttachments.mockResolvedValue(attachments);
 		mockReadTicketAsset.mockResolvedValue({ error: 'unexpected asset read' });
 
-		return { cwd, dir: join(cwd, '.lightsout', 'plans', name) };
+		return { cwd, dir: planWorkspaceFolder({ cwd: cwd, name: name }) };
 	}
 
 	const durable = [...new Set(attachments.filter((title) => isDurablePlanAttachmentName({ name: title })))];
@@ -74,7 +75,7 @@ const setup = ({ attachments, bodies = {}, unreadable = {}, manifestFiles, manif
 		return failure === undefined ? (assetBodies[index] ?? '') : { error: failure };
 	});
 
-	return { cwd, dir: join(cwd, '.lightsout', 'plans', name) };
+	return { cwd, dir: planWorkspaceFolder({ cwd: cwd, name: name }) };
 };
 
 const restore = ({ cwd }: { cwd: string }) => restorePlanWorkspace({ cwd, name, identifier: 'lo-54', settings });
@@ -105,7 +106,7 @@ const setupTitled = ({ assets, planName }: { assets: { title: string; body: stri
 	mockGetTicketAttachments.mockResolvedValue(assets.map(({ title }, index) => ({ id: `att-${index}`, title, url: `https://assets.example/${index}` })));
 	mockReadTicketAsset.mockImplementation(async ({ url }) => assets[Number(url.split('/').at(-1))]?.body ?? '');
 
-	return { cwd, dir: join(cwd, '.lightsout', 'plans', planName) };
+	return { cwd, dir: planWorkspaceFolder({ cwd: cwd, name: planName }) };
 };
 
 const restorePrefixed = ({ cwd, prefix }: { cwd: string; prefix: string }) =>
@@ -130,7 +131,7 @@ describe('restorePlanWorkspace', () => {
 
 		expect(await restore({ cwd })).toStrictEqual({ restored: ['plan.md'] });
 		expect(folderOf({ dir })).toStrictEqual(['plan.md']);
-		expect(readdirSync(join(cwd, '.lightsout', 'plans'))).toStrictEqual([name]);
+		expect(readdirSync(join(cwd, '.lightsout', 'tickets'))).toStrictEqual([name]);
 	});
 
 	test('restores overview.md and the exact phase files declared in its Phases table', async () => {
@@ -189,7 +190,7 @@ describe('restorePlanWorkspace', () => {
 	test('a disk refusal exposes no partial restored folder and returns the filesystem reason', async () => {
 		const { cwd, dir } = setup({ attachments: ['plan.md', 'brainstorm-notes.md'] });
 
-		mkdirSync(join(cwd, '.lightsout', 'plans'), { recursive: true });
+		mkdirSync(join(cwd, '.lightsout', 'tickets', name), { recursive: true });
 		writeFileSync(dir, 'occupied by a file');
 
 		const restored = await restore({ cwd });
@@ -197,7 +198,7 @@ describe('restorePlanWorkspace', () => {
 		expect(restored.restored).toStrictEqual([]);
 		expect(restored.error).toEqual(expect.stringContaining('the restored plan could not be written:'));
 		expect(readFileSync(dir, 'utf8')).toBe('occupied by a file');
-		expect(readdirSync(join(cwd, '.lightsout', 'plans'))).toStrictEqual([name]);
+		expect(readdirSync(join(cwd, '.lightsout', 'tickets'))).toStrictEqual([name]);
 	});
 
 	test('creates no folder when the ticket carries no plan attachment', async () => {

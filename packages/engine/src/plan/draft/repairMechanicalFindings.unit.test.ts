@@ -44,7 +44,7 @@ const noDecisions = (): DecisionsRecord => ({ planName: 'demo', decisions: [] })
 /** One `##` section's body: the lines under its heading, up to the next `##` heading. */
 const sectionOf = ({ text, heading }: { text: string; heading: string }) => {
 	const lines = text.split('\n');
-	const start = lines.findIndex((line) => line === `## ${heading}`);
+	const start = lines.indexOf(`## ${heading}`);
 
 	if (start === -1) {
 		return '';
@@ -59,7 +59,7 @@ const sectionOf = ({ text, heading }: { text: string; heading: string }) => {
 /** The same file with one `##` section removed outright — a section the engine has to compose back. */
 const withoutSection = ({ text, heading }: { text: string; heading: string }) => {
 	const lines = text.split('\n');
-	const start = lines.findIndex((line) => line === `## ${heading}`);
+	const start = lines.indexOf(`## ${heading}`);
 
 	if (start === -1) {
 		return text;
@@ -119,7 +119,7 @@ const setupPhasedDeliverable = ({
 	existing?: string[];
 }) => {
 	const cwd = setupConsumerRepo();
-	const dir = join(cwd, '.lightsout', 'plans', 'demo');
+	const dir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
 
 	mkdirSync(dir, { recursive: true });
 	plant({ cwd, paths: existing });
@@ -151,7 +151,7 @@ const setupPhasedDeliverable = ({
 /** A consumer repo holding a single-file plan — no overview, so the deliverable has no phase table at all. */
 const setupStandalonePlan = ({ body, decisions, existing = [] }: { body: string; decisions: DecisionsRecord; existing?: string[] }) => {
 	const cwd = setupConsumerRepo();
-	const dir = join(cwd, '.lightsout', 'plans', 'demo');
+	const dir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
 
 	mkdirSync(dir, { recursive: true });
 	plant({ cwd, paths: existing });

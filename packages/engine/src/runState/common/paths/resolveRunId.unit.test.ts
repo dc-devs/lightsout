@@ -1,11 +1,12 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { getRunsDir, RunNotFoundError, resolveRunId } from '#src/runState/index.ts';
+import { RunNotFoundError, resolveRunId } from '#src/runState/index.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 interface SetupParams {
-	/** Directory names to create under .lightsout/runs, as a run would leave behind. */
+	/** Run folders to create under the implement command's runs folder, as a run would leave behind. */
 	runIds?: string[];
 	/** Plain files to drop beside them — never runs, whatever they are called. */
 	files?: string[];
@@ -13,7 +14,7 @@ interface SetupParams {
 
 const setupRunsDir = ({ runIds = [], files = [] }: SetupParams = {}) => {
 	const cwd = setupConsumerRepo({ git: false });
-	const runsDir = getRunsDir({ cwd });
+	const runsDir = dirname(runDirFor({ cwd, runId: 'any' }));
 
 	mkdirSync(runsDir, { recursive: true });
 

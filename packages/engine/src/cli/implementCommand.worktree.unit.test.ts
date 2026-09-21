@@ -91,7 +91,7 @@ jest.mock('#src/cli/common/render/printResult.ts', () => ({
 // -------------------------
 
 /** The plan folder every case points `--plan` at, and the branch its name yields. */
-const planFolder = join('.lightsout', 'plans', 'lo-42-add-widgets');
+const planFolder = join('.lightsout', 'tickets', 'lo-42-add-widgets', 'plans');
 const branch = 'lo-42-add-widgets';
 
 /** What the plan says when the run starts. */
@@ -120,26 +120,16 @@ const passedResult = { ok: true, manifest: { runId: 'aaaaaaaa-1111-2222-3333-444
  * which is the loose input a case pointing `--plan` at a plain file names.
  *
  * `fetchFailure` is how a workspace that cannot be resolved becomes observable.
- * The `blocked` switches leave something standing in the workspace where the
- * record link has to be written, which is how that step is made to fail with the
- * real code running.
  */
 const setupImplementWorktree = ({
 	args,
 	fetchFailure,
 	phased = false,
-	blocked,
 }: {
 	args: string[];
 	fetchFailure?: string;
 	/** A plan folder holding an overview.md, so the run is every phase of one plan rather than a single one. */
 	phased?: boolean;
-	/**
-	 * What is left standing in the workspace where the record link has to be
-	 * written: a runs directory of the workspace's own, or a file where the whole
-	 * state directory belongs.
-	 */
-	blocked?: 'own-runs-dir' | 'state-file';
 }) => {
 	const captured = captureCommandOutput();
 	const cwd = setupConsumerRepo({ plan: loosePlanBody });
@@ -153,14 +143,6 @@ const setupImplementWorktree = ({
 
 	if (phased) {
 		writeFileSync(join(cwd, planFolder, 'phase1-add-widgets.md'), planBody);
-	}
-
-	if (blocked === 'own-runs-dir') {
-		mkdirSync(join(workspace, '.lightsout', 'runs'), { recursive: true });
-	}
-
-	if (blocked === 'state-file') {
-		writeFileSync(join(workspace, '.lightsout'), 'a file where the state directory belongs\n');
 	}
 
 	mockFetchDefaultBranch.mockResolvedValue(fetchFailure === undefined ? 'main' : { error: fetchFailure });
@@ -262,28 +244,5 @@ describe('implementCommand worktree isolation', () => {
 
 		expect(mockRunPhasesOrFailFast).toHaveBeenCalledWith(expect.objectContaining({ cwd: workspace, overviewPath: join(planFolder, 'overview.md') }));
 		expect(mockRunPipelineOrFailFast).not.toHaveBeenCalled();
-	});
-
-	test('exits naming the directory standing where the run records have to be linked', async () => {
-		// a real runs directory of the workspace's own would swallow every run
-		// record the launching checkout is supposed to read back
-		const { context, workspace, errors, exitCodes } = setupImplementWorktree({ args: ['--plan', planFolder], blocked: 'own-runs-dir' });
-
-		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
-
-		expect(errors.join('\n')).toContain(join(workspace, '.lightsout', 'runs'));
-		expect(mockRequireImplementLifecycle).not.toHaveBeenCalled();
-		expect(mockRunPipelineOrFailFast).not.toHaveBeenCalled();
-		expect(exitCodes).toStrictEqual([1]);
-	});
-
-	test('exits naming the launching checkout when the record links cannot be made at all', async () => {
-		const { context, cwd, errors, exitCodes } = setupImplementWorktree({ args: ['--plan', planFolder], blocked: 'state-file' });
-
-		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
-
-		expect(errors.join('\n')).toContain(cwd);
-		expect(mockRunPipelineOrFailFast).not.toHaveBeenCalled();
-		expect(exitCodes).toStrictEqual([1]);
 	});
 });

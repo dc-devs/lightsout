@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readLastProgressMessage } from '#src/runState/index.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 const runId = 'run-narrated';
 
@@ -10,10 +11,10 @@ const runId = 'run-narrated';
 const setupProgressLog = ({ body }: { body?: string } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-progress-log-'));
 
-	mkdirSync(join(cwd, '.lightsout', 'runs', runId), { recursive: true });
+	mkdirSync(runDirFor({ cwd, runId }), { recursive: true });
 
 	if (body !== undefined) {
-		writeFileSync(join(cwd, '.lightsout', 'runs', runId, 'progress.jsonl'), body, 'utf8');
+		writeFileSync(join(runDirFor({ cwd, runId }), 'progress.jsonl'), body, 'utf8');
 	}
 
 	return { cwd };

@@ -21,7 +21,7 @@ interface Params {
  * has nothing to plot.
  */
 export const writeRunStandardsBaseline = async ({ cwd, runId, snapshot }: Params): Promise<void> => {
-	const path = getRunStandardsBaselinePath({ cwd, runId });
+	const path = await getRunStandardsBaselinePath({ cwd, runId });
 
 	// The first run to reach clean-slate has no run folder yet.
 	await mkdir(dirname(path), { recursive: true });

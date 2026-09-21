@@ -1,11 +1,14 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { RunStatus } from '#src/contracts/index.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 interface Params {
 	dir: string;
 	runId: string;
 	plan: string;
+	/** The plan the run records itself as belonging to; absent when it belongs to none. */
+	planName?: string;
 	updatedAt?: string;
 	status?: RunStatus;
 	/** Raw file contents, for a manifest that must fail to parse. */
@@ -19,8 +22,8 @@ interface Params {
  * testing (two sequences for one overview, a manifest that no longer parses) are
  * ones the guard itself prevents a second run from producing.
  */
-export const plantSequence = ({ dir, runId, plan, updatedAt, status = RunStatus.Failed, manifestText, pipeline = 'phases' }: Params): void => {
-	const runDir = join(dir, '.lightsout', 'runs', runId);
+export const plantSequence = ({ dir, runId, plan, planName, updatedAt, status = RunStatus.Failed, manifestText, pipeline = 'phases' }: Params): void => {
+	const runDir = runDirFor({ cwd: dir, runId, planName, pipeline });
 
 	mkdirSync(runDir, { recursive: true });
 	writeFileSync(
@@ -31,6 +34,7 @@ export const plantSequence = ({ dir, runId, plan, updatedAt, status = RunStatus.
 				createdAt: '2026-01-01T00:00:00.000Z',
 				updatedAt: updatedAt ?? '2026-01-01T00:00:00.000Z',
 				plan,
+				planName,
 				pipeline,
 				harness: 'stub',
 				status,

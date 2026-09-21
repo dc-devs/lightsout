@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { getRunDir } from '#src/runState/common/paths/getRunDir.ts';
+import { resolveRunDir } from '#src/runState/common/paths/resolveRunDir.ts';
 
 interface Params {
 	cwd: string;
@@ -8,7 +8,7 @@ interface Params {
 
 /**
  * Where one run keeps the deterministic findings from before its first agent
- * edit: `<repo>/.lightsout/runs/<runId>/standards-baseline.json`.
+ * edit: `standards-baseline.json` in the run's own folder.
  *
  * The run's own folder rather than the manifest, which is rewritten on every
  * step and must not carry thousands of findings — and rather than the
@@ -22,6 +22,6 @@ interface Params {
  * and reads past that ledger on purpose — the two records mean opposite things:
  * debt already forgiven, versus the measurement that says which debt is new.
  */
-export const getRunStandardsBaselinePath = ({ cwd, runId }: Params): string => {
-	return join(getRunDir({ cwd, runId }), 'standards-baseline.json');
+export const getRunStandardsBaselinePath = async ({ cwd, runId }: Params): Promise<string> => {
+	return join(await resolveRunDir({ cwd, runId }), 'standards-baseline.json');
 };

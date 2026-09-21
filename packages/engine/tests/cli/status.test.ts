@@ -1,6 +1,8 @@
 import { expect, test } from '@jest/globals';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { runCli } from '#tests/helpers/runCli.ts';
+import { seedConfiguredCwd } from '#tests/helpers/seedConfiguredCwd.ts';
+import { seedRunDir } from '#tests/helpers/seedRunDir.ts';
 import { seedRunFixture } from '#tests/helpers/seedRunFixture.ts';
 
 test('cli: status in a fresh dir reports no runs and exits 0', async () => {
@@ -53,6 +55,31 @@ test('cli: status skips a run whose manifest cannot be read and still lists the 
 	// an unreadable manifest is skipped, never guessed at
 	expect(stdout.includes('corrupt-run')).toBeFalsy();
 	expect(stdout).toMatch(/^run-fixture {2}failed {2}plan: plans\/demo\.md/m);
+	expect(stderr).toBe('');
+	expect(code).toBe(0);
+});
+
+test('cli: status lists runs filed under a ticket and under a command alike', async () => {
+	const cwd = await seedConfiguredCwd();
+	// one run of a plan on a ticket, and two runs belonging to no plan at all:
+	// three different folders on disk, one listing to the reader
+	await seedRunDir({
+		cwd,
+		manifest: { runId: 'run-a-ticket', planName: 'lo-9-add-search/001-indexing', plan: 'plans/add-search/plan.md', updatedAt: '2026-01-01T00:00:00.000Z' },
+	});
+	await seedRunDir({ cwd, manifest: { runId: 'run-b-refactor', pipeline: 'refactor', plan: 'worklist.json', updatedAt: '2026-01-02T00:00:00.000Z' } });
+	await seedRunDir({ cwd, manifest: { runId: 'run-c-coverage', pipeline: 'coverage', plan: 'worklist.json', updatedAt: '2026-01-03T00:00:00.000Z' } });
+
+	const { stdout, stderr, code } = await runCli({ args: ['status', '--cwd', cwd] });
+
+	expect(stdout).toBe(
+		[
+			'run-a-ticket  passed  plan: plans/add-search/plan.md  updated: 2026-01-01T00:00:00.000Z',
+			'run-b-refactor  passed  plan: worklist.json  updated: 2026-01-02T00:00:00.000Z',
+			'run-c-coverage  passed  plan: worklist.json  updated: 2026-01-03T00:00:00.000Z',
+			'',
+		].join('\n'),
+	);
 	expect(stderr).toBe('');
 	expect(code).toBe(0);
 });

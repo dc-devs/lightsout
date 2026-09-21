@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
@@ -31,13 +31,34 @@ const setupBlockedCheckout = () => {
 	return { cwd };
 };
 
+/** A checkout outside any repository whose ticket folder already holds another record of the same ticket. */
+const setupOccupiedTicketFolder = ({ branch = 'lo-131-occupied' }: { branch?: string } = {}) => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-worktree-record-'));
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', branch);
+
+	mkdirSync(ticketFolder, { recursive: true });
+	writeFileSync(join(ticketFolder, 'ship.json'), '{"branch":"lo-131-occupied"}\n');
+
+	return { branch, cwd, ticketFolder, worktreePath: join(cwd, '..', 'repo-worktrees', branch) };
+};
+
+/** A checkout outside any repository where the branch's ownership was already recorded once, by a planning run. */
+const setupRecordedOwner = async ({ branch = 'lo-131-rehomed' }: { branch?: string } = {}) => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-worktree-record-'));
+	const worktreePath = join(cwd, '..', 'repo-worktrees', branch);
+
+	await writeWorktreeRecord({ cwd, branch, owner: WorktreeOwner.Plan, worktreePath });
+
+	return { branch, cwd, ticketFolder: join(cwd, '.lightsout', 'tickets', branch), worktreePath };
+};
+
 describe('writeWorktreeRecord', () => {
-	test('writes a slash-bearing branch to one flat file under the primary checkout', async () => {
+	test('writes a slash-bearing branch to one flat ticket folder under the primary checkout', async () => {
 		const { branch, primary, worktree } = setupLinkedWorktree();
 
 		await writeWorktreeRecord({ cwd: worktree, branch, owner: WorktreeOwner.Implement, worktreePath: worktree });
 
-		expect(readdirSync(join(primary, '.lightsout', 'worktrees'))).toStrictEqual(['feature-lo-7-isolate.json']);
+		expect(readdirSync(join(primary, '.lightsout', 'tickets'))).toStrictEqual(['feature-lo-7-isolate']);
 		expect(existsSync(join(worktree, '.lightsout'))).toBe(false);
 		expect(await readWorktreeRecord({ cwd: worktree, branch })).toEqual(
 			expect.objectContaining({ branch: 'feature/lo-7-isolate', owner: 'implement', worktreePath: worktree }),
@@ -83,5 +104,49 @@ describe('writeWorktreeRecord', () => {
 			worktreePath: worktree,
 			createdAt: adopted?.createdAt,
 		});
+	});
+
+	test("writeWorktreeRecord: writes worktree.json into the branch's ticket folder under the primary checkout", async () => {
+		const { branch, primary, worktree } = setupLinkedWorktree();
+
+		await writeWorktreeRecord({ cwd: worktree, branch, owner: WorktreeOwner.Implement, worktreePath: worktree });
+
+		expect(readdirSync(join(primary, '.lightsout', 'tickets', 'feature-lo-7-isolate'))).toStrictEqual(['worktree.json']);
+		expect(await readWorktreeRecord({ cwd: worktree, branch })).toEqual(
+			expect.objectContaining({ branch: 'feature/lo-7-isolate', owner: 'implement', worktreePath: worktree }),
+		);
+	});
+
+	test("files the record beside the ticket's other records rather than over the folder", async () => {
+		const { branch, cwd, ticketFolder, worktreePath } = setupOccupiedTicketFolder();
+
+		await writeWorktreeRecord({ cwd, branch, owner: WorktreeOwner.Implement, worktreePath });
+
+		expect(readdirSync(ticketFolder).sort()).toStrictEqual(['ship.json', 'worktree.json']);
+		expect(readFileSync(join(ticketFolder, 'ship.json'), 'utf8')).toBe('{"branch":"lo-131-occupied"}\n');
+	});
+
+	test('re-stamps an owner a second write names, leaving no temporary file behind', async () => {
+		const { branch, cwd, ticketFolder, worktreePath } = await setupRecordedOwner();
+
+		await writeWorktreeRecord({ cwd, branch, owner: WorktreeOwner.Implement, worktreePath });
+
+		expect(readdirSync(ticketFolder)).toStrictEqual(['worktree.json']);
+		expect(await readWorktreeRecord({ cwd, branch })).toEqual(expect.objectContaining({ branch: 'lo-131-rehomed', owner: 'implement', worktreePath }));
+	});
+
+	test('swallows a refused write when no progress listener was given, recording nothing', async () => {
+		const { cwd } = setupBlockedCheckout();
+
+		await expect(
+			writeWorktreeRecord({
+				cwd,
+				branch: 'lo-7-isolate',
+				owner: WorktreeOwner.Implement,
+				worktreePath: join(cwd, '..', 'repo-worktrees', 'lo-7-isolate'),
+			}),
+		).resolves.toBe(undefined);
+
+		expect(await readWorktreeRecord({ cwd, branch: 'lo-7-isolate' })).toBe(undefined);
 	});
 });

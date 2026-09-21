@@ -4,6 +4,7 @@ import type { ShippingProgressReading } from '#src/ship/progress/common/types/Sh
 import { getShippingProgressPath } from '#src/ship/progress/common/utils/getShippingProgressPath.ts';
 
 interface Params {
+	/** Any checkout of the repository; the primary is resolved from it. */
 	cwd: string;
 	/** The branch as git names it. */
 	branch: string;
@@ -12,16 +13,16 @@ interface Params {
 const isMissingFile = ({ error }: { error: unknown }) => typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
 
 /**
- * The shipping record filed for a branch in this checkout, with whether a file
- * was there at all. Never throws: a branch that recorded nothing has a normal
- * answer, and a record that cannot be used is reported rather than raised.
+ * The shipping record filed for a branch, with whether a file was there at all.
+ * Never throws: a branch that recorded nothing has a normal answer, and a
+ * record that cannot be used is reported rather than raised.
  *
  * Only a read that fails with `ENOENT` means missing; any other read failure, a
  * body that is not JSON, or one that does not satisfy the contract means the
  * file is there and unreadable.
  */
 export const readShippingProgress = async ({ cwd, branch }: Params): Promise<ShippingProgressReading> => {
-	const path = getShippingProgressPath({ cwd, branch });
+	const path = await getShippingProgressPath({ cwd, branch });
 	let exists = true;
 	let progress: ShippingProgress | undefined;
 

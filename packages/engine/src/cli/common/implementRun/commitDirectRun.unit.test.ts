@@ -5,6 +5,7 @@ import { describe, expect, test } from '@jest/globals';
 import { commitDirectRun } from '#src/cli/common/implementRun/commitDirectRun.ts';
 import { committedPaths } from '#tests/helpers/committedPaths.ts';
 import { headSubject } from '#tests/helpers/headSubject.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 /**
@@ -16,7 +17,7 @@ import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 const setupDirectCommit = ({ dirty = true }: { dirty?: boolean } = {}) => {
 	const { cwd: workspace } = setupBranchRepo(dirty ? { dirty: { 'thing.ts': 'export const thing = 1;\n' } } : {});
 	const records = mkdtempSync(join(tmpdir(), 'lightsout-records-'));
-	const runDir = join(records, '.lightsout', 'runs', 'run-1234-abcd');
+	const runDir = runDirFor({ cwd: records, runId: 'run-1234-abcd' });
 
 	return { workspace, runDir };
 };
@@ -39,7 +40,7 @@ describe('commitDirectRun', () => {
 			message: readFileSync(join(runDir, 'commit-message.txt'), 'utf8'),
 			// The path a run directory derived from the work checkout would have
 			// produced — nothing may be written there.
-			inWorkCheckout: existsSync(join(workspace, '.lightsout', 'runs', 'run-1234-abcd', 'commit-message.txt')),
+			inWorkCheckout: existsSync(join(runDirFor({ cwd: workspace, runId: 'run-1234-abcd' }), 'commit-message.txt')),
 			subject: headSubject({ cwd: workspace }),
 			carried: committedPaths({ cwd: workspace }),
 		}).toStrictEqual({

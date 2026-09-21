@@ -25,6 +25,7 @@ export const buildRunListing = ({ manifest, lock, worklist }: Params): RunListin
 		status: manifest.status,
 		title: getRunTitle({ plan: manifest.plan, worklist }),
 		plan: manifest.plan,
+		planName: manifest.planName,
 		createdAt: manifest.createdAt,
 		updatedAt: manifest.updatedAt,
 		live,

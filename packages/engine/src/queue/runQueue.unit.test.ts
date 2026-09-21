@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { type RunManifest, RunStatus } from '#src/contracts/index.ts';
@@ -13,6 +13,7 @@ import { jiraTrackerSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixt
 import { queueOutcomeFixture as outcomeOf } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { queueTicketFixture as ticketOf } from '#tests/helpers/queueTicketFixture.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupQueueDrain } from '#tests/helpers/setupQueueDrain.ts';
 import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
 
@@ -82,7 +83,7 @@ const setupOpenDrain = ({ env }: { env: NodeJS.ProcessEnv }) => {
 
 /** The one manifest the drain's coordinator run wrote. */
 const readCoordinatorRun = ({ cwd }: { cwd: string }) => {
-	const runsDir = join(cwd, '.lightsout', 'runs');
+	const runsDir = dirname(runDirFor({ cwd, runId: 'any', pipeline: 'queue' }));
 	const runId = readdirSync(runsDir)[0];
 	const manifest = JSON.parse(readFileSync(join(runsDir, runId, 'manifest.json'), 'utf8')) as RunManifest;
 
@@ -143,7 +144,7 @@ describe('runQueue', () => {
 
 		expect(report).toStrictEqual({ outcomes: [], leftBehind: [] });
 		expect(progress).toEqual([expect.stringContaining('nothing to do')]);
-		expect(existsSync(join(cwd, '.lightsout', 'runs'))).toBe(false);
+		expect(existsSync(dirname(runDirFor({ cwd, runId: 'any', pipeline: 'queue' })))).toBe(false);
 	});
 
 	test('still names a worktree the resume scan left behind when there is nothing to drain, so it never vanishes from the summary', async () => {

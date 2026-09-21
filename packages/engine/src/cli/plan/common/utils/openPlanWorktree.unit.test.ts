@@ -29,7 +29,7 @@ jest.mock('#src/cli/plan/common/utils/resolvePlanWorktree.ts', () => ({
 // -------------------------
 
 const name = 'lo-150-planning-gives-no-breakdown';
-const planFolderPath = join('.lightsout', 'plans', name);
+const planFolderPath = join('.lightsout', 'tickets', name, 'plans');
 const planBody = '# Planning observability\n\nthe plan the launching checkout already holds\n';
 const notesBody = '# brainstorm notes\n\nplan data lives in the main checkout\n';
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };

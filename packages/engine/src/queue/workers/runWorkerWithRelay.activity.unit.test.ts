@@ -99,7 +99,7 @@ const manifestOf = ({ status }: { status: RunStatus }): RunManifest => ({
 	runId: 'run-7',
 	createdAt: '2026-01-01T00:00:00.000Z',
 	updatedAt: '2026-01-01T00:00:01.000Z',
-	plan: join('.lightsout', 'plans', branch, 'plan.md'),
+	plan: join('.lightsout', 'tickets', branch, 'plans', 'plan.md'),
 	harness: 'claude-code',
 	status,
 	currentStep: null,
@@ -126,7 +126,7 @@ const manifestOf = ({ status }: { status: RunStatus }): RunManifest => ({
  */
 const setupQueueBuild = ({ phased = false, result }: { phased?: boolean; result: PipelineResult }) => {
 	const worktreePath = mkdtempSync(join(tmpdir(), 'lightsout-queue-activity-'));
-	const planDir = join(worktreePath, '.lightsout', 'plans', branch);
+	const planDir = join(worktreePath, '.lightsout', 'tickets', branch, 'plans');
 
 	mkdirSync(planDir, { recursive: true });
 	writeFileSync(join(planDir, 'plan.md'), '# Plan\n');

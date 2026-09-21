@@ -22,7 +22,7 @@ export const ticketCatalogEntry: CommandCatalogEntry = {
 		{
 			name: 'name',
 			value: '<ticket-branch>',
-			meaning: "The ticket to act on, named by its branch — which is also its folder under .lightsout/plans/, never one plan's address.",
+			meaning: "The ticket to act on, named by its branch — which is also its folder under .lightsout/tickets/, never one plan's address.",
 			required: true,
 		},
 		{

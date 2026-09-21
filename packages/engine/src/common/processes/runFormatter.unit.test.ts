@@ -3,6 +3,7 @@ import { readConfig } from '#src/common/config/readConfig.ts';
 import { runFormatter } from '#src/common/processes/runFormatter.ts';
 import type { GateResult } from '#src/contracts/index.ts';
 import { readCommandLog } from '#tests/helpers/readCommandLog.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const setupFormatter = async ({ format }: { format?: string } = {}) => {
@@ -11,6 +12,10 @@ const setupFormatter = async ({ format }: { format?: string } = {}) => {
 	const onResult = jest.fn<(result: GateResult) => void>();
 	const runId = 'formatter-run';
 	const step = 'verify-implement';
+
+	// The run already has its folder, because `createRun` makes one before a run
+	// starts and the command log is looked up inside it by run id.
+	seedRunFolder({ cwd, runId });
 
 	return { cwd, onResult, args: { cwd, config, runId, step, onResult } };
 };

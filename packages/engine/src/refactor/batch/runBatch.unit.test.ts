@@ -11,6 +11,7 @@ import type { LoadedStandardsPack } from '#src/standardsPacks/index.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { verdict } from '#tests/helpers/verdict.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
@@ -61,6 +62,10 @@ const splitFile = ({ dir, file, first, second }: { dir: string; file: string; fi
  */
 const setupBatch = async ({ answer, packs = [] }: { answer: (params: { pass: number; dir: string }) => string; packs?: LoadedStandardsPack[] }) => {
 	const dir = setupConsumerRepo();
+
+	// The run below already has its folder, because `createRun` makes one before
+	// a run starts and the batch's evidence looks the run up by id.
+	seedRunFolder({ cwd: dir, runId: 'run-01', pipeline: 'refactor' });
 
 	writeSource({ dir, path: 'src/one.ts', source: 'export const alphaOne = 1;\nexport const betaOne = 2;\n' });
 	writeSource({ dir, path: 'src/two.ts', source: 'export const alphaTwo = 1;\nexport const betaTwo = 2;\n' });
@@ -129,6 +134,8 @@ const setupBatch = async ({ answer, packs = [] }: { answer: (params: { pass: num
  */
 const setupRedGateBatch = async ({ ruling, healOnGuidance = false }: { ruling: Record<string, unknown>; healOnGuidance?: boolean }) => {
 	const dir = setupConsumerRepo({ scripts: { test: 'test ! -f BROKEN' } });
+
+	seedRunFolder({ cwd: dir, runId: 'run-01', pipeline: 'refactor' });
 
 	writeSource({ dir, path: 'src/one.ts', source: 'export const alphaOne = 1;\nexport const betaOne = 2;\n' });
 	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm fixture', { cwd: dir });

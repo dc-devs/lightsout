@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { type RunLock, type RunManifest, RunStatus, ShipStatus, type StepRecord } from '#src/contracts/index.ts';
 import { getRunProgress } from '#src/views/index.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 const runId = 'run-progress-01';
 
@@ -77,20 +78,20 @@ const setupProgress = ({
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-run-progress-'));
 
-	mkdirSync(join(cwd, '.lightsout', 'runs', manifest.runId), { recursive: true });
+	mkdirSync(runDirFor({ cwd, runId: manifest.runId }), { recursive: true });
 
 	if (narrated.length > 0) {
 		writeFileSync(
-			join(cwd, '.lightsout', 'runs', manifest.runId, 'progress.jsonl'),
+			join(runDirFor({ cwd, runId: manifest.runId }), 'progress.jsonl'),
 			narrated.map((message) => `${JSON.stringify({ at: '2026-01-01T00:00:00.000Z', message })}\n`).join(''),
 			'utf8',
 		);
 	}
 
 	if (shipResult) {
-		mkdirSync(join(cwd, '.lightsout', 'ship'), { recursive: true });
+		mkdirSync(join(cwd, '.lightsout', 'tickets', shipResult.branch), { recursive: true });
 		writeFileSync(
-			join(cwd, '.lightsout', 'ship', `${shipResult.branch}.json`),
+			join(cwd, '.lightsout', 'tickets', shipResult.branch, 'ship.json'),
 			JSON.stringify({ status: shipResult.status, branch: shipResult.branch, failingChecks: [] }),
 			'utf8',
 		);

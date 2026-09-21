@@ -12,4 +12,4 @@ interface Params {
  * malformed lines are skipped, never guessed at.
  */
 export const readReviewFindings = async ({ cwd }: Params): Promise<ReviewFindingRecord[]> =>
-	readJsonlRecords({ path: getReviewFindingsPath({ cwd }), schema: ReviewFindingRecord });
+	readJsonlRecords({ path: await getReviewFindingsPath({ cwd }), schema: ReviewFindingRecord });

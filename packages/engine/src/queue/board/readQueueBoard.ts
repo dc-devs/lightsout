@@ -14,5 +14,5 @@ interface Params {
  * file is unreadable, or its contents do not satisfy the contract.
  */
 export const readQueueBoard = async ({ cwd, runId }: Params): Promise<QueueBoard | undefined> => {
-	return readJsonFile({ path: getQueueBoardPath({ cwd, runId }), schema: QueueBoard });
+	return readJsonFile({ path: await getQueueBoardPath({ cwd, runId }), schema: QueueBoard });
 };

@@ -50,7 +50,7 @@ const env = { LINEAR_API_KEY: 'lin_key' };
 /** An empty ticket folder in a fresh checkout, with the tracker answering the given attachments. */
 const setupAddPlan = ({ attachments }: { attachments: TrackerAttachment[] | TrackerFailure }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-add-plan-attachments-'));
-	const ticketFolder = join(cwd, '.lightsout', 'plans', ticketBranch);
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
 
 	mkdirSync(ticketFolder, { recursive: true });
 	mockGetTicketAttachments.mockResolvedValue(attachments);
@@ -62,7 +62,7 @@ const setupAddPlan = ({ attachments }: { attachments: TrackerAttachment[] | Trac
 
 	return {
 		recordPath: join(ticketFolder, 'ticket.json'),
-		planFolderOf: ({ planId }: { planId: string }) => join(ticketFolder, planId),
+		planFolderOf: ({ planId }: { planId: string }) => join(ticketFolder, 'plans', planId),
 		params: { cwd, ticketBranch, slug: 'search-basics', config: { gates, 'ticket-tracker': trackerBlock }, env },
 	};
 };

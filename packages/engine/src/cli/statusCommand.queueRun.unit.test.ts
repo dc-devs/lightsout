@@ -5,6 +5,7 @@ import { statusCommand } from '#src/cli/statusCommand.ts';
 import { PipelineKind, type QueueBoard, type QueueBoardTicket, QueueLane, RunStatus } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { seedRunDir } from '#tests/helpers/seedRunDir.ts';
 
 // Nothing is mocked here, the queue run resolver included: every case either
@@ -146,7 +147,7 @@ const setupOtherRun = async ({ readable }: { readable: boolean }) => {
 	if (readable) {
 		await seedRunDir({ cwd, manifest: { runId: otherRunId, pipeline: PipelineKind.Implement } });
 	} else {
-		const runDir = join(cwd, '.lightsout', 'runs', otherRunId);
+		const runDir = runDirFor({ cwd, runId: otherRunId });
 
 		await mkdir(runDir, { recursive: true });
 		await writeFile(join(runDir, 'manifest.json'), 'not a manifest', 'utf8');

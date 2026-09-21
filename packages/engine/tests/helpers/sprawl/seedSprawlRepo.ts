@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 const repoRoot = join(__dirname, '..', '..', '..', '..', '..');
 
@@ -28,7 +29,7 @@ interface Params {
 	commits?: { message: string; at: string; write?: Record<string, string>; remove?: string[] }[];
 	/** Rule-relative path to file body, merged over the defaults above; an explicit `undefined` leaves that rule file off disk. */
 	rules?: Record<string, string | undefined>;
-	/** `.lightsout/runs/<key>/manifest.json` bodies, written as raw text so a malformed manifest can be seeded. */
+	/** Refactor-run manifest bodies by run id, written as raw text under the refactor command's runs folder so a malformed manifest can be seeded. */
 	runs?: Record<string, string>;
 }
 
@@ -89,8 +90,10 @@ export const seedSprawlRepo = ({ commits = [], rules, runs }: Params = {}): stri
 	}
 
 	for (const [id, manifest] of Object.entries(runs ?? {})) {
-		mkdirSync(join(cwd, '.lightsout', 'runs', id), { recursive: true });
-		writeFileSync(join(cwd, '.lightsout', 'runs', id, 'manifest.json'), manifest);
+		const runDir = runDirFor({ cwd, runId: id, pipeline: 'refactor' });
+
+		mkdirSync(runDir, { recursive: true });
+		writeFileSync(join(runDir, 'manifest.json'), manifest);
 	}
 
 	return cwd;

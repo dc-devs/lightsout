@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { readMergedDecisions } from '#src/plan/decisionLog/readMergedDecisions.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 
 // No mocks: the subject reads a plan workspace off disk, so the arrangement is
 // a real temporary folder holding exactly the records each case is about.
@@ -35,7 +36,7 @@ const planRow = {
 const setupWorkspace = ({ decisions, brainstorm }: { decisions?: string; brainstorm?: string } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-merged-decisions-'));
 	const name = 'lo-127-generated-decision-history';
-	const workspaceDir = join(cwd, '.lightsout', 'plans', name);
+	const workspaceDir = planWorkspaceFolder({ cwd: cwd, name: name });
 	const decisionsPath = join(workspaceDir, 'decisions.json');
 
 	mkdirSync(workspaceDir, { recursive: true });

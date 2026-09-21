@@ -5,6 +5,8 @@ import { readConfig } from '#src/common/config/readConfig.ts';
 import { runBatchGates } from '#src/gates/index.ts';
 import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
 import { readGateLog } from '#tests/helpers/readGateLog.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { setupMonorepo } from '#tests/helpers/setupMonorepo.ts';
 
@@ -18,6 +20,12 @@ const setupTouched = async ({ files, git = true }: { files: string[]; git?: bool
 
 	if (!git) {
 		rmSync(join(dir, '.git'), { recursive: true, force: true });
+	}
+
+	// Every run below already has its folder, because `createRun` makes one
+	// before a run starts and the evidence paths look the run up by id.
+	for (const runId of ['run-1', 'run-evidence']) {
+		seedRunFolder({ cwd: dir, runId });
 	}
 
 	return { dir, config: await readConfig({ cwd: dir }), gates: () => readGateLog({ dir }) };
@@ -42,6 +50,12 @@ const setupConfiguredPackagesDir = async ({ packagesDir, packageCheck }: { packa
 	mkdirSync(join(dir, packagesDir, 'api', 'src'), { recursive: true });
 	writeFileSync(join(dir, packagesDir, 'api', 'package.json'), JSON.stringify({ name: '@acme/api' }));
 	writeFileSync(join(dir, packagesDir, 'api', 'src/added.js'), 'export const written = 1;\n');
+
+	// Every run below already has its folder, because `createRun` makes one
+	// before a run starts and the evidence paths look the run up by id.
+	for (const runId of ['run-1', 'run-evidence']) {
+		seedRunFolder({ cwd: dir, runId });
+	}
 
 	return { dir, config: await readConfig({ cwd: dir }), gates: () => readGateLog({ dir }) };
 };
@@ -95,7 +109,7 @@ describe('runBatchGates', () => {
 
 		await runBatchGates({ cwd: dir, config, coverage: false, runId: 'run-evidence', step: 'batch-07:api', onProgress: () => undefined });
 
-		const log = readFileSync(join(dir, '.lightsout', 'runs', 'run-evidence', 'commands.jsonl'), 'utf8');
+		const log = readFileSync(join(runDirFor({ cwd: dir, runId: 'run-evidence' }), 'commands.jsonl'), 'utf8');
 
 		// a gate that leaves no evidence is indistinguishable from one that never ran
 		expect(log).toContain('"step":"batch-07:api"');

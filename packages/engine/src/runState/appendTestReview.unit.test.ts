@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { appendTestReview } from '#src/runState/index.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 interface SetupParams {
@@ -12,10 +13,13 @@ interface SetupParams {
 const setupJournal = ({ priorLine }: SetupParams = {}) => {
 	const cwd = setupConsumerRepo({ git: false });
 	const runId = 'run-test-review';
-	const journalPath = join(cwd, '.lightsout', 'runs', runId, 'test-reviews.jsonl');
+	const journalPath = join(runDirFor({ cwd, runId }), 'test-reviews.jsonl');
+
+	// The journal goes in the run's own folder, which is looked up by id — so the
+	// folder has to be on disk before anything can be appended to it.
+	mkdirSync(dirname(journalPath), { recursive: true });
 
 	if (priorLine) {
-		mkdirSync(dirname(journalPath), { recursive: true });
 		writeFileSync(journalPath, `${JSON.stringify(priorLine)}\n`, 'utf8');
 	}
 

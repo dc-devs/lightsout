@@ -7,6 +7,7 @@ import { serializeAttachmentManifest } from '#src/common/attachmentManifest/seri
 import { type LightsoutConfig, PlanProgress, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
 import { syncTicketRecord, TicketSyncKeep } from '#src/ticket/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
 // Mocked Imports
@@ -131,7 +132,7 @@ const localText = canonicalText({ record: localRecord });
  */
 const setupRecordSync = ({ published, localOnDisk = true }: { published?: TicketRecord; localOnDisk?: boolean } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-keep-published-'));
-	const ticketFolder = join(cwd, '.lightsout', 'plans', ticketBranch);
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
 
 	mkdirSync(ticketFolder, { recursive: true });
 
@@ -170,19 +171,19 @@ const setupDivergentPlan = ({
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-keep-published-'));
 	const worktree = mkdtempSync(join(tmpdir(), 'lightsout-keep-published-tree-'));
-	const ticketFolder = join(cwd, '.lightsout', 'plans', ticketBranch);
-	const worktreeTicketFolder = join(worktree, '.lightsout', 'plans', ticketBranch);
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
+	const worktreeTicketFolder = planWorkspaceFolder({ cwd: worktree, name: ticketBranch });
 	const published = recordOf({ plans: [planOf({ publishedMarker: recordedMarker })] });
 	const local = recordOf({ plans: [planOf({ publishedMarker: 'b'.repeat(64) })] });
 
-	mkdirSync(join(ticketFolder, planId), { recursive: true });
-	writeFileSync(join(ticketFolder, planId, 'plan.md'), 'local work\n');
+	mkdirSync(join(ticketFolder, 'plans', planId), { recursive: true });
+	writeFileSync(join(ticketFolder, 'plans', planId, 'plan.md'), 'local work\n');
 	writeFileSync(join(ticketFolder, 'ticket.json'), canonicalText({ record: local }));
 	writeFileSync(join(ticketFolder, 'ticket-sync.json'), `${JSON.stringify({ schemaVersion: 1, planMarkers: {} })}\n`);
 
 	if (asideCopy) {
-		mkdirSync(join(ticketFolder, `${planId}.local-1`), { recursive: true });
-		writeFileSync(join(ticketFolder, `${planId}.local-1`, 'plan.md'), 'earlier aside\n');
+		mkdirSync(join(ticketFolder, 'plans', `${planId}.local-1`), { recursive: true });
+		writeFileSync(join(ticketFolder, 'plans', `${planId}.local-1`, 'plan.md'), 'earlier aside\n');
 	}
 
 	if (worktreeHoldsPlan) {
@@ -200,6 +201,35 @@ const setupDivergentPlan = ({
 	});
 
 	return { cwd, ticketFolder, worktreeTicketFolder, published };
+};
+
+/**
+ * The same divergent-plan case, laid out the way the ticket folder now files it:
+ * the ticket's record files at `.lightsout/tickets/<branch>/`, and every plan of
+ * that ticket one level down in its `plans/` folder.
+ */
+const setupDivergentPlanInTicketFolder = () => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-keep-published-tickets-'));
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
+	const plansFolder = join(ticketFolder, 'plans');
+	const published = recordOf({ plans: [planOf({ publishedMarker: planMarkerSha256 })] });
+	const local = recordOf({ plans: [planOf({ publishedMarker: 'b'.repeat(64) })] });
+
+	mkdirSync(join(plansFolder, planId), { recursive: true });
+	writeFileSync(join(plansFolder, planId, 'plan.md'), 'local work\n');
+	writeFileSync(join(ticketFolder, 'ticket.json'), canonicalText({ record: local }));
+	writeFileSync(join(ticketFolder, 'ticket-sync.json'), `${JSON.stringify({ schemaVersion: 1, planMarkers: {} })}\n`);
+
+	mockResolveWorktreePath.mockResolvedValue(join(cwd, 'no-such-worktree'));
+	trackerCarries({
+		bodies: {
+			'ticket.json': canonicalText({ record: published }),
+			[`${planId}--plan.md`]: planBody,
+			[`${planId}--plan-attachments.json`]: planMarkerText,
+		},
+	});
+
+	return { cwd, ticketFolder, plansFolder, published };
 };
 
 describe('syncTicketRecord', () => {
@@ -225,10 +255,10 @@ describe('syncTicketRecord', () => {
 		const result = await syncTicketRecord({ cwd, ticketBranch, config, env, keep: TicketSyncKeep.Published });
 
 		expect(result).toStrictEqual({ record: published });
-		expect(folderOf({ dir: ticketFolder })).toStrictEqual([planId, `${planId}.local-1`, `${planId}.local-2`, 'ticket-sync.json', 'ticket.json']);
-		expect(readFileSync(join(ticketFolder, planId, 'plan.md'), 'utf8')).toBe(planBody);
-		expect(readFileSync(join(ticketFolder, `${planId}.local-2`, 'plan.md'), 'utf8')).toBe('local work\n');
-		expect(readFileSync(join(ticketFolder, `${planId}.local-1`, 'plan.md'), 'utf8')).toBe('earlier aside\n');
+		expect(folderOf({ dir: join(ticketFolder, 'plans') })).toStrictEqual([planId, `${planId}.local-1`, `${planId}.local-2`]);
+		expect(readFileSync(join(ticketFolder, 'plans', planId, 'plan.md'), 'utf8')).toBe(planBody);
+		expect(readFileSync(join(ticketFolder, 'plans', `${planId}.local-2`, 'plan.md'), 'utf8')).toBe('local work\n');
+		expect(readFileSync(join(ticketFolder, 'plans', `${planId}.local-1`, 'plan.md'), 'utf8')).toBe('earlier aside\n');
 		expect(readSidecar({ ticketFolder })).toStrictEqual({
 			schemaVersion: 1,
 			recordSha256: sha256Of({ text: canonicalText({ record: published }) }),
@@ -242,8 +272,8 @@ describe('syncTicketRecord', () => {
 		const result = await syncTicketRecord({ cwd, ticketBranch, config, env, keep: TicketSyncKeep.Published });
 
 		expect(result).toEqual({ error: expect.stringContaining(planId) });
-		expect(folderOf({ dir: ticketFolder })).toStrictEqual([planId, 'ticket-sync.json', 'ticket.json']);
-		expect(readFileSync(join(ticketFolder, planId, 'plan.md'), 'utf8')).toBe('local work\n');
+		expect(folderOf({ dir: join(ticketFolder, 'plans') })).toStrictEqual([planId]);
+		expect(readFileSync(join(ticketFolder, 'plans', planId, 'plan.md'), 'utf8')).toBe('local work\n');
 	});
 
 	test("syncTicketRecord: keeping the published copy acts on the primary checkout's copy and leaves a worktree's own alone", async () => {
@@ -253,9 +283,9 @@ describe('syncTicketRecord', () => {
 
 		// a plan folder lives in the primary checkout, so that is the copy the sync
 		// acts on: the divergent one is set aside and the published one restored
-		expect(folderOf({ dir: ticketFolder })).toStrictEqual([planId, `${planId}.local-1`, 'ticket-sync.json', 'ticket.json']);
-		expect(readFileSync(join(ticketFolder, planId, 'plan.md'), 'utf8')).toBe(planBody);
-		expect(readFileSync(join(ticketFolder, `${planId}.local-1`, 'plan.md'), 'utf8')).toBe('local work\n');
+		expect(folderOf({ dir: join(ticketFolder, 'plans') })).toStrictEqual([planId, `${planId}.local-1`]);
+		expect(readFileSync(join(ticketFolder, 'plans', planId, 'plan.md'), 'utf8')).toBe(planBody);
+		expect(readFileSync(join(ticketFolder, 'plans', `${planId}.local-1`, 'plan.md'), 'utf8')).toBe('local work\n');
 		// a directory a worktree happens to hold is nobody's plan folder, so it is
 		// neither read nor moved
 		expect(folderOf({ dir: worktreeTicketFolder })).toStrictEqual([planId]);
@@ -285,8 +315,8 @@ describe('syncTicketRecord', () => {
 		expect(result).toStrictEqual({ error: expect.stringContaining('plan.md') });
 		// The record was kept before the plan was reached, and the local folder was
 		// set aside rather than removed, so nothing the machine held is gone.
-		expect(folderOf({ dir: ticketFolder })).toStrictEqual([`${planId}.local-1`, 'ticket-sync.json', 'ticket.json']);
-		expect(readFileSync(join(ticketFolder, `${planId}.local-1`, 'plan.md'), 'utf8')).toBe('local work\n');
+		expect(folderOf({ dir: join(ticketFolder, 'plans') })).toStrictEqual([`${planId}.local-1`]);
+		expect(readFileSync(join(ticketFolder, 'plans', `${planId}.local-1`, 'plan.md'), 'utf8')).toBe('local work\n');
 	});
 
 	test('syncTicketRecord: keeping the published copy refuses when the ticket carries no ticket.json', async () => {
@@ -300,5 +330,21 @@ describe('syncTicketRecord', () => {
 		expect(result).toEqual({ error: expect.stringMatching(/lo-140/iu) });
 		expect(readFileSync(join(ticketFolder, 'ticket.json'), 'utf8')).toBe(localText);
 		expect(readSidecar({ ticketFolder })).toStrictEqual({ schemaVersion: 1, recordSha256: sha256Of({ text: localText }), planMarkers: {} });
+	});
+
+	test("syncTicketRecord: a kept-published sync sets the local plan aside inside the ticket's plans folder", async () => {
+		const { cwd, ticketFolder, plansFolder, published } = setupDivergentPlanInTicketFolder();
+
+		const result = await syncTicketRecord({ cwd, ticketBranch, config, env, keep: TicketSyncKeep.Published });
+
+		expect(result).toStrictEqual({ record: published });
+		// the set-aside copy and the restored plan are siblings inside plans/,
+		// which is the only folder the numbering ever looks at
+		expect(folderOf({ dir: plansFolder })).toStrictEqual([planId, `${planId}.local-1`]);
+		expect(readFileSync(join(plansFolder, planId, 'plan.md'), 'utf8')).toBe(planBody);
+		expect(readFileSync(join(plansFolder, `${planId}.local-1`, 'plan.md'), 'utf8')).toBe('local work\n');
+		// the ticket's own record files sit one level up, so no copy of a plan can
+		// land beside them and none of them is an entry the set-aside considered
+		expect(folderOf({ dir: ticketFolder })).toStrictEqual(['plans', 'ticket-sync.json', 'ticket.json']);
 	});
 });

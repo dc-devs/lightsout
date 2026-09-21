@@ -24,7 +24,7 @@ export const planCatalogEntry: CommandCatalogEntry = {
 		{
 			name: 'name',
 			value: '<name>',
-			meaning: 'The plan to work in, under .lightsout/plans/ — a plan address <ticket-branch>/<NNN-slug>, or a legacy folder name.',
+			meaning: 'The plan to work in, under .lightsout/tickets/<ticket-branch>/plans/ — a plan address <ticket-branch>/<NNN-slug>, or a legacy folder name.',
 			required: true,
 		},
 		{

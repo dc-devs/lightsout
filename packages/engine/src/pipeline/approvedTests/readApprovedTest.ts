@@ -30,7 +30,7 @@ export const readApprovedTest = async ({ run, path }: Params): Promise<string | 
 	}
 
 	if (record?.sha256 !== undefined) {
-		return readFile(approvedTestPath({ cwd: run.cwd, runId, path }), 'utf8').catch(() => undefined);
+		return readFile(await approvedTestPath({ cwd: run.cwd, runId, path }), 'utf8').catch(() => undefined);
 	}
 
 	return readGitCommittedFile({ cwd: run.cwd, path });

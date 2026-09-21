@@ -1,11 +1,10 @@
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
-import { resolveSharedStateDir } from '#src/common/workspace/resolveSharedStateDir.ts';
+import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
 import { type LightsoutConfig, PlanProgress, type TicketRecord } from '#src/contracts/index.ts';
 import { publishPlan } from '#src/plan/index.ts';
 import { ticketFileNames } from '#src/ticket/common/constants/ticketFileNames.ts';
 import type { TicketTrackerTarget } from '#src/ticket/common/types/TicketTrackerTarget.ts';
 import { findPlanPublishRefusal } from '#src/ticket/common/utils/findPlanPublishRefusal.ts';
-import { getTicketFolderPath } from '#src/ticket/common/utils/getTicketFolderPath.ts';
 import { publishBrainstormWhenNotesChanged } from '#src/ticket/common/utils/publishBrainstormWhenNotesChanged.ts';
 import { readTicketSyncState } from '#src/ticket/common/utils/readTicketSyncState.ts';
 import { recordTicketSyncState } from '#src/ticket/common/utils/recordTicketSyncState.ts';
@@ -57,25 +56,12 @@ const recordPublishedPlan =
 	};
 
 /** Remember the generation this machine has just published, only once the record itself carries it. */
-const recordMarkerLocally = async ({
-	cwd,
-	ticketBranch,
-	planId,
-	markerSha256,
-}: {
-	cwd: string;
-	ticketBranch: string;
-	planId: string;
-	markerSha256: string;
-}) => {
-	const stateDir = await resolveSharedStateDir({ cwd });
-
-	return recordTicketSyncState({
-		ticketFolder: getTicketFolderPath({ stateDir, ticketBranch }),
+const recordMarkerLocally = async ({ cwd, ticketBranch, planId, markerSha256 }: { cwd: string; ticketBranch: string; planId: string; markerSha256: string }) =>
+	recordTicketSyncState({
+		ticketFolder: await ticketFolderDir({ cwd, ticketBranch }),
 		planMarkers: { [planId]: markerSha256 },
 		failure: `plan ${planId} was published, but this machine could not record which generation it sent`,
 	});
-};
 
 /**
  * Put the new generation in the ticket record and in this machine's sidecar,
@@ -214,8 +200,7 @@ export const publishTicketPlan = async ({ cwd, address, config, env, onProgress 
 		return { ticketRef: target.ticketRef, published: [], stale: [], error: pulled.error };
 	}
 
-	const stateDir = await resolveSharedStateDir({ cwd });
-	const syncState = await readTicketSyncState({ ticketFolder: getTicketFolderPath({ stateDir, ticketBranch }) });
+	const syncState = await readTicketSyncState({ ticketFolder: await ticketFolderDir({ cwd, ticketBranch }) });
 	const refusal = await findPlanPublishRefusal({ cwd, address, planId, ticketBranch, record: pulled.record, syncState });
 
 	if (refusal !== undefined) {

@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { writeJestReporter } from '#src/gates/testResults/writeJestReporter.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 const runId = 'run-1';
 const stale = '// a reporter an earlier engine wrote\n';
@@ -15,7 +16,7 @@ const stale = '// a reporter an earlier engine wrote\n';
  */
 const setupStaleReporter = () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-jest-reporter-'));
-	const runDir = join(cwd, '.lightsout', 'runs', runId);
+	const runDir = runDirFor({ cwd, runId });
 
 	mkdirSync(runDir, { recursive: true });
 	writeFileSync(join(runDir, 'jest-reporter.cjs'), stale);

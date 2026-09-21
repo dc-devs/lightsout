@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { writeEmptyDecisions } from '#tests/helpers/writeEmptyDecisions.ts';
 
 interface Params {
@@ -12,11 +13,11 @@ interface Params {
 
 /**
  * Write a phased plan deliverable — an overview plus its phase files, and the
- * empty decision record beside them — into `<cwd>/.lightsout/plans/<name>/` and
+ * empty decision record beside them — into `<cwd>/.lightsout/tickets/<name>/plans/` and
  * return the plan's folder.
  */
 export const writePhasedPlanDeliverable = ({ cwd, name, files }: Params): string => {
-	const dir = join(cwd, '.lightsout', 'plans', name);
+	const dir = planWorkspaceFolder({ cwd: cwd, name: name });
 
 	mkdirSync(dir, { recursive: true });
 

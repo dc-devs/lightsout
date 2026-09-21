@@ -5,8 +5,9 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { serializeAttachmentManifest } from '#src/common/attachmentManifest/serializeAttachmentManifest.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import { type LightsoutConfig, PlanProgress, TicketEventKind, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
-import { publishTicketPlan, updateLocalTicketRecord } from '#src/ticket/index.ts';
+import { publishTicketPlan } from '#src/ticket/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import { canonicalTicketRecordText } from '#tests/helpers/canonicalTicketRecordText.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
 // Mocked Imports
@@ -72,19 +73,6 @@ const ticketRecordOf = ({ progress = PlanProgress.Planning, title = 'The ship gu
 	history: [{ at: '2026-01-01T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: `added plan ${planId}` }],
 });
 
-/**
- * The bytes the store itself writes for a record, taken from the store in a
- * throwaway checkout rather than restated here: the sidecar hash a row plants
- * has to be the exact byte form a real machine would have recorded.
- */
-const canonicalTextOf = async ({ record }: { record: TicketRecord }) => {
-	const scratch = mkdtempSync(join(tmpdir(), 'lightsout-publish-plan-bytes-'));
-
-	await updateLocalTicketRecord({ cwd: scratch, ticketBranch, change: () => record });
-
-	return readFileSync(join(scratch, '.lightsout', 'plans', ticketBranch, 'ticket.json'), 'utf8');
-};
-
 const setupTicketPlan = async ({
 	progress = PlanProgress.Planning,
 	brainstormPublished = false,
@@ -110,8 +98,8 @@ const setupTicketPlan = async ({
 	onAttach?: (params: { title: string; assets: Map<string, string> }) => void;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-publish-ticket-plan-'));
-	const ticketFolder = join(cwd, '.lightsout', 'plans', ticketBranch);
-	const planFolder = join(ticketFolder, planId);
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
+	const planFolder = join(ticketFolder, 'plans', planId);
 	const syncPath = join(ticketFolder, 'ticket-sync.json');
 	const progressLines: string[] = [];
 	const assets = new Map<string, string>();
@@ -132,7 +120,7 @@ const setupTicketPlan = async ({
 	}
 
 	if (sidecarOf !== undefined) {
-		const recordSha256 = sha256({ content: await canonicalTextOf({ record: sidecarOf }) });
+		const recordSha256 = sha256({ content: await canonicalTicketRecordText({ record: sidecarOf }) });
 
 		writeFileSync(syncPath, `${JSON.stringify({ planMarkers: {}, recordSha256, schemaVersion: 1 }, undefined, '\t')}\n`);
 	}
@@ -173,6 +161,23 @@ const setupTicketPlan = async ({
 	};
 };
 
+/**
+ * The ordinary publish — which `setupTicketPlan` already arranges under
+ * `tickets/<branch>/` — with a pre-layout copy of the same plan left beside it,
+ * carrying different plan text and a different plan title. What lands on the
+ * ticket therefore says which of the two folders was read.
+ */
+const setupTicketFolderPlan = async () => {
+	const base = await setupTicketPlan();
+	const preLayoutFolder = join(base.params.cwd, '.lightsout', 'plans', ticketBranch);
+
+	mkdirSync(join(preLayoutFolder, planId), { recursive: true });
+	writeFileSync(join(preLayoutFolder, planId, 'plan.md'), '# The pre-layout copy\n');
+	writeFileSync(join(preLayoutFolder, 'ticket.json'), JSON.stringify(ticketRecordOf({ title: 'The pre-layout copy' })));
+
+	return base;
+};
+
 /** Every attachment title the tracker was asked to write, in the order it was asked. */
 const attachedTitles = () => mockSetTicketAttachment.mock.calls.map(([call]) => call.title);
 
@@ -185,6 +190,13 @@ const publishedPlanOf = ({ assets }: { assets: Map<string, string> }) => {
 	const plan = record?.plans.find((entry) => entry.id === planId);
 
 	return { progress: plan?.progress, publishedMarker: plan?.publishedMarker };
+};
+
+/** The plan's title as the ticket's published `ticket.json` describes it — which says which record on disk was read. */
+const publishedPlanTitleOf = ({ assets }: { assets: Map<string, string> }) => {
+	const record = JSON.parse(assets.get('ticket.json') ?? 'null') as TicketRecord | null;
+
+	return record?.plans.find((entry) => entry.id === planId)?.title;
 };
 
 /** The marker hash the sidecar holds for this plan, or undefined when it holds none. */
@@ -380,6 +392,30 @@ describe('publishTicketPlan', () => {
 			error: undefined,
 			recordError: expect.stringContaining('the tracker refused the ticket.json attachment'),
 			attached: [...planTitles, 'ticket.json'],
+		});
+	});
+
+	test("publishTicketPlan: the plan is published out of the ticket's plans folder", async () => {
+		const { params, assets, syncPath } = await setupTicketFolderPlan();
+
+		const report = await publishTicketPlan(params);
+
+		expect({
+			published: report.published,
+			error: report.error,
+			recordError: report.recordError,
+			planText: assets.get(`${planId}--plan.md`),
+			publishedPlan: publishedPlanOf({ assets }),
+			publishedTitle: publishedPlanTitleOf({ assets }),
+			sidecarMarker: sidecarMarkerOf({ syncPath }),
+		}).toStrictEqual({
+			published: [...brainstormTitles, ...planTitles, 'ticket.json'],
+			error: undefined,
+			recordError: undefined,
+			planText: planBody,
+			publishedPlan: { progress: 'ready', publishedMarker: markerHashOf({ assets }) },
+			publishedTitle: 'The ship guard',
+			sidecarMarker: markerHashOf({ assets }),
 		});
 	});
 });

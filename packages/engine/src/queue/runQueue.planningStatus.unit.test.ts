@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
@@ -10,6 +10,7 @@ import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { TrackerFailure, TrackerSettings } from '#src/ticketTracker/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { setupQueueDrain } from '#tests/helpers/setupQueueDrain.ts';
 
@@ -101,7 +102,7 @@ const pickedUp = () => mockRunQueueTicket.mock.calls.map((call) => call[0].ticke
 
 /** The `queue.md` the one coordinator run wrote — one line per ticket any wave picked up. */
 const readQueuePlan = ({ cwd }: { cwd: string }) => {
-	const runsDir = join(cwd, '.lightsout', 'runs');
+	const runsDir = dirname(runDirFor({ cwd, runId: 'any', pipeline: 'queue' }));
 	const runId = readdirSync(runsDir)[0];
 
 	return readFileSync(join(runsDir, runId, 'queue.md'), 'utf8');
@@ -183,6 +184,6 @@ describe('runQueue', () => {
 
 		expect(report).toStrictEqual({ outcomes: [], leftBehind: [] });
 		expect(progress).toEqual([expect.stringContaining('nothing to do')]);
-		expect(existsSync(join(cwd, '.lightsout', 'runs'))).toBe(false);
+		expect(existsSync(dirname(runDirFor({ cwd, runId: 'any', pipeline: 'queue' })))).toBe(false);
 	});
 });

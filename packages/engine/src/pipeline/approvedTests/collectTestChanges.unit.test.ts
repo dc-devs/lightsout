@@ -8,6 +8,7 @@ import type { ApprovedTestRecord, LightsoutConfig, RunManifest } from '#src/cont
 import { approvedTestPath } from '#src/pipeline/approvedTests/approvedTestPath.ts';
 import { collectTestChanges } from '#src/pipeline/approvedTests/collectTestChanges.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 
 // The checkpoint's change bundle: which paths are candidates, which of them
@@ -30,9 +31,13 @@ interface Fixture {
 	config?: Partial<LightsoutConfig>;
 }
 
-/** A PipelineRun stub over a real git repo, with the approved copies already on disk. */
-const setupChangeRun = ({ committed = {}, live = {}, approved = {}, changedFiles = [], config = {} }: Fixture = {}) => {
+/** A PipelineRun stub over a real git repo, with the run's own folder and the approved copies already on disk. */
+const setupChangeRun = async ({ committed = {}, live = {}, approved = {}, changedFiles = [], config = {} }: Fixture = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-test-changes-'));
+
+	// The approved copies live in the run's own folder, which is looked up by id
+	// — so the folder has to be there before a copy can be filed in it.
+	mkdirSync(runDirFor({ cwd, runId }), { recursive: true });
 
 	for (const [path, content] of Object.entries(committed)) {
 		writeRepoFile({ cwd, path, content });
@@ -48,18 +53,21 @@ const setupChangeRun = ({ committed = {}, live = {}, approved = {}, changedFiles
 		}
 	}
 
-	const approvedTests: ApprovedTestRecord[] = Object.entries(approved).map(([path, content]) => {
+	const approvedTests: ApprovedTestRecord[] = [];
+
+	for (const [path, content] of Object.entries(approved)) {
 		if (content === null) {
-			return { path, removed: true };
+			approvedTests.push({ path, removed: true });
+
+			continue;
 		}
 
-		const copy = approvedTestPath({ cwd, runId, path });
+		const copy = await approvedTestPath({ cwd, runId, path });
 
 		mkdirSync(dirname(copy), { recursive: true });
 		writeFileSync(copy, content);
-
-		return { path, sha256: sha256({ content }), removed: false };
-	});
+		approvedTests.push({ path, sha256: sha256({ content }), removed: false });
+	}
 
 	const run = {
 		cwd,
@@ -71,7 +79,7 @@ const setupChangeRun = ({ committed = {}, live = {}, approved = {}, changedFiles
 };
 
 test('collectTestChanges: a test-side file matching its approved version is not bundled', async () => {
-	const { run } = setupChangeRun({
+	const { run } = await setupChangeRun({
 		committed: {
 			'src/untouched.unit.test.ts': "test('untouched: one', () => {});\n",
 			'src/approved.unit.test.ts': "test('approved: one', () => {});\n",
@@ -90,7 +98,7 @@ test('collectTestChanges: a test-side file matching its approved version is not 
 });
 
 test('collectTestChanges: added, modified and removed files are bundled under their kinds, each carrying a diff', async () => {
-	const { run } = setupChangeRun({
+	const { run } = await setupChangeRun({
 		committed: {
 			'src/modified.unit.test.ts': "test('modified case, first', () => {});\n",
 			'src/removed.unit.test.ts': "test('removed case', () => {});\n",
@@ -116,7 +124,7 @@ test('collectTestChanges: added, modified and removed files are bundled under th
 });
 
 test('collectTestChanges: a changed source file is never bundled, however the run changed it', async () => {
-	const { run } = setupChangeRun({
+	const { run } = await setupChangeRun({
 		committed: {
 			'src/widget.ts': 'export const widget = 1;\n',
 			'src/widget.unit.test.ts': "test('widget: one', () => {});\n",
@@ -137,7 +145,7 @@ test('collectTestChanges: a changed source file is never bundled, however the ru
 });
 
 test('collectTestChanges: a path under a generated or vendored prefix is never bundled', async () => {
-	const { run } = setupChangeRun({
+	const { run } = await setupChangeRun({
 		config: { generated: ['plugin/dist/'], vendored: ['vendor/'] },
 		committed: {
 			'plugin/dist/tests/rule.unit.test.ts': "test('generated rule: one', () => {});\n",

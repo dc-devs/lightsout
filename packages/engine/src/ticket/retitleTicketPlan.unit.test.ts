@@ -47,12 +47,12 @@ const seededRecord: TicketRecord = {
  */
 const setupTicketPlans = async () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-retitle-plan-'));
-	const ticketFolder = join(cwd, '.lightsout', 'plans', ticketBranch);
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
 	const recordPath = join(ticketFolder, 'ticket.json');
 
 	for (const plan of [firstPlan, secondPlan]) {
-		mkdirSync(join(ticketFolder, plan.id), { recursive: true });
-		writeFileSync(join(ticketFolder, plan.id, 'plan.md'), `# ${plan.id}\n`);
+		mkdirSync(join(ticketFolder, 'plans', plan.id), { recursive: true });
+		writeFileSync(join(ticketFolder, 'plans', plan.id, 'plan.md'), `# ${plan.id}\n`);
 	}
 
 	await updateLocalTicketRecord({ cwd, ticketBranch, change: () => seededRecord });
@@ -84,8 +84,8 @@ describe('retitleTicketPlan', () => {
 				shipRequest,
 			}),
 		);
-		expect(readdirSync(ticketFolder).sort()).toStrictEqual(['001-alpha-search', '002-beta-fix', 'ticket.json']);
-		expect(readFileSync(join(ticketFolder, '002-beta-fix', 'plan.md'), 'utf8')).toBe('# 002-beta-fix\n');
+		expect(readdirSync(join(ticketFolder, 'plans')).sort()).toStrictEqual(['001-alpha-search', '002-beta-fix']);
+		expect(readFileSync(join(ticketFolder, 'plans', '002-beta-fix', 'plan.md'), 'utf8')).toBe('# 002-beta-fix\n');
 	});
 
 	test('refuses an empty title', async () => {

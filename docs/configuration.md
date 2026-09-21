@@ -144,10 +144,9 @@ Only Jest is supported. A gate that runs something else can carry no per-test
 result, and lightsout says so at the start of a run rather than at the end of
 one.
 
-The results themselves live under the run folder, beside the command log:
-`.lightsout/runs/<run-id>/test-results/<step>/<group>/<gate>/`. The recommended
-gitignore already ignores the whole `.lightsout/runs` directory, so nothing
-changes there.
+The results themselves live under the run folder, beside the command log, at
+`test-results/<step>/<group>/<gate>/`. The recommended gitignore already ignores
+the whole `.lightsout` state directory, so nothing changes there.
 
 `lightsout doctor` reports a `jest-reporter` check for every Jest config it can
 load, so a missing entry is visible before a run is ever started.
@@ -209,7 +208,7 @@ rule, whether code checks it or an agent has to judge it, and how often agents
 declined its findings, with the reasons they gave. The coverage half is counted
 from the package's own folders, so it lands even in a repository that has never
 run anything. The decline half is aggregated from the refactor runs recorded
-under `.lightsout/runs/`, and reads `—` until you have some.
+under `.lightsout`, and reads `—` until you have some.
 
 `lightsout standards-check` reports what your code breaks today. It runs both
 halves of the check by default — the checks your rules ship as code, and an
@@ -408,7 +407,7 @@ Set `allow-no-ci` only for a repository that intentionally has no CI:
 "ship": { "allow-no-ci": true }
 ```
 
-A branch whose ticket has a record in `.lightsout/plans/<branch>/ticket.json`
+A branch whose ticket has a record in `.lightsout/tickets/<branch>/ticket.json`
 merges only when that record authorizes it: a `single-plan` ticket once plan 001
 is implemented, a `multiple-plan` ticket once an explicit ship request naming its
 included plans is satisfied. The record is asked twice — before anything is
@@ -951,11 +950,9 @@ The following example shows how the optional configuration fields fit together:
 
 ## Recommended `.gitignore`
 
-Commit your configuration and standards. Ignore the state produced by individual runs:
+Commit your configuration and standards. Ignore the state directory whole —
+nothing lightsout writes under it is meant to be tracked:
 
 ```gitignore
-.lightsout/runs/
-.lightsout/plans/
-.lightsout/friction.jsonl
-.lightsout/lock.json
+.lightsout
 ```

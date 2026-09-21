@@ -4,14 +4,13 @@ import { scopeAttachments } from '#src/common/attachmentManifest/scopeAttachment
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
-import { resolveSharedStateDir } from '#src/common/workspace/resolveSharedStateDir.ts';
+import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
 import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
 import { pathExists, planAttachmentManifestName, planWorkspaceDir } from '#src/plan/index.ts';
 import { TicketSyncKeep } from '#src/ticket/common/constants/TicketSyncKeep.ts';
 import { ticketFileNames } from '#src/ticket/common/constants/ticketFileNames.ts';
 import type { TicketTrackerTarget } from '#src/ticket/common/types/TicketTrackerTarget.ts';
 import { findDivergentPlanIds } from '#src/ticket/common/utils/findDivergentPlanIds.ts';
-import { getTicketFolderPath } from '#src/ticket/common/utils/getTicketFolderPath.ts';
 import { readPublishedTicketRecord } from '#src/ticket/common/utils/readPublishedTicketRecord.ts';
 import { readTicketSyncState } from '#src/ticket/common/utils/readTicketSyncState.ts';
 import { serializeTicketRecord } from '#src/ticket/common/utils/serializeTicketRecord.ts';
@@ -216,8 +215,7 @@ export const keepPublishedTicketRecord = async ({
 		return merged;
 	}
 
-	const stateDir = await resolveSharedStateDir({ cwd });
-	const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
+	const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
 	const written = await withTicketRecordLock({
 		ticketFolder,
 		run: async (): Promise<{ error: string } | undefined> => {

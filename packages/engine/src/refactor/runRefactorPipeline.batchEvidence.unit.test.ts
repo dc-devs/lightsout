@@ -8,6 +8,7 @@ import { runRefactorPipeline } from '#src/refactor/index.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
@@ -43,7 +44,7 @@ const setupBatchRun = async ({ config, invoke }: { config?: Record<string, unkno
 };
 
 /** The run's agent-evidence directory. */
-const agentsDirOf = ({ dir, runId }: { dir: string; runId: string }) => join(dir, '.lightsout', 'runs', runId, 'agents');
+const agentsDirOf = ({ dir, runId }: { dir: string; runId: string }) => join(runDirFor({ cwd: dir, runId, pipeline: 'refactor' }), 'agents');
 
 describe('runRefactorPipeline batch evidence', () => {
 	test('tees a batch invocation’s event stream to the run dir, named for the batch and invocation', async () => {

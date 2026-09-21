@@ -28,8 +28,15 @@ describe('buildQueueAutoPlanInvocation', () => {
 		const { prompt } = buildQueueAutoPlanInvocation(base);
 
 		expect(prompt).toContain('lo-7-search/002-search-basics');
-		expect(prompt).toContain('.lightsout/plans/lo-7-search/002-search-basics');
+		expect(prompt).toContain('.lightsout/tickets/lo-7-search/plans/002-search-basics');
 		expect(prompt).toMatch(/--name/);
+	});
+
+	test("buildQueueAutoPlanInvocation: the prompt names the plan's folder under its ticket", () => {
+		const { prompt } = buildQueueAutoPlanInvocation(base);
+
+		expect(prompt).toContain('.lightsout/tickets/lo-7-search/plans/002-search-basics');
+		expect(prompt).not.toContain('.lightsout/plans/');
 	});
 
 	test('puts the plan address after the engine invocation, so the session reads the granted command prefix first', () => {

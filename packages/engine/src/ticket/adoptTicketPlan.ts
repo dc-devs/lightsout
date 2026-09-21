@@ -5,7 +5,7 @@ import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts'
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { resolveSharedStateDir } from '#src/common/workspace/resolveSharedStateDir.ts';
 import { type LightsoutConfig, type RunManifest, RunStatus, TicketEventKind, type TicketRecord } from '#src/contracts/index.ts';
-import { planWorkspacePath, resolvePlanDeliverable, restorePlanWorkspace } from '#src/plan/index.ts';
+import { planWorkspaceDir, planWorkspacePath, resolvePlanDeliverable, restorePlanWorkspace } from '#src/plan/index.ts';
 import { findLiveRunRefusal } from '#src/ticket/common/adoption/findLiveRunRefusal.ts';
 import { readAdoptedProgress } from '#src/ticket/common/adoption/readAdoptedProgress.ts';
 import { readFolderRuns } from '#src/ticket/common/adoption/readFolderRuns.ts';
@@ -13,7 +13,6 @@ import { appendTicketEvent } from '#src/ticket/common/record/appendTicketEvent.t
 import { buildTicketRecord } from '#src/ticket/common/record/buildTicketRecord.ts';
 import { composePlanId } from '#src/ticket/common/record/composePlanId.ts';
 import type { TicketRecordChange } from '#src/ticket/common/types/TicketRecordChange.ts';
-import { getTicketFolderPath } from '#src/ticket/common/utils/getTicketFolderPath.ts';
 import { listLegacyPlanEntries } from '#src/ticket/common/utils/listLegacyPlanEntries.ts';
 import { resolveTicketTrackerTarget } from '#src/ticket/common/utils/resolveTicketTrackerTarget.ts';
 import { pullTicketRecord } from '#src/ticket/pullTicketRecord.ts';
@@ -30,10 +29,10 @@ interface Params {
 	onProgress?: (message: string) => void;
 }
 
-/** Everything a refusal is decided from, gathered before a single file moves: the folder's own files become plan 001's, and `born` is the empty record this ticket's is built out of. */
+/** Everything a refusal is decided from, gathered before a single file moves: the plans folder's own files become plan 001's, and `born` is the empty record this ticket's is built out of. */
 interface AdoptionSubject {
 	primaryCheckout: string;
-	ticketFolder: string;
+	plansFolder: string;
 	entries: string[];
 	runs: RunManifest[];
 	planId: string;
@@ -70,8 +69,8 @@ const restoreBareGenerations = async ({ params, primaryCheckout }: { params: Par
 	return brainstorm.error === undefined ? undefined : { error: brainstorm.error };
 };
 
-/** Move the folder's own files into plan 001's folder, reporting how far it got so a failure can be undone. */
-const movePlanEntries = async ({ ticketFolder, planFolder, entries }: { ticketFolder: string; planFolder: string; entries: string[] }) => {
+/** Move the plans folder's own files into plan 001's folder, reporting how far it got so a failure can be undone. */
+const movePlanEntries = async ({ plansFolder, planFolder, entries }: { plansFolder: string; planFolder: string; entries: string[] }) => {
 	const moved: string[] = [];
 	let error: string | undefined;
 
@@ -79,20 +78,20 @@ const movePlanEntries = async ({ ticketFolder, planFolder, entries }: { ticketFo
 		await mkdir(planFolder, { recursive: true });
 
 		for (const entry of entries) {
-			await rename(join(ticketFolder, entry), join(planFolder, entry));
+			await rename(join(plansFolder, entry), join(planFolder, entry));
 			moved.push(entry);
 		}
 	} catch (failure) {
-		error = `the files of '${ticketFolder}' could not be moved into ${planFolder}: ${messageOf({ error: failure })}`;
+		error = `the files of '${plansFolder}' could not be moved into ${planFolder}: ${messageOf({ error: failure })}`;
 	}
 
 	return { moved, error };
 };
 
 /** Put the folder back exactly as it was found. The removal is never recursive: a file left here is the human's work, not this command's to delete. */
-const undoMovedEntries = async ({ ticketFolder, planFolder, moved }: { ticketFolder: string; planFolder: string; moved: string[] }) => {
+const undoMovedEntries = async ({ plansFolder, planFolder, moved }: { plansFolder: string; planFolder: string; moved: string[] }) => {
 	for (const entry of moved) {
-		await rename(join(planFolder, entry), join(ticketFolder, entry)).catch(() => undefined);
+		await rename(join(planFolder, entry), join(plansFolder, entry)).catch(() => undefined);
 	}
 
 	await rmdir(planFolder).catch(() => undefined);
@@ -138,17 +137,16 @@ const resolveAdoptionSubject = async (params: Params): Promise<AdoptionSubject |
 		return born;
 	}
 
-	const stateDir = await resolveSharedStateDir({ cwd });
-	const primaryCheckout = dirname(stateDir);
-	const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
-	const onDisk = await listLegacyPlanEntries({ ticketFolder });
+	const primaryCheckout = dirname(await resolveSharedStateDir({ cwd }));
+	const plansFolder = await planWorkspaceDir({ cwd, name: ticketBranch });
+	const onDisk = await listLegacyPlanEntries({ plansFolder });
 	const restored = onDisk.length === 0 ? await restoreBareGenerations({ params, primaryCheckout }) : undefined;
 
 	if (restored !== undefined) {
 		return restored;
 	}
 
-	const entries = onDisk.length === 0 ? await listLegacyPlanEntries({ ticketFolder }) : onDisk;
+	const entries = onDisk.length === 0 ? await listLegacyPlanEntries({ plansFolder }) : onDisk;
 
 	if (entries.length === 0) {
 		return {
@@ -159,7 +157,7 @@ const resolveAdoptionSubject = async (params: Params): Promise<AdoptionSubject |
 	const runs = await readFolderRuns({ primaryCheckout, ticketBranch });
 	const live = await findLiveRunRefusal({ primaryCheckout, runs });
 
-	return live === undefined ? { primaryCheckout, ticketFolder, entries, runs, planId: composed.id, born } : { error: live };
+	return live === undefined ? { primaryCheckout, plansFolder, entries, runs, planId: composed.id, born } : { error: live };
 };
 
 /**
@@ -176,7 +174,7 @@ export const adoptTicketPlan = async (params: Params): Promise<(TicketRecordChan
 	}
 
 	const { cwd, ticketBranch, slug, config, env, onProgress } = params;
-	const { primaryCheckout, ticketFolder, entries, runs, planId, born } = subject;
+	const { primaryCheckout, plansFolder, entries, runs, planId, born } = subject;
 	const address = formatPlanAddress({ ticketBranch, planId });
 	const hasDeliverable = (await resolvePlanDeliverable({ cwd: primaryCheckout, name: ticketBranch })).error === undefined;
 	const at = new Date().toISOString();
@@ -186,9 +184,9 @@ export const adoptTicketPlan = async (params: Params): Promise<(TicketRecordChan
 		detail: `the single-folder plan of ${ticketBranch} was adopted as plan ${planId}`,
 		at,
 	});
-	const planFolder = join(ticketFolder, planId);
+	const planFolder = join(plansFolder, planId);
 	const appeared = `a ticket record for ${ticketBranch} appeared while its folder was being adopted, so nothing was changed`;
-	const { moved, error: moveError } = await movePlanEntries({ ticketFolder, planFolder, entries });
+	const { moved, error: moveError } = await movePlanEntries({ plansFolder, planFolder, entries });
 	const written =
 		moveError === undefined
 			? await updateSyncedTicketRecord({
@@ -202,7 +200,7 @@ export const adoptTicketPlan = async (params: Params): Promise<(TicketRecordChan
 			: { error: moveError };
 
 	if ('error' in written) {
-		await undoMovedEntries({ ticketFolder, planFolder, moved });
+		await undoMovedEntries({ plansFolder, planFolder, moved });
 
 		return written;
 	}

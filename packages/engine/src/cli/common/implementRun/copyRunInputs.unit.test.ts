@@ -5,7 +5,7 @@ import { copyRunInputs } from '#src/cli/common/implementRun/copyRunInputs.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 
 const planName = 'lo-9-isolated-implement';
-const planFolderPath = join('.lightsout', 'plans', planName);
+const planFolderPath = join('.lightsout', 'tickets', planName, 'plans');
 const overviewBody = '# overview\n\nthe whole plan, in phases\n';
 const phaseBody = '# phase 3: isolated implement\n';
 const factsBody = '{"facts":[]}\n';
@@ -69,7 +69,7 @@ const setupStockedWorkspace = async () => {
 	return { sourceCwd, workspace, gradedDir };
 };
 
-const ticketFolderPath = join('.lightsout', 'plans', 'lo-7-search');
+const ticketFolderPath = join('.lightsout', 'tickets', 'lo-7-search', 'plans');
 const earlierPlanBody = '# plan\n\nthe earlier plan the workspace already holds\n';
 const laterPlanBody = '# plan\n\nthe later plan of the same ticket\n';
 
@@ -203,7 +203,7 @@ describe('copyRunInputs', () => {
 		const result = await copyRunInputs({ sourceCwd, workspace, planPath: planFolderPath, ticketPath: loosePath });
 
 		expect(result).toStrictEqual({ planPath: planFolderPath, ticketPath: join('.lightsout', 'inputs', 'lo-9-ticket.md') });
-		expect(existsSync(join(workspace, '.lightsout', 'plans'))).toBe(false);
+		expect(existsSync(join(workspace, '.lightsout', 'tickets'))).toBe(false);
 		expect(readFileSync(join(workspace, '.lightsout', 'inputs', 'lo-9-ticket.md'), 'utf8')).toBe(ticketBody);
 		expect(readdirSync(planDir).sort()).toStrictEqual(['facts.json', 'overview.md']);
 		expect(readFileSync(join(planDir, 'overview.md'), 'utf8')).toBe(overviewBody);

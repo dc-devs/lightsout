@@ -1,10 +1,10 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
-import { CoverageWorklist, type LightsoutConfig, type RunManifest } from '#src/contracts/index.ts';
+import { CoverageWorklist, type LightsoutConfig, PipelineKind, type RunManifest } from '#src/contracts/index.ts';
 import { runCoverageCheck } from '#src/coverage/runCoverageCheck.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { createRun } from '#src/runState/index.ts';
+import { createRun, resolveNewRunDir, resolveRunDir } from '#src/runState/index.ts';
 
 interface Params {
 	cwd: string;
@@ -48,7 +48,12 @@ export const initializeCoverageRun = async ({
 			throw new Error(`run ${existing.runId} belongs to the ${pipeline} pipeline — resume it with: lightsout ${command} --run ${existing.runId}`);
 		}
 
-		return { manifest: existing, worklist: CoverageWorklist.parse(JSON.parse(await readFile(join(cwd, existing.plan), 'utf8'))) };
+		// Read from the run's own directory rather than by joining the recorded
+		// path onto `cwd`: run folders resolve against the primary checkout, so a
+		// resume standing in a worktree would open a file that is not there.
+		const frozen = join(await resolveRunDir({ cwd, runId: existing.runId }), 'worklist.json');
+
+		return { manifest: existing, worklist: CoverageWorklist.parse(JSON.parse(await readFile(frozen, 'utf8'))) };
 	}
 
 	if (typeof config.gates['test-coverage'] !== 'string' && config['package-gates']?.['test-coverage'] === undefined) {
@@ -69,10 +74,12 @@ export const initializeCoverageRun = async ({
 
 	const measured = await runCoverageCheck({ cwd, config });
 	const worklist: CoverageWorklist = { at: new Date().toISOString(), totals: measured.totals, files: measured.files };
-	const worklistPath = join('.lightsout', 'runs', runId, 'worklist.json');
-	const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: 'coverage', driver: driver.name, config, baselineDirtyFiles: dirty });
+	const worklistPath = join(await resolveNewRunDir({ cwd, pipeline: PipelineKind.Coverage, runId }), 'worklist.json');
+	// `createRun` records the path repo-relative and creates the folder, so the
+	// write below lands in a directory that exists.
+	const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: PipelineKind.Coverage, driver: driver.name, config, baselineDirtyFiles: dirty });
 
-	await writeFile(join(cwd, worklistPath), `${JSON.stringify(worklist, undefined, '\t')}\n`, 'utf8');
+	await writeFile(worklistPath, `${JSON.stringify(worklist, undefined, '\t')}\n`, 'utf8');
 
 	return { manifest, worklist };
 };

@@ -131,7 +131,7 @@ const setupExclusion = async (setup: ExclusionSetup = {}) => {
 	mockReadConfig.mockResolvedValue(checkoutConfig);
 	mockRunGates.mockResolvedValue({ error: gateError, failedFamilies: gateError === undefined ? [] : ['test'], crashes: [], coordination: undefined });
 
-	const recordPath = join(cwd, '.lightsout', 'plans', ticketBranch, 'ticket.json');
+	const recordPath = join(cwd, '.lightsout', 'tickets', ticketBranch, 'ticket.json');
 
 	return { recordPath, before: readFileSync(recordPath, 'utf8'), base: { cwd, ticketBranch, config, env } };
 };

@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { CoverageWorklist, PipelineKind, RefactorWorklist, type RunManifest } from '#src/contracts/index.ts';
-import { getRunDir } from '#src/runState/index.ts';
+import { resolveRunDir } from '#src/runState/index.ts';
 import type { FrozenWorklist } from '#src/views/common/types/FrozenWorklist.ts';
 
 interface Params {
@@ -19,7 +19,7 @@ interface Params {
  * and the burn-down — instead of opening `worklist.json` twice.
  */
 export const readFrozenWorklist = async ({ cwd, manifest }: Params): Promise<FrozenWorklist> => {
-	const raw = await readFile(join(getRunDir({ cwd, runId: manifest.runId }), 'worklist.json'), 'utf8').catch(() => undefined);
+	const raw = await readFile(join(await resolveRunDir({ cwd, runId: manifest.runId }), 'worklist.json'), 'utf8').catch(() => undefined);
 	let parsed: unknown;
 
 	try {

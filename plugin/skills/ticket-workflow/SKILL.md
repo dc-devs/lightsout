@@ -408,12 +408,13 @@ one branch.
 
 ## Plan folder
 
-The folder under `.lightsout/plans/` named exactly like the branch is the
+The folder under `.lightsout/tickets/` named exactly like the branch is the
 **ticket folder**, so the plans, the branch and the ticket match each other by
 construction. The exact spelling is the repository's `ship.ticket-pattern` and
 `queue.branch-template` in its `lightsout.config.json` — the configured pattern
 is the format's one home, and this skill points at it rather than restating a
-team's spelling. The ticket folder holds one subfolder per plan.
+team's spelling. The ticket folder holds a `plans/` folder, with one subfolder
+per plan.
 
 ### Ticket folders and plan ids
 
@@ -428,8 +429,8 @@ it.
 A plan's **address** is the ticket branch, a slash and the plan id —
 `lo-140-multi/002-queue-order`. That address is the `--name` value for every
 `lightsout plan` subcommand and for `brainstorm publish`, and
-`.lightsout/plans/<ticket-branch>/<plan-id>` is the path `lightsout implement
---plan` takes. The branch and the worktree always come from the ticket-branch
+`.lightsout/tickets/<ticket-branch>/plans/<plan-id>` is the path `lightsout
+implement --plan` takes. The branch and the worktree always come from the ticket-branch
 segment, whichever plan is being worked.
 
 A plan folder holds that plan's brainstorm, facts, decisions, plan deliverable,
@@ -671,7 +672,7 @@ exclusions` above.
 
 ## Publishing the plan
 
-The `plan` skill writes `.lightsout/plans/<name>/` — either `plan.md`, or
+The `plan` skill writes `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/` — either `plan.md`, or
 `overview.md` with phase files, alongside durable records such as
 `decisions.json` and `grade.json`. That is the design record: what was decided,
 what was rejected, and why. Publishing works on one plan at a time, and `<name>`
@@ -839,7 +840,7 @@ statement with none of the shaping behind it.
 
 A published plan makes the ticket both **readable** and **runnable** by a fresh
 agent. Nothing has to be rebuilt by hand: point the `implement` skill at
-`.lightsout/plans/<name>`, the plan's own folder path. The engine uses the folder
+`.lightsout/tickets/<ticket-branch>/plans/<plan-id>`, the plan's own folder path. The engine uses the folder
 on disk when it exists. When it does not, the engine reads the ticket id from the
 ticket-branch segment of the name, fetches what that ticket carries and
 reconstructs the folder before implementation starts — see

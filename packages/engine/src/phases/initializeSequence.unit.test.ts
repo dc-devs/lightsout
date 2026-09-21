@@ -58,7 +58,7 @@ const foreignManifest = ({ pipeline }: { pipeline?: PipelineKind }): RunManifest
 const setupLinkedPlanWorktree = ({ phases }: { phases: number }) => {
 	const { cwd } = setupBranchRepo();
 	const worktree = join(cwd, '.worktrees', 'lo-151-read-coverage');
-	const folder = join(cwd, '.lightsout', 'plans', 'lo-151', '001-read-coverage');
+	const folder = join(cwd, '.lightsout', 'tickets', 'lo-151', 'plans', '001-read-coverage');
 	const rows = Array.from({ length: phases }, (_, index) => `| ${index + 1} | \`phase${index + 1}.md\` | scope |`);
 
 	mkdirSync(folder, { recursive: true });
@@ -70,7 +70,28 @@ const setupLinkedPlanWorktree = ({ phases }: { phases: number }) => {
 
 	execSync(`git worktree add -q -b lo-151-read-coverage "${worktree}" main`, { cwd, stdio: 'ignore' });
 
-	return { worktree, overviewPath: join('.lightsout', 'plans', 'lo-151', '001-read-coverage', 'overview.md') };
+	return { worktree, overviewPath: join('.lightsout', 'tickets', 'lo-151', 'plans', '001-read-coverage', 'overview.md') };
+};
+
+/**
+ * A ticket's own plan folder under the tickets directory, with an unfinished
+ * phased coordinator planted beside it. The coordinator's overview path is
+ * spelled absolutely — the way a caller that passed an absolute `--overview`
+ * would have recorded it — so only the plan name it recorded can match the
+ * relative spelling a fresh start is asked about.
+ */
+const setupTicketPlanFolder = ({ recordedPlanName }: { recordedPlanName: string }) => {
+	const dir = mkdtempSync(join(tmpdir(), 'lightsout-sequence-ticket-'));
+	const parts = ['.lightsout', 'tickets', 'lo-155-record-the-plan', 'plans', '001-recorded-plan-name'];
+	const folder = join(dir, ...parts);
+
+	mkdirSync(folder, { recursive: true });
+	writeFileSync(join(folder, 'overview.md'), '# Feature — Overview\n\n## Phases\n\n| # | File | Scope |\n|---|------|-------|\n| 1 | `phase1.md` | scope |\n');
+	writeFileSync(join(folder, 'phase1.md'), '# Feature — Phase 1\n');
+
+	plantSequence({ dir, runId: 'mid-flight-sequence', plan: join(folder, 'overview.md'), planName: recordedPlanName });
+
+	return { dir, overviewPath: join(...parts, 'overview.md') };
 };
 
 describe('initializeSequence', () => {
@@ -226,15 +247,18 @@ describe('initializeSequence', () => {
 		expect(existsSync(join(dir, '.lightsout', 'runs'))).toBe(false);
 	});
 
-	test('an unfinished sequence for this overview refuses a fresh start, naming the resume door', async () => {
+	test('an overview outside any plan folder has no plan to be refused by, so a second sequence starts', async () => {
 		const { dir, overviewPath } = setupPlanFolder({ phases: 1 });
 
 		plantSequence({ dir, runId: 'mid-flight-sequence', plan: overviewPath });
 
-		const error = await getRejectionError({ promise: initializeSequence({ cwd: dir, driver, config, overviewPath }) });
+		// the guard is the plan a coordinator recorded, and an overview that sits in
+		// no plan folder records none — a loose overview is left unguarded rather
+		// than matching every nameless coordinator on disk
+		const { manifest } = await initializeSequence({ cwd: dir, driver, config, overviewPath });
 
-		expect(error.message).toMatch(/an unfinished run for this plan already exists/);
-		expect(error.message).toContain('lightsout resume --run mid-flight-sequence');
+		expect(manifest.planName).toBe(undefined);
+		expect(manifest.steps).toStrictEqual([{ id: 'phase1.md', status: 'pending', attempts: 0 }]);
 	});
 
 	test('a phased plan whose folder lives in the primary checkout initializes from a linked worktree', async () => {
@@ -247,5 +271,20 @@ describe('initializeSequence', () => {
 		// the worktree names files that are not there, and the coordinator dies
 		// before any phase starts.
 		expect(manifest.steps.map((step) => step.id)).toStrictEqual(['phase1.md', 'phase2.md', 'phase3.md']);
+	});
+
+	test('a fresh start is refused by the plan an unfinished coordinator recorded, not by the overview spelling', async () => {
+		const samePlan = setupTicketPlanFolder({ recordedPlanName: 'lo-155-record-the-plan/001-recorded-plan-name' });
+		const otherPlan = setupTicketPlanFolder({ recordedPlanName: 'lo-160-something-else/001-another-plan' });
+
+		const refused = await getRejectionError({ promise: initializeSequence({ cwd: samePlan.dir, driver, config, overviewPath: samePlan.overviewPath }) });
+		const started = await initializeSequence({ cwd: otherPlan.dir, driver, config, overviewPath: otherPlan.overviewPath });
+
+		// The guard reads the plan each coordinator recorded, so the same plan is
+		// caught however its overview path is spelled, and an unrelated plan whose
+		// own coordinator is mid-flight still starts.
+		expect(refused.message).toMatch(/an unfinished run for this plan already exists/);
+		expect(refused.message).toContain('lightsout resume --run mid-flight-sequence');
+		expect(started.manifest.steps).toStrictEqual([{ id: 'phase1.md', status: 'pending', attempts: 0 }]);
 	});
 });

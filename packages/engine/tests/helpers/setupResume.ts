@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { parseFlags } from '#src/cli/index.ts';
 import { type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** The id every seeded run answers to, so the assertions can name it. */
@@ -67,18 +68,22 @@ export const setupResume = ({
 	const captured = captureCommandOutput();
 	const cwd = setupConsumerRepo({ config });
 
+	const parkedDir = manifest === undefined ? undefined : runDirFor({ cwd, runId: manifest.runId, planName: manifest.planName, pipeline: manifest.pipeline });
+
 	if (rawManifest !== undefined) {
-		mkdirSync(join(cwd, '.lightsout', 'runs', runId), { recursive: true });
-		writeFileSync(join(cwd, '.lightsout', 'runs', runId, 'manifest.json'), rawManifest);
+		const rawDir = runDirFor({ cwd, runId });
+
+		mkdirSync(rawDir, { recursive: true });
+		writeFileSync(join(rawDir, 'manifest.json'), rawManifest);
 	}
 
-	if (manifest) {
-		mkdirSync(join(cwd, '.lightsout', 'runs', manifest.runId), { recursive: true });
-		writeFileSync(join(cwd, '.lightsout', 'runs', manifest.runId, 'manifest.json'), JSON.stringify(manifest));
+	if (manifest && parkedDir) {
+		mkdirSync(parkedDir, { recursive: true });
+		writeFileSync(join(parkedDir, 'manifest.json'), JSON.stringify(manifest));
 	}
 
-	if (manifest && ledger) {
-		writeFileSync(join(cwd, '.lightsout', 'runs', manifest.runId, 'agents.jsonl'), ledger.map((record) => `${JSON.stringify(record)}\n`).join(''));
+	if (parkedDir && ledger) {
+		writeFileSync(join(parkedDir, 'agents.jsonl'), ledger.map((record) => `${JSON.stringify(record)}\n`).join(''));
 	}
 
 	if (friction) {
@@ -86,11 +91,11 @@ export const setupResume = ({
 		writeFileSync(join(cwd, '.lightsout', 'friction.jsonl'), friction.map((record) => `${JSON.stringify(record)}\n`).join(''));
 	}
 
-	if (manifest && rejectedReports) {
-		mkdirSync(join(cwd, '.lightsout', 'runs', manifest.runId, 'agents'), { recursive: true });
+	if (parkedDir && rejectedReports) {
+		mkdirSync(join(parkedDir, 'agents'), { recursive: true });
 
 		for (const name of rejectedReports) {
-			writeFileSync(join(cwd, '.lightsout', 'runs', manifest.runId, 'agents', name), '{}\n');
+			writeFileSync(join(parkedDir, 'agents', name), '{}\n');
 		}
 	}
 

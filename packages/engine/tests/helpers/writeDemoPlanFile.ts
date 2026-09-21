@@ -17,7 +17,7 @@ interface Params {
  * bodies render their Decision Log from.
  */
 export const writeDemoPlanFile = ({ cwd, name, body }: Params): string => {
-	const dir = join(cwd, '.lightsout', 'plans', 'demo');
+	const dir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
 
 	mkdirSync(dir, { recursive: true });
 

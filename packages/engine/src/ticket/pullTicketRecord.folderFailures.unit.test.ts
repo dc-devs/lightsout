@@ -50,7 +50,7 @@ const publishedRecord: TicketRecord = {
  */
 const setupBlockedTicketFolder = ({ blocked }: { blocked: 'ticket.json' | 'ticket-sync.json' }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-pull-folder-'));
-	const ticketFolder = join(cwd, '.lightsout', 'plans', ticketBranch);
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
 
 	mkdirSync(join(ticketFolder, blocked), { recursive: true });
 	mockGetTicketAttachments.mockResolvedValue([{ id: 'att-1', title: 'ticket.json', url: assetUrl }]);

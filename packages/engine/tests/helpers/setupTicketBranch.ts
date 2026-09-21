@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { join } from 'node:path';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 
@@ -16,5 +16,5 @@ export const setupTicketBranch = (): { cwd: string; runDir: string } => {
 	writeRepoFile({ cwd, path: 'plugin/dist/cli.mjs', content: '// built on main\n' });
 	execSync('git add -A && git commit -qm ignore', { cwd, stdio: 'ignore' });
 
-	return { cwd, runDir: join(cwd, '.lightsout', 'runs', 'run-1') };
+	return { cwd, runDir: runDirFor({ cwd, runId: 'run-1', pipeline: 'queue' }) };
 };

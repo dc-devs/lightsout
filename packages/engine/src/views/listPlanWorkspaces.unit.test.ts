@@ -6,6 +6,7 @@ import { expect, test } from '@jest/globals';
 import { PlanGrade, PlanStage, RunStatus } from '#src/contracts/index.ts';
 import { getPlanWorkspace, listPlanWorkspaces } from '#src/views/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { seedRunDir } from '#tests/helpers/seedRunDir.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
@@ -15,7 +16,7 @@ const gradeJson = ({ grade }: { grade: PlanGrade }) =>
 
 /** One workspace folder holding exactly the files a case names. */
 const seedWorkspace = async ({ cwd, name, files, at }: { cwd: string; name: string; files: Record<string, string>; at?: string }) => {
-	const dir = join(cwd, '.lightsout', 'plans', name);
+	const dir = planWorkspaceFolder({ cwd: cwd, name: name });
 
 	await mkdir(dir, { recursive: true });
 
@@ -94,7 +95,7 @@ test('a workspace a passed run named is implemented, and counts that run', async
 	const cwd = await freshCwd();
 
 	await seedWorkspace({ cwd, name: 'shipped', files: { 'plan.md': '# plan' } });
-	await seedRunDir({ cwd, manifest: { runId: 'run-passed', plan: '.lightsout/plans/shipped/plan.md', status: RunStatus.Passed } });
+	await seedRunDir({ cwd, manifest: { runId: 'run-passed', plan: '.lightsout/tickets/shipped/plans/plan.md', planName: 'shipped', status: RunStatus.Passed } });
 	const row = await rowFor({ cwd, name: 'shipped' });
 
 	expect({ stage: row?.stage, runCount: row?.runCount }).toStrictEqual({ stage: PlanStage.Implemented, runCount: 1 });
@@ -104,7 +105,10 @@ test('a workspace whose only run failed keeps the stage its files give it, so it
 	const cwd = await freshCwd();
 
 	await seedWorkspace({ cwd, name: 'attempted', files: { 'plan.md': '# plan', 'grade.json': gradeJson({ grade: PlanGrade.A }) } });
-	await seedRunDir({ cwd, manifest: { runId: 'run-failed', plan: '.lightsout/plans/attempted/plan.md', status: RunStatus.Failed } });
+	await seedRunDir({
+		cwd,
+		manifest: { runId: 'run-failed', plan: '.lightsout/tickets/attempted/plans/plan.md', planName: 'attempted', status: RunStatus.Failed },
+	});
 	const row = await rowFor({ cwd, name: 'attempted' });
 
 	expect({ stage: row?.stage, runCount: row?.runCount }).toStrictEqual({ stage: PlanStage.Graded, runCount: 1 });
@@ -114,8 +118,8 @@ test('a phased plan says so and counts its open phases, leaving the archived one
 	const cwd = await freshCwd();
 
 	await seedWorkspace({ cwd, name: 'phased', files: { 'overview.md': '# overview', 'phase1-a.md': 'a', 'phase2-b.md': 'b' } });
-	await mkdir(join(cwd, '.lightsout', 'plans', 'phased', 'implemented'), { recursive: true });
-	await writeFile(join(cwd, '.lightsout', 'plans', 'phased', 'implemented', 'phase1-done.md'), 'done', 'utf8');
+	await mkdir(join(cwd, '.lightsout', 'tickets', 'phased', 'plans', 'implemented'), { recursive: true });
+	await writeFile(join(cwd, '.lightsout', 'tickets', 'phased', 'plans', 'implemented', 'phase1-done.md'), 'done', 'utf8');
 	const row = await rowFor({ cwd, name: 'phased' });
 
 	expect({ phased: row?.phased, phaseCount: row?.phaseCount, archived: row?.implementedFiles.map((file) => file.name) }).toStrictEqual({
@@ -149,14 +153,14 @@ test('a loose file beside the workspaces is not a plan, so nothing lists it', as
 	const cwd = await freshCwd();
 
 	await seedWorkspace({ cwd, name: 'real', files: { 'plan.md': '# plan' } });
-	await writeFile(join(cwd, '.lightsout', 'plans', 'README.md'), 'not a workspace', 'utf8');
+	await writeFile(join(cwd, '.lightsout', 'tickets', 'README.md'), 'not a workspace', 'utf8');
 
 	expect((await listPlanWorkspaces({ cwd })).map((listing) => listing.name)).toStrictEqual(['real']);
 });
 
 test('an archived phase does not lift a finished plan up the list, which is ordered by open work', async () => {
 	const cwd = await freshCwd();
-	const archive = join(cwd, '.lightsout', 'plans', 'finished', 'implemented');
+	const archive = join(cwd, '.lightsout', 'tickets', 'finished', 'plans', 'implemented');
 	const when = new Date('2027-01-01T00:00:00.000Z');
 
 	await seedWorkspace({ cwd, name: 'finished', files: { 'overview.md': '# overview' }, at: '2026-01-01T00:00:00.000Z' });
@@ -171,7 +175,7 @@ test('an archived phase does not lift a finished plan up the list, which is orde
 
 test('a broken link where an archived phase should be is left out, rather than taking the whole list down', async () => {
 	const cwd = await freshCwd();
-	const archive = join(cwd, '.lightsout', 'plans', 'linked', 'implemented');
+	const archive = join(cwd, '.lightsout', 'tickets', 'linked', 'plans', 'implemented');
 
 	await seedWorkspace({ cwd, name: 'linked', files: { 'overview.md': '# overview' } });
 	await mkdir(archive, { recursive: true });
@@ -212,8 +216,24 @@ test('each plan of a ticket folder counts only the runs its own folder named', a
 
 	await seedWorkspace({ cwd, name: 'lo-7-search/001-basics', files: { 'plan.md': '# basics' } });
 	await seedWorkspace({ cwd, name: 'lo-7-search/002-ranking', files: { 'plan.md': '# ranking' } });
-	await seedRunDir({ cwd, manifest: { runId: 'run-basics', plan: '.lightsout/plans/lo-7-search/001-basics/plan.md', status: RunStatus.Passed } });
-	await seedRunDir({ cwd, manifest: { runId: 'run-ranking', plan: '.lightsout/plans/lo-7-search/002-ranking/plan.md', status: RunStatus.Failed } });
+	await seedRunDir({
+		cwd,
+		manifest: {
+			runId: 'run-basics',
+			plan: '.lightsout/tickets/lo-7-search/plans/001-basics/plan.md',
+			planName: 'lo-7-search/001-basics',
+			status: RunStatus.Passed,
+		},
+	});
+	await seedRunDir({
+		cwd,
+		manifest: {
+			runId: 'run-ranking',
+			plan: '.lightsout/tickets/lo-7-search/plans/002-ranking/plan.md',
+			planName: 'lo-7-search/002-ranking',
+			status: RunStatus.Failed,
+		},
+	});
 
 	const listings = await listPlanWorkspaces({ cwd });
 
@@ -228,11 +248,11 @@ test('a workspace does not count the runs of a sibling whose folder name starts 
 
 	await seedWorkspace({ cwd, name: 'lo-7', files: { 'plan.md': '# seven' } });
 	await seedWorkspace({ cwd, name: 'lo-70', files: { 'plan.md': '# seventy' } });
-	await seedRunDir({ cwd, manifest: { runId: 'run-seventy', plan: '.lightsout/plans/lo-70/plan.md', status: RunStatus.Passed } });
+	await seedRunDir({ cwd, manifest: { runId: 'run-seventy', plan: '.lightsout/tickets/lo-70/plans/plan.md', planName: 'lo-70', status: RunStatus.Passed } });
 
 	const listings = await listPlanWorkspaces({ cwd });
 
-	// only the separator after the folder name keeps lo-7 from claiming lo-70's run
+	// the run names the plan it belongs to, so a name lo-7 is a prefix of is still somebody else's
 	expect(Object.fromEntries(listings.map((listing) => [listing.name, listing.runCount]))).toStrictEqual({ 'lo-7': 0, 'lo-70': 1 });
 });
 
@@ -263,7 +283,7 @@ test("the plan views list and open the primary checkout's plans from inside a li
 	expect({ listed: listings.map((listing) => listing.name), plan: view.planFile?.name, rootPath: realpathSync(view.rootPath) }).toStrictEqual({
 		listed: ['lo-150-observability'],
 		plan: 'plan.md',
-		rootPath: realpathSync(join(primary, '.lightsout', 'plans', 'lo-150-observability')),
+		rootPath: realpathSync(join(primary, '.lightsout', 'tickets', 'lo-150-observability', 'plans')),
 	});
 });
 
@@ -276,4 +296,52 @@ test('a ticket folder read from a linked worktree still lists one row per plan a
 
 	// the plans inside a ticket folder are read from the primary too, or the folder reads as empty and lists one row of its own name
 	expect(listings.map((listing) => listing.name).sort()).toStrictEqual(['lo-7-search/001-basics', 'lo-7-search/002-ranking']);
+});
+
+/** One folder under the tickets directory, holding exactly the files a case names. */
+const seedTicketFolder = async ({ cwd, path, files }: { cwd: string; path: string; files: Record<string, string> }) => {
+	const dir = join(cwd, '.lightsout', 'tickets', ...path.split('/'));
+
+	await mkdir(dir, { recursive: true });
+
+	for (const [name, body] of Object.entries(files)) {
+		await writeFile(join(dir, name), body, 'utf8');
+	}
+};
+
+test('listPlanWorkspaces: a ticket holding plan folders contributes one row per plan address', async () => {
+	const cwd = await freshCwd();
+
+	await seedTicketFolder({ cwd, path: 'lo-7-search/plans/001-basics', files: { 'plan.md': '# basics' } });
+	await seedTicketFolder({ cwd, path: 'lo-7-search/plans/002-ranking', files: { 'plan.md': '# ranking' } });
+
+	const listings = await listPlanWorkspaces({ cwd });
+
+	// the ticket folder is where a ticket's plans live rather than a plan itself, so a row named lo-7-search would be a third entry
+	expect(listings.map((listing) => listing.name).sort()).toStrictEqual(['lo-7-search/001-basics', 'lo-7-search/002-ranking']);
+});
+
+test('listPlanWorkspaces: a loose-file ticket is one row, and neither its records nor a runs sibling becomes one', async () => {
+	const cwd = await freshCwd();
+
+	await seedTicketFolder({ cwd, path: 'lo-9-notes', files: { 'ticket.json': '{}', 'ticket-sync.json': '{}' } });
+	await seedTicketFolder({ cwd, path: 'lo-9-notes/plans', files: { 'brainstorm-notes.md': '# rough', 'facts.json': '{}' } });
+	await seedTicketFolder({ cwd, path: 'lo-9-notes/runs/run-loose', files: { 'manifest.json': '{}' } });
+
+	const listings = await listPlanWorkspaces({ cwd });
+
+	// the record files sit above the plans folder and the runs folder beside it, so a row named runs or plans would mean one of them was read as a plan
+	expect(listings.map((listing) => listing.name)).toStrictEqual(['lo-9-notes']);
+});
+
+test('listPlanWorkspaces: a ticket folder holding no plans folder contributes no row', async () => {
+	const cwd = await freshCwd();
+
+	await seedTicketFolder({ cwd, path: 'lo-9-notes/plans/001-basics', files: { 'plan.md': '# basics' } });
+	await seedTicketFolder({ cwd, path: 'main', files: { 'ship.json': '{}', 'branch-state.json': '{}' } });
+
+	const listings = await listPlanWorkspaces({ cwd });
+
+	// every branch gets a folder for its ship record, so a branch that never carried a plan must not appear as one
+	expect(listings.map((listing) => listing.name)).toStrictEqual(['lo-9-notes/001-basics']);
 });

@@ -8,6 +8,7 @@ import { invokeAgentWithContract } from '#src/invoke/invokeAgentWithContract.ts'
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { outcomeFields } from '#tests/helpers/outcomeFields.ts';
 import { report } from '#tests/helpers/report.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const roleInvocation = { systemPrompt: 'ROLE-SYSTEM-PROMPT', prompt: 'ROLE-PROMPT' };
@@ -311,7 +312,7 @@ test('pipeline persists rejected agent output to the run dir as evidence', async
 
 	expect(result.ok).toBe(false);
 
-	const agentsDir = join(dir, '.lightsout', 'runs', result.manifest.runId, 'agents');
+	const agentsDir = join(runDirFor({ cwd: dir, runId: result.manifest.runId }), 'agents');
 
 	// agents evidence dir exists
 	expect(existsSync(agentsDir)).toBeTruthy();

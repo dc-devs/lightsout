@@ -1,5 +1,4 @@
-import { join } from 'node:path';
-import { type LightsoutConfig, PipelineKind, RunStatus } from '#src/contracts/index.ts';
+import { type LightsoutConfig, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { type GateHolds, syncGateHolds } from '#src/gates/index.ts';
 import { BoardQuestionRelay, QueueBoardRecorder } from '#src/queue/board/index.ts';
@@ -11,13 +10,14 @@ import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
 import { createMainCheckoutSerializer } from '#src/queue/common/utils/createMainCheckoutSerializer.ts';
 import { isParkedOutcome } from '#src/queue/common/utils/isParkedOutcome.ts';
+import { startCoordinatorRun } from '#src/queue/common/utils/startCoordinatorRun.ts';
 import { drainQueue } from '#src/queue/drainQueue.ts';
 import { runQueueTicket } from '#src/queue/runQueueTicket.ts';
 import { settleParkedLabels } from '#src/queue/settleParkedLabels.ts';
 import { checkQueueStartup } from '#src/queue/startup/index.ts';
 import { listEligibleTickets, orderTickets, selectWaveTickets } from '#src/queue/ticketSelection/index.ts';
 import { scanParkedWorktrees } from '#src/queue/worktrees/index.ts';
-import { createRun, getRunDir, seedUsageTotals, withRunLock, writeManifestWithUsage } from '#src/runState/index.ts';
+import { seedUsageTotals, withRunLock, writeManifestWithUsage } from '#src/runState/index.ts';
 import type { ShipSettings } from '#src/ship/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 
@@ -69,11 +69,7 @@ const drainAndShip = async ({
 	holds,
 	onProgress,
 }: Params & { runId: string; defaultBranch: string; first: WaveSelection; parked: ParkedWork; holds: GateHolds }) => {
-	const coordinatorRunDir = getRunDir({ cwd, runId });
-	const planPath = join(coordinatorRunDir, 'queue.md');
-	const manifest = await createRun({ cwd, runId, plan: planPath, pipeline: PipelineKind.Queue, driver: driverName, config });
-
-	await writeManifestWithUsage({ cwd, manifest, patch: { status: RunStatus.Running }, usageTotals: seedUsageTotals({ usage: manifest.usage }) });
+	const { coordinatorRunDir, planPath, manifest } = await startCoordinatorRun({ cwd, runId, driverName, config });
 
 	// One chain per drain, threaded to everything that mutates the main checkout:
 	// the builders' `git worktree add`, the merge tail's removal and the re-scan's.

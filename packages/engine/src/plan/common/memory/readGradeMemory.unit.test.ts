@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readGradeMemory } from '#src/plan/common/memory/readGradeMemory.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
@@ -22,7 +23,7 @@ const memoryText = ({ nextFindingNumber = 3 }: { nextFindingNumber?: number } = 
 const setupMemoryRecord = ({ text }: { text?: string } = {}) => {
 	const cwd = setupConsumerRepo();
 	const name = 'lo-150-planning-observability';
-	const dir = join(cwd, '.lightsout', 'plans', name);
+	const dir = planWorkspaceFolder({ cwd: cwd, name: name });
 
 	if (text !== undefined) {
 		mkdirSync(dir, { recursive: true });
@@ -42,8 +43,8 @@ const setupLinkedWorktree = () => {
 	const name = 'lo-150-planning-observability';
 	const worktree = join(cwd, '.worktrees', name);
 
-	mkdirSync(join(cwd, '.lightsout', 'plans', name), { recursive: true });
-	writeFileSync(join(cwd, '.lightsout', 'plans', name, 'grade-memory.json'), memoryText({ nextFindingNumber: 7 }), 'utf8');
+	mkdirSync(planWorkspaceFolder({ cwd: cwd, name: name }), { recursive: true });
+	writeFileSync(join(planWorkspaceFolder({ cwd: cwd, name: name }), 'grade-memory.json'), memoryText({ nextFindingNumber: 7 }), 'utf8');
 	execSync(`git worktree add -q -b ${name} "${worktree}" main`, { cwd, stdio: 'ignore' });
 
 	return { name, worktree };

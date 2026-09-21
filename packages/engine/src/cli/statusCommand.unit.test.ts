@@ -5,6 +5,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { statusCommand } from '#src/cli/statusCommand.ts';
 import { type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 // Mocked Imports
 // -------------------------
@@ -73,13 +74,13 @@ const setupStatus = ({
 	}
 
 	for (const manifest of manifests) {
-		mkdirSync(join(cwd, '.lightsout', 'runs', manifest.runId), { recursive: true });
-		writeFileSync(join(cwd, '.lightsout', 'runs', manifest.runId, 'manifest.json'), JSON.stringify(manifest));
+		mkdirSync(runDirFor({ cwd, runId: manifest.runId }), { recursive: true });
+		writeFileSync(join(runDirFor({ cwd, runId: manifest.runId }), 'manifest.json'), JSON.stringify(manifest));
 	}
 
 	if (unreadableRunId) {
-		mkdirSync(join(cwd, '.lightsout', 'runs', unreadableRunId), { recursive: true });
-		writeFileSync(join(cwd, '.lightsout', 'runs', unreadableRunId, 'manifest.json'), 'not json at all');
+		mkdirSync(runDirFor({ cwd, runId: unreadableRunId }), { recursive: true });
+		writeFileSync(join(runDirFor({ cwd, runId: unreadableRunId }), 'manifest.json'), 'not json at all');
 	}
 
 	if (lock) {

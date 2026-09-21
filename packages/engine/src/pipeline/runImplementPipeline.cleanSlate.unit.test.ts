@@ -9,6 +9,7 @@ import { runStandardsCheck } from '#src/standardsCheck/index.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
@@ -61,7 +62,7 @@ const setupCleanSlateRun = async ({
 };
 
 /** Where one run keeps the deterministic findings from before its first agent edit. */
-const baselinePathOf = ({ dir, runId }: { dir: string; runId: string }) => join(dir, '.lightsout', 'runs', runId, 'standards-baseline.json');
+const baselinePathOf = ({ dir, runId }: { dir: string; runId: string }) => join(runDirFor({ cwd: dir, runId }), 'standards-baseline.json');
 
 test('clean-slate: a red baseline gate fails the run before a single agent is spawned', async () => {
 	const { dir, driver, spawned, config } = await setupCleanSlateRun({ scripts: { check: 'echo BASELINE-SENTINEL >&2; exit 1' } });

@@ -87,13 +87,13 @@ const planId = '001-record-implementation';
 const name = `${ticketBranch}/${planId}`;
 
 /** Where that plan's deliverable sits, relative to the checkout the run builds in. */
-const planPath = join('.lightsout', 'plans', ticketBranch, planId, 'plan.md');
+const planPath = join('.lightsout', 'tickets', ticketBranch, 'plans', planId, 'plan.md');
 
 /** Where that plan's overview sits when it is a phased plan — the plan path a phases run records. */
-const overviewPath = join('.lightsout', 'plans', ticketBranch, planId, 'overview.md');
+const overviewPath = join('.lightsout', 'tickets', ticketBranch, 'plans', planId, 'overview.md');
 
 /** The ticket body a direct run froze beside itself — the plan path a build from the ticket body records. */
-const frozenTicketPath = join('.lightsout', 'runs', runId, 'ticket.md');
+const frozenTicketPath = join('.lightsout', 'direct', 'runs', runId, 'ticket.md');
 
 /** Every activity record anywhere under the checkout — how a case states that nothing was written. */
 const activityRecordsUnder = async ({ dir }: { dir: string }) => {
@@ -126,7 +126,7 @@ const setupParkedImplementRun = () => {
 		manifest: manifestOf({ pipeline: PipelineKind.Implement, status: RunStatus.Passed, plan: planPath, branch: ticketBranch }),
 	});
 
-	return { ...seeded, planDir: join(seeded.cwd, '.lightsout', 'plans', ticketBranch, planId) };
+	return { ...seeded, planDir: join(seeded.cwd, '.lightsout', 'tickets', ticketBranch, 'plans', planId) };
 };
 
 /**
@@ -159,7 +159,7 @@ const setupParkedPhasedRun = () => {
 		};
 	});
 
-	return { ...seeded, planDir: join(seeded.cwd, '.lightsout', 'plans', ticketBranch, planId) };
+	return { ...seeded, planDir: join(seeded.cwd, '.lightsout', 'tickets', ticketBranch, 'plans', planId) };
 };
 
 /**
@@ -194,7 +194,7 @@ const setupParkedDirectRun = () => {
 	};
 
 	writeRepoFile({ cwd: seeded.cwd, path: planPath, content: '# Record the implementation\n' });
-	writeRepoFile({ cwd: seeded.cwd, path: join('.lightsout', 'plans', ticketBranch, 'ticket.json'), content: JSON.stringify(record) });
+	writeRepoFile({ cwd: seeded.cwd, path: join('.lightsout', 'tickets', ticketBranch, 'ticket.json'), content: JSON.stringify(record) });
 	writeRepoFile({ cwd: seeded.cwd, path: frozenTicketPath, content: '# Record the implementation\n\nBuild the thing.\n' });
 
 	mockRequireImplementLifecycle.mockResolvedValue(undefined);

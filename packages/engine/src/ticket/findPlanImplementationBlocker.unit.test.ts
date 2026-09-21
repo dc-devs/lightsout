@@ -125,7 +125,7 @@ describe('findPlanImplementationBlocker', () => {
 		{
 			progress: PlanProgress.Ready,
 			runId: undefined,
-			expected: ['001-record', 'lightsout implement --plan', '.lightsout/plans/lo-140-multi/001-record', 'lightsout ticket exclude-plan'],
+			expected: ['001-record', 'lightsout implement --plan', '.lightsout/tickets/lo-140-multi/plans/001-record', 'lightsout ticket exclude-plan'],
 		},
 	])('refuses behind the lowest lower plan that is not implemented and names how to resolve it', ({ progress, runId, expected }) => {
 		const { record } = setupTicket({

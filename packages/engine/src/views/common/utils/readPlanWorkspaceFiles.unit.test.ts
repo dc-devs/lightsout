@@ -3,13 +3,14 @@ import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { readPlanWorkspaceFiles } from '#src/views/common/utils/readPlanWorkspaceFiles.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 
 const name = 'add-search';
 
 /** A workspace folder holding exactly the files a case names, each with a body long enough to have a size. */
 const seedWorkspace = async ({ files = {}, folders = [] }: { files?: Record<string, string>; folders?: string[] } = {}) => {
 	const cwd = await freshCwd();
-	const dir = join(cwd, '.lightsout', 'plans', name);
+	const dir = planWorkspaceFolder({ cwd: cwd, name: name });
 
 	await mkdir(dir, { recursive: true });
 
@@ -69,7 +70,7 @@ test('a file is stat’d rather than opened: its size and mtime are what comes b
 
 	expect(files.notesFile).toStrictEqual({
 		name: 'brainstorm-notes.md',
-		path: '.lightsout/plans/add-search/brainstorm-notes.md',
+		path: '.lightsout/tickets/add-search/plans/brainstorm-notes.md',
 		bytes: 'rough idea'.length,
 		updatedAt: '2026-03-04T05:06:07.000Z',
 	});

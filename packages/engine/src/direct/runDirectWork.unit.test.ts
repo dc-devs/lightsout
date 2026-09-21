@@ -1,11 +1,13 @@
 import { readdirSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { type LightsoutConfig, PipelineKind, RunStatus, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
 import { runDirectWork } from '#src/direct/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
-import { createRun, getRunDir, getRunsDir } from '#src/runState/index.ts';
+import { createRun, resolveRunDir } from '#src/runState/index.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // Mocked Imports
@@ -132,7 +134,9 @@ describe('runDirectWork', () => {
 
 		expect(result.manifest.ticketRef).toBe('LO-70');
 		expect(result.manifest.pipeline).toBe('direct');
-		expect(readFileSync(`${getRunDir({ cwd, runId: result.manifest.runId })}/ticket.md`, 'utf8')).toBe('# Drain the backlog\n\nBuild the thing.\n');
+		expect(readFileSync(join(await resolveRunDir({ cwd, runId: result.manifest.runId }), 'ticket.md'), 'utf8')).toBe(
+			'# Drain the backlog\n\nBuild the thing.\n',
+		);
 	});
 
 	test('records the ship intent it was started with, so the progress view can draw a ship row for a direct run too', async () => {
@@ -152,7 +156,7 @@ describe('runDirectWork', () => {
 
 		const result = await run({ ticketBody: '# Drain the backlog\n' });
 
-		expect(readFileSync(`${getRunDir({ cwd, runId: result.manifest.runId })}/ticket.md`, 'utf8')).toBe('# Drain the backlog\n');
+		expect(readFileSync(join(await resolveRunDir({ cwd, runId: result.manifest.runId }), 'ticket.md'), 'utf8')).toBe('# Drain the backlog\n');
 	});
 
 	test('merges the agent’s changed files into the manifest, which is what the run reports afterwards', async () => {
@@ -373,7 +377,8 @@ describe('runDirectWork', () => {
 		const result = await run();
 
 		expect(result.manifest).toEqual(expect.objectContaining({ runId: existing.runId, baselineDirtyFiles: ['src/half-done.ts'], status: RunStatus.Passed }));
-		expect(readdirSync(getRunsDir({ cwd }))).toStrictEqual([existing.runId]);
+		// a direct run of a ticket is filed under the ticket's own runs folder
+		expect(readdirSync(dirname(runDirFor({ cwd, runId: existing.runId, ticketBranch: existing.branch })))).toStrictEqual([existing.runId]);
 		expect(mockRunGates.mock.calls.map((call) => call[0].step)).toStrictEqual(['verify']);
 		expect(mockInvokeAgentWithContract).toHaveBeenCalledTimes(1);
 	});
@@ -387,7 +392,7 @@ describe('runDirectWork', () => {
 
 		expect(result.ok).toBe(false);
 		expect(result.manifest.status).toBe(RunStatus.Failed);
-		expect(readdirSync(getRunsDir({ cwd }))).toStrictEqual([result.manifest.runId]);
+		expect(readdirSync(dirname(runDirFor({ cwd, runId: result.manifest.runId, ticketBranch: result.manifest.branch })))).toStrictEqual([result.manifest.runId]);
 		expect(mockRunGates.mock.calls.map((call) => call[0].step)).toStrictEqual(['pre-flight']);
 		expect(mockInvokeAgentWithContract).not.toHaveBeenCalled();
 	});
@@ -401,7 +406,7 @@ describe('runDirectWork', () => {
 		// the id the caller minted is the run that exists, so a ticket record
 		// naming it names a run on disk
 		expect(result.manifest.runId).toBe('20260912-pre-minted');
-		expect(readdirSync(getRunsDir({ cwd }))).toStrictEqual(['20260912-pre-minted']);
-		expect(readFileSync(`${getRunDir({ cwd, runId: '20260912-pre-minted' })}/ticket.md`, 'utf8')).toBe(`${ticketBody}\n`);
+		expect(readdirSync(dirname(runDirFor({ cwd, runId: '20260912-pre-minted', ticketBranch: result.manifest.branch })))).toStrictEqual(['20260912-pre-minted']);
+		expect(readFileSync(join(await resolveRunDir({ cwd, runId: '20260912-pre-minted' }), 'ticket.md'), 'utf8')).toBe(`${ticketBody}\n`);
 	});
 });

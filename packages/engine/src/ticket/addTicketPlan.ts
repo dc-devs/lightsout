@@ -1,7 +1,6 @@
 import { mkdir } from 'node:fs/promises';
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
-import { resolveSharedStateDir } from '#src/common/workspace/resolveSharedStateDir.ts';
 import { type LightsoutConfig, PlanProgress, TicketEventKind, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
 import { planAttachmentManifestName, planWorkspaceDir } from '#src/plan/index.ts';
 import { appendTicketEvent } from '#src/ticket/common/record/appendTicketEvent.ts';
@@ -10,7 +9,6 @@ import { composePlanId } from '#src/ticket/common/record/composePlanId.ts';
 import { recordShipRequestWithdrawal } from '#src/ticket/common/record/recordShipRequestWithdrawal.ts';
 import { requireTicketRecord } from '#src/ticket/common/record/requireTicketRecord.ts';
 import type { TicketRecordChange } from '#src/ticket/common/types/TicketRecordChange.ts';
-import { getTicketFolderPath } from '#src/ticket/common/utils/getTicketFolderPath.ts';
 import { listLegacyPlanEntries } from '#src/ticket/common/utils/listLegacyPlanEntries.ts';
 import { resolveTicketTrackerTarget } from '#src/ticket/common/utils/resolveTicketTrackerTarget.ts';
 import { pullTicketRecord } from '#src/ticket/pullTicketRecord.ts';
@@ -200,7 +198,7 @@ export const addTicketPlan = async ({
 
 	// Read before the change, because the store's change callback is pure: a
 	// listing taken inside it could not reach the disk at all.
-	const legacyEntries = await listLegacyPlanEntries({ ticketFolder: getTicketFolderPath({ stateDir: await resolveSharedStateDir({ cwd }), ticketBranch }) });
+	const legacyEntries = await listLegacyPlanEntries({ plansFolder: await planWorkspaceDir({ cwd, name: ticketBranch }) });
 	let addition: PlanAddition | undefined;
 	const updated = await updateSyncedTicketRecord({
 		cwd,

@@ -17,7 +17,8 @@ import { runScript } from './runScript.mjs';
  * A dataset invented to make that claim would be a lie, so every number here is
  * read from somewhere that already existed — line counts from git blobs, folder
  * populations from git trees, the caps from the standards pack's own rule
- * files, and the moments a move was allowed to happen from `.lightsout/runs/`.
+ * files, and the moments a move was allowed to happen from the refactor runs
+ * under `.lightsout/`.
  *
  * `.lightsout/` is gitignored, so the run markers are a LOCAL-ONLY input and
  * this JSON is the committed output. Build it on the machine that carries the
@@ -36,12 +37,18 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 /** How many commits the animation carries. Beyond this the oldest are dropped, and the count is reported. */
 const maxFrames = 400;
 
-/** Every passed refactor run's `updatedAt`, oldest first — the commits where a move was allowed to happen. */
+/**
+ * Every passed refactor run's `updatedAt`, oldest first — the commits where a
+ * move was allowed to happen.
+ *
+ * A refactor run belongs to no plan and no ticket, so the refactor command's
+ * own runs folder is where every one of them is filed.
+ */
 const readRefactorMarkers = ({ log }) => {
-	const runsDir = join(repoRoot, '.lightsout', 'runs');
+	const runsDir = join(repoRoot, '.lightsout', 'refactor', 'runs');
 
 	if (!existsSync(runsDir)) {
-		log('no .lightsout/runs/ here — no refactor markers, so the animation is a plain growth curve');
+		log('no .lightsout/refactor/runs/ here — no refactor markers, so the animation is a plain growth curve');
 
 		return [];
 	}

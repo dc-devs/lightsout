@@ -8,6 +8,8 @@ import { reviewTestChanges } from '#src/pipeline/approvedTests/index.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import { createOffContractDriver } from '#tests/helpers/createOffContractDriver.ts';
 import { createRateLimitedDriver } from '#tests/helpers/createRateLimitedDriver.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const runId = 'run-1';
@@ -41,6 +43,10 @@ const createReviewerDriver = ({ verdicts, invocations = [] }: { verdicts: unknow
  */
 const setupReviewRun = ({ driver, live, acceptanceTests = [] }: { driver: Driver; live?: string; acceptanceTests?: AcceptanceTestRecord[] }) => {
 	const cwd = setupConsumerRepo({ sources: { 'src/index.js': 'export const one = 1;\n', [testFile]: committed } });
+
+	// The run already has its folder, because `createRun` makes one before a run
+	// starts and everything written inside it looks the run up by id.
+	seedRunFolder({ cwd: cwd, runId });
 
 	if (live !== undefined) {
 		writeFileSync(join(cwd, testFile), live);
@@ -82,7 +88,7 @@ const setupReviewRun = ({ driver, live, acceptanceTests = [] }: { driver: Driver
 
 /** The run's review journal, one parsed record per line. */
 const readJournal = ({ cwd }: { cwd: string }) => {
-	const path = join(cwd, '.lightsout', 'runs', runId, 'test-reviews.jsonl');
+	const path = join(runDirFor({ cwd, runId }), 'test-reviews.jsonl');
 
 	if (!existsSync(path)) {
 		return [];
@@ -95,7 +101,7 @@ const readJournal = ({ cwd }: { cwd: string }) => {
 };
 
 /** Where the run keeps its approved copy of the ledger test file. */
-const approvedCopy = ({ cwd }: { cwd: string }) => join(cwd, '.lightsout', 'runs', runId, 'approved', testFile);
+const approvedCopy = ({ cwd }: { cwd: string }) => join(runDirFor({ cwd, runId }), 'approved', testFile);
 
 describe('reviewTestChanges', () => {
 	test('reviewTestChanges: an empty bundle invokes no reviewer and returns no error', async () => {

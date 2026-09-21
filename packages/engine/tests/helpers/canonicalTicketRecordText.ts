@@ -1,0 +1,26 @@
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type { TicketRecord } from '#src/contracts/index.ts';
+import { updateLocalTicketRecord } from '#src/ticket/index.ts';
+
+interface Params {
+	/** The record to write, whose `branch` names the ticket folder it lands in. */
+	record: TicketRecord;
+}
+
+/**
+ * The bytes the record store itself writes for a record, taken from the store in
+ * a throwaway checkout rather than restated in a fixture.
+ *
+ * A sidecar hash or a published copy a test plants has to be the exact byte form
+ * a real machine would have recorded, and the store owns that spelling —
+ * key order, indentation and trailing newline alike.
+ */
+export const canonicalTicketRecordText = async ({ record }: Params): Promise<string> => {
+	const scratch = mkdtempSync(join(tmpdir(), 'lightsout-ticket-record-bytes-'));
+
+	await updateLocalTicketRecord({ cwd: scratch, ticketBranch: record.branch, change: () => record });
+
+	return readFileSync(join(scratch, '.lightsout', 'tickets', record.branch, 'ticket.json'), 'utf8');
+};

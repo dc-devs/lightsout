@@ -11,7 +11,7 @@ export const planSteps: CommandStep[] = [
 			'Preserve any existing notes as the plan’s starting context',
 		],
 		note: 'Gives the plan a stable home without making `/brainstorm` a prerequisite',
-		saved: ['.lightsout/plans/<name>/brainstorm-notes.md'],
+		saved: ['.lightsout/tickets/<ticket-branch>/plans/<plan-id>/brainstorm-notes.md'],
 		savedLabel: 'SAVED WHEN NOTES EXIST',
 	},
 	{
@@ -23,7 +23,7 @@ export const planSteps: CommandStep[] = [
 			'Verify every referenced file and path before moving forward',
 		],
 		note: 'Ensures the plan reflects the repository’s current state, not assumptions',
-		saved: ['.lightsout/plans/<name>/facts.json'],
+		saved: ['.lightsout/tickets/<ticket-branch>/plans/<plan-id>/facts.json'],
 	},
 	{
 		title: 'SETTLE THE SCOPE AND CONSTRAINTS',
@@ -34,7 +34,7 @@ export const planSteps: CommandStep[] = [
 			'Planning agent asks questions until you are both aligned',
 		],
 		note: 'Prevents scope and project constraints from being decided during implementation',
-		saved: ['.lightsout/plans/<name>/decisions.json'],
+		saved: ['.lightsout/tickets/<ticket-branch>/plans/<plan-id>/decisions.json'],
 	},
 	{
 		title: 'CHOOSE THE APPROACH',
@@ -45,7 +45,7 @@ export const planSteps: CommandStep[] = [
 			'Skip this step only when the approach is already settled',
 		],
 		note: 'Ensures the design is chosen before implementation begins',
-		saved: ['decisions.json'],
+		saved: ['.lightsout/tickets/<ticket-branch>/plans/<plan-id>/decisions.json'],
 	},
 	{
 		title: 'WRITE THE IMPLEMENTATION PLAN',
@@ -56,7 +56,11 @@ export const planSteps: CommandStep[] = [
 			'Use one plan or split larger work into clear phases',
 		],
 		note: 'Creates the specification the implementation agent will follow',
-		saved: ['.lightsout/plans/<name>/plan.md', '.lightsout/plans/<name>/overview.md', '.lightsout/plans/<name>/phase<N>-<slug>.md'],
+		saved: [
+			'.lightsout/tickets/<ticket-branch>/plans/<plan-id>/plan.md',
+			'.lightsout/tickets/<ticket-branch>/plans/<plan-id>/overview.md',
+			'.lightsout/tickets/<ticket-branch>/plans/<plan-id>/phase<N>-<slug>.md',
+		],
 	},
 	{
 		title: 'STRESS-TEST THE PLAN',
@@ -67,7 +71,7 @@ export const planSteps: CommandStep[] = [
 			'Every answer is added to the plan immediately',
 		],
 		note: 'Prevents the implementation agent from filling gaps on its own',
-		saved: ['decisions.json'],
+		saved: ['.lightsout/tickets/<ticket-branch>/plans/<plan-id>/decisions.json'],
 	},
 	{
 		title: 'CATCH DUPLICATION BEFORE CODING',
@@ -78,7 +82,7 @@ export const planSteps: CommandStep[] = [
 			'Update the plan before implementation begins',
 		],
 		note: 'Prevents duplicate logic and competing abstractions',
-		saved: ['.lightsout/plans/<name>/dedup.json'],
+		saved: ['.lightsout/tickets/<ticket-branch>/plans/<plan-id>/dedup.json'],
 	},
 	{
 		title: 'GET THE PLAN TO AN A GRADE',
@@ -89,6 +93,6 @@ export const planSteps: CommandStep[] = [
 			'Re-grade until it earns an A with no unresolved gaps',
 		],
 		note: 'Proves the plan is complete enough for an implementation agent with no prior context',
-		saved: ['.lightsout/plans/<name>/grade.json'],
+		saved: ['.lightsout/tickets/<ticket-branch>/plans/<plan-id>/grade.json'],
 	},
 ];

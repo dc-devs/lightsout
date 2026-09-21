@@ -26,7 +26,7 @@ const overviewCreating = ({ counts }: { counts: number[] }) =>
  */
 const setupReshapeActivity = ({ counts, bodies = [], parked = false }: { counts: number[]; bodies?: string[]; parked?: boolean }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-breakdown-activity-'));
-	const workspaceDir = join(cwd, '.lightsout', 'plans', 'demo');
+	const workspaceDir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
 
 	mkdirSync(workspaceDir, { recursive: true });
 

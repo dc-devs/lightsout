@@ -36,7 +36,7 @@ const setupImplement = ({ args, config, locked }: { args: string[]; config: Reco
 
 /**
  * A repo that declares a tracker, with a plan workspace seeded under
- * `.lightsout/plans/<name>` — the arrangement the plan-folder advisory is
+ * `.lightsout/tickets/<name>/plans` — the arrangement the plan-folder advisory is
  * about, where the case turns on the folder's own name rather than on what the
  * folder holds. The planted lock ends the run right after the advisory, so
  * nothing spawns a harness. `--plan` names the folder, or the plan.md in it.
@@ -52,7 +52,7 @@ const setupNamedPlanFolder = ({
 	pointAtPlanFile?: boolean;
 	trackerConfigured?: boolean;
 }) => {
-	const folder = join('.lightsout', 'plans', name);
+	const folder = join('.lightsout', 'tickets', name, 'plans');
 	const setup = setupImplement({
 		args: ['--plan', pointAtPlanFile ? join(folder, 'plan.md') : folder],
 		locked: true,

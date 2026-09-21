@@ -15,6 +15,7 @@ import {
 import type { Driver } from '#src/drivers/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { runPlanFolderPipeline } from '#src/queue/workers/runPlanFolderPipeline.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 /** What either pipeline is handed: the two the folder's shape chooses between differ only in which path they carry. */
@@ -53,7 +54,7 @@ const manifestOf = (status: RunStatus): RunManifest => ({
 	runId: 'run-7',
 	createdAt: '2026-01-01T00:00:00.000Z',
 	updatedAt: '2026-01-01T00:00:01.000Z',
-	plan: '.lightsout/plans/lo-75-queue-owns-the-build/plan.md',
+	plan: '.lightsout/tickets/lo-75-queue-owns-the-build/plans/plan.md',
 	harness: 'claude-code',
 	status,
 	currentStep: null,
@@ -82,7 +83,7 @@ const setupPlanFolder = ({
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-plan-folder-'));
 	const name = 'lo-75-queue-owns-the-build';
-	const folder = join(cwd, '.lightsout', 'plans', name);
+	const folder = planWorkspaceFolder({ cwd: cwd, name: name });
 
 	mkdirSync(folder, { recursive: true });
 	writeFileSync(join(folder, 'plan.md'), '# Plan\n');
@@ -114,7 +115,7 @@ const planOf = ({ id, progress }: { id: string; progress: PlanProgress }): Ticke
 /** A passed run of the whole plan, which is the only shape that finishes a plan's implementation. */
 const passedPlanManifest = ({ planId }: { planId: string }): RunManifest => ({
 	...manifestOf(RunStatus.Passed),
-	plan: join('.lightsout', 'plans', ticketBranch, planId, 'plan.md'),
+	plan: join('.lightsout', 'tickets', ticketBranch, 'plans', planId, 'plan.md'),
 });
 
 /**
@@ -125,7 +126,7 @@ const passedPlanManifest = ({ planId }: { planId: string }): RunManifest => ({
  */
 const setupTicketPlanFolder = ({ plans, result }: { plans: TicketPlan[]; result: PipelineResult }) => {
 	const { cwd } = setupBranchRepo({ branch: ticketBranch });
-	const ticketFolder = join(cwd, '.lightsout', 'plans', ticketBranch);
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
 	const record: TicketRecord = {
 		schemaVersion: 1,
 		ticketRef: 'LO-140',
@@ -138,8 +139,8 @@ const setupTicketPlanFolder = ({ plans, result }: { plans: TicketPlan[]; result:
 	mkdirSync(ticketFolder, { recursive: true });
 
 	for (const plan of plans) {
-		mkdirSync(join(ticketFolder, plan.id), { recursive: true });
-		writeFileSync(join(ticketFolder, plan.id, 'plan.md'), `# ${plan.id}\n`);
+		mkdirSync(join(ticketFolder, 'plans', plan.id), { recursive: true });
+		writeFileSync(join(ticketFolder, 'plans', plan.id, 'plan.md'), `# ${plan.id}\n`);
 	}
 
 	writeFileSync(join(ticketFolder, 'ticket.json'), JSON.stringify(record));

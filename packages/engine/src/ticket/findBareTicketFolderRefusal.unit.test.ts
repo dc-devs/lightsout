@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { findBareTicketFolderRefusal } from '#src/ticket/index.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 /** A record the contract accepts, written by hand so the refusal rule is the only thing under test. */
@@ -30,11 +31,11 @@ const ticketRecordOf = ({ branch }: { branch: string }) => ({
  */
 const setupCheckout = ({ withRecord, legacy }: { withRecord: string; legacy: string }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-bare-ticket-folder-'));
-	const recordFolder = join(cwd, '.lightsout', 'plans', withRecord);
+	const recordFolder = join(cwd, '.lightsout', 'tickets', withRecord);
 
 	mkdirSync(recordFolder, { recursive: true });
 	writeFileSync(join(recordFolder, 'ticket.json'), JSON.stringify(ticketRecordOf({ branch: withRecord })));
-	mkdirSync(join(cwd, '.lightsout', 'plans', legacy), { recursive: true });
+	mkdirSync(planWorkspaceFolder({ cwd: cwd, name: legacy }), { recursive: true });
 
 	return { cwd };
 };
@@ -46,7 +47,7 @@ const setupCheckout = ({ withRecord, legacy }: { withRecord: string; legacy: str
  */
 const setupBrokenRecord = ({ ticketBranch, contents }: { ticketBranch: string; contents: string }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-bare-ticket-folder-'));
-	const recordFolder = join(cwd, '.lightsout', 'plans', ticketBranch);
+	const recordFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
 
 	mkdirSync(recordFolder, { recursive: true });
 	writeFileSync(join(recordFolder, 'ticket.json'), contents);
@@ -63,15 +64,36 @@ const setupBrokenRecord = ({ ticketBranch, contents }: { ticketBranch: string; c
 const setupLinkedWorktree = ({ withRecord, legacy }: { withRecord: string; legacy: string }) => {
 	const { cwd } = setupBranchRepo();
 	const worktree = join(cwd, '.worktrees', withRecord);
-	const recordFolder = join(cwd, '.lightsout', 'plans', withRecord);
+	const recordFolder = join(cwd, '.lightsout', 'tickets', withRecord);
 
 	execSync(`git worktree add -q -b ${withRecord} "${worktree}" main`, { cwd, stdio: 'ignore' });
 	mkdirSync(recordFolder, { recursive: true });
 	writeFileSync(join(recordFolder, 'ticket.json'), JSON.stringify(ticketRecordOf({ branch: withRecord })));
-	mkdirSync(join(worktree, '.lightsout', 'plans', withRecord), { recursive: true });
-	mkdirSync(join(worktree, '.lightsout', 'plans', legacy), { recursive: true });
+	mkdirSync(planWorkspaceFolder({ cwd: worktree, name: withRecord }), { recursive: true });
+	mkdirSync(planWorkspaceFolder({ cwd: worktree, name: legacy }), { recursive: true });
 
 	return { worktree };
+};
+
+/**
+ * A checkout whose tickets directory holds one branch's folder with a record in
+ * it, a second branch's folder with no record at all, and a third branch whose
+ * only record was left in the pre-layout plans folder. That third folder is the
+ * one this rule must no longer read: a record there says nothing about the
+ * branch any more, so its bare name is still a legacy plan name.
+ */
+const setupTicketsDirectoryCheckout = ({ withRecord, withoutRecord, preLayout }: { withRecord: string; withoutRecord: string; preLayout: string }) => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-bare-ticket-folder-'));
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', withRecord);
+	const preLayoutFolder = join(cwd, '.lightsout', 'plans', preLayout);
+
+	mkdirSync(ticketFolder, { recursive: true });
+	writeFileSync(join(ticketFolder, 'ticket.json'), JSON.stringify(ticketRecordOf({ branch: withRecord })));
+	mkdirSync(join(cwd, '.lightsout', 'tickets', withoutRecord), { recursive: true });
+	mkdirSync(preLayoutFolder, { recursive: true });
+	writeFileSync(join(preLayoutFolder, 'ticket.json'), JSON.stringify(ticketRecordOf({ branch: preLayout })));
+
+	return { cwd };
 };
 
 describe('findBareTicketFolderRefusal', () => {
@@ -120,5 +142,23 @@ describe('findBareTicketFolderRefusal', () => {
 		const refusal = await findBareTicketFolderRefusal({ cwd, name: 'lo-140-broken-record' });
 
 		expect(refusal).toEqual(expect.stringContaining(expected));
+	});
+
+	test("findBareTicketFolderRefusal: the record is looked for in the ticket's own folder", async () => {
+		const { cwd } = setupTicketsDirectoryCheckout({
+			withRecord: 'lo-155-ticket-folder',
+			withoutRecord: 'lo-155-no-record',
+			preLayout: 'lo-155-pre-layout',
+		});
+
+		const bareNameWithRecord = await findBareTicketFolderRefusal({ cwd, name: 'lo-155-ticket-folder' });
+		const bareNameWithoutRecord = await findBareTicketFolderRefusal({ cwd, name: 'lo-155-no-record' });
+		const preLayoutName = await findBareTicketFolderRefusal({ cwd, name: 'lo-155-pre-layout' });
+
+		expect({ bareNameWithRecord, bareNameWithoutRecord, preLayoutName }).toStrictEqual({
+			bareNameWithRecord: expect.stringContaining("'lo-155-ticket-folder/<plan-id>'"),
+			bareNameWithoutRecord: undefined,
+			preLayoutName: undefined,
+		});
 	});
 });

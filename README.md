@@ -208,7 +208,7 @@ is where those rules live; [`lightsout ticket`](#lightsout-ticket) is the comman
 Start from the notes `/brainstorm` saved:
 
 ```text
-/plan .lightsout/plans/rate-limiting/brainstorm-notes.md
+/plan .lightsout/tickets/rate-limiting/plans/brainstorm-notes.md
 ```
 
 Or start from a plain description:
@@ -275,10 +275,11 @@ the tree at the plan's path from your checkout's committed `HEAD` and prints the
 tree's path; every later plan step works from it, so another agent editing your
 checkout cannot move the code a grade is measured against. The tree holds code
 work only: the plan folder itself stays in your main checkout at
-`.lightsout/plans/<name>/`, whichever checkout a plan command runs from, and is
-never copied either way. The implementation run then continues in that same tree
-rather than cutting a second one. Pass `--no-worktree`, or set `plan.worktree` to
-false, to plan in the launching checkout deliberately.
+`.lightsout/tickets/<ticket-branch>/plans/<plan-id>/`, whichever checkout a plan
+command runs from, and is never copied either way. The implementation run then
+continues in that same tree rather than cutting a second one. Pass
+`--no-worktree`, or set `plan.worktree` to false, to plan in the launching
+checkout deliberately.
 
 When the name is a plan address — `<ticket-branch>/<NNN-slug>` — the tree is
 the ticket branch's, so a later plan of the same ticket continues in it and is
@@ -326,7 +327,7 @@ and a branch with no ticket record, chain exactly as they always have.
 [![How /implement turns the spec into verified code](assets/implement-workflow-light.svg)](assets/implement-workflow-light.svg)
 
 ```text
-/implement .lightsout/plans/rate-limiting/plan.md
+/implement .lightsout/tickets/rate-limiting/plans/plan.md
 ```
 
 ### lightsout status
@@ -475,7 +476,7 @@ A ticket owns one branch and a record of the numbered plans on it. Each plan is
 addressed as the ticket's branch and the plan's id joined by a slash —
 `lo-140-multi/002-queue-order` — and that address is what every `plan`
 subcommand and `implement` are given. The record itself,
-`.lightsout/plans/<ticket-branch>/ticket.json`, holds the ticket's mode, its
+`.lightsout/tickets/<ticket-branch>/ticket.json`, holds the ticket's mode, its
 plans and how far each one's implementation has got, any plan taken out of that
 work, and the request to ship.
 

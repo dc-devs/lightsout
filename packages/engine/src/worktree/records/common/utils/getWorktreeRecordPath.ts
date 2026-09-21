@@ -1,21 +1,25 @@
 import { join } from 'node:path';
 import { toBranchFileName } from '#src/common/utils/toBranchFileName.ts';
+import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
 
 interface Params {
-	/** The `.lightsout` directory of the PRIMARY checkout, resolved by the caller. */
-	stateDir: string;
+	/** Any checkout of the repository; the primary is resolved from it. */
+	cwd: string;
 	branch: string;
 }
 
 /**
- * Every ownership record gathers in one place:
- * `<stateDir>/worktrees/<branch>.json`.
+ * A branch's worktree ownership: `worktree.json` in that branch's ticket
+ * folder, beside the ship and branch-state records the same branch leaves.
  *
- * It takes the already-resolved state directory rather than a `cwd` because
- * each record function resolves the primary checkout itself — which is what
- * makes "the record lives in the primary checkout" true by construction rather
- * than by every caller remembering.
+ * It takes a `cwd` rather than an already-resolved state directory because
+ * `ticketFolderDir` resolves the primary checkout itself — which is what keeps
+ * "the record lives in the primary checkout" true by construction rather than
+ * by every caller remembering.
+ *
+ * The branch is slugged rather than used as written, so a branch carrying a
+ * slash names one flat ticket folder rather than a nested one.
  */
-export const getWorktreeRecordPath = ({ stateDir, branch }: Params): string => {
-	return join(stateDir, 'worktrees', `${toBranchFileName({ branch })}.json`);
+export const getWorktreeRecordPath = async ({ cwd, branch }: Params): Promise<string> => {
+	return join(await ticketFolderDir({ cwd, ticketBranch: toBranchFileName({ branch }) }), 'worktree.json');
 };

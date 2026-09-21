@@ -1,8 +1,7 @@
 import { join } from 'node:path';
-import { resolveSharedStateDir } from '#src/common/workspace/resolveSharedStateDir.ts';
+import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
 import type { TicketRecord } from '#src/contracts/index.ts';
 import { ticketFileNames } from '#src/ticket/common/constants/ticketFileNames.ts';
-import { getTicketFolderPath } from '#src/ticket/common/utils/getTicketFolderPath.ts';
 import { readTicketRecordFile } from '#src/ticket/common/utils/readTicketRecordFile.ts';
 
 interface Params {
@@ -22,8 +21,7 @@ interface Params {
  * corrupt record is an error instead, never undefined.
  */
 export const readTicketRecord = async ({ cwd, ticketBranch }: Params): Promise<{ record: TicketRecord | undefined } | { error: string }> => {
-	const stateDir = await resolveSharedStateDir({ cwd });
-	const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
+	const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
 
 	return readTicketRecordFile({ recordPath: join(ticketFolder, ticketFileNames.record), ticketBranch });
 };

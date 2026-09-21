@@ -6,6 +6,8 @@ import { readConfig } from '#src/common/config/readConfig.ts';
 import { runGates } from '#src/gates/index.ts';
 import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
 import { readGateLog } from '#tests/helpers/readGateLog.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 
 /**
  * A consumer dir with packages whose gate scripts vary, and scoped templates
@@ -39,6 +41,10 @@ const setupScopedRepo = ({ withRunToken = true }: { withRunToken?: boolean } = {
 		}),
 	);
 
+	// The run below already has its folder, because `createRun` makes one before
+	// a run starts and the evidence paths look the run up by id.
+	seedRunFolder({ cwd: dir, runId: 'run-skip' });
+
 	return dir;
 };
 
@@ -69,6 +75,10 @@ const setupCustomSuiteRepo = () => {
 		}),
 	);
 
+	// The run below already has its folder, because `createRun` makes one before
+	// a run starts and the evidence paths look the run up by id.
+	seedRunFolder({ cwd: dir, runId: 'run-skip' });
+
 	return dir;
 };
 
@@ -98,7 +108,7 @@ test('a package without a gate script is skipped with narration and a log record
 	expect(progress.includes('gate [bare] check: skipped (no "gate:check" script)')).toBeTruthy();
 	expect(progress.includes('gate [bare] test: skipped (no "gate:test" script)')).toBeTruthy();
 
-	const records = readFileSync(join(dir, '.lightsout', 'runs', 'run-skip', 'commands.jsonl'), 'utf8')
+	const records = readFileSync(join(runDirFor({ cwd: dir, runId: 'run-skip' }), 'commands.jsonl'), 'utf8')
 		.trim()
 		.split('\n')
 		.map((line) => JSON.parse(line) as Record<string, unknown>);

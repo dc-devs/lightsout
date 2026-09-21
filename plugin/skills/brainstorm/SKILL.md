@@ -221,7 +221,7 @@ Take the printed address rather than building one, and relay any notice it print
 about a withdrawn ship request. What that command refuses, and why, is the
 ticket-workflow skill's `### Adding a plan`; do not restate those rules here.
 
-Every `.lightsout/plans/<name>/` path and the `brainstorm publish --name <name>`
+Every `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/` path and the `brainstorm publish --name <name>`
 command below then resolve unchanged.
 
 Before writing anything, show the settled decisions back to the user as a small
@@ -229,8 +229,8 @@ table — question, choice, one-line why, and whether it is an assumption — an
 get approval: these rows make the planning skills skip questions, so a row that
 overstates the agreement is expensive.
 
-Then write the notes to `.lightsout/plans/<name>/brainstorm-notes.md`, plus
-`.lightsout/plans/<name>/brainstorm-decisions.json` in this exact shape:
+Then write the notes to `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/brainstorm-notes.md`, plus
+`.lightsout/tickets/<ticket-branch>/plans/<plan-id>/brainstorm-decisions.json` in this exact shape:
 
 ```json
 {
@@ -311,8 +311,8 @@ then run `brainstorm publish`, because until that happens the record exists on
 one laptop.
 
 - **Ready to auto-plan:** ``Next: run the `auto-plan` skill with
-  .lightsout/plans/<name>/brainstorm-notes.md``
-- **Ready to implement:** name `.lightsout/plans/<name>/` and say the two files
+  .lightsout/tickets/<ticket-branch>/plans/<plan-id>/brainstorm-notes.md``
+- **Ready to implement:** name `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/` and say the two files
   plus the converged design are the whole record, so the work can be built
   straight from them. Print no command here either, for the reason above.
 

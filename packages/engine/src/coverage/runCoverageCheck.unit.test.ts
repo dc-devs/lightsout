@@ -6,6 +6,8 @@ import { runCoverageCheck } from '#src/coverage/runCoverageCheck.ts';
 import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 import { readGateLog } from '#tests/helpers/readGateLog.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /**
@@ -243,9 +245,13 @@ describe('runCoverageCheck', () => {
 	test('with a run id every measurement leaves a command-log record under the step that asked for it', async () => {
 		const dir = setupRootRepo();
 
+		// The run already has its folder, because `createRun` makes one before a
+		// run starts and the command log is looked up inside it by run id.
+		seedRunFolder({ cwd: dir, runId: 'run-measure' });
+
 		await runCoverageCheck({ cwd: dir, config: await readConfig({ cwd: dir }), runId: 'run-measure', step: 'measure' });
 
-		const record = JSON.parse(readFileSync(join(dir, '.lightsout', 'runs', 'run-measure', 'commands.jsonl'), 'utf8').trim()) as Record<string, unknown>;
+		const record = JSON.parse(readFileSync(join(runDirFor({ cwd: dir, runId: 'run-measure' }), 'commands.jsonl'), 'utf8').trim()) as Record<string, unknown>;
 
 		expect(record.kind).toBe('testCoverage');
 		expect(record.group).toBe('root');

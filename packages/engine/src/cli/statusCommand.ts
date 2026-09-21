@@ -1,4 +1,3 @@
-import { readdir } from 'node:fs/promises';
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import { usage } from '#src/cli/common/constants/usage.ts';
 import { loadPlanningProgressBlock } from '#src/cli/common/progressBlock/loadPlanningProgressBlock.ts';
@@ -10,7 +9,7 @@ import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { resolveWatchTarget } from '#src/cli/common/utils/resolveWatchTarget.ts';
 import { watchRunProgress } from '#src/cli/common/utils/watchRunProgress.ts';
 import { PipelineKind, RunStatus } from '#src/contracts/index.ts';
-import { getRunsDir, isRunLive, RunNotFoundError, readRunManifest, readRunProcessLock, resolveRunId } from '#src/runState/index.ts';
+import { isRunLive, listRunIds, RunNotFoundError, readRunManifest, readRunProcessLock, resolveRunId } from '#src/runState/index.ts';
 import { listRuns } from '#src/views/index.ts';
 
 /**
@@ -19,7 +18,7 @@ import { listRuns } from '#src/views/index.ts';
  * `--watch` asks for anything narrower.
  */
 const printRunListing = async ({ cwd }: { cwd: string }) => {
-	const runIds = await readdir(getRunsDir({ cwd })).catch(() => []);
+	const runIds = await listRunIds({ cwd });
 
 	if (runIds.length === 0) {
 		console.log('no runs found');

@@ -100,7 +100,7 @@ const setupShip = async ({ repo = {}, forge = {} }: { repo?: RepoParams; forge?:
 
 /** The result file the run left on disk, which is the whole point of the command. */
 const readShipResult = async ({ cwd, branch }: { cwd: string; branch: string }) =>
-	JSON.parse(await readFile(join(cwd, '.lightsout', 'ship', `${branch}.json`), 'utf8'));
+	JSON.parse(await readFile(join(cwd, '.lightsout', 'tickets', branch, 'ship.json'), 'utf8'));
 
 describe('runShip', () => {
 	test('a clean branch on a green pull request ships, and the result carries what a tracker comment is built from', async () => {
@@ -127,7 +127,7 @@ describe('runShip', () => {
 		const result = await runShip({ cwd, settings, integration, ticketGuard, onProgress });
 
 		expect(await readShipResult({ cwd, branch: 'lo-60-ship' })).toStrictEqual(result);
-		expect(progress.some((line) => line.includes(join('.lightsout', 'ship', 'lo-60-ship.json')))).toBe(true);
+		expect(progress.some((line) => line.includes(join('.lightsout', 'tickets', 'lo-60-ship', 'ship.json')))).toBe(true);
 	});
 
 	test('renders the body from the branch’s own capture groups before opening the pull request', async () => {

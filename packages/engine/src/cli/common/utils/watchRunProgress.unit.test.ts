@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { watchRunProgress } from '#src/cli/common/utils/watchRunProgress.ts';
 import { type RunManifest, RunStatus, ShipStatus, type StepRecord } from '#src/contracts/index.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 /** Beyond any OS pid range — the live-process probe reports it dead. */
 const deadPid = 999_999_999;
@@ -67,14 +68,14 @@ const setupWatch = ({ onFrame }: { onFrame?: (frame: number) => void } = {}) => 
 	});
 
 	const write = ({ manifest }: { manifest: RunManifest }) => {
-		mkdirSync(join(cwd, '.lightsout', 'runs', manifest.runId), { recursive: true });
-		writeFileSync(join(cwd, '.lightsout', 'runs', manifest.runId, 'manifest.json'), JSON.stringify(manifest), 'utf8');
+		mkdirSync(runDirFor({ cwd, runId: manifest.runId }), { recursive: true });
+		writeFileSync(join(runDirFor({ cwd, runId: manifest.runId }), 'manifest.json'), JSON.stringify(manifest), 'utf8');
 	};
 	const lock = ({ runId, pid }: { runId: string; pid: number }) =>
 		writeFileSync(join(cwd, '.lightsout', 'lock.json'), JSON.stringify({ pid, runId, startedAt: '2026-01-01T00:00:00.000Z' }), 'utf8');
 	const shipResult = ({ branch, status }: { branch: string; status: ShipStatus }) => {
-		mkdirSync(join(cwd, '.lightsout', 'ship'), { recursive: true });
-		writeFileSync(join(cwd, '.lightsout', 'ship', `${branch}.json`), JSON.stringify({ status, branch, failingChecks: [] }), 'utf8');
+		mkdirSync(join(cwd, '.lightsout', 'tickets', branch), { recursive: true });
+		writeFileSync(join(cwd, '.lightsout', 'tickets', branch, 'ship.json'), JSON.stringify({ status, branch, failingChecks: [] }), 'utf8');
 	};
 
 	return { cwd, lines, write, lock, shipResult, frameCount: () => frames };

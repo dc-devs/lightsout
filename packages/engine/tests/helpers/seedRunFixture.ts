@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { seedConfiguredCwd } from '#tests/helpers/seedConfiguredCwd.ts';
 
 interface Params {
@@ -19,7 +20,7 @@ interface Params {
 export const seedRunFixture = async ({ status, pipeline, lock, extraManifests = [] }: Params): Promise<{ cwd: string; runId: string; updatedAt: string }> => {
 	const cwd = await seedConfiguredCwd();
 	const runId = 'run-fixture';
-	const runDir = join(cwd, '.lightsout', 'runs', runId);
+	const runDir = runDirFor({ cwd, runId, pipeline });
 	const now = new Date().toISOString();
 
 	await mkdir(runDir, { recursive: true });
@@ -45,8 +46,10 @@ export const seedRunFixture = async ({ status, pipeline, lock, extraManifests = 
 	}
 
 	for (const extra of extraManifests) {
-		await mkdir(join(cwd, '.lightsout', 'runs', extra.runId), { recursive: true });
-		await writeFile(join(cwd, '.lightsout', 'runs', extra.runId, 'manifest.json'), extra.body, 'utf8');
+		const extraDir = runDirFor({ cwd, runId: extra.runId });
+
+		await mkdir(extraDir, { recursive: true });
+		await writeFile(join(extraDir, 'manifest.json'), extra.body, 'utf8');
 	}
 
 	return { cwd, runId, updatedAt: now };

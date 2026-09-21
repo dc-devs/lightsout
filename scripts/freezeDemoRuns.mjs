@@ -1,9 +1,11 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readRunManifest } from '../packages/engine/src/runState/readRunManifest.ts';
 import { getRunView } from '../packages/engine/src/views/getRunView.ts';
 import { listRuns } from '../packages/engine/src/views/listRuns.ts';
 import { invokedDirectly } from './invokedDirectly.mjs';
+import { rankDemoRuns } from './rankDemoRuns.mjs';
 
 /**
  * Freezes three of this repo's own runs into `assets/demo-runs/`, which is what
@@ -29,8 +31,9 @@ import { invokedDirectly } from './invokedDirectly.mjs';
  * Node strips TypeScript types without a flag from 22.18 on and resolves the
  * `#src/*` imports inside them from the engine's own manifest, but the package
  * index's graph reaches the pipeline's `.md` prompt modules, which plain Node
- * cannot load. `views/` does not. The repo root also declares no dependency on
- * the engine, so the bare specifier would not resolve here anyway.
+ * cannot load. The run and view readers reached here do not. The repo root also
+ * declares no dependency on the engine, so the bare specifier would not resolve
+ * here anyway.
  *
  * Never hand-edit the output. Run `pnpm build:demo-runs` instead.
  */
@@ -46,107 +49,31 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
  */
 const maxViewBytes = 512 * 1024;
 
-/** Every readable manifest under `.lightsout/runs/`, with the run's directory beside it. */
-const readManifests = () => {
-	const runsDir = join(repoRoot, '.lightsout', 'runs');
-
-	if (!existsSync(runsDir)) {
-		throw new Error('no .lightsout/runs/ here — the demo runs are frozen from this repo’s own run history');
-	}
-
+/**
+ * Every readable manifest this repo holds.
+ *
+ * Read through the engine's own listing and reader rather than a hand-built
+ * path: a run is filed under the work it belongs to, so only the engine knows
+ * where one is. A manifest that will not read is skipped, the way the reader
+ * that lists runs skips one.
+ */
+const readManifests = async () => {
 	const manifests = [];
 
-	for (const entry of readdirSync(runsDir)) {
-		const runDir = join(runsDir, entry);
+	for (const { runId } of await listRuns({ cwd: repoRoot })) {
+		const manifest = await readRunManifest({ cwd: repoRoot, runId }).catch(() => undefined);
 
-		try {
-			manifests.push({ runDir, manifest: JSON.parse(readFileSync(join(runDir, 'manifest.json'), 'utf8')) });
-		} catch {
-			// A directory mid-write or a manifest someone truncated is not a
-			// candidate; the reader that lists runs skips one the same way.
+		if (manifest !== undefined) {
+			manifests.push({ manifest });
 		}
+	}
+
+	if (manifests.length === 0) {
+		throw new Error('no run history here — the demo runs are frozen from this repo’s own run history');
 	}
 
 	return manifests;
 };
-
-/** The batch reports a refactor run recorded — the shape is what says a step was a batch, since the manifest stores reports opaquely. */
-const readBatchReports = ({ manifest }) => (manifest.steps ?? []).map((step) => step.report).filter((report) => Array.isArray(report?.remainingSiteKeys));
-
-/**
- * How many blocking sites the run actually cleared: what its work-list froze at
- * the start, less what its batches left standing.
- *
- * The frame exists to show the strongest before/after, so this is what the
- * refactor slot is chosen on.
- */
-const measureBurnDown = ({ runDir, manifest }) => {
-	const worklistPath = join(runDir, 'worklist.json');
-
-	if (!existsSync(worklistPath)) {
-		return undefined;
-	}
-
-	let worklist;
-
-	try {
-		worklist = JSON.parse(readFileSync(worklistPath, 'utf8'));
-	} catch {
-		return undefined;
-	}
-
-	const batches = worklist.batches ?? [];
-	const reports = readBatchReports({ manifest });
-
-	// Two batches and two reports, so the frame shows a burn-down rather than a
-	// single job. Nothing is asked of the remaining counts themselves: a refactor
-	// run only passes once every batch resolved, so on every passed run they are
-	// all zero — the before/after this measures is the work-list against that.
-	if (batches.length < 2 || reports.length < 2) {
-		return undefined;
-	}
-
-	const blocking = batches.reduce((total, batch) => total + (batch.blocking?.length ?? 0), 0);
-	const remaining = reports.reduce((total, report) => total + report.remainingSiteKeys.length, 0);
-
-	return blocking - remaining;
-};
-
-/** Newest first, so a tie is broken by the run a reader would recognize. */
-const byNewest = (first, second) => String(second.manifest.updatedAt).localeCompare(String(first.manifest.updatedAt));
-
-/** Every step passed, not just the run — a run that passed with a step retried into submission is not the clean one. */
-const isCleanImplement = ({ manifest }) =>
-	manifest.pipeline === 'implement' && manifest.status === 'passed' && (manifest.steps ?? []).every((step) => step.status === 'passed');
-
-/** Passed implement runs with every step passed, the one carrying the most steps first. */
-const rankImplement = ({ manifests }) =>
-	manifests
-		.filter(isCleanImplement)
-		.sort((first, second) => (second.manifest.steps?.length ?? 0) - (first.manifest.steps?.length ?? 0) || byNewest(first, second));
-
-/** Passed refactor runs whose work-list and reports show a real before and after, the largest measured drop first. */
-const rankRefactor = ({ manifests }) =>
-	manifests
-		.filter(({ manifest }) => manifest.pipeline === 'refactor' && manifest.status === 'passed')
-		.map((candidate) => ({ ...candidate, drop: measureBurnDown(candidate) }))
-		.filter((candidate) => candidate.drop !== undefined)
-		.sort((first, second) => second.drop - first.drop || byNewest(first, second));
-
-/**
- * Runs that stopped, most recent first.
- *
- * Only the two pipelines the other slots use: a coordinator or a coverage run
- * reads differently in the frame, and the three panels are meant to differ by
- * how the run ended rather than by what shape it is.
- */
-const rankStopped = ({ manifests }) =>
-	manifests
-		.filter(
-			({ manifest }) =>
-				(manifest.pipeline === 'implement' || manifest.pipeline === 'refactor') && (manifest.status === 'failed' || manifest.status === 'escalated'),
-		)
-		.sort(byNewest);
 
 /**
  * The first ranked candidate whose view this engine can still assemble.
@@ -176,12 +103,8 @@ const freezeSlot = async ({ slug, candidates, log }) => {
 
 /** @param log - where progress goes; the caller owns the console so the function stays testable */
 export const freezeDemoRuns = async ({ log = console.log } = {}) => {
-	const manifests = readManifests();
-	const ranked = {
-		implement: rankImplement({ manifests }),
-		refactor: rankRefactor({ manifests }),
-		stopped: rankStopped({ manifests }),
-	};
+	const manifests = await readManifests();
+	const ranked = rankDemoRuns({ repoRoot, manifests });
 	const views = {};
 
 	for (const [slug, candidates] of Object.entries(ranked)) {

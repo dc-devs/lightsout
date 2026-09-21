@@ -8,6 +8,6 @@ engine runs and exist as reference.
 node ../../plugin/dist/cli.mjs implement --plan plans/power.md --cwd .
 ```
 
-Run state lands in `.lightsout/runs/` (gitignored at repo root). A successful
+Run state lands in `.lightsout/implement/runs/` (gitignored at repo root). A successful
 run implements the plan — reset with `git checkout -- fixtures/toy-calc` (and
 delete untracked files it created) to make it runnable again.

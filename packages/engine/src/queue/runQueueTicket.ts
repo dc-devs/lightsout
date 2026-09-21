@@ -32,7 +32,7 @@ interface Params {
 	serializeWorktreeAdd: <Result>(params: { task: () => Promise<Result> }) => Promise<Result>;
 	/** The coordinator run's id, stamped on every relayed question and answer. */
 	coordinatorRunId: string;
-	/** The coordinator run's directory in the main checkout — where the relay records Q&A, and where this ticket's commit message is written. */
+	/** The coordinator run's own folder under the queue command's runs folder in the main checkout — where the relay records Q&A, and where this ticket's commit message is written. */
 	coordinatorRunDir: string;
 	onProgress?: (message: string) => void;
 }

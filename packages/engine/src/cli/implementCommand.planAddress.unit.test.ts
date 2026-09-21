@@ -69,12 +69,12 @@ jest.mock('#src/cli/common/utils/exitAfterImplement.ts', () => ({
 
 /** The ticket folder two plans of one ticket share, and the branch its name yields. */
 const ticketBranch = 'lo-7-search';
-const ticketFolder = join('.lightsout', 'plans', ticketBranch);
-const laterPlanFolder = join(ticketFolder, '002-ranking');
+const ticketFolder = join('.lightsout', 'tickets', ticketBranch);
+const laterPlanFolder = join(ticketFolder, 'plans', '002-ranking');
 
 /** A plan folder named for its branch alone — what every plan carried before addresses existed. */
 const legacyBranch = 'lo-9-legacy-plan';
-const legacyPlanFolder = join('.lightsout', 'plans', legacyBranch);
+const legacyPlanFolder = join('.lightsout', 'tickets', legacyBranch, 'plans');
 
 const planBody = '# Plan: rank the results\n';
 const pinnedCommit = '0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d';

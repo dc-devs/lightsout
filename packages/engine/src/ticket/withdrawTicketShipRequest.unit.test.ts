@@ -34,7 +34,7 @@ const recordOf = ({ pending }: { pending: boolean }): TicketRecord => ({
 /** Seeds the record through the store itself, so the bytes on disk are the exact form a real machine holds. */
 const setupShipRequest = async ({ pending = true }: { pending?: boolean } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-withdraw-ship-'));
-	const recordPath = join(cwd, '.lightsout', 'plans', ticketBranch, 'ticket.json');
+	const recordPath = join(cwd, '.lightsout', 'tickets', ticketBranch, 'ticket.json');
 
 	await updateLocalTicketRecord({ cwd, ticketBranch, change: () => recordOf({ pending }) });
 

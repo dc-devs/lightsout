@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { z } from 'zod';
 import { readPlanWorkspaceFile } from '#src/plan/common/utils/readPlanWorkspaceFile.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
@@ -21,7 +22,7 @@ const notFound = (filePath: string) => `no record at ${filePath}`;
 const setupWorkspaceFile = ({ text }: { text?: string } = {}) => {
 	const cwd = setupConsumerRepo();
 	const name = 'lo-150-planning-observability';
-	const dir = join(cwd, '.lightsout', 'plans', name);
+	const dir = planWorkspaceFolder({ cwd: cwd, name: name });
 
 	mkdirSync(dir, { recursive: true });
 
@@ -43,7 +44,7 @@ const setupLinkedWorktree = () => {
 	const worktree = join(cwd, '.worktrees', name);
 	// git answers with a fully resolved path, so the record is planted where the
 	// reader will look — macOS's symlinked temp directory otherwise hides it.
-	const dir = join(realpathSync(cwd), '.lightsout', 'plans', name);
+	const dir = planWorkspaceFolder({ cwd: realpathSync(cwd), name });
 
 	mkdirSync(dir, { recursive: true });
 	writeFileSync(join(dir, 'facts.json'), JSON.stringify({ planName: name, pathsChecked: 12 }), 'utf8');
