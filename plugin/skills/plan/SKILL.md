@@ -210,10 +210,10 @@ node "<plugin-root>/dist/cli.mjs" ticket add-plan --name <ticket-branch> --slug 
 and take the address it prints on its last line. What that command refuses, and
 why, is the ticket-workflow skill's `### Adding a plan`. Two questions come
 first, in the Question format: in single-plan mode with plan 001 already there,
-whether to switch the ticket to multiple-plan mode; and on a ticket folder still
-holding files from before ticket records, whether to run `lightsout ticket
-adopt`. Declining the second is fine — planning then carries on in that folder as
-it stands.
+whether to switch the ticket to multiple-plan mode; and on a ticket folder whose
+plans folder still holds loose files, whether to run `lightsout ticket add-plan
+--from <that folder>`. Declining the second is fine — planning then carries on in
+that folder as it stands.
 
 **With no ticket**, derive a kebab `<name>` from the
 request (e.g. "add a rate-limit banner" → `rate-limit-banner`), and rename the

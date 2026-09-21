@@ -24,7 +24,8 @@
  * one status block per active ticket — and again for `lightsout plan workspace`
  * and the same pair on every plan subcommand. Updated again for `lightsout
  * ticket` — the eight subcommands that change and show a ticket's record of the
- * plans it holds. Updated again for
+ * plans it holds, and once more when `ticket adopt` was merged into `ticket
+ * add-plan --from` and the eight became seven. Updated again for
  * `lightsout report` — where one plan's or one ticket's hours and money went,
  * down to each harness process. Updated once more for `doctor --usage-probe` —
  * the opt-in check that one live harness call still reports its token fields.
@@ -62,8 +63,7 @@ usage:
   lightsout plan dedup --name <name> [--cwd <path>] [--worktree] [--no-worktree]
   lightsout plan grade --name <name> [--phase <n[,n]>] [--cwd <path>] [--worktree] [--no-worktree]   (--phase grades only those phases, and always marks the result incomplete)
   lightsout plan publish --name <name> [--cwd <path>] [--worktree] [--no-worktree]
-  lightsout ticket add-plan --name <ticket-branch> --slug <slug> [--title <title>] [--cwd <path>]
-  lightsout ticket adopt --name <ticket-branch> --slug <slug> [--cwd <path>]
+  lightsout ticket add-plan --name <ticket-branch> --slug <slug> [--title <title>] [--from <folder>] [--cwd <path>]
   lightsout ticket mode --name <ticket-branch> --set single-plan|multiple-plan [--approve] [--cwd <path>]
   lightsout ticket request-ship --name <ticket-branch> [--plans <id,id> | --withdraw] [--cwd <path>]
   lightsout ticket exclude-plan --name <ticket-branch> --plan <id> --reason <text> [--implementation-removed] [--cwd <path>]

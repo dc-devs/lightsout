@@ -1,19 +1,19 @@
 import { PipelineKind, PlanProgress, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 
 interface Params {
-	/** The folder's own top-level runs, as `readFolderRuns` answered them. */
+	/** The source folder's own top-level runs, as `readLooseFileRuns` answered them. */
 	runs: RunManifest[];
 	/** Whether the folder holds a plan deliverable, which is what separates ready to implement from still being planned. */
 	hasDeliverable: boolean;
 }
 
 /**
- * How far the folder's implementation got, as plan 001's progress. A passed
- * top-level run is the whole answer; otherwise the folder's own implement runs
- * say where it stopped, while a phases coordinator that did NOT pass says
+ * How far the source folder's implementation got, as the new plan's progress. A
+ * passed top-level run is the whole answer; otherwise the folder's own implement
+ * runs say where it stopped, while a phases coordinator that did NOT pass says
  * nothing on its own, since each of its phases is a run this rule excludes.
  */
-export const readAdoptedProgress = ({ runs, hasDeliverable }: Params): PlanProgress => {
+export const readLooseFileProgress = ({ runs, hasDeliverable }: Params): PlanProgress => {
 	const latest = runs
 		.filter((manifest) => manifest.pipeline !== PipelineKind.Phases)
 		.sort((left, right) => (left.createdAt < right.createdAt ? -1 : 1))

@@ -20,7 +20,7 @@ describe('commandCatalog flags', () => {
 			['resume', ['cwd', 'no-ship', 'run', 'ship', 'skip-refactor']],
 			['ship', ['cwd']],
 			['queue', ['cwd', 'file-relay']],
-			['ticket', ['approve', 'cwd', 'implementation-removed', 'keep', 'name', 'plan', 'plans', 'reason', 'set', 'slug', 'title', 'withdraw']],
+			['ticket', ['approve', 'cwd', 'from', 'implementation-removed', 'keep', 'name', 'plan', 'plans', 'reason', 'set', 'slug', 'title', 'withdraw']],
 			['ticket-state', ['cwd', 'planning-status', 'ref', 'tracker-status']],
 			['self-check', ['cwd', 'run']],
 			['refactor', ['all', 'allow-dirty', 'code-checks', 'cwd', 'max-batches', 'path', 'run']],
@@ -150,7 +150,7 @@ describe('commandCatalog flags', () => {
 			['name', undefined],
 			['slug', 'ticket-add-plan'],
 			['title', 'ticket-add-plan'],
-			['slug', 'ticket-adopt'],
+			['from', 'ticket-add-plan'],
 			['set', 'ticket-mode'],
 			['approve', 'ticket-mode'],
 			['plans', 'ticket-request-ship'],
@@ -176,7 +176,7 @@ describe('commandCatalog flags', () => {
 			['name in every shape', true, false],
 			['slug in ticket-add-plan', true, false],
 			['title in ticket-add-plan', false, true],
-			['slug in ticket-adopt', true, false],
+			['from in ticket-add-plan', false, true],
 			['set in ticket-mode', true, false],
 			['approve in ticket-mode', false, true],
 			['plans in ticket-request-ship', false, true],
@@ -189,6 +189,20 @@ describe('commandCatalog flags', () => {
 			['keep in ticket-sync', false, true],
 			['cwd in every shape', false, true],
 		]);
+	});
+
+	test('scopes --from to ticket-add-plan and leaves no flag shaped to a removed invocation', () => {
+		const { byId } = setupCatalog();
+		const ticketEntry = byId.get('ticket');
+		const invocationIds = new Set((ticketEntry?.invocations ?? []).map((invocation) => invocation.id));
+
+		const fromFlags = (ticketEntry?.flags ?? []).filter((flag) => flag.name === 'from');
+		const orphanShapes = (ticketEntry?.flags ?? [])
+			.filter((flag) => flag.shape !== undefined && !invocationIds.has(flag.shape))
+			.map((flag) => `--${flag.name} in ${flag.shape ?? 'every shape'}`);
+
+		expect(fromFlags).toEqual([expect.objectContaining({ value: '<folder>', shape: 'ticket-add-plan', required: false, fallback: expect.any(String) })]);
+		expect(orphanShapes).toStrictEqual([]);
 	});
 
 	test('a flag that excludes another names a key at least one sibling shares, or its bracket would hold one flag', () => {

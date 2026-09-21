@@ -170,8 +170,7 @@ test('prints one ticket line per subcommand between plan publish and ticket-stat
 	const ticketState = lines.findIndex((line) => line.startsWith('  lightsout ticket-state'));
 
 	expect(ticket).toStrictEqual([
-		'  lightsout ticket add-plan --name <ticket-branch> --slug <slug> [--title <title>] [--cwd <path>]',
-		'  lightsout ticket adopt --name <ticket-branch> --slug <slug> [--cwd <path>]',
+		'  lightsout ticket add-plan --name <ticket-branch> --slug <slug> [--title <title>] [--from <folder>] [--cwd <path>]',
 		'  lightsout ticket mode --name <ticket-branch> --set single-plan|multiple-plan [--approve] [--cwd <path>]',
 		'  lightsout ticket request-ship --name <ticket-branch> [--plans <id,id> | --withdraw] [--cwd <path>]',
 		'  lightsout ticket exclude-plan --name <ticket-branch> --plan <id> --reason <text> [--implementation-removed] [--cwd <path>]',
@@ -180,7 +179,18 @@ test('prints one ticket line per subcommand between plan publish and ticket-stat
 		'  lightsout ticket sync --name <ticket-branch> [--keep local|published] [--cwd <path>]',
 	]);
 	expect(lines.indexOf(ticket[0] ?? '')).toBe(planPublish + 1);
-	expect(ticketState).toBe(planPublish + 9);
+	expect(ticketState).toBe(planPublish + 8);
+});
+
+test('prints seven ticket lines with --from on add-plan and none naming adopt', () => {
+	const { lines } = setupRenderUsage();
+
+	const ticket = lines.filter((line) => line.startsWith('  lightsout ticket '));
+	const addPlan = ticket.filter((line) => line.startsWith('  lightsout ticket add-plan'));
+
+	expect(ticket).toHaveLength(7);
+	expect(addPlan).toStrictEqual(['  lightsout ticket add-plan --name <ticket-branch> --slug <slug> [--title <title>] [--from <folder>] [--cwd <path>]']);
+	expect(ticket.filter((line) => line.includes('adopt'))).toStrictEqual([]);
 });
 
 test('renderUsage: prints a report line naming --plan and --json', () => {

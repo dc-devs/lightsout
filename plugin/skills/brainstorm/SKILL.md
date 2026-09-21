@@ -10,7 +10,7 @@ allowed-tools: Bash, Read, Write, Grep, Glob, Task
 deterministic decisions — no gates, retries, caps, state, or contract parsing.
 It runs a few engine subcommands, and only when the idea traces to a ticket:
 `brainstorm publish`, `ticket-state`, `ticket show` and `ticket add-plan`, plus
-`ticket mode` and `ticket adopt` once the user has agreed to those. It still
+`ticket mode` and `ticket add-plan --from` once the user has agreed to those. It still
 holds no deterministic decision of its own, and it never reads back what it
 writes. Triggering is gentle: the
 description above is the only trigger — no hook, no forced invocation. Writing
@@ -150,8 +150,9 @@ Two cases are asked before anything is added, in the Question format:
 - **Single-plan mode with plan 001 already past `planning`:** ask whether to
   switch the ticket to multiple-plan mode. A no means this idea is not a plan on
   this ticket, and the brainstorm says so rather than adding one anyway.
-- **A ticket folder still holding files from before ticket records:** ask whether
-  to run `lightsout ticket adopt`, which makes those files plan 001.
+- **A ticket folder whose plans folder still holds loose files:** ask whether to
+  run `lightsout ticket add-plan --from <that folder>`, which makes those files
+  the ticket's next plan.
 
 **3. Approaches.** Present 2–3 genuinely different ways to build it, in the
 Question format — what each wins, what each costs, and which one you recommend

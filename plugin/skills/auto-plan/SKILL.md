@@ -170,16 +170,16 @@ auto-plan: propose after drafting · implement on approval · proposal required
 **1. Name the plan and gather the source.** **Under `lightsout queue`,** `<name>`
 is the plan address the task message names. The engine chose that plan and put it
 on the ticket's record before this session started, so no derivation runs at all:
-plan exactly that folder, and never run `ticket add-plan`, `ticket mode` or
-`ticket adopt`.
+plan exactly that folder, and never run `ticket add-plan` — with or without
+`--from` — or `ticket mode`.
 
 **Outside the queue,** naming follows the plan skill's step 0: `ticket show`,
 then the lowest-numbered plan still at `planning` or a plan added with
 `ticket add-plan`. Two differences are this skill's. A switch to multiple-plan
 mode changes whether the ticket ships on its own, so it clears the escalation bar
 — it is an unscheduled checkpoint, or a park under `auto-approve-plan`. And this
-skill never adopts a ticket folder holding files from before ticket records: it
-plans that folder as it stands and names `lightsout ticket adopt` in the digest.
+skill never makes a plan out of a ticket folder's loose files: it plans that
+folder as it stands and names `lightsout ticket add-plan --from` in the digest.
 
 With no ticket, derive a
 kebab `<name>` from the request (e.g. "add a rate-limit banner" →

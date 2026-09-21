@@ -43,7 +43,6 @@ const usageOrder = [
 	'plan-grade',
 	'plan-publish',
 	'ticket-add-plan',
-	'ticket-adopt',
 	'ticket-mode',
 	'ticket-request-ship',
 	'ticket-exclude-plan',
