@@ -7,6 +7,7 @@ import { printRunProgress } from '#src/cli/common/render/printRunProgress.ts';
 import { type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import { RunNotFoundError } from '#src/runState/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 const runId = 'run-printed-01';
 
@@ -37,10 +38,10 @@ const setupPrint = ({ manifest = manifestOf() }: { manifest?: RunManifest } = {}
 	const captured = captureCommandOutput();
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-print-progress-'));
 
-	mkdirSync(join(cwd, '.lightsout', 'runs', manifest.runId), { recursive: true });
-	writeFileSync(join(cwd, '.lightsout', 'runs', manifest.runId, 'manifest.json'), JSON.stringify(manifest), 'utf8');
+	mkdirSync(runDirFor({ cwd, runId: manifest.runId }), { recursive: true });
+	writeFileSync(join(runDirFor({ cwd, runId: manifest.runId }), 'manifest.json'), JSON.stringify(manifest), 'utf8');
 	writeFileSync(
-		join(cwd, '.lightsout', 'runs', manifest.runId, 'progress.jsonl'),
+		join(runDirFor({ cwd, runId: manifest.runId }), 'progress.jsonl'),
 		`${JSON.stringify({ at: '2026-01-01T00:09:00.000Z', message: 'step implement' })}\n`,
 		'utf8',
 	);

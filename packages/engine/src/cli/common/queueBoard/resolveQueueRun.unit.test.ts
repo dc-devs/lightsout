@@ -83,14 +83,26 @@ describe('resolveQueueRun', () => {
 		expect(listing).toBeUndefined();
 	});
 
-	test('waits within the grace period for a queue run that has not taken the lock yet', async () => {
-		const { cwd, startQueueLater } = await setupCheckout();
-		const arrival = startQueueLater({ runId: 'queue-late', afterMs: 100 });
+	test('without the wait asked for, an absent queue run is answered at once instead of polling out the grace', async () => {
+		const { cwd, plant } = await setupCheckout();
 
-		const listing = await resolveQueueRun({ cwd, graceMs: 2_000, pollMs: 20 });
+		await plant({ runId: 'queue-passed', pipeline: PipelineKind.Queue, status: RunStatus.Passed });
+
+		const started = Date.now();
+		const listing = await resolveQueueRun({ cwd, graceMs: 60_000 });
+		const elapsedMs = Date.now() - started;
+
+		expect({ listing, waited: elapsedMs >= 1_000 }).toEqual({ listing: undefined, waited: false });
+	});
+
+	test('with the wait asked for, a queue run that takes the lock mid-grace is still found', async () => {
+		const { cwd, startQueueLater } = await setupCheckout();
+		const arrival = startQueueLater({ runId: 'queue-launching', afterMs: 100 });
+
+		const listing = await resolveQueueRun({ cwd, wait: true, graceMs: 2_000, pollMs: 20 });
 		await arrival;
 
-		expect(listing).toEqual(expect.objectContaining({ runId: 'queue-late', live: true }));
+		expect(listing).toEqual(expect.objectContaining({ runId: 'queue-launching', live: true }));
 	});
 
 	test("returns the named run's listing without waiting when a run id is given", async () => {

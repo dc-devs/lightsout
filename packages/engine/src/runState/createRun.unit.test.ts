@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { createRun, getRunDir, readRunManifest } from '#src/runState/index.ts';
+import { createRun, readRunManifest, resolveRunDir } from '#src/runState/index.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const config: LightsoutConfig = {
@@ -66,7 +66,7 @@ describe('createRun', () => {
 		const manifest = await createRun({ cwd, plan: 'plan.md', driver: 'stub' });
 
 		// the run directory exists before any step runs
-		expect(existsSync(getRunDir({ cwd, runId: manifest.runId }))).toBeTruthy();
+		expect(existsSync(await resolveRunDir({ cwd, runId: manifest.runId }))).toBeTruthy();
 	});
 
 	test('takes the id the caller already locked the run under', async () => {
@@ -76,7 +76,7 @@ describe('createRun', () => {
 
 		expect(manifest.runId).toBe('pre-minted-run');
 		// the directory is named for the locked id
-		expect(existsSync(getRunDir({ cwd, runId: 'pre-minted-run' }))).toBeTruthy();
+		expect(existsSync(await resolveRunDir({ cwd, runId: 'pre-minted-run' }))).toBeTruthy();
 	});
 
 	test('mints a fresh id for a caller that has none', async () => {
@@ -106,6 +106,24 @@ describe('createRun', () => {
 		expect(manifest.pipeline).toBe('refactor');
 		// the driver is persisted as the harness a resume must reuse
 		expect(manifest.harness).toBe('codex');
+	});
+
+	test('records the plan a run belongs to, and records none for a plan path outside the plans directory', async () => {
+		const { cwd } = setupRepo();
+
+		const inPlan = await createRun({
+			cwd,
+			plan: join('.lightsout', 'tickets', 'lo-155-recorded-plan-name', 'plans', '001-recorded-plan-name', 'plan.md'),
+			driver: 'stub',
+		});
+		const outsidePlan = await createRun({ cwd, plan: 'refactor-work-list.md', pipeline: 'refactor', driver: 'stub' });
+		const read = await readRunManifest({ cwd, runId: inPlan.runId });
+
+		expect(inPlan.planName).toBe('lo-155-recorded-plan-name/001-recorded-plan-name');
+		// stamped on disk too — the plan views match on the name the manifest carries, not on the returned value
+		expect(read.planName).toBe('lo-155-recorded-plan-name/001-recorded-plan-name');
+		// a refactor run points its plan at a work-list it generated inside its own run folder, so it claims no plan
+		expect(outsidePlan.planName).toBe(undefined);
 	});
 
 	test('records an absolute plan path relative to the repo — the same plan however the caller named it', async () => {
@@ -238,5 +256,55 @@ describe('createRun', () => {
 		expect(read.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
 		// ${read.updatedAt} should not precede ${read.createdAt}
 		expect(read.updatedAt >= read.createdAt).toBeTruthy();
+	});
+
+	test('creates the run directory under its plan ticket and makes it findable by id at once', async () => {
+		const { cwd } = setupRepo();
+
+		const manifest = await createRun({
+			cwd,
+			plan: join('.lightsout', 'tickets', 'lo-155-run-directories', 'plans', '001-run-directories', 'plan.md'),
+			driver: 'stub',
+		});
+		const runDir = await resolveRunDir({ cwd, runId: manifest.runId });
+
+		// the run of a plan is filed under the ticket that plan belongs to
+		expect(runDir).toBe(join(cwd, '.lightsout', 'tickets', 'lo-155-run-directories', 'runs', manifest.runId));
+		// and it is on disk, answered by id in the same process the run was made in
+		expect(existsSync(runDir)).toBeTruthy();
+	});
+
+	test('creates a plan-less run directory under its own command', async () => {
+		const { cwd } = setupRepo();
+
+		const manifest = await createRun({ cwd, plan: 'refactor-work-list.md', pipeline: 'refactor', driver: 'stub' });
+
+		// a refactor run points its plan at a work-list it generated, so it claims no plan
+		expect(manifest.planName).toBe(undefined);
+		// with no plan to file it under, the command that owns it holds it
+		expect(existsSync(join(cwd, '.lightsout', 'refactor', 'runs', manifest.runId))).toBeTruthy();
+	});
+
+	test('files a direct run of a ticket under the ticket, from the branch it already resolved', async () => {
+		const { cwd } = setupBranchedRepo({ branch: 'lo-155-direct-ticket' });
+
+		const manifest = await createRun({ cwd, plan: 'ticket.md', pipeline: 'direct', ticketRef: 'LO-155', driver: 'stub' });
+
+		// the branch a direct run is built on IS its ticket folder's name
+		expect(existsSync(join(cwd, '.lightsout', 'tickets', 'lo-155-direct-ticket', 'runs', manifest.runId, 'manifest.json'))).toBeTruthy();
+		// the direct command's own folder is only for a run with no ticket to file under
+		expect(existsSync(join(cwd, '.lightsout', 'direct', 'runs', manifest.runId))).toBeFalsy();
+	});
+
+	test('records the new directory before writing the manifest, so the first write resolves', async () => {
+		const { cwd } = setupRepo();
+
+		const manifest = await createRun({ cwd, plan: 'plan.md', driver: 'stub' });
+		const read = await readRunManifest({ cwd, runId: manifest.runId });
+
+		// the manifest write resolves the run's directory by id, so a directory
+		// recorded after the write would fail every run at creation
+		expect(read.runId).toBe(manifest.runId);
+		expect(read.plan).toBe('plan.md');
 	});
 });

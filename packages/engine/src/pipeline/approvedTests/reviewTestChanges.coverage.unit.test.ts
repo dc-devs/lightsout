@@ -5,6 +5,8 @@ import type { AcceptanceTestRecord, LightsoutConfig, RunManifest } from '#src/co
 import type { Driver } from '#src/drivers/index.ts';
 import { reviewTestChanges } from '#src/pipeline/approvedTests/index.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const runId = 'run-1';
@@ -37,7 +39,7 @@ const approveWith = ({ dispositions }: { dispositions: Record<string, unknown>[]
 
 /** The run's review journal, one parsed record per line. */
 const readJournal = ({ cwd }: { cwd: string }) => {
-	const path = join(cwd, '.lightsout', 'runs', runId, 'test-reviews.jsonl');
+	const path = join(runDirFor({ cwd, runId }), 'test-reviews.jsonl');
 
 	if (!existsSync(path)) {
 		return [];
@@ -50,7 +52,7 @@ const readJournal = ({ cwd }: { cwd: string }) => {
 };
 
 /** Where the run keeps its approved copy of the bundled test file. */
-const approvedCopy = ({ cwd }: { cwd: string }) => join(cwd, '.lightsout', 'runs', runId, 'approved', testFile);
+const approvedCopy = ({ cwd }: { cwd: string }) => join(runDirFor({ cwd, runId }), 'approved', testFile);
 
 interface SetupParams {
 	/** What the stub reviewer returns. */
@@ -61,6 +63,10 @@ interface SetupParams {
 
 const setupReview = ({ verdicts, acceptanceTests = [acceptanceRow] }: SetupParams) => {
 	const cwd = setupConsumerRepo({ sources: { 'src/index.js': 'export const one = 1;\n', [testFile]: committed } });
+
+	// The run already has its folder, because `createRun` makes one before a run
+	// starts and everything written inside it looks the run up by id.
+	seedRunFolder({ cwd: cwd, runId });
 
 	writeFileSync(join(cwd, testFile), sharpened);
 
@@ -76,6 +82,9 @@ const setupReview = ({ verdicts, acceptanceTests = [acceptanceRow] }: SetupParam
 			Object.assign(manifest, patch);
 		},
 		recordUsage: async () => {},
+		// No level is being recorded in these cases, which is the shape a run
+		// outside the plans directory takes: every agent call opens nothing.
+		openStepLevel: () => undefined,
 		agentEventSink: () => () => {},
 		persistRejected: () => async () => {},
 	};
@@ -91,6 +100,10 @@ const setupReview = ({ verdicts, acceptanceTests = [acceptanceRow] }: SetupParam
  */
 const setupUntrackedReview = ({ verdicts }: { verdicts: unknown[] }) => {
 	const cwd = setupConsumerRepo({ git: false, sources: { 'src/index.js': 'export const one = 1;\n', [testFile]: committed } });
+
+	// The run already has its folder, because `createRun` makes one before a run
+	// starts and everything written inside it looks the run up by id.
+	seedRunFolder({ cwd: cwd, runId });
 	const spawns: string[] = [];
 	const manifest = {
 		runId,
@@ -120,6 +133,9 @@ const setupUntrackedReview = ({ verdicts }: { verdicts: unknown[] }) => {
 			Object.assign(manifest, patch);
 		},
 		recordUsage: async () => {},
+		// No level is being recorded in these cases, which is the shape a run
+		// outside the plans directory takes: every agent call opens nothing.
+		openStepLevel: () => undefined,
 		agentEventSink: () => () => {},
 		persistRejected: () => async () => {},
 	};

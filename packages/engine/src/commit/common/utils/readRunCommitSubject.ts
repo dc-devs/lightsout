@@ -14,8 +14,11 @@ import { readTicketRecord } from '#src/ticket/index.ts';
  * without a second rule. A legacy folder named for its branch alone is its own
  * unit, and only a plan outside the plans directory has no name to take at all.
  */
-const readUnit = async ({ cwd, plan }: { cwd: string; plan: string }) => {
-	const name = await planNameFromPath({ cwd, planPath: plan });
+const readUnit = async ({ cwd, plan, planName }: { cwd: string; plan: string; planName?: string }) => {
+	// The run's own record of which plan it belongs to is preferred over reading
+	// the name back out of the plan's path: the path is spelled by whoever started
+	// the run, while the recorded name is the fact the run states about itself.
+	const name = planName ?? (await planNameFromPath({ cwd, planPath: plan }));
 	const stem = basename(plan, extname(plan));
 
 	if (name === undefined) {
@@ -83,7 +86,7 @@ interface Params {
  * ladder `implement-direct` climbs for its own run label.
  */
 export const readRunCommitSubject = async ({ cwd, manifest, config, onProgress }: Params): Promise<string> => {
-	const { unit, ticketBranch, planId } = await readUnit({ cwd, plan: manifest.plan });
+	const { unit, ticketBranch, planId } = await readUnit({ cwd, plan: manifest.plan, planName: manifest.planName });
 	const { ticketRef, title } = await readTicketFacts({ cwd, ticketBranch, planId, onProgress });
 	const reference = ticketRef ?? (await readRunLabel({ cwd, config }));
 

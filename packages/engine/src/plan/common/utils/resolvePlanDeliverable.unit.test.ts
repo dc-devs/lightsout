@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { resolvePlanDeliverable } from '#src/plan/common/utils/resolvePlanDeliverable.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 
 /**
  * A repo root whose plan folder holds exactly the named files. Pass no files at
@@ -12,7 +13,7 @@ import { freshCwd } from '#tests/helpers/freshCwd.ts';
 const setupPlanFolder = async ({ files = {} }: { files?: Record<string, string> } = {}) => {
 	const cwd = await freshCwd();
 	const name = 'lo-54-a-finished-plan';
-	const dir = join(cwd, '.lightsout', 'plans', name);
+	const dir = planWorkspaceFolder({ cwd: cwd, name: name });
 	const entries = Object.entries(files);
 
 	if (entries.length > 0) {

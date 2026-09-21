@@ -17,5 +17,5 @@ interface Params {
  * state cleanup has to render rather than an error.
  */
 export const readRunStandardsBaseline = async ({ cwd, runId }: Params): Promise<StandardsSnapshot | undefined> => {
-	return readJsonFile({ path: getRunStandardsBaselinePath({ cwd, runId }), schema: StandardsSnapshot });
+	return readJsonFile({ path: await getRunStandardsBaselinePath({ cwd, runId }), schema: StandardsSnapshot });
 };

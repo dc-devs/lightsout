@@ -5,7 +5,7 @@ import { createEventFileSink } from '#src/common/utils/createEventFileSink.ts';
 import { type AdvisoryOutcome, type AgentUsage, type LightsoutConfig, Permissions, type RefactorBatch, WorkReport } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { invokeAgentWithContract } from '#src/invoke/index.ts';
-import { appendFriction, getRunDir } from '#src/runState/index.ts';
+import { appendFriction, resolveRunDir } from '#src/runState/index.ts';
 
 interface Params {
 	cwd: string;
@@ -66,7 +66,7 @@ export const invokeBatchAgent = async ({
 	onProgress,
 	recordUsage,
 }: Params): Promise<Awaited<ReturnType<typeof invokeAgentWithContract<typeof WorkReport>>>> => {
-	const agentsDir = join(getRunDir({ cwd, runId }), 'agents');
+	const agentsDir = join(await resolveRunDir({ cwd, runId }), 'agents');
 	const slug = batch.id.replace(/[:/]/g, '_');
 	const streamPath = join(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
 

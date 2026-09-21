@@ -1,10 +1,11 @@
 import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { implementCommand } from '#src/cli/implementCommand.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** The plan folder the phased case points `--plan` at. */
@@ -51,7 +52,8 @@ const setupImplementShip = ({ args, config, phases, locked }: { args: string[]; 
 
 /** Every manifest the command left on disk — the record the progress view later draws its ship row from. */
 const readManifests = ({ cwd }: { cwd: string }): { runId: string; pipeline?: string; willShip?: boolean }[] => {
-	const runsDir = join(cwd, '.lightsout', 'runs');
+	// Every run these cases start belongs to no plan, so the implement command's own runs folder holds them all.
+	const runsDir = dirname(runDirFor({ cwd, runId: 'any' }));
 
 	if (!existsSync(runsDir)) {
 		return [];

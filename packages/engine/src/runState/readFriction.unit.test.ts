@@ -1,7 +1,9 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readFriction } from '#src/runState/index.ts';
+import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** A well-formed persisted record: the entry plus its provenance. */
@@ -31,6 +33,29 @@ const setupFrictionLog = ({ lines }: SetupParams = {}) => {
 	}
 
 	return { cwd, logPath };
+};
+
+interface LinkedWorktreeSetupParams {
+	/** Raw lines an earlier run appended to the primary checkout's ledger. */
+	lines: string[];
+}
+
+/**
+ * A primary checkout holding the ledger, with a linked worktree cut from it and
+ * no state directory of its own — the shape an isolated run reads from.
+ */
+const setupLinkedWorktreeLog = ({ lines }: LinkedWorktreeSetupParams) => {
+	const { cwd } = setupBranchRepo();
+	const worktree = join(cwd, '.worktrees', 'lo-7-isolate');
+
+	execSync(`git worktree add -q -b feature/lo-7-isolate "${worktree}" main`, { cwd, stdio: 'ignore' });
+
+	const logPath = join(cwd, '.lightsout', 'friction.jsonl');
+
+	mkdirSync(dirname(logPath), { recursive: true });
+	writeFileSync(logPath, `${lines.join('\n')}\n`, 'utf8');
+
+	return { primary: cwd, worktree };
 };
 
 describe('readFriction', () => {
@@ -95,6 +120,20 @@ describe('readFriction', () => {
 
 		expect(friction).toStrictEqual([
 			{ kind: 'friction', area: 'other', detail: 'invented an area', at: '2026-07-03T00:00:00.000Z', runId: 'run-a', step: 'implement' },
+		]);
+	});
+
+	test("readFriction: reads the primary checkout's ledger from a linked worktree", async () => {
+		const { worktree } = setupLinkedWorktreeLog({
+			lines: [record({ detail: 'logged from the primary', runId: 'run-primary' })],
+		});
+
+		const friction = await readFriction({ cwd: worktree });
+
+		// the worktree keeps no ledger of its own, so a per-checkout read would be empty
+		expect(existsSync(join(worktree, '.lightsout'))).toBe(false);
+		expect(friction).toStrictEqual([
+			{ kind: 'friction', area: 'plan', detail: 'logged from the primary', at: '2026-07-03T00:00:00.000Z', runId: 'run-primary', step: 'implement' },
 		]);
 	});
 

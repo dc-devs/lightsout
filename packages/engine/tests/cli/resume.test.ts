@@ -12,7 +12,7 @@ import { seedRunFixture } from '#tests/helpers/seedRunFixture.ts';
 const seedResumeFixture = async ({ manifestHarness, configHarness }: { manifestHarness: string; configHarness: string }) => {
 	const cwd = await freshCwd();
 	const runId = 'resume-harness-fixture';
-	const runDir = join(cwd, '.lightsout', 'runs', runId);
+	const runDir = join(cwd, '.lightsout', 'implement', 'runs', runId);
 	const now = new Date().toISOString();
 
 	await mkdir(runDir, { recursive: true });
@@ -95,5 +95,51 @@ test('cli: resume names an unknown run id instead of failing on the file it trie
 
 	expect(stdout).toBe('');
 	expect(stderr).toMatch(/no run matching 'ghost'/);
+	expect(code).toBe(1);
+});
+
+// A parked run filed under its ticket's own runs folder — the place a run of a
+// plan now lives. The manifest names a harness no driver answers to, so the
+// process stops at that error: reaching it at all proves the id was resolved to
+// this folder, without spawning a harness binary.
+const seedTicketFolderRun = async () => {
+	const cwd = await freshCwd();
+	const ticketBranch = 'lo-900-parked-ticket';
+	const runId = 'ticketrun-parked-0001';
+	const runDir = join(cwd, '.lightsout', 'tickets', ticketBranch, 'runs', runId);
+	const now = new Date().toISOString();
+
+	await mkdir(runDir, { recursive: true });
+	await writeFile(join(cwd, 'lightsout.config.json'), JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false } }), 'utf8');
+	await writeFile(
+		join(runDir, 'manifest.json'),
+		JSON.stringify({
+			runId,
+			createdAt: now,
+			updatedAt: now,
+			plan: 'plans/demo.md',
+			harness: 'retired-harness',
+			status: 'failed',
+			currentStep: null,
+			steps: [],
+			changedFiles: [],
+		}),
+		'utf8',
+	);
+
+	return { cwd, runId };
+};
+
+test('cli: resume finds a parked run in its ticket folder from the shortened id', async () => {
+	const { cwd, runId } = await seedTicketFolderRun();
+
+	// printResult shows eight characters; that is what a user copies back
+	const { stdout, stderr, code } = await runCli({ args: ['resume', '--run', runId.slice(0, 8), '--cwd', cwd] });
+
+	// the run was found and continued as far as reconstructing its driver
+	expect(stderr).toMatch(/unknown driver: retired-harness/);
+	// never reported missing — the lookup reaches the ticket folder's runs folder
+	expect(stderr).not.toMatch(/no run matching/);
+	expect(stdout).toBe('');
 	expect(code).toBe(1);
 });

@@ -11,7 +11,7 @@ import { PlanWorkspaceFile } from '#src/contracts/views/planWorkspace/PlanWorksp
  * `RunListing` strikes.
  */
 export const PlanWorkspaceListing = z.object({
-	/** The plan's name under `.lightsout/plans/` — a plan address `<ticket-branch>/<plan-id>`, or a legacy folder's name. */
+	/** The plan's name under its ticket folder's `plans/` — a plan address `<ticket-branch>/<plan-id>`, or a legacy folder's name. */
 	name: z.string(),
 	stage: z.enum(PlanStage),
 	/** Present once `grade.json` exists and parses. */
@@ -28,7 +28,7 @@ export const PlanWorkspaceListing = z.object({
 	phaseCount: z.number(),
 	/** Newest mtime across every file in the workspace. */
 	updatedAt: z.string(),
-	/** Runs whose `plan` path sits inside this workspace. */
+	/** Runs that recorded this plan as the plan they belong to. */
 	runCount: z.number(),
 });
 

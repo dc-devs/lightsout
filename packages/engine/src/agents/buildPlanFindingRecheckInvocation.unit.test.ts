@@ -104,12 +104,12 @@ describe('buildPlanFindingRecheckInvocation', () => {
 	test("a phased plan's re-check judge is told where the sibling phase files are", () => {
 		const { planText, record } = setupRecheck();
 
-		const { prompt } = buildPlanFindingRecheckInvocation({ planText, planDir: '.lightsout/plans/demo', record });
+		const { prompt } = buildPlanFindingRecheckInvocation({ planText, planDir: '.lightsout/tickets/demo/plans', record });
 
 		// a repair can move the answer into a neighbouring phase, and the judge
 		// opens that file itself rather than being handed every phase inline
 		expect(prompt.includes("## The plan's other phases")).toBeTruthy();
-		expect(prompt.includes('`.lightsout/plans/demo`')).toBeTruthy();
+		expect(prompt.includes('`.lightsout/tickets/demo/plans`')).toBeTruthy();
 		// the folder is named before the question, so the judge reads where it may
 		// look before it reads what it is looking for
 		expect(prompt.indexOf("## The plan's other phases")).toBeLessThan(prompt.indexOf('## The question on record'));

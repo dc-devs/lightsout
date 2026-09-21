@@ -1,14 +1,24 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { formatCost, formatTokenCount } from '@lightsout/shared';
+import type { ActivityLevel } from '#src/activity/index.ts';
 import { buildSelfCheckCommand } from '#src/common/selfCheck/buildSelfCheckCommand.ts';
 import { RunState } from '#src/common/services/RunState.ts';
 import { createEventFileSink } from '#src/common/utils/createEventFileSink.ts';
-import { type AgentUsage, type LightsoutConfig, Permissions, type RunManifest, RunStatus, type StepRecord, WorkReport } from '#src/contracts/index.ts';
+import {
+	ActivityLevelKind,
+	type AgentUsage,
+	type LightsoutConfig,
+	Permissions,
+	type RunManifest,
+	RunStatus,
+	type StepRecord,
+	WorkReport,
+} from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { invokeAgentWithContract } from '#src/invoke/index.ts';
+import { getAgentOutcomeStatus, invokeAgentWithContract } from '#src/invoke/index.ts';
 import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
-import { getRunDir } from '#src/runState/index.ts';
+import { resolveRunDir } from '#src/runState/index.ts';
 
 const formatUsage = ({ usage }: { usage: AgentUsage }) =>
 	`in ${formatTokenCount({ count: usage.inputTokens })} · out ${formatTokenCount({ count: usage.outputTokens })} · cache-read ${formatTokenCount({ count: usage.cacheReadTokens })} · ${formatCost({ usd: usage.costUsd })}`;
@@ -19,6 +29,8 @@ interface ConstructorParams {
 	driver: Driver;
 	/** The run's manifest as loaded/created — the class owns it from here; read via `current()`. */
 	manifest: RunManifest;
+	/** The level this run's agent calls open their own step levels under. Absent wherever no run is being recorded. A single run is handed its command run's level; one phase of a sequence is handed that phase's pass level. */
+	level?: ActivityLevel;
 	onProgress?: (message: string) => void;
 }
 
@@ -47,10 +59,12 @@ export class PipelineRun {
 	private readonly stepTimers = new Map<string, { startedAt: number; baseMs: number }>();
 	private transcriptCount = 0;
 	private rejectedCount = 0;
+	private readonly level?: ActivityLevel;
 
-	constructor({ cwd, config, driver, manifest, onProgress }: ConstructorParams) {
+	constructor({ cwd, config, driver, manifest, level, onProgress }: ConstructorParams) {
 		this.runState = new RunState({ cwd, config, manifest, onProgress });
 		this.driver = driver;
+		this.level = level;
 	}
 
 	get cwd(): string {
@@ -135,6 +149,11 @@ export class PipelineRun {
 		}
 	}
 
+	/** Open one step level under this run's own level, for an agent call that does not go through `invokeRole`. Answers undefined when no run is being recorded. */
+	openStepLevel({ step }: { step: string }): ActivityLevel | undefined {
+		return this.level?.open({ level: ActivityLevelKind.Step, label: step });
+	}
+
 	// Every agent invocation's full event stream (tool calls, chat text, the
 	// final result) is teed to agents/stream-NN-<step>.jsonl — the chat as
 	// on-disk run evidence, tail-able live for anyone who wants the
@@ -144,10 +163,20 @@ export class PipelineRun {
 	agentEventSink({ step }: { step: string }): (event: unknown) => void {
 		this.transcriptCount += 1;
 
-		const dir = join(getRunDir({ cwd: this.cwd, runId: this.current().runId }), 'agents');
-		const path = join(dir, `stream-${String(this.transcriptCount).padStart(2, '0')}-${step}.jsonl`);
+		const name = `stream-${String(this.transcriptCount).padStart(2, '0')}-${step}.jsonl`;
+		// The run's folder is looked up inside the promise the sink already took,
+		// so the sink still returns synchronously; the transcript's file name is
+		// fixed before that promise settles. `path` and `ready` are one promise,
+		// so a lookup that fails is handled whether or not an event ever arrives.
+		const path = resolveRunDir({ cwd: this.cwd, runId: this.current().runId }).then(async (runDir) => {
+			const dir = join(runDir, 'agents');
 
-		return createEventFileSink({ path, ready: mkdir(dir, { recursive: true }) });
+			await mkdir(dir, { recursive: true });
+
+			return join(dir, name);
+		});
+
+		return createEventFileSink({ path, ready: path });
 	}
 
 	// A final message that fails its contract is still evidence — persist it
@@ -157,12 +186,12 @@ export class PipelineRun {
 		return async ({ text, attempt, validationError }) => {
 			this.rejectedCount += 1;
 
-			const dir = join(getRunDir({ cwd: this.cwd, runId: this.current().runId }), 'agents');
+			const dir = join(await resolveRunDir({ cwd: this.cwd, runId: this.current().runId }), 'agents');
 			const name = `rejected-${String(this.rejectedCount).padStart(2, '0')}-${step}-attempt${attempt}.txt`;
 
 			await mkdir(dir, { recursive: true });
 			await writeFile(join(dir, name), `# step: ${step} · invocation attempt ${attempt}\n# validation: ${validationError}\n\n${text}`, 'utf8');
-			this.progress(`step ${step}: agent final message failed the report contract — raw text saved to .lightsout/runs/${this.current().runId}/agents/${name}`);
+			this.progress(`step ${step}: agent final message failed the report contract — raw text saved to ${join(dir, name)}`);
 		};
 	}
 
@@ -181,6 +210,7 @@ export class PipelineRun {
 		onFirstEvent?: () => void;
 	}): Promise<Awaited<ReturnType<typeof invokeAgentWithContract<typeof WorkReport>>>> {
 		const sink = this.agentEventSink({ step });
+		const stepLevel = this.openStepLevel({ step });
 		let seenFirst = false;
 
 		const outcome = await invokeAgentWithContract({
@@ -206,7 +236,12 @@ export class PipelineRun {
 				sink(event);
 			},
 			onRejectedOutput: this.persistRejected({ step }),
+			activity: stepLevel,
 		});
+
+		// Closed before the usage record below, so the level's span is the agent
+		// call rather than the manifest write and the progress line that follow it.
+		stepLevel?.close({ outcome: getAgentOutcomeStatus({ outcome }) });
 
 		await this.recordUsage({ step, usage: outcome.usage });
 

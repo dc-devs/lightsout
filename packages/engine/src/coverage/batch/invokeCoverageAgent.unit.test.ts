@@ -6,6 +6,8 @@ import type { AgentUsage, LightsoutConfig } from '#src/contracts/index.ts';
 import { invokeCoverageAgent } from '#src/coverage/batch/invokeCoverageAgent.ts';
 import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
 import { report } from '#tests/helpers/report.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 
 const runId = 'run-1';
 // The colon is what the evidence file names have to survive: a run directory is
@@ -49,6 +51,10 @@ const setupInvocation = ({
 	events?: unknown[];
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-coverage-agent-'));
+
+	// The run already has its folder, because `createRun` makes one before a run
+	// starts and everything written inside it looks the run up by id.
+	seedRunFolder({ cwd, runId, pipeline: 'coverage' });
 	const invocations: DriverInvocation[] = [];
 	const driver: Driver = {
 		name: 'stub',
@@ -84,7 +90,7 @@ const setupInvocation = ({
 			},
 		});
 
-	const agentsDir = join(cwd, '.lightsout', 'runs', runId, 'agents');
+	const agentsDir = join(runDirFor({ cwd, runId, pipeline: 'coverage' }), 'agents');
 
 	return { cwd, agentsDir, invoke, invocations, reportedFiles, rationale, ledger };
 };

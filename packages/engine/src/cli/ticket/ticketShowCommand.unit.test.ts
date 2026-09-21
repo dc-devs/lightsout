@@ -168,16 +168,19 @@ describe('ticketShowCommand', () => {
 		expect(exitCodes).toStrictEqual([1]);
 	});
 
-	test('refuses a ticket with no record and names ticket add-plan and ticket adopt', async () => {
+	test('refuses a ticket with no record and names only ticket add-plan', async () => {
 		const { context, logged, errors, exitCodes } = setupShow({ outcome: { record: undefined } });
 
 		await expect(ticketShowCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(logged).toStrictEqual([]);
-		// a folder with no record is either a ticket nobody has started or a legacy
-		// folder, and the two commands name the way out of each
+		// a folder with no record is either a ticket nobody has started or one
+		// whose plans folder already holds loose files, and one command starts a
+		// plan either way — the second form naming the folder those files are in
 		expect(errors.join('\n')).toContain('ticket add-plan');
-		expect(errors.join('\n')).toContain('ticket adopt');
+		expect(errors.join('\n')).toContain('--from');
+		// the refusal must never name a word the dispatcher now rejects
+		expect(errors.join('\n')).not.toMatch(/adopt/i);
 		expect(exitCodes).toStrictEqual([1]);
 	});
 });

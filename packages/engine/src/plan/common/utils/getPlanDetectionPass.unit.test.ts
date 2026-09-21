@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { getPlanDetectionPass } from '#src/plan/common/utils/getPlanDetectionPass.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { writeEmptyDecisions } from '#tests/helpers/writeEmptyDecisions.ts';
@@ -16,7 +17,7 @@ import { writePlanDeliverable } from '#tests/helpers/writePlanDeliverable.ts';
 const setupDetectionPass = ({ drafted = true }: { drafted?: boolean } = {}) => {
 	const cwd = setupConsumerRepo();
 	const name = 'lo-150-planning-observability';
-	const dir = drafted ? writePlanDeliverable({ cwd, name, body: '# The plan\n' }) : join(cwd, '.lightsout', 'plans', name);
+	const dir = drafted ? writePlanDeliverable({ cwd, name, body: '# The plan\n' }) : planWorkspaceFolder({ cwd: cwd, name: name });
 
 	return { cwd, name, dir };
 };
@@ -33,7 +34,7 @@ const setupLinkedWorktree = () => {
 	// git answers with a fully resolved path, so the folder is spelled the way the
 	// helper will answer it — macOS's symlinked temp directory otherwise makes an
 	// equal pair look unequal.
-	const dir = join(realpathSync(cwd), '.lightsout', 'plans', name);
+	const dir = planWorkspaceFolder({ cwd: realpathSync(cwd), name });
 
 	mkdirSync(dir, { recursive: true });
 	writeFileSync(join(dir, 'plan.md'), '# The plan the primary holds\n', 'utf8');

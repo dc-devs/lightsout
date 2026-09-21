@@ -1,21 +1,18 @@
-import { mkdir } from 'node:fs/promises';
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
-import { resolveSharedStateDir } from '#src/common/workspace/resolveSharedStateDir.ts';
 import { type LightsoutConfig, PlanProgress, TicketEventKind, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
-import { planAttachmentManifestName, planWorkspaceDir } from '#src/plan/index.ts';
+import { planWorkspaceDir } from '#src/plan/index.ts';
+import { fillPlanFolder } from '#src/ticket/common/planSource/fillPlanFolder.ts';
+import { resolvePlanSourceFolder } from '#src/ticket/common/planSource/resolvePlanSourceFolder.ts';
 import { appendTicketEvent } from '#src/ticket/common/record/appendTicketEvent.ts';
 import { buildTicketRecord } from '#src/ticket/common/record/buildTicketRecord.ts';
 import { composePlanId } from '#src/ticket/common/record/composePlanId.ts';
 import { recordShipRequestWithdrawal } from '#src/ticket/common/record/recordShipRequestWithdrawal.ts';
 import { requireTicketRecord } from '#src/ticket/common/record/requireTicketRecord.ts';
+import type { PlanSourceFolder } from '#src/ticket/common/types/PlanSourceFolder.ts';
 import type { TicketRecordChange } from '#src/ticket/common/types/TicketRecordChange.ts';
-import { getTicketFolderPath } from '#src/ticket/common/utils/getTicketFolderPath.ts';
-import { listLegacyPlanEntries } from '#src/ticket/common/utils/listLegacyPlanEntries.ts';
-import { resolveTicketTrackerTarget } from '#src/ticket/common/utils/resolveTicketTrackerTarget.ts';
-import { pullTicketRecord } from '#src/ticket/pullTicketRecord.ts';
+import { listLoosePlanEntries } from '#src/ticket/common/utils/listLoosePlanEntries.ts';
 import { updateSyncedTicketRecord } from '#src/ticket/updateSyncedTicketRecord.ts';
-import { getTicketAttachments } from '#src/ticketTracker/index.ts';
 
 interface Params {
 	/** Any checkout of the repository: the one record this machine holds is found from it, and the plan folder is made here. */
@@ -26,6 +23,8 @@ interface Params {
 	slug: string;
 	/** The plan's first display title, which stays changeable. Defaults to the slug. */
 	title?: string;
+	/** The source folder's bare name under the plans directory, whose loose files become this plan. Absent creates the plan empty. */
+	from?: string;
 	config: LightsoutConfig;
 	/** The process environment the tracker API key is read from. */
 	env: NodeJS.ProcessEnv;
@@ -57,61 +56,26 @@ const allocatePlanId = ({ record, slug }: { record: TicketRecord; slug: string }
 	return composePlanId({ number: next, slug });
 };
 
-/**
- * A plan published to this ticket before ticket records existed, which a
- * follow-up plan must never silently take number 001 over.
- *
- * Only asked when no record exists on this machine or on the ticket, and only
- * when a tracker is configured. A bare brainstorm generation alone is not
- * evidence of a plan: plan 001 picks that up through the brainstorm restore's
- * own fallback.
- */
-const findPublishedLegacyPlanRefusal = async ({
-	ticketBranch,
-	config,
-	env,
-}: {
-	ticketBranch: string;
-	config: LightsoutConfig;
-	env: NodeJS.ProcessEnv;
-}): Promise<string | undefined> => {
-	const target = resolveTicketTrackerTarget({ config, env, ticketBranch });
-
-	if ('localOnly' in target) {
-		return undefined;
-	}
-
-	if ('error' in target) {
-		return target.error;
-	}
-
-	const attachments = await getTicketAttachments({ settings: target.settings, identifier: target.ticketRef });
-
-	if ('error' in attachments) {
-		return attachments.error;
-	}
-
-	return attachments.some(({ title }) => title === planAttachmentManifestName)
-		? `${target.ticketRef} already carries a plan published before ticket records existed, so a new plan here would take a number that plan already holds — turn it into plan 001 first with \`lightsout ticket adopt --name ${ticketBranch} --slug <slug>\``
-		: undefined;
-};
-
 /** Everything the record must say before a plan may be added to it, and the plan added once it does. */
 const addPlanToRecord = ({
 	current,
 	ticketBranch,
 	slug,
 	title,
+	from,
+	progress,
 	config,
-	legacyEntries,
+	looseEntries,
 	at,
 }: {
 	current: TicketRecord | undefined;
 	ticketBranch: string;
 	slug: string;
 	title: string | undefined;
+	from: string | undefined;
+	progress: PlanProgress;
 	config: LightsoutConfig;
-	legacyEntries: string[];
+	looseEntries: string[];
 	at: string;
 }): PlanAddition | { error: string } => {
 	const existing = current === undefined ? undefined : requireTicketRecord({ record: current, ticketBranch });
@@ -120,12 +84,12 @@ const addPlanToRecord = ({
 		return existing;
 	}
 
-	if (legacyEntries.length > 0) {
+	if (looseEntries.length > 0) {
 		return {
 			error:
 				existing === undefined
-					? `the plan folder '${ticketBranch}' still holds the files of a single-folder plan (${legacyEntries.join(', ')}) — make them plan 001 with \`lightsout ticket adopt --name ${ticketBranch} --slug <slug>\` before adding another plan`
-					: `the ticket folder '${ticketBranch}' holds ${legacyEntries.join(', ')} beside its record, and a ticket's plan files live in that plan's own folder — move each of them into the plan folder it belongs to, or remove it, and run this again`,
+					? `the plan folder '${ticketBranch}' still holds loose files (${looseEntries.join(', ')}) — make them this ticket's next plan with \`lightsout ticket add-plan --name ${ticketBranch} --slug <slug> --from ${ticketBranch}\`, or take them out of the folder first`
+					: `the ticket folder '${ticketBranch}' holds ${looseEntries.join(', ')} beside its record, and a ticket's plan files live in that plan's own folder — move each of them into the plan folder it belongs to, or remove it, and run this again`,
 		};
 	}
 
@@ -147,10 +111,11 @@ const addPlanToRecord = ({
 		return allocated;
 	}
 
+	const outOf = from === undefined ? '' : ` out of the loose files of '${from}'`;
 	const added = appendTicketEvent({
-		record: { ...base, plans: [...base.plans, { id: allocated.id, title: title ?? slug, progress: PlanProgress.Planning, createdAt: at }] },
-		kind: TicketEventKind.PlanAdded,
-		detail: `plan ${allocated.id} was added to ticket ${ticketBranch}`,
+		record: { ...base, plans: [...base.plans, { id: allocated.id, title: title ?? slug, progress, createdAt: at }] },
+		kind: from === undefined ? TicketEventKind.PlanAdded : TicketEventKind.PlanAdopted,
+		detail: `plan ${allocated.id} was added to ticket ${ticketBranch}${outOf}`,
 		at,
 	});
 
@@ -166,7 +131,9 @@ const addPlanToRecord = ({
 };
 
 /**
- * Add the next plan to a ticket, creating the ticket's record when it has none.
+ * Add the next plan to a ticket, creating the ticket's record when it has none,
+ * and making that plan out of a source folder's loose files when `--from` names
+ * one.
  *
  * The id is one above the highest number the ticket has ever held, excluded
  * plans counted, so a number is never reused and a ship request, an exclusion
@@ -174,33 +141,34 @@ const addPlanToRecord = ({
  * plan to a multiple-plan ticket withdraws any pending ship request, because
  * the set of plans that request approved is no longer the ticket's whole work.
  *
- * The plan's folder is made only after the record change has gone through, so a
- * refusal leaves nothing behind for the next command to trip over.
+ * The record goes first for both forms: the id is allocated under the lock that
+ * owns it, and only then is the plan's folder made and the source's files moved
+ * into it. A refusal therefore leaves nothing behind for the next command to
+ * trip over, and a move that fails is put back and reported as a sentence naming
+ * where the files still are — the plan stands, because by then it already does.
  */
 export const addTicketPlan = async ({
 	cwd,
 	ticketBranch,
 	slug,
 	title,
+	from,
 	config,
 	env,
 	onProgress,
 }: Params): Promise<(TicketRecordChange & { address: string }) | { error: string }> => {
-	const pulled = await pullTicketRecord({ cwd, ticketBranch, config, env, onProgress });
+	const resolved = from === undefined ? undefined : await resolvePlanSourceFolder({ cwd, from });
 
-	if ('error' in pulled) {
-		return pulled;
+	if (resolved !== undefined && 'error' in resolved) {
+		return resolved;
 	}
 
-	const published = pulled.record === undefined ? await findPublishedLegacyPlanRefusal({ ticketBranch, config, env }) : undefined;
-
-	if (published !== undefined) {
-		return { error: published };
-	}
-
+	const source: PlanSourceFolder | undefined = resolved;
 	// Read before the change, because the store's change callback is pure: a
-	// listing taken inside it could not reach the disk at all.
-	const legacyEntries = await listLegacyPlanEntries({ ticketFolder: getTicketFolderPath({ stateDir: await resolveSharedStateDir({ cwd }), ticketBranch }) });
+	// listing taken inside it could not reach the disk at all. A `--from` naming
+	// this ticket's own folder makes those loose files the source rather than an
+	// obstruction, so there is nothing to refuse.
+	const looseEntries = from === ticketBranch ? [] : await listLoosePlanEntries({ plansFolder: await planWorkspaceDir({ cwd, name: ticketBranch }) });
 	let addition: PlanAddition | undefined;
 	const updated = await updateSyncedTicketRecord({
 		cwd,
@@ -209,7 +177,17 @@ export const addTicketPlan = async ({
 		env,
 		onProgress,
 		change: (current) => {
-			const added = addPlanToRecord({ current, ticketBranch, slug, title, config, legacyEntries, at: new Date().toISOString() });
+			const added = addPlanToRecord({
+				current,
+				ticketBranch,
+				slug,
+				title,
+				from,
+				progress: source?.progress ?? PlanProgress.Planning,
+				config,
+				looseEntries,
+				at: new Date().toISOString(),
+			});
 
 			if ('error' in added) {
 				return added;
@@ -230,15 +208,19 @@ export const addTicketPlan = async ({
 	}
 
 	const address = formatPlanAddress({ ticketBranch, planId: addition.planId });
-
-	await mkdir(await planWorkspaceDir({ cwd, name: address }), { recursive: true });
+	const sentences = [
+		...(addition.withdrew
+			? [
+					`the pending ship request was withdrawn because plan ${addition.planId} was added — ask again with \`lightsout ticket request-ship --name ${ticketBranch}\` once the ticket's work is settled`,
+				]
+			: []),
+		...(await fillPlanFolder({ cwd, address, planId: addition.planId, source, retire: from !== ticketBranch })),
+	];
 
 	return {
 		address,
 		record: updated.record,
-		notice: addition.withdrew
-			? `the pending ship request was withdrawn because plan ${addition.planId} was added — ask again with \`lightsout ticket request-ship --name ${ticketBranch}\` once the ticket's work is settled`
-			: undefined,
+		notice: sentences.length === 0 ? undefined : sentences.join(' '),
 		publishError: updated.publishError,
 	};
 };

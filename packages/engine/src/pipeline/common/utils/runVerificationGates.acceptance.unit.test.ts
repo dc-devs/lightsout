@@ -6,6 +6,7 @@ import { runVerificationGates } from '#src/pipeline/common/utils/runVerification
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import { gateResultsCommand } from '#tests/helpers/gateResultsCommand.ts';
 import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const runId = 'run-1';
@@ -45,6 +46,9 @@ const setupAcceptanceRun = async ({ schedule, tests }: { schedule: string[]; tes
 
 	linkTypescript({ dir });
 	writeUnexecutedSummary({ dir });
+	// The run already has its folder, because `createRun` makes one before a run
+	// starts and the gate evidence looks the run up by id.
+	seedRunFolder({ cwd: dir, runId });
 
 	const run = {
 		cwd: dir,

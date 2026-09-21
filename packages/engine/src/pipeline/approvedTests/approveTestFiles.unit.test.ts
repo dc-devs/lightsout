@@ -6,6 +6,8 @@ import { expect, test } from '@jest/globals';
 import type { ApprovedTestRecord } from '#src/contracts/index.ts';
 import { approveTestFiles } from '#src/pipeline/approvedTests/index.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 
 const runId = 'run-1';
 const testPath = 'src/widget.unit.test.ts';
@@ -14,7 +16,7 @@ const otherPath = 'src/gadget.unit.test.ts';
 const hashOf = ({ content }: { content: string }) => createHash('sha256').update(content).digest('hex');
 
 /** Where the run keeps the approved copy of one test-side file. Spelled out rather than imported, so the test states the path the run promises. */
-const approvedCopy = ({ cwd, path }: { cwd: string; path: string }) => join(cwd, '.lightsout', 'runs', runId, 'approved', path);
+const approvedCopy = ({ cwd, path }: { cwd: string; path: string }) => join(runDirFor({ cwd, runId }), 'approved', path);
 
 interface SetupParams {
 	/** Repo-relative path to content, written into the working tree. */
@@ -27,6 +29,10 @@ interface SetupParams {
 
 const setupRun = ({ files = {}, copies = {}, approvedTests = [] }: SetupParams = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-approve-tests-'));
+
+	// The approved copies live in the run's own folder, which is looked up by
+	// id — so the folder has to be there before a copy can be filed in it.
+	seedRunFolder({ cwd, runId });
 
 	for (const [path, content] of Object.entries(files)) {
 		mkdirSync(dirname(join(cwd, path)), { recursive: true });

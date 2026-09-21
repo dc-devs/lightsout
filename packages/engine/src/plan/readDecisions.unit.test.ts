@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readDecisions } from '#src/plan/readDecisions.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 
 /**
  * A temp repo whose plan workspace holds the given raw `decisions.json`.
@@ -11,10 +12,10 @@ import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
  */
 const setupWorkspace = ({ name = 'grill-me', content }: { name?: string; content?: string } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-decisions-'));
-	const decisionsPath = join(cwd, '.lightsout', 'plans', name, 'decisions.json');
+	const decisionsPath = join(planWorkspaceFolder({ cwd: cwd, name: name }), 'decisions.json');
 
 	if (content !== undefined) {
-		mkdirSync(join(cwd, '.lightsout', 'plans', name), { recursive: true });
+		mkdirSync(planWorkspaceFolder({ cwd: cwd, name: name }), { recursive: true });
 		writeFileSync(decisionsPath, content);
 	}
 
@@ -52,8 +53,8 @@ describe('readDecisions', () => {
 	test('reads from the plan workspace keyed by name, so two plans never cross', async () => {
 		const { cwd } = setupWorkspace({ name: 'plan-a', content: JSON.stringify({ planName: 'plan-a', decisions: [] }) });
 
-		mkdirSync(join(cwd, '.lightsout', 'plans', 'plan-b'), { recursive: true });
-		writeFileSync(join(cwd, '.lightsout', 'plans', 'plan-b', 'decisions.json'), JSON.stringify({ planName: 'plan-b', decisions: [decisionRow] }));
+		mkdirSync(join(cwd, '.lightsout', 'tickets', 'plan-b', 'plans'), { recursive: true });
+		writeFileSync(join(cwd, '.lightsout', 'tickets', 'plan-b', 'plans', 'decisions.json'), JSON.stringify({ planName: 'plan-b', decisions: [decisionRow] }));
 
 		const record = await readDecisions({ cwd, name: 'plan-b' });
 

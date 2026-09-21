@@ -1,20 +1,21 @@
 import { join } from 'node:path';
 import { toBranchFileName } from '#src/common/utils/toBranchFileName.ts';
+import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
 
 interface Params {
-	/** The MAIN repository checkout, never a worktree. */
+	/** Any checkout of the repository; the primary is resolved from it. */
 	cwd: string;
 	branch: string;
 }
 
 /**
- * Every branch-state record gathers in one place:
- * `<repo>/.lightsout/branch-state/<branch>.json`.
+ * A branch's queue phase: `branch-state.json` in that branch's ticket folder,
+ * beside the ship and worktree records the same branch leaves.
  *
- * The branch is slugged rather than used as written, because a branch named
- * `feature/x` would otherwise write into a `feature` subdirectory, and the
- * queue's branch template is free to carry slashes.
+ * The branch is slugged rather than used as written, because the queue's branch
+ * template is free to carry slashes, and one used as written would make a
+ * nested directory rather than that branch's own folder.
  */
-export const getBranchStatePath = ({ cwd, branch }: Params): string => {
-	return join(cwd, '.lightsout', 'branch-state', `${toBranchFileName({ branch })}.json`);
+export const getBranchStatePath = async ({ cwd, branch }: Params): Promise<string> => {
+	return join(await ticketFolderDir({ cwd, ticketBranch: toBranchFileName({ branch }) }), 'branch-state.json');
 };

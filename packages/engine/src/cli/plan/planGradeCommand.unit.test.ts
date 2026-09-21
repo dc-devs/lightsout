@@ -38,9 +38,9 @@ test('planGradeCommand: a clean plan with no gaps grades A, reports both counts,
 	// three paths, not one: the grade path names the latest pass, the history path
 	// names every pass this plan has ever had, and the memory path names what is
 	// still open and what was settled
-	expect(printed[5]).toBe(`\ngrade: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade.json')}`);
-	expect(printed[6]).toBe(`history: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade-history.jsonl')}`);
-	expect(printed[7]).toBe(`memory: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade-memory.json')}`);
+	expect(printed[5]).toBe(`\ngrade: ${join(cwd, '.lightsout', 'tickets', 'demo', 'plans', 'grade.json')}`);
+	expect(printed[6]).toBe(`history: ${join(cwd, '.lightsout', 'tickets', 'demo', 'plans', 'grade-history.jsonl')}`);
+	expect(printed[7]).toBe(`memory: ${join(cwd, '.lightsout', 'tickets', 'demo', 'plans', 'grade-memory.json')}`);
 	// an A grade prints no finding lines, got: ${JSON.stringify(printed)}
 	expect(printed.length).toBe(8);
 	expect(errors).toStrictEqual([]);
@@ -145,7 +145,7 @@ test('planGradeCommand: findings nobody weighed are counted apart from the ones 
 	// blocks because nobody weighed it rather than because the plan is thin
 	expect(printed[7]).toBe('   unjudged, so it blocks: the judge answered already-answered without the evidence that outcome demands');
 	// and the one blocker still carries every lens that reported it
-	const recorded = JSON.parse(readFileSync(join(cwd, '.lightsout', 'plans', 'demo', 'grade.json'), 'utf8')) as {
+	const recorded = JSON.parse(readFileSync(join(cwd, '.lightsout', 'tickets', 'demo', 'plans', 'grade.json'), 'utf8')) as {
 		gaps: Array<{ observations: Array<{ lens: string }> }>;
 	};
 	expect(recorded.gaps.map(({ observations }) => observations.map(({ lens }) => lens))).toStrictEqual([['surface', 'wiring', 'decisions']]);
@@ -205,9 +205,9 @@ test('planGradeCommand: a rate-limited checker prints the error AND the partial 
 	// a pass that did not finish is recorded like any other, so the command names
 	// the history whenever it names the grade — never one path without the other
 	expect(printed.slice(-3)).toStrictEqual([
-		`\ngrade: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade.json')}`,
-		`history: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade-history.jsonl')}`,
-		`memory: ${join(cwd, '.lightsout', 'plans', 'demo', 'grade-memory.json')}`,
+		`\ngrade: ${join(cwd, '.lightsout', 'tickets', 'demo', 'plans', 'grade.json')}`,
+		`history: ${join(cwd, '.lightsout', 'tickets', 'demo', 'plans', 'grade-history.jsonl')}`,
+		`memory: ${join(cwd, '.lightsout', 'tickets', 'demo', 'plans', 'grade-memory.json')}`,
 	]);
 	expect(exitCodes).toStrictEqual([1]);
 });
@@ -310,7 +310,7 @@ test('records the grade step as passed when a complete grade exits 0, whatever i
 
 	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
 
-	const record = JSON.parse(readFileSync(join(cwd, '.lightsout', 'plans', 'demo', 'planning-progress.json'), 'utf8')) as { steps: unknown[] };
+	const record = JSON.parse(readFileSync(join(cwd, '.lightsout', 'tickets', 'demo', 'plans', 'planning-progress.json'), 'utf8')) as { steps: unknown[] };
 
 	// the letter is the plan's verdict, not the step's outcome: a complete pass
 	// that exits 0 is a grade step that passed, even below A
@@ -327,7 +327,7 @@ test.each([
 
 	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config: undefined, phases })).rejects.toThrow(/process\.exit/);
 
-	const record = JSON.parse(readFileSync(join(cwd, '.lightsout', 'plans', 'demo', 'planning-progress.json'), 'utf8')) as { steps: unknown[] };
+	const record = JSON.parse(readFileSync(join(cwd, '.lightsout', 'tickets', 'demo', 'plans', 'planning-progress.json'), 'utf8')) as { steps: unknown[] };
 
 	// both leave a grade on disk, and neither is the complete pass that exits 0
 	expect(record.steps).toEqual([expect.objectContaining({ step: 'grade', status, attempts: 1 })]);

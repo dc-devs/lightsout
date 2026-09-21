@@ -17,6 +17,8 @@ import type { Driver } from '#src/drivers/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 /** What a build of the ticket body was handed — the fields a case reads back off it. */
@@ -126,11 +128,12 @@ const buildOutcome = ({ planPath, build }: { planPath: string; build: BuildKind 
 		: { ok: true, manifest: manifestOf({ status: RunStatus.Passed, plan: build === 'one-phase' ? join(dirname(planPath), 'phase1-search.md') : planPath }) };
 
 /** Where one plan's `plan.md` sits in the worktree — the path a build of that plan is pointed at. */
-export const planFile = ({ cwd, planId }: { cwd: string; planId: string }): string => join(cwd, '.lightsout', 'plans', ticketBranch, planId, 'plan.md');
+export const planFile = ({ cwd, planId }: { cwd: string; planId: string }): string =>
+	join(cwd, '.lightsout', 'tickets', ticketBranch, 'plans', planId, 'plan.md');
 
 /** One plan's entry in the ticket's record as it stands on disk once the call has returned. */
 export const planAt = ({ cwd, id }: { cwd: string; id: string }): TicketPlan | undefined =>
-	(JSON.parse(readFileSync(join(cwd, '.lightsout', 'plans', ticketBranch, 'ticket.json'), 'utf8')) as TicketRecord).plans.find((plan) => plan.id === id);
+	(JSON.parse(readFileSync(join(cwd, '.lightsout', 'tickets', ticketBranch, 'ticket.json'), 'utf8')) as TicketRecord).plans.find((plan) => plan.id === id);
 
 /**
  * A real repository standing on the ticket branch, holding the ticket's record
@@ -165,7 +168,7 @@ export const setupTicketPlanBuild = ({
 	commitResult?: CommitResult;
 }) => {
 	const { cwd } = setupBranchRepo({ branch: ticketBranch });
-	const ticketFolder = join(cwd, '.lightsout', 'plans', ticketBranch);
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
 	const record: TicketRecord = {
 		schemaVersion: 1,
 		ticketRef: 'LO-7',
@@ -180,8 +183,8 @@ export const setupTicketPlanBuild = ({
 	mkdirSync(ticketFolder, { recursive: true });
 
 	for (const plan of plans.filter((candidate) => !missingFolders.includes(candidate.id))) {
-		mkdirSync(join(ticketFolder, plan.id), { recursive: true });
-		writeFileSync(join(ticketFolder, plan.id, 'plan.md'), `# ${plan.id}\n`);
+		mkdirSync(join(ticketFolder, 'plans', plan.id), { recursive: true });
+		writeFileSync(join(ticketFolder, 'plans', plan.id, 'plan.md'), `# ${plan.id}\n`);
 	}
 
 	writeFileSync(join(ticketFolder, 'ticket.json'), JSON.stringify(record));
@@ -202,7 +205,11 @@ export const setupTicketPlanBuild = ({
 		return Promise.resolve({
 			ok: true,
 			manifest: {
-				...manifestOf({ status: RunStatus.Passed, plan: join(cwd, '.lightsout', 'runs', 'run-direct', 'ticket.md'), pipeline: PipelineKind.Direct }),
+				...manifestOf({
+					status: RunStatus.Passed,
+					plan: join(runDirFor({ cwd, runId: 'run-direct', ticketBranch }), 'ticket.md'),
+					pipeline: PipelineKind.Direct,
+				}),
 				runId: runId ?? 'run-direct',
 			},
 		});
@@ -224,8 +231,8 @@ export const setupTicketPlanBuild = ({
 			return Promise.resolve({ restored: [] });
 		}
 
-		mkdirSync(join(target, '.lightsout', 'plans', address), { recursive: true });
-		writeFileSync(join(target, '.lightsout', 'plans', address, 'plan.md'), '# restored\n');
+		mkdirSync(planWorkspaceFolder({ cwd: target, name: address }), { recursive: true });
+		writeFileSync(join(planWorkspaceFolder({ cwd: target, name: address }), 'plan.md'), '# restored\n');
 
 		return Promise.resolve({ restored: ['plan.md'] });
 	});
@@ -242,7 +249,7 @@ export const setupTicketPlanBuild = ({
 			env: {} as NodeJS.ProcessEnv,
 			driver,
 			driverName: 'claude-code',
-			ticketRunDir: join(cwd, '.lightsout', 'runs', 'queue-run', 'tickets', 'LO-7'),
+			ticketRunDir: join(runDirFor({ cwd, runId: 'queue-run', pipeline: 'queue' }), 'tickets', 'LO-7'),
 		},
 	};
 };

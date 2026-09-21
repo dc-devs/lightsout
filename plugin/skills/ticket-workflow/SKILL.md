@@ -408,12 +408,13 @@ one branch.
 
 ## Plan folder
 
-The folder under `.lightsout/plans/` named exactly like the branch is the
+The folder under `.lightsout/tickets/` named exactly like the branch is the
 **ticket folder**, so the plans, the branch and the ticket match each other by
 construction. The exact spelling is the repository's `ship.ticket-pattern` and
 `queue.branch-template` in its `lightsout.config.json` — the configured pattern
 is the format's one home, and this skill points at it rather than restating a
-team's spelling. The ticket folder holds one subfolder per plan.
+team's spelling. The ticket folder holds a `plans/` folder, with one subfolder
+per plan.
 
 ### Ticket folders and plan ids
 
@@ -428,8 +429,8 @@ it.
 A plan's **address** is the ticket branch, a slash and the plan id —
 `lo-140-multi/002-queue-order`. That address is the `--name` value for every
 `lightsout plan` subcommand and for `brainstorm publish`, and
-`.lightsout/plans/<ticket-branch>/<plan-id>` is the path `lightsout implement
---plan` takes. The branch and the worktree always come from the ticket-branch
+`.lightsout/tickets/<ticket-branch>/plans/<plan-id>` is the path `lightsout
+implement --plan` takes. The branch and the worktree always come from the ticket-branch
 segment, whichever plan is being worked.
 
 A plan folder holds that plan's brainstorm, facts, decisions, plan deliverable,
@@ -482,19 +483,33 @@ rolls implementation back on its own.
 ### Adding a plan
 
 ```sh
-lightsout ticket add-plan --name <ticket-branch> --slug <slug> [--title <title>]
+lightsout ticket add-plan --name <ticket-branch> --slug <slug> [--title <title>] [--from <folder>]
 ```
 
 It creates the ticket record when there is none, allocates the next id, creates
-the empty plan folder at progress `planning`, and prints the plan's address on
-its last line. The skills take that printed address rather than building one.
+the plan folder, and prints the plan's address on its last line. The skills take
+that printed address rather than building one.
+
+Without `--from` the plan folder is created empty, at progress `planning`.
+
+`--from` names a plan folder's bare name under the plans directory — never a
+path, and never one plan's address — and makes the next plan out of that
+folder's loose files: they are moved into the plan's own folder, and the plan's
+progress is taken from how far that folder already got. The engine also updates
+the `planName` field inside the `decisions.json` and `brainstorm-decisions.json`
+it moved, so the records name the plan's address rather than the folder they
+were written in. When the folder named is not the ticket's own, the emptied
+folder is taken away with its files; a folder still holding anything else is
+left exactly as it was found. Publish a brainstorm after the move, never before.
 
 It is refused:
 
 - in single-plan mode once plan 001 exists — ask the human whether to switch to
   multiple-plan mode before adding one;
-- on a folder still holding files from before ticket records — `ticket adopt`
-  comes first;
+- on a ticket whose plans folder holds loose files and no `--from` — name that
+  folder with `--from` to make those files the plan, or take them out first;
+- on a `--from` folder that holds no loose files, and while a run over that
+  folder is still live;
 - on a folder name carrying no ticket id;
 - on a ticket that has shipped.
 
@@ -511,7 +526,7 @@ A plan carries one progress value, and the engine writes each of them:
 
 | Progress | Written when |
 |---|---|
-| `planning` | `ticket add-plan` or `ticket adopt` created the plan |
+| `planning` | `ticket add-plan` created the plan |
 | `ready` | `plan publish` succeeded for it — it is ready to implement |
 | `implementing` | an implementation run started |
 | `implemented` | that run passed |
@@ -519,7 +534,10 @@ A plan carries one progress value, and the engine writes each of them:
 
 A paused run leaves the plan at `implementing`. A plan taken out of the ticket's
 work records that beside its progress rather than instead of it, so it keeps the
-record of how far it got.
+record of how far it got. A plan made with `ticket add-plan --from` is born at
+any of these: the source folder's own runs and its plan deliverable say how far
+it already got, so such a plan can be `ready`, `implementing`, `implemented` or
+`failed` the moment it is added.
 
 Plans implement in numeric order. A lower plan that is neither implemented nor
 excluded blocks every later one — whether it is still being planned, is being
@@ -567,29 +585,21 @@ plan that becomes ready to implement is picked up on the same branch. The human
 decides the finish line: an agent files a ship request only when the human asks
 to ship the ticket.
 
-### Folders from before ticket records
+### Folders with no ticket record
 
 A folder with no ticket record keeps working exactly as it did before, in every
 command — publishing and restoring under bare file titles included. A folder
 whose name carries no ticket id is always one of these.
-
-```sh
-lightsout ticket adopt --name <ticket-branch> --slug <slug>
-```
-
-converts one into plan 001, taking that plan's progress from the folder's runs
-and its plan deliverable. It refuses while a run over the folder is still live.
-Adoption is a deliberate step the human chooses; never move the files by hand.
 
 A brainstorm or plan shaped before its ticket exists still carries a bare slug,
 and is renamed to the ticket's branch when the ticket is filed. Renaming the
 folder is not the whole rename: `decisions.json` and, when present,
 `brainstorm-decisions.json` each carry a `planName` field that has to be updated
 to match, or the record says one name while the folder says another. Nothing in
-the engine compares the two, which is exactly why this skill has to. `ticket
-adopt` then makes that folder plan 001, after which those `planName` fields name
-the plan's address. A brainstorm is published after any rename, never before, so
-the ticket does not end up carrying a `planName` naming a folder that no longer
+the engine compares the two when a human does the rename, which is exactly why
+this skill has to — `ticket add-plan --from` is the one move that updates both
+fields itself. A brainstorm is published after any rename, never before, so the
+ticket does not end up carrying a `planName` naming a folder that no longer
 exists.
 
 Do not rename once a run has started. A run manifest records the plan by path,
@@ -671,7 +681,7 @@ exclusions` above.
 
 ## Publishing the plan
 
-The `plan` skill writes `.lightsout/plans/<name>/` — either `plan.md`, or
+The `plan` skill writes `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/` — either `plan.md`, or
 `overview.md` with phase files, alongside durable records such as
 `decisions.json` and `grade.json`. That is the design record: what was decided,
 what was rejected, and why. Publishing works on one plan at a time, and `<name>`
@@ -839,7 +849,7 @@ statement with none of the shaping behind it.
 
 A published plan makes the ticket both **readable** and **runnable** by a fresh
 agent. Nothing has to be rebuilt by hand: point the `implement` skill at
-`.lightsout/plans/<name>`, the plan's own folder path. The engine uses the folder
+`.lightsout/tickets/<ticket-branch>/plans/<plan-id>`, the plan's own folder path. The engine uses the folder
 on disk when it exists. When it does not, the engine reads the ticket id from the
 ticket-branch segment of the name, fetches what that ticket carries and
 reconstructs the folder before implementation starts — see

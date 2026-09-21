@@ -208,7 +208,7 @@ is where those rules live; [`lightsout ticket`](#lightsout-ticket) is the comman
 Start from the notes `/brainstorm` saved:
 
 ```text
-/plan .lightsout/plans/rate-limiting/brainstorm-notes.md
+/plan .lightsout/tickets/rate-limiting/plans/brainstorm-notes.md
 ```
 
 Or start from a plain description:
@@ -281,10 +281,11 @@ the tree at the plan's path from your checkout's committed `HEAD` and prints the
 tree's path; every later plan step works from it, so another agent editing your
 checkout cannot move the code a grade is measured against. The tree holds code
 work only: the plan folder itself stays in your main checkout at
-`.lightsout/plans/<name>/`, whichever checkout a plan command runs from, and is
-never copied either way. The implementation run then continues in that same tree
-rather than cutting a second one. Pass `--no-worktree`, or set `plan.worktree` to
-false, to plan in the launching checkout deliberately.
+`.lightsout/tickets/<ticket-branch>/plans/<plan-id>/`, whichever checkout a plan
+command runs from, and is never copied either way. The implementation run then
+continues in that same tree rather than cutting a second one. Pass
+`--no-worktree`, or set `plan.worktree` to false, to plan in the launching
+checkout deliberately.
 
 When the name is a plan address — `<ticket-branch>/<NNN-slug>` — the tree is
 the ticket branch's, so a later plan of the same ticket continues in it and is
@@ -332,7 +333,7 @@ and a branch with no ticket record, chain exactly as they always have.
 [![How /implement turns the spec into verified code](assets/implement-workflow-light.svg)](assets/implement-workflow-light.svg)
 
 ```text
-/implement .lightsout/plans/rate-limiting/plan.md
+/implement .lightsout/tickets/rate-limiting/plans/plan.md
 ```
 
 ### lightsout status
@@ -343,31 +344,47 @@ List every recorded run with `lightsout status`, or open one run's detailed prog
 lightsout status --run <id>
 lightsout status --run <id> --watch
 lightsout status --watch
+lightsout status --now
 lightsout status --planning <name>
 lightsout status --shipping <branch>
 lightsout status --queue
 lightsout status --queue --run <id>
+lightsout status --queue --wait
 ```
 
 `--watch` refreshes the detailed block until the run stops. A failing verification row shows its gate families, root/package groups, per-family repair counts, whether a supervisor-guided repair ran, the supervisor diagnosis when present, and the final output line. The complete command, exit code, timing, and output-tail history remains in `.lightsout/runs/<run-id>/commands.jsonl`.
 
 With no `--run`, `--watch` follows the one run that is going — a phased plan's coordinator and the phase it is running count as one run, not two — and waits a minute for a run you have only just started to appear. If several unrelated runs are going at once it names their ids and asks you to pick one with `--run <id>` rather than guessing which you meant. A watch already following a run stays with that run and never crosses to unrelated work.
 
+`--now` answers the same question once, without following anything: it shows the run that is going, printed once and never repainted. For a phased plan it shows both levels — the phase sequence first, then the phase moving now. It answers immediately rather than waiting for a run to appear, because nobody typing it has just started one. With nothing going it falls back to the newest run of any status, and with several unrelated runs going it names their ids and asks you to pick one with `--run <id>`. `--now` cannot be combined with `--run`, `--watch`, `--planning`, `--shipping` or `--queue`.
+
 `--planning <name>` shows a plan that is still being planned, printed once in the same layout as a run's block. It has five fixed steps — verify-facts, draft, dedup, grade and publish — and each `lightsout plan` subcommand records its own step in the plan folder as it runs: whether it is running, how it ended, how many times it ran and how long it took. A plan with no record yet shows every step not reached. An unreadable record prints one line naming the file. A step whose process has gone is not shown as running: it is drawn failed, and the block says no live process is recording it and when the record was last updated. The record stays on your machine — `lightsout plan publish` does not attach it to the ticket. `--planning` cannot be combined with `--run` or `--watch`.
 
 `--shipping <branch>` shows a branch that is being shipped, printed once in the same layout as a run's block. It has six fixed steps — integrate, push, pull-request, checks, merge and sync — with the attempt number in the block's title. It reads the record from the checkout that ships the branch, so point it at a worktree with `--cwd <path>`. A branch with no record yet shows every step not reached. An unreadable record prints one line naming the file. A ship whose process has gone is never shown as running: its running step is drawn failed, and the block says no live process is recording it and when the record was last updated. `--shipping` cannot be combined with `--run`, `--watch` or `--planning`.
 
-`--queue` shows a queue run as one update: first a board with seven columns — Build Queue, Building, Ship Queue, Shipping Now, Shipped, Parked and Blocked — then one block for each active ticket. A ticket is active while it is building, while it is shipping, or while its worker waits for an answer to a relayed question. Each block is exactly what the standalone `--run`, `--planning` or `--shipping` form prints for that ticket's worktree. It waits up to a minute for a queue that has just started, and prints a single line when no queue run is going. `--run <id>` names a past or crashed queue run instead: a crashed one is shown as stopped, with no ticket active. `--queue` prints once and cannot be combined with `--watch`, `--planning` or `--shipping`.
+`--queue` shows a queue run as one update: first a board with seven columns — Build Queue, Building, Ship Queue, Shipping Now, Shipped, Parked and Blocked — then one block for each active ticket. A ticket is active while it is building, while it is shipping, or while its worker waits for an answer to a relayed question. Each block is exactly what the standalone `--run`, `--planning` or `--shipping` form prints for that ticket's worktree — and for a ticket building a phased plan it is both levels at once: the coordinator's phase overview, a blank line, then the phase moving now. A bare `--queue` answers at once and prints a single line when no queue run is going; `--wait` asks it to wait up to a minute instead, which is what a status request made right after launching a queue needs. `--run <id>` names a past or crashed queue run instead: a crashed one is shown as stopped, with no ticket active. `--queue` prints once and cannot be combined with `--watch`, `--planning`, `--shipping` or `--now`.
+
+Every one of these views is reachable from a session as well as a terminal: the `status` skill forwards whatever you ask for to the same command and posts what it printed.
 
 `lightsout resume --run <id>` picks a parked run back up in the workspace that run recorded, so a run built in its own worktree carries on in that worktree rather than in the checkout you happen to be standing in. Direct runs built from a ticket resume here too, from the ticket frozen beside the run: a run that already passed its gates goes straight to the commit and the ship rather than building the ticket again. If the recorded workspace has been removed, resume says so and stops.
 
 ### lightsout report
 
 Answer where a plan's hours and money went. `lightsout report` reads the
-activity record each `lightsout plan` subcommand wrote as it ran, and prints one
-tree: the plan, each command run inside it, each pass, each step, and beneath
-them every individual harness process with its own time, tokens, cost and how it
-ended.
+activity record a plan's own commands wrote as they ran — each `lightsout plan`
+subcommand, and the implementation that follows them — and prints one tree: the
+plan, each command run inside it, each pass, each step, and beneath them every
+individual harness process with its own time, tokens, cost and how it ended.
+
+Implementation is the bigger half of what a plan costs, and it is accounted for
+here too. `lightsout implement` adds a command run of its own beneath the same
+plan, and each `lightsout resume` of it adds another beside that one rather than
+starting a second plan. A phased plan's phases are the passes inside one such
+command run, named the way the run narrates them as it works, and every agent
+the run spawns — each role, the supervisor it consults, each test-change review
+— is a step carrying its own time, tokens and ending. A run built from a plan
+path outside the plans directory has no plan folder to write into, so it
+contributes nothing to any record and is otherwise unaffected.
 
 ```text
 lightsout report --plan <name>
@@ -398,8 +415,9 @@ one, and a figure nothing reported prints as not reported rather than as zero.
 An extra, clearly labelled estimated-cost column appears when the repository
 configures a price list — model identifiers with dollars-per-million rates — in
 the `pricing` config block. Nothing computed from those rates is ever stored.
-See [Configuration](docs/configuration.md). It reads only what the plan commands
-already recorded, so it spawns nothing and spends nothing.
+See [Configuration](docs/configuration.md). It reads only what the planning and
+implementation commands already recorded, so it spawns nothing and spends
+nothing.
 
 ### lightsout doctor
 
@@ -470,24 +488,25 @@ A ticket owns one branch and a record of the numbered plans on it. Each plan is
 addressed as the ticket's branch and the plan's id joined by a slash —
 `lo-140-multi/002-queue-order` — and that address is what every `plan`
 subcommand and `implement` are given. The record itself,
-`.lightsout/plans/<ticket-branch>/ticket.json`, holds the ticket's mode, its
+`.lightsout/tickets/<ticket-branch>/ticket.json`, holds the ticket's mode, its
 plans and how far each one's implementation has got, any plan taken out of that
 work, and the request to ship.
 
-`add-plan` starts the next plan and prints its address. `adopt` turns a folder
-shaped before ticket records existed into plan 001, moving its files into the
-plan's own folder and leaving them otherwise untouched. `mode` moves the ticket
-between single-plan — plan 001 alone supplies the implementation, and this
-repository's automatic shipping applies — and multiple-plan, where the plans
-implement in numeric order on the one branch; a switch back to single-plan is
-previewed first and only made with `--approve`, because it excludes every later
-plan. `request-ship` is how a human declares a multiple-plan ticket finished,
-and it must name every plan the ticket still includes; `--withdraw` takes it
-back. `exclude-plan` takes one plan out of the ticket's work for good — a plan
-whose implementation started is only excluded on a branch this repository's own
-gates have just passed on — and `retitle-plan` changes only what a plan is
-called, never its id, its folder or a pending request. `show` reads the record,
-and `sync` settles one that moved on two machines at once.
+`add-plan` starts the next plan and prints its address; given `--from <folder>`
+it makes that plan out of a named folder's loose files instead of an empty one,
+moving them into the plan's own folder and leaving them otherwise untouched.
+`mode` moves the ticket between single-plan — plan 001 alone supplies the
+implementation, and this repository's automatic shipping applies — and
+multiple-plan, where the plans implement in numeric order on the one branch; a
+switch back to single-plan is previewed first and only made with `--approve`,
+because it excludes every later plan. `request-ship` is how a human declares a
+multiple-plan ticket finished, and it must name every plan the ticket still
+includes; `--withdraw` takes it back. `exclude-plan` takes one plan out of the
+ticket's work for good — a plan whose implementation started is only excluded on
+a branch this repository's own gates have just passed on — and `retitle-plan`
+changes only what a plan is called, never its id, its folder or a pending
+request. `show` reads the record, and `sync` settles one that moved on two
+machines at once.
 
 Every change is published to the ticket when a `ticket-tracker` block is
 configured, so another machine restores the ticket's settings and its plans;
@@ -521,7 +540,7 @@ A ticket with several plans that nothing has yet approved shipping is left open 
 
 A hold is the stronger case. Only one gate run at a time may use the machine across all of a repository's worktrees, and a run whose gates never got it within the wait ceiling stops without judging the code: no gate command ran, so nothing about the code failed. Its worktree and every commit in it are left exactly as they are, and the ticket is put on hold — recorded as the `queue-blocked-gate-timed-out` label beside the parked one. Neither a later `lightsout queue` run nor `lightsout resume` will take that ticket while the label stands. Removing the label from the ticket is what releases it; the queue never removes it for you.
 
-When the queue ends it prints a final board, headed as finished, with every ticket in the column it ended in, and then its per-ticket report. With the `queue` skill, the conversation also gets a board at launch and a `lightsout status --queue` update every ten minutes while the queue drains. A queue held in a terminal prints no periodic board; run `lightsout status --queue` for one.
+When the queue ends it prints a final board, headed as finished, with every ticket in the column it ended in, and then its per-ticket report. With the `queue` skill, the conversation also gets a board at launch and a `lightsout status --queue` update every ten minutes while the queue drains. A queue held in a terminal prints no periodic board; run `lightsout status --queue` for one, or ask the `status` skill for the same board from inside a session.
 
 Exit codes carry the whole story: `0` — everything eligible shipped; `2` — work remains that a re-run picks up (parked or left-behind tickets), which a ticket left open is not, because it waits on a human decision rather than on a re-run; `1` — the queue refused to start, and the message says why.
 

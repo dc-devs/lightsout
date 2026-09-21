@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import { type LightsoutConfig, TicketEventKind, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
-import { pullTicketRecord, updateLocalTicketRecord } from '#src/ticket/index.ts';
+import { pullTicketRecord, readTicketRecord, updateLocalTicketRecord } from '#src/ticket/index.ts';
 import type { TrackerAttachment, TrackerSettings } from '#src/ticketTracker/index.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
@@ -58,7 +58,7 @@ const canonicalBytesOf = async ({ record }: { record: TicketRecord }): Promise<B
 		throw new Error(written.error);
 	}
 
-	return readFileSync(join(cwd, '.lightsout', 'plans', record.branch, 'ticket.json'));
+	return readFileSync(join(cwd, '.lightsout', 'tickets', record.branch, 'ticket.json'));
 };
 
 /** The ticket's own side of an arrangement: what it carries, and how it refuses to answer. */
@@ -101,7 +101,7 @@ const setupPull = async ({
 } = {}) => {
 	const { published, publishedText, attachments, listFailure, assetFailure } = ticket;
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-pull-ticket-'));
-	const ticketFolder = join(cwd, '.lightsout', 'plans', branch);
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', branch);
 	const recordPath = join(ticketFolder, 'ticket.json');
 	const syncPath = join(ticketFolder, 'ticket-sync.json');
 	const publishedPath = join(ticketFolder, 'ticket.published.json');
@@ -358,6 +358,21 @@ describe('pullTicketRecord', () => {
 		const pulled = await pullTicketRecord(params);
 
 		expect({ pulled, attachmentReads: mockGetTicketAttachments.mock.calls.length }).toStrictEqual({ pulled: { record: local }, attachmentReads: 0 });
+	});
+
+	test("pullTicketRecord: a fetched record lands in the ticket's own folder", async () => {
+		const published = recordOf({ detail: 'added plan 001-published' });
+		const { params } = await setupPull({ ticket: { published } });
+		const inTicketFolder = join(params.cwd, '.lightsout', 'tickets', ticketBranch, 'ticket.json');
+
+		const pulled = await pullTicketRecord(params);
+		const readBack = await readTicketRecord({ cwd: params.cwd, ticketBranch });
+
+		expect({ pulled, written: JSON.parse(readFileSync(inTicketFolder, 'utf8')), readBack }).toStrictEqual({
+			pulled: { record: published },
+			written: published,
+			readBack: { record: published },
+		});
 	});
 
 	test("pullTicketRecord: refuses a published ticket.json whose branch is not this ticket folder's", async () => {

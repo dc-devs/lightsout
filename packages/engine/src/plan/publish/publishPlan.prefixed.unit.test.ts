@@ -7,6 +7,7 @@ import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
 import { publishPlan } from '#src/plan/publish/publishPlan.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
 // Mocked Imports
@@ -79,7 +80,7 @@ const setupPlan = ({
 	uploadFailures?: Record<string, string>;
 }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-publish-plan-'));
-	const dir = join(cwd, '.lightsout', 'plans', folder);
+	const dir = planWorkspaceFolder({ cwd: cwd, name: folder });
 	const progress: string[] = [];
 
 	mockGetTicketsByIdentifiers.mockResolvedValue(tickets);

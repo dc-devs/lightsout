@@ -115,7 +115,7 @@ test('renderUsage: prints the plan sync-decisions line between plan draft and pl
 	expect(lint).toBe(draft + 2);
 });
 
-test('prints the status --planning line directly after the status --run line', () => {
+test('prints the status --planning line after the status --run and --now lines', () => {
 	const { lines } = setupRenderUsage();
 
 	const planning = lines.filter((line) => line.startsWith('  lightsout status --planning'));
@@ -123,7 +123,7 @@ test('prints the status --planning line directly after the status --run line', (
 
 	expect(planning).toHaveLength(1);
 	expect(planning[0]).toContain('lightsout status --planning <name> [--cwd <path>]');
-	expect(lines.indexOf(planning[0] ?? '')).toBe(run + 1);
+	expect(lines.indexOf(planning[0] ?? '')).toBeGreaterThan(run);
 });
 
 test('renderUsage: prints the status --shipping line after the other status lines and before doctor', () => {
@@ -156,7 +156,7 @@ test('renderUsage: prints the status --queue shape after the other status lines,
 
 	expect(queue).toHaveLength(1);
 	expect(mentions).toStrictEqual(queue);
-	expect(queue[0]).toMatch(/^ {2}lightsout status --queue \[--run <id>\] \[--cwd <path>\](?: |$)/);
+	expect(queue[0]).toMatch(/^ {2}lightsout status --queue \[--run <id>\]/);
 	expect(queue[0]).not.toContain('--watch');
 	expect(otherStatus.length).toBeGreaterThan(0);
 	expect(queueIndex).toBe(Math.max(...otherStatus) + 1);
@@ -170,8 +170,7 @@ test('prints one ticket line per subcommand between plan publish and ticket-stat
 	const ticketState = lines.findIndex((line) => line.startsWith('  lightsout ticket-state'));
 
 	expect(ticket).toStrictEqual([
-		'  lightsout ticket add-plan --name <ticket-branch> --slug <slug> [--title <title>] [--cwd <path>]',
-		'  lightsout ticket adopt --name <ticket-branch> --slug <slug> [--cwd <path>]',
+		'  lightsout ticket add-plan --name <ticket-branch> --slug <slug> [--title <title>] [--from <folder>] [--cwd <path>]',
 		'  lightsout ticket mode --name <ticket-branch> --set single-plan|multiple-plan [--approve] [--cwd <path>]',
 		'  lightsout ticket request-ship --name <ticket-branch> [--plans <id,id> | --withdraw] [--cwd <path>]',
 		'  lightsout ticket exclude-plan --name <ticket-branch> --plan <id> --reason <text> [--implementation-removed] [--cwd <path>]',
@@ -180,7 +179,18 @@ test('prints one ticket line per subcommand between plan publish and ticket-stat
 		'  lightsout ticket sync --name <ticket-branch> [--keep local|published] [--cwd <path>]',
 	]);
 	expect(lines.indexOf(ticket[0] ?? '')).toBe(planPublish + 1);
-	expect(ticketState).toBe(planPublish + 9);
+	expect(ticketState).toBe(planPublish + 8);
+});
+
+test('prints seven ticket lines with --from on add-plan and none naming adopt', () => {
+	const { lines } = setupRenderUsage();
+
+	const ticket = lines.filter((line) => line.startsWith('  lightsout ticket '));
+	const addPlan = ticket.filter((line) => line.startsWith('  lightsout ticket add-plan'));
+
+	expect(ticket).toHaveLength(7);
+	expect(addPlan).toStrictEqual(['  lightsout ticket add-plan --name <ticket-branch> --slug <slug> [--title <title>] [--from <folder>] [--cwd <path>]']);
+	expect(ticket.filter((line) => line.includes('adopt'))).toStrictEqual([]);
 });
 
 test('renderUsage: prints a report line naming --plan and --json', () => {
@@ -190,4 +200,21 @@ test('renderUsage: prints a report line naming --plan and --json', () => {
 
 	expect(report).toHaveLength(1);
 	expect(report[0]).toMatch(/^ {2}lightsout report --plan <name> \[--json\] \[--cwd <path>\](?: |$)/);
+});
+
+test('renderUsage: prints the status --now line between the run and planning lines, and carries --wait on the queue line', () => {
+	const { lines } = setupRenderUsage();
+
+	const now = lines.filter((line) => line.startsWith('  lightsout status --now'));
+	const runIndex = lines.findIndex((line) => line.startsWith('  lightsout status ') && line.includes('[--watch]'));
+	const planningIndex = lines.findIndex((line) => line.startsWith('  lightsout status --planning'));
+	const queue = lines.filter((line) => line.startsWith('  lightsout status --queue'));
+
+	expect(now).toHaveLength(1);
+	expect(now[0]).toMatch(/^ {2}lightsout status --now \[--cwd <path>\](?: |$)/);
+	expect(lines.indexOf(now[0] ?? '')).toBe(runIndex + 1);
+	expect(planningIndex).toBe(runIndex + 2);
+	expect(queue).toHaveLength(1);
+	expect(queue[0]).toMatch(/^ {2}lightsout status --queue \[--run <id>\] \[--wait\] \[--cwd <path>\](?: |$)/);
+	expect(queue[0]).not.toContain('--watch');
 });

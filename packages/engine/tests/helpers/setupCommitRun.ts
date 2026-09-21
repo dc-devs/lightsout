@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process';
 import { type LightsoutConfig, PlanProgress, RunManifest, RunStatus, TicketMode, type WorktreeOwner } from '#src/contracts/index.ts';
 import { writeWorktreeRecord } from '#src/worktree/index.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 
@@ -8,7 +9,7 @@ import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 export const ticketBranch = 'lo-152-commit';
 export const planId = '001-one-commit-behaviour';
 export const runId = 'run-1234-abcd';
-export const planFolder = `.lightsout/plans/${ticketBranch}/${planId}`;
+export const planFolder = `.lightsout/tickets/${ticketBranch}/plans/${planId}`;
 /** What a run with no ticket record on disk is addressed by: the branch's ticket reference and the plan id. */
 export const plainSubject = `lo-152 ${planId}`;
 
@@ -119,7 +120,7 @@ export const setupCommitRun = async ({
 	if (record !== undefined) {
 		writeRepoFile({
 			cwd,
-			path: `.lightsout/plans/${branch}/ticket.json`,
+			path: `.lightsout/tickets/${branch}/ticket.json`,
 			content: record === 'valid' ? ticketRecordOf({ branch }) : '{ this is not a ticket record',
 		});
 	}
@@ -135,6 +136,10 @@ export const setupCommitRun = async ({
 	for (const [path, content] of Object.entries(dirty)) {
 		writeRepoFile({ cwd, path, content });
 	}
+
+	// A real run's folder exists before the run starts, and the commit step looks
+	// its directory up by run id — so the fixture has to leave one behind.
+	seedRunFolder({ cwd, runId });
 
 	const manifest = manifestOf({ plan, changedFiles, branch: branchOnManifest ? branch : undefined });
 

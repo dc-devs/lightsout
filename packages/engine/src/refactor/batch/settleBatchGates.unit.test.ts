@@ -8,6 +8,7 @@ import type { AgentOutcome } from '#src/invoke/index.ts';
 import { SettleKind } from '#src/refactor/batch/common/constants/SettleKind.ts';
 import { settleBatchGates } from '#src/refactor/batch/settleBatchGates.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 
 // Mocked Imports
 // -------------------------
@@ -59,6 +60,11 @@ const setupSettle = ({ gates, verdict }: SetupParams) => {
 	);
 
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-settle-gates-'));
+
+	// The run below already has its folder, because `createRun` makes one before
+	// a run starts and the gate evidence looks the run up by id.
+	seedRunFolder({ cwd, runId: 'run-1', pipeline: 'refactor' });
+
 	const fixLabels: string[] = [];
 	let gateCall = 0;
 

@@ -3,7 +3,7 @@ import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runPhasesPipeline } from '#src/phases/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
-import { pathExists, planWorkspaceDir } from '#src/plan/index.ts';
+import { pathExists, planWorkspaceDir, recordPlanCommandRun } from '#src/plan/index.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { runTicketPlanLifecycle } from '#src/ticket/index.ts';
 
@@ -30,6 +30,10 @@ interface Params {
  * plan that passes is recorded implemented on the record every later plan and
  * every ship reads. A folder with no record builds exactly as it always has.
  *
+ * The build is recorded as one command run under the plan's own level, labelled
+ * `implement` — the same word a hand-typed `lightsout implement` records,
+ * because it is the same build. The queue's own coordinator run records nothing.
+ *
  * It never relays a question. The implement pipelines take an existing manifest
  * and have no answer channel, so a question relayed out of here could never be
  * answered back into the run that asked it; an escalated run parks with its
@@ -43,9 +47,16 @@ export const runPlanFolderPipeline = async ({ cwd, name, config, driver, onProgr
 		cwd,
 		name,
 		run: ({ runId }) =>
-			phased
-				? runPhasesPipeline({ cwd, driver, config, overviewPath, runId, onProgress })
-				: runImplementPipeline({ cwd, driver, config, planPath: join(folder, 'plan.md'), runId, onProgress }),
+			recordPlanCommandRun({
+				cwd,
+				name,
+				label: 'implement',
+				statusOf: ({ result }) => result.manifest.status,
+				work: ({ level }) =>
+					phased
+						? runPhasesPipeline({ cwd, driver, config, overviewPath, runId, level, onProgress })
+						: runImplementPipeline({ cwd, driver, config, planPath: join(folder, 'plan.md'), runId, level, onProgress }),
+			}),
 	});
 
 	if ('refusal' in outcome) {

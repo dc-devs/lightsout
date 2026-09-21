@@ -7,6 +7,7 @@ import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
@@ -61,7 +62,7 @@ test('pipeline tees each invocation stream to agents/stream-*.jsonl without narr
 
 	expect(result.ok).toBe(true);
 
-	const agentsDir = join(dir, '.lightsout', 'runs', result.manifest.runId, 'agents');
+	const agentsDir = join(runDirFor({ cwd: dir, runId: result.manifest.runId }), 'agents');
 
 	expect(existsSync(agentsDir)).toBeTruthy();
 

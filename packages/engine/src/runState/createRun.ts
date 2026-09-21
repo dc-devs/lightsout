@@ -4,7 +4,9 @@ import { resolve } from 'node:path';
 import { readGitCurrentBranch } from '#src/common/git/readGitCurrentBranch.ts';
 import { toRepoRelativePath } from '#src/common/utils/toRepoRelativePath.ts';
 import { type LightsoutConfig, type PipelineKind, type RunManifest, RunStatus } from '#src/contracts/index.ts';
-import { getRunDir } from '#src/runState/common/paths/getRunDir.ts';
+import { planNameFromPath } from '#src/plan/index.ts';
+import { runDirectoryIndex } from '#src/runState/common/constants/runDirectoryIndex.ts';
+import { resolveNewRunDir } from '#src/runState/common/paths/resolveNewRunDir.ts';
 import { writeRunManifest } from '#src/runState/writeRunManifest.ts';
 
 interface Params {
@@ -54,18 +56,24 @@ export const createRun = async ({
 	willShip,
 }: Params): Promise<RunManifest> => {
 	const now = new Date().toISOString();
+	// One string answers both fields, so the name can never claim a plan the
+	// recorded path does not sit in.
+	const recordedPlan = toRepoRelativePath({ cwd, path: plan });
+	const planName = await planNameFromPath({ cwd, planPath: recordedPlan });
+	const branch = await readGitCurrentBranch({ cwd });
 	const manifest: RunManifest = {
 		runId: runId ?? randomUUID(),
 		createdAt: now,
 		updatedAt: now,
-		plan: toRepoRelativePath({ cwd, path: plan }),
+		plan: recordedPlan,
+		planName,
 		pipeline,
 		ticketRef,
 		overview: overview === undefined ? undefined : toRepoRelativePath({ cwd, path: overview }),
 		parentRunId,
 		harness: driver,
 		config,
-		branch: await readGitCurrentBranch({ cwd }),
+		branch,
 		// Absolute, because the reader that wants it is standing in another checkout
 		// and has nothing to join a relative path onto. Written from what this
 		// function already holds rather than threaded down from three pipeline entry
@@ -86,7 +94,23 @@ export const createRun = async ({
 		coverageExcludedChangedFiles: [],
 	};
 
-	await mkdir(getRunDir({ cwd, runId: manifest.runId }), { recursive: true });
+	// `ticketRef` is set by exactly one pipeline — direct — and a direct run of a
+	// ticket is built on that ticket's branch, which is the ticket folder's name
+	// by construction. A run with no ticket to file under lands in the command's
+	// own folder instead.
+	const runDir = await resolveNewRunDir({
+		cwd,
+		planName,
+		ticketBranch: planName === undefined && ticketRef !== undefined ? branch : undefined,
+		pipeline,
+		runId: manifest.runId,
+	});
+
+	// The order is load-bearing: `writeRunManifest` resolves its path through a
+	// lookup that throws for a run the index has never seen, so recording after
+	// the write would fail every run at creation.
+	await mkdir(runDir, { recursive: true });
+	runDirectoryIndex.record({ cwd, runId: manifest.runId, runDir });
 
 	return writeRunManifest({ cwd, manifest });
 };

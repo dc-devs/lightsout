@@ -7,6 +7,7 @@ import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { planAttachmentManifestName } from '#src/plan/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { seedConfiguredCwd } from '#tests/helpers/seedConfiguredCwd.ts';
 
@@ -62,7 +63,7 @@ jest.mock('#src/ticket/index.ts', () => ({
 const apiKeyEnv = 'LIGHTSOUT_TEST_TRACKER_KEY';
 const trackerBlock = { ...ticketTrackerConfigBlock, 'api-key-env': apiKeyEnv };
 const name = 'lo-54-portable-plan';
-const planPath = join('.lightsout', 'plans', name);
+const planPath = join('.lightsout', 'tickets', name, 'plans');
 const planBody = '# plan restored from the ticket\n';
 
 /** A repo carrying the tracker block by default, with one plan.md waiting on the ticket. */
@@ -92,7 +93,7 @@ const ensure = ({ cwd, path = planPath }: { cwd: string; path?: string }) => {
  */
 const seedWorktreePlan = ({ cwd, planName, files }: { cwd: string; planName: string; files: Record<string, string> }) => {
 	const tree = join(`${cwd}-worktrees`, planName);
-	const dir = join(tree, '.lightsout', 'plans', planName);
+	const dir = planWorkspaceFolder({ cwd: tree, name: planName });
 
 	mkdirSync(dir, { recursive: true });
 
@@ -196,7 +197,7 @@ describe('ensurePlanWorkspace', () => {
 
 	test('names the missing folder and the folder name carrying no ticket id', async () => {
 		const cwd = await seedCwd();
-		const path = join('.lightsout', 'plans', 'portable-plan');
+		const path = join('.lightsout', 'tickets', 'portable-plan', 'plans');
 		const { result } = await ensure({ cwd, path });
 
 		expect(result).toStrictEqual({
@@ -226,7 +227,7 @@ describe('ensurePlanWorkspace', () => {
 
 	test('a ticketless plan folder sitting in a worktree is never recovered from it', async () => {
 		const cwd = await seedCwd();
-		const path = join('.lightsout', 'plans', 'portable-plan');
+		const path = join('.lightsout', 'tickets', 'portable-plan', 'plans');
 		const { tree, dir } = seedWorktreePlan({
 			cwd,
 			planName: 'portable-plan',

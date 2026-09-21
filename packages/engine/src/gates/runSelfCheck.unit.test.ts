@@ -7,6 +7,8 @@ import { readConfig } from '#src/common/config/readConfig.ts';
 import { runSelfCheck } from '#src/gates/index.ts';
 import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
 import { readGateLog } from '#tests/helpers/readGateLog.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 
 /** A root-block gate command that logs "root <kind>" — which gates ran is read off gates.log. */
 const rootGate = ({ kind }: { kind: string }) => `${gateLogCommand({ kind })} root`;
@@ -86,12 +88,18 @@ const setupSelfCheck = async ({
 		rmSync(join(dir, '.git'), { recursive: true, force: true });
 	}
 
+	// Every run below already has its folder, because `createRun` makes one
+	// before a run starts and the evidence paths look the run up by id.
+	for (const runId of ['run-1', 'run-evidence']) {
+		seedRunFolder({ cwd: dir, runId });
+	}
+
 	return {
 		dir,
 		config: await readConfig({ cwd: dir }),
 		log: () => readGateLog({ dir }),
 		records: ({ runId }: { runId: string }) =>
-			readFileSync(join(dir, '.lightsout', 'runs', runId, 'commands.jsonl'), 'utf8')
+			readFileSync(join(runDirFor({ cwd: dir, runId }), 'commands.jsonl'), 'utf8')
 				.trim()
 				.split('\n')
 				.map((line) => JSON.parse(line) as Record<string, unknown>),

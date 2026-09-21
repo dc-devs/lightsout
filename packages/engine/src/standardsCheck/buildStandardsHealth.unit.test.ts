@@ -5,6 +5,7 @@ import { describe, expect, test } from '@jest/globals';
 import { type AdvisoryOutcome, type BatchReport, type RefactorBatch, type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
 import { buildStandardsHealth } from '#src/standardsCheck/index.ts';
 import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 const rule = (overrides: Partial<LoadedStandardsRule> & { id: string }): LoadedStandardsRule => ({
 	set: 'code',
@@ -71,7 +72,7 @@ const setupRun = ({
 	manifestJson,
 	unrecordedBatchIds = [],
 }: RunSpec & { cwd?: string }) => {
-	const runDir = join(cwd, '.lightsout', 'runs', runId);
+	const runDir = runDirFor({ cwd, runId });
 
 	mkdirSync(runDir, { recursive: true });
 	writeFileSync(join(runDir, 'worklist.json'), worklistJson ?? JSON.stringify({ at: '2026-01-01T00:00:00.000Z', path: '.', all: false, batches }));

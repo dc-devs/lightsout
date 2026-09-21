@@ -12,9 +12,11 @@ interface Params {
  * The plan id these parts spell, or the one sentence saying why the slug cannot
  * be part of one.
  *
- * Shared by the only two places an id is made — `ticket add-plan` and `ticket
- * adopt` — because a slug one of them refuses must never be a slug the other
- * accepts, and a human who mistypes one reads the same sentence either way.
+ * The one home of the id's shape and of the sentence refusing a slug that
+ * cannot be part of one. `ticket add-plan` is the only caller left now that it
+ * makes every plan, and this stays its own file because that rule earns a name:
+ * inlined, the id's spelling would be one expression inside a record change
+ * rather than the thing a reader looks up.
  */
 export const composePlanId = ({ number, slug }: Params): { id: string } | { error: string } => {
 	const parsed = PlanId.safeParse(`${String(number).padStart(3, '0')}-${slug}`);

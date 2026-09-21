@@ -11,6 +11,7 @@ import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { runAutoPlanWorker } from '#src/queue/workers/runAutoPlanWorker.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 // Mocked Imports
@@ -150,7 +151,7 @@ const setupAutoPlanWorker = ({
 	planFolder?: boolean;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-auto-plan-'));
-	const folder = join(cwd, '.lightsout', 'plans', branch, planId);
+	const folder = join(cwd, '.lightsout', 'tickets', branch, 'plans', planId);
 
 	if (planFolder) {
 		mkdirSync(folder, { recursive: true });
@@ -197,7 +198,7 @@ const setupHeadlessWorktreeSession = () => {
 
 	execSync(`git worktree add -q -b ${branch} "${worktree}" main`, { cwd: primary, stdio: 'ignore' });
 
-	const folder = join(primary, '.lightsout', 'plans', branch, planId);
+	const folder = join(primary, '.lightsout', 'tickets', branch, 'plans', planId);
 
 	mkdirSync(folder, { recursive: true });
 	writeFileSync(join(folder, 'plan.md'), '# The plan\n');
@@ -217,7 +218,7 @@ const setupHeadlessWorktreeSession = () => {
 			driverName: 'claude-code',
 			settings: queueSettingsFixture(),
 			env: { LINEAR_API_KEY: 'key-1' },
-			ticketRunDir: join(worktree, '.lightsout', 'runs', 'run-q', 'tickets', 'LO-70'),
+			ticketRunDir: join(runDirFor({ cwd: worktree, runId: 'run-q', pipeline: 'queue' }), 'tickets', 'LO-70'),
 		},
 	};
 };

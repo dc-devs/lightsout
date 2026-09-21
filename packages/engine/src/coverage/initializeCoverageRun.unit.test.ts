@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
@@ -69,6 +70,22 @@ const setupScopedMeasurable = () => {
 	return dir;
 };
 
+/**
+ * A measured run frozen in a primary checkout, and a linked worktree of that
+ * same repository to resume it from — which is where joining the recorded plan
+ * path onto `cwd` and reading the run's own folder stop naming the same file.
+ */
+const setupWorktreeResume = async () => {
+	const cwd = setupMeasurable();
+	const config = await readConfig({ cwd });
+	const fresh = await initializeCoverageRun({ cwd, runId: 'run-1', driver, config });
+	const worktree = join(mkdtempSync(join(tmpdir(), 'lightsout-coverage-worktree-')), 'linked');
+
+	execSync(`git worktree add -q "${worktree}" -b resume-from-here`, { cwd });
+
+	return { config, fresh, worktree };
+};
+
 describe('initializeCoverageRun', () => {
 	test('a config that opted out of the coverage gate is refused before any run state exists', async () => {
 		const cwd = setupConsumerRepo();
@@ -124,7 +141,7 @@ describe('initializeCoverageRun', () => {
 		const { manifest, worklist } = await initializeCoverageRun({ cwd, runId: 'run-1', driver, config: await readConfig({ cwd }) });
 
 		expect(manifest.pipeline).toBe('coverage');
-		expect(manifest.plan).toBe(join('.lightsout', 'runs', 'run-1', 'worklist.json'));
+		expect(manifest.plan).toBe(join('.lightsout', 'coverage', 'runs', 'run-1', 'worklist.json'));
 		expect(worklist.totals).toStrictEqual([{ scope: 'root', statementsPct: 61, passed: true }]);
 		// the frozen file is the before side of the final report — resume re-reads it
 		expect(JSON.parse(readFileSync(join(cwd, manifest.plan), 'utf8'))).toStrictEqual(worklist);
@@ -153,5 +170,16 @@ describe('initializeCoverageRun', () => {
 		});
 
 		expect(error.message).toBe(`run run-1 belongs to the ${named} pipeline — resume it with: lightsout ${command} --run run-1`);
+	});
+
+	test('a resume standing in a linked worktree reads the frozen measurement from the run’s own folder', async () => {
+		const { config, fresh, worktree } = await setupWorktreeResume();
+
+		const resumed = await initializeCoverageRun({ cwd: worktree, runId: 'run-1', driver, config, existing: fresh.manifest });
+
+		expect(resumed.worklist).toStrictEqual(fresh.worklist);
+		// the run's records live in the primary checkout, so the recorded path
+		// joined onto this worktree names a file that was never written here
+		expect(existsSync(join(worktree, fresh.manifest.plan))).toBe(false);
 	});
 });

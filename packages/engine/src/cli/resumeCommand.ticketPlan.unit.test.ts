@@ -15,6 +15,7 @@ import {
 	type TicketRecord,
 } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { manifestOf, runId, setupResume } from '#tests/helpers/setupResume.ts';
 import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
@@ -73,7 +74,7 @@ const planTwo = '002-plan-addressing';
 const otherMachineMarker = 'a3'.repeat(32);
 
 /** Where one plan's deliverable sits, relative to the checkout the run builds in. */
-const planPath = ({ planId }: { planId: string }) => join('.lightsout', 'plans', ticketBranch, planId, 'plan.md');
+const planPath = ({ planId }: { planId: string }) => join('.lightsout', 'tickets', ticketBranch, 'plans', planId, 'plan.md');
 
 /** The ticket body a direct run froze beside itself — the plan path a build from the ticket body records. */
 const frozenTicketPath = join('.lightsout', 'runs', runId, 'ticket.md');
@@ -106,7 +107,7 @@ const planWith = ({
 
 /** The ticket's record as it stands on disk in the checkout the run builds in. */
 const readRecord = ({ workspace }: { workspace: string }): TicketRecord =>
-	JSON.parse(readFileSync(join(workspace, '.lightsout', 'plans', ticketBranch, 'ticket.json'), 'utf8'));
+	JSON.parse(readFileSync(join(workspace, '.lightsout', 'tickets', ticketBranch, 'ticket.json'), 'utf8'));
 
 /**
  * A linked worktree of the ticket's checkout — the workspace an isolated run
@@ -122,8 +123,7 @@ const cutRunWorktree = ({ primary }: { primary: string }) => {
 };
 
 /** The seeded run's manifest as it stands on disk in the checkout the command was launched from. */
-const readManifest = ({ cwd }: { cwd: string }): { willShip?: boolean } =>
-	JSON.parse(readFileSync(join(cwd, '.lightsout', 'runs', runId, 'manifest.json'), 'utf8'));
+const readManifest = ({ cwd }: { cwd: string }): { willShip?: boolean } => JSON.parse(readFileSync(join(runDirFor({ cwd, runId }), 'manifest.json'), 'utf8'));
 
 /** The manifest a parked run left behind, which is what resuming reads. */
 interface ParkedRun {
@@ -170,7 +170,7 @@ const setupTicketResume = ({
 	const workspace = isolated ? cutRunWorktree({ primary }) : primary;
 	const record: TicketRecord = { schemaVersion: 1, ticketRef: 'LO-140', branch: ticketBranch, mode, plans, history: [] };
 
-	writeRepoFile({ cwd: primary, path: join('.lightsout', 'plans', ticketBranch, 'ticket.json'), content: JSON.stringify(record) });
+	writeRepoFile({ cwd: primary, path: join('.lightsout', 'tickets', ticketBranch, 'ticket.json'), content: JSON.stringify(record) });
 
 	for (const entry of plans) {
 		writeRepoFile({ cwd: primary, path: planPath({ planId: entry.id }), content: `# ${entry.title}\n` });

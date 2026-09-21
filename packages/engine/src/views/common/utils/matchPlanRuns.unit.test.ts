@@ -2,14 +2,15 @@ import { expect, test } from '@jest/globals';
 import { type RunListing, RunStatus } from '#src/contracts/index.ts';
 import { matchPlanRuns } from '#src/views/common/utils/matchPlanRuns.ts';
 
-/** One runs-list row, filled in as the engine fills it, with only the plan path and the id a case cares about stated. */
-const runNaming = ({ plan, runId = plan }: { plan: string; runId?: string }): RunListing => ({
+/** One runs-list row as the engine fills it, stating the plan name the run recorded alongside the plan path, which the match no longer reads. */
+const runRecording = ({ planName, plan, runId = plan }: { planName?: string; plan: string; runId?: string }): RunListing => ({
 	runId,
 	shortId: runId.slice(0, 8),
 	pipeline: 'implement',
 	status: RunStatus.Passed,
 	title: 'a run',
 	plan,
+	planName,
 	createdAt: '2026-01-01T00:00:00.000Z',
 	updatedAt: '2026-01-01T00:00:00.000Z',
 	live: false,
@@ -20,42 +21,27 @@ const runNaming = ({ plan, runId = plan }: { plan: string; runId?: string }): Ru
 	resumable: false,
 });
 
-test('a phased plan keeps every run inside its folder, coordinator and phases alike', () => {
+test('a plan keeps the runs that recorded its name, and no others', () => {
 	const runs = [
-		runNaming({ plan: '.lightsout/plans/add-search/overview.md' }),
-		runNaming({ plan: '.lightsout/plans/add-search/phase2-indexing.md' }),
-		runNaming({ plan: '.lightsout/plans/add-search/phase1-schema.md' }),
+		runRecording({ planName: 'add-search/001-indexing', plan: 'somewhere/else/overview.md', runId: 'recorded-this-plan' }),
+		runRecording({ planName: 'add-search/001-indexing-v2', plan: '.lightsout/tickets/add-search/plans/001-indexing/plan.md', runId: 'recorded-a-near-name' }),
+		runRecording({ planName: undefined, plan: '.lightsout/tickets/add-search/plans/001-indexing/plan.md', runId: 'recorded-no-plan' }),
 	];
 
-	// an exact match on one file would show one of these three
-	expect(matchPlanRuns({ name: 'add-search', runs }).map((run) => run.plan)).toStrictEqual(runs.map((run) => run.plan));
+	const matched = matchPlanRuns({ name: 'add-search/001-indexing', runs });
+
+	// the plan paths are chosen to answer the opposite way from the recorded names, so only the recorded name can produce this
+	expect(matched.map((run) => run.runId)).toStrictEqual(['recorded-this-plan']);
 });
 
-test('a run planned in the legacy .claude/plans folder still belongs to its workspace', () => {
-	const runs = [runNaming({ plan: '.claude/plans/add-search/plan.md' })];
-
-	expect(matchPlanRuns({ name: 'add-search', runs })).toHaveLength(1);
-});
-
-test('a workspace whose name is a prefix of another does not steal its runs', () => {
-	const runs = [runNaming({ plan: '.lightsout/plans/add-search-v2/plan.md' })];
-
-	// the separator is part of the prefix, which is what keeps 'add-search' out of 'add-search-v2'
-	expect(matchPlanRuns({ name: 'add-search', runs })).toStrictEqual([]);
-});
-
-test('a plan path that names the folder and no file inside it belongs to no workspace', () => {
-	const runs = [runNaming({ plan: '.lightsout/plans/add-search' })];
-
-	expect(matchPlanRuns({ name: 'add-search', runs })).toStrictEqual([]);
-});
-
-test('the runs come back in the order they were given, which is the newest-first order listRuns already produced', () => {
+test('the matched runs keep the newest-first order they were given', () => {
 	const runs = [
-		runNaming({ plan: '.lightsout/plans/add-search/phase3-ui.md', runId: 'newest' }),
-		runNaming({ plan: '.lightsout/plans/other/plan.md', runId: 'unrelated' }),
-		runNaming({ plan: '.lightsout/plans/add-search/phase1-schema.md', runId: 'oldest' }),
+		runRecording({ planName: 'add-search/001-indexing', plan: '.lightsout/tickets/add-search/plans/001-indexing/phase3-ui.md', runId: 'newest' }),
+		runRecording({ planName: 'add-search/002-ranking', plan: '.lightsout/tickets/add-search/plans/002-ranking/plan.md', runId: 'unrelated' }),
+		runRecording({ planName: 'add-search/001-indexing', plan: '.lightsout/tickets/add-search/plans/001-indexing/phase1-schema.md', runId: 'oldest' }),
 	];
 
-	expect(matchPlanRuns({ name: 'add-search', runs }).map((run) => run.runId)).toStrictEqual(['newest', 'oldest']);
+	const matched = matchPlanRuns({ name: 'add-search/001-indexing', runs });
+
+	expect(matched.map((run) => run.runId)).toStrictEqual(['newest', 'oldest']);
 });

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { RunState } from '#src/common/services/RunState.ts';
 import { type AgentUsage, type LightsoutConfig, type RunManifest, RunStatus, type RunUsage } from '#src/contracts/index.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
@@ -33,19 +34,24 @@ const setupRunState = ({
 	onProgress,
 	overrides = {},
 	usage,
+	folder = true,
 }: {
 	onProgress?: (message: string) => void;
 	overrides?: Partial<LightsoutConfig>;
 	usage?: RunUsage;
+	/** Whether the run's folder is on disk. Without it, every path the run resolves by id is a lookup that finds nothing. */
+	folder?: boolean;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-run-state-'));
 
-	mkdirSync(join(cwd, '.lightsout', 'runs', 'run-state-1'), { recursive: true });
+	if (folder) {
+		mkdirSync(runDirFor({ cwd, runId: 'run-state-1' }), { recursive: true });
+	}
 
 	return {
 		cwd,
-		agentsLog: join(cwd, '.lightsout', 'runs', 'run-state-1', 'agents.jsonl'),
-		progressLog: join(cwd, '.lightsout', 'runs', 'run-state-1', 'progress.jsonl'),
+		agentsLog: join(runDirFor({ cwd, runId: 'run-state-1' }), 'agents.jsonl'),
+		progressLog: join(runDirFor({ cwd, runId: 'run-state-1' }), 'progress.jsonl'),
 		run: new RunState({ cwd, config: { ...config, ...overrides }, manifest: manifestOf({ usage }), onProgress }),
 	};
 };
@@ -98,7 +104,7 @@ describe('RunState', () => {
 
 		expect(run.current().status).toBe(RunStatus.Passed);
 		// persisted before the next action — the crash-safety half of the contract
-		const onDisk = JSON.parse(readFileSync(join(cwd, '.lightsout', 'runs', 'run-state-1', 'manifest.json'), 'utf8'));
+		const onDisk = JSON.parse(readFileSync(join(runDirFor({ cwd, runId: 'run-state-1' }), 'manifest.json'), 'utf8'));
 
 		expect(onDisk.status).toBe(RunStatus.Passed);
 	});
@@ -128,7 +134,7 @@ describe('RunState', () => {
 		// one persisted write carries both, and the record is the authority on
 		// which step the run is on — a caller cannot leave currentStep behind
 		expect(run.current()).toEqual(expect.objectContaining({ currentStep: 'batch-01', changedFiles: ['src/a.ts'] }));
-		const onDisk = JSON.parse(readFileSync(join(cwd, '.lightsout', 'runs', 'run-state-1', 'manifest.json'), 'utf8'));
+		const onDisk = JSON.parse(readFileSync(join(runDirFor({ cwd, runId: 'run-state-1' }), 'manifest.json'), 'utf8'));
 
 		expect(onDisk).toEqual(
 			expect.objectContaining({
@@ -177,6 +183,22 @@ describe('RunState', () => {
 		expect(heard).toStrictEqual(['step implement', 'step refactor — pass 1/3']);
 	});
 
+	test('a run whose folder no lookup can find is still built and still narrates', async () => {
+		const heard: string[] = [];
+		const { cwd, run } = setupRunState({ folder: false, onProgress: (message) => heard.push(message) });
+
+		run.progress('step implement');
+		run.progress('step refactor — pass 1/3');
+
+		// the progress log is named by looking the run up by id, and that lookup
+		// throws for a run nothing created — persisting narration is best-effort
+		// and must never fail a run, so the listener hears every line regardless
+		expect(heard).toStrictEqual(['step implement', 'step refactor — pass 1/3']);
+		// and nothing is written to a location no reader would ever scan
+		await new Promise((resolve) => setImmediate(resolve));
+		expect(existsSync(join(cwd, '.lightsout'))).toBe(false);
+	});
+
 	test('the agent timeout reads the config, with the one-hour default when the config is silent', () => {
 		const { cwd } = setupRunState();
 
@@ -219,7 +241,7 @@ describe('RunState', () => {
 		await run.update({ patch: { status: RunStatus.Passed } });
 
 		expect(run.current().usage).toStrictEqual({ invocations: 1, inputTokens: 10, outputTokens: 4, cacheReadTokens: 2, cacheCreationTokens: 1, costUsd: 0.5 });
-		const onDisk = JSON.parse(readFileSync(join(cwd, '.lightsout', 'runs', 'run-state-1', 'manifest.json'), 'utf8'));
+		const onDisk = JSON.parse(readFileSync(join(runDirFor({ cwd, runId: 'run-state-1' }), 'manifest.json'), 'utf8'));
 
 		expect(onDisk.usage).toStrictEqual({ invocations: 1, inputTokens: 10, outputTokens: 4, cacheReadTokens: 2, cacheCreationTokens: 1, costUsd: 0.5 });
 	});

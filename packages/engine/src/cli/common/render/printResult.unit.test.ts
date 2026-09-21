@@ -5,6 +5,7 @@ import { expect, jest, test } from '@jest/globals';
 import { printResult } from '#src/cli/common/render/printResult.ts';
 import type { FrictionRecord, RunCommit, RunManifest, StandardsFinding } from '#src/contracts/index.ts';
 import { CleanupEndReason, FrictionArea, PackagesSource, RunStatus, StandardsSeverity } from '#src/contracts/index.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 // printResult summarizes a run from the evidence the run left on disk, so the
 // arrangement is a real run directory in a temp repo — the summary is driven
@@ -61,7 +62,7 @@ const setupResult = ({
 	};
 
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-print-result-'));
-	const runDir = join(cwd, '.lightsout', 'runs', fullManifest.runId);
+	const runDir = runDirFor({ cwd, runId: fullManifest.runId });
 
 	mkdirSync(runDir, { recursive: true });
 

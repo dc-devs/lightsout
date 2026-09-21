@@ -11,6 +11,7 @@ import { emptyDecisionsRecord } from '#tests/helpers/emptyDecisionsRecord.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
 import { phaseRow } from '#tests/helpers/phasedDraftFixture.ts';
 import { overviewBody } from '#tests/helpers/phasePlan.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { recordingDriver } from '#tests/helpers/recordingDriver.ts';
 import { seedPlanWorkspace } from '#tests/helpers/seedPlanWorkspace.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -60,7 +61,7 @@ const setupFocusedSingle = ({
 
 	seedPlanWorkspace({ cwd, name });
 
-	const planDir = join(cwd, '.lightsout', 'plans', name);
+	const planDir = planWorkspaceFolder({ cwd: cwd, name: name });
 	const spawns: DriverInvocation[] = [];
 	const roles: DraftRole[] = [];
 	const messages: string[] = [];

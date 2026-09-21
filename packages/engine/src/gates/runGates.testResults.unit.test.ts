@@ -1,9 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import type { GateResult } from '#src/contracts/index.ts';
 import { runGates } from '#src/gates/index.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const runId = 'run-results';
@@ -31,7 +32,7 @@ interface EnvRecord {
  */
 const setupResultsRepo = () => {
 	const dir = setupConsumerRepo({ scripts: { check: envProbeCommand({ kind: 'check' }), test: envProbeCommand({ kind: 'test' }) } });
-	const staleDir = join(dir, '.lightsout', 'runs', runId, 'test-results', step, 'root', 'test');
+	const staleDir = join(runDirFor({ cwd: dir, runId }), 'test-results', step, 'root', 'test');
 
 	mkdirSync(staleDir, { recursive: true });
 	writeFileSync(join(staleDir, 'stale.json'), JSON.stringify({ testResults: [] }));
@@ -62,7 +63,7 @@ test('runGates: gives each gate execution its own cleared results directory and 
 
 	expect(result.error).toBe(undefined);
 
-	const reporterPath = join(dir, '.lightsout', 'runs', runId, 'jest-reporter.cjs');
+	const reporterPath = join(runDirFor({ cwd: dir, runId }), 'jest-reporter.cjs');
 	const recorded = readEnvLog({ dir });
 
 	// every gate execution saw both variables: the reporter file the engine
@@ -73,13 +74,13 @@ test('runGates: gives each gate execution its own cleared results directory and 
 		{
 			kind: 'check',
 			reporter: reporterPath,
-			dir: join(dir, '.lightsout', 'runs', runId, 'test-results', step, 'root', 'check'),
+			dir: join(runDirFor({ cwd: dir, runId }), 'test-results', step, 'root', 'check'),
 			stale: false,
 		},
 		{
 			kind: 'test',
 			reporter: reporterPath,
-			dir: join(dir, '.lightsout', 'runs', runId, 'test-results', step, 'root', 'test'),
+			dir: join(runDirFor({ cwd: dir, runId }), 'test-results', step, 'root', 'test'),
 			stale: false,
 		},
 	]);
@@ -91,7 +92,7 @@ test('runGates: gives each gate execution its own cleared results directory and 
 	expect(existsSync(join(staleDir, 'stale.json'))).toBeFalsy();
 	// and the same directory is durable evidence on the result, repo-relative
 	expect(results.map((gateResult) => [gateResult.kind, gateResult.testResultsDir])).toStrictEqual([
-		['check', join('.lightsout', 'runs', runId, 'test-results', step, 'root', 'check')],
-		['test', join('.lightsout', 'runs', runId, 'test-results', step, 'root', 'test')],
+		['check', join(relative(dir, runDirFor({ cwd: dir, runId })), 'test-results', step, 'root', 'check')],
+		['test', join(relative(dir, runDirFor({ cwd: dir, runId })), 'test-results', step, 'root', 'test')],
 	]);
 });

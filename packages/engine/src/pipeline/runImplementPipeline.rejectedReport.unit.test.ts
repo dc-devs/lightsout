@@ -7,6 +7,7 @@ import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
@@ -63,7 +64,7 @@ test('a final message that fails the report contract is saved to the run dir bef
 
 	expect(result.ok).toBe(true);
 
-	const agentsDir = join(dir, '.lightsout', 'runs', result.manifest.runId, 'agents');
+	const agentsDir = join(runDirFor({ cwd: dir, runId: result.manifest.runId }), 'agents');
 	const rejected = readdirSync(agentsDir).filter((name) => name.startsWith('rejected-'));
 
 	// the rejected message is filed by sequence, step, and attempt
@@ -76,7 +77,7 @@ test('a final message that fails the report contract is saved to the run dir bef
 	// the raw final message is preserved verbatim, not summarized
 	expect(saved.includes(implementProse)).toBeTruthy();
 	// the run is told where the evidence landed:\n${progressLines.join('\n')}
-	expect(progressLines.some((line) => line.includes(`.lightsout/runs/${result.manifest.runId}/agents/rejected-01-implement-attempt1.txt`))).toBeTruthy();
+	expect(progressLines.some((line) => line.includes(join(agentsDir, 'rejected-01-implement-attempt1.txt')))).toBeTruthy();
 });
 
 test('two rejected messages in one run are filed under distinct sequence numbers', async () => {
@@ -119,7 +120,7 @@ test('two rejected messages in one run are filed under distinct sequence numbers
 
 	expect(result.ok).toBe(true);
 
-	const agentsDir = join(dir, '.lightsout', 'runs', result.manifest.runId, 'agents');
+	const agentsDir = join(runDirFor({ cwd: dir, runId: result.manifest.runId }), 'agents');
 	const rejected = readdirSync(agentsDir)
 		.filter((name) => name.startsWith('rejected-'))
 		.sort();

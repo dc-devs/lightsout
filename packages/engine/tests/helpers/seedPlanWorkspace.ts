@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 
 interface Params {
 	cwd: string;
@@ -13,7 +14,7 @@ interface Params {
 
 /** Seed the plan workspace with the facts + decisions `plan draft` reads, plus an optional brainstorm hand-off. */
 export const seedPlanWorkspace = ({ cwd, name, areas = [], brainstormDecisions }: Params): void => {
-	const dir = join(cwd, '.lightsout', 'plans', name);
+	const dir = planWorkspaceFolder({ cwd: cwd, name: name });
 
 	mkdirSync(dir, { recursive: true });
 	writeFileSync(

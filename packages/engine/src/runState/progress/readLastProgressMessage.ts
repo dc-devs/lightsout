@@ -13,7 +13,7 @@ interface Params {
  * holds only malformed lines, or a run that has not spoken yet.
  */
 export const readLastProgressMessage = async ({ cwd, runId }: Params): Promise<string | undefined> => {
-	const records = await readJsonlRecords({ path: getProgressLogPath({ cwd, runId }), schema: ProgressRecord });
+	const records = await readJsonlRecords({ path: await getProgressLogPath({ cwd, runId }), schema: ProgressRecord });
 
 	return records.at(-1)?.message;
 };

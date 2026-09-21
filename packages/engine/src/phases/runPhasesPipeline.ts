@@ -1,3 +1,4 @@
+import type { ActivityLevel } from '#src/activity/index.ts';
 import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { initializeSequence } from '#src/phases/initializeSequence.ts';
@@ -18,6 +19,8 @@ interface Params {
 	/** Resume: an existing coordinator manifest — phases already passed are skipped. */
 	existing?: RunManifest;
 	skipRefactor?: boolean;
+	/** The command-run level each phase opens its own pass level under. Absent wherever no run is being recorded. */
+	level?: ActivityLevel;
 	/** Resolved before the run starts: a passing sequence will ship this branch. Stamped on the COORDINATOR only — a phase's child run must never draw a ship row it can never fill. */
 	willShip?: boolean;
 	onProgress?: (message: string) => void;
@@ -49,6 +52,7 @@ export const runPhasesPipeline = async ({
 	runId,
 	existing,
 	skipRefactor,
+	level,
 	willShip,
 	onProgress,
 }: Params): Promise<PipelineResult> => {
@@ -72,7 +76,19 @@ export const runPhasesPipeline = async ({
 			continue;
 		}
 
-		const phase = await runPhase({ cwd, driver, config, manifest, index, step, total, resumed: existing !== undefined, skipRefactor, onProgress: narrate });
+		const phase = await runPhase({
+			cwd,
+			driver,
+			config,
+			manifest,
+			index,
+			step,
+			total,
+			resumed: existing !== undefined,
+			skipRefactor,
+			level,
+			onProgress: narrate,
+		});
 
 		manifest = phase.manifest;
 

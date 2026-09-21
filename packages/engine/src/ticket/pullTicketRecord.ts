@@ -1,11 +1,10 @@
 import { join } from 'node:path';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
-import { resolveSharedStateDir } from '#src/common/workspace/resolveSharedStateDir.ts';
+import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
 import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
 import { ticketFileNames } from '#src/ticket/common/constants/ticketFileNames.ts';
 import type { PublishedTicketRecord } from '#src/ticket/common/types/PublishedTicketRecord.ts';
-import { getTicketFolderPath } from '#src/ticket/common/utils/getTicketFolderPath.ts';
 import { readPublishedTicketRecord } from '#src/ticket/common/utils/readPublishedTicketRecord.ts';
 import { readTicketSyncState } from '#src/ticket/common/utils/readTicketSyncState.ts';
 import { resolveTicketTrackerTarget } from '#src/ticket/common/utils/resolveTicketTrackerTarget.ts';
@@ -150,8 +149,7 @@ export const pullTicketRecord = async ({
 		return published;
 	}
 
-	const stateDir = await resolveSharedStateDir({ cwd });
-	const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
+	const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
 
 	return withTicketRecordLock({
 		ticketFolder,

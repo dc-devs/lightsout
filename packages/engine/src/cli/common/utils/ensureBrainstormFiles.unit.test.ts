@@ -6,6 +6,7 @@ import { serializeAttachmentManifest } from '#src/common/attachmentManifest/seri
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { seedConfiguredCwd } from '#tests/helpers/seedConfiguredCwd.ts';
 
@@ -111,7 +112,7 @@ const ensure = ({ cwd, planName = name }: { cwd: string; planName?: string }) =>
 describe('ensureBrainstormFiles', () => {
 	test('ensureBrainstormFiles: fetches both files and prints one line naming the ticket and the folder', async () => {
 		const cwd = await seedCwd();
-		const dir = join(cwd, '.lightsout', 'plans', name);
+		const dir = planWorkspaceFolder({ cwd: cwd, name: name });
 
 		const printed = await ensure({ cwd });
 
@@ -146,7 +147,7 @@ describe('ensureBrainstormFiles', () => {
 				{ notes: notesBody, decisions: decisionsBody },
 			],
 		});
-		const dir = join(cwd, '.lightsout', 'plans', 'lo-9-x', '001-a');
+		const dir = join(cwd, '.lightsout', 'tickets', 'lo-9-x', 'plans', '001-a');
 
 		const printed = await ensure({ cwd, planName: 'lo-9-x/001-a' });
 
@@ -157,8 +158,8 @@ describe('ensureBrainstormFiles', () => {
 
 	test('ensureBrainstormFiles: plan 001 falls back to a bare-title brainstorm generation and no later plan does', async () => {
 		const cwd = await seedTicketCwd({ generations: [{ notes: notesBody, decisions: decisionsBody }] });
-		const firstDir = join(cwd, '.lightsout', 'plans', 'lo-9-x', '001-a');
-		const laterDir = join(cwd, '.lightsout', 'plans', 'lo-9-x', '002-b');
+		const firstDir = join(cwd, '.lightsout', 'tickets', 'lo-9-x', 'plans', '001-a');
+		const laterDir = join(cwd, '.lightsout', 'tickets', 'lo-9-x', 'plans', '002-b');
 
 		const printedForFirst = await ensure({ cwd, planName: 'lo-9-x/001-a' });
 		const printedForLater = await ensure({ cwd, planName: 'lo-9-x/002-b' });
@@ -172,7 +173,7 @@ describe('ensureBrainstormFiles', () => {
 
 	test("ensureBrainstormFiles: plan 001 prints one warning when the ticket's bare-title generation cannot be fetched", async () => {
 		const cwd = await seedTicketCwd({ generations: [{ notes: notesBody, decisions: decisionsBody, marker: false }] });
-		const dir = join(cwd, '.lightsout', 'plans', 'lo-9-x', '001-a');
+		const dir = join(cwd, '.lightsout', 'tickets', 'lo-9-x', 'plans', '001-a');
 
 		const printed = await ensure({ cwd, planName: 'lo-9-x/001-a' });
 
@@ -184,7 +185,7 @@ describe('ensureBrainstormFiles', () => {
 
 	test('ensureBrainstormFiles: for a plan address, keeps a brainstorm file already in the plan folder and reports it kept', async () => {
 		const cwd = await seedTicketCwd({ generations: [{ prefix: '001-a', notes: planNotesBody, decisions: planDecisionsBody }] });
-		const dir = join(cwd, '.lightsout', 'plans', 'lo-9-x', '001-a');
+		const dir = join(cwd, '.lightsout', 'tickets', 'lo-9-x', 'plans', '001-a');
 		const mine = '# the write-up I am still editing\n';
 
 		mkdirSync(dir, { recursive: true });

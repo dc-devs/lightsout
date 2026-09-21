@@ -7,6 +7,7 @@ import { implementDirectCommand } from '#src/cli/implementDirectCommand.ts';
 import { type LightsoutConfig, RunStatus } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { manifestOf } from '#tests/helpers/setupResume.ts';
 import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
@@ -117,6 +118,9 @@ const setupDirectLifecycle = ({
 
 	mockRequireImplementLifecycle.mockResolvedValue(refusal);
 	mockReconcileShippedTicket.mockResolvedValue(reconciliation);
+	// The build is stubbed, so the run folder a real `createRun` would have made
+	// is planted here — the command resolves the run's directory by id.
+	seedRunFolder({ cwd, runId: manifestOf({ status: RunStatus.Passed }).runId, pipeline: 'direct' });
 	mockRunDirectWork.mockResolvedValue({ ok: true, manifest: manifestOf({ status: RunStatus.Passed }) });
 
 	return { context: { flags: parseFlags({ args: [...args, '--no-worktree'] }), rest: [], cwd }, cwd, readForgeLog, ...captured };

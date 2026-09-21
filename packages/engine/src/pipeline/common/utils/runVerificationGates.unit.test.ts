@@ -7,6 +7,7 @@ import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
 import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
 import { readGateLog } from '#tests/helpers/readGateLog.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const runId = 'run-1';
@@ -47,6 +48,9 @@ const setupCoverageRun = async ({ override }: { override: 'off' | string[] }) =>
 
 	linkTypescript({ dir });
 	writeUnexecutedSummary({ dir });
+	// The run already has its folder, because `createRun` makes one before a run
+	// starts and the gate evidence looks the run up by id.
+	seedRunFolder({ cwd: dir, runId });
 
 	const run = {
 		cwd: dir,

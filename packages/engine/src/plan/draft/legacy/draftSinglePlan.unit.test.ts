@@ -11,6 +11,7 @@ import { emptyDecisionsRecord } from '#tests/helpers/emptyDecisionsRecord.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
 import { phaseRow } from '#tests/helpers/phasedDraftFixture.ts';
 import { overviewBody } from '#tests/helpers/phasePlan.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { seedPlanWorkspace } from '#tests/helpers/seedPlanWorkspace.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
@@ -49,7 +50,7 @@ const setupLegacySingle = ({ name, driver }: { name: string; driver: Driver }) =
 
 	seedPlanWorkspace({ cwd, name });
 
-	const planDir = join(cwd, '.lightsout', 'plans', name);
+	const planDir = planWorkspaceFolder({ cwd: cwd, name: name });
 	const context: DraftContext = {
 		cwd,
 		driver,
@@ -148,7 +149,7 @@ describe('draftSinglePlan', () => {
 			// Reports the file as written without ever writing it.
 			driver: {
 				name: 'claude-code',
-				invoke: async () => ({ text: draftReport({ status: 'drafted', filesWritten: ['.lightsout/plans/legacy-ghost/plan.md'] }), exitCode: 0 }),
+				invoke: async () => ({ text: draftReport({ status: 'drafted', filesWritten: ['.lightsout/tickets/legacy-ghost/plans/plan.md'] }), exitCode: 0 }),
 			},
 		});
 

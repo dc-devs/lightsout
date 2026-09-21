@@ -1,14 +1,15 @@
-// `getTicketFolderPath`, `serializeTicketRecord`, `withTicketRecordLock`,
-// `ticketFileNames` and `readTicketRecordFile` stay off this barrel: where the
-// record lives, what bytes it takes and which lock guards it are this module's
-// business, and a caller that could build the path could write the file without
-// the contract and the lock the store applies. The operations' own helpers —
-// how an event is appended, how a plan token is resolved, what a legacy entry
-// is — stay off it for the same reason: a caller that could append an event
-// could append one no operation ever decided on.
+// `serializeTicketRecord`, `withTicketRecordLock`, `ticketFileNames` and
+// `readTicketRecordFile` stay off this barrel: what bytes the record takes and
+// which lock guards it are this module's business, and a caller that could
+// write the file without the contract and the lock the store applies would
+// leave a record no operation ever decided on. Where the ticket's folder IS is
+// not private — `ticketFolderDir` is a workspace helper every module asks —
+// because that folder is the address of a branch's ship and worktree records
+// as well as its plans. The operations' own helpers — how an event is appended,
+// how a plan token is resolved, what a plans folder's loose files are — stay off
+// the barrel for the same reason the record's bytes do.
 
 export { addTicketPlan } from '#src/ticket/addTicketPlan.ts';
-export { adoptTicketPlan } from '#src/ticket/adoptTicketPlan.ts';
 export { TicketSyncKeep } from '#src/ticket/common/constants/TicketSyncKeep.ts';
 export type { TicketPlanOutcome } from '#src/ticket/common/types/TicketPlanOutcome.ts';
 export type { TicketRecordChange } from '#src/ticket/common/types/TicketRecordChange.ts';

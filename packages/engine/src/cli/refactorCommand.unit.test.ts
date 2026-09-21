@@ -7,6 +7,7 @@ import { type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { RefactorResult } from '#src/refactor/index.ts';
 import { RunLockError } from '#src/runState/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // Mocked Imports
@@ -70,9 +71,9 @@ const setupRefactor = ({
 	const cwd = setupConsumerRepo();
 
 	if (parkedRunId) {
-		mkdirSync(join(cwd, '.lightsout', 'runs', parkedRunId), { recursive: true });
+		mkdirSync(runDirFor({ cwd, runId: parkedRunId }), { recursive: true });
 		writeFileSync(
-			join(cwd, '.lightsout', 'runs', parkedRunId, 'manifest.json'),
+			join(runDirFor({ cwd, runId: parkedRunId }), 'manifest.json'),
 			JSON.stringify(manifestOf({ runId: parkedRunId, status: RunStatus.PausedRateLimit })),
 		);
 	}

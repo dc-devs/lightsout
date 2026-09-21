@@ -5,6 +5,7 @@ import { describe, expect, test } from '@jest/globals';
 import { statusCommand } from '#src/cli/statusCommand.ts';
 import { type RunManifest, RunStatus, ShipStatus } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 /**
  * The one branch of `--watch` a test can drive end to end without a clock: a run
@@ -41,13 +42,13 @@ const setupWatch = ({ manifest, shipped = false }: { manifest: RunManifest; ship
 	const captured = captureCommandOutput();
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-status-watch-'));
 
-	mkdirSync(join(cwd, '.lightsout', 'runs', manifest.runId), { recursive: true });
-	writeFileSync(join(cwd, '.lightsout', 'runs', manifest.runId, 'manifest.json'), JSON.stringify(manifest), 'utf8');
+	mkdirSync(runDirFor({ cwd, runId: manifest.runId }), { recursive: true });
+	writeFileSync(join(runDirFor({ cwd, runId: manifest.runId }), 'manifest.json'), JSON.stringify(manifest), 'utf8');
 
 	if (shipped && manifest.branch !== undefined) {
-		mkdirSync(join(cwd, '.lightsout', 'ship'), { recursive: true });
+		mkdirSync(join(cwd, '.lightsout', 'tickets', manifest.branch), { recursive: true });
 		writeFileSync(
-			join(cwd, '.lightsout', 'ship', `${manifest.branch}.json`),
+			join(cwd, '.lightsout', 'tickets', manifest.branch, 'ship.json'),
 			JSON.stringify({ status: ShipStatus.Shipped, branch: manifest.branch, failingChecks: [] }),
 			'utf8',
 		);

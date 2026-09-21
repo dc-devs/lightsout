@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readJsonFile } from '#src/common/utils/readJsonFile.ts';
 import { ShipResult } from '#src/contracts/index.ts';
 import { getShipResultPath } from '#src/ship/common/utils/getShipResultPath.ts';
 
@@ -16,17 +16,5 @@ interface Params {
  * run currently on it, and the only one the on-disk layout can give.
  */
 export const readShipResult = async ({ cwd, branch }: Params): Promise<ShipResult | undefined> => {
-	const raw = await readFile(getShipResultPath({ cwd, branch }), 'utf8').catch(() => undefined);
-
-	if (raw === undefined) {
-		return undefined;
-	}
-
-	try {
-		const parsed = ShipResult.safeParse(JSON.parse(raw));
-
-		return parsed.success ? parsed.data : undefined;
-	} catch {
-		return undefined;
-	}
+	return readJsonFile({ path: await getShipResultPath({ cwd, branch }), schema: ShipResult });
 };

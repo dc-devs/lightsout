@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { ShippingProgress } from '#src/contracts/index.ts';
@@ -30,19 +30,23 @@ jest.mock('#src/common/git/readGitHeadCommit.ts', () => ({
 
 const { redChecks, staleBase } = shipScenarioFixtures;
 
-/** The progress folder inside the checkout's ship folder, where a branch's record is filed. */
-const progressDir = ({ cwd }: { cwd: string }) => join(cwd, '.lightsout', 'ship', 'progress');
+/** The branch's ticket folder, where its shipping record is filed beside its ship result. */
+const ticketFolder = ({ cwd }: { cwd: string }) => join(cwd, '.lightsout', 'tickets', 'lo-89-ship');
 
 /** The scenario branch's record, read off disk and held to its contract. */
 const readRecord = ({ cwd }: { cwd: string }): ShippingProgress =>
-	ShippingProgress.parse(JSON.parse(readFileSync(join(progressDir({ cwd }), 'lo-89-ship.json'), 'utf8')));
+	ShippingProgress.parse(JSON.parse(readFileSync(join(ticketFolder({ cwd }), 'ship-progress.json'), 'utf8')));
 
-/** A green ship whose checkout holds a regular file where the progress folder would be. */
+/**
+ * A green ship whose ticket folder holds a directory where the record's own
+ * ignore file belongs, so no record can be written. The ignore file rather than
+ * the folder, because the folder now holds the ship result too — blocking it
+ * would refuse a write this case is not about.
+ */
 const setupUnwritableProgress = () => {
 	const scenario = setupShip();
 
-	mkdirSync(join(scenario.cwd, '.lightsout', 'ship'), { recursive: true });
-	writeFileSync(progressDir({ cwd: scenario.cwd }), 'a file where the progress folder would be\n');
+	mkdirSync(join(ticketFolder({ cwd: scenario.cwd }), '.gitignore'), { recursive: true });
 
 	return scenario;
 };
@@ -130,7 +134,7 @@ describe('runShip', () => {
 		const result = await ship();
 
 		expect(result).toEqual(expect.objectContaining({ status: 'blocked', reason: 'dirty-tree' }));
-		expect(existsSync(progressDir({ cwd }))).toBe(false);
+		expect(existsSync(join(ticketFolder({ cwd }), 'ship-progress.json'))).toBe(false);
 	});
 
 	test('a progress record that cannot be written changes neither the result nor the progress lines', async () => {
@@ -148,7 +152,7 @@ describe('runShip', () => {
 				mergeCommit: '0f1e2d3c',
 			}),
 		);
-		expect(progress.filter((line) => line.includes(join('ship', 'progress')))).toStrictEqual([]);
+		expect(progress.filter((line) => line.includes('ship-progress.json'))).toStrictEqual([]);
 		expect(progress.at(-1)).toMatch(/^ship result: /);
 	});
 });

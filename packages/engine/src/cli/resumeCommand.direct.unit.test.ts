@@ -1,5 +1,5 @@
-import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { resumeCommand } from '#src/cli/resumeCommand.ts';
 import { type LightsoutConfig, PipelineKind, type RunManifest, RunStatus } from '#src/contracts/index.ts';
@@ -72,7 +72,7 @@ const branch = 'lo-70-drain';
 const ticketBody = '# Drain the backlog\n\nBuild the thing.\n';
 
 /** Where that frozen ticket sits, relative to the checkout the run's records live in. */
-const frozenTicketPath = join('.lightsout', 'runs', runId, 'ticket.md');
+const frozenTicketPath = join('.lightsout', 'direct', 'runs', runId, 'ticket.md');
 
 /**
  * A parked direct run: its records in the checkout the command is launched
@@ -116,6 +116,7 @@ const setupDirectResume = async ({
 	});
 
 	if (withTicket) {
+		mkdirSync(dirname(join(seeded.cwd, frozenTicketPath)), { recursive: true });
 		writeFileSync(join(seeded.cwd, frozenTicketPath), ticketBody);
 	}
 

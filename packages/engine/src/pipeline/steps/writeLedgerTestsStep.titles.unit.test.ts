@@ -5,6 +5,8 @@ import { describe, expect, test } from '@jest/globals';
 import { type LedgerRow, type LightsoutConfig, type RunManifest, RunStatus, type StepRecord, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import { writeLedgerTestsStep } from '#src/pipeline/steps/writeLedgerTestsStep.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const testFile = 'src/widget.unit.test.js';
@@ -79,6 +81,10 @@ const report = (overrides: Partial<WorkReport> = {}): WorkReport => ({
  */
 const setupQuotedDecoys = () => {
 	const cwd = setupConsumerRepo({ sources: { [testFile]: fileQuotingOnly({ name: assigned }) } });
+
+	// The run already has its folder, because `createRun` makes one before a run
+	// starts and everything written inside it looks the run up by id.
+	seedRunFolder({ cwd: cwd, runId: 'run-1' });
 	const { run, manifest, prompts, stopped } = setupLedgerRun({
 		cwd,
 		respond: ({ prompt }) => {
@@ -98,7 +104,7 @@ const movedTo = 'src/widget/widget.unit.test.js';
 const fileOf = ({ names }: { names: string[] }) => `${names.map((name) => `test('${name}', () => {});`).join('\n')}\n`;
 
 /** Where the run keeps the approved copy of one test-side file. Spelled out rather than imported, so the test states the path the run promises. */
-const approvedCopy = ({ cwd, path }: { cwd: string; path: string }) => join(cwd, '.lightsout', 'runs', 'run-1', 'approved', path);
+const approvedCopy = ({ cwd, path }: { cwd: string; path: string }) => join(runDirFor({ cwd, runId: 'run-1' }), 'approved', path);
 
 const hashOf = ({ content }: { content: string }) => createHash('sha256').update(content).digest('hex');
 
@@ -110,6 +116,10 @@ const hashOf = ({ content }: { content: string }) => createHash('sha256').update
  */
 const setupApprovingRun = ({ names }: { names: string[] }) => {
 	const cwd = setupConsumerRepo();
+
+	// The run already has its folder, because `createRun` makes one before a run
+	// starts and everything written inside it looks the run up by id.
+	seedRunFolder({ cwd: cwd, runId: 'run-1' });
 	const stub = setupLedgerRun({
 		cwd,
 		respond: () => {
@@ -132,6 +142,10 @@ const setupApprovingRun = ({ names }: { names: string[] }) => {
  */
 const setupMovedLedgerRun = () => {
 	const cwd = setupConsumerRepo({ sources: { [testFile]: fileOf({ names: [assigned] }) } });
+
+	// The run already has its folder, because `createRun` makes one before a run
+	// starts and everything written inside it looks the run up by id.
+	seedRunFolder({ cwd: cwd, runId: 'run-1' });
 	const stub = setupLedgerRun({ cwd, respond: () => report() });
 
 	return {

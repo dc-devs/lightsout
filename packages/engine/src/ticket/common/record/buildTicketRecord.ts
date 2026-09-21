@@ -17,9 +17,11 @@ interface Params {
  * here and only here: from this moment it is the ticket's own saved choice, and
  * changing the repository default never rewrites it.
  *
- * Shared by the only two places a record is born — `ticket add-plan` and
- * `ticket adopt` — because a record created two ways could be created two
- * different shapes.
+ * The one home of the shape a ticket record is born in, including where the
+ * mode is seeded from and that it is seeded only once. `ticket add-plan` is the
+ * only caller left now that it creates every record, and this stays its own file
+ * because a record's birth is worth looking up by name rather than reading out
+ * of the middle of a plan being added.
  */
 export const buildTicketRecord = ({ ticketBranch, config }: Params): TicketRecord | { error: string } => {
 	const shipSettings = resolveShipSettings({ config });

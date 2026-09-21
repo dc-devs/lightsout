@@ -121,7 +121,8 @@ const runDecidedPass = async (context: PassContext) => {
  * the draft loop converged against, plus an agent gap-check for decision-level
  * gaps. It writes `grade.json`, appends the pass to the plan's append-only grade
  * history, keeps one durable record per judged finding in `grade-memory.json`,
- * and never edits the plan. A single plan is `.lightsout/plans/<name>/plan.md`;
+ * and never edits the plan. A single plan is
+ * `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/plan.md`;
  * a phased plan is `overview.md` as context plus each `phase<N>-<slug>.md`.
  *
  * Every plan file a pass reads is checked by three differently-briefed agents at

@@ -30,7 +30,7 @@ const printBoard = async ({ cwd, listing }: { cwd: string; listing: RunListing }
 	const board = await readQueueBoard({ cwd, runId: listing.runId });
 
 	if (board === undefined) {
-		console.log(`the queue run has no readable board yet: ${getQueueBoardPath({ cwd, runId: listing.runId })}`);
+		console.log(`the queue run has no readable board yet: ${await getQueueBoardPath({ cwd, runId: listing.runId })}`);
 		return;
 	}
 
@@ -57,6 +57,8 @@ interface Params {
 	cwd: string;
 	/** The queue run to show, already resolved on disk; without it, the live queue run the checkout's run lock names. */
 	runId?: string;
+	/** Wait up to a minute for a queue run to take the lock — for a caller that has only just launched one. */
+	wait?: boolean;
 }
 
 /**
@@ -70,8 +72,8 @@ interface Params {
  *
  * @returns the exit code the command ends with: 0 for every answer but a named run that cannot be shown, which is 1
  */
-export const printQueueStatus = async ({ cwd, runId }: Params): Promise<number> => {
-	const listing = await resolveQueueRun({ cwd, runId });
+export const printQueueStatus = async ({ cwd, runId, wait }: Params): Promise<number> => {
+	const listing = await resolveQueueRun({ cwd, runId, wait });
 	let code = 0;
 
 	if (listing === undefined && runId !== undefined) {

@@ -1,7 +1,8 @@
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { sha256 } from '#src/common/utils/sha256.ts';
-import { PlanProgress, RunStatus } from '#src/contracts/index.ts';
+import { PlanProgress, RunStatus, type TicketRecord } from '#src/contracts/index.ts';
 import { runTicketPlanLifecycle, updateLocalTicketRecord } from '#src/ticket/index.ts';
 import {
 	address,
@@ -33,6 +34,35 @@ jest.mock('#src/common/git/readGitHeadCommit.ts', () => ({
 	readGitHeadCommit: (params: { cwd: string }) => mockReadGitHeadCommit(params),
 }));
 // -------------------------
+
+/**
+ * A ticket whose sidecar inside its OWN folder agrees with the record, and a
+ * stale sidecar in the pre-layout plans folder that names no marker at all.
+ *
+ * The two answers are opposite on purpose: read from the ticket's folder the
+ * plan is in step and the run goes ahead, and read from the pre-layout folder
+ * the plan looks published elsewhere and the lifecycle refuses before the
+ * pipeline is ever called.
+ */
+const setupTicketFolderSyncState = async () => {
+	const context = await setupTicketPlanLifecycle({
+		mockReadGitHeadCommit,
+		plans: [planOf({ id: firstPlan, progress: PlanProgress.Ready, publishedMarker: otherMachineMarker })],
+		manifestPlan: `.lightsout/tickets/${ticketBranch}/plans/${firstPlan}/plan.md`,
+	});
+	const ticketFolder = join(context.cwd, '.lightsout', 'tickets', ticketBranch);
+	const preLayoutFolder = join(context.cwd, '.lightsout', 'plans', ticketBranch);
+
+	mkdirSync(ticketFolder, { recursive: true });
+	writeFileSync(join(ticketFolder, 'ticket-sync.json'), JSON.stringify({ schemaVersion: 1, planMarkers: { [firstPlan]: otherMachineMarker } }));
+	mkdirSync(preLayoutFolder, { recursive: true });
+	writeFileSync(join(preLayoutFolder, 'ticket-sync.json'), JSON.stringify({ schemaVersion: 1, planMarkers: {} }));
+
+	return {
+		...context,
+		readTicketFolderRecord: () => JSON.parse(readFileSync(join(ticketFolder, 'ticket.json'), 'utf8')) as TicketRecord,
+	};
+};
 
 describe('runTicketPlanLifecycle: what the run leaves on the plan', () => {
 	test("runs a legacy plan folder's pipeline unchanged and writes no ticket record", async () => {
@@ -102,7 +132,7 @@ describe('runTicketPlanLifecycle: what the run leaves on the plan', () => {
 			mockReadGitHeadCommit,
 			plans: [planOf({ id: firstPlan, progress: PlanProgress.Ready })],
 			folder: 'phased',
-			manifestPlan: `.lightsout/plans/${address}/phase1-lifecycle.md`,
+			manifestPlan: `.lightsout/tickets/${address}/plans/phase1-lifecycle.md`,
 		});
 
 		const outcome = await runTicketPlanLifecycle({ cwd, name, run });
@@ -315,5 +345,23 @@ describe('runTicketPlanLifecycle: the plans it will not build', () => {
 		expect(outcome).toEqual({ refusal: expect.stringMatching(/\S/) });
 		expect(seenRunIds).toStrictEqual([]);
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
+	});
+});
+
+describe("runTicketPlanLifecycle: the folder the ticket's state is read from", () => {
+	test("runTicketPlanLifecycle: the ticket's sync state is read from the ticket's own folder", async () => {
+		const { cwd, name, run, seenRunIds, readTicketFolderRecord } = await setupTicketFolderSyncState();
+
+		const outcome = await runTicketPlanLifecycle({ cwd, name, run });
+		const record = readTicketFolderRecord();
+
+		expect(outcome).toEqual({ result: expect.objectContaining({ ok: true }) });
+		expect(seenRunIds).toEqual([expect.stringMatching(/\S/)]);
+		expect(record.plans[0]).toEqual(
+			expect.objectContaining({
+				progress: 'implemented',
+				implementation: expect.objectContaining({ runId: seenRunIds[0], startCommit: headCommit }),
+			}),
+		);
 	});
 });

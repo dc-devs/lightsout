@@ -3,13 +3,12 @@ import { readFile } from 'node:fs/promises';
 import { readGitHeadCommit } from '#src/common/git/readGitHeadCommit.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
-import { resolveSharedStateDir } from '#src/common/workspace/resolveSharedStateDir.ts';
+import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
 import { PlanProgress, RunStatus, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { durablePlanFiles } from '#src/plan/index.ts';
 import type { TicketPlanOutcome } from '#src/ticket/common/types/TicketPlanOutcome.ts';
 import { findDivergentPlanIds } from '#src/ticket/common/utils/findDivergentPlanIds.ts';
-import { getTicketFolderPath } from '#src/ticket/common/utils/getTicketFolderPath.ts';
 import { isWholePlanRun } from '#src/ticket/common/utils/isWholePlanRun.ts';
 import { readTicketSyncState } from '#src/ticket/common/utils/readTicketSyncState.ts';
 import { findPlanImplementationBlocker } from '#src/ticket/findPlanImplementationBlocker.ts';
@@ -203,8 +202,7 @@ export const runTicketPlanLifecycle = async ({ cwd, name, resumeRunId, run }: Pa
 		return { refusal: blocker };
 	}
 
-	const stateDir = await resolveSharedStateDir({ cwd });
-	const syncState = await readTicketSyncState({ ticketFolder: getTicketFolderPath({ stateDir, ticketBranch }) });
+	const syncState = await readTicketSyncState({ ticketFolder: await ticketFolderDir({ cwd, ticketBranch }) });
 
 	if (findDivergentPlanIds({ record, syncState }).includes(planId)) {
 		return {

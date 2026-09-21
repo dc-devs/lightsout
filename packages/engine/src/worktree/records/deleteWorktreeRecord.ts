@@ -1,5 +1,4 @@
 import { rm } from 'node:fs/promises';
-import { resolveSharedStateDir } from '#src/common/workspace/resolveSharedStateDir.ts';
 import { getWorktreeRecordPath } from '#src/worktree/records/common/utils/getWorktreeRecordPath.ts';
 
 interface Params {
@@ -21,7 +20,7 @@ interface Params {
  * nothing claims.
  */
 export const deleteWorktreeRecord = async ({ cwd, branch }: Params): Promise<void> => {
-	const stateDir = await resolveSharedStateDir({ cwd });
-
-	await rm(getWorktreeRecordPath({ stateDir, branch }), { force: true }).catch(() => undefined);
+	// One file removed rather than the folder, because the ticket's other records
+	// sit beside it and outlive the tree this one described.
+	await rm(await getWorktreeRecordPath({ cwd, branch }), { force: true }).catch(() => undefined);
 };

@@ -1,3 +1,4 @@
+import type { ActivityLevel } from '#src/activity/index.ts';
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import { usage } from '#src/cli/common/constants/usage.ts';
 import { continueDirectRun } from '#src/cli/common/implementRun/continueDirectRun.ts';
@@ -16,6 +17,7 @@ import { runPipelineOrFailFast } from '#src/cli/common/utils/runPipelineOrFailFa
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { type LightsoutConfig, PipelineKind, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import { type Driver, getDriver } from '#src/drivers/index.ts';
+import { recordPlanCommandRun } from '#src/plan/index.ts';
 import { RunNotFoundError, readRunManifest, writeRunManifest } from '#src/runState/index.ts';
 import { runTicketPlanLifecycle } from '#src/ticket/index.ts';
 
@@ -95,6 +97,7 @@ const runResumedPipeline = ({
 	willShip,
 	resumable,
 	skipRefactor,
+	level,
 }: {
 	pipeline: PipelineKind;
 	cwd: string;
@@ -104,12 +107,14 @@ const runResumedPipeline = ({
 	willShip: boolean;
 	resumable: RunManifest;
 	skipRefactor: boolean;
+	/** The command-run level this continuation's work hangs from, or undefined when nothing is being recorded. */
+	level: ActivityLevel | undefined;
 }) => {
 	if (pipeline === PipelineKind.Direct) {
 		return continueDirectRun({ cwd, workspace, manifest: resumable, config, driver, willShip });
 	}
 
-	const params = { cwd: workspace, driver, config, existing: resumable, skipRefactor, onProgress: createProgressPrinter() };
+	const params = { cwd: workspace, driver, config, existing: resumable, skipRefactor, level, onProgress: createProgressPrinter() };
 
 	return pipeline === PipelineKind.Phases ? runPhasesOrFailFast(params) : runPipelineOrFailFast(params);
 };
@@ -171,20 +176,35 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 
 	// Everything that touches source acts on the workspace; only the run's own
 	// records stay in the checkout the command was launched from.
+	//
+	// The continuation is one more command run under the plan node the first run
+	// wrote — a root level's id IS its label, so no second plan level is opened
+	// and neither process has to read the record to find the other. A DIRECT run
+	// records nothing: its plan path is a frozen ticket body, and the direct
+	// pipeline is outside this record's scope even where the ticket record can
+	// still answer a plan address for it.
 	const outcome = await runTicketPlanLifecycle({
 		cwd: workspace,
 		name,
 		resumeRunId: manifest.runId,
 		run: () =>
-			runResumedPipeline({
-				pipeline,
+			recordPlanCommandRun({
 				cwd,
-				workspace,
-				driver,
-				config,
-				willShip: shipIntent.willShip,
-				resumable,
-				skipRefactor,
+				name: pipeline === PipelineKind.Direct ? undefined : name,
+				label: 'resume',
+				statusOf: ({ result }) => result.manifest.status,
+				work: ({ level }) =>
+					runResumedPipeline({
+						pipeline,
+						cwd,
+						workspace,
+						driver,
+						config,
+						willShip: shipIntent.willShip,
+						resumable,
+						skipRefactor,
+						level,
+					}),
 			}),
 	});
 

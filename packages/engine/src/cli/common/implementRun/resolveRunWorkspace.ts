@@ -1,5 +1,4 @@
 import { resolveWorktreeIsolation } from '#src/cli/common/args/resolveWorktreeIsolation.ts';
-import { linkRunRecords } from '#src/cli/common/implementRun/linkRunRecords.ts';
 import { resolveRunBranch } from '#src/cli/common/implementRun/resolveRunBranch.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import type { RunWorkspace } from '#src/cli/common/types/RunWorkspace.ts';
@@ -15,6 +14,7 @@ import {
 	readBranchWorktree,
 	readWorktreeRecord,
 	resolveWorktreePath,
+	type WorktreeFailure,
 	writeWorktreeRecord,
 } from '#src/worktree/index.ts';
 
@@ -32,6 +32,12 @@ interface Params {
 	/** The direct run's ticket body. Forwarded to `resolveRunBranch`. */
 	ticketBody?: string;
 	onProgress?: (message: string) => void;
+}
+
+/** The tree a run works in — adopted or cut — before the branch and the isolation flag are added to it. */
+interface ResolvedTree {
+	path: string;
+	created: boolean;
 }
 
 /**
@@ -64,7 +70,7 @@ const adoptPlanningTree = async ({
 	addressed: boolean;
 	holder: string;
 	onProgress?: (message: string) => void;
-}) => {
+}): Promise<ResolvedTree | WorktreeFailure | undefined> => {
 	const worktreePath = await resolveWorktreePath({ cwd, branch });
 	const record = await readWorktreeRecord({ cwd, branch });
 	const owners: WorktreeOwner[] = addressed ? [WorktreeOwner.Plan, WorktreeOwner.Implement] : [WorktreeOwner.Plan];
@@ -81,9 +87,7 @@ const adoptPlanningTree = async ({
 
 	await writeWorktreeRecord({ cwd, branch, owner: WorktreeOwner.Implement, worktreePath, startPoint: record.startPoint, onProgress });
 
-	const linked = await linkRunRecords({ sourceCwd: cwd, workspace: worktreePath });
-
-	return linked ?? { path: worktreePath, created: false };
+	return { path: worktreePath, created: false };
 };
 
 /**
@@ -106,7 +110,7 @@ const cutWorkspace = async ({
 	branch: string;
 	addressed: boolean;
 	onProgress?: (message: string) => void;
-}) => {
+}): Promise<ResolvedTree | WorktreeFailure> => {
 	// A later plan of a ticket must be built on the implementation its branch
 	// already carries, so the ticket branch is settled before anything is adopted
 	// or cut. A legacy plan keeps today's start point and never asks.
@@ -161,9 +165,7 @@ const cutWorkspace = async ({
 		return created;
 	}
 
-	const linked = await linkRunRecords({ sourceCwd: cwd, workspace: created });
-
-	return linked ?? { path: created, created: true };
+	return { path: created, created: true };
 };
 
 /**

@@ -4,6 +4,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { loadPlanningProgressBlock } from '#src/cli/common/progressBlock/loadPlanningProgressBlock.ts';
 import { type PlanningProgress, PlanningStep, type PlanningStepRecord, RunStatus } from '#src/contracts/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 
 /** The plan folder every case reads. */
 const name = 'demo';
@@ -131,7 +132,7 @@ const setupPlanningBlock = async ({ record, folder = true }: { record?: string; 
 	});
 
 	const cwd = await freshCwd();
-	const planDir = join(cwd, '.lightsout', 'plans', name);
+	const planDir = planWorkspaceFolder({ cwd: cwd, name: name });
 	const recordPath = join(planDir, 'planning-progress.json');
 
 	if (folder) {

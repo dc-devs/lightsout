@@ -3,11 +3,12 @@ import { BranchPhase } from '#src/contracts/queue/BranchPhase.ts';
 
 /**
  * What the queue last recorded about one branch, written to
- * `.lightsout/branch-state/<branch>.json` in the MAIN checkout.
+ * `branch-state.json` in that branch's ticket folder.
  *
- * It lives in the main checkout rather than the worktree so it outlives the
- * worktree the ship step removes, and it is never deleted: a merged record is
- * exactly what keeps a finished branch away from the next worker.
+ * It lives in the primary checkout rather than the worktree so it outlives the
+ * worktree the ship step removes — any checkout asking resolves there — and it
+ * is never deleted: a merged record is exactly what keeps a finished branch
+ * away from the next worker.
  */
 export const BranchState = z.object({
 	/** The branch the record describes, as git names it. */

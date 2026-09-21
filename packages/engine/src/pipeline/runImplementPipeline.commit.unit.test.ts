@@ -12,6 +12,7 @@ import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 import { headSubject } from '#tests/helpers/headSubject.ts';
 import { report } from '#tests/helpers/report.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
@@ -101,7 +102,7 @@ const setupSilentResume = async () => {
 	const runId = 'run-commit-silent-01';
 	const approvedPath = 'src/widget.unit.test.js';
 	const approvedBody = "test('widget: doubles its input', () => {});\n";
-	const approvedCopy = join(dir, '.lightsout', 'runs', runId, 'approved', approvedPath);
+	const approvedCopy = join(runDirFor({ cwd: dir, runId }), 'approved', approvedPath);
 
 	mkdirSync(dirname(approvedCopy), { recursive: true });
 	writeFileSync(approvedCopy, approvedBody);

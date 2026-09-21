@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { isSelfCheckStep } from '#src/common/selfCheck/isSelfCheckStep.ts';
 import { readJsonlRecords } from '#src/common/utils/readJsonlRecords.ts';
 import type { RunManifest } from '#src/contracts/index.ts';
-import { getRunDir } from '#src/runState/common/paths/getRunDir.ts';
+import { resolveRunDir } from '#src/runState/common/paths/resolveRunDir.ts';
 import type { CleanupSummary } from '#src/runState/common/types/CleanupSummary.ts';
 import type { RunSummary } from '#src/runState/common/types/RunSummary.ts';
 import { buildCleanupSummary } from '#src/runState/common/utils/buildCleanupSummary.ts';
@@ -39,7 +39,7 @@ interface Params {
  * attributed to the step they supervised.
  */
 export const summarizeRun = async ({ cwd, manifest }: Params): Promise<RunSummary> => {
-	const runDir = getRunDir({ cwd, runId: manifest.runId });
+	const runDir = await resolveRunDir({ cwd, runId: manifest.runId });
 	const ledger = await readJsonlRecords({ path: join(runDir, 'agents.jsonl'), schema: LedgerRecord });
 	// A writing agent's own self-check runs the run's gate commands and records
 	// them like any other execution, but it is not the run's gate work: leaving it

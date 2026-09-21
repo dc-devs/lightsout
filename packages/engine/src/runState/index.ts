@@ -2,10 +2,11 @@ export { appendCommandLog } from '#src/runState/appendCommandLog.ts';
 export { appendFriction } from '#src/runState/appendFriction.ts';
 export { appendReviewFindings } from '#src/runState/appendReviewFindings.ts';
 export { appendTestReview } from '#src/runState/appendTestReview.ts';
-export { getFrictionPath } from '#src/runState/common/paths/getFrictionPath.ts';
-export { getReviewFindingsPath } from '#src/runState/common/paths/getReviewFindingsPath.ts';
-export { getRunDir } from '#src/runState/common/paths/getRunDir.ts';
-export { getRunsDir } from '#src/runState/common/paths/getRunsDir.ts';
+// `getFrictionPath` and `getReviewFindingsPath` stay off this barrel, for the
+// reason `queue/branchState/index.ts` gives: a caller that can build the path
+// can append to the ledger without the record contract the appenders apply.
+export { resolveNewRunDir } from '#src/runState/common/paths/resolveNewRunDir.ts';
+export { resolveRunDir } from '#src/runState/common/paths/resolveRunDir.ts';
 export { resolveRunId } from '#src/runState/common/paths/resolveRunId.ts';
 export type { CleanupSummary } from '#src/runState/common/types/CleanupSummary.ts';
 export type { RunSummary } from '#src/runState/common/types/RunSummary.ts';

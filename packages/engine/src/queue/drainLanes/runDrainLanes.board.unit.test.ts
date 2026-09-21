@@ -1,5 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync } from 'node:fs';
 import { describe, expect, jest, test } from '@jest/globals';
 import { getQueueBoardPath, QueueBoardRecorder, readQueueBoard } from '#src/queue/board/index.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
@@ -10,6 +9,7 @@ import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
 import { createMainCheckoutSerializer } from '#src/queue/common/utils/createMainCheckoutSerializer.ts';
 import { runDrainLanes } from '#src/queue/drainLanes/index.ts';
 import { drainLaneOutcomeFixture as outcomeOf } from '#tests/helpers/drainLaneOutcomeFixture.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupDrainLanes } from '#tests/helpers/setupDrainLanes.ts';
 
 /** Runs a task with no other main-checkout git mutation in flight. */
@@ -46,6 +46,10 @@ const setupLanes = (options: Omit<Parameters<typeof setupDrainLanes>[0], 'mocks'
 		serializeMainCheckout: createMainCheckoutSerializer(),
 		mocks: { ship: mockShipOneBranch, scan: mockListNextWave, reconcile: mockReconcileMergedTickets },
 	});
+	// The board lives in the coordinator run's own folder, which is looked up by
+	// id — so the folder has to be on disk before the board has a place at all.
+	mkdirSync(runDirFor({ cwd: lanes.params.cwd, runId: lanes.params.runId, pipeline: 'queue' }), { recursive: true });
+
 	const board = new QueueBoardRecorder({
 		cwd: lanes.params.cwd,
 		runId: lanes.params.runId,
@@ -64,14 +68,14 @@ const setupLanes = (options: Omit<Parameters<typeof setupDrainLanes>[0], 'mocks'
 	return { ...lanes, board, boardPlaces, drain: () => lanes.trackDrain(runDrainLanes({ ...lanes.params, board })) };
 };
 
-/** The same retired-slot drain, with a plain file where the runs folder should be, so every board write fails. */
-const setupUnwritableBoard = () => {
+/** The same retired-slot drain, with a directory where the board's scratch file belongs, so every board write fails. */
+const setupUnwritableBoard = async () => {
 	const lanes = setupLanes({ runnable: ['LO-1', 'LO-2'], maxParallel: 1 });
+	const boardPath = await getQueueBoardPath({ cwd: lanes.params.cwd, runId: lanes.params.runId });
 
-	mkdirSync(join(lanes.params.cwd, '.lightsout'));
-	writeFileSync(join(lanes.params.cwd, '.lightsout', 'runs'), 'not a folder\n', 'utf8');
+	mkdirSync(`${boardPath}.tmp`, { recursive: true });
 
-	return { lanes, boardPath: getQueueBoardPath({ cwd: lanes.params.cwd, runId: lanes.params.runId }) };
+	return { lanes, boardPath };
 };
 
 describe('runDrainLanes', () => {
@@ -198,7 +202,7 @@ describe('runDrainLanes', () => {
 	});
 
 	test('drains to the same report when every board write fails', async () => {
-		const { lanes, boardPath } = setupUnwritableBoard();
+		const { lanes, boardPath } = await setupUnwritableBoard();
 
 		const drained = lanes.drain();
 		await lanes.finishBuild({ identifier: 'LO-1', end: 'unanswered', error: 'nobody answered the question' });

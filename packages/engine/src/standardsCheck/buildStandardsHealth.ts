@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { type AdvisoryOutcome, AdvisoryResponse, BatchOutcome, BatchReport, RefactorWorklist, type StandardsFinding } from '#src/contracts/index.ts';
-import { listRunIds, readRunManifest } from '#src/runState/index.ts';
+import { listRunIds, readRunManifest, resolveRunDir } from '#src/runState/index.ts';
 import type { StandardsHealth } from '#src/standardsCheck/common/types/StandardsHealth.ts';
 import type { StandardsHealthRule } from '#src/standardsCheck/common/types/StandardsHealthRule.ts';
 import type { LoadedStandardsPack } from '#src/standardsPacks/index.ts';
@@ -47,7 +47,9 @@ const readRefactorRun = async ({ cwd, runId }: { cwd: string; runId: string }) =
 		return undefined;
 	}
 
-	const worklist = RefactorWorklist.parse(JSON.parse(await readFile(join(cwd, manifest.plan), 'utf8')));
+	// The run's own directory rather than the recorded path joined onto `cwd`:
+	// run folders resolve against the primary checkout.
+	const worklist = RefactorWorklist.parse(JSON.parse(await readFile(join(await resolveRunDir({ cwd, runId }), 'worklist.json'), 'utf8')));
 
 	return { worklist, steps: manifest.steps };
 };

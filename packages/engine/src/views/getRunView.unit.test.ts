@@ -6,6 +6,7 @@ import { RunNotFoundError } from '#src/runState/index.ts';
 import { getRunView } from '#src/views/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { seedRunDir } from '#tests/helpers/seedRunDir.ts';
 
 const usage = { inputTokens: 10, outputTokens: 100, cacheReadTokens: 880, cacheCreationTokens: 110, costUsd: 0.5 };
@@ -300,7 +301,7 @@ test('a run recording no coordinator, and one whose coordinator will not read, b
 	const cwd = await freshCwd();
 
 	await seedRunDir({ cwd, manifest: { runId: 'bbb-broken' } });
-	await writeFile(join(cwd, '.lightsout', 'runs', 'bbb-broken', 'manifest.json'), '{ not json', 'utf8');
+	await writeFile(join(runDirFor({ cwd, runId: 'bbb-broken' }), 'manifest.json'), '{ not json', 'utf8');
 	await seedRunDir({ cwd, manifest: { runId: 'ccc-orphan' } });
 	await seedRunDir({ cwd, manifest: { runId: 'ddd-dangling', parentRunId: 'bbb-broken' } });
 

@@ -5,12 +5,13 @@ import { expect, test } from '@jest/globals';
 import { PlanFacts } from '#src/contracts/index.ts';
 import { runPlanVerifyFacts } from '#src/plan/runPlanVerifyFacts.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** Seed the workspace's authored facts.json with the given raw content. */
 const seedFacts = ({ cwd, name, content }: { cwd: string; name: string; content: string }) => {
-	const dir = join(cwd, '.lightsout', 'plans', name);
+	const dir = planWorkspaceFolder({ cwd: cwd, name: name });
 
 	mkdirSync(dir, { recursive: true });
 	writeFileSync(join(dir, 'facts.json'), content);
@@ -43,7 +44,7 @@ test('plan verify-facts: stamps authored facts with the on-disk verification', a
 
 	expectStatus(result, 'complete');
 	expect('factsPath' in result).toBeTruthy();
-	expect(result.factsPath).toBe(join(cwd, '.lightsout', 'plans', 'stamp-me', 'facts.json'));
+	expect(result.factsPath).toBe(join(cwd, '.lightsout', 'tickets', 'stamp-me', 'plans', 'facts.json'));
 
 	const facts = PlanFacts.parse(JSON.parse(readFileSync(result.factsPath, 'utf8')));
 
@@ -64,7 +65,7 @@ test('plan verify-facts: a missing facts.json fails and writes nothing', async (
 	expectStatus(result, 'failed');
 	expect('error' in result && /no authored facts/.test(result.error ?? '')).toBeTruthy();
 	// no facts.json written on failure
-	expect(existsSync(join(cwd, '.lightsout', 'plans', 'unauthored', 'facts.json'))).toBeFalsy();
+	expect(existsSync(join(cwd, '.lightsout', 'tickets', 'unauthored', 'plans', 'facts.json'))).toBeFalsy();
 });
 
 test('plan verify-facts: an unparsable facts.json fails and is left untouched', async () => {
@@ -76,7 +77,7 @@ test('plan verify-facts: an unparsable facts.json fails and is left untouched', 
 
 	expectStatus(result, 'failed');
 	// the invalid file is untouched
-	expect(readFileSync(join(cwd, '.lightsout', 'plans', 'bad-shape', 'facts.json'), 'utf8')).toBe('{"request": 42}');
+	expect(readFileSync(join(cwd, '.lightsout', 'tickets', 'bad-shape', 'plans', 'facts.json'), 'utf8')).toBe('{"request": 42}');
 });
 
 test('plan verify-facts: narrates the summary without a missing list when every path exists', async () => {
@@ -120,7 +121,9 @@ test('plan verify-facts: --notes freezes a copy of the notes file into the works
 
 	expectStatus(result, 'complete');
 	// the snapshot equals the source content
-	expect(readFileSync(join(cwd, '.lightsout', 'plans', 'with-notes', 'brainstorm-notes.md'), 'utf8')).toBe('# Rough notes\n\nThe idea in the user words.\n');
+	expect(readFileSync(join(cwd, '.lightsout', 'tickets', 'with-notes', 'plans', 'brainstorm-notes.md'), 'utf8')).toBe(
+		'# Rough notes\n\nThe idea in the user words.\n',
+	);
 });
 
 test('plan verify-facts: an existing brainstorm-notes.md snapshot is never overwritten', async () => {
@@ -129,13 +132,13 @@ test('plan verify-facts: an existing brainstorm-notes.md snapshot is never overw
 	writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'consumer', scripts: { check: 'tsc' } }));
 	writeFileSync(join(cwd, 'rough-brainstorm-notes.md'), 'newer notes that must not land\n');
 	seedFacts({ cwd, name: 'frozen', content: authoredFacts() });
-	writeFileSync(join(cwd, '.lightsout', 'plans', 'frozen', 'brainstorm-notes.md'), 'the original frozen notes\n');
+	writeFileSync(join(cwd, '.lightsout', 'tickets', 'frozen', 'plans', 'brainstorm-notes.md'), 'the original frozen notes\n');
 
 	const result = await runPlanVerifyFacts({ cwd, name: 'frozen', notesFile: 'rough-brainstorm-notes.md' });
 
 	expectStatus(result, 'complete');
 	// the first copy wins — the snapshot is write-once
-	expect(readFileSync(join(cwd, '.lightsout', 'plans', 'frozen', 'brainstorm-notes.md'), 'utf8')).toBe('the original frozen notes\n');
+	expect(readFileSync(join(cwd, '.lightsout', 'tickets', 'frozen', 'plans', 'brainstorm-notes.md'), 'utf8')).toBe('the original frozen notes\n');
 });
 
 test('plan verify-facts: a missing notes source fails and names the resolved path', async () => {
@@ -150,7 +153,7 @@ test('plan verify-facts: a missing notes source fails and names the resolved pat
 	// the error names the resolved source, got: ${result.error}
 	expect('error' in result && (result.error ?? '').includes(join(cwd, 'ghost-brainstorm-notes.md'))).toBeTruthy();
 	// no brainstorm-notes.md written on failure
-	expect(existsSync(join(cwd, '.lightsout', 'plans', 'no-source', 'brainstorm-notes.md'))).toBeFalsy();
+	expect(existsSync(join(cwd, '.lightsout', 'tickets', 'no-source', 'plans', 'brainstorm-notes.md'))).toBeFalsy();
 });
 
 test('plan verify-facts: the notes freeze even when the authored facts are missing', async () => {
@@ -163,7 +166,7 @@ test('plan verify-facts: the notes freeze even when the authored facts are missi
 	expectStatus(result, 'failed');
 	expect('error' in result && /no authored facts/.test(result.error ?? '')).toBeTruthy();
 	// the snapshot is the plan first artifact — it lands before the facts read
-	expect(readFileSync(join(cwd, '.lightsout', 'plans', 'notes-first', 'brainstorm-notes.md'), 'utf8')).toBe('notes that must freeze first\n');
+	expect(readFileSync(join(cwd, '.lightsout', 'tickets', 'notes-first', 'plans', 'brainstorm-notes.md'), 'utf8')).toBe('notes that must freeze first\n');
 });
 
 test('plan verify-facts: re-running on a stamped file re-verifies and re-stamps', async () => {
@@ -186,7 +189,7 @@ test('plan verify-facts: re-running on a stamped file re-verifies and re-stamps'
 
 	expectStatus(second, 'complete');
 
-	const restamped = PlanFacts.parse(JSON.parse(readFileSync(join(cwd, '.lightsout', 'plans', 'again', 'facts.json'), 'utf8')));
+	const restamped = PlanFacts.parse(JSON.parse(readFileSync(join(cwd, '.lightsout', 'tickets', 'again', 'plans', 'facts.json'), 'utf8')));
 
 	// the second run re-verified against the current disk
 	expect(restamped.verification.missingPaths).toStrictEqual([]);
@@ -217,11 +220,11 @@ test("facts are written into the primary checkout's plan folder when the command
 
 	expectStatus(result, 'complete');
 	// the stamped file is the primary checkout's, whichever checkout the command ran in
-	expect(result.factsPath).toBe(join(primary, '.lightsout', 'plans', 'worktree-session', 'facts.json'));
+	expect(result.factsPath).toBe(join(primary, '.lightsout', 'tickets', 'worktree-session', 'plans', 'facts.json'));
 
-	const stamped = PlanFacts.parse(JSON.parse(readFileSync(join(primary, '.lightsout', 'plans', 'worktree-session', 'facts.json'), 'utf8')));
+	const stamped = PlanFacts.parse(JSON.parse(readFileSync(join(primary, '.lightsout', 'tickets', 'worktree-session', 'plans', 'facts.json'), 'utf8')));
 
 	expect(stamped.request).toBe('add a foo endpoint');
 	// a plan folder in a tree that gets removed would take the plan with it
-	expect(existsSync(join(worktree, '.lightsout', 'plans'))).toBeFalsy();
+	expect(existsSync(join(worktree, '.lightsout', 'tickets'))).toBeFalsy();
 });

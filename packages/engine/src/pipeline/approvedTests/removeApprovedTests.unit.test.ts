@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { removeApprovedTests } from '#src/pipeline/approvedTests/removeApprovedTests.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 const runId = 'run-1';
 
@@ -14,7 +15,7 @@ const runId = 'run-1';
  */
 const setupFinishedRun = () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-approved-tests-'));
-	const runDir = join(cwd, '.lightsout', 'runs', runId);
+	const runDir = runDirFor({ cwd, runId });
 	const files = [
 		join(runDir, 'approved', 'packages/api/src/widget.unit.test.ts'),
 		join(runDir, 'approved', 'packages/web/src/widget.unit.test.ts'),

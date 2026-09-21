@@ -8,7 +8,7 @@ const setupWorkspace = ({ facts }: { facts?: string } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-facts-'));
 
 	if (facts !== undefined) {
-		const dir = join(cwd, '.lightsout', 'plans', 'demo');
+		const dir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
 
 		mkdirSync(dir, { recursive: true });
 		writeFileSync(join(dir, 'facts.json'), facts);

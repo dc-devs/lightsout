@@ -33,7 +33,7 @@ describe('commandCatalog status entry', () => {
 
 		const accepted = readCommandFlags({ command: 'status' });
 
-		expect(invocationIds[invocationIds.indexOf('status-run') + 1]).toBe('status-planning');
+		expect(invocationIds[invocationIds.indexOf('status-now') + 1]).toBe('status-planning');
 		expect(planning).toEqual(expect.objectContaining({ name: 'planning', value: '<name>', shape: 'status-planning', required: true }));
 		expect(accepted.has('planning')).toBe(true);
 	});
@@ -65,11 +65,12 @@ describe('commandCatalog status entry', () => {
 		expect(shapedToQueue).toStrictEqual([
 			['queue', undefined, true],
 			['run', '<id>', false],
+			['wait', undefined, false],
 		]);
 		expect(watch?.shape).toBe('status-run');
 	});
 
-	test('tells the reader a bare --queue waits for the live queue run the run lock names, and gives the required --queue no fallback', () => {
+	test('tells the reader a bare --queue takes the live queue run the run lock names, and gives the required --queue no fallback', () => {
 		const { byId } = setupCatalog();
 		const shapedToQueue = byId.get('status')?.flags.filter((flag) => flag.shape === 'status-queue') ?? [];
 
@@ -77,7 +78,43 @@ describe('commandCatalog status entry', () => {
 
 		expect(fallbacks).toEqual([
 			['queue', undefined],
-			['run', expect.stringMatching(/live queue run.*run lock.*up to a minute/)],
+			['run', expect.stringMatching(/live queue run.*run lock/)],
+			['wait', expect.stringMatching(/at once/)],
 		]);
+	});
+
+	test('gives status a now shape whose --now flag is required, valueless, and belongs to that shape alone', () => {
+		const { byId } = setupCatalog();
+		const status = byId.get('status');
+
+		const invocationIds = status?.invocations.map((invocation) => invocation.id) ?? [];
+		const nowInvocation = status?.invocations.find((invocation) => invocation.id === 'status-now');
+		const now = status?.flags.find((flag) => flag.name === 'now');
+		const shapedToNow = status?.flags.filter((flag) => flag.shape === 'status-now').map((flag) => flag.name);
+
+		expect(invocationIds[invocationIds.indexOf('status-run') + 1]).toBe('status-now');
+		expect(nowInvocation?.note?.trim()).toEqual(expect.stringMatching(/\S/));
+		expect(now).toEqual(expect.objectContaining({ name: 'now', shape: 'status-now', required: true }));
+		expect(now?.value).toBeUndefined();
+		expect(shapedToNow).toStrictEqual(['now']);
+	});
+
+	test('adds --wait to the queue shape and stops the queue run fallback claiming a wait', () => {
+		const { byId } = setupCatalog();
+		const shapedToQueue = byId.get('status')?.flags.filter((flag) => flag.shape === 'status-queue') ?? [];
+
+		const rows = shapedToQueue.map((flag) => [flag.name, flag.value ?? null, flag.required]);
+		const runFallback = shapedToQueue.find((flag) => flag.name === 'run')?.fallback;
+		const wait = shapedToQueue.find((flag) => flag.name === 'wait');
+
+		expect(rows).toStrictEqual([
+			['queue', null, true],
+			['run', '<id>', false],
+			['wait', null, false],
+		]);
+		expect(runFallback).toEqual(expect.stringMatching(/live queue run/));
+		expect(runFallback).not.toEqual(expect.stringMatching(/wait|minute/i));
+		expect(wait?.meaning).toEqual(expect.stringMatching(/minute/));
+		expect(wait?.fallback).toEqual(expect.stringMatching(/at once/));
 	});
 });

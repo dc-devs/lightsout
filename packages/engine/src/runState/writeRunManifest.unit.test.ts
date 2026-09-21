@@ -3,7 +3,8 @@ import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { expect, test } from '@jest/globals';
 import { RunStatus } from '#src/contracts/index.ts';
-import { createRun, getRunDir, RunNotFoundError, readRunManifest, writeRunManifest } from '#src/runState/index.ts';
+import { createRun, RunNotFoundError, readRunManifest, resolveRunDir, writeRunManifest } from '#src/runState/index.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 test('manifest write → read round trip', async () => {
@@ -56,13 +57,26 @@ test('writeRunManifest leaves no temporary file beside the manifest it swapped i
 
 	await writeRunManifest({ cwd, manifest: created });
 
-	const runDir = getRunDir({ cwd, runId: created.runId });
+	const runDir = await resolveRunDir({ cwd, runId: created.runId });
 
 	// the manifest is in place
 	expect(existsSync(join(runDir, 'manifest.json'))).toBeTruthy();
 	// the tmp file is renamed over, never left behind
 	expect(existsSync(join(runDir, 'manifest.json.tmp'))).toBeFalsy();
 	expect(readdirSync(runDir)).toStrictEqual(['manifest.json']);
+});
+
+test('a manifest naming a run no directory answers to is refused rather than written where nothing reads it', async () => {
+	const cwd = setupConsumerRepo({ git: false });
+	const created = await createRun({ cwd, plan: 'plan.md', driver: 'stub' });
+
+	await expect(writeRunManifest({ cwd, manifest: { ...created, runId: 'never-created' } })).rejects.toThrow(RunNotFoundError);
+
+	// the path comes from a lookup rather than a join, so a write can no longer
+	// make a run folder in a location nothing will read back
+	expect(existsSync(runDirFor({ cwd, runId: 'never-created' }))).toBeFalsy();
+	// the run that does exist keeps the manifest it had
+	expect(readdirSync(await resolveRunDir({ cwd, runId: created.runId }))).toStrictEqual(['manifest.json']);
 });
 
 test('a run id no directory answers to is rejected before any file is opened', async () => {
@@ -75,7 +89,7 @@ test('a run directory left without its manifest is rejected at the read boundary
 	const cwd = setupConsumerRepo({ git: false });
 
 	// an interrupted create leaves the directory but no manifest inside it
-	mkdirSync(getRunDir({ cwd, runId: 'half-created' }), { recursive: true });
+	mkdirSync(runDirFor({ cwd, runId: 'half-created' }), { recursive: true });
 
 	await expect(readRunManifest({ cwd, runId: 'half-created' })).rejects.toThrow(/ENOENT/);
 });
@@ -84,9 +98,11 @@ test('corrupted manifest is rejected at the read boundary', async () => {
 	const cwd = setupConsumerRepo({ git: false });
 	const created = await createRun({ cwd, plan: 'plan.md', driver: 'stub' });
 
-	writeFileSync(join(getRunDir({ cwd, runId: created.runId }), 'manifest.json'), 'not json at all');
+	const runDir = await resolveRunDir({ cwd, runId: created.runId });
+
+	writeFileSync(join(runDir, 'manifest.json'), 'not json at all');
 	await expect(readRunManifest({ cwd, runId: created.runId })).rejects.toThrow();
 
-	writeFileSync(join(getRunDir({ cwd, runId: created.runId }), 'manifest.json'), '{"runId":"x"}');
+	writeFileSync(join(runDir, 'manifest.json'), '{"runId":"x"}');
 	await expect(readRunManifest({ cwd, runId: created.runId })).rejects.toThrow();
 });

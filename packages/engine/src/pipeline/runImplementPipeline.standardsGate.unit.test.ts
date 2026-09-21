@@ -10,6 +10,7 @@ import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
@@ -371,7 +372,7 @@ test('a run with no baseline records every finding as uncertain', async () => {
 
 			// what a run created before the baseline existed looks like once it is
 			// resumed past clean-slate: the comparison point is simply not there
-			const runsDir = join(dir, '.lightsout', 'runs');
+			const runsDir = dirname(runDirFor({ cwd: dir, runId: 'any' }));
 
 			for (const id of readdirSync(runsDir)) {
 				rmSync(join(runsDir, id, 'standards-baseline.json'), { force: true });

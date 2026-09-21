@@ -91,7 +91,7 @@ const setupTicketFolderWorktree = async ({ withPlanToPlan }: { withPlanToPlan: b
 	jest.spyOn(Date, 'now').mockReturnValue(pinnedNow);
 
 	const worktreePath = await freshCwd();
-	const ticketFolder = join(worktreePath, '.lightsout', 'plans', planName);
+	const ticketFolder = join(worktreePath, '.lightsout', 'tickets', planName);
 
 	await mkdir(ticketFolder, { recursive: true });
 	await writeFile(join(ticketFolder, 'ticket.json'), `${JSON.stringify(ticketRecordOf({ withPlanToPlan }), null, '\t')}\n`, 'utf8');
@@ -120,7 +120,7 @@ const setupUnreadableTicketFolder = async () => {
 	jest.spyOn(Date, 'now').mockReturnValue(pinnedNow);
 
 	const worktreePath = await freshCwd();
-	const ticketFolder = join(worktreePath, '.lightsout', 'plans', planName);
+	const ticketFolder = join(worktreePath, '.lightsout', 'tickets', planName);
 
 	await mkdir(ticketFolder, { recursive: true });
 	await writeFile(join(ticketFolder, 'ticket.json'), '{ "schemaVersion": 1 }\n', 'utf8');
@@ -157,6 +157,6 @@ describe('loadActiveTicketBlock', () => {
 		// Never the ticket folder's own planning block: a record nothing can read
 		// is not a legacy plan folder, and drawing one would show a plan record
 		// for a plan nobody is writing.
-		expect(lines).toEqual([expect.stringContaining(join('.lightsout', 'plans', planName, 'ticket.json'))]);
+		expect(lines).toEqual([expect.stringContaining(join('.lightsout', 'tickets', planName, 'ticket.json'))]);
 	});
 });

@@ -5,19 +5,24 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { StandardsSeverity, type StandardsSnapshot } from '#src/contracts/index.ts';
 import { writeRunStandardsBaseline } from '#src/runState/index.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 const setupBaselineWrite = async () => {
 	const cwd = await mkdtemp(join(tmpdir(), 'lightsout-run-baseline-'));
 	const runId = 'run-baseline';
-	const runDir = join(cwd, '.lightsout', 'runs', runId);
+	const runDir = runDirFor({ cwd, runId });
 	const baselinePath = join(runDir, 'standards-baseline.json');
+
+	// Both runs already have a folder, because `createRun` makes one before the
+	// run starts and the path helper looks the run up by id.
+	await mkdir(runDir, { recursive: true });
+	await mkdir(runDirFor({ cwd, runId: 'run-phase-two' }), { recursive: true });
 
 	/**
 	 * Bytes already sitting at the baseline path, so a write can be seen
 	 * replacing something rather than landing on an empty folder.
 	 */
 	const plantStaleBaseline = async ({ body }: { body: string }) => {
-		await mkdir(runDir, { recursive: true });
 		await writeFile(baselinePath, body, 'utf8');
 	};
 
@@ -36,20 +41,20 @@ const setupBaselineWrite = async () => {
 		notes: ['1 file scanned'],
 	};
 
-	return { cwd, runId, runDir, baselinePath, snapshot, plantStaleBaseline, runDirExistedBefore: existsSync(runDir) };
+	return { cwd, runId, runDir, baselinePath, snapshot, plantStaleBaseline, baselineExistedBefore: existsSync(baselinePath) };
 };
 
 describe('writeRunStandardsBaseline', () => {
-	test('creates the run folder and writes the snapshot as tab-indented JSON with a trailing newline', async () => {
-		const { cwd, runId, baselinePath, snapshot, runDirExistedBefore } = await setupBaselineWrite();
+	test('creates the baseline file and writes the snapshot as tab-indented JSON with a trailing newline', async () => {
+		const { cwd, runId, baselinePath, snapshot, baselineExistedBefore } = await setupBaselineWrite();
 
 		await writeRunStandardsBaseline({ cwd, runId, snapshot });
 
 		const raw = readFileSync(baselinePath, 'utf8');
 
-		// the first run to reach clean-slate has no run folder yet, so the writer
-		// has to make one rather than throw
-		expect(runDirExistedBefore).toBe(false);
+		// the run reaching clean-slate has no baseline yet, so the writer has to
+		// make the file rather than expect one
+		expect(baselineExistedBefore).toBe(false);
 		// the same bytes the repo-level snapshot uses: tab-indented, keys in
 		// declaration order, one trailing newline
 		expect(raw.startsWith('{\n\t"at": "2026-08-19T12:30:45.123Z",\n\t"path": ".",')).toBe(true);
@@ -77,7 +82,7 @@ describe('writeRunStandardsBaseline', () => {
 
 		await writeRunStandardsBaseline({ cwd, runId: 'run-phase-two', snapshot });
 
-		const wroteUnderTheRunId = existsSync(join(cwd, '.lightsout', 'runs', 'run-phase-two', 'standards-baseline.json'));
+		const wroteUnderTheRunId = existsSync(join(runDirFor({ cwd, runId: 'run-phase-two' }), 'standards-baseline.json'));
 
 		// the run id has to reach the path, or every run in a repo would share
 		// one comparison point and a phase child would measure its parent's tree

@@ -5,7 +5,7 @@ import { readRunCommitSubject } from '#src/commit/common/utils/readRunCommitSubj
 import { readGitHeadCommit } from '#src/common/git/readGitHeadCommit.ts';
 import { isGeneratedPath } from '#src/common/sourceFiles/isGeneratedPath.ts';
 import type { LightsoutConfig, RunManifest } from '#src/contracts/index.ts';
-import { getRunDir } from '#src/runState/index.ts';
+import { resolveRunDir } from '#src/runState/index.ts';
 
 /**
  * The slice of a run this step touches, structural on purpose: the implement
@@ -58,11 +58,23 @@ export const commitRunWork = async ({ run, subject, resumed }: Params): Promise<
 		return unowned;
 	}
 
+	// Resolved rather than spelled, because a run's folder is filed under the
+	// ticket it belongs to. A checkout that cannot be read answers no run at all,
+	// which is a refusal to commit rather than a crash: the caller gets the same
+	// sentence it would get from any other unreadable tree.
+	let runDir: string;
+
+	try {
+		runDir = await resolveRunDir({ cwd: run.cwd, runId: manifest.runId });
+	} catch {
+		return `${run.cwd} could not be read, so this run's records could not be found — nothing was committed`;
+	}
+
 	const line = subject ?? (await readRunCommitSubject({ cwd: run.cwd, manifest, config: run.config, onProgress: (message) => run.progress(message) }));
 	const committed = await commitTicketWork({
 		cwd: run.cwd,
 		message: buildRunCommitMessage({ subject: line, runId: manifest.runId }),
-		runDir: getRunDir({ cwd: run.cwd, runId: manifest.runId }),
+		runDir,
 		generated,
 		onProgress: (message) => run.progress(message),
 	});

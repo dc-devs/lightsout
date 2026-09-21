@@ -61,7 +61,7 @@ const setupWorktreeAndLaunchingCheckout = () => {
 		writeFileSync(join(checkout, 'src', 'a.ts'), 'export const a = 1;\n');
 	}
 
-	const planDir = join(worktree, '.lightsout', 'plans', 'p');
+	const planDir = join(worktree, '.lightsout', 'tickets', 'p', 'plans');
 	const planPath = join(planDir, 'plan.md');
 
 	mkdirSync(planDir, { recursive: true });

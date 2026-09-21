@@ -5,7 +5,7 @@ import { type LightsoutConfig, PipelineKind, type RunManifest, RunStatus, type S
 import type { Driver } from '#src/drivers/index.ts';
 import { findUnfinishedSequence } from '#src/phases/findUnfinishedSequence.ts';
 import { readOverviewPhases } from '#src/phases/readOverviewPhases.ts';
-import { resolveRecordedPlanPath } from '#src/plan/index.ts';
+import { planNameFromPath, resolveRecordedPlanPath } from '#src/plan/index.ts';
 import { createRun, writeRunManifest } from '#src/runState/index.ts';
 
 interface Params {
@@ -85,7 +85,7 @@ const assertPhaseFilesExist = async ({ cwd, overview, phases }: { cwd: string; o
  * @param startPhase - 1-based phase to start from; earlier phases are recorded as passed outside the sequence
  * @param existing - resume: the coordinator manifest to continue
  * @throws {Error} When the overview is missing, its Phases table is empty or repeats a file, a phase file
- * is missing, the starting phase is out of range, or an unfinished sequence for this overview already exists.
+ * is missing, the starting phase is out of range, or an unfinished sequence for this plan already exists.
  */
 export const initializeSequence = async ({
 	cwd,
@@ -125,7 +125,7 @@ export const initializeSequence = async ({
 
 	await assertPhaseFilesExist({ cwd, overview, phases });
 
-	const unfinished = await findUnfinishedSequence({ cwd, overviewPath: overview });
+	const unfinished = await findUnfinishedSequence({ cwd, planName: await planNameFromPath({ cwd, planPath: overview }) });
 
 	if (unfinished) {
 		throw new Error(`an unfinished run for this plan already exists — resume with: lightsout resume --run ${unfinished.runId}`);

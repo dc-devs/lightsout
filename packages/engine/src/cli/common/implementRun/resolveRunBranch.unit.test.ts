@@ -38,7 +38,7 @@ describe('resolveRunBranch', () => {
 	test('names the branch after the plan folder, character for character', async () => {
 		const { cwd, config } = setupRepo();
 
-		const branch = await resolveRunBranch({ cwd, config, planPath: '.lightsout/plans/LO-42-Ship_It' });
+		const branch = await resolveRunBranch({ cwd, config, planPath: '.lightsout/tickets/LO-42-Ship_It/plans' });
 
 		expect(branch).toBe('LO-42-Ship_It');
 	});
@@ -46,7 +46,7 @@ describe('resolveRunBranch', () => {
 	test('names the branch after the ticket folder when the plan lies in a plan subfolder', async () => {
 		const { cwd, config } = setupRepo();
 
-		const branch = await resolveRunBranch({ cwd, config, planPath: '.lightsout/plans/lo-7-search/002-ranking/plan.md' });
+		const branch = await resolveRunBranch({ cwd, config, planPath: '.lightsout/tickets/lo-7-search/plans/002-ranking/plan.md' });
 
 		expect(branch).toBe('lo-7-search');
 	});
@@ -92,7 +92,7 @@ describe('resolveRunBranch', () => {
 	test('a plans-directory plan path still answers its ticket branch when resolved from a linked worktree', async () => {
 		const { worktree, config } = setupWorktreeRepo();
 
-		const branch = await resolveRunBranch({ cwd: worktree, config, planPath: '.lightsout/plans/lo-7-search/002-ranking/plan.md' });
+		const branch = await resolveRunBranch({ cwd: worktree, config, planPath: '.lightsout/tickets/lo-7-search/plans/002-ranking/plan.md' });
 
 		// 'plan' is what the file stem gives once the path stops naming a plan,
 		// so the ticket folder's own name is what proves it still does

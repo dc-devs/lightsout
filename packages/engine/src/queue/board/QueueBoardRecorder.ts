@@ -109,9 +109,13 @@ export class QueueBoardRecorder {
 		/** ISO time the write was asked for — the board's `updatedAt`. */
 		takenAt: string;
 	}) {
-		const path = getQueueBoardPath({ cwd: this.cwd, runId: this.runId });
+		// Inside the try, because the board's folder is now looked up rather than
+		// joined — and a run whose folder cannot be found is one more failed write
+		// to report, not a rejection to swallow.
+		let path: string | undefined;
 
 		try {
+			path = await getQueueBoardPath({ cwd: this.cwd, runId: this.runId });
 			this.worktreesRoot ??= await resolveWorktreesRoot({ cwd: this.cwd });
 
 			const tickets = toQueueBoardTickets({
@@ -126,7 +130,7 @@ export class QueueBoardRecorder {
 			await writeJsonFile({ path: `${path}.tmp`, value: board });
 			await rename(`${path}.tmp`, path);
 		} catch (error) {
-			this.onProgress?.(`the queue board ${path} could not be written: ${messageOf({ error })}`);
+			this.onProgress?.(`the queue board ${path ?? `of run ${this.runId}`} could not be written: ${messageOf({ error })}`);
 		}
 	}
 }

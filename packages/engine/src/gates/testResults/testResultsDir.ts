@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { getRunDir } from '#src/runState/index.ts';
+import { resolveRunDir } from '#src/runState/index.ts';
 
 /**
  * A package group is a directory name and a custom gate kind is a config key,
@@ -28,6 +28,8 @@ interface Params {
  * be able to read exactly the evidence the gate it observed wrote, and never a
  * sibling gate's or an earlier attempt's.
  */
-export const testResultsDir = ({ cwd, runId, step, group, kind }: Params): string => {
-	return join(getRunDir({ cwd, runId }), 'test-results', safeSegment({ segment: step }), safeSegment({ segment: group }), safeSegment({ segment: kind }));
+export const testResultsDir = async ({ cwd, runId, step, group, kind }: Params): Promise<string> => {
+	const runDir = await resolveRunDir({ cwd, runId });
+
+	return join(runDir, 'test-results', safeSegment({ segment: step }), safeSegment({ segment: group }), safeSegment({ segment: kind }));
 };

@@ -58,7 +58,7 @@ test('planGradeCommand: with no config the harness call carries no model, effort
 
 test('plan grade prints the scope, the reuse line and the memory path', async () => {
 	const { cwd, driver, name, invocations, logged, exitCodes } = setupRecordedGrade({ git: true });
-	const planDir = join(cwd, '.lightsout', 'plans', 'demo');
+	const planDir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
 
 	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
 

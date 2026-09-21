@@ -7,6 +7,7 @@ import { type ExploreArea, type PlanFacts, type SourceEvidenceEntry, SourceEvide
 import { collectSourceEvidence } from '#src/plan/evidence/index.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 
 const planName = 'focused-drafting';
@@ -65,7 +66,7 @@ const setupEvidenceRepo = ({ files = {}, areas = [], existingRecord, withTypescr
 		writeRepoFile({ cwd, path, content });
 	}
 
-	const recordPath = join(cwd, '.lightsout', 'plans', planName, 'source-evidence.json');
+	const recordPath = join(planWorkspaceFolder({ cwd: cwd, name: planName }), 'source-evidence.json');
 
 	mkdirSync(dirname(recordPath), { recursive: true });
 

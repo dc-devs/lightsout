@@ -5,6 +5,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { statusCommand } from '#src/cli/statusCommand.ts';
 import { type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 // Mocked Imports
 // -------------------------
@@ -108,8 +109,8 @@ const setupDetail = ({ manifests = [], args = {} }: { manifests?: RunManifest[];
 	mockWatchRunProgress.mockResolvedValue(undefined);
 
 	for (const manifest of manifests) {
-		mkdirSync(join(cwd, '.lightsout', 'runs', manifest.runId), { recursive: true });
-		writeFileSync(join(cwd, '.lightsout', 'runs', manifest.runId, 'manifest.json'), JSON.stringify(manifest), 'utf8');
+		mkdirSync(runDirFor({ cwd, runId: manifest.runId }), { recursive: true });
+		writeFileSync(join(runDirFor({ cwd, runId: manifest.runId }), 'manifest.json'), JSON.stringify(manifest), 'utf8');
 	}
 
 	return { context: { flags: new Map<string, string | true>(Object.entries(args)), rest: [], cwd }, ...captured };

@@ -21,6 +21,8 @@ export const RunManifest = z.object({
 	updatedAt: z.string(),
 	/** Path to the plan file the run implements, relative to the target repo. For a phases run this is the overview path. */
 	plan: z.string(),
+	/** The plan this run belongs to, named the way the plans directory names it: a plan address `<ticket-branch>/<plan-id>`, or a legacy folder's bare slug. Absent on a run that belongs to no plan — a refactor, coverage, queue or direct run, and an implement run built from a plan file outside the plans directory. */
+	planName: z.string().optional(),
 	/** Which pipeline owns this run. Absent on pre-discriminator manifests → implement. */
 	pipeline: z.enum(PipelineKind).optional(),
 	/** The ticket this run builds, e.g. 'LO-70'. Absent on a run started from a plan. */

@@ -15,7 +15,8 @@ const manifestText = JSON.stringify({
 	runId,
 	createdAt: '2026-01-01T00:00:00.000Z',
 	updatedAt: '2026-01-01T00:00:00.000Z',
-	plan: '.lightsout/plans/search-ranking/phase1-groundwork.md',
+	plan: '.lightsout/tickets/search-ranking/plans/phase1-groundwork.md',
+	planName: 'search-ranking',
 	harness: 'claude-code',
 	status: RunStatus.Passed,
 	currentStep: null,
@@ -37,9 +38,10 @@ const gradeText = JSON.stringify({ planName: 'search-ranking', grade: 'A', passe
  */
 const setupPlansReader = async ({ grade = gradeText }: { grade?: string } = {}): Promise<{ reader: LightsoutReader }> => {
 	const repoRoot = await mkdtemp(join(tmpdir(), 'lightsout-reader-plans-'));
-	const workspace = '.lightsout/plans/search-ranking';
+	const workspace = '.lightsout/tickets/search-ranking/plans';
 	const files: Record<string, string> = {
-		[`.lightsout/runs/${runId}/manifest.json`]: manifestText,
+		// A run of a plan is filed under that plan's ticket folder.
+		[`.lightsout/tickets/search-ranking/runs/${runId}/manifest.json`]: manifestText,
 		[`${workspace}/brainstorm-notes.md`]: '# Rough idea\n',
 		[`${workspace}/overview.md`]: '# Search ranking\n',
 		[`${workspace}/phase1-groundwork.md`]: '# Phase 1\n',

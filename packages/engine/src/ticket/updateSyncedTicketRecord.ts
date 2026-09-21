@@ -1,8 +1,7 @@
-import { resolveSharedStateDir } from '#src/common/workspace/resolveSharedStateDir.ts';
+import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
 import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
 import { publishedButUnrecorded } from '#src/ticket/common/constants/publishedButUnrecorded.ts';
 import { attachTicketRecordIfUnmoved } from '#src/ticket/common/utils/attachTicketRecordIfUnmoved.ts';
-import { getTicketFolderPath } from '#src/ticket/common/utils/getTicketFolderPath.ts';
 import { readTicketSyncState } from '#src/ticket/common/utils/readTicketSyncState.ts';
 import { recordTicketSyncState } from '#src/ticket/common/utils/recordTicketSyncState.ts';
 import { resolveTicketTrackerTarget } from '#src/ticket/common/utils/resolveTicketTrackerTarget.ts';
@@ -65,8 +64,7 @@ export const updateSyncedTicketRecord = async ({
 		return { record: updated.record };
 	}
 
-	const stateDir = await resolveSharedStateDir({ cwd });
-	const ticketFolder = getTicketFolderPath({ stateDir, ticketBranch });
+	const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
 	const syncState = await readTicketSyncState({ ticketFolder });
 	const attached = await attachTicketRecordIfUnmoved({
 		cwd,

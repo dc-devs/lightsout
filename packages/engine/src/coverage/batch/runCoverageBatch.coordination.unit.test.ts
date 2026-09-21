@@ -14,6 +14,7 @@ import type { CoverageBatch } from '#src/coverage/common/types/CoverageBatch.ts'
 import type { Driver, DriverResult } from '#src/drivers/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
 import { report } from '#tests/helpers/report.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // Mocked Imports
@@ -55,6 +56,10 @@ const setupBatchRepo = () => {
 	writeFileSync(join(dir, target), 'export const target = () => 1;\n');
 	writeSummary({ dir, pct: 10 });
 	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm fixture', { cwd: dir });
+
+	// The run already has its folder, because `createRun` makes one before a run
+	// starts and everything written inside it looks the run up by id.
+	seedRunFolder({ cwd: dir, runId: 'run-1', pipeline: 'coverage' });
 
 	return dir;
 };

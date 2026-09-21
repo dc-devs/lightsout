@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { renderDecisionLog, renderGlobalConstraints } from '#src/plan/index.ts';
 import { minimalPlanBody } from '#tests/helpers/minimalPlanBody.ts';
 import { overviewMarker } from '#tests/helpers/overviewMarker.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { seedSourceRepo } from '#tests/helpers/seedSourceRepo.ts';
 import { writeEmptyDecisions } from '#tests/helpers/writeEmptyDecisions.ts';
 
@@ -21,7 +22,7 @@ interface Params {
  */
 export const seedPhasedDedupPlan = ({ existing, phases, name = 'p' }: Params): { cwd: string; name: string; workspaceDir: string } => {
 	const cwd = seedSourceRepo({ existing });
-	const workspaceDir = join(cwd, '.lightsout', 'plans', name);
+	const workspaceDir = planWorkspaceFolder({ cwd: cwd, name: name });
 
 	mkdirSync(workspaceDir, { recursive: true });
 	writeFileSync(

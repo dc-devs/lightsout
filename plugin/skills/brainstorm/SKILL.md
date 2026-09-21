@@ -10,7 +10,7 @@ allowed-tools: Bash, Read, Write, Grep, Glob, Task
 deterministic decisions — no gates, retries, caps, state, or contract parsing.
 It runs a few engine subcommands, and only when the idea traces to a ticket:
 `brainstorm publish`, `ticket-state`, `ticket show` and `ticket add-plan`, plus
-`ticket mode` and `ticket adopt` once the user has agreed to those. It still
+`ticket mode` and `ticket add-plan --from` once the user has agreed to those. It still
 holds no deterministic decision of its own, and it never reads back what it
 writes. Triggering is gentle: the
 description above is the only trigger — no hook, no forced invocation. Writing
@@ -150,8 +150,9 @@ Two cases are asked before anything is added, in the Question format:
 - **Single-plan mode with plan 001 already past `planning`:** ask whether to
   switch the ticket to multiple-plan mode. A no means this idea is not a plan on
   this ticket, and the brainstorm says so rather than adding one anyway.
-- **A ticket folder still holding files from before ticket records:** ask whether
-  to run `lightsout ticket adopt`, which makes those files plan 001.
+- **A ticket folder whose plans folder still holds loose files:** ask whether to
+  run `lightsout ticket add-plan --from <that folder>`, which makes those files
+  the ticket's next plan.
 
 **3. Approaches.** Present 2–3 genuinely different ways to build it, in the
 Question format — what each wins, what each costs, and which one you recommend
@@ -221,7 +222,7 @@ Take the printed address rather than building one, and relay any notice it print
 about a withdrawn ship request. What that command refuses, and why, is the
 ticket-workflow skill's `### Adding a plan`; do not restate those rules here.
 
-Every `.lightsout/plans/<name>/` path and the `brainstorm publish --name <name>`
+Every `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/` path and the `brainstorm publish --name <name>`
 command below then resolve unchanged.
 
 Before writing anything, show the settled decisions back to the user as a small
@@ -229,8 +230,8 @@ table — question, choice, one-line why, and whether it is an assumption — an
 get approval: these rows make the planning skills skip questions, so a row that
 overstates the agreement is expensive.
 
-Then write the notes to `.lightsout/plans/<name>/brainstorm-notes.md`, plus
-`.lightsout/plans/<name>/brainstorm-decisions.json` in this exact shape:
+Then write the notes to `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/brainstorm-notes.md`, plus
+`.lightsout/tickets/<ticket-branch>/plans/<plan-id>/brainstorm-decisions.json` in this exact shape:
 
 ```json
 {
@@ -311,8 +312,8 @@ then run `brainstorm publish`, because until that happens the record exists on
 one laptop.
 
 - **Ready to auto-plan:** ``Next: run the `auto-plan` skill with
-  .lightsout/plans/<name>/brainstorm-notes.md``
-- **Ready to implement:** name `.lightsout/plans/<name>/` and say the two files
+  .lightsout/tickets/<ticket-branch>/plans/<plan-id>/brainstorm-notes.md``
+- **Ready to implement:** name `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/` and say the two files
   plus the converged design are the whole record, so the work can be built
   straight from them. Print no command here either, for the reason above.
 

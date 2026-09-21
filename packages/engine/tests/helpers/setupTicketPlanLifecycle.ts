@@ -4,7 +4,9 @@ import { join } from 'node:path';
 import type { jest } from '@jest/globals';
 import { type PlanProgress, type RunManifest, RunStatus, TicketEventKind, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
+import { planWorkspacePath } from '#src/plan/index.ts';
 import { updateLocalTicketRecord } from '#src/ticket/index.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 
 /** What a test file's `jest.mock` of the git module hands this fixture to answer HEAD with. */
 export type MockedReadGitHeadCommit = jest.Mock<(params: { cwd: string }) => Promise<string | undefined>>;
@@ -59,7 +61,7 @@ export const manifestOf = ({ name, runId, status, plan }: { name: string; runId:
 	runId,
 	createdAt: '2026-03-01T00:00:00.000Z',
 	updatedAt: '2026-03-01T00:10:00.000Z',
-	plan: plan ?? `.lightsout/plans/${name}/plan.md`,
+	plan: plan ?? `${planWorkspacePath({ name })}/plan.md`,
 	harness: 'claude-code',
 	status,
 	currentStep: null,
@@ -126,9 +128,9 @@ export const setupTicketPlanLifecycle = async (setup: LifecycleSetup) => {
 	// back and it could never reach the refusal it names.
 	const head = 'head' in setup ? setup.head : headCommit;
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-plan-lifecycle-'));
-	const ticketFolder = join(cwd, '.lightsout', 'plans', ticketBranch);
+	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
 	const recordPath = join(ticketFolder, 'ticket.json');
-	const planFolder = join(cwd, '.lightsout', 'plans', name);
+	const planFolder = planWorkspaceFolder({ cwd: cwd, name: name });
 
 	// Reading HEAD is the one await between the record's first read and the locked
 	// write that follows it, so a row that has to change the record inside that

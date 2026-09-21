@@ -2,6 +2,7 @@ import { expect, test } from '@jest/globals';
 import type { ApprovedTestRecord } from '#src/contracts/index.ts';
 import { readApprovedTest } from '#src/pipeline/approvedTests/index.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const runId = 'run-approved-2';
@@ -16,6 +17,11 @@ const committed = "test('widget: renders', () => { expect(1).toBe(1); });\n";
  */
 const setupLostCopy = () => {
 	const cwd = setupConsumerRepo({ sources: { 'src/index.js': 'export const one = 1;\n', [testFile]: committed } });
+
+	// The run already has its folder, because `createRun` makes one before a run
+	// starts and the approved copy is looked up inside it by run id.
+	seedRunFolder({ cwd, runId });
+
 	const approvedTests: ApprovedTestRecord[] = [{ path: testFile, sha256: '0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0', removed: false }];
 	const run = { cwd, current: () => ({ runId, approvedTests }) } as unknown as PipelineRun;
 

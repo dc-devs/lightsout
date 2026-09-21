@@ -1,3 +1,4 @@
+import type { ActivityLevel } from '#src/activity/index.ts';
 import { commitRunWork } from '#src/commit/index.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
@@ -97,6 +98,8 @@ interface Params {
 	/** What the sequence this run is a phase of already owns — supplied only when that sequence was resumed and this phase had not started, so there is no child manifest to adopt. It seeds the run's baseline in place of a fresh git snapshot. */
 	inheritedBaseline?: string[];
 	skipRefactor?: boolean;
+	/** The level this run's agent calls open their own step levels under. Absent wherever no run is being recorded — a phase run is handed its phase's pass level, a single run its command run's. */
+	level?: ActivityLevel;
 	/** Resolved before the run starts: a passing run will ship this branch. Recorded on the manifest so the progress view can show a ship row. Ignored when resuming — the existing manifest already carries it. */
 	willShip?: boolean;
 	/** Live progress sink (steps, gate results, agent reports). Silent when omitted. */
@@ -130,6 +133,7 @@ const executePipeline = async ({
 	existing,
 	inheritedBaseline,
 	skipRefactor,
+	level,
 	willShip,
 	onProgress,
 }: Params & { runId: string }): Promise<PipelineResult> => {
@@ -137,6 +141,7 @@ const executePipeline = async ({
 		cwd,
 		config,
 		driver,
+		level,
 		onProgress,
 		manifest:
 			existing ??

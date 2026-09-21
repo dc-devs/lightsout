@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readPlanActivityReports } from '#src/views/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 
 // No module mocks: the reader's whole job is a record file inside a plan folder,
 // so each case writes real records into a real plans directory and reads them
@@ -45,7 +46,7 @@ const setupPlanRecords = async ({ records }: SetupParams) => {
 	const cwd = await freshCwd();
 
 	for (const [name, contents] of Object.entries(records)) {
-		const dir = join(cwd, '.lightsout', 'plans', name);
+		const dir = planWorkspaceFolder({ cwd: cwd, name: name });
 
 		await mkdir(dir, { recursive: true });
 

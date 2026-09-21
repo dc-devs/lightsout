@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
 
 /**
- * Who made one worktree, written to `.lightsout/worktrees/<branch>.json` in the
- * PRIMARY checkout.
+ * Who made one worktree, written to `worktree.json` in that branch's ticket
+ * folder, under the PRIMARY checkout.
  *
  * It lives in the primary checkout rather than in the tree it describes, for
  * the reason `BranchState` does: the record has to outlive the removal it

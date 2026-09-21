@@ -1,5 +1,5 @@
 import { loadPlanningProgressBlock } from '#src/cli/common/progressBlock/loadPlanningProgressBlock.ts';
-import { loadRunProgressBlock } from '#src/cli/common/progressBlock/loadRunProgressBlock.ts';
+import { loadRunFamilyProgressBlock } from '#src/cli/common/progressBlock/loadRunFamilyProgressBlock.ts';
 import { loadShippingProgressBlock } from '#src/cli/common/progressBlock/loadShippingProgressBlock.ts';
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { type QueueBoardTicket, QueueLane } from '#src/contracts/index.ts';
@@ -24,6 +24,9 @@ const loadShippingBlock = async ({ ticket, worktreePath }: { ticket: QueueBoardT
 	} else if (!(await pathExists({ path: worktreePath }))) {
 		lines = [`the worktree ${worktreePath} is no longer on disk`];
 	} else {
+		// The worktree stands in for any checkout of the repository here: the reader
+		// resolves the primary itself, so this names the repository rather than the
+		// directory holding the record.
 		const { progress } = await readShippingProgress({ cwd: worktreePath, branch });
 		const isEarlierShip = progress !== undefined && Date.parse(progress.startedAt) < Date.parse(ticket.enteredAt);
 
@@ -82,14 +85,19 @@ const loadPlanningBlock = async ({ worktreePath, planName }: { worktreePath: str
 		: loadPlanningProgressBlock({ cwd: worktreePath, name: formatPlanAddress({ ticketBranch: planName, planId: waiting.id }) });
 };
 
-/** A building ticket's run block; before any run, an auto-plan ticket's planning block, or a notice for any other ticket. */
+/**
+ * A building ticket's run block — for a phased build, the coordinator's phase
+ * overview paired with the phase moving now, which the family loader climbs to
+ * from the run this build is bound to. Before any run, an auto-plan ticket's
+ * planning block, or a notice for any other ticket.
+ */
 const loadBuildBlock = async ({ ticket, worktreePath }: { ticket: QueueBoardTicket; worktreePath: string }) => {
 	const run = await findBuildRun({ ticket, worktreePath });
 	const { planName } = ticket;
 	let lines: string[];
 
 	if (run !== undefined) {
-		lines = (await loadRunProgressBlock({ cwd: worktreePath, runId: run.runId })).lines;
+		lines = await loadRunFamilyProgressBlock({ cwd: worktreePath, runId: run.runId });
 	} else if (planName !== undefined) {
 		lines = await loadPlanningBlock({ worktreePath, planName });
 	} else {
@@ -109,8 +117,9 @@ interface Params {
  * `status --run`, `--planning` or `--shipping` form prints for its worktree,
  * or a one-line notice when there is nothing honest to show.
  *
- * It never draws a block of its own, and reads nothing outside the ticket's
- * own worktree.
+ * It never draws a block of its own. Every run and planning record it reads is
+ * the ticket's own worktree's; the shipping record is the branch's, which the
+ * reader resolves to the primary checkout from that worktree.
  */
 export const loadActiveTicketBlock = async ({ ticket }: Params): Promise<string[]> => {
 	const { worktreePath } = ticket;

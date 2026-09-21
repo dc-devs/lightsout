@@ -66,7 +66,7 @@ const pricingConfig = {
 const setupReport = ({ args, config }: { args: string[]; config?: Record<string, unknown> }) => {
 	const captured = captureCommandOutput();
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-report-command-'));
-	const planDir = join(cwd, '.lightsout', 'plans', 'lo-150-observability', '001-report');
+	const planDir = join(cwd, '.lightsout', 'tickets', 'lo-150-observability', 'plans', '001-report');
 
 	if (config) {
 		writeFileSync(join(cwd, 'lightsout.config.json'), JSON.stringify(config));
@@ -176,7 +176,7 @@ test('reportCommand: an unknown plan name prints the error and exits 1', async (
 	// the name that was asked for and the directory that answered, so a reader
 	// can see which checkout was searched
 	expect(errors[0]).toContain('lo-999-missing/001-nothing');
-	expect(errors[0]).toContain(join(cwd, '.lightsout', 'plans'));
+	expect(errors[0]).toContain(join(cwd, '.lightsout', 'tickets'));
 	expect(exitCodes).toStrictEqual([1]);
 });
 

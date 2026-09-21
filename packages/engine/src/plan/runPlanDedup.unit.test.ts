@@ -9,6 +9,7 @@ import { createDedupJudgeDriver } from '#tests/helpers/createDedupJudgeDriver.ts
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
 import { minimalPlanBody } from '#tests/helpers/minimalPlanBody.ts';
+import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { seedDedupPlan } from '#tests/helpers/seedDedupPlan.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { writeEmptyDecisions } from '#tests/helpers/writeEmptyDecisions.ts';
@@ -124,7 +125,7 @@ const setupLinkedWorktreePlan = ({ verdicts = [] }: { verdicts?: unknown[] } = {
 	mkdirSync(join(worktree, 'src'), { recursive: true });
 	writeFileSync(join(worktree, 'src', 'fetchUser.ts'), 'export const x = 1;\n');
 
-	const workspaceDir = join(primary, '.lightsout', 'plans', name);
+	const workspaceDir = planWorkspaceFolder({ cwd: primary, name: name });
 
 	mkdirSync(workspaceDir, { recursive: true });
 	writeFileSync(join(workspaceDir, 'plan.md'), minimalPlanBody({ title: 'Plan', creates: ['src/getUser.ts'] }));

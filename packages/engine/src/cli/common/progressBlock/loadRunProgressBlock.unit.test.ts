@@ -8,6 +8,7 @@ import { type RunLock, type RunManifest, RunStatus } from '#src/contracts/index.
 import { RunNotFoundError } from '#src/runState/index.ts';
 import { getRunProgress } from '#src/views/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 const runId = 'run-loaded-01';
 
@@ -48,7 +49,7 @@ const setupLoad = async () => {
 	const manifest = manifestOf();
 	const lock: RunLock = { pid: process.pid, runId, startedAt: '2026-01-01T00:00:00.000Z' };
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-load-run-block-'));
-	const runDir = join(cwd, '.lightsout', 'runs', runId);
+	const runDir = runDirFor({ cwd, runId });
 
 	mkdirSync(runDir, { recursive: true });
 	writeFileSync(join(runDir, 'manifest.json'), JSON.stringify(manifest), 'utf8');

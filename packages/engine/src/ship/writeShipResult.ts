@@ -21,7 +21,7 @@ interface Params {
  * nothing.
  */
 export const writeShipResult = async ({ cwd, result }: Params): Promise<string> => {
-	const resultPath = getShipResultPath({ cwd, branch: result.branch ?? 'unknown' });
+	const resultPath = await getShipResultPath({ cwd, branch: result.branch ?? 'unknown' });
 	const tmpPath = `${resultPath}.tmp`;
 
 	await mkdir(dirname(resultPath), { recursive: true });

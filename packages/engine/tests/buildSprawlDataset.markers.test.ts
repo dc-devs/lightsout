@@ -1,4 +1,4 @@
-import { rmSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, describe, expect, test } from '@jest/globals';
 import { runSprawlDriver } from '#tests/helpers/sprawl/runSprawlDriver.ts';
@@ -14,7 +14,7 @@ const repos: string[] = [];
 
 const manifest = ({ pipeline, status, updatedAt }: { pipeline: string; status: string; updatedAt: string }) => JSON.stringify({ pipeline, status, updatedAt });
 
-const setupMarkedHistory = ({ runs }: { runs?: Record<string, string> } = {}) => {
+const setupMarkedHistory = ({ runs, abandonedRuns }: { runs?: Record<string, string>; abandonedRuns?: Record<string, string> } = {}) => {
 	const cwd = seedSprawlRepo({
 		commits: [
 			{ message: 'first', at: '2026-02-01T00:00:00Z', write: { 'packages/app/src/a.ts': lines({ count: 3 }) } },
@@ -23,6 +23,14 @@ const setupMarkedHistory = ({ runs }: { runs?: Record<string, string> } = {}) =>
 		],
 		runs,
 	});
+
+	// The flat folder every run used to live in, spelled out here rather than
+	// seeded by the helper: it is the layout this build abandoned, and nothing
+	// is allowed to read it back.
+	for (const [id, body] of Object.entries(abandonedRuns ?? {})) {
+		mkdirSync(join(cwd, '.lightsout', 'runs', id), { recursive: true });
+		writeFileSync(join(cwd, '.lightsout', 'runs', id, 'manifest.json'), body);
+	}
 
 	repos.push(cwd);
 
@@ -78,6 +86,17 @@ describe('buildSprawlDataset markers', () => {
 		expect(dataset.frames.map((frame) => frame.isRefactorMarker)).toStrictEqual([false, false, false]);
 	});
 
+	test('reads the refactor command folder alone, leaving a run stranded in the abandoned flat folder unmarked', () => {
+		const { cwd } = setupMarkedHistory({
+			runs: { 'run-filed': manifest({ pipeline: 'refactor', status: 'passed', updatedAt: '2026-02-03T00:00:00Z' }) },
+			abandonedRuns: { 'run-stranded': manifest({ pipeline: 'refactor', status: 'passed', updatedAt: '2026-02-01T09:00:00Z' }) },
+		});
+
+		const { dataset } = buildDataset({ cwd });
+
+		expect(dataset.frames.map((frame) => frame.isRefactorMarker)).toStrictEqual([false, false, true]);
+	});
+
 	test('skips a manifest it cannot read, says which one, and still marks the runs it could read', () => {
 		const { cwd } = setupMarkedHistory({
 			runs: { 'run-broken': 'not json at all', 'run-good': manifest({ pipeline: 'refactor', status: 'passed', updatedAt: '2026-02-03T00:00:00Z' }) },
@@ -96,7 +115,10 @@ describe('buildSprawlDataset markers', () => {
 
 		const { logs, dataset } = buildDataset({ cwd });
 
-		expect({ marks: dataset.frames.map((frame) => frame.isRefactorMarker), said: logs.some((line) => /no \.lightsout\/runs\//.test(line)) }).toStrictEqual({
+		expect({
+			marks: dataset.frames.map((frame) => frame.isRefactorMarker),
+			said: logs.some((line) => /no \.lightsout\/refactor\/runs\//.test(line)),
+		}).toStrictEqual({
 			marks: [false, false, false],
 			said: true,
 		});

@@ -8,6 +8,7 @@ import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
+import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
@@ -54,7 +55,7 @@ const setupPolicyRun = async ({ config }: { config?: Record<string, unknown> } =
 
 	const loaded = await readConfig({ cwd: dir });
 	const readLedger = (runId: string) =>
-		readFileSync(join(dir, '.lightsout', 'runs', runId, 'agents.jsonl'), 'utf8')
+		readFileSync(join(runDirFor({ cwd: dir, runId }), 'agents.jsonl'), 'utf8')
 			.trim()
 			.split('\n')
 			.map((line) => JSON.parse(line) as Record<string, unknown>);
