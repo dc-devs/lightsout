@@ -311,17 +311,24 @@ describe('setTicketMode', () => {
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
 	});
 
-	test('refuses a ticket with no record and names ticket add-plan and ticket adopt', async () => {
+	test('refuses a ticket with no record and names only ticket add-plan', async () => {
 		const { params, recordPath } = await setupTicketMode({ seeded: false });
 
 		// The criterion covers both directions: neither may create a record.
 		const toSingle = await setTicketMode({ ...params, mode: TicketMode.SinglePlan, approve: false });
 		const toMultiple = await setTicketMode({ ...params, mode: TicketMode.MultiplePlan, approve: false });
 
-		expect(errorOf({ outcome: toSingle })).toContain('ticket add-plan');
-		expect(errorOf({ outcome: toSingle })).toContain('ticket adopt');
-		expect(errorOf({ outcome: toMultiple })).toContain('ticket add-plan');
-		expect(errorOf({ outcome: toMultiple })).toContain('ticket adopt');
+		// A folder with no record is either a ticket nobody has started or one
+		// whose plans folder already holds loose files, and one command starts a
+		// plan either way — the second form naming the folder those files are in.
+		expect(errorOf({ outcome: toSingle })).toContain(`there is no ticket record for '${ticketBranch}'`);
+		expect(errorOf({ outcome: toSingle })).toContain(`lightsout ticket add-plan --name ${ticketBranch} --slug <slug>`);
+		expect(errorOf({ outcome: toSingle })).toContain(`--from ${ticketBranch}`);
+		// The refusal must never name a word the dispatcher now rejects.
+		expect(errorOf({ outcome: toSingle })).not.toMatch(/adopt/i);
+		// Two spellings of one refusal would soon name different commands, so both
+		// directions have to answer the very same sentence.
+		expect(errorOf({ outcome: toMultiple })).toBe(errorOf({ outcome: toSingle }));
 		expect(existsSync(recordPath)).toBe(false);
 	});
 });

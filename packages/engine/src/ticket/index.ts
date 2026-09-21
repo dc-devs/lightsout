@@ -6,11 +6,10 @@
 // not private — `ticketFolderDir` is a workspace helper every module asks —
 // because that folder is the address of a branch's ship and worktree records
 // as well as its plans. The operations' own helpers — how an event is appended,
-// how a plan token is resolved, what a legacy entry is — stay off the barrel
-// for the same reason the record's bytes do.
+// how a plan token is resolved, what a plans folder's loose files are — stay off
+// the barrel for the same reason the record's bytes do.
 
 export { addTicketPlan } from '#src/ticket/addTicketPlan.ts';
-export { adoptTicketPlan } from '#src/ticket/adoptTicketPlan.ts';
 export { TicketSyncKeep } from '#src/ticket/common/constants/TicketSyncKeep.ts';
 export type { TicketPlanOutcome } from '#src/ticket/common/types/TicketPlanOutcome.ts';
 export type { TicketRecordChange } from '#src/ticket/common/types/TicketRecordChange.ts';

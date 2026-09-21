@@ -4,7 +4,6 @@ import { usage } from '#src/cli/common/constants/usage.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { ticketAddPlanCommand } from '#src/cli/ticket/ticketAddPlanCommand.ts';
-import { ticketAdoptCommand } from '#src/cli/ticket/ticketAdoptCommand.ts';
 import { ticketExcludePlanCommand } from '#src/cli/ticket/ticketExcludePlanCommand.ts';
 import { ticketModeCommand } from '#src/cli/ticket/ticketModeCommand.ts';
 import { ticketRequestShipCommand } from '#src/cli/ticket/ticketRequestShipCommand.ts';
@@ -17,7 +16,6 @@ import { ticketFolderOf } from '#src/common/planAddress/ticketFolderOf.ts';
 /** Each subcommand word and the handler it reaches, in the order the usage text lists them. */
 const ticketSubcommands: Record<string, (context: CommandContext) => Promise<void>> = {
 	'add-plan': ticketAddPlanCommand,
-	adopt: ticketAdoptCommand,
 	mode: ticketModeCommand,
 	'request-ship': ticketRequestShipCommand,
 	'exclude-plan': ticketExcludePlanCommand,
@@ -32,7 +30,7 @@ const ticketSubcommands: Record<string, (context: CommandContext) => Promise<voi
  * It resolves no config and no driver: no subcommand spawns an agent, and each
  * one reads the repository's config itself. Every subcommand acts on a whole
  * ticket, so a plan's own address given as `--name` is refused here rather than
- * eight times over — a plan address would otherwise name a folder that holds no
+ * seven times over — a plan address would otherwise name a folder that holds no
  * record at all.
  */
 export const ticketCommand = async ({ flags, rest, cwd }: CommandContext): Promise<void> => {

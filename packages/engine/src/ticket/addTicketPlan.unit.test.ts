@@ -220,17 +220,21 @@ describe('addTicketPlan', () => {
 		expect(existsSync(planFolderOf({ planId: '002-fix-search' }))).toBe(false);
 	});
 
-	test('refuses a folder still holding legacy plan files and names ticket adopt', async () => {
+	test("refuses loose files in the ticket's plans folder and names the --from remedy", async () => {
 		const { params, recordPath, planFolderOf } = await setupAddPlan({ topLevelFiles: ['plan.md'] });
 
 		const result = await addTicketPlan(params);
 
-		expect(result).toEqual({ error: expect.stringContaining('ticket adopt') });
+		// The remedy has to name this ticket's own branch as the source folder,
+		// because these loose files are the ones the add would be made out of.
+		expect(result).toEqual({ error: expect.stringContaining('ticket add-plan') });
+		expect(result).toEqual({ error: expect.stringContaining('--from lo-140-multi') });
+		expect(result).toEqual({ error: expect.stringContaining('plan.md') });
 		expect(existsSync(recordPath)).toBe(false);
 		expect(existsSync(planFolderOf({ planId: '001-search-basics' }))).toBe(false);
 	});
 
-	test('refuses stray top-level files beside an existing record and names them instead of ticket adopt', async () => {
+	test('names the stray files beside an existing record rather than the --from remedy', async () => {
 		const { params, recordPath, planFolderOf } = await setupAddPlan({
 			slug: 'fix-search',
 			topLevelFiles: ['plan.md'],
@@ -240,9 +244,10 @@ describe('addTicketPlan', () => {
 
 		const result = await addTicketPlan(params);
 
-		// A stray file beside a record predates the adoption that already happened,
-		// so pointing a human at `ticket adopt` again would be the wrong repair.
+		// Files dropped beside a record that already holds plans are strays to put
+		// where they belong, not a plan waiting to be made out of them.
 		expect(result).toEqual({ error: expect.stringContaining('plan.md') });
+		expect(result).toEqual({ error: expect.not.stringContaining('--from') });
 		expect(result).toEqual({ error: expect.not.stringContaining('ticket adopt') });
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
 		expect(existsSync(planFolderOf({ planId: '002-fix-search' }))).toBe(false);
@@ -355,7 +360,7 @@ describe('addTicketPlan', () => {
 		const refused = await addTicketPlan(loose.params);
 		const added = await addTicketPlan(adopted.params);
 
-		expect(refused).toEqual({ error: expect.stringContaining('ticket adopt') });
+		expect(refused).toEqual({ error: expect.stringContaining('--from lo-140-multi') });
 		expect(refused).toEqual({ error: expect.stringContaining('plan.md') });
 		expect(existsSync(loose.recordPath)).toBe(false);
 		expect(existsSync(loose.planFolderOf({ planId: '001-search-basics' }))).toBe(false);

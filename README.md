@@ -486,20 +486,21 @@ subcommand and `implement` are given. The record itself,
 plans and how far each one's implementation has got, any plan taken out of that
 work, and the request to ship.
 
-`add-plan` starts the next plan and prints its address. `adopt` turns a folder
-shaped before ticket records existed into plan 001, moving its files into the
-plan's own folder and leaving them otherwise untouched. `mode` moves the ticket
-between single-plan — plan 001 alone supplies the implementation, and this
-repository's automatic shipping applies — and multiple-plan, where the plans
-implement in numeric order on the one branch; a switch back to single-plan is
-previewed first and only made with `--approve`, because it excludes every later
-plan. `request-ship` is how a human declares a multiple-plan ticket finished,
-and it must name every plan the ticket still includes; `--withdraw` takes it
-back. `exclude-plan` takes one plan out of the ticket's work for good — a plan
-whose implementation started is only excluded on a branch this repository's own
-gates have just passed on — and `retitle-plan` changes only what a plan is
-called, never its id, its folder or a pending request. `show` reads the record,
-and `sync` settles one that moved on two machines at once.
+`add-plan` starts the next plan and prints its address; given `--from <folder>`
+it makes that plan out of a named folder's loose files instead of an empty one,
+moving them into the plan's own folder and leaving them otherwise untouched.
+`mode` moves the ticket between single-plan — plan 001 alone supplies the
+implementation, and this repository's automatic shipping applies — and
+multiple-plan, where the plans implement in numeric order on the one branch; a
+switch back to single-plan is previewed first and only made with `--approve`,
+because it excludes every later plan. `request-ship` is how a human declares a
+multiple-plan ticket finished, and it must name every plan the ticket still
+includes; `--withdraw` takes it back. `exclude-plan` takes one plan out of the
+ticket's work for good — a plan whose implementation started is only excluded on
+a branch this repository's own gates have just passed on — and `retitle-plan`
+changes only what a plan is called, never its id, its folder or a pending
+request. `show` reads the record, and `sync` settles one that moved on two
+machines at once.
 
 Every change is published to the ticket when a `ticket-tracker` block is
 configured, so another machine restores the ticket's settings and its plans;

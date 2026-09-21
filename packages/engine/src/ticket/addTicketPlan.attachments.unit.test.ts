@@ -10,8 +10,8 @@ import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 // Mocked Imports
 // -------------------------
 // The tracker barrel is the only seam mocked: what a ticket's attachments say
-// about a plan published before ticket records existed decides whether a plan
-// may be added here at all, and the folder and record are real files on disk.
+// is what a record pull reads before a plan may be added here at all, and the
+// folder and record are real files on disk.
 const mockGetTicketAttachments = jest.fn<(params: { settings: TrackerSettings; identifier: string }) => Promise<TrackerAttachment[] | TrackerFailure>>();
 const mockGetTicketsByIdentifiers = jest.fn<(params: { settings: TrackerSettings; identifiers: string[] }) => Promise<TrackerTicket[] | TrackerFailure>>();
 const mockReadTicketAsset = jest.fn<(params: { settings: TrackerSettings; url: string }) => Promise<string | TrackerFailure>>();
@@ -71,22 +71,30 @@ const setupAddPlan = ({ attachments }: { attachments: TrackerAttachment[] | Trac
 const recordAt = ({ recordPath }: { recordPath: string }) => JSON.parse(readFileSync(recordPath, 'utf8')) as TicketRecord;
 
 describe('addTicketPlan attachments', () => {
-	test('refuses when the ticket carries a plan published before ticket records and names ticket adopt', async () => {
+	test('adds plan 001 to a ticket carrying a plan published before ticket records', async () => {
+		// Such a plan can never become this ticket's plan 001 now, so refusing the
+		// add would strand the ticket with no remedy to name. Publishing is per
+		// plan id, so a fresh plan 001 collides with nothing.
 		const { params, recordPath, planFolderOf } = setupAddPlan({
 			attachments: [{ id: 'att-1', title: 'plan-attachments.json', url: 'https://assets.example.com/plan-attachments.json' }],
 		});
 
 		const result = await addTicketPlan(params);
 
-		expect(result).toEqual({ error: expect.stringContaining('ticket adopt') });
-		expect(existsSync(recordPath)).toBe(false);
-		expect(existsSync(planFolderOf({ planId: '001-search-basics' }))).toBe(false);
-		expect(mockSetTicketAttachment).not.toHaveBeenCalled();
+		expect(result).toStrictEqual({
+			address: 'lo-140-multi/001-search-basics',
+			record: expect.objectContaining({ plans: [expect.objectContaining({ id: '001-search-basics' })] }),
+			notice: undefined,
+			publishError: undefined,
+		});
+		expect(recordAt({ recordPath }).plans.map((plan) => plan.id)).toStrictEqual(['001-search-basics']);
+		expect(existsSync(planFolderOf({ planId: '001-search-basics' }))).toBe(true);
+		expect(mockSetTicketAttachment).toHaveBeenCalledWith(expect.objectContaining({ ticketId: 'id-140', title: 'ticket.json' }));
 	});
 
 	test('adds plan 001 and publishes the record when the ticket carries attachments but no plan published before ticket records', async () => {
-		// The refusal above turns on one attachment title, so the row that proves
-		// it is not a blanket refusal on any attachment belongs beside it.
+		// The row above carries the one attachment title that used to decide this,
+		// so the row proving an ordinary attachment changes nothing sits beside it.
 		const { params, recordPath, planFolderOf } = setupAddPlan({
 			attachments: [{ id: 'att-1', title: 'design.md', url: 'https://assets.example.com/design.md' }],
 		});
@@ -105,22 +113,15 @@ describe('addTicketPlan attachments', () => {
 	});
 
 	test("refuses when the ticket's attachments could not be read at all", async () => {
-		// Unread attachments cannot say whether a plan was published here before
-		// ticket records existed, so passing over the failure is what would let a
-		// new plan 001 land on top of one. Adding a plan reads the ticket twice,
-		// and both reads owe that refusal.
+		// Unread attachments cannot say whether the ticket already carries a record,
+		// so passing over the failure is what would let a second plan 001 land on
+		// top of one this machine has never seen.
 		const { params, recordPath, planFolderOf } = setupAddPlan({ attachments: { error: 'the tracker answered 503' } });
 
 		const whileReadingTheRecord = await addTicketPlan(params);
-		// One clean answer lets the record read through, so the call fails on the
-		// read after it: the look for a plan published before ticket records.
-		mockGetTicketAttachments.mockResolvedValueOnce([]);
-		const whileLookingForALegacyPlan = await addTicketPlan(params);
 
 		expect(whileReadingTheRecord).toEqual({ error: expect.stringContaining('ticket.json') });
 		expect(whileReadingTheRecord).toEqual({ error: expect.stringContaining('503') });
-		expect(whileLookingForALegacyPlan).toEqual({ error: expect.not.stringContaining('ticket.json') });
-		expect(whileLookingForALegacyPlan).toEqual({ error: expect.stringContaining('503') });
 		expect(existsSync(recordPath)).toBe(false);
 		expect(existsSync(planFolderOf({ planId: '001-search-basics' }))).toBe(false);
 	});

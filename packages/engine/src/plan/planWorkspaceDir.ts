@@ -17,10 +17,10 @@ interface Params {
  *
  * An address answers that plan's own subfolder inside its ticket's plans folder;
  * a bare name answers the plans folder itself, which is where a brainstorm
- * shaped before its ticket exists lives until `ticket adopt` moves it into plan
- * 001. Putting those loose files one level below the ticket folder is what keeps
- * the ticket's own record files and its `runs/` sibling out of every scan that
- * looks for them.
+ * shaped before its ticket exists lives as loose files until a plan is made out
+ * of them. Putting those loose files one level below the ticket folder is what
+ * keeps the ticket's own record files and its `runs/` sibling out of every scan
+ * that looks for them.
  *
  * Always under the primary checkout, whichever checkout the command runs in, the
  * way `resolveSharedStateDir` answers for shared run state. A planning worktree

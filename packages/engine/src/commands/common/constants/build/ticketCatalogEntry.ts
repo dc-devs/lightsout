@@ -1,16 +1,15 @@
 import { type CommandCatalogEntry, CommandGroup, CommandRecordKind } from '#src/contracts/index.ts';
 
-/** `lightsout ticket` — eight subcommands under one command word, so it carries eight invocations rather than one. */
+/** `lightsout ticket` — seven subcommands under one command word, so it carries seven invocations rather than one. */
 export const ticketCatalogEntry: CommandCatalogEntry = {
 	id: 'ticket',
 	cli: 'lightsout ticket',
 	group: CommandGroup.Build,
 	summary: "Change and show a ticket's record of the plans it holds, the mode they implement in, and its request to ship.",
 	whenToUse:
-		'Reach for it whenever a ticket gains a plan or changes shape. `add-plan` starts the next plan and `adopt` turns a folder shaped before ticket records into plan 001; `mode` moves a ticket between one plan supplying the implementation and several implementing in numeric order; `request-ship` is how a human declares a multiple-plan ticket finished, and `exclude-plan` takes a plan out of that work for good; `retitle-plan` changes only what a plan is called; `show` reads the record, and `sync` settles a record that moved on two machines at once.',
+		'Reach for it whenever a ticket gains a plan or changes shape. `add-plan` starts the next plan, and given `--from` makes that plan out of a named folder’s loose files; `mode` moves a ticket between one plan supplying the implementation and several implementing in numeric order; `request-ship` is how a human declares a multiple-plan ticket finished, and `exclude-plan` takes a plan out of that work for good; `retitle-plan` changes only what a plan is called; `show` reads the record, and `sync` settles a record that moved on two machines at once.',
 	invocations: [
 		{ id: 'ticket-add-plan', positional: 'add-plan' },
-		{ id: 'ticket-adopt', positional: 'adopt' },
 		{ id: 'ticket-mode', positional: 'mode' },
 		{ id: 'ticket-request-ship', positional: 'request-ship' },
 		{ id: 'ticket-exclude-plan', positional: 'exclude-plan' },
@@ -41,11 +40,13 @@ export const ticketCatalogEntry: CommandCatalogEntry = {
 			required: false,
 		},
 		{
-			name: 'slug',
-			value: '<slug>',
-			meaning: 'The slug plan 001 carries once the folder is adopted, in its folder name and in every attachment title.',
-			shape: 'ticket-adopt',
-			required: true,
+			name: 'from',
+			value: '<folder>',
+			meaning:
+				"A plan folder's bare name under the plans directory, whose loose files become this plan: they are moved into the plan's own folder. Never a path, and never one plan's address.",
+			fallback: 'The plan is created empty.',
+			shape: 'ticket-add-plan',
+			required: false,
 		},
 		{
 			name: 'set',

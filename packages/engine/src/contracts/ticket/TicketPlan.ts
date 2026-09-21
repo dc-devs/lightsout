@@ -19,7 +19,7 @@ export const TicketPlan = z
 		/** The plan's mutable display title. Changing it never changes the plan's identity, its folder or a pending ship request. */
 		title: z.string().min(1),
 		progress: z.enum(PlanProgress),
-		/** ISO timestamp of the moment the plan was added or adopted. */
+		/** ISO timestamp of the moment the plan was added. */
 		createdAt: z.string(),
 		/** The implementation run recorded against this plan — the latest one, replaced when the plan is implemented again after a repair. */
 		implementation: z
