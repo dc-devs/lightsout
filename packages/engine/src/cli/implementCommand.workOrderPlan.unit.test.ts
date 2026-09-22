@@ -69,12 +69,12 @@ jest.mock('#src/cli/common/render/printResult.ts', () => ({
 // -------------------------
 
 /** The ticket folder two plans of one ticket share, and the branch its name yields. */
-const ticketBranch = 'lo-7-search';
-const ticketFolder = join('.lightsout', 'tickets', ticketBranch);
+const workOrderName = 'lo-7-search';
+const workOrderFolder = join('.lightsout', 'work-orders', workOrderName);
 const firstPlan = '001-basics';
 const laterPlan = '002-ranking';
-const firstPlanFolder = join(ticketFolder, 'plans', firstPlan);
-const laterPlanFolder = join(ticketFolder, 'plans', laterPlan);
+const firstPlanFolder = join(workOrderFolder, 'plans', firstPlan);
+const laterPlanFolder = join(workOrderFolder, 'plans', laterPlan);
 
 const planBody = '# Plan: the basics\n';
 const overviewBody = '# Ranking — Overview\n\n## Phases\n\n| # | File | Scope |\n|---|------|-------|\n| 1 | `phase1.md` | scope |\n';
@@ -105,7 +105,7 @@ const recordOf = ({
 }): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef: 'LO-7',
-	branch: ticketBranch,
+	branch: workOrderName,
 	mode,
 	plans,
 	...(shipRequest === undefined ? {} : { shipRequest: { planIds: shipRequest, requestedAt: '2026-03-04T09:00:00.000Z' } }),
@@ -113,12 +113,12 @@ const recordOf = ({
 });
 
 /** The ticket record as it stands on disk after the command — the primary checkout holds the one copy. */
-const readRecord = ({ cwd }: { cwd: string }): WorkOrderState => JSON.parse(readFileSync(join(cwd, ticketFolder, 'state.json'), 'utf8')) as WorkOrderState;
+const readRecord = ({ cwd }: { cwd: string }): WorkOrderState => JSON.parse(readFileSync(join(cwd, workOrderFolder, 'state.json'), 'utf8')) as WorkOrderState;
 
 /** Every run the command left on disk, by id. */
 const readRunIds = ({ cwd }: { cwd: string }): string[] => {
 	// A run of a ticket's plan is filed under that ticket's own runs folder.
-	const runs = dirname(runDirFor({ cwd, runId: 'any', ticketBranch }));
+	const runs = dirname(runDirFor({ cwd, runId: 'any', workOrderName }));
 
 	return existsSync(runs) ? readdirSync(runs) : [];
 };
@@ -126,7 +126,7 @@ const readRunIds = ({ cwd }: { cwd: string }): string[] => {
 /** Every manifest the command left on disk — the record the progress view later draws its ship row from. */
 const readManifests = ({ cwd }: { cwd: string }): { runId: string; willShip?: boolean }[] =>
 	readRunIds({ cwd }).map(
-		(runId) => JSON.parse(readFileSync(join(runDirFor({ cwd, runId, ticketBranch }), 'manifest.json'), 'utf8')) as { runId: string; willShip?: boolean },
+		(runId) => JSON.parse(readFileSync(join(runDirFor({ cwd, runId, workOrderName }), 'manifest.json'), 'utf8')) as { runId: string; willShip?: boolean },
 	);
 
 /**
@@ -142,8 +142,8 @@ const seedTicketRepo = ({ record, files }: { record: WorkOrderState; files: Reco
 	const captured = captureCommandOutput();
 	const cwd = setupConsumerRepo();
 
-	mkdirSync(join(cwd, ticketFolder), { recursive: true });
-	writeFileSync(join(cwd, ticketFolder, 'state.json'), `${JSON.stringify(record, undefined, '\t')}\n`);
+	mkdirSync(join(cwd, workOrderFolder), { recursive: true });
+	writeFileSync(join(cwd, workOrderFolder, 'state.json'), `${JSON.stringify(record, undefined, '\t')}\n`);
 
 	for (const [path, body] of Object.entries(files)) {
 		mkdirSync(dirname(join(cwd, path)), { recursive: true });
@@ -185,7 +185,7 @@ const setupPassedTicketRun = ({
 		const manifest = manifestOf({ runId, plan: planPath, status: RunStatus.Passed });
 
 		// A run of a ticket's plan is filed under that ticket's own runs folder.
-		const runDir = runDirFor({ cwd: runCwd, runId, ticketBranch });
+		const runDir = runDirFor({ cwd: runCwd, runId, workOrderName });
 
 		mkdirSync(runDir, { recursive: true });
 		writeFileSync(join(runDir, 'manifest.json'), `${JSON.stringify(manifest)}\n`);
@@ -283,7 +283,7 @@ describe('implementCommand ticket plans', () => {
 			planFolder: firstPlanFolder,
 			noWorktree: true,
 		});
-		const before = readFileSync(join(cwd, ticketFolder, 'state.json'), 'utf8');
+		const before = readFileSync(join(cwd, workOrderFolder, 'state.json'), 'utf8');
 
 		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
 
@@ -292,7 +292,7 @@ describe('implementCommand ticket plans', () => {
 		// machine's work, and the sentence says which command settles that
 		expect(errors.join('\n')).toContain(firstPlan);
 		expect(errors.join('\n')).toContain('lightsout work-order sync');
-		expect(readFileSync(join(cwd, ticketFolder, 'state.json'), 'utf8')).toBe(before);
+		expect(readFileSync(join(cwd, workOrderFolder, 'state.json'), 'utf8')).toBe(before);
 		expect(readRunIds({ cwd })).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([1]);
 	});

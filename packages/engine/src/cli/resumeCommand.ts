@@ -3,7 +3,7 @@ import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import { usage } from '#src/cli/common/constants/usage.ts';
 import { continueDirectRun } from '#src/cli/common/implementRun/continueDirectRun.ts';
 import { readResumeClearance } from '#src/cli/common/implementRun/readResumeClearance.ts';
-import { reportTicketPlanOutcome } from '#src/cli/common/implementRun/reportTicketPlanOutcome.ts';
+import { reportWorkOrderPlanOutcome } from '#src/cli/common/implementRun/reportWorkOrderPlanOutcome.ts';
 import { resolveRunCwd } from '#src/cli/common/implementRun/resolveRunCwd.ts';
 import { printResult } from '#src/cli/common/render/printResult.ts';
 import { printRunHeader } from '#src/cli/common/render/printRunHeader.ts';
@@ -208,7 +208,7 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 			}),
 	});
 
-	const result = reportTicketPlanOutcome({ outcome });
+	const result = reportWorkOrderPlanOutcome({ outcome });
 
 	if (result === undefined) {
 		return exitCli({ code: 1 });

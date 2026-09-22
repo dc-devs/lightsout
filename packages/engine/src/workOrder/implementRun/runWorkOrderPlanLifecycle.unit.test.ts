@@ -18,7 +18,7 @@ import {
 	secondPlan,
 	setupTicketPlanLifecycle,
 	startCommit,
-	ticketBranch,
+	workOrderName,
 } from '#tests/helpers/setupTicketPlanLifecycle.ts';
 
 // Mocked Imports
@@ -49,10 +49,10 @@ const setupTicketFolderSyncState = async () => {
 	const context = await setupTicketPlanLifecycle({
 		mockReadGitHeadCommit,
 		plans: [planOf({ id: firstPlan, progress: PlanProgress.Ready, publishedMarker: otherMachineMarker })],
-		manifestPlan: `.lightsout/tickets/${ticketBranch}/plans/${firstPlan}/plan.md`,
+		manifestPlan: `.lightsout/work-orders/${workOrderName}/plans/${firstPlan}/plan.md`,
 	});
-	const workOrderFolder = join(context.cwd, '.lightsout', 'tickets', ticketBranch);
-	const preLayoutFolder = join(context.cwd, '.lightsout', 'plans', ticketBranch);
+	const workOrderFolder = join(context.cwd, '.lightsout', 'work-orders', workOrderName);
+	const preLayoutFolder = join(context.cwd, '.lightsout', 'plans', workOrderName);
 
 	mkdirSync(workOrderFolder, { recursive: true });
 	writeFileSync(join(workOrderFolder, 'state-sync.json'), JSON.stringify({ schemaVersion: 1, planMarkers: { [firstPlan]: otherMachineMarker } }));
@@ -77,7 +77,7 @@ const setupWholePlanRun = async () => {
 		mockReadGitHeadCommit,
 		plans: [planOf({ id: firstPlan, progress: PlanProgress.Ready })],
 	});
-	const workOrderFolder = await workOrderFolderDir({ cwd: context.cwd, name: ticketBranch });
+	const workOrderFolder = await workOrderFolderDir({ cwd: context.cwd, name: workOrderName });
 
 	return {
 		...context,
@@ -105,13 +105,13 @@ describe('runWorkOrderPlanLifecycle: what the run leaves on the plan', () => {
 	});
 
 	test("runs a legacy plan folder's pipeline unchanged and writes no work order state", async () => {
-		const { cwd, name, recordPath, seenRunIds, run } = await setupTicketPlanLifecycle({ mockReadGitHeadCommit, name: ticketBranch });
+		const { cwd, name, recordPath, seenRunIds, run } = await setupTicketPlanLifecycle({ mockReadGitHeadCommit, name: workOrderName });
 
 		const outcome = await runWorkOrderPlanLifecycle({ cwd, name, run });
 
 		expect(seenRunIds).toEqual([expect.stringMatching(/\S/)]);
 		expect(outcome).toEqual({
-			result: { ok: true, manifest: manifestOf({ name: ticketBranch, runId: seenRunIds[0], status: RunStatus.Passed }) },
+			result: { ok: true, manifest: manifestOf({ name: workOrderName, runId: seenRunIds[0], status: RunStatus.Passed }) },
 		});
 		expect(existsSync(recordPath)).toBe(false);
 	});
@@ -171,7 +171,7 @@ describe('runWorkOrderPlanLifecycle: what the run leaves on the plan', () => {
 			mockReadGitHeadCommit,
 			plans: [planOf({ id: firstPlan, progress: PlanProgress.Ready })],
 			folder: 'phased',
-			manifestPlan: `.lightsout/tickets/${address}/plans/phase1-lifecycle.md`,
+			manifestPlan: `.lightsout/work-orders/${address}/plans/phase1-lifecycle.md`,
 		});
 
 		const outcome = await runWorkOrderPlanLifecycle({ cwd, name, run });
@@ -301,7 +301,7 @@ describe('runWorkOrderPlanLifecycle: the plans it will not build', () => {
 
 		// both halves of the remedy are one sentence: the published copy is taken
 		// by name, and the local one is published over it by the bare `--keep local`
-		expect(outcome).toEqual({ refusal: expect.stringContaining(`lightsout work-order sync --name ${ticketBranch} --keep published`) });
+		expect(outcome).toEqual({ refusal: expect.stringContaining(`lightsout work-order sync --name ${workOrderName} --keep published`) });
 		expect(outcome).toEqual({ refusal: expect.stringContaining('--keep local') });
 		expect(outcome).toEqual({ refusal: expect.not.stringContaining('lightsout ticket sync') });
 		expect(seenRunIds).toStrictEqual([]);
@@ -310,7 +310,7 @@ describe('runWorkOrderPlanLifecycle: the plans it will not build', () => {
 	test('refuses a plan whose lower-numbered plan is not implemented without running it or changing the record', async () => {
 		const { cwd, name, recordPath, seenRunIds, run } = await setupTicketPlanLifecycle({
 			mockReadGitHeadCommit,
-			name: `${ticketBranch}/${secondPlan}`,
+			name: `${workOrderName}/${secondPlan}`,
 			plans: [planOf({ id: firstPlan, progress: PlanProgress.Ready }), planOf({ id: secondPlan, progress: PlanProgress.Ready })],
 		});
 		const before = readFileSync(recordPath, 'utf8');
@@ -347,7 +347,7 @@ describe('runWorkOrderPlanLifecycle: the plans it will not build', () => {
 			onStart: async ({ cwd: checkout }) => {
 				await updateLocalWorkOrderState({
 					cwd: checkout,
-					name: ticketBranch,
+					name: workOrderName,
 					change: (current) =>
 						current === undefined
 							? { error: 'the row seeded a record' }

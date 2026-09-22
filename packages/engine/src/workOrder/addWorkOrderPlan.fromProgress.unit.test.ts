@@ -47,7 +47,7 @@ const notesBody = '# brainstorm notes of lo-157\n';
 /** A source folder holding a drafted plan, which is what separates ready to implement from still being planned. */
 const draftedPlanFiles: Record<string, string> = { 'plan.md': planBody, 'decisions.json': '{\n\t"decisions": []\n}\n' };
 /** Where a run manifest says it built, in the spelling a manifest carries. */
-const planPathIn = ({ ticket = name, file = 'plan.md' }: { ticket?: string; file?: string } = {}) => `.lightsout/tickets/${ticket}/plans/${file}`;
+const planPathIn = ({ ticket = name, file = 'plan.md' }: { ticket?: string; file?: string } = {}) => `.lightsout/work-orders/${ticket}/plans/${file}`;
 /** The day every seeded run is dated, which is after the source folder's own files. */
 const runDay = '2026-01-02T00:00:00.000Z';
 
@@ -78,7 +78,7 @@ interface SetupParams {
  */
 const setupSourceProgress = ({ looseFiles = draftedPlanFiles, runs = [] }: SetupParams = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-add-plan-from-progress-'));
-	const workOrderFolder = join(cwd, '.lightsout', 'tickets', name);
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
 
 	mkdirSync(join(workOrderFolder, 'plans'), { recursive: true });
 

@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { ticketsDir } from '#src/common/workspace/ticketsDir.ts';
+import { workOrdersDir } from '#src/common/workspace/workOrdersDir.ts';
 
 interface Params {
 	/** The directory the command runs in — a primary checkout, a linked worktree, or no repository at all. */
@@ -18,4 +18,4 @@ interface Params {
  * primary checkout" true by construction rather than by every caller
  * remembering.
  */
-export const workOrderFolderDir = async ({ cwd, name }: Params): Promise<string> => join(await ticketsDir({ cwd }), name);
+export const workOrderFolderDir = async ({ cwd, name }: Params): Promise<string> => join(await workOrdersDir({ cwd }), name);

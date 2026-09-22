@@ -119,7 +119,7 @@ const setupPhasedDeliverable = ({
 	existing?: string[];
 }) => {
 	const cwd = setupConsumerRepo();
-	const dir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
+	const dir = join(cwd, '.lightsout', 'work-orders', 'demo', 'plans');
 
 	mkdirSync(dir, { recursive: true });
 	plant({ cwd, paths: existing });
@@ -151,7 +151,7 @@ const setupPhasedDeliverable = ({
 /** A consumer repo holding a single-file plan — no overview, so the deliverable has no phase table at all. */
 const setupStandalonePlan = ({ body, decisions, existing = [] }: { body: string; decisions: DecisionsRecord; existing?: string[] }) => {
 	const cwd = setupConsumerRepo();
-	const dir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
+	const dir = join(cwd, '.lightsout', 'work-orders', 'demo', 'plans');
 
 	mkdirSync(dir, { recursive: true });
 	plant({ cwd, paths: existing });

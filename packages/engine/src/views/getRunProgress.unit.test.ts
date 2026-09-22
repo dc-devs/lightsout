@@ -90,9 +90,9 @@ const setupProgress = ({
 	}
 
 	if (shipResult) {
-		mkdirSync(join(cwd, '.lightsout', 'tickets', shipResult.branch), { recursive: true });
+		mkdirSync(join(cwd, '.lightsout', 'work-orders', shipResult.branch), { recursive: true });
 		writeFileSync(
-			join(cwd, '.lightsout', 'tickets', shipResult.branch, 'ship.json'),
+			join(cwd, '.lightsout', 'work-orders', shipResult.branch, 'ship.json'),
 			JSON.stringify({ status: shipResult.status, branch: shipResult.branch, failingChecks: [] }),
 			'utf8',
 		);

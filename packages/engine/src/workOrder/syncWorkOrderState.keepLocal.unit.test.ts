@@ -130,7 +130,7 @@ const setupSync = ({
 	publishedCopyOnDisk = false,
 }: SetupParams) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-ticket-sync-keep-local-'));
-	const workOrderFolder = join(cwd, '.lightsout', 'tickets', name);
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
 	const progress: string[] = [];
 	const bodies = [published, publishedAfterFirstRead ?? published].map((record) => (record === undefined ? undefined : asFileText({ value: record })));
 	let reads = 0;

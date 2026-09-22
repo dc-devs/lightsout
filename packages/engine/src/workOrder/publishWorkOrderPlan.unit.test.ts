@@ -98,7 +98,7 @@ const setupTicketPlan = async ({
 	onAttach?: (params: { title: string; assets: Map<string, string> }) => void;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-publish-ticket-plan-'));
-	const workOrderFolder = join(cwd, '.lightsout', 'tickets', name);
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
 	const planFolder = join(workOrderFolder, 'plans', planId);
 	const syncPath = join(workOrderFolder, 'state-sync.json');
 	const progressLines: string[] = [];
@@ -163,7 +163,7 @@ const setupTicketPlan = async ({
 
 /**
  * The ordinary publish — which `setupTicketPlan` already arranges under
- * `tickets/<branch>/` — with a pre-layout copy of the same plan left beside it,
+ * `work-orders/<name>/` — with a pre-layout copy of the same plan left beside it,
  * carrying different plan text and a different plan title. What lands on the
  * ticket therefore says which of the two folders was read.
  */

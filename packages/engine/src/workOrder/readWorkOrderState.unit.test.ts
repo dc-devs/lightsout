@@ -27,7 +27,7 @@ const workOrderStateOf = ({ branch, ticketRef }: { branch: string; ticketRef: st
 
 /** Writes a work order folder's `state.json` under a checkout's shared state folder, where the reader looks for it. */
 const writeStateFile = ({ cwd, name, contents }: { cwd: string; name: string; contents: string }) => {
-	const workOrderFolder = join(cwd, '.lightsout', 'tickets', name);
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
 
 	mkdirSync(workOrderFolder, { recursive: true });
 	writeFileSync(join(workOrderFolder, 'state.json'), contents);
@@ -62,7 +62,7 @@ const setupCheckout = ({
 	}
 
 	for (const name of unreadable) {
-		const recordPath = join(cwd, '.lightsout', 'tickets', name, 'state.json');
+		const recordPath = join(cwd, '.lightsout', 'work-orders', name, 'state.json');
 
 		mkdirSync(recordPath, { recursive: true });
 		recordPaths[name] = recordPath;
@@ -104,7 +104,7 @@ const setupLinkedWorktree = ({ name }: { name: string }) => {
  */
 const setupStateDirectoryCheckout = ({ name }: { name: string }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-work-order-dir-'));
-	const workOrderFolder = join(cwd, '.lightsout', 'tickets', name);
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
 
 	mkdirSync(workOrderFolder, { recursive: true });
 	writeFileSync(join(workOrderFolder, 'state.json'), JSON.stringify(workOrderStateOf({ branch: name, ticketRef: 'LO-155' })));

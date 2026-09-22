@@ -27,7 +27,7 @@ jest.mock('#src/direct/index.ts', () => ({
 }));
 jest.mock('#src/commit/index.ts', () => ({
 	...jest.requireActual<typeof import('#src/commit/index.ts')>('#src/commit/index.ts'),
-	commitTicketWork: (params: CommitParams) => mockCommitTicketWork(params),
+	commitWorkOrderWork: (params: CommitParams) => mockCommitTicketWork(params),
 }));
 // -------------------------
 

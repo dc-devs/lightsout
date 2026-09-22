@@ -68,7 +68,7 @@ export const reportCommand = async ({ cwd, flags }: CommandContext): Promise<voi
 			JSON.stringify(
 				{
 					target: name,
-					ticketFolder: resolved.ticketFolder,
+					workOrderFolder: resolved.workOrderFolder,
 					plans: plans.map((plan) => ({ name: plan.name, report: plan.report, estimatedCostUsd: estimateOf({ plan, pricing }) })),
 				},
 				null,
@@ -79,7 +79,7 @@ export const reportCommand = async ({ cwd, flags }: CommandContext): Promise<voi
 		return exitCli({ code: 0 });
 	}
 
-	printActivityReport({ target: name, ticketFolder: resolved.ticketFolder, plans, pricing });
+	printActivityReport({ target: name, workOrderFolder: resolved.workOrderFolder, plans, pricing });
 
 	return exitCli({ code: 0 });
 };

@@ -139,7 +139,7 @@ const setupExclusion = async (setup: ExclusionSetup = {}) => {
 	mockReadConfig.mockResolvedValue(checkoutConfig);
 	mockRunGates.mockResolvedValue({ error: gateError, failedFamilies: gateError === undefined ? [] : ['test'], crashes: [], coordination: undefined });
 
-	const recordPath = join(cwd, '.lightsout', 'tickets', name, 'state.json');
+	const recordPath = join(cwd, '.lightsout', 'work-orders', name, 'state.json');
 
 	return { recordPath, before: readFileSync(recordPath, 'utf8'), base: { cwd, name, config, env } };
 };

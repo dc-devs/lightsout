@@ -90,9 +90,9 @@ describe('readBrainstormDecisions', () => {
 	test('reads from the plan workspace keyed by name, so two plans never cross', async () => {
 		const { cwd } = setupWorkspace({ name: 'plan-a', content: JSON.stringify({ planName: 'plan-a', decisions: [] }) });
 
-		mkdirSync(join(cwd, '.lightsout', 'tickets', 'plan-b', 'plans'), { recursive: true });
+		mkdirSync(join(cwd, '.lightsout', 'work-orders', 'plan-b', 'plans'), { recursive: true });
 		writeFileSync(
-			join(cwd, '.lightsout', 'tickets', 'plan-b', 'plans', 'brainstorm-decisions.json'),
+			join(cwd, '.lightsout', 'work-orders', 'plan-b', 'plans', 'brainstorm-decisions.json'),
 			JSON.stringify({ planName: 'plan-b', decisions: [decisionRow] }),
 		);
 

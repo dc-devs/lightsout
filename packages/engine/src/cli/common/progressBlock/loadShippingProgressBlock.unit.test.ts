@@ -158,10 +158,10 @@ const setupShippingBlock = async ({ record }: { record?: string } = {}) => {
 	});
 
 	const cwd = await freshCwd();
-	const ticketFolder = join(cwd, '.lightsout', 'tickets', 'lo-7-ship');
-	const recordPath = join(ticketFolder, 'ship-progress.json');
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', 'lo-7-ship');
+	const recordPath = join(workOrderFolder, 'ship-progress.json');
 
-	mkdirSync(ticketFolder, { recursive: true });
+	mkdirSync(workOrderFolder, { recursive: true });
 
 	if (record !== undefined) {
 		writeFileSync(recordPath, record);

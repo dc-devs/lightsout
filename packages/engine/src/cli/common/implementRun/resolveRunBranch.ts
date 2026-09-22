@@ -1,5 +1,5 @@
 import { basename, extname } from 'node:path';
-import { ticketFolderOf } from '#src/common/planAddress/ticketFolderOf.ts';
+import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 import { headingOf } from '#src/common/utils/headingOf.ts';
 import { renderBranchTemplate } from '#src/common/utils/renderBranchTemplate.ts';
 import { toBranchSlug } from '#src/common/utils/toBranchSlug.ts';
@@ -48,7 +48,7 @@ export const resolveRunBranch = async ({ cwd, config, planPath, ticketPath, tick
 		// branch and the ticket pattern are one chain, and re-slugging breaks it.
 		// For a plan address that folder is the ticket-branch segment, so every
 		// plan of one ticket builds on the one branch.
-		branch = ticketFolderOf({ name: planName });
+		branch = workOrderNameOf({ name: planName });
 	} else if (ticketRef !== undefined) {
 		branch = renderBranchTemplate({ template, ticketRef, title: headingOf({ text: ticketBody ?? '' }) });
 	} else if (input !== undefined) {

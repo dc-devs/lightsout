@@ -44,7 +44,7 @@ export const readWorkOrderRunTerms = async ({ cwd, name, planPath }: Params): Pr
 		return {};
 	}
 
-	const read = await readWorkOrderState({ cwd, name: address.ticketBranch });
+	const read = await readWorkOrderState({ cwd, name: address.workOrderName });
 
 	if ('error' in read) {
 		return { refusal: read.error, shipRequest: { blocker: read.error } };

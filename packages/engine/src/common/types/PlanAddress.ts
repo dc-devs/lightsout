@@ -4,10 +4,10 @@
  *
  * The address is the `--name` value every plan command takes and the path
  * segment under the plans directory the plan's own files live in. The branch,
- * the worktree and the worktree's ownership record are keyed by `ticketBranch`
+ * the worktree and the worktree's ownership record are keyed by `workOrderName`
  * alone, because every plan of one ticket implements on that one branch.
  */
 export interface PlanAddress {
-	ticketBranch: string;
+	workOrderName: string;
 	planId: string;
 }

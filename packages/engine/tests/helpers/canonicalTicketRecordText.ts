@@ -22,5 +22,5 @@ export const canonicalTicketRecordText = async ({ record }: Params): Promise<str
 
 	await updateLocalWorkOrderState({ cwd: scratch, name: record.branch, change: () => record });
 
-	return readFileSync(join(scratch, '.lightsout', 'tickets', record.branch, 'state.json'), 'utf8');
+	return readFileSync(join(scratch, '.lightsout', 'work-orders', record.branch, 'state.json'), 'utf8');
 };

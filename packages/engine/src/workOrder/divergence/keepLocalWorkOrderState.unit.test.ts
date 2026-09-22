@@ -120,8 +120,8 @@ const setupWorktreeKeep = ({ planFolderIn }: { planFolderIn: 'primary' | 'worktr
 
 	execSync(`git worktree add -q -b ${name} "${worktree}" main`, { cwd: primary, stdio: 'ignore' });
 
-	const workOrderFolder = join(primary, '.lightsout', 'tickets', name);
-	const planFolder = join(planFolderIn === 'primary' ? primary : worktree, '.lightsout', 'tickets', name, 'plans', planId);
+	const workOrderFolder = join(primary, '.lightsout', 'work-orders', name);
+	const planFolder = join(planFolderIn === 'primary' ? primary : worktree, '.lightsout', 'work-orders', name, 'plans', planId);
 	const progress: string[] = [];
 
 	mkdirSync(workOrderFolder, { recursive: true });

@@ -71,7 +71,7 @@ const name = 'lo-131-plan-in-a-worktree';
 const launchingHead = '3f1c0de5a1b2c3d4e5f60718293a4b5c6d7e8f90';
 const otherHead = '9e8d7c6b5a49382716f5e4d3c2b1a0f9e8d7c6b5';
 const pinnedStartPoint = '0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d';
-const ticketBranch = 'lo-7-search';
+const workOrderName = 'lo-7-search';
 const planAddress = 'lo-7-search/002-ranking';
 const pushedTicketCommit = 'c0ffee11223344556677889900aabbccddeeff01';
 const liveRun = { pid: 4242, runId: 'run-20260911-090000-ranking', startedAt: '2026-09-11T09:00:00.000Z' };
@@ -330,18 +330,18 @@ describe('resolvePlanWorktree', () => {
 			...mockCreateWorktree.mock.calls,
 		].map(([params]) => params.branch);
 
-		expect(worktree).toStrictEqual({ cwd: pathOf(ticketBranch), branch: ticketBranch, isolated: true, created: true });
+		expect(worktree).toStrictEqual({ cwd: pathOf(workOrderName), branch: workOrderName, isolated: true, created: true });
 		expect(branchesAsked).toEqual(['lo-7-search', 'lo-7-search', 'lo-7-search', 'lo-7-search']);
 	});
 
 	test('continues a plan address in the ticket tree an implementation run owns, leaving the record untouched', async () => {
 		const { sourceCwd, pathOf, config, flags } = await setupTicketPlan({
-			trees: { [ticketBranch]: { occupant: 'worktree', record: { owner: 'implement', startPoint: pinnedStartPoint } } },
+			trees: { [workOrderName]: { occupant: 'worktree', record: { owner: 'implement', startPoint: pinnedStartPoint } } },
 		});
 
 		const worktree = await resolvePlanWorktree({ cwd: sourceCwd, config, flags, name: planAddress });
 
-		expect(worktree).toStrictEqual({ cwd: pathOf(ticketBranch), branch: ticketBranch, isolated: true, created: false });
+		expect(worktree).toStrictEqual({ cwd: pathOf(workOrderName), branch: workOrderName, isolated: true, created: false });
 		expect(mockCreateWorktree).not.toHaveBeenCalled();
 		expect(mockWriteWorktreeRecord).not.toHaveBeenCalled();
 	});
@@ -379,8 +379,8 @@ describe('resolvePlanWorktree', () => {
 
 		const worktree = await resolvePlanWorktree({ cwd: sourceCwd, config, flags, name: planAddress });
 
-		expect(worktree).toStrictEqual({ cwd: pathOf(ticketBranch), branch: ticketBranch, isolated: true, created: true });
-		expect(mockPrepareTicketBranch).toHaveBeenCalledWith(expect.objectContaining({ branch: ticketBranch }));
-		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch: ticketBranch, startPoint: pushedTicketCommit }));
+		expect(worktree).toStrictEqual({ cwd: pathOf(workOrderName), branch: workOrderName, isolated: true, created: true });
+		expect(mockPrepareTicketBranch).toHaveBeenCalledWith(expect.objectContaining({ branch: workOrderName }));
+		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch: workOrderName, startPoint: pushedTicketCommit }));
 	});
 });

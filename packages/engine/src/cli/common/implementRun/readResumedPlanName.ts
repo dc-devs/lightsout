@@ -37,5 +37,5 @@ export const readResumedPlanName = async ({ cwd, manifest }: Params): Promise<st
 
 	const plan = read.record.plans.find((candidate) => candidate.implementation?.runId === manifest.runId);
 
-	return plan === undefined ? undefined : formatPlanAddress({ ticketBranch: manifest.branch, planId: plan.id });
+	return plan === undefined ? undefined : formatPlanAddress({ workOrderName: manifest.branch, planId: plan.id });
 };

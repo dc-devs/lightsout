@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { commitTicketWork } from '#src/commit/index.ts';
+import { commitWorkOrderWork } from '#src/commit/index.ts';
 import type { CommandResult } from '#src/common/types/CommandResult.ts';
 import { committedPaths } from '#tests/helpers/committedPaths.ts';
 import { generatedPaths } from '#tests/helpers/generatedPaths.ts';
@@ -54,7 +54,7 @@ const setupInterceptedBranch = ({ intercept }: { intercept?: Interception } = {}
 	return setupTicketBranch();
 };
 
-describe('commitTicketWork', () => {
+describe('commitWorkOrderWork', () => {
 	test('says the split of the generated paths failed rather than guessing which of them git tracks', async () => {
 		const { cwd, runDir } = setupInterceptedBranch({
 			intercept: { command: 'git ls-files', result: { exitCode: 128, stdout: '', stderr: 'fatal: index file corrupt' } },
@@ -63,7 +63,7 @@ describe('commitTicketWork', () => {
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
 		writeRepoFile({ cwd, path: 'plugin/dist/chunk.mjs', content: '// built on the branch\n' });
 
-		const committed = await commitTicketWork({ cwd, message: 'LO-79 split unreadable', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 split unreadable', runDir, generated: generatedPaths });
 
 		// Guessing would restore files git never tracked or clean files it does —
 		// so the whole discard stops here, and no commit is claimed over it.
@@ -77,7 +77,7 @@ describe('commitTicketWork', () => {
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
 		writeRepoFile({ cwd, path: 'plugin/dist/chunk.mjs', content: '// built on the branch\n' });
 
-		const committed = await commitTicketWork({ cwd, message: 'LO-79 split unanswered', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 split unanswered', runDir, generated: generatedPaths });
 
 		// An unanswered read must never read as "nothing is tracked": that would
 		// send `git clean` at a file git holds a committed copy of.
@@ -93,7 +93,7 @@ describe('commitTicketWork', () => {
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
 		writeRepoFile({ cwd, path: 'plugin/dist/cli.mjs', content: '// rebuilt on the branch\n' });
 
-		const committed = await commitTicketWork({ cwd, message: 'LO-79 restore refused', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 restore refused', runDir, generated: generatedPaths });
 
 		expect(committed).toStrictEqual({ error: `git could not discard the generated changes in ${cwd}: error: unable to write file plugin/dist/cli.mjs` });
 		expect(headSubject({ cwd })).toBe('ignore');
@@ -105,7 +105,7 @@ describe('commitTicketWork', () => {
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
 		writeRepoFile({ cwd, path: "plugin/dist/it's.mjs", content: '// built on the branch\n' });
 
-		const committed = await commitTicketWork({ cwd, message: 'LO-79 quoted name', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 quoted name', runDir, generated: generatedPaths });
 
 		expect(committed).toStrictEqual({ committed: true });
 		expect(committedPaths({ cwd })).toStrictEqual(['src.ts']);
@@ -117,7 +117,7 @@ describe('commitTicketWork', () => {
 
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
 
-		const committed = await commitTicketWork({ cwd, message: 'LO-79 already terminated\n', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 already terminated\n', runDir, generated: generatedPaths });
 
 		expect(committed).toStrictEqual({ committed: true });
 		expect(readFileSync(join(runDir, 'commit-message.txt'), 'utf8')).toBe('LO-79 already terminated\n');

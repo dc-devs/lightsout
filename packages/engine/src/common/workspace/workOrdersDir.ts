@@ -20,4 +20,4 @@ interface Params {
  * The directory is never created here: whoever writes into it creates it, as
  * `resolveSharedStateDir` states.
  */
-export const ticketsDir = async ({ cwd }: Params): Promise<string> => join(await resolveSharedStateDir({ cwd }), 'tickets');
+export const workOrdersDir = async ({ cwd }: Params): Promise<string> => join(await resolveSharedStateDir({ cwd }), 'work-orders');

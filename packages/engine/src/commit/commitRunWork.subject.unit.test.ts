@@ -50,7 +50,7 @@ describe('commitRunWork subjects', () => {
 			branch: 'wip-tree',
 			dirty: { 'src/thing.ts': 'export const thing = 1;\n' },
 			changedFiles: ['src/thing.ts'],
-			plan: `.lightsout/tickets/wip-tree/plans/${planId}/plan.md`,
+			plan: `.lightsout/work-orders/wip-tree/plans/${planId}/plan.md`,
 		});
 
 		const uncommitted = await commitRunWork({ run, resumed: false });
@@ -90,7 +90,7 @@ describe('commitRunWork subjects', () => {
 		const { cwd, run } = await setupCommitRun({
 			dirty: { 'src/thing.ts': 'export const thing = 1;\n' },
 			changedFiles: ['src/thing.ts'],
-			plan: '.lightsout/tickets/legacy-notes/plans/plan.md',
+			plan: '.lightsout/work-orders/legacy-notes/plans/plan.md',
 		});
 
 		const uncommitted = await commitRunWork({ run, resumed: false });

@@ -1,7 +1,7 @@
 import { relative, sep } from 'node:path';
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
-import { ticketsDir } from '#src/common/workspace/ticketsDir.ts';
+import { workOrdersDir } from '#src/common/workspace/workOrdersDir.ts';
 import { resolveRecordedPlanPath } from '#src/plan/common/paths/resolveRecordedPlanPath.ts';
 
 interface Params {
@@ -17,10 +17,10 @@ interface Params {
  * `planWorkspaceDir` and `planWorkspacePath` build a path from a name; this
  * reads a name back out of one, so the rules that are about a plan's name — the
  * ticket it carries above all — can be asked of a command that takes a path
- * instead. It asks `ticketsDir` rather than writing the prefix again, and
+ * instead. It asks `workOrdersDir` rather than writing the prefix again, and
  * resolves the given value through `resolveRecordedPlanPath` so that a
  * tickets-directory path handed from a linked worktree is rooted where
- * `ticketsDir` answers: rooting the two differently would relativise every such
+ * `workOrdersDir` answers: rooting the two differently would relativise every such
  * path to a walk-up and read as no plan at all.
  *
  * A path inside a plan subfolder of a ticket's plans folder answers that plan's
@@ -39,16 +39,16 @@ interface Params {
  * is nobody's convention to keep.
  */
 export const planNameFromPath = async ({ cwd, planPath }: Params): Promise<string | undefined> => {
-	const fromTicketsDir = relative(await ticketsDir({ cwd }), await resolveRecordedPlanPath({ cwd, path: planPath }));
-	const [ticketBranch, folder, planId] = fromTicketsDir.split(sep);
+	const fromTicketsDir = relative(await workOrdersDir({ cwd }), await resolveRecordedPlanPath({ cwd, path: planPath }));
+	const [workOrderName, folder, planId] = fromTicketsDir.split(sep);
 
 	// `relative` walks up with `..` segments, and answers an absolute path
 	// outright across a Windows drive change — whose first segment is '' here.
-	if (ticketBranch === undefined || ticketBranch === '' || ticketBranch === '..' || folder !== 'plans') {
+	if (workOrderName === undefined || workOrderName === '' || workOrderName === '..' || folder !== 'plans') {
 		return undefined;
 	}
 
-	const address = planId === undefined ? undefined : formatPlanAddress({ ticketBranch, planId });
+	const address = planId === undefined ? undefined : formatPlanAddress({ workOrderName, planId });
 
-	return address !== undefined && parsePlanAddress({ name: address }) !== undefined ? address : ticketBranch;
+	return address !== undefined && parsePlanAddress({ name: address }) !== undefined ? address : workOrderName;
 };

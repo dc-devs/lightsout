@@ -216,10 +216,10 @@ const setupShippingWorktree = async ({ shipStartedAt, onDisk = true }: { shipSta
 	const worktreePath = onDisk ? checkout : join(checkout, 'removed-worktree');
 
 	if (onDisk) {
-		const ticketFolder = join(worktreePath, '.lightsout', 'tickets', branch);
+		const workOrderFolder = join(worktreePath, '.lightsout', 'work-orders', branch);
 
-		await mkdir(ticketFolder, { recursive: true });
-		await writeFile(join(ticketFolder, 'ship-progress.json'), `${JSON.stringify(shippingRecord({ startedAt: shipStartedAt }), null, '\t')}\n`, 'utf8');
+		await mkdir(workOrderFolder, { recursive: true });
+		await writeFile(join(workOrderFolder, 'ship-progress.json'), `${JSON.stringify(shippingRecord({ startedAt: shipStartedAt }), null, '\t')}\n`, 'utf8');
 		await seedRunDir({ cwd: worktreePath, manifest: manifestOf({ ...runs.b, createdAt: '2026-09-10T10:22:00.000Z' }) });
 	}
 

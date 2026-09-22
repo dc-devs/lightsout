@@ -15,8 +15,8 @@ interface Params {
  * because a fixture already knows — it is the directory it just created.
  */
 export const planWorkspaceFolder = ({ cwd, name }: Params): string => {
-	const [ticketBranch, planId] = name.split('/');
-	const plansFolder = join(cwd, '.lightsout', 'tickets', ticketBranch ?? name, 'plans');
+	const [workOrderName, planId] = name.split('/');
+	const plansFolder = join(cwd, '.lightsout', 'work-orders', workOrderName ?? name, 'plans');
 
 	return planId === undefined ? plansFolder : join(plansFolder, planId);
 };

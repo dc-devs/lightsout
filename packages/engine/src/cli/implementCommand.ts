@@ -1,6 +1,6 @@
 import { finishImplementRun } from '#src/cli/common/implementRun/finishImplementRun.ts';
 import { openImplementWorkspace } from '#src/cli/common/implementRun/openImplementWorkspace.ts';
-import { reportTicketPlanOutcome } from '#src/cli/common/implementRun/reportTicketPlanOutcome.ts';
+import { reportWorkOrderPlanOutcome } from '#src/cli/common/implementRun/reportWorkOrderPlanOutcome.ts';
 import { resolveImplementInputs } from '#src/cli/common/implementRun/resolveImplementInputs.ts';
 import { printPlanTicketWarning } from '#src/cli/common/render/printPlanTicketWarning.ts';
 import { printRunStart } from '#src/cli/common/render/printRunStart.ts';
@@ -161,7 +161,7 @@ export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<
 			}),
 	});
 
-	const result = reportTicketPlanOutcome({ outcome });
+	const result = reportWorkOrderPlanOutcome({ outcome });
 
 	if (result === undefined) {
 		return exitCli({ code: 1 });

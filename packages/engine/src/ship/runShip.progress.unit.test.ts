@@ -31,11 +31,11 @@ jest.mock('#src/common/git/readGitHeadCommit.ts', () => ({
 const { redChecks, staleBase } = shipScenarioFixtures;
 
 /** The branch's ticket folder, where its shipping record is filed beside its ship result. */
-const ticketFolder = ({ cwd }: { cwd: string }) => join(cwd, '.lightsout', 'tickets', 'lo-89-ship');
+const workOrderFolder = ({ cwd }: { cwd: string }) => join(cwd, '.lightsout', 'work-orders', 'lo-89-ship');
 
 /** The scenario branch's record, read off disk and held to its contract. */
 const readRecord = ({ cwd }: { cwd: string }): ShippingProgress =>
-	ShippingProgress.parse(JSON.parse(readFileSync(join(ticketFolder({ cwd }), 'ship-progress.json'), 'utf8')));
+	ShippingProgress.parse(JSON.parse(readFileSync(join(workOrderFolder({ cwd }), 'ship-progress.json'), 'utf8')));
 
 /**
  * A green ship whose ticket folder holds a directory where the record's own
@@ -46,7 +46,7 @@ const readRecord = ({ cwd }: { cwd: string }): ShippingProgress =>
 const setupUnwritableProgress = () => {
 	const scenario = setupShip();
 
-	mkdirSync(join(ticketFolder({ cwd: scenario.cwd }), '.gitignore'), { recursive: true });
+	mkdirSync(join(workOrderFolder({ cwd: scenario.cwd }), '.gitignore'), { recursive: true });
 
 	return scenario;
 };
@@ -134,7 +134,7 @@ describe('runShip', () => {
 		const result = await ship();
 
 		expect(result).toEqual(expect.objectContaining({ status: 'blocked', reason: 'dirty-tree' }));
-		expect(existsSync(join(ticketFolder({ cwd }), 'ship-progress.json'))).toBe(false);
+		expect(existsSync(join(workOrderFolder({ cwd }), 'ship-progress.json'))).toBe(false);
 	});
 
 	test('a progress record that cannot be written changes neither the result nor the progress lines', async () => {

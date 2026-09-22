@@ -313,7 +313,7 @@ describe('pullWorkOrderState', () => {
 	test("pullWorkOrderState: a fetched record lands in the ticket's own folder", async () => {
 		const published = recordOf({ detail: 'added plan 001-published' });
 		const { params } = await setupPull({ ticket: { published } });
-		const inTicketFolder = join(params.cwd, '.lightsout', 'tickets', name, 'state.json');
+		const inTicketFolder = join(params.cwd, '.lightsout', 'work-orders', name, 'state.json');
 
 		const pulled = await pullWorkOrderState(params);
 		const readBack = await readWorkOrderState({ cwd: params.cwd, name });

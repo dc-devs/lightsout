@@ -97,7 +97,7 @@ const setupPublish = ({
 /** A publish of `demo` whose plan folder exists, so the planning record has somewhere to land. */
 const setupPublishWithPlanFolder = ({ report, withConfig }: { report?: PublishReport; withConfig?: boolean } = {}) => {
 	const published = setupPublish({ args: ['--name', 'demo'], report, withConfig });
-	const planDir = join(published.cwd, '.lightsout', 'tickets', 'demo', 'plans');
+	const planDir = join(published.cwd, '.lightsout', 'work-orders', 'demo', 'plans');
 
 	mkdirSync(planDir, { recursive: true });
 
@@ -116,7 +116,7 @@ const setupTicketPublish = ({
 	report?: TicketPublishReport;
 } = {}) => {
 	const published = setupPublish({ args: ['--name', 'lo-9-x/001-a'] });
-	const planDir = join(published.cwd, '.lightsout', 'tickets', 'lo-9-x', 'plans', '001-a');
+	const planDir = join(published.cwd, '.lightsout', 'work-orders', 'lo-9-x', 'plans', '001-a');
 
 	mkdirSync(planDir, { recursive: true });
 	mockPublishTicketPlan.mockResolvedValue(report);
@@ -389,7 +389,7 @@ describe('planPublishCommand', () => {
 
 		await expect(planPublishCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(existsSync(activityRecordPath({ dir: join(cwd, '.lightsout', 'tickets', 'demo', 'plans') }))).toBe(false);
+		expect(existsSync(activityRecordPath({ dir: join(cwd, '.lightsout', 'work-orders', 'demo', 'plans') }))).toBe(false);
 		expect(exitCodes).toStrictEqual([1]);
 	});
 });

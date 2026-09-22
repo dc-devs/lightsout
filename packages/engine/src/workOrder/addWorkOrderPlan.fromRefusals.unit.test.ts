@@ -76,7 +76,7 @@ interface SetupParams {
  */
 const setupFromRefusal = ({ sources = {}, runs = [], lock, config = localOnlyConfig }: SetupParams = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-add-plan-from-refusals-'));
-	const plansFolderOf = ({ folder }: { folder: string }) => join(cwd, '.lightsout', 'tickets', folder, 'plans');
+	const plansFolderOf = ({ folder }: { folder: string }) => join(cwd, '.lightsout', 'work-orders', folder, 'plans');
 
 	mkdirSync(plansFolderOf({ folder: name }), { recursive: true });
 
@@ -95,7 +95,7 @@ const setupFromRefusal = ({ sources = {}, runs = [], lock, config = localOnlyCon
 			runId: run.runId,
 			createdAt: '2026-01-02T00:00:00.000Z',
 			updatedAt: '2026-01-02T00:00:00.000Z',
-			plan: `.lightsout/tickets/${planName}/plans/plan.md`,
+			plan: `.lightsout/work-orders/${planName}/plans/plan.md`,
 			planName,
 			pipeline: 'implement',
 			harness: 'claude',
@@ -123,7 +123,7 @@ const setupFromRefusal = ({ sources = {}, runs = [], lock, config = localOnlyCon
 	return {
 		cwd,
 		plansFolderOf,
-		recordPath: join(cwd, '.lightsout', 'tickets', name, 'state.json'),
+		recordPath: join(cwd, '.lightsout', 'work-orders', name, 'state.json'),
 		planFolder: join(plansFolderOf({ folder: name }), planId),
 		params: { cwd, name, slug, config, env },
 	};

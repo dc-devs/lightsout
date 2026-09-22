@@ -11,7 +11,7 @@ interface Params {
 }
 
 /**
- * Write a single-file plan deliverable at `<cwd>/.lightsout/tickets/<name>/plans/plan.md`
+ * Write a single-file plan deliverable at `<cwd>/.lightsout/work-orders/<name>/plans/plan.md`
  * — with the empty decision record every read-only pass needs beside it — and
  * return the plan's folder.
  */

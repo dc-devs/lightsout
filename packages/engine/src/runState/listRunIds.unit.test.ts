@@ -29,14 +29,14 @@ describe('listRunIds', () => {
 	test("lists one ticket's runs without reading another ticket's", async () => {
 		const cwd = setupStateDirs({
 			dirs: [
-				['tickets', 'lo-155-state-layout', 'runs', 'r2-second'],
-				['tickets', 'lo-155-state-layout', 'runs', 'r1-first'],
-				['tickets', 'lo-201-other-ticket', 'runs', 'a0-other-ticket'],
+				['work-orders', 'lo-155-state-layout', 'runs', 'r2-second'],
+				['work-orders', 'lo-155-state-layout', 'runs', 'r1-first'],
+				['work-orders', 'lo-201-other-ticket', 'runs', 'a0-other-ticket'],
 				['implement', 'runs', 'a0-loose-plan'],
 			],
 		});
 
-		const runIds = await listRunIds({ cwd, ticketBranch: 'lo-155-state-layout' });
+		const runIds = await listRunIds({ cwd, workOrderName: 'lo-155-state-layout' });
 
 		expect(runIds).toStrictEqual(['r1-first', 'r2-second']);
 	});
@@ -44,9 +44,9 @@ describe('listRunIds', () => {
 	test('lists every run in every location when no ticket narrows it', async () => {
 		const cwd = setupStateDirs({
 			dirs: [
-				['tickets', 'lo-155-state-layout', 'runs', 'c3-ticket-run'],
-				['tickets', 'lo-201-other-ticket', 'runs', 'a1-other-ticket-run'],
-				['tickets', 'lo-9-no-runs-yet', 'runs'],
+				['work-orders', 'lo-155-state-layout', 'runs', 'c3-ticket-run'],
+				['work-orders', 'lo-201-other-ticket', 'runs', 'a1-other-ticket-run'],
+				['work-orders', 'lo-9-no-runs-yet', 'runs'],
 				['implement', 'runs', 'b2-loose-plan-run'],
 				['direct', 'runs', 'd4-direct-run'],
 				['refactor', 'runs', 'e5-refactor-run'],

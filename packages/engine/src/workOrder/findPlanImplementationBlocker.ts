@@ -13,7 +13,7 @@ interface Params {
 const describeLowerPlanRemedy = ({ branch, plan }: { branch: string; plan: WorkOrderPlan }) => {
 	const finish =
 		plan.implementation === undefined
-			? `\`lightsout implement --plan ${planWorkspacePath({ name: formatPlanAddress({ ticketBranch: branch, planId: plan.id }) })}\``
+			? `\`lightsout implement --plan ${planWorkspacePath({ name: formatPlanAddress({ workOrderName: branch, planId: plan.id }) })}\``
 			: `\`lightsout resume --run ${plan.implementation.runId}\``;
 
 	return `${finish}, or take it out of the order with \`lightsout work-order exclude-plan --name ${branch} --plan ${plan.id}\``;

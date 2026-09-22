@@ -29,7 +29,7 @@ const validRecord: ShippingProgress = {
 /** A checkout whose ticket folders hold one record per branch: not JSON, off-contract, or valid. */
 const setupProgressRecords = () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-shipping-progress-'));
-	const ticketsDir = join(cwd, '.lightsout', 'tickets');
+	const workOrdersDir = join(cwd, '.lightsout', 'work-orders');
 	const bodies: Record<string, string> = {
 		'lo-7-unparseable': 'not json at all',
 		'lo-7-no-steps': JSON.stringify({
@@ -44,17 +44,17 @@ const setupProgressRecords = () => {
 	};
 
 	for (const [branch, body] of Object.entries(bodies)) {
-		mkdirSync(join(ticketsDir, branch), { recursive: true });
-		writeFileSync(join(ticketsDir, branch, 'ship-progress.json'), body, 'utf8');
+		mkdirSync(join(workOrdersDir, branch), { recursive: true });
+		writeFileSync(join(workOrdersDir, branch, 'ship-progress.json'), body, 'utf8');
 	}
 
-	return { cwd, ticketsDir, branches: Object.keys(bodies) };
+	return { cwd, workOrdersDir, branches: Object.keys(bodies) };
 };
 
 /** A checkout where a folder stands at `lo-7-folder`'s record path, so the read fails with something other than a missing file. */
 const setupFolderAtRecordPath = () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-shipping-progress-'));
-	const recordPath = join(cwd, '.lightsout', 'tickets', 'lo-7-folder', 'ship-progress.json');
+	const recordPath = join(cwd, '.lightsout', 'work-orders', 'lo-7-folder', 'ship-progress.json');
 
 	mkdirSync(recordPath, { recursive: true });
 
@@ -70,7 +70,7 @@ const setupRecordInPrimary = () => {
 	const branch = 'lo-7-shipped-in-primary';
 	const { cwd } = setupBranchRepo();
 	const worktree = join(cwd, '.worktrees', branch);
-	const ticketDir = join(realpathSync(cwd), '.lightsout', 'tickets', branch);
+	const ticketDir = join(realpathSync(cwd), '.lightsout', 'work-orders', branch);
 	const progress: ShippingProgress = { ...validRecord, branch };
 
 	execSync(`git worktree add -q -b ${branch} "${worktree}" main`, { cwd, stdio: 'ignore' });
@@ -87,21 +87,21 @@ describe('readShippingProgress', () => {
 		const reading = await readShippingProgress({ cwd, branch: 'feature/lo-7' });
 
 		expect(reading).toStrictEqual({
-			path: join(cwd, '.lightsout', 'tickets', 'feature-lo-7', 'ship-progress.json'),
+			path: join(cwd, '.lightsout', 'work-orders', 'feature-lo-7', 'ship-progress.json'),
 			exists: false,
 			progress: undefined,
 		});
 	});
 
 	test('tells an unreadable or off-contract record from a valid one', async () => {
-		const { cwd, ticketsDir, branches } = setupProgressRecords();
+		const { cwd, workOrdersDir, branches } = setupProgressRecords();
 
 		const readings = await Promise.all(branches.map((branch) => readShippingProgress({ cwd, branch })));
 
 		expect(readings).toStrictEqual([
-			{ path: join(ticketsDir, 'lo-7-unparseable', 'ship-progress.json'), exists: true, progress: undefined },
-			{ path: join(ticketsDir, 'lo-7-no-steps', 'ship-progress.json'), exists: true, progress: undefined },
-			{ path: join(ticketsDir, 'lo-7-valid', 'ship-progress.json'), exists: true, progress: validRecord },
+			{ path: join(workOrdersDir, 'lo-7-unparseable', 'ship-progress.json'), exists: true, progress: undefined },
+			{ path: join(workOrdersDir, 'lo-7-no-steps', 'ship-progress.json'), exists: true, progress: undefined },
+			{ path: join(workOrdersDir, 'lo-7-valid', 'ship-progress.json'), exists: true, progress: validRecord },
 		]);
 	});
 

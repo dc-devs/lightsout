@@ -85,10 +85,10 @@ export const setupPullTicketRecord = async ({
 }: Params): Promise<PullTicketRecordFixture> => {
 	const { published, publishedText, publishedTwice = false, listFailure, assetFailure } = ticket;
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-pull-ticket-'));
-	const ticketFolder = join(cwd, '.lightsout', 'tickets', branch);
-	const recordPath = join(ticketFolder, 'state.json');
-	const syncPath = join(ticketFolder, 'state-sync.json');
-	const publishedPath = join(ticketFolder, 'state.published.json');
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', branch);
+	const recordPath = join(workOrderFolder, 'state.json');
+	const syncPath = join(workOrderFolder, 'state-sync.json');
+	const publishedPath = join(workOrderFolder, 'state.published.json');
 	const text = publishedText ?? (published === undefined ? undefined : JSON.stringify(published));
 	const carried: TrackerAttachment[] = text === undefined ? [] : [{ id: 'att-1', title: 'state.json', url: assetUrl }];
 
@@ -108,7 +108,7 @@ export const setupPullTicketRecord = async ({
 	}
 
 	if (syncedTo !== undefined) {
-		mkdirSync(ticketFolder, { recursive: true });
+		mkdirSync(workOrderFolder, { recursive: true });
 		writeFileSync(
 			syncPath,
 			JSON.stringify({ schemaVersion: 1, recordSha256: sha256({ content: await canonicalTicketRecordText({ record: syncedTo }) }), planMarkers: {} }),

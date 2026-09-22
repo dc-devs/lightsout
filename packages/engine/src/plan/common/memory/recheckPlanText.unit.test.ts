@@ -9,7 +9,7 @@ const overviewText = `# Overview\n\n${overviewLine}\n`;
 
 /** A two-phase deliverable with an overview — the shape a record's phase label is looked up against. */
 const setupDeliverable = ({ overview = overviewText }: { overview?: string } = {}) => {
-	const planDir = join('/repo', '.lightsout', 'tickets', 'lo-126', 'plans');
+	const planDir = join('/repo', '.lightsout', 'work-orders', 'lo-126', 'plans');
 
 	return {
 		files: [

@@ -66,7 +66,7 @@ const pricingConfig = {
 const setupReport = ({ args, config }: { args: string[]; config?: Record<string, unknown> }) => {
 	const captured = captureCommandOutput();
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-report-command-'));
-	const planDir = join(cwd, '.lightsout', 'tickets', 'lo-150-observability', 'plans', '001-report');
+	const planDir = join(cwd, '.lightsout', 'work-orders', 'lo-150-observability', 'plans', '001-report');
 
 	if (config) {
 		writeFileSync(join(cwd, 'lightsout.config.json'), JSON.stringify(config));
@@ -107,13 +107,13 @@ test('reportCommand: --json prints the same totals as data and no table', async 
 
 	const payload = JSON.parse(logged.join('\n')) as {
 		target: string;
-		ticketFolder: boolean;
+		workOrderFolder: boolean;
 		plans: { name: string; report: { totals: unknown } }[];
 	};
 
 	expect(exitCodes).toStrictEqual([0]);
 	expect(errors).toStrictEqual([]);
-	expect(payload).toEqual(expect.objectContaining({ target: planAddress, ticketFolder: false }));
+	expect(payload).toEqual(expect.objectContaining({ target: planAddress, workOrderFolder: false }));
 	expect(payload.plans).toHaveLength(1);
 	expect(payload.plans[0]).toEqual(expect.objectContaining({ name: planAddress }));
 	// the same figures the table prints: seventy seconds of wall time, sixty of
@@ -176,7 +176,7 @@ test('reportCommand: an unknown plan name prints the error and exits 1', async (
 	// the name that was asked for and the directory that answered, so a reader
 	// can see which checkout was searched
 	expect(errors[0]).toContain('lo-999-missing/001-nothing');
-	expect(errors[0]).toContain(join(cwd, '.lightsout', 'tickets'));
+	expect(errors[0]).toContain(join(cwd, '.lightsout', 'work-orders'));
 	expect(exitCodes).toStrictEqual([1]);
 });
 

@@ -174,7 +174,7 @@ test('plan grade: a failed resolve still hands back a plan workspace that exists
 	expectStatus(result, 'failed');
 	// the workspace is created before the deliverable is resolved, so a failure
 	// names a folder a human can really go and look in
-	expect(result.workspaceDir).toBe(join(cwd, '.lightsout', 'tickets', 'ghost-workspace', 'plans'));
+	expect(result.workspaceDir).toBe(join(cwd, '.lightsout', 'work-orders', 'ghost-workspace', 'plans'));
 	expect(existsSync(result.workspaceDir)).toBe(true);
 });
 

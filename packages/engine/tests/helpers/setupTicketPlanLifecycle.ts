@@ -20,10 +20,10 @@ import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 export type MockedReadGitHeadCommit = jest.Mock<(params: { cwd: string }) => Promise<string | undefined>>;
 
 /** The ticket folder's name, which is also the branch every record below names. */
-export const ticketBranch = 'lo-140-multi';
+export const workOrderName = 'lo-140-multi';
 export const firstPlan = '001-lifecycle';
 export const secondPlan = '002-queue-order';
-export const address = `${ticketBranch}/${firstPlan}`;
+export const address = `${workOrderName}/${firstPlan}`;
 /** What `git rev-parse HEAD` answers in the checkout a run builds in. */
 export const headCommit = '9f1c0a7d3b6e4152a8c07d5b9e2f4a6c1d3e5f70';
 /** Where the ticket branch stood when an earlier run of plan 001 began, before HEAD moved on. */
@@ -58,7 +58,7 @@ export const planOf = ({
 const recordOf = ({ mode, plans }: { mode: WorkOrderMode; plans: WorkOrderPlan[] }): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
-	branch: ticketBranch,
+	branch: workOrderName,
 	mode,
 	plans,
 	history: [{ at: '2026-01-01T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: `added plan ${firstPlan}` }],
@@ -136,8 +136,8 @@ export const setupTicketPlanLifecycle = async (setup: LifecycleSetup) => {
 	// back and it could never reach the refusal it names.
 	const head = 'head' in setup ? setup.head : headCommit;
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-plan-lifecycle-'));
-	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
-	const recordPath = join(ticketFolder, 'state.json');
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', workOrderName);
+	const recordPath = join(workOrderFolder, 'state.json');
 	const planFolder = planWorkspaceFolder({ cwd: cwd, name: name });
 
 	// Reading HEAD is the one await between the record's first read and the locked
@@ -159,12 +159,12 @@ export const setupTicketPlanLifecycle = async (setup: LifecycleSetup) => {
 	}
 
 	if (plans !== undefined) {
-		await updateLocalWorkOrderState({ cwd, name: ticketBranch, change: () => recordOf({ mode, plans }) });
+		await updateLocalWorkOrderState({ cwd, name: workOrderName, change: () => recordOf({ mode, plans }) });
 	}
 
 	if (planMarkers !== undefined) {
-		mkdirSync(ticketFolder, { recursive: true });
-		writeFileSync(join(ticketFolder, 'state-sync.json'), JSON.stringify({ schemaVersion: 1, planMarkers }));
+		mkdirSync(workOrderFolder, { recursive: true });
+		writeFileSync(join(workOrderFolder, 'state-sync.json'), JSON.stringify({ schemaVersion: 1, planMarkers }));
 	}
 
 	if (corrupt) {

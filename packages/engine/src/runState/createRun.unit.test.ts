@@ -113,7 +113,7 @@ describe('createRun', () => {
 
 		const inPlan = await createRun({
 			cwd,
-			plan: join('.lightsout', 'tickets', 'lo-155-recorded-plan-name', 'plans', '001-recorded-plan-name', 'plan.md'),
+			plan: join('.lightsout', 'work-orders', 'lo-155-recorded-plan-name', 'plans', '001-recorded-plan-name', 'plan.md'),
 			driver: 'stub',
 		});
 		const outsidePlan = await createRun({ cwd, plan: 'refactor-work-list.md', pipeline: 'refactor', driver: 'stub' });
@@ -263,13 +263,13 @@ describe('createRun', () => {
 
 		const manifest = await createRun({
 			cwd,
-			plan: join('.lightsout', 'tickets', 'lo-155-run-directories', 'plans', '001-run-directories', 'plan.md'),
+			plan: join('.lightsout', 'work-orders', 'lo-155-run-directories', 'plans', '001-run-directories', 'plan.md'),
 			driver: 'stub',
 		});
 		const runDir = await resolveRunDir({ cwd, runId: manifest.runId });
 
 		// the run of a plan is filed under the ticket that plan belongs to
-		expect(runDir).toBe(join(cwd, '.lightsout', 'tickets', 'lo-155-run-directories', 'runs', manifest.runId));
+		expect(runDir).toBe(join(cwd, '.lightsout', 'work-orders', 'lo-155-run-directories', 'runs', manifest.runId));
 		// and it is on disk, answered by id in the same process the run was made in
 		expect(existsSync(runDir)).toBeTruthy();
 	});
@@ -291,7 +291,7 @@ describe('createRun', () => {
 		const manifest = await createRun({ cwd, plan: 'ticket.md', pipeline: 'direct', ticketRef: 'LO-155', driver: 'stub' });
 
 		// the branch a direct run is built on IS its ticket folder's name
-		expect(existsSync(join(cwd, '.lightsout', 'tickets', 'lo-155-direct-ticket', 'runs', manifest.runId, 'manifest.json'))).toBeTruthy();
+		expect(existsSync(join(cwd, '.lightsout', 'work-orders', 'lo-155-direct-ticket', 'runs', manifest.runId, 'manifest.json'))).toBeTruthy();
 		// the direct command's own folder is only for a run with no ticket to file under
 		expect(existsSync(join(cwd, '.lightsout', 'direct', 'runs', manifest.runId))).toBeFalsy();
 	});

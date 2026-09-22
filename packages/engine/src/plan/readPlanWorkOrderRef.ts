@@ -1,4 +1,4 @@
-import { ticketFolderOf } from '#src/common/planAddress/ticketFolderOf.ts';
+import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 import { readTicketMatch } from '#src/ship/index.ts';
 
 interface Params {
@@ -28,5 +28,5 @@ interface Params {
  * and guarding against it here would be a second rule about what a ticket id
  * looks like — the drift this reader exists to prevent.
  */
-export const readPlanTicketRef = ({ name, ticketPattern }: Params): string | undefined =>
-	readTicketMatch({ branch: ticketFolderOf({ name }), ticketPattern })?.ticket;
+export const readPlanWorkOrderRef = ({ name, ticketPattern }: Params): string | undefined =>
+	readTicketMatch({ branch: workOrderNameOf({ name }), ticketPattern })?.ticket;

@@ -3,7 +3,7 @@ import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import type { PlanWorktree } from '#src/cli/plan/common/types/PlanWorktree.ts';
 import { readGitHeadCommit } from '#src/common/git/readGitHeadCommit.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
-import { ticketFolderOf } from '#src/common/planAddress/ticketFolderOf.ts';
+import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 import { isSamePath } from '#src/common/utils/isSamePath.ts';
 import { type LightsoutConfig, WorktreeOwner } from '#src/contracts/index.ts';
 import { readLiveRunLock } from '#src/runState/index.ts';
@@ -149,7 +149,7 @@ export const resolvePlanWorktree = async ({ cwd, config, flags, name, onProgress
 	}
 
 	const addressed = parsePlanAddress({ name }) !== undefined;
-	const branch = ticketFolderOf({ name });
+	const branch = workOrderNameOf({ name });
 	const treePath = await resolveWorktreePath({ cwd, branch });
 
 	if (await isSamePath({ path: cwd, otherPath: treePath })) {

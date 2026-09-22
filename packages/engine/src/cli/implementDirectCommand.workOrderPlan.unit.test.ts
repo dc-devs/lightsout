@@ -27,7 +27,7 @@ jest.mock('#src/direct/index.ts', () => ({
 // -------------------------
 
 /** The ticket folder's name, which is also the branch the build stands on. */
-const ticketBranch = 'lo-140-multi';
+const workOrderName = 'lo-140-multi';
 const planId = '001-drain-the-backlog';
 const createdAt = '2026-01-01T00:00:00.000Z';
 
@@ -37,7 +37,7 @@ const unmintedRunId = 'run-direct-unminted';
 const recordOf = ({ mode, progress }: { mode: WorkOrderMode; progress: PlanProgress }): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
-	branch: ticketBranch,
+	branch: workOrderName,
 	mode,
 	plans: [{ id: planId, title: 'Drain the backlog', progress, createdAt }],
 	history: [{ at: createdAt, kind: WorkOrderEventKind.PlanAdded, detail: `added plan ${planId}` }],
@@ -66,7 +66,7 @@ const setupBodyBuild = async ({
 	corrupt?: boolean;
 }) => {
 	const captured = captureCommandOutput();
-	const { cwd } = setupBranchRepo({ branch: ticketBranch });
+	const { cwd } = setupBranchRepo({ branch: workOrderName });
 	const runIds: string[] = [];
 
 	// Run state is ignored the way a consumer repo ignores it: the run ends in
@@ -77,13 +77,13 @@ const setupBodyBuild = async ({
 	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm setup', { cwd, stdio: 'ignore' });
 
 	const seeded = recordOf({ mode, progress });
-	const written = await updateLocalWorkOrderState({ cwd, name: ticketBranch, change: () => seeded });
+	const written = await updateLocalWorkOrderState({ cwd, name: workOrderName, change: () => seeded });
 
 	if ('error' in written) {
 		throw new Error(written.error);
 	}
 
-	const recordPath = join(cwd, '.lightsout', 'tickets', ticketBranch, 'state.json');
+	const recordPath = join(cwd, '.lightsout', 'work-orders', workOrderName, 'state.json');
 
 	if (corrupt) {
 		writeFileSync(recordPath, '{ half a record');
@@ -107,12 +107,12 @@ describe('implementDirectCommand ticket plan lifecycle', () => {
 
 		await expect(implementDirectCommand(single.context)).rejects.toThrow(/process\.exit/);
 
-		const singleRecord = await readWorkOrderState({ cwd: single.cwd, name: ticketBranch });
+		const singleRecord = await readWorkOrderState({ cwd: single.cwd, name: workOrderName });
 		const multiple = await setupBodyBuild({ mode: WorkOrderMode.MultiplePlan });
 
 		await expect(implementDirectCommand(multiple.context)).rejects.toThrow(/process\.exit/);
 
-		const multipleRecord = await readWorkOrderState({ cwd: multiple.cwd, name: ticketBranch });
+		const multipleRecord = await readWorkOrderState({ cwd: multiple.cwd, name: workOrderName });
 
 		// single-plan mode means plan 001 supplies the implementation however it is
 		// built, so the body build is recorded under the run it actually created —
@@ -134,7 +134,7 @@ describe('implementDirectCommand ticket plan lifecycle', () => {
 		// the plan's implementation already finished, so this build is not it: the
 		// command runs as it always has, under an id nobody minted for it, and the
 		// finish already on the record is not overwritten by a second one
-		expect(await readWorkOrderState({ cwd, name: ticketBranch })).toStrictEqual({ record: seeded });
+		expect(await readWorkOrderState({ cwd, name: workOrderName })).toStrictEqual({ record: seeded });
 		expect(runIds).toStrictEqual([unmintedRunId]);
 	});
 

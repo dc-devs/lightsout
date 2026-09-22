@@ -104,9 +104,9 @@ test('cli: resume names an unknown run id instead of failing on the file it trie
 // this folder, without spawning a harness binary.
 const seedTicketFolderRun = async () => {
 	const cwd = await freshCwd();
-	const ticketBranch = 'lo-900-parked-ticket';
+	const workOrderName = 'lo-900-parked-ticket';
 	const runId = 'ticketrun-parked-0001';
-	const runDir = join(cwd, '.lightsout', 'tickets', ticketBranch, 'runs', runId);
+	const runDir = join(cwd, '.lightsout', 'work-orders', workOrderName, 'runs', runId);
 	const now = new Date().toISOString();
 
 	await mkdir(runDir, { recursive: true });

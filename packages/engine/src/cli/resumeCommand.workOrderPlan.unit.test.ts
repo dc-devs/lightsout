@@ -64,7 +64,7 @@ jest.mock('#src/cli/common/utils/exitAfterImplement.ts', () => ({
 // -------------------------
 
 /** The ticket's branch, which is also its folder's name under the plans directory. */
-const ticketBranch = 'lo-140-multi';
+const workOrderName = 'lo-140-multi';
 
 /** The two plan ids these cases address, and the addresses they are named by. */
 const planOne = '001-ticket-record';
@@ -74,7 +74,7 @@ const planTwo = '002-plan-addressing';
 const otherMachineMarker = 'a3'.repeat(32);
 
 /** Where one plan's deliverable sits, relative to the checkout the run builds in. */
-const planPath = ({ planId }: { planId: string }) => join('.lightsout', 'tickets', ticketBranch, 'plans', planId, 'plan.md');
+const planPath = ({ planId }: { planId: string }) => join('.lightsout', 'work-orders', workOrderName, 'plans', planId, 'plan.md');
 
 /** The ticket body a direct run froze beside itself — the plan path a build from the ticket body records. */
 const frozenTicketPath = join('.lightsout', 'runs', runId, 'ticket.md');
@@ -107,7 +107,7 @@ const planWith = ({
 
 /** The ticket's record as it stands on disk in the checkout the run builds in. */
 const readRecord = ({ workspace }: { workspace: string }): WorkOrderState =>
-	JSON.parse(readFileSync(join(workspace, '.lightsout', 'tickets', ticketBranch, 'state.json'), 'utf8'));
+	JSON.parse(readFileSync(join(workspace, '.lightsout', 'work-orders', workOrderName, 'state.json'), 'utf8'));
 
 /**
  * A linked worktree of the ticket's checkout — the workspace an isolated run
@@ -162,15 +162,15 @@ const setupTicketResume = ({
 }) => {
 	const { plan, status, willShip, pipeline = PipelineKind.Implement } = parked;
 
-	const { cwd: primary } = setupBranchRepo({ branch: ticketBranch });
+	const { cwd: primary } = setupBranchRepo({ branch: workOrderName });
 
 	writeRepoFile({ cwd: primary, path: '.gitignore', content: '.lightsout/\n' });
 	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm ignore', { cwd: primary, stdio: 'ignore' });
 
 	const workspace = isolated ? cutRunWorktree({ primary }) : primary;
-	const record: WorkOrderState = { schemaVersion: 1, ticketRef: 'LO-140', branch: ticketBranch, mode, plans, history: [] };
+	const record: WorkOrderState = { schemaVersion: 1, ticketRef: 'LO-140', branch: workOrderName, mode, plans, history: [] };
 
-	writeRepoFile({ cwd: primary, path: join('.lightsout', 'tickets', ticketBranch, 'state.json'), content: JSON.stringify(record) });
+	writeRepoFile({ cwd: primary, path: join('.lightsout', 'work-orders', workOrderName, 'state.json'), content: JSON.stringify(record) });
 
 	for (const entry of plans) {
 		writeRepoFile({ cwd: primary, path: planPath({ planId: entry.id }), content: `# ${entry.title}\n` });
@@ -178,7 +178,7 @@ const setupTicketResume = ({
 
 	const seeded = setupResume({
 		args: ['--run', runId],
-		manifest: manifestOf({ pipeline, status, plan, ticketRef: 'LO-140', branch: ticketBranch, workspace, willShip }),
+		manifest: manifestOf({ pipeline, status, plan, ticketRef: 'LO-140', branch: workOrderName, workspace, willShip }),
 	});
 
 	writeRepoFile({ cwd: seeded.cwd, path: frozenTicketPath, content: '# Support multiple plans\n\nBuild the thing.\n' });
@@ -187,11 +187,11 @@ const setupTicketResume = ({
 	mockExitAfterImplement.mockResolvedValue(undefined);
 	mockRunPipelineOrFailFast.mockResolvedValue({
 		ok: true,
-		manifest: manifestOf({ pipeline: PipelineKind.Implement, status: RunStatus.Passed, plan, ticketRef: 'LO-140', branch: ticketBranch, workspace }),
+		manifest: manifestOf({ pipeline: PipelineKind.Implement, status: RunStatus.Passed, plan, ticketRef: 'LO-140', branch: workOrderName, workspace }),
 	});
 	mockRunDirectWork.mockResolvedValue({
 		ok: true,
-		manifest: manifestOf({ pipeline: PipelineKind.Direct, status: RunStatus.Passed, plan, ticketRef: 'LO-140', branch: ticketBranch, workspace }),
+		manifest: manifestOf({ pipeline: PipelineKind.Direct, status: RunStatus.Passed, plan, ticketRef: 'LO-140', branch: workOrderName, workspace }),
 	});
 
 	return { primary, workspace, seededRecord: record, ...seeded };

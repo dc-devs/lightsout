@@ -52,7 +52,7 @@ describe('planWorkspaceDir', () => {
 
 		const dir = await planWorkspaceDir({ cwd: worktree, name: 'lo-150-planning-observability' });
 
-		expect(dir).toBe(join(realpathSync(primary), '.lightsout', 'tickets', 'lo-150-planning-observability', 'plans'));
+		expect(dir).toBe(join(realpathSync(primary), '.lightsout', 'work-orders', 'lo-150-planning-observability', 'plans'));
 	});
 
 	test('falls back to the given directory when no primary checkout resolves', async () => {
@@ -60,7 +60,7 @@ describe('planWorkspaceDir', () => {
 
 		const dir = await planWorkspaceDir({ cwd, name: 'rate-limit-banner' });
 
-		expect(dir).toBe(join(cwd, '.lightsout', 'tickets', 'rate-limit-banner', 'plans'));
+		expect(dir).toBe(join(cwd, '.lightsout', 'work-orders', 'rate-limit-banner', 'plans'));
 	});
 
 	test("planWorkspaceDir: an address answers a plan subfolder and a bare name answers the ticket's plans folder", async () => {
@@ -70,8 +70,8 @@ describe('planWorkspaceDir', () => {
 		const bare = await planWorkspaceDir({ cwd, name: 'rate-limit-banner' });
 
 		expect({ addressed, bare }).toStrictEqual({
-			addressed: join(cwd, '.lightsout', 'tickets', 'lo-155-ticket-scoped-state', 'plans', '001-ticket-folder'),
-			bare: join(cwd, '.lightsout', 'tickets', 'rate-limit-banner', 'plans'),
+			addressed: join(cwd, '.lightsout', 'work-orders', 'lo-155-ticket-scoped-state', 'plans', '001-ticket-folder'),
+			bare: join(cwd, '.lightsout', 'work-orders', 'rate-limit-banner', 'plans'),
 		});
 	});
 
@@ -84,7 +84,7 @@ describe('planWorkspaceDir', () => {
 
 		const expected = {
 			checkout: realpathSync(primary),
-			below: join('.lightsout', 'tickets', 'lo-158-work-order-state', 'plans', '002-state-record'),
+			below: join('.lightsout', 'work-orders', 'lo-158-work-order-state', 'plans', '002-state-record'),
 		};
 
 		expect({ fromWorktree: splitPlanFolder(fromWorktree), fromPrimary: splitPlanFolder(fromPrimary) }).toStrictEqual({

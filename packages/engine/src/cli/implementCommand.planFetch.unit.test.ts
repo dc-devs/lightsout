@@ -53,7 +53,7 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 
 /** The plan folder every case here points `--plan` at — named after ticket lo-54, which is the key the fetch turns on. */
 const name = 'lo-54-portable-plan';
-const planPath = join('.lightsout', 'tickets', name, 'plans');
+const planPath = join('.lightsout', 'work-orders', name, 'plans');
 
 /** An overview whose Phases table names one phase file, so a restored phased plan is one a run can actually start. */
 const overviewBody = '# Feature — Overview\n\n## Phases\n\n| # | File | Scope |\n|---|------|-------|\n| 1 | `phase1-setup.md` | scope |\n';
@@ -233,7 +233,7 @@ describe('implementCommand', () => {
 	});
 
 	test('a plan folder name carrying no ticket id has no ticket to ask, and the refusal says which name it read', async () => {
-		const path = join('.lightsout', 'tickets', 'portable-plan', 'plans');
+		const path = join('.lightsout', 'work-orders', 'portable-plan', 'plans');
 		const { context, cwd, logged, errors, exitCodes } = setupFetch({ args: ['--plan', path] });
 
 		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);

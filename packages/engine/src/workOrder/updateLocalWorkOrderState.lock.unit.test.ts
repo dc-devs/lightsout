@@ -96,7 +96,7 @@ const lockedFolders: string[] = [];
 
 const setupTicketRecord = ({ record, heldBy, readOnlyFolder = false, fakeTimers = false }: SetupParams = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-ticket-lock-'));
-	const workOrderFolder = join(cwd, '.lightsout', 'tickets', name);
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
 	const recordPath = join(workOrderFolder, 'state.json');
 	const lockPath = join(workOrderFolder, 'state.lock');
 

@@ -236,7 +236,7 @@ describe('createWorktree', () => {
 		expect(await readWorktreeRecord({ cwd, branch: 'lo-70-drain' })).toEqual(
 			expect.objectContaining({ branch: 'lo-70-drain', owner: 'queue', worktreePath: created }),
 		);
-		expect(existsSync(join(cwd, '.lightsout', 'tickets', 'lo-70-drain', 'worktree.json'))).toBe(true);
+		expect(existsSync(join(cwd, '.lightsout', 'work-orders', 'lo-70-drain', 'worktree.json'))).toBe(true);
 
 		await cleanUp({ cwd, worktreesRoot, branch: 'lo-70-drain' });
 	});

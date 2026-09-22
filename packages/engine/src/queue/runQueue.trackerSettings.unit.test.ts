@@ -51,7 +51,7 @@ const mockRunWorkerWithRelay = jest.fn<() => Promise<WorkerOutcome>>();
 
 jest.mock('#src/queue/workers/runWorkerWithRelay.ts', () => ({ runWorkerWithRelay: () => mockRunWorkerWithRelay() }));
 // -------------------------
-jest.mock('#src/commit/commitTicketWork.ts', () => ({ commitTicketWork: () => Promise.resolve({ committed: true }) }));
+jest.mock('#src/commit/commitWorkOrderWork.ts', () => ({ commitWorkOrderWork: () => Promise.resolve({ committed: true }) }));
 // -------------------------
 // The branch's commit count, which decides readiness. Its own tests own what git
 // answers; here the branch is simply finished, so the drain reaches the ship

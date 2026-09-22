@@ -16,7 +16,7 @@ const finding = (overrides: Partial<StructuralFinding> = {}): StructuralFinding 
 /** The overview path, ceiling and workspace reference paths a reshape invocation is built from. */
 const setupReshape = ({
 	findings = [finding()],
-	planPaths = ['/tmp/.lightsout/tickets/widget-flag/plans/overview.md'],
+	planPaths = ['/tmp/.lightsout/work-orders/widget-flag/plans/overview.md'],
 	createdFileCeiling = 30,
 	brainstormDecisionsPath,
 }: {
@@ -28,9 +28,9 @@ const setupReshape = ({
 	findings,
 	planPaths,
 	createdFileCeiling,
-	decisionsPath: '/tmp/.lightsout/tickets/widget-flag/plans/decisions.json',
+	decisionsPath: '/tmp/.lightsout/work-orders/widget-flag/plans/decisions.json',
 	brainstormDecisionsPath,
-	factsPath: '/tmp/.lightsout/tickets/widget-flag/plans/facts.json',
+	factsPath: '/tmp/.lightsout/work-orders/widget-flag/plans/facts.json',
 });
 
 describe('buildPlanReshapeInvocation', () => {
@@ -55,7 +55,7 @@ describe('buildPlanReshapeInvocation', () => {
 
 		const { prompt } = buildPlanReshapeInvocation(params);
 
-		expect(prompt.includes('## Overview file to reshape (Edit in place)\n\n- /tmp/.lightsout/tickets/widget-flag/plans/overview.md')).toBeTruthy();
+		expect(prompt.includes('## Overview file to reshape (Edit in place)\n\n- /tmp/.lightsout/work-orders/widget-flag/plans/overview.md')).toBeTruthy();
 	});
 
 	test('several plan paths each get their own bullet, in the order given', () => {
@@ -114,8 +114,8 @@ describe('buildPlanReshapeInvocation', () => {
 
 		const { prompt } = buildPlanReshapeInvocation(params);
 
-		expect(prompt.includes('- Decisions record: /tmp/.lightsout/tickets/widget-flag/plans/decisions.json')).toBeTruthy();
-		expect(prompt.includes('- Verified facts: /tmp/.lightsout/tickets/widget-flag/plans/facts.json')).toBeTruthy();
+		expect(prompt.includes('- Decisions record: /tmp/.lightsout/work-orders/widget-flag/plans/decisions.json')).toBeTruthy();
+		expect(prompt.includes('- Verified facts: /tmp/.lightsout/work-orders/widget-flag/plans/facts.json')).toBeTruthy();
 		// an arithmetic re-split never pays for the reference content
 		expect(prompt.includes('```json')).toBeFalsy();
 	});
@@ -127,21 +127,21 @@ describe('buildPlanReshapeInvocation', () => {
 
 		expect(
 			prompt.includes(
-				'## Reference files (Read on demand)\n\n- Decisions record: /tmp/.lightsout/tickets/widget-flag/plans/decisions.json\n- Verified facts: /tmp/.lightsout/tickets/widget-flag/plans/facts.json',
+				'## Reference files (Read on demand)\n\n- Decisions record: /tmp/.lightsout/work-orders/widget-flag/plans/decisions.json\n- Verified facts: /tmp/.lightsout/work-orders/widget-flag/plans/facts.json',
 			),
 		).toBeTruthy();
 		expect(prompt.includes('Brainstorm decisions')).toBeFalsy();
 	});
 
 	test('a brainstorm path lists both decision files, the brainstorm one labelled as settled before planning', () => {
-		const params = setupReshape({ brainstormDecisionsPath: '/tmp/.lightsout/tickets/widget-flag/plans/brainstorm-decisions.json' });
+		const params = setupReshape({ brainstormDecisionsPath: '/tmp/.lightsout/work-orders/widget-flag/plans/brainstorm-decisions.json' });
 
 		const { prompt } = buildPlanReshapeInvocation(params);
 
 		// the full section pins the order: plan decisions first, brainstorm second, facts closing
 		expect(
 			prompt.includes(
-				'## Reference files (Read on demand)\n\n- Decisions record: /tmp/.lightsout/tickets/widget-flag/plans/decisions.json\n- Brainstorm decisions (settled during brainstorm, before planning began): /tmp/.lightsout/tickets/widget-flag/plans/brainstorm-decisions.json\n- Verified facts: /tmp/.lightsout/tickets/widget-flag/plans/facts.json',
+				'## Reference files (Read on demand)\n\n- Decisions record: /tmp/.lightsout/work-orders/widget-flag/plans/decisions.json\n- Brainstorm decisions (settled during brainstorm, before planning began): /tmp/.lightsout/work-orders/widget-flag/plans/brainstorm-decisions.json\n- Verified facts: /tmp/.lightsout/work-orders/widget-flag/plans/facts.json',
 			),
 		).toBeTruthy();
 	});

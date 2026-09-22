@@ -41,5 +41,5 @@ export const readBodyBuildPlanName = async ({ cwd, branch }: Params): Promise<st
 
 	const first = record.plans.find((plan) => planNumberOf({ id: plan.id }) === 1 && plan.exclusion === undefined && plan.progress !== PlanProgress.Implemented);
 
-	return first === undefined ? undefined : formatPlanAddress({ ticketBranch: branch, planId: first.id });
+	return first === undefined ? undefined : formatPlanAddress({ workOrderName: branch, planId: first.id });
 };

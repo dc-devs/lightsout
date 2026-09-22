@@ -207,7 +207,7 @@ export const addWorkOrderPlan = async ({
 		return { error: `the plan was not added to work order ${name}: the store reported no change` };
 	}
 
-	const address = formatPlanAddress({ ticketBranch: name, planId: addition.planId });
+	const address = formatPlanAddress({ workOrderName: name, planId: addition.planId });
 	const sentences = [
 		...(addition.withdrew
 			? [

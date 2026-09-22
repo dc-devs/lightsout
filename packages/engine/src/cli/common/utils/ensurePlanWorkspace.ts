@@ -1,8 +1,8 @@
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
-import { ticketFolderOf } from '#src/common/planAddress/ticketFolderOf.ts';
+import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { pathExists, planNameFromPath, planWorkspaceDir, readPlanTicketRef, restorePlanWorkspace } from '#src/plan/index.ts';
+import { pathExists, planNameFromPath, planWorkspaceDir, readPlanWorkOrderRef, restorePlanWorkspace } from '#src/plan/index.ts';
 import { resolveShipSettings } from '#src/ship/index.ts';
 import { resolveTrackerSettings, type TrackerSettings } from '#src/ticketTracker/index.ts';
 import { findBareWorkOrderFolderRefusal, pullWorkOrderState, restoreWorkOrderPlan } from '#src/workOrder/index.ts';
@@ -54,7 +54,7 @@ const readTicketSource = async ({ cwd, name, dir }: { cwd: string; name: string;
 		};
 	}
 
-	const identifier = readPlanTicketRef({ name, ticketPattern: shipSettings.ticketPattern });
+	const identifier = readPlanWorkOrderRef({ name, ticketPattern: shipSettings.ticketPattern });
 
 	return identifier === undefined
 		? {
@@ -89,11 +89,11 @@ const fetchTicketPlan = async ({
 	config: LightsoutConfig;
 	write: (line: string) => void;
 }) => {
-	const ticketBranch = ticketFolderOf({ name });
-	const pulled = await pullWorkOrderState({ cwd, name: ticketBranch, config, env: process.env, onProgress: write });
+	const workOrderName = workOrderNameOf({ name });
+	const pulled = await pullWorkOrderState({ cwd, name: workOrderName, config, env: process.env, onProgress: write });
 
 	if ('error' in pulled) {
-		return { error: `no plan at ${dir}, and the ticket record for '${ticketBranch}' could not be settled: ${pulled.error}` };
+		return { error: `no plan at ${dir}, and the ticket record for '${workOrderName}' could not be settled: ${pulled.error}` };
 	}
 
 	const restored = await restoreWorkOrderPlan({ cwd, address: name, config, env: process.env, onProgress: write });
@@ -170,7 +170,7 @@ export const ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }
 	const { config, settings, identifier } = source;
 
 	if (parsePlanAddress({ name }) !== undefined) {
-		return fetchTicketPlan({ cwd, name, dir, tree: await resolveWorktreePath({ cwd, branch: ticketFolderOf({ name }) }), identifier, config, write });
+		return fetchTicketPlan({ cwd, name, dir, tree: await resolveWorktreePath({ cwd, branch: workOrderNameOf({ name }) }), identifier, config, write });
 	}
 
 	const { restored, error } = await restorePlanWorkspace({ cwd, name, identifier, settings });

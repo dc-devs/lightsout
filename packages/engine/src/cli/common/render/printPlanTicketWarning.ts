@@ -1,6 +1,6 @@
 import { yellow } from '#src/cli/common/terminal/yellow.ts';
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
-import { readPlanTicketRef } from '#src/plan/index.ts';
+import { readPlanWorkOrderRef } from '#src/plan/index.ts';
 import { resolveShipSettings } from '#src/ship/index.ts';
 
 interface Params {
@@ -41,7 +41,7 @@ export const printPlanTicketWarning = async ({ cwd, name, write = console.log }:
 		return;
 	}
 
-	if (readPlanTicketRef({ name, ticketPattern: settings.ticketPattern }) !== undefined) {
+	if (readPlanWorkOrderRef({ name, ticketPattern: settings.ticketPattern }) !== undefined) {
 		return;
 	}
 

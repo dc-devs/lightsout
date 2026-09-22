@@ -170,13 +170,13 @@ test('prints one work-order line per subcommand between plan publish and ticket-
 	const ticketState = lines.findIndex((line) => line.startsWith('  lightsout ticket-state'));
 
 	expect(workOrder).toStrictEqual([
-		'  lightsout work-order add-plan --name <ticket-branch> --slug <slug> [--title <title>] [--from <folder>] [--cwd <path>]',
-		'  lightsout work-order mode --name <ticket-branch> --set single-plan|multiple-plan [--approve] [--cwd <path>]',
-		'  lightsout work-order request-ship --name <ticket-branch> [--plans <id,id> | --withdraw] [--cwd <path>]',
-		'  lightsout work-order exclude-plan --name <ticket-branch> --plan <id> --reason <text> [--implementation-removed] [--cwd <path>]',
-		'  lightsout work-order retitle-plan --name <ticket-branch> --plan <id> --title <title> [--cwd <path>]',
-		'  lightsout work-order show --name <ticket-branch> [--cwd <path>]',
-		'  lightsout work-order sync --name <ticket-branch> [--keep local|published] [--cwd <path>]',
+		'  lightsout work-order add-plan --name <work-order-name> --slug <slug> [--title <title>] [--from <folder>] [--cwd <path>]',
+		'  lightsout work-order mode --name <work-order-name> --set single-plan|multiple-plan [--approve] [--cwd <path>]',
+		'  lightsout work-order request-ship --name <work-order-name> [--plans <id,id> | --withdraw] [--cwd <path>]',
+		'  lightsout work-order exclude-plan --name <work-order-name> --plan <id> --reason <text> [--implementation-removed] [--cwd <path>]',
+		'  lightsout work-order retitle-plan --name <work-order-name> --plan <id> --title <title> [--cwd <path>]',
+		'  lightsout work-order show --name <work-order-name> [--cwd <path>]',
+		'  lightsout work-order sync --name <work-order-name> [--keep local|published] [--cwd <path>]',
 	]);
 	expect(lines.indexOf(workOrder[0] ?? '')).toBe(planPublish + 1);
 	expect(ticketState).toBe(planPublish + 8);
@@ -189,7 +189,7 @@ test('prints seven work-order lines with --from on add-plan and none naming adop
 	const addPlan = workOrder.filter((line) => line.startsWith('  lightsout work-order add-plan'));
 
 	expect(workOrder).toHaveLength(7);
-	expect(addPlan).toStrictEqual(['  lightsout work-order add-plan --name <ticket-branch> --slug <slug> [--title <title>] [--from <folder>] [--cwd <path>]']);
+	expect(addPlan).toStrictEqual(['  lightsout work-order add-plan --name <work-order-name> --slug <slug> [--title <title>] [--from <folder>] [--cwd <path>]']);
 	expect(workOrder.filter((line) => line.includes('adopt'))).toStrictEqual([]);
 });
 
@@ -221,13 +221,13 @@ test('renderUsage: prints the status --now line between the run and planning lin
 
 /** The seven subcommand lines as the renamed command word must spell them, in the settled order. */
 const workOrderUsageLines = [
-	'  lightsout work-order add-plan --name <ticket-branch> --slug <slug> [--title <title>] [--from <folder>] [--cwd <path>]',
-	'  lightsout work-order mode --name <ticket-branch> --set single-plan|multiple-plan [--approve] [--cwd <path>]',
-	'  lightsout work-order request-ship --name <ticket-branch> [--plans <id,id> | --withdraw] [--cwd <path>]',
-	'  lightsout work-order exclude-plan --name <ticket-branch> --plan <id> --reason <text> [--implementation-removed] [--cwd <path>]',
-	'  lightsout work-order retitle-plan --name <ticket-branch> --plan <id> --title <title> [--cwd <path>]',
-	'  lightsout work-order show --name <ticket-branch> [--cwd <path>]',
-	'  lightsout work-order sync --name <ticket-branch> [--keep local|published] [--cwd <path>]',
+	'  lightsout work-order add-plan --name <work-order-name> --slug <slug> [--title <title>] [--from <folder>] [--cwd <path>]',
+	'  lightsout work-order mode --name <work-order-name> --set single-plan|multiple-plan [--approve] [--cwd <path>]',
+	'  lightsout work-order request-ship --name <work-order-name> [--plans <id,id> | --withdraw] [--cwd <path>]',
+	'  lightsout work-order exclude-plan --name <work-order-name> --plan <id> --reason <text> [--implementation-removed] [--cwd <path>]',
+	'  lightsout work-order retitle-plan --name <work-order-name> --plan <id> --title <title> [--cwd <path>]',
+	'  lightsout work-order show --name <work-order-name> [--cwd <path>]',
+	'  lightsout work-order sync --name <work-order-name> [--keep local|published] [--cwd <path>]',
 ];
 
 test('renderUsage: prints seven work-order lines between plan publish and ticket-state, and no bare ticket command line', () => {

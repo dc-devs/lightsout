@@ -15,7 +15,7 @@ const overviewCreating = ({ counts }: { counts: number[] }) =>
 /** A plan workspace holding one authored overview, ready for the reshape loop. */
 const setupOverview = ({ overview = overviewCreating({ counts: [1] }) }: { overview?: string } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-breakdown-'));
-	const workspaceDir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
+	const workspaceDir = join(cwd, '.lightsout', 'work-orders', 'demo', 'plans');
 
 	mkdirSync(workspaceDir, { recursive: true });
 

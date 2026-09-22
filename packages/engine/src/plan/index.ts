@@ -31,7 +31,7 @@ export { durablePlanFiles, publishPlan } from '#src/plan/publish/index.ts';
 export { readBrainstormDecisions } from '#src/plan/readBrainstormDecisions.ts';
 export { readDecisions } from '#src/plan/readDecisions.ts';
 export { readPlanFacts } from '#src/plan/readPlanFacts.ts';
-export { readPlanTicketRef } from '#src/plan/readPlanTicketRef.ts';
+export { readPlanWorkOrderRef } from '#src/plan/readPlanWorkOrderRef.ts';
 export { restorePlanWorkspace } from '#src/plan/restore/index.ts';
 export { runPlanDedup } from '#src/plan/runPlanDedup.ts';
 export { runPlanGrade } from '#src/plan/runPlanGrade.ts';

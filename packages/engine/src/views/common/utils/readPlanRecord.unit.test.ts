@@ -11,10 +11,10 @@ const schema = z.object({ planName: z.string() });
 /** A workspace file entry pointing at `decisions.json`, written with whatever text a case wants inside it. */
 const seedRecord = async ({ raw }: { raw?: string }) => {
 	const cwd = await freshCwd();
-	const dir = join(cwd, '.lightsout', 'tickets', 'add-search', 'plans');
+	const dir = join(cwd, '.lightsout', 'work-orders', 'add-search', 'plans');
 	const file: PlanWorkspaceFile = {
 		name: 'decisions.json',
-		path: '.lightsout/tickets/add-search/plans/decisions.json',
+		path: '.lightsout/work-orders/add-search/plans/decisions.json',
 		bytes: 0,
 		updatedAt: '2026-01-01T00:00:00.000Z',
 	};

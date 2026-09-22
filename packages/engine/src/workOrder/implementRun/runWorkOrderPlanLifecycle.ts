@@ -183,7 +183,7 @@ export const runWorkOrderPlanLifecycle = async ({ cwd, name, resumeRunId, run }:
 		return { result: await run({ runId: resumeRunId ?? randomUUID() }) };
 	}
 
-	const { ticketBranch: workOrderName, planId } = address;
+	const { workOrderName, planId } = address;
 	const read = await readWorkOrderState({ cwd, name: workOrderName });
 
 	if ('error' in read) {

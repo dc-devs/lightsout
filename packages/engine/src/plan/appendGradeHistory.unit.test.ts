@@ -100,7 +100,7 @@ test('appendGradeHistory: the ledger is written into the plan folder, named grad
 
 	// the spelled-out path rather than the helper's own answer: a ledger written
 	// anywhere but beside grade.json is one no reader of the plan folder finds
-	const written = readFileSync(join(cwd, '.lightsout', 'tickets', 'graded', 'plans', 'grade-history.jsonl'), 'utf8');
+	const written = readFileSync(join(cwd, '.lightsout', 'work-orders', 'graded', 'plans', 'grade-history.jsonl'), 'utf8');
 
 	// the trailing newline is what makes the next pass its own line rather than a
 	// second report glued onto the end of the first

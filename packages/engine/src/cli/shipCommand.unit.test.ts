@@ -233,7 +233,7 @@ describe('shipCommand', () => {
 
 		expect(errors.some((line) => line.includes('checks-failed'))).toBe(true);
 		expect(errors).toContain('  checks: unit');
-		expect(logged.some((line) => line.includes(join('.lightsout', 'tickets', 'lo-60-ship', 'ship.json')))).toBe(true);
+		expect(logged.some((line) => line.includes(join('.lightsout', 'work-orders', 'lo-60-ship', 'ship.json')))).toBe(true);
 		expect(exitCodes).toStrictEqual([1]);
 	});
 
@@ -245,7 +245,7 @@ describe('shipCommand', () => {
 		expect(errors.some((line) => line.includes('dirty-tree') && line.includes('brainstorm-notes.md'))).toBe(true);
 		expect(errors.some((line) => line.startsWith('  checks:'))).toBe(false);
 		// the run still happened, so it still left the result file a tracker skill reads
-		expect(logged.some((line) => line.includes(join('.lightsout', 'tickets', 'lo-60-ship', 'ship.json')))).toBe(true);
+		expect(logged.some((line) => line.includes(join('.lightsout', 'work-orders', 'lo-60-ship', 'ship.json')))).toBe(true);
 		expect(exitCodes).toStrictEqual([1]);
 	});
 

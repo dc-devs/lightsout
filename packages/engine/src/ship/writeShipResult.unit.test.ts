@@ -38,7 +38,7 @@ describe('writeShipResult', () => {
 
 		const resultPath = await writeShipResult({ cwd, result });
 
-		expect(resultPath).toBe(join(cwd, '.lightsout', 'tickets', 'lo-60-ship', 'ship.json'));
+		expect(resultPath).toBe(join(cwd, '.lightsout', 'work-orders', 'lo-60-ship', 'ship.json'));
 		expect(JSON.parse(await readFile(resultPath, 'utf8'))).toStrictEqual(result);
 		expect(existsSync(join(cwd, '.lightsout', 'ship'))).toBe(false);
 	});
@@ -48,7 +48,7 @@ describe('writeShipResult', () => {
 
 		const resultPath = await writeShipResult({ cwd: worktree, result });
 
-		expect(JSON.parse(await readFile(join(primary, '.lightsout', 'tickets', 'feature-lo-60', 'ship.json'), 'utf8'))).toStrictEqual(result);
+		expect(JSON.parse(await readFile(join(primary, '.lightsout', 'work-orders', 'feature-lo-60', 'ship.json'), 'utf8'))).toStrictEqual(result);
 		expect(existsSync(join(worktree, '.lightsout'))).toBe(false);
 		expect(resultPath.startsWith(worktree)).toBe(false);
 	});
@@ -58,8 +58,8 @@ describe('writeShipResult', () => {
 
 		const resultPath = await writeShipResult({ cwd, result });
 
-		expect(resultPath).toBe(join(cwd, '.lightsout', 'tickets', 'feature-lo-60', 'ship.json'));
-		expect(readdirSync(join(cwd, '.lightsout', 'tickets'))).toStrictEqual(['feature-lo-60']);
+		expect(resultPath).toBe(join(cwd, '.lightsout', 'work-orders', 'feature-lo-60', 'ship.json'));
+		expect(readdirSync(join(cwd, '.lightsout', 'work-orders'))).toStrictEqual(['feature-lo-60']);
 	});
 
 	test('files the result under the branch it describes, creating the directory on the way', async () => {
@@ -67,7 +67,7 @@ describe('writeShipResult', () => {
 
 		const resultPath = await writeShipResult({ cwd, result });
 
-		expect(resultPath).toBe(join(cwd, '.lightsout', 'tickets', 'lo-60-ship', 'ship.json'));
+		expect(resultPath).toBe(join(cwd, '.lightsout', 'work-orders', 'lo-60-ship', 'ship.json'));
 		expect(JSON.parse(await readFile(resultPath, 'utf8'))).toStrictEqual(result);
 	});
 
@@ -76,7 +76,7 @@ describe('writeShipResult', () => {
 
 		const resultPath = await writeShipResult({ cwd, result });
 
-		expect(resultPath).toBe(join(cwd, '.lightsout', 'tickets', 'feature-lo-60', 'ship.json'));
+		expect(resultPath).toBe(join(cwd, '.lightsout', 'work-orders', 'feature-lo-60', 'ship.json'));
 	});
 
 	test('a result with no branch is filed under `unknown`, so even a run that never learned one leaves a record', async () => {
@@ -84,7 +84,7 @@ describe('writeShipResult', () => {
 
 		const resultPath = await writeShipResult({ cwd, result });
 
-		expect(resultPath).toBe(join(cwd, '.lightsout', 'tickets', 'unknown', 'ship.json'));
+		expect(resultPath).toBe(join(cwd, '.lightsout', 'work-orders', 'unknown', 'ship.json'));
 	});
 
 	test('leaves no temp file behind, because a tracker skill reading the directory would find two answers', async () => {

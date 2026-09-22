@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { commitTicketWork } from '#src/commit/index.ts';
+import { commitWorkOrderWork } from '#src/commit/index.ts';
 import { committedPaths } from '#tests/helpers/committedPaths.ts';
 import { generatedPaths } from '#tests/helpers/generatedPaths.ts';
 import { headSubject } from '#tests/helpers/headSubject.ts';
@@ -24,13 +24,13 @@ const refuseCommits = ({ cwd }: { cwd: string }) => {
 	execSync(`git config core.hooksPath ${hooks}`, { cwd, stdio: 'ignore' });
 };
 
-describe('commitTicketWork', () => {
+describe('commitWorkOrderWork', () => {
 	test('commits everything the worker changed and says it committed, so a caller can tell a commit from a no-op', async () => {
 		const { cwd, runDir } = setupTicketBranch();
 
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
 
-		const committed = await commitTicketWork({ cwd, message: 'LO-70 Drain the backlog', runDir });
+		const committed = await commitWorkOrderWork({ cwd, message: 'LO-70 Drain the backlog', runDir });
 
 		expect(committed).toStrictEqual({ committed: true });
 		expect(headSubject({ cwd })).toBe('LO-70 Drain the backlog');
@@ -40,7 +40,7 @@ describe('commitTicketWork', () => {
 		const { cwd, runDir } = setupTicketBranch();
 
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
-		await commitTicketWork({ cwd, message: "LO-70 Don't `break` $(this)", runDir });
+		await commitWorkOrderWork({ cwd, message: "LO-70 Don't `break` $(this)", runDir });
 
 		expect(readFileSync(join(runDir, 'commit-message.txt'), 'utf8')).toBe("LO-70 Don't `break` $(this)\n");
 		expect(headSubject({ cwd })).toBe("LO-70 Don't `break` $(this)");
@@ -49,11 +49,11 @@ describe('commitTicketWork', () => {
 	test('reports a tree the worker never touched rather than making an empty commit', async () => {
 		const { cwd, runDir } = setupTicketBranch();
 
-		expect(await commitTicketWork({ cwd, message: 'LO-70 nothing', runDir })).toStrictEqual({ committed: false });
+		expect(await commitWorkOrderWork({ cwd, message: 'LO-70 nothing', runDir })).toStrictEqual({ committed: false });
 	});
 
 	test('refuses a tree git cannot read, because a commit cannot be promised over one', async () => {
-		const committed = await commitTicketWork({
+		const committed = await commitWorkOrderWork({
 			cwd: '/lightsout/no/such/directory',
 			message: 'LO-70 nowhere',
 			runDir: '/lightsout/no/such/directory/.lightsout',
@@ -70,7 +70,7 @@ describe('commitTicketWork', () => {
 		// while the tree still reads as changed.
 		writeFileSync(join(cwd, '.git', 'index.lock'), '');
 
-		const committed = await commitTicketWork({ cwd, message: 'LO-70 blocked', runDir });
+		const committed = await commitWorkOrderWork({ cwd, message: 'LO-70 blocked', runDir });
 
 		expect(committed).toEqual({ error: expect.stringContaining(`git could not stage the work in ${cwd}`) });
 	});
@@ -81,7 +81,7 @@ describe('commitTicketWork', () => {
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
 		refuseCommits({ cwd });
 
-		const committed = await commitTicketWork({ cwd, message: 'LO-70 refused', runDir });
+		const committed = await commitWorkOrderWork({ cwd, message: 'LO-70 refused', runDir });
 
 		// the two refusals must never read as one: staged-but-uncommitted is a
 		// different thing for a human to fix than nothing staged at all
@@ -96,7 +96,7 @@ describe('commitTicketWork', () => {
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
 		writeRepoFile({ cwd, path: 'plugin/dist/chunk.mjs', content: '// built on the branch\n' });
 
-		const committed = await commitTicketWork({ cwd, message: 'LO-79 source only', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 source only', runDir, generated: generatedPaths });
 
 		expect(committed).toStrictEqual({ committed: true });
 		expect(committedPaths({ cwd })).toStrictEqual(['src.ts']);
@@ -108,7 +108,7 @@ describe('commitTicketWork', () => {
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
 		writeRepoFile({ cwd, path: 'plugin/dist/cli.mjs', content: '// rebuilt on the branch\n' });
 
-		const committed = await commitTicketWork({ cwd, message: 'LO-79 no stale output', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 no stale output', runDir, generated: generatedPaths });
 
 		expect(committed).toStrictEqual({ committed: true });
 		expect(readFileSync(join(cwd, 'plugin', 'dist', 'cli.mjs'), 'utf8')).toBe('// built on main\n');
@@ -120,7 +120,7 @@ describe('commitTicketWork', () => {
 
 		writeRepoFile({ cwd, path: 'plugin/dist/chunk.mjs', content: '// built on the branch\n' });
 
-		const committed = await commitTicketWork({ cwd, message: 'LO-79 build only', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 build only', runDir, generated: generatedPaths });
 
 		expect(committed).toStrictEqual({ committed: false });
 		expect(headSubject({ cwd })).toBe('ignore');
@@ -131,7 +131,7 @@ describe('commitTicketWork', () => {
 
 		writeRepoFile({ cwd, path: 'plugin/dist/chunk.mjs', content: '// built on the branch\n' });
 
-		await commitTicketWork({ cwd, message: 'LO-79 build only', runDir, generated: generatedPaths });
+		await commitWorkOrderWork({ cwd, message: 'LO-79 build only', runDir, generated: generatedPaths });
 
 		expect(execSync('git status --porcelain', { cwd }).toString()).toBe('');
 	});
@@ -141,7 +141,7 @@ describe('commitTicketWork', () => {
 
 		writeRepoFile({ cwd, path: 'plugin/dist/chunk.mjs', content: '// built on the branch\n' });
 
-		const committed = await commitTicketWork({ cwd, message: 'LO-79 no generated configured', runDir });
+		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 no generated configured', runDir });
 
 		expect(committed).toStrictEqual({ committed: true });
 		expect(committedPaths({ cwd })).toStrictEqual(['plugin/dist/chunk.mjs']);
@@ -156,7 +156,7 @@ describe('commitTicketWork', () => {
 			content: 'export const Button = () => null;\n',
 		});
 
-		const committed = await commitTicketWork({ cwd, message: 'LO-79 vendored edit', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 vendored edit', runDir, generated: generatedPaths });
 
 		expect(committed).toStrictEqual({ committed: true });
 		expect(committedPaths({ cwd })).toStrictEqual(['packages/web-app/src/common/components/ui/button.tsx']);
@@ -169,7 +169,7 @@ describe('commitTicketWork', () => {
 		writeRepoFile({ cwd, path: 'plugin/dist/chunk.mjs', content: '// built on the branch\n' });
 		writeRepoFile({ cwd, path: 'packages/web-app/src/routeTree.gen.ts', content: 'export const routeTree = 1;\n' });
 
-		const committed = await commitTicketWork({ cwd, message: 'LO-79 both shapes', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 both shapes', runDir, generated: generatedPaths });
 
 		expect(committed).toStrictEqual({ committed: true });
 		expect(committedPaths({ cwd })).toStrictEqual(['src.ts']);
@@ -181,7 +181,7 @@ describe('commitTicketWork', () => {
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
 		writeRepoFile({ cwd, path: 'plugin/dist/[slug].mjs', content: '// built on the branch\n' });
 
-		const committed = await commitTicketWork({ cwd, message: 'LO-79 glob name', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 glob name', runDir, generated: generatedPaths });
 
 		expect(committed).toStrictEqual({ committed: true });
 		expect(committedPaths({ cwd })).toStrictEqual(['src.ts']);
@@ -196,7 +196,7 @@ describe('commitTicketWork', () => {
 		writeRepoFile({ cwd, path: 'plugin/dist/chunk.mjs', content: '// built on the branch\n' });
 		writeRepoFile({ cwd, path: 'packages/web-app/src/routeTree.gen.ts', content: 'export const routeTree = 1;\n' });
 
-		await commitTicketWork({
+		await commitWorkOrderWork({
 			cwd,
 			message: 'LO-79 says what it discarded',
 			runDir,
@@ -215,7 +215,7 @@ describe('commitTicketWork', () => {
 		// fail while the tree still reads as changed.
 		writeFileSync(join(cwd, '.git', 'index.lock'), '');
 
-		const committed = await commitTicketWork({ cwd, message: 'LO-79 discard blocked', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 discard blocked', runDir, generated: generatedPaths });
 
 		expect(committed).toEqual({ error: expect.stringContaining(`git could not discard the generated changes in ${cwd}`) });
 	});
@@ -225,7 +225,7 @@ describe('commitTicketWork', () => {
 
 		writeRepoFile({ cwd, path: 'plugin/distortion.ts', content: 'export const distort = () => null;\n' });
 
-		const committed = await commitTicketWork({ cwd, message: 'LO-79 segment boundary', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 segment boundary', runDir, generated: generatedPaths });
 
 		expect(committed).toStrictEqual({ committed: true });
 		expect(committedPaths({ cwd })).toStrictEqual(['plugin/distortion.ts']);
@@ -240,7 +240,7 @@ describe('commitTicketWork', () => {
 		// output before its `git commit` was refused
 		execSync('git add -A', { cwd, stdio: 'ignore' });
 
-		const committed = await commitTicketWork({ cwd, message: 'LO-79 resumed run', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 resumed run', runDir, generated: generatedPaths });
 
 		expect(committed).toStrictEqual({ committed: true });
 		expect(committedPaths({ cwd })).toStrictEqual(['src.ts']);
@@ -256,7 +256,7 @@ describe('commitTicketWork', () => {
 		// directory alone, so nothing outside it may ride into the commit
 		writeRepoFile({ cwd: repo, path: 'unrelated.ts', content: 'export const unrelated = 1;\n' });
 
-		const committed = await commitTicketWork({
+		const committed = await commitWorkOrderWork({
 			cwd: consumer,
 			message: 'LO-152 consumer only',
 			runDir: join(consumer, '.lightsout', 'runs', 'run-1'),

@@ -24,14 +24,14 @@ describe('planDraftOutputs', () => {
 	test("a single plan is one plan.md inside the plan's own folder", async () => {
 		const outputs = await planDraftOutputs({ cwd: '/repo', name: 'add-search', variant: PlanVariant.Single });
 
-		expect(outputs).toStrictEqual([{ path: '/repo/.lightsout/tickets/add-search/plans/plan.md', variant: PlanVariant.Single }]);
+		expect(outputs).toStrictEqual([{ path: '/repo/.lightsout/work-orders/add-search/plans/plan.md', variant: PlanVariant.Single }]);
 	});
 
 	test('a phased plan gets its own folder fronted by an overview', async () => {
 		const outputs = await planDraftOutputs({ cwd: '/repo', name: 'add-search', variant: PlanVariant.Overview });
 
 		// only the entry file is dictated — the agent chooses the phase breakdown
-		expect(outputs).toStrictEqual([{ path: '/repo/.lightsout/tickets/add-search/plans/overview.md', variant: PlanVariant.Overview }]);
+		expect(outputs).toStrictEqual([{ path: '/repo/.lightsout/work-orders/add-search/plans/overview.md', variant: PlanVariant.Overview }]);
 	});
 
 	test("a draft run from a linked worktree is written into the primary checkout's plan folder", async () => {
@@ -42,7 +42,7 @@ describe('planDraftOutputs', () => {
 		// written into the tree, the drafted plan would die with the tree — and the
 		// grade that follows from another checkout would find nothing to read
 		expect(outputs).toStrictEqual([
-			{ path: join(primary, '.lightsout', 'tickets', 'lo-150-planning-observability', 'plans', 'plan.md'), variant: PlanVariant.Single },
+			{ path: join(primary, '.lightsout', 'work-orders', 'lo-150-planning-observability', 'plans', 'plan.md'), variant: PlanVariant.Single },
 		]);
 	});
 });

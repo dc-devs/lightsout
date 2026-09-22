@@ -13,7 +13,7 @@ interface Params {
 
 /**
  * Write a phased plan deliverable — an overview plus its phase files, and the
- * empty decision record beside them — into `<cwd>/.lightsout/tickets/<name>/plans/` and
+ * empty decision record beside them — into `<cwd>/.lightsout/work-orders/<name>/plans/` and
  * return the plan's folder.
  */
 export const writePhasedPlanDeliverable = ({ cwd, name, files }: Params): string => {

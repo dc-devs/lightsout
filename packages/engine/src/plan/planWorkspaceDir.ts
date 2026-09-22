@@ -29,8 +29,8 @@ interface Params {
  */
 export const planWorkspaceDir = async ({ cwd, name }: Params): Promise<string> => {
 	const address = parsePlanAddress({ name });
-	const ticketBranch = address?.ticketBranch ?? name;
-	const plansFolder = join(await workOrderFolderDir({ cwd, name: ticketBranch }), 'plans');
+	const workOrderName = address?.workOrderName ?? name;
+	const plansFolder = join(await workOrderFolderDir({ cwd, name: workOrderName }), 'plans');
 
 	return address === undefined ? plansFolder : join(plansFolder, address.planId);
 };

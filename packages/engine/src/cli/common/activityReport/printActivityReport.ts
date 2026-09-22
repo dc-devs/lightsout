@@ -11,7 +11,7 @@ interface Params {
 	/** The --plan value as given, so the heading names what the reader asked for. */
 	target: string;
 	/** True when the value addressed a ticket folder rather than one plan. */
-	ticketFolder: boolean;
+	workOrderFolder: boolean;
 	plans: PlanActivityReport[];
 	pricing?: ConfigPricing;
 }
@@ -114,8 +114,8 @@ const printTicketRow = ({ target, plans, pricing }: { target: string; plans: Pla
  * line saying so reads better than an empty table — and a ticket's missing plan
  * never stops the plans beside it from reporting.
  */
-export const printActivityReport = ({ target, ticketFolder, plans, pricing }: Params): void => {
-	if (ticketFolder) {
+export const printActivityReport = ({ target, workOrderFolder, plans, pricing }: Params): void => {
+	if (workOrderFolder) {
 		printSectionHeading({ title: target, subtitle: `${plans.length} plans` });
 		printTicketRow({ target, plans, pricing });
 	}

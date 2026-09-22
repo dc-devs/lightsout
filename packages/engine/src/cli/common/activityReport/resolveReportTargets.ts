@@ -31,7 +31,7 @@ interface Params {
  * `resolvePlanTarget`, which answers which deliverable file inside a folder a
  * run should build from — a different question.
  */
-export const resolveReportTargets = async ({ cwd, name }: Params): Promise<{ names: string[]; ticketFolder: boolean } | { error: string }> => {
+export const resolveReportTargets = async ({ cwd, name }: Params): Promise<{ names: string[]; workOrderFolder: boolean } | { error: string }> => {
 	const folder = await planWorkspaceDir({ cwd, name });
 	const children = await readdir(folder, { withFileTypes: true }).catch(() => undefined);
 
@@ -41,11 +41,11 @@ export const resolveReportTargets = async ({ cwd, name }: Params): Promise<{ nam
 
 	const plans = children
 		.filter((child) => child.isDirectory())
-		.map((child) => formatPlanAddress({ ticketBranch: name, planId: child.name }))
+		.map((child) => formatPlanAddress({ workOrderName: name, planId: child.name }))
 		.filter((address) => parsePlanAddress({ name: address }) !== undefined)
 		.sort();
 
 	// An addressed name is one plan whatever it happens to hold, so a plan folder
 	// that grew a subdirectory of its own is never read as a ticket.
-	return parsePlanAddress({ name }) !== undefined || plans.length === 0 ? { names: [name], ticketFolder: false } : { names: plans, ticketFolder: true };
+	return parsePlanAddress({ name }) !== undefined || plans.length === 0 ? { names: [name], workOrderFolder: false } : { names: plans, workOrderFolder: true };
 };

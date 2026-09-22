@@ -30,7 +30,7 @@ const setupGradedRecord = ({ drafted = true, driver = createGapCheckDriver() }: 
 		writePlanDeliverable({ cwd, name: 'demo', body: cleanPlanBody() });
 	}
 
-	return { cwd, name: 'demo', driver, planDir: join(cwd, '.lightsout', 'tickets', 'demo', 'plans'), ...captured };
+	return { cwd, name: 'demo', driver, planDir: join(cwd, '.lightsout', 'work-orders', 'demo', 'plans'), ...captured };
 };
 
 /** The folded record the plan folder holds, as a report reader would see it. */

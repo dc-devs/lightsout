@@ -34,7 +34,7 @@ const recordOf = ({ pending }: { pending: boolean }): WorkOrderState => ({
 /** Seeds the record through the store itself, so the bytes on disk are the exact form a real machine holds. */
 const setupShipRequest = async ({ pending = true }: { pending?: boolean } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-withdraw-ship-'));
-	const recordPath = join(cwd, '.lightsout', 'tickets', name, 'state.json');
+	const recordPath = join(cwd, '.lightsout', 'work-orders', name, 'state.json');
 
 	await updateLocalWorkOrderState({ cwd, name, change: () => recordOf({ pending }) });
 

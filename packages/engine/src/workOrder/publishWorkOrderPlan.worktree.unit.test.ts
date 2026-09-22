@@ -80,9 +80,9 @@ const setupPublishFromWorktree = ({ notesIn = 'primary' }: { notesIn?: 'primary'
 
 	execSync(`git worktree add -q -b ${name} "${worktree}" main`, { cwd, stdio: 'ignore' });
 
-	const primaryTicketFolder = join(realpathSync(cwd), '.lightsout', 'tickets', name);
+	const primaryTicketFolder = join(realpathSync(cwd), '.lightsout', 'work-orders', name);
 	const primaryPlanFolder = join(primaryTicketFolder, 'plans', planId);
-	const worktreePlanFolder = join(worktree, '.lightsout', 'tickets', name, 'plans', planId);
+	const worktreePlanFolder = join(worktree, '.lightsout', 'work-orders', name, 'plans', planId);
 	const assets = new Map<string, string>();
 	const progressLines: string[] = [];
 

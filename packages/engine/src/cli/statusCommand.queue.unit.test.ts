@@ -261,10 +261,10 @@ const setupAutoPlanTicket = async () => {
  */
 const setupShippingTicket = async () => {
 	const worktree = await setupWorktree();
-	const ticketFolder = join(worktree, '.lightsout', 'tickets', 'lo-7-ship');
+	const workOrderFolder = join(worktree, '.lightsout', 'work-orders', 'lo-7-ship');
 
-	await mkdir(ticketFolder, { recursive: true });
-	await writeFile(join(ticketFolder, 'ship-progress.json'), `${JSON.stringify(shippingRecord, null, '\t')}\n`, 'utf8');
+	await mkdir(workOrderFolder, { recursive: true });
+	await writeFile(join(workOrderFolder, 'ship-progress.json'), `${JSON.stringify(shippingRecord, null, '\t')}\n`, 'utf8');
 
 	const expected = await standaloneLines({ cwd: worktree, args: { shipping: 'lo-7-ship' } });
 	const ticket: QueueBoardTicket = {

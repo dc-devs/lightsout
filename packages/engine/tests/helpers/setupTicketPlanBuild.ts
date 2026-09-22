@@ -44,7 +44,7 @@ export interface TicketPlanBuildMocks {
 	runImplementPipeline: jest.Mock<(params: { planPath: string }) => Promise<PipelineResult>>;
 	runPhasesPipeline: jest.Mock<(params: { overviewPath: string }) => Promise<PipelineResult>>;
 	runDirectWork: jest.Mock<(params: DirectCall) => Promise<PipelineResult>>;
-	commitTicketWork: jest.Mock<(params: { cwd: string; message: string; runDir: string }) => Promise<CommitResult>>;
+	commitWorkOrderWork: jest.Mock<(params: { cwd: string; message: string; runDir: string }) => Promise<CommitResult>>;
 	readGitChangedFiles: jest.Mock<(params: { cwd: string }) => Promise<string[] | undefined>>;
 	restoreWorkOrderPlan: jest.Mock<(params: { cwd: string; address: string }) => Promise<{ restored: string[] } | { error: string }>>;
 }
@@ -53,7 +53,7 @@ export const config: LightsoutConfig = { gates: { check: 'true', test: 'true', '
 export const driver: Driver = { name: 'claude-code', invoke: () => Promise.resolve({ text: '', exitCode: 0 }) };
 
 /** The ticket folder's name, which is also the branch every plan below implements on. */
-export const ticketBranch = 'lo-7-search';
+export const workOrderName = 'lo-7-search';
 
 export const ticket: TicketSummary = {
 	id: 'id-7',
@@ -129,11 +129,13 @@ const buildOutcome = ({ planPath, build }: { planPath: string; build: BuildKind 
 
 /** Where one plan's `plan.md` sits in the worktree — the path a build of that plan is pointed at. */
 export const planFile = ({ cwd, planId }: { cwd: string; planId: string }): string =>
-	join(cwd, '.lightsout', 'tickets', ticketBranch, 'plans', planId, 'plan.md');
+	join(cwd, '.lightsout', 'work-orders', workOrderName, 'plans', planId, 'plan.md');
 
 /** One plan's entry in the ticket's record as it stands on disk once the call has returned. */
 export const planAt = ({ cwd, id }: { cwd: string; id: string }): WorkOrderPlan | undefined =>
-	(JSON.parse(readFileSync(join(cwd, '.lightsout', 'tickets', ticketBranch, 'state.json'), 'utf8')) as WorkOrderState).plans.find((plan) => plan.id === id);
+	(JSON.parse(readFileSync(join(cwd, '.lightsout', 'work-orders', workOrderName, 'state.json'), 'utf8')) as WorkOrderState).plans.find(
+		(plan) => plan.id === id,
+	);
 
 /**
  * A real repository standing on the ticket branch, holding the ticket's record
@@ -167,12 +169,12 @@ export const setupTicketPlanBuild = ({
 	build?: BuildKind;
 	commitResult?: CommitResult;
 }) => {
-	const { cwd } = setupBranchRepo({ branch: ticketBranch });
-	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
+	const { cwd } = setupBranchRepo({ branch: workOrderName });
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', workOrderName);
 	const record: WorkOrderState = {
 		schemaVersion: 1,
 		ticketRef: 'LO-7',
-		branch: ticketBranch,
+		branch: workOrderName,
 		mode,
 		plans,
 		...(shipRequest === undefined ? {} : { shipRequest }),
@@ -180,14 +182,14 @@ export const setupTicketPlanBuild = ({
 	};
 	const calls: string[] = [];
 
-	mkdirSync(ticketFolder, { recursive: true });
+	mkdirSync(workOrderFolder, { recursive: true });
 
 	for (const plan of plans.filter((candidate) => !missingFolders.includes(candidate.id))) {
-		mkdirSync(join(ticketFolder, 'plans', plan.id), { recursive: true });
-		writeFileSync(join(ticketFolder, 'plans', plan.id, 'plan.md'), `# ${plan.id}\n`);
+		mkdirSync(join(workOrderFolder, 'plans', plan.id), { recursive: true });
+		writeFileSync(join(workOrderFolder, 'plans', plan.id, 'plan.md'), `# ${plan.id}\n`);
 	}
 
-	writeFileSync(join(ticketFolder, 'state.json'), JSON.stringify(record));
+	writeFileSync(join(workOrderFolder, 'state.json'), JSON.stringify(record));
 
 	mocks.runImplementPipeline.mockImplementation(({ planPath }) => {
 		calls.push(`build ${planPath}`);
@@ -207,14 +209,14 @@ export const setupTicketPlanBuild = ({
 			manifest: {
 				...manifestOf({
 					status: RunStatus.Passed,
-					plan: join(runDirFor({ cwd, runId: 'run-direct', ticketBranch }), 'ticket.md'),
+					plan: join(runDirFor({ cwd, runId: 'run-direct', workOrderName }), 'ticket.md'),
 					pipeline: PipelineKind.Direct,
 				}),
 				runId: runId ?? 'run-direct',
 			},
 		});
 	});
-	mocks.commitTicketWork.mockImplementation(({ message }) => {
+	mocks.commitWorkOrderWork.mockImplementation(({ message }) => {
 		// The subject alone: the body carries the run id, which is asserted where
 		// the message is built rather than in this loop's ordering cases.
 		calls.push(`commit ${message.split('\n')[0]}`);
@@ -242,14 +244,14 @@ export const setupTicketPlanBuild = ({
 		cwd,
 		params: {
 			cwd,
-			branch: ticketBranch,
+			branch: workOrderName,
 			ticket,
 			record,
 			config,
 			env: {} as NodeJS.ProcessEnv,
 			driver,
 			driverName: 'claude-code',
-			workOrderRunDir: join(runDirFor({ cwd, runId: 'queue-run', pipeline: 'queue' }), 'tickets', 'LO-7'),
+			workOrderRunDir: join(runDirFor({ cwd, runId: 'queue-run', pipeline: 'queue' }), 'work-orders', 'LO-7'),
 		},
 	};
 };

@@ -12,8 +12,8 @@ const setupCheckout = ({ files = {} }: { files?: Record<string, string> } = {}) 
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-worktree-record-'));
 
 	for (const [branch, contents] of Object.entries(files)) {
-		mkdirSync(join(cwd, '.lightsout', 'tickets', branch), { recursive: true });
-		writeFileSync(join(cwd, '.lightsout', 'tickets', branch, 'worktree.json'), contents);
+		mkdirSync(join(cwd, '.lightsout', 'work-orders', branch), { recursive: true });
+		writeFileSync(join(cwd, '.lightsout', 'work-orders', branch, 'worktree.json'), contents);
 	}
 
 	return { cwd };
@@ -27,12 +27,12 @@ const setupCheckout = ({ files = {} }: { files?: Record<string, string> } = {}) 
 const setupLinkedWorktreeRecord = ({ branch = 'feature/lo-7-isolate' }: { branch?: string } = {}) => {
 	const { cwd: primary } = setupBranchRepo();
 	const worktree = join(primary, '.worktrees', 'lo-7-isolate');
-	const ticketFolder = join(primary, '.lightsout', 'tickets', 'feature-lo-7-isolate');
+	const workOrderFolder = join(primary, '.lightsout', 'work-orders', 'feature-lo-7-isolate');
 
 	execSync(`git worktree add -q -b ${branch} "${worktree}" main`, { cwd: primary, stdio: 'ignore' });
-	mkdirSync(ticketFolder, { recursive: true });
+	mkdirSync(workOrderFolder, { recursive: true });
 	writeFileSync(
-		join(ticketFolder, 'worktree.json'),
+		join(workOrderFolder, 'worktree.json'),
 		JSON.stringify({ branch, owner: WorktreeOwner.Implement, worktreePath: worktree, createdAt: '2026-01-01T00:00:00.000Z', startPoint: 'main' }),
 	);
 

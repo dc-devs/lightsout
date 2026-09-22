@@ -13,7 +13,7 @@ import { writeEmptyDecisions } from '#tests/helpers/writeEmptyDecisions.ts';
 // the shared cleanPlanBody's paths resolve against what this seeds.
 const seedPlanLintFixture = async ({ body }: { body: string }) => {
 	const cwd = await freshCwd();
-	const planDir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
+	const planDir = join(cwd, '.lightsout', 'work-orders', 'demo', 'plans');
 
 	await mkdir(join(cwd, 'src'), { recursive: true });
 	await mkdir(planDir, { recursive: true });

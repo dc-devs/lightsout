@@ -127,17 +127,17 @@ const setupWorktree = ({ args, refused = false }: { args: string[]; refused?: bo
  * plan. No repository stands above the temporary directory, so its own
  * `.lightsout` folder is the shared one the record is read from.
  */
-const setupTicketRecordFolder = ({ args, ticketBranch }: { args: string[]; ticketBranch: string }) => {
+const setupTicketRecordFolder = ({ args, workOrderName }: { args: string[]; workOrderName: string }) => {
 	const launched = setupPlan({ args });
-	const ticketFolder = join(launched.cwd, '.lightsout', 'tickets', ticketBranch);
+	const workOrderFolder = join(launched.cwd, '.lightsout', 'work-orders', workOrderName);
 
-	mkdirSync(ticketFolder, { recursive: true });
+	mkdirSync(workOrderFolder, { recursive: true });
 	writeFileSync(
-		join(ticketFolder, 'state.json'),
+		join(workOrderFolder, 'state.json'),
 		JSON.stringify({
 			schemaVersion: 1,
 			ticketRef: 'LO-9',
-			branch: ticketBranch,
+			branch: workOrderName,
 			mode: 'multiple-plan',
 			plans: [{ id: '001-search-basics', title: 'Search basics', progress: 'ready', createdAt: '2026-01-01T00:00:00.000Z' }],
 			history: [{ at: '2026-01-01T00:00:00.000Z', kind: 'plan-added', detail: 'added plan 001-search-basics' }],
@@ -382,7 +382,7 @@ describe('planCommand', () => {
 	});
 
 	test('planCommand: refuses a bare name whose ticket folder has a ticket record before any subcommand runs', async () => {
-		const { context, errors, exitCodes } = setupTicketRecordFolder({ args: ['publish', '--name', 'lo-9-x'], ticketBranch: 'lo-9-x' });
+		const { context, errors, exitCodes } = setupTicketRecordFolder({ args: ['publish', '--name', 'lo-9-x'], workOrderName: 'lo-9-x' });
 
 		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
 

@@ -67,7 +67,7 @@ describe('findUnfinishedSequence', () => {
 		plantSequence({
 			dir,
 			runId: 'respelled-overview-sequence',
-			plan: join(dir, '.lightsout', 'tickets', 'demo-ticket', 'plans', '001-demo', 'overview.md'),
+			plan: join(dir, '.lightsout', 'work-orders', 'demo-ticket', 'plans', '001-demo', 'overview.md'),
 			planName: 'demo-ticket/001-demo',
 		});
 		plantSequence({ dir, runId: 'other-plans-sequence', plan: overviewPath, planName: 'demo-ticket/002-other' });

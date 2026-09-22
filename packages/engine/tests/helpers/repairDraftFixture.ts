@@ -10,7 +10,7 @@ import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 /** A drafted plan on disk plus its workspace dir, ready for the repair loop. */
 export const setupRepairDraft = ({ body }: { body: string }) => {
 	const cwd = setupConsumerRepo();
-	const workspaceDir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
+	const workspaceDir = join(cwd, '.lightsout', 'work-orders', 'demo', 'plans');
 	const planPath = join(workspaceDir, 'plan.md');
 
 	mkdirSync(workspaceDir, { recursive: true });

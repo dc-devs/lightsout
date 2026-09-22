@@ -18,7 +18,7 @@ interface Params {
  *
  * @returns the run's result, or undefined when the ticket record refused the run
  */
-export const reportTicketPlanOutcome = ({ outcome }: Params): PipelineResult | undefined => {
+export const reportWorkOrderPlanOutcome = ({ outcome }: Params): PipelineResult | undefined => {
 	if ('refusal' in outcome) {
 		console.error(outcome.refusal);
 

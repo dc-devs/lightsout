@@ -14,7 +14,7 @@ import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 const setupLinkedWorktree = () => {
 	const { cwd } = setupBranchRepo();
 	const worktree = join(cwd, '.worktrees', 'lo-150-activity-record');
-	const folder = join(cwd, '.lightsout', 'tickets', 'lo-150', 'plans');
+	const folder = join(cwd, '.lightsout', 'work-orders', 'lo-150', 'plans');
 
 	mkdirSync(folder, { recursive: true });
 	writeFileSync(join(folder, 'plan.md'), '# the plan\n');
@@ -32,7 +32,7 @@ const setupLinkedWorktree = () => {
  */
 const setupTwoPlans = () => {
 	const { cwd } = setupBranchRepo();
-	const plans = join(cwd, '.lightsout', 'tickets', 'lo-150', 'plans');
+	const plans = join(cwd, '.lightsout', 'work-orders', 'lo-150', 'plans');
 
 	mkdirSync(join(plans, '001-activity-record'), { recursive: true });
 	mkdirSync(join(plans, '002-ship-report'), { recursive: true });
@@ -50,9 +50,9 @@ describe('isWholePlanRun', () => {
 		const ask = (planPath: string) => isWholePlanRun({ cwd: worktree, name: 'lo-150', planPath });
 
 		const answers = {
-			plan: await ask('.lightsout/tickets/lo-150/plans/plan.md'),
-			overview: await ask('.lightsout/tickets/lo-150/plans/overview.md'),
-			phase: await ask('.lightsout/tickets/lo-150/plans/phase1-activity-record.md'),
+			plan: await ask('.lightsout/work-orders/lo-150/plans/plan.md'),
+			overview: await ask('.lightsout/work-orders/lo-150/plans/overview.md'),
+			phase: await ask('.lightsout/work-orders/lo-150/plans/phase1-activity-record.md'),
 		};
 
 		expect(answers).toStrictEqual({ plan: true, overview: true, phase: false });
@@ -63,10 +63,10 @@ describe('isWholePlanRun', () => {
 		const ask = (planPath: string) => isWholePlanRun({ cwd, name: 'lo-150/001-activity-record', planPath });
 
 		const answers = {
-			plan: await ask('.lightsout/tickets/lo-150/plans/001-activity-record/plan.md'),
-			overview: await ask('.lightsout/tickets/lo-150/plans/001-activity-record/overview.md'),
-			phase: await ask('.lightsout/tickets/lo-150/plans/001-activity-record/phase1-activity-record.md'),
-			otherPlan: await ask('.lightsout/tickets/lo-150/plans/002-ship-report/plan.md'),
+			plan: await ask('.lightsout/work-orders/lo-150/plans/001-activity-record/plan.md'),
+			overview: await ask('.lightsout/work-orders/lo-150/plans/001-activity-record/overview.md'),
+			phase: await ask('.lightsout/work-orders/lo-150/plans/001-activity-record/phase1-activity-record.md'),
+			otherPlan: await ask('.lightsout/work-orders/lo-150/plans/002-ship-report/plan.md'),
 		};
 
 		expect(answers).toStrictEqual({ plan: true, overview: true, phase: false, otherPlan: false });

@@ -13,10 +13,10 @@ const branch = 'lo-52-status';
 const setupShipResult = ({ body }: { body?: string } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-ship-result-'));
 
-	mkdirSync(join(cwd, '.lightsout', 'tickets', branch), { recursive: true });
+	mkdirSync(join(cwd, '.lightsout', 'work-orders', branch), { recursive: true });
 
 	if (body !== undefined) {
-		writeFileSync(join(cwd, '.lightsout', 'tickets', branch, 'ship.json'), body, 'utf8');
+		writeFileSync(join(cwd, '.lightsout', 'work-orders', branch, 'ship.json'), body, 'utf8');
 	}
 
 	return { cwd };
@@ -32,9 +32,9 @@ const setupLinkedWorktreeShipResult = () => {
 	const worktree = join(primary, '.worktrees', branch);
 
 	execSync(`git worktree add -q -b ${branch} "${worktree}" main`, { cwd: primary, stdio: 'ignore' });
-	mkdirSync(join(primary, '.lightsout', 'tickets', branch), { recursive: true });
+	mkdirSync(join(primary, '.lightsout', 'work-orders', branch), { recursive: true });
 	writeFileSync(
-		join(primary, '.lightsout', 'tickets', branch, 'ship.json'),
+		join(primary, '.lightsout', 'work-orders', branch, 'ship.json'),
 		JSON.stringify({ status: ShipStatus.Shipped, branch, ticketRef: 'lo-52', prNumber: 41, mergeCommit: '0f1e2d3c', failingChecks: [] }),
 		'utf8',
 	);
@@ -84,8 +84,8 @@ describe('readShipResult', () => {
 	test('a branch whose slugged name differs from the branch name is still found', async () => {
 		const cwd = mkdtempSync(join(tmpdir(), 'lightsout-ship-result-'));
 
-		mkdirSync(join(cwd, '.lightsout', 'tickets', 'feature-x'), { recursive: true });
-		writeFileSync(join(cwd, '.lightsout', 'tickets', 'feature-x', 'ship.json'), JSON.stringify({ status: ShipStatus.Shipped, failingChecks: [] }), 'utf8');
+		mkdirSync(join(cwd, '.lightsout', 'work-orders', 'feature-x'), { recursive: true });
+		writeFileSync(join(cwd, '.lightsout', 'work-orders', 'feature-x', 'ship.json'), JSON.stringify({ status: ShipStatus.Shipped, failingChecks: [] }), 'utf8');
 
 		// results are filed under the slugged branch, and the reader slugs the same way
 		expect(await readShipResult({ cwd, branch: 'feature/x' })).toEqual(expect.objectContaining({ status: ShipStatus.Shipped }));

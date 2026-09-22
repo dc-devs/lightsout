@@ -91,7 +91,7 @@ jest.mock('#src/cli/common/render/printResult.ts', () => ({
 // -------------------------
 
 /** The plan folder every case points `--plan` at, and the branch its name yields. */
-const planFolder = join('.lightsout', 'tickets', 'lo-42-add-widgets', 'plans');
+const planFolder = join('.lightsout', 'work-orders', 'lo-42-add-widgets', 'plans');
 const branch = 'lo-42-add-widgets';
 
 /** What the plan says when the run starts. */

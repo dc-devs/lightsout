@@ -52,7 +52,7 @@ test("plan draft: a seeded brainstorm record rides the draft prompt with its row
 
 	seedPlanWorkspace({ cwd, name: 'handed-off', brainstormDecisions: { planName: 'handed-off', decisions: [brainstormRow] } });
 	writeFileSync(
-		join(cwd, '.lightsout', 'tickets', 'handed-off', 'plans', 'decisions.json'),
+		join(cwd, '.lightsout', 'work-orders', 'handed-off', 'plans', 'decisions.json'),
 		JSON.stringify({ planName: 'handed-off', decisions: [elicitationRow] }),
 	);
 
@@ -79,7 +79,7 @@ test("plan draft: no brainstorm file drafts from the plan's own rows exactly as 
 
 	seedPlanWorkspace({ cwd, name: 'no-handoff' });
 	writeFileSync(
-		join(cwd, '.lightsout', 'tickets', 'no-handoff', 'plans', 'decisions.json'),
+		join(cwd, '.lightsout', 'work-orders', 'no-handoff', 'plans', 'decisions.json'),
 		JSON.stringify({ planName: 'no-handoff', decisions: [elicitationRow] }),
 	);
 
@@ -134,7 +134,7 @@ test('plan draft: a brainstorm hand-off rides the repair invocation as a referen
 	expectDefined(repairInvocation);
 	// the brainstorm reference is the workspace path — a rebuilt Global Constraints
 	// section must draw on the rows settled during brainstorm
-	expect(repairInvocation.prompt.includes(join(cwd, '.lightsout', 'tickets', 'handoff-repair', 'plans', 'brainstorm-decisions.json'))).toBeTruthy();
+	expect(repairInvocation.prompt.includes(join(cwd, '.lightsout', 'work-orders', 'handoff-repair', 'plans', 'brainstorm-decisions.json'))).toBeTruthy();
 });
 
 test('plan draft: progress narrates how many brainstorm decisions were carried in', async () => {

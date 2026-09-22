@@ -52,7 +52,7 @@ test('a workspace no folder answers to is a not-found rather than an empty page'
 test('a file where a workspace folder should be is a not-found too, not a walk of something else', async () => {
 	const cwd = await freshCwd();
 
-	await mkdir(join(cwd, '.lightsout', 'tickets', name), { recursive: true });
+	await mkdir(join(cwd, '.lightsout', 'work-orders', name), { recursive: true });
 	await writeFile(planWorkspaceFolder({ cwd, name }), 'a file, not a folder', 'utf8');
 
 	await expect(getPlanWorkspace({ cwd, name })).rejects.toThrow(PlanWorkspaceNotFoundError);
@@ -129,8 +129,11 @@ test('a phased workspace hands back its overview and its phase files in numeric 
 test('the runs that implemented the plan come back with it, and the folder they were read from is absolute', async () => {
 	const { cwd, dir } = await seedWorkspace({ files: { 'overview.md': '# overview' } });
 
-	await seedRunDir({ cwd, manifest: { runId: 'run-one', plan: `.lightsout/tickets/${name}/plans/phase1-a.md`, planName: name, status: RunStatus.Passed } });
-	await seedRunDir({ cwd, manifest: { runId: 'run-elsewhere', plan: '.lightsout/tickets/other/plans/plan.md', planName: 'other', status: RunStatus.Passed } });
+	await seedRunDir({ cwd, manifest: { runId: 'run-one', plan: `.lightsout/work-orders/${name}/plans/phase1-a.md`, planName: name, status: RunStatus.Passed } });
+	await seedRunDir({
+		cwd,
+		manifest: { runId: 'run-elsewhere', plan: '.lightsout/work-orders/other/plans/plan.md', planName: 'other', status: RunStatus.Passed },
+	});
 	const view = await getPlanWorkspace({ cwd, name });
 
 	expect({ runs: view.runs.map((run) => run.runId), rootPath: view.rootPath, stage: view.listing.stage }).toStrictEqual({
@@ -168,11 +171,11 @@ test('the notes a brainstorm left come back with the workspace, sized rather tha
 });
 
 /** A ticket folder on disk, holding one plan subfolder per name given. */
-const seedTicketFolder = async ({ ticketBranch, planIds }: { ticketBranch: string; planIds: string[] }) => {
+const seedTicketFolder = async ({ workOrderName, planIds }: { workOrderName: string; planIds: string[] }) => {
 	const cwd = await freshCwd();
 
 	for (const planId of planIds) {
-		const dir = join(cwd, '.lightsout', 'tickets', ticketBranch, 'plans', planId);
+		const dir = join(cwd, '.lightsout', 'work-orders', workOrderName, 'plans', planId);
 
 		await mkdir(dir, { recursive: true });
 		await writeFile(join(dir, 'plan.md'), `# ${planId}`, 'utf8');
@@ -182,20 +185,20 @@ const seedTicketFolder = async ({ ticketBranch, planIds }: { ticketBranch: strin
 };
 
 test("a plan address opens that plan's folder inside its ticket folder", async () => {
-	const { cwd } = await seedTicketFolder({ ticketBranch: 'lo-7-search', planIds: ['001-basics', '002-ranking'] });
+	const { cwd } = await seedTicketFolder({ workOrderName: 'lo-7-search', planIds: ['001-basics', '002-ranking'] });
 
 	const view = await getPlanWorkspace({ cwd, name: 'lo-7-search/001-basics' });
 
 	expect({ name: view.listing.name, plan: view.planFile?.name, rootPath: view.rootPath }).toStrictEqual({
 		name: 'lo-7-search/001-basics',
 		plan: 'plan.md',
-		rootPath: join(cwd, '.lightsout', 'tickets', 'lo-7-search', 'plans', '001-basics'),
+		rootPath: join(cwd, '.lightsout', 'work-orders', 'lo-7-search', 'plans', '001-basics'),
 	});
 });
 
 test('a name with a separator that is not a safe plan address is a not-found', async () => {
 	// the last one is seeded on disk, so only the guard can refuse it
-	const { cwd } = await seedTicketFolder({ ticketBranch: 'lo-7-search', planIds: ['not-a-plan'] });
+	const { cwd } = await seedTicketFolder({ workOrderName: 'lo-7-search', planIds: ['not-a-plan'] });
 
 	await expect(getPlanWorkspace({ cwd, name: '../001-basics' })).rejects.toThrow(PlanWorkspaceNotFoundError);
 	await expect(getPlanWorkspace({ cwd, name: 'a/b/001-basics' })).rejects.toThrow(PlanWorkspaceNotFoundError);
@@ -203,13 +206,13 @@ test('a name with a separator that is not a safe plan address is a not-found', a
 });
 
 test("a plan address counts the runs of its own folder alone, and not a sibling plan's", async () => {
-	const { cwd } = await seedTicketFolder({ ticketBranch: 'lo-7-search', planIds: ['001-basics', '002-ranking'] });
+	const { cwd } = await seedTicketFolder({ workOrderName: 'lo-7-search', planIds: ['001-basics', '002-ranking'] });
 
 	await seedRunDir({
 		cwd,
 		manifest: {
 			runId: 'run-basics',
-			plan: '.lightsout/tickets/lo-7-search/plans/001-basics/plan.md',
+			plan: '.lightsout/work-orders/lo-7-search/plans/001-basics/plan.md',
 			planName: 'lo-7-search/001-basics',
 			status: RunStatus.Passed,
 		},
@@ -218,7 +221,7 @@ test("a plan address counts the runs of its own folder alone, and not a sibling 
 		cwd,
 		manifest: {
 			runId: 'run-ranking',
-			plan: '.lightsout/tickets/lo-7-search/plans/002-ranking/plan.md',
+			plan: '.lightsout/work-orders/lo-7-search/plans/002-ranking/plan.md',
 			planName: 'lo-7-search/002-ranking',
 			status: RunStatus.Passed,
 		},
@@ -229,9 +232,9 @@ test("a plan address counts the runs of its own folder alone, and not a sibling 
 });
 
 /** One plan of a ticket on disk, in the ticket folder's plans folder. */
-const seedTicketPlan = async ({ ticketBranch, planId }: { ticketBranch: string; planId: string }) => {
+const seedTicketPlan = async ({ workOrderName, planId }: { workOrderName: string; planId: string }) => {
 	const cwd = await freshCwd();
-	const dir = join(cwd, '.lightsout', 'tickets', ticketBranch, 'plans', planId);
+	const dir = join(cwd, '.lightsout', 'work-orders', workOrderName, 'plans', planId);
 
 	await mkdir(dir, { recursive: true });
 	await writeFile(join(dir, 'plan.md'), '# plan', 'utf8');
@@ -241,13 +244,13 @@ const seedTicketPlan = async ({ ticketBranch, planId }: { ticketBranch: string; 
 };
 
 test("getPlanWorkspace: the workspace root and its file paths sit inside the ticket's plans folder", async () => {
-	const { cwd } = await seedTicketPlan({ ticketBranch: 'lo-7-search', planId: '001-basics' });
+	const { cwd } = await seedTicketPlan({ workOrderName: 'lo-7-search', planId: '001-basics' });
 
 	const view = await getPlanWorkspace({ cwd, name: 'lo-7-search/001-basics' });
 
 	expect({ rootPath: view.rootPath, plan: view.planFile?.path, phases: view.phaseFiles.map((file) => file.path) }).toStrictEqual({
-		rootPath: join(cwd, '.lightsout', 'tickets', 'lo-7-search', 'plans', '001-basics'),
-		plan: '.lightsout/tickets/lo-7-search/plans/001-basics/plan.md',
-		phases: ['.lightsout/tickets/lo-7-search/plans/001-basics/phase1-a.md'],
+		rootPath: join(cwd, '.lightsout', 'work-orders', 'lo-7-search', 'plans', '001-basics'),
+		plan: '.lightsout/work-orders/lo-7-search/plans/001-basics/plan.md',
+		phases: ['.lightsout/work-orders/lo-7-search/plans/001-basics/phase1-a.md'],
 	});
 });

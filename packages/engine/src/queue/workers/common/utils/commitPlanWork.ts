@@ -1,4 +1,4 @@
-import { buildRunCommitMessage, commitTicketWork } from '#src/commit/index.ts';
+import { buildRunCommitMessage, commitWorkOrderWork } from '#src/commit/index.ts';
 import type { WorkOrderPlanStep } from '#src/queue/workers/common/types/WorkOrderPlanStep.ts';
 
 interface Params {
@@ -20,7 +20,7 @@ export const commitPlanWork = async ({ step }: Params): Promise<string | undefin
 	const { cwd, record, plan, ticket, workOrderRunDir, config, onProgress } = step;
 	const subject = `${ticket.identifier} ${plan.id}: ${plan.title}`;
 	const runId = plan.implementation?.runId;
-	const committed = await commitTicketWork({
+	const committed = await commitWorkOrderWork({
 		cwd,
 		message: runId === undefined ? subject : buildRunCommitMessage({ subject, runId }),
 		runDir: workOrderRunDir,

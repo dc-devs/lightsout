@@ -20,7 +20,7 @@ test('buildPlanWriterInvocation: single-variant prompt carries the request, outp
 	// the writer invocation marker leads the prompt
 	expect(invocation.prompt.startsWith('# Draft input')).toBeTruthy();
 	expect(invocation.prompt.includes('## Feature request\n\nadd a foo endpoint')).toBeTruthy();
-	expect(invocation.prompt.includes('- /repo/.lightsout/tickets/foo/plans/plan.md — variant: single')).toBeTruthy();
+	expect(invocation.prompt.includes('- /repo/.lightsout/work-orders/foo/plans/plan.md — variant: single')).toBeTruthy();
 	// the decisions record is inlined as JSON
 	expect(invocation.prompt.includes('"planName": "foo-endpoint"')).toBeTruthy();
 	// the verified facts are inlined as JSON
@@ -78,17 +78,17 @@ test('buildPlanWriterInvocation: the system prompt documents the Brainstorm orig
 test('buildPlanWriterInvocation: an overview output adds the overview-only section naming that one path', () => {
 	const invocation = writerInvocation({
 		outputs: [
-			{ path: '/repo/.lightsout/tickets/foo/plans/overview.md', variant: 'overview' },
-			{ path: '/repo/.lightsout/tickets/foo/plans/phase1-contracts.md', variant: 'phase' },
+			{ path: '/repo/.lightsout/work-orders/foo/plans/overview.md', variant: 'overview' },
+			{ path: '/repo/.lightsout/work-orders/foo/plans/phase1-contracts.md', variant: 'phase' },
 		],
 	});
 
-	expect(invocation.prompt.includes('- /repo/.lightsout/tickets/foo/plans/overview.md — variant: overview')).toBeTruthy();
+	expect(invocation.prompt.includes('- /repo/.lightsout/work-orders/foo/plans/overview.md — variant: overview')).toBeTruthy();
 	// every output file gets its own bullet
-	expect(invocation.prompt.includes('- /repo/.lightsout/tickets/foo/plans/phase1-contracts.md — variant: phase')).toBeTruthy();
+	expect(invocation.prompt.includes('- /repo/.lightsout/work-orders/foo/plans/phase1-contracts.md — variant: phase')).toBeTruthy();
 	expect(invocation.prompt.includes('## Overview only')).toBeTruthy();
 	// the section names the overview path
-	expect(invocation.prompt.includes('`/repo/.lightsout/tickets/foo/plans/overview.md`')).toBeTruthy();
+	expect(invocation.prompt.includes('`/repo/.lightsout/work-orders/foo/plans/overview.md`')).toBeTruthy();
 	// and says in as many words that this spawn writes no phase file — the whole
 	// point of the two-stage draft is that separate agents author those
 	expect(invocation.prompt.includes('and nothing else — not one phase file')).toBeTruthy();
@@ -99,7 +99,7 @@ test('buildPlanWriterInvocation: an overview output adds the overview-only secti
 test('buildPlanWriterInvocation: a declaration adds the phase-authoring section with both declaration rows and the settled overview', () => {
 	const previous = { ...declarationRow(), number: 1, file: 'phase1-contracts.md', creates: ['src/contracts.ts'], exports: ['Contract'] };
 	const invocation = writerInvocation({
-		outputs: [{ path: '/repo/.lightsout/tickets/foo/plans/phase2-wiring.md', variant: 'phase' }],
+		outputs: [{ path: '/repo/.lightsout/work-orders/foo/plans/phase2-wiring.md', variant: 'phase' }],
 		overviewText: '# Foo — Overview\n\nOVERVIEW-SENTINEL',
 		declaration: declarationRow(),
 		previousDeclaration: previous,
@@ -107,7 +107,7 @@ test('buildPlanWriterInvocation: a declaration adds the phase-authoring section 
 
 	expect(invocation.prompt.includes('## Phase authoring')).toBeTruthy();
 	// the file this spawn owns is named, and only that one
-	expect(invocation.prompt.includes('`/repo/.lightsout/tickets/foo/plans/phase2-wiring.md`')).toBeTruthy();
+	expect(invocation.prompt.includes('`/repo/.lightsout/work-orders/foo/plans/phase2-wiring.md`')).toBeTruthy();
 	// its own row rides as the overview's JSON, never a paraphrase
 	expect(invocation.prompt.includes('"file": "phase2-wiring.md"')).toBeTruthy();
 	// the previous row rides too — it is what this phase's Prerequisites state,
@@ -123,7 +123,7 @@ test('buildPlanWriterInvocation: a declaration adds the phase-authoring section 
 
 test('buildPlanWriterInvocation: phase 1 is told there is no previous phase rather than handed an empty row', () => {
 	const invocation = writerInvocation({
-		outputs: [{ path: '/repo/.lightsout/tickets/foo/plans/phase1-contracts.md', variant: 'phase' }],
+		outputs: [{ path: '/repo/.lightsout/work-orders/foo/plans/phase1-contracts.md', variant: 'phase' }],
 		overviewText: '# Foo — Overview',
 		declaration: { ...declarationRow(), number: 1, file: 'phase1-contracts.md' },
 	});
@@ -161,8 +161,8 @@ test('buildPlanWriterInvocation: a lint command adds the self-lint section verba
 test('buildPlanWriterInvocation: with every optional input present, all sections land in assembly order', () => {
 	const invocation = writerInvocation({
 		outputs: [
-			{ path: '/repo/.lightsout/tickets/foo/plans/overview.md', variant: 'overview' },
-			{ path: '/repo/.lightsout/tickets/foo/plans/phase1-contracts.md', variant: 'phase' },
+			{ path: '/repo/.lightsout/work-orders/foo/plans/overview.md', variant: 'overview' },
+			{ path: '/repo/.lightsout/work-orders/foo/plans/phase1-contracts.md', variant: 'phase' },
 		],
 		standards: '## Tabs only',
 		lintCommand: 'node /repo/plugin/dist/cli.mjs plan lint --name foo-endpoint',
@@ -188,15 +188,15 @@ test('buildPlanWriterInvocation: with every optional input present, all sections
 test('buildPlanWriterInvocation: an overview listed after a phase output still drives the overview-only section', () => {
 	const invocation = writerInvocation({
 		outputs: [
-			{ path: '/repo/.lightsout/tickets/bar/plans/phase1-contracts.md', variant: 'phase' },
-			{ path: '/repo/.lightsout/tickets/bar/plans/overview.md', variant: 'overview' },
+			{ path: '/repo/.lightsout/work-orders/bar/plans/phase1-contracts.md', variant: 'phase' },
+			{ path: '/repo/.lightsout/work-orders/bar/plans/overview.md', variant: 'overview' },
 		],
 	});
 
 	// the overview is found regardless of its position in outputs
 	expect(invocation.prompt.includes('## Overview only')).toBeTruthy();
 	// the section names the overview path, not the first output
-	expect(invocation.prompt.includes('`/repo/.lightsout/tickets/bar/plans/overview.md`')).toBeTruthy();
+	expect(invocation.prompt.includes('`/repo/.lightsout/work-orders/bar/plans/overview.md`')).toBeTruthy();
 });
 
 test('buildPlanWriterInvocation: supplemental standards are inlined verbatim in their own section', () => {
@@ -226,7 +226,7 @@ test('buildPlanWriterInvocation: every occurrence of each size token is substitu
 
 test('buildPlanWriterInvocation: a declaration without the settled overview text emits no phase-authoring section', () => {
 	const invocation = writerInvocation({
-		outputs: [{ path: '/repo/.lightsout/tickets/foo/plans/phase2-wiring.md', variant: 'phase' }],
+		outputs: [{ path: '/repo/.lightsout/work-orders/foo/plans/phase2-wiring.md', variant: 'phase' }],
 		declaration: declarationRow(),
 	});
 
@@ -235,7 +235,7 @@ test('buildPlanWriterInvocation: a declaration without the settled overview text
 	// and no declaration row leaks into the prompt on its own
 	expect(invocation.prompt.includes('"file": "phase2-wiring.md"')).toBeFalsy();
 	// the output line still names the file this spawn owns
-	expect(invocation.prompt.includes('- /repo/.lightsout/tickets/foo/plans/phase2-wiring.md — variant: phase')).toBeTruthy();
+	expect(invocation.prompt.includes('- /repo/.lightsout/work-orders/foo/plans/phase2-wiring.md — variant: phase')).toBeTruthy();
 });
 
 test('buildPlanWriterInvocation: declared documentation surfaces add the template rule and the prompt brief', () => {
@@ -334,7 +334,7 @@ test('buildPlanWriterInvocation: the ledger brief allows a row on a file the pla
 
 test('buildPlanWriterInvocation: the documentation, ledger and phase-authoring briefs still land after the shared slabs move to agents/common', () => {
 	const invocation = writerInvocation({
-		outputs: [{ path: '/repo/.lightsout/tickets/foo/plans/phase2-wiring.md', variant: 'phase' }],
+		outputs: [{ path: '/repo/.lightsout/work-orders/foo/plans/phase2-wiring.md', variant: 'phase' }],
 		overviewText: '# Foo — Overview\n\nOVERVIEW-SENTINEL',
 		declaration: declarationRow(),
 		previousDeclaration: { ...declarationRow(), number: 1, file: 'phase1-contracts.md', creates: ['src/contracts.ts'], exports: ['Contract'] },

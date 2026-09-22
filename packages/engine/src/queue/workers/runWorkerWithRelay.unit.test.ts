@@ -56,7 +56,7 @@ jest.mock('#src/plan/index.ts', () => ({
 // record changes is stated in `runWorkerWithRelay.planWorker.unit.test.ts`.
 interface PullTicketRecordParams {
 	cwd: string;
-	ticketBranch: string;
+	workOrderName: string;
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
 	onProgress?: (message: string) => void;
@@ -164,7 +164,7 @@ const runWorker = ({
 		relay,
 		coordinatorRunId: 'run-q',
 		coordinatorRunDir,
-		workOrderRunDir: join(coordinatorRunDir, 'tickets', ticket.identifier),
+		workOrderRunDir: join(coordinatorRunDir, 'work-orders', ticket.identifier),
 		env: {},
 	});
 
@@ -241,8 +241,8 @@ describe('runWorkerWithRelay', () => {
 		const { relay, coordinatorRunDir } = setupRelay();
 		const worktreePath = mkdtempSync(join(tmpdir(), 'lightsout-plan-worker-'));
 
-		mkdirSync(join(worktreePath, '.lightsout', 'tickets', 'lo-70-drain', 'plans'), { recursive: true });
-		writeFileSync(join(worktreePath, '.lightsout', 'tickets', 'lo-70-drain', 'plans', 'plan.md'), '# Plan\n');
+		mkdirSync(join(worktreePath, '.lightsout', 'work-orders', 'lo-70-drain', 'plans'), { recursive: true });
+		writeFileSync(join(worktreePath, '.lightsout', 'work-orders', 'lo-70-drain', 'plans', 'plan.md'), '# Plan\n');
 		mockRunPlanFolderPipeline.mockResolvedValue({});
 
 		expect(await runWorker({ relay, coordinatorRunDir, worktreePath, ticket: ticketOf(QueueWorker.Plan) })).toStrictEqual({});

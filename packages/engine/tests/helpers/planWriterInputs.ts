@@ -16,7 +16,7 @@ const planDecisions = (): DecisionsRecord => ({
 });
 
 /** The one dictated output path of a single-plan spawn. */
-const singlePlanOutput = () => [{ path: '/repo/.lightsout/tickets/foo/plans/plan.md', variant: 'single' as const }];
+const singlePlanOutput = () => [{ path: '/repo/.lightsout/work-orders/foo/plans/plan.md', variant: 'single' as const }];
 
 /** The two engine-owned size numbers every spawn is assembled with. */
 const planLimits = () => ({ executorFileLimit: 50, createdFileCeiling: 30 });

@@ -95,7 +95,7 @@ test('a relative --plan is recorded exactly as named — the form it always had'
 });
 
 /** The plan folder the primary checkout holds, in the form run state records it. */
-const planFolder = join('.lightsout', 'tickets', 'lo-150-observability', 'plans');
+const planFolder = join('.lightsout', 'work-orders', 'lo-150-observability', 'plans');
 
 /**
  * The same run, arranged the way one really works now: the plan folder stays in
@@ -169,6 +169,6 @@ test('a run working in a linked worktree reads its plan and overview from the pr
 	expect(result.manifest.plan).toBe(join(planFolder, 'phase1-observability.md'));
 	expect(result.manifest.overview).toBe(join(planFolder, 'overview.md'));
 	// and nothing put a plan folder inside the tree, which is removed when the work ships
-	expect(existsSync(join(worktree, '.lightsout', 'tickets'))).toBe(false);
+	expect(existsSync(join(worktree, '.lightsout', 'work-orders'))).toBe(false);
 	expect(readFileSync(join(primary, planFolder, 'phase1-observability.md'), 'utf8')).toBe('# Phase 1\n\nPLAN-SENTINEL\n');
 });

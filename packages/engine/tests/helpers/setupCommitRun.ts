@@ -6,10 +6,10 @@ import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 
 /** The ticket folder's name, which is also the branch every plan below implements on. */
-export const ticketBranch = 'lo-152-commit';
+export const workOrderName = 'lo-152-commit';
 export const planId = '001-one-commit-behaviour';
 export const runId = 'run-1234-abcd';
-export const planFolder = `.lightsout/tickets/${ticketBranch}/plans/${planId}`;
+export const planFolder = `.lightsout/work-orders/${workOrderName}/plans/${planId}`;
 /** What a run with no ticket record on disk is addressed by: the branch's ticket reference and the plan id. */
 export const plainSubject = `lo-152 ${planId}`;
 
@@ -83,7 +83,7 @@ export const createCommitRun = ({ cwd, manifest, config }: { cwd: string; manife
  * answering stubs that one read in its own file.
  */
 export const setupCommitRun = async ({
-	branch = ticketBranch,
+	branch = workOrderName,
 	dirty = {},
 	changedFiles = [],
 	plan = `${planFolder}/plan.md`,
@@ -120,7 +120,7 @@ export const setupCommitRun = async ({
 	if (record !== undefined) {
 		writeRepoFile({
 			cwd,
-			path: `.lightsout/tickets/${branch}/state.json`,
+			path: `.lightsout/work-orders/${branch}/state.json`,
 			content: record === 'valid' ? ticketRecordOf({ branch }) : '{ this is not a work order state',
 		});
 	}

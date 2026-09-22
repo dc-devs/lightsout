@@ -157,7 +157,7 @@ interface SetupParams {
 /** A temp repository with a plan workspace, plus the arguments the focused fan-out takes, ready for one act. */
 const setupFocusedFanOut = ({ declarations, areas = [], entries = [], repoFiles = {}, writes = true }: SetupParams) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-focused-phases-'));
-	const workspaceDir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
+	const workspaceDir = join(cwd, '.lightsout', 'work-orders', 'demo', 'plans');
 
 	mkdirSync(workspaceDir, { recursive: true });
 
@@ -241,7 +241,7 @@ describe('authorFocusedPhaseFiles', () => {
 		expect({ spawns: invocations.length, withinBound: inFlight.peak <= 8, planPaths: result.planPaths, transcripts }).toStrictEqual({
 			spawns: 3,
 			withinBound: true,
-			planPaths: [1, 2, 3].map((number) => join(cwd, '.lightsout', 'tickets', 'demo', 'plans', `phase${number}-step.md`)),
+			planPaths: [1, 2, 3].map((number) => join(cwd, '.lightsout', 'work-orders', 'demo', 'plans', `phase${number}-step.md`)),
 			transcripts: ['draft-phase1-stream.jsonl', 'draft-phase2-stream.jsonl', 'draft-phase3-stream.jsonl'],
 		});
 		expect(messages).toEqual(expect.arrayContaining([expect.stringContaining('authoring 3 phase file(s), up to 8 at a time')]));
@@ -313,6 +313,6 @@ describe('authorFocusedPhaseFiles', () => {
 		// the engine verifies the write rather than trusting the report, so a
 		// claimed-but-absent phase file ends the draft here instead of reaching
 		// whatever reads the deliverable next
-		expect(result.error).toContain(join(cwd, '.lightsout', 'tickets', 'demo', 'plans', 'phase1-step.md'));
+		expect(result.error).toContain(join(cwd, '.lightsout', 'work-orders', 'demo', 'plans', 'phase1-step.md'));
 	});
 });

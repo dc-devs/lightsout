@@ -13,7 +13,7 @@ describe('writeBranchState', () => {
 
 		await writeBranchState({ cwd, branch: 'feature/lo-70-drain', phase: BranchPhase.Building });
 
-		expect(readdirSync(join(cwd, '.lightsout', 'tickets'))).toStrictEqual(['feature-lo-70-drain']);
+		expect(readdirSync(join(cwd, '.lightsout', 'work-orders'))).toStrictEqual(['feature-lo-70-drain']);
 		expect(await readBranchState({ cwd, branch: 'feature/lo-70-drain' })).toEqual(expect.objectContaining({ branch: 'feature/lo-70-drain' }));
 	});
 
@@ -22,7 +22,7 @@ describe('writeBranchState', () => {
 
 		await writeBranchState({ cwd, branch: 'lo-70-drain', phase: BranchPhase.Building });
 
-		expect(readdirSync(join(cwd, '.lightsout', 'tickets', 'lo-70-drain'))).toStrictEqual(['branch-state.json']);
+		expect(readdirSync(join(cwd, '.lightsout', 'work-orders', 'lo-70-drain'))).toStrictEqual(['branch-state.json']);
 	});
 
 	test('replaces the phase on a second write, since the record is where the branch stands now', async () => {
@@ -47,7 +47,7 @@ describe('writeBranchState', () => {
 		);
 
 		expect(progress).toEqual([expect.stringContaining("the branch state for lo-70-drain could not be recorded as 'ready'")]);
-		expect(existsSync(join(cwd, '.lightsout', 'tickets'))).toBe(false);
+		expect(existsSync(join(cwd, '.lightsout', 'work-orders'))).toBe(false);
 	});
 
 	test("writeBranchState: records a branch's phase as branch-state.json in its ticket folder", async () => {
@@ -55,7 +55,7 @@ describe('writeBranchState', () => {
 
 		await writeBranchState({ cwd, branch: 'lo-70-drain', phase: BranchPhase.Building });
 
-		expect(readdirSync(join(cwd, '.lightsout', 'tickets', 'lo-70-drain'))).toStrictEqual(['branch-state.json']);
+		expect(readdirSync(join(cwd, '.lightsout', 'work-orders', 'lo-70-drain'))).toStrictEqual(['branch-state.json']);
 		expect(await readBranchState({ cwd, branch: 'lo-70-drain' })).toEqual(expect.objectContaining({ branch: 'lo-70-drain', phase: BranchPhase.Building }));
 		expect(existsSync(join(cwd, '.lightsout', 'branch-state'))).toBe(false);
 	});

@@ -75,8 +75,8 @@ const setupWatch = ({ onFrame }: { onFrame?: (frame: number) => void } = {}) => 
 	const lock = ({ runId, pid }: { runId: string; pid: number }) =>
 		writeFileSync(join(cwd, '.lightsout', 'lock.json'), JSON.stringify({ pid, runId, startedAt: '2026-01-01T00:00:00.000Z' }), 'utf8');
 	const shipResult = ({ branch, status }: { branch: string; status: ShipStatus }) => {
-		mkdirSync(join(cwd, '.lightsout', 'tickets', branch), { recursive: true });
-		writeFileSync(join(cwd, '.lightsout', 'tickets', branch, 'ship.json'), JSON.stringify({ status, branch, failingChecks: [] }), 'utf8');
+		mkdirSync(join(cwd, '.lightsout', 'work-orders', branch), { recursive: true });
+		writeFileSync(join(cwd, '.lightsout', 'work-orders', branch, 'ship.json'), JSON.stringify({ status, branch, failingChecks: [] }), 'utf8');
 	};
 
 	return { cwd, lines, write, lock, shipResult, frameCount: () => frames };

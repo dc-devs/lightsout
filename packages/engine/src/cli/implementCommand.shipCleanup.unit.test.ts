@@ -46,10 +46,10 @@ jest.mock('#src/cli/common/render/printResult.ts', () => ({
 }));
 // -------------------------
 
-const ticketBranch = 'lo-7-search';
-const ticketFolder = join('.lightsout', 'tickets', ticketBranch);
-const laterPlanFolder = join(ticketFolder, 'plans', '002-ranking');
-const earlierPlanFolder = join(ticketFolder, 'plans', '001-basics');
+const workOrderName = 'lo-7-search';
+const workOrderFolder = join('.lightsout', 'work-orders', workOrderName);
+const laterPlanFolder = join(workOrderFolder, 'plans', '002-ranking');
+const earlierPlanFolder = join(workOrderFolder, 'plans', '001-basics');
 
 const planBody = '# Plan: rank the results\n';
 const earlierPlanBody = '# Plan: the basics, graded in the ticket tree\n';
@@ -72,14 +72,14 @@ const merged: ShipResult = { status: 'shipped', ticketRef: 'lo-7', failingChecks
 const setupShippedTicketRun = async () => {
 	const captured = captureCommandOutput();
 	const { cwd } = setupBranchRepo();
-	const treePath = await resolveWorktreePath({ cwd, branch: ticketBranch });
+	const treePath = await resolveWorktreePath({ cwd, branch: workOrderName });
 
 	writeFileSync(join(cwd, 'lightsout.config.json'), JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false } }));
 	mkdirSync(join(cwd, laterPlanFolder), { recursive: true });
 	writeFileSync(join(cwd, laterPlanFolder, 'plan.md'), planBody);
 	mkdirSync(join(cwd, earlierPlanFolder), { recursive: true });
 	writeFileSync(join(cwd, earlierPlanFolder, 'plan.md'), earlierPlanBody);
-	writeFileSync(join(cwd, ticketFolder, 'notes.md'), primaryOnlyNotes);
+	writeFileSync(join(cwd, workOrderFolder, 'notes.md'), primaryOnlyNotes);
 
 	mockRequireImplementLifecycle.mockResolvedValue(undefined);
 	mockPrintResult.mockResolvedValue(undefined);
@@ -88,7 +88,7 @@ const setupShippedTicketRun = async () => {
 		mkdirSync(join(workspace, laterPlanFolder), { recursive: true });
 		writeFileSync(join(workspace, laterPlanFolder, 'plan.md'), '# a stale copy no cleanup may read\n');
 
-		const manifest: RunManifest = manifestOf({ status: RunStatus.Passed, branch: ticketBranch, workspace, plan: planPath });
+		const manifest: RunManifest = manifestOf({ status: RunStatus.Passed, branch: workOrderName, workspace, plan: planPath });
 
 		return Promise.resolve({ ok: true, manifest } as unknown as PipelineResult);
 	});
@@ -104,7 +104,7 @@ describe('implementCommand ship cleanup', () => {
 
 		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
 
-		const record = await readWorktreeRecord({ cwd, branch: ticketBranch });
+		const record = await readWorktreeRecord({ cwd, branch: workOrderName });
 		// the run built in the ticket branch's tree, and the merge took it down
 		expect(mockRunPipelineOrFailFast).toHaveBeenCalledWith(expect.objectContaining({ cwd: treePath }));
 		expect(existsSync(treePath)).toBe(false);
@@ -115,7 +115,7 @@ describe('implementCommand ship cleanup', () => {
 		expect(readFileSync(join(cwd, laterPlanFolder, 'plan.md'), 'utf8')).toBe(planBody);
 		expect(readFileSync(join(cwd, earlierPlanFolder, 'plan.md'), 'utf8')).toBe(earlierPlanBody);
 		// a file only the primary checkout holds is left exactly where it is
-		expect(readFileSync(join(cwd, ticketFolder, 'notes.md'), 'utf8')).toBe(primaryOnlyNotes);
+		expect(readFileSync(join(cwd, workOrderFolder, 'notes.md'), 'utf8')).toBe(primaryOnlyNotes);
 		expect(exitCodes).toStrictEqual([0]);
 	});
 });

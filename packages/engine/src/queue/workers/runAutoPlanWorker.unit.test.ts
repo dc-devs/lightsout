@@ -51,7 +51,7 @@ jest.mock('#src/queue/workers/chooseAutoPlanTarget.ts', () => ({
 // -------------------------
 interface PullTicketRecordParams {
 	cwd: string;
-	ticketBranch: string;
+	workOrderName: string;
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
 	onProgress?: (message: string) => void;
@@ -151,7 +151,7 @@ const setupAutoPlanWorker = ({
 	planFolder?: boolean;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-auto-plan-'));
-	const folder = join(cwd, '.lightsout', 'tickets', branch, 'plans', planId);
+	const folder = join(cwd, '.lightsout', 'work-orders', branch, 'plans', planId);
 
 	if (planFolder) {
 		mkdirSync(folder, { recursive: true });
@@ -177,7 +177,7 @@ const setupAutoPlanWorker = ({
 			driverName: 'claude-code',
 			settings: queueSettingsFixture(),
 			env: { LINEAR_API_KEY: 'key-1' },
-			workOrderRunDir: join(cwd, '.lightsout', 'runs', 'run-q', 'tickets', 'LO-70'),
+			workOrderRunDir: join(cwd, '.lightsout', 'runs', 'run-q', 'work-orders', 'LO-70'),
 			onProgress: (message: string) => progress.push(message),
 		},
 	};
@@ -198,7 +198,7 @@ const setupHeadlessWorktreeSession = () => {
 
 	execSync(`git worktree add -q -b ${branch} "${worktree}" main`, { cwd: primary, stdio: 'ignore' });
 
-	const folder = join(primary, '.lightsout', 'tickets', branch, 'plans', planId);
+	const folder = join(primary, '.lightsout', 'work-orders', branch, 'plans', planId);
 
 	mkdirSync(folder, { recursive: true });
 	writeFileSync(join(folder, 'plan.md'), '# The plan\n');
@@ -218,7 +218,7 @@ const setupHeadlessWorktreeSession = () => {
 			driverName: 'claude-code',
 			settings: queueSettingsFixture(),
 			env: { LINEAR_API_KEY: 'key-1' },
-			workOrderRunDir: join(runDirFor({ cwd: worktree, runId: 'run-q', pipeline: 'queue' }), 'tickets', 'LO-70'),
+			workOrderRunDir: join(runDirFor({ cwd: worktree, runId: 'run-q', pipeline: 'queue' }), 'work-orders', 'LO-70'),
 		},
 	};
 };

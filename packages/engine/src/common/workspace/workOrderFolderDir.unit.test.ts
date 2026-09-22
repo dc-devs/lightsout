@@ -53,7 +53,7 @@ describe('workOrderFolderDir', () => {
 			tail: join(basename(dirname(dirname(workOrderFolder))), basename(dirname(workOrderFolder)), basename(workOrderFolder)),
 		}).toStrictEqual({
 			root: realpathSync(primary),
-			tail: join('.lightsout', 'tickets', 'lo-155-ticket-scoped-state-layout'),
+			tail: join('.lightsout', 'work-orders', 'lo-155-ticket-scoped-state-layout'),
 		});
 	});
 });

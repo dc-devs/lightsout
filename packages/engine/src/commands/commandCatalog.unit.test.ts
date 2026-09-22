@@ -347,15 +347,15 @@ describe('commandCatalog', () => {
 		const nameMeanings = ['plan', 'brainstorm', 'work-order'].map((id) => byId.get(id)?.flags.find((flag) => flag.name === 'name')?.meaning);
 
 		const stale = [...savedLines, ...meaningLines].filter((line) => line.includes('.lightsout/plans'));
-		const unmoved = planStatePaths.filter((path) => !path.startsWith('.lightsout/tickets/'));
+		const unmoved = planStatePaths.filter((path) => !path.startsWith('.lightsout/work-orders/'));
 
 		expect(stale).toStrictEqual([]);
 		expect(planStatePaths).not.toHaveLength(0);
 		expect(unmoved).toStrictEqual([]);
 		expect(nameMeanings).toEqual([
-			expect.stringContaining('.lightsout/tickets/'),
-			expect.stringContaining('.lightsout/tickets/'),
-			expect.stringContaining('.lightsout/tickets/'),
+			expect.stringContaining('.lightsout/work-orders/'),
+			expect.stringContaining('.lightsout/work-orders/'),
+			expect.stringContaining('.lightsout/work-orders/'),
 		]);
 	});
 

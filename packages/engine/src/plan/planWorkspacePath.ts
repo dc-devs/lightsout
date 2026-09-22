@@ -19,7 +19,7 @@ interface Params {
  */
 export const planWorkspacePath = ({ name }: Params): string => {
 	const address = parsePlanAddress({ name });
-	const plansFolder = `.lightsout/tickets/${address?.ticketBranch ?? name}/plans`;
+	const plansFolder = `.lightsout/work-orders/${address?.workOrderName ?? name}/plans`;
 
 	return address === undefined ? plansFolder : `${plansFolder}/${address.planId}`;
 };

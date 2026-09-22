@@ -94,7 +94,7 @@ const setupAddPlan = async ({
 	topLevelFolders?: string[];
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-add-plan-'));
-	const workOrderFolder = join(cwd, '.lightsout', 'tickets', branch);
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', branch);
 	const recordPath = join(workOrderFolder, 'state.json');
 	const progress: string[] = [];
 

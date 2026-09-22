@@ -76,16 +76,16 @@ const playStep = ({ recorder, step, passed }: { recorder: ShippingProgressRecord
  */
 const setupRecorder = ({ ticketFolderIsAFile = false, ignoreFileIsAFolder = false }: { ticketFolderIsAFile?: boolean; ignoreFileIsAFolder?: boolean } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-shipping-progress-'));
-	const ticketFolder = join(cwd, '.lightsout', 'tickets', 'feature-lo-7');
-	const recordPath = join(ticketFolder, 'ship-progress.json');
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', 'feature-lo-7');
+	const recordPath = join(workOrderFolder, 'ship-progress.json');
 
 	if (ticketFolderIsAFile) {
-		mkdirSync(join(cwd, '.lightsout', 'tickets'), { recursive: true });
-		writeFileSync(ticketFolder, 'not a directory\n');
+		mkdirSync(join(cwd, '.lightsout', 'work-orders'), { recursive: true });
+		writeFileSync(workOrderFolder, 'not a directory\n');
 	}
 
 	if (ignoreFileIsAFolder) {
-		mkdirSync(join(ticketFolder, '.gitignore'), { recursive: true });
+		mkdirSync(join(workOrderFolder, '.gitignore'), { recursive: true });
 	}
 
 	fakeTheClock();
@@ -96,7 +96,7 @@ const setupRecorder = ({ ticketFolderIsAFile = false, ignoreFileIsAFolder = fals
 	/** The record file as the contract reads it; throws when the file is missing, torn or off-contract. */
 	const readRecord = async () => ShippingProgress.parse(JSON.parse(await readFile(recordPath, 'utf8')));
 
-	return { cwd, ticketFolder, recordPath, printed, recorder, readRecord };
+	return { cwd, workOrderFolder, recordPath, printed, recorder, readRecord };
 };
 
 /**
@@ -129,7 +129,7 @@ const setupLaterShip = async () => {
 
 	earlier.beginAttempt({ attempt: 1 });
 	playStep({ recorder: earlier, step: ShippingStepId.Integrate, passed: true });
-	earlier.noteProgress({ message: 'ship result: .lightsout/tickets/feature-lo-7/ship.json' });
+	earlier.noteProgress({ message: 'ship result: .lightsout/work-orders/feature-lo-7/ship.json' });
 	await earlier.end();
 	jest.setSystemTime(new Date(secondAttemptTime));
 
@@ -145,7 +145,7 @@ const setupLaterShip = async () => {
 const setupRecorderInRepo = () => {
 	const branch = 'lo-7-ship';
 	const { cwd } = setupBranchRepo({ branch });
-	const recordPath = join(cwd, '.lightsout', 'tickets', 'lo-7-ship', 'ship-progress.json');
+	const recordPath = join(cwd, '.lightsout', 'work-orders', 'lo-7-ship', 'ship-progress.json');
 	const recorder = new ShippingProgressRecorder({ cwd, branch, maxAttempts: 3 });
 
 	/** What the integration step's three git commands see, in the order it runs them. */
@@ -166,13 +166,13 @@ const setupRecorderInRepo = () => {
 
 describe('ShippingProgressRecorder', () => {
 	test("files a fresh record in the branch's ticket folder with every step pending, and stamps its end", async () => {
-		const { ticketFolder, recorder, readRecord } = setupRecorder();
+		const { workOrderFolder, recorder, readRecord } = setupRecorder();
 
 		recorder.beginAttempt({ attempt: 1 });
 		await recorder.end();
 		const record = await readRecord();
 
-		expect(readdirSync(ticketFolder).sort()).toStrictEqual(['.gitignore', 'ship-progress.json']);
+		expect(readdirSync(workOrderFolder).sort()).toStrictEqual(['.gitignore', 'ship-progress.json']);
 		expect(record).toEqual(
 			expect.objectContaining({
 				branch: 'feature/lo-7',
@@ -291,27 +291,27 @@ describe('ShippingProgressRecorder', () => {
 	});
 
 	test("skips a record write when the ticket folder's ignore file cannot be written", async () => {
-		const { ticketFolder, printed, recorder } = setupRecorder({ ignoreFileIsAFolder: true });
+		const { workOrderFolder, printed, recorder } = setupRecorder({ ignoreFileIsAFolder: true });
 
 		recorder.beginAttempt({ attempt: 1 });
 		const ended = recorder.end();
 
 		await expect(ended).resolves.toBeUndefined();
-		expect(readdirSync(ticketFolder)).toStrictEqual(['.gitignore']);
+		expect(readdirSync(workOrderFolder)).toStrictEqual(['.gitignore']);
 		expect(printed).toStrictEqual([]);
 	});
 
 	test("ShippingProgressRecorder: writes ship-progress.json into the branch's ticket folder", async () => {
 		const { cwd, recorder } = setupRecorder();
-		const ticketFolder = join(cwd, '.lightsout', 'tickets', 'feature-lo-7');
-		const recordPath = join(ticketFolder, 'ship-progress.json');
+		const workOrderFolder = join(cwd, '.lightsout', 'work-orders', 'feature-lo-7');
+		const recordPath = join(workOrderFolder, 'ship-progress.json');
 
 		recorder.beginAttempt({ attempt: 1 });
 		await recorder.end();
 		const written = await readFile(recordPath, 'utf8');
 		const record = ShippingProgress.parse(JSON.parse(written));
 
-		expect(readdirSync(ticketFolder).sort()).toStrictEqual(['.gitignore', 'ship-progress.json']);
+		expect(readdirSync(workOrderFolder).sort()).toStrictEqual(['.gitignore', 'ship-progress.json']);
 		expect(record).toEqual(expect.objectContaining({ branch: 'feature/lo-7', attempt: 1, maxAttempts: 3, startedAt: firstAttemptTime, steps: allPending }));
 		expect(existsSync(join(cwd, '.lightsout', 'ship'))).toBe(false);
 	});

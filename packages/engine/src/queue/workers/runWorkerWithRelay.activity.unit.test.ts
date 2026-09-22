@@ -57,7 +57,7 @@ jest.mock('#src/phases/index.ts', () => ({
 // real, so each case runs the build through the same wrapper the queue does.
 interface PullTicketRecordParams {
 	cwd: string;
-	ticketBranch: string;
+	workOrderName: string;
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
 	onProgress?: (message: string) => void;
@@ -99,7 +99,7 @@ const manifestOf = ({ status }: { status: RunStatus }): RunManifest => ({
 	runId: 'run-7',
 	createdAt: '2026-01-01T00:00:00.000Z',
 	updatedAt: '2026-01-01T00:00:01.000Z',
-	plan: join('.lightsout', 'tickets', branch, 'plans', 'plan.md'),
+	plan: join('.lightsout', 'work-orders', branch, 'plans', 'plan.md'),
 	harness: 'claude-code',
 	status,
 	currentStep: null,
@@ -127,7 +127,7 @@ const manifestOf = ({ status }: { status: RunStatus }): RunManifest => ({
  */
 const setupQueueBuild = ({ phased = false, result }: { phased?: boolean; result: PipelineResult }) => {
 	const worktreePath = mkdtempSync(join(tmpdir(), 'lightsout-queue-activity-'));
-	const planDir = join(worktreePath, '.lightsout', 'tickets', branch, 'plans');
+	const planDir = join(worktreePath, '.lightsout', 'work-orders', branch, 'plans');
 
 	mkdirSync(planDir, { recursive: true });
 	writeFileSync(join(planDir, 'plan.md'), '# Plan\n');
@@ -172,7 +172,7 @@ const setupQueueBuild = ({ phased = false, result }: { phased?: boolean; result:
 			relay,
 			coordinatorRunId: 'run-q',
 			coordinatorRunDir,
-			workOrderRunDir: join(coordinatorRunDir, 'tickets', 'LO-70'),
+			workOrderRunDir: join(coordinatorRunDir, 'work-orders', 'LO-70'),
 			env: { LINEAR_API_KEY: 'key-1' },
 		},
 	};

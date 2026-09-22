@@ -21,7 +21,7 @@ const isFolderRun = ({ manifest, planName }: { manifest: RunManifest; planName: 
  */
 export const readLooseFileRuns = async ({ primaryCheckout, planName }: Params): Promise<RunManifest[]> => {
 	// One ticket's runs folder, never another's.
-	const runIds = await listRunIds({ cwd: primaryCheckout, ticketBranch: planName });
+	const runIds = await listRunIds({ cwd: primaryCheckout, workOrderName: planName });
 	const manifests = await Promise.all(runIds.map((runId) => readRunManifest({ cwd: primaryCheckout, runId }).catch(() => undefined)));
 
 	return manifests.filter((manifest): manifest is RunManifest => manifest !== undefined && isFolderRun({ manifest, planName }));

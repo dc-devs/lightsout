@@ -65,7 +65,7 @@ const censusCollisions = (): ExportCollision[] => [
 const setupFocusedDraft = (overrides: Partial<FocusedParams> = {}): FocusedParams => ({
 	facts: planFacts(),
 	decisions: planDecisions(),
-	outputs: [{ path: '/repo/.lightsout/tickets/foo/plans/plan.md', variant: 'single' }],
+	outputs: [{ path: '/repo/.lightsout/work-orders/foo/plans/plan.md', variant: 'single' }],
 	limits: { executorFileLimit: 50, createdFileCeiling: 30 },
 	...overrides,
 });
@@ -92,7 +92,7 @@ test('buildFocusedPlanWriterInvocation: a single-variant spawn given no evidence
 	// the draft-input marker leads the prompt
 	expect(invocation.prompt.startsWith('# Draft input')).toBeTruthy();
 	expect(invocation.prompt.includes('## Feature request\n\nadd a foo endpoint')).toBeTruthy();
-	expect(invocation.prompt.includes('- /repo/.lightsout/tickets/foo/plans/plan.md — variant: single')).toBeTruthy();
+	expect(invocation.prompt.includes('- /repo/.lightsout/work-orders/foo/plans/plan.md — variant: single')).toBeTruthy();
 	// the decisions record is inlined as JSON
 	expect(invocation.prompt.includes('"planName": "foo-endpoint"')).toBeTruthy();
 	// the verified facts are inlined as JSON, whole and never trimmed per assignment
@@ -110,8 +110,8 @@ test('buildFocusedPlanWriterInvocation: the collected-evidence brief is inlined 
 	const brief = evidenceBrief();
 	const params = setupFocusedDraft({
 		outputs: [
-			{ path: '/repo/.lightsout/tickets/foo/plans/overview.md', variant: 'overview' },
-			{ path: '/repo/.lightsout/tickets/foo/plans/phase1-contracts.md', variant: 'phase' },
+			{ path: '/repo/.lightsout/work-orders/foo/plans/overview.md', variant: 'overview' },
+			{ path: '/repo/.lightsout/work-orders/foo/plans/phase1-contracts.md', variant: 'phase' },
 		],
 		evidenceBrief: brief,
 	});
@@ -122,7 +122,7 @@ test('buildFocusedPlanWriterInvocation: the collected-evidence brief is inlined 
 	// the writer back to the files this role exists to stop it re-reading
 	expect(invocation.prompt.includes(brief)).toBeTruthy();
 	// it arrives with the assignment, not after several kilobytes of JSON
-	expect(invocation.prompt.indexOf(brief) > invocation.prompt.indexOf('`/repo/.lightsout/tickets/foo/plans/overview.md`')).toBeTruthy();
+	expect(invocation.prompt.indexOf(brief) > invocation.prompt.indexOf('`/repo/.lightsout/work-orders/foo/plans/overview.md`')).toBeTruthy();
 	expect(invocation.prompt.indexOf(brief) < invocation.prompt.indexOf('## Decisions record')).toBeTruthy();
 	// and under a heading of its own rather than folded into the assignment brief
 	expect(headingAbove({ prompt: invocation.prompt, text: brief })).not.toBe('## Overview only');
@@ -199,15 +199,15 @@ test('buildFocusedPlanWriterInvocation: an overview output drives the focused ov
 	const overviewSpawn = buildFocusedPlanWriterInvocation(
 		setupFocusedDraft({
 			outputs: [
-				{ path: '/repo/.lightsout/tickets/foo/plans/overview.md', variant: 'overview' },
-				{ path: '/repo/.lightsout/tickets/foo/plans/phase1-contracts.md', variant: 'phase' },
+				{ path: '/repo/.lightsout/work-orders/foo/plans/overview.md', variant: 'overview' },
+				{ path: '/repo/.lightsout/work-orders/foo/plans/phase1-contracts.md', variant: 'phase' },
 			],
 		}),
 	);
 
 	const phaseSpawn = buildFocusedPlanWriterInvocation(
 		setupFocusedDraft({
-			outputs: [{ path: '/repo/.lightsout/tickets/foo/plans/phase2-wiring.md', variant: 'phase' }],
+			outputs: [{ path: '/repo/.lightsout/work-orders/foo/plans/phase2-wiring.md', variant: 'phase' }],
 			overviewText: '# Foo — Overview\n\nOVERVIEW-SENTINEL',
 			declaration: declarationRow(),
 			previousDeclaration: { ...declarationRow(), number: 1, file: 'phase1-contracts.md', creates: ['src/contracts.ts'], exports: ['Contract'] },
@@ -216,7 +216,7 @@ test('buildFocusedPlanWriterInvocation: an overview output drives the focused ov
 
 	// the overview spawn is told to author that one path, and gets no phase brief
 	expect(overviewSpawn.prompt.includes('## Overview only')).toBeTruthy();
-	expect(overviewSpawn.prompt.includes('`/repo/.lightsout/tickets/foo/plans/overview.md`')).toBeTruthy();
+	expect(overviewSpawn.prompt.includes('`/repo/.lightsout/work-orders/foo/plans/overview.md`')).toBeTruthy();
 	expect(overviewSpawn.prompt.includes('## Phase authoring')).toBeFalsy();
 	// the phase spawn gets the shared phase brief with both declaration rows as
 	// the overview's own JSON, and the settled overview inlined verbatim
@@ -278,7 +278,7 @@ test('buildFocusedPlanWriterInvocation: supplemental standards are inlined verba
 
 test('buildFocusedPlanWriterInvocation: a declaration without the settled overview text emits no phase-authoring section', () => {
 	const params = setupFocusedDraft({
-		outputs: [{ path: '/repo/.lightsout/tickets/foo/plans/phase2-wiring.md', variant: 'phase' }],
+		outputs: [{ path: '/repo/.lightsout/work-orders/foo/plans/phase2-wiring.md', variant: 'phase' }],
 		declaration: declarationRow(),
 	});
 
@@ -291,7 +291,7 @@ test('buildFocusedPlanWriterInvocation: a declaration without the settled overvi
 	// and no declaration row leaks into the prompt on its own
 	expect(invocation.prompt.includes('"file": "phase2-wiring.md"')).toBeFalsy();
 	// the output line still names the file this spawn owns
-	expect(invocation.prompt.includes('- /repo/.lightsout/tickets/foo/plans/phase2-wiring.md — variant: phase')).toBeTruthy();
+	expect(invocation.prompt.includes('- /repo/.lightsout/work-orders/foo/plans/phase2-wiring.md — variant: phase')).toBeTruthy();
 });
 
 test('buildFocusedPlanWriterInvocation: declared documentation surfaces add the shared documentation brief before the decisions record', () => {

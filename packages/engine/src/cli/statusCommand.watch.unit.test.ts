@@ -46,9 +46,9 @@ const setupWatch = ({ manifest, shipped = false }: { manifest: RunManifest; ship
 	writeFileSync(join(runDirFor({ cwd, runId: manifest.runId }), 'manifest.json'), JSON.stringify(manifest), 'utf8');
 
 	if (shipped && manifest.branch !== undefined) {
-		mkdirSync(join(cwd, '.lightsout', 'tickets', manifest.branch), { recursive: true });
+		mkdirSync(join(cwd, '.lightsout', 'work-orders', manifest.branch), { recursive: true });
 		writeFileSync(
-			join(cwd, '.lightsout', 'tickets', manifest.branch, 'ship.json'),
+			join(cwd, '.lightsout', 'work-orders', manifest.branch, 'ship.json'),
 			JSON.stringify({ status: ShipStatus.Shipped, branch: manifest.branch, failingChecks: [] }),
 			'utf8',
 		);

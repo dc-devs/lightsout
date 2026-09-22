@@ -78,7 +78,7 @@ const republishDivergentPlans = async ({
 	const planIds = findDivergentPlanIds({ record: carried, syncState }).filter((planId) => kept.plans.some((plan) => plan.id === planId));
 
 	for (const planId of planIds) {
-		const address = formatPlanAddress({ ticketBranch: name, planId });
+		const address = formatPlanAddress({ workOrderName: name, planId });
 		const { checkout } = await resolvePlanWorkingCheckout({ cwd, name, planId });
 		const held = await pathExists({ path: await planWorkspaceDir({ cwd: checkout, name: address }) });
 		const publishedMarker = carried.plans.find((plan) => plan.id === planId)?.publishedMarker;

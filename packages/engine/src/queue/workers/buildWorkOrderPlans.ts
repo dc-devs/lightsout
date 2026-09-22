@@ -67,7 +67,7 @@ const takePlanBeingPlanned = ({ step, allowTicketBodyBuild }: { step: WorkOrderP
 
 	if (!allowTicketBodyBuild || planNumberOf({ id: plan.id }) !== 1) {
 		return {
-			error: `plan ${plan.id} on ticket ${record.branch} is still being planned, so the ticket has nothing ready to implement — plan it with \`lightsout plan --name ${formatPlanAddress({ ticketBranch: record.branch, planId: plan.id })}\``,
+			error: `plan ${plan.id} on ticket ${record.branch} is still being planned, so the ticket has nothing ready to implement — plan it with \`lightsout plan --name ${formatPlanAddress({ workOrderName: record.branch, planId: plan.id })}\``,
 		};
 	}
 
@@ -77,7 +77,7 @@ const takePlanBeingPlanned = ({ step, allowTicketBodyBuild }: { step: WorkOrderP
 /** A plan that is ready to implement, fetched back from the ticket when this worktree holds no copy of it, then built. */
 const buildReadyPlan = async ({ step }: { step: WorkOrderPlanStep }) => {
 	const { cwd, record, plan, config, env, driver, onProgress } = step;
-	const address = formatPlanAddress({ ticketBranch: record.branch, planId: plan.id });
+	const address = formatPlanAddress({ workOrderName: record.branch, planId: plan.id });
 
 	if (!(await pathExists({ path: await planWorkspaceDir({ cwd, name: address }) }))) {
 		const restored = await restoreWorkOrderPlan({ cwd, address, config, env, onProgress });

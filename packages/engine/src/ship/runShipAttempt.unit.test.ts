@@ -128,7 +128,7 @@ describe('runShipAttempt', () => {
 				}),
 			}),
 		);
-		await expect(access(join(cwd, '.lightsout', 'tickets', branch, 'ship.json'))).rejects.toThrow();
+		await expect(access(join(cwd, '.lightsout', 'work-orders', branch, 'ship.json'))).rejects.toThrow();
 		expect(currentBranch).toBe(branch);
 	});
 

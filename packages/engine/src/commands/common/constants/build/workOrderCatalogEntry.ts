@@ -20,8 +20,8 @@ export const workOrderCatalogEntry: CommandCatalogEntry = {
 	flags: [
 		{
 			name: 'name',
-			value: '<ticket-branch>',
-			meaning: "The ticket to act on, named by its branch — which is also its folder under .lightsout/tickets/, never one plan's address.",
+			value: '<work-order-name>',
+			meaning: "The ticket to act on, named by its branch — which is also its folder under .lightsout/work-orders/, never one plan's address.",
 			required: true,
 		},
 		{

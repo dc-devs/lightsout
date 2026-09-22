@@ -2,7 +2,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { PlanProgress, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
 import type { WorkOrderPlanStep } from '#src/queue/workers/common/types/WorkOrderPlanStep.ts';
 import { commitPlanWork } from '#src/queue/workers/common/utils/commitPlanWork.ts';
-import { config, driver, planOf, ticket, ticketBranch } from '#tests/helpers/setupTicketPlanBuild.ts';
+import { config, driver, planOf, ticket, workOrderName } from '#tests/helpers/setupTicketPlanBuild.ts';
 
 // Mocked Imports
 // -------------------------
@@ -14,7 +14,7 @@ const mockCommitTicketWork = jest.fn<(params: CommitCall) => Promise<{ committed
 
 jest.mock('#src/commit/index.ts', () => ({
 	...jest.requireActual<typeof import('#src/commit/index.ts')>('#src/commit/index.ts'),
-	commitTicketWork: (params: CommitCall) => mockCommitTicketWork(params),
+	commitWorkOrderWork: (params: CommitCall) => mockCommitTicketWork(params),
 }));
 // -------------------------
 
@@ -40,13 +40,13 @@ const setupLeftoverCommit = ({ runId }: { runId?: string } = {}) => {
 	const record: WorkOrderState = {
 		schemaVersion: 1,
 		ticketRef: ticket.identifier,
-		branch: ticketBranch,
+		branch: workOrderName,
 		mode: WorkOrderMode.MultiplePlan,
 		plans: [plan],
 		history: [],
 	};
 	const step: WorkOrderPlanStep = {
-		cwd: `/tmp/${ticketBranch}`,
+		cwd: `/tmp/${workOrderName}`,
 		record,
 		plan,
 		ticket,
@@ -54,7 +54,7 @@ const setupLeftoverCommit = ({ runId }: { runId?: string } = {}) => {
 		env: {},
 		driver,
 		driverName: driver.name,
-		workOrderRunDir: `/tmp/${ticketBranch}/.lightsout/runs/run-1/ticket`,
+		workOrderRunDir: `/tmp/${workOrderName}/.lightsout/runs/run-1/ticket`,
 	};
 
 	return { step };

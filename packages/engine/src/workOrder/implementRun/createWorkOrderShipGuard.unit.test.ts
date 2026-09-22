@@ -90,7 +90,7 @@ const canonicalBytesOf = async ({ record }: { record: WorkOrderState }) => {
 		throw new Error(written.error);
 	}
 
-	return readFileSync(join(cwd, '.lightsout', 'tickets', name, 'state.json'));
+	return readFileSync(join(cwd, '.lightsout', 'work-orders', name, 'state.json'));
 };
 
 /**
@@ -118,7 +118,7 @@ const setupGuard = async ({
 	env?: NodeJS.ProcessEnv;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-ship-guard-'));
-	const workOrderFolder = join(cwd, '.lightsout', 'tickets', name);
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
 	const recordPath = join(workOrderFolder, 'state.json');
 	const progress: string[] = [];
 

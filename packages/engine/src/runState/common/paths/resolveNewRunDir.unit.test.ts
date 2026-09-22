@@ -26,7 +26,7 @@ describe('resolveNewRunDir', () => {
 			runId: 'be7bc314-1845-44c0-bb6c-a8c2becb7f92',
 		});
 
-		expect(runDir).toBe(join(stateDir, 'tickets', 'lo-155-ticket-scoped-state-layout', 'runs', 'be7bc314-1845-44c0-bb6c-a8c2becb7f92'));
+		expect(runDir).toBe(join(stateDir, 'work-orders', 'lo-155-ticket-scoped-state-layout', 'runs', 'be7bc314-1845-44c0-bb6c-a8c2becb7f92'));
 	});
 
 	test("files a new run under a legacy plan name's own folder", async () => {
@@ -35,7 +35,7 @@ describe('resolveNewRunDir', () => {
 		// a plan shaped before its ticket existed carries a bare slug, not an address
 		const runDir = await resolveNewRunDir({ cwd, planName: 'ticket-scoped-state-layout', runId: 'run-a' });
 
-		expect(runDir).toBe(join(stateDir, 'tickets', 'ticket-scoped-state-layout', 'runs', 'run-a'));
+		expect(runDir).toBe(join(stateDir, 'work-orders', 'ticket-scoped-state-layout', 'runs', 'run-a'));
 	});
 
 	test('files a run belonging to no plan under the command that owns it, with a coordinator beside the runs it sequences', async () => {
@@ -68,9 +68,9 @@ describe('resolveNewRunDir', () => {
 	test('files a direct run of a ticket under the ticket it builds', async () => {
 		const { cwd, stateDir } = await setupStateDir();
 
-		const runDir = await resolveNewRunDir({ cwd, ticketBranch: 'lo-160-search-basics', pipeline: PipelineKind.Direct, runId: 'run-a' });
+		const runDir = await resolveNewRunDir({ cwd, workOrderName: 'lo-160-search-basics', pipeline: PipelineKind.Direct, runId: 'run-a' });
 
-		expect(runDir).toBe(join(stateDir, 'tickets', 'lo-160-search-basics', 'runs', 'run-a'));
+		expect(runDir).toBe(join(stateDir, 'work-orders', 'lo-160-search-basics', 'runs', 'run-a'));
 		expect(runDir).not.toContain(join('direct', 'runs'));
 	});
 
@@ -88,11 +88,11 @@ describe('resolveNewRunDir', () => {
 		const runDir = await resolveNewRunDir({
 			cwd,
 			planName: 'lo-155-ticket-scoped-state-layout/003-run-directories',
-			ticketBranch: 'lo-160-search-basics',
+			workOrderName: 'lo-160-search-basics',
 			runId: 'run-a',
 		});
 
-		expect(runDir).toBe(join(stateDir, 'tickets', 'lo-155-ticket-scoped-state-layout', 'runs', 'run-a'));
+		expect(runDir).toBe(join(stateDir, 'work-orders', 'lo-155-ticket-scoped-state-layout', 'runs', 'run-a'));
 	});
 
 	test('names the directory without creating it', async () => {
@@ -105,7 +105,7 @@ describe('resolveNewRunDir', () => {
 		});
 
 		expect({ runDir, runDirOnDisk: existsSync(runDir), stateDirOnDisk: existsSync(stateDir) }).toStrictEqual({
-			runDir: join(stateDir, 'tickets', 'lo-155-ticket-scoped-state-layout', 'runs', 'run-a'),
+			runDir: join(stateDir, 'work-orders', 'lo-155-ticket-scoped-state-layout', 'runs', 'run-a'),
 			runDirOnDisk: false,
 			stateDirOnDisk: false,
 		});

@@ -82,7 +82,7 @@ const loadPlanningBlock = async ({ worktreePath, planName }: { worktreePath: str
 
 	return waiting === undefined
 		? [`no plan in ${planName} is waiting to be planned`]
-		: loadPlanningProgressBlock({ cwd: worktreePath, name: formatPlanAddress({ ticketBranch: planName, planId: waiting.id }) });
+		: loadPlanningProgressBlock({ cwd: worktreePath, name: formatPlanAddress({ workOrderName: planName, planId: waiting.id }) });
 };
 
 /**

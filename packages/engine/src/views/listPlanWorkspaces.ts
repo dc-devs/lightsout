@@ -1,7 +1,7 @@
 import { readdir } from 'node:fs/promises';
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
-import { ticketsDir } from '#src/common/workspace/ticketsDir.ts';
+import { workOrdersDir } from '#src/common/workspace/workOrdersDir.ts';
 import { GradeReport, type PlanWorkspaceListing } from '#src/contracts/index.ts';
 import { planWorkspaceDir } from '#src/plan/index.ts';
 import { buildPlanWorkspaceListing } from '#src/views/common/utils/buildPlanWorkspaceListing.ts';
@@ -33,7 +33,7 @@ const namesOf = async ({ cwd, folder }: { cwd: string; folder: string }) => {
 
 	const addresses = children
 		.filter((child) => child.isDirectory())
-		.map((child) => formatPlanAddress({ ticketBranch: folder, planId: child.name }))
+		.map((child) => formatPlanAddress({ workOrderName: folder, planId: child.name }))
 		.filter((address) => parsePlanAddress({ name: address }) !== undefined);
 
 	return addresses.length === 0 ? [folder] : addresses;
@@ -53,17 +53,17 @@ const namesOf = async ({ cwd, folder }: { cwd: string; folder: string }) => {
  * and no row of its own: the folder is where a ticket's plans live rather than a
  * plan itself, and each plan's own runs are what its row counts.
  *
- * @param cwd - the repo whose `.lightsout/tickets/` is read; a missing folder is an empty list, since a fresh clone has none
+ * @param cwd - the repo whose `.lightsout/work-orders/` is read; a missing folder is an empty list, since a fresh clone has none
  */
 export const listPlanWorkspaces = async ({ cwd }: Params): Promise<PlanWorkspaceListing[]> => {
-	const entries = await readdir(await ticketsDir({ cwd }), { withFileTypes: true }).catch(() => []);
+	const entries = await readdir(await workOrdersDir({ cwd }), { withFileTypes: true }).catch(() => []);
 	const listings: PlanWorkspaceListing[] = [];
 
 	for (const entry of entries.filter((candidate) => candidate.isDirectory())) {
 		// One read of this ticket's own runs folder, shared by its plans. A filter
 		// over every run on disk would read the other tickets' runs to answer for
 		// this one's.
-		const runs = await listRuns({ cwd, ticketBranch: entry.name });
+		const runs = await listRuns({ cwd, workOrderName: entry.name });
 
 		for (const name of await namesOf({ cwd, folder: entry.name })) {
 			const files = await readPlanWorkspaceFiles({ cwd, name });

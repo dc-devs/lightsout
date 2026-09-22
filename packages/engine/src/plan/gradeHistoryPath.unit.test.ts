@@ -43,6 +43,6 @@ describe('gradeHistoryPath', () => {
 
 		// a pass graded from a tree appends to the ledger that outlives it, so the
 		// C → B → A history is one file rather than one per checkout
-		expect(path).toBe(join(realpathSync(primary), '.lightsout', 'tickets', 'lo-150-planning-observability', 'plans', 'grade-history.jsonl'));
+		expect(path).toBe(join(realpathSync(primary), '.lightsout', 'work-orders', 'lo-150-planning-observability', 'plans', 'grade-history.jsonl'));
 	});
 });

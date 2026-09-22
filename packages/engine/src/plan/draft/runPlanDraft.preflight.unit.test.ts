@@ -102,6 +102,6 @@ describe('runPlanDraft', () => {
 		// checkout reads it
 		expect(existsSync(join(primaryPlanDir, 'source-evidence.json'))).toBeTruthy();
 		// and the tree itself holds no plan data at all, so removing it takes nothing
-		expect(existsSync(join(worktree, '.lightsout', 'tickets'))).toBeFalsy();
+		expect(existsSync(join(worktree, '.lightsout', 'work-orders'))).toBeFalsy();
 	});
 });

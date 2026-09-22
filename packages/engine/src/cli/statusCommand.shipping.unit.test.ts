@@ -117,15 +117,15 @@ const runningWithoutStart: ShippingProgress = {
  */
 const setupShipping = async ({ args = { shipping: 'lo-7-ship' }, record }: { args?: Record<string, string | true>; record?: ShippingProgress } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-status-shipping-'));
-	const ticketFolder = join(cwd, '.lightsout', 'tickets', 'lo-7-ship');
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', 'lo-7-ship');
 
 	mkdirSync(join(cwd, '.lightsout', 'runs'), { recursive: true });
 	mockResolveWatchTarget.mockResolvedValue(undefined);
 	mockWatchRunProgress.mockResolvedValue(undefined);
 
 	if (record) {
-		mkdirSync(ticketFolder, { recursive: true });
-		writeFileSync(join(ticketFolder, 'ship-progress.json'), `${JSON.stringify(record, null, '\t')}\n`, 'utf8');
+		mkdirSync(workOrderFolder, { recursive: true });
+		writeFileSync(join(workOrderFolder, 'ship-progress.json'), `${JSON.stringify(record, null, '\t')}\n`, 'utf8');
 	}
 
 	const expected = await loadShippingProgressBlock({ cwd, branch: 'lo-7-ship' });

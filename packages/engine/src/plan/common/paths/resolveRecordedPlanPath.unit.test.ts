@@ -14,8 +14,8 @@ const setupLinkedWorktree = () => {
 	const { cwd } = setupBranchRepo();
 	const worktree = join(cwd, '.worktrees', 'lo-150-activity-record');
 
-	mkdirSync(join(cwd, '.lightsout', 'tickets', 'lo-150', 'plans'), { recursive: true });
-	writeFileSync(join(cwd, '.lightsout', 'tickets', 'lo-150', 'plans', 'plan.md'), '# the plan\n');
+	mkdirSync(join(cwd, '.lightsout', 'work-orders', 'lo-150', 'plans'), { recursive: true });
+	writeFileSync(join(cwd, '.lightsout', 'work-orders', 'lo-150', 'plans', 'plan.md'), '# the plan\n');
 	execSync(`git worktree add -q -b lo-150-activity-record "${worktree}" main`, { cwd, stdio: 'ignore' });
 
 	return { primary: cwd, worktree };
@@ -29,7 +29,7 @@ const setupLinkedWorktree = () => {
 const setupTicketWorktree = () => {
 	const { cwd } = setupBranchRepo();
 	const worktree = join(cwd, '.worktrees', 'lo-150-activity-record');
-	const planFolder = join(cwd, '.lightsout', 'tickets', 'lo-150-activity-record', 'plans', '001-activity-record');
+	const planFolder = join(cwd, '.lightsout', 'work-orders', 'lo-150-activity-record', 'plans', '001-activity-record');
 
 	mkdirSync(planFolder, { recursive: true });
 	writeFileSync(join(planFolder, 'plan.md'), '# the plan\n');
@@ -44,17 +44,17 @@ describe('resolveRecordedPlanPath', () => {
 
 		const resolved = await resolveRecordedPlanPath({
 			cwd: worktree,
-			path: '.lightsout/tickets/lo-150-activity-record/plans/001-activity-record/plan.md',
+			path: '.lightsout/work-orders/lo-150-activity-record/plans/001-activity-record/plan.md',
 		});
 
 		expect(realpathSync(resolved)).toBe(
-			realpathSync(join(primary, '.lightsout', 'tickets', 'lo-150-activity-record', 'plans', '001-activity-record', 'plan.md')),
+			realpathSync(join(primary, '.lightsout', 'work-orders', 'lo-150-activity-record', 'plans', '001-activity-record', 'plan.md')),
 		);
 	});
 
 	test('resolveRecordedPlanPath: a pre-layout recorded path is left with the checkout that was given', async () => {
 		const { primary, worktree } = setupTicketWorktree();
-		const absolute = join(primary, '.lightsout', 'tickets', 'lo-150-activity-record', 'plans', '001-activity-record', 'plan.md');
+		const absolute = join(primary, '.lightsout', 'work-orders', 'lo-150-activity-record', 'plans', '001-activity-record', 'plan.md');
 
 		const resolved = {
 			absolute: await resolveRecordedPlanPath({ cwd: worktree, path: absolute }),
@@ -77,7 +77,7 @@ describe('resolveRecordedPlanPath', () => {
 
 	test('an absolute path is answered unchanged and a legacy plans path stays with its checkout', async () => {
 		const { primary, worktree } = setupLinkedWorktree();
-		const absolute = join(primary, '.lightsout', 'tickets', 'lo-150', 'plans', 'plan.md');
+		const absolute = join(primary, '.lightsout', 'work-orders', 'lo-150', 'plans', 'plan.md');
 
 		const resolved = {
 			absolute: await resolveRecordedPlanPath({ cwd: worktree, path: absolute }),

@@ -1,5 +1,5 @@
 import { join, resolve } from 'node:path';
-import { ticketsDir } from '#src/common/workspace/ticketsDir.ts';
+import { workOrdersDir } from '#src/common/workspace/workOrdersDir.ts';
 
 interface Params {
 	/** The checkout the reader is working in — a primary checkout, a linked worktree, or no repository. */
@@ -26,11 +26,11 @@ interface Params {
 export const resolveRecordedPlanPath = async ({ cwd, path }: Params): Promise<string> => {
 	// Both separators, because the contract spells a recorded path with forward
 	// slashes while a `--plan` value carries whatever the user's shell gave it.
-	const [stateDir, ticketsFolder, ...tail] = path.split(/[/\\]/);
+	const [stateDir, workOrdersFolder, ...tail] = path.split(/[/\\]/);
 
-	if (stateDir !== '.lightsout' || ticketsFolder !== 'tickets' || tail.length === 0) {
+	if (stateDir !== '.lightsout' || workOrdersFolder !== 'work-orders' || tail.length === 0) {
 		return resolve(cwd, path);
 	}
 
-	return join(await ticketsDir({ cwd }), ...tail);
+	return join(await workOrdersDir({ cwd }), ...tail);
 };

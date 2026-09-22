@@ -68,13 +68,13 @@ jest.mock('#src/cli/common/utils/exitAfterImplement.ts', () => ({
 // -------------------------
 
 /** The ticket folder two plans of one ticket share, and the branch its name yields. */
-const ticketBranch = 'lo-7-search';
-const ticketFolder = join('.lightsout', 'tickets', ticketBranch);
-const laterPlanFolder = join(ticketFolder, 'plans', '002-ranking');
+const workOrderName = 'lo-7-search';
+const workOrderFolder = join('.lightsout', 'work-orders', workOrderName);
+const laterPlanFolder = join(workOrderFolder, 'plans', '002-ranking');
 
 /** A plan folder named for its branch alone — what every plan carried before addresses existed. */
 const legacyBranch = 'lo-9-legacy-plan';
-const legacyPlanFolder = join('.lightsout', 'tickets', legacyBranch, 'plans');
+const legacyPlanFolder = join('.lightsout', 'work-orders', legacyBranch, 'plans');
 
 const planBody = '# Plan: rank the results\n';
 const pinnedCommit = '0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d';
@@ -93,7 +93,7 @@ const passedResult = { ok: true, manifest: { runId: 'aaaaaaaa-1111-2222-3333-444
  */
 const setupTicketRun = async ({
 	planFolder = laterPlanFolder,
-	branch = ticketBranch,
+	branch = workOrderName,
 	standing,
 	heldBy,
 }: {
@@ -142,11 +142,11 @@ describe('implementCommand plan addresses', () => {
 		// the branch, and every worktree call that composed it, is the ticket
 		// folder — a tree named for the address would put each plan of one ticket
 		// on a branch of its own
-		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch: ticketBranch, owner: 'implement' }));
-		expect(logged.join('\n')).toContain(`branch: ${ticketBranch}`);
+		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch: workOrderName, owner: 'implement' }));
+		expect(logged.join('\n')).toContain(`branch: ${workOrderName}`);
 		// the tree holds code work only: the plan folder stays in the checkout the
 		// command was launched from, and the run is still handed its path
-		expect(existsSync(join(workspace, ticketFolder))).toBe(false);
+		expect(existsSync(join(workspace, workOrderFolder))).toBe(false);
 		expect(readFileSync(join(cwd, laterPlanFolder, 'plan.md'), 'utf8')).toBe(planBody);
 		expect(mockRunPipelineOrFailFast).toHaveBeenCalledWith(expect.objectContaining({ cwd: workspace, planPath: join(laterPlanFolder, 'plan.md') }));
 	});
@@ -156,7 +156,7 @@ describe('implementCommand plan addresses', () => {
 
 		await implementCommand(context);
 
-		const record = await readWorktreeRecord({ cwd, branch: ticketBranch });
+		const record = await readWorktreeRecord({ cwd, branch: workOrderName });
 		expect(mockCreateWorktree).not.toHaveBeenCalled();
 		expect(mockRunPipelineOrFailFast).toHaveBeenCalledWith(expect.objectContaining({ cwd: treePath, planPath: join(laterPlanFolder, 'plan.md') }));
 		// the adoption leaves the tree recorded as an implementation run's, still
@@ -169,7 +169,7 @@ describe('implementCommand plan addresses', () => {
 
 		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
 
-		const record = await readWorktreeRecord({ cwd, branch: ticketBranch });
+		const record = await readWorktreeRecord({ cwd, branch: workOrderName });
 		expect(errors.join('\n')).toContain(treePath);
 		expect(errors.join('\n')).toContain('run-ranking-in-flight');
 		expect(errors.join('\n')).toContain('--no-worktree');

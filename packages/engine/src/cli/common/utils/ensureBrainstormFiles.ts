@@ -2,7 +2,7 @@ import { restoreBrainstormFiles } from '#src/brainstorm/index.ts';
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
-import { planWorkspaceDir, readPlanTicketRef } from '#src/plan/index.ts';
+import { planWorkspaceDir, readPlanWorkOrderRef } from '#src/plan/index.ts';
 import { resolveShipSettings } from '#src/ship/index.ts';
 import { resolveTrackerSettings } from '#src/ticketTracker/index.ts';
 
@@ -69,7 +69,7 @@ export const ensureBrainstormFiles = async ({ cwd, name, write = console.log }: 
 		return;
 	}
 
-	const identifier = readPlanTicketRef({ name, ticketPattern: shipSettings.ticketPattern });
+	const identifier = readPlanWorkOrderRef({ name, ticketPattern: shipSettings.ticketPattern });
 
 	if (identifier === undefined) {
 		return;

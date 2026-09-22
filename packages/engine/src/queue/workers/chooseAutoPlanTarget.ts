@@ -87,5 +87,5 @@ export const chooseAutoPlanTarget = async ({
 	const { record } = pulled;
 	const waiting = findNextPlanToPlan({ record });
 
-	return waiting === undefined ? { record } : { record, address: formatPlanAddress({ ticketBranch: branch, planId: waiting.id }) };
+	return waiting === undefined ? { record } : { record, address: formatPlanAddress({ workOrderName: branch, planId: waiting.id }) };
 };

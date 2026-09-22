@@ -43,8 +43,8 @@ jest.mock('#src/direct/index.ts', () => ({
 // stated here, and git refuses on its own terms rather than on demand.
 const mockCommitTicketWork = jest.fn<(params: { cwd: string; message: string; runDir: string }) => Promise<{ committed: boolean } | QueueFailure>>();
 
-jest.mock('#src/commit/commitTicketWork.ts', () => ({
-	commitTicketWork: (params: { cwd: string; message: string; runDir: string }) => mockCommitTicketWork(params),
+jest.mock('#src/commit/commitWorkOrderWork.ts', () => ({
+	commitWorkOrderWork: (params: { cwd: string; message: string; runDir: string }) => mockCommitTicketWork(params),
 }));
 // -------------------------
 const mockReadGitChangedFiles = jest.fn<(params: { cwd: string }) => Promise<string[] | undefined>>();
@@ -79,7 +79,7 @@ const mocks = {
 	runImplementPipeline: mockRunImplementPipeline,
 	runPhasesPipeline: mockRunPhasesPipeline,
 	runDirectWork: mockRunDirectWork,
-	commitTicketWork: mockCommitTicketWork,
+	commitWorkOrderWork: mockCommitTicketWork,
 	readGitChangedFiles: mockReadGitChangedFiles,
 	restoreWorkOrderPlan: mockRestoreTicketPlan,
 };

@@ -10,7 +10,7 @@ import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 /** A checkout outside any repository, carrying one written record for the branch under test. */
 const setupRecordedBranch = async ({ branch = 'lo-70-drain' }: { branch?: string } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-worktree-record-'));
-	const recordPath = join(cwd, '.lightsout', 'tickets', branch, 'worktree.json');
+	const recordPath = join(cwd, '.lightsout', 'work-orders', branch, 'worktree.json');
 
 	await writeWorktreeRecord({ cwd, branch, owner: WorktreeOwner.Implement, worktreePath: join(cwd, '..', 'repo-worktrees', branch) });
 
@@ -29,19 +29,19 @@ const setupRecordedBranch = async ({ branch = 'lo-70-drain' }: { branch?: string
  */
 const setupTicketFolderRecords = async ({ branch = 'lo-70-drain' }: { branch?: string } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-worktree-record-'));
-	const ticketFolder = join(cwd, '.lightsout', 'tickets', branch);
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', branch);
 
 	await writeWorktreeRecord({ cwd, branch, owner: WorktreeOwner.Implement, worktreePath: join(cwd, '..', 'repo-worktrees', branch) });
 
 	// The writer reports a refused write rather than throwing, so a missing file
 	// here would leave the deletion under test with nothing to remove.
-	if (!existsSync(join(ticketFolder, 'worktree.json'))) {
+	if (!existsSync(join(workOrderFolder, 'worktree.json'))) {
 		throw new Error(`the record for ${branch} was never written, so this test would prove nothing`);
 	}
 
-	writeFileSync(join(ticketFolder, 'state.json'), `{"branch":"${branch}"}\n`);
+	writeFileSync(join(workOrderFolder, 'state.json'), `{"branch":"${branch}"}\n`);
 
-	return { branch, cwd, ticketFolder };
+	return { branch, cwd, workOrderFolder };
 };
 
 /**
@@ -52,7 +52,7 @@ const setupTicketFolderRecords = async ({ branch = 'lo-70-drain' }: { branch?: s
 const setupLinkedWorktreeRecord = async ({ branch = 'feature/lo-70-drain' }: { branch?: string } = {}) => {
 	const { cwd: primary } = setupBranchRepo();
 	const worktree = join(primary, '.worktrees', 'lo-70-drain');
-	const recordPath = join(primary, '.lightsout', 'tickets', 'feature-lo-70-drain', 'worktree.json');
+	const recordPath = join(primary, '.lightsout', 'work-orders', 'feature-lo-70-drain', 'worktree.json');
 
 	execSync(`git worktree add -q -b ${branch} "${worktree}" main`, { cwd: primary, stdio: 'ignore' });
 	await writeWorktreeRecord({ cwd: primary, branch, owner: WorktreeOwner.Implement, worktreePath: worktree });
@@ -78,11 +78,11 @@ describe('deleteWorktreeRecord', () => {
 	});
 
 	test("deleteWorktreeRecord: removes worktree.json and leaves the ticket's other records standing", async () => {
-		const { branch, cwd, ticketFolder } = await setupTicketFolderRecords();
+		const { branch, cwd, workOrderFolder } = await setupTicketFolderRecords();
 
 		await deleteWorktreeRecord({ cwd, branch });
 
-		expect(readdirSync(ticketFolder)).toStrictEqual(['state.json']);
+		expect(readdirSync(workOrderFolder)).toStrictEqual(['state.json']);
 		expect(await readWorktreeRecord({ cwd, branch })).toBe(undefined);
 	});
 

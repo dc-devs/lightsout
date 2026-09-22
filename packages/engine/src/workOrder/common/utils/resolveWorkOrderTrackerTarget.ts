@@ -1,5 +1,5 @@
 import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { readPlanTicketRef } from '#src/plan/index.ts';
+import { readPlanWorkOrderRef } from '#src/plan/index.ts';
 import { resolveShipSettings } from '#src/ship/index.ts';
 import { resolveTrackerSettings } from '#src/ticketTracker/index.ts';
 import type { TicketTrackerTarget } from '#src/workOrder/common/types/TicketTrackerTarget.ts';
@@ -39,7 +39,7 @@ export const resolveWorkOrderTrackerTarget = ({ config, env, name }: Params): Ti
 		};
 	}
 
-	const ticketRef = readPlanTicketRef({ name: name, ticketPattern: shipSettings.ticketPattern });
+	const ticketRef = readPlanWorkOrderRef({ name: name, ticketPattern: shipSettings.ticketPattern });
 
 	if (ticketRef === undefined) {
 		return {

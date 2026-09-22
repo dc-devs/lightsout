@@ -1,4 +1,4 @@
-import { commitTicketWork } from '#src/commit/index.ts';
+import { commitWorkOrderWork } from '#src/commit/index.ts';
 import { readGitCommitsAhead } from '#src/common/git/readGitCommitsAhead.ts';
 import { BranchPhase } from '#src/contracts/index.ts';
 import { writeBranchState } from '#src/queue/branchState/index.ts';
@@ -66,7 +66,7 @@ export const settleWorkerOutcome = async ({
 		return { ready: false, open: worked.open, error: undefined, unanswered: undefined };
 	}
 
-	const committed = await commitTicketWork({
+	const committed = await commitWorkOrderWork({
 		cwd: worktreePath,
 		message: `${ticket.identifier} ${ticket.title}`,
 		runDir: workOrderRunDir,

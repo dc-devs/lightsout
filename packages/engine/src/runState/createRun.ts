@@ -101,7 +101,7 @@ export const createRun = async ({
 	const runDir = await resolveNewRunDir({
 		cwd,
 		planName,
-		ticketBranch: planName === undefined && ticketRef !== undefined ? branch : undefined,
+		workOrderName: planName === undefined && ticketRef !== undefined ? branch : undefined,
 		pipeline,
 		runId: manifest.runId,
 	});

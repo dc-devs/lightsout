@@ -118,7 +118,7 @@ const writerDriver = ({ body, variant = PlanVariant.Single, report }: { body?: s
 const setupDraft = ({ args = [] }: { args?: string[] } = {}) => {
 	const captured = captureCommandOutput();
 	const cwd = setupConsumerRepo({ git: false });
-	const workspaceDir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
+	const workspaceDir = join(cwd, '.lightsout', 'work-orders', 'demo', 'plans');
 
 	mkdirSync(workspaceDir, { recursive: true });
 	writeFileSync(

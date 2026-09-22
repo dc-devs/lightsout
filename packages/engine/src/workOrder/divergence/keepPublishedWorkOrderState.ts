@@ -75,7 +75,7 @@ const setPlanFolderAside = async ({
 	planId: string;
 	onProgress?: (message: string) => void;
 }) => {
-	const address = formatPlanAddress({ ticketBranch: name, planId });
+	const address = formatPlanAddress({ workOrderName: name, planId });
 	const dir = await planWorkspaceDir({ cwd: checkout, name: address });
 
 	if (!(await pathExists({ path: dir }))) {
@@ -147,7 +147,7 @@ const takePublishedPlan = async ({
 
 	const restored = await restoreWorkOrderPlan({
 		cwd: checkout,
-		address: formatPlanAddress({ ticketBranch: name, planId }),
+		address: formatPlanAddress({ workOrderName: name, planId }),
 		config,
 		env,
 		recordCwd: cwd,

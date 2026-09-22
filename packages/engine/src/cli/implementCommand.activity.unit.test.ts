@@ -76,7 +76,7 @@ jest.mock('#src/cli/common/utils/exitAfterImplement.ts', () => ({
 
 /** The plan folder every recorded case points `--plan` at, and the name the record is written under. */
 const planName = 'lo-42-add-widgets';
-const planFolder = join('.lightsout', 'tickets', planName, 'plans');
+const planFolder = join('.lightsout', 'work-orders', planName, 'plans');
 
 /** What the plan inside the plans directory says. */
 const planBody = '# Plan: add widgets\n';
@@ -121,7 +121,7 @@ const setupImplementRecord = ({ args }: { args: string[] }) => {
 		context: { flags: parseFlags({ args }), rest: [], cwd },
 		cwd,
 		workspace,
-		planDir: join(cwd, '.lightsout', 'tickets', planName, 'plans'),
+		planDir: join(cwd, '.lightsout', 'work-orders', planName, 'plans'),
 		...captured,
 	};
 };
@@ -186,7 +186,7 @@ describe('implementCommand activity record', () => {
 
 		// the tree comes down when the work ships, so a record written inside it
 		// would take the whole account of the run with it
-		expect(activityRecordsUnder({ dir: cwd })).toStrictEqual([join('.lightsout', 'tickets', planName, 'plans', 'activity.jsonl')]);
+		expect(activityRecordsUnder({ dir: cwd })).toStrictEqual([join('.lightsout', 'work-orders', planName, 'plans', 'activity.jsonl')]);
 		expect(activityRecordsUnder({ dir: workspace })).toStrictEqual([]);
 		expect(report.roots).toEqual([expect.objectContaining({ level: 'plan', label: planName, children: [expect.objectContaining({ level: 'command-run' })] })]);
 	});

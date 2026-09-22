@@ -4,7 +4,7 @@ import { attachDurableFiles } from '#src/plan/publish/common/utils/attachDurable
 import { prepareAttachments } from '#src/plan/publish/common/utils/prepareAttachments.ts';
 import { reportStaleAttachments } from '#src/plan/publish/common/utils/reportStaleAttachments.ts';
 import { durablePlanFiles } from '#src/plan/publish/durablePlanFiles.ts';
-import { readPlanTicketRef } from '#src/plan/readPlanTicketRef.ts';
+import { readPlanWorkOrderRef } from '#src/plan/readPlanWorkOrderRef.ts';
 import { resolveShipSettings } from '#src/ship/index.ts';
 import { getTicketsByIdentifiers, resolveTrackerSettings } from '#src/ticketTracker/index.ts';
 
@@ -69,7 +69,7 @@ export const publishPlan = async ({ cwd, name, config, env, onProgress, titlePre
 		};
 	}
 
-	const ticketRef = readPlanTicketRef({ name, ticketPattern: shipSettings.ticketPattern });
+	const ticketRef = readPlanWorkOrderRef({ name, ticketPattern: shipSettings.ticketPattern });
 
 	if (ticketRef === undefined) {
 		return {

@@ -116,7 +116,7 @@ const setupTicketPlan = ({
 	published?: unknown;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-publish-ticket-plan-'));
-	const workOrderFolder = join(cwd, '.lightsout', 'tickets', name);
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
 	const planFolder = join(workOrderFolder, 'plans', planId);
 	const progress: string[] = [];
 

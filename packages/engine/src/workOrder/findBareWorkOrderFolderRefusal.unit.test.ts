@@ -31,7 +31,7 @@ const workOrderStateOf = ({ branch }: { branch: string }) => ({
  */
 const setupCheckout = ({ withRecord, legacy }: { withRecord: string; legacy: string }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-bare-ticket-folder-'));
-	const recordFolder = join(cwd, '.lightsout', 'tickets', withRecord);
+	const recordFolder = join(cwd, '.lightsout', 'work-orders', withRecord);
 
 	mkdirSync(recordFolder, { recursive: true });
 	writeFileSync(join(recordFolder, 'state.json'), JSON.stringify(workOrderStateOf({ branch: withRecord })));
@@ -47,7 +47,7 @@ const setupCheckout = ({ withRecord, legacy }: { withRecord: string; legacy: str
  */
 const setupBrokenRecord = ({ name, contents }: { name: string; contents: string }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-bare-ticket-folder-'));
-	const recordFolder = join(cwd, '.lightsout', 'tickets', name);
+	const recordFolder = join(cwd, '.lightsout', 'work-orders', name);
 
 	mkdirSync(recordFolder, { recursive: true });
 	writeFileSync(join(recordFolder, 'state.json'), contents);
@@ -64,7 +64,7 @@ const setupBrokenRecord = ({ name, contents }: { name: string; contents: string 
 const setupLinkedWorktree = ({ withRecord, legacy }: { withRecord: string; legacy: string }) => {
 	const { cwd } = setupBranchRepo();
 	const worktree = join(cwd, '.worktrees', withRecord);
-	const recordFolder = join(cwd, '.lightsout', 'tickets', withRecord);
+	const recordFolder = join(cwd, '.lightsout', 'work-orders', withRecord);
 
 	execSync(`git worktree add -q -b ${withRecord} "${worktree}" main`, { cwd, stdio: 'ignore' });
 	mkdirSync(recordFolder, { recursive: true });
@@ -84,12 +84,12 @@ const setupLinkedWorktree = ({ withRecord, legacy }: { withRecord: string; legac
  */
 const setupTicketsDirectoryCheckout = ({ withRecord, withoutRecord, preLayout }: { withRecord: string; withoutRecord: string; preLayout: string }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-bare-ticket-folder-'));
-	const workOrderFolder = join(cwd, '.lightsout', 'tickets', withRecord);
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', withRecord);
 	const preLayoutFolder = join(cwd, '.lightsout', 'plans', preLayout);
 
 	mkdirSync(workOrderFolder, { recursive: true });
 	writeFileSync(join(workOrderFolder, 'state.json'), JSON.stringify(workOrderStateOf({ branch: withRecord })));
-	mkdirSync(join(cwd, '.lightsout', 'tickets', withoutRecord), { recursive: true });
+	mkdirSync(join(cwd, '.lightsout', 'work-orders', withoutRecord), { recursive: true });
 	mkdirSync(preLayoutFolder, { recursive: true });
 	writeFileSync(join(preLayoutFolder, 'state.json'), JSON.stringify(workOrderStateOf({ branch: preLayout })));
 

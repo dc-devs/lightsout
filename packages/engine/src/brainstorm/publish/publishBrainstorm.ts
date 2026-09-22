@@ -7,7 +7,7 @@ import { serializeAttachmentManifest } from '#src/common/attachmentManifest/seri
 import { brainstormNotesFileName } from '#src/common/constants/brainstormNotesFileName.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { planWorkspaceDir, readPlanTicketRef } from '#src/plan/index.ts';
+import { planWorkspaceDir, readPlanWorkOrderRef } from '#src/plan/index.ts';
 import { resolveShipSettings } from '#src/ship/index.ts';
 import { getTicketsByIdentifiers, resolveTrackerSettings, setTicketAttachment, type TrackerSettings } from '#src/ticketTracker/index.ts';
 
@@ -144,7 +144,7 @@ export const publishBrainstorm = async ({ cwd, name, config, env, onProgress, ti
 		};
 	}
 
-	const ticketRef = readPlanTicketRef({ name, ticketPattern: shipSettings.ticketPattern });
+	const ticketRef = readPlanWorkOrderRef({ name, ticketPattern: shipSettings.ticketPattern });
 
 	if (ticketRef === undefined) {
 		return {

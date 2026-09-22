@@ -71,7 +71,7 @@ const manifestBody = ({ runId, status, planName }: RunSeed) =>
 			runId,
 			createdAt: runDay,
 			updatedAt: runDay,
-			plan: `.lightsout/tickets/${planName}/plans/plan.md`,
+			plan: `.lightsout/work-orders/${planName}/plans/plan.md`,
 			planName,
 			pipeline: 'implement',
 			harness: 'claude',
@@ -116,8 +116,8 @@ interface SetupParams {
  */
 const setupFrom = async ({ source = name, files = loosePlanFiles, record, runs = [], planFolders = [], sourceSiblings = [] }: SetupParams = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-add-plan-from-'));
-	const workOrderFolder = join(cwd, '.lightsout', 'tickets', name);
-	const sourceFolder = join(cwd, '.lightsout', 'tickets', source);
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
+	const sourceFolder = join(cwd, '.lightsout', 'work-orders', source);
 	const sourcePlans = join(sourceFolder, 'plans');
 
 	mkdirSync(join(workOrderFolder, 'plans'), { recursive: true });
@@ -326,7 +326,7 @@ describe('addWorkOrderPlan', () => {
 
 		expect(error).toBeUndefined();
 		expect(change?.notice).toEqual(expect.stringContaining('lightsout plan publish --name lo-9-merge/001-search-basics'));
-		expect(change?.notice).toEqual(expect.stringContaining('lightsout implement --plan .lightsout/tickets/lo-9-merge/plans/001-search-basics'));
+		expect(change?.notice).toEqual(expect.stringContaining('lightsout implement --plan .lightsout/work-orders/lo-9-merge/plans/001-search-basics'));
 	});
 
 	test('records plan-adopted for the --from form and plan-added without it', async () => {

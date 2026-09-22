@@ -2,7 +2,7 @@ import { join } from 'node:path';
 
 interface Params {
 	/** The ticket's own folder, as `workOrderFolderDir` names it. */
-	ticketFolder: string;
+	workOrderFolder: string;
 }
 
 /**
@@ -14,4 +14,4 @@ interface Params {
  * that re-derived it would put that spelling in two files that drift the moment
  * either is edited.
  */
-export const getTicketRunsDir = ({ ticketFolder }: Params): string => join(ticketFolder, 'runs');
+export const getWorkOrderRunsDir = ({ workOrderFolder }: Params): string => join(workOrderFolder, 'runs');

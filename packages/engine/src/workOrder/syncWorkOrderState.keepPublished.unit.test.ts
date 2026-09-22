@@ -132,7 +132,7 @@ const localText = canonicalText({ record: localRecord });
  */
 const setupRecordSync = ({ published, localOnDisk = true }: { published?: WorkOrderState; localOnDisk?: boolean } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-keep-published-'));
-	const workOrderFolder = join(cwd, '.lightsout', 'tickets', name);
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
 
 	mkdirSync(workOrderFolder, { recursive: true });
 
@@ -171,7 +171,7 @@ const setupDivergentPlan = ({
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-keep-published-'));
 	const worktree = mkdtempSync(join(tmpdir(), 'lightsout-keep-published-tree-'));
-	const workOrderFolder = join(cwd, '.lightsout', 'tickets', name);
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
 	const worktreeTicketFolder = planWorkspaceFolder({ cwd: worktree, name: name });
 	const published = recordOf({ plans: [planOf({ publishedMarker: recordedMarker })] });
 	const local = recordOf({ plans: [planOf({ publishedMarker: 'b'.repeat(64) })] });
@@ -205,12 +205,12 @@ const setupDivergentPlan = ({
 
 /**
  * The same divergent-plan case, laid out the way the work order folder now files it:
- * the work order's state files at `.lightsout/tickets/<branch>/`, and every plan of
+ * the work order's state files at `.lightsout/work-orders/<branch>/`, and every plan of
  * that ticket one level down in its `plans/` folder.
  */
 const setupDivergentPlanInTicketFolder = () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-keep-published-tickets-'));
-	const workOrderFolder = join(cwd, '.lightsout', 'tickets', name);
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
 	const plansFolder = join(workOrderFolder, 'plans');
 	const published = recordOf({ plans: [planOf({ publishedMarker: planMarkerSha256 })] });
 	const local = recordOf({ plans: [planOf({ publishedMarker: 'b'.repeat(64) })] });

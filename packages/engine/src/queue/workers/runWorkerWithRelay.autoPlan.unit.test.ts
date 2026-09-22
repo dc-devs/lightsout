@@ -201,7 +201,7 @@ const setupAutoPlanTicket = ({
 			relay: relayThatIsNeverAsked(),
 			coordinatorRunId: 'run-q',
 			coordinatorRunDir,
-			workOrderRunDir: join(coordinatorRunDir, 'tickets', 'LO-70'),
+			workOrderRunDir: join(coordinatorRunDir, 'work-orders', 'LO-70'),
 			env: { LINEAR_API_KEY: 'key-1' } as NodeJS.ProcessEnv,
 			onProgress: (message: string) => progress.push(message),
 		},

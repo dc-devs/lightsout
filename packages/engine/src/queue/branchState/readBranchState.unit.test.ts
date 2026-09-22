@@ -12,8 +12,8 @@ const setupCheckout = ({ branch, contents }: { branch?: string; contents?: strin
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-branch-state-'));
 
 	if (branch !== undefined && contents !== undefined) {
-		mkdirSync(join(cwd, '.lightsout', 'tickets', branch), { recursive: true });
-		writeFileSync(join(cwd, '.lightsout', 'tickets', branch, 'branch-state.json'), contents);
+		mkdirSync(join(cwd, '.lightsout', 'work-orders', branch), { recursive: true });
+		writeFileSync(join(cwd, '.lightsout', 'work-orders', branch, 'branch-state.json'), contents);
 	}
 
 	return { cwd };

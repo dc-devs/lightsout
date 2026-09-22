@@ -63,7 +63,7 @@ jest.mock('#src/runState/index.ts', () => ({
 
 const sourceCwd = resolve('/tmp/lightsout-launching-checkout');
 const branch = 'lo-9-isolated-run';
-const planPath = join('.lightsout', 'tickets', branch, 'plans');
+const planPath = join('.lightsout', 'work-orders', branch, 'plans');
 const worktreePath = resolve('/tmp/lightsout-launching-checkout-worktrees', branch);
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 const pinnedCommit = '3f5c1a9e8b7d6c5b4a39281706f5e4d3c2b1a098';
@@ -107,15 +107,15 @@ const setupWorkspace = ({ worktree, setup, flags = [], answers = {} }: { worktre
 	return { config, flags: new Map<string, string | true>(flags.map((name) => [name, true])) };
 };
 
-const ticketBranch = 'lo-7-search';
-const ticketPlanPath = join('.lightsout', 'tickets', ticketBranch, 'plans', '002-ranking', 'plan.md');
-const ticketWorktreePath = resolve('/tmp/lightsout-launching-checkout-worktrees', ticketBranch);
+const workOrderName = 'lo-7-search';
+const ticketPlanPath = join('.lightsout', 'work-orders', workOrderName, 'plans', '002-ranking', 'plan.md');
+const ticketWorktreePath = resolve('/tmp/lightsout-launching-checkout-worktrees', workOrderName);
 const pushedCommit = 'b91e40c27d3a85f6019c4ab7e2d3f5061a8c7b24';
 const liveLock: RunLock = { pid: 4242, runId: 'run-2026-09-11-implement-002-ranking', startedAt: '2026-09-11T09:00:00.000Z' };
 
 /** The ownership record the tree standing on a ticket branch carries, whichever step cut it. */
 const ticketRecordOwnedBy = ({ owner }: { owner: WorktreeOwner }): WorktreeRecord => ({
-	branch: ticketBranch,
+	branch: workOrderName,
 	owner,
 	worktreePath: ticketWorktreePath,
 	createdAt: '2026-01-01T00:00:00.000Z',
@@ -290,9 +290,9 @@ describe('resolveRunWorkspace', () => {
 
 		const workspace = await resolveRunWorkspace({ cwd: sourceCwd, config, flags, planPath: ticketPlanPath });
 
-		expect(workspace).toStrictEqual({ cwd: ticketWorktreePath, branch: ticketBranch, isolated: true, created: false });
+		expect(workspace).toStrictEqual({ cwd: ticketWorktreePath, branch: workOrderName, isolated: true, created: false });
 		expect(mockWriteWorktreeRecord).toHaveBeenCalledWith(
-			expect.objectContaining({ branch: ticketBranch, owner: 'implement', worktreePath: ticketWorktreePath, startPoint: pinnedCommit }),
+			expect.objectContaining({ branch: workOrderName, owner: 'implement', worktreePath: ticketWorktreePath, startPoint: pinnedCommit }),
 		);
 		expect(mockFetchDefaultBranch).not.toHaveBeenCalled();
 		expect(mockCreateWorktree).not.toHaveBeenCalled();
@@ -326,8 +326,8 @@ describe('resolveRunWorkspace', () => {
 
 		const workspace = await resolveRunWorkspace({ cwd: sourceCwd, config, flags, planPath: ticketPlanPath });
 
-		expect(workspace).toEqual(expect.objectContaining({ cwd: ticketWorktreePath, branch: ticketBranch, isolated: true, created: true }));
-		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch: ticketBranch, startPoint: pushedCommit, owner: 'implement' }));
+		expect(workspace).toEqual(expect.objectContaining({ cwd: ticketWorktreePath, branch: workOrderName, isolated: true, created: true }));
+		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch: workOrderName, startPoint: pushedCommit, owner: 'implement' }));
 	});
 
 	test('resolveRunWorkspace: leaves the cut worktree carrying no record symlinks', async () => {

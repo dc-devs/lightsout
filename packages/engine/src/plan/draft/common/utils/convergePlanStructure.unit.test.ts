@@ -32,7 +32,7 @@ const setupConverge = () => {
 		cwd: '/repo',
 		driver: createUncalledDriver({ reason: 'the converge step spawns nothing of its own' }),
 		name: 'demo',
-		workspaceDir: '/repo/.lightsout/tickets/demo/plans',
+		workspaceDir: '/repo/.lightsout/work-orders/demo/plans',
 		facts: planFacts(),
 		decisions: emptyDecisionsRecord(),
 		implementation: DraftImplementation.Focused,

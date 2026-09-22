@@ -28,7 +28,7 @@ const readUnit = async ({ cwd, plan, planName }: { cwd: string; plan: string; pl
 	const address = parsePlanAddress({ name });
 	const base = address?.planId ?? name;
 
-	return { unit: stem === 'plan' ? base : `${base}/${stem}`, workOrderName: address?.ticketBranch ?? name, planId: address?.planId };
+	return { unit: stem === 'plan' ? base : `${base}/${stem}`, workOrderName: address?.workOrderName ?? name, planId: address?.planId };
 };
 
 /**

@@ -108,7 +108,7 @@ const setupWorktreeKeep = ({
 
 	execSync(`git worktree add -q -b ${name} "${worktree}" main`, { cwd: primary, stdio: 'ignore' });
 
-	const workOrderFolder = join(primary, '.lightsout', 'tickets', name);
+	const workOrderFolder = join(primary, '.lightsout', 'work-orders', name);
 	const worktreeTicketFolder = planWorkspaceFolder({ cwd: worktree, name: name });
 	const published = recordOf({ plans: [planOf({ publishedMarker })] });
 	const progress: string[] = [];

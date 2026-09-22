@@ -109,7 +109,7 @@ const setupAutoPlanWorker = ({
 	config?: LightsoutConfig;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-auto-plan-coverage-'));
-	const folder = join(cwd, '.lightsout', 'tickets', branch, 'plans', planId);
+	const folder = join(cwd, '.lightsout', 'work-orders', branch, 'plans', planId);
 
 	mkdirSync(folder, { recursive: true });
 	writeFileSync(join(folder, 'plan.md'), '# The plan\n');
@@ -129,7 +129,7 @@ const setupAutoPlanWorker = ({
 			driverName: 'claude-code',
 			settings: queueSettingsFixture(),
 			env: {},
-			workOrderRunDir: join(cwd, '.lightsout', 'runs', 'run-q', 'tickets', 'LO-70'),
+			workOrderRunDir: join(cwd, '.lightsout', 'runs', 'run-q', 'work-orders', 'LO-70'),
 		},
 	};
 };

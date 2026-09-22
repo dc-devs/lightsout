@@ -50,7 +50,7 @@ const publishedRecord: WorkOrderState = {
  */
 const setupBlockedTicketFolder = ({ blocked }: { blocked: 'state.json' | 'state-sync.json' }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-pull-folder-'));
-	const workOrderFolder = join(cwd, '.lightsout', 'tickets', name);
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
 
 	mkdirSync(join(workOrderFolder, blocked), { recursive: true });
 	mockGetTicketAttachments.mockResolvedValue([{ id: 'att-1', title: 'state.json', url: assetUrl }]);

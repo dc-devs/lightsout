@@ -14,7 +14,7 @@ interface Params {
 	name?: string;
 }
 
-/** A temp repo with the given existing source files, a single-file plan at `.lightsout/tickets/<name>/plans/plan.md`, and the empty decision record its Decision Log is judged against. */
+/** A temp repo with the given existing source files, a single-file plan at `.lightsout/work-orders/<name>/plans/plan.md`, and the empty decision record its Decision Log is judged against. */
 export const seedDedupPlan = ({ existing, creates, name = 'p' }: Params): { cwd: string; name: string; workspaceDir: string } => {
 	const cwd = seedSourceRepo({ existing });
 	const workspaceDir = planWorkspaceFolder({ cwd: cwd, name: name });

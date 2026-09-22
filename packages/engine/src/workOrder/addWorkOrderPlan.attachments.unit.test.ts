@@ -50,7 +50,7 @@ const env = { LINEAR_API_KEY: 'lin_key' };
 /** An empty work order folder in a fresh checkout, with the tracker answering the given attachments. */
 const setupAddPlan = ({ attachments }: { attachments: TrackerAttachment[] | TrackerFailure }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-add-plan-attachments-'));
-	const workOrderFolder = join(cwd, '.lightsout', 'tickets', name);
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
 
 	mkdirSync(workOrderFolder, { recursive: true });
 	mockGetTicketAttachments.mockResolvedValue(attachments);

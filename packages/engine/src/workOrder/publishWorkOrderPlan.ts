@@ -183,7 +183,7 @@ export const publishWorkOrderPlan = async ({ cwd, address, config, env, onProgre
 		return { published: [], stale: [], error: `'${address}' is not a plan address — a plan of a ticket is named as '<ticket-branch>/<plan-id>'` };
 	}
 
-	const { ticketBranch: name, planId } = parsed;
+	const { workOrderName: name, planId } = parsed;
 	const target = resolveWorkOrderTrackerTarget({ config, env, name });
 
 	if ('error' in target) {

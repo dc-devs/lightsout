@@ -233,7 +233,7 @@ const setupTicketWithAMissingRecord = () => {
 test('printActivityReport: the report names the slowest and most expensive individual harness processes', () => {
 	const { plans, logged } = setupPlanWithOutliers();
 
-	printActivityReport({ target: 'my-plan', ticketFolder: false, plans });
+	printActivityReport({ target: 'my-plan', workOrderFolder: false, plans });
 
 	const outliers = afterTree({ logged });
 	// the tree says which level was slow; this section says which single call to
@@ -252,7 +252,7 @@ test('printActivityReport: the report names the slowest and most expensive indiv
 test('printActivityReport: with no stated cost anywhere the expensive list is unavailable, never a ranking of zeros', () => {
 	const { plans, logged } = setupPlanWithOutliers({ costs: false });
 
-	printActivityReport({ target: 'my-plan', ticketFolder: false, plans });
+	printActivityReport({ target: 'my-plan', workOrderFolder: false, plans });
 
 	const outliers = afterTree({ logged });
 	expect(outliers).toContain('grade-gap');
@@ -265,7 +265,7 @@ test('printActivityReport: with no stated cost anywhere the expensive list is un
 test('printActivityReport: the ticket row is the shared ticket fold, not a sum of the plan rows', () => {
 	const { plans, logged } = setupTicketWithCrossPlanOverlap();
 
-	printActivityReport({ target: 'my-ticket', ticketFolder: true, plans });
+	printActivityReport({ target: 'my-ticket', workOrderFolder: true, plans });
 
 	const cells = cellsOf({ logged });
 	// three processes ran at one instant across the two plans, which neither
@@ -279,7 +279,7 @@ test('printActivityReport: the ticket row is the shared ticket fold, not a sum o
 test("printActivityReport: a ticket folder prints a totalled ticket row over each plan's own tree, and names a plan with no record", () => {
 	const { plans, logged } = setupTicketWithAMissingRecord();
 
-	printActivityReport({ target: 'my-ticket', ticketFolder: true, plans });
+	printActivityReport({ target: 'my-ticket', workOrderFolder: true, plans });
 
 	const output = logged.join('\n');
 	const planRow = logged.findIndex((line) => line.includes('my-ticket/plan-a'));

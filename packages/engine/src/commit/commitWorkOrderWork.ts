@@ -109,7 +109,7 @@ const discardGeneratedChanges = async ({ cwd, paths }: { cwd: string; paths: str
  * The message goes through a file rather than `-m`, so no ticket title needs
  * shell quoting.
  */
-export const commitTicketWork = async ({ cwd, message, runDir, generated = [], onProgress }: Params): Promise<{ committed: boolean } | CommitFailure> => {
+export const commitWorkOrderWork = async ({ cwd, message, runDir, generated = [], onProgress }: Params): Promise<{ committed: boolean } | CommitFailure> => {
 	const changed = await readGitChangedFiles({ cwd });
 
 	if (changed === undefined) {

@@ -1,5 +1,5 @@
 import { buildRunCommitMessage } from '#src/commit/buildRunCommitMessage.ts';
-import { commitTicketWork } from '#src/commit/commitTicketWork.ts';
+import { commitWorkOrderWork } from '#src/commit/commitWorkOrderWork.ts';
 import { describeUnownedEdits } from '#src/commit/common/utils/describeUnownedEdits.ts';
 import { readRunCommitSubject } from '#src/commit/common/utils/readRunCommitSubject.ts';
 import { readGitHeadCommit } from '#src/common/git/readGitHeadCommit.ts';
@@ -49,7 +49,7 @@ export const commitRunWork = async ({ run, subject, resumed }: Params): Promise<
 	const manifest = run.current();
 	const generated = run.config.generated ?? [];
 	const changed = manifest.changedFiles.filter((path) => !isGeneratedPath({ path, generated }));
-	// Before `commitTicketWork`, never after: that function stages with
+	// Before `commitWorkOrderWork`, never after: that function stages with
 	// `git add -A`, so a refusal decided afterwards would be decided about a tree
 	// already staged.
 	const unowned = resumed ? await describeUnownedEdits({ cwd: run.cwd, manifest, generated }) : undefined;
@@ -71,7 +71,7 @@ export const commitRunWork = async ({ run, subject, resumed }: Params): Promise<
 	}
 
 	const line = subject ?? (await readRunCommitSubject({ cwd: run.cwd, manifest, config: run.config, onProgress: (message) => run.progress(message) }));
-	const committed = await commitTicketWork({
+	const committed = await commitWorkOrderWork({
 		cwd: run.cwd,
 		message: buildRunCommitMessage({ subject: line, runId: manifest.runId }),
 		runDir,

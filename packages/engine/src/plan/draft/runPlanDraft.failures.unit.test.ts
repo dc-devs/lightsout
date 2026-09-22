@@ -45,7 +45,7 @@ test('plan draft: a parked repair surfaces as this run\u2019s own paused-rate-li
 
 	expectStatus(result, 'paused-rate-limit');
 	// the draft survives on disk for the re-run to overwrite
-	expect(existsSync(join(cwd, '.lightsout', 'tickets', 'parked-repair', 'plans', 'plan.md'))).toBeTruthy();
+	expect(existsSync(join(cwd, '.lightsout', 'work-orders', 'parked-repair', 'plans', 'plan.md'))).toBeTruthy();
 });
 
 test('plan draft: a repair invocation failure surfaces as this run\u2019s own failed result', async () => {
@@ -107,7 +107,7 @@ test('plan draft: a drafted report naming an unwritten file returns failed', asy
 
 	seedPlanWorkspace({ cwd, name: 'ghost-file' });
 
-	const ghostPath = join(cwd, '.lightsout', 'tickets', 'ghost-file', 'plans', 'plan.md');
+	const ghostPath = join(cwd, '.lightsout', 'work-orders', 'ghost-file', 'plans', 'plan.md');
 	const driver: Driver = {
 		name: 'claude-code',
 		// Reports the file as written without ever writing it.

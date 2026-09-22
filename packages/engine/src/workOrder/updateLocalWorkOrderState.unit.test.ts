@@ -46,7 +46,7 @@ const recordOf = ({ branch = name, history = [] }: { branch?: string; history?: 
  */
 const setupTicketRecord = ({ contents }: { contents?: string } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-ticket-record-'));
-	const workOrderFolder = join(cwd, '.lightsout', 'tickets', name);
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
 	const recordPath = join(workOrderFolder, 'state.json');
 
 	if (contents !== undefined) {
@@ -78,8 +78,8 @@ const setupDifferingKeyOrders = () => {
 		second,
 		firstRecord,
 		secondRecord,
-		firstPath: join(first, '.lightsout', 'tickets', name, 'state.json'),
-		secondPath: join(second, '.lightsout', 'tickets', name, 'state.json'),
+		firstPath: join(first, '.lightsout', 'work-orders', name, 'state.json'),
+		secondPath: join(second, '.lightsout', 'work-orders', name, 'state.json'),
 	};
 };
 
@@ -106,7 +106,7 @@ const expectedBytes = [
  */
 const setupTicketFolderLayout = () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-ticket-folder-'));
-	const workOrderFolder = join(cwd, '.lightsout', 'tickets', name);
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
 	const plansFolder = join(workOrderFolder, 'plans');
 	const planFile = join(plansFolder, '001-record', 'overview.md');
 	const syncBytes = `${JSON.stringify({ schemaVersion: 1, planMarkers: {} })}\n`;
@@ -205,7 +205,7 @@ describe('updateLocalWorkOrderState', () => {
 
 		// A regular file where the work order folder belongs: the recursive create
 		// cannot succeed, so nothing downstream of it may run.
-		mkdirSync(join(cwd, '.lightsout', 'tickets'), { recursive: true });
+		mkdirSync(join(cwd, '.lightsout', 'work-orders'), { recursive: true });
 		writeFileSync(workOrderFolder, 'not a directory\n');
 
 		const result = await updateLocalWorkOrderState({ cwd, name, change: changeTo(recordOf()) });

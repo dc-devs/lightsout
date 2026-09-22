@@ -63,7 +63,7 @@ jest.mock('#src/workOrder/index.ts', () => ({
 const apiKeyEnv = 'LIGHTSOUT_TEST_TRACKER_KEY';
 const trackerBlock = { ...ticketTrackerConfigBlock, 'api-key-env': apiKeyEnv };
 const name = 'lo-54-portable-plan';
-const planPath = join('.lightsout', 'tickets', name, 'plans');
+const planPath = join('.lightsout', 'work-orders', name, 'plans');
 const planBody = '# plan restored from the ticket\n';
 
 /** A repo carrying the tracker block by default, with one plan.md waiting on the ticket. */
@@ -197,7 +197,7 @@ describe('ensurePlanWorkspace', () => {
 
 	test('names the missing folder and the folder name carrying no ticket id', async () => {
 		const cwd = await seedCwd();
-		const path = join('.lightsout', 'tickets', 'portable-plan', 'plans');
+		const path = join('.lightsout', 'work-orders', 'portable-plan', 'plans');
 		const { result } = await ensure({ cwd, path });
 
 		expect(result).toStrictEqual({
@@ -227,7 +227,7 @@ describe('ensurePlanWorkspace', () => {
 
 	test('a ticketless plan folder sitting in a worktree is never recovered from it', async () => {
 		const cwd = await seedCwd();
-		const path = join('.lightsout', 'tickets', 'portable-plan', 'plans');
+		const path = join('.lightsout', 'work-orders', 'portable-plan', 'plans');
 		const { tree, dir } = seedWorktreePlan({
 			cwd,
 			planName: 'portable-plan',

@@ -57,7 +57,7 @@ const emptyRecord: WorkOrderState = {
  */
 const setupTicketPlans = async ({ record = seededRecord }: { record?: WorkOrderState } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-retitle-plan-'));
-	const workOrderFolder = join(cwd, '.lightsout', 'tickets', name);
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
 	const recordPath = join(workOrderFolder, 'state.json');
 
 	for (const plan of record.plans) {

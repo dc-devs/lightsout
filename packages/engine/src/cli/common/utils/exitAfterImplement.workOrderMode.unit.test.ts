@@ -25,7 +25,7 @@ jest.mock('#src/ship/index.ts', () => ({
 // -------------------------
 
 /** The ticket folder's name, which is also the branch its plans implement on. */
-const ticketBranch = 'lo-140-multi';
+const workOrderName = 'lo-140-multi';
 const firstPlan = '001-search-basics';
 const secondPlan = '002-ranking';
 
@@ -60,20 +60,20 @@ const setupTicketChain = async ({
 	/** Which of the ticket's plans this run built. */
 	planId?: string;
 } = {}) => {
-	const { cwd } = setupBranchRepo({ branch: ticketBranch });
+	const { cwd } = setupBranchRepo({ branch: workOrderName });
 	const captured = captureCommandOutput();
-	const planFolder = join('.lightsout', 'tickets', ticketBranch, 'plans', planId);
+	const planFolder = join('.lightsout', 'work-orders', workOrderName, 'plans', planId);
 
 	mkdirSync(join(cwd, planFolder), { recursive: true });
 	writeFileSync(join(cwd, planFolder, 'plan.md'), '# Plan: the work this run built\n');
 
 	await updateLocalWorkOrderState({
 		cwd,
-		name: ticketBranch,
+		name: workOrderName,
 		change: (): WorkOrderState => ({
 			schemaVersion: 1,
 			ticketRef: 'LO-140',
-			branch: ticketBranch,
+			branch: workOrderName,
 			mode,
 			plans,
 			history: [],
@@ -81,10 +81,10 @@ const setupTicketChain = async ({
 		}),
 	});
 
-	mockRunShip.mockResolvedValue({ status: ShipStatus.Shipped, branch: ticketBranch, ticketRef: 'LO-140', mergeCommit: '0f1e2d3c', failingChecks: [] });
+	mockRunShip.mockResolvedValue({ status: ShipStatus.Shipped, branch: workOrderName, ticketRef: 'LO-140', mergeCommit: '0f1e2d3c', failingChecks: [] });
 
 	const config = LightsoutConfig.parse({ gates: { check: 'true', test: 'true', 'test-coverage': false }, ship: { 'after-implement': afterImplement } });
-	const manifest = manifestOf({ status: RunStatus.Passed, branch: ticketBranch, plan: join(planFolder, 'plan.md') });
+	const manifest = manifestOf({ status: RunStatus.Passed, branch: workOrderName, plan: join(planFolder, 'plan.md') });
 
 	return { config, cwd, result: { ok: true, manifest }, ...captured };
 };
@@ -99,7 +99,7 @@ describe('exitAfterImplement ticket mode', () => {
 		// human declares the finish line with a ship request, and until one exists
 		// the run says so rather than merging the branch
 		expect(mockRunShip).not.toHaveBeenCalled();
-		expect(logged.some((line) => line.includes(ticketBranch) && line.includes('ship request'))).toBe(true);
+		expect(logged.some((line) => line.includes(workOrderName) && line.includes('ship request'))).toBe(true);
 		expect(exitCodes).toStrictEqual([0]);
 	});
 

@@ -58,7 +58,7 @@ const setupTicketRecord = async ({
 
 	await updateLocalWorkOrderState({ cwd, name, change: () => record });
 
-	const recordPath = join(cwd, '.lightsout', 'tickets', name, 'state.json');
+	const recordPath = join(cwd, '.lightsout', 'work-orders', name, 'state.json');
 
 	return { recordPath, before: readFileSync(recordPath, 'utf8'), params: { cwd, name, config, env } };
 };

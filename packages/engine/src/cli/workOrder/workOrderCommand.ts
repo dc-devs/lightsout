@@ -11,7 +11,7 @@ import { workOrderRetitlePlanCommand } from '#src/cli/workOrder/workOrderRetitle
 import { workOrderShowCommand } from '#src/cli/workOrder/workOrderShowCommand.ts';
 import { workOrderSyncCommand } from '#src/cli/workOrder/workOrderSyncCommand.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
-import { ticketFolderOf } from '#src/common/planAddress/ticketFolderOf.ts';
+import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 
 /** Each subcommand word and the handler it reaches, in the order the usage text lists them. */
 const workOrderSubcommands: Record<string, (context: CommandContext) => Promise<void>> = {
@@ -47,7 +47,7 @@ export const workOrderCommand = async ({ flags, rest, cwd }: CommandContext): Pr
 
 	if (name !== undefined && parsePlanAddress({ name }) !== undefined) {
 		console.error(
-			`\`lightsout work-order ${word}\` acts on a whole ticket, so --name takes the ticket's branch rather than one plan's address — name ${ticketFolderOf({ name })} instead`,
+			`\`lightsout work-order ${word}\` acts on a whole ticket, so --name takes the ticket's branch rather than one plan's address — name ${workOrderNameOf({ name })} instead`,
 		);
 
 		return exitCli({ code: 1 });

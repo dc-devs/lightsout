@@ -80,7 +80,7 @@ export const restoreWorkOrderPlan = async ({
 		};
 	}
 
-	const { ticketBranch: name, planId } = parsed;
+	const { workOrderName: name, planId } = parsed;
 	const target = resolveWorkOrderTrackerTarget({ config, env, name });
 
 	if ('error' in target) {

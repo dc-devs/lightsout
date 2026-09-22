@@ -19,7 +19,7 @@ const planWith = ({ id, progress }: { id: string; progress: WorkOrderPlan['progr
 const addressOf = ({ planId }: { planId: string }) => `${name}/${planId}`;
 
 /** The path a run manifest records for one file of a ticket plan's folder. */
-const planFileOf = ({ planId, file }: { planId: string; file: string }) => `.lightsout/tickets/${name}/plans/${planId}/${file}`;
+const planFileOf = ({ planId, file }: { planId: string; file: string }) => `.lightsout/work-orders/${name}/plans/${planId}/${file}`;
 
 /** A checkout with no repository above it, so its own `.lightsout` folder is the one the record is looked for in. */
 const makeCheckout = () => {
@@ -27,7 +27,7 @@ const makeCheckout = () => {
 
 	mkdirSync(planWorkspaceFolder({ cwd: cwd, name: name }), { recursive: true });
 
-	return { cwd, recordPath: join(cwd, '.lightsout', 'tickets', name, 'state.json') };
+	return { cwd, recordPath: join(cwd, '.lightsout', 'work-orders', name, 'state.json') };
 };
 
 /** A checkout whose work order folder exists but holds no `state.json`, which is what makes a folder legacy. */
@@ -70,7 +70,7 @@ describe('readWorkOrderRunTerms', () => {
 		const legacyFolder = await readWorkOrderRunTerms({
 			cwd,
 			name: 'lo-139-legacy-folder',
-			planPath: '.lightsout/tickets/lo-139-legacy-folder/plans/plan.md',
+			planPath: '.lightsout/work-orders/lo-139-legacy-folder/plans/plan.md',
 		});
 		const outsideThePlansDirectory = await readWorkOrderRunTerms({ cwd, name: undefined, planPath: undefined });
 		const ticketWithNoRecord = await readWorkOrderRunTerms({

@@ -81,7 +81,7 @@ const setupTicketPlan = ({ planGenerationOnTicket = true, attachedNotes, attache
 	const bodies: Record<string, string> = { 'plan.md': '# a legacy single-folder plan\n', '001-a--plan.md': '# plan 001 of lo-9\n' };
 
 	if (sidecarUnwritable === true) {
-		mkdirSync(join(cwd, '.lightsout', 'tickets', name, 'state-sync.json'), { recursive: true });
+		mkdirSync(join(cwd, '.lightsout', 'work-orders', name, 'state-sync.json'), { recursive: true });
 	}
 
 	if (planGenerationOnTicket) {
@@ -105,7 +105,7 @@ const setupTicketPlan = ({ planGenerationOnTicket = true, attachedNotes, attache
 
 	return {
 		cwd,
-		dir: join(cwd, '.lightsout', 'tickets', name, 'plans', planId),
+		dir: join(cwd, '.lightsout', 'work-orders', name, 'plans', planId),
 		planMarkerSha256: createHash('sha256')
 			.update(bodies[planMarkerTitle] ?? '', 'utf8')
 			.digest('hex'),
@@ -130,7 +130,7 @@ const folderOf = ({ dir }: { dir: string }) => {
 /** The per-plan marker hashes the sidecar in the primary checkout's work order folder records. */
 const planMarkersOf = ({ cwd }: { cwd: string }) => {
 	try {
-		const text = readFileSync(join(cwd, '.lightsout', 'tickets', name, 'state-sync.json'), 'utf8');
+		const text = readFileSync(join(cwd, '.lightsout', 'work-orders', name, 'state-sync.json'), 'utf8');
 
 		return (JSON.parse(text) as { planMarkers?: Record<string, string> }).planMarkers;
 	} catch {
@@ -224,7 +224,7 @@ describe('restoreWorkOrderPlan', () => {
 
 	test("restoreWorkOrderPlan: a restored plan lands inside the ticket's plans folder", async () => {
 		const { cwd } = setupTicketPlan();
-		const workOrderFolder = join(cwd, '.lightsout', 'tickets', name);
+		const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
 
 		const { result } = await restore({ cwd });
 

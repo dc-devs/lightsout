@@ -95,7 +95,10 @@ test('a workspace a passed run named is implemented, and counts that run', async
 	const cwd = await freshCwd();
 
 	await seedWorkspace({ cwd, name: 'shipped', files: { 'plan.md': '# plan' } });
-	await seedRunDir({ cwd, manifest: { runId: 'run-passed', plan: '.lightsout/tickets/shipped/plans/plan.md', planName: 'shipped', status: RunStatus.Passed } });
+	await seedRunDir({
+		cwd,
+		manifest: { runId: 'run-passed', plan: '.lightsout/work-orders/shipped/plans/plan.md', planName: 'shipped', status: RunStatus.Passed },
+	});
 	const row = await rowFor({ cwd, name: 'shipped' });
 
 	expect({ stage: row?.stage, runCount: row?.runCount }).toStrictEqual({ stage: PlanStage.Implemented, runCount: 1 });
@@ -107,7 +110,7 @@ test('a workspace whose only run failed keeps the stage its files give it, so it
 	await seedWorkspace({ cwd, name: 'attempted', files: { 'plan.md': '# plan', 'grade.json': gradeJson({ grade: PlanGrade.A }) } });
 	await seedRunDir({
 		cwd,
-		manifest: { runId: 'run-failed', plan: '.lightsout/tickets/attempted/plans/plan.md', planName: 'attempted', status: RunStatus.Failed },
+		manifest: { runId: 'run-failed', plan: '.lightsout/work-orders/attempted/plans/plan.md', planName: 'attempted', status: RunStatus.Failed },
 	});
 	const row = await rowFor({ cwd, name: 'attempted' });
 
@@ -118,8 +121,8 @@ test('a phased plan says so and counts its open phases, leaving the archived one
 	const cwd = await freshCwd();
 
 	await seedWorkspace({ cwd, name: 'phased', files: { 'overview.md': '# overview', 'phase1-a.md': 'a', 'phase2-b.md': 'b' } });
-	await mkdir(join(cwd, '.lightsout', 'tickets', 'phased', 'plans', 'implemented'), { recursive: true });
-	await writeFile(join(cwd, '.lightsout', 'tickets', 'phased', 'plans', 'implemented', 'phase1-done.md'), 'done', 'utf8');
+	await mkdir(join(cwd, '.lightsout', 'work-orders', 'phased', 'plans', 'implemented'), { recursive: true });
+	await writeFile(join(cwd, '.lightsout', 'work-orders', 'phased', 'plans', 'implemented', 'phase1-done.md'), 'done', 'utf8');
 	const row = await rowFor({ cwd, name: 'phased' });
 
 	expect({ phased: row?.phased, phaseCount: row?.phaseCount, archived: row?.implementedFiles.map((file) => file.name) }).toStrictEqual({
@@ -153,14 +156,14 @@ test('a loose file beside the workspaces is not a plan, so nothing lists it', as
 	const cwd = await freshCwd();
 
 	await seedWorkspace({ cwd, name: 'real', files: { 'plan.md': '# plan' } });
-	await writeFile(join(cwd, '.lightsout', 'tickets', 'README.md'), 'not a workspace', 'utf8');
+	await writeFile(join(cwd, '.lightsout', 'work-orders', 'README.md'), 'not a workspace', 'utf8');
 
 	expect((await listPlanWorkspaces({ cwd })).map((listing) => listing.name)).toStrictEqual(['real']);
 });
 
 test('an archived phase does not lift a finished plan up the list, which is ordered by open work', async () => {
 	const cwd = await freshCwd();
-	const archive = join(cwd, '.lightsout', 'tickets', 'finished', 'plans', 'implemented');
+	const archive = join(cwd, '.lightsout', 'work-orders', 'finished', 'plans', 'implemented');
 	const when = new Date('2027-01-01T00:00:00.000Z');
 
 	await seedWorkspace({ cwd, name: 'finished', files: { 'overview.md': '# overview' }, at: '2026-01-01T00:00:00.000Z' });
@@ -175,7 +178,7 @@ test('an archived phase does not lift a finished plan up the list, which is orde
 
 test('a broken link where an archived phase should be is left out, rather than taking the whole list down', async () => {
 	const cwd = await freshCwd();
-	const archive = join(cwd, '.lightsout', 'tickets', 'linked', 'plans', 'implemented');
+	const archive = join(cwd, '.lightsout', 'work-orders', 'linked', 'plans', 'implemented');
 
 	await seedWorkspace({ cwd, name: 'linked', files: { 'overview.md': '# overview' } });
 	await mkdir(archive, { recursive: true });
@@ -220,7 +223,7 @@ test('each plan of a ticket folder counts only the runs its own folder named', a
 		cwd,
 		manifest: {
 			runId: 'run-basics',
-			plan: '.lightsout/tickets/lo-7-search/plans/001-basics/plan.md',
+			plan: '.lightsout/work-orders/lo-7-search/plans/001-basics/plan.md',
 			planName: 'lo-7-search/001-basics',
 			status: RunStatus.Passed,
 		},
@@ -229,7 +232,7 @@ test('each plan of a ticket folder counts only the runs its own folder named', a
 		cwd,
 		manifest: {
 			runId: 'run-ranking',
-			plan: '.lightsout/tickets/lo-7-search/plans/002-ranking/plan.md',
+			plan: '.lightsout/work-orders/lo-7-search/plans/002-ranking/plan.md',
 			planName: 'lo-7-search/002-ranking',
 			status: RunStatus.Failed,
 		},
@@ -248,7 +251,10 @@ test('a workspace does not count the runs of a sibling whose folder name starts 
 
 	await seedWorkspace({ cwd, name: 'lo-7', files: { 'plan.md': '# seven' } });
 	await seedWorkspace({ cwd, name: 'lo-70', files: { 'plan.md': '# seventy' } });
-	await seedRunDir({ cwd, manifest: { runId: 'run-seventy', plan: '.lightsout/tickets/lo-70/plans/plan.md', planName: 'lo-70', status: RunStatus.Passed } });
+	await seedRunDir({
+		cwd,
+		manifest: { runId: 'run-seventy', plan: '.lightsout/work-orders/lo-70/plans/plan.md', planName: 'lo-70', status: RunStatus.Passed },
+	});
 
 	const listings = await listPlanWorkspaces({ cwd });
 
@@ -283,7 +289,7 @@ test("the plan views list and open the primary checkout's plans from inside a li
 	expect({ listed: listings.map((listing) => listing.name), plan: view.planFile?.name, rootPath: realpathSync(view.rootPath) }).toStrictEqual({
 		listed: ['lo-150-observability'],
 		plan: 'plan.md',
-		rootPath: realpathSync(join(primary, '.lightsout', 'tickets', 'lo-150-observability', 'plans')),
+		rootPath: realpathSync(join(primary, '.lightsout', 'work-orders', 'lo-150-observability', 'plans')),
 	});
 });
 
@@ -300,7 +306,7 @@ test('a ticket folder read from a linked worktree still lists one row per plan a
 
 /** One folder under the tickets directory, holding exactly the files a case names. */
 const seedTicketFolder = async ({ cwd, path, files }: { cwd: string; path: string; files: Record<string, string> }) => {
-	const dir = join(cwd, '.lightsout', 'tickets', ...path.split('/'));
+	const dir = join(cwd, '.lightsout', 'work-orders', ...path.split('/'));
 
 	await mkdir(dir, { recursive: true });
 

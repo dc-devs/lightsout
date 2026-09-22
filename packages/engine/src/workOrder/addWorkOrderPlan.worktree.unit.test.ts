@@ -65,7 +65,7 @@ const setupAddPlanFromWorktree = () => {
 
 	return {
 		worktree,
-		primaryTicketFolder: join(realpathSync(cwd), '.lightsout', 'tickets', name),
+		primaryTicketFolder: join(realpathSync(cwd), '.lightsout', 'work-orders', name),
 		params: { cwd: worktree, name, slug: 'search-basics', config: { gates }, env },
 	};
 };

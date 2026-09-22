@@ -231,7 +231,7 @@ test('a listing row carries the plan name its manifest recorded, and none when t
 		cwd,
 		manifest: {
 			runId: 'run-of-a-plan',
-			plan: '.lightsout/tickets/lo-155-ticket-scoped-state/plans/001-layout/phase2-recorded-plan-name.md',
+			plan: '.lightsout/work-orders/lo-155-ticket-scoped-state/plans/001-layout/phase2-recorded-plan-name.md',
 			planName: 'lo-155-ticket-scoped-state/001-layout',
 			updatedAt: '2026-01-02T00:00:00.000Z',
 		},
@@ -263,7 +263,7 @@ test("lists one ticket's run rows and skips an unreadable manifest among them", 
 	await seedRunDir({ cwd, manifest: { runId: 'run-other-ticket', planName: 'lo-201-tighten-gates/001-gates', updatedAt: '2026-05-01T00:00:00.000Z' } });
 	await writeFile(join(brokenRunDir, 'manifest.json'), '{ not json', 'utf8');
 
-	const runs = await listRuns({ cwd, ticketBranch: 'lo-200-add-search' });
+	const runs = await listRuns({ cwd, workOrderName: 'lo-200-add-search' });
 
 	// both plans of the ticket share its one runs folder, so narrowing keeps
 	// them both; the newer run of the other ticket would be first if its folder

@@ -10,7 +10,7 @@ import { runCli } from '#tests/helpers/runCli.ts';
 // verbatim, which is how the unparsable case is reachable.
 const seedVerifyFactsFixture = async ({ factsBody }: { factsBody?: string } = {}) => {
 	const cwd = await freshCwd();
-	const workspaceDir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
+	const workspaceDir = join(cwd, '.lightsout', 'work-orders', 'demo', 'plans');
 	const factsPath = join(workspaceDir, 'facts.json');
 
 	await mkdir(join(cwd, 'src'), { recursive: true });
@@ -105,6 +105,6 @@ test('cli: plan verify-facts --notes freezes the notes snapshot into the workspa
 	expect(code).toBe(0);
 	expect(stderr).toBe('');
 	expect(stdout).toMatch(/plan verify-facts · notes frozen → /);
-	const frozen = await readFile(join(cwd, '.lightsout', 'tickets', 'demo', 'plans', 'brainstorm-notes.md'), 'utf8');
+	const frozen = await readFile(join(cwd, '.lightsout', 'work-orders', 'demo', 'plans', 'brainstorm-notes.md'), 'utf8');
 	expect(frozen).toBe('# Rough notes\n\nthe idea in plain words\n');
 });

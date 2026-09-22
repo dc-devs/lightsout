@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { ticketsDir } from '#src/common/workspace/ticketsDir.ts';
+import { workOrdersDir } from '#src/common/workspace/workOrdersDir.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 /**
@@ -34,13 +34,13 @@ const setupRepoWithoutState = () => {
 	return { cwd };
 };
 
-describe('ticketsDir', () => {
-	test("ticketsDir: a worktree is answered the primary checkout's tickets folder, and a directory outside any repository its own", async () => {
+describe('workOrdersDir', () => {
+	test("workOrdersDir: a worktree is answered the primary checkout's tickets folder, and a directory outside any repository its own", async () => {
 		const { primary, worktree } = setupLinkedWorktree();
 		const { cwd: loose } = setupLooseDirectory();
 
-		const fromWorktree = await ticketsDir({ cwd: worktree });
-		const fromLooseDirectory = await ticketsDir({ cwd: loose });
+		const fromWorktree = await workOrdersDir({ cwd: worktree });
+		const fromLooseDirectory = await workOrdersDir({ cwd: loose });
 
 		expect({
 			worktreeRoot: realpathSync(dirname(dirname(fromWorktree))),
@@ -48,22 +48,22 @@ describe('ticketsDir', () => {
 			fromLooseDirectory,
 		}).toStrictEqual({
 			worktreeRoot: realpathSync(primary),
-			worktreeTail: join('.lightsout', 'tickets'),
-			fromLooseDirectory: join(loose, '.lightsout', 'tickets'),
+			worktreeTail: join('.lightsout', 'work-orders'),
+			fromLooseDirectory: join(loose, '.lightsout', 'work-orders'),
 		});
 	});
 
-	test('ticketsDir: naming the folder never creates it', async () => {
+	test('workOrdersDir: naming the folder never creates it', async () => {
 		const { cwd } = setupRepoWithoutState();
 
-		const ticketsPath = await ticketsDir({ cwd });
+		const ticketsPath = await workOrdersDir({ cwd });
 
 		expect({
 			ticketsPath,
 			stateDirExists: existsSync(join(cwd, '.lightsout')),
 			ticketsPathExists: existsSync(ticketsPath),
 		}).toStrictEqual({
-			ticketsPath: join(cwd, '.lightsout', 'tickets'),
+			ticketsPath: join(cwd, '.lightsout', 'work-orders'),
 			stateDirExists: false,
 			ticketsPathExists: false,
 		});

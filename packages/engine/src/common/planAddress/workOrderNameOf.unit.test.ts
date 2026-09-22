@@ -1,11 +1,11 @@
 import { describe, expect, test } from '@jest/globals';
-import { ticketFolderOf } from '#src/common/planAddress/ticketFolderOf.ts';
+import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 
-describe('ticketFolderOf', () => {
+describe('workOrderNameOf', () => {
 	test('answers the ticket-branch segment of an address and the whole name for a legacy name', () => {
-		const fromAddress = ticketFolderOf({ name: 'lo-140-multi/001-record' });
-		const fromLegacyFolder = ticketFolderOf({ name: 'lo-140-multi' });
-		const fromThreeSegments = ticketFolderOf({ name: 'a/b/001-x' });
+		const fromAddress = workOrderNameOf({ name: 'lo-140-multi/001-record' });
+		const fromLegacyFolder = workOrderNameOf({ name: 'lo-140-multi' });
+		const fromThreeSegments = workOrderNameOf({ name: 'a/b/001-x' });
 
 		expect({ fromAddress, fromLegacyFolder, fromThreeSegments }).toStrictEqual({
 			fromAddress: 'lo-140-multi',

@@ -34,12 +34,12 @@ const setupBlockedCheckout = () => {
 /** A checkout outside any repository whose ticket folder already holds another record of the same ticket. */
 const setupOccupiedTicketFolder = ({ branch = 'lo-131-occupied' }: { branch?: string } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-worktree-record-'));
-	const ticketFolder = join(cwd, '.lightsout', 'tickets', branch);
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', branch);
 
-	mkdirSync(ticketFolder, { recursive: true });
-	writeFileSync(join(ticketFolder, 'ship.json'), '{"branch":"lo-131-occupied"}\n');
+	mkdirSync(workOrderFolder, { recursive: true });
+	writeFileSync(join(workOrderFolder, 'ship.json'), '{"branch":"lo-131-occupied"}\n');
 
-	return { branch, cwd, ticketFolder, worktreePath: join(cwd, '..', 'repo-worktrees', branch) };
+	return { branch, cwd, workOrderFolder, worktreePath: join(cwd, '..', 'repo-worktrees', branch) };
 };
 
 /** A checkout outside any repository where the branch's ownership was already recorded once, by a planning run. */
@@ -49,7 +49,7 @@ const setupRecordedOwner = async ({ branch = 'lo-131-rehomed' }: { branch?: stri
 
 	await writeWorktreeRecord({ cwd, branch, owner: WorktreeOwner.Plan, worktreePath });
 
-	return { branch, cwd, ticketFolder: join(cwd, '.lightsout', 'tickets', branch), worktreePath };
+	return { branch, cwd, workOrderFolder: join(cwd, '.lightsout', 'work-orders', branch), worktreePath };
 };
 
 describe('writeWorktreeRecord', () => {
@@ -58,7 +58,7 @@ describe('writeWorktreeRecord', () => {
 
 		await writeWorktreeRecord({ cwd: worktree, branch, owner: WorktreeOwner.Implement, worktreePath: worktree });
 
-		expect(readdirSync(join(primary, '.lightsout', 'tickets'))).toStrictEqual(['feature-lo-7-isolate']);
+		expect(readdirSync(join(primary, '.lightsout', 'work-orders'))).toStrictEqual(['feature-lo-7-isolate']);
 		expect(existsSync(join(worktree, '.lightsout'))).toBe(false);
 		expect(await readWorktreeRecord({ cwd: worktree, branch })).toEqual(
 			expect.objectContaining({ branch: 'feature/lo-7-isolate', owner: 'implement', worktreePath: worktree }),
@@ -111,27 +111,27 @@ describe('writeWorktreeRecord', () => {
 
 		await writeWorktreeRecord({ cwd: worktree, branch, owner: WorktreeOwner.Implement, worktreePath: worktree });
 
-		expect(readdirSync(join(primary, '.lightsout', 'tickets', 'feature-lo-7-isolate'))).toStrictEqual(['worktree.json']);
+		expect(readdirSync(join(primary, '.lightsout', 'work-orders', 'feature-lo-7-isolate'))).toStrictEqual(['worktree.json']);
 		expect(await readWorktreeRecord({ cwd: worktree, branch })).toEqual(
 			expect.objectContaining({ branch: 'feature/lo-7-isolate', owner: 'implement', worktreePath: worktree }),
 		);
 	});
 
 	test("files the record beside the ticket's other records rather than over the folder", async () => {
-		const { branch, cwd, ticketFolder, worktreePath } = setupOccupiedTicketFolder();
+		const { branch, cwd, workOrderFolder, worktreePath } = setupOccupiedTicketFolder();
 
 		await writeWorktreeRecord({ cwd, branch, owner: WorktreeOwner.Implement, worktreePath });
 
-		expect(readdirSync(ticketFolder).sort()).toStrictEqual(['ship.json', 'worktree.json']);
-		expect(readFileSync(join(ticketFolder, 'ship.json'), 'utf8')).toBe('{"branch":"lo-131-occupied"}\n');
+		expect(readdirSync(workOrderFolder).sort()).toStrictEqual(['ship.json', 'worktree.json']);
+		expect(readFileSync(join(workOrderFolder, 'ship.json'), 'utf8')).toBe('{"branch":"lo-131-occupied"}\n');
 	});
 
 	test('re-stamps an owner a second write names, leaving no temporary file behind', async () => {
-		const { branch, cwd, ticketFolder, worktreePath } = await setupRecordedOwner();
+		const { branch, cwd, workOrderFolder, worktreePath } = await setupRecordedOwner();
 
 		await writeWorktreeRecord({ cwd, branch, owner: WorktreeOwner.Implement, worktreePath });
 
-		expect(readdirSync(ticketFolder)).toStrictEqual(['worktree.json']);
+		expect(readdirSync(workOrderFolder)).toStrictEqual(['worktree.json']);
 		expect(await readWorktreeRecord({ cwd, branch })).toEqual(expect.objectContaining({ branch: 'lo-131-rehomed', owner: 'implement', worktreePath }));
 	});
 

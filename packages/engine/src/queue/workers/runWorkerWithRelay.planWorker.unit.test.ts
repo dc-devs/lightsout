@@ -62,7 +62,7 @@ jest.mock('#src/plan/index.ts', () => ({
 // branch-named build exactly as it was, and a failed pull builds nothing.
 interface PullTicketRecordParams {
 	cwd: string;
-	ticketBranch: string;
+	workOrderName: string;
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
 	onProgress?: (message: string) => void;
@@ -180,7 +180,7 @@ const setupBrainstormOnlyTicket = () => {
 			relay,
 			coordinatorRunId: 'run-q',
 			coordinatorRunDir,
-			workOrderRunDir: join(coordinatorRunDir, 'tickets', 'LO-70'),
+			workOrderRunDir: join(coordinatorRunDir, 'work-orders', 'LO-70'),
 			env: {},
 			onProgress: (message: string) => {
 				progress.push(message);
@@ -203,7 +203,7 @@ const ticketRecord: WorkOrderState = {
 const setupPlanWorkerTicket = ({ pull }: { pull: PullTicketRecordResult }) => {
 	const { relay, coordinatorRunDir } = setupRelay();
 	const worktreePath = mkdtempSync(join(tmpdir(), 'lightsout-ticket-record-'));
-	const workOrderRunDir = join(coordinatorRunDir, 'tickets', 'LO-70');
+	const workOrderRunDir = join(coordinatorRunDir, 'work-orders', 'LO-70');
 
 	mockPullTicketRecord.mockResolvedValue(pull);
 	mockBuildTicketPlans.mockResolvedValue({});
@@ -247,7 +247,7 @@ const setupPlanWorkerInWorktree = () => {
 
 	execSync(`git worktree add -q -b lo-70-drain "${worktreePath}" main`, { cwd: primary, stdio: 'ignore' });
 
-	const folder = join(primary, '.lightsout', 'tickets', 'lo-70-drain', 'plans');
+	const folder = join(primary, '.lightsout', 'work-orders', 'lo-70-drain', 'plans');
 
 	mkdirSync(folder, { recursive: true });
 	writeFileSync(join(folder, 'plan.md'), '# Plan\n');
@@ -270,7 +270,7 @@ const setupPlanWorkerInWorktree = () => {
 			relay,
 			coordinatorRunId: 'run-q',
 			coordinatorRunDir,
-			workOrderRunDir: join(coordinatorRunDir, 'tickets', 'LO-70'),
+			workOrderRunDir: join(coordinatorRunDir, 'work-orders', 'LO-70'),
 			env: { LINEAR_API_KEY: 'key-1' },
 		},
 	};

@@ -13,4 +13,4 @@ interface Params {
  * record are all built from, so a later plan of one ticket lands in the same
  * tree on the same branch as the first.
  */
-export const ticketFolderOf = ({ name }: Params): string => parsePlanAddress({ name })?.ticketBranch ?? name;
+export const workOrderNameOf = ({ name }: Params): string => parsePlanAddress({ name })?.workOrderName ?? name;

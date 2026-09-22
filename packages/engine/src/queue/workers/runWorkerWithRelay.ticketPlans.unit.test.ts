@@ -30,7 +30,7 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 // answers with is the one the rules themselves compose.
 interface PullTicketRecordParams {
 	cwd: string;
-	ticketBranch: string;
+	workOrderName: string;
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
 	onProgress?: (message: string) => void;
@@ -129,7 +129,7 @@ const setupOrderedBuild = ({ progress, runId }: { progress: PlanProgress; runId?
 			relay,
 			coordinatorRunId: 'run-q',
 			coordinatorRunDir,
-			workOrderRunDir: join(coordinatorRunDir, 'tickets', 'LO-7'),
+			workOrderRunDir: join(coordinatorRunDir, 'work-orders', 'LO-7'),
 			env: { LINEAR_API_KEY: 'key-1' },
 		},
 	};
