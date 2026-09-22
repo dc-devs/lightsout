@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
 import type { TrackerAttachment, TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
-import { addWorkOrderPlan } from '#src/workOrder/index.ts';
+import { addWorkOrderPlan, updateLocalWorkOrderState } from '#src/workOrder/index.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
 // Mocked Imports
@@ -47,12 +47,22 @@ const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-cov
 const trackerBlock: LightsoutConfig['ticket-tracker'] = { ...ticketTrackerConfigBlock, provider: 'linear' };
 const env = { LINEAR_API_KEY: 'lin_key' };
 
-/** An empty work order folder in a fresh checkout, with the tracker answering the given attachments. */
-const setupAddPlan = ({ attachments }: { attachments: TrackerAttachment[] | TrackerFailure }) => {
+/**
+ * A work order that already exists in a fresh checkout, with the tracker
+ * answering the given attachments. The record is seeded because adding a plan
+ * no longer creates one — `lightsout work-order new` is the only writer of a
+ * work order's name.
+ */
+const setupAddPlan = async ({ attachments }: { attachments: TrackerAttachment[] | TrackerFailure }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-add-plan-attachments-'));
 	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
 
 	mkdirSync(workOrderFolder, { recursive: true });
+	await updateLocalWorkOrderState({
+		cwd,
+		name,
+		change: () => ({ schemaVersion: 1, name, branch: name, ticketRef: 'lo-140', mode: 'single-plan', plans: [], history: [] }),
+	});
 	mockGetTicketAttachments.mockResolvedValue(attachments);
 	// Narrowed to the two fields a publish reads: the rest of a tracker's issue
 	// shape would say nothing about this function.
@@ -75,7 +85,7 @@ describe('addWorkOrderPlan attachments', () => {
 		// Such a plan can never become this ticket's plan 001 now, so refusing the
 		// add would strand the ticket with no remedy to name. Publishing is per
 		// plan id, so a fresh plan 001 collides with nothing.
-		const { params, recordPath, planFolderOf } = setupAddPlan({
+		const { params, recordPath, planFolderOf } = await setupAddPlan({
 			attachments: [{ id: 'att-1', title: 'plan-attachments.json', url: 'https://assets.example.com/plan-attachments.json' }],
 		});
 
@@ -95,7 +105,7 @@ describe('addWorkOrderPlan attachments', () => {
 	test('adds plan 001 and publishes the record when the ticket carries attachments but no plan published before work order states', async () => {
 		// The row above carries the one attachment title that used to decide this,
 		// so the row proving an ordinary attachment changes nothing sits beside it.
-		const { params, recordPath, planFolderOf } = setupAddPlan({
+		const { params, recordPath, planFolderOf } = await setupAddPlan({
 			attachments: [{ id: 'att-1', title: 'design.md', url: 'https://assets.example.com/design.md' }],
 		});
 
@@ -116,13 +126,14 @@ describe('addWorkOrderPlan attachments', () => {
 		// Unread attachments cannot say whether the ticket already carries a record,
 		// so passing over the failure is what would let a second plan 001 land on
 		// top of one this machine has never seen.
-		const { params, recordPath, planFolderOf } = setupAddPlan({ attachments: { error: 'the tracker answered 503' } });
+		const { params, recordPath, planFolderOf } = await setupAddPlan({ attachments: { error: 'the tracker answered 503' } });
+		const before = readFileSync(recordPath, 'utf8');
 
 		const whileReadingTheRecord = await addWorkOrderPlan(params);
 
 		expect(whileReadingTheRecord).toEqual({ error: expect.stringContaining('state.json') });
 		expect(whileReadingTheRecord).toEqual({ error: expect.stringContaining('503') });
-		expect(existsSync(recordPath)).toBe(false);
+		expect(readFileSync(recordPath, 'utf8')).toBe(before);
 		expect(existsSync(planFolderOf({ planId: '001-search-basics' }))).toBe(false);
 	});
 });

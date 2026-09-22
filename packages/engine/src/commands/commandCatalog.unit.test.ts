@@ -359,13 +359,14 @@ describe('commandCatalog', () => {
 		]);
 	});
 
-	test('commandCatalog: the work-order entry carries the renamed id, cli and seven invocation ids, and no entry answers to ticket', () => {
+	test('commandCatalog: the work-order entry carries the renamed id, cli and eight invocation ids, and no entry answers to ticket', () => {
 		const { ids, byId } = setupCatalog();
 
 		const workOrder = byId.get('work-order');
 
 		expect(workOrder).toEqual(expect.objectContaining({ id: 'work-order', cli: 'lightsout work-order', group: 'build', records: 'plans' }));
 		expect(workOrder?.invocations.map((invocation) => [invocation.id, invocation.positional])).toStrictEqual([
+			['work-order-new', 'new'],
 			['work-order-add-plan', 'add-plan'],
 			['work-order-mode', 'mode'],
 			['work-order-request-ship', 'request-ship'],

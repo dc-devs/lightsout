@@ -170,6 +170,7 @@ test('prints one work-order line per subcommand between plan publish and ticket-
 	const ticketState = lines.findIndex((line) => line.startsWith('  lightsout ticket-state'));
 
 	expect(workOrder).toStrictEqual([
+		'  lightsout work-order new [--ticket <ref> | --title <words>] [--cwd <path>]',
 		'  lightsout work-order add-plan --name <work-order-name> --slug <slug> [--title <title>] [--cwd <path>]',
 		'  lightsout work-order mode --name <work-order-name> --set single-plan|multiple-plan [--approve] [--cwd <path>]',
 		'  lightsout work-order request-ship --name <work-order-name> [--plans <id,id> | --withdraw] [--cwd <path>]',
@@ -179,16 +180,16 @@ test('prints one work-order line per subcommand between plan publish and ticket-
 		'  lightsout work-order sync --name <work-order-name> [--keep local|published] [--cwd <path>]',
 	]);
 	expect(lines.indexOf(workOrder[0] ?? '')).toBe(planPublish + 1);
-	expect(ticketState).toBe(planPublish + 8);
+	expect(ticketState).toBe(planPublish + 9);
 });
 
-test('prints seven work-order lines and none naming adopt', () => {
+test('prints one work-order line per subcommand, the new one included, and none naming adopt', () => {
 	const { lines } = setupRenderUsage();
 
 	const workOrder = lines.filter((line) => line.startsWith('  lightsout work-order '));
 	const addPlan = workOrder.filter((line) => line.startsWith('  lightsout work-order add-plan'));
 
-	expect(workOrder).toHaveLength(7);
+	expect(workOrder).toHaveLength(8);
 	expect(addPlan).toStrictEqual(['  lightsout work-order add-plan --name <work-order-name> --slug <slug> [--title <title>] [--cwd <path>]']);
 	expect(workOrder.filter((line) => line.includes('adopt'))).toStrictEqual([]);
 });
@@ -219,8 +220,9 @@ test('renderUsage: prints the status --now line between the run and planning lin
 	expect(queue[0]).not.toContain('--watch');
 });
 
-/** The seven subcommand lines as the renamed command word must spell them, in the settled order. */
+/** The eight subcommand lines as the renamed command word must spell them, in the settled order — the one that creates a work order first. */
 const workOrderUsageLines = [
+	'  lightsout work-order new [--ticket <ref> | --title <words>] [--cwd <path>]',
 	'  lightsout work-order add-plan --name <work-order-name> --slug <slug> [--title <title>] [--cwd <path>]',
 	'  lightsout work-order mode --name <work-order-name> --set single-plan|multiple-plan [--approve] [--cwd <path>]',
 	'  lightsout work-order request-ship --name <work-order-name> [--plans <id,id> | --withdraw] [--cwd <path>]',
@@ -230,7 +232,7 @@ const workOrderUsageLines = [
 	'  lightsout work-order sync --name <work-order-name> [--keep local|published] [--cwd <path>]',
 ];
 
-test('renderUsage: prints seven work-order lines between plan publish and ticket-state, and no bare ticket command line', () => {
+test('renderUsage: prints every work-order line between plan publish and ticket-state, and no bare ticket command line', () => {
 	const { lines } = setupRenderUsage();
 
 	const workOrder = lines.filter((line) => line.startsWith('  lightsout work-order '));
@@ -240,7 +242,7 @@ test('renderUsage: prints seven work-order lines between plan publish and ticket
 	expect(workOrder).toStrictEqual(workOrderUsageLines);
 	expect(lines.filter((line) => line.startsWith('  lightsout ticket '))).toStrictEqual([]);
 	expect(lines.indexOf(workOrder[0] ?? '')).toBe(planPublish + 1);
-	expect(ticketState).toBe(planPublish + 8);
+	expect(ticketState).toBe(planPublish + 9);
 });
 
 test('renderUsage: the checked-in fixture spells the work-order command word with its re-flowed alignment', () => {
@@ -264,4 +266,15 @@ test('renders the add-plan line without the removed --from flag', () => {
 	expect(addPlan).toStrictEqual(['  lightsout work-order add-plan --name <work-order-name> --slug <slug> [--title <title>] [--cwd <path>]']);
 	expect(lines.filter((line) => line.includes('--from'))).toStrictEqual([]);
 	expect(usage).toBe(usageFixture);
+});
+
+test('renderUsage: prints the work-order new line above the other work-order lines, with --ticket and --title in one bracket and no --name', () => {
+	const { lines } = setupRenderUsage();
+
+	const workOrder = lines.filter((line) => line.startsWith('  lightsout work-order '));
+	const created = workOrder.filter((line) => line.startsWith('  lightsout work-order new'));
+
+	expect(created).toStrictEqual([workOrder[0]]);
+	expect(workOrder[0]).toContain('lightsout work-order new [--ticket <ref> | --title <words>]');
+	expect(workOrder[0]).not.toContain('--name');
 });

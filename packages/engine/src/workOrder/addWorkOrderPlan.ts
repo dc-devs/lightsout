@@ -2,10 +2,8 @@ import { mkdir } from 'node:fs/promises';
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
 import { type LightsoutConfig, PlanProgress, WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
-import { planWorkspaceDir, readPlanWorkOrderRef } from '#src/plan/index.ts';
-import { resolveShipSettings } from '#src/ship/index.ts';
+import { planWorkspaceDir } from '#src/plan/index.ts';
 import { appendWorkOrderEvent } from '#src/workOrder/common/record/appendWorkOrderEvent.ts';
-import { buildWorkOrderState } from '#src/workOrder/common/record/buildWorkOrderState.ts';
 import { composePlanId } from '#src/workOrder/common/record/composePlanId.ts';
 import { recordShipRequestWithdrawal } from '#src/workOrder/common/record/recordShipRequestWithdrawal.ts';
 import { requireWorkOrderState } from '#src/workOrder/common/record/requireWorkOrderState.ts';
@@ -58,39 +56,40 @@ const addPlanToRecord = ({
 	name,
 	slug,
 	title,
-	ticketRef,
-	config,
 	at,
 }: {
 	current: WorkOrderState | undefined;
 	name: string;
 	slug: string;
 	title: string | undefined;
-	ticketRef: string | undefined;
-	config: LightsoutConfig;
 	at: string;
 }): PlanAddition | { error: string } => {
-	const existing = current === undefined ? undefined : requireWorkOrderState({ record: current, name });
+	if (current === undefined) {
+		return {
+			error: `no work order is named ${name} — create one with \`lightsout work-order new --ticket <ref>\` or \`lightsout work-order new --title <words>\` before adding a plan to it`,
+		};
+	}
 
-	if (existing !== undefined && 'error' in existing) {
+	const existing = requireWorkOrderState({ record: current, name });
+
+	if ('error' in existing) {
 		return existing;
 	}
 
-	if (existing !== undefined && existing.mode === WorkOrderMode.SinglePlan && existing.plans.some((plan) => planNumberOf({ id: plan.id }) === 1)) {
+	if (existing.mode === WorkOrderMode.SinglePlan && existing.plans.some((plan) => planNumberOf({ id: plan.id }) === 1)) {
 		return {
 			error: `work order ${name} is in single-plan mode, where plan 001 alone supplies the implementation — run \`lightsout work-order mode --set multiple-plan --name ${name}\` before adding a second plan`,
 		};
 	}
 
-	const base = existing ?? buildWorkOrderState({ name, branch: name, ticketRef, config });
-	const allocated = allocatePlanId({ record: base, slug });
+	const allocated = allocatePlanId({ record: existing, slug });
 
 	if ('error' in allocated) {
 		return allocated;
 	}
 
 	const added = appendWorkOrderEvent({
-		record: { ...base, plans: [...base.plans, { id: allocated.id, title: title ?? slug, progress: PlanProgress.Planning, createdAt: at }] },
+		record: { ...existing, plans: [...existing.plans, { id: allocated.id, title: title ?? slug, progress: PlanProgress.Planning, createdAt: at }] },
 		kind: WorkOrderEventKind.PlanAdded,
 		detail: `plan ${allocated.id} was added to work order ${name}`,
 		at,
@@ -99,17 +98,20 @@ const addPlanToRecord = ({
 	return {
 		record: recordShipRequestWithdrawal({
 			record: added,
-			detail: `plan ${allocated.id} was added, so the ship request naming ${base.shipRequest?.planIds.join(', ') ?? ''} no longer covers the ticket's work`,
+			detail: `plan ${allocated.id} was added, so the ship request naming ${existing.shipRequest?.planIds.join(', ') ?? ''} no longer covers the ticket's work`,
 			at,
 		}),
 		planId: allocated.id,
-		withdrew: base.shipRequest !== undefined,
+		withdrew: existing.shipRequest !== undefined,
 	};
 };
 
 /**
- * Add the next plan to a work order, creating the work order's state when it
- * has none.
+ * Add the next plan to a work order that already exists.
+ *
+ * A label no record answers to is a typo rather than a way to start work: the
+ * refusal names it and names `lightsout work-order new`, which is the one
+ * command that writes a work order's name.
  *
  * The id is one above the highest number the ticket has ever held, excluded
  * plans counted, so a number is never reused and a ship request, an exclusion
@@ -130,11 +132,6 @@ export const addWorkOrderPlan = async ({
 	env,
 	onProgress,
 }: Params): Promise<(WorkOrderStateChange & { address: string }) | { error: string }> => {
-	const shipSettings = resolveShipSettings({ config });
-	// A pattern this repository cannot compile is not a reason to refuse a plan:
-	// the work order simply carries no tracker reference, which is the ordinary
-	// shape for a repository with no ticket system at all.
-	const ticketRef = shipSettings === undefined ? undefined : readPlanWorkOrderRef({ name, ticketPattern: shipSettings.ticketPattern });
 	let addition: PlanAddition | undefined;
 	const updated = await updateSyncedWorkOrderState({
 		cwd,
@@ -143,7 +140,7 @@ export const addWorkOrderPlan = async ({
 		env,
 		onProgress,
 		change: (current) => {
-			const added = addPlanToRecord({ current, name, slug, title, ticketRef, config, at: new Date().toISOString() });
+			const added = addPlanToRecord({ current, name, slug, title, at: new Date().toISOString() });
 
 			if ('error' in added) {
 				return added;

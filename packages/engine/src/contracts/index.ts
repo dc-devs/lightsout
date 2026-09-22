@@ -182,6 +182,7 @@ export {
 	TestChangeReview,
 	TestDisposition,
 	TestReviewDecision,
+	WorkOrderName,
 	WorkReport,
 	WorkReportStatus,
 	WritersReport,

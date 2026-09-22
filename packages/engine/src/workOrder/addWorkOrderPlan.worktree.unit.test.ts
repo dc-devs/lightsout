@@ -5,7 +5,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { planWorkspaceDir } from '#src/plan/index.ts';
 import type { TrackerAttachment, TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
-import { addWorkOrderPlan } from '#src/workOrder/index.ts';
+import { addWorkOrderPlan, updateLocalWorkOrderState } from '#src/workOrder/index.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 // Mocked Imports
@@ -53,11 +53,18 @@ const env = { LINEAR_API_KEY: 'lin_key' };
  * moves the session into a tree, and the one place a plan folder could be made
  * in a directory that is removed when the tree is.
  */
-const setupAddPlanFromWorktree = () => {
+const setupAddPlanFromWorktree = async () => {
 	const { cwd } = setupBranchRepo();
 	const worktree = join(cwd, '.worktrees', name);
 
 	execSync(`git worktree add -q -b ${name} "${worktree}" main`, { cwd, stdio: 'ignore' });
+	// The record is seeded because adding a plan no longer creates one, and it is
+	// seeded from the worktree so that even its birth goes to the primary checkout.
+	await updateLocalWorkOrderState({
+		cwd: worktree,
+		name,
+		change: () => ({ schemaVersion: 1, name, branch: name, ticketRef: 'lo-140', mode: 'single-plan', plans: [], history: [] }),
+	});
 	mockGetTicketAttachments.mockResolvedValue([]);
 	mockGetTicketsByIdentifiers.mockResolvedValue([{ id: 'id-140', identifier: 'LO-140' } as TrackerTicket]);
 	mockReadTicketAsset.mockResolvedValue({ error: 'no asset' });
@@ -72,7 +79,7 @@ const setupAddPlanFromWorktree = () => {
 
 describe('addWorkOrderPlan', () => {
 	test("a plan added from a linked worktree is created in the primary checkout's plans directory", async () => {
-		const { worktree, primaryTicketFolder, params } = setupAddPlanFromWorktree();
+		const { worktree, primaryTicketFolder, params } = await setupAddPlanFromWorktree();
 
 		const result = await addWorkOrderPlan(params);
 

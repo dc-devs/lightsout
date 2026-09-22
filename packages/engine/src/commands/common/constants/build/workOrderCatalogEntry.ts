@@ -1,14 +1,34 @@
-import { type CommandCatalogEntry, CommandGroup, CommandRecordKind } from '#src/contracts/index.ts';
+import { type CommandCatalogEntry, type CommandFlag, CommandGroup, CommandRecordKind } from '#src/contracts/index.ts';
 
-/** `lightsout work-order` — seven subcommands under one command word, so it carries seven invocations rather than one. */
+/**
+ * The `--name` flag, on each subcommand shape that acts on a record already
+ * written.
+ *
+ * One row per shape rather than a single unshaped row, because the `new` line
+ * must not advertise a `--name` for the one subcommand that writes the name
+ * itself; `readCommandFlags` folds the rows back into one accepted flag, so
+ * what the shapes change is only which usage lines print it. One factory rather
+ * than seven copies, so the sentence naming the folder can never come to read
+ * two ways.
+ */
+const workOrderNameFlag = ({ shape }: { shape: string }): CommandFlag => ({
+	name: 'name',
+	value: '<work-order-name>',
+	meaning: "The ticket to act on, named by its branch — which is also its folder under .lightsout/work-orders/, never one plan's address.",
+	shape,
+	required: true,
+});
+
+/** `lightsout work-order` — eight subcommands under one command word, so it carries eight invocations rather than one. */
 export const workOrderCatalogEntry: CommandCatalogEntry = {
 	id: 'work-order',
 	cli: 'lightsout work-order',
 	group: CommandGroup.Build,
-	summary: "Change and show a ticket's record of the plans it holds, the mode they implement in, and its request to ship.",
+	summary: 'Create a work order, and change and show its record of the plans it holds, the mode they implement in, and its request to ship.',
 	whenToUse:
-		'Reach for it whenever a ticket gains a plan or changes shape. `add-plan` starts the next plan and prints its address; `mode` moves a ticket between one plan supplying the implementation and several implementing in numeric order; `request-ship` is how a human declares a multiple-plan ticket finished, and `exclude-plan` takes a plan out of that work for good; `retitle-plan` changes only what a plan is called; `show` reads the record, and `sync` settles a record that moved on two machines at once.',
+		'Reach for it whenever work is started, gains a plan or changes shape. `new` is the one command that writes a work order’s name — give it `--ticket <ref>` and the engine reads that ticket’s title from the tracker and summarises it, or `--title <words>` and the words are taken as handed; the name is written once and never again. `add-plan` starts the next plan and prints its address; `mode` moves a ticket between one plan supplying the implementation and several implementing in numeric order; `request-ship` is how a human declares a multiple-plan ticket finished, and `exclude-plan` takes a plan out of that work for good; `retitle-plan` changes only what a plan is called; `show` reads the record, and `sync` settles a record that moved on two machines at once.',
 	invocations: [
+		{ id: 'work-order-new', positional: 'new' },
 		{ id: 'work-order-add-plan', positional: 'add-plan' },
 		{ id: 'work-order-mode', positional: 'mode' },
 		{ id: 'work-order-request-ship', positional: 'request-ship' },
@@ -19,11 +39,24 @@ export const workOrderCatalogEntry: CommandCatalogEntry = {
 	],
 	flags: [
 		{
-			name: 'name',
-			value: '<work-order-name>',
-			meaning: "The ticket to act on, named by its branch — which is also its folder under .lightsout/work-orders/, never one plan's address.",
-			required: true,
+			name: 'ticket',
+			value: '<ref>',
+			meaning: "The tracker ticket this work is for. The engine reads that ticket's title and summarises it into the work order's name — nobody hands it one.",
+			fallback: 'Nothing is read from a tracker; give --title instead to name the work yourself.',
+			shape: 'work-order-new',
+			required: false,
+			exclusiveWith: 'work-order-name-source',
 		},
+		{
+			name: 'title',
+			value: '<words>',
+			meaning: 'The words to name this work when no tracker names it — taken exactly as typed, and slugged into the label and the branch.',
+			fallback: 'Nothing is named from words; give --ticket instead to take the name from a tracker ticket.',
+			shape: 'work-order-new',
+			required: false,
+			exclusiveWith: 'work-order-name-source',
+		},
+		workOrderNameFlag({ shape: 'work-order-add-plan' }),
 		{
 			name: 'slug',
 			value: '<slug>',
@@ -39,6 +72,7 @@ export const workOrderCatalogEntry: CommandCatalogEntry = {
 			shape: 'work-order-add-plan',
 			required: false,
 		},
+		workOrderNameFlag({ shape: 'work-order-mode' }),
 		{
 			name: 'set',
 			value: 'single-plan|multiple-plan',
@@ -54,6 +88,7 @@ export const workOrderCatalogEntry: CommandCatalogEntry = {
 			shape: 'work-order-mode',
 			required: false,
 		},
+		workOrderNameFlag({ shape: 'work-order-request-ship' }),
 		{
 			name: 'plans',
 			value: '<id,id>',
@@ -71,6 +106,7 @@ export const workOrderCatalogEntry: CommandCatalogEntry = {
 			required: false,
 			exclusiveWith: 'ship-request',
 		},
+		workOrderNameFlag({ shape: 'work-order-exclude-plan' }),
 		{ name: 'plan', value: '<id>', meaning: 'The plan to exclude, as its full id or its number on its own.', shape: 'work-order-exclude-plan', required: true },
 		{
 			name: 'reason',
@@ -86,6 +122,7 @@ export const workOrderCatalogEntry: CommandCatalogEntry = {
 			shape: 'work-order-exclude-plan',
 			required: false,
 		},
+		workOrderNameFlag({ shape: 'work-order-retitle-plan' }),
 		{ name: 'plan', value: '<id>', meaning: 'The plan to retitle, as its full id or its number on its own.', shape: 'work-order-retitle-plan', required: true },
 		{
 			name: 'title',
@@ -94,6 +131,8 @@ export const workOrderCatalogEntry: CommandCatalogEntry = {
 			shape: 'work-order-retitle-plan',
 			required: true,
 		},
+		workOrderNameFlag({ shape: 'work-order-show' }),
+		workOrderNameFlag({ shape: 'work-order-sync' }),
 		{
 			name: 'keep',
 			value: 'local|published',

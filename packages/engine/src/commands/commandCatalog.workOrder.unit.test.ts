@@ -3,6 +3,7 @@ import { commandCatalog } from '#src/commands/index.ts';
 
 /** Every word `lightsout work-order` answers to, paired with its invocation id, in the order the usage prints them. */
 const workOrderInvocationShapes = [
+	['work-order-new', 'new'],
 	['work-order-add-plan', 'add-plan'],
 	['work-order-mode', 'mode'],
 	['work-order-request-ship', 'request-ship'],
@@ -35,7 +36,7 @@ describe('commandCatalog work-order', () => {
 		expect(silentBack).toStrictEqual([]);
 	});
 
-	test('drops the adopt invocation and leaves seven work-order subcommand shapes', () => {
+	test('drops the adopt invocation and leaves eight work-order subcommand shapes', () => {
 		const { byId } = setupCatalog();
 
 		const shapes = byId.get('work-order')?.invocations.map((invocation) => [invocation.id, invocation.positional]);

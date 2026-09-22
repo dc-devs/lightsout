@@ -37,7 +37,9 @@
  * command that genuinely writes to Linear or Jira. Updated once more when the
  * `--from` form of `add-plan` was removed, a work order's folder name having
  * become a label rather than an identity, so there is no folder move left to
- * perform.
+ * perform. Updated once more for `lightsout work-order new` — the one command
+ * that writes a work order's name, reading it from a tracker ticket behind
+ * `--ticket` and taking the words as typed behind `--title`.
  */
 export const usageFixture = `lightsout — deterministic engine for coding agents
 
@@ -73,6 +75,7 @@ usage:
   lightsout plan dedup --name <name> [--cwd <path>] [--worktree] [--no-worktree]
   lightsout plan grade --name <name> [--phase <n[,n]>] [--cwd <path>] [--worktree] [--no-worktree]   (--phase grades only those phases, and always marks the result incomplete)
   lightsout plan publish --name <name> [--cwd <path>] [--worktree] [--no-worktree]
+  lightsout work-order new [--ticket <ref> | --title <words>] [--cwd <path>]
   lightsout work-order add-plan --name <work-order-name> --slug <slug> [--title <title>] [--cwd <path>]
   lightsout work-order mode --name <work-order-name> --set single-plan|multiple-plan [--approve] [--cwd <path>]
   lightsout work-order request-ship --name <work-order-name> [--plans <id,id> | --withdraw] [--cwd <path>]

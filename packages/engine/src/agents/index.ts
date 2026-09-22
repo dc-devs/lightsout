@@ -19,4 +19,5 @@ export { buildStandardsReviewInvocation } from '#src/agents/buildStandardsReview
 export { buildSupervisorInvocation } from '#src/agents/buildSupervisorInvocation.ts';
 export { buildTestChangeReviewInvocation } from '#src/agents/buildTestChangeReviewInvocation.ts';
 export { buildUnitTestWriterInvocation } from '#src/agents/buildUnitTestWriterInvocation.ts';
+export { buildWorkOrderNameInvocation } from '#src/agents/buildWorkOrderNameInvocation.ts';
 export { planGradePromptTexts } from '#src/agents/common/constants/planGradePromptTexts.ts';

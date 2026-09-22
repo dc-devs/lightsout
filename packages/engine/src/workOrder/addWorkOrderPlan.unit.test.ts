@@ -55,11 +55,17 @@ const planOf = ({ id, progress = PlanProgress.Planning, excluded = false }: { id
 });
 
 const recordOf = ({
+	label = name,
+	ticketRef = 'lo-140',
 	mode = WorkOrderMode.SinglePlan,
 	plans = [],
 	shipRequestFor,
 	shipped,
 }: {
+	/** The work order's label, which is also its folder. Defaults to the one every row below uses. */
+	label?: string;
+	/** The tracker reference the record carries, or null for a work order named from words alone. */
+	ticketRef?: string | null;
 	mode?: WorkOrderMode;
 	plans?: WorkOrderPlan[];
 	/** The plan ids a pending ship request names. */
@@ -67,9 +73,9 @@ const recordOf = ({
 	shipped?: { at: string; planIds: string[]; mergeCommit: string };
 } = {}): WorkOrderState => ({
 	schemaVersion: 1,
-	name,
-	ticketRef: 'lo-140',
-	branch: name,
+	name: label,
+	...(ticketRef === null ? {} : { ticketRef }),
+	branch: label,
 	mode,
 	plans,
 	...(shipRequestFor === undefined ? {} : { shipRequest: { planIds: shipRequestFor, requestedAt: '2026-02-01T00:00:00.000Z' } }),
@@ -133,8 +139,8 @@ const setupAddPlan = async ({
 const recordAt = ({ recordPath }: { recordPath: string }) => JSON.parse(readFileSync(recordPath, 'utf8')) as WorkOrderState;
 
 describe('addWorkOrderPlan', () => {
-	test('creates the work order state with the repository default mode and plan 001 when the ticket has no record', async () => {
-		const { params, recordPath, planFolderOf } = await setupAddPlan();
+	test('allocates plan 001 and its empty folder to a record that holds no plans yet', async () => {
+		const { params, recordPath, planFolderOf } = await setupAddPlan({ record: recordOf() });
 
 		const result = await addWorkOrderPlan(params);
 
@@ -148,20 +154,12 @@ describe('addWorkOrderPlan', () => {
 					branch: 'lo-140-multi',
 					mode: 'single-plan',
 					plans: [expect.objectContaining({ id: '001-search-basics', title: 'search-basics', progress: 'planning' })],
-					history: [expect.objectContaining({ kind: 'plan-added' })],
+					history: [expect.objectContaining({ kind: 'plan-added' }), expect.objectContaining({ kind: 'plan-added' })],
 				}),
 			}),
 		);
 		expect(recordAt({ recordPath }).plans).toEqual([expect.objectContaining({ id: '001-search-basics', progress: 'planning' })]);
 		expect(readdirSync(planFolder)).toStrictEqual([]);
-	});
-
-	test("seeds a new record's mode from plan.default-work-order-mode", async () => {
-		const { params, recordPath } = await setupAddPlan({ config: { gates, plan: { 'default-work-order-mode': WorkOrderMode.MultiplePlan } } });
-
-		await addWorkOrderPlan(params);
-
-		expect(recordAt({ recordPath }).mode).toBe('multiple-plan');
 	});
 
 	test('allocates one more than the highest number the record holds, counting excluded plans', async () => {
@@ -260,14 +258,15 @@ describe('addWorkOrderPlan', () => {
 
 	test('refuses a slug that is not lowercase hyphen-separated words of at most 40 characters', async () => {
 		const overLongSlug = 'a'.repeat(41);
-		const { params, recordPath, planFolderOf } = await setupAddPlan();
+		const { params, recordPath, planFolderOf } = await setupAddPlan({ record: recordOf() });
+		const before = readFileSync(recordPath, 'utf8');
 
 		const notLowercase = await addWorkOrderPlan({ ...params, slug: 'Search_Basics' });
 		const tooLong = await addWorkOrderPlan({ ...params, slug: overLongSlug });
 
 		expect(notLowercase).toEqual({ error: expect.stringContaining('lowercase') });
 		expect(tooLong).toEqual({ error: expect.stringContaining('40') });
-		expect(existsSync(recordPath)).toBe(false);
+		expect(readFileSync(recordPath, 'utf8')).toBe(before);
 		expect(existsSync(planFolderOf({ planId: '001-Search_Basics' }))).toBe(false);
 		expect(existsSync(planFolderOf({ planId: `001-${overLongSlug}` }))).toBe(false);
 	});
@@ -288,9 +287,12 @@ describe('addWorkOrderPlan', () => {
 
 	test('adds the plan under a ship.ticket-pattern that reads no ticket id out of any branch', async () => {
 		// The pattern compiles but captures no `ticket` group, so no branch name
-		// can be read as a ticket — which is no longer a refusal: the record is
-		// born naming the work order and claiming no tracker reference.
-		const { params, recordPath, planFolderOf } = await setupAddPlan({ config: { gates, ship: { 'ticket-pattern': '^(lo-\\d+)' } } });
+		// can be read as a ticket — which changes nothing here: the record already
+		// says which ticket it belongs to, and adding a plan never asks a pattern.
+		const { params, recordPath, planFolderOf } = await setupAddPlan({
+			config: { gates, ship: { 'ticket-pattern': '^(lo-\\d+)' } },
+			record: recordOf({ ticketRef: null }),
+		});
 
 		const result = await addWorkOrderPlan(params);
 
@@ -324,8 +326,11 @@ describe('addWorkOrderPlan', () => {
 		expect(withdrawal).toEqual(expect.objectContaining({ notice: expect.not.stringContaining('lightsout ticket ') }));
 	});
 
-	test('creates a tracker-free work order and its first plan', async () => {
-		const { params, recordPath, planFolderOf } = await setupAddPlan({ branch: 'feature-search' });
+	test('adds a first plan to a tracker-free work order', async () => {
+		const { params, recordPath, planFolderOf } = await setupAddPlan({
+			branch: 'feature-search',
+			record: recordOf({ label: 'feature-search', ticketRef: null }),
+		});
 
 		const result = await addWorkOrderPlan(params);
 
@@ -349,7 +354,7 @@ describe('addWorkOrderPlan', () => {
 	});
 
 	test('adds a plan beside loose files in the plans folder', async () => {
-		const { params, recordPath, workOrderFolder, planFolderOf } = await setupAddPlan({ topLevelFiles: ['facts.json', 'plan.md'] });
+		const { params, recordPath, workOrderFolder, planFolderOf } = await setupAddPlan({ record: recordOf(), topLevelFiles: ['facts.json', 'plan.md'] });
 
 		const result = await addWorkOrderPlan(params);
 
@@ -360,5 +365,20 @@ describe('addWorkOrderPlan', () => {
 		expect(readdirSync(planFolderOf({ planId: '001-search-basics' }))).toStrictEqual([]);
 		expect(existsSync(join(workOrderFolder, 'plans', 'plan.md'))).toBe(true);
 		expect(existsSync(join(workOrderFolder, 'plans', 'facts.json'))).toBe(true);
+	});
+
+	test('addWorkOrderPlan: refuses a label no work order holds and points at work-order new', async () => {
+		const { params, recordPath, workOrderFolder, planFolderOf } = await setupAddPlan();
+
+		const result = await addWorkOrderPlan(params);
+
+		// Adding a plan no longer creates the work order: a label no record
+		// answers to is a typo, and the sentence names the one command that
+		// writes a name.
+		expect(result).toEqual({ error: expect.stringContaining('lightsout work-order new') });
+		expect(result).toEqual({ error: expect.stringContaining(name) });
+		expect(existsSync(recordPath)).toBe(false);
+		expect(existsSync(planFolderOf({ planId: '001-search-basics' }))).toBe(false);
+		expect(readdirSync(join(workOrderFolder, 'plans'))).toStrictEqual([]);
 	});
 });

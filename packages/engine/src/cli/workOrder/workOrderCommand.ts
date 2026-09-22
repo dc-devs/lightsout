@@ -6,6 +6,7 @@ import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { workOrderAddPlanCommand } from '#src/cli/workOrder/workOrderAddPlanCommand.ts';
 import { workOrderExcludePlanCommand } from '#src/cli/workOrder/workOrderExcludePlanCommand.ts';
 import { workOrderModeCommand } from '#src/cli/workOrder/workOrderModeCommand.ts';
+import { workOrderNewCommand } from '#src/cli/workOrder/workOrderNewCommand.ts';
 import { workOrderRequestShipCommand } from '#src/cli/workOrder/workOrderRequestShipCommand.ts';
 import { workOrderRetitlePlanCommand } from '#src/cli/workOrder/workOrderRetitlePlanCommand.ts';
 import { workOrderShowCommand } from '#src/cli/workOrder/workOrderShowCommand.ts';
@@ -15,6 +16,7 @@ import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 
 /** Each subcommand word and the handler it reaches, in the order the usage text lists them. */
 const workOrderSubcommands: Record<string, (context: CommandContext) => Promise<void>> = {
+	new: workOrderNewCommand,
 	'add-plan': workOrderAddPlanCommand,
 	mode: workOrderModeCommand,
 	'request-ship': workOrderRequestShipCommand,
@@ -27,11 +29,13 @@ const workOrderSubcommands: Record<string, (context: CommandContext) => Promise<
 /**
  * The `work-order` command word, dispatching on its first positional.
  *
- * It resolves no config and no driver: no subcommand spawns an agent, and each
- * one reads the repository's config itself. Every subcommand acts on a whole
- * ticket, so a plan's own address given as `--name` is refused here rather than
- * seven times over — a plan address would otherwise name a folder that holds no
- * record at all.
+ * It resolves no config and no driver: each subcommand reads the repository's
+ * config itself, and the one that spawns an agent — `new`, summarising a
+ * ticket's title into a name — resolves its own harness. Every subcommand acts
+ * on a whole ticket, so a plan's own address given as `--name` is refused here
+ * rather than seven times over — a plan address would otherwise name a folder
+ * that holds no record at all. `new` takes no `--name`, so that guard is inert
+ * for it and needs no carve-out.
  */
 export const workOrderCommand = async ({ flags, rest, cwd }: CommandContext): Promise<void> => {
 	const word = getPositionals({ args: rest })[0] ?? '';

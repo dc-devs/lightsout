@@ -7,18 +7,25 @@
 // because that folder is the address of a branch's ship and worktree records as
 // well as its plans. The operations' own helpers — how an event is appended and
 // how a plan token is resolved — stay off the barrel for the same reason the
-// state file's bytes do.
+// state file's bytes do — and so do the three helpers behind `createWorkOrder`:
+// how a label is composed, where its words come from and how a ticket's title
+// is read are the module's business, and a caller that could compose a label
+// could write one without the lock the creator takes.
 
 export { addWorkOrderPlan } from '#src/workOrder/addWorkOrderPlan.ts';
 export { WorkOrderSyncKeep } from '#src/workOrder/common/constants/WorkOrderSyncKeep.ts';
+export type { WorkOrderListing } from '#src/workOrder/common/types/WorkOrderListing.ts';
 export type { WorkOrderPlanOutcome } from '#src/workOrder/common/types/WorkOrderPlanOutcome.ts';
 export type { WorkOrderRunTerms } from '#src/workOrder/common/types/WorkOrderRunTerms.ts';
 export type { WorkOrderShipEligibility } from '#src/workOrder/common/types/WorkOrderShipEligibility.ts';
 export type { WorkOrderStateChange } from '#src/workOrder/common/types/WorkOrderStateChange.ts';
+export { createWorkOrder } from '#src/workOrder/createWorkOrder.ts';
 export { excludeWorkOrderPlan } from '#src/workOrder/excludeWorkOrderPlan.ts';
 export { findNextPlanToPlan } from '#src/workOrder/findNextPlanToPlan.ts';
 export { findPlanImplementationBlocker } from '#src/workOrder/findPlanImplementationBlocker.ts';
+export { findWorkOrderByTicketRef } from '#src/workOrder/findWorkOrderByTicketRef.ts';
 export { createWorkOrderShipGuard, readWorkOrderRunTerms, runWorkOrderPlanLifecycle } from '#src/workOrder/implementRun/index.ts';
+export { listWorkOrders } from '#src/workOrder/listWorkOrders.ts';
 export { publishWorkOrderPlan } from '#src/workOrder/publishWorkOrderPlan.ts';
 export { pullWorkOrderState } from '#src/workOrder/pullWorkOrderState.ts';
 export { readWorkOrderShipEligibility } from '#src/workOrder/readWorkOrderShipEligibility.ts';

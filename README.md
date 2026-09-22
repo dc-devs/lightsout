@@ -493,6 +493,19 @@ subcommand and `implement` are given. The record itself,
 plans and how far each one's implementation has got, any plan taken out of that
 work, and the request to ship.
 
+`new` creates the work order, and it is the only thing that ever writes its
+name. Give it `--ticket <ref>` and the engine reads that ticket's title from
+the tracker itself and spawns your own harness to summarise it into three or
+four words — nobody hands it a name, so nobody can hand it a different one; a
+harness that is down falls back to a mechanical cut of the title rather than
+stopping the command. Give it `--title <words>` and the words are taken exactly
+as you typed them, which is the way in for a repository with no ticket tracker
+at all. Either way the label, the git branch and the record are allocated
+together and written once: the name is never rewritten afterwards, and a label
+another work order already holds is refused by name rather than quietly
+suffixed. `--ticket` in a repository with no `ticket-tracker` block is refused
+too, naming the missing block and pointing at `--title`.
+
 `add-plan` starts the next plan and prints its address. `mode` moves the ticket
 between single-plan — plan 001 alone supplies the implementation, and this
 repository's automatic shipping applies — and multiple-plan, where the plans
@@ -513,6 +526,8 @@ For what `ship.after-implement` means to a single-plan ticket, see the `ship`
 block in [Configuration](docs/configuration.md).
 
 ```text
+lightsout work-order new --ticket LO-140
+lightsout work-order new --title "queue ordering rules"
 lightsout work-order add-plan --name lo-140-multi --slug queue-order
 lightsout work-order mode --name lo-140-multi --set multiple-plan
 lightsout work-order request-ship --name lo-140-multi --plans 001-record,002-queue-order

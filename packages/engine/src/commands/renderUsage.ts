@@ -43,6 +43,7 @@ const usageOrder = [
 	'plan-dedup',
 	'plan-grade',
 	'plan-publish',
+	'work-order-new',
 	'work-order-add-plan',
 	'work-order-mode',
 	'work-order-request-ship',
