@@ -46,7 +46,7 @@ export const buildFromTicketBody = async ({ step }: Params): Promise<WorkerOutco
 	return toBuildOutcome({
 		outcome: await runWorkOrderPlanLifecycle({
 			cwd,
-			name: formatPlanAddress({ workOrderName: record.branch, planId: plan.id }),
+			name: formatPlanAddress({ workOrderName: record.name, planId: plan.id }),
 			run: ({ runId }) => runDirectWork({ cwd, ticketBody: ticket.description, ticketRef: ticket.identifier, runId, driver, driverName, config, onProgress }),
 		}),
 	});

@@ -25,6 +25,7 @@ export const configOf = ({ generated }: { generated?: string[] }): LightsoutConf
 const ticketRecordOf = ({ branch }: { branch: string }) =>
 	JSON.stringify({
 		schemaVersion: 1,
+		name: branch,
 		ticketRef: 'LO-152',
 		branch,
 		mode: WorkOrderMode.SinglePlan,

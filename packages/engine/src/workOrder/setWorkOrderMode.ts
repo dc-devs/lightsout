@@ -60,7 +60,7 @@ const describeSwitchToSinglePlan = ({
 			? ` Plan ${firstId} is already implemented, so this ticket becomes eligible to ship as soon as the switch is approved: \`lightsout ship\`, or the queue's next drain, would ship it.`
 			: '';
 
-	return `switching work order ${record.branch} to single-plan mode means plan ${firstId} alone determines this ticket's implementation and shipping, and ${later.map((plan) => plan.id).join(', ')} would be excluded from both — their files stay on disk, and an exclusion is final. ${chaining}, and the queue ships the branch once plan ${firstId} is implemented whatever that setting says.${eligible} Run the same command again with --approve to make the switch.`;
+	return `switching work order ${record.name} to single-plan mode means plan ${firstId} alone determines this ticket's implementation and shipping, and ${later.map((plan) => plan.id).join(', ')} would be excluded from both — their files stay on disk, and an exclusion is final. ${chaining}, and the queue ships the branch once plan ${firstId} is implemented whatever that setting says.${eligible} Run the same command again with --approve to make the switch.`;
 };
 
 /** Take every later plan out of the ticket's implementation order, one recorded exclusion each, in number order. */
@@ -76,7 +76,7 @@ const excludeDroppedPlans = ({ record, dropped, at }: { record: WorkOrderState; 
 				),
 			},
 			kind: WorkOrderEventKind.PlanExcluded,
-			detail: `plan ${plan.id} was excluded from work order ${record.branch}: ${switchedToSinglePlan}`,
+			detail: `plan ${plan.id} was excluded from work order ${record.name}: ${switchedToSinglePlan}`,
 			at,
 		});
 	}
@@ -101,7 +101,7 @@ const switchToSinglePlan = ({
 
 	if (unaccounted.length > 0) {
 		return {
-			error: `the implementation of ${unaccounted.map((plan) => plan.id).join(', ')} on work order ${record.branch} has started, so plan 001 does not alone supply this ticket's implementation — remove that implementation from the branch with the agent, then record it with \`lightsout work-order exclude-plan --implementation-removed\`, and try the switch again`,
+			error: `the implementation of ${unaccounted.map((plan) => plan.id).join(', ')} on work order ${record.name} has started, so plan 001 does not alone supply this ticket's implementation — remove that implementation from the branch with the agent, then record it with \`lightsout work-order exclude-plan --implementation-removed\`, and try the switch again`,
 		};
 	}
 
@@ -111,8 +111,8 @@ const switchToSinglePlan = ({
 		return {
 			error:
 				first === undefined
-					? `work order ${record.branch} holds no plan 001, and single-plan mode is plan 001 supplying the whole implementation`
-					: `plan ${first.id} is excluded from work order ${record.branch}, so single-plan mode would leave the ticket with no implementation at all`,
+					? `work order ${record.name} holds no plan 001, and single-plan mode is plan 001 supplying the whole implementation`
+					: `plan ${first.id} is excluded from work order ${record.name}, so single-plan mode would leave the ticket with no implementation at all`,
 		};
 	}
 
@@ -125,14 +125,14 @@ const switchToSinglePlan = ({
 	const excluded = excludeDroppedPlans({ record, dropped, at });
 	const withdrawn = recordShipRequestWithdrawal({
 		record: excluded,
-		detail: `work order ${record.branch} moved to single-plan mode, so the plans its ship request approved are no longer the ticket's work`,
+		detail: `work order ${record.name} moved to single-plan mode, so the plans its ship request approved are no longer the ticket's work`,
 		at,
 	});
 
 	return appendWorkOrderEvent({
 		record: { ...withdrawn, mode: WorkOrderMode.SinglePlan },
 		kind: WorkOrderEventKind.ModeChanged,
-		detail: `work order ${record.branch} is now in single-plan mode`,
+		detail: `work order ${record.name} is now in single-plan mode`,
 		at,
 	});
 };

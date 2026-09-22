@@ -1,3 +1,5 @@
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { type LightsoutConfig, PlanProgress } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
@@ -85,6 +87,28 @@ const firstImplemented = planOf({
 });
 const secondReady = planOf({ id: '002-search-basics', title: 'Search basics', progress: PlanProgress.Ready });
 const thirdReady = planOf({ id: '003-search-ranking', title: 'Search ranking', progress: PlanProgress.Ready });
+
+/**
+ * The shared fixture's work order, rewritten so its branch carries a prefix its
+ * label does not: the record names `feature/lo-7-search` as the branch its plans
+ * implement on, while the folder it sits in — its label — stays `lo-7-search`.
+ *
+ * The rewrite lands on disk as well as on the value handed to the loop, so the
+ * record the loop re-reads between plans carries the prefix too, and every plan
+ * address it composes is composed against it.
+ */
+const setupPrefixedBranchBuild = () => {
+	const { calls, cwd, params } = setupTicketPlanBuild({
+		mocks,
+		plans: [firstImplemented, secondReady, thirdReady],
+		missingFolders: ['002-search-basics'],
+	});
+	const record = { ...params.record, branch: 'feature/lo-7-search' };
+
+	writeFileSync(join(cwd, '.lightsout', 'work-orders', 'lo-7-search', 'state.json'), JSON.stringify(record));
+
+	return { calls, cwd, params: { ...params, record } };
+};
 
 describe('buildWorkOrderPlans', () => {
 	test('confirms each plan without committing it a second time', async () => {
@@ -210,6 +234,27 @@ describe('buildWorkOrderPlans', () => {
 
 		expect(outcome.error).toEqual(expect.stringContaining(cwd));
 		expect(calls).toStrictEqual([]);
+	});
+
+	test('builds a plan address from the label rather than the prefixed branch', async () => {
+		const { calls, cwd, params } = setupPrefixedBranchBuild();
+
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
+
+		// composed from the branch instead, each address would carry three segments
+		// — `feature/lo-7-search/002-search-basics` — which is not an address at all,
+		// so neither the fetch nor the build would find the plan
+		expect(mockRestoreTicketPlan).toHaveBeenCalledWith(expect.objectContaining({ cwd, address: 'lo-7-search/002-search-basics' }));
+		expect(calls).toStrictEqual([
+			'restore lo-7-search/002-search-basics',
+			`build ${planFile({ cwd, planId: '002-search-basics' })}`,
+			`build ${planFile({ cwd, planId: '003-search-ranking' })}`,
+		]);
+		expect([planAt({ cwd, id: '002-search-basics' })?.progress, planAt({ cwd, id: '003-search-ranking' })?.progress]).toStrictEqual([
+			'implemented',
+			'implemented',
+		]);
+		expect(outcome.error).toBeUndefined();
 	});
 
 	test('buildWorkOrderPlans: stops at a failed next plan before settling leftover work so its partial changes stay for resume', async () => {

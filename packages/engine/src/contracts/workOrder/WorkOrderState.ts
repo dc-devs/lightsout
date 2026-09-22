@@ -8,10 +8,12 @@ import { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
 const WorkOrderStateShape = z
 	.object({
 		schemaVersion: z.literal(1),
-		/** The ticket this work order belongs to, as the tracker names it — `LO-140`. */
-		ticketRef: z.string().min(1),
-		/** The one branch every plan of this work order implements on, which is also the work order folder's label. */
+		/** The folder's label under the work-orders directory. Written once at creation and never again. */
+		name: z.string().min(1),
+		/** The git branch this work order's plans implement on. Never derived from `name`, and never used as a folder path. */
 		branch: z.string().min(1),
+		/** The ticket this work belongs to, as the tracker names it. Absent for a work order named from words alone. */
+		ticketRef: z.string().min(1).optional(),
 		mode: z.enum(WorkOrderMode),
 		/** Every plan the work order has ever held, excluded ones included, in ascending number order. */
 		plans: z.array(WorkOrderPlan),
@@ -75,8 +77,9 @@ const checkShipRequest = ({ record, ctx }: { record: z.infer<typeof WorkOrderSta
  * a change that drops or rewrites an earlier event is refused rather than
  * written.
  *
- * A plan folder with no such state file is a legacy folder and keeps behaving
- * exactly as it did before work order states existed.
+ * Every work order has one, and the folder's name is a label the record
+ * confirms rather than a fact derived from it: `name` is what every reader
+ * starts from, and `branch` is only the git branch the work implements on.
  */
 export const WorkOrderState = WorkOrderStateShape.superRefine((record, ctx) => {
 	checkPlanOrder({ record, ctx });

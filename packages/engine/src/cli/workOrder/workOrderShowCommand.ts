@@ -8,17 +8,19 @@ import { describeMissingWorkOrder } from '#src/common/utils/describeMissingWorkO
 import type { WorkOrderState } from '#src/contracts/index.ts';
 import { pullWorkOrderState } from '#src/workOrder/index.ts';
 
-/** One line per plan, and one each for what the ticket is waiting on. */
-const renderTicketRecord = ({ record }: { record: WorkOrderState }) => [
-	`ticket ${record.ticketRef} on branch ${record.branch} — ${record.mode} mode`,
+/** One line per plan, and one each for what the work order is waiting on. */
+const renderWorkOrderState = ({ record }: { record: WorkOrderState }) => [
+	// The label leads, because it is what every other subcommand is typed with;
+	// the branch follows, because a prefixed one cannot be read off the label.
+	`work order ${record.name} on branch ${record.branch} — ${record.mode} mode${record.ticketRef === undefined ? '' : ` — ${record.ticketRef}`}`,
 	...record.plans.map((plan) => {
 		const excluded = plan.exclusion === undefined ? '' : ` — excluded: ${plan.exclusion.reason}`;
 
 		return `  ${plan.id} — ${plan.title} — ${describePlanProgress({ progress: plan.progress })}${excluded}`;
 	}),
 	record.shipRequest === undefined
-		? 'no ship request is pending, so this ticket stays open'
-		: `ship request: ${record.shipRequest.planIds.join(', ')} — the ticket ships once every one of them is implemented`,
+		? 'no ship request is pending, so this work order stays open'
+		: `ship request: ${record.shipRequest.planIds.join(', ')} — the work order ships once every one of them is implemented`,
 	...(record.shipped === undefined ? [] : [`shipped as ${record.shipped.mergeCommit}`]),
 ];
 
@@ -46,7 +48,7 @@ export const workOrderShowCommand = async ({ flags, cwd }: CommandContext): Prom
 		return exitCli({ code: 1 });
 	}
 
-	for (const line of renderTicketRecord({ record: pulled.record })) {
+	for (const line of renderWorkOrderState({ record: pulled.record })) {
 		console.log(line);
 	}
 

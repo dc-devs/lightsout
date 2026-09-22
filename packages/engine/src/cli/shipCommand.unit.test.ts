@@ -135,6 +135,7 @@ const setupImplementHarness = () => {
  */
 const unrequestedShipRecord: WorkOrderState = {
 	schemaVersion: 1,
+	name: 'lo-60-ship',
 	ticketRef: 'LO-60',
 	branch: 'lo-60-ship',
 	mode: WorkOrderMode.MultiplePlan,

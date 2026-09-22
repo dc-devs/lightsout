@@ -130,6 +130,7 @@ const setupTicketPlanFolder = ({ plans, result }: { plans: WorkOrderPlan[]; resu
 	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', workOrderName);
 	const record: WorkOrderState = {
 		schemaVersion: 1,
+		name: workOrderName,
 		ticketRef: 'LO-140',
 		branch: workOrderName,
 		mode: WorkOrderMode.MultiplePlan,

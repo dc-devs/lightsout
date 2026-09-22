@@ -70,6 +70,7 @@ const planAddress = `${planName}/${secondPlanId}`;
  */
 const ticketRecordOf = ({ withPlanToPlan }: { withPlanToPlan: boolean }) => ({
 	schemaVersion: 1,
+	name: planName,
 	ticketRef: 'LO-9',
 	branch: planName,
 	mode: 'multiple-plan',

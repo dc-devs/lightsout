@@ -30,7 +30,7 @@ const resolveRequestedPlans = ({ record, tokens }: { record: WorkOrderState; tok
 
 		if (plan.exclusion !== undefined) {
 			return {
-				error: `plan ${plan.id} is excluded from work order ${record.branch} — ${plan.exclusion.reason} — so a ship request cannot name it; an exclusion is final and the plan's files stay where they are`,
+				error: `plan ${plan.id} is excluded from work order ${record.name} — ${plan.exclusion.reason} — so a ship request cannot name it; an exclusion is final and the plan's files stay where they are`,
 			};
 		}
 
@@ -49,7 +49,7 @@ const findUncoveredPlansRefusal = ({ record, named }: { record: WorkOrderState; 
 
 	return uncovered.length === 0
 		? undefined
-		: `the ship request for work order ${record.branch} does not name ${uncovered.map((plan) => plan.id).join(', ')}, and a request approves every plan the ticket still includes — name them too, or take one out of the ticket's work with \`lightsout work-order exclude-plan --name ${record.branch} --plan <id> --reason <text>\``;
+		: `the ship request for work order ${record.name} does not name ${uncovered.map((plan) => plan.id).join(', ')}, and a request approves every plan the ticket still includes — name them too, or take one out of the ticket's work with \`lightsout work-order exclude-plan --name ${record.name} --plan <id> --reason <text>\``;
 };
 
 /**

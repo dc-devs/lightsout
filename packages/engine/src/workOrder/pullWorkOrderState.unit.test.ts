@@ -38,6 +38,7 @@ const configWithTracker: LightsoutConfig = { gates, 'ticket-tracker': trackerBlo
 /** A record the contract accepts. `detail` is what a row varies to make two records differ. */
 const recordOf = ({ branch = name, detail = 'added plan 001-record' }: { branch?: string; detail?: string } = {}): WorkOrderState => ({
 	schemaVersion: 1,
+	name: branch,
 	ticketRef: 'LO-140',
 	branch,
 	mode: WorkOrderMode.SinglePlan,
@@ -340,6 +341,18 @@ describe('pullWorkOrderState', () => {
 			surfaced: false,
 			sidecar: false,
 		});
+	});
+
+	test('pullWorkOrderState: takes a published state whose branch carries a prefix its name does not', async () => {
+		const published: WorkOrderState = { ...recordOf({ detail: 'added plan 001-published' }), branch: `feature/${name}` };
+		const { params, recordPath } = await setupPull({ ticket: { published } });
+
+		const pulled = await pullWorkOrderState(params);
+
+		// the guard asks which work order the published copy names, which is its
+		// `name`; the branch its plans implement on says nothing about the folder
+		expect(pulled).toStrictEqual({ record: published });
+		expect(JSON.parse(readFileSync(recordPath, 'utf8'))).toStrictEqual(published);
 	});
 
 	test('pullWorkOrderState: every unreadable-record and divergence sentence spells the work-order command word', async () => {

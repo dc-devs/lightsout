@@ -104,6 +104,7 @@ const recordOf = ({
 	shipRequest?: string[];
 }): WorkOrderState => ({
 	schemaVersion: 1,
+	name: workOrderName,
 	ticketRef: 'LO-7',
 	branch: workOrderName,
 	mode,

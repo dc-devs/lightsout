@@ -55,7 +55,7 @@ const mockReadConfig = jest.fn<(params: { cwd: string }) => Promise<LightsoutCon
 jest.mock('#src/common/config/readConfig.ts', () => ({ readConfig: (params: { cwd: string }) => mockReadConfig(params) }));
 // -------------------------
 
-/** The work order's label, which is also the branch every record below names. */
+/** The work order's label: the folder every record below sits in, and the name every remedy takes. */
 const name = 'lo-140-multi';
 const firstPlan = '001-record';
 const secondPlan = '002-queue-order';
@@ -87,8 +87,11 @@ const recordOf = ({
 	shipRequest?: { planIds: string[]; requestedAt: string };
 }): WorkOrderState => ({
 	schemaVersion: 1,
+	name,
 	ticketRef: 'LO-140',
-	branch: name,
+	// The branch carries a prefix the label does not, so every `--name` value and
+	// every history detail below can only read as the label it names.
+	branch: `feature/${name}`,
 	mode,
 	plans,
 	shipRequest,
@@ -183,7 +186,9 @@ describe('excludeWorkOrderPlan', () => {
 		// The exclusion is recorded first and the withdrawal it caused second, so
 		// the history reads as one following from the other.
 		expect(record.history.slice(-2)).toEqual([
-			expect.objectContaining({ kind: WorkOrderEventKind.PlanExcluded }),
+			// the exclusion is recorded against the work order's label, never
+			// against the prefixed branch its plans implement on
+			expect.objectContaining({ kind: WorkOrderEventKind.PlanExcluded, detail: expect.stringContaining(`excluded from work order ${name}:`) }),
 			expect.objectContaining({ kind: WorkOrderEventKind.ShipRequestWithdrawn, detail: expect.stringContaining(secondPlan) }),
 		]);
 		expect(record.history.at(-1)?.detail).toContain('not needed after all');
@@ -246,7 +251,8 @@ describe('excludeWorkOrderPlan', () => {
 
 		const result = await excludeWorkOrderPlan({ ...base, plan: '2', reason: 'replaced by plan 003', implementationRemoved: true });
 
-		expect(errorOf({ result })).toContain(name);
+		// the one sentence here genuinely about a git branch names the branch, prefix and all, rather than the work order's label
+		expect(errorOf({ result })).toContain(`feature/${name}`);
 		expect(mockRunGates).not.toHaveBeenCalled();
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
 	});
@@ -307,7 +313,7 @@ describe('excludeWorkOrderPlan', () => {
 
 			const result = await excludeWorkOrderPlan({ ...base, plan: '2', reason: 'a second reason', implementationRemoved });
 
-			expect(result).toHaveProperty('error');
+			expect(errorOf({ result })).toContain(`already excluded from work order ${name}`);
 			expect(exclusionAt({ recordPath, id: secondPlan })).toStrictEqual(exclusion);
 			expect(readFileSync(recordPath, 'utf8')).toBe(before);
 		}
@@ -336,6 +342,10 @@ describe('excludeWorkOrderPlan', () => {
 			verifiedCommit: headCommit,
 		});
 		expect(recordAt({ recordPath }).history.filter((event) => event.kind === WorkOrderEventKind.PlanExcluded)).toHaveLength(1);
+		// the removal is recorded against the label too, beside the commit that verified it
+		expect(recordAt({ recordPath }).history.find((event) => event.kind === WorkOrderEventKind.PlanExcluded)?.detail).toContain(
+			`removed from work order ${name}, verified at ${headCommit}`,
+		);
 		expect(switched).not.toHaveProperty('error');
 		expect(recordAt({ recordPath }).mode).toBe(WorkOrderMode.SinglePlan);
 	});
@@ -357,7 +367,7 @@ describe('excludeWorkOrderPlan', () => {
 
 		const result = await excludeWorkOrderPlan({ ...base, plan: '2', reason: 'never built', implementationRemoved: true });
 
-		expect(result).toHaveProperty('error');
+		expect(errorOf({ result })).toContain(`on work order ${name} has no implementation to remove`);
 		expect(mockRunGates).not.toHaveBeenCalled();
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
 	});
@@ -379,6 +389,8 @@ describe('excludeWorkOrderPlan', () => {
 
 		expect(refusal).toContain(`lightsout work-order mode --name ${name} --set multiple-plan`);
 		expect(notice).toContain(`lightsout work-order request-ship --name ${name}`);
+		// `--name` takes the label, so a remedy naming the prefixed branch is one nothing accepts
+		expect(`${refusal}\n${notice ?? ''}`).not.toContain('feature/');
 		// The old command word anywhere in either sentence is the failure this row
 		// exists for, so both are checked for it rather than only for the new one.
 		expect(refusal).not.toContain('lightsout ticket ');

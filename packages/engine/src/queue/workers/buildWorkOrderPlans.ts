@@ -62,12 +62,12 @@ const takePlanBeingPlanned = ({ step, allowTicketBodyBuild }: { step: WorkOrderP
 	const { record, plan } = step;
 
 	if (record.mode !== WorkOrderMode.SinglePlan) {
-		return { open: `plan ${plan.id} on ticket ${record.branch} is still being planned, so the ticket stays open until that plan is ready to implement` };
+		return { open: `plan ${plan.id} on work order ${record.name} is still being planned, so the work order stays open until that plan is ready to implement` };
 	}
 
 	if (!allowTicketBodyBuild || planNumberOf({ id: plan.id }) !== 1) {
 		return {
-			error: `plan ${plan.id} on ticket ${record.branch} is still being planned, so the ticket has nothing ready to implement — plan it with \`lightsout plan --name ${formatPlanAddress({ workOrderName: record.branch, planId: plan.id })}\``,
+			error: `plan ${plan.id} on work order ${record.name} is still being planned, so the work order has nothing ready to implement — plan it with \`lightsout plan --name ${formatPlanAddress({ workOrderName: record.name, planId: plan.id })}\``,
 		};
 	}
 
@@ -77,7 +77,7 @@ const takePlanBeingPlanned = ({ step, allowTicketBodyBuild }: { step: WorkOrderP
 /** A plan that is ready to implement, fetched back from the ticket when this worktree holds no copy of it, then built. */
 const buildReadyPlan = async ({ step }: { step: WorkOrderPlanStep }) => {
 	const { cwd, record, plan, config, env, driver, onProgress } = step;
-	const address = formatPlanAddress({ workOrderName: record.branch, planId: plan.id });
+	const address = formatPlanAddress({ workOrderName: record.name, planId: plan.id });
 
 	if (!(await pathExists({ path: await planWorkspaceDir({ cwd, name: address }) }))) {
 		const restored = await restoreWorkOrderPlan({ cwd, address, config, env, onProgress });
@@ -87,7 +87,11 @@ const buildReadyPlan = async ({ step }: { step: WorkOrderPlanStep }) => {
 		}
 
 		if (restored.restored.length === 0) {
-			return { error: `plan ${plan.id} is ready to implement on ticket ${record.branch}, but ${record.ticketRef} carries no published files for it` };
+			// A work order with no tracker has no published files by construction, so
+			// the reference is named only when the record carries one.
+			const carrier = record.ticketRef === undefined ? '' : ` on ${record.ticketRef}`;
+
+			return { error: `plan ${plan.id} is ready to implement on work order ${record.name}, but nothing${carrier} carries published files for it` };
 		}
 	}
 

@@ -28,5 +28,5 @@ export const commitPlanWork = async ({ step }: Params): Promise<string | undefin
 		onProgress,
 	});
 
-	return 'error' in committed ? `plan ${plan.id} on ticket ${record.branch} was built, but its work could not be committed: ${committed.error}` : undefined;
+	return 'error' in committed ? `plan ${plan.id} on work order ${record.name} was built, but its work could not be committed: ${committed.error}` : undefined;
 };

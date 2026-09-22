@@ -105,3 +105,20 @@ test('cli: work-order is dispatched, the removed ticket command prints usage and
 	expect(ticketState.stderr).not.toBe(usageStderr);
 	expect(ticketState.stderr).toContain('--planning-status');
 });
+
+// `--from` was removed from the work-order catalog entry when a work order's
+// folder name became a label rather than an identity. The flag set is checked
+// against the command word in main, before `work-order` is entered, so the
+// message names `work-order` rather than `work-order add-plan`, and the add
+// never reaches a config or a record.
+test('cli: work-order add-plan --from (removed flag) prints usage to stderr and exits 1', async () => {
+	const cwd = await freshCwd();
+
+	const { stdout, stderr, code } = await runCli({
+		args: ['work-order', 'add-plan', '--name', 'demo', '--slug', 'first-plan', '--from', 'loose-folder', '--cwd', cwd],
+	});
+
+	expect(stdout).toBe('');
+	expect(stderr).toBe(`lightsout work-order: unknown flag --from\n\n${usageStderr}`);
+	expect(code).toBe(1);
+});

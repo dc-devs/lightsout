@@ -21,7 +21,7 @@ describe('commandCatalog flags', () => {
 			['resume', ['cwd', 'no-ship', 'run', 'ship', 'skip-refactor']],
 			['ship', ['cwd']],
 			['queue', ['cwd', 'file-relay']],
-			['work-order', ['approve', 'cwd', 'from', 'implementation-removed', 'keep', 'name', 'plan', 'plans', 'reason', 'set', 'slug', 'title', 'withdraw']],
+			['work-order', ['approve', 'cwd', 'implementation-removed', 'keep', 'name', 'plan', 'plans', 'reason', 'set', 'slug', 'title', 'withdraw']],
 			['ticket-state', ['cwd', 'planning-status', 'ref', 'tracker-status']],
 			['self-check', ['cwd', 'run']],
 			['refactor', ['all', 'allow-dirty', 'code-checks', 'cwd', 'max-batches', 'path', 'run']],
@@ -157,7 +157,6 @@ describe('commandCatalog flags', () => {
 			['name', undefined],
 			['slug', 'work-order-add-plan'],
 			['title', 'work-order-add-plan'],
-			['from', 'work-order-add-plan'],
 			['set', 'work-order-mode'],
 			['approve', 'work-order-mode'],
 			['plans', 'work-order-request-ship'],
@@ -183,7 +182,6 @@ describe('commandCatalog flags', () => {
 			['name in every shape', true, false],
 			['slug in work-order-add-plan', true, false],
 			['title in work-order-add-plan', false, true],
-			['from in work-order-add-plan', false, true],
 			['set in work-order-mode', true, false],
 			['approve in work-order-mode', false, true],
 			['plans in work-order-request-ship', false, true],
@@ -198,7 +196,7 @@ describe('commandCatalog flags', () => {
 		]);
 	});
 
-	test('scopes --from to work-order-add-plan and leaves no flag shaped to a removed invocation', () => {
+	test('declares no --from flag and leaves none shaped to a removed invocation', () => {
 		const { byId } = setupCatalog();
 		const workOrderEntry = byId.get('work-order');
 		const invocationIds = new Set((workOrderEntry?.invocations ?? []).map((invocation) => invocation.id));
@@ -208,7 +206,7 @@ describe('commandCatalog flags', () => {
 			.filter((flag) => flag.shape !== undefined && !invocationIds.has(flag.shape))
 			.map((flag) => `--${flag.name} in ${flag.shape ?? 'every shape'}`);
 
-		expect(fromFlags).toEqual([expect.objectContaining({ value: '<folder>', shape: 'work-order-add-plan', required: false, fallback: expect.any(String) })]);
+		expect(fromFlags).toStrictEqual([]);
 		expect(orphanShapes).toStrictEqual([]);
 	});
 
@@ -230,7 +228,6 @@ describe('commandCatalog flags', () => {
 		expect([...workOrderFlags].sort()).toStrictEqual([
 			'approve',
 			'cwd',
-			'from',
 			'implementation-removed',
 			'keep',
 			'name',

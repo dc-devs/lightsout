@@ -14,9 +14,9 @@ describe('describeMissingWorkOrder', () => {
 		// the label reaches the flag that names which work order, rather than the
 		// command being offered with somebody else's label in it
 		expect(sentence).toContain('--name lo-158-a-branch-name');
-		// a folder holding loose files takes the second form of the same command,
-		// so the note naming that folder carries the same label
-		expect(sentence).toContain('--from lo-158-a-branch-name');
+		// nothing names a source folder any more: a work order with no record is
+		// simply one nobody has started
+		expect(sentence).not.toContain('--from');
 		// every `lightsout <word>` span is that same command: a second one would be
 		// a second thing to run, and `lightsout ticket` is no longer a command
 		expect(sentence.match(/lightsout [a-z-]+/g)).toStrictEqual(['lightsout work-order']);
@@ -25,7 +25,7 @@ describe('describeMissingWorkOrder', () => {
 		expect(sentence).not.toMatch(/ticket/i);
 	});
 
-	test('names the folder, the command that starts a plan under the work-order command word, and the --from form', () => {
+	test('names the folder and the command that starts a plan under the work-order command word', () => {
 		const sentence = describeMissingWorkOrder({ name: 'lo-140-x' });
 
 		// the folder is named before anything else, because a reader who mistyped a
@@ -35,9 +35,7 @@ describe('describeMissingWorkOrder', () => {
 		// alone: the subcommand, the folder as --name, and a placeholder telling
 		// them the slug is theirs to choose
 		expect(sentence).toContain('lightsout work-order add-plan --name lo-140-x --slug <slug>');
-		// a folder holding loose files takes the second form of the same command,
-		// so the note naming that folder stays beside the command
-		expect(sentence).toContain('--from lo-140-x');
+		expect(sentence).not.toContain('--from');
 		expect(sentence).toMatch(/no work order/i);
 	});
 
@@ -48,9 +46,8 @@ describe('describeMissingWorkOrder', () => {
 		// offers: a second one would be a second thing to run, and after the rename
 		// `lightsout ticket` is not a command at all
 		expect(sentence.match(/lightsout [a-z-]+/g)).toStrictEqual(['lightsout work-order']);
-		// the folder reaches both the --name and the --from span, rather than one
-		// of them being left at whatever the last reader's folder was called
+		// the folder reaches the --name span, rather than the command being offered
+		// with whatever the last reader's folder was called
 		expect(sentence).toContain('--name lo-158-a-branch-name');
-		expect(sentence).toContain('--from lo-158-a-branch-name');
 	});
 });

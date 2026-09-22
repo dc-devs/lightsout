@@ -21,5 +21,5 @@ export const resolveWorkOrderPlan = ({ record, token }: Params): WorkOrderPlan |
 	const plan = record.plans.find((candidate) => candidate.id === token) ?? numbered;
 	const held = record.plans.length === 0 ? 'it holds no plans' : `it holds ${record.plans.map((candidate) => candidate.id).join(', ')}`;
 
-	return plan ?? { error: `work order ${record.branch} holds no plan '${token}' — ${held}` };
+	return plan ?? { error: `work order ${record.name} holds no plan '${token}' — ${held}` };
 };

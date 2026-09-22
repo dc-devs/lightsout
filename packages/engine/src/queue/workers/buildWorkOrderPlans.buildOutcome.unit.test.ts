@@ -1,9 +1,11 @@
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { type LightsoutConfig, PlanProgress, WorkOrderMode } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import { buildWorkOrderPlans } from '#src/queue/workers/buildWorkOrderPlans.ts';
-import { config, planAt, planOf, setupTicketPlanBuild } from '#tests/helpers/setupTicketPlanBuild.ts';
+import { config, planAt, planOf, setupTicketPlanBuild, workOrderName } from '#tests/helpers/setupTicketPlanBuild.ts';
 
 /**
  * What each build of a work order's plans amounts to: a build that failed, a plan
@@ -103,6 +105,23 @@ const secondImplemented = planOf({
 });
 const thirdReady = planOf({ id: '003-search-ranking', title: 'Search ranking', progress: PlanProgress.Ready });
 
+/**
+ * The shared fixture's work order, rewritten so the branch its plans implement
+ * on carries a prefix its label does not: the record names `feature/lo-7-search`
+ * as the branch, while the folder it sits in — its label — stays `lo-7-search`.
+ *
+ * The rewrite lands on disk as well as on the value the loop is handed, because
+ * the lifecycle each build goes through reads and rewrites the record there.
+ */
+const setupPrefixedBranchWorkOrder = (options: Omit<Parameters<typeof setupTicketPlanBuild>[0], 'mocks'>) => {
+	const { cwd, params } = setupTicketPlanBuild({ mocks, ...options });
+	const record = { ...params.record, branch: `feature/${workOrderName}` };
+
+	writeFileSync(join(cwd, '.lightsout', 'work-orders', workOrderName, 'state.json'), JSON.stringify(record));
+
+	return { cwd, params: { ...params, record } };
+};
+
 describe('buildWorkOrderPlans', () => {
 	test('buildWorkOrderPlans: parks rather than build a plan whose published files moved on another machine', async () => {
 		const secondRepublished = planOf({ id: '002-search-basics', title: 'Search basics', progress: PlanProgress.Ready, publishedMarker: 'b'.repeat(64) });
@@ -197,6 +216,35 @@ describe('buildWorkOrderPlans', () => {
 		expect(outcome.open).toBeUndefined();
 		expect(outcome.error).toEqual(expect.stringContaining('001-search-index'));
 		expect(mockRunDirectWork).not.toHaveBeenCalled();
+	});
+
+	test('builds from the ticket body at an address composed from the label', async () => {
+		const { cwd, params } = setupPrefixedBranchWorkOrder({ plans: [firstPlanned], mode: WorkOrderMode.SinglePlan });
+
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: true });
+
+		// composed from the branch instead, the address would carry three segments
+		// — `feature/lo-7-search/001-search-index` — and the lifecycle would have
+		// no plan folder to record the run against
+		expect(mockRunDirectWork).toHaveBeenCalledWith(expect.objectContaining({ cwd, ticketBody: 'Build search.', ticketRef: 'LO-7' }));
+		expect(planAt({ cwd, id: '001-search-index' })?.progress).toBe('implemented');
+		expect(outcome).toStrictEqual({});
+	});
+
+	test('names the work order by its label when a leftover commit is refused', async () => {
+		const { params } = setupPrefixedBranchWorkOrder({
+			plans: [firstImplemented, secondReady],
+			leftover: ['packages/engine/src/search/readIndex.ts'],
+			commitResult: { error: 'git could not commit the work: the pre-commit hook refused it' },
+		});
+
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
+
+		// the sentence tells a human which work order stopped, and that is the
+		// label they type back at every command — never the branch it builds on
+		expect(outcome.error).toEqual(expect.stringContaining('work order lo-7-search'));
+		expect(outcome.error).toEqual(expect.stringContaining('001-search-index'));
+		expect(outcome.error).toEqual(expect.not.stringContaining('feature/'));
 	});
 
 	test('buildWorkOrderPlans: a multiple-plan work order is never built from the ticket body', async () => {

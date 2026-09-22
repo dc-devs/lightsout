@@ -9,7 +9,7 @@ import { serializeWorkOrderState } from '#src/workOrder/common/utils/serializeWo
 
 interface Params {
 	target: TicketTrackerTarget;
-	/** The work order's label, which the published record must also name as its branch. */
+	/** The work order's label, which the published record must also name as its own. */
 	name: string;
 }
 
@@ -33,9 +33,9 @@ const readRecordText = ({ text, name, ticketRef }: { text: string; name: string;
 			outcome = {
 				error: `the ${workOrderFileNames.record} on ${ticketRef} does not match the work order state contract (${z.prettifyError(parsed.error)}) — run \`lightsout work-order sync --name ${name} --keep local\` to replace it with this machine's record`,
 			};
-		} else if (parsed.data.branch !== name) {
+		} else if (parsed.data.name !== name) {
 			outcome = {
-				error: `the ${workOrderFileNames.record} on ${ticketRef} names branch '${parsed.data.branch}', not the '${name}' ticket it was read for`,
+				error: `the ${workOrderFileNames.record} on ${ticketRef} names work order '${parsed.data.name}', not the '${name}' work order it was read for`,
 			};
 		} else {
 			outcome = { published: { record: parsed.data, content: serializeWorkOrderState({ record: parsed.data }) } };

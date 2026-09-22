@@ -66,6 +66,7 @@ const brainstormMarkerText = serializeAttachmentManifest({ files: [{ name: 'brai
 /** A record the contract accepts, holding this ticket's one plan. */
 const ticketRecordOf = ({ progress = PlanProgress.Planning, title = 'The ship guard' }: { progress?: PlanProgress; title?: string } = {}): WorkOrderState => ({
 	schemaVersion: 1,
+	name,
 	ticketRef: 'LO-140',
 	branch: name,
 	mode: WorkOrderMode.MultiplePlan,

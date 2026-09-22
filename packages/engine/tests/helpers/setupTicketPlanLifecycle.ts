@@ -57,6 +57,7 @@ export const planOf = ({
 
 const recordOf = ({ mode, plans }: { mode: WorkOrderMode; plans: WorkOrderPlan[] }): WorkOrderState => ({
 	schemaVersion: 1,
+	name: workOrderName,
 	ticketRef: 'LO-140',
 	branch: workOrderName,
 	mode,

@@ -32,8 +32,8 @@ export const applyExclusion = ({
 		record: { ...record, plans: record.plans.map((candidate) => (candidate.id === target.id ? { ...candidate, exclusion } : candidate)) },
 		kind: WorkOrderEventKind.PlanExcluded,
 		detail: amending
-			? `plan ${target.id}'s implementation was recorded as removed from work order ${record.branch}, verified at ${verifiedCommit}`
-			: `plan ${target.id} was excluded from work order ${record.branch}: ${reason}`,
+			? `plan ${target.id}'s implementation was recorded as removed from work order ${record.name}, verified at ${verifiedCommit}`
+			: `plan ${target.id} was excluded from work order ${record.name}: ${reason}`,
 		at,
 	});
 	const named = record.shipRequest?.planIds.includes(target.id) === true;

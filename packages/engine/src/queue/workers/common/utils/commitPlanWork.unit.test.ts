@@ -39,6 +39,7 @@ const setupLeftoverCommit = ({ runId }: { runId?: string } = {}) => {
 	});
 	const record: WorkOrderState = {
 		schemaVersion: 1,
+		name: workOrderName,
 		ticketRef: ticket.identifier,
 		branch: workOrderName,
 		mode: WorkOrderMode.MultiplePlan,

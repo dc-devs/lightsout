@@ -94,6 +94,7 @@ const planEntryOf = ({
 /** A record the contract accepts, holding whichever plans a case needs. */
 const ticketRecordOf = ({ plans }: { plans: unknown[] }) => ({
 	schemaVersion: 1,
+	name,
 	ticketRef: 'LO-140',
 	branch: name,
 	mode: 'multiple-plan',

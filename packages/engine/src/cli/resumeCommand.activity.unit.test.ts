@@ -178,6 +178,7 @@ const setupParkedDirectRun = () => {
 	});
 	const record: WorkOrderState = {
 		schemaVersion: 1,
+		name: workOrderName,
 		ticketRef: 'LO-154',
 		branch: workOrderName,
 		mode: WorkOrderMode.SinglePlan,

@@ -13,10 +13,11 @@ import { seedConfiguredCwd } from '#tests/helpers/seedConfiguredCwd.ts';
 // Mocked Imports
 // -------------------------
 // The tracker module is the seam: mocking its barrel keeps the network out
-// while the real `restorePlanWorkspace` writes into the temp repo, so what this
-// gate promises — disk first, then the ticket, then one sentence naming both —
-// is asserted against real files. `resolveTrackerSettings` is re-implemented
-// rather than stubbed away, because two of the refusals below are its own.
+// while the rest of the gate runs against real files, so what it promises —
+// disk first, then the ticket, then one sentence naming both — is asserted
+// against what landed. `resolveTrackerSettings` is re-implemented rather than
+// stubbed away, so the settings every row is given are the ones the real
+// resolver would answer.
 type TrackerFailure = { error: string };
 type Attachment = { id: string; title: string; url: string };
 
@@ -48,28 +49,25 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 	},
 }));
 // -------------------------
-// The ticket module is the second seam. This gate only orchestrates it — refuse
-// a bare name whose folder has a record, pull the record, then restore the
-// addressed plan's own generation — so the stand-ins below write the files
-// those functions promise, and the tests read what landed on disk rather than
-// which mock ran.
+// The work order module is the second seam. This gate only orchestrates it —
+// pull the record, then restore the addressed plan's own generation — so the
+// stand-ins below write the files those functions promise, and the tests read
+// what landed on disk rather than which mock ran.
 type PullAnswer = { record: WorkOrderState | undefined } | { error: string };
 type RestoreAnswer = { restored: string[] } | { error: string };
 
-const mockFindBareTicketFolderRefusal = jest.fn<(params: { cwd: string; name: string }) => Promise<string | undefined>>();
 const mockPullTicketRecord = jest.fn<(params: { cwd: string; name: string }) => Promise<PullAnswer>>();
 const mockRestoreTicketPlan = jest.fn<(params: { cwd: string; address: string }) => Promise<RestoreAnswer>>();
 
 jest.mock('#src/workOrder/index.ts', () => ({
-	findBareWorkOrderFolderRefusal: (params: { cwd: string; name: string }) => mockFindBareTicketFolderRefusal(params),
 	pullWorkOrderState: (params: { cwd: string; name: string }) => mockPullTicketRecord(params),
 	restoreWorkOrderPlan: (params: { cwd: string; address: string }) => mockRestoreTicketPlan(params),
 }));
 // -------------------------
-// A plan addressed inside a ticket folder is fetched through the ticket record
-// rather than a single-folder generation, so this file keeps that half of the
-// gate: the ticket branch's worktree, the record, and the plan's own prefixed
-// generation. The legacy half lives beside it in ensurePlanWorkspace.unit.test.ts.
+// A plan is fetched through the work order state and its own prefixed
+// generation, so this file keeps that half of the gate: the work order
+// branch's worktree, the record, and the plan's own generation. The gate's
+// input checks live beside it in ensurePlanWorkspace.unit.test.ts.
 
 const apiKeyEnv = 'LIGHTSOUT_TEST_TRACKER_KEY';
 const trackerBlock = { ...ticketTrackerConfigBlock, 'api-key-env': apiKeyEnv };
@@ -118,7 +116,6 @@ const setupPlanInTicketWorktree = async () => {
 	writeFileSync(join(dir, 'plan.md'), laterPlanBody);
 	writeFileSync(join(dir, 'grade-memory.json'), '{"passes":2}\n');
 
-	mockFindBareTicketFolderRefusal.mockResolvedValue(undefined);
 	mockPullTicketRecord.mockResolvedValue({ record: ticketRecord });
 	mockRestoreTicketPlan.mockImplementation(async ({ cwd: checkout, address }) => {
 		mkdirSync(planWorkspaceFolder({ cwd: checkout, name: address }), { recursive: true });
@@ -138,6 +135,7 @@ const restoredFileBody = '# plan 002, restored from its own prefixed generation\
 
 const ticketRecord: WorkOrderState = {
 	schemaVersion: 1,
+	name: recordedBranch,
 	ticketRef: 'lo-9',
 	branch: recordedBranch,
 	mode: WorkOrderMode.MultiplePlan,
@@ -153,12 +151,10 @@ const ticketRecord: WorkOrderState = {
  * of the plan folder in the ticket branch's tree at `<cwd>-worktrees/lo-9-x`.
  */
 const setupAddressedPlan = async ({
-	refusal,
 	pull = { record: ticketRecord },
 	restore = { restored: ['brainstorm-notes.md', 'plan.md'] },
 	inWorktree,
 }: {
-	refusal?: string;
 	pull?: PullAnswer;
 	restore?: RestoreAnswer;
 	inWorktree?: Record<string, string>;
@@ -166,7 +162,6 @@ const setupAddressedPlan = async ({
 	const cwd = await seedCwd();
 	const tree = join(`${cwd}-worktrees`, recordedBranch);
 
-	mockFindBareTicketFolderRefusal.mockResolvedValue(refusal);
 	mockPullTicketRecord.mockImplementation(async ({ cwd: checkout, name: branch }) => {
 		if ('record' in pull && pull.record !== undefined) {
 			mkdirSync(planWorkspaceFolder({ cwd: checkout, name: branch }), { recursive: true });
@@ -313,10 +308,11 @@ describe('ensurePlanWorkspace for a plan address', () => {
 		});
 	});
 
-	test('ensurePlanWorkspace: never restores a single-folder generation into a ticket folder that has a record', async () => {
-		const refusal =
-			"plan folder 'lo-9-x' belongs to a ticket record, so name a plan as lo-9-x/<plan-id> — run `lightsout work-order show --name lo-9-x` to list them";
-		const { cwd } = await setupAddressedPlan({ refusal, inWorktree: { 'plan.md': '# a copy in the ticket branch tree\n' } });
+	// A path inside a work order's plans folder that is not a plan folder is no
+	// plan workspace of its own, so the gate leaves it exactly as it found it
+	// rather than restoring a single-folder generation into it.
+	test('leaves a non-address plan path alone instead of restoring into it', async () => {
+		const { cwd } = await setupAddressedPlan();
 
 		const { result, printed } = await ensure({ cwd, path: recordedPlansFolder });
 
@@ -328,7 +324,7 @@ describe('ensurePlanWorkspace for a plan address', () => {
 			restoreCalls: mockRestoreTicketPlan.mock.calls.length,
 			trackerCalls: mockGetTicketAttachments.mock.calls.length,
 		}).toStrictEqual({
-			result: { error: refusal },
+			result: undefined,
 			printed: [],
 			folderWritten: false,
 			pullCalls: 0,

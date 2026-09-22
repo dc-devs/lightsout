@@ -57,6 +57,7 @@ const planWith = ({ id, progress, exclusion }: { id: string; progress: WorkOrder
 
 const recordWith = ({ plans }: { plans: WorkOrderPlan[] }): WorkOrderState => ({
 	schemaVersion: 1,
+	name: branch,
 	ticketRef: 'LO-140',
 	branch,
 	mode: 'multiple-plan',

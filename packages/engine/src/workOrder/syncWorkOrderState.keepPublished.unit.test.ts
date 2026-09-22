@@ -82,6 +82,7 @@ const canonicalText = ({ record }: { record: WorkOrderState }) => `${JSON.string
 
 const recordOf = ({ mode = WorkOrderMode.MultiplePlan, plans = [] }: { mode?: WorkOrderMode; plans?: WorkOrderPlan[] } = {}): WorkOrderState => ({
 	schemaVersion: 1,
+	name,
 	ticketRef: 'LO-140',
 	branch: name,
 	mode,

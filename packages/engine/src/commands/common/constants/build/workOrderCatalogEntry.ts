@@ -7,7 +7,7 @@ export const workOrderCatalogEntry: CommandCatalogEntry = {
 	group: CommandGroup.Build,
 	summary: "Change and show a ticket's record of the plans it holds, the mode they implement in, and its request to ship.",
 	whenToUse:
-		'Reach for it whenever a ticket gains a plan or changes shape. `add-plan` starts the next plan, and given `--from` makes that plan out of a named folder’s loose files; `mode` moves a ticket between one plan supplying the implementation and several implementing in numeric order; `request-ship` is how a human declares a multiple-plan ticket finished, and `exclude-plan` takes a plan out of that work for good; `retitle-plan` changes only what a plan is called; `show` reads the record, and `sync` settles a record that moved on two machines at once.',
+		'Reach for it whenever a ticket gains a plan or changes shape. `add-plan` starts the next plan and prints its address; `mode` moves a ticket between one plan supplying the implementation and several implementing in numeric order; `request-ship` is how a human declares a multiple-plan ticket finished, and `exclude-plan` takes a plan out of that work for good; `retitle-plan` changes only what a plan is called; `show` reads the record, and `sync` settles a record that moved on two machines at once.',
 	invocations: [
 		{ id: 'work-order-add-plan', positional: 'add-plan' },
 		{ id: 'work-order-mode', positional: 'mode' },
@@ -36,15 +36,6 @@ export const workOrderCatalogEntry: CommandCatalogEntry = {
 			value: '<title>',
 			meaning: "The plan's first display title, which stays changeable.",
 			fallback: 'The slug is used as the title.',
-			shape: 'work-order-add-plan',
-			required: false,
-		},
-		{
-			name: 'from',
-			value: '<folder>',
-			meaning:
-				"A plan folder's bare name under the plans directory, whose loose files become this plan: they are moved into the plan's own folder. Never a path, and never one plan's address.",
-			fallback: 'The plan is created empty.',
 			shape: 'work-order-add-plan',
 			required: false,
 		},

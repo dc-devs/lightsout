@@ -51,6 +51,7 @@ const name = 'lo-140-sync';
 /** A record the contract accepts, told apart from another copy of itself by its one plan's title. */
 const recordOf = ({ title }: { title: string }): WorkOrderState => ({
 	schemaVersion: 1,
+	name,
 	ticketRef: 'LO-140',
 	branch: name,
 	mode: 'multiple-plan',

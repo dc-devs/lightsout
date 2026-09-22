@@ -34,9 +34,14 @@ export const workOrderSyncCommand = async ({ flags, cwd }: CommandContext): Prom
 		return exitCli({ code: 1 });
 	}
 
+	// `sync` refuses a work order with nowhere to publish to, so the tracker-free
+	// case never reaches this line — naming the reference only when the record
+	// carries one is what keeps that guarantee stated rather than assumed.
+	const carrier = synced.record.ticketRef === undefined ? '' : ` on ${synced.record.ticketRef}`;
+
 	console.log(
 		keep === undefined
-			? `the ticket record for ${name} and the copy on ${synced.record.ticketRef} are in sync`
+			? `the record for work order ${synced.record.name} and the copy${carrier} are in sync`
 			: `the ${keep} copy of ${name}'s record is now the one on both sides`,
 	);
 

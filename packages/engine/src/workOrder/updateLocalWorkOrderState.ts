@@ -14,7 +14,7 @@ import { withWorkOrderStateLock } from '#src/workOrder/common/utils/withWorkOrde
 interface Params {
 	/** Any checkout of the repository: the one record this machine holds is found from it. */
 	cwd: string;
-	/** The work order's label, which the changed record must also name as its branch. */
+	/** The work order's label, which the changed record must also name as its own. */
 	name: string;
 	/** A pure function over the record as it is now. Tracker calls and gate runs happen before or after this call, never inside it — the lock is held for the whole of it. */
 	change: (current: WorkOrderState | undefined) => WorkOrderState | { error: string };
@@ -28,7 +28,7 @@ const findHistoryRefusal = ({ current, next }: { current: WorkOrderState | undef
 	const rewritten = recorded.some((event, index) => canonicalJson({ value: event }) !== canonicalJson({ value: kept[index] }));
 
 	return dropped || rewritten
-		? `a work order state's history is append-only, and the change to ${next.branch} drops or rewrites one of the ${recorded.length} events already recorded`
+		? `a work order state's history is append-only, and the change to ${next.name} drops or rewrites one of the ${recorded.length} events already recorded`
 		: undefined;
 };
 
@@ -51,8 +51,8 @@ const writeChangedRecord = async ({
 
 	if (!parsed.success) {
 		outcome = { error: `the changed work order state for ${name} does not match the work-order state contract: ${z.prettifyError(parsed.error)}` };
-	} else if (parsed.data.branch !== name) {
-		outcome = { error: `the changed work order state names branch '${parsed.data.branch}', not the '${name}' ticket it was asked for` };
+	} else if (parsed.data.name !== name) {
+		outcome = { error: `the changed work order state names work order '${parsed.data.name}', not the '${name}' one it was asked for` };
 	} else {
 		outcome = { record: parsed.data };
 	}
@@ -83,7 +83,8 @@ const writeChangedRecord = async ({
  * machine never lose each other's work.
  *
  * It enforces what belongs to the store and nothing more: the contract, that
- * the record names the ticket it was asked for, and the append-only history.
+ * the record names the work order it was asked for, and the append-only
+ * history.
  * Which progress may follow which, and when a ship request is withdrawn, belong
  * to the operations that pass themselves in as `change`.
  *

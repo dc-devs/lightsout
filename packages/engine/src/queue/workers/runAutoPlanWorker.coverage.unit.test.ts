@@ -78,6 +78,7 @@ const ticket: TicketSummary = {
 /** The work order's record, holding the one plan the engine handed the session. */
 const record: WorkOrderState = {
 	schemaVersion: 1,
+	name: branch,
 	ticketRef: 'LO-70',
 	branch,
 	mode: 'multiple-plan',

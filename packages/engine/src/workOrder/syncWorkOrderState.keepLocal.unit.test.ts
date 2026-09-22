@@ -89,6 +89,7 @@ const planOf = ({ id, title = `Plan ${id}`, publishedMarker }: { id: string; tit
 
 const recordOf = ({ plans, history = [firstEvent] }: { plans: WorkOrderState['plans']; history?: WorkOrderState['history'] }): WorkOrderState => ({
 	schemaVersion: 1,
+	name,
 	ticketRef,
 	branch: name,
 	mode: WorkOrderMode.MultiplePlan,

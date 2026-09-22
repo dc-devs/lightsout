@@ -42,6 +42,7 @@ const setupRecord = ({
 }): { record: WorkOrderState } => ({
 	record: {
 		schemaVersion: 1,
+		name: 'lo-140-multi',
 		ticketRef: 'LO-140',
 		branch: 'lo-140-multi',
 		mode,
@@ -59,6 +60,19 @@ const setupRequestedPair = ({ progress }: { progress: WorkOrderPlan['progress'] 
 		plans: [planWith({ id: '001-record', progress: 'implemented' }), planWith({ id: '002-queue-order', progress })],
 		shipRequest: ['001-record', '002-queue-order'],
 	});
+
+/** A work order whose git branch carries a prefix its folder label does not, so a remedy cannot confuse the two names. */
+const setupPrefixedBranchRecord = (): { record: WorkOrderState } => ({
+	record: {
+		schemaVersion: 1,
+		name: 'lo-140-multi',
+		branch: 'feature/lo-140-multi',
+		ticketRef: 'LO-140',
+		mode: 'multiple-plan',
+		plans: [planWith({ id: '001-record', progress: 'implemented' }), planWith({ id: '002-queue-order', progress: 'implemented' })],
+		history: [],
+	},
+});
 
 describe('readWorkOrderShipEligibility', () => {
 	test('never makes a ticket eligible once its record says it shipped', () => {
@@ -205,5 +219,17 @@ describe('readWorkOrderShipEligibility', () => {
 
 		expect(eligibility).toStrictEqual({ eligible: true });
 		expect(afterRetitle).toStrictEqual({ eligible: true });
+	});
+
+	test('offers a request-ship remedy naming the label', () => {
+		const { record } = setupPrefixedBranchRecord();
+
+		const eligibility = readWorkOrderShipEligibility({ record });
+
+		expect(eligibility).toStrictEqual({
+			eligible: false,
+			reason: expect.stringContaining('lightsout work-order request-ship --name lo-140-multi --plans 001-record,002-queue-order'),
+		});
+		expect(JSON.stringify(eligibility)).not.toMatch(/feature\//);
 	});
 });

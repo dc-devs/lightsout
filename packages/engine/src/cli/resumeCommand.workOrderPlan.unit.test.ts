@@ -168,7 +168,7 @@ const setupTicketResume = ({
 	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm ignore', { cwd: primary, stdio: 'ignore' });
 
 	const workspace = isolated ? cutRunWorktree({ primary }) : primary;
-	const record: WorkOrderState = { schemaVersion: 1, ticketRef: 'LO-140', branch: workOrderName, mode, plans, history: [] };
+	const record: WorkOrderState = { schemaVersion: 1, name: workOrderName, ticketRef: 'LO-140', branch: workOrderName, mode, plans, history: [] };
 
 	writeRepoFile({ cwd: primary, path: join('.lightsout', 'work-orders', workOrderName, 'state.json'), content: JSON.stringify(record) });
 

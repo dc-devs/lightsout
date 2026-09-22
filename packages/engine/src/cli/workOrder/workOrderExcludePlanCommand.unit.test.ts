@@ -37,6 +37,7 @@ const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-cov
 /** The work order as the exclusion leaves it: plan 002 dropped, its files still on disk. */
 const excludedRecord: WorkOrderState = {
 	schemaVersion: 1,
+	name: 'lo-140-x',
 	ticketRef: 'LO-140',
 	branch: 'lo-140-x',
 	mode: 'multiple-plan',

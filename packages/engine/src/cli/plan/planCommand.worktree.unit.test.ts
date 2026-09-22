@@ -50,7 +50,8 @@ jest.mock('#src/common/git/readGitHeadCommit.ts', () => ({
 }));
 // -------------------------
 
-const name = 'lo-131-plan-in-a-worktree';
+const workOrderName = 'lo-131-plan-in-a-worktree';
+const name = `${workOrderName}/001-plan-in-a-worktree`;
 const launchingHead = '3f1c0de5a1b2c3d4e5f60718293a4b5c6d7e8f90';
 const pinnedStartPoint = '0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d';
 const setupCommand = 'pnpm install --frozen-lockfile';
@@ -81,8 +82,8 @@ const setupWorkspace = async ({
 	const captured = captureCommandOutput();
 	const root = await realpath(await freshCwd());
 	const sourceCwd = join(root, 'launching-checkout');
-	const tree = join(root, 'launching-checkout-worktrees', name);
-	const sourcePlanDir = planWorkspaceFolder({ cwd: sourceCwd, name: name });
+	const tree = join(root, 'launching-checkout-worktrees', workOrderName);
+	const sourcePlanDir = planWorkspaceFolder({ cwd: sourceCwd, name });
 
 	await mkdir(sourceCwd, { recursive: true });
 	await writeFile(join(sourceCwd, 'lightsout.config.json'), JSON.stringify({ gates, worktree: { setup: setupCommand } }));
@@ -100,8 +101,9 @@ const setupWorkspace = async ({
 	mockResolveWorktreePath.mockResolvedValue(tree);
 	mockReadBranchWorktree.mockResolvedValue(launchFromTree ? tree : undefined);
 	mockReadWorktreeRecord.mockResolvedValue(
-		record === undefined ? undefined : { branch: name, worktreePath: tree, createdAt: '2026-09-01T09:00:00.000Z', ...record },
+		record === undefined ? undefined : { branch: workOrderName, worktreePath: tree, createdAt: '2026-09-01T09:00:00.000Z', ...record },
 	);
+	mockPrepareTicketBranch.mockResolvedValue({});
 	mockReadGitHeadCommit.mockResolvedValue(committed ? launchingHead : undefined);
 	// The cut itself: git would make the directory, so the mock does.
 	mockCreateWorktree.mockImplementation(async () => {
@@ -210,7 +212,7 @@ describe('planCommand', () => {
 		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ startPoint: launchingHead, owner: 'plan', setup: setupCommand }));
 		// one announcement naming the tree and its branch, then the path alone
 		expect(logged).toEqual([expect.stringContaining(tree), tree]);
-		expect(logged[0]).toContain(`branch: ${name}`);
+		expect(logged[0]).toContain(`branch: ${workOrderName}`);
 		// the tree holds code work only, so nothing was copied into it and the
 		// launching checkout's folder is exactly as it was
 		expect(existsSync(join(tree, '.lightsout', 'work-orders'))).toBe(false);
@@ -245,7 +247,7 @@ describe('planCommand', () => {
 
 		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch: name, startPoint: pinnedStartPoint }));
+		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch: workOrderName, startPoint: pinnedStartPoint }));
 		expect(logged.at(-1)).toBe(tree);
 		expect(exitCodes).toStrictEqual([0]);
 	});

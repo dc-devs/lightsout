@@ -36,6 +36,7 @@ const unmintedRunId = 'run-direct-unminted';
 
 const recordOf = ({ mode, progress }: { mode: WorkOrderMode; progress: PlanProgress }): WorkOrderState => ({
 	schemaVersion: 1,
+	name: workOrderName,
 	ticketRef: 'LO-140',
 	branch: workOrderName,
 	mode,

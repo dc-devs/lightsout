@@ -36,6 +36,7 @@ const errorOf = ({ outcome }: { outcome: Outcome }): string => ('error' in outco
 
 const recordWith = ({ history }: { history: WorkOrderState['history'] }): WorkOrderState => ({
 	schemaVersion: 1,
+	name,
 	ticketRef: 'LO-140',
 	branch: name,
 	mode: 'single-plan',

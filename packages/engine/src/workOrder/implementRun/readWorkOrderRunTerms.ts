@@ -32,8 +32,8 @@ interface Params {
  * @returns the run's refusal and its ship terms, each absent when the ticket has nothing to say
  */
 export const readWorkOrderRunTerms = async ({ cwd, name, planPath }: Params): Promise<WorkOrderRunTerms> => {
-	// A name that is not a plan address is a legacy folder, or no plan of the plans
-	// directory at all: the work order state has nothing to say about either.
+	// A name that is not a plan address names no plan of the plans directory at
+	// all, so no work order state has anything to say about it.
 	if (name === undefined) {
 		return {};
 	}
@@ -64,7 +64,7 @@ export const readWorkOrderRunTerms = async ({ cwd, name, planPath }: Params): Pr
 		// A run of one phase file never records the plan implemented, so it can never
 		// satisfy a ship request either — in any mode.
 		shipRequest = {
-			blocker: `this run covers ${basename(planPath)} alone, and the implementation of plan ${planId} on work order ${record.branch} has not finished until the whole plan runs`,
+			blocker: `this run covers ${basename(planPath)} alone, and the implementation of plan ${planId} on work order ${record.name} has not finished until the whole plan runs`,
 		};
 	} else if (record.mode === WorkOrderMode.MultiplePlan) {
 		// The eligibility rules are never restated here: they are asked of the record

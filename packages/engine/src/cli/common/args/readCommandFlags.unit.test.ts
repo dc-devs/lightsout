@@ -36,3 +36,15 @@ test('readCommandFlags: standards-validate accepts --pack, and the removed --pac
 
 	expect([...flags].sort()).toStrictEqual(['cwd', 'pack']);
 });
+
+test('does not accept the removed from flag on the work-order command', () => {
+	const flags = readCommandFlags({ command: 'work-order' });
+
+	expect({
+		name: flags.has('name'),
+		slug: flags.has('slug'),
+		title: flags.has('title'),
+		cwd: flags.has('cwd'),
+		from: flags.has('from'),
+	}).toStrictEqual({ name: true, slug: true, title: true, cwd: true, from: false });
+});

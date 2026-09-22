@@ -67,6 +67,7 @@ const recordOf = ({
 	shipped?: { at: string; planIds: string[]; mergeCommit: string };
 } = {}): WorkOrderState => ({
 	schemaVersion: 1,
+	name,
 	ticketRef: 'lo-140',
 	branch: name,
 	mode,
@@ -217,39 +218,6 @@ describe('addWorkOrderPlan', () => {
 		expect(existsSync(planFolderOf({ planId: '002-fix-search' }))).toBe(false);
 	});
 
-	test("refuses loose files in the ticket's plans folder and names the --from remedy", async () => {
-		const { params, recordPath, planFolderOf } = await setupAddPlan({ topLevelFiles: ['plan.md'] });
-
-		const result = await addWorkOrderPlan(params);
-
-		// The remedy has to name this ticket's own branch as the source folder,
-		// because these loose files are the ones the add would be made out of.
-		expect(result).toEqual({ error: expect.stringContaining('work-order add-plan') });
-		expect(result).toEqual({ error: expect.stringContaining('--from lo-140-multi') });
-		expect(result).toEqual({ error: expect.stringContaining('plan.md') });
-		expect(existsSync(recordPath)).toBe(false);
-		expect(existsSync(planFolderOf({ planId: '001-search-basics' }))).toBe(false);
-	});
-
-	test('names the stray files beside an existing record rather than the --from remedy', async () => {
-		const { params, recordPath, planFolderOf } = await setupAddPlan({
-			slug: 'fix-search',
-			topLevelFiles: ['plan.md'],
-			record: recordOf({ mode: WorkOrderMode.MultiplePlan, plans: [planOf({ id: '001-search-basics', progress: PlanProgress.Implemented })] }),
-		});
-		const before = readFileSync(recordPath, 'utf8');
-
-		const result = await addWorkOrderPlan(params);
-
-		// Files dropped beside a record that already holds plans are strays to put
-		// where they belong, not a plan waiting to be made out of them.
-		expect(result).toEqual({ error: expect.stringContaining('plan.md') });
-		expect(result).toEqual({ error: expect.not.stringContaining('--from') });
-		expect(result).toEqual({ error: expect.not.stringContaining('ticket adopt') });
-		expect(readFileSync(recordPath, 'utf8')).toBe(before);
-		expect(existsSync(planFolderOf({ planId: '002-fix-search' }))).toBe(false);
-	});
-
 	test('does not read plan folders, set-aside plan copies or ticket files as legacy files', async () => {
 		const { params, recordPath, workOrderFolder, planFolderOf } = await setupAddPlan({
 			slug: 'ship-guard',
@@ -270,16 +238,6 @@ describe('addWorkOrderPlan', () => {
 		expect(existsSync(planFolderOf({ planId: '002-ship-guard' }))).toBe(true);
 	});
 
-	test('refuses a ticket branch that carries no ticket id', async () => {
-		const { params, recordPath, planFolderOf } = await setupAddPlan({ branch: 'feature-search' });
-
-		const result = await addWorkOrderPlan(params);
-
-		expect(result).toEqual({ error: expect.any(String) });
-		expect(existsSync(recordPath)).toBe(false);
-		expect(existsSync(planFolderOf({ planId: '001-search-basics' }))).toBe(false);
-	});
-
 	test('refuses to add a plan to a ticket the record says has shipped', async () => {
 		const { params, recordPath, planFolderOf } = await setupAddPlan({
 			slug: 'fix-search',
@@ -293,7 +251,9 @@ describe('addWorkOrderPlan', () => {
 
 		const result = await addWorkOrderPlan(params);
 
-		expect(result).toEqual({ error: expect.any(String) });
+		// the sentence names the work order the record itself claims, and the
+		// commit it shipped as, so a human can see which history refused them
+		expect(result).toEqual({ error: expect.stringContaining(`work order ${name} shipped as c0ffee1`) });
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
 		expect(existsSync(planFolderOf({ planId: '002-fix-search' }))).toBe(false);
 	});
@@ -326,48 +286,20 @@ describe('addWorkOrderPlan', () => {
 		expect(existsSync(planFolderOf({ planId: '1000-fix-search' }))).toBe(false);
 	});
 
-	test('refuses a ship.ticket-pattern that reads no ticket id out of any branch, naming the key', async () => {
+	test('adds the plan under a ship.ticket-pattern that reads no ticket id out of any branch', async () => {
 		// The pattern compiles but captures no `ticket` group, so no branch name
-		// can be read as a ticket and a record born here would name none.
+		// can be read as a ticket — which is no longer a refusal: the record is
+		// born naming the work order and claiming no tracker reference.
 		const { params, recordPath, planFolderOf } = await setupAddPlan({ config: { gates, ship: { 'ticket-pattern': '^(lo-\\d+)' } } });
 
 		const result = await addWorkOrderPlan(params);
 
-		expect(result).toEqual({ error: expect.stringContaining('ship.ticket-pattern') });
-		expect(existsSync(recordPath)).toBe(false);
-		expect(existsSync(planFolderOf({ planId: '001-search-basics' }))).toBe(false);
-	});
-
-	test("addWorkOrderPlan: loose files in the ticket's plans folder refuse the add, and its record files never do", async () => {
-		const loose = await setupAddPlan({ topLevelFiles: ['facts.json', 'plan.md'] });
-		const adopted = await setupAddPlan({
-			slug: 'ship-guard',
-			record: recordOf({ mode: WorkOrderMode.MultiplePlan, plans: [planOf({ id: '001-a', progress: PlanProgress.Implemented })] }),
-			topLevelFolders: ['001-a', '002-b.local-1'],
-		});
-
-		// The ticket's own files sit one level above the folder that is read, so
-		// they can never be mistaken for the leftovers of a single-folder plan. The
-		// lock is unparseable on purpose: a leftover lock is reclaimed at once, so
-		// it stands for the listing rule rather than for the lock's wait.
-		writeFileSync(join(adopted.workOrderFolder, 'state-sync.json'), `${JSON.stringify({ planMarkers: {}, schemaVersion: 1 })}\n`);
-		writeFileSync(join(adopted.workOrderFolder, 'state.lock'), '{');
-		writeFileSync(join(adopted.workOrderFolder, 'state.json.tmp'), '{}\n');
-
-		const refused = await addWorkOrderPlan(loose.params);
-		const added = await addWorkOrderPlan(adopted.params);
-
-		expect(refused).toEqual({ error: expect.stringContaining('--from lo-140-multi') });
-		expect(refused).toEqual({ error: expect.stringContaining('plan.md') });
-		expect(existsSync(loose.recordPath)).toBe(false);
-		expect(existsSync(loose.planFolderOf({ planId: '001-search-basics' }))).toBe(false);
-		expect(added).toEqual(expect.objectContaining({ address: 'lo-140-multi/002-ship-guard' }));
-		expect(recordAt({ recordPath: adopted.recordPath }).plans.map((plan) => plan.id)).toStrictEqual(['001-a', '002-ship-guard']);
-		expect(existsSync(adopted.planFolderOf({ planId: '002-ship-guard' }))).toBe(true);
+		expect(result).toEqual(expect.objectContaining({ address: 'lo-140-multi/001-search-basics' }));
+		expect(Object.keys(recordAt({ recordPath }))).not.toContain('ticketRef');
+		expect(existsSync(planFolderOf({ planId: '001-search-basics' }))).toBe(true);
 	});
 
 	test('every addWorkOrderPlan sentence that names a command spells the work-order command word', async () => {
-		const loose = await setupAddPlan({ topLevelFiles: ['plan.md'] });
 		const singlePlan = await setupAddPlan({
 			slug: 'fix-search',
 			record: recordOf({ plans: [planOf({ id: '001-search-basics', progress: PlanProgress.Implemented })] }),
@@ -381,17 +313,52 @@ describe('addWorkOrderPlan', () => {
 			}),
 		});
 
-		const looseRefusal = await addWorkOrderPlan(loose.params);
 		const modeRefusal = await addWorkOrderPlan(singlePlan.params);
 		const withdrawal = await addWorkOrderPlan(withdrawing.params);
 
 		// The forbidden span keeps its trailing space, so `lightsout ticket-state`
 		// — the one command that genuinely names the tracker — never trips this row.
-		expect(looseRefusal).toEqual({ error: expect.stringContaining('lightsout work-order add-plan') });
-		expect(looseRefusal).toEqual({ error: expect.not.stringContaining('lightsout ticket ') });
 		expect(modeRefusal).toEqual({ error: expect.stringContaining('lightsout work-order mode --set multiple-plan') });
 		expect(modeRefusal).toEqual({ error: expect.not.stringContaining('lightsout ticket ') });
 		expect(withdrawal).toEqual(expect.objectContaining({ notice: expect.stringContaining('lightsout work-order request-ship') }));
 		expect(withdrawal).toEqual(expect.objectContaining({ notice: expect.not.stringContaining('lightsout ticket ') }));
+	});
+
+	test('creates a tracker-free work order and its first plan', async () => {
+		const { params, recordPath, planFolderOf } = await setupAddPlan({ branch: 'feature-search' });
+
+		const result = await addWorkOrderPlan(params);
+
+		// The label carries no ticket id, so the record names the work order and
+		// the branch it implements on, and claims no tracker reference at all.
+		const written = recordAt({ recordPath });
+
+		expect(result).toEqual(
+			expect.objectContaining({
+				address: 'feature-search/001-search-basics',
+				record: expect.objectContaining({
+					name: 'feature-search',
+					branch: 'feature-search',
+					plans: [expect.objectContaining({ id: '001-search-basics', title: 'search-basics', progress: 'planning' })],
+				}),
+			}),
+		);
+		expect(written).toEqual(expect.objectContaining({ name: 'feature-search', branch: 'feature-search' }));
+		expect(Object.keys(written)).not.toContain('ticketRef');
+		expect(readdirSync(planFolderOf({ planId: '001-search-basics' }))).toStrictEqual([]);
+	});
+
+	test('adds a plan beside loose files in the plans folder', async () => {
+		const { params, recordPath, workOrderFolder, planFolderOf } = await setupAddPlan({ topLevelFiles: ['facts.json', 'plan.md'] });
+
+		const result = await addWorkOrderPlan(params);
+
+		// Loose files are no longer a plan waiting to be adopted, so they neither
+		// refuse the add nor move: the new plan's folder is made empty beside them.
+		expect(result).toEqual(expect.objectContaining({ address: 'lo-140-multi/001-search-basics' }));
+		expect(recordAt({ recordPath }).plans.map((plan) => plan.id)).toStrictEqual(['001-search-basics']);
+		expect(readdirSync(planFolderOf({ planId: '001-search-basics' }))).toStrictEqual([]);
+		expect(existsSync(join(workOrderFolder, 'plans', 'plan.md'))).toBe(true);
+		expect(existsSync(join(workOrderFolder, 'plans', 'facts.json'))).toBe(true);
 	});
 });

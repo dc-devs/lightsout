@@ -79,8 +79,9 @@ const setupWorkOrderDispatch = ({ invocations }: { invocations: string[][] }) =>
 
 describe('workOrderCommand', () => {
 	test('dispatches each work-order subcommand to its own handler and exits 1 on a word it does not hold', async () => {
-		// `adopt` was merged into `add-plan --from`, so the word reaches no
-		// handler of its own any more and falls to the same refusal as `rename`
+		// `adopt` was merged into `add-plan` and its `--from` form has since gone,
+		// so the word reaches no handler of its own and falls to the same refusal
+		// as `rename`
 		const { contexts, errors, exitCodes } = setupWorkOrderDispatch({
 			invocations: [...subcommands.map((word) => [word, '--name', 'lo-140-x']), ['rename', '--name', 'lo-140-x'], ['adopt', '--name', 'lo-140-x']],
 		});

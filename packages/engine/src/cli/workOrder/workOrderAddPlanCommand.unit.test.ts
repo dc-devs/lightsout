@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
@@ -10,11 +10,13 @@ import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
 // Mocked Imports
 // -------------------------
-// Adding the plan is the ticket module's job: all this file owns is what
-// reaches that operation, what the command prints, and how it ends. The subject
-// is imported from its own file rather than the folder's barrel, because the
-// barrel would load every sibling subcommand against a ticket module mocked
-// down to one export.
+// Adding the plan is the work order module's job: all this file owns is what
+// reaches that operation, what the command prints, and how it ends. `from` is
+// kept on the params shape below so the row that pins the removed flag can ask
+// whether any value reached the operation for it. The subject is imported from
+// its own file rather than the folder's barrel, because the barrel would load
+// every sibling subcommand against a work order module mocked down to one
+// export.
 interface AddTicketPlanParams {
 	cwd: string;
 	name: string;
@@ -37,6 +39,7 @@ const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-cov
 
 const record: WorkOrderState = {
 	schemaVersion: 1,
+	name: 'lo-140-x',
 	ticketRef: 'LO-140',
 	branch: 'lo-140-x',
 	mode: 'multiple-plan',
@@ -60,6 +63,35 @@ const setupAddPlan = ({
 	writeFileSync(join(cwd, 'lightsout.config.json'), JSON.stringify({ gates, 'ticket-tracker': ticketTrackerConfigBlock }));
 
 	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, ...captured };
+};
+
+/**
+ * An add for a work order whose plans folder already holds loose files: the
+ * files are written where a `--from` add used to find them, so the assertions
+ * below are about a command that no longer looks there at all.
+ */
+const setupLooseFilesAdd = () => {
+	const added = setupAddPlan({
+		args: ['--name', 'lo-140-x', '--slug', 'fix', '--title', 'Fix'],
+		outcome: {
+			address: 'lo-140-x/003-fix',
+			record: {
+				...record,
+				plans: [
+					{ id: '001-first', title: 'First', progress: 'implemented', createdAt: '2026-09-10T10:00:00.000Z' },
+					{ id: '002-second', title: 'Second', progress: 'ready', createdAt: '2026-09-11T10:00:00.000Z' },
+					{ id: '003-fix', title: 'Fix', progress: 'planning', createdAt: '2026-09-12T10:00:00.000Z' },
+				],
+			},
+		},
+	});
+	const plansDir = join(added.cwd, '.lightsout', 'work-orders', 'lo-140-x', 'plans');
+
+	mkdirSync(plansDir, { recursive: true });
+	writeFileSync(join(plansDir, 'search-notes.md'), '# loose notes\n');
+	writeFileSync(join(plansDir, 'decisions.json'), '[]');
+
+	return added;
 };
 
 describe('workOrderAddPlanCommand', () => {
@@ -108,43 +140,27 @@ describe('workOrderAddPlanCommand', () => {
 		expect(refused.exitCodes).toStrictEqual([1]);
 	});
 
-	test('passes --from through as typed and says the plan was made from that folder above the address', async () => {
-		const { context, logged, errors, exitCodes } = setupAddPlan({
-			args: ['--name', 'lo-140-x', '--slug', 'fix', '--from', 'search-notes'],
-			outcome: {
-				address: 'lo-140-x/003-fix',
-				record: { ...record, plans: [{ id: '003-fix', title: 'Fix', progress: 'ready', createdAt: '2026-09-12T10:00:00.000Z' }] },
-			},
-		});
+	test('prints only the plan count and the address', async () => {
+		const { context, cwd, logged, errors, exitCodes } = setupLooseFilesAdd();
 
 		await expect(workOrderAddPlanCommand(context)).rejects.toThrow(/process\.exit/);
 
-		// --from names a folder's bare name under the plans directory, so it
-		// reaches the operation exactly as it was typed rather than resolved here
-		expect(mockAddTicketPlan.mock.calls[0]?.[0]).toMatchObject({ name: 'lo-140-x', slug: 'fix', from: 'search-notes' });
-		// the address is the one thing a calling skill reads back, so it stays the
-		// last line for this form too
-		expect(logged.at(-1)).toContain('lo-140-x/003-fix');
-		// the line above it names the folder the files came from and how far the
-		// plan already got — a --from add must not read like an empty plan
-		expect(logged.at(-2) ?? '').toContain('search-notes');
-		expect(logged.at(-2) ?? '').toContain('ready to implement');
+		// nothing names a source folder any more, so no value reaches the
+		// operation for one — the plan is started, not built out of loose files
+		expect(mockAddTicketPlan.mock.calls[0]?.[0]).toMatchObject({ cwd, name: 'lo-140-x', slug: 'fix', title: 'Fix' });
+		expect(mockAddTicketPlan.mock.calls[0]?.[0]?.from).toBeUndefined();
+
+		// two lines and no third: how many plans the work order now holds, then
+		// the address a calling skill reads back off the last line
+		expect(logged).toHaveLength(2);
+		expect(logged[0]).toContain('lo-140-x');
+		expect(logged[0]).toMatch(/3 plan/);
+		expect(logged.at(-1)).toBe('lo-140-x/003-fix');
+		// the loose files in the plans folder are not this command's business,
+		// so nothing it prints mentions them or how far they had got
+		expect(logged.join('\n')).not.toMatch(/loose|search-notes|--from/i);
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);
-
-		const withoutPlanEntry = setupAddPlan({
-			args: ['--name', 'lo-140-x', '--slug', 'fix', '--from', 'search-notes'],
-			outcome: { address: 'lo-140-x/003-fix', record: { ...record, plans: [] } },
-		});
-
-		await expect(workOrderAddPlanCommand(withoutPlanEntry.context)).rejects.toThrow(/process\.exit/);
-
-		// the address is the command's answer whatever the record came back
-		// holding, so the line above it falls back rather than printing 'undefined'
-		expect(withoutPlanEntry.logged.at(-1)).toContain('lo-140-x/003-fix');
-		expect(withoutPlanEntry.logged.join('\n')).not.toContain('undefined');
-		expect(withoutPlanEntry.logged.at(-2) ?? '').toContain('being planned');
-		expect(withoutPlanEntry.exitCodes).toStrictEqual([0]);
 	});
 
 	test('keeps the local change and exits 1 naming work-order sync when publishing fails', async () => {

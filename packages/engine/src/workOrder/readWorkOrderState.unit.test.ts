@@ -11,6 +11,7 @@ import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 /** A state the contract accepts, written by hand so the reader is the only thing under test. */
 const workOrderStateOf = ({ branch, ticketRef }: { branch: string; ticketRef: string }) => ({
 	schemaVersion: 1,
+	name: branch,
 	ticketRef,
 	branch,
 	mode: 'multiple-plan',

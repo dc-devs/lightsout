@@ -14,17 +14,17 @@ const readSinglePlanEligibility = ({ record }: Params): WorkOrderShipEligibility
 	if (first === undefined) {
 		eligibility = {
 			eligible: false,
-			reason: `work order ${record.branch} is in single-plan mode and holds no plan 001, so nothing supplies its implementation`,
+			reason: `work order ${record.name} is in single-plan mode and holds no plan 001, so nothing supplies its implementation`,
 		};
 	} else if (first.exclusion !== undefined) {
 		eligibility = {
 			eligible: false,
-			reason: `plan ${first.id} is excluded from work order ${record.branch} — ${first.exclusion.reason} — so a single-plan ticket has no implementation to ship`,
+			reason: `plan ${first.id} is excluded from work order ${record.name} — ${first.exclusion.reason} — so a single-plan ticket has no implementation to ship`,
 		};
 	} else if (first.progress !== PlanProgress.Implemented) {
 		eligibility = {
 			eligible: false,
-			reason: `the implementation of plan ${first.id} on work order ${record.branch} has not finished, and a single-plan ticket ships once plan 001 is implemented`,
+			reason: `the implementation of plan ${first.id} on work order ${record.name} has not finished, and a single-plan ticket ships once plan 001 is implemented`,
 		};
 	} else {
 		eligibility = { eligible: true };
@@ -48,13 +48,13 @@ const readMultiplePlanEligibility = ({ record }: Params): WorkOrderShipEligibili
 	const included = record.plans.filter((plan) => plan.exclusion === undefined);
 	const includedIds = included.map((plan) => plan.id);
 	const request = record.shipRequest;
-	const askAgain = `\`lightsout work-order request-ship --name ${record.branch} --plans ${includedIds.join(',')}\``;
+	const askAgain = `\`lightsout work-order request-ship --name ${record.name} --plans ${includedIds.join(',')}\``;
 	let eligibility: WorkOrderShipEligibility;
 
 	if (request === undefined) {
 		eligibility = {
 			eligible: false,
-			reason: `work order ${record.branch} is in multiple-plan mode and carries no ship request, so ask for one with ${askAgain}`,
+			reason: `work order ${record.name} is in multiple-plan mode and carries no ship request, so ask for one with ${askAgain}`,
 		};
 	} else {
 		const missing = includedIds.filter((id) => !request.planIds.includes(id));
@@ -64,12 +64,12 @@ const readMultiplePlanEligibility = ({ record }: Params): WorkOrderShipEligibili
 		if (missing.length > 0 || stale.length > 0) {
 			eligibility = {
 				eligible: false,
-				reason: `the ship request on work order ${record.branch} no longer names the plans it holds — ${describeRequestDrift({ missing, stale })} — so request shipping again with ${askAgain}`,
+				reason: `the ship request on work order ${record.name} no longer names the plans it holds — ${describeRequestDrift({ missing, stale })} — so request shipping again with ${askAgain}`,
 			};
 		} else if (waiting !== undefined) {
 			eligibility = {
 				eligible: false,
-				reason: `the implementation of plan ${waiting.id} on work order ${record.branch} has not finished, and every plan its ship request names is implemented before the ticket ships`,
+				reason: `the implementation of plan ${waiting.id} on work order ${record.name} has not finished, and every plan its ship request names is implemented before the ticket ships`,
 			};
 		} else {
 			eligibility = { eligible: true };
@@ -97,7 +97,7 @@ export const readWorkOrderShipEligibility = ({ record }: Params): WorkOrderShipE
 	if (record.shipped !== undefined) {
 		eligibility = {
 			eligible: false,
-			reason: `work order ${record.branch} already shipped as ${record.shipped.mergeCommit}, so its record no longer authorizes a merge`,
+			reason: `work order ${record.name} already shipped as ${record.shipped.mergeCommit}, so its record no longer authorizes a merge`,
 		};
 	} else if (record.mode === WorkOrderMode.SinglePlan) {
 		eligibility = readSinglePlanEligibility({ record });

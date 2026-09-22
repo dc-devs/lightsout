@@ -48,6 +48,7 @@ const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-cov
 /** A work order whose two plans are exactly the set a ship request must name. */
 const record: WorkOrderState = {
 	schemaVersion: 1,
+	name: 'lo-140-x',
 	ticketRef: 'LO-140',
 	branch: 'lo-140-x',
 	mode: 'multiple-plan',

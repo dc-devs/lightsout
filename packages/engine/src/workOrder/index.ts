@@ -5,9 +5,9 @@
 // a state file no operation ever decided on. Where a work order's folder IS is
 // not private — `workOrderFolderDir` is a workspace helper every module asks —
 // because that folder is the address of a branch's ship and worktree records as
-// well as its plans. The operations' own helpers — how an event is appended, how
-// a plan token is resolved, what a plans folder's loose files are — stay off the
-// barrel for the same reason the state file's bytes do.
+// well as its plans. The operations' own helpers — how an event is appended and
+// how a plan token is resolved — stay off the barrel for the same reason the
+// state file's bytes do.
 
 export { addWorkOrderPlan } from '#src/workOrder/addWorkOrderPlan.ts';
 export { WorkOrderSyncKeep } from '#src/workOrder/common/constants/WorkOrderSyncKeep.ts';
@@ -16,7 +16,6 @@ export type { WorkOrderRunTerms } from '#src/workOrder/common/types/WorkOrderRun
 export type { WorkOrderShipEligibility } from '#src/workOrder/common/types/WorkOrderShipEligibility.ts';
 export type { WorkOrderStateChange } from '#src/workOrder/common/types/WorkOrderStateChange.ts';
 export { excludeWorkOrderPlan } from '#src/workOrder/excludeWorkOrderPlan.ts';
-export { findBareWorkOrderFolderRefusal } from '#src/workOrder/findBareWorkOrderFolderRefusal.ts';
 export { findNextPlanToPlan } from '#src/workOrder/findNextPlanToPlan.ts';
 export { findPlanImplementationBlocker } from '#src/workOrder/findPlanImplementationBlocker.ts';
 export { createWorkOrderShipGuard, readWorkOrderRunTerms, runWorkOrderPlanLifecycle } from '#src/workOrder/implementRun/index.ts';

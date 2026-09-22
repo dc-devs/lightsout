@@ -72,6 +72,7 @@ const setupTicketChain = async ({
 		name: workOrderName,
 		change: (): WorkOrderState => ({
 			schemaVersion: 1,
+			name: workOrderName,
 			ticketRef: 'LO-140',
 			branch: workOrderName,
 			mode,

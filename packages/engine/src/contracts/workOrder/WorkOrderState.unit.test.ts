@@ -24,6 +24,7 @@ const setupWorkOrderState = () => {
 	};
 	const state = {
 		schemaVersion: 1,
+		name: 'lo-158-a-ticket-s-branch-name-has-no-single',
 		ticketRef: 'LO-158',
 		branch: 'lo-158-a-ticket-s-branch-name-has-no-single',
 		mode: 'multiple-plan',
@@ -64,6 +65,7 @@ const setupFullWorkOrderState = () => {
 	};
 	const record = {
 		schemaVersion: 1,
+		name: 'lo-140-support-multiple-plans-per-ticket-on-one-branch',
 		ticketRef: 'LO-140',
 		branch: 'lo-140-support-multiple-plans-per-ticket-on-one-branch',
 		mode: 'multiple-plan',
@@ -87,6 +89,25 @@ const setupFullWorkOrderState = () => {
 	};
 
 	return { record, implementedPlan, excludedPlan };
+};
+
+const setupTrackerFreeWorkOrderState = () => {
+	const plan = {
+		id: '001-rename-the-folder',
+		title: 'Rename the folder',
+		progress: 'planning',
+		createdAt: '2026-09-10T09:00:00.000Z',
+	};
+	const state = {
+		schemaVersion: 1,
+		name: 'rename-the-folder',
+		branch: 'rename-the-folder',
+		mode: 'single-plan',
+		plans: [plan],
+		history: [{ at: '2026-09-10T09:00:00.000Z', kind: 'plan-added', detail: 'added 001-rename-the-folder' }],
+	};
+
+	return { state, plan };
 };
 
 describe('WorkOrderState', () => {
@@ -122,15 +143,17 @@ describe('WorkOrderState', () => {
 		expect(heldPlans.success).toBe(true);
 	});
 
-	test('WorkOrderState: keeps every field name, ticketRef included, required', () => {
+	test('WorkOrderState: keeps every field name, with ticketRef now optional', () => {
 		const { state } = setupWorkOrderState();
+		const { ticketRef: _ticketRef, ...withoutTicketRef } = state;
 
 		const parsed = WorkOrderState.safeParse(state);
-		const withoutTicketRef = WorkOrderState.safeParse({ ...state, ticketRef: undefined });
+		const trackerFree = WorkOrderState.safeParse(withoutTicketRef);
 
 		expect(parsed.success).toBe(true);
 		expect(parsed.data).toStrictEqual(state);
-		expect(withoutTicketRef.success).toBe(false);
+		expect(trackerFree.success).toBe(true);
+		expect(trackerFree.data).toStrictEqual(withoutTicketRef);
 	});
 
 	test('accepts a full multiple-plan record and returns it unchanged', () => {
@@ -197,5 +220,25 @@ describe('WorkOrderState', () => {
 
 		expect(unknownRecordKey.success).toBe(false);
 		expect(unknownPlanKey.success).toBe(false);
+	});
+
+	test('parses a work order state with no ticketRef and refuses one with no name', () => {
+		const { state } = setupTrackerFreeWorkOrderState();
+
+		const trackerFree = WorkOrderState.safeParse(state);
+		const withoutName = WorkOrderState.safeParse({ ...state, name: undefined });
+
+		expect(trackerFree.success).toBe(true);
+		expect(trackerFree.data).toStrictEqual(state);
+		expect(withoutName.success).toBe(false);
+	});
+
+	test('parses a work order state whose branch carries a prefix its name does not', () => {
+		const { state } = setupTrackerFreeWorkOrderState();
+
+		const prefixedBranch = WorkOrderState.safeParse({ ...state, name: 'lo-1-x', branch: 'feature/lo-1-x' });
+
+		expect(prefixedBranch.success).toBe(true);
+		expect(prefixedBranch.data).toStrictEqual({ ...state, name: 'lo-1-x', branch: 'feature/lo-1-x' });
 	});
 });

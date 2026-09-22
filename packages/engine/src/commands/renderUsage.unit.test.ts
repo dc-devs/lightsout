@@ -170,7 +170,7 @@ test('prints one work-order line per subcommand between plan publish and ticket-
 	const ticketState = lines.findIndex((line) => line.startsWith('  lightsout ticket-state'));
 
 	expect(workOrder).toStrictEqual([
-		'  lightsout work-order add-plan --name <work-order-name> --slug <slug> [--title <title>] [--from <folder>] [--cwd <path>]',
+		'  lightsout work-order add-plan --name <work-order-name> --slug <slug> [--title <title>] [--cwd <path>]',
 		'  lightsout work-order mode --name <work-order-name> --set single-plan|multiple-plan [--approve] [--cwd <path>]',
 		'  lightsout work-order request-ship --name <work-order-name> [--plans <id,id> | --withdraw] [--cwd <path>]',
 		'  lightsout work-order exclude-plan --name <work-order-name> --plan <id> --reason <text> [--implementation-removed] [--cwd <path>]',
@@ -182,14 +182,14 @@ test('prints one work-order line per subcommand between plan publish and ticket-
 	expect(ticketState).toBe(planPublish + 8);
 });
 
-test('prints seven work-order lines with --from on add-plan and none naming adopt', () => {
+test('prints seven work-order lines and none naming adopt', () => {
 	const { lines } = setupRenderUsage();
 
 	const workOrder = lines.filter((line) => line.startsWith('  lightsout work-order '));
 	const addPlan = workOrder.filter((line) => line.startsWith('  lightsout work-order add-plan'));
 
 	expect(workOrder).toHaveLength(7);
-	expect(addPlan).toStrictEqual(['  lightsout work-order add-plan --name <work-order-name> --slug <slug> [--title <title>] [--from <folder>] [--cwd <path>]']);
+	expect(addPlan).toStrictEqual(['  lightsout work-order add-plan --name <work-order-name> --slug <slug> [--title <title>] [--cwd <path>]']);
 	expect(workOrder.filter((line) => line.includes('adopt'))).toStrictEqual([]);
 });
 
@@ -221,7 +221,7 @@ test('renderUsage: prints the status --now line between the run and planning lin
 
 /** The seven subcommand lines as the renamed command word must spell them, in the settled order. */
 const workOrderUsageLines = [
-	'  lightsout work-order add-plan --name <work-order-name> --slug <slug> [--title <title>] [--from <folder>] [--cwd <path>]',
+	'  lightsout work-order add-plan --name <work-order-name> --slug <slug> [--title <title>] [--cwd <path>]',
 	'  lightsout work-order mode --name <work-order-name> --set single-plan|multiple-plan [--approve] [--cwd <path>]',
 	'  lightsout work-order request-ship --name <work-order-name> [--plans <id,id> | --withdraw] [--cwd <path>]',
 	'  lightsout work-order exclude-plan --name <work-order-name> --plan <id> --reason <text> [--implementation-removed] [--cwd <path>]',
@@ -254,4 +254,14 @@ test('renderUsage: the checked-in fixture spells the work-order command word wit
 	expect(fixtureLines.filter((line) => line.startsWith('  lightsout ticket '))).toStrictEqual([]);
 	expect(fixtureLines.filter((line) => line.startsWith('  lightsout ticket-state'))).toHaveLength(1);
 	expect(health.indexOf('(')).toBe(54);
+});
+
+test('renders the add-plan line without the removed --from flag', () => {
+	const { usage, lines } = setupRenderUsage();
+
+	const addPlan = lines.filter((line) => line.startsWith('  lightsout work-order add-plan'));
+
+	expect(addPlan).toStrictEqual(['  lightsout work-order add-plan --name <work-order-name> --slug <slug> [--title <title>] [--cwd <path>]']);
+	expect(lines.filter((line) => line.includes('--from'))).toStrictEqual([]);
+	expect(usage).toBe(usageFixture);
 });

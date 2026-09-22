@@ -28,6 +28,7 @@ const planWith = ({
 const setupTicket = ({ plans = [] }: { plans?: WorkOrderPlan[] } = {}) => {
 	const record: WorkOrderState = {
 		schemaVersion: 1,
+		name: 'lo-140-multi',
 		ticketRef: 'LO-140',
 		branch: 'lo-140-multi',
 		mode: WorkOrderMode.MultiplePlan,

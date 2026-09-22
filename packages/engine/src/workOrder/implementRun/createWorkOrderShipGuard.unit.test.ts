@@ -63,6 +63,7 @@ const recordOf = ({
 	detail?: string;
 }): WorkOrderState => ({
 	schemaVersion: 1,
+	name,
 	ticketRef: 'LO-140',
 	branch: name,
 	mode,

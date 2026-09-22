@@ -12,7 +12,7 @@ import {
 	withdrawWorkOrderShipRequest,
 } from '#src/workOrder/index.ts';
 
-/** The work order's label, which is also the branch every record below names. */
+/** The work order's label: the folder it sits in, and the name every command addresses it by. */
 const name = 'lo-140-multi';
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 
@@ -39,17 +39,21 @@ const setupTicketRecord = async ({
 	mode = WorkOrderMode.MultiplePlan,
 	plans = threePlans,
 	shipped,
+	branch = name,
 }: {
 	mode?: WorkOrderMode;
 	plans?: WorkOrderPlan[];
 	/** The plan ids a merged ticket shipped with, which makes the record history. */
 	shipped?: string[];
+	/** The git branch the record names, which a row sets apart from the label on purpose. */
+	branch?: string;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-request-ship-'));
 	const record: WorkOrderState = {
 		schemaVersion: 1,
+		name,
 		ticketRef: 'LO-140',
-		branch: name,
+		branch,
 		mode,
 		plans,
 		history: [],
@@ -151,6 +155,28 @@ describe('requestWorkOrderShip', () => {
 		const result = await requestWorkOrderShip({ ...params, plans: [] });
 
 		expect(result).toEqual({ error: expect.any(String) });
+		expect(readFileSync(recordPath, 'utf8')).toBe(before);
+	});
+
+	test('names the work order by its label in the uncovered-plans remedy when the branch carries a prefix', async () => {
+		const { params, recordPath, before } = await setupTicketRecord({ branch: `feature/${name}` });
+
+		const result = await requestWorkOrderShip({ ...params, plans: ['1'] });
+
+		// The remedy is a command a human types, and `--name` takes the label, so a
+		// sentence built from the prefixed branch would offer an unrunnable one.
+		expect(result).toEqual({ error: expect.stringContaining(`lightsout work-order exclude-plan --name ${name} --plan`) });
+		expect(result).toEqual({ error: expect.not.stringContaining('feature/') });
+		expect(readFileSync(recordPath, 'utf8')).toBe(before);
+	});
+
+	test('names the work order by its label when a request names an excluded plan and the branch carries a prefix', async () => {
+		const { params, recordPath, before } = await setupTicketRecord({ branch: `feature/${name}` });
+
+		const result = await requestWorkOrderShip({ ...params, plans: ['1', '2', '3'] });
+
+		expect(result).toEqual({ error: expect.stringContaining(`work order ${name}`) });
+		expect(result).toEqual({ error: expect.not.stringContaining('feature/') });
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
 	});
 

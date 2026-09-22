@@ -42,6 +42,7 @@ const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-cov
 /** The record the sync settles on: one plan implemented, one ready to implement. */
 const syncedRecord: WorkOrderState = {
 	schemaVersion: 1,
+	name: 'lo-140-x',
 	ticketRef: 'LO-140',
 	branch: 'lo-140-x',
 	mode: 'multiple-plan',
@@ -168,5 +169,37 @@ describe('workOrderSyncCommand', () => {
 		expect(plain.logged.join('\n')).not.toMatch(/lightsout ticket\s/);
 		expect(plain.errors).toStrictEqual([]);
 		expect(plain.exitCodes).toStrictEqual([0]);
+	});
+
+	test('names the work order by its label and the tracker reference beside it', async () => {
+		const { context, logged, exitCodes } = setupSync({
+			args: ['--name', 'lo-140-x'],
+			outcome: { record: { ...syncedRecord, branch: 'feature/lo-140-x' } },
+		});
+
+		await expect(workOrderSyncCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// the label is what the two copies are of, and the reference names where
+		// the published copy lives — the branch the plans implement on says
+		// nothing about either, so it is not in the line
+		expect(logged.join('\n')).toContain('lo-140-x');
+		expect(logged.join('\n')).toContain('LO-140');
+		expect(logged.join('\n')).not.toContain('feature/');
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('mentions no tracker reference for a record that carries none', async () => {
+		const { ticketRef: _ticketRef, ...trackerFree } = syncedRecord;
+		const { context, logged, exitCodes } = setupSync({ args: ['--name', 'lo-140-x'], outcome: { record: trackerFree } });
+
+		await expect(workOrderSyncCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// sync refuses a work order with nowhere to publish to, so this line is
+		// never reached without a reference — and if it ever is, it says what it
+		// knows rather than printing a missing field as a word
+		expect(logged.join('\n')).toContain('lo-140-x');
+		expect(logged.join('\n')).toContain('in sync');
+		expect(logged.join('\n')).not.toContain('undefined');
+		expect(exitCodes).toStrictEqual([0]);
 	});
 });

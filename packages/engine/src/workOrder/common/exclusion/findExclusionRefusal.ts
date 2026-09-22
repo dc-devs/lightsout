@@ -21,14 +21,14 @@ export const findExclusionRefusal = ({ record, target, implementationRemoved }: 
 	const started = isPlanImplementationStarted({ plan: target });
 
 	if (record.mode === WorkOrderMode.SinglePlan && planNumberOf({ id: target.id }) === 1) {
-		return `plan ${target.id} is the whole implementation of single-plan work order ${record.branch}, so excluding it would leave the ticket nothing to ship — run \`lightsout work-order mode --name ${record.branch} --set multiple-plan\` first if this ticket's work has moved on`;
+		return `plan ${target.id} is the whole implementation of single-plan work order ${record.name}, so excluding it would leave the ticket nothing to ship — run \`lightsout work-order mode --name ${record.name} --set multiple-plan\` first if this ticket's work has moved on`;
 	}
 
 	if (implementationRemoved && !started) {
-		return `plan ${target.id} on work order ${record.branch} has no implementation to remove, because its own implementation never started — exclude it without --implementation-removed`;
+		return `plan ${target.id} on work order ${record.name} has no implementation to remove, because its own implementation never started — exclude it without --implementation-removed`;
 	}
 
 	return target.exclusion !== undefined && !(implementationRemoved && started && !target.exclusion.implementationRemoved)
-		? `plan ${target.id} is already excluded from work order ${record.branch} — ${target.exclusion.reason} — and an exclusion is final; the one thing a recorded exclusion still takes is \`--implementation-removed\`, once that plan's implementation has been taken off the branch`
+		? `plan ${target.id} is already excluded from work order ${record.name} — ${target.exclusion.reason} — and an exclusion is final; the one thing a recorded exclusion still takes is \`--implementation-removed\`, once that plan's implementation has been taken off the branch`
 		: undefined;
 };

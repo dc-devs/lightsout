@@ -41,6 +41,7 @@ const setupTicket = ({ mode, plans, shipRequest }: { mode: WorkOrderState['mode'
 	const { cwd, recordPath } = makeCheckout();
 	const record: WorkOrderState = {
 		schemaVersion: 1,
+		name,
 		ticketRef: 'LO-140',
 		branch: name,
 		mode,

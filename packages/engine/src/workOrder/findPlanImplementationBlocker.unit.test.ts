@@ -32,10 +32,30 @@ const planWith = ({
 const setupTicket = ({ mode = WorkOrderMode.MultiplePlan, plans = [] }: { mode?: WorkOrderMode; plans?: WorkOrderPlan[] } = {}) => {
 	const record: WorkOrderState = {
 		schemaVersion: 1,
+		name: 'lo-140-multi',
 		ticketRef: 'LO-140',
 		branch: 'lo-140-multi',
 		mode,
 		plans,
+		history: [],
+	};
+
+	return { record };
+};
+
+/**
+ * A work order whose label and git branch are different strings: the folder is
+ * labelled `lo-141-prefixed`, while its plans implement on the prefixed branch
+ * `feature/lo-141-prefixed`. Every sentence this file reads names the label.
+ */
+const setupPrefixedBranchWorkOrder = () => {
+	const record: WorkOrderState = {
+		schemaVersion: 1,
+		ticketRef: 'LO-141',
+		name: 'lo-141-prefixed',
+		branch: 'feature/lo-141-prefixed',
+		mode: WorkOrderMode.MultiplePlan,
+		plans: [planWith({ id: '001-record', progress: PlanProgress.Ready }), planWith({ id: '002-addressing', progress: PlanProgress.Ready })],
 		history: [],
 	};
 
@@ -175,5 +195,16 @@ describe('findPlanImplementationBlocker', () => {
 		expect(implementedPlan).toContain('lightsout work-order add-plan --name lo-140-multi');
 		expect(behindLowerPlan).toContain('lightsout work-order exclude-plan --name lo-140-multi --plan 001-record');
 		expect([unheldPlan, excludedPlan, outOfModePlan, implementedPlan, behindLowerPlan].join('\n')).not.toContain('lightsout ticket ');
+	});
+
+	test('names the work order by its label when the branch carries a prefix', () => {
+		const { record } = setupPrefixedBranchWorkOrder();
+
+		const blocker = findPlanImplementationBlocker({ record, planId: '002-addressing' });
+
+		expect(blocker).toContain('work order lo-141-prefixed');
+		expect(blocker).toContain('.lightsout/work-orders/lo-141-prefixed/plans/001-record');
+		expect(blocker).toContain('lightsout work-order exclude-plan --name lo-141-prefixed --plan 001-record');
+		expect(blocker).not.toContain('feature/');
 	});
 });

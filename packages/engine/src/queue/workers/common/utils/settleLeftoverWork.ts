@@ -34,6 +34,6 @@ export const settleLeftoverWork = async ({ step, leftover }: Params): Promise<st
 		.at(0);
 
 	return owner === undefined
-		? `the worktree ${cwd} holds changes no implemented plan of ticket ${record.branch} accounts for, so the queue cannot say which plan they belong to`
+		? `the worktree ${cwd} holds changes no implemented plan of work order ${record.name} accounts for, so the queue cannot say which plan they belong to`
 		: commitPlanWork({ step: { ...step, plan: owner } });
 };

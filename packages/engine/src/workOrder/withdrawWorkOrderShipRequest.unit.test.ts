@@ -16,6 +16,7 @@ const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-cov
  */
 const recordOf = ({ pending }: { pending: boolean }): WorkOrderState => ({
 	schemaVersion: 1,
+	name,
 	ticketRef: 'LO-140',
 	branch: name,
 	mode: 'multiple-plan',

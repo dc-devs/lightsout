@@ -173,6 +173,7 @@ export const setupTicketPlanBuild = ({
 	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', workOrderName);
 	const record: WorkOrderState = {
 		schemaVersion: 1,
+		name: workOrderName,
 		ticketRef: 'LO-7',
 		branch: workOrderName,
 		mode,

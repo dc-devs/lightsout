@@ -1,17 +1,15 @@
+import { mkdir } from 'node:fs/promises';
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
 import { type LightsoutConfig, PlanProgress, WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
-import { planWorkspaceDir } from '#src/plan/index.ts';
-import { fillPlanFolder } from '#src/workOrder/common/planSource/fillPlanFolder.ts';
-import { resolvePlanSourceFolder } from '#src/workOrder/common/planSource/resolvePlanSourceFolder.ts';
+import { planWorkspaceDir, readPlanWorkOrderRef } from '#src/plan/index.ts';
+import { resolveShipSettings } from '#src/ship/index.ts';
 import { appendWorkOrderEvent } from '#src/workOrder/common/record/appendWorkOrderEvent.ts';
 import { buildWorkOrderState } from '#src/workOrder/common/record/buildWorkOrderState.ts';
 import { composePlanId } from '#src/workOrder/common/record/composePlanId.ts';
 import { recordShipRequestWithdrawal } from '#src/workOrder/common/record/recordShipRequestWithdrawal.ts';
 import { requireWorkOrderState } from '#src/workOrder/common/record/requireWorkOrderState.ts';
-import type { PlanSourceFolder } from '#src/workOrder/common/types/PlanSourceFolder.ts';
 import type { WorkOrderStateChange } from '#src/workOrder/common/types/WorkOrderStateChange.ts';
-import { listLoosePlanEntries } from '#src/workOrder/common/utils/listLoosePlanEntries.ts';
 import { updateSyncedWorkOrderState } from '#src/workOrder/updateSyncedWorkOrderState.ts';
 
 interface Params {
@@ -23,8 +21,6 @@ interface Params {
 	slug: string;
 	/** The plan's first display title, which stays changeable. Defaults to the slug. */
 	title?: string;
-	/** The source folder's bare name under the plans directory, whose loose files become this plan. Absent creates the plan empty. */
-	from?: string;
 	config: LightsoutConfig;
 	/** The process environment the tracker API key is read from. */
 	env: NodeJS.ProcessEnv;
@@ -49,7 +45,7 @@ const allocatePlanId = ({ record, slug }: { record: WorkOrderState; slug: string
 
 	if (next > maxPlanNumber) {
 		return {
-			error: `work order ${record.branch} already holds plan ${String(highest).padStart(3, '0')}, and a plan's number never goes above ${maxPlanNumber} because no number is ever reused`,
+			error: `work order ${record.name} already holds plan ${String(highest).padStart(3, '0')}, and a plan's number never goes above ${maxPlanNumber} because no number is ever reused`,
 		};
 	}
 
@@ -62,20 +58,16 @@ const addPlanToRecord = ({
 	name,
 	slug,
 	title,
-	from,
-	progress,
+	ticketRef,
 	config,
-	looseEntries,
 	at,
 }: {
 	current: WorkOrderState | undefined;
 	name: string;
 	slug: string;
 	title: string | undefined;
-	from: string | undefined;
-	progress: PlanProgress;
+	ticketRef: string | undefined;
 	config: LightsoutConfig;
-	looseEntries: string[];
 	at: string;
 }): PlanAddition | { error: string } => {
 	const existing = current === undefined ? undefined : requireWorkOrderState({ record: current, name });
@@ -84,38 +76,23 @@ const addPlanToRecord = ({
 		return existing;
 	}
 
-	if (looseEntries.length > 0) {
-		return {
-			error:
-				existing === undefined
-					? `the plan folder '${name}' still holds loose files (${looseEntries.join(', ')}) — make them this work order's next plan with \`lightsout work-order add-plan --name ${name} --slug <slug> --from ${name}\`, or take them out of the folder first`
-					: `the work order folder '${name}' holds ${looseEntries.join(', ')} beside its record, and a work order's plan files live in that plan's own folder — move each of them into the plan folder it belongs to, or remove it, and run this again`,
-		};
-	}
-
 	if (existing !== undefined && existing.mode === WorkOrderMode.SinglePlan && existing.plans.some((plan) => planNumberOf({ id: plan.id }) === 1)) {
 		return {
 			error: `work order ${name} is in single-plan mode, where plan 001 alone supplies the implementation — run \`lightsout work-order mode --set multiple-plan --name ${name}\` before adding a second plan`,
 		};
 	}
 
-	const base = existing ?? buildWorkOrderState({ name, config });
-
-	if ('error' in base) {
-		return base;
-	}
-
+	const base = existing ?? buildWorkOrderState({ name, branch: name, ticketRef, config });
 	const allocated = allocatePlanId({ record: base, slug });
 
 	if ('error' in allocated) {
 		return allocated;
 	}
 
-	const outOf = from === undefined ? '' : ` out of the loose files of '${from}'`;
 	const added = appendWorkOrderEvent({
-		record: { ...base, plans: [...base.plans, { id: allocated.id, title: title ?? slug, progress, createdAt: at }] },
-		kind: from === undefined ? WorkOrderEventKind.PlanAdded : WorkOrderEventKind.PlanAdopted,
-		detail: `plan ${allocated.id} was added to work order ${name}${outOf}`,
+		record: { ...base, plans: [...base.plans, { id: allocated.id, title: title ?? slug, progress: PlanProgress.Planning, createdAt: at }] },
+		kind: WorkOrderEventKind.PlanAdded,
+		detail: `plan ${allocated.id} was added to work order ${name}`,
 		at,
 	});
 
@@ -131,9 +108,8 @@ const addPlanToRecord = ({
 };
 
 /**
- * Add the next plan to a ticket, creating the work order's state when it has none,
- * and making that plan out of a source folder's loose files when `--from` names
- * one.
+ * Add the next plan to a work order, creating the work order's state when it
+ * has none.
  *
  * The id is one above the highest number the ticket has ever held, excluded
  * plans counted, so a number is never reused and a ship request, an exclusion
@@ -141,34 +117,24 @@ const addPlanToRecord = ({
  * plan to a multiple-plan ticket withdraws any pending ship request, because
  * the set of plans that request approved is no longer the ticket's whole work.
  *
- * The record goes first for both forms: the id is allocated under the lock that
- * owns it, and only then is the plan's folder made and the source's files moved
- * into it. A refusal therefore leaves nothing behind for the next command to
- * trip over, and a move that fails is put back and reported as a sentence naming
- * where the files still are — the plan stands, because by then it already does.
+ * The record goes first: the id is allocated under the lock that owns it, and
+ * only then is the plan's own folder made. A refusal therefore leaves nothing
+ * behind for the next command to trip over.
  */
 export const addWorkOrderPlan = async ({
 	cwd,
 	name,
 	slug,
 	title,
-	from,
 	config,
 	env,
 	onProgress,
 }: Params): Promise<(WorkOrderStateChange & { address: string }) | { error: string }> => {
-	const resolved = from === undefined ? undefined : await resolvePlanSourceFolder({ cwd, from });
-
-	if (resolved !== undefined && 'error' in resolved) {
-		return resolved;
-	}
-
-	const source: PlanSourceFolder | undefined = resolved;
-	// Read before the change, because the store's change callback is pure: a
-	// listing taken inside it could not reach the disk at all. A `--from` naming
-	// this ticket's own folder makes those loose files the source rather than an
-	// obstruction, so there is nothing to refuse.
-	const looseEntries = from === name ? [] : await listLoosePlanEntries({ plansFolder: await planWorkspaceDir({ cwd, name: name }) });
+	const shipSettings = resolveShipSettings({ config });
+	// A pattern this repository cannot compile is not a reason to refuse a plan:
+	// the work order simply carries no tracker reference, which is the ordinary
+	// shape for a repository with no ticket system at all.
+	const ticketRef = shipSettings === undefined ? undefined : readPlanWorkOrderRef({ name, ticketPattern: shipSettings.ticketPattern });
 	let addition: PlanAddition | undefined;
 	const updated = await updateSyncedWorkOrderState({
 		cwd,
@@ -177,17 +143,7 @@ export const addWorkOrderPlan = async ({
 		env,
 		onProgress,
 		change: (current) => {
-			const added = addPlanToRecord({
-				current,
-				name,
-				slug,
-				title,
-				from,
-				progress: source?.progress ?? PlanProgress.Planning,
-				config,
-				looseEntries,
-				at: new Date().toISOString(),
-			});
+			const added = addPlanToRecord({ current, name, slug, title, ticketRef, config, at: new Date().toISOString() });
 
 			if ('error' in added) {
 				return added;
@@ -208,19 +164,15 @@ export const addWorkOrderPlan = async ({
 	}
 
 	const address = formatPlanAddress({ workOrderName: name, planId: addition.planId });
-	const sentences = [
-		...(addition.withdrew
-			? [
-					`the pending ship request was withdrawn because plan ${addition.planId} was added — ask again with \`lightsout work-order request-ship --name ${name}\` once the ticket's work is settled`,
-				]
-			: []),
-		...(await fillPlanFolder({ cwd, address, planId: addition.planId, source, retire: from !== name })),
-	];
+
+	await mkdir(await planWorkspaceDir({ cwd, name: address }), { recursive: true });
 
 	return {
 		address,
 		record: updated.record,
-		notice: sentences.length === 0 ? undefined : sentences.join(' '),
+		notice: addition.withdrew
+			? `the pending ship request was withdrawn because plan ${addition.planId} was added — ask again with \`lightsout work-order request-ship --name ${name}\` once the ticket's work is settled`
+			: undefined,
 		publishError: updated.publishError,
 	};
 };

@@ -43,8 +43,9 @@ jest.mock('#src/workOrder/index.ts', () => ({
 	pullWorkOrderState: (params: PullTicketRecordParams) => mockPullTicketRecord(params),
 }));
 // -------------------------
-// Whether the worktree holds uncommitted work is git's answer, and no case here
-// is about leftover work: a clean tree keeps every case on the ordered build.
+// Whether the worktree holds uncommitted work is git's answer: a clean tree
+// keeps a case on the ordered build, and the one leftover case arms it with the
+// source path it parks over.
 const mockReadGitChangedFiles = jest.fn<(params: { cwd: string }) => Promise<string[] | undefined>>();
 
 jest.mock('#src/common/git/readGitChangedFiles.ts', () => ({
@@ -52,7 +53,7 @@ jest.mock('#src/common/git/readGitChangedFiles.ts', () => ({
 }));
 // -------------------------
 
-/** The ticket folder's name, which is also the branch every plan below implements on. */
+/** The work order's label: the folder its plans live under, and the name every remedy below takes. */
 const branch = 'lo-7-search';
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
@@ -84,32 +85,40 @@ const firstImplemented: WorkOrderPlan = {
 };
 
 /**
- * A plan worker on a ticket whose record the pull answers with, built in a
- * worktree with nothing uncommitted in it.
+ * Plan 002, the plan every case below is about.
  *
  * `runId` is what separates the two stalled cases: a plan whose run was recorded
  * can be finished with `lightsout resume`, and one whose run was not has only
  * the other repair path.
  */
-const setupOrderedBuild = ({ progress, runId }: { progress: PlanProgress; runId?: string }) => {
-	const second: WorkOrderPlan = {
-		id: '002-search-basics',
-		title: 'Search basics',
-		progress,
-		createdAt: '2026-01-01T00:00:00.000Z',
-		...(runId === undefined ? {} : { implementation: { runId, startedAt: '2026-01-02T00:00:00.000Z', startCommit: 'd4e5f6' } }),
-	};
+const secondPlan = ({ progress, runId }: { progress: PlanProgress; runId?: string }): WorkOrderPlan => ({
+	id: '002-search-basics',
+	title: 'Search basics',
+	progress,
+	createdAt: '2026-01-01T00:00:00.000Z',
+	...(runId === undefined ? {} : { implementation: { runId, startedAt: '2026-01-02T00:00:00.000Z', startCommit: 'd4e5f6' } }),
+});
+
+/**
+ * A plan worker on a ticket whose record the pull answers with.
+ *
+ * `workOrderBranch` is the git branch alone: a row that hands it a prefixed
+ * branch keeps the label `lo-7-search`, so a sentence composed from the wrong
+ * field reads differently and the row catches it.
+ */
+const setupWorker = ({ plans, workOrderBranch = branch, leftover = [] }: { plans: WorkOrderPlan[]; workOrderBranch?: string; leftover?: string[] }) => {
 	const record: WorkOrderState = {
 		schemaVersion: 1,
+		name: branch,
 		ticketRef: 'LO-7',
-		branch,
+		branch: workOrderBranch,
 		mode: WorkOrderMode.MultiplePlan,
-		plans: [firstImplemented, second],
+		plans,
 		history: [{ at: '2026-01-01T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: 'added the first plan' }],
 	};
 
 	mockPullTicketRecord.mockResolvedValue({ record });
-	mockReadGitChangedFiles.mockResolvedValue([]);
+	mockReadGitChangedFiles.mockResolvedValue(leftover);
 
 	const ask = jest.fn<(params: { question: string; ticket: TicketSummary; coordinatorRunId: string; coordinatorRunDir: string }) => Promise<string>>();
 	const relay: QuestionRelay = { ask, createProgressSink: () => () => undefined, close: () => undefined };
@@ -137,7 +146,7 @@ const setupOrderedBuild = ({ progress, runId }: { progress: PlanProgress; runId?
 
 describe('runWorkerWithRelay', () => {
 	test('runWorkerWithRelay: a plan whose implementation has not finished parks the ticket naming both repair paths', async () => {
-		const { ask, params } = setupOrderedBuild({ progress: PlanProgress.Implementing, runId: 'run-4' });
+		const { ask, params } = setupWorker({ plans: [firstImplemented, secondPlan({ progress: PlanProgress.Implementing, runId: 'run-4' })] });
 
 		const outcome = await runWorkerWithRelay(params);
 
@@ -151,7 +160,7 @@ describe('runWorkerWithRelay', () => {
 	});
 
 	test('runWorkerWithRelay: a failed plan with no run recorded parks naming only the exclude-plan repair', async () => {
-		const { params } = setupOrderedBuild({ progress: PlanProgress.Failed });
+		const { params } = setupWorker({ plans: [firstImplemented, secondPlan({ progress: PlanProgress.Failed })] });
 
 		const outcome = await runWorkerWithRelay(params);
 
@@ -161,11 +170,41 @@ describe('runWorkerWithRelay', () => {
 	});
 
 	test('runWorkerWithRelay: a plan still being planned is not stalled, so the ticket is left open rather than parked', async () => {
-		const { params } = setupOrderedBuild({ progress: PlanProgress.Planning });
+		const { params } = setupWorker({ plans: [firstImplemented, secondPlan({ progress: PlanProgress.Planning })] });
 
 		const outcome = await runWorkerWithRelay(params);
 
 		expect(outcome.error).toBeUndefined();
 		expect(outcome.open).toEqual(expect.stringContaining('002-search-basics'));
+	});
+
+	test('runWorkerWithRelay: a stalled plan is named by the work order label, not by its prefixed branch', async () => {
+		const { params } = setupWorker({
+			plans: [firstImplemented, secondPlan({ progress: PlanProgress.Failed })],
+			workOrderBranch: 'feature/lo-7-search',
+		});
+
+		const outcome = await runWorkerWithRelay(params);
+
+		// both halves of the sentence are the label: the work order a human is told
+		// about, and the `--name` value of the command they are handed to repair it
+		expect(outcome.error).toEqual(expect.stringContaining('on work order lo-7-search has not finished'));
+		expect(outcome.error).toEqual(expect.stringContaining('lightsout work-order exclude-plan --name lo-7-search --plan 002-search-basics'));
+		expect(outcome.error).not.toEqual(expect.stringContaining('feature/'));
+	});
+
+	test('runWorkerWithRelay: leftover work no implemented plan owns parks the ticket naming the work order label', async () => {
+		const { params } = setupWorker({
+			plans: [secondPlan({ progress: PlanProgress.Ready })],
+			workOrderBranch: 'feature/lo-7-search',
+			leftover: ['packages/engine/src/search/readIndex.ts'],
+		});
+
+		const outcome = await runWorkerWithRelay(params);
+
+		// no plan of this work order has finished implementing, so the changes
+		// already in the tree belong to nobody and nothing may be committed
+		expect(outcome.error).toEqual(expect.stringContaining('no implemented plan of work order lo-7-search accounts for'));
+		expect(outcome.error).not.toEqual(expect.stringContaining('feature/'));
 	});
 });

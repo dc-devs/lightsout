@@ -41,6 +41,7 @@ const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-cov
 /** The record the action answers with once it has carried the switch out. */
 const switchedRecord: WorkOrderState = {
 	schemaVersion: 1,
+	name: 'lo-140-x',
 	ticketRef: 'LO-140',
 	branch: 'lo-140-x',
 	mode: 'single-plan',

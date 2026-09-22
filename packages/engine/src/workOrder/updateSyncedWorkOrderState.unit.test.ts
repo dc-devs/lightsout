@@ -56,6 +56,7 @@ const env = { LINEAR_API_KEY: 'lin_key' };
 /** A record the contract accepts, carrying one history event per detail given. */
 const recordOf = ({ details = [] }: { details?: string[] } = {}): WorkOrderState => ({
 	schemaVersion: 1,
+	name,
 	ticketRef: 'LO-140',
 	branch: name,
 	mode: WorkOrderMode.SinglePlan,

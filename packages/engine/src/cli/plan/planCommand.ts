@@ -5,6 +5,7 @@ import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import { usage } from '#src/cli/common/constants/usage.ts';
 import { printPlanTicketWarning } from '#src/cli/common/render/printPlanTicketWarning.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
+import { describeMissingPlanAddress } from '#src/cli/common/utils/describeMissingPlanAddress.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { resolveConfigAndDriver } from '#src/cli/common/utils/resolveConfigAndDriver.ts';
 import { openPlanWorktree } from '#src/cli/plan/common/utils/openPlanWorktree.ts';
@@ -18,7 +19,7 @@ import { planVerifyFactsCommand } from '#src/cli/plan/planVerifyFactsCommand.ts'
 import { planWorkspaceCommand } from '#src/cli/plan/planWorkspaceCommand.ts';
 import { readPlanningStandards } from '#src/cli/plan/readPlanningStandards.ts';
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
-import { findBareWorkOrderFolderRefusal } from '#src/workOrder/index.ts';
+import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 
 /**
  * The checkout a subcommand acts on — the plan's worktree for every subcommand
@@ -33,9 +34,10 @@ import { findBareWorkOrderFolderRefusal } from '#src/workOrder/index.ts';
  * unchanged. The config read is the launching checkout's, so an uncommitted
  * `plan.worktree` edit is still obeyed.
  *
- * A bare name whose ticket folder already holds a ticket record is refused
- * before any tree is cut: that folder holds a ticket's plans rather than a plan,
- * so every subcommand under it would draft, grade or publish the wrong thing.
+ * A `--name` that is not a plan address is refused before any tree is cut:
+ * every plan of a work order is addressed as the work order's name and the
+ * plan's id joined by a slash, so a bare folder name names no plan at all and
+ * every subcommand under it would draft, grade or publish the wrong thing.
  */
 const openDispatchCheckout = async ({ cwd, flags, subcommand }: { cwd: string; flags: CommandContext['flags']; subcommand: string | undefined }) => {
 	const name = getStringFlag({ flags, name: 'name' });
@@ -44,10 +46,8 @@ const openDispatchCheckout = async ({ cwd, flags, subcommand }: { cwd: string; f
 		return { cwd, worktree: undefined };
 	}
 
-	const bare = await findBareWorkOrderFolderRefusal({ cwd, name });
-
-	if (bare !== undefined) {
-		console.error(bare);
+	if (parsePlanAddress({ name }) === undefined) {
+		console.error(describeMissingPlanAddress({ name, missing: 'plan to act on' }));
 		return exitCli({ code: 1 });
 	}
 

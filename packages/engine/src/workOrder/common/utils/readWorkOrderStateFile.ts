@@ -6,7 +6,7 @@ import { WorkOrderState } from '#src/contracts/index.ts';
 interface Params {
 	/** The `state.json` path in the primary checkout's work order folder. */
 	statePath: string;
-	/** The work order's label, which the record must name as its branch. */
+	/** The work order's label, which the record must name as its own. */
 	name: string;
 }
 
@@ -41,8 +41,8 @@ const readStateText = ({ text, statePath, name }: { text: string; statePath: str
 
 		if (!parsed.success) {
 			outcome = { error: `the work order state ${statePath} does not match the work order state contract: ${z.prettifyError(parsed.error)}` };
-		} else if (parsed.data.branch !== name) {
-			outcome = { error: `the work order state ${statePath} names branch '${parsed.data.branch}', not the '${name}' folder it sits in` };
+		} else if (parsed.data.name !== name) {
+			outcome = { error: `the work order state ${statePath} names work order '${parsed.data.name}', not the '${name}' folder it sits in` };
 		} else {
 			outcome = { record: parsed.data };
 		}
@@ -60,10 +60,10 @@ const readStateText = ({ text, statePath, name }: { text: string; statePath: str
  * same rules to the same file.
  *
  * A missing file answers `{ record: undefined }` and nothing else does: every
- * other reader takes undefined to mean the folder is a legacy plan folder, so a
- * corrupt state file, one the contract refuses, or one naming another branch
- * has to be an error naming the file rather than an invitation to treat a work
- * order's plans as a single legacy folder.
+ * other reader takes undefined to mean no work order has been started here, so
+ * a corrupt state file, one the contract refuses, or one naming another work
+ * order has to be an error naming the file rather than an invitation to treat a
+ * started work order as an unstarted one.
  */
 export const readWorkOrderStateFile = async ({ statePath, name }: Params): Promise<{ record: WorkOrderState | undefined } | { error: string }> => {
 	const read = await readText({ statePath });

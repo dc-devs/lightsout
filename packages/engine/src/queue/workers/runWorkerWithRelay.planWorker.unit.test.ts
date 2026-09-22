@@ -192,6 +192,7 @@ const setupBrainstormOnlyTicket = () => {
 /** The ticket record the queue pulls before it builds, handed on to the build loop whole. */
 const ticketRecord: WorkOrderState = {
 	schemaVersion: 1,
+	name: 'lo-70-drain',
 	ticketRef: 'LO-70',
 	branch: 'lo-70-drain',
 	mode: 'multiple-plan',

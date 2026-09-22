@@ -83,6 +83,7 @@ const planOf = ({ publishedMarker }: { publishedMarker?: string } = {}): WorkOrd
 
 const recordOf = ({ plans }: { plans: WorkOrderPlan[] }): WorkOrderState => ({
 	schemaVersion: 1,
+	name,
 	ticketRef,
 	branch: name,
 	mode: WorkOrderMode.MultiplePlan,

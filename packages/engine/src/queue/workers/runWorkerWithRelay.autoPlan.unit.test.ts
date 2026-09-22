@@ -109,6 +109,7 @@ const ticket: RunnableTicket = {
 
 const recordWith = ({ plans }: { plans: WorkOrderState['plans'] }): WorkOrderState => ({
 	schemaVersion: 1,
+	name: branch,
 	ticketRef: 'LO-70',
 	branch,
 	mode: 'multiple-plan',

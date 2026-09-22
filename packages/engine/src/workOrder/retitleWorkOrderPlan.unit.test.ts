@@ -32,6 +32,7 @@ const shipRequest = { planIds: ['001-alpha-search', '002-beta-fix'], requestedAt
 
 const seededRecord: WorkOrderState = {
 	schemaVersion: 1,
+	name,
 	ticketRef: 'LO-140',
 	branch: name,
 	mode: WorkOrderMode.MultiplePlan,
@@ -43,11 +44,22 @@ const seededRecord: WorkOrderState = {
 /** The same ticket holding no plan at all, and so carrying no ship request either. */
 const emptyRecord: WorkOrderState = {
 	schemaVersion: 1,
+	name,
 	ticketRef: 'LO-140',
 	branch: name,
 	mode: WorkOrderMode.MultiplePlan,
 	plans: [],
 	history: [],
+};
+
+/**
+ * The same work order, labelled `lo-140-multi` while its plans implement on the
+ * prefixed branch `feature/lo-140-multi`. A refusal composed from either field
+ * reads differently, so a row on this record says which of the two it names.
+ */
+const prefixedBranchRecord: WorkOrderState = {
+	...emptyRecord,
+	branch: `feature/${name}`,
 };
 
 /**
@@ -122,5 +134,16 @@ describe('retitleWorkOrderPlan', () => {
 
 		expect(result).toEqual({ error: expect.stringContaining(expected) });
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
+	});
+
+	test('names the work order by its label when the branch carries a prefix', async () => {
+		const { params } = await setupTicketPlans({ record: prefixedBranchRecord });
+
+		const result = await retitleWorkOrderPlan({ ...params, plan: '1', title: 'Search, rewritten' });
+
+		// the sentence tells a human which work order was asked about, and that is
+		// the folder's label — the branch its plans implement on is not an address
+		expect(result).toEqual({ error: expect.stringContaining(`work order ${name} holds no plan`) });
+		expect(result).toEqual({ error: expect.not.stringContaining('feature/') });
 	});
 });

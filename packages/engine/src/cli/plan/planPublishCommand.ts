@@ -4,12 +4,11 @@ import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { PlanningStep, RunStatus } from '#src/contracts/index.ts';
-import { publishPlan, recordPlanCommandRun, recordPlanningStep } from '#src/plan/index.ts';
+import { recordPlanCommandRun, recordPlanningStep } from '#src/plan/index.ts';
 import { publishWorkOrderPlan } from '#src/workOrder/index.ts';
 
-/** What the two publishers have in common, so one printing sequence serves both. */
+/** What the publisher answers, and what the printing sequence below reads off it. */
 interface PlanPublishOutcome {
 	ticketRef?: string;
 	published: string[];
@@ -28,10 +27,10 @@ interface PlanPublishOutcome {
  * a repo with no config has nothing to resolve and is refused by name, the way
  * `queueCommand` treats the same requirement.
  *
- * A plan named by its address publishes through the work order state, which also
- * puts its brainstorm generation and `state.json` on the ticket; a legacy
- * folder publishes exactly as it always has, under bare titles and with no
- * record touched.
+ * Every plan publishes through the work order state, which also puts its
+ * brainstorm generation and `state.json` on the ticket: the dispatcher refuses
+ * a `--name` that is not a plan address, so this command is only ever handed
+ * one.
  *
  * A stale attachment does not change the exit code. The manifest committed
  * last selects the new generation, so an unlisted attachment publish
@@ -43,7 +42,6 @@ interface PlanPublishOutcome {
 export const planPublishCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const name = await getRequiredFlag({ flags, name: 'name' });
 	const config = await readConfig({ cwd });
-	const address = parsePlanAddress({ name });
 	// One reading for both records, so a publish that failed cannot read as
 	// passed in one of them.
 	const statusOf = ({ result }: { result: PlanPublishOutcome }) =>
@@ -61,10 +59,7 @@ export const planPublishCommand = async ({ flags, cwd }: CommandContext): Promis
 				cwd,
 				name,
 				step: PlanningStep.Publish,
-				work: (): Promise<PlanPublishOutcome> =>
-					address === undefined
-						? publishPlan({ cwd, name, config, env: process.env, onProgress: createProgressPrinter() })
-						: publishWorkOrderPlan({ cwd, address: name, config, env: process.env, onProgress: createProgressPrinter() }),
+				work: (): Promise<PlanPublishOutcome> => publishWorkOrderPlan({ cwd, address: name, config, env: process.env, onProgress: createProgressPrinter() }),
 				statusOf,
 			}),
 	});

@@ -3,6 +3,7 @@ import { getRequiredFlag } from '#src/cli/common/args/getRequiredFlag.ts';
 import { bold } from '#src/cli/common/terminal/bold.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
+import { describeMissingPlanAddress } from '#src/cli/common/utils/describeMissingPlanAddress.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
@@ -15,13 +16,22 @@ import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
  * `ticket-tracker` block, so a repo with no config has nothing to resolve and is
  * refused by name — the shape `planPublishCommand` already sets.
  *
- * A plan addressed inside a ticket folder publishes under its own plan id, so
- * one plan's brainstorm can never replace another's; a legacy folder keeps bare
- * titles. The ticket record is not synced here — `plan publish` is what says a
- * plan's generation changed.
+ * A plan publishes under its own plan id, so one plan's brainstorm can never
+ * replace another's — which is why a `--name` that is not a plan address is
+ * refused before the config is read rather than published under bare titles.
+ * The ticket record is not synced here — `plan publish` is what says a plan's
+ * generation changed.
  */
 export const brainstormPublishCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const name = await getRequiredFlag({ flags, name: 'name' });
+	const address = parsePlanAddress({ name });
+
+	if (address === undefined) {
+		console.error(describeMissingPlanAddress({ name, missing: 'plan whose brainstorm could be published' }));
+
+		return exitCli({ code: 1 });
+	}
+
 	const config = await readConfig({ cwd });
 	const report = await publishBrainstorm({
 		cwd,
@@ -29,7 +39,7 @@ export const brainstormPublishCommand = async ({ flags, cwd }: CommandContext): 
 		config,
 		env: process.env,
 		onProgress: createProgressPrinter(),
-		titlePrefix: parsePlanAddress({ name })?.planId,
+		titlePrefix: address.planId,
 	});
 
 	if (report.error !== undefined) {

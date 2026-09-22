@@ -105,6 +105,7 @@ const ticket: TicketSummary = {
 /** The record the choice answers with: plan 001 implemented, and plan 002 the one still being planned. */
 const chosenRecord: WorkOrderState = {
 	schemaVersion: 1,
+	name: branch,
 	ticketRef: 'LO-70',
 	branch,
 	mode: 'multiple-plan',

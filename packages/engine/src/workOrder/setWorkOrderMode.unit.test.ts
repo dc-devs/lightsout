@@ -59,6 +59,7 @@ const setupTicketMode = async ({
 	const recordPath = join(cwd, '.lightsout', 'work-orders', name, 'state.json');
 	const record: WorkOrderState = {
 		schemaVersion: 1,
+		name,
 		ticketRef: 'LO-140',
 		branch: name,
 		mode,
@@ -318,12 +319,11 @@ describe('setWorkOrderMode', () => {
 		const toSingle = await setWorkOrderMode({ ...params, mode: WorkOrderMode.SinglePlan, approve: false });
 		const toMultiple = await setWorkOrderMode({ ...params, mode: WorkOrderMode.MultiplePlan, approve: false });
 
-		// A folder with no record is either a ticket nobody has started or one
-		// whose plans folder already holds loose files, and one command starts a
-		// plan either way — the second form naming the folder those files are in.
+		// A work order with no record is one nobody has started, and one command
+		// starts its first plan and its record together.
 		expect(errorOf({ outcome: toSingle })).toContain(`there is no work order called '${name}'`);
 		expect(errorOf({ outcome: toSingle })).toContain(`lightsout work-order add-plan --name ${name} --slug <slug>`);
-		expect(errorOf({ outcome: toSingle })).toContain(`--from ${name}`);
+		expect(errorOf({ outcome: toSingle })).not.toContain('--from');
 		// The refusal must never name a word the dispatcher now rejects.
 		expect(errorOf({ outcome: toSingle })).not.toMatch(/adopt/i);
 		// Two spellings of one refusal would soon name different commands, so both

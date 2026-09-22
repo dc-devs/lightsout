@@ -35,6 +35,7 @@ const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-cov
 /** A work order far enough along to show every line the command has: one plan implemented, one ready to implement, one excluded, and a pending ship request. */
 const record: WorkOrderState = {
 	schemaVersion: 1,
+	name: 'lo-140-x',
 	ticketRef: 'LO-140',
 	branch: 'lo-140-x',
 	mode: 'multiple-plan',
@@ -69,6 +70,20 @@ const everyProgressRecord: WorkOrderState = {
 	],
 	shipRequest: undefined,
 	shipped: { at: '2026-09-12T15:00:00.000Z', planIds: ['004-warm-index'], mergeCommit: '9f1c2d3' },
+};
+
+/**
+ * A work order named from words alone: it carries the label every reader starts
+ * from and, separately, the branch its plans implement on, and no tracker
+ * reference at all — the normal shape in a repository with no ticket system.
+ */
+const trackerFreeRecord: WorkOrderState = {
+	schemaVersion: 1,
+	name: 'add-search-filters',
+	branch: 'feature/add-search-filters',
+	mode: 'single-plan',
+	plans: [{ id: '001-add-search-filters', title: 'Add search filters', progress: 'ready', createdAt: '2026-09-12T10:00:00.000Z' }],
+	history: [{ at: '2026-09-12T10:00:00.000Z', kind: 'plan-added', detail: 'plan 001-add-search-filters added' }],
 };
 
 const setupShow = ({ args = ['--name', 'lo-140-x'], outcome = { record } }: { args?: string[]; outcome?: PullTicketRecordResult } = {}) => {
@@ -171,18 +186,39 @@ describe('workOrderShowCommand', () => {
 		const refusal = errors.join('\n');
 
 		expect(logged).toStrictEqual([]);
-		// a folder with no record is either work nobody has started or one whose
-		// plans folder already holds loose files, and one command starts a plan
-		// either way — the second form naming the folder those files are in
+		// a work order with no record is one nobody has started, and one command
+		// starts a plan and the record together
 		expect(refusal).toContain('work-order add-plan');
 		expect(refusal).toContain('lo-140-x');
 		expect(refusal).toContain('<slug>');
-		expect(refusal).toContain('--from');
+		expect(refusal).not.toContain('--from');
 		// and it names no second command: every command the sentence spells is
 		// this one, so nothing sends a reader at the old command word
 		expect(refusal.match(/lightsout [a-z-]+/g)).toStrictEqual(['lightsout work-order']);
 		// the refusal must never name a word the dispatcher now rejects
 		expect(refusal).not.toMatch(/adopt/i);
 		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('shows a work order that has no ticket reference', async () => {
+		const { context, logged, errors, exitCodes } = setupShow({ args: ['--name', 'add-search-filters'], outcome: { record: trackerFreeRecord } });
+
+		await expect(workOrderShowCommand(context)).rejects.toThrow(/process\.exit/);
+
+		const heading = logged[0] ?? '';
+
+		// the label is what a human types back at every other subcommand, and a
+		// prefixed branch is the one thing they cannot read off that label, so the
+		// heading states the label first and the branch after it
+		expect(heading).toMatch(/add-search-filters[\s\S]*feature\/add-search-filters/);
+		expect(heading).toContain('single-plan');
+		// a work order nobody filed a ticket for is described by what it is, not by
+		// a missing field printed as a word
+		expect(heading).not.toContain('undefined');
+		expect(heading).not.toMatch(/ticket/i);
+		// the rest of the record still reads exactly as it does with a tracker
+		expect(planLineOf({ logged, id: '001-add-search-filters' })).toContain('Add search filters');
+		expect(errors).toStrictEqual([]);
+		expect(exitCodes).toStrictEqual([0]);
 	});
 });

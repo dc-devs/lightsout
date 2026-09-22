@@ -31,6 +31,7 @@ const thirdEvent = { at: '2026-01-03T00:00:00.000Z', kind: WorkOrderEventKind.Pl
 /** A record the contract accepts, varied only where a row needs it to differ. */
 const recordOf = ({ branch = name, history = [] }: { branch?: string; history?: WorkOrderState['history'] } = {}): WorkOrderState => ({
 	schemaVersion: 1,
+	name: branch,
 	ticketRef: 'LO-140',
 	branch,
 	mode: WorkOrderMode.SinglePlan,
@@ -70,8 +71,8 @@ const setupTicketRecord = ({ contents }: { contents?: string } = {}) => {
 const setupDifferingKeyOrders = () => {
 	const first = mkdtempSync(join(tmpdir(), 'lightsout-ticket-record-'));
 	const second = mkdtempSync(join(tmpdir(), 'lightsout-ticket-record-'));
-	const firstRecord: WorkOrderState = { schemaVersion: 1, ticketRef: 'LO-140', branch: name, mode: WorkOrderMode.SinglePlan, plans: [], history: [] };
-	const secondRecord: WorkOrderState = { history: [], plans: [], mode: WorkOrderMode.SinglePlan, branch: name, ticketRef: 'LO-140', schemaVersion: 1 };
+	const firstRecord: WorkOrderState = { schemaVersion: 1, name, ticketRef: 'LO-140', branch: name, mode: WorkOrderMode.SinglePlan, plans: [], history: [] };
+	const secondRecord: WorkOrderState = { history: [], plans: [], mode: WorkOrderMode.SinglePlan, branch: name, name, ticketRef: 'LO-140', schemaVersion: 1 };
 
 	return {
 		first,
@@ -89,6 +90,7 @@ const expectedBytes = [
 	'\t"branch": "lo-140-multi",',
 	'\t"history": [],',
 	'\t"mode": "single-plan",',
+	'\t"name": "lo-140-multi",',
 	'\t"plans": [],',
 	'\t"schemaVersion": 1,',
 	'\t"ticketRef": "LO-140"',
@@ -117,6 +119,21 @@ const setupTicketFolderLayout = () => {
 
 	return { cwd, workOrderFolder, plansFolder, planFile, syncBytes, recordPath: join(workOrderFolder, 'state.json') };
 };
+
+/**
+ * A record whose label and branch are deliberately different strings: the
+ * branch carries a prefix the label does not, so a guard reading either field
+ * gives a different answer and the row below can only pass on one of them.
+ */
+const labelledRecordOf = ({ label = name, history = [] }: { label?: string; history?: WorkOrderState['history'] } = {}): WorkOrderState => ({
+	schemaVersion: 1,
+	name: label,
+	branch: `feature/${name}`,
+	ticketRef: 'LO-140',
+	mode: WorkOrderMode.SinglePlan,
+	plans: [],
+	history,
+});
 
 describe('updateLocalWorkOrderState', () => {
 	test('creates the work order folder and record when none exists and passes undefined to the change', async () => {
@@ -162,6 +179,29 @@ describe('updateLocalWorkOrderState', () => {
 		expect(contractResult).toEqual({ error: expect.stringContaining('does not match the work-order state contract') });
 		expect(contractResult).toEqual({ error: expect.not.stringContaining('the work order state contract') });
 		expect(branchResult).toEqual({ error: expect.stringContaining('lo-141-other') });
+		expect(readFileSync(recordPath, 'utf8')).toBe(seeded);
+	});
+
+	test('refuses a change that renames the work order', async () => {
+		const { cwd, recordPath, seeded, changeTo } = setupTicketRecord({ contents: `${JSON.stringify(labelledRecordOf(), undefined, '\t')}\n` });
+
+		const result = await updateLocalWorkOrderState({ cwd, name, change: changeTo(labelledRecordOf({ label: 'lo-141-other' })) });
+
+		expect(result).toEqual({ error: expect.stringContaining('lo-141-other') });
+		expect(readFileSync(recordPath, 'utf8')).toBe(seeded);
+	});
+
+	test('names the work order by its label when it refuses a change that drops a recorded event', async () => {
+		const { cwd, recordPath, seeded, changeTo } = setupTicketRecord({
+			contents: `${JSON.stringify(labelledRecordOf({ history: [firstEvent, secondEvent] }), undefined, '\t')}\n`,
+		});
+
+		const result = await updateLocalWorkOrderState({ cwd, name, change: changeTo(labelledRecordOf({ history: [secondEvent] })) });
+
+		// The sentence tells a human which work order the refused change was for,
+		// which is the label rather than the branch the record also names.
+		expect(result).toEqual({ error: expect.stringContaining(name) });
+		expect(result).toEqual({ error: expect.not.stringContaining('feature/') });
 		expect(readFileSync(recordPath, 'utf8')).toBe(seeded);
 	});
 

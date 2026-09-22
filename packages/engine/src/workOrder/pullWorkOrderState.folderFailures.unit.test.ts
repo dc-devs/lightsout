@@ -36,6 +36,7 @@ const env = { LINEAR_API_KEY: 'lin_key' };
 /** The record the ticket carries, which every row here can read without trouble. */
 const publishedRecord: WorkOrderState = {
 	schemaVersion: 1,
+	name,
 	ticketRef: 'LO-140',
 	branch: name,
 	mode: WorkOrderMode.SinglePlan,

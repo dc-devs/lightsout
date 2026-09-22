@@ -57,6 +57,7 @@ const brainstormTitles = [`${planId}--brainstorm-notes.md`, `${planId}--brainsto
 /** A record the contract accepts, holding this ticket's one plan. */
 const ticketRecordOf = (): WorkOrderState => ({
 	schemaVersion: 1,
+	name,
 	ticketRef: 'LO-140',
 	branch: name,
 	mode: WorkOrderMode.MultiplePlan,
