@@ -3,8 +3,8 @@ import { takeGateHold } from '#src/gates/index.ts';
 import { writeBranchState } from '#src/queue/branchState/index.ts';
 import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import { runShip, type ShipIntegration, type ShipSettings } from '#src/ship/index.ts';
-import { createTicketShipGuard } from '#src/ticket/index.ts';
 import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
+import { createWorkOrderShipGuard } from '#src/workOrder/index.ts';
 import { deleteWorktreeRecord, removeWorktree } from '#src/worktree/index.ts';
 
 interface Params {
@@ -131,7 +131,7 @@ export const shipOneBranch = async ({
 		cwd: outcome.worktreePath,
 		settings: shipSettings,
 		integration,
-		ticketGuard: createTicketShipGuard({ config, env, onProgress }),
+		ticketGuard: createWorkOrderShipGuard({ config, env, onProgress }),
 		onProgress,
 	});
 

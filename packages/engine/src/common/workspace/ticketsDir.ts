@@ -10,7 +10,7 @@ interface Params {
  * The folder every ticket folder lives in — one gitignored directory under the
  * primary checkout's root, holding one folder per ticket branch.
  *
- * `ticketFolderDir` answers for one ticket inside it; this answers for the
+ * `workOrderFolderDir` answers for one ticket inside it; this answers for the
  * folder itself, which is what listing every plan a repo has needs. The primary
  * checkout is resolved here rather than passed in because forty call sites can
  * each pass the wrong checkout, where one helper can be passed no checkout at

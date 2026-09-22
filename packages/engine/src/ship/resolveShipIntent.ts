@@ -11,7 +11,7 @@ interface Params {
 	noShipFlag: boolean;
 	/** The process environment, read for the queue's own suppression variable. Passed rather than read, so a test never needs to mutate `process.env`. */
 	env: NodeJS.ProcessEnv;
-	/** The ticket's own terms for this run, from `readTicketRunTerms`. Present only when the branch's ticket record decides the shipping rather than the flags. */
+	/** The ticket's own terms for this run, from `readWorkOrderRunTerms`. Present only when the branch's ticket record decides the shipping rather than the flags. */
 	shipRequest?: ShipRequestTerms;
 }
 

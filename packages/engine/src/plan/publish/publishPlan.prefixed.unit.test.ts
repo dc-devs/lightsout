@@ -175,12 +175,12 @@ describe('publishPlan under a plan id prefix', () => {
 		expect(report.error).toBeUndefined();
 	});
 
-	test('publishPlan: without a title prefix, keeps bare titles and brainstorm-notes.md and ignores prefixed titles and ticket.json on the ticket', async () => {
+	test('publishPlan: without a title prefix, keeps bare titles and brainstorm-notes.md and ignores prefixed titles and state.json on the ticket', async () => {
 		const { params } = setupPlan({
 			files: { 'plan.md': '# plan', 'brainstorm-notes.md': '# notes' },
 			attachments: [
 				{ id: 'att-1', title: '001-x--plan.md', url: 'https://assets.example/one-plan.md' },
-				{ id: 'att-2', title: 'ticket.json', url: 'https://assets.example/ticket.json' },
+				{ id: 'att-2', title: 'state.json', url: 'https://assets.example/state.json' },
 			],
 		});
 

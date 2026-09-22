@@ -5,7 +5,7 @@ import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { finishWorkOrderChange } from '#src/cli/workOrder/common/utils/finishWorkOrderChange.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { WorkOrderMode } from '#src/contracts/index.ts';
-import { setTicketMode } from '#src/ticket/index.ts';
+import { setWorkOrderMode } from '#src/workOrder/index.ts';
 
 /**
  * `lightsout work-order mode` at the terminal.
@@ -15,7 +15,7 @@ import { setTicketMode } from '#src/ticket/index.ts';
  * `--approve` has to reach the action as false rather than as nothing.
  */
 export const workOrderModeCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
-	const ticketBranch = await getRequiredFlag({ flags, name: 'name' });
+	const name = await getRequiredFlag({ flags, name: 'name' });
 	const asked = await getRequiredFlag({ flags, name: 'set' });
 	const mode = Object.values(WorkOrderMode).find((candidate) => candidate === asked);
 
@@ -26,9 +26,9 @@ export const workOrderModeCommand = async ({ flags, cwd }: CommandContext): Prom
 	}
 
 	const config = await readConfig({ cwd });
-	const outcome = await setTicketMode({
+	const outcome = await setWorkOrderMode({
 		cwd,
-		ticketBranch,
+		name,
 		mode,
 		approve: flags.get('approve') === true,
 		config,
@@ -37,13 +37,13 @@ export const workOrderModeCommand = async ({ flags, cwd }: CommandContext): Prom
 	});
 
 	await finishWorkOrderChange({
-		ticketBranch,
+		name,
 		outcome,
 		describe: ({ record }) => {
 			const excluded = record.plans.filter((plan) => plan.exclusion !== undefined).map((plan) => plan.id);
 
 			return [
-				`ticket ${ticketBranch} is now in ${record.mode} mode`,
+				`ticket ${name} is now in ${record.mode} mode`,
 				...(excluded.length === 0 ? [] : [`excluded from its implementation and its shipping: ${excluded.join(', ')} — their files stay on disk`]),
 			];
 		},

@@ -57,7 +57,7 @@ jest.mock('#src/queue/workers/buildTicketPlans.ts', () => ({
 // is pinned here rather than arranged.
 interface PullParams {
 	cwd: string;
-	ticketBranch: string;
+	name: string;
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
 	onProgress?: (message: string) => void;
@@ -67,7 +67,7 @@ type PullResult = { record: WorkOrderState | undefined } | { error: string };
 
 interface AddPlanParams {
 	cwd: string;
-	ticketBranch: string;
+	name: string;
 	slug: string;
 	title?: string;
 	config: LightsoutConfig;
@@ -80,10 +80,10 @@ type AddPlanResult = { address: string; record: WorkOrderState; notice?: string;
 const mockPullTicketRecord = jest.fn<(params: PullParams) => Promise<PullResult>>();
 const mockAddTicketPlan = jest.fn<(params: AddPlanParams) => Promise<AddPlanResult>>();
 
-jest.mock('#src/ticket/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticket/index.ts')>('#src/ticket/index.ts'),
-	pullTicketRecord: (params: PullParams) => mockPullTicketRecord(params),
-	addTicketPlan: (params: AddPlanParams) => mockAddTicketPlan(params),
+jest.mock('#src/workOrder/index.ts', () => ({
+	...jest.requireActual<typeof import('#src/workOrder/index.ts')>('#src/workOrder/index.ts'),
+	pullWorkOrderState: (params: PullParams) => mockPullTicketRecord(params),
+	addWorkOrderPlan: (params: AddPlanParams) => mockAddTicketPlan(params),
 }));
 // -------------------------
 
@@ -165,7 +165,7 @@ const reportOf = (overrides: Partial<WorkReport> = {}): WorkReport => ({
 const setupAutoPlanTicket = ({
 	chosenPull = { record: recordBeforePlanning },
 	plannedPull = { record: recordAfterPlanning },
-	added = { error: 'addTicketPlan was not expected to run' },
+	added = { error: 'addWorkOrderPlan was not expected to run' },
 	planFolder = `${branch}/003-drain-order`,
 }: {
 	chosenPull?: PullResult;
@@ -242,7 +242,7 @@ describe('runWorkerWithRelay', () => {
 		const outcome = await runWorkerWithRelay(params);
 
 		expect(outcome).toStrictEqual({});
-		expect(mockAddTicketPlan).toHaveBeenCalledWith(expect.objectContaining({ ticketBranch: branch, slug: 'drain-the-backlog', title: 'Drain the backlog' }));
+		expect(mockAddTicketPlan).toHaveBeenCalledWith(expect.objectContaining({ name: branch, slug: 'drain-the-backlog', title: 'Drain the backlog' }));
 		expect(progress).toEqual(expect.arrayContaining([expect.stringContaining('ship request was withdrawn'), expect.stringContaining('tracker refused it')]));
 		expect(mockInvokeAgentWithContract.mock.calls[0]?.[0].invocation.prompt).toContain(`${branch}/001-drain-the-backlog`);
 	});

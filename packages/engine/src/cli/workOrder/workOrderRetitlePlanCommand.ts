@@ -3,7 +3,7 @@ import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { finishWorkOrderChange } from '#src/cli/workOrder/common/utils/finishWorkOrderChange.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import { retitleTicketPlan } from '#src/ticket/index.ts';
+import { retitleWorkOrderPlan } from '#src/workOrder/index.ts';
 
 /**
  * `lightsout work-order retitle-plan` at the terminal.
@@ -13,11 +13,11 @@ import { retitleTicketPlan } from '#src/ticket/index.ts';
  * that never costs it an approval.
  */
 export const workOrderRetitlePlanCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
-	const ticketBranch = await getRequiredFlag({ flags, name: 'name' });
+	const name = await getRequiredFlag({ flags, name: 'name' });
 	const plan = await getRequiredFlag({ flags, name: 'plan' });
 	const title = await getRequiredFlag({ flags, name: 'title' });
 	const config = await readConfig({ cwd });
-	const outcome = await retitleTicketPlan({ cwd, ticketBranch, plan, title, config, env: process.env, onProgress: createProgressPrinter() });
+	const outcome = await retitleWorkOrderPlan({ cwd, name, plan, title, config, env: process.env, onProgress: createProgressPrinter() });
 
-	await finishWorkOrderChange({ ticketBranch, outcome, describe: () => [`the plan is now titled '${title}' on ticket ${ticketBranch}`] });
+	await finishWorkOrderChange({ name, outcome, describe: () => [`the plan is now titled '${title}' on ticket ${name}`] });
 };

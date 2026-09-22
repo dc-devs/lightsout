@@ -10,8 +10,8 @@ import { type LightsoutConfig, PipelineKind, ShipStatus } from '#src/contracts/i
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { planNameFromPath } from '#src/plan/index.ts';
 import { resolveShipIntent, runShip } from '#src/ship/index.ts';
-import { createTicketShipGuard, readTicketRunTerms } from '#src/ticket/index.ts';
 import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
+import { createWorkOrderShipGuard, readWorkOrderRunTerms } from '#src/workOrder/index.ts';
 
 interface Params {
 	config: LightsoutConfig;
@@ -44,7 +44,7 @@ interface Params {
  * verified, the merge is not done, and that is the honest report.
  *
  * A run of a plan inside a ticket folder ships on its ticket's terms instead:
- * `readTicketRunTerms` is asked with the same name the command asked before the
+ * `readWorkOrderRunTerms` is asked with the same name the command asked before the
  * run, so a multiple-plan ticket ships exactly when this run satisfies the
  * human's explicit ship request, and a run that therefore does not ship prints
  * the one sentence saying why.
@@ -57,7 +57,7 @@ interface Params {
  * without undoing anything comes last.
  */
 export const exitAfterImplement = async ({ config, cwd, result, shipFlag, noShipFlag, env }: Params): Promise<never> => {
-	const terms = await readTicketRunTerms({
+	const terms = await readWorkOrderRunTerms({
 		cwd,
 		name: await planNameFromPath({ cwd, planPath: result.manifest.plan }),
 		planPath: result.manifest.pipeline === PipelineKind.Direct ? undefined : result.manifest.plan,
@@ -106,7 +106,7 @@ export const exitAfterImplement = async ({ config, cwd, result, shipFlag, noShip
 		cwd: workCwd,
 		settings: intent.settings,
 		integration: { config: effectiveConfig, driver },
-		ticketGuard: createTicketShipGuard({ config, env, onProgress: createProgressPrinter() }),
+		ticketGuard: createWorkOrderShipGuard({ config, env, onProgress: createProgressPrinter() }),
 		onProgress: createProgressPrinter(),
 	});
 

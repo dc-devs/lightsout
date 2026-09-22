@@ -6,7 +6,7 @@ import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { implementDirectCommand } from '#src/cli/implementDirectCommand.ts';
 import { PipelineKind, PlanProgress, RunStatus, WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
-import { readTicketRecord, updateLocalTicketRecord } from '#src/ticket/index.ts';
+import { readWorkOrderState, updateLocalWorkOrderState } from '#src/workOrder/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -77,13 +77,13 @@ const setupBodyBuild = async ({
 	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm setup', { cwd, stdio: 'ignore' });
 
 	const seeded = recordOf({ mode, progress });
-	const written = await updateLocalTicketRecord({ cwd, ticketBranch, change: () => seeded });
+	const written = await updateLocalWorkOrderState({ cwd, name: ticketBranch, change: () => seeded });
 
 	if ('error' in written) {
 		throw new Error(written.error);
 	}
 
-	const recordPath = join(cwd, '.lightsout', 'tickets', ticketBranch, 'ticket.json');
+	const recordPath = join(cwd, '.lightsout', 'tickets', ticketBranch, 'state.json');
 
 	if (corrupt) {
 		writeFileSync(recordPath, '{ half a record');
@@ -107,12 +107,12 @@ describe('implementDirectCommand ticket plan lifecycle', () => {
 
 		await expect(implementDirectCommand(single.context)).rejects.toThrow(/process\.exit/);
 
-		const singleRecord = await readTicketRecord({ cwd: single.cwd, ticketBranch });
+		const singleRecord = await readWorkOrderState({ cwd: single.cwd, name: ticketBranch });
 		const multiple = await setupBodyBuild({ mode: WorkOrderMode.MultiplePlan });
 
 		await expect(implementDirectCommand(multiple.context)).rejects.toThrow(/process\.exit/);
 
-		const multipleRecord = await readTicketRecord({ cwd: multiple.cwd, ticketBranch });
+		const multipleRecord = await readWorkOrderState({ cwd: multiple.cwd, name: ticketBranch });
 
 		// single-plan mode means plan 001 supplies the implementation however it is
 		// built, so the body build is recorded under the run it actually created —
@@ -134,7 +134,7 @@ describe('implementDirectCommand ticket plan lifecycle', () => {
 		// the plan's implementation already finished, so this build is not it: the
 		// command runs as it always has, under an id nobody minted for it, and the
 		// finish already on the record is not overwritten by a second one
-		expect(await readTicketRecord({ cwd, ticketBranch })).toStrictEqual({ record: seeded });
+		expect(await readWorkOrderState({ cwd, name: ticketBranch })).toStrictEqual({ record: seeded });
 		expect(runIds).toStrictEqual([unmintedRunId]);
 	});
 
@@ -145,7 +145,7 @@ describe('implementDirectCommand ticket plan lifecycle', () => {
 
 		// a record nobody can read cannot say whether this build is plan 001's
 		// implementation, and building first would leave that unanswerable
-		expect(errors.join('\n')).toContain('ticket.json');
+		expect(errors.join('\n')).toContain('state.json');
 		expect(runIds).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([1]);
 	});

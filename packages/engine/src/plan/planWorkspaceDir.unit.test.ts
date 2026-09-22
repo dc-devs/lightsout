@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process';
 import { mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -25,6 +25,25 @@ const setupLooseDirectory = () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-plan-workspace-'));
 
 	return { cwd };
+};
+
+/** The five segments a plan address answers below the checkout it is rooted in. */
+const planFolderSegments = 5;
+
+/**
+ * A plan folder split into the checkout it sits under — resolved through every
+ * symlink above it — and the part below that checkout. A primary checkout keeps
+ * the caller's own spelling while a linked worktree is answered git's resolved
+ * one, so the two answers are only comparable once both roots are resolved.
+ */
+const splitPlanFolder = (planFolder: string) => {
+	const segments = planFolder.split(sep);
+	const cut = segments.length - planFolderSegments;
+
+	return {
+		checkout: realpathSync(segments.slice(0, cut).join(sep)),
+		below: segments.slice(cut).join(sep),
+	};
 };
 
 describe('planWorkspaceDir', () => {
@@ -53,6 +72,24 @@ describe('planWorkspaceDir', () => {
 		expect({ addressed, bare }).toStrictEqual({
 			addressed: join(cwd, '.lightsout', 'tickets', 'lo-155-ticket-scoped-state', 'plans', '001-ticket-folder'),
 			bare: join(cwd, '.lightsout', 'tickets', 'rate-limit-banner', 'plans'),
+		});
+	});
+
+	test("planWorkspaceDir: a plan address resolves through workOrderFolderDir to the work order's plans folder", async () => {
+		const { primary, worktree } = setupLinkedWorktree();
+		const address = 'lo-158-work-order-state/002-state-record';
+
+		const fromWorktree = await planWorkspaceDir({ cwd: worktree, name: address });
+		const fromPrimary = await planWorkspaceDir({ cwd: primary, name: address });
+
+		const expected = {
+			checkout: realpathSync(primary),
+			below: join('.lightsout', 'tickets', 'lo-158-work-order-state', 'plans', '002-state-record'),
+		};
+
+		expect({ fromWorktree: splitPlanFolder(fromWorktree), fromPrimary: splitPlanFolder(fromPrimary) }).toStrictEqual({
+			fromWorktree: expected,
+			fromPrimary: expected,
 		});
 	});
 });

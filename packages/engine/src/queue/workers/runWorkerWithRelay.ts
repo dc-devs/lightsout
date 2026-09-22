@@ -13,8 +13,8 @@ import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { buildTicketPlans } from '#src/queue/workers/buildTicketPlans.ts';
 import { runAutoPlanWorker } from '#src/queue/workers/runAutoPlanWorker.ts';
 import { runPlanFolderPipeline } from '#src/queue/workers/runPlanFolderPipeline.ts';
-import { pullTicketRecord } from '#src/ticket/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import { pullWorkOrderState } from '#src/workOrder/index.ts';
 
 interface Params {
 	/** The worktree this ticket is built in. */
@@ -116,7 +116,7 @@ const runPlanWorker = async ({
 	ticketRunDir: string;
 	onProgress?: (message: string) => void;
 }): Promise<WorkerOutcome> => {
-	const pulled = await pullTicketRecord({ cwd, ticketBranch: branch, config, env, onProgress });
+	const pulled = await pullWorkOrderState({ cwd, name: branch, config, env, onProgress });
 
 	if ('error' in pulled) {
 		return { error: pulled.error };

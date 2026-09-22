@@ -17,7 +17,7 @@ import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 // every sibling subcommand against a ticket module mocked down to one export.
 interface PullTicketRecordParams {
 	cwd: string;
-	ticketBranch: string;
+	name: string;
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
 	onProgress?: (message: string) => void;
@@ -27,7 +27,7 @@ type PullTicketRecordResult = { record: WorkOrderState | undefined } | { error: 
 
 const mockPullTicketRecord = jest.fn<(params: PullTicketRecordParams) => Promise<PullTicketRecordResult>>();
 
-jest.mock('#src/ticket/index.ts', () => ({ pullTicketRecord: (params: PullTicketRecordParams) => mockPullTicketRecord(params) }));
+jest.mock('#src/workOrder/index.ts', () => ({ pullWorkOrderState: (params: PullTicketRecordParams) => mockPullTicketRecord(params) }));
 // -------------------------
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
@@ -95,7 +95,7 @@ describe('workOrderShowCommand', () => {
 		// published on the tracker is pulled before anything is shown
 		expect(mockPullTicketRecord.mock.calls[0]?.[0]).toMatchObject({
 			cwd,
-			ticketBranch: 'lo-140-x',
+			name: 'lo-140-x',
 			config: { 'ticket-tracker': { provider: 'linear', team: 'LO', 'api-key-env': 'LINEAR_API_KEY' } },
 		});
 		expect(mockPullTicketRecord.mock.calls[0]?.[0]?.env).toBe(process.env);

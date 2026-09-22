@@ -6,8 +6,8 @@ import { type QueueBoardTicket, QueueLane } from '#src/contracts/index.ts';
 import { pathExists } from '#src/plan/index.ts';
 import { isPidAlive, readRunLock } from '#src/runState/index.ts';
 import { readShippingProgress } from '#src/ship/index.ts';
-import { findNextPlanToPlan, readTicketRecord } from '#src/ticket/index.ts';
 import { listRuns } from '#src/views/index.ts';
+import { findNextPlanToPlan, readWorkOrderState } from '#src/workOrder/index.ts';
 
 /**
  * The ship lane's ticket: its shipping block, unless its worktree is gone — the
@@ -66,7 +66,7 @@ const findBuildRun = async ({ ticket, worktreePath }: { ticket: QueueBoardTicket
  * exactly as it always was.
  */
 const loadPlanningBlock = async ({ worktreePath, planName }: { worktreePath: string; planName: string }) => {
-	const read = await readTicketRecord({ cwd: worktreePath, ticketBranch: planName });
+	const read = await readWorkOrderState({ cwd: worktreePath, name: planName });
 
 	if ('error' in read) {
 		return [read.error];

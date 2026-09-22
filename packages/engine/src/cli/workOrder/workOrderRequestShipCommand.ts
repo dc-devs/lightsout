@@ -5,7 +5,7 @@ import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrint
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { finishWorkOrderChange } from '#src/cli/workOrder/common/utils/finishWorkOrderChange.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import { requestTicketShip, withdrawTicketShipRequest } from '#src/ticket/index.ts';
+import { requestWorkOrderShip, withdrawWorkOrderShipRequest } from '#src/workOrder/index.ts';
 
 /**
  * `lightsout work-order request-ship` at the terminal.
@@ -16,7 +16,7 @@ import { requestTicketShip, withdrawTicketShipRequest } from '#src/ticket/index.
  * both accepted, and the operation resolves them against the ticket's plans.
  */
 export const workOrderRequestShipCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
-	const ticketBranch = await getRequiredFlag({ flags, name: 'name' });
+	const name = await getRequiredFlag({ flags, name: 'name' });
 	const plans = getListFlag({ flags, name: 'plans' });
 	const withdraw = flags.get('withdraw') === true;
 
@@ -29,16 +29,16 @@ export const workOrderRequestShipCommand = async ({ flags, cwd }: CommandContext
 	}
 
 	const config = await readConfig({ cwd });
-	const shared = { cwd, ticketBranch, config, env: process.env, onProgress: createProgressPrinter() };
-	const outcome = plans === undefined ? await withdrawTicketShipRequest(shared) : await requestTicketShip({ ...shared, plans });
+	const shared = { cwd, name, config, env: process.env, onProgress: createProgressPrinter() };
+	const outcome = plans === undefined ? await withdrawWorkOrderShipRequest(shared) : await requestWorkOrderShip({ ...shared, plans });
 
 	await finishWorkOrderChange({
-		ticketBranch,
+		name,
 		outcome,
 		describe: ({ record }) => [
 			record.shipRequest === undefined
-				? `ticket ${ticketBranch} carries no ship request, so it stays open`
-				: `ticket ${ticketBranch} is to ship once ${record.shipRequest.planIds.join(', ')} are implemented`,
+				? `ticket ${name} carries no ship request, so it stays open`
+				: `ticket ${name} is to ship once ${record.shipRequest.planIds.join(', ')} are implemented`,
 		],
 	});
 };

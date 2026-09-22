@@ -100,7 +100,7 @@ export const setupCommitRun = async ({
 	branch?: string;
 	/** Where the manifest says its plan is, repo-relative. */
 	plan?: string;
-	/** A ticket record beside the plan folders: one that parses, or a `ticket.json` that is not a record at all. */
+	/** A ticket record beside the plan folders: one that parses, or a `state.json` that is not a record at all. */
 	record?: 'valid' | 'corrupt';
 	generated?: string[];
 	/** Recorded owner of a worktree lightsout cut for this branch. Omitted for a checkout a person chose themselves. */
@@ -120,8 +120,8 @@ export const setupCommitRun = async ({
 	if (record !== undefined) {
 		writeRepoFile({
 			cwd,
-			path: `.lightsout/tickets/${branch}/ticket.json`,
-			content: record === 'valid' ? ticketRecordOf({ branch }) : '{ this is not a ticket record',
+			path: `.lightsout/tickets/${branch}/state.json`,
+			content: record === 'valid' ? ticketRecordOf({ branch }) : '{ this is not a work order state',
 		});
 	}
 

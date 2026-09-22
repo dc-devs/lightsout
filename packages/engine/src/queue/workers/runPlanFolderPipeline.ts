@@ -5,7 +5,7 @@ import { runPhasesPipeline } from '#src/phases/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { pathExists, planWorkspaceDir, recordPlanCommandRun } from '#src/plan/index.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
-import { runTicketPlanLifecycle } from '#src/ticket/index.ts';
+import { runWorkOrderPlanLifecycle } from '#src/workOrder/index.ts';
 
 interface Params {
 	/** The worktree holding the plan folder, and where the pipeline runs. */
@@ -43,7 +43,7 @@ export const runPlanFolderPipeline = async ({ cwd, name, config, driver, onProgr
 	const folder = await planWorkspaceDir({ cwd, name });
 	const overviewPath = join(folder, 'overview.md');
 	const phased = await pathExists({ path: overviewPath });
-	const outcome = await runTicketPlanLifecycle({
+	const outcome = await runWorkOrderPlanLifecycle({
 		cwd,
 		name,
 		run: ({ runId }) =>

@@ -17,7 +17,7 @@ import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 // load every sibling subcommand against a ticket module mocked to one export.
 interface SetTicketModeParams {
 	cwd: string;
-	ticketBranch: string;
+	name: string;
 	mode: WorkOrderMode;
 	approve: boolean;
 	config: LightsoutConfig;
@@ -25,15 +25,15 @@ interface SetTicketModeParams {
 	onProgress?: (message: string) => void;
 }
 
-interface TicketRecordChange {
+interface WorkOrderStateChange {
 	record: WorkOrderState;
 	notice?: string;
 	publishError?: string;
 }
 
-const mockSetTicketMode = jest.fn<(params: SetTicketModeParams) => Promise<TicketRecordChange | { error: string }>>();
+const mockSetTicketMode = jest.fn<(params: SetTicketModeParams) => Promise<WorkOrderStateChange | { error: string }>>();
 
-jest.mock('#src/ticket/index.ts', () => ({ setTicketMode: (params: SetTicketModeParams) => mockSetTicketMode(params) }));
+jest.mock('#src/workOrder/index.ts', () => ({ setWorkOrderMode: (params: SetTicketModeParams) => mockSetTicketMode(params) }));
 // -------------------------
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
@@ -76,7 +76,7 @@ const setupMode = ({
 }: {
 	args: string[];
 	/** What the action answers: a carried-out switch, by default. */
-	outcome?: TicketRecordChange | { error: string };
+	outcome?: WorkOrderStateChange | { error: string };
 }) => {
 	const captured = captureCommandOutput();
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-work-order-mode-command-'));
@@ -109,7 +109,7 @@ describe('workOrderModeCommand', () => {
 
 		await expect(workOrderModeCommand(approved)).rejects.toThrow(/process\.exit/);
 
-		expect(mockSetTicketMode.mock.calls[0]?.[0]).toMatchObject({ cwd, ticketBranch: 'lo-140-x', mode: 'single-plan', approve: true });
+		expect(mockSetTicketMode.mock.calls[0]?.[0]).toMatchObject({ cwd, name: 'lo-140-x', mode: 'single-plan', approve: true });
 	});
 
 	test('refuses an unknown mode and names both modes', async () => {
@@ -130,7 +130,7 @@ describe('workOrderModeCommand', () => {
 
 		await expect(workOrderModeCommand(approved)).rejects.toThrow(/process\.exit/);
 
-		expect(mockSetTicketMode.mock.calls[0]?.[0]).toMatchObject({ cwd, ticketBranch: 'lo-140-x', mode: 'single-plan', approve: true });
+		expect(mockSetTicketMode.mock.calls[0]?.[0]).toMatchObject({ cwd, name: 'lo-140-x', mode: 'single-plan', approve: true });
 		// a switch that dropped nothing says so by having no excluded-plans line at
 		// all, rather than an empty one
 		expect(approvedLogged).toHaveLength(1);

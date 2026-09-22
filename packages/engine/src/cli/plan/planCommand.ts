@@ -18,7 +18,7 @@ import { planVerifyFactsCommand } from '#src/cli/plan/planVerifyFactsCommand.ts'
 import { planWorkspaceCommand } from '#src/cli/plan/planWorkspaceCommand.ts';
 import { readPlanningStandards } from '#src/cli/plan/readPlanningStandards.ts';
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
-import { findBareTicketFolderRefusal } from '#src/ticket/index.ts';
+import { findBareWorkOrderFolderRefusal } from '#src/workOrder/index.ts';
 
 /**
  * The checkout a subcommand acts on — the plan's worktree for every subcommand
@@ -44,7 +44,7 @@ const openDispatchCheckout = async ({ cwd, flags, subcommand }: { cwd: string; f
 		return { cwd, worktree: undefined };
 	}
 
-	const bare = await findBareTicketFolderRefusal({ cwd, name });
+	const bare = await findBareWorkOrderFolderRefusal({ cwd, name });
 
 	if (bare !== undefined) {
 		console.error(bare);

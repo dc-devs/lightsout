@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { toBranchFileName } from '#src/common/utils/toBranchFileName.ts';
-import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
+import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
 
 interface Params {
 	/** Any checkout of the repository; the primary is resolved from it. */
@@ -20,5 +20,5 @@ interface Params {
  * than that branch's own folder.
  */
 export const getShipResultPath = async ({ cwd, branch }: Params): Promise<string> => {
-	return join(await ticketFolderDir({ cwd, ticketBranch: toBranchFileName({ branch }) }), 'ship.json');
+	return join(await workOrderFolderDir({ cwd, name: toBranchFileName({ branch }) }), 'ship.json');
 };

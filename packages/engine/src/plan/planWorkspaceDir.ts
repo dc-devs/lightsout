@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
-import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
+import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
 
 interface Params {
 	/** The directory the command runs in — a primary checkout, a linked worktree, or no repository at all. */
@@ -30,7 +30,7 @@ interface Params {
 export const planWorkspaceDir = async ({ cwd, name }: Params): Promise<string> => {
 	const address = parsePlanAddress({ name });
 	const ticketBranch = address?.ticketBranch ?? name;
-	const plansFolder = join(await ticketFolderDir({ cwd, ticketBranch }), 'plans');
+	const plansFolder = join(await workOrderFolderDir({ cwd, name: ticketBranch }), 'plans');
 
 	return address === undefined ? plansFolder : join(plansFolder, address.planId);
 };

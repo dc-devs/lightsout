@@ -58,9 +58,9 @@ jest.mock('#src/common/git/readGitChangedFiles.ts', () => ({
 // rules and the ship-eligibility rule stay real and read the record on disk.
 const mockRestoreTicketPlan = jest.fn<(params: { cwd: string; address: string }) => Promise<{ restored: string[] } | { error: string }>>();
 
-jest.mock('#src/ticket/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticket/index.ts')>('#src/ticket/index.ts'),
-	restoreTicketPlan: (params: { cwd: string; address: string }) => mockRestoreTicketPlan(params),
+jest.mock('#src/workOrder/index.ts', () => ({
+	...jest.requireActual<typeof import('#src/workOrder/index.ts')>('#src/workOrder/index.ts'),
+	restoreWorkOrderPlan: (params: { cwd: string; address: string }) => mockRestoreTicketPlan(params),
 }));
 // -------------------------
 
@@ -81,7 +81,7 @@ const mocks = {
 	runDirectWork: mockRunDirectWork,
 	commitTicketWork: mockCommitTicketWork,
 	readGitChangedFiles: mockReadGitChangedFiles,
-	restoreTicketPlan: mockRestoreTicketPlan,
+	restoreWorkOrderPlan: mockRestoreTicketPlan,
 };
 
 /** The plan entries the cases below are built from — 001 in each of the states a case needs, and the two that follow it. */

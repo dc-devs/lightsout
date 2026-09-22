@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { shipCommand } from '#src/cli/shipCommand.ts';
 import { PlanProgress, WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
-import { updateLocalTicketRecord } from '#src/ticket/index.ts';
+import { updateLocalWorkOrderState } from '#src/workOrder/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
@@ -179,7 +179,7 @@ const setupTicketShipCommand = async () => {
 	});
 
 	const { cwd } = setupBranchRepo({ branch: 'lo-60-ship' });
-	const seeded = await updateLocalTicketRecord({ cwd, ticketBranch: 'lo-60-ship', change: () => unrequestedShipRecord });
+	const seeded = await updateLocalWorkOrderState({ cwd, name: 'lo-60-ship', change: () => unrequestedShipRecord });
 
 	if ('error' in seeded) {
 		throw new Error(seeded.error);

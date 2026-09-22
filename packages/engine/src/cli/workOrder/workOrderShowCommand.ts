@@ -4,9 +4,9 @@ import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrint
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { describePlanProgress } from '#src/cli/workOrder/common/utils/describePlanProgress.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import { describeMissingTicketRecord } from '#src/common/utils/describeMissingTicketRecord.ts';
+import { describeMissingWorkOrder } from '#src/common/utils/describeMissingWorkOrder.ts';
 import type { WorkOrderState } from '#src/contracts/index.ts';
-import { pullTicketRecord } from '#src/ticket/index.ts';
+import { pullWorkOrderState } from '#src/workOrder/index.ts';
 
 /** One line per plan, and one each for what the ticket is waiting on. */
 const renderTicketRecord = ({ record }: { record: WorkOrderState }) => [
@@ -30,9 +30,9 @@ const renderTicketRecord = ({ record }: { record: WorkOrderState }) => [
  * shown as the truth.
  */
 export const workOrderShowCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
-	const ticketBranch = await getRequiredFlag({ flags, name: 'name' });
+	const name = await getRequiredFlag({ flags, name: 'name' });
 	const config = await readConfig({ cwd });
-	const pulled = await pullTicketRecord({ cwd, ticketBranch, config, env: process.env, onProgress: createProgressPrinter() });
+	const pulled = await pullWorkOrderState({ cwd, name, config, env: process.env, onProgress: createProgressPrinter() });
 
 	if ('error' in pulled) {
 		console.error(pulled.error);
@@ -41,7 +41,7 @@ export const workOrderShowCommand = async ({ flags, cwd }: CommandContext): Prom
 	}
 
 	if (pulled.record === undefined) {
-		console.error(describeMissingTicketRecord({ ticketBranch }));
+		console.error(describeMissingWorkOrder({ name }));
 
 		return exitCli({ code: 1 });
 	}

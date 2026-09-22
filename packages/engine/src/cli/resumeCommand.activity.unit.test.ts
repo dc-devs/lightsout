@@ -194,7 +194,7 @@ const setupParkedDirectRun = () => {
 	};
 
 	writeRepoFile({ cwd: seeded.cwd, path: planPath, content: '# Record the implementation\n' });
-	writeRepoFile({ cwd: seeded.cwd, path: join('.lightsout', 'tickets', ticketBranch, 'ticket.json'), content: JSON.stringify(record) });
+	writeRepoFile({ cwd: seeded.cwd, path: join('.lightsout', 'tickets', ticketBranch, 'state.json'), content: JSON.stringify(record) });
 	writeRepoFile({ cwd: seeded.cwd, path: frozenTicketPath, content: '# Record the implementation\n\nBuild the thing.\n' });
 
 	mockRequireImplementLifecycle.mockResolvedValue(undefined);

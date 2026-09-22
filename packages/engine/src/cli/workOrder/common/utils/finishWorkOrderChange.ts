@@ -1,9 +1,9 @@
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import type { TicketRecordChange } from '#src/ticket/index.ts';
+import type { WorkOrderStateChange } from '#src/workOrder/index.ts';
 
-interface Params<Change extends TicketRecordChange> {
-	/** The ticket the change was made to, named in the retry a failed publish is answered with. */
-	ticketBranch: string;
+interface Params<Change extends WorkOrderStateChange> {
+	/** The work order the change was made to, named in the retry a failed publish is answered with. */
+	name: string;
 	outcome: Change | { error: string };
 	/** The command's own lines, printed after the change's notice. */
 	describe: (change: Change) => string[];
@@ -19,7 +19,7 @@ interface Params<Change extends TicketRecordChange> {
  * the ticket does not know about it yet. The notice comes before the command's
  * own lines, because a caller reads the last line as the answer.
  */
-export const finishWorkOrderChange = async <Change extends TicketRecordChange>({ ticketBranch, outcome, describe }: Params<Change>): Promise<never> => {
+export const finishWorkOrderChange = async <Change extends WorkOrderStateChange>({ name, outcome, describe }: Params<Change>): Promise<never> => {
 	if ('error' in outcome) {
 		console.error(outcome.error);
 
@@ -37,9 +37,7 @@ export const finishWorkOrderChange = async <Change extends TicketRecordChange>({
 	}
 
 	if (change.publishError !== undefined) {
-		console.error(
-			`${change.publishError}\nthe change is on this machine but not on the ticket — send it with \`lightsout work-order sync --name ${ticketBranch}\``,
-		);
+		console.error(`${change.publishError}\nthe change is on this machine but not on the ticket — send it with \`lightsout work-order sync --name ${name}\``);
 
 		return exitCli({ code: 1 });
 	}

@@ -17,7 +17,7 @@ import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 // exports.
 interface RequestParams {
 	cwd: string;
-	ticketBranch: string;
+	name: string;
 	plans: string[];
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
@@ -26,7 +26,7 @@ interface RequestParams {
 
 interface WithdrawParams {
 	cwd: string;
-	ticketBranch: string;
+	name: string;
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
 	onProgress?: (message: string) => void;
@@ -37,9 +37,9 @@ type ChangeResult = { record: WorkOrderState; notice?: string; publishError?: st
 const mockRequestTicketShip = jest.fn<(params: RequestParams) => Promise<ChangeResult>>();
 const mockWithdrawTicketShipRequest = jest.fn<(params: WithdrawParams) => Promise<ChangeResult>>();
 
-jest.mock('#src/ticket/index.ts', () => ({
-	requestTicketShip: (params: RequestParams) => mockRequestTicketShip(params),
-	withdrawTicketShipRequest: (params: WithdrawParams) => mockWithdrawTicketShipRequest(params),
+jest.mock('#src/workOrder/index.ts', () => ({
+	requestWorkOrderShip: (params: RequestParams) => mockRequestTicketShip(params),
+	withdrawWorkOrderShipRequest: (params: WithdrawParams) => mockWithdrawTicketShipRequest(params),
 }));
 // -------------------------
 
@@ -87,7 +87,7 @@ describe('workOrderRequestShipCommand', () => {
 		// them against the work order's plans
 		expect(mockRequestTicketShip.mock.calls[0]?.[0]).toMatchObject({
 			cwd: requesting.cwd,
-			ticketBranch: 'lo-140-x',
+			name: 'lo-140-x',
 			plans: ['1', '002-fix'],
 		});
 		expect(mockWithdrawTicketShipRequest).not.toHaveBeenCalled();
@@ -99,7 +99,7 @@ describe('workOrderRequestShipCommand', () => {
 
 		// --withdraw takes the other operation, and never reaches the one that
 		// would store a request
-		expect(mockWithdrawTicketShipRequest.mock.calls[0]?.[0]).toMatchObject({ cwd: withdrawing.cwd, ticketBranch: 'lo-140-x' });
+		expect(mockWithdrawTicketShipRequest.mock.calls[0]?.[0]).toMatchObject({ cwd: withdrawing.cwd, name: 'lo-140-x' });
 		expect(mockRequestTicketShip).toHaveBeenCalledTimes(1);
 		expect(withdrawing.exitCodes).toStrictEqual([0]);
 	});
@@ -163,7 +163,7 @@ describe('workOrderRequestShipCommand', () => {
 
 		// with exactly one of the pair given, the intent reaches its operation and
 		// the command ends cleanly
-		expect(mockWithdrawTicketShipRequest.mock.calls[0]?.[0]).toMatchObject({ cwd: one.cwd, ticketBranch: 'lo-140-x' });
+		expect(mockWithdrawTicketShipRequest.mock.calls[0]?.[0]).toMatchObject({ cwd: one.cwd, name: 'lo-140-x' });
 		expect(one.errors).toStrictEqual([]);
 		expect(one.exitCodes).toStrictEqual([0]);
 	});

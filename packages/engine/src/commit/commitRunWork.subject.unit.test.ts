@@ -98,7 +98,7 @@ describe('commitRunWork subjects', () => {
 		expect({ uncommitted, subject: headSubject({ cwd }) }).toStrictEqual({ uncommitted: undefined, subject: 'lo-152 legacy-notes' });
 	});
 
-	test('commits under the branch reference when the ticket record cannot be read', async () => {
+	test('commits under the branch reference when the work order state cannot be read', async () => {
 		const { cwd, run, progress } = await setupCommitRun({
 			dirty: { 'src/thing.ts': 'export const thing = 1;\n' },
 			changedFiles: ['src/thing.ts'],
@@ -110,7 +110,7 @@ describe('commitRunWork subjects', () => {
 		expect({ uncommitted, subject: headSubject({ cwd }), progress }).toEqual({
 			uncommitted: undefined,
 			subject: plainSubject,
-			progress: expect.arrayContaining([expect.stringMatching(/ticket record/i)]),
+			progress: expect.arrayContaining([expect.stringMatching(/work order state/i)]),
 		});
 	});
 });

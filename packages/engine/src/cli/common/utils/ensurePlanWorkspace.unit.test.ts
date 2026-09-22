@@ -53,10 +53,10 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 // its first step: the folder has no ticket record, so nothing is refused and
 // the two record-backed steps are never taken. They are stubbed to reject so
 // that a legacy name silently taking one would fail the test rather than pass.
-jest.mock('#src/ticket/index.ts', () => ({
-	findBareTicketFolderRefusal: () => Promise.resolve(undefined),
-	pullTicketRecord: () => Promise.reject(new Error('a legacy plan name must not pull a ticket record')),
-	restoreTicketPlan: () => Promise.reject(new Error('a legacy plan name must not restore a ticket plan')),
+jest.mock('#src/workOrder/index.ts', () => ({
+	findBareWorkOrderFolderRefusal: () => Promise.resolve(undefined),
+	pullWorkOrderState: () => Promise.reject(new Error('a legacy plan name must not pull a ticket record')),
+	restoreWorkOrderPlan: () => Promise.reject(new Error('a legacy plan name must not restore a ticket plan')),
 }));
 // -------------------------
 

@@ -13,7 +13,7 @@ import { chooseAutoPlanTarget } from '#src/queue/workers/chooseAutoPlanTarget.ts
 // one, so the order it applies is pinned here rather than stubbed.
 interface PullParams {
 	cwd: string;
-	ticketBranch: string;
+	name: string;
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
 	onProgress?: (message: string) => void;
@@ -23,7 +23,7 @@ type PullResult = { record: WorkOrderState | undefined } | { error: string };
 
 interface AddPlanParams {
 	cwd: string;
-	ticketBranch: string;
+	name: string;
 	slug: string;
 	title?: string;
 	config: LightsoutConfig;
@@ -36,10 +36,10 @@ type AddPlanResult = { address: string; record: WorkOrderState; notice?: string;
 const mockPullTicketRecord = jest.fn<(params: PullParams) => Promise<PullResult>>();
 const mockAddTicketPlan = jest.fn<(params: AddPlanParams) => Promise<AddPlanResult>>();
 
-jest.mock('#src/ticket/index.ts', () => ({
-	pullTicketRecord: (params: PullParams) => mockPullTicketRecord(params),
-	addTicketPlan: (params: AddPlanParams) => mockAddTicketPlan(params),
-	findNextPlanToPlan: jest.requireActual<typeof import('#src/ticket/index.ts')>('#src/ticket/index.ts').findNextPlanToPlan,
+jest.mock('#src/workOrder/index.ts', () => ({
+	pullWorkOrderState: (params: PullParams) => mockPullTicketRecord(params),
+	addWorkOrderPlan: (params: AddPlanParams) => mockAddTicketPlan(params),
+	findNextPlanToPlan: jest.requireActual<typeof import('#src/workOrder/index.ts')>('#src/workOrder/index.ts').findNextPlanToPlan,
 }));
 // -------------------------
 
@@ -89,7 +89,7 @@ const ticketWith = ({ title }: { title: string }): TicketSummary => ({
  */
 const setupChoice = ({
 	pulled = { record: undefined },
-	added = { error: 'addTicketPlan was not expected to run' },
+	added = { error: 'addWorkOrderPlan was not expected to run' },
 	title = 'Support multiple plans per ticket',
 }: {
 	pulled?: PullResult;
@@ -122,7 +122,7 @@ describe('chooseAutoPlanTarget', () => {
 
 		expect(answer).toEqual({ address: `${branch}/001-support-multiple-plans`, record });
 		expect(mockAddTicketPlan).toHaveBeenCalledWith(
-			expect.objectContaining({ ticketBranch: branch, slug: 'support-multiple-plans', title: 'Support multiple plans per ticket' }),
+			expect.objectContaining({ name: branch, slug: 'support-multiple-plans', title: 'Support multiple plans per ticket' }),
 		);
 	});
 

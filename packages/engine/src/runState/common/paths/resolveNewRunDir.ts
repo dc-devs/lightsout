@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { ticketFolderOf } from '#src/common/planAddress/ticketFolderOf.ts';
 import { resolveSharedStateDir } from '#src/common/workspace/resolveSharedStateDir.ts';
-import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
+import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
 import { PipelineKind } from '#src/contracts/index.ts';
 import { getCommandRunsDir } from '#src/runState/common/paths/getCommandRunsDir.ts';
 import { getTicketRunsDir } from '#src/runState/common/paths/getTicketRunsDir.ts';
@@ -39,7 +39,7 @@ export const resolveNewRunDir = async ({ cwd, planName, ticketBranch, pipeline, 
 	const runsDir =
 		ticket === undefined
 			? getCommandRunsDir({ stateDir: await resolveSharedStateDir({ cwd }), pipeline: pipeline ?? PipelineKind.Implement })
-			: getTicketRunsDir({ ticketFolder: await ticketFolderDir({ cwd, ticketBranch: ticket }) });
+			: getTicketRunsDir({ ticketFolder: await workOrderFolderDir({ cwd, name: ticket }) });
 
 	return join(runsDir, runId);
 };

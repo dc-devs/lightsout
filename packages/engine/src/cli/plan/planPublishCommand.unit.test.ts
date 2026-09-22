@@ -50,7 +50,7 @@ interface TicketPublishReport {
 	published: string[];
 	stale: string[];
 	error?: string;
-	/** Why ticket.json does not record a publish whose plan files did land. */
+	/** Why state.json does not record a publish whose plan files did land. */
 	recordError?: string;
 }
 
@@ -64,9 +64,9 @@ interface TicketPublishParams {
 
 const mockPublishTicketPlan = jest.fn<(params: TicketPublishParams) => Promise<TicketPublishReport>>();
 
-jest.mock('#src/ticket/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticket/index.ts')>('#src/ticket/index.ts'),
-	publishTicketPlan: (params: TicketPublishParams) => mockPublishTicketPlan(params),
+jest.mock('#src/workOrder/index.ts', () => ({
+	...jest.requireActual<typeof import('#src/workOrder/index.ts')>('#src/workOrder/index.ts'),
+	publishWorkOrderPlan: (params: TicketPublishParams) => mockPublishTicketPlan(params),
 }));
 // -------------------------
 
@@ -108,7 +108,7 @@ const setupPublishWithPlanFolder = ({ report, withConfig }: { report?: PublishRe
 const setupTicketPublish = ({
 	report = {
 		ticketRef: 'LO-9',
-		published: ['001-a--plan.md', '001-a--decisions.json', `001-a--${planAttachmentManifestName}`, 'ticket.json'],
+		published: ['001-a--plan.md', '001-a--decisions.json', `001-a--${planAttachmentManifestName}`, 'state.json'],
 		stale: [],
 	},
 }: {
@@ -242,18 +242,18 @@ describe('planPublishCommand', () => {
 		});
 		expect(mockPublishPlan).not.toHaveBeenCalled();
 		expect(logged[0]).toBe('\nplan publish lo-9-x/001-a — 4 file(s) attached to LO-9');
-		expect(logged.slice(1, 5)).toStrictEqual(['  001-a--plan.md', '  001-a--decisions.json', `  001-a--${planAttachmentManifestName}`, '  ticket.json']);
+		expect(logged.slice(1, 5)).toStrictEqual(['  001-a--plan.md', '  001-a--decisions.json', `  001-a--${planAttachmentManifestName}`, '  state.json']);
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);
 	});
 
-	test('planPublishCommand: for a plan address, exits 1 and records the step failed when ticket.json could not be published', async () => {
+	test('planPublishCommand: for a plan address, exits 1 and records the step failed when state.json could not be published', async () => {
 		const { context, planDir, logged, errors, exitCodes } = setupTicketPublish({
 			report: {
 				ticketRef: 'LO-9',
 				published: ['001-a--plan.md', `001-a--${planAttachmentManifestName}`],
 				stale: [],
-				recordError: 'the plan files are on LO-9, but ticket.json was refused by the tracker',
+				recordError: 'the plan files are on LO-9, but state.json was refused by the tracker',
 			},
 		});
 
@@ -268,8 +268,28 @@ describe('planPublishCommand', () => {
 		// own sentence goes to stderr, and the step is failed because the ticket
 		// record does not say the plan was published
 		expect(logged.slice(1, 3)).toStrictEqual(['  001-a--plan.md', `  001-a--${planAttachmentManifestName}`]);
-		expect(errors[0] ?? '').toContain('ticket.json was refused by the tracker');
+		expect(errors[0] ?? '').toContain('state.json was refused by the tracker');
 		expect(record.steps.find((entry) => entry.step === 'publish')).toEqual(expect.objectContaining({ step: 'publish', status: 'failed' }));
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('planPublishCommand: names state.json as the file the publish could not land', async () => {
+		const { context, logged, errors, exitCodes } = setupTicketPublish({
+			report: {
+				ticketRef: 'LO-9',
+				published: ['001-a--plan.md', `001-a--${planAttachmentManifestName}`],
+				stale: [],
+				recordError: 'the plan files are on LO-9, but state.json was refused by the tracker',
+			},
+		});
+
+		await expect(planPublishCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// the files that did land are still listed, the state file is not among
+		// them, and the sentence on stderr names it by the name it is written under
+		expect(logged.slice(1, 3)).toStrictEqual(['  001-a--plan.md', `  001-a--${planAttachmentManifestName}`]);
+		expect(logged.join('\n')).not.toContain('state.json');
+		expect(errors[0] ?? '').toContain('state.json');
 		expect(exitCodes).toStrictEqual([1]);
 	});
 
@@ -342,7 +362,7 @@ describe('planPublishCommand', () => {
 				ticketRef: 'LO-9',
 				published: ['001-a--plan.md'],
 				stale: [],
-				recordError: 'the plan files are on LO-9, but ticket.json was refused by the tracker',
+				recordError: 'the plan files are on LO-9, but state.json was refused by the tracker',
 			},
 		});
 

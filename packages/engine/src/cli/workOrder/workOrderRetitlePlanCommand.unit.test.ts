@@ -16,7 +16,7 @@ import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 // subcommand against a ticket module mocked down to one export.
 interface RetitleParams {
 	cwd: string;
-	ticketBranch: string;
+	name: string;
 	plan: string;
 	title: string;
 	config: LightsoutConfig;
@@ -28,7 +28,7 @@ type RetitleResult = { record: WorkOrderState; notice?: string; publishError?: s
 
 const mockRetitleTicketPlan = jest.fn<(params: RetitleParams) => Promise<RetitleResult>>();
 
-jest.mock('#src/ticket/index.ts', () => ({ retitleTicketPlan: (params: RetitleParams) => mockRetitleTicketPlan(params) }));
+jest.mock('#src/workOrder/index.ts', () => ({ retitleWorkOrderPlan: (params: RetitleParams) => mockRetitleTicketPlan(params) }));
 // -------------------------
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
@@ -65,7 +65,7 @@ describe('workOrderRetitlePlanCommand', () => {
 
 		// the plan token reaches the operation exactly as it was typed: a bare
 		// number is the operation's own to resolve against the ticket's ids
-		expect(mockRetitleTicketPlan.mock.calls[0]?.[0]).toMatchObject({ cwd, ticketBranch: 'lo-140-x', plan: '2', title: 'New' });
+		expect(mockRetitleTicketPlan.mock.calls[0]?.[0]).toMatchObject({ cwd, name: 'lo-140-x', plan: '2', title: 'New' });
 		// the title the plan now carries is read back, so a human sees what the
 		// record holds rather than only that something happened
 		expect(logged.join('\n')).toContain('New');

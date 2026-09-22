@@ -17,8 +17,8 @@ import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { type Driver, getDriver } from '#src/drivers/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { recordPlanCommandRun } from '#src/plan/index.ts';
-import { runTicketPlanLifecycle } from '#src/ticket/index.ts';
 import { requireImplementLifecycle } from '#src/ticketLifecycle/index.ts';
+import { runWorkOrderPlanLifecycle } from '#src/workOrder/index.ts';
 
 /**
  * The pipeline the resolved plan target asks for — every phase of a folder
@@ -141,7 +141,7 @@ export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<
 	// The record's own bookkeeping around the run: the plan is marked implementing
 	// under the id the pipeline is handed, and the outcome is recorded against it.
 	// A legacy folder and a ticket with no record run exactly as they always have.
-	const outcome = await runTicketPlanLifecycle({
+	const outcome = await runWorkOrderPlanLifecycle({
 		cwd: workspace.cwd,
 		name: planName,
 		run: ({ runId }) =>

@@ -2,7 +2,7 @@ import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts'
 import { toBranchSlug } from '#src/common/utils/toBranchSlug.ts';
 import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { addTicketPlan, findNextPlanToPlan, pullTicketRecord } from '#src/ticket/index.ts';
+import { addWorkOrderPlan, findNextPlanToPlan, pullWorkOrderState } from '#src/workOrder/index.ts';
 
 interface Params {
 	/** The ticket's worktree, where a first plan's folder is created. */
@@ -53,16 +53,16 @@ export const chooseAutoPlanTarget = async ({
 	env,
 	onProgress,
 }: Params): Promise<{ record: WorkOrderState; address?: string } | { error: string }> => {
-	const pulled = await pullTicketRecord({ cwd, ticketBranch: branch, config, env, onProgress });
+	const pulled = await pullWorkOrderState({ cwd, name: branch, config, env, onProgress });
 
 	if ('error' in pulled) {
 		return pulled;
 	}
 
 	if (pulled.record === undefined) {
-		const added = await addTicketPlan({
+		const added = await addWorkOrderPlan({
 			cwd,
-			ticketBranch: branch,
+			name: branch,
 			slug: toFirstPlanSlug({ title: ticket.title }),
 			title: ticket.title,
 			config,

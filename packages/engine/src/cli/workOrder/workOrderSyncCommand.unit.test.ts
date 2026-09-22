@@ -19,7 +19,7 @@ import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 // two keep words, because the handler parses `--keep` against them.
 interface SyncTicketRecordParams {
 	cwd: string;
-	ticketBranch: string;
+	name: string;
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
 	/** Which copy the human chose; absent asks for the ordinary pull-and-catch-up. */
@@ -31,9 +31,9 @@ type SyncTicketRecordResult = { record: WorkOrderState } | { error: string };
 
 const mockSyncTicketRecord = jest.fn<(params: SyncTicketRecordParams) => Promise<SyncTicketRecordResult>>();
 
-jest.mock('#src/ticket/index.ts', () => ({
-	syncTicketRecord: (params: SyncTicketRecordParams) => mockSyncTicketRecord(params),
-	TicketSyncKeep: { Local: 'local', Published: 'published' },
+jest.mock('#src/workOrder/index.ts', () => ({
+	syncWorkOrderState: (params: SyncTicketRecordParams) => mockSyncTicketRecord(params),
+	WorkOrderSyncKeep: { Local: 'local', Published: 'published' },
 }));
 // -------------------------
 
@@ -64,7 +64,7 @@ const setupSync = ({ args, outcome = { record: syncedRecord } }: { args: string[
 };
 
 describe('workOrderSyncCommand', () => {
-	test('passes the kept copy to syncTicketRecord, or none', async () => {
+	test('passes the kept copy to syncWorkOrderState, or none', async () => {
 		const kept = setupSync({ args: ['--name', 'lo-140-x', '--keep', 'published'] });
 
 		await expect(workOrderSyncCommand(kept.context)).rejects.toThrow(/process\.exit/);
@@ -74,7 +74,7 @@ describe('workOrderSyncCommand', () => {
 		// no published copy to keep
 		expect(mockSyncTicketRecord.mock.calls[0]?.[0]).toMatchObject({
 			cwd: kept.cwd,
-			ticketBranch: 'lo-140-x',
+			name: 'lo-140-x',
 			keep: 'published',
 			config: { 'ticket-tracker': { provider: 'linear', team: 'LO', 'api-key-env': 'LINEAR_API_KEY' } },
 		});
@@ -95,7 +95,7 @@ describe('workOrderSyncCommand', () => {
 		// chosen rather than being handed a default, because keeping a copy
 		// overwrites work on the other side
 		expect(mockSyncTicketRecord.mock.calls[1]?.[0]?.keep).toBeUndefined();
-		expect(mockSyncTicketRecord.mock.calls[1]?.[0]).toMatchObject({ cwd: plain.cwd, ticketBranch: 'lo-140-x' });
+		expect(mockSyncTicketRecord.mock.calls[1]?.[0]).toMatchObject({ cwd: plain.cwd, name: 'lo-140-x' });
 		// nothing was set aside here, so the line reports the two copies agreeing
 		expect(plain.logged.join('\n')).toContain('in sync');
 		expect(plain.errors).toStrictEqual([]);
@@ -152,7 +152,7 @@ describe('workOrderSyncCommand', () => {
 
 		// a word that does name a copy is carried through untranslated, so the
 		// operation is told which side wins
-		expect(mockSyncTicketRecord.mock.calls[0]?.[0]).toMatchObject({ cwd: kept.cwd, ticketBranch: 'lo-140-x', keep: 'local' });
+		expect(mockSyncTicketRecord.mock.calls[0]?.[0]).toMatchObject({ cwd: kept.cwd, name: 'lo-140-x', keep: 'local' });
 		expect(kept.logged.join('\n')).toContain('local');
 		expect(kept.logged.join('\n')).not.toMatch(/lightsout ticket\s/);
 		expect(kept.exitCodes).toStrictEqual([0]);

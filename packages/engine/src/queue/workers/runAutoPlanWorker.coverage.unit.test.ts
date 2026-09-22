@@ -51,7 +51,7 @@ jest.mock('#src/queue/workers/buildTicketPlans.ts', () => ({ buildTicketPlans: (
 // -------------------------
 const mockPullTicketRecord = jest.fn<() => Promise<{ record: WorkOrderState | undefined } | { error: string }>>();
 
-jest.mock('#src/ticket/index.ts', () => ({ pullTicketRecord: () => mockPullTicketRecord() }));
+jest.mock('#src/workOrder/index.ts', () => ({ pullWorkOrderState: () => mockPullTicketRecord() }));
 // -------------------------
 
 const branch = 'lo-70-drain';

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { exitAfterImplement } from '#src/cli/common/utils/exitAfterImplement.ts';
 import { LightsoutConfig, PlanProgress, RunStatus, ShipStatus, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
-import { updateLocalTicketRecord } from '#src/ticket/index.ts';
+import { updateLocalWorkOrderState } from '#src/workOrder/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { manifestOf } from '#tests/helpers/setupResume.ts';
@@ -67,9 +67,9 @@ const setupTicketChain = async ({
 	mkdirSync(join(cwd, planFolder), { recursive: true });
 	writeFileSync(join(cwd, planFolder, 'plan.md'), '# Plan: the work this run built\n');
 
-	await updateLocalTicketRecord({
+	await updateLocalWorkOrderState({
 		cwd,
-		ticketBranch,
+		name: ticketBranch,
 		change: (): WorkOrderState => ({
 			schemaVersion: 1,
 			ticketRef: 'LO-140',

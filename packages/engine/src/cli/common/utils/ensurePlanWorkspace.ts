@@ -4,8 +4,8 @@ import { ticketFolderOf } from '#src/common/planAddress/ticketFolderOf.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { pathExists, planNameFromPath, planWorkspaceDir, readPlanTicketRef, restorePlanWorkspace } from '#src/plan/index.ts';
 import { resolveShipSettings } from '#src/ship/index.ts';
-import { findBareTicketFolderRefusal, pullTicketRecord, restoreTicketPlan } from '#src/ticket/index.ts';
 import { resolveTrackerSettings, type TrackerSettings } from '#src/ticketTracker/index.ts';
+import { findBareWorkOrderFolderRefusal, pullWorkOrderState, restoreWorkOrderPlan } from '#src/workOrder/index.ts';
 import { resolveWorktreePath } from '#src/worktree/index.ts';
 
 interface Params {
@@ -90,13 +90,13 @@ const fetchTicketPlan = async ({
 	write: (line: string) => void;
 }) => {
 	const ticketBranch = ticketFolderOf({ name });
-	const pulled = await pullTicketRecord({ cwd, ticketBranch, config, env: process.env, onProgress: write });
+	const pulled = await pullWorkOrderState({ cwd, name: ticketBranch, config, env: process.env, onProgress: write });
 
 	if ('error' in pulled) {
 		return { error: `no plan at ${dir}, and the ticket record for '${ticketBranch}' could not be settled: ${pulled.error}` };
 	}
 
-	const restored = await restoreTicketPlan({ cwd, address: name, config, env: process.env, onProgress: write });
+	const restored = await restoreWorkOrderPlan({ cwd, address: name, config, env: process.env, onProgress: write });
 
 	if ('error' in restored) {
 		return { error: `no plan at ${dir}, and the plan attachments on ticket ${identifier} could not be restored: ${restored.error}` };
@@ -149,7 +149,7 @@ export const ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }
 		return undefined;
 	}
 
-	const bare = await findBareTicketFolderRefusal({ cwd, name });
+	const bare = await findBareWorkOrderFolderRefusal({ cwd, name });
 
 	if (bare !== undefined) {
 		return { error: bare };

@@ -6,7 +6,7 @@ import { describePlanProgress } from '#src/cli/workOrder/common/utils/describePl
 import { finishWorkOrderChange } from '#src/cli/workOrder/common/utils/finishWorkOrderChange.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { PlanProgress } from '#src/contracts/index.ts';
-import { addTicketPlan } from '#src/ticket/index.ts';
+import { addWorkOrderPlan } from '#src/workOrder/index.ts';
 
 /**
  * `lightsout work-order add-plan` at the terminal, in both its forms.
@@ -19,13 +19,13 @@ import { addTicketPlan } from '#src/ticket/index.ts';
  * got, which an empty plan's line would say nothing about.
  */
 export const workOrderAddPlanCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
-	const ticketBranch = await getRequiredFlag({ flags, name: 'name' });
+	const name = await getRequiredFlag({ flags, name: 'name' });
 	const slug = await getRequiredFlag({ flags, name: 'slug' });
 	const from = getStringFlag({ flags, name: 'from' });
 	const config = await readConfig({ cwd });
-	const outcome = await addTicketPlan({
+	const outcome = await addWorkOrderPlan({
 		cwd,
-		ticketBranch,
+		name,
 		slug,
 		title: getStringFlag({ flags, name: 'title' }),
 		from,
@@ -35,7 +35,7 @@ export const workOrderAddPlanCommand = async ({ flags, cwd }: CommandContext): P
 	});
 
 	await finishWorkOrderChange({
-		ticketBranch,
+		name,
 		outcome,
 		describe: ({ address, record }) => {
 			// A record answered without a plan entry never prints `undefined`.
@@ -43,7 +43,7 @@ export const workOrderAddPlanCommand = async ({ flags, cwd }: CommandContext): P
 
 			return [
 				from === undefined
-					? `ticket ${ticketBranch} now holds ${record.plans.length} plan(s), the newest of them:`
+					? `ticket ${name} now holds ${record.plans.length} plan(s), the newest of them:`
 					: `the loose files of '${from}' are now this ticket's newest plan, ${describePlanProgress({ progress })}:`,
 				address,
 			];

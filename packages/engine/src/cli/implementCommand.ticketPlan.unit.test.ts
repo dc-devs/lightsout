@@ -113,7 +113,7 @@ const recordOf = ({
 });
 
 /** The ticket record as it stands on disk after the command — the primary checkout holds the one copy. */
-const readRecord = ({ cwd }: { cwd: string }): WorkOrderState => JSON.parse(readFileSync(join(cwd, ticketFolder, 'ticket.json'), 'utf8')) as WorkOrderState;
+const readRecord = ({ cwd }: { cwd: string }): WorkOrderState => JSON.parse(readFileSync(join(cwd, ticketFolder, 'state.json'), 'utf8')) as WorkOrderState;
 
 /** Every run the command left on disk, by id. */
 const readRunIds = ({ cwd }: { cwd: string }): string[] => {
@@ -143,7 +143,7 @@ const seedTicketRepo = ({ record, files }: { record: WorkOrderState; files: Reco
 	const cwd = setupConsumerRepo();
 
 	mkdirSync(join(cwd, ticketFolder), { recursive: true });
-	writeFileSync(join(cwd, ticketFolder, 'ticket.json'), `${JSON.stringify(record, undefined, '\t')}\n`);
+	writeFileSync(join(cwd, ticketFolder, 'state.json'), `${JSON.stringify(record, undefined, '\t')}\n`);
 
 	for (const [path, body] of Object.entries(files)) {
 		mkdirSync(dirname(join(cwd, path)), { recursive: true });
@@ -283,7 +283,7 @@ describe('implementCommand ticket plans', () => {
 			planFolder: firstPlanFolder,
 			noWorktree: true,
 		});
-		const before = readFileSync(join(cwd, ticketFolder, 'ticket.json'), 'utf8');
+		const before = readFileSync(join(cwd, ticketFolder, 'state.json'), 'utf8');
 
 		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
 
@@ -292,7 +292,7 @@ describe('implementCommand ticket plans', () => {
 		// machine's work, and the sentence says which command settles that
 		expect(errors.join('\n')).toContain(firstPlan);
 		expect(errors.join('\n')).toContain('lightsout work-order sync');
-		expect(readFileSync(join(cwd, ticketFolder, 'ticket.json'), 'utf8')).toBe(before);
+		expect(readFileSync(join(cwd, ticketFolder, 'state.json'), 'utf8')).toBe(before);
 		expect(readRunIds({ cwd })).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([1]);
 	});

@@ -3,7 +3,7 @@ import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { readRunLabel } from '#src/common/utils/readRunLabel.ts';
 import type { LightsoutConfig, RunManifest } from '#src/contracts/index.ts';
 import { planNameFromPath } from '#src/plan/index.ts';
-import { readTicketRecord } from '#src/ticket/index.ts';
+import { readWorkOrderState } from '#src/workOrder/index.ts';
 
 /**
  * The unit of work this run is, named the way the folders on disk name it, and
@@ -28,35 +28,36 @@ const readUnit = async ({ cwd, plan, planName }: { cwd: string; plan: string; pl
 	const address = parsePlanAddress({ name });
 	const base = address?.planId ?? name;
 
-	return { unit: stem === 'plan' ? base : `${base}/${stem}`, ticketBranch: address?.ticketBranch ?? name, planId: address?.planId };
+	return { unit: stem === 'plan' ? base : `${base}/${stem}`, workOrderName: address?.ticketBranch ?? name, planId: address?.planId };
 };
 
 /**
- * The ticket reference and the plan title the record carries, or neither.
+ * The ticket reference and the plan title the work order's state carries, or
+ * neither.
  *
- * A record that exists but cannot be read is narrated and then treated as
+ * A state file that exists but cannot be read is narrated and then treated as
  * absent: nothing in the engine parses a commit subject, so failing a whole
  * verified unit over a decoration would cost far more than the fallback does.
  */
 const readTicketFacts = async ({
 	cwd,
-	ticketBranch,
+	workOrderName,
 	planId,
 	onProgress,
 }: {
 	cwd: string;
-	ticketBranch?: string;
+	workOrderName?: string;
 	planId?: string;
 	onProgress: (message: string) => void;
 }) => {
-	if (ticketBranch === undefined) {
+	if (workOrderName === undefined) {
 		return {};
 	}
 
-	const read = await readTicketRecord({ cwd, ticketBranch });
+	const read = await readWorkOrderState({ cwd, name: workOrderName });
 
 	if ('error' in read) {
-		onProgress(`the ticket record for ${ticketBranch} could not be read, so this commit is addressed from the branch instead — ${read.error}`);
+		onProgress(`the work order state for ${workOrderName} could not be read, so this commit is addressed from the branch instead — ${read.error}`);
 
 		return {};
 	}
@@ -69,25 +70,25 @@ interface Params {
 	cwd: string;
 	manifest: RunManifest;
 	config: LightsoutConfig;
-	/** The run's progress sink, for the one aside this reader has to make: a ticket record that exists but cannot be read. */
+	/** The run's progress sink, for the one aside this reader has to make: a work order state that exists but cannot be read. */
 	onProgress: (message: string) => void;
 }
 
 /**
  * How a plan run names its unit of work: the ticket, then the unit, then the
- * plan's title when a record supplies one.
+ * plan's title when a work order's state supplies one.
  *
  * It reads the manifest rather than taking the facts as parameters, because the
  * manifest already carries the plan path every one of them is derived from —
  * and threading them would make five callers of the pipeline responsible for a
  * fact the run records for itself.
  *
- * With no ticket record the reference falls back to `readRunLabel`, the same
+ * With no work order state the reference falls back to `readRunLabel`, the same
  * ladder `implement-direct` climbs for its own run label.
  */
 export const readRunCommitSubject = async ({ cwd, manifest, config, onProgress }: Params): Promise<string> => {
-	const { unit, ticketBranch, planId } = await readUnit({ cwd, plan: manifest.plan, planName: manifest.planName });
-	const { ticketRef, title } = await readTicketFacts({ cwd, ticketBranch, planId, onProgress });
+	const { unit, workOrderName, planId } = await readUnit({ cwd, plan: manifest.plan, planName: manifest.planName });
+	const { ticketRef, title } = await readTicketFacts({ cwd, workOrderName, planId, onProgress });
 	const reference = ticketRef ?? (await readRunLabel({ cwd, config }));
 
 	return title === undefined ? `${reference} ${unit}` : `${reference} ${unit}: ${title}`;

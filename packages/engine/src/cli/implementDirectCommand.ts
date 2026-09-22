@@ -17,8 +17,8 @@ import { readRunLabel } from '#src/common/utils/readRunLabel.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { runDirectWork } from '#src/direct/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { runTicketPlanLifecycle } from '#src/ticket/index.ts';
 import { requireImplementLifecycle } from '#src/ticketLifecycle/index.ts';
+import { runWorkOrderPlanLifecycle } from '#src/workOrder/index.ts';
 
 /**
  * The run itself, and whatever the ticket record owes about it.
@@ -51,7 +51,8 @@ const runDirectBuild = async ({
 		runDirectWork({ cwd, ticketBody, ticketRef, runId, driver, driverName, config, willShip, onProgress: createProgressPrinter() });
 	// A build no plan claims is the build this command has always run: no
 	// pre-minted id, and nothing written to any record.
-	const outcome = planName === undefined ? { result: await build() } : await runTicketPlanLifecycle({ cwd, name: planName, run: ({ runId }) => build(runId) });
+	const outcome =
+		planName === undefined ? { result: await build() } : await runWorkOrderPlanLifecycle({ cwd, name: planName, run: ({ runId }) => build(runId) });
 
 	if ('refusal' in outcome) {
 		return { refusal: outcome.refusal };

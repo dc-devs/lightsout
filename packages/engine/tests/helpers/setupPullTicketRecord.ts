@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import type { jest } from '@jest/globals';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
-import { updateLocalTicketRecord } from '#src/ticket/index.ts';
 import type { TrackerAttachment, TrackerSettings } from '#src/ticketTracker/index.ts';
+import { updateLocalWorkOrderState } from '#src/workOrder/index.ts';
 import { canonicalTicketRecordText } from '#tests/helpers/canonicalTicketRecordText.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
@@ -25,11 +25,11 @@ interface PullTicketRecordMocks {
 
 /** The ticket's own side of an arrangement: what it carries, and how it refuses to answer. */
 interface TicketSide {
-	/** The record the ticket carries as `ticket.json`. */
+	/** The record the ticket carries as `state.json`. */
 	published?: WorkOrderState;
-	/** Raw text for the published `ticket.json`, for the rows where it is not a valid record. */
+	/** Raw text for the published `state.json`, for the rows where it is not a valid record. */
 	publishedText?: string;
-	/** Whether the ticket carries the published `ticket.json` twice over. */
+	/** Whether the ticket carries the published `state.json` twice over. */
 	publishedTwice?: boolean;
 	/** The sentence the tracker refuses the attachment list with. */
 	listFailure?: string;
@@ -57,10 +57,10 @@ interface PullTicketRecordFixture {
 	publishedPath: string;
 	localBytes: string | undefined;
 	syncBytes: string | undefined;
-	params: { cwd: string; ticketBranch: string; config: LightsoutConfig; env: NodeJS.ProcessEnv; onProgress: (message: string) => void };
+	params: { cwd: string; name: string; config: LightsoutConfig; env: NodeJS.ProcessEnv; onProgress: (message: string) => void };
 }
 
-const assetUrl = 'https://uploads.example.com/ticket.json';
+const assetUrl = 'https://uploads.example.com/state.json';
 const defaultBranch = 'lo-140-multi';
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 /** The shared fixture typed: the raw JSON shape widens `provider` to `string`. */
@@ -86,21 +86,21 @@ export const setupPullTicketRecord = async ({
 	const { published, publishedText, publishedTwice = false, listFailure, assetFailure } = ticket;
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-pull-ticket-'));
 	const ticketFolder = join(cwd, '.lightsout', 'tickets', branch);
-	const recordPath = join(ticketFolder, 'ticket.json');
-	const syncPath = join(ticketFolder, 'ticket-sync.json');
-	const publishedPath = join(ticketFolder, 'ticket.published.json');
+	const recordPath = join(ticketFolder, 'state.json');
+	const syncPath = join(ticketFolder, 'state-sync.json');
+	const publishedPath = join(ticketFolder, 'state.published.json');
 	const text = publishedText ?? (published === undefined ? undefined : JSON.stringify(published));
-	const carried: TrackerAttachment[] = text === undefined ? [] : [{ id: 'att-1', title: 'ticket.json', url: assetUrl }];
+	const carried: TrackerAttachment[] = text === undefined ? [] : [{ id: 'att-1', title: 'state.json', url: assetUrl }];
 
 	if (publishedTwice) {
-		carried.push({ id: 'att-2', title: 'ticket.json', url: `${assetUrl}?second` });
+		carried.push({ id: 'att-2', title: 'state.json', url: `${assetUrl}?second` });
 	}
 
 	mocks.getTicketAttachments.mockResolvedValue(listFailure === undefined ? carried : { error: listFailure });
 	mocks.readTicketAsset.mockResolvedValue(assetFailure === undefined ? (text ?? { error: 'the attachment could not be read' }) : { error: assetFailure });
 
 	if (local !== undefined) {
-		const seeded = await updateLocalTicketRecord({ cwd, ticketBranch: branch, change: () => local });
+		const seeded = await updateLocalWorkOrderState({ cwd, name: branch, change: () => local });
 
 		if ('error' in seeded) {
 			throw new Error(seeded.error);
@@ -121,6 +121,6 @@ export const setupPullTicketRecord = async ({
 		publishedPath,
 		localBytes: local === undefined ? undefined : readFileSync(recordPath).toString('utf8'),
 		syncBytes: syncedTo === undefined ? undefined : readFileSync(syncPath).toString('utf8'),
-		params: { cwd, ticketBranch: branch, config, env, onProgress: () => undefined },
+		params: { cwd, name: branch, config, env, onProgress: () => undefined },
 	};
 };

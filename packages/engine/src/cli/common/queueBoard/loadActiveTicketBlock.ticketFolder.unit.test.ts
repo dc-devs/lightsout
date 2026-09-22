@@ -11,7 +11,7 @@ import { freshCwd } from '#tests/helpers/freshCwd.ts';
  * record says is still being planned, rather than the folder that holds it.
  *
  * A sibling of `loadActiveTicketBlock.unit.test.ts` rather than more cases in
- * it: every case here builds a `ticket.json` and reads the block drawn for a
+ * it: every case here builds a `state.json` and reads the block drawn for a
  * plan address, while that file's cases are about which engine run, planning
  * record or shipping record a ticket binds to.
  */
@@ -81,7 +81,7 @@ const ticketRecordOf = ({ withPlanToPlan }: { withPlanToPlan: boolean }) => ({
 });
 
 /**
- * A worktree whose plan folder is a ticket folder: it holds `ticket.json`, and
+ * A worktree whose plan folder is a ticket folder: it holds `state.json`, and
  * the planning record of the plan still being planned sits in that plan's own
  * subfolder. It answers both the block drawn for the plan's address and the
  * block drawn for the ticket folder itself, which read differently, so a test
@@ -94,7 +94,7 @@ const setupTicketFolderWorktree = async ({ withPlanToPlan }: { withPlanToPlan: b
 	const ticketFolder = join(worktreePath, '.lightsout', 'tickets', planName);
 
 	await mkdir(ticketFolder, { recursive: true });
-	await writeFile(join(ticketFolder, 'ticket.json'), `${JSON.stringify(ticketRecordOf({ withPlanToPlan }), null, '\t')}\n`, 'utf8');
+	await writeFile(join(ticketFolder, 'state.json'), `${JSON.stringify(ticketRecordOf({ withPlanToPlan }), null, '\t')}\n`, 'utf8');
 
 	if (withPlanToPlan) {
 		const planDir = join(ticketFolder, secondPlanId);
@@ -110,7 +110,7 @@ const setupTicketFolderWorktree = async ({ withPlanToPlan }: { withPlanToPlan: b
 };
 
 /**
- * The same ticket folder, holding a `ticket.json` the record contract refuses.
+ * The same ticket folder, holding a `state.json` the record contract refuses.
  *
  * A record that cannot be read is never the same thing as a folder with no
  * record: the second is a legacy plan folder, and reading the first as one would
@@ -123,7 +123,7 @@ const setupUnreadableTicketFolder = async () => {
 	const ticketFolder = join(worktreePath, '.lightsout', 'tickets', planName);
 
 	await mkdir(ticketFolder, { recursive: true });
-	await writeFile(join(ticketFolder, 'ticket.json'), '{ "schemaVersion": 1 }\n', 'utf8');
+	await writeFile(join(ticketFolder, 'state.json'), '{ "schemaVersion": 1 }\n', 'utf8');
 
 	return { worktreePath };
 };
@@ -157,6 +157,6 @@ describe('loadActiveTicketBlock', () => {
 		// Never the ticket folder's own planning block: a record nothing can read
 		// is not a legacy plan folder, and drawing one would show a plan record
 		// for a plan nobody is writing.
-		expect(lines).toEqual([expect.stringContaining(join('.lightsout', 'tickets', planName, 'ticket.json'))]);
+		expect(lines).toEqual([expect.stringContaining(join('.lightsout', 'tickets', planName, 'state.json'))]);
 	});
 });

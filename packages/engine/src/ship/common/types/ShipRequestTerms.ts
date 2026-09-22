@@ -1,6 +1,6 @@
 /**
  * What a branch's ticket record says about the shipping of one run, produced by
- * the ticket module's `readTicketRunTerms` and carried through the CLI to
+ * the ticket module's `readWorkOrderRunTerms` and carried through the CLI to
  * {@link resolveShipIntent}.
  *
  * The shape is declared here, in `ship`, because `ship` is the module that

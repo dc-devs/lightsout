@@ -1,5 +1,5 @@
 import { readdir } from 'node:fs/promises';
-import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
+import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
 import { getTicketRunsDir } from '#src/runState/common/paths/getTicketRunsDir.ts';
 import { listRunLocations } from '#src/runState/common/paths/listRunLocations.ts';
 
@@ -25,7 +25,7 @@ interface Params {
  */
 export const listRunIds = async ({ cwd, ticketBranch }: Params): Promise<string[]> => {
 	const locations =
-		ticketBranch === undefined ? await listRunLocations({ cwd }) : [getTicketRunsDir({ ticketFolder: await ticketFolderDir({ cwd, ticketBranch }) })];
+		ticketBranch === undefined ? await listRunLocations({ cwd }) : [getTicketRunsDir({ ticketFolder: await workOrderFolderDir({ cwd, name: ticketBranch }) })];
 	const runIds: string[] = [];
 
 	for (const location of locations) {

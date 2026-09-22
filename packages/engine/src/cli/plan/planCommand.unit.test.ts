@@ -133,7 +133,7 @@ const setupTicketRecordFolder = ({ args, ticketBranch }: { args: string[]; ticke
 
 	mkdirSync(ticketFolder, { recursive: true });
 	writeFileSync(
-		join(ticketFolder, 'ticket.json'),
+		join(ticketFolder, 'state.json'),
 		JSON.stringify({
 			schemaVersion: 1,
 			ticketRef: 'LO-9',
@@ -386,7 +386,7 @@ describe('planCommand', () => {
 
 		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
 
-		// the refusal's own wording is pinned beside findBareTicketFolderRefusal;
+		// the refusal's own wording is pinned beside findBareWorkOrderFolderRefusal;
 		// what the dispatcher owns is that the one sentence reaches stderr whole,
 		// names the folder and says how to list the plans it holds
 		expect(errors).toHaveLength(1);

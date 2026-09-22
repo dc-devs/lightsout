@@ -17,7 +17,7 @@ import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 // down to one export.
 interface AddTicketPlanParams {
 	cwd: string;
-	ticketBranch: string;
+	name: string;
 	slug: string;
 	title?: string;
 	from?: string;
@@ -30,7 +30,7 @@ type AddTicketPlanResult = { address: string; record: WorkOrderState; notice?: s
 
 const mockAddTicketPlan = jest.fn<(params: AddTicketPlanParams) => Promise<AddTicketPlanResult>>();
 
-jest.mock('#src/ticket/index.ts', () => ({ addTicketPlan: (params: AddTicketPlanParams) => mockAddTicketPlan(params) }));
+jest.mock('#src/workOrder/index.ts', () => ({ addWorkOrderPlan: (params: AddTicketPlanParams) => mockAddTicketPlan(params) }));
 // -------------------------
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
@@ -74,7 +74,7 @@ describe('workOrderAddPlanCommand', () => {
 		// without it the record change can resolve no tracker to publish to
 		expect(mockAddTicketPlan.mock.calls[0]?.[0]).toMatchObject({
 			cwd: added.cwd,
-			ticketBranch: 'lo-140-x',
+			name: 'lo-140-x',
 			slug: 'fix',
 			title: 'Fix',
 			config: { 'ticket-tracker': { provider: 'linear', team: 'LO', 'api-key-env': 'LINEAR_API_KEY' } },
@@ -121,7 +121,7 @@ describe('workOrderAddPlanCommand', () => {
 
 		// --from names a folder's bare name under the plans directory, so it
 		// reaches the operation exactly as it was typed rather than resolved here
-		expect(mockAddTicketPlan.mock.calls[0]?.[0]).toMatchObject({ ticketBranch: 'lo-140-x', slug: 'fix', from: 'search-notes' });
+		expect(mockAddTicketPlan.mock.calls[0]?.[0]).toMatchObject({ name: 'lo-140-x', slug: 'fix', from: 'search-notes' });
 		// the address is the one thing a calling skill reads back, so it stays the
 		// last line for this form too
 		expect(logged.at(-1)).toContain('lo-140-x/003-fix');

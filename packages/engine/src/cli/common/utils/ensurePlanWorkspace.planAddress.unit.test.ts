@@ -57,13 +57,13 @@ type PullAnswer = { record: WorkOrderState | undefined } | { error: string };
 type RestoreAnswer = { restored: string[] } | { error: string };
 
 const mockFindBareTicketFolderRefusal = jest.fn<(params: { cwd: string; name: string }) => Promise<string | undefined>>();
-const mockPullTicketRecord = jest.fn<(params: { cwd: string; ticketBranch: string }) => Promise<PullAnswer>>();
+const mockPullTicketRecord = jest.fn<(params: { cwd: string; name: string }) => Promise<PullAnswer>>();
 const mockRestoreTicketPlan = jest.fn<(params: { cwd: string; address: string }) => Promise<RestoreAnswer>>();
 
-jest.mock('#src/ticket/index.ts', () => ({
-	findBareTicketFolderRefusal: (params: { cwd: string; name: string }) => mockFindBareTicketFolderRefusal(params),
-	pullTicketRecord: (params: { cwd: string; ticketBranch: string }) => mockPullTicketRecord(params),
-	restoreTicketPlan: (params: { cwd: string; address: string }) => mockRestoreTicketPlan(params),
+jest.mock('#src/workOrder/index.ts', () => ({
+	findBareWorkOrderFolderRefusal: (params: { cwd: string; name: string }) => mockFindBareTicketFolderRefusal(params),
+	pullWorkOrderState: (params: { cwd: string; name: string }) => mockPullTicketRecord(params),
+	restoreWorkOrderPlan: (params: { cwd: string; address: string }) => mockRestoreTicketPlan(params),
 }));
 // -------------------------
 // A plan addressed inside a ticket folder is fetched through the ticket record
@@ -147,7 +147,7 @@ const ticketRecord: WorkOrderState = {
 
 /**
  * A repo whose addressed plan is on no disk this gate can see, with stand-ins
- * for the two ticket-module steps it orchestrates: the pull writes ticket.json
+ * for the two ticket-module steps it orchestrates: the pull writes state.json
  * into the ticket folder of the checkout it was given, and the restore writes
  * the plan's own generation into the addressed folder. `inWorktree` puts a copy
  * of the plan folder in the ticket branch's tree at `<cwd>-worktrees/lo-9-x`.
@@ -167,10 +167,10 @@ const setupAddressedPlan = async ({
 	const tree = join(`${cwd}-worktrees`, recordedBranch);
 
 	mockFindBareTicketFolderRefusal.mockResolvedValue(refusal);
-	mockPullTicketRecord.mockImplementation(async ({ cwd: checkout, ticketBranch: branch }) => {
+	mockPullTicketRecord.mockImplementation(async ({ cwd: checkout, name: branch }) => {
 		if ('record' in pull && pull.record !== undefined) {
 			mkdirSync(planWorkspaceFolder({ cwd: checkout, name: branch }), { recursive: true });
-			writeFileSync(join(checkout, '.lightsout', 'tickets', branch, 'ticket.json'), JSON.stringify(pull.record));
+			writeFileSync(join(checkout, '.lightsout', 'tickets', branch, 'state.json'), JSON.stringify(pull.record));
 		}
 
 		return pull;
@@ -225,7 +225,7 @@ describe('ensurePlanWorkspace for a plan address', () => {
 
 		const { result, printed } = await ensure({ cwd, path: recordedPlanPath });
 
-		const settled = JSON.parse(readFileSync(join(cwd, recordedTicketFolder, 'ticket.json'), 'utf8')) as WorkOrderState;
+		const settled = JSON.parse(readFileSync(join(cwd, recordedTicketFolder, 'state.json'), 'utf8')) as WorkOrderState;
 
 		expect({
 			result,
@@ -271,7 +271,7 @@ describe('ensurePlanWorkspace for a plan address', () => {
 
 	test('ensurePlanWorkspace: for a plan address, names the missing folder and the ticket record divergence', async () => {
 		const divergence =
-			'the local ticket record and the published one both moved — the published copy was saved as ticket.published.json, so run `lightsout work-order sync --name lo-9-x` with --keep local or --keep published';
+			'the local ticket record and the published one both moved — the published copy was saved as state.published.json, so run `lightsout work-order sync --name lo-9-x` with --keep local or --keep published';
 		const { cwd } = await setupAddressedPlan({ pull: { error: divergence } });
 
 		const { result } = await ensure({ cwd, path: recordedPlanPath });

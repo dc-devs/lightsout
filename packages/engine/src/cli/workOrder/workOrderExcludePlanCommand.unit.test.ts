@@ -16,7 +16,7 @@ import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 // every sibling subcommand against a ticket module mocked down to one export.
 interface ExcludeTicketPlanParams {
 	cwd: string;
-	ticketBranch: string;
+	name: string;
 	plan: string;
 	reason: string;
 	implementationRemoved: boolean;
@@ -29,7 +29,7 @@ type ExcludeTicketPlanResult = { record: WorkOrderState; notice?: string; publis
 
 const mockExcludeTicketPlan = jest.fn<(params: ExcludeTicketPlanParams) => Promise<ExcludeTicketPlanResult>>();
 
-jest.mock('#src/ticket/index.ts', () => ({ excludeTicketPlan: (params: ExcludeTicketPlanParams) => mockExcludeTicketPlan(params) }));
+jest.mock('#src/workOrder/index.ts', () => ({ excludeWorkOrderPlan: (params: ExcludeTicketPlanParams) => mockExcludeTicketPlan(params) }));
 // -------------------------
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
@@ -75,7 +75,7 @@ describe('workOrderExcludePlanCommand', () => {
 		// what lets the branch verification record a verified commit
 		expect(mockExcludeTicketPlan.mock.calls[0]?.[0]).toMatchObject({
 			cwd: removed.cwd,
-			ticketBranch: 'lo-140-x',
+			name: 'lo-140-x',
 			plan: '2',
 			reason: 'dropped',
 			implementationRemoved: true,

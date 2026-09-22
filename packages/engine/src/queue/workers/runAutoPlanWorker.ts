@@ -9,7 +9,7 @@ import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { buildTicketPlans } from '#src/queue/workers/buildTicketPlans.ts';
 import { chooseAutoPlanTarget } from '#src/queue/workers/chooseAutoPlanTarget.ts';
-import { pullTicketRecord } from '#src/ticket/index.ts';
+import { pullWorkOrderState } from '#src/workOrder/index.ts';
 
 interface Params {
 	/** The worktree the ticket is planned and built in. */
@@ -158,7 +158,7 @@ export const runAutoPlanWorker = async ({
 
 	// Read again rather than reused: publishing the plan moved it from still being
 	// planned to ready to implement, and the build loop reads that progress.
-	const planned = await pullTicketRecord({ cwd, ticketBranch: branch, config, env, onProgress });
+	const planned = await pullWorkOrderState({ cwd, name: branch, config, env, onProgress });
 
 	if ('error' in planned) {
 		return { error: planned.error };

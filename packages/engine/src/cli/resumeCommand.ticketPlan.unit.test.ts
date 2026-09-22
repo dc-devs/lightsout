@@ -107,7 +107,7 @@ const planWith = ({
 
 /** The ticket's record as it stands on disk in the checkout the run builds in. */
 const readRecord = ({ workspace }: { workspace: string }): WorkOrderState =>
-	JSON.parse(readFileSync(join(workspace, '.lightsout', 'tickets', ticketBranch, 'ticket.json'), 'utf8'));
+	JSON.parse(readFileSync(join(workspace, '.lightsout', 'tickets', ticketBranch, 'state.json'), 'utf8'));
 
 /**
  * A linked worktree of the ticket's checkout — the workspace an isolated run
@@ -170,7 +170,7 @@ const setupTicketResume = ({
 	const workspace = isolated ? cutRunWorktree({ primary }) : primary;
 	const record: WorkOrderState = { schemaVersion: 1, ticketRef: 'LO-140', branch: ticketBranch, mode, plans, history: [] };
 
-	writeRepoFile({ cwd: primary, path: join('.lightsout', 'tickets', ticketBranch, 'ticket.json'), content: JSON.stringify(record) });
+	writeRepoFile({ cwd: primary, path: join('.lightsout', 'tickets', ticketBranch, 'state.json'), content: JSON.stringify(record) });
 
 	for (const entry of plans) {
 		writeRepoFile({ cwd: primary, path: planPath({ planId: entry.id }), content: `# ${entry.title}\n` });

@@ -38,9 +38,9 @@ interface PullTicketRecordParams {
 
 const mockPullTicketRecord = jest.fn<(params: PullTicketRecordParams) => Promise<{ record: WorkOrderState | undefined } | { error: string }>>();
 
-jest.mock('#src/ticket/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticket/index.ts')>('#src/ticket/index.ts'),
-	pullTicketRecord: (params: PullTicketRecordParams) => mockPullTicketRecord(params),
+jest.mock('#src/workOrder/index.ts', () => ({
+	...jest.requireActual<typeof import('#src/workOrder/index.ts')>('#src/workOrder/index.ts'),
+	pullWorkOrderState: (params: PullTicketRecordParams) => mockPullTicketRecord(params),
 }));
 // -------------------------
 // Whether the worktree holds uncommitted work is git's answer, and no case here

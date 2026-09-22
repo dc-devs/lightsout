@@ -13,7 +13,7 @@ import {
 } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { planWorkspacePath } from '#src/plan/index.ts';
-import { updateLocalTicketRecord } from '#src/ticket/index.ts';
+import { updateLocalWorkOrderState } from '#src/workOrder/index.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 
 /** What a test file's `jest.mock` of the git module hands this fixture to answer HEAD with. */
@@ -93,7 +93,7 @@ interface LifecycleSetup {
 	/** The plans the ticket record holds. Omitted entirely, no record is written at all. */
 	plans?: WorkOrderPlan[];
 	mode?: WorkOrderMode;
-	/** The sidecar's per-plan markers, written as `ticket-sync.json`. Omitted, no sidecar is written. */
+	/** The sidecar's per-plan markers, written as `state-sync.json`. Omitted, no sidecar is written. */
 	planMarkers?: Record<string, string>;
 	/** The plan's own files: a single `plan.md`, or an `overview.md` with one phase file beside it. */
 	folder?: 'single' | 'phased';
@@ -137,7 +137,7 @@ export const setupTicketPlanLifecycle = async (setup: LifecycleSetup) => {
 	const head = 'head' in setup ? setup.head : headCommit;
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-plan-lifecycle-'));
 	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
-	const recordPath = join(ticketFolder, 'ticket.json');
+	const recordPath = join(ticketFolder, 'state.json');
 	const planFolder = planWorkspaceFolder({ cwd: cwd, name: name });
 
 	// Reading HEAD is the one await between the record's first read and the locked
@@ -159,12 +159,12 @@ export const setupTicketPlanLifecycle = async (setup: LifecycleSetup) => {
 	}
 
 	if (plans !== undefined) {
-		await updateLocalTicketRecord({ cwd, ticketBranch, change: () => recordOf({ mode, plans }) });
+		await updateLocalWorkOrderState({ cwd, name: ticketBranch, change: () => recordOf({ mode, plans }) });
 	}
 
 	if (planMarkers !== undefined) {
 		mkdirSync(ticketFolder, { recursive: true });
-		writeFileSync(join(ticketFolder, 'ticket-sync.json'), JSON.stringify({ schemaVersion: 1, planMarkers }));
+		writeFileSync(join(ticketFolder, 'state-sync.json'), JSON.stringify({ schemaVersion: 1, planMarkers }));
 	}
 
 	if (corrupt) {

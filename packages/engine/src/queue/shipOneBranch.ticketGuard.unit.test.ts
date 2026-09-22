@@ -21,7 +21,7 @@ import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { shipOneBranch } from '#src/queue/shipOneBranch.ts';
 import type { ShipTicketGuard } from '#src/ship/index.ts';
-import { updateLocalTicketRecord } from '#src/ticket/index.ts';
+import { updateLocalWorkOrderState } from '#src/workOrder/index.ts';
 import { createWorktree } from '#src/worktree/index.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { shipIntegrationFixture } from '#tests/helpers/shipIntegrationFixture.ts';
@@ -157,7 +157,7 @@ const unauthorizedRecordOf = ({ branch }: { branch: string }): WorkOrderState =>
 const setupUnauthorizedTicket = async () => {
 	const { cwd, outcome } = await setupReadyBranch();
 
-	await updateLocalTicketRecord({ cwd, ticketBranch: outcome.branch, change: () => unauthorizedRecordOf({ branch: outcome.branch }) });
+	await updateLocalWorkOrderState({ cwd, name: outcome.branch, change: () => unauthorizedRecordOf({ branch: outcome.branch }) });
 	mockRunShip.mockImplementation(async ({ cwd: shipCwd, ticketGuard }) => {
 		const refusal = await ticketGuard.authorize({ cwd: shipCwd, branch: outcome.branch });
 

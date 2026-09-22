@@ -39,7 +39,7 @@ const setupTicketFolderRecords = async ({ branch = 'lo-70-drain' }: { branch?: s
 		throw new Error(`the record for ${branch} was never written, so this test would prove nothing`);
 	}
 
-	writeFileSync(join(ticketFolder, 'ticket.json'), `{"branch":"${branch}"}\n`);
+	writeFileSync(join(ticketFolder, 'state.json'), `{"branch":"${branch}"}\n`);
 
 	return { branch, cwd, ticketFolder };
 };
@@ -82,7 +82,7 @@ describe('deleteWorktreeRecord', () => {
 
 		await deleteWorktreeRecord({ cwd, branch });
 
-		expect(readdirSync(ticketFolder)).toStrictEqual(['ticket.json']);
+		expect(readdirSync(ticketFolder)).toStrictEqual(['state.json']);
 		expect(await readWorktreeRecord({ cwd, branch })).toBe(undefined);
 	});
 

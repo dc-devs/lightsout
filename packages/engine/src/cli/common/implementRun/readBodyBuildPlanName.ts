@@ -1,7 +1,7 @@
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
 import { PlanProgress, WorkOrderMode } from '#src/contracts/index.ts';
-import { readTicketRecord } from '#src/ticket/index.ts';
+import { readWorkOrderState } from '#src/workOrder/index.ts';
 
 interface Params {
 	/** The checkout the build happens in, whose primary checkout holds the ticket record. */
@@ -27,7 +27,7 @@ export const readBodyBuildPlanName = async ({ cwd, branch }: Params): Promise<st
 		return undefined;
 	}
 
-	const read = await readTicketRecord({ cwd, ticketBranch: branch });
+	const read = await readWorkOrderState({ cwd, name: branch });
 
 	if ('error' in read) {
 		return { error: read.error };

@@ -201,7 +201,7 @@ test('a ticket folder lists one row per plan under its plan address, and no row 
 test("a ticket folder's own files and a subfolder that is no plan contribute no row of their own", async () => {
 	const cwd = await freshCwd();
 
-	await seedWorkspace({ cwd, name: 'lo-7-search', files: { 'ticket.json': '{}' } });
+	await seedWorkspace({ cwd, name: 'lo-7-search', files: { 'state.json': '{}' } });
 	await seedWorkspace({ cwd, name: 'lo-7-search/001-basics', files: { 'plan.md': '# basics' } });
 	await seedWorkspace({ cwd, name: 'lo-7-search/scratch', files: { 'notes.md': '# scratch' } });
 
@@ -324,7 +324,7 @@ test('listPlanWorkspaces: a ticket holding plan folders contributes one row per 
 test('listPlanWorkspaces: a loose-file ticket is one row, and neither its records nor a runs sibling becomes one', async () => {
 	const cwd = await freshCwd();
 
-	await seedTicketFolder({ cwd, path: 'lo-9-notes', files: { 'ticket.json': '{}', 'ticket-sync.json': '{}' } });
+	await seedTicketFolder({ cwd, path: 'lo-9-notes', files: { 'state.json': '{}', 'state-sync.json': '{}' } });
 	await seedTicketFolder({ cwd, path: 'lo-9-notes/plans', files: { 'brainstorm-notes.md': '# rough', 'facts.json': '{}' } });
 	await seedTicketFolder({ cwd, path: 'lo-9-notes/runs/run-loose', files: { 'manifest.json': '{}' } });
 

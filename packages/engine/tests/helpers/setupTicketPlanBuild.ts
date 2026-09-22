@@ -46,7 +46,7 @@ export interface TicketPlanBuildMocks {
 	runDirectWork: jest.Mock<(params: DirectCall) => Promise<PipelineResult>>;
 	commitTicketWork: jest.Mock<(params: { cwd: string; message: string; runDir: string }) => Promise<CommitResult>>;
 	readGitChangedFiles: jest.Mock<(params: { cwd: string }) => Promise<string[] | undefined>>;
-	restoreTicketPlan: jest.Mock<(params: { cwd: string; address: string }) => Promise<{ restored: string[] } | { error: string }>>;
+	restoreWorkOrderPlan: jest.Mock<(params: { cwd: string; address: string }) => Promise<{ restored: string[] } | { error: string }>>;
 }
 
 export const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
@@ -133,7 +133,7 @@ export const planFile = ({ cwd, planId }: { cwd: string; planId: string }): stri
 
 /** One plan's entry in the ticket's record as it stands on disk once the call has returned. */
 export const planAt = ({ cwd, id }: { cwd: string; id: string }): WorkOrderPlan | undefined =>
-	(JSON.parse(readFileSync(join(cwd, '.lightsout', 'tickets', ticketBranch, 'ticket.json'), 'utf8')) as WorkOrderState).plans.find((plan) => plan.id === id);
+	(JSON.parse(readFileSync(join(cwd, '.lightsout', 'tickets', ticketBranch, 'state.json'), 'utf8')) as WorkOrderState).plans.find((plan) => plan.id === id);
 
 /**
  * A real repository standing on the ticket branch, holding the ticket's record
@@ -187,7 +187,7 @@ export const setupTicketPlanBuild = ({
 		writeFileSync(join(ticketFolder, 'plans', plan.id, 'plan.md'), `# ${plan.id}\n`);
 	}
 
-	writeFileSync(join(ticketFolder, 'ticket.json'), JSON.stringify(record));
+	writeFileSync(join(ticketFolder, 'state.json'), JSON.stringify(record));
 
 	mocks.runImplementPipeline.mockImplementation(({ planPath }) => {
 		calls.push(`build ${planPath}`);
@@ -224,7 +224,7 @@ export const setupTicketPlanBuild = ({
 	// The worktree is clean again once the leftovers have been settled, exactly
 	// as a real read of it would report.
 	mocks.readGitChangedFiles.mockResolvedValueOnce(leftover).mockResolvedValue([]);
-	mocks.restoreTicketPlan.mockImplementation(({ cwd: target, address }) => {
+	mocks.restoreWorkOrderPlan.mockImplementation(({ cwd: target, address }) => {
 		calls.push(`restore ${address}`);
 
 		if (!restoreWrites) {

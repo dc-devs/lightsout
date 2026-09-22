@@ -144,7 +144,7 @@ const setupTicketPlanFolder = ({ plans, result }: { plans: WorkOrderPlan[]; resu
 		writeFileSync(join(ticketFolder, 'plans', plan.id, 'plan.md'), `# ${plan.id}\n`);
 	}
 
-	writeFileSync(join(ticketFolder, 'ticket.json'), JSON.stringify(record));
+	writeFileSync(join(ticketFolder, 'state.json'), JSON.stringify(record));
 	mockRunPhasesPipeline.mockResolvedValue(result);
 	mockRunImplementPipeline.mockResolvedValue(result);
 
@@ -155,7 +155,7 @@ const setupTicketPlanFolder = ({ plans, result }: { plans: WorkOrderPlan[]; resu
 
 /** One plan's entry in the ticket's record as it stands on disk once the call has returned. */
 const planAt = ({ ticketFolder, id }: { ticketFolder: string; id: string }) =>
-	(JSON.parse(readFileSync(join(ticketFolder, 'ticket.json'), 'utf8')) as WorkOrderState).plans.find((plan) => plan.id === id);
+	(JSON.parse(readFileSync(join(ticketFolder, 'state.json'), 'utf8')) as WorkOrderState).plans.find((plan) => plan.id === id);
 
 describe('runPlanFolderPipeline', () => {
 	test('runs the phases pipeline against the overview a phased plan folder holds', async () => {

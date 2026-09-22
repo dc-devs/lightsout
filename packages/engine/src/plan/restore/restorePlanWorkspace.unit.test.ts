@@ -378,10 +378,10 @@ describe('restorePlanWorkspace', () => {
 		expect(folderOf({ dir })).toBeUndefined();
 	});
 
-	test('restorePlanWorkspace: without a title prefix, ignores every prefixed title and ticket.json', async () => {
+	test('restorePlanWorkspace: without a title prefix, ignores every prefixed title and state.json', async () => {
 		const prefixed = ['001-a', '002-fix'].flatMap((prefix) => generationOf({ prefix, files: ['plan.md', 'decisions.json'] }).assets);
 		const bare = generationOf({ files: ['plan.md', 'grade.json'] }).assets;
-		const { cwd, dir } = setupTitled({ planName: name, assets: [...prefixed, { title: 'ticket.json', body: '{}\n' }, ...bare] });
+		const { cwd, dir } = setupTitled({ planName: name, assets: [...prefixed, { title: 'state.json', body: '{}\n' }, ...bare] });
 
 		const restored = await restore({ cwd });
 

@@ -12,7 +12,7 @@ import { buildFromTicketBody } from '#src/queue/workers/common/utils/buildFromTi
 import { findStalledPlanRefusal } from '#src/queue/workers/common/utils/findStalledPlanRefusal.ts';
 import { settleLeftoverWork } from '#src/queue/workers/common/utils/settleLeftoverWork.ts';
 import { runPlanFolderPipeline } from '#src/queue/workers/runPlanFolderPipeline.ts';
-import { readTicketRecord, readTicketShipEligibility, restoreTicketPlan } from '#src/ticket/index.ts';
+import { readWorkOrderShipEligibility, readWorkOrderState, restoreWorkOrderPlan } from '#src/workOrder/index.ts';
 
 interface Params {
 	/** The ticket's worktree: where each plan is restored, built and committed. */
@@ -80,7 +80,7 @@ const buildReadyPlan = async ({ step }: { step: TicketPlanStep }) => {
 	const address = formatPlanAddress({ ticketBranch: record.branch, planId: plan.id });
 
 	if (!(await pathExists({ path: await planWorkspaceDir({ cwd, name: address }) }))) {
-		const restored = await restoreTicketPlan({ cwd, address, config, env, onProgress });
+		const restored = await restoreWorkOrderPlan({ cwd, address, config, env, onProgress });
 
 		if ('error' in restored) {
 			return { error: restored.error };
@@ -105,7 +105,7 @@ const buildReadyPlan = async ({ step }: { step: TicketPlanStep }) => {
  */
 const confirmPlanImplemented = async ({ step, branch }: { step: TicketPlanStep; branch: string }) => {
 	const { cwd, plan } = step;
-	const reread = await readTicketRecord({ cwd, ticketBranch: branch });
+	const reread = await readWorkOrderState({ cwd, name: branch });
 
 	if ('error' in reread) {
 		return reread;
@@ -124,7 +124,7 @@ const confirmPlanImplemented = async ({ step, branch }: { step: TicketPlanStep; 
 
 /** What the record says about the ticket once there is nothing left to build: ship it, leave it open, or park it. */
 const decideTicketOutcome = ({ record }: { record: WorkOrderState }) => {
-	const eligibility = readTicketShipEligibility({ record });
+	const eligibility = readWorkOrderShipEligibility({ record });
 
 	if (eligibility.eligible) {
 		return {};

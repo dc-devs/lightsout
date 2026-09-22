@@ -1,0 +1,112 @@
+import { sha256 } from '#src/common/utils/sha256.ts';
+import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
+import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
+import { publishedButUnrecorded } from '#src/workOrder/common/constants/publishedButUnrecorded.ts';
+import { WorkOrderSyncKeep } from '#src/workOrder/common/constants/WorkOrderSyncKeep.ts';
+import { workOrderFileNames } from '#src/workOrder/common/constants/workOrderFileNames.ts';
+import type { TicketTrackerTarget } from '#src/workOrder/common/types/TicketTrackerTarget.ts';
+import { attachWorkOrderStateIfUnmoved } from '#src/workOrder/common/utils/attachWorkOrderStateIfUnmoved.ts';
+import { readWorkOrderSyncState } from '#src/workOrder/common/utils/readWorkOrderSyncState.ts';
+import { recordWorkOrderSyncState } from '#src/workOrder/common/utils/recordWorkOrderSyncState.ts';
+import { resolveWorkOrderTrackerTarget } from '#src/workOrder/common/utils/resolveWorkOrderTrackerTarget.ts';
+import { serializeWorkOrderState } from '#src/workOrder/common/utils/serializeWorkOrderState.ts';
+import { keepLocalWorkOrderState, keepPublishedWorkOrderState } from '#src/workOrder/divergence/index.ts';
+import { pullWorkOrderState } from '#src/workOrder/pullWorkOrderState.ts';
+
+interface Params {
+	/** Any checkout of the repository the command was launched from. */
+	cwd: string;
+	name: string;
+	config: LightsoutConfig;
+	/** The process environment the tracker API key is read from. */
+	env: NodeJS.ProcessEnv;
+	/** Which copy the human chose, when a divergence has already been surfaced. Absent asks for the ordinary pull-and-catch-up. */
+	keep: WorkOrderSyncKeep | undefined;
+	onProgress?: (message: string) => void;
+}
+
+/**
+ * The ordinary sync: pull, and publish a local record that has moved since this
+ * machine last sent one.
+ *
+ * This is how a publish that failed earlier is retried — the sidecar still
+ * names older bytes than the record, which is exactly the state a failed
+ * publish leaves behind.
+ */
+const catchUpTicketRecord = async ({
+	cwd,
+	name,
+	config,
+	env,
+	target,
+	onProgress,
+}: {
+	cwd: string;
+	name: string;
+	config: LightsoutConfig;
+	env: NodeJS.ProcessEnv;
+	target: TicketTrackerTarget;
+	onProgress?: (message: string) => void;
+}): Promise<{ record: WorkOrderState } | { error: string }> => {
+	const pulled = await pullWorkOrderState({ cwd, name, config, env, onProgress });
+
+	if ('error' in pulled) {
+		return pulled;
+	}
+
+	if (pulled.record === undefined) {
+		return { error: `there is no ${workOrderFileNames.record} for '${name}' on this machine or on ${target.ticketRef}, so there is nothing to sync` };
+	}
+
+	const workOrderFolder = await workOrderFolderDir({ cwd, name });
+	const syncState = await readWorkOrderSyncState({ workOrderFolder });
+	const localSha256 = sha256({ content: serializeWorkOrderState({ record: pulled.record }) });
+
+	if (localSha256 === syncState?.recordSha256) {
+		onProgress?.(`the work order state for '${name}' already matches the copy on ${target.ticketRef}`);
+
+		return { record: pulled.record };
+	}
+
+	const attached = await attachWorkOrderStateIfUnmoved({ cwd, name, target, expectedPublishedSha256: syncState?.recordSha256, onProgress });
+
+	if ('error' in attached) {
+		return attached;
+	}
+
+	const recorded = await recordWorkOrderSyncState({ workOrderFolder, recordSha256: attached.attachedSha256, failure: publishedButUnrecorded });
+
+	return recorded === undefined ? { record: pulled.record } : recorded;
+};
+
+/**
+ * Bring this machine's work order state and the ticket's own copy back into
+ * agreement — by catching up, or by the choice a human made about a divergence.
+ *
+ * Syncing is the one command whose whole subject is the tracker, so a ticket
+ * with nowhere to publish to is refused by name rather than quietly answered
+ * from local files. Without `--keep` it does what every other command's pull
+ * does and then sends anything this machine still owes; with `--keep` it
+ * carries out a decision, which is the only way a divergence is ever resolved.
+ */
+export const syncWorkOrderState = async ({ cwd, name, config, env, keep, onProgress }: Params): Promise<{ record: WorkOrderState } | { error: string }> => {
+	const target = resolveWorkOrderTrackerTarget({ config, env, name });
+
+	if ('error' in target) {
+		return target;
+	}
+
+	if ('localOnly' in target) {
+		return { error: `${target.localOnly} — \`lightsout work-order sync\` needs a configured tracker to sync against` };
+	}
+
+	if (keep === WorkOrderSyncKeep.Published) {
+		return keepPublishedWorkOrderState({ cwd, name, config, env, target, onProgress });
+	}
+
+	if (keep === WorkOrderSyncKeep.Local) {
+		return keepLocalWorkOrderState({ cwd, name, config, env, target, onProgress });
+	}
+
+	return catchUpTicketRecord({ cwd, name, config, env, target, onProgress });
+};

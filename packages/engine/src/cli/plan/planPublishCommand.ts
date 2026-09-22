@@ -7,7 +7,7 @@ import { readConfig } from '#src/common/config/readConfig.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { PlanningStep, RunStatus } from '#src/contracts/index.ts';
 import { publishPlan, recordPlanCommandRun, recordPlanningStep } from '#src/plan/index.ts';
-import { publishTicketPlan } from '#src/ticket/index.ts';
+import { publishWorkOrderPlan } from '#src/workOrder/index.ts';
 
 /** What the two publishers have in common, so one printing sequence serves both. */
 interface PlanPublishOutcome {
@@ -15,7 +15,7 @@ interface PlanPublishOutcome {
 	published: string[];
 	stale: string[];
 	error?: string;
-	/** Set by the ticket publisher when the plan's files landed but `ticket.json` does not say so. */
+	/** Set by the work order publisher when the plan's files landed but `state.json` does not say so. */
 	recordError?: string;
 }
 
@@ -28,8 +28,8 @@ interface PlanPublishOutcome {
  * a repo with no config has nothing to resolve and is refused by name, the way
  * `queueCommand` treats the same requirement.
  *
- * A plan named by its address publishes through the ticket record, which also
- * puts its brainstorm generation and `ticket.json` on the ticket; a legacy
+ * A plan named by its address publishes through the work order state, which also
+ * puts its brainstorm generation and `state.json` on the ticket; a legacy
  * folder publishes exactly as it always has, under bare titles and with no
  * record touched.
  *
@@ -64,7 +64,7 @@ export const planPublishCommand = async ({ flags, cwd }: CommandContext): Promis
 				work: (): Promise<PlanPublishOutcome> =>
 					address === undefined
 						? publishPlan({ cwd, name, config, env: process.env, onProgress: createProgressPrinter() })
-						: publishTicketPlan({ cwd, address: name, config, env: process.env, onProgress: createProgressPrinter() }),
+						: publishWorkOrderPlan({ cwd, address: name, config, env: process.env, onProgress: createProgressPrinter() }),
 				statusOf,
 			}),
 	});
