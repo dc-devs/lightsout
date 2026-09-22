@@ -1,8 +1,8 @@
-import type { TicketEventKind, TicketRecord } from '#src/contracts/index.ts';
+import type { WorkOrderEventKind, WorkOrderState } from '#src/contracts/index.ts';
 
 interface Params {
-	record: TicketRecord;
-	kind: TicketEventKind;
+	record: WorkOrderState;
+	kind: WorkOrderEventKind;
 	detail: string;
 	/** ISO timestamp of the moment the event happened. */
 	at: string;
@@ -16,7 +16,7 @@ interface Params {
  * event — which is what makes the store's append-only rule something the
  * operations satisfy by construction rather than by care.
  */
-export const appendTicketEvent = ({ record, kind, detail, at }: Params): TicketRecord => ({
+export const appendTicketEvent = ({ record, kind, detail, at }: Params): WorkOrderState => ({
 	...record,
 	history: [...record.history, { at, kind, detail }],
 });

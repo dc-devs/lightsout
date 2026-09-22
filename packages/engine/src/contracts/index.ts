@@ -147,7 +147,6 @@ export {
 	StandardsSeverity,
 	StandardsSnapshot,
 } from '#src/contracts/standardsCheck/index.ts';
-export { PlanId, PlanProgress, TicketEventKind, TicketMode, TicketPlan, TicketRecord, TicketSyncState } from '#src/contracts/ticket/index.ts';
 export {
 	AgentInvocation,
 	ConfigFieldView,
@@ -187,4 +186,5 @@ export {
 	WorkReportStatus,
 	WritersReport,
 } from '#src/contracts/work/index.ts';
+export { PlanId, PlanProgress, WorkOrderEventKind, WorkOrderMode, WorkOrderPlan, WorkOrderState, WorkOrderSyncState } from '#src/contracts/workOrder/index.ts';
 export { WorktreeOwner, WorktreeRecord } from '#src/contracts/worktree/index.ts';

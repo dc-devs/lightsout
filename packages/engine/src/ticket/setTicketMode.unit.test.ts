@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type LightsoutConfig, PlanProgress, TicketEventKind, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, WorkOrderEventKind, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
 import { setTicketMode, type TicketRecordChange, updateLocalTicketRecord } from '#src/ticket/index.ts';
 
 /** The ticket folder's name, which is also the branch every record below names. */
@@ -21,8 +21,8 @@ const planWith = ({
 }: {
 	id: string;
 	progress?: PlanProgress;
-	exclusion?: TicketPlan['exclusion'];
-}): TicketPlan => ({
+	exclusion?: WorkOrderPlan['exclusion'];
+}): WorkOrderPlan => ({
 	id,
 	title: `Plan ${id}`,
 	progress,
@@ -37,17 +37,17 @@ const planWith = ({
  * the record local and every assertion below is about this machine's own bytes.
  */
 const setupTicketMode = async ({
-	mode = TicketMode.MultiplePlan,
+	mode = WorkOrderMode.MultiplePlan,
 	plans = [],
 	shipRequest,
 	afterImplement = false,
 	seeded = true,
 	ticketPattern,
 }: {
-	mode?: TicketMode;
-	plans?: TicketPlan[];
+	mode?: WorkOrderMode;
+	plans?: WorkOrderPlan[];
 	/** The pending ship request the record starts with. */
-	shipRequest?: TicketRecord['shipRequest'];
+	shipRequest?: WorkOrderState['shipRequest'];
 	/** The repository's `ship.after-implement` value, which the preview has to describe. */
 	afterImplement?: boolean;
 	/** False leaves the ticket with no record at all. */
@@ -57,7 +57,7 @@ const setupTicketMode = async ({
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-ticket-mode-'));
 	const recordPath = join(cwd, '.lightsout', 'tickets', ticketBranch, 'ticket.json');
-	const record: TicketRecord = {
+	const record: WorkOrderState = {
 		schemaVersion: 1,
 		ticketRef: 'LO-140',
 		branch: ticketBranch,
@@ -89,21 +89,21 @@ const setupTicketMode = async ({
 };
 
 /** The record as it stands on disk, which is what every later command reads. */
-const writtenRecordAt = ({ recordPath }: { recordPath: string }) => JSON.parse(readFileSync(recordPath, 'utf8')) as TicketRecord;
+const writtenRecordAt = ({ recordPath }: { recordPath: string }) => JSON.parse(readFileSync(recordPath, 'utf8')) as WorkOrderState;
 
 /** The refusal sentence, or an empty string when the switch went through. */
 const errorOf = ({ outcome }: { outcome: TicketRecordChange | { error: string } }) => ('error' in outcome ? outcome.error : '');
 
-const planOf = ({ record, id }: { record: TicketRecord; id: string }) => record.plans.find((plan) => plan.id === id);
+const planOf = ({ record, id }: { record: WorkOrderState; id: string }) => record.plans.find((plan) => plan.id === id);
 
 describe('setTicketMode', () => {
 	test('switches a single-plan ticket to multiple-plan mode and says a ship request is now needed', async () => {
 		const { params, recordPath } = await setupTicketMode({
-			mode: TicketMode.SinglePlan,
+			mode: WorkOrderMode.SinglePlan,
 			plans: [planWith({ id: '001-record', progress: PlanProgress.Ready })],
 		});
 
-		const result = await setTicketMode({ ...params, mode: TicketMode.MultiplePlan, approve: false });
+		const result = await setTicketMode({ ...params, mode: WorkOrderMode.MultiplePlan, approve: false });
 
 		const written = writtenRecordAt({ recordPath });
 
@@ -114,7 +114,7 @@ describe('setTicketMode', () => {
 			}),
 		);
 		expect(written.mode).toBe('multiple-plan');
-		expect(written.history.map((event) => event.kind)).toStrictEqual([TicketEventKind.ModeChanged]);
+		expect(written.history.map((event) => event.kind)).toStrictEqual([WorkOrderEventKind.ModeChanged]);
 	});
 
 	test('previews the switch to single-plan mode without --approve, naming the later plans, and changes nothing', async () => {
@@ -122,7 +122,7 @@ describe('setTicketMode', () => {
 			plans: [planWith({ id: '001-record', progress: PlanProgress.Ready }), planWith({ id: '002-queue-order' })],
 		});
 
-		const result = await setTicketMode({ ...params, mode: TicketMode.SinglePlan, approve: false });
+		const result = await setTicketMode({ ...params, mode: WorkOrderMode.SinglePlan, approve: false });
 
 		expect(errorOf({ outcome: result })).toContain('002-queue-order');
 		expect(errorOf({ outcome: result })).toContain('--approve');
@@ -136,8 +136,8 @@ describe('setTicketMode', () => {
 
 		// The criterion is a comparison: the same preview text for both values of
 		// the setting would tell the human nothing about their own repository.
-		const chainingPreview = errorOf({ outcome: await setTicketMode({ ...chaining.params, mode: TicketMode.SinglePlan, approve: false }) });
-		const manualPreview = errorOf({ outcome: await setTicketMode({ ...manual.params, mode: TicketMode.SinglePlan, approve: false }) });
+		const chainingPreview = errorOf({ outcome: await setTicketMode({ ...chaining.params, mode: WorkOrderMode.SinglePlan, approve: false }) });
+		const manualPreview = errorOf({ outcome: await setTicketMode({ ...manual.params, mode: WorkOrderMode.SinglePlan, approve: false }) });
 
 		expect(chainingPreview).toContain('ship.after-implement');
 		expect(chainingPreview).toMatch(/implement/i);
@@ -157,7 +157,7 @@ describe('setTicketMode', () => {
 			plans: [planWith({ id: '001-record', progress: PlanProgress.Implemented }), planWith({ id: '002-queue-order', progress: PlanProgress.Ready })],
 		});
 
-		const result = await setTicketMode({ ...params, mode: TicketMode.SinglePlan, approve: false });
+		const result = await setTicketMode({ ...params, mode: WorkOrderMode.SinglePlan, approve: false });
 
 		const preview = errorOf({ outcome: result });
 
@@ -176,7 +176,7 @@ describe('setTicketMode', () => {
 			shipRequest: { planIds: ['001-record', '002-queue-order', '003-ship-guard'], requestedAt: '2026-03-04T09:00:00.000Z' },
 		});
 
-		await setTicketMode({ ...params, mode: TicketMode.SinglePlan, approve: true });
+		await setTicketMode({ ...params, mode: WorkOrderMode.SinglePlan, approve: true });
 
 		const written = writtenRecordAt({ recordPath });
 
@@ -190,10 +190,10 @@ describe('setTicketMode', () => {
 			expect.objectContaining({ implementationRemoved: false, reason: expect.stringContaining('single-plan') }),
 		);
 		expect(written.history.map((event) => event.kind)).toStrictEqual([
-			TicketEventKind.PlanExcluded,
-			TicketEventKind.PlanExcluded,
-			TicketEventKind.ShipRequestWithdrawn,
-			TicketEventKind.ModeChanged,
+			WorkOrderEventKind.PlanExcluded,
+			WorkOrderEventKind.PlanExcluded,
+			WorkOrderEventKind.ShipRequestWithdrawn,
+			WorkOrderEventKind.ModeChanged,
 		]);
 		expect(written.history[0]?.detail).toContain('002-queue-order');
 		expect(written.history[1]?.detail).toContain('003-ship-guard');
@@ -204,7 +204,7 @@ describe('setTicketMode', () => {
 			plans: [planWith({ id: '001-record', progress: PlanProgress.Ready }), planWith({ id: '002-queue-order', progress: PlanProgress.Implemented })],
 		});
 
-		const result = await setTicketMode({ ...params, mode: TicketMode.SinglePlan, approve: true });
+		const result = await setTicketMode({ ...params, mode: WorkOrderMode.SinglePlan, approve: true });
 
 		expect(errorOf({ outcome: result })).toContain('002-queue-order');
 		expect(errorOf({ outcome: result })).toContain('work-order exclude-plan --implementation-removed');
@@ -223,13 +223,13 @@ describe('setTicketMode', () => {
 			],
 		});
 
-		const result = await setTicketMode({ ...params, mode: TicketMode.SinglePlan, approve: false });
+		const result = await setTicketMode({ ...params, mode: WorkOrderMode.SinglePlan, approve: false });
 
 		const written = writtenRecordAt({ recordPath });
 
 		expect(result).toEqual(expect.objectContaining({ record: expect.objectContaining({ mode: 'single-plan' }) }));
 		expect(written.mode).toBe('single-plan');
-		expect(written.history.map((event) => event.kind)).toStrictEqual([TicketEventKind.ModeChanged]);
+		expect(written.history.map((event) => event.kind)).toStrictEqual([WorkOrderEventKind.ModeChanged]);
 		expect(planOf({ record: written, id: '002-queue-order' })?.exclusion).toStrictEqual({
 			at: '2026-03-05T09:00:00.000Z',
 			reason: 'its implementation was removed',
@@ -253,7 +253,7 @@ describe('setTicketMode', () => {
 			],
 		});
 
-		const result = await setTicketMode({ ...params, mode: TicketMode.SinglePlan, approve: true });
+		const result = await setTicketMode({ ...params, mode: WorkOrderMode.SinglePlan, approve: true });
 
 		expect(errorOf({ outcome: result })).toContain('002-queue-order');
 		expect(errorOf({ outcome: result })).toContain('work-order exclude-plan --implementation-removed');
@@ -275,8 +275,8 @@ describe('setTicketMode', () => {
 		// above 001 has no plan to put in single-plan mode's one seat at all.
 		const missing = await setupTicketMode({ plans: [planWith({ id: '002-queue-order', progress: PlanProgress.Ready })] });
 
-		const afterExcluded = await setTicketMode({ ...excluded.params, mode: TicketMode.SinglePlan, approve: true });
-		const afterMissing = await setTicketMode({ ...missing.params, mode: TicketMode.SinglePlan, approve: true });
+		const afterExcluded = await setTicketMode({ ...excluded.params, mode: WorkOrderMode.SinglePlan, approve: true });
+		const afterMissing = await setTicketMode({ ...missing.params, mode: WorkOrderMode.SinglePlan, approve: true });
 
 		expect(errorOf({ outcome: afterExcluded })).toContain('001-record');
 		expect(errorOf({ outcome: afterMissing })).toContain('001');
@@ -293,7 +293,7 @@ describe('setTicketMode', () => {
 			plans: [planWith({ id: '001-record', progress: PlanProgress.Ready }), planWith({ id: '002-queue-order' })],
 		});
 
-		const result = await setTicketMode({ ...params, mode: TicketMode.SinglePlan, approve: true });
+		const result = await setTicketMode({ ...params, mode: WorkOrderMode.SinglePlan, approve: true });
 
 		expect(errorOf({ outcome: result })).toContain('ship.ticket-pattern');
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
@@ -301,11 +301,11 @@ describe('setTicketMode', () => {
 
 	test('refuses a switch to the mode the ticket already has', async () => {
 		const { params, recordPath, before } = await setupTicketMode({
-			mode: TicketMode.SinglePlan,
+			mode: WorkOrderMode.SinglePlan,
 			plans: [planWith({ id: '001-record', progress: PlanProgress.Ready })],
 		});
 
-		const result = await setTicketMode({ ...params, mode: TicketMode.SinglePlan, approve: false });
+		const result = await setTicketMode({ ...params, mode: WorkOrderMode.SinglePlan, approve: false });
 
 		expect(errorOf({ outcome: result })).toContain('single-plan');
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
@@ -315,8 +315,8 @@ describe('setTicketMode', () => {
 		const { params, recordPath } = await setupTicketMode({ seeded: false });
 
 		// The criterion covers both directions: neither may create a record.
-		const toSingle = await setTicketMode({ ...params, mode: TicketMode.SinglePlan, approve: false });
-		const toMultiple = await setTicketMode({ ...params, mode: TicketMode.MultiplePlan, approve: false });
+		const toSingle = await setTicketMode({ ...params, mode: WorkOrderMode.SinglePlan, approve: false });
+		const toMultiple = await setTicketMode({ ...params, mode: WorkOrderMode.MultiplePlan, approve: false });
 
 		// A folder with no record is either a ticket nobody has started or one
 		// whose plans folder already holds loose files, and one command starts a
@@ -339,12 +339,12 @@ describe('setTicketMode', () => {
 		// The other half of the criterion: a ticket already in single-plan mode, so
 		// the switch goes through and answers the notice rather than a refusal.
 		const toMultiple = await setupTicketMode({
-			mode: TicketMode.SinglePlan,
+			mode: WorkOrderMode.SinglePlan,
 			plans: [planWith({ id: '001-record', progress: PlanProgress.Ready })],
 		});
 
-		const refused = await setTicketMode({ ...unaccounted.params, mode: TicketMode.SinglePlan, approve: true });
-		const switched = await setTicketMode({ ...toMultiple.params, mode: TicketMode.MultiplePlan, approve: false });
+		const refused = await setTicketMode({ ...unaccounted.params, mode: WorkOrderMode.SinglePlan, approve: true });
+		const switched = await setTicketMode({ ...toMultiple.params, mode: WorkOrderMode.MultiplePlan, approve: false });
 
 		const refusal = errorOf({ outcome: refused });
 		const notice = 'error' in switched ? undefined : switched.notice;

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { type LightsoutConfig, PlanProgress, TicketEventKind, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, WorkOrderEventKind, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
@@ -36,7 +36,7 @@ interface PullTicketRecordParams {
 	onProgress?: (message: string) => void;
 }
 
-const mockPullTicketRecord = jest.fn<(params: PullTicketRecordParams) => Promise<{ record: TicketRecord | undefined } | { error: string }>>();
+const mockPullTicketRecord = jest.fn<(params: PullTicketRecordParams) => Promise<{ record: WorkOrderState | undefined } | { error: string }>>();
 
 jest.mock('#src/ticket/index.ts', () => ({
 	...jest.requireActual<typeof import('#src/ticket/index.ts')>('#src/ticket/index.ts'),
@@ -75,7 +75,7 @@ const ticket: RunnableTicket = {
 };
 
 /** Plan 001, already built, so the loop walks past it to the plan each case is about. */
-const firstImplemented: TicketPlan = {
+const firstImplemented: WorkOrderPlan = {
 	id: '001-search-index',
 	title: 'Search index',
 	progress: PlanProgress.Implemented,
@@ -92,20 +92,20 @@ const firstImplemented: TicketPlan = {
  * the other repair path.
  */
 const setupOrderedBuild = ({ progress, runId }: { progress: PlanProgress; runId?: string }) => {
-	const second: TicketPlan = {
+	const second: WorkOrderPlan = {
 		id: '002-search-basics',
 		title: 'Search basics',
 		progress,
 		createdAt: '2026-01-01T00:00:00.000Z',
 		...(runId === undefined ? {} : { implementation: { runId, startedAt: '2026-01-02T00:00:00.000Z', startCommit: 'd4e5f6' } }),
 	};
-	const record: TicketRecord = {
+	const record: WorkOrderState = {
 		schemaVersion: 1,
 		ticketRef: 'LO-7',
 		branch,
-		mode: TicketMode.MultiplePlan,
+		mode: WorkOrderMode.MultiplePlan,
 		plans: [firstImplemented, second],
-		history: [{ at: '2026-01-01T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: 'added the first plan' }],
+		history: [{ at: '2026-01-01T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: 'added the first plan' }],
 	};
 
 	mockPullTicketRecord.mockResolvedValue({ record });

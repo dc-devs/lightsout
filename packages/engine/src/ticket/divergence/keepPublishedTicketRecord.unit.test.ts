@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, writeFi
 import { basename, dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { serializeAttachmentManifest } from '#src/common/attachmentManifest/serializeAttachmentManifest.ts';
-import { type LightsoutConfig, PlanProgress, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
 import { keepPublishedTicketRecord } from '#src/ticket/divergence/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
@@ -49,7 +49,7 @@ const planBody = 'body of plan.md\n';
 const planMarkerText = serializeAttachmentManifest({ files: [{ name: 'plan.md', content: Buffer.from(planBody, 'utf8') }] }).toString('utf8');
 const planMarkerSha256 = createHash('sha256').update(planMarkerText, 'utf8').digest('hex');
 
-const planOf = ({ publishedMarker }: { publishedMarker: string }): TicketPlan => ({
+const planOf = ({ publishedMarker }: { publishedMarker: string }): WorkOrderPlan => ({
 	id: planId,
 	title: 'Fix the thing',
 	progress: PlanProgress.Ready,
@@ -57,11 +57,11 @@ const planOf = ({ publishedMarker }: { publishedMarker: string }): TicketPlan =>
 	publishedMarker,
 });
 
-const recordOf = ({ plans }: { plans: TicketPlan[] }): TicketRecord => ({
+const recordOf = ({ plans }: { plans: WorkOrderPlan[] }): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef,
 	branch: ticketBranch,
-	mode: TicketMode.MultiplePlan,
+	mode: WorkOrderMode.MultiplePlan,
 	plans,
 	history: [],
 });

@@ -1,6 +1,6 @@
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { toBranchSlug } from '#src/common/utils/toBranchSlug.ts';
-import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { addTicketPlan, findNextPlanToPlan, pullTicketRecord } from '#src/ticket/index.ts';
 
@@ -52,7 +52,7 @@ export const chooseAutoPlanTarget = async ({
 	config,
 	env,
 	onProgress,
-}: Params): Promise<{ record: TicketRecord; address?: string } | { error: string }> => {
+}: Params): Promise<{ record: WorkOrderState; address?: string } | { error: string }> => {
 	const pulled = await pullTicketRecord({ cwd, ticketBranch: branch, config, env, onProgress });
 
 	if ('error' in pulled) {

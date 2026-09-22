@@ -3,7 +3,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { shipCommand } from '#src/cli/shipCommand.ts';
-import { PlanProgress, TicketEventKind, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
+import { PlanProgress, WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
 import { updateLocalTicketRecord } from '#src/ticket/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -133,11 +133,11 @@ const setupImplementHarness = () => {
  * The record `lo-60-ship` carries: multiple-plan, its one plan implemented, and
  * no ship request — the ticket whose own record says it may not be merged yet.
  */
-const unrequestedShipRecord: TicketRecord = {
+const unrequestedShipRecord: WorkOrderState = {
 	schemaVersion: 1,
 	ticketRef: 'LO-60',
 	branch: 'lo-60-ship',
-	mode: TicketMode.MultiplePlan,
+	mode: WorkOrderMode.MultiplePlan,
 	plans: [
 		{
 			id: '001-ship-command',
@@ -146,7 +146,7 @@ const unrequestedShipRecord: TicketRecord = {
 			createdAt: '2026-01-01T00:00:00.000Z',
 		},
 	],
-	history: [{ at: '2026-01-01T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: 'added plan 001-ship-command' }],
+	history: [{ at: '2026-01-01T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: 'added plan 001-ship-command' }],
 };
 
 /**

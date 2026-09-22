@@ -1,11 +1,11 @@
-import { TicketEventKind, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { WorkOrderEventKind, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
 import { appendTicketEvent } from '#src/ticket/common/record/appendTicketEvent.ts';
 import { recordShipRequestWithdrawal } from '#src/ticket/common/record/recordShipRequestWithdrawal.ts';
 
 interface Params {
-	record: TicketRecord;
+	record: WorkOrderState;
 	/** The plan the exclusion is written onto. */
-	target: TicketPlan;
+	target: WorkOrderPlan;
 	/** Why this plan is out of the ticket's work — the record's only account of the decision. */
 	reason: string;
 	implementationRemoved: boolean;
@@ -15,7 +15,14 @@ interface Params {
 }
 
 /** The exclusion written onto the plan, and the ship request it takes down with it. */
-export const applyExclusion = ({ record, target, reason, implementationRemoved, verifiedCommit, at }: Params): { record: TicketRecord; withdrew: boolean } => {
+export const applyExclusion = ({
+	record,
+	target,
+	reason,
+	implementationRemoved,
+	verifiedCommit,
+	at,
+}: Params): { record: WorkOrderState; withdrew: boolean } => {
 	const amending = target.exclusion !== undefined;
 	const exclusion =
 		target.exclusion === undefined
@@ -23,7 +30,7 @@ export const applyExclusion = ({ record, target, reason, implementationRemoved, 
 			: { ...target.exclusion, implementationRemoved: true, verifiedCommit };
 	const excluded = appendTicketEvent({
 		record: { ...record, plans: record.plans.map((candidate) => (candidate.id === target.id ? { ...candidate, exclusion } : candidate)) },
-		kind: TicketEventKind.PlanExcluded,
+		kind: WorkOrderEventKind.PlanExcluded,
 		detail: amending
 			? `plan ${target.id}'s implementation was recorded as removed from ticket ${record.branch}, verified at ${verifiedCommit}`
 			: `plan ${target.id} was excluded from ticket ${record.branch}: ${reason}`,

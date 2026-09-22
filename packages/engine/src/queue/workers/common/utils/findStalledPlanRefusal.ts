@@ -1,9 +1,9 @@
-import { PlanProgress, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { PlanProgress, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
 
 interface Params {
-	record: TicketRecord;
+	record: WorkOrderState;
 	/** The plan the ordered build is about to take. */
-	plan: TicketPlan;
+	plan: WorkOrderPlan;
 }
 
 /**

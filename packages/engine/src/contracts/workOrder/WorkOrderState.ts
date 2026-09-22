@@ -1,20 +1,20 @@
 import { z } from 'zod';
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
-import { PlanId } from '#src/contracts/ticket/PlanId.ts';
-import { TicketEventKind } from '#src/contracts/ticket/TicketEventKind.ts';
-import { TicketMode } from '#src/contracts/ticket/TicketMode.ts';
-import { TicketPlan } from '#src/contracts/ticket/TicketPlan.ts';
+import { PlanId } from '#src/contracts/workOrder/PlanId.ts';
+import { WorkOrderEventKind } from '#src/contracts/workOrder/WorkOrderEventKind.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
 
-const TicketRecordShape = z
+const WorkOrderStateShape = z
 	.object({
 		schemaVersion: z.literal(1),
 		/** The ticket this record belongs to, as the tracker names it — `LO-140`. */
 		ticketRef: z.string().min(1),
 		/** The one branch every plan of this ticket implements on, which is also the ticket folder's name. */
 		branch: z.string().min(1),
-		mode: z.enum(TicketMode),
+		mode: z.enum(WorkOrderMode),
 		/** Every plan the ticket has ever held, excluded ones included, in ascending number order. */
-		plans: z.array(TicketPlan),
+		plans: z.array(WorkOrderPlan),
 		/** The human's explicit request to ship, bound to the exact plans it was approved for. */
 		shipRequest: z
 			.object({ planIds: z.array(PlanId).min(1), requestedAt: z.string() })
@@ -25,12 +25,12 @@ const TicketRecordShape = z
 			.object({ at: z.string(), planIds: z.array(PlanId), mergeCommit: z.string() })
 			.strict()
 			.optional(),
-		history: z.array(z.object({ at: z.string(), kind: z.enum(TicketEventKind), detail: z.string() }).strict()),
+		history: z.array(z.object({ at: z.string(), kind: z.enum(WorkOrderEventKind), detail: z.string() }).strict()),
 	})
 	.strict();
 
 /** Two plans sharing a number, or listed out of order, would make 'the lowest plan that is not implemented' ambiguous. */
-const checkPlanOrder = ({ record, ctx }: { record: z.infer<typeof TicketRecordShape>; ctx: z.RefinementCtx }) => {
+const checkPlanOrder = ({ record, ctx }: { record: z.infer<typeof WorkOrderStateShape>; ctx: z.RefinementCtx }) => {
 	const numbers = record.plans.map((plan) => planNumberOf({ id: plan.id }));
 
 	for (const [index, number] of numbers.entries()) {
@@ -46,7 +46,7 @@ const checkPlanOrder = ({ record, ctx }: { record: z.infer<typeof TicketRecordSh
 };
 
 /** A request naming a plan the ticket does not hold, or naming one twice, cannot describe a set of plans to ship. */
-const checkShipRequest = ({ record, ctx }: { record: z.infer<typeof TicketRecordShape>; ctx: z.RefinementCtx }) => {
+const checkShipRequest = ({ record, ctx }: { record: z.infer<typeof WorkOrderStateShape>; ctx: z.RefinementCtx }) => {
 	const held = new Set(record.plans.map((plan) => plan.id));
 	const named = new Set<string>();
 
@@ -78,9 +78,9 @@ const checkShipRequest = ({ record, ctx }: { record: z.infer<typeof TicketRecord
  * A plan folder with no such record is a legacy folder and keeps behaving
  * exactly as it did before ticket records existed.
  */
-export const TicketRecord = TicketRecordShape.superRefine((record, ctx) => {
+export const WorkOrderState = WorkOrderStateShape.superRefine((record, ctx) => {
 	checkPlanOrder({ record, ctx });
 	checkShipRequest({ record, ctx });
 });
 
-export type TicketRecord = z.infer<typeof TicketRecord>;
+export type WorkOrderState = z.infer<typeof WorkOrderState>;

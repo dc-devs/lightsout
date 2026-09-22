@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFil
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, PlanProgress, TicketEventKind, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, WorkOrderEventKind, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
 import { addTicketPlan, updateLocalTicketRecord } from '#src/ticket/index.ts';
 import type { TrackerAttachment, TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
 
@@ -46,7 +46,7 @@ const ticketBranch = 'lo-140-multi';
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 const env = { LINEAR_API_KEY: 'lin_key' };
 
-const planOf = ({ id, progress = PlanProgress.Planning, excluded = false }: { id: string; progress?: PlanProgress; excluded?: boolean }): TicketPlan => ({
+const planOf = ({ id, progress = PlanProgress.Planning, excluded = false }: { id: string; progress?: PlanProgress; excluded?: boolean }): WorkOrderPlan => ({
 	id,
 	title: id.slice(4),
 	progress,
@@ -55,17 +55,17 @@ const planOf = ({ id, progress = PlanProgress.Planning, excluded = false }: { id
 });
 
 const recordOf = ({
-	mode = TicketMode.SinglePlan,
+	mode = WorkOrderMode.SinglePlan,
 	plans = [],
 	shipRequestFor,
 	shipped,
 }: {
-	mode?: TicketMode;
-	plans?: TicketPlan[];
+	mode?: WorkOrderMode;
+	plans?: WorkOrderPlan[];
 	/** The plan ids a pending ship request names. */
 	shipRequestFor?: string[];
 	shipped?: { at: string; planIds: string[]; mergeCommit: string };
-} = {}): TicketRecord => ({
+} = {}): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef: 'lo-140',
 	branch: ticketBranch,
@@ -73,7 +73,7 @@ const recordOf = ({
 	plans,
 	...(shipRequestFor === undefined ? {} : { shipRequest: { planIds: shipRequestFor, requestedAt: '2026-02-01T00:00:00.000Z' } }),
 	...(shipped === undefined ? {} : { shipped }),
-	history: [{ at: '2026-01-01T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: 'the ticket record was created' }],
+	history: [{ at: '2026-01-01T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: 'the ticket record was created' }],
 });
 
 const setupAddPlan = async ({
@@ -86,7 +86,7 @@ const setupAddPlan = async ({
 	/** Directories planted at the ticket folder's top level. */
 	topLevelFolders = [],
 }: {
-	record?: TicketRecord;
+	record?: WorkOrderState;
 	branch?: string;
 	slug?: string;
 	config?: LightsoutConfig;
@@ -129,7 +129,7 @@ const setupAddPlan = async ({
 };
 
 /** The record as it stands on disk, which is what a later command reads. */
-const recordAt = ({ recordPath }: { recordPath: string }) => JSON.parse(readFileSync(recordPath, 'utf8')) as TicketRecord;
+const recordAt = ({ recordPath }: { recordPath: string }) => JSON.parse(readFileSync(recordPath, 'utf8')) as WorkOrderState;
 
 describe('addTicketPlan', () => {
 	test('creates the ticket record with the repository default mode and plan 001 when the ticket has no record', async () => {
@@ -155,8 +155,8 @@ describe('addTicketPlan', () => {
 		expect(readdirSync(planFolder)).toStrictEqual([]);
 	});
 
-	test("seeds a new record's mode from plan.default-ticket-mode", async () => {
-		const { params, recordPath } = await setupAddPlan({ config: { gates, plan: { 'default-ticket-mode': TicketMode.MultiplePlan } } });
+	test("seeds a new record's mode from plan.default-work-order-mode", async () => {
+		const { params, recordPath } = await setupAddPlan({ config: { gates, plan: { 'default-work-order-mode': WorkOrderMode.MultiplePlan } } });
 
 		await addTicketPlan(params);
 
@@ -167,7 +167,7 @@ describe('addTicketPlan', () => {
 		const { params, recordPath, planFolderOf } = await setupAddPlan({
 			slug: 'fix-search',
 			record: recordOf({
-				mode: TicketMode.MultiplePlan,
+				mode: WorkOrderMode.MultiplePlan,
 				plans: [
 					planOf({ id: '001-search-basics', progress: PlanProgress.Implemented }),
 					planOf({ id: '002-queue-order', progress: PlanProgress.Ready }),
@@ -187,7 +187,7 @@ describe('addTicketPlan', () => {
 		const { params, recordPath } = await setupAddPlan({
 			slug: 'fix-search',
 			record: recordOf({
-				mode: TicketMode.MultiplePlan,
+				mode: WorkOrderMode.MultiplePlan,
 				plans: [planOf({ id: '001-search-basics', progress: PlanProgress.Implemented }), planOf({ id: '002-queue-order', progress: PlanProgress.Ready })],
 				shipRequestFor: ['001-search-basics', '002-queue-order'],
 			}),
@@ -235,7 +235,7 @@ describe('addTicketPlan', () => {
 		const { params, recordPath, planFolderOf } = await setupAddPlan({
 			slug: 'fix-search',
 			topLevelFiles: ['plan.md'],
-			record: recordOf({ mode: TicketMode.MultiplePlan, plans: [planOf({ id: '001-search-basics', progress: PlanProgress.Implemented })] }),
+			record: recordOf({ mode: WorkOrderMode.MultiplePlan, plans: [planOf({ id: '001-search-basics', progress: PlanProgress.Implemented })] }),
 		});
 		const before = readFileSync(recordPath, 'utf8');
 
@@ -254,7 +254,7 @@ describe('addTicketPlan', () => {
 		const { params, recordPath, ticketFolder, planFolderOf } = await setupAddPlan({
 			slug: 'ship-guard',
 			topLevelFolders: ['001-a', '002-b.local-1'],
-			record: recordOf({ mode: TicketMode.MultiplePlan, plans: [planOf({ id: '001-a', progress: PlanProgress.Implemented })] }),
+			record: recordOf({ mode: WorkOrderMode.MultiplePlan, plans: [planOf({ id: '001-a', progress: PlanProgress.Implemented })] }),
 		});
 
 		writeFileSync(join(ticketFolder, 'ticket.json.tmp'), '{}\n');
@@ -284,7 +284,7 @@ describe('addTicketPlan', () => {
 		const { params, recordPath, planFolderOf } = await setupAddPlan({
 			slug: 'fix-search',
 			record: recordOf({
-				mode: TicketMode.MultiplePlan,
+				mode: WorkOrderMode.MultiplePlan,
 				plans: [planOf({ id: '001-search-basics', progress: PlanProgress.Implemented })],
 				shipped: { at: '2026-03-01T00:00:00.000Z', planIds: ['001-search-basics'], mergeCommit: 'c0ffee1' },
 			}),
@@ -315,7 +315,7 @@ describe('addTicketPlan', () => {
 	test('refuses a plan number above 999', async () => {
 		const { params, recordPath, planFolderOf } = await setupAddPlan({
 			slug: 'fix-search',
-			record: recordOf({ mode: TicketMode.MultiplePlan, plans: [planOf({ id: '999-last-one', progress: PlanProgress.Implemented })] }),
+			record: recordOf({ mode: WorkOrderMode.MultiplePlan, plans: [planOf({ id: '999-last-one', progress: PlanProgress.Implemented })] }),
 		});
 		const before = readFileSync(recordPath, 'utf8');
 
@@ -342,7 +342,7 @@ describe('addTicketPlan', () => {
 		const loose = await setupAddPlan({ topLevelFiles: ['facts.json', 'plan.md'] });
 		const adopted = await setupAddPlan({
 			slug: 'ship-guard',
-			record: recordOf({ mode: TicketMode.MultiplePlan, plans: [planOf({ id: '001-a', progress: PlanProgress.Implemented })] }),
+			record: recordOf({ mode: WorkOrderMode.MultiplePlan, plans: [planOf({ id: '001-a', progress: PlanProgress.Implemented })] }),
 			topLevelFolders: ['001-a', '002-b.local-1'],
 		});
 
@@ -375,7 +375,7 @@ describe('addTicketPlan', () => {
 		const withdrawing = await setupAddPlan({
 			slug: 'fix-search',
 			record: recordOf({
-				mode: TicketMode.MultiplePlan,
+				mode: WorkOrderMode.MultiplePlan,
 				plans: [planOf({ id: '001-search-basics', progress: PlanProgress.Implemented })],
 				shipRequestFor: ['001-search-basics'],
 			}),

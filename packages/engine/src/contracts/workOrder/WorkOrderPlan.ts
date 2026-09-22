@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { PlanId } from '#src/contracts/ticket/PlanId.ts';
-import { PlanProgress } from '#src/contracts/ticket/PlanProgress.ts';
+import { PlanId } from '#src/contracts/workOrder/PlanId.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
 
 /** A SHA-256 digest as this record spells one: 64 lowercase hex characters. */
 const sha256Digest = z.string().regex(/^[0-9a-f]{64}$/, 'a hash is written as 64 lowercase hex characters');
@@ -13,7 +13,7 @@ const sha256Digest = z.string().regex(/^[0-9a-f]{64}$/, 'a hash is written as 64
  * would then write the record back without it; failing the parse loudly is the
  * only outcome that cannot lose another machine's state.
  */
-export const TicketPlan = z
+export const WorkOrderPlan = z
 	.object({
 		id: PlanId,
 		/** The plan's mutable display title. Changing it never changes the plan's identity, its folder or a pending ship request. */
@@ -26,7 +26,7 @@ export const TicketPlan = z
 			.object({
 				runId: z.string(),
 				startedAt: z.string(),
-				/** The ticket branch's HEAD when the run started. */
+				/** The work order's branch's HEAD when the run started. */
 				startCommit: z.string(),
 				finishedAt: z.string().optional(),
 				/** The plan's durable files as the passed run left them, so a later change to them is detectable. */
@@ -51,4 +51,4 @@ export const TicketPlan = z
 	})
 	.strict();
 
-export type TicketPlan = z.infer<typeof TicketPlan>;
+export type WorkOrderPlan = z.infer<typeof WorkOrderPlan>;

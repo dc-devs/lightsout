@@ -1,5 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, PlanProgress, TicketMode } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, WorkOrderMode } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import { buildTicketPlans } from '#src/queue/workers/buildTicketPlans.ts';
@@ -174,7 +174,7 @@ describe('buildTicketPlans', () => {
 	});
 
 	test('buildTicketPlans: a single-plan plan 001 still being planned is built from the ticket body through the lifecycle helper', async () => {
-		const { cwd, params } = setupTicketPlanBuild({ mocks, plans: [firstPlanned], mode: TicketMode.SinglePlan });
+		const { cwd, params } = setupTicketPlanBuild({ mocks, plans: [firstPlanned], mode: WorkOrderMode.SinglePlan });
 
 		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: true });
 
@@ -190,7 +190,7 @@ describe('buildTicketPlans', () => {
 	});
 
 	test('buildTicketPlans: without the body fallback a single-plan plan still being planned parks', async () => {
-		const { params } = setupTicketPlanBuild({ mocks, plans: [firstPlanned], mode: TicketMode.SinglePlan });
+		const { params } = setupTicketPlanBuild({ mocks, plans: [firstPlanned], mode: WorkOrderMode.SinglePlan });
 
 		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
 

@@ -1,6 +1,6 @@
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
-import { type LightsoutConfig, PlanProgress, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, type WorkOrderState } from '#src/contracts/index.ts';
 import { publishPlan } from '#src/plan/index.ts';
 import { ticketFileNames } from '#src/ticket/common/constants/ticketFileNames.ts';
 import type { TicketTrackerTarget } from '#src/ticket/common/types/TicketTrackerTarget.ts';
@@ -38,7 +38,7 @@ interface TicketPlanPublishReport {
 /** The change the record takes once the plan's files have landed: the new marker, and `planning` becoming `ready`. */
 const recordPublishedPlan =
 	({ planId, markerSha256, ticketBranch }: { planId: string; markerSha256: string; ticketBranch: string }) =>
-	(current: TicketRecord | undefined): TicketRecord | { error: string } => {
+	(current: WorkOrderState | undefined): WorkOrderState | { error: string } => {
 		const plan = current?.plans.find((entry) => entry.id === planId);
 
 		if (current === undefined || plan === undefined) {

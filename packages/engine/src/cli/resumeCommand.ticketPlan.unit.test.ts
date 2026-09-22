@@ -10,9 +10,9 @@ import {
 	PlanProgress,
 	type RunManifest,
 	RunStatus,
-	TicketMode,
-	type TicketPlan,
-	type TicketRecord,
+	WorkOrderMode,
+	type WorkOrderPlan,
+	type WorkOrderState,
 } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
@@ -95,7 +95,7 @@ const planWith = ({
 	excludedFor?: string;
 	/** The marker the plan was last published under, which a sidecar this machine does not hold makes divergent. */
 	publishedMarker?: string;
-}): TicketPlan => ({
+}): WorkOrderPlan => ({
 	id,
 	title: `Plan ${id}`,
 	progress,
@@ -106,7 +106,7 @@ const planWith = ({
 });
 
 /** The ticket's record as it stands on disk in the checkout the run builds in. */
-const readRecord = ({ workspace }: { workspace: string }): TicketRecord =>
+const readRecord = ({ workspace }: { workspace: string }): WorkOrderState =>
 	JSON.parse(readFileSync(join(workspace, '.lightsout', 'tickets', ticketBranch, 'ticket.json'), 'utf8'));
 
 /**
@@ -148,13 +148,13 @@ interface ParkedRun {
  * work a resumed direct build has to commit.
  */
 const setupTicketResume = ({
-	mode = TicketMode.MultiplePlan,
+	mode = WorkOrderMode.MultiplePlan,
 	plans,
 	parked,
 	isolated = false,
 }: {
-	mode?: TicketMode;
-	plans: TicketPlan[];
+	mode?: WorkOrderMode;
+	plans: WorkOrderPlan[];
 	/** The manifest the parked run left behind. */
 	parked: ParkedRun;
 	/** Whether the parked run's workspace is a linked worktree rather than the ticket's own checkout. */
@@ -168,7 +168,7 @@ const setupTicketResume = ({
 	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm ignore', { cwd: primary, stdio: 'ignore' });
 
 	const workspace = isolated ? cutRunWorktree({ primary }) : primary;
-	const record: TicketRecord = { schemaVersion: 1, ticketRef: 'LO-140', branch: ticketBranch, mode, plans, history: [] };
+	const record: WorkOrderState = { schemaVersion: 1, ticketRef: 'LO-140', branch: ticketBranch, mode, plans, history: [] };
 
 	writeRepoFile({ cwd: primary, path: join('.lightsout', 'tickets', ticketBranch, 'ticket.json'), content: JSON.stringify(record) });
 
@@ -277,7 +277,7 @@ describe('resumeCommand ticket plans', () => {
 
 	test('refuses to resume a plan whose published files moved on another machine, changing nothing', async () => {
 		const { context, workspace, errors, exitCodes } = setupTicketResume({
-			mode: TicketMode.SinglePlan,
+			mode: WorkOrderMode.SinglePlan,
 			plans: [
 				planWith({
 					id: planOne,
@@ -303,7 +303,7 @@ describe('resumeCommand ticket plans', () => {
 
 	test('resumes a body build no plan of the record claims without touching the record', async () => {
 		const { context, workspace, seededRecord } = setupTicketResume({
-			mode: TicketMode.SinglePlan,
+			mode: WorkOrderMode.SinglePlan,
 			plans: [planWith({ id: planOne, progress: PlanProgress.Ready })],
 			parked: { plan: frozenTicketPath, status: RunStatus.Failed, pipeline: PipelineKind.Direct },
 		});
@@ -318,7 +318,7 @@ describe('resumeCommand ticket plans', () => {
 
 	test('resuming a failed body build of plan 001 records the plan implemented', async () => {
 		const { context, workspace } = setupTicketResume({
-			mode: TicketMode.SinglePlan,
+			mode: WorkOrderMode.SinglePlan,
 			plans: [
 				planWith({
 					id: planOne,

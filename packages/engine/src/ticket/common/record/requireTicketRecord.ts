@@ -1,8 +1,8 @@
 import { describeMissingTicketRecord } from '#src/common/utils/describeMissingTicketRecord.ts';
-import type { TicketRecord } from '#src/contracts/index.ts';
+import type { WorkOrderState } from '#src/contracts/index.ts';
 
 interface Params {
-	record: TicketRecord | undefined;
+	record: WorkOrderState | undefined;
 	ticketBranch: string;
 }
 
@@ -18,7 +18,7 @@ interface Params {
  * was. `show` and `sync` never ask here, which is what keeps a merged ticket
  * readable.
  */
-export const requireTicketRecord = ({ record, ticketBranch }: Params): TicketRecord | { error: string } => {
+export const requireTicketRecord = ({ record, ticketBranch }: Params): WorkOrderState | { error: string } => {
 	if (record === undefined) {
 		return { error: describeMissingTicketRecord({ ticketBranch }) };
 	}

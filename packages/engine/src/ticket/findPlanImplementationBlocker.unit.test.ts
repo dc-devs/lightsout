@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { PlanProgress, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { PlanProgress, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
 import { findPlanImplementationBlocker } from '#src/ticket/index.ts';
 
 /**
@@ -19,7 +19,7 @@ const planWith = ({
 	runId?: string;
 	/** The recorded reason, whose presence is what makes the plan an excluded one. */
 	excludedFor?: string;
-}): TicketPlan => ({
+}): WorkOrderPlan => ({
 	id,
 	title: `Plan ${id}`,
 	progress,
@@ -29,8 +29,8 @@ const planWith = ({
 });
 
 /** A ticket record on branch `lo-140-multi`, in whichever mode and with whichever plans the test needs. */
-const setupTicket = ({ mode = TicketMode.MultiplePlan, plans = [] }: { mode?: TicketMode; plans?: TicketPlan[] } = {}) => {
-	const record: TicketRecord = {
+const setupTicket = ({ mode = WorkOrderMode.MultiplePlan, plans = [] }: { mode?: WorkOrderMode; plans?: WorkOrderPlan[] } = {}) => {
+	const record: WorkOrderState = {
 		schemaVersion: 1,
 		ticketRef: 'LO-140',
 		branch: 'lo-140-multi',
@@ -49,7 +49,7 @@ describe('findPlanImplementationBlocker', () => {
 		{ progress: PlanProgress.Implementing },
 		{ progress: PlanProgress.Failed },
 	])('allows plan 001 of a single-plan ticket in any progress short of implemented', ({ progress }) => {
-		const { record } = setupTicket({ mode: TicketMode.SinglePlan, plans: [planWith({ id: '001-record', progress })] });
+		const { record } = setupTicket({ mode: WorkOrderMode.SinglePlan, plans: [planWith({ id: '001-record', progress })] });
 
 		const blocker = findPlanImplementationBlocker({ record, planId: '001-record' });
 
@@ -96,7 +96,7 @@ describe('findPlanImplementationBlocker', () => {
 
 	test('refuses a plan other than 001 in single-plan mode and names the mode switch', () => {
 		const { record } = setupTicket({
-			mode: TicketMode.SinglePlan,
+			mode: WorkOrderMode.SinglePlan,
 			plans: [planWith({ id: '001-record', progress: PlanProgress.Implemented }), planWith({ id: '002-addressing', progress: PlanProgress.Ready })],
 		});
 
@@ -153,7 +153,7 @@ describe('findPlanImplementationBlocker', () => {
 			],
 		});
 		const { record: singlePlanRecord } = setupTicket({
-			mode: TicketMode.SinglePlan,
+			mode: WorkOrderMode.SinglePlan,
 			plans: [planWith({ id: '001-record', progress: PlanProgress.Implemented }), planWith({ id: '002-addressing', progress: PlanProgress.Ready })],
 		});
 		const { record: lowerPlanRecord } = setupTicket({

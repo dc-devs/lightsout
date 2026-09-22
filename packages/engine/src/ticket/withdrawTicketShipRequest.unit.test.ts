@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
 import { updateLocalTicketRecord, withdrawTicketShipRequest } from '#src/ticket/index.ts';
 
 /** The ticket folder's name, which is also the branch every record below names. */
@@ -14,7 +14,7 @@ const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-cov
  * pending or never made. No `ticket-tracker` block is configured in these rows,
  * so the record stays local and nothing is published.
  */
-const recordOf = ({ pending }: { pending: boolean }): TicketRecord => ({
+const recordOf = ({ pending }: { pending: boolean }): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch: ticketBranch,
@@ -47,7 +47,7 @@ describe('withdrawTicketShipRequest', () => {
 
 		const result = await withdrawTicketShipRequest(params);
 
-		const written = JSON.parse(readFileSync(recordPath, 'utf8')) as TicketRecord;
+		const written = JSON.parse(readFileSync(recordPath, 'utf8')) as WorkOrderState;
 
 		expect(result).toEqual(expect.objectContaining({ record: written }));
 		expect(written.shipRequest).toBeUndefined();

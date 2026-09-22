@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { jest } from '@jest/globals';
 import { sha256 } from '#src/common/utils/sha256.ts';
-import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
 import { updateLocalTicketRecord } from '#src/ticket/index.ts';
 import type { TrackerAttachment, TrackerSettings } from '#src/ticketTracker/index.ts';
 import { canonicalTicketRecordText } from '#tests/helpers/canonicalTicketRecordText.ts';
@@ -26,7 +26,7 @@ interface PullTicketRecordMocks {
 /** The ticket's own side of an arrangement: what it carries, and how it refuses to answer. */
 interface TicketSide {
 	/** The record the ticket carries as `ticket.json`. */
-	published?: TicketRecord;
+	published?: WorkOrderState;
 	/** Raw text for the published `ticket.json`, for the rows where it is not a valid record. */
 	publishedText?: string;
 	/** Whether the ticket carries the published `ticket.json` twice over. */
@@ -40,9 +40,9 @@ interface TicketSide {
 interface Params {
 	mocks: PullTicketRecordMocks;
 	/** The record already in the primary checkout, or none. */
-	local?: TicketRecord;
+	local?: WorkOrderState;
 	/** The record whose bytes the sidecar names as last published or restored. No sidecar when absent. */
-	syncedTo?: TicketRecord;
+	syncedTo?: WorkOrderState;
 	/** What the ticket itself answers with. Nothing at all is a ticket carrying no record. */
 	ticket?: TicketSide;
 	config?: LightsoutConfig;

@@ -2,7 +2,15 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { jest } from '@jest/globals';
-import { type PlanProgress, type RunManifest, RunStatus, TicketEventKind, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import {
+	type PlanProgress,
+	type RunManifest,
+	RunStatus,
+	WorkOrderEventKind,
+	WorkOrderMode,
+	type WorkOrderPlan,
+	type WorkOrderState,
+} from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { planWorkspacePath } from '#src/plan/index.ts';
 import { updateLocalTicketRecord } from '#src/ticket/index.ts';
@@ -36,9 +44,9 @@ export const planOf = ({
 }: {
 	id: string;
 	progress: PlanProgress;
-	implementation?: TicketPlan['implementation'];
+	implementation?: WorkOrderPlan['implementation'];
 	publishedMarker?: string;
-}): TicketPlan => ({
+}): WorkOrderPlan => ({
 	id,
 	title: `plan ${id}`,
 	progress,
@@ -47,13 +55,13 @@ export const planOf = ({
 	publishedMarker,
 });
 
-const recordOf = ({ mode, plans }: { mode: TicketMode; plans: TicketPlan[] }): TicketRecord => ({
+const recordOf = ({ mode, plans }: { mode: WorkOrderMode; plans: WorkOrderPlan[] }): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch: ticketBranch,
 	mode,
 	plans,
-	history: [{ at: '2026-01-01T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: `added plan ${firstPlan}` }],
+	history: [{ at: '2026-01-01T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: `added plan ${firstPlan}` }],
 });
 
 /** The manifest a pipeline hands back, written by hand so a row can pin a shape no convenient real run produces. */
@@ -83,8 +91,8 @@ interface LifecycleSetup {
 	/** What the run is asked for: a plan address, or a legacy plan folder's name. */
 	name?: string;
 	/** The plans the ticket record holds. Omitted entirely, no record is written at all. */
-	plans?: TicketPlan[];
-	mode?: TicketMode;
+	plans?: WorkOrderPlan[];
+	mode?: WorkOrderMode;
 	/** The sidecar's per-plan markers, written as `ticket-sync.json`. Omitted, no sidecar is written. */
 	planMarkers?: Record<string, string>;
 	/** The plan's own files: a single `plan.md`, or an `overview.md` with one phase file beside it. */
@@ -114,7 +122,7 @@ export const setupTicketPlanLifecycle = async (setup: LifecycleSetup) => {
 		mockReadGitHeadCommit,
 		name = address,
 		plans,
-		mode = TicketMode.MultiplePlan,
+		mode = WorkOrderMode.MultiplePlan,
 		planMarkers,
 		folder = 'single',
 		status = RunStatus.Passed,
@@ -163,10 +171,10 @@ export const setupTicketPlanLifecycle = async (setup: LifecycleSetup) => {
 		writeFileSync(recordPath, '{ half a record');
 	}
 
-	const readRecord = () => JSON.parse(readFileSync(recordPath, 'utf8')) as TicketRecord;
+	const readRecord = () => JSON.parse(readFileSync(recordPath, 'utf8')) as WorkOrderState;
 	const seenRunIds: string[] = [];
 	/** The record as it stood the moment the pipeline started, which is what "before the run" is asserted against. */
-	const recordsAtRunStart: (TicketRecord | undefined)[] = [];
+	const recordsAtRunStart: (WorkOrderState | undefined)[] = [];
 	const run = ({ runId }: { runId: string }): Promise<PipelineResult> => {
 		seenRunIds.push(runId);
 		recordsAtRunStart.push(existsSync(recordPath) ? readRecord() : undefined);

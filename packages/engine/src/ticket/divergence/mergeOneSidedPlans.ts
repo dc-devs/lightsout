@@ -1,12 +1,12 @@
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
-import { TicketEventKind, type TicketRecord } from '#src/contracts/index.ts';
+import { WorkOrderEventKind, type WorkOrderState } from '#src/contracts/index.ts';
 import { TicketSyncKeep } from '#src/ticket/common/constants/TicketSyncKeep.ts';
 
 interface Params {
 	/** The copy the human chose to keep. */
-	kept: TicketRecord;
+	kept: WorkOrderState;
 	/** The copy being set aside, whose one-sided plans still have to survive. */
-	other: TicketRecord;
+	other: WorkOrderState;
 	keptFrom: TicketSyncKeep;
 	/** The moment the carry is recorded at. */
 	at: string;
@@ -25,10 +25,10 @@ interface Params {
  * Two different plans under one number is the case no kept record can hold, so
  * it refuses rather than choosing: both ids are named, and the human decides.
  */
-export const mergeOneSidedPlans = ({ kept, other, keptFrom, at }: Params): TicketRecord | { error: string } => {
+export const mergeOneSidedPlans = ({ kept, other, keptFrom, at }: Params): WorkOrderState | { error: string } => {
 	const source = keptFrom === TicketSyncKeep.Local ? TicketSyncKeep.Published : TicketSyncKeep.Local;
 	const held = new Map(kept.plans.map((plan) => [planNumberOf({ id: plan.id }), plan]));
-	const carried: TicketRecord['plans'] = [];
+	const carried: WorkOrderState['plans'] = [];
 
 	for (const plan of other.plans) {
 		const sameNumber = held.get(planNumberOf({ id: plan.id }));
@@ -53,7 +53,7 @@ export const mergeOneSidedPlans = ({ kept, other, keptFrom, at }: Params): Ticke
 			...kept.history,
 			...carried.map((plan) => ({
 				at,
-				kind: TicketEventKind.PlanAdded,
+				kind: WorkOrderEventKind.PlanAdded,
 				detail: `carried plan ${plan.id} over from the ${source} copy of the ticket record while keeping the ${keptFrom} copy`,
 			})),
 		],

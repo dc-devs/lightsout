@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { implementDirectCommand } from '#src/cli/implementDirectCommand.ts';
-import { PipelineKind, PlanProgress, RunStatus, TicketEventKind, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
+import { PipelineKind, PlanProgress, RunStatus, WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { readTicketRecord, updateLocalTicketRecord } from '#src/ticket/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
@@ -34,17 +34,17 @@ const createdAt = '2026-01-01T00:00:00.000Z';
 /** The id the build answers under when nobody handed it one — a run the record could not have named in advance. */
 const unmintedRunId = 'run-direct-unminted';
 
-const recordOf = ({ mode, progress }: { mode: TicketMode; progress: PlanProgress }): TicketRecord => ({
+const recordOf = ({ mode, progress }: { mode: WorkOrderMode; progress: PlanProgress }): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch: ticketBranch,
 	mode,
 	plans: [{ id: planId, title: 'Drain the backlog', progress, createdAt }],
-	history: [{ at: createdAt, kind: TicketEventKind.PlanAdded, detail: `added plan ${planId}` }],
+	history: [{ at: createdAt, kind: WorkOrderEventKind.PlanAdded, detail: `added plan ${planId}` }],
 });
 
 /** Plan 001 as the record holds it now, or undefined when the record cannot be read. */
-const planIn = ({ read }: { read: { record: TicketRecord | undefined } | { error: string } }) =>
+const planIn = ({ read }: { read: { record: WorkOrderState | undefined } | { error: string } }) =>
 	'error' in read ? undefined : read.record?.plans.find((plan) => plan.id === planId);
 
 /**
@@ -59,7 +59,7 @@ const setupBodyBuild = async ({
 	progress = PlanProgress.Planning,
 	corrupt = false,
 }: {
-	mode: TicketMode;
+	mode: WorkOrderMode;
 	/** How far plan 001's implementation has already got when the build starts. */
 	progress?: PlanProgress;
 	/** Whether the written record is then replaced by bytes that are not a record at all. */
@@ -103,12 +103,12 @@ const setupBodyBuild = async ({
 
 describe('implementDirectCommand ticket plan lifecycle', () => {
 	test('records a body build of single-plan plan 001 through the lifecycle helper and leaves a multiple-plan record alone', async () => {
-		const single = await setupBodyBuild({ mode: TicketMode.SinglePlan });
+		const single = await setupBodyBuild({ mode: WorkOrderMode.SinglePlan });
 
 		await expect(implementDirectCommand(single.context)).rejects.toThrow(/process\.exit/);
 
 		const singleRecord = await readTicketRecord({ cwd: single.cwd, ticketBranch });
-		const multiple = await setupBodyBuild({ mode: TicketMode.MultiplePlan });
+		const multiple = await setupBodyBuild({ mode: WorkOrderMode.MultiplePlan });
 
 		await expect(implementDirectCommand(multiple.context)).rejects.toThrow(/process\.exit/);
 
@@ -127,7 +127,7 @@ describe('implementDirectCommand ticket plan lifecycle', () => {
 	});
 
 	test('leaves the record alone when single-plan plan 001 is already implemented', async () => {
-		const { context, cwd, seeded, runIds } = await setupBodyBuild({ mode: TicketMode.SinglePlan, progress: PlanProgress.Implemented });
+		const { context, cwd, seeded, runIds } = await setupBodyBuild({ mode: WorkOrderMode.SinglePlan, progress: PlanProgress.Implemented });
 
 		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
 
@@ -139,7 +139,7 @@ describe('implementDirectCommand ticket plan lifecycle', () => {
 	});
 
 	test("refuses to build when the branch's ticket record cannot be read", async () => {
-		const { context, runIds, errors, exitCodes } = await setupBodyBuild({ mode: TicketMode.SinglePlan, corrupt: true });
+		const { context, runIds, errors, exitCodes } = await setupBodyBuild({ mode: WorkOrderMode.SinglePlan, corrupt: true });
 
 		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
 

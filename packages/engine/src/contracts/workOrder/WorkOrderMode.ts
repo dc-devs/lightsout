@@ -8,12 +8,12 @@
  * ships only when an explicit ship request naming the included plans is
  * satisfied.
  *
- * A ticket's mode is seeded from `plan.default-ticket-mode` when its record is
+ * A ticket's mode is seeded from `plan.default-work-order-mode` when its record is
  * created and is that ticket's own saved choice from then on.
  */
-export const TicketMode = {
+export const WorkOrderMode = {
 	SinglePlan: 'single-plan',
 	MultiplePlan: 'multiple-plan',
 } as const;
 
-export type TicketMode = (typeof TicketMode)[keyof typeof TicketMode];
+export type WorkOrderMode = (typeof WorkOrderMode)[keyof typeof WorkOrderMode];

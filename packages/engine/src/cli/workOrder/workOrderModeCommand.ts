@@ -4,7 +4,7 @@ import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrint
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { finishWorkOrderChange } from '#src/cli/workOrder/common/utils/finishWorkOrderChange.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import { TicketMode } from '#src/contracts/index.ts';
+import { WorkOrderMode } from '#src/contracts/index.ts';
 import { setTicketMode } from '#src/ticket/index.ts';
 
 /**
@@ -17,10 +17,10 @@ import { setTicketMode } from '#src/ticket/index.ts';
 export const workOrderModeCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const ticketBranch = await getRequiredFlag({ flags, name: 'name' });
 	const asked = await getRequiredFlag({ flags, name: 'set' });
-	const mode = Object.values(TicketMode).find((candidate) => candidate === asked);
+	const mode = Object.values(WorkOrderMode).find((candidate) => candidate === asked);
 
 	if (mode === undefined) {
-		console.error(`--set takes ${Object.values(TicketMode).join(' or ')}, and '${asked}' is neither`);
+		console.error(`--set takes ${Object.values(WorkOrderMode).join(' or ')}, and '${asked}' is neither`);
 
 		return exitCli({ code: 1 });
 	}

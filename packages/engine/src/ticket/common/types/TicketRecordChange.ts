@@ -1,4 +1,4 @@
-import type { TicketRecord } from '#src/contracts/index.ts';
+import type { WorkOrderState } from '#src/contracts/index.ts';
 
 /**
  * What a record-changing ticket operation answers with when it succeeded.
@@ -10,7 +10,7 @@ import type { TicketRecord } from '#src/contracts/index.ts';
  * otherwise would be invited to make it twice.
  */
 export interface TicketRecordChange {
-	record: TicketRecord;
+	record: WorkOrderState;
 	/** One sentence the command prints first — why a ship request was withdrawn, what a mode switch changed about shipping, what to publish next. */
 	notice?: string;
 	/** Set when the local change was written but publishing it failed; `lightsout work-order sync` retries. */

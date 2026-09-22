@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type LightsoutConfig, PlanProgress, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
 import {
 	excludeTicketPlan,
 	requestTicketShip,
@@ -24,7 +24,7 @@ const config: LightsoutConfig = { gates };
 const env: NodeJS.ProcessEnv = {};
 const mergeCommit = 'a1b2c3d4e5f6';
 
-const planOf = ({ id, progress = PlanProgress.Ready, excludedFor }: { id: string; progress?: PlanProgress; excludedFor?: string }): TicketPlan => ({
+const planOf = ({ id, progress = PlanProgress.Ready, excludedFor }: { id: string; progress?: PlanProgress; excludedFor?: string }): WorkOrderPlan => ({
 	id,
 	title: id,
 	progress,
@@ -36,17 +36,17 @@ const planOf = ({ id, progress = PlanProgress.Ready, excludedFor }: { id: string
 const threePlans = [planOf({ id: '001-search-basics' }), planOf({ id: '002-fix-x' }), planOf({ id: '003-drop-me', excludedFor: 'superseded' })];
 
 const setupTicketRecord = async ({
-	mode = TicketMode.MultiplePlan,
+	mode = WorkOrderMode.MultiplePlan,
 	plans = threePlans,
 	shipped,
 }: {
-	mode?: TicketMode;
-	plans?: TicketPlan[];
+	mode?: WorkOrderMode;
+	plans?: WorkOrderPlan[];
 	/** The plan ids a merged ticket shipped with, which makes the record history. */
 	shipped?: string[];
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-request-ship-'));
-	const record: TicketRecord = {
+	const record: WorkOrderState = {
 		schemaVersion: 1,
 		ticketRef: 'LO-140',
 		branch: ticketBranch,
@@ -64,7 +64,7 @@ const setupTicketRecord = async ({
 };
 
 /** The record as it stands on disk now. */
-const readRecordAt = ({ recordPath }: { recordPath: string }) => JSON.parse(readFileSync(recordPath, 'utf8')) as TicketRecord;
+const readRecordAt = ({ recordPath }: { recordPath: string }) => JSON.parse(readFileSync(recordPath, 'utf8')) as WorkOrderState;
 
 describe('requestTicketShip', () => {
 	test('refuses every record change on a ticket whose record says it shipped', async () => {
@@ -74,7 +74,7 @@ describe('requestTicketShip', () => {
 		});
 
 		const results = [
-			await setTicketMode({ ...params, mode: TicketMode.SinglePlan, approve: true }),
+			await setTicketMode({ ...params, mode: WorkOrderMode.SinglePlan, approve: true }),
 			await requestTicketShip({ ...params, plans: ['001-search-basics', '002-fix-x'] }),
 			await withdrawTicketShipRequest({ ...params }),
 			await excludeTicketPlan({ ...params, plan: '002-fix-x', reason: 'not needed', implementationRemoved: false }),
@@ -137,7 +137,7 @@ describe('requestTicketShip', () => {
 	});
 
 	test('refuses a ship request outside multiple-plan mode', async () => {
-		const { params, recordPath, before } = await setupTicketRecord({ mode: TicketMode.SinglePlan, plans: [planOf({ id: '001-search-basics' })] });
+		const { params, recordPath, before } = await setupTicketRecord({ mode: WorkOrderMode.SinglePlan, plans: [planOf({ id: '001-search-basics' })] });
 
 		const result = await requestTicketShip({ ...params, plans: ['001-search-basics'] });
 
@@ -156,7 +156,7 @@ describe('requestTicketShip', () => {
 
 	test('requestTicketShip: the uncovered-plans and wrong-mode refusals spell the work-order command word', async () => {
 		const uncovered = await setupTicketRecord();
-		const singlePlan = await setupTicketRecord({ mode: TicketMode.SinglePlan, plans: [planOf({ id: '001-search-basics' })] });
+		const singlePlan = await setupTicketRecord({ mode: WorkOrderMode.SinglePlan, plans: [planOf({ id: '001-search-basics' })] });
 
 		const results = [
 			await requestTicketShip({ ...uncovered.params, plans: ['1'] }),

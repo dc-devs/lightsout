@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, PlanProgress, TicketEventKind, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
 import { syncTicketRecord, TicketSyncKeep } from '#src/ticket/index.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
@@ -71,15 +71,15 @@ const trackerBlock: LightsoutConfig['ticket-tracker'] = { ...ticketTrackerConfig
 const config: LightsoutConfig = { gates, 'ticket-tracker': trackerBlock };
 const env = { LINEAR_API_KEY: 'lin_key' };
 /** The first event of every record here, so a carried plan's event is the last one. */
-const firstEvent = { at: '2026-09-01T09:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: 'added plan 001-ticket-record' };
+const firstEvent = { at: '2026-09-01T09:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: 'added plan 001-ticket-record' };
 
-type SyncResult = { record: TicketRecord } | { error: string };
+type SyncResult = { record: WorkOrderState } | { error: string };
 type SyncState = { schemaVersion: 1; recordSha256?: string; planMarkers: Record<string, string> };
 
 /** A hash of the right shape for a field the contract reads as a SHA-256, told apart by what it was made from. */
 const digestOf = ({ seed }: { seed: string }) => createHash('sha256').update(seed).digest('hex');
 
-const planOf = ({ id, title = `Plan ${id}`, publishedMarker }: { id: string; title?: string; publishedMarker?: string }): TicketRecord['plans'][number] => ({
+const planOf = ({ id, title = `Plan ${id}`, publishedMarker }: { id: string; title?: string; publishedMarker?: string }): WorkOrderState['plans'][number] => ({
 	id,
 	title,
 	progress: PlanProgress.Ready,
@@ -87,11 +87,11 @@ const planOf = ({ id, title = `Plan ${id}`, publishedMarker }: { id: string; tit
 	...(publishedMarker === undefined ? {} : { publishedMarker }),
 });
 
-const recordOf = ({ plans, history = [firstEvent] }: { plans: TicketRecord['plans']; history?: TicketRecord['history'] }): TicketRecord => ({
+const recordOf = ({ plans, history = [firstEvent] }: { plans: WorkOrderState['plans']; history?: WorkOrderState['history'] }): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef,
 	branch: ticketBranch,
-	mode: TicketMode.MultiplePlan,
+	mode: WorkOrderMode.MultiplePlan,
 	plans,
 	history,
 });
@@ -100,11 +100,11 @@ const asFileText = ({ value }: { value: unknown }) => `${JSON.stringify(value, u
 
 interface SetupParams {
 	/** The record in the primary checkout's ticket folder. Absent writes no `ticket.json`. */
-	local?: TicketRecord;
+	local?: WorkOrderState;
 	/** The record the ticket carries. Absent leaves the ticket with no `ticket.json` attachment. */
-	published?: TicketRecord;
+	published?: WorkOrderState;
 	/** What every read of the ticket after the first answers, for a record another machine publishes mid-command. */
-	publishedAfterFirstRead?: TicketRecord;
+	publishedAfterFirstRead?: WorkOrderState;
 	/** The sidecar naming the bytes this machine last published or restored. */
 	syncState?: SyncState;
 	/** Plan folders that exist in the primary checkout's ticket folder. */

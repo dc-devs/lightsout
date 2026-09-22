@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { sha256 } from '#src/common/utils/sha256.ts';
-import { type LightsoutConfig, PlanProgress, TicketEventKind, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, WorkOrderEventKind, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
 import { createTicketShipGuard, retitleTicketPlan, updateLocalTicketRecord } from '#src/ticket/index.ts';
 import type { TrackerAttachment, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
@@ -39,9 +39,9 @@ const linearEnv = { LINEAR_API_KEY: 'lin_key' };
 const mergeCommit = 'a1b2c3d4e5f6';
 /** What the tracker says when the ticket the record would be attached to cannot be looked up at all. */
 const trackerLookupFailure = 'the tracker answered 503';
-const firstEvent = { at: '2026-01-01T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: 'added plan 001-search-basics' };
+const firstEvent = { at: '2026-01-01T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: 'added plan 001-search-basics' };
 
-const planOf = ({ id, progress = PlanProgress.Ready, excludedFor }: { id: string; progress?: PlanProgress; excludedFor?: string }): TicketPlan => ({
+const planOf = ({ id, progress = PlanProgress.Ready, excludedFor }: { id: string; progress?: PlanProgress; excludedFor?: string }): WorkOrderPlan => ({
 	id,
 	title: id,
 	progress,
@@ -50,18 +50,18 @@ const planOf = ({ id, progress = PlanProgress.Ready, excludedFor }: { id: string
 });
 
 const recordOf = ({
-	mode = TicketMode.MultiplePlan,
+	mode = WorkOrderMode.MultiplePlan,
 	plans,
 	shipRequest,
 	detail,
 }: {
-	mode?: TicketMode;
-	plans: TicketPlan[];
+	mode?: WorkOrderMode;
+	plans: WorkOrderPlan[];
 	/** The plan ids an explicit ship request names. */
 	shipRequest?: string[];
 	/** What a row varies to make two otherwise identical records differ. */
 	detail?: string;
-}): TicketRecord => ({
+}): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch: ticketBranch,
@@ -82,7 +82,7 @@ const authorizedPlans = [
  * checkout, so a row can name the hash a sidecar holds without this file
  * restating the record's byte form.
  */
-const canonicalBytesOf = async ({ record }: { record: TicketRecord }) => {
+const canonicalBytesOf = async ({ record }: { record: WorkOrderState }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-guard-bytes-'));
 	const written = await updateLocalTicketRecord({ cwd, ticketBranch, change: () => record });
 
@@ -107,11 +107,11 @@ const setupGuard = async ({
 	env = {},
 }: {
 	/** The record already in the primary checkout, or none at all. */
-	record?: TicketRecord;
+	record?: WorkOrderState;
 	/** The record the ticket carries as its published `ticket.json`. */
-	published?: TicketRecord;
+	published?: WorkOrderState;
 	/** The record whose bytes the sidecar names as last published or restored. No sidecar when absent. */
-	syncedTo?: TicketRecord;
+	syncedTo?: WorkOrderState;
 	/** Leave a `ticket.json` behind that is not a record at all. */
 	corrupt?: boolean;
 	config?: LightsoutConfig;
@@ -160,7 +160,7 @@ const setupGuard = async ({
 };
 
 /** The record as it stands on disk now. */
-const readRecordAt = ({ recordPath }: { recordPath: string }) => JSON.parse(readFileSync(recordPath, 'utf8')) as TicketRecord;
+const readRecordAt = ({ recordPath }: { recordPath: string }) => JSON.parse(readFileSync(recordPath, 'utf8')) as WorkOrderState;
 
 describe('createTicketShipGuard', () => {
 	test('authorizes a branch whose ticket has no record', async () => {
@@ -175,9 +175,9 @@ describe('createTicketShipGuard', () => {
 		// Two arrangements, because the row is about the difference between them:
 		// the same ticket answers differently on plan 001's progress alone.
 		const implemented = await setupGuard({
-			record: recordOf({ mode: TicketMode.SinglePlan, plans: [planOf({ id: '001-search-basics', progress: PlanProgress.Implemented })] }),
+			record: recordOf({ mode: WorkOrderMode.SinglePlan, plans: [planOf({ id: '001-search-basics', progress: PlanProgress.Implemented })] }),
 		});
-		const ready = await setupGuard({ record: recordOf({ mode: TicketMode.SinglePlan, plans: [planOf({ id: '001-search-basics' })] }) });
+		const ready = await setupGuard({ record: recordOf({ mode: WorkOrderMode.SinglePlan, plans: [planOf({ id: '001-search-basics' })] }) });
 
 		const refusals = [
 			await implemented.guard.authorize({ cwd: implemented.cwd, branch: implemented.branch }),

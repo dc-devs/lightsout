@@ -1,8 +1,8 @@
-import { TicketEventKind, type TicketRecord } from '#src/contracts/index.ts';
+import { WorkOrderEventKind, type WorkOrderState } from '#src/contracts/index.ts';
 import { appendTicketEvent } from '#src/ticket/common/record/appendTicketEvent.ts';
 
 interface Params {
-	record: TicketRecord;
+	record: WorkOrderState;
 	/** Why the request no longer describes the ticket's work — the sentence the history keeps. */
 	detail: string;
 	at: string;
@@ -17,7 +17,7 @@ interface Params {
  * withdraw. The request that was made stays readable beside its withdrawal,
  * which is the whole point of recording one rather than replacing the field.
  */
-export const recordShipRequestWithdrawal = ({ record, detail, at }: Params): TicketRecord =>
+export const recordShipRequestWithdrawal = ({ record, detail, at }: Params): WorkOrderState =>
 	record.shipRequest === undefined
 		? record
-		: appendTicketEvent({ record: { ...record, shipRequest: undefined }, kind: TicketEventKind.ShipRequestWithdrawn, detail, at });
+		: appendTicketEvent({ record: { ...record, shipRequest: undefined }, kind: WorkOrderEventKind.ShipRequestWithdrawn, detail, at });

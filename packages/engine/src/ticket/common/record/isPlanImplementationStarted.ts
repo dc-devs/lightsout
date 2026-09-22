@@ -1,7 +1,7 @@
-import { PlanProgress, type TicketPlan } from '#src/contracts/index.ts';
+import { PlanProgress, type WorkOrderPlan } from '#src/contracts/index.ts';
 
 interface Params {
-	plan: TicketPlan;
+	plan: WorkOrderPlan;
 }
 
 /**

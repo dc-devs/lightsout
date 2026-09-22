@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { sha256 } from '#src/common/utils/sha256.ts';
-import { type LightsoutConfig, TicketEventKind, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
 import { pullTicketRecord, readTicketRecord } from '#src/ticket/index.ts';
 import type { TrackerAttachment, TrackerSettings } from '#src/ticketTracker/index.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
@@ -34,13 +34,13 @@ const trackerBlock: LightsoutConfig['ticket-tracker'] = { ...ticketTrackerConfig
 const configWithTracker: LightsoutConfig = { gates, 'ticket-tracker': trackerBlock };
 
 /** A record the contract accepts. `detail` is what a row varies to make two records differ. */
-const recordOf = ({ branch = ticketBranch, detail = 'added plan 001-record' }: { branch?: string; detail?: string } = {}): TicketRecord => ({
+const recordOf = ({ branch = ticketBranch, detail = 'added plan 001-record' }: { branch?: string; detail?: string } = {}): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch,
-	mode: TicketMode.SinglePlan,
+	mode: WorkOrderMode.SinglePlan,
 	plans: [],
-	history: [{ at: '2026-01-01T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail }],
+	history: [{ at: '2026-01-01T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail }],
 });
 
 /**
@@ -51,7 +51,7 @@ const setupPull = (params: Omit<Parameters<typeof setupPullTicketRecord>[0], 'mo
 	setupPullTicketRecord({ ...params, mocks: { getTicketAttachments: mockGetTicketAttachments, readTicketAsset: mockReadTicketAsset } });
 
 /** The refusal an answer carries, so a row can read one sentence out of the union. */
-const errorOf = (answer: { record: TicketRecord | undefined } | { error: string }) => ('error' in answer ? answer.error : undefined);
+const errorOf = (answer: { record: WorkOrderState | undefined } | { error: string }) => ('error' in answer ? answer.error : undefined);
 
 /** What the sidecar names as the bytes last published or restored, or nothing when there is no sidecar. */
 const syncedHashAt = ({ syncPath }: { syncPath: string }) =>

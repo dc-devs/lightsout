@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
-import type { TicketRecord } from '#src/contracts/index.ts';
+import type { WorkOrderState } from '#src/contracts/index.ts';
 import { ticketFileNames } from '#src/ticket/common/constants/ticketFileNames.ts';
 import { readTicketRecordFile } from '#src/ticket/common/utils/readTicketRecordFile.ts';
 
@@ -20,7 +20,7 @@ interface Params {
  * exists, which every caller reads as "this is a legacy plan folder" — a
  * corrupt record is an error instead, never undefined.
  */
-export const readTicketRecord = async ({ cwd, ticketBranch }: Params): Promise<{ record: TicketRecord | undefined } | { error: string }> => {
+export const readTicketRecord = async ({ cwd, ticketBranch }: Params): Promise<{ record: WorkOrderState | undefined } | { error: string }> => {
 	const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
 
 	return readTicketRecordFile({ recordPath: join(ticketFolder, ticketFileNames.record), ticketBranch });

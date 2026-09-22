@@ -1,6 +1,6 @@
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
-import { PlanProgress, TicketMode } from '#src/contracts/index.ts';
+import { PlanProgress, WorkOrderMode } from '#src/contracts/index.ts';
 import { readTicketRecord } from '#src/ticket/index.ts';
 
 interface Params {
@@ -35,7 +35,7 @@ export const readBodyBuildPlanName = async ({ cwd, branch }: Params): Promise<st
 
 	const record = read.record;
 
-	if (record === undefined || record.mode !== TicketMode.SinglePlan) {
+	if (record === undefined || record.mode !== WorkOrderMode.SinglePlan) {
 		return undefined;
 	}
 

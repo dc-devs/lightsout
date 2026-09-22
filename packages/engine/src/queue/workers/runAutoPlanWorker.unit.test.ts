@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { type LightsoutConfig, type TicketRecord, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
+import { type LightsoutConfig, type WorkOrderState, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
@@ -41,7 +41,7 @@ interface ChooseAutoPlanTargetParams {
 	onProgress?: (message: string) => void;
 }
 
-type ChooseAutoPlanTargetResult = { record: TicketRecord; address?: string } | { error: string };
+type ChooseAutoPlanTargetResult = { record: WorkOrderState; address?: string } | { error: string };
 
 const mockChooseAutoPlanTarget = jest.fn<(params: ChooseAutoPlanTargetParams) => Promise<ChooseAutoPlanTargetResult>>();
 
@@ -57,7 +57,7 @@ interface PullTicketRecordParams {
 	onProgress?: (message: string) => void;
 }
 
-type PullTicketRecordResult = { record: TicketRecord | undefined } | { error: string };
+type PullTicketRecordResult = { record: WorkOrderState | undefined } | { error: string };
 
 const mockPullTicketRecord = jest.fn<(params: PullTicketRecordParams) => Promise<PullTicketRecordResult>>();
 
@@ -66,7 +66,7 @@ jest.mock('#src/ticket/index.ts', () => ({ pullTicketRecord: (params: PullTicket
 interface BuildTicketPlansParams {
 	cwd: string;
 	branch: string;
-	record: TicketRecord;
+	record: WorkOrderState;
 	env: NodeJS.ProcessEnv;
 	driverName: string;
 	ticketRunDir: string;
@@ -103,7 +103,7 @@ const ticket: TicketSummary = {
 };
 
 /** The record the choice answers with: plan 001 implemented, and plan 002 the one still being planned. */
-const chosenRecord: TicketRecord = {
+const chosenRecord: WorkOrderState = {
 	schemaVersion: 1,
 	ticketRef: 'LO-70',
 	branch,
@@ -116,7 +116,7 @@ const chosenRecord: TicketRecord = {
 };
 
 /** The same record after the session published its plan, which is what the pull after the session answers. */
-const plannedRecord: TicketRecord = {
+const plannedRecord: WorkOrderState = {
 	...chosenRecord,
 	plans: chosenRecord.plans.map((plan) => (plan.id === planId ? { ...plan, progress: 'ready' } : plan)),
 };

@@ -5,7 +5,7 @@ import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts'
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
-import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
 import { pathExists, planAttachmentManifestName, planWorkspaceDir } from '#src/plan/index.ts';
 import { TicketSyncKeep } from '#src/ticket/common/constants/TicketSyncKeep.ts';
 import { ticketFileNames } from '#src/ticket/common/constants/ticketFileNames.ts';
@@ -115,7 +115,7 @@ const takePublishedPlan = async ({
 	cwd: string;
 	ticketBranch: string;
 	planId: string;
-	record: TicketRecord;
+	record: WorkOrderState;
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
 	target: TicketTrackerTarget;
@@ -159,7 +159,7 @@ const takePublishedPlan = async ({
 };
 
 /** Write the ticket's record over this machine's, remember its bytes, and drop the surfaced copy the divergence left behind. */
-const writeKeptRecord = async ({ ticketFolder, record }: { ticketFolder: string; record: TicketRecord }) => {
+const writeKeptRecord = async ({ ticketFolder, record }: { ticketFolder: string; record: WorkOrderState }) => {
 	const content = serializeTicketRecord({ record });
 
 	await writeTicketFolderFile({ path: join(ticketFolder, ticketFileNames.record), content });
@@ -189,7 +189,7 @@ export const keepPublishedTicketRecord = async ({
 	env,
 	target,
 	onProgress,
-}: Params): Promise<{ record: TicketRecord } | { error: string }> => {
+}: Params): Promise<{ record: WorkOrderState } | { error: string }> => {
 	const published = await readPublishedTicketRecord({ target, ticketBranch });
 
 	if ('error' in published) {

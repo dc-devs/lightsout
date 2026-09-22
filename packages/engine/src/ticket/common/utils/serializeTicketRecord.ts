@@ -1,8 +1,8 @@
 import { canonicalJson } from '#src/common/utils/canonicalJson.ts';
-import type { TicketRecord } from '#src/contracts/index.ts';
+import type { WorkOrderState } from '#src/contracts/index.ts';
 
 interface Params {
-	record: TicketRecord;
+	record: WorkOrderState;
 }
 
 /**

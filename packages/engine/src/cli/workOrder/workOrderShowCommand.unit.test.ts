@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { workOrderShowCommand } from '#src/cli/workOrder/workOrderShowCommand.ts';
-import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
@@ -23,7 +23,7 @@ interface PullTicketRecordParams {
 	onProgress?: (message: string) => void;
 }
 
-type PullTicketRecordResult = { record: TicketRecord | undefined } | { error: string };
+type PullTicketRecordResult = { record: WorkOrderState | undefined } | { error: string };
 
 const mockPullTicketRecord = jest.fn<(params: PullTicketRecordParams) => Promise<PullTicketRecordResult>>();
 
@@ -33,7 +33,7 @@ jest.mock('#src/ticket/index.ts', () => ({ pullTicketRecord: (params: PullTicket
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 
 /** A work order far enough along to show every line the command has: one plan implemented, one ready to implement, one excluded, and a pending ship request. */
-const record: TicketRecord = {
+const record: WorkOrderState = {
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch: 'lo-140-x',
@@ -58,7 +58,7 @@ const record: TicketRecord = {
  * has shipped — so one run shows the whole progress vocabulary beside the
  * merge commit line.
  */
-const everyProgressRecord: TicketRecord = {
+const everyProgressRecord: WorkOrderState = {
 	...record,
 	plans: [
 		{ id: '001-search-basics', title: 'Search basics', progress: 'planning', createdAt: '2026-09-12T10:00:00.000Z' },

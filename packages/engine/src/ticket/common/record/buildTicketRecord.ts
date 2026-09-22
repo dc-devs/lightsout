@@ -1,4 +1,4 @@
-import { type LightsoutConfig, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
 import { readTicketMatch, resolveShipSettings } from '#src/ship/index.ts';
 
 interface Params {
@@ -13,7 +13,7 @@ interface Params {
  *
  * The ticket id is read with the repo's own `ship.ticket-pattern` through
  * `readTicketMatch`, so a plan folder and a branch never disagree about which
- * ticket they belong to. The mode is seeded from `plan.default-ticket-mode`
+ * ticket they belong to. The mode is seeded from `plan.default-work-order-mode`
  * here and only here: from this moment it is the ticket's own saved choice, and
  * changing the repository default never rewrites it.
  *
@@ -23,7 +23,7 @@ interface Params {
  * because a record's birth is worth looking up by name rather than reading out
  * of the middle of a plan being added.
  */
-export const buildTicketRecord = ({ ticketBranch, config }: Params): TicketRecord | { error: string } => {
+export const buildTicketRecord = ({ ticketBranch, config }: Params): WorkOrderState | { error: string } => {
 	const shipSettings = resolveShipSettings({ config });
 
 	if (shipSettings === undefined) {
@@ -40,5 +40,12 @@ export const buildTicketRecord = ({ ticketBranch, config }: Params): TicketRecor
 		};
 	}
 
-	return { schemaVersion: 1, ticketRef, branch: ticketBranch, mode: config.plan?.['default-ticket-mode'] ?? TicketMode.SinglePlan, plans: [], history: [] };
+	return {
+		schemaVersion: 1,
+		ticketRef,
+		branch: ticketBranch,
+		mode: config.plan?.['default-work-order-mode'] ?? WorkOrderMode.SinglePlan,
+		plans: [],
+		history: [],
+	};
 };

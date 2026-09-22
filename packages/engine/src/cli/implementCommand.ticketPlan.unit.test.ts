@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { implementCommand } from '#src/cli/implementCommand.ts';
-import { PlanProgress, RunStatus, type ShipResult, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { PlanProgress, RunStatus, type ShipResult, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
@@ -84,7 +84,7 @@ const phaseBody = '# Ranking — Phase 1\n';
 const otherMachineMarker = '7c'.repeat(32);
 
 /** One plan of a ticket's record, carrying only what the order and shipping rules read. */
-const planOf = ({ id, progress, publishedMarker }: { id: string; progress: PlanProgress; publishedMarker?: string }): TicketPlan => ({
+const planOf = ({ id, progress, publishedMarker }: { id: string; progress: PlanProgress; publishedMarker?: string }): WorkOrderPlan => ({
 	id,
 	title: `Plan ${id}`,
 	progress,
@@ -94,15 +94,15 @@ const planOf = ({ id, progress, publishedMarker }: { id: string; progress: PlanP
 
 /** A ticket record on the branch above, in whichever mode, with whichever plans and whichever approved plan set the case needs. */
 const recordOf = ({
-	mode = TicketMode.MultiplePlan,
+	mode = WorkOrderMode.MultiplePlan,
 	plans,
 	shipRequest,
 }: {
-	mode?: TicketMode;
-	plans: TicketPlan[];
+	mode?: WorkOrderMode;
+	plans: WorkOrderPlan[];
 	/** The plan ids an explicit ship request names, or nothing when the ticket carries no request. */
 	shipRequest?: string[];
-}): TicketRecord => ({
+}): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef: 'LO-7',
 	branch: ticketBranch,
@@ -113,7 +113,7 @@ const recordOf = ({
 });
 
 /** The ticket record as it stands on disk after the command — the primary checkout holds the one copy. */
-const readRecord = ({ cwd }: { cwd: string }): TicketRecord => JSON.parse(readFileSync(join(cwd, ticketFolder, 'ticket.json'), 'utf8')) as TicketRecord;
+const readRecord = ({ cwd }: { cwd: string }): WorkOrderState => JSON.parse(readFileSync(join(cwd, ticketFolder, 'ticket.json'), 'utf8')) as WorkOrderState;
 
 /** Every run the command left on disk, by id. */
 const readRunIds = ({ cwd }: { cwd: string }): string[] => {
@@ -138,7 +138,7 @@ const readManifests = ({ cwd }: { cwd: string }): { runId: string; willShip?: bo
  * says something, and writing it directly is what lets a case state exactly
  * that.
  */
-const seedTicketRepo = ({ record, files }: { record: TicketRecord; files: Record<string, string> }) => {
+const seedTicketRepo = ({ record, files }: { record: WorkOrderState; files: Record<string, string> }) => {
 	const captured = captureCommandOutput();
 	const cwd = setupConsumerRepo();
 
@@ -169,7 +169,7 @@ const setupPassedTicketRun = ({
 	planPath,
 	extraArgs = [],
 }: {
-	record: TicketRecord;
+	record: WorkOrderState;
 	files: Record<string, string>;
 	/** The `--plan` value, which is also what the manifest records as the run's plan. */
 	planPath: string;
@@ -204,7 +204,7 @@ const setupRefusedTicketRun = ({
 	planFolder = laterPlanFolder,
 	noWorktree = false,
 }: {
-	record: TicketRecord;
+	record: WorkOrderState;
 	planFolder?: string;
 	/** Whether the run stays in the launching checkout, for a refusal that only lands once a workspace is open. */
 	noWorktree?: boolean;
@@ -226,7 +226,7 @@ const setupRefusedTicketRun = ({
  * fails at the plan read before a harness is spawned, leaving the stamp as the
  * only thing the case has to read.
  */
-const setupStampedTicketRun = ({ record }: { record: TicketRecord }) => {
+const setupStampedTicketRun = ({ record }: { record: WorkOrderState }) => {
 	const seeded = seedTicketRepo({ record, files: { [join(laterPlanFolder, 'notes.md')]: '# research notes, not the plan\n' } });
 
 	mockRunPipelineOrFailFast.mockImplementation(actualRunPipeline);
@@ -279,7 +279,7 @@ describe('implementCommand ticket plans', () => {
 	test('refuses a plan whose published files moved on another machine, leaving the record untouched', async () => {
 		const published = planOf({ id: firstPlan, progress: PlanProgress.Ready, publishedMarker: otherMachineMarker });
 		const { context, cwd, errors, exitCodes } = setupRefusedTicketRun({
-			record: recordOf({ mode: TicketMode.SinglePlan, plans: [published] }),
+			record: recordOf({ mode: WorkOrderMode.SinglePlan, plans: [published] }),
 			planFolder: firstPlanFolder,
 			noWorktree: true,
 		});
@@ -299,7 +299,7 @@ describe('implementCommand ticket plans', () => {
 
 	test('records a ticket plan implemented under the run id of the manifest it wrote', async () => {
 		const { context, cwd, exitCodes } = setupPassedTicketRun({
-			record: recordOf({ mode: TicketMode.SinglePlan, plans: [planOf({ id: firstPlan, progress: PlanProgress.Ready })] }),
+			record: recordOf({ mode: WorkOrderMode.SinglePlan, plans: [planOf({ id: firstPlan, progress: PlanProgress.Ready })] }),
 			files: { [join(firstPlanFolder, 'plan.md')]: planBody },
 			planPath: join(firstPlanFolder, 'plan.md'),
 		});

@@ -1,5 +1,5 @@
 import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
-import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
 import { publishedButUnrecorded } from '#src/ticket/common/constants/publishedButUnrecorded.ts';
 import { attachTicketRecordIfUnmoved } from '#src/ticket/common/utils/attachTicketRecordIfUnmoved.ts';
 import { readTicketSyncState } from '#src/ticket/common/utils/readTicketSyncState.ts';
@@ -16,7 +16,7 @@ interface Params {
 	/** The process environment the tracker API key is read from. */
 	env: NodeJS.ProcessEnv;
 	/** The same pure change `updateLocalTicketRecord` takes, run under the record's lock once the pull has settled what "now" is. */
-	change: (current: TicketRecord | undefined) => TicketRecord | { error: string };
+	change: (current: WorkOrderState | undefined) => WorkOrderState | { error: string };
 	onProgress?: (message: string) => void;
 }
 
@@ -43,7 +43,7 @@ export const updateSyncedTicketRecord = async ({
 	env,
 	change,
 	onProgress,
-}: Params): Promise<{ record: TicketRecord; publishError?: string } | { error: string }> => {
+}: Params): Promise<{ record: WorkOrderState; publishError?: string } | { error: string }> => {
 	const pulled = await pullTicketRecord({ cwd, ticketBranch, config, env, onProgress });
 
 	if ('error' in pulled) {

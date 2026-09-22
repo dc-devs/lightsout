@@ -9,9 +9,9 @@ import {
 	ShipBlockReason,
 	type ShipResult,
 	ShipStatus,
-	TicketEventKind,
-	TicketMode,
-	type TicketRecord,
+	WorkOrderEventKind,
+	WorkOrderMode,
+	type WorkOrderState,
 	WorktreeOwner,
 } from '#src/contracts/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
@@ -140,13 +140,13 @@ const ship = async ({ cwd, outcome }: { cwd: string; outcome: TicketRunOutcome }
  * A ticket record whose one plan is implemented and whose merge nothing has
  * approved: a multiple-plan ticket carrying no ship request.
  */
-const unauthorizedRecordOf = ({ branch }: { branch: string }): TicketRecord => ({
+const unauthorizedRecordOf = ({ branch }: { branch: string }): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef: 'LO-70',
 	branch,
-	mode: TicketMode.MultiplePlan,
+	mode: WorkOrderMode.MultiplePlan,
 	plans: [{ id: '001-drain-work', title: 'Drain work', progress: PlanProgress.Implemented, createdAt: '2026-01-01T00:00:00.000Z' }],
-	history: [{ at: '2026-01-01T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: 'added plan 001-drain-work' }],
+	history: [{ at: '2026-01-01T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: 'added plan 001-drain-work' }],
 });
 
 /**

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { serializeAttachmentManifest } from '#src/common/attachmentManifest/serializeAttachmentManifest.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
-import { type LightsoutConfig, PlanProgress, TicketEventKind, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
 import { publishTicketPlan } from '#src/ticket/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { canonicalTicketRecordText } from '#tests/helpers/canonicalTicketRecordText.ts';
@@ -64,13 +64,13 @@ const brainstormMarkerText = serializeAttachmentManifest({ files: [{ name: 'brai
 );
 
 /** A record the contract accepts, holding this ticket's one plan. */
-const ticketRecordOf = ({ progress = PlanProgress.Planning, title = 'The ship guard' }: { progress?: PlanProgress; title?: string } = {}): TicketRecord => ({
+const ticketRecordOf = ({ progress = PlanProgress.Planning, title = 'The ship guard' }: { progress?: PlanProgress; title?: string } = {}): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch: ticketBranch,
-	mode: TicketMode.MultiplePlan,
+	mode: WorkOrderMode.MultiplePlan,
 	plans: [{ id: planId, title, progress, createdAt: '2026-01-01T00:00:00.000Z' }],
-	history: [{ at: '2026-01-01T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: `added plan ${planId}` }],
+	history: [{ at: '2026-01-01T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: `added plan ${planId}` }],
 });
 
 const setupTicketPlan = async ({
@@ -89,9 +89,9 @@ const setupTicketPlan = async ({
 	/** The text of the brainstorm marker the ticket carries, for a marker that cannot be parsed. */
 	brainstormMarker?: string;
 	/** The record the ticket carries as its `ticket.json` attachment, when the case needs one. */
-	published?: TicketRecord;
+	published?: WorkOrderState;
 	/** The record whose hash `ticket-sync.json` holds, when the case needs a sidecar. */
-	sidecarOf?: TicketRecord;
+	sidecarOf?: WorkOrderState;
 	/** Each attachment title the tracker refuses, and the sentence it refuses with. */
 	uploadFailures?: Record<string, string>;
 	/** Runs after each attachment lands, so a row can move the ticket on mid-publish. */
@@ -186,7 +186,7 @@ const markerHashOf = ({ assets }: { assets: Map<string, string> }) => sha256({ c
 
 /** The plan's entry as the ticket's published `ticket.json` describes it. */
 const publishedPlanOf = ({ assets }: { assets: Map<string, string> }) => {
-	const record = JSON.parse(assets.get('ticket.json') ?? 'null') as TicketRecord | null;
+	const record = JSON.parse(assets.get('ticket.json') ?? 'null') as WorkOrderState | null;
 	const plan = record?.plans.find((entry) => entry.id === planId);
 
 	return { progress: plan?.progress, publishedMarker: plan?.publishedMarker };
@@ -194,7 +194,7 @@ const publishedPlanOf = ({ assets }: { assets: Map<string, string> }) => {
 
 /** The plan's title as the ticket's published `ticket.json` describes it — which says which record on disk was read. */
 const publishedPlanTitleOf = ({ assets }: { assets: Map<string, string> }) => {
-	const record = JSON.parse(assets.get('ticket.json') ?? 'null') as TicketRecord | null;
+	const record = JSON.parse(assets.get('ticket.json') ?? 'null') as WorkOrderState | null;
 
 	return record?.plans.find((entry) => entry.id === planId)?.title;
 };
@@ -351,7 +351,7 @@ describe('publishTicketPlan', () => {
 		// dropped this plan from. The files did land, so the plan titles stand and
 		// the sentence says the record does not describe them.
 		const agreed = ticketRecordOf();
-		const withoutThePlan: TicketRecord = { ...agreed, plans: [] };
+		const withoutThePlan: WorkOrderState = { ...agreed, plans: [] };
 		let dropped = false;
 		const { params, assets, syncPath } = await setupTicketPlan({
 			brainstormPublished: true,

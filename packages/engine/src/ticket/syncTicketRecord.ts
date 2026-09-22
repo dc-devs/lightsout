@@ -1,6 +1,6 @@
 import { sha256 } from '#src/common/utils/sha256.ts';
 import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
-import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
 import { publishedButUnrecorded } from '#src/ticket/common/constants/publishedButUnrecorded.ts';
 import { TicketSyncKeep } from '#src/ticket/common/constants/TicketSyncKeep.ts';
 import { ticketFileNames } from '#src/ticket/common/constants/ticketFileNames.ts';
@@ -47,7 +47,7 @@ const catchUpTicketRecord = async ({
 	env: NodeJS.ProcessEnv;
 	target: TicketTrackerTarget;
 	onProgress?: (message: string) => void;
-}): Promise<{ record: TicketRecord } | { error: string }> => {
+}): Promise<{ record: WorkOrderState } | { error: string }> => {
 	const pulled = await pullTicketRecord({ cwd, ticketBranch, config, env, onProgress });
 
 	if ('error' in pulled) {
@@ -89,7 +89,14 @@ const catchUpTicketRecord = async ({
  * does and then sends anything this machine still owes; with `--keep` it
  * carries out a decision, which is the only way a divergence is ever resolved.
  */
-export const syncTicketRecord = async ({ cwd, ticketBranch, config, env, keep, onProgress }: Params): Promise<{ record: TicketRecord } | { error: string }> => {
+export const syncTicketRecord = async ({
+	cwd,
+	ticketBranch,
+	config,
+	env,
+	keep,
+	onProgress,
+}: Params): Promise<{ record: WorkOrderState } | { error: string }> => {
 	const target = resolveTicketTrackerTarget({ config, env, ticketBranch });
 
 	if ('error' in target) {

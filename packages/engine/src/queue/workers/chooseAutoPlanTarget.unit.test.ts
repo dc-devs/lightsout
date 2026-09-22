@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import type { LightsoutConfig, TicketPlan, TicketRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorkOrderPlan, WorkOrderState } from '#src/contracts/index.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { chooseAutoPlanTarget } from '#src/queue/workers/chooseAutoPlanTarget.ts';
 
@@ -19,7 +19,7 @@ interface PullParams {
 	onProgress?: (message: string) => void;
 }
 
-type PullResult = { record: TicketRecord | undefined } | { error: string };
+type PullResult = { record: WorkOrderState | undefined } | { error: string };
 
 interface AddPlanParams {
 	cwd: string;
@@ -31,7 +31,7 @@ interface AddPlanParams {
 	onProgress?: (message: string) => void;
 }
 
-type AddPlanResult = { address: string; record: TicketRecord; notice?: string; publishError?: string } | { error: string };
+type AddPlanResult = { address: string; record: WorkOrderState; notice?: string; publishError?: string } | { error: string };
 
 const mockPullTicketRecord = jest.fn<(params: PullParams) => Promise<PullResult>>();
 const mockAddTicketPlan = jest.fn<(params: AddPlanParams) => Promise<AddPlanResult>>();
@@ -47,7 +47,7 @@ const branch = 'lo-140-multi';
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
-const planWith = ({ id, progress, exclusion }: { id: string; progress: TicketPlan['progress']; exclusion?: TicketPlan['exclusion'] }): TicketPlan => ({
+const planWith = ({ id, progress, exclusion }: { id: string; progress: WorkOrderPlan['progress']; exclusion?: WorkOrderPlan['exclusion'] }): WorkOrderPlan => ({
 	id,
 	title: `Plan ${id}`,
 	progress,
@@ -55,7 +55,7 @@ const planWith = ({ id, progress, exclusion }: { id: string; progress: TicketPla
 	...(exclusion ? { exclusion } : {}),
 });
 
-const recordWith = ({ plans }: { plans: TicketPlan[] }): TicketRecord => ({
+const recordWith = ({ plans }: { plans: WorkOrderPlan[] }): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch,

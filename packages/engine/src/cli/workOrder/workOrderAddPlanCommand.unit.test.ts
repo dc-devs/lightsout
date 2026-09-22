@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { workOrderAddPlanCommand } from '#src/cli/workOrder/workOrderAddPlanCommand.ts';
-import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
@@ -26,7 +26,7 @@ interface AddTicketPlanParams {
 	onProgress?: (message: string) => void;
 }
 
-type AddTicketPlanResult = { address: string; record: TicketRecord; notice?: string; publishError?: string } | { error: string };
+type AddTicketPlanResult = { address: string; record: WorkOrderState; notice?: string; publishError?: string } | { error: string };
 
 const mockAddTicketPlan = jest.fn<(params: AddTicketPlanParams) => Promise<AddTicketPlanResult>>();
 
@@ -35,7 +35,7 @@ jest.mock('#src/ticket/index.ts', () => ({ addTicketPlan: (params: AddTicketPlan
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 
-const record: TicketRecord = {
+const record: WorkOrderState = {
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch: 'lo-140-x',

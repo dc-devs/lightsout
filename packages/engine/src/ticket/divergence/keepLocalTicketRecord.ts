@@ -1,7 +1,7 @@
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
-import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
 import { pathExists, planWorkspaceDir, publishPlan } from '#src/plan/index.ts';
 import { publishedButUnrecorded } from '#src/ticket/common/constants/publishedButUnrecorded.ts';
 import { TicketSyncKeep } from '#src/ticket/common/constants/TicketSyncKeep.ts';
@@ -62,8 +62,8 @@ const republishDivergentPlans = async ({
 	cwd: string;
 	ticketBranch: string;
 	ticketFolder: string;
-	carried: TicketRecord | undefined;
-	kept: TicketRecord;
+	carried: WorkOrderState | undefined;
+	kept: WorkOrderState;
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
 	onProgress?: (message: string) => void;
@@ -109,14 +109,14 @@ const republishDivergentPlans = async ({
 };
 
 /** The kept record with each plan's published marker set to what the ticket now carries for it. */
-const withPlanMarkers = ({ record, markers }: { record: TicketRecord; markers: Record<string, string> }): TicketRecord => ({
+const withPlanMarkers = ({ record, markers }: { record: WorkOrderState; markers: Record<string, string> }): WorkOrderState => ({
 	...record,
 	plans: record.plans.map((plan) => (markers[plan.id] === undefined ? plan : { ...plan, publishedMarker: markers[plan.id] })),
 });
 
 interface RecordsToKeep {
 	/** This machine's record, holding every plan either copy knows about. */
-	kept: TicketRecord;
+	kept: WorkOrderState;
 	/** The ticket's own copy and its normalised bytes, absent when the ticket carries none. */
 	carried: PublishedTicketRecord | undefined;
 }
@@ -181,7 +181,7 @@ export const keepLocalTicketRecord = async ({
 	env,
 	target,
 	onProgress,
-}: Params): Promise<{ record: TicketRecord } | { error: string }> => {
+}: Params): Promise<{ record: WorkOrderState } | { error: string }> => {
 	const records = await readRecordsToKeep({ cwd, ticketBranch, target });
 
 	if ('error' in records) {

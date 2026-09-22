@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, TicketEventKind, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
 import { pullTicketRecord } from '#src/ticket/index.ts';
 import type { TrackerAttachment, TrackerSettings } from '#src/ticketTracker/index.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
@@ -34,13 +34,13 @@ const config: LightsoutConfig = { gates, 'ticket-tracker': trackerBlock };
 const env = { LINEAR_API_KEY: 'lin_key' };
 
 /** The record the ticket carries, which every row here can read without trouble. */
-const publishedRecord: TicketRecord = {
+const publishedRecord: WorkOrderState = {
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch: ticketBranch,
-	mode: TicketMode.SinglePlan,
+	mode: WorkOrderMode.SinglePlan,
 	plans: [],
-	history: [{ at: '2026-01-01T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: 'added plan 001-record' }],
+	history: [{ at: '2026-01-01T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: 'added plan 001-record' }],
 };
 
 /**
@@ -60,7 +60,7 @@ const setupBlockedTicketFolder = ({ blocked }: { blocked: 'ticket.json' | 'ticke
 };
 
 /** The refusal an answer carries, so a row can read one sentence out of the union. */
-const errorOf = (answer: { record: TicketRecord | undefined } | { error: string }) => ('error' in answer ? answer.error : undefined);
+const errorOf = (answer: { record: WorkOrderState | undefined } | { error: string }) => ('error' in answer ? answer.error : undefined);
 
 describe('pullTicketRecord', () => {
 	test("pullTicketRecord: refuses when this machine's own ticket.json cannot be read, rather than taking the published copy over it", async () => {

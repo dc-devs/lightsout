@@ -4,7 +4,7 @@ import { readGitHeadCommit } from '#src/common/git/readGitHeadCommit.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
-import { PlanProgress, RunStatus, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { PlanProgress, RunStatus, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { durablePlanFiles } from '#src/plan/index.ts';
 import type { TicketPlanOutcome } from '#src/ticket/common/types/TicketPlanOutcome.ts';
@@ -43,7 +43,7 @@ const readPlanSnapshot = async ({ cwd, name }: { cwd: string; name: string }) =>
 };
 
 /** The same record with one plan replaced, which is the only shape of change this helper ever makes. */
-const withPlan = ({ record, plan }: { record: TicketRecord; plan: TicketPlan }): TicketRecord => ({
+const withPlan = ({ record, plan }: { record: WorkOrderState; plan: WorkOrderPlan }): WorkOrderState => ({
 	...record,
 	plans: record.plans.map((candidate) => (candidate.id === plan.id ? plan : candidate)),
 });
@@ -101,7 +101,7 @@ const recordImplementing = ({
 	});
 
 /** Whether the plan's start values have to be minted, which is the only case that needs git to name a commit. */
-const needsFreshStart = ({ plan }: { plan: TicketPlan | undefined }) =>
+const needsFreshStart = ({ plan }: { plan: WorkOrderPlan | undefined }) =>
 	plan?.implementation === undefined || (plan.progress !== PlanProgress.Implementing && plan.progress !== PlanProgress.Failed);
 
 /** What the finished run leaves on the plan: implemented with its scope, failed, or the progress the run started under. */

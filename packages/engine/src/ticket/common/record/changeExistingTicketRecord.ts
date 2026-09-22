@@ -1,4 +1,4 @@
-import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
 import { requireTicketRecord } from '#src/ticket/common/record/requireTicketRecord.ts';
 import type { TicketRecordChange } from '#src/ticket/common/types/TicketRecordChange.ts';
 import { updateSyncedTicketRecord } from '#src/ticket/updateSyncedTicketRecord.ts';
@@ -13,7 +13,7 @@ interface Params {
 	env: NodeJS.ProcessEnv;
 	onProgress?: (message: string) => void;
 	/** The operation's own rules, run against the record the pull settled on — a ticket with no record, and one that has shipped, never reach it. */
-	change: (record: TicketRecord) => TicketRecord | { error: string };
+	change: (record: WorkOrderState) => WorkOrderState | { error: string };
 }
 
 /**

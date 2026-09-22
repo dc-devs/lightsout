@@ -1,4 +1,4 @@
-import { type LightsoutConfig, TicketEventKind } from '#src/contracts/index.ts';
+import { type LightsoutConfig, WorkOrderEventKind } from '#src/contracts/index.ts';
 import { appendTicketEvent } from '#src/ticket/common/record/appendTicketEvent.ts';
 import { changeExistingTicketRecord } from '#src/ticket/common/record/changeExistingTicketRecord.ts';
 import { resolveTicketPlan } from '#src/ticket/common/record/resolveTicketPlan.ts';
@@ -46,7 +46,7 @@ export const retitleTicketPlan = ({ cwd, ticketBranch, plan, title, config, env,
 
 			return appendTicketEvent({
 				record: { ...record, plans: record.plans.map((candidate) => (candidate.id === target.id ? { ...candidate, title } : candidate)) },
-				kind: TicketEventKind.PlanRetitled,
+				kind: WorkOrderEventKind.PlanRetitled,
 				detail: `plan ${target.id} on ticket ${ticketBranch} is now titled '${title}'`,
 				at: new Date().toISOString(),
 			});

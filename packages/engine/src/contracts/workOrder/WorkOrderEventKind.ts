@@ -11,7 +11,7 @@
  * history is parsed with a strict enum, so changing either would make a record
  * already published to a ticket unreadable.
  */
-export const TicketEventKind = {
+export const WorkOrderEventKind = {
 	PlanAdded: 'plan-added',
 	PlanAdopted: 'plan-adopted',
 	PlanRetitled: 'plan-retitled',
@@ -22,4 +22,4 @@ export const TicketEventKind = {
 	Shipped: 'shipped',
 } as const;
 
-export type TicketEventKind = (typeof TicketEventKind)[keyof typeof TicketEventKind];
+export type WorkOrderEventKind = (typeof WorkOrderEventKind)[keyof typeof WorkOrderEventKind];

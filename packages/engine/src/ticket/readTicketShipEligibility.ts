@@ -1,9 +1,9 @@
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
-import { PlanProgress, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
+import { PlanProgress, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
 import type { TicketShipEligibility } from '#src/ticket/common/types/TicketShipEligibility.ts';
 
 interface Params {
-	record: TicketRecord;
+	record: WorkOrderState;
 }
 
 /** Plan 001 alone supplies a single-plan ticket's implementation, so it alone decides whether the ticket may ship. */
@@ -93,7 +93,7 @@ export const readTicketShipEligibility = ({ record }: Params): TicketShipEligibi
 			eligible: false,
 			reason: `ticket ${record.branch} already shipped as ${record.shipped.mergeCommit}, so its record no longer authorizes a merge`,
 		};
-	} else if (record.mode === TicketMode.SinglePlan) {
+	} else if (record.mode === WorkOrderMode.SinglePlan) {
 		eligibility = readSinglePlanEligibility({ record });
 	} else {
 		eligibility = readMultiplePlanEligibility({ record });

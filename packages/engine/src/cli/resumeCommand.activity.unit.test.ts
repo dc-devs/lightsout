@@ -10,8 +10,8 @@ import {
 	PlanProgress,
 	type RunManifest,
 	RunStatus,
-	TicketMode,
-	type TicketRecord,
+	WorkOrderMode,
+	type WorkOrderState,
 } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
@@ -176,11 +176,11 @@ const setupParkedDirectRun = () => {
 		args: ['--run', runId],
 		manifest: manifestOf({ pipeline: PipelineKind.Direct, status: RunStatus.Failed, plan: frozenTicketPath, ticketRef: 'LO-154', branch: ticketBranch }),
 	});
-	const record: TicketRecord = {
+	const record: WorkOrderState = {
 		schemaVersion: 1,
 		ticketRef: 'LO-154',
 		branch: ticketBranch,
-		mode: TicketMode.SinglePlan,
+		mode: WorkOrderMode.SinglePlan,
 		plans: [
 			{
 				id: planId,

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { workOrderRetitlePlanCommand } from '#src/cli/workOrder/workOrderRetitlePlanCommand.ts';
-import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // Mocked Imports
@@ -24,7 +24,7 @@ interface RetitleParams {
 	onProgress?: (message: string) => void;
 }
 
-type RetitleResult = { record: TicketRecord; notice?: string; publishError?: string } | { error: string };
+type RetitleResult = { record: WorkOrderState; notice?: string; publishError?: string } | { error: string };
 
 const mockRetitleTicketPlan = jest.fn<(params: RetitleParams) => Promise<RetitleResult>>();
 
@@ -34,7 +34,7 @@ jest.mock('#src/ticket/index.ts', () => ({ retitleTicketPlan: (params: RetitlePa
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 
 /** A ticket whose plan 002 now carries the new display title. */
-const retitledRecord: TicketRecord = {
+const retitledRecord: WorkOrderState = {
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch: 'lo-140-x',

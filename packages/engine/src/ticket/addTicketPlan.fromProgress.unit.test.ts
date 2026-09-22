@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
 import { addTicketPlan } from '#src/ticket/index.ts';
 import type { TrackerAttachment, TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
@@ -117,7 +117,7 @@ const setupSourceProgress = ({ looseFiles = draftedPlanFiles, runs = [] }: Setup
 
 /** The progress the record on disk carries for the plan the add made, which is what every later command reads. */
 const progressOf = ({ ticketFolder }: { ticketFolder: string }) => {
-	const record = JSON.parse(readFileSync(join(ticketFolder, 'ticket.json'), 'utf8')) as TicketRecord;
+	const record = JSON.parse(readFileSync(join(ticketFolder, 'ticket.json'), 'utf8')) as WorkOrderState;
 
 	return record.plans.at(0)?.progress;
 };

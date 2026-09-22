@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
-import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
 import { ticketFileNames } from '#src/ticket/common/constants/ticketFileNames.ts';
 import type { PublishedTicketRecord } from '#src/ticket/common/types/PublishedTicketRecord.ts';
 import { readPublishedTicketRecord } from '#src/ticket/common/utils/readPublishedTicketRecord.ts';
@@ -36,11 +36,11 @@ const takePublished = async ({
 }: {
 	ticketFolder: string;
 	content: Buffer;
-	record: TicketRecord;
+	record: WorkOrderState;
 	ticketRef: string;
 	onProgress?: (message: string) => void;
 }) => {
-	let outcome: { record: TicketRecord } | { error: string };
+	let outcome: { record: WorkOrderState } | { error: string };
 
 	try {
 		await writeTicketFolderFile({ path: join(ticketFolder, ticketFileNames.record), content });
@@ -77,7 +77,7 @@ const applyThreeWayRule = async ({
 	ticketRef: string;
 	published: PublishedTicketRecord | undefined;
 	onProgress?: (message: string) => void;
-}): Promise<{ record: TicketRecord | undefined } | { error: string }> => {
+}): Promise<{ record: WorkOrderState | undefined } | { error: string }> => {
 	const local = await readTicketRecord({ cwd, ticketBranch });
 
 	if ('error' in local) {
@@ -92,7 +92,7 @@ const applyThreeWayRule = async ({
 	const publishedSha256 = sha256({ content: published.content });
 	const localSha256 = local.record === undefined ? undefined : sha256({ content: serializeTicketRecord({ record: local.record }) });
 	const take = () => takePublished({ ticketFolder, content: published.content, record: published.record, ticketRef, onProgress });
-	let outcome: { record: TicketRecord | undefined } | { error: string };
+	let outcome: { record: WorkOrderState | undefined } | { error: string };
 
 	if (local.record === undefined || localSha256 === syncState?.recordSha256) {
 		// Nothing local to lose, or only the ticket moved since the last sync.
@@ -132,7 +132,7 @@ export const pullTicketRecord = async ({
 	config,
 	env,
 	onProgress,
-}: Params): Promise<{ record: TicketRecord | undefined } | { error: string }> => {
+}: Params): Promise<{ record: WorkOrderState | undefined } | { error: string }> => {
 	const target = resolveTicketTrackerTarget({ config, env, ticketBranch });
 
 	if ('error' in target) {

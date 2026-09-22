@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { type LightsoutConfig, type TicketRecord, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
+import { type LightsoutConfig, type WorkOrderState, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
@@ -42,7 +42,7 @@ jest.mock('#src/invoke/index.ts', () => ({
 interface BuildTicketPlansParams {
 	cwd: string;
 	branch: string;
-	record: TicketRecord;
+	record: WorkOrderState;
 	allowTicketBodyBuild: boolean;
 }
 
@@ -63,7 +63,7 @@ interface PullParams {
 	onProgress?: (message: string) => void;
 }
 
-type PullResult = { record: TicketRecord | undefined } | { error: string };
+type PullResult = { record: WorkOrderState | undefined } | { error: string };
 
 interface AddPlanParams {
 	cwd: string;
@@ -75,7 +75,7 @@ interface AddPlanParams {
 	onProgress?: (message: string) => void;
 }
 
-type AddPlanResult = { address: string; record: TicketRecord; notice?: string; publishError?: string } | { error: string };
+type AddPlanResult = { address: string; record: WorkOrderState; notice?: string; publishError?: string } | { error: string };
 
 const mockPullTicketRecord = jest.fn<(params: PullParams) => Promise<PullResult>>();
 const mockAddTicketPlan = jest.fn<(params: AddPlanParams) => Promise<AddPlanResult>>();
@@ -107,7 +107,7 @@ const ticket: RunnableTicket = {
 	unfinishedBlockers: [],
 };
 
-const recordWith = ({ plans }: { plans: TicketRecord['plans'] }): TicketRecord => ({
+const recordWith = ({ plans }: { plans: WorkOrderState['plans'] }): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef: 'LO-70',
 	branch,

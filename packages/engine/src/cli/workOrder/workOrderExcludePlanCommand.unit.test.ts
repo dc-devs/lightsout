@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { workOrderExcludePlanCommand } from '#src/cli/workOrder/workOrderExcludePlanCommand.ts';
-import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // Mocked Imports
@@ -25,7 +25,7 @@ interface ExcludeTicketPlanParams {
 	onProgress?: (message: string) => void;
 }
 
-type ExcludeTicketPlanResult = { record: TicketRecord; notice?: string; publishError?: string } | { error: string };
+type ExcludeTicketPlanResult = { record: WorkOrderState; notice?: string; publishError?: string } | { error: string };
 
 const mockExcludeTicketPlan = jest.fn<(params: ExcludeTicketPlanParams) => Promise<ExcludeTicketPlanResult>>();
 
@@ -35,7 +35,7 @@ jest.mock('#src/ticket/index.ts', () => ({ excludeTicketPlan: (params: ExcludeTi
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 
 /** The work order as the exclusion leaves it: plan 002 dropped, its files still on disk. */
-const excludedRecord: TicketRecord = {
+const excludedRecord: WorkOrderState = {
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch: 'lo-140-x',

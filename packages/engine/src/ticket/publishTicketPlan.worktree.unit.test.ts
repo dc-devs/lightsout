@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, PlanProgress, TicketEventKind, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
 import { publishTicketPlan } from '#src/ticket/index.ts';
 import type { TrackerAttachment, TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
@@ -55,13 +55,13 @@ const planTitles = [`${planId}--plan.md`, `${planId}--decisions.json`, `${planId
 const brainstormTitles = [`${planId}--brainstorm-notes.md`, `${planId}--brainstorm-attachments.json`];
 
 /** A record the contract accepts, holding this ticket's one plan. */
-const ticketRecordOf = (): TicketRecord => ({
+const ticketRecordOf = (): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch: ticketBranch,
-	mode: TicketMode.MultiplePlan,
+	mode: WorkOrderMode.MultiplePlan,
 	plans: [{ id: planId, title: 'The ship guard', progress: PlanProgress.Planning, createdAt: '2026-01-01T00:00:00.000Z' }],
-	history: [{ at: '2026-01-01T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: `added plan ${planId}` }],
+	history: [{ at: '2026-01-01T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: `added plan ${planId}` }],
 });
 
 /**

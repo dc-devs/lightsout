@@ -1,5 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { PlanProgress, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
+import { PlanProgress, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
 import type { TicketPlanStep } from '#src/queue/workers/common/types/TicketPlanStep.ts';
 import { commitPlanWork } from '#src/queue/workers/common/utils/commitPlanWork.ts';
 import { config, driver, planOf, ticket, ticketBranch } from '#tests/helpers/setupTicketPlanBuild.ts';
@@ -37,11 +37,11 @@ const setupLeftoverCommit = ({ runId }: { runId?: string } = {}) => {
 		runId,
 		finishedAt: '2026-01-03T00:00:00.000Z',
 	});
-	const record: TicketRecord = {
+	const record: WorkOrderState = {
 		schemaVersion: 1,
 		ticketRef: ticket.identifier,
 		branch: ticketBranch,
-		mode: TicketMode.MultiplePlan,
+		mode: WorkOrderMode.MultiplePlan,
 		plans: [plan],
 		history: [],
 	};

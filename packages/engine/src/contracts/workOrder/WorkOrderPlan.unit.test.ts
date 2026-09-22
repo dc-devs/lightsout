@@ -1,5 +1,17 @@
 import { describe, expect, test } from '@jest/globals';
-import { TicketPlan } from '#src/contracts/index.ts';
+import { WorkOrderPlan } from '#src/contracts/index.ts';
+
+const setupMarkerPlan = ({ publishedMarker }: { publishedMarker: string }) => {
+	const markerPlan = {
+		id: '001-search-basics',
+		title: 'Search basics',
+		progress: 'ready',
+		createdAt: '2026-01-01T00:00:00.000Z',
+		publishedMarker,
+	};
+
+	return { markerPlan };
+};
 
 const setupPlan = () => {
 	const plan = {
@@ -48,11 +60,38 @@ const setupExclusionPlans = () => {
 	return { excludedPlan, emptyReasonPlan, noRemovalFlagPlan, excludedProgressPlan };
 };
 
-describe('TicketPlan', () => {
+describe('WorkOrderPlan', () => {
+	test('WorkOrderPlan: refuses a marker that is not a 64-character lowercase hex digest', () => {
+		const accepted = setupMarkerPlan({
+			publishedMarker: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
+		});
+		const uppercase = setupMarkerPlan({
+			publishedMarker: '9F86D081884C7D659A2FEAA0C55AD015A3BF4F1B2B0B822CD15D6C15B0F00A08',
+		});
+		const tooShort = setupMarkerPlan({
+			publishedMarker: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a0',
+		});
+
+		const parsedAccepted = WorkOrderPlan.safeParse(accepted.markerPlan);
+		const parsedUppercase = WorkOrderPlan.safeParse(uppercase.markerPlan);
+		const parsedTooShort = WorkOrderPlan.safeParse(tooShort.markerPlan);
+
+		expect(parsedAccepted.success).toBe(true);
+		expect(parsedAccepted.data).toStrictEqual({
+			id: '001-search-basics',
+			title: 'Search basics',
+			progress: 'ready',
+			createdAt: '2026-01-01T00:00:00.000Z',
+			publishedMarker: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
+		});
+		expect(parsedUppercase.success).toBe(false);
+		expect(parsedTooShort.success).toBe(false);
+	});
+
 	test('accepts a plan with only its required fields and adds no optional key', () => {
 		const { plan } = setupPlan();
 
-		const parsed = TicketPlan.safeParse(plan);
+		const parsed = WorkOrderPlan.safeParse(plan);
 
 		expect(parsed.success).toBe(true);
 		expect(parsed.data).toStrictEqual({
@@ -80,14 +119,14 @@ describe('TicketPlan', () => {
 			sha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a0g',
 		});
 
-		const acceptedSnapshot = TicketPlan.safeParse(digest.snapshotPlan);
-		const acceptedMarker = TicketPlan.safeParse(digest.markerPlan);
-		const uppercaseSnapshot = TicketPlan.safeParse(uppercase.snapshotPlan);
-		const uppercaseMarker = TicketPlan.safeParse(uppercase.markerPlan);
-		const shortSnapshot = TicketPlan.safeParse(tooShort.snapshotPlan);
-		const shortMarker = TicketPlan.safeParse(tooShort.markerPlan);
-		const notHexSnapshot = TicketPlan.safeParse(notHex.snapshotPlan);
-		const notHexMarker = TicketPlan.safeParse(notHex.markerPlan);
+		const acceptedSnapshot = WorkOrderPlan.safeParse(digest.snapshotPlan);
+		const acceptedMarker = WorkOrderPlan.safeParse(digest.markerPlan);
+		const uppercaseSnapshot = WorkOrderPlan.safeParse(uppercase.snapshotPlan);
+		const uppercaseMarker = WorkOrderPlan.safeParse(uppercase.markerPlan);
+		const shortSnapshot = WorkOrderPlan.safeParse(tooShort.snapshotPlan);
+		const shortMarker = WorkOrderPlan.safeParse(tooShort.markerPlan);
+		const notHexSnapshot = WorkOrderPlan.safeParse(notHex.snapshotPlan);
+		const notHexMarker = WorkOrderPlan.safeParse(notHex.markerPlan);
 
 		expect(acceptedSnapshot.success).toBe(true);
 		expect(acceptedSnapshot.data).toStrictEqual(digest.snapshotPlan);
@@ -104,10 +143,10 @@ describe('TicketPlan', () => {
 	test('refuses an exclusion without a reason or removal flag and refuses excluded as a progress', () => {
 		const { excludedPlan, emptyReasonPlan, noRemovalFlagPlan, excludedProgressPlan } = setupExclusionPlans();
 
-		const accepted = TicketPlan.safeParse(excludedPlan);
-		const emptyReason = TicketPlan.safeParse(emptyReasonPlan);
-		const noRemovalFlag = TicketPlan.safeParse(noRemovalFlagPlan);
-		const excludedProgress = TicketPlan.safeParse(excludedProgressPlan);
+		const accepted = WorkOrderPlan.safeParse(excludedPlan);
+		const emptyReason = WorkOrderPlan.safeParse(emptyReasonPlan);
+		const noRemovalFlag = WorkOrderPlan.safeParse(noRemovalFlagPlan);
+		const excludedProgress = WorkOrderPlan.safeParse(excludedProgressPlan);
 
 		expect(accepted.success).toBe(true);
 		expect(accepted.data).toStrictEqual(excludedPlan);

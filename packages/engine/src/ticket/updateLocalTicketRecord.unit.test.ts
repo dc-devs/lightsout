@@ -2,7 +2,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test } from '@jest/globals';
-import { TicketEventKind, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
+import { WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
 import { updateLocalTicketRecord } from '#src/ticket/index.ts';
 
 /** The ticket folder's name, which is also the branch every record below names. */
@@ -24,16 +24,16 @@ afterEach(() => {
 });
 
 /** The three history events the append-only rows start from and add to. */
-const firstEvent = { at: '2026-01-01T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: 'added plan 001-record' };
-const secondEvent = { at: '2026-01-02T00:00:00.000Z', kind: TicketEventKind.PlanAdopted, detail: 'adopted the legacy folder as plan 001-record' };
-const thirdEvent = { at: '2026-01-03T00:00:00.000Z', kind: TicketEventKind.PlanRetitled, detail: 'retitled plan 001-record' };
+const firstEvent = { at: '2026-01-01T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: 'added plan 001-record' };
+const secondEvent = { at: '2026-01-02T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdopted, detail: 'adopted the legacy folder as plan 001-record' };
+const thirdEvent = { at: '2026-01-03T00:00:00.000Z', kind: WorkOrderEventKind.PlanRetitled, detail: 'retitled plan 001-record' };
 
 /** A record the contract accepts, varied only where a row needs it to differ. */
-const recordOf = ({ branch = ticketBranch, history = [] }: { branch?: string; history?: TicketRecord['history'] } = {}): TicketRecord => ({
+const recordOf = ({ branch = ticketBranch, history = [] }: { branch?: string; history?: WorkOrderState['history'] } = {}): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch,
-	mode: TicketMode.SinglePlan,
+	mode: WorkOrderMode.SinglePlan,
 	plans: [],
 	history,
 });
@@ -54,10 +54,10 @@ const setupTicketRecord = ({ contents }: { contents?: string } = {}) => {
 		writeFileSync(recordPath, contents);
 	}
 
-	const seen: (TicketRecord | undefined)[] = [];
+	const seen: (WorkOrderState | undefined)[] = [];
 	const changeTo =
-		(result: TicketRecord | { error: string }) =>
-		(current: TicketRecord | undefined): TicketRecord | { error: string } => {
+		(result: WorkOrderState | { error: string }) =>
+		(current: WorkOrderState | undefined): WorkOrderState | { error: string } => {
 			seen.push(current);
 
 			return result;
@@ -70,8 +70,8 @@ const setupTicketRecord = ({ contents }: { contents?: string } = {}) => {
 const setupDifferingKeyOrders = () => {
 	const first = mkdtempSync(join(tmpdir(), 'lightsout-ticket-record-'));
 	const second = mkdtempSync(join(tmpdir(), 'lightsout-ticket-record-'));
-	const firstRecord: TicketRecord = { schemaVersion: 1, ticketRef: 'LO-140', branch: ticketBranch, mode: TicketMode.SinglePlan, plans: [], history: [] };
-	const secondRecord: TicketRecord = { history: [], plans: [], mode: TicketMode.SinglePlan, branch: ticketBranch, ticketRef: 'LO-140', schemaVersion: 1 };
+	const firstRecord: WorkOrderState = { schemaVersion: 1, ticketRef: 'LO-140', branch: ticketBranch, mode: WorkOrderMode.SinglePlan, plans: [], history: [] };
+	const secondRecord: WorkOrderState = { history: [], plans: [], mode: WorkOrderMode.SinglePlan, branch: ticketBranch, ticketRef: 'LO-140', schemaVersion: 1 };
 
 	return {
 		first,
@@ -152,12 +152,15 @@ describe('updateLocalTicketRecord', () => {
 
 	test('refuses a changed record that fails the contract or names another branch', async () => {
 		const { cwd, recordPath, seeded, changeTo } = setupTicketRecord({ contents: `${JSON.stringify(recordOf(), undefined, '\t')}\n` });
-		const offContract = { ...recordOf(), mode: 'multi' } as unknown as TicketRecord;
+		const offContract = { ...recordOf(), mode: 'multi' } as unknown as WorkOrderState;
 
 		const contractResult = await updateLocalTicketRecord({ cwd, ticketBranch, change: changeTo(offContract) });
 		const branchResult = await updateLocalTicketRecord({ cwd, ticketBranch, change: changeTo(recordOf({ branch: 'lo-141-other' })) });
 
-		expect(contractResult).toEqual({ error: expect.any(String) });
+		// the refusal names the contract the record is parsed against, which is the
+		// work-order state contract rather than anything a tracker owns
+		expect(contractResult).toEqual({ error: expect.stringContaining('does not match the work-order state contract') });
+		expect(contractResult).toEqual({ error: expect.not.stringContaining('the ticket record contract') });
 		expect(branchResult).toEqual({ error: expect.stringContaining('lo-141-other') });
 		expect(readFileSync(recordPath, 'utf8')).toBe(seeded);
 	});
@@ -184,7 +187,7 @@ describe('updateLocalTicketRecord', () => {
 		expect(rewrittenResult).toEqual({ error: expect.any(String) });
 		expect(unchangedAfterRefusals).toBe(seeded);
 		expect(appendedResult).toStrictEqual({ record: recordOf({ history: [firstEvent, secondEvent, thirdEvent] }) });
-		expect((JSON.parse(readFileSync(recordPath, 'utf8')) as TicketRecord).history).toStrictEqual([firstEvent, secondEvent, thirdEvent]);
+		expect((JSON.parse(readFileSync(recordPath, 'utf8')) as WorkOrderState).history).toStrictEqual([firstEvent, secondEvent, thirdEvent]);
 	});
 
 	test('answers the read error and never calls the change when the existing record is corrupt', async () => {

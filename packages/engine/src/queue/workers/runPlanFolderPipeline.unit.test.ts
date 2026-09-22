@@ -7,10 +7,10 @@ import {
 	PlanProgress,
 	type RunManifest,
 	RunStatus,
-	TicketEventKind,
-	TicketMode,
-	type TicketPlan,
-	type TicketRecord,
+	WorkOrderEventKind,
+	WorkOrderMode,
+	type WorkOrderPlan,
+	type WorkOrderState,
 } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
@@ -106,7 +106,7 @@ const ticketBranch = 'lo-140-multiple-plans';
 const firstPlan = '001-queue-build';
 const secondPlan = '002-open-outcome';
 
-const planOf = ({ id, progress }: { id: string; progress: PlanProgress }): TicketPlan => ({
+const planOf = ({ id, progress }: { id: string; progress: PlanProgress }): WorkOrderPlan => ({
 	id,
 	title: `plan ${id}`,
 	progress,
@@ -125,16 +125,16 @@ const passedPlanManifest = ({ planId }: { planId: string }): RunManifest => ({
  * record for the order the plans build in, `HEAD` for where an implementation
  * starts, and each plan's own files for the snapshot a pass records.
  */
-const setupTicketPlanFolder = ({ plans, result }: { plans: TicketPlan[]; result: PipelineResult }) => {
+const setupTicketPlanFolder = ({ plans, result }: { plans: WorkOrderPlan[]; result: PipelineResult }) => {
 	const { cwd } = setupBranchRepo({ branch: ticketBranch });
 	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
-	const record: TicketRecord = {
+	const record: WorkOrderState = {
 		schemaVersion: 1,
 		ticketRef: 'LO-140',
 		branch: ticketBranch,
-		mode: TicketMode.MultiplePlan,
+		mode: WorkOrderMode.MultiplePlan,
 		plans,
-		history: [{ at: '2026-01-01T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: `added plan ${firstPlan}` }],
+		history: [{ at: '2026-01-01T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: `added plan ${firstPlan}` }],
 	};
 
 	mkdirSync(ticketFolder, { recursive: true });
@@ -155,7 +155,7 @@ const setupTicketPlanFolder = ({ plans, result }: { plans: TicketPlan[]; result:
 
 /** One plan's entry in the ticket's record as it stands on disk once the call has returned. */
 const planAt = ({ ticketFolder, id }: { ticketFolder: string; id: string }) =>
-	(JSON.parse(readFileSync(join(ticketFolder, 'ticket.json'), 'utf8')) as TicketRecord).plans.find((plan) => plan.id === id);
+	(JSON.parse(readFileSync(join(ticketFolder, 'ticket.json'), 'utf8')) as WorkOrderState).plans.find((plan) => plan.id === id);
 
 describe('runPlanFolderPipeline', () => {
 	test('runs the phases pipeline against the overview a phased plan folder holds', async () => {

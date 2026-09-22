@@ -2,9 +2,9 @@ import { z } from 'zod';
 
 /**
  * Three digits, a hyphen, and a slug of lowercase letter-and-digit words joined
- * by single hyphens. `000` is refused because the next number a ticket
+ * by single hyphens. `000` is refused because the next number a work order
  * allocates is one above the highest it has ever held, which is 001 for a
- * ticket with no plans, so no plan is ever numbered zero.
+ * work order with no plans, so no plan is ever numbered zero.
  */
 const planIdShape = /^(?!000-)\d{3}-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 

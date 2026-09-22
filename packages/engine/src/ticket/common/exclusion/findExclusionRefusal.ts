@@ -1,11 +1,11 @@
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
-import { TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
 import { isPlanImplementationStarted } from '#src/ticket/common/record/isPlanImplementationStarted.ts';
 
 interface Params {
-	record: TicketRecord;
+	record: WorkOrderState;
 	/** The plan the exclusion is about. */
-	target: TicketPlan;
+	target: WorkOrderPlan;
 	/** The human's declaration that this plan's implementation is off the branch. */
 	implementationRemoved: boolean;
 }
@@ -20,7 +20,7 @@ interface Params {
 export const findExclusionRefusal = ({ record, target, implementationRemoved }: Params): string | undefined => {
 	const started = isPlanImplementationStarted({ plan: target });
 
-	if (record.mode === TicketMode.SinglePlan && planNumberOf({ id: target.id }) === 1) {
+	if (record.mode === WorkOrderMode.SinglePlan && planNumberOf({ id: target.id }) === 1) {
 		return `plan ${target.id} is the whole implementation of single-plan ticket ${record.branch}, so excluding it would leave the ticket nothing to ship — run \`lightsout work-order mode --name ${record.branch} --set multiple-plan\` first if this ticket's work has moved on`;
 	}
 

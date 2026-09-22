@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { canonicalJson } from '#src/common/utils/canonicalJson.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
-import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
 import { syncTicketRecord } from '#src/ticket/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
@@ -49,7 +49,7 @@ const env = { LINEAR_API_KEY: 'lin_key' };
 const ticketBranch = 'lo-140-sync';
 
 /** A record the contract accepts, told apart from another copy of itself by its one plan's title. */
-const recordOf = ({ title }: { title: string }): TicketRecord => ({
+const recordOf = ({ title }: { title: string }): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch: ticketBranch,
@@ -59,7 +59,7 @@ const recordOf = ({ title }: { title: string }): TicketRecord => ({
 });
 
 /** The byte form the record travels and hashes in: keys sorted at every depth, tab indented, one trailing newline. */
-const serializedOf = ({ record }: { record: TicketRecord }) => {
+const serializedOf = ({ record }: { record: WorkOrderState }) => {
 	const sorted: unknown = JSON.parse(canonicalJson({ value: record }));
 
 	return Buffer.from(`${JSON.stringify(sorted, undefined, '\t')}\n`, 'utf8');
@@ -90,10 +90,10 @@ const setupSync = ({
 	listFailureAfterFirstRead,
 	sidecarUnwritable,
 }: {
-	local?: TicketRecord;
-	published?: TicketRecord;
+	local?: WorkOrderState;
+	published?: WorkOrderState;
 	/** The record whose bytes the sidecar remembers as the last published or restored ones. */
-	synced?: TicketRecord;
+	synced?: WorkOrderState;
 	config?: LightsoutConfig;
 	/** The sentence every read of the ticket after the pull's own is refused with, for the guarded upload's re-read. */
 	listFailureAfterFirstRead?: string;

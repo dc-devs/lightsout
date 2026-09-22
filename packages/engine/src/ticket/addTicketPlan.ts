@@ -1,6 +1,6 @@
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
-import { type LightsoutConfig, PlanProgress, TicketEventKind, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
 import { planWorkspaceDir } from '#src/plan/index.ts';
 import { fillPlanFolder } from '#src/ticket/common/planSource/fillPlanFolder.ts';
 import { resolvePlanSourceFolder } from '#src/ticket/common/planSource/resolvePlanSourceFolder.ts';
@@ -33,7 +33,7 @@ interface Params {
 
 /** What the change made, so the caller can name the plan and say why an approval lapsed. */
 interface PlanAddition {
-	record: TicketRecord;
+	record: WorkOrderState;
 	planId: string;
 	/** Whether adding this plan took a pending ship request off the ticket. */
 	withdrew: boolean;
@@ -43,7 +43,7 @@ interface PlanAddition {
 const maxPlanNumber = 999;
 
 /** The next id this ticket has never held, or why the slug or the number cannot make one. */
-const allocatePlanId = ({ record, slug }: { record: TicketRecord; slug: string }): { id: string } | { error: string } => {
+const allocatePlanId = ({ record, slug }: { record: WorkOrderState; slug: string }): { id: string } | { error: string } => {
 	const highest = record.plans.reduce((top, plan) => Math.max(top, planNumberOf({ id: plan.id })), 0);
 	const next = highest + 1;
 
@@ -68,7 +68,7 @@ const addPlanToRecord = ({
 	looseEntries,
 	at,
 }: {
-	current: TicketRecord | undefined;
+	current: WorkOrderState | undefined;
 	ticketBranch: string;
 	slug: string;
 	title: string | undefined;
@@ -93,7 +93,7 @@ const addPlanToRecord = ({
 		};
 	}
 
-	if (existing !== undefined && existing.mode === TicketMode.SinglePlan && existing.plans.some((plan) => planNumberOf({ id: plan.id }) === 1)) {
+	if (existing !== undefined && existing.mode === WorkOrderMode.SinglePlan && existing.plans.some((plan) => planNumberOf({ id: plan.id }) === 1)) {
 		return {
 			error: `ticket ${ticketBranch} is in single-plan mode, where plan 001 alone supplies the implementation — run \`lightsout work-order mode --set multiple-plan --name ${ticketBranch}\` before adding a second plan`,
 		};
@@ -114,7 +114,7 @@ const addPlanToRecord = ({
 	const outOf = from === undefined ? '' : ` out of the loose files of '${from}'`;
 	const added = appendTicketEvent({
 		record: { ...base, plans: [...base.plans, { id: allocated.id, title: title ?? slug, progress, createdAt: at }] },
-		kind: from === undefined ? TicketEventKind.PlanAdded : TicketEventKind.PlanAdopted,
+		kind: from === undefined ? WorkOrderEventKind.PlanAdded : WorkOrderEventKind.PlanAdopted,
 		detail: `plan ${allocated.id} was added to ticket ${ticketBranch}${outOf}`,
 		at,
 	});

@@ -8,10 +8,10 @@ import {
 	type PlanProgress,
 	type RunManifest,
 	RunStatus,
-	TicketEventKind,
-	TicketMode,
-	type TicketPlan,
-	type TicketRecord,
+	WorkOrderEventKind,
+	WorkOrderMode,
+	type WorkOrderPlan,
+	type WorkOrderState,
 } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
@@ -86,7 +86,7 @@ export const planOf = ({
 	finishedAt?: string;
 	excluded?: boolean;
 	publishedMarker?: string;
-}): TicketPlan => ({
+}): WorkOrderPlan => ({
 	id,
 	title,
 	progress,
@@ -132,8 +132,8 @@ export const planFile = ({ cwd, planId }: { cwd: string; planId: string }): stri
 	join(cwd, '.lightsout', 'tickets', ticketBranch, 'plans', planId, 'plan.md');
 
 /** One plan's entry in the ticket's record as it stands on disk once the call has returned. */
-export const planAt = ({ cwd, id }: { cwd: string; id: string }): TicketPlan | undefined =>
-	(JSON.parse(readFileSync(join(cwd, '.lightsout', 'tickets', ticketBranch, 'ticket.json'), 'utf8')) as TicketRecord).plans.find((plan) => plan.id === id);
+export const planAt = ({ cwd, id }: { cwd: string; id: string }): WorkOrderPlan | undefined =>
+	(JSON.parse(readFileSync(join(cwd, '.lightsout', 'tickets', ticketBranch, 'ticket.json'), 'utf8')) as WorkOrderState).plans.find((plan) => plan.id === id);
 
 /**
  * A real repository standing on the ticket branch, holding the ticket's record
@@ -149,7 +149,7 @@ export const planAt = ({ cwd, id }: { cwd: string; id: string }): TicketPlan | u
 export const setupTicketPlanBuild = ({
 	mocks,
 	plans,
-	mode = TicketMode.MultiplePlan,
+	mode = WorkOrderMode.MultiplePlan,
 	shipRequest,
 	leftover = [],
 	missingFolders = [],
@@ -158,8 +158,8 @@ export const setupTicketPlanBuild = ({
 	commitResult = { committed: true },
 }: {
 	mocks: TicketPlanBuildMocks;
-	plans: TicketPlan[];
-	mode?: TicketMode;
+	plans: WorkOrderPlan[];
+	mode?: WorkOrderMode;
 	shipRequest?: { planIds: string[]; requestedAt: string };
 	leftover?: string[];
 	missingFolders?: string[];
@@ -169,14 +169,14 @@ export const setupTicketPlanBuild = ({
 }) => {
 	const { cwd } = setupBranchRepo({ branch: ticketBranch });
 	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
-	const record: TicketRecord = {
+	const record: WorkOrderState = {
 		schemaVersion: 1,
 		ticketRef: 'LO-7',
 		branch: ticketBranch,
 		mode,
 		plans,
 		...(shipRequest === undefined ? {} : { shipRequest }),
-		history: [{ at: '2026-01-01T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: 'added the first plan' }],
+		history: [{ at: '2026-01-01T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: 'added the first plan' }],
 	};
 	const calls: string[] = [];
 

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { workOrderSyncCommand } from '#src/cli/workOrder/workOrderSyncCommand.ts';
-import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
@@ -27,7 +27,7 @@ interface SyncTicketRecordParams {
 	onProgress?: (message: string) => void;
 }
 
-type SyncTicketRecordResult = { record: TicketRecord } | { error: string };
+type SyncTicketRecordResult = { record: WorkOrderState } | { error: string };
 
 const mockSyncTicketRecord = jest.fn<(params: SyncTicketRecordParams) => Promise<SyncTicketRecordResult>>();
 
@@ -40,7 +40,7 @@ jest.mock('#src/ticket/index.ts', () => ({
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 
 /** The record the sync settles on: one plan implemented, one ready to implement. */
-const syncedRecord: TicketRecord = {
+const syncedRecord: WorkOrderState = {
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch: 'lo-140-x',

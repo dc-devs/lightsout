@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { workOrderRequestShipCommand } from '#src/cli/workOrder/workOrderRequestShipCommand.ts';
-import type { LightsoutConfig, TicketRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // Mocked Imports
@@ -32,7 +32,7 @@ interface WithdrawParams {
 	onProgress?: (message: string) => void;
 }
 
-type ChangeResult = { record: TicketRecord; notice?: string; publishError?: string } | { error: string };
+type ChangeResult = { record: WorkOrderState; notice?: string; publishError?: string } | { error: string };
 
 const mockRequestTicketShip = jest.fn<(params: RequestParams) => Promise<ChangeResult>>();
 const mockWithdrawTicketShipRequest = jest.fn<(params: WithdrawParams) => Promise<ChangeResult>>();
@@ -46,7 +46,7 @@ jest.mock('#src/ticket/index.ts', () => ({
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 
 /** A work order whose two plans are exactly the set a ship request must name. */
-const record: TicketRecord = {
+const record: WorkOrderState = {
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch: 'lo-140-x',
@@ -59,7 +59,7 @@ const record: TicketRecord = {
 };
 
 /** The same work order once the request is on its record, bound to both plans. */
-const requestedRecord: TicketRecord = {
+const requestedRecord: WorkOrderState = {
 	...record,
 	shipRequest: { planIds: ['001-search', '002-fix'], requestedAt: '2026-09-12T12:00:00.000Z' },
 };

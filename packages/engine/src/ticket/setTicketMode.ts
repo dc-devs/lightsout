@@ -1,5 +1,5 @@
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
-import { type LightsoutConfig, PlanProgress, TicketEventKind, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, WorkOrderEventKind, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
 import { resolveShipSettings } from '#src/ship/index.ts';
 import { appendTicketEvent } from '#src/ticket/common/record/appendTicketEvent.ts';
 import { changeExistingTicketRecord } from '#src/ticket/common/record/changeExistingTicketRecord.ts';
@@ -12,7 +12,7 @@ interface Params {
 	cwd: string;
 	/** The ticket folder's name, which is also the branch its plans implement on. */
 	ticketBranch: string;
-	mode: TicketMode;
+	mode: WorkOrderMode;
 	/** Whether the human has approved the consequences a switch to single-plan mode spells out. */
 	approve: boolean;
 	config: LightsoutConfig;
@@ -25,10 +25,10 @@ interface Params {
 const switchedToSinglePlan = 'switched to single-plan mode';
 
 /** Every plan above 001, which is the set a switch to single-plan mode is about. */
-const laterPlansOf = ({ record }: { record: TicketRecord }) => record.plans.filter((plan) => planNumberOf({ id: plan.id }) !== 1);
+const laterPlansOf = ({ record }: { record: WorkOrderState }) => record.plans.filter((plan) => planNumberOf({ id: plan.id }) !== 1);
 
 /** A plan whose implementation started and whose removal from the branch has not been recorded and verified. */
-const isUnaccountedImplementation = ({ plan }: { plan: TicketPlan }) =>
+const isUnaccountedImplementation = ({ plan }: { plan: WorkOrderPlan }) =>
 	isPlanImplementationStarted({ plan }) && !(plan.exclusion?.implementationRemoved === true && plan.exclusion.verifiedCommit !== undefined);
 
 /**
@@ -46,9 +46,9 @@ const describeSwitchToSinglePlan = ({
 	later,
 	afterImplement,
 }: {
-	record: TicketRecord;
-	first: TicketPlan;
-	later: TicketPlan[];
+	record: WorkOrderState;
+	first: WorkOrderPlan;
+	later: WorkOrderPlan[];
 	afterImplement: boolean;
 }) => {
 	const firstId = first.id;
@@ -64,7 +64,7 @@ const describeSwitchToSinglePlan = ({
 };
 
 /** Take every later plan out of the ticket's implementation order, one recorded exclusion each, in number order. */
-const excludeDroppedPlans = ({ record, dropped, at }: { record: TicketRecord; dropped: TicketPlan[]; at: string }) => {
+const excludeDroppedPlans = ({ record, dropped, at }: { record: WorkOrderState; dropped: WorkOrderPlan[]; at: string }) => {
 	let carried = record;
 
 	for (const plan of dropped) {
@@ -75,7 +75,7 @@ const excludeDroppedPlans = ({ record, dropped, at }: { record: TicketRecord; dr
 					candidate.id === plan.id ? { ...candidate, exclusion: { at, reason: switchedToSinglePlan, implementationRemoved: false } } : candidate,
 				),
 			},
-			kind: TicketEventKind.PlanExcluded,
+			kind: WorkOrderEventKind.PlanExcluded,
 			detail: `plan ${plan.id} was excluded from ticket ${record.branch}: ${switchedToSinglePlan}`,
 			at,
 		});
@@ -91,11 +91,11 @@ const switchToSinglePlan = ({
 	approve,
 	at,
 }: {
-	record: TicketRecord;
+	record: WorkOrderState;
 	afterImplement: boolean;
 	approve: boolean;
 	at: string;
-}): TicketRecord | { error: string } => {
+}): WorkOrderState | { error: string } => {
 	const later = laterPlansOf({ record });
 	const unaccounted = later.filter((plan) => isUnaccountedImplementation({ plan }));
 
@@ -130,8 +130,8 @@ const switchToSinglePlan = ({
 	});
 
 	return appendTicketEvent({
-		record: { ...withdrawn, mode: TicketMode.SinglePlan },
-		kind: TicketEventKind.ModeChanged,
+		record: { ...withdrawn, mode: WorkOrderMode.SinglePlan },
+		kind: WorkOrderEventKind.ModeChanged,
 		detail: `ticket ${record.branch} is now in single-plan mode`,
 		at,
 	});
@@ -172,11 +172,11 @@ export const setTicketMode = async ({ cwd, ticketBranch, mode, approve, config, 
 
 			const at = new Date().toISOString();
 
-			return mode === TicketMode.SinglePlan
+			return mode === WorkOrderMode.SinglePlan
 				? switchToSinglePlan({ record, afterImplement: shipSettings.afterImplement, approve, at })
 				: appendTicketEvent({
-						record: { ...record, mode: TicketMode.MultiplePlan },
-						kind: TicketEventKind.ModeChanged,
+						record: { ...record, mode: WorkOrderMode.MultiplePlan },
+						kind: WorkOrderEventKind.ModeChanged,
 						detail: `ticket ${ticketBranch} is now in multiple-plan mode`,
 						at,
 					});
@@ -190,7 +190,7 @@ export const setTicketMode = async ({ cwd, ticketBranch, mode, approve, config, 
 	return {
 		...updated,
 		notice:
-			mode === TicketMode.MultiplePlan
+			mode === WorkOrderMode.MultiplePlan
 				? `ticket ${ticketBranch} now implements its plans in numeric order, and this repository's automatic shipping no longer applies to it — say when it is finished with \`lightsout work-order request-ship --name ${ticketBranch} --plans <id,id>\``
 				: undefined,
 	};

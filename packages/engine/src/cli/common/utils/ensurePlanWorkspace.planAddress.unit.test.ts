@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { ensurePlanWorkspace } from '#src/cli/common/utils/ensurePlanWorkspace.ts';
 import { serializeAttachmentManifest } from '#src/common/attachmentManifest/serializeAttachmentManifest.ts';
-import { type LightsoutConfig, PlanProgress, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
 import { planAttachmentManifestName } from '#src/plan/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
@@ -53,7 +53,7 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 // addressed plan's own generation — so the stand-ins below write the files
 // those functions promise, and the tests read what landed on disk rather than
 // which mock ran.
-type PullAnswer = { record: TicketRecord | undefined } | { error: string };
+type PullAnswer = { record: WorkOrderState | undefined } | { error: string };
 type RestoreAnswer = { restored: string[] } | { error: string };
 
 const mockFindBareTicketFolderRefusal = jest.fn<(params: { cwd: string; name: string }) => Promise<string | undefined>>();
@@ -136,11 +136,11 @@ const recordedTicketFolder = join('.lightsout', 'tickets', recordedBranch);
 const recordedPlansFolder = join(recordedTicketFolder, 'plans');
 const restoredFileBody = '# plan 002, restored from its own prefixed generation\n';
 
-const ticketRecord: TicketRecord = {
+const ticketRecord: WorkOrderState = {
 	schemaVersion: 1,
 	ticketRef: 'lo-9',
 	branch: recordedBranch,
-	mode: TicketMode.MultiplePlan,
+	mode: WorkOrderMode.MultiplePlan,
 	plans: [{ id: '002-fix', title: 'Fix the ranking', progress: PlanProgress.Ready, createdAt: '2026-01-01T00:00:00.000Z' }],
 	history: [],
 };
@@ -225,7 +225,7 @@ describe('ensurePlanWorkspace for a plan address', () => {
 
 		const { result, printed } = await ensure({ cwd, path: recordedPlanPath });
 
-		const settled = JSON.parse(readFileSync(join(cwd, recordedTicketFolder, 'ticket.json'), 'utf8')) as TicketRecord;
+		const settled = JSON.parse(readFileSync(join(cwd, recordedTicketFolder, 'ticket.json'), 'utf8')) as WorkOrderState;
 
 		expect({
 			result,

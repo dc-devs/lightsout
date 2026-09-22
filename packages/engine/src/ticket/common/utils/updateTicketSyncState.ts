@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import type { TicketSyncState } from '#src/contracts/index.ts';
+import type { WorkOrderSyncState } from '#src/contracts/index.ts';
 import { ticketFileNames } from '#src/ticket/common/constants/ticketFileNames.ts';
 import { readTicketSyncState } from '#src/ticket/common/utils/readTicketSyncState.ts';
 import { writeTicketFolderFile } from '#src/ticket/common/utils/writeTicketFolderFile.ts';
@@ -28,7 +28,7 @@ interface Params {
 export const updateTicketSyncState = async ({ ticketFolder, recordSha256, planMarkers }: Params): Promise<void> => {
 	const current = await readTicketSyncState({ ticketFolder });
 	const recorded = recordSha256 ?? current?.recordSha256;
-	const next: TicketSyncState = {
+	const next: WorkOrderSyncState = {
 		schemaVersion: 1,
 		planMarkers: { ...current?.planMarkers, ...planMarkers },
 	};

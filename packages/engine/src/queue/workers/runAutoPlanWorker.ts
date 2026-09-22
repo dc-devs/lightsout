@@ -1,6 +1,6 @@
 import { buildQueueAutoPlanInvocation } from '#src/agents/index.ts';
 import type { AnsweredQuestion } from '#src/common/types/AnsweredQuestion.ts';
-import { type LightsoutConfig, type TicketRecord, WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
+import { type LightsoutConfig, type WorkOrderState, WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { invokeAgentWithContract } from '#src/invoke/index.ts';
 import { pathExists, planWorkspaceDir } from '#src/plan/index.ts';
@@ -137,7 +137,7 @@ export const runAutoPlanWorker = async ({
 		return { error: chosen.error };
 	}
 
-	const build = ({ record }: { record: TicketRecord }) =>
+	const build = ({ record }: { record: WorkOrderState }) =>
 		buildTicketPlans({ cwd, branch, ticket, record, config, env, driver, driverName, ticketRunDir, allowTicketBodyBuild: false, onProgress });
 
 	if (chosen.address === undefined) {

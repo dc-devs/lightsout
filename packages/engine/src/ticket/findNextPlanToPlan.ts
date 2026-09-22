@@ -1,7 +1,7 @@
-import { PlanProgress, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { PlanProgress, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
 
 interface Params {
-	record: TicketRecord;
+	record: WorkOrderState;
 }
 
 /**
@@ -18,5 +18,5 @@ interface Params {
  *
  * @returns the plan still being planned, or undefined when none is waiting
  */
-export const findNextPlanToPlan = ({ record }: Params): TicketPlan | undefined =>
+export const findNextPlanToPlan = ({ record }: Params): WorkOrderPlan | undefined =>
 	record.plans.find((plan) => plan.exclusion === undefined && plan.progress === PlanProgress.Planning);

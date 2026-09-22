@@ -1,4 +1,4 @@
-import type { LightsoutConfig, TicketPlan, TicketRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorkOrderPlan, WorkOrderState } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 
@@ -7,9 +7,9 @@ export interface TicketPlanStep {
 	/** The ticket's worktree: where the plan is restored, built and committed. */
 	cwd: string;
 	/** The ticket's record as this turn of the loop read it. */
-	record: TicketRecord;
+	record: WorkOrderState;
 	/** The plan this turn is on. */
-	plan: TicketPlan;
+	plan: WorkOrderPlan;
 	ticket: TicketSummary;
 	config: LightsoutConfig;
 	/** The process environment the tracker credentials are read from. */

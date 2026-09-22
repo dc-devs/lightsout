@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { exitAfterImplement } from '#src/cli/common/utils/exitAfterImplement.ts';
-import { LightsoutConfig, PlanProgress, RunStatus, ShipStatus, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { LightsoutConfig, PlanProgress, RunStatus, ShipStatus, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
 import { updateLocalTicketRecord } from '#src/ticket/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -29,7 +29,7 @@ const ticketBranch = 'lo-140-multi';
 const firstPlan = '001-search-basics';
 const secondPlan = '002-ranking';
 
-const planOf = ({ id, progress = PlanProgress.Implemented }: { id: string; progress?: PlanProgress }): TicketPlan => ({
+const planOf = ({ id, progress = PlanProgress.Implemented }: { id: string; progress?: PlanProgress }): WorkOrderPlan => ({
 	id,
 	title: id,
 	progress,
@@ -46,14 +46,14 @@ const planOf = ({ id, progress = PlanProgress.Implemented }: { id: string; progr
  * chain into a merge at all, not about what a tracker is told afterwards.
  */
 const setupTicketChain = async ({
-	mode = TicketMode.MultiplePlan,
+	mode = WorkOrderMode.MultiplePlan,
 	plans = [planOf({ id: firstPlan }), planOf({ id: secondPlan })],
 	shipRequest,
 	afterImplement = false,
 	planId = secondPlan,
 }: {
-	mode?: TicketMode;
-	plans?: TicketPlan[];
+	mode?: WorkOrderMode;
+	plans?: WorkOrderPlan[];
 	/** The plan ids an approved ship request names. Omit for a ticket nobody has asked to ship. */
 	shipRequest?: string[];
 	afterImplement?: boolean;
@@ -70,7 +70,7 @@ const setupTicketChain = async ({
 	await updateLocalTicketRecord({
 		cwd,
 		ticketBranch,
-		change: (): TicketRecord => ({
+		change: (): WorkOrderState => ({
 			schemaVersion: 1,
 			ticketRef: 'LO-140',
 			branch: ticketBranch,
@@ -122,7 +122,7 @@ describe('exitAfterImplement ticket mode', () => {
 
 	test("a single-plan ticket's passed run chains only as --ship and after-implement say", async () => {
 		const { config, cwd, result, logged, exitCodes } = await setupTicketChain({
-			mode: TicketMode.SinglePlan,
+			mode: WorkOrderMode.SinglePlan,
 			plans: [planOf({ id: firstPlan })],
 			planId: firstPlan,
 		});

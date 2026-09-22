@@ -1,4 +1,4 @@
-import { type LightsoutConfig, TicketEventKind } from '#src/contracts/index.ts';
+import { type LightsoutConfig, WorkOrderEventKind } from '#src/contracts/index.ts';
 import type { ShipTicketGuard } from '#src/ship/index.ts';
 import { appendTicketEvent } from '#src/ticket/common/record/appendTicketEvent.ts';
 import { pullTicketRecord } from '#src/ticket/pullTicketRecord.ts';
@@ -86,7 +86,7 @@ export const createTicketShipGuard = ({ config, env, onProgress }: Params): Ship
 
 				return appendTicketEvent({
 					record: { ...current, shipped: { at, planIds, mergeCommit } },
-					kind: TicketEventKind.Shipped,
+					kind: WorkOrderEventKind.Shipped,
 					detail: `ticket ${branch} shipped as ${mergeCommit} with ${planIds.join(', ')}`,
 					at,
 				});

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { workOrderModeCommand } from '#src/cli/workOrder/workOrderModeCommand.ts';
-import type { LightsoutConfig, TicketMode, TicketRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorkOrderMode, WorkOrderState } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
@@ -18,7 +18,7 @@ import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 interface SetTicketModeParams {
 	cwd: string;
 	ticketBranch: string;
-	mode: TicketMode;
+	mode: WorkOrderMode;
 	approve: boolean;
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
@@ -26,7 +26,7 @@ interface SetTicketModeParams {
 }
 
 interface TicketRecordChange {
-	record: TicketRecord;
+	record: WorkOrderState;
 	notice?: string;
 	publishError?: string;
 }
@@ -39,7 +39,7 @@ jest.mock('#src/ticket/index.ts', () => ({ setTicketMode: (params: SetTicketMode
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 
 /** The record the action answers with once it has carried the switch out. */
-const switchedRecord: TicketRecord = {
+const switchedRecord: WorkOrderState = {
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch: 'lo-140-x',
@@ -49,7 +49,7 @@ const switchedRecord: TicketRecord = {
 };
 
 /** The same work order once an approved switch to single-plan mode has dropped its later plans. */
-const narrowedRecord: TicketRecord = {
+const narrowedRecord: WorkOrderState = {
 	...switchedRecord,
 	plans: [
 		{ id: '001-search-basics', title: 'Search basics', progress: 'ready', createdAt: '2026-09-12T00:00:00.000Z' },

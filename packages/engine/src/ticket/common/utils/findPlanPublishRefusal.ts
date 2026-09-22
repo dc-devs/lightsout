@@ -1,4 +1,4 @@
-import { PlanProgress, type TicketRecord, type TicketSyncState } from '#src/contracts/index.ts';
+import { PlanProgress, type WorkOrderState, type WorkOrderSyncState } from '#src/contracts/index.ts';
 import { findDivergentPlanIds } from '#src/ticket/common/utils/findDivergentPlanIds.ts';
 import { matchesImplementedSnapshot } from '#src/ticket/common/utils/matchesImplementedSnapshot.ts';
 
@@ -9,9 +9,9 @@ interface Params {
 	planId: string;
 	ticketBranch: string;
 	/** The record as the pull left it, or none at all. */
-	record: TicketRecord | undefined;
+	record: WorkOrderState | undefined;
 	/** What this machine last published or restored, which is how a plan republished elsewhere is spotted. */
-	syncState: TicketSyncState | undefined;
+	syncState: WorkOrderSyncState | undefined;
 }
 
 /**

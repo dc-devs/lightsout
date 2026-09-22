@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { TicketRecord } from '#src/contracts/index.ts';
+import { WorkOrderState } from '#src/contracts/index.ts';
 import { ticketFileNames } from '#src/ticket/common/constants/ticketFileNames.ts';
 import type { PublishedTicketRecord } from '#src/ticket/common/types/PublishedTicketRecord.ts';
 import type { TicketTrackerTarget } from '#src/ticket/common/types/TicketTrackerTarget.ts';
@@ -27,7 +27,7 @@ const readRecordText = ({ text, ticketBranch, ticketRef }: { text: string; ticke
 	}
 
 	if (outcome === undefined) {
-		const parsed = TicketRecord.safeParse(value);
+		const parsed = WorkOrderState.safeParse(value);
 
 		if (!parsed.success) {
 			outcome = {

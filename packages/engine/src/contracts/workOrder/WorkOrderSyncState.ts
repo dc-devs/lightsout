@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PlanId } from '#src/contracts/ticket/PlanId.ts';
+import { PlanId } from '#src/contracts/workOrder/PlanId.ts';
 
 /** A SHA-256 digest as this sidecar spells one: 64 lowercase hex characters. */
 const sha256Digest = z.string().regex(/^[a-f0-9]{64}$/, 'a hash is written as 64 lowercase hex characters');
@@ -16,7 +16,7 @@ const sha256Digest = z.string().regex(/^[a-f0-9]{64}$/, 'a hash is written as 64
  * It is never published — it describes this machine's own history with the
  * ticket, not the ticket — and only the ticket module reads or writes it.
  */
-export const TicketSyncState = z
+export const WorkOrderSyncState = z
 	.object({
 		schemaVersion: z.literal(1),
 		/** SHA-256 of the `serializeTicketRecord` bytes last published or restored. Absent before the first sync. */
@@ -26,4 +26,4 @@ export const TicketSyncState = z
 	})
 	.strict();
 
-export type TicketSyncState = z.infer<typeof TicketSyncState>;
+export type WorkOrderSyncState = z.infer<typeof WorkOrderSyncState>;

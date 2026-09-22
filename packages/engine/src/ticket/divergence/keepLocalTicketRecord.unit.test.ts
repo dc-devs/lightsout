@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, PlanProgress, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
 import { keepLocalTicketRecord } from '#src/ticket/divergence/index.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
@@ -73,7 +73,7 @@ const digestOf = ({ seed }: { seed: string }) => createHash('sha256').update(see
 const ticketMarker = digestOf({ seed: 'the plan as the ticket carries it' });
 const republishedMarker = digestOf({ seed: 'the plan as this machine has just published it' });
 
-const planOf = ({ publishedMarker }: { publishedMarker?: string } = {}): TicketPlan => ({
+const planOf = ({ publishedMarker }: { publishedMarker?: string } = {}): WorkOrderPlan => ({
 	id: planId,
 	title: 'Hold the plan folder in one place',
 	progress: PlanProgress.Ready,
@@ -81,11 +81,11 @@ const planOf = ({ publishedMarker }: { publishedMarker?: string } = {}): TicketP
 	...(publishedMarker === undefined ? {} : { publishedMarker }),
 });
 
-const recordOf = ({ plans }: { plans: TicketPlan[] }): TicketRecord => ({
+const recordOf = ({ plans }: { plans: WorkOrderPlan[] }): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef,
 	branch: ticketBranch,
-	mode: TicketMode.MultiplePlan,
+	mode: WorkOrderMode.MultiplePlan,
 	plans,
 	history: [],
 });
@@ -102,7 +102,7 @@ const publishedFrom = () => {
 	return call === undefined ? undefined : { cwd: realpathSync(call[0].cwd), name: call[0].name, titlePrefix: call[0].titlePrefix };
 };
 
-const markersOf = ({ result }: { result: { record: TicketRecord } | { error: string } }) =>
+const markersOf = ({ result }: { result: { record: WorkOrderState } | { error: string } }) =>
 	'record' in result ? Object.fromEntries(result.record.plans.map((plan) => [plan.id, plan.publishedMarker])) : result;
 
 /**

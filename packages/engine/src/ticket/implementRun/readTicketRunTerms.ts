@@ -1,6 +1,6 @@
 import { basename } from 'node:path';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
-import { PlanProgress, TicketMode } from '#src/contracts/index.ts';
+import { PlanProgress, WorkOrderMode } from '#src/contracts/index.ts';
 import type { TicketRunTerms } from '#src/ticket/common/types/TicketRunTerms.ts';
 import { isWholePlanRun } from '#src/ticket/common/utils/isWholePlanRun.ts';
 import { findPlanImplementationBlocker } from '#src/ticket/findPlanImplementationBlocker.ts';
@@ -66,7 +66,7 @@ export const readTicketRunTerms = async ({ cwd, name, planPath }: Params): Promi
 		shipRequest = {
 			blocker: `this run covers ${basename(planPath)} alone, and the implementation of plan ${planId} on ticket ${record.branch} has not finished until the whole plan runs`,
 		};
-	} else if (record.mode === TicketMode.MultiplePlan) {
+	} else if (record.mode === WorkOrderMode.MultiplePlan) {
 		// The eligibility rules are never restated here: they are asked of the record
 		// as this run's pass would leave it, so the plan this run implements counts as
 		// implemented and every other rule still answers for itself.

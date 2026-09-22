@@ -1,8 +1,8 @@
-import type { TicketRecord, TicketSyncState } from '#src/contracts/index.ts';
+import type { WorkOrderState, WorkOrderSyncState } from '#src/contracts/index.ts';
 
 interface Params {
-	record: TicketRecord;
-	syncState: TicketSyncState | undefined;
+	record: WorkOrderState;
+	syncState: WorkOrderSyncState | undefined;
 }
 
 /**

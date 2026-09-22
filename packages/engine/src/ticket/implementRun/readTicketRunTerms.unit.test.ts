@@ -2,13 +2,13 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { TicketPlan, TicketRecord } from '#src/contracts/index.ts';
+import type { WorkOrderPlan, WorkOrderState } from '#src/contracts/index.ts';
 import { readTicketRunTerms } from '#src/ticket/index.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 
 const ticketBranch = 'lo-140-multi';
 
-const planWith = ({ id, progress }: { id: string; progress: TicketPlan['progress'] }): TicketPlan => ({
+const planWith = ({ id, progress }: { id: string; progress: WorkOrderPlan['progress'] }): WorkOrderPlan => ({
 	id,
 	title: `Plan ${id}`,
 	progress,
@@ -37,9 +37,9 @@ const setupWithoutRecord = (): { cwd: string } => {
 	return { cwd };
 };
 
-const setupTicket = ({ mode, plans, shipRequest }: { mode: TicketRecord['mode']; plans: TicketPlan[]; shipRequest?: string[] }): { cwd: string } => {
+const setupTicket = ({ mode, plans, shipRequest }: { mode: WorkOrderState['mode']; plans: WorkOrderPlan[]; shipRequest?: string[] }): { cwd: string } => {
 	const { cwd, recordPath } = makeCheckout();
-	const record: TicketRecord = {
+	const record: WorkOrderState = {
 		schemaVersion: 1,
 		ticketRef: 'LO-140',
 		branch: ticketBranch,

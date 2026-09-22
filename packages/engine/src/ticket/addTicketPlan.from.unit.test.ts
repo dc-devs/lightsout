@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFil
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, PlanProgress, TicketEventKind, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
 import { addTicketPlan, updateLocalTicketRecord } from '#src/ticket/index.ts';
 import type { TrackerAttachment, TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
@@ -85,13 +85,13 @@ const manifestBody = ({ runId, status, planName }: RunSeed) =>
 	)}\n`;
 
 /** A record this machine already holds, in the mode that lets a ticket carry more than one plan. */
-const existingRecord = ({ planIds }: { planIds: string[] }): TicketRecord => ({
+const existingRecord = ({ planIds }: { planIds: string[] }): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef: 'lo-9',
 	branch: ticketBranch,
-	mode: TicketMode.MultiplePlan,
+	mode: WorkOrderMode.MultiplePlan,
 	plans: planIds.map((id) => ({ id, title: id.slice(4), progress: PlanProgress.Ready, createdAt: '2026-01-01T00:00:00.000Z' })),
-	history: [{ at: '2026-01-01T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: `plan ${planIds.at(-1) ?? ''} was added` }],
+	history: [{ at: '2026-01-01T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: `plan ${planIds.at(-1) ?? ''} was added` }],
 });
 
 interface SetupParams {
@@ -100,7 +100,7 @@ interface SetupParams {
 	/** The loose files that folder's plans folder holds, by name and body. */
 	files?: Record<string, string>;
 	/** A ticket record this machine already holds. */
-	record?: TicketRecord;
+	record?: WorkOrderState;
 	/** Runs recorded against the source folder. */
 	runs?: RunSeed[];
 	/** Plan folders the ticket's own plans folder already holds, each given a `plan.md`. */
@@ -174,7 +174,7 @@ const entriesOf = ({ dir }: { dir: string }) => {
 /** The record as it stands on disk, which is what a later command reads. */
 const recordAt = ({ ticketFolder }: { ticketFolder: string }) => {
 	try {
-		return JSON.parse(readFileSync(join(ticketFolder, 'ticket.json'), 'utf8')) as TicketRecord;
+		return JSON.parse(readFileSync(join(ticketFolder, 'ticket.json'), 'utf8')) as WorkOrderState;
 	} catch {
 		return undefined;
 	}

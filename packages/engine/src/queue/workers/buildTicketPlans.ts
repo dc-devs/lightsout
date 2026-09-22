@@ -2,7 +2,7 @@ import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
 import { isGeneratedPath } from '#src/common/sourceFiles/isGeneratedPath.ts';
-import { type LightsoutConfig, PlanProgress, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { pathExists, planWorkspaceDir } from '#src/plan/index.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
@@ -21,7 +21,7 @@ interface Params {
 	branch: string;
 	ticket: TicketSummary;
 	/** The record as the caller's pull answered it. */
-	record: TicketRecord;
+	record: WorkOrderState;
 	config: LightsoutConfig;
 	/** The process environment the tracker credentials are read from. */
 	env: NodeJS.ProcessEnv;
@@ -54,14 +54,14 @@ const readLeftoverWork = async ({ cwd, config }: { cwd: string; config: Lightsou
  * The contract keeps `plans` in number order, so array order is numeric order —
  * nothing sorts, and nothing skips past a plan that is not ready to implement.
  */
-const findNextPlanToBuild = ({ record }: { record: TicketRecord }) =>
+const findNextPlanToBuild = ({ record }: { record: WorkOrderState }) =>
 	record.plans.find((plan) => plan.exclusion === undefined && plan.progress !== PlanProgress.Implemented);
 
 /** A plan nobody has finished planning: a multiple-plan ticket waits for it, and a single-plan ticket falls back to the ticket body or stops. */
 const takePlanBeingPlanned = ({ step, allowTicketBodyBuild }: { step: TicketPlanStep; allowTicketBodyBuild: boolean }) => {
 	const { record, plan } = step;
 
-	if (record.mode !== TicketMode.SinglePlan) {
+	if (record.mode !== WorkOrderMode.SinglePlan) {
 		return { open: `plan ${plan.id} on ticket ${record.branch} is still being planned, so the ticket stays open until that plan is ready to implement` };
 	}
 
@@ -123,7 +123,7 @@ const confirmPlanImplemented = async ({ step, branch }: { step: TicketPlanStep; 
 };
 
 /** What the record says about the ticket once there is nothing left to build: ship it, leave it open, or park it. */
-const decideTicketOutcome = ({ record }: { record: TicketRecord }) => {
+const decideTicketOutcome = ({ record }: { record: WorkOrderState }) => {
 	const eligibility = readTicketShipEligibility({ record });
 
 	if (eligibility.eligible) {
@@ -132,7 +132,7 @@ const decideTicketOutcome = ({ record }: { record: TicketRecord }) => {
 
 	// A single-plan ticket is never left open: plan 001 alone supplies its
 	// implementation, so anything short of that is a human's to look at.
-	return record.mode === TicketMode.MultiplePlan ? { open: eligibility.reason } : { error: eligibility.reason };
+	return record.mode === WorkOrderMode.MultiplePlan ? { open: eligibility.reason } : { error: eligibility.reason };
 };
 
 /**

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { serializeAttachmentManifest } from '#src/common/attachmentManifest/serializeAttachmentManifest.ts';
-import { type LightsoutConfig, PlanProgress, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
 import { syncTicketRecord, TicketSyncKeep } from '#src/ticket/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
@@ -78,9 +78,9 @@ const sortDeep = (value: unknown): unknown => {
 	return Object.fromEntries(sorted.map(([key, member]) => [key, sortDeep(member)]));
 };
 
-const canonicalText = ({ record }: { record: TicketRecord }) => `${JSON.stringify(sortDeep(record), undefined, '\t')}\n`;
+const canonicalText = ({ record }: { record: WorkOrderState }) => `${JSON.stringify(sortDeep(record), undefined, '\t')}\n`;
 
-const recordOf = ({ mode = TicketMode.MultiplePlan, plans = [] }: { mode?: TicketMode; plans?: TicketPlan[] } = {}): TicketRecord => ({
+const recordOf = ({ mode = WorkOrderMode.MultiplePlan, plans = [] }: { mode?: WorkOrderMode; plans?: WorkOrderPlan[] } = {}): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch: ticketBranch,
@@ -89,7 +89,7 @@ const recordOf = ({ mode = TicketMode.MultiplePlan, plans = [] }: { mode?: Ticke
 	history: [],
 });
 
-const planOf = ({ publishedMarker }: { publishedMarker: string }): TicketPlan => ({
+const planOf = ({ publishedMarker }: { publishedMarker: string }): WorkOrderPlan => ({
 	id: planId,
 	title: 'Fix the thing',
 	progress: PlanProgress.Ready,
@@ -122,7 +122,7 @@ const folderOf = ({ dir }: { dir: string }) => {
 const readSidecar = ({ ticketFolder }: { ticketFolder: string }): unknown => JSON.parse(readFileSync(join(ticketFolder, 'ticket-sync.json'), 'utf8'));
 
 /** The local record both record-only rows start from, and the bytes it sits on disk as. */
-const localRecord = recordOf({ mode: TicketMode.SinglePlan });
+const localRecord = recordOf({ mode: WorkOrderMode.SinglePlan });
 const localText = canonicalText({ record: localRecord });
 
 /**
@@ -130,7 +130,7 @@ const localText = canonicalText({ record: localRecord });
  * published copy from an earlier divergence, and a sidecar naming the local
  * bytes as the last synced ones.
  */
-const setupRecordSync = ({ published, localOnDisk = true }: { published?: TicketRecord; localOnDisk?: boolean } = {}) => {
+const setupRecordSync = ({ published, localOnDisk = true }: { published?: WorkOrderState; localOnDisk?: boolean } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-keep-published-'));
 	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
 

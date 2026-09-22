@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, type RunManifest, RunStatus, type WorkOrderState } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
@@ -68,7 +68,7 @@ interface PullTicketRecordParams {
 	onProgress?: (message: string) => void;
 }
 
-type PullTicketRecordResult = { record: TicketRecord | undefined } | { error: string };
+type PullTicketRecordResult = { record: WorkOrderState | undefined } | { error: string };
 
 const mockPullTicketRecord = jest.fn<(params: PullTicketRecordParams) => Promise<PullTicketRecordResult>>();
 
@@ -77,7 +77,7 @@ jest.mock('#src/ticket/index.ts', () => ({ pullTicketRecord: (params: PullTicket
 interface BuildTicketPlansParams {
 	cwd: string;
 	branch: string;
-	record: TicketRecord;
+	record: WorkOrderState;
 	env: NodeJS.ProcessEnv;
 	driverName: string;
 	ticketRunDir: string;
@@ -190,7 +190,7 @@ const setupBrainstormOnlyTicket = () => {
 };
 
 /** The ticket record the queue pulls before it builds, handed on to the build loop whole. */
-const ticketRecord: TicketRecord = {
+const ticketRecord: WorkOrderState = {
 	schemaVersion: 1,
 	ticketRef: 'LO-70',
 	branch: 'lo-70-drain',

@@ -2,7 +2,15 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, PlanProgress, type RunLock, TicketEventKind, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import {
+	type LightsoutConfig,
+	PlanProgress,
+	type RunLock,
+	WorkOrderEventKind,
+	WorkOrderMode,
+	type WorkOrderPlan,
+	type WorkOrderState,
+} from '#src/contracts/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
 import { excludeTicketPlan, setTicketMode, updateLocalTicketRecord } from '#src/ticket/index.ts';
 
@@ -61,7 +69,7 @@ const config: LightsoutConfig = { gates };
 const checkoutConfig: LightsoutConfig = { gates: { check: 'pnpm check', test: 'pnpm test', 'test-coverage': 'pnpm coverage' } };
 const env: NodeJS.ProcessEnv = {};
 
-const planOf = ({ id, progress, exclusion }: { id: string; progress: PlanProgress; exclusion?: TicketPlan['exclusion'] }): TicketPlan => ({
+const planOf = ({ id, progress, exclusion }: { id: string; progress: PlanProgress; exclusion?: WorkOrderPlan['exclusion'] }): WorkOrderPlan => ({
 	id,
 	title: `plan ${id}`,
 	progress,
@@ -74,22 +82,22 @@ const recordOf = ({
 	plans,
 	shipRequest,
 }: {
-	mode: TicketMode;
-	plans: TicketPlan[];
+	mode: WorkOrderMode;
+	plans: WorkOrderPlan[];
 	shipRequest?: { planIds: string[]; requestedAt: string };
-}): TicketRecord => ({
+}): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch: ticketBranch,
 	mode,
 	plans,
 	shipRequest,
-	history: [{ at: '2026-01-01T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: `added plan ${firstPlan}` }],
+	history: [{ at: '2026-01-01T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: `added plan ${firstPlan}` }],
 });
 
 interface ExclusionSetup {
-	mode?: TicketMode;
-	plans?: TicketPlan[];
+	mode?: WorkOrderMode;
+	plans?: WorkOrderPlan[];
 	/** A ship request already pending on the ticket. */
 	shipRequest?: { planIds: string[]; requestedAt: string };
 	/** The checkout holding the ticket branch, or undefined when none does. */
@@ -106,7 +114,7 @@ interface ExclusionSetup {
 
 const setupExclusion = async (setup: ExclusionSetup = {}) => {
 	const {
-		mode = TicketMode.MultiplePlan,
+		mode = WorkOrderMode.MultiplePlan,
 		plans = [planOf({ id: firstPlan, progress: PlanProgress.Ready }), planOf({ id: secondPlan, progress: PlanProgress.Planning })],
 		shipRequest,
 		liveLock,
@@ -136,12 +144,12 @@ const setupExclusion = async (setup: ExclusionSetup = {}) => {
 	return { recordPath, before: readFileSync(recordPath, 'utf8'), base: { cwd, ticketBranch, config, env } };
 };
 
-const recordAt = ({ recordPath }: { recordPath: string }) => JSON.parse(readFileSync(recordPath, 'utf8')) as TicketRecord;
+const recordAt = ({ recordPath }: { recordPath: string }) => JSON.parse(readFileSync(recordPath, 'utf8')) as WorkOrderState;
 
 const exclusionAt = ({ recordPath, id }: { recordPath: string; id: string }) => recordAt({ recordPath }).plans.find((plan) => plan.id === id)?.exclusion;
 
 /** The refusal sentence, or an empty string when the call did not refuse — so a missing refusal fails the assertion rather than the type check. */
-const errorOf = ({ result }: { result: { error: string } | { record: TicketRecord } }) => ('error' in result ? result.error : '');
+const errorOf = ({ result }: { result: { error: string } | { record: WorkOrderState } }) => ('error' in result ? result.error : '');
 
 describe('excludeTicketPlan', () => {
 	test('excludes a plan whose implementation never started without verifying the branch', async () => {
@@ -175,8 +183,8 @@ describe('excludeTicketPlan', () => {
 		// The exclusion is recorded first and the withdrawal it caused second, so
 		// the history reads as one following from the other.
 		expect(record.history.slice(-2)).toEqual([
-			expect.objectContaining({ kind: TicketEventKind.PlanExcluded }),
-			expect.objectContaining({ kind: TicketEventKind.ShipRequestWithdrawn, detail: expect.stringContaining(secondPlan) }),
+			expect.objectContaining({ kind: WorkOrderEventKind.PlanExcluded }),
+			expect.objectContaining({ kind: WorkOrderEventKind.ShipRequestWithdrawn, detail: expect.stringContaining(secondPlan) }),
 		]);
 		expect(record.history.at(-1)?.detail).toContain('not needed after all');
 	});
@@ -279,8 +287,8 @@ describe('excludeTicketPlan', () => {
 	});
 
 	test('refuses to exclude a plan that is already excluded', async () => {
-		const pendingRemoval: TicketPlan['exclusion'] = { at: '2026-01-05T00:00:00.000Z', reason: 'the first reason', implementationRemoved: false };
-		const recordedRemoval: TicketPlan['exclusion'] = {
+		const pendingRemoval: WorkOrderPlan['exclusion'] = { at: '2026-01-05T00:00:00.000Z', reason: 'the first reason', implementationRemoved: false };
+		const recordedRemoval: WorkOrderPlan['exclusion'] = {
 			at: '2026-01-05T00:00:00.000Z',
 			reason: 'the first reason',
 			implementationRemoved: true,
@@ -306,7 +314,7 @@ describe('excludeTicketPlan', () => {
 	});
 
 	test('records a verified removal on an existing exclusion so the ticket can return to single-plan mode', async () => {
-		const original: TicketPlan['exclusion'] = { at: '2026-01-05T00:00:00.000Z', reason: 'superseded, code removed by hand', implementationRemoved: false };
+		const original: WorkOrderPlan['exclusion'] = { at: '2026-01-05T00:00:00.000Z', reason: 'superseded, code removed by hand', implementationRemoved: false };
 		const { base, recordPath } = await setupExclusion({
 			plans: [
 				planOf({ id: firstPlan, progress: PlanProgress.Implemented }),
@@ -318,7 +326,7 @@ describe('excludeTicketPlan', () => {
 
 		// The second call is the point of the first: recording the verified removal
 		// is what reopens the way back to single-plan mode.
-		const switched = await setTicketMode({ ...base, mode: TicketMode.SinglePlan, approve: false });
+		const switched = await setTicketMode({ ...base, mode: WorkOrderMode.SinglePlan, approve: false });
 
 		expect(result).not.toHaveProperty('error');
 		expect(exclusionAt({ recordPath, id: secondPlan })).toStrictEqual({
@@ -327,14 +335,14 @@ describe('excludeTicketPlan', () => {
 			implementationRemoved: true,
 			verifiedCommit: headCommit,
 		});
-		expect(recordAt({ recordPath }).history.filter((event) => event.kind === TicketEventKind.PlanExcluded)).toHaveLength(1);
+		expect(recordAt({ recordPath }).history.filter((event) => event.kind === WorkOrderEventKind.PlanExcluded)).toHaveLength(1);
 		expect(switched).not.toHaveProperty('error');
-		expect(recordAt({ recordPath }).mode).toBe(TicketMode.SinglePlan);
+		expect(recordAt({ recordPath }).mode).toBe(WorkOrderMode.SinglePlan);
 	});
 
 	test('refuses to exclude plan 001 in single-plan mode', async () => {
 		const { base, recordPath, before } = await setupExclusion({
-			mode: TicketMode.SinglePlan,
+			mode: WorkOrderMode.SinglePlan,
 			plans: [planOf({ id: firstPlan, progress: PlanProgress.Ready })],
 		});
 
@@ -355,7 +363,7 @@ describe('excludeTicketPlan', () => {
 	});
 
 	test('excludeTicketPlan refusals and notices spell the work-order command word', async () => {
-		const singlePlan = await setupExclusion({ mode: TicketMode.SinglePlan, plans: [planOf({ id: firstPlan, progress: PlanProgress.Ready })] });
+		const singlePlan = await setupExclusion({ mode: WorkOrderMode.SinglePlan, plans: [planOf({ id: firstPlan, progress: PlanProgress.Ready })] });
 		// A started plan, so the withdrawal rides on the verified-removal path the
 		// criterion names rather than on the plain exclusion the row above covers.
 		const started = await setupExclusion({

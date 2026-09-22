@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { PlanProgress, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { PlanProgress, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
 import { findNextPlanToPlan } from '#src/ticket/index.ts';
 
 /**
@@ -16,7 +16,7 @@ const planWith = ({
 	progress: PlanProgress;
 	/** The recorded reason, whose presence is what makes the plan an excluded one. */
 	excludedFor?: string;
-}): TicketPlan => ({
+}): WorkOrderPlan => ({
 	id,
 	title: `Plan ${id}`,
 	progress,
@@ -25,12 +25,12 @@ const planWith = ({
 });
 
 /** A ticket record on branch `lo-140-multi` holding whichever plans the test needs. */
-const setupTicket = ({ plans = [] }: { plans?: TicketPlan[] } = {}) => {
-	const record: TicketRecord = {
+const setupTicket = ({ plans = [] }: { plans?: WorkOrderPlan[] } = {}) => {
+	const record: WorkOrderState = {
 		schemaVersion: 1,
 		ticketRef: 'LO-140',
 		branch: 'lo-140-multi',
-		mode: TicketMode.MultiplePlan,
+		mode: WorkOrderMode.MultiplePlan,
 		plans,
 		history: [],
 	};

@@ -1,16 +1,16 @@
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
-import { PlanProgress, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { PlanProgress, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
 import { planWorkspacePath } from '#src/plan/index.ts';
 
 interface Params {
-	record: TicketRecord;
+	record: WorkOrderState;
 	/** The plan an implementation run is about to be started for. */
 	planId: string;
 }
 
 /** How to get the plan standing in the way out of the way: finish its own run, or take it out of the order. */
-const describeLowerPlanRemedy = ({ branch, plan }: { branch: string; plan: TicketPlan }) => {
+const describeLowerPlanRemedy = ({ branch, plan }: { branch: string; plan: WorkOrderPlan }) => {
 	const finish =
 		plan.implementation === undefined
 			? `\`lightsout implement --plan ${planWorkspacePath({ name: formatPlanAddress({ ticketBranch: branch, planId: plan.id }) })}\``
@@ -20,7 +20,7 @@ const describeLowerPlanRemedy = ({ branch, plan }: { branch: string; plan: Ticke
 };
 
 /** The lowest plan below this one whose implementation has not finished, if there is one — the plans are held in number order. */
-const findLowerPlanBlocker = ({ record, planId }: { record: TicketRecord; planId: string }) => {
+const findLowerPlanBlocker = ({ record, planId }: { record: WorkOrderState; planId: string }) => {
 	const number = planNumberOf({ id: planId });
 	const blocking = record.plans.find(
 		(plan) => planNumberOf({ id: plan.id }) < number && plan.exclusion === undefined && plan.progress !== PlanProgress.Implemented,
@@ -56,7 +56,7 @@ export const findPlanImplementationBlocker = ({ record, planId }: Params): strin
 		blocker = `ticket ${branch} holds no plan ${planId} — \`lightsout work-order show --name ${branch}\` lists the plans it does hold`;
 	} else if (plan.exclusion !== undefined) {
 		blocker = `plan ${planId} is excluded from ticket ${branch} — ${plan.exclusion.reason} — and an exclusion is final; add follow-up work as a new plan with \`lightsout work-order add-plan --name ${branch}\``;
-	} else if (record.mode === TicketMode.SinglePlan && planNumberOf({ id: planId }) !== 1) {
+	} else if (record.mode === WorkOrderMode.SinglePlan && planNumberOf({ id: planId }) !== 1) {
 		blocker = `ticket ${branch} is in single-plan mode, where plan 001 alone supplies the implementation, so plan ${planId} is not built — run \`lightsout work-order mode --name ${branch} --set multiple-plan\` to implement this ticket's plans in numeric order`;
 	} else if (plan.progress === PlanProgress.Implemented) {
 		blocker = `plan ${planId} is already implemented on ticket ${branch}, and an implemented plan is the scope the ticket ships on; add follow-up work as a new plan with \`lightsout work-order add-plan --name ${branch}\``;

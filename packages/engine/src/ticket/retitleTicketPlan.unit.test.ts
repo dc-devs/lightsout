@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type LightsoutConfig, PlanProgress, TicketEventKind, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
 import { retitleTicketPlan, updateLocalTicketRecord } from '#src/ticket/index.ts';
 
 /** The ticket folder's name, which is also the branch the record below names. */
@@ -14,14 +14,14 @@ const ticketBranch = 'lo-140-multi';
  */
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
-const firstPlan: TicketRecord['plans'][number] = {
+const firstPlan: WorkOrderState['plans'][number] = {
 	id: '001-alpha-search',
 	title: 'Search basics',
 	progress: PlanProgress.Implemented,
 	createdAt: '2026-01-01T00:00:00.000Z',
 };
 
-const secondPlan: TicketRecord['plans'][number] = {
+const secondPlan: WorkOrderState['plans'][number] = {
 	id: '002-beta-fix',
 	title: 'Fix search',
 	progress: PlanProgress.Ready,
@@ -30,22 +30,22 @@ const secondPlan: TicketRecord['plans'][number] = {
 
 const shipRequest = { planIds: ['001-alpha-search', '002-beta-fix'], requestedAt: '2026-01-03T00:00:00.000Z' };
 
-const seededRecord: TicketRecord = {
+const seededRecord: WorkOrderState = {
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch: ticketBranch,
-	mode: TicketMode.MultiplePlan,
+	mode: WorkOrderMode.MultiplePlan,
 	plans: [firstPlan, secondPlan],
 	shipRequest,
-	history: [{ at: '2026-01-02T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: 'added plan 002-beta-fix' }],
+	history: [{ at: '2026-01-02T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: 'added plan 002-beta-fix' }],
 };
 
 /** The same ticket holding no plan at all, and so carrying no ship request either. */
-const emptyRecord: TicketRecord = {
+const emptyRecord: WorkOrderState = {
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch: ticketBranch,
-	mode: TicketMode.MultiplePlan,
+	mode: WorkOrderMode.MultiplePlan,
 	plans: [],
 	history: [],
 };
@@ -55,7 +55,7 @@ const emptyRecord: TicketRecord = {
  * directory's own `.lightsout`: the record is seeded through the store itself,
  * and each plan holds a file, so a renamed or recreated folder is visible.
  */
-const setupTicketPlans = async ({ record = seededRecord }: { record?: TicketRecord } = {}) => {
+const setupTicketPlans = async ({ record = seededRecord }: { record?: WorkOrderState } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-retitle-plan-'));
 	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
 	const recordPath = join(ticketFolder, 'ticket.json');

@@ -5,11 +5,11 @@ import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { describePlanProgress } from '#src/cli/workOrder/common/utils/describePlanProgress.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { describeMissingTicketRecord } from '#src/common/utils/describeMissingTicketRecord.ts';
-import type { TicketRecord } from '#src/contracts/index.ts';
+import type { WorkOrderState } from '#src/contracts/index.ts';
 import { pullTicketRecord } from '#src/ticket/index.ts';
 
 /** One line per plan, and one each for what the ticket is waiting on. */
-const renderTicketRecord = ({ record }: { record: TicketRecord }) => [
+const renderTicketRecord = ({ record }: { record: WorkOrderState }) => [
 	`ticket ${record.ticketRef} on branch ${record.branch} — ${record.mode} mode`,
 	...record.plans.map((plan) => {
 		const excluded = plan.exclusion === undefined ? '' : ` — excluded: ${plan.exclusion.reason}`;

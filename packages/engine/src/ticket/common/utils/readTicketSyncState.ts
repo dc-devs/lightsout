@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { readJsonFile } from '#src/common/utils/readJsonFile.ts';
-import { TicketSyncState } from '#src/contracts/index.ts';
+import { WorkOrderSyncState } from '#src/contracts/index.ts';
 import { ticketFileNames } from '#src/ticket/common/constants/ticketFileNames.ts';
 
 interface Params {
@@ -17,5 +17,5 @@ interface Params {
  * makes a local and a published copy that differ a divergence. That is the safe
  * direction: the alternative would be silently overwriting one of them.
  */
-export const readTicketSyncState = async ({ ticketFolder }: Params): Promise<TicketSyncState | undefined> =>
-	readJsonFile({ path: join(ticketFolder, ticketFileNames.sync), schema: TicketSyncState });
+export const readTicketSyncState = async ({ ticketFolder }: Params): Promise<WorkOrderSyncState | undefined> =>
+	readJsonFile({ path: join(ticketFolder, ticketFileNames.sync), schema: WorkOrderSyncState });

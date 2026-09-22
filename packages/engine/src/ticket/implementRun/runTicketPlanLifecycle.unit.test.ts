@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { sha256 } from '#src/common/utils/sha256.ts';
-import { PlanProgress, RunStatus, type TicketRecord } from '#src/contracts/index.ts';
+import { PlanProgress, RunStatus, type WorkOrderState } from '#src/contracts/index.ts';
 import { runTicketPlanLifecycle, updateLocalTicketRecord } from '#src/ticket/index.ts';
 import {
 	address,
@@ -60,7 +60,7 @@ const setupTicketFolderSyncState = async () => {
 
 	return {
 		...context,
-		readTicketFolderRecord: () => JSON.parse(readFileSync(join(ticketFolder, 'ticket.json'), 'utf8')) as TicketRecord,
+		readTicketFolderRecord: () => JSON.parse(readFileSync(join(ticketFolder, 'ticket.json'), 'utf8')) as WorkOrderState,
 	};
 };
 

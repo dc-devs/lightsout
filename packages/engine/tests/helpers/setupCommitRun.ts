@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { type LightsoutConfig, PlanProgress, RunManifest, RunStatus, TicketMode, type WorktreeOwner } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, RunManifest, RunStatus, WorkOrderMode, type WorktreeOwner } from '#src/contracts/index.ts';
 import { writeWorktreeRecord } from '#src/worktree/index.ts';
 import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -27,7 +27,7 @@ const ticketRecordOf = ({ branch }: { branch: string }) =>
 		schemaVersion: 1,
 		ticketRef: 'LO-152',
 		branch,
-		mode: TicketMode.SinglePlan,
+		mode: WorkOrderMode.SinglePlan,
 		plans: [{ id: planId, title: 'One commit behaviour', progress: PlanProgress.Implementing, createdAt: '2026-01-01T00:00:00.000Z' }],
 		history: [],
 	});

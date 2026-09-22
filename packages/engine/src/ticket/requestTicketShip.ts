@@ -1,4 +1,4 @@
-import { type LightsoutConfig, TicketEventKind, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, WorkOrderEventKind, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
 import { appendTicketEvent } from '#src/ticket/common/record/appendTicketEvent.ts';
 import { changeExistingTicketRecord } from '#src/ticket/common/record/changeExistingTicketRecord.ts';
 import { resolveTicketPlan } from '#src/ticket/common/record/resolveTicketPlan.ts';
@@ -18,8 +18,8 @@ interface Params {
 }
 
 /** Every token turned into the plan it names, or the first token that names nothing the request may include. */
-const resolveRequestedPlans = ({ record, tokens }: { record: TicketRecord; tokens: string[] }): TicketPlan[] | { error: string } => {
-	const named: TicketPlan[] = [];
+const resolveRequestedPlans = ({ record, tokens }: { record: WorkOrderState; tokens: string[] }): WorkOrderPlan[] | { error: string } => {
+	const named: WorkOrderPlan[] = [];
 
 	for (const token of tokens) {
 		const plan = resolveTicketPlan({ record, token });
@@ -43,7 +43,7 @@ const resolveRequestedPlans = ({ record, tokens }: { record: TicketRecord; token
 };
 
 /** A ship request approves the ticket's whole remaining work, so a plan it leaves out has to be excluded on purpose first. */
-const findUncoveredPlansRefusal = ({ record, named }: { record: TicketRecord; named: TicketPlan[] }) => {
+const findUncoveredPlansRefusal = ({ record, named }: { record: WorkOrderState; named: WorkOrderPlan[] }) => {
 	const included = record.plans.filter((plan) => plan.exclusion === undefined);
 	const uncovered = included.filter((plan) => !named.some((candidate) => candidate.id === plan.id));
 
@@ -73,7 +73,7 @@ export const requestTicketShip = ({ cwd, ticketBranch, plans, config, env, onPro
 		env,
 		onProgress,
 		change: (record) => {
-			if (record.mode !== TicketMode.MultiplePlan) {
+			if (record.mode !== WorkOrderMode.MultiplePlan) {
 				return {
 					error: `ticket ${ticketBranch} is in single-plan mode, where plan 001 alone supplies the implementation and this repository's own shipping settings apply — switch with \`lightsout work-order mode --name ${ticketBranch} --set multiple-plan\` before asking for a ship request`,
 				};
@@ -100,7 +100,7 @@ export const requestTicketShip = ({ cwd, ticketBranch, plans, config, env, onPro
 
 			return appendTicketEvent({
 				record: { ...record, shipRequest: { planIds, requestedAt: at } },
-				kind: TicketEventKind.ShipRequested,
+				kind: WorkOrderEventKind.ShipRequested,
 				detail: `ticket ${ticketBranch} is to ship once ${planIds.join(', ')} are implemented`,
 				at,
 			});

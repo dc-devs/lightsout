@@ -2,7 +2,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileS
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, jest, test } from '@jest/globals';
-import type { TicketRecord } from '#src/contracts/index.ts';
+import type { WorkOrderState } from '#src/contracts/index.ts';
 import { updateLocalTicketRecord } from '#src/ticket/index.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 
@@ -29,12 +29,12 @@ const deadPid = 999_999_999;
 const testUnlessRoot = process.getuid?.() === 0 ? test.skip : test;
 
 /** What the caller gets back: a record, or one sentence saying why nothing was written. */
-type Outcome = { record: TicketRecord } | { error: string };
+type Outcome = { record: WorkOrderState } | { error: string };
 
 /** The refusal sentence, or an empty string when the update went through. */
 const errorOf = ({ outcome }: { outcome: Outcome }): string => ('error' in outcome ? outcome.error : '');
 
-const recordWith = ({ history }: { history: TicketRecord['history'] }): TicketRecord => ({
+const recordWith = ({ history }: { history: WorkOrderState['history'] }): WorkOrderState => ({
 	schemaVersion: 1,
 	ticketRef: 'LO-140',
 	branch: ticketBranch,
@@ -46,12 +46,12 @@ const recordWith = ({ history }: { history: TicketRecord['history'] }): TicketRe
 /** A change that keeps every event already recorded and adds one of its own, which is the only shape the store accepts. */
 const appendEvent =
 	({ detail }: { detail: string }) =>
-	(current: TicketRecord | undefined): TicketRecord =>
+	(current: WorkOrderState | undefined): WorkOrderState =>
 		recordWith({ history: [...(current?.history ?? []), { at: '2026-09-11T00:00:00.000Z', kind: 'plan-added', detail }] });
 
 /** The details of every event on the record now on disk, which is how each test reads what landed. */
 const detailsOn = ({ recordPath }: { recordPath: string }): string[] => {
-	const { history } = JSON.parse(readFileSync(recordPath, 'utf8')) as TicketRecord;
+	const { history } = JSON.parse(readFileSync(recordPath, 'utf8')) as WorkOrderState;
 
 	return history.map(({ detail }) => detail);
 };
@@ -78,7 +78,7 @@ const advanceUntilSettled = async <Result>({ promise, limitMs }: { promise: Prom
 
 interface SetupParams {
 	/** A record already at ticket.json when the caller starts. */
-	record?: TicketRecord;
+	record?: WorkOrderState;
 	/** What is already at the lock path: a document naming a pid, bytes that will not parse, or a directory no unlink can remove. */
 	heldBy?: { pid: number } | 'unparseable' | 'unclearable';
 	/** Strip write permission from the ticket folder, so no file can be created in it at all. */
@@ -159,7 +159,7 @@ describe('updateLocalTicketRecord', () => {
 	test('waits for a live holder and answers an error naming the lock and its pid after ten seconds', async () => {
 		const { cwd, recordPath } = setupTicketRecord({ record: recordWith({ history: [] }), heldBy: { pid: process.pid }, fakeTimers: true });
 		const before = readFileSync(recordPath, 'utf8');
-		const mockChange = jest.fn<(current: TicketRecord | undefined) => TicketRecord>();
+		const mockChange = jest.fn<(current: WorkOrderState | undefined) => WorkOrderState>();
 
 		const outcome = await advanceUntilSettled({ promise: updateLocalTicketRecord({ cwd, ticketBranch, change: mockChange }), limitMs: 15_000 });
 
@@ -263,7 +263,7 @@ describe('updateLocalTicketRecord', () => {
 
 	testUnlessRoot('answers an error naming the lock when the ticket folder accepts no new files', async () => {
 		const { cwd, lockPath, recordPath } = setupTicketRecord({ readOnlyFolder: true });
-		const mockChange = jest.fn<(current: TicketRecord | undefined) => TicketRecord>();
+		const mockChange = jest.fn<(current: WorkOrderState | undefined) => WorkOrderState>();
 
 		const outcome = await updateLocalTicketRecord({ cwd, ticketBranch, change: mockChange });
 
@@ -276,7 +276,7 @@ describe('updateLocalTicketRecord', () => {
 
 	testUnlessRoot('answers an error naming the lock when it can be neither taken nor moved aside', async () => {
 		const { cwd, lockPath, recordPath } = setupTicketRecord({ heldBy: 'unclearable', readOnlyFolder: true, fakeTimers: true });
-		const mockChange = jest.fn<(current: TicketRecord | undefined) => TicketRecord>();
+		const mockChange = jest.fn<(current: WorkOrderState | undefined) => WorkOrderState>();
 
 		const outcome = await advanceUntilSettled({ promise: updateLocalTicketRecord({ cwd, ticketBranch, change: mockChange }), limitMs: 15_000 });
 

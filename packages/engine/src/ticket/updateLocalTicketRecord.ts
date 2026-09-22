@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { canonicalJson } from '#src/common/utils/canonicalJson.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
-import { TicketRecord } from '#src/contracts/index.ts';
+import { WorkOrderState } from '#src/contracts/index.ts';
 import { ticketFileNames } from '#src/ticket/common/constants/ticketFileNames.ts';
 import { readTicketRecordFile } from '#src/ticket/common/utils/readTicketRecordFile.ts';
 import { serializeTicketRecord } from '#src/ticket/common/utils/serializeTicketRecord.ts';
@@ -17,11 +17,11 @@ interface Params {
 	/** The ticket folder's name, which the changed record must also name as its branch. */
 	ticketBranch: string;
 	/** A pure function over the record as it is now. Tracker calls and gate runs happen before or after this call, never inside it — the lock is held for the whole of it. */
-	change: (current: TicketRecord | undefined) => TicketRecord | { error: string };
+	change: (current: WorkOrderState | undefined) => WorkOrderState | { error: string };
 }
 
 /** The one thing a field schema cannot state: an event already recorded is never dropped or rewritten. */
-const findHistoryRefusal = ({ current, next }: { current: TicketRecord | undefined; next: TicketRecord }) => {
+const findHistoryRefusal = ({ current, next }: { current: WorkOrderState | undefined; next: WorkOrderState }) => {
 	const recorded = current?.history ?? [];
 	const kept = next.history.slice(0, recorded.length);
 	const dropped = recorded.length > next.history.length;
@@ -43,14 +43,14 @@ const writeChangedRecord = async ({
 	ticketFolder: string;
 	recordPath: string;
 	ticketBranch: string;
-	current: TicketRecord | undefined;
-	changed: TicketRecord;
+	current: WorkOrderState | undefined;
+	changed: WorkOrderState;
 }) => {
-	const parsed = TicketRecord.safeParse(changed);
-	let outcome: { record: TicketRecord } | { error: string };
+	const parsed = WorkOrderState.safeParse(changed);
+	let outcome: { record: WorkOrderState } | { error: string };
 
 	if (!parsed.success) {
-		outcome = { error: `the changed ticket record for ${ticketBranch} does not match the ticket record contract: ${z.prettifyError(parsed.error)}` };
+		outcome = { error: `the changed ticket record for ${ticketBranch} does not match the work-order state contract: ${z.prettifyError(parsed.error)}` };
 	} else if (parsed.data.branch !== ticketBranch) {
 		outcome = { error: `the changed ticket record names branch '${parsed.data.branch}', not the '${ticketBranch}' ticket it was asked for` };
 	} else {
@@ -92,7 +92,7 @@ const writeChangedRecord = async ({
  * error handed back to the caller rather than a progress line, because the
  * caller's change has then not happened.
  */
-export const updateLocalTicketRecord = async ({ cwd, ticketBranch, change }: Params): Promise<{ record: TicketRecord } | { error: string }> => {
+export const updateLocalTicketRecord = async ({ cwd, ticketBranch, change }: Params): Promise<{ record: WorkOrderState } | { error: string }> => {
 	const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
 	const recordPath = join(ticketFolder, ticketFileNames.record);
 

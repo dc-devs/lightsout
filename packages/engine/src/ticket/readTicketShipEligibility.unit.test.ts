@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import type { TicketPlan, TicketRecord } from '#src/contracts/index.ts';
+import type { WorkOrderPlan, WorkOrderState } from '#src/contracts/index.ts';
 import { readTicketShipEligibility } from '#src/ticket/index.ts';
 
 const mergeCommit = '9c4e2f7a1b3d5e6f8091a2b3c4d5e6f708192a3b';
@@ -11,10 +11,10 @@ const planWith = ({
 	exclusion,
 }: {
 	id: string;
-	progress: TicketPlan['progress'];
+	progress: WorkOrderPlan['progress'];
 	title?: string;
-	exclusion?: TicketPlan['exclusion'];
-}): TicketPlan => ({
+	exclusion?: WorkOrderPlan['exclusion'];
+}): WorkOrderPlan => ({
 	id,
 	title,
 	progress,
@@ -23,7 +23,7 @@ const planWith = ({
 });
 
 /** An exclusion whose implementation never started, so it carries no verified commit. */
-const exclusionWith = ({ reason }: { reason: string }): TicketPlan['exclusion'] => ({
+const exclusionWith = ({ reason }: { reason: string }): WorkOrderPlan['exclusion'] => ({
 	at: '2026-01-04T00:00:00.000Z',
 	reason,
 	implementationRemoved: false,
@@ -35,11 +35,11 @@ const setupRecord = ({
 	shipRequest,
 	shipped,
 }: {
-	mode: TicketRecord['mode'];
-	plans: TicketPlan[];
+	mode: WorkOrderState['mode'];
+	plans: WorkOrderPlan[];
 	shipRequest?: string[];
-	shipped?: TicketRecord['shipped'];
-}): { record: TicketRecord } => ({
+	shipped?: WorkOrderState['shipped'];
+}): { record: WorkOrderState } => ({
 	record: {
 		schemaVersion: 1,
 		ticketRef: 'LO-140',
@@ -53,7 +53,7 @@ const setupRecord = ({
 });
 
 /** A multiple-plan ticket whose request covers both its plans, the second one at the progress asked for. */
-const setupRequestedPair = ({ progress }: { progress: TicketPlan['progress'] }): { record: TicketRecord } =>
+const setupRequestedPair = ({ progress }: { progress: WorkOrderPlan['progress'] }): { record: WorkOrderState } =>
 	setupRecord({
 		mode: 'multiple-plan',
 		plans: [planWith({ id: '001-record', progress: 'implemented' }), planWith({ id: '002-queue-order', progress })],
@@ -198,7 +198,7 @@ describe('readTicketShipEligibility', () => {
 			],
 			shipRequest: ['001-record', '002-queue-order'],
 		});
-		const retitledRecord: TicketRecord = { ...record, plans: record.plans.map((plan) => ({ ...plan, title: `${plan.title} (renamed)` })) };
+		const retitledRecord: WorkOrderState = { ...record, plans: record.plans.map((plan) => ({ ...plan, title: `${plan.title} (renamed)` })) };
 
 		const eligibility = readTicketShipEligibility({ record });
 		const afterRetitle = readTicketShipEligibility({ record: retitledRecord });
