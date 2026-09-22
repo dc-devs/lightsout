@@ -120,7 +120,7 @@ const passedPlanManifest = ({ planId }: { planId: string }): RunManifest => ({
 });
 
 /**
- * A real repository standing on the ticket branch, holding the ticket's record
+ * A real repository standing on the ticket branch, holding the work order's record
  * and one folder per plan — the three things the ticket lifecycle reads: the
  * record for the order the plans build in, `HEAD` for where an implementation
  * starts, and each plan's own files for the snapshot a pass records.
@@ -153,7 +153,7 @@ const setupTicketPlanFolder = ({ plans, result }: { plans: WorkOrderPlan[]; resu
 	return { cwd, ticketFolder, onProgress };
 };
 
-/** One plan's entry in the ticket's record as it stands on disk once the call has returned. */
+/** One plan's entry in the work order's record as it stands on disk once the call has returned. */
 const planAt = ({ ticketFolder, id }: { ticketFolder: string; id: string }) =>
 	(JSON.parse(readFileSync(join(ticketFolder, 'state.json'), 'utf8')) as WorkOrderState).plans.find((plan) => plan.id === id);
 
@@ -206,7 +206,7 @@ describe('runPlanFolderPipeline', () => {
 
 		const outcome = await runPlanFolderPipeline({ cwd, name: `${ticketBranch}/${secondPlan}`, config, driver, onProgress });
 
-		// a ticket's plans implement in numeric order, so the plan standing in the
+		// a work order's plans implement in numeric order, so the plan standing in the
 		// way is named and nothing is built or recorded for the one that is blocked
 		expect(outcome).toEqual({ error: expect.stringContaining(firstPlan) });
 		expect(outcome.error).toMatch(/implementation has not finished/);

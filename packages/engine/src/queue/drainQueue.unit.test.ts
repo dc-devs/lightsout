@@ -2,7 +2,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { QueueBoardRecorder } from '#src/queue/board/index.ts';
 import { drainQueue } from '#src/queue/drainQueue.ts';
-import type { QueueDrainReport, TicketRunOutcome } from '#src/queue/index.ts';
+import type { QueueDrainReport, WorkOrderRunOutcome } from '#src/queue/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
 import { shipIntegrationFixture } from '#tests/helpers/shipIntegrationFixture.ts';
@@ -63,7 +63,7 @@ const setupDrainQueue = () => {
 		leftBehind: [{ identifier: 'LO-83', reason: 'held back until LO-80 finishes' }],
 	};
 	const board = new QueueBoardRecorder({ cwd, runId, branchTemplate: settings.branchTemplate });
-	const runTicket = jest.fn<(params: { ticket: ReturnType<typeof queueTicketFixture> }) => Promise<TicketRunOutcome>>();
+	const runWorkOrder = jest.fn<(params: { ticket: ReturnType<typeof queueTicketFixture> }) => Promise<WorkOrderRunOutcome>>();
 
 	mockSettleMergedTrees.mockResolvedValue([mergedEntry]);
 	mockRunDrainLanes.mockResolvedValue(drained);
@@ -87,7 +87,7 @@ const setupDrainQueue = () => {
 			leftBehind: [parkedEntry],
 			merged: [{ worktreePath: '/repo-worktrees/lo-82-drain', branch: 'lo-82-drain', ticket: queueTicketFixture({ number: 82 }) }],
 		},
-		runTicket,
+		runWorkOrder,
 		serializeMainCheckout,
 		board,
 	};

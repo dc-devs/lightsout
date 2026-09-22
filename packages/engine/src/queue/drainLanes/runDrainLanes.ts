@@ -1,7 +1,7 @@
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import type { LaneContext } from '#src/queue/drainLanes/common/types/LaneContext.ts';
 import type { LaneFlight } from '#src/queue/drainLanes/common/types/LaneFlight.ts';
 import type { LaneState } from '#src/queue/drainLanes/common/types/LaneState.ts';
@@ -15,7 +15,7 @@ interface Params extends LaneContext {
 	/** The opening selection, straight from the startup scan and not yet reconciled against already-merged branches. */
 	first: WaveSelection;
 	/** Outcomes settled before the drain began — the parked scan's. Ready ones enter the ship lane ahead of every branch built here. */
-	carried: TicketRunOutcome[];
+	carried: WorkOrderRunOutcome[];
 	/** The entries settled before the drain began: the parked scan's, then the settled merged trees'. The report lists them first, in this order. */
 	carriedLeftBehind: LeftBehindTicket[];
 	/** Lower-cased identifiers the parked scan already settled, never offered to a builder. */
@@ -28,7 +28,7 @@ const seedState = ({
 	carriedLeftBehind,
 }: {
 	attempted: Set<string>;
-	carried: TicketRunOutcome[];
+	carried: WorkOrderRunOutcome[];
 	carriedLeftBehind: LeftBehindTicket[];
 }): LaneState => ({
 	pending: [],

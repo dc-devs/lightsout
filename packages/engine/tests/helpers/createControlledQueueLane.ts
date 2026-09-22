@@ -1,20 +1,20 @@
-import type { TicketRunOutcome } from '#src/queue/index.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/index.ts';
 
 /** Tasks the test finishes by hand: each records that it started and then waits to be released. */
 export const createControlledQueueLane = ({ enter, leave }: { enter: () => void; leave: () => void }) => {
 	const started: string[] = [];
-	const waiting = new Map<string, (outcome: TicketRunOutcome) => void>();
+	const waiting = new Map<string, (outcome: WorkOrderRunOutcome) => void>();
 	let peak = 0;
 
 	const begin = ({ identifier }: { identifier: string }) =>
-		new Promise<TicketRunOutcome>((resolve) => {
+		new Promise<WorkOrderRunOutcome>((resolve) => {
 			started.push(identifier);
 			waiting.set(identifier, resolve);
 			peak = Math.max(peak, waiting.size);
 			enter();
 		});
 
-	const release = ({ identifier, outcome }: { identifier: string; outcome: TicketRunOutcome }) => {
+	const release = ({ identifier, outcome }: { identifier: string; outcome: WorkOrderRunOutcome }) => {
 		const resolve = waiting.get(identifier);
 
 		if (resolve === undefined) {

@@ -1,19 +1,20 @@
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 
 /**
- * How one ticket's worker ended, and everything the ship step needs from it.
+ * How one work order's worker ended, and everything the ship step needs from it.
  *
  * There are three cases rather than two: a branch worth merging carries `ready`,
  * a branch the queue left open carries `open`, and anything else is a park.
  * `isParkedOutcome` is the one place that says so, so the parked label, the
- * coordinator status and the exit code can never disagree about an open ticket.
+ * coordinator status and the exit code can never disagree about an open work
+ * order.
  *
  * It is not the branch's recorded phase, and the two answer different
  * questions: a ship-step park flips `ready` while the branch stays recorded
  * ready, so the next run re-ships that branch rather than spending a worker on
  * re-doing finished work.
  */
-export interface TicketRunOutcome {
+export interface WorkOrderRunOutcome {
 	ticket: TicketSummary;
 	/** The branch the worker committed to. */
 	branch: string;
@@ -24,7 +25,7 @@ export interface TicketRunOutcome {
 	/** Why it stopped. Absent when ready, and absent when the ticket was left open. */
 	error?: string;
 	/**
-	 * Why a multiple-plan ticket was left open: it built everything it could, and
+	 * Why a multiple-plan work order was left open: it built everything it could, and
 	 * its record does not authorize shipping it yet.
 	 *
 	 * Set only with `ready` false and no `error`. An open ticket is waiting on a

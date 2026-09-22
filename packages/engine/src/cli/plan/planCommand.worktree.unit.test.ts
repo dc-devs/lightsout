@@ -37,7 +37,7 @@ const mockResolveWorktreePath = jest.fn<(params: { cwd: string; branch: string }
 
 jest.mock('#src/worktree/index.ts', () => ({
 	createWorktree: (params: CreateParams) => mockCreateWorktree(params),
-	prepareTicketBranch: (params: { cwd: string; branch: string }) => mockPrepareTicketBranch(params),
+	prepareWorkOrderBranch: (params: { cwd: string; branch: string }) => mockPrepareTicketBranch(params),
 	readBranchWorktree: (params: { cwd: string; branch: string }) => mockReadBranchWorktree(params),
 	readWorktreeRecord: (params: { cwd: string; branch: string }) => mockReadWorktreeRecord(params),
 	resolveWorktreePath: (params: { cwd: string; branch: string }) => mockResolveWorktreePath(params),

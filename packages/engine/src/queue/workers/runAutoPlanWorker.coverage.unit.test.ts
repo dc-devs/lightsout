@@ -47,7 +47,7 @@ jest.mock('#src/queue/workers/chooseAutoPlanTarget.ts', () => ({ chooseAutoPlanT
 // -------------------------
 const mockBuildTicketPlans = jest.fn<() => Promise<WorkerOutcome>>();
 
-jest.mock('#src/queue/workers/buildTicketPlans.ts', () => ({ buildTicketPlans: () => mockBuildTicketPlans() }));
+jest.mock('#src/queue/workers/buildWorkOrderPlans.ts', () => ({ buildWorkOrderPlans: () => mockBuildTicketPlans() }));
 // -------------------------
 const mockPullTicketRecord = jest.fn<() => Promise<{ record: WorkOrderState | undefined } | { error: string }>>();
 
@@ -75,7 +75,7 @@ const ticket: TicketSummary = {
 	unfinishedBlockers: [],
 };
 
-/** The ticket's record, holding the one plan the engine handed the session. */
+/** The work order's record, holding the one plan the engine handed the session. */
 const record: WorkOrderState = {
 	schemaVersion: 1,
 	ticketRef: 'LO-70',
@@ -129,7 +129,7 @@ const setupAutoPlanWorker = ({
 			driverName: 'claude-code',
 			settings: queueSettingsFixture(),
 			env: {},
-			ticketRunDir: join(cwd, '.lightsout', 'runs', 'run-q', 'tickets', 'LO-70'),
+			workOrderRunDir: join(cwd, '.lightsout', 'runs', 'run-q', 'tickets', 'LO-70'),
 		},
 	};
 };

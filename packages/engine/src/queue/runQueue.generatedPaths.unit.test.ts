@@ -124,7 +124,7 @@ const ticket: TrackerTicket = {
 	unfinishedBlockers: [],
 };
 
-/** Where the queue puts this ticket's worktree, spelled out rather than imported so the path is pinned by a second statement of the same rule. */
+/** Where the queue puts this work order's worktree, spelled out rather than imported so the path is pinned by a second statement of the same rule. */
 const worktreeOf = ({ cwd }: { cwd: string }) => join(dirname(cwd), `${basename(cwd)}-worktrees`, branch);
 
 /** A worker session that leaves its work uncommitted, so the queue's own commit step is what decides what the branch carries. */

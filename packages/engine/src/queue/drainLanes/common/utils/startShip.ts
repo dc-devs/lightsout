@@ -1,5 +1,5 @@
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import type { LaneContext } from '#src/queue/drainLanes/common/types/LaneContext.ts';
 import type { LaneFlight } from '#src/queue/drainLanes/common/types/LaneFlight.ts';
 import type { LaneState } from '#src/queue/drainLanes/common/types/LaneState.ts';
@@ -13,7 +13,7 @@ interface Params {
 }
 
 /** One branch merged and settled — never rejecting, because a rejection reaching the drain's race would abandon every branch still waiting. */
-const mergeBranch = async ({ context, state, outcome }: { context: LaneContext; state: LaneState; outcome: TicketRunOutcome }) => {
+const mergeBranch = async ({ context, state, outcome }: { context: LaneContext; state: LaneState; outcome: WorkOrderRunOutcome }) => {
 	try {
 		const shipped = await shipOneBranch({
 			cwd: context.cwd,

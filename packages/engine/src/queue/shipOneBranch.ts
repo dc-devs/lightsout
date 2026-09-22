@@ -1,7 +1,7 @@
 import { BranchPhase, type LightsoutConfig, ShipBlockReason, ShipStatus } from '#src/contracts/index.ts';
 import { takeGateHold } from '#src/gates/index.ts';
 import { writeBranchState } from '#src/queue/branchState/index.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { runShip, type ShipIntegration, type ShipSettings } from '#src/ship/index.ts';
 import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
 import { createWorkOrderShipGuard } from '#src/workOrder/index.ts';
@@ -17,7 +17,7 @@ interface Params {
 	defaultBranch: string;
 	/** The process environment the tracker credentials are read from. Passed rather than read, so a test never needs to mutate `process.env`. */
 	env: NodeJS.ProcessEnv;
-	outcome: TicketRunOutcome;
+	outcome: WorkOrderRunOutcome;
 	/** The coordinator run's id, recorded on any hold this merge has to take. */
 	runId: string;
 	/** Runs a task with no other main-checkout git mutation in flight. The merge tail removes a worktree there while builders may be adding one. */
@@ -55,7 +55,7 @@ const settleLandedMerge = async ({
 	cwd: string;
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
-	outcome: TicketRunOutcome;
+	outcome: WorkOrderRunOutcome;
 	/** The shipped result's `ticketRef` and `mergeCommit`, optional because `ShipResult` states them in prose rather than in the type. */
 	ticketRef: string | undefined;
 	mergeCommit: string | undefined;
@@ -118,7 +118,7 @@ export const shipOneBranch = async ({
 	runId,
 	serializeMainCheckout,
 	onProgress,
-}: Params): Promise<TicketRunOutcome> => {
+}: Params): Promise<WorkOrderRunOutcome> => {
 	const park = ({ error }: { error: string }) => {
 		onProgress?.(`${outcome.ticket.identifier} · not shipped: ${error}`);
 
@@ -131,7 +131,7 @@ export const shipOneBranch = async ({
 		cwd: outcome.worktreePath,
 		settings: shipSettings,
 		integration,
-		ticketGuard: createWorkOrderShipGuard({ config, env, onProgress }),
+		workOrderGuard: createWorkOrderShipGuard({ config, env, onProgress }),
 		onProgress,
 	});
 
@@ -157,7 +157,7 @@ export const shipOneBranch = async ({
 		return park({ error: holdFailure === undefined ? coordination : `${coordination} ${holdFailure}` });
 	}
 
-	if (shipped.status === ShipStatus.Blocked && shipped.reason === ShipBlockReason.TicketNotAuthorized) {
+	if (shipped.status === ShipStatus.Blocked && shipped.reason === ShipBlockReason.WorkOrderNotAuthorized) {
 		const waiting = shipped.detail ?? 'the branch’s ticket record does not authorize shipping it';
 
 		onProgress?.(`${outcome.ticket.identifier} · left open: ${waiting}`);

@@ -1,6 +1,6 @@
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { ParkedTreeBucket } from '#src/queue/worktrees/common/constants/ParkedTreeBucket.ts';
 import type { ParkedTree } from '#src/queue/worktrees/common/types/ParkedTree.ts';
 import { classifyTree } from '#src/queue/worktrees/common/utils/classifyTree.ts';
@@ -35,7 +35,7 @@ export const settleUnmergedTree = async ({
 	settings,
 	trackerSettings,
 	onProgress,
-}: Params): Promise<TicketRunOutcome | undefined> => {
+}: Params): Promise<WorkOrderRunOutcome | undefined> => {
 	const bucket = await classifyTree({ cwd, tree, defaultBranch, onProgress });
 
 	if (bucket === ParkedTreeBucket.Drain) {

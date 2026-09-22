@@ -1,10 +1,10 @@
-import type { TicketRunOutcome } from '#src/queue/index.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/index.ts';
 
 /** A worker result with stable branch and worktree names, optionally failed or parked. */
 export const queueOutcomeFixture = ({
 	ticket,
 	...overrides
-}: { ticket: TicketRunOutcome['ticket'] } & Partial<Omit<TicketRunOutcome, 'ticket'>>): TicketRunOutcome => ({
+}: { ticket: WorkOrderRunOutcome['ticket'] } & Partial<Omit<WorkOrderRunOutcome, 'ticket'>>): WorkOrderRunOutcome => ({
 	ticket,
 	branch: `${ticket.identifier.toLowerCase()}-ticket-${ticket.id}`,
 	worktreePath: `/tmp/worktrees/${ticket.identifier}`,

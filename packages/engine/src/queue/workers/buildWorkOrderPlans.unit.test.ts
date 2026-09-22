@@ -2,7 +2,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { type LightsoutConfig, PlanProgress } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import { buildTicketPlans } from '#src/queue/workers/buildTicketPlans.ts';
+import { buildWorkOrderPlans } from '#src/queue/workers/buildWorkOrderPlans.ts';
 import { planAt, planFile, planOf, setupTicketPlanBuild } from '#tests/helpers/setupTicketPlanBuild.ts';
 
 // Mocked Imports
@@ -86,14 +86,14 @@ const firstImplemented = planOf({
 const secondReady = planOf({ id: '002-search-basics', title: 'Search basics', progress: PlanProgress.Ready });
 const thirdReady = planOf({ id: '003-search-ranking', title: 'Search ranking', progress: PlanProgress.Ready });
 
-describe('buildTicketPlans', () => {
+describe('buildWorkOrderPlans', () => {
 	test('confirms each plan without committing it a second time', async () => {
 		// The numeric build order this pins was once asserted alongside a commit
 		// the loop made between plans; that commit is the build pipeline's now, so
 		// the order and the absence of a second commit are one case.
 		const { calls, cwd, params } = setupTicketPlanBuild({ mocks, plans: [firstImplemented, secondReady, thirdReady] });
 
-		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
 
 		// each plan's own build pipeline commits the work it made, so the loop
 		// only re-reads the record to see the implementation recorded as finished
@@ -106,10 +106,10 @@ describe('buildTicketPlans', () => {
 		expect(outcome.error).toBeUndefined();
 	});
 
-	test('buildTicketPlans: restores a ready plan only when its folder is absent', async () => {
+	test('buildWorkOrderPlans: restores a ready plan only when its folder is absent', async () => {
 		const { calls, cwd, params } = setupTicketPlanBuild({ mocks, plans: [firstImplemented, secondReady, thirdReady], missingFolders: ['002-search-basics'] });
 
-		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
 
 		expect(mockRestoreTicketPlan).toHaveBeenCalledTimes(1);
 		expect(mockRestoreTicketPlan).toHaveBeenCalledWith(expect.objectContaining({ cwd, address: 'lo-7-search/002-search-basics' }));
@@ -117,21 +117,21 @@ describe('buildTicketPlans', () => {
 		expect(outcome.error).toBeUndefined();
 	});
 
-	test('buildTicketPlans: a ready plan the ticket carries no files for stops with an error', async () => {
+	test('buildWorkOrderPlans: a ready plan the ticket carries no files for stops with an error', async () => {
 		const { params } = setupTicketPlanBuild({ mocks, plans: [firstImplemented, secondReady], missingFolders: ['002-search-basics'], restoreWrites: false });
 
-		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
 
 		expect(outcome.error).toEqual(expect.stringContaining('002-search-basics'));
 		expect(mockRunImplementPipeline).not.toHaveBeenCalled();
 		expect(mockCommitTicketWork).not.toHaveBeenCalled();
 	});
 
-	test('buildTicketPlans: a lower plan still being planned leaves the ticket open without building later plans', async () => {
+	test('buildWorkOrderPlans: a lower plan still being planned leaves the ticket open without building later plans', async () => {
 		const secondPlanning = planOf({ id: '002-search-basics', title: 'Search basics', progress: PlanProgress.Planning });
 		const { params } = setupTicketPlanBuild({ mocks, plans: [firstImplemented, secondPlanning, thirdReady] });
 
-		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
 
 		// nothing has gone wrong — the ticket is waiting on a plan somebody is
 		// still writing, so it is left open rather than parked
@@ -140,11 +140,11 @@ describe('buildTicketPlans', () => {
 		expect(mockCommitTicketWork).not.toHaveBeenCalled();
 	});
 
-	test('buildTicketPlans: a failed lower plan parks the ticket naming the plan and its repair commands', async () => {
+	test('buildWorkOrderPlans: a failed lower plan parks the ticket naming the plan and its repair commands', async () => {
 		const secondFailed = planOf({ id: '002-search-basics', title: 'Search basics', progress: PlanProgress.Failed, runId: 'run-9' });
 		const { params } = setupTicketPlanBuild({ mocks, plans: [firstImplemented, secondFailed, thirdReady] });
 
-		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
 
 		expect(outcome.open).toBeUndefined();
 		expect(outcome.error).toEqual(expect.stringContaining('002-search-basics'));
@@ -153,11 +153,11 @@ describe('buildTicketPlans', () => {
 		expect(mockRunImplementPipeline).not.toHaveBeenCalled();
 	});
 
-	test('buildTicketPlans: a plan whose implementation has not finished parks the ticket', async () => {
+	test('buildWorkOrderPlans: a plan whose implementation has not finished parks the ticket', async () => {
 		const secondImplementing = planOf({ id: '002-search-basics', title: 'Search basics', progress: PlanProgress.Implementing, runId: 'run-4' });
 		const { params } = setupTicketPlanBuild({ mocks, plans: [firstImplemented, secondImplementing, thirdReady] });
 
-		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
 
 		expect(outcome.open).toBeUndefined();
 		expect(outcome.error).toEqual(expect.stringContaining('002-search-basics'));
@@ -165,11 +165,11 @@ describe('buildTicketPlans', () => {
 		expect(mockRunImplementPipeline).not.toHaveBeenCalled();
 	});
 
-	test('buildTicketPlans: the stalled-plan park sentence spells the work-order command word', async () => {
+	test('buildWorkOrderPlans: the stalled-plan park sentence spells the work-order command word', async () => {
 		const secondImplementing = planOf({ id: '002-search-basics', title: 'Search basics', progress: PlanProgress.Implementing, runId: 'run-4' });
 		const { params } = setupTicketPlanBuild({ mocks, plans: [firstImplemented, secondImplementing, thirdReady] });
 
-		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
 
 		// the sentence offers both repair paths, and the second of them is the
 		// subcommand whose command word this phase renames
@@ -178,24 +178,24 @@ describe('buildTicketPlans', () => {
 		expect(outcome.error).not.toEqual(expect.stringContaining('lightsout ticket '));
 	});
 
-	test('buildTicketPlans: an excluded plan never holds later plans back', async () => {
+	test('buildWorkOrderPlans: an excluded plan never holds later plans back', async () => {
 		const secondExcluded = planOf({ id: '002-search-basics', title: 'Search basics', progress: PlanProgress.Planning, excluded: true });
 		const { calls, cwd, params } = setupTicketPlanBuild({ mocks, plans: [firstImplemented, secondExcluded, thirdReady] });
 
-		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
 
 		expect(calls).toStrictEqual([`build ${planFile({ cwd, planId: '003-search-ranking' })}`]);
 		expect(outcome.error).toBeUndefined();
 	});
 
-	test('buildTicketPlans: commits leftover work under the latest implemented plan before taking the next plan', async () => {
+	test('buildWorkOrderPlans: commits leftover work under the latest implemented plan before taking the next plan', async () => {
 		const { calls, cwd, params } = setupTicketPlanBuild({
 			mocks,
 			plans: [firstImplemented, secondReady],
 			leftover: ['packages/engine/src/search/readIndex.ts'],
 		});
 
-		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
 
 		// the leftovers can only have come from plan 001's own build or repair, so
 		// they go under its message before 002 puts anything in the tree
@@ -203,20 +203,20 @@ describe('buildTicketPlans', () => {
 		expect(outcome.error).toBeUndefined();
 	});
 
-	test('buildTicketPlans: parks on leftover work that no implemented plan owns', async () => {
+	test('buildWorkOrderPlans: parks on leftover work that no implemented plan owns', async () => {
 		const { calls, cwd, params } = setupTicketPlanBuild({ mocks, plans: [firstReady, secondReady], leftover: ['packages/engine/src/search/readIndex.ts'] });
 
-		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
 
 		expect(outcome.error).toEqual(expect.stringContaining(cwd));
 		expect(calls).toStrictEqual([]);
 	});
 
-	test('buildTicketPlans: stops at a failed next plan before settling leftover work so its partial changes stay for resume', async () => {
+	test('buildWorkOrderPlans: stops at a failed next plan before settling leftover work so its partial changes stay for resume', async () => {
 		const secondFailed = planOf({ id: '002-search-basics', title: 'Search basics', progress: PlanProgress.Failed, runId: 'run-9' });
 		const { params } = setupTicketPlanBuild({ mocks, plans: [firstImplemented, secondFailed], leftover: ['packages/engine/src/search/readIndex.ts'] });
 
-		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
 
 		// the leftovers are 002's half-built work, so committing them under 001's
 		// message would take them out of the tree the resume expects them in

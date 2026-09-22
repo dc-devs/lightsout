@@ -164,7 +164,7 @@ const runWorker = ({
 		relay,
 		coordinatorRunId: 'run-q',
 		coordinatorRunDir,
-		ticketRunDir: join(coordinatorRunDir, 'tickets', ticket.identifier),
+		workOrderRunDir: join(coordinatorRunDir, 'tickets', ticket.identifier),
 		env: {},
 	});
 

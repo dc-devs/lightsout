@@ -48,8 +48,8 @@ interface BuildTicketPlansParams {
 
 const mockBuildTicketPlans = jest.fn<(params: BuildTicketPlansParams) => Promise<WorkerOutcome>>();
 
-jest.mock('#src/queue/workers/buildTicketPlans.ts', () => ({
-	buildTicketPlans: (params: BuildTicketPlansParams) => mockBuildTicketPlans(params),
+jest.mock('#src/queue/workers/buildWorkOrderPlans.ts', () => ({
+	buildWorkOrderPlans: (params: BuildTicketPlansParams) => mockBuildTicketPlans(params),
 }));
 // -------------------------
 // Only the two ticket operations that leave the machine are stubbed. The rule
@@ -201,7 +201,7 @@ const setupAutoPlanTicket = ({
 			relay: relayThatIsNeverAsked(),
 			coordinatorRunId: 'run-q',
 			coordinatorRunDir,
-			ticketRunDir: join(coordinatorRunDir, 'tickets', 'LO-70'),
+			workOrderRunDir: join(coordinatorRunDir, 'tickets', 'LO-70'),
 			env: { LINEAR_API_KEY: 'key-1' } as NodeJS.ProcessEnv,
 			onProgress: (message: string) => progress.push(message),
 		},

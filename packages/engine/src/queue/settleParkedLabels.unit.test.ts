@@ -2,7 +2,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { settleParkedLabels } from '#src/queue/settleParkedLabels.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
@@ -20,7 +20,7 @@ const mockSetTicketLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure
 jest.mock('#src/ticketTracker/index.ts', () => ({ setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params) }));
 // -------------------------
 
-const outcomeOf = ({ number, ready }: { number: number; ready: boolean }): TicketRunOutcome => ({
+const outcomeOf = ({ number, ready }: { number: number; ready: boolean }): WorkOrderRunOutcome => ({
 	ticket: {
 		id: `id-${number}`,
 		identifier: `LO-${number}`,

@@ -69,14 +69,14 @@ interface BuildTicketPlansParams {
 	record: WorkOrderState;
 	env: NodeJS.ProcessEnv;
 	driverName: string;
-	ticketRunDir: string;
+	workOrderRunDir: string;
 	allowTicketBodyBuild: boolean;
 }
 
 const mockBuildTicketPlans = jest.fn<(params: BuildTicketPlansParams) => Promise<WorkerOutcome>>();
 
-jest.mock('#src/queue/workers/buildTicketPlans.ts', () => ({
-	buildTicketPlans: (params: BuildTicketPlansParams) => mockBuildTicketPlans(params),
+jest.mock('#src/queue/workers/buildWorkOrderPlans.ts', () => ({
+	buildWorkOrderPlans: (params: BuildTicketPlansParams) => mockBuildTicketPlans(params),
 }));
 // -------------------------
 
@@ -177,7 +177,7 @@ const setupAutoPlanWorker = ({
 			driverName: 'claude-code',
 			settings: queueSettingsFixture(),
 			env: { LINEAR_API_KEY: 'key-1' },
-			ticketRunDir: join(cwd, '.lightsout', 'runs', 'run-q', 'tickets', 'LO-70'),
+			workOrderRunDir: join(cwd, '.lightsout', 'runs', 'run-q', 'tickets', 'LO-70'),
 			onProgress: (message: string) => progress.push(message),
 		},
 	};
@@ -218,7 +218,7 @@ const setupHeadlessWorktreeSession = () => {
 			driverName: 'claude-code',
 			settings: queueSettingsFixture(),
 			env: { LINEAR_API_KEY: 'key-1' },
-			ticketRunDir: join(runDirFor({ cwd: worktree, runId: 'run-q', pipeline: 'queue' }), 'tickets', 'LO-70'),
+			workOrderRunDir: join(runDirFor({ cwd: worktree, runId: 'run-q', pipeline: 'queue' }), 'tickets', 'LO-70'),
 		},
 	};
 };

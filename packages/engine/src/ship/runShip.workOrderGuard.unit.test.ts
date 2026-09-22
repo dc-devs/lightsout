@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { ShipMergeMethod } from '#src/contracts/index.ts';
-import { runShip, type ShipTicketGuard } from '#src/ship/index.ts';
+import { runShip, type ShipWorkOrderGuard } from '#src/ship/index.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { shipIntegrationFixture } from '#tests/helpers/shipIntegrationFixture.ts';
 import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
@@ -47,8 +47,8 @@ interface Params {
  * case here is about which of them the sequence asked and with what.
  */
 const setupTicketGuardShip = ({ dirty, checks, refusal }: Params = {}) => {
-	const mockAuthorize = jest.fn<ShipTicketGuard['authorize']>();
-	const mockRecordShipped = jest.fn<ShipTicketGuard['recordShipped']>();
+	const mockAuthorize = jest.fn<ShipWorkOrderGuard['authorize']>();
+	const mockRecordShipped = jest.fn<ShipWorkOrderGuard['recordShipped']>();
 
 	mockAuthorize.mockResolvedValue(refusal);
 	mockRecordShipped.mockResolvedValue(undefined);
@@ -75,7 +75,7 @@ const setupTicketGuardShip = ({ dirty, checks, refusal }: Params = {}) => {
 			cwd,
 			settings,
 			integration,
-			ticketGuard: { authorize: mockAuthorize, recordShipped: mockRecordShipped },
+			workOrderGuard: { authorize: mockAuthorize, recordShipped: mockRecordShipped },
 		});
 
 	return { cwd, mockAuthorize, mockRecordShipped, readForgeLog, ship };

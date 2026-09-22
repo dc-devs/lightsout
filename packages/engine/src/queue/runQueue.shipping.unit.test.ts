@@ -8,7 +8,7 @@ import type { Driver } from '#src/drivers/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
-import { type QuestionRelay, type QueueFailure, type QueueSettings, readBranchState, runQueue, type TicketRunOutcome } from '#src/queue/index.ts';
+import { type QuestionRelay, type QueueFailure, type QueueSettings, readBranchState, runQueue, type WorkOrderRunOutcome } from '#src/queue/index.ts';
 import type { ShipIntegration, ShipSettings } from '#src/ship/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
@@ -17,7 +17,7 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 
 // Mocked Imports
 // -------------------------
-type TicketSummary = TicketRunOutcome['ticket'];
+type TicketSummary = WorkOrderRunOutcome['ticket'];
 type ListEligibleParams = { settings: QueueSettings; trackerSettings: TrackerSettings };
 type SetTicketLabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; present: boolean };
 type ScanParkedParams = {

@@ -7,7 +7,7 @@ import { pathExists, planWorkspaceDir } from '#src/plan/index.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
-import { buildTicketPlans } from '#src/queue/workers/buildTicketPlans.ts';
+import { buildWorkOrderPlans } from '#src/queue/workers/buildWorkOrderPlans.ts';
 import { chooseAutoPlanTarget } from '#src/queue/workers/chooseAutoPlanTarget.ts';
 import { pullWorkOrderState } from '#src/workOrder/index.ts';
 
@@ -25,7 +25,7 @@ interface Params {
 	/** The process environment the tracker credentials are read from. */
 	env: NodeJS.ProcessEnv;
 	/** The ticket's directory under the coordinator run, where each plan's commit message file is written. */
-	ticketRunDir: string;
+	workOrderRunDir: string;
 	/** The answer to a question this worker asked, folded back in on re-invocation. */
 	answeredQuestion?: AnsweredQuestion;
 	onProgress?: (message: string) => void;
@@ -114,7 +114,7 @@ const runPlanningSession = async ({
  * no name is ever derived twice.
  *
  * The session's job ends when the plan is written, graded and published — then
- * it stops, and the queue builds the ticket's plans that are ready to implement
+ * it stops, and the queue builds the work order's plans that are ready to implement
  * in numeric order. A build takes hours, so no build lives inside an agent
  * session that could take it down part-way.
  */
@@ -127,7 +127,7 @@ export const runAutoPlanWorker = async ({
 	driverName,
 	settings,
 	env,
-	ticketRunDir,
+	workOrderRunDir,
 	answeredQuestion,
 	onProgress,
 }: Params): Promise<WorkerOutcome> => {
@@ -138,7 +138,7 @@ export const runAutoPlanWorker = async ({
 	}
 
 	const build = ({ record }: { record: WorkOrderState }) =>
-		buildTicketPlans({ cwd, branch, ticket, record, config, env, driver, driverName, ticketRunDir, allowTicketBodyBuild: false, onProgress });
+		buildWorkOrderPlans({ cwd, branch, ticket, record, config, env, driver, driverName, workOrderRunDir, allowTicketBodyBuild: false, onProgress });
 
 	if (chosen.address === undefined) {
 		// No session is spent on a ticket with nothing waiting to be planned: a plan

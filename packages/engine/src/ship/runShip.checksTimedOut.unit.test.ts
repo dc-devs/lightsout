@@ -70,7 +70,7 @@ describe('runShip', () => {
 	test('checks still running when the wait gives up block, naming every check that never finished', async () => {
 		const { cwd } = setupTimedOut();
 
-		const result = await runShip({ cwd, settings, integration, ticketGuard: shipTicketGuardFixture() });
+		const result = await runShip({ cwd, settings, integration, workOrderGuard: shipTicketGuardFixture() });
 
 		expect(result).toEqual(
 			expect.objectContaining({
@@ -86,7 +86,7 @@ describe('runShip', () => {
 	test('a wait that ran out leaves the pull request unmerged, because nothing here merges on an unfinished check', async () => {
 		const { cwd, readForgeLog } = setupTimedOut();
 
-		await runShip({ cwd, settings, integration, ticketGuard: shipTicketGuardFixture() });
+		await runShip({ cwd, settings, integration, workOrderGuard: shipTicketGuardFixture() });
 
 		expect(readForgeLog().some((line) => line.startsWith('pr merge'))).toBe(false);
 	});
@@ -94,7 +94,7 @@ describe('runShip', () => {
 	test('writes the blocked result to disk, which is how the next tool learns the merge did not happen', async () => {
 		const { cwd } = setupTimedOut();
 
-		const result = await runShip({ cwd, settings, integration, ticketGuard: shipTicketGuardFixture() });
+		const result = await runShip({ cwd, settings, integration, workOrderGuard: shipTicketGuardFixture() });
 
 		expect(JSON.parse(await readFile(join(cwd, '.lightsout', 'tickets', 'lo-60-ship', 'ship.json'), 'utf8'))).toStrictEqual(result);
 	});

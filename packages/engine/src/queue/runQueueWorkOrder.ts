@@ -5,9 +5,9 @@ import { readBranchState, writeBranchState } from '#src/queue/branchState/index.
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { settleWorkerOutcome } from '#src/queue/common/utils/settleWorkerOutcome.ts';
-import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
+import { renderWorkOrderBranch } from '#src/queue/renderWorkOrderBranch.ts';
 import { runWorkerWithRelay } from '#src/queue/workers/index.ts';
 import { TrackerStatusRole, updateTicketLifecycle } from '#src/ticketLifecycle/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
@@ -52,7 +52,7 @@ const recordPickup = async ({ cwd, branch, onProgress }: { cwd: string; branch: 
 };
 
 /**
- * The ticket's worktree, cut from the default branch or continued in.
+ * The work order's worktree, cut from the default branch or continued in.
  *
  * Creation is the one step that mutates the main checkout, so it alone goes
  * through the shared chain; everything after it runs fully parallel. Reuse is
@@ -122,7 +122,7 @@ const claimOwnership = async ({ settings, trackerSettings, ticket }: { settings:
  * counted here — the branch is recorded open, which is what makes the next drain
  * re-evaluate the ticket rather than merge it.
  */
-export const runQueueTicket = async ({
+export const runQueueWorkOrder = async ({
 	cwd,
 	settings,
 	trackerSettings,
@@ -137,11 +137,11 @@ export const runQueueTicket = async ({
 	coordinatorRunId,
 	coordinatorRunDir,
 	onProgress,
-}: Params): Promise<TicketRunOutcome> => {
-	const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
-	// One directory for every commit message file this ticket needs: the plan
+}: Params): Promise<WorkOrderRunOutcome> => {
+	const branch = renderWorkOrderBranch({ ticket, template: settings.branchTemplate });
+	// One directory for every commit message file this work order needs: the plan
 	// loop's per-plan commits and the final commit below write to the same place.
-	const ticketRunDir = join(coordinatorRunDir, 'tickets', ticket.identifier);
+	const workOrderRunDir = join(coordinatorRunDir, 'work-orders', ticket.identifier);
 	const created = await createTicketWorktree({ cwd, branch, defaultBranch, setup: settings.setup, serializeWorktreeAdd, onProgress });
 
 	if (typeof created !== 'string') {
@@ -170,7 +170,7 @@ export const runQueueTicket = async ({
 		relay,
 		coordinatorRunId,
 		coordinatorRunDir,
-		ticketRunDir,
+		workOrderRunDir,
 		env,
 		onProgress,
 	});
@@ -181,7 +181,7 @@ export const runQueueTicket = async ({
 		branch,
 		defaultBranch,
 		ticket,
-		ticketRunDir,
+		workOrderRunDir,
 		generated: config.generated,
 		worked,
 		onProgress,

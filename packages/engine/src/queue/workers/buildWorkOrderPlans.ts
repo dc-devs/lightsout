@@ -7,7 +7,7 @@ import type { Driver } from '#src/drivers/index.ts';
 import { pathExists, planWorkspaceDir } from '#src/plan/index.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
-import type { TicketPlanStep } from '#src/queue/workers/common/types/TicketPlanStep.ts';
+import type { WorkOrderPlanStep } from '#src/queue/workers/common/types/WorkOrderPlanStep.ts';
 import { buildFromTicketBody } from '#src/queue/workers/common/utils/buildFromTicketBody.ts';
 import { findStalledPlanRefusal } from '#src/queue/workers/common/utils/findStalledPlanRefusal.ts';
 import { settleLeftoverWork } from '#src/queue/workers/common/utils/settleLeftoverWork.ts';
@@ -15,7 +15,7 @@ import { runPlanFolderPipeline } from '#src/queue/workers/runPlanFolderPipeline.
 import { readWorkOrderShipEligibility, readWorkOrderState, restoreWorkOrderPlan } from '#src/workOrder/index.ts';
 
 interface Params {
-	/** The ticket's worktree: where each plan is restored, built and committed. */
+	/** The work order's worktree: where each plan is restored, built and committed. */
 	cwd: string;
 	/** The ticket's branch — the ticket-folder segment of every plan address. */
 	branch: string;
@@ -29,8 +29,8 @@ interface Params {
 	/** Recorded as the harness name on a build from the ticket body. */
 	driverName: string;
 	/** The ticket's directory under the coordinator run, where each plan's commit message file is written. */
-	ticketRunDir: string;
-	/** True only for the plan worker: a single-plan ticket whose plan 001 is still being planned is then built from the ticket body. */
+	workOrderRunDir: string;
+	/** True only for the plan worker: a single-plan work order whose plan 001 is still being planned is then built from the ticket body. */
 	allowTicketBodyBuild: boolean;
 	onProgress?: (message: string) => void;
 }
@@ -57,8 +57,8 @@ const readLeftoverWork = async ({ cwd, config }: { cwd: string; config: Lightsou
 const findNextPlanToBuild = ({ record }: { record: WorkOrderState }) =>
 	record.plans.find((plan) => plan.exclusion === undefined && plan.progress !== PlanProgress.Implemented);
 
-/** A plan nobody has finished planning: a multiple-plan ticket waits for it, and a single-plan ticket falls back to the ticket body or stops. */
-const takePlanBeingPlanned = ({ step, allowTicketBodyBuild }: { step: TicketPlanStep; allowTicketBodyBuild: boolean }) => {
+/** A plan nobody has finished planning: a multiple-plan work order waits for it, and a single-plan work order falls back to the ticket body or stops. */
+const takePlanBeingPlanned = ({ step, allowTicketBodyBuild }: { step: WorkOrderPlanStep; allowTicketBodyBuild: boolean }) => {
 	const { record, plan } = step;
 
 	if (record.mode !== WorkOrderMode.SinglePlan) {
@@ -75,7 +75,7 @@ const takePlanBeingPlanned = ({ step, allowTicketBodyBuild }: { step: TicketPlan
 };
 
 /** A plan that is ready to implement, fetched back from the ticket when this worktree holds no copy of it, then built. */
-const buildReadyPlan = async ({ step }: { step: TicketPlanStep }) => {
+const buildReadyPlan = async ({ step }: { step: WorkOrderPlanStep }) => {
 	const { cwd, record, plan, config, env, driver, onProgress } = step;
 	const address = formatPlanAddress({ ticketBranch: record.branch, planId: plan.id });
 
@@ -103,7 +103,7 @@ const buildReadyPlan = async ({ step }: { step: TicketPlanStep }) => {
  * finished — a run over one phase file of the plan, say — would otherwise make
  * the next turn take the same plan again.
  */
-const confirmPlanImplemented = async ({ step, branch }: { step: TicketPlanStep; branch: string }) => {
+const confirmPlanImplemented = async ({ step, branch }: { step: WorkOrderPlanStep; branch: string }) => {
 	const { cwd, plan } = step;
 	const reread = await readWorkOrderState({ cwd, name: branch });
 
@@ -130,7 +130,7 @@ const decideTicketOutcome = ({ record }: { record: WorkOrderState }) => {
 		return {};
 	}
 
-	// A single-plan ticket is never left open: plan 001 alone supplies its
+	// A single-plan work order is never left open: plan 001 alone supplies its
 	// implementation, so anything short of that is a human's to look at.
 	return record.mode === WorkOrderMode.MultiplePlan ? { open: eligibility.reason } : { error: eligibility.reason };
 };
@@ -153,7 +153,7 @@ const decideTicketOutcome = ({ record }: { record: WorkOrderState }) => {
  *
  * @returns success once nothing is left to build and the ticket may ship, the reason it stays open, or the reason it parks
  */
-export const buildTicketPlans = async ({
+export const buildWorkOrderPlans = async ({
 	cwd,
 	branch,
 	ticket,
@@ -162,7 +162,7 @@ export const buildTicketPlans = async ({
 	env,
 	driver,
 	driverName,
-	ticketRunDir,
+	workOrderRunDir,
 	allowTicketBodyBuild,
 	onProgress,
 }: Params): Promise<WorkerOutcome> => {
@@ -179,7 +179,7 @@ export const buildTicketPlans = async ({
 			return decideTicketOutcome({ record: current });
 		}
 
-		const step: TicketPlanStep = { cwd, record: current, plan, ticket, config, env, driver, driverName, ticketRunDir, onProgress };
+		const step: WorkOrderPlanStep = { cwd, record: current, plan, ticket, config, env, driver, driverName, workOrderRunDir, onProgress };
 		// Asked before any leftover work is settled: a failed or paused build's
 		// partial changes are what `lightsout resume` expects to find in the tree,
 		// so committing them under another plan's message would take them out of it.

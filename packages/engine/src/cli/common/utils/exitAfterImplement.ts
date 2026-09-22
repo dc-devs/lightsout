@@ -106,7 +106,7 @@ export const exitAfterImplement = async ({ config, cwd, result, shipFlag, noShip
 		cwd: workCwd,
 		settings: intent.settings,
 		integration: { config: effectiveConfig, driver },
-		ticketGuard: createWorkOrderShipGuard({ config, env, onProgress: createProgressPrinter() }),
+		workOrderGuard: createWorkOrderShipGuard({ config, env, onProgress: createProgressPrinter() }),
 		onProgress: createProgressPrinter(),
 	});
 

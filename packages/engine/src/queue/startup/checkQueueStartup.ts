@@ -6,8 +6,8 @@ import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
+import { renderWorkOrderBranch } from '#src/queue/renderWorkOrderBranch.ts';
 import { checkPlanningStatusLabels } from '#src/queue/startup/checkPlanningStatusLabels.ts';
-import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
 import { readTicketMatch, type ShipSettings } from '#src/ship/index.ts';
 import { TrackerStatusRole } from '#src/ticketLifecycle/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
@@ -69,7 +69,7 @@ export const checkQueueStartup = async ({ cwd, settings, trackerSettings, shipSe
 		finished: false,
 		unfinishedBlockers: [],
 	};
-	const rendered = toTicketBranch({ ticket: sample, template: settings.branchTemplate });
+	const rendered = renderWorkOrderBranch({ ticket: sample, template: settings.branchTemplate });
 
 	if (readTicketMatch({ branch: rendered, ticketPattern: shipSettings.ticketPattern }) === undefined) {
 		return {

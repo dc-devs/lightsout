@@ -5,8 +5,8 @@ import type { QueueBoard } from '#src/contracts/index.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { readQueueBoard } from '#src/queue/index.ts';
 import { resolveRunDir } from '#src/runState/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
@@ -21,7 +21,7 @@ import { setupQueueDrain } from '#tests/helpers/setupQueueDrain.ts';
 // own tests. What this file owns is the board the coordinator run leaves behind,
 // and that the relay a worker is handed puts its open question on that board
 // without changing how the question travels.
-/** The fields of `runQueueTicket`'s params a worker here reads: its ticket, the relay it asks through, and the coordinator run it stamps on the question. */
+/** The fields of `runQueueWorkOrder`'s params a worker here reads: its ticket, the relay it asks through, and the coordinator run it stamps on the question. */
 interface WorkerParams {
 	ticket: TicketSummary;
 	relay: QuestionRelay;
@@ -31,8 +31,8 @@ interface WorkerParams {
 
 const mockListEligibleTickets = jest.fn<() => Promise<TicketSummary[] | QueueFailure>>();
 const mockScanParkedWorktrees = jest.fn<() => Promise<ParkedWork | QueueFailure>>();
-const mockRunQueueTicket = jest.fn<(params: WorkerParams) => Promise<TicketRunOutcome>>();
-const mockShipOneBranch = jest.fn<(params: { outcome: TicketRunOutcome }) => Promise<TicketRunOutcome>>();
+const mockRunQueueTicket = jest.fn<(params: WorkerParams) => Promise<WorkOrderRunOutcome>>();
+const mockShipOneBranch = jest.fn<(params: { outcome: WorkOrderRunOutcome }) => Promise<WorkOrderRunOutcome>>();
 type LabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; present: boolean };
 
 const mockSetTicketLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure | undefined>>();
@@ -45,8 +45,8 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 	setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params),
 }));
 jest.mock('#src/queue/worktrees/scanParkedWorktrees.ts', () => ({ scanParkedWorktrees: () => mockScanParkedWorktrees() }));
-jest.mock('#src/queue/runQueueTicket.ts', () => ({ runQueueTicket: (params: WorkerParams) => mockRunQueueTicket(params) }));
-jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: TicketRunOutcome }) => mockShipOneBranch(params) }));
+jest.mock('#src/queue/runQueueWorkOrder.ts', () => ({ runQueueWorkOrder: (params: WorkerParams) => mockRunQueueTicket(params) }));
+jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: WorkOrderRunOutcome }) => mockShipOneBranch(params) }));
 // -------------------------
 
 const QUESTION = 'Which column comes first on the board?';

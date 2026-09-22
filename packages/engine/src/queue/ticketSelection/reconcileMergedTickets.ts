@@ -4,7 +4,7 @@ import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import { establishBranchMerge } from '#src/queue/common/utils/establishBranchMerge.ts';
 import { settleReconciledWorktree } from '#src/queue/common/utils/settleReconciledWorktree.ts';
-import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
+import { renderWorkOrderBranch } from '#src/queue/renderWorkOrderBranch.ts';
 import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
 import { resolveWorktreePath } from '#src/worktree/index.ts';
 
@@ -44,7 +44,7 @@ export const reconcileMergedTickets = async ({
 	const leftBehind: LeftBehindTicket[] = [];
 
 	for (const ticket of tickets) {
-		const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
+		const branch = renderWorkOrderBranch({ ticket, template: settings.branchTemplate });
 		const evidence = await establishBranchMerge({ cwd, branch, onProgress });
 
 		if (evidence === undefined) {

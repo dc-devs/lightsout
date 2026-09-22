@@ -3,7 +3,7 @@ import { ShipBlockReason, ShippingStepId, type ShipResult, ShipStatus } from '#s
 import { checkShipPreconditions } from '#src/ship/checkShipPreconditions.ts';
 import type { ShipIntegration } from '#src/ship/common/types/ShipIntegration.ts';
 import type { ShipSettings } from '#src/ship/common/types/ShipSettings.ts';
-import type { ShipTicketGuard } from '#src/ship/common/types/ShipTicketGuard.ts';
+import type { ShipWorkOrderGuard } from '#src/ship/common/types/ShipWorkOrderGuard.ts';
 import { quoteGitArgument } from '#src/ship/common/utils/quoteGitArgument.ts';
 import { runGit } from '#src/ship/common/utils/runGit.ts';
 import { ShippingProgressRecorder } from '#src/ship/progress/index.ts';
@@ -20,7 +20,7 @@ interface Params {
 	/** The effective config and harness the integration step verifies and repairs with. Required, so no shipping path can be added without the safety contract. */
 	integration: ShipIntegration;
 	/** The branch's ticket record's say over the merge. Required, so no shipping path can be added without asking the ticket first. */
-	ticketGuard: ShipTicketGuard;
+	workOrderGuard: ShipWorkOrderGuard;
 	/** Live progress sink — one line per step. Silent when omitted. */
 	onProgress?: ProgressSink;
 }
@@ -107,7 +107,7 @@ const readBranchDiff = async ({ cwd, defaultBranch }: { cwd: string; defaultBran
  * in a shipping progress record beside the result, which is what
  * `lightsout status --shipping` reads while the ship is still going.
  */
-export const runShip = async ({ cwd, settings, integration, ticketGuard, onProgress }: Params): Promise<ShipResult> => {
+export const runShip = async ({ cwd, settings, integration, workOrderGuard, onProgress }: Params): Promise<ShipResult> => {
 	const preconditions = await checkShipPreconditions({ cwd, ticketPattern: settings.ticketPattern });
 
 	if ('reason' in preconditions) {
@@ -117,10 +117,10 @@ export const runShip = async ({ cwd, settings, integration, ticketGuard, onProgr
 	const { branch, defaultBranch, ticket } = preconditions;
 	// Before the shipping record exists and before anything leaves the machine: a
 	// ticket whose own record does not authorize the merge never starts a ship.
-	const unauthorized = await ticketGuard.authorize({ cwd, branch });
+	const unauthorized = await workOrderGuard.authorize({ cwd, branch });
 
 	if (unauthorized !== undefined) {
-		return stopShip({ cwd, onProgress, reason: ShipBlockReason.TicketNotAuthorized, detail: unauthorized, branch, ticketRef: ticket.ticket ?? branch });
+		return stopShip({ cwd, onProgress, reason: ShipBlockReason.WorkOrderNotAuthorized, detail: unauthorized, branch, ticketRef: ticket.ticket ?? branch });
 	}
 
 	const maxAttempts = 1 + maxCheapFixRetries;
@@ -137,7 +137,7 @@ export const runShip = async ({ cwd, settings, integration, ticketGuard, onProgr
 	trackedProgress(`ship: ${branch} → ${defaultBranch}, ticket ${ticket.ticket}`);
 
 	const branchDiff = await readBranchDiff({ cwd, defaultBranch });
-	const attempt = { cwd, settings, integration, ticketGuard, branch, defaultBranch, ticket, branchDiff, recorder, onProgress: trackedProgress };
+	const attempt = { cwd, settings, integration, workOrderGuard, branch, defaultBranch, ticket, branchDiff, recorder, onProgress: trackedProgress };
 	let outcome = await runShipAttempt(attempt);
 
 	for (let spent = 1; spent < maxAttempts && outcome.retryable; spent += 1) {
@@ -152,7 +152,7 @@ export const runShip = async ({ cwd, settings, integration, ticketGuard, onProgr
 		// The merge is the freshest fact there is, so the ticket learns it before the
 		// default-branch cleanup that could fail without undoing anything.
 		if (mergeCommit !== undefined) {
-			await ticketGuard.recordShipped({ cwd, branch, mergeCommit });
+			await workOrderGuard.recordShipped({ cwd, branch, mergeCommit });
 		}
 
 		recorder.startStep({ step: ShippingStepId.Sync });

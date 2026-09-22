@@ -6,8 +6,8 @@ import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import type { TrackerFailure, TrackerSettings } from '#src/ticketTracker/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
@@ -26,8 +26,8 @@ type LabelParams = { settings: TrackerSettings; ticketId: string; label: string 
 const mockListLabelNames = jest.fn<() => Promise<string[] | TrackerFailure>>();
 const mockListEligibleTickets = jest.fn<() => Promise<TicketSummary[] | QueueFailure>>();
 const mockScanParkedWorktrees = jest.fn<() => Promise<ParkedWork | QueueFailure>>();
-const mockRunQueueTicket = jest.fn<(params: { ticket: TicketSummary }) => Promise<TicketRunOutcome>>();
-const mockShipOneBranch = jest.fn<(params: { outcome: TicketRunOutcome }) => Promise<TicketRunOutcome>>();
+const mockRunQueueTicket = jest.fn<(params: { ticket: TicketSummary }) => Promise<WorkOrderRunOutcome>>();
+const mockShipOneBranch = jest.fn<(params: { outcome: WorkOrderRunOutcome }) => Promise<WorkOrderRunOutcome>>();
 const mockSetTicketLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure | undefined>>();
 
 jest.mock('#src/queue/ticketSelection/listEligibleTickets.ts', () => ({ listEligibleTickets: () => mockListEligibleTickets() }));
@@ -37,8 +37,8 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 	setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params),
 }));
 jest.mock('#src/queue/worktrees/scanParkedWorktrees.ts', () => ({ scanParkedWorktrees: () => mockScanParkedWorktrees() }));
-jest.mock('#src/queue/runQueueTicket.ts', () => ({ runQueueTicket: (params: { ticket: TicketSummary }) => mockRunQueueTicket(params) }));
-jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: TicketRunOutcome }) => mockShipOneBranch(params) }));
+jest.mock('#src/queue/runQueueWorkOrder.ts', () => ({ runQueueWorkOrder: (params: { ticket: TicketSummary }) => mockRunQueueTicket(params) }));
+jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: WorkOrderRunOutcome }) => mockShipOneBranch(params) }));
 // -------------------------
 
 const everyLabel = ['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed'];
@@ -75,7 +75,7 @@ const unselectedTicketOf = ({ number, planningStatus }: { number: number; planni
 	worker: undefined,
 });
 
-const outcomeOf = ({ ticket }: { ticket: TicketSummary }): TicketRunOutcome => ({
+const outcomeOf = ({ ticket }: { ticket: TicketSummary }): WorkOrderRunOutcome => ({
 	ticket,
 	branch: `${ticket.identifier.toLowerCase()}-ticket-${ticket.id}`,
 	worktreePath: `/tmp/worktrees/${ticket.identifier}`,

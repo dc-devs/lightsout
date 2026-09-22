@@ -25,7 +25,7 @@ interface Params {
  * fetches a missing one back from the ticket, and the auto-plan worker fails,
  * because a session that reported a plan it never wrote built nothing.
  *
- * The run goes through the ticket lifecycle helper, so a plan the ticket's record
+ * The run goes through the ticket lifecycle helper, so a plan the work order's record
  * says may not be built yet becomes a worker error rather than a build — and a
  * plan that passes is recorded implemented on the record every later plan and
  * every ship reads. A folder with no record builds exactly as it always has.

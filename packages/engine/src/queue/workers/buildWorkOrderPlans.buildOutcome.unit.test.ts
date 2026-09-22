@@ -2,15 +2,15 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { type LightsoutConfig, PlanProgress, WorkOrderMode } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import { buildTicketPlans } from '#src/queue/workers/buildTicketPlans.ts';
+import { buildWorkOrderPlans } from '#src/queue/workers/buildWorkOrderPlans.ts';
 import { config, planAt, planOf, setupTicketPlanBuild } from '#tests/helpers/setupTicketPlanBuild.ts';
 
 /**
- * What each build of a ticket's plans amounts to: a build that failed, a plan
+ * What each build of a work order's plans amounts to: a build that failed, a plan
  * whose published files moved, the one build with no plan deliverable behind it,
  * and the answer the loop gives once nothing is left to build.
  *
- * A sibling of `buildTicketPlans.unit.test.ts` rather than more cases in it:
+ * A sibling of `buildWorkOrderPlans.unit.test.ts` rather than more cases in it:
  * that file states which plan the loop takes and in what order, while every
  * case here is about what comes back from taking one.
  */
@@ -103,12 +103,12 @@ const secondImplemented = planOf({
 });
 const thirdReady = planOf({ id: '003-search-ranking', title: 'Search ranking', progress: PlanProgress.Ready });
 
-describe('buildTicketPlans', () => {
-	test('buildTicketPlans: parks rather than build a plan whose published files moved on another machine', async () => {
+describe('buildWorkOrderPlans', () => {
+	test('buildWorkOrderPlans: parks rather than build a plan whose published files moved on another machine', async () => {
 		const secondRepublished = planOf({ id: '002-search-basics', title: 'Search basics', progress: PlanProgress.Ready, publishedMarker: 'b'.repeat(64) });
 		const { params } = setupTicketPlanBuild({ mocks, plans: [firstImplemented, secondRepublished] });
 
-		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
 
 		expect(outcome.error).toEqual(expect.stringContaining('002-search-basics'));
 		expect(outcome.error).toEqual(expect.stringContaining('lightsout work-order sync'));
@@ -116,17 +116,17 @@ describe('buildTicketPlans', () => {
 		expect(mockCommitTicketWork).not.toHaveBeenCalled();
 	});
 
-	test('buildTicketPlans: a failed build stops the loop without committing', async () => {
+	test('buildWorkOrderPlans: a failed build stops the loop without committing', async () => {
 		const { params } = setupTicketPlanBuild({ mocks, plans: [firstImplemented, secondReady, thirdReady], build: 'fails' });
 
-		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
 
 		expect(outcome.error).toEqual(expect.stringContaining('the gates stayed red'));
 		expect(mockRunImplementPipeline).toHaveBeenCalledTimes(1);
 		expect(mockCommitTicketWork).not.toHaveBeenCalled();
 	});
 
-	test('buildTicketPlans: a refused commit stops the loop before any plan is built', async () => {
+	test('buildWorkOrderPlans: a refused commit stops the loop before any plan is built', async () => {
 		const refused = { error: 'git could not commit the work: the pre-commit hook refused it' };
 		const { params } = setupTicketPlanBuild({
 			mocks,
@@ -135,7 +135,7 @@ describe('buildTicketPlans', () => {
 			commitResult: refused,
 		});
 
-		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
 
 		// each plan's own pipeline commits the work it built, so the one commit
 		// left in this loop is the leftover settling — and a refusal there stops
@@ -144,10 +144,10 @@ describe('buildTicketPlans', () => {
 		expect(mockRunImplementPipeline).not.toHaveBeenCalled();
 	});
 
-	test('buildTicketPlans: a passed build its record does not show implemented stops instead of repeating', async () => {
+	test('buildWorkOrderPlans: a passed build its record does not show implemented stops instead of repeating', async () => {
 		const { params } = setupTicketPlanBuild({ mocks, plans: [firstImplemented, secondReady, thirdReady], build: 'one-phase' });
 
-		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
 
 		// a pass over one phase file leaves the plan's implementation unfinished,
 		// so taking the same plan again would loop on it forever
@@ -155,28 +155,28 @@ describe('buildTicketPlans', () => {
 		expect(mockRunImplementPipeline).toHaveBeenCalledTimes(1);
 	});
 
-	test('buildTicketPlans: an eligible ticket answers success so it goes on to ship', async () => {
+	test('buildWorkOrderPlans: an eligible ticket answers success so it goes on to ship', async () => {
 		const request = { planIds: ['001-search-index', '002-search-basics'], requestedAt: '2026-01-05T00:00:00.000Z' };
 		const { params } = setupTicketPlanBuild({ mocks, plans: [firstImplemented, secondImplemented], shipRequest: request });
 
-		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
 
 		expect(outcome).toStrictEqual({});
 	});
 
-	test('buildTicketPlans: an implemented multiple-plan ticket with no ship request is left open', async () => {
+	test('buildWorkOrderPlans: an implemented multiple-plan work order with no ship request is left open', async () => {
 		const { params } = setupTicketPlanBuild({ mocks, plans: [firstImplemented, secondImplemented] });
 
-		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
 
 		expect(outcome.error).toBeUndefined();
 		expect(outcome.open).toEqual(expect.stringContaining('ship request'));
 	});
 
-	test('buildTicketPlans: a single-plan plan 001 still being planned is built from the ticket body through the lifecycle helper', async () => {
+	test('buildWorkOrderPlans: a single-plan plan 001 still being planned is built from the ticket body through the lifecycle helper', async () => {
 		const { cwd, params } = setupTicketPlanBuild({ mocks, plans: [firstPlanned], mode: WorkOrderMode.SinglePlan });
 
-		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: true });
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: true });
 
 		expect(mockRunDirectWork).toHaveBeenCalledWith(
 			expect.objectContaining({ cwd, ticketBody: 'Build search.', ticketRef: 'LO-7', driverName: 'claude-code', config }),
@@ -189,20 +189,20 @@ describe('buildTicketPlans', () => {
 		expect(outcome).toStrictEqual({});
 	});
 
-	test('buildTicketPlans: without the body fallback a single-plan plan still being planned parks', async () => {
+	test('buildWorkOrderPlans: without the body fallback a single-plan plan still being planned parks', async () => {
 		const { params } = setupTicketPlanBuild({ mocks, plans: [firstPlanned], mode: WorkOrderMode.SinglePlan });
 
-		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: false });
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
 
 		expect(outcome.open).toBeUndefined();
 		expect(outcome.error).toEqual(expect.stringContaining('001-search-index'));
 		expect(mockRunDirectWork).not.toHaveBeenCalled();
 	});
 
-	test('buildTicketPlans: a multiple-plan ticket is never built from the ticket body', async () => {
+	test('buildWorkOrderPlans: a multiple-plan work order is never built from the ticket body', async () => {
 		const { params } = setupTicketPlanBuild({ mocks, plans: [firstPlanned] });
 
-		const outcome = await buildTicketPlans({ ...params, allowTicketBodyBuild: true });
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: true });
 
 		// a later plan has no ticket body of its own, so the fallback belongs to
 		// single-plan plan 001 alone

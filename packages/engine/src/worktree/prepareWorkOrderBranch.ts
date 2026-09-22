@@ -22,7 +22,7 @@ const readAncestry = async ({ cwd, ancestor, descendant }: { cwd: string; ancest
 	return asked.exitCode === 0;
 };
 
-/** How the local ticket branch stands against its pushed copy, or undefined when git could not say. */
+/** How the local work-order branch stands against its pushed copy, or undefined when git could not say. */
 const readBranchRelation = async ({ cwd, local, remote }: { cwd: string; local: string; remote: string }) => {
 	const behind = await readAncestry({ cwd, ancestor: local, descendant: remote });
 	const ahead = await readAncestry({ cwd, ancestor: remote, descendant: local });
@@ -40,7 +40,7 @@ const readBranchRelation = async ({ cwd, local, remote }: { cwd: string; local: 
 };
 
 /**
- * The local ticket branch moved onto the pushed commit, or the reason it was
+ * The local work-order branch moved onto the pushed commit, or the reason it was
  * left where it is.
  *
  * Only a branch no worktree holds is moved: `git branch -f` on a checked-out
@@ -81,7 +81,7 @@ const fastForwardTicketBranch = async ({ cwd, branch, local, remote }: { cwd: st
  *
  * @returns the commit a fresh tree's branch is cut at, no start point when the local branch stands as it should, or the one sentence saying what to do next
  */
-export const prepareTicketBranch = async ({ cwd, branch }: Params): Promise<{ startPoint?: string } | WorktreeFailure> => {
+export const prepareWorkOrderBranch = async ({ cwd, branch }: Params): Promise<{ startPoint?: string } | WorktreeFailure> => {
 	const local = await readGitRefCommit({ cwd, ref: `refs/heads/${branch}` });
 	const remote = await readGitRefCommit({ cwd, ref: `refs/remotes/origin/${branch}` });
 

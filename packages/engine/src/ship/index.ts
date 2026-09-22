@@ -2,7 +2,7 @@ export type { ShipIntegration } from '#src/ship/common/types/ShipIntegration.ts'
 export type { ShipIntent } from '#src/ship/common/types/ShipIntent.ts';
 export type { ShipRequestTerms } from '#src/ship/common/types/ShipRequestTerms.ts';
 export type { ShipSettings } from '#src/ship/common/types/ShipSettings.ts';
-export type { ShipTicketGuard } from '#src/ship/common/types/ShipTicketGuard.ts';
+export type { ShipWorkOrderGuard } from '#src/ship/common/types/ShipWorkOrderGuard.ts';
 // `getShipResultPath` stays off this barrel, for the reason
 // `queue/branchState/index.ts` gives about `getBranchStatePath`: the record's
 // location is this module's business, and a caller that can build the path can

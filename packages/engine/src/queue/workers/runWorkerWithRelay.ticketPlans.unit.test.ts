@@ -129,7 +129,7 @@ const setupOrderedBuild = ({ progress, runId }: { progress: PlanProgress; runId?
 			relay,
 			coordinatorRunId: 'run-q',
 			coordinatorRunDir,
-			ticketRunDir: join(coordinatorRunDir, 'tickets', 'LO-7'),
+			workOrderRunDir: join(coordinatorRunDir, 'tickets', 'LO-7'),
 			env: { LINEAR_API_KEY: 'key-1' },
 		},
 	};

@@ -172,7 +172,7 @@ const setupQueueBuild = ({ phased = false, result }: { phased?: boolean; result:
 			relay,
 			coordinatorRunId: 'run-q',
 			coordinatorRunDir,
-			ticketRunDir: join(coordinatorRunDir, 'tickets', 'LO-70'),
+			workOrderRunDir: join(coordinatorRunDir, 'tickets', 'LO-70'),
 			env: { LINEAR_API_KEY: 'key-1' },
 		},
 	};

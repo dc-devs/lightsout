@@ -3,7 +3,7 @@ import type { GateHolds } from '#src/gates/index.ts';
 import type { QueueBoardRecorder } from '#src/queue/board/index.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import type { ShipIntegration, ShipSettings } from '#src/ship/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 
@@ -27,13 +27,13 @@ export interface LaneContext {
 	/** Where the coordinator run's queue document is written, rewritten every time tickets are admitted. */
 	planPath: string;
 	/** One ticket, from worktree to committed-and-ready. */
-	runTicket: (params: { ticket: RunnableTicket }) => Promise<TicketRunOutcome>;
+	runWorkOrder: (params: { ticket: RunnableTicket }) => Promise<WorkOrderRunOutcome>;
 	/**
 	 * Runs a task with no other main-checkout git mutation in flight. A builder's
 	 * worktree creation, the merge tail's removal and the re-scan's removal never
 	 * overlapped while merging waited for every build; this drain removes that
 	 * ordering, so it has to keep them apart. Passed in because the builders'
-	 * creation already takes the chain `runQueue.ts` captured in `runTicket`.
+	 * creation already takes the chain `runQueue.ts` captured in `runWorkOrder`.
 	 */
 	serializeMainCheckout: <Result>(params: { task: () => Promise<Result> }) => Promise<Result>;
 	/** The coordinator run's board. The drain only records a snapshot into it on each pass, and never awaits the write. */

@@ -12,7 +12,7 @@ import { createMainCheckoutSerializer } from '#src/queue/common/utils/createMain
 import { isParkedOutcome } from '#src/queue/common/utils/isParkedOutcome.ts';
 import { startCoordinatorRun } from '#src/queue/common/utils/startCoordinatorRun.ts';
 import { drainQueue } from '#src/queue/drainQueue.ts';
-import { runQueueTicket } from '#src/queue/runQueueTicket.ts';
+import { runQueueWorkOrder } from '#src/queue/runQueueWorkOrder.ts';
 import { settleParkedLabels } from '#src/queue/settleParkedLabels.ts';
 import { checkQueueStartup } from '#src/queue/startup/index.ts';
 import { listEligibleTickets, orderTickets, selectWaveTickets } from '#src/queue/ticketSelection/index.ts';
@@ -97,8 +97,8 @@ const drainAndShip = async ({
 		serializeMainCheckout,
 		board,
 		onProgress,
-		runTicket: ({ ticket }) =>
-			runQueueTicket({
+		runWorkOrder: ({ ticket }) =>
+			runQueueWorkOrder({
 				cwd,
 				settings,
 				trackerSettings,

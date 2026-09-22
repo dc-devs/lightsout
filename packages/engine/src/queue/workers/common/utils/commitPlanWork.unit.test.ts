@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanProgress, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
-import type { TicketPlanStep } from '#src/queue/workers/common/types/TicketPlanStep.ts';
+import type { WorkOrderPlanStep } from '#src/queue/workers/common/types/WorkOrderPlanStep.ts';
 import { commitPlanWork } from '#src/queue/workers/common/utils/commitPlanWork.ts';
 import { config, driver, planOf, ticket, ticketBranch } from '#tests/helpers/setupTicketPlanBuild.ts';
 
@@ -45,7 +45,7 @@ const setupLeftoverCommit = ({ runId }: { runId?: string } = {}) => {
 		plans: [plan],
 		history: [],
 	};
-	const step: TicketPlanStep = {
+	const step: WorkOrderPlanStep = {
 		cwd: `/tmp/${ticketBranch}`,
 		record,
 		plan,
@@ -54,7 +54,7 @@ const setupLeftoverCommit = ({ runId }: { runId?: string } = {}) => {
 		env: {},
 		driver,
 		driverName: driver.name,
-		ticketRunDir: `/tmp/${ticketBranch}/.lightsout/runs/run-1/ticket`,
+		workOrderRunDir: `/tmp/${ticketBranch}/.lightsout/runs/run-1/ticket`,
 	};
 
 	return { step };

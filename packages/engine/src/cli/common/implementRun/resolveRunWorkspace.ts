@@ -10,7 +10,7 @@ import { readLiveRunLock } from '#src/runState/index.ts';
 import {
 	createWorktree,
 	fetchDefaultBranch,
-	prepareTicketBranch,
+	prepareWorkOrderBranch,
 	readBranchWorktree,
 	readWorktreeRecord,
 	resolveWorktreePath,
@@ -114,7 +114,7 @@ const cutWorkspace = async ({
 	// A later plan of a ticket must be built on the implementation its branch
 	// already carries, so the ticket branch is settled before anything is adopted
 	// or cut. A legacy plan keeps today's start point and never asks.
-	const prepared = addressed ? await prepareTicketBranch({ cwd, branch }) : { startPoint: undefined };
+	const prepared = addressed ? await prepareWorkOrderBranch({ cwd, branch }) : { startPoint: undefined };
 
 	if ('error' in prepared) {
 		return prepared;

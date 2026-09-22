@@ -37,7 +37,7 @@ export const shipCommand = async ({ cwd }: CommandContext): Promise<void> => {
 		integration: { config: effectiveConfig, driver },
 		// The branch's own ticket record has the last word on the merge, here as
 		// much as in the queue: a standalone ship is not a way around it.
-		ticketGuard: createWorkOrderShipGuard({ config, env: process.env, onProgress: createProgressPrinter() }),
+		workOrderGuard: createWorkOrderShipGuard({ config, env: process.env, onProgress: createProgressPrinter() }),
 		onProgress: createProgressPrinter(),
 	});
 

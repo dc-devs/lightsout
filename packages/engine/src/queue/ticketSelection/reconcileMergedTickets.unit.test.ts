@@ -61,7 +61,7 @@ const ticketOf = ({ number }: { number: number }): RunnableTicket => ({
 
 const mergedPullRequest: PullRequestSummary = { number: 41, url: 'https://forge.example/pull/41', title: 'LO-70', branch: 'lo-70-ticket-70' };
 
-/** What `git status` finds in the ticket's worktree: nothing to commit, something to commit, or no worktree there at all. */
+/** What `git status` finds in the work order's worktree: nothing to commit, something to commit, or no worktree there at all. */
 const changedFilesFor = { clean: [] as string[], dirty: ['src/a.ts'], absent: undefined };
 
 /** A wave whose branches the forge answers for, one merged pull request per branch the test names. */

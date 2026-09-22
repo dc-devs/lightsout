@@ -17,10 +17,10 @@ import {
 import type { GateRunResult } from '#src/gates/index.ts';
 import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { shipOneBranch } from '#src/queue/shipOneBranch.ts';
-import type { ShipTicketGuard } from '#src/ship/index.ts';
+import type { ShipWorkOrderGuard } from '#src/ship/index.ts';
 import { updateLocalWorkOrderState } from '#src/workOrder/index.ts';
 import { createWorktree } from '#src/worktree/index.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -44,7 +44,7 @@ import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 // covered by its own tests. Git is real, so what this step leaves the branch
 // standing on is git's own answer.
 const mockRunGates = jest.fn<(params: { cwd: string }) => Promise<GateRunResult>>();
-const mockRunShip = jest.fn<(params: { cwd: string; ticketGuard: ShipTicketGuard }) => Promise<ShipResult>>();
+const mockRunShip = jest.fn<(params: { cwd: string; workOrderGuard: ShipWorkOrderGuard }) => Promise<ShipResult>>();
 const mockTakeGateHold =
 	jest.fn<
 		(params: {
@@ -117,13 +117,13 @@ const setupReadyBranch = async ({ number = 70 }: { number?: number } = {}) => {
 	mockRunShip.mockResolvedValue(shippedResult);
 	mockTakeGateHold.mockResolvedValue(undefined);
 
-	const outcome: TicketRunOutcome = { ticket: ticketOf({ number }), branch, worktreePath, ready: true };
+	const outcome: WorkOrderRunOutcome = { ticket: ticketOf({ number }), branch, worktreePath, ready: true };
 
 	return { cwd, outcome };
 };
 
 /** The merge lane's call: the same task every time, plus the harness bundle the shared ship sequence recovers with. */
-const ship = async ({ cwd, outcome }: { cwd: string; outcome: TicketRunOutcome }) =>
+const ship = async ({ cwd, outcome }: { cwd: string; outcome: WorkOrderRunOutcome }) =>
 	shipOneBranch({
 		cwd,
 		config,
@@ -138,7 +138,7 @@ const ship = async ({ cwd, outcome }: { cwd: string; outcome: TicketRunOutcome }
 
 /**
  * A ticket record whose one plan is implemented and whose merge nothing has
- * approved: a multiple-plan ticket carrying no ship request.
+ * approved: a multiple-plan work order carrying no ship request.
  */
 const unauthorizedRecordOf = ({ branch }: { branch: string }): WorkOrderState => ({
 	schemaVersion: 1,
@@ -158,12 +158,12 @@ const setupUnauthorizedTicket = async () => {
 	const { cwd, outcome } = await setupReadyBranch();
 
 	await updateLocalWorkOrderState({ cwd, name: outcome.branch, change: () => unauthorizedRecordOf({ branch: outcome.branch }) });
-	mockRunShip.mockImplementation(async ({ cwd: shipCwd, ticketGuard }) => {
-		const refusal = await ticketGuard.authorize({ cwd: shipCwd, branch: outcome.branch });
+	mockRunShip.mockImplementation(async ({ cwd: shipCwd, workOrderGuard }) => {
+		const refusal = await workOrderGuard.authorize({ cwd: shipCwd, branch: outcome.branch });
 
 		return refusal === undefined
 			? shippedResult
-			: { status: ShipStatus.Blocked, branch: outcome.branch, reason: ShipBlockReason.TicketNotAuthorized, detail: refusal, failingChecks: [] };
+			: { status: ShipStatus.Blocked, branch: outcome.branch, reason: ShipBlockReason.WorkOrderNotAuthorized, detail: refusal, failingChecks: [] };
 	});
 
 	return { cwd, outcome };
@@ -192,7 +192,7 @@ describe('shipOneBranch', () => {
 		mockRunShip.mockResolvedValue({
 			status: ShipStatus.Blocked,
 			branch: 'lo-70-drain',
-			reason: ShipBlockReason.TicketNotAuthorized,
+			reason: ShipBlockReason.WorkOrderNotAuthorized,
 			detail: 'LO-70 carries no ship request, so nothing has approved merging it',
 			failingChecks: [],
 		});
@@ -212,7 +212,7 @@ describe('shipOneBranch', () => {
 	test('states its own reason for a ticket refusal that carried none, so an open ticket is never read as a park', async () => {
 		const { cwd, outcome } = await setupReadyBranch();
 
-		mockRunShip.mockResolvedValue({ status: ShipStatus.Blocked, branch: 'lo-70-drain', reason: ShipBlockReason.TicketNotAuthorized, failingChecks: [] });
+		mockRunShip.mockResolvedValue({ status: ShipStatus.Blocked, branch: 'lo-70-drain', reason: ShipBlockReason.WorkOrderNotAuthorized, failingChecks: [] });
 
 		const left = await ship({ cwd, outcome });
 

@@ -49,7 +49,7 @@ jest.mock('#src/worktree/index.ts', () => ({
 	resolveWorktreePath: (params: { cwd: string; branch: string }) => mockResolveWorktreePath(params),
 	readWorktreeRecord: (params: { cwd: string; branch: string }) => mockReadWorktreeRecord(params),
 	writeWorktreeRecord: (params: RecordParams) => mockWriteWorktreeRecord(params),
-	prepareTicketBranch: (params: { cwd: string; branch: string }) => mockPrepareTicketBranch(params),
+	prepareWorkOrderBranch: (params: { cwd: string; branch: string }) => mockPrepareTicketBranch(params),
 }));
 // -------------------------
 // The run lock of the ticket branch's own tree, which is what separates a tree

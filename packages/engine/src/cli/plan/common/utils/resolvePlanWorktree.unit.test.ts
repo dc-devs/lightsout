@@ -47,7 +47,7 @@ const mockPrepareTicketBranch = jest.fn<(params: TicketBranchParams) => Promise<
 
 jest.mock('#src/worktree/index.ts', () => ({
 	createWorktree: (params: CreateParams) => mockCreateWorktree(params),
-	prepareTicketBranch: (params: TicketBranchParams) => mockPrepareTicketBranch(params),
+	prepareWorkOrderBranch: (params: TicketBranchParams) => mockPrepareTicketBranch(params),
 	readBranchWorktree: (params: { cwd: string; branch: string }) => mockReadBranchWorktree(params),
 	readWorktreeRecord: (params: { cwd: string; branch: string }) => mockReadWorktreeRecord(params),
 	resolveWorktreePath: (params: { cwd: string; branch: string }) => mockResolveWorktreePath(params),
@@ -172,7 +172,7 @@ const setupEveryRefusal = async () =>
 /**
  * A ticket folder's tree, named by a plan address. Every branch in `trees` is a
  * ticket branch, because that is the only thing this resolver hands the worktree
- * module for an address. `prepareTicketBranch` answers 'use the local branch as
+ * module for an address. `prepareWorkOrderBranch` answers 'use the local branch as
  * it stands' unless a test says otherwise, and the run lock is held only in the
  * trees `liveTrees` names.
  */

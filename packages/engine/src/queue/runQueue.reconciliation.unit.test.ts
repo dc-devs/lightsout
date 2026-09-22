@@ -6,8 +6,8 @@ import { BranchPhase, type RunManifest, RunStatus, type ShipResult, ShipStatus }
 import type { GateRunResult } from '#src/gates/index.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { readBranchState, writeBranchState } from '#src/queue/index.ts';
 import type { PullRequestSummary } from '#src/ship/index.ts';
 import { queueTicketFixture as ticketOf } from '#tests/helpers/queueTicketFixture.ts';
@@ -27,7 +27,7 @@ type ReconcileShippedParams = { ticketRef: string | undefined; env: NodeJS.Proce
 
 const mockListEligibleTickets = jest.fn<() => Promise<TicketSummary[] | QueueFailure>>();
 const mockScanParkedWorktrees = jest.fn<() => Promise<ParkedWork | QueueFailure>>();
-const mockRunQueueTicket = jest.fn<(params: { ticket: TicketSummary }) => Promise<TicketRunOutcome>>();
+const mockRunQueueTicket = jest.fn<(params: { ticket: TicketSummary }) => Promise<WorkOrderRunOutcome>>();
 const mockFindPullRequest = jest.fn<(params: FindPullRequestParams) => Promise<PullRequestSummary | undefined>>();
 const mockReconcileShippedTicket = jest.fn<(params: ReconcileShippedParams) => Promise<string | undefined>>();
 const mockRunGates = jest.fn<(params: { cwd: string }) => Promise<GateRunResult>>();
@@ -35,7 +35,7 @@ const mockRunShip = jest.fn<(params: { cwd: string }) => Promise<ShipResult>>();
 
 jest.mock('#src/queue/ticketSelection/listEligibleTickets.ts', () => ({ listEligibleTickets: () => mockListEligibleTickets() }));
 jest.mock('#src/queue/worktrees/scanParkedWorktrees.ts', () => ({ scanParkedWorktrees: () => mockScanParkedWorktrees() }));
-jest.mock('#src/queue/runQueueTicket.ts', () => ({ runQueueTicket: (params: { ticket: TicketSummary }) => mockRunQueueTicket(params) }));
+jest.mock('#src/queue/runQueueWorkOrder.ts', () => ({ runQueueWorkOrder: (params: { ticket: TicketSummary }) => mockRunQueueTicket(params) }));
 jest.mock('#src/ticketTracker/index.ts', () => ({
 	listLabelNames: () =>
 		Promise.resolve(['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed']),
@@ -129,7 +129,7 @@ const setupShippedBranch = ({ doneWriteFailure }: { doneWriteFailure?: string } 
 	execFileSync('git', ['add', '-A'], { cwd: worktreePath, stdio: 'ignore' });
 	execFileSync('git', ['commit', '-qm', 'work'], { cwd: worktreePath, stdio: 'ignore' });
 
-	const ready: TicketRunOutcome = { ticket: ticketOf({ number: 70 }), branch, worktreePath, ready: true };
+	const ready: WorkOrderRunOutcome = { ticket: ticketOf({ number: 70 }), branch, worktreePath, ready: true };
 
 	mockListEligibleTickets.mockResolvedValue([]);
 	mockScanParkedWorktrees.mockResolvedValue({ resumed: [], outcomes: [ready], leftBehind: [], merged: [] });

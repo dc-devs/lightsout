@@ -5,9 +5,9 @@ import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { BuildInFlight } from '#src/queue/common/types/BuildInFlight.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
+import { renderWorkOrderBranch } from '#src/queue/renderWorkOrderBranch.ts';
 
 interface Params {
 	/** Outcomes and left-behind entries the drain has settled. With nothing else, this is the final board. */
@@ -34,7 +34,7 @@ const describeWork = ({ ticket, branch, worktreePath }: { ticket: TicketSummary;
 
 /** A ticket with no outcome yet, its branch and worktree derived the way the queue's document derives them. */
 const describeUnbuilt = ({ ticket, live }: { ticket: TicketSummary; live: LiveQueueBoard }) => {
-	const branch = toTicketBranch({ ticket, template: live.branchTemplate });
+	const branch = renderWorkOrderBranch({ ticket, template: live.branchTemplate });
 
 	return describeWork({ ticket, branch, worktreePath: join(live.worktreesRoot, branch) });
 };
@@ -56,7 +56,7 @@ const placeBuild = ({ build, live }: { build: BuildInFlight; live: LiveQueueBoar
 };
 
 /** A settled outcome's lane: shipped, blocked when the ticket was only left open, and parked otherwise. */
-const placeOutcome = ({ outcome }: { outcome: TicketRunOutcome }) => {
+const placeOutcome = ({ outcome }: { outcome: WorkOrderRunOutcome }) => {
 	if (outcome.ready) {
 		return { ...describeWork(outcome), lane: QueueLane.Shipped, reason: outcome.reconciliationFailure };
 	}

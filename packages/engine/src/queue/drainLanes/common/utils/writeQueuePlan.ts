@@ -2,7 +2,7 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
-import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
+import { renderWorkOrderBranch } from '#src/queue/renderWorkOrderBranch.ts';
 import { resolveWorktreesRoot } from '#src/worktree/index.ts';
 
 interface Params {
@@ -25,7 +25,7 @@ interface Params {
 export const writeQueuePlan = async ({ path, cwd, settings, queued }: Params): Promise<void> => {
 	const root = await resolveWorktreesRoot({ cwd });
 	const lines = queued.map((ticket) => {
-		const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
+		const branch = renderWorkOrderBranch({ ticket, template: settings.branchTemplate });
 
 		return `- ${ticket.identifier} · ${ticket.worker} · ${branch} · ${join(root, branch)}`;
 	});

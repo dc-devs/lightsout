@@ -3,7 +3,7 @@ import { realpathSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { startBuilds } from '#src/queue/drainLanes/common/utils/startBuilds.ts';
-import type { TicketRunOutcome } from '#src/queue/index.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/index.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { queueOutcomeFixture } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
@@ -35,7 +35,7 @@ describe('startBuilds', () => {
 		lane.flight.ships = 1;
 		startBuilds(lane);
 
-		expect(lane.runTicket.mock.calls.map(([{ ticket }]) => ticket)).toEqual([tickets[0]]);
+		expect(lane.runWorkOrder.mock.calls.map(([{ ticket }]) => ticket)).toEqual([tickets[0]]);
 		expect(lane.flight.builds).toBe(1);
 		expect(lane.state.pending).toEqual([tickets[1]]);
 
@@ -51,7 +51,7 @@ describe('startBuilds', () => {
 		const outcome = queueOutcomeFixture({ ticket, ready: false, unanswered, error: 'stopped' });
 
 		lane.state.pending.push(ticket);
-		lane.runTicket.mockResolvedValue(outcome);
+		lane.runWorkOrder.mockResolvedValue(outcome);
 		startBuilds(lane);
 		await Promise.all(lane.flight.tasks.values());
 
@@ -66,7 +66,7 @@ describe('startBuilds', () => {
 		const ticket = queueTicketFixture();
 
 		lane.state.pending.push(ticket);
-		lane.runTicket.mockRejectedValue(new Error('worker disappeared'));
+		lane.runWorkOrder.mockRejectedValue(new Error('worker disappeared'));
 		startBuilds(lane);
 		await Promise.all(lane.flight.tasks.values());
 
@@ -80,7 +80,7 @@ describe('startBuilds', () => {
 		const ticket = queueTicketFixture();
 
 		lane.state.pending.push(ticket);
-		lane.runTicket.mockRejectedValue(new Error('worker disappeared'));
+		lane.runWorkOrder.mockRejectedValue(new Error('worker disappeared'));
 		startBuilds(lane);
 		await Promise.all(lane.flight.tasks.values());
 
@@ -112,12 +112,12 @@ describe('startBuilds', () => {
 		const shipped = queueTicketFixture({ number: 1 });
 		const crashed = queueTicketFixture({ number: 2 });
 		const shippedOutcome = queueOutcomeFixture({ ticket: shipped });
-		const finishes = new Map<string, { resolve: (outcome: TicketRunOutcome) => void; reject: (error: Error) => void }>();
+		const finishes = new Map<string, { resolve: (outcome: WorkOrderRunOutcome) => void; reject: (error: Error) => void }>();
 
 		lane.state.pending.push(shipped, crashed);
-		lane.runTicket.mockImplementation(
+		lane.runWorkOrder.mockImplementation(
 			({ ticket }) =>
-				new Promise<TicketRunOutcome>((resolve, reject) => {
+				new Promise<WorkOrderRunOutcome>((resolve, reject) => {
 					finishes.set(ticket.identifier, { resolve, reject });
 				}),
 		);

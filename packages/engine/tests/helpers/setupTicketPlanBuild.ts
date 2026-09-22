@@ -34,7 +34,7 @@ interface DirectCall {
 type CommitResult = { committed: boolean } | QueueFailure;
 
 /**
- * The stubs a `buildTicketPlans` test file declares in its own `jest.mock`
+ * The stubs a `buildWorkOrderPlans` test file declares in its own `jest.mock`
  * blocks and hands here, so this fixture can arrange what each one answers.
  *
  * They are the calls that would spawn a harness, run git or leave the machine;
@@ -249,7 +249,7 @@ export const setupTicketPlanBuild = ({
 			env: {} as NodeJS.ProcessEnv,
 			driver,
 			driverName: 'claude-code',
-			ticketRunDir: join(runDirFor({ cwd, runId: 'queue-run', pipeline: 'queue' }), 'tickets', 'LO-7'),
+			workOrderRunDir: join(runDirFor({ cwd, runId: 'queue-run', pipeline: 'queue' }), 'tickets', 'LO-7'),
 		},
 	};
 };

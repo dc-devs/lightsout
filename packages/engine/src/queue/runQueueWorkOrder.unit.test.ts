@@ -14,7 +14,7 @@ import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { TerminalQuestionRelay } from '#src/queue/relay/index.ts';
-import { runQueueTicket } from '#src/queue/runQueueTicket.ts';
+import { runQueueWorkOrder } from '#src/queue/runQueueWorkOrder.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import type { WorktreeFailure } from '#src/worktree/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
@@ -51,7 +51,7 @@ interface RunWorkerWithRelayParams {
 	relay: QuestionRelay;
 	coordinatorRunId: string;
 	coordinatorRunDir: string;
-	ticketRunDir: string;
+	workOrderRunDir: string;
 	onProgress?: (message: string) => void;
 }
 
@@ -127,7 +127,7 @@ const setupTicketRun = () => {
 	const env: NodeJS.ProcessEnv = { LINEAR_API_KEY: 'lin_key' };
 
 	const run = ({ ticket: given = ticket }: { ticket?: RunnableTicket } = {}) =>
-		runQueueTicket({
+		runQueueWorkOrder({
 			cwd,
 			settings,
 			trackerSettings,
@@ -147,7 +147,7 @@ const setupTicketRun = () => {
 	return { run, relay, cwd, coordinatorRunDir, env, progress };
 };
 
-describe('runQueueTicket', () => {
+describe('runQueueWorkOrder', () => {
 	test('renders the branch, makes the worktree, marks the ticket in progress, and ends on a commit', async () => {
 		const { run, relay, coordinatorRunDir } = setupTicketRun();
 
@@ -160,7 +160,7 @@ describe('runQueueTicket', () => {
 		expect(mockCommitTicketWork).toHaveBeenCalledWith({
 			cwd: '/tmp/worktrees/lo-70-drain-the-backlog',
 			message: 'LO-70 Drain the backlog',
-			runDir: join(coordinatorRunDir, 'tickets', 'LO-70'),
+			runDir: join(coordinatorRunDir, 'work-orders', 'LO-70'),
 			// The commit step is what keeps build output off the branch, so it is
 			// handed the config's generated paths and the run's progress sink.
 			generated: ['plugin/dist/'],
@@ -184,7 +184,7 @@ describe('runQueueTicket', () => {
 		expect(serialized).toStrictEqual(['lo-70-drain-the-backlog']);
 	});
 
-	test("creates the ticket's worktree as the queue's, continuing one an earlier drain parked", async () => {
+	test("creates the work order's worktree as the queue's, continuing one an earlier drain parked", async () => {
 		const { run, relay } = setupTicketRun();
 
 		const outcome = await run();
@@ -348,7 +348,7 @@ describe('runQueueTicket', () => {
 		expect(await readBranchState({ cwd, branch: 'lo-70-drain-the-backlog' })).toEqual(expect.objectContaining({ phase: BranchPhase.Building }));
 	});
 
-	test("runQueueTicket: parks a ticket whose branch's worktree belongs to a human's plan or implement run", async () => {
+	test("runQueueWorkOrder: parks a ticket whose branch's worktree belongs to a human's plan or implement run", async () => {
 		const { run, relay } = setupTicketRun();
 
 		// The queue builds, ships and removes only trees it owns, so a tree another
@@ -363,7 +363,7 @@ describe('runQueueTicket', () => {
 		expect(mockRunWorkerWithRelay).not.toHaveBeenCalled();
 	});
 
-	test("runQueueTicket: records an open ticket's branch open and reports it open without committing", async () => {
+	test("runQueueWorkOrder: records an open ticket's branch open and reports it open without committing", async () => {
 		const { run, relay, cwd } = setupTicketRun();
 
 		mockRunWorkerWithRelay.mockResolvedValue({ open: 'plan 002-search-basics is waiting for a ship request' });
@@ -382,18 +382,18 @@ describe('runQueueTicket', () => {
 		expect(await readBranchState({ cwd, branch: 'lo-70-drain-the-backlog' })).toEqual(expect.objectContaining({ phase: BranchPhase.Open }));
 	});
 
-	test('runQueueTicket: hands the worker the environment and the one ticket run directory', async () => {
+	test('runQueueWorkOrder: hands the worker the environment and the one ticket run directory', async () => {
 		const { run, relay, coordinatorRunDir, env } = setupTicketRun();
 
 		await run();
 
 		relay.close();
 
-		const ticketRunDir = join(coordinatorRunDir, 'tickets', 'LO-70');
+		const workOrderRunDir = join(coordinatorRunDir, 'work-orders', 'LO-70');
 
 		// One directory for both: the loop's per-plan commits and this final commit
 		// must write their message files to the same place.
-		expect(mockRunWorkerWithRelay).toHaveBeenCalledWith(expect.objectContaining({ env, ticketRunDir }));
-		expect(mockCommitTicketWork).toHaveBeenCalledWith(expect.objectContaining({ runDir: ticketRunDir }));
+		expect(mockRunWorkerWithRelay).toHaveBeenCalledWith(expect.objectContaining({ env, workOrderRunDir }));
+		expect(mockCommitTicketWork).toHaveBeenCalledWith(expect.objectContaining({ runDir: workOrderRunDir }));
 	});
 });

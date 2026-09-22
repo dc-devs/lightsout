@@ -5,7 +5,7 @@
  *
  * The shape is declared here, in `ship`, because `ship` is the module that
  * consumes it and a `ticket` import from here would close a cycle in the module
- * graph — the same reason {@link ShipTicketGuard} is declared here.
+ * graph — the same reason {@link ShipWorkOrderGuard} is declared here.
  *
  * A value of this type at all means the ticket's own record decides the run's
  * shipping; its absence means `--ship` and `ship.after-implement` decide it.

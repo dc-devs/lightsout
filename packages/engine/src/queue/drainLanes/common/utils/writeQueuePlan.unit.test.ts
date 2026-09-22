@@ -43,7 +43,7 @@ describe('writeQueuePlan', () => {
 		);
 	});
 
-	test("lists every admitted ticket's worktree under the primary checkout's sibling root", async () => {
+	test("lists every admitted work order's worktree under the primary checkout's sibling root", async () => {
 		const { primary, cwd, planPath, settings } = setupLaunchedFromLinkedWorktree();
 
 		await writeQueuePlan({ path: planPath, cwd, settings, queued: [queueTicketFixture({ number: 4 }), queueTicketFixture({ number: 5 })] });

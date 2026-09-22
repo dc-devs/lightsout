@@ -1,7 +1,7 @@
 import type { BuildInFlight } from '#src/queue/common/types/BuildInFlight.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 
 /** The mutable ledger the drain's two lanes and the tracker re-scan all read and write. */
 export interface LaneState {
@@ -12,11 +12,11 @@ export interface LaneState {
 	/** Builds in flight, keyed by lower-cased identifier, in start order. A build leaves in the step that settles its outcome. */
 	building: Map<string, BuildInFlight>;
 	/** Branches finished and waiting for the ship lane, oldest-ready first. */
-	readyToShip: TicketRunOutcome[];
+	readyToShip: WorkOrderRunOutcome[];
 	/** The branch the ship lane now holds, until its merge settles. */
-	shipping: TicketRunOutcome | undefined;
+	shipping: WorkOrderRunOutcome | undefined;
 	/** Settled outcomes: parked builds, and every branch the ship lane has finished with. */
-	outcomes: TicketRunOutcome[];
+	outcomes: WorkOrderRunOutcome[];
 	/** Tickets nothing ran, settled for good. */
 	leftBehind: LeftBehindTicket[];
 	/** Lower-cased identifiers already offered to a builder or settled — never admitted twice. */

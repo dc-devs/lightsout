@@ -1,7 +1,7 @@
 export type { WorktreeFailure } from '#src/worktree/common/types/WorktreeFailure.ts';
 export { createWorktree } from '#src/worktree/createWorktree.ts';
 export { fetchDefaultBranch } from '#src/worktree/fetchDefaultBranch.ts';
-export { prepareTicketBranch } from '#src/worktree/prepareTicketBranch.ts';
+export { prepareWorkOrderBranch } from '#src/worktree/prepareWorkOrderBranch.ts';
 export { readBranchWorktree } from '#src/worktree/readBranchWorktree.ts';
 export { deleteWorktreeRecord, readWorktreeRecord, writeWorktreeRecord } from '#src/worktree/records/index.ts';
 export { removeWorktree } from '#src/worktree/removeWorktree.ts';

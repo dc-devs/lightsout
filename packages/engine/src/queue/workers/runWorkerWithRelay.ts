@@ -10,7 +10,7 @@ import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
-import { buildTicketPlans } from '#src/queue/workers/buildTicketPlans.ts';
+import { buildWorkOrderPlans } from '#src/queue/workers/buildWorkOrderPlans.ts';
 import { runAutoPlanWorker } from '#src/queue/workers/runAutoPlanWorker.ts';
 import { runPlanFolderPipeline } from '#src/queue/workers/runPlanFolderPipeline.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
@@ -33,7 +33,7 @@ interface Params {
 	/** The coordinator run's directory in the main checkout, where the relay records them. */
 	coordinatorRunDir: string;
 	/** The ticket's own directory under the coordinator run, where every commit message file this ticket needs is written. */
-	ticketRunDir: string;
+	workOrderRunDir: string;
 	/** The process environment the tracker credentials are read from. Passed rather than read, so a test never needs to mutate `process.env`. */
 	env: NodeJS.ProcessEnv;
 	onProgress?: (message: string) => void;
@@ -81,7 +81,7 @@ const runDirectWorker = async ({
  * The plan worker: implement the plan or plans the ticket already carries.
  *
  * A ticket with a record of its own is built plan by plan through
- * `buildTicketPlans`: its plans that are ready to implement go in numeric order,
+ * `buildWorkOrderPlans`: its plans that are ready to implement go in numeric order,
  * each committed as its own commit, and the loop decides whether the ticket then
  * ships, stays open, or parks.
  *
@@ -102,7 +102,7 @@ const runPlanWorker = async ({
 	driverName,
 	trackerSettings,
 	env,
-	ticketRunDir,
+	workOrderRunDir,
 	onProgress,
 }: {
 	cwd: string;
@@ -113,7 +113,7 @@ const runPlanWorker = async ({
 	driverName: string;
 	trackerSettings: TrackerSettings;
 	env: NodeJS.ProcessEnv;
-	ticketRunDir: string;
+	workOrderRunDir: string;
 	onProgress?: (message: string) => void;
 }): Promise<WorkerOutcome> => {
 	const pulled = await pullWorkOrderState({ cwd, name: branch, config, env, onProgress });
@@ -123,7 +123,7 @@ const runPlanWorker = async ({
 	}
 
 	if (pulled.record !== undefined) {
-		return buildTicketPlans({
+		return buildWorkOrderPlans({
 			cwd,
 			branch,
 			ticket,
@@ -132,7 +132,7 @@ const runPlanWorker = async ({
 			env,
 			driver,
 			driverName,
-			ticketRunDir,
+			workOrderRunDir,
 			allowTicketBodyBuild: true,
 			onProgress,
 		});
@@ -177,7 +177,7 @@ export const runWorkerWithRelay = async ({
 	relay,
 	coordinatorRunId,
 	coordinatorRunDir,
-	ticketRunDir,
+	workOrderRunDir,
 	env,
 	onProgress,
 }: Params): Promise<WorkerOutcome> => {
@@ -191,9 +191,9 @@ export const runWorkerWithRelay = async ({
 		const workers: Record<QueueWorker, () => Promise<WorkerOutcome>> = {
 			[QueueWorker.Direct]: () => runDirectWorker({ cwd: worktreePath, ticket, config, driver, driverName, answeredQuestion, onProgress }),
 			[QueueWorker.Plan]: () =>
-				runPlanWorker({ cwd: worktreePath, ticket, branch, config, driver, driverName, trackerSettings, env, ticketRunDir, onProgress }),
+				runPlanWorker({ cwd: worktreePath, ticket, branch, config, driver, driverName, trackerSettings, env, workOrderRunDir, onProgress }),
 			[QueueWorker.AutoPlan]: () =>
-				runAutoPlanWorker({ cwd: worktreePath, ticket, branch, config, driver, driverName, settings, env, ticketRunDir, answeredQuestion, onProgress }),
+				runAutoPlanWorker({ cwd: worktreePath, ticket, branch, config, driver, driverName, settings, env, workOrderRunDir, answeredQuestion, onProgress }),
 		};
 		const outcome = await workers[ticket.worker]();
 

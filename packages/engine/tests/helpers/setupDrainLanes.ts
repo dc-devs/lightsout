@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { jest } from '@jest/globals';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
-import type { QueueDrainReport, QueueFailure, TicketRunOutcome } from '#src/queue/index.ts';
+import type { QueueDrainReport, QueueFailure, WorkOrderRunOutcome } from '#src/queue/index.ts';
 import { createControlledQueueLane } from '#tests/helpers/createControlledQueueLane.ts';
 import { createQueueCheckoutLog } from '#tests/helpers/createQueueCheckoutLog.ts';
 import { drainLaneOutcomeFixture } from '#tests/helpers/drainLaneOutcomeFixture.ts';
@@ -19,7 +19,7 @@ type WaveSelection = { runnable: RunnableTicket[]; blocked: LeftBehindTicket[]; 
 
 /** Runs a task with no other main-checkout git mutation in flight. */
 type SerializeMainCheckout = <Result>(params: { task: () => Promise<Result> }) => Promise<Result>;
-type ShipParams = { outcome: TicketRunOutcome; serializeMainCheckout: SerializeMainCheckout };
+type ShipParams = { outcome: WorkOrderRunOutcome; serializeMainCheckout: SerializeMainCheckout };
 type ScanParams = { attempted: Set<string> };
 type ReconcileParams = { tickets: RunnableTicket[] };
 
@@ -36,7 +36,7 @@ export const setupDrainLanes = ({
 }: {
 	serializeMainCheckout: SerializeMainCheckout;
 	mocks: {
-		ship: jest.Mock<(params: ShipParams) => Promise<TicketRunOutcome>>;
+		ship: jest.Mock<(params: ShipParams) => Promise<WorkOrderRunOutcome>>;
 		scan: jest.Mock<(params: ScanParams) => Promise<WaveSelection | QueueFailure>>;
 		reconcile: jest.Mock<(params: ReconcileParams) => Promise<{ kept: RunnableTicket[]; leftBehind: LeftBehindTicket[] }>>;
 	};
@@ -81,7 +81,7 @@ export const setupDrainLanes = ({
 	});
 
 	// What a builder does first: add this ticket's worktree to the main checkout.
-	const runTicket = ({ ticket }: { ticket: RunnableTicket }) => {
+	const runWorkOrder = ({ ticket }: { ticket: RunnableTicket }) => {
 		const built = builds.begin({ identifier: ticket.identifier });
 
 		return serializeMainCheckout({ task: () => checkout.mutate({ label: `add ${ticket.identifier}` }) }).then(() => built);
@@ -115,7 +115,7 @@ export const setupDrainLanes = ({
 
 	let finished = false;
 
-	const carried: TicketRunOutcome[] = [];
+	const carried: WorkOrderRunOutcome[] = [];
 	const params = {
 		cwd,
 		config,
@@ -136,7 +136,7 @@ export const setupDrainLanes = ({
 		carried,
 		carriedLeftBehind,
 		attempted: new Set<string>(),
-		runTicket,
+		runWorkOrder,
 		serializeMainCheckout,
 		/** A board that keeps nothing — a test about the board passes its own recorder in its place. */
 		board: { record: () => undefined },

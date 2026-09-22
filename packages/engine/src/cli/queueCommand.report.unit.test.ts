@@ -1,7 +1,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { queueCommand } from '#src/cli/queueCommand.ts';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import type { QueueDrainReport, QueueFailure, QueueSettings, TicketRunOutcome } from '#src/queue/index.ts';
+import type { QueueDrainReport, QueueFailure, QueueSettings, WorkOrderRunOutcome } from '#src/queue/index.ts';
 import type { TrackerFailure, TrackerSettings } from '#src/ticketTracker/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
@@ -60,7 +60,7 @@ const settings = queueSettingsFixture();
 const trackerSettings = trackerSettingsFixture();
 
 /** One drain outcome for one ticket. `reconciliationFailure` rides beside a shipped one, never instead of it. */
-const outcomeOf = ({ ready, error, reconciliationFailure }: { ready: boolean; error?: string; reconciliationFailure?: string }): TicketRunOutcome => ({
+const outcomeOf = ({ ready, error, reconciliationFailure }: { ready: boolean; error?: string; reconciliationFailure?: string }): WorkOrderRunOutcome => ({
 	ticket: {
 		id: 'id-70',
 		identifier: 'LO-70',
@@ -105,7 +105,7 @@ const setupQueueCommand = ({ report }: { report: QueueDrainReport | QueueFailure
 };
 
 /** Another ticket's outcome under its own identifier, because the board gives each identifier exactly one cell. */
-const otherOutcomeOf = ({ identifier, title, branch, error }: { identifier: string; title: string; branch: string; error: string }): TicketRunOutcome => {
+const otherOutcomeOf = ({ identifier, title, branch, error }: { identifier: string; title: string; branch: string; error: string }): WorkOrderRunOutcome => {
 	const base = outcomeOf({ ready: false, error });
 
 	return {
@@ -117,7 +117,7 @@ const otherOutcomeOf = ({ identifier, title, branch, error }: { identifier: stri
 };
 
 /** A ticket the drain built as far as it could and then left open: not ready, carrying a reason and no error. */
-const openOutcomeOf = ({ identifier, title, branch, open }: { identifier: string; title: string; branch: string; open: string }): TicketRunOutcome => {
+const openOutcomeOf = ({ identifier, title, branch, open }: { identifier: string; title: string; branch: string; open: string }): WorkOrderRunOutcome => {
 	const base = outcomeOf({ ready: false });
 
 	return {

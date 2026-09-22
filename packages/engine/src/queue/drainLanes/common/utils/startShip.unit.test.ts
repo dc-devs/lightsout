@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { startShip } from '#src/queue/drainLanes/common/utils/startShip.ts';
-import type { TicketRunOutcome } from '#src/queue/index.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/index.ts';
 import type { shipOneBranch } from '#src/queue/shipOneBranch.ts';
 import { queueOutcomeFixture } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
@@ -24,7 +24,7 @@ const setupShip = () => {
 const setupHeldShip = ({ settle }: { settle: 'merged' | 'rejected' }) => {
 	const lane = setupShip();
 	let settleMerge = (): void => undefined;
-	const merge = new Promise<TicketRunOutcome>((resolve, reject) => {
+	const merge = new Promise<WorkOrderRunOutcome>((resolve, reject) => {
 		settleMerge = () => (settle === 'merged' ? resolve(lane.outcome) : reject(new Error('forge disconnected')));
 	});
 

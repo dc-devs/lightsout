@@ -3,7 +3,7 @@ import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { toBranchSlug } from '#src/common/utils/toBranchSlug.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
+import { renderWorkOrderBranch } from '#src/queue/renderWorkOrderBranch.ts';
 
 const ticketOf = (overrides: Partial<TicketSummary> = {}): TicketSummary => ({
 	id: 'id-1',
@@ -22,38 +22,41 @@ const ticketOf = (overrides: Partial<TicketSummary> = {}): TicketSummary => ({
 	...overrides,
 });
 
-describe('toTicketBranch', () => {
+describe('renderWorkOrderBranch', () => {
 	test('renders the default shape: the lowercased identifier, then the slugged title', () => {
-		expect(toTicketBranch({ ticket: ticketOf(), template: '{ticket}-{slug}' })).toBe('lo-70-drain-the-backlog');
+		expect(renderWorkOrderBranch({ ticket: ticketOf(), template: '{ticket}-{slug}' })).toBe('lo-70-drain-the-backlog');
 	});
 
 	test('honours a company convention the template states, so a mandated branch shape needs no engine change', () => {
-		expect(toTicketBranch({ ticket: ticketOf(), template: 'feature/{ticket}-{slug}' })).toBe('feature/lo-70-drain-the-backlog');
+		expect(renderWorkOrderBranch({ ticket: ticketOf(), template: 'feature/{ticket}-{slug}' })).toBe('feature/lo-70-drain-the-backlog');
 	});
 
 	test('leaves a token it does not know exactly as written, matching how the pull request body template treats one', () => {
-		expect(toTicketBranch({ ticket: ticketOf(), template: '{ticket}-{author}' })).toBe('lo-70-{author}');
+		expect(renderWorkOrderBranch({ ticket: ticketOf(), template: '{ticket}-{author}' })).toBe('lo-70-{author}');
 	});
 
 	test('collapses punctuation and spacing into single dashes, and never leaves one at either end', () => {
-		expect(toTicketBranch({ ticket: ticketOf({ title: '  Fix: the (broken) thing!  ' }), template: '{slug}' })).toBe('fix-the-broken-thing');
+		expect(renderWorkOrderBranch({ ticket: ticketOf({ title: '  Fix: the (broken) thing!  ' }), template: '{slug}' })).toBe('fix-the-broken-thing');
 	});
 
 	test('cuts a long title on a dash rather than mid-word, so the branch stays readable', () => {
-		const branch = toTicketBranch({ ticket: ticketOf({ title: 'Rework the entire deterministic verification pipeline end to end' }), template: '{slug}' });
+		const branch = renderWorkOrderBranch({
+			ticket: ticketOf({ title: 'Rework the entire deterministic verification pipeline end to end' }),
+			template: '{slug}',
+		});
 
 		expect(branch.length).toBeLessThanOrEqual(40);
 		expect(branch).toBe('rework-the-entire-deterministic');
 	});
 
 	test('answers an empty slug for a title with nothing branch-safe in it, rather than a dash on its own', () => {
-		expect(toTicketBranch({ ticket: ticketOf({ title: '???' }), template: '{slug}' })).toBe('');
+		expect(renderWorkOrderBranch({ ticket: ticketOf({ title: '???' }), template: '{slug}' })).toBe('');
 	});
 
 	test('slugs the title through the shared branch-slug helper', () => {
 		const title = 'Rework the entire deterministic verification pipeline end to end';
 
-		const branch = toTicketBranch({ ticket: ticketOf({ title }), template: '{ticket}-{slug}' });
+		const branch = renderWorkOrderBranch({ ticket: ticketOf({ title }), template: '{ticket}-{slug}' });
 
 		expect(branch).toBe(`lo-70-${toBranchSlug({ text: title })}`);
 	});

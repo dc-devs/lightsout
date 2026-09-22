@@ -1,5 +1,5 @@
 import { type LightsoutConfig, WorkOrderEventKind } from '#src/contracts/index.ts';
-import type { ShipTicketGuard } from '#src/ship/index.ts';
+import type { ShipWorkOrderGuard } from '#src/ship/index.ts';
 import { appendWorkOrderEvent } from '#src/workOrder/common/record/appendWorkOrderEvent.ts';
 import { pullWorkOrderState } from '#src/workOrder/pullWorkOrderState.ts';
 import { readWorkOrderShipEligibility } from '#src/workOrder/readWorkOrderShipEligibility.ts';
@@ -28,7 +28,7 @@ interface Params {
  * machine holds no record for: nothing about it is a ticket's business, so an
  * unreachable tracker cannot make it unshippable.
  */
-export const createWorkOrderShipGuard = ({ config, env, onProgress }: Params): ShipTicketGuard => ({
+export const createWorkOrderShipGuard = ({ config, env, onProgress }: Params): ShipWorkOrderGuard => ({
 	authorize: async ({ cwd, branch }) => {
 		// The branch IS the work order's label: every plan address is keyed by its
 		// ticket-branch segment, so the record for the branch being shipped is the

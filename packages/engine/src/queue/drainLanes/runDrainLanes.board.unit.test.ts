@@ -4,8 +4,8 @@ import { getQueueBoardPath, QueueBoardRecorder, readQueueBoard } from '#src/queu
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { createMainCheckoutSerializer } from '#src/queue/common/utils/createMainCheckoutSerializer.ts';
 import { runDrainLanes } from '#src/queue/drainLanes/index.ts';
 import { drainLaneOutcomeFixture as outcomeOf } from '#tests/helpers/drainLaneOutcomeFixture.ts';
@@ -14,13 +14,13 @@ import { setupDrainLanes } from '#tests/helpers/setupDrainLanes.ts';
 
 /** Runs a task with no other main-checkout git mutation in flight. */
 type SerializeMainCheckout = <Result>(params: { task: () => Promise<Result> }) => Promise<Result>;
-type ShipParams = { outcome: TicketRunOutcome; serializeMainCheckout: SerializeMainCheckout };
+type ShipParams = { outcome: WorkOrderRunOutcome; serializeMainCheckout: SerializeMainCheckout };
 type ScanParams = { attempted: Set<string> };
 type ReconcileParams = { tickets: RunnableTicket[] };
 
 // Mocked Imports
 // -------------------------
-const mockShipOneBranch = jest.fn<(params: ShipParams) => Promise<TicketRunOutcome>>();
+const mockShipOneBranch = jest.fn<(params: ShipParams) => Promise<WorkOrderRunOutcome>>();
 
 jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: ShipParams) => mockShipOneBranch(params) }));
 // -------------------------

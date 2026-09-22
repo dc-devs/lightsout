@@ -6,8 +6,8 @@ import { type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { jiraTrackerSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixture.ts';
 import { queueOutcomeFixture as outcomeOf } from '#tests/helpers/queueOutcomeFixture.ts';
@@ -22,13 +22,13 @@ import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
 // The tracker, the per-ticket run and the serial merge are each covered by their
 // own tests. What this file owns is the order the drain works in, what it writes
 // down, and the accounting it hands back — all observable with those stubbed.
-/** The queue-owned chain every `git worktree add` goes through, as `runQueueTicket` receives it. */
+/** The queue-owned chain every `git worktree add` goes through, as `runQueueWorkOrder` receives it. */
 type SerializeWorktreeAdd = <Result>(params: { task: () => Promise<Result> }) => Promise<Result>;
 
 const mockListEligibleTickets = jest.fn<() => Promise<TicketSummary[] | QueueFailure>>();
 const mockScanParkedWorktrees = jest.fn<() => Promise<ParkedWork | QueueFailure>>();
-const mockRunQueueTicket = jest.fn<(params: { ticket: TicketSummary; serializeWorktreeAdd: SerializeWorktreeAdd }) => Promise<TicketRunOutcome>>();
-const mockShipOneBranch = jest.fn<(params: { outcome: TicketRunOutcome }) => Promise<TicketRunOutcome>>();
+const mockRunQueueTicket = jest.fn<(params: { ticket: TicketSummary; serializeWorktreeAdd: SerializeWorktreeAdd }) => Promise<WorkOrderRunOutcome>>();
+const mockShipOneBranch = jest.fn<(params: { outcome: WorkOrderRunOutcome }) => Promise<WorkOrderRunOutcome>>();
 /** The label write is covered by `setTicketLabel`'s own tests; what this file owns is which list the drain settles it over, and when. */
 type LabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; present: boolean };
 
@@ -42,10 +42,10 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 	setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params),
 }));
 jest.mock('#src/queue/worktrees/scanParkedWorktrees.ts', () => ({ scanParkedWorktrees: () => mockScanParkedWorktrees() }));
-jest.mock('#src/queue/runQueueTicket.ts', () => ({
-	runQueueTicket: (params: { ticket: TicketSummary; serializeWorktreeAdd: SerializeWorktreeAdd }) => mockRunQueueTicket(params),
+jest.mock('#src/queue/runQueueWorkOrder.ts', () => ({
+	runQueueWorkOrder: (params: { ticket: TicketSummary; serializeWorktreeAdd: SerializeWorktreeAdd }) => mockRunQueueTicket(params),
 }));
-jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: TicketRunOutcome }) => mockShipOneBranch(params) }));
+jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: WorkOrderRunOutcome }) => mockShipOneBranch(params) }));
 // -------------------------
 
 const shipSettings = shipSettingsFixture();

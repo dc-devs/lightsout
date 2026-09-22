@@ -123,7 +123,7 @@ const ticketOf = ({ status }: { status: string }): TrackerTicket => ({
 	unfinishedBlockers: [],
 });
 
-/** Where the queue puts this ticket's worktree, spelled out rather than imported so the path is pinned by a second statement of the same rule. */
+/** Where the queue puts this work order's worktree, spelled out rather than imported so the path is pinned by a second statement of the same rule. */
 const worktreeOf = ({ cwd }: { cwd: string }) => join(dirname(cwd), `${basename(cwd)}-worktrees`, branch);
 
 /** One drain of the repo at `cwd`, with the collaborators each factory already wired. */

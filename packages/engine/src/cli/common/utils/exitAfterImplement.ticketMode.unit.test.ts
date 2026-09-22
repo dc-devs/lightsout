@@ -115,7 +115,7 @@ describe('exitAfterImplement ticket mode', () => {
 
 		expect(mockRunShip).toHaveBeenCalledTimes(1);
 		expect(handed).toEqual(
-			expect.objectContaining({ ticketGuard: expect.objectContaining({ authorize: expect.any(Function), recordShipped: expect.any(Function) }) }),
+			expect.objectContaining({ workOrderGuard: expect.objectContaining({ authorize: expect.any(Function), recordShipped: expect.any(Function) }) }),
 		);
 		expect(exitCodes).toStrictEqual([0]);
 	});

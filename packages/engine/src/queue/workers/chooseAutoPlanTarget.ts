@@ -5,7 +5,7 @@ import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { addWorkOrderPlan, findNextPlanToPlan, pullWorkOrderState } from '#src/workOrder/index.ts';
 
 interface Params {
-	/** The ticket's worktree, where a first plan's folder is created. */
+	/** The work order's worktree, where a first plan's folder is created. */
 	cwd: string;
 	/** The ticket's branch — the ticket folder the record is keyed by. */
 	branch: string;

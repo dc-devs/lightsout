@@ -6,8 +6,8 @@ import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { settleMergedTrees } from '#src/queue/common/utils/settleMergedTrees.ts';
 import { runDrainLanes } from '#src/queue/drainLanes/index.ts';
 import type { ShipIntegration, ShipSettings } from '#src/ship/index.ts';
@@ -33,7 +33,7 @@ interface Params {
 	/** The opening selection, built from the parked scan and the opening tracker read. */
 	first: WaveSelection;
 	parked: ParkedWork;
-	runTicket: (params: { ticket: RunnableTicket }) => Promise<TicketRunOutcome>;
+	runWorkOrder: (params: { ticket: RunnableTicket }) => Promise<WorkOrderRunOutcome>;
 	/** Runs a task with no other main-checkout git mutation in flight — one chain per drain, created in `runQueue.ts` and threaded down. */
 	serializeMainCheckout: <Result>(params: { task: () => Promise<Result> }) => Promise<Result>;
 	/** The coordinator run's board, handed to the drain that records into it. */
@@ -82,7 +82,7 @@ export const drainQueue = async ({
 	planPath,
 	first,
 	parked,
-	runTicket,
+	runWorkOrder,
 	serializeMainCheckout,
 	board,
 	onProgress,
@@ -108,7 +108,7 @@ export const drainQueue = async ({
 		carried: parked.outcomes,
 		carriedLeftBehind: leftBehind,
 		attempted,
-		runTicket,
+		runWorkOrder,
 		serializeMainCheckout,
 		board,
 		onProgress,

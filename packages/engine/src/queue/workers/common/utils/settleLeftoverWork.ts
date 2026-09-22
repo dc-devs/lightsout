@@ -1,10 +1,10 @@
 import { PlanProgress } from '#src/contracts/index.ts';
-import type { TicketPlanStep } from '#src/queue/workers/common/types/TicketPlanStep.ts';
+import type { WorkOrderPlanStep } from '#src/queue/workers/common/types/WorkOrderPlanStep.ts';
 import { commitPlanWork } from '#src/queue/workers/common/utils/commitPlanWork.ts';
 
 interface Params {
 	/** The turn of the loop that is about to take a plan. Its `plan` is not what the leftovers are committed under. */
-	step: TicketPlanStep;
+	step: WorkOrderPlanStep;
 	/** The source paths already changed in the worktree before the loop built anything. */
 	leftover: string[];
 }

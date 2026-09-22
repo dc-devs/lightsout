@@ -1,8 +1,8 @@
 import { buildRunCommitMessage, commitTicketWork } from '#src/commit/index.ts';
-import type { TicketPlanStep } from '#src/queue/workers/common/types/TicketPlanStep.ts';
+import type { WorkOrderPlanStep } from '#src/queue/workers/common/types/WorkOrderPlanStep.ts';
 
 interface Params {
-	step: TicketPlanStep;
+	step: WorkOrderPlanStep;
 }
 
 /**
@@ -17,13 +17,13 @@ interface Params {
  * @returns the one sentence saying why nothing was committed, or undefined once it was
  */
 export const commitPlanWork = async ({ step }: Params): Promise<string | undefined> => {
-	const { cwd, record, plan, ticket, ticketRunDir, config, onProgress } = step;
+	const { cwd, record, plan, ticket, workOrderRunDir, config, onProgress } = step;
 	const subject = `${ticket.identifier} ${plan.id}: ${plan.title}`;
 	const runId = plan.implementation?.runId;
 	const committed = await commitTicketWork({
 		cwd,
 		message: runId === undefined ? subject : buildRunCommitMessage({ subject, runId }),
-		runDir: ticketRunDir,
+		runDir: workOrderRunDir,
 		generated: config.generated,
 		onProgress,
 	});

@@ -1,5 +1,5 @@
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { isParkedOutcome } from '#src/queue/common/utils/isParkedOutcome.ts';
 import { setTicketLabel, type TrackerSettings } from '#src/ticketTracker/index.ts';
 
@@ -7,7 +7,7 @@ interface Params {
 	settings: QueueSettings;
 	trackerSettings: TrackerSettings;
 	/** Every settled outcome, after `shipOneBranch` has finished with each ready branch. */
-	outcomes: TicketRunOutcome[];
+	outcomes: WorkOrderRunOutcome[];
 	onProgress?: (message: string) => void;
 }
 

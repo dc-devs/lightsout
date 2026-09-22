@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { prepareTicketBranch } from '#src/worktree/index.ts';
+import { prepareWorkOrderBranch } from '#src/worktree/index.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 // Git is real here rather than stubbed, as it is for every other reader of a
@@ -113,11 +113,11 @@ const setupRemoteOnlyTicketBranch = () => {
 	return { cwd, remote: readCommit({ cwd, ref: `refs/remotes/origin/${ticketBranch}` }) };
 };
 
-describe('prepareTicketBranch', () => {
-	test('fast-forwards a local ticket branch that is strictly behind the pushed one when no tree holds it', async () => {
+describe('prepareWorkOrderBranch', () => {
+	test('fast-forwards a local work-order branch that is strictly behind the pushed one when no tree holds it', async () => {
 		const { cwd, remote } = setupPushedTicketBranch({ relation: 'behind' });
 
-		const prepared = await prepareTicketBranch({ cwd, branch: ticketBranch });
+		const prepared = await prepareWorkOrderBranch({ cwd, branch: ticketBranch });
 
 		expect({ prepared, movedTo: readCommit({ cwd, ref: `refs/heads/${ticketBranch}` }) }).toEqual({ prepared: {}, movedTo: remote });
 	});
@@ -126,8 +126,8 @@ describe('prepareTicketBranch', () => {
 		const level = setupLevelTicketBranch({ pushed: true });
 		const unpushed = setupLevelTicketBranch({ pushed: false });
 
-		const fromLevel = await prepareTicketBranch({ cwd: level.cwd, branch: ticketBranch });
-		const fromUnpushed = await prepareTicketBranch({ cwd: unpushed.cwd, branch: ticketBranch });
+		const fromLevel = await prepareWorkOrderBranch({ cwd: level.cwd, branch: ticketBranch });
+		const fromUnpushed = await prepareWorkOrderBranch({ cwd: unpushed.cwd, branch: ticketBranch });
 
 		// no start point either way, so the tree is cut from the local branch as it
 		// stands, and neither branch is moved — a fast-forward here would rewrite a
@@ -143,7 +143,7 @@ describe('prepareTicketBranch', () => {
 	test('refuses a ticket branch that is behind the pushed one while a tree holds it', async () => {
 		const { cwd, local, remote } = setupPushedTicketBranch({ relation: 'behind', heldInTree: true });
 
-		const prepared = await prepareTicketBranch({ cwd, branch: ticketBranch });
+		const prepared = await prepareWorkOrderBranch({ cwd, branch: ticketBranch });
 
 		const refusal = refusalOf(prepared);
 
@@ -158,7 +158,7 @@ describe('prepareTicketBranch', () => {
 	test('reports a fast-forward git would not make, naming the branch and the commit it was to reach', async () => {
 		const { cwd, local, remote } = setupLockedTicketBranch();
 
-		const prepared = await prepareTicketBranch({ cwd, branch: ticketBranch });
+		const prepared = await prepareWorkOrderBranch({ cwd, branch: ticketBranch });
 
 		const refusal = refusalOf(prepared);
 
@@ -174,7 +174,7 @@ describe('prepareTicketBranch', () => {
 	test('refuses a ticket branch that has diverged from the pushed one', async () => {
 		const { cwd, local, remote } = setupPushedTicketBranch({ relation: 'diverged' });
 
-		const prepared = await prepareTicketBranch({ cwd, branch: ticketBranch });
+		const prepared = await prepareWorkOrderBranch({ cwd, branch: ticketBranch });
 
 		const refusal = refusalOf(prepared);
 
@@ -189,8 +189,8 @@ describe('prepareTicketBranch', () => {
 		const remoteOnly = setupRemoteOnlyTicketBranch();
 		const ahead = setupPushedTicketBranch({ relation: 'ahead' });
 
-		const fromRemote = await prepareTicketBranch({ cwd: remoteOnly.cwd, branch: ticketBranch });
-		const fromLocal = await prepareTicketBranch({ cwd: ahead.cwd, branch: ticketBranch });
+		const fromRemote = await prepareWorkOrderBranch({ cwd: remoteOnly.cwd, branch: ticketBranch });
+		const fromLocal = await prepareWorkOrderBranch({ cwd: ahead.cwd, branch: ticketBranch });
 
 		expect({ fromRemote, fromLocal, stillAt: readCommit({ cwd: ahead.cwd, ref: `refs/heads/${ticketBranch}` }) }).toEqual({
 			fromRemote: { startPoint: remoteOnly.remote },

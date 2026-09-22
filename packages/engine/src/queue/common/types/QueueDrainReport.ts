@@ -1,5 +1,5 @@
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 
 /**
  * What one drain amounted to.
@@ -10,6 +10,6 @@ import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.
  * vanish from the summary just because nothing ran it.
  */
 export interface QueueDrainReport {
-	outcomes: TicketRunOutcome[];
+	outcomes: WorkOrderRunOutcome[];
 	leftBehind: LeftBehindTicket[];
 }

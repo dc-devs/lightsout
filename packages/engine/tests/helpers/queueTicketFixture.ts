@@ -1,7 +1,7 @@
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import type { TicketRunOutcome } from '#src/queue/index.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/index.ts';
 
-type Ticket = TicketRunOutcome['ticket'];
+type Ticket = WorkOrderRunOutcome['ticket'];
 type RunnableTicket = Ticket & { worker: NonNullable<Ticket['worker']> };
 
 /** A ready direct ticket; each scenario overrides only the facts it exercises. */

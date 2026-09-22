@@ -1,11 +1,11 @@
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import type { LaneContext } from '#src/queue/drainLanes/common/types/LaneContext.ts';
 import type { LaneFlight } from '#src/queue/drainLanes/common/types/LaneFlight.ts';
 import type { LaneState } from '#src/queue/drainLanes/common/types/LaneState.ts';
 import { trackTask } from '#src/queue/drainLanes/common/utils/trackTask.ts';
-import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
+import { renderWorkOrderBranch } from '#src/queue/renderWorkOrderBranch.ts';
 import { resolveWorktreePath } from '#src/worktree/index.ts';
 
 interface Params {
@@ -15,15 +15,15 @@ interface Params {
 }
 
 /** A build that threw: parked carrying the message, and never `unanswered` — a crash holds no human, so its slot refills. */
-const parkedBuild = async ({ context, ticket, thrown }: { context: LaneContext; ticket: RunnableTicket; thrown: unknown }): Promise<TicketRunOutcome> => {
-	const branch = toTicketBranch({ ticket, template: context.settings.branchTemplate });
+const parkedBuild = async ({ context, ticket, thrown }: { context: LaneContext; ticket: RunnableTicket; thrown: unknown }): Promise<WorkOrderRunOutcome> => {
+	const branch = renderWorkOrderBranch({ ticket, template: context.settings.branchTemplate });
 	const worktreePath = await resolveWorktreePath({ cwd: context.cwd, branch });
 
 	return { ticket, branch, worktreePath, ready: false, error: messageOf({ error: thrown }) };
 };
 
 /** The build leaves `building` in the same step its outcome joins a lane, so no snapshot shows it in two or in none. */
-const settleBuild = ({ state, ticket, outcome }: { state: LaneState; ticket: RunnableTicket; outcome: TicketRunOutcome }) => {
+const settleBuild = ({ state, ticket, outcome }: { state: LaneState; ticket: RunnableTicket; outcome: WorkOrderRunOutcome }) => {
 	state.building.delete(ticket.identifier.toLowerCase());
 
 	if (outcome.unanswered === true) {
@@ -40,7 +40,7 @@ const settleBuild = ({ state, ticket, outcome }: { state: LaneState; ticket: Run
 /** One ticket built and settled — never rejecting, for the reason the ship lane never does. */
 const buildTicket = async ({ context, state, ticket }: { context: LaneContext; state: LaneState; ticket: RunnableTicket }) => {
 	try {
-		settleBuild({ state, ticket, outcome: await context.runTicket({ ticket }) });
+		settleBuild({ state, ticket, outcome: await context.runWorkOrder({ ticket }) });
 	} catch (thrown) {
 		settleBuild({ state, ticket, outcome: await parkedBuild({ context, ticket, thrown }) });
 	}

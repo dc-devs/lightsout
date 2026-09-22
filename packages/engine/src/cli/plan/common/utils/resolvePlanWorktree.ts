@@ -7,7 +7,7 @@ import { ticketFolderOf } from '#src/common/planAddress/ticketFolderOf.ts';
 import { isSamePath } from '#src/common/utils/isSamePath.ts';
 import { type LightsoutConfig, WorktreeOwner } from '#src/contracts/index.ts';
 import { readLiveRunLock } from '#src/runState/index.ts';
-import { createWorktree, prepareTicketBranch, readBranchWorktree, readWorktreeRecord, resolveWorktreePath } from '#src/worktree/index.ts';
+import { createWorktree, prepareWorkOrderBranch, readBranchWorktree, readWorktreeRecord, resolveWorktreePath } from '#src/worktree/index.ts';
 
 interface Params {
 	/** The checkout the command was launched from — `--cwd`, or the process directory. */
@@ -70,7 +70,7 @@ const continueInTree = async ({ cwd, branch, addressed, treePath }: { cwd: strin
  * plan's tree on the ticket branch's current implementation.
  *
  * A ticket branch only the remote holds is the one case where neither of those
- * is right: `prepareTicketBranch` answers the pushed commit, and it wins, so the
+ * is right: `prepareWorkOrderBranch` answers the pushed commit, and it wins, so the
  * local ticket branch is created at the implementation that was pushed rather
  * than at whatever this checkout happens to stand on.
  */
@@ -157,7 +157,7 @@ export const resolvePlanWorktree = async ({ cwd, config, flags, name, onProgress
 	}
 
 	// A legacy name keeps today's start points, so its branch is never inspected.
-	const prepared = addressed ? await prepareTicketBranch({ cwd, branch }) : { startPoint: undefined };
+	const prepared = addressed ? await prepareWorkOrderBranch({ cwd, branch }) : { startPoint: undefined };
 
 	if ('error' in prepared) {
 		return prepared;

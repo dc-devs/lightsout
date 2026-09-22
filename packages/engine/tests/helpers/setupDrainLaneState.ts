@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { jest } from '@jest/globals';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { GateHolds } from '#src/gates/index.ts';
-import type { QueueDrainReport, TicketRunOutcome } from '#src/queue/index.ts';
+import type { QueueDrainReport, WorkOrderRunOutcome } from '#src/queue/index.ts';
 import { queueOutcomeFixture } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import type { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
@@ -15,8 +15,8 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 /** An idle scheduler ledger and controlled collaborators for direct lane tests. */
 export const setupDrainLaneState = ({ maxParallel = 2 }: { maxParallel?: number } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-lane-state-'));
-	const runTicket = jest
-		.fn<(params: { ticket: ReturnType<typeof queueTicketFixture> }) => Promise<TicketRunOutcome>>()
+	const runWorkOrder = jest
+		.fn<(params: { ticket: ReturnType<typeof queueTicketFixture> }) => Promise<WorkOrderRunOutcome>>()
 		.mockImplementation(async ({ ticket }) => queueOutcomeFixture({ ticket }));
 	const progress: string[] = [];
 	const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
@@ -34,7 +34,7 @@ export const setupDrainLaneState = ({ maxParallel = 2 }: { maxParallel?: number 
 		defaultBranch: 'main',
 		env: {},
 		planPath: join(cwd, 'queue.md'),
-		runTicket,
+		runWorkOrder,
 		serializeMainCheckout: <Result>({ task }: { task: () => Promise<Result> }) => task(),
 		/** No lane helper records the board — the drain does, once per pass. */
 		board: { record: () => undefined },
@@ -44,9 +44,9 @@ export const setupDrainLaneState = ({ maxParallel = 2 }: { maxParallel?: number 
 		pending: [] as ReturnType<typeof queueTicketFixture>[],
 		queued: [] as ReturnType<typeof queueTicketFixture>[],
 		building: new Map<string, { ticket: ReturnType<typeof queueTicketFixture>; startedAt: string }>(),
-		readyToShip: [] as TicketRunOutcome[],
-		shipping: undefined as TicketRunOutcome | undefined,
-		outcomes: [] as TicketRunOutcome[],
+		readyToShip: [] as WorkOrderRunOutcome[],
+		shipping: undefined as WorkOrderRunOutcome | undefined,
+		outcomes: [] as WorkOrderRunOutcome[],
 		leftBehind: [] as QueueDrainReport['leftBehind'],
 		attempted: new Set<string>(),
 		blockedByIdentifier: new Map<string, QueueDrainReport['leftBehind'][number]>(),
@@ -57,5 +57,5 @@ export const setupDrainLaneState = ({ maxParallel = 2 }: { maxParallel?: number 
 	};
 	const flight = { tasks: new Map<number, Promise<number>>(), builds: 0, ships: 0, scans: 0, nextKey: 0 };
 
-	return { context, state, flight, runTicket, progress };
+	return { context, state, flight, runWorkOrder, progress };
 };

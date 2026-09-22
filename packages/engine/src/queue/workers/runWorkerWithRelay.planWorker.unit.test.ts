@@ -56,7 +56,7 @@ jest.mock('#src/plan/index.ts', () => ({
 	restorePlanWorkspace: (params: { cwd: string; name: string; identifier: string; settings: TrackerSettings }) => mockRestorePlanWorkspace(params),
 }));
 // -------------------------
-// Reading the record, and building a ticket's plans one at a time, each have
+// Reading the record, and building a work order's plans one at a time, each have
 // their own tests. What this file owns is the fork between them: a record sends
 // the ticket to the ordered per-plan build, no record leaves the single
 // branch-named build exactly as it was, and a failed pull builds nothing.
@@ -80,14 +80,14 @@ interface BuildTicketPlansParams {
 	record: WorkOrderState;
 	env: NodeJS.ProcessEnv;
 	driverName: string;
-	ticketRunDir: string;
+	workOrderRunDir: string;
 	allowTicketBodyBuild: boolean;
 }
 
 const mockBuildTicketPlans = jest.fn<(params: BuildTicketPlansParams) => Promise<WorkerOutcome>>();
 
-jest.mock('#src/queue/workers/buildTicketPlans.ts', () => ({
-	buildTicketPlans: (params: BuildTicketPlansParams) => mockBuildTicketPlans(params),
+jest.mock('#src/queue/workers/buildWorkOrderPlans.ts', () => ({
+	buildWorkOrderPlans: (params: BuildTicketPlansParams) => mockBuildTicketPlans(params),
 }));
 // -------------------------
 
@@ -180,7 +180,7 @@ const setupBrainstormOnlyTicket = () => {
 			relay,
 			coordinatorRunId: 'run-q',
 			coordinatorRunDir,
-			ticketRunDir: join(coordinatorRunDir, 'tickets', 'LO-70'),
+			workOrderRunDir: join(coordinatorRunDir, 'tickets', 'LO-70'),
 			env: {},
 			onProgress: (message: string) => {
 				progress.push(message);
@@ -203,7 +203,7 @@ const ticketRecord: WorkOrderState = {
 const setupPlanWorkerTicket = ({ pull }: { pull: PullTicketRecordResult }) => {
 	const { relay, coordinatorRunDir } = setupRelay();
 	const worktreePath = mkdtempSync(join(tmpdir(), 'lightsout-ticket-record-'));
-	const ticketRunDir = join(coordinatorRunDir, 'tickets', 'LO-70');
+	const workOrderRunDir = join(coordinatorRunDir, 'tickets', 'LO-70');
 
 	mockPullTicketRecord.mockResolvedValue(pull);
 	mockBuildTicketPlans.mockResolvedValue({});
@@ -212,7 +212,7 @@ const setupPlanWorkerTicket = ({ pull }: { pull: PullTicketRecordResult }) => {
 
 	return {
 		relay,
-		ticketRunDir,
+		workOrderRunDir,
 		worktreePath,
 		params: {
 			worktreePath,
@@ -226,7 +226,7 @@ const setupPlanWorkerTicket = ({ pull }: { pull: PullTicketRecordResult }) => {
 			relay,
 			coordinatorRunId: 'run-q',
 			coordinatorRunDir,
-			ticketRunDir,
+			workOrderRunDir,
 			env: { LINEAR_API_KEY: 'key-1' },
 		},
 	};
@@ -270,7 +270,7 @@ const setupPlanWorkerInWorktree = () => {
 			relay,
 			coordinatorRunId: 'run-q',
 			coordinatorRunDir,
-			ticketRunDir: join(coordinatorRunDir, 'tickets', 'LO-70'),
+			workOrderRunDir: join(coordinatorRunDir, 'tickets', 'LO-70'),
 			env: { LINEAR_API_KEY: 'key-1' },
 		},
 	};
@@ -290,7 +290,7 @@ describe('runWorkerWithRelay', () => {
 	});
 
 	test('runWorkerWithRelay: a plan-worker ticket with a record is built plan by plan', async () => {
-		const { relay, params, ticketRunDir, worktreePath } = setupPlanWorkerTicket({ pull: { record: ticketRecord } });
+		const { relay, params, workOrderRunDir, worktreePath } = setupPlanWorkerTicket({ pull: { record: ticketRecord } });
 
 		const outcome = await runWorkerWithRelay(params);
 
@@ -298,7 +298,7 @@ describe('runWorkerWithRelay', () => {
 
 		expect(outcome).toStrictEqual({});
 		expect(mockBuildTicketPlans).toHaveBeenCalledWith(
-			expect.objectContaining({ cwd: worktreePath, branch: 'lo-70-drain', record: ticketRecord, ticketRunDir, allowTicketBodyBuild: true }),
+			expect.objectContaining({ cwd: worktreePath, branch: 'lo-70-drain', record: ticketRecord, workOrderRunDir, allowTicketBodyBuild: true }),
 		);
 		expect(mockRestorePlanWorkspace).not.toHaveBeenCalled();
 	});

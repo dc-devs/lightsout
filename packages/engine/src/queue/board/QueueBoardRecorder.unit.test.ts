@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { QueueBoard } from '#src/contracts/index.ts';
 import { getQueueBoardPath, QueueBoardRecorder, toQueueBoardTickets } from '#src/queue/board/index.ts';
-import type { QueueDrainReport, TicketRunOutcome } from '#src/queue/index.ts';
+import type { QueueDrainReport, WorkOrderRunOutcome } from '#src/queue/index.ts';
 import { resolveWorktreesRoot } from '#src/worktree/index.ts';
 import { queueOutcomeFixture } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
@@ -17,8 +17,8 @@ type RunnableTicket = ReturnType<typeof queueTicketFixture>;
 interface Lanes {
 	pending: RunnableTicket[];
 	building: { ticket: RunnableTicket; startedAt: string }[];
-	readyToShip: TicketRunOutcome[];
-	shipping: TicketRunOutcome | undefined;
+	readyToShip: WorkOrderRunOutcome[];
+	shipping: WorkOrderRunOutcome | undefined;
 	blocked: QueueDrainReport['leftBehind'];
 }
 
