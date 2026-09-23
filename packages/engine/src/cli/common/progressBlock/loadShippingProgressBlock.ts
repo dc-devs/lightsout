@@ -68,8 +68,9 @@ interface Params {
 /**
  * A branch's shipping block as lines, in the run block's layout. It prints
  * nothing, and never throws for a missing or unreadable record: a missing one
- * draws every step not reached, and an unreadable one answers a single line
- * naming the file.
+ * draws every step not reached, an unreadable one answers a single line naming
+ * the file, and a branch no work order claims answers a single line saying it
+ * keeps no local record at all.
  *
  * Liveness is judged by the end stamp first and the recorded pid second, so a
  * finished ship reads as finished whatever became of its process, and the clock
@@ -78,6 +79,10 @@ interface Params {
 export const loadShippingProgressBlock = async ({ cwd, branch }: Params): Promise<string[]> => {
 	const nowMs = Date.now();
 	const { path, exists, progress } = await readShippingProgress({ cwd, branch });
+
+	if (path === undefined) {
+		return [`${branch} keeps no local shipping record — no work order's record stores that branch`];
+	}
 
 	if (exists && progress === undefined) {
 		return [`the shipping record ${path} could not be read`];

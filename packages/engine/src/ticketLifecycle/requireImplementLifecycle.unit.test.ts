@@ -25,6 +25,11 @@ const mockUpdateTicketLifecycle = jest.fn<(params: LifecycleParams) => Promise<T
 const mockSyncGateHolds = jest.fn<(params: { cwd: string; settings: TrackerSettings; onProgress?: (message: string) => void }) => Promise<GateHolds>>();
 const mockIsTicketGateHeld = jest.fn<(params: { holds: GateHolds; identifier: string; labels: string[] }) => boolean>();
 const mockDescribeGateHold = jest.fn<(params: { hold: GateHold | undefined; identifier: string }) => string>();
+// The record a work order keeps is where a branch's ticket reference now comes
+// from, and finding that record by branch is the work order module's own
+// contract with its own tests. What this file owns is that the guard asks the
+// record rather than reading a ticket out of the branch name.
+const mockReadWorkOrderTicketRef = jest.fn<(params: { cwd: string }) => Promise<string | undefined>>();
 
 jest.mock('#src/common/git/readGitCurrentBranch.ts', () => ({ readGitCurrentBranch: (params: { cwd: string }) => mockReadGitCurrentBranch(params) }));
 jest.mock('#src/ticketTracker/index.ts', () => ({
@@ -38,6 +43,10 @@ jest.mock('#src/gates/index.ts', () => ({
 	syncGateHolds: (params: { cwd: string; settings: TrackerSettings; onProgress?: (message: string) => void }) => mockSyncGateHolds(params),
 	isTicketGateHeld: (params: { holds: GateHolds; identifier: string; labels: string[] }) => mockIsTicketGateHeld(params),
 	describeGateHold: (params: { hold: GateHold | undefined; identifier: string }) => mockDescribeGateHold(params),
+}));
+jest.mock('#src/workOrder/index.ts', () => ({
+	...jest.requireActual<typeof import('#src/workOrder/index.ts')>('#src/workOrder/index.ts'),
+	readWorkOrderTicketRef: (params: { cwd: string }) => mockReadWorkOrderTicketRef(params),
 }));
 // -------------------------
 
@@ -99,6 +108,9 @@ const setupGuard = ({
 	const progress: string[] = [];
 
 	mockReadGitCurrentBranch.mockResolvedValue(detached ? undefined : branch);
+	// Which ticket the checkout's branch belongs to is the work order record's
+	// answer; a case names the branch, and the record names the ticket it spells.
+	mockReadWorkOrderTicketRef.mockResolvedValue(detached ? undefined : /^[a-z]+-\d+/iu.exec(branch)?.[0]);
 	mockGetTicketsByIdentifiers.mockResolvedValue(found);
 	mockUpdateTicketLifecycle.mockResolvedValue(writeFailure);
 	mockSyncGateHolds.mockResolvedValue(holds);
@@ -107,6 +119,15 @@ const setupGuard = ({
 
 	const guard = ({ ticketRef, config: given = config, silent = false }: { ticketRef?: string; config?: LightsoutConfig; silent?: boolean } = {}) =>
 		requireImplementLifecycle({ cwd: '/repo', config: given, env, ticketRef, onProgress: silent ? undefined : (message: string) => progress.push(message) });
+
+	return { guard, progress };
+};
+
+/** A checkout whose work order's record names a ticket that its branch name does not spell. */
+const setupRecordGuard = ({ ticketRef = 'LO-404' }: { ticketRef?: string } = {}) => {
+	const { guard, progress } = setupGuard({ branch: 'feature/rename-the-thing' });
+
+	mockReadWorkOrderTicketRef.mockResolvedValue(ticketRef);
 
 	return { guard, progress };
 };
@@ -242,13 +263,16 @@ describe('requireImplementLifecycle', () => {
 		expect(mockGetTicketsByIdentifiers).not.toHaveBeenCalled();
 	});
 
-	test('lets the run start untouched when the repo’s own ticket pattern is not a usable expression, because no reference can be read from it', async () => {
+	test('reads the branch’s reference from the record whatever the repo’s own ticket pattern is, usable or not', async () => {
 		const { guard } = setupGuard();
 
 		const refused = await guard({ config: { gates, 'ticket-tracker': trackerBlock, ship: { 'ticket-pattern': '(' } } });
 
+		// Which ticket a branch belongs to is its work order's record's answer, so
+		// `ship.ticket-pattern` decides nothing here — not even when it is no
+		// expression at all.
 		expect(refused).toBeUndefined();
-		expect(mockGetTicketsByIdentifiers).not.toHaveBeenCalled();
+		expect(mockGetTicketsByIdentifiers.mock.calls.map((call) => call[0].identifiers)).toStrictEqual([['lo-88']]);
 	});
 
 	test('refuses the run when the tracker credentials are missing, without asking the tracker anything', async () => {
@@ -288,5 +312,15 @@ describe('requireImplementLifecycle', () => {
 		expect(mockUpdateTicketLifecycle).toHaveBeenCalledWith(
 			expect.objectContaining({ ticketId: 'id-88', trackerStatus: 'in-progress', currentStatus: 'Backlog' }),
 		);
+	});
+
+	test("takes the branch's ticket reference from the work order's record", async () => {
+		const { guard } = setupRecordGuard();
+
+		const refused = await guard();
+
+		expect(refused).toBeUndefined();
+		expect(mockReadWorkOrderTicketRef).toHaveBeenCalledWith({ cwd: '/repo' });
+		expect(mockGetTicketsByIdentifiers).toHaveBeenCalledWith(expect.objectContaining({ identifiers: ['LO-404'] }));
 	});
 });

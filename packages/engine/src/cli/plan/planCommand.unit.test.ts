@@ -268,27 +268,20 @@ describe('planCommand', () => {
 	});
 
 	test.each(['draft', 'dedup', 'grade', 'lint', 'publish', 'sync-decisions', 'verify-facts'])(
-		'%s addresses a plan by name, so a folder carrying no ticket id draws exactly one advisory and the subcommand still runs',
+		'%s addresses a plan by name and says nothing about the folder, whatever its label spells',
 		async (subcommand) => {
 			const { context, logged, exitCodes } = setupPlan({ args: [subcommand, '--name', 'rate-limit-banner/001-banner'], repoConfig: trackerRepoConfig });
 
 			await planCommand(context);
 
-			expect(logged.filter((line) => /carries no ticket id/.test(line)).length).toBe(1);
-			// advisory only: the dispatch ran to its end and nothing exited
+			// A label is only a label now: which ticket the work belongs to is the
+			// work order record's answer, so there is nothing to advise about.
+			expect(logged).toStrictEqual([]);
 			expect(exitCodes).toStrictEqual([]);
 		},
 	);
 
-	test('a plan folder named after its ticket is told nothing at all', async () => {
-		const { context, logged } = setupPlan({ args: ['lint', '--name', 'lo-52-status-progress/001-progress'], repoConfig: trackerRepoConfig });
-
-		await planCommand(context);
-
-		expect(logged).toStrictEqual([]);
-	});
-
-	test('a repo carrying a queue block and no ticket-tracker block is advised nothing, because a queue names no tracker', async () => {
+	test('a repo carrying a queue block and no ticket-tracker block is told nothing either, because a queue names no tracker', async () => {
 		const { context, logged } = setupPlan({ args: ['lint', '--name', 'rate-limit-banner/001-banner'], repoConfig: queueOnlyRepoConfig });
 
 		await planCommand(context);
@@ -297,7 +290,7 @@ describe('planCommand', () => {
 		expect(mockPlanLintCommand).toHaveBeenCalledTimes(1);
 	});
 
-	test('a subcommand given no --name has no folder to name, so nothing is advised', async () => {
+	test('a subcommand given no --name names no plan at all, and still prints nothing', async () => {
 		const { context, logged } = setupPlan({ args: ['verify-facts'], repoConfig: trackerRepoConfig });
 
 		await planCommand(context);
@@ -305,7 +298,7 @@ describe('planCommand', () => {
 		expect(logged).toStrictEqual([]);
 	});
 
-	test('an unknown subcommand addresses no plan — the usage error stands alone, with no advisory ahead of it', async () => {
+	test('an unknown subcommand addresses no plan — the usage error stands alone', async () => {
 		const { context, logged, exitCodes } = setupPlan({ args: ['sideways', '--name', 'rate-limit-banner'], repoConfig: trackerRepoConfig });
 
 		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);

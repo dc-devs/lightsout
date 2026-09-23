@@ -85,12 +85,12 @@ const prepareDirectRun = async ({
 	/** `--ref` as typed, or undefined. */
 	flaggedRef: string | undefined;
 }) => {
-	const ticketRef = flaggedRef ?? (await readRunLabel({ cwd: workspace.cwd, config: loaded }));
+	const ticketRef = flaggedRef ?? (await readRunLabel({ cwd: workspace.cwd }));
 	const { config, driver, driverName } = resolveEffectiveConfigAndDriver({ config: loaded, command: 'implement' });
 	// The guard is handed `--ref` itself rather than `ticketRef`, whose
 	// branch-name fallback is a run label rather than a ticket reference. Without
-	// the flag it reads the branch through `readBranchTicketRef`, the same reader
-	// the label above starts from.
+	// the flag it reads the branch's work order through `readWorkOrderTicketRef`,
+	// the same reader the label above starts from.
 	const refused = await requireImplementLifecycle({
 		cwd: workspace.cwd,
 		config: loaded,
@@ -151,7 +151,7 @@ export const implementDirectCommand = async ({ flags, cwd }: CommandContext): Pr
 	}
 
 	const flaggedRef = getStringFlag({ flags, name: 'ref' });
-	const opened = await openDirectWorkspace({ cwd, config: loaded, flags, ticketPath: namedTicketPath, ticketBody, flaggedRef });
+	const opened = await openDirectWorkspace({ cwd, config: loaded, flags, ticketPath: namedTicketPath, flaggedRef });
 
 	if ('error' in opened) {
 		console.error(opened.error);

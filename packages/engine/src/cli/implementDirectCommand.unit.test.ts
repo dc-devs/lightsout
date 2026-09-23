@@ -59,6 +59,7 @@ const setupImplementDirect = ({
 	dirty,
 	config = {},
 	detached = false,
+	isolated = false,
 }: {
 	args: string[];
 	branch?: string;
@@ -75,6 +76,8 @@ const setupImplementDirect = ({
 	};
 	/** Leave the checkout on a detached HEAD, which is a commit rather than a branch anything can be named after. */
 	detached?: boolean;
+	/** Let the run ask for a worktree of its own, rather than typing the `--no-worktree` every other case here types. */
+	isolated?: boolean;
 }) => {
 	const captured = captureCommandOutput();
 	const { cwd } = setupBranchRepo({ branch });
@@ -104,7 +107,7 @@ const setupImplementDirect = ({
 	mockRunDirectWork.mockResolvedValue({ ok: true, manifest: manifestOf(RunStatus.Passed) });
 	mockCommitTicketWork.mockResolvedValue({ committed: true });
 
-	return { context: { flags: parseFlags({ args: [...args, '--no-worktree'] }), rest: [], cwd }, cwd, ...captured };
+	return { context: { flags: parseFlags({ args: isolated ? args : [...args, '--no-worktree'] }), rest: [], cwd }, cwd, ...captured };
 };
 
 describe('implementDirectCommand', () => {
@@ -125,7 +128,7 @@ describe('implementDirectCommand', () => {
 		expect(mockRunDirectWork).toHaveBeenCalledWith(expect.objectContaining({ ticketRef: 'LO-99' }));
 	});
 
-	test('falls back to the branch name when the branch carries no ticket the pattern reads', async () => {
+	test('falls back to the branch name when the branch’s work order belongs to no ticket', async () => {
 		const { context } = setupImplementDirect({ args: ['--ticket', 'ticket.md'], branch: 'scratch' });
 
 		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
@@ -133,21 +136,37 @@ describe('implementDirectCommand', () => {
 		expect(mockRunDirectWork).toHaveBeenCalledWith(expect.objectContaining({ ticketRef: 'scratch' }));
 	});
 
-	test('falls back to the branch name when the repo’s ticket pattern cannot be compiled at all', async () => {
+	test('takes the reference from the record even when the repo’s ticket pattern cannot be compiled at all', async () => {
 		const { context } = setupImplementDirect({ args: ['--ticket', 'ticket.md'], config: { ship: { 'ticket-pattern': '^(?<broken>' } } });
 
 		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
 
-		// the reference only labels the run and the commit, so an unusable pattern names the branch rather than refusing
-		expect(mockRunDirectWork).toHaveBeenCalledWith(expect.objectContaining({ ticketRef: 'lo-70-drain' }));
+		// which ticket the branch belongs to is the work order record's answer, so
+		// a pattern that cannot be compiled no longer reaches the label at all
+		expect(mockRunDirectWork).toHaveBeenCalledWith(expect.objectContaining({ ticketRef: 'lo-70' }));
 	});
 
-	test('labels the run `ticket` on a detached HEAD, where there is no branch name to fall back to', async () => {
+	test('labels the run `work` on a detached HEAD, where there is no branch name to fall back to', async () => {
 		const { context } = setupImplementDirect({ args: ['--ticket', 'ticket.md'], detached: true });
 
 		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(mockRunDirectWork).toHaveBeenCalledWith(expect.objectContaining({ ticketRef: 'ticket' }));
+		// `work` rather than `ticket`: most repositories have no tracker at all
+		expect(mockRunDirectWork).toHaveBeenCalledWith(expect.objectContaining({ ticketRef: 'work' }));
+	});
+
+	test('refuses an isolated run whose --ticket names no work order, rather than slugging the file’s stem into a branch', async () => {
+		const { context, errors, exitCodes } = setupImplementDirect({ args: ['--ticket', 'ticket.md'], isolated: true });
+
+		await expect(implementDirectCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// An isolated direct run needs a `--ref` whose work order exists: only a
+		// record says which branch work implements on, and a stem turned into a
+		// branch would be the second author of one.
+		expect(errors.join('\n')).toContain("no branch could be resolved from 'ticket.md'");
+		expect(errors.join('\n')).toContain('--no-worktree');
+		expect(mockRunDirectWork).not.toHaveBeenCalled();
+		expect(exitCodes).toStrictEqual([1]);
 	});
 
 	test('refuses --ship and --no-ship together before the run starts, in the one sentence both ways into ship say', async () => {

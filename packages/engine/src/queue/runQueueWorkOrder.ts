@@ -2,12 +2,12 @@ import { join } from 'node:path';
 import { BranchPhase, type LightsoutConfig, WorktreeOwner } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
+import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { settleWorkerOutcome } from '#src/queue/common/utils/settleWorkerOutcome.ts';
-import { renderWorkOrderBranch } from '#src/queue/renderWorkOrderBranch.ts';
 import { runWorkerWithRelay } from '#src/queue/workers/index.ts';
 import { TrackerStatusRole, updateTicketLifecycle } from '#src/ticketLifecycle/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
@@ -18,7 +18,8 @@ interface Params {
 	cwd: string;
 	settings: QueueSettings;
 	trackerSettings: TrackerSettings;
-	ticket: RunnableTicket;
+	/** The work order this run builds: its ticket, its label, and the branch its record stores. */
+	workOrder: NamedWorkOrder;
 	config: LightsoutConfig;
 	driver: Driver;
 	/** Recorded on the worker's manifest as the harness name. */
@@ -126,7 +127,7 @@ export const runQueueWorkOrder = async ({
 	cwd,
 	settings,
 	trackerSettings,
-	ticket,
+	workOrder,
 	config,
 	driver,
 	driverName,
@@ -138,14 +139,16 @@ export const runQueueWorkOrder = async ({
 	coordinatorRunDir,
 	onProgress,
 }: Params): Promise<WorkOrderRunOutcome> => {
-	const branch = renderWorkOrderBranch({ ticket, template: settings.branchTemplate });
+	const { ticket, name, branch } = workOrder;
 	// One directory for every commit message file this work order needs: the plan
 	// loop's per-plan commits and the final commit below write to the same place.
+	// It is keyed by the tracker identifier, which names the ticket rather than
+	// the work order.
 	const workOrderRunDir = join(coordinatorRunDir, 'work-orders', ticket.identifier);
 	const created = await createTicketWorktree({ cwd, branch, defaultBranch, setup: settings.setup, serializeWorktreeAdd, onProgress });
 
 	if (typeof created !== 'string') {
-		return { ticket, branch, worktreePath: await resolveWorktreePath({ cwd, branch }), ready: false, error: created.error };
+		return { ticket, name, branch, worktreePath: await resolveWorktreePath({ cwd, branch }), ready: false, error: created.error };
 	}
 
 	const worktreePath = created;
@@ -155,13 +158,13 @@ export const runQueueWorkOrder = async ({
 	const unclaimed = await claimOwnership({ settings, trackerSettings, ticket });
 
 	if (unclaimed !== undefined) {
-		return { ticket, branch, worktreePath, ready: false, error: unclaimed };
+		return { ticket, name, branch, worktreePath, ready: false, error: unclaimed };
 	}
 
 	const worked = await runWorkerWithRelay({
 		worktreePath,
 		ticket,
-		branch,
+		workOrderName: name,
 		config,
 		driver,
 		driverName,
@@ -187,5 +190,5 @@ export const runQueueWorkOrder = async ({
 		onProgress,
 	});
 
-	return { ticket, branch, worktreePath, ...settled };
+	return { ticket, name, branch, worktreePath, ...settled };
 };

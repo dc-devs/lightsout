@@ -3,8 +3,8 @@ import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { restorePlanWorkspace } from '#src/plan/index.ts';
+import { readWorkOrderWithTrackerTarget } from '#src/workOrder/common/utils/readWorkOrderWithTrackerTarget.ts';
 import { recordWorkOrderSyncState } from '#src/workOrder/common/utils/recordWorkOrderSyncState.ts';
-import { resolveWorkOrderTrackerTarget } from '#src/workOrder/common/utils/resolveWorkOrderTrackerTarget.ts';
 
 interface Params {
 	/** The checkout the plan's own folder is written into. */
@@ -81,11 +81,13 @@ export const restoreWorkOrderPlan = async ({
 	}
 
 	const { workOrderName: name, planId } = parsed;
-	const target = resolveWorkOrderTrackerTarget({ config, env, name });
+	const opened = await readWorkOrderWithTrackerTarget({ cwd: recordCwd ?? cwd, name, config, env });
 
-	if ('error' in target) {
-		return target;
+	if ('error' in opened) {
+		return opened;
 	}
+
+	const { target } = opened;
 
 	if ('localOnly' in target) {
 		return { error: `plan ${planId} cannot be restored: ${target.localOnly}` };

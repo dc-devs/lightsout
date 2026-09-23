@@ -13,6 +13,7 @@ interface EndParams {
 
 export const drainLaneOutcomeFixture = ({ identifier, end = PlannedEnd.Ready, error }: EndParams): WorkOrderRunOutcome => ({
 	ticket: queueTicketFixture({ identifier, id: `id-${identifier}`, title: `Ticket ${identifier}` }),
+	name: `${identifier.toLowerCase()}-work`,
 	branch: `${identifier.toLowerCase()}-work`,
 	worktreePath: `/tmp/${identifier}`,
 	ready: end === PlannedEnd.Ready,

@@ -6,6 +6,7 @@ import { statusCommand } from '#src/cli/statusCommand.ts';
 import { type RunManifest, RunStatus, ShipStatus } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 
 /**
  * The one branch of `--watch` a test can drive end to end without a clock: a run
@@ -46,6 +47,9 @@ const setupWatch = ({ manifest, shipped = false }: { manifest: RunManifest; ship
 	writeFileSync(join(runDirFor({ cwd, runId: manifest.runId }), 'manifest.json'), JSON.stringify(manifest), 'utf8');
 
 	if (shipped && manifest.branch !== undefined) {
+		// A ship result is filed with the work order whose record stores the branch,
+		// so the record is what makes the result findable at all.
+		seedWorkOrderRecord({ cwd, name: manifest.branch });
 		mkdirSync(join(cwd, '.lightsout', 'work-orders', manifest.branch), { recursive: true });
 		writeFileSync(
 			join(cwd, '.lightsout', 'work-orders', manifest.branch, 'ship.json'),

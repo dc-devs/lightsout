@@ -12,12 +12,16 @@ export type { ShipWorkOrderGuard } from '#src/ship/common/types/ShipWorkOrderGua
 // own resume path, and the queue's confirmation that a ticket already merged.
 // `runGh` stays out, exactly as it stays out of the forge's own barrel.
 export { findPullRequest, PullRequestState, type PullRequestSummary } from '#src/ship/forge/index.ts';
+// `readTicketMatch` stays off this barrel, and `matchesTicketPattern` narrows
+// it in its place. The match answers the capture groups a pull request body
+// substitutes from, and handing those out is how one piece of work came to have
+// several authors for its name; whether a branch carries a ticket at all is the
+// whole of what a caller outside ship may legitimately ask.
+export { matchesTicketPattern } from '#src/ship/matchesTicketPattern.ts';
 // The shipping record's reader is published for the CLI's shipping block; its
 // recorder is not, because only this module's own sequence writes the record.
 export { readShippingProgress, type ShippingProgressReading } from '#src/ship/progress/index.ts';
-export { readBranchTicketRef } from '#src/ship/readBranchTicketRef.ts';
 export { readShipResult } from '#src/ship/readShipResult.ts';
-export { readTicketMatch } from '#src/ship/readTicketMatch.ts';
 export { resolveShipIntent } from '#src/ship/resolveShipIntent.ts';
 export { resolveShipSettings } from '#src/ship/resolveShipSettings.ts';
 export { runShip } from '#src/ship/runShip.ts';

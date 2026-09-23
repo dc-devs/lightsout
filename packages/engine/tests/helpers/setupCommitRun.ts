@@ -10,8 +10,15 @@ export const workOrderName = 'lo-152-commit';
 export const planId = '001-one-commit-behaviour';
 export const runId = 'run-1234-abcd';
 export const planFolder = `.lightsout/work-orders/${workOrderName}/plans/${planId}`;
-/** What a run with no ticket record on disk is addressed by: the branch's ticket reference and the plan id. */
-export const plainSubject = `lo-152 ${planId}`;
+/**
+ * What a run with no work order record on disk is addressed by: the branch's own
+ * name and the plan id.
+ *
+ * The record is the only thing that says which ticket a branch belongs to, so a
+ * checkout holding none is named by its branch rather than by a ticket id read
+ * out of it.
+ */
+export const plainSubject = `${workOrderName} ${planId}`;
 
 /** What `git rev-parse HEAD` answers in a checkout — read for real, so a recorded sha can be compared with the commit that was made. */
 export const headCommitOf = ({ cwd }: { cwd: string }) => execSync('git rev-parse HEAD', { cwd }).toString().trim();
@@ -111,7 +118,9 @@ export const setupCommitRun = async ({
 	/** Whether the checkout stands on a commit rather than on a branch, which is where every branch read answers nothing. */
 	detached?: boolean;
 } = {}) => {
-	const { cwd } = setupBranchRepo({ branch });
+	// The work order record is this helper's own arrangement — `record` decides
+	// whether one exists, is corrupt, or is absent — so the repo seeds none.
+	const { cwd } = setupBranchRepo({ branch, workOrder: false });
 
 	writeRepoFile({ cwd, path: '.gitignore', content: '.lightsout/\n' });
 	execSync('git add -A && git commit -qm ignore', { cwd, stdio: 'ignore' });

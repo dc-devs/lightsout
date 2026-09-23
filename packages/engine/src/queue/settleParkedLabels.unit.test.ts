@@ -36,6 +36,7 @@ const outcomeOf = ({ number, ready }: { number: number; ready: boolean }): WorkO
 		finished: false,
 		unfinishedBlockers: [],
 	},
+	name: `lo-${number}-ticket`,
 	branch: `lo-${number}-ticket`,
 	worktreePath: `/tmp/worktrees/lo-${number}-ticket`,
 	ready,

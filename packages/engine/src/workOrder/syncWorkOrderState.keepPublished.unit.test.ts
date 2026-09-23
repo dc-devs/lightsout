@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
@@ -293,19 +293,18 @@ describe('syncWorkOrderState', () => {
 		expect(readFileSync(join(worktreeTicketFolder, planId, 'plan.md'), 'utf8')).toBe('worktree work\n');
 	});
 
-	test('syncWorkOrderState: keeping the published copy takes it whole when this machine holds no record of its own', async () => {
+	test('syncWorkOrderState: refuses, reaching no tracker, when this machine holds no record of its own', async () => {
 		const published = recordOf();
 		const { cwd, workOrderFolder } = setupRecordSync({ published, localOnDisk: false });
 
 		const result = await syncWorkOrderState({ cwd, name, config, env, keep: WorkOrderSyncKeep.Published });
 
-		expect(result).toStrictEqual({ record: published });
-		expect(readFileSync(join(workOrderFolder, 'state.json'), 'utf8')).toBe(canonicalText({ record: published }));
-		expect(readSidecar({ workOrderFolder })).toStrictEqual({
-			schemaVersion: 1,
-			recordSha256: sha256Of({ text: canonicalText({ record: published }) }),
-			planMarkers: {},
-		});
+		// The record is the only thing that says which ticket a work order belongs
+		// to, so a machine holding none has no tracker to keep a copy from — and
+		// nothing is written where the taken copy would have gone.
+		expect(result).toEqual({ error: expect.stringContaining('state.json') });
+		expect(existsSync(join(workOrderFolder, 'state.json'))).toBe(false);
+		expect(mockGetTicketAttachments.mock.calls.length).toBe(0);
 	});
 
 	test('syncWorkOrderState: keeping the published copy answers the restore failure when the ticket carries the plan marker but not its files', async () => {

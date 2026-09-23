@@ -245,7 +245,7 @@ export const setupTicketPlanBuild = ({
 		cwd,
 		params: {
 			cwd,
-			branch: workOrderName,
+			workOrderName,
 			ticket,
 			record,
 			config,

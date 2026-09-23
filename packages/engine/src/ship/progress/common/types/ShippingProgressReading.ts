@@ -6,8 +6,12 @@ import type { ShippingProgress } from '#src/contracts/index.ts';
  * record as every step not reached and names an unreadable one instead.
  */
 export interface ShippingProgressReading {
-	/** Where the record is filed for the branch, whether or not a file is there. */
-	path: string;
+	/**
+	 * Where the record is filed for the branch, whether or not a file is there —
+	 * and undefined when no work order claims the branch, so there is no path it
+	 * could ever have been filed at.
+	 */
+	path: string | undefined;
 	/** True when a file is at `path`. */
 	exists: boolean;
 	/** The parsed record; undefined when the file is absent, unreadable or off-contract. */

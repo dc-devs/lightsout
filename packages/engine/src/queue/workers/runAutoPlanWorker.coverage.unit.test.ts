@@ -124,7 +124,7 @@ const setupAutoPlanWorker = ({
 		params: {
 			cwd,
 			ticket,
-			branch,
+			workOrderName: branch,
 			config,
 			driver,
 			driverName: 'claude-code',

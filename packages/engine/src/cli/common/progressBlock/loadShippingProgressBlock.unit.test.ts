@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { loadShippingProgressBlock } from '#src/cli/common/progressBlock/loadShippingProgressBlock.ts';
-import { RunStatus, type ShippingProgress, ShippingStepId } from '#src/contracts/index.ts';
+import { RunStatus, type ShippingProgress, ShippingStepId, WorkOrderMode } from '#src/contracts/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 
 /** One step row as the record holds it. */
@@ -10,6 +10,9 @@ type ShippingStepRecord = ShippingProgress['steps'][number];
 
 /** The branch every case reads. */
 const branch = 'lo-7-ship';
+
+/** A branch no work order's record stores, so nothing can say where its shipping record would be filed. */
+const unclaimedBranch = 'feature/lo-7-ship';
 
 /** When every block in this file is drawn, so each clock it shows is known. */
 const systemTime = '2026-09-10T10:12:30.000Z';
@@ -132,8 +135,9 @@ const finishedRecord = () =>
 
 /**
  * A fresh checkout with only the clock faked, so every clock the block draws is
- * known while the file reads stay real. `record` is written verbatim as the
- * branch's shipping record when given; otherwise the progress folder is empty.
+ * known while the file reads stay real. One work order claims `branch`, which is
+ * what says where its shipping record is filed; `record` is written verbatim as
+ * that record when given, and otherwise the folder holds no record at all.
  */
 const setupShippingBlock = async ({ record }: { record?: string } = {}) => {
 	jest.useFakeTimers({
@@ -162,6 +166,10 @@ const setupShippingBlock = async ({ record }: { record?: string } = {}) => {
 	const recordPath = join(workOrderFolder, 'ship-progress.json');
 
 	mkdirSync(workOrderFolder, { recursive: true });
+	writeFileSync(
+		join(workOrderFolder, 'state.json'),
+		JSON.stringify({ schemaVersion: 1, name: branch, branch, mode: WorkOrderMode.MultiplePlan, plans: [], history: [] }),
+	);
 
 	if (record !== undefined) {
 		writeFileSync(recordPath, record);
@@ -242,5 +250,18 @@ describe('loadShippingProgressBlock', () => {
 		expect(lines[6]).toMatch(/^ ✗ {2}merge +failed +0m 40s$/);
 		expect(lines.at(-2)).toContain('6m 10s');
 		expect(lines.at(-2)).not.toContain('7m 30s');
+	});
+
+	test('says the branch keeps no local record when there is no path to draw', async () => {
+		const { cwd } = await setupShippingBlock({ record: liveRecord() });
+
+		const lines = await loadShippingProgressBlock({ cwd, branch: unclaimedBranch });
+
+		const text = lines.join('\n');
+
+		expect(text).toMatch(/no local/i);
+		expect(text).toMatch(/shipping record/i);
+		expect(text).not.toContain('ship-progress.json');
+		expect(text).not.toContain('.lightsout');
 	});
 });

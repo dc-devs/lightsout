@@ -2,7 +2,9 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, jest, test } from '@jest/globals';
 import type { GateHolds } from '#src/gates/index.ts';
 import { startScan } from '#src/queue/drainLanes/common/utils/startScan.ts';
+import type { nameWaveWorkOrders } from '#src/queue/nameWaveWorkOrders.ts';
 import type { listNextWave, reconcileMergedTickets } from '#src/queue/ticketSelection/index.ts';
+import { namedWorkOrderFixture } from '#tests/helpers/namedWorkOrderFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
 import { setupDrainLaneState } from '#tests/helpers/setupDrainLaneState.ts';
 
@@ -13,12 +15,21 @@ jest.mock('#src/queue/ticketSelection/index.ts', () => ({
 	listNextWave: (params: Parameters<typeof listNextWave>[0]) => mockScan(params),
 	reconcileMergedTickets: (params: Parameters<typeof reconcileMergedTickets>[0]) => mockReconcile(params),
 }));
+// -------------------------
+// Naming is the work order module's own job and has its own tests; what this
+// file owns is what a re-scan does with a wave whose names are already settled.
+const mockNameWave = jest.fn<typeof nameWaveWorkOrders>();
+
+jest.mock('#src/queue/nameWaveWorkOrders.ts', () => ({
+	nameWaveWorkOrders: (params: Parameters<typeof nameWaveWorkOrders>[0]) => mockNameWave(params),
+}));
 
 const setupScan = () => {
 	const lane = setupDrainLaneState();
 
 	lane.state.blockedByIdentifier.set('lo-70', { identifier: 'LO-70', reason: 'blocked by LO-69' });
 	mockScan.mockResolvedValue({ runnable: [], blocked: [], skipped: [] });
+	mockNameWave.mockImplementation(async ({ tickets }) => ({ named: tickets.map((ticket) => namedWorkOrderFixture({ ticket })), leftBehind: [] }));
 	mockReconcile.mockImplementation(async ({ tickets }) => ({ kept: tickets, leftBehind: [] }));
 
 	return lane;
@@ -67,18 +78,19 @@ describe('startScan', () => {
 		expect(lane.flight.tasks.size).toBe(0);
 	});
 
-	test('records a newly admitted ticket before its scan finishes and permits another idle scan', async () => {
+	test('records a newly admitted work order before its scan finishes and permits another idle scan', async () => {
 		const lane = setupScan();
 		const ticket = queueTicketFixture();
+		const workOrder = namedWorkOrderFixture({ ticket });
 
 		mockScan.mockResolvedValue({ runnable: [ticket], blocked: [], skipped: [] });
 		startScan(lane);
 		await Promise.all(lane.flight.tasks.values());
 
-		expect(lane.state.pending).toEqual([ticket]);
+		expect(lane.state.pending).toEqual([workOrder]);
 		expect(lane.state.idleScanSpent).toBe(false);
 		expect(lane.state.blockedByIdentifier.size).toBe(0);
-		expect(readFileSync(lane.context.planPath, 'utf8')).toContain('LO-70 · direct · lo-70-ticket-70');
+		expect(readFileSync(lane.context.planPath, 'utf8')).toContain(`LO-70 · direct · ${workOrder.branch}`);
 		expect(lane.progress).toContain('LO-70 · joined the run already in flight');
 	});
 

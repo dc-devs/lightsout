@@ -4,12 +4,15 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
+import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
+import type { nameWaveWorkOrders } from '#src/queue/nameWaveWorkOrders.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { jiraTrackerSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixture.ts';
+import { nameWaveLikeTemplate } from '#tests/helpers/nameWaveLikeTemplate.ts';
 import { queueOutcomeFixture as outcomeOf } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { queueTicketFixture as ticketOf } from '#tests/helpers/queueTicketFixture.ts';
@@ -27,7 +30,7 @@ type SerializeWorktreeAdd = <Result>(params: { task: () => Promise<Result> }) =>
 
 const mockListEligibleTickets = jest.fn<() => Promise<TicketSummary[] | QueueFailure>>();
 const mockScanParkedWorktrees = jest.fn<() => Promise<ParkedWork | QueueFailure>>();
-const mockRunQueueTicket = jest.fn<(params: { ticket: TicketSummary; serializeWorktreeAdd: SerializeWorktreeAdd }) => Promise<WorkOrderRunOutcome>>();
+const mockRunQueueTicket = jest.fn<(params: { workOrder: NamedWorkOrder; serializeWorktreeAdd: SerializeWorktreeAdd }) => Promise<WorkOrderRunOutcome>>();
 const mockShipOneBranch = jest.fn<(params: { outcome: WorkOrderRunOutcome }) => Promise<WorkOrderRunOutcome>>();
 /** The label write is covered by `setTicketLabel`'s own tests; what this file owns is which list the drain settles it over, and when. */
 type LabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; present: boolean };
@@ -43,9 +46,19 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 }));
 jest.mock('#src/queue/worktrees/scanParkedWorktrees.ts', () => ({ scanParkedWorktrees: () => mockScanParkedWorktrees() }));
 jest.mock('#src/queue/runQueueWorkOrder.ts', () => ({
-	runQueueWorkOrder: (params: { ticket: TicketSummary; serializeWorktreeAdd: SerializeWorktreeAdd }) => mockRunQueueTicket(params),
+	runQueueWorkOrder: (params: { workOrder: NamedWorkOrder; serializeWorktreeAdd: SerializeWorktreeAdd }) => mockRunQueueTicket(params),
 }));
 jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: WorkOrderRunOutcome }) => mockShipOneBranch(params) }));
+// -------------------------
+// Naming a wave creates work orders, which reads the tracker and spawns a
+// harness — the work order module's own job, with its own tests. These cases
+// keep the label and branch the queue's template renders, so what they state
+// about branches and worktrees is what the drain itself decides.
+const mockNameWaveWorkOrders = jest.fn<typeof nameWaveWorkOrders>(nameWaveLikeTemplate());
+
+jest.mock('#src/queue/nameWaveWorkOrders.ts', () => ({
+	nameWaveWorkOrders: (params: Parameters<typeof mockNameWaveWorkOrders>[0]) => mockNameWaveWorkOrders(params),
+}));
 // -------------------------
 
 const shipSettings = shipSettingsFixture();
@@ -54,7 +67,7 @@ const shipSettings = shipSettingsFixture();
 const setupDrain = ({ eligible = [], parked }: { eligible?: TicketSummary[]; parked?: ParkedWork } = {}) => {
 	mockListEligibleTickets.mockResolvedValue(eligible);
 	mockScanParkedWorktrees.mockResolvedValue(parked ?? { resumed: [], outcomes: [], leftBehind: [], merged: [] });
-	mockRunQueueTicket.mockImplementation(({ ticket }) => Promise.resolve(outcomeOf({ ticket })));
+	mockRunQueueTicket.mockImplementation(({ workOrder: { ticket } }) => Promise.resolve(outcomeOf({ ticket })));
 	mockShipOneBranch.mockImplementation(({ outcome }) => Promise.resolve(outcome));
 	mockSetTicketLabel.mockResolvedValue(undefined);
 
@@ -68,7 +81,7 @@ const setupOpenDrain = ({ env }: { env: NodeJS.ProcessEnv }) => {
 
 	mockListEligibleTickets.mockResolvedValue([shipped, left]);
 	mockScanParkedWorktrees.mockResolvedValue({ resumed: [], outcomes: [], leftBehind: [], merged: [] });
-	mockRunQueueTicket.mockImplementation(({ ticket }) =>
+	mockRunQueueTicket.mockImplementation(({ workOrder: { ticket } }) =>
 		Promise.resolve(
 			ticket.identifier === left.identifier
 				? outcomeOf({ ticket, ready: false, open: 'no ship request names the plans this ticket includes' })
@@ -192,7 +205,7 @@ describe('runQueue', () => {
 		await drain({ settings: queueSettingsFixture({ maxParallel: 1 }) });
 		relay.close();
 
-		expect(mockRunQueueTicket.mock.calls.map((call) => call[0].ticket.identifier)).toStrictEqual(['LO-72', 'LO-73', 'LO-71', 'LO-74', 'LO-70']);
+		expect(mockRunQueueTicket.mock.calls.map((call) => call[0].workOrder.ticket.identifier)).toStrictEqual(['LO-72', 'LO-73', 'LO-71', 'LO-74', 'LO-70']);
 	});
 
 	test('picks up parked tickets before any new one, because a restart is the resume path', async () => {
@@ -204,7 +217,39 @@ describe('runQueue', () => {
 		await drain({ settings: queueSettingsFixture({ maxParallel: 1 }) });
 		relay.close();
 
-		expect(mockRunQueueTicket.mock.calls.map((call) => call[0].ticket.identifier)).toStrictEqual(['LO-99', 'LO-70']);
+		expect(mockRunQueueTicket.mock.calls.map((call) => call[0].workOrder.ticket.identifier)).toStrictEqual(['LO-99', 'LO-70']);
+	});
+
+	test("hands the wave's naming step the drain's own harness, so a queued work order is named the way `work-order new` names one", async () => {
+		const { cwd, driver, drain, relay } = setupDrain({ eligible: [ticketOf({ number: 70 })] });
+
+		await drain();
+		relay.close();
+
+		expect(mockNameWaveWorkOrders).toHaveBeenCalledWith(expect.objectContaining({ cwd, driver, tickets: [ticketOf({ number: 70 })] }));
+	});
+
+	test('never builds a ticket the naming step left behind, and names it in the report', async () => {
+		const workable = ticketOf({ number: 70 });
+		const refused = ticketOf({ number: 71 });
+		const { drain, relay } = setupDrain({ eligible: [workable, refused] });
+
+		mockNameWaveWorkOrders.mockResolvedValueOnce({
+			named: [{ ticket: workable, name: 'lo-70-alpha', branch: 'feature/lo-70-alpha' }],
+			leftBehind: [{ identifier: 'LO-71', title: refused.title, url: refused.url, reason: 'lo-71-beta already names a work order' }],
+		});
+
+		const report = await drain();
+
+		relay.close();
+
+		expect(mockRunQueueTicket.mock.calls.map((call) => call[0].workOrder)).toStrictEqual([
+			{ ticket: workable, name: 'lo-70-alpha', branch: 'feature/lo-70-alpha' },
+		]);
+		expect(report).toEqual({
+			outcomes: [expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-70' }) })],
+			leftBehind: [{ identifier: 'LO-71', title: 'Ticket 71', url: refused.url, reason: 'lo-71-beta already names a work order' }],
+		});
 	});
 
 	test('records every ticket it will work in the coordinator run, naming the branch and the worktree a human can reach it in', async () => {
@@ -259,7 +304,7 @@ describe('runQueue', () => {
 		let creating = 0;
 		let mostAtOnce = 0;
 
-		mockRunQueueTicket.mockImplementation(async ({ ticket, serializeWorktreeAdd }) => {
+		mockRunQueueTicket.mockImplementation(async ({ workOrder: { ticket }, serializeWorktreeAdd }) => {
 			await serializeWorktreeAdd({
 				task: async () => {
 					creating += 1;
@@ -293,7 +338,7 @@ describe('runQueue', () => {
 	test('ends the coordinator run escalated when a ticket parked, because the factory still holds work', async () => {
 		const { cwd, drain, relay } = setupDrain({ eligible: [ticketOf({ number: 70 })] });
 
-		mockRunQueueTicket.mockImplementation(({ ticket }) => Promise.resolve(outcomeOf({ ticket, ready: false, error: 'tsc: 3 errors' })));
+		mockRunQueueTicket.mockImplementation(({ workOrder: { ticket } }) => Promise.resolve(outcomeOf({ ticket, ready: false, error: 'tsc: 3 errors' })));
 
 		const report = await drain();
 

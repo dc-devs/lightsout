@@ -44,6 +44,7 @@ const setupShipCommand = ({
 	checks = '[{"name":"unit","bucket":"pass"}]',
 	dirty,
 	tracker,
+	workOrder = true,
 }: {
 	ship?: Record<string, unknown>;
 	checks?: string;
@@ -51,6 +52,8 @@ const setupShipCommand = ({
 	dirty?: Record<string, string>;
 	/** The `ticket-tracker` block, when the test wants the merge reconciled to Done. */
 	tracker?: Record<string, unknown>;
+	/** Whether a work order claims the branch. Off for a branch that predates work order states. */
+	workOrder?: boolean;
 } = {}) => {
 	const captured = captureCommandOutput();
 
@@ -70,7 +73,7 @@ const setupShipCommand = ({
 		},
 	});
 
-	const { cwd } = setupBranchRepo({ branch: 'lo-60-ship' });
+	const { cwd } = setupBranchRepo({ branch: 'lo-60-ship', workOrder });
 
 	writeFileSync(
 		join(cwd, 'lightsout.config.json'),
@@ -213,9 +216,13 @@ describe('shipCommand', () => {
 	});
 
 	test('a ship whose tracker cannot be reached prints why the ticket is not Done, and still exits 0', async () => {
+		// No work order claims this branch: a branch that DOES carry a record is
+		// refused outright when its tracker cannot be read, so the Done write is
+		// only ever reached on one that does not.
 		const { context, errors, logged, exitCodes } = setupShipCommand({
 			ship: { 'ticket-pattern': '^(?<ticket>lo-(?<number>\\d+))' },
 			tracker: unreachableTracker,
+			workOrder: false,
 		});
 
 		await expect(shipCommand(context)).rejects.toThrow(/process\.exit/);

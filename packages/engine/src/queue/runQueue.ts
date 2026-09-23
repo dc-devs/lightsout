@@ -74,7 +74,7 @@ const drainAndShip = async ({
 	// One chain per drain, threaded to everything that mutates the main checkout:
 	// the builders' `git worktree add`, the merge tail's removal and the re-scan's.
 	const serializeMainCheckout = createMainCheckoutSerializer();
-	const board = new QueueBoardRecorder({ cwd, runId, branchTemplate: settings.branchTemplate, onProgress });
+	const board = new QueueBoardRecorder({ cwd, runId, onProgress });
 	// Workers ask through this, so an open question shows on the board; delivery stays the CLI relay's.
 	const boardRelay = new BoardQuestionRelay({ relay, board });
 	const drained = await drainQueue({
@@ -88,6 +88,9 @@ const drainAndShip = async ({
 		// config and `driver` the resolved harness, so the merge lane's integration
 		// step recovers with exactly what the builders were given.
 		shipIntegration: { config, driver },
+		// The same harness the builders get, threaded so the wave's naming step
+		// summarises a ticket's title exactly as `work-order new` does.
+		driver,
 		config,
 		env,
 		defaultBranch,
@@ -97,12 +100,12 @@ const drainAndShip = async ({
 		serializeMainCheckout,
 		board,
 		onProgress,
-		runWorkOrder: ({ ticket }) =>
+		runWorkOrder: ({ workOrder }) =>
 			runQueueWorkOrder({
 				cwd,
 				settings,
 				trackerSettings,
-				ticket,
+				workOrder,
 				config,
 				driver,
 				driverName,
@@ -112,7 +115,7 @@ const drainAndShip = async ({
 				serializeWorktreeAdd: serializeMainCheckout,
 				coordinatorRunId: runId,
 				coordinatorRunDir,
-				onProgress: relay.createProgressSink({ ticket }),
+				onProgress: relay.createProgressSink({ ticket: workOrder.ticket }),
 			}),
 	});
 	const status = toCoordinatorStatus({ drained });
@@ -176,7 +179,7 @@ export const runQueue = async ({
 	// drain runs belongs to a ticket already attempted and never re-offered, so a
 	// snapshot misses nothing this drain could act on.
 	const holds = await syncGateHolds({ cwd, settings: trackerSettings, onProgress });
-	const parked = await scanParkedWorktrees({ cwd, defaultBranch, settings, trackerSettings, shipSettings, holds, onProgress });
+	const parked = await scanParkedWorktrees({ cwd, defaultBranch, settings, trackerSettings, holds, onProgress });
 
 	if ('error' in parked) {
 		return parked;

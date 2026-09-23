@@ -3,7 +3,6 @@ import { getPositionals } from '#src/cli/common/args/getPositionals.ts';
 import { getRequiredFlag } from '#src/cli/common/args/getRequiredFlag.ts';
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import { usage } from '#src/cli/common/constants/usage.ts';
-import { printPlanTicketWarning } from '#src/cli/common/render/printPlanTicketWarning.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { describeMissingPlanAddress } from '#src/cli/common/utils/describeMissingPlanAddress.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
@@ -57,8 +56,6 @@ const openDispatchCheckout = async ({ cwd, flags, subcommand }: { cwd: string; f
 		console.error(opened.error);
 		return exitCli({ code: 1 });
 	}
-
-	await printPlanTicketWarning({ cwd: opened.worktree.cwd, name });
 
 	return { cwd: opened.worktree.cwd, worktree: opened.worktree };
 };

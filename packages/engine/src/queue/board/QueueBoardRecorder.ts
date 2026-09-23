@@ -15,8 +15,6 @@ interface ConstructorParams {
 	cwd: string;
 	/** The coordinator run's id — the board's folder and its `coordinatorRunId`. */
 	runId: string;
-	/** `QueueSettings.branchTemplate`, to name the branch of a ticket that has no outcome yet. */
-	branchTemplate: string;
 	onProgress?: (message: string) => void;
 }
 
@@ -49,7 +47,6 @@ const copySnapshot = ({ settled, lanes }: Snapshot) => ({
 export class QueueBoardRecorder {
 	private readonly cwd: string;
 	private readonly runId: string;
-	private readonly branchTemplate: string;
 	private readonly onProgress?: (message: string) => void;
 	private readonly questions = new Map<string, string>();
 	private entered = new Map<string, { lane: QueueLane; at: string }>();
@@ -58,10 +55,9 @@ export class QueueBoardRecorder {
 	// Each write awaits its predecessor, so an older snapshot never lands over a newer one.
 	private chain: Promise<void> = Promise.resolve();
 
-	constructor({ cwd, runId, branchTemplate, onProgress }: ConstructorParams) {
+	constructor({ cwd, runId, onProgress }: ConstructorParams) {
 		this.cwd = cwd;
 		this.runId = runId;
-		this.branchTemplate = branchTemplate;
 		this.onProgress = onProgress;
 	}
 
@@ -120,7 +116,7 @@ export class QueueBoardRecorder {
 
 			const tickets = toQueueBoardTickets({
 				settled: snapshot.settled,
-				live: { ...snapshot.lanes, questions, entered: this.entered, branchTemplate: this.branchTemplate, worktreesRoot: this.worktreesRoot },
+				live: { ...snapshot.lanes, questions, entered: this.entered, worktreesRoot: this.worktreesRoot },
 				at: takenAt,
 			});
 			const board: QueueBoard = { coordinatorRunId: this.runId, updatedAt: takenAt, tickets };

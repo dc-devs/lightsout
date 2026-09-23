@@ -2,10 +2,10 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { BranchPhase, type BranchState, type LightsoutConfig } from '#src/contracts/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
+import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import { reconcileMergedTickets } from '#src/queue/ticketSelection/reconcileMergedTickets.ts';
 import type { PullRequestSummary } from '#src/ship/index.ts';
-import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 
 // Mocked Imports
 // -------------------------
@@ -59,10 +59,20 @@ const ticketOf = ({ number }: { number: number }): RunnableTicket => ({
 	unfinishedBlockers: [],
 });
 
+/** The work order a ticket was named into: its label, and the branch its record stores. */
+const workOrderOf = ({ number, branch }: { number: number; branch?: string }): NamedWorkOrder => ({
+	ticket: ticketOf({ number }),
+	name: `lo-${number}-ticket-${number}`,
+	branch: branch ?? `lo-${number}-ticket-${number}`,
+});
+
 const mergedPullRequest: PullRequestSummary = { number: 41, url: 'https://forge.example/pull/41', title: 'LO-70', branch: 'lo-70-ticket-70' };
 
 /** What `git status` finds in the work order's worktree: nothing to commit, something to commit, or no worktree there at all. */
 const changedFilesFor = { clean: [] as string[], dirty: ['src/a.ts'], absent: undefined };
+
+/** The merged pull request on a branch no template of the queue's would ever render. */
+const prefixedPullRequest: PullRequestSummary = { number: 42, url: 'https://forge.example/pull/42', title: 'LO-72', branch: 'feature/lo-72-beta' };
 
 /** A wave whose branches the forge answers for, one merged pull request per branch the test names. */
 const setupReconcile = ({
@@ -96,8 +106,7 @@ const setupReconcile = ({
 			cwd: '/repo',
 			config,
 			env: {},
-			settings: queueSettingsFixture(),
-			tickets: numbers.map((number) => ticketOf({ number })),
+			tickets: numbers.map((number) => workOrderOf({ number })),
 			onProgress: (message) => progress.push(message),
 		});
 
@@ -108,14 +117,37 @@ const setupReconcile = ({
 const setupLinkedReconcile = ({ reconciliationFailure }: { reconciliationFailure?: string } = {}) => {
 	const { progress } = setupReconcile({ merged: [70], reconciliationFailure });
 	const ticket: RunnableTicket = { ...ticketOf({ number: 70 }), url: 'https://linear.app/lightsout/issue/LO-70/ticket-70' };
+	const workOrder: NamedWorkOrder = { ticket, name: 'lo-70-ticket-70', branch: 'lo-70-ticket-70' };
 
 	const reconcile = () =>
 		reconcileMergedTickets({
 			cwd: '/repo',
 			config,
 			env: {},
-			settings: queueSettingsFixture(),
-			tickets: [ticket],
+			tickets: [workOrder],
+			onProgress: (message) => progress.push(message),
+		});
+
+	return { reconcile };
+};
+
+/** One work order, LO-72, whose record stores a branch carrying a prefix the folder label does not. */
+const setupPrefixedReconcile = () => {
+	const progress: string[] = [];
+	const workOrder: NamedWorkOrder = { ticket: ticketOf({ number: 72 }), name: 'lo-72-beta', branch: 'feature/lo-72-beta' };
+
+	mockFindPullRequest.mockImplementation(({ branch }) => Promise.resolve(branch === 'feature/lo-72-beta' ? prefixedPullRequest : undefined));
+	mockReconcileShippedTicket.mockResolvedValue(undefined);
+	mockReadGitChangedFiles.mockResolvedValue(changedFilesFor.absent);
+	mockReadBranchState.mockResolvedValue(undefined);
+	mockWriteBranchState.mockResolvedValue(undefined);
+
+	const reconcile = () =>
+		reconcileMergedTickets({
+			cwd: '/repo',
+			config,
+			env: {},
+			tickets: [workOrder],
 			onProgress: (message) => progress.push(message),
 		});
 
@@ -128,7 +160,7 @@ describe('reconcileMergedTickets', () => {
 
 		const { kept, leftBehind } = await reconcile({ numbers: [70, 71] });
 
-		expect(kept.map((ticket) => ticket.identifier)).toStrictEqual(['LO-70', 'LO-71']);
+		expect(kept.map((order) => order.ticket.identifier)).toStrictEqual(['LO-70', 'LO-71']);
 		expect(leftBehind).toStrictEqual([]);
 	});
 
@@ -145,7 +177,7 @@ describe('reconcileMergedTickets', () => {
 
 		const { kept, leftBehind } = await reconcile({ numbers: [70, 71] });
 
-		expect(kept.map((ticket) => ticket.identifier)).toStrictEqual(['LO-71']);
+		expect(kept.map((order) => order.ticket.identifier)).toStrictEqual(['LO-71']);
 		expect(mockReconcileShippedTicket).toHaveBeenCalledWith(expect.objectContaining({ ticketRef: 'LO-70' }));
 		expect(leftBehind).toStrictEqual([
 			{
@@ -282,6 +314,25 @@ describe('reconcileMergedTickets', () => {
 				title: 'Ticket 70',
 				url: 'https://linear.app/lightsout/issue/LO-70/ticket-70',
 				reason: 'skipped: its branch lo-70-ticket-70 already has a merged pull request #41, so the ticket was reconciled to done rather than built again',
+				settled: true,
+			},
+		]);
+	});
+
+	test("establishes the merge against the work order's stored branch", async () => {
+		const { reconcile } = setupPrefixedReconcile();
+
+		const { kept, leftBehind } = await reconcile();
+
+		expect(mockFindPullRequest).toHaveBeenCalledWith({ branch: 'feature/lo-72-beta', cwd: '/repo', state: 'merged' });
+		expect(mockReconcileShippedTicket).toHaveBeenCalledWith(expect.objectContaining({ ticketRef: 'LO-72' }));
+		expect(kept).toStrictEqual([]);
+		expect(leftBehind).toStrictEqual([
+			{
+				identifier: 'LO-72',
+				title: 'Ticket 72',
+				url: 'https://linear.app/lightsout/issue/LO-72',
+				reason: 'skipped: its branch feature/lo-72-beta already has a merged pull request #42, so the ticket was reconciled to done rather than built again',
 				settled: true,
 			},
 		]);

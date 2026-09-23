@@ -9,6 +9,7 @@ import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { seedConfiguredCwd } from '#tests/helpers/seedConfiguredCwd.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 
 // Mocked Imports
 // -------------------------
@@ -110,6 +111,10 @@ const laterPlanBody = '# the later plan, planned in the ticket tree\n';
 const setupPlanInTicketWorktree = async () => {
 	const cwd = await seedCwd();
 	const tree = join(`${cwd}-worktrees`, workOrderName);
+
+	// Which ticket a plan can be fetched from is its work order's record's
+	// answer, so the record stands on disk before the gate is asked.
+	seedWorkOrderRecord({ cwd, name: workOrderName, ticketRef: 'lo-7' });
 	const dir = join(tree, '.lightsout', 'work-orders', workOrderName, 'plans', '002-ranking');
 
 	mkdirSync(dir, { recursive: true });
@@ -161,6 +166,8 @@ const setupAddressedPlan = async ({
 } = {}) => {
 	const cwd = await seedCwd();
 	const tree = join(`${cwd}-worktrees`, recordedBranch);
+
+	seedWorkOrderRecord({ cwd, name: recordedBranch, ticketRef: ticketRecord.ticketRef });
 
 	mockPullTicketRecord.mockImplementation(async ({ cwd: checkout, name: branch }) => {
 		if ('record' in pull && pull.record !== undefined) {

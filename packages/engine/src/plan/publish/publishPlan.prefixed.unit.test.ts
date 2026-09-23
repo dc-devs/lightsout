@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
+import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
@@ -9,6 +10,7 @@ import { publishPlan } from '#src/plan/publish/publishPlan.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 
 // Mocked Imports
 // -------------------------
@@ -92,6 +94,9 @@ const setupPlan = ({
 	});
 
 	mkdirSync(dir, { recursive: true });
+	// Which ticket a generation publishes to is the work order record's answer,
+	// not the folder name's, so the record comes before the files.
+	seedWorkOrderRecord({ cwd, name: workOrderNameOf({ name: folder }), ticketRef: 'lo-54' });
 
 	for (const [name, text] of Object.entries(files)) {
 		writeFileSync(join(dir, name), text);

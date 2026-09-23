@@ -30,6 +30,7 @@ export { publishWorkOrderPlan } from '#src/workOrder/publishWorkOrderPlan.ts';
 export { pullWorkOrderState } from '#src/workOrder/pullWorkOrderState.ts';
 export { readWorkOrderShipEligibility } from '#src/workOrder/readWorkOrderShipEligibility.ts';
 export { readWorkOrderState } from '#src/workOrder/readWorkOrderState.ts';
+export { readWorkOrderTicketRef } from '#src/workOrder/readWorkOrderTicketRef.ts';
 export { requestWorkOrderShip } from '#src/workOrder/requestWorkOrderShip.ts';
 export { restoreWorkOrderPlan } from '#src/workOrder/restoreWorkOrderPlan.ts';
 export { retitleWorkOrderPlan } from '#src/workOrder/retitleWorkOrderPlan.ts';

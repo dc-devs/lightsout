@@ -29,8 +29,6 @@ interface Params {
 	ticketPath?: string;
 	/** `--ref` exactly as the user typed it, when a direct run named one. Forwarded to `resolveRunBranch`. */
 	ticketRef?: string;
-	/** The direct run's ticket body. Forwarded to `resolveRunBranch`. */
-	ticketBody?: string;
 	onProgress?: (message: string) => void;
 }
 
@@ -191,7 +189,6 @@ export const resolveRunWorkspace = async ({
 	planPath,
 	ticketPath,
 	ticketRef,
-	ticketBody,
 	onProgress,
 }: Params): Promise<RunWorkspace | { error: string }> => {
 	const isolated = resolveWorktreeIsolation({ flags, configured: config.implement?.worktree });
@@ -204,7 +201,7 @@ export const resolveRunWorkspace = async ({
 		return { cwd, isolated: false, created: false };
 	}
 
-	const branch = await resolveRunBranch({ cwd, config, planPath, ticketPath, ticketRef, ticketBody });
+	const branch = await resolveRunBranch({ cwd, planPath, ticketPath, ticketRef });
 
 	if (typeof branch !== 'string') {
 		return branch;

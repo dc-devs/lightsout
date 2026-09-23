@@ -90,6 +90,7 @@ const setupSync = ({
 	config = { gates, 'ticket-tracker': trackerBlock },
 	listFailureAfterFirstRead,
 	sidecarUnwritable,
+	localText,
 }: {
 	local?: WorkOrderState;
 	published?: WorkOrderState;
@@ -100,6 +101,8 @@ const setupSync = ({
 	listFailureAfterFirstRead?: string;
 	/** Puts a directory where `state-sync.json` belongs, so every write of the sidecar fails the way a full or read-only disk would. */
 	sidecarUnwritable?: boolean;
+	/** The raw bytes written as `state.json`, for a record no reader can parse. */
+	localText?: string;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-sync-ticket-'));
 	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
@@ -111,6 +114,10 @@ const setupSync = ({
 
 	if (local !== undefined) {
 		writeFileSync(recordPath, serializedOf({ record: local }));
+	}
+
+	if (localText !== undefined) {
+		writeFileSync(recordPath, localText);
 	}
 
 	if (synced !== undefined) {
@@ -298,6 +305,40 @@ describe('syncWorkOrderState', () => {
 
 		expect(result).toStrictEqual({ error: expect.stringContaining('lightsout.config.json') });
 		expect(result).not.toStrictEqual({ error: expect.stringContaining('needs a configured tracker to sync against') });
+		expect({ reads: mockGetTicketAttachments.mock.calls.length, uploads: mockSetTicketAttachment.mock.calls.length }).toStrictEqual({ reads: 0, uploads: 0 });
+	});
+
+	test('refuses to sync a work order that belongs to no ticket', async () => {
+		// The record is the only thing that says which ticket this work belongs to,
+		// so a record carrying none has nowhere to publish. The refusal has to name
+		// the absent reference rather than blame the folder's name for carrying no
+		// ticket id, which is what it used to do.
+		const belongsToNoTicket: WorkOrderState = { ...recordOf({ title: 'The local title' }), ticketRef: undefined };
+		const { params } = setupSync({ local: belongsToNoTicket });
+
+		const result = await syncWorkOrderState(params);
+
+		const refusal = 'error' in result ? result.error : undefined;
+
+		expect(refusal).toEqual(expect.stringContaining('lo-140-sync'));
+		expect(refusal).toEqual(expect.stringMatching(/ticket reference/iu));
+		expect(refusal).toEqual(expect.stringContaining('needs a configured tracker to sync against'));
+		// The two halves of the sentence this row replaced: a folder name read for
+		// a ticket id, and the pattern it was read with.
+		expect(refusal).not.toEqual(expect.stringContaining('folder name'));
+		expect(refusal).not.toEqual(expect.stringContaining('ship.ticket-pattern'));
+		expect({ reads: mockGetTicketAttachments.mock.calls.length, uploads: mockSetTicketAttachment.mock.calls.length }).toStrictEqual({ reads: 0, uploads: 0 });
+	});
+
+	test("syncWorkOrderState: refuses when this machine's own record cannot be read, before any tracker is asked", async () => {
+		// The record is read first now, so a record nothing can parse is refused by
+		// the file's own name — there is no ticket reference to resolve a tracker
+		// from, and nothing else on this machine answers which ticket to ask.
+		const { params, recordPath } = setupSync({ localText: '{ half a record' });
+
+		const result = await syncWorkOrderState(params);
+
+		expect(result).toStrictEqual({ error: expect.stringContaining(recordPath) });
 		expect({ reads: mockGetTicketAttachments.mock.calls.length, uploads: mockSetTicketAttachment.mock.calls.length }).toStrictEqual({ reads: 0, uploads: 0 });
 	});
 

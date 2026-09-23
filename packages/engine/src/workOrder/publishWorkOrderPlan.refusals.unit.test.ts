@@ -107,6 +107,7 @@ const setupTicketPlan = ({
 	plans,
 	syncState,
 	published,
+	recordText,
 }: {
 	files?: Record<string, string>;
 	/** The plans the local `state.json` holds. No value at all means the work order folder holds no record. */
@@ -115,6 +116,8 @@ const setupTicketPlan = ({
 	syncState?: unknown;
 	/** The record the ticket carries as its `state.json` attachment, when the case needs one. */
 	published?: unknown;
+	/** The raw bytes written as the local `state.json`, for a record no reader can parse. */
+	recordText?: string;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-publish-ticket-plan-'));
 	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
@@ -138,12 +141,17 @@ const setupTicketPlan = ({
 		writeFileSync(join(workOrderFolder, 'state.json'), JSON.stringify(ticketRecordOf({ plans })));
 	}
 
+	if (recordText !== undefined) {
+		writeFileSync(join(workOrderFolder, 'state.json'), recordText);
+	}
+
 	if (syncState !== undefined) {
 		writeFileSync(join(workOrderFolder, 'state-sync.json'), JSON.stringify(syncState));
 	}
 
 	return {
 		planFolder,
+		workOrderFolder,
 		progress,
 		params: {
 			cwd,
@@ -197,7 +205,7 @@ describe('publishWorkOrderPlan', () => {
 		});
 	});
 
-	test('publishWorkOrderPlan: refuses a plan the work order state does not hold', async () => {
+	test('publishWorkOrderPlan: refuses a plan the work order state does not hold, and a work order with no record at all', async () => {
 		const otherPlanOnly = setupTicketPlan({
 			plans: [{ id: '002-other-plan', title: 'Another plan', progress: 'planning', createdAt: '2026-01-03T00:00:00.000Z' }],
 		});
@@ -206,13 +214,32 @@ describe('publishWorkOrderPlan', () => {
 		const unknownPlan = await publishWorkOrderPlan(otherPlanOnly.params);
 		const withoutRecord = await publishWorkOrderPlan(noRecord.params);
 
+		// A work order with no record names no ticket either, so it is refused for
+		// belonging to none rather than for holding no such plan.
 		expect({
 			unknownPlan: { error: unknownPlan.error, published: unknownPlan.published },
 			withoutRecord: { error: withoutRecord.error, published: withoutRecord.published },
 			attached: attachedTitles(),
 		}).toStrictEqual({
 			unknownPlan: { error: expect.stringContaining(`lightsout work-order add-plan --name ${name}`), published: [] },
-			withoutRecord: { error: expect.stringContaining(`lightsout work-order add-plan --name ${name}`), published: [] },
+			withoutRecord: { error: expect.stringContaining('carries no ticket reference'), published: [] },
+			attached: [],
+		});
+	});
+
+	test("publishWorkOrderPlan: refuses when this machine's own record cannot be read, naming the file, before any attachment", async () => {
+		// The record is read before the tracker is resolved, because it is the only
+		// thing that says which ticket this work order belongs to. A record nothing
+		// can parse therefore stops the publish by name rather than by a reference
+		// guessed from the label.
+		const { params, workOrderFolder } = setupTicketPlan({ recordText: '{ half a record' });
+
+		const report = await publishWorkOrderPlan(params);
+
+		expect({ error: report.error, published: report.published, stale: report.stale, attached: attachedTitles() }).toStrictEqual({
+			error: expect.stringContaining(join(workOrderFolder, 'state.json')),
+			published: [],
+			stale: [],
 			attached: [],
 		});
 	});

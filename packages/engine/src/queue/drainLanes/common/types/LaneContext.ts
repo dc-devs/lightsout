@@ -1,8 +1,9 @@
 import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
 import type { GateHolds } from '#src/gates/index.ts';
 import type { QueueBoardRecorder } from '#src/queue/board/index.ts';
+import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
-import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import type { ShipIntegration, ShipSettings } from '#src/ship/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
@@ -21,13 +22,20 @@ export interface LaneContext {
 	shipSettings: ShipSettings;
 	/** The effective config and harness the merge lane's integration step verifies and repairs with. */
 	shipIntegration: ShipIntegration;
+	/**
+	 * The harness the wave's naming step spawns to summarise a ticket's title.
+	 *
+	 * Threaded rather than taken from `shipIntegration`, whose driver is the
+	 * merge lane's repair harness and means something else.
+	 */
+	driver: Driver;
 	defaultBranch: string;
 	/** The process environment the tracker credentials are read from. */
 	env: NodeJS.ProcessEnv;
 	/** Where the coordinator run's queue document is written, rewritten every time tickets are admitted. */
 	planPath: string;
-	/** One ticket, from worktree to committed-and-ready. */
-	runWorkOrder: (params: { ticket: RunnableTicket }) => Promise<WorkOrderRunOutcome>;
+	/** One work order, from worktree to committed-and-ready. */
+	runWorkOrder: (params: { workOrder: NamedWorkOrder }) => Promise<WorkOrderRunOutcome>;
 	/**
 	 * Runs a task with no other main-checkout git mutation in flight. A builder's
 	 * worktree creation, the merge tail's removal and the re-scan's removal never

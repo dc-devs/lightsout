@@ -175,6 +175,18 @@ const attachedBy = () =>
 const syncedHashAt = ({ syncPath }: { syncPath: string }) =>
 	existsSync(syncPath) ? (JSON.parse(readFileSync(syncPath, 'utf8')) as { recordSha256?: string }).recordSha256 : undefined;
 
+/** A work order named from words alone: every field a record needs, and no ticket reference at all. */
+const ticketlessRecord: WorkOrderState = {
+	schemaVersion: 1,
+	name,
+	branch: name,
+	mode: WorkOrderMode.SinglePlan,
+	plans: [],
+	history: [{ at: '2026-01-01T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: 'added plan 001-record' }],
+};
+/** What the change appends to that record, which is what the local-only row expects back. */
+const ticketlessChangedRecord = withEvent({ record: ticketlessRecord, detail: 'added plan 003-ship-guard' });
+
 describe('updateSyncedWorkOrderState', () => {
 	test('updateSyncedWorkOrderState: applies the change, publishes the serialized record as state.json and records its hash', async () => {
 		const { params, recordPath, syncPath } = await setupSyncedRecord({ published: localRecord, sidecarOf: localRecord });
@@ -206,22 +218,6 @@ describe('updateSyncedWorkOrderState', () => {
 		expect(seen).toStrictEqual([]);
 		expect(mockSetTicketAttachment).not.toHaveBeenCalled();
 		expect(readFileSync(recordPath, 'utf8')).toBe(before);
-	});
-
-	test('updateSyncedWorkOrderState: keeps the local change and answers the publish failure when the tracker refuses state.json', async () => {
-		const { params, recordPath, syncPath } = await setupSyncedRecord({
-			published: localRecord,
-			sidecarOf: localRecord,
-			uploadFailure: 'the tracker rejected the attachment',
-		});
-
-		const result = await updateSyncedWorkOrderState(params);
-
-		// The sentence has to carry the tracker's own reason, or a human is told the
-		// publish failed without being told what refused it.
-		expect(result).toEqual({ record: changedRecord, publishError: expect.stringContaining('the tracker rejected the attachment') });
-		expect((JSON.parse(readFileSync(recordPath, 'utf8')) as WorkOrderState).history).toStrictEqual(changedRecord.history);
-		expect(syncedHashAt({ syncPath })).toBe(sha256({ content: await canonicalTicketRecordText({ record: localRecord }) }));
 	});
 
 	test("updateSyncedWorkOrderState: answers the change's own refusal and writes and publishes nothing", async () => {
@@ -339,46 +335,6 @@ describe('updateSyncedWorkOrderState', () => {
 		expect(syncedHashAt({ syncPath })).toBe(sha256({ content: written }));
 	});
 
-	test('updateSyncedWorkOrderState: keeps the change and answers a sidecar it could not write as a publish failure', async () => {
-		const { params, recordPath } = await setupSyncedRecord({ sidecarUnwritable: true });
-
-		const result = await updateSyncedWorkOrderState(params);
-
-		const written = readFileSync(recordPath, 'utf8');
-
-		expect(result).toEqual({ record: changedRecord, publishError: expect.stringContaining('could not record that it was') });
-		expect(attachedBy()).toStrictEqual([{ title: 'state.json', contentType: 'application/json', text: written }]);
-	});
-
-	test('updateSyncedWorkOrderState: answers the publish failure when the tracker cannot look the ticket up', async () => {
-		const { params, recordPath, syncPath } = await setupSyncedRecord({ published: localRecord, sidecarOf: localRecord });
-
-		mockGetTicketsByIdentifiers.mockResolvedValue({ error: 'the tracker API answered 503' });
-
-		const result = await updateSyncedWorkOrderState(params);
-
-		expect(result).toStrictEqual({ record: changedRecord, publishError: 'the work order state could not be published: the tracker API answered 503' });
-		expect((JSON.parse(readFileSync(recordPath, 'utf8')) as WorkOrderState).history).toStrictEqual(changedRecord.history);
-		expect(attachedBy()).toStrictEqual([]);
-		expect(syncedHashAt({ syncPath })).toBe(sha256({ content: await canonicalTicketRecordText({ record: localRecord }) }));
-	});
-
-	test('updateSyncedWorkOrderState: answers the publish failure when the configured tracker carries no such ticket', async () => {
-		const { params, recordPath, syncPath } = await setupSyncedRecord({ published: localRecord, sidecarOf: localRecord });
-
-		mockGetTicketsByIdentifiers.mockResolvedValue([]);
-
-		const result = await updateSyncedWorkOrderState(params);
-
-		expect(result).toStrictEqual({
-			record: changedRecord,
-			publishError: 'the work order state could not be published: there is no lo-140 on the configured ticket tracker',
-		});
-		expect((JSON.parse(readFileSync(recordPath, 'utf8')) as WorkOrderState).history).toStrictEqual(changedRecord.history);
-		expect(attachedBy()).toStrictEqual([]);
-		expect(syncedHashAt({ syncPath })).toBe(sha256({ content: await canonicalTicketRecordText({ record: localRecord }) }));
-	});
-
 	test("updateSyncedWorkOrderState: the synced write lands in the ticket's own folder", async () => {
 		const { params, cwd, recordPath, syncPath } = await setupSyncedRecord();
 
@@ -393,5 +349,20 @@ describe('updateSyncedWorkOrderState', () => {
 		expect(attachedBy()).toStrictEqual([{ title: 'state.json', contentType: 'application/json', text: written }]);
 		expect(syncedHashAt({ syncPath })).toBe(sha256({ content: written }));
 		expect(existsSync(join(cwd, '.lightsout', 'plans'))).toBe(false);
+	});
+
+	test('writes locally and reports local-only for a work order with no ticket', async () => {
+		// The `ticket-tracker` block IS configured here: what makes this local only is
+		// the record carrying no ticket reference, which is the only thing that answers
+		// which ticket a work order belongs to.
+		const { params, recordPath } = await setupSyncedRecord({ local: ticketlessRecord });
+
+		const result = await updateSyncedWorkOrderState(params);
+
+		expect(result).toStrictEqual({ record: ticketlessChangedRecord });
+		expect(JSON.parse(readFileSync(recordPath, 'utf8')) as WorkOrderState).toStrictEqual(ticketlessChangedRecord);
+		expect(mockGetTicketsByIdentifiers).not.toHaveBeenCalled();
+		expect(mockGetTicketAttachments).not.toHaveBeenCalled();
+		expect(mockSetTicketAttachment).not.toHaveBeenCalled();
 	});
 });

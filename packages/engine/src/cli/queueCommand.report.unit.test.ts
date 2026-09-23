@@ -75,6 +75,7 @@ const outcomeOf = ({ ready, error, reconciliationFailure }: { ready: boolean; er
 		finished: false,
 		unfinishedBlockers: [],
 	},
+	name: 'lo-70-drain',
 	branch: 'lo-70-drain',
 	worktreePath: '/tmp/worktrees/lo-70-drain',
 	ready,

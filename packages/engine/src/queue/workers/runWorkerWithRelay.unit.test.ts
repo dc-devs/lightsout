@@ -154,7 +154,7 @@ const runWorker = ({
 }) =>
 	runWorkerWithRelay({
 		worktreePath,
-		branch: 'lo-70-drain',
+		workOrderName: 'lo-70-drain',
 		ticket,
 		config,
 		driver,

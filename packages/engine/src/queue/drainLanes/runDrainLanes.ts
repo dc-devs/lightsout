@@ -52,7 +52,7 @@ const seedState = ({
  * Both move out of the lists they were in, so the last board snapshot shows each of them once, in Blocked.
  */
 const finishDrain = ({ context, state }: { context: LaneContext; state: LaneState }): QueueDrainReport => {
-	for (const ticket of state.pending) {
+	for (const { ticket } of state.pending) {
 		const reason = 'not started: every slot was retired by a ticket parked on an unanswered question';
 
 		state.leftBehind.push({ identifier: ticket.identifier, title: ticket.title, url: ticket.url, reason });
@@ -102,7 +102,7 @@ export const runDrainLanes = async ({ first, carried, carriedLeftBehind, attempt
 	const flight: LaneFlight = { tasks: new Map(), builds: 0, ships: 0, scans: 0, nextKey: 0 };
 
 	await admitScanned({ context, state, selection: first });
-	await writeQueuePlan({ path: context.planPath, cwd: context.cwd, settings: context.settings, queued: state.queued });
+	await writeQueuePlan({ path: context.planPath, cwd: context.cwd, queued: state.queued });
 
 	for (;;) {
 		startShip({ context, state, flight });

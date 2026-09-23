@@ -7,8 +7,8 @@ import { workOrderFileNames } from '#src/workOrder/common/constants/workOrderFil
 import type { TicketTrackerTarget } from '#src/workOrder/common/types/TicketTrackerTarget.ts';
 import { attachWorkOrderStateIfUnmoved } from '#src/workOrder/common/utils/attachWorkOrderStateIfUnmoved.ts';
 import { readWorkOrderSyncState } from '#src/workOrder/common/utils/readWorkOrderSyncState.ts';
+import { readWorkOrderWithTrackerTarget } from '#src/workOrder/common/utils/readWorkOrderWithTrackerTarget.ts';
 import { recordWorkOrderSyncState } from '#src/workOrder/common/utils/recordWorkOrderSyncState.ts';
-import { resolveWorkOrderTrackerTarget } from '#src/workOrder/common/utils/resolveWorkOrderTrackerTarget.ts';
 import { serializeWorkOrderState } from '#src/workOrder/common/utils/serializeWorkOrderState.ts';
 import { keepLocalWorkOrderState, keepPublishedWorkOrderState } from '#src/workOrder/divergence/index.ts';
 import { pullWorkOrderState } from '#src/workOrder/pullWorkOrderState.ts';
@@ -83,21 +83,28 @@ const catchUpTicketRecord = async ({
  * Bring this machine's work order state and the ticket's own copy back into
  * agreement — by catching up, or by the choice a human made about a divergence.
  *
- * Syncing is the one command whose whole subject is the tracker, so a ticket
- * with nowhere to publish to is refused by name rather than quietly answered
- * from local files. Without `--keep` it does what every other command's pull
+ * Syncing is the one command whose whole subject is the tracker, so a work
+ * order with nowhere to publish to is refused by name rather than quietly
+ * answered from local files. Without `--keep` it does what every other command's pull
  * does and then sends anything this machine still owes; with `--keep` it
  * carries out a decision, which is the only way a divergence is ever resolved.
  */
 export const syncWorkOrderState = async ({ cwd, name, config, env, keep, onProgress }: Params): Promise<{ record: WorkOrderState } | { error: string }> => {
-	const target = resolveWorkOrderTrackerTarget({ config, env, name });
+	const opened = await readWorkOrderWithTrackerTarget({ cwd, name, config, env });
 
-	if ('error' in target) {
-		return target;
+	if ('error' in opened) {
+		return opened;
 	}
 
+	const { record, target } = opened;
+
 	if ('localOnly' in target) {
-		return { error: `${target.localOnly} — \`lightsout work-order sync\` needs a configured tracker to sync against` };
+		// A work order with no record at all has nothing to sync, rather than
+		// nowhere to publish: the ticket it belongs to is what the record would
+		// have said, so no tracker can be asked on its behalf.
+		return record === undefined
+			? { error: `there is no ${workOrderFileNames.record} for '${name}' on this machine, so there is nothing to sync` }
+			: { error: `${target.localOnly} — \`lightsout work-order sync\` needs a configured tracker to sync against` };
 	}
 
 	if (keep === WorkOrderSyncKeep.Published) {

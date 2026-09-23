@@ -9,9 +9,12 @@ import type { GateRunResult } from '#src/gates/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import { type QuestionRelay, type QueueFailure, type QueueSettings, readBranchState, runQueue, type WorkOrderRunOutcome } from '#src/queue/index.ts';
+import type { nameWaveWorkOrders } from '#src/queue/nameWaveWorkOrders.ts';
 import type { ShipIntegration, ShipSettings } from '#src/ship/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import { nameWaveLikeTemplate } from '#tests/helpers/nameWaveLikeTemplate.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
@@ -76,6 +79,16 @@ jest.mock('#src/ship/index.ts', () => ({
 	runShip: (params: { cwd: string; integration: ShipIntegration }) => mockRunShip(params),
 }));
 // -------------------------
+// Naming a wave creates work orders, which reads the tracker and spawns a
+// harness — the work order module's own job, with its own tests. These cases
+// keep the label and branch the queue's template renders, so what they state
+// about branches and worktrees is what the drain itself decides.
+const mockNameWaveWorkOrders = jest.fn<typeof nameWaveWorkOrders>(nameWaveLikeTemplate());
+
+jest.mock('#src/queue/nameWaveWorkOrders.ts', () => ({
+	nameWaveWorkOrders: (params: Parameters<typeof mockNameWaveWorkOrders>[0]) => mockNameWaveWorkOrders(params),
+}));
+// -------------------------
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
@@ -135,6 +148,9 @@ const setupQueueShipping = async ({ shipBlock }: { shipBlock?: { reason: ShipBlo
 	const branch = 'lo-70-structured-gate-result';
 	const worktree = join(dirname(cwd), `${basename(cwd)}-worktrees`, branch);
 
+	// The ship records this branch leaves are filed in the work order that claims
+	// it, so the record comes before the tree.
+	seedWorkOrderRecord({ cwd, name: branch, ticketRef: 'LO-70' });
 	execFileSync('git', ['worktree', 'add', worktree, '-b', branch, 'origin/main'], { cwd, stdio: 'ignore' });
 	writeFileSync(join(worktree, 'feature.ts'), 'export const feature = 1;\n');
 	execFileSync('git', ['add', '-A'], { cwd: worktree, stdio: 'ignore' });
@@ -144,7 +160,7 @@ const setupQueueShipping = async ({ shipBlock }: { shipBlock?: { reason: ShipBlo
 	mockListEligibleTickets.mockResolvedValue([]);
 	mockScanParkedWorktrees.mockResolvedValue({
 		resumed: [],
-		outcomes: [{ ticket, branch, worktreePath: worktree, ready: true }],
+		outcomes: [{ ticket, name: branch, branch, worktreePath: worktree, ready: true }],
 		leftBehind: [],
 		merged: [],
 	} satisfies ParkedWork);

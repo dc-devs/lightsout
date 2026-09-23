@@ -15,8 +15,8 @@ interface Params {
 	/** The worktree the ticket is planned and built in. */
 	cwd: string;
 	ticket: TicketSummary;
-	/** The ticket's branch, which is also the ticket folder the engine chooses a plan inside. */
-	branch: string;
+	/** The work order's label — the folder the engine chooses a plan inside, and the first segment of the address it hands the session. */
+	workOrderName: string;
 	config: LightsoutConfig;
 	driver: Driver;
 	/** Recorded as the harness name on a build from the ticket body. */
@@ -121,7 +121,7 @@ const runPlanningSession = async ({
 export const runAutoPlanWorker = async ({
 	cwd,
 	ticket,
-	branch,
+	workOrderName,
 	config,
 	driver,
 	driverName,
@@ -131,14 +131,14 @@ export const runAutoPlanWorker = async ({
 	answeredQuestion,
 	onProgress,
 }: Params): Promise<WorkerOutcome> => {
-	const chosen = await chooseAutoPlanTarget({ cwd, branch, ticket, config, env, onProgress });
+	const chosen = await chooseAutoPlanTarget({ cwd, workOrderName, ticket, config, env, onProgress });
 
 	if ('error' in chosen) {
 		return { error: chosen.error };
 	}
 
 	const build = ({ record }: { record: WorkOrderState }) =>
-		buildWorkOrderPlans({ cwd, branch, ticket, record, config, env, driver, driverName, workOrderRunDir, allowTicketBodyBuild: false, onProgress });
+		buildWorkOrderPlans({ cwd, workOrderName, ticket, record, config, env, driver, driverName, workOrderRunDir, allowTicketBodyBuild: false, onProgress });
 
 	if (chosen.address === undefined) {
 		// No session is spent on a ticket with nothing waiting to be planned: a plan
@@ -158,14 +158,14 @@ export const runAutoPlanWorker = async ({
 
 	// Read again rather than reused: publishing the plan moved it from still being
 	// planned to ready to implement, and the build loop reads that progress.
-	const planned = await pullWorkOrderState({ cwd, name: branch, config, env, onProgress });
+	const planned = await pullWorkOrderState({ cwd, name: workOrderName, config, env, onProgress });
 
 	if ('error' in planned) {
 		return { error: planned.error };
 	}
 
 	if (planned.record === undefined) {
-		return { error: `ticket ${branch} no longer has a record, so the plan ${planAddress} the session wrote could not be built` };
+		return { error: `work order ${workOrderName} no longer has a record, so the plan ${planAddress} the session wrote could not be built` };
 	}
 
 	return build({ record: planned.record });

@@ -7,8 +7,8 @@ import type { TicketTrackerTarget } from '#src/workOrder/common/types/TicketTrac
 import { findPlanPublishRefusal } from '#src/workOrder/common/utils/findPlanPublishRefusal.ts';
 import { publishBrainstormWhenNotesChanged } from '#src/workOrder/common/utils/publishBrainstormWhenNotesChanged.ts';
 import { readWorkOrderSyncState } from '#src/workOrder/common/utils/readWorkOrderSyncState.ts';
+import { readWorkOrderWithTrackerTarget } from '#src/workOrder/common/utils/readWorkOrderWithTrackerTarget.ts';
 import { recordWorkOrderSyncState } from '#src/workOrder/common/utils/recordWorkOrderSyncState.ts';
-import { resolveWorkOrderTrackerTarget } from '#src/workOrder/common/utils/resolveWorkOrderTrackerTarget.ts';
 import { pullWorkOrderState } from '#src/workOrder/pullWorkOrderState.ts';
 import { updateSyncedWorkOrderState } from '#src/workOrder/updateSyncedWorkOrderState.ts';
 
@@ -184,11 +184,13 @@ export const publishWorkOrderPlan = async ({ cwd, address, config, env, onProgre
 	}
 
 	const { workOrderName: name, planId } = parsed;
-	const target = resolveWorkOrderTrackerTarget({ config, env, name });
+	const opened = await readWorkOrderWithTrackerTarget({ cwd, name, config, env });
 
-	if ('error' in target) {
-		return { published: [], stale: [], error: target.error };
+	if ('error' in opened) {
+		return { published: [], stale: [], error: opened.error };
 	}
+
+	const { target } = opened;
 
 	if ('localOnly' in target) {
 		return { published: [], stale: [], error: `plan ${planId} cannot be published: ${target.localOnly}` };

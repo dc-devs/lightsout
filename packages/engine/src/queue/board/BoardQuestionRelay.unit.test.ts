@@ -5,7 +5,6 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { BoardQuestionRelay, QueueBoardRecorder, readQueueBoard } from '#src/queue/board/index.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
-import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
@@ -26,7 +25,7 @@ const setupRelay = () => {
 	// id — so the folder has to be on disk before the board has a place at all.
 	seedRunFolder({ cwd, runId, pipeline: 'queue' });
 
-	const board = new QueueBoardRecorder({ cwd, runId, branchTemplate: queueSettingsFixture().branchTemplate });
+	const board = new QueueBoardRecorder({ cwd, runId });
 	const sink = jest.fn<(message: string) => void>();
 	let answerWith: (answer: string) => void = () => undefined;
 	let refuseWith: (error: Error) => void = () => undefined;
@@ -49,7 +48,13 @@ const setupRelay = () => {
 
 	board.record({
 		settled: { outcomes: [], leftBehind: [] },
-		lanes: { pending: [], building: [{ ticket, startedAt: '2026-01-01T00:05:00.000Z' }], readyToShip: [], shipping: undefined, blocked: [] },
+		lanes: {
+			pending: [],
+			building: [{ workOrder: { ticket, name: 'lo-70-drain', branch: 'lo-70-drain' }, startedAt: '2026-01-01T00:05:00.000Z' }],
+			readyToShip: [],
+			shipping: undefined,
+			blocked: [],
+		},
 	});
 
 	const relay = new BoardQuestionRelay({ relay: inner, board });

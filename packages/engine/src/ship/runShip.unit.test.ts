@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
@@ -184,13 +185,15 @@ describe('runShip', () => {
 		expect(readForgeLog().some((line) => line.startsWith('pr '))).toBe(false);
 	});
 
-	test('a block before any branch name is known files its result under `unknown`', async () => {
+	test('a block before any branch name is known files its result nowhere, and still answers it', async () => {
 		const { cwd, onProgress } = await setupShip({ repo: { worktree: false } });
 
 		const result = await runShip({ cwd, settings, integration, workOrderGuard, onProgress });
 
+		// A run whose branch git could not name belongs to no work order, so there
+		// is no folder to file a result in. The forge stays ship's durable record.
 		expect(result).toEqual(expect.objectContaining({ status: 'blocked', reason: 'git-unreadable' }));
-		expect(await readShipResult({ cwd, branch: 'unknown' })).toStrictEqual(result);
+		expect(existsSync(join(cwd, '.lightsout', 'work-orders', 'unknown'))).toBe(false);
 	});
 
 	test('a push the remote will not take blocks before a pull request is opened', async () => {

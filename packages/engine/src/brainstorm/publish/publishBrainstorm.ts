@@ -5,10 +5,10 @@ import { brainstormAttachmentManifestName } from '#src/brainstorm/common/constan
 import { attachmentTitle } from '#src/common/attachmentManifest/attachmentTitle.ts';
 import { serializeAttachmentManifest } from '#src/common/attachmentManifest/serializeAttachmentManifest.ts';
 import { brainstormNotesFileName } from '#src/common/constants/brainstormNotesFileName.ts';
+import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { planWorkspaceDir, readPlanWorkOrderRef } from '#src/plan/index.ts';
-import { resolveShipSettings } from '#src/ship/index.ts';
 import { getTicketsByIdentifiers, resolveTrackerSettings, setTicketAttachment, type TrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
@@ -114,13 +114,13 @@ const attachBrainstormFiles = async ({
 };
 
 /**
- * Put a brainstorm folder's two files on the ticket the folder is named after,
- * committing their exact names and hashes with `brainstorm-attachments.json`
- * attached last.
+ * Put a brainstorm folder's two files on the ticket its work order's record
+ * names, committing their exact names and hashes with
+ * `brainstorm-attachments.json` attached last.
  *
  * The refusals are ordered the way `publishPlan` orders its own — disk, then
- * the folder's name, then configuration, then the network — so the two failures
- * a user actually hits are answered with no round trip.
+ * the work order's record, then configuration, then the network — so the two
+ * failures a user actually hits are answered with no round trip.
  *
  * No stale attachment is reported, and for a legacy folder none can exist: the
  * set is two fixed names, so a re-publish replaces both same-titled attachments
@@ -135,21 +135,12 @@ export const publishBrainstorm = async ({ cwd, name, config, env, onProgress, ti
 		return { published: [], error: prepared.error };
 	}
 
-	const shipSettings = resolveShipSettings({ config });
-
-	if (shipSettings === undefined) {
-		return {
-			published: [],
-			error: `ship.ticket-pattern is not a usable regular expression with a (?<ticket>) group, so brainstorm publish cannot read a ticket id out of plan folder '${name}'`,
-		};
-	}
-
-	const ticketRef = readPlanWorkOrderRef({ name, ticketPattern: shipSettings.ticketPattern });
+	const ticketRef = await readPlanWorkOrderRef({ cwd, name });
 
 	if (ticketRef === undefined) {
 		return {
 			published: [],
-			error: `plan folder '${name}' carries no ticket id — name a plan folder after its ticket's branch so brainstorm publish knows which ticket to attach to`,
+			error: `the brainstorm for '${name}' cannot be published: work order '${workOrderNameOf({ name })}' carries no ticket reference in its record, so it belongs to no ticket`,
 		};
 	}
 

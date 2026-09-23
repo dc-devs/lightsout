@@ -23,6 +23,7 @@ import { shipOneBranch } from '#src/queue/shipOneBranch.ts';
 import type { ShipWorkOrderGuard } from '#src/ship/index.ts';
 import { updateLocalWorkOrderState } from '#src/workOrder/index.ts';
 import { createWorktree } from '#src/worktree/index.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { shipIntegrationFixture } from '#tests/helpers/shipIntegrationFixture.ts';
 import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
@@ -108,6 +109,11 @@ const setupReadyBranch = async ({ number = 70 }: { number?: number } = {}) => {
 	execSync('git config user.name t && git config user.email t@t', { cwd, stdio: 'ignore' });
 
 	const branch = `lo-${number}-drain`;
+
+	// The branch's phase is recorded in the work order whose record stores it, so
+	// the work order comes before the tree.
+	seedWorkOrderRecord({ cwd, name: branch, ticketRef: `lo-${number}` });
+
 	const worktreePath = String(await createWorktree({ cwd, branch, startPoint: 'origin/main', owner: WorktreeOwner.Queue, reuseExisting: true }));
 
 	writeRepoFile({ cwd: worktreePath, path: 'work.ts', content: 'export const value = 1;\n' });
@@ -117,7 +123,7 @@ const setupReadyBranch = async ({ number = 70 }: { number?: number } = {}) => {
 	mockRunShip.mockResolvedValue(shippedResult);
 	mockTakeGateHold.mockResolvedValue(undefined);
 
-	const outcome: WorkOrderRunOutcome = { ticket: ticketOf({ number }), branch, worktreePath, ready: true };
+	const outcome: WorkOrderRunOutcome = { ticket: ticketOf({ number }), name: branch, branch, worktreePath, ready: true };
 
 	return { cwd, outcome };
 };

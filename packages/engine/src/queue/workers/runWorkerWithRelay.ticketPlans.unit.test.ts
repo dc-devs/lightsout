@@ -128,7 +128,7 @@ const setupWorker = ({ plans, workOrderBranch = branch, leftover = [] }: { plans
 		ask,
 		params: {
 			worktreePath: mkdtempSync(join(tmpdir(), 'lightsout-ticket-plans-')),
-			branch,
+			workOrderName: branch,
 			ticket,
 			config,
 			driver,

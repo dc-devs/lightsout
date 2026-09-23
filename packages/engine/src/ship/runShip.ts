@@ -25,11 +25,19 @@ interface Params {
 	onProgress?: ProgressSink;
 }
 
-/** Persist a result and hand it back — the one way out of this file, so no exit path can forget to write one. */
+/**
+ * Persist a result and hand it back — the one way out of this file, so no exit
+ * path can forget to write one.
+ *
+ * A branch no work order claims has nowhere to file a result, so there is no
+ * path to name and the line is left out; the ship's verdict is unchanged.
+ */
 const record = async ({ cwd, result, onProgress }: { cwd: string; result: ShipResult; onProgress?: ProgressSink }) => {
 	const resultPath = await writeShipResult({ cwd, result });
 
-	onProgress?.(`ship result: ${resultPath}`);
+	if (resultPath !== undefined) {
+		onProgress?.(`ship result: ${resultPath}`);
+	}
 
 	return result;
 };

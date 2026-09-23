@@ -5,13 +5,15 @@ import { contradictoryWorktreeFlagsMessage } from '#src/cli/common/constants/con
 import { resolveRunWorkspace } from '#src/cli/common/implementRun/resolveRunWorkspace.ts';
 import type { LightsoutConfig, RunLock, WorktreeOwner, WorktreeRecord } from '#src/contracts/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 
 // Mocked Imports
 // -------------------------
 // The worktree module is the seam every git command behind this resolver runs
 // through, so mocking its barrel is what lets 'no git command ran' and 'nothing
 // was created' be asserted at all. `resolveRunBranch` is deliberately NOT
-// mocked: it is pure, and one row below turns on an input the real one refuses.
+// mocked: it reads the work order's own record, and one row below turns on an
+// input the real one refuses.
 type WorktreeFailure = { error: string };
 
 interface CreateParams {
@@ -91,6 +93,10 @@ interface Answers {
 const setupWorkspace = ({ worktree, setup, flags = [], answers = {} }: { worktree?: boolean; setup?: string; flags?: string[]; answers?: Answers } = {}) => {
 	const { holder, record, fetched = 'main', created = worktreePath } = answers;
 
+	// The record is what says which branch a plan address's work order implements
+	// on, so a row that expects a branch at all has to hold one.
+	seedWorkOrderRecord({ cwd: sourceCwd, name: branch });
+
 	mockFetchDefaultBranch.mockResolvedValue(fetched);
 	mockReadBranchWorktree.mockResolvedValue(holder);
 	mockResolveWorktreePath.mockResolvedValue(worktreePath);
@@ -130,6 +136,7 @@ const ticketRecordOwnedBy = ({ owner }: { owner: WorktreeOwner }): WorktreeRecor
  * lock — decide the answer.
  */
 const setupTicketWorkspace = ({ holder, record, lock, startPoint }: { holder?: string; record?: WorktreeRecord; lock?: RunLock; startPoint?: string } = {}) => {
+	seedWorkOrderRecord({ cwd: sourceCwd, name: workOrderName });
 	mockPrepareTicketBranch.mockResolvedValue(startPoint === undefined ? {} : { startPoint });
 	mockReadLiveRunLock.mockResolvedValue(lock);
 	mockFetchDefaultBranch.mockResolvedValue('main');
@@ -153,6 +160,7 @@ const setupTicketWorkspace = ({ holder, record, lock, startPoint }: { holder?: s
 const setupCutWorkspace = async () => {
 	const cutPath = await freshCwd();
 
+	seedWorkOrderRecord({ cwd: sourceCwd, name: branch });
 	mockPrepareTicketBranch.mockResolvedValue({});
 	mockFetchDefaultBranch.mockResolvedValue('main');
 	mockReadBranchWorktree.mockResolvedValue(undefined);

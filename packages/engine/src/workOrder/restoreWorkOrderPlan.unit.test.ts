@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
@@ -69,16 +69,42 @@ interface SetupParams {
 	attachedPlan?: string;
 	/** Puts a directory where `state-sync.json` belongs, so the write recording the restored generation fails. */
 	sidecarUnwritable?: boolean;
+	/** False when the work order's record carries no ticket reference at all — a work order named from words alone. */
+	ticketOnRecord?: boolean;
+	/** True when `state.json` holds bytes no reader can parse, so the record read refuses before the tracker is resolved. */
+	recordUnparseable?: boolean;
 }
+
+/** The work order's own record, written by hand so the restore reads a real `state.json` rather than a stub. */
+const workOrderStateText = ({ ticketOnRecord }: { ticketOnRecord: boolean }) =>
+	JSON.stringify({
+		schemaVersion: 1,
+		name,
+		branch: name,
+		...(ticketOnRecord ? { ticketRef: 'LO-9' } : {}),
+		mode: 'multiple-plan',
+		plans: [],
+		history: [],
+	});
 
 /**
  * A temp checkout belonging to no repository, so its own `.lightsout` folder is
  * the primary one, and a ticket carrying the two prefixed generations beside
  * titles that must never enter them: another plan's, and a bare legacy one.
  */
-const setupTicketPlan = ({ planGenerationOnTicket = true, attachedNotes, attachedPlan, sidecarUnwritable }: SetupParams = {}) => {
+const setupTicketPlan = ({
+	planGenerationOnTicket = true,
+	attachedNotes,
+	attachedPlan,
+	sidecarUnwritable,
+	ticketOnRecord = true,
+	recordUnparseable = false,
+}: SetupParams = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-restore-ticket-plan-'));
 	const bodies: Record<string, string> = { 'plan.md': '# a legacy single-folder plan\n', '001-a--plan.md': '# plan 001 of lo-9\n' };
+
+	mkdirSync(join(cwd, '.lightsout', 'work-orders', name), { recursive: true });
+	writeFileSync(join(cwd, '.lightsout', 'work-orders', name, 'state.json'), recordUnparseable ? '{ half a record' : workOrderStateText({ ticketOnRecord }));
 
 	if (sidecarUnwritable === true) {
 		mkdirSync(join(cwd, '.lightsout', 'work-orders', name, 'state-sync.json'), { recursive: true });
@@ -222,6 +248,37 @@ describe('restoreWorkOrderPlan', () => {
 		expect(planMarkersOf({ cwd })).toBeUndefined();
 	});
 
+	test('refuses to restore a plan whose work order belongs to no ticket', async () => {
+		const { cwd, dir } = setupTicketPlan({ ticketOnRecord: false });
+
+		const { result } = await restore({ cwd });
+
+		// The refusal names the work order, not just the plan: a work order named
+		// from words alone has nowhere to restore from, and the sentence has to say
+		// which record is the one carrying no ticket reference.
+		expect(result).toStrictEqual({ error: expect.stringContaining(name) });
+		expect(result).toStrictEqual({ error: expect.stringContaining(planId) });
+		expect({ folder: folderOf({ dir }), reachedTracker: mockGetTicketAttachments.mock.calls.length }).toStrictEqual({
+			folder: undefined,
+			reachedTracker: 0,
+		});
+	});
+
+	test("restoreWorkOrderPlan: refuses when the work order's own record cannot be read, naming the file, and reaches no tracker", async () => {
+		const { cwd, dir } = setupTicketPlan({ recordUnparseable: true });
+
+		const { result } = await restore({ cwd });
+
+		// The record is read before the tracker is resolved, so a record nothing can
+		// parse stops the restore by the file's own name rather than by a ticket
+		// reference read out of the plan address.
+		expect(result).toStrictEqual({ error: expect.stringContaining(join(cwd, '.lightsout', 'work-orders', name, 'state.json')) });
+		expect({ folder: folderOf({ dir }), reachedTracker: mockGetTicketAttachments.mock.calls.length }).toStrictEqual({
+			folder: undefined,
+			reachedTracker: 0,
+		});
+	});
+
 	test("restoreWorkOrderPlan: a restored plan lands inside the ticket's plans folder", async () => {
 		const { cwd } = setupTicketPlan();
 		const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
@@ -238,6 +295,6 @@ describe('restoreWorkOrderPlan', () => {
 			'decisions.json',
 			'plan.md',
 		]);
-		expect(readdirSync(workOrderFolder).sort()).toStrictEqual(['plans', 'state-sync.json']);
+		expect(readdirSync(workOrderFolder).sort()).toStrictEqual(['plans', 'state-sync.json', 'state.json']);
 	});
 });

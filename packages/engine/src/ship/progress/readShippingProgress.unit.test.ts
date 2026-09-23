@@ -6,6 +6,7 @@ import { describe, expect, test } from '@jest/globals';
 import type { ShippingProgress } from '#src/contracts/index.ts';
 import { RunStatus, ShippingStepId } from '#src/contracts/index.ts';
 import { readShippingProgress } from '#src/ship/progress/index.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 const validRecord: ShippingProgress = {
@@ -44,7 +45,7 @@ const setupProgressRecords = () => {
 	};
 
 	for (const [branch, body] of Object.entries(bodies)) {
-		mkdirSync(join(workOrdersDir, branch), { recursive: true });
+		seedWorkOrderRecord({ cwd, name: branch });
 		writeFileSync(join(workOrdersDir, branch, 'ship-progress.json'), body, 'utf8');
 	}
 
@@ -56,6 +57,7 @@ const setupFolderAtRecordPath = () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-shipping-progress-'));
 	const recordPath = join(cwd, '.lightsout', 'work-orders', 'lo-7-folder', 'ship-progress.json');
 
+	seedWorkOrderRecord({ cwd, name: 'lo-7-folder' });
 	mkdirSync(recordPath, { recursive: true });
 
 	return { cwd, recordPath };
@@ -74,23 +76,46 @@ const setupRecordInPrimary = () => {
 	const progress: ShippingProgress = { ...validRecord, branch };
 
 	execSync(`git worktree add -q -b ${branch} "${worktree}" main`, { cwd, stdio: 'ignore' });
-	mkdirSync(ticketDir, { recursive: true });
+	seedWorkOrderRecord({ cwd, name: branch });
 	writeFileSync(join(ticketDir, 'ship-progress.json'), JSON.stringify(progress), 'utf8');
 
 	return { branch, ticketDir, worktree, progress };
 };
 
+/**
+ * A checkout whose work-orders directory holds a record for one other branch,
+ * so the look-up has records to read and still finds none that stores the
+ * branch asked about.
+ */
+const setupUnclaimedBranch = () => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-shipping-progress-'));
+
+	seedWorkOrderRecord({ cwd, name: 'lo-7-claimed' });
+
+	return { cwd };
+};
+
 describe('readShippingProgress', () => {
-	test('a branch with no record reads as absent, with the path it would be filed at', async () => {
+	test('a claimed branch with no record yet reads as absent, with the path it would be filed at', async () => {
 		const cwd = mkdtempSync(join(tmpdir(), 'lightsout-shipping-progress-'));
+
+		seedWorkOrderRecord({ cwd, name: 'lo-7-beta', branch: 'feature/lo-7' });
 
 		const reading = await readShippingProgress({ cwd, branch: 'feature/lo-7' });
 
 		expect(reading).toStrictEqual({
-			path: join(cwd, '.lightsout', 'work-orders', 'feature-lo-7', 'ship-progress.json'),
+			path: join(cwd, '.lightsout', 'work-orders', 'lo-7-beta', 'ship-progress.json'),
 			exists: false,
 			progress: undefined,
 		});
+	});
+
+	test('answers no path at all for a branch that keeps no record', async () => {
+		const { cwd } = setupUnclaimedBranch();
+
+		const reading = await readShippingProgress({ cwd, branch: 'feature/lo-7-unclaimed' });
+
+		expect(reading).toStrictEqual({ path: undefined, exists: false, progress: undefined });
 	});
 
 	test('tells an unreadable or off-contract record from a valid one', async () => {

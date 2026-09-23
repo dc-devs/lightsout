@@ -1,61 +1,52 @@
-import { expect, test } from '@jest/globals';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, test } from '@jest/globals';
 import { readPlanWorkOrderRef } from '#src/plan/readPlanWorkOrderRef.ts';
 
-/** The engine's own default, which is what a repo naming no pattern is read with. */
-const defaultPattern = /^(?<ticket>[a-z]+-\d+)/;
-
-test('readPlanWorkOrderRef: a folder named after its branch answers the ticket id, and nothing else from the name', () => {
-	expect(readPlanWorkOrderRef({ name: 'lo-52-status-progress', ticketPattern: defaultPattern })).toBe('lo-52');
+/**
+ * A state the contract accepts, written by hand so the record read is the only
+ * thing under test. `ticketRef` is stated apart from `name`, because the label
+ * a work order was given never has to spell the ticket it belongs to.
+ */
+const workOrderStateOf = ({ name, ticketRef }: { name: string; ticketRef?: string }) => ({
+	schemaVersion: 1,
+	name,
+	branch: name,
+	...(ticketRef === undefined ? {} : { ticketRef }),
+	mode: 'multiple-plan',
+	plans: [],
+	history: [],
 });
 
-test('readPlanWorkOrderRef: a bare slug carries no ticket id', () => {
-	expect(readPlanWorkOrderRef({ name: 'rate-limit-banner', ticketPattern: defaultPattern })).toBe(undefined);
-});
+/**
+ * A checkout with no repository above it, holding one work-order folder per
+ * record: one whose ticket reference its label does not spell, and one that
+ * belongs to no ticket at all.
+ */
+const setupCheckout = () => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-read-plan-work-order-ref-'));
 
-test('readPlanWorkOrderRef: a repo whose pattern names a different prefix reads its own spelling and no other', () => {
-	const ticketPattern = /^(?<ticket>ENG-(?<number>\d+))/;
+	for (const { name, ticketRef } of [
+		{ name: 'rate-limit-banner', ticketRef: 'LO-412' },
+		{ name: 'phase-2-cleanup', ticketRef: undefined },
+	]) {
+		const folder = join(cwd, '.lightsout', 'work-orders', name);
 
-	expect(readPlanWorkOrderRef({ name: 'ENG-7-thing', ticketPattern })).toBe('ENG-7');
-	// the default spelling is not a second convention the reader also accepts
-	expect(readPlanWorkOrderRef({ name: 'lo-52-status-progress', ticketPattern })).toBe(undefined);
-});
+		mkdirSync(folder, { recursive: true });
+		writeFileSync(join(folder, 'state.json'), JSON.stringify(workOrderStateOf({ name, ticketRef })));
+	}
 
-test('readPlanWorkOrderRef: a repo whose tickets are bare numbers gets the number, not a prefixed id', () => {
-	expect(readPlanWorkOrderRef({ name: '412-rate-limit-banner', ticketPattern: /^(?<ticket>\d+)/ })).toBe('412');
-});
+	return { cwd };
+};
 
-test('readPlanWorkOrderRef: a pattern capturing no ticket group answers undefined, matching how a branch is read', () => {
-	// the whole record is dropped without a `ticket` group, so there is nothing
-	// for the plan side to take
-	expect(readPlanWorkOrderRef({ name: 'lo-52-status-progress', ticketPattern: /^(?<number>\d+)?[a-z]+/ })).toBe(undefined);
-});
+describe('readPlanWorkOrderRef', () => {
+	test("answers the record's ticket reference rather than reading one out of the label", async () => {
+		const { cwd } = setupCheckout();
 
-test('readPlanWorkOrderRef: a slug that merely looks like a ticket id is read as one, exactly as a branch would be', () => {
-	// deliberately not guarded — a guard here would be a second rule about what
-	// a ticket id looks like, which is the drift this reader exists to prevent
-	expect(readPlanWorkOrderRef({ name: 'phase-2-cleanup', ticketPattern: defaultPattern })).toBe('phase-2');
-});
+		const named = await readPlanWorkOrderRef({ cwd, name: 'rate-limit-banner/001-throttle' });
+		const unnamed = await readPlanWorkOrderRef({ cwd, name: 'phase-2-cleanup/001-tidy' });
 
-test('readPlanWorkOrderRef: a plan address answers the ticket id its ticket-branch segment carries', () => {
-	// the id ends this repo's branch names, so matching the whole address would
-	// answer undefined — the ticket is read off the ticket-branch segment alone
-	const ticketPattern = /(?<ticket>\d+)$/;
-
-	expect(readPlanWorkOrderRef({ name: 'fix-login-123/001-search', ticketPattern })).toBe('123');
-});
-
-test('readPlanWorkOrderRef: a plan id that reads like a ticket id is never taken for the plan address ticket', () => {
-	// only the ticket-branch segment is matched, so an unanchored pattern cannot
-	// reach into the plan id and invent a ticket the ticket folder does not carry
-	const ticketPattern = /(?<ticket>[a-z]+-\d+)/;
-
-	expect(readPlanWorkOrderRef({ name: 'search-basics/001-lo-52-thing', ticketPattern })).toBe(undefined);
-});
-
-test('readPlanWorkOrderRef: a multi-segment name that is not a plan address is still matched whole', () => {
-	// `notes-99` is no plan id, so the whole name is its own ticket folder and reads
-	// exactly as it did before addresses existed
-	const ticketPattern = /(?<ticket>\d+)$/;
-
-	expect(readPlanWorkOrderRef({ name: 'lo-7-search/notes-99', ticketPattern })).toBe('99');
+		expect({ named, unnamed }).toEqual({ named: 'LO-412', unnamed: undefined });
+	});
 });

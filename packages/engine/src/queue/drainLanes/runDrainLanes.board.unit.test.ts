@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { describe, expect, jest, test } from '@jest/globals';
 import { getQueueBoardPath, QueueBoardRecorder, readQueueBoard } from '#src/queue/board/index.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
+import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
@@ -16,7 +17,8 @@ import { setupDrainLanes } from '#tests/helpers/setupDrainLanes.ts';
 type SerializeMainCheckout = <Result>(params: { task: () => Promise<Result> }) => Promise<Result>;
 type ShipParams = { outcome: WorkOrderRunOutcome; serializeMainCheckout: SerializeMainCheckout };
 type ScanParams = { attempted: Set<string> };
-type ReconcileParams = { tickets: RunnableTicket[] };
+type ReconcileParams = { tickets: NamedWorkOrder[] };
+type NameWaveParams = { tickets: RunnableTicket[] };
 
 // Mocked Imports
 // -------------------------
@@ -28,10 +30,19 @@ const mockListNextWave = jest.fn<(params: ScanParams) => Promise<WaveSelection |
 
 jest.mock('#src/queue/ticketSelection/listNextWave.ts', () => ({ listNextWave: (params: ScanParams) => mockListNextWave(params) }));
 // -------------------------
-const mockReconcileMergedTickets = jest.fn<(params: ReconcileParams) => Promise<{ kept: RunnableTicket[]; leftBehind: LeftBehindTicket[] }>>();
+const mockReconcileMergedTickets = jest.fn<(params: ReconcileParams) => Promise<{ kept: NamedWorkOrder[]; leftBehind: LeftBehindTicket[] }>>();
 
 jest.mock('#src/queue/ticketSelection/reconcileMergedTickets.ts', () => ({
 	reconcileMergedTickets: (params: ReconcileParams) => mockReconcileMergedTickets(params),
+}));
+// -------------------------
+// Naming a wave is the work order module's own job, with its own tests. What
+// these cases own is what the lanes do once every entry already carries a label
+// and the branch its record stores.
+const mockNameWaveWorkOrders = jest.fn<(params: NameWaveParams) => Promise<{ named: NamedWorkOrder[]; leftBehind: LeftBehindTicket[] }>>();
+
+jest.mock('#src/queue/nameWaveWorkOrders.ts', () => ({
+	nameWaveWorkOrders: (params: NameWaveParams) => mockNameWaveWorkOrders(params),
 }));
 // -------------------------
 
@@ -44,7 +55,7 @@ const setupLanes = (options: Omit<Parameters<typeof setupDrainLanes>[0], 'mocks'
 	const lanes = setupDrainLanes({
 		...options,
 		serializeMainCheckout: createMainCheckoutSerializer(),
-		mocks: { ship: mockShipOneBranch, scan: mockListNextWave, reconcile: mockReconcileMergedTickets },
+		mocks: { ship: mockShipOneBranch, scan: mockListNextWave, reconcile: mockReconcileMergedTickets, nameWave: mockNameWaveWorkOrders },
 	});
 	// The board lives in the coordinator run's own folder, which is looked up by
 	// id — so the folder has to be on disk before the board has a place at all.
@@ -53,7 +64,6 @@ const setupLanes = (options: Omit<Parameters<typeof setupDrainLanes>[0], 'mocks'
 	const board = new QueueBoardRecorder({
 		cwd: lanes.params.cwd,
 		runId: lanes.params.runId,
-		branchTemplate: lanes.params.settings.branchTemplate,
 		onProgress: (message) => lanes.progress.push(message),
 	});
 

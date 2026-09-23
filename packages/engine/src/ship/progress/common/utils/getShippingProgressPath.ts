@@ -1,6 +1,5 @@
 import { join } from 'node:path';
-import { toBranchFileName } from '#src/common/utils/toBranchFileName.ts';
-import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
+import { resolveBranchRecordDir } from '#src/common/workspace/resolveBranchRecordDir.ts';
 
 interface Params {
 	/** Any checkout of the repository; the primary is resolved from it. */
@@ -10,12 +9,15 @@ interface Params {
 }
 
 /**
- * A branch's shipping record: `ship-progress.json` in that branch's ticket
- * folder, beside the ship result the same ship files there.
+ * A branch's shipping record: `ship-progress.json` in the folder of the work
+ * order whose record stores that branch, beside the ship result the same ship
+ * files there.
  *
- * The branch is slugged the same way the result's is, so a branch template
- * carrying a slash names one flat ticket folder rather than a nested one.
+ * Undefined when no work order claims the branch, exactly as the result's path
+ * is: the record is filed with the work order's plans or it is not filed at all.
  */
-export const getShippingProgressPath = async ({ cwd, branch }: Params): Promise<string> => {
-	return join(await workOrderFolderDir({ cwd, name: toBranchFileName({ branch }) }), 'ship-progress.json');
+export const getShippingProgressPath = async ({ cwd, branch }: Params): Promise<string | undefined> => {
+	const folder = await resolveBranchRecordDir({ cwd, branch });
+
+	return folder === undefined ? undefined : join(folder, 'ship-progress.json');
 };

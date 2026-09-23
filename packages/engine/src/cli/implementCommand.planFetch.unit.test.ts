@@ -10,6 +10,7 @@ import { isDurablePlanAttachmentName } from '#src/plan/common/utils/isDurablePla
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // Mocked Imports
@@ -76,6 +77,7 @@ const setupFetch = ({
 	config = { 'ticket-tracker': ticketTrackerConfigBlock },
 	onDisk,
 	locked = true,
+	workOrder = { name: workOrderName, ticketRef: 'lo-54' },
 }: {
 	args?: string[];
 	/** Attachment titles the ticket carries. */
@@ -89,6 +91,8 @@ const setupFetch = ({
 	/** Plan files to plant in the folder before the command runs, which is what makes disk win. */
 	onDisk?: Record<string, string>;
 	locked?: boolean;
+	/** The work order whose record the fetch reads the ticket out of, and the reference it carries. */
+	workOrder?: { name: string; ticketRef?: string };
 } = {}) => {
 	const bodyOf = (title: string) => bodies[title] ?? `# Plan: restored ${title}\n`;
 	const durable = [...new Set(titles.filter((title) => isDurablePlanAttachmentName({ name: title })))];
@@ -115,6 +119,15 @@ const setupFetch = ({
 
 	const captured = captureCommandOutput();
 	const cwd = setupConsumerRepo({ config });
+
+	// Which ticket a plan is fetched from is its work order record's answer, so
+	// the record stands on disk before the command runs.
+	seedWorkOrderRecord({
+		cwd,
+		name: workOrder.name,
+		ticketRef: workOrder.ticketRef,
+		plans: [{ id: planId, title: 'Portable plan', progress: 'ready', createdAt: '2026-01-01T00:00:00.000Z' }],
+	});
 
 	if (onDisk !== undefined) {
 		mkdirSync(join(cwd, planPath), { recursive: true });
@@ -251,31 +264,30 @@ describe('implementCommand', () => {
 		expect(exitCodes).toStrictEqual([1]);
 	});
 
-	test('a plan folder name carrying no ticket id has no ticket to ask, and the refusal says which name it read', async () => {
+	test('a work order whose record carries no ticket reference has no ticket to ask, and the refusal names it', async () => {
 		const path = join('.lightsout', 'work-orders', 'portable-plan', 'plans', planId);
-		const { context, cwd, logged, errors, exitCodes } = setupFetch({ args: ['--plan', path] });
+		const { context, cwd, logged, errors, exitCodes } = setupFetch({ args: ['--plan', path], workOrder: { name: 'portable-plan' } });
 
 		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(logged).toStrictEqual([]);
 		expect(errors).toStrictEqual([
-			`no plan at ${join(cwd, path)}, and no plan could be fetched from a ticket: the plan folder name 'portable-plan/${planId}' carries no ticket id matching this repo's ship.ticket-pattern`,
+			`no plan at ${join(cwd, path)}, and no plan could be fetched from a ticket: work order 'portable-plan' carries no ticket reference in its record, so it belongs to no ticket`,
 		]);
 		expect(mockGetTicketAttachments).not.toHaveBeenCalled();
 		expect(exitCodes).toStrictEqual([1]);
 	});
 
-	test('an unusable ship.ticket-pattern is refused by name — the ticket to fetch from cannot be read at all', async () => {
-		const { context, cwd, logged, errors, exitCodes } = setupFetch({
+	test('an unusable ship.ticket-pattern reaches the fetch not at all, because the record answers which ticket this is', async () => {
+		const { context, cwd, logged, exitCodes } = setupFetch({
 			config: { 'ticket-tracker': ticketTrackerConfigBlock, ship: { 'ticket-pattern': '(' } },
 		});
 
 		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(logged).toStrictEqual([]);
-		expect(errors).toStrictEqual([
-			`no plan at ${join(cwd, planPath)}, and the ticket to fetch one from cannot be read: ship.ticket-pattern is not a regular expression capturing a 'ticket' group`,
-		]);
+		// The plan came back from the ticket the record names, so the run stopped on
+		// its own run lock rather than on a pattern that decides nothing here.
+		expect(logged.join('\n')).toContain(`lightsout: fetched 1 plan file(s) from ticket lo-54 into ${join(cwd, planPath)}`);
 		expect(exitCodes).toStrictEqual([1]);
 	});
 });

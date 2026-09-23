@@ -7,7 +7,7 @@ import { workOrderFileNames } from '#src/workOrder/common/constants/workOrderFil
 import type { PublishedWorkOrderState } from '#src/workOrder/common/types/PublishedWorkOrderState.ts';
 import { readPublishedWorkOrderState } from '#src/workOrder/common/utils/readPublishedWorkOrderState.ts';
 import { readWorkOrderSyncState } from '#src/workOrder/common/utils/readWorkOrderSyncState.ts';
-import { resolveWorkOrderTrackerTarget } from '#src/workOrder/common/utils/resolveWorkOrderTrackerTarget.ts';
+import { readWorkOrderWithTrackerTarget } from '#src/workOrder/common/utils/readWorkOrderWithTrackerTarget.ts';
 import { serializeWorkOrderState } from '#src/workOrder/common/utils/serializeWorkOrderState.ts';
 import { surfaceWorkOrderDivergence } from '#src/workOrder/common/utils/surfaceWorkOrderDivergence.ts';
 import { updateWorkOrderSyncState } from '#src/workOrder/common/utils/updateWorkOrderSyncState.ts';
@@ -117,8 +117,8 @@ const applyThreeWayRule = async ({
  *
  * Every command that reads or changes the record starts here, so a machine
  * never works from a copy it already knows is behind. With no tracker
- * configured — or a folder name carrying no ticket id — the local record is the
- * whole truth and nothing is reached for; a tracker that IS configured and
+ * configured — or a record carrying no ticket reference — the local record is
+ * the whole truth and nothing is reached for; a tracker that IS configured and
  * cannot be read is an error rather than a quiet local-only answer, because
  * passing over it would let a divergence go unnoticed.
  *
@@ -133,14 +133,16 @@ export const pullWorkOrderState = async ({
 	env,
 	onProgress,
 }: Params): Promise<{ record: WorkOrderState | undefined } | { error: string }> => {
-	const target = resolveWorkOrderTrackerTarget({ config, env, name });
+	const opened = await readWorkOrderWithTrackerTarget({ cwd, name, config, env });
 
-	if ('error' in target) {
-		return target;
+	if ('error' in opened) {
+		return opened;
 	}
 
+	const { record, target } = opened;
+
 	if ('localOnly' in target) {
-		return readWorkOrderState({ cwd, name });
+		return { record };
 	}
 
 	const published = await readPublishedWorkOrderState({ target, name });

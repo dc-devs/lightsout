@@ -110,6 +110,27 @@ const setupPrefixedBranchBuild = () => {
 	return { calls, cwd, params: { ...params, record } };
 };
 
+/**
+ * The same prefixed-branch work order, with its one plan left to build passing
+ * over a single phase file rather than over the whole plan.
+ *
+ * A pass that narrow leaves the plan's implementation unfinished, so the loop
+ * refuses — which is what puts a refusal sentence in reach of the case below.
+ */
+const setupPrefixedBranchRefusal = () => {
+	const { calls, cwd, params } = setupTicketPlanBuild({
+		mocks,
+		plans: [firstImplemented, secondReady],
+		missingFolders: ['002-search-basics'],
+		build: 'one-phase',
+	});
+	const record = { ...params.record, branch: 'feature/lo-7-search' };
+
+	writeFileSync(join(cwd, '.lightsout', 'work-orders', 'lo-7-search', 'state.json'), JSON.stringify(record));
+
+	return { calls, cwd, params: { ...params, record } };
+};
+
 describe('buildWorkOrderPlans', () => {
 	test('confirms each plan without committing it a second time', async () => {
 		// The numeric build order this pins was once asserted alongside a commit
@@ -267,5 +288,20 @@ describe('buildWorkOrderPlans', () => {
 		// message would take them out of the tree the resume expects them in
 		expect(outcome.error).toEqual(expect.stringContaining('lightsout resume --run run-9'));
 		expect(mockCommitTicketWork).not.toHaveBeenCalled();
+	});
+
+	test("addresses every plan by the work order's label", async () => {
+		const { calls, cwd, params } = setupPrefixedBranchRefusal();
+
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
+
+		// the fetch and the build are both asked for a two-segment address built
+		// from the label, and the refusal names the work order the same way — the
+		// prefixed branch the record stores reaches none of the three
+		expect(calls).toStrictEqual(['restore lo-7-search/002-search-basics', `build ${planFile({ cwd, planId: '002-search-basics' })}`]);
+		expect(mockRestoreTicketPlan).toHaveBeenCalledWith(expect.objectContaining({ cwd, address: 'lo-7-search/002-search-basics' }));
+		expect(outcome.error).toEqual(expect.stringContaining('lo-7-search'));
+		expect(outcome.error).toEqual(expect.stringContaining('002-search-basics'));
+		expect(outcome.error).not.toEqual(expect.stringContaining('feature/'));
 	});
 });

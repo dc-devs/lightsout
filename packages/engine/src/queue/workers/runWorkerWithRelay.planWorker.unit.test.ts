@@ -76,7 +76,7 @@ jest.mock('#src/workOrder/index.ts', () => ({ pullWorkOrderState: (params: PullT
 // -------------------------
 interface BuildTicketPlansParams {
 	cwd: string;
-	branch: string;
+	workOrderName: string;
 	record: WorkOrderState;
 	env: NodeJS.ProcessEnv;
 	driverName: string;
@@ -170,7 +170,7 @@ const setupBrainstormOnlyTicket = () => {
 		params: {
 			// A fresh empty worktree: no plan folder on disk, which is what sends the worker to the ticket.
 			worktreePath: mkdtempSync(join(tmpdir(), 'lightsout-brainstorm-only-')),
-			branch: 'lo-70-drain',
+			workOrderName: 'lo-70-drain',
 			ticket: { ...ticketOf(QueueWorker.Plan), planningStatus: PlanningStatus.Complete },
 			config,
 			driver,
@@ -217,7 +217,7 @@ const setupPlanWorkerTicket = ({ pull }: { pull: PullTicketRecordResult }) => {
 		worktreePath,
 		params: {
 			worktreePath,
-			branch: 'lo-70-drain',
+			workOrderName: 'lo-70-drain',
 			ticket: ticketOf(QueueWorker.Plan),
 			config,
 			driver,
@@ -261,7 +261,7 @@ const setupPlanWorkerInWorktree = () => {
 		worktreePath,
 		params: {
 			worktreePath,
-			branch: 'lo-70-drain',
+			workOrderName: 'lo-70-drain',
 			ticket: ticketOf(QueueWorker.Plan),
 			config,
 			driver,
@@ -299,7 +299,7 @@ describe('runWorkerWithRelay', () => {
 
 		expect(outcome).toStrictEqual({});
 		expect(mockBuildTicketPlans).toHaveBeenCalledWith(
-			expect.objectContaining({ cwd: worktreePath, branch: 'lo-70-drain', record: ticketRecord, workOrderRunDir, allowTicketBodyBuild: true }),
+			expect.objectContaining({ cwd: worktreePath, workOrderName: 'lo-70-drain', record: ticketRecord, workOrderRunDir, allowTicketBodyBuild: true }),
 		);
 		expect(mockRestorePlanWorkspace).not.toHaveBeenCalled();
 	});

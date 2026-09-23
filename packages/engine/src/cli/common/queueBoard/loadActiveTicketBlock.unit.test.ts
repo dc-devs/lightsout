@@ -6,7 +6,6 @@ import { loadRunProgressBlock } from '#src/cli/common/progressBlock/loadRunProgr
 import { loadShippingProgressBlock } from '#src/cli/common/progressBlock/loadShippingProgressBlock.ts';
 import { loadActiveTicketBlock } from '#src/cli/common/queueBoard/loadActiveTicketBlock.ts';
 import {
-	PipelineKind,
 	type PlanningProgress,
 	PlanningStep,
 	type QueueBoardTicket,
@@ -18,8 +17,8 @@ import {
 } from '#src/contracts/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
-import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { seedRunDir } from '#tests/helpers/seedRunDir.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 
 /** Beyond any OS pid range — the live-process probe reports it dead. */
 const deadPid = 999_999_999;
@@ -79,20 +78,7 @@ const runs = {
 	},
 };
 
-type SeededRun = (typeof runs)[keyof typeof runs] & { parentRunId?: string; pipeline?: PipelineKind };
-
-/** A phased build's coordinator: one step per phase, and the run every phase child in these cases names as its parent. */
-const coordinatorRun: SeededRun = {
-	runId: 'dddd4444-coord',
-	plan: 'plans/phase-overview/plan.md',
-	createdAt: '2026-09-10T10:01:00.000Z',
-	updatedAt: '2026-09-10T10:29:00.000Z',
-	status: RunStatus.Running,
-	pipeline: PipelineKind.Phases,
-};
-
-/** A coordinator whose run directory holds a manifest that will not parse. */
-const corruptCoordinatorRunId = 'ffff5555-corrupt';
+type SeededRun = (typeof runs)[keyof typeof runs];
 
 const manifestOf = ({ runId, plan, createdAt, updatedAt, status }: SeededRun): Partial<RunManifest> & { runId: string } => ({
 	runId,
@@ -153,13 +139,10 @@ const shippingRecord = ({ startedAt }: { startedAt: string }): ShippingProgress 
 const setupWorktree = async ({
 	seeded = [],
 	lock,
-	unreadable,
 	withPlanningRecord = false,
 }: {
 	seeded?: SeededRun[];
 	lock?: { runId: string; pid: number };
-	/** A run id whose directory holds a manifest that will not parse — the half-written coordinator the runs list skips in silence. */
-	unreadable?: string;
 	withPlanningRecord?: boolean;
 } = {}) => {
 	jest.spyOn(Date, 'now').mockReturnValue(pinnedNow);
@@ -169,14 +152,7 @@ const setupWorktree = async ({
 	await mkdir(join(worktreePath, '.lightsout'), { recursive: true });
 
 	for (const run of seeded) {
-		await seedRunDir({ cwd: worktreePath, manifest: { ...manifestOf(run), parentRunId: run.parentRunId, pipeline: run.pipeline } });
-	}
-
-	if (unreadable !== undefined) {
-		const runDir = runDirFor({ cwd: worktreePath, runId: unreadable });
-
-		await mkdir(runDir, { recursive: true });
-		await writeFile(join(runDir, 'manifest.json'), '{ "runId": "', 'utf8');
+		await seedRunDir({ cwd: worktreePath, manifest: manifestOf(run) });
 	}
 
 	if (lock !== undefined) {
@@ -217,6 +193,9 @@ const setupShippingWorktree = async ({ shipStartedAt, onDisk = true }: { shipSta
 
 	if (onDisk) {
 		const workOrderFolder = join(worktreePath, '.lightsout', 'work-orders', branch);
+
+		// The shipping record is filed in the work order whose record stores the branch.
+		seedWorkOrderRecord({ cwd: worktreePath, name: branch });
 
 		await mkdir(workOrderFolder, { recursive: true });
 		await writeFile(join(workOrderFolder, 'ship-progress.json'), `${JSON.stringify(shippingRecord({ startedAt: shipStartedAt }), null, '\t')}\n`, 'utf8');
@@ -335,62 +314,5 @@ describe('loadActiveTicketBlock', () => {
 		const lines = await loadActiveTicketBlock({ ticket });
 
 		expect(lines).toEqual([expect.stringMatching(/worktree/i)]);
-	});
-
-	test('a phased build shows the coordinator block and the going phase child block, separated by one blank line', async () => {
-		const parent = coordinatorRun.runId;
-		const going = { ...runs.a, parentRunId: parent };
-		const { worktreePath, blocks } = await setupWorktree({
-			seeded: [coordinatorRun, going, { ...runs.b, parentRunId: parent, updatedAt: '2026-09-10T10:27:00.000Z' }],
-			lock: { runId: going.runId, pid: process.pid },
-		});
-		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath });
-
-		const lines = await loadActiveTicketBlock({ ticket });
-
-		// The phase that is going wins over a sibling updated more recently, and
-		// the coordinator's overview is no longer dropped in its favour.
-		expect(lines).toStrictEqual([...blocks[coordinatorRun.runId], '', ...blocks[going.runId]]);
-	});
-
-	test('between phases a building ticket still shows the coordinator paired with its most recent phase child', async () => {
-		const parent = coordinatorRun.runId;
-		const recent = { ...runs.c, parentRunId: parent, updatedAt: '2026-09-10T10:27:00.000Z' };
-		const { worktreePath, blocks } = await setupWorktree({
-			seeded: [coordinatorRun, recent, { ...runs.b, parentRunId: parent }],
-			lock: { runId: parent, pid: deadPid },
-		});
-		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath });
-
-		const lines = await loadActiveTicketBlock({ ticket });
-
-		// No phase is going, so the child shown is the one updated last — run B was
-		// created later, which is a different question.
-		expect(lines).toStrictEqual([...blocks[coordinatorRun.runId], '', ...blocks[recent.runId]]);
-	});
-
-	test("a phase child of a coordinator older than the build still shows its coordinator's block", async () => {
-		const older = { ...coordinatorRun, createdAt: beforeBuild };
-		const child = { ...runs.a, parentRunId: older.runId };
-		const { worktreePath, blocks } = await setupWorktree({ seeded: [older, child] });
-		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath });
-
-		const lines = await loadActiveTicketBlock({ ticket });
-
-		// The created-since filter drops the coordinator from the run binding, so a
-		// resumed sequence is reached by climbing from the child that survived it.
-		expect(lines).toStrictEqual([...blocks[older.runId], '', ...blocks[child.runId]]);
-	});
-
-	test('a phase child whose coordinator manifest cannot be read still shows its own block', async () => {
-		const orphan = { ...runs.a, parentRunId: corruptCoordinatorRunId };
-		const { worktreePath, blocks } = await setupWorktree({ seeded: [orphan], unreadable: corruptCoordinatorRunId });
-		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath });
-
-		const lines = await loadActiveTicketBlock({ ticket });
-
-		// One half-written coordinator must not take the whole board down: the
-		// phase the reader can see is still shown.
-		expect(lines).toStrictEqual(blocks[orphan.runId]);
 	});
 });

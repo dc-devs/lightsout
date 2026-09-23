@@ -17,8 +17,8 @@ import { readWorkOrderShipEligibility, readWorkOrderState, restoreWorkOrderPlan 
 interface Params {
 	/** The work order's worktree: where each plan is restored, built and committed. */
 	cwd: string;
-	/** The ticket's branch — the ticket-folder segment of every plan address. */
-	branch: string;
+	/** The work order's label — the first segment of every plan address it holds. A prefixed branch would not parse as one, which is why the label and not the branch is what an address is built from. */
+	workOrderName: string;
 	ticket: TicketSummary;
 	/** The record as the caller's pull answered it. */
 	record: WorkOrderState;
@@ -107,9 +107,9 @@ const buildReadyPlan = async ({ step }: { step: WorkOrderPlanStep }) => {
  * finished — a run over one phase file of the plan, say — would otherwise make
  * the next turn take the same plan again.
  */
-const confirmPlanImplemented = async ({ step, branch }: { step: WorkOrderPlanStep; branch: string }) => {
+const confirmPlanImplemented = async ({ step, workOrderName }: { step: WorkOrderPlanStep; workOrderName: string }) => {
 	const { cwd, plan } = step;
-	const reread = await readWorkOrderState({ cwd, name: branch });
+	const reread = await readWorkOrderState({ cwd, name: workOrderName });
 
 	if ('error' in reread) {
 		return reread;
@@ -119,7 +119,7 @@ const confirmPlanImplemented = async ({ step, branch }: { step: WorkOrderPlanSte
 
 	if (record?.plans.find((candidate) => candidate.id === plan.id)?.progress !== PlanProgress.Implemented) {
 		return {
-			error: `plan ${plan.id} on ticket ${branch} was built and passed, but its implementation is not recorded as finished, so the queue stopped rather than build it again`,
+			error: `plan ${plan.id} on work order ${workOrderName} was built and passed, but its implementation is not recorded as finished, so the queue stopped rather than build it again`,
 		};
 	}
 
@@ -159,7 +159,7 @@ const decideTicketOutcome = ({ record }: { record: WorkOrderState }) => {
  */
 export const buildWorkOrderPlans = async ({
 	cwd,
-	branch,
+	workOrderName,
 	ticket,
 	record,
 	config,
@@ -209,7 +209,7 @@ export const buildWorkOrderPlans = async ({
 			return built;
 		}
 
-		const confirmed = await confirmPlanImplemented({ step, branch });
+		const confirmed = await confirmPlanImplemented({ step, workOrderName });
 
 		if ('error' in confirmed) {
 			return { error: confirmed.error };

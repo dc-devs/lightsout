@@ -10,8 +10,8 @@ import type { PullRequestSummary } from '#src/ship/index.ts';
 import type { TrackerFailure, TrackerTicket } from '#src/ticketTracker/index.ts';
 import { createWorktree } from '#src/worktree/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
-import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
@@ -42,8 +42,6 @@ const settings = queueSettingsFixture({ parkedLabel: 'queue-parked' });
 const holds: GateHolds = {};
 
 const trackerSettings = trackerSettingsFixture();
-
-const shipSettings = shipSettingsFixture();
 
 const mergedPullRequest: PullRequestSummary = { number: 41, url: 'https://forge.example/pull/41', title: 'LO-70', branch: 'lo-70-drain' };
 
@@ -93,6 +91,10 @@ const setupParkedScan = async ({
 
 	execSync('git config user.name t && git config user.email t@t', { cwd, stdio: 'ignore' });
 
+	// The scan finds a tree's work order by the branch its record stores, so the
+	// record comes before the tree.
+	seedWorkOrderRecord({ cwd, name: branch, ticketRef: 'lo-70' });
+
 	const worktreePath = String(await createWorktree({ cwd, branch, startPoint: 'origin/main', owner: WorktreeOwner.Queue, reuseExisting: true }));
 
 	mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf({ finished })]);
@@ -112,7 +114,7 @@ const setupParkedScan = async ({
 	}
 
 	const progress: string[] = [];
-	const params = { cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds, onProgress: (message: string) => progress.push(message) };
+	const params = { cwd, defaultBranch: 'main', settings, trackerSettings, holds, onProgress: (message: string) => progress.push(message) };
 
 	return { cwd, branch, worktreePath, progress, params };
 };

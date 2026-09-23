@@ -16,7 +16,9 @@ import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
  */
 export interface WorkOrderRunOutcome {
 	ticket: TicketSummary;
-	/** The branch the worker committed to. */
+	/** The work order's label — its folder under the work-orders directory, carried so no reader re-derives one from the branch. */
+	name: string;
+	/** The branch the worker committed to, as the work order's record stores it. */
 	branch: string;
 	/** Absolute path of the worktree. Removed after a successful ship, kept otherwise. */
 	worktreePath: string;

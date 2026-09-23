@@ -7,6 +7,7 @@ import { type RunManifest, RunStatus, type ShipResult } from '#src/contracts/ind
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { readWorktreeRecord, resolveWorktreePath } from '#src/worktree/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { manifestOf } from '#tests/helpers/setupResume.ts';
 
@@ -72,6 +73,20 @@ const merged: ShipResult = { status: 'shipped', ticketRef: 'lo-7', failingChecks
 const setupShippedTicketRun = async () => {
 	const captured = captureCommandOutput();
 	const { cwd } = setupBranchRepo();
+
+	// The record is what says which branch this work order implements on, which
+	// folder its tree's ownership record is filed in, and which plans it holds.
+	seedWorkOrderRecord({
+		cwd,
+		name: workOrderName,
+		mode: 'multiple-plan',
+		plans: [
+			{ id: '001-basics', title: 'Basics', progress: 'implemented', createdAt: '2026-01-01T00:00:00.000Z' },
+			{ id: '002-ranking', title: 'Ranking', progress: 'ready', createdAt: '2026-01-02T00:00:00.000Z' },
+		],
+		shipRequest: { planIds: ['001-basics', '002-ranking'], requestedAt: '2026-01-03T00:00:00.000Z' },
+	});
+
 	const treePath = await resolveWorktreePath({ cwd, branch: workOrderName });
 
 	writeFileSync(join(cwd, 'lightsout.config.json'), JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false } }));

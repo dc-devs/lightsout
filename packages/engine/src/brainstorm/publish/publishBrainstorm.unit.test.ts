@@ -3,11 +3,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { publishBrainstorm } from '#src/brainstorm/publish/publishBrainstorm.ts';
+import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 
 // Mocked Imports
 // -------------------------
@@ -57,6 +59,7 @@ const setupBrainstorm = ({
 	files = { 'brainstorm-notes.md': '# the design\n', 'brainstorm-decisions.json': '[]\n' },
 	tickets = [{ id: 'id-117', identifier: 'LO-117' }],
 	uploadFailures = {},
+	ticketRef = 'lo-117',
 }: {
 	folder?: string;
 	/** What the brainstorm folder holds on disk: both files by default. */
@@ -65,6 +68,8 @@ const setupBrainstorm = ({
 	tickets?: TrackerTicket[] | TrackerFailure;
 	/** Each attachment title the tracker refuses, and the sentence it refuses with. */
 	uploadFailures?: Record<string, string>;
+	/** The ticket the brainstorm's work order belongs to, as its record carries it. `null` names a work order that belongs to none. */
+	ticketRef?: string | null;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-publish-brainstorm-'));
 	const dir = planWorkspaceFolder({ cwd: cwd, name: folder });
@@ -78,6 +83,9 @@ const setupBrainstorm = ({
 	});
 
 	mkdirSync(dir, { recursive: true });
+	// Which ticket a generation publishes to is the work order record's answer,
+	// not the folder name's, so the record comes before the files.
+	seedWorkOrderRecord({ cwd, name: workOrderNameOf({ name: folder }), ticketRef: ticketRef ?? undefined });
 
 	for (const [name, text] of Object.entries(files)) {
 		writeFileSync(join(dir, name), text);
@@ -94,6 +102,19 @@ const setupBrainstorm = ({
 			onProgress: (message: string) => progress.push(message),
 		},
 	};
+};
+
+/**
+ * A work order whose folder label spells no ticket id at all, with its record
+ * naming one — so the reference the publish attaches to can only have come from
+ * the record.
+ */
+const setupRecordedWorkOrder = () => {
+	const { params } = setupBrainstorm({ folder: 'alpha-redesign', tickets: [{ id: 'id-901', identifier: 'LO-901' }], ticketRef: 'LO-901' });
+
+	seedWorkOrderRecord({ cwd: params.cwd, name: 'alpha-redesign', branch: 'feature/alpha-redesign', ticketRef: 'LO-901' });
+
+	return { params };
 };
 
 describe('publishBrainstorm', () => {
@@ -124,13 +145,13 @@ describe('publishBrainstorm', () => {
 		expect(mockSetTicketAttachment).not.toHaveBeenCalled();
 	});
 
-	test('publishBrainstorm: refuses a folder name carrying no ticket id', async () => {
-		const { params } = setupBrainstorm({ folder: 'brainstorm-decides-its-outcome' });
+	test('publishBrainstorm: refuses a work order whose record carries no ticket reference', async () => {
+		const { params } = setupBrainstorm({ folder: 'brainstorm-decides-its-outcome', ticketRef: null });
 
 		const report = await publishBrainstorm(params);
 
 		expect(report.published).toStrictEqual([]);
-		expect(report.error ?? '').toMatch(/'brainstorm-decides-its-outcome'[\s\S]*carries no ticket id/u);
+		expect(report.error ?? '').toMatch(/'brainstorm-decides-its-outcome'[\s\S]*carries no ticket reference/u);
 		expect(mockSetTicketAttachment).not.toHaveBeenCalled();
 	});
 
@@ -207,5 +228,18 @@ describe('publishBrainstorm', () => {
 		expect(report.error ?? '').toMatch(/brainstorm-notes\.md/u);
 		expect(mockGetTicketsByIdentifiers).not.toHaveBeenCalled();
 		expect(mockSetTicketAttachment).not.toHaveBeenCalled();
+	});
+
+	test("publishes to the ticket the work order's record names", async () => {
+		const { params } = setupRecordedWorkOrder();
+
+		const report = await publishBrainstorm(params);
+
+		expect(report).toStrictEqual({
+			ticketRef: 'LO-901',
+			published: ['brainstorm-notes.md', 'brainstorm-decisions.json', 'brainstorm-attachments.json'],
+		});
+		expect(mockGetTicketsByIdentifiers).toHaveBeenCalledWith(expect.objectContaining({ identifiers: ['LO-901'] }));
+		expect(mockSetTicketAttachment.mock.calls.map(([call]) => call.ticketId)).toStrictEqual(['id-901', 'id-901', 'id-901']);
 	});
 });

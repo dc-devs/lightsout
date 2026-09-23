@@ -20,7 +20,7 @@ jest.mock('#src/queue/branchState/index.ts', () => ({
 // -------------------------
 
 /** One worktree of the queue's own, named after the branch it holds. */
-const treeOf = ({ branch }: { branch: string }): ParkedTree => ({ path: `/repo-worktrees/${branch}`, branch, identifier: 'LO-70' });
+const treeOf = ({ branch }: { branch: string }): ParkedTree => ({ path: `/repo-worktrees/${branch}`, branch, identifier: 'LO-70', name: branch });
 
 /**
  * What the queue recorded about each branch, keyed by branch, and what `git

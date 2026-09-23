@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { type LightsoutConfig, WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
 import type { TrackerAttachment, TrackerSettings } from '#src/ticketTracker/index.ts';
-import { pullWorkOrderState } from '#src/workOrder/index.ts';
+import { pullWorkOrderState, updateLocalWorkOrderState } from '#src/workOrder/index.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
 // Mocked Imports
@@ -49,9 +49,19 @@ const publishedRecord: WorkOrderState = {
  * one of its own files belongs — the one way to make a real read or a real write
  * of that file fail without doubling the filesystem underneath the pull.
  */
-const setupBlockedTicketFolder = ({ blocked }: { blocked: 'state.json' | 'state-sync.json' }) => {
+const setupBlockedTicketFolder = async ({ blocked, seedLocal = false }: { blocked: 'state.json' | 'state-sync.json'; seedLocal?: boolean }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-pull-folder-'));
 	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', name);
+
+	// The record is what says which ticket a work order belongs to, so a row that
+	// needs the tracker reached at all has to hold one.
+	if (seedLocal) {
+		const seeded = await updateLocalWorkOrderState({ cwd, name, change: () => publishedRecord });
+
+		if ('error' in seeded) {
+			throw new Error(seeded.error);
+		}
+	}
 
 	mkdirSync(join(workOrderFolder, blocked), { recursive: true });
 	mockGetTicketAttachments.mockResolvedValue([{ id: 'att-1', title: 'state.json', url: assetUrl }]);
@@ -65,7 +75,7 @@ const errorOf = (answer: { record: WorkOrderState | undefined } | { error: strin
 
 describe('pullWorkOrderState', () => {
 	test("pullWorkOrderState: refuses when this machine's own state.json cannot be read, rather than taking the published copy over it", async () => {
-		const { workOrderFolder, params } = setupBlockedTicketFolder({ blocked: 'state.json' });
+		const { workOrderFolder, params } = await setupBlockedTicketFolder({ blocked: 'state.json' });
 
 		const pulled = await pullWorkOrderState(params);
 
@@ -76,7 +86,7 @@ describe('pullWorkOrderState', () => {
 	});
 
 	test('pullWorkOrderState: answers one sentence when the record it took could not be recorded as the last synced one', async () => {
-		const { workOrderFolder, params } = setupBlockedTicketFolder({ blocked: 'state-sync.json' });
+		const { workOrderFolder, params } = await setupBlockedTicketFolder({ blocked: 'state-sync.json', seedLocal: true });
 
 		const pulled = await pullWorkOrderState(params);
 

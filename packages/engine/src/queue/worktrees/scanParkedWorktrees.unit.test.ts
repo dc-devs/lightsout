@@ -1,17 +1,16 @@
 import { execSync } from 'node:child_process';
-import { existsSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { BranchPhase, type GateHold, WorktreeOwner } from '#src/contracts/index.ts';
+import { WorktreeOwner } from '#src/contracts/index.ts';
 import type { GateHolds } from '#src/gates/index.ts';
-import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
 import { scanParkedWorktrees } from '#src/queue/worktrees/scanParkedWorktrees.ts';
 import type { PullRequestSummary } from '#src/ship/index.ts';
 import type { TrackerFailure, TrackerTicket } from '#src/ticketTracker/index.ts';
 import { createWorktree, deleteWorktreeRecord, readWorktreeRecord, writeWorktreeRecord } from '#src/worktree/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
-import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
@@ -45,8 +44,6 @@ const holds: GateHolds = {};
 
 const trackerSettings = trackerSettingsFixture();
 
-const shipSettings = shipSettingsFixture();
-
 const ticketOf = (identifier: string, labels: string[] = ['planning-not-needed'], status = 'In Progress'): TrackerTicket => ({
 	id: `id-${identifier}`,
 	identifier: identifier.toUpperCase(),
@@ -61,18 +58,6 @@ const ticketOf = (identifier: string, labels: string[] = ['planning-not-needed']
 	unfinishedBlockers: [],
 });
 
-/** The sentence a gate run records when it never got the machine, which is the hold's own reason. */
-const heldReason = 'its gates waited 30 minutes for the machine and never got it, so nothing was decided about the code';
-
-/** One ticket's durable hold, as `takeGateHold` writes it once the tracker label has landed. */
-const holdOf = (): GateHold => ({
-	takenAt: '2026-01-02T03:04:05.000Z',
-	runId: 'run-42',
-	worktreePath: '/repo/.lightsout/worktrees/lo-70-drain',
-	reason: heldReason,
-	labelConfirmed: true,
-});
-
 /** A main checkout with one worktree per named branch, each cut from the default branch. */
 const setupParkedRepo = async ({ branches }: { branches: string[] }) => {
 	const { cwd } = setupBranchRepo();
@@ -82,6 +67,16 @@ const setupParkedRepo = async ({ branches }: { branches: string[] }) => {
 	const paths: Record<string, string> = {};
 
 	for (const branch of branches) {
+		// The scan finds a tree's work order by the branch its record stores, so a
+		// branch shaped like a ticket's gets one written before its tree is cut. A
+		// branch that carries no ticket id deliberately gets none: that is the tree
+		// the scan must leave alone.
+		const ticketRef = /^[a-z]+-\d+/u.exec(branch)?.[0];
+
+		if (ticketRef !== undefined) {
+			seedWorkOrderRecord({ cwd, name: branch, ticketRef });
+		}
+
 		paths[branch] = String(await createWorktree({ cwd, branch, startPoint: 'origin/main', owner: WorktreeOwner.Queue, reuseExisting: true }));
 	}
 
@@ -105,11 +100,63 @@ const commitWork = ({ path }: { path: string }) => {
 	execSync('git config user.name t && git config user.email t@t && git add -A && git commit -qm work', { cwd: path, stdio: 'ignore' });
 };
 
+/**
+ * A state the work-order contract accepts, written by hand so the scan's
+ * look-up is the only thing under test. `branch` is stated apart from `name`,
+ * and `ticketRef` apart from both, because none of the three is ever derived
+ * from another.
+ */
+const workOrderStateOf = ({ name, branch, ticketRef }: { name: string; branch: string; ticketRef: string }) => ({
+	schemaVersion: 1,
+	name,
+	branch,
+	ticketRef,
+	mode: 'multiple-plan',
+	plans: [],
+	history: [],
+});
+
+/**
+ * A main checkout holding one work-order record per entry, then one worktree
+ * per branch. The records are written before any tree is cut, so each tree
+ * lands where its work order's label puts it.
+ */
+const setupClaimedRepo = async ({ workOrders, branches }: { workOrders: { name: string; branch: string; ticketRef: string }[]; branches: string[] }) => {
+	const { cwd } = setupBranchRepo();
+
+	execSync('git config user.name t && git config user.email t@t', { cwd, stdio: 'ignore' });
+
+	for (const workOrder of workOrders) {
+		const folder = join(cwd, '.lightsout', 'work-orders', workOrder.name);
+
+		mkdirSync(folder, { recursive: true });
+		writeFileSync(join(folder, 'state.json'), JSON.stringify(workOrderStateOf(workOrder)));
+	}
+
+	const paths: Record<string, string> = {};
+
+	for (const branch of branches) {
+		// The scan finds a tree's work order by the branch its record stores, so a
+		// branch shaped like a ticket's gets one written before its tree is cut. A
+		// branch that carries no ticket id deliberately gets none: that is the tree
+		// the scan must leave alone.
+		const ticketRef = /^[a-z]+-\d+/u.exec(branch)?.[0];
+
+		if (ticketRef !== undefined) {
+			seedWorkOrderRecord({ cwd, name: branch, ticketRef });
+		}
+
+		paths[branch] = String(await createWorktree({ cwd, branch, startPoint: 'origin/main', owner: WorktreeOwner.Queue, reuseExisting: true }));
+	}
+
+	return { cwd, paths };
+};
+
 describe('scanParkedWorktrees', () => {
 	test('answers nothing when no drain has left a worktree behind, without asking the tracker anything', async () => {
 		const { cwd } = setupBranchRepo();
 
-		expect(await scanParkedWorktrees({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds })).toStrictEqual({
+		expect(await scanParkedWorktrees({ cwd, defaultBranch: 'main', settings, trackerSettings, holds })).toStrictEqual({
 			resumed: [],
 			outcomes: [],
 			leftBehind: [],
@@ -124,7 +171,7 @@ describe('scanParkedWorktrees', () => {
 		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
 		writeFileSync(join(paths['lo-70-drain'], 'half-done.ts'), 'export const value = 1;\n');
 
-		const parked = await scanParkedWorktrees({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds });
+		const parked = await scanParkedWorktrees({ cwd, defaultBranch: 'main', settings, trackerSettings, holds });
 
 		expect(parked).toEqual({ resumed: [expect.objectContaining({ identifier: 'LO-70' })], outcomes: [], leftBehind: [], merged: [] });
 		expect(mockGetTicketsByIdentifiers).toHaveBeenCalledWith(expect.objectContaining({ identifiers: ['lo-70'] }));
@@ -136,7 +183,7 @@ describe('scanParkedWorktrees', () => {
 		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
 		commitWork({ path: paths['lo-70-drain'] });
 
-		const parked = await scanParkedWorktrees({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds });
+		const parked = await scanParkedWorktrees({ cwd, defaultBranch: 'main', settings, trackerSettings, holds });
 
 		expect(parked).toEqual({
 			resumed: [],
@@ -151,7 +198,7 @@ describe('scanParkedWorktrees', () => {
 
 		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
 
-		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds });
+		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, holds });
 
 		expect(parked.resumed).toHaveLength(1);
 		expect(parked.outcomes).toStrictEqual([]);
@@ -163,7 +210,7 @@ describe('scanParkedWorktrees', () => {
 		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
 		rmSync(paths['lo-70-drain'], { recursive: true, force: true });
 
-		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds });
+		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, holds });
 
 		expect(parked.outcomes).toEqual([expect.objectContaining({ ready: false, error: expect.stringContaining('git could not read the worktree') })]);
 	});
@@ -179,7 +226,6 @@ describe('scanParkedWorktrees', () => {
 			defaultBranch: 'main',
 			settings,
 			trackerSettings,
-			shipSettings,
 			holds,
 			onProgress: (message) => progress.push(message),
 		});
@@ -207,7 +253,6 @@ describe('scanParkedWorktrees', () => {
 			defaultBranch: 'main',
 			settings,
 			trackerSettings,
-			shipSettings,
 			holds,
 			onProgress: (message) => progress.push(message),
 		});
@@ -229,12 +274,12 @@ describe('scanParkedWorktrees', () => {
 
 		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
 
-		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds });
+		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, holds });
 
 		expect(parked.resumed[0]?.identifier).toBe('LO-70');
 	});
 
-	test('skips a tree whose branch carries no ticket the pattern matches, naming the path and touching nothing', async () => {
+	test('skips a tree no work order claims, naming the path and touching nothing', async () => {
 		const { cwd } = await setupParkedRepo({ branches: ['scratch-work'] });
 		const progress: string[] = [];
 
@@ -243,13 +288,12 @@ describe('scanParkedWorktrees', () => {
 			defaultBranch: 'main',
 			settings,
 			trackerSettings,
-			shipSettings,
 			holds,
 			onProgress: (message) => progress.push(message),
 		});
 
 		expect(parked).toStrictEqual({ resumed: [], outcomes: [], leftBehind: [], merged: [] });
-		expect(progress).toEqual([expect.stringContaining('carries no ticket the configured pattern matches')]);
+		expect(progress).toEqual([expect.stringContaining("no work order's record stores its branch")]);
 	});
 
 	test('leaves a parked tree alone when its record names an owner other than the queue', async () => {
@@ -265,7 +309,6 @@ describe('scanParkedWorktrees', () => {
 			defaultBranch: 'main',
 			settings,
 			trackerSettings,
-			shipSettings,
 			holds,
 			onProgress: (message) => progress.push(message),
 		});
@@ -284,86 +327,11 @@ describe('scanParkedWorktrees', () => {
 		// A tree an earlier drain made before ownership was ever recorded.
 		await deleteWorktreeRecord({ cwd, branch: 'lo-70-drain' });
 
-		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds });
+		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, holds });
 
 		expect(await readWorktreeRecord({ cwd, branch: 'lo-70-drain' })).toBe(undefined);
 		expect(parked.outcomes).toEqual([expect.objectContaining({ branch: 'lo-70-drain', worktreePath: paths['lo-70-drain'], ready: true })]);
 		expect(parked.leftBehind).toStrictEqual([]);
-	});
-
-	test('carries a worktree whose branch is recorded merged, without resuming it or removing anything', async () => {
-		const { cwd, paths } = await setupParkedRepo({ branches: ['lo-70-drain'] });
-		const progress: string[] = [];
-
-		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
-		await writeBranchState({ cwd, branch: 'lo-70-drain', phase: BranchPhase.Merged });
-
-		const parked = await scanParked({
-			cwd,
-			defaultBranch: 'main',
-			settings,
-			trackerSettings,
-			shipSettings,
-			holds,
-			onProgress: (message) => progress.push(message),
-		});
-
-		expect(parked.merged).toEqual([{ worktreePath: paths['lo-70-drain'], branch: 'lo-70-drain', ticket: expect.objectContaining({ identifier: 'LO-70' }) }]);
-		expect(parked.resumed).toStrictEqual([]);
-		expect(parked.outcomes).toStrictEqual([]);
-		// The scan runs before the run lock, so removing the tree is the drain's job.
-		expect(existsSync(paths['lo-70-drain'])).toBe(true);
-		expect(progress).toEqual([expect.stringContaining('recorded merged')]);
-	});
-
-	test('sends a worktree recorded ready to the merge though its branch carries no commits git could count', async () => {
-		const { cwd, paths } = await setupParkedRepo({ branches: ['lo-70-drain'] });
-
-		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
-		await writeBranchState({ cwd, branch: 'lo-70-drain', phase: BranchPhase.Ready });
-
-		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds });
-
-		// A git count would answer zero here and drain it; the record is what decides.
-		expect(parked.outcomes).toEqual([expect.objectContaining({ worktreePath: paths['lo-70-drain'], ready: true })]);
-		expect(parked.resumed).toStrictEqual([]);
-	});
-
-	test('sends a worktree recorded building back through the drain though its branch already carries commits', async () => {
-		const { cwd, paths } = await setupParkedRepo({ branches: ['lo-70-drain'] });
-
-		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
-		commitWork({ path: paths['lo-70-drain'] });
-		await writeBranchState({ cwd, branch: 'lo-70-drain', phase: BranchPhase.Building });
-
-		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds });
-
-		expect(parked.resumed).toEqual([expect.objectContaining({ identifier: 'LO-70' })]);
-		expect(parked.outcomes).toStrictEqual([]);
-	});
-
-	test('records what it found for an unrecorded branch, so a second scan needs no git count', async () => {
-		const { cwd, paths } = await setupParkedRepo({ branches: ['lo-70-drain'] });
-
-		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
-		commitWork({ path: paths['lo-70-drain'] });
-
-		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds });
-
-		expect(parked.outcomes).toEqual([expect.objectContaining({ ready: true })]);
-		expect(await readBranchState({ cwd, branch: 'lo-70-drain' })).toEqual(expect.objectContaining({ phase: BranchPhase.Ready }));
-	});
-
-	test('records nothing for an unrecorded branch git could not count, so a later scan still asks', async () => {
-		const { cwd } = await setupParkedRepo({ branches: ['lo-70-drain'] });
-
-		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
-
-		// `origin/no-such-default` does not exist, so `rev-list --count` refuses.
-		const parked = await scanParked({ cwd, defaultBranch: 'no-such-default', settings, trackerSettings, shipSettings, holds });
-
-		expect(parked.resumed).toEqual([expect.objectContaining({ identifier: 'LO-70' })]);
-		expect(await readBranchState({ cwd, branch: 'lo-70-drain' })).toBe(undefined);
 	});
 
 	test('hands a tracker failure back, so a restart stops rather than reading every parked tree as withdrawn', async () => {
@@ -371,120 +339,30 @@ describe('scanParkedWorktrees', () => {
 
 		mockGetTicketsByIdentifiers.mockResolvedValue({ error: 'authentication failed' });
 
-		expect(await scanParkedWorktrees({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds })).toStrictEqual({
+		expect(await scanParkedWorktrees({ cwd, defaultBranch: 'main', settings, trackerSettings, holds })).toStrictEqual({
 			error: 'authentication failed',
 		});
 	});
 
-	test('leaves a held tree alone with its parked label untouched', async () => {
-		const { cwd, paths } = await setupParkedRepo({ branches: ['lo-70-drain', 'lo-71-drain'] });
-		const progress: string[] = [];
-
-		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70'), ticketOf('lo-71')]);
-
-		const parked = await scanParked({
-			cwd,
-			defaultBranch: 'main',
-			settings,
-			trackerSettings,
-			shipSettings,
-			holds: { 'lo-70': holdOf() },
-			onProgress: (message) => progress.push(message),
+	test("finds each parked tree's work order by its branch, and leaves an unclaimed tree alone", async () => {
+		const { cwd, paths } = await setupClaimedRepo({
+			// A label the branch does not spell, on a branch carrying no ticket id
+			// at all: only the record can answer either question.
+			workOrders: [{ name: 'lo-70-drain', branch: 'drain-the-backlog', ticketRef: 'LO-70' }],
+			branches: ['drain-the-backlog', 'scratch-work'],
 		});
-
-		expect(parked.leftBehind).toEqual([
-			{
-				identifier: 'lo-70',
-				title: 'Drain the backlog',
-				url: 'https://linear.app/lightsout/issue/LO-70',
-				reason: expect.stringContaining('queue-blocked-gate-timed-out'),
-			},
-		]);
-		expect(parked.leftBehind[0]?.reason).toEqual(expect.stringContaining(heldReason));
-		// The unheld sibling is in the very same state, and it is resumed with its parked label cleared.
-		expect(parked.resumed).toEqual([expect.objectContaining({ identifier: 'LO-71' })]);
-		expect(mockSetTicketLabel.mock.calls).toEqual([[expect.objectContaining({ ticketId: 'id-lo-71', present: false })]]);
-		expect(existsSync(paths['lo-70-drain'])).toBe(true);
-		expect(progress).toEqual(expect.arrayContaining([expect.stringContaining('lo-70 ·')]));
-	});
-
-	test('records a held tree as unsettled work remaining', async () => {
-		const { cwd } = await setupParkedRepo({ branches: ['lo-70-drain'] });
+		const progress: string[] = [];
 
 		mockGetTicketsByIdentifiers.mockResolvedValue([ticketOf('lo-70')]);
 
-		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds: { 'lo-70': holdOf() } });
+		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, holds, onProgress: (message) => progress.push(message) });
 
-		expect(parked).toEqual({
-			resumed: [],
-			outcomes: [],
-			leftBehind: [
-				{
-					identifier: 'lo-70',
-					title: 'Drain the backlog',
-					url: 'https://linear.app/lightsout/issue/LO-70',
-					reason: expect.any(String),
-				},
-			],
-			merged: [],
-		});
-		expect(parked.leftBehind[0]?.settled).toBeUndefined();
-	});
+		const unclaimed = progress.filter((line) => line.includes(paths['scratch-work']));
 
-	test('carries the tracker’s title and link on the entry for a worktree whose ticket lost its planning status label', async () => {
-		const { cwd, paths } = await setupParkedRepo({ branches: ['lo-70-drain'] });
-
-		// No planning-status label, so no planning summary exists for LO-70 — only the tracker ticket does.
-		mockGetTicketsByIdentifiers.mockResolvedValue([{ ...ticketOf('lo-70', ['bug']), url: 'https://linear.app/lightsout/issue/LO-70/drain-the-backlog' }]);
-
-		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds });
-
-		expect(parked.leftBehind).toStrictEqual([
-			{
-				identifier: 'lo-70',
-				title: 'Drain the backlog',
-				url: 'https://linear.app/lightsout/issue/LO-70/drain-the-backlog',
-				reason: `its worktree at ${paths['lo-70-drain']} is parked, but the ticket carries no planning status label any more`,
-			},
-		]);
-	});
-
-	test('leaves the title and link off the entry for a worktree whose ticket the tracker no longer returns', async () => {
-		const { cwd, paths } = await setupParkedRepo({ branches: ['lo-70-drain', 'lo-71-drain'] });
-
-		// The tracker answers for the sibling only, so a link borrowed from another ticket would show here.
-		mockGetTicketsByIdentifiers.mockResolvedValue([
-			{ ...ticketOf('lo-71'), title: 'Ship the lanes', url: 'https://linear.app/lightsout/issue/LO-71/ship-the-lanes' },
-		]);
-
-		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds });
-
-		// Strict, so a `title` or `url` key — even one holding undefined or an empty string — fails the match.
-		expect(parked.leftBehind).toStrictEqual([
-			{ identifier: 'lo-70', reason: `its worktree at ${paths['lo-70-drain']} is parked, but the ticket carries no planning status label any more` },
-		]);
-	});
-
-	test('carries a held tree’s ticket title and link beside the hold’s reason', async () => {
-		const { cwd } = await setupParkedRepo({ branches: ['lo-70-drain'] });
-
-		mockGetTicketsByIdentifiers.mockResolvedValue([
-			{
-				...ticketOf('lo-70', ['planning-not-needed', 'queue-blocked-gate-timed-out']),
-				url: 'https://linear.app/lightsout/issue/LO-70/drain-the-backlog',
-			},
-		]);
-
-		const parked = await scanParked({ cwd, defaultBranch: 'main', settings, trackerSettings, shipSettings, holds: { 'lo-70': holdOf() } });
-
-		expect(parked.leftBehind).toEqual([
-			{
-				identifier: 'lo-70',
-				title: 'Drain the backlog',
-				url: 'https://linear.app/lightsout/issue/LO-70/drain-the-backlog',
-				reason: expect.stringContaining(heldReason),
-			},
-		]);
-		expect(mockSetTicketLabel).not.toHaveBeenCalled();
+		expect(parked.resumed).toEqual([expect.objectContaining({ identifier: 'LO-70' })]);
+		expect(mockGetTicketsByIdentifiers).toHaveBeenCalledWith(expect.objectContaining({ identifiers: ['LO-70'] }));
+		expect(unclaimed).toEqual([expect.stringContaining('work order')]);
+		expect(parked.leftBehind).toStrictEqual([]);
+		expect(parked.outcomes).toStrictEqual([]);
 	});
 });

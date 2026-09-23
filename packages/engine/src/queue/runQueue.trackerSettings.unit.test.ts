@@ -4,9 +4,12 @@ import { describe, expect, jest, test } from '@jest/globals';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
+import type { nameWaveWorkOrders } from '#src/queue/nameWaveWorkOrders.ts';
 import type { TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
 import { jiraTrackerSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixture.ts';
+import { nameWaveLikeTemplate } from '#tests/helpers/nameWaveLikeTemplate.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { setupQueueDrain } from '#tests/helpers/setupQueueDrain.ts';
 import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
@@ -62,6 +65,16 @@ const mockShipOneBranch = jest.fn<(params: { outcome: WorkOrderRunOutcome }) => 
 
 jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: WorkOrderRunOutcome }) => mockShipOneBranch(params) }));
 // -------------------------
+// Naming a wave creates work orders, which reads the tracker and spawns a
+// harness — the work order module's own job, with its own tests. These cases
+// keep the label and branch the queue's template renders, so what they state
+// about branches and worktrees is what the drain itself decides.
+const mockNameWaveWorkOrders = jest.fn<typeof nameWaveWorkOrders>(nameWaveLikeTemplate());
+
+jest.mock('#src/queue/nameWaveWorkOrders.ts', () => ({
+	nameWaveWorkOrders: (params: Parameters<typeof mockNameWaveWorkOrders>[0]) => mockNameWaveWorkOrders(params),
+}));
+// -------------------------
 
 const ticketOf = ({
 	number,
@@ -109,6 +122,9 @@ const setupDrain = ({
 	execSync('git config user.name t && git config user.email t@t', { cwd, stdio: 'ignore' });
 
 	if (parkedBranch !== undefined) {
+		// The parked scan finds a tree's work order by the branch its record
+		// stores, so the record comes before the tree.
+		seedWorkOrderRecord({ cwd, name: parkedBranch, ticketRef: parkedTicket?.identifier });
 		execSync(`git worktree add -q ${join(worktreesRoot, parkedBranch)} -b ${parkedBranch} origin/main`, { cwd, stdio: 'ignore' });
 	}
 
@@ -170,9 +186,11 @@ describe('runQueue', () => {
 		await drain();
 		relay.close();
 
+		// The reference is the record's own, as the tracker spells it — nothing
+		// reads a ticket id out of the branch name any more.
 		expect(mockGetTicketsByIdentifiers).toHaveBeenCalledWith({
 			settings: { provider: 'linear', ticketPrefix: 'LO', team: 'LO', apiKey: 'lin_key' },
-			identifiers: ['lo-99'],
+			identifiers: ['LO-99'],
 		});
 	});
 

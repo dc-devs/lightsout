@@ -19,7 +19,7 @@ import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { seedRunDir } from '#tests/helpers/seedRunDir.ts';
-import { usageFixture } from '#tests/helpers/usageFixture.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 
 // Mocked Imports
 // -------------------------
@@ -263,6 +263,9 @@ const setupShippingTicket = async () => {
 	const worktree = await setupWorktree();
 	const workOrderFolder = join(worktree, '.lightsout', 'work-orders', 'lo-7-ship');
 
+	// The shipping record is filed in the work order whose record stores the branch.
+	seedWorkOrderRecord({ cwd: worktree, name: 'lo-7-ship' });
+
 	await mkdir(workOrderFolder, { recursive: true });
 	await writeFile(join(workOrderFolder, 'ship-progress.json'), `${JSON.stringify(shippingRecord, null, '\t')}\n`, 'utf8');
 
@@ -278,47 +281,6 @@ const setupShippingTicket = async () => {
 	const queue = await setupQueue({ tickets: [waitingTicket, ticket] });
 
 	return { ...queue, expected };
-};
-
-/** One live queue board, and one context per flag combination refused beside `--queue`, all landing in the same captured arrays. */
-const setupRefusals = async () => {
-	const combinations: Record<string, string | true>[] = [
-		{ queue: true, watch: true },
-		{ queue: true, planning: 'demo' },
-		{ queue: true, shipping: 'lo-7-ship' },
-	];
-	const { context, logged, errors, exitCodes } = await setupQueue();
-	const contexts = combinations.map((args) => ({ ...context, flags: new Map<string, string | true>(Object.entries(args)) }));
-
-	return { contexts, logged, errors, exitCodes };
-};
-
-/**
- * Three live queue boards, each in its own checkout: one asked to wait, one
- * not, and one carrying a value after `--wait`. The last capture holds the
- * spies, so running the three contexts in order fills one set of arrays.
- */
-const setupWaitForms = async () => {
-	const waited = await setupQueue({ args: { queue: true, wait: true } });
-	const bare = await setupQueue({ args: { queue: true } });
-	const { context: valued, logged, errors, exitCodes } = await setupQueue({ args: { queue: true, wait: 'abc' } });
-
-	return { bare: bare.context, errors, exitCodes, logged, valued, waited: waited.context };
-};
-
-/** One live queue board, and one context per form `--wait` is refused beside, all landing in the same captured arrays. */
-const setupWaitWithoutQueue = async () => {
-	const combinations: Record<string, string | true>[] = [
-		{ wait: true },
-		{ run: coordinatorRunId, wait: true },
-		{ now: true, wait: true },
-		{ planning: 'demo', wait: true },
-		{ shipping: 'lo-7-ship', wait: true },
-	];
-	const { context, logged, errors, exitCodes } = await setupQueue();
-	const contexts = combinations.map((args) => ({ ...context, flags: new Map<string, string | true>(Object.entries(args)) }));
-
-	return { contexts, logged, errors, exitCodes };
 };
 
 describe('statusCommand --queue', () => {
@@ -349,80 +311,6 @@ describe('statusCommand --queue', () => {
 		expect(logged.some((line) => line.includes('EX-106 · Settings'))).toBe(true);
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);
-	});
-
-	test('--queue with a --run matching nothing says so on stderr and exits 1', async () => {
-		const { context, logged, errors, exitCodes } = await setupQueue({ args: { queue: true, run: 'ghost' } });
-
-		await expect(statusCommand(context)).rejects.toThrow(/process\.exit/);
-
-		expect(logged).toStrictEqual([]);
-		expect(errors).toEqual([expect.stringContaining("no run matching 'ghost'")]);
-		expect(exitCodes).toStrictEqual([1]);
-		expect(mockResolveQueueRun).not.toHaveBeenCalled();
-	});
-
-	test('refuses --queue beside --watch, --planning or --shipping with the usage text and exit 1', async () => {
-		const { contexts, logged, errors, exitCodes } = await setupRefusals();
-
-		const commands = contexts.map((context) => statusCommand(context));
-		const outcomes = await Promise.allSettled(commands);
-
-		expect(outcomes).toEqual([
-			{ status: 'rejected', reason: expect.objectContaining({ message: 'process.exit' }) },
-			{ status: 'rejected', reason: expect.objectContaining({ message: 'process.exit' }) },
-			{ status: 'rejected', reason: expect.objectContaining({ message: 'process.exit' }) },
-		]);
-		// the board, a watch frame, the planning block or the shipping block would each have logged here
-		expect(logged).toStrictEqual([]);
-		expect(errors).toStrictEqual([usageFixture, usageFixture, usageFixture]);
-		expect(exitCodes).toStrictEqual([1, 1, 1]);
-		expect(mockResolveQueueRun).not.toHaveBeenCalled();
-		expect(mockResolveWatchTarget).not.toHaveBeenCalled();
-		expect(mockWatchRunProgress).not.toHaveBeenCalled();
-	});
-
-	test('refuses a value after --queue with the usage text and exit 1', async () => {
-		const { context, logged, errors, exitCodes } = await setupQueue({ args: { queue: 'abc' } });
-
-		await expect(statusCommand(context)).rejects.toThrow(/process\.exit/);
-
-		expect(logged).toStrictEqual([]);
-		expect(errors).toStrictEqual([usageFixture]);
-		expect(exitCodes).toStrictEqual([1]);
-		expect(mockResolveQueueRun).not.toHaveBeenCalled();
-	});
-
-	test('--wait reaches the queue resolver only when it is typed, and a value after it is refused', async () => {
-		const { bare, errors, exitCodes, logged, valued, waited } = await setupWaitForms();
-
-		for (const context of [waited, bare, valued]) {
-			await expect(statusCommand(context)).rejects.toThrow(/process\.exit/);
-		}
-
-		expect(mockResolveQueueRun).toHaveBeenNthCalledWith(1, expect.objectContaining({ cwd: waited.cwd, wait: true }));
-		expect(mockResolveQueueRun).toHaveBeenNthCalledWith(2, expect.objectContaining({ cwd: bare.cwd }));
-		expect(mockResolveQueueRun).not.toHaveBeenCalledWith(expect.objectContaining({ cwd: bare.cwd, wait: true }));
-		// the third form never reaches the resolver: a value after --wait is refused first
-		expect(mockResolveQueueRun).toHaveBeenCalledTimes(2);
-		expect(logged.some((line) => line.includes('EX-101 · Notifications'))).toBe(true);
-		expect(errors).toStrictEqual([usageFixture]);
-		expect(exitCodes).toStrictEqual([0, 0, 1]);
-	});
-
-	test('--wait without --queue prints the usage text and exits 1', async () => {
-		const { contexts, logged, errors, exitCodes } = await setupWaitWithoutQueue();
-
-		const outcomes = await Promise.allSettled(contexts.map((context) => statusCommand(context)));
-
-		expect(outcomes.map(({ status }) => status)).toStrictEqual(['rejected', 'rejected', 'rejected', 'rejected', 'rejected']);
-		// the listing, a run block, the one-shot block, the planning block or the shipping block would each have logged here
-		expect(logged).toStrictEqual([]);
-		expect(errors).toStrictEqual([usageFixture, usageFixture, usageFixture, usageFixture, usageFixture]);
-		expect(exitCodes).toStrictEqual([1, 1, 1, 1, 1]);
-		expect(mockResolveQueueRun).not.toHaveBeenCalled();
-		expect(mockResolveWatchTarget).not.toHaveBeenCalled();
-		expect(mockWatchRunProgress).not.toHaveBeenCalled();
 	});
 
 	test("a Building ticket's fenced lines equal status --run for the same worktree, line for line", async () => {

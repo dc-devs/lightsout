@@ -5,6 +5,8 @@ import { readGitHeadCommit } from '#src/common/git/readGitHeadCommit.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 import { isSamePath } from '#src/common/utils/isSamePath.ts';
+import { readWorkOrderRecordFile } from '#src/common/workspace/readWorkOrderRecordFile.ts';
+import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
 import { type LightsoutConfig, WorktreeOwner } from '#src/contracts/index.ts';
 import { readLiveRunLock } from '#src/runState/index.ts';
 import { createWorktree, prepareWorkOrderBranch, readBranchWorktree, readWorktreeRecord, resolveWorktreePath } from '#src/worktree/index.ts';
@@ -122,10 +124,13 @@ const cutPlanTree = async ({
  * tree is `resolveWorktreePath`'s, so planning, the queue and `implement` agree
  * on where a branch's tree sits.
  *
- * The branch is the plan's ticket folder, never the plan's own address, so every
- * plan of one ticket plans in the one tree on the one branch. For an address the
- * ticket branch is settled first — a branch only the remote holds supplies the
- * start point, and a branch behind or diverged from the pushed one is refused —
+ * The branch is whatever the plan's work order record stores, never the plan's
+ * own address and never its first segment, so every plan of one work order
+ * plans in the one tree on the one branch even when a prefixed template made
+ * the two different strings. A `--name` no work order claims is refused rather
+ * than planned on a branch nothing authored. For an address the work order's
+ * branch is settled first — a branch only the remote holds supplies the start
+ * point, and a branch behind or diverged from the pushed one is refused —
  * because a later plan must be researched against the implementation the branch
  * already carries.
  *
@@ -149,7 +154,18 @@ export const resolvePlanWorktree = async ({ cwd, config, flags, name, onProgress
 	}
 
 	const addressed = parsePlanAddress({ name }) !== undefined;
-	const branch = workOrderNameOf({ name });
+	const workOrderName = workOrderNameOf({ name });
+	// The label names the work order to look up; the branch is whatever its
+	// record stores, which under a prefixed template is a different string.
+	const record = await readWorkOrderRecordFile({ workOrderFolder: await workOrderFolderDir({ cwd, name: workOrderName }) });
+
+	if (record === undefined) {
+		return {
+			error: `no work order is named '${workOrderName}', so there is no branch to plan on — create one with \`lightsout work-order new\`, or ${noWorktreeRemedy}`,
+		};
+	}
+
+	const branch = record.branch;
 	const treePath = await resolveWorktreePath({ cwd, branch });
 
 	if (await isSamePath({ path: cwd, otherPath: treePath })) {

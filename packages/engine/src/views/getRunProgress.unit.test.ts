@@ -5,6 +5,7 @@ import { describe, expect, test } from '@jest/globals';
 import { type RunLock, type RunManifest, RunStatus, ShipStatus, type StepRecord } from '#src/contracts/index.ts';
 import { getRunProgress } from '#src/views/index.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 
 const runId = 'run-progress-01';
 
@@ -90,7 +91,8 @@ const setupProgress = ({
 	}
 
 	if (shipResult) {
-		mkdirSync(join(cwd, '.lightsout', 'work-orders', shipResult.branch), { recursive: true });
+		// The ship result is filed in the work order whose record stores the branch.
+		seedWorkOrderRecord({ cwd, name: shipResult.branch });
 		writeFileSync(
 			join(cwd, '.lightsout', 'work-orders', shipResult.branch, 'ship.json'),
 			JSON.stringify({ status: shipResult.status, branch: shipResult.branch, failingChecks: [] }),

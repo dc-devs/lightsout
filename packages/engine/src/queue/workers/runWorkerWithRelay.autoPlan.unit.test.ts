@@ -41,7 +41,7 @@ jest.mock('#src/invoke/index.ts', () => ({
 // -------------------------
 interface BuildTicketPlansParams {
 	cwd: string;
-	branch: string;
+	workOrderName: string;
 	record: WorkOrderState;
 	allowTicketBodyBuild: boolean;
 }
@@ -192,7 +192,7 @@ const setupAutoPlanTicket = ({
 		worktreePath,
 		params: {
 			worktreePath,
-			branch,
+			workOrderName: branch,
 			ticket,
 			config,
 			driver,
@@ -221,16 +221,18 @@ describe('runWorkerWithRelay', () => {
 		expect(mockInvokeAgentWithContract.mock.calls[0]?.[0].invocation.prompt).toContain(`${branch}/003-drain-order`);
 		expect(mockAddTicketPlan).not.toHaveBeenCalled();
 		expect(mockBuildTicketPlans).toHaveBeenCalledWith(
-			expect.objectContaining({ cwd: worktreePath, branch, record: recordAfterPlanning, allowTicketBodyBuild: false }),
+			expect.objectContaining({ cwd: worktreePath, workOrderName: branch, record: recordAfterPlanning, allowTicketBodyBuild: false }),
 		);
 	});
 
-	test('runWorkerWithRelay: an auto-plan ticket with no record yet has plan 001 created and every notice announced', async () => {
+	test('runWorkerWithRelay: an auto-plan ticket whose record holds no plans yet has plan 001 created and every notice announced', async () => {
 		const firstPlan = recordWith({
 			plans: [{ id: '001-drain-the-backlog', title: 'Drain the backlog', progress: 'planning', createdAt: '2026-01-01T00:00:00.000Z' }],
 		});
+		// A record holding no plans is the state every work order `work-order new`
+		// writes is in; a work order with no record at all is now a refusal.
 		const { params, progress } = setupAutoPlanTicket({
-			chosenPull: { record: undefined },
+			chosenPull: { record: recordWith({ plans: [] }) },
 			added: {
 				address: `${branch}/001-drain-the-backlog`,
 				record: firstPlan,

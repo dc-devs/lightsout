@@ -17,12 +17,21 @@ const isMissingFile = ({ error }: { error: unknown }) => typeof error === 'objec
  * Never throws: a branch that recorded nothing has a normal answer, and a
  * record that cannot be used is reported rather than raised.
  *
+ * A branch no work order claims answers no path at all and nothing recorded,
+ * which is the same answer it has always given for a branch that recorded
+ * nothing — there was simply never a file it could have been filed at.
+ *
  * Only a read that fails with `ENOENT` means missing; any other read failure, a
  * body that is not JSON, or one that does not satisfy the contract means the
  * file is there and unreadable.
  */
 export const readShippingProgress = async ({ cwd, branch }: Params): Promise<ShippingProgressReading> => {
 	const path = await getShippingProgressPath({ cwd, branch });
+
+	if (path === undefined) {
+		return { path: undefined, exists: false, progress: undefined };
+	}
+
 	let exists = true;
 	let progress: ShippingProgress | undefined;
 

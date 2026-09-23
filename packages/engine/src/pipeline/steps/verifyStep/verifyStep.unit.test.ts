@@ -34,16 +34,16 @@ const mockTakeGateHold = jest.fn<(params: HoldParams) => Promise<string | undefi
 
 jest.mock('#src/gates/index.ts', () => ({ takeGateHold: (params: HoldParams) => mockTakeGateHold(params) }));
 // -------------------------
-// Which ticket the checkout's branch carries is ship's answer, handed here
-// directly rather than by making a git checkout for it.
-interface BranchParams {
-	config: LightsoutConfig;
+// Which ticket the checkout's branch belongs to is the work order record's
+// answer, handed here directly rather than by making a git checkout and a
+// record for it.
+interface WorkOrderTicketRefParams {
 	cwd: string;
 }
 
-const mockReadBranchTicketRef = jest.fn<(params: BranchParams) => Promise<string | undefined>>();
+const mockReadWorkOrderTicketRef = jest.fn<(params: WorkOrderTicketRefParams) => Promise<string | undefined>>();
 
-jest.mock('#src/ship/index.ts', () => ({ readBranchTicketRef: (params: BranchParams) => mockReadBranchTicketRef(params) }));
+jest.mock('#src/workOrder/index.ts', () => ({ readWorkOrderTicketRef: (params: WorkOrderTicketRefParams) => mockReadWorkOrderTicketRef(params) }));
 // -------------------------
 
 /**
@@ -62,7 +62,7 @@ const setupVerifyRun = ({
 	holdFailure?: string;
 }) => {
 	mockRunVerificationGates.mockResolvedValue(result);
-	mockReadBranchTicketRef.mockResolvedValue(ticketRef);
+	mockReadWorkOrderTicketRef.mockResolvedValue(ticketRef);
 	mockTakeGateHold.mockResolvedValue(holdFailure);
 
 	const manifest = { runId: 'run-1', steps: [], changedFiles: [], packages: [], acceptanceTests: [], approvedTests: [] } as unknown as RunManifest;

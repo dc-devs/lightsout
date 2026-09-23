@@ -50,6 +50,7 @@ export const settleUnmergedTree = async ({
 
 	return {
 		ticket,
+		name: tree.name,
 		branch: tree.branch,
 		worktreePath: tree.path,
 		ready: bucket === ParkedTreeBucket.Ship,

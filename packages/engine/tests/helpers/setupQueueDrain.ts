@@ -45,5 +45,5 @@ export const setupQueueDrain = ({
 			onProgress: (message) => progress.push(message),
 		});
 
-	return { cwd, drain, relay, progress };
+	return { cwd, driver, drain, relay, progress };
 };

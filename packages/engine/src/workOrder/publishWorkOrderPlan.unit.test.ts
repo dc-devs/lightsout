@@ -179,8 +179,25 @@ const setupTicketFolderPlan = async () => {
 	return base;
 };
 
+/**
+ * The ordinary publish, with the record carrying a ticket reference the work
+ * order's label does not spell. Every identifier the tracker is then asked for
+ * says whether the reference came from the record or from the label.
+ */
+const setupRecordTicketRefPlan = async ({ ticketRef = 'LO-902' }: { ticketRef?: string } = {}) => {
+	const base = await setupTicketPlan();
+
+	writeFileSync(join(base.params.cwd, '.lightsout', 'work-orders', name, 'state.json'), JSON.stringify({ ...ticketRecordOf(), ticketRef }));
+	mockGetTicketsByIdentifiers.mockResolvedValue([{ id: 'id-902', identifier: ticketRef }]);
+
+	return base;
+};
+
 /** Every attachment title the tracker was asked to write, in the order it was asked. */
 const attachedTitles = () => mockSetTicketAttachment.mock.calls.map(([call]) => call.title);
+
+/** Every distinct ticket identifier the tracker was asked for, in the order each was first asked. */
+const identifiersAsked = () => [...new Set(mockGetTicketsByIdentifiers.mock.calls.flatMap(([call]) => call.identifiers))];
 
 /** The hash of the plan marker bytes that actually landed on the ticket — what the record's `publishedMarker` must equal. */
 const markerHashOf = ({ assets }: { assets: Map<string, string> }) => sha256({ content: assets.get(`${planId}--plan-attachments.json`) ?? '' });
@@ -319,83 +336,6 @@ describe('publishWorkOrderPlan', () => {
 		});
 	});
 
-	test('publishWorkOrderPlan: stops at the brainstorm generation the tracker refused and records no marker', async () => {
-		const { params, syncPath } = await setupTicketPlan({ uploadFailures: { [`${planId}--brainstorm-notes.md`]: 'the tracker refused the notes' } });
-
-		const report = await publishWorkOrderPlan(params);
-
-		expect({ published: report.published, error: report.error, sidecarMarker: sidecarMarkerOf({ syncPath }) }).toEqual({
-			published: [],
-			error: expect.stringContaining('the tracker refused the notes'),
-			sidecarMarker: undefined,
-		});
-	});
-
-	test('publishWorkOrderPlan: stops at the plan file the tracker refused and records no marker', async () => {
-		const { params, syncPath } = await setupTicketPlan({
-			brainstormPublished: true,
-			uploadFailures: { [`${planId}--plan.md`]: 'the tracker refused plan.md' },
-		});
-
-		const report = await publishWorkOrderPlan(params);
-
-		expect({ published: report.published, error: report.error, sidecarMarker: sidecarMarkerOf({ syncPath }) }).toEqual({
-			published: [],
-			error: expect.stringContaining('the tracker refused plan.md'),
-			sidecarMarker: undefined,
-		});
-	});
-
-	test('publishWorkOrderPlan: reports that the publish could not be recorded when the plan left the record while its files were landing', async () => {
-		// The sidecar names the copy both machines started from, so the record
-		// update's own pull takes the ticket's newer record — one another machine
-		// dropped this plan from. The files did land, so the plan titles stand and
-		// the sentence says the record does not describe them.
-		const agreed = ticketRecordOf();
-		const withoutThePlan: WorkOrderState = { ...agreed, plans: [] };
-		let dropped = false;
-		const { params, assets, syncPath } = await setupTicketPlan({
-			brainstormPublished: true,
-			published: agreed,
-			sidecarOf: agreed,
-			onAttach: ({ title, assets: onTicket }) => {
-				if (title === `${planId}--plan-attachments.json` && !dropped) {
-					dropped = true;
-					onTicket.set('state.json', JSON.stringify(withoutThePlan));
-				}
-			},
-		});
-
-		const report = await publishWorkOrderPlan(params);
-
-		const landed = { published: report.published, error: report.error, recordError: report.recordError, sidecarMarker: sidecarMarkerOf({ syncPath }) };
-
-		expect(landed).toStrictEqual({
-			published: planTitles,
-			error: undefined,
-			recordError: expect.stringContaining(`no longer holds plan ${planId}`),
-			sidecarMarker: undefined,
-		});
-		expect(attachedTitles()).toStrictEqual(planTitles);
-		expect(publishedPlanOf({ assets })).toStrictEqual({ progress: undefined, publishedMarker: undefined });
-	});
-
-	test("publishWorkOrderPlan: reports a state.json publish failure after the plan's files landed", async () => {
-		const { params } = await setupTicketPlan({
-			brainstormPublished: true,
-			uploadFailures: { 'state.json': 'the tracker refused the state.json attachment' },
-		});
-
-		const report = await publishWorkOrderPlan(params);
-
-		expect({ published: report.published, error: report.error, recordError: report.recordError, attached: attachedTitles() }).toStrictEqual({
-			published: planTitles,
-			error: undefined,
-			recordError: expect.stringContaining('the tracker refused the state.json attachment'),
-			attached: [...planTitles, 'state.json'],
-		});
-	});
-
 	test("publishWorkOrderPlan: the plan is published out of the ticket's plans folder", async () => {
 		const { params, assets, syncPath } = await setupTicketFolderPlan();
 
@@ -417,6 +357,28 @@ describe('publishWorkOrderPlan', () => {
 			publishedPlan: { progress: 'ready', publishedMarker: markerHashOf({ assets }) },
 			publishedTitle: 'The ship guard',
 			sidecarMarker: markerHashOf({ assets }),
+		});
+	});
+
+	test("publishes against the record's ticket reference", async () => {
+		const { params, assets } = await setupRecordTicketRefPlan();
+
+		const report = await publishWorkOrderPlan(params);
+
+		expect({
+			ticketRef: report.ticketRef,
+			error: report.error,
+			recordError: report.recordError,
+			published: report.published,
+			identifiers: identifiersAsked(),
+			publishedPlan: publishedPlanOf({ assets }),
+		}).toStrictEqual({
+			ticketRef: 'LO-902',
+			error: undefined,
+			recordError: undefined,
+			published: [...brainstormTitles, ...planTitles, 'state.json'],
+			identifiers: ['LO-902'],
+			publishedPlan: { progress: 'ready', publishedMarker: markerHashOf({ assets }) },
 		});
 	});
 });

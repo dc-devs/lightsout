@@ -162,7 +162,7 @@ const setupQueueBuild = ({ phased = false, result }: { phased?: boolean; result:
 		planDir,
 		params: {
 			worktreePath,
-			branch,
+			workOrderName: branch,
 			ticket,
 			config,
 			driver,

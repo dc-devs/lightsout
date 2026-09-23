@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { implementCommand } from '#src/cli/implementCommand.ts';
@@ -8,6 +8,7 @@ import { WorktreeOwner } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { readWorktreeRecord, resolveWorktreePath, writeWorktreeRecord } from '#src/worktree/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // Mocked Imports
@@ -104,6 +105,21 @@ const setupTicketRun = async ({
 } = {}) => {
 	const captured = captureCommandOutput();
 	const cwd = setupConsumerRepo();
+
+	// The record is what says which branch a plan's work order implements on, and
+	// which folder the tree's ownership record is filed in, so it comes first —
+	// holding the very plan the run addresses, which is what the run asks it for.
+	const addressedPlanId = relative(join('.lightsout', 'work-orders', branch, 'plans'), planFolder);
+
+	seedWorkOrderRecord({
+		cwd,
+		name: branch,
+		// Multiple-plan, because the addressed plan here is 002 and single-plan
+		// mode is the one where plan 001 alone supplies the implementation.
+		mode: 'multiple-plan',
+		plans: addressedPlanId === '' ? [] : [{ id: addressedPlanId, title: 'Rank the results', progress: 'ready', createdAt: '2026-01-01T00:00:00.000Z' }],
+	});
+
 	const treePath = await resolveWorktreePath({ cwd, branch });
 	const workspace = mkdtempSync(join(tmpdir(), 'lightsout-workspace-'));
 

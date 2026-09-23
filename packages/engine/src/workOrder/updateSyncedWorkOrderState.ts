@@ -56,10 +56,11 @@ export const updateSyncedWorkOrderState = async ({
 		return updated;
 	}
 
-	const target = resolveWorkOrderTrackerTarget({ config, env, name });
+	const target = resolveWorkOrderTrackerTarget({ config, env, workOrderName: name, ticketRef: updated.record.ticketRef });
 
 	// A tracker that cannot be used at all was already answered by the pull, so
-	// what is left here is a ticket with nowhere to publish to.
+	// what is left here is a work order with nowhere to publish to — which the
+	// record it just wrote is the only thing that can say.
 	if ('error' in target || 'localOnly' in target) {
 		return { record: updated.record };
 	}

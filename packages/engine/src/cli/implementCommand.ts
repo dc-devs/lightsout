@@ -2,7 +2,6 @@ import { finishImplementRun } from '#src/cli/common/implementRun/finishImplement
 import { openImplementWorkspace } from '#src/cli/common/implementRun/openImplementWorkspace.ts';
 import { reportWorkOrderPlanOutcome } from '#src/cli/common/implementRun/reportWorkOrderPlanOutcome.ts';
 import { resolveImplementInputs } from '#src/cli/common/implementRun/resolveImplementInputs.ts';
-import { printPlanTicketWarning } from '#src/cli/common/render/printPlanTicketWarning.ts';
 import { printRunStart } from '#src/cli/common/render/printRunStart.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import type { PlanTarget } from '#src/cli/common/types/PlanTarget.ts';
@@ -130,10 +129,6 @@ export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<
 	if (refused !== undefined) {
 		console.error(refused);
 		return exitCli({ code: 1 });
-	}
-
-	if (planName !== undefined) {
-		await printPlanTicketWarning({ cwd, name: planName });
 	}
 
 	printRunStart({ target, overviewPath, packages, startPhase, config, driver, cwd: workspace.cwd });

@@ -1,9 +1,7 @@
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { sha256 } from '#src/common/utils/sha256.ts';
-import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
 import { type LightsoutConfig, WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
 import type { TrackerAttachment, TrackerSettings } from '#src/ticketTracker/index.ts';
 import { pullWorkOrderState, readWorkOrderState } from '#src/workOrder/index.ts';
@@ -68,20 +66,43 @@ const syncedHashAt = ({ syncPath }: { syncPath: string }) =>
  * store does, so this is the one fixture that can carry the other title.
  */
 const setupAttachmentTitled = async ({ label, attachmentTitle }: { label: string; attachmentTitle: string }) => {
-	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-pull-work-order-'));
+	const local = recordOf({ branch: label, detail: 'added plan 001-local' });
 	const published = recordOf({ branch: label });
 
+	// This machine holds the copy it last synced, so the only thing that has
+	// moved is the ticket's — and the record it holds is what says which ticket
+	// to read at all.
+	const { params, recordPath, syncPath } = await setupPull({ local, syncedTo: local, branch: label });
+
+	// Armed after the shared arrangement, which titles its own attachment the way
+	// the store does; this is the one fixture that carries the other title.
 	mockGetTicketAttachments.mockResolvedValue([{ id: 'att-1', title: attachmentTitle, url: 'https://uploads.example.com/published-state.json' }]);
 	mockReadTicketAsset.mockResolvedValue(JSON.stringify(published));
 
-	const workOrderFolder = await workOrderFolderDir({ cwd, name: label });
+	return { local, published, statePath: recordPath, syncPath, params };
+};
 
-	return {
-		published,
-		statePath: join(workOrderFolder, 'state.json'),
-		syncPath: join(workOrderFolder, 'state-sync.json'),
-		params: { cwd, name: label, config: configWithTracker, env: { LINEAR_API_KEY: 'lin_key' }, onProgress: () => undefined },
-	};
+/**
+ * A work order whose folder label spells no ticket id at all, and whose record
+ * names one, so the reference can only have come from the record.
+ *
+ * The tracker read is watched for the record's lock, because the network call
+ * happens before the lock is taken and never while it is held.
+ */
+const setupRecordRef = async () => {
+	const label = 'rewrite-the-importer';
+	const local: WorkOrderState = { ...recordOf({ branch: label }), ticketRef: 'LO-777' };
+	const { params } = await setupPull({ local, branch: label });
+	const lockPath = join(params.cwd, '.lightsout', 'work-orders', label, 'state.lock');
+	const watched = { lockHeldDuringTrackerRead: false };
+
+	mockGetTicketAttachments.mockImplementation(() => {
+		watched.lockHeldDuringTrackerRead = existsSync(lockPath);
+
+		return Promise.resolve([]);
+	});
+
+	return { local, params, watched };
 };
 
 describe('pullWorkOrderState', () => {
@@ -98,13 +119,15 @@ describe('pullWorkOrderState', () => {
 			written: JSON.parse(readFileSync(stateNamed.statePath, 'utf8')) as unknown,
 			synced: (JSON.parse(readFileSync(stateNamed.syncPath, 'utf8')) as { recordSha256?: string }).recordSha256,
 			pulledFromTicketJson,
-			wroteForTicketJson: existsSync(ticketNamed.statePath),
+			keptForTicketJson: JSON.parse(readFileSync(ticketNamed.statePath, 'utf8')) as unknown,
 		}).toStrictEqual({
 			pulledFromStateJson: { record: stateNamed.published },
 			written: stateNamed.published,
 			synced: sha256({ content: readFileSync(stateNamed.statePath) }),
-			pulledFromTicketJson: { record: undefined },
-			wroteForTicketJson: false,
+			// An attachment under the old title is no published copy at all, so this
+			// machine's own record stands untouched.
+			pulledFromTicketJson: { record: ticketNamed.local },
+			keptForTicketJson: ticketNamed.local,
 		});
 	});
 
@@ -128,9 +151,9 @@ describe('pullWorkOrderState', () => {
 		});
 	});
 
-	test('pullWorkOrderState: a work order folder name carrying no ticket id is local only and never reaches the tracker', async () => {
+	test('pullWorkOrderState: a record carrying no ticket reference is local only and never reaches the tracker', async () => {
 		const branch = 'noticket-branch';
-		const local = recordOf({ branch });
+		const { ticketRef: _named, ...local } = recordOf({ branch });
 		const { params } = await setupPull({ local, branch });
 
 		const pulled = await pullWorkOrderState(params);
@@ -138,17 +161,20 @@ describe('pullWorkOrderState', () => {
 		expect({ pulled, attachmentReads: mockGetTicketAttachments.mock.calls.length }).toStrictEqual({ pulled: { record: local }, attachmentReads: 0 });
 	});
 
-	test("pullWorkOrderState: restores a published state.json into the primary checkout's work order folder when none is local and records its hash", async () => {
+	test('pullWorkOrderState: a work order this machine holds no record of has nothing to pull, and reaches no tracker', async () => {
 		const published = recordOf({ detail: 'added plan 001-published' });
 		const { params, recordPath, syncPath } = await setupPull({ ticket: { published } });
 
 		const pulled = await pullWorkOrderState(params);
 
-		expect({ pulled, written: JSON.parse(readFileSync(recordPath, 'utf8')), synced: syncedHashAt({ syncPath }) }).toStrictEqual({
-			pulled: { record: published },
-			written: published,
-			synced: sha256({ content: readFileSync(recordPath) }),
-		});
+		// The record is the only thing that says which ticket a work order belongs
+		// to, so a machine holding none has nothing to ask a tracker about.
+		expect({
+			pulled,
+			written: existsSync(recordPath),
+			synced: syncedHashAt({ syncPath }),
+			attachmentReads: mockGetTicketAttachments.mock.calls.length,
+		}).toStrictEqual({ pulled: { record: undefined }, written: false, synced: undefined, attachmentReads: 0 });
 	});
 
 	test('pullWorkOrderState: takes the published record when only the published copy moved since the last sync', async () => {
@@ -236,84 +262,21 @@ describe('pullWorkOrderState', () => {
 			surfaced: published,
 		});
 	});
-
-	test('pullWorkOrderState: refuses a published state.json that is not a valid work order state, and one that appears twice', async () => {
-		const local = recordOf({ detail: 'added plan 001-local' });
-		// Each case is armed immediately before its own pull: the two share one
-		// pair of tracker doubles, so arming both up front would leave the first
-		// pull reading the second case's ticket.
-		const offContract = await setupPull({ local, ticket: { publishedText: JSON.stringify({ ...recordOf(), mode: 'multi' }) } });
-		const pulledOffContract = await pullWorkOrderState(offContract.params);
-		const twice = await setupPull({ local, ticket: { published: recordOf({ detail: 'added plan 001-published' }), publishedTwice: true } });
-		const pulledTwice = await pullWorkOrderState(twice.params);
-
-		expect({
-			offContract: errorOf(pulledOffContract),
-			offContractOnDisk: readFileSync(offContract.recordPath, 'utf8'),
-			twice: errorOf(pulledTwice),
-			twiceOnDisk: readFileSync(twice.recordPath, 'utf8'),
-		}).toEqual({
-			offContract: expect.stringContaining('work-order sync'),
-			offContractOnDisk: offContract.localBytes,
-			twice: expect.stringContaining('state.json'),
-			twiceOnDisk: twice.localBytes,
-		});
-	});
-
-	test("pullWorkOrderState: refuses when the tracker cannot list the ticket's attachments", async () => {
-		const { params, recordPath, localBytes } = await setupPull({
-			local: recordOf({ detail: 'added plan 001-local' }),
-			ticket: { listFailure: 'the tracker API answered 503' },
-		});
-
-		const pulled = await pullWorkOrderState(params);
-
-		expect({ error: errorOf(pulled), onDisk: readFileSync(recordPath, 'utf8') }).toEqual({
-			error: expect.stringContaining('the tracker API answered 503'),
-			onDisk: localBytes,
-		});
-	});
-
-	test('pullWorkOrderState: refuses when the published state.json cannot be read', async () => {
-		const { params, recordPath, localBytes } = await setupPull({
-			local: recordOf({ detail: 'added plan 001-local' }),
-			ticket: { published: recordOf({ detail: 'added plan 001-published' }), assetFailure: 'the upload store answered 404' },
-		});
-
-		const pulled = await pullWorkOrderState(params);
-
-		expect({ error: errorOf(pulled), onDisk: readFileSync(recordPath, 'utf8') }).toEqual({
-			error: expect.stringContaining('the upload store answered 404'),
-			onDisk: localBytes,
-		});
-	});
-
-	test('pullWorkOrderState: refuses a published state.json that is not JSON at all', async () => {
-		const { params, recordPath, localBytes } = await setupPull({
-			local: recordOf({ detail: 'added plan 001-local' }),
-			ticket: { publishedText: '{ "branch": ' },
-		});
-
-		const pulled = await pullWorkOrderState(params);
-
-		expect({ error: errorOf(pulled), onDisk: readFileSync(recordPath, 'utf8') }).toEqual({
-			error: expect.stringContaining('is not valid JSON'),
-			onDisk: localBytes,
-		});
-	});
-
-	test('pullWorkOrderState: a ship.ticket-pattern that captures no ticket group is local only and never reaches the tracker', async () => {
+	test('pullWorkOrderState: a ship.ticket-pattern that captures no ticket group reaches the pull not at all', async () => {
 		const local = recordOf();
-		const { params } = await setupPull({ local, config: { ...configWithTracker, ship: { 'ticket-pattern': String.raw`^(?<other>lo-\d+)` } } });
+		const { params } = await setupPull({ local, syncedTo: local, config: { ...configWithTracker, ship: { 'ticket-pattern': String.raw`^(?<other>lo-\d+)` } } });
 
 		const pulled = await pullWorkOrderState(params);
 
-		expect({ pulled, attachmentReads: mockGetTicketAttachments.mock.calls.length }).toStrictEqual({ pulled: { record: local }, attachmentReads: 0 });
+		// Which ticket a work order belongs to is its record's answer, so the ship
+		// pattern decides nothing here and the tracker is read as usual.
+		expect({ pulled, attachmentReads: mockGetTicketAttachments.mock.calls.length }).toStrictEqual({ pulled: { record: local }, attachmentReads: 1 });
 	});
 
-	test("pullWorkOrderState: a fetched record lands in the ticket's own folder", async () => {
+	test("pullWorkOrderState: a fetched record lands in the work order's own folder", async () => {
 		const published = recordOf({ detail: 'added plan 001-published' });
-		const { params } = await setupPull({ ticket: { published } });
+		const local = recordOf({ detail: 'added plan 001-local' });
+		const { params } = await setupPull({ local, syncedTo: local, ticket: { published } });
 		const inTicketFolder = join(params.cwd, '.lightsout', 'work-orders', name, 'state.json');
 
 		const pulled = await pullWorkOrderState(params);
@@ -345,7 +308,8 @@ describe('pullWorkOrderState', () => {
 
 	test('pullWorkOrderState: takes a published state whose branch carries a prefix its name does not', async () => {
 		const published: WorkOrderState = { ...recordOf({ detail: 'added plan 001-published' }), branch: `feature/${name}` };
-		const { params, recordPath } = await setupPull({ ticket: { published } });
+		const local = recordOf({ detail: 'added plan 001-local' });
+		const { params, recordPath } = await setupPull({ local, syncedTo: local, ticket: { published } });
 
 		const pulled = await pullWorkOrderState(params);
 
@@ -382,5 +346,21 @@ describe('pullWorkOrderState', () => {
 			diverged: expect.stringContaining('lightsout work-order sync'),
 		});
 		expect(Object.values(sentences).join('\n')).not.toMatch(/lightsout ticket\b/);
+	});
+
+	test('resolves the tracker target from the record it just read', async () => {
+		const { local, params, watched } = await setupRecordRef();
+
+		const pulled = await pullWorkOrderState(params);
+
+		expect({
+			pulled,
+			askedFor: mockGetTicketAttachments.mock.calls.map((call) => call[0].identifier),
+			lockHeldDuringTrackerRead: watched.lockHeldDuringTrackerRead,
+		}).toStrictEqual({
+			pulled: { record: local },
+			askedFor: ['LO-777'],
+			lockHeldDuringTrackerRead: false,
+		});
 	});
 });

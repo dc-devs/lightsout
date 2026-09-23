@@ -69,6 +69,12 @@ interface Params {
 	/** The checkout the run built in — where the plan path resolves and the branch is read. */
 	cwd: string;
 	manifest: RunManifest;
+	/**
+	 * The run's effective config, kept on the contract though nothing here reads
+	 * it any more: the pipeline hands every commit step the same four facts, and
+	 * dropping one of them from this reader alone would make the seam read as if
+	 * the subject were decided somewhere else.
+	 */
 	config: LightsoutConfig;
 	/** The run's progress sink, for the one aside this reader has to make: a work order state that exists but cannot be read. */
 	onProgress: (message: string) => void;
@@ -84,12 +90,14 @@ interface Params {
  * fact the run records for itself.
  *
  * With no work order state the reference falls back to `readRunLabel`, the same
- * ladder `implement-direct` climbs for its own run label.
+ * ladder `implement-direct` climbs for its own run label — and that ladder now
+ * reads the record rather than the repository's branch pattern, so no
+ * configuration reaches this reader at all.
  */
-export const readRunCommitSubject = async ({ cwd, manifest, config, onProgress }: Params): Promise<string> => {
+export const readRunCommitSubject = async ({ cwd, manifest, onProgress }: Params): Promise<string> => {
 	const { unit, workOrderName, planId } = await readUnit({ cwd, plan: manifest.plan, planName: manifest.planName });
 	const { ticketRef, title } = await readTicketFacts({ cwd, workOrderName, planId, onProgress });
-	const reference = ticketRef ?? (await readRunLabel({ cwd, config }));
+	const reference = ticketRef ?? (await readRunLabel({ cwd }));
 
 	return title === undefined ? `${reference} ${unit}` : `${reference} ${unit}: ${title}`;
 };

@@ -7,6 +7,7 @@ import { removeShippedRunWorkspace } from '#src/cli/common/implementRun/removeSh
 import { RunManifest, WorktreeOwner } from '#src/contracts/index.ts';
 import { createWorktree, deleteWorktreeRecord, readWorktreeRecord, writeWorktreeRecord } from '#src/worktree/index.ts';
 import { seedRunDir } from '#tests/helpers/seedRunDir.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 const at = '2026-01-01T00:00:00.000Z';
@@ -45,6 +46,11 @@ const manifestFor = ({
  */
 const setupShippedRun = async ({ branch, owner }: { branch: string; owner: WorktreeOwner }) => {
 	const { cwd } = setupBranchRepo();
+
+	// A tree's ownership record is filed with the work order whose record stores
+	// the branch, so the branch has to have one.
+	seedWorkOrderRecord({ cwd, name: branch });
+
 	const created = await createWorktree({ cwd, branch, startPoint: 'origin/main', owner, reuseExisting: false });
 	const worktreePath = String(created);
 	const runDir = await seedRunDir({ cwd, manifest: { runId: 'run-shipped', branch, workspace: worktreePath } });
@@ -56,6 +62,8 @@ const setupShippedRun = async ({ branch, owner }: { branch: string; owner: Workt
 const setupUnremovableTree = async ({ branch }: { branch: string }) => {
 	const { cwd } = setupBranchRepo();
 	const standing = mkdtempSync(join(tmpdir(), 'lightsout-not-a-worktree-'));
+
+	seedWorkOrderRecord({ cwd, name: branch });
 
 	await writeWorktreeRecord({ cwd, branch, owner: WorktreeOwner.Implement, worktreePath: standing });
 

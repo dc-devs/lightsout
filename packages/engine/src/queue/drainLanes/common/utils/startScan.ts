@@ -26,8 +26,8 @@ const runScan = async ({ context, state }: { context: LaneContext; state: LaneSt
 		const admitted = await admitScanned({ context, state, selection: next });
 
 		if (admitted.length > 0) {
-			onProgress?.(`${admitted.map((ticket) => ticket.identifier).join(', ')} · joined the run already in flight`);
-			await writeQueuePlan({ path: context.planPath, cwd: context.cwd, settings, queued: state.queued });
+			onProgress?.(`${admitted.map((order) => order.ticket.identifier).join(', ')} · joined the run already in flight`);
+			await writeQueuePlan({ path: context.planPath, cwd: context.cwd, queued: state.queued });
 		}
 	}
 };

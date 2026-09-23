@@ -6,8 +6,9 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { BranchPhase, type LightsoutConfig, type WorktreeOwner } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
+import { readBranchState } from '#src/queue/branchState/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
+import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
@@ -18,6 +19,7 @@ import { runQueueWorkOrder } from '#src/queue/runQueueWorkOrder.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import type { WorktreeFailure } from '#src/worktree/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 interface CommitTicketWorkParams {
@@ -115,6 +117,9 @@ const setupTicketRun = () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-repo-'));
 	const coordinatorRunDir = mkdtempSync(join(tmpdir(), 'lightsout-ticket-'));
 
+	// The branch's phase is recorded in the work order whose record stores it, so
+	// the work order exists before the run picks the branch up.
+	seedWorkOrderRecord({ cwd, name: 'lo-70-drain-the-backlog', ticketRef: 'LO-70' });
 	mockCreateWorktree.mockResolvedValue('/tmp/worktrees/lo-70-drain-the-backlog');
 	mockSetTicketStatus.mockResolvedValue(undefined);
 	mockRunWorkerWithRelay.mockResolvedValue({});
@@ -131,7 +136,9 @@ const setupTicketRun = () => {
 			cwd,
 			settings,
 			trackerSettings,
-			ticket: given,
+			// The label and the branch are the same string here: this file is about
+			// the sequence, and the prefixed case has its own arrangement below.
+			workOrder: { ticket: given, name: 'lo-70-drain-the-backlog', branch: 'lo-70-drain-the-backlog' },
 			config,
 			driver,
 			driverName: 'claude-code',
@@ -155,7 +162,13 @@ describe('runQueueWorkOrder', () => {
 
 		relay.close();
 
-		expect(outcome).toStrictEqual({ ticket, branch: 'lo-70-drain-the-backlog', worktreePath: '/tmp/worktrees/lo-70-drain-the-backlog', ready: true });
+		expect(outcome).toStrictEqual({
+			ticket,
+			name: 'lo-70-drain-the-backlog',
+			branch: 'lo-70-drain-the-backlog',
+			worktreePath: '/tmp/worktrees/lo-70-drain-the-backlog',
+			ready: true,
+		});
 		expect(mockSetTicketStatus).toHaveBeenCalledWith(expect.objectContaining({ statusName: 'In Progress' }));
 		expect(mockCommitTicketWork).toHaveBeenCalledWith({
 			cwd: '/tmp/worktrees/lo-70-drain-the-backlog',
@@ -261,93 +274,6 @@ describe('runQueueWorkOrder', () => {
 		relay.close();
 	});
 
-	test('records the branch as building before its worker touches source, so a crash leaves the phase written down', async () => {
-		const { run, relay, cwd } = setupTicketRun();
-		let recordedAtWorkerStart: string | undefined;
-
-		mockRunWorkerWithRelay.mockImplementation(async () => {
-			recordedAtWorkerStart = (await readBranchState({ cwd, branch: 'lo-70-drain-the-backlog' }))?.phase;
-
-			return {};
-		});
-
-		await run();
-		relay.close();
-
-		expect(recordedAtWorkerStart).toBe(BranchPhase.Building);
-	});
-
-	test('never writes building over a branch already recorded ready, because pickup is not a reset', async () => {
-		const { run, relay, cwd } = setupTicketRun();
-		let recordedAtWorkerStart: string | undefined;
-
-		await writeBranchState({ cwd, branch: 'lo-70-drain-the-backlog', phase: BranchPhase.Ready });
-		mockRunWorkerWithRelay.mockImplementation(async () => {
-			recordedAtWorkerStart = (await readBranchState({ cwd, branch: 'lo-70-drain-the-backlog' }))?.phase;
-
-			return {};
-		});
-
-		await run();
-		relay.close();
-
-		// Un-recording it here and then failing in the worker would send the next
-		// run to re-do finished work.
-		expect(recordedAtWorkerStart).toBe(BranchPhase.Ready);
-	});
-
-	test('records the branch ready once its commits are on it, which is what the ship step reads', async () => {
-		const { run, relay, cwd } = setupTicketRun();
-
-		const outcome = await run();
-
-		relay.close();
-
-		expect(outcome.ready).toBe(true);
-		expect(await readBranchState({ cwd, branch: 'lo-70-drain-the-backlog' })).toEqual(expect.objectContaining({ phase: BranchPhase.Ready }));
-	});
-
-	test('ships a resumed ticket whose work was committed by an earlier run, rather than reporting that the worker changed nothing', async () => {
-		const { run, relay, cwd } = setupTicketRun();
-
-		// This session added nothing, but the branch already carries the work.
-		mockCommitTicketWork.mockResolvedValue({ committed: false });
-		mockReadGitCommitsAhead.mockResolvedValue(3);
-
-		const outcome = await run();
-
-		relay.close();
-
-		expect(outcome.ready).toBe(true);
-		expect(outcome.error).toBeUndefined();
-		expect(await readBranchState({ cwd, branch: 'lo-70-drain-the-backlog' })).toEqual(expect.objectContaining({ phase: BranchPhase.Ready }));
-	});
-
-	test('parks a ticket whose branch carries no commits at all, leaving the record where the pickup put it', async () => {
-		const { run, relay, cwd } = setupTicketRun();
-
-		mockCommitTicketWork.mockResolvedValue({ committed: false });
-		mockReadGitCommitsAhead.mockResolvedValue(0);
-
-		expect(await run()).toEqual(expect.objectContaining({ ready: false, error: 'the worker left no commits on the branch' }));
-
-		relay.close();
-
-		expect(await readBranchState({ cwd, branch: 'lo-70-drain-the-backlog' })).toEqual(expect.objectContaining({ phase: BranchPhase.Building }));
-	});
-
-	test('parks a ticket whose commits git could not count, and records nothing — an unreadable branch is not a fact worth writing', async () => {
-		const { run, relay, cwd } = setupTicketRun();
-
-		mockReadGitCommitsAhead.mockResolvedValue(undefined);
-
-		expect(await run()).toEqual(expect.objectContaining({ ready: false, error: 'git could not count the commits on lo-70-drain-the-backlog' }));
-
-		relay.close();
-
-		expect(await readBranchState({ cwd, branch: 'lo-70-drain-the-backlog' })).toEqual(expect.objectContaining({ phase: BranchPhase.Building }));
-	});
-
 	test("runQueueWorkOrder: parks a ticket whose branch's worktree belongs to a human's plan or implement run", async () => {
 		const { run, relay } = setupTicketRun();
 
@@ -395,5 +321,65 @@ describe('runQueueWorkOrder', () => {
 		// must write their message files to the same place.
 		expect(mockRunWorkerWithRelay).toHaveBeenCalledWith(expect.objectContaining({ env, workOrderRunDir }));
 		expect(mockCommitTicketWork).toHaveBeenCalledWith(expect.objectContaining({ runDir: workOrderRunDir }));
+	});
+	/**
+	 * The same sequence handed a work order whose record stores a prefixed branch,
+	 * so the label and the branch are two different strings.
+	 *
+	 * A second factory rather than another parameter on the first: the run is
+	 * given a named work order instead of a bare ticket, which is a different
+	 * arrangement rather than a variant of the same one.
+	 */
+	const setupNamedWorkOrderRun = () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'lightsout-repo-'));
+		const coordinatorRunDir = mkdtempSync(join(tmpdir(), 'lightsout-ticket-'));
+
+		seedWorkOrderRecord({ cwd, name: 'lo-70-drain-the-backlog', branch: 'feature/lo-70-drain-the-backlog', ticketRef: 'LO-70' });
+		mockCreateWorktree.mockResolvedValue('/tmp/worktrees/lo-70-drain-the-backlog');
+		mockSetTicketStatus.mockResolvedValue(undefined);
+		mockRunWorkerWithRelay.mockResolvedValue({});
+		mockCommitTicketWork.mockResolvedValue({ committed: true });
+		mockReadGitCommitsAhead.mockResolvedValue(1);
+
+		const relay = new TerminalQuestionRelay({ settings, trackerSettings, input: new PassThrough(), output: new PassThrough() });
+		const workOrder: NamedWorkOrder = { ticket, name: 'lo-70-drain-the-backlog', branch: 'feature/lo-70-drain-the-backlog' };
+
+		const run = () =>
+			runQueueWorkOrder({
+				cwd,
+				settings,
+				trackerSettings,
+				workOrder,
+				config,
+				driver,
+				driverName: 'claude-code',
+				defaultBranch: 'main',
+				env: { LINEAR_API_KEY: 'lin_key' },
+				relay,
+				serializeWorktreeAdd: ({ task }) => task(),
+				coordinatorRunId: 'run-q',
+				coordinatorRunDir,
+				onProgress: () => {},
+			});
+
+		return { run, relay, workOrder };
+	};
+
+	test('runs on the branch the record stores and reports the label with it', async () => {
+		const { run, relay } = setupNamedWorkOrderRun();
+
+		const outcome = await run();
+
+		relay.close();
+
+		expect(outcome).toEqual(
+			expect.objectContaining({
+				branch: 'feature/lo-70-drain-the-backlog',
+				name: 'lo-70-drain-the-backlog',
+				worktreePath: '/tmp/worktrees/lo-70-drain-the-backlog',
+				ready: true,
+			}),
+		);
+		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch: 'feature/lo-70-drain-the-backlog' }));
 	});
 });

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { ShippingProgress } from '#src/contracts/index.ts';
@@ -47,6 +47,20 @@ const setupUnwritableProgress = () => {
 	const scenario = setupShip();
 
 	mkdirSync(join(workOrderFolder({ cwd: scenario.cwd }), '.gitignore'), { recursive: true });
+
+	return scenario;
+};
+
+/**
+ * A green ship of a branch no work order claims: the work-orders directory is
+ * removed outright, so no record anywhere stores `lo-89-ship` as its branch.
+ * The ship has nowhere to file its result, which is a real answer rather than a
+ * failure — the branch simply keeps no local record.
+ */
+const setupUnclaimedBranch = () => {
+	const scenario = setupShip();
+
+	rmSync(join(scenario.cwd, '.lightsout', 'work-orders'), { recursive: true, force: true });
 
 	return scenario;
 };
@@ -154,5 +168,24 @@ describe('runShip', () => {
 		);
 		expect(progress.filter((line) => line.includes('ship-progress.json'))).toStrictEqual([]);
 		expect(progress.at(-1)).toMatch(/^ship result: /);
+	});
+
+	test('prints no result path when the branch keeps no local record', async () => {
+		const { cwd, progress, ship } = setupUnclaimedBranch();
+
+		const result = await ship();
+
+		expect(result).toEqual(
+			expect.objectContaining({
+				status: 'shipped',
+				branch: 'lo-89-ship',
+				ticketRef: 'lo-89',
+				prNumber: 41,
+				prUrl: 'https://forge.example/acme/repo/pull/41',
+				mergeCommit: '0f1e2d3c',
+			}),
+		);
+		expect(progress.filter((line) => line.startsWith('ship result: '))).toStrictEqual([]);
+		expect(existsSync(join(workOrderFolder({ cwd }), 'ship.json'))).toBe(false);
 	});
 });

@@ -6,10 +6,13 @@ import type { Driver } from '#src/drivers/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { runQueue } from '#src/queue/index.ts';
+import type { nameWaveWorkOrders } from '#src/queue/nameWaveWorkOrders.ts';
 import type { PullRequestSummary } from '#src/ship/index.ts';
 import type { TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
 import { committedPaths } from '#tests/helpers/committedPaths.ts';
+import { nameWaveLikeTemplate } from '#tests/helpers/nameWaveLikeTemplate.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
 import { terminalRelayFixture } from '#tests/helpers/terminalRelayFixture.ts';
@@ -76,6 +79,16 @@ jest.mock('#src/ship/index.ts', () => ({
 const mockRunWorkerWithRelay = jest.fn<(params: { worktreePath: string }) => Promise<WorkerOutcome>>();
 
 jest.mock('#src/queue/workers/runWorkerWithRelay.ts', () => ({ runWorkerWithRelay: (params: { worktreePath: string }) => mockRunWorkerWithRelay(params) }));
+// -------------------------
+// Naming a wave creates work orders, which reads the tracker and spawns a
+// harness — the work order module's own job, with its own tests. These cases
+// keep the label and branch the queue's template renders, so what they state
+// about branches and worktrees is what the drain itself decides.
+const mockNameWaveWorkOrders = jest.fn<typeof nameWaveWorkOrders>(nameWaveLikeTemplate());
+
+jest.mock('#src/queue/nameWaveWorkOrders.ts', () => ({
+	nameWaveWorkOrders: (params: Parameters<typeof mockNameWaveWorkOrders>[0]) => mockNameWaveWorkOrders(params),
+}));
 // -------------------------
 
 /** `plugin/dist/` is the shape this repo configures: a directory of build output rebuilt by every gate run. */
@@ -152,6 +165,9 @@ const setupQueueRun = ({ shipBlocked = false }: { shipBlocked?: boolean } = {}) 
 	const progress: string[] = [];
 	const relay = terminalRelayFixture();
 
+	// Every record the drain files for this branch is filed in the work order that
+	// claims it, so the work order has to exist before the drain runs.
+	seedWorkOrderRecord({ cwd, name: branch, ticketRef: 'LO-70' });
 	// Run state is ignored the way a consumer repo ignores it — without that, the
 	// commit step's `git add -A` would sweep the run's own records onto the branch.
 	writeRepoFile({ cwd, path: '.gitignore', content: '.lightsout/\n' });

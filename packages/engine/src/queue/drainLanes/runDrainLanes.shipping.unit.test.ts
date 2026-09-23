@@ -8,6 +8,7 @@ import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOu
 import { createMainCheckoutSerializer } from '#src/queue/common/utils/createMainCheckoutSerializer.ts';
 import { runDrainLanes } from '#src/queue/drainLanes/index.ts';
 import { createWorktree } from '#src/worktree/index.ts';
+import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -75,6 +76,8 @@ const setupCarriedBranch = async ({ reason, detail }: { reason: ShipBlockReason;
 		runId,
 		holds: {},
 		shipIntegration: shipIntegrationFixture(),
+		/** Nothing is named in these cases: the branch arrives finished, so the summariser is never reached. */
+		driver: createUncalledDriver({ reason: 'a carried-branch drain spawned the name summariser' }),
 		settings,
 		trackerSettings: trackerSettingsFixture(),
 		shipSettings: shipSettingsFixture(),
@@ -82,12 +85,12 @@ const setupCarriedBranch = async ({ reason, detail }: { reason: ShipBlockReason;
 		env: {},
 		planPath: join(cwd, 'queue.md'),
 		first: { runnable: [], blocked: [], skipped: [] },
-		carried: [{ ticket, branch, worktreePath, ready: true }],
+		carried: [{ ticket, name: branch, branch, worktreePath, ready: true }],
 		carriedLeftBehind: [],
 		attempted: new Set<string>(),
 		runWorkOrder,
 		serializeMainCheckout: createMainCheckoutSerializer(),
-		board: new QueueBoardRecorder({ cwd, runId, branchTemplate: settings.branchTemplate }),
+		board: new QueueBoardRecorder({ cwd, runId }),
 		onProgress: (message: string) => progress.push(message),
 	};
 

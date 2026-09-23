@@ -1,5 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
+import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import type { LightsoutConfig, WorkOrderPlan, WorkOrderState } from '#src/contracts/index.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { chooseAutoPlanTarget } from '#src/queue/workers/chooseAutoPlanTarget.ts';
@@ -89,7 +90,7 @@ const ticketWith = ({ title }: { title: string }): TicketSummary => ({
  * plan creation gives when the choice reaches for it.
  */
 const setupChoice = ({
-	pulled = { record: undefined },
+	pulled = { record: recordWith({ plans: [] }) },
 	added = { error: 'addWorkOrderPlan was not expected to run' },
 	title = 'Support multiple plans per ticket',
 }: {
@@ -105,7 +106,56 @@ const setupChoice = ({
 	return {
 		params: {
 			cwd: '/repo',
-			branch,
+			workOrderName: branch,
+			ticket: ticketWith({ title }),
+			config,
+			env: { LINEAR_API_KEY: 'key' } as NodeJS.ProcessEnv,
+			onProgress: (message: string) => progress.push(message),
+		},
+	};
+};
+
+/**
+ * A work order whose record stores a prefixed branch, so the label and the
+ * branch are never the same string: every address built from the label parses,
+ * and one built from the branch could not.
+ */
+const workOrderName = 'lo-140-multi-plan';
+
+const prefixedBranch = 'feature/lo-140-multi-plan';
+
+const labelledRecordWith = ({ plans }: { plans: WorkOrderPlan[] }): WorkOrderState => ({
+	schemaVersion: 1,
+	name: workOrderName,
+	ticketRef: 'LO-140',
+	branch: prefixedBranch,
+	mode: 'multiple-plan',
+	plans,
+	history: [],
+});
+
+/**
+ * The choice as it is asked for by label: the record the pull answers, and the
+ * answer the plan creation gives when the choice reaches for it.
+ */
+const setupLabelledChoice = ({
+	pulled,
+	added = { error: 'addWorkOrderPlan was not expected to run' },
+	title = 'Support multiple plans per ticket',
+}: {
+	pulled: PullResult;
+	added?: AddPlanResult;
+	title?: string;
+}) => {
+	mockPullTicketRecord.mockResolvedValue(pulled);
+	mockAddTicketPlan.mockResolvedValue(added);
+
+	const progress: string[] = [];
+
+	return {
+		params: {
+			cwd: '/repo',
+			workOrderName,
 			ticket: ticketWith({ title }),
 			config,
 			env: { LINEAR_API_KEY: 'key' } as NodeJS.ProcessEnv,
@@ -115,7 +165,7 @@ const setupChoice = ({
 };
 
 describe('chooseAutoPlanTarget', () => {
-	test('chooseAutoPlanTarget: a ticket with no record gets plan 001 slugged from the first three title words', async () => {
+	test('chooseAutoPlanTarget: a record holding no plans gets plan 001 slugged from the first three title words', async () => {
 		const record = recordWith({ plans: [planWith({ id: '001-support-multiple-plans', progress: 'planning' })] });
 		const { params } = setupChoice({ added: { address: `${branch}/001-support-multiple-plans`, record } });
 
@@ -182,5 +232,41 @@ describe('chooseAutoPlanTarget', () => {
 		const addAnswer = await chooseAutoPlanTarget(refused.params);
 
 		expect(addAnswer).toStrictEqual({ error: looseFilesError });
+	});
+
+	test('builds the plan address from the label, never from a prefixed branch', async () => {
+		const record = labelledRecordWith({ plans: [planWith({ id: '003-queue-order', progress: 'planning' })] });
+		const { params } = setupLabelledChoice({ pulled: { record } });
+
+		const answer = await chooseAutoPlanTarget(params);
+
+		const address = 'address' in answer ? answer.address : undefined;
+
+		expect(answer).toEqual({ record, address: 'lo-140-multi-plan/003-queue-order' });
+		expect(parsePlanAddress({ name: address ?? '' })).toEqual({ workOrderName: 'lo-140-multi-plan', planId: '003-queue-order' });
+	});
+
+	test('adds the first plan to a record that holds none, and answers its address', async () => {
+		const planned = labelledRecordWith({ plans: [planWith({ id: '001-support-multiple-plans', progress: 'planning' })] });
+		const { params } = setupLabelledChoice({
+			pulled: { record: labelledRecordWith({ plans: [] }) },
+			added: { address: 'lo-140-multi-plan/001-support-multiple-plans', record: planned },
+		});
+
+		const answer = await chooseAutoPlanTarget(params);
+
+		expect(answer).toEqual({ record: planned, address: 'lo-140-multi-plan/001-support-multiple-plans' });
+		expect(mockAddTicketPlan).toHaveBeenCalledWith(
+			expect.objectContaining({ name: 'lo-140-multi-plan', slug: 'support-multiple-plans', title: 'Support multiple plans per ticket' }),
+		);
+	});
+
+	test('refuses a work order that has no record', async () => {
+		const { params } = setupLabelledChoice({ pulled: { record: undefined } });
+
+		const answer = await chooseAutoPlanTarget(params);
+
+		expect(answer).toEqual({ error: expect.stringContaining('lo-140-multi-plan') });
+		expect(mockAddTicketPlan).not.toHaveBeenCalled();
 	});
 });

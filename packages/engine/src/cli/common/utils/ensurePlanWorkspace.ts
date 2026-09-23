@@ -3,7 +3,6 @@ import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { pathExists, planNameFromPath, planWorkspaceDir, readPlanWorkOrderRef } from '#src/plan/index.ts';
-import { resolveShipSettings } from '#src/ship/index.ts';
 import { resolveTrackerSettings } from '#src/ticketTracker/index.ts';
 import { pullWorkOrderState, restoreWorkOrderPlan } from '#src/workOrder/index.ts';
 import { resolveWorktreePath } from '#src/worktree/index.ts';
@@ -18,7 +17,7 @@ interface Params {
 
 interface TicketSource {
 	config: LightsoutConfig;
-	/** The ticket reference the folder's name carries, e.g. 'lo-54'. */
+	/** The ticket reference the work order's record carries, e.g. 'lo-54'. */
 	identifier: string;
 }
 
@@ -45,19 +44,11 @@ const readTicketSource = async ({ cwd, name, dir }: { cwd: string; name: string;
 		return { error: `no plan at ${dir}, and no plan could be fetched from the ticket: ${settings.error}` };
 	}
 
-	const shipSettings = resolveShipSettings({ config });
-
-	if (shipSettings === undefined) {
-		return {
-			error: `no plan at ${dir}, and the ticket to fetch one from cannot be read: ship.ticket-pattern is not a regular expression capturing a 'ticket' group`,
-		};
-	}
-
-	const identifier = readPlanWorkOrderRef({ name, ticketPattern: shipSettings.ticketPattern });
+	const identifier = await readPlanWorkOrderRef({ cwd, name });
 
 	return identifier === undefined
 		? {
-				error: `no plan at ${dir}, and no plan could be fetched from a ticket: the plan folder name '${name}' carries no ticket id matching this repo's ship.ticket-pattern`,
+				error: `no plan at ${dir}, and no plan could be fetched from a ticket: work order '${workOrderNameOf({ name })}' carries no ticket reference in its record, so it belongs to no ticket`,
 			}
 		: { config, identifier };
 };
@@ -154,6 +145,13 @@ export const ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }
 		return undefined;
 	}
 
+	// Asked before the ticket source is read: a path that is not a plan address
+	// names no plan a ticket could be asked for, so nothing about the tracker or
+	// the work order's record may refuse it.
+	if (parsePlanAddress({ name }) === undefined) {
+		return undefined;
+	}
+
 	const source = await readTicketSource({ cwd, name, dir });
 
 	if ('error' in source) {
@@ -162,7 +160,5 @@ export const ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }
 
 	const { config, identifier } = source;
 
-	return parsePlanAddress({ name }) === undefined
-		? undefined
-		: fetchTicketPlan({ cwd, name, dir, tree: await resolveWorktreePath({ cwd, branch: workOrderNameOf({ name }) }), identifier, config, write });
+	return fetchTicketPlan({ cwd, name, dir, tree: await resolveWorktreePath({ cwd, branch: workOrderNameOf({ name }) }), identifier, config, write });
 };
