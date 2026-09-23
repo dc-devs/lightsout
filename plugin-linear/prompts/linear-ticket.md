@@ -1,5 +1,5 @@
 ---
-description: 'Linear''s own mechanics for the lightsout ticket workflow — planning-status labels, statuses, attachments, branch linking and pull-request magic words. Use alongside the ticket-workflow skill when filing, shaping, or closing a Linear ticket for this team.'
+description: 'Linear''s own mechanics for lightsout''s ticket workflow — planning-status labels, statuses, attachments, branch linking and pull-request magic words. Use alongside the ticket-workflow skill when filing, shaping, or closing a Linear ticket for this team.'
 ---
 <!-- generated:lightsout-prompt -->
 

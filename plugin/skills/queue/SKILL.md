@@ -142,19 +142,19 @@ stdin instead.
   form one of three pairs:
     - `planning-ready-auto-plan` in Backlog → the auto-plan worker plans the
       ticket first, then builds the plan it wrote. The engine picks which plan
-      the session writes — the ticket's lowest-numbered plan still waiting to be
-      planned, or a new plan 001 for a ticket with no record yet — and names it
-      in the session's task message. A ticket whose plans are all past that stage
+      the session writes — the work order's lowest-numbered plan still waiting to
+      be planned, or a new plan 001 for a work order that holds none yet — and
+      names it in the session's task message. A ticket whose plans are all past that stage
       has nothing for the session to do and is reported open.
     - `planning-complete` in Ready to implement → the plan worker builds the
       plan already published to the ticket, fetching it when the worktree does
       not have it. On a ticket holding several plans it builds the ones ready to
-      implement one at a time in numeric order on the ticket's branch, committing
+      implement one at a time in numeric order on the work order's branch, committing
       each before the next starts, and stops at a lower plan still being planned,
       being implemented, or failed. When no plan is attached it builds from **the
       ticket body** instead, because `planning-complete` promises finished
       shaping, not a plan folder — a route left open for plan 001 of a
-      single-plan ticket and for a ticket with no record. Two cases reach it: a
+      single-plan work order. Two cases reach it: a
       brainstorm that finished all shaping without writing a plan, and the
       brainstorm's ready-to-implement outcome, which writes `planning-complete`
       and Ready to implement itself. In both
@@ -182,17 +182,22 @@ stdin instead.
   build pairs could then never match and the drain would report an empty
   backlog instead of a broken config.
 - **Already-merged work is reconciled, not rebuilt:** before a worktree is
-  created, the queue asks the forge whether the ticket's branch already has a
+  created, the queue asks the forge whether the work order's branch already has a
   merged pull request. A confirmed merge moves the ticket to Done and skips the
   worker. A parked worktree for that branch is removed when its tree is clean,
   and kept with a progress line when it is dirty.
 - **Handing a later plan to the queue:** the ticket-workflow skill's
   `## Planning status` paragraph says which statuses the queue reads and what a
   human sets to hand it a later plan — including removing their own worktree for
-  the ticket branch first, once its work is committed. A ticket whose worktree
+  the work order's branch first, once its work is committed. A ticket whose worktree
   another run owns is parked, naming that owner.
-- **How it runs them:** each ticket gets its own fresh git worktree, the
-  config's `setup` command, and a harness run; finished branches ship as PRs.
+- **How it runs them:** before any worktree is built, the drain settles names
+  once for the whole wave — each ticket keeps the work order that already
+  carries its reference, and a ticket with none gets one written exactly the way
+  `lightsout work-order new --ticket` writes it. A ticket whose work order could
+  not be created is left behind naming the failure, and the scan carries on.
+  Each ticket then gets its own fresh git worktree, the config's `setup`
+  command, and a harness run; finished branches ship as PRs.
   A ticket holding several plans is the exception: it is left **open** when its
   ship request is not satisfied — no parked label, no tracker status change — and
   every later drain looks at it again, building whichever plans have since become

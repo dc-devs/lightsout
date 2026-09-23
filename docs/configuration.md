@@ -394,10 +394,10 @@ A repository that wants the strict profile promotes those rules itself — an ex
 
 | Field                 | Required | What it controls                                                                                                                                                                                                                     |
 | --------------------- | -------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ship.ticket-pattern` |       no | A JavaScript regular expression source matched against the branch name. It must carry a named group `ticket`, whose value becomes the result's ticket reference; every other named group becomes a token the body template may use. Defaults to `^(?<ticket>[a-z]+-\d+)`. The same pattern is matched against a plan's own name — for a plan address, its ticket-branch segment — so every plan of one ticket reads the same ticket id; a folder carrying no ticket id draws a warning and nothing more. |
+| `ship.ticket-pattern` |       no | A JavaScript regular expression source matched against the branch name. It must carry a named group `ticket`, whose value becomes the result's ticket reference; every other named group becomes a token the body template may use. Defaults to `^(?<ticket>[a-z]+-\d+)`. It supplies the pull-request body's tokens and nothing else: which ticket a piece of work belongs to is the `ticketRef` its work order's record saves, so no name is matched to recover one. |
 | `ship.pr-body`        |       no | The pull request body template. Brace-wrapped tokens are substituted: `branch`, and one per named group of the ticket pattern. An unknown token is left exactly as written. Defaults to the bare ticket token on its own.            |
 | `ship.merge-method`   |       no | How the forge merges: `merge`, `squash`, or `rebase`. Defaults to `merge`.                                                                                                                                                          |
-| `ship.after-implement` |       no | When true, a passed `/implement` run chains into ship without `--ship` being typed. Defaults to `false`. It applies to a branch with no ticket record and to a `single-plan` ticket; a `multiple-plan` ticket ignores it and chains exactly when the run satisfies that ticket's own ship request. |
+| `ship.after-implement` |       no | When true, a passed `/implement` run chains into ship without `--ship` being typed. Defaults to `false`. It applies to a branch no work order claims and to a `single-plan` work order; a `multiple-plan` ticket ignores it and chains exactly when the run satisfies that ticket's own ship request. |
 | `ship.pre-ship`       |       no | A shell command that prepares the release candidate — the home for a repository's own pre-ship convention, such as rebuilding committed build outputs or bumping a shipped version. Ship requires a clean committed branch before it runs, runs it against the freshly fetched default branch (its exact commit is in `LIGHTSOUT_SHIP_BASE_COMMIT`), and commits what it leaves behind only once your own gates have passed against it. A non-zero exit blocks the ship with the command's own output. No default. |
 | `ship.allow-no-ci`    |       no | When `true`, a pull request whose check list is readable and genuinely empty may merge after the usual one-minute registration grace. Defaults to `false`: ship waits up to thirty minutes for checks to appear and then blocks with `checks-missing`. It applies only to ABSENT checks — a failed, pending, unreadable or wrong-commit check is enforced exactly as it always was — and lightsout never sets it for you. |
 
@@ -407,7 +407,7 @@ Set `allow-no-ci` only for a repository that intentionally has no CI:
 "ship": { "allow-no-ci": true }
 ```
 
-A branch whose ticket has a record in `.lightsout/tickets/<branch>/ticket.json`
+A branch a work order claims — the work order whose record saves that branch —
 merges only when that record authorizes it: a `single-plan` ticket once plan 001
 is implemented, a `multiple-plan` ticket once an explicit ship request naming its
 included plans is satisfied. The record is asked twice — before anything is
@@ -415,16 +415,17 @@ pushed, and again immediately before the merge, so a plan added while the checks
 were running still stops it — and a refusal is written as a blocked result with
 reason `ticket-not-authorized` and one sentence saying what the ticket is waiting
 for. A published record that diverged from this machine's copy, or one that could
-not be read, blocks the same way. A branch with no record merges exactly as it
-did before ticket records existed.
+not be read, blocks the same way. A branch no work order claims merges exactly as
+it did before work orders existed.
 
 This block is where branch-to-ticket and pull-request conventions live; the
-tracker connection lives in `ticket-tracker` below. Name a ticket folder after
-its ticket's branch, so the plans, branch, and ticket match by construction; that
-folder holds the ticket's plans, one subfolder each, and the `ticket-workflow`
-skill's `## Plan folder` is where the rules for it live. A folder that is not
-named after a branch is used exactly as before, with a warning. The default
-body is deliberately inert — a body that closes a ticket automatically is a
+tracker connection lives in `ticket-tracker` below. A work order's folder label
+and the branch it implements on are two separate fields, written together by
+`lightsout work-order new` and neither built from the other, so a template
+carrying a prefix gives a branch such as `feature/lo-140-multi` beside a folder
+still labelled `lo-140-multi`; the record is what links them, and the
+`ticket-workflow` skill's `## Plan folder` is where the rules for it live. The
+default body is deliberately inert — a body that closes a ticket automatically is a
 team's convention, not the engine's. The block is strict: an unknown key fails
 parsing rather than silently disabling a setting you believe is on.
 
@@ -506,7 +507,7 @@ The `queue` block is what `lightsout queue` runs on. Without it the command refu
 | `queue.in-progress-status` |     no | Status the queue moves a ticket to when it picks it up. Defaults to `"In Progress"`.                                                                                                                                                                                        |
 | `queue.done-status`      |       no | Your tracker's name for the status a ticket reaches once its merge is confirmed. Defaults to `"Done"`.                                                                                                                                                                       |
 | `queue.setup`            |        — | Removed spelling. A config still carrying it fails to parse, with a message naming `worktree.setup` as the key that holds its value now.                                                                                                                                     |
-| `queue.branch-template`  |       no | How a ticket becomes a branch name. `{ticket}` is the lowercased identifier, `{slug}` the slugged title. Defaults to `{ticket}-{slug}`. Whatever it produces must be matched by `ship.ticket-pattern`. A ticket folder is named exactly like the branch this template produces, and holds that ticket's plans.                                                                        |
+| `queue.branch-template`  |       no | How a ticket becomes a branch name. `{ticket}` is the lowercased identifier, `{slug}` the slugged title. Defaults to `{ticket}-{slug}`. Whatever it produces must be matched by `ship.ticket-pattern` wherever a ticket names the work. `lightsout work-order new` renders it once and saves the result in the work order's record; the folder's own label is saved separately, and a folder is found by the record that stores a branch rather than by slugging the branch itself. With no ticket, `{ticket}` and the separator that follows it simply drop.                                                                        |
 | `queue.decisions-heading` |      no | The ticket-body heading relayed answers are appended under. Defaults to `## Decisions`.                                                                                                                                                                                     |
 | `queue.worker-timeout`   |       no | Ceiling for one ticket's worker session, as a duration string like `90s`, `45m` or `4h`. Per ticket, never for the drain — the queue itself runs until the backlog is dry. A hit ceiling parks the ticket resumably. Defaults to `4h`.                                        |
 | `queue.question-timeout` |       no | How long one relayed question waits for an answer before its ticket parks, as a duration string. Only `--file-relay` observes it; the terminal relay waits on the person at the terminal. Defaults to `1h`.                                                                   |
@@ -574,20 +575,20 @@ tree planning establishes is the one the implementation run continues in, and a
 finished plan is copied back into the primary checkout before the shipped tree
 is cleaned up.
 
-Name a plan by its address — `<ticket-branch>/<NNN-slug>` — and the tree and
-its branch are the ticket folder's rather than the plan's, so every plan of one
-ticket is planned and built in the one tree on the one branch. A later plan
-continues in that tree when its ownership record names a plan, queue or
-implementation run, and is refused while a live run holds it, naming the run.
-With no tree, an existing ticket branch is adopted at its own tip, so a later
-plan reads the implementation already on it; when only `origin/<ticket-branch>`
-exists, the tree is cut at that pushed commit, and a local ticket branch that is
-behind the pushed one is fast-forwarded when no tree holds it and reported
-otherwise. Nothing is fetched to work any of that out — implementation commits
-travel by `git push` and `git fetch` alone. Plan folders are copied into and out
-of the tree one plan at a time, and a shipped tree's whole ticket folder is
-copied back to the primary checkout before the tree comes down, so no sibling
-plan is lost with it.
+Name a plan by its address — `<work-order>/<NNN-slug>` — and the tree and its
+branch are the work order's rather than the plan's, read from the branch its
+record saves, so every plan of one work order is planned and built in the one
+tree on the one branch. A later plan continues in that tree when its ownership
+record names a plan, queue or implementation run, and is refused while a live run
+holds it, naming the run. With no tree, an existing branch is adopted at its own
+tip, so a later plan reads the implementation already on it; when only the pushed
+`origin/<branch>` exists, the tree is cut at that pushed commit, and a local
+branch that is behind the pushed one is fast-forwarded when no tree holds it and
+reported otherwise. Nothing is fetched to work any of that out — implementation
+commits travel by `git push` and `git fetch` alone. Plan folders are copied into
+and out of the tree one plan at a time, and a shipped tree's whole work order
+folder is copied back to the primary checkout before the tree comes down, so no
+sibling plan is lost with it.
 
 A contract plan carries what a test cannot detect — the file map, the full
 exported signatures of every created file, the file each new file mirrors, and

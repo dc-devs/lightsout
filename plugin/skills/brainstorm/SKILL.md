@@ -9,8 +9,8 @@ allowed-tools: Bash, Read, Write, Grep, Glob, Task
 **This skill is an interactive conductor, not the engine.** It holds zero
 deterministic decisions — no gates, retries, caps, state, or contract parsing.
 It runs a few engine subcommands, and only when the idea traces to a ticket:
-`brainstorm publish`, `ticket-state`, `ticket show` and `ticket add-plan`, plus
-`ticket mode` and `ticket add-plan --from` once the user has agreed to those. It still
+`brainstorm publish`, `ticket-state`, `work-order new`, `work-order show` and
+`work-order add-plan`, plus `work-order mode` once the user has agreed to it. It still
 holds no deterministic decision of its own, and it never reads back what it
 writes. Triggering is gentle: the
 description above is the only trigger — no hook, no forced invocation. Writing
@@ -121,16 +121,16 @@ new ticket.
 Also read what the ticket already holds:
 
 ```sh
-node "<plugin-root>/dist/cli.mjs" ticket show --name <ticket-branch>
+node "<plugin-root>/dist/cli.mjs" work-order show --name <work-order>
 ```
 
-It prints the ticket's mode and its plans. Where the user's latest explicit
+It prints the work order's mode and its plans. Where the user's latest explicit
 instruction differs from the ticket text or from an earlier plan, follow the
 user; say what differs when that is useful, and ask about updating the ticket per
 the ticket-workflow skill's `## Keeping the body true` — never hold this
 conversation up waiting for that answer.
 
-On a ticket that already holds plans, read the earlier plans' records as context
+On a work order that already holds plans, read the earlier plans' records as context
 about what was built. They are not this brainstorm's settled rows. A change the
 user wants to a plan that is already implemented is work for a new plan, not a
 revision of that one.
@@ -139,7 +139,7 @@ revision of that one.
 big for a single pass, or several independent ideas? Several → say so, agree
 which one to shape now, and note the rest for later.
 
-On a ticket, the same check decides **which plan of the ticket this idea is**.
+On a work order, the same check decides **which of its plans this idea is**.
 The default is the lowest-numbered plan still at `planning`, unless the user says
 this is a separate plan — the rule the ticket-workflow skill's `### Adding a
 plan` states, which also says what adding one refuses. A continued plan that
@@ -148,11 +148,8 @@ already holds a brainstorm meets step 7's question about an existing file.
 Two cases are asked before anything is added, in the Question format:
 
 - **Single-plan mode with plan 001 already past `planning`:** ask whether to
-  switch the ticket to multiple-plan mode. A no means this idea is not a plan on
-  this ticket, and the brainstorm says so rather than adding one anyway.
-- **A ticket folder whose plans folder still holds loose files:** ask whether to
-  run `lightsout ticket add-plan --from <that folder>`, which makes those files
-  the ticket's next plan.
+  switch the work order to multiple-plan mode. A no means this idea is not a plan
+  on this work order, and the brainstorm says so rather than adding one anyway.
 
 **3. Approaches.** Present 2–3 genuinely different ways to build it, in the
 Question format — what each wins, what each costs, and which one you recommend
@@ -205,33 +202,46 @@ one line.
 **7. Write, publish, label.** Both outcomes write both files. There is no exit
 that writes nothing.
 
-**With no ticket**, derive a kebab `<name>` from the idea and offer it for
-override. That is the ordinary case: a brainstorm usually runs before a ticket
-exists, so the folder carries a bare slug. When the ticket is filed later the
-folder is renamed to the ticket's branch, which the ticket-workflow skill's
-`## Plan folder` section spells out.
+Every plan belongs to a work order, so a work order comes first. Never invent a
+folder name and never rename one: `lightsout work-order new` is the one thing
+that writes a work order's name, and it writes it once.
 
-**With a ticket**, `<name>` is the plan's address — the continued plan's, or the
-one this command prints on its last line:
+**With no work order yet**, create one. Give it the ticket when the idea traces
+to one, and the words you would have slugged when it does not:
 
 ```sh
-node "<plugin-root>/dist/cli.mjs" ticket add-plan --name <ticket-branch> --slug <slug> [--title <title>]
+node "<plugin-root>/dist/cli.mjs" work-order new --ticket <ref>
+node "<plugin-root>/dist/cli.mjs" work-order new --title "<a few words>"
+```
+
+Take the label it prints on its last line. Behind `--ticket` the engine reads
+that ticket's title from the tracker and summarises it itself, so no name is
+offered for override; behind `--title` the words are taken exactly as typed, so
+offer those words to the user first.
+
+**With a work order**, `<name>` is the plan's address — the continued plan's, or
+the one this command prints on its last line:
+
+```sh
+node "<plugin-root>/dist/cli.mjs" work-order add-plan --name <work-order> --slug <slug> [--title <title>]
 ```
 
 Take the printed address rather than building one, and relay any notice it prints
 about a withdrawn ship request. What that command refuses, and why, is the
 ticket-workflow skill's `### Adding a plan`; do not restate those rules here.
 
-Every `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/` path and the `brainstorm publish --name <name>`
-command below then resolve unchanged.
+Every `.lightsout/work-orders/<work-order>/plans/<plan-id>/` path and the
+`brainstorm publish --name <name>` command below then resolve unchanged.
 
 Before writing anything, show the settled decisions back to the user as a small
 table — question, choice, one-line why, and whether it is an assumption — and
 get approval: these rows make the planning skills skip questions, so a row that
 overstates the agreement is expensive.
 
-Then write the notes to `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/brainstorm-notes.md`, plus
-`.lightsout/tickets/<ticket-branch>/plans/<plan-id>/brainstorm-decisions.json` in this exact shape:
+Then write the notes to
+`.lightsout/work-orders/<work-order>/plans/<plan-id>/brainstorm-notes.md`, plus
+`.lightsout/work-orders/<work-order>/plans/<plan-id>/brainstorm-decisions.json`
+in this exact shape:
 
 ```json
 {
@@ -256,13 +266,12 @@ Then write the notes to `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/brai
 **If either file is already in that plan folder**, a previous brainstorm wrote
 it, and what to do splits by case:
 
-- **Ticket-backed:** the address is not negotiable — `brainstorm publish` reads
-  the ticket id off the ticket-branch segment, so a folder renamed to dodge an
-  existing file can never be published. Say what the existing files hold and ask
-  before replacing them; on a yes, overwrite in place and keep the address. Never
-  rename.
-- **No ticket:** say so and agree a different name. A bare slug is only a local
-  handle and nothing resolves a ticket from it.
+The address is not negotiable — `brainstorm publish` reads the ticket reference
+off the work order's record, and a folder renamed to dodge an existing file can
+never be published. Say what the existing files hold and ask before replacing
+them; on a yes, overwrite in place and keep the address. Never rename. When the
+work is genuinely separate, it is a separate plan, or a separate work order named
+with `work-order new --title <words>`.
 
 **When the idea traces to a ticket**, run these in order. A nonzero exit from
 either is a stop: report the exact failure and do not claim the brainstorm
@@ -306,14 +315,14 @@ exists.
 
 With no ticket, both outcomes point at the folder rather than at a tracker,
 because nothing was published. Both lines carry the same second sentence: file
-the ticket, rename the folder to the ticket's branch name — the ticket-workflow
-skill's `## Plan folder` section says what else a rename has to update — and
-then run `brainstorm publish`, because until that happens the record exists on
-one laptop.
+the ticket and run `brainstorm publish`, because until that happens the record
+exists on one laptop. The folder keeps the label it was created with — nothing
+is renamed when the ticket arrives.
 
 - **Ready to auto-plan:** ``Next: run the `auto-plan` skill with
-  .lightsout/tickets/<ticket-branch>/plans/<plan-id>/brainstorm-notes.md``
-- **Ready to implement:** name `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/` and say the two files
+  .lightsout/work-orders/<work-order>/plans/<plan-id>/brainstorm-notes.md``
+- **Ready to implement:** name
+  `.lightsout/work-orders/<work-order>/plans/<plan-id>/` and say the two files
   plus the converged design are the whole record, so the work can be built
   straight from them. Print no command here either, for the reason above.
 

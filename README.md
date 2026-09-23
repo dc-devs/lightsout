@@ -96,7 +96,7 @@ Completing the task is not enough. Agents should leave the repository better tha
    repository carries:
 
    ```markdown
-   One ticket = one branch = one PR, and a ticket folder holds its plans — follow the `ticket-workflow` skill, with `linear-ticket` or `jira-ticket` for tracker mechanics.
+   One ticket = one branch = one PR, and a work order holds its plans — follow the `ticket-workflow` skill, with `linear-ticket` or `jira-ticket` for tracker mechanics.
    ```
 
    The command examples below use Claude Code's slash-command form. In Codex,
@@ -146,7 +146,7 @@ Design before you build. `/brainstorm` turns a rough idea into a clear direction
 
 Once the direction is settled, it decides its own outcome: ready to implement, when it can name every file that changes and nothing is left open, or ready to auto-plan otherwise. Both outcomes save the same two things — the design write-up, and the list of decisions that were settled, in a form the planning skills honor — and both publish those files to the ticket with `lightsout brainstorm publish`, so a fresh machine can read them.
 
-On a ticket, the brainstorm works in one plan of that ticket's folder — the plan still waiting to be planned, or a new one it adds — and publishes under that plan's own attachment titles, so it never touches what another plan of the ticket settled.
+On a ticket, the brainstorm works in one plan of that ticket's work order — the plan still waiting to be planned, or a new one it adds — and publishes under that plan's own attachment titles, so it never touches what another plan settled.
 
 ```text
 /brainstorm add rate limiting to the public API
@@ -175,14 +175,14 @@ marker written last. Transcripts and other run state stay local. Publishing
 again replaces each same-titled attachment, so an amended plan can be published
 safely without creating duplicate attachments under those names.
 
-Naming the plan by its address — `<ticket-branch>/<NNN-slug>` — publishes it
+Naming the plan by its address — `<work-order>/<NNN-slug>` — publishes it
 under its own plan id instead: every title becomes `<plan-id>--<file name>`,
 with a `<plan-id>--plan-attachments.json` marker whose entries keep the bare
 file names. Publishing one plan never lists, replaces or reports another plan's
 attachments. `brainstorm-notes.md` is left to that plan's brainstorm generation,
 which is published first whenever the notes on disk are not the bytes its marker
-commits, and the ticket's own record is published beside them as `ticket.json`.
-A folder named after its branch alone keeps bare titles and no record.
+commits, and the work order's own record is published beside them as
+`state.json`.
 
 A brainstorm publishes its own record the same way: `lightsout brainstorm
 publish --name <name>` attaches `brainstorm-notes.md` and
@@ -197,7 +197,7 @@ fresh machine starts from what the brainstorm settled.
 A ticket can hold several plans. Its record says which mode it is in — single-plan,
 where plan 001 alone supplies the implementation, or multiple-plan, where the
 plans implement in numeric order on the one branch — seeded by
-`plan.default-ticket-mode` when the record is created. Plans are created and
+`plan.default-work-order-mode` when the record is created. Plans are created and
 changed through `lightsout work-order`, never by hand, and a multiple-plan ticket
 ships only once a human's ship request is satisfied. The `ticket-workflow` skill
 is where those rules live; [`lightsout work-order`](#lightsout-work-order) is
@@ -209,7 +209,7 @@ the command.
 Start from the notes `/brainstorm` saved:
 
 ```text
-/plan .lightsout/tickets/rate-limiting/plans/brainstorm-notes.md
+/plan .lightsout/work-orders/rate-limiting/plans/brainstorm-notes.md
 ```
 
 Or start from a plain description:
@@ -282,21 +282,21 @@ the tree at the plan's path from your checkout's committed `HEAD` and prints the
 tree's path; every later plan step works from it, so another agent editing your
 checkout cannot move the code a grade is measured against. The tree holds code
 work only: the plan folder itself stays in your main checkout at
-`.lightsout/tickets/<ticket-branch>/plans/<plan-id>/`, whichever checkout a plan
+`.lightsout/work-orders/<work-order>/plans/<plan-id>/`, whichever checkout a plan
 command runs from, and is never copied either way. The implementation run then
 continues in that same tree rather than cutting a second one. Pass
 `--no-worktree`, or set `plan.worktree` to false, to plan in the launching
 checkout deliberately.
 
-When the name is a plan address — `<ticket-branch>/<NNN-slug>` — the tree is
-the ticket branch's, so a later plan of the same ticket continues in it and is
-researched against the implementation already there. That continuation is
-refused while a live run holds the tree, naming the run. The ticket folder and
-every plan in it sit in your main checkout throughout, so a shipped tree being
+When the name is a plan address — `<work-order>/<NNN-slug>` — the tree is the
+one the work order's record names, so a later plan of the same work order
+continues in it and is researched against the implementation already there. That
+continuation is refused while a live run holds the tree, naming the run. The work
+order's folder and every plan in it sit in your main checkout throughout, so a shipped tree being
 cleaned up takes nothing with it.
 
 A finished plan is not stuck on the machine that wrote it. `/implement` looks
-for the plan folder on local disk first. When a ticket-named folder is absent,
+for the plan folder on local disk first. When the folder is absent,
 it fetches that ticket's durable plan attachments and reconstructs the folder,
 so a fresh clone can run the same plan without copying files by hand. The
 integrity marker must name a complete generation and match every file's hash;
@@ -304,17 +304,17 @@ an interrupted or mixed publish is refused without leaving a partial folder.
 It never restores transcripts or other run state. If neither source can supply
 a plan, the run stops with one message naming both places it looked.
 
-For a plan address the ticket's own record is settled first — written into the
-primary checkout as `ticket.json` — and then that plan's prefixed generation is
-restored into its folder. A record that moved both here and on the ticket is
+For a plan address the work order's own record is settled first — written into
+the primary checkout as `state.json` — and then that plan's prefixed generation
+is restored into its folder. A record that moved both here and on the ticket is
 never overwritten: the published copy is saved beside it as
-`ticket.published.json`, and `lightsout work-order sync --name <ticket-branch>
+`state.published.json`, and `lightsout work-order sync --name <work-order>
 --keep local` or `--keep published` says which copy wins. A plan folder that
 gives way to a restore is renamed aside, never deleted. Publishing and restoring
 move planning records only — implementation commits still travel by `git push`
 and `git fetch`.
 
-A run of a plan inside a ticket folder is checked against that ticket's record
+A run of a work order's plan is checked against that work order's record
 before any tree is cut and before the tracker is told the ticket has started. A
 plan whose lower-numbered sibling's implementation has not finished, a plan taken
 out of the ticket's work, a plan other than 001 of a single-plan ticket, and a
@@ -329,12 +329,12 @@ Shipping follows the ticket too. A multiple-plan ticket ignores `--ship` and
 `ship.after-implement`: it chains into ship exactly when this run satisfies the
 ship request a human asked for, and otherwise prints the one sentence saying what
 it is still waiting for and exits on the run's own result. A single-plan ticket,
-and a branch with no ticket record, chain exactly as they always have.
+and a branch no work order claims, chain exactly as they always have.
 
 [![How /implement turns the spec into verified code](assets/implement-workflow-light.svg)](assets/implement-workflow-light.svg)
 
 ```text
-/implement .lightsout/tickets/rate-limiting/plans/plan.md
+/implement .lightsout/work-orders/rate-limiting/plans/plan.md
 ```
 
 ### lightsout status
@@ -405,9 +405,8 @@ own, which is the number that answers why a plan took a whole afternoon. After
 the tree, a short section names the individual calls worth opening: the slowest
 few and the most expensive few.
 
-A name may address one plan, a plan folder written before ticket addresses
-existed, or a whole ticket folder — in which case each plan of the ticket gets
-its own tree beneath one totalled ticket row. `--json` prints the same totalled
+A name may address one plan, or a whole work order — in which case each plan of
+the work order gets its own tree beneath one totalled row. `--json` prints the same totalled
 tree as data rather than the table, so anything reading it reads the one
 calculation the table reads.
 
@@ -455,7 +454,7 @@ explicit ship request naming its included plans is satisfied. The record is aske
 before anything is pushed and again immediately before the merge, so a plan added
 to the ticket while its checks were running still stops it. A refusal is a blocked
 result with reason `ticket-not-authorized` and one sentence saying what the ticket
-is waiting for, and nothing reaches the remote. A branch with no ticket record
+is waiting for, and nothing reaches the remote. A branch no work order claims
 ships exactly as it always has. How a human files that request is the
 `ticket-workflow` skill's `### Ship requests`.
 
@@ -485,11 +484,13 @@ lightsout ticket-state --ref LO-88 --planning-status planning-complete --tracker
 
 ### lightsout work-order
 
-A ticket owns one branch and a record of the numbered plans on it. Each plan is
-addressed as the ticket's branch and the plan's id joined by a slash —
+A work order owns one branch and a record of the numbered plans on it. Each plan
+is addressed as the work order's label and the plan's id joined by a slash —
 `lo-140-multi/002-queue-order` — and that address is what every `plan`
-subcommand and `implement` are given. The record itself,
-`.lightsout/tickets/<ticket-branch>/ticket.json`, holds the ticket's mode, its
+subcommand and `implement` are given. The label is the folder's name; the branch
+is saved separately in the record, and a folder is found by the record that
+stores a branch rather than by slugging the branch itself. The record itself,
+`.lightsout/work-orders/<work-order>/state.json`, holds the work order's mode, its
 plans and how far each one's implementation has got, any plan taken out of that
 work, and the request to ship.
 

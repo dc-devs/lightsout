@@ -1,6 +1,6 @@
 ---
 name: linear-ticket
-description: Linear's own mechanics for the lightsout ticket workflow — planning-status labels, statuses, attachments, branch linking and pull-request magic words. Use alongside the ticket-workflow skill when filing, shaping, or closing a Linear ticket for this team.
+description: Linear's own mechanics for lightsout's ticket workflow — planning-status labels, statuses, attachments, branch linking and pull-request magic words. Use alongside the ticket-workflow skill when filing, shaping, or closing a Linear ticket for this team.
 ---
 
 # Linear mechanics
@@ -51,9 +51,9 @@ The ticket id is `LO-<number>` and a branch is named `lo-<number>-<slug>`,
 matching the `ship.ticket-pattern` this repository configures. Linear finds
 the ticket id anywhere in the branch name and links the branch to the issue.
 Its copy-branch-name button prefixes your username; drop that, the id is the
-only part that matters. The ticket folder for `LO-<number>` carries that same
-`lo-<number>-<slug>` name and holds the ticket's plans — see the
-ticket-workflow skill's `## Plan folder`.
+only part that matters. `lightsout work-order new --ticket LO-<number>` writes
+that branch and the work order's folder label together, once, and saves both in
+the work order's record — see the ticket-workflow skill's `## Plan folder`.
 
 ## Pull request body
 
@@ -70,6 +70,6 @@ Linear issue attachment. Never put a plan in a Linear Document — a document
 invites editing, and then two copies disagree about what was decided.
 
 A ticket's published plan files arrive as separate Linear attachments whose
-titles start with the plan's id, beside one `ticket.json` attachment holding the
-ticket's own record. Never rename, edit or delete any of them by hand — see the
+titles start with the plan's id, beside one `state.json` attachment holding the
+work order's own record. Never rename, edit or delete any of them by hand — see the
 ticket-workflow skill's `### Attachment titles`.

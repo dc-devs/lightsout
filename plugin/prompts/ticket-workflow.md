@@ -1,5 +1,5 @@
 ---
-description: 'How to write, update and close a ticket, and how a branch and pull request are named after one. Use when filing a bug or feature ticket, choosing how it gets shaped, starting work on one, opening its pull request, or recording what shipped.'
+description: 'How to write, update and close a ticket, and how the work order, branch and pull request that carry it are named. Use when filing a bug or feature ticket, choosing how it gets shaped, starting work on one, opening its pull request, or recording what shipped.'
 ---
 <!-- generated:lightsout-prompt -->
 

@@ -114,8 +114,8 @@ all three count:
 
 | Where | Holds |
 |---|---|
-| `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/brainstorm-decisions.json` | what was settled with the user in the brainstorm before this session |
-| `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/decisions.json` | what was settled earlier in this plan session |
+| `.lightsout/work-orders/<work-order>/plans/<plan-id>/brainstorm-decisions.json` | what was settled with the user in the brainstorm before this session |
+| `.lightsout/work-orders/<work-order>/plans/<plan-id>/decisions.json` | what was settled earlier in this plan session |
 | the drafted plan's `## Decision Log` | a rendering of the rows of both, composed by the engine — read a settled answer here, never write one |
 
 **Record first, refresh, then edit the plan.** The engine composes the
@@ -192,38 +192,46 @@ calls for. Dropping a settled question is not a licence to drop a hard one.
 
 ## Steps
 
-**0. Name the plan.** **With a ticket**, `<name>` is the plan's address — the
-ticket's branch, a slash and the plan's id. Read what the ticket already holds
-first:
+**0. Name the plan.** `<name>` is the plan's address — the work order's label, a
+slash and the plan's id. Never invent a folder name and never rename one:
+`lightsout work-order new` is the one thing that writes a work order's name, and
+it writes it once.
+
+**With no work order yet**, create one — with the ticket when the request traces
+to one, and with the words you would have slugged when it does not:
 
 ```sh
-node "<plugin-root>/dist/cli.mjs" ticket show --name <ticket-branch>
+node "<plugin-root>/dist/cli.mjs" work-order new --ticket <ref>
+node "<plugin-root>/dist/cli.mjs" work-order new --title "<a few words>"
+```
+
+Take the label it prints on its last line. Behind `--ticket` the engine reads
+that ticket's title from the tracker and summarises it itself; behind `--title`
+the words are taken exactly as typed.
+
+**With a work order**, read what it already holds first:
+
+```sh
+node "<plugin-root>/dist/cli.mjs" work-order show --name <work-order>
 ```
 
 Then continue the lowest-numbered plan still at `planning`, unless the user says
 this is a separate plan — in which case add one:
 
 ```sh
-node "<plugin-root>/dist/cli.mjs" ticket add-plan --name <ticket-branch> --slug <slug> [--title <title>]
+node "<plugin-root>/dist/cli.mjs" work-order add-plan --name <work-order> --slug <slug> [--title <title>]
 ```
 
 and take the address it prints on its last line. What that command refuses, and
-why, is the ticket-workflow skill's `### Adding a plan`. Two questions come
+why, is the ticket-workflow skill's `### Adding a plan`. One question comes
 first, in the Question format: in single-plan mode with plan 001 already there,
-whether to switch the ticket to multiple-plan mode; and on a ticket folder whose
-plans folder still holds loose files, whether to run `lightsout ticket add-plan
---from <that folder>`. Declining the second is fine — planning then carries on in
-that folder as it stands.
+whether to switch the work order to multiple-plan mode.
 
-**With no ticket**, derive a kebab `<name>` from the
-request (e.g. "add a rate-limit banner" → `rate-limit-banner`), and rename the
-folder to the ticket's branch when the ticket is filed — see the
-ticket-workflow skill's `## Plan folder` section for what a rename also has to
-update, and when it is too late to do one. When the request is a rough-notes
+When the request is a rough-notes
 file path (given by the user, or a `/brainstorm` handoff), read it before
 anything else; when it already lives under the plans directory, take `<name>`
 from the path segments below that directory instead of deriving a new one. Also read
-`.lightsout/tickets/<ticket-branch>/plans/<plan-id>/brainstorm-decisions.json` when it exists — its rows
+`.lightsout/work-orders/<work-order>/plans/<plan-id>/brainstorm-decisions.json` when it exists — its rows
 are decisions already settled with the user. Absent → nothing changes; that is
 the normal path for a plan that started from a direct request. This read is not
 the only one: the file may arrive during step 1, because `plan verify-facts`
@@ -247,12 +255,13 @@ from. A nonzero exit is the end of the session — report the sentence it printe
 and stop, never carry on in the launching checkout. The command is safe to
 re-run: a session already standing in the tree is answered the same path.
 
-For a plan address, the tree is the ticket branch's, so a later plan of the
-ticket continues in the tree its earlier plans used and is researched against the
+The tree is the work order's, read from the branch its record saves, so a later
+plan continues in the tree its earlier plans used and is researched against the
 implementation already on that branch. While a live implementation run holds that
 tree, the command refuses and names the run: report its sentence and stop.
 
-Surface any discrepancy between the ticket text and the user's current direction
+On a work order that carries a ticket, surface any discrepancy between the ticket
+text and the user's current direction
 per the ticket-workflow skill's `## Keeping the body true` — and never hold this
 session up waiting on a ticket edit.
 
@@ -261,7 +270,7 @@ files the request touches, follow the integration points, and note real
 signatures. For a feature spanning many packages/layers, optionally fan out
 read-only Explore subagents for breadth — either way YOU author the facts, and
 only from paths you actually confirmed by reading them. Author
-`.lightsout/tickets/<ticket-branch>/plans/<plan-id>/facts.json`. Write this **exact** shape (the engine
+`.lightsout/work-orders/<work-order>/plans/<plan-id>/facts.json`. Write this **exact** shape (the engine
 hard-parses it):
 ```json
 {
@@ -286,11 +295,11 @@ node "<plugin-root>/dist/cli.mjs" plan verify-facts --name <name> [--notes "<pat
 It also fetches this plan's own brainstorm from the ticket —
 `brainstorm-notes.md`, plus `brainstorm-decisions.json` when that brainstorm
 settled anything, so its absence is ordinary rather than a fault — into
-`.lightsout/tickets/<ticket-branch>/plans/<plan-id>/` before it reads anything, so a fresh worktree has
+`.lightsout/work-orders/<work-order>/plans/<plan-id>/` before it reads anything, so a fresh worktree has
 them without the folder having travelled.
 
 Pass `--notes` when the request came from a rough-notes file — the engine
-freezes a copy at `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/brainstorm-notes.md` as the plan's first
+freezes a copy at `.lightsout/work-orders/<work-order>/plans/<plan-id>/brainstorm-notes.md` as the plan's first
 artifact. Write-once: an existing snapshot is never overwritten, so re-running
 verify-facts never clobbers it (a `/brainstorm`-authored brainstorm-notes.md is already
 home — whether it was written here or just fetched from the ticket — and is
@@ -353,7 +362,7 @@ warnings into Elicitation.
   this checkpoint: the plan reads the code after brainstorm ended and may
   surface things brainstorm could not have known, so the licence to
   self-answer is still earned here.
-- Author `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/decisions.json`. Write this **exact** shape
+- Author `.lightsout/work-orders/<work-order>/plans/<plan-id>/decisions.json`. Write this **exact** shape
   (the engine hard-parses it; a wrong field name blocks drafting):
   ```json
   {
@@ -461,7 +470,7 @@ Run:
 ```sh
 node "<plugin-root>/dist/cli.mjs" plan dedup --name <name>
 ```
-Read `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/dedup.json`. Detection and judgment are the
+Read `.lightsout/work-orders/<work-order>/plans/<plan-id>/dedup.json`. Detection and judgment are the
 subcommand's; you only conduct the review and apply the chosen edits.
 - `findings` empty → nothing to review; go to Grade.
 - A finding whose resolution the record already carries is **not surfaced** —
@@ -498,7 +507,7 @@ subcommand's; you only conduct the review and apply the chosen edits.
 ```sh
 node "<plugin-root>/dist/cli.mjs" plan grade --name <name>
 ```
-Read `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/grade.json`:
+Read `.lightsout/work-orders/<work-order>/plans/<plan-id>/grade.json`:
 - `"passed": true` **and** `"complete": true` → go to handoff.
 - `"passed": false` with `gaps` → surface **only the blocking gaps**: the ones
   whose `outcome` is `needs-a-human` or `unjudged`. Put each in the Question
@@ -521,7 +530,7 @@ Read `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/grade.json`:
   or a later agent to read. Nothing was dropped; it was weighed and found not to
   need them.
 - Every pass — including one that did not finish — is also appended as one JSON
-  line to `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/grade-history.jsonl`. `grade.json` is still
+  line to `.lightsout/work-orders/<work-order>/plans/<plan-id>/grade-history.jsonl`. `grade.json` is still
   the latest pass and still the only file to branch on; the history is there for
   the user, or for an agent asked to look, to see how a plan's grade moved
   across re-grades and which finding kept coming back. Nothing reads it
@@ -567,7 +576,7 @@ Read `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/grade.json`:
   and runs the full review automatically once a focused pass clears — there is
   no flag to pass and nothing extra to run.
 - A blocking gap carrying a `findingId` is a finding the plan has seen before.
-  Its record lives in `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/grade-memory.json`, which the
+  Its record lives in `.lightsout/work-orders/<work-order>/plans/<plan-id>/grade-memory.json`, which the
   engine owns: **never edit it**, and never treat a finding's absence from a
   later pass as it being resolved. A record closes only when the plan states the
   answer and the engine's re-verification judge cites where.
@@ -606,23 +615,23 @@ cannot recover is not ready for anyone. The rule behind the order is the
 ticket-workflow skill's `### Publish when the ticket is ready to implement, not
 at close` section.
 
-On a multiple-plan ticket, add one line to the handoff: the ticket stays open
-until the user files a ship request with `lightsout ticket request-ship`, and the
-ticket-workflow skill's `### Ship requests` says what that request has to name.
+On a multiple-plan work order, add one line to the handoff: it stays open
+until the user files a ship request with `lightsout work-order request-ship`, and
+the ticket-workflow skill's `### Ship requests` says what that request has to name.
 Never file one yourself — the user decides the finish line.
 
 With no ticket, skip both commands.
 
 Then relay the final grade and:
 ```
-Next: run the `implement` skill with .lightsout/tickets/<ticket-branch>/plans/<plan-id>
+Next: run the `implement` skill with .lightsout/work-orders/<work-order>/plans/<plan-id>
 ```
 The same line works for both shapes — the engine reads the folder: an
 `overview.md` runs every phase in order, otherwise the folder's `plan.md` runs
 on its own. To run a single phase of a phased plan by itself, pass that phase
 file instead: run the `implement` skill with
-`.lightsout/tickets/<ticket-branch>/plans/<plan-id>/phase1-<slug>.md` as the plan and
-`.lightsout/tickets/<ticket-branch>/plans/<plan-id>/overview.md` as its overview.
+`.lightsout/work-orders/<work-order>/plans/<plan-id>/phase1-<slug>.md` as the plan and
+`.lightsout/work-orders/<work-order>/plans/<plan-id>/overview.md` as its overview.
 
 List any decisions left unresolved. The grade is
 advisory — the `implement` skill runs whatever plan it is given.

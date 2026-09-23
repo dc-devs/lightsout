@@ -1,6 +1,6 @@
 ---
 name: ticket-workflow
-description: How to write, update and close a ticket, and how a branch and pull request are named after one. Use when filing a bug or feature ticket, choosing how it gets shaped, starting work on one, opening its pull request, or recording what shipped.
+description: How to write, update and close a ticket, and how the work order, branch and pull request that carry it are named. Use when filing a bug or feature ticket, choosing how it gets shaped, starting work on one, opening its pull request, or recording what shipped.
 ---
 
 # Ticket workflow
@@ -36,7 +36,7 @@ Every fact lives in exactly one place, and everything else points at it:
 | The problem, the evidence, the checks | the ticket body |
 | Decisions settled before shaping | the ticket's `## Decisions` |
 | Decisions made during shaping | each plan's own artifacts, attached |
-| Which plans a ticket has, its mode, how far each plan's implementation has got, which plans are out of its work, and its request to ship | the ticket record, changed only by `lightsout ticket` and the engine |
+| Which plans a work order has, its mode, how far each plan's implementation has got, which plans are out of its work, and its request to ship | the work order's record, changed only by `lightsout work-order` and the engine |
 | What preparation the ticket still owes | the planning-status label |
 | Where implementation stands | the tracker's own workflow status |
 | The change itself | the PR diff |
@@ -331,7 +331,7 @@ Progress once its first plan is building. So handing a later plan to the queue's
 auto-plan means setting `planning-ready-auto-plan` together with a status that
 list holds — Backlog, by default — while a later plan shaped interactively
 reaches Ready to implement through the usual transition. Either way, when the
-ticket branch's worktree was made by the human's own plan or implement run, the
+work order's worktree was made by the human's own plan or implement run, the
 human removes that tree once its work is committed before handing the ticket to
 the queue: the queue builds, ships and removes only trees it owns, and parks a
 ticket whose tree another run owns.
@@ -396,55 +396,71 @@ not grow into one.
 
 ## Branch
 
-A branch is named after its ticket: the ticket reference followed by a slug.
-The exact pattern is the repository's `ship.ticket-pattern` in its
-`lightsout.config.json` — the configured pattern is the format's one home, and
-this skill points at it rather than restating a team's spelling.
+`lightsout work-order new` writes the branch once, when the work order is
+created, and saves it in that work order's record. Nothing rebuilds it later,
+and nothing reads it back out of a folder name. The shape it renders is the
+repository's `queue.branch-template` in its `lightsout.config.json` — the
+configured template is the format's one home, and this skill points at it rather
+than restating a team's spelling.
 
-The branch is the same whichever planning status the ticket carried. It is the
-one thing that links the ticket, the worktree, the commits, the ticket folder and
-the PR, so it never varies. Every plan the ticket holds is implemented on that
-one branch.
+The branch is the same whichever planning status the ticket carried, and every
+plan the work order holds is implemented on that one branch. The **record** is
+what links the ticket, the worktree, the commits, the work order's folder and the
+PR. It saves the branch and the folder's label as two separate fields, neither
+built from the other, so a team whose template carries a prefix gets a branch
+such as `feature/lo-140-multi` beside a folder still labelled `lo-140-multi`.
+`ship.ticket-pattern` supplies only the tokens a pull request body names.
+
+The engine never renames a branch to agree with a record. A branch may already
+be pushed with a pull request pointing at it, so a disagreement is reported for a
+human to settle.
 
 ## Plan folder
 
-The folder under `.lightsout/tickets/` named exactly like the branch is the
-**ticket folder**, so the plans, the branch and the ticket match each other by
-construction. The exact spelling is the repository's `ship.ticket-pattern` and
-`queue.branch-template` in its `lightsout.config.json` — the configured pattern
-is the format's one home, and this skill points at it rather than restating a
-team's spelling. The ticket folder holds a `plans/` folder, with one subfolder
-per plan.
+A **work order** is one folder under `.lightsout/work-orders/`, and the record
+inside it — `state.json` — is what identifies it. The folder's name is only a
+label. `lightsout work-order new` writes that label once, at creation, beside
+the branch, and neither is ever written again. There is one writer of a name, so
+no two parts of the engine can disagree about what a piece of work is called.
 
-### Ticket folders and plan ids
+Never rename the folder. Nothing in the engine reads the new name, and a run
+records its plan by path — so a folder renamed mid-run leaves `lightsout resume`
+pointing at a path that no longer exists. Name the work differently at creation
+instead, with `lightsout work-order new --title <words>`.
+
+The work order's folder holds a `plans/` folder, with one subfolder per plan.
+
+### Work orders and plan ids
 
 A plan id is three zero-padded digits, a hyphen and a slug — `001-search-basics`.
 The slug is lowercase letters and digits in hyphen-separated words, at most 40
 characters. The next number is one above the highest number the ticket has ever
 held, counting the plans taken out of its work, so a number is never reused; a
 number above 999 is refused. The slug never changes. A plan's display title is a
-separate, changeable thing, and `lightsout ticket retitle-plan` is what changes
-it.
+separate, changeable thing, and `lightsout work-order retitle-plan` is what
+changes it.
 
-A plan's **address** is the ticket branch, a slash and the plan id —
+A plan's **address** is the work order's label, a slash and the plan id —
 `lo-140-multi/002-queue-order`. That address is the `--name` value for every
 `lightsout plan` subcommand and for `brainstorm publish`, and
-`.lightsout/tickets/<ticket-branch>/plans/<plan-id>` is the path `lightsout
-implement --plan` takes. The branch and the worktree always come from the ticket-branch
-segment, whichever plan is being worked.
+`.lightsout/work-orders/<work-order>/plans/<plan-id>` is the path `lightsout
+implement --plan` takes. The label is the first segment because a branch may
+carry a slash, and an address of three segments would parse two ways. The branch
+and the worktree are read from the record the first segment names, whichever plan
+is being worked.
 
 A plan folder holds that plan's brainstorm, facts, decisions, plan deliverable,
-grades and transcripts. In a plan of a ticket, the `planName` field of
-`decisions.json` and `brainstorm-decisions.json` holds the plan's address.
+grades and transcripts. The `planName` field of `decisions.json` and
+`brainstorm-decisions.json` holds the plan's address.
 
-The ticket record, `ticket.json`, lives once per machine, in the primary
-checkout's ticket folder. It is never edited by hand: `lightsout ticket show`
-prints it, and every change to it goes through a `lightsout ticket` subcommand or
+The record, `state.json`, lives once per machine, in the primary checkout's work
+order folder. It is never edited by hand: `lightsout work-order show` prints it,
+and every change to it goes through a `lightsout work-order` subcommand or
 through the engine.
 
 ### Modes
 
-A ticket is in one of two modes, and its record saves which.
+A work order is in one of two modes, and its record saves which.
 
 **Single-plan.** Plan 001 alone supplies the ticket's implementation — that one
 plan may still have phases — and the repository's `ship.after-implement` applies
@@ -457,12 +473,12 @@ A plan may cover every acceptance criterion of the ticket, a contribution toward
 them, or a correction found while an earlier plan was implemented. Its own
 acceptance criteria state that iteration's contribution and its checks.
 
-A new ticket record takes its mode from `plan.default-ticket-mode` — the
+A new record takes its mode from `plan.default-work-order-mode` — the
 configuration guide's `### Plan settings` is that key's home — and changing the
 key never rewrites a record that already exists.
 
 ```sh
-lightsout ticket mode --name <ticket-branch> --set single-plan|multiple-plan [--approve]
+lightsout work-order mode --name <work-order> --set single-plan|multiple-plan [--approve]
 ```
 
 **To multiple-plan** is always allowed. Every plan and all implementation is
@@ -480,43 +496,50 @@ complete, until the human works with the agent to take that implementation off
 the branch and the plan is excluded with the removal verified. An agent never
 rolls implementation back on its own.
 
+### Starting the work order
+
+Work starts with the work order, and this one command is what names it:
+
+```sh
+lightsout work-order new --ticket <ref>
+lightsout work-order new --title <words>
+```
+
+Exactly one of the two flags is given. `--ticket` reads that ticket's title from
+the configured tracker and summarises it into three or four words; `--title`
+takes the words you type, exactly as typed. Either way the command writes the
+label, the branch and the record together, and prints the label on its last
+line. Take that printed label rather than building one.
+
+`--ticket` is refused when no `ticket-tracker` block is configured: there is no
+title to read, so name the work with `--title` instead. A label another work
+order already carries is refused by name rather than quietly suffixed — a
+suffix would be a second author of the name — and so is a second work order for
+a ticket one already carries. Both refusals name the work order that exists, and
+`--title` is how you name genuinely separate work.
+
 ### Adding a plan
 
 ```sh
-lightsout ticket add-plan --name <ticket-branch> --slug <slug> [--title <title>] [--from <folder>]
+lightsout work-order add-plan --name <work-order> --slug <slug> [--title <title>]
 ```
 
-It creates the ticket record when there is none, allocates the next id, creates
-the plan folder, and prints the plan's address on its last line. The skills take
-that printed address rather than building one.
-
-Without `--from` the plan folder is created empty, at progress `planning`.
-
-`--from` names a plan folder's bare name under the plans directory — never a
-path, and never one plan's address — and makes the next plan out of that
-folder's loose files: they are moved into the plan's own folder, and the plan's
-progress is taken from how far that folder already got. The engine also updates
-the `planName` field inside the `decisions.json` and `brainstorm-decisions.json`
-it moved, so the records name the plan's address rather than the folder they
-were written in. When the folder named is not the ticket's own, the emptied
-folder is taken away with its files; a folder still holding anything else is
-left exactly as it was found. Publish a brainstorm after the move, never before.
+It allocates the next id, creates the plan folder empty at progress `planning`,
+and prints the plan's address on its last line. The skills take that printed
+address rather than building one.
 
 It is refused:
 
+- on a name no record answers to — that is a typo, or work nobody has started;
+  `lightsout work-order new` is how work starts;
 - in single-plan mode once plan 001 exists — ask the human whether to switch to
   multiple-plan mode before adding one;
-- on a ticket whose plans folder holds loose files and no `--from` — name that
-  folder with `--from` to make those files the plan, or take them out first;
-- on a `--from` folder that holds no loose files, and while a run over that
-  folder is still live;
-- on a folder name carrying no ticket id;
-- on a ticket that has shipped.
+- on a work order that has shipped.
 
 In multiple-plan mode, adding a plan withdraws a pending ship request and prints
 why a new one is needed. Relay that to the human.
 
-When the ticket already has a plan at `planning`, the work continues the
+When the work order already has a plan at `planning`, the work continues the
 lowest-numbered one — unless the human says this is a separate plan, which is
 then added and waits behind the lower one in numeric order.
 
@@ -526,18 +549,15 @@ A plan carries one progress value, and the engine writes each of them:
 
 | Progress | Written when |
 |---|---|
-| `planning` | `ticket add-plan` created the plan |
+| `planning` | `work-order add-plan` created the plan |
 | `ready` | `plan publish` succeeded for it — it is ready to implement |
 | `implementing` | an implementation run started |
 | `implemented` | that run passed |
 | `failed` | that run failed or escalated |
 
-A paused run leaves the plan at `implementing`. A plan taken out of the ticket's
-work records that beside its progress rather than instead of it, so it keeps the
-record of how far it got. A plan made with `ticket add-plan --from` is born at
-any of these: the source folder's own runs and its plan deliverable say how far
-it already got, so such a plan can be `ready`, `implementing`, `implemented` or
-`failed` the moment it is added.
+A paused run leaves the plan at `implementing`. A plan taken out of the work
+order's work records that beside its progress rather than instead of it, so it
+keeps the record of how far it got. Every plan is born at `planning`.
 
 Plans implement in numeric order. A lower plan that is neither implemented nor
 excluded blocks every later one — whether it is still being planned, is being
@@ -548,13 +568,13 @@ A failed plan is repaired by resuming its run. Replacing or abandoning one is an
 exclusion:
 
 ```sh
-lightsout ticket exclude-plan --name <ticket-branch> --plan <id> --reason <text> [--implementation-removed]
+lightsout work-order exclude-plan --name <work-order> --plan <id> --reason <text> [--implementation-removed]
 ```
 
 An exclusion is final. The plan's files and its history stay where they are, and
 a ship request naming that plan is withdrawn. For a plan whose implementation
 started, the engine first runs the repository's full gates on a clean checkout of
-the ticket branch, and records the exclusion only when they pass. Run this
+the work order's branch, and records the exclusion only when they pass. Run this
 command only on the human's explicit direction.
 
 An implemented plan is the scope it was implemented against. A change to that
@@ -566,7 +586,7 @@ work belongs in a follow-up plan, never in an edit to the implemented one:
 Only a multiple-plan ticket takes one.
 
 ```sh
-lightsout ticket request-ship --name <ticket-branch> --plans <id,id,…>
+lightsout work-order request-ship --name <work-order> --plans <id,id,…>
 ```
 
 `--plans` names the exact set of plans the ticket still includes, as full ids or
@@ -584,32 +604,6 @@ Until a request is satisfied, the ticket and its branch stay open, and a later
 plan that becomes ready to implement is picked up on the same branch. The human
 decides the finish line: an agent files a ship request only when the human asks
 to ship the ticket.
-
-### Folders with no ticket record
-
-A folder with no ticket record keeps working exactly as it did before, in every
-command — publishing and restoring under bare file titles included. A folder
-whose name carries no ticket id is always one of these.
-
-A brainstorm or plan shaped before its ticket exists still carries a bare slug,
-and is renamed to the ticket's branch when the ticket is filed. Renaming the
-folder is not the whole rename: `decisions.json` and, when present,
-`brainstorm-decisions.json` each carry a `planName` field that has to be updated
-to match, or the record says one name while the folder says another. Nothing in
-the engine compares the two when a human does the rename, which is exactly why
-this skill has to — `ticket add-plan --from` is the one move that updates both
-fields itself. A brainstorm is published after any rename, never before, so the
-ticket does not end up carrying a `planName` naming a folder that no longer
-exists.
-
-Do not rename once a run has started. A run manifest records the plan by path,
-so a folder renamed mid-run leaves `lightsout resume` pointing at a path that no
-longer exists. Rename before the first `lightsout implement`, or leave the bare
-slug alone and let it warn.
-
-A folder carrying no ticket id still drafts, grades and implements from its
-folder path. The engine prints one warning and nothing else changes — no exit
-code moves and nothing downstream can see it.
 
 ## PR
 
@@ -675,19 +669,18 @@ nothing either way.
 
 If implementation amended a published plan, publish the current version before
 closing (see below); do not restate its decision table in the comment. An
-implemented plan inside a ticket folder is never amended in the first place —
+implemented plan of a work order is never amended in the first place —
 that change belonged in a follow-up plan, per `### Implementation order and
 exclusions` above.
 
 ## Publishing the plan
 
-The `plan` skill writes `.lightsout/tickets/<ticket-branch>/plans/<plan-id>/` — either `plan.md`, or
-`overview.md` with phase files, alongside durable records such as
-`decisions.json` and `grade.json`. That is the design record: what was decided,
-what was rejected, and why. Publishing works on one plan at a time, and `<name>`
-is that plan's address, so the ticket is found by reading the ticket id off the
-ticket-branch segment rather than by recognising a slug. A folder with no ticket
-record is published by its own name, exactly as it always was.
+The `plan` skill writes `.lightsout/work-orders/<work-order>/plans/<plan-id>/` —
+either `plan.md`, or `overview.md` with phase files, alongside durable records
+such as `decisions.json` and `grade.json`. That is the design record: what was
+decided, what was rejected, and why. Publishing works on one plan at a time, and
+`<name>` is that plan's address, so the ticket is found by reading the record the
+address's first segment names rather than by recognising a slug.
 
 Those files live on one machine. `.lightsout` is gitignored, so the path is not
 a link — it resolves for nobody but the author, and not for the author on a
@@ -762,12 +755,12 @@ it on disk and attach nothing.
 
 ### Attachment titles
 
-When the plan belongs to a ticket, every file of its plan generation and of its
+Every file of a plan's plan generation and of its
 brainstorm generation attaches under the plan id, two hyphens and the file's own
 name — `002-queue-order--plan.md`. The two markers are the plan id followed by
 `--plan-attachments.json` and by `--brainstorm-attachments.json`, and the entries
-inside each marker keep the local file names. The ticket's own record attaches as
-`ticket.json`.
+inside each marker keep the local file names. The work order's own record
+attaches as `state.json`.
 
 Publishing one plan never lists, replaces or reports another plan's titles, and
 the report of differently titled leftovers covers that plan's own prefix and
@@ -777,29 +770,18 @@ nothing else.
 notes on disk are not the bytes that generation's marker commits, and it moves a
 plan at `planning` to `ready`.
 
-A folder with no ticket record keeps bare titles, and there both generations
-attach a file titled `brainstorm-notes.md`. Because a tracker replaces an
-attachment by title, the second publish overwrites the bytes the first one's
-marker committed a hash for — so **re-publish the plan after re-publishing a
-brainstorm on such a folder that already carries a plan**. In every ordinary run
-the bytes are identical, and the one case this covers is someone editing the file
-and re-publishing the brainstorm alone. It is not symmetric, so it matters which
-one goes stale: a stale **plan** marker makes `implement` refuse to fetch the
-plan at all, while a stale **brainstorm** marker only makes planning print a
-warning and carry on.
-
 ### A published record that moved
 
-Every `lightsout ticket` change and every `plan publish` syncs the ticket record
-to the ticket when a tracker is configured. With no tracker configured the record
-is local only.
+Every `lightsout work-order` change and every `plan publish` syncs the record to
+the ticket when a tracker is configured. With no tracker configured the record is
+local only.
 
 When both the local record and the published one have moved, nothing is changed.
-The published copy is written beside the record as `ticket.published.json`, and
+The published copy is written beside the record as `state.published.json`, and
 one command settles it:
 
 ```sh
-lightsout ticket sync --name <ticket-branch> --keep local|published
+lightsout work-order sync --name <work-order> --keep local|published
 ```
 
 Show the human both sides and run it only with the side they choose. A plan whose
@@ -807,18 +789,16 @@ published files moved the same way is settled by the same command; when the
 published side is kept, the local copy of that plan's folder is moved aside to a
 numbered copy rather than deleted.
 
-A publish that fails keeps the local change exactly as it is, and `ticket sync`
-retries it.
+A publish that fails keeps the local change exactly as it is, and `work-order
+sync` retries it.
 
 ### Restoring on another machine
 
-Where a ticket carries a `ticket.json` attachment, the record comes back first —
+Where a ticket carries a `state.json` attachment, the record comes back first —
 into the primary checkout — and then each plan that is needed, restored by its
 own prefix with every hash verified before anything is written. `implement`
 restores the plan it was given, `plan verify-facts` restores that plan's
-brainstorm generation, and the queue restores every plan it may build. A ticket
-with no `ticket.json` attachment restores its bare-title generation exactly as
-before.
+brainstorm generation, and the queue restores every plan it may build.
 
 Publishing and restoring move planning records only. They never push or fetch
 git: implementation commits travel by `git push` and `git fetch` alone.
@@ -849,10 +829,11 @@ statement with none of the shaping behind it.
 
 A published plan makes the ticket both **readable** and **runnable** by a fresh
 agent. Nothing has to be rebuilt by hand: point the `implement` skill at
-`.lightsout/tickets/<ticket-branch>/plans/<plan-id>`, the plan's own folder path. The engine uses the folder
-on disk when it exists. When it does not, the engine reads the ticket id from the
-ticket-branch segment of the name, fetches what that ticket carries and
-reconstructs the folder before implementation starts — see
+`.lightsout/work-orders/<work-order>/plans/<plan-id>`, the plan's own folder
+path. The engine uses the folder on disk when it exists. When it does not, the
+engine reads the ticket reference from the record the address's first segment
+names, fetches what that ticket carries and reconstructs the folder before
+implementation starts — see
 `### Restoring on another machine` above. Run state never travels.
 
 Re-publish before close if implementation amended the plan. Each same-titled
